@@ -16,8 +16,9 @@ need to be repeated; building fields were previously discarded.
 - `roomSlots[slot].roomId`, `.level`, `.charInstIds` identify rooms and staffing.
   Room detail lives at `rooms[roomId][slot]`; its `.level` is a fallback.
 - The slot-to-floor mapping is `building_data.layouts.v0`: slots 24/25/26 are B1,
-  14/15/16 B2, and 5/6/7 B3. The overview keeps production floor/column positions and dorm order; support
-  rooms are grouped above and below them to fit the shared 1040px page frame.
+  14/15/16 B2, and 5/6/7 B3. The overview uses the production floor plan: production
+  rooms on the left, Control Center above the central dormitories, two elevator
+  shafts, and Reception/Workshop/Office/Training down the right-hand column.
 - Instance IDs resolve through `troop.chars`. Combat forms resolve to one physical
   operator. Training's second operator is kept separately as the trainee.
 - `building.chars[instance].ap / 360000` is displayed Morale, using the game table's
@@ -45,6 +46,15 @@ interval and conditions; elapsed time since import is not projected. Ling and
 Dusk use their individual imported Morale when known. Training mastery/history
 and remaining training time are not imported, and no target mastery is presented
 as an account fact. Workshop recipes/counters require an editable copy.
+
+## Floor plan
+
+The updated staffing tiles retain their summaries and imported-account details.
+The map stays full width when opening the desktop staffing panel. Narrow screens
+keep the same floor positions instead of reflowing into a card list. Fit, zoom
+buttons/slider, Ctrl/Cmd-wheel, touch pinch, drag/native scrolling, and fullscreen
+provide access to every room. Dragging or pinching does not select a room.
+Fullscreen keeps keyboard focus within the map; Escape or selecting a room exits it.
 
 ## Rotation
 
@@ -75,6 +85,7 @@ Morale/training effects. For those numeric-model boundaries, see
   exact-level skill unlocks, preset/rotation validation and second-cycle depletion.
 - Browser coverage: view switching without draft writes, explicit copying with
   recovery preset, importing before formation setup, reimport instructions,
-  rotation persistence/loading, stable desktop geometry and 320px containment.
+  rotation persistence/loading, stable desktop geometry, production floor
+  positions at 320px, zoom/drag selection, fullscreen keyboard access and containment.
 - Existing base tests retain light-theme contrast, mobile touch targets, roster
   filtering and team remove-button checks.

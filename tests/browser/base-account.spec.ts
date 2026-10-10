@@ -84,7 +84,7 @@ test('room selection keeps the desktop board stable and the narrow phone page co
   await page.setViewportSize({ width: 320, height: 800 });
   await source(page, 'Imported account').click();
   await source(page, 'Add to rotation').click();
-  expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
   await room(page).click();
   await expect(page.getByLabel('Imported room details')).toBeInViewport();
   expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
@@ -149,4 +149,82 @@ test('base output estimates respect an exhausted imported factory worker', async
   await source(page, 'Imported account').click();
   await expect(page.getByLabel('Daily production estimates')).toContainText('0 EXP / day');
   await expect(room(page, 'B102')).toContainText('0.0h until tired');
+});
+
+test('the production floor plan stays intact at desktop and narrow phone widths', async ({ page }) => {
+  await seedAccount(page); await begin(page);
+  await fontsSettled(page);
+  const geometry = () => page.locator('.base-overview').evaluate(grid => {
+    const position = (area: string) => {
+      const tile = Array.from(grid.children).find(child => (child as HTMLElement).style.gridArea === area) as HTMLElement;
+      return { x: tile.offsetLeft, y: tile.offsetTop };
+    };
+    return Object.fromEntries(['cc', 'reception', 'prod1', 'prod2', 'prod7', 'dorm1', 'dorm3', 'dorm4', 'workshop', 'office', 'training'].map(area => [area, position(area)]));
+  });
+  const wide = await geometry();
+  expect(wide.cc.y).toBe(wide.reception.y);
+  expect(wide.cc.y).toBeLessThan(wide.prod1.y);
+  expect(wide.prod1.y).toBe(wide.workshop.y);
+  expect(wide.prod7.y).toBe(wide.training.y);
+  expect(wide.prod1.x).toBeLessThan(wide.prod2.x);
+  expect(wide.prod2.x).toBeLessThan(wide.dorm1.x);
+  expect(wide.dorm1.x).toBeLessThan(wide.workshop.x);
+  expect(wide.workshop.x).toBe(wide.office.x);
+  expect(wide.dorm4.x).toBe(wide.cc.x);
+  expect(wide.dorm4.y).toBeGreaterThan(wide.dorm3.y);
+  await page.setViewportSize({ width: 320, height: 800 });
+  await expect.poll(geometry).toEqual(wide);
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
+  await source(page, 'Imported account').click();
+  const imported = await geometry();
+  expect(imported.cc.x).toBe(imported.dorm1.x);
+  expect(imported.prod1.y).toBe(imported.workshop.y);
+  expect(imported.prod7.y).toBe(imported.training.y);
+});
+
+test('zoom, drag and fullscreen preserve room selection and keyboard access', async ({ page }) => {
+  await begin(page);
+  const zoom = page.getByLabel('Base zoom', { exact: true });
+  const initial = Number(await zoom.inputValue());
+  await source(page, 'Zoom in').click();
+  expect(Number(await zoom.inputValue())).toBeGreaterThan(initial);
+  await zoom.press('End');
+  await expect(zoom).toHaveValue('2.5');
+  await room(page).scrollIntoViewIfNeeded();
+  const box = (await room(page).boundingBox())!;
+  const view = page.getByLabel('Zoomable base map', { exact: true });
+  const before = await view.evaluate(element => element.scrollLeft);
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2 - 80, box.y + box.height / 2, { steps: 8 });
+  await page.mouse.up();
+  expect(await view.evaluate(element => element.scrollLeft)).toBeGreaterThan(before);
+  await expect(page.locator('.base-room-panel')).toHaveCount(0);
+  await source(page, 'Fit base').click();
+  await source(page, 'View fullscreen').click();
+  await expect(page.getByRole('dialog', { name: 'Base floor plan' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(source(page, 'View fullscreen')).toBeFocused();
+  await source(page, 'View fullscreen').click();
+  await room(page).click();
+  await expect(page.getByRole('dialog', { name: 'Base floor plan' })).toHaveCount(0);
+  await expect(page.getByLabel('Room level')).toBeVisible();
+});
+
+test('changing staffing preserves a panned map while room summaries grow', async ({ page }) => {
+  await begin(page);
+  await fontsSettled(page);
+  await page.setViewportSize({ width: 1440, height: 800 });
+  await room(page).click();
+  const view = page.getByLabel('Zoomable base map', { exact: true });
+  await page.getByPlaceholder('Search operators...').fill('SilverAsh');
+  await source(page, 'Fit base').click();
+  await view.evaluate(element => { element.scrollTop = 40; });
+  const before = await view.evaluate(element => element.scrollTop);
+  expect(before).toBe(40);
+  const height = await page.locator('.base-overview').evaluate(element => (element as HTMLElement).offsetHeight);
+  await page.locator('.base-room-card').filter({ hasText: 'SilverAsh', hasNotText: 'Reignfrost' }).click();
+  await expect(room(page)).toHaveAttribute('aria-label', /1 of 3 operators/);
+  await expect.poll(() => page.locator('.base-overview').evaluate(element => (element as HTMLElement).offsetHeight)).toBeGreaterThan(height);
+  await expect.poll(() => view.evaluate(element => element.scrollTop)).toBe(before);
 });

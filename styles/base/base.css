@@ -1475,16 +1475,30 @@
 .base-training-target [role="combobox"] { max-width: 15rem; min-width: 0; }
 .base-room-team input[type="number"] { max-width: 5rem; }
 
-/* Base command view: real floor positions, readable room staffing and a fixed editor. */
+/* Production's floor plan with the updated staffing tiles and editor. */
 .base-source-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; min-height: 40px; }
 .base-source-bar > div { display: flex; gap: 6px; }
 .base-source-bar > .primary { margin-left: auto; }
 .base-production-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 16px 32px; padding: 12px 0; border-block: 1px solid var(--line-soft); margin-bottom: 16px; font-size: 12px; color: var(--text-dim); }
 .base-production-strip strong { font-size: 18px; font-family: var(--font-display); color: var(--text); font-variant-numeric: tabular-nums; }
 .base-production-strip > span:last-child { margin-left: auto; }
-.base-command-workspace { display: grid; grid-template-columns: minmax(0, 1fr) 300px; align-items: start; gap: 18px; }
-.base-command-workspace.has-room { grid-template-columns: minmax(0, 1fr) 300px; }
-.base-overview { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(140px, 1.2fr); gap: 8px; grid-template-areas: "cc cc reception reception" "prod1 prod2 prod3 dorm1" "prod4 prod5 prod6 dorm2" "prod7 prod8 prod9 dorm3" "workshop office training dorm4"; }
+.base-command-workspace { position: relative; display: grid; grid-template-columns: minmax(0, 1fr); align-items: start; gap: 18px; }
+.base-command-workspace:not(.has-room) > .base-command-editor { display: none; }
+.base-map { min-width: 0; padding: 8px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-frame); }
+.base-map-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding-bottom: 8px; }
+.base-map-controls button { min-width: 36px; }
+.base-map-controls input { width: 100px; min-width: 60px; flex: 1; max-width: 160px; accent-color: var(--teal); }
+.base-map-zoom-value { width: 4ch; font-size: 11px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.base-map-viewport { width: 100%; aspect-ratio: 974 / 774; min-height: 240px; max-height: 70dvh; overflow: auto; scrollbar-width: thin; scrollbar-gutter: stable; cursor: grab; overscroll-behavior-x: contain; }
+.base-map-viewport:active { cursor: grabbing; }
+.base-map-viewport::-webkit-scrollbar { width: 8px; height: 8px; }
+.base-map-viewport::-webkit-scrollbar-track { background: var(--well); }
+.base-map-canvas { position: relative; min-width: 100%; }
+.base-map-content { position: absolute; top: 8px; left: 8px; width: max-content; transform-origin: top left; user-select: none; }
+.base-map.is-fullscreen { position: fixed; inset: 12px; z-index: 1200; display: flex; flex-direction: column; box-shadow: 0 0 0 20px var(--bg); }
+.base-map.is-fullscreen .base-map-viewport { flex: 1; min-height: 0; max-height: none; aspect-ratio: auto; }
+.base-overview { display: grid; grid-template-columns: 155px 155px 155px 20px repeat(4, 76px) 20px 140px; grid-template-rows: repeat(5, minmax(150px, auto)); gap: 6px; grid-template-areas: "... ... ... elevA cc cc cc cc elevC reception" "prod1 prod2 prod3 elevA dorm1 dorm1 dorm1 dorm1 elevC workshop" "prod4 prod5 prod6 elevA dorm2 dorm2 dorm2 dorm2 elevC office" "prod7 prod8 prod9 elevA dorm3 dorm3 dorm3 dorm3 elevC training" "... ... ... elevA dorm4 dorm4 dorm4 dorm4 elevC ..."; }
+.base-overview-elevator { border: 1px solid var(--line-soft); border-radius: var(--radius); background: var(--well); }
 .base-overview-room { display: flex; flex-direction: column; align-items: stretch; gap: 5px; min-width: 0; min-height: 130px; line-height: 1.35; text-align: left; padding: 8px; background: var(--panel); border: 1px solid var(--line); border-top: 3px solid var(--line); border-radius: var(--radius-frame); color: var(--text); box-shadow: var(--shadow-panel); }
 .base-overview-room:hover { border-color: var(--teal); background: var(--panel-2); }
 .base-overview-room[aria-pressed="true"] { border-color: var(--teal); background: var(--teal-dim); }
@@ -1500,7 +1514,7 @@
 .base-overview-detail,
 .base-overview-deadline { font-size: 10px; line-height: 1.4; color: var(--text-dim); overflow-wrap: anywhere; }
 .base-overview-deadline.prod-danger { color: var(--prod-danger); }
-.base-command-editor { min-width: 0; position: sticky; top: 76px; }
+.base-command-editor { min-width: 0; width: 300px; position: absolute; top: 0; right: 0; z-index: 80; box-shadow: var(--shadow-panel); }
 .base-command-editor:empty { display: none; }
 .base-command-editor .base-room-panel { height: min(780px, calc(100dvh - 100px)); padding: 14px; gap: 12px; overflow-y: auto; }
 .base-command-editor .base-room-panel-header { flex-wrap: wrap; }
@@ -1537,17 +1551,14 @@
 .base-rotation-warnings { color: var(--prod-danger); }
 @media (max-width: 1150px) {
   .base-command-workspace.has-room { grid-template-columns: minmax(0, 1fr); }
-  .base-command-editor { position: static; }
+  .base-command-editor { position: static; width: auto; z-index: auto; }
   .base-command-editor .base-room-panel { height: 560px; }
   .base-command-editor .base-room-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .base-overview { grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(140px, 1.2fr); }
 }
 @media (max-width: 720px) {
-  .base-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-areas: none; }
-  .base-overview-room { grid-area: auto !important; min-height: 152px; padding: 10px; }
   .base-command-workspace.has-room { display: flex; flex-direction: column; }
   .base-command-workspace.has-room > .base-command-editor { order: -1; width: 100%; }
-  .base-command-workspace.has-room > .base-overview { width: 100%; }
+  .base-command-workspace.has-room > .base-map { width: 100%; box-sizing: border-box; }
   .base-command-editor .base-room-panel { height: 520px; }
   .base-command-editor .base-room-grid { grid-template-columns: 1fr; }
   .base-source-bar { gap: 8px; }

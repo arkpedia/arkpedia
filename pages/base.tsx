@@ -246,7 +246,7 @@ export default function BasePage({ operators }: Props) {
   const [statsPeriod, setStatsPeriod] = useState<'daily' | 'weekly' | 'monthly' | 'yearly'>('daily');
   const STATS_PERIOD_MULTIPLIER: Record<typeof statsPeriod, number> = { daily: 1, weekly: 7, monthly: 30, yearly: 365 };
 
-  // The desktop editor stays beside the board. On a phone it is above the
+  // The desktop editor opens over the right edge without resizing the map. On a phone it is above the
   // board, so bring its controls into view only when selecting a room.
   useEffect(() => {
     if (roomPanelFacilityId && window.matchMedia('(max-width: 720px)').matches) {

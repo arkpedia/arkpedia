@@ -3,6 +3,7 @@ import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
 import type { BaseOperator } from '@/lib/operators/operatorTypes';
 import type { BaseAssignments, FacilityDef } from '@/lib/base/baseTypes';
 import { PRODUCTION_SPOTS } from '@/lib/base/baseConfig';
+import BaseMap from './BaseMap';
 
 export interface BaseRoomSummary { id: string; metric: string; detail: string; deadline?: number | null; workers: { name: string; morale: number | null; rate: number | null }[] }
 export default function BaseOverview({ facilities, assignments, operators, summaries, selected, onSelect, readOnly = false, loginInterval = 12 }: {
@@ -10,7 +11,9 @@ export default function BaseOverview({ facilities, assignments, operators, summa
   selected: string | null; onSelect: (id: string) => void; readOnly?: boolean; loginInterval?: number;
 }) {
   const byName = new Map(operators.map(op => [op.name, op]));
-  return <div className="base-overview" aria-label="Base facilities">
+  return <BaseMap><div className="base-overview" aria-label="Base facilities">
+    <span className="base-overview-elevator" style={{ gridArea: 'elevA' }} aria-hidden="true" />
+    <span className="base-overview-elevator" style={{ gridArea: 'elevC' }} aria-hidden="true" />
     {facilities.filter(f => f.kind !== 'elevator').map(f => {
       const slots = assignments[f.id] ?? [], summary = summaries.find(s => s.id === f.id), spot = PRODUCTION_SPOTS.find(s => s.id === f.id);
       const position = spot ? `B${spot.row}0${spot.column}` : f.kind === 'dormitory' ? `Dorm ${f.id.slice(-1)}` : '';
@@ -29,5 +32,5 @@ export default function BaseOverview({ facilities, assignments, operators, summa
         {summary?.deadline != null && <span className={`base-overview-deadline${summary.deadline < loginInterval ? ' prod-danger' : ''}`}>{summary.deadline.toFixed(1)}h until tired</span>}
       </button>;
     })}
-  </div>;
+  </div></BaseMap>;
 }
