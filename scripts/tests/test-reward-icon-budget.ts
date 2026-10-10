@@ -62,7 +62,7 @@ for mode in ['healthy', 'checkpoint_expiry', 'request_expiry', 'adoption']:
 
 test('slow response bodies and retries cannot run past the download budget', () => {
   const result = spawnSync('python3', ['-c', `
-import pathlib, sys
+import http.client, pathlib, sys
 sys.path.insert(0, str(pathlib.Path('scripts/imports').resolve()))
 from download_budget import DownloadBudget, BudgetExpired
 now = [0]
@@ -87,6 +87,16 @@ try:
   raise AssertionError('dripping response ignored deadline')
 except BudgetExpired: pass
 assert response.calls == 2
+# A stream that closes early must not be accepted just because read1 returns EOF.
+class TruncatedResponse:
+  length = 4
+  chunks = [b'abc', b'']
+  def read1(self, size): return self.chunks.pop(0)
+try:
+  DownloadBudget(10, clock=lambda: 0).read(TruncatedResponse())
+  raise AssertionError('truncated download accepted')
+except http.client.IncompleteRead as error:
+  assert error.partial == b'abc' and error.expected == 1
 `], { encoding: 'utf8', env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1' } });
   assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
 });

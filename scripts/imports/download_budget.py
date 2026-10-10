@@ -1,4 +1,5 @@
 """Finish an enrichment batch before its runner deadline, preserving completed downloads."""
+import http.client
 import time
 
 
@@ -30,11 +31,18 @@ class DownloadBudget:
 
     def read(self, response):
         chunks = []
+        expected = getattr(response, 'length', None)
+        received = 0
         while True:
             self.check()
             # read1 returns available bytes instead of waiting to fill a whole chunk.
             # Check the deadline even if a slow server keeps its connection alive.
             chunk = response.read1(65536)
             if not chunk:
+                if expected is not None and received < expected:
+                    # HTTPResponse.read1 does not raise on a truncated Content-Length
+                    # body the way read() does. Keep the importer's existing retry rule.
+                    raise http.client.IncompleteRead(b''.join(chunks), expected - received)
                 return b''.join(chunks)
             chunks.append(chunk)
+            received += len(chunk)
