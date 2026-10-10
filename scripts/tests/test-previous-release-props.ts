@@ -263,15 +263,19 @@ const DATA_ONLY: Record<string, Record<string, string>> = {
     '.ongoingBanners[].announcedName': "the name an official CN announcement gave a banner (applyAnnouncements, new on 2026-10-04), on the banners an announcement created; HeadhuntingBanner has it optional and nothing on the page reads it",
   },
   '/schedule': {
+    '.operators[].portraitPending': 'optional publication status on a newly discovered operator whose portrait has not arrived; an older release without it keeps its published portrait',
+    '.events[].aliases': 'optional historic names on renamed source records; Schedule does not read this field',
     '.events[].global.shopEndAt': "the event store's close (sync-event-windows.mjs, from activity_table rewardEndTime), which the data first carried on 2026-09-30; GameWindowTimes has it optional, and eventShopEnd reads its absence as a store that closes with the stages, as the page did before; nothing on /schedule reads it yet",
   },
   '/skins': {
+    '.events[].aliases': 'optional historic names on renamed source records; the skin page does not read this field',
     '.events[].global.shopEndAt': "the event store's close (sync-event-windows.mjs, from activity_table rewardEndTime), which the data first carried on 2026-09-30; GameWindowTimes has it optional, and eventShopEnd reads its absence as a store that closes with the stages, as the page did before; nothing on /skins reads it yet",
   },
   '/gacha': {
     '.banners[].announcedLineup': "the rate-ups an official CN announcement names (applyAnnouncements, new on 2026-10-04), on a banner only while an operator it names has no record yet; HeadhuntingBanner has it optional, and lineupPendingNote reads its absence as 'Lineup to be confirmed.', as the page said before",
   },
   '/operators': {
+    '.operators[].portraitPending': 'optional publication status while a new portrait is pending; older releases without it retain their existing portrait rendering',
     '.operators[].availableUntil': 'the debut\'s end (getScheduledOperatorDebut), new on 2026-09-30; RosterOperator has it optional, and isDebutAvailable counts two weeks from the release without it, as the roster did before',
   },
   '/stages/content/sandbox_1': {
