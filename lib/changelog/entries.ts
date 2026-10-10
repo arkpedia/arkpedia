@@ -40,7 +40,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       { title: 'Correct banners for reruns', detail: 'Reruns show only their own confirmed banner, and unrelated historical banners no longer attach to events.', href: '/schedule' },
     ],
     changed: [
-      { title: 'Official event details update automatically', detail: 'Global announcements supply sign-in rewards, pack dates and selector pools, replacing previews as details arrive. Artwork refreshes preserve completed downloads and retry remaining icons.', href: '/events' },
+      { title: 'Official event details update automatically', detail: 'Global notices update rewards, packs and selector pools, while artwork refreshes retry missing images without losing progress.', href: '/events' },
     ],
   },
   {
