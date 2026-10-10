@@ -107,7 +107,7 @@ function bannerCategoryRank(banner: HeadhuntingBanner): number {
 export function getOngoingGachaBanners(now: Date, banners = getBannersSortedByDate()): GachaBannerWithWindow[] {
   const result: GachaBannerWithWindow[] = [];
   for (const b of banners) {
-    if (!b.global_date) continue; // CN-only pools are not active on Global.
+    if (!b.global_date || b.globalLineupPending) continue; // CN-only pools are not active on Global.
     const start = parseBannerDate(b);
     const end = parseBannerEndDate(b);
     if (!start || !end) continue;
@@ -125,7 +125,7 @@ export function getOngoingGachaBanners(now: Date, banners = getBannersSortedByDa
 /** Keep the next Global banner visible with a start countdown. */
 export function getHomeGachaBanners(now: Date, banners = getBannersSortedByDate()): GachaBannerWithWindow[] {
   const ongoing = getOngoingGachaBanners(now, banners);
-  const next = banners.filter(banner => banner.global_date).map(banner => {
+  const next = banners.filter(banner => banner.global_date && !banner.globalLineupPending).map(banner => {
     const start = parseBannerDate(banner), end = parseBannerEndDate(banner);
     return start && end && start > now ? { ...banner, start, end } : null;
   }).filter((banner): banner is GachaBannerWithWindow => banner !== null)

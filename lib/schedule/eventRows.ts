@@ -13,6 +13,7 @@ export interface EventRow {
   name: string;
   /** Permanent-mode launch; its row window covers launch day only. */
   modeId?: string;
+  bannerName?: string;
   poster: string | null;
   dateRange: string;
   isPredicted: boolean;
@@ -29,6 +30,7 @@ export interface EventRowView {
   name: string;
   /** Permanent-mode launch; its row window covers launch day only. */
   modeId?: string;
+  bannerName?: string;
   poster: string | null;
   dateRange: string;
   isPredicted: boolean;
@@ -45,7 +47,7 @@ export function currentEventRows(rows: readonly (EventRow | EventRowView)[], now
     if (!hasWindow(row)) return [row];
     if (row.end <= now) return [];
     const { start, end: _end, pullBanner, ...rest } = row;
-    return [{ ...rest, isOngoing: start <= now, pullBannerName: pullBanner && pullBanner.end > now ? pullBanner.name : null }];
+    return [{ ...rest, isOngoing: start <= now && !(row.bannerName && row.isPredicted), pullBannerName: pullBanner && pullBanner.end > now ? pullBanner.name : null }];
   });
 }
 

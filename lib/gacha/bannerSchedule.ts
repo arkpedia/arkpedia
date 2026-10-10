@@ -1,7 +1,5 @@
-/* A Joint Operation or an Orienteering Global does not have yet gets no Global window from CN:
-   lib/gacha/waitsForGlobal.mjs, the one copy the scripts share. */
-import { waitsForGlobal } from './waitsForGlobal.mjs';
-export { waitsForGlobal };
+/* Global timing forecasts and lineup confirmation are independent. */
+export { waitsForGlobal, globalBannerPreview } from './waitsForGlobal.mjs';
 
 interface BannerWindow {
   global_date: string | null;
@@ -50,7 +48,7 @@ export function resolveBannerEventWindow<T extends BannerWindow>(banner: T, even
 
 /** Calendar-style fallback for CN-only banners without a linked event window. */
 export function estimateBannerFromCn<T extends BannerWindow>(banner: T, gapDays: number): T {
-  if (banner.global_date || waitsForGlobal(banner)) return banner;
+  if (banner.global_date) return banner;
   const cn = range(banner.cn_date);
   if (!cn) return banner;
   const offset = gapDays * 86400000;

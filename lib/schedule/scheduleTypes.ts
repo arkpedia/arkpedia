@@ -13,6 +13,8 @@ export interface ServerDateInfo {
 export interface ScheduleEvent {
   name: string;
   modeId?: string;
+  /** Headhunting schedule entry, opening its banner rather than an event page. */
+  bannerName?: string;
   poster: string | null;
   year: number;
   cn: ServerDateInfo;

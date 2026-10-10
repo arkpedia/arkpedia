@@ -319,6 +319,7 @@ export interface UpcomingBanner {
   aliases?: string[];
   /** The linked event still uses a predicted Global window in the schedule. */
   datesEstimated?: boolean;
+  globalLineupPending?: boolean;
   category: string;
   /** ISO dates, inclusive. */
   start: string;

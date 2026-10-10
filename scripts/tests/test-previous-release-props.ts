@@ -265,6 +265,8 @@ const DATA_ONLY: Record<string, Record<string, string>> = {
   '/schedule': {
     '.operators[].portraitPending': 'optional publication status on a newly discovered operator whose portrait has not arrived; an older release without it keeps its published portrait',
     '.events[].aliases': 'optional historic names on renamed source records; Schedule does not read this field',
+    '.events[].bannerName': 'optional metadata on new headhunting calendar entries; older releases contain only event entries and keep their event navigation',
+    '.eventRows[].bannerName': 'optional metadata on new headhunting rows; older releases contain only events and keep their existing behavior',
     '.events[].modeId': 'permanent RA launch metadata is optional; releases without it contain only timed events and retain their existing behavior',
     '.events[].cn.releaseDate': 'permanent RA launch metadata is optional; releases without it contain only timed events and retain their existing behavior',
     '.events[].global.releaseDate': 'permanent RA launch metadata is optional; releases without it contain only timed events and retain their existing behavior',
@@ -279,6 +281,7 @@ const DATA_ONLY: Record<string, Record<string, string>> = {
     '.events[].global.shopEndAt': "the event store's close (sync-event-windows.mjs, from activity_table rewardEndTime), which the data first carried on 2026-09-30; GameWindowTimes has it optional, and eventShopEnd reads its absence as a store that closes with the stages, as the page did before; nothing on /skins reads it yet",
   },
   '/gacha': {
+    '.banners[].globalLineupPending': 'optional metadata on newly restored special banner forecasts; older releases omitted these banners altogether, so existing Global banners remain confirmed',
     '.banners[].announcedLineup': "the rate-ups an official CN announcement names (applyAnnouncements, new on 2026-10-04), on a banner only while an operator it names has no record yet; HeadhuntingBanner has it optional, and lineupPendingNote reads its absence as 'Lineup to be confirmed.', as the page said before",
   },
   '/operators': {
