@@ -51,6 +51,25 @@ export function reconcileBaseSkills(operator, building, region, translations = {
   return skills;
 }
 
+/** A Base schema or translation gap belongs to that operator, not the event/banner catalogue. */
+export function reconcileCatalogueBaseSkills(operators, previous, cn, en, translations = {}) {
+  const saved = new Map(previous.map(op => [op.internalName, op]));
+  const problems = [];
+  for (const op of operators) {
+    if (/^Amiya \(/.test(op.name)) continue;
+    const region = en.building.chars[op.internalName] ? 'Global' : 'CN';
+    try {
+      op.baseSkills = reconcileBaseSkills(op, region === 'Global' ? en.building : cn.building, region, translations);
+    } catch (error) {
+      const prior = saved.get(op.internalName);
+      op.baseSkills = structuredClone(prior?.baseSkills ?? []);
+      console.warn(`Catalogue Base skills: ${error.message}`);
+      problems.push({ key: `operator-base:${op.internalName}`, reason: `${op.name}: Base skills require source or translation reconciliation`, action: prior ? 'kept-previous' : 'published-partial', sourceRef: `${region === 'Global' ? en.source : cn.source}/building_data.json` });
+    }
+  }
+  return problems;
+}
+
 export function importBaseSkills({ root, en, cn, write = false }) {
   const report = { operators: 0, skills: 0, global: 0, cn: 0, changed: [], descriptionChanges: [], problems: [] };
   const writes = [];

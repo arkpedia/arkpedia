@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { reconcileBaseSkills } from '../imports/import-base-skills.mjs';
+import { reconcileCatalogueBaseSkills } from '../imports/import-base-skills.mjs';
 import { reconcileBaseRosters } from '../imports/import-base-rosters.mjs';
 import { baseWorkshopRecipes } from '../imports/import-base-workshop.mjs';
 /** Discover content before derived pages are compiled. --dry-run never writes source records. */
@@ -147,13 +147,10 @@ export async function syncCatalogue(root, options={}) {
   for (const op of updated.operators) if (initial.changes.includes(op.internalName) && releases.get(op.internalName)?.cn && !op.characterInfo?.['CN Release Date']) {
     op.characterInfo['CN Release Date']=serverDay(releases.get(op.internalName).cn);
   }
-  // Base skill completeness is checked before writing records or making the icon plan.
-  // Refuse a CN addition requiring an unreviewed translation rather than publishing empty skills.
+  // Preserve each operator's last valid Base skills while other catalogue records continue.
+  // Unsupported facilities and unreviewed translations remain visible in quarantine.
   const translations = read(path.join(root, 'data/base-skill-translations.json'));
-  for (const op of updated.operators) if (!/^Amiya \(/.test(op.name)) {
-    const region = en.building.chars[op.internalName] ? 'Global' : 'CN';
-    op.baseSkills = reconcileBaseSkills(op, region === 'Global' ? en.building : cn.building, region, translations);
-  }
+  const baseProblems = reconcileCatalogueBaseSkills(updated.operators, operators, cn, en, translations);
   const baseRosters = reconcileBaseRosters({ operators: updated.operators, constants: cn.constants, characters: cn.characters, previous: read(path.join(root, 'data/base-group-rosters.json')) });
   const workshopRecipes = baseWorkshopRecipes(en.building, en.items.items);
   const outfits=reconcileSkins({skins,operators:updated.operators,cn,en,events:calendars.events});
@@ -171,7 +168,7 @@ export async function syncCatalogue(root, options={}) {
   // Records a bad input left out, kept at their previous version or published partly.
   const catalogueStage=beginStage(root,'catalogue',now);
   // An operator held back by both reconcileOperators passes is one entry: add() keeps the first report of a key.
-  for (const entry of [...initial.quarantine,...updated.quarantine,...calendars.quarantine,...outfits.quarantine]) catalogueStage.add(entry);
+  for (const entry of [...initial.quarantine,...updated.quarantine,...calendars.quarantine,...outfits.quarantine,...baseProblems]) catalogueStage.add(entry);
   const report={operatorsAdded:updated.operators.length-operators.length,outfitsAdded:outfits.skins.length-skins.length,eventsAdded:calendars.events.length-events.length,bannersAdded:calendars.banners.length-banners.length,poolIdsLinked:calendars.linked,renames:[...renames],assetsRequired:plan.files.length,quarantined:catalogueStage.entries.map(e=>e.key),sources:{cn:cn.revision,global:en.revision,resource:sources.resourceRevision}};
   write(path.join(cache,'asset-plan.json'),plan); write(path.join(cache,'report.json'),report);
   if (!options.dryRun) {
