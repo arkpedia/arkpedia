@@ -522,7 +522,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
   const rewardNote = fromOriginal
     ? `Missions, first clears and furniture are the original run's (${eventTitle(rewardEntry!.inheritsFrom!)}) until this rerun's own are in the game data: a rerun repeats them. Its store is its own. First-clear rewards are once per account: a stage cleared before gives none again.`
     : fromCn
-      ? event.name === '[Celebration] Critical Phase Transition' ? 'The monthly card and Terra login gifts are confirmed by Global. Event rewards and paid packs include CN data and the JP livestream preview until the full Global notice; prices and sale windows may differ.' : 'From the CN release: Global has not had this event yet, and its rewards may differ there. Items Global does not have yet keep their CN names.'
+      ? 'Stage rewards and furniture marked CN use the original release until Global game data is available. Confirmed Global announcements take priority.'
       : isRerun(event.name) && (rewardEntry?.groups ?? []).some((g) => g.kind === 'first-clear')
         ? 'First-clear rewards are once per account: a stage cleared in the original run gives none in the rerun.'
         : null;
@@ -563,13 +563,13 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
   const roster = tableRewards.length || rawStores.some((store) => store.items.length) ? getAllOperators() : [];
   const tableIcon = (item: import('@/lib/events/tableRewards').TableRewardItem) => {
     if (item.kind === 'operator') {
-      const op = roster.find((o) => o.name === item.name);
+      const op = roster.find((o) => o.name.toLowerCase() === item.name.toLowerCase());
       return op ? getOperatorIconPath(op) : null;
     }
     // A daily free roll is a headhunting roll: the permit's picture.
     if (item.kind === 'free-roll') return rewardIconPath({ name: 'Headhunting Permit', type: 'material', id: null }, () => null, publicFileExists);
     return rewardIconPath(
-      { name: item.name, type: item.kind === 'outfit' ? 'skin' : 'material', id: item.id ?? null },
+      { name: item.name, iconName: item.iconName, type: item.kind === 'outfit' ? 'skin' : 'material', id: item.id ?? null },
       (skinName) => findSkinIconPath(skinName.split(' / ').pop() ?? skinName) || null,
       publicFileExists,
     );
@@ -605,7 +605,8 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
       tickets: Object.fromEntries(Object.entries(announced.tickets).map(([ticketName, ticket]) => [ticketName, {
         ...ticket,
         operators: ticket.operators.map(operatorName => {
-          const op = roster.find(o => o.name === operatorName);
+          const nameKey = (name: string) => name.normalize('NFKD').replace(/[^\p{L}\p{N}]/gu, '').toLowerCase();
+          const op = roster.find(o => [o.name, ...(o.aliases ?? [])].some(name => nameKey(name) === nameKey(operatorName)));
           if (!op) throw new Error(`Unknown selector operator: ${operatorName}`);
           return { name: op.name, iconPath: getOperatorIconPath(op), href: operatorHref(op.name, null) };
         }),

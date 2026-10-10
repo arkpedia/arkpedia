@@ -59,7 +59,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { decodeEntities, leftoverEntity, newsSections, parseDuration, parsePacks, postEventName, postWindow } from './official-news.mjs';
+import { decodeEntities, leftoverEntity, newsSections, parseDuration, parsePacks, parseLoginDays, parseSelectorTickets, postEventName, postWindow } from './official-news.mjs';
 import { eventTitle, eventWindow, isRerun } from '../lib/event-records.mjs';
 import { cnTables } from '../content/pin-upstream.mjs';
 import { readOfficialNews } from '../sync/sync-official-news.mjs';
@@ -334,6 +334,9 @@ export function buildEventRewards(events, tables, posts, cn) {
   }
   // Each announcement's sections, as its event's.
   const kindOf = kindByName(tables);
+  // Official notice 4814 uses these English names before the Global client update. Keep
+  // their existing official art while displaying the announcement's spelling.
+  const announcementArt = { 'A Sealed Vow Headhunting Permit': 'A Sealed Vow Headhunting Permit (ten-roll)', 'New Model Data Terminal': 'New Information Terminal' };
   const themesNamed = new Map();
   for (const { post, event, sections } of announced) {
     const groups = (result[event.name] ??= { activity: null, groups: [] }).groups;
@@ -372,7 +375,11 @@ export function buildEventRewards(events, tables, posts, cn) {
         const detailed = logins.some(g => sameWindow(g) || namesGift(g)) || (words.size
           ? logins.some(g => [...distinctive(g.title)].some(w => words.has(w)))
           : when && logins.some(g => g.kind === 'banner-gift' && Math.abs(Date.parse(g.start) / 1000 - when.start) <= 86400));
-        if (!detailed && lines.length) addNotice(section.title, lines);
+        if (!detailed) {
+          const daily = parseLoginDays(section).map(day => day.map(item => ({ ...item, kind: item.kind ?? kindOf(item.name), id: `announcement:${item.name}`, ...(announcementArt[item.name] ? { iconName: announcementArt[item.name] } : {}) })));
+          if (daily.length && daily.every(day => day.length)) groups.push({ kind: 'login', title: section.title, source: post.url, region: 'Global', ...(when ? { start: new Date(when.start * 1000).toISOString(), end: new Date(when.end * 1000).toISOString() } : {}), days: daily.length, daily, items: total(daily.flat()), description: section.lines.find(line => line.startsWith('DETAILS:'))?.replace(/^DETAILS:\s*/, '') ?? null });
+          else if (section.lines.length) addNotice(section.title, section.lines);
+        }
         continue;
       }
       if (/FREE (?:ROLL|HEADHUNTING|PULL)|DAILY FREE/.test(section.title) && when?.end) {
@@ -385,8 +392,11 @@ export function buildEventRewards(events, tables, posts, cn) {
         const packs = parsePacks(section).map(pack => ({ ...pack, contents: pack.contents.map(item => ({ ...item, kind: kindOf(item.name) })) }));
         // "LIMITED-TIME PACKS AVAILABLE" twice: one list.
         const same = sameGroup('packs', section.title);
-        if (same) same.packs.push(...packs.filter(pack => !same.packs.some(p => p.name === pack.name)));
-        else if (packs.length) groups.push({ kind: 'packs', title: section.title, source: post.url, items: [], packs });
+        if (same) {
+          same.packs.push(...packs.filter(pack => !same.packs.some(p => p.name === pack.name)));
+          same.tickets = { ...parseSelectorTickets(section, post.url), ...same.tickets };
+        }
+        else if (packs.length) groups.push({ kind: 'packs', title: section.title, source: post.url, region: 'Global', items: [], packs, tickets: parseSelectorTickets(section, post.url) });
       } else if (NOTICE.test(section.title) && !NOT_NOTICE.test(section.title)) {
         if (lines.length) addNotice(section.title, lines);
       }

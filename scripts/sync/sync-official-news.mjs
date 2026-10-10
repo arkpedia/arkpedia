@@ -6,8 +6,8 @@
  * for news (2026-10-03), ahead of the wiki.
  *
  * Reads the public list, newest first, page by page until a page holds nothing new, and fetches
- * each event post not cached yet: about two GETs on a quiet day, the whole archive (193 posts back
- * to January 2020) on the first run. A post is never refetched: an announcement does not change.
+ * each uncached or recent event post. Recent posts are refetched for corrections; the weekly
+ * archive walk also revisits older posts, back to January 2020.
  * GET only. A day the list cannot be read is reported to the quarantine list (stage
  * official-news) and the cached posts stand.
  *
@@ -18,8 +18,8 @@
  *
  * A gap the newest-first code may already have left at the older end, behind a page with nothing
  * new, is healed once a week: on a Sunday (UTC, of the run's `now`) the paging walks every page
- * whatever it finds, one list GET per thirty posts of the archive, and fetches every event post
- * not cached. This reads no total from the list to compare the cache with, so the walk goes by
+ * whatever it finds, one list GET per thirty posts of the archive, and fetches every event post.
+ * This reads no total from the list to compare the cache with, so the walk goes by
  * the day.
  *
  * One post that cannot be read (an error page, a body the parser cannot take) is that post's
@@ -89,7 +89,7 @@ export async function syncOfficialNews(root, { fetcher = globalThis.fetch, now =
     if (index > 1) await pause();
     const { rows } = await getJson(`${API}/list?index=${index}&size=${PAGE}&type=latest`, fetcher);
     if (!Array.isArray(rows) || !rows.length) break;
-    const unseen = rows.filter(row => row.type === 'event' && !cached.has(row.id));
+    const unseen = rows.filter(row => row.type === 'event' && (!cached.has(row.id) || walkAll || (Number.isFinite(row.publishTime) && now - row.publishTime < RETRY_DAYS * DAY)));
     fresh.push(...unseen);
     if (!unseen.length && index > 1 && !walkAll) break;
     if (rows.length < PAGE) break;
@@ -112,8 +112,9 @@ export async function syncOfficialNews(root, { fetcher = globalThis.fetch, now =
     try {
       const post = await getJson(`${API}/detail?id=${row.id}`, fetcher);
       const record = { id: post.id ?? row.id, title: post.title ?? row.title, publishTime: post.publishTime ?? row.publishTime, url: postUrl(row.id), lines: newsLines(post.content) };
-      fs.writeFileSync(path.join(dir, `${record.id}.json`), `${JSON.stringify(record, null, 1)}\n`);
-      written++;
+      const file = path.join(dir, `${record.id}.json`);
+      const text = `${JSON.stringify(record, null, 1)}\n`;
+      if (!fs.existsSync(file) || fs.readFileSync(file, 'utf8') !== text) { fs.writeFileSync(file, text); written++; }
     } catch (error) {
       // Unlisted and not found: the site deleted it. A listed post exists whatever its detail
       // answers (a detail endpoint that moved answers 404 for every post, and is reported).

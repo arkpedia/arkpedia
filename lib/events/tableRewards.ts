@@ -6,7 +6,7 @@ import type { ResolvedRewardStore } from './rewardTotals';
  * /events/[slug]: each group becomes a block beside the store, so the page's tabs and its All
  * totals take them in with the store's own listings.
  */
-export interface TableRewardItem { name: string; count: number; kind: string; id: string }
+export interface TableRewardItem { name: string; count: number; kind: string; id: string; iconName?: string }
 export interface PackContents { name: string; count: number; kind: string }
 export interface EventPack { name: string; start?: string; end?: string | null; contents: PackContents[]; limit?: number; notes?: string[] }
 export interface FurniturePiece { name: string; id: string; obtain: string | null; comfort: number | null }
@@ -23,6 +23,7 @@ export interface TableRewardGroup {
   items: TableRewardItem[];
   /** packs: the packs a post's section offers. */
   packs?: EventPack[];
+  tickets?: Record<string, import('./announcements').TicketDetails>;
   /** notice: the section's DURATION/DETAILS/REWARDS lines as the post words them. */
   lines?: string[];
   /** furniture-set: the set's pieces and its description. */

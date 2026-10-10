@@ -705,3 +705,11 @@ test('an existing translated outfit receives missing regional release dates with
   assert.equal(skin.description,existing.description);
   assert.equal(reconcileSkins({skins:result.skins,operators:surtrOp,cn:surtrCn,en:surtrEn,events:surtrEvents}).changes.length,0);
 });
+
+test('catalogue removes a persisted event link contradicted by both regional calendars', () => {
+  const event = { name: '[Side Story – Carnival] Ato', cn: { dateRange: '2025/08/02–2025/08/23' }, global: { dateRange: '2026/01/16–2026/02/06' } };
+  const old = { name: 'Lungmen Spec Operators', category: 'standard', pull_type: 'featured', linked_event: event.name, cn_date: '2019/06/22–2019/08/05', global_date: '2020/03/11–2020/03/25', six_stars: [], five_stars: [] };
+  const result = reconcileCalendars({ events: [event], banners: [old], operators: [], cn: empty, en: empty, eventRows: [], bannerRows: [], announced: noNews });
+  assert.equal(result.banners[0].linked_event, null);
+  assert.equal(old.linked_event, event.name, 'input remains intact');
+});

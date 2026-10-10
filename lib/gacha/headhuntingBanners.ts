@@ -59,7 +59,7 @@ export interface HeadhuntingBanner {
   linked_event: string | null; // computed once at scrape time against the per-year event records
 }
 
-/** A name for comparing: prefix, "rerun" and punctuation aside. Letters of any script stay, so
+/** A name for comparing: prefix, rerun suffix and punctuation aside; run identity is checked separately. Letters of any script stay, so
  *  an event under its Chinese name ("[Side Story] 昨日海") is not the empty string. */
 function normalize(s: string): string {
   return s
@@ -113,10 +113,17 @@ export function confirmedGlobalRange(global: { dateRange?: string | null; note?:
 export function getBannerForEvent(eventName: string, eventGlobalDateRange: string | null | undefined, banners: readonly HeadhuntingBanner[]): HeadhuntingBanner | null {
   const target = normalize(eventName);
   if (target) {
-    const explicitMatch = banners.find((b) => b.linked_event && normalize(b.linked_event) === target);
+    const rerun = (name: string) => /\[rerun\]|\brerun\s*$/i.test(name);
+    const explicitMatch = banners.find((b) => b.linked_event && rerun(b.linked_event) === rerun(eventName)
+      && normalize(b.linked_event) === target
+      && (!eventGlobalDateRange || !b.global_date || b.global_date_estimated
+        || parseStartDate(b.global_date) === parseStartDate(eventGlobalDateRange)));
     if (explicitMatch) return explicitMatch;
   }
 
+  // A rerun does not automatically repeat its original banner, or own an unrelated one
+  // that happens to open that day. Its association needs an explicit rerun link.
+  if (/\[rerun\]|\brerun\s*$/i.test(eventName)) return null;
   const eventStart = parseStartDate(eventGlobalDateRange);
   if (!eventStart) return null;
   const sameDay = banners.filter((b) => (b.pull_type === 'featured' || b.pull_type === 'limited')

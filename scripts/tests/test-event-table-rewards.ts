@@ -304,3 +304,19 @@ test('on a day the CN tables number their enums, the entries built from CN stay 
     fs.rmSync(root, { recursive: true, force: true });
   }
 });
+
+test('official daily sign-in totals and selector lists work before the Global patch tables arrive', () => {
+  const post = JSON.parse(fs.readFileSync('scripts/tests/fixtures/official-news/4814.json', 'utf8'));
+  const event = { name: '[Celebration] Critical Phase Transition', global: { dateRange: '2026/10/14–2026/10/28' } };
+  const tables = { ...world(), activity: { basicInfo: {}, activity: {}, missionData: [] } };
+  const result = buildEventRewards([event], tables, [post], null)[event.name];
+  const login = result.groups.find((g: Group) => g.kind === 'login');
+  assert.equal(login.daily.length, 10);
+  assert.equal(login.items.find((i: Item) => i.name === 'Orundum').count, 600);
+  assert.equal(login.items.find((i: Item) => i.name === 'LMD').count, 30000);
+  assert.equal(login.items.find((i: Item) => i.name === 'New Model Data Terminal').iconName, 'New Information Terminal');
+  assert.equal(login.items.find((i: Item) => i.name === 'A Sealed Vow Headhunting Permit').iconName, 'A Sealed Vow Headhunting Permit (ten-roll)');
+  const packs = result.groups.find((g: Group) => g.kind === 'packs');
+  assert.equal(packs.tickets['Top Operator Transfer Permit'].operators.length, 35);
+  assert.equal(packs.packs.length, 16);
+});

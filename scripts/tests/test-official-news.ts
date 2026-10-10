@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { test } from 'node:test';
 // @ts-expect-error Node scripts are plain JavaScript.
-import { decodeEntities, newsLines, newsSections, parseContents, parseDuration, parsePacks, postEventName, postWindow } from '../build/official-news.mjs';
+import { decodeEntities, newsLines, newsSections, parseContents, parseDuration, parsePacks, parseLoginDays, parseSelectorTickets, postEventName, postWindow } from '../build/official-news.mjs';
 
 /*
  * The official Global announcements (scripts/build/official-news.mjs), on posts cached by
@@ -52,4 +52,27 @@ test('every named reference HTML defines is decoded, and a number that is no cha
   assert.equal(decodeEntities('Kroos&CloseCurlyQuote;s &rsquor;&OpenCurlyQuote; &OpenCurlyDoubleQuote;Pack&CloseCurlyDoubleQuote;&rdquor;&NonBreakingSpace;x &ldquor;'), 'Kroos\'s \'\' "Pack"" x \u201e');
   // Beyond U+10FFFF, or a lone surrogate: String.fromCodePoint threw a RangeError on these.
   assert.equal(decodeEntities('&#x110000; &#55296; &#x1F600;'), '&#x110000; &#55296; \u{1F600}');
+});
+
+test('Global EP17 packs have unique names, special pack rules, both selector pools and explicit sign-in days', () => {
+  const sections = newsSections(post(4814).lines);
+  const sale = sections.find((s: { title: string }) => s.title === 'LIMITED-TIME PACKS AVAILABLE');
+  const packs = parsePacks(sale);
+  assert.equal(packs.length, 16);
+  assert.equal(new Set(packs.map((p: { name: string }) => p.name)).size, 16);
+  assert.equal(packs.find((p: { name: string }) => p.name === 'Comprehensive Skill Training Pack').limit, 2);
+  assert.ok(packs.find((p: { name: string }) => p.name === 'Newcomer Special Headhunting Pack').notes.some((n: string) => n.includes('Type-α')));
+  const tickets = parseSelectorTickets(sale, 'https://www.arknights.global/news/4814');
+  assert.equal(tickets['Top Operator Transfer Permit'].operators.length, 35);
+  assert.equal(tickets['Top Operator Transfer Permit - Kernel'].operators.length, 48);
+  assert.ok(tickets['Top Operator Transfer Permit'].operators.includes('Mon3tr'));
+  assert.match(tickets['Top Operator Transfer Permit'].note, /December 14.*UTC-7/);
+  const daily = parseLoginDays(sections.find((s: { title: string }) => s.title === '2026 CELEBRATION SIGN-IN EVENT OPEN'));
+  assert.equal(daily.length, 10);
+  assert.deepEqual(daily[1][1], { name: 'GALLUS²', count: 1, kind: 'operator' });
+  assert.deepEqual(daily[6][1], { name: 'Aroma / Picnic Times', count: 1, kind: 'outfit' });
+});
+
+test('an unfamiliar login item preserves the notice instead of dropping part of a daily reward', () => {
+  assert.deepEqual(parseLoginDays({ lines: ['Day 1: LMD * 10000, Unfamiliar reward wording'] }), []);
 });
