@@ -211,8 +211,12 @@ export default function RoamingChibiProvider({ children }: { children: ReactNode
       <ChibiCanvas key={activeModel!.skeleton} model={activeModel!} label={pet.label} animation={rest?.clip ?? 'Idle'} activity={rest?.activity} animationSequence={animationSequence} once={rest?.once} onAnimationChange={ignoreAnimation}
         onAnimationsChange={onAnimationsChange} onAnimationComplete={onAnimationComplete} paused={false} moving={moving} flipped={flipped} roaming onPointerDown={event => beginDrag(event, pet, true)} />
       <div className="chibi-roaming-controls">
-        <button className="ghost btn-icon" type="button" aria-label={pet.paused ? 'Resume walking' : 'Pause walking'} title={pet.paused ? 'Resume walking' : 'Pause walking'} onClick={() => setPaused(!pet.paused)}>{pet.paused ? '▶' : 'Ⅱ'}</button>
         <XButton label="Dismiss roaming chibi" onClick={dismiss} />
+        <button className="btn-x" type="button" aria-label={pet.paused ? 'Resume walking' : 'Pause walking'} title={pet.paused ? 'Resume walking' : 'Pause walking'} onClick={() => setPaused(!pet.paused)}>
+          <svg aria-hidden="true" focusable="false" viewBox="0 0 16 16" width="16" height="16" fill="currentColor">
+            {pet.paused ? <path d="M5 3v10l6-5Z" /> : <><rect x="4" y="3" width="2" height="10" /><rect x="10" y="3" width="2" height="10" /></>}
+          </svg>
+        </button>
       </div>
     </div>, document.body)}
   </RoamingChibiContext.Provider>;
