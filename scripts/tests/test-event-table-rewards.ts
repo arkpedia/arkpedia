@@ -314,6 +314,8 @@ test('official daily sign-in totals and selector lists work before the Global pa
   assert.equal(login.daily.length, 10);
   assert.equal(login.items.find((i: Item) => i.name === 'Orundum').count, 600);
   assert.equal(login.items.find((i: Item) => i.name === 'LMD').count, 30000);
+  assert.equal(login.items.find((i: Item) => i.name === 'New Model Data Terminal').iconName, 'New Information Terminal');
+  assert.equal(login.items.find((i: Item) => i.name === 'A Sealed Vow Headhunting Permit').iconName, 'A Sealed Vow Headhunting Permit (ten-roll)');
   const packs = result.groups.find((g: Group) => g.kind === 'packs');
   assert.equal(packs.tickets['Top Operator Transfer Permit'].operators.length, 35);
   assert.equal(packs.packs.length, 16);

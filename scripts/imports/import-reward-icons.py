@@ -355,10 +355,10 @@ for event, entry in reward_events.items():
                     want_name('Headhunting Permit', event)
                 elif item_id.startswith('furni_'):
                     want_furniture(item_id, item['name'], event)
-                elif item.get('kind') != UNSOURCED_KIND:
+                elif item.get('kind') != UNSOURCED_KIND or item.get('iconName'):
                     # By the item's id where the tables give one: a name the site words its own way
                     # ("... Headhunting Permit (ten-roll)") is not the item table's.
-                    want_name(item.get('name'), event, item_id or None)
+                    want_name(item.get('iconName') or item.get('name'), event, item_id or None)
         if group.get('kind') == 'packs':
             for pack in group.get('packs', []) or []:
                 for item in pack.get('contents', []):

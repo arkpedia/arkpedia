@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { test } from 'node:test';
 // @ts-expect-error Node scripts are plain JavaScript.
-import { decodeEntities, newsLines, newsSections, parseContents, parseDuration, parsePacks, postEventName, postWindow } from '../build/official-news.mjs';
+import { decodeEntities, newsLines, newsSections, parseContents, parseDuration, parsePacks, parseLoginDays, parseSelectorTickets, postEventName, postWindow } from '../build/official-news.mjs';
 
 /*
  * The official Global announcements (scripts/build/official-news.mjs), on posts cached by
@@ -54,8 +54,7 @@ test('every named reference HTML defines is decoded, and a number that is no cha
   assert.equal(decodeEntities('&#x110000; &#55296; &#x1F600;'), '&#x110000; &#55296; \u{1F600}');
 });
 
-test('Global EP17 packs have unique names, special pack rules, both selector pools and explicit sign-in days', async () => {
-  const { parseLoginDays, parseSelectorTickets } = await import('../build/official-news.mjs');
+test('Global EP17 packs have unique names, special pack rules, both selector pools and explicit sign-in days', () => {
   const sections = newsSections(post(4814).lines);
   const sale = sections.find((s: { title: string }) => s.title === 'LIMITED-TIME PACKS AVAILABLE');
   const packs = parsePacks(sale);
@@ -74,7 +73,6 @@ test('Global EP17 packs have unique names, special pack rules, both selector poo
   assert.deepEqual(daily[6][1], { name: 'Aroma / Picnic Times', count: 1, kind: 'outfit' });
 });
 
-test('an unfamiliar login item preserves the notice instead of dropping part of a daily reward', async () => {
-  const { parseLoginDays } = await import('../build/official-news.mjs');
+test('an unfamiliar login item preserves the notice instead of dropping part of a daily reward', () => {
   assert.deepEqual(parseLoginDays({ lines: ['Day 1: LMD * 10000, Unfamiliar reward wording'] }), []);
 });

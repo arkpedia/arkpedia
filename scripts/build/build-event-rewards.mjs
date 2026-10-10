@@ -334,6 +334,9 @@ export function buildEventRewards(events, tables, posts, cn) {
   }
   // Each announcement's sections, as its event's.
   const kindOf = kindByName(tables);
+  // Official notice 4814 uses these English names before the Global client update. Keep
+  // their existing official art while displaying the announcement's spelling.
+  const announcementArt = { 'A Sealed Vow Headhunting Permit': 'A Sealed Vow Headhunting Permit (ten-roll)', 'New Model Data Terminal': 'New Information Terminal' };
   const themesNamed = new Map();
   for (const { post, event, sections } of announced) {
     const groups = (result[event.name] ??= { activity: null, groups: [] }).groups;
@@ -373,7 +376,7 @@ export function buildEventRewards(events, tables, posts, cn) {
           ? logins.some(g => [...distinctive(g.title)].some(w => words.has(w)))
           : when && logins.some(g => g.kind === 'banner-gift' && Math.abs(Date.parse(g.start) / 1000 - when.start) <= 86400));
         if (!detailed) {
-          const daily = parseLoginDays(section).map(day => day.map(item => ({ ...item, kind: item.kind ?? kindOf(item.name), id: `announcement:${item.name}` })));
+          const daily = parseLoginDays(section).map(day => day.map(item => ({ ...item, kind: item.kind ?? kindOf(item.name), id: `announcement:${item.name}`, ...(announcementArt[item.name] ? { iconName: announcementArt[item.name] } : {}) })));
           if (daily.length && daily.every(day => day.length)) groups.push({ kind: 'login', title: section.title, source: post.url, region: 'Global', ...(when ? { start: new Date(when.start * 1000).toISOString(), end: new Date(when.end * 1000).toISOString() } : {}), days: daily.length, daily, items: total(daily.flat()), description: section.lines.find(line => line.startsWith('DETAILS:'))?.replace(/^DETAILS:\s*/, '') ?? null });
           else if (section.lines.length) addNotice(section.title, section.lines);
         }
