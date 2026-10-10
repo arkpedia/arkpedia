@@ -46,7 +46,7 @@ test('page chibi walks, can pause and return to its viewer', async ({ page }) =>
     return Math.hypot(current!.x - start!.x, current!.y - start!.y);
   }, { timeout: 10000 }).toBeGreaterThan(5);
   await expect(pet.locator('canvas')).toHaveAttribute('data-animation', /move|walk/i);
-  await page.locator('.chibi-controls').getByRole('button', { name: 'Pause', exact: true }).click();
+  await pet.getByRole('button', { name: 'Pause walking', exact: true }).click();
   const stopped = await pet.boundingBox();
   // Sample a real interval: motion must stop rather than just changing the button.
   await page.waitForTimeout(400);
@@ -92,11 +92,11 @@ test('roaming chibi survives viewer close, page navigation and browser back with
   await page.getByRole('group', { name: 'Operator outfits', exact: true }).getByRole('button', { name: 'Base', exact: true }).click();
   await page.getByRole('button', { name: 'Chibi viewer', exact: true }).press('Enter');
   await expect(page.getByRole('button', { name: 'Return to viewer', exact: true })).toBeVisible();
-  await expect(page.locator('.chibi-controls').getByRole('button', { name: 'Pause', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('.chibi-controls').getByRole('button', { name: 'Pause', exact: true })).toHaveAttribute('aria-pressed', 'false');
   await pet.getByRole('button', { name: 'Dismiss roaming chibi', exact: true }).click();
   await expect(pet).toHaveCount(0);
   await expect(page.locator('.chibi-window canvas')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Pause', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('button', { name: 'Pause', exact: true })).toHaveAttribute('aria-pressed', 'false');
 });
 
 test('dragging outside the viewer drops a walking chibi at that point', async ({ page, isMobile }) => {
@@ -135,7 +135,7 @@ test('dragging outside the viewer drops a walking chibi at that point', async ({
 
 for (const theme of ['dark', 'light'] as const) for (const [activity, choice, clip, duration] of [
   ['sit', 0, 'Sit', 3000], ['sleep', .3, 'Sleep', 10000],
-  ['idle', .55, 'Relax', 2000], ['special', .9, 'Interact', 2233.3333492279053],
+  ['idle', .55, 'Relax', 3333.3332538604736], ['special', .9, 'Interact', 2233.3333492279053],
 ] as const) {
   test(`roaming ${activity} uses a native base pose and returns to its routine (${theme})`, async ({ page, isMobile }, testInfo) => {
     await page.addInitScript(value => localStorage.setItem('theme', value), theme);
@@ -237,6 +237,7 @@ async function openTapChibi(page: import('@playwright/test').Page) {
   await page.getByRole('button', { name: 'Walk on page', exact: true }).click();
   const pet = page.locator('.chibi-roaming');
   await expect(pet.locator('canvas')).toHaveAttribute('data-animation', 'Relax');
+  await pet.getByRole('button', { name: 'Pause walking', exact: true }).click();
   return pet;
 }
 
@@ -337,90 +338,91 @@ async function chooseAnimation(page: import('@playwright/test').Page, label: str
   await page.getByRole('option', { name: label, exact: true }).click();
 }
 for (const theme of ['dark', 'light']) {
-  test(`all native animations can play and pause on the roaming chibi (${theme})`, async ({ page }, testInfo) => {
+  test(`viewer animations stay independent of roaming movement (${theme})`, async ({ page }, testInfo) => {
     await page.addInitScript(value => localStorage.setItem('theme', value), theme);
-    const pet = await openTapChibi(page);
+    const pet = await openTapChibi(page), viewer = page.locator('.chibi-window');
+    const position = await pet.boundingBox();
+    await chooseAnimation(page, 'Trust tap');
+    await viewer.getByRole('button', { name: 'Play', exact: true }).click();
+    await expect(viewer.locator('canvas')).toHaveAttribute('data-animation', 'Special');
+    await expect(viewer.locator('canvas')).toHaveAttribute('data-framed', 'true');
+    await expect(pet.locator('canvas')).toHaveAttribute('data-animation', 'Relax');
+    const close = await viewer.getByRole('button', { name: 'Close chibi viewer', exact: true }).boundingBox();
+    const pause = await viewer.getByRole('button', { name: 'Pause', exact: true }).boundingBox();
+    // Queuing another pose cannot cut this 6.77-second native reaction short.
+    await chooseAnimation(page, 'Sleeping');
+    await page.waitForTimeout(2000);
+    await expect(viewer.locator('canvas')).toHaveAttribute('data-animation', 'Special');
+    await expect(viewer.locator('canvas')).toHaveAttribute('data-animation', 'Sleep', { timeout: 10000 });
+    expect(await viewer.getByRole('button', { name: 'Close chibi viewer', exact: true }).boundingBox()).toEqual(close);
+    expect(await viewer.getByRole('button', { name: 'Pause', exact: true }).boundingBox()).toEqual(pause);
+    expect(await pet.boundingBox()).toEqual(position);
+    await page.waitForTimeout(300);
+    const first = await pet.locator('canvas').screenshot();
+    await page.waitForTimeout(900);
+    expect((await pet.locator('canvas').screenshot()).equals(first)).toBe(false);
+    await viewer.getByRole('button', { name: 'Pause', exact: true }).click();
+    await page.waitForTimeout(250);
+    const still = await viewer.locator('canvas').screenshot();
+    await page.waitForTimeout(300);
+    expect((await viewer.locator('canvas').screenshot()).equals(still)).toBe(true);
+    await expect(pet.getByRole('button', { name: 'Open chibi viewer', exact: true })).toHaveCount(0);
+    if (process.env.ARKPEDIA_QA_CAPTURE) await page.screenshot({ path: `${process.env.ARKPEDIA_QA_CAPTURE}/chibi-independent-${theme}-${testInfo.project.name}.png` });
+    await pet.getByRole('button', { name: 'Resume walking', exact: true }).click();
+    await expect.poll(async () => Math.hypot((await pet.boundingBox())!.x - position!.x, (await pet.boundingBox())!.y - position!.y), { timeout: 10000 }).toBeGreaterThan(5);
+  });
+  test(`larger animation artwork fits with anchored controls (${theme})`, async ({ page }, testInfo) => {
+    await page.addInitScript(value => localStorage.setItem('theme', value), theme);
+    await openTapChibi(page);
+    const viewer = page.locator('.chibi-window'), canvas = viewer.locator('canvas');
+    const original = await canvas.boundingBox();
+    const close = await viewer.getByRole('button', { name: 'Close chibi viewer', exact: true }).boundingBox();
+    const pause = await viewer.getByRole('button', { name: 'Pause', exact: true }).boundingBox();
     await page.getByRole('combobox', { name: 'Chibi animation', exact: true }).click();
     for (const name of ['Walking', 'Sitting', 'Sleeping', 'Base idle', 'Normal tap', 'Trust tap', 'Attack_1']) {
       await expect(page.getByRole('option', { name, exact: true })).toBeVisible();
     }
     await page.keyboard.press('Escape');
-    // A manual normal tap must be visibly selectable even before the first trust tap.
-    await chooseAnimation(page, 'Normal tap');
-    await page.getByRole('button', { name: 'Play', exact: true }).click();
-    await expect(pet.locator('canvas')).toHaveAttribute('data-animation', 'Interact');
-    await expect(pet).not.toHaveAttribute('data-break-duration', /.+/, { timeout: 3000 });
-    await chooseAnimation(page, 'Walking');
-    const before = await pet.boundingBox();
-    await page.getByRole('button', { name: 'Play', exact: true }).click();
-    await expect(pet).toHaveAttribute('data-activity', 'walking');
-    await expect(pet.locator('canvas')).toHaveAttribute('data-animation', 'Move');
-    await expect.poll(async () => Math.abs((await pet.boundingBox())!.x - before!.x)).toBeGreaterThan(10);
-    await chooseAnimation(page, 'Sitting');
-    await page.getByRole('button', { name: 'Play', exact: true }).click();
-    await expect(pet.locator('.chibi-furniture')).toHaveAttribute('data-furniture', 'furni_s2_chair_L_01');
-    await expect(pet.locator('canvas')).toHaveAttribute('data-animation', 'Sit');
-    await expect(pet).not.toHaveAttribute('data-break-duration', /.+/, { timeout: 6500 });
-    await chooseAnimation(page, 'Sleeping');
-    await page.getByRole('button', { name: 'Play', exact: true }).click();
-    await expect(pet.locator('.chibi-furniture')).toHaveAttribute('data-furniture', 'furni_s1_bed_01');
-    await expect(pet.locator('canvas')).toHaveAttribute('data-animation', 'Sleep');
-    await page.getByRole('button', { name: 'Pause', exact: true }).click();
-    await page.waitForTimeout(250);
-    const still = await pet.locator('canvas').screenshot();
-    await page.waitForTimeout(1000);
-    expect((await pet.locator('canvas').screenshot()).equals(still)).toBe(true);
-    await expect(pet).toHaveAttribute('data-activity', 'sleep');
-    if (process.env.ARKPEDIA_QA_CAPTURE) await page.screenshot({ path: `${process.env.ARKPEDIA_QA_CAPTURE}/chibi-controls-${theme}-${testInfo.project.name}.png` });
-    await page.getByRole('button', { name: 'Play', exact: true }).click();
-    await expect(pet).not.toHaveAttribute('data-break-duration', /.+/, { timeout: 17000 });
-    await chooseAnimation(page, 'Attack_1');
-    await page.getByRole('button', { name: 'Play', exact: true }).click();
-    await expect(pet.locator('canvas')).toHaveAttribute('data-animation', 'Attack_1');
-    await expect(pet).not.toHaveAttribute('data-break-duration', /.+/, { timeout: 7000 });
-    await expect(pet.locator('canvas')).toHaveAttribute('data-animation', 'Relax');
-    await expect(page.locator('.chibi-window [role="status"]')).toHaveCount(0);
+    await chooseAnimation(page, 'Start');
+    await expect(canvas).toHaveAttribute('data-animation', 'Start');
+    await expect.poll(async () => (await canvas.boundingBox())!.height).toBeGreaterThan(original!.height + 10);
+    await viewer.getByRole('button', { name: 'Play', exact: true }).click();
+    for (let i = 0; i < 4; i++) { await page.waitForTimeout(100); await expect(canvas).toHaveAttribute('data-framed', 'true'); }
+    await viewer.getByRole('button', { name: 'Pause', exact: true }).click();
+    expect(await viewer.getByRole('button', { name: 'Close chibi viewer', exact: true }).boundingBox()).toEqual(close);
+    expect(await viewer.getByRole('button', { name: 'Pause', exact: true }).boundingBox()).toEqual(pause);
+    const expanded = await canvas.boundingBox(), viewport = page.viewportSize()!;
+    expect(expanded!.x).toBeGreaterThanOrEqual(0); expect(expanded!.y).toBeGreaterThanOrEqual(0);
+    expect(expanded!.x + expanded!.width).toBeLessThanOrEqual(viewport.width);
+    expect(expanded!.y + expanded!.height).toBeLessThanOrEqual(viewport.height);
+    if (process.env.ARKPEDIA_QA_CAPTURE) await page.screenshot({ path: `${process.env.ARKPEDIA_QA_CAPTURE}/chibi-expanded-${theme}-${testInfo.project.name}.png` });
   });
-  test(`viewer drags inside the viewport and reopens from another page (${theme})`, async ({ page, isMobile }) => {
+  test(`viewer drags within the viewport and reopens at its default position (${theme})`, async ({ page, isMobile }) => {
     await page.addInitScript(value => localStorage.setItem('theme', value), theme);
-    const pet = await openTapChibi(page), viewer = page.getByRole('dialog', { name: /Chibi viewer/ });
-    const handle = page.getByRole('button', { name: 'Move chibi viewer', exact: true });
-    const bounds = await handle.boundingBox(), start = { x: bounds!.x + 15, y: bounds!.y + 15 };
-    const drop = { x: 2, y: 2 };
+    await openChibi(page);
+    const viewer = page.getByRole('dialog', { name: /Chibi viewer/ });
+    const original = await viewer.boundingBox();
+    const handle = viewer.getByRole('button', { name: 'Move chibi viewer', exact: true });
+    const bounds = await handle.boundingBox(), start = { x: bounds!.x + 15, y: bounds!.y + 15 }, drop = { x: 2, y: 2 };
     if (isMobile) {
       const touch = await page.context().newCDPSession(page);
       await touch.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [start] });
       await touch.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [drop] });
-      await touch.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-      await touch.detach();
+      await touch.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); await touch.detach();
     } else {
       await page.mouse.move(start.x, start.y); await page.mouse.down(); await page.mouse.move(drop.x, drop.y, { steps: 8 }); await page.mouse.up();
     }
     expect((await viewer.boundingBox())!.x).toBe(8); expect((await viewer.boundingBox())!.y).toBe(8);
     await handle.focus(); await page.keyboard.press('ArrowDown');
     expect((await viewer.boundingBox())!.y).toBe(28);
-    await chooseAnimation(page, 'Sleeping');
-    const position = await viewer.boundingBox(), canvas = await pet.locator('canvas').elementHandle();
-    await page.getByRole('button', { name: 'Close chibi viewer', exact: true }).click();
-    await page.getByRole('link', { name: /^Arkpedia ARKPEDIA(?: Beta)?$/ }).click();
-    await expect(page).toHaveURL(/\/$/);
-    await pet.getByRole('button', { name: 'Open chibi viewer', exact: true }).click();
-    await expect(viewer).toBeVisible();
-    await expect(page.getByRole('combobox', { name: 'Chibi animation', exact: true })).toContainText('Sleeping');
-    expect(await viewer.boundingBox()).toEqual(position);
-    expect(await canvas!.evaluate(element => element.isConnected)).toBe(true);
-    await page.getByRole('button', { name: 'Play', exact: true }).click();
-    await expect(pet.locator('canvas')).toHaveAttribute('data-animation', 'Sleep');
-    await page.getByRole('button', { name: 'Pause', exact: true }).click();
-    await viewer.press('Escape');
-    await expect(viewer).toHaveCount(0);
-    await expect(pet.getByRole('button', { name: 'Open chibi viewer', exact: true })).toBeFocused();
-    await pet.getByRole('button', { name: 'Open chibi viewer', exact: true }).click();
+    await viewer.getByRole('button', { name: 'Close chibi viewer', exact: true }).click();
+    const trigger = page.getByRole('button', { name: 'Chibi viewer', exact: true });
+    await expect(trigger).toBeFocused(); await trigger.click();
+    expect(await viewer.boundingBox()).toEqual(original);
     await handle.focus();
     for (let i = 0; i < 50; i++) await page.keyboard.press('ArrowRight');
     const edge = await viewer.boundingBox();
     expect(edge!.x + edge!.width).toBeLessThanOrEqual(page.viewportSize()!.width - 8);
-    await page.getByRole('button', { name: 'Close chibi viewer', exact: true }).click();
   });
 }
 
@@ -450,26 +452,27 @@ test('an outfit without a chibi model keeps the catalogue message and close cont
 });
 
 
-test('manual base idle keeps animating after returning to the routine', async ({ page }) => {
+test('pausing walking retains a visibly animated native idle', async ({ page }) => {
   await openChibi(page);
-  await page.getByRole('button', { name: 'Pause', exact: true }).click();
   await page.getByRole('button', { name: 'Walk on page', exact: true }).click();
   const pet = page.locator('.chibi-roaming'), canvas = pet.locator('canvas');
+  await expect(canvas).toHaveAttribute('data-animation', /.+/);
+  await pet.getByRole('button', { name: 'Pause walking', exact: true }).click();
   await expect(canvas).toHaveAttribute('data-animation', 'Relax');
   const position = await pet.boundingBox();
-  // Keep the random destination at the current position to isolate stationary playback.
-  await page.evaluate(point => {
-    const values = [point!.x / (innerWidth - 160), point!.y / (innerHeight - 180), 0];
-    let calls = 0; Math.random = () => values[calls++ % values.length];
-  }, position);
-  await chooseAnimation(page, 'Base idle');
-  await page.getByRole('button', { name: 'Play', exact: true }).click();
-  await expect(pet).toHaveAttribute('data-activity', 'animation');
-  await expect(pet).not.toHaveAttribute('data-break-duration', /.+/, { timeout: 6000 });
-  await expect(canvas).toHaveAttribute('data-animation', 'Relax');
-  await page.waitForTimeout(300);
-  const first = await canvas.screenshot();
+  await page.waitForTimeout(300); const first = await canvas.screenshot();
   await page.waitForTimeout(900);
   expect((await canvas.screenshot()).equals(first)).toBe(false);
   expect(await pet.boundingBox()).toEqual(position);
+});
+
+
+test('viewer controls fit a short viewport', async ({ page }) => {
+  await page.setViewportSize({ width: 844, height: 390 });
+  await openChibi(page);
+  const viewer = page.locator('.chibi-window');
+  const bounds = await viewer.boundingBox();
+  expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(382);
+  await expect(viewer.getByRole('button', { name: 'Play', exact: true })).toBeInViewport();
+  await expect(viewer.getByRole('button', { name: 'Close chibi viewer', exact: true })).toBeInViewport();
 });

@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic';
 import XButton from '@/components/ui/XButton';
 import { ContentImg } from '@/components/content/ContentImage';
 import type { ChibiModel, ChibiFacings } from '@/lib/operators/chibi';
-import { CHIBI_FURNITURE, chooseChibiBreak, chooseChibiTap, chibiActivities, chibiRequestedAnimation } from '@/lib/operators/chibiRoutine';
+import { CHIBI_FURNITURE, chooseChibiBreak, chooseChibiTap, chibiActivities } from '@/lib/operators/chibiRoutine';
 import ChibiWindow from './ChibiWindow';
 import type { ChibiAnimation, ChibiBreak } from '@/lib/operators/chibiRoutine';
 
@@ -19,7 +19,6 @@ interface RoamingChibiContextValue {
   viewerOpen: boolean;
   openViewer: (viewer: ChibiViewerConfig) => void;
   closeViewer: () => void;
-  playAnimation: (pose: ChibiAnimation, model: ChibiModel, base: boolean) => void;
   pet: Pet | null;
   walkOnPage: (pet: Pet, point: Point) => void;
   startDrag: (event: ReactPointerEvent<HTMLCanvasElement>, pet: Pet) => void;
@@ -54,9 +53,10 @@ export default function RoamingChibiProvider({ children }: { children: ReactNode
   const [rest, setRest] = useState<ChibiBreak | null>(null);
   const firstTap = useRef(true), [animationSequence, setAnimationSequence] = useState(0);
   const animations = useRef<ChibiAnimation[]>([]), resting = useRef<ChibiBreak | null>(null);
-  const [playWhilePaused, setPlayWhilePaused] = useState(false);
   const loadedModel = useRef('');
-  const activeModel = rest?.model ?? pet?.model;
+  const activeModel = pet?.model;
+  const cycleFinished = useRef(false);
+  const onAnimationComplete = useCallback(() => { cycleFinished.current = true; }, []);
   const remaining = useRef(0), loadedFurniture = useRef(new Set<string>());
   const onAnimationsChange = useCallback((names: string[], durations?: Record<string, number>) => {
     loadedModel.current = activeModel?.skeleton ?? '';
@@ -64,7 +64,7 @@ export default function RoamingChibiProvider({ children }: { children: ReactNode
       animations.current = names.map(name => ({ name, duration: durations?.[name] ?? 0 }));
     }
   }, [activeModel?.skeleton]);
-  const endRest = useCallback(() => { resting.current = null; remaining.current = 0; setRest(null); setPlayWhilePaused(false); setMoving(false); }, []);
+  const endRest = useCallback(() => { resting.current = null; remaining.current = 0; cycleFinished.current = false; setRest(null); setMoving(false); }, []);
   const currentPet = useRef(pet); currentPet.current = pet;
   const petRef = useRef<HTMLDivElement>(null), position = useRef<Point>({ x: 0, y: 0 });
   const drag = useRef<{ pointer: number; origin: Point; offset: Point; bounds: DOMRect; detached: boolean; moved: boolean; pet: Pet } | null>(null);
@@ -76,7 +76,7 @@ export default function RoamingChibiProvider({ children }: { children: ReactNode
     }
   }, []);
   const setPaused = useCallback((paused: boolean) => {
-    if (paused) setPlayWhilePaused(false);
+    if (paused) setMoving(false);
     setPet(value => value ? { ...value, paused } : null);
   }, []);
   const dismiss = useCallback(() => {
@@ -90,18 +90,11 @@ export default function RoamingChibiProvider({ children }: { children: ReactNode
   const tap = useCallback(() => {
     const next = chooseChibiTap(animations.current, firstTap.current);
     if (!next) return;
-    firstTap.current = false; setMoving(false); setPlayWhilePaused(true);
-    remaining.current = next.duration; resting.current = next; setRest(next);
+    firstTap.current = false; setMoving(false);
+    cycleFinished.current = false; remaining.current = next.duration; resting.current = next; setRest(next);
     // Repeated taps can choose the same clip, which must restart from its beginning.
     setAnimationSequence(value => value + 1);
   }, []);
-  const playAnimation = useCallback((pose: ChibiAnimation, model: ChibiModel, base: boolean) => {
-    const original = currentPet.current?.model; if (!original) return;
-    const next = chibiRequestedAnimation(pose, base, model.skeleton === original.skeleton ? undefined : model);
-    remaining.current = next.duration; resting.current = next; setRest(next);
-    setMoving(false); setPlayWhilePaused(false); setPaused(false);
-    setAnimationSequence(value => value + 1);
-  }, [setPaused]);
   const beginDrag = useCallback((event: ReactPointerEvent<HTMLCanvasElement>, next: Pet, detached: boolean) => {
     if (event.button !== 0 || !event.isPrimary) return;
     event.preventDefault();
@@ -165,24 +158,12 @@ export default function RoamingChibiProvider({ children }: { children: ReactNode
     const walk = (now: number) => {
       const elapsed = Math.max(0, (now - previous) / 1000), dt = Math.min(.05, elapsed); previous = now;
       if (document.hidden) { frame = requestAnimationFrame(walk); return; }
-      if (resting.current && (!paused || playWhilePaused)) {
-        const command = resting.current;
-        if (loadedModel.current !== (command.model ?? currentPet.current?.model)?.skeleton) {
+      if (resting.current) {
+        if (loadedModel.current !== currentPet.current?.model.skeleton) {
           frame = requestAnimationFrame(walk); return;
         }
-        if (command.activity === 'walking') {
-          if (Math.hypot(target.x - position.current.x, target.y - position.current.y) < 3) {
-            target = clampToPage({ x: position.current.x < window.innerWidth / 2 ? window.innerWidth - PET_WIDTH : 0, y: position.current.y });
-          }
-          const dx = target.x - position.current.x, dy = target.y - position.current.y, distance = Math.hypot(dx, dy);
-          if (distance > 0) {
-            setMoving(true); setFlipped(dx < 0);
-            const step = Math.min(distance, 45 * dt);
-            place({ x: position.current.x + dx / distance * step, y: position.current.y + dy / distance * step });
-          }
-        }
-        remaining.current -= elapsed * 1000;
-        if (remaining.current <= 0) { endRest(); hasWalked = false; waitUntil = now + 700; }
+        remaining.current -= dt * 1000;
+        if (remaining.current <= 0 && cycleFinished.current) { endRest(); hasWalked = false; waitUntil = now + 700; }
       } else if (!paused && !resting.current && loadedModel.current === currentPet.current?.model.skeleton && now >= waitUntil) {
         const dx = target.x - position.current.x, dy = target.y - position.current.y, distance = Math.hypot(dx, dy);
         if (distance < 3) {
@@ -192,7 +173,7 @@ export default function RoamingChibiProvider({ children }: { children: ReactNode
             (!activities.sit.includes(animation) || loadedFurniture.current.has('sit')) &&
             (!activities.sleep.includes(animation) || loadedFurniture.current.has('sleep')));
           const next = hasWalked ? chooseChibiBreak(available) : null;
-          if (next) { remaining.current = next.duration; resting.current = next; setRest(next); }
+          if (next) { setAnimationSequence(value => value + 1); cycleFinished.current = false; remaining.current = next.duration; resting.current = next; setRest(next); }
           hasWalked = false;
           target = clampToPage({ x: Math.random() * Math.max(0, window.innerWidth - PET_WIDTH), y: Math.random() * Math.max(0, window.innerHeight - PET_HEIGHT) });
           waitUntil = now + 1000 + Math.random() * 2000;
@@ -208,9 +189,9 @@ export default function RoamingChibiProvider({ children }: { children: ReactNode
     const visibility = () => { previous = performance.now(); };
     frame = requestAnimationFrame(walk); window.addEventListener('resize', resize); document.addEventListener('visibilitychange', visibility);
     return () => { cancelAnimationFrame(frame); window.removeEventListener('resize', resize); document.removeEventListener('visibilitychange', visibility); };
-  }, [label, pet?.model, paused, playWhilePaused, dragging, place, endRest]);
+  }, [label, pet?.model, paused, dragging, place, endRest]);
   const furniture = rest?.activity === 'sit' || rest?.activity === 'sleep' ? CHIBI_FURNITURE[rest.activity] : null;
-  return <RoamingChibiContext.Provider value={{ pet, viewer, viewerOpen, openViewer, closeViewer, playAnimation, walkOnPage, startDrag, setPaused, dismiss }}>
+  return <RoamingChibiContext.Provider value={{ pet, viewer, viewerOpen, openViewer, closeViewer, walkOnPage, startDrag, setPaused, dismiss }}>
     {children}
     {viewer && <ChibiWindow config={viewer} open={viewerOpen} />}
     {pet && createPortal(<div className={`chibi-roaming${dragging ? ' is-dragging' : ''}`} ref={petRef} data-activity={rest?.activity ?? (moving ? 'walking' : 'idle')} data-break-duration={rest?.duration}
@@ -227,10 +208,10 @@ export default function RoamingChibiProvider({ children }: { children: ReactNode
       }}>
       {furniture && <ContentImg className={`chibi-furniture chibi-furniture-${rest!.activity}`} src={furniture.image} alt="" aria-hidden="true" draggable={false}
         data-furniture={furniture.id} style={flipped ? { transform: 'scaleX(-1)' } : undefined} onError={endRest} />}
-      <ChibiCanvas key={activeModel!.skeleton} model={activeModel!} label={pet.label} animation={rest?.clip ?? 'Idle'} activity={rest?.activity} animationSequence={animationSequence} once={rest?.once} playWhilePaused={playWhilePaused} onAnimationChange={ignoreAnimation}
-        onAnimationsChange={onAnimationsChange} paused={pet.paused} moving={moving} flipped={flipped} roaming onPointerDown={event => beginDrag(event, pet, true)} />
+      <ChibiCanvas key={activeModel!.skeleton} model={activeModel!} label={pet.label} animation={rest?.clip ?? 'Idle'} activity={rest?.activity} animationSequence={animationSequence} once={rest?.once} onAnimationChange={ignoreAnimation}
+        onAnimationsChange={onAnimationsChange} onAnimationComplete={onAnimationComplete} paused={false} moving={moving} flipped={flipped} roaming onPointerDown={event => beginDrag(event, pet, true)} />
       <div className="chibi-roaming-controls">
-        <button className="ghost btn-icon" type="button" aria-label="Open chibi viewer" title="Open chibi viewer" onClick={event => openViewer({ label: pet.label, models: pet.models, returnFocus: event.currentTarget })}>+</button>
+        <button className="ghost btn-icon" type="button" aria-label={pet.paused ? 'Resume walking' : 'Pause walking'} title={pet.paused ? 'Resume walking' : 'Pause walking'} onClick={() => setPaused(!pet.paused)}>{pet.paused ? '▶' : 'Ⅱ'}</button>
         <XButton label="Dismiss roaming chibi" onClick={dismiss} />
       </div>
     </div>, document.body)}
