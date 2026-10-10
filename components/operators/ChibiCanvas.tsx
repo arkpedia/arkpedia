@@ -8,13 +8,14 @@ interface ChibiCanvasProps {
   onAnimationsChange: (values: string[], durations?: Record<string, number>) => void; paused: boolean; moving: boolean; flipped: boolean;
   onPointerDown: PointerEventHandler<HTMLCanvasElement>; roaming: boolean;
   activity?: ChibiActivity;
+  onAnimationComplete?: (looping: boolean) => void;
   animationSequence?: number; once?: boolean; playWhilePaused?: boolean;
 }
-export default function ChibiCanvas({ model, label, animation, onAnimationChange, onAnimationsChange, paused, moving, flipped, onPointerDown, roaming, activity, animationSequence = 0, once = false, playWhilePaused = false }: ChibiCanvasProps) {
+export default function ChibiCanvas({ model, label, animation, onAnimationChange, onAnimationsChange, paused, moving, flipped, onPointerDown, roaming, activity, animationSequence = 0, once = false, playWhilePaused = false, onAnimationComplete }: ChibiCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [loading, setLoading] = useState(true), [error, setError] = useState('');
-  const control = useRef({ animation, paused, moving, roaming, activity, animationSequence, once, playWhilePaused });
-  control.current = { animation, paused, moving, roaming, activity, animationSequence, once, playWhilePaused };
+  const control = useRef({ animation, paused, moving, roaming, activity, animationSequence, once, playWhilePaused, onAnimationComplete });
+  control.current = { animation, paused, moving, roaming, activity, animationSequence, once, playWhilePaused, onAnimationComplete };
   useEffect(() => {
     const canvas = canvasRef.current; if (!canvas) return;
     const abort = new AbortController(); let stopped = false, frame = 0;
@@ -37,6 +38,7 @@ export default function ChibiCanvas({ model, label, animation, onAnimationChange
       const skeleton = new spine.Skeleton(data); skeleton.setToSetupPose(); skeleton.updateWorldTransform();
       const stateData = new spine.AnimationStateData(data); stateData.defaultMix = .15;
       const state = new spine.AnimationState(stateData);
+      state.addListener({ start: () => {}, interrupt: () => {}, end: () => {}, dispose: () => {}, event: () => {}, complete: entry => { if (entry === state.getCurrent(0)) control.current.onAnimationComplete?.(entry.loop && entry.animation.duration > 0); } });
       const names = data.animations.map(value => value.name); const initial = names.includes('Idle') ? 'Idle' : names[0];
       onAnimationsChange(names, Object.fromEntries(data.animations.map(value => [value.name, value.duration]))); setLoading(false);
       // Frame Idle, but retain the selected animation across facing/model changes.
@@ -53,6 +55,29 @@ export default function ChibiCanvas({ model, label, animation, onAnimationChange
       const origin = new spine.Vector2(), size = new spine.Vector2(); skeleton.getBounds(origin, size, []);
       skeleton.drawOrder = drawOrder;
       if (!Number.isFinite(size.x) || !Number.isFinite(size.y)) { origin.set(-100, 0); size.set(200, 300); }
+      // Measure every frame of a clip before playback. Transparent effect attachments
+      // do not count, but effects that become visible later must fit too.
+      const envelopes = new Map<string, { left: number; bottom: number; right: number; top: number }>();
+      const envelope = (name: string) => {
+        const cached = envelopes.get(name); if (cached) return cached;
+        const pose = new spine.Skeleton(data), sample = new spine.AnimationState(stateData);
+        sample.setAnimation(0, name, false);
+        const duration = data.animations.find(value => value.name === name)?.duration ?? 0;
+        const bounds = { left: origin.x, bottom: origin.y, right: origin.x + size.x, top: origin.y + size.y };
+        const steps = Math.max(1, Math.ceil(duration * 30));
+        const point = new spine.Vector2(), extent = new spine.Vector2();
+        for (let i = 0; i <= steps; i++) {
+          if (i) sample.update(duration / steps);
+          sample.apply(pose); pose.updateWorldTransform();
+          const order = pose.drawOrder;
+          pose.drawOrder = order.filter(slot => slot.color.a * pose.color.a >= .01);
+          pose.getBounds(point, extent, []); pose.drawOrder = order;
+          if (!Number.isFinite(extent.x) || !Number.isFinite(extent.y)) continue;
+          bounds.left = Math.min(bounds.left, point.x); bounds.bottom = Math.min(bounds.bottom, point.y);
+          bounds.right = Math.max(bounds.right, point.x + extent.x); bounds.top = Math.max(bounds.top, point.y + extent.y);
+        }
+        envelopes.set(name, bounds); return bounds;
+      };
       let previous = performance.now(), current = initial, sequence = 0, wasTap = false, looping = true;
       cleanup = () => { atlas.dispose(); renderer.dispose(); context.gl.getExtension('WEBGL_lose_context')?.loseContext(); };
       const render = (now: number) => {
@@ -78,12 +103,37 @@ export default function ChibiCanvas({ model, label, animation, onAnimationChange
         // Sleep stays horizontal above the mattress, with the same camera and scale.
         skeleton.y = control.current.roaming ? size.y * (control.current.activity === 'sit' ? .25 : control.current.activity === 'sleep' ? .13 : 0) : 0;
         state.apply(skeleton); skeleton.updateWorldTransform();
-        const width = Math.max(1, canvas.clientWidth), height = Math.max(1, canvas.clientHeight), dpr = Math.min(2, window.devicePixelRatio || 1);
+        const holder = canvas.parentElement!;
+        const rect = holder.getBoundingClientRect(), baseWidth = Math.max(1, rect.width), baseHeight = Math.max(1, rect.height);
+        const baseView = Math.max(size.y * 1.4, size.x * baseHeight / baseWidth * 1.4, 1);
+        const measured = envelope(current);
+        const bounds = { ...measured, bottom: Math.min(measured.bottom, measured.bottom + skeleton.y), top: Math.max(measured.top, measured.top + skeleton.y) };
+        const centerX = origin.x + size.x / 2, centerY = origin.y + size.y / 2;
+        const worldWidth = Math.max(baseView * baseWidth / baseHeight, 2 * Math.max(centerX - bounds.left, bounds.right - centerX) * 1.15);
+        const worldHeight = Math.max(baseView, 2 * Math.max(centerY - bounds.bottom, bounds.top - centerY) * 1.15);
+        // Grow the artwork layer without moving the window's buttons or drag handle.
+        // At the viewport edge, fit the complete envelope into the space available.
+        const width = Math.min(Math.max(baseWidth, worldWidth / baseView * baseHeight), Math.max(baseWidth, 2 * Math.min(rect.left + baseWidth / 2 - 8, window.innerWidth - 8 - rect.left - baseWidth / 2)));
+        const height = Math.min(Math.max(baseHeight, worldHeight / baseView * baseHeight), Math.max(baseHeight, 2 * Math.min(rect.top + baseHeight / 2 - 8, window.innerHeight - 8 - rect.top - baseHeight / 2)));
+        const left = (baseWidth - width) / 2;
+        const top = (baseHeight - height) / 2;
+        canvas.style.width = `${width}px`; canvas.style.height = `${height}px`;
+        canvas.style.left = `${left}px`; canvas.style.top = `${top}px`;
+        const dpr = Math.min(2, window.devicePixelRatio || 1);
         if (canvas.width !== Math.round(width * dpr) || canvas.height !== Math.round(height * dpr)) { canvas.width = Math.round(width * dpr); canvas.height = Math.round(height * dpr); }
         const gl = context.gl; gl.viewport(0, 0, canvas.width, canvas.height); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
-        const viewHeight = Math.max(size.y * 1.4, size.x * height / width * 1.4, 1);
-        renderer.camera.position.x = origin.x + size.x / 2; renderer.camera.position.y = origin.y + size.y / 2;
-        renderer.camera.viewportHeight = viewHeight; renderer.camera.viewportWidth = viewHeight * width / height; renderer.camera.update();
+        const viewHeight = Math.max(worldHeight, worldWidth * height / width);
+        const viewWidth = viewHeight * width / height;
+        renderer.camera.position.x = centerX;
+        renderer.camera.position.y = centerY;
+        const order = skeleton.drawOrder;
+        skeleton.drawOrder = order.filter(slot => slot.color.a * skeleton.color.a >= .01);
+        const actualOrigin = new spine.Vector2(), actualSize = new spine.Vector2();
+        skeleton.getBounds(actualOrigin, actualSize, []); skeleton.drawOrder = order;
+        const camera = renderer.camera.position;
+        canvas.dataset.framed = String(!Number.isFinite(actualSize.x) || (actualOrigin.x >= camera.x - viewWidth / 2 && actualOrigin.x + actualSize.x <= camera.x + viewWidth / 2
+          && actualOrigin.y >= camera.y - viewHeight / 2 && actualOrigin.y + actualSize.y <= camera.y + viewHeight / 2));
+        renderer.camera.viewportHeight = viewHeight; renderer.camera.viewportWidth = viewWidth; renderer.camera.update();
         renderer.begin(); renderer.drawSkeleton(skeleton, model.premultipliedAlpha); renderer.end();
         frame = requestAnimationFrame(render);
       };

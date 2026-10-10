@@ -24,9 +24,11 @@ export default function ChibiWindow({ config, open }: { config: ChibiViewerConfi
   const [error, setError] = useState('');
   const [previewPaused, setPreviewPaused] = useState(() => window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const [sequence, setSequence] = useState(0);
-  const petPaused = chibi.pet?.paused;
-  const paused = roaming ? petPaused! : previewPaused;
-  useEffect(() => { if (roaming && petPaused !== undefined) setPreviewPaused(petPaused); }, [roaming, petPaused]);
+  const paused = previewPaused;
+  const [playing, setPlaying] = useState(selected);
+  const completed = useRef(false);
+  useEffect(() => { completed.current = false; }, [playing, sequence]);
+  const onAnimationComplete = useCallback((looping: boolean) => { completed.current = !looping; setPlaying(selected); }, [selected]);
   const windowRef = useRef<HTMLDivElement>(null), position = useRef<Point>({ x: 8, y: 8 });
   const placed = useRef(false), drag = useRef<{ pointer: number; offset: Point } | null>(null);
   const place = useCallback((point: Point) => {
@@ -37,7 +39,7 @@ export default function ChibiWindow({ config, open }: { config: ChibiViewerConfi
     element.style.left = `${position.current.x}px`; element.style.top = `${position.current.y}px`;
   }, []);
   useEffect(() => {
-    setCatalogue({}); setFacing('front'); setSelected({ base: false, clip: 'Idle' });
+    setCatalogue({}); setFacing('front'); setSelected({ base: false, clip: 'Idle' }); setPlaying({ base: false, clip: 'Idle' }); completed.current = false;
   }, [config.models, config.label]);
   useEffect(() => {
     if (!open) return;
@@ -50,7 +52,8 @@ export default function ChibiWindow({ config, open }: { config: ChibiViewerConfi
     return () => { active = false; };
   }, [config.models, config.label, open]);
   useEffect(() => {
-    if (!open || !windowRef.current) return;
+    if (!open) { placed.current = false; return; }
+    if (!windowRef.current) return;
     if (!placed.current) {
       const source = config.returnFocus?.getBoundingClientRect();
       place({ x: (source?.right ?? window.innerWidth) - windowRef.current.offsetWidth, y: source?.top ?? 8 });
@@ -73,7 +76,8 @@ export default function ChibiWindow({ config, open }: { config: ChibiViewerConfi
     return () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', finish); window.removeEventListener('pointercancel', finish); window.removeEventListener('blur', finish); };
   }, [place]);
   const shown = config.models[facing] ? facing : config.models.front ? 'front' : 'back';
-  const battleModel = config.models[shown], model = selected.base ? config.models.walk : battleModel;
+  const battleModel = config.models[shown], model = playing.base ? config.models.walk : battleModel;
+  useEffect(() => { if (paused || completed.current || !model) setPlaying(selected); }, [selected, paused, model]);
   const battle = catalogue[shown] ?? EMPTY, base = catalogue.walk ?? EMPTY;
   const sharedReaction = !base.some(pose => pose.duration > 0 && /^Interact(?:[_\d].*)?$/i.test(pose.name)) || !base.some(pose => pose.duration > 0 && /^Special(?:[_\d].*)?$/i.test(pose.name));
   const choices = useMemo(() => [...battle.map(pose => ({ value: `battle:${pose.name}`, label: pose.name, pose, base: false })),
@@ -88,18 +92,18 @@ export default function ChibiWindow({ config, open }: { config: ChibiViewerConfi
     setSelected({ base: first.base, clip: first.pose.name });
   }, [selectedPose, selected.base, base, battle, choices, catalogue, battleModel, shown]);
   const onAnimationsChange = useCallback((names: string[], durations?: Record<string, number>) => {
-    const key = selected.base ? 'walk' : shown;
+    const key = playing.base ? 'walk' : shown;
     setCatalogue(value => ({ ...value, [key]: names.map(name => ({ name, duration: durations?.[name] ?? 0 })) }));
-  }, [selected.base, shown]);
+  }, [playing.base, shown]);
   const play = () => {
-    setPreviewPaused(false); setSequence(value => value + 1);
-    if (roaming && model && selectedPose) chibi.playAnimation(selectedPose, model, selected.base);
+    setPreviewPaused(false);
+    if (paused || completed.current) { setPlaying(selected); setSequence(value => value + 1); completed.current = false; }
   };
   const nextPet = () => {
     const walking = config.models.walk ?? model;
-    return walking ? { ...config, model: walking, paused, returnFocus: config.returnFocus } : null;
+    return walking ? { ...config, model: walking, paused: window.matchMedia('(prefers-reduced-motion: reduce)').matches, returnFocus: config.returnFocus } : null;
   };
-  const furnitureActivity = selected.base && /^(sit|sleep)(?:[_\d].*)?$/i.test(selected.clip) ? /^sit/i.test(selected.clip) ? 'sit' : 'sleep' : undefined;
+  const furnitureActivity = playing.base && /^(sit|sleep)(?:[_\d].*)?$/i.test(playing.clip) ? /^sit/i.test(playing.clip) ? 'sit' : 'sleep' : undefined;
   if (!open) return null;
   return createPortal(<div ref={windowRef} className="chibi-window" role="dialog" aria-label={`Chibi viewer — ${config.label}`} tabIndex={-1}
     style={{ left: position.current.x, top: position.current.y }} onKeyDown={event => {
@@ -122,8 +126,8 @@ export default function ChibiWindow({ config, open }: { config: ChibiViewerConfi
         onChange={value => { setFacing(value); if (selected.base) setSelected({ base: false, clip: 'Idle' }); }} />}
       <XButton label="Close chibi viewer" onClick={chibi.closeViewer} />
     </div>
-    {model ? <ChibiCanvas key={model.skeleton} model={model} label={config.label} animation={selected.clip} onAnimationChange={ignoreAnimation}
-      onAnimationsChange={onAnimationsChange} animationSequence={sequence} paused={paused} moving={false} flipped={false} activity={furnitureActivity}
+    {model ? <ChibiCanvas key={model.skeleton} model={model} label={config.label} animation={playing.clip} onAnimationChange={ignoreAnimation}
+      onAnimationsChange={onAnimationsChange} onAnimationComplete={onAnimationComplete} animationSequence={sequence} paused={paused} moving={false} flipped={false} activity={furnitureActivity}
       roaming={false} onPointerDown={event => { const next = nextPet(); if (next) chibi.startDrag(event, next); }} />
       : <p className="hint" role="status">Chibi artwork for this outfit is not in the current asset catalogue.</p>}
     {model && <div className="chibi-controls">
@@ -131,7 +135,7 @@ export default function ChibiWindow({ config, open }: { config: ChibiViewerConfi
         onChange={value => { const choice = choices.find(choice => choice.value === value); if (choice) setSelected({ base: choice.base, clip: choice.pose.name }); }} />
       <button className="ghost btn-icon" type="button" aria-label="Play" title="Play selected animation" disabled={!selectedPose} onClick={play}>▶</button>
       <button className="ghost btn-icon" type="button" aria-label="Pause" title="Pause" aria-pressed={paused}
-        onClick={() => { setPreviewPaused(true); if (roaming) chibi.setPaused(true); }}>Ⅱ</button>
+        onClick={() => setPreviewPaused(true)}>Ⅱ</button>
     </div>}
     {(model || roaming) && <div className="chibi-page-controls"><button className="ghost" type="button" onClick={() => {
       if (roaming) chibi.dismiss(); else { const next = nextPet(); if (next && windowRef.current) { const bounds = windowRef.current.getBoundingClientRect(); const point = bounds.left >= 168 ? { x: bounds.left - 168, y: bounds.top }

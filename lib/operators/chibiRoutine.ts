@@ -1,7 +1,6 @@
-import type { ChibiModel } from './chibi';
 export interface ChibiAnimation { name: string; duration: number }
 export type ChibiActivity = 'sit' | 'sleep' | 'idle' | 'special' | 'tap' | 'trust-tap' | 'animation' | 'walking';
-export interface ChibiBreak { activity: ChibiActivity; clip: string; duration: number; model?: ChibiModel; once?: boolean }
+export interface ChibiBreak { activity: ChibiActivity; clip: string; duration: number; once?: boolean }
 
 /** Building models use Relax/Interact; battle-only fallbacks may have Idle/Special. */
 export function chibiActivities(animations: readonly ChibiAnimation[]) {
@@ -44,7 +43,7 @@ export function chooseChibiBreak(animations: readonly ChibiAnimation[], random =
   const chosen = choices[Math.min(choices.length - 1, Math.floor(random() * choices.length))];
   const duration = activity === 'sit' ? 3000 + random() * 7000
     : activity === 'sleep' ? 10000 + random() * 10000
-    : activity === 'idle' ? 2000 + random() * 4000 : Math.max(500, chosen.duration * 1000);
+    : activity === 'idle' ? Math.max(chosen.duration * 1000, 2000 + random() * 4000) : Math.max(500, chosen.duration * 1000);
   return { activity: activity as ChibiActivity, clip: chosen.name, duration };
 }
 
@@ -55,12 +54,3 @@ export const CHIBI_FURNITURE = {
   sit: { name: 'Black Retro Chair', image: furnitureRoot + 's2_01/furni_s2_chair_l_01.png', id: 'furni_s2_chair_L_01' },
   sleep: { name: 'Porcelain Bed', image: furnitureRoot + 's1_01/furni_s1_bed_01.png', id: 'furni_s1_bed_01' },
 } as const;
-
-/** A requested animation temporarily interrupts the routine, then gives it back. */
-export function chibiRequestedAnimation(pose: ChibiAnimation, base: boolean, model?: ChibiModel): ChibiBreak {
-  const activity = base && /^sit(?:[_\d].*)?$/i.test(pose.name) ? 'sit'
-    : base && /^sleep(?:[_\d].*)?$/i.test(pose.name) ? 'sleep'
-    : base && /^(move|walk)$/i.test(pose.name) ? 'walking' : 'animation';
-  return { activity, clip: pose.name, duration: activity === 'sit' ? 5000 : activity === 'sleep' ? 15000 : Math.max(1000, pose.duration * 1000),
-    model, once: activity === 'animation' };
-}
