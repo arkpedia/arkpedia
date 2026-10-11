@@ -59,8 +59,9 @@
 .artworkCaptionRow { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 8px; padding: 8px 12px 0; }
 /* Align the first caption line with the control while the stacked captions reserve the tallest outfit name. */
 .artworkCaptionRow > .artworkCaption { min-width: 0; padding: calc((var(--control-h) - 20px) / 2) 0 0; }
-.artworkCaption { display: grid; flex-shrink: 0; padding: 8px 12px 0; }
-.artworkCaptionVariant { display: grid; grid-area: 1 / 1; grid-template-columns: minmax(0, 1fr) fit-content(40%); align-items: baseline; gap: 4px 12px; min-width: 0; }
+.artworkCaption { display: grid; flex-shrink: 0; padding: 8px 12px 0; overflow: hidden; }
+.artworkCaptionVariant { display: grid; grid-area: 1 / 1; grid-template-columns: minmax(0, 1fr) fit-content(40%); align-items: baseline; gap: 4px 12px; min-width: 0; visibility: hidden; }
+.artworkCaptionVariant[data-current="true"] { visibility: visible; }
 .artworkName { min-width: 0; color: var(--text); font: 600 13px/1.5 var(--font-body); overflow-wrap: anywhere; }
 .artworkPrice { min-width: 0; color: var(--text-dim); font: 600 12px/1.5 var(--font-mono); text-align: right; overflow-wrap: anywhere; }
 

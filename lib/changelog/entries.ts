@@ -34,6 +34,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-10-11T08:56:00Z',
+    title: 'Outfit transitions',
+    changed: [
+      { title: 'Sliding outfit captions', detail: 'Outfit names and prices slide and fade together when switching artwork, with a still transition for reduced motion.', href: '/operators' },
+    ],
+  },
+  {
     at: '2026-10-10T15:35:00Z',
     title: 'Event and banner updates',
     fixed: [
