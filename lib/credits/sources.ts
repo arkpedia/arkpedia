@@ -30,6 +30,7 @@ export const CREDIT_GROUPS: CreditGroup[] = [
       { name: 'ArknightsResource', links: ['https://github.com/fexli/ArknightsResource'] },
       { name: 'Arknights Wiki', links: ['https://arknights.wiki.gg'] },
       { name: 'PRTS Wiki', links: ['https://prts.wiki'] },
+      { name: 'Closure Wiki', links: ['https://closure.wiki'] },
     ],
   },
   {
