@@ -37,6 +37,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     at: '2026-10-11T11:55:00Z',
     title: 'Schedules, event artwork and sources',
     added: [
+      { title: 'Story reading progress', detail: 'Track each story part, see completed stories on the map, and transfer your progress with its own JSON file.', href: '/story' },
       { title: 'Browse your own operator and outfit collections', detail: 'Your profile opens the same collection popups as Import a Friend, with your imported operator builds and owned outfits.', href: '/account' },
       { title: 'Explore player medal collections', detail: 'Use the medal display or View medals to browse sets with official art and in-game layouts, or the full medal list.', href: '/account' },
       { title: 'Joint Operation and Orienteering forecasts', detail: 'Estimated banners return to the schedule, with operator lineups hidden until Global confirmation.', href: '/schedule' },
@@ -45,6 +46,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       { title: 'Closure Wiki reference source', detail: 'Closure Wiki is listed in Credits and fills missing stage map previews when the client-art mirror has none.', href: '/credits' },
     ],
     changed: [
+      { title: 'Three files in Export everything', detail: 'One ZIP now carries separate player data, music playlists and story progress JSON files.', href: '/account' },
       { title: 'Sliding outfit captions', detail: 'Outfit names and prices slide and fade together when switching artwork, with a still transition for reduced motion.', href: '/operators' },
       { title: 'Patreon supporters', detail: 'Updated Patreon acknowledgements in compact tier rows, ordered from highest to lowest.', href: '/support' },
     ],
