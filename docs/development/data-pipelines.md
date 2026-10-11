@@ -1,5 +1,19 @@
 # Data pipelines and audits
 
+## Chibi artwork
+
+`sync-chibi-art.mjs` reads `arkpedia/arkpedia-sd-assets`' main commit, then its manifest at that exact commit. `websiteSkins` maps the existing skin IDs to complete front/back/base models; `build-chibi-index.mjs` emits only SD repository URLs for their skeletons, atlases and every texture page. Base animation models stay separate from battle facings, and shared originals stay explicit aliases.
+
+The `chibi-art` refresh stage runs with each content release. The fingerprint watches the SD repository, and hydration retains the bundled chibi catalogue until the data repository carries it. Missing or incomplete manifests fail the stage and retain the previous catalogue; an update cannot remove an existing skin/facing. There is no browser fallback to an upstream asset repository.
+
+To adopt an already published SD manifest locally:
+
+```sh
+node scripts/sync/sync-chibi-art.mjs
+```
+
+New original models must first be imported, validated and mapped in SD's `websiteSkins`. This stage adopts published coverage; it does not discover or substitute upstream artwork. The operator page props carry the pinned URLs through `arkpedia-data`, so later SD catalogue updates need a content release rather than an application redeploy.
+
 ## audit-base-skills.mjs
 
 Checks the base-skill model against the game's own `building_data.json`.

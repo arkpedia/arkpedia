@@ -76,6 +76,8 @@ const SEEDED_SOURCE_FILES = new Set([
   // commit (scripts/sync/sync-dynamic-art.mjs, every run). /skins and every operator page import
   // it, so a release before the data repository carries it must not lose the app's copy.
   'data/dynamic-art.json',
+  // Commit-pinned chibi models, refreshed from the SD manifest on every content run.
+  'data/chibi-art.json',
 ]);
 const SEEDED_LEDGER = 'data/seeded-source-files.json';
 function walk(dir) { return fs.readdirSync(dir, { withFileTypes: true }).flatMap(entry => {

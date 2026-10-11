@@ -1,6 +1,41 @@
 import { expect, test } from '@playwright/test';
 
 test.setTimeout(120000);
+
+test('default and skin battle/base animations load exclusively from pinned SD assets', async ({ page }) => {
+  const requested = new Set<string>();
+  const failed: string[] = [];
+  const isModel = (url: string) => /\.(?:skel|atlas)(?:\?|$)/.test(url)
+    || /raw\.githubusercontent\.com\/.*\/(?:models\/operator|spine)\/.*\.png(?:\?|$)/.test(url);
+  page.on('request', request => { if (isModel(request.url())) requested.add(request.url()); });
+  page.on('response', response => { if (isModel(response.url()) && !response.ok()) failed.push(`${response.status()} ${response.url()}`); });
+  for (const outfit of ['Base', 'Blade-cleaved Tides']) {
+    await page.goto('/operators/Thorns');
+    await page.getByRole('group', { name: 'Operator outfits', exact: true }).getByRole('button', { name: outfit, exact: true }).click();
+    await page.getByRole('button', { name: 'Chibi viewer', exact: true }).click();
+    await expect(page.locator('.chibi-window canvas')).toHaveAccessibleName(`Thorns — ${outfit} chibi`);
+    const select = page.getByRole('combobox', { name: 'Chibi animation', exact: true });
+    await expect(select).toContainText('Idle');
+    await expect(page.locator('.chibi-window [role="status"]')).toHaveCount(0);
+    const payload = JSON.parse((await page.locator('#__NEXT_DATA__').textContent())!);
+    const backTextures = Object.values(payload.props.pageProps.chibis[outfit].back.textures) as string[];
+    await Promise.all([
+      ...backTextures.map(url => page.waitForResponse(response => response.url() === url && response.ok())),
+      page.getByRole('button', { name: 'Back', exact: true }).click(),
+    ]);
+    await expect(page.locator('.chibi-window [role="status"]')).toHaveCount(0);
+    await select.click();
+    await page.getByRole('option', { name: 'Walking', exact: true }).click();
+    await expect(page.locator('.chibi-window canvas')).toHaveAttribute('data-animation', /move|walk/i);
+    await expect(page.locator('.chibi-window [role="status"]')).toHaveCount(0);
+    await page.getByRole('button', { name: 'Close chibi viewer', exact: true }).click();
+    await expect(page.locator('.chibi-window')).toHaveCount(0);
+  }
+  expect(requested.size).toBeGreaterThanOrEqual(18);
+  expect(failed).toEqual([]);
+  for (const url of requested) expect(url).toMatch(/^https:\/\/raw\.githubusercontent\.com\/arkpedia\/arkpedia-sd-assets\/[a-f0-9]{40}\/models\//);
+});
+
 async function openChibi(page: import('@playwright/test').Page) {
   await page.goto('/operators/Thorns');
   await page.getByRole('group', { name: 'Operator outfits', exact: true }).getByRole('button', { name: 'Base', exact: true }).click();
