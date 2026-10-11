@@ -60,22 +60,35 @@ Fullscreen keeps keyboard focus within the map; Escape or selecting a room exits
 
 ## Rotation
 
+**Rotation** opens a modal timetable with Escape, close and backdrop dismissal.
 **Add to rotation** saves the imported staffing as a setup and adds a 12-hour
 shift without replacing the draft. Other working/resting setups can be saved in
 Presets, then selected as shifts with a duration and start time. Load shift
 explicitly loads its complete setup into Your plan. Rotation survives reload and
 is included in backups.
 
-Each saved setup captures net Morale rates from the existing calculator. Positive
+The timetable recalculates each complete saved setup with the current cross-room
+calculator. Saved Morale rates remain in backups for compatibility; the page uses
+fresh rates, including for older presets. Positive
 rates consume Morale; negative dorm rates recover it up to 24. Unassigned operators
 do not recover off-base. Workshops are discrete crafts, not continuous drains.
 The initial state uses imported Morale where available, then saved Morale or 24.
-Two complete cycles are checked. Warnings cover exhaustion, missing/deleted setup
-rates, unowned operators, duplicate placements, and changes to room types/levels.
-Unbuilt rooms do not count toward facility-count skills. Old presets need to be
-loaded and updated once to capture rates.
+Two complete cycles are checked. Warnings cover exhaustion, deleted setups,
+unowned operators, duplicate placements, and changes to room types/levels.
+Unbuilt rooms do not count toward facility-count skills.
 
-This is a manual staffing timetable with estimated rates. It does not optimize
+Production summaries default to **Current Base**. **Rotation** uses the second
+cycle's output, weighting complete saved setups by their hours and normalizing
+to a day, including cycles that are not 24 hours long. Morale carries from the
+first cycle into the return shifts; it is never refreshed simply because a shift
+starts. The collection window is capped by the selected login interval and shift
+duration. Missing setups, an empty timetable or incompatible room layouts show
+a repair instruction instead of substituting current-base output. Switching the
+calculation source never loads a shift into the editable plan.
+
+These are planning estimates using the room calculator's conservative cutoff
+when the first worker exhausts. The second cycle is not a claim of long-term
+equilibrium. This manual timetable does not optimize
 replacement teams, import an in-game preset/rotation history, change staffing in
 the game, or simulate chronological threshold changes, skill warm-up or one-off
 Morale/training effects. For those numeric-model boundaries, see
@@ -89,5 +102,8 @@ Morale/training effects. For those numeric-model boundaries, see
   recovery preset, importing before formation setup, reimport instructions,
   rotation persistence/loading, stable desktop geometry, production floor
   positions at 320px, zoom/drag selection, fullscreen keyboard access and containment.
+- Timetable/summary coverage: modal focus and nested dropdown Escape, empty numeric
+  edits, real preset options, stable header placement, weighted rotation output,
+  second-cycle exhaustion and calculation switching without staffing changes.
 - Existing base tests retain light-theme contrast, mobile touch targets, roster
   filtering and team remove-button checks.

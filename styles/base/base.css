@@ -1551,6 +1551,8 @@
 .base-import-notes { padding: 8px 0; font-size: 12px; margin-bottom: 8px; }
 .base-import-worker { display: flex; flex-direction: column; gap: 4px; padding: 10px 0; border-bottom: 1px solid var(--line-soft); font-size: 12px; }
 .base-rotation-plan { padding: 16px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-frame); margin-bottom: 16px; }
+.account-dialog.base-rotation-dialog { width: min(1040px, calc(100vw - 24px)); }
+.base-rotation-dialog .base-rotation-plan { padding: 0; margin: 0; border: 0; }
 .base-rotation-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; }
 .base-rotation-heading h2 { margin: 0; font-family: var(--font-display); }
 .base-rotation-heading label { display: flex; align-items: center; gap: 8px; font-size: 12px; }

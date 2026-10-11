@@ -1,3 +1,5 @@
+import NumberInput from '@/components/ui/NumberInput';
+import ImportDialog from '@/components/account/ImportDialog';
 import BaseOverview, { type BaseRoomSummary } from '@/components/base/BaseOverview';
 import BaseRotationPanel from '@/components/base/BaseRotationPanel';
 import Image from '@/components/content/ContentImage';
@@ -54,6 +56,7 @@ import {
   SlotAssignment,
 } from '@/lib/base/baseTypes';
 import { calculateBase } from '@/lib/base/calculateBase';
+import { calculateRotation } from '@/lib/base/calculateRotation';
 import { initializeOptimizerData } from '@/lib/base/optimizerLogic';
 import { canTrainMastery, resolveTrainingTarget, TRAINING_CLASSES, type TrainingTarget } from '@/lib/base/trainingRoomSkills';
 import { type WorkshopRecipe, type WorkshopSettings } from '@/lib/base/workshopSkills';
@@ -209,6 +212,9 @@ export default function BasePage({ operators }: Props) {
   const account = useAccount();
   const [baseSource, setBaseSource] = useState<'planner' | 'account'>('planner');
   const [showRotationPlan, setShowRotationPlan] = useState(false);
+  const [calculationSource, setCalculationSource] = useState<'current' | 'rotation'>('current');
+  const editLayoutButtonRef = useRef<HTMLButtonElement>(null);
+  const layoutEditorScroll = useRef<number | null>(null);
   const [rotationPlan, setRotationPlan] = useState<BaseRotationPlan>({ version: 1, startHour: 8, shifts: [] });
   const plannerBeforeImport = useRef<{ preset: SavedBasePreset; complete: boolean } | null>(null);
   const [snapshotRoom, setSnapshotRoom] = useState<string | null>(null);
@@ -244,6 +250,15 @@ export default function BasePage({ operators }: Props) {
     return (['Base', 'Elite 1', 'Elite 2'] as const)[ownedOperators?.has(name) ? Math.min(2, Math.max(0, rosterElite[name] ?? 0)) : 0];
   }
   const [statsPeriod, setStatsPeriod] = useState<'daily' | 'weekly' | 'monthly' | 'yearly'>('daily');
+  useEffect(() => {
+    if (!savedPresets.some(p => p.id === selectedPreset)) setSelectedPreset(savedPresets[0]?.id ?? '');
+  }, [savedPresets, selectedPreset]);
+  useEffect(() => {
+    if (editingExistingLayout || layoutEditorScroll.current === null) return;
+    window.scrollTo({ top: layoutEditorScroll.current, behavior: 'instant' });
+    editLayoutButtonRef.current?.focus({ preventScroll: true });
+    layoutEditorScroll.current = null;
+  }, [editingExistingLayout]);
   const STATS_PERIOD_MULTIPLIER: Record<typeof statsPeriod, number> = { daily: 1, weekly: 7, monthly: 30, yearly: 365 };
 
   // Staffing replaces the map visually; keep the map mounted to retain its pan/zoom.
@@ -255,7 +270,7 @@ export default function BasePage({ operators }: Props) {
     panel.querySelector<HTMLButtonElement>('.base-room-back-btn')?.focus({ preventScroll: true });
     if (window.matchMedia('(max-width: 720px)').matches) panel.scrollIntoView({ block: 'start', behavior: 'auto' });
     const escape = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return;
+      if (event.key !== 'Escape' || document.querySelector('dialog[open]')) return;
       setRoomPanelFacilityId(null);
       setBreakdownFacilityId(null);
       setSearch('');
@@ -810,6 +825,7 @@ export default function BasePage({ operators }: Props) {
   }
 
   function openLayoutEditor() {
+    layoutEditorScroll.current = window.scrollY;
     setSpotsDraft(productionSpots);
     setSetupFacilityLevelsDraft(facilityLevels);
     // A base that came from a preset reopens with it selected; one built by
@@ -867,18 +883,30 @@ export default function BasePage({ operators }: Props) {
     applyLayoutChange(productionSpots, { ...facilityLevels, [facilityId]: level });
   }
 
-  const {
-    productivityFor, operatorByName, totalMonsterMeal, resourcePools, ccEffects,
-    ccMoraleRelief, totalFelvine, dormitoryOperatorNames, dormitoryRecoveryByFacility,
-    dailyExpGreen, dailyExpRed, dailyGoldMadeGreen, dailyGoldMadeRed,
-    dailyGoldSoldGreen, dailyGoldFromProvisoGreen, dailyGoldFromProvisoRed, dailyGoldSoldRed,
-    dailyExtraLmdFromOrdersGreen, dailyExtraLmdFromOrdersRed, dailyGoldWorthGreen, dailyGoldWorthRed,
-  } = calculateBase({
+  const currentCalculation = calculateBase({
     operators, rosters, skillSlots, facilities: FACILITIES, assignments, factoryProducts,
     dormitoryAmbience, loginInterval, swapPolicy, clueExchangeActive, moraleAbove12,
     trainingTarget, workshopSettings, workshopRecipes,
     importedMorale: baseSource === 'account' ? account?.base?.morale : undefined,
   });
+  const {
+    productivityFor, operatorByName, totalMonsterMeal, resourcePools, ccEffects,
+    ccMoraleRelief, totalFelvine, dormitoryOperatorNames, dormitoryRecoveryByFacility,
+  } = currentCalculation;
+  const rotationCalculation = useMemo(() => calculationSource === 'rotation' || showRotationPlan
+    ? calculateRotation({ operators, rosters, skillSlots, workshopRecipes }, rotationPlan, savedPresets,
+      loginInterval, account?.base?.morale, ownedOperators ?? undefined)
+    : null, [calculationSource, showRotationPlan, operators, rosters, skillSlots, workshopRecipes, rotationPlan, savedPresets, loginInterval, account?.base?.morale, ownedOperators]);
+  const summaryUnavailable = calculationSource === 'rotation' && !rotationCalculation?.totals;
+  const {
+    dailyExpGreen, dailyExpRed, dailyGoldMadeGreen, dailyGoldMadeRed,
+    dailyGoldSoldGreen, dailyGoldFromProvisoGreen, dailyGoldFromProvisoRed, dailyGoldSoldRed,
+    dailyExtraLmdFromOrdersGreen, dailyExtraLmdFromOrdersRed, dailyGoldWorthGreen, dailyGoldWorthRed,
+  } = calculationSource === 'rotation' ? rotationCalculation?.totals ?? {
+    dailyExpGreen: 0, dailyExpRed: 0, dailyGoldMadeGreen: 0, dailyGoldMadeRed: 0,
+    dailyGoldSoldGreen: 0, dailyGoldSoldRed: 0, dailyGoldFromProvisoGreen: 0, dailyGoldFromProvisoRed: 0,
+    dailyExtraLmdFromOrdersGreen: 0, dailyExtraLmdFromOrdersRed: 0, dailyGoldWorthGreen: 0, dailyGoldWorthRed: 0,
+  } : currentCalculation;
   const facility = FACILITIES.find(f => f.id === roomPanelFacilityId);
 
   // One row per (operator, elite level) GROUP, not per individual skill --
@@ -1144,6 +1172,7 @@ export default function BasePage({ operators }: Props) {
       <>
         <div>
           <PageHeader
+            slim
             eyebrow="Rhodes Island // Base Layout"
             title={editingExistingLayout ? 'Edit Base Layout' : 'Base Formation'}
             sub={editingExistingLayout
@@ -1364,11 +1393,11 @@ export default function BasePage({ operators }: Props) {
         actions={<div className="base-view-controls">
           <button type="button" className="ghost" disabled={baseSource === 'account'} aria-expanded={showSavedPresets} onClick={() => setShowSavedPresets(!showSavedPresets)}>Presets</button>
           <button type="button" className="ghost" disabled={baseSource === 'account' && !account?.base} onClick={exportSnapshot}>Save image</button>
-          <button type="button" className="ghost" aria-expanded={showRotationPlan} onClick={() => setShowRotationPlan(!showRotationPlan)}>Rotation</button>
+          <button type="button" className="ghost" aria-haspopup="dialog" onClick={() => setShowRotationPlan(true)}>Rotation</button>
           {/* Outside the development-only guard below: the layout editor is a
               player-facing feature, not a debugging aid. It stays alongside
               the per-building gears for changing many rooms at once. */}
-          <button type="button" className="ghost" disabled={baseSource === 'account'} onClick={openLayoutEditor}>
+          <button ref={editLayoutButtonRef} type="button" className="ghost" disabled={baseSource === 'account'} onClick={openLayoutEditor}>
             Edit layout
           </button>
           {ROTATION_EXPERIMENT_ENABLED && (
@@ -1382,10 +1411,10 @@ export default function BasePage({ operators }: Props) {
       <main>
         {renderBaseSources()}
         {baseSource === 'account' && account?.base && <details className="base-import-notes"><summary>Snapshot and calculation limits{account.base.warnings.length ? ` (${account.base.warnings.length})` : ''}</summary><p>Rooms, staffing, levels and Morale are from the last import. Output uses known snapshot Morale, the current collection interval and manual skill conditions. Training mastery and factory recipe tiers are not imported; output is a planning estimate.</p><ul>{account.base.warnings.map(w => <li key={w}>{w}</li>)}</ul></details>}
-        {(baseSource === 'planner' || account?.base) && <div className="base-production-strip" aria-label="Daily production estimates">{baseSource === 'account' && <span className="hint">Estimated output</span>}<span><strong>{Math.round(dailyGoldWorthGreen).toLocaleString()}</strong> LMD / day</span><span><strong>{Math.round(dailyExpGreen).toLocaleString()}</strong> EXP / day</span><span><strong>{dailyGoldMadeGreen.toFixed(1)}</strong> Gold / day</span><span className={basePower.ok ? undefined : 'prod-danger'}>Power <strong>{basePower.drawn} / {basePower.supplied}</strong>{!basePower.ok && ` · ${Math.abs(basePower.spare)} short`}</span></div>}
-        {showRotationPlan && <BaseRotationPanel plan={rotationPlan} onChange={updateRotationPlan} presets={savedPresets} onLoad={id => loadNamedPreset(id)} initialMorale={account?.base?.morale ?? {}} owned={ownedOperators ?? undefined} imported={!!account?.base} />}
+        {(baseSource === 'planner' || account?.base) && <div className="base-production-strip" aria-label="Daily production estimates">{calculationSource === 'rotation' ? <span className="hint">Rotation estimate</span> : baseSource === 'account' && <span className="hint">Estimated output</span>}<span><strong>{summaryUnavailable ? '—' : Math.round(dailyGoldWorthGreen).toLocaleString()}</strong> LMD / day</span><span><strong>{summaryUnavailable ? '—' : Math.round(dailyExpGreen).toLocaleString()}</strong> EXP / day</span><span><strong>{summaryUnavailable ? '—' : dailyGoldMadeGreen.toFixed(1)}</strong> Gold / day</span><span className={basePower.ok ? undefined : 'prod-danger'}>Power <strong>{basePower.drawn} / {basePower.supplied}</strong>{!basePower.ok && ` · ${Math.abs(basePower.spare)} short`}</span></div>}
+        {showRotationPlan && <ImportDialog title="Rotation" className="base-rotation-dialog" onClose={() => setShowRotationPlan(false)}><BaseRotationPanel plan={rotationPlan} onChange={updateRotationPlan} presets={savedPresets} onLoad={id => { loadNamedPreset(id); setShowRotationPlan(false); }} initialMorale={account?.base?.morale ?? {}} owned={ownedOperators ?? undefined} imported={!!account?.base} stages={rotationCalculation?.stages} /></ImportDialog>}
         {showSavedPresets && baseSource === 'planner'  && <section className="op-section base-saved-presets" aria-label="Saved base presets">
-          <label>Saved preset <StyledSelect label="Saved preset" value={selectedPreset} onChange={setSelectedPreset} options={[{ value: '', label: 'Choose a preset' }, ...savedPresets.map(p => ({ value: p.id, label: p.name }))]} /></label>
+          <label>Saved preset <StyledSelect label="Saved preset" placeholder="No saved presets" value={selectedPreset} onChange={setSelectedPreset} options={savedPresets.map(p => ({ value: p.id, label: p.name }))} /></label>
           <button type="button" className="ghost" disabled={!selectedPreset} onClick={() => loadNamedPreset()}>Load</button>
           <button type="button" className="ghost" disabled={!selectedPreset} onClick={() => saveNamedPreset(true)}>Update</button>
           <button type="button" className="ghost" disabled={!selectedPreset} onClick={() => { if (storePresets(savedPresets.filter(p => p.id !== selectedPreset))) { setSelectedPreset(''); setPresetStatus('Preset deleted.'); } }}>Delete</button>
@@ -1537,16 +1566,13 @@ export default function BasePage({ operators }: Props) {
                 <div className="base-room-building-controls">
                   {facility.id.startsWith('prod') && <StyledSelect label="Room type" value={productionSpots[facility.id]} onChange={v => setFacilityKind(facility.id, v as ProductionKind)} options={PRODUCTION_KINDS.map(kind => ({ value: kind, label: FACILITY_KIND_LABELS[kind], disabled: !canSetSpotKind(productionSpots, facility.id, kind) }))} />}
                   <StyledSelect label="Room level" value={String(facility.level)} onChange={v => setFacilityLevel(facility.id, Number(v))} options={Array.from({ length: MAX_LEVEL_BY_KIND[facility.kind] + 1 }, (_, level) => ({ value: String(level), label: level ? `Level ${level}` : 'Not built' }))} />
-                  {facility.kind === 'dormitory' && <label>Ambience <input aria-label="Dormitory ambience" type="number" min="0" max={dormitoryAmbienceCap(facility.level)} value={dormitoryAmbience[facility.id] ?? defaultDormitoryAmbience(facility.level)} onChange={e => persistAmbience(facility.id, facility.level, Number(e.target.value))} /></label>}
+                  {facility.kind === 'dormitory' && <label>Ambience <NumberInput aria-label="Dormitory ambience" min="0" max={dormitoryAmbienceCap(facility.level)} value={dormitoryAmbience[facility.id] ?? defaultDormitoryAmbience(facility.level)} onChange={e => persistAmbience(facility.id, facility.level, Number(e.target.value))} /></label>}
                   {productivityFor(facility, ccEffects, ccMoraleRelief).facilityBreakdown && <button type="button" className="ghost" onClick={() => setBreakdownFacilityId(activeBreakdown ? null : facility.id)}>{activeBreakdown ? 'Staffing' : 'Calculation'}</button>}
                 </div>
                 {activeBreakdown ? (
                   <div className="base-breakdown-panel">
                     <div className="base-breakdown-header">
                       <span className="base-breakdown-title">{breakdownFacility?.label} -- How this is calculated</span>
-                      <button type="button" className="back-btn" onClick={() => setBreakdownFacilityId(null)}>
-                        ‹ Back to operators
-                      </button>
                     </div>
                     <p className="base-breakdown-line base-breakdown-base">
                       Base {breakdownFacility?.kind === 'tradingPost' ? 'order efficiency' : breakdownFacility?.kind === 'receptionRoom' ? 'clue search speed' : breakdownFacility?.kind === 'powerPlant' ? 'drone recovery' : breakdownFacility?.kind === 'controlCenter' ? 'Morale per hour' : 'productivity'}: <b>{(activeBreakdown.greyProductivity * 100).toFixed(0)}%</b>
@@ -1706,14 +1732,13 @@ export default function BasePage({ operators }: Props) {
                                 No {pickElite(op.name) === 'Base' ? 'Elite 0' : pickElite(op.name)} skill here
                               </span>
                             )}
-                            {selected && FACILITIES.find(room => room.id === facilityId)?.kind === 'dormitory' && <label className="base-slot-morale" onClick={e => e.stopPropagation()}>Morale <input aria-label={`${op.name} current Morale`} type="number" min={0} max={24} value={assignments[facilityId]?.[slotIndex]?.morale ?? 0} onChange={e => {
+                            {selected && FACILITIES.find(room => room.id === facilityId)?.kind === 'dormitory' && <label className="base-slot-morale" onClick={e => e.stopPropagation()}>Morale <NumberInput aria-label={`${op.name} current Morale`} min={0} max={24} value={assignments[facilityId]?.[slotIndex]?.morale ?? 0} onChange={e => {
                               const next = [...(assignments[facilityId] || [])];
                               next[slotIndex] = { ...next[slotIndex]!, morale: Math.min(24, Math.max(0, Number(e.target.value) || 0)) };
                               persist({ ...assignments, [facilityId]: next });
                             }} /></label>}
                             {needsManualValue && (
-                              <input
-                                type="number"
+                              <NumberInput
                                 className="base-slot-manual-input"
                                 placeholder="value"
                                 value={assignments[facilityId]?.[slotIndex]?.manualValue ?? ''}
@@ -1735,9 +1760,9 @@ export default function BasePage({ operators }: Props) {
                           {facility.kind === 'workshop' && <div className="base-room-team">
                             <label>Recipe <StyledSelect label="Workshop recipe" value={workshopSettings.recipeId} onChange={recipeId => setWorkshopSettings({ ...workshopSettings, recipeId })} options={workshopRecipes.filter(r => r.level <= facility.level).map(r => ({ value: r.id, label: workshopRecipes.filter(other => other.name === r.name).length > 1 ? `${r.name} · ${r.morale} Morale · ${r.lmd} LMD (base)` : r.name }))} /></label>
                             <label className="check"><input type="checkbox" checked={!!workshopSettings.overrideDormCount} onChange={e => setWorkshopSettings({ ...workshopSettings, overrideDormCount: e.target.checked })} />Override qualifying dorm count</label>
-                            {workshopSettings.overrideDormCount && <label>Dorm operators meeting skill’s Morale threshold <input aria-label="Qualifying dorm operators" type="number" min={0} max={dormitoryOperatorNames.size} value={workshopSettings.qualifyingDormOperators} onChange={e => setWorkshopSettings({ ...workshopSettings, qualifyingDormOperators: Math.min(dormitoryOperatorNames.size, Math.max(0, Number(e.target.value))) })} /></label>}
-                            {slots.some(s => s?.operatorName === 'Nine-Colored Deer') && <>{(['causality', 'karma'] as const).map(key => <label key={key}>{key} <input type="number" min={0} max={key === 'karma' ? 80 : 40} value={workshopSettings[key]} onChange={e => setWorkshopSettings({ ...workshopSettings, [key]: Math.max(0, Number(e.target.value)) })} /></label>)}</>}
-                            {slots.some(s => s?.operatorName === 'Thorns') && <label>Failed crafts <input type="number" min={0} value={workshopSettings.thornsFailures} onChange={e => setWorkshopSettings({ ...workshopSettings, thornsFailures: Math.max(0, Number(e.target.value)) })} /></label>}
+                            {workshopSettings.overrideDormCount && <label>Dorm operators meeting skill’s Morale threshold <NumberInput aria-label="Qualifying dorm operators" min={0} max={dormitoryOperatorNames.size} value={workshopSettings.qualifyingDormOperators} onChange={e => setWorkshopSettings({ ...workshopSettings, qualifyingDormOperators: Math.min(dormitoryOperatorNames.size, Math.max(0, Number(e.target.value))) })} /></label>}
+                            {slots.some(s => s?.operatorName === 'Nine-Colored Deer') && <>{(['causality', 'karma'] as const).map(key => <label key={key}>{key} <NumberInput min={0} max={key === 'karma' ? 80 : 40} value={workshopSettings[key]} onChange={e => setWorkshopSettings({ ...workshopSettings, [key]: Math.max(0, Number(e.target.value)) })} /></label>)}</>}
+                            {slots.some(s => s?.operatorName === 'Thorns') && <label>Failed crafts <NumberInput min={0} value={workshopSettings.thornsFailures} onChange={e => setWorkshopSettings({ ...workshopSettings, thornsFailures: Math.max(0, Number(e.target.value)) })} /></label>}
                             {productivityFor(facility, ccEffects, ccMoraleRelief).workshop?.notes.map(note => <p className="hint" key={note}>{note}</p>)}
                           </div>}
                           {/* The room as it stands: every slot in order, each wearing the
@@ -1920,7 +1945,21 @@ export default function BasePage({ operators }: Props) {
                   </div>
                 </div>
 
-            <div className="base-summary-panel">
+            <div className="base-summary-panel" aria-label="Base production summary">
+              <div className="base-summary-row">
+                <span className="base-summary-label">Calculate</span>
+                <div className="base-chip-row" role="radiogroup" aria-label="Calculation source" onKeyDown={event => {
+                  if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return;
+                  event.preventDefault();
+                  const next = event.key === 'Home' ? 'current' : event.key === 'End' ? 'rotation' : calculationSource === 'current' ? 'rotation' : 'current';
+                  setCalculationSource(next);
+                  event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="radio"]')[next === 'current' ? 0 : 1]?.focus({ preventScroll: true });
+                }}>
+                  <button type="button" className="filter-chip" role="radio" tabIndex={calculationSource === 'current' ? 0 : -1} aria-checked={calculationSource === 'current'} onClick={() => setCalculationSource('current')}>Current Base</button>
+                  <button type="button" className="filter-chip" role="radio" tabIndex={calculationSource === 'rotation' ? 0 : -1} aria-checked={calculationSource === 'rotation'} onClick={() => setCalculationSource('rotation')}>Rotation</button>
+                </div>
+              </div>
+              {calculationSource === 'rotation' && <p className="hint" role="status">{rotationCalculation?.problem ?? 'Second-cycle average of your saved shifts, weighted by hours. Collections also happen at shift changes.'}</p>}
               <div className="base-summary-row">
                 <span className="base-summary-label">Login interval</span>
                 <div className="base-chip-row" role="group" aria-label="Login interval">
@@ -2033,8 +2072,8 @@ export default function BasePage({ operators }: Props) {
                   </>
                 );
               })()}
-              <p className="hint" style={{ marginTop: 8 }}>                Daily EXP/Pure Gold figures assume items are collected continuously and never sit
-                waiting on a full capacity.
+              <p className="hint" style={{ marginTop: 8 }}>
+                Estimates allow for storage and Morale between collections. Rotation carries Morale through two cycles; threshold changes within a shift and one-off skills are not simulated.
               </p>
             </div>
             </div>

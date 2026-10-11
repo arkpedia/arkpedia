@@ -17,7 +17,7 @@ export interface RotationStage {
 /** Two cycles, so an apparently safe first pass cannot hide an exhausted return shift.
  * Rates are a captured estimate from each saved setup, not a chronological game engine.
  * Outside the base Morale does not recover. Workshops perform discrete crafts, not shifts. */
-export function analyzeRotation(plan: BaseRotationPlan, presets: SavedBasePreset[], initial: Record<string, number> = {}, owned?: ReadonlySet<string>): RotationStage[] {
+export function analyzeRotation(plan: BaseRotationPlan, presets: SavedBasePreset[], initial: Record<string, number> = {}, owned?: ReadonlySet<string>, ratesFor?: (preset: SavedBasePreset, morale: Record<string, number>, hours: number) => Record<string, number>): RotationStage[] {
   const morale: Record<string, number> = { ...initial }, stages: RotationStage[] = [];
   const baseline = presets.find(p => p.id === plan.shifts[0]?.presetId);
   let time = 0, previous: Record<string, string> = {};
@@ -26,6 +26,11 @@ export function analyzeRotation(plan: BaseRotationPlan, presets: SavedBasePreset
     const working: string[] = [], resting: string[] = [], placed: Record<string, string> = {};
     if (!preset) warnings.add('This saved setup was deleted. Choose another setup.');
     if (preset && baseline && getFacilities(preset.productionSpots, preset.facilityLevels).some(f => { const first = getFacilities(baseline.productionSpots, baseline.facilityLevels).find(room => room.id === f.id); return first?.kind !== f.kind || first?.level !== f.level; })) warnings.add('This shift changes room types or levels. Use the same layout for a staffing rotation.');
+    // Seed the whole shift before asking the calculator for its cross-room rates.
+    if (preset) for (const slots of Object.values(preset.assignments)) for (const slot of slots) {
+      if (slot && morale[slot.operatorName] === undefined) morale[slot.operatorName] = slot.morale ?? 24;
+    }
+    const rates = preset ? ratesFor?.(preset, { ...morale }, shift.hours) ?? preset.rotationRates : undefined;
     if (preset) for (const f of getFacilities(preset.productionSpots, preset.facilityLevels)) for (const s of preset.assignments[f.id] ?? []) {
       if (!s) continue;
       const name = s.operatorName;
@@ -35,7 +40,7 @@ export function analyzeRotation(plan: BaseRotationPlan, presets: SavedBasePreset
       (f.kind === 'dormitory' ? resting : working).push(name);
       if (morale[name] === undefined) morale[name] = s.morale ?? 24;
       if (f.kind === 'workshop') continue;
-      const rate = preset.rotationRates?.[name];
+      const rate = rates?.[name];
       if (rate === undefined) { warnings.add('Morale rates are missing. Load and update this saved setup.'); continue; }
       if (rate > 0 && morale[name] < rate * shift.hours - 0.0001) warnings.add(`${name} reaches 0 Morale after ${(morale[name] / rate).toFixed(1)}h.`);
       morale[name] = Math.min(24, Math.max(0, morale[name] - rate * shift.hours));

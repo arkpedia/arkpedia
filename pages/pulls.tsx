@@ -1,3 +1,4 @@
+import NumberInput from '@/components/ui/NumberInput';
 import { withPullPlannerDynamicArt } from '@/lib/skins/dynamicArtFallback';
 import { assertDynamicArtIndex, skinDynamicArt } from '@/lib/skins/dynamicArt';
 import BannerPicker from '@/components/pulls/BannerPicker';
@@ -408,7 +409,7 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
         {incomeSettings.certificates && now && target && <details className="pulls-disclosure" open>
           <summary>Yellow cert shop · monthly spending</summary>
           <p className="hint">Enter a budget for each month. Complete tiers cost 10 / 28 / 68 / 138 / 258 certs for 1 / 3 / 8 / 18 / 38 pulls. Include only purchases you have not already claimed.</p>
-          <div className="pulls-cert-months">{certificateSpending(now, target, readNumber(yellowCerts), certSpending).rows.map(row => <label key={row.month}>{row.month}<input type="number" min="0" max="258" step="1" aria-label={`Yellow cert spending ${row.month}`} value={certSpending[row.month] ?? 0} onChange={e => setCertSpending(value => ({ ...value, [row.month]: Math.max(0, Math.min(258, Math.floor(Number(e.target.value) || 0))) }))} /><span>{row.spent} certs → {row.pulls} pulls{row.short ? ` · ${row.short} certs short` : ''}</span></label>)}</div>
+          <div className="pulls-cert-months">{certificateSpending(now, target, readNumber(yellowCerts), certSpending).rows.map(row => <label key={row.month}>{row.month}<NumberInput min="0" max="258" step="1" aria-label={`Yellow cert spending ${row.month}`} value={certSpending[row.month] ?? 0} onChange={e => setCertSpending(value => ({ ...value, [row.month]: Math.max(0, Math.min(258, Math.floor(Number(e.target.value) || 0))) }))} /><span>{row.spent} certs → {row.pulls} pulls{row.short ? ` · ${row.short} certs short` : ''}</span></label>)}</div>
         </details>}
 
         <dl>
