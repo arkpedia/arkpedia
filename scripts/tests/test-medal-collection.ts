@@ -67,3 +67,21 @@ test('catalogue follows the content release, falls back only for absent new file
     assert.deepEqual(await loadMedalCatalogue('https://content.example/retry/medal-catalogue.json'), catalogue);
   } finally { globalThis.fetch = original; }
 });
+
+test('catalogue validates client geometry and permits only our published background sources', async () => {
+  const original = globalThis.fetch;
+  const data = {version:1,medals:[{id:'a',name:'A',type:'activityMedal',description:'',requirement:'',icon:null,size:{width:104,height:114,x:0,y:0}}],categories:[],sets:[{id:'set',name:'Set',type:'activityMedal',description:'',color:'#123456',medals:['a'],background:'/profile-medals/set-background.webp',layout:{width:1374,height:459,positions:[{id:'a',x:700,y:220}]}}]};
+  let next: unknown = data;
+  globalThis.fetch = async () => new Response(JSON.stringify(next));
+  try {
+    assert.deepEqual(await loadMedalCatalogue('/valid-client-geometry.json'), data);
+    next = {...data, sets: [{...data.sets[0], background: 'https://unrelated.example/track'}]};
+    await assert.rejects(loadMedalCatalogue('/invalid-art-host.json'));
+    next = {...data, sets: [{...data.sets[0], layout: {...data.sets[0].layout, positions:[{id:'a',x:9999,y:220}]}}]};
+    await assert.rejects(loadMedalCatalogue('/invalid-layout-bounds.json'));
+    next = {...data, sets: [{...data.sets[0], layout: {...data.sets[0].layout, positions:[]}}]};
+    await assert.rejects(loadMedalCatalogue('/invalid-layout-membership.json'));
+    next = {...data, medals:[{...data.medals[0],size:{width:0,height:114,x:0,y:0}}]};
+    await assert.rejects(loadMedalCatalogue('/invalid-medal-size.json'));
+  } finally { globalThis.fetch = original; }
+});

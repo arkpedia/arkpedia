@@ -21,17 +21,34 @@ medal date, and is omitted if any required date is unknown.
 The catalogue is built from the EN client's `medal_table.json`, with set membership,
 names, descriptions, requirements and category labels from that table. Official icons
 are used only when published in the pinned external asset index; missing art has a
-reserved placeholder. The set displays arrange individual medal icons on the game's
-set color; no reconstructed or generated set banner is presented as official art.
+reserved placeholder. Set displays use the Global client's exact `_medalPosList` coordinates
+and canvas dimensions, read from `ui/medal/[uc]groupframe.ab`. The sprite packs supply
+each icon's native crop size and offset, including larger completion medals. The
+background includes the official event art, logo, and empty medal silhouettes.
+
+`arkpedia-image-assets/scripts/sync_profile_art.py` imports every EN set background
+from `assets/dyn/arts/ui/medal/suitbkg/`, converts it to WebP, and records its source
+blob and image metadata. The initial catalogue pins these new images to their asset
+commit; subsequent nightly catalogues use the usual published asset index once it
+includes them. Older catalogues without geometry still use the previous icon grid.
 
 ```sh
+python3 scripts/imports/import-medal-layouts.py
 ARKPEDIA_EN=/path/to/en-gamedata node scripts/build/build-medal-catalogue.mjs
 ```
 
 The existing nightly Prepare Content workflow rebuilds `public/medal-catalogue.json`
-after upstream data refresh. Source hydration retains the initial tracked catalogue
+after upstream data refresh and the medal layout importer. Bundle md5s are
+retained in `data/medal-set-layouts.json`, so unchanged bundles are not downloaded. A
+failed layout import leaves the previous geometry intact. Source hydration retains the initial tracked catalogue
 until the data repository carries it. The content exporter includes this public JSON;
 the popup lazy-loads it from the page's content release and caches metadata by URL.
 Only a 404 from an older release lacking the newly added file falls back to the
 deployment copy. Other fetch errors display a retry action. Ownership is never cached
 with metadata, so another account or friend always uses its own record.
+
+The own Account profile uses the same operator and outfit dialog as Import a Friend.
+Its collection reads the selected own account's `operatorBuilds` snapshot. Legacy
+records may use the planner roster only if that server was imported most recently;
+friend storage is never used. Nested operator previews and outfit details keep the
+parent dialog open and restore its focus/scroll on return.

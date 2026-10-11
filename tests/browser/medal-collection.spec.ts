@@ -25,7 +25,15 @@ for (const theme of ['dark', 'light']) test(`${theme}: sets, completion, full li
   await expect(complete).toContainText('✓ Completed');
   await expect(complete).toContainText('Oct 1, 2026');
   await expect(dialog.getByRole('article').filter({ hasText: wolumonde.name })).toContainText('1 / 11 obtained');
-  await expect(dialog.locator('img').first()).toHaveAttribute('src', /profile-medals\/medal_/);
+  await expect(complete.getByRole('img', { name: `${pyrite.name} official background` })).toHaveAttribute('src', pyrite.background);
+  const placed = complete.locator('[data-medal-id]').first();
+  const position = pyrite.layout.positions.find((p: {id:string}) => p.id === pyrite.medals[0]);
+  const native = catalogue.medals.find((m: {id:string}) => m.id === pyrite.medals[0]).size;
+  const box = await placed.evaluate(el => ({left: (el as HTMLElement).style.left, top: (el as HTMLElement).style.top, position: getComputedStyle(el).position}));
+  expect(parseFloat(box.left)).toBeCloseTo((position.x + native.x) / pyrite.layout.width * 100, 3);
+  expect(parseFloat(box.top)).toBeCloseTo((1 - (position.y + native.y) / pyrite.layout.height) * 100, 3);
+  expect(box.position).toBe('absolute');
+  await expect(placed.locator('img')).toHaveAttribute('src', /profile-medals\/medal_/);
   await expect(dialog.locator('img').first()).toHaveAttribute('loading', 'lazy');
   await page.screenshot({ path: `.cache/medals-${info.project.name}-${theme}-sets.png` });
   await complete.getByRole('button', { name: 'Medal list', exact: true }).click();

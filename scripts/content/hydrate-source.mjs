@@ -52,6 +52,7 @@ const SEEDED_SOURCE_FILES = new Set([
   // (scripts/build/build-game-account-map.ts, regenerated every run).
   'data/game-account-map.json',
   'public/medal-catalogue.json',
+  'data/medal-set-layouts.json',
   // Each profile card theme's colours, from the client's theme bundles, and their md5s, so
   // only a changed bundle is fetched (scripts/imports/import-namecard-styles.py, every run).
   'data/namecard-styles.json',

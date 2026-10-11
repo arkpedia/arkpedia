@@ -37,7 +37,8 @@ export const CHANGELOG: ChangelogEntry[] = [
     at: '2026-10-11T11:55:00Z',
     title: 'Schedules, event artwork and sources',
     added: [
-      { title: 'Explore player medal collections', detail: 'Click a profile’s medal display to browse obtained sets or the full medal list, including completion dates.', href: '/account' },
+      { title: 'Browse your own operator and outfit collections', detail: 'Your profile opens the same collection popups as Import a Friend, with your imported operator builds and owned outfits.', href: '/account' },
+      { title: 'Explore player medal collections', detail: 'Click a profile’s medal display to browse sets in their in-game layouts with official background art, or switch to the full medal list.', href: '/account' },
       { title: 'Joint Operation and Orienteering forecasts', detail: 'Estimated banners return to the schedule, with operator lineups hidden until Global confirmation.', href: '/schedule' },
       { title: 'Reclamation Algorithm release dates', detail: 'RA launches, including RA2, appear in the schedule with their regional dates.', href: '/schedule' },
       { title: 'Official furniture shop artwork', detail: 'Event furniture sets show their in-game shop artwork, imported automatically as new sets arrive.', href: '/events' },

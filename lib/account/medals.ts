@@ -1,6 +1,8 @@
 export interface OwnedMedal { id: string; obtainedAt: string | null }
-export interface Medal { id: string; name: string; type: string; rarity: string; description: string; requirement: string; icon: string | null; advanced: string | null; origin: string | null }
-export interface MedalSet { id: string; name: string; description: string; type: string; medals: string[]; color: string }
+export interface MedalSize { width: number; height: number; x: number; y: number }
+export interface MedalLayout { width: number; height: number; positions: { id: string; x: number; y: number }[] }
+export interface Medal { id: string; name: string; type: string; rarity: string; description: string; requirement: string; icon: string | null; advanced: string | null; origin: string | null; size?: MedalSize }
+export interface MedalSet { id: string; name: string; description: string; type: string; medals: string[]; color: string; background?: string | null; layout?: MedalLayout }
 export interface MedalCatalogue { version: 1; medals: Medal[]; sets: MedalSet[]; categories: { id: string; name: string }[] }
 const id = (value: unknown): value is string => typeof value === 'string' && /^[a-zA-Z0-9_-]{1,100}$/.test(value);
 const date = (value: unknown) => typeof value === 'string' && value.length < 40 && Number.isFinite(Date.parse(value)) ? new Date(value).toISOString() : null;

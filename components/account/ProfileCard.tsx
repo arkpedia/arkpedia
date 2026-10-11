@@ -119,7 +119,7 @@ function CollectionLink({ onClick, href, className, title, children }: { onClick
     : <Link prefetch={false} href={href} className={className} title={title}>{children}</Link>;
 }
 
-export default function ProfileCard({ account, map, outfits, outfitArt, outfitNames, onOperators, onSkins }: {
+export default function ProfileCard({ account, map, outfits, outfitArt, outfitNames, onOperators, onSkins, collectionOwner = 'friend' }: {
   account: AccountRecord; map: GameAccountMap; outfits: number;
   /** Each outfit's art by its game id, for the assistant on a theme without one of its own. */
   outfitArt: ReadonlyMap<string, string>;
@@ -127,6 +127,7 @@ export default function ProfileCard({ account, map, outfits, outfitArt, outfitNa
   outfitNames: ReadonlyMap<string, string>;
   onOperators?: () => void;
   onSkins?: () => void;
+  collectionOwner?: 'self' | 'friend';
 }) {
   const profile = account.profile ?? { level: null, registeredAt: null, secretary: null, bio: null };
   // The game dates the card by its server's day (UTC-7, rolling over at 04:00), not UTC's.
@@ -259,7 +260,7 @@ export default function ProfileCard({ account, map, outfits, outfitArt, outfitNa
         </div>
         <div className="account-card-outfits">
           <ContentImg className="account-card-outfits-decor" src={UI('decor_skin')} alt="" aria-hidden="true" />
-          <CollectionLink onClick={onSkins} href="/skins?owned=missing" className="account-card-outfits-count account-card-link" title={onSkins ? "Show friend's skins" : "The outfits you don't have"}>
+          <CollectionLink onClick={onSkins} href="/skins?owned=missing" className="account-card-outfits-count account-card-link" title={onSkins ? `Show ${collectionOwner === 'self' ? 'your' : "friend's"} skins` : "The outfits you don't have"}>
             <ContentImg src={UI('icon_skin')} alt="" aria-hidden="true" />
             <span>Outfits Owned</span>
             <b>{outfits}</b>
@@ -273,7 +274,7 @@ export default function ProfileCard({ account, map, outfits, outfitArt, outfitNa
               aria-label={asShare ? 'Show the operators hired as a count' : 'Show the operators hired as a percentage'} onClick={() => setAsShare(!asShare)}>
               <ContentImg key={`hired-${asShare}`} src={UI('style_change_icon')} alt="" />
             </button>
-            <CollectionLink onClick={onOperators} href="/operators?owned=missing" className="account-card-hired account-card-link" title={onOperators ? "Show friend's operators" : "The operators you don't have"}>
+            <CollectionLink onClick={onOperators} href="/operators?owned=missing" className="account-card-hired account-card-link" title={onOperators ? `Show ${collectionOwner === 'self' ? 'your' : "friend's"} operators` : "The operators you don't have"}>
               {asShare ? `${((100 * hiredCount) / Math.max(1, globalOperators)).toFixed(1)}%` : hiredCount}
             </CollectionLink>
           </div>

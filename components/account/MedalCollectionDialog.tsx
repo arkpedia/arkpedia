@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useContext, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import ImportDialog from './ImportDialog';
 import { ContentImg } from '@/components/content/ContentImage';
 import StyledSelect from '@/components/ui/StyledSelect';
 import LoadOnScroll from '@/components/ui/LoadOnScroll';
-import { useContentUrl } from '@/lib/content/context';
+import { ContentContext, useContentUrl } from '@/lib/content/context';
 import { loadMedalCatalogue } from '@/lib/account/medalCatalogue';
-import { medalSetProgress, obtainedMedal, type Medal, type MedalCatalogue } from '@/lib/account/medals';
+import { medalSetProgress, obtainedMedal, type Medal, type MedalCatalogue, type MedalSet } from '@/lib/account/medals';
 import type { AccountRecord } from '@/lib/account/accountStore';
 import styles from './MedalCollectionDialog.module.css';
 
@@ -15,6 +15,32 @@ function Icon({ medal, owned }: { medal: Medal; owned: boolean }) {
   return <span className={`${styles.icon}${owned ? '' : ` ${styles.unowned}`}`}>
     {medal.icon && !broken ? <ContentImg src={medal.icon} alt="" onError={() => setBroken(true)} /> : <span aria-label="Medal artwork unavailable">◇</span>}
   </span>;
+}
+/** A newly introduced catalogue may fall back from an older content release. Keep
+ * its explicitly pinned background at the commit that actually contains the file. */
+function Background({ src, name, onError }: { src: string; name: string; onError: () => void }) {
+  const release = useContext(ContentContext);
+  const pin = src.match(/^https:\/\/raw\.githubusercontent\.com\/arkpedia\/arkpedia-image-assets\/([a-f0-9]{40})\//)?.[1];
+  const artRelease = pin ? { release: release?.release ?? 'medal-art', baseUrl: release?.baseUrl ?? '', assets: { ...release?.assets, 'arkpedia-image-assets': pin } } : release;
+  return <ContentContext.Provider value={artRelease}><ContentImg className={styles.background} src={src} alt={`${name} official background`} onError={onError} /></ContentContext.Provider>;
+}
+/** Coordinates use the game's bottom-left origin and the icon's original sprite crop. */
+function SetArtwork({ set, medals, owned, fullCollection }: { set: MedalSet; medals: ReadonlyMap<string, Medal>; owned: ReadonlyMap<string, { id: string; obtainedAt: string | null }>; fullCollection: boolean }) {
+  const [broken, setBroken] = useState(false);
+  const layout = set.layout;
+  return <div className={layout ? styles.canvas : styles.cluster} style={layout ? { aspectRatio: `${layout.width} / ${layout.height}` } : undefined}>
+    {set.background && layout && !broken && <Background src={set.background} name={set.name} onError={() => setBroken(true)} />}
+    {set.medals.map(id => {
+      const base = medals.get(id)!;
+      const medal = base.advanced && owned.has(base.advanced) ? medals.get(base.advanced) ?? base : base;
+      const position = layout?.positions.find(p => p.id === id);
+      const size = medal.size ?? base.size;
+      const height = size?.height ?? (base.rarity.startsWith('T3') ? 249 : base.rarity.startsWith('T2') ? 180 : 114);
+      const width = size?.width ?? height * 0.88;
+      const style = layout && position ? { left: `${(position.x + (size?.x ?? 0)) / layout.width * 100}%`, top: `${(1 - (position.y + (size?.y ?? 0)) / layout.height) * 100}%`, width: `${width / layout.width * 100}%`, height: `${height / layout.height * 100}%` } : undefined;
+      return <span className={layout ? styles.placed : undefined} key={id} data-medal-id={id} style={style} title={`${base.name} · ${obtainedMedal(base, owned) ? 'Obtained' : fullCollection ? 'Unobtained' : 'Not in this import'}`}><Icon medal={medal} owned={!!obtainedMedal(base, owned)} /></span>;
+    })}
+  </div>;
 }
 const day = (date: string) => new Date(date).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' });
 
@@ -72,11 +98,7 @@ export default function MedalCollectionDialog({ account, onClose }: { account: A
         <div className={styles.sets}>{sets.slice(0, shown).map(({ set, progress }) => <article className={styles.set} key={set.id}>
           <div className={styles.setArt} style={{ '--medal-set-color': set.color } as CSSProperties}>
             <span className={styles.completion}>{progress.complete ? '✓ Completed' : `${progress.count} / ${set.medals.length} obtained`}{progress.completedAt && <small>{day(progress.completedAt)}</small>}</span>
-            <div className={styles.cluster}>{set.medals.map(id => {
-              const base = medalMap.get(id)!;
-              const medal = base.advanced && owned.has(base.advanced) ? medalMap.get(base.advanced) ?? base : base;
-              return <span key={id} title={`${base.name} · ${obtainedMedal(base, owned) ? 'Obtained' : fullCollection ? 'Unobtained' : 'Not in this import'}`}><Icon medal={medal} owned={!!obtainedMedal(base, owned)} /></span>;
-            })}</div>
+            <SetArtwork set={set} medals={medalMap} owned={owned} fullCollection={fullCollection} />
           </div>
           <div className={styles.setInfo}><h3>{set.name}</h3><p>{set.description}</p><button type="button" className="btn ghost" onClick={() => { setSetId(set.id); setView('list'); }}>Medal list</button></div>
         </article>)}</div>
