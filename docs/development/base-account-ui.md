@@ -60,6 +60,11 @@ Fullscreen keeps keyboard focus within the map; Escape or selecting a room exits
 
 ## Rotation
 
+The **Presets** control stays highlighted while its section is open. **Clear base**
+empties the current workers, products, ambience, training and crafting settings
+without changing facility layout/levels, saved presets or rotation. It also
+deselects the loaded preset so a new setup can be saved separately.
+
 **Rotation** opens a modal timetable with Escape, close and backdrop dismissal.
 **Add to rotation** saves the imported staffing as a setup and adds a 12-hour
 shift without replacing the draft. Other working/resting setups can be saved in

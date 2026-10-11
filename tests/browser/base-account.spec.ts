@@ -17,6 +17,65 @@ async function begin(page: Page) {
 const room = (page: Page, prefix = 'B101') => page.getByRole('button', { name: new RegExp(`^${prefix} `), includeHidden: true });
 const source = (page: Page, name: string) => page.getByRole('button', { name, exact: true });
 
+test('presets stay highlighted while open and clearing preserves saved setups, layout and rotation', async ({ page }, info) => {
+  await seedAccount(page); await begin(page);
+  await source(page, 'Imported account').click();
+  await source(page, 'Edit a copy').first().click();
+  const presetsButton = source(page, 'Presets');
+  await expect(presetsButton).toHaveAttribute('aria-expanded', 'false');
+  const inactiveColor = 'rgba(0, 0, 0, 0)';
+  await expect(presetsButton).toHaveCSS('background-color', inactiveColor);
+  await presetsButton.click();
+  await expect(presetsButton).toHaveAttribute('aria-expanded', 'true');
+  await expect(presetsButton).not.toHaveCSS('background-color', inactiveColor);
+  await presetsButton.click();
+  await expect(page.getByRole('region', { name: 'Saved base presets' })).toHaveCount(0);
+  await expect(presetsButton).toHaveCSS('background-color', inactiveColor);
+  await presetsButton.click();
+  await page.getByPlaceholder('e.g. Gold team').fill('Original staffing');
+  await source(page, 'Save new').click();
+  await source(page, 'Rotation').click();
+  await source(page, 'Add shift').click();
+  await page.getByRole('dialog', { name: 'Rotation', exact: true }).getByRole('button', { name: 'Close', exact: true }).click();
+  const preserved = await page.evaluate(() => Object.fromEntries(['baseSetup_v2', 'baseSavedPresets_v1', 'baseRotationPlan_v1', 'arkpediaAccount'].map(key => [key, localStorage.getItem(key)])));
+  expect(preserved.baseSetup_v2).not.toBeNull();
+  expect(JSON.parse(preserved.baseRotationPlan_v1!).shifts).toHaveLength(1);
+  // Capture the real control layout before the destructive-to-draft action.
+  await fontsSettled(page);
+  if (info.project.name === 'mobile') await page.setViewportSize({ width: 320, height: 900 });
+  for (const theme of ['dark', 'light'] as const) {
+    const switcher = page.getByRole('button', { name: theme === 'light' ? 'Switch to light mode' : 'Switch to dark mode', exact: true });
+    if (await switcher.count()) await switcher.click();
+    await expect(presetsButton).not.toHaveCSS('background-color', inactiveColor);
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
+    await page.screenshot({ path: `.cache/base-presets/${theme}-${info.project.name}-active.png` });
+  }
+  await source(page, 'Clear base').click();
+  await expect(page.getByRole('status')).toContainText('Current base cleared');
+  await expect(source(page, 'Update')).toBeDisabled();
+  await expect(room(page)).toHaveAttribute('aria-label', /0 of 3 operators/);
+  const emptyAssignments = await page.evaluate(() => JSON.parse(localStorage.getItem('baseAssignments_v2')!));
+  expect(Object.values(emptyAssignments).flat().filter(Boolean)).toEqual([]);
+  expect(await page.evaluate(() => Object.fromEntries(['baseSetup_v2', 'baseSavedPresets_v1', 'baseRotationPlan_v1', 'arkpediaAccount'].map(key => [key, localStorage.getItem(key)])))).toEqual(preserved);
+  await page.getByPlaceholder('e.g. Gold team').fill('Empty staffing');
+  // Editing the next preset must not cause an effect to reselect an old setup.
+  await expect(source(page, 'Update')).toBeDisabled();
+  await expect(page.getByRole('combobox', { name: 'Saved preset', exact: true })).toHaveText('Choose a preset');
+  await source(page, 'Save new').click();
+  await page.reload();
+  await expect(room(page)).toHaveAttribute('aria-label', /0 of 3 operators/);
+  await presetsButton.click();
+  await page.getByRole('combobox', { name: 'Saved preset', exact: true }).click();
+  await page.getByRole('option', { name: 'Original staffing', exact: true }).click();
+  await source(page, 'Load').click();
+  await expect(room(page)).toHaveAttribute('aria-label', /3 of 3 operators/);
+  await source(page, 'Imported account').click();
+  await expect(presetsButton).toBeDisabled();
+  await expect(presetsButton).toHaveAttribute('aria-expanded', 'false');
+  await expect(source(page, 'Clear base')).toHaveCount(0);
+  await expect(room(page)).toHaveAttribute('aria-label', /3 of 3 operators/);
+});
+
 test('imported rooms preserve the plan, show exact Morale, and copy only on request', async ({ page }) => {
   await seedAccount(page); await begin(page);
   const saved = await page.evaluate(() => localStorage.getItem('baseAssignments_v2'));

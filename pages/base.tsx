@@ -251,7 +251,7 @@ export default function BasePage({ operators }: Props) {
   }
   const [statsPeriod, setStatsPeriod] = useState<'daily' | 'weekly' | 'monthly' | 'yearly'>('daily');
   useEffect(() => {
-    if (!savedPresets.some(p => p.id === selectedPreset)) setSelectedPreset(savedPresets[0]?.id ?? '');
+    if (selectedPreset && !savedPresets.some(p => p.id === selectedPreset)) setSelectedPreset('');
   }, [savedPresets, selectedPreset]);
   useEffect(() => {
     if (editingExistingLayout || layoutEditorScroll.current === null) return;
@@ -753,7 +753,10 @@ export default function BasePage({ operators }: Props) {
   }
 
   function resetBase() {
+    if (baseSource === 'account') return;
     persist(createEmptyAssignments(FACILITIES));
+    setSelectedPreset('');
+    setPresetStatus('Current base cleared. Layout, saved presets and rotation kept.');
     setTrainingTarget({ operatorName: '', class: 'Guard', branch: '', mastery: 1, timeReductionActive: false, instantTrainingReady: false });
     setWorkshopSettings({ recipeId: '1', qualifyingDormOperators: 0, causality: 0, karma: 0, thornsFailures: 0 });
     setFactoryProducts({});
@@ -1391,7 +1394,7 @@ export default function BasePage({ operators }: Props) {
         title="Base"
         sub="Staff your rooms, compare setups and plan the next shift."
         actions={<div className="base-view-controls">
-          <button type="button" className="ghost" disabled={baseSource === 'account'} aria-expanded={showSavedPresets} onClick={() => setShowSavedPresets(!showSavedPresets)}>Presets</button>
+          <button type="button" className="ghost" disabled={baseSource === 'account'} aria-expanded={showSavedPresets && baseSource === 'planner'} aria-controls="base-saved-presets" onClick={() => setShowSavedPresets(!showSavedPresets)}>Presets</button>
           <button type="button" className="ghost" disabled={baseSource === 'account' && !account?.base} onClick={exportSnapshot}>Save image</button>
           <button type="button" className="ghost" aria-haspopup="dialog" onClick={() => setShowRotationPlan(true)}>Rotation</button>
           {/* Outside the development-only guard below: the layout editor is a
@@ -1413,13 +1416,14 @@ export default function BasePage({ operators }: Props) {
         {baseSource === 'account' && account?.base && <details className="base-import-notes"><summary>Snapshot and calculation limits{account.base.warnings.length ? ` (${account.base.warnings.length})` : ''}</summary><p>Rooms, staffing, levels and Morale are from the last import. Output uses known snapshot Morale, the current collection interval and manual skill conditions. Training mastery and factory recipe tiers are not imported; output is a planning estimate.</p><ul>{account.base.warnings.map(w => <li key={w}>{w}</li>)}</ul></details>}
         {(baseSource === 'planner' || account?.base) && <div className="base-production-strip" aria-label="Daily production estimates">{calculationSource === 'rotation' ? <span className="hint">Rotation estimate</span> : baseSource === 'account' && <span className="hint">Estimated output</span>}<span><strong>{summaryUnavailable ? '—' : Math.round(dailyGoldWorthGreen).toLocaleString()}</strong> LMD / day</span><span><strong>{summaryUnavailable ? '—' : Math.round(dailyExpGreen).toLocaleString()}</strong> EXP / day</span><span><strong>{summaryUnavailable ? '—' : dailyGoldMadeGreen.toFixed(1)}</strong> Gold / day</span><span className={basePower.ok ? undefined : 'prod-danger'}>Power <strong>{basePower.drawn} / {basePower.supplied}</strong>{!basePower.ok && ` · ${Math.abs(basePower.spare)} short`}</span></div>}
         {showRotationPlan && <ImportDialog title="Rotation" className="base-rotation-dialog" onClose={() => setShowRotationPlan(false)}><BaseRotationPanel plan={rotationPlan} onChange={updateRotationPlan} presets={savedPresets} onLoad={id => { loadNamedPreset(id); setShowRotationPlan(false); }} initialMorale={account?.base?.morale ?? {}} owned={ownedOperators ?? undefined} imported={!!account?.base} stages={rotationCalculation?.stages} /></ImportDialog>}
-        {showSavedPresets && baseSource === 'planner'  && <section className="op-section base-saved-presets" aria-label="Saved base presets">
-          <label>Saved preset <StyledSelect label="Saved preset" placeholder="No saved presets" value={selectedPreset} onChange={setSelectedPreset} options={savedPresets.map(p => ({ value: p.id, label: p.name }))} /></label>
+        {showSavedPresets && baseSource === 'planner'  && <section id="base-saved-presets" className="op-section base-saved-presets" aria-label="Saved base presets">
+          <label>Saved preset <StyledSelect label="Saved preset" placeholder={savedPresets.length ? 'Choose a preset' : 'No saved presets'} value={selectedPreset} onChange={setSelectedPreset} options={savedPresets.map(p => ({ value: p.id, label: p.name }))} /></label>
           <button type="button" className="ghost" disabled={!selectedPreset} onClick={() => loadNamedPreset()}>Load</button>
           <button type="button" className="ghost" disabled={!selectedPreset} onClick={() => saveNamedPreset(true)}>Update</button>
           <button type="button" className="ghost" disabled={!selectedPreset} onClick={() => { if (storePresets(savedPresets.filter(p => p.id !== selectedPreset))) { setSelectedPreset(''); setPresetStatus('Preset deleted.'); } }}>Delete</button>
           <label>New preset <input maxLength={80} value={presetName} placeholder="e.g. Gold team" onChange={e => setPresetName(e.target.value)} /></label>
           <button type="button" className="primary" disabled={!presetName.trim()} onClick={() => saveNamedPreset(false)}>Save new</button>
+          <button type="button" className="danger" onClick={resetBase}>Clear base</button>
           <p className="hint">Saved on this browser: layout, workers, Elite levels, products, ambience, training, crafting and calculation settings.</p>
         </section>}
         <p className="hint base-preset-status" role="status" aria-live="polite">{presetStatus}</p>
