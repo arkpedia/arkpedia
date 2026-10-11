@@ -1346,38 +1346,45 @@ a.primary:where(:has(~ :is(button, a).ghost)),
   gap: 16px;
   margin-top: 24px;
 }
-/* The supporter tiers. These three had no rules at all, so a ul rendered with disc
-   bullets and 40px of indent in the middle of a page that has neither anywhere
-   else -- it read as an unstyled document dropped into the design. Panels to match
-   .support-option below, since that is what the rest of this page is made of. */
+/* Acknowledgements: tier labels at left, names flowing across the available space. */
 .supporters-tiers {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-  gap: 14px;
   margin-top: 14px;
-}
-.supporter-tier {
-  padding: 14px;
   border-radius: var(--radius-frame, 3px);
   border: 1px solid var(--line-soft);
   background: var(--panel-grad, var(--panel-2));
-  /* r11 quiet polish: a boxed panel's soft depth (docs/development/ui-primitives.md rule 23). */
   box-shadow: var(--shadow-panel);
 }
-/* Each tier's name is a .label-tag micro-label (arkpedia-theme.css); it stays an h3,
-   heading its list of names. */
-.supporter-tier h3 { margin: 0 0 8px; }
+.supporter-tier {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  align-items: baseline;
+  gap: 10px 24px;
+  padding: 16px 20px;
+}
+.supporter-tier + .supporter-tier { border-top: 1px solid var(--line-soft); }
+.supporter-tier h3 {
+  margin: 0;
+  color: var(--text-faint);
+  font-size: 15px;
+  line-height: 1.4;
+}
 /* The page's first line starts 24px under the header hairline (the paragraph's own top
    margin put it at 40). */
 .support-intro { margin-top: 0; }
 .supporter-list {
   display: flex;
-  flex-direction: column;
-  gap: 5px;
+  flex-wrap: wrap;
+  gap: 8px 24px;
   margin: 0;
   padding: 0;
   list-style: none;
   font-size: 13px;
+}
+.supporter-list li { max-width: 100%; overflow-wrap: anywhere; }
+@media (max-width: 700px) {
+  .supporter-tier { grid-template-columns: minmax(0, 1fr); padding: 14px 16px; }
+  .supporter-list { column-gap: 20px; }
 }
 
 .support-option {
