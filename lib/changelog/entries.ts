@@ -38,7 +38,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     title: 'Outfits and supporters',
     changed: [
       { title: 'Sliding outfit captions', detail: 'Outfit names and prices slide and fade together when switching artwork, with a still transition for reduced motion.', href: '/operators' },
-      { title: 'Patreon supporters', detail: 'Updated supporter acknowledgements across all five Patreon tiers.', href: '/support' },
+      { title: 'Patreon supporters', detail: 'Updated Patreon acknowledgements in compact tier rows, ordered from highest to lowest.', href: '/support' },
     ],
     fixed: [
       { title: 'Outfit selection dots', detail: 'Inactive outfit dots are gray again, with teal highlighting the selected artwork.', href: '/operators' },

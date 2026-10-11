@@ -1,15 +1,26 @@
 {
   "supporter-tier": [
     {
-      "id": "mini_cookie_supporters",
-      "name": "Mini Cookie Supporters",
+      "id": "oiler_cookie_supporters",
+      "name": "Oiler Cookie Supporters",
       "supporters": [
-        "Tim Q",
-        "RecCrystal33",
-        "Chris",
-        "Dedsec",
-        "Ferrum Argentum",
-        "JayKay"
+        "Xethrion",
+        "J-Min",
+        "KingS"
+      ]
+    },
+    {
+      "id": "giant_cookie_supporters",
+      "name": "Giant Cookie Supporters",
+      "supporters": [
+        "Reverend Xil"
+      ]
+    },
+    {
+      "id": "delicious_cookie_supporters",
+      "name": "Delicious Cookie Supporters",
+      "supporters": [
+        "Porato"
       ]
     },
     {
@@ -27,26 +38,15 @@
       ]
     },
     {
-      "id": "delicious_cookie_supporters",
-      "name": "Delicious Cookie Supporters",
+      "id": "mini_cookie_supporters",
+      "name": "Mini Cookie Supporters",
       "supporters": [
-        "Porato"
-      ]
-    },
-    {
-      "id": "giant_cookie_supporters",
-      "name": "Giant Cookie Supporters",
-      "supporters": [
-        "Reverend Xil"
-      ]
-    },
-    {
-      "id": "oiler_cookie_supporters",
-      "name": "Oiler Cookie Supporters",
-      "supporters": [
-        "Xethrion",
-        "J-Min",
-        "KingS"
+        "Tim Q",
+        "RecCrystal33",
+        "Chris",
+        "Dedsec",
+        "Ferrum Argentum",
+        "JayKay"
       ]
     }
   ]

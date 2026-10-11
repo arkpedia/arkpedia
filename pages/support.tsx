@@ -110,7 +110,7 @@ export default function SupportPage() {
           <div className="supporters-tiers">
             {patreonSupporters['supporter-tier'].map(tier => (
               <div key={tier.id} className="supporter-tier">
-                <h3 className="label-tag">{tier.name}</h3>
+                <h3>{tier.name}</h3>
                 <ul className="supporter-list">
                   {tier.supporters.map(supporter => <li key={supporter}>{supporter}</li>)}
                 </ul>
