@@ -4,9 +4,15 @@
  * baseline it chose -- iOS drew ⏸ as a colour emoji. One 20px grid, currentColor, so
  * each takes the colour of the button it sits in (teal when that button is on).
  */
-type IconName = 'prev' | 'play' | 'pause' | 'next' | 'shuffle' | 'repeat' | 'list' | 'heart' | 'plus' | 'streamSafe' | 'close' | 'note' | 'loading';
+type IconName = 'prev' | 'play' | 'pause' | 'next' | 'shuffle' | 'repeat' | 'list' | 'heart' | 'plus' | 'streamSafe' | 'close' | 'note' | 'loading' | 'more' | 'back' | 'up' | 'down' | 'reorder' | 'trash';
 
 const PATHS: Record<IconName, JSX.Element> = {
+  trash: <><path d="M4 6h12M8 6V3h4v3M6 6l1 11h6l1-11M9 9v5M11 9v5" /></>,
+  more: <><circle cx="4" cy="10" r="1.4" fill="currentColor" stroke="none" /><circle cx="10" cy="10" r="1.4" fill="currentColor" stroke="none" /><circle cx="16" cy="10" r="1.4" fill="currentColor" stroke="none" /></>,
+  back: <path d="m12 4-6 6 6 6" />,
+  up: <path d="m4 12 6-6 6 6" />,
+  down: <path d="m4 8 6 6 6-6" />,
+  reorder: <><path d="M8 5h9M8 10h9M8 15h9" /><circle cx="3" cy="5" r=".8" /><circle cx="3" cy="10" r=".8" /><circle cx="3" cy="15" r=".8" /></>,
   prev: <><path d="M5 4v12" strokeWidth="1.8" /><path d="M15.5 4.5 7.5 10l8 5.5z" fill="currentColor" stroke="none" /></>,
   play: <path d="M6.5 4.2 16 10l-9.5 5.8z" fill="currentColor" stroke="none" />,
   pause: <><rect x="5" y="4" width="3.4" height="12" fill="currentColor" stroke="none" /><rect x="11.6" y="4" width="3.4" height="12" fill="currentColor" stroke="none" /></>,

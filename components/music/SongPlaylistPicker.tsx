@@ -32,7 +32,7 @@ export default function SongPlaylistPicker({ song }: { song: Song }) {
   </>;
 }
 
-function PlaylistOptions({ song, onClose }: { song: Song; onClose: () => void }) {
+export function PlaylistOptions({ song, onClose, onBack }: { song: Song; onClose: () => void; onBack?: () => void }) {
   const closeRef = useRef<HTMLButtonElement>(null);
   useEffect(() => { closeRef.current?.focus({ preventScroll: true }); }, []);
   const [playlists, setPlaylists] = useState<MusicPlaylist[]>([]);
@@ -75,6 +75,7 @@ function PlaylistOptions({ song, onClose }: { song: Song; onClose: () => void })
   }
   return <>
     <div className="music-song-playlist-heading">
+      {onBack && <button type="button" className="ghost btn-icon btn-sm" aria-label="Back to song actions" onClick={onBack}><TransportIcon name="back" /></button>}
       <b>Add to playlists</b>
       <XButton ref={closeRef} label="Close playlist picker" onClick={onClose} />
     </div>

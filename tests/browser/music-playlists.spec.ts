@@ -7,7 +7,7 @@ for (const theme of ['dark', 'light']) {
     await stubYouTube(page);
     await page.goto('/music');
     await expect(page.locator('.music-queue-row').first()).toBeVisible();
-    await page.locator('.music-queue-row').first().getByRole('button', { name: 'Play now', exact: true }).click();
+    await page.locator('.music-queue-row').first().locator('.music-queue-row-title').click();
     await expect.poll(async () => (await youtube(page))?.state).toBe(1);
     const before = (await youtube(page))!;
     await page.getByRole('button', { name: 'Favorite', exact: true }).click();

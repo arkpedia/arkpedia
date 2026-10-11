@@ -37,13 +37,14 @@ export const CHANGELOG: ChangelogEntry[] = [
     at: '2026-10-11T11:55:00Z',
     title: 'Schedules, event artwork and sources',
     added: [
-      { title: 'Favorite songs and add them to playlists', detail: 'Hearts save to Favourites automatically; use the plus beside a song to choose playlists or create one.', href: '/music' },
+      { title: 'Song favourites and playlists', detail: 'Hearts save to Favourites automatically; choose playlists with the plus, or the ⋯ menu on phones.', href: '/music' },
       { title: 'Joint Operation and Orienteering forecasts', detail: 'Estimated banners return to the schedule, with operator lineups hidden until Global confirmation.', href: '/schedule' },
       { title: 'Reclamation Algorithm release dates', detail: 'RA launches, including RA2, appear in the schedule with their regional dates.', href: '/schedule' },
       { title: 'Official furniture shop artwork', detail: 'Event furniture sets show their in-game shop artwork, imported automatically as new sets arrive.', href: '/events' },
       { title: 'Closure Wiki reference source', detail: 'Closure Wiki is listed in Credits and fills missing stage map previews when the client-art mirror has none.', href: '/credits' },
     ],
     changed: [
+      { title: 'Tap songs to play and drag to sort', detail: 'Drag near an edge to scroll quickly through the list, and release outside it to cancel the move.', href: '/music' },
       { title: 'Sliding outfit captions', detail: 'Outfit names and prices slide and fade together when switching artwork, with a still transition for reduced motion.', href: '/operators' },
       { title: 'Patreon supporters', detail: 'Updated Patreon acknowledgements in compact tier rows, ordered from highest to lowest.', href: '/support' },
     ],

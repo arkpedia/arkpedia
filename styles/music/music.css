@@ -346,7 +346,7 @@
   .music-wave-3 { animation: none; }
 }
 
-/* Queue panel: drag-and-drop reorder, tap-to-swap, play now, move to top, remove. */
+/* Queue panel: tap to play, drag to reorder, compact row actions. */
 .music-queue-panel {
   --queue-gap: 10px;
   display: flex;
@@ -376,8 +376,7 @@
 .music-view > .music-queue-panel > .music-queue-list { flex: 1 1 0; min-height: 0; max-height: none; }
 .music-queue-list:focus-visible,
 .music-queue-list :focus-visible { outline-offset: -2px; }
-/* The row handles the drag; its title is the button (tap to select, tap another
-   to swap), so the title carries the control boundary and the row does not. */
+/* The title plays the song; the handle reorders without starting playback. */
 .music-queue-row {
   display: flex;
   flex-shrink: 0;
@@ -396,6 +395,7 @@
   pointer-events: none;
 }
 .music-queue-drag-handle {
+  touch-action: none;
   flex-shrink: 0;
   color: var(--text-faint);
   cursor: grab;
@@ -430,11 +430,6 @@
 /* The track playing now. */
 .music-queue-row.active .music-queue-row-title { border-color: var(--teal); background: var(--teal-dim); color: var(--teal); }
 .music-queue-row.active .music-queue-row-index { color: var(--teal); }
-/* Held for a swap: picked, not playing, so amber rather than teal. */
-.music-queue-row.selected .music-queue-row-title {
-  border-color: var(--amber);
-  background: color-mix(in srgb, var(--amber) 12%, transparent);
-}
 .music-queue-row-actions {
   display: flex;
   flex-shrink: 0;
@@ -466,12 +461,16 @@
 }
 .music-queue-row.drop-before::before { top: -3px; }
 .music-queue-row.drop-after::after { bottom: -3px; }
-/* Five actions get their own line on phones so song names and touch targets keep their room. */
+.music-song-mobile-actions { display: none; }
+.music-song-drag-ghost { position: fixed; top: 0; left: 0; z-index: 150; pointer-events: none; box-sizing: border-box; padding: 10px 12px; border: 1px solid var(--teal); border-radius: var(--radius-frame); background: var(--panel); box-shadow: 0 12px 32px rgb(0 0 0 / .3); }
+.music-song-drag-ghost > b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.music-song-drag-ghost > small { color: var(--text-muted); }
+.music-song-drag-ghost.cancelling { border-color: var(--text-muted); opacity: .75; }
 @media (max-width: 720px) {
-  .music-queue-row { display: grid; grid-template-columns: max-content 24px minmax(0, 1fr); gap: 4px; padding-bottom: 4px; }
+  .music-song-desktop-actions { display: none; }
+  .music-song-mobile-actions { display: flex; }
+  .music-queue-row { gap: 4px; }
   .music-queue-row-title { padding: 0 8px; }
-  .music-queue-row-actions { grid-column: 3; justify-self: end; gap: 4px; }
-  .music-queue-row-placeholder { min-height: calc(2 * var(--control-h) + 8px); }
 }
 @media (max-width: 720px) and (pointer: coarse) {
   .music-queue-list { padding-right: 0; }
@@ -633,3 +632,8 @@
 .music-song-playlist-create > input { flex: 1; min-width: 140px; }
 .music-song-playlist-create > button { flex: none; }
 .music-song-playlists-popover .music-playlist-status { margin-bottom: 0; overflow-wrap: anywhere; }
+
+.music-song-playlist-heading > b { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.music-song-menu-options { display: grid; gap: 4px; margin-top: 8px; }
+.music-song-menu-options > button { display: flex; align-items: center; gap: 10px; text-align: left; }
+.music-song-menu-options > button > span { margin-left: auto; }
