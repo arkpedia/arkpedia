@@ -61,7 +61,7 @@ export default function EventListPanel({ events, now: renderedAt }: { events: Co
   return (
     <div className="community-event-list">
       {sorted.map((ev, i) => (
-        <a key={i} href={ev.url} target="_blank" rel="noreferrer" className="community-event-item">
+        <a key={i} href={ev.url || undefined} target="_blank" rel="noreferrer" className="community-event-item">
           <span className="community-event-name">
             <span className={`event-status-dot event-status-${ev.status}`} />
             <span>{ev.name}</span>

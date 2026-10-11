@@ -402,19 +402,7 @@ export default function OperatorVoiceLines({ data }: { data: OperatorVoiceData }
   }
 
   const playerMessage = selected && !selectedHasRecording ? `No ${pack?.label ?? 'selected'} recording for this line.` : audioError;
-  const packOptions = [
-    ...data.packs.map(item => ({
-      value: item.id,
-      label: packOptionLabel(item),
-      group: item.status === 'legacy' ? 'Previous recordings' : 'Current recordings',
-    })),
-    // One group per outfit voice set, after the operator's own, headed by its outfits.
-    ...skinVoices.flatMap(set => set.packs.map(item => ({
-      value: `${set.id}${SET_SEPARATOR}${item.id}`,
-      label: packOptionLabel(item),
-      group: set.label,
-    }))),
-  ];
+  const packOptions = voice.packs.map(item => ({ value: activeSet ? `${activeSet.id}${SET_SEPARATOR}${item.id}` : item.id, label: packOptionLabel(item) }));
   const packValue = activeSet && pack ? `${activeSet.id}${SET_SEPARATOR}${pack.id}` : pack?.id ?? '';
 
   return (
@@ -426,7 +414,12 @@ export default function OperatorVoiceLines({ data }: { data: OperatorVoiceData }
 
       <div ref={playerAnchorRef} className={styles.playerAnchor} aria-hidden="true" />
       <div ref={playerRef} className={styles.player} data-stuck={playerStuck || undefined} aria-label="Voice line player">
-        <div className={styles.packRow}>
+        <div className={`${styles.packRow} ${skinVoices.length ? styles.withOutfit : ''}`}>
+          {skinVoices.length > 0 && <StyledSelect label="Voice outfit" className={styles.outfitSelect} value={setId ?? ''} options={[{ value: '', label: 'Default outfit' }, ...skinVoices.map(set => ({ value: set.id, label: set.label }))]} onChange={id => {
+            const next = skinVoices.find(set => set.id === id);
+            const nextPack = (next ?? data).packs.find(item => item.id === packId) ?? preferredPackOf(next ?? data);
+            if (nextPack) chooseVoice(next ? `${next.id}${SET_SEPARATOR}${nextPack.id}` : nextPack.id);
+          }} />}
           <StyledSelect label="Voice language" align="end" value={packValue} className={styles.packSelect}
             options={packOptions}
             renderValue={option => activeSet

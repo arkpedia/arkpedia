@@ -344,6 +344,7 @@ async function run(page: Page, info: TestInfo, t: Target, theme: 'dark' | 'light
     if (t.drive) await test.step('drive', () => t.drive!(page));
     if (dark && t.state) await part(p('first-gap'), () => stateFirstGap(page, t, width, p('first-gap')));
   }
+  if (t.route === '/community' && t.pictures !== undefined) await test.step('open the World video gallery', () => page.getByRole('tab', { name: 'YouTube', exact: true }).click());
   if (reduced) await test.step('motion back on, animations ended', () => motionOn(page));
 
   if (dark && t.state) {

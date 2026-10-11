@@ -77,7 +77,8 @@ const source = createServer((request, response) => {
   response.end(fs.readFileSync(path.join(root, file)));
 });
 await new Promise(resolve => source.listen(3204, '127.0.0.1', resolve));
-const buildId = fs.readFileSync('.next/BUILD_ID', 'utf8');
+const buildFile = path.join(process.env.NEXT_DIST_DIR || '.next', 'BUILD_ID');
+const buildId = fs.readFileSync(buildFile, 'utf8');
 const log = fs.openSync('/tmp/arkpedia-content-runtime-server.log', 'w');
 const server = spawn(process.execPath, ['node_modules/next/dist/bin/next', 'start', '-p', '3193'], {
   env: { ...process.env, ARKPEDIA_CONTENT_URL: 'http://127.0.0.1:3204', ARKPEDIA_CONTENT_TEST: '1', ARKPEDIA_CONTENT_DISABLED: '0' }, stdio: ['ignore', log, log],
@@ -102,8 +103,9 @@ try {
     await page.route('https://raw.githubusercontent.com/arkpedia/**', route => route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100" fill="#1b2c34"/></svg>' }));
     const checkVoice = async (label) => {
       await page.goto('http://localhost:3193/operators/Runtime%20Content%20Test#voiceLines');
-      await page.getByRole('button', { name: /^Play / }).first().click();
-      const src = await page.locator('audio').first().getAttribute('src');
+      const voice = page.locator('#operator-voiceLines');
+      await voice.getByRole('button', { name: /^Play / }).first().click();
+      const src = await voice.locator('audio').getAttribute('src');
       assert.ok(src?.includes(pinnedRevision(label.repeat(40))), `${name} voice URL did not use release ${label}`);
     };
     active = 'a'; corrupt = false;
@@ -191,7 +193,7 @@ try {
     console.log(`${name}: existing operator updated, new operator, stage and song appeared, banners updated, rollback and corruption fallback passed`);
     await context.close();
   }
-  assert.equal(fs.readFileSync('.next/BUILD_ID', 'utf8'), buildId);
+  assert.equal(fs.readFileSync(buildFile, 'utf8'), buildId);
   console.log(`All runtime checks passed against unchanged production build ${buildId}`);
 } finally {
   await browser?.close();

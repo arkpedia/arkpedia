@@ -27,9 +27,14 @@
       "why": "a picture card: the text keeps --card-inset from the flush art (/skins)"
     },
     {
-      "parent": "button.btn-bare.pick-card",
+      "parent": "button.btn-bare.skin-plan-view",
       "child": "span.skin-plan-card-text",
-      "why": "a picture card, the Skins gallery's: the text keeps --card-inset from the flush art (/skin-planner, and the Pull Planner's Outfits panel)"
+      "why": "a picture card: the artwork button's caption keeps --card-inset from the flush art (/skin-planner, and the Pull Planner's Outfits panel)"
+    },
+    {
+      "parent": "article.pick-card.pick-card-picture",
+      "child": "button.btn-bare.skin-plan-card-foot",
+      "why": "a picture card: the separate Plan button keeps --card-inset, aligned with the artwork caption above the flush art (/skin-planner, and the Pull Planner's Outfits panel)"
     },
     {
       "parent": "a.stage-mode-card",

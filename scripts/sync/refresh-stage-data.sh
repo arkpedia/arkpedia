@@ -139,6 +139,7 @@ stage item-icons --needs stage-dataset,upstream-cn-art -- node scripts/imports/i
 # our own operator records for the alter names -- but it belongs to the same refresh:
 # a new operator has to reach the map's deploy bar too.
 stage operator-deploy -- node scripts/build/build-operator-deploy.mjs
+stage operator-summons -- node scripts/build/build-operator-summons.mjs
 # Amiya class forms: the Guard and Medic operator records.
 stage amiya-forms -- node scripts/build/build-amiya-forms.mjs
 # Skills that change an operator attack range.
@@ -203,6 +204,7 @@ stage ra-releases -- node scripts/sync/sync-ra-releases.mjs
 # The official Global event announcements, cached post by post (data/official-news/global): a
 # quiet day reads two pages of the list. GET only; a day the site is down keeps the cache.
 stage official-news -- node scripts/sync/sync-official-news.mjs
+stage community-web-events -- node scripts/sync/sync-community-web-events.mjs
 
 # Each event's store as arknights.wiki.gg lists it, a rerun's from its /Rerun page
 # (data/event-stores.json): no table or announcement has a store's listings. A page parsed before

@@ -55,7 +55,7 @@ export function adoptStagedArt(publishedFile, { root = process.cwd(), run = spaw
   const before = new Set(readQuarantine(root).entries.map(entry => `${entry.stage} ${entry.key}`));
   for (const { kind, files, command } of adoptions(published)) {
     log(`== ${kind}: ${files} file(s) published; ${command.join(' ')}`);
-    const result = run(command[0], command.slice(1), { cwd: root, stdio: 'inherit' });
+    const result = run(command[0], command.slice(1), { cwd: root, stdio: 'inherit', env: { ...process.env, ARKPEDIA_ART_ADOPTION: '1' } });
     if (result.status !== 0) throw new Error(`${command.join(' ')} exited ${result.status ?? result.signal} adopting what ${kind} staged`);
   }
   const after = new Set(readQuarantine(root).entries.map(entry => `${entry.stage} ${entry.key}`));

@@ -8,7 +8,7 @@ import type { PlannedSkin } from './skins';
 export interface SkinCollection {
   id: string; name: string; start: string; end: string; estimated: boolean;
   skinIds: string[]; featuredIds: string[];
-  source?: string; sourceRegion?: string;
+  source?: string; sourceRegion?: string; fashionReview?: boolean;
 }
 const isoDate = (text: string) => {
   const match = text.trim().match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/);
@@ -20,7 +20,7 @@ export interface SkinShopSource {
 }
 export interface ConfirmedSkinWindow {
   event: string; kind: string; label: string; startAt: string; endAt: string;
-  skinIds: string[]; source?: string; newRelease?: boolean;
+  skinIds: string[]; source?: string; newRelease?: boolean; inventoryComplete?: boolean;
 }
 const normalizeEvent = (name: string) => name.replace(/\[[^\]]*\]/g, '').replace(/[^a-z0-9]/gi, '').toLowerCase();
 const day = 86_400_000;
@@ -43,7 +43,14 @@ export function pullSkinCollections(events: ScheduleEvent[], skins: Skin[], cata
   const paid = new Set(catalogue.map(skin => skin.id));
   // Keep expired confirmations too: an old CN projection must never resurrect
   // a shop after its verified Global window has closed.
-  const confirmedEvents = new Set(confirmed.map(window => normalizeEvent(window.event)));
+  const completeEvents = new Set(confirmed.filter(window => window.inventoryComplete).map(window => normalizeEvent(window.event)));
+  const confirmedIds = new Map<string, Set<string>>();
+  for (const window of confirmed.filter(window => window.kind === 'shop')) {
+    const event = normalizeEvent(window.event);
+    const ids = confirmedIds.get(event) ?? new Set<string>();
+    window.skinIds.forEach(id => ids.add(id));
+    confirmedIds.set(event, ids);
+  }
   const verified: SkinCollection[] = confirmed.flatMap(window => {
     if (window.kind !== 'shop') return [];
     const startTime = Date.parse(window.startAt), endTime = Date.parse(window.endAt);
@@ -71,29 +78,30 @@ export function pullSkinCollections(events: ScheduleEvent[], skins: Skin[], cata
     if (skin.globalReleaseAt) firstSeen(`${skin.model} / ${skin.name}`, new Date(skin.globalReleaseAt * 1000).toISOString().slice(0, 10));
   }
   const projected = sources.flatMap(source => {
-    if (confirmedEvents.has(normalizeEvent(source.event))) return [];
-    const event = events.find(event => event.name === source.event);
+    if (completeEvents.has(normalizeEvent(source.event))) return [];
+    const verifiedIds = confirmedIds.get(normalizeEvent(source.event));
+    const event = events.find(event => normalizeEvent(event.name) === normalizeEvent(source.event));
     if (!event) return [];
     return (event.global.dateRange || '').split(';').flatMap(window => {
       const [eventStart, eventEnd] = window.split(/[–—]/).map(isoDate);
       if (!eventStart || !eventEnd || eventEnd < eventStart) return [];
       const offset = Date.parse(`${eventStart}T00:00:00Z`) - Date.parse(`${source.eventStart}T00:00:00Z`);
       if (!Number.isFinite(offset) || offset % day) throw new Error(`Invalid shop reference date: ${source.event}`);
-      const returning = source.rotations.filter(rotation => !rotation.new.length && rotation.returning.length);
+      const returning = source.rotations.filter(rotation => rotation.label !== 'Fashion Review' && !rotation.new.length && rotation.returning.length);
       return source.rotations.flatMap(rotation => {
         const start = shiftDate(rotation.start, offset);
         const end = shiftDate(rotation.end, offset);
         if (end < start) throw new Error(`Invalid shop window: ${source.event} / ${rotation.label}`);
-        const fresh = rotation.new.filter(id => !(onGlobal.has(id) && onGlobal.get(id)! < start));
-        const skinIds = [...new Set([...fresh, ...rotation.returning])];
+        const fresh = rotation.new.filter(id => !verifiedIds?.has(id) && !(onGlobal.has(id) && onGlobal.get(id)! < start));
+        const skinIds = [...new Set([...fresh, ...rotation.returning.filter(id => !verifiedIds?.has(id))])];
         for (const id of skinIds) if (!paid.has(id)) throw new Error(`Shop outfit missing OP metadata: ${id}`);
         return skinIds.length ? [{
           id: `${event.name} / ${eventStart} / ${rotation.label}`,
-          name: `${event.name} · ${rotation.new.length === 0 ? `Returning outfits${returning.length > 1 ? ` — batch ${returning.indexOf(rotation) + 1}` : ''}` : rotation.label}`,
+          name: `${event.name} · ${rotation.label === 'Fashion Review' ? 'Fashion Review' : rotation.new.length === 0 ? `Returning outfits${returning.length > 1 ? ` — batch ${returning.indexOf(rotation) + 1}` : ''}` : rotation.label}`,
           source: source.source, sourceRegion: source.sourceRegion,
           start, end,
           estimated: source.sourceRegion !== 'global' || rotation.dateBasis !== 'shop' || predicted.has(event.name),
-          skinIds, featuredIds: fresh,
+          skinIds, featuredIds: fresh, fashionReview: rotation.label === 'Fashion Review',
         }] : [];
       });
     });
@@ -106,6 +114,10 @@ export function pullSkinCollections(events: ScheduleEvent[], skins: Skin[], cata
  * outfits. A skin introduced during a rerun must not inherit the original run. */
 export function skinReleaseDates(events: ScheduleEvent[], skins: Skin[]): Map<string, string> {
   const dates = new Map<string, string>();
+  for (const skin of skins) {
+    const time = skin.globalReleaseAt || skin.cnReleaseAt;
+    if (time) dates.set(`${skin.model} / ${skin.name}`, new Date(time * 1000).toISOString().slice(0, 10));
+  }
   const names = events.map(event => event.name);
   for (const region of ['global', 'cn'] as const) {
     const regional = new Map<string, string>();

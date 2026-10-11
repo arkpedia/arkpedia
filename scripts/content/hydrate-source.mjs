@@ -38,6 +38,9 @@ const deprecated = relative => deprecatedSourceFiles.has(relative) || deprecated
 // deletes on purpose is then deleted here as well, never brought back from the app's
 // stale copy, and the log names it. Take an entry out once every release carries it.
 const SEEDED_SOURCE_FILES = new Set([
+  // Web campaign discovery (official regional feeds and campaign rules), seeded until
+  // the first release publishes it. Later discoveries arrive without a code deploy.
+  'data/community-web-events.json',
   'data/base-group-rosters.json',
   'data/base-skill-slots.json',
   'data/base-skill-translations.json',

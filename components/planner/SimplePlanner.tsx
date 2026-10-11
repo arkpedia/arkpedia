@@ -21,10 +21,11 @@ import { useSwitchHold } from "@/components/ui/useSwitchHold";
 import SearchInput from "@/components/ui/SearchInput";
 import Rarity, { rarityLevel } from "@/components/ui/Rarity";
 
-function Materials({ cost }: { cost: CostGroup }) {
+function Materials({ cost, missingShares }: { cost: CostGroup; missingShares?: Map<string, number> }) {
   /* The release's catalogue order, which the page's props carry (usePlannerContent). */
   const { catalogue } = usePlannerContent();
-  const items = sortMaterials(cost.filter((c) => Number(c.quantity) > 0), catalogue.order);
+  const shown = missingShares ? cost.map(item => ({ ...item, quantity: Math.round(Number(item.quantity) * (missingShares.get(item.name) ?? 0)) })) : cost;
+  const items = sortMaterials(shown.filter((c) => Number(c.quantity) > 0), catalogue.order);
   return items.length ? (
     <ul className="simple-materials">
       {items.map((c) => (
@@ -41,17 +42,20 @@ function Materials({ cost }: { cost: CostGroup }) {
       ))}
     </ul>
   ) : (
-    <p className="simple-no-cost">No upgrades selected</p>
+    <p className="simple-no-cost">{missingShares ? 'No missing materials for these upgrades.' : 'No upgrades selected'}</p>
   );
 }
 
 export function SimpleMaterialGroups({
   op,
   state,
+  missingShares,
 }: {
+  missingShares?: Map<string, number>;
   op: PlannerOperator;
   state: BuilderState;
 }) {
+  const [showAll, setShowAll] = useState(false);
   const [view, setView] = useState<'total' | 'separate'>('total');
   const { levels } = usePlannerContent();
   const groups = useMemo(() => upgradeCostGroups(op, state, levels), [op, state, levels]);
@@ -62,17 +66,19 @@ export function SimpleMaterialGroups({
   }, [groups]);
   return (
     <div className="simple-cost-groups">
-      <SegmentedControl
-        label="Material display"
-        className="simple-material-view"
-        value={view}
-        onChange={setView}
-        options={[{ value: 'total', label: 'Total' }, { value: 'separate', label: 'Separate' }]}
-      />
-      {view === 'total' ? <Materials cost={total} /> : groups.map(g => (
+      <div className="simple-material-toolbar">
+        <SegmentedControl
+          label="Material display"
+          value={view}
+          onChange={setView}
+          options={[{ value: 'total', label: 'Total' }, { value: 'separate', label: 'Separate' }]}
+        />
+        {missingShares && <SegmentedControl label="Which operator materials to show" value={showAll ? 'all' : 'missing'} onChange={value => setShowAll(value === 'all')} options={[{ value: 'missing', label: 'Missing' }, { value: 'all', label: 'All' }]} />}
+      </div>
+      {view === 'total' ? <Materials cost={total} missingShares={showAll ? undefined : missingShares} /> : groups.map(g => (
         <section key={g.name}>
           <h3>{g.name}</h3>
-          <Materials cost={g.cost} />
+          <Materials cost={g.cost} missingShares={showAll ? undefined : missingShares} />
         </section>
       ))}
     </div>
@@ -105,8 +111,12 @@ export function SimplePlanner({
   onRetry,
   failedNames,
   clearControl,
+  materialsPanel,
+  missingShares,
 }: {
+  missingShares?: Map<string, number>;
   clearControl?: React.ReactNode;
+  materialsPanel?: React.ReactNode;
   operators: PlannerOperatorSummary[];
   selectedNames: string[];
   states: Record<string, BuilderState>;
@@ -293,7 +303,7 @@ export function SimplePlanner({
                   </button>
                 </div>
                 {op ? (
-                  <SimpleMaterialGroups op={op} state={state} />
+                  <SimpleMaterialGroups op={op} state={state} missingShares={missingShares} />
                 ) : (
                   <div role="status">
                     {failedNames.has(name)
@@ -328,7 +338,7 @@ export function SimplePlanner({
                   </button>
                 </p>
               ) : (
-                <Materials cost={combinedBill} />
+                materialsPanel ?? <Materials cost={combinedBill} />
               )}
             </section>
           )}

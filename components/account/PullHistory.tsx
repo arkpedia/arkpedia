@@ -75,6 +75,7 @@ export default function PullHistory({ account, map }: { account: AccountRecord |
                 {' · '}{banner.six.length ? `${banner.sinceSix} since the last 6★` : 'no 6★ yet'}
                 {' · '}{day(banner.first) === day(banner.last) ? day(banner.last) : `${day(banner.first)} – ${day(banner.last)}`}
               </span>
+              <button type="button" className="ghost btn-sm" aria-label={`Export ${bannerName(banner.pool)} CSV`} onClick={() => downloadBlob(new Blob([pullHistoryCsv({ ...history, rows: history.rows.filter(row => row.pool === banner.pool) }, map)], { type: 'text/csv;charset=utf-8' }), `arkpedia-pulls-${banner.pool.replace(/[^a-z0-9_-]/gi, '_')}.csv`)}>Export CSV</button>
             </div>
             {banner.six.length + banner.five.length > 0 && (
               <div className="account-pulls-ops">

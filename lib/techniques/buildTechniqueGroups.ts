@@ -211,6 +211,9 @@ export function buildTechniqueGroups(): TechniqueGroup[] {
       }
       // A technique the record already names on this skill by hand is not listed again: the
       // record's entry wins, as on the operator page (mergeTechniques).
+      if (skill.recoveryType === 'Offensive Recovery' || skill.recoveryType === 'Defensive Recovery') {
+        autoTechs.push({ name: skill.recoveryType, description: skill.recoveryType === 'Offensive Recovery' ? 'Gains SP when attacking.' : 'Gains SP when taking a hit.', viaBranch: false, matchedKeyword: null, matchedKeywordEnd: null, highlightSeparately: false, sourceText: skill.recoveryType });
+      }
       const skillTechs = mergeTechniques(manualTechs, autoTechs);
       const listedSkillNames = new Set(skillTechs.map((t) => t.name));
       for (const tech of skillTechs) {

@@ -19,7 +19,6 @@ import Tabs, { tabPanelProps } from '@/components/ui/Tabs';
 import Rarity, { rarityLevel } from '@/components/ui/Rarity';
 import type { SearchableOperatorRecord as SearchableOperator } from '@/lib/operators/operatorSearch';
 import { Operator, GuideEntry, SynergyEntry, SkillRecommendationEntry, SkillTechnique, getSkillList, getSkillCost, CostGroup, getWelfareInfo } from '@/lib/operators/operatorTypes';
-import { recommendationsTellApart } from '@/lib/operators/skillRecommendation';
 import { MEMBER_TO_UMBRELLA, UMBRELLA_DESCRIPTIONS, skillTechniques, talentTechniques } from '@/lib/techniques/autoTechniques';
 import { buildTechniqueGroups } from '@/lib/techniques/buildTechniqueGroups';
 import { SYNERGY_CLASS_NAMES, findSynergyMatches, isSynergyExcluded } from '@/lib/techniques/synergyDetection';
@@ -39,7 +38,7 @@ import { getSkillIconPath, getBaseSkillIconPath, baseSkillDisplayName, talentDis
 import { getAllSkins } from '@/lib/skins/skins';
 import { parsePrices, formatPrices } from '@/lib/skins/skinPrice';
 import SkinZoomOverlay from '@/components/skins/SkinZoomOverlay';
-import { assertDynamicArtIndex, operatorDynamicArt } from '@/lib/skins/dynamicArt';
+import { appearanceSkinId, assertDynamicArtIndex, operatorDynamicArt } from '@/lib/skins/dynamicArt';
 import { withOperatorDynamicArt } from '@/lib/skins/dynamicArtFallback';
 import { highlightStats } from '@/components/ui/HighlightedText';
 import { CroppedRange } from '@/lib/operators/branchRanges';
@@ -47,12 +46,17 @@ import { getOperatorAttackRanges, OperatorAttackRange as AttackRangeChoice } fro
 import OperatorAttackRange from '@/components/operators/OperatorAttackRange';
 import { operatorBelongsToFaction } from '@/lib/operators/factionAliases';
 import OPERATOR_FORMS from '@/data/operator-forms.json';
+import OperatorChibi from '@/components/operators/OperatorChibi';
+import type { ChibiFacings } from '@/lib/operators/chibi';
+import OperatorSummons from '@/components/operators/OperatorSummons';
+import type { Summon } from '@/lib/operators/summonStats';
 import OperatorStatsPanel from '@/components/operators/OperatorStatsPanel';
 import OperatorGameIcon from '@/components/operators/OperatorGameIcon';
 import OperatorTalents from '@/components/operators/OperatorTalents';
 import OperatorTraitLines from '@/components/operators/OperatorTraitLines';
 import { traitPhases } from '@/lib/operators/operatorTrait';
 import LodestarTalentDemo from '@/components/operators/LodestarTalentDemo';
+import { useMusicPlayer } from '@/lib/music/musicPlayerContext';
 import OperatorCredits from '@/components/operators/OperatorCredits';
 import OperatorAppearancePicker from '@/components/operators/OperatorAppearancePicker';
 import OperatorArtworkCaption from '@/components/operators/OperatorArtworkCaption';
@@ -105,6 +109,9 @@ interface OperatorForm {
 }
 
 interface Props {
+  chibis?: Record<string, ChibiFacings>;
+  summons?: Summon[];
+  epTrack?: { id: string; title: string; copyright: boolean } | null;
   overviewRanges: AttackRangeChoice[];
   artworkCredits: Record<string, ArtworkCredit>;
   factionEmblem: string | null;
@@ -257,7 +264,10 @@ function RecommendationBadge({ entries }: { entries: SkillRecommendationEntry[] 
     <span className="op-skill-recommend-stack">
       {visible.map((e, i) => (
         <span key={i} className="op-skill-recommend-row">
-          {e.mastery && <OperatorGameIcon label={e.mastery.toUpperCase()} color size={26} />}
+          {e.mastery && <>
+            <span className={pageStyles.recommendArt} aria-hidden="true"><OperatorGameIcon label={e.mastery.toUpperCase()} color size={26} /></span>
+            <span className={pageStyles.recommendLevel}>{e.mastery.toUpperCase()}</span>
+          </>}
           {e.mastery && e.order && <span className="op-skill-recommend-dot">·</span>}
           {e.order && <span className="op-skill-recommend-mastery">{e.order}</span>}
         </span>
@@ -476,7 +486,8 @@ function GuideVideoCard({ guide, operatorName }: { guide: GuideEntry; operatorNa
   );
 }
 
-export default function OperatorDetailPage({ operator, appearances, skinObtainByLabel, synergyMatches, autoSynergyGroups, techniqueUnitIcons, techniqueBranchOperators, techniqueGroupOperators, techniqueRelatedOperators, forms, skillRanges, skillTimings, factionEmblem, artworkCredits, overviewRanges, voiceData, branchRelatedOperators = [], relatedByArtist = {}, relatedByVoiceActor = {}, materialOrder, dynamicArt = {} }: Props) {
+export default function OperatorDetailPage({ chibis = {}, summons = [], epTrack, operator, appearances, skinObtainByLabel, synergyMatches, autoSynergyGroups, techniqueUnitIcons, techniqueBranchOperators, techniqueGroupOperators, techniqueRelatedOperators, forms, skillRanges, skillTimings, factionEmblem, artworkCredits, overviewRanges, voiceData, branchRelatedOperators = [], relatedByArtist = {}, relatedByVoiceActor = {}, materialOrder, dynamicArt = {} }: Props) {
+  const music = useMusicPlayer();
   const contentUrl = useContentUrl();
   const router = useRouter();
 
@@ -611,8 +622,8 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
   // Each section keeps its controls mounted while only the selected one is visible.
   const availableSections: { key: SectionKey; label: string }[] = [];
   const skillList = useMemo(() => getSkillList(operator), [operator]);
-  // The badge beside a skill's name only where the recommendations tell the skills apart.
-  const showRecommendations = useMemo(() => recommendationsTellApart(skillList), [skillList]);
+  // Show the recorded mastery and priority beside every recommended skill tab.
+  const showRecommendations = skillList.some(skill => skill.recommendation?.length);
   const skillCost = useMemo(() => getSkillCost(operator), [operator]);
   const priorityGuideGroups = useMemo(() => {
     type Row = { skillIndex: number; iconPath: string | null; entry: SkillRecommendationEntry };
@@ -972,7 +983,11 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
               )}
             </div>
 
-            <OperatorArtworkCaption appearances={appearances} activeIndex={shownIndex} prices={skinObtainByLabel} />
+            <OperatorChibi key={operator.name} onOpen={() => setRotating(false)} models={chibis[shownAppearance?.label ?? ''] ?? null} label={`${operator.name} — ${shownAppearance?.label ?? ''}`} />
+            <div className={pageStyles.artworkCaptionRow}>
+              <OperatorArtworkCaption appearances={appearances} activeIndex={shownIndex} prices={skinObtainByLabel} />
+              {epTrack && <button type="button" className="ghost btn-sm" title={epTrack.title} disabled={music.excludeCopyrighted && epTrack.copyright} onClick={() => music.playFirst(epTrack.id)}>Play EP</button>}
+            </div>
             <OperatorAppearancePicker key={operator.name} appearances={appearances} activeIndex={activeIndex}
               onSelect={selectAppearance} onWarm={setWarmIndex} rotating={rotating} onRotationChange={setRotating} />
 
@@ -1090,21 +1105,32 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
             )}
             {sectionVisible('skills') && (
               <section id="operator-skills" data-operator-section="skills" tabIndex={-1} className={`op-section ${pageStyles.section}`}>
-                <h2>Skills</h2>
+                <div className={pageStyles.skillHeading}>
+                  <h2>Skills</h2>
+                  {priorityGuideGroups.length > 0 && (
+                    <a className="ghost btn-sm" href="#mastery" aria-label="Mastery priority guide">
+                      <span><span className={pageStyles.masteryGuidePrefix}>Mastery </span>priority guide ↓</span>
+                    </a>
+                  )}
+                </div>
                 {/* The site's tabs, each with the skill's icon: they were 56x62 icon
                     tiles in a column beside the title, a fourth tab look. */}
                 <Tabs
                   label="Skill"
                   id="operator-skill"
-                  className="op-skill-tabs"
+                  className={`op-skill-tabs ${pageStyles.skillTabs}`}
                   value={activeSkillIndex}
                   onChange={setActiveSkillIndex}
                   options={skillList.map((s, i) => {
                     const iconPath = getSkillIconPath(operator.name, s.name);
                     return {
                       value: i,
-                      label: `Skill ${i + 1}`,
-                      ariaLabel: `Skill ${i + 1}: ${s.name || `Skill ${i + 1}`}`,
+                      label: <span className={pageStyles.skillTabLabel}>
+                        <span className={pageStyles.skillTabLong}>Skill {i + 1}</span>
+                        <span className={pageStyles.skillTabShort} aria-hidden="true">S{i + 1}</span>
+                        {showRecommendations && <RecommendationBadge entries={s.recommendation} />}
+                      </span>,
+                      ariaLabel: `Skill ${i + 1}: ${s.name || `Skill ${i + 1}`}${showRecommendations ? (s.recommendation ?? []).filter(e => e.mastery || e.order).map(e => `, ${[e.mastery?.toUpperCase(), e.order].filter(Boolean).join(' · ')}`).join('') : ''}`,
                       title: s.name || `Skill ${i + 1}`,
                       icon: iconPath ? <Image src={iconPath} alt="" width={40} height={40} /> : undefined,
                     };
@@ -1115,13 +1141,12 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
                   <div {...tabPanelProps('operator-skill', activeSkillIndex)}>
                     <h3 className={`entity-title entity-title-sm ${pageStyles.selectedSkill}`}>
                       {/* Overlapping variants reserve the tallest header at this width,
-                          including wrapped names and recommendation badges. */}
+                          including wrapped names. */}
                       {skillList.map((skill, index) => (
                         <span key={index} className={pageStyles.skillTitleVariant}
                           aria-hidden={index !== activeSkillIndex}
                           style={{ visibility: index === activeSkillIndex ? 'visible' : 'hidden' }}>
                           <span>{skill.name || `Skill ${index + 1}`}</span>
-                          {showRecommendations && <RecommendationBadge entries={skill.recommendation} />}
                         </span>
                       ))}
                     </h3>
@@ -1214,6 +1239,7 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
             {operator.stats?.phases.length ? (
               <div id="operator-stats" data-operator-section="stats" tabIndex={-1} className={`op-section ${pageStyles.section}`}>
                 <OperatorStatsPanel key={`stats-${operator.name}`} stats={operator.stats} modules={operator.modules} />
+                {summons.length > 0 && <section className="op-section" aria-label="Summon stats"><h2>Summon stats</h2><OperatorSummons key={operator.name} summons={summons} /></section>}
               </div>
             ) : null}
 
@@ -1883,9 +1909,20 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/op
   const materialOrder = materialOrderFor(checkMaterialCatalogue((await import('@/data/material-catalogue.json')).default), plannerCostNames(operator));
   // Only the pointer of each artwork that has an animated version: the model loads in the browser, when asked for.
   const dynamicArt = operatorDynamicArt(assertDynamicArtIndex((await import('@/data/dynamic-art.json')).default), operator, appearances, skins);
-  return { props: { artworkCredits, factionEmblem, skillTimings, operator, appearances, skinObtainByLabel, synergyMatches, autoSynergyGroups, techniqueUnitIcons, techniqueBranchOperators, techniqueGroupOperators, techniqueRelatedOperators, forms, skillRanges, overviewRanges, voiceData, branchRelatedOperators, relatedByArtist, relatedByVoiceActor, materialOrder, dynamicArt } };
+  const { operatorEP } = await import('@/lib/operators/operatorEP');
+  const summonTable = (await import('@/data/operator-summons.json')).default as unknown as Record<string, Summon[]>;
+  const chibiIndex = (await import('@/data/chibi-art.json')).default as unknown as Record<string, ChibiFacings>;
+  const chibis = Object.fromEntries(appearances.flatMap(appearance => { const id = appearanceSkinId(operator, appearance, skins); return id && chibiIndex[id] ? [[appearance.label, chibiIndex[id]]] : []; }));
+  return { props: { chibis, summons: summonTable[operator.internalName ?? ''] ?? [], epTrack: operatorEP(operator), artworkCredits, factionEmblem, skillTimings, operator, appearances, skinObtainByLabel, synergyMatches, autoSynergyGroups, techniqueUnitIcons, techniqueBranchOperators, techniqueGroupOperators, techniqueRelatedOperators, forms, skillRanges, overviewRanges, voiceData, branchRelatedOperators, relatedByArtist, relatedByVoiceActor, materialOrder, dynamicArt } };
 }, {
   // A release exported before cost rows carried their order: this deployment's catalogue fills it in.
   // And one exported before animated art: this deployment's data/dynamic-art.json fills the pointers in.
-  finalize: (props) => withMaterialOrder(props, (page) => plannerCostNames(page.operator)).then(withOperatorDynamicArt),
+  finalize: (props) => withMaterialOrder(props, (page) => plannerCostNames(page.operator)).then(withOperatorDynamicArt).then(async page => {
+    const { operatorEP } = await import('@/lib/operators/operatorEP');
+    const summonTable = (await import('@/data/operator-summons.json')).default as unknown as Record<string, Summon[]>;
+    const chibiIndex = (await import('@/data/chibi-art.json')).default as unknown as Record<string, ChibiFacings>;
+    const skins = (await import('@/data/skins.json')).default as import('@/lib/skins/skinTypes').Skin[];
+    const chibis = Object.fromEntries(page.appearances.flatMap(appearance => { const id = appearanceSkinId(page.operator, appearance, skins); return id && chibiIndex[id] ? [[appearance.label, chibiIndex[id]]] : []; }));
+    return { ...page, chibis: page.chibis ?? chibis, summons: page.summons ?? summonTable[page.operator.internalName ?? ''] ?? [], epTrack: page.epTrack === undefined ? operatorEP(page.operator) : page.epTrack };
+  }),
 });

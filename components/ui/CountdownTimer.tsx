@@ -13,7 +13,7 @@ function formatRemaining(ms: number): string {
   return `${minutes}m ${seconds}s`;
 }
 
-export default function CountdownTimer({ target, label, start }: { target: Date; label?: string; start?: Date }) {
+export default function CountdownTimer({ target, label, start, closed = false }: { target: Date; label?: string; start?: Date; closed?: boolean }) {
   const [now, setNow] = useState<Date | null>(null);
 
   useEffect(() => {
@@ -29,9 +29,10 @@ export default function CountdownTimer({ target, label, start }: { target: Date;
   const state = start ? windowCountdown(start, target, now) : null;
   const remaining = state?.remaining ?? target.getTime() - now.getTime();
   const activeLabel = state?.label ?? label;
-  if (remaining <= 0) return <span className="countdown-timer">Ended</span>;
+  if (remaining <= 0) return <span className="countdown-timer countdown-timer-closed">Ended</span>;
+  const status = closed ? 'closed' : state?.label === 'Starts in' ? 'starts' : 'ends';
   return (
-    <span className="countdown-timer">
+    <span className={`countdown-timer countdown-timer-${status}`}>
       {activeLabel ? `${activeLabel}: ` : ''}
       {formatRemaining(remaining)}
     </span>

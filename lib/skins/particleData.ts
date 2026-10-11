@@ -508,7 +508,7 @@ export interface ParticleDocument {
 /** What one file may ask of the browser. The 88 Global models stay inside them (largest seen: 117 KB, 77
  *  particle textures, 280 systems, curves of 24 keys, 8 bursts, a 10,000/s rate, 1,600 burst fires a loop). */
 export const PARTICLE_LIMITS = {
-  bytes: 1024 * 1024, textures: 128, systems: 2048, meshes: 512, materials: 2048, keys: 64, bursts: 64, burstFires: 10000, rate: 100000,
+  bytes: 1024 * 1024, textures: 256, systems: 2048, meshes: 512, materials: 2048, keys: 64, bursts: 64, burstFires: 10000, rate: 100000,
   burstCount: 100000, duration: 3600, prewarmWindow: 300, frames: 20000, vertices: 65535,
 };
 /** Capability tags (`requires`) this reader simulates: sub-emitters ('sub'). Trails ('trail') arrive in v2. */

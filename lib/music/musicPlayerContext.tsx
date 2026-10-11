@@ -105,6 +105,8 @@ interface MusicPlayerContextValue {
   setSeeking: (v: boolean) => void;
   playQueueIndex: (index: number) => void;
   playTrackByVideoId: (videoId: string) => void;
+  playFirst: (videoId: string) => void;
+  playPlaylist: (videoIds: string[] | null) => Promise<number>;
   reorderQueue: (fromIndex: number, toIndex: number) => void;
   reorderShuffleOrder: (fromPos: number, toPos: number) => void;
   moveQueueItemToTop: (index: number) => void;
@@ -142,6 +144,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   // and the user's queue after the initial load.
   const [initialized, setInitialized] = useState(false);
   const pendingPlayRef = useRef(false); // true if play was requested before the player was ready
+  const pendingFirstRef = useRef<string | null>(null);
   const pendingVideoIdRef = useRef<string | null>(null); // set when the pending play request is for a SPECIFIC track (via playTrackByVideoId), not just "resume/play whatever's cued"
   // Carrying the music over from the last document (lib/music/musicResume.ts). The record waits
   // here for the catalogue (its queue) and for YouTube (its song and moment); then the resumed
@@ -195,6 +198,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   // onStateChange callback (registered once at setup) always reads
   // current values instead of stale ones from its original closure.
   const queueRef = useRef<QueueTrack[]>([]);
+  const playlistIdsRef = useRef<string[] | null>(null);
   const queueIndexRef = useRef(0);
   const repeatModeRef = useRef<RepeatMode>('off');
   const favoritesRef = useRef<Set<string>>(new Set());
@@ -369,7 +373,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
       });
       const existingIds = new Set(oldQueue.map((t) => t.id));
       const toAdd = fullCatalog
-        .filter((s) => !existingIds.has(s.videoId))
+        .filter((s) => !existingIds.has(s.videoId) && (!playlistIdsRef.current || playlistIdsRef.current.includes(s.videoId)))
         .map(toQueueTrack);
       nextQueue = [...oldQueue, ...toAdd];
     }
@@ -611,6 +615,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
               const vid = pendingVideoIdRef.current;
               pendingVideoIdRef.current = null;
               pendingPlayRef.current = false;
+              if (pendingFirstRef.current === vid) { putFirst(vid); pendingFirstRef.current = null; }
               const idx = queueRef.current.findIndex((track) => track.id === vid);
               if (idx !== -1) {
                 queueIndexRef.current = idx;
@@ -689,6 +694,12 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
             // disabled, age-restricted, etc.) -- skip it instead of
             // leaving playback dead with no recovery.
             setIsPlaying(false);
+            // A short saved playlist may consist entirely of unavailable videos.
+            // Stop at its end instead of wrapping and retrying the same failures forever.
+            const order = shuffleRef.current ? shuffleOrderRef.current : null;
+            const atEnd = order ? shufflePositionRef.current >= order.length - 1
+              : queueIndexRef.current >= queueRef.current.length - 1;
+            if (playlistIdsRef.current && atEnd) { endResumeWatch(); return; }
             nextTrack();
           },
           // The browser would not let this document start sound by itself (autoplay):
@@ -863,6 +874,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
       duration: Number.isFinite(durationRef.current) && durationRef.current > 0 ? durationRef.current : 0,
       playing: isPlayingRef.current || pendingPlayRef.current || !!resumeWatchRef.current,
       queue: queue.map((track) => track.id),
+      playlistIds: playlistIdsRef.current,
       queueIndex: queueIndexRef.current,
       shuffle: shuffleRef.current,
       shuffleOrder: order ? order.flatMap((index) => (queue[index] ? [queue[index].id] : [])) : null,
@@ -909,6 +921,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     // song resumed there would play over its clips.
     const play = record.playing && router.pathname !== GAME_PATHS.music;
     resumeRef.current = { ...record, playing: play };
+    playlistIdsRef.current = record.playlistIds ?? null;
     pendingPlayRef.current = play;
     shuffleRef.current = record.shuffle;
     setShuffle(record.shuffle);
@@ -949,9 +962,29 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   // to just that song's album: if the track is already in the loaded
   // queue (loaded alongside the player),
   // this just jumps there.
+  function putFirst(videoId: string) {
+    const previous = queueRef.current;
+    const index = previous.findIndex(track => track.id === videoId);
+    const song = catalogRef.current?.find(song => song.videoId === videoId);
+    const track = previous[index] ?? (song && !(excludeCopyrightedRef.current && song.copyright) ? toQueueTrack(song) : null);
+    if (!track) return;
+    const next = [track, ...previous.filter(track => track.id !== videoId)];
+    queueRef.current = next; setQueue(next); queueIndexRef.current = 0; setQueueIndex(0);
+    if (shuffleRef.current) {
+      const existing = shuffleOrderRef.current ?? previous.map((_, i) => i);
+      const ids = existing.map(i => previous[i]?.id).filter(id => id && id !== videoId);
+      const order = [0, ...ids.map(id => next.findIndex(track => track.id === id))];
+      shuffleOrderRef.current = order; setShuffleOrder(order); shufflePositionRef.current = 0; setShufflePosition(0);
+    }
+  }
+  function playFirst(videoId: string) {
+    if (!playerReadyRef.current) pendingFirstRef.current = videoId;
+    else putFirst(videoId);
+    playTrackByVideoId(videoId);
+  }
   function playTrackByVideoId(videoId: string) {
     const player = playerRef.current;
-    if (!player || typeof player.loadVideoById !== 'function') {
+    if (!playerReadyRef.current || !player || typeof player.loadVideoById !== 'function') {
       // Not initialized yet -- remember which track was requested and
       // start initializing; onReady (above) loads it directly once the
       // player comes up, instead of the usual default-position cue.
@@ -980,6 +1013,26 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
       player.loadVideoById(videoId);
     }
     player.playVideo();
+  }
+
+  async function playPlaylist(videoIds: string[] | null): Promise<number> {
+    if (!playerReadyRef.current) return 0;
+    await buildQueueFromCatalog();
+    const byId = new Map((catalogRef.current ?? []).map(song => [song.videoId, song]));
+    const tracks = [...new Set(videoIds ?? [...byId.keys()])].flatMap(id => {
+      const song = byId.get(id);
+      return song && !(excludeCopyrightedRef.current && song.copyright) ? [toQueueTrack(song)] : [];
+    });
+    if (!tracks.length) return 0;
+    playlistIdsRef.current = videoIds ? [...videoIds] : null;
+    queueRef.current = tracks; setQueue(tracks);
+    queueIndexRef.current = 0; setQueueIndex(0);
+    // Start in the saved order. The reader can turn shuffle on afterwards.
+    shuffleRef.current = false; setShuffle(false);
+    shuffleOrderRef.current = null; setShuffleOrder(null);
+    shufflePositionRef.current = 0; setShufflePosition(0);
+    loadTrackAt(0);
+    return tracks.length;
   }
 
   function toggleShuffle() {
@@ -1198,7 +1251,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     handleSeekCommit,
     setSeeking,
     playQueueIndex,
-    playTrackByVideoId,
+    playTrackByVideoId, playFirst, playPlaylist,
     reorderQueue,
     reorderShuffleOrder,
     moveQueueItemToTop,
