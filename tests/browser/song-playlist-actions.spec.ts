@@ -28,7 +28,7 @@ for (const theme of ['dark', 'light']) {
     expect(layout.room).toBeGreaterThan(151);
     await plus.click();
     const dialog = page.getByRole('dialog', { name: 'Add to playlists', exact: true });
-    await expect(dialog).toContainText('No saved playlists yet.');
+    await expect(dialog.getByRole('checkbox', { name: /Favourites/ })).toBeChecked();
     await expect(plus).toHaveAttribute('aria-expanded', 'true');
     expect(await dialog.evaluate(el => el.tagName)).toBe('DIV');
     expect(await page.locator('body').evaluate(el => el.style.overflow)).not.toBe('hidden');
@@ -60,9 +60,9 @@ for (const theme of ['dark', 'light']) {
     await dialog.getByRole('button', { name: 'Add to playlists', exact: true }).click();
     await expect(dialog.getByRole('status')).toHaveText('Added to 2 playlists.');
     const lists = await page.evaluate(key => JSON.parse(localStorage.getItem(key)!), KEY);
-    expect(lists[1].tracks).toEqual([playing.videoId, id]);
-    expect(lists[2].tracks).toEqual([id]);
-    expect(lists[3].tracks).toEqual([playing.videoId]);
+    expect(lists.find((p: { id: string }) => p.id === 'study').tracks).toEqual([playing.videoId, id]);
+    expect(lists.find((p: { id: string }) => p.id === 'travel').tracks).toEqual([id]);
+    expect(lists.find((p: { id: string }) => p.id === 'untouched').tracks).toEqual([playing.videoId]);
     await expect(dialog.getByRole('button', { name: 'Add to playlists', exact: true })).toBeDisabled();
     await dialog.getByRole('textbox', { name: 'New playlist name' }).fill('Night music');
     await dialog.getByRole('button', { name: 'Create new playlist', exact: true }).click();
@@ -71,7 +71,9 @@ for (const theme of ['dark', 'light']) {
     await page.keyboard.press('Escape');
     await expect(plus).toBeFocused();
     await page.getByRole('button', { name: 'Playlists', exact: true }).click();
-    await expect(page.getByRole('combobox', { name: 'Saved playlist' })).toContainText('Night music');
+    await page.getByRole('combobox', { name: 'Saved playlist' }).click();
+    await expect(page.getByRole('option', { name: 'Night music', exact: true })).toBeVisible();
+    await page.getByRole('option', { name: 'Night music', exact: true }).click();
     await page.keyboard.press('Escape');
     await page.reload();
     await expect(favorite).toHaveAttribute('aria-pressed', 'true');
@@ -112,9 +114,9 @@ test('the picker keeps a second tab’s playlist edits and does not duplicate ex
   await expect(dialog.getByRole('checkbox', { name: 'New in other tab', exact: true })).toBeVisible();
   await dialog.getByRole('button', { name: 'Add to playlists', exact: true }).click();
   const lists = await page.evaluate(key => JSON.parse(localStorage.getItem(key)!), KEY);
-  expect(lists[0].tracks).toHaveLength(2);
-  expect(lists[0].tracks[0]).toBe('abcdefghijk');
-  expect(lists[1].tracks).toEqual([]);
+  expect(lists.find((p: { id: string }) => p.id === 'a').tracks).toHaveLength(2);
+  expect(lists.find((p: { id: string }) => p.id === 'a').tracks[0]).toBe('abcdefghijk');
+  expect(lists.find((p: { id: string }) => p.id === 'b').tracks).toEqual([]);
   await page.keyboard.press('Escape');
   await row.getByRole('button', { name: /to playlists$/ }).click();
   await expect(dialog.getByRole('checkbox', { name: /Shared/ })).toBeDisabled();
@@ -154,4 +156,49 @@ test('playlist picker flips above a low button and stays within the viewport as 
   await picker.getByRole('button', { name: 'Close playlist picker' }).click();
   await expect(picker).not.toBeVisible();
   await expect(plus).toBeFocused();
+});
+
+
+test('Favourites exists by default and stays in sync with hearts and playlist imports', async ({ page }) => {
+  await stubYouTube(page);
+  await page.goto('/music?view=queue');
+  const row = page.locator('.music-queue-row').first();
+  await row.getByRole('button', { name: 'Play now', exact: true }).click();
+  await expect.poll(async () => (await youtube(page))?.state).toBe(1);
+  const favorite = row.locator('.music-song-favorite');
+  const plus = row.getByRole('button', { name: /to playlists$/ });
+  await expect(favorite).toHaveAttribute('aria-pressed', 'false');
+  await plus.click();
+  const picker = page.getByRole('dialog', { name: 'Add to playlists', exact: true });
+  await expect(picker.getByRole('checkbox', { name: 'Favourites', exact: true })).not.toBeChecked();
+  await picker.getByRole('checkbox', { name: 'Favourites', exact: true }).check();
+  await picker.getByRole('button', { name: 'Add to playlists', exact: true }).click();
+  await expect(favorite).toHaveAttribute('aria-pressed', 'true');
+  await page.keyboard.press('Escape');
+  await page.reload();
+  await expect(favorite).toHaveAttribute('aria-pressed', 'true');
+  const favoriteId = await page.evaluate(() => JSON.parse(localStorage.getItem('musicFavorites')!)[0]);
+  await favorite.click();
+  await plus.click();
+  await expect(picker.getByRole('checkbox', { name: 'Favourites', exact: true })).not.toBeChecked();
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: 'Playlists', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Music playlists' });
+  await expect(dialog.getByRole('combobox', { name: 'Saved playlist' })).toHaveText('Favourites');
+  await expect(dialog.getByRole('button', { name: 'Delete playlist' })).toBeDisabled();
+  await expect(dialog.locator('li')).toHaveCount(0);
+  const exported = page.waitForEvent('download');
+  await dialog.getByRole('button', { name: 'Export playlist', exact: true }).click();
+  const fs = await import('node:fs/promises');
+  const data = JSON.parse(await fs.readFile((await (await exported).path())!, 'utf8'));
+  expect(data.playlists).toEqual([{ id: 'arkpedia-favourites', name: 'Favourites', tracks: [] }]);
+  // Importing another browser's favourites adds to the built-in list rather than creating a duplicate.
+  data.playlists[0].tracks = [favoriteId];
+  await dialog.locator('input[type=file]').setInputFiles({ name: 'favourites.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(data)) });
+  await expect(dialog.getByRole('status')).toContainText('Imported 1 playlist');
+  await expect(dialog.locator('li')).toHaveCount(1);
+  await expect(favorite).toHaveAttribute('aria-pressed', 'true');
+  await dialog.locator('input[type=file]').setInputFiles({ name: 'favourites.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(data)) });
+  await expect(dialog.getByRole('status')).toContainText('already saved');
+  expect(await page.evaluate(key => JSON.parse(localStorage.getItem(key)!).filter((p: { id: string }) => p.id === 'arkpedia-favourites').length, KEY)).toBe(1);
 });

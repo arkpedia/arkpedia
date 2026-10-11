@@ -3,7 +3,8 @@ import { createPortal } from 'react-dom';
 import { useAnchoredPopover } from '@/components/ui/useAnchoredPopover';
 import XButton from '@/components/ui/XButton';
 import TransportIcon from './TransportIcons';
-import { addSongToPlaylists, MUSIC_PLAYLISTS_EVENT, MUSIC_PLAYLISTS_KEY, readPlaylists, validatePlaylists, type MusicPlaylist } from '@/lib/music/musicPlaylists';
+import { MUSIC_FAVORITES_EVENT, MUSIC_FAVORITES_KEY } from '@/lib/music/musicFavorites';
+import { addSongToPlaylists, MUSIC_PLAYLISTS_EVENT, MUSIC_PLAYLISTS_KEY, readPlaylists, writePlaylists, isFavoritesPlaylistName, type MusicPlaylist } from '@/lib/music/musicPlaylists';
 
 type Song = { id: string; title: string };
 
@@ -40,15 +41,17 @@ function PlaylistOptions({ song, onClose }: { song: Song; onClose: () => void })
   const [note, setNote] = useState('');
   useEffect(() => {
     const read = () => { try { setPlaylists(readPlaylists(window.localStorage)); } catch { setNote('This browser could not load your playlists.'); } };
-    const storage = (event: StorageEvent) => { if (event.key === MUSIC_PLAYLISTS_KEY || event.key === null) read(); };
+    const storage = (event: StorageEvent) => { if (event.key === MUSIC_PLAYLISTS_KEY || event.key === MUSIC_FAVORITES_KEY || event.key === null) read(); };
     read();
     window.addEventListener(MUSIC_PLAYLISTS_EVENT, read);
+    window.addEventListener(MUSIC_FAVORITES_EVENT, read);
     window.addEventListener('storage', storage);
-    return () => { window.removeEventListener(MUSIC_PLAYLISTS_EVENT, read); window.removeEventListener('storage', storage); };
+    return () => { window.removeEventListener(MUSIC_PLAYLISTS_EVENT, read); window.removeEventListener(MUSIC_FAVORITES_EVENT, read); window.removeEventListener('storage', storage); };
   }, []);
   const pending = selected.filter(id => playlists.some(p => p.id === id && !p.tracks.includes(song.id)));
   function store(next: MusicPlaylist[]) {
-    window.localStorage.setItem(MUSIC_PLAYLISTS_KEY, JSON.stringify(validatePlaylists(next)));
+    writePlaylists(window.localStorage, next);
+    window.dispatchEvent(new Event(MUSIC_FAVORITES_EVENT));
     window.dispatchEvent(new Event(MUSIC_PLAYLISTS_EVENT));
   }
   function add() {
@@ -64,7 +67,7 @@ function PlaylistOptions({ song, onClose }: { song: Song; onClose: () => void })
       const title = name.trim();
       if (!title) throw new Error('Enter a playlist name.');
       const latest = readPlaylists(window.localStorage);
-      if (latest.some(p => p.name === title)) throw new Error('Choose a different name for this playlist.');
+      if (isFavoritesPlaylistName(title) || latest.some(p => p.name === title)) throw new Error('Choose a different name for this playlist.');
       store([...latest, { id: crypto.randomUUID(), name: title, tracks: [song.id] }]);
       setName('');
       setNote(`Created ${title} and added this song.`);

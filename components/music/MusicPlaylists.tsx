@@ -4,7 +4,8 @@ import RecordDialog from '@/components/ui/RecordDialog';
 import StyledSelect from '@/components/ui/StyledSelect';
 import { useMusicPlayer } from '@/lib/music/musicPlayerContext';
 import { downloadBlob } from '@/lib/ui/downloadBlob';
-import { formatPlaylistFile, MAX_PLAYLIST_BYTES, mergePlaylists, MUSIC_PLAYLISTS_EVENT, MUSIC_PLAYLISTS_KEY, parsePlaylistFile, readPlaylists, validatePlaylists, type MusicPlaylist } from '@/lib/music/musicPlaylists';
+import { MUSIC_FAVORITES_EVENT, MUSIC_FAVORITES_KEY } from '@/lib/music/musicFavorites';
+import { formatPlaylistFile, MAX_PLAYLIST_BYTES, mergePlaylists, MUSIC_PLAYLISTS_EVENT, MUSIC_PLAYLISTS_KEY, parsePlaylistFile, readPlaylists, validatePlaylists, writePlaylists, initializeFavoritesPlaylist, FAVORITES_PLAYLIST_ID, isFavoritesPlaylistName, type MusicPlaylist } from '@/lib/music/musicPlaylists';
 
 export default function MusicPlaylists({ songs }: { songs: { videoId: string; title: string }[] }) {
   const player = useMusicPlayer();
@@ -21,11 +22,13 @@ export default function MusicPlaylists({ songs }: { songs: { videoId: string; ti
   const file = useRef<HTMLInputElement>(null);
   useEffect(() => {
     const read = () => { try { setPlaylists(readPlaylists(window.localStorage)); } catch { setPlaylists([]); } };
-    const storage = (e: StorageEvent) => { if (e.key === MUSIC_PLAYLISTS_KEY || e.key === null) read(); };
+    const storage = (e: StorageEvent) => { if (e.key === MUSIC_PLAYLISTS_KEY || e.key === MUSIC_FAVORITES_KEY || e.key === null) read(); };
+    try { initializeFavoritesPlaylist(window.localStorage); window.dispatchEvent(new Event(MUSIC_FAVORITES_EVENT)); } catch { /* Read-only storage still shows the default list. */ }
     read();
     window.addEventListener(MUSIC_PLAYLISTS_EVENT, read);
+    window.addEventListener(MUSIC_FAVORITES_EVENT, read);
     window.addEventListener('storage', storage);
-    return () => { window.removeEventListener(MUSIC_PLAYLISTS_EVENT, read); window.removeEventListener('storage', storage); };
+    return () => { window.removeEventListener(MUSIC_PLAYLISTS_EVENT, read); window.removeEventListener(MUSIC_FAVORITES_EVENT, read); window.removeEventListener('storage', storage); };
   }, []);
   const chosen = playlists.find(p => p.id === selected) ?? playlists[0];
   const order = player.shuffle && player.shuffleOrder ? player.shuffleOrder.map(i => player.queue[i]).filter(Boolean) : player.queue;
@@ -37,7 +40,8 @@ export default function MusicPlaylists({ songs }: { songs: { videoId: string; ti
       return false;
     }
     try {
-      window.localStorage.setItem(MUSIC_PLAYLISTS_KEY, JSON.stringify(next));
+      writePlaylists(window.localStorage, next);
+      window.dispatchEvent(new Event(MUSIC_FAVORITES_EVENT));
       setUndo(playlists);
       window.dispatchEvent(new Event(MUSIC_PLAYLISTS_EVENT));
       setNote(message);
@@ -52,7 +56,7 @@ export default function MusicPlaylists({ songs }: { songs: { videoId: string; ti
     const tracks = favorites ? [...new Set([...ordered, ...songs.map(s => s.videoId)])].filter(id => player.favorites.has(id)) : ordered;
     const title = name.trim();
     if (!title) { setNote('Enter a playlist name.'); return; }
-    if (playlists.some(p => p.name === title)) { setNote('Choose a different name for this playlist.'); return; }
+    if (isFavoritesPlaylistName(title) || playlists.some(p => p.name === title)) { setNote('Choose a different name for this playlist.'); return; }
     const next = { id: crypto.randomUUID(), name: title, tracks };
     if (store([...playlists, next], `Saved ${title}.`)) { setSelected(next.id); setName(''); }
   }
@@ -108,7 +112,7 @@ export default function MusicPlaylists({ songs }: { songs: { videoId: string; ti
           <button type="button" className="primary btn-sm" disabled={!chosen.tracks.length || !player.ready || busy} onClick={() => void play()}>Play playlist</button>
           <button type="button" className="ghost btn-sm" disabled={busy} onClick={() => exportFile(false)}>Export playlist</button>
           <button type="button" className="ghost btn-sm" disabled={!player.videoId || busy || chosen.tracks.includes(player.videoId)} onClick={() => store(playlists.map(p => p.id === chosen.id ? { ...p, tracks: [...p.tracks, player.videoId] } : p), `Added the playing song to ${chosen.name}.`)}>Add playing song</button>
-          <button type="button" className="ghost btn-sm" disabled={busy} onClick={() => store(playlists.filter(p => p.id !== chosen.id), `Removed ${chosen.name}. Use Undo to restore it.`)}>Delete playlist</button>
+          <button type="button" className="ghost btn-sm" disabled={busy || chosen.id === FAVORITES_PLAYLIST_ID} onClick={() => store(playlists.filter(p => p.id !== chosen.id), `Removed ${chosen.name}. Use Undo to restore it.`)}>Delete playlist</button>
         </div>
         <div className="music-playlist-tracks"><ol>
           {chosen.tracks.slice(0, visible).map(id => <li key={id}>{titles.get(id) ?? player.queue.find(t => t.id === id)?.title ?? `Unavailable song (${id})`}</li>)}

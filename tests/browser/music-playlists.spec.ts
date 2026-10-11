@@ -45,7 +45,10 @@ for (const theme of ['dark', 'light']) {
     expect((await youtube(page))!.calls.filter(([call]) => call === 'loadVideoById')).toHaveLength(loads);
     await page.reload();
     await page.getByRole('button', { name: 'Playlists', exact: true }).click();
-    await expect(page.getByRole('combobox', { name: 'Saved playlist' })).toContainText('Night music');
+    await expect(page.getByRole('combobox', { name: 'Saved playlist' })).toHaveText('Favourites');
+    await page.getByRole('combobox', { name: 'Saved playlist' }).click();
+    await expect(page.getByRole('option', { name: 'Night music', exact: true })).toBeVisible();
+    await page.getByRole('option', { name: 'Night music', exact: true }).click();
     expect(await page.locator('body').evaluate(el => el.scrollWidth <= window.innerWidth)).toBe(true);
   });
 }

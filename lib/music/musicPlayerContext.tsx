@@ -295,18 +295,17 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   }, []);
 
   function toggleFavorite(videoId: string) {
-    setFavorites((current) => {
-      const next = new Set(current);
-      if (next.has(videoId)) next.delete(videoId);
-      else next.add(videoId);
-      favoritesRef.current = next;
-      try {
-        window.localStorage.setItem(MUSIC_FAVORITES_KEY, JSON.stringify(Array.from(next)));
-      } catch {
-        /* ignore */
-      }
-      return next;
-    });
+    const next = new Set(favoritesRef.current);
+    if (next.has(videoId)) next.delete(videoId);
+    else next.add(videoId);
+    favoritesRef.current = next;
+    setFavorites(next);
+    try {
+      window.localStorage.setItem(MUSIC_FAVORITES_KEY, JSON.stringify(Array.from(next)));
+      window.dispatchEvent(new Event(MUSIC_FAVORITES_EVENT));
+    } catch {
+      /* ignore */
+    }
   }
 
   async function buildQueueFromCatalog(): Promise<QueueTrack[]> {
