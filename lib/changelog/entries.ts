@@ -34,10 +34,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    at: '2026-10-11T08:56:00Z',
+    at: '2026-10-11T09:37:00Z',
     title: 'Outfit transitions',
     changed: [
       { title: 'Sliding outfit captions', detail: 'Outfit names and prices slide and fade together when switching artwork, with a still transition for reduced motion.', href: '/operators' },
+    ],
+    fixed: [
+      { title: 'Outfit selection dots', detail: 'Inactive outfit dots are gray again, with teal highlighting the selected artwork.', href: '/operators' },
     ],
   },
   {

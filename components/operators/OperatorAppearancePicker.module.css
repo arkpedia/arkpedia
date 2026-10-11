@@ -21,6 +21,9 @@
 .picker .thumbnail:focus-visible { outline: 2px solid var(--teal); outline-offset: -3px; }
 .controls { display: grid; grid-template-columns: 32px minmax(0, 1fr) 32px; align-items: center; gap: 4px; }
 .dots { grid-column: 2; display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; }
+/* Outfit pips show selection, independently of the home event pips' stage status. */
+.dots :global(.front-events-dot)::before { background: var(--text-dim); }
+.dots :global(.front-events-dot[aria-current="true"])::before { background: var(--teal); }
 /* Arrows and play are the site's button (boundary, teal hover), sized as icon tiles. */
 .picker .play, .picker .arrow { display: grid; place-items: center; padding: 0; border-radius: var(--radius-control); }
 .picker .play { width: var(--control-h); height: var(--control-h); }
