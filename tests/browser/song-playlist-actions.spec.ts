@@ -127,6 +127,7 @@ test('the picker keeps a second tab’s playlist edits and does not duplicate ex
   await other.evaluate(key => localStorage.setItem(key, JSON.stringify([{ id: 'a', name: 'Shared', tracks: ['abcdefghijk'] }, { id: 'b', name: 'New in other tab', tracks: [] }])), KEY);
   await expect(dialog.getByRole('checkbox', { name: 'New in other tab', exact: true })).toBeVisible();
   await dialog.getByRole('button', { name: 'Add to playlists', exact: true }).click();
+  await expect(dialog.getByRole('status')).toHaveText('Added to 1 playlist.');
   const lists = await page.evaluate(key => JSON.parse(localStorage.getItem(key)!), KEY);
   expect(lists.find((p: { id: string }) => p.id === 'a').tracks).toHaveLength(2);
   expect(lists.find((p: { id: string }) => p.id === 'a').tracks[0]).toBe('abcdefghijk');

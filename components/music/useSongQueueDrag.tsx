@@ -6,8 +6,20 @@ const useClientLayoutEffect = typeof window === 'undefined' ? useEffect : useLay
 type Session = {
   kind: 'pointer' | 'native'; from: number; x: number; y: number; startX: number; startY: number;
   active: boolean; title: string; width: number; target: number | null; list: HTMLElement | null;
+  intentY: number; scrollIntent: -1 | 0 | 1;
   handle?: HTMLButtonElement; pointerId?: number;
 };
+
+function updatePosition(current: Session, x: number, y: number) {
+  const delta = y - current.intentY;
+  // A small reversal pauses scrolling before the pointer has left the edge zone.
+  // Accumulate tiny movements while ignoring jitter under three pixels.
+  if (Math.abs(delta) >= 3) {
+    current.scrollIntent = delta < 0 ? -1 : 1;
+    current.intentY = y;
+  }
+  current.x = x; current.y = y;
+}
 
 /** One drag session for every queue view: touch handles and native desktop dragging. */
 export function useSongQueueDrag(onMove: (from: number, to: number) => void, revision: unknown) {
@@ -82,7 +94,8 @@ export function useSongQueueDrag(onMove: (from: number, to: number) => void, rev
       const up = Math.max(0, (bounds.top + edge - current.y) / edge);
       const down = Math.max(0, (current.y - bounds.bottom + edge) / edge);
       // Up to 3,000px/s; a stationary pointer keeps scrolling and loading new batches.
-      const velocity = 3000 * (Math.min(1, down) ** 2 - Math.min(1, up) ** 2);
+      const edgeVelocity = 3000 * (Math.min(1, down) ** 2 - Math.min(1, up) ** 2);
+      const velocity = edgeVelocity * current.scrollIntent < 0 ? 0 : edgeVelocity;
       if (velocity) {
         current.list.scrollTop += velocity * dt;
         resolve();
@@ -121,21 +134,23 @@ export function useSongQueueDrag(onMove: (from: number, to: number) => void, rev
     const row = handle.closest<HTMLElement>('[data-display-pos]')!;
     handle.setPointerCapture(event.pointerId);
     session.current = { kind: 'pointer', from, title, x: event.clientX, y: event.clientY, startX: event.clientX, startY: event.clientY,
-      width: row.getBoundingClientRect().width, handle, pointerId: event.pointerId, active: false, list: null, target: null };
+      width: row.getBoundingClientRect().width, handle, pointerId: event.pointerId, active: false, list: null, target: null,
+      intentY: event.clientY, scrollIntent: 0 };
   }, []);
   const startNative = useCallback((event: DragEvent<HTMLDivElement>, from: number, title: string) => {
     if (session.current || (event.target as HTMLElement).closest('button:not(.music-queue-row-title)')) { event.preventDefault(); return; }
     event.dataTransfer.effectAllowed = 'move';
     event.dataTransfer.setData('text/plain', String(from));
     session.current = { kind: 'native', from, title, x: event.clientX, y: event.clientY, startX: event.clientX, startY: event.clientY,
-      width: event.currentTarget.getBoundingClientRect().width, active: false, list: null, target: null };
+      width: event.currentTarget.getBoundingClientRect().width, active: false, list: null, target: null,
+      intentY: event.clientY, scrollIntent: 0 };
     activate();
   }, [activate]);
   useEffect(() => {
     const pointerMove = (event: globalThis.PointerEvent) => {
       const current = session.current;
       if (current?.kind !== 'pointer' || event.pointerId !== current.pointerId) return;
-      current.x = event.clientX; current.y = event.clientY;
+      updatePosition(current, event.clientX, event.clientY);
       if (!current.active && Math.hypot(current.x - current.startX, current.y - current.startY) >= 5) activate();
       if (current.active) { event.preventDefault(); resolve(); }
     };
@@ -148,10 +163,17 @@ export function useSongQueueDrag(onMove: (from: number, to: number) => void, rev
     const dragOver = (event: globalThis.DragEvent) => {
       const current = session.current;
       if (current?.kind !== 'native') return;
-      current.x = event.clientX; current.y = event.clientY;
+      updatePosition(current, event.clientX, event.clientY);
       resolve();
       event.preventDefault();
       if (event.dataTransfer) event.dataTransfer.dropEffect = current.target === null ? 'none' : 'move';
+    };
+    const nativeDrag = (event: globalThis.DragEvent) => {
+      const current = session.current;
+      if (current?.kind !== 'native' || (!event.clientX && !event.clientY)) return;
+      // Keep coordinates fresh even while scrolling changes the hovered row.
+      updatePosition(current, event.clientX, event.clientY);
+      resolve();
     };
     const drop = (event: globalThis.DragEvent) => {
       const current = session.current;
@@ -168,6 +190,7 @@ export function useSongQueueDrag(onMove: (from: number, to: number) => void, rev
     window.addEventListener('pointerup', pointerUp);
     window.addEventListener('pointercancel', pointerCancel);
     window.addEventListener('dragover', dragOver);
+    window.addEventListener('drag', nativeDrag);
     window.addEventListener('drop', drop);
     window.addEventListener('dragend', cancel);
     window.addEventListener('blur', cancel);
@@ -176,6 +199,7 @@ export function useSongQueueDrag(onMove: (from: number, to: number) => void, rev
       if (frame.current !== null) cancelAnimationFrame(frame.current);
       window.removeEventListener('pointermove', pointerMove); window.removeEventListener('pointerup', pointerUp);
       window.removeEventListener('pointercancel', pointerCancel); window.removeEventListener('dragover', dragOver);
+      window.removeEventListener('drag', nativeDrag);
       window.removeEventListener('drop', drop); window.removeEventListener('dragend', cancel);
       window.removeEventListener('blur', cancel); window.removeEventListener('keydown', escape);
     };
@@ -186,5 +210,5 @@ export function useSongQueueDrag(onMove: (from: number, to: number) => void, rev
       <b>{ghost.title}</b><small>{outside ? 'Release to cancel' : 'Release to move'}</small>
     </div>, document.body)}
   </>;
-  return { dragPos, overPos, startPointer, startNative, move, feedback, cancel: () => finish(false) };
+  return { dragPos, overPos, nativeDragging: dragPos !== null && session.current?.kind === 'native', startPointer, startNative, move, feedback, cancel: () => finish(false) };
 }

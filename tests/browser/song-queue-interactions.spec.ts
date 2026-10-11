@@ -46,6 +46,8 @@ test('mobile song actions have anchored playlist and reorder submenus', async ({
   await expect(row.locator('.music-song-desktop-actions')).not.toBeVisible();
   await more.click();
   const menu = page.getByRole('dialog', { name: 'Song actions', exact: true });
+  const iconPositions = await menu.locator('.music-song-menu-options > button > svg').evaluateAll(icons => icons.map(icon => icon.getBoundingClientRect().left));
+  expect(Math.max(...iconPositions) - Math.min(...iconPositions)).toBeLessThan(1);
   await expect(menu.getByRole('button', { name: 'Reorder', exact: true })).toBeVisible();
   await menu.getByRole('button', { name: 'Add to playlists', exact: true }).click();
   const picker = page.getByRole('dialog', { name: 'Add to playlists', exact: true });
@@ -135,6 +137,52 @@ test('Escape cancels a drag, and keyboard arrows reorder with reduced motion', a
   expect(await page.locator('.music-queue-row').evaluateAll(elements => elements.flatMap(el => el.getAnimations()).length)).toBe(0);
   await expect(rows(page).nth(1).locator('.music-queue-drag-handle')).toBeFocused();
 });
+
+for (const native of [false, true]) {
+  test(`edge scrolling stops and reverses while dragging (${native ? 'native title' : 'handle'})`, async ({ page }) => {
+    test.skip(native && test.info().project.name === 'mobile', 'native mouse dragging only');
+    await stubYouTube(page);
+    await page.goto('/music?view=queue');
+    await expect(rows(page).nth(1)).toBeVisible();
+    await page.evaluate(() => document.fonts.ready);
+    await expect.poll(async () => (await youtube(page))?.state).toBe(5);
+    const list = page.locator('.music-queue-list').first();
+    const box = (await list.boundingBox())!;
+    const source = (await rows(page).nth(1).locator(native ? '.music-queue-row-title' : '.music-queue-drag-handle').boundingBox())!;
+    const input = native ? {
+      start: async (x: number, y: number) => { await page.mouse.move(x, y); await page.mouse.down(); await page.mouse.move(x + 8, y, { steps: 3 }); },
+      move: async (x: number, y: number) => { await page.mouse.move(x, y, { steps: 8 }); },
+      end: async () => { await page.mouse.up(); },
+    } : await dragInput(page);
+    const x = box.x + box.width / 2;
+    await input.start(source.x + source.width / 2, source.y + source.height / 2);
+    await input.move(x, box.y + box.height - 5);
+    await expect.poll(() => list.evaluate(el => el.scrollTop), { timeout: 1800 }).toBeGreaterThan(700);
+    // Moving back slightly should stop downward scrolling even inside the bottom edge zone.
+    await input.move(x, box.y + box.height - 20);
+    const reversedAt = await list.evaluate(el => el.scrollTop);
+    await page.waitForTimeout(250);
+    expect(await list.evaluate(el => el.scrollTop)).toBeCloseTo(reversedAt, 0);
+    await input.move(x, box.y + box.height - 5);
+    await expect.poll(() => list.evaluate(el => el.scrollTop), { timeout: 1000 }).toBeGreaterThan(reversedAt + 150);
+    await input.move(x, box.y + box.height / 2);
+    const stoppedAt = await list.evaluate(el => el.scrollTop);
+    await page.waitForTimeout(250); // Several animation frames must stay still, not merely one sample.
+    expect(await list.evaluate(el => el.scrollTop)).toBeCloseTo(stoppedAt, 0);
+    await input.move(x, box.y + 5);
+    await expect.poll(() => list.evaluate(el => el.scrollTop), { timeout: 1000 }).toBeLessThan(stoppedAt - 150);
+    await input.move(x, box.y + 20);
+    const reversedUpAt = await list.evaluate(el => el.scrollTop);
+    await page.waitForTimeout(250);
+    expect(await list.evaluate(el => el.scrollTop)).toBeCloseTo(reversedUpAt, 0);
+    await input.move(x, box.y + box.height / 2);
+    const backAt = await list.evaluate(el => el.scrollTop);
+    await page.waitForTimeout(250);
+    expect(await list.evaluate(el => el.scrollTop)).toBeCloseTo(backAt, 0);
+    await page.keyboard.press('Escape');
+    await input.end();
+  });
+}
 
 
 test('native desktop dragging supports a drop and cancels an outside release', async ({ page }) => {

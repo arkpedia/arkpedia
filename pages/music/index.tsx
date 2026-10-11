@@ -534,7 +534,7 @@ export default function MusicPage({ songLookup }: Props) {
             <SearchInput label="Search songs" name="queue-search" placeholder="Search songs…" value={queueSearch} onChange={setQueueSearch} />
             {isSearching ? (
               <>
-                <div className="music-queue-list" data-song-list>
+                <div className={`music-queue-list${drag.nativeDragging ? ' music-queue-native-drag' : ''}`} data-song-list>
                   {searchResultRows.map(({ song, queueIdx, displayPos }) => (
                     <QueueRow
                       key={song.id}
@@ -560,7 +560,7 @@ export default function MusicPage({ songLookup }: Props) {
                     <div key={`search-empty-${i}`} className="music-queue-row music-queue-row-placeholder" aria-hidden="true" />
                   ))}
                 </div>
-                <div className="music-queue-list" data-song-list>
+                <div className={`music-queue-list${drag.nativeDragging ? ' music-queue-native-drag' : ''}`} data-song-list>
                   {comingUpRows.map(({ song, queueIdx, displayPos }) => (
                     <QueueRow
                       key={song.id}
@@ -588,7 +588,7 @@ export default function MusicPage({ songLookup }: Props) {
                 </div>
               </>
             ) : (
-              <div className="music-queue-list" data-song-list>
+              <div className={`music-queue-list${drag.nativeDragging ? ' music-queue-native-drag' : ''}`} data-song-list>
                 {/* Same quiet .hint treatment as the discover page's
                     no-results message -- without it, "Songs (0)" sits
                     above a silent void and reads like the list simply

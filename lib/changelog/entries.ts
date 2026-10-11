@@ -44,7 +44,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       { title: 'Closure Wiki reference source', detail: 'Closure Wiki is listed in Credits and fills missing stage map previews when the client-art mirror has none.', href: '/credits' },
     ],
     changed: [
-      { title: 'Tap songs to play and drag to sort', detail: 'Drag near an edge to scroll quickly through the list, and release outside it to cancel the move.', href: '/music' },
+      { title: 'Tap songs to play and drag to sort', detail: 'Drag near an edge to scroll quickly; moving back pauses scrolling, and releasing outside the list cancels the move.', href: '/music' },
       { title: 'Sliding outfit captions', detail: 'Outfit names and prices slide and fade together when switching artwork, with a still transition for reduced motion.', href: '/operators' },
       { title: 'Patreon supporters', detail: 'Updated Patreon acknowledgements in compact tier rows, ordered from highest to lowest.', href: '/support' },
     ],

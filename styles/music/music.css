@@ -362,8 +362,12 @@
   gap: 4px;
   max-height: 55vh;
   overflow-y: auto;
+  scrollbar-gutter: stable;
   padding: 3px 4px 3px 0;
 }
+/* Native browser edge scrolling must not compete with the drag controller.
+   Hidden overflow still permits our scrollTop updates; the gutter keeps rows still. */
+.music-queue-list.music-queue-native-drag { overflow-y: hidden; }
 /* The song list over the player (pages/music/index.tsx, .music-view): both in one grid cell, which
    the player sizes. The list's own size is contained, so it adds nothing to the cell's height and
    stretches to fill it: exactly the player's box, still content in the page's flow (the layout
@@ -635,5 +639,5 @@
 
 .music-song-playlist-heading > b { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .music-song-menu-options { display: grid; gap: 4px; margin-top: 8px; }
-.music-song-menu-options > button { display: flex; align-items: center; gap: 10px; text-align: left; }
+.music-song-menu-options > button { display: flex; align-items: center; justify-content: flex-start; gap: 10px; text-align: left; }
 .music-song-menu-options > button > span { margin-left: auto; }
