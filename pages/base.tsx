@@ -246,13 +246,27 @@ export default function BasePage({ operators }: Props) {
   const [statsPeriod, setStatsPeriod] = useState<'daily' | 'weekly' | 'monthly' | 'yearly'>('daily');
   const STATS_PERIOD_MULTIPLIER: Record<typeof statsPeriod, number> = { daily: 1, weekly: 7, monthly: 30, yearly: 365 };
 
-  // The desktop editor opens over the right edge without resizing the map. On a phone it is above the
-  // board, so bring its controls into view only when selecting a room.
+  // Staffing replaces the map visually; keep the map mounted to retain its pan/zoom.
   useEffect(() => {
-    if (roomPanelFacilityId && window.matchMedia('(max-width: 720px)').matches) {
-      baseRoomPanelRef.current?.scrollIntoView({ block: 'nearest', behavior: 'auto' });
-    }
-  }, [roomPanelFacilityId]);
+    const panel = baseRoomPanelRef.current;
+    if (baseSource !== 'planner' || !roomPanelFacilityId || !panel) return;
+    const previous = document.activeElement as HTMLElement | null;
+    const scrollTop = window.scrollY;
+    panel.querySelector<HTMLButtonElement>('.base-room-back-btn')?.focus({ preventScroll: true });
+    if (window.matchMedia('(max-width: 720px)').matches) panel.scrollIntoView({ block: 'start', behavior: 'auto' });
+    const escape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      setRoomPanelFacilityId(null);
+      setBreakdownFacilityId(null);
+      setSearch('');
+    };
+    window.addEventListener('keydown', escape);
+    return () => {
+      window.removeEventListener('keydown', escape);
+      previous?.focus({ preventScroll: true });
+      window.scrollTo({ top: scrollTop, behavior: 'instant' });
+    };
+  }, [baseSource, roomPanelFacilityId]);
 
   // Clicking away closes whatever is open. Facility tiles and the popover
   // itself are excluded: a tile has its own toggle, so letting this fire on
@@ -823,6 +837,12 @@ export default function BasePage({ operators }: Props) {
 
   function openRoomPanel(facilityId: string) {
     setRoomPanelFacilityId(facilityId);
+  }
+
+  function closeRoomPanel() {
+    setRoomPanelFacilityId(null);
+    setBreakdownFacilityId(null);
+    setSearch('');
   }
 
   /** Applies a change to ONE building and takes effect immediately -- there
@@ -1484,7 +1504,7 @@ export default function BasePage({ operators }: Props) {
             <p>{account ? 'This account was imported before base rooms were saved, or its export did not include building data. Import it again to include rooms, staffing and Morale.' : 'Import your game account to see its rooms, staffing and Morale here.'}</p>
             <Link className="primary" href="/account">Open account import</Link>
           </section>
-        ) : <div className={`base-command-workspace${roomPanelFacilityId || snapshotRoom ? ' has-room' : ''}`}>
+        ) : <div className={`base-command-workspace${roomPanelFacilityId || snapshotRoom ? ' has-room' : ''}${baseSource === 'planner' && roomPanelFacilityId ? ' is-staffing' : ''}`}>
           <BaseOverview loginInterval={loginInterval} facilities={FACILITIES} assignments={assignments} operators={operators} summaries={roomSummaries} selected={baseSource === 'account' ? snapshotRoom : roomPanelFacilityId} readOnly={baseSource === 'account'} onSelect={id => { if (baseSource === 'account') setSnapshotRoom(id); else { setBreakdownFacilityId(null); setSearch(''); openRoomPanel(id); } }} />
           <div className="base-command-editor">
             {!roomPanelFacilityId && !snapshotRoom && <section className="base-editor-idle"><h2>{baseSource === 'account' ? 'Your imported base' : 'Staffing'}</h2><p>{baseSource === 'account' ? 'Select a room to inspect its imported operators and Morale.' : 'Select a room to change its workers, level or product.'}</p>{baseSource === 'planner' && <button type="button" className="ghost" onClick={() => setShowSavedPresets(true)}>Save this setup</button>}</section>}
@@ -1497,16 +1517,12 @@ export default function BasePage({ operators }: Props) {
               <button type="button" className="primary" onClick={editImportedCopy}>Edit a copy</button>
             </section>}
             {baseSource === 'planner' && roomPanelFacilityId && facility ? (
-              <div ref={baseRoomPanelRef} className="base-room-panel">
+              <div ref={baseRoomPanelRef} className="base-room-panel" role="region" aria-label={`${facility.label} staffing`}>
                 <div className="base-room-panel-header">
                   <button
                     type="button"
                     className="back-btn base-room-back-btn"
-                    onClick={() => {
-                      setRoomPanelFacilityId(null);
-                      setBreakdownFacilityId(null);
-                      setSearch('');
-                    }}
+                    onClick={closeRoomPanel}
                   >
                     ‹ Back
                   </button>

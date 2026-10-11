@@ -1499,14 +1499,21 @@
 .base-map.is-fullscreen .base-map-viewport { flex: 1; min-height: 0; max-height: none; aspect-ratio: auto; }
 .base-overview { display: grid; grid-template-columns: 155px 155px 155px 20px repeat(4, 76px) 20px 140px; grid-template-rows: repeat(5, minmax(150px, auto)); gap: 6px; grid-template-areas: "... ... ... elevA cc cc cc cc elevC reception" "prod1 prod2 prod3 elevA dorm1 dorm1 dorm1 dorm1 elevC workshop" "prod4 prod5 prod6 elevA dorm2 dorm2 dorm2 dorm2 elevC office" "prod7 prod8 prod9 elevA dorm3 dorm3 dorm3 dorm3 elevC training" "... ... ... elevA dorm4 dorm4 dorm4 dorm4 elevC ..."; }
 .base-overview-elevator { border: 1px solid var(--line-soft); border-radius: var(--radius); background: var(--well); }
-.base-overview-room { display: flex; flex-direction: column; align-items: stretch; gap: 5px; min-width: 0; min-height: 130px; line-height: 1.35; text-align: left; padding: 8px; background: var(--panel); border: 1px solid var(--line); border-top: 3px solid var(--line); border-radius: var(--radius-frame); color: var(--text); box-shadow: var(--shadow-panel); }
-.base-overview-room:hover { border-color: var(--teal); background: var(--panel-2); }
-.base-overview-room[aria-pressed="true"] { border-color: var(--teal); background: var(--teal-dim); }
-.base-overview-tradingPost { border-top-color: var(--cat-blue); }
-.base-overview-factory { border-top-color: var(--amber); }
-.base-overview-powerPlant { border-top-color: var(--cat-green); }
+.base-overview-room { --base-room-color: var(--cat-grey); --base-room-tint: 15%; --base-room-label: var(--text); display: flex; flex-direction: column; align-items: stretch; gap: 5px; min-width: 0; min-height: 130px; line-height: 1.35; text-align: left; padding: 8px; background: color-mix(in srgb, var(--base-room-color) var(--base-room-tint), transparent); border: 1px solid var(--base-room-color); border-radius: var(--radius-frame); color: var(--text); box-shadow: var(--shadow-panel); }
+/* Keep the facility fill and border while showing hover/selection separately. */
+.base-overview-room:hover { box-shadow: inset 0 0 0 1px var(--teal), var(--shadow-panel); }
+.base-overview-room[aria-pressed="true"] { box-shadow: inset 0 0 0 2px var(--teal), var(--shadow-panel); }
+.base-overview-tradingPost { --base-room-color: var(--cat-blue); --base-room-label: var(--cat-blue); }
+.base-overview-factory,
+.base-overview-workshop { --base-room-color: var(--cat-yellow); --base-room-label: var(--cat-yellow); }
+.base-overview-powerPlant { --base-room-color: var(--cat-green); --base-room-label: var(--cat-green); }
+.base-overview-trainingRoom { --base-room-color: var(--cat-red); --base-room-label: color-mix(in srgb, var(--cat-red) 85%, var(--text-bright)); }
+.base-overview-receptionRoom { --base-room-color: var(--cat-orange); --base-room-label: var(--cat-orange); }
+.base-overview-controlCenter { --base-room-tint: 18%; --base-room-label: var(--text-bright); }
+.base-overview-dormitory { --base-room-tint: 10%; }
 .base-overview-room-head { display: flex; justify-content: space-between; gap: 8px; font-size: 11px; font-weight: 600; color: var(--text-dim); }
-.base-overview-room-name { font-size: 13px; font-family: var(--font-display); }
+.base-overview-room-name { font-size: 13px; font-family: var(--font-display); color: var(--base-room-label); }
+.base-overview-room-head > span:first-child { color: var(--base-room-label); }
 .base-overview-staff { display: flex; align-items: center; flex-wrap: wrap; gap: 3px; min-height: 38px; }
 .base-overview-slot { display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; background: var(--well); border: 1px solid var(--line-soft); border-radius: var(--radius); color: var(--text-faint); overflow: hidden; }
 .base-overview-slot img { width: 36px; height: 36px; object-fit: contain; }
@@ -1516,17 +1523,22 @@
 .base-overview-deadline.prod-danger { color: var(--prod-danger); }
 .base-command-editor { min-width: 0; width: 300px; position: absolute; top: 0; right: 0; z-index: 80; box-shadow: var(--shadow-panel); }
 .base-command-editor:empty { display: none; }
-.base-command-editor .base-room-panel { height: min(780px, calc(100dvh - 100px)); padding: 14px; gap: 12px; overflow-y: auto; }
+.base-command-workspace.is-staffing { min-height: max(560px, 75dvh); }
+.base-command-workspace.is-staffing > .base-map { visibility: hidden; }
+.base-command-workspace.is-staffing > .base-command-editor { position: absolute; inset: 0; width: 100%; height: 100%; }
+.base-command-editor .base-room-panel { width: 100%; height: 100%; box-sizing: border-box; padding: 16px; gap: 12px; overflow-y: auto; scroll-margin-top: calc(var(--nav-h, 60px) + 12px); }
+.base-command-editor .base-room-panel > :not(.base-room-grid):not(.base-breakdown-panel) { flex-shrink: 0; }
 .base-command-editor .base-room-panel-header { flex-wrap: wrap; }
 .base-command-editor .base-breakdown-panel { flex: 1; min-height: 0; }
 .base-command-editor .base-breakdown-panel > * { flex-shrink: 0; }
 .base-command-editor .base-breakdown-lines { overflow: visible; }
-.base-command-editor .base-room-panel-controls { flex-direction: column; align-items: stretch; }
-.base-command-editor .base-room-panel-controls input { width: 100%; min-width: 0; }
+.base-command-editor .base-room-panel-controls input { min-width: 180px; }
 .base-command-editor .base-room-elite-select { flex-wrap: wrap; }
-.base-command-editor .base-room-grid { grid-template-columns: 1fr; min-height: 100px; overflow-y: auto; }
+.base-command-editor .base-room-team { grid-template-columns: repeat(auto-fit, minmax(min(248px, 100%), 1fr)); }
+.base-command-editor .base-product-select { flex-wrap: wrap; }
+.base-command-editor .base-room-grid { grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); grid-auto-rows: max-content; min-height: 180px; max-height: none; overflow-y: auto; }
 .base-command-editor .base-room-card { min-height: 70px; }
-.base-command-editor .base-room-card-skills-scroll { max-height: none; }
+.base-command-editor .base-room-card-skills-scroll { flex: none; max-height: none; overflow: visible; }
 .base-room-building-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-bottom: 12px; border-bottom: 1px solid var(--line-soft); }
 .base-room-building-controls > .styled-select { flex: 1; }
 .base-room-building-controls label { display: flex; align-items: center; gap: 8px; font-size: 12px; }
@@ -1552,15 +1564,13 @@
 @media (max-width: 1150px) {
   .base-command-workspace.has-room { grid-template-columns: minmax(0, 1fr); }
   .base-command-editor { position: static; width: auto; z-index: auto; }
-  .base-command-editor .base-room-panel { height: 560px; }
-  .base-command-editor .base-room-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 720px) {
   .base-command-workspace.has-room { display: flex; flex-direction: column; }
   .base-command-workspace.has-room > .base-command-editor { order: -1; width: 100%; }
   .base-command-workspace.has-room > .base-map { width: 100%; box-sizing: border-box; }
-  .base-command-editor .base-room-panel { height: 520px; }
-  .base-command-editor .base-room-grid { grid-template-columns: 1fr; }
+  .base-command-editor .base-room-panel { padding: 12px; gap: 8px; }
+  .base-command-editor .base-room-grid { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
   .base-source-bar { gap: 8px; }
   .base-production-strip { gap: 10px 20px; }
   .base-production-strip strong { font-size: 18px; }

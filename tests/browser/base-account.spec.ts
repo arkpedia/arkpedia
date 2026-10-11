@@ -14,7 +14,7 @@ async function begin(page: Page) {
   await page.locator('.base-setup-preset-card').first().click();
   await page.getByRole('button', { name: 'Begin Simulation' }).click();
 }
-const room = (page: Page, prefix = 'B101') => page.getByRole('button', { name: new RegExp(`^${prefix} `) });
+const room = (page: Page, prefix = 'B101') => page.getByRole('button', { name: new RegExp(`^${prefix} `), includeHidden: true });
 const source = (page: Page, name: string) => page.getByRole('button', { name, exact: true });
 
 test('imported rooms preserve the plan, show exact Morale, and copy only on request', async ({ page }) => {
@@ -104,6 +104,7 @@ test('base working and resting setups keep one physical operator and form a save
   await room(page).click();
   await page.getByPlaceholder('Search operators...').fill('SilverAsh');
   await page.locator('.base-room-card', { hasText: 'SilverAsh' }).click();
+  await source(page, '‹ Back').click();
   await source(page, 'Presets').click();
   await page.getByPlaceholder('e.g. Gold team').fill('Working');
   await source(page, 'Save new').click();
@@ -111,6 +112,7 @@ test('base working and resting setups keep one physical operator and form a save
   await page.getByPlaceholder('Search operators...').fill('SilverAsh');
   await page.locator('.base-room-card', { hasText: 'SilverAsh' }).click();
   await page.getByLabel('SilverAsh current Morale').fill('6');
+  await source(page, '‹ Back').click();
   await expect(room(page)).toHaveAttribute('aria-label', /0 of 3 operators/);
   await page.getByPlaceholder('e.g. Gold team').fill('Resting');
   await source(page, 'Save new').click();
@@ -215,16 +217,69 @@ test('changing staffing preserves a panned map while room summaries grow', async
   await begin(page);
   await fontsSettled(page);
   await page.setViewportSize({ width: 1440, height: 800 });
-  await room(page).click();
   const view = page.getByLabel('Zoomable base map', { exact: true });
-  await page.getByPlaceholder('Search operators...').fill('SilverAsh');
   await source(page, 'Fit base').click();
   await view.evaluate(element => { element.scrollTop = 40; });
   const before = await view.evaluate(element => element.scrollTop);
   expect(before).toBe(40);
+  await room(page).click();
+  await page.getByPlaceholder('Search operators...').fill('SilverAsh');
   const height = await page.locator('.base-overview').evaluate(element => (element as HTMLElement).offsetHeight);
   await page.locator('.base-room-card').filter({ hasText: 'SilverAsh', hasNotText: 'Reignfrost' }).click();
   await expect(room(page)).toHaveAttribute('aria-label', /1 of 3 operators/);
   await expect.poll(() => page.locator('.base-overview').evaluate(element => (element as HTMLElement).offsetHeight)).toBeGreaterThan(height);
+  await source(page, '‹ Back').click();
   await expect.poll(() => view.evaluate(element => element.scrollTop)).toBe(before);
+});
+
+test('staffing replaces the map with a wide readable grid and restores keyboard focus', async ({ page }) => {
+  await begin(page);
+  await fontsSettled(page);
+  await room(page).click();
+  const picker = page.getByRole('region', { name: 'Trading Post staffing' });
+  await expect(picker).toBeVisible();
+  const viewport = page.viewportSize()!;
+  const { bounds, workspace } = await picker.evaluate(el => {
+    const rect = (node: Element) => {
+      const { x, y, width, height } = node.getBoundingClientRect();
+      return { x, y, width, height };
+    };
+    return { bounds: rect(el), workspace: rect(el.closest('.base-command-workspace')!) };
+  });
+  expect(bounds.x).toBe(workspace.x);
+  expect(bounds.y).toBe(workspace.y);
+  expect(bounds.width).toBe(workspace.width);
+  expect(bounds.height).toBe(workspace.height);
+  await expect(page.getByLabel('Base floor plan', { exact: true })).not.toBeVisible();
+  const grid = picker.locator('.base-room-grid');
+  expect((await grid.boundingBox())!.height).toBeGreaterThanOrEqual(180);
+  await expect(source(page, '‹ Back')).toBeInViewport();
+  if (viewport.width > 1000) {
+    const first = (await grid.locator('.base-room-card').nth(0).boundingBox())!;
+    const second = (await grid.locator('.base-room-card').nth(1).boundingBox())!;
+    expect(second.x).toBeGreaterThan(first.x);
+    expect(second.y).toBe(first.y);
+  }
+  await expect(picker.locator('.base-room-card-skill-desc').first()).toBeInViewport();
+  const firstCard = grid.locator('.base-room-card').first();
+  expect(await firstCard.evaluate(el => el.scrollHeight - el.clientHeight)).toBeLessThanOrEqual(1);
+  await page.getByLabel('Room level').click();
+  await expect(page.getByRole('listbox', { name: 'Room level' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(picker).toBeVisible();
+  await page.keyboard.press('Tab');
+  expect(await picker.evaluate(el => el.contains(document.activeElement))).toBe(true);
+  await page.keyboard.press('Escape');
+  await expect(picker).toHaveCount(0);
+  await expect(page.getByLabel('Base floor plan', { exact: true })).toBeVisible();
+  await expect(room(page)).toBeFocused();
+  await room(page).press('Enter');
+  await source(page, '‹ Back').click();
+  await expect(room(page)).toBeFocused();
+  await page.setViewportSize({ width: 320, height: 800 });
+  await room(page, 'B102').click();
+  const factory = page.getByRole('region', { name: 'Factory staffing' });
+  expect(await factory.evaluate(el => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(1);
+  expect(await factory.locator('.base-room-team').evaluate(el => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(1);
+  await expect(source(page, 'Originium Shards')).toBeInViewport();
 });

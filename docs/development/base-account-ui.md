@@ -49,8 +49,10 @@ as an account fact. Workshop recipes/counters require an editable copy.
 
 ## Floor plan
 
-The updated staffing tiles retain their summaries and imported-account details.
-The map stays full width when opening the desktop staffing panel. Narrow screens
+The updated staffing tiles retain their summaries and imported-account details,
+with the production facility colors filling each tile. Staffing opens a full-width
+panel in place of the map, with a multi-column roster and complete skill descriptions.
+Back or Escape restores the map's pan, zoom and keyboard focus. Narrow screens
 keep the same floor positions instead of reflowing into a card list. Fit, zoom
 buttons/slider, Ctrl/Cmd-wheel, touch pinch, drag/native scrolling, and fullscreen
 provide access to every room. Dragging or pinching does not select a room.
