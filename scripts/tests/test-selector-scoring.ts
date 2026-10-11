@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { recommendation, ratingPoints, pointLabel, type SelectorCandidate } from '../../lib/selectors/scoring';
+import { recommendation, ratingPoints, pointLabel, rankByRecommendation, type SelectorCandidate } from '../../lib/selectors/scoring';
 import { buildSelectorCatalogue, damageTypes } from '../../lib/selectors/catalogue';
 import snapshot from '../../data/selector-catalogue.json';
 import { getAllOperators } from '../../lib/operators/operators';
@@ -8,6 +8,16 @@ import fs from 'node:fs';
 import ratings from '../../config/selector-ratings.json';
 import { importAuthorRatings } from '../../lib/selectors/ratings';
 const candidate: SelectorCandidate = { name: 'Test', id: 'char_test', caster: false, arts: false, trueDamage: false, kukkikaze: 6.6, community: 6.5, mainSkills: 1, subSkills: 1, isModule: false, raModule: false };
+test('ticket order follows displayed totals, including negative, quarter and personalized points', () => {
+  const operators = ['Negative', 'Zero', 'Quarter', 'Zulu', 'Alpha', 'Missing'].map(name => ({ name }));
+  const base = recommendation(candidate, [candidate], null);
+  const scores = Object.fromEntries([['Negative', -1], ['Zero', 0], ['Quarter', .25], ['Zulu', 2], ['Alpha', 2]].map(([name, total]) => [name, { ...base, total: Number(total) }]));
+  assert.deepEqual(rankByRecommendation(operators, scores).map(op => op.name), ['Alpha', 'Zulu', 'Quarter', 'Zero', 'Negative', 'Missing']);
+  const personalized = { ...scores, Negative: { ...base, total: 3, personalized: true } };
+  assert.equal(rankByRecommendation(operators, personalized)[0].name, 'Negative');
+  assert.deepEqual(rankByRecommendation(operators), operators);
+  assert.deepEqual(operators.map(op => op.name), ['Negative', 'Zero', 'Quarter', 'Zulu', 'Alpha', 'Missing']);
+});
 test('rating brackets and community rounding cover every boundary', () => {
   for (const [value, expected] of [[5.8,-1],[6.2,-1],[6.3,0],[6.5,0],[6.6,1],[6.8,1],[6.9,2],[7.2,2],[6.85,2]]) assert.equal(ratingPoints(value), expected);
   for (const value of [null, NaN, 7.3, 5.7]) assert.equal(ratingPoints(value), null);
@@ -15,7 +25,26 @@ test('rating brackets and community rounding cover every boundary', () => {
 test('missing community doubles author points; zero community points are present', () => {
   assert.equal(recommendation(candidate, [candidate], null).total, 2.25);
   assert.equal(recommendation({ ...candidate, community: null }, [candidate], null).total, 3.25);
-  assert.equal(recommendation({ ...candidate, kukkikaze: null }, [candidate], null).complete, false);
+  assert.equal(recommendation({ ...candidate, kukkikaze: null }, [candidate], null).complete, true);
+});
+test('missing author doubles community bracket points without doubling other bonuses', () => {
+  for (const [value, points] of [[6.0,-2],[6.4,0],[6.7,2],[7.1,4]]) {
+    const op = { ...candidate, kukkikaze: null, community: value };
+    const score = recommendation(op, [op], null);
+    assert.deepEqual(score.lines[0], { label: 'Community rating ×2 (no Kukkikaze rating)', points });
+    assert.equal(score.total, points + 1.25);
+    assert.equal(score.complete, true);
+  }
+  const absent = { ...candidate, kukkikaze: null, community: null };
+  assert.equal(recommendation(absent, [absent], null).total, 1.25);
+  assert.equal(recommendation(absent, [absent], null).complete, false);
+});
+test('Nasti uses the community-only fallback without filling her author rating', () => {
+  const nasti = snapshot.candidates.find(op => op.name === 'Nasti')!;
+  assert.equal(nasti.kukkikaze, null);
+  const score = recommendation(nasti, snapshot.candidates, null);
+  assert.deepEqual(score.lines[0], { label: 'Community rating ×2 (no Kukkikaze rating)', points: 2 });
+  assert.equal(score.complete, true);
 });
 test('account coverage bonuses require an imported account and exact six-star roster ownership', () => {
   const op = { ...candidate, arts: true, trueDamage: true, kukkikaze: 7.1, isModule: true, raModule: true };

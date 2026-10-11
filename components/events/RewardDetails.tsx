@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef, useState, useCallback, type ReactNode, type MouseEvent } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, useCallback, useMemo, type ReactNode, type MouseEvent } from 'react';
 import Image from '@/components/content/ContentImage';
 import { OperatorPreview, type OperatorPreviewItem } from '@/components/operators/OperatorPreview';
 import XButton from '@/components/ui/XButton';
@@ -6,7 +6,7 @@ import type { TicketDetails } from '@/lib/events/announcements';
 import type { EventExtras } from '@/lib/events/tableRewards';
 import { RewardTile } from './RewardTile';
 import { packDay } from '@/lib/events/packDay';
-import { pointLabel, type Recommendation } from '@/lib/selectors/scoring';
+import { pointLabel, rankByRecommendation, type Recommendation } from '@/lib/selectors/scoring';
 
 export interface ResolvedTicket extends Omit<TicketDetails, 'operators'> {
   operators: { name: string; iconPath: string; href: string }[];
@@ -25,6 +25,8 @@ export function RewardDetailsProvider({ tickets, children, recommendations, reco
   const trigger = useRef<HTMLElement | null>(null);
   const heading = useRef<HTMLHeadingElement>(null);
   const active = stack[stack.length - 1];
+  const ticket = active && 'ticket' in active ? active.ticket : undefined;
+  const operators = useMemo(() => rankByRecommendation(ticket?.operators ?? [], recommendations), [ticket, recommendations]);
   const isOpen = !!active;
   useEffect(() => {
     if (!isOpen) return;
@@ -70,7 +72,7 @@ export function RewardDetailsProvider({ tickets, children, recommendations, reco
           {active.ticket.note && <p className="hint">{active.ticket.note}</p>}
           {recommendationNote && <p className="hint">{recommendationNote}</p>}
           <div className="event-selector-operators">
-            {active.ticket.operators.map(op => { const score = recommendations?.[op.name]; const breakdown = score ? `${score.complete ? "Recommendation" : "Available subtotal (rating data missing)"}: ${pointLabel(score.total)}. ${score.lines.map(line => `${line.label}: ${pointLabel(line.points)}`).join("; ")}` : undefined; return <button key={op.name} type="button" className="btn-bare event-selector-operator" aria-haspopup="dialog" title={breakdown} aria-label={`${op.name}: operator preview${score ? `, ${breakdown}${score.owned ? ", already owned" : ""}` : ""}`}
+            {operators.map(op => { const score = recommendations?.[op.name]; const breakdown = score ? `${score.complete ? "Recommendation" : "Available subtotal (rating data missing)"}: ${pointLabel(score.total)}. ${score.lines.map(line => `${line.label}: ${pointLabel(line.points)}`).join("; ")}` : undefined; return <button key={op.name} type="button" className="btn-bare event-selector-operator" aria-haspopup="dialog" title={breakdown} aria-label={`${op.name}: operator preview${score ? `, ${breakdown}${score.owned ? ", already owned" : ""}` : ""}`}
               onClick={() => setOperatorPreview({ name: op.name, icon: op.iconPath, rarity: 6 })}>
               <span className="selector-portrait"><Image src={op.iconPath} alt="" width={56} height={56} />
               {score && <span className={`selector-score selector-score-${score.tone}`} aria-hidden="true">{pointLabel(score.total)}</span>}
