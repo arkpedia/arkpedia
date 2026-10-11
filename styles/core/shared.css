@@ -1365,7 +1365,7 @@ a.primary:where(:has(~ :is(button, a).ghost)),
 .supporter-tier + .supporter-tier { border-top: 1px solid var(--line-soft); }
 .supporter-tier h3 {
   margin: 0;
-  color: var(--text);
+  color: var(--text-faint);
   font-size: 15px;
   line-height: 1.4;
 }
