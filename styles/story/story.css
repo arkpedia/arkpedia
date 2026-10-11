@@ -86,11 +86,25 @@ a.story-list-card:hover { border-color: var(--teal); }
 .story-chapter-code { justify-self: start; padding: 2px 8px; border: 1px solid var(--control-border); border-radius: var(--radius); color: var(--text-dim); font-family: var(--font-mono); font-size: 12px; white-space: nowrap; }
 .story-chapter-code.is-empty { border: 0; }
 .story-chapter-name { min-width: 0; color: var(--text); font-weight: 600; }
-.story-chapter-buttons { display: grid; grid-template-columns: repeat(2, 84px); gap: 6px; }
+.story-chapter-buttons { display: grid; grid-template-columns: repeat(2, 114px); gap: 6px; }
 .story-chapter-before { grid-column: 1; }
 .story-chapter-after { grid-column: 2; }
 .story-chapter-read { grid-column: 1 / -1; }
-.story-chapter-buttons > a { justify-content: center; text-align: center; }
+.story-chapter-part { display: flex; align-items: center; gap: 4px; }
+.story-chapter-part > a { flex: 1; min-width: 0; justify-content: center; text-align: center; }
+.story-read-check { flex: none; display: grid; place-items: center; width: 32px; height: 36px; padding: 0; border: 0; background: transparent; color: var(--text-dim); }
+.story-read-check span { display: grid; place-items: center; width: 20px; height: 20px; border: 1px solid var(--text-dim); border-radius: 3px; font-size: 15px; line-height: 1; color: transparent; }
+.story-read-check[aria-pressed="true"] span { color: var(--panel); background: var(--text-dim); }
+.story-read-check:focus-visible { outline: 2px solid var(--teal); outline-offset: 1px; border-radius: var(--radius); }
+.story-chapter-row.is-read .story-chapter-name { color: var(--text-dim); }
+.story-chapter-actions { display: grid; justify-items: stretch; gap: 4px; }
+.story-chapter-actions .btn-sm { padding: 6px 10px; font-size: 11px; justify-content: center; }
+.story-chapter-actions button { color: var(--text-dim); }
+.story-map-picture.is-read img { filter: brightness(0.45); }
+.story-map-read-mark { position: absolute; top: 16px; left: 50%; transform: translateX(-50%); color: var(--text-dim); font: 700 72px/1 var(--font-body); pointer-events: none; }
+.story-list-card.is-read img { filter: brightness(0.45); }
+.story-list-card.is-read .story-list-title { color: var(--text-dim); }
+.story-list-read-mark { margin-left: auto; flex: none; color: var(--text-dim); font-size: 20px; }
 @media (max-width: 560px) {
   .story-chapter-rows { grid-template-columns: max-content minmax(0, 1fr); }
   .story-chapter-buttons { grid-column: 1 / -1; grid-template-columns: repeat(2, minmax(0, 1fr)); }

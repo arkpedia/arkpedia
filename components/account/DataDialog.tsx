@@ -8,14 +8,15 @@ import { useReleaseTable } from '@/lib/content/context';
 import { depotNames, type MaterialCatalogue } from '@/lib/farming/materialCatalogue.mjs';
 import { unheldSummary, type ImportAliases } from '@/lib/planner/foreignImport';
 import type { GameAccountMap } from '@/lib/planner/gameAccount';
-import { loadFromFile, saveToFile } from '@/lib/planner/fileTransfer';
+import { loadFromFile } from '@/lib/planner/fileTransfer';
+import { downloadBlob } from '@/lib/ui/downloadBlob';
 import { storePlannerTransfer } from '@/lib/planner/storeTransfer';
 import { PULL_PLAN_KEY, type SavedPullPlan } from '@/lib/pulls/plan';
 import { writePastProgress } from '@/lib/pulls/pastProgress';
 import { importGameAccount, type ImportResult } from '@/lib/account/importAccount';
 import type { PullRead } from '@/lib/account/pulls';
 import { forgetLogin } from '@/lib/account-import/savedLogin';
-import { applyBackup, backupFilename, formatBackup } from '@/lib/account/backup';
+import { applyBackup, formatBackup, type ParsedBackup } from '@/lib/account/backup';
 import { readImportFile } from '@/lib/account/importFile';
 import { forgetShownAccount, storedAccount, useAccount } from '@/lib/account/accountStore';
 
@@ -47,6 +48,7 @@ export default function DataDialog({ onClose }: { onClose: () => void }) {
   const catalogue = useReleaseTable<MaterialCatalogue>('material-catalogue');
   const [result, setResult] = useState<{ imported: ImportResult; pulls: PullRead } | null>(null);
   const [note, setNote] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
   const [text, setText] = useState('');
   // The dialog opens on a click, after hydration, so storage can be read for its first render:
   // the remembered sign-in's server, else the imported account's, else Global.
@@ -69,23 +71,23 @@ export default function DataDialog({ onClose }: { onClose: () => void }) {
     setNote(`Your ${server} account${login?.server === account.server ? ' and its remembered sign-in are' : ' is'} forgotten on this browser.${next ? ` Your ${SERVERS[next.server].label} account is shown now.` : ''} The planners keep their own data until you clear it there.`);
   }
 
+  function restore(backup: ParsedBackup) {
+    try {
+      applyBackup(backup);
+    } catch {
+      setNote('This browser would not store the backup, so nothing was changed.');
+      return;
+    }
+    // In place, with no reload: a new document would end the music. applyBackup tells
+    // everything open here, the app shell's player included, through each store's event,
+    // and every other page reads its stores when it opens (lib/account/backup.ts).
+    const what = backup.stores.map((store) => store.label);
+    setNote(`Restored ${what.length ? what.join(', ') : 'nothing (the backup is empty)'}${backup.savedAt ? `, from a backup of ${backup.savedAt.slice(0, 10)}` : ''}.`);
+  }
   function applyText(input: string, source: string) {
     const file = readImportFile(input, aliases);
     if (file.kind === 'refused') { setNote(`${file.reason} (${source})`); return; }
-    if (file.kind === 'backup') {
-      try {
-        applyBackup(file.backup);
-      } catch {
-        setNote('This browser would not store the backup, so nothing was changed.');
-        return;
-      }
-      // In place, with no reload: a new document would end the music. applyBackup tells
-      // everything open here, the app shell's player included, through each store's event,
-      // and every other page reads its stores when it opens (lib/account/backup.ts).
-      const what = file.backup.stores.map((store) => store.label);
-      setNote(`Restored ${what.length ? what.join(', ') : 'nothing (the backup is empty)'}${file.backup.savedAt ? `, from a backup of ${file.backup.savedAt.slice(0, 10)}` : ''}.`);
-      return;
-    }
+    if (file.kind === 'backup') { restore(file.backup); return; }
     if (file.kind === 'pull-plan') {
       /* The file's resources and ticks stand over the current account import's: marked as
          already filled from it (walletFrom, ticksFrom), and the ticks go to their own store
@@ -101,9 +103,15 @@ export default function DataDialog({ onClose }: { onClose: () => void }) {
   }
 
   async function exportAll(): Promise<void> {
-    const saved = await saveToFile(formatBackup(window.localStorage), backupFilename());
-    if (!saved) { setNote('Nothing saved.'); return; }
-    setNote(saved.chosen ? `Saved as ${saved.name}, where you chose.` : `Downloaded as ${saved.name}: it is in your browser's downloads.`);
+    setExporting(true);
+    try {
+      const { exportDataArchive } = await import('@/lib/account/exportFiles');
+      const now = new Date();
+      const bytes = exportDataArchive(window.localStorage, now);
+      downloadBlob(new Blob([bytes as Uint8Array<ArrayBuffer>], { type: 'application/zip' }), `arkpedia-data-${now.toISOString().slice(0, 10)}.zip`);
+      setNote('Exported player data, music playlists and story progress as three JSON files in one ZIP.');
+    } catch (error) { setNote(error instanceof Error ? error.message : 'Your data could not be exported.'); }
+    finally { setExporting(false); }
   }
 
   return (
@@ -135,14 +143,17 @@ export default function DataDialog({ onClose }: { onClose: () => void }) {
         <h3 id="data-file">From a file</h3>
         <div className="data-dialog-acts">
           <button type="button" className="ghost btn-sm" onClick={async () => {
-            const opened = await loadFromFile();
+            const opened = await loadFromFile({ archives: true });
             if (!opened) { setNote('Nothing loaded.'); return; }
             if (opened.tooLarge) { setNote(`${opened.name} is far larger than any Arkpedia file, so it was not read.`); return; }
-            applyText(opened.text, opened.name);
+            if (opened.bytes) {
+              try { const { parseDataArchive } = await import('@/lib/account/exportFiles'); restore(parseDataArchive(opened.bytes)); }
+              catch (error) { setNote(error instanceof Error ? error.message : 'That archive could not be read.'); }
+            } else applyText(opened.text, opened.name);
           }}>Import file</button>
         </div>
         <p className="hint">
-          An Arkpedia backup restores everything in it. Also read: an older Operator Planner or Pull Planner
+          An Arkpedia ZIP restores its three data files. Story and music JSON files and older backups are also supported. Also read: an older Operator Planner or Pull Planner
           export, and a Krooster CSV, Penguin Stats JSON or ark-nights file (these carry your depot only).
         </p>
         <details className="data-dialog-paste">
@@ -159,12 +170,11 @@ export default function DataDialog({ onClose }: { onClose: () => void }) {
       <section className="data-dialog-part" aria-labelledby="data-export">
         <h3 id="data-export">Export</h3>
         <div className="data-dialog-acts">
-          <button type="button" className="primary btn-sm" onClick={() => { void exportAll(); }}>Export everything</button>
+          <button type="button" className="primary btn-sm" disabled={exporting} onClick={() => { void exportAll(); }}>Export everything</button>
         </div>
         <p className="hint">
-          One file with all Arkpedia keeps for you in this browser: your imported account, the Operator Planner&apos;s
-          operators, depot, goals and crafting, the Pull Planner, the skin wishlist, your base setups and music
-          favourites. Nothing of it is kept anywhere else, so this file is your copy.
+          One ZIP with three JSON files: player data (your account and planners), music playlists and favourites,
+          and story progress. These are your copies of the data saved in this browser.
         </p>
       </section>
 

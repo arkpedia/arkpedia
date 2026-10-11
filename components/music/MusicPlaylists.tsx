@@ -4,7 +4,9 @@ import RecordDialog from '@/components/ui/RecordDialog';
 import StyledSelect from '@/components/ui/StyledSelect';
 import { useMusicPlayer } from '@/lib/music/musicPlayerContext';
 import { downloadBlob } from '@/lib/ui/downloadBlob';
-import { formatPlaylistFile, MAX_PLAYLIST_BYTES, mergePlaylists, MUSIC_PLAYLISTS_EVENT, MUSIC_PLAYLISTS_KEY, parsePlaylistFile, readPlaylists, validatePlaylists, type MusicPlaylist } from '@/lib/music/musicPlaylists';
+import { formatPlaylistFile, MAX_PLAYLIST_BYTES, mergePlaylists, MUSIC_PLAYLISTS_EVENT, MUSIC_PLAYLISTS_KEY, readPlaylists, validatePlaylists, type MusicPlaylist } from '@/lib/music/musicPlaylists';
+import { parseMusicData } from '@/lib/music/musicData';
+import { MUSIC_FAVORITES_EVENT, MUSIC_FAVORITES_KEY, readMusicFavorites } from '@/lib/music/musicFavorites';
 
 export default function MusicPlaylists({ songs }: { songs: { videoId: string; title: string }[] }) {
   const player = useMusicPlayer();
@@ -62,9 +64,14 @@ export default function MusicPlaylists({ songs }: { songs: { videoId: string; ti
     setBusy(true);
     try {
       if (input.size > MAX_PLAYLIST_BYTES) throw new Error('Choose a playlist file smaller than 2 MB.');
-      const imported = parsePlaylistFile(await input.text());
+      const imported = parseMusicData(await input.text());
       // Read again after the asynchronous file read so an import cannot overwrite a newer tab's save.
-      const merged = mergePlaylists(readPlaylists(window.localStorage), imported, () => crypto.randomUUID());
+      const merged = mergePlaylists(readPlaylists(window.localStorage), imported.playlists, () => crypto.randomUUID());
+      validatePlaylists(merged.playlists);
+      if (imported.favorites) {
+        window.localStorage.setItem(MUSIC_FAVORITES_KEY, JSON.stringify([...new Set([...readMusicFavorites(window.localStorage), ...imported.favorites])]));
+        window.dispatchEvent(new Event(MUSIC_FAVORITES_EVENT));
+      }
       if (!merged.added) setNote('These playlists are already saved.');
       else store(merged.playlists, `Imported ${merged.added} ${merged.added === 1 ? 'playlist' : 'playlists'}.`);
     } catch (error) { setNote(error instanceof Error ? error.message : 'This file could not be read.'); }
