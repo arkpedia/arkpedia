@@ -107,7 +107,12 @@ export async function importStageRenders({ root = process.cwd(), stages = excel(
   }
   const published = new Set(assetFileNames('stages-images', root).filter(file => file.endsWith('.webp')).map(file => file.slice(0, -'.webp'.length)));
   const mapDir = path.resolve(root, cn, 'map');
-  const mapFiles = fs.existsSync(mapDir) ? new Set(fs.readdirSync(mapDir)) : null;
+  const reportFile = path.join(root, 'data/stage-report.json');
+  const artRun = fs.existsSync(reportFile)
+    ? JSON.parse(fs.readFileSync(reportFile, 'utf8')).stages?.find(row => row.stage === 'upstream-cn-art') : null;
+  // A failed checkout can leave old or partial files behind on a persistent runner.
+  // Never attribute those bytes to this run's new mirror pin.
+  const mapFiles = (!artRun || artRun.status === 'ok') && fs.existsSync(mapDir) ? new Set(fs.readdirSync(mapDir)) : null;
   const excluded = new Set(Object.keys(JSON.parse(fs.readFileSync(path.join(root, 'data', 'excluded-contents.json'), 'utf8'))));
   const { adopt, stage, fallback } = planRenders({ stages, records, published, mapFiles, excluded });
 

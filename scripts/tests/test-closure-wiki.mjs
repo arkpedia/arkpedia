@@ -92,7 +92,12 @@ test('nightly map fallback preserves primary art, skips exclusions, survives fai
     assert.deepEqual(looked, ['failed']);
     assert.equal(read('data/stages/missing.json').preview, 'images/stages/missing.png');
     assert.ok(!read('data/quarantine.json').entries.some(row => row.key === 'stage-render:missing'));
-    // An unavailable art mirror must not disable the supplementary source.
+    // A failed mirror refresh must not label leftover art with the new mirror pin.
+    write('cn/map/failed.png', png);
+    write('data/stage-report.json', { stages: [{ stage: 'upstream-cn-art', status: 'failed' }] });
+    await run({ closureLookup: async candidate => ({ bytes: png, preview: `https://static.closure.wiki/v3/mappreviews/${candidate.stageId}.webp` }) });
+    assert.equal(read('.cache/stage-renders/staged.json').files['stages-images/failed.webp'].source, 'https://static.closure.wiki/v3/mappreviews/failed.webp');
+    // An unavailable art mirror must not disable the supplementary source either.
     fs.rmSync(path.join(root, 'cn'), { recursive: true });
     await run({ closureLookup: async candidate => ({ bytes: png, preview: `https://static.closure.wiki/v3/mappreviews/${candidate.stageId}.webp` }) });
     assert.ok(read('.cache/stage-renders/staged.json').files['stages-images/failed.webp']);
