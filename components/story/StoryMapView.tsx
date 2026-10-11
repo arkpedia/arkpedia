@@ -100,7 +100,7 @@ function Picture({ element, chapters }: { element: Extract<StoryElement, { type:
   if (!element.link?.url) return <span className="story-map-picture is-plain" style={style} title={title} role="img" aria-label={title}>{art}</span>;
   const inPopup = !!element.link.story && chapters.has(element.link.story);
   const read = chapters.isRead?.(element.link.story);
-  return <a className={`story-map-picture${read ? ' is-read' : ''}`} style={style} {...storyLinkProps(element.link, chapters)} title={title} aria-label={`${inPopup ? `${title}: its chapters` : `${title} (opens in a new tab)`}${read ? ', read' : ''}`} draggable={false}>{art}{read && <span className="story-map-read-mark" aria-hidden="true">✓</span>}</a>;
+  return <a className={`story-map-picture${read ? ' is-read' : ''}`} style={style} {...storyLinkProps(element.link, chapters)} title={title} aria-label={`${inPopup ? `${title}: its chapters` : `${title} (opens in a new tab)`}${read ? ', read' : ''}`} draggable={false}>{art}{read && <svg className="story-map-read-mark" width="72" height="72" viewBox="0 0 72 72" fill="none" stroke="currentColor" strokeWidth="8" aria-hidden="true"><path d="M16 38 29 51 56 20" /></svg>}</a>;
 }
 
 function ListCard({ story, chapters }: { story: StoryPicture; chapters: ChapterOpener }) {

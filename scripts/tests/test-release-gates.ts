@@ -470,5 +470,6 @@ test('only a scheduled release waits, before the upstream probe, and the report 
   assert.doesNotMatch(report, /sync-images\.yml/);
   const listed = spawnSync(process.execPath, ['scripts/content/asset-syncs.mjs', 'list'], { encoding: 'utf8' }).stdout.trim().split('\n');
   assert.deepEqual(listed, ASSET_SYNCS);
-  assert.equal(ASSET_SYNCS.length, 7);
+  assert.ok(ASSET_SYNCS.includes('arkpedia-sd-assets/sync-chibis.yml'), 'new operator chibis finish importing before the release pins SD assets');
+  assert.equal(ASSET_SYNCS.length, 8);
 });

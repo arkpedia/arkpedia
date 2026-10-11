@@ -43,6 +43,17 @@ export function chibiIndex(sd, revision) {
     }
     bySkin[skin] = models;
   }
+  // The page's Base label looks up #1. A native template may start at #2 instead;
+  // only SD's source-backed default declaration can supply that display alias.
+  if (sd.websiteDefaultSkins !== undefined) {
+    if (!sd.websiteDefaultSkins || typeof sd.websiteDefaultSkins !== 'object' || Array.isArray(sd.websiteDefaultSkins)) throw Error('Invalid SD native default skins');
+    for (const [id, skin] of Object.entries(sd.websiteDefaultSkins)) {
+      if (!/^char_\w+$/.test(id) || typeof skin !== 'string' || !skin.startsWith(`${id}#`) || !bySkin[skin]) throw Error(`${id}: missing SD native default skin`);
+      const facings = sd.websiteSkins[skin];
+      for (const facing of ['front', 'back']) if (facings[facing] && sd.models[facings[facing]].id !== id) throw Error(`${id}: native default must use its own operator`);
+      bySkin[`${id}#1`] ??= bySkin[skin];
+    }
+  }
   assertSdChibiIndex(bySkin);
   return bySkin;
 }

@@ -111,6 +111,9 @@ jobs:
       - name: Profile card theme colour import tests
         run: python3 scripts/imports/test-namecard-styles.py
 
+      - name: Medal set layout import tests
+        run: python3 scripts/tests/test-medal-layouts.py
+
       - name: Story map import tests
         run: python3 scripts/imports/test-story-map.py
 

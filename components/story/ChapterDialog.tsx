@@ -28,7 +28,7 @@ export default function ChapterDialog({ link, image, sections, onClose }: { link
   const stages = rows.filter((row) => row.before !== undefined || row.after !== undefined).length;
   const open = (index: number, label: string, kind: string) => (
     <span className={`story-chapter-part story-chapter-${kind}`}>
-      <button type="button" className="story-read-check" aria-label={`Mark ${label} as ${isRead(index) ? 'unread' : 'read'}`} aria-pressed={isRead(index)}
+      <button type="button" className="btn-bare btn-icon story-read-check" aria-label={`Mark ${label} as ${isRead(index) ? 'unread' : 'read'}`} aria-pressed={isRead(index)}
         onClick={() => { try { const latest = readStoryProgress(window.localStorage); writeStoryProgress(setStoryPart(latest, link.story, index, !latest[link.story]?.includes(index))); setNote(''); } catch { setNote('This browser could not save your story progress.'); } }}><span aria-hidden="true">✓</span></button>
       <a className="ghost btn-sm" href={readerLink(link.url, index)} target="_blank" rel="noopener noreferrer"
         onClick={() => mark(index, true)} onAuxClick={event => { if (event.button === 1) mark(index, true); }}

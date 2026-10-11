@@ -41,7 +41,7 @@ export function writeChibiArt(root, next) {
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   try {
     const next = await readChibiArt({ token: process.env.GH_TOKEN });
-    console.log(`${writeChibiArt(process.cwd(), next) ? 'Updated' : 'Unchanged'} ${OUT}: ${Object.keys(next).length} skins from SD assets`);
+    console.log(`${writeChibiArt(process.cwd(), next) ? 'Updated' : 'Unchanged'} ${OUT}: ${Object.keys(next).length} skin lookups from SD assets`);
   } catch (error) {
     console.error(`sync-chibi-art: ${error.message}; previous chibi catalogue retained.`);
     process.exitCode = 1;
