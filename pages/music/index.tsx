@@ -12,7 +12,7 @@ import { useCrossFadeTitle } from '@/lib/music/useCrossFadeTitle';
 import { useQueryState } from '@/lib/hooks/useQueryState';
 import MusicWaveVisualizer from '@/components/music/MusicWaveVisualizer';
 import MusicPlaylists from '@/components/music/MusicPlaylists';
-import SongPlaylistDialog from '@/components/music/SongPlaylistDialog';
+import SongPlaylistPicker from '@/components/music/SongPlaylistPicker';
 import TransportIcon from '@/components/music/TransportIcons';
 import PageHeader from '@/components/ui/PageHeader';
 import SearchInput from '@/components/ui/SearchInput';
@@ -94,7 +94,6 @@ interface QueueRowProps {
   onRemove: () => void;
   isFavorite: boolean;
   onFavorite: () => void;
-  onAddToPlaylist: () => void;
 }
 
 function QueueRow({
@@ -113,7 +112,6 @@ function QueueRow({
   onRemove,
   isFavorite,
   onFavorite,
-  onAddToPlaylist,
 }: QueueRowProps) {
   const { displayName, fading } = useCrossFadeTitle(song.title, song.altTitle);
   return (
@@ -160,9 +158,7 @@ function QueueRow({
           aria-label={`${isFavorite ? 'Remove' : 'Add'} ${song.title} ${isFavorite ? 'from' : 'to'} favorites`} title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}>
           <TransportIcon name="heart" size={18} />
         </button>
-        <button type="button" className="ghost" onClick={onAddToPlaylist} aria-label={`Add ${song.title} to playlists`} title="Add to playlists">
-          <TransportIcon name="plus" size={18} />
-        </button>
+        <SongPlaylistPicker song={song} />
         <button type="button" className="ghost" onClick={onPlayNow} aria-label="Play now" title="Play now">
           <TransportIcon name="play" size={14} />
         </button>
@@ -182,7 +178,6 @@ function QueueRow({
 
 export default function MusicPage({ songLookup }: Props) {
   const contentUrl = useContentUrl();
-  const [playlistSong, setPlaylistSong] = useState<QueueTrack | null>(null);
   const {
     ready,
     starting,
@@ -620,7 +615,6 @@ export default function MusicPage({ songLookup }: Props) {
                       song={song}
                       isFavorite={favorites.has(song.id)}
                       onFavorite={() => toggleFavorite(song.id)}
-                      onAddToPlaylist={() => setPlaylistSong(song)}
                       displayPos={displayPos}
                       isActive={queueIdx === queueIndex && videoId === song.id}
                       isDragging={dragPos === displayPos}
@@ -654,7 +648,6 @@ export default function MusicPage({ songLookup }: Props) {
                       song={song}
                       isFavorite={favorites.has(song.id)}
                       onFavorite={() => toggleFavorite(song.id)}
-                      onAddToPlaylist={() => setPlaylistSong(song)}
                       displayPos={displayPos}
                       isActive={queueIdx === queueIndex && videoId === song.id}
                       isDragging={dragPos === displayPos}
@@ -693,7 +686,6 @@ export default function MusicPage({ songLookup }: Props) {
                     song={song}
                     isFavorite={favorites.has(song.id)}
                     onFavorite={() => toggleFavorite(song.id)}
-                    onAddToPlaylist={() => setPlaylistSong(song)}
                     displayPos={displayPos}
                     isActive={queueIdx === queueIndex && videoId === song.id}
                     isDragging={dragPos === displayPos}
@@ -832,7 +824,6 @@ export default function MusicPage({ songLookup }: Props) {
           </div>
         </div>
       </main>
-      {playlistSong && <SongPlaylistDialog song={playlistSong} onClose={() => setPlaylistSong(null)} />}
     </>
   );
 }

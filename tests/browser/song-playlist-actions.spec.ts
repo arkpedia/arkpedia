@@ -29,6 +29,19 @@ for (const theme of ['dark', 'light']) {
     await plus.click();
     const dialog = page.getByRole('dialog', { name: 'Add to playlists', exact: true });
     await expect(dialog).toContainText('No saved playlists yet.');
+    await expect(plus).toHaveAttribute('aria-expanded', 'true');
+    expect(await dialog.evaluate(el => el.tagName)).toBe('DIV');
+    expect(await page.locator('body').evaluate(el => el.style.overflow)).not.toBe('hidden');
+    const anchor = (await plus.boundingBox())!;
+    const popup = (await dialog.boundingBox())!;
+    expect(popup.width).toBeLessThanOrEqual(320);
+    expect(popup.x).toBeGreaterThanOrEqual(0);
+    expect(popup.x + popup.width).toBeLessThanOrEqual(page.viewportSize()!.width);
+    expect(Math.min(Math.abs(popup.y - anchor.y - anchor.height), Math.abs(anchor.y - popup.y - popup.height))).toBeLessThanOrEqual(8);
+    await page.getByRole('heading', { name: 'Music', exact: true }).click();
+    await expect(dialog).not.toBeVisible();
+    await expect(plus).toHaveAttribute('aria-expanded', 'false');
+    await plus.click();
     await dialog.getByRole('textbox', { name: 'New playlist name' }).fill('Night music');
     await dialog.getByRole('button', { name: 'Create new playlist', exact: true }).click();
     await expect(dialog.getByRole('status')).toContainText('Created Night music');
@@ -107,4 +120,38 @@ test('the picker keeps a second tab’s playlist edits and does not duplicate ex
   await expect(dialog.getByRole('checkbox', { name: /Shared/ })).toBeDisabled();
   await expect(dialog.getByRole('button', { name: 'Add to playlists', exact: true })).toBeDisabled();
   await other.close();
+});
+
+
+test('playlist picker flips above a low button and stays within the viewport as its content grows', async ({ page }) => {
+  await page.setViewportSize({ width: page.viewportSize()!.width, height: 700 });
+  await stubYouTube(page);
+  await page.goto('/music?view=queue');
+  const buttons = page.locator('.music-queue-row-actions button[aria-haspopup="dialog"]');
+  await expect(buttons.first()).toBeVisible();
+  // Pick a visible row near the queue's bottom without scrolling it into a new position.
+  const positions = await buttons.evaluateAll(elements => elements.map(el => {
+    const r = el.getBoundingClientRect();
+    const list = el.closest('.music-queue-list')!.getBoundingClientRect();
+    return { top: r.top, bottom: r.bottom, visible: r.top >= list.top && r.bottom <= list.bottom };
+  }));
+  const index = positions.reduce((last, r, i) => r.visible && r.top > page.viewportSize()!.height / 2 && r.bottom < page.viewportSize()!.height - 160 ? i : last, -1);
+  expect(index).toBeGreaterThanOrEqual(0);
+  const plus = buttons.nth(index);
+  await plus.click();
+  const picker = page.getByRole('dialog', { name: 'Add to playlists', exact: true });
+  await expect(picker).toBeVisible();
+  await picker.getByRole('textbox', { name: 'New playlist name' }).fill('A playlist with a long title that wraps onto more than one line');
+  await picker.getByRole('button', { name: 'Create new playlist' }).click();
+  await expect(picker.getByRole('status')).toContainText('Created');
+  await expect.poll(async () => {
+    const anchor = (await plus.boundingBox())!;
+    const rect = (await picker.boundingBox())!;
+    return rect.y >= 12 && rect.y + rect.height <= page.viewportSize()!.height - 10
+      && Math.abs(anchor.y - rect.y - rect.height - 6) <= 3;
+  }).toBe(true);
+  await page.screenshot({ path: `.cache/song-anchored-${page.viewportSize()!.width}.png` });
+  await picker.getByRole('button', { name: 'Close playlist picker' }).click();
+  await expect(picker).not.toBeVisible();
+  await expect(plus).toBeFocused();
 });

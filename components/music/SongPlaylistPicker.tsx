@@ -1,8 +1,39 @@
-import { useEffect, useState } from 'react';
-import ImportDialog from '@/components/account/ImportDialog';
+import { useEffect, useId, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { useAnchoredPopover } from '@/components/ui/useAnchoredPopover';
+import XButton from '@/components/ui/XButton';
+import TransportIcon from './TransportIcons';
 import { addSongToPlaylists, MUSIC_PLAYLISTS_EVENT, MUSIC_PLAYLISTS_KEY, readPlaylists, validatePlaylists, type MusicPlaylist } from '@/lib/music/musicPlaylists';
 
-export default function SongPlaylistDialog({ song, onClose }: { song: { id: string; title: string }; onClose: () => void }) {
+type Song = { id: string; title: string };
+
+export default function SongPlaylistPicker({ song }: { song: Song }) {
+  const { open, setOpen, close, buttonRef, menuRef, menuStyle } = useAnchoredPopover(320);
+  const id = useId();
+  function dismiss() {
+    close();
+    buttonRef.current?.focus({ preventScroll: true });
+  }
+  return <>
+    <button ref={buttonRef} type="button" className="ghost" onClick={() => setOpen(value => !value)}
+      aria-label={`Add ${song.title} to playlists`} title="Add to playlists"
+      aria-expanded={open} aria-haspopup="dialog" aria-controls={open ? id : undefined}>
+      <TransportIcon name="plus" size={18} />
+    </button>
+    {open && createPortal(<div id={id} ref={menuRef} role="dialog" aria-label="Add to playlists"
+      className="music-song-playlists-popover" style={menuStyle}
+      onBlur={event => {
+        const next = event.relatedTarget as Node | null;
+        if (next && !event.currentTarget.contains(next) && !buttonRef.current?.contains(next)) close();
+      }}>
+      <PlaylistOptions song={song} onClose={dismiss} />
+    </div>, document.body)}
+  </>;
+}
+
+function PlaylistOptions({ song, onClose }: { song: Song; onClose: () => void }) {
+  const closeRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => { closeRef.current?.focus({ preventScroll: true }); }, []);
   const [playlists, setPlaylists] = useState<MusicPlaylist[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
   const [name, setName] = useState('');
@@ -39,7 +70,11 @@ export default function SongPlaylistDialog({ song, onClose }: { song: { id: stri
       setNote(`Created ${title} and added this song.`);
     } catch (error) { setNote(error instanceof Error ? error.message : 'This browser could not save your playlists.'); }
   }
-  return <ImportDialog title="Add to playlists" onClose={onClose} className="music-song-playlists-dialog">
+  return <>
+    <div className="music-song-playlist-heading">
+      <b>Add to playlists</b>
+      <XButton ref={closeRef} label="Close playlist picker" onClick={onClose} />
+    </div>
     <p className="music-song-playlist-title">{song.title}</p>
     <div className="music-song-playlist-options">
       {playlists.length ? playlists.map(p => {
@@ -59,5 +94,5 @@ export default function SongPlaylistDialog({ song, onClose }: { song: { id: stri
       <button type="submit" className="ghost btn-sm">Create new playlist</button>
     </form>
     <p className="music-playlist-status hint" role="status">{note || '\u00a0'}</p>
-  </ImportDialog>;
+  </>;
 }
