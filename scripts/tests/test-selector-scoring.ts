@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { recommendation, ratingPoints, pointLabel, type SelectorCandidate } from '../../lib/selectors/scoring';
+import { recommendation, ratingPoints, pointLabel, rankByRecommendation, type SelectorCandidate } from '../../lib/selectors/scoring';
 import { buildSelectorCatalogue, damageTypes } from '../../lib/selectors/catalogue';
 import snapshot from '../../data/selector-catalogue.json';
 import { getAllOperators } from '../../lib/operators/operators';
@@ -8,6 +8,16 @@ import fs from 'node:fs';
 import ratings from '../../config/selector-ratings.json';
 import { importAuthorRatings } from '../../lib/selectors/ratings';
 const candidate: SelectorCandidate = { name: 'Test', id: 'char_test', caster: false, arts: false, trueDamage: false, kukkikaze: 6.6, community: 6.5, mainSkills: 1, subSkills: 1, isModule: false, raModule: false };
+test('ticket order follows displayed totals, including negative, quarter and personalized points', () => {
+  const operators = ['Negative', 'Zero', 'Quarter', 'Zulu', 'Alpha', 'Missing'].map(name => ({ name }));
+  const base = recommendation(candidate, [candidate], null);
+  const scores = Object.fromEntries([['Negative', -1], ['Zero', 0], ['Quarter', .25], ['Zulu', 2], ['Alpha', 2]].map(([name, total]) => [name, { ...base, total: Number(total) }]));
+  assert.deepEqual(rankByRecommendation(operators, scores).map(op => op.name), ['Alpha', 'Zulu', 'Quarter', 'Zero', 'Negative', 'Missing']);
+  const personalized = { ...scores, Negative: { ...base, total: 3, personalized: true } };
+  assert.equal(rankByRecommendation(operators, personalized)[0].name, 'Negative');
+  assert.deepEqual(rankByRecommendation(operators), operators);
+  assert.deepEqual(operators.map(op => op.name), ['Negative', 'Zero', 'Quarter', 'Zulu', 'Alpha', 'Missing']);
+});
 test('rating brackets and community rounding cover every boundary', () => {
   for (const [value, expected] of [[5.8,-1],[6.2,-1],[6.3,0],[6.5,0],[6.6,1],[6.8,1],[6.9,2],[7.2,2],[6.85,2]]) assert.equal(ratingPoints(value), expected);
   for (const value of [null, NaN, 7.3, 5.7]) assert.equal(ratingPoints(value), null);

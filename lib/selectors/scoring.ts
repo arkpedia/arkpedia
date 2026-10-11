@@ -51,3 +51,11 @@ export function recommendation(candidate: SelectorCandidate, roster: SelectorCan
     tone: total < 0 ? 'negative' : total < 5 ? 'middle' : 'great', lines };
 }
 export const pointLabel = (points: number) => `${points > 0 ? '+' : ''}${points}`;
+
+/** Rank the displayed total, keeping equal scores alphabetical and unscored entries last. */
+export function rankByRecommendation<T extends { name: string }>(operators: readonly T[], scores?: Record<string, Recommendation>): T[] {
+  if (!scores) return [...operators];
+  return [...operators].sort((a, b) =>
+    ((scores[b.name]?.total ?? -Infinity) - (scores[a.name]?.total ?? -Infinity))
+    || a.name.localeCompare(b.name, 'en'));
+}

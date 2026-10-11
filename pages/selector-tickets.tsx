@@ -33,7 +33,7 @@ export default function SelectorTickets({ cards, tickets, candidates }: Props) {
         <p>Kukkikaze and community ratings each contribute −1 (5.8–6.2), 0 (6.3–6.5), +1 (6.6–6.8) or +2 (6.9–7.2). Community averages round to one decimal, as on Power Scale. If only one rating is available, its points double: +1 becomes +2, −1 becomes −2, and 0 stays 0.</p>
         <p>Each main priority skill adds +1; each sub priority skill adds +0.25. A skill with several mastery recommendations counts once, using its highest priority. IS and RA modules add +0.5 each.</p>
         <p>Your imported account adds +1 for Arts dealers with three or fewer owned 6★ Casters; +1 for True damage dealers with no owned 6★ True damage dealer; and +1 for a Kukkikaze 7.0–7.2 operator when you own no other operator in that bracket. Damage types include skills, talents and summons.</p>
-        <p>Red: below 0. Yellow: 0 to under 5. Green: 5 or higher. Owned operators keep their score and show an Owned label. Hover or focus a portrait for its score breakdown; click it for the operator preview.</p>
+        <p>Operators are sorted by score, highest first; equal scores are alphabetical. Red: below 0. Yellow: 0 to under 5. Green: 5 or higher. Owned operators keep their score and show an Owned label. Hover or focus a portrait for its score breakdown; click it for the operator preview.</p>
       </details>
     </main>
   </>;

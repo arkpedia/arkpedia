@@ -42,6 +42,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
     changed: [
       { title: 'Official event details update automatically', detail: 'Global announcements supply sign-in rewards, pack dates and selector pools, replacing previews as details arrive.', href: '/events' },
+      { title: 'Highest selector scores first', detail: 'Selector ticket pop-ups rank operators by their recommendation score, including imported account bonuses.', href: '/selector-tickets' },
     ],
   },
   {
