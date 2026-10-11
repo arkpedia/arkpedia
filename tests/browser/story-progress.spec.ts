@@ -28,8 +28,17 @@ test('opening and toggling parts persists progress; complete stages and stories 
   await expect(collapse.getByRole('button', { name: /as unread/ })).toHaveCount(2);
   await collapse.getByRole('button', { name: /before the operation as unread/ }).click();
   await expect(collapse).not.toHaveClass(/is-read/);
-  // Every remaining part is individually marked, including prologues and single-part stages.
-  while (await dialog.locator('.story-read-check[aria-pressed="false"]').count()) await dialog.locator('.story-read-check[aria-pressed="false"]').first().click();
+  // Bulk completion includes prologues and single-part stages, preserving other chapters.
+  await page.evaluate(() => {
+    const progress = JSON.parse(localStorage.getItem('arkpedia.story-progress.v1')!);
+    localStorage.setItem('arkpedia.story-progress.v1', JSON.stringify({ ...progress, main_1: [2] }));
+    window.dispatchEvent(new Event('arkpediaStoryProgressChanged'));
+  });
+  await dialog.getByRole('button', { name: 'Mark as read', exact: true }).click();
+  await expect(dialog.locator('.story-read-check[aria-pressed="false"]')).toHaveCount(0);
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('arkpedia.story-progress.v1')!).main_1)).toEqual([2]);
+  await page.reload();
+  await expect(dialog.locator('.story-read-check[aria-pressed="false"]')).toHaveCount(0);
   await dialog.getByRole('button', { name: 'Close', exact: true }).click();
   const picture = page.locator('.story-map-picture[href="/story?chapter=main_0"]');
   await expect(picture).toHaveClass(/is-read/);
@@ -50,7 +59,7 @@ test('story export/import restores only story progress, and rejects account file
     window.dispatchEvent(new Event('arkpediaStoryProgressChanged'));
   });
   await page.locator('.story-chapter-dialog').getByRole('button', { name: 'Close', exact: true }).click();
-  await page.getByRole('button', { name: 'Export story', exact: true }).click();
+  await page.getByRole('button', { name: 'Import / export', exact: true }).click();
   const download = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Export story JSON', exact: true }).click();
   const saved = await download;
@@ -58,7 +67,7 @@ test('story export/import restores only story progress, and rejects account file
   expect(JSON.parse(text).progress).toEqual({ main_0: [2, 3] });
   await page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }).click();
   await page.evaluate(() => { localStorage.removeItem('arkpedia.story-progress.v1'); window.dispatchEvent(new Event('arkpediaStoryProgressChanged')); });
-  await page.getByRole('button', { name: 'Import story', exact: true }).click();
+  await page.getByRole('button', { name: 'Import / export', exact: true }).click();
   await page.getByRole('dialog').locator('input[type=file]').setInputFiles({ name: 'story.json', mimeType: 'application/json', buffer: Buffer.from(text) });
   await expect(page.getByRole('status')).toHaveText('Story progress imported.');
   await expect.poll(() => page.evaluate(() => localStorage.getItem('arkpedia.story-progress.v1'))).toBe('{"main_0":[2,3]}');
@@ -106,5 +115,5 @@ test('Export everything downloads exactly three files and the ZIP restores them 
   await page.getByRole('button', { name: 'Import file', exact: true }).click();
   await (await chooser).setFiles({ name: 'arkpedia.zip', mimeType: 'application/zip', buffer });
   await expect(page.getByRole('status')).toContainText('story progress');
-  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('arkpedia.story-progress.v1')!))).toEqual({ main_0: [2, 3] });
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('arkpedia.story-progress.v1')!))).toEqual({ main_0: [2, 3] });
 });

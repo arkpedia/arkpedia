@@ -33,7 +33,7 @@ interface Props {
 export default function StoryPage({ map, chapters = {} }: Props) {
   const [chapter, setChapter] = useQueryState('chapter', '');
   const progress = useStoryProgress();
-  const [transfer, setTransfer] = useState<'import' | 'export' | null>(null);
+  const [transfer, setTransfer] = useState(false);
   // The map's picture for a chapter: its link (title, the reader's address) and its art.
   const pictures = useMemo(() => new Map(map.elements.flatMap((element) =>
     element.type === 'picture' && element.link?.story && element.link.url ? [[element.link.story, { link: element.link as StoryLink & { url: string; story: string },
@@ -46,10 +46,9 @@ export default function StoryPage({ map, chapters = {} }: Props) {
     <>
       <Head><title>Story — Arkpedia</title></Head>
       <PageHeader eyebrow="Rhodes Island // Story" title="Story"
-        sub="Read Arknights' story outside the game, and find where to start." actions={<>
-          <button type="button" className="ghost btn-sm" onClick={() => setTransfer('import')}>Import story</button>
-          <button type="button" className="ghost btn-sm" onClick={() => setTransfer('export')}>Export story</button>
-        </>} />
+        sub="Read Arknights' story outside the game, and find where to start." actions={
+          <button type="button" className="ghost btn-sm" onClick={() => setTransfer(true)}>Import / export</button>
+        } />
       <main>
         <section className="op-section story-links" aria-labelledby="story-read">
           <h2 id="story-read">Read the story</h2>
@@ -74,7 +73,7 @@ export default function StoryPage({ map, chapters = {} }: Props) {
         </section>
       </main>
       {shown && <ChapterDialog link={shown.link} image={shown.image} sections={chapters[chapter]} onClose={() => setChapter('')} />}
-      {transfer && <StoryDataDialog mode={transfer} onClose={() => setTransfer(null)} />}
+      {transfer && <StoryDataDialog onClose={() => setTransfer(false)} />}
     </>
   );
 }

@@ -44,10 +44,19 @@ export default function ChapterDialog({ link, image, sections, onClose }: { link
           <div className="story-chapter-actions">
             <a className="primary btn-sm" href={readerLink(link.url, sections[0]?.[0] ?? 0)} target="_blank" rel="noopener noreferrer"
               onClick={() => { if (sections[0]) mark(sections[0][0], true); }} onAuxClick={event => { if (event.button === 1 && sections[0]) mark(sections[0][0], true); }}>Read from the start <span aria-hidden="true">↗</span></a>
+            <div className="story-chapter-bulk">
+            <button type="button" className="ghost btn-sm" onClick={() => {
+              try {
+                const latest = readStoryProgress(window.localStorage);
+                writeStoryProgress({ ...latest, [link.story]: [...new Set([...(latest[link.story] ?? []), ...sections.map(([index]) => index)])] });
+                setNote('');
+              } catch { setNote('This browser could not save your story progress.'); }
+            }}>Mark as read</button>
             <button type="button" className="ghost btn-sm" onClick={() => {
               try { const next = { ...readStoryProgress(window.localStorage) }; delete next[link.story]; writeStoryProgress(next); setNote(''); }
               catch { setNote('This browser could not save your story progress.'); }
             }}>Mark as unread</button>
+            </div>
           </div>
         </div>
       </div>

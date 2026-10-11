@@ -100,6 +100,8 @@ a.story-list-card:hover { border-color: var(--teal); }
 .story-chapter-actions { display: grid; justify-items: stretch; gap: 4px; }
 .story-chapter-actions .btn-sm { padding: 6px 10px; font-size: 11px; justify-content: center; }
 .story-chapter-actions button { color: var(--text-dim); }
+.story-chapter-bulk { display: flex; gap: 4px; }
+.story-chapter-bulk > button { flex: 1; }
 .story-map-picture.is-read img { filter: brightness(0.45); }
 .story-map-read-mark { position: absolute; top: 16px; left: 50%; transform: translateX(-50%); color: var(--text-dim); font: 700 72px/1 var(--font-body); pointer-events: none; }
 .story-list-card.is-read img { filter: brightness(0.45); }
