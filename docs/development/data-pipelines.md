@@ -6,6 +6,8 @@
 
 The `chibi-art` refresh stage runs with each content release. The fingerprint watches the SD repository, and hydration retains the bundled chibi catalogue until the data repository carries it. Missing or incomplete manifests fail the stage and retain the previous catalogue; an update cannot remove an existing skin/facing. There is no browser fallback to an upstream asset repository.
 
+SD's `websiteDefaultSkins` declares the native default ID for template forms that start at `#2`. The index retains that exact skin and adds a same-operator `#1` display lookup for the page's Base label. The source declaration is required; no missing Base model is guessed from an available promotion or other operator. This lets future template forms use their published native defaults without website-specific exceptions.
+
 To adopt an already published SD manifest locally:
 
 ```sh
