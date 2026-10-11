@@ -353,6 +353,7 @@ test('the asset-sync report counts a manual run, and keeps one marker-found issu
     const script = stepScript('Report failing asset syncs');
     const runs = (...list: [string, string, string][]) => ({ workflow_runs: list.map(([event, conclusion, created]) => ({ event, conclusion, created_at: created, html_url: `https://example.invalid/${event}/${created}` })) });
     const workflows = ['arkpedia-image-assets/actions/workflows/sync-images.yml', 'arkpedia-skin-assets/actions/workflows/sync-artwork.yml',
+      'arkpedia-sd-assets/actions/workflows/sync-chibis.yml',
       ...['english', 'japanese', 'korean', 'mandarin', 'regional'].map(language => `arkpedia-voice-${language}/actions/workflows/sync-voices.yml`)];
     const green = runs(['schedule', 'success', '2026-09-23T16:11:00Z']);
     const api = (image: object) => Object.fromEntries(workflows.map(workflow => [`repos/arkpedia/${workflow}/runs`, workflow.includes('image') ? image : green]));
@@ -371,6 +372,11 @@ test('the asset-sync report counts a manual run, and keeps one marker-found issu
     assert.match(github.issues()[0].body, /^<!-- arkpedia-alert:asset-sync-failing -->\nThe latest finished run \(scheduled or manual\)/);
     assert.match(github.issues()[0].body, /- arkpedia\/arkpedia-image-assets `sync-images\.yml`: failure 2026-09-23 https:\/\/example\.invalid\/schedule\//);
     assert.doesNotMatch(github.issues()[0].body, /arkpedia-voice/);
+    github.seed([], { ...api(green), 'repos/arkpedia/arkpedia-sd-assets/actions/workflows/sync-chibis.yml/runs': runs(['schedule', 'failure', '2026-09-23T16:23:00Z']) });
+    const sdFailure = github.step(script, { FAKE_NOW: '2026-09-23T20:30:00Z' });
+    assert.equal(sdFailure.status, 0, sdFailure.output);
+    assert.match(github.issues()[0].body, /arkpedia-sd-assets `sync-chibis\.yml`: failure/);
+    assert.doesNotMatch(github.issues()[0].body, /arkpedia-image-assets/);
     // A success from before the three-day cutoff means the schedule stopped.
     github.seed([], api(runs(['schedule', 'success', '2026-09-19T16:11:00Z'])));
     github.step(script, { FAKE_NOW: '2026-09-23T20:30:00Z' });
