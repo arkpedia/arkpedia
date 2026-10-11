@@ -53,17 +53,17 @@ test('Global posts are fetched oldest first, so a run that stops part-way leaves
   // The run dies after its 25th post (a timeout, a crash): the pause after it throws. Counted by
   // the posts asked for, not the pauses, since the run also pauses between list pages.
   const dying = async () => { if (site.details.length === 25) throw new Error('the job was cancelled'); };
-  await assert.rejects(syncOfficialNews(root, { fetcher: site.fetcher, pause: dying }), /cancelled/);
+  await assert.rejects(syncOfficialNews(root, { now: NOW, fetcher: site.fetcher, pause: dying }), /cancelled/);
   assert.deepEqual(site.details, Array.from({ length: 25 }, (_, i) => i + 1), 'oldest first');
   // The next run's first page holds the newest fifteen, uncached, and reads them.
   site.details.length = 0;
-  const rerun = await syncOfficialNews(root, { fetcher: site.fetcher, pause: async () => {} });
+  const rerun = await syncOfficialNews(root, { now: NOW, fetcher: site.fetcher, pause: async () => {} });
   assert.deepEqual(rerun, { fresh: 15, unreadable: [] });
   assert.deepEqual(site.details, Array.from({ length: 15 }, (_, i) => i + 26));
   assert.deepEqual(cachedIds(root, NEWS_DIR), Array.from({ length: 40 }, (_, i) => String(i + 1)));
   // A quiet day: nothing new, no post asked for.
   site.details.length = 0;
-  assert.deepEqual(await syncOfficialNews(root, { fetcher: site.fetcher, pause: async () => {} }), { fresh: 0, unreadable: [] });
+  assert.deepEqual(await syncOfficialNews(root, { now: NOW, fetcher: site.fetcher, pause: async () => {} }), { fresh: 0, unreadable: [] });
   assert.deepEqual(site.details, []);
 }));
 
