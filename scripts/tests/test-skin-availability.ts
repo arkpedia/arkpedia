@@ -142,3 +142,31 @@ test('every window states newRelease, and only a verified new-release sale is ne
   // The SL-4b merge states it too, so a locally confirmed window sorts like a published one.
   for (const window of withLocalConfirmedSkinWindows([])) assert.equal(typeof window.newRelease, 'boolean');
 });
+
+test('upcoming uses Global debut timestamps, puts dated windows first, and excludes random draws', async () => {
+  const { isUpcomingSkin, compareUpcomingSkins } = await import('../../lib/skins/skinAvailability');
+  const now = Date.parse('2026-10-08T00:00:00Z');
+  const staleCN = { ...fixtureSkin('A', 'Released'), sourceRegion: 'CN', globalReleaseAt: now / 1000 - 86400 };
+  const newCN = { ...fixtureSkin('B', 'Undated'), sourceRegion: 'CN' };
+  const scheduled = fixtureSkin('C', 'Returning');
+  const window = { event: 'Future', kind: 'shop' as const, label: 'Returning', startAt: '2026-10-14T15:00:00Z', endAt: '2026-11-11T11:00:00Z', skinIds: [skinKey(scheduled)], live: false, estimated: true, newRelease: false };
+  assert.equal(isUpcomingSkin(staleCN, undefined, now), false);
+  assert.equal(isUpcomingSkin(newCN, undefined, now), true);
+  assert.equal(isUpcomingSkin(scheduled, window, now), true);
+  assert.equal(isUpcomingSkin(scheduled, { ...window, kind: 'draw' }, now), false);
+  const availability = new Map([[skinKey(scheduled), window]]);
+  assert.deepEqual([newCN, scheduled].sort((a,b) => compareUpcomingSkins(a,b,availability)), [scheduled,newCN]);
+  const returning = {...scheduled, globalReleaseAt: now / 1000 - 86400};
+  availability.set(skinKey(newCN), {...window, skinIds: [skinKey(newCN)]});
+  assert.deepEqual([returning, newCN].sort((a,b) => compareUpcomingSkins(a,b,availability)), [newCN,returning]);
+});
+
+test('partial shop confirmation preserves returning inventory; exhaustive confirmation replaces it', () => {
+  const skins = [fixtureSkin('A','New'),fixtureSkin('B','Returning')];
+  const events = [{name:'Event',year:2026,poster:null,cn:{dateRange:null,note:null},global:{dateRange:'2026/10/14–2026/10/28',note:null},tw:{dateRange:null,note:null}}];
+  const rotations = { entries: [{ event:'Event',eventStart:'2026-05-01',rotations:[{label:'Shop',start:'2026-05-01',end:'2026-05-29',new:['A / New'],returning:['B / Returning']}] }] };
+  const verified = { event:'Event',kind:'shop',label:'New',startAt:'2026-10-14T15:00:00Z',endAt:'2026-11-11T11:00:00Z',skinIds:['A / New'] };
+  const partial = getSkinWindows(skins,events,{confirmed:{entries:[verified]},rotations});
+  assert.deepEqual(partial.filter(window => window.estimated).flatMap(window => window.skinIds), ['B / Returning']);
+  assert.equal(getSkinWindows(skins,events,{confirmed:{entries:[{...verified,inventoryComplete:true}]},rotations}).length,1);
+});

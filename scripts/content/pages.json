@@ -43,5 +43,7 @@
   "/games/music-guesser",
   "/results",
   "/community",
-  "/selector-tickets"
+  "/selector-tickets",
+  "/artists",
+  "/voice-actors"
 ]

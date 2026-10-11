@@ -22,6 +22,25 @@
    --dur-2 (styles/core/shared.css). */
 
 @media (prefers-reduced-motion: no-preference) {
+  /* Outfit captions trade places like the game's compact information readouts.
+     The caption grid reserves every name's height; only the ink moves. */
+  [data-artwork-caption="exit"] { visibility: visible; pointer-events: none; }
+  [data-artwork-caption="exit"] > :is([data-caption-name], [data-caption-price]) {
+    animation: outfit-caption-out 200ms ease-in both;
+  }
+  [data-artwork-caption="enter"] > :is([data-caption-name], [data-caption-price]) {
+    animation: outfit-caption-in 360ms cubic-bezier(0.16, 1, 0.3, 1) 60ms both;
+  }
+  [data-artwork-caption="enter"] > [data-caption-price] { animation-delay: 90ms; }
+  @keyframes outfit-caption-out {
+    from { transform: translateX(0); opacity: 1; }
+    to { transform: translateX(-24px); opacity: 0; }
+  }
+  @keyframes outfit-caption-in {
+    from { transform: translateX(32px); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+
   /* --- press: buttons, chips and tabs give under the pointer -----------------------
      The same selectors, at the same specificity, as the primitives' own transitions in
      arkpedia-theme.css, plus `scale`. Not a .btn-bare button (a card, a tile or a row,

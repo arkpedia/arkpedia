@@ -564,7 +564,7 @@ test('no page loads the Spine runtime or the animated artwork with itself: only 
   assert.deepEqual(eager, [], 'A page bundle may not carry the Spine runtime or DynamicArtwork: import them with import() / next/dynamic.');
 
   // And in the source: the overlay brings the artwork in through next/dynamic, the artwork the
-  // runtime through import(), and nothing else names the runtime at all.
+  // runtime through import(); chibi rendering and catalogue loading are lazy too.
   const overlay = fs.readFileSync('components/skins/SkinZoomOverlay.tsx', 'utf8');
   assert.match(overlay, /= dynamic\(\(\) => import\('\.\/DynamicArtwork'\), \{ ssr: false \}\)/);
   assert.doesNotMatch(overlay, /^import (?!type )[^\n]*['"]\.\/DynamicArtwork['"]/m);
@@ -579,7 +579,10 @@ test('no page loads the Spine runtime or the animated artwork with itself: only 
   // Type-only imports (the layer renderer's) are erased from the bundle.
   const naming = ['pages', 'components', 'lib'].flatMap(walk)
     .filter((file) => /vendor\/spine-3\.8/.test(fs.readFileSync(file, 'utf8').replace(/^import type [^\n]*$/gm, '')));
-  assert.deepEqual(naming.sort(), [ARTWORK, 'lib/credits/spineLicense.ts']);
+  assert.deepEqual(naming.sort(), ['components/operators/ChibiCanvas.tsx', ARTWORK, 'lib/credits/spineLicense.ts', 'lib/operators/chibiAnimations.ts']);
+  const chibiCatalogue = fs.readFileSync('lib/operators/chibiAnimations.ts', 'utf8');
+  assert.match(chibiCatalogue, /import\('@\/lib\/vendor\/spine-3\.8\/spine-webgl'\)/);
+  assert.doesNotMatch(chibiCatalogue, /^import (?!type )[^\n]*spine-3\.8/m);
   // The layers and the particle systems come in with the artwork, never on their own: the particle reader borrows
   // the layers' shader reader, the particle renderer the layers' programs and textures, and only the artwork and
   // the particle modules themselves import the simulator, the geometry and the renderer (type imports included).
@@ -650,4 +653,18 @@ test('special illustration tags survive the manifest and are attached to the out
   assert.equal(skinDynamicArt(data,skins)[`${skinId}^sp_dyn`],raw(path));
   const appearance = {label:'The Legend Seeker',fullPath:skins[0].image};
   assert.equal(operatorDynamicArt(data,{name:skins[0].model,internalName:'char_1041_angel2'},[appearance],skins)['The Legend Seeker^sp_dyn'],raw(path));
+});
+
+test('older planner payloads receive artwork pointers and explicit nulls remain authoritative', async () => {
+  const { withPlannerDynamicArt, withPullPlannerDynamicArt } = await import('../../lib/skins/dynamicArtFallback');
+  const skinId = 'char_1041_angel2@iteration#6';
+  const enriched = await withPlannerDynamicArt({catalogue:[{skinId} as {skinId:string;dynamic?:string|null;alternate?:string|null}]});
+  assert.ok(enriched.catalogue[0].dynamic?.endsWith('/model.json'));
+  assert.ok(enriched.catalogue[0].alternate?.includes('_sp_dyn/'));
+  const explicit = await withPullPlannerDynamicArt({skinCatalogue:[{skinId,dynamic:null,alternate:null}]});
+  assert.equal(explicit.skinCatalogue[0].skinId, skinId);
+  assert.equal(explicit.skinCatalogue[0].dynamic, null);
+  assert.equal(explicit.skinCatalogue[0].alternate, null);
+  assert.ok((explicit.skinCatalogue[0] as {illustrator?:string}).illustrator);
+  assert.ok((explicit.skinCatalogue[0] as {description?:string}).description);
 });

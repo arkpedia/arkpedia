@@ -51,7 +51,7 @@ test('GM-02: Discover tiles are laid out as tiles, not as uppercase buttons', as
 
 test('UI-16: /community shows no developer setup notes', async ({ page }) => {
   await page.goto('/community');
-  await expect(page.getByRole('heading', { level: 1, name: 'Community Hub' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'World' })).toBeVisible();
   const text = await page.locator('main').innerText();
   expect(text).not.toMatch(/YOUTUBE_API_KEY|TWITCH_CLIENT_ID|TWITCH_CLIENT_SECRET|twitchConfig\.ts/);
 });

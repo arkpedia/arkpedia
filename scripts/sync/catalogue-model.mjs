@@ -241,7 +241,18 @@ export function reconcileSkins({ skins, operators, cn, en, events = [] }) {
     // Records that were already Global before this reconciler first ran never got a
     // sourceRegion, so any CN text or CN release label left on one also promotes it.
     const promote = global && (skin?.sourceRegion === 'CN' || CN_RELEASE.test(skin?.release ?? '') || [skin?.name, skin?.code, skin?.description].some(chinese));
-    if (!isNew && !promote) continue;
+    if (!isNew && !promote) {
+      // Existing outfits still need regional debut timestamps. They determine whether
+      // a CN-labelled release is actually upcoming, and whether a projected "new" shop
+      // would incorrectly sell an outfit Global has already released elsewhere.
+      const metadata = { sourceRegion: global ? 'Global' : 'CN', cnReleaseAt: source.displaySkin.getTime || null,
+        globalReleaseAt: global ? display.getTime || null : null };
+      if (Object.entries(metadata).some(([key, value]) => skin[key] !== value)) {
+        Object.assign(skin, metadata);
+        changes.push(id);
+      }
+      continue;
+    }
     const brand = brandOf(global ? en : cn, display.skinGroupId);
     const event = releaseEvent(events, (global ? en : cn).activity, display.getTime, global);
     const text = skinText(display);
@@ -259,7 +270,7 @@ export function reconcileSkins({ skins, operators, cn, en, events = [] }) {
       howToObtain: skin?.howToObtain || (regional.isBuySkin ? 'Outfit Store' : (global ? display.obtainApproach : null)),
       image: `/${rarityWord(op.rarity)}-star-skins/${safeName(op.name)} - ${safeName(name)}.webp`,
       sourceRegion: global ? 'Global' : 'CN', cnReleaseAt: source.displaySkin.getTime || null,
-      ...(global ? { globalReleaseAt: display.getTime || null } : {}),
+      globalReleaseAt: global ? display.getTime || null : null,
     };
     if (oldKey && oldKey !== `${skin.model} / ${skin.name}`) {
       renames.push([oldKey, `${skin.model} / ${skin.name}`]);

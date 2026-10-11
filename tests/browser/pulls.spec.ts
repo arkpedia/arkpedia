@@ -234,17 +234,50 @@ test('the goal editor\'s outcome is one stacked block with one rule', async ({ p
 test('an outfit planned in the Pull Planner is planned on the Skin Planner', async ({ page }) => {
   await page.goto('/pulls');
   await page.getByRole('button', { name: /Skin wishlist/ }).click();
-  const card = page.locator('#panel-skins .skin-plan-card').first();
+  const card = page.locator('#panel-skins .skin-plan-card-foot').first();
   test.skip(await page.getByText('No shop that sells outfits for Originite Prime is open or listed ahead.').count() > 0, 'no skin shop rotation is listed in this build');
   await expect(card).toHaveAttribute('aria-pressed', 'false');
   const label = await card.getAttribute('aria-label');
   await card.click();
   await expect(card).toHaveAttribute('aria-pressed', 'true');
   await page.goto('/skin-planner');
-  await expect(page.locator(`.skin-plan-card[aria-label=${JSON.stringify(label)}]`).first()).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator(`.skin-plan-card-foot[aria-label=${JSON.stringify(label)}]`).first()).toHaveAttribute('aria-pressed', 'true');
   // And back: unplanned there, it is unplanned here.
-  await page.locator(`.skin-plan-card[aria-label=${JSON.stringify(label)}]`).first().click();
+  await page.locator(`.skin-plan-card-foot[aria-label=${JSON.stringify(label)}]`).first().click();
   await page.goto('/pulls');
   await page.getByRole('button', { name: /Skin wishlist/ }).click();
-  await expect(page.locator(`#panel-skins .skin-plan-card[aria-label=${JSON.stringify(label)}]`).first()).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.locator(`#panel-skins .skin-plan-card-foot[aria-label=${JSON.stringify(label)}]`).first()).toHaveAttribute('aria-pressed', 'false');
+});
+
+test('Skin Planner artwork opens without changing the plan and returns focus', async ({ page }) => {
+  await page.goto('/skin-planner');
+  const card = page.locator('.skin-plan-card').first();
+  const plan = card.locator('.skin-plan-card-foot');
+  const view = card.getByRole('button', { name: /^View .* artwork$/ });
+  await expect(plan).toHaveAttribute('aria-pressed', 'false');
+  await view.click();
+  const gallery = page.getByRole('dialog', { name: /artwork$/ });
+  await expect(gallery).toBeVisible();
+  await gallery.getByRole('button', { name: 'Close', exact: true }).click();
+  await expect(view).toBeFocused();
+  await expect(plan).toHaveAttribute('aria-pressed', 'false');
+  await plan.click();
+  await expect(plan).toHaveAttribute('aria-pressed', 'true');
+  await view.click();
+  await page.keyboard.press('Escape');
+  await expect(gallery).toHaveCount(0);
+  await expect(plan).toHaveAttribute('aria-pressed', 'true');
+});
+
+test('Fashion Review has its own planner inventory', async ({ page }) => {
+  await page.goto('/skin-planner');
+  await expect(page.getByRole('region', { name: /Fashion Review/ })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Fashion Review', exact: true }).click();
+  const fashion = page.getByRole('region', { name: /Fashion Review/ });
+  await expect(fashion.first()).toBeVisible();
+  expect(await fashion.locator('.skin-plan-card').count()).toBeGreaterThan(0);
+  for (const section of await fashion.all()) expect(await section.locator('.skin-plan-card').count()).toBeLessThanOrEqual(12);
+  // Every event stays open while its Fashion Review inventory loads in batches.
+  const cards = page.locator('.skin-plan-card');
+  expect(await cards.evaluateAll(nodes => nodes.every(node => node.closest('section[aria-label]')?.getAttribute('aria-label')?.includes('Fashion Review')))).toBe(true);
 });

@@ -43,6 +43,7 @@
 
 /* --- artwork ---------------------------------------------------------------------- */
 .gallery {
+  position: relative;
   display: flex;
   flex-direction: column;
   grid-column: 1;
@@ -55,8 +56,12 @@
 }
 .gallery :global(.op-carousel-main) { flex: 1; min-height: 0; height: auto; }
 .artworkEmblem { position: absolute; top: 8%; left: 2.5%; width: 95%; height: 70%; color: var(--text); background-color: currentColor; mask-repeat: no-repeat; mask-position: center; mask-size: contain; mask-mode: luminance; -webkit-mask-repeat: no-repeat; -webkit-mask-position: center; -webkit-mask-size: contain; -webkit-mask-source-type: luminance; opacity: 0.055; pointer-events: none; }
-.artworkCaption { display: grid; flex-shrink: 0; padding: 8px 12px 0; }
-.artworkCaptionVariant { display: grid; grid-area: 1 / 1; grid-template-columns: minmax(0, 1fr) fit-content(40%); align-items: baseline; gap: 4px 12px; min-width: 0; }
+.artworkCaptionRow { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 8px; padding: 8px 12px 0; }
+/* Align the first caption line with the control while the stacked captions reserve the tallest outfit name. */
+.artworkCaptionRow > .artworkCaption { min-width: 0; padding: calc((var(--control-h) - 20px) / 2) 0 0; }
+.artworkCaption { display: grid; flex-shrink: 0; padding: 8px 12px 0; overflow: hidden; }
+.artworkCaptionVariant { display: grid; grid-area: 1 / 1; grid-template-columns: minmax(0, 1fr) fit-content(40%); align-items: baseline; gap: 4px 12px; min-width: 0; visibility: hidden; }
+.artworkCaptionVariant[data-current="true"] { visibility: visible; }
 .artworkName { min-width: 0; color: var(--text); font: 600 13px/1.5 var(--font-body); overflow-wrap: anywhere; }
 .artworkPrice { min-width: 0; color: var(--text-dim); font: 600 12px/1.5 var(--font-mono); text-align: right; overflow-wrap: anywhere; }
 
@@ -175,11 +180,31 @@
 .creditValue > span { display: flex; grid-area: 1 / 1; align-items: center; min-width: 0; min-height: 28px; }
 
 /* --- skills ------------------------------------------------------------------------- */
+.skillHeading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: var(--heading-gap); }
+.skillHeading h2 { margin: 0; }
+.masteryGuidePrefix { display: inline; }
+@media (max-width: 480px) {
+  .masteryGuidePrefix { display: none; }
+}
 /* The skill tabs (components/ui/Tabs with the skill icons, .op-skill-tabs in
    operator-detail.css) lead the section under its h2 and the selected skill's panel
    follows. Every skill's title takes part in sizing the header; only the selected one
    is visible. The name is .entity-title .entity-title-sm (shared.css): 18px, no larger
    than the "Skills" h2 above it. It was 22px under an 18px section heading. */
+/* Keep the recorded priorities beside the tabs, adapting to the information panel
+   rather than the window: the desktop artwork layout can leave a phone-width panel. */
+.skillTabLabel { display: inline-flex; align-items: center; gap: 4px; }
+.skillTabShort { display: none; }
+.recommendLevel { display: inline; }
+.recommendArt { display: inline-flex; }
+@container operatorDetails (max-width: 600px) {
+  .skillTabs { column-gap: 10px; }
+  .skillTabs > :global(.tab) { gap: 4px; letter-spacing: .03em; }
+  .skillTabs > :global(.tab) > img { width: 20px; height: 20px; }
+  .skillTabLong, .recommendArt { display: none; }
+  .skillTabShort, .recommendLevel { display: inline; }
+  .skillTabs :global(.op-skill-recommend-stack) { margin-left: 0; letter-spacing: 0; }
+}
 .selectedSkill { display: grid; gap: 0; margin: 0; line-height: 1.2; }
 .skillTitleVariant { display: flex; flex-wrap: wrap; grid-area: 1 / 1; align-content: flex-start; align-items: center; gap: 8px; min-width: 0; overflow-wrap: anywhere; }
 .skillLevelControl { display: grid; grid-template-columns: auto 72px minmax(0, 1fr); align-items: center; gap: 8px; margin: 8px 0; }

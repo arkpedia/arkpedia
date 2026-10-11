@@ -34,6 +34,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-10-11T08:56:00Z',
+    title: 'Outfit transitions',
+    changed: [
+      { title: 'Sliding outfit captions', detail: 'Outfit names and prices slide and fade together when switching artwork, with a still transition for reduced motion.', href: '/operators' },
+    ],
+  },
+  {
     at: '2026-10-10T15:35:00Z',
     title: 'Event and banner updates',
     fixed: [
@@ -41,8 +48,17 @@ export const CHANGELOG: ChangelogEntry[] = [
       { title: 'Community-only selector ratings', detail: 'Operators without a Kukkikaze rating receive twice their community rating points.', href: '/selector-tickets' },
     ],
     changed: [
-      { title: 'Official event details update automatically', detail: 'Global announcements supply sign-in rewards, pack dates and selector pools, replacing previews as details arrive.', href: '/events' },
+      { title: 'Official event details update automatically', detail: 'Global notices update rewards, packs and selector pools, while artwork refreshes retry missing images without losing progress.', href: '/events' },
       { title: 'Highest selector scores first', detail: 'Selector ticket pop-ups rank operators by their recommendation score, including imported account bonuses.', href: '/selector-tickets' },
+    ],
+  },
+  {
+    at: '2026-10-10T09:09:00Z',
+    title: 'Chibi controls',
+    added: [
+      { title: 'Choose every chibi animation', detail: 'Play complete battle and base animations in the viewer, including walking, sitting and sleeping.', href: '/operators' },
+      { title: 'Move the chibi viewer', detail: 'Drag the viewer within the page; roaming chibis have their own movement pause and play button.', href: '/operators' },
+      { title: 'Tap roaming chibis', detail: 'The first tap plays the trust reaction, then later taps have equal chances of playing the normal or trust reaction.', href: '/operators' },
     ],
   },
   {
@@ -96,8 +112,8 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    at: '2026-10-08T14:04:51Z',
-    title: 'Skin planning, animated art and home updates',
+    at: '2026-10-08T17:29:37Z',
+    title: 'Skin planning, animated art and operator updates',
     added: [
       { title: 'Particles in animated outfit art', detail: 'Sparks, fire, petals and lightning now play in the animated art, as in the game; trails and a few effects come later.', href: '/skins' },
       { title: 'Fullscreen art in the Skin Planner', detail: 'Press an outfit to inspect its artwork and animations, with a separate button to add it to your plan.', href: '/skin-planner' },

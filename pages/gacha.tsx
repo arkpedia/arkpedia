@@ -3,7 +3,6 @@ import { bannerDisplayName } from '@/lib/gacha/bannerDisplayName';
 import { withContentPage } from '@/lib/content/server';
 import { GetStaticProps } from 'next';
 import Head from 'next/head';
-import Link from 'next/link';
 import { useRouter } from 'next/router';
 import Image from '@/components/content/ContentImage';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -19,7 +18,7 @@ import { buildEligiblePool } from '@/lib/gacha/gachaOperatorEligibility';
 import { KernelAdditionLookup } from '@/lib/operators/kernelAdditionDates';
 import { ReleaseDateLookup, deriveReleaseDatesFromBanners, getReleaseDate } from '@/lib/operators/operatorReleaseDates';
 import { getAllOperators } from '@/lib/operators/operators';
-import { OperatorPreview, type OperatorPreviewItem } from '@/components/operators/OperatorPreview';
+import OperatorPreviewModal, { type OperatorPreviewItem as PreviewItem } from '@/components/operators/OperatorPreviewModal';
 import { createInitialState, GachaState, BannerConfig, BannerType, PulledItem, GachaItem } from '@/lib/gacha/gachaTypes';
 import { doPulls, sixStarWeightedPool, fiveStarWeightedPool, simulatorPullable, BASE_RATES, ratesAtPull } from '@/lib/gacha/gachaEngine';
 import { useVirtualRows, type VirtualRowLayout } from '@/components/ui/useVirtualRows';
@@ -48,7 +47,6 @@ interface Props {
 }
 
 type DisplayCategory = BannerType | 'other' | 'upcoming';
-type PreviewItem = OperatorPreviewItem;
 
 const CATEGORY_LABELS: Record<DisplayCategory, string> = {
   upcoming: 'Upcoming',
@@ -124,6 +122,7 @@ function PullTile({ item, onSelect, className = '', label }: { item: PulledItem;
     </button>
   );
 }
+
 
 function PullHistory({ history, onSelect }: { history: PulledItem[]; onSelect: (item: PulledItem) => void }) {
   const entries = useMemo(() => {
@@ -2338,7 +2337,7 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
       </main>
 
       {showDetails && banner && <BannerDetails banner={banner} dateLabel={bannerDateLabel(selectedBanner)} onClose={() => setShowDetails(false)} onSelect={setPreviewedPull} previewOpen={!!previewedPull} />}
-      {previewedPull && <OperatorPreview item={previewedPull} onClose={() => setPreviewedPull(null)} />}
+      {previewedPull && <OperatorPreviewModal key={previewedPull.name} item={previewedPull} onClose={() => setPreviewedPull(null)} />}
 
       {showSparkStore && banner && (
         <div className="modal-overlay" onClick={() => setShowSparkStore(false)}>

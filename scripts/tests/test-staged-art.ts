@@ -116,7 +116,11 @@ test('nothing is adopted while the adopted revisions lack a file this run publis
     write(root, 'published.json', published);
     assert.deepEqual(unadopted(published, root), ['stages-images/pa-2.webp']);
     const ran: string[][] = [];
-    const run = (command: string, args: string[]) => { ran.push([command, ...args]); return { status: 0 }; };
+    const run = (command: string, args: string[], options: { env: NodeJS.ProcessEnv }) => {
+      assert.equal(options.env.ARKPEDIA_ART_ADOPTION, '1', 'adoption updates published availability without downloading another reward-icon batch');
+      assert.equal(options.env.PATH, process.env.PATH, 'the importer retains its configured runtime');
+      ran.push([command, ...args]); return { status: 0 };
+    };
     assert.throws(() => adoptStagedArt(path.join(root, 'published.json'), { root, run, log: () => {} }),
       /do not include 1 file\(s\) this run published \(stages-images\/pa-2\.webp\); nothing is adopted/);
     assert.deepEqual(ran, [], 'no importer runs against revisions without its files');

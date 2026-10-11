@@ -355,7 +355,7 @@ test('planner shares verified Global shops with the skins page and never revives
   assert.equal(collections.filter(collection => collection.sourceRegion === 'global').length, shops.filter(window => lastDay(window.endAt) >= today).length);
   // A verified Global event keeps none of its CN projections, open or expired.
   const normalize = (name: string) => name.replace(/\[[^\]]*\]/g, '').replace(/[^a-z0-9]/gi, '').toLowerCase();
-  for (const event of new Set(confirmed.entries.map(window => normalize(window.event)))) {
+  for (const event of new Set(confirmed.entries.filter(window => window.inventoryComplete).map(window => normalize(window.event)))) {
     assert.ok(collections.every(collection => collection.sourceRegion === 'global' || normalize(collection.name.split(' · ')[0]) !== event), event);
     const closed = confirmed.entries.filter(window => normalize(window.event) === event).map(window => window.endAt).sort().at(-1)!;
     const after = new Date(Date.parse(closed) + 86_400_000).toISOString().slice(0, 10);
@@ -365,7 +365,7 @@ test('planner shares verified Global shops with the skins page and never revives
   const { skins: fixtureSkins, events: fixtureEvents, source } = rotationFixture();
   const other = { ...source, event: '[Side Story] Unconfirmed', rotations: source.rotations.slice(0, 1) };
   const both = [...fixtureEvents, { ...fixtureEvents[0], name: other.event }];
-  const verified = { event: 'Fixture', kind: 'shop', label: 'New outfits', startAt: '2026-09-16T15:00:00Z', endAt: '2026-10-07T11:00:00Z', source: 'https://www.arknights.global/news/1', skinIds: ['A / New'], newRelease: true };
+  const verified = { event: 'Fixture', kind: 'shop', label: 'New outfits', startAt: '2026-09-16T15:00:00Z', endAt: '2026-10-07T11:00:00Z', source: 'https://www.arknights.global/news/1', skinIds: ['A / New'], newRelease: true, inventoryComplete: true };
   const mixed = openSkinCollections(pullSkinCollections(both, fixtureSkins, pullSkinCatalogue(fixtureSkins), new Set(), [source, other], [verified]), '2026-09-01');
   assert.deepEqual(mixed.map(collection => `${collection.name} (${collection.sourceRegion})`).sort(), ['Fixture · New outfits (global)', '[Side Story] Unconfirmed · New outfits (cn)'].sort());
   const midnight = { ...verified, endAt: '2026-09-23T00:00:00Z' };
@@ -540,8 +540,9 @@ test('archived OP never suppresses scheduled shops or invents expired shop stock
 });
 
 test('workspace settings preserve old saves and round trip new income choices and first clears', () => {
-  const plan = { ...saved, yellowCerts:'516', incomeSettings:{daily:false,weekly:true,annihilation:false,certificates:true}, doneKeys:[...saved.doneKeys,'resource:wk_melee_1','annihilation:camp_r_01'], skinIds:['existing skin id'], reservedOP:'18' };
+  const plan = { ...saved, yellowCerts:'516', certificateSpending:{'2026-10':258,'2026-11':0,'2026-12':68}, incomeSettings:{daily:false,weekly:true,annihilation:false,certificates:true}, doneKeys:[...saved.doneKeys,'resource:wk_melee_1','annihilation:camp_r_01'], skinIds:['existing skin id'], reservedOP:'18' };
   assert.deepEqual(parsePullPlan(JSON.stringify(plan)), plan);
+  for (const certificateSpending of [{ '2026-13': 1 }, { '2026-10': 259 }, { '2026-10': -1 }, { '2026-10': 1.5 }, { '2026-10': '258' }]) assert.throws(() => parsePullPlan(JSON.stringify({...saved, certificateSpending})));
   assert.equal(parsePullPlan(JSON.stringify(saved)).incomeSettings, undefined);
   assert.equal(parsePullPlan(JSON.stringify(saved)).yellowCerts, undefined);
   assert.throws(() => parsePullPlan(JSON.stringify({...saved,yellowCerts:'-258'})));

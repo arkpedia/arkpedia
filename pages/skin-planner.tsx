@@ -1,3 +1,5 @@
+import { withPlannerDynamicArt } from '@/lib/skins/dynamicArtFallback';
+import { assertDynamicArtIndex, skinDynamicArt } from '@/lib/skins/dynamicArt';
 import { useMemo } from 'react';
 import type { GetStaticProps } from 'next';
 import Head from 'next/head';
@@ -54,8 +56,8 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>('/sk
   ]);
   const skins = getAllSkins();
   const events = getAllEvents();
-  const catalogue = pullSkinCatalogue(skins, skinReleaseDates(events, skins));
+  const catalogue = pullSkinCatalogue(skins, skinReleaseDates(events, skins), skinDynamicArt(assertDynamicArtIndex((await import('@/data/dynamic-art.json')).default), skins));
   const predicted = new Set(getEventCalendar().filter((event) => event.isPredicted).map((event) => event.name));
   // `now` is the request's clock, from contentPageClock (lib/content/pageClock.ts).
   return { props: { catalogue, collections: pullSkinCollections(events, skins, catalogue, predicted) } };
-}, { bundledWhenUnpublished: true });
+}, { bundledWhenUnpublished: true, finalize: withPlannerDynamicArt });

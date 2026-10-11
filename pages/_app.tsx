@@ -48,6 +48,7 @@ import '@/styles/account/account.css';
 import '@/styles/core/motion.css';
 import SiteNav from '@/components/layout/Sitenav';
 import MusicPlayer from '@/components/music/MusicPlayer';
+import RoamingChibiProvider from '@/components/operators/RoamingChibiProvider';
 import { MusicPlayerProvider } from '@/lib/music/musicPlayerContext';
 import { getEssentialIconPath } from '@/lib/operators/operatorIconPaths';
 import type { PageWithMobileNav } from '@/lib/nav/mobileNavOverride';
@@ -82,6 +83,7 @@ export default function App({ Component, pageProps }: AppProps) {
     <ContentContext.Provider value={pageProps.__contentRelease ?? null}>
     <ContentTablesContext.Provider value={pageProps.__contentTables ?? {}}>
     <MusicPlayerProvider>
+    <RoamingChibiProvider>
       {/* Next injects a bare `width=device-width` on its own, with no
           initial-scale. That is the pair iOS Safari reads together when it
           decides the scale to restore after a rotation, and without the second
@@ -150,6 +152,7 @@ export default function App({ Component, pageProps }: AppProps) {
           react entry, not the next one: that one reads App Router hooks, and this is the
           Pages Router. */}
       {process.env.ARKPEDIA_WEB_ANALYTICS === '1' && <Analytics />}
+    </RoamingChibiProvider>
     </MusicPlayerProvider>
     </ContentTablesContext.Provider>
     </ContentContext.Provider>

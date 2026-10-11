@@ -69,7 +69,7 @@ test('Global posts are fetched oldest first, so a run that stops part-way leaves
 
 test('one Global post that cannot be read is reported, the rest are read, and the next run asks for it again', () => temporary(async root => {
   const site = globalSite({ failing: new Set([3]) });
-  const first = await syncOfficialNews(root, { fetcher: site.fetcher, pause: async () => {} });
+  const first = await syncOfficialNews(root, { now: NOW, fetcher: site.fetcher, pause: async () => {} });
   assert.deepEqual(first, { fresh: 39, unreadable: [{ id: 3, title: 'Post 3', url: 'https://www.arknights.global/news/3' }] });
   assert.equal(cachedIds(root, NEWS_DIR).length, 39);
   // Post 3 sits on the list's second page, which a quiet day never reaches: the stage's entry for

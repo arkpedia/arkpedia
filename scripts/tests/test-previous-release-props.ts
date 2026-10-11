@@ -345,6 +345,16 @@ const REGENERATED: Record<string, (props: Record<string, unknown>, clock: { from
     assert.deepEqual(Object.values(props.tickets as Record<string, { operators: unknown[] }>).map(ticket => ticket.operators.length), [8, 35, 48]);
     assert.ok((props.candidates as { id: string }[]).every(op => op.id));
   },
+  '/artists': props => {
+    const people = props.people as {name:string;operators:{name:string;credits:string[]}[]}[];
+    assert.ok(people.length > 50 && people.every(person => person.name && person.operators.every(op => op.name && op.credits.length)));
+    assert.ok(people.some(person => person.operators.some(op => op.name === 'Thorns')));
+  },
+  '/voice-actors': props => {
+    const people = props.people as {name:string;operators:{name:string;credits:string[]}[]}[];
+    assert.ok(people.length > 100 && people.every(person => person.name && person.operators.every(op => op.name && op.credits.length)));
+    assert.ok(people.some(person => person.operators.some(op => op.name === 'Thorns')));
+  },
   '/friends': props => {
     const operators = props.operators as {name:string;rarity:number;icon:string;skills:number}[];
     assert.ok(operators.length > 400 && operators.every(op => op.name && op.icon.startsWith('/') && op.rarity >= 1 && op.rarity <= 6), 'the owned-operator catalogue survives without source files');
@@ -356,6 +366,9 @@ const REGENERATED: Record<string, (props: Record<string, unknown>, clock: { from
     assert.ok(Object.keys(tables['game-account-map'].chars ?? {}).length > 400, 'the profile id map is attached');
   },
   '/community': (props, { from, to }) => {
+    const campaigns = (props.directory as { webEvents: { url: string; name: string; expiresAt: string }[] }).webEvents;
+    assert.ok((require('../../config/community-web-events.json') as { url: string }[]).every(seed => campaigns.some(event => event.url === seed.url)), 'seeded campaigns survive an older published Community directory');
+    assert.ok(campaigns.every(event => event.name && Number.isFinite(Date.parse(event.expiresAt))), 'discovered campaign records keep verified deadlines');
     const videos = props.videos as { videoId: string }[];
     assert.ok(videos.length > 0 && videos.every((video) => video.videoId.startsWith('stub-')), 'the videos are the feeds finalize fetched');
     assert.deepEqual((props.twitchStreams as { userLogin: string }[]).map((stream) => stream.userLogin), ['stub_streamer'], 'the Twitch streams are the ones finalize fetched');
@@ -449,6 +462,20 @@ for (const route of Object.keys(PREVIOUS.pages)) {
 }
 
 for (const template of UNPUBLISHED) {
+  if (template === '/artists' || template === '/voice-actors') {
+    test(`${template} retains its populated build snapshot until a release publishes it`, async () => {
+      const page = await pageModule(template);
+      await withRelease(Object.keys(PREVIOUS.pages), async () => {
+        const props = await propsOf(page.getStaticProps);
+        REGENERATED[template](props, { from: Date.now(), to: Date.now() });
+        // Refuse the disk-reading builder even if another test warmed its operator cache.
+        // Throwing during ISR tells Next to retain the last populated prerender.
+        await assert.rejects(() => propsOf(page.getStaticProps, undefined, 'stale'),
+          new RegExp(`Published content is missing ${template}`));
+      }, { VERCEL: '1' });
+    });
+    continue;
+  }
   test(`${template}, which the previous release does not publish, regenerates on Vercel from its own builder`, async () => {
     const page = await pageModule(template);
     // Vercel's function for a content route has no data/ or public/ (next.config.js), and

@@ -33,6 +33,23 @@ export const ICONS: Record<string, JSX.Element> = {
   ),
   /* The in-game Operator archive glyph. */
   roster: glyph('/essential-icons/Operators.webp'),
+  microphone: (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
+      <rect x="7" y="2" width="6" height="10" rx="3" />
+      <path d="M4.5 9.5V10a5.5 5.5 0 0 0 11 0v-.5M10 15.5V18M7 18h6" strokeLinecap="round" />
+    </svg>
+  ),
+  palette: (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
+      <path d="M10 2a8 8 0 1 0 0 16h1a2 2 0 0 0 1.6-3.2 1.5 1.5 0 0 1 1.2-2.4H15a3 3 0 0 0 3-3C18 5.3 14.4 2 10 2Z" strokeLinejoin="round" />
+      <g fill="currentColor" stroke="none">
+        <circle cx="5.5" cy="9" r="1" />
+        <circle cx="7.5" cy="5.5" r="1" />
+        <circle cx="12" cy="5.5" r="1" />
+        <circle cx="15" cy="8.5" r="1" />
+      </g>
+    </svg>
+  ),
   theme: (
     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
       <path d="M10 2 L17 7 L14.5 16 L5.5 16 L3 7 Z" strokeLinejoin="round" />

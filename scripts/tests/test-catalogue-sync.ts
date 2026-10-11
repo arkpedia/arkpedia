@@ -695,6 +695,17 @@ test('an order-free name matches only when one record has those words',()=>{
 });
 
 
+test('an existing translated outfit receives missing regional release dates without rewriting its art or flavour text', () => {
+  const existing = { skinId:SURTR,name:'Prelude to Transcendence',model:'Surtr',series:'Ambience Synesthesia',code:'Official code',description:'Official flavour',release:'People, A People',image:'/existing.webp',sourceRegion:'Global' };
+  const result = reconcileSkins({skins:[existing],operators:surtrOp,cn:surtrCn,en:surtrEn,events:surtrEvents});
+  const skin = result.skins[0];
+  assert.equal(skin.globalReleaseAt,1789570800);
+  assert.equal(skin.cnReleaseAt,1775516400);
+  assert.equal(skin.image,existing.image);
+  assert.equal(skin.description,existing.description);
+  assert.equal(reconcileSkins({skins:result.skins,operators:surtrOp,cn:surtrCn,en:surtrEn,events:surtrEvents}).changes.length,0);
+});
+
 test('catalogue removes a persisted event link contradicted by both regional calendars', () => {
   const event = { name: '[Side Story – Carnival] Ato', cn: { dateRange: '2025/08/02–2025/08/23' }, global: { dateRange: '2026/01/16–2026/02/06' } };
   const old = { name: 'Lungmen Spec Operators', category: 'standard', pull_type: 'featured', linked_event: event.name, cn_date: '2019/06/22–2019/08/05', global_date: '2020/03/11–2020/03/25', six_stars: [], five_stars: [] };
