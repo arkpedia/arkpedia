@@ -161,6 +161,7 @@ stage module-stats -- node scripts/sync/sync-module-stats.mjs
 # Reads no game data, so it needs no earlier stage; GET only. Fails, and keeps yesterday's file, when the
 # repository cannot be read; one with no manifest yet has no models.
 stage dynamic-art -- node scripts/sync/sync-dynamic-art.mjs
+stage chibi-art -- node scripts/sync/sync-chibi-art.mjs
 
 # Index enrichment (last step that writes the index).
 # Last of the steps that WRITE the index, and it has to be: it applies the exclusions

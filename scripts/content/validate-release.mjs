@@ -6,6 +6,7 @@ import { PAGE_TABLES, missingPageTables } from '../../lib/content/tables.mjs';
 import { contentInput, releaseInput } from './release-input.mjs';
 import { cnTablesRecord } from './pin-upstream.mjs';
 import { findClockFields, findPublicClockFields } from './clock-fields.mjs';
+import { assertSdChibiIndex } from '../build/build-chibi-index.mjs';
 const root = path.resolve(process.argv[2] || '.');
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 const check = (value, message) => { if (!value) throw new Error(message); };
@@ -157,6 +158,7 @@ for (const file of walk(path.join(root, 'source')).sort()) {
     if (/^data\/operators-\dstar\/[^/]+\.json$/.test(name)) checkOperator(name, record);
     if (name === 'data/quarantine.json') checkQuarantine(record);
     if (name === 'data/upstream.lock.json') checkUpstreamLock(record);
+    if (name === 'data/chibi-art.json') assertSdChibiIndex(record);
     // A run's stage timings differ every day; published, they would make every day a new
     // release. .gitignore keeps the file out of the export.
     check(name !== 'data/stage-report.json', 'data/stage-report.json must not be published');
