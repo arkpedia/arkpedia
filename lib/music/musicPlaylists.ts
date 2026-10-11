@@ -36,6 +36,13 @@ export function formatPlaylistFile(playlists: MusicPlaylist[]): string {
 export function readPlaylists(storage: Pick<Storage, 'getItem'>): MusicPlaylist[] {
   try { return validatePlaylists(JSON.parse(storage.getItem(MUSIC_PLAYLISTS_KEY) ?? '[]')); } catch { return []; }
 }
+/** Append to selected playlists without reordering tracks or adding duplicates. */
+export function addSongToPlaylists(existing: MusicPlaylist[], selected: string[], videoId: string): MusicPlaylist[] {
+  if (!/^[a-zA-Z0-9_-]{11}$/.test(videoId)) throw new Error('This song could not be saved.');
+  if (selected.some(id => !existing.some(p => p.id === id))) throw new Error('A selected playlist no longer exists. Choose another playlist.');
+  const ids = new Set(selected);
+  return validatePlaylists(existing.map(p => ids.has(p.id) && !p.tracks.includes(videoId) ? { ...p, tracks: [...p.tracks, videoId] } : p));
+}
 /** Imports are additive. Reimporting the same content is harmless; changed copies get new IDs. */
 export function mergePlaylists(existing: MusicPlaylist[], incoming: MusicPlaylist[], newId: () => string): { playlists: MusicPlaylist[]; added: number } {
   const playlists = [...existing];

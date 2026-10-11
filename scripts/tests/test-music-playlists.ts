@@ -1,8 +1,20 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { formatPlaylistFile, mergePlaylists, MUSIC_PLAYLISTS_KEY, parsePlaylistFile } from '../../lib/music/musicPlaylists';
+import { addSongToPlaylists, formatPlaylistFile, mergePlaylists, MUSIC_PLAYLISTS_KEY, parsePlaylistFile } from '../../lib/music/musicPlaylists';
 import { formatBackup, parseBackup } from '../../lib/account/backup';
 const saved = [{ id: 'a', name: 'Late night', tracks: ['abcdefghijk', 'lmnopqrstuv'] }];
+test('adding a song preserves playlist order and unselected playlists, and is idempotent', () => {
+  const existing = [...saved, { id: 'b', name: 'Morning', tracks: ['lmnopqrstuv'] }];
+  const next = addSongToPlaylists(existing, ['a', 'b'], '12345678901');
+  assert.deepEqual(next.map(p => p.tracks), [['abcdefghijk', 'lmnopqrstuv', '12345678901'], ['lmnopqrstuv', '12345678901']]);
+  assert.deepEqual(addSongToPlaylists(next, ['a', 'b'], '12345678901'), next);
+  assert.deepEqual(addSongToPlaylists(existing, ['b'], '12345678901')[0], existing[0]);
+  assert.deepEqual(existing[0].tracks, ['abcdefghijk', 'lmnopqrstuv']);
+  assert.throws(() => addSongToPlaylists(existing, ['deleted'], '12345678901'));
+  assert.throws(() => addSongToPlaylists(existing, ['a'], 'invalid'));
+  const full = { id: 'full', name: 'Full', tracks: Array.from({ length: 5000 }, (_, i) => String(i).padStart(11, '0')) };
+  assert.throws(() => addSongToPlaylists([full], ['full'], 'abcdefghijk'));
+});
 test('portable playlists round-trip names and the chosen order, including non-ASCII names', () => {
   const playlists = [...saved, { id: 'b', name: '音楽 🎵', tracks: ['lmnopqrstuv', 'abcdefghijk'] }];
   assert.deepEqual(parsePlaylistFile(formatPlaylistFile(playlists)), playlists);

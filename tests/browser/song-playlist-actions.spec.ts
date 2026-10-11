@@ -1,0 +1,110 @@
+import { expect, test } from '@playwright/test';
+import { stubYouTube, youtube } from './youtube-stub';
+
+const KEY = 'arkpedia.music-playlists.v1';
+for (const theme of ['dark', 'light']) {
+  test(`song favourites and multi-playlist additions persist without changing playback (${theme})`, async ({ page }) => {
+    await page.addInitScript(value => localStorage.setItem('theme', value), theme);
+    await stubYouTube(page);
+    await page.goto('/music?view=queue');
+    const rows = page.locator('.music-queue-row:not(.music-queue-row-placeholder)');
+    await expect(rows.nth(1)).toBeVisible();
+    await rows.first().getByRole('button', { name: 'Play now', exact: true }).click();
+    await expect.poll(async () => (await youtube(page))?.state).toBe(1);
+    const playing = (await youtube(page))!;
+    const song = await rows.nth(1).locator('.music-queue-row-title').getAttribute('title');
+    const favorite = rows.nth(1).locator('.music-song-favorite');
+    const plus = rows.nth(1).getByRole('button', { name: `Add ${song} to playlists`, exact: true });
+    await favorite.click();
+    await expect(favorite).toHaveAttribute('aria-pressed', 'true');
+    // Styling changes without moving controls or truncating phone titles to make space.
+    const layout = await rows.nth(1).evaluate(row => {
+      const title = row.querySelector('.music-queue-row-title') as HTMLElement;
+      const buttons = [...row.querySelectorAll('.music-queue-row-actions button')];
+      const css = getComputedStyle(title);
+      return { room: title.clientWidth - parseFloat(css.paddingLeft) - parseFloat(css.paddingRight), heights: [title, ...buttons].map(el => el.getBoundingClientRect().height) };
+    });
+    expect(new Set(layout.heights).size).toBe(1);
+    expect(layout.room).toBeGreaterThan(151);
+    await plus.click();
+    const dialog = page.getByRole('dialog', { name: 'Add to playlists', exact: true });
+    await expect(dialog).toContainText('No saved playlists yet.');
+    await dialog.getByRole('textbox', { name: 'New playlist name' }).fill('Night music');
+    await dialog.getByRole('button', { name: 'Create new playlist', exact: true }).click();
+    await expect(dialog.getByRole('status')).toContainText('Created Night music');
+    await expect(dialog.getByRole('checkbox', { name: /Night music/ })).toBeChecked();
+    await expect(dialog.getByRole('checkbox', { name: /Night music/ })).toBeDisabled();
+    const saved = await page.evaluate(key => JSON.parse(localStorage.getItem(key)!), KEY);
+    const id = saved[0].tracks[0];
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem('musicFavorites')!))).toContain(id);
+    await page.evaluate(({ key, playingId }) => {
+      const saved = JSON.parse(localStorage.getItem(key)!);
+      localStorage.setItem(key, JSON.stringify([...saved, { id: 'study', name: 'Study', tracks: [playingId] }, { id: 'travel', name: 'Travel', tracks: [] }, { id: 'untouched', name: 'Untouched', tracks: [playingId] }]));
+      window.dispatchEvent(new Event('arkpediaMusicPlaylistsChanged'));
+    }, { key: KEY, playingId: playing.videoId });
+    await dialog.getByRole('checkbox', { name: 'Study', exact: true }).check();
+    await dialog.getByRole('checkbox', { name: 'Travel', exact: true }).check();
+    await dialog.getByRole('button', { name: 'Add to playlists', exact: true }).click();
+    await expect(dialog.getByRole('status')).toHaveText('Added to 2 playlists.');
+    const lists = await page.evaluate(key => JSON.parse(localStorage.getItem(key)!), KEY);
+    expect(lists[1].tracks).toEqual([playing.videoId, id]);
+    expect(lists[2].tracks).toEqual([id]);
+    expect(lists[3].tracks).toEqual([playing.videoId]);
+    await expect(dialog.getByRole('button', { name: 'Add to playlists', exact: true })).toBeDisabled();
+    await dialog.getByRole('textbox', { name: 'New playlist name' }).fill('Night music');
+    await dialog.getByRole('button', { name: 'Create new playlist', exact: true }).click();
+    await expect(dialog.getByRole('status')).toContainText('Choose a different name');
+    expect((await youtube(page))!).toMatchObject({ state: 1, videoId: playing.videoId, players: 1 });
+    await page.keyboard.press('Escape');
+    await expect(plus).toBeFocused();
+    await page.getByRole('button', { name: 'Playlists', exact: true }).click();
+    await expect(page.getByRole('combobox', { name: 'Saved playlist' })).toContainText('Night music');
+    await page.keyboard.press('Escape');
+    await page.reload();
+    await expect(favorite).toHaveAttribute('aria-pressed', 'true');
+    await plus.click();
+    await expect(dialog.getByRole('checkbox', { name: /Study/ })).toBeChecked();
+    await expect(dialog.getByRole('checkbox', { name: /Travel/ })).toBeChecked();
+    await page.keyboard.press('Escape');
+    await favorite.click();
+    await expect(favorite).toHaveAttribute('aria-pressed', 'false');
+    await page.reload();
+    await expect(favorite).toHaveAttribute('aria-pressed', 'false');
+    // Search result and Coming Up rows use the same actions and stable song IDs.
+    await page.getByRole('searchbox', { name: 'Search songs' }).fill(song!);
+    const result = rows.filter({ has: page.locator(`.music-queue-row-title[title=${JSON.stringify(song)}]`) }).first();
+    await expect(result.locator('.music-song-favorite')).toHaveAttribute('aria-pressed', 'false');
+    await result.locator('.music-song-favorite').click();
+    await expect(result.locator('.music-song-favorite')).toHaveAttribute('aria-pressed', 'true');
+    expect(await page.locator('body').evaluate(el => el.scrollWidth <= window.innerWidth)).toBe(true);
+  });
+}
+
+test('the picker keeps a second tab’s playlist edits and does not duplicate existing songs', async ({ page, context }) => {
+  await stubYouTube(page);
+  await page.goto('/music?view=queue');
+  const row = page.locator('.music-queue-row').first();
+  await expect(row).toBeVisible();
+  await page.evaluate(key => {
+    localStorage.setItem(key, JSON.stringify([{ id: 'a', name: 'Shared', tracks: [] }]));
+    window.dispatchEvent(new Event('arkpediaMusicPlaylistsChanged'));
+  }, KEY);
+  await row.getByRole('button', { name: /to playlists$/ }).click();
+  const dialog = page.getByRole('dialog', { name: 'Add to playlists', exact: true });
+  await dialog.getByRole('checkbox', { name: 'Shared', exact: true }).check();
+  const other = await context.newPage();
+  await stubYouTube(other);
+  await other.goto('/music');
+  await other.evaluate(key => localStorage.setItem(key, JSON.stringify([{ id: 'a', name: 'Shared', tracks: ['abcdefghijk'] }, { id: 'b', name: 'New in other tab', tracks: [] }])), KEY);
+  await expect(dialog.getByRole('checkbox', { name: 'New in other tab', exact: true })).toBeVisible();
+  await dialog.getByRole('button', { name: 'Add to playlists', exact: true }).click();
+  const lists = await page.evaluate(key => JSON.parse(localStorage.getItem(key)!), KEY);
+  expect(lists[0].tracks).toHaveLength(2);
+  expect(lists[0].tracks[0]).toBe('abcdefghijk');
+  expect(lists[1].tracks).toEqual([]);
+  await page.keyboard.press('Escape');
+  await row.getByRole('button', { name: /to playlists$/ }).click();
+  await expect(dialog.getByRole('checkbox', { name: /Shared/ })).toBeDisabled();
+  await expect(dialog.getByRole('button', { name: 'Add to playlists', exact: true })).toBeDisabled();
+  await other.close();
+});

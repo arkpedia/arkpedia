@@ -380,6 +380,7 @@
    to swap), so the title carries the control boundary and the row does not. */
 .music-queue-row {
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   gap: 8px;
   position: relative; /* the drop line's box (below) */
@@ -446,6 +447,8 @@
   padding: 0;
   font-size: 13px;
 }
+.music-song-favorite[aria-pressed="true"] { color: var(--teal); border-color: var(--teal); }
+.music-song-favorite[aria-pressed="true"] svg { fill: currentColor; }
 /* Where a dragged song lands: a teal line in the gap above or below the row it is over (the
    page's dropSide). The list's 4px gap is centred on it, and the list's own padding keeps the
    first row's line and the last's inside its scroll box. It grows in (motion.css). */
@@ -463,17 +466,12 @@
 }
 .music-queue-row.drop-before::before { top: -3px; }
 .music-queue-row.drop-after::after { bottom: -3px; }
-/* On a phone the three icon buttons are the phone's 40px control height, 24px wider in all
-   than the 32px squares they were, and the title paid for it: 175px to 151 at 390, so
-   titles that fitted ended in an ellipsis ("Play with Burdenbeasts"). The row's spacing
-   gives the width back instead of the buttons: 4px gaps in the row and 2px between the
-   buttons, an 8px inset in the title, and no gutter for a scrollbar that is an overlay on
-   a touch screen. The title has the room for text it had (153px at 390) at the one row
-   height; tests/browser/row-alignment.spec.ts holds it there. */
+/* Five actions get their own line on phones so song names and touch targets keep their room. */
 @media (max-width: 720px) {
-  .music-queue-row { gap: 4px; }
+  .music-queue-row { display: grid; grid-template-columns: max-content 24px minmax(0, 1fr); gap: 4px; padding-bottom: 4px; }
   .music-queue-row-title { padding: 0 8px; }
-  .music-queue-row-actions { gap: 2px; }
+  .music-queue-row-actions { grid-column: 3; justify-self: end; gap: 4px; }
+  .music-queue-row-placeholder { min-height: calc(2 * var(--control-h) + 8px); }
 }
 @media (max-width: 720px) and (pointer: coarse) {
   .music-queue-list { padding-right: 0; }
@@ -621,3 +619,15 @@
 .music-playlist-tracks ol { padding-left: 28px; }
 .music-playlist-tracks li { padding: 4px 0; overflow-wrap: anywhere; }
 .music-playlist-status { min-height: 1.5em; }
+.music-song-playlists-dialog { width: min(520px, calc(100vw - 24px)); }
+.music-song-playlist-title { margin: 0 0 12px; font-weight: 600; overflow-wrap: anywhere; }
+.music-song-playlist-options { display: grid; max-height: 35vh; overflow-y: auto; }
+.music-song-playlist-option { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 6px 4px; border-bottom: 1px solid var(--line-soft); cursor: pointer; }
+.music-song-playlist-option > span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.music-song-playlist-option > input { flex: none; accent-color: var(--teal); }
+.music-song-playlist-option > small { flex: none; }
+.music-song-playlist-add { display: flex; justify-content: flex-end; margin: 12px 0; }
+.music-song-playlist-create { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 12px; border-top: 1px solid var(--line-soft); }
+.music-song-playlist-create > input { flex: 1; min-width: 140px; }
+.music-song-playlist-create > button { flex: none; }
+.music-song-playlists-dialog .music-playlist-status { margin-bottom: 0; overflow-wrap: anywhere; }
