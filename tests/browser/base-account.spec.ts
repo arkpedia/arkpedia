@@ -48,7 +48,19 @@ test('presets stay highlighted while open and clearing preserves saved setups, l
     if (await switcher.count()) await switcher.click();
     await expect(presetsButton).not.toHaveCSS('background-color', inactiveColor);
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
-    await page.screenshot({ path: `.cache/base-presets/${theme}-${info.project.name}-active.png` });
+    const pickerBox = await page.getByRole('combobox', { name: 'Saved preset', exact: true }).boundingBox();
+    const nameBox = await page.getByLabel('New preset', { exact: true }).boundingBox();
+    expect(Math.abs(pickerBox!.height - nameBox!.height)).toBeLessThanOrEqual(1);
+    expect(Math.abs(pickerBox!.x - nameBox!.x)).toBeLessThanOrEqual(1);
+    expect(Math.abs(pickerBox!.width - nameBox!.width)).toBeLessThanOrEqual(1);
+    const loadBox = await source(page, 'Load').boundingBox();
+    const updateBox = await source(page, 'Update').boundingBox();
+    const deleteBox = await source(page, 'Delete').boundingBox();
+    expect(Math.abs(loadBox!.y - updateBox!.y)).toBeLessThanOrEqual(1);
+    expect(Math.abs(loadBox!.y - deleteBox!.y)).toBeLessThanOrEqual(1);
+    const saveBox = await source(page, 'Save new').boundingBox();
+    expect(Math.abs(saveBox!.height - nameBox!.height)).toBeLessThanOrEqual(1);
+    await page.screenshot({ path: `.cache/base-preset-layout/${theme}-${info.project.name}-active.png` });
   }
   await source(page, 'Clear base').click();
   await expect(page.getByRole('status')).toContainText('Current base cleared');

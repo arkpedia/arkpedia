@@ -64,6 +64,9 @@ The **Presets** control stays highlighted while its section is open. **Clear bas
 empties the current workers, products, ambience, training and crafting settings
 without changing facility layout/levels, saved presets or rotation. It also
 deselects the loaded preset so a new setup can be saved separately.
+Saved and new preset controls occupy separate aligned rows with matching field
+and button heights. Narrow screens stack the actions below each field and show
+daily production in a two-column grid.
 
 **Rotation** opens a modal timetable with Escape, close and backdrop dismissal.
 **Add to rotation** saves the imported staffing as a setup and adds a 12-hour

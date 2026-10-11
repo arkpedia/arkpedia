@@ -1417,14 +1417,22 @@ export default function BasePage({ operators }: Props) {
         {(baseSource === 'planner' || account?.base) && <div className="base-production-strip" aria-label="Daily production estimates">{calculationSource === 'rotation' ? <span className="hint">Rotation estimate</span> : baseSource === 'account' && <span className="hint">Estimated output</span>}<span><strong>{summaryUnavailable ? '—' : Math.round(dailyGoldWorthGreen).toLocaleString()}</strong> LMD / day</span><span><strong>{summaryUnavailable ? '—' : Math.round(dailyExpGreen).toLocaleString()}</strong> EXP / day</span><span><strong>{summaryUnavailable ? '—' : dailyGoldMadeGreen.toFixed(1)}</strong> Gold / day</span><span className={basePower.ok ? undefined : 'prod-danger'}>Power <strong>{basePower.drawn} / {basePower.supplied}</strong>{!basePower.ok && ` · ${Math.abs(basePower.spare)} short`}</span></div>}
         {showRotationPlan && <ImportDialog title="Rotation" className="base-rotation-dialog" onClose={() => setShowRotationPlan(false)}><BaseRotationPanel plan={rotationPlan} onChange={updateRotationPlan} presets={savedPresets} onLoad={id => { loadNamedPreset(id); setShowRotationPlan(false); }} initialMorale={account?.base?.morale ?? {}} owned={ownedOperators ?? undefined} imported={!!account?.base} stages={rotationCalculation?.stages} /></ImportDialog>}
         {showSavedPresets && baseSource === 'planner'  && <section id="base-saved-presets" className="op-section base-saved-presets" aria-label="Saved base presets">
-          <label>Saved preset <StyledSelect label="Saved preset" placeholder={savedPresets.length ? 'Choose a preset' : 'No saved presets'} value={selectedPreset} onChange={setSelectedPreset} options={savedPresets.map(p => ({ value: p.id, label: p.name }))} /></label>
-          <button type="button" className="ghost" disabled={!selectedPreset} onClick={() => loadNamedPreset()}>Load</button>
-          <button type="button" className="ghost" disabled={!selectedPreset} onClick={() => saveNamedPreset(true)}>Update</button>
-          <button type="button" className="ghost" disabled={!selectedPreset} onClick={() => { if (storePresets(savedPresets.filter(p => p.id !== selectedPreset))) { setSelectedPreset(''); setPresetStatus('Preset deleted.'); } }}>Delete</button>
-          <label>New preset <input maxLength={80} value={presetName} placeholder="e.g. Gold team" onChange={e => setPresetName(e.target.value)} /></label>
-          <button type="button" className="primary" disabled={!presetName.trim()} onClick={() => saveNamedPreset(false)}>Save new</button>
-          <button type="button" className="danger" onClick={resetBase}>Clear base</button>
-          <p className="hint">Saved on this browser: layout, workers, Elite levels, products, ambience, training, crafting and calculation settings.</p>
+          <div className="base-preset-row">
+            <label className="base-preset-field">Saved preset <StyledSelect label="Saved preset" placeholder={savedPresets.length ? 'Choose a preset' : 'No saved presets'} value={selectedPreset} onChange={setSelectedPreset} options={savedPresets.map(p => ({ value: p.id, label: p.name }))} /></label>
+            <div className="toolbar base-preset-actions" role="group" aria-label="Saved preset actions">
+              <button type="button" className="ghost" disabled={!selectedPreset} onClick={() => loadNamedPreset()}>Load</button>
+              <button type="button" className="ghost" disabled={!selectedPreset} onClick={() => saveNamedPreset(true)}>Update</button>
+              <button type="button" className="danger" disabled={!selectedPreset} onClick={() => { if (storePresets(savedPresets.filter(p => p.id !== selectedPreset))) { setSelectedPreset(''); setPresetStatus('Preset deleted.'); } }}>Delete</button>
+            </div>
+          </div>
+          <div className="base-preset-row">
+            <label className="base-preset-field">New preset <input type="text" maxLength={80} value={presetName} placeholder="e.g. Gold team" onChange={e => setPresetName(e.target.value)} /></label>
+            <div className="toolbar base-preset-actions" role="group" aria-label="New preset actions">
+              <button type="button" className="primary btn-sm" disabled={!presetName.trim()} onClick={() => saveNamedPreset(false)}>Save new</button>
+              <button type="button" className="danger" onClick={resetBase}>Clear base</button>
+            </div>
+          </div>
+          <p className="hint">Clear base keeps your layout, saved presets and rotation.</p>
         </section>}
         <p className="hint base-preset-status" role="status" aria-live="polite">{presetStatus}</p>
         {ROTATION_EXPERIMENT_ENABLED && showRotationPanel && (
