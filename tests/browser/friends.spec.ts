@@ -18,6 +18,8 @@ test.beforeEach(async ({page}) => {
 
 test('friend import, nested preview, skin collection and reload leave the own account untouched', async ({page}) => {
   await page.goto('/friends');
+  // Wait for the imported own account to hydrate before firing the SSR file input.
+  await expect(page.getByRole('button',{name:'Export my account',exact:true})).toBeEnabled();
   await page.getByLabel('Friend account file').setInputFiles(file);
   await expect(page.getByRole('status')).toContainText('Imported Friend Doctor#2222');
   await page.getByRole('button',{name:"Show friend's operators",exact:true}).click();

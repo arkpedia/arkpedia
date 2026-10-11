@@ -146,6 +146,9 @@
 /* The game's tower, in the theme's colour as the game tints it (a mask over --card-accent). */
 .account-card-process { width: 148px; aspect-ratio: 174 / 94; align-self: start; background-color: var(--card-accent); mask-size: contain; -webkit-mask-size: contain; mask-repeat: no-repeat; -webkit-mask-repeat: no-repeat; }
 .account-card-medal-box { justify-items: center; }
+.account-card-medal-link { position: relative; width: 100%; color: inherit; }
+.account-card-medal-link:hover { outline: 1px solid var(--card-panel-text); outline-offset: -1px; }
+.account-card-medal-hint { position: absolute; right: 8px; bottom: 4px; font-size: 11px; color: var(--card-panel-text); }
 .account-card-medals { --medal-unit: 8px; position: relative; max-width: 100%; }
 .account-card-medals img { position: absolute; height: auto; }
 .account-card-medals-list { display: flex; flex-wrap: wrap; gap: 6px; }

@@ -220,6 +220,7 @@ jobs:
           # which carries them to the account page.
           stage namecard-styles -- python3 scripts/imports/import-namecard-styles.py
           stage game-account-map -- npx tsx scripts/build/build-game-account-map.ts
+          stage medal-catalogue -- node scripts/build/build-medal-catalogue.mjs
           stage reward-names -- node scripts/sync/sync-reward-names.mjs
           # The voice lines take newly released operators' English text from the supplement:
           # without it they keep yesterday's lines rather than fall back to Chinese. The skin
