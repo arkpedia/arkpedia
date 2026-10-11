@@ -3,6 +3,7 @@ import type { PointerEventHandler } from 'react';
 import type { ChibiModel } from '@/lib/operators/chibi';
 import type { ChibiActivity } from '@/lib/operators/chibiRoutine';
 import { chibiIdleAnimation, isChibiTap } from '@/lib/operators/chibiRoutine';
+import { chibiAtlasText } from '@/lib/operators/chibiAtlas';
 interface ChibiCanvasProps {
   model: ChibiModel; label: string; animation: string; onAnimationChange: (value: string) => void;
   onAnimationsChange: (values: string[], durations?: Record<string, number>) => void; paused: boolean; moving: boolean; flipped: boolean;
@@ -32,7 +33,7 @@ export default function ChibiCanvas({ model, label, animation, onAnimationChange
       const context = new spine.webgl.ManagedWebGLRenderingContext(canvas, { alpha: true, antialias: true });
       cleanup = () => context.gl.getExtension('WEBGL_lose_context')?.loseContext();
       const textures = new Map(images);
-      const atlas = new spine.TextureAtlas(atlasText, name => { const image = textures.get(name); if (!image) throw Error(`Missing texture ${name}`); return new spine.webgl.GLTexture(context, image); });
+      const atlas = new spine.TextureAtlas(chibiAtlasText(atlasText), name => { const image = textures.get(name); if (!image) throw Error(`Missing texture ${name}`); return new spine.webgl.GLTexture(context, image); });
       cleanup = () => { atlas.dispose(); context.gl.getExtension('WEBGL_lose_context')?.loseContext(); };
       const data = new spine.SkeletonBinary(new spine.AtlasAttachmentLoader(atlas)).readSkeletonData(new Uint8Array(skeletonBytes));
       const skeleton = new spine.Skeleton(data); skeleton.setToSetupPose(); skeleton.updateWorldTransform();
