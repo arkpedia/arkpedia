@@ -1,0 +1,53 @@
+{
+  "supporter-tier": [
+    {
+      "id": "mini_cookie_supporters",
+      "name": "Mini Cookie Supporters",
+      "supporters": [
+        "Tim Q",
+        "RecCrystal33",
+        "Chris",
+        "Dedsec",
+        "Ferrum Argentum",
+        "JayKay"
+      ]
+    },
+    {
+      "id": "cookie_supporters",
+      "name": "Cookie Supporters",
+      "supporters": [
+        "ザック",
+        "Silfus",
+        "Luzifer",
+        "ShoBlueSkyies",
+        "Suffer Ring",
+        "Kikaiism",
+        "Moritz Weissenberger",
+        "428"
+      ]
+    },
+    {
+      "id": "delicious_cookie_supporters",
+      "name": "Delicious Cookie Supporters",
+      "supporters": [
+        "Porato"
+      ]
+    },
+    {
+      "id": "giant_cookie_supporters",
+      "name": "Giant Cookie Supporters",
+      "supporters": [
+        "Reverend Xil"
+      ]
+    },
+    {
+      "id": "oiler_cookie_supporters",
+      "name": "Oiler Cookie Supporters",
+      "supporters": [
+        "Xethrion",
+        "J-Min",
+        "KingS"
+      ]
+    }
+  ]
+}

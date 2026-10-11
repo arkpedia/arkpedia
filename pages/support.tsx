@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Head from 'next/head';
 import PageHeader from '@/components/ui/PageHeader';
+import patreonSupporters from '@/config/patreon_supporters.json';
 
 export default function SupportPage() {
   const [showJoinModal, setShowJoinModal] = useState(false);
@@ -107,33 +108,14 @@ export default function SupportPage() {
         <section className="op-section">
           <h2>Thank You to My Supporters</h2>
           <div className="supporters-tiers">
-            <div className="supporter-tier">
-              <h3 className="label-tag">Oiler Cookie Supporters</h3>
-              <ul className="supporter-list">
-                <li>KingS</li>
-                <li>J-Min</li>
-              </ul>
-            </div>
-
-            <div className="supporter-tier">
-              <h3 className="label-tag">Cookie Supporters</h3>
-              <ul className="supporter-list">
-                <li>Wry Smil3</li>
-                <li>Kikaiism</li>
-                <li>Moritz Weissenberger</li>
-                <li>428</li>
-              </ul>
-            </div>
-
-            <div className="supporter-tier">
-              <h3 className="label-tag">Mini Cookie Supporters</h3>
-              <ul className="supporter-list">
-                <li>JayKey</li>
-                <li>Ferrum Argentum</li>
-                <li>Dedsec</li>
-                <li>Chris</li>
-              </ul>
-            </div>
+            {patreonSupporters['supporter-tier'].map(tier => (
+              <div key={tier.id} className="supporter-tier">
+                <h3 className="label-tag">{tier.name}</h3>
+                <ul className="supporter-list">
+                  {tier.supporters.map(supporter => <li key={supporter}>{supporter}</li>)}
+                </ul>
+              </div>
+            ))}
           </div>
         </section>
       </main>
