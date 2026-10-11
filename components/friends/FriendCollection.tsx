@@ -9,8 +9,8 @@ import type { FriendOperator, FriendSkin } from '@/lib/account/friendCatalogue';
 import { matchesSearch } from '@/lib/search/searchNormalize';
 import styles from './Friends.module.css';
 
-export default function FriendCollection({ friend, operators, skins, view, onClose }: {
-  friend: FriendFile; operators: FriendOperator[]; skins: FriendSkin[]; view: 'operators' | 'skins'; onClose: () => void;
+export default function FriendCollection({ friend, operators, skins, view, onClose, own = false }: {
+  friend: FriendFile; operators: FriendOperator[]; skins: FriendSkin[]; view: 'operators' | 'skins'; onClose: () => void; own?: boolean;
 }) {
   const modal = useRef<HTMLDialogElement>(null);
   const [query, setQuery] = useState('');
@@ -62,20 +62,20 @@ export default function FriendCollection({ friend, operators, skins, view, onClo
       const rect = event.currentTarget.getBoundingClientRect();
       if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) onClose();
     }}>
-      <div className={styles.dialogHead}><h2 className="entity-title">{heading}</h2><XButton onClick={onClose} label={`Close friend's ${view}`} /></div>
+      <div className={styles.dialogHead}><h2 className="entity-title">{heading}</h2><XButton onClick={onClose} label={`Close ${own ? 'your' : "friend's"} ${view}`} /></div>
       {skin ? <div className={styles.skinDetail}>
         <button ref={skinBack} type="button" className="btn" onClick={() => setSkin(null)}>← Skins</button>
         <h3>{skin.model} · {skin.name}</h3>
         {skin.image && <ContentImg src={skin.image} alt={`${skin.model} — ${skin.name}`} />}
       </div> : <>
         <div className={styles.filters}>
-          <SearchInput label={view === 'operators' ? 'Search friend operators' : 'Search friend skins'} placeholder={view === 'operators' ? 'Search operators…' : 'Search skins…'} value={query} onChange={setQuery} />
+          <SearchInput label={`Search ${own ? 'your' : 'friend'} ${view}`} placeholder={view === 'operators' ? 'Search operators…' : 'Search skins…'} value={query} onChange={setQuery} />
           {view === 'operators' && <>
             <StyledSelect label="Operator rarity" value={rarity} onChange={setRarity} options={[{value:'all',label:'All rarities'}, ...[6,5,4,3,2,1].map(n=>({value:String(n),label:`${n}★`}))]} />
             <StyledSelect label="Sort operators" value={sort} onChange={setSort} options={[{value:'built',label:'Built level'},{value:'rarity',label:'Rarity'},{value:'name',label:'Name'}]} />
           </>}
         </div>
-        <div ref={collection} className={styles.collection} tabIndex={0} aria-label={view === 'operators' ? 'Friend operator collection' : 'Friend skin collection'}>
+        <div ref={collection} className={styles.collection} tabIndex={0} aria-label={`${own ? 'Your' : 'Friend'} ${view === 'operators' ? 'operator' : 'skin'} collection`}>
           {view === 'operators' ? <div className={styles.operatorGrid}>
             {owned.map(op => {
               const build = friend.roster[op.name];

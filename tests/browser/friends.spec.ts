@@ -18,6 +18,8 @@ test.beforeEach(async ({page}) => {
 
 test('friend import, nested preview, skin collection and reload leave the own account untouched', async ({page}) => {
   await page.goto('/friends');
+  // Wait for the imported own account to hydrate before firing the SSR file input.
+  await expect(page.getByRole('button',{name:'Export my account',exact:true})).toBeEnabled();
   await page.getByLabel('Friend account file').setInputFiles(file);
   await expect(page.getByRole('status')).toContainText('Imported Friend Doctor#2222');
   await page.getByRole('button',{name:"Show friend's operators",exact:true}).click();
@@ -77,4 +79,39 @@ test('export shares the own profile and build data without resources; damaged im
   await page.getByLabel('Friend account file').setInputFiles({name:'damaged.json',mimeType:'application/json',buffer:Buffer.from('{')});
   await expect(page.getByRole('alert').filter({hasText:'That file is not valid JSON.'})).toBeVisible();
   await expect(page.getByText('Friend Doctor#2222',{exact:true}).last()).toBeVisible();
+});
+
+test('own profile opens shared operator and outfit dialogs with own server builds, never friend data', async ({page}) => {
+  const account = {...own, skins: ['char_291_aglina@summer#5'], operatorBuilds: roster};
+  await page.addInitScript(({account, friend}) => {
+    localStorage.setItem('arkpediaAccount', JSON.stringify(account));
+    localStorage.setItem('arkpediaFriend', JSON.stringify(friend));
+    // The planner is intentionally different: this account's saved snapshot must win.
+    localStorage.setItem('plannerRoster', JSON.stringify({Angelina:{elite:0,level:1,skillLevel:1,masteries:{}}}));
+  }, {account, friend});
+  await page.goto('/account');
+  const operatorButton = page.getByRole('button', {name:'Show your operators', exact:true}).first();
+  await operatorButton.press('Enter');
+  const collection = page.getByRole('dialog', {name:'My Doctor#1111 · Operators', exact:true});
+  const tile = collection.getByRole('button', {name:/^Angelina: E2 Level 90/});
+  await expect(tile).toBeVisible();
+  await expect(collection.getByRole('button', {name:/^Kroos:/})).toHaveCount(0);
+  await tile.click();
+  await expect(page.getByRole('dialog', {name:'Angelina', exact:true})).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(tile).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(operatorButton).toBeFocused();
+  await page.getByRole('button', {name:'Show your skins', exact:true}).click();
+  const skins = page.getByRole('dialog', {name:'My Doctor#1111 · Skins', exact:true});
+  const outfit = skins.getByRole('button', {name:'Angelina Summer Flower FA017', exact:true});
+  await outfit.click();
+  await expect(skins.getByRole('img', {name:'Angelina — Summer Flower FA017', exact:true})).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(outfit).toBeFocused();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.keyboard.press('Escape');
+  await expect(page).toHaveURL(/\/account$/);
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('arkpediaAccount')!))).toEqual(account);
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('arkpediaFriend')!))).toEqual(friend);
 });

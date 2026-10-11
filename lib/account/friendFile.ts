@@ -1,6 +1,7 @@
 import { parseAccount, type AccountRecord, type AccountProfile } from './accountStore';
 import { parseRosterExport, type Roster } from '@/lib/planner/roster';
 import { MAX_IMPORT_BYTES, isSafeKey } from '@/lib/planner/untrusted';
+import { parseMedalCollection } from './medals';
 
 export const FRIEND_STORAGE_KEY = 'arkpediaFriend';
 export const FRIEND_KIND = 'arkpedia-friend';
@@ -13,6 +14,7 @@ const integer = (value: unknown, max: number, fallback = 0) => typeof value === 
 /** Explicit fields only: the share never carries a wallet, pull history, depot or login. */
 function publicProfile(profile: AccountProfile | undefined): AccountProfile | undefined {
   if (!profile) return undefined;
+  const medalCollection = parseMedalCollection(profile.medalCollection);
   return {
     level: profile.level === null ? null : integer(profile.level, 120), registeredAt: date(profile.registeredAt),
     secretary: text(profile.secretary, 200), bio: text(profile.bio), uid: text(profile.uid, 40),
@@ -30,6 +32,7 @@ function publicProfile(profile: AccountProfile | undefined): AccountProfile | un
       id: medal.id, x: typeof medal.x === 'number' && Number.isFinite(medal.x) && Math.abs(medal.x) <= 1000 ? medal.x : null,
       y: typeof medal.y === 'number' && Number.isFinite(medal.y) && Math.abs(medal.y) <= 1000 ? medal.y : null,
     })),
+    ...(medalCollection !== undefined ? { medalCollection } : {}),
   };
 }
 

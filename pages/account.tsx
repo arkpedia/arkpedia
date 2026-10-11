@@ -1,16 +1,21 @@
 import { useMemo, useState } from 'react';
 import type { GetStaticProps } from 'next';
 import Head from 'next/head';
+import dynamic from 'next/dynamic';
 import PageHeader from '@/components/ui/PageHeader';
 import DataDialog from '@/components/account/DataDialog';
 import ProfileCard from '@/components/account/ProfileCard';
 import PullHistory from '@/components/account/PullHistory';
+const FriendCollection = dynamic(() => import('@/components/friends/FriendCollection'), { ssr: false });
+import { makeFriendFile, shareableRoster } from '@/lib/account/friendFile';
+import { readRoster } from '@/lib/planner/roster';
+import { friendOperators, type FriendOperator, type FriendSkin } from '@/lib/account/friendCatalogue';
 import { withContentPage } from '@/lib/content/server';
 import { useReleaseTable } from '@/lib/content/context';
 import { DATA_DIALOG_TABLES, fillAccountMap } from '@/lib/content/dataDialogTables';
 import type { GameAccountMap } from '@/lib/planner/gameAccount';
 import { showAccount, useAccount, useOtherAccounts } from '@/lib/account/accountStore';
-import { assistantCatalogue, cardOutfits, type CardOutfit } from '@/lib/account/portraits';
+import { assistantCatalogue, type CardOutfit } from '@/lib/account/portraits';
 import { SERVER_IDS, SERVERS } from '@/lib/account-import/yostar';
 import SegmentedControl from '@/components/ui/SegmentedControl';
 // The eyebrow names Rhodes Island's AI as the reader's story has it: PRTS, ZOOT after Episode 15.
@@ -26,7 +31,8 @@ import { storyAI } from '@/lib/account/prts';
 
 interface Props {
   /** Every outfit by skin id, with its art (the card's assistant wears one). */
-  skins: CardOutfit[];
+  skins: (CardOutfit & Partial<FriendSkin>)[];
+  operators?: FriendOperator[];
 }
 
 const DATE = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
@@ -42,7 +48,7 @@ function age(iso: string, now: number): string {
   return parts.filter(Boolean).join(', ');
 }
 
-export default function AccountPage({ skins }: Props) {
+export default function AccountPage({ skins, operators }: Props) {
   const account = useAccount();
   // The other servers imported on this browser: a switch between them, once there is one.
   const others = useOtherAccounts();
@@ -51,6 +57,9 @@ export default function AccountPage({ skins }: Props) {
   const latest = account ? [account, ...Object.values(others)].reduce((a, b) => (b.importedAt > a.importedAt ? b : a)) : null;
   const map = useReleaseTable<GameAccountMap>('game-account-map');
   const [importing, setImporting] = useState(false);
+  const [view, setView] = useState<'operators' | 'skins' | null>(null);
+  const collectionOperators = useMemo(() => operators ?? friendOperators(map, []), [operators, map]);
+  const collectionSkins = useMemo(() => skins.map(skin => ({ ...skin, model: skin.model ?? null, series: skin.series ?? '' })), [skins]);
 
   // The outfits the account owns that the catalogue has (the card's Outfits Owned).
   const owns = useMemo(() => new Set(account?.skins ?? []), [account]);
@@ -84,7 +93,7 @@ export default function AccountPage({ skins }: Props) {
           {account && latest && latest.server !== account.server && (
             <p className="hint">The Operator Planner keeps the operators and depot of your latest import, the {SERVERS[latest.server].label} account.</p>
           )}
-          {account ? <ProfileCard account={account} map={map} outfits={ownedSkins ?? account.skins.length} outfitArt={outfitArt} outfitNames={outfitNames} /> : (
+          {account ? <ProfileCard account={account} map={map} outfits={ownedSkins ?? account.skins.length} outfitArt={outfitArt} outfitNames={outfitNames} collectionOwner="self" onOperators={() => setView('operators')} onSkins={() => setView('skins')} /> : (
             <div className="account-card account-card-empty">
               <p className="hint">No account imported yet: use Import / export above.</p>
             </div>
@@ -102,6 +111,7 @@ export default function AccountPage({ skins }: Props) {
         </section>
       </main>
 
+      {account && view && <FriendCollection own friend={makeFriendFile(account, shareableRoster(account, Object.values(others), readRoster()))} operators={collectionOperators} skins={collectionSkins} view={view} onClose={() => setView(null)} />}
       {importing && <DataDialog onClose={() => setImporting(false)} />}
     </>
   );
@@ -111,11 +121,13 @@ export default function AccountPage({ skins }: Props) {
    is no data/ to build it from. The builder reads only the skins compiled into the bundle and
    the tables' module imports, so it can run there. */
 export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>('/account', async () => {
-  const { getAllSkins } = await import('@/lib/skins/skins');
+  const [{ getAllSkins }, { getAllOperators }] = await Promise.all([import('@/lib/skins/skins'), import('@/lib/operators/operators')]);
+  const map = await DATA_DIALOG_TABLES['game-account-map']();
   return { props: {
     // As /skins counts them: an outfit only CN has is not Global's yet.
     // Each outfit by its game id, with its art: the card shows the assistant in theirs.
-    skins: cardOutfits(getAllSkins()),
+    operators: friendOperators(map, getAllOperators()),
+    skins: getAllSkins().flatMap(skin => skin.skinId ? [{ id: skin.skinId, name: skin.name, model: skin.model, series: skin.series, image: skin.image }] : []),
   } };
 }, {
   bundledWhenUnpublished: true,
