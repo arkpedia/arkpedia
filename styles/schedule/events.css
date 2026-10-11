@@ -23,6 +23,7 @@
   transition: border-color 0.15s ease;
 }
 .events-row:has(.events-row-main:hover) { border-color: var(--teal); }
+button.events-row-main.btn-bare { border: 0; background: transparent; padding: 0; font: inherit; text-align: left; text-transform: none; letter-spacing: normal; box-shadow: none; cursor: pointer; }
 .events-row-main {
   display: flex;
   align-items: center;
@@ -325,6 +326,12 @@
 .event-pack-window { font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); }
 .event-notice p { margin: 0 0 6px; font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
 .event-furniture-pieces { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 6px 14px; }
+.event-furniture-overview { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 12px; }
+.event-furniture-description { margin: 0; min-width: 0; }
+.event-furniture-art { width: 226px; max-width: 100%; height: auto; flex: 0 0 auto; object-fit: contain; border-radius: 4px; }
+@media (max-width: 600px) {
+  .event-furniture-overview { flex-direction: column; gap: 10px; }
+}
 .event-furniture-pieces li { display: flex; flex-direction: column; min-width: 0; padding: 4px 0; border-bottom: 1px solid var(--line-soft); }
 .event-furniture-piece-name { font-size: 12px; font-weight: 600; overflow-wrap: anywhere; }
 .event-furniture-piece-meta { font-size: 11px; color: var(--text-dim); overflow-wrap: anywhere; }

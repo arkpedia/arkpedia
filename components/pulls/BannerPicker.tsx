@@ -24,7 +24,7 @@ export default function BannerPicker({ banners, selected, odds, onAdd }: {
             // eslint-disable-next-line @next/next/no-img-element
             <ContentImg key={op.name} src={op.icon!} alt="" width="68" height="68" />
           ))}</span>
-          <span className={styles.pickerCopy}><strong>{names || bannerDisplayName(banner.name)}</strong><small>{bannerDisplayName(banner.name).replace(/^\[[^\]]*\]\s*/, '')}</small><small>{formatDayMonth(banner.start)} – {formatDayMonth(banner.end)}{banner.datesEstimated ? ' · Estimated' : ''}</small></span>
+          <span className={styles.pickerCopy}><strong>{names || bannerDisplayName(banner.name)}</strong><small>{banner.globalLineupPending ? 'Awaiting Global lineup confirmation' : bannerDisplayName(banner.name).replace(/^\[[^\]]*\]\s*/, '')}</small><small>{formatDayMonth(banner.start)} – {formatDayMonth(banner.end)}{banner.datesEstimated ? ' · Estimated' : ''}</small></span>
           <span className={styles.pickerAdd} aria-hidden="true">{added ? '✓' : '+'}</span>
         </button>;
       })}

@@ -10,7 +10,8 @@ const LINEUP_PENDING = 'Lineup to be confirmed.';
 /** What a banner whose lineup is pending says in its place: the rate-ups the official CN
  *  announcement names, in its Chinese (an operator not out yet has no record, so no English
  *  name), else that the lineup is to be confirmed. Takes the banner so no display forgets them. */
-export function lineupPendingNote(banner: Pick<HeadhuntingBanner, 'announcedLineup'>): string {
+export function lineupPendingNote(banner: Pick<HeadhuntingBanner, 'announcedLineup' | 'globalLineupPending'>): string {
+  if (banner.globalLineupPending) return 'Awaiting Global lineup confirmation.';
   const announced = banner.announcedLineup;
   if (!announced) return LINEUP_PENDING;
   const groups = [

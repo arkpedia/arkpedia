@@ -125,6 +125,8 @@ FOLDERS = {
     'material-icons': Folder((183, 183)),
     'item-icons': Folder((183, 183), image_format='PNG', extension='.png', optimize=True),
     'event-poster': Folder((1600, 1600)),
+    # Official furniture shop thumbnails, retained at native size and aspect ratio.
+    'content-art': Folder((1600, 1600), quality=90, method=6),
     'headhunting-banner-images': Folder((1600, 1600)),
     # As the rest of stages-images/: RGB webp, 320-512px wide.
     'stages-images': Folder((512, 512), mode='RGB', quality=80, method=6),

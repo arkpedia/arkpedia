@@ -24,6 +24,7 @@ not game-dump facts.
 | [fexli/ArknightsResource](https://github.com/fexli/ArknightsResource) | The wider art set — full character art, story sprites, medals. | one-off art imports |
 | [arknights.wiki.gg](https://arknights.wiki.gg) | EN key art (`File:EN <name> banner.png`), banner lineups the client tables leave out, and curated tables for things nobody has extracted from the raw data. Numbers here are a lead, not an answer — it lags the live event. | arkpedia-image-assets' `sync-images.yml` (`sync_global_banner_art.py`, `sync_recurring_banner_art.py`: the English banner and event art, which releases take with that repository's commit), `sync-catalogue.mjs` and `sync-recurring-banners.mjs` (lineups, through `wiki-pages.mjs`), transparent material icons |
 | [prts.wiki](https://prts.wiki) | The CN wiki. Best source for interface art the mirrors do not carry (mode emblems, alliance badges, stratagem icons), usually at higher resolution. Filed under CN names. | Stronghold Protocol icons |
+| [Closure Wiki](https://closure.wiki) | Community reference for operations, maps, drops, enemies and raw stage data. Operation pages use stable stage IDs; [YW-8 (`act52side_08`)](https://closure.wiki/operations/act52side_08) is a checked example. | Nightly `import-stage-renders.mjs` fallback for map previews absent from published assets and the client-art mirror; stage/enemy cross-checks; Credits. |
 | [ArknightsAssets/ArknightsAssets2](https://github.com/ArknightsAssets/ArknightsAssets2/tree/voice) | Public upstream recordings mirrored into Arkpedia's language-specific voice repositories. Each mirror records its upstream revision in `source.json`. | `build-operator-voices.mjs` |
 | [isHarryh/Ark-Voice](https://github.com/isHarryh/Ark-Voice) | Recording inventory used to identify audio absent from current dialogue tables, including unused promotion lines and replaced recordings. | `build-operator-voices.mjs` |
 | [arkpedia/arkpedia-l2d-assets](https://github.com/arkpedia/arkpedia-l2d-assets) | The Global client's animated outfit art (dynamic illustrations) as Spine 3.8 models, one immutable folder per source bundle, listed in its `manifest.json`. The site reads only the manifest, at the repository's main commit, and points each artwork at its `model.json` at that commit (`data/dynamic-art.json`); the reader's browser loads a model when they press Animated. | `sync-dynamic-art.mjs` |
@@ -34,7 +35,27 @@ estimated windows when no confirmed announcement time is recorded:
 and `data/headhunting_banners.json` once `activity_table`/`gacha_table` ship a real
 one, which is also what the skins page's availability countdowns are computed from.
 
+For Closure Wiki operation references, use `https://closure.wiki/operations/<stageId>`
+with the exact client stage ID, rather than a translated stage code or event name.
+The checked YW-8 page contains CN text: a page's presence does not confirm Global
+availability. Compare its reference data with the matching regional client tables
+before making a correction. `scripts/lib/closure-wiki.mjs` verifies the page's raw
+stage ID and level ID against the client's stage before downloading its matching
+map preview. The nightly stage-render importer consults it only after the published
+asset inventory and client-art mirror have no render, including when the art mirror
+is unavailable. At most 20 missing layouts are checked per run, in a rotating UTC-day
+batch, with request timeouts and response size limits. Failures preserve the stage
+and are reported in quarantine; excluded contents are never fetched. Successful
+art uses the existing staged-art publication and adoption path, with its source URL.
+`ARKPEDIA_CLOSURE_FALLBACK=0` disables lookups for offline fixture replays.
+
+Closure is supplemental: the runtime never requests it, and these lookups do not
+change mechanics, banner lineups, event dates, or Global release flags. The page's
+presence, language, and even its raw map data are not proof of Global availability;
+official regional announcements and extracted regional client tables keep priority.
+
 ## Module data and derived displays
+
 
 - `uniequip_table.json` provides stable module IDs, names, types, missions and costs.
 - `battle_equip_table.json` provides stage attributes and trait/talent candidates.

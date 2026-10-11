@@ -7,9 +7,8 @@ import { getAllHeadhuntingBanners } from '../../lib/gacha/headhuntingBannerData'
 import bundledBanners from '../../data/headhunting_banners.json';
 import type { HeadhuntingBanner } from '../../lib/gacha/headhuntingBanners';
 
-// A CN-only banner with no event is dated by the localization gap. Every such banner in the data is
-// a Joint Operation, which waits for Global instead and is in no list (waitsForGlobal), so another
-// kind on Joint Operation 23's CN window stands in for one.
+// Both an unlinked Featured banner and a special banner use the localization gap;
+// the special banner withholds its CN lineup until Global confirms it.
 const jointRecord = (bundledBanners as HeadhuntingBanner[]).find(b => b.name === '[jo] Joint Operation 23')!;
 const cnOnly: HeadhuntingBanner = { ...jointRecord, name: 'A CN-only featured banner', pull_type: 'featured' };
 import { resolveGachaSimulatorBanners } from '../../lib/gacha/gachaBannerWindows';
@@ -29,10 +28,11 @@ test('simulator follows calendar forecasts and keeps confirmed Global dates', ()
   assert.equal(resolved.find(b => b.name === persona.name)?.global_date_estimated, true);
   assert.equal(resolved.find(b => b.name === cnOnly.name)?.global_date, '2027/02/09–2027/02/23');
   assert.equal(resolved.find(b => b.name === cnOnly.name)?.global_date_estimated, true);
-  // The Joint Operation gets no Global window from CN, and is in no banner list a page reads.
-  assert.equal(resolved.find(b => b.name === jointRecord.name)?.global_date, null);
-  assert.equal(resolved.find(b => b.name === jointRecord.name)?.global_date_estimated ?? false, false);
-  assert.equal(source.some(b => b.name === jointRecord.name), false);
+  // The Joint Operation returns as a forecast with no CN operators.
+  assert.equal(resolved.find(b => b.name === jointRecord.name)?.global_date, '2027/02/09–2027/02/23');
+  assert.deepEqual(resolved.find(b => b.name === jointRecord.name)?.six_stars, []);
+  assert.equal(resolved.find(b => b.name === jointRecord.name)?.global_date_estimated ?? false, true);
+  assert.equal(source.some(b => b.name === jointRecord.name), true);
   assert.equal(resolved.find(b => b.name === confirmed.name)?.global_date, confirmed.global_date);
   assert.equal(resolved.find(b => b.name === confirmed.name)?.global_date_estimated, false);
   assert.equal(source.find(b => b.name === persona.name)?.global_date, null);

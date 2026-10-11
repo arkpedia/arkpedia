@@ -85,7 +85,8 @@ function checkQuarantine(file) {
 function checkUpstreamLock(file) {
   check(file?.version === 1 && plain(file.repositories), 'data/upstream.lock.json must be {"version":1,"repositories":{...}}');
   for (const [repository, entry] of Object.entries(file.repositories)) {
-    check(/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository) && plain(entry) && typeof entry.branch === 'string'
+    check(/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+(?::[a-z][a-z0-9_-]+)?$/.test(repository) && plain(entry) && typeof entry.branch === 'string'
+      && (!repository.includes(':') || repository.split(':')[1] === entry.branch)
       && (entry.commit === null || gitSha.test(entry.commit)), `data/upstream.lock.json: invalid pin for ${repository}`);
   }
   // Where the run's CN tables came from (scripts/content/cn-tables.mjs), and the last run's.

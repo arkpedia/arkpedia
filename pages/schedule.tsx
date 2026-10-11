@@ -7,9 +7,10 @@ import { getPullSchedule } from '@/lib/pulls/schedule';
 import { useRouter } from 'next/router';
 import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
-import { useEffect, useMemo, useRef, useState, CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, useState, CSSProperties, type ReactNode } from 'react';
 import { generateMonths, computeWeekBars, WeekEventSource } from '@/lib/schedule/timelineUtils';
 import { getAllEvents } from '@/lib/schedule/schedule';
+import { modeReleaseRow } from '@/lib/schedule/modeReleases';
 import { getOperatorBirthdays, parseDateRange, type OperatorBirthday } from '@/lib/schedule/scheduleDates';
 import { getAllOperators } from '@/lib/operators/operators';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
@@ -18,7 +19,10 @@ import { getAllSkins } from '@/lib/skins/skins';
 import { getSkinsForEvent } from '@/lib/schedule/scheduleSkinMatch';
 import { getEventMaterials } from '@/lib/schedule/eventMaterials';
 import { confirmedGlobalRange, getBannerForEvent } from '@/lib/gacha/headhuntingBanners';
-import { waitsForGlobal } from '@/lib/gacha/bannerSchedule';
+import { waitsForGlobal, globalBannerPreview } from '@/lib/gacha/bannerSchedule';
+import { parseGameWindow } from '@/lib/schedule/gameWindow';
+import { bannerScheduleEvents } from '@/lib/schedule/bannerEvents';
+import { resolveGachaSimulatorBanners } from '@/lib/gacha/gachaBannerWindows';
 import { getAllHeadhuntingBanners } from '@/lib/gacha/headhuntingBannerData';
 import { portraitStatus } from '@/lib/operators/operatorPortrait';
 import { getEventCalendar } from '@/lib/home/frontPageContent';
@@ -83,6 +87,12 @@ const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December',
 ];
+
+function ScheduleRowLink({ name, modeId, bannerName, onOpen, children }: { name: string; modeId?: string; bannerName?: string; onOpen: () => void; children: ReactNode }) {
+  return modeId || bannerName
+    ? <button type="button" className="events-row-main btn-bare" onClick={onOpen}>{children}</button>
+    : <Link prefetch={false} href={`/events/${encodeURIComponent(name)}`} className="events-row-main">{children}</Link>;
+}
 
 export default function SchedulePage({ events, operators: exportedOperators, skins, releaseLookup, eventRows: calendarRows, pullBanners, pullBannerLinks: legacyPullBannerLinks, now }: Props) {
   /* The release's tables, which the page's props always carry (lib/content/tables.mjs). The
@@ -221,7 +231,9 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
     : [];
   // Not a Joint Operation or an Orienteering Global does not have yet (waitsForGlobal), as on every
   // page: a release compiled before its table was filtered still carries them.
-  const panelBanner = displayEvent ? getBannerForEvent(displayEvent.name, confirmedGlobalRange(displayEvent.global), banners.filter((banner) => !waitsForGlobal(banner))) : null;
+  const panelBanner = displayEvent?.bannerName
+    ? banners.map(globalBannerPreview).find(banner => banner.name === displayEvent.bannerName) ?? null
+    : displayEvent ? getBannerForEvent(displayEvent.name, confirmedGlobalRange(displayEvent.global), banners.filter((banner) => !waitsForGlobal(banner))) : null;
   const panelBannerSixStars = panelBanner ? getDisplayFeaturedSixStars(panelBanner, releaseLookup) : [];
 
   function openEvent(e: ScheduleEvent) {
@@ -314,16 +326,16 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
             <div className="events-list">
               {eventRows.map((e) => (
                 <div key={e.name} className="events-row">
-                  <Link prefetch={false} href={`/events/${encodeURIComponent(e.name)}`} className="events-row-main">
+                  <ScheduleRowLink name={e.name} modeId={e.modeId} bannerName={e.bannerName} onOpen={() => { const event = events.find(event => event.name === e.name); if (event) openEvent(event); }}>
                     <div className="events-row-poster-wrap">
-                      {e.poster && <Image src={e.poster} alt="" fill sizes="200px" style={{ objectFit: 'cover' }} />}
-                      {e.isOngoing && <span className="badge-live events-row-live-badge">LIVE</span>}
+                      {e.poster && <Image src={e.poster} alt="" fill sizes="200px" style={{ objectFit: e.modeId ? 'contain' : 'cover' }} />}
+                      {e.isOngoing && <span className="badge-live events-row-live-badge">{e.modeId ? 'LAUNCH' : 'LIVE'}</span>}
                     </div>
                     <div className="events-row-info">
                       <span className="events-row-name">{e.name}</span>
                       <span className="events-row-date">
-                        {e.isPredicted ? 'Predicted: ' : ''}
-                        {e.dateRange}
+                        {e.isPredicted ? (e.modeId ? 'Predicted launch: ' : 'Predicted: ') : (e.modeId ? 'Launch: ' : '')}
+                        {e.dateRange}{e.modeId ? ' · Permanent' : ''}
                       </span>
                       {e.featuredOperators.length > 0 && (
                         <div className="events-row-ops">
@@ -341,7 +353,7 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
                         </div>
                       )}
                     </div>
-                  </Link>
+                  </ScheduleRowLink>
                   {e.pullBannerName && (
                     <Link prefetch={false} className="ghost btn-sm events-row-plan" href={{ pathname: '/pulls', query: { banner: e.pullBannerName } }}>
                       Plan pulls
@@ -546,7 +558,7 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
                             }}
                             onClick={() => openEvent(eventByName.get(bar.key)!)}
                           >
-                            {bar.name}
+                            {bar.name}{eventByName.get(bar.key)?.bannerName && /estimated/i.test(eventByName.get(bar.key)?.global.note ?? '') ? ' · Estimated' : ''}
                           </button>
                         );
                       })}
@@ -557,6 +569,10 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
             </div>
           </div>
 
+
+        </div>
+        </div>
+        </div>
           {/* The event's details open as a drawer over the page's right edge (a full
               sheet on a phone), so opening one moves nothing: it used to slide the
               whole calendar 180px left to make room beside it. Always rendered, so the
@@ -574,14 +590,23 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
                     width={1600}
                     height={900}
                     className="schedule-panel-poster"
-                    style={{ width: '100%', height: 'auto' }}
+                    style={{ width: '100%', height: displayEvent.modeId ? 220 : 'auto', objectFit: 'contain' }}
                   />
                 )}
                 <h2 className="entity-title entity-title-sm schedule-panel-title">{displayEvent.name}</h2>
-                <p className="hint">{displayEvent.global.dateRange}</p>
-                <Link prefetch={false} href={`/events/${encodeURIComponent(displayEvent.name)}`} className="ghost btn-sm schedule-panel-event-link">
-                  Event page
-                </Link>
+                {displayEvent.modeId ? (
+                  <>
+                    <p className="hint">{displayEvent.global.note ? 'Predicted launch' : 'Global launch'}: {displayEvent.global.releaseDate} · Permanent mode</p>
+                    {displayEvent.global.note && <p className="hint">{displayEvent.global.note}</p>}
+                    <p className="hint">CN launch: {displayEvent.cn.releaseDate}. Available permanently after launch.</p>
+                    {displayEvent.cn.timingSource && <a href={displayEvent.cn.timingSource} target="_blank" rel="noopener noreferrer" className="ghost btn-sm schedule-panel-event-link">CN game data</a>}
+                  </>
+                ) : (
+                  <>
+                    <p className="hint">{displayEvent.bannerName && displayEvent.global.note ? 'Estimated Global: ' : ''}{displayEvent.global.dateRange}</p>
+                    <Link prefetch={false} href={displayEvent.bannerName ? { pathname: '/gacha', query: { banner: displayEvent.bannerName } } : `/events/${encodeURIComponent(displayEvent.name)}`} className="ghost btn-sm schedule-panel-event-link">{displayEvent.bannerName ? 'Banner page' : 'Event page'}</Link>
+                  </>
+                )}
 
                 {panelBanner && isLineupPending(panelBanner) && (
                   <div className="schedule-panel-pullable">
@@ -655,6 +680,7 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
                   </div>
                 )}
 
+                {!displayEvent.bannerName && <>
                 <div className="schedule-panel-skins-header">
                   <h3 className="schedule-panel-subheading">Skins</h3>
                   <div className="schedule-panel-skins-actions">
@@ -701,6 +727,7 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
                 ) : (
                   <p className="hint">No matched skins for this event.</p>
                 )}
+                </>}
 
                 {panelMaterials && panelMaterials.length > 0 && (
                   <>
@@ -713,19 +740,14 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
                   </>
                 )}
 
-                <h3 className="schedule-panel-subheading">Pulls Needed</h3>
-                {displayEvent.pullsNeeded ? (
-                  <p className="hint">{displayEvent.pullsNeeded}</p>
-                ) : (
-                  <p className="hint">Not available yet.</p>
-                )}
+                {!displayEvent.modeId && !displayEvent.bannerName && <>
+                  <h3 className="schedule-panel-subheading">Pulls Needed</h3>
+                  <p className="hint">{displayEvent.pullsNeeded || 'Not available yet.'}</p>
+                </>}
 
               </div>
             )}
           </div>
-        </div>
-        </div>
-        </div>
       </main>
 
       {showAllSkins && (
@@ -853,16 +875,35 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/sc
     };
   });
 
+  const events = getAllEvents().map((e) => ({ ...e, poster: publishedArt(e.poster) }));
+  const scheduledBanners = resolveGachaSimulatorBanners(getAllHeadhuntingBanners());
+  for (const event of bannerScheduleEvents(scheduledBanners)) {
+    if (events.some(existing => existing.name === event.name)) continue;
+    events.push(event);
+    const range = parseGameWindow(event.global.dateRange, event.global)!;
+    const banner = scheduledBanners.find(b => b.name === event.bannerName)!;
+    eventRows.push({
+      name: event.name, bannerName: event.bannerName, poster: event.poster, dateRange: event.global.dateRange!,
+      isPredicted: !!banner.global_date_estimated, start: range.start.getTime(), end: range.end.getTime(),
+      pullBanner: pullBanners[banner.name.toLowerCase()] ?? null,
+      featuredOperators: [...banner.six_stars.map(name => ({ name, rarity: 6 as const })), ...banner.five_stars.map(name => ({ name, rarity: 5 as const }))],
+    });
+  }
+  for (const event of events) {
+    const release = modeReleaseRow(event);
+    if (release) eventRows.push(release);
+  }
+  eventRows.sort((a, b) => a.start - b.start);
   return {
     // The panel's poster, like every other: null until the image repository has it.
-    props: { events: getAllEvents().map((e) => ({ ...e, poster: publishedArt(e.poster) })), operators: trimmedOperators, skins: getAllSkins(), releaseLookup, eventRows, pullBanners },
+    props: { events, operators: trimmedOperators, skins: getAllSkins(), releaseLookup, eventRows, pullBanners },
   };
 }, {
   finalize: async (props) => pruneScheduleProps(props),
   tables: {
     event_colors: async () => (await import('@/data/event_colors.json')).default,
     event_materials: async () => (await import('@/data/event_materials.json')).default,
-    // Without a Joint Operation or an Orienteering Global does not have yet (waitsForGlobal).
-    headhunting_banners: async () => ((await import('@/data/headhunting_banners.json')).default as HeadhuntingBanner[]).filter((banner) => !waitsForGlobal(banner)),
+    // Forecast timing stays available, without a CN lineup or CN artwork.
+    headhunting_banners: async () => ((await import('@/data/headhunting_banners.json')).default as HeadhuntingBanner[]).map(globalBannerPreview),
   },
 });

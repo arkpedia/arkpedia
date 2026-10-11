@@ -41,7 +41,7 @@ fi
 # checkout is at the commit pinned for its repository (scripts/lib/upstream.sh).
 #
 # CN art: the stage and CCB map renders and the item icons, which only yuanyan3060
-# carries. Not an invariant: without it, item-icons and stage-renders are skipped and
+# carries. Not an invariant: without it, item-icons is skipped, stage-renders tries Closure Wiki, and
 # cc-stages publishes the renders the image repository has; the tables still come from
 # the mirror upstream-cn chose.
 #
@@ -76,7 +76,8 @@ stage mode-exclusions --needs stage-dataset -- node scripts/build/build-mode-exc
 # again so the records point at them the same day. Before the index enrichment, which reads
 # which contents have a map or a preview.
 # After mode-exclusions: nothing is fetched for a content the site leaves out.
-stage stage-renders --needs stage-dataset,upstream-cn-art -- node scripts/imports/import-stage-renders.mjs
+# Missing client renders fall back to Closure Wiki, even when upstream-cn-art failed.
+stage stage-renders --needs stage-dataset -- node scripts/imports/import-stage-renders.mjs
 
 # Integrated Strategies nodes: renders, Emergency Ops, borrowed names.
 stage is-nodes --needs stage-dataset -- python3 scripts/imports/import_is_nodes.py
@@ -194,6 +195,8 @@ stage stronghold-enemies --needs enemy-index -- node scripts/build/build-strongh
 # Recurring Standard and Kernel banners first, so their windows are reconciled too.
 stage recurring-banners -- node scripts/sync/sync-recurring-banners.mjs
 stage event-windows -- node scripts/sync/sync-event-windows.mjs
+# Permanent RA themes are outside activity_table; import each launch by its stable topic ID.
+stage ra-releases -- node scripts/sync/sync-ra-releases.mjs
 
 # The event-reward stages, after event-windows: each one dates the events it reads, and an
 # estimated date the client has since corrected misplaces a login, a post or a store's 30-day
@@ -215,6 +218,10 @@ stage event-stores -- node scripts/sync/sync-event-stores.mjs
 # packs, daily free rolls and announced gifts; and a rerun its original run's until its own
 # appear. Stores are event-stores' above.
 stage event-rewards -- node scripts/build/build-event-rewards.mjs
+
+# Official shop artwork for the sets the rewards name, including inherited reruns.
+# Keep CN originals; automatically prefer Global when its client thumbnail arrives.
+stage furniture-art --needs event-rewards -- node scripts/imports/import-furniture-art.mjs
 
 # Reward icons for every reward an event page lists: the stores (event-stores.json), the rewards
 # the tables and announcements list (event-rewards.json, written just above, so a new event's

@@ -6,6 +6,7 @@ import { parseBannerWindow } from './realGachaBanners';
  * markup and the reader's in the browser, and React rejects the markup when they
  * disagree about a banner. The page passes its useReaderClock value. */
 export function isBannerLive(banner: HeadhuntingBanner, now: number): boolean {
+  if (banner.globalLineupPending) return false;
   const window = parseBannerWindow(banner);
   return window !== null && window.start.getTime() <= now && now < window.end.getTime();
 }
@@ -16,16 +17,15 @@ export function isBannerLive(banner: HeadhuntingBanner, now: number): boolean {
  * Live banners come first, soonest-ending first, since that is the most time-sensitive;
  * then upcoming ones, soonest-starting first -- the opposite of the newest-first order
  * every other tab uses, since this tab is about what is live or coming up soonest.
- * Banners with no parseable window are left out. A Joint Operation or an Orienteering Global does
- * not have yet never reaches this list: the banner list the page is built from leaves it out
- * (lib/gacha/headhuntingBannerData.ts, waitsForGlobal). */
+ * Banners with no parseable window are left out. Forecast-only Global lineups remain
+ * listed with estimated dates, without a live claim or CN operators. */
 export function upcomingBanners<T extends HeadhuntingBanner>(banners: readonly T[], now: number): T[] {
   return banners
     .flatMap((banner) => {
       const window = parseBannerWindow(banner);
       if (!window || window.end.getTime() <= now) return [];
       const start = window.start.getTime();
-      return [{ banner, start, end: window.end.getTime(), live: start <= now }];
+      return [{ banner, start, end: window.end.getTime(), live: !banner.globalLineupPending && start <= now }];
     })
     .sort((a, b) => {
       if (a.live !== b.live) return a.live ? -1 : 1;

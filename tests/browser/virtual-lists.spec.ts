@@ -24,32 +24,25 @@ test('gacha banners load and unload as their list scrolls', async ({ page }, tes
   await expect(cards.last()).toHaveAttribute('aria-pressed', 'true');
 });
 
-test('CN-only banners use estimated Global windows in the simulator, and a Joint Operation Global has not dated is not shown', async ({ page }, testInfo) => {
-  // Joint Operation 23 ran on CN only: its record is in the data, and in no list a page reads
-  // (lib/gacha/bannerSchedule.ts waitsForGlobal), as Global will offer other operators.
+test('CN-only banners use estimated Global windows without a Joint Operation CN lineup', async ({ page }, testInfo) => {
   const records = JSON.parse(fs.readFileSync('data/headhunting_banners.json', 'utf8')) as Array<{ name: string; six_stars: string[] }>;
   const joint = records.find(row => row.name === '[jo] Joint Operation 23')!;
   await page.goto('/gacha');
-  const windows = await page.evaluate(() => {
-    const rows = (window as typeof window & { __NEXT_DATA__: { props: { pageProps: { banners: Array<{ name: string; global_date: string | null; global_date_estimated?: boolean }> } } } }).__NEXT_DATA__.props.pageProps.banners;
-    return rows.filter(row => row.name.includes('Persona 3 Reload') || row.name === '[jo] Joint Operation 23');
-  });
-  // The crossover's Global window is forecast from its event; the Joint Operation is not there at all.
-  expect(windows.map(row => row.name)).toEqual(['[Crossover · Persona 3 Reload] Some Evening of White and Mystic Blue']);
-  expect(windows[0].global_date_estimated && windows[0].global_date?.startsWith('2027/')).toBe(true);
-  // A Joint Operation's row is labelled by its operators: neither on Upcoming nor in its own tab.
-  const jointRow = page.locator('.gacha-banner-sidebar-item', { hasText: joint.six_stars.join(' / ') });
-  await expect(page.locator('.gacha-banner-sidebar-item').first()).toBeVisible();
-  await expect(jointRow).toHaveCount(0);
   if (testInfo.project.name === 'mobile') {
     await page.getByRole('combobox', { name: 'Banner category' }).click();
     await page.getByRole('option', { name: 'Joint Operation', exact: true }).click();
   } else {
     await page.getByRole('button', { name: 'Joint Operation', exact: true }).click();
   }
-  // Global's own Joint Operations are there, and none under CN dates.
-  await expect(page.locator('.gacha-banner-sidebar-item').first()).toBeVisible();
-  await expect(jointRow).toHaveCount(0);
+  const forecast = page.locator('.gacha-banner-sidebar-item', { hasText: 'Joint Operation 23' });
+  await expect(forecast).toBeVisible();
+  await expect(forecast).toContainText('Estimated Global');
+  await expect(forecast.locator('img')).toHaveCount(0);
+  await forecast.click();
+  await expect(page.getByText('Awaiting Global lineup confirmation.', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Pull one operator', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Pull ten operators', exact: true })).toBeDisabled();
+  for (const name of joint.six_stars) await expect(page.locator('.gacha-main-col').getByRole('img', { name, exact: true })).toHaveCount(0);
   await expect(page.locator('.gacha-banner-sidebar-item', { hasText: 'CN ·' })).toHaveCount(0);
 });
 
