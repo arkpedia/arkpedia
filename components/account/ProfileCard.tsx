@@ -299,6 +299,11 @@ export default function ProfileCard({ account, map, outfits, outfitArt, outfitNa
           )}
           </div>
         </div>
+        {(!profile.medals?.length || !panels.includes('module_medal')) && (
+          <button type="button" className="btn-sm account-card-box account-card-view-medals" aria-haspopup="dialog" onClick={() => setMedalsOpen(true)}>
+            View medals ↗
+          </button>
+        )}
       </div>
       <div className="account-card-simple" {...hiddenUnless(collapsed)}>
         <div className="account-card-name"><b>{account.doctor ?? 'Doctor'}</b>{profile.uid && <span>ID {profile.uid}</span>}</div>

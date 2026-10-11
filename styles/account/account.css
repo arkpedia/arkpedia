@@ -146,6 +146,7 @@
 /* The game's tower, in the theme's colour as the game tints it (a mask over --card-accent). */
 .account-card-process { width: 148px; aspect-ratio: 174 / 94; align-self: start; background-color: var(--card-accent); mask-size: contain; -webkit-mask-size: contain; mask-repeat: no-repeat; -webkit-mask-repeat: no-repeat; }
 .account-card-medal-box { justify-items: center; }
+.account-card-view-medals { justify-self: start; }
 .account-card-medal-link { position: relative; width: 100%; color: inherit; }
 .account-card-medal-link:hover { outline: 1px solid var(--card-panel-text); outline-offset: -1px; }
 .account-card-medal-hint { position: absolute; right: 8px; bottom: 4px; font-size: 11px; color: var(--card-panel-text); }
@@ -212,6 +213,7 @@
   .account-card-hiring { grid-area: hiring; }
   .account-card-hired { font-size: 30px; }
   .account-card-main > :not(.account-card-head) { grid-column: 1 / -1; }
+  .account-card-view-medals { grid-column: 1 / -1; grid-row: 6; }
   .account-card.is-collapsed .account-card-main > * { opacity: 1; transform: none; }
   .account-card-hiring { justify-items: stretch; }
   .account-card-hiring > :not(.account-card-hiring-art) { justify-self: start; }

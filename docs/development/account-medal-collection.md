@@ -1,7 +1,8 @@
 # Player medal collections
 
 Clicking a nonempty profile medal board opens the collection dialog on Account and
-Import a Friend. Sets are shown first, including partially collected sets. The full
+Import a Friend. Profiles with no displayed medals or no medal panel have a separate
+View medals button, which opens the same collection. Sets are shown first, including partially collected sets. The full
 medal list supports search, category and ownership filters. Set medal lists stay in
 the same dialog.
 

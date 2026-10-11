@@ -15,6 +15,36 @@ const own: AccountRecord = { version: 1, server: 'en', importedAt: '2026-10-11T0
     medals: [{ id: pyrite.medals[0], x: 0, y: 0 }],
     medalCollection: [...pyrite.medals, wolumonde.medals[0], 'medal_player_lv_01'].map((id: string) => ({ id, obtainedAt: '2026-10-01T00:00:00.000Z' })) } };
 
+for (const scenario of ['empty display', 'missing display', 'omitted panel', 'friend empty display', 'light empty display']) {
+  test(`View medals: ${scenario}`, async ({ page }, info) => {
+    const account = structuredClone(own);
+    if (scenario === 'omitted panel') account.profile!.panels = ['module_sign', 'module_assist', 'module_equip'];
+    else if (scenario === 'missing display') delete account.profile!.medals;
+    else account.profile!.medals = [];
+    await page.addInitScript(({ account, theme }) => {
+      localStorage.setItem('arkpediaAccount', JSON.stringify(account));
+      localStorage.setItem('theme', theme);
+    }, { account, theme: scenario.startsWith('light') ? 'light' : 'dark' });
+    if (scenario.startsWith('friend')) {
+      await page.goto('/friends');
+      await expect(page.getByRole('button', { name: 'Export my account', exact: true })).toBeEnabled();
+      await page.getByLabel('Friend account file').setInputFiles({ name: 'friend-medals.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(makeFriendFile(account, {}))) });
+      await expect(page.getByRole('status')).toContainText('Imported Medal Doctor');
+    } else await page.goto('/account');
+    const button = page.getByRole('button', { name: 'View medals' });
+    await expect(button).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Show medal collection', exact: true })).toHaveCount(0);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    if (scenario === 'empty display') await page.locator('.account-card').screenshot({ path: `.cache/view-medals-${info.project.name}.png` });
+    await button.press('Enter');
+    const dialog = page.getByRole('dialog', { name: 'Medal Doctor · Medals' });
+    await expect(dialog.getByRole('article').filter({ hasText: pyrite.name })).toContainText('✓ Completed');
+    await expect(dialog.getByRole('article').filter({ hasText: wolumonde.name })).toContainText('1 / 11 obtained');
+    await page.keyboard.press('Escape');
+    await expect(button).toBeFocused();
+  });
+}
+
 for (const theme of ['dark', 'light']) test(`${theme}: sets, completion, full list, categories, keyboard and narrow layout`, async ({ page }, info) => {
   await page.addInitScript(({ own, theme }) => { localStorage.setItem('arkpediaAccount', JSON.stringify(own)); localStorage.setItem('theme', theme); }, { own, theme });
   await page.goto('/account');
