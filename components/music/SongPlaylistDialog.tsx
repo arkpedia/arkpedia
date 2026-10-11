@@ -44,7 +44,7 @@ export default function SongPlaylistDialog({ song, onClose }: { song: { id: stri
     <div className="music-song-playlist-options">
       {playlists.length ? playlists.map(p => {
         const added = p.tracks.includes(song.id);
-        return <label key={p.id} className="music-song-playlist-option">
+        return <label key={p.id} className="check music-song-playlist-option">
           <input type="checkbox" checked={added || selected.includes(p.id)} disabled={added} onChange={event => setSelected(ids => event.target.checked ? [...ids, p.id] : ids.filter(id => id !== p.id))} />
           <span>{p.name}</span>
           {added && <small className="hint">Added</small>}
