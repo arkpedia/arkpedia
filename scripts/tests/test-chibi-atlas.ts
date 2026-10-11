@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { spine } from '../../lib/vendor/spine-3.8/spine-webgl';
-import { chibiAtlasText } from '../../lib/operators/chibiAtlas';
+import { chibiAtlas, chibiAtlasText } from '../../lib/operators/chibiAtlas';
 
 const page = (name: string) => `${name}.png\nsize: 64, 64\nformat: RGBA8888\nfilter: Linear, Linear\nrepeat: none\n${name}\n  rotate: false\n  xy: 0, 0\n  size: 16, 16\n  orig: 16, 16\n  offset: 0, 0\n  index: -1\n`;
 const texture = () => ({ getImage: () => ({ width: 64, height: 64 }), setFilters() {}, setWraps() {}, dispose() {} }) as unknown as spine.Texture;
@@ -22,4 +22,21 @@ test('existing atlases and native region properties are preserved', () => {
   const legacy = page('front');
   assert.equal(chibiAtlasText(legacy), legacy);
   assert.equal(chibiAtlasText('pma: true'), '');
+});
+
+test('native UTF-8 and padded paths resolve to their exact atlas regions', () => {
+  for (const name of ['B_图层220', '改', 'C_tape_Ⅰ_01', 'é', 'effect_😀']) {
+    const atlas = chibiAtlas(spine, page('front').replace('\nfront\n', `\n${name}\n`), texture);
+    // Reproduce BinaryInput.readString's signed readByte result without changing the vendor.
+    const signed = String.fromCharCode(...[...new TextEncoder().encode(name)].map(byte => byte < 128 ? byte : byte - 256));
+    const loader = new spine.AtlasAttachmentLoader(atlas);
+    assert.equal(loader.newRegionAttachment(null!, name, signed).region, atlas.findRegion(name));
+    assert.equal(loader.newMeshAttachment(null!, name, signed).region, atlas.findRegion(name));
+    assert.equal(atlas.findRegion(name), atlas.findRegion(signed));
+    atlas.dispose();
+  }
+  const atlas = chibiAtlas(spine, page('front'), texture);
+  assert.equal(atlas.findRegion('front  '), atlas.findRegion('front'));
+  assert.equal(atlas.findRegion('missing'), null);
+  atlas.dispose();
 });
