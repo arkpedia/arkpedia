@@ -19,7 +19,7 @@ test('ticket order follows displayed totals, including negative, quarter and per
   assert.deepEqual(operators.map(op => op.name), ['Negative', 'Zero', 'Quarter', 'Zulu', 'Alpha', 'Missing']);
 });
 test('gradual rating points and community rounding cover every boundary', () => {
-  for (const [value, expected] of [[5.8,-1.25],[5.9,-1],[6.0,-.75],[6.1,-.5],[6.2,-.25],[6.3,0],[6.4,.25],[6.5,.5],[6.6,.75],[6.7,1],[6.8,1.25],[6.9,1.5],[7.0,1.75],[7.1,2],[7.2,2.25],[6.84,1.25],[6.85,1.5]]) assert.equal(ratingPoints(value), expected);
+  for (const [value, expected] of [[5.8,-1.25],[5.9,-1],[6.0,-.75],[6.1,-.5],[6.2,-.25],[6.3,0],[6.4,.25],[6.5,.5],[6.6,.75],[6.7,1],[6.8,1.25],[6.9,1.5],[7.0,1.75],[7.1,2],[7.2,2],[7.15,2],[6.84,1.25],[6.85,1.5]]) assert.equal(ratingPoints(value), expected);
   for (const value of [null, NaN, 7.3, 5.7]) assert.equal(ratingPoints(value), null);
 });
 test('missing community doubles author points; community contributes gradual points', () => {
@@ -187,4 +187,18 @@ test('explicit super-meta members earn coverage below 7.0 and block coverage whe
   assert.equal(isSuperMeta({ ...candidate, kukkikaze: 6.9 }), false);
   const ines = { ...snapshot.candidates.find(op => op.name === 'Ines')!, kukkikaze: null };
   assert.equal(selectorCoverage([ines], ['Ines']).gameDestroyer, false);
+});
+
+
+test('mode preferences award one point each for matching IS and RA modules', () => {
+  const base = recommendation(candidate, [candidate], null).total;
+  for (const isModule of [false, true]) for (const raModule of [false, true]) {
+    const op = { ...candidate, isModule, raModule };
+    for (const likesIS of [false, true]) for (const likesRA of [false, true]) {
+      const score = recommendation(op, [op], null, { ...DEFAULT_SELECTOR_PREFERENCES, likesIS, likesRA });
+      assert.equal(score.total, base + Number(isModule && likesIS) + Number(raModule && likesRA));
+      assert.equal(score.personalized, likesIS || likesRA);
+    }
+    assert.equal(recommendation(op, [op], null).total, base);
+  }
 });
