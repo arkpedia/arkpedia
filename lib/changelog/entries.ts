@@ -37,7 +37,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     at: '2026-10-11T11:55:00Z',
     title: 'Schedules, event artwork and sources',
     added: [
-      { title: 'Song favourites and playlists', detail: 'Hearts save to Favourites automatically; choose playlists with the plus, or the ⋯ menu on phones.', href: '/music' },
+      { title: 'Song favourites and playlists', detail: 'Browse All songs while a playlist plays; the plus picker defaults to that playlist, and hearts save to Favourites.', href: '/music' },
       { title: 'Joint Operation and Orienteering forecasts', detail: 'Estimated banners return to the schedule, with operator lineups hidden until Global confirmation.', href: '/schedule' },
       { title: 'Reclamation Algorithm release dates', detail: 'RA launches, including RA2, appear in the schedule with their regional dates.', href: '/schedule' },
       { title: 'Official furniture shop artwork', detail: 'Event furniture sets show their in-game shop artwork, imported automatically as new sets arrive.', href: '/events' },

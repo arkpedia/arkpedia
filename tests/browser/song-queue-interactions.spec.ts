@@ -99,8 +99,10 @@ test('edge scrolling is fast, loads more than one batch, and an outside drop can
   await page.goto('/music?view=queue');
   await expect(rows(page).nth(1)).toBeVisible();
   const before = await order(page);
+  await page.evaluate(() => document.fonts.ready);
+  await expect.poll(async () => (await youtube(page))?.state).toBe(5);
   const handle = (await rows(page).nth(1).locator('.music-queue-drag-handle').boundingBox())!;
-  const list = page.locator('.music-queue-list').first();
+  const list = page.locator('[data-song-list]').first();
   const box = (await list.boundingBox())!;
   const input = await dragInput(page);
   await input.start(handle.x + handle.width / 2, handle.y + handle.height / 2);
@@ -146,7 +148,7 @@ for (const native of [false, true]) {
     await expect(rows(page).nth(1)).toBeVisible();
     await page.evaluate(() => document.fonts.ready);
     await expect.poll(async () => (await youtube(page))?.state).toBe(5);
-    const list = page.locator('.music-queue-list').first();
+    const list = page.locator('[data-song-list]').first();
     const box = (await list.boundingBox())!;
     const source = (await rows(page).nth(1).locator(native ? '.music-queue-row-title' : '.music-queue-drag-handle').boundingBox())!;
     const input = native ? {

@@ -12,12 +12,14 @@ import { useCrossFadeTitle } from '@/lib/music/useCrossFadeTitle';
 import { useQueryState } from '@/lib/hooks/useQueryState';
 import MusicWaveVisualizer from '@/components/music/MusicWaveVisualizer';
 import MusicPlaylists from '@/components/music/MusicPlaylists';
+import AllSongsList from '@/components/music/AllSongsList';
 import SongActionsMenu from '@/components/music/SongActionsMenu';
 import { useSongQueueDrag } from '@/components/music/useSongQueueDrag';
 import SongPlaylistPicker from '@/components/music/SongPlaylistPicker';
 import TransportIcon from '@/components/music/TransportIcons';
 import PageHeader from '@/components/ui/PageHeader';
 import SearchInput from '@/components/ui/SearchInput';
+import SegmentedControl from '@/components/ui/SegmentedControl';
 import XButton from '@/components/ui/XButton';
 import LoadOnScroll from '@/components/ui/LoadOnScroll';
 import { hiddenUnless } from '@/lib/ui/inert';
@@ -391,6 +393,22 @@ export default function MusicPage({ songLookup }: Props) {
   // before you've typed anything at all, so starting to type doesn't
   // itself cause a layout jump.
   const [queueSearch, setQueueSearch] = useState('');
+  const [allSongsSearch, setAllSongsSearch] = useState('');
+  const [songScope, setSongScope] = useState<'queue' | 'all'>('queue');
+  const queueScroll = useRef(0);
+  const queuePanel = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (songScope === 'queue') {
+      const list = queuePanel.current?.querySelector<HTMLElement>('[data-song-list]');
+      if (list) list.scrollTop = queueScroll.current;
+    }
+  }, [songScope]);
+  function changeSongScope(next: 'queue' | 'all') {
+    const list = queuePanel.current?.querySelector<HTMLElement>('[data-song-list]');
+    if (songScope === 'queue' && list) queueScroll.current = list.scrollTop;
+    drag.cancel();
+    setSongScope(next);
+  }
   const isSearching = queueSearch.trim().length > 0;
   const searchResultRows = useMemo(() => {
     if (!isSearching) return [];
@@ -529,10 +547,16 @@ export default function MusicPage({ songLookup }: Props) {
             </div>
           </div>
           {view === 'queue' && (
-          <div className="music-queue-panel">
-            <h2 className="section-title">Songs ({displayList.length})</h2>
-            <SearchInput label="Search songs" name="queue-search" placeholder="Search songs…" value={queueSearch} onChange={setQueueSearch} />
-            {isSearching ? (
+          <div className="music-queue-panel" ref={queuePanel}>
+            <div className="music-song-list-heading">
+              <h2 className="section-title">{songScope === 'queue' ? `Songs (${displayList.length})` : 'Songs'}</h2>
+              <SegmentedControl label="Song list" value={songScope} onChange={changeSongScope}
+                options={[{ value: 'queue', label: 'Queue' }, { value: 'all', label: 'All songs' }]} />
+            </div>
+            <SearchInput label={songScope === 'queue' ? 'Search songs' : 'Search all songs'} name="queue-search" placeholder="Search songs…"
+              value={songScope === 'queue' ? queueSearch : allSongsSearch} onChange={songScope === 'queue' ? setQueueSearch : setAllSongsSearch} />
+            <AllSongsList search={allSongsSearch} shown={songScope === 'all'} />
+            {songScope === 'queue' && (isSearching ? (
               <>
                 <div className={`music-queue-list${drag.nativeDragging ? ' music-queue-native-drag' : ''}`} data-song-list>
                   {searchResultRows.map(({ song, queueIdx, displayPos }) => (
@@ -619,7 +643,7 @@ export default function MusicPage({ songLookup }: Props) {
                 ))}
                 <LoadOnScroll shown={queueVisibleCount} total={displayListWithPos.length} onMore={() => setQueueVisibleCount((c) => c + QUEUE_PAGE_SIZE)} />
               </div>
-            )}
+            ))}
           </div>
           )}
         </div>

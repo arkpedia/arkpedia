@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useAnchoredPopover } from '@/components/ui/useAnchoredPopover';
 import XButton from '@/components/ui/XButton';
 import TransportIcon from './TransportIcons';
+import { useMusicPlayer } from '@/lib/music/musicPlayerContext';
 import { MUSIC_FAVORITES_EVENT, MUSIC_FAVORITES_KEY } from '@/lib/music/musicFavorites';
 import { addSongToPlaylists, MUSIC_PLAYLISTS_EVENT, MUSIC_PLAYLISTS_KEY, readPlaylists, writePlaylists, isFavoritesPlaylistName, type MusicPlaylist } from '@/lib/music/musicPlaylists';
 
@@ -33,10 +34,11 @@ export default function SongPlaylistPicker({ song }: { song: Song }) {
 }
 
 export function PlaylistOptions({ song, onClose, onBack }: { song: Song; onClose: () => void; onBack?: () => void }) {
+  const { playingPlaylistId } = useMusicPlayer();
   const closeRef = useRef<HTMLButtonElement>(null);
   useEffect(() => { closeRef.current?.focus({ preventScroll: true }); }, []);
   const [playlists, setPlaylists] = useState<MusicPlaylist[]>([]);
-  const [selected, setSelected] = useState<string[]>([]);
+  const [selected, setSelected] = useState<string[]>(() => playingPlaylistId ? [playingPlaylistId] : []);
   const [name, setName] = useState('');
   const [note, setNote] = useState('');
   useEffect(() => {
@@ -86,7 +88,7 @@ export function PlaylistOptions({ song, onClose, onBack }: { song: Song; onClose
         return <label key={p.id} className="check music-song-playlist-option">
           <input type="checkbox" checked={added || selected.includes(p.id)} disabled={added} onChange={event => setSelected(ids => event.target.checked ? [...ids, p.id] : ids.filter(id => id !== p.id))} />
           <span>{p.name}</span>
-          {added && <small className="hint">Added</small>}
+          {added && <small className="hint">Added ✓</small>}
         </label>;
       }) : <p className="hint">No saved playlists yet.</p>}
     </div>

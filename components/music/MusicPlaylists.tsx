@@ -78,7 +78,7 @@ export default function MusicPlaylists({ songs }: { songs: { videoId: string; ti
     if (!all && !chosen) return;
     setBusy(true);
     try {
-      const count = await player.playPlaylist(all ? null : chosen.tracks);
+      const count = await player.playPlaylist(all ? null : chosen.tracks, all ? undefined : chosen.id);
       setNote(count ? `Playing ${all ? 'all songs' : chosen.name}.${!all && count < chosen.tracks.length ? ' Unavailable or stream-filtered songs were skipped.' : ''}` : 'No playable songs in this playlist with the current filters.');
     } catch { setNote('The music catalogue could not be loaded. Try again.'); }
     finally { setBusy(false); }

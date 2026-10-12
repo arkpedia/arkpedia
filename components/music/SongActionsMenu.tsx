@@ -6,9 +6,9 @@ import TransportIcon from './TransportIcons';
 import { PlaylistOptions } from './SongPlaylistPicker';
 
 export default function SongActionsMenu({ song, isFavorite, isActive, canMoveUp, canMoveDown, onFavorite, onPlayNext, onMoveUp, onMoveDown, onRemove }: {
-  song: { id: string; title: string }; isFavorite: boolean; isActive: boolean;
-  canMoveUp: boolean; canMoveDown: boolean;
-  onFavorite: () => void; onPlayNext: () => void; onMoveUp: () => void; onMoveDown: () => void; onRemove: () => void;
+  song: { id: string; title: string }; isFavorite: boolean; isActive?: boolean;
+  canMoveUp?: boolean; canMoveDown?: boolean;
+  onFavorite: () => void; onPlayNext?: () => void; onMoveUp?: () => void; onMoveDown?: () => void; onRemove?: () => void;
 }) {
   const { open, setOpen, close, buttonRef, menuRef, menuStyle } = useAnchoredPopover(320);
   const [section, setSection] = useState<'actions' | 'playlists' | 'reorder'>('actions');
@@ -39,12 +39,12 @@ export default function SongActionsMenu({ song, isFavorite, isActive, canMoveUp,
               <TransportIcon name="heart" />{isFavorite ? 'Remove from favourites' : 'Add to favourites'}
             </button>
             <button type="button" className="ghost" onClick={() => setSection('playlists')}><TransportIcon name="plus" />Add to playlists<span aria-hidden="true">›</span></button>
-            <button type="button" className="ghost" onClick={() => setSection('reorder')}><TransportIcon name="reorder" />Reorder<span aria-hidden="true">›</span></button>
-            <button type="button" className="ghost" disabled={isActive} onClick={() => action(onRemove)}><TransportIcon name="trash" />Remove</button>
+            {onMoveUp && onMoveDown && onPlayNext && <button type="button" className="ghost" onClick={() => setSection('reorder')}><TransportIcon name="reorder" />Reorder<span aria-hidden="true">›</span></button>}
+            {onRemove && <button type="button" className="ghost" disabled={isActive} onClick={() => action(onRemove)}><TransportIcon name="trash" />Remove</button>}
           </> : <>
-            <button type="button" className="ghost" disabled={!canMoveUp} onClick={() => action(onMoveUp)}><TransportIcon name="up" />Move up</button>
-            <button type="button" className="ghost" disabled={!canMoveDown} onClick={() => action(onMoveDown)}><TransportIcon name="down" />Move down</button>
-            <button type="button" className="ghost" disabled={isActive} onClick={() => action(onPlayNext)}><TransportIcon name="next" />Play next</button>
+            <button type="button" className="ghost" disabled={!canMoveUp} onClick={() => action(() => onMoveUp?.())}><TransportIcon name="up" />Move up</button>
+            <button type="button" className="ghost" disabled={!canMoveDown} onClick={() => action(() => onMoveDown?.())}><TransportIcon name="down" />Move down</button>
+            <button type="button" className="ghost" disabled={isActive} onClick={() => action(() => onPlayNext?.())}><TransportIcon name="next" />Play next</button>
           </>}
         </div>
       </>}

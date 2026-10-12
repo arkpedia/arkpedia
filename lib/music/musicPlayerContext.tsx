@@ -90,6 +90,7 @@ interface MusicPlayerContextValue {
   shuffleOrder: number[] | null; // full pre-computed shuffle permutation of queue indices -- null when shuffle is off
   shufflePosition: number; // where the currently-playing track sits within shuffleOrder
   queueLoading: boolean;
+  playingPlaylistId: string | null;
   excludeCopyrighted: boolean; // "stream-safe mode" -- filters copyrighted songs out of the queue entirely, not just a display filter on one page
   initializePlayer: () => void;
   togglePlay: () => void;
@@ -106,7 +107,7 @@ interface MusicPlayerContextValue {
   playQueueIndex: (index: number) => void;
   playTrackByVideoId: (videoId: string) => void;
   playFirst: (videoId: string) => void;
-  playPlaylist: (videoIds: string[] | null) => Promise<number>;
+  playPlaylist: (videoIds: string[] | null, playlistId?: string) => Promise<number>;
   reorderQueue: (fromIndex: number, toIndex: number) => void;
   reorderShuffleOrder: (fromPos: number, toPos: number) => void;
   moveQueueItemToTop: (index: number) => void;
@@ -182,6 +183,8 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   const [queue, setQueue] = useState<QueueTrack[]>([]);
   const [queueIndex, setQueueIndex] = useState(0);
   const [queueLoading, setQueueLoading] = useState(false);
+  const [playingPlaylistId, setPlayingPlaylistId] = useState<string | null>(null);
+  const playingPlaylistIdRef = useRef<string | null>(null);
   // Shuffle is a full pre-computed permutation of queue indices, not a
   // fresh random roll on every advance -- that's what lets "Up next",
   // the queue display, the next/previous buttons, and auto-advance on
@@ -874,6 +877,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
       playing: isPlayingRef.current || pendingPlayRef.current || !!resumeWatchRef.current,
       queue: queue.map((track) => track.id),
       playlistIds: playlistIdsRef.current,
+      playingPlaylistId: playingPlaylistIdRef.current,
       queueIndex: queueIndexRef.current,
       shuffle: shuffleRef.current,
       shuffleOrder: order ? order.flatMap((index) => (queue[index] ? [queue[index].id] : [])) : null,
@@ -921,6 +925,8 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     const play = record.playing && router.pathname !== GAME_PATHS.music;
     resumeRef.current = { ...record, playing: play };
     playlistIdsRef.current = record.playlistIds ?? null;
+    playingPlaylistIdRef.current = record.playingPlaylistId ?? null;
+    setPlayingPlaylistId(playingPlaylistIdRef.current);
     pendingPlayRef.current = play;
     shuffleRef.current = record.shuffle;
     setShuffle(record.shuffle);
@@ -1014,7 +1020,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     player.playVideo();
   }
 
-  async function playPlaylist(videoIds: string[] | null): Promise<number> {
+  async function playPlaylist(videoIds: string[] | null, playlistId?: string): Promise<number> {
     if (!playerReadyRef.current) return 0;
     await buildQueueFromCatalog();
     const byId = new Map((catalogRef.current ?? []).map(song => [song.videoId, song]));
@@ -1024,6 +1030,8 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     });
     if (!tracks.length) return 0;
     playlistIdsRef.current = videoIds ? [...videoIds] : null;
+    playingPlaylistIdRef.current = videoIds ? playlistId ?? null : null;
+    setPlayingPlaylistId(playingPlaylistIdRef.current);
     queueRef.current = tracks; setQueue(tracks);
     queueIndexRef.current = 0; setQueueIndex(0);
     // Start in the saved order. The reader can turn shuffle on afterwards.
@@ -1236,6 +1244,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     shuffleOrder,
     shufflePosition,
     queueLoading,
+    playingPlaylistId,
     excludeCopyrighted,
     initializePlayer,
     togglePlay,
