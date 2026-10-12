@@ -17,8 +17,12 @@ const Details = createContext<{ tickets: Record<string, ResolvedTicket>; open: (
 
 /** One native modal handles packs and their tickets. Browser focus containment, Escape,
  * scroll locking and restoring the original card keep both desktop and phone usable. */
-export function RewardDetailsProvider({ tickets, children, recommendations, recommendationNote }: { tickets: Record<string, ResolvedTicket>; children: ReactNode; recommendations?: Record<string, Recommendation>; recommendationNote?: string }) {
+export function RewardDetailsProvider({ tickets, children, recommendations, recommendationNote, recommendationSettings }: { tickets: Record<string, ResolvedTicket>; children: ReactNode; recommendations?: Record<string, Recommendation>; recommendationNote?: string; recommendationSettings?: ReactNode }) {
   const [stack, setStack] = useState<Detail[]>([]);
+  const [showSettings, setShowSettings] = useState(false);
+  const [settingsHeight, setSettingsHeight] = useState<number | undefined>();
+  const operatorScroll = useRef(0);
+  const settingsTrigger = useRef<HTMLButtonElement>(null);
   const [operatorPreview, setOperatorPreview] = useState<OperatorPreviewItem | null>(null);
   const closeOperatorPreview = useCallback(() => setOperatorPreview(null), []);
   const dialog = useRef<HTMLDialogElement>(null);
@@ -40,15 +44,23 @@ export function RewardDetailsProvider({ tickets, children, recommendations, reco
       trigger.current?.focus({ preventScroll: true });
     };
   }, [isOpen]);
-  useEffect(() => { if (active) { dialog.current!.scrollTop = 0; heading.current?.focus(); } }, [active]);
+  useEffect(() => { setShowSettings(false); setSettingsHeight(undefined); if (active) { dialog.current!.scrollTop = 0; heading.current?.focus(); } }, [active]);
+  useEffect(() => { if (isOpen) dialog.current!.scrollTop = showSettings ? 0 : operatorScroll.current; }, [showSettings, isOpen]);
+  const toggleSettings = () => {
+    if (!showSettings) {
+      operatorScroll.current = dialog.current!.scrollTop;
+      setSettingsHeight(dialog.current!.getBoundingClientRect().height);
+    }
+    setShowSettings(value => !value);
+  };
   const open = (detail: Detail, button: HTMLElement) => {
     if (!stack.length) trigger.current = button;
     setStack(current => [...current, detail]);
   };
-  const close = () => setStack([]);
+  const close = () => { operatorScroll.current = 0; setStack([]); };
   return <Details.Provider value={{ tickets, open }}>
     {children}
-    <dialog ref={dialog} className="event-details-dialog" aria-labelledby="event-details-title" onCancel={e => { e.preventDefault(); close(); }} onKeyDown={e => {
+    <dialog ref={dialog} className="event-details-dialog" style={showSettings ? { height: settingsHeight } : undefined} aria-labelledby="event-details-title" onCancel={e => { e.preventDefault(); if (showSettings) { setShowSettings(false); settingsTrigger.current?.focus(); } else close(); }} onKeyDown={e => {
       if (e.key !== 'Tab') return;
       const focusable = [...e.currentTarget.querySelectorAll<HTMLElement>('button:not([disabled]), a[href]')];
       const first = focusable[0], last = focusable[focusable.length - 1];
@@ -64,10 +76,11 @@ export function RewardDetailsProvider({ tickets, children, recommendations, reco
           <div>
             {stack.length > 1 && <button type="button" className="btn" onClick={() => setStack(current => current.slice(0, -1))}>← Pack contents</button>}
             <h2 id="event-details-title" ref={heading} className="entity-title" tabIndex={-1}>{active.name}</h2>
+            {'ticket' in active && recommendationSettings && <button ref={settingsTrigger} type="button" className="btn btn-sm selector-personalize-button" aria-expanded={showSettings} aria-controls="event-selector-content" onClick={toggleSettings}>{showSettings ? 'Show recommendations' : 'Personalize recommendations'}</button>}
           </div>
           <XButton onClick={close} label={`Close ${active.name}`} />
         </div>
-        {'ticket' in active ? <>
+        {'ticket' in active ? <div id="event-selector-content">{showSettings ? recommendationSettings : <>
           <p>{active.ticket.description}</p>
           {active.ticket.note && <p className="hint">{active.ticket.note}</p>}
           {recommendationNote && <p className="hint">{recommendationNote}</p>}
@@ -82,7 +95,7 @@ export function RewardDetailsProvider({ tickets, children, recommendations, reco
             </button>; })}
           </div>
           <p className="hint"><a href={active.ticket.source} target="_blank" rel="noopener noreferrer">Source announcement</a></p>
-        </> : <>
+        </>}</div> : <>
           {active.pack.imagePath && <Image className="event-pack-detail-image" src={active.pack.imagePath} alt={`${active.pack.name} artwork`} width={200} height={150} />}
           {active.pack.start && <p className="hint">Sale window: {packDay(active.pack.start)} – {active.pack.end ? packDay(active.pack.end) : 'Not announced'}</p>}
           {active.pack.limit && <p className="hint">Purchase limit: {active.pack.limit}</p>}

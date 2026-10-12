@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { recommendation, ratingPoints, pointLabel, rankByRecommendation, type SelectorCandidate } from '../../lib/selectors/scoring';
+import { recommendation, ratingPoints, pointLabel, rankByRecommendation, DEFAULT_SELECTOR_PREFERENCES, selectorCoverage, type SelectorCandidate } from '../../lib/selectors/scoring';
 import { buildSelectorCatalogue, damageTypes, hasTalentReveal } from '../../lib/selectors/catalogue';
 import snapshot from '../../data/selector-catalogue.json';
 import { getAllOperators } from '../../lib/operators/operators';
@@ -46,24 +46,24 @@ test('Nasti uses the community-only fallback without filling her author rating',
   assert.deepEqual(score.lines[0], { label: 'Community rating ×2 (no Kukkikaze rating)', points: 1.5 });
   assert.equal(score.complete, true);
 });
-test('account coverage bonuses require an imported account and exact six-star roster ownership', () => {
+test('account coverage defaults use exact six-star roster ownership', () => {
   const op = { ...candidate, arts: true, trueDamage: true, kukkikaze: 7.1, isModule: true, raModule: true };
   const base = recommendation(op, [op], null);
   assert.equal(base.personalized, false);
-  assert.equal(recommendation(op, [op], []).total, base.total + 3);
+  assert.equal(recommendation(op, [op], []).total, base.total + 2);
   const casters = Array.from({length: 4}, (_, i) => ({ ...candidate, name: `Caster ${i}`, id: `caster_${i}`, caster: true, kukkikaze: 6.4 }));
-  assert.equal(recommendation(op, [op, ...casters], casters.slice(0,3).map(c => c.name)).total, base.total + 3);
-  assert.equal(recommendation(op, [op, ...casters], casters.map(c => c.name)).total, base.total + 2);
+  assert.equal(recommendation(op, [op, ...casters], casters.slice(0,3).map(c => c.name)).total, base.total + 2);
+  assert.equal(recommendation(op, [op, ...casters], casters.map(c => c.name)).total, base.total + 1.5);
   const supporter = { ...candidate, name: 'Supporter', id: 'supporter', supporter: true };
   const mixed = [...casters.slice(0, 3), supporter];
-  assert.equal(recommendation(op, [op, ...mixed], mixed.map(c => c.name)).total, base.total + 2);
-  assert.equal(recommendation(op, [op, ...mixed], mixed.slice(1).map(c => c.name)).total, base.total + 3);
-  assert.equal(recommendation(op, [op], [op.name]).total, base.total + 2); // owned true dealer blocks that coverage bonus; self is not another Game-Destroyer
+  assert.equal(recommendation(op, [op, ...mixed], mixed.map(c => c.name)).total, base.total + 1.5);
+  assert.equal(recommendation(op, [op, ...mixed], mixed.slice(1).map(c => c.name)).total, base.total + 2);
+  assert.equal(recommendation(op, [op], [op.name]).total, base.total + .5); // owning a True dealer and a 7.0+ operator blocks both coverage bonuses
   const unknown = { ...candidate, name: 'Unrated', id: 'unrated', kukkikaze: null };
   assert.equal(recommendation(op, [op, unknown], [unknown.name]).complete, false);
-  assert.equal(recommendation(op, [op, unknown], [unknown.name]).total, base.total + 2);
+  assert.equal(recommendation(op, [op, unknown], [unknown.name]).total, base.total + 1);
   const other = { ...op, name: 'Other', id: 'other' };
-  assert.equal(recommendation(op, [op, other], [other.name]).total, base.total + 1);
+  assert.equal(recommendation(op, [op, other], [other.name]).total, base.total + .5);
 });
 test('score colors retain negative and quarter points', () => {
   const bad = { ...candidate, mainSkills: 0, subSkills: 0, kukkikaze: 5.8, community: 6.2 };
@@ -135,7 +135,7 @@ test('the content release regenerates the selector catalogue after hydration and
   assert.ok(compile.indexOf('npx tsx scripts/build/build-selector-catalogue.ts') < compile.indexOf('npm test'));
 });
 
-test('only base-talent invisibility reveal earns one half point', () => {
+test('only base-talent invisibility reveal earns one quarter point', () => {
   const roster = getAllOperators();
   for (const name of ['SilverAsh', 'Ines']) assert.equal(hasTalentReveal(roster.find(o => o.name === name)!), true, name);
   for (const name of ['Magallan', 'Schwarz', 'Elysium']) assert.equal(hasTalentReveal(roster.find(o => o.name === name)!), false, name);
@@ -145,7 +145,24 @@ test('only base-talent invisibility reveal earns one half point', () => {
   assert.equal(hasTalentReveal(moduleOnly), false);
   const reveal = { ...candidate, talentReveal: true };
   const base = recommendation(candidate, [candidate], null);
-  assert.equal(recommendation(reveal, [reveal], null).total, base.total + .5);
-  assert.equal(recommendation({ ...reveal, kukkikaze: null }, [reveal], null).lines.find(l => l.label === 'Invisibility reveal talent')?.points, .5);
+  assert.equal(recommendation(reveal, [reveal], null).total, base.total + .25);
+  assert.equal(recommendation({ ...reveal, kukkikaze: null }, [reveal], null).lines.find(l => l.label === 'Invisibility reveal talent')?.points, .25);
   assert.deepEqual(buildSelectorCatalogue().candidates.filter(op => op.talentReveal).map(op => op.name).sort(), ['Ines', 'SilverAsh']);
+});
+
+test('personalization overrides coverage without needing an account and never adds reveal twice', () => {
+  const op = { ...candidate, arts: true, trueDamage: true, talentReveal: true, kukkikaze: 7.1, subSkills: 3 };
+  const base = recommendation(op, [op], null);
+  const manual = { ...DEFAULT_SELECTOR_PREFERENCES, subSkills: true, arts: true, trueDamage: true, gameDestroyer: true, reveal: true };
+  const score = recommendation(op, [op], null, manual);
+  assert.equal(score.total, base.total + 2.3);
+  assert.equal(score.lines.find(l => l.label.includes('sub priority'))?.points, .3);
+  assert.equal(score.lines.filter(l => l.label === 'Invisibility reveal talent').length, 1);
+  assert.equal(recommendation(op, [op], null, { ...manual, reveal: false }).total, score.total - .25);
+  assert.equal(recommendation(op, [op], [op.name]).lines.some(l => l.label === 'Invisibility reveal talent'), false);
+  assert.equal(recommendation(op, [op], [op.name], manual).total, score.total);
+  const unknown = { ...candidate, name: 'Unknown', id: 'unknown', kukkikaze: null };
+  assert.equal(selectorCoverage([unknown], [unknown.name]).gameDestroyer, null);
+  assert.equal(recommendation(op, [unknown], [unknown.name]).complete, false);
+  assert.equal(recommendation(op, [unknown], [unknown.name], { ...DEFAULT_SELECTOR_PREFERENCES, gameDestroyer: true }).complete, true);
 });

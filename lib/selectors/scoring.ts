@@ -22,35 +22,53 @@ export interface Recommendation {
   tone: 'negative' | 'middle' | 'great';
   lines: { label: string; points: number }[];
 }
+export interface SelectorPreferences {
+  subSkills: boolean;
+  arts: boolean | null;
+  trueDamage: boolean | null;
+  gameDestroyer: boolean | null;
+  reveal: boolean | null;
+}
+export const DEFAULT_SELECTOR_PREFERENCES: SelectorPreferences = { subSkills: false, arts: null, trueDamage: null, gameDestroyer: null, reveal: null };
+/** Null keeps a coverage answer linked to the imported account instead of freezing it. */
+export function selectorCoverage(roster: SelectorCandidate[], ownedNames: readonly string[] | null) {
+  const names = new Set(ownedNames ?? []);
+  const owned = roster.filter(op => names.has(op.name));
+  return {
+    arts: ownedNames !== null && owned.filter(op => op.caster || op.supporter).length <= 3,
+    trueDamage: ownedNames !== null && !owned.some(op => op.trueDamage),
+    gameDestroyer: ownedNames === null || owned.some(op => op.kukkikaze !== null && op.kukkikaze >= 7)
+      ? false : owned.some(op => ratingPoints(op.kukkikaze) === null) ? null : true,
+    reveal: ownedNames === null || !owned.some(op => op.talentReveal),
+  };
+}
 /** Community averages use the Power Scale's existing nearest-tenth display convention. */
 export function ratingPoints(value: number | null): number | null {
   if (value === null || !Number.isFinite(value) || value < 5.8 || value > 7.2) return null;
   const tenth = Math.round(value * 10);
   return (tenth - 63) * .25;
 }
-export function recommendation(candidate: SelectorCandidate, roster: SelectorCandidate[], ownedNames: readonly string[] | null): Recommendation {
+export function recommendation(candidate: SelectorCandidate, roster: SelectorCandidate[], ownedNames: readonly string[] | null, preferences: SelectorPreferences = DEFAULT_SELECTOR_PREFERENCES): Recommendation {
   const own = new Set(ownedNames ?? []);
-  const owned = roster.filter(op => own.has(op.name));
   const gameDestroyer = candidate.kukkikaze !== null && candidate.kukkikaze >= 7 && candidate.kukkikaze <= 7.2;
-  const knownOwnedRatings = owned.every(op => op.id === candidate.id || ratingPoints(op.kukkikaze) !== null);
+  const automatic = selectorCoverage(roster, ownedNames);
+  const coverage = { arts: preferences.arts ?? automatic.arts, trueDamage: preferences.trueDamage ?? automatic.trueDamage,
+    gameDestroyer: preferences.gameDestroyer ?? automatic.gameDestroyer, reveal: preferences.reveal ?? automatic.reveal };
   const lines: Recommendation['lines'] = [];
-  const add = (label: string, points: number) => lines.push({ label, points });
+  const add = (label: string, points: number) => lines.push({ label, points: Math.round(points * 100) / 100 });
   const kukki = ratingPoints(candidate.kukkikaze), community = ratingPoints(candidate.community);
   if (kukki !== null) add(community === null ? 'Kukkikaze rating ×2 (no community rating)' : 'Kukkikaze rating', kukki * (community === null ? 2 : 1));
   if (community !== null) add(kukki === null ? 'Community rating ×2 (no Kukkikaze rating)' : 'Community rating', community * (kukki === null ? 2 : 1));
   add(`${candidate.mainSkills} main priority skill${candidate.mainSkills === 1 ? '' : 's'}`, candidate.mainSkills * .5);
-  add(`${candidate.subSkills} sub priority skill${candidate.subSkills === 1 ? '' : 's'}`, 0);
+  add(`${candidate.subSkills} sub priority skill${candidate.subSkills === 1 ? '' : 's'}`, preferences.subSkills ? candidate.subSkills * .1 : 0);
   if (candidate.isModule) add('Integrated Strategies module', .5);
   if (candidate.raModule) add('Reclamation Algorithm module', .5);
-  if (candidate.talentReveal) add('Invisibility reveal talent', .5);
-  if (ownedNames !== null) {
-    if (candidate.arts && owned.filter(op => op.caster || op.supporter).length <= 3) add('Arts coverage: 3 or fewer owned 6★ Casters / Supporters', 1);
-    if (candidate.trueDamage && !owned.some(op => op.trueDamage)) add('True damage coverage: no owned 6★ dealer', 1);
-    if (gameDestroyer && knownOwnedRatings
-      && !owned.some(op => op.id !== candidate.id && op.kukkikaze !== null && op.kukkikaze >= 7 && op.kukkikaze <= 7.2)) add('Game-Destroyer: no other owned 7.0–7.2 operator', 1);
-  }
-  const total = lines.reduce((sum, line) => sum + line.points, 0);
-  return { total, complete: (kukki !== null || community !== null) && (ownedNames === null || !gameDestroyer || knownOwnedRatings), owned: own.has(candidate.name), personalized: ownedNames !== null,
+  if (candidate.talentReveal && coverage.reveal) add('Invisibility reveal talent', .25);
+  if (candidate.arts && coverage.arts) add('Arts coverage: lacking Arts dealers', .5);
+  if (candidate.trueDamage && coverage.trueDamage) add('True damage coverage: lacking True damage dealers', .5);
+  if (gameDestroyer && coverage.gameDestroyer) add('Game-Destroyer coverage: lacking a 7.0+ operator', 1);
+  const total = Math.round(lines.reduce((sum, line) => sum + line.points, 0) * 100) / 100;
+  return { total, complete: (kukki !== null || community !== null) && (!gameDestroyer || coverage.gameDestroyer !== null), owned: own.has(candidate.name), personalized: ownedNames !== null || preferences.subSkills || [preferences.arts, preferences.trueDamage, preferences.gameDestroyer, preferences.reveal].some(value => value !== null),
     tone: total < 0 ? 'negative' : total < 5 ? 'middle' : 'great', lines };
 }
 export const pointLabel = (points: number) => `${points > 0 ? '+' : ''}${points}`;
