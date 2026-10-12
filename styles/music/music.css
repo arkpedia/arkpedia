@@ -353,9 +353,8 @@
   flex-direction: column;
   gap: var(--queue-gap);
 }
-/* "Songs (884)" is the page's section heading, .section-title (shared.css): it was the
-   global 22px h2 at a 10px gap. The panel's flex gap is part of the heading gap. */
-.music-song-list-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+/* The panel's flex gap contributes to the standard gap below the heading row. */
+.music-song-list-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: calc(var(--heading-gap) - var(--queue-gap)); }
 .music-song-list-heading > h2 { margin: 0; }
 .music-all-songs-list[hidden] { display: none; }
 .music-queue-list {
