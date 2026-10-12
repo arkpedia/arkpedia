@@ -73,7 +73,9 @@ for (const name of files) {
     const jobs = Object.entries(workflow.jobs ?? {});
     assert.ok(jobs.length > 0, `${name} has jobs`);
     for (const [id, job] of jobs) {
-      assert.equal(typeof job['runs-on'], 'string', `${name} job ${id} names a runner`);
+      const labels = Array.isArray(job['runs-on']) ? job['runs-on'] : [job['runs-on']];
+      assert.ok(labels.length > 0 && labels.every(label => typeof label === 'string' && label.length > 0),
+        `${name} job ${id} names a runner or a nonempty list of runner labels`);
       assert.ok(Array.isArray(job.steps) && job.steps.length > 0, `${name} job ${id} has steps`);
       job.steps!.forEach((step, index) => {
         const label = `${name} job ${id} step ${step.name ?? index}`;

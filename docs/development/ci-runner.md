@@ -1,7 +1,28 @@
 # CI runners for the private app
 
-The three workflows in this repository (Check, Deploy, Prepare content release) run
-on the runners that carry the label the repository variable `ARKPEDIA_RUNNER` names:
+## Website deployments: NAS only
+
+Deploy's build/upload job requires `[self-hosted, Linux, X64, arkpedia-nas]`.
+If both NAS runners are offline, it waits; it cannot fall back to Vercel, GitHub's
+hosted machines or the VPS. The lightweight target-list job may still use the VPS.
+`npm run deploy:vercel` dispatches this workflow for the remote main/dev branch
+(`DEPLOY_BRANCH=dev` selects dev); it no longer builds on the invoking computer.
+
+Both Vercel projects must have their Git repository disconnected and their
+Ignored Build Step set to `exit 0`. Deploy verifies these settings before building
+and fails with a repair instruction if they drift. `vercel.json` and its ignore
+script also disable Git builds, including production and `[preview]` commits.
+Use GitHub Actions to deploy; do not reconnect Git or use dashboard source rebuilds.
+
+Vercel still calls artifact extraction and publishing "Running build". Its log
+must say `Using prebuilt build artifacts from .vercel/output`, with no Next.js
+compilation. Deployment metadata `arkpediaBuildRunner` and `arkpediaBuildRun`
+identify the NAS runner and GitHub run. Hosting/functions remain on Vercel.
+
+## Checks and content preparation
+
+Check and Prepare content release run on the runners that carry the label the
+repository variable `ARKPEDIA_RUNNER` names:
 
 ```yaml
 runs-on: ${{ vars.ARKPEDIA_RUNNER || 'ubuntu-latest' }}
@@ -32,7 +53,7 @@ They run on the label `ARKPEDIA_LIGHT_RUNNER` names (`arkpedia-vps`), falling ba
 `ARKPEDIA_RUNNER` when it is unset. Otherwise a merge's push waited in line behind another
 pull request's whole Check on the NAS (15 minutes on 2026-10-02) before Deploy could start.
 
-Switching is a settings change, not a commit: **Settings → Secrets and variables →
+Switching Check/content runners is a settings change, not a commit (Deploy stays NAS-only): **Settings → Secrets and variables →
 Actions → Variables**, or `gh variable set ARKPEDIA_RUNNER --body <label>` /
 `gh variable delete ARKPEDIA_RUNNER`. A job queued for a label whose runners are all
 offline waits up to 24 hours before failing, so check **Settings → Actions → Runners**
@@ -59,7 +80,7 @@ and the same code that push to main.
 
 ## What differs on the self-hosted runners
 
-- Timeouts are longer (Check 60, Deploy 45, content release 90, stage refresh
+- Timeouts are longer (Check 60, Deploy 45, content release 105, stage refresh
   30 minutes) for the smaller machines. Up to 30 of the content release's minutes can
   go to waiting for the public asset syncs, which run on GitHub's runners, so a Check
   queued behind it on the same runner can wait that long too.
