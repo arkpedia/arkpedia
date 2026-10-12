@@ -217,3 +217,26 @@ test('Favourites exists by default and stays in sync with hearts and playlist im
   await expect(dialog.getByRole('status')).toContainText('already saved');
   expect(await page.evaluate(key => JSON.parse(localStorage.getItem(key)!).filter((p: { id: string }) => p.id === 'arkpedia-favourites').length, KEY)).toBe(1);
 });
+
+test('music backup imports keep existing hearts and the default Favourites playlist together', async ({ page }) => {
+  await stubYouTube(page);
+  await page.goto('/music?view=queue');
+  const row = page.locator('[data-song-list] .music-queue-row').first();
+  await expect(row).toBeVisible();
+  const existing = await row.getAttribute('data-song-id');
+  await toggleFavorite(page, row);
+  await page.getByRole('button', { name: 'Playlists', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Music playlists', exact: true });
+  const backup = { kind: 'arkpedia-music-playlists', version: 1,
+    playlists: [{ id: 'backup', name: 'Backup', tracks: ['abcdefghijk'] }], favorites: ['lmnopqrstuv'] };
+  const upload = { name: 'music.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(backup)) };
+  await dialog.locator('input[type=file]').setInputFiles(upload);
+  await expect(dialog.getByRole('status')).toContainText('Imported 1 playlist');
+  const saved = await page.evaluate(key => ({ lists: JSON.parse(localStorage.getItem(key)!), hearts: JSON.parse(localStorage.getItem('musicFavorites')!) }), KEY);
+  expect(saved.hearts).toEqual([existing, 'lmnopqrstuv']);
+  expect(saved.lists.find((p: { id: string }) => p.id === 'arkpedia-favourites').tracks).toEqual(saved.hearts);
+  expect(saved.lists.find((p: { id: string }) => p.id === 'backup').tracks).toEqual(['abcdefghijk']);
+  await dialog.locator('input[type=file]').setInputFiles(upload);
+  await expect(dialog.getByRole('status')).toContainText('Imported favourites');
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('musicFavorites')!))).toEqual(saved.hearts);
+});

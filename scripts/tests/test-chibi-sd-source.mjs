@@ -30,6 +30,17 @@ test('incomplete or unsafe SD models fail without an upstream fallback', () => {
   assert.throws(() => chibiIndex({ ...manifest, models: { ...manifest.models, battle: { ...model, atlas: { ...file('unit.atlas'), path: 'models/../unit.atlas' } } } }, revision), /file record/);
 });
 
+test('Base uses only an explicit native default, preserving the original skin ID and operator identity', () => {
+  const sd = { schemaVersion: 1, models: { form: { ...model, id: 'char_form' } }, websiteSkins: { 'char_form#2': { front: 'form' } } };
+  const withoutDefault = chibiIndex(sd, revision);
+  assert.equal(withoutDefault['char_form#1'], undefined, 'no guessed promotion fallback');
+  const withDefault = chibiIndex({ ...sd, websiteDefaultSkins: { char_form: 'char_form#2' } }, revision);
+  assert.deepEqual(withDefault['char_form#1'], withDefault['char_form#2']);
+  assert.ok(withDefault['char_form#1'].front.skeleton.startsWith(`https://raw.githubusercontent.com/arkpedia/arkpedia-sd-assets/${revision}/`));
+  assert.throws(() => chibiIndex({ ...sd, websiteDefaultSkins: { char_other: 'char_form#2' } }, revision), /native default skin/);
+  assert.throws(() => chibiIndex({ ...sd, models: { form: { ...model, id: 'char_other' } }, websiteDefaultSkins: { char_form: 'char_form#2' } }, revision), /own operator/);
+});
+
 test('sync pins both manifest reads and runtime assets to one SD commit', async () => {
   const calls = [];
   const index = await readChibiArt({ token: 'test-token', fetch: async (url, options) => {

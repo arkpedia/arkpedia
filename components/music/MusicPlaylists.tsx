@@ -5,7 +5,8 @@ import StyledSelect from '@/components/ui/StyledSelect';
 import { useMusicPlayer } from '@/lib/music/musicPlayerContext';
 import { downloadBlob } from '@/lib/ui/downloadBlob';
 import { MUSIC_FAVORITES_EVENT, MUSIC_FAVORITES_KEY } from '@/lib/music/musicFavorites';
-import { formatPlaylistFile, MAX_PLAYLIST_BYTES, mergePlaylists, MUSIC_PLAYLISTS_EVENT, MUSIC_PLAYLISTS_KEY, parsePlaylistFile, readPlaylists, validatePlaylists, writePlaylists, initializeFavoritesPlaylist, FAVORITES_PLAYLIST_ID, isFavoritesPlaylistName, type MusicPlaylist } from '@/lib/music/musicPlaylists';
+import { formatPlaylistFile, MAX_PLAYLIST_BYTES, mergePlaylists, MUSIC_PLAYLISTS_EVENT, MUSIC_PLAYLISTS_KEY, readPlaylists, validatePlaylists, writePlaylists, initializeFavoritesPlaylist, FAVORITES_PLAYLIST_ID, isFavoritesPlaylistName, type MusicPlaylist } from '@/lib/music/musicPlaylists';
+import { parseMusicData } from '@/lib/music/musicData';
 
 export default function MusicPlaylists({ songs }: { songs: { videoId: string; title: string }[] }) {
   const player = useMusicPlayer();
@@ -66,11 +67,16 @@ export default function MusicPlaylists({ songs }: { songs: { videoId: string; ti
     setBusy(true);
     try {
       if (input.size > MAX_PLAYLIST_BYTES) throw new Error('Choose a playlist file smaller than 2 MB.');
-      const imported = parsePlaylistFile(await input.text());
+      const imported = parseMusicData(await input.text());
       // Read again after the asynchronous file read so an import cannot overwrite a newer tab's save.
-      const merged = mergePlaylists(readPlaylists(window.localStorage), imported, () => crypto.randomUUID());
-      if (!merged.added) setNote('These playlists are already saved.');
-      else store(merged.playlists, `Imported ${merged.added} ${merged.added === 1 ? 'playlist' : 'playlists'}.`);
+      const latest = readPlaylists(window.localStorage);
+      if (imported.favorites) {
+        latest[0] = { ...latest[0], tracks: [...new Set([...latest[0].tracks, ...imported.favorites])] };
+      }
+      const merged = mergePlaylists(latest, imported.playlists, () => crypto.randomUUID());
+      validatePlaylists(merged.playlists);
+      if (!merged.added && !imported.favorites) setNote('These playlists are already saved.');
+      else store(merged.playlists, merged.added ? `Imported ${merged.added} ${merged.added === 1 ? 'playlist' : 'playlists'}.` : 'Imported favourites.');
     } catch (error) { setNote(error instanceof Error ? error.message : 'This file could not be read.'); }
     finally { setBusy(false); if (file.current) file.current.value = ''; }
   }

@@ -6,13 +6,17 @@
 
 The `chibi-art` refresh stage runs with each content release. The fingerprint watches the SD repository, and hydration retains the bundled chibi catalogue until the data repository carries it. Missing or incomplete manifests fail the stage and retain the previous catalogue; an update cannot remove an existing skin/facing. There is no browser fallback to an upstream asset repository.
 
+SD's `websiteDefaultSkins` declares the native default ID for template forms that start at `#2`. The index retains that exact skin and adds a same-operator `#1` display lookup for the page's Base label. The source declaration is required; no missing Base model is guessed from an available promotion or other operator. This lets future template forms use their published native defaults without website-specific exceptions.
+
 To adopt an already published SD manifest locally:
 
 ```sh
 node scripts/sync/sync-chibi-art.mjs
 ```
 
-New original models must first be imported, validated and mapped in SD's `websiteSkins`. This stage adopts published coverage; it does not discover or substitute upstream artwork. The operator page props carry the pinned URLs through `arkpedia-data`, so later SD catalogue updates need a content release rather than an application redeploy.
+SD's `sync-chibis.yml` discovers new operators, outfits and base models daily at 16:23 UTC. It reads the native skin table and model tree from one upstream commit, imports complete files, validates the full manifest, and publishes them together. The website's scheduled content release waits for this SD job before its revision probe and reports failed or stale syncs through the shared asset report. Missing original battle files remain pending and retry on later runs; existing skin/facing coverage is retained.
+
+This stage adopts published SD coverage; it does not substitute upstream artwork. The operator page props carry the pinned URLs through `arkpedia-data`, so later SD catalogue updates need a content release rather than an application redeploy. The 19:57 UTC content schedule and GitHub's scheduling delays determine adoption after the upstream model dump is available; a failed or late sync leaves the previous artwork usable.
 
 ## audit-base-skills.mjs
 

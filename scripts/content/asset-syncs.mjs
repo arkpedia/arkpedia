@@ -20,6 +20,7 @@ import { pathToFileURL } from 'node:url';
 export const ASSET_SYNCS = [
   'arkpedia-image-assets/sync-images.yml',
   'arkpedia-skin-assets/sync-artwork.yml',
+  'arkpedia-sd-assets/sync-chibis.yml',
   'arkpedia-voice-english/sync-voices.yml',
   'arkpedia-voice-japanese/sync-voices.yml',
   'arkpedia-voice-korean/sync-voices.yml',
