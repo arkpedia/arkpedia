@@ -1,6 +1,9 @@
-import { EXTRA_RECRUIT_SLOTS } from './baseResources';
+import { nonDefaultRecruitSlots } from './baseResources';
 
 export interface OfficeContext {
+  officeLevel: number;
+  totalDormitoryLevels: number;
+  facilitiesWithEliteOperator: number;
   manualValue?: number; // meaning depends on the skill -- recruit slot count, Intelligence Reserve, etc.
   dormitoryCount: number;
   silverAshReignfrostInControlCenter: boolean;
@@ -20,47 +23,42 @@ type Handler = (ctx: OfficeContext) => OfficeSkillResult;
 /** Keyed by "OperatorName|SkillName". Everyone NOT in here is handled
  * correctly already by the generic HR Contacting Speed regex parser. */
 export const OFFICE_SPECIAL_SKILLS: Record<string, Handler> = {
+  "Kal'tsit - Esperanta|The Ark of Terra": (ctx) => ({ hrSpeed: 0.3 + 0.04 * Math.min(5, ctx.facilitiesWithEliteOperator) }),
   'Blitz|Linguistics': (ctx) => ({
     hrSpeed: 0.2 + (ctx.resourceBonuses['Blitz|Linguistics|hr_speed_pct_from_intel'] ?? 0) / 100 + 0.05 * ctx.ursusSpecialtyBeverageTotal,
   }),
 
-  // Dormitory-level dependent -- assumes Level 5 (max), matching the
-  // same confirmed correction as Narantuya's Factory skill.
-  'Tin Man|Maylander Detective α': (ctx) => ({ hrSpeed: 0.05 + 0.01 * 5 * ctx.dormitoryCount }),
-  'Tin Man|Maylander Detective β': (ctx) => ({ hrSpeed: 0.05 + 0.02 * 5 * ctx.dormitoryCount }),
+  // Dormitory-level dependent: use the actual sum, including unfinished dorms.
+  'Tin Man|Maylander Detective α': (ctx) => ({ hrSpeed: 0.05 + 0.01 * ctx.totalDormitoryLevels }),
+  'Tin Man|Maylander Detective β': (ctx) => ({ hrSpeed: 0.05 + 0.02 * ctx.totalDormitoryLevels }),
 
-  // Recruit-slot-scaled HR speed. Fixed at the confirmed constant now,
-  // no manual input needed.
-  'Lin|Meritocracy': () => ({ hrSpeed: 0.1 * EXTRA_RECRUIT_SLOTS }),
+  // Recruit-slot-scaled HR speed, using the extra slots unlocked by Office level.
+  'Lin|Meritocracy': (ctx) => ({ hrSpeed: 0.1 * nonDefaultRecruitSlots(ctx.officeLevel) }),
 
   // Recruit-slot-scaled MORALE (not HR speed) on top of a flat HR speed base.
-  'Qanipalaat|Rescue Team - Preserve Strength': () => ({
+  'Qanipalaat|Rescue Team - Preserve Strength': (ctx) => ({
     hrSpeed: 0.35,
-    selfMorale: -0.1 * EXTRA_RECRUIT_SLOTS,
+    selfMorale: -0.1 * nonDefaultRecruitSlots(ctx.officeLevel),
   }),
 
   // These four all grant a flat HR speed PLUS a per-recruit-slot boost
   // to Reception Room's Clue Speed specifically -- a genuinely
   // cross-facility effect, kept separate from this Office's own HR speed.
-  'Insider|Networking': () => ({
+  'Insider|Networking': (ctx) => ({
     hrSpeed: 0.3,
-    receptionRoomClueSpeed: 0.05 * EXTRA_RECRUIT_SLOTS,
+    receptionRoomClueSpeed: 0.05 * nonDefaultRecruitSlots(ctx.officeLevel),
   }),
-  'Mr. Nothing|Nosy': () => ({
+  'Mr. Nothing|Nosy': (ctx) => ({
     hrSpeed: 0.35,
-    receptionRoomClueSpeed: 0.05 * EXTRA_RECRUIT_SLOTS,
+    receptionRoomClueSpeed: 0.05 * nonDefaultRecruitSlots(ctx.officeLevel),
   }),
-  'Tsukinogi|Empath\'s Insight': () => ({
+  'Tsukinogi|Empath\'s Insight': (ctx) => ({
     hrSpeed: 0.35,
-    receptionRoomClueSpeed: 0.05 * EXTRA_RECRUIT_SLOTS,
+    receptionRoomClueSpeed: 0.05 * nonDefaultRecruitSlots(ctx.officeLevel),
   }),
-  'Ukusik|"Extra!"': () => ({
-    hrSpeed: 0.3,
-    receptionRoomClueSpeed: 0.05 * EXTRA_RECRUIT_SLOTS,
-  }),
-  'Ukusik|Law of the Streets': () => ({
+  'Ukusik|Law of the Streets': (ctx) => ({
     hrSpeed: 0.35,
-    receptionRoomClueSpeed: 0.05 * EXTRA_RECRUIT_SLOTS,
+    receptionRoomClueSpeed: 0.05 * nonDefaultRecruitSlots(ctx.officeLevel),
   }),
 
   // Cross-facility Control Center check.

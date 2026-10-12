@@ -4,7 +4,10 @@
  * decision; this mirrors it exactly, just adapted to TS syntax.
  */
 
-export const EXTRA_RECRUIT_SLOTS = 2; // confirmed fixed value
+/** The initial two recruitment slots are followed by one per Office upgrade. */
+export function recruitSlotCount(officeLevel: number): number {
+  return officeLevel > 0 ? Math.min(4, Math.max(2, officeLevel + 1)) : 2;
+}
 
 // Territory and Influence are Wang's own terms, and both now depend on the
 // layout the player built rather than on a fixed 2-4-3 base.
@@ -31,8 +34,8 @@ export interface LayoutCounts {
   powerPlantCount: number;
 }
 
-export function nonDefaultRecruitSlots(): number {
-  return EXTRA_RECRUIT_SLOTS;
+export function nonDefaultRecruitSlots(officeLevel: number): number {
+  return Math.max(0, recruitSlotCount(officeLevel) - 2);
 }
 
 /** "Pure Gold Production Line" = a Factory whose assigned product is
@@ -43,6 +46,9 @@ export function pureGoldProductionLineCount(factoryProducts: (string | null)[]):
 }
 
 export interface BaseResourceState extends LayoutCounts {
+  officeLevel: number;
+  czernyDormitoryLevel: number;
+  irisDormitoryLevel: number;
   dormitoryOperatorCount: number;
   suiOperatorsInNonDormFacilities: number; // capped at 5 by Chongyue's own skill text
   suiOperatorFacilityCount: number; // Taraxacum: distinct facilities with >=1 Sui operator, NOT headcount
@@ -103,7 +109,7 @@ export function computeResourcePools(state: BaseResourceState, present: Set<stri
   // itself, giving +3 for three Operators, which is neither reading.
   if (present.has('Chongyue|I am I')) pools.worldlyPlight += 5 * Math.min(5, state.suiOperatorsInNonDormFacilities);
   if (present.has('Dusk|"Unstirred by Gain"')) pools.worldlyPlight += 15 * (1 - state.duskFractionAbove12);
-  if (present.has('Mulberry|Rescue Team - Post-Catastrophe Census')) pools.worldlyPlight += 10 * nonDefaultRecruitSlots();
+  if (present.has('Mulberry|Rescue Team - Post-Catastrophe Census')) pools.worldlyPlight += 10 * nonDefaultRecruitSlots(state.officeLevel);
   if (present.has('Ling|"Vast Mountains and Rivers"')) pools.worldlyPlight += 15 * state.lingFractionAbove12;
 
   if (present.has('Dusk|"Unmoved by Loss"')) pools.perceptionInformation += 10 * state.duskFractionAbove12;
@@ -119,15 +125,13 @@ export function computeResourcePools(state: BaseResourceState, present: Set<stri
 
   if (present.has('Ash|Intelligence Reserve')) pools.intelligenceReserve += state.teamRainbowOperatorsInCC;
 
-  if (present.has('Whisperain|Itinerant')) pools.memoryFragments += 10 * nonDefaultRecruitSlots();
+  if (present.has('Whisperain|Itinerant')) pools.memoryFragments += 10 * nonDefaultRecruitSlots(state.officeLevel);
 
-  if (present.has("Bassline|Drawing the Heart's Voice")) pools.soundlessResonance += 15 * nonDefaultRecruitSlots();
+  if (present.has("Bassline|Drawing the Heart's Voice")) pools.soundlessResonance += 15 * nonDefaultRecruitSlots(state.officeLevel);
   if (present.has('Virtuosa|Soundless Resonance')) pools.soundlessResonance += state.virtuosaRoomOperatorCount;
 
-  // 1 per Dormitory level, assumed Level 5 (max) per the same
-  // "always maximally built" convention used everywhere else.
-  if (present.has('Czerny|Adagio')) pools.measure += 5;
-  if (present.has('Iris|Bedtime Story')) pools.dreamland += 5;
+  if (present.has('Czerny|Adagio')) pools.measure += state.czernyDormitoryLevel;
+  if (present.has('Iris|Bedtime Story')) pools.dreamland += state.irisDormitoryLevel;
 
   // --- Conversions ---------------------------------------------------------
   // A conversion does NOT consume what it reads. PRTS states it outright:

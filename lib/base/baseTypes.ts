@@ -74,12 +74,16 @@ export interface MoraleResult {
 export interface SlotAssignment {
   operatorName: string;
   eliteLevel: string | null;
+  /** Exact account-import level; manual Elite picks assume unlock levels. */
+  level?: number;
   // For skills that scale off something the simulator can't know on its
   // own (item counts like Witchcraft Crystal, Engineering Robots, etc.,
   // or hours since placement for ramp-up skills) -- a manual value the
   // player enters themselves. Meaning depends on which operator/skill
   // this slot holds; see factorySpecialSkills.ts.
   manualValue?: number;
+  /** Dormitory snapshot; defaults to exhausted (0), range 0–24. */
+  morale?: number;
 }
 
 // Maps each facility's id to the operator+skill currently assigned to

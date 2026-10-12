@@ -105,16 +105,16 @@ export interface ReceptionRoomBaseContribution {
 }
 
 export function receptionRoomBaseContribution(
-  op: { rarity: number | null; eliteLevel: string | null }
+  op: { rarity: number | null; eliteLevel: string | null; exhausted?: boolean }
 ): ReceptionRoomBaseContribution {
   return {
-    slotted: 0.05,
+    slotted: op.exhausted ? 0 : 0.05,
     rarity: receptionRoomRarityBonus(op.rarity),
     elite: receptionRoomEliteBonus(op.eliteLevel),
   };
 }
 
-export function calcReceptionRoomBaseSpeed(operators: { rarity: number | null; eliteLevel: string | null }[]): number {
+export function calcReceptionRoomBaseSpeed(operators: { rarity: number | null; eliteLevel: string | null; exhausted?: boolean }[]): number {
   if (operators.length === 0) return 0;
   let total = 1.0;
   for (const op of operators) {
@@ -356,16 +356,28 @@ const TRADING_POST_GOLD_SCENARIOS_HIGHER_TIER = [
   { gold: 4, probability: 0.85, minutes: 276 },
 ];
 
-export function calcTradingPostGoldPerHourWithTier(effectiveProductivity: number, tier: 'base' | 'lower' | 'doubleLower' | 'higher'): number {
+export type GoldOrderTier = 'base' | 'lower' | 'doubleLower' | 'higher';
+export function tradingPostGoldScenarios(tier: GoldOrderTier = 'base', level = 3) {
+  if (level <= 1) return [{ gold: 2, probability: 1, minutes: 144 }];
+  if (level === 2 && tier === 'base') return [{ gold: 2, probability: 0.6, minutes: 144 }, { gold: 3, probability: 0.4, minutes: 210 }];
+  return tier === 'higher' ? TRADING_POST_GOLD_SCENARIOS_HIGHER_TIER
+    : tier === 'doubleLower' ? TRADING_POST_GOLD_SCENARIOS_DOUBLE_LOWER_TIER
+    : tier === 'lower' ? TRADING_POST_GOLD_SCENARIOS_LOWER_TIER : TRADING_POST_GOLD_SCENARIOS;
+}
+export function tradingPostExpectedMinutes(tier: GoldOrderTier = 'base', level = 3) {
+  return tradingPostGoldScenarios(tier, level).reduce((sum, s) => sum + s.minutes * s.probability, 0);
+}
+export function goldOrderTier(skills: { operatorName: string; skillName: string }[]): GoldOrderTier {
+  const higher = new Set(['Tailoring β', 'Handicrafts β', "Appraiser's Means"]);
+  const lower = new Set(['Tailoring α', 'Handicrafts α', "Appraiser's Eyes", 'Know the Ropes', "An Heiress's Eye"]);
+  if (skills.some(s => higher.has(s.skillName))) return 'higher';
+  const count = new Set(skills.filter(s => lower.has(s.skillName)).map(s => s.operatorName)).size;
+  return count >= 2 ? 'doubleLower' : count === 1 ? 'lower' : 'base';
+}
+
+export function calcTradingPostGoldPerHourWithTier(effectiveProductivity: number, tier: GoldOrderTier, level = 3): number {
   if (effectiveProductivity <= 0) return 0;
-  const scenarios =
-    tier === 'higher'
-      ? TRADING_POST_GOLD_SCENARIOS_HIGHER_TIER
-      : tier === 'doubleLower'
-      ? TRADING_POST_GOLD_SCENARIOS_DOUBLE_LOWER_TIER
-      : tier === 'lower'
-      ? TRADING_POST_GOLD_SCENARIOS_LOWER_TIER
-      : TRADING_POST_GOLD_SCENARIOS;
+  const scenarios = tradingPostGoldScenarios(tier, level);
   const expectedGold = scenarios.reduce((sum, s) => sum + s.gold * s.probability, 0);
   const expectedMinutes = scenarios.reduce((sum, s) => sum + (s.minutes / effectiveProductivity) * s.probability, 0);
   return expectedGold / (expectedMinutes / 60);
@@ -393,17 +405,11 @@ export function calcTradingPostGoldAndLmdPerHour(
   effectiveProductivity: number,
   provisoGoldBonus: number,
   tequilaLmdBonus: number,
-  tier: 'base' | 'lower' | 'doubleLower' | 'higher' = 'base'
+  tier: GoldOrderTier = 'base',
+  level = 3
 ): { goldPerHour: number; extraLmdPerHour: number } {
   if (effectiveProductivity <= 0) return { goldPerHour: 0, extraLmdPerHour: 0 };
-  const scenarios =
-    tier === 'higher'
-      ? TRADING_POST_GOLD_SCENARIOS_HIGHER_TIER
-      : tier === 'doubleLower'
-      ? TRADING_POST_GOLD_SCENARIOS_DOUBLE_LOWER_TIER
-      : tier === 'lower'
-      ? TRADING_POST_GOLD_SCENARIOS_LOWER_TIER
-      : TRADING_POST_GOLD_SCENARIOS;
+  const scenarios = tradingPostGoldScenarios(tier, level);
   const expectedGold = scenarios.reduce((sum, s) => sum + (s.gold < 4 ? s.gold + provisoGoldBonus : s.gold) * s.probability, 0);
   const expectedMinutes = scenarios.reduce((sum, s) => sum + (s.minutes / effectiveProductivity) * s.probability, 0);
   const tradesPerHour = 1 / (expectedMinutes / 60);
@@ -419,9 +425,9 @@ export function calcTradingPostGoldAndLmdPerHour(
  * outcome), while explicitly NOT counting as a Defaulted trade. Reuses
  * the same timing/probability distribution -- only the gold amount per
  * trade changes, not how often trades happen. */
-export function calcTradingPostGoldPerHourStandardized(effectiveProductivity: number, fixedGold: number): number {
+export function calcTradingPostGoldPerHourStandardized(effectiveProductivity: number, fixedGold: number, level = 3): number {
   if (effectiveProductivity <= 0) return 0;
-  const expectedMinutes = TRADING_POST_GOLD_SCENARIOS.reduce(
+  const expectedMinutes = tradingPostGoldScenarios('base', level).reduce(
     (sum, s) => sum + (s.minutes / effectiveProductivity) * s.probability,
     0
   );
@@ -432,19 +438,16 @@ export function calcTradingPostGoldPerHourStandardized(effectiveProductivity: nu
  * spawn yielding 2, 3, or 4 gold still only consumes ONE order-limit
  * slot. This is purely about how often a new order appears, regardless
  * of its size. */
-export function calcTradingPostOrdersPerHour(effectiveProductivity: number): number {
+export function calcTradingPostOrdersPerHour(effectiveProductivity: number, level = 3, tier: GoldOrderTier = 'base', fixedMinutes?: number): number {
   if (effectiveProductivity <= 0) return 0;
-  const expectedMinutes = TRADING_POST_GOLD_SCENARIOS.reduce(
-    (sum, s) => sum + (s.minutes / effectiveProductivity) * s.probability,
-    0
-  );
+  const expectedMinutes = (fixedMinutes ?? tradingPostExpectedMinutes(tier, level)) / effectiveProductivity;
   return 1 / (expectedMinutes / 60);
 }
 
 /** Time until Trading Post's order limit fills up, on average -- uses
  * the ORDER rate (one order = one slot), not the gold-weighted rate. */
-export function calcTradingPostFullTime(effectiveOrderLimit: number, effectiveProductivity: number): number | null {
-  const ordersPerHour = calcTradingPostOrdersPerHour(effectiveProductivity);
+export function calcTradingPostFullTime(effectiveOrderLimit: number, effectiveProductivity: number, level = 3, tier: GoldOrderTier = 'base', fixedMinutes?: number): number | null {
+  const ordersPerHour = calcTradingPostOrdersPerHour(effectiveProductivity, level, tier, fixedMinutes);
   if (ordersPerHour <= 0 || effectiveOrderLimit <= 0) return null;
   return effectiveOrderLimit / ordersPerHour;
 }
@@ -467,13 +470,7 @@ export function calcDeadTime(combinedMoraleRate: number): number | null {
 // Dormitory. Recovery rises linearly with ambience up to that level's
 // own cap; past the cap, more ambience does nothing further.
 //
-// Verified against five worked examples: a fully-furnished (ambience at
-// cap) Dormitory recovers 2.0/2.5/3.0/3.5/3.6 Morale/hr at Level
-// 1/2/3/4/5 respectively -- the constants below reproduce all five
-// exactly (e.g. Level 1: 1.6 + 0.0004*1000 = 2.0; Level 5: 2.0 +
-// 0.0004*4000 = 3.6). This REPLACES a flat DORMITORY_BASE_RECOVERY = 2
-// that ignored both level and ambience entirely, silently assuming
-// every Dormitory was fully built AND fully furnished.
+// Game building_data.dormData: capped rooms recover 2/2.5/3/3.5/4 Morale/hr.
 const DORMITORY_RECOVERY_BASE_BY_LEVEL: Record<number, number> = {
   1: 1.6,
   2: 1.7,
@@ -486,11 +483,12 @@ const DORMITORY_AMBIENCE_CAP_BY_LEVEL: Record<number, number> = {
   2: 2000,
   3: 3000,
   4: 4000,
-  5: 4000, // confirmed same cap as Level 4, not a typo
+  5: 5000, // building_data.dormData.phases[4].decorationLimit
 };
 const DORMITORY_AMBIENCE_RATE = 0.0004; // Morale/hr per point of ambience, confirmed constant across every level
 
 export function dormitoryAmbienceCap(level: number): number {
+  if (level <= 0) return 0;
   return DORMITORY_AMBIENCE_CAP_BY_LEVEL[level] ?? DORMITORY_AMBIENCE_CAP_BY_LEVEL[5];
 }
 
@@ -505,6 +503,7 @@ export function defaultDormitoryAmbience(level: number): number {
 }
 
 export function calcDormitoryRecovery(level: number, ambience: number): number {
+  if (level <= 0) return 0;
   const base = DORMITORY_RECOVERY_BASE_BY_LEVEL[level] ?? DORMITORY_RECOVERY_BASE_BY_LEVEL[5];
   const cap = dormitoryAmbienceCap(level);
   const effectiveAmbience = Math.max(0, Math.min(ambience, cap));

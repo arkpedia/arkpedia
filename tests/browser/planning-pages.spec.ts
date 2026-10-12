@@ -367,7 +367,7 @@ async function simulateBase(page: Page) {
   await page.goto('/base');
   await page.locator('.base-setup-preset-card').first().click();
   await page.getByRole('button', { name: 'Begin Simulation' }).click();
-  await expect(page.locator('.base-facility-label').first()).toBeVisible();
+  await expect(page.locator('.base-overview-room-name').first()).toBeVisible();
 }
 
 test.describe('/base', () => {
@@ -378,9 +378,9 @@ test.describe('/base', () => {
       expect(await pageWidthOverflow(page), 'the summary rows wrap instead of widening the page').toBeLessThanOrEqual(1);
     });
 
-    test('each facility gear and ? is at least 24px on screen (4.3 H)', async ({ page }) => {
+    test('each facility has a directly reachable touch target (4.3 H)', async ({ page }) => {
       await simulateBase(page);
-      const sizes = await page.locator('.base-facility-settings-btn, .base-facility-explain-btn').evaluateAll((buttons) =>
+      const sizes = await page.locator('.base-overview-room').evaluateAll((buttons) =>
         buttons.map((button) => { const box = button.getBoundingClientRect(); return Math.min(box.width, box.height); }));
       expect(sizes.length).toBeGreaterThan(0);
       expect(Math.min(...sizes)).toBeGreaterThanOrEqual(24);
@@ -414,7 +414,7 @@ test.describe('/base', () => {
         return base;
       };
       let min = { ratio: 99, label: '' };
-      for (const label of Array.from(document.querySelectorAll('.base-facility-label'))) {
+      for (const label of Array.from(document.querySelectorAll('.base-overview-room-name'))) {
         if (!(label as HTMLElement).offsetParent) continue;
         const bg = background(label);
         const fg = over(parse(getComputedStyle(label).color)!, bg);
@@ -657,8 +657,7 @@ test('with an import, the base room picker offers the owned operators at their o
   await page.reload();
   await page.locator('.base-setup-preset-card').first().click();
   await page.getByRole('button', { name: 'Begin Simulation' }).click();
-  await page.locator('.base-facility:not(.base-facility-unbuilt)').nth(2).click();
-  await page.locator('.base-slot').first().click();
+  await page.locator('.base-overview-room').nth(2).click();
   await expect(page.getByRole('button', { name: 'Your elite', exact: true })).toHaveAttribute('aria-pressed', 'true');
   const names = await page.locator('.base-room-card .base-room-card-name').allTextContents();
   expect(names.sort()).toEqual(['Exusiai', 'Lappland', 'Proviso', 'Texas']);

@@ -63,8 +63,8 @@ export const PRODUCTION_SPOTS: { id: string; row: number; column: number }[] = [
 
 export const PRODUCTION_SPOT_IDS = PRODUCTION_SPOTS.map((s) => s.id);
 
-/** No more than five of any one production kind, matching the real base. */
-export const MAX_PER_PRODUCTION_KIND = 5;
+/** Construction ceilings from building_data: five TPs/factories, three plants. */
+export const MAX_PRODUCTION_BY_KIND: Record<ProductionKind, number> = { tradingPost: 5, factory: 5, powerPlant: 3 };
 
 export const PRODUCTION_KINDS: ProductionKind[] = ['tradingPost', 'factory', 'powerPlant'];
 
@@ -249,7 +249,7 @@ export function assignedKindCount(spots: ProductionSpots, kind: ProductionKind):
  * always allowed. */
 export function canSetSpotKind(spots: ProductionSpots, spotId: string, kind: ProductionKind): boolean {
   if (spots[spotId] === kind) return true;
-  return assignedKindCount(spots, kind) < MAX_PER_PRODUCTION_KIND;
+  return assignedKindCount(spots, kind) < MAX_PRODUCTION_BY_KIND[kind];
 }
 
 function levelFor(id: string, kind: FacilityKind, levels: FacilityLevels): number {
@@ -271,7 +271,7 @@ function levelFor(id: string, kind: FacilityKind, levels: FacilityLevels): numbe
 export function capacityForLevel(kind: FacilityDef['kind'], level: number): number {
   if (level <= 0) return 0;
   const max = MAX_CAPACITY[kind] ?? 0;
-  if (kind === 'tradingPost' || kind === 'factory' || kind === 'receptionRoom' || kind === 'office') {
+  if (kind === 'tradingPost' || kind === 'factory' || kind === 'controlCenter') {
     return Math.max(0, Math.min(level, max));
   }
   return max;
@@ -499,8 +499,8 @@ export function layoutProblems(spots: ProductionSpots, levels: FacilityLevels): 
 
   PRODUCTION_KINDS.forEach((kind) => {
     const count = assignedKindCount(spots, kind);
-    if (count > MAX_PER_PRODUCTION_KIND) {
-      problems.push(`${count} ${FACILITY_KIND_LABELS[kind]}s -- at most ${MAX_PER_PRODUCTION_KIND} of one kind can be built.`);
+    if (count > MAX_PRODUCTION_BY_KIND[kind]) {
+      problems.push(`${count} ${FACILITY_KIND_LABELS[kind]}s -- at most ${MAX_PRODUCTION_BY_KIND[kind]} of this kind can be built.`);
     }
   });
 

@@ -4,6 +4,10 @@ import type { BaseRosters } from './baseGroupRosters';
 import { ResourcePools } from './baseResources';
 
 export interface FactorySkillContext {
+  totalDormitoryLevels: number;
+  totalFacilityLevels: number;
+  trainingRoomLevel: number;
+  allPlacedNames: string[];
   /** The group rosters (lib/base/baseGroupRosters.ts), from the page's props. */
   rosters: BaseRosters;
   eliteLevel: string | null;
@@ -125,6 +129,9 @@ function totterAverageProductivity(
 }
 
 export const FACTORY_SPECIAL_SKILLS: Record<string, Handler> = {
+  'Makoto Yuki|The Meaning of Bonds': (ctx) => ({ productivity: 0.2 + 0.05 * Math.min(4, ctx.allPlacedNames.filter(n => ctx.rosters.SEES.has(n)).length) }),
+  'Viy|Artisan': (ctx) => ({ productivity: Math.min(0.3, 0.1 * ctx.trainingRoomLevel) }),
+  'Mechanist|I Slept Already': (ctx) => ({ productivity: ctx.rampWindowHours > 12 ? 0.1 * (ctx.rampWindowHours - 12) / ctx.rampWindowHours : 0 }),
   'Terra Research Commission|Trusty Buddies': (ctx) => ({
     productivity: 0.05 + 0.01 * ctx.felvineTotal,
     capacity: 8,
@@ -247,11 +254,9 @@ export const FACTORY_SPECIAL_SKILLS: Record<string, Handler> = {
     productivity: 0.1 * ctx.sameFactoryOperatorNames.filter((n) => ctx.rosters.A1_DETACHMENT.has(n)).length,
   }),
 
-  // Dormitory-level dependent -- assumes Level 5 (max), matching the
-  // same confirmed assumption used elsewhere in this codebase
-  // (DORMITORY_BASE_RECOVERY).
+  // Sum the actual levels of the built dormitories; only Precious Metals benefit.
   'Narantuya|Union of Desert Bandits': (ctx) => ({
-    productivity: ctx.selectedProduct === 'Precious Metals' ? 0.01 * 5 * ctx.dormitoryCount : 0,
+    productivity: ctx.selectedProduct === 'Precious Metals' ? 0.01 * ctx.totalDormitoryLevels : 0,
     exemptFromOverride: true,
   }),
 
@@ -324,17 +329,13 @@ export const FACTORY_SPECIAL_SKILLS: Record<string, Handler> = {
   'Jieyun|Always on the Move': (ctx) => ({ productivity: 0.01 * ctx.resourcePools.witchcraftCrystal }),
   'Jieyun|Of Death and Rebirth': (ctx) => ({ productivity: 0.02 * ctx.resourcePools.witchcraftCrystal }),
   'Jieyun|Ancient Witchcraft': () => ({}), // pure Worldly Plight -> Witchcraft Crystal generator, no bonus of her own -- generation IS modeled via computeResourcePools
-  // Graphic Design generates a fixed 64 Engineering Robots under the
-  // standard level assumption (Control Center + Dormitories at Level 5,
-  // every other room at Level 3, capped at 64) -- baked directly into
-  // Machine Assistance below rather than requiring manual input.
-  'Minimalist|Machine Assistance α': () => ({
-    productivity: 0.05 * Math.floor(64 / 16),
-    note: 'Assumes 64 Engineering Robots from Graphic Design (Control Center + Dormitories at Level 5, every other room at Level 3, capped at 64).',
+  // Graphic Design supplies one Engineering Robot per actual facility level,
+  // capped at 64. Machine Assistance converts complete groups of 16 or 8.
+  'Minimalist|Machine Assistance α': (ctx) => ({
+    productivity: 0.05 * Math.floor(Math.min(64, ctx.totalFacilityLevels) / 16),
   }),
-  'Minimalist|Machine Assistance β': () => ({
-    productivity: 0.05 * Math.floor(64 / 8),
-    note: 'Assumes 64 Engineering Robots from Graphic Design (Control Center + Dormitories at Level 5, every other room at Level 3, capped at 64).',
+  'Minimalist|Machine Assistance β': (ctx) => ({
+    productivity: 0.05 * Math.floor(Math.min(64, ctx.totalFacilityLevels) / 8),
   }),
   'Minimalist|Graphic Design': () => ({
     // No bonus of her own -- generates the Engineering Robots that

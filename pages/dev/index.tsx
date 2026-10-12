@@ -1,3 +1,4 @@
+import NumberInput from '@/components/ui/NumberInput';
 import { useEffect, useState } from 'react';
 import Head from 'next/head';
 import Image from '@/components/content/ContentImage';
@@ -335,8 +336,8 @@ export default function DevConsole() {
           <input type="text" style={{ width: '100%', marginBottom: 10 }} value={evName} onChange={(e) => setEvName(e.target.value)} />
 
           <label className="hint">Year</label>
-          <input
-            type="number"
+          <NumberInput
+            aria-label="Year"
             style={{ width: '100%', marginBottom: 10 }}
             value={evYear}
             onChange={(e) => setEvYear(Number(e.target.value))}

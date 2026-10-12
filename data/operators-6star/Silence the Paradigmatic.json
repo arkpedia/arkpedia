@@ -697,13 +697,21 @@
       "name": "Phone's Always Ringing",
       "facility": "Office",
       "eliteLevel": "Base",
-      "description": "When this Operator is assigned to the HR Office, HR contacting speed +40%"
+      "description": "When this Operator is assigned to the HR Office, HR contacting speed +40%",
+      "buffId": "hire_spd[032]",
+      "slot": 0,
+      "phase": 0,
+      "level": 1
     },
     {
       "name": "Rhine Tech γ",
       "facility": "Factory",
       "eliteLevel": "Elite 2",
-      "description": "When this Operator is assigned to a Factory, productivity +30%"
+      "description": "When this Operator is assigned to a Factory, productivity +30%",
+      "buffId": "manu_prod_spd[021]",
+      "slot": 1,
+      "phase": 2,
+      "level": 1
     }
   ],
   "modules": [

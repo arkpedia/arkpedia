@@ -271,6 +271,7 @@ function officialBaseSkills(characterId, building, current) {
       // 1★/2★ operators and Durin unlock a skill at a level, not a promotion: "Level 30".
       eliteLevel: phase === 0 && level > 1 ? `Level ${level}` : PHASE[`PHASE_${phase}`],
       description: stripRichText(buff.description),
+      buffId: entry.buffId,
       slot: slotIndex,
       phase,
       level,

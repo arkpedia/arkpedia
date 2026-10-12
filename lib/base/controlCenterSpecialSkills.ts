@@ -42,6 +42,7 @@ export interface ControlCenterContext {
   resourceBonuses: Record<string, number>;
   activeSkillKeys: Set<string>; // "OperatorName|SkillName" for every base skill currently active, base-wide
   abyssalHuntersInNonDormFacilities: number; // Gladiia's Tide Observation: count working elsewhere, increases her drain
+  abyssalHuntersRestingAtFullMorale?: number;
   abyssalHuntersRestingInDormitories: number; // Gladiia's Tide Observation: count resting, increases her recovery (assumed full Morale under this simulator's steady-state snapshot, matching the convention used elsewhere)
   eliteLevel: string | null; // needed for skills whose name is identical across elite levels (e.g. Togawa Sakiko's "Plentiful Work Experience"), where the handler key alone can't distinguish which tier is active
   allPlacedNames: string[]; // every operator placed anywhere in the base, for roster-membership counts (e.g. Varkáris's Minos count)
@@ -76,6 +77,8 @@ type Handler = (ctx: ControlCenterContext) => ControlCenterSkillResult;
  * Posts'/Factories' ...' +X%" wording is already handled correctly by
  * the generic regex parser in calcControlCenterEffects. */
 export const CONTROL_CENTER_SPECIAL_SKILLS: Record<string, Handler> = {
+  'Violet Mizutsune Orchid|Office Person of the Year': () => ({ officeHrSpeedBonus: 0.1 }),
+  'Makoto Yuki|Leadership Charisma': () => ({ factoryBonusCandidate: 0.02 }),
   // Per-faction-count-in-CC morale bonuses -- these read "each Operator
   // from [faction] increases Morale... by +0.05/hr", which is NOT a flat
   // +0.05 -- it scales with how many of that faction are in CC.
@@ -301,19 +304,19 @@ export const CONTROL_CENTER_SPECIAL_SKILLS: Record<string, Handler> = {
   // the skill silently counting as zero.
   'Heidi|"One Thousand Letters"': () => ({ note: 'Non-numeric effect (raises the Reception Room\'s chance of Glasgow clues) -- not modeled.' }),
   'Leizi|Discernment': () => ({ note: 'Non-numeric effect (favours clues matching the factions in the Reception Room) -- not modeled.' }),
-  'Ling|Keep the Wine Flowing': () => ({ note: 'Cancels other Sui Operators\' self-morale-reduction skills in CC -- an interaction rule between specific skills, not modeled.' }),
+  'Ling|Keep the Wine Flowing': () => ({ note: 'Cancels other Sui Operators\' self-morale-reduction skills in CC -- applied to Sui operators in this room.' }),
   'Ling|"Vast Mountains and Rivers"': () => ({}), // generation now handled by computeResourcePools; the branch itself has no flat bonus of its own
   'Gladiia|Tide Observation': (ctx) => {
     const drainPenalty = 0.5 * ctx.abyssalHuntersInNonDormFacilities;
     const restingCount = ctx.abyssalHuntersRestingInDormitories;
-    const restRecovery = restingCount > 0 ? 1.0 : 0; // flat +0.5 base, +0.5 more since any resting hunter is at full Morale under this simulator's steady-state assumption
+    const restRecovery = 0.5 * restingCount + 0.5 * (ctx.abyssalHuntersRestingAtFullMorale ?? 0);
     return { selfMorale: drainPenalty - restRecovery };
   },
   'Gladiia|Group Hunting α': (ctx) => ({
     ccMoraleBonus: 0.05,
     perFactoryProductivity: ctx.abyssalHunterFactoryCounts.map((f) => ({ facilityId: f.factoryId, amount: Math.min(0.45, 0.05 * f.count * ctx.abyssalHunterTotalInFactories) })),
   }),
-  'Młynar|Business Is Business': () => ({ note: 'Skill text is genuinely non-specific ("certain facilities", "some skills") even in the full reference data -- not enough detail to model without guessing at which facilities/skills are meant.' }),
+  'Młynar|Business Is Business': () => ({ note: 'Facility scope and eligible Control Center skills follow the game glossary; competes with Banner of Babel and Solitary Light, keeping the strongest.' }),
   'Gladiia|Group Hunting β': (ctx) => ({
     ccMoraleBonus: 0.05,
     perFactoryProductivity: ctx.abyssalHunterFactoryCounts.map((f) => ({ facilityId: f.factoryId, amount: Math.min(0.9, 0.1 * f.count * ctx.abyssalHunterTotalInFactories) })),

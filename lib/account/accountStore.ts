@@ -32,6 +32,7 @@ import { useSyncExternalStore } from 'react';
 import type { GameAccountMap } from '@/lib/planner/gameAccount';
 import { isServerId, type ServerId } from '@/lib/account-import/yostar';
 import { parsePullHistory, type PullHistory } from './pulls';
+import { baseSnapshotFromGame, parseBaseSnapshot, type AccountBaseSnapshot } from './baseSnapshot';
 import { parseRosterExport, type Roster } from '@/lib/planner/roster';
 import { medalsFromGame, parseMedalCollection, type OwnedMedal } from './medals';
 
@@ -58,6 +59,7 @@ export interface AccountRecord {
   wallet?: AccountWallet;
   profile?: AccountProfile;
   pulls?: PullHistory;
+  base?: AccountBaseSnapshot;
   /** Per-server build snapshot, kept with the account rather than another server's planner. */
   operatorBuilds?: Roster;
 }
@@ -177,11 +179,13 @@ export function parseAccount(raw: string | null): AccountRecord | null {
   if (!strings(value.operators, 5000) || !strings(value.skins, 20000) || !strings(value.cleared, 50000)) return null;
   const profile = value.profile && typeof value.profile === 'object' ? value.profile as Record<string, unknown> : null;
   const medalCollection = parseMedalCollection(profile?.medalCollection);
+  const base = parseBaseSnapshot(value.base);
   const operatorBuilds = value.operatorBuilds ? parseRosterExport(JSON.stringify(value.operatorBuilds)) : null;
   const text = (field: unknown) => (typeof field === 'string' && field.length <= 500 ? field : null);
   return {
     version: 1, server: value.server, importedAt: value.importedAt,
     doctor: typeof value.doctor === 'string' ? value.doctor : null,
+    ...(base ? { base } : {}),
     operators: value.operators as string[], skins: value.skins as string[], cleared: value.cleared as string[],
     ...(operatorBuilds ? { operatorBuilds } : {}),
     ...(strings(value.annihilation, 500) ? { annihilation: value.annihilation as string[] } : {}),
@@ -237,10 +241,12 @@ export function accountFromGame(user: Record<string, any>, map: GameAccountMap, 
   const stages = (user.dungeon?.stages ?? {}) as Record<string, { state?: number }>;
   const status = user.status ?? {};
   const medalCollection = medalsFromGame(user.medal?.medals);
+  const base = baseSnapshotFromGame(user, map);
   return {
     version: 1,
     server,
     importedAt: now.toISOString(),
+    ...(base ? { base } : {}),
     doctor: status.nickName ? `${status.nickName}#${status.nickNumber ?? ''}` : null,
     operators: [...operators].sort(),
     skins: Object.keys(user.skin?.characterSkins ?? {}).sort(),

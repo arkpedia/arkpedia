@@ -1,3 +1,4 @@
+import NumberInput from '@/components/ui/NumberInput';
 import { withContentPage } from '@/lib/content/server';
 import GameLinks, { GamesEyebrow } from '@/components/minigames/GameLinks';
 import PageHeader from '@/components/ui/PageHeader';
@@ -303,7 +304,7 @@ export default function GuesserPage({ operators, skins }: Props) {
               <div className={styles.setupControls}>
               <label className={styles.numberSetting}>
                 <span>Guesses</span>
-                <input className={styles.number} type="number" min={1} max={30} value={maxGuesses} onFocus={(e) => e.target.select()} onClick={(e) => e.currentTarget.select()} onChange={(e) => setMaxGuesses(Math.max(1, Math.min(30, Number(e.target.value) || 1)))} />
+                <NumberInput className={styles.number} min={1} max={30} value={maxGuesses} onFocus={(e) => e.target.select()} onClick={(e) => e.currentTarget.select()} onChange={(e) => setMaxGuesses(Math.max(1, Math.min(30, Number(e.target.value) || 1)))} />
               </label>
               {hintMode !== 'themed' && (
                 <div className={styles.revealSetting}>
@@ -315,7 +316,7 @@ export default function GuesserPage({ operators, skins }: Props) {
               {hintMode !== 'themed' && !vasebreakerMode && (
                 <label className={styles.numberSetting}>
                   <span>Hints / guess</span>
-                  <input className={styles.number} type="number" min={1} max={10} value={hintsPerGuess} onFocus={(e) => e.target.select()} onClick={(e) => e.currentTarget.select()} onChange={(e) => setHintsPerGuess(Math.max(1, Math.min(10, Number(e.target.value) || 1)))} />
+                  <NumberInput className={styles.number} min={1} max={10} value={hintsPerGuess} onFocus={(e) => e.target.select()} onClick={(e) => e.currentTarget.select()} onChange={(e) => setHintsPerGuess(Math.max(1, Math.min(10, Number(e.target.value) || 1)))} />
                 </label>
               )}
               <div className={styles.startArea}>

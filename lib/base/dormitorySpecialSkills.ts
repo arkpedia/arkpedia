@@ -1,13 +1,15 @@
-import { EXTRA_RECRUIT_SLOTS } from './baseResources';
+import { nonDefaultRecruitSlots } from './baseResources';
 import type { BaseRosters } from './baseGroupRosters';
 
 export interface DormitorySkillContext {
   /** The group rosters (lib/base/baseGroupRosters.ts), from the page's props. */
   rosters: BaseRosters;
+  officeLevel: number;
+  moraleByOperator?: Readonly<Record<string, number>>;
   manualValue?: number;
   sameRoomOperatorNames: string[]; // includes self, in SLOT ORDER (left to right)
   filledCountThisRoom: number;
-  dormitoryLevel: number; // confirmed: assume Level 5 (max) always, per the same "always maximally built" convention used everywhere else in this simulator
+  dormitoryLevel: number; // Actual room level.
   // The operator who WOULD receive this operator's single-target bonus if
   // it wins the highest-only comparison against every other single-target
   // skill in the room -- null if there's no other operator to target.
@@ -26,6 +28,9 @@ export interface DormitorySkillContext {
 }
 
 export interface DormitorySkillResult {
+  conditionalGroupBonus?: { below: number; amount: number };
+  distributedBonus?: { recipients: string[]; amount: number };
+  exclusiveRecovery?: number;
   selfMoraleRecovery?: number; // decimal, adds to (or subtracts from) THIS operator's own recovery rate
   allOperatorsBonus?: number; // adds to the baseline for EVERY operator in the same Dormitory, including this one
   allOthersBonus?: number; // adds to the baseline for every OTHER operator in the same Dormitory, excluding this one (use alongside selfMoraleRecovery for skills that grant a different amount to themselves)
@@ -43,22 +48,7 @@ export interface DormitorySkillResult {
 
 type Handler = (ctx: DormitorySkillContext) => DormitorySkillResult;
 
-/** Keyed by "OperatorName|SkillName".
- *
- * NOT yet wired in, pending the exact skill name/value from real
- * operator data:
- *   - Morgan: confirmed NOT Morale-recovery-conditional at all --
- *     applies to every Glasgow Gang operator present in the same
- *     Dormitory as her, regardless of their Morale. Still need the
- *     exact skill name/value and which stat it actually boosts.
- *   - Senshi's "Laios's Party" conditional bonus (+0.15 more if the
- *     target belongs to that specific roster) -- roster not confirmed,
- *     her base +0.15 IS wired in below.
- *   - Fiammetta's two skills (exclusive-source self recovery; Morale
- *     swap with the previous-assigned operator) -- non-numeric/order-
- *     dependent mechanics this simulator's snapshot model may not be
- *     able to represent at all.
- */
+/** Numeric recovery plus explicit conditional and one-off effects. */
 
 /** Some single-target skills override the normal leftmost-tiebreak rule
  * entirely -- if their specific named target is present in the room,
@@ -75,6 +65,10 @@ export const DORMITORY_PREFERRED_TARGET: Record<string, string> = {
 };
 
 export const DORMITORY_SPECIAL_SKILLS: Record<string, Handler> = {
+  'Rhodes Island Recon|Hunting Helper': ctx => ({ singleTargetBonus: 0.55 + (ctx.targetIfSelected && (ctx.rosters.SOUBO_ADVENTURERS.has(ctx.targetIfSelected) || ctx.rosters.BUBBLE_KINGDOM_HUNTERS.has(ctx.targetIfSelected)) ? 0.45 : 0) }),
+  'Crackborne|Rare Respite': () => ({ selfMoraleRecovery: 0.55 }),
+  'Thumpy|Rabbit Holes Everywhere': () => ({ selfMoraleRecovery: 0.7 }),
+  'Koromaru|Fluffy Comfort': () => ({ allOperatorsBonus: 0.1 }),
   'Kroos|Solitude': () => ({ selfMoraleRecovery: 0.7 }),
   'Estelle|Solitude': () => ({ selfMoraleRecovery: 0.7 }),
   'Frostleaf|Solitude': () => ({ selfMoraleRecovery: 0.7 }),
@@ -104,11 +98,10 @@ export const DORMITORY_SPECIAL_SKILLS: Record<string, Handler> = {
   'April|Inspiration': () => ({ allOperatorsBonus: 0.1 }),
   'Bobbing|Listener': () => ({ allOperatorsBonus: 0.15 }),
   'Bobbing|Conversationalist': (ctx) => ({
-    allOperatorsBonus: 0.2 + 0.01 * Math.max(0, ctx.filledCountThisRoom - 1),
-    note: 'Every other operator in the room is assumed to be at 0 Morale (confirmed convention), so this always counts every one of them.',
+    allOperatorsBonus: 0.2 + 0.01 * ctx.sameRoomOperatorNames.filter(n => (ctx.moraleByOperator?.[n] ?? 0) < 24).length,
   }),
   'Cairn|Bedtime Stories': () => ({ allOperatorsBonus: 0.15 }),
-  'Cairn|Bucket List': () => ({ allOperatorsBonus: 0.15 + 0.02 * 5 }), // + per Dormitory level, assumed Level 5
+  'Cairn|Bucket List': (ctx) => ({ allOperatorsBonus: 0.15 + 0.02 * ctx.dormitoryLevel }), // + per Dormitory level, assumed Level 5
   'Doc|Altruism': () => ({ allOperatorsBonus: 0.2 }),
   'Grain Buds|Rural Flute': () => ({ allOperatorsBonus: 0.15 }),
   'Iris|Bedtime Story': () => ({ allOperatorsBonus: 0.1 }),
@@ -116,19 +109,13 @@ export const DORMITORY_SPECIAL_SKILLS: Record<string, Handler> = {
   'Nightingale|Lady of the Lamp': () => ({ allOperatorsBonus: 0.2 }),
   'Nymph|Meditative Rites α': () => ({ allOperatorsBonus: 0.15 }),
   'Nymph|Meditative Rites β': () => ({ allOperatorsBonus: 0.2 }),
-  'Penance|Fellow Travelers': () => ({ allOperatorsBonus: 0.15 + 0.05 * EXTRA_RECRUIT_SLOTS }),
+  'Penance|Fellow Travelers': (ctx) => ({ allOperatorsBonus: 0.15 + 0.05 * nonDefaultRecruitSlots(ctx.officeLevel) }),
   'Perfumer the Distilled|Gentle Spirit': () => ({ allOperatorsBonus: 0.15 }),
-  'Perfumer the Distilled|Pure Breath': () => ({
-    allOperatorsBonus: 0.1,
-    note: "Real skill only applies to Operators below 20 Morale -- since this simulator assumes everyone is at 0 Morale, this always applies to everyone. Flagging a real ambiguity: unlike Vendela's parallel E2 skill (which explicitly restates both a flat baseline AND the conditional bonus in one sentence), this skill's extracted text only shows \"an additional +0.1\" with no baseline number of its own -- worth double-checking this isn't a truncated extraction missing a leading flat-amount clause.",
-  }),
+  'Perfumer the Distilled|Pure Breath': () => ({ conditionalGroupBonus: { below: 20, amount: 0.1 } }),
   'Sora|Idol': () => ({ allOperatorsBonus: 0.15 }),
-  'Senshi|Veteran Cook': () => ({ allOperatorsBonus: 0.15 }), // real skill also adds +0.15 more if the target is a Laios's Party operator -- roster not yet confirmed
+  'Senshi|Veteran Cook': () => ({ allOperatorsBonus: 0.15 }), // Recipient-specific +0.15 is combined with this provider before highest-only selection.
   'Vendela|Aroma Convalescence α': () => ({ allOperatorsBonus: 0.15 }),
-  'Vendela|Aroma Convalescence β': () => ({
-    allOperatorsBonus: 0.15 + 0.1,
-    note: 'Real skill adds the +0.1 only to Operators below 18 Morale -- since this simulator assumes everyone is at 0 Morale, this always applies to everyone.',
-  }),
+  'Vendela|Aroma Convalescence β': () => ({ allOperatorsBonus: 0.15, conditionalGroupBonus: { below: 18, amount: 0.1 } }),
   'Warmy|Cookout α': () => ({ allOperatorsBonus: 0.15 }),
   'Warmy|Cookout β': () => ({ allOperatorsBonus: 0.2 }),
   'Zima|Leader': () => ({ allOperatorsBonus: 0.15 }),
@@ -136,8 +123,8 @@ export const DORMITORY_SPECIAL_SKILLS: Record<string, Handler> = {
   'Haruka|Celebrity Effect': () => ({ allOperatorsBonus: 0.15 }),
   'Siege|Leader': () => ({ allOperatorsBonus: 0.15 }),
   'Siege|Lionheart': () => ({ allOperatorsBonus: 0.2 }),
-  'Entelechia|Flawless Heart α': () => ({ allOperatorsBonus: 0.1 + 0.05 * EXTRA_RECRUIT_SLOTS }),
-  'Entelechia|Flawless Heart β': () => ({ allOperatorsBonus: 0.1 + 0.1 * EXTRA_RECRUIT_SLOTS }),
+  'Entelechia|Flawless Heart α': (ctx) => ({ allOperatorsBonus: 0.1 + 0.05 * nonDefaultRecruitSlots(ctx.officeLevel) }),
+  'Entelechia|Flawless Heart β': (ctx) => ({ allOperatorsBonus: 0.1 + 0.1 * nonDefaultRecruitSlots(ctx.officeLevel) }),
 
   // --- All-operators, scaling with a base-wide faction/facility count.
   // Confirmed caps: 4 for both Eyjafjalla and Yu (their own skill text,
@@ -181,8 +168,8 @@ export const DORMITORY_SPECIAL_SKILLS: Record<string, Handler> = {
   // this simulator doesn't track per-Dormitory; the two Fiammetta skills are
   // a recovery override and a Morale swap, neither of which is a rate this
   // model can express. Documented rather than left silently at zero.
-  'Morgan|No.1 Practice Partner': () => ({ note: 'Adds +0.3 to Siege\'s Glasgow Gang recovery specifically, and only when Siege is in the same Dormitory -- not modeled.' }),
-  'Fiammetta|Self-Discipline': () => ({ note: 'Self Morale recovery +2/hr, but she cannot gain recovery from any other source. The suppression half is not expressible here, and applying the +2 without it would overstate her whenever another recovery skill is in the room -- so neither half is applied.' }),
+  'Morgan|No.1 Practice Partner': () => ({ note: 'Siege grants +0.3/hr more to Glasgow operators when both are in this Dormitory.' }),
+  'Fiammetta|Self-Discipline': () => ({ exclusiveRecovery: 2, note: 'Recovers exactly 2 Morale/hr; all other recovery sources are suppressed.' }),
   'Fiammetta|Communal Suffering': () => ({ note: 'Swaps Morale with the previous Operator in the Dormitory when at Full Morale -- a one-off exchange, not a per-hour rate.' }),
   'Aciddrop|Give me five': () => ({ singleTargetBonus: 0.35, selfMoraleRecovery: 0.35 }),
   'Gummy|Cooking': () => ({ singleTargetBonus: 0.35, selfMoraleRecovery: 0.35 }),
@@ -225,19 +212,10 @@ export const DORMITORY_SPECIAL_SKILLS: Record<string, Handler> = {
     singleTargetBonus: ctx.targetIfSelected && ctx.rosters.LATERANO.has(ctx.targetIfSelected) ? 0.55 + 0.45 : 0.55,
   }),
 
-  // Coldshot's real text distributes a fixed 0.8 pool evenly across every
-  // Operator below full Morale, with its own separate "respectively"
-  // highest-only rule for the single-vs-multiple-recipient case. Under
-  // this simulator's always-full-at-placement model there's realistically
-  // only ever one valid recipient (matching the other single-target
-  // skills' own target), so this is folded into the same exclusivity
-  // group as an approximation rather than modeled as a true distributed
-  // pool -- flagged here since it's a genuine simplification, not a
-  // confirmed mechanic match.
-  'Coldshot|Wet Your Whistles': (ctx) => ({
-    allOthersBonus: ctx.filledCountThisRoom > 1 ? 0.8 / Math.max(1, ctx.filledCountThisRoom - 1) : 0,
-    note: 'Every other operator in the room is assumed to be at 0 Morale (confirmed convention), so the pool is divided evenly across all of them.',
-  }),
+  'Coldshot|Wet Your Whistles': (ctx) => {
+    const recipients = ctx.sameRoomOperatorNames.filter(n => (ctx.moraleByOperator?.[n] ?? 0) < 24);
+    return { distributedBonus: { recipients, amount: recipients.length ? 0.8 / recipients.length : 0 } };
+  },
 
   // --- Self-scaling with roommate count -- NOT single-target, NOT
   // "all operators": purely the skill-holder's OWN recovery rate,

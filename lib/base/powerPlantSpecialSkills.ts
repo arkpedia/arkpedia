@@ -1,4 +1,6 @@
 export interface PowerPlantSkillContext {
+  makotoInFactory: boolean;
+  otherRobotInPowerPlant: boolean;
   sameFacilityOperatorNames: string[]; // includes self
 
   // CONFESS-47 "Now Under Maintenance" -- another Laterano Operator
@@ -86,6 +88,8 @@ function averageRampValue(base: number, ratePerHour: number, cap: number, window
  * whenever the operator is placed -- confirmed by their real skill data,
  * not something this dictionary needs to special-case for "combining". */
 export const POWER_PLANT_SPECIAL_SKILLS: Record<string, Handler> = {
+  'Gallus²|Poultry Motivation': (ctx) => ({ droneRate: ctx.otherRobotInPowerPlant ? 0.05 : 0 }),
+  'Aegis|Mechanical Engineering': (ctx) => ({ droneRate: 0.15 + (ctx.makotoInFactory ? 0.05 : 0) }),
   'CONFESS-47|Now Under Maintenance': (ctx) => ({
     droneRate: ctx.lateranoInAnyOtherPowerPlant ? 0.05 : 0,
   }),
@@ -109,7 +113,7 @@ export const POWER_PLANT_SPECIAL_SKILLS: Record<string, Handler> = {
   'THRM-EX|Enthusiasm': () => ({ selfMorale: -0.52 }),
 
   'Greyy the Lightningbearer|Line Patrol Frame': (ctx) => ({
-    droneRate: Math.min(0.25, Math.floor(ctx.maxDroneCapacity / 10) * 0.01),
+    droneRate: Math.min(0.25, ctx.maxDroneCapacity / 10 * 0.01),
   }),
 
   'Greyy the Lightningbearer|Dawnlight': () => ({

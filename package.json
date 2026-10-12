@@ -54,7 +54,9 @@
     "banners:sync": "node scripts/sync/sync-recurring-banners.mjs",
     "test:banners": "node --test scripts/tests/test-recurring-banners.mjs",
     "modules:sync": "node scripts/sync/sync-module-stats.mjs",
-    "test:module-stats": "node --test scripts/tests/test-module-stats.mjs"
+    "test:module-stats": "node --test scripts/tests/test-module-stats.mjs",
+    "test:base": "tsx --test scripts/tests/test-base-skills.ts scripts/tests/test-base-imports.mjs scripts/tests/test-base-combinations.ts scripts/tests/test-base-trading-reference.ts scripts/tests/test-base-cross-room-boundaries.ts scripts/tests/test-base-combination-properties.ts",
+    "audit:base-combinations": "tsx scripts/audits/audit-base-combinations.ts"
   },
   "dependencies": {
     "@vercel/analytics": "^2.0.1",

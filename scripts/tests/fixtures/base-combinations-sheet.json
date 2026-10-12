@@ -1,0 +1,4675 @@
+{
+  "source": "https://docs.google.com/spreadsheets/d/1Tan9MUPzTW2a-3wXmTUodbX1oS7QFMpWv8uIwoKMlHU/edit",
+  "retrieved": "2026-10-09",
+  "sha256": "abdc01237000924e6ca6a656d9f7db722e034761b659cba3070394cf95d119ea",
+  "sheets": [
+    {
+      "name": "FAC",
+      "groups": [
+        {
+          "label": "CONTROL CENTER",
+          "fields": {
+            "B": "Operator 1",
+            "C": "Pr. 1",
+            "D": "Operator 2",
+            "E": "Pr. 2",
+            "F": "Operator 3",
+            "G": "Pr. 3",
+            "H": "Operator 4",
+            "I": "Pr. 4",
+            "J": "Operator 5",
+            "K": "Pr. 5"
+          }
+        },
+        {
+          "label": "FACTORY 1",
+          "fields": {
+            "L": "Operator 1",
+            "M": "Pr. 1",
+            "N": "Operator 2",
+            "O": "Pr. 2",
+            "P": "Operator 3",
+            "Q": "Pr. 3",
+            "R": "Recipe",
+            "S": "Prod",
+            "T": "CAP"
+          }
+        },
+        {
+          "label": "FACTORY 2",
+          "fields": {
+            "U": "Operator 1",
+            "V": "Pr. 1",
+            "W": "Operator 2",
+            "X": "Pr. 2",
+            "Y": "Operator 3",
+            "Z": "Pr. 3",
+            "AA": "Recipe",
+            "AB": "Prod",
+            "AC": "CAP"
+          }
+        },
+        {
+          "label": "FACTORY 3",
+          "fields": {
+            "AD": "Operator 1",
+            "AE": "Pr. 1",
+            "AF": "Operator 2",
+            "AG": "Pr. 2",
+            "AH": "Operator 3",
+            "AI": "Pr. 3",
+            "AJ": "Recipe",
+            "AK": "Prod",
+            "AL": "CAP"
+          }
+        },
+        {
+          "label": "FACTORY 4",
+          "fields": {
+            "AM": "Operator 1",
+            "AN": "Pr. 1",
+            "AO": "Operator 2",
+            "AP": "Pr. 2",
+            "AQ": "Operator 3",
+            "AR": "Pr. 3",
+            "AS": "Recipe",
+            "AT": "Prod",
+            "AU": "CAP"
+          }
+        },
+        {
+          "label": "TRADING POST 1",
+          "fields": {
+            "AV": "Operator 1",
+            "AW": "Pr. 1",
+            "AX": "Operator 2",
+            "AY": "Pr. 2",
+            "AZ": "Operator 3",
+            "BA": "Pr. 3",
+            "BB": "Recipe",
+            "BC": "Prod",
+            "BD": "CAP"
+          }
+        },
+        {
+          "label": "TRADING POST 2",
+          "fields": {
+            "BE": "Operator 1",
+            "BF": "Pr. 1",
+            "BG": "Operator 2",
+            "BH": "Pr. 2",
+            "BI": "Operator 3",
+            "BJ": "Pr. 3",
+            "BK": "Recipe",
+            "BL": "Prod",
+            "BM": "CAP"
+          }
+        },
+        {
+          "label": "POWER PLANT 1",
+          "fields": {
+            "BN": "Operator",
+            "BO": "Pr.",
+            "BP": "Prod"
+          }
+        },
+        {
+          "label": "POWER PLANT 2",
+          "fields": {
+            "BQ": "Operator",
+            "BR": "Pr.",
+            "BS": "Prod"
+          }
+        },
+        {
+          "label": "POWER PLANT 3",
+          "fields": {
+            "BT": "Operator",
+            "BU": "Pr.",
+            "BV": "Prod"
+          }
+        },
+        {
+          "label": "RECEPTION ROOM",
+          "fields": {
+            "BW": "Operator 1",
+            "BX": "Pr. 1",
+            "BY": "Operator 2",
+            "BZ": "Pr. 2",
+            "CA": "Prod"
+          }
+        },
+        {
+          "label": "OFFICE",
+          "fields": {
+            "CB": "Operator",
+            "CC": "Pr.",
+            "CD": "Prod"
+          }
+        },
+        {
+          "label": "WORKSHOP",
+          "fields": {
+            "CE": "Operator",
+            "CF": "Pr."
+          }
+        },
+        {
+          "label": "TRAINING ROOM",
+          "fields": {
+            "CG": "Operator",
+            "CH": "Pr."
+          }
+        },
+        {
+          "label": "DORM 1",
+          "fields": {
+            "CI": "Operator 1",
+            "CJ": "Pr. 1",
+            "CK": "Operator 2",
+            "CL": "Pr. 2",
+            "CM": "Operator 3",
+            "CN": "Pr. 3",
+            "CO": "Operator 4",
+            "CP": "Pr. 4",
+            "CQ": "Operator 5",
+            "CR": "Pr. 5"
+          }
+        },
+        {
+          "label": "DORM 2",
+          "fields": {
+            "CS": "Operator 1",
+            "CT": "Pr. 1",
+            "CU": "Operator 2",
+            "CV": "Pr. 2",
+            "CW": "Operator 3",
+            "CX": "Pr. 3",
+            "CY": "Operator 4",
+            "CZ": "Pr. 4",
+            "DA": "Operator 5",
+            "DB": "Pr. 5"
+          }
+        },
+        {
+          "label": "DORM 3",
+          "fields": {
+            "DC": "Operator 1",
+            "DD": "Pr. 1",
+            "DE": "Operator 2",
+            "DF": "Pr. 2",
+            "DG": "Operator 3",
+            "DH": "Pr. 3",
+            "DI": "Operator 4",
+            "DJ": "Pr. 4",
+            "DK": "Operator 5",
+            "DL": "Pr. 5"
+          }
+        },
+        {
+          "label": "DORM 4",
+          "fields": {
+            "DM": "Operator 1",
+            "DN": "Pr. 1",
+            "DO": "Operator 2",
+            "DP": "Pr. 2",
+            "DQ": "Operator 3",
+            "DR": "Pr. 3",
+            "DS": "Operator 4",
+            "DT": "Pr. 4",
+            "DU": "Operator 5",
+            "DV": "Pr. 5"
+          }
+        },
+        {
+          "label": "DORM 5",
+          "fields": {
+            "DW": "Operator 1",
+            "DX": "Pr. 1",
+            "DY": "Operator 2",
+            "DZ": "Pr. 2",
+            "EA": "Operator 3",
+            "EB": "Pr. 3",
+            "EC": "Operator 4",
+            "ED": "Pr. 4",
+            "EE": "Operator 5",
+            "EF": "Pr. 5"
+          }
+        }
+      ],
+      "cases": [
+        {
+          "row": 3,
+          "cells": {
+            "A": "Passed",
+            "L": "Jessica",
+            "M": "E0",
+            "R": "Gold",
+            "S": "0.25",
+            "T": "0.0",
+            "AA": "Gold",
+            "AJ": "Gold",
+            "AS": "Gold",
+            "BB": "LMD",
+            "BK": "LMD",
+            "EG": "Baseline + Waai Fu"
+          }
+        },
+        {
+          "row": 4,
+          "cells": {
+            "A": "Passed",
+            "L": "Purestream",
+            "M": "E1",
+            "R": "Gold",
+            "S": "0.4",
+            "T": "0.0"
+          }
+        },
+        {
+          "row": 5,
+          "cells": {
+            "A": "Passed",
+            "L": "Jessica",
+            "M": "E0",
+            "N": "Waai Fu",
+            "O": "E2",
+            "R": "Gold",
+            "S": "0.5",
+            "T": "0.0"
+          }
+        },
+        {
+          "row": 6,
+          "cells": {
+            "A": "Passed",
+            "L": "Jessica",
+            "M": "E0",
+            "N": "Waai Fu",
+            "O": "E2",
+            "P": "Vanilla",
+            "Q": "E0",
+            "R": "Gold",
+            "S": "0.9",
+            "T": "0.0"
+          }
+        },
+        {
+          "row": 7,
+          "cells": {
+            "A": "Passed",
+            "L": "Bryophyta",
+            "M": "E2",
+            "R": "Gold",
+            "S": "0.35",
+            "T": "0.0",
+            "EG": "Metalworking"
+          }
+        },
+        {
+          "row": 8,
+          "cells": {
+            "A": "Passed",
+            "L": "Bryophyta",
+            "M": "E2",
+            "R": "EXP",
+            "S": "0.05",
+            "T": "0.0"
+          }
+        },
+        {
+          "row": 9,
+          "cells": {
+            "A": "Passed",
+            "L": "Bryophyta",
+            "M": "E2",
+            "N": "Gravel",
+            "O": "E1",
+            "P": "Spot",
+            "Q": "E1",
+            "R": "Gold",
+            "S": "1.1",
+            "T": "0.0"
+          }
+        },
+        {
+          "row": 10,
+          "cells": {
+            "A": "Passed",
+            "L": "Bryophyta",
+            "M": "E2",
+            "N": "Thorns alter",
+            "O": "E2",
+            "R": "Gold",
+            "S": "0.76",
+            "T": "0.0"
+          }
+        },
+        {
+          "row": 11,
+          "cells": {
+            "A": "Passed",
+            "L": "Bubble",
+            "M": "E1",
+            "R": "Gold",
+            "S": "0.1",
+            "T": "10.0",
+            "EG": "Bubble"
+          }
+        },
+        {
+          "row": 12,
+          "cells": {
+            "A": "Passed",
+            "L": "Bubble",
+            "M": "E1",
+            "N": "Bena",
+            "O": "E0",
+            "R": "Gold",
+            "S": "0.41",
+            "T": "27.0"
+          }
+        },
+        {
+          "row": 13,
+          "cells": {
+            "A": "Passed",
+            "L": "Bubble",
+            "M": "E1",
+            "N": "Bena",
+            "O": "E0",
+            "P": "Vulcan",
+            "Q": "E2",
+            "R": "Gold",
+            "S": "0.93",
+            "T": "46.0"
+          }
+        },
+        {
+          "row": 14,
+          "cells": {
+            "A": "Passed",
+            "L": "Bubble",
+            "M": "E1",
+            "N": "Wulfenite",
+            "O": "E2",
+            "R": "Gold",
+            "S": "0.38",
+            "T": "18.0"
+          }
+        },
+        {
+          "row": 15,
+          "cells": {
+            "A": "Passed",
+            "L": "Bubble",
+            "M": "E1",
+            "N": "Executor alter",
+            "O": "E2",
+            "R": "Gold",
+            "S": "0.1",
+            "T": "10.0"
+          }
+        },
+        {
+          "row": 16,
+          "cells": {
+            "A": "Passed",
+            "L": "Bubble",
+            "M": "E1",
+            "N": "Executor alter",
+            "O": "E2",
+            "R": "EXP",
+            "S": "0.44",
+            "T": "14.0"
+          }
+        },
+        {
+          "row": 17,
+          "cells": {
+            "A": "Passed",
+            "L": "Miss Christine",
+            "M": "E0",
+            "N": "Tragodia",
+            "O": "E2",
+            "R": "EXP",
+            "S": "0.35",
+            "T": "10.0",
+            "EG": "Cat"
+          }
+        },
+        {
+          "row": 18,
+          "cells": {
+            "A": "Passed",
+            "L": "Miss Christine",
+            "M": "E2",
+            "N": "Tragodia",
+            "O": "E2",
+            "R": "EXP",
+            "S": "0.65",
+            "T": "10.0"
+          }
+        },
+        {
+          "row": 19,
+          "cells": {
+            "A": "Passed",
+            "L": "Vermeil",
+            "M": "E1",
+            "R": "Gold",
+            "S": "0.16",
+            "T": "8.0",
+            "EG": "Vermeil"
+          }
+        },
+        {
+          "row": 20,
+          "cells": {
+            "A": "Passed",
+            "L": "Vermeil",
+            "M": "E1",
+            "N": "Ceobe",
+            "O": "E2",
+            "R": "Gold",
+            "S": "52-57%",
+            "T": "16.0"
+          }
+        },
+        {
+          "row": 21,
+          "cells": {
+            "A": "Passed",
+            "L": "Vermeil",
+            "M": "E1",
+            "N": "Narantuya",
+            "O": "E2",
+            "R": "Gold",
+            "S": "0.56",
+            "T": "18.0"
+          }
+        },
+        {
+          "row": 22,
+          "cells": {
+            "A": "Passed",
+            "L": "Vermeil",
+            "M": "E1",
+            "N": "Narantuya",
+            "O": "E2",
+            "P": "Click",
+            "Q": "E2",
+            "R": "Gold",
+            "S": "0.56",
+            "T": "18.0"
+          }
+        },
+        {
+          "row": 23,
+          "cells": {
+            "A": "Passed",
+            "L": "Vermeil",
+            "M": "E1",
+            "N": "Narantuya",
+            "O": "E2",
+            "P": "Click",
+            "Q": "E2",
+            "R": "EXP",
+            "S": "0.66",
+            "T": "33.0"
+          }
+        },
+        {
+          "row": 24,
+          "cells": {
+            "A": "Passed",
+            "L": "Vermeil",
+            "M": "E1",
+            "N": "Figurino",
+            "O": "E2",
+            "R": "Gold",
+            "S": "0.53",
+            "T": "14.0"
+          }
+        },
+        {
+          "row": 25,
+          "cells": {
+            "A": "Passed",
+            "L": "Vermeil",
+            "M": "E1",
+            "N": "Cuora",
+            "O": "E1",
+            "R": "Gold",
+            "S": "0.46",
+            "T": "18.0"
+          }
+        },
+        {
+          "row": 26,
+          "cells": {
+            "A": "Passed",
+            "L": "Highmore",
+            "M": "E0",
+            "R": "Gold",
+            "S": "0.0",
+            "T": "0.0",
+            "EG": "Mizu / Highmore standardization"
+          }
+        },
+        {
+          "row": 27,
+          "cells": {
+            "A": "Passed",
+            "L": "Highmore",
+            "M": "E2",
+            "R": "Gold",
+            "S": "0.25",
+            "T": "0.0"
+          }
+        },
+        {
+          "row": 28,
+          "cells": {
+            "A": "Passed",
+            "L": "Mizuki",
+            "M": "E2",
+            "R": "Gold",
+            "S": "0.3",
+            "T": "0.0"
+          }
+        },
+        {
+          "row": 29,
+          "cells": {
+            "A": "Passed",
+            "L": "Highmore",
+            "M": "E0",
+            "N": "Mizuki",
+            "O": "E2",
+            "P": "Ashlock",
+            "Q": "E2",
+            "R": "Gold",
+            "S": "0.6",
+            "T": "0.0"
+          }
+        },
+        {
+          "row": 30,
+          "cells": {
+            "A": "Passed",
+            "L": "Highmore",
+            "M": "E2",
+            "N": "Mizuki",
+            "O": "E2",
+            "P": "Ashlock",
+            "Q": "E2",
+            "R": "Gold",
+            "S": "0.9",
+            "T": "0.0"
+          }
+        },
+        {
+          "row": 31,
+          "cells": {
+            "A": "Passed",
+            "L": "Highmore",
+            "M": "E2",
+            "N": "Mizuki",
+            "O": "E2",
+            "P": "Dorothy",
+            "Q": "E2",
+            "R": "Gold",
+            "S": "0.95",
+            "T": "0.0"
+          }
+        },
+        {
+          "row": 32,
+          "cells": {
+            "A": "Passed",
+            "L": "Mizuki",
+            "M": "E2",
+            "N": "Jessica",
+            "O": "E0",
+            "R": "Gold",
+            "S": "0.6",
+            "T": "0.0"
+          }
+        },
+        {
+          "row": 33,
+          "cells": {
+            "A": "Passed",
+            "L": "Dorothy",
+            "M": "E2",
+            "N": "Mayer",
+            "O": "E2",
+            "R": "Gold",
+            "S": "0.6",
+            "T": "0.0",
+            "EG": "Rhine lab Doropog"
+          }
+        },
+        {
+          "row": 34,
+          "cells": {
+            "A": "Passed",
+            "L": "Dorothy",
+            "M": "E2",
+            "N": "Silence alter",
+            "O": "E2",
+            "R": "Gold",
+            "S": "0.65",
+            "T": "0.0"
+          }
+        },
+        {
+          "row": 35,
+          "cells": {
+            "A": "Passed",
+            "L": "Dorothy",
+            "M": "E2",
+            "N": "Silence alter",
+            "O": "E2",
+            "P": "Waai Fu",
+            "Q": "E2",
+            "R": "Gold",
+            "S": "1.05",
+            "T": "0.0"
+          }
+        },
+        {
+          "row": 36,
+          "cells": {
+            "A": "Passed",
+            "L": "Fang alter",
+            "M": "E2",
+            "R": "Gold",
+            "S": "0.15",
+            "T": "0.0",
+            "EG": "A1 team"
+          }
+        },
+        {
+          "row": 37,
+          "cells": {
+            "A": "Passed",
+            "L": "Fang alter",
+            "M": "E2",
+            "N": "Fang",
+            "O": "E0",
+            "R": "Gold",
+            "S": "45-50%",
+            "T": "0.0"
+          }
+        },
+        {
+          "row": 38,
+          "cells": {
+            "A": "Passed",
+            "L": "Weedy",
+            "M": "E2",
+            "R": "Gold",
+            "S": "0.45",
+            "T": "0.0",
+            "EG": "Automation"
+          }
+        },
+        {
+          "row": 39,
+          "cells": {
+            "A": "Passed",
+            "L": "Weedy",
+            "M": "E2",
+            "N": "Passenger",
+            "O": "E2",
+            "R": "Gold",
+            "S": "0.6",
+            "T": "0.0"
+          }
+        },
+        {
+          "row": 40,
+          "cells": {
+            "A": "Passed",
+            "L": "Weedy",
+            "M": "E2",
+            "N": "Passenger",
+            "O": "E2",
+            "P": "Jessica",
+            "Q": "E0",
+            "R": "Gold",
+            "S": "0.6",
+            "T": "0.0"
+          }
+        },
+        {
+          "row": 41,
+          "cells": {
+            "A": "Passed",
+            "L": "Weedy",
+            "M": "E2",
+            "N": "Purestream",
+            "O": "E1",
+            "R": "Gold",
+            "S": "0.85",
+            "T": "0.0"
+          }
+        },
+        {
+          "row": 42,
+          "cells": {
+            "A": "Passed",
+            "L": "Weedy",
+            "M": "E2",
+            "N": "Purestream",
+            "O": "E1",
+            "P": "Snegurochka",
+            "Q": "E1",
+            "R": "Gold",
+            "S": "1.15",
+            "T": "15.0"
+          }
+        },
+        {
+          "row": 43,
+          "cells": {
+            "A": "Passed",
+            "L": "Snegurochka",
+            "M": "E1",
+            "N": "Minimalist",
+            "O": "E2",
+            "R": "Gold",
+            "S": "0.2",
+            "T": "10.0"
+          }
+        },
+        {
+          "row": 44,
+          "cells": {
+            "A": "Passed",
+            "L": "Weedy",
+            "M": "E2",
+            "N": "Minimalist",
+            "O": "E2",
+            "R": "Gold",
+            "S": "0.45",
+            "T": "0.0"
+          }
+        },
+        {
+          "row": 45,
+          "cells": {
+            "A": "Passed",
+            "L": "Leto",
+            "M": "E2",
+            "R": "EXP",
+            "S": "0.0",
+            "T": "0.0",
+            "EG": "Leto / Gummy"
+          }
+        },
+        {
+          "row": 46,
+          "cells": {
+            "A": "Passed",
+            "L": "Leto",
+            "M": "E2",
+            "N": "Gummy",
+            "O": "E0",
+            "R": "EXP",
+            "S": "0.0",
+            "T": "0.0"
+          }
+        },
+        {
+          "row": 47,
+          "cells": {
+            "A": "Passed",
+            "L": "Leto",
+            "M": "E2",
+            "R": "EXP",
+            "S": "0.35",
+            "T": "0.0",
+            "AV": "Gummy",
+            "AW": "E0",
+            "BB": "LMD",
+            "BC": "0.3",
+            "BD": "0.0"
+          }
+        },
+        {
+          "row": 48,
+          "cells": {
+            "A": "Passed",
+            "L": "Warmy",
+            "M": "E0",
+            "N": "Alanna",
+            "O": "E0",
+            "R": "Gold",
+            "S": "0.0",
+            "T": "0.0"
+          }
+        },
+        {
+          "row": 49,
+          "cells": {
+            "A": "Passed",
+            "L": "Warmy",
+            "M": "E2",
+            "N": "Alanna",
+            "O": "E0",
+            "R": "Gold",
+            "S": "0.4",
+            "T": "0.0",
+            "BN": "Lancet-2",
+            "BO": "E0",
+            "BP": "0.1",
+            "BQ": "Confess-47",
+            "BR": "E0",
+            "BS": "0.1"
+          }
+        },
+        {
+          "row": 50,
+          "cells": {
+            "A": "Passed",
+            "L": "Warmy",
+            "M": "E0",
+            "N": "Alanna",
+            "O": "E2",
+            "R": "Gold",
+            "S": "0.35",
+            "T": "0.0",
+            "BN": "Lancet-2",
+            "BO": "E0",
+            "BP": "0.1",
+            "BQ": "Confess-47",
+            "BR": "E0",
+            "BS": "0.1",
+            "EG": "Cannot be tested, no option to pick E0 Warmy"
+          }
+        },
+        {
+          "row": 51,
+          "cells": {
+            "A": "Passed",
+            "L": "Warmy",
+            "M": "E2",
+            "N": "Alanna",
+            "O": "E2",
+            "R": "Gold",
+            "S": "0.65",
+            "T": "0.0"
+          }
+        },
+        {
+          "row": 52,
+          "cells": {
+            "A": "Passed",
+            "B": "Jessica alter",
+            "C": "E2",
+            "L": "Mizuki",
+            "M": "E2",
+            "N": "Jessica",
+            "O": "E0",
+            "P": "Vanilla",
+            "Q": "E0",
+            "R": "Gold",
+            "S": "1.0",
+            "T": "0.0",
+            "U": "Almond",
+            "V": "E2",
+            "AA": "Gold",
+            "AB": "0.36",
+            "AC": "0.0"
+          }
+        },
+        {
+          "row": 53,
+          "cells": {
+            "A": "Passed",
+            "B": "Jessica alter",
+            "C": "E0",
+            "L": "Franka",
+            "M": "E0",
+            "N": "Liskarm",
+            "R": "Gold",
+            "S": "0.1",
+            "T": "0.0"
+          }
+        },
+        {
+          "row": 54,
+          "cells": {
+            "A": "Passed",
+            "B": "Gladiia",
+            "C": "E0",
+            "L": "Specter",
+            "M": "E0",
+            "N": "Specter alter",
+            "O": "E0",
+            "R": "Gold",
+            "S": "0.1",
+            "T": "0.0",
+            "AV": "Underflow",
+            "AW": "E2",
+            "BB": "LMD",
+            "BC": "0.3",
+            "BD": "0.0",
+            "EG": "20% PD when 10% expected, probably Gladiia counted as slotted in a FAC by accident?"
+          }
+        },
+        {
+          "row": 55,
+          "cells": {
+            "A": "Passed",
+            "B": "Gladiia",
+            "C": "E2",
+            "L": "Specter",
+            "M": "E0",
+            "N": "Skadi",
+            "O": "E0",
+            "R": "Gold",
+            "S": "0.6",
+            "T": "0.0",
+            "U": "Ulpianus",
+            "V": "E0",
+            "AA": "Gold",
+            "AB": "0.3",
+            "AC": "0.0",
+            "AV": "Underflow",
+            "AW": "E2",
+            "BB": "LMD",
+            "BC": "0.4",
+            "BD": "0.0",
+            "EG": "Underflow properly detects Ulpianus, however all AH should have 10% per AH in the base as a whole, so Specter, Skadi and Ulpianus should all have 30% PD."
+          }
+        },
+        {
+          "row": 56,
+          "cells": {
+            "A": "Passed",
+            "B": "Gladiia",
+            "C": "E2",
+            "L": "Specter",
+            "M": "E0",
+            "N": "Skadi",
+            "O": "E0",
+            "P": "Andreana",
+            "Q": "E0",
+            "R": "Gold",
+            "S": "0.9",
+            "T": "0.0",
+            "U": "Ulpianus",
+            "V": "E0",
+            "AA": "Gold",
+            "AB": "0.4",
+            "AC": "0.0",
+            "EG": "Same as above"
+          }
+        }
+      ]
+    },
+    {
+      "name": "TP",
+      "groups": [
+        {
+          "label": "CONTROL CENTER",
+          "fields": {
+            "B": "Operator 1",
+            "C": "Pr. 1",
+            "D": "Operator 2",
+            "E": "Pr. 2",
+            "F": "Operator 3",
+            "G": "Pr. 3",
+            "H": "Operator 4",
+            "I": "Pr. 4",
+            "J": "Operator 5",
+            "K": "Pr. 5"
+          }
+        },
+        {
+          "label": "FACTORY 1",
+          "fields": {
+            "L": "Operator 1",
+            "M": "Pr. 1",
+            "N": "Operator 2",
+            "O": "Pr. 2",
+            "P": "Operator 3",
+            "Q": "Pr. 3",
+            "R": "Recipe",
+            "S": "Prod",
+            "T": "CAP"
+          }
+        },
+        {
+          "label": "FACTORY 2",
+          "fields": {
+            "U": "Operator 1",
+            "V": "Pr. 1",
+            "W": "Operator 2",
+            "X": "Pr. 2",
+            "Y": "Operator 3",
+            "Z": "Pr. 3",
+            "AA": "Recipe",
+            "AB": "Prod",
+            "AC": "CAP"
+          }
+        },
+        {
+          "label": "FACTORY 3",
+          "fields": {
+            "AD": "Operator 1",
+            "AE": "Pr. 1",
+            "AF": "Operator 2",
+            "AG": "Pr. 2",
+            "AH": "Operator 3",
+            "AI": "Pr. 3",
+            "AJ": "Recipe",
+            "AK": "Prod",
+            "AL": "CAP"
+          }
+        },
+        {
+          "label": "FACTORY 4",
+          "fields": {
+            "AM": "Operator 1",
+            "AN": "Pr. 1",
+            "AO": "Operator 2",
+            "AP": "Pr. 2",
+            "AQ": "Operator 3",
+            "AR": "Pr. 3",
+            "AS": "Recipe",
+            "AT": "Prod",
+            "AU": "CAP"
+          }
+        },
+        {
+          "label": "TRADING POST 1",
+          "fields": {
+            "AV": "Operator 1",
+            "AW": "Pr. 1",
+            "AX": "Operator 2",
+            "AY": "Pr. 2",
+            "AZ": "Operator 3",
+            "BA": "Pr. 3",
+            "BB": "Recipe",
+            "BC": "Prod",
+            "BD": "CAP"
+          }
+        },
+        {
+          "label": "TRADING POST 2",
+          "fields": {
+            "BE": "Operator 1",
+            "BF": "Pr. 1",
+            "BG": "Operator 2",
+            "BH": "Pr. 2",
+            "BI": "Operator 3",
+            "BJ": "Pr. 3",
+            "BK": "Recipe",
+            "BL": "Prod",
+            "BM": "CAP"
+          }
+        },
+        {
+          "label": "POWER PLANT 1",
+          "fields": {
+            "BN": "Operator",
+            "BO": "Pr.",
+            "BP": "Prod"
+          }
+        },
+        {
+          "label": "POWER PLANT 2",
+          "fields": {
+            "BQ": "Operator",
+            "BR": "Pr.",
+            "BS": "Prod"
+          }
+        },
+        {
+          "label": "POWER PLANT 3",
+          "fields": {
+            "BT": "Operator",
+            "BU": "Pr.",
+            "BV": "Prod"
+          }
+        },
+        {
+          "label": "RECEPTION ROOM",
+          "fields": {
+            "BW": "Operator 1",
+            "BX": "Pr. 1",
+            "BY": "Operator 2",
+            "BZ": "Pr. 2",
+            "CA": "Prod"
+          }
+        },
+        {
+          "label": "OFFICE",
+          "fields": {
+            "CB": "Operator",
+            "CC": "Pr.",
+            "CD": "Prod"
+          }
+        },
+        {
+          "label": "WORKSHOP",
+          "fields": {
+            "CE": "Operator",
+            "CF": "Pr."
+          }
+        },
+        {
+          "label": "TRAINING ROOM",
+          "fields": {
+            "CG": "Operator",
+            "CH": "Pr."
+          }
+        },
+        {
+          "label": "DORM 1",
+          "fields": {
+            "CI": "Operator 1",
+            "CJ": "Pr. 1",
+            "CK": "Operator 2",
+            "CL": "Pr. 2",
+            "CM": "Operator 3",
+            "CN": "Pr. 3",
+            "CO": "Operator 4",
+            "CP": "Pr. 4",
+            "CQ": "Operator 5",
+            "CR": "Pr. 5"
+          }
+        },
+        {
+          "label": "DORM 2",
+          "fields": {
+            "CS": "Operator 1",
+            "CT": "Pr. 1",
+            "CU": "Operator 2",
+            "CV": "Pr. 2",
+            "CW": "Operator 3",
+            "CX": "Pr. 3",
+            "CY": "Operator 4",
+            "CZ": "Pr. 4",
+            "DA": "Operator 5",
+            "DB": "Pr. 5"
+          }
+        },
+        {
+          "label": "DORM 3",
+          "fields": {
+            "DC": "Operator 1",
+            "DD": "Pr. 1",
+            "DE": "Operator 2",
+            "DF": "Pr. 2",
+            "DG": "Operator 3",
+            "DH": "Pr. 3",
+            "DI": "Operator 4",
+            "DJ": "Pr. 4",
+            "DK": "Operator 5",
+            "DL": "Pr. 5"
+          }
+        },
+        {
+          "label": "DORM 4",
+          "fields": {
+            "DM": "Operator 1",
+            "DN": "Pr. 1",
+            "DO": "Operator 2",
+            "DP": "Pr. 2",
+            "DQ": "Operator 3",
+            "DR": "Pr. 3",
+            "DS": "Operator 4",
+            "DT": "Pr. 4",
+            "DU": "Operator 5",
+            "DV": "Pr. 5"
+          }
+        },
+        {
+          "label": "DORM 5",
+          "fields": {
+            "DW": "Operator 1",
+            "DX": "Pr. 1",
+            "DY": "Operator 2",
+            "DZ": "Pr. 2",
+            "EA": "Operator 3",
+            "EB": "Pr. 3",
+            "EC": "Operator 4",
+            "ED": "Pr. 4",
+            "EE": "Operator 5",
+            "EF": "Pr. 5"
+          }
+        }
+      ],
+      "cases": [
+        {
+          "row": 3,
+          "cells": {
+            "A": "Passed",
+            "R": "Gold",
+            "AA": "Gold",
+            "AJ": "Gold",
+            "AS": "Gold",
+            "AV": "Gummy",
+            "AW": "E1",
+            "BB": "LMD",
+            "BC": "0.3",
+            "BD": "0.0",
+            "BK": "LMD"
+          }
+        },
+        {
+          "row": 4,
+          "cells": {
+            "A": "Passed",
+            "AV": "Morgan",
+            "AW": "E2",
+            "BB": "LMD",
+            "BC": "0.2",
+            "BD": "0.0",
+            "EG": "Glasgow Gang"
+          }
+        },
+        {
+          "row": 5,
+          "cells": {
+            "A": "Passed",
+            "AV": "Morgan",
+            "AW": "E2",
+            "AX": "Indra",
+            "AY": "E0",
+            "BB": "LMD",
+            "BC": "0.4",
+            "BD": "0.0"
+          }
+        },
+        {
+          "row": 6,
+          "cells": {
+            "A": "Passed",
+            "AV": "Morgan",
+            "AW": "E2",
+            "AX": "Siege",
+            "AY": "E0",
+            "BB": "LMD",
+            "BC": "0.75",
+            "BD": "0.0"
+          }
+        },
+        {
+          "row": 7,
+          "cells": {
+            "A": "Passed",
+            "AV": "Morgan",
+            "AW": "E2",
+            "AX": "Vina",
+            "AY": "E2",
+            "BB": "LMD",
+            "BC": "0.6",
+            "BD": "0.0"
+          }
+        },
+        {
+          "row": 8,
+          "cells": {
+            "A": "Passed",
+            "AV": "Morgan",
+            "AW": "E2",
+            "AX": "Siege",
+            "AY": "E0",
+            "AZ": "Vina",
+            "BA": "E2",
+            "BB": "LMD",
+            "BC": "1.15",
+            "BD": "0.0"
+          }
+        },
+        {
+          "row": 9,
+          "cells": {
+            "A": "Passed",
+            "B": "Delphine",
+            "C": "E2",
+            "AV": "Morgan",
+            "AW": "E2",
+            "AX": "Siege",
+            "AY": "E0",
+            "AZ": "Vina",
+            "BA": "E2",
+            "BB": "LMD",
+            "BC": "1.35",
+            "BD": "0.0"
+          }
+        },
+        {
+          "row": 10,
+          "cells": {
+            "A": "Passed",
+            "B": "Delphine",
+            "C": "E2",
+            "AV": "Morgan",
+            "AW": "E2",
+            "AX": "Indra",
+            "AY": "E0",
+            "AZ": "Dagda",
+            "BA": "E0",
+            "BB": "LMD",
+            "BC": "0.9",
+            "BD": "0.0"
+          }
+        },
+        {
+          "row": 11,
+          "cells": {
+            "A": "Passed",
+            "AV": "Shamare",
+            "AW": "E0",
+            "AX": "Jessica",
+            "AY": "E0",
+            "AZ": "Vanilla",
+            "BA": "E1",
+            "BB": "LMD",
+            "BC": "0.2",
+            "BD": "0.0",
+            "EG": "See Annex 2 and Annex 3."
+          }
+        },
+        {
+          "row": 12,
+          "cells": {
+            "A": "Passed",
+            "B": "Amiya",
+            "C": "E0",
+            "AV": "Shamare",
+            "AW": "E2",
+            "AX": "Tequila",
+            "AY": "E0",
+            "AZ": "Vanilla",
+            "BA": "E1",
+            "BB": "LMD",
+            "BC": "22385 LMD/day",
+            "BD": "0.0"
+          }
+        },
+        {
+          "row": 13,
+          "cells": {
+            "A": "Passed",
+            "B": "Amiya",
+            "C": "E0",
+            "AV": "Shamare",
+            "AW": "E2",
+            "AX": "Tequila",
+            "AY": "E0",
+            "AZ": "Bibeak",
+            "BA": "E0",
+            "BB": "LMD",
+            "BC": "22592 LMD/day",
+            "BD": "0.0"
+          }
+        },
+        {
+          "row": 14,
+          "cells": {
+            "A": "Passed",
+            "B": "Amiya",
+            "C": "E0",
+            "AV": "Shamare",
+            "AW": "E2",
+            "AX": "Tequila",
+            "AY": "E0",
+            "AZ": "Bibeak",
+            "BA": "E2",
+            "BB": "LMD",
+            "BC": "23150 LMD/day",
+            "BD": "0.0"
+          }
+        },
+        {
+          "row": 15,
+          "cells": {
+            "A": "Passed",
+            "B": "Amiya",
+            "C": "E0",
+            "AV": "Shamare",
+            "AW": "E2",
+            "AX": "Tequila",
+            "AY": "E2",
+            "AZ": "Vanilla",
+            "BA": "E1",
+            "BB": "LMD",
+            "BC": "24060 LMD/day",
+            "BD": "0.0"
+          }
+        },
+        {
+          "row": 16,
+          "cells": {
+            "A": "Passed",
+            "B": "Amiya",
+            "C": "E0",
+            "AV": "Shamare",
+            "AW": "E2",
+            "AX": "Tequila",
+            "AY": "E2",
+            "AZ": "Bibeak",
+            "BA": "E0",
+            "BB": "LMD",
+            "BC": "24444 LMD/day",
+            "BD": "0.0"
+          }
+        },
+        {
+          "row": 17,
+          "cells": {
+            "A": "Passed",
+            "B": "Amiya",
+            "C": "E0",
+            "AV": "Shamare",
+            "AW": "E2",
+            "AX": "Tequila",
+            "AY": "E2",
+            "AZ": "Bibeak",
+            "BA": "E2",
+            "BB": "LMD",
+            "BC": "25479 LMD/day",
+            "BD": "0.0"
+          }
+        },
+        {
+          "row": 18,
+          "cells": {
+            "A": "Passed",
+            "B": "Amiya",
+            "C": "E0",
+            "AV": "Midnight",
+            "AW": "E0",
+            "AX": "Catapult",
+            "AY": "E0",
+            "AZ": "Gummy",
+            "BA": "E0",
+            "BB": "LMD",
+            "BC": "0.97",
+            "BD": "0.0",
+            "EG": "90% baseline (+CC buff). Indicated Prod doesn't have to match, as long as the daily LMD is correct."
+          }
+        },
+        {
+          "row": 19,
+          "cells": {
+            "A": "Passed",
+            "B": "Amiya",
+            "C": "E0",
+            "AV": "Proviso",
+            "AW": "E0",
+            "AX": "Catapult",
+            "AY": "E0",
+            "AZ": "Gummy",
+            "BA": "E0",
+            "BB": "LMD",
+            "BC": "22265 LMD/day",
+            "BD": "0.0"
+          }
+        },
+        {
+          "row": 20,
+          "cells": {
+            "A": "Passed",
+            "B": "Amiya",
+            "C": "E0",
+            "AV": "Proviso",
+            "AW": "E2",
+            "AX": "Catapult",
+            "AY": "E0",
+            "AZ": "Gummy",
+            "BA": "E0",
+            "BB": "LMD",
+            "BC": "27079 LMD/day",
+            "BD": "0.0"
+          }
+        },
+        {
+          "row": 21,
+          "cells": {
+            "A": "Passed",
+            "B": "Amiya",
+            "C": "E0",
+            "AV": "Proviso",
+            "AW": "E0",
+            "AX": "Archetto",
+            "AY": "E2",
+            "AZ": "Vigil",
+            "BA": "E2",
+            "BB": "LMD",
+            "BC": "24884 LMD/day",
+            "BD": "0.0"
+          }
+        },
+        {
+          "row": 22,
+          "cells": {
+            "A": "Passed",
+            "B": "Amiya",
+            "C": "E0",
+            "AV": "Proviso",
+            "AW": "E2",
+            "AX": "Archetto",
+            "AY": "E2",
+            "AZ": "Vigil",
+            "BA": "E2",
+            "BB": "LMD",
+            "BC": "30265 LMD/day",
+            "BD": "0.0"
+          }
+        },
+        {
+          "row": 23,
+          "cells": {
+            "A": "Passed",
+            "B": "Amiya",
+            "C": "E0",
+            "AV": "Proviso",
+            "AW": "E2",
+            "AX": "Shamare",
+            "AY": "E2",
+            "AZ": "Tequila",
+            "BA": "E0",
+            "BB": "LMD",
+            "BC": "27868 LMD/day",
+            "BD": "0.0"
+          }
+        },
+        {
+          "row": 24,
+          "cells": {
+            "A": "Passed",
+            "B": "Amiya",
+            "C": "E0",
+            "AV": "Proviso",
+            "AW": "E2",
+            "AX": "Shamare",
+            "AY": "E2",
+            "AZ": "Tequila",
+            "BA": "E2",
+            "BB": "LMD",
+            "BC": "29543 LMD/day",
+            "BD": "0.0"
+          }
+        },
+        {
+          "row": 25,
+          "cells": {
+            "A": "Failed",
+            "AV": "Jaye",
+            "AW": "E1",
+            "AX": "Swire alter",
+            "AY": "E2",
+            "AZ": "Silverash",
+            "BA": "E2",
+            "BB": "LMD",
+            "BC": "0.8",
+            "BD": "0.0",
+            "EG": "See Annex 1 for the detailed calc.\nCalculation is incorrect for Jaye specifically."
+          }
+        },
+        {
+          "row": 26,
+          "cells": {
+            "A": "Failed",
+            "B": "Gnosis",
+            "C": "E2",
+            "AV": "Jaye",
+            "AW": "E1",
+            "AX": "Swire alter",
+            "AY": "E2",
+            "AZ": "Silverash",
+            "BA": "E2",
+            "BB": "LMD",
+            "BC": "1.29",
+            "BD": "8.0"
+          }
+        },
+        {
+          "row": 27,
+          "cells": {
+            "A": "Failed",
+            "B": "Gnosis",
+            "C": "E2",
+            "AV": "Jaye",
+            "AW": "E1",
+            "AX": "Silverash",
+            "AY": "E2",
+            "AZ": "Cliffheart",
+            "BA": "E2",
+            "BB": "LMD",
+            "BC": "1.25",
+            "BD": "30.0"
+          }
+        },
+        {
+          "row": 28,
+          "cells": {
+            "A": "Passed",
+            "AV": "Swire alter",
+            "AW": "E2",
+            "AX": "Silverash",
+            "AY": "E2",
+            "AZ": "Degenbrecher",
+            "BA": "E2",
+            "BB": "LMD",
+            "BC": "0.65",
+            "BD": "-2.0"
+          }
+        },
+        {
+          "row": 29,
+          "cells": {
+            "A": "Passed",
+            "B": "Gnosis",
+            "C": "E2",
+            "AV": "Swire alter",
+            "AW": "E2",
+            "AX": "Silverash",
+            "AY": "E2",
+            "AZ": "Degenbrecher",
+            "BA": "E2",
+            "BB": "LMD",
+            "BC": "1.25",
+            "BD": "10.0"
+          }
+        },
+        {
+          "row": 30,
+          "cells": {
+            "A": "Failed",
+            "B": "Gnosis",
+            "C": "E2",
+            "AV": "Jaye",
+            "AW": "E1",
+            "AX": "Silverash",
+            "AY": "E2",
+            "AZ": "Degenbrecher",
+            "BA": "E2",
+            "BB": "LMD",
+            "BC": "1.21",
+            "BD": "14.0"
+          }
+        },
+        {
+          "row": 31,
+          "cells": {
+            "A": "Failed",
+            "B": "Gnosis",
+            "C": "E2",
+            "AV": "Jaye",
+            "AW": "E1",
+            "AX": "Courier",
+            "AY": "E1",
+            "AZ": "Matterhorn",
+            "BA": "E1",
+            "BB": "LMD",
+            "BC": "1.04",
+            "BD": "16.0"
+          }
+        },
+        {
+          "row": 32,
+          "cells": {
+            "A": "Passed",
+            "AV": "Pozemka",
+            "AW": "E2",
+            "AX": "Tuye",
+            "AY": "E2",
+            "AZ": "Kirara",
+            "BA": "E2",
+            "BB": "LMD",
+            "BC": "160% (4 GPL)\n165% (5 GPL)",
+            "BD": "0.0",
+            "CI": "Durin",
+            "CJ": "any",
+            "CK": "Myrtle",
+            "CL": "any",
+            "CM": "Minimalist",
+            "CN": "any",
+            "CO": "Tecno",
+            "CP": "any",
+            "CQ": "Chestnut",
+            "CR": "any"
+          }
+        }
+      ]
+    },
+    {
+      "name": "RR",
+      "groups": [
+        {
+          "label": "CONTROL CENTER",
+          "fields": {
+            "B": "Operator 1",
+            "C": "Pr. 1",
+            "D": "Operator 2",
+            "E": "Pr. 2",
+            "F": "Operator 3",
+            "G": "Pr. 3",
+            "H": "Operator 4",
+            "I": "Pr. 4",
+            "J": "Operator 5",
+            "K": "Pr. 5"
+          }
+        },
+        {
+          "label": "FACTORY 1",
+          "fields": {
+            "L": "Operator 1",
+            "M": "Pr. 1",
+            "N": "Operator 2",
+            "O": "Pr. 2",
+            "P": "Operator 3",
+            "Q": "Pr. 3",
+            "R": "Recipe",
+            "S": "Prod",
+            "T": "CAP"
+          }
+        },
+        {
+          "label": "FACTORY 2",
+          "fields": {
+            "U": "Operator 1",
+            "V": "Pr. 1",
+            "W": "Operator 2",
+            "X": "Pr. 2",
+            "Y": "Operator 3",
+            "Z": "Pr. 3",
+            "AA": "Recipe",
+            "AB": "Prod",
+            "AC": "CAP"
+          }
+        },
+        {
+          "label": "FACTORY 3",
+          "fields": {
+            "AD": "Operator 1",
+            "AE": "Pr. 1",
+            "AF": "Operator 2",
+            "AG": "Pr. 2",
+            "AH": "Operator 3",
+            "AI": "Pr. 3",
+            "AJ": "Recipe",
+            "AK": "Prod",
+            "AL": "CAP"
+          }
+        },
+        {
+          "label": "FACTORY 4",
+          "fields": {
+            "AM": "Operator 1",
+            "AN": "Pr. 1",
+            "AO": "Operator 2",
+            "AP": "Pr. 2",
+            "AQ": "Operator 3",
+            "AR": "Pr. 3",
+            "AS": "Recipe",
+            "AT": "Prod",
+            "AU": "CAP"
+          }
+        },
+        {
+          "label": "TRADING POST 1",
+          "fields": {
+            "AV": "Operator 1",
+            "AW": "Pr. 1",
+            "AX": "Operator 2",
+            "AY": "Pr. 2",
+            "AZ": "Operator 3",
+            "BA": "Pr. 3",
+            "BB": "Recipe",
+            "BC": "Prod",
+            "BD": "CAP"
+          }
+        },
+        {
+          "label": "TRADING POST 2",
+          "fields": {
+            "BE": "Operator 1",
+            "BF": "Pr. 1",
+            "BG": "Operator 2",
+            "BH": "Pr. 2",
+            "BI": "Operator 3",
+            "BJ": "Pr. 3",
+            "BK": "Recipe",
+            "BL": "Prod",
+            "BM": "CAP"
+          }
+        },
+        {
+          "label": "POWER PLANT 1",
+          "fields": {
+            "BN": "Operator",
+            "BO": "Pr.",
+            "BP": "Prod"
+          }
+        },
+        {
+          "label": "POWER PLANT 2",
+          "fields": {
+            "BQ": "Operator",
+            "BR": "Pr.",
+            "BS": "Prod"
+          }
+        },
+        {
+          "label": "POWER PLANT 3",
+          "fields": {
+            "BT": "Operator",
+            "BU": "Pr.",
+            "BV": "Prod"
+          }
+        },
+        {
+          "label": "RECEPTION ROOM",
+          "fields": {
+            "BW": "Operator 1",
+            "BX": "Pr. 1",
+            "BY": "Operator 2",
+            "BZ": "Pr. 2",
+            "CA": "Clue Exchange?",
+            "CB": "Prod"
+          }
+        },
+        {
+          "label": "OFFICE",
+          "fields": {
+            "CC": "Operator",
+            "CD": "Pr.",
+            "CE": "Prod"
+          }
+        },
+        {
+          "label": "WORKSHOP",
+          "fields": {
+            "CF": "Operator",
+            "CG": "Pr."
+          }
+        },
+        {
+          "label": "TRAINING ROOM",
+          "fields": {
+            "CH": "Operator",
+            "CI": "Pr."
+          }
+        },
+        {
+          "label": "DORM 1",
+          "fields": {
+            "CJ": "Operator 1",
+            "CK": "Pr. 1",
+            "CL": "Operator 2",
+            "CM": "Pr. 2",
+            "CN": "Operator 3",
+            "CO": "Pr. 3",
+            "CP": "Operator 4",
+            "CQ": "Pr. 4",
+            "CR": "Operator 5",
+            "CS": "Pr. 5"
+          }
+        },
+        {
+          "label": "DORM 2",
+          "fields": {
+            "CT": "Operator 1",
+            "CU": "Pr. 1",
+            "CV": "Operator 2",
+            "CW": "Pr. 2",
+            "CX": "Operator 3",
+            "CY": "Pr. 3",
+            "CZ": "Operator 4",
+            "DA": "Pr. 4",
+            "DB": "Operator 5",
+            "DC": "Pr. 5"
+          }
+        },
+        {
+          "label": "DORM 3",
+          "fields": {
+            "DD": "Operator 1",
+            "DE": "Pr. 1",
+            "DF": "Operator 2",
+            "DG": "Pr. 2",
+            "DH": "Operator 3",
+            "DI": "Pr. 3",
+            "DJ": "Operator 4",
+            "DK": "Pr. 4",
+            "DL": "Operator 5",
+            "DM": "Pr. 5"
+          }
+        },
+        {
+          "label": "DORM 4",
+          "fields": {
+            "DN": "Operator 1",
+            "DO": "Pr. 1",
+            "DP": "Operator 2",
+            "DQ": "Pr. 2",
+            "DR": "Operator 3",
+            "DS": "Pr. 3",
+            "DT": "Operator 4",
+            "DU": "Pr. 4",
+            "DV": "Operator 5",
+            "DW": "Pr. 5"
+          }
+        },
+        {
+          "label": "DORM 5",
+          "fields": {
+            "DX": "Operator 1",
+            "DY": "Pr. 1",
+            "DZ": "Operator 2",
+            "EA": "Pr. 2",
+            "EB": "Operator 3",
+            "EC": "Pr. 3",
+            "ED": "Operator 4",
+            "EE": "Pr. 4",
+            "EF": "Operator 5",
+            "EG": "Pr. 5"
+          }
+        }
+      ],
+      "cases": [
+        {
+          "row": 3,
+          "cells": {
+            "A": "Passed",
+            "BW": "12F",
+            "BX": "E0",
+            "CB": "0.25",
+            "EH": "Some inconsistencies regarding the bonuses. E.G: 12F should have the innate 5%, Vigil has 30%. Recommend adding a button just like the FAC that breaks down the calc.\n\nOperators gain bonuses based on their rarity as follows:\n- 1*/2*/3* => 0%\n- 4* => 2%\n- 5* => 4%\n- 6* => 5%\n\nOperators gain bonuses based on their promotion level as follows:\n- E0 => 0%\n- E1 => 8%\n- E2 => 16%\n\nAll operators gain an innate 5% PD just for being slotted. No option to pick dead operators, which is important because dead operators retain Rarity and Promotion bonuses, used for solo op + dead op strats.\n"
+          }
+        },
+        {
+          "row": 4,
+          "cells": {
+            "A": "Passed",
+            "R": "Gold",
+            "AA": "Gold",
+            "AJ": "Gold",
+            "AS": "Gold",
+            "BB": "LMD",
+            "BK": "LMD",
+            "BW": "Silverash",
+            "BX": "E2",
+            "CB": "0.26"
+          }
+        },
+        {
+          "row": 5,
+          "cells": {
+            "A": "Passed",
+            "BW": "Vigil",
+            "BX": "E2",
+            "CB": "0.51"
+          }
+        },
+        {
+          "row": 6,
+          "cells": {
+            "A": "Passed",
+            "BW": "Ines",
+            "BX": "E2",
+            "CB": "46-56%"
+          }
+        },
+        {
+          "row": 7,
+          "cells": {
+            "A": "Passed",
+            "B": "Wisadel",
+            "C": "E2",
+            "BW": "Ines",
+            "BX": "E2",
+            "CB": "51-61%"
+          }
+        },
+        {
+          "row": 8,
+          "cells": {
+            "A": "Passed",
+            "BW": "Kazemaru",
+            "BX": "E2",
+            "CB": "0.75"
+          }
+        },
+        {
+          "row": 9,
+          "cells": {
+            "A": "Passed",
+            "BW": "Kazemaru",
+            "BX": "E2",
+            "BY": "Vigil",
+            "BZ": "E2",
+            "CB": "0.86"
+          }
+        },
+        {
+          "row": 10,
+          "cells": {
+            "A": "Passed",
+            "BW": "Kazemaru",
+            "BX": "E2",
+            "BY": "Vigil (dead)",
+            "BZ": "E2",
+            "CB": "0.96"
+          }
+        },
+        {
+          "row": 11,
+          "cells": {
+            "A": "Passed",
+            "BW": "Vulpisfoglia",
+            "BX": "E0",
+            "CB": "0.2"
+          }
+        },
+        {
+          "row": 12,
+          "cells": {
+            "A": "Passed",
+            "BW": "Vulpisfoglia",
+            "BX": "E0",
+            "BY": "Suzuran",
+            "BZ": "E0",
+            "CB": "0.3"
+          }
+        },
+        {
+          "row": 13,
+          "cells": {
+            "A": "Passed",
+            "BW": "Vulpisfoglia",
+            "BX": "E2",
+            "BY": "Suzuran",
+            "BZ": "E0",
+            "CB": "0.86"
+          }
+        },
+        {
+          "row": 14,
+          "cells": {
+            "A": "Passed",
+            "BW": "Sankta Miks.",
+            "BX": "E0",
+            "CB": "0.25"
+          }
+        },
+        {
+          "row": 15,
+          "cells": {
+            "A": "Passed",
+            "BW": "Sankta Miks.",
+            "BX": "E0",
+            "CB": "0.25",
+            "CJ": "Fiametta",
+            "CK": "E0"
+          }
+        },
+        {
+          "row": 16,
+          "cells": {
+            "A": "Passed",
+            "BW": "Sankta Miks.",
+            "BX": "E2",
+            "CB": "0.46"
+          }
+        },
+        {
+          "row": 17,
+          "cells": {
+            "A": "Passed",
+            "BW": "Sankta Miks.",
+            "BX": "E2",
+            "CB": "0.56",
+            "CJ": "Fiametta",
+            "CK": "E0"
+          }
+        },
+        {
+          "row": 18,
+          "cells": {
+            "A": "Passed",
+            "BW": "Caper",
+            "BX": "E0",
+            "CA": "Yes",
+            "CB": "0.17",
+            "EH": "Option to pick clue exchange?\n\nAlso definitely missing the aforementioned bonuses."
+          }
+        },
+        {
+          "row": 19,
+          "cells": {
+            "A": "Passed",
+            "BW": "Caper",
+            "BX": "E1",
+            "CA": "Yes",
+            "CB": "0.55"
+          }
+        },
+        {
+          "row": 20,
+          "cells": {
+            "A": "Passed",
+            "BW": "Caper",
+            "BX": "E1",
+            "CA": "No",
+            "CB": "0.25"
+          }
+        },
+        {
+          "row": 21,
+          "cells": {
+            "A": "Passed",
+            "BW": "Cairn",
+            "BX": "E0",
+            "CA": "Yes",
+            "CB": "0.09"
+          }
+        },
+        {
+          "row": 22,
+          "cells": {
+            "A": "Passed",
+            "BW": "Cairn",
+            "BX": "E2",
+            "CA": "Yes",
+            "CB": "0.55"
+          }
+        },
+        {
+          "row": 23,
+          "cells": {
+            "A": "Passed",
+            "BW": "Cairn",
+            "BX": "E2",
+            "CA": "No",
+            "CB": "0.25"
+          }
+        },
+        {
+          "row": 24,
+          "cells": {
+            "A": "Passed",
+            "BW": "Valarqvin",
+            "BX": "E2"
+          }
+        },
+        {
+          "row": 25,
+          "cells": {
+            "A": "Passed",
+            "BW": "Valarqvin",
+            "BX": "E2",
+            "BY": "Typhoon",
+            "BZ": "E2"
+          }
+        },
+        {
+          "row": 26,
+          "cells": {
+            "A": "Passed",
+            "BW": "Valarqvin",
+            "BX": "E2",
+            "BY": "Santalla",
+            "BZ": "E2"
+          }
+        }
+      ]
+    },
+    {
+      "name": "PP",
+      "groups": [
+        {
+          "label": "CONTROL CENTER",
+          "fields": {
+            "B": "Operator 1",
+            "C": "Pr. 1",
+            "D": "Operator 2",
+            "E": "Pr. 2",
+            "F": "Operator 3",
+            "G": "Pr. 3",
+            "H": "Operator 4",
+            "I": "Pr. 4",
+            "J": "Operator 5",
+            "K": "Pr. 5"
+          }
+        },
+        {
+          "label": "FACTORY 1",
+          "fields": {
+            "L": "Operator 1",
+            "M": "Pr. 1",
+            "N": "Operator 2",
+            "O": "Pr. 2",
+            "P": "Operator 3",
+            "Q": "Pr. 3",
+            "R": "Recipe",
+            "S": "Prod",
+            "T": "CAP"
+          }
+        },
+        {
+          "label": "FACTORY 2",
+          "fields": {
+            "U": "Operator 1",
+            "V": "Pr. 1",
+            "W": "Operator 2",
+            "X": "Pr. 2",
+            "Y": "Operator 3",
+            "Z": "Pr. 3",
+            "AA": "Recipe",
+            "AB": "Prod",
+            "AC": "CAP"
+          }
+        },
+        {
+          "label": "FACTORY 3",
+          "fields": {
+            "AD": "Operator 1",
+            "AE": "Pr. 1",
+            "AF": "Operator 2",
+            "AG": "Pr. 2",
+            "AH": "Operator 3",
+            "AI": "Pr. 3",
+            "AJ": "Recipe",
+            "AK": "Prod",
+            "AL": "CAP"
+          }
+        },
+        {
+          "label": "FACTORY 4",
+          "fields": {
+            "AM": "Operator 1",
+            "AN": "Pr. 1",
+            "AO": "Operator 2",
+            "AP": "Pr. 2",
+            "AQ": "Operator 3",
+            "AR": "Pr. 3",
+            "AS": "Recipe",
+            "AT": "Prod",
+            "AU": "CAP"
+          }
+        },
+        {
+          "label": "TRADING POST 1",
+          "fields": {
+            "AV": "Operator 1",
+            "AW": "Pr. 1",
+            "AX": "Operator 2",
+            "AY": "Pr. 2",
+            "AZ": "Operator 3",
+            "BA": "Pr. 3",
+            "BB": "Recipe",
+            "BC": "Prod",
+            "BD": "CAP"
+          }
+        },
+        {
+          "label": "TRADING POST 2",
+          "fields": {
+            "BE": "Operator 1",
+            "BF": "Pr. 1",
+            "BG": "Operator 2",
+            "BH": "Pr. 2",
+            "BI": "Operator 3",
+            "BJ": "Pr. 3",
+            "BK": "Recipe",
+            "BL": "Prod",
+            "BM": "CAP"
+          }
+        },
+        {
+          "label": "POWER PLANT 1",
+          "fields": {
+            "BN": "Operator",
+            "BO": "Pr.",
+            "BP": "Prod"
+          }
+        },
+        {
+          "label": "POWER PLANT 2",
+          "fields": {
+            "BQ": "Operator",
+            "BR": "Pr.",
+            "BS": "Prod"
+          }
+        },
+        {
+          "label": "POWER PLANT 3",
+          "fields": {
+            "BT": "Operator",
+            "BU": "Pr.",
+            "BV": "Prod"
+          }
+        },
+        {
+          "label": "RECEPTION ROOM",
+          "fields": {
+            "BW": "Operator 1",
+            "BX": "Pr. 1",
+            "BY": "Operator 2",
+            "BZ": "Pr. 2",
+            "CA": "Prod"
+          }
+        },
+        {
+          "label": "OFFICE",
+          "fields": {
+            "CB": "Operator",
+            "CC": "Pr.",
+            "CD": "Prod"
+          }
+        },
+        {
+          "label": "WORKSHOP",
+          "fields": {
+            "CE": "Operator",
+            "CF": "Pr."
+          }
+        },
+        {
+          "label": "TRAINING ROOM",
+          "fields": {
+            "CG": "Operator",
+            "CH": "Pr."
+          }
+        },
+        {
+          "label": "DORM 1",
+          "fields": {
+            "CI": "Operator 1",
+            "CJ": "Pr. 1",
+            "CK": "Operator 2",
+            "CL": "Pr. 2",
+            "CM": "Operator 3",
+            "CN": "Pr. 3",
+            "CO": "Operator 4",
+            "CP": "Pr. 4",
+            "CQ": "Operator 5",
+            "CR": "Pr. 5"
+          }
+        },
+        {
+          "label": "DORM 2",
+          "fields": {
+            "CS": "Operator 1",
+            "CT": "Pr. 1",
+            "CU": "Operator 2",
+            "CV": "Pr. 2",
+            "CW": "Operator 3",
+            "CX": "Pr. 3",
+            "CY": "Operator 4",
+            "CZ": "Pr. 4",
+            "DA": "Operator 5",
+            "DB": "Pr. 5"
+          }
+        },
+        {
+          "label": "DORM 3",
+          "fields": {
+            "DC": "Operator 1",
+            "DD": "Pr. 1",
+            "DE": "Operator 2",
+            "DF": "Pr. 2",
+            "DG": "Operator 3",
+            "DH": "Pr. 3",
+            "DI": "Operator 4",
+            "DJ": "Pr. 4",
+            "DK": "Operator 5",
+            "DL": "Pr. 5"
+          }
+        },
+        {
+          "label": "DORM 4",
+          "fields": {
+            "DM": "Operator 1",
+            "DN": "Pr. 1",
+            "DO": "Operator 2",
+            "DP": "Pr. 2",
+            "DQ": "Operator 3",
+            "DR": "Pr. 3",
+            "DS": "Operator 4",
+            "DT": "Pr. 4",
+            "DU": "Operator 5",
+            "DV": "Pr. 5"
+          }
+        },
+        {
+          "label": "DORM 5",
+          "fields": {
+            "DW": "Operator 1",
+            "DX": "Pr. 1",
+            "DY": "Operator 2",
+            "DZ": "Pr. 2",
+            "EA": "Operator 3",
+            "EB": "Pr. 3",
+            "EC": "Operator 4",
+            "ED": "Pr. 4",
+            "EE": "Operator 5",
+            "EF": "Pr. 5"
+          }
+        }
+      ],
+      "cases": [
+        {
+          "row": 3,
+          "cells": {
+            "A": "Passed",
+            "AA": "Gold",
+            "AJ": "Gold",
+            "AS": "Gold",
+            "BB": "LMD",
+            "BK": "LMD",
+            "BN": "Greyy",
+            "BO": "E0",
+            "BP": "0.2"
+          }
+        },
+        {
+          "row": 4,
+          "cells": {
+            "A": "Passed",
+            "BN": "Greyy alter",
+            "BO": "E0",
+            "BP": "23(.5)%"
+          }
+        },
+        {
+          "row": 5,
+          "cells": {
+            "A": "Passed",
+            "BN": "Philae",
+            "BO": "E2",
+            "BP": "0.2"
+          }
+        },
+        {
+          "row": 6,
+          "cells": {
+            "A": "Passed",
+            "BN": "Spuria",
+            "BO": "E2",
+            "BP": "15-20%"
+          }
+        },
+        {
+          "row": 7,
+          "cells": {
+            "A": "Passed",
+            "BN": "Spuria",
+            "BO": "E2",
+            "BP": "15-20%",
+            "BQ": "Confess-47",
+            "BR": "E0 30",
+            "BS": "0.15"
+          }
+        },
+        {
+          "row": 8,
+          "cells": {
+            "A": "Passed",
+            "L": "Wild Mane",
+            "M": "E0",
+            "R": "EXP",
+            "S": "0.15",
+            "T": "0.0",
+            "EG": "JK / Wildmane"
+          }
+        },
+        {
+          "row": 9,
+          "cells": {
+            "A": "Passed",
+            "L": "Wild Mane",
+            "M": "E0",
+            "R": "EXP",
+            "S": "0.2",
+            "T": "0.0",
+            "BN": "Justice Knight",
+            "BO": "E0 30",
+            "BP": "0.1"
+          }
+        },
+        {
+          "row": 10,
+          "cells": {
+            "A": "Passed",
+            "BN": "Friston-3",
+            "BO": "E0 30",
+            "BP": "0.1"
+          }
+        },
+        {
+          "row": 11,
+          "cells": {
+            "A": "Passed",
+            "B": "Kal'tsit",
+            "C": "E0",
+            "BN": "Friston-3",
+            "BO": "E0 30",
+            "BP": "0.15"
+          }
+        },
+        {
+          "row": 12,
+          "cells": {
+            "A": "Passed",
+            "L": "Kal'tsit",
+            "M": "E0",
+            "R": "Gold",
+            "S": "0.0",
+            "T": "0.0",
+            "BN": "Friston-3",
+            "BO": "E0 30",
+            "BP": "0.1"
+          }
+        },
+        {
+          "row": 13,
+          "cells": {
+            "A": "Passed",
+            "BN": "Phonor-0",
+            "BO": "E0 30",
+            "BP": "0.1"
+          }
+        },
+        {
+          "row": 14,
+          "cells": {
+            "A": "Passed",
+            "BN": "Phonor-0",
+            "BO": "E0 30",
+            "BP": "0.15",
+            "CG": "Logos",
+            "CH": "E0"
+          }
+        },
+        {
+          "row": 15,
+          "cells": {
+            "A": "Passed",
+            "L": "Logos",
+            "M": "E0",
+            "R": "Gold",
+            "S": "0.0",
+            "T": "0.0",
+            "BN": "Phonor-0",
+            "BO": "E0 30",
+            "BP": "0.1"
+          }
+        },
+        {
+          "row": 16,
+          "cells": {
+            "A": "Passed",
+            "L": "Mayer",
+            "M": "E2",
+            "N": "Silence alter",
+            "O": "E2",
+            "R": "Gold",
+            "S": "0.6",
+            "T": "0.0",
+            "BN": "Muelsyse",
+            "BO": "E2",
+            "BP": "0.13"
+          }
+        }
+      ]
+    },
+    {
+      "name": "HR",
+      "groups": [
+        {
+          "label": "CONTROL CENTER",
+          "fields": {
+            "B": "Operator 1",
+            "C": "Pr. 1",
+            "D": "Operator 2",
+            "E": "Pr. 2",
+            "F": "Operator 3",
+            "G": "Pr. 3",
+            "H": "Operator 4",
+            "I": "Pr. 4",
+            "J": "Operator 5",
+            "K": "Pr. 5"
+          }
+        },
+        {
+          "label": "FACTORY 1",
+          "fields": {
+            "L": "Operator 1",
+            "M": "Pr. 1",
+            "N": "Operator 2",
+            "O": "Pr. 2",
+            "P": "Operator 3",
+            "Q": "Pr. 3",
+            "R": "Recipe",
+            "S": "Prod",
+            "T": "CAP"
+          }
+        },
+        {
+          "label": "FACTORY 2",
+          "fields": {
+            "U": "Operator 1",
+            "V": "Pr. 1",
+            "W": "Operator 2",
+            "X": "Pr. 2",
+            "Y": "Operator 3",
+            "Z": "Pr. 3",
+            "AA": "Recipe",
+            "AB": "Prod",
+            "AC": "CAP"
+          }
+        },
+        {
+          "label": "FACTORY 3",
+          "fields": {
+            "AD": "Operator 1",
+            "AE": "Pr. 1",
+            "AF": "Operator 2",
+            "AG": "Pr. 2",
+            "AH": "Operator 3",
+            "AI": "Pr. 3",
+            "AJ": "Recipe",
+            "AK": "Prod",
+            "AL": "CAP"
+          }
+        },
+        {
+          "label": "FACTORY 4",
+          "fields": {
+            "AM": "Operator 1",
+            "AN": "Pr. 1",
+            "AO": "Operator 2",
+            "AP": "Pr. 2",
+            "AQ": "Operator 3",
+            "AR": "Pr. 3",
+            "AS": "Recipe",
+            "AT": "Prod",
+            "AU": "CAP"
+          }
+        },
+        {
+          "label": "TRADING POST 1",
+          "fields": {
+            "AV": "Operator 1",
+            "AW": "Pr. 1",
+            "AX": "Operator 2",
+            "AY": "Pr. 2",
+            "AZ": "Operator 3",
+            "BA": "Pr. 3",
+            "BB": "Recipe",
+            "BC": "Prod",
+            "BD": "CAP"
+          }
+        },
+        {
+          "label": "TRADING POST 2",
+          "fields": {
+            "BE": "Operator 1",
+            "BF": "Pr. 1",
+            "BG": "Operator 2",
+            "BH": "Pr. 2",
+            "BI": "Operator 3",
+            "BJ": "Pr. 3",
+            "BK": "Recipe",
+            "BL": "Prod",
+            "BM": "CAP"
+          }
+        },
+        {
+          "label": "POWER PLANT 1",
+          "fields": {
+            "BN": "Operator",
+            "BO": "Pr.",
+            "BP": "Prod"
+          }
+        },
+        {
+          "label": "POWER PLANT 2",
+          "fields": {
+            "BQ": "Operator",
+            "BR": "Pr.",
+            "BS": "Prod"
+          }
+        },
+        {
+          "label": "POWER PLANT 3",
+          "fields": {
+            "BT": "Operator",
+            "BU": "Pr.",
+            "BV": "Prod"
+          }
+        },
+        {
+          "label": "RECEPTION ROOM",
+          "fields": {
+            "BW": "Operator 1",
+            "BX": "Pr. 1",
+            "BY": "Operator 2",
+            "BZ": "Pr. 2",
+            "CA": "Prod"
+          }
+        },
+        {
+          "label": "OFFICE",
+          "fields": {
+            "CB": "Operator",
+            "CC": "Pr.",
+            "CD": "Prod"
+          }
+        },
+        {
+          "label": "WORKSHOP",
+          "fields": {
+            "CE": "Operator"
+          }
+        },
+        {
+          "label": "TRAINING ROOM",
+          "fields": {
+            "CF": "Operator"
+          }
+        },
+        {
+          "label": "DORM 1",
+          "fields": {
+            "CG": "Operator 1",
+            "CH": "Pr. 1",
+            "CI": "Operator 2",
+            "CJ": "Pr. 2",
+            "CK": "Operator 3",
+            "CL": "Pr. 3",
+            "CM": "Operator 4",
+            "CN": "Pr. 4",
+            "CO": "Operator 5",
+            "CP": "Pr. 5"
+          }
+        },
+        {
+          "label": "DORM 2",
+          "fields": {
+            "CQ": "Operator 1",
+            "CR": "Pr. 1",
+            "CS": "Operator 2",
+            "CT": "Pr. 2",
+            "CU": "Operator 3",
+            "CV": "Pr. 3",
+            "CW": "Operator 4",
+            "CX": "Pr. 4",
+            "CY": "Operator 5",
+            "CZ": "Pr. 5"
+          }
+        },
+        {
+          "label": "DORM 3",
+          "fields": {
+            "DA": "Operator 1",
+            "DB": "Pr. 1",
+            "DC": "Operator 2",
+            "DD": "Pr. 2",
+            "DE": "Operator 3",
+            "DF": "Pr. 3",
+            "DG": "Operator 4",
+            "DH": "Pr. 4",
+            "DI": "Operator 5",
+            "DJ": "Pr. 5"
+          }
+        },
+        {
+          "label": "DORM 4",
+          "fields": {
+            "DK": "Operator 1",
+            "DL": "Pr. 1",
+            "DM": "Operator 2",
+            "DN": "Pr. 2",
+            "DO": "Operator 3",
+            "DP": "Pr. 3",
+            "DQ": "Operator 4",
+            "DR": "Pr. 4",
+            "DS": "Operator 5",
+            "DT": "Pr. 5"
+          }
+        },
+        {
+          "label": "DORM 5",
+          "fields": {
+            "DU": "Operator 1",
+            "DV": "Pr. 1",
+            "DW": "Operator 2",
+            "DX": "Pr. 2",
+            "DY": "Operator 3",
+            "DZ": "Pr. 3",
+            "EA": "Operator 4",
+            "EB": "Pr. 4",
+            "EC": "Operator 5",
+            "ED": "Pr. 5"
+          }
+        }
+      ],
+      "cases": [
+        {
+          "row": 3,
+          "cells": {
+            "A": "Passed",
+            "R": "Gold",
+            "AA": "Gold",
+            "AJ": "Gold",
+            "AS": "Gold",
+            "BB": "LMD",
+            "BK": "LMD",
+            "CB": "Penance",
+            "CC": "E2",
+            "CD": "0.5",
+            "EE": "Baseline"
+          }
+        },
+        {
+          "row": 4,
+          "cells": {
+            "A": "Passed",
+            "CB": "Earthspirit",
+            "CC": "E0",
+            "CD": "0.3"
+          }
+        },
+        {
+          "row": 5,
+          "cells": {
+            "A": "Passed",
+            "CB": "Earthspirit",
+            "CC": "E2",
+            "CD": "0.45"
+          }
+        },
+        {
+          "row": 6,
+          "cells": {
+            "A": "Passed",
+            "B": "Silverash alter",
+            "C": "E2",
+            "CB": "Pramanix alter",
+            "CC": "E0",
+            "CD": "0.2",
+            "EE": "Kjerag alter"
+          }
+        },
+        {
+          "row": 7,
+          "cells": {
+            "A": "Passed",
+            "B": "Silverash alter",
+            "C": "E2",
+            "CB": "Pramanix alter",
+            "CC": "E2",
+            "CD": "0.45"
+          }
+        },
+        {
+          "row": 8,
+          "cells": {
+            "A": "Passed",
+            "CB": "Tin Man",
+            "CC": "E0",
+            "CD": "0.25",
+            "EE": "Dorm scale"
+          }
+        },
+        {
+          "row": 9,
+          "cells": {
+            "A": "Passed",
+            "CB": "Tin Man",
+            "CC": "E2",
+            "CD": "0.45"
+          }
+        },
+        {
+          "row": 10,
+          "cells": {
+            "A": "Passed",
+            "CB": "Lin",
+            "CC": "E2",
+            "CD": "0.4",
+            "EE": "HR scale"
+          }
+        },
+        {
+          "row": 11,
+          "cells": {
+            "A": "Passed",
+            "CB": "Blitz",
+            "CC": "E2",
+            "CD": "0.2",
+            "EE": "R6S"
+          }
+        },
+        {
+          "row": 12,
+          "cells": {
+            "A": "Passed",
+            "B": "Ash",
+            "C": "E2",
+            "D": "Tachanka",
+            "E": "E2",
+            "BW": "Istina",
+            "BX": "E2",
+            "CA": "0.35",
+            "CB": "Blitz",
+            "CC": "E2",
+            "CD": "0.3"
+          }
+        },
+        {
+          "row": 13,
+          "cells": {
+            "A": "Passed",
+            "B": "Saileach",
+            "C": "E2",
+            "CB": "Whisperain",
+            "CC": "E2",
+            "CD": "0.4",
+            "EE": "CC buff"
+          }
+        },
+        {
+          "row": 14,
+          "cells": {
+            "A": "Passed",
+            "BW": "12F",
+            "BX": "E0",
+            "CA": "0.3",
+            "CB": "Mr. Nothing",
+            "CC": "E2",
+            "CD": "0.35"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Advanced",
+      "groups": [
+        {
+          "label": "CONTROL CENTER",
+          "fields": {
+            "B": "Operator 1",
+            "C": "Pr. 1",
+            "D": "Operator 2",
+            "E": "Pr. 2",
+            "F": "Operator 3",
+            "G": "Pr. 3",
+            "H": "Operator 4",
+            "I": "Pr. 4",
+            "J": "Operator 5",
+            "K": "Pr. 5"
+          }
+        },
+        {
+          "label": "FACTORY 1",
+          "fields": {
+            "L": "Operator 1",
+            "M": "Pr. 1",
+            "N": "Operator 2",
+            "O": "Pr. 2",
+            "P": "Operator 3",
+            "Q": "Pr. 3",
+            "R": "Recipe",
+            "S": "Prod",
+            "T": "CAP"
+          }
+        },
+        {
+          "label": "FACTORY 2",
+          "fields": {
+            "U": "Operator 1",
+            "V": "Pr. 1",
+            "W": "Operator 2",
+            "X": "Pr. 2",
+            "Y": "Operator 3",
+            "Z": "Pr. 3",
+            "AA": "Recipe",
+            "AB": "Prod",
+            "AC": "CAP"
+          }
+        },
+        {
+          "label": "FACTORY 3",
+          "fields": {
+            "AD": "Operator 1",
+            "AE": "Pr. 1",
+            "AF": "Operator 2",
+            "AG": "Pr. 2",
+            "AH": "Operator 3",
+            "AI": "Pr. 3",
+            "AJ": "Recipe",
+            "AK": "Prod",
+            "AL": "CAP"
+          }
+        },
+        {
+          "label": "FACTORY 4",
+          "fields": {
+            "AM": "Operator 1",
+            "AN": "Pr. 1",
+            "AO": "Operator 2",
+            "AP": "Pr. 2",
+            "AQ": "Operator 3",
+            "AR": "Pr. 3",
+            "AS": "Recipe",
+            "AT": "Prod",
+            "AU": "CAP"
+          }
+        },
+        {
+          "label": "TRADING POST 1",
+          "fields": {
+            "AV": "Operator 1",
+            "AW": "Pr. 1",
+            "AX": "Operator 2",
+            "AY": "Pr. 2",
+            "AZ": "Operator 3",
+            "BA": "Pr. 3",
+            "BB": "Recipe",
+            "BC": "Prod",
+            "BD": "CAP"
+          }
+        },
+        {
+          "label": "TRADING POST 2",
+          "fields": {
+            "BE": "Operator 1",
+            "BF": "Pr. 1",
+            "BG": "Operator 2",
+            "BH": "Pr. 2",
+            "BI": "Operator 3",
+            "BJ": "Pr. 3",
+            "BK": "Recipe",
+            "BL": "Prod",
+            "BM": "CAP"
+          }
+        },
+        {
+          "label": "POWER PLANT 1",
+          "fields": {
+            "BN": "Operator",
+            "BO": "Pr.",
+            "BP": "Prod"
+          }
+        },
+        {
+          "label": "POWER PLANT 2",
+          "fields": {
+            "BQ": "Operator",
+            "BR": "Pr.",
+            "BS": "Prod"
+          }
+        },
+        {
+          "label": "POWER PLANT 3",
+          "fields": {
+            "BT": "Operator",
+            "BU": "Pr.",
+            "BV": "Prod"
+          }
+        },
+        {
+          "label": "RECEPTION ROOM",
+          "fields": {
+            "BW": "Operator 1",
+            "BX": "Pr. 1",
+            "BY": "Operator 2",
+            "BZ": "Pr. 2",
+            "CA": "Prod"
+          }
+        },
+        {
+          "label": "OFFICE",
+          "fields": {
+            "CB": "Operator",
+            "CC": "Pr.",
+            "CD": "Prod"
+          }
+        },
+        {
+          "label": "WORKSHOP",
+          "fields": {
+            "CE": "Operator"
+          }
+        },
+        {
+          "label": "TRAINING ROOM",
+          "fields": {
+            "CF": "Operator"
+          }
+        },
+        {
+          "label": "DORM 1",
+          "fields": {
+            "CG": "Operator 1",
+            "CH": "Pr. 1",
+            "CI": "Operator 2",
+            "CJ": "Pr. 2",
+            "CK": "Operator 3",
+            "CL": "Pr. 3",
+            "CM": "Operator 4",
+            "CN": "Pr. 4",
+            "CO": "Operator 5",
+            "CP": "Pr. 5"
+          }
+        },
+        {
+          "label": "DORM 2",
+          "fields": {
+            "CQ": "Operator 1",
+            "CR": "Pr. 1",
+            "CS": "Operator 2",
+            "CT": "Pr. 2",
+            "CU": "Operator 3",
+            "CV": "Pr. 3",
+            "CW": "Operator 4",
+            "CX": "Pr. 4",
+            "CY": "Operator 5",
+            "CZ": "Pr. 5"
+          }
+        },
+        {
+          "label": "DORM 3",
+          "fields": {
+            "DA": "Operator 1",
+            "DB": "Pr. 1",
+            "DC": "Operator 2",
+            "DD": "Pr. 2",
+            "DE": "Operator 3",
+            "DF": "Pr. 3",
+            "DG": "Operator 4",
+            "DH": "Pr. 4",
+            "DI": "Operator 5",
+            "DJ": "Pr. 5"
+          }
+        },
+        {
+          "label": "DORM 4",
+          "fields": {
+            "DK": "Operator 1",
+            "DL": "Pr. 1",
+            "DM": "Operator 2",
+            "DN": "Pr. 2",
+            "DO": "Operator 3",
+            "DP": "Pr. 3",
+            "DQ": "Operator 4",
+            "DR": "Pr. 4",
+            "DS": "Operator 5",
+            "DT": "Pr. 5"
+          }
+        },
+        {
+          "label": "DORM 5",
+          "fields": {
+            "DU": "Operator 1",
+            "DV": "Pr. 1",
+            "DW": "Operator 2",
+            "DX": "Pr. 2",
+            "DY": "Operator 3",
+            "DZ": "Pr. 3",
+            "EA": "Operator 4",
+            "EB": "Pr. 4",
+            "EC": "Operator 5",
+            "ED": "Pr. 5"
+          }
+        }
+      ],
+      "cases": [
+        {
+          "row": 3,
+          "cells": {
+            "A": "Passed",
+            "B": "Dusk",
+            "C": "E2",
+            "D": "Ling",
+            "E": "E2",
+            "F": "Saileach",
+            "G": "E2",
+            "L": "Rosmontis",
+            "M": "E2",
+            "R": "Gold",
+            "S": "0.8",
+            "T": "0.0",
+            "AA": "Gold",
+            "AJ": "Gold",
+            "AS": "Gold",
+            "AV": "Ebenholz",
+            "AW": "E2",
+            "BB": "LMD",
+            "BC": "0.42",
+            "BD": "0.0",
+            "BK": "LMD",
+            "CB": "Whisperain",
+            "CC": "E2",
+            "CD": "0.4",
+            "CG": "Virtuosa",
+            "CH": "E2",
+            "CI": "Cznery",
+            "CJ": "E2",
+            "CK": "Iris",
+            "CL": "E2",
+            "CM": "Any",
+            "CN": "Any",
+            "CO": "Any",
+            "CP": "Any",
+            "CQ": "Any",
+            "CR": "Any",
+            "CS": "Any",
+            "CT": "Any",
+            "CU": "Any",
+            "CV": "Any",
+            "CW": "Any",
+            "CX": "Any",
+            "CY": "Any",
+            "CZ": "Any",
+            "DA": "Any",
+            "DB": "Any",
+            "DC": "Any",
+            "DD": "Any",
+            "DE": "Any",
+            "DF": "Any",
+            "DG": "Any",
+            "DH": "Any",
+            "DI": "Any",
+            "DJ": "Any",
+            "DK": "Any",
+            "DL": "Any",
+            "DM": "Any",
+            "DN": "Any",
+            "DO": "Any",
+            "DP": "Any",
+            "DQ": "Any",
+            "DR": "Any",
+            "DS": "Any",
+            "DT": "Any",
+            "DU": "Any",
+            "DV": "Any",
+            "DW": "Any",
+            "DX": "Any",
+            "DY": "Any",
+            "DZ": "Any",
+            "EA": "Any",
+            "EB": "Any",
+            "EC": "Any",
+            "ED": "Any",
+            "EE": "Perception Information / Soundless Resonance"
+          }
+        },
+        {
+          "row": 4,
+          "cells": {
+            "A": "Passed",
+            "L": "Rosmontis",
+            "M": "E2",
+            "R": "Gold",
+            "S": "0.2",
+            "T": "0.0",
+            "CG": "Any",
+            "CH": "Any",
+            "CI": "Any",
+            "CJ": "Any",
+            "CK": "Any",
+            "CL": "Any",
+            "CM": "Any",
+            "CN": "Any",
+            "CO": "Any",
+            "CP": "Any",
+            "CQ": "Any",
+            "CR": "Any",
+            "CS": "Any",
+            "CT": "Any",
+            "CU": "Any",
+            "CV": "Any",
+            "CW": "Any",
+            "CX": "Any",
+            "CY": "Any",
+            "CZ": "Any",
+            "DA": "Any",
+            "DB": "Any",
+            "DC": "Any",
+            "DD": "Any",
+            "DE": "Any",
+            "DF": "Any",
+            "DG": "Any",
+            "DH": "Any",
+            "DI": "Any",
+            "DJ": "Any",
+            "DK": "Any",
+            "DL": "Any",
+            "DM": "Any",
+            "DN": "Any",
+            "DO": "Any",
+            "DP": "Any",
+            "DQ": "Any",
+            "DR": "Any",
+            "DS": "Any",
+            "DT": "Any",
+            "DU": "Any",
+            "DV": "Any",
+            "DW": "Any",
+            "DX": "Any",
+            "DY": "Any",
+            "DZ": "Any",
+            "EA": "Any",
+            "EB": "Any",
+            "EC": "Any",
+            "ED": "Any",
+            "EE": "You can just replace all instances of \"Chain of thought\" by Perception Information if you want. Amount OK."
+          }
+        },
+        {
+          "row": 5,
+          "cells": {
+            "A": "Passed",
+            "L": "Rosmontis",
+            "M": "E2",
+            "R": "Gold",
+            "S": "0.4",
+            "T": "0.0",
+            "AV": "Ebenholz",
+            "AW": "E2",
+            "BB": "LMD",
+            "BC": "0.22",
+            "BD": "0.0",
+            "CB": "Whisperain",
+            "CC": "E2",
+            "CD": "0.2",
+            "CG": "Virtuosa",
+            "CH": "E2",
+            "CI": "Any",
+            "CJ": "Any",
+            "CK": "Any",
+            "CL": "Any",
+            "CM": "Any",
+            "CN": "Any",
+            "CO": "Any",
+            "CP": "Any",
+            "CQ": "Any",
+            "CR": "Any",
+            "CS": "Any",
+            "CT": "Any",
+            "CU": "Any",
+            "CV": "Any",
+            "CW": "Any",
+            "CX": "Any",
+            "CY": "Any",
+            "CZ": "Any",
+            "DA": "Any",
+            "DB": "Any",
+            "DC": "Any",
+            "DD": "Any",
+            "DE": "Any",
+            "DF": "Any",
+            "DG": "Any",
+            "DH": "Any",
+            "DI": "Any",
+            "DJ": "Any",
+            "DK": "Any",
+            "DL": "Any",
+            "DM": "Any",
+            "DN": "Any",
+            "DO": "Any",
+            "DP": "Any",
+            "DQ": "Any",
+            "DR": "Any",
+            "DS": "Any",
+            "DT": "Any",
+            "DU": "Any",
+            "DV": "Any",
+            "DW": "Any",
+            "DX": "Any",
+            "DY": "Any",
+            "DZ": "Any",
+            "EA": "Any",
+            "EB": "Any",
+            "EC": "Any",
+            "ED": "Any"
+          }
+        },
+        {
+          "row": 6,
+          "cells": {
+            "A": "To do",
+            "B": "Eunectes",
+            "C": "E2",
+            "L": "Weedy",
+            "M": "E2",
+            "N": "Snegurochka",
+            "O": "E1",
+            "P": "Purestream",
+            "Q": "E1",
+            "R": "Gold",
+            "S": "1.45",
+            "T": "15.0",
+            "BN": "Greyy alter",
+            "BO": "E2",
+            "BP": "0.235",
+            "BQ": "Lancet-2 (dead)",
+            "BR": "E0",
+            "BS": "0.0",
+            "EE": "Full Automation setup with dead lancet strat, requires functional virtual PPs. No dead operators, cannot be tested as it is."
+          }
+        },
+        {
+          "row": 7,
+          "cells": {
+            "A": "Passed",
+            "L": "Weedy",
+            "M": "E2",
+            "R": "Gold",
+            "S": "0.45",
+            "T": "0.0"
+          }
+        },
+        {
+          "row": 8,
+          "cells": {
+            "A": "Passed",
+            "L": "Weedy",
+            "M": "E2",
+            "R": "Gold",
+            "S": "0.6",
+            "T": "0.0",
+            "BN": "Greyy alter",
+            "BO": "E2",
+            "BP": "0.235"
+          }
+        },
+        {
+          "row": 9,
+          "cells": {
+            "A": "Passed",
+            "B": "Eunectes",
+            "C": "E2",
+            "L": "Weedy",
+            "M": "E2",
+            "R": "Gold",
+            "S": "0.75",
+            "T": "0.0",
+            "BN": "Lancet-2",
+            "BO": "E0 30",
+            "BP": "0.1"
+          }
+        },
+        {
+          "row": 10,
+          "cells": {
+            "A": "Passed",
+            "B": "Eunectes",
+            "C": "E2",
+            "L": "Weedy",
+            "M": "E2",
+            "N": "Snegurochka",
+            "O": "E1",
+            "P": "Purestream",
+            "Q": "E1",
+            "R": "Gold",
+            "S": "1.3",
+            "T": "15.0",
+            "BN": "Greyy alter",
+            "BO": "E2",
+            "BP": "0.235",
+            "BQ": "Lancet-2",
+            "BR": "E0",
+            "BS": "0.0"
+          }
+        },
+        {
+          "row": 11,
+          "cells": {
+            "A": "Passed",
+            "B": "Flametail",
+            "C": "E2",
+            "D": "Viviana",
+            "E": "E2",
+            "L": "Wildmane",
+            "M": "E2",
+            "N": "Ashlock",
+            "O": "E2",
+            "P": "Fartooth",
+            "Q": "E2",
+            "R": "EXP",
+            "S": "1.31",
+            "T": "0.0",
+            "BN": "Justice Knight",
+            "BO": "E0 30",
+            "BP": "0.1",
+            "EE": "Pinus / Kazi full squad"
+          }
+        },
+        {
+          "row": 12,
+          "cells": {
+            "A": "Passed",
+            "D": "Viviana",
+            "E": "E2",
+            "L": "Jessica",
+            "M": "E0",
+            "R": "Gold",
+            "S": "0.25",
+            "T": "0.0"
+          }
+        },
+        {
+          "row": 13,
+          "cells": {
+            "A": "Passed",
+            "B": "Pudding",
+            "C": "E1",
+            "L": "Jessica",
+            "M": "E0",
+            "R": "Gold",
+            "S": "0.27",
+            "T": "0.0",
+            "BN": "Justice Knight",
+            "BO": "E0",
+            "BP": "0.1",
+            "BQ": "Lancet-2",
+            "BR": "E0",
+            "BS": "0.1",
+            "EE": "Pudding + robots"
+          }
+        },
+        {
+          "row": 14,
+          "cells": {
+            "A": "Passed",
+            "B": "Pudding",
+            "C": "E1",
+            "L": "Jessica",
+            "M": "E0",
+            "R": "Gold",
+            "S": "0.25",
+            "T": "0.0",
+            "BN": "Justice Knight",
+            "BO": "E0",
+            "BP": "0.1",
+            "EE": "1 robot only to make sure it doesn't trigger too soon"
+          }
+        },
+        {
+          "row": 15,
+          "cells": {
+            "A": "Passed",
+            "L": "Nasti",
+            "M": "E2",
+            "N": "Dorothy",
+            "O": "E2",
+            "P": "Silence alter",
+            "Q": "E2",
+            "R": "Gold",
+            "S": "1.1",
+            "T": "0.0",
+            "BN": "Muelsyse",
+            "BO": "E2",
+            "BP": "0.22",
+            "BQ": "Ifrit",
+            "BR": "E2",
+            "BS": "0.15",
+            "CF": "Saria",
+            "EE": "Full Rhine lab with Nasti + Mumu."
+          }
+        },
+        {
+          "row": 16,
+          "cells": {
+            "A": "Passed",
+            "B": "Kirin Yato",
+            "C": "E2",
+            "D": "Noir Corne alter",
+            "E": "E2",
+            "L": "TRC",
+            "M": "E0 30",
+            "R": "Gold",
+            "S": "0.19",
+            "T": "8.0"
+          }
+        },
+        {
+          "row": 17,
+          "cells": {
+            "A": "Passed",
+            "B": "Kirin Yato",
+            "C": "E2",
+            "D": "Noir Corne alter",
+            "E": "E0",
+            "AV": "TRC",
+            "AW": "E0 30",
+            "BB": "LMD",
+            "BC": "0.41",
+            "BD": "2.0"
+          }
+        },
+        {
+          "row": 18,
+          "cells": {
+            "A": "Passed",
+            "B": "Kirin Yato",
+            "C": "E0",
+            "D": "Noir Corne alter",
+            "E": "E2",
+            "L": "TRC",
+            "M": "E0 30",
+            "R": "Gold",
+            "S": "0.17"
+          }
+        },
+        {
+          "row": 19,
+          "cells": {
+            "A": "Passed",
+            "D": "Noir Corne alter",
+            "E": "E2",
+            "AV": "TRC",
+            "AW": "E0 30",
+            "BB": "LMD",
+            "BC": "0.11",
+            "BD": "2.0"
+          }
+        },
+        {
+          "row": 20,
+          "cells": {
+            "A": "Passed",
+            "L": "Marcille",
+            "M": "E2",
+            "R": "Gold",
+            "S": "0.35",
+            "AV": "Chilchuck",
+            "AW": "E2",
+            "BB": "LMD",
+            "BC": "0.35",
+            "BD": "1.0",
+            "BW": "Laios",
+            "BX": "E2",
+            "CA": "0.55",
+            "CG": "Senshi",
+            "CH": "E2",
+            "EE": "Dungeon Meshi"
+          }
+        },
+        {
+          "row": 21,
+          "cells": {
+            "A": "Passed",
+            "B": "Sakiko",
+            "C": "E2",
+            "D": "Uika",
+            "E": "E2",
+            "F": "Mutsumi",
+            "G": "E2",
+            "H": "Umiri",
+            "I": "E2",
+            "J": "Nyamu",
+            "K": "E2",
+            "L": "Vanilla",
+            "M": "E0",
+            "R": "Gold",
+            "S": "0.29",
+            "T": "0.0",
+            "U": "Jessica",
+            "V": "E0",
+            "AA": "EXP",
+            "AB": "0.25",
+            "AC": "0.0",
+            "AV": "Vigil",
+            "AW": "E2",
+            "BB": "LMD",
+            "BC": "0.52",
+            "BD": "0.0",
+            "BW": "12F",
+            "BX": "E0",
+            "CA": "0.3",
+            "CB": "Eyjafjalla",
+            "CC": "E2",
+            "CD": "0.55",
+            "CG": "Any",
+            "CH": "Any",
+            "CI": "Any",
+            "CJ": "Any",
+            "CK": "Any",
+            "CL": "Any",
+            "CM": "Any",
+            "CN": "Any",
+            "CO": "Any",
+            "CP": "Any",
+            "CQ": "Any",
+            "CR": "Any",
+            "CS": "Any",
+            "CT": "Any",
+            "CU": "Any",
+            "CV": "Any",
+            "CW": "Any",
+            "CX": "Any",
+            "CY": "Any",
+            "CZ": "Any",
+            "DA": "Any",
+            "DB": "Any",
+            "DC": "Any",
+            "DD": "Any",
+            "DE": "Any",
+            "DF": "Any",
+            "DG": "Any",
+            "DH": "Any",
+            "DI": "Any",
+            "DJ": "Any",
+            "DK": "Any",
+            "DL": "Any",
+            "DM": "Any",
+            "DN": "Any",
+            "DO": "Any",
+            "DP": "Any",
+            "DQ": "Any",
+            "DR": "Any",
+            "DS": "Any",
+            "DT": "Any",
+            "DU": "Any",
+            "DV": "Any",
+            "DW": "Any",
+            "DX": "Any",
+            "DY": "Any",
+            "DZ": "Any",
+            "EA": "Any",
+            "EB": "Any",
+            "EC": "Any",
+            "ED": "Any",
+            "EE": "Ave Mujica"
+          }
+        },
+        {
+          "row": 22,
+          "cells": {
+            "A": "Passed",
+            "B": "Wisadel",
+            "C": "E2",
+            "D": "Civilight Eterna",
+            "E": "E2",
+            "AV": "Hoederer",
+            "AW": "E2",
+            "BB": "LMD",
+            "BC": "0.4",
+            "BD": "2.0",
+            "BW": "Ines",
+            "BX": "E2",
+            "CA": "66-76%",
+            "CF": "W",
+            "EE": "Babel squad (minus Amimi)"
+          }
+        },
+        {
+          "row": 23,
+          "cells": {
+            "A": "Passed",
+            "B": "Raidian",
+            "C": "E2",
+            "L": "Rosmontis",
+            "M": "E2",
+            "R": "Gold",
+            "S": "0.0",
+            "T": "0.0",
+            "AV": "Mantra",
+            "AW": "E2",
+            "BB": "LMD",
+            "BC": "0.37",
+            "BD": "0.0",
+            "BN": "Blaze alter",
+            "BO": "E2",
+            "BP": "0.2",
+            "BQ": "Blaze",
+            "BR": "E2",
+            "BS": "0.1",
+            "CF": "Logos",
+            "EE": "Mantra elite squad"
+          }
+        },
+        {
+          "row": 24,
+          "cells": {
+            "A": "Passed",
+            "B": "Dusk",
+            "C": "E2",
+            "D": "Ling",
+            "E": "E2",
+            "F": "Chongyue",
+            "G": "E2",
+            "H": "Saileach",
+            "I": "E2",
+            "J": "Wang",
+            "K": "E2",
+            "AV": "Mr. Nothing",
+            "AW": "E2",
+            "AX": "Taraxacum",
+            "AY": "E2",
+            "AZ": "Wind Chimes",
+            "BA": "E2",
+            "BB": "LMD",
+            "BC": "1.15",
+            "BD": "0.0",
+            "BW": "Chen3",
+            "BX": "E2",
+            "CA": "0.54",
+            "CB": "Mulberry",
+            "CC": "E2",
+            "CD": "0.4",
+            "CF": "Yu",
+            "CG": "Any",
+            "CH": "Any",
+            "CI": "Any",
+            "CJ": "Any",
+            "CK": "Any",
+            "CL": "Any",
+            "CM": "Any",
+            "CN": "Any",
+            "CO": "Any",
+            "CP": "Any",
+            "CQ": "Any",
+            "CR": "Any",
+            "CS": "Any",
+            "CT": "Any",
+            "CU": "Any",
+            "CV": "Any",
+            "CW": "Any",
+            "CX": "Any",
+            "CY": "Any",
+            "CZ": "Any",
+            "DA": "Any",
+            "DB": "Any",
+            "DC": "Any",
+            "DD": "Any",
+            "DE": "Any",
+            "DF": "Any",
+            "DG": "Any",
+            "DH": "Any",
+            "DI": "Any",
+            "DJ": "Any",
+            "DK": "Any",
+            "DL": "Any",
+            "DM": "Any",
+            "DN": "Any",
+            "DO": "Any",
+            "DP": "Any",
+            "DQ": "Any",
+            "DR": "Any",
+            "DS": "Any",
+            "DT": "Any",
+            "DU": "Any",
+            "DV": "Any",
+            "DW": "Any",
+            "DX": "Any",
+            "DY": "Any",
+            "DZ": "Any",
+            "EA": "Any",
+            "EB": "Any",
+            "EC": "Any",
+            "ED": "Any",
+            "EE": "Worldly Plight"
+          }
+        }
+      ]
+    },
+    {
+      "name": "252",
+      "groups": [
+        {
+          "label": "See Annex 4 first",
+          "fields": {
+            "A": "TEST VALIDATED?"
+          }
+        },
+        {
+          "label": "CONTROL CENTER",
+          "fields": {
+            "B": "Operator 1",
+            "C": "Pr. 1",
+            "D": "Operator 2",
+            "E": "Pr. 2",
+            "F": "Operator 3",
+            "G": "Pr. 3",
+            "H": "Operator 4",
+            "I": "Pr. 4",
+            "J": "Operator 5",
+            "K": "Pr. 5"
+          }
+        },
+        {
+          "label": "FACTORY 1",
+          "fields": {
+            "L": "Operator 1",
+            "M": "Pr. 1",
+            "N": "Operator 2",
+            "O": "Pr. 2",
+            "P": "Operator 3",
+            "Q": "Pr. 3",
+            "R": "Recipe",
+            "S": "Prod",
+            "T": "CAP"
+          }
+        },
+        {
+          "label": "FACTORY 2",
+          "fields": {
+            "U": "Operator 1",
+            "V": "Pr. 1",
+            "W": "Operator 2",
+            "X": "Pr. 2",
+            "Y": "Operator 3",
+            "Z": "Pr. 3",
+            "AA": "Recipe",
+            "AB": "Prod",
+            "AC": "CAP"
+          }
+        },
+        {
+          "label": "FACTORY 3",
+          "fields": {
+            "AD": "Operator 1",
+            "AE": "Pr. 1",
+            "AF": "Operator 2",
+            "AG": "Pr. 2",
+            "AH": "Operator 3",
+            "AI": "Pr. 3",
+            "AJ": "Recipe",
+            "AK": "Prod",
+            "AL": "CAP"
+          }
+        },
+        {
+          "label": "FACTORY 4",
+          "fields": {
+            "AM": "Operator 1",
+            "AN": "Pr. 1",
+            "AO": "Operator 2",
+            "AP": "Pr. 2",
+            "AQ": "Operator 3",
+            "AR": "Pr. 3",
+            "AS": "Recipe",
+            "AT": "Prod",
+            "AU": "CAP"
+          }
+        },
+        {
+          "label": "FACTORY 5",
+          "fields": {
+            "AV": "Operator 1",
+            "AW": "Pr. 1",
+            "AX": "Operator 2",
+            "AY": "Pr. 2",
+            "AZ": "Operator 3",
+            "BA": "Pr. 3",
+            "BB": "Recipe",
+            "BC": "Prod",
+            "BD": "CAP"
+          }
+        },
+        {
+          "label": "TRADING POST 1 (level 3)",
+          "fields": {
+            "BE": "Operator 1",
+            "BF": "Pr. 1",
+            "BG": "Operator 2",
+            "BH": "Pr. 2",
+            "BI": "Operator 3",
+            "BJ": "Pr. 3",
+            "BK": "Recipe",
+            "BL": "Prod",
+            "BM": "CAP"
+          }
+        },
+        {
+          "label": "TRADING POST 2 (level 2)",
+          "fields": {
+            "BN": "Operator 1",
+            "BO": "Pr. 1",
+            "BP": "Operator 2",
+            "BQ": "Pr. 2",
+            "BR": "Recipe",
+            "BS": "Prod",
+            "BT": "CAP"
+          }
+        },
+        {
+          "label": "POWER PLANT 1",
+          "fields": {
+            "BU": "Operator",
+            "BV": "Pr.",
+            "BW": "Prod"
+          }
+        },
+        {
+          "label": "POWER PLANT 2",
+          "fields": {
+            "BX": "Operator",
+            "BY": "Pr.",
+            "BZ": "Prod"
+          }
+        },
+        {
+          "label": "RECEPTION ROOM (lvl 2)",
+          "fields": {
+            "CA": "Operator 1",
+            "CB": "Pr. 1",
+            "CC": "Operator 2",
+            "CD": "Pr. 2",
+            "CE": "Prod"
+          }
+        },
+        {
+          "label": "OFFICE (lvl 1)",
+          "fields": {
+            "CF": "Operator",
+            "CG": "Pr.",
+            "CH": "Prod"
+          }
+        },
+        {
+          "label": "WORKSHOP",
+          "fields": {
+            "CI": "Operator"
+          }
+        },
+        {
+          "label": "TRAINING ROOM",
+          "fields": {
+            "CJ": "Operator"
+          }
+        },
+        {
+          "label": "DORM 1 (lvl 1)",
+          "fields": {
+            "CK": "Operator 1",
+            "CL": "Pr. 1",
+            "CM": "Operator 2",
+            "CN": "Pr. 2",
+            "CO": "Operator 3",
+            "CP": "Pr. 3",
+            "CQ": "Operator 4",
+            "CR": "Pr. 4",
+            "CS": "Operator 5",
+            "CT": "Pr. 5"
+          }
+        },
+        {
+          "label": "DORM 2 (lvl 1)",
+          "fields": {
+            "CU": "Operator 1",
+            "CV": "Pr. 1",
+            "CW": "Operator 2",
+            "CX": "Pr. 2",
+            "CY": "Operator 3",
+            "CZ": "Pr. 3",
+            "DA": "Operator 4",
+            "DB": "Pr. 4",
+            "DC": "Operator 5",
+            "DD": "Pr. 5"
+          }
+        },
+        {
+          "label": "DORM 3 (lvl 1)",
+          "fields": {
+            "DE": "Operator 1",
+            "DF": "Pr. 1",
+            "DG": "Operator 2",
+            "DH": "Pr. 2",
+            "DI": "Operator 3",
+            "DJ": "Pr. 3",
+            "DK": "Operator 4",
+            "DL": "Pr. 4",
+            "DM": "Operator 5",
+            "DN": "Pr. 5"
+          }
+        },
+        {
+          "label": "DORM 4 (lvl 1)",
+          "fields": {
+            "DO": "Operator 1",
+            "DP": "Pr. 1",
+            "DQ": "Operator 2",
+            "DR": "Pr. 2",
+            "DS": "Operator 3",
+            "DT": "Pr. 3",
+            "DU": "Operator 4",
+            "DV": "Pr. 4",
+            "DW": "Operator 5",
+            "DX": "Pr. 5"
+          }
+        },
+        {
+          "label": "DORM 5 (lvl 1)",
+          "fields": {
+            "DY": "Operator 1",
+            "DZ": "Pr. 1",
+            "EA": "Operator 2",
+            "EB": "Pr. 2",
+            "EC": "Operator 3",
+            "ED": "Pr. 3",
+            "EE": "Operator 4",
+            "EF": "Pr. 4",
+            "EG": "Operator 5",
+            "EH": "Pr. 5"
+          }
+        }
+      ],
+      "cases": [
+        {
+          "row": 3,
+          "cells": {
+            "A": "Failed",
+            "L": "Rosmontis",
+            "M": "E2",
+            "R": "Gold",
+            "S": "0.04",
+            "T": "0.0",
+            "AA": "Gold",
+            "AJ": "Gold",
+            "AS": "Gold",
+            "BB": "Gold",
+            "BK": "LMD",
+            "BR": "LMD",
+            "CF": "Whisperain",
+            "CG": "E2",
+            "CH": "0.2",
+            "CK": "Czerny",
+            "CL": "E2",
+            "CM": "Iris",
+            "CN": "E2",
+            "EI": "Czerny and Iris both give 5 PI (Perception Information) regardless of the level of the currrent dorm, when they should give exactly 1 PI per level of their current dorm (so 1-5). Whisperain gives 20 PI (after conversion) regardless of the level of the Office, when she should give 0 at HR1, 10 at HR2 and 20 at HR3."
+          }
+        },
+        {
+          "row": 4,
+          "cells": {
+            "A": "Failed",
+            "R": "Gold",
+            "BE": "Mr. Nothing",
+            "BF": "E2",
+            "BK": "LMD",
+            "BL": "0.0",
+            "BM": "0.0",
+            "BR": "LMD",
+            "CF": "Mulberry",
+            "CG": "E2",
+            "CH": "0.2",
+            "EI": "Mulberry provides 20 WP (Worldly Plight) regardless of the level of the office, when she should give 0 at HR1, 10 at HR2 and 20 at HR3."
+          }
+        },
+        {
+          "row": 5,
+          "cells": {
+            "A": "Passed",
+            "L": "Weedy",
+            "M": "E2",
+            "N": "Eunectes",
+            "O": "E2",
+            "P": "Passenger",
+            "Q": "E2",
+            "R": "Gold",
+            "S": "0.6",
+            "T": "0.0",
+            "BR": "LMD",
+            "EI": "Power plant count"
+          }
+        },
+        {
+          "row": 6,
+          "cells": {
+            "A": "Failed",
+            "R": "Gold",
+            "BE": "Jaye",
+            "BF": "E0",
+            "BK": "LMD",
+            "BL": "~25% (12h)\n<15% (24h)",
+            "BM": "0.0",
+            "BR": "LMD",
+            "EI": "It's a weird one.\nJaye's productivity at E0 decreases as orders start stacking up and aren't being retrieved. He should start losing productivity over time (4% per order, every 170.4mn on average). Probably should drop it when the user changes the rotation time to 12/16/20/24h. The usual way to go about it is to pick Jaye's top productivity (4% x order limit) and just remove 15% to get the average 12h productivity.\nE.G: In a TP2, he'd get 4% x 8 = 32% productivity at the start, dropping to 17% after 12h.\nCurrently never changes, whether in a TP2 or TP3."
+          }
+        },
+        {
+          "row": 7,
+          "cells": {
+            "A": "Failed",
+            "R": "Gold",
+            "BK": "LMD",
+            "BN": "Jaye",
+            "BO": "E0",
+            "BR": "LMD",
+            "BS": "~17% (12h)\n<12% (24h)",
+            "BT": "0.0"
+          }
+        },
+        {
+          "row": 8,
+          "cells": {
+            "A": "Failed",
+            "L": "Narantuya",
+            "M": "E2",
+            "R": "Gold",
+            "S": "0.05",
+            "T": "10.0",
+            "BK": "LMD",
+            "BR": "LMD",
+            "EI": "Doesn't count the dorm levels properly (gives 20%, as if all dorms were maxed, when she should give 1 per dorm level)"
+          }
+        },
+        {
+          "row": 9,
+          "cells": {
+            "A": "Failed",
+            "L": "Minimalist",
+            "M": "E2",
+            "R": "Gold",
+            "S": "0.25",
+            "T": "0.0",
+            "BK": "LMD",
+            "BR": "LMD",
+            "EI": "Each facility level gives 1 ER (Engineering Robot), the setup should provide 44 ER, then Minimalist gives 5% productivity per 16 (E1)/8 (E2) ER. 44 ER should result in 25% PD for 252 setups and 40% for 243."
+          }
+        },
+        {
+          "row": 10,
+          "cells": {
+            "A": "Failed",
+            "BE": "Vigil",
+            "BF": "E2",
+            "BG": "Bellone",
+            "BH": "E2",
+            "BK": "LMD",
+            "BL": "0.75",
+            "BM": "2.0",
+            "BR": "LMD",
+            "EI": "Got 40% from Vigil, assumes RR is at level 3, when Vigil should provide 25% (no RR) / 30% (RR1) / 35% (RR2) / 40% (RR3). Bellone skills should be implemented, now that he is available."
+          }
+        },
+        {
+          "row": 11,
+          "cells": {
+            "A": "Failed",
+            "BE": "Vigil",
+            "BF": "E2",
+            "BK": "LMD",
+            "BL": "0.35",
+            "BM": "0.0",
+            "BN": "Bellone",
+            "BO": "E2",
+            "BR": "LMD",
+            "BS": "0.3",
+            "BT": "0.0",
+            "EI": "See above."
+          }
+        },
+        {
+          "row": 12,
+          "cells": {
+            "A": "Failed",
+            "BE": "Mitm",
+            "BF": "E2",
+            "BK": "LMD",
+            "BL": "0.25",
+            "BM": "0.0",
+            "BR": "LMD",
+            "EI": "Assumes RR is at level 3, should be 15% + 5% per RR level"
+          }
+        },
+        {
+          "row": 13,
+          "cells": {
+            "A": "Passed",
+            "BK": "LMD",
+            "BR": "LMD",
+            "BU": "Philae",
+            "BV": "E2",
+            "BW": "0.12"
+          }
+        },
+        {
+          "row": 14,
+          "cells": {
+            "A": "Failed",
+            "BR": "LMD",
+            "CF": "Tin Man",
+            "CG": "E2",
+            "CH": "0.13",
+            "EI": "Obtained 45%, assumes all dorm levels are maxed, when it should be 5% + 2% per dorm level"
+          }
+        },
+        {
+          "row": 15,
+          "cells": {
+            "A": "Failed",
+            "BR": "LMD",
+            "CF": "Lin",
+            "CG": "E2",
+            "CH": "0.2",
+            "EI": "Obtained 40%, assumes the officie is at level 3, when she should provide 20% (HR1), 30% (HR2) or 40% (HR3)"
+          }
+        },
+        {
+          "row": 16,
+          "cells": {
+            "A": "Failed",
+            "BR": "LMD",
+            "CA": "Projekt Red",
+            "CB": "E2",
+            "CE": "0.5",
+            "CF": "Mr Nothing",
+            "CG": "E2",
+            "CH": "0.35",
+            "EI": "Mr. Nothing should not boost the RR, since the HR is level 1"
+          }
+        },
+        {
+          "row": 17,
+          "cells": {
+            "A": "Failed",
+            "BR": "LMD",
+            "CA": "Projekt Red",
+            "CB": "E2",
+            "CE": "0.5",
+            "CF": "Ukusik",
+            "CG": "E2",
+            "CH": "0.35",
+            "EI": "Same as above, but for Ukusik"
+          }
+        },
+        {
+          "row": 18,
+          "cells": {
+            "A": "Failed",
+            "BR": "LMD",
+            "CA": "Projekt Red",
+            "CB": "E2",
+            "CE": "0.5",
+            "CF": "Tsukinogi",
+            "CG": "E2",
+            "CH": "0.35",
+            "EI": "Same as above, but for Tsukinogi"
+          }
+        }
+      ]
+    },
+    {
+      "name": "342",
+      "groups": [
+        {
+          "label": "CONTROL CENTER",
+          "fields": {
+            "B": "Operator 1",
+            "C": "Pr. 1",
+            "D": "Operator 2",
+            "E": "Pr. 2",
+            "F": "Operator 3",
+            "G": "Pr. 3",
+            "H": "Operator 4",
+            "I": "Pr. 4",
+            "J": "Operator 5",
+            "K": "Pr. 5"
+          }
+        },
+        {
+          "label": "FACTORY 1",
+          "fields": {
+            "L": "Operator 1",
+            "M": "Pr. 1",
+            "N": "Operator 2",
+            "O": "Pr. 2",
+            "P": "Operator 3",
+            "Q": "Pr. 3",
+            "R": "Recipe",
+            "S": "Prod",
+            "T": "CAP"
+          }
+        },
+        {
+          "label": "FACTORY 2",
+          "fields": {
+            "U": "Operator 1",
+            "V": "Pr. 1",
+            "W": "Operator 2",
+            "X": "Pr. 2",
+            "Y": "Operator 3",
+            "Z": "Pr. 3",
+            "AA": "Recipe",
+            "AB": "Prod",
+            "AC": "CAP"
+          }
+        },
+        {
+          "label": "FACTORY 3",
+          "fields": {
+            "AD": "Operator 1",
+            "AE": "Pr. 1",
+            "AF": "Operator 2",
+            "AG": "Pr. 2",
+            "AH": "Operator 3",
+            "AI": "Pr. 3",
+            "AJ": "Recipe",
+            "AK": "Prod",
+            "AL": "CAP"
+          }
+        },
+        {
+          "label": "FACTORY 4",
+          "fields": {
+            "AM": "Operator 1",
+            "AN": "Pr. 1",
+            "AO": "Operator 2",
+            "AP": "Pr. 2",
+            "AQ": "Operator 3",
+            "AR": "Pr. 3",
+            "AS": "Recipe",
+            "AT": "Prod",
+            "AU": "CAP"
+          }
+        },
+        {
+          "label": "TRADING POST 1",
+          "fields": {
+            "AV": "Operator 1",
+            "AW": "Pr. 1",
+            "AX": "Operator 2",
+            "AY": "Pr. 2",
+            "AZ": "Operator 3",
+            "BA": "Pr. 3",
+            "BB": "Recipe",
+            "BC": "Prod",
+            "BD": "CAP"
+          }
+        },
+        {
+          "label": "TRADING POST 2",
+          "fields": {
+            "BE": "Operator 1",
+            "BF": "Pr. 1",
+            "BG": "Operator 2",
+            "BH": "Pr. 2",
+            "BI": "Operator 3",
+            "BJ": "Pr. 3",
+            "BK": "Recipe",
+            "BL": "Prod",
+            "BM": "CAP"
+          }
+        },
+        {
+          "label": "TRADING POST 1",
+          "fields": {
+            "BN": "Operator 1",
+            "BO": "Pr. 1",
+            "BP": "Operator 2",
+            "BQ": "Pr. 2",
+            "BR": "Operator 3",
+            "BS": "Pr. 3",
+            "BT": "Recipe",
+            "BU": "Prod",
+            "BV": "CAP"
+          }
+        },
+        {
+          "label": "POWER PLANT 1",
+          "fields": {
+            "BW": "Operator",
+            "BX": "Pr.",
+            "BY": "Prod"
+          }
+        },
+        {
+          "label": "POWER PLANT 2",
+          "fields": {
+            "BZ": "Operator",
+            "CA": "Pr.",
+            "CB": "Prod"
+          }
+        },
+        {
+          "label": "POWER PLANT 3",
+          "fields": {
+            "CC": "Operator",
+            "CD": "Pr.",
+            "CE": "Prod"
+          }
+        },
+        {
+          "label": "RECEPTION ROOM",
+          "fields": {
+            "CF": "Operator 1",
+            "CG": "Pr. 1",
+            "CH": "Operator 2",
+            "CI": "Pr. 2",
+            "CJ": "Prod"
+          }
+        },
+        {
+          "label": "OFFICE",
+          "fields": {
+            "CK": "Operator",
+            "CL": "Pr.",
+            "CM": "Prod"
+          }
+        },
+        {
+          "label": "WORKSHOP",
+          "fields": {
+            "CN": "Operator"
+          }
+        },
+        {
+          "label": "TRAINING ROOM",
+          "fields": {
+            "CO": "Operator"
+          }
+        },
+        {
+          "label": "DORM 1",
+          "fields": {
+            "CP": "Operator 1",
+            "CQ": "Pr. 1",
+            "CR": "Operator 2",
+            "CS": "Pr. 2",
+            "CT": "Operator 3",
+            "CU": "Pr. 3",
+            "CV": "Operator 4",
+            "CW": "Pr. 4",
+            "CX": "Operator 5",
+            "CY": "Pr. 5"
+          }
+        },
+        {
+          "label": "DORM 2",
+          "fields": {
+            "CZ": "Operator 1",
+            "DA": "Pr. 1",
+            "DB": "Operator 2",
+            "DC": "Pr. 2",
+            "DD": "Operator 3",
+            "DE": "Pr. 3",
+            "DF": "Operator 4",
+            "DG": "Pr. 4",
+            "DH": "Operator 5",
+            "DI": "Pr. 5"
+          }
+        },
+        {
+          "label": "DORM 3",
+          "fields": {
+            "DJ": "Operator 1",
+            "DK": "Pr. 1",
+            "DL": "Operator 2",
+            "DM": "Pr. 2",
+            "DN": "Operator 3",
+            "DO": "Pr. 3",
+            "DP": "Operator 4",
+            "DQ": "Pr. 4",
+            "DR": "Operator 5",
+            "DS": "Pr. 5"
+          }
+        },
+        {
+          "label": "DORM 4",
+          "fields": {
+            "DT": "Operator 1",
+            "DU": "Pr. 1",
+            "DV": "Operator 2",
+            "DW": "Pr. 2",
+            "DX": "Operator 3",
+            "DY": "Pr. 3",
+            "DZ": "Operator 4",
+            "EA": "Pr. 4",
+            "EB": "Operator 5",
+            "EC": "Pr. 5"
+          }
+        },
+        {
+          "label": "DORM 5",
+          "fields": {
+            "ED": "Operator 1",
+            "EE": "Pr. 1",
+            "EF": "Operator 2",
+            "EG": "Pr. 2",
+            "EH": "Operator 3",
+            "EI": "Pr. 3",
+            "EJ": "Operator 4",
+            "EK": "Pr. 4",
+            "EL": "Operator 5",
+            "EM": "Pr. 5"
+          }
+        }
+      ],
+      "cases": [
+        {
+          "row": 3,
+          "cells": {
+            "A": "Passed",
+            "L": "Thorns alter",
+            "M": "E2",
+            "N": "Purestream",
+            "O": "E1",
+            "R": "Gold",
+            "S": "0.99",
+            "T": "0.0",
+            "AA": "Gold",
+            "AJ": "Gold",
+            "AS": "Gold",
+            "BB": "LMD",
+            "BK": "LMD",
+            "BT": "LMD",
+            "EN": "3 TPs = 30% + 3% * 3 for Thornslat, 20% * 3 for Purestream"
+          }
+        }
+      ]
+    }
+  ]
+}

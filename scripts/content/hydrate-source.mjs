@@ -43,6 +43,8 @@ const SEEDED_SOURCE_FILES = new Set([
   'data/community-web-events.json',
   'data/base-group-rosters.json',
   'data/base-skill-slots.json',
+  'data/base-skill-translations.json',
+  'data/base-workshop-recipes.json',
   'data/farming-tiers.json',
   // The planner's material catalogue (scripts/build/build-material-catalogue.mjs, regenerated
   // every run) and the English names of CN-only materials it reads (kept by hand).

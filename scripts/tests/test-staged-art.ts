@@ -49,7 +49,7 @@ function temporary(run: (root: string) => void) {
 /* ---- the registry --------------------------------------------------------------- */
 
 // .cache/ folders the refresh uses for anything but art on its way to the image repository.
-const NOT_ART = new Set(['upstream', 'catalogue', 'staged-art', 'new-songs', 'stage-snapshot', 'refresh-fingerprint', 'prepared-inputs', 'content-baseline', 'arkgraph-mapping']);
+const NOT_ART = new Set(['upstream', 'catalogue', 'staged-art', 'new-songs', 'stage-snapshot', 'refresh-fingerprint', 'prepared-inputs', 'content-baseline', 'arkgraph-mapping', 'base-audit']);
 
 test('every refresh script that stages art under .cache/ stages a kind the staged-art stage publishes', () => {
   const scripts = refreshScripts();
