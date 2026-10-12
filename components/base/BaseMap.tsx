@@ -8,23 +8,34 @@ export default function BaseMap({ children }: { children: ReactNode }) {
   const [size, setSize] = useState({ width: 974, height: 774 });
   const [zoom, setZoom] = useState(1);
   const zoomRef = useRef(1);
+  const [minimumZoom, setMinimumZoom] = useState(1);
+  const minimumZoomRef = useRef(1);
   const userZoomed = useRef(false);
   const [fullscreen, setFullscreen] = useState(false);
   const drag = useRef<{ x: number; y: number; left: number; top: number } | null>(null);
   const moved = useRef(false);
 
+  const fittedZoom = useCallback(() => {
+    if (!viewport.current || !content.current) return 1;
+    // Whole percentage steps match the slider and stay inside the viewport.
+    return Math.min(1, Math.max(0.01, Math.floor((viewport.current.clientWidth - 16) / content.current.offsetWidth * 100) / 100));
+  }, []);
+
   const fit = useCallback(() => {
-    if (!viewport.current || !content.current) return;
-    const next = Math.min(1, (viewport.current.clientWidth - 16) / content.current.offsetWidth);
+    if (!viewport.current) return;
+    const next = fittedZoom();
+    minimumZoomRef.current = next;
+    setMinimumZoom(next);
     zoomRef.current = next;
     setZoom(next);
     viewport.current.scrollTo(0, 0);
-  }, []);
+  }, [fittedZoom]);
 
   const zoomAt = useCallback((value: number, x?: number, y?: number) => {
     const view = viewport.current;
     if (!view) return;
-    const next = Math.min(2.5, Math.max(0.2, value));
+    const next = Math.min(2.5, value <= minimumZoomRef.current + 1e-9 ? minimumZoomRef.current : value);
+    if (next === zoomRef.current) return;
     const anchorX = x ?? view.clientWidth / 2, anchorY = y ?? view.clientHeight / 2;
     const left = (view.scrollLeft + anchorX - 8) / zoomRef.current;
     const top = (view.scrollTop + anchorY - 8) / zoomRef.current;
@@ -42,14 +53,17 @@ export default function BaseMap({ children }: { children: ReactNode }) {
       const widthChanged = view.clientWidth !== previousWidth;
       previousWidth = view.clientWidth;
       setSize({ width: grid.offsetWidth, height: grid.offsetHeight });
+      const minimum = fittedZoom();
+      minimumZoomRef.current = minimum;
+      setMinimumZoom(minimum);
       // Staffing can change a row's height. Resize its scrollable canvas without
       // resetting a view the reader has already panned to that room.
-      if (widthChanged && !userZoomed.current) fit();
+      if (widthChanged && (!userZoomed.current || zoomRef.current < minimum)) fit();
     });
     observer.observe(view);
     observer.observe(grid);
     return () => observer.disconnect();
-  }, [fit]);
+  }, [fit, fittedZoom]);
 
   useEffect(() => {
     const view = viewport.current;
@@ -102,7 +116,7 @@ export default function BaseMap({ children }: { children: ReactNode }) {
         setFullscreen(false);
         fullscreenButton.current?.focus();
       } else if (event.key === 'Tab') {
-        const controls = Array.from(viewport.current!.parentElement!.querySelectorAll<HTMLElement>('button, input'));
+        const controls = Array.from(viewport.current!.parentElement!.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled)'));
         const first = controls[0], last = controls[controls.length - 1];
         if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
         else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
@@ -117,8 +131,8 @@ export default function BaseMap({ children }: { children: ReactNode }) {
 
   return <section className={`base-map${fullscreen ? ' is-fullscreen' : ''}`} aria-label="Base floor plan" role={fullscreen ? 'dialog' : undefined} aria-modal={fullscreen || undefined}>
     <div className="base-map-controls">
-      <button type="button" className="ghost" aria-label="Zoom out" onClick={() => zoomAt(zoomRef.current / 1.2)}>−</button>
-      <input type="range" aria-label="Base zoom" min="0.2" max="2.5" step="0.01" value={zoom} onChange={event => zoomAt(Number(event.target.value))} />
+      <button type="button" className="ghost" aria-label="Zoom out" disabled={zoom <= minimumZoom} onClick={() => zoomAt(zoomRef.current / 1.2)}>−</button>
+      <input type="range" aria-label="Base zoom" min={minimumZoom} max="2.5" step="0.01" value={zoom} onChange={event => zoomAt(Number(event.target.value))} />
       <button type="button" className="ghost" aria-label="Zoom in" onClick={() => zoomAt(zoomRef.current * 1.2)}>+</button>
       <span className="base-map-zoom-value">{Math.round(zoom * 100)}%</span>
       <button type="button" className="ghost" onClick={() => { userZoomed.current = false; fit(); }}>Fit base</button>

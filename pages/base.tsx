@@ -2,6 +2,7 @@ import NumberInput from '@/components/ui/NumberInput';
 import ImportDialog from '@/components/account/ImportDialog';
 import BaseOverview, { type BaseRoomSummary } from '@/components/base/BaseOverview';
 import BaseRotationPanel from '@/components/base/BaseRotationPanel';
+import BasePresetToolbar from '@/components/base/BasePresetToolbar';
 import Image from '@/components/content/ContentImage';
 import PageHeader from '@/components/ui/PageHeader';
 import StyledSelect from '@/components/ui/StyledSelect';
@@ -41,7 +42,7 @@ import {
   runRotationExperiment,
 } from '@/lib/base/baseRotationExperiment';
 import { BASE_ROTATION_PLAN_KEY, readRotationPlan, type BaseRotationPlan } from '@/lib/base/baseRotationPlan';
-import { readSavedBasePresets, SAVED_BASE_PRESETS_KEY, type SavedBasePreset } from '@/lib/base/baseSavedPresets';
+import { basePresetConfiguration, readSavedBasePresets, SAVED_BASE_PRESETS_KEY, type SavedBasePreset } from '@/lib/base/baseSavedPresets';
 import { BaseSkillSlots } from '@/lib/base/baseSkillSlots';
 import { downloadBaseSnapshotImage } from '@/lib/base/baseSnapshotImage';
 import {
@@ -184,8 +185,7 @@ export default function BasePage({ operators }: Props) {
   const [roomPanelFacilityId, setRoomPanelFacilityId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [savedPresets, setSavedPresets] = useState<SavedBasePreset[]>([]);
-  const [showSavedPresets, setShowSavedPresets] = useState(false);
-  const [presetName, setPresetName] = useState('');
+  const presetControlsRef = useRef<HTMLDivElement>(null);
   const [selectedPreset, setSelectedPreset] = useState('');
   const [presetStatus, setPresetStatus] = useState('');
   const [viewMode] = useState<'cumulated' | 'separated'>('cumulated');
@@ -270,7 +270,9 @@ export default function BasePage({ operators }: Props) {
     panel.querySelector<HTMLButtonElement>('.base-room-back-btn')?.focus({ preventScroll: true });
     if (window.matchMedia('(max-width: 720px)').matches) panel.scrollIntoView({ block: 'start', behavior: 'auto' });
     const escape = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape' || document.querySelector('dialog[open]')) return;
+      // A preset popup can already be detached by its Escape handler. Its own
+      // subtree still identifies the event, so leave staffing open in that case.
+      if (event.key !== 'Escape' || document.querySelector('dialog[open]') || (event.target as HTMLElement)?.closest?.('.base-preset-toolbar, .base-preset-popover')) return;
       setRoomPanelFacilityId(null);
       setBreakdownFacilityId(null);
       setSearch('');
@@ -617,13 +619,26 @@ export default function BasePage({ operators }: Props) {
     try { window.localStorage.setItem(SAVED_BASE_PRESETS_KEY, JSON.stringify(next)); setSavedPresets(next); return true; }
     catch { setPresetStatus('Could not save: browser storage is unavailable or full.'); return false; }
   }
-  function saveNamedPreset(overwrite: boolean) {
-    if (baseSource === 'account') return;
+  function saveNamedPreset(newName?: string) {
+    if (baseSource === 'account') return false;
     const existing = savedPresets.find(p => p.id === selectedPreset);
-    const name = (overwrite ? existing?.name : presetName)?.trim().slice(0, 80);
-    if (!name) { setPresetStatus('Enter a name for this preset.'); return; }
-    const snapshot = captureSetup(overwrite && existing ? existing.id : crypto.randomUUID(), name);
-    if (storePresets([...savedPresets.filter(p => p.id !== snapshot.id), snapshot])) { setSelectedPreset(snapshot.id); setPresetName(''); setPresetStatus(`Saved ${name}.`); }
+    const name = (newName ?? existing?.name)?.trim().slice(0, 80);
+    if (!name) { setPresetStatus('Enter a name for this preset.'); return false; }
+    const snapshot = captureSetup(newName === undefined && existing ? existing.id : crypto.randomUUID(), name);
+    if (!storePresets(savedPresets.some(p => p.id === snapshot.id) ? savedPresets.map(p => p.id === snapshot.id ? snapshot : p) : [...savedPresets, snapshot])) return false;
+    setSelectedPreset(snapshot.id); setPresetStatus(`Saved ${name}.`); return true;
+  }
+  function renamePreset(name: string) {
+    const trimmed = name.trim().slice(0, 80);
+    if (!trimmed || baseSource === 'account' || !selectedPreset) return false;
+    if (!storePresets(savedPresets.map(p => p.id === selectedPreset ? { ...p, name: trimmed } : p))) return false;
+    setPresetStatus(`Renamed to ${trimmed}.`); return true;
+  }
+  function deletePreset() {
+    if (baseSource === 'account') return;
+    if (storePresets(savedPresets.filter(p => p.id !== selectedPreset))) {
+      setSelectedPreset(''); setPresetStatus('Preset deleted. Current staffing kept.');
+    }
   }
   function loadNamedPreset(id = selectedPreset) {
     const preset = readSavedBasePresets(savedPresets, new Set(operators.map(op => op.name))).find(p => p.id === id);
@@ -631,6 +646,14 @@ export default function BasePage({ operators }: Props) {
     setBaseSource('planner'); plannerBeforeImport.current = null;
     applySetupSnapshot(preset, true, true);
     setSelectedPreset(preset.id); setPresetStatus(`Loaded ${preset.name}.`);
+  }
+  function viewRotationShift(id: string) {
+    loadNamedPreset(id); setShowRotationPlan(false);
+    // The modal restores its trigger's focus on unmount; then move to the loaded base.
+    requestAnimationFrame(() => {
+      presetControlsRef.current?.focus({ preventScroll: true });
+      presetControlsRef.current?.scrollIntoView({ block: 'start' });
+    });
   }
   function captureSetup(id: string, name: string): SavedBasePreset {
     const rotationRates: Record<string, number> = {};
@@ -678,7 +701,7 @@ export default function BasePage({ operators }: Props) {
     const p = captureSetup(crypto.randomUUID(), `Imported ${account?.doctor ?? 'base'}`);
     // Keep the previous plan as a recoverable preset before replacing the draft.
     if (plannerBeforeImport.current?.complete && !storePresets([...savedPresets, { ...plannerBeforeImport.current.preset, id: crypto.randomUUID(), name: 'Plan before account copy' }])) return;
-    setBaseSource('planner'); plannerBeforeImport.current = null;
+    setBaseSource('planner'); plannerBeforeImport.current = null; setSelectedPreset('');
     applySetupSnapshot(p, true, true); setPresetStatus('Imported base copied into your plan.');
   }
   function addImportedShift() {
@@ -900,6 +923,15 @@ export default function BasePage({ operators }: Props) {
     ? calculateRotation({ operators, rosters, skillSlots, workshopRecipes }, rotationPlan, savedPresets,
       loginInterval, account?.base?.morale, ownedOperators ?? undefined)
     : null, [calculationSource, showRotationPlan, operators, rosters, skillSlots, workshopRecipes, rotationPlan, savedPresets, loginInterval, account?.base?.morale, ownedOperators]);
+  const presetDirty = useMemo(() => {
+    const selected = savedPresets.find(p => p.id === selectedPreset);
+    if (!selected || baseSource !== 'planner') return false;
+    const draft: SavedBasePreset = { version: 1, id: 'draft', name: 'Draft', savedAt: '', productionSpots, facilityLevels, assignments, factoryProducts, dormitoryAmbience, clueExchangeActive, moraleAbove12, swapPolicy, loginInterval, trainingTarget: resolvedTrainingTarget, workshopSettings };
+    const normalized = readSavedBasePresets([selected, draft], new Set(operators.map(op => op.name)));
+    return normalized.length !== 2 || basePresetConfiguration(normalized[0]) !== basePresetConfiguration(normalized[1]);
+  }, [savedPresets, selectedPreset, baseSource, productionSpots, facilityLevels, assignments, factoryProducts, dormitoryAmbience, clueExchangeActive, moraleAbove12, swapPolicy, loginInterval, resolvedTrainingTarget, workshopSettings, operators]);
+  const rotationDuration = rotationPlan.shifts.reduce((hours, shift) => hours + shift.hours, 0);
+  const rotationWarnings = [...new Set(rotationCalculation?.stages.flatMap(stage => stage.warnings) ?? [])];
   const summaryUnavailable = calculationSource === 'rotation' && !rotationCalculation?.totals;
   const {
     dailyExpGreen, dailyExpRed, dailyGoldMadeGreen, dailyGoldMadeRed,
@@ -1394,9 +1426,7 @@ export default function BasePage({ operators }: Props) {
         title="Base"
         sub="Staff your rooms, compare setups and plan the next shift."
         actions={<div className="base-view-controls">
-          <button type="button" className="ghost" disabled={baseSource === 'account'} aria-expanded={showSavedPresets && baseSource === 'planner'} aria-controls="base-saved-presets" onClick={() => setShowSavedPresets(!showSavedPresets)}>Presets</button>
           <button type="button" className="ghost" disabled={baseSource === 'account' && !account?.base} onClick={exportSnapshot}>Save image</button>
-          <button type="button" className="ghost" aria-haspopup="dialog" onClick={() => setShowRotationPlan(true)}>Rotation</button>
           {/* Outside the development-only guard below: the layout editor is a
               player-facing feature, not a debugging aid. It stays alongside
               the per-building gears for changing many rooms at once. */}
@@ -1415,26 +1445,7 @@ export default function BasePage({ operators }: Props) {
         {renderBaseSources()}
         {baseSource === 'account' && account?.base && <details className="base-import-notes"><summary>Snapshot and calculation limits{account.base.warnings.length ? ` (${account.base.warnings.length})` : ''}</summary><p>Rooms, staffing, levels and Morale are from the last import. Output uses known snapshot Morale, the current collection interval and manual skill conditions. Training mastery and factory recipe tiers are not imported; output is a planning estimate.</p><ul>{account.base.warnings.map(w => <li key={w}>{w}</li>)}</ul></details>}
         {(baseSource === 'planner' || account?.base) && <div className="base-production-strip" aria-label="Daily production estimates">{calculationSource === 'rotation' ? <span className="hint">Rotation estimate</span> : baseSource === 'account' && <span className="hint">Estimated output</span>}<span><strong>{summaryUnavailable ? '—' : Math.round(dailyGoldWorthGreen).toLocaleString()}</strong> LMD / day</span><span><strong>{summaryUnavailable ? '—' : Math.round(dailyExpGreen).toLocaleString()}</strong> EXP / day</span><span><strong>{summaryUnavailable ? '—' : dailyGoldMadeGreen.toFixed(1)}</strong> Gold / day</span><span className={basePower.ok ? undefined : 'prod-danger'}>Power <strong>{basePower.drawn} / {basePower.supplied}</strong>{!basePower.ok && ` · ${Math.abs(basePower.spare)} short`}</span></div>}
-        {showRotationPlan && <ImportDialog title="Rotation" className="base-rotation-dialog" onClose={() => setShowRotationPlan(false)}><BaseRotationPanel plan={rotationPlan} onChange={updateRotationPlan} presets={savedPresets} onLoad={id => { loadNamedPreset(id); setShowRotationPlan(false); }} initialMorale={account?.base?.morale ?? {}} owned={ownedOperators ?? undefined} imported={!!account?.base} stages={rotationCalculation?.stages} /></ImportDialog>}
-        {showSavedPresets && baseSource === 'planner'  && <section id="base-saved-presets" className="op-section base-saved-presets" aria-label="Saved base presets">
-          <div className="base-preset-row">
-            <label className="base-preset-field">Saved preset <StyledSelect label="Saved preset" placeholder={savedPresets.length ? 'Choose a preset' : 'No saved presets'} value={selectedPreset} onChange={setSelectedPreset} options={savedPresets.map(p => ({ value: p.id, label: p.name }))} /></label>
-            <div className="toolbar base-preset-actions" role="group" aria-label="Saved preset actions">
-              <button type="button" className="ghost" disabled={!selectedPreset} onClick={() => loadNamedPreset()}>Load</button>
-              <button type="button" className="ghost" disabled={!selectedPreset} onClick={() => saveNamedPreset(true)}>Update</button>
-              <button type="button" className="danger" disabled={!selectedPreset} onClick={() => { if (storePresets(savedPresets.filter(p => p.id !== selectedPreset))) { setSelectedPreset(''); setPresetStatus('Preset deleted.'); } }}>Delete</button>
-            </div>
-          </div>
-          <div className="base-preset-row">
-            <label className="base-preset-field">New preset <input type="text" maxLength={80} value={presetName} placeholder="e.g. Gold team" onChange={e => setPresetName(e.target.value)} /></label>
-            <div className="toolbar base-preset-actions" role="group" aria-label="New preset actions">
-              <button type="button" className="primary btn-sm" disabled={!presetName.trim()} onClick={() => saveNamedPreset(false)}>Save new</button>
-              <button type="button" className="danger" onClick={resetBase}>Clear base</button>
-            </div>
-          </div>
-          <p className="hint">Clear base keeps your layout, saved presets and rotation.</p>
-        </section>}
-        <p className="hint base-preset-status" role="status" aria-live="polite">{presetStatus}</p>
+        {showRotationPlan && <ImportDialog title="Rotation" className="base-rotation-dialog" onClose={() => setShowRotationPlan(false)}><BaseRotationPanel plan={rotationPlan} onChange={updateRotationPlan} presets={savedPresets} onLoad={viewRotationShift} initialMorale={account?.base?.morale ?? {}} owned={ownedOperators ?? undefined} imported={!!account?.base} stages={rotationCalculation?.stages} /></ImportDialog>}
         {ROTATION_EXPERIMENT_ENABLED && showRotationPanel && (
           <section className="op-section" style={{ marginBottom: 20 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
@@ -1539,6 +1550,10 @@ export default function BasePage({ operators }: Props) {
           </section>
         )}
 
+        {baseSource === 'planner' && setupComplete && <div ref={presetControlsRef} tabIndex={-1} className="base-preset-anchor">
+          <BasePresetToolbar presets={savedPresets} selected={selectedPreset} dirty={presetDirty} status={presetStatus} onLoad={loadNamedPreset} onSave={saveNamedPreset} onRename={renamePreset} onDelete={deletePreset} onClear={resetBase} />
+        </div>}
+        {baseSource === 'account' && <p className="hint base-preset-status" role="status" aria-live="polite">{presetStatus}</p>}
         {baseSource === 'account' && !account?.base ? (
           <section className="base-empty-message" aria-label="Imported base unavailable">
             <h2>{account ? 'Import your base snapshot' : 'Import an account to view your base'}</h2>
@@ -1548,7 +1563,7 @@ export default function BasePage({ operators }: Props) {
         ) : <div className={`base-command-workspace${roomPanelFacilityId || snapshotRoom ? ' has-room' : ''}${baseSource === 'planner' && roomPanelFacilityId ? ' is-staffing' : ''}`}>
           <BaseOverview loginInterval={loginInterval} facilities={FACILITIES} assignments={assignments} operators={operators} summaries={roomSummaries} selected={baseSource === 'account' ? snapshotRoom : roomPanelFacilityId} readOnly={baseSource === 'account'} onSelect={id => { if (baseSource === 'account') setSnapshotRoom(id); else { setBreakdownFacilityId(null); setSearch(''); openRoomPanel(id); } }} />
           <div className="base-command-editor">
-            {!roomPanelFacilityId && !snapshotRoom && <section className="base-editor-idle"><h2>{baseSource === 'account' ? 'Your imported base' : 'Staffing'}</h2><p>{baseSource === 'account' ? 'Select a room to inspect its imported operators and Morale.' : 'Select a room to change its workers, level or product.'}</p>{baseSource === 'planner' && <button type="button" className="ghost" onClick={() => setShowSavedPresets(true)}>Save this setup</button>}</section>}
+            {!roomPanelFacilityId && !snapshotRoom && <section className="base-editor-idle"><h2>{baseSource === 'account' ? 'Your imported base' : 'Staffing'}</h2><p>{baseSource === 'account' ? 'Select a room to inspect its imported operators and Morale.' : 'Select a room to change its workers, level or product.'}</p></section>}
             {baseSource === 'account' && snapshotRoom && <section className="base-import-room" aria-label="Imported room details">
               <div className="base-room-panel-header"><h2>{FACILITIES.find(f => f.id === snapshotRoom)?.label}</h2><button type="button" className="ghost" onClick={() => setSnapshotRoom(null)}>Close</button></div>
               <p>{roomSummaries.find(r => r.id === snapshotRoom)?.metric}</p>
@@ -1960,7 +1975,7 @@ export default function BasePage({ operators }: Props) {
             <div className="base-summary-panel" aria-label="Base production summary">
               <div className="base-summary-row">
                 <span className="base-summary-label">Calculate</span>
-                <div className="base-chip-row" role="radiogroup" aria-label="Calculation source" onKeyDown={event => {
+                <div className="base-calculation-controls"><div className="base-chip-row" role="radiogroup" aria-label="Calculation source" onKeyDown={event => {
                   if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return;
                   event.preventDefault();
                   const next = event.key === 'Home' ? 'current' : event.key === 'End' ? 'rotation' : calculationSource === 'current' ? 'rotation' : 'current';
@@ -1970,8 +1985,13 @@ export default function BasePage({ operators }: Props) {
                   <button type="button" className="filter-chip" role="radio" tabIndex={calculationSource === 'current' ? 0 : -1} aria-checked={calculationSource === 'current'} onClick={() => setCalculationSource('current')}>Current Base</button>
                   <button type="button" className="filter-chip" role="radio" tabIndex={calculationSource === 'rotation' ? 0 : -1} aria-checked={calculationSource === 'rotation'} onClick={() => setCalculationSource('rotation')}>Rotation</button>
                 </div>
+                  <button type="button" className="ghost" aria-haspopup="dialog" onClick={() => setShowRotationPlan(true)}>Edit rotation</button>
+                </div>
               </div>
-              {calculationSource === 'rotation' && <p className="hint" role="status">{rotationCalculation?.problem ?? 'Second-cycle average of your saved shifts, weighted by hours. Collections also happen at shift changes.'}</p>}
+              {calculationSource === 'rotation' && <div className="base-rotation-summary" aria-label="Rotation calculation details">
+                <p className="hint" role="status">{rotationCalculation?.problem ?? `${rotationDuration}h cycle · Second-cycle average, weighted by shift hours. Collections also happen at shift changes.`}</p>
+                {rotationWarnings.length > 0 && <details className="base-rotation-warning-summary"><summary>Rotation warnings</summary><ul>{rotationWarnings.map(warning => <li key={warning}>{warning}</li>)}</ul></details>}
+              </div>}
               <div className="base-summary-row">
                 <span className="base-summary-label">Login interval</span>
                 <div className="base-chip-row" role="group" aria-label="Login interval">

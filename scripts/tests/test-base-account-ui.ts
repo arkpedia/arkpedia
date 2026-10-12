@@ -5,7 +5,7 @@ import { baseSnapshotFromGame, parseBaseSnapshot, GAME_BASE_SLOTS } from '../../
 import { activeBaseSkills } from '../../lib/base/activeBaseSkills';
 import { analyzeRotation, readRotationPlan, rotationClock } from '../../lib/base/baseRotationPlan';
 import { defaultProductionSpots } from '../../lib/base/baseConfig';
-import { readSavedBasePresets, type SavedBasePreset } from '../../lib/base/baseSavedPresets';
+import { basePresetConfiguration, readSavedBasePresets, type SavedBasePreset } from '../../lib/base/baseSavedPresets';
 import type { GameAccountMap } from '../../lib/planner/gameAccount';
 import type { BaseOperator } from '../../lib/operators/operatorTypes';
 
@@ -111,4 +111,14 @@ test('rotation rejects duplicate shift IDs and warns about changing buildings mi
   const stages = analyzeRotation({ ...parsed, shifts: [...parsed.shifts, { id: 'b', presetId: 'Rest', hours: 12 }] }, [work, rest]);
   assert(stages[1].warnings.some(w => w.includes('same layout')));
   assert.equal(readSavedBasePresets([{ ...work, rotationRates: 'bad' }], new Set(['SilverAsh']))[0].rotationRates, undefined);
+});
+
+
+test('preset dirty comparison ignores metadata and key order but retains all editable settings and slot order', () => {
+  const original = preset('Work', 'prod1', 1);
+  const same = { ...original, id: 'Copy', name: 'Other name', savedAt: 'later', rotationRates: { SilverAsh: 5 }, assignments: { prod1: [{ eliteLevel: 'Elite 2', operatorName: 'SilverAsh' }] } };
+  assert.equal(basePresetConfiguration(original), basePresetConfiguration(same));
+  for (const changed of [{ ...original, loginInterval: 24 }, { ...original, workshopSettings: { ...original.workshopSettings, karma: 3 } }, { ...original, trainingTarget: { ...original.trainingTarget, mastery: 2 } }, { ...original, assignments: { prod1: [null, ...original.assignments.prod1] } }, { ...original, dormitoryAmbience: { dormitory1: 4000 } }, { ...original, moraleAbove12: false }, { ...original, factoryProducts: { prod2: 'Precious Metals' } }]) {
+    assert.notEqual(basePresetConfiguration(original), basePresetConfiguration(changed as SavedBasePreset));
+  }
 });

@@ -17,75 +17,122 @@ async function begin(page: Page) {
 const room = (page: Page, prefix = 'B101') => page.getByRole('button', { name: new RegExp(`^${prefix} `), includeHidden: true });
 const source = (page: Page, name: string) => page.getByRole('button', { name, exact: true });
 
-test('presets stay highlighted while open and clearing preserves saved setups, layout and rotation', async ({ page }, info) => {
+async function saveAs(page: Page, name: string) {
+  await source(page, 'Save as').click();
+  await page.getByPlaceholder('e.g. Gold team').fill(name);
+  await source(page, 'Save new').click();
+}
+
+test('preset toolbar stays beside the base and clearing preserves saved setups, layout and rotation', async ({ page }, info) => {
   await seedAccount(page); await begin(page);
   await source(page, 'Imported account').click();
   await source(page, 'Edit a copy').first().click();
-  const presetsButton = source(page, 'Presets');
-  await expect(presetsButton).toHaveAttribute('aria-expanded', 'false');
-  const inactiveColor = 'rgba(0, 0, 0, 0)';
-  await expect(presetsButton).toHaveCSS('background-color', inactiveColor);
-  await presetsButton.click();
-  await expect(presetsButton).toHaveAttribute('aria-expanded', 'true');
-  await expect(presetsButton).not.toHaveCSS('background-color', inactiveColor);
-  await presetsButton.click();
-  await expect(page.getByRole('region', { name: 'Saved base presets' })).toHaveCount(0);
-  await expect(presetsButton).toHaveCSS('background-color', inactiveColor);
-  await presetsButton.click();
-  await page.getByPlaceholder('e.g. Gold team').fill('Original staffing');
-  await source(page, 'Save new').click();
-  await source(page, 'Rotation').click();
+  const toolbar = page.getByRole('region', { name: 'Base presets', exact: true });
+  await expect(toolbar).toBeVisible();
+  await expect(source(page, 'Presets')).toHaveCount(0);
+  await saveAs(page, 'Original staffing');
+  await expect(toolbar).toContainText('Saved setup');
+  await expect(source(page, 'Save changes')).toBeDisabled();
+  await source(page, 'Edit rotation').click();
   await source(page, 'Add shift').click();
   await page.getByRole('dialog', { name: 'Rotation', exact: true }).getByRole('button', { name: 'Close', exact: true }).click();
   const preserved = await page.evaluate(() => Object.fromEntries(['baseSetup_v2', 'baseSavedPresets_v1', 'baseRotationPlan_v1', 'arkpediaAccount'].map(key => [key, localStorage.getItem(key)])));
   expect(preserved.baseSetup_v2).not.toBeNull();
   expect(JSON.parse(preserved.baseRotationPlan_v1!).shifts).toHaveLength(1);
-  // Capture the real control layout before the destructive-to-draft action.
   await fontsSettled(page);
   if (info.project.name === 'mobile') await page.setViewportSize({ width: 320, height: 900 });
   for (const theme of ['dark', 'light'] as const) {
     const switcher = page.getByRole('button', { name: theme === 'light' ? 'Switch to light mode' : 'Switch to dark mode', exact: true });
     if (await switcher.count()) await switcher.click();
-    await expect(presetsButton).not.toHaveCSS('background-color', inactiveColor);
+    await toolbar.scrollIntoViewIfNeeded();
+    const before = await room(page).boundingBox();
+    await source(page, 'Save as').click();
+    await expect(page.getByRole('region', { name: 'Save preset', exact: true })).toBeVisible();
+    await page.getByLabel('New preset', { exact: true }).fill('Theme check');
+    const after = await room(page).boundingBox();
+    expect(Math.abs(after!.y - before!.y)).toBeLessThanOrEqual(1);
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
-    const pickerBox = await page.getByRole('combobox', { name: 'Saved preset', exact: true }).boundingBox();
-    const nameBox = await page.getByLabel('New preset', { exact: true }).boundingBox();
-    expect(Math.abs(pickerBox!.height - nameBox!.height)).toBeLessThanOrEqual(1);
-    expect(Math.abs(pickerBox!.x - nameBox!.x)).toBeLessThanOrEqual(1);
-    expect(Math.abs(pickerBox!.width - nameBox!.width)).toBeLessThanOrEqual(1);
-    const loadBox = await source(page, 'Load').boundingBox();
-    const updateBox = await source(page, 'Update').boundingBox();
-    const deleteBox = await source(page, 'Delete').boundingBox();
-    expect(Math.abs(loadBox!.y - updateBox!.y)).toBeLessThanOrEqual(1);
-    expect(Math.abs(loadBox!.y - deleteBox!.y)).toBeLessThanOrEqual(1);
-    const saveBox = await source(page, 'Save new').boundingBox();
-    expect(Math.abs(saveBox!.height - nameBox!.height)).toBeLessThanOrEqual(1);
-    await page.screenshot({ path: `.cache/base-preset-layout/${theme}-${info.project.name}-active.png` });
+    await page.screenshot({ path: `.cache/base-integration/${theme}-${info.project.name}-toolbar.png` });
+    await page.keyboard.press('Escape');
+    await expect(source(page, 'Save as')).toBeFocused();
   }
   await source(page, 'Clear base').click();
   await expect(page.getByRole('status')).toContainText('Current base cleared');
-  await expect(source(page, 'Update')).toBeDisabled();
+  await expect(source(page, 'Save changes')).toBeDisabled();
   await expect(room(page)).toHaveAttribute('aria-label', /0 of 3 operators/);
   const emptyAssignments = await page.evaluate(() => JSON.parse(localStorage.getItem('baseAssignments_v2')!));
   expect(Object.values(emptyAssignments).flat().filter(Boolean)).toEqual([]);
   expect(await page.evaluate(() => Object.fromEntries(['baseSetup_v2', 'baseSavedPresets_v1', 'baseRotationPlan_v1', 'arkpediaAccount'].map(key => [key, localStorage.getItem(key)])))).toEqual(preserved);
+  await source(page, 'Save as').click();
   await page.getByPlaceholder('e.g. Gold team').fill('Empty staffing');
-  // Editing the next preset must not cause an effect to reselect an old setup.
-  await expect(source(page, 'Update')).toBeDisabled();
+  await expect(source(page, 'Save changes')).toBeDisabled();
   await expect(page.getByRole('combobox', { name: 'Saved preset', exact: true })).toHaveText('Choose a preset');
   await source(page, 'Save new').click();
   await page.reload();
   await expect(room(page)).toHaveAttribute('aria-label', /0 of 3 operators/);
-  await presetsButton.click();
   await page.getByRole('combobox', { name: 'Saved preset', exact: true }).click();
   await page.getByRole('option', { name: 'Original staffing', exact: true }).click();
-  await source(page, 'Load').click();
   await expect(room(page)).toHaveAttribute('aria-label', /3 of 3 operators/);
+  await expect(source(page, 'Save changes')).toBeDisabled();
   await source(page, 'Imported account').click();
-  await expect(presetsButton).toBeDisabled();
-  await expect(presetsButton).toHaveAttribute('aria-expanded', 'false');
+  await expect(toolbar).toHaveCount(0);
   await expect(source(page, 'Clear base')).toHaveCount(0);
   await expect(room(page)).toHaveAttribute('aria-label', /3 of 3 operators/);
+});
+
+test('preset edits, renaming and deletion keep rotation references and the current draft explicit', async ({ page }) => {
+  await seedAccount(page); await begin(page);
+  await saveAs(page, 'Working');
+  const presetId = await page.evaluate(() => JSON.parse(localStorage.getItem('baseSavedPresets_v1')!)[0].id);
+  await source(page, 'Edit rotation').click(); await source(page, 'Add shift').click();
+  await page.getByRole('dialog', { name: 'Rotation', exact: true }).getByRole('button', { name: 'Close', exact: true }).click();
+  await room(page).click();
+  await page.getByPlaceholder('Search operators...').fill('SilverAsh');
+  await page.locator('.base-room-card', { hasText: 'SilverAsh' }).click();
+  await expect(page.getByRole('region', { name: 'Base presets', exact: true })).toContainText('Unsaved changes');
+  await source(page, 'Save as').click();
+  await page.getByPlaceholder('e.g. Gold team').fill('Draft');
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('region', { name: 'Save preset', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('region', { name: 'Trading Post staffing', exact: true })).toBeVisible();
+  await source(page, 'Preset actions').click(); await page.keyboard.press('Escape');
+  await expect(page.getByRole('group', { name: 'Manage preset', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('region', { name: 'Trading Post staffing', exact: true })).toBeVisible();
+  await source(page, 'Preset actions').click(); await source(page, 'Reload saved setup').click();
+  await expect(room(page)).toHaveAttribute('aria-label', /0 of 3 operators/);
+  await expect(source(page, 'Save changes')).toBeDisabled();
+  await room(page).click();
+  await page.getByPlaceholder('Search operators...').fill('SilverAsh');
+  await page.locator('.base-room-card', { hasText: 'SilverAsh' }).click();
+  await source(page, 'Save changes').click();
+  await expect(source(page, 'Save changes')).toBeDisabled();
+  await source(page, '‹ Back').click();
+  await source(page, 'Preset actions').click();
+  await expect(source(page, 'Rename')).toBeFocused();
+  await page.keyboard.press('Enter');
+  await page.getByLabel('Preset name', { exact: true }).fill('Day team');
+  await source(page, 'Rename').click();
+  await expect(page.getByRole('combobox', { name: 'Saved preset', exact: true })).toHaveText('Day team');
+  const record = await page.evaluate(() => ({ presets: JSON.parse(localStorage.getItem('baseSavedPresets_v1')!), rotation: JSON.parse(localStorage.getItem('baseRotationPlan_v1')!) }));
+  expect(record.presets[0].id).toBe(presetId);
+  expect(record.presets[0].assignments.prod1[0].operatorName).toBe('SilverAsh');
+  expect(record.rotation.shifts[0].presetId).toBe(presetId);
+  await source(page, 'Clear base').click();
+  const draft = await page.evaluate(() => localStorage.getItem('baseAssignments_v2'));
+  await page.getByRole('radio', { name: 'Rotation', exact: true }).click();
+  await expect(page.getByLabel('Rotation calculation details')).toContainText('12h cycle');
+  expect(await page.evaluate(() => localStorage.getItem('baseAssignments_v2'))).toBe(draft);
+  await source(page, 'Edit rotation').click();
+  await source(page, 'View in base').click();
+  await expect(page.getByRole('dialog', { name: 'Rotation', exact: true })).toHaveCount(0);
+  await expect(room(page)).toHaveAttribute('aria-label', /1 of 3 operators/);
+  await expect(page.locator('.base-preset-anchor')).toBeFocused();
+  await expect(page.getByRole('radio', { name: 'Rotation', exact: true })).toBeChecked();
+  await source(page, 'Preset actions').click(); await source(page, 'Delete').click();
+  await expect(room(page)).toHaveAttribute('aria-label', /1 of 3 operators/);
+  await expect(page.getByLabel('Base production summary')).toContainText('Choose an existing preset');
+  await expect(source(page, 'Save changes')).toBeDisabled();
+  await expect(source(page, 'Save as')).toBeFocused();
 });
 
 test('imported rooms preserve the plan, show exact Morale, and copy only on request', async ({ page }) => {
@@ -124,9 +171,9 @@ test('an imported snapshot opens before formation setup and can become a repeati
   await expect(timetable).toContainText('Next cycle:');
   await page.reload();
   await source(page, 'Imported account').click();
-  await source(page, 'Rotation').click();
+  await source(page, 'Edit rotation').click();
   await expect(page.getByLabel('Shift 1 hours')).toHaveValue('24');
-  await source(page, 'Load shift').click();
+  await source(page, 'View in base').click();
   await expect(source(page, 'Your plan')).toHaveAttribute('aria-pressed', 'true');
   await expect(room(page)).toHaveAttribute('aria-label', /3 of 3 operators/);
 });
@@ -177,18 +224,15 @@ test('base working and resting setups keep one physical operator and form a save
   await page.getByPlaceholder('Search operators...').fill('SilverAsh');
   await page.locator('.base-room-card', { hasText: 'SilverAsh' }).click();
   await source(page, '‹ Back').click();
-  await source(page, 'Presets').click();
-  await page.getByPlaceholder('e.g. Gold team').fill('Working');
-  await source(page, 'Save new').click();
+    await saveAs(page, 'Working');
   await page.getByRole('button', { name: /^Dorm 1 Dormitory/ }).click();
   await page.getByPlaceholder('Search operators...').fill('SilverAsh');
   await page.locator('.base-room-card', { hasText: 'SilverAsh' }).click();
   await page.getByLabel('SilverAsh current Morale').fill('6');
   await source(page, '‹ Back').click();
   await expect(room(page)).toHaveAttribute('aria-label', /0 of 3 operators/);
-  await page.getByPlaceholder('e.g. Gold team').fill('Resting');
-  await source(page, 'Save new').click();
-  await source(page, 'Rotation').click();
+  await saveAs(page, 'Resting');
+  await source(page, 'Edit rotation').click();
   await source(page, 'Add shift').click();
   await source(page, 'Add shift').click();
   await page.getByLabel('Shift 2 setup', { exact: true }).click();
@@ -276,13 +320,57 @@ test('zoom, drag and fullscreen preserve room selection and keyboard access', as
   await expect(page.locator('.base-room-panel')).toHaveCount(0);
   await source(page, 'Fit base').click();
   await source(page, 'View fullscreen').click();
-  await expect(page.getByRole('dialog', { name: 'Base floor plan' })).toBeVisible();
+  const fullscreen = page.getByRole('dialog', { name: 'Base floor plan' });
+  await expect(fullscreen).toBeVisible();
+  const lastControl = fullscreen.locator('button:not(:disabled), input:not(:disabled)').last();
+  await lastControl.focus(); await page.keyboard.press('Tab');
+  await expect(zoom).toBeFocused();
+  await page.keyboard.press('Shift+Tab'); await expect(lastControl).toBeFocused();
   await page.keyboard.press('Escape');
   await expect(source(page, 'View fullscreen')).toBeFocused();
   await source(page, 'View fullscreen').click();
   await room(page).click();
   await expect(page.getByRole('dialog', { name: 'Base floor plan' })).toHaveCount(0);
   await expect(page.getByLabel('Room level')).toBeVisible();
+});
+
+test('Fit base is the zoom-out limit for slider, buttons, wheel and pinch after resizing', async ({ page }) => {
+  await begin(page);
+  const zoom = page.getByLabel('Base zoom', { exact: true });
+  const view = page.getByLabel('Zoomable base map', { exact: true });
+  async function expectLimit() {
+    await source(page, 'Fit base').click();
+    const fitted = await zoom.inputValue();
+    await expect(zoom).toHaveAttribute('min', fitted);
+    await expect(source(page, 'Zoom out')).toBeDisabled();
+    await source(page, 'Zoom in').click();
+    expect(Number(await zoom.inputValue())).toBeGreaterThan(Number(fitted));
+    await source(page, 'Zoom out').click();
+    await expect(zoom).toHaveValue(fitted);
+    await expect(source(page, 'Zoom out')).toBeDisabled();
+    await source(page, 'Zoom in').click();
+    await zoom.press('Home');
+    await expect(zoom).toHaveValue(fitted);
+    await expect(source(page, 'Zoom out')).toBeDisabled();
+    await view.dispatchEvent('wheel', { ctrlKey: true, deltaY: 500 });
+    await expect(zoom).toHaveValue(fitted);
+    await view.dispatchEvent('touchstart', { touches: [{ identifier: 0, clientX: 100, clientY: 100 }, { identifier: 1, clientX: 200, clientY: 100 }] });
+    await view.dispatchEvent('touchmove', { touches: [{ identifier: 0, clientX: 140, clientY: 100 }, { identifier: 1, clientX: 160, clientY: 100 }] });
+    await view.dispatchEvent('touchend', { touches: [], changedTouches: [{ identifier: 0, clientX: 140, clientY: 100 }, { identifier: 1, clientX: 160, clientY: 100 }] });
+    await expect(zoom).toHaveValue(fitted);
+    return Number(fitted);
+  }
+  await page.setViewportSize({ width: 320, height: 800 });
+  const narrow = await expectLimit();
+  await source(page, 'Zoom in').click();
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await expect.poll(async () => Number(await zoom.inputValue()) >= Number(await zoom.getAttribute('min'))).toBe(true);
+  const wide = await expectLimit();
+  expect(wide).toBeGreaterThan(narrow);
+  await source(page, 'View fullscreen').click();
+  await expectLimit();
+  await page.keyboard.press('Escape');
+  await expectLimit();
 });
 
 test('changing staffing preserves a panned map while room summaries grow', async ({ page }) => {
@@ -372,7 +460,7 @@ test('layout editing anchors the eyebrow and calculation uses the existing Staff
   await expect(source(page, 'Staffing')).toBeVisible();
   await source(page, 'Staffing').click();
   await expect(page.getByPlaceholder('Search operators...')).toBeVisible();
-  await source(page, 'Rotation').click();
+  await source(page, 'Edit rotation').click();
   await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog', { name: 'Rotation', exact: true })).toHaveCount(0);
   await expect(page.getByPlaceholder('Search operators...')).toBeVisible();
@@ -394,9 +482,7 @@ test('rotation is a modal with real preset choices, editable empty hours and dis
   const exp = async () => Number((await strip.innerText()).match(/([\d,]+)\s+EXP \/ day/)![1].replaceAll(',', ''));
   const workingExp = await exp();
   expect(workingExp).toBeGreaterThan(0);
-  await source(page, 'Presets').click();
-  await page.getByPlaceholder('e.g. Gold team').fill('Working');
-  await source(page, 'Save new').click();
+    await saveAs(page, 'Working');
   await page.getByRole('combobox', { name: 'Saved preset', exact: true }).click();
   await expect(page.getByRole('option', { name: 'Choose a preset', exact: true })).toHaveCount(0);
   await expect(page.getByRole('option', { name: 'Working', exact: true })).toBeVisible();
@@ -405,12 +491,11 @@ test('rotation is a modal with real preset choices, editable empty hours and dis
   await page.getByRole('button', { name: 'Remove FEater', exact: true }).click();
   await source(page, '‹ Back').click();
   expect(await exp()).toBe(0);
-  await page.getByPlaceholder('e.g. Gold team').fill('Off');
-  await source(page, 'Save new').click();
+  await saveAs(page, 'Off');
   const assignments = await page.evaluate(() => localStorage.getItem('baseAssignments_v2'));
-  await page.evaluate(() => window.scrollTo(0, 0));
+  await source(page, 'Edit rotation').scrollIntoViewIfNeeded();
   const headingBefore = await page.locator('.page-header .eyebrow').boundingBox();
-  await source(page, 'Rotation').click();
+  await source(page, 'Edit rotation').click();
   const dialog = page.getByRole('dialog', { name: 'Rotation', exact: true });
   await expect(dialog).toBeVisible();
   expect(await dialog.evaluate((el: HTMLDialogElement) => el.matches(':modal'))).toBe(true);
@@ -441,7 +526,7 @@ test('rotation is a modal with real preset choices, editable empty hours and dis
   await expect(dialog.getByRole('listbox')).toHaveCount(0);
   await page.keyboard.press('Escape');
   await expect(dialog).toHaveCount(0);
-  await expect(source(page, 'Rotation')).toBeFocused();
+  await expect(source(page, 'Edit rotation')).toBeFocused();
   await page.getByRole('radio', { name: 'Rotation', exact: true }).click();
   await expect(page.getByRole('radio', { name: 'Rotation', exact: true })).toBeChecked();
   expect(Math.abs(await exp() - workingExp / 2)).toBeLessThanOrEqual(1);
@@ -450,7 +535,7 @@ test('rotation is a modal with real preset choices, editable empty hours and dis
   await expect(page.getByRole('radio', { name: 'Current Base', exact: true })).toBeChecked();
   expect(await exp()).toBe(0);
   expect(await page.evaluate(() => localStorage.getItem('baseAssignments_v2'))).toBe(assignments);
-  await source(page, 'Rotation').click();
+  await source(page, 'Edit rotation').click();
   await expect(dialog.getByRole('spinbutton', { name: 'Shift 1 hours' })).toHaveValue('12');
   await dialog.getByRole('button', { name: 'Close', exact: true }).click();
   await expect(dialog).toHaveCount(0);
@@ -458,13 +543,11 @@ test('rotation is a modal with real preset choices, editable empty hours and dis
 
 test('rotation popup stays contained and readable at narrow widths in both themes', async ({ page }, info) => {
   await seedAccount(page); await begin(page);
-  await source(page, 'Presets').click();
-  await page.getByPlaceholder('e.g. Gold team').fill('Working');
-  await source(page, 'Save new').click();
+    await saveAs(page, 'Working');
   for (const theme of ['dark', 'light'] as const) {
     const switcher = page.getByRole('button', { name: theme === 'light' ? 'Switch to light mode' : 'Switch to dark mode', exact: true });
     if (await switcher.count()) await switcher.click();
-    await source(page, 'Rotation').click();
+    await source(page, 'Edit rotation').click();
     const dialog = page.getByRole('dialog', { name: 'Rotation', exact: true });
     if (theme === 'dark') await dialog.getByRole('button', { name: 'Add shift', exact: true }).click();
     await expect(dialog).toBeVisible();
@@ -478,5 +561,9 @@ test('rotation popup stays contained and readable at narrow widths in both theme
     await page.screenshot({ path: `.cache/base-rotation/${theme}-${info.project.name}-popup.png` });
     await dialog.getByRole('button', { name: 'Close', exact: true }).click();
     await expect(dialog).toHaveCount(0);
+    await page.getByRole('radio', { name: 'Rotation', exact: true }).click();
+    await page.getByLabel('Base production summary').scrollIntoViewIfNeeded();
+    await expect(source(page, 'Edit rotation')).toBeInViewport();
+    await page.screenshot({ path: `.cache/base-integration/${theme}-${info.project.name}-calculations.png` });
   }
 });

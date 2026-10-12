@@ -35,3 +35,11 @@ export function readSavedBasePresets(value: unknown, operatorNames: ReadonlySet<
     return [{ ...raw, name: raw.name.trim().slice(0, 80), facilityLevels, assignments, rotationRates, loginInterval: Number.isFinite(raw.loginInterval) ? Math.min(168, Math.max(1, raw.loginInterval)) : 24, factoryProducts: Object.fromEntries(Object.entries(raw.factoryProducts ?? {}).filter(([id, v]) => facilities.some(f => f.id === id) && ['Battle Records', 'Precious Metals', 'Originium Shards'].includes(v as string))), dormitoryAmbience: Object.fromEntries(Object.entries(raw.dormitoryAmbience ?? {}).filter(([, v]) => typeof v === 'number' && Number.isFinite(v) && v >= 0)), clueExchangeActive: raw.clueExchangeActive === true, moraleAbove12: raw.moraleAbove12 !== false, swapPolicy: raw.swapPolicy === 'onLogin' ? 'onLogin' : 'onMoraleZero', trainingTarget, workshopSettings } as SavedBasePreset];
   });
 }
+
+/** Ignore saved metadata and estimated rates; object insertion order is not an edit.
+ * Array order stays significant because Dormitory targeting follows slot order. */
+export function basePresetConfiguration(preset: SavedBasePreset): string {
+  const { id: _id, name: _name, savedAt: _savedAt, version: _version, rotationRates: _rates, ...configuration } = preset;
+  return JSON.stringify(configuration, (_key, value) => value && typeof value === 'object' && !Array.isArray(value)
+    ? Object.fromEntries(Object.keys(value).sort().map(key => [key, value[key]])) : value);
+}

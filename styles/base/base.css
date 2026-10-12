@@ -1451,25 +1451,30 @@
 .base-view-mode { display: flex; gap: 6px; }
 /* Equal-width digits, so "Elite 1" lines up with "Elite 0" and "Elite 2". */
 .base-room-elite-select > button { font-variant-numeric: tabular-nums; }
-.base-saved-presets {
-  display: grid;
-  gap: 16px;
-  padding: 16px;
-  margin-bottom: 8px;
-  background: var(--panel);
-  border: 1px solid var(--card-border);
-  border-radius: var(--radius);
-}
-.base-preset-row { display: grid; grid-template-columns: minmax(0, 1fr) 16rem; align-items: end; gap: 16px; }
-.base-preset-field { display: grid; min-width: 0; gap: 6px; color: var(--text-dim); font-size: 13px; }
-.base-preset-field > :last-child { width: 100%; min-width: 0; }
-.base-preset-field input { box-sizing: border-box; height: var(--control-h); padding: 4px 10px; background: var(--panel-2); }
-.base-preset-actions { flex-wrap: nowrap; gap: 8px; margin: 0; }
-.base-preset-actions > button { flex: 1; padding-inline: 10px; }
-.base-saved-presets > p { margin: 0; }
+.base-preset-anchor { scroll-margin-top: 90px; }
+.base-preset-toolbar { margin: 0 0 8px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); }
+.base-preset-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.base-preset-picker { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1 1 220px; color: var(--text-dim); font-size: 13px; }
+.base-preset-picker > :last-child { flex: 1; min-width: 0; }
+.base-preset-feedback { display: grid; grid-template-columns: 100px minmax(0, 1fr); gap: 12px; min-height: 1.4em; margin-top: 6px; font-size: 12px; }
+.base-preset-state { color: var(--teal); }
+.base-preset-message { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.base-preset-popover { position: fixed; z-index: 150; box-sizing: border-box; padding: 12px; overflow: auto; border: 1px solid var(--teal); border-radius: var(--radius); background: var(--panel); box-shadow: var(--shadow-panel); }
+.base-preset-popover form, .base-preset-popover label { display: grid; gap: 8px; }
+.base-preset-popover input { width: 100%; min-width: 0; box-sizing: border-box; }
+.base-preset-management { display: grid; gap: 8px; }
+.base-calculation-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.base-rotation-summary { padding-block: 6px; }
+.base-rotation-summary p { margin: 0; }
+.base-rotation-warning-summary { margin-top: 6px; color: var(--prod-danger); font-size: 12px; }
+.base-rotation-warning-summary summary { cursor: pointer; }
+.base-rotation-warning-summary ul { margin: 6px 0; padding-left: 18px; }
 @media (max-width: 600px) {
-  .base-preset-row { grid-template-columns: minmax(0, 1fr); gap: 8px; }
-  .base-preset-actions > button { flex: 0 1 auto; }
+  .base-preset-controls { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) var(--control-h); }
+  .base-preset-picker { grid-column: 1 / -1; }
+  .base-preset-controls > .danger { grid-column: 1 / 3; grid-row: 3; }
+  .base-preset-controls > .btn-icon { grid-column: 3; grid-row: 2 / 4; align-self: start; }
+  .base-preset-controls > button { padding-inline: 8px; }
 }
 
 .base-training-target {
