@@ -194,7 +194,7 @@
 /* Keep the recorded priorities beside the tabs, adapting to the information panel
    rather than the window: the desktop artwork layout can leave a phone-width panel. */
 .skillTabs { flex-wrap: nowrap; }
-.skillTabs > :global(.tab) { flex: 1 1 0; min-width: 0; justify-content: center; }
+.skillTabs > :global(.tab) { flex: 1 1 0; min-width: 0; justify-content: flex-start; }
 .skillTabLabel { display: inline-flex; align-items: baseline; gap: 6px; }
 .skillTabShort { display: none; }
 .recommendLevel { display: inline; }
@@ -208,7 +208,7 @@
   .skillTabs :global(.op-skill-recommend-stack) { margin-left: 0; letter-spacing: 0; }
 }
 @container operatorDetails (max-width: 320px) {
-  .skillTabs > :global(.tab) { flex-direction: column; }
+  .skillTabs > :global(.tab) { flex-direction: column; align-items: flex-start; }
   .skillTabLabel { gap: 3px; }
 }
 .selectedSkill { display: grid; gap: 0; margin: 0; line-height: 1.2; }
