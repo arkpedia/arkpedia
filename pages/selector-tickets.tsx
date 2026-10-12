@@ -42,4 +42,17 @@ export const getStaticProps = withContentPage<Props>('/selector-tickets', async 
   props: process.env.ARKPEDIA_EXPORT_CONTENT === '1'
     ? (await import('@/lib/selectors/catalogue')).buildSelectorCatalogue()
     : (await import('@/data/selector-catalogue.json')).default as Props,
-}), { bundledWhenUnpublished: true });
+}), {
+  bundledWhenUnpublished: true,
+  // The previous content release predates these fields. Fill only missing flags
+  // from the bundled projection until the next release supplies them itself.
+  finalize: async props => {
+    if (props.candidates.every(op => typeof op.supporter === 'boolean' && typeof op.talentReveal === 'boolean')) return props;
+    const snapshot = (await import('@/data/selector-catalogue.json')).default;
+    const flags = new Map(snapshot.candidates.map(op => [op.id, op]));
+    return { ...props, candidates: props.candidates.map(op => ({ ...op,
+      supporter: op.supporter ?? flags.get(op.id)?.supporter ?? false,
+      talentReveal: op.talentReveal ?? flags.get(op.id)?.talentReveal ?? false,
+    })) };
+  },
+});
