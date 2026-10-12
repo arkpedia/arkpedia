@@ -214,6 +214,7 @@ function RoamingChibi({ initial, onDismiss }: { initial: Walker; onDismiss: () =
         remaining.current -= dt * 1000;
         if (remaining.current <= 0 && cycleFinished.current) { endRest(); hasWalked = false; waitUntil = now + 700; }
       } else if (!paused && !resting.current && loadedModel.current === currentPet.current?.model.skeleton && now >= waitUntil) {
+        target = clampToPage(target, sizeRef.current);
         const dx = target.x - position.current.x, dy = target.y - position.current.y, distance = Math.hypot(dx, dy);
         if (distance < 3) {
           setMoving(false);
