@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { CSSProperties } from 'react';
-import ChibiSizeControl from './ChibiSizeControl';
+import { resizeChibiWindow, type ChibiWindowEdge, type ChibiWindowRect } from '@/lib/operators/chibiWindowSize';
 import { createPortal } from 'react-dom';
 import dynamic from 'next/dynamic';
 import SegmentedControl from '@/components/ui/SegmentedControl';
@@ -15,6 +14,8 @@ const ChibiCanvas = dynamic(() => import('./ChibiCanvas'), { ssr: false });
 const ignoreAnimation = () => {};
 const EMPTY: ChibiAnimation[] = [];
 type Point = { x: number; y: number };
+const RESIZE_EDGES: ChibiWindowEdge[] = ['n', 'ne', 'e', 'se', 's', 'sw', 'w', 'nw'];
+const EDGE_LABELS = { n: 'top', ne: 'top right', e: 'right', se: 'bottom right', s: 'bottom', sw: 'bottom left', w: 'left', nw: 'top left' };
 
 /** An app-owned, non-modal viewer; closing it leaves the roaming canvas alive. */
 export default function ChibiWindow({ config, open }: { config: ChibiViewerConfig; open: boolean }) {
@@ -32,6 +33,15 @@ export default function ChibiWindow({ config, open }: { config: ChibiViewerConfi
   useEffect(() => { completed.current = false; }, [playing, sequence]);
   const onAnimationComplete = useCallback((looping: boolean) => { completed.current = !looping; setPlaying(selected); }, [selected]);
   const windowRef = useRef<HTMLDivElement>(null), position = useRef<Point>({ x: 8, y: 8 });
+  const [dimensions, setDimensions] = useState<{ width: number; height: number } | null>(null);
+  const resizing = useRef<{ pointer: number; edge: ChibiWindowEdge; origin: Point; rect: ChibiWindowRect } | null>(null);
+  const resizeTo = useCallback((rect: ChibiWindowRect) => {
+    const element = windowRef.current; if (!element) return;
+    position.current = { x: rect.x, y: rect.y };
+    element.style.left = `${rect.x}px`; element.style.top = `${rect.y}px`;
+    element.style.width = `${rect.width}px`; element.style.height = `${rect.height}px`;
+    setDimensions({ width: rect.width, height: rect.height });
+  }, []);
   const placed = useRef(false), drag = useRef<{ pointer: number; offset: Point } | null>(null);
   const place = useCallback((point: Point) => {
     const element = windowRef.current; if (!element) return;
@@ -69,14 +79,20 @@ export default function ChibiWindow({ config, open }: { config: ChibiViewerConfi
   }, [open, config.label, config.returnFocus, place]);
   useEffect(() => {
     const move = (event: PointerEvent) => {
+      const active = resizing.current;
+      if (active && event.pointerId === active.pointer) {
+        event.preventDefault();
+        resizeTo(resizeChibiWindow(active.rect, active.edge, event.clientX - active.origin.x, event.clientY - active.origin.y, { width: window.innerWidth, height: window.innerHeight }));
+        return;
+      }
       if (event.pointerId !== drag.current?.pointer) return;
       event.preventDefault(); place({ x: event.clientX - drag.current.offset.x, y: event.clientY - drag.current.offset.y });
     };
-    const finish = () => { drag.current = null; };
+    const finish = () => { drag.current = null; resizing.current = null; };
     window.addEventListener('pointermove', move, { passive: false });
     window.addEventListener('pointerup', finish); window.addEventListener('pointercancel', finish); window.addEventListener('blur', finish);
     return () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', finish); window.removeEventListener('pointercancel', finish); window.removeEventListener('blur', finish); };
-  }, [place]);
+  }, [place, resizeTo]);
   const shown = config.models[facing] ? facing : config.models.front ? 'front' : 'back';
   const battleModel = config.models[shown], model = playing.base ? config.models.walk : battleModel;
   useEffect(() => { if (paused || completed.current || !model) setPlaying(selected); }, [selected, paused, model]);
@@ -108,7 +124,7 @@ export default function ChibiWindow({ config, open }: { config: ChibiViewerConfi
   const furnitureActivity = playing.base && /^(sit|sleep)(?:[_\d].*)?$/i.test(playing.clip) ? /^sit/i.test(playing.clip) ? 'sit' : 'sleep' : undefined;
   if (!open) return null;
   return createPortal(<div ref={windowRef} className="chibi-window" role="dialog" aria-label={`Chibi viewer — ${config.label}`} tabIndex={-1}
-    style={{ left: position.current.x, top: position.current.y, width: `min(${380 * chibi.size / 100}px, calc(100vw - 16px))`, '--chibi-size': chibi.size / 100 } as CSSProperties} onKeyDown={event => {
+    style={{ left: position.current.x, top: position.current.y, width: dimensions ? `min(${dimensions.width}px, calc(100vw - 16px))` : undefined, height: dimensions ? `min(${dimensions.height}px, calc(100dvh - 16px))` : undefined }} onKeyDown={event => {
       if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); chibi.closeViewer(); }
     }}>
     <div className="chibi-window-header">
@@ -139,7 +155,6 @@ export default function ChibiWindow({ config, open }: { config: ChibiViewerConfi
       <button className="ghost btn-icon" type="button" aria-label="Pause" title="Pause" aria-pressed={paused}
         onClick={() => setPreviewPaused(true)}>Ⅱ</button>
     </div>}
-    <ChibiSizeControl size={chibi.size} onChange={chibi.setSize} />
     {(model || roaming) && <div className="chibi-page-controls"><button className="ghost" type="button" onClick={() => {
       if (roaming) chibi.dismiss(); else { const next = nextPet(); if (next && windowRef.current) { const bounds = windowRef.current.getBoundingClientRect(); const point = bounds.left >= 168 ? { x: bounds.left - 168, y: bounds.top }
           : window.innerHeight - bounds.bottom >= 188 ? { x: 8, y: bounds.bottom + 8 }
@@ -147,5 +162,21 @@ export default function ChibiWindow({ config, open }: { config: ChibiViewerConfi
         chibi.walkOnPage(next, point); } }
     }}>{roaming ? 'Return to viewer' : 'Walk on page'}</button>{roaming && <button type="button" className="ghost" onClick={() => { const next = nextPet(); if (next) chibi.walkOnPage(next, { x: 8, y: window.innerHeight - 200 }); }}>Add another</button>}</div>}
     {error && <p className="hint" role="status">{error}</p>}
+    {RESIZE_EDGES.map(edge => <button key={edge} type="button" className={`chibi-window-resize chibi-window-resize-${edge}`} tabIndex={edge === 'se' ? 0 : -1}
+      aria-label={`Resize chibi viewer from ${EDGE_LABELS[edge]}`} title="Drag to resize · Arrow keys to resize"
+      onPointerDown={event => {
+        if (event.button !== 0 || !event.isPrimary || !windowRef.current) return;
+        event.preventDefault(); event.stopPropagation();
+        const bounds = windowRef.current.getBoundingClientRect();
+        drag.current = null;
+        resizing.current = { pointer: event.pointerId, edge, origin: { x: event.clientX, y: event.clientY }, rect: { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height } };
+        event.currentTarget.setPointerCapture(event.pointerId);
+      }} onKeyDown={event => {
+        if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key) || !windowRef.current) return;
+        event.preventDefault(); event.stopPropagation();
+        const bounds = windowRef.current.getBoundingClientRect();
+        resizeTo(resizeChibiWindow(bounds, edge, event.key === 'ArrowLeft' ? -20 : event.key === 'ArrowRight' ? 20 : 0,
+          event.key === 'ArrowUp' ? -20 : event.key === 'ArrowDown' ? 20 : 0, { width: window.innerWidth, height: window.innerHeight }));
+      }} />)}
   </div>, document.body);
 }
