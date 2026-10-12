@@ -22,7 +22,7 @@ export function usePastRewards(backlogSources: BacklogSources) {
     if (progress === PAST_PROGRESS_UNREAD || !account || !fromAccount || progress.ticksFrom === account.importedAt) return;
     const kept = !!account.annihilation;
     setProgress({
-      doneKeys: [...new Set([...fromAccount.doneKeys, ...(kept ? [] : progress.doneKeys.filter((key) => key.startsWith('annihilation:')))])],
+      doneKeys: [...new Set([...fromAccount.doneKeys, ...progress.doneKeys.filter(key => key.startsWith('free:') || key.startsWith('paradox:')), ...(kept ? [] : progress.doneKeys.filter((key) => key.startsWith('annihilation:')))])],
       doneEvents: [...fromAccount.doneEvents],
       annihilationDone: kept ? false : progress.annihilationDone,
       ticksFrom: account.importedAt,

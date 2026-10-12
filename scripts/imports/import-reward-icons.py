@@ -384,6 +384,24 @@ for event, entry in event_stores.items():
             # The page draws a wiki row by its name alone: these rows carry no iconName.
             want_store_row(item.get('name'), item.get('type'), event, furniture_ids)
 
+# Reward Tracker uses the same published item and furniture paths as event rewards.
+# Operators/outfits/player-card cosmetics have their own asset pipelines; a choice
+# or a free pack with no client icon remains a labelled claim, not fabricated art.
+free_claims = read_data('free-rewards.json').get('rewards', [])
+free_names = {}
+for claim in free_claims:
+    for item in claim.get('rewards', []):
+        free_names.setdefault(item['name'], set()).add(item['id'])
+for claim in free_claims:
+    for item in claim.get('rewards', []):
+        item_id = str(item.get('id') or '')
+        if item_id.startswith(('furni_', 'furniM_')):
+            want_furniture(item_id, item['name'], 'Reward Tracker')
+        elif item_id.startswith(('char_', 'avatar_', 'bg_', 'nc_', 'GP_freeL_')) or ':choice' in item_id:
+            continue
+        else:
+            want_name(item_id if len(free_names[item['name']]) > 1 else item['name'], 'Reward Tracker', item_id)
+
 if sys.argv[1:] == ['--wanted']:
     # The files the pages ask for that a source here can answer, and nothing read beyond data/: what
     # scripts/tests/test-reward-icons.ts compares with the files check-completeness.mjs holds.

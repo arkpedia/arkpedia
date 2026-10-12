@@ -1,4 +1,5 @@
 import firstClears from '@/data/pull-first-clears.json';
+import freeRewards from '@/data/free-rewards.json';
 import sources from '@/data/pull-sources.json';
 import { ORUNDUM_PER_ORIGINITE, type BacklogSources, type Chapter, type PastEvent, type UpcomingBanner } from './pulls';
 
@@ -88,6 +89,8 @@ export function bundledBacklogSources(): BacklogSources {
     playable: PLAYABLE_EVENTS.map(({ id, name, op, stages, stageCodes, start }) => ({ id, name, op, stages, stageCodes, start })),
     resources: firstClears.resources,
     annihilation: firstClears.annihilation,
+    paradox: freeRewards.paradox,
+    freeRewards: freeRewards.rewards.filter(reward => reward.forecast),
   };
 }
 

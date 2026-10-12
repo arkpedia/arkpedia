@@ -80,6 +80,33 @@ official regional announcements and extracted regional client tables keep priori
   named effect replace earlier versions. This is display composition, not stat
   addition or a source of new game numbers.
 
+## Reward Tracker free rewards
+
+`scripts/build/build-free-rewards.mjs` reads the EN client's `handbook_info`,
+`mission`, `open_server`, `checkin`, `activity`, `item`, `character` and
+`shop_client` tables during `pulls:refresh`. It writes `data/free-rewards.json`,
+seeded into `arkpedia-data/source` by content hydration. Stable client IDs preserve
+claim flags as catalogues refresh. The Reward Tracker receives current and upcoming
+claims; expired sign-in windows are excluded at page finalization.
+
+Paradox Simulations use `handbookStageData.rewardItem`, rather than assuming
+every operator has a 200-Orundum stage. The current free beginner programme,
+pinboard and main/side missions, monthly and event sign-ins, milestone gifts and
+free level-up pack claims are tracked separately. Reviewed Global login, banner
+gift and free-roll announcements supplement client data before its entries arrive;
+CN and regional previews are excluded. Repeat daily/weekly missions remain in the
+Pull Planner's recurring income assumptions.
+
+Only ordinary single/ten-roll permits contribute to ordinary pull totals.
+Selectors and Kernel or limited-banner permits stay named items. Paid beginner
+packages and paid Pro Enhancement Packs are excluded. The client names free
+level-up packs without their contents, so they get claim checkboxes without
+invented currency. Free claims are manual; account stage imports can fill Paradox
+flags when their stage IDs are present and preserve manually checked gift claims.
+
+Permanent currency claims join the Pull Planner's shared backlog once. Timed
+sign-ins stay in its existing scheduled income model, avoiding double counting.
+
 ## Operator costs
 
 - Every material an operator's upgrades cost -- each promotion (with its LMD from
@@ -107,3 +134,5 @@ Keep one editable canonical record. Generated page payloads, search indexes and
 bundled fallback snapshots are intentional derived copies; regenerate them from
 that record, never correct them independently. This rule matters more than whether
 records are encoded as JSON or stored in a database.
+
+Reward Tracker item art is projected from the published asset index. The reward-icon importer includes its item and furniture claims, stages missing source art, and publishes it to `arkpedia-image-assets` before the application adopts new pins. Client records without an icon (free level-up packs and abstract choices) retain a text label.

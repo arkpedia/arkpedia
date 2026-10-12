@@ -75,6 +75,7 @@ export interface ChapterOpener {
   has: (story: string | undefined) => boolean;
   open: (story: string) => void;
   isRead?: (story: string | undefined) => boolean;
+  progressLabel?: (story: string | undefined) => string | undefined;
 }
 
 /** A story's link: its chapter popup at ?chapter=<group> (a plain click opens it in place, a new
@@ -110,7 +111,7 @@ function ListCard({ story, chapters }: { story: StoryPicture; chapters: ChapterO
   const read = chapters.isRead?.(story.link?.story);
   const kind = `story-list-card${story.manga ? ' is-manga' : ''}${read ? ' is-read' : ''}`;
   return story.link?.url
-    ? <a className={kind} {...storyLinkProps(story.link, chapters)}>{art}{label}{read && <span className="story-list-read-mark" role="img" aria-label="Read">✓</span>}</a>
+    ? <a className={kind} {...storyLinkProps(story.link, chapters)}>{art}{label}{chapters.progressLabel?.(story.link.story) && <span className="story-list-progress">{chapters.progressLabel(story.link.story)}</span>}</a>
     : <span className={`${kind} is-plain`}>{art}{label}</span>;
 }
 

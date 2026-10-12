@@ -1,6 +1,9 @@
 import Link from 'next/link';
+import { RewardAmount } from './RewardAmount';
 import { useLayoutEffect, useRef, useState } from 'react';
 import SegmentedControl from '@/components/ui/SegmentedControl';
+import Tabs, { tabPanelProps } from '@/components/ui/Tabs';
+import LoadOnScroll from '@/components/ui/LoadOnScroll';
 import type { BacklogSources } from '@/lib/pulls/pulls';
 import { formatDayMonthYear, formatNumber } from '@/lib/pulls/format';
 
@@ -29,10 +32,12 @@ export function PastRewards({ backlog, doneKeys, doneEvents, annihilationDone, o
   imported: { at: string } | null;
   cleared: ReadonlySet<string> | null;
   /** 'popup': the Pull Planner's dialog, one group open at a time in a scrolling body. 'page':
-   *  the OP Tracker, every group a section of the page. */
+   *  the Reward Tracker, every group a section of the page. */
   layout: 'popup' | 'page';
 }) {
   const [open, setOpen] = useState('story');
+  const [category, setCategory] = useState('story');
+  const [limits, setLimits] = useState<Record<string, number>>({});
   /* With an import the list opens on what is left to claim, without one on everything (there
      is nothing ticked to hide yet). The account loads after the first paint, so the default
      follows it until the reader picks a filter; their pick then stays. */
@@ -46,6 +51,7 @@ export function PastRewards({ backlog, doneKeys, doneEvents, annihilationDone, o
       .map((e) => ({ id: e.id, name: e.name, amount: e.op, stages: e.stages, stageCodes: e.stageCodes })) },
     { id: 'annihilation', name: 'Annihilation', unit: 'Orundum', items: backlog.annihilation },
     { id: 'resources', name: 'Resource stages', unit: 'OP', items: backlog.resources },
+    { id: 'paradox', name: 'Paradox Simulations', unit: 'Orundum', items: backlog.paradox ?? [] },
   ];
   const complete = (group: string, id: string) => group === 'events' ? doneEvents.has(id) : group === 'annihilation' && annihilationDone || group === 'resources' && doneKeys.has('daily') || doneKeys.has(id);
   const setCompleted = (group: typeof groups[number], ids: string[], done: boolean) => {
@@ -77,7 +83,7 @@ export function PastRewards({ backlog, doneKeys, doneEvents, annihilationDone, o
   useLayoutEffect(() => {
     floor.current = 0;
     if (rootRef.current) rootRef.current.style.minHeight = '';
-  }, [show]);
+  }, [show, category]);
   useLayoutEffect(() => {
     const root = rootRef.current;
     if (layout !== 'page' || !root) return;
@@ -96,7 +102,7 @@ export function PastRewards({ backlog, doneKeys, doneEvents, annihilationDone, o
       {!items.length && <p className="hint pulls-past-empty">{show === 'claimed' ? 'Nothing claimed here yet.' : 'Everything here is claimed.'}</p>}
       {/* One row each: the tick (the .check primitive), and for a chapter or event a button
           that names the stages left. */}
-      <ul className="pulls-past-list" aria-label={`${group.name}: claimed`}>{items.map((item) => {
+      <ul className="pulls-past-list" aria-label={`${group.name}: claimed`}>{items.slice(0, limits[group.id] ?? 30).map((item) => {
         const key = `${group.id}:${item.id}`;
         const done = complete(group.id, item.id);
         return <li key={item.id} className={`pulls-past-row${done ? ' on' : ''}`}>
@@ -104,10 +110,11 @@ export function PastRewards({ backlog, doneKeys, doneEvents, annihilationDone, o
           {staged
             ? <button type="button" className="btn-bare pulls-past-name" aria-expanded={detail === key} onClick={() => setDetail(detail === key ? null : key)}>{item.name}</button>
             : <span className="pulls-past-name">{item.name}</span>}
-          <span className="pulls-past-amount">{done ? '✓' : item.certs && !item.amount ? `${item.certs} yellow certs` : `${formatNumber(item.amount)} ${group.unit}`}</span>
+          <span className="pulls-past-amount">{done ? '✓' : item.certs && !item.amount ? `${item.certs} yellow certs` : layout === 'page' ? <RewardAmount iconOnly resource={group.unit === 'OP' ? 'op' : 'orundum'} amount={item.amount} /> : `${formatNumber(item.amount)} ${group.unit}`}</span>
           {staged && detail === key && stagesLeft(group.id, item)}
         </li>;
       })}</ul>
+      <LoadOnScroll shown={Math.min(limits[group.id] ?? 30, items.length)} total={items.length} onMore={() => setLimits(value => ({ ...value, [group.id]: (value[group.id] ?? 30) + 30 }))} />
     </>;
   };
   return <div ref={rootRef} className={layout === 'page' ? 'pulls-past-page' : 'pulls-past-body'}>
@@ -115,8 +122,9 @@ export function PastRewards({ backlog, doneKeys, doneEvents, annihilationDone, o
       ? <p className="hint">Ticked from your account, imported {formatDayMonthYear(imported.at.slice(0, 10))}. Change any tick to adjust it; <Link href="/account">import again</Link> to tick them afresh.</p>
       : <p className="hint">Tick what you have done, or <Link href="/account">import your account</Link> to tick it for you.</p>}
     <SegmentedControl label="Show" value={show} options={SHOW} onChange={setPicked} />
-    {groups.map((group) => layout === 'page'
-      ? <section key={group.id} className="op-section pulls-past-section" aria-labelledby={`past-${group.id}`}>
+    {layout === 'page' && <Tabs label="First-clear category" id="first-clear-category" value={category} onChange={setCategory} options={groups.map(group => ({ value: group.id, label: group.name }))} />}
+    {groups.filter(group => layout !== 'page' || group.id === category).map((group) => layout === 'page'
+      ? <section key={group.id} className="op-section pulls-past-section" {...tabPanelProps('first-clear-category', group.id)}>
           <h2 id={`past-${group.id}`}>{group.name} <span className="hint pulls-note">{left(group)}</span></h2>
           {body(group)}
         </section>

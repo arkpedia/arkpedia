@@ -110,3 +110,4 @@ a.story-list-card:hover { border-color: var(--teal); }
   .story-chapter-rows { grid-template-columns: max-content minmax(0, 1fr); }
   .story-chapter-buttons { grid-column: 1 / -1; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+.story-list-progress { margin-left: auto; flex-shrink: 0; color: var(--text-dim); font-family: var(--font-mono); font-size: 11px; }

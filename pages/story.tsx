@@ -4,7 +4,7 @@ import Link from 'next/link';
 import PageHeader from '@/components/ui/PageHeader';
 import { useMemo, useState } from 'react';
 import StoryDataDialog from '@/components/story/StoryDataDialog';
-import { chapterRead, useStoryProgress } from '@/lib/story/storyProgress';
+import { chapterProgress, chapterRead, useStoryProgress } from '@/lib/story/storyProgress';
 import ChapterDialog from '@/components/story/ChapterDialog';
 import StoryMapView, { type ChapterOpener } from '@/components/story/StoryMapView';
 import { withContentPage } from '@/lib/content/server';
@@ -40,7 +40,8 @@ export default function StoryPage({ map, chapters = {} }: Props) {
       // Its box on the board has the picture's own shape: the dialog shows the cover whole at it.
       image: element.image && element.width > 0 && element.height > 0 ? { src: element.image, ratio: element.width / element.height } : null }] as const] : [])), [map]);
   const opener = useMemo<ChapterOpener>(() => ({ has: (story) => !!story && !!chapters[story]?.length && pictures.has(story), open: setChapter,
-    isRead: (story) => !!story && chapterRead(progress, story, chapters[story] ?? []) }), [chapters, pictures, setChapter, progress]);
+    isRead: (story) => !!story && chapterRead(progress, story, chapters[story] ?? []),
+    progressLabel: (story) => story && chapters[story]?.length ? chapterProgress(progress, story, chapters[story]).label : undefined }), [chapters, pictures, setChapter, progress]);
   const shown = opener.has(chapter) ? pictures.get(chapter)! : null;
   return (
     <>

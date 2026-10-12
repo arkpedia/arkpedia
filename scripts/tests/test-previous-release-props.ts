@@ -263,7 +263,7 @@ const DATA_ONLY: Record<string, Record<string, string>> = {
     '.ongoingBanners[].announcedName': "the name an official CN announcement gave a banner (applyAnnouncements, new on 2026-10-04), on the banners an announcement created; HeadhuntingBanner has it optional and nothing on the page reads it",
   },
   '/schedule': {
-    '.operators[].portraitPending': 'optional publication status on a newly discovered operator whose portrait has not arrived; an older release without it keeps its published portrait',
+    '.operators[].portraitPending': 'optional publication status while a new portrait is pending; older releases retain their existing portrait rendering',
     '.events[].aliases': 'optional historic names on renamed source records; Schedule does not read this field',
     '.events[].bannerName': 'optional metadata on new headhunting calendar entries; older releases contain only event entries and keep their event navigation',
     '.eventRows[].bannerName': 'optional metadata on new headhunting rows; older releases contain only events and keep their existing behavior',
@@ -278,6 +278,7 @@ const DATA_ONLY: Record<string, Record<string, string>> = {
     '.events[].modeId': 'permanent RA launch metadata is optional; releases without it contain only timed events and retain their existing behavior',
     '.events[].cn.releaseDate': 'permanent RA launch metadata is optional; releases without it contain only timed events and retain their existing behavior',
     '.events[].global.releaseDate': 'permanent RA launch metadata is optional; releases without it contain only timed events and retain their existing behavior',
+    '.availabilityWindows[].inventoryComplete': 'source metadata spread by confirmedWindow from the refreshed acquisition-window records; SkinWindow does not require it, and no skin component reads it, so the previous release can omit it',
     '.events[].global.shopEndAt': "the event store's close (sync-event-windows.mjs, from activity_table rewardEndTime), which the data first carried on 2026-09-30; GameWindowTimes has it optional, and eventShopEnd reads its absence as a store that closes with the stages, as the page did before; nothing on /skins reads it yet",
   },
   '/gacha': {
@@ -285,7 +286,7 @@ const DATA_ONLY: Record<string, Record<string, string>> = {
     '.banners[].announcedLineup': "the rate-ups an official CN announcement names (applyAnnouncements, new on 2026-10-04), on a banner only while an operator it names has no record yet; HeadhuntingBanner has it optional, and lineupPendingNote reads its absence as 'Lineup to be confirmed.', as the page said before",
   },
   '/operators': {
-    '.operators[].portraitPending': 'optional publication status while a new portrait is pending; older releases without it retain their existing portrait rendering',
+    '.operators[].portraitPending': 'optional publication status while a new portrait is pending; older releases retain their existing portrait rendering',
     '.operators[].availableUntil': 'the debut\'s end (getScheduledOperatorDebut), new on 2026-09-30; RosterOperator has it optional, and isDebutAvailable counts two weeks from the release without it, as the roster did before',
   },
   '/stages/content/sandbox_1': {
@@ -339,6 +340,11 @@ async function withStubbedFeeds<T>(run: () => Promise<T>): Promise<{ result: T; 
  * running cannot pass.
  */
 const REGENERATED: Record<string, (props: Record<string, unknown>, clock: { from: number; to: number }) => void> = {
+  '/selector-tickets': props => {
+    assert.equal((props.cards as unknown[]).length, 3);
+    assert.deepEqual(Object.values(props.tickets as Record<string, { operators: unknown[] }>).map(ticket => ticket.operators.length), [8, 35, 48]);
+    assert.ok((props.candidates as { id: string }[]).every(op => op.id));
+  },
   '/artists': props => {
     const people = props.people as {name:string;operators:{name:string;credits:string[]}[]}[];
     assert.ok(people.length > 50 && people.every(person => person.name && person.operators.every(op => op.name && op.credits.length)));

@@ -38,7 +38,7 @@ export const LINKS: NavLink[] = [
   /* Always "Import Account", import or not: a menu entry whose name changed once you had
      imported read as a different page (2026-10-03). */
   { href: '/account', label: 'Import Account', icon: 'roster' },
-  { href: '/free-op', label: 'OP Tracker', icon: 'prime' },
+  { href: '/free-op', label: 'Reward Tracker', icon: 'prime' },
   { href: '/planner', label: 'Operator Planner', icon: 'planner' },
   { href: '/pulls', label: 'Pull Planner', icon: 'calculator' },
   { href: '/skin-planner', label: 'Skin Planner', icon: 'skins' },
@@ -46,6 +46,7 @@ export const LINKS: NavLink[] = [
   { href: '/friends', label: 'Import a Friend', icon: 'roster' },
   { href: '/gacha', label: 'Gacha', icon: 'gacha' },
   { href: '/recruitment', label: 'Recruitment', icon: 'recruitment' },
+  { href: '/selector-tickets', label: 'Selector Tickets', icon: 'gacha' },
   { href: '/results', label: 'Power Scale', icon: 'rate' },
   { href: '/games', label: 'Games', icon: 'grid' },
   { href: '/schedule', label: 'Schedule', icon: 'timeline' },
@@ -83,7 +84,7 @@ const at = (href: string): NavLink => {
 
 export const GROUPS: NavGroup[] = [
   { id: 'database', label: 'Database', items: [at('/operators'), at('/skins'), at('/enemies'), at('/stages'), at('/story'), at('/artists'), at('/voice-actors')] },
-  { id: 'guides', label: 'Guides', items: [at('/farming'), at('/gamemodes'), at('/base'), at('/recruitment'), at('/gacha')] },
+  { id: 'guides', label: 'Guides', items: [at('/farming'), at('/gamemodes'), at('/base'), at('/recruitment'), at('/gacha'), at('/selector-tickets')] },
   /* The reader's own: their account, and the planners that read it (issue #94). */
   { id: 'own', label: 'Planner', items: [at('/account'), at('/free-op'), at('/planner'), at('/skin-planner'), at('/pulls')] },
   { id: 'community', label: 'Community', items: [at('/friends'), at('/results'), at('/games'), at('/community'), at('/music'), at('/changelog'), at('/credits')] },

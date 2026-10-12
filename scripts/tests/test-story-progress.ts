@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { chapterRead, formatStoryFile, parseStoryFile, parseStoryProgress, setStoryPart, STORY_PROGRESS_KEY } from '../../lib/story/storyProgress';
+import { chapterProgress, chapterRead, formatStoryFile, parseStoryFile, parseStoryProgress, setStoryPart, STORY_PROGRESS_KEY } from '../../lib/story/storyProgress';
 import { applyBackup, formatBackup, parseBackup } from '../../lib/account/backup';
 import { exportDataArchive, exportDataFiles, EXPORT_NAMES, parseDataArchive } from '../../lib/account/exportFiles';
 import { readImportFile } from '../../lib/account/importFile';
@@ -89,4 +89,11 @@ test('a failed multi-file restore rolls back storage and sends no change events'
   }, { dispatchEvent: event => { events.push(event.type); return true; } }));
   assert.deepEqual(restored, before);
   assert.deepEqual(events, []);
+});
+
+test('continue reading follows actual parts and progress ignores unknown imported indices', () => {
+  assert.deepEqual(chapterProgress({}, 'main_0', sections), { label: 'Unread', next: 0 });
+  assert.deepEqual(chapterProgress({ main_0: [0, 99] }, 'main_0', sections), { label: '33% read', next: 1 });
+  assert.deepEqual(chapterProgress({ main_0: [0, 1] }, 'main_0', sections), { label: '67% read', next: 2 });
+  assert.deepEqual(chapterProgress({ main_0: [0, 1, 2] }, 'main_0', sections), { label: 'Read', next: 0 });
 });

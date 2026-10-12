@@ -36,6 +36,12 @@ test('default and skin battle/base animations load exclusively from pinned SD as
   for (const url of requested) expect(url).toMatch(/^https:\/\/raw\.githubusercontent\.com\/arkpedia\/arkpedia-sd-assets\/[a-f0-9]{40}\/models\//);
 });
 
+async function revealControls(page: import('@playwright/test').Page) {
+  // Keyboard users can reveal the controls without triggering a chibi interaction.
+  await page.keyboard.press('Tab');
+  await page.locator('.chibi-roaming').focus();
+}
+
 async function openChibi(page: import('@playwright/test').Page) {
   await page.goto('/operators/Thorns');
   await page.getByRole('group', { name: 'Operator outfits', exact: true }).getByRole('button', { name: 'Base', exact: true }).click();
@@ -81,6 +87,7 @@ test('page chibi walks, can pause and return to its viewer', async ({ page }) =>
     return Math.hypot(current!.x - start!.x, current!.y - start!.y);
   }, { timeout: 10000 }).toBeGreaterThan(5);
   await expect(pet.locator('canvas')).toHaveAttribute('data-animation', /move|walk/i);
+  await revealControls(page);
   await pet.getByRole('button', { name: 'Pause walking', exact: true }).click();
   const stopped = await pet.boundingBox();
   // Sample a real interval: motion must stop rather than just changing the button.
@@ -109,7 +116,9 @@ test('roaming chibi survives viewer close, page navigation and browser back with
     const current = await pet.boundingBox();
     return Math.hypot(current!.x - start!.x, current!.y - start!.y);
   }, { timeout: 10000 }).toBeGreaterThan(5);
+  await revealControls(page);
   await expect(pet.getByRole('button')).toHaveCount(2);
+  await revealControls(page);
   await expect(pet.getByRole('button', { name: 'Dismiss roaming chibi', exact: true })).toBeVisible();
   await pet.focus(); await page.keyboard.press('ArrowLeft');
   const stopped = await pet.boundingBox();
@@ -128,6 +137,7 @@ test('roaming chibi survives viewer close, page navigation and browser back with
   await page.getByRole('button', { name: 'Chibi viewer', exact: true }).press('Enter');
   await expect(page.getByRole('button', { name: 'Return to viewer', exact: true })).toBeVisible();
   await expect(page.locator('.chibi-controls').getByRole('button', { name: 'Pause', exact: true })).toHaveAttribute('aria-pressed', 'false');
+  await revealControls(page);
   await pet.getByRole('button', { name: 'Dismiss roaming chibi', exact: true }).click();
   await expect(pet).toHaveCount(0);
   await expect(page.locator('.chibi-window canvas')).toBeVisible();
@@ -163,6 +173,7 @@ test('dragging outside the viewer drops a walking chibi at that point', async ({
   await expect(page).toHaveURL(/\/$/);
   await expect(page.getByRole('button', { name: 'Chibi viewer', exact: true })).toHaveCount(0);
   await expect(pet).toBeVisible();
+  await revealControls(page);
   await pet.getByRole('button', { name: 'Dismiss roaming chibi', exact: true }).click();
   await expect(pet).toHaveCount(0);
   await expect(page.locator('#page-content')).toBeFocused();
@@ -272,6 +283,7 @@ async function openTapChibi(page: import('@playwright/test').Page) {
   await page.getByRole('button', { name: 'Walk on page', exact: true }).click();
   const pet = page.locator('.chibi-roaming');
   await expect(pet.locator('canvas')).toHaveAttribute('data-animation', 'Relax');
+  await revealControls(page);
   await pet.getByRole('button', { name: 'Pause walking', exact: true }).click();
   return pet;
 }
@@ -316,6 +328,7 @@ for (const theme of ['dark', 'light']) {
     await expect(pet).not.toHaveAttribute('data-break-duration', /.+/, { timeout: 3000 });
     await expect(canvas).toHaveAttribute('data-animation', 'Relax');
     expect(await pet.boundingBox()).toEqual(position);
+    await revealControls(page);
     await pet.getByRole('button', { name: 'Dismiss roaming chibi', exact: true }).click();
     await expect(pet).toHaveCount(0);
   });
@@ -345,6 +358,7 @@ test('dragging and cancelled touches do not consume the first trust tap', async 
   await expect(pet).toHaveAttribute('data-activity', 'trust-tap');
   await expect(canvas).toHaveAttribute('data-animation', 'Special');
   expect(await pet.boundingBox()).toEqual(position);
+  await revealControls(page);
   await pet.getByRole('button', { name: 'Dismiss roaming chibi', exact: true }).click();
 });
 
@@ -377,8 +391,10 @@ for (const theme of ['dark', 'light']) {
     await page.addInitScript(value => localStorage.setItem('theme', value), theme);
     const pet = await openTapChibi(page), viewer = page.locator('.chibi-window');
     const position = await pet.boundingBox();
+    await revealControls(page);
     const movement = pet.getByRole('button', { name: 'Resume walking', exact: true });
     const movementBox = (await movement.boundingBox())!;
+    await revealControls(page);
     const dismissBox = (await pet.getByRole('button', { name: 'Dismiss roaming chibi', exact: true }).boundingBox())!;
     expect(movementBox.x + movementBox.width).toBeCloseTo(position!.x + position!.width, 0);
     expect(movementBox.y + movementBox.height).toBeCloseTo(position!.y + position!.height, 0);
@@ -415,8 +431,10 @@ for (const theme of ['dark', 'light']) {
     const still = await viewer.locator('canvas').screenshot();
     await page.waitForTimeout(300);
     expect((await viewer.locator('canvas').screenshot()).equals(still)).toBe(true);
+    await revealControls(page);
     await expect(pet.getByRole('button', { name: 'Open chibi viewer', exact: true })).toHaveCount(0);
     if (process.env.ARKPEDIA_QA_CAPTURE) await page.screenshot({ path: `${process.env.ARKPEDIA_QA_CAPTURE}/chibi-independent-${theme}-${testInfo.project.name}.png` });
+    await revealControls(page);
     await pet.getByRole('button', { name: 'Resume walking', exact: true }).click();
     await expect.poll(async () => Math.hypot((await pet.boundingBox())!.x - position!.x, (await pet.boundingBox())!.y - position!.y), { timeout: 10000 }).toBeGreaterThan(5);
   });
@@ -506,6 +524,7 @@ test('pausing walking retains a visibly animated native idle', async ({ page }) 
   await page.getByRole('button', { name: 'Walk on page', exact: true }).click();
   const pet = page.locator('.chibi-roaming'), canvas = pet.locator('canvas');
   await expect(canvas).toHaveAttribute('data-animation', /.+/);
+  await revealControls(page);
   await pet.getByRole('button', { name: 'Pause walking', exact: true }).click();
   await expect(canvas).toHaveAttribute('data-animation', 'Relax');
   const position = await pet.boundingBox();

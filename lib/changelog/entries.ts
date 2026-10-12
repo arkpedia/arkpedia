@@ -34,6 +34,22 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-10-12T13:17:15Z',
+    title: 'Reading progress and free rewards',
+    added: [
+      { title: 'Reward Tracker with item icons', detail: 'Track stage rewards, Paradox, pinboard, beginner and Global sign-in gifts with item icons and compact claim lists.', href: '/free-op' },
+    ],
+    changed: [
+      { title: 'Continue stories from your reading progress', detail: 'Story lists show unread or percentage progress, and Continue reading opens the first unread part.', href: '/story' },
+      { title: 'Choose operators beside their portraits', detail: 'Planner checkboxes sit before each portrait, and excluded operators turn gray while keeping their place.', href: '/planner' },
+      { title: 'Cleaner roaming chibis', detail: 'Pause and dismiss controls appear on hover, tap or keyboard focus.', href: '/operators' },
+    ],
+    fixed: [
+      { title: 'Owned outfits leave your wishlist', detail: 'Your imported outfit collection fulfills matching wishes across the gallery and planners.', href: '/skins' },
+      { title: 'Aligned skill mastery and priority labels', href: '/operators' },
+    ],
+  },
+  {
     at: '2026-10-12T00:16:21Z',
     title: 'Music favourites and playlist browsing',
     added: [
@@ -69,9 +85,11 @@ export const CHANGELOG: ChangelogEntry[] = [
     title: 'Event and banner updates',
     fixed: [
       { title: 'Correct banners for reruns', detail: 'Reruns show only their own confirmed banner, and unrelated historical banners no longer attach to events.', href: '/schedule' },
+      { title: 'Community-only selector ratings', detail: 'Operators without a Kukkikaze rating receive twice their community rating points.', href: '/selector-tickets' },
     ],
     changed: [
       { title: 'Official event details update automatically', detail: 'Global notices update rewards, packs and selector pools, while artwork refreshes retry missing images without losing progress.', href: '/events' },
+      { title: 'Highest selector scores first', detail: 'Selector ticket pop-ups rank operators by their recommendation score, including imported account bonuses.', href: '/selector-tickets' },
     ],
   },
   {
@@ -81,6 +99,18 @@ export const CHANGELOG: ChangelogEntry[] = [
       { title: 'Choose every chibi animation', detail: 'Play complete battle and base animations in the viewer, including walking, sitting and sleeping.', href: '/operators' },
       { title: 'Move the chibi viewer', detail: 'Drag the viewer within the page; roaming chibis have their own movement pause and play button.', href: '/operators' },
       { title: 'Tap roaming chibis', detail: 'The first tap plays the trust reaction, then later taps have equal chances of playing the normal or trust reaction.', href: '/operators' },
+    ],
+  },
+  {
+    at: '2026-10-10T08:59:00Z',
+    title: 'Upcoming banner forecasts',
+    changed: [{ title: 'Joint Operation and Orienteering forecasts', detail: 'See approximate Global dates in Schedule, Gacha and Pull Planner; operator lineups appear after Global confirmation.', href: '/schedule' }],
+  },
+  {
+    at: '2026-10-10T00:44:03Z',
+    title: 'Selector recommendations',
+    added: [
+      { title: 'Selector ticket recommendations', detail: 'Compare gifted and purchasable 6★ tickets with colored scores based on Kukkikaze ratings and your imported roster.', href: '/selector-tickets' },
     ],
   },
   {
@@ -130,30 +160,13 @@ export const CHANGELOG: ChangelogEntry[] = [
       { title: 'Fashion Review', detail: 'A dedicated button groups Fashion Review outfits in the skin database and planner.', href: '/skins' },
       { title: 'Alternate animated illustrations', detail: 'Choose Version 2 where the outfit includes another illustration, including Exusiai’s The Legend Seeker.', href: '/skins' },
       { title: 'Operator previews on the home page', detail: 'Click a featured or returning operator to preview their stats, skills and talents, as in the Gacha Simulator.', href: '/' },
-      { title: 'Mastery priority guide beside Skills', detail: 'Open mastery recommendations from the right side of the Skills heading, with a shorter label on phones.', href: '/operators' },
-      { title: 'Battle chibi viewer', detail: 'Inspect an outfit’s battle animations, switch facing, pause playback or drag the chibi around the page.', href: '/operators' },
-      { title: 'Artists and voice actors', detail: 'Search the credit databases and open the operators linked to each artist or voice actor.', href: '/artists' },
-      { title: 'Operator summon stats', detail: 'Summons show their base stats at the selected promotion and level, before operator skill and talent bonuses.', href: '/operators' },
-      { title: 'World community sections', detail: 'Browse creator feeds and community links, with country filters for offline events.', href: '/community' },
     ],
     changed: [
-      { title: 'Roaming chibis stay with you', detail: 'A dragged-out chibi keeps walking after you close its viewer or change pages, until you dismiss it.', href: '/operators' },
       { title: 'Home page stage and countdown colors', detail: 'Open stages and Starts in are green, closed stages are red, and Ends in is yellow.', href: '/' },
-      { title: 'Skin Planner shop sections', detail: 'Browse open shop sections with cards and artwork loading as you scroll, and owned outfits last.', href: '/skin-planner' },
-      { title: 'Recruitment language and text size', detail: 'Choose EN, JP, KR or CN tag labels and your text size, including in the pop-out window.', href: '/recruitment' },
-      { title: 'Operator Planner selections', detail: 'Simple mode offers Missing and All, and the selected-goal summary follows its filters.', href: '/planner' },
-      { title: 'Monthly yellow-certificate budgets', detail: 'Plan each month’s sequential shop tiers with one shared certificate balance, including months you skip.', href: '/pulls' },
-      { title: 'Pull History exports by banner', detail: 'Save a separate CSV for each banner, alongside the full-history export.', href: '/account' },
-      { title: 'Operator EP and outfit voice selection', detail: 'Play an operator’s EP first in the music queue and choose special outfit voice lines directly.', href: '/operators' },
-      { title: 'Clock follows the selected account', detail: 'Server time and the daily reset follow your selected EN, JP or KR account.', href: '/account' },
     ],
     fixed: [
       { title: 'Upcoming skins and returning shops', detail: 'Upcoming outfits follow their acquisition dates, and partial shop announcements keep other returning batches.', href: '/skins' },
       { title: 'Shared effects in animated art', detail: 'Kal’tsit - Esperanta’s warning screens and other effects now play with their animations.', href: '/operators' },
-      { title: 'Stable still and animated artwork framing', detail: 'Switching to animated art keeps the same zoom and position, including Haruka’s Stranded In Utopia.', href: '/skins' },
-      { title: 'Dialogue and extra layers in animated art', detail: 'Exusiai and Kal’tsit play their authored dialogue poses, and Haruka’s extra layer plays with her artwork.', href: '/skins' },
-      { title: 'Phone layouts and outfit voice controls', detail: 'Operator and credit pages stay within the screen, and outfit voice selection keeps the line you are reading in place.', href: '/operators' },
-      { title: 'Operator acquisition labels', detail: 'Adnachiel, Purestream and Estelle are marked recruitment-only; Steward is not.', href: '/operators' },
     ],
   },
   {

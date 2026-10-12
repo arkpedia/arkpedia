@@ -40,6 +40,15 @@ export function storyFilename(now = new Date()): string { return `arkpedia-story
 export function chapterRead(progress: StoryProgress, chapter: string, sections: Section[]): boolean {
   return sections.length > 0 && sections.every(([index]) => progress[chapter]?.includes(index));
 }
+/** Only parts in the current chapter count; old/imported indices cannot inflate progress. */
+export function chapterProgress(progress: StoryProgress, chapter: string, sections: Section[]): { label: string; next: number } {
+  const read = new Set(progress[chapter] ?? []);
+  const done = sections.filter(([index]) => read.has(index)).length;
+  return {
+    label: done === 0 ? 'Unread' : done === sections.length ? 'Read' : `${Math.round(done / sections.length * 100)}% read`,
+    next: sections.find(([index]) => !read.has(index))?.[0] ?? sections[0]?.[0] ?? 0,
+  };
+}
 /** Read afresh on every mutation, so another tab's progress is preserved. */
 export function setStoryPart(progress: StoryProgress, chapter: string, index: number, read: boolean): StoryProgress {
   const parts = new Set(progress[chapter] ?? []);

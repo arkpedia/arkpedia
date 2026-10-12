@@ -115,12 +115,13 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
   /* The skin plan the Skin Planner and the Skins page's ☆ share (lib/skins/skinPlan). The OP it
      reserves counts the outfits sold for OP that the imported account does not own yet. */
   const skinByName = useMemo(() => new Map(skinCatalogue.map((skin) => [skin.name, skin.id])), [skinCatalogue]);
-  const [skinIds, setSkinIds] = useSkinPlan((name) => skinByName.get(name));
   const account = useAccount();
   /* The Past events ticks, shared with the OP Tracker (lib/pulls/usePastRewards.ts): ticked
      once per import from its cleared stages, the reader's to change after that. */
   const past = usePastRewards(backlogSources);
   const ownedSkins = useMemo(() => (account ? new Set(account.skins) : null), [account]);
+  const ownedPlanKeys = useMemo(() => new Set(skinCatalogue.filter(skin => skin.skinId && ownedSkins?.has(skin.skinId)).flatMap(skin => [skin.id, skin.name])), [skinCatalogue, ownedSkins]);
+  const [skinIds, setSkinIds] = useSkinPlan((name) => skinByName.get(name), ownedPlanKeys);
   const skinsToBuy = useMemo(() => {
     const byId = new Map(skinCatalogue.map((skin) => [skin.id, skin]));
     return skinIds.filter((id) => byId.has(id) && !(ownedSkins && byId.get(id)!.skinId && ownedSkins.has(byId.get(id)!.skinId!)));
@@ -253,7 +254,7 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
   /* Potential funds include selected, still-unclaimed content. The holdings
      summary below deliberately excludes these rewards. */
   const inHand: Holdings = {
-    orundum: held.orundum + (includeBacklog ? backlog.annihilationOrundum : 0),
+    orundum: held.orundum + (includeBacklog ? backlog.orundum - backlog.originitePrime * ORUNDUM_PER_ORIGINITE : 0),
     originitePrime: held.originitePrime + (includeBacklog ? backlog.originitePrime : 0),
     permits: held.permits + (includeBacklog ? backlog.permits : 0),
   };

@@ -208,3 +208,19 @@ test('every reward icon the release holds is one import-reward-icons.py fetches 
 test('the kinds of table reward the release checks are the kinds the page lists', () => {
   assert.deepEqual([...LISTED_REWARD_KINDS].sort(), Object.entries(TABLE_REWARD_LABEL).filter(([, label]) => label).map(([kind]) => kind).sort());
 });
+
+test('Reward Tracker stages item-ID collisions and furniture but leaves portraits and abstract claims to their own pipelines', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'arkpedia-free-reward-icons-'));
+  try {
+    fs.mkdirSync(path.join(root, 'data'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'data/free-rewards.json'), JSON.stringify({ rewards: [{ rewards: [
+      { id: 'permit_a', name: 'Shared Permit' }, { id: 'permit_b', name: 'Shared Permit' },
+      { id: 'voucher_a', name: 'New Starter Voucher' }, { id: 'furniM_a', name: 'Furniture' },
+      { id: 'char_a', name: 'Operator' }, { id: 'avatar_a', name: 'Avatar' },
+      { id: 'GP_freeL_5', name: 'Free pack' }, { id: 'login:choice', name: 'Choice' },
+    ] }] }));
+    const run = spawnSync('python3', [path.resolve('scripts/imports/import-reward-icons.py'), '--wanted'], { cwd: root, encoding: 'utf8', env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1' } });
+    assert.equal(run.status, 0, run.stdout + run.stderr);
+    assert.deepEqual(JSON.parse(run.stdout), ['material-icons/New Starter Voucher.webp', 'material-icons/furniM_a.webp', 'material-icons/permit_a.webp', 'material-icons/permit_b.webp']);
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});

@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef, useState, useCallback, type ReactNode, type MouseEvent } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, useCallback, useMemo, type ReactNode, type MouseEvent } from 'react';
 import Image from '@/components/content/ContentImage';
 import { OperatorPreview, type OperatorPreviewItem } from '@/components/operators/OperatorPreview';
 import XButton from '@/components/ui/XButton';
@@ -6,6 +6,7 @@ import type { TicketDetails } from '@/lib/events/announcements';
 import type { EventExtras } from '@/lib/events/tableRewards';
 import { RewardTile } from './RewardTile';
 import { packDay } from '@/lib/events/packDay';
+import { pointLabel, rankByRecommendation, type Recommendation } from '@/lib/selectors/scoring';
 
 export interface ResolvedTicket extends Omit<TicketDetails, 'operators'> {
   operators: { name: string; iconPath: string; href: string }[];
@@ -16,14 +17,20 @@ const Details = createContext<{ tickets: Record<string, ResolvedTicket>; open: (
 
 /** One native modal handles packs and their tickets. Browser focus containment, Escape,
  * scroll locking and restoring the original card keep both desktop and phone usable. */
-export function RewardDetailsProvider({ tickets, children }: { tickets: Record<string, ResolvedTicket>; children: ReactNode }) {
+export function RewardDetailsProvider({ tickets, children, recommendations, recommendationNote, recommendationSettings }: { tickets: Record<string, ResolvedTicket>; children: ReactNode; recommendations?: Record<string, Recommendation>; recommendationNote?: string; recommendationSettings?: ReactNode }) {
   const [stack, setStack] = useState<Detail[]>([]);
+  const [showSettings, setShowSettings] = useState(false);
+  const [settingsHeight, setSettingsHeight] = useState<number | undefined>();
+  const operatorScroll = useRef(0);
+  const settingsTrigger = useRef<HTMLButtonElement>(null);
   const [operatorPreview, setOperatorPreview] = useState<OperatorPreviewItem | null>(null);
   const closeOperatorPreview = useCallback(() => setOperatorPreview(null), []);
   const dialog = useRef<HTMLDialogElement>(null);
   const trigger = useRef<HTMLElement | null>(null);
   const heading = useRef<HTMLHeadingElement>(null);
   const active = stack[stack.length - 1];
+  const ticket = active && 'ticket' in active ? active.ticket : undefined;
+  const operators = useMemo(() => rankByRecommendation(ticket?.operators ?? [], recommendations), [ticket, recommendations]);
   const isOpen = !!active;
   useEffect(() => {
     if (!isOpen) return;
@@ -37,15 +44,23 @@ export function RewardDetailsProvider({ tickets, children }: { tickets: Record<s
       trigger.current?.focus({ preventScroll: true });
     };
   }, [isOpen]);
-  useEffect(() => { if (active) { dialog.current!.scrollTop = 0; heading.current?.focus(); } }, [active]);
+  useEffect(() => { setShowSettings(false); setSettingsHeight(undefined); if (active) { dialog.current!.scrollTop = 0; heading.current?.focus(); } }, [active]);
+  useEffect(() => { if (isOpen) dialog.current!.scrollTop = showSettings ? 0 : operatorScroll.current; }, [showSettings, isOpen]);
+  const toggleSettings = () => {
+    if (!showSettings) {
+      operatorScroll.current = dialog.current!.scrollTop;
+      setSettingsHeight(dialog.current!.getBoundingClientRect().height);
+    }
+    setShowSettings(value => !value);
+  };
   const open = (detail: Detail, button: HTMLElement) => {
     if (!stack.length) trigger.current = button;
     setStack(current => [...current, detail]);
   };
-  const close = () => setStack([]);
+  const close = () => { operatorScroll.current = 0; setStack([]); };
   return <Details.Provider value={{ tickets, open }}>
     {children}
-    <dialog ref={dialog} className="event-details-dialog" aria-labelledby="event-details-title" onCancel={e => { e.preventDefault(); close(); }} onKeyDown={e => {
+    <dialog ref={dialog} className="event-details-dialog" style={showSettings ? { height: settingsHeight } : undefined} aria-labelledby="event-details-title" onCancel={e => { e.preventDefault(); if (showSettings) { setShowSettings(false); settingsTrigger.current?.focus(); } else close(); }} onKeyDown={e => {
       if (e.key !== 'Tab') return;
       const focusable = [...e.currentTarget.querySelectorAll<HTMLElement>('button:not([disabled]), a[href]')];
       const first = focusable[0], last = focusable[focusable.length - 1];
@@ -61,21 +76,26 @@ export function RewardDetailsProvider({ tickets, children }: { tickets: Record<s
           <div>
             {stack.length > 1 && <button type="button" className="btn" onClick={() => setStack(current => current.slice(0, -1))}>← Pack contents</button>}
             <h2 id="event-details-title" ref={heading} className="entity-title" tabIndex={-1}>{active.name}</h2>
+            {'ticket' in active && recommendationSettings && <button ref={settingsTrigger} type="button" className="btn btn-sm selector-personalize-button" aria-expanded={showSettings} aria-controls="event-selector-content" onClick={toggleSettings}>{showSettings ? 'Show recommendations' : 'Personalize recommendations'}</button>}
           </div>
           <XButton onClick={close} label={`Close ${active.name}`} />
         </div>
-        {'ticket' in active ? <>
+        {'ticket' in active ? <div id="event-selector-content">{showSettings ? recommendationSettings : <>
           <p>{active.ticket.description}</p>
           {active.ticket.note && <p className="hint">{active.ticket.note}</p>}
+          {recommendationNote && <p className="hint">{recommendationNote}</p>}
           <div className="event-selector-operators">
-            {active.ticket.operators.map(op => <button key={op.name} type="button" className="btn-bare event-selector-operator" aria-haspopup="dialog" aria-label={`${op.name}: operator preview`}
+            {operators.map(op => { const score = recommendations?.[op.name]; const breakdown = score ? `${score.complete ? "Recommendation" : "Available subtotal (rating data missing)"}: ${pointLabel(score.total)}. ${score.lines.map(line => `${line.label}: ${pointLabel(line.points)}`).join("; ")}` : undefined; return <button key={op.name} type="button" className="btn-bare event-selector-operator" aria-haspopup="dialog" title={breakdown} aria-label={`${op.name}: operator preview${score ? `, ${breakdown}${score.owned ? ", already owned" : ""}` : ""}`}
               onClick={() => setOperatorPreview({ name: op.name, icon: op.iconPath, rarity: 6 })}>
-              <Image src={op.iconPath} alt="" width={56} height={56} />
+              <span className="selector-portrait"><Image src={op.iconPath} alt="" width={56} height={56} />
+              {score && <span className={`selector-score selector-score-${score.tone}`} aria-hidden="true">{pointLabel(score.total)}</span>}
+              </span>
               <span>{op.name}</span>
-            </button>)}
+            {score?.owned && <span className="selector-owned">Owned</span>}
+            </button>; })}
           </div>
           <p className="hint"><a href={active.ticket.source} target="_blank" rel="noopener noreferrer">Source announcement</a></p>
-        </> : <>
+        </>}</div> : <>
           {active.pack.imagePath && <Image className="event-pack-detail-image" src={active.pack.imagePath} alt={`${active.pack.name} artwork`} width={200} height={150} />}
           {active.pack.start && <p className="hint">Sale window: {packDay(active.pack.start)} – {active.pack.end ? packDay(active.pack.end) : 'Not announced'}</p>}
           {active.pack.limit && <p className="hint">Purchase limit: {active.pack.limit}</p>}

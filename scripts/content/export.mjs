@@ -19,6 +19,7 @@ const tracked = execFileSync('git', ['ls-files', '--cached', '--others', '--excl
 const isLyric = file => /^data\/lyrics\/[^/]+\.lrc$/.test(file);
 const sourceFiles = tracked.filter(file => fs.existsSync(file) && !file.includes('final-poll-results')
   && file !== 'public/operator-search.json'
+  && file !== 'data/selector-catalogue.json' // derived deploy fallback; page export builds from hydrated source records
   && (isLyric(file) || (file.endsWith('.json') && (file.startsWith('data/') || /^public\/[^/]+\.json$/.test(file)))));
 const sourceHashes = {};
 fs.rmSync(source, { recursive: true, force: true });

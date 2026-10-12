@@ -54,6 +54,8 @@ function Row({
   onEdit,
   onBuild,
   onRemove,
+  included,
+  onInclude,
 }: {
   view: PlanRowView;
   open: boolean;
@@ -62,11 +64,14 @@ function Row({
    *  one, and a button that opens an empty dialog is worse than no button. */
   onBuild?: () => void;
   onRemove?: () => void;
+  included: boolean;
+  onInclude: (included: boolean) => void;
 }) {
   const rarity = view.op.rarity || 1;
   const pct = Math.round(view.covered * 100);
   return (
-    <div className={`plan-row${open ? ' open' : ''}`}>
+    <div className={`plan-row${open ? ' open' : ''}${included ? '' : ' is-excluded'}`}>
+      <label className="check plan-row-check"><input type="checkbox" checked={included} onChange={event => onInclude(event.target.checked)} /><span className="visually-hidden">Include {view.name} in material totals</span></label>
       <span className="plan-face">
         <Image src={getOperatorIconPath(view.op)} alt="" width={46} height={46} />
         {/* Rarity is a 3px edge, and it comes from the folder the portrait was
@@ -158,6 +163,9 @@ export function PlanRows({
   onRoster,
   onAddGoal,
   rosterCount,
+  excluded,
+  onInclude,
+  selectionControl,
 }: {
   clearControl?: React.ReactNode;
   planned: PlanRowView[];
@@ -171,6 +179,9 @@ export function PlanRows({
   /** Opens the goal window: the operators you HAVE, for aiming one somewhere. */
   onAddGoal: () => void;
   rosterCount: number;
+  excluded: ReadonlySet<string>;
+  onInclude: (name: string, included: boolean) => void;
+  selectionControl: React.ReactNode;
 }) {
   /**
    * WHO YOU ARE BUILDING, and nobody else.
@@ -208,6 +219,7 @@ export function PlanRows({
           </span>
         </span>
         <span className="plan-panel-acts plan-panel-acts-fill">{clearControl}
+          {selectionControl}
           {/* Two errands, two buttons. `Your roster` is where you say what you
               HAVE -- a transcription job, done once for a hundred and fifty
               operators. `Add a goal` is where you say what you are AIMING AT,
@@ -232,7 +244,7 @@ export function PlanRows({
         ) : (
           <div className="plan-rows">
             {planned.map((v) => (
-              <Row key={v.name} view={v} open={openName === v.name} onEdit={() => onEdit(v.name)} onBuild={() => onBuild(v.name)} onRemove={() => onRemove(v.name)} />
+              <Row key={v.name} view={v} included={!excluded.has(v.name)} onInclude={included => onInclude(v.name, included)} open={openName === v.name} onEdit={() => onEdit(v.name)} onBuild={() => onBuild(v.name)} onRemove={() => onRemove(v.name)} />
             ))}
           </div>
         )}

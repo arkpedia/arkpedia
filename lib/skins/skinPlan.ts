@@ -9,7 +9,7 @@
  * both, once (legacySkinPlan); after that only this one is written, and the Pull Planner
  * keeps a copy in its plan so its file export still carries the outfits.
  */
-import { useCallback, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useMemo, useSyncExternalStore } from 'react';
 import { PULL_PLAN_KEY } from '@/lib/pulls/plan';
 
 export const SKIN_PLAN_KEY = 'arkpediaSkinPlan';
@@ -87,7 +87,7 @@ function subscribe(onChange: () => void) {
  * matches; the stored plan arrives right after. `keyOfName` turns the old wishlist's names
  * into keys on the first read (legacySkinPlan).
  */
-export function useSkinPlan(keyOfName: (name: string) => string | undefined): [string[], (ids: string[]) => void] {
+export function useSkinPlan(keyOfName: (name: string) => string | undefined, ownedKeys?: ReadonlySet<string>): [string[], (ids: string[]) => void] {
   const ids = useSyncExternalStore(subscribe, () => {
     try {
       if (window.localStorage && window.localStorage.getItem(SKIN_PLAN_KEY) == null) {
@@ -97,6 +97,15 @@ export function useSkinPlan(keyOfName: (name: string) => string | undefined): [s
     } catch { /* private mode */ }
     return snapshot();
   }, () => EMPTY);
-  const set = useCallback((next: string[]) => writeSkinPlan(next), []);
-  return [ids, set];
+  useEffect(() => {
+    if (!ownedKeys?.size) return;
+    try {
+      const latest = parseSkinPlan(window.localStorage.getItem(SKIN_PLAN_KEY)) ?? ids;
+      const unowned = latest.filter(id => !ownedKeys.has(id));
+      if (unowned.length !== latest.length) writeSkinPlan(unowned);
+    } catch { /* Storage is unavailable. */ }
+  }, [ids, ownedKeys]);
+  const set = useCallback((next: string[]) => writeSkinPlan(next.filter(id => !ownedKeys?.has(id))), [ownedKeys]);
+  const unowned = useMemo(() => ownedKeys?.size ? ids.filter(id => !ownedKeys.has(id)) : ids, [ids, ownedKeys]);
+  return [unowned, set];
 }

@@ -3,7 +3,7 @@ import { ContentImg } from '@/components/content/ContentImage';
 import { chapterRows, readerLink, type Section } from '@/lib/story/storyChapters';
 import type { StoryLink } from '@/lib/story/storyMap';
 import { useState } from 'react';
-import { readStoryProgress, setStoryPart, useStoryProgress, writeStoryProgress } from '@/lib/story/storyProgress';
+import { chapterProgress, readStoryProgress, setStoryPart, useStoryProgress, writeStoryProgress } from '@/lib/story/storyProgress';
 
 /*
  * One chapter of the Story map, section by section, before reading it in Timo's reader: each
@@ -18,6 +18,7 @@ import { readStoryProgress, setStoryPart, useStoryProgress, writeStoryProgress }
  */
 export default function ChapterDialog({ link, image, sections, onClose }: { link: StoryLink & { url: string; story: string }; image: { src: string; ratio: number } | null; sections: Section[]; onClose: () => void }) {
   const progress = useStoryProgress();
+  const status = chapterProgress(progress, link.story, sections);
   const [note, setNote] = useState('');
   const isRead = (index: number) => !!progress[link.story]?.includes(index);
   function mark(index: number, read: boolean) {
@@ -42,8 +43,9 @@ export default function ChapterDialog({ link, image, sections, onClose }: { link
         <div className="story-chapter-head">
           <span className="hint">{stages ? `${stages} stage${stages === 1 ? '' : 's'} · ` : ''}{sections.length} parts, in Timo&apos;s story reader</span>
           <div className="story-chapter-actions">
-            <a className="primary btn-sm" href={readerLink(link.url, sections[0]?.[0] ?? 0)} target="_blank" rel="noopener noreferrer"
-              onClick={() => { if (sections[0]) mark(sections[0][0], true); }} onAuxClick={event => { if (event.button === 1 && sections[0]) mark(sections[0][0], true); }}>Read from the start <span aria-hidden="true">↗</span></a>
+            <a className="primary btn-sm" href={readerLink(link.url, status.next)} target="_blank" rel="noopener noreferrer"
+              onClick={() => mark(status.next, true)} onAuxClick={event => { if (event.button === 1) mark(status.next, true); }}>{status.label === 'Read' ? 'Read again' : 'Continue reading'} <span aria-hidden="true">↗</span></a>
+            <span className="hint" role="status">{status.label}</span>
             <div className="story-chapter-bulk">
             <button type="button" className="ghost btn-sm" onClick={() => {
               try {

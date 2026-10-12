@@ -30,9 +30,10 @@ export default function SkinPlannerPage({ catalogue, collections, now }: Props) 
   const clock = useReaderClock(now);
   const today = new Date(clock).toISOString().slice(0, 10);
   const byName = useMemo(() => new Map(catalogue.map((skin) => [skin.name, skin.id])), [catalogue]);
-  const [ids, setIds] = useSkinPlan((name) => byName.get(name));
   const account = useAccount();
   const owned = useMemo(() => (account ? new Set(account.skins) : null), [account]);
+  const ownedKeys = useMemo(() => new Set(catalogue.filter(skin => skin.skinId && owned?.has(skin.skinId)).flatMap(skin => [skin.id, skin.name])), [catalogue, owned]);
+  const [ids, setIds] = useSkinPlan((name) => byName.get(name), ownedKeys);
   return (
     <>
       <Head><title>Skin Planner — Arkpedia</title></Head>

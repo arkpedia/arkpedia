@@ -7,10 +7,10 @@ const resources = {
   orundum: { name: 'Orundum', unit: 'Orundum', path: '/material-icons/Orundum.webp' },
 };
 
-export function RewardAmount({ resource, amount }: { resource: keyof typeof resources; amount: number }) {
+export function RewardAmount({ resource, amount, iconOnly = false }: { iconOnly?: boolean; resource: keyof typeof resources; amount: number }) {
   const item = resources[resource];
   return <span className="pulls-reward-amount" title={item.name}>
     <Image src={item.path} width={24} height={24} alt="" />
-    <span>{formatNumber(amount)} <small>{item.unit}</small></span>
+    <span>{formatNumber(amount)} <small className={iconOnly ? 'visually-hidden' : undefined}>{item.unit}</small></span>
   </span>;
 }
