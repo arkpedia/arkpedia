@@ -167,7 +167,7 @@ test('stage renders: a published render reaches every form of its layout, the re
     for (const [name, data] of Object.entries(renders)) write(root, `cn/map/${name}`, data);
     const run = () => {
       const result = spawnSync('node', [path.join(REPO, 'scripts/imports/import-stage-renders.mjs')], { cwd: root, encoding: 'utf8',
-        env: { ...process.env, ARKPEDIA_EN: path.join(root, 'en'), ARKPEDIA_CN: path.join(root, 'cn'), ARKPEDIA_PIN_YUANYAN3060_ARKNIGHTSGAMERESOURCE: PIN, ARKPEDIA_NOW: '2026-09-26T12:00:00Z' } });
+        env: { ...process.env, ARKPEDIA_EN: path.join(root, 'en'), ARKPEDIA_CN: path.join(root, 'cn'), ARKPEDIA_PIN_YUANYAN3060_ARKNIGHTSGAMERESOURCE: PIN, ARKPEDIA_CLOSURE_FALLBACK: '0', ARKPEDIA_NOW: '2026-09-26T12:00:00Z' } });
       assert.equal(result.status, 0, result.stderr);
     };
     run();
@@ -213,7 +213,7 @@ test('a staged render the publisher leaves out is held once, by the importer tha
     for (const [name, rgba] of [['act99side_01.png', [1, 1, 1, 255]], ['act99side_02_b.png', [2, 2, 2, 255]], ['act99side_03_1.png', [3, 3, 3, 255]]] as const) {
       write(root, `cn/map/${name}`, png(320, 180, [...rgba]));
     }
-    const env = { ...process.env, ARKPEDIA_EN: path.join(root, 'en'), ARKPEDIA_CN: path.join(root, 'cn'), ARKPEDIA_PIN_YUANYAN3060_ARKNIGHTSGAMERESOURCE: PIN, ARKPEDIA_NOW: '2026-09-26T12:00:00Z' };
+    const env = { ...process.env, ARKPEDIA_EN: path.join(root, 'en'), ARKPEDIA_CN: path.join(root, 'cn'), ARKPEDIA_PIN_YUANYAN3060_ARKNIGHTSGAMERESOURCE: PIN, ARKPEDIA_CLOSURE_FALLBACK: '0', ARKPEDIA_NOW: '2026-09-26T12:00:00Z' };
     const importRenders = () => {
       const result = spawnSync('node', [path.join(REPO, 'scripts/imports/import-stage-renders.mjs')], { cwd: root, encoding: 'utf8', env });
       assert.equal(result.status, 0, result.stderr);
@@ -354,7 +354,7 @@ rev=main; [ -e "${root}/raced" ] && [ "$(wc -l < "${root}/assets-updates")" -eq 
 exec node -e 'const {execFileSync}=require("child_process"),fs=require("fs");const git=(...a)=>execFileSync("git",["-C",process.argv[1],...a]).toString();const m=JSON.parse(git("show",process.argv[2]+":asset-manifest.json"));fs.writeFileSync("data/assets/external-asset-index.json",JSON.stringify({files:Object.keys(m.files).sort()}));fs.writeFileSync("data/assets/revisions.json",JSON.stringify({"arkpedia-image-assets":git("rev-parse",process.argv[2]).trim(),"arkpedia-skin-assets":"5".repeat(40)}))' "${bare}" "$rev"
 `);
     const env = { ...process.env, PATH: `${shims}:${process.env.PATH}`, GIT_CONFIG_GLOBAL: gitconfig, GIT_CONFIG_NOSYSTEM: '1',
-      ARKPEDIA_CN: path.join(app, 'cn'), ARKPEDIA_PIN_YUANYAN3060_ARKNIGHTSGAMERESOURCE: PIN, ARKPEDIA_NOW: '2026-09-26T20:00:00Z',
+      ARKPEDIA_CN: path.join(app, 'cn'), ARKPEDIA_PIN_YUANYAN3060_ARKNIGHTSGAMERESOURCE: PIN, ARKPEDIA_CLOSURE_FALLBACK: '0', ARKPEDIA_NOW: '2026-09-26T20:00:00Z',
       CATALOGUE_IMAGE_DEPLOY_KEY: 'test-key', ARKPEDIA_PUBLISH_BACKOFF_SECONDS: '0' };
     const importer = () => {
       const result = spawnSync('node', ['scripts/imports/import-item-icons.mjs'], { cwd: app, env, encoding: 'utf8' });

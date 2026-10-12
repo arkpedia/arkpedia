@@ -38,6 +38,7 @@ const deprecated = relative => deprecatedSourceFiles.has(relative) || deprecated
 // deletes on purpose is then deleted here as well, never brought back from the app's
 // stale copy, and the log names it. Take an entry out once every release carries it.
 const SEEDED_SOURCE_FILES = new Set([
+  'data/free-rewards.json',
   // Web campaign discovery (official regional feeds and campaign rules), seeded until
   // the first release publishes it. Later discoveries arrive without a code deploy.
   'data/community-web-events.json',
@@ -53,6 +54,8 @@ const SEEDED_SOURCE_FILES = new Set([
   // The game's character and module ids, for importing an account into the planner
   // (scripts/build/build-game-account-map.ts, regenerated every run).
   'data/game-account-map.json',
+  'public/medal-catalogue.json',
+  'data/medal-set-layouts.json',
   // Each profile card theme's colours, from the client's theme bundles, and their md5s, so
   // only a changed bundle is fetched (scripts/imports/import-namecard-styles.py, every run).
   'data/namecard-styles.json',

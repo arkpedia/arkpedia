@@ -1346,38 +1346,45 @@ a.primary:where(:has(~ :is(button, a).ghost)),
   gap: 16px;
   margin-top: 24px;
 }
-/* The supporter tiers. These three had no rules at all, so a ul rendered with disc
-   bullets and 40px of indent in the middle of a page that has neither anywhere
-   else -- it read as an unstyled document dropped into the design. Panels to match
-   .support-option below, since that is what the rest of this page is made of. */
+/* Acknowledgements: tier labels at left, names flowing across the available space. */
 .supporters-tiers {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-  gap: 14px;
   margin-top: 14px;
-}
-.supporter-tier {
-  padding: 14px;
   border-radius: var(--radius-frame, 3px);
   border: 1px solid var(--line-soft);
   background: var(--panel-grad, var(--panel-2));
-  /* r11 quiet polish: a boxed panel's soft depth (docs/development/ui-primitives.md rule 23). */
   box-shadow: var(--shadow-panel);
 }
-/* Each tier's name is a .label-tag micro-label (arkpedia-theme.css); it stays an h3,
-   heading its list of names. */
-.supporter-tier h3 { margin: 0 0 8px; }
+.supporter-tier {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  align-items: baseline;
+  gap: 10px 24px;
+  padding: 16px 20px;
+}
+.supporter-tier + .supporter-tier { border-top: 1px solid var(--line-soft); }
+.supporter-tier h3 {
+  margin: 0;
+  color: var(--text-faint);
+  font-size: 15px;
+  line-height: 1.4;
+}
 /* The page's first line starts 24px under the header hairline (the paragraph's own top
    margin put it at 40). */
 .support-intro { margin-top: 0; }
 .supporter-list {
   display: flex;
-  flex-direction: column;
-  gap: 5px;
+  flex-wrap: wrap;
+  gap: 8px 24px;
   margin: 0;
   padding: 0;
   list-style: none;
   font-size: 13px;
+}
+.supporter-list li { max-width: 100%; overflow-wrap: anywhere; }
+@media (max-width: 700px) {
+  .supporter-tier { grid-template-columns: minmax(0, 1fr); padding: 14px 16px; }
+  .supporter-list { column-gap: 20px; }
 }
 
 .support-option {
@@ -1687,7 +1694,9 @@ a.primary:where(:has(~ :is(button, a).ghost)),
 .chibi-roaming .chibi-viewer { height: 180px; }
 .chibi-roaming .chibi-viewer p { bottom: 0; font-size: 12px; }
 .chibi-roaming.is-dragging canvas { cursor: grabbing; }
-.chibi-roaming-controls { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: space-between; align-items: flex-end; pointer-events: none; }
+.chibi-roaming-controls { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: space-between; align-items: flex-end; pointer-events: none; visibility: hidden; }
+.chibi-roaming.show-controls .chibi-roaming-controls, .chibi-roaming:has(:focus-visible) .chibi-roaming-controls, .chibi-roaming:focus-visible .chibi-roaming-controls { visibility: visible; }
+@media (hover: hover) { .chibi-roaming:hover .chibi-roaming-controls { visibility: visible; } }
 .chibi-roaming-controls > button { pointer-events: auto; }
 .chibi-furniture { position: absolute; left: 0; width: 160px; height: 118px; pointer-events: none; mask-size: 100% 100%; mask-repeat: no-repeat; }
 .chibi-furniture-sit { top: 56px; mask-image: url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20226%20169%22%3E%3Cpath%20fill%3D%22white%22%20fill-rule%3D%22evenodd%22%20d%3D%22M158%20126L159%20126L159%20127L162%20127L162%20130L161%20130L161%20131L160%20131L160%20133L158%20133L158%20134L157%20134L157%20136L156%20136L156%20137L155%20137L155%20138L154%20138L154%20139L153%20139L153%20140L152%20140L152%20141L151%20141L151%20142L149%20142L149%20144L147%20144L147%20145L145%20145L145%20146L140%20146L140%20145L76%20145L76%20146L70%20146L70%20145L63%20145L63%20143L64%20143L64%20142L65%20142L65%20141L67%20141L67%2052L65%2052L65%2046L66%2046L66%2045L69%2045L69%2044L73%2044L73%2043L76%2043L76%2042L80%2042L80%2041L84%2041L84%2040L95%2040L95%2046L93%2046L93%2049L94%2049L94%2058L95%2058L95%2067L96%2067L96%2072L160%2072L160%2078L159%2078L159%2079L158%2079ZM104%20101L104%20102L101%20102L101%20103L99%20103L99%20104L98%20104L98%20105L97%20105L97%20106L96%20106L96%20108L95%20108L95%20109L94%20109L94%20110L95%20110L95%20112L94%20112L94%20124L93%20124L93%20127L136%20127L136%20119L135%20119L135%20117L136%20117L136%20115L135%20115L135%20110L134%20110L134%20108L133%20108L133%20106L132%20106L132%20104L130%20104L130%20103L128%20103L128%20102L125%20102L125%20101ZM74%20133L73%20133L73%20134L69%20134L69%20135L73%20135L73%20136L74%20136ZM140%20134L140%20133L139%20133L139%20136L140%20136L140%20135L144%20135L144%20134ZM145%2080L145%2081L147%2081L147%2080L149%2080L149%2079L150%2079L150%2078L152%2078L152%2077L154%2077L154%2076L155%2076L155%2075L154%2075L154%2076L152%2076L152%2077L150%2077L150%2078L149%2078L149%2079L147%2079L147%2080ZM155%20125L155%20123L151%20123L151%20125L152%20125L152%20124L154%20124L154%20125Z%22%2F%3E%3C%2Fsvg%3E'); }

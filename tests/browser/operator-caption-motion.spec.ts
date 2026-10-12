@@ -12,6 +12,18 @@ for (const theme of ['dark', 'light']) for (const reducedMotion of ['no-preferen
     await expect(current.locator('[data-caption-name]')).toHaveText('Doctor of Faces');
     await expect(current.locator('[data-caption-price]')).toHaveText('18 OP');
     await page.waitForTimeout(550);
+    const dots = page.getByRole('group', { name: 'Choose outfit', exact: true });
+    const pipColors = await dots.evaluate(group => [...group.querySelectorAll('button')].map(button => {
+      const pip = getComputedStyle(button, '::before');
+      // Resolve the shared theme tokens through the browser, in either theme.
+      const probe = document.createElement('span');
+      probe.style.color = button.getAttribute('aria-current') === 'true' ? 'var(--teal)' : 'var(--text-dim)';
+      button.append(probe);
+      const expected = getComputedStyle(probe).color;
+      probe.remove();
+      return { actual: pip.backgroundColor, expected, width: pip.width };
+    }));
+    for (const pip of pipColors) { expect(pip.actual).toEqual(pip.expected); expect(pip.width).toEqual('14px'); }
     const before = await page.locator('.op-carousel-main').boundingBox();
     const captionBox = await current.locator('..').boundingBox();
     await choices.getByRole('button', { name: 'Healing Hand, Evil Heart', exact: true }).click();

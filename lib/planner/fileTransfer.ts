@@ -119,6 +119,8 @@ export async function saveToFile(text: string, suggestedName: string): Promise<S
 export interface LoadResult {
   name: string;
   text: string;
+  /** Only supplied for an archive when the caller explicitly accepts one. */
+  bytes?: Uint8Array;
   /** The file was larger than MAX_IMPORT_BYTES and was NOT read: `text` is
    *  empty. Said here rather than by returning null, so the caller can tell
    *  "you cancelled" from "that is not a planner file". */
@@ -127,25 +129,27 @@ export interface LoadResult {
 
 /* Checked on the File's own size, before .text() -- reading a gigabyte into a
    string to then refuse it is the cost this avoids. */
-function readChecked(file: File): Promise<LoadResult> {
-  if (file.size > MAX_IMPORT_BYTES) return Promise.resolve({ name: file.name, text: '', tooLarge: true });
+function readChecked(file: File, archives = false): Promise<LoadResult> {
+  const zip = archives && /\.zip$/i.test(file.name);
+  if (file.size > MAX_IMPORT_BYTES * (zip ? 3 : 1)) return Promise.resolve({ name: file.name, text: '', tooLarge: true });
+  if (zip) return file.arrayBuffer().then(bytes => ({ name: file.name, text: '', bytes: new Uint8Array(bytes) }));
   return file.text().then((text) => ({ name: file.name, text }));
 }
 
-export async function loadFromFile(): Promise<LoadResult | null> {
+export async function loadFromFile({ archives = false }: { archives?: boolean } = {}): Promise<LoadResult | null> {
   const w = api();
   if (w.showOpenFilePicker) {
     try {
       const [handle] = await w.showOpenFilePicker({
         id: PICKER_ID,
         startIn: lastHandle ?? 'documents',
-        types: OPEN_TYPES,
+        types: archives ? [{ description: 'Arkpedia data files', accept: { 'application/json': ['.json'], 'text/csv': ['.csv'], 'application/zip': ['.zip'] } }] : OPEN_TYPES,
         multiple: false,
       });
       if (!handle) return null;
       const file = await handle.getFile();
       lastHandle = handle;
-      return await readChecked(file);
+      return await readChecked(file, archives);
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') return null;
     }
@@ -156,7 +160,7 @@ export async function loadFromFile(): Promise<LoadResult | null> {
   return new Promise<LoadResult | null>((resolve) => {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = 'application/json,.json,text/csv,.csv';
+    input.accept = `application/json,.json,text/csv,.csv${archives ? ',application/zip,.zip' : ''}`;
     input.style.position = 'fixed';
     input.style.left = '-9999px';
     document.body.appendChild(input);
@@ -164,7 +168,7 @@ export async function loadFromFile(): Promise<LoadResult | null> {
       const file = input.files?.[0];
       input.remove();
       if (!file) { resolve(null); return; }
-      readChecked(file).then(resolve).catch(() => resolve(null));
+      readChecked(file, archives).then(resolve).catch(() => resolve(null));
     });
     /* No `cancel` event in older browsers, so a dismissed dialog leaves this
        promise pending. Harmless -- nothing is awaiting a result that matters --

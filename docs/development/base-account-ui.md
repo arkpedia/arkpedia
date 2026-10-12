@@ -54,25 +54,29 @@ with the production facility colors filling each tile. Staffing opens a full-wid
 panel in place of the map, with a multi-column roster and complete skill descriptions.
 Back or Escape restores the map's pan, zoom and keyboard focus. Narrow screens
 keep the same floor positions instead of reflowing into a card list. Fit, zoom
-buttons/slider, Ctrl/Cmd-wheel, touch pinch, drag/native scrolling, and fullscreen
+buttons/slider, Ctrl/Cmd-wheel, touch pinch, and drag/native scrolling
 provide access to every room. Dragging or pinching does not select a room.
-Fullscreen keeps keyboard focus within the map; Escape or selecting a room exits it.
+Fit base is the minimum zoom at each viewport width; the map stays within the page.
 
 ## Rotation
 
-The **Presets** control stays highlighted while its section is open. **Clear base**
+The preset toolbar stays beside the map and remains available while staffing.
+Selecting a saved setup loads it directly; **Save changes** updates it and
+**Save as** opens an anchored name editor. The actions menu provides reload,
+rename and delete. A status identifies saved setups and unsaved changes. **Clear base**
 empties the current workers, products, ambience, training and crafting settings
 without changing facility layout/levels, saved presets or rotation. It also
 deselects the loaded preset so a new setup can be saved separately.
-Saved and new preset controls occupy separate aligned rows with matching field
-and button heights. Narrow screens stack the actions below each field and show
-daily production in a two-column grid.
+Naming and management popups preserve the map's position. Narrow screens wrap
+the toolbar controls and show daily production in a two-column grid.
 
-**Rotation** opens a modal timetable with Escape, close and backdrop dismissal.
+**Edit rotation** beside the calculation source controls opens a modal timetable
+with Escape, close and backdrop dismissal.
 **Add to rotation** saves the imported staffing as a setup and adds a 12-hour
 shift without replacing the draft. Other working/resting setups can be saved in
-Presets, then selected as shifts with a duration and start time. Load shift
-explicitly loads its complete setup into Your plan. Rotation survives reload and
+the toolbar, then selected as shifts with a duration and start time. **View in base**
+explicitly loads its complete setup into Your plan, closes the timetable and
+returns focus to the map toolbar. Rotation survives reload and
 is included in backups.
 
 The timetable recalculates each complete saved setup with the current cross-room
@@ -109,7 +113,7 @@ Morale/training effects. For those numeric-model boundaries, see
 - Browser coverage: view switching without draft writes, explicit copying with
   recovery preset, importing before formation setup, reimport instructions,
   rotation persistence/loading, stable desktop geometry, production floor
-  positions at 320px, zoom/drag selection, fullscreen keyboard access and containment.
+  positions at 320px, zoom/drag selection, keyboard room access and the fitted zoom limit.
 - Timetable/summary coverage: modal focus and nested dropdown Escape, empty numeric
   edits, real preset options, stable header placement, weighted rotation output,
   second-cycle exhaustion and calculation switching without staffing changes.

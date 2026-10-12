@@ -48,6 +48,12 @@ export default function RoamingChibiProvider({ children }: { children: ReactNode
     (source?.isConnected ? source : petRef.current ?? document.getElementById('page-content'))?.focus({ preventScroll: true });
   }, []);
   const [pet, setPet] = useState<Pet | null>(null);
+  const [controlsVisible, setControlsVisible] = useState(false);
+  useEffect(() => {
+    if (!controlsVisible) return;
+    const timeout = window.setTimeout(() => setControlsVisible(false), 5000);
+    return () => window.clearTimeout(timeout);
+  }, [controlsVisible]);
   const label = pet?.label, paused = pet?.paused;
   const [dragging, setDragging] = useState(false), [moving, setMoving] = useState(false), [flipped, setFlipped] = useState(false);
   const [rest, setRest] = useState<ChibiBreak | null>(null);
@@ -123,7 +129,7 @@ export default function RoamingChibiProvider({ children }: { children: ReactNode
       if (!active || event.pointerId !== active.pointer) return;
       drag.current = null; setDragging(false);
       if (event.type === 'pointerup' && active.detached && !active.moved
-        && Math.hypot(event.clientX - active.origin.x, event.clientY - active.origin.y) <= 6) tap();
+        && Math.hypot(event.clientX - active.origin.x, event.clientY - active.origin.y) <= 6) { tap(); if (event.pointerType === 'touch') setControlsVisible(value => !value); }
     };
     const cancel = () => { drag.current = null; setDragging(false); };
     window.addEventListener('pointermove', move, { passive: false });
@@ -194,7 +200,7 @@ export default function RoamingChibiProvider({ children }: { children: ReactNode
   return <RoamingChibiContext.Provider value={{ pet, viewer, viewerOpen, openViewer, closeViewer, walkOnPage, startDrag, setPaused, dismiss }}>
     {children}
     {viewer && <ChibiWindow config={viewer} open={viewerOpen} />}
-    {pet && createPortal(<div className={`chibi-roaming${dragging ? ' is-dragging' : ''}`} ref={petRef} data-activity={rest?.activity ?? (moving ? 'walking' : 'idle')} data-break-duration={rest?.duration}
+    {pet && createPortal(<div className={`chibi-roaming${dragging ? ' is-dragging' : ''}${controlsVisible ? ' show-controls' : ''}`} ref={petRef} data-activity={rest?.activity ?? (moving ? 'walking' : 'idle')} data-break-duration={rest?.duration}
       style={{ left: position.current.x, top: position.current.y }} tabIndex={0} role="group" aria-label={`${pet.label} roaming chibi`}
       title="Tap to interact · Enter or Space to interact · Drag or arrow keys to move · Escape to dismiss" onKeyDown={event => {
         if (event.key === 'Escape') { event.preventDefault(); dismiss(); }
@@ -210,7 +216,7 @@ export default function RoamingChibiProvider({ children }: { children: ReactNode
         data-furniture={furniture.id} style={flipped ? { transform: 'scaleX(-1)' } : undefined} onError={endRest} />}
       <ChibiCanvas key={activeModel!.skeleton} model={activeModel!} label={pet.label} animation={rest?.clip ?? 'Idle'} activity={rest?.activity} animationSequence={animationSequence} once={rest?.once} onAnimationChange={ignoreAnimation}
         onAnimationsChange={onAnimationsChange} onAnimationComplete={onAnimationComplete} paused={false} moving={moving} flipped={flipped} roaming onPointerDown={event => beginDrag(event, pet, true)} />
-      <div className="chibi-roaming-controls">
+      <div className="chibi-roaming-controls" onPointerDown={() => setControlsVisible(true)}>
         <XButton label="Dismiss roaming chibi" onClick={dismiss} />
         <button className="btn-x" type="button" aria-label={pet.paused ? 'Resume walking' : 'Pause walking'} title={pet.paused ? 'Resume walking' : 'Pause walking'} onClick={() => setPaused(!pet.paused)}>
           <svg aria-hidden="true" focusable="false" viewBox="0 0 16 16" width="16" height="16" fill="currentColor">

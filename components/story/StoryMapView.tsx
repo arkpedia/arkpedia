@@ -74,6 +74,8 @@ export function Line({ element }: { element: Extract<StoryElement, { type: 'line
 export interface ChapterOpener {
   has: (story: string | undefined) => boolean;
   open: (story: string) => void;
+  isRead?: (story: string | undefined) => boolean;
+  progressLabel?: (story: string | undefined) => string | undefined;
 }
 
 /** A story's link: its chapter popup at ?chapter=<group> (a plain click opens it in place, a new
@@ -98,16 +100,18 @@ function Picture({ element, chapters }: { element: Extract<StoryElement, { type:
     : <span className="story-map-missing">{title}</span>;
   if (!element.link?.url) return <span className="story-map-picture is-plain" style={style} title={title} role="img" aria-label={title}>{art}</span>;
   const inPopup = !!element.link.story && chapters.has(element.link.story);
-  return <a className="story-map-picture" style={style} {...storyLinkProps(element.link, chapters)} title={title} aria-label={inPopup ? `${title}: its chapters` : `${title} (opens in a new tab)`} draggable={false}>{art}</a>;
+  const read = chapters.isRead?.(element.link.story);
+  return <a className={`story-map-picture${read ? ' is-read' : ''}`} style={style} {...storyLinkProps(element.link, chapters)} title={title} aria-label={`${inPopup ? `${title}: its chapters` : `${title} (opens in a new tab)`}${read ? ', read' : ''}`} draggable={false}>{art}{read && <svg className="story-map-read-mark" width="72" height="72" viewBox="0 0 72 72" fill="none" stroke="currentColor" strokeWidth="8" aria-hidden="true"><path d="M16 38 29 51 56 20" /></svg>}</a>;
 }
 
 function ListCard({ story, chapters }: { story: StoryPicture; chapters: ChapterOpener }) {
   const title = story.link?.title ?? 'A story on the map';
   const art = story.image && <ContentImg src={`/${story.image}`} alt="" />;
   const label = <span className="story-list-title">{title}{story.manga && <span className="label-tag">Manga</span>}</span>;
-  const kind = `story-list-card${story.manga ? ' is-manga' : ''}`;
+  const read = chapters.isRead?.(story.link?.story);
+  const kind = `story-list-card${story.manga ? ' is-manga' : ''}${read ? ' is-read' : ''}`;
   return story.link?.url
-    ? <a className={kind} {...storyLinkProps(story.link, chapters)}>{art}{label}</a>
+    ? <a className={kind} {...storyLinkProps(story.link, chapters)}>{art}{label}{chapters.progressLabel?.(story.link.story) && <span className="story-list-progress">{chapters.progressLabel(story.link.story)}</span>}</a>
     : <span className={`${kind} is-plain`}>{art}{label}</span>;
 }
 

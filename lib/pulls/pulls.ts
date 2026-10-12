@@ -1,3 +1,4 @@
+import { freeRewardTotals, type FreeReward } from './freeRewards';
 import { getAnnihilationNextEnd, getNextDailyReset } from '@/lib/schedule/opsSchedules';
 import { wishingWallOrundum, type WishingWallMode } from './wishingWall';
 
@@ -155,6 +156,8 @@ export interface BacklogSources {
   playable: (WithStageIds<Pick<PastEvent, 'id' | 'name' | 'op' | 'stages' | 'stageCodes'>> & { start?: string })[];
   resources: FirstClear[];
   annihilation: FirstClear[];
+  paradox?: FirstClear[];
+  freeRewards?: FreeReward[];
 }
 
 /** `stages` and `stageCodes` are absent from a release exported by code from before they were
@@ -183,7 +186,7 @@ export function fillFromDeployment(release: BacklogSources, deployment: BacklogS
   };
   const listed = new Set(release.annihilation.map((map) => map.id));
   const annihilation = [...release.annihilation, ...deployment.annihilation.filter((map) => !listed.has(map.id))].sort((a, b) => a.id.localeCompare(b.id));
-  return { ...release, chapters: release.chapters.map(fill), playable: release.playable.map(fill), annihilation };
+  return { ...release, chapters: release.chapters.map(fill), playable: release.playable.map(fill), annihilation, paradox: release.paradox ?? deployment.paradox ?? [], freeRewards: release.freeRewards ?? deployment.freeRewards ?? [] };
 }
 
 /** The labels a reader knows these by; the gamedata's own words are internal. */
@@ -224,7 +227,9 @@ export function remainingBacklog(
   }
   // Archived stage clears do not reopen expired event shops. Current shops
   // are counted once, in the scheduled event rewards instead.
-  const permits = 0;
+  const free = freeRewardTotals(backlog.freeRewards ?? [], doneKeys, 0);
+  const permits = free.permits;
+  op += free.op;
   for (const ev of backlog.playable) {
     if (!doneEvents.has(ev.id)) op += ev.op;
   }
@@ -232,7 +237,7 @@ export function remainingBacklog(
   return {
     originitePrime: op,
     annihilationOrundum,
-    orundum: op * ORUNDUM_PER_ORIGINITE + annihilationOrundum,
+    orundum: op * ORUNDUM_PER_ORIGINITE + annihilationOrundum + free.orundum + (backlog.paradox ?? []).reduce((sum, stage) => sum + (doneKeys.has(stage.id) ? 0 : stage.amount), 0),
     permits,
   };
 }
@@ -257,6 +262,7 @@ export function backlogFromAccount(backlog: BacklogSources, cleared: ReadonlySet
   const doneKeys = new Set([
     ...chapters.filter((chapter) => !chapter.op).map((chapter) => chapter.id),
     ...backlog.resources.filter((stage) => cleared.has(stage.id.replace(/^resource:/, ''))).map((stage) => stage.id),
+    ...(backlog.paradox ?? []).filter(stage => cleared.has(stage.id.replace(/^paradox:/, ''))).map(stage => stage.id),
     ...(annihilation ? backlog.annihilation.filter((map) => annihilation.has(map.id.replace(/^annihilation:/, ''))).map((map) => map.id) : []),
   ]);
   return { sources: { ...backlog, chapters, playable }, doneEvents: new Set(playable.filter((event) => !event.op).map((event) => event.id)), doneKeys };

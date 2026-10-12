@@ -146,13 +146,13 @@
 }
 .op-skill-recommend-row {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: 3px;
-  line-height: 1;
+  line-height: 1.2;
   font-size: 11px;
 }
 .op-skill-recommend-mastery {
-  font-size: 10px;
+  font-size: inherit;
   font-weight: 700;
   color: var(--text);
 }

@@ -7,7 +7,7 @@ for (const theme of ['dark', 'light']) {
     await stubYouTube(page);
     await page.goto('/music');
     await expect(page.locator('.music-queue-row').first()).toBeVisible();
-    await page.locator('.music-queue-row').first().getByRole('button', { name: 'Play now', exact: true }).click();
+    await page.locator('.music-queue-row').first().locator('.music-queue-row-title').click();
     await expect.poll(async () => (await youtube(page))?.state).toBe(1);
     const before = (await youtube(page))!;
     await page.getByRole('button', { name: 'Favorite', exact: true }).click();
@@ -45,7 +45,10 @@ for (const theme of ['dark', 'light']) {
     expect((await youtube(page))!.calls.filter(([call]) => call === 'loadVideoById')).toHaveLength(loads);
     await page.reload();
     await page.getByRole('button', { name: 'Playlists', exact: true }).click();
-    await expect(page.getByRole('combobox', { name: 'Saved playlist' })).toContainText('Night music');
+    await expect(page.getByRole('combobox', { name: 'Saved playlist' })).toHaveText('Favourites');
+    await page.getByRole('combobox', { name: 'Saved playlist' }).click();
+    await expect(page.getByRole('option', { name: 'Night music', exact: true })).toBeVisible();
+    await page.getByRole('option', { name: 'Night music', exact: true }).click();
     expect(await page.locator('body').evaluate(el => el.scrollWidth <= window.innerWidth)).toBe(true);
   });
 }

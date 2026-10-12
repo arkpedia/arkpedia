@@ -17,8 +17,9 @@
  *   in map/     the render is staged in .cache/stage-renders/<stem>.png, with its mirror path,
  *               commit and blob (scripts/lib/staged-art.mjs), and reported under
  *               'stage-renders' until a run publishes it, which the staged-art stage does;
- *   neither     nothing to do here. A stage of a running event with a map and no preview is
- *               held by the completeness stage, whatever the reason.
+ *   neither     consult Closure Wiki by the exact client stage ID, checking its raw stage
+ *               and layout before staging its map preview. A bounded, rotating batch keeps
+ *               this optional source from delaying or starving the nightly refresh.
  *
  * map/ keys renders by stage id (tr_01.png, act51side_01.png), and a few by the level's own
  * name (crisis_v2_01-02.png) or that name with _1 (act24side_09_1.png); tried in that order,
@@ -34,9 +35,10 @@ import { pathToFileURL } from 'node:url';
 import { excel } from '../stage-pipeline/lib/gamedata.mjs';
 import { groupStagesByLevel, assignStageSlugs } from '../stage-pipeline/lib/preview.mjs';
 import { assetFileNames } from '../lib/public-assets.mjs';
-import { beginStage } from '../lib/quarantine.mjs';
+import { beginStage, readQuarantine, defaultNow } from '../lib/quarantine.mjs';
 import { beginStaging } from '../lib/staged-art.mjs';
 import { pinnedRef } from '../content/pin-upstream.mjs';
+import { fetchOperationPreview, fallbackBatch, operationUrl } from '../lib/closure-wiki.mjs';
 
 export const STAGE = 'stage-renders';
 const MIRROR = 'yuanyan3060/ArknightsGameResource';
@@ -71,22 +73,29 @@ export function planRenders({ stages, records, published, mapFiles, excluded }) 
     if (!waiting.has(canonical)) waiting.set(canonical, []);
     waiting.get(canonical).push(record);
   }
-  const adopt = new Map(), stage = [];
+  const adopt = new Map(), stage = [], fallback = [];
   for (const [canonical, list] of waiting) {
     const stem = stems.get(canonical);
     if (published.has(stem)) {
       for (const record of list) adopt.set(record.slug, `images/stages/${stem}.png`);
       continue;
     }
-    if (!mapFiles || list.every(record => excluded.has(record.content?.id))) continue;
-    const file = renderCandidates(canonical, groups.get(canonical), stages).find(name => mapFiles.has(name));
+    if (list.every(record => excluded.has(record.content?.id))) continue;
+    const file = renderCandidates(canonical, groups.get(canonical), stages).find(name => mapFiles?.has(name));
     if (file) stage.push({ stem, file, records: list });
+    else if (/^[a-zA-Z0-9_-]+$/.test(canonical) && stages[canonical]?.levelId) {
+      fallback.push({ stem, stageId: canonical, levelId: stages[canonical].levelId, records: list });
+    }
   }
   stage.sort((a, b) => (a.stem < b.stem ? -1 : a.stem > b.stem ? 1 : 0));
-  return { adopt, stage };
+  fallback.sort((a, b) => (a.stem < b.stem ? -1 : a.stem > b.stem ? 1 : 0));
+  return { adopt, stage, fallback };
 }
 
-export function importStageRenders({ root = process.cwd(), stages = excel('stage_table').stages, cn = process.env.ARKPEDIA_CN || '.cache/upstream/cn-resource', log = console.log } = {}) {
+export async function importStageRenders({ root = process.cwd(), stages = excel('stage_table').stages,
+  cn = process.env.ARKPEDIA_CN || '.cache/upstream/cn-resource', log = console.log,
+  closureLookup = process.env.ARKPEDIA_CLOSURE_FALLBACK === '0' ? null : fetchOperationPreview,
+  closureLimit = 20, now = defaultNow() } = {}) {
   const stagesDir = path.join(root, 'data', 'stages');
   const files = new Map();
   const records = [];
@@ -98,9 +107,14 @@ export function importStageRenders({ root = process.cwd(), stages = excel('stage
   }
   const published = new Set(assetFileNames('stages-images', root).filter(file => file.endsWith('.webp')).map(file => file.slice(0, -'.webp'.length)));
   const mapDir = path.resolve(root, cn, 'map');
-  const mapFiles = fs.existsSync(mapDir) ? new Set(fs.readdirSync(mapDir)) : null;
+  const reportFile = path.join(root, 'data/stage-report.json');
+  const artRun = fs.existsSync(reportFile)
+    ? JSON.parse(fs.readFileSync(reportFile, 'utf8')).stages?.find(row => row.stage === 'upstream-cn-art') : null;
+  // A failed checkout can leave old or partial files behind on a persistent runner.
+  // Never attribute those bytes to this run's new mirror pin.
+  const mapFiles = (!artRun || artRun.status === 'ok') && fs.existsSync(mapDir) ? new Set(fs.readdirSync(mapDir)) : null;
   const excluded = new Set(Object.keys(JSON.parse(fs.readFileSync(path.join(root, 'data', 'excluded-contents.json'), 'utf8'))));
-  const { adopt, stage } = planRenders({ stages, records, published, mapFiles, excluded });
+  const { adopt, stage, fallback } = planRenders({ stages, records, published, mapFiles, excluded });
 
   for (const [slug, preview] of adopt) {
     const { name, record } = files.get(slug);
@@ -112,9 +126,11 @@ export function importStageRenders({ root = process.cwd(), stages = excel('stage
   const commit = pinnedRef(MIRROR);
   const pinned = /^[0-9a-f]{40}$/.test(commit);
   const staging = beginStaging('stage-renders', root);
-  // Without the CN art this run nothing could be staged, and nothing said about the renders
-  // still waiting has changed: their entries stay as the last run left them.
-  const alerts = mapFiles ? beginStage(root, STAGE) : null;
+  const alerts = mapFiles || closureLookup ? beginStage(root, STAGE, now) : null;
+  const batch = closureLookup ? fallbackBatch(fallback, { limit: closureLimit, now }) : [];
+  // Deferred lookups retain their previous report; published and excluded stages clear.
+  const deferred = new Set(fallback.filter(row => !batch.includes(row)).map(row => `stage-render:${row.stem}`));
+  for (const entry of readQuarantine(root).entries.filter(entry => entry.stage === STAGE && deferred.has(entry.key))) alerts?.add(entry);
   for (const { stem, file, records: waiting } of stage) {
     const source = `https://raw.githubusercontent.com/${MIRROR}/${commit}/map/${file}`;
     staging.stage(`stages-images/${stem}.webp`, fs.readFileSync(path.join(mapDir, file)), {
@@ -127,12 +143,31 @@ export function importStageRenders({ root = process.cwd(), stages = excel('stage
         + `but no run has published it to arkpedia-image-assets as stages-images/${stem}.webp yet; `
         + `${waiting.length === 1 ? 'the stage is' : 'these stages are'} published without a map preview until one does.` });
   }
+  const closureStaged = [];
+  for (const candidate of batch) {
+    const { stem, stageId, records: waiting } = candidate;
+    const reference = operationUrl(stageId);
+    try {
+      const { bytes, preview } = await closureLookup(candidate);
+      staging.stage(`stages-images/${stem}.webp`, bytes, { source: preview });
+      closureStaged.push(stem);
+      alerts.add({ key: `stage-render:${stem}`, action: 'published-partial', sourceRef: reference,
+        reason: `${waiting[0].code || stem}: the client art mirror has no map render; the matching Closure Wiki map preview is staged for asset publication.` });
+      log(`  + stages-images/${stem}.webp <- ${preview} (Closure fallback: ${reference})`);
+    } catch (error) {
+      log(`  ! Closure fallback ${reference}: ${error.message}`);
+      alerts.add({ key: `stage-render:${stem}`, action: 'published-partial', sourceRef: reference,
+        reason: `${waiting[0].code || stem}: the client art mirror has no map render and the supplemental Closure Wiki lookup failed or had no matching preview; the existing stage is kept without a preview.` });
+    }
+  }
   staging.commit();
   alerts?.commit();
-  log(`${adopt.size} stage record(s) given their published render; ${stage.length} render(s) staged in .cache/stage-renders/ for arkpedia-image-assets`
-    + (mapFiles ? '' : ' (no CN art this run: nothing could be staged)'));
+  log(`${adopt.size} stage record(s) given their published render; ${stage.length} client render(s) and ${closureStaged.length} Closure fallback render(s) staged in .cache/stage-renders/ for arkpedia-image-assets`
+    + `; ${batch.length}/${fallback.length} missing map(s) checked against Closure Wiki`);
   for (const { stem, file } of stage.slice(0, 20)) log(`  + stages-images/${stem}.webp <- map/${file}`);
-  return { adopted: [...adopt.keys()], staged: stage.map(entry => entry.stem) };
+  return { adopted: [...adopt.keys()], staged: [...stage.map(entry => entry.stem), ...closureStaged] };
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(fs.realpathSync(process.argv[1])).href) importStageRenders();
+if (process.argv[1] && import.meta.url === pathToFileURL(fs.realpathSync(process.argv[1])).href) {
+  importStageRenders().catch(error => { console.error(error); process.exitCode = 1; });
+}

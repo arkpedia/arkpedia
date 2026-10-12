@@ -34,6 +34,7 @@ import { isServerId, type ServerId } from '@/lib/account-import/yostar';
 import { parsePullHistory, type PullHistory } from './pulls';
 import { baseSnapshotFromGame, parseBaseSnapshot, type AccountBaseSnapshot } from './baseSnapshot';
 import { parseRosterExport, type Roster } from '@/lib/planner/roster';
+import { medalsFromGame, parseMedalCollection, type OwnedMedal } from './medals';
 
 export const ACCOUNT_STORAGE_KEY = 'arkpediaAccount';
 /** The other servers' records, { [server]: record }: none but the shown one's server is ever
@@ -110,6 +111,8 @@ export interface AccountProfile {
   modules?: { collected: number; stage3: number; operators: number };
   /** The medal board: each medal at its board position, or without one on a template board. */
   medals?: { id: string; x: number | null; y: number | null }[];
+  /** All obtained medals and their completion dates; absent on older board-only imports. */
+  medalCollection?: OwnedMedal[];
 }
 
 export interface SupportUnit {
@@ -175,6 +178,7 @@ export function parseAccount(raw: string | null): AccountRecord | null {
   if (!value || typeof value !== 'object' || value.version !== 1 || !isServerId(value.server) || typeof value.importedAt !== 'string') return null;
   if (!strings(value.operators, 5000) || !strings(value.skins, 20000) || !strings(value.cleared, 50000)) return null;
   const profile = value.profile && typeof value.profile === 'object' ? value.profile as Record<string, unknown> : null;
+  const medalCollection = parseMedalCollection(profile?.medalCollection);
   const base = parseBaseSnapshot(value.base);
   const operatorBuilds = value.operatorBuilds ? parseRosterExport(JSON.stringify(value.operatorBuilds)) : null;
   const text = (field: unknown) => (typeof field === 'string' && field.length <= 500 ? field : null);
@@ -207,6 +211,7 @@ export function parseAccount(raw: string | null): AccountRecord | null {
       ...(strings(profile.panels, 10) ? { panels: (profile.panels as string[]).filter((panel) => PANELS.has(panel)) } : {}),
       ...(profile.modules && typeof profile.modules === 'object' ? { modules: moduleCounts(profile.modules as Record<string, unknown>) } : {}),
       medals: Array.isArray(profile.medals) ? (profile.medals as { id: string; x: number | null; y: number | null }[]).filter((medal) => medal && typeof medal.id === 'string').slice(0, 64) : [],
+      ...(medalCollection !== undefined ? { medalCollection } : {}),
     } } : {}),
     ...(() => {
       const pulls = parsePullHistory(value.pulls);
@@ -235,6 +240,7 @@ export function accountFromGame(user: Record<string, any>, map: GameAccountMap, 
   }
   const stages = (user.dungeon?.stages ?? {}) as Record<string, { state?: number }>;
   const status = user.status ?? {};
+  const medalCollection = medalsFromGame(user.medal?.medals);
   const base = baseSnapshotFromGame(user, map);
   return {
     version: 1,
@@ -271,6 +277,7 @@ export function accountFromGame(user: Record<string, any>, map: GameAccountMap, 
       hired: Object.keys(user.troop?.chars ?? {}).length,
       supports: supportUnits(user, map),
       medals: medalBoard(user),
+      ...(medalCollection !== undefined ? { medalCollection } : {}),
     },
   };
 }

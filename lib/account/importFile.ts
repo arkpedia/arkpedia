@@ -15,6 +15,10 @@ import type { ImportAliases } from '@/lib/planner/foreignImport';
 import { MAX_IMPORT_BYTES } from '@/lib/planner/untrusted';
 import { MAX_PLAN_FILE_SIZE, parsePullPlan, type SavedPullPlan } from '@/lib/pulls/plan';
 import { parseBackup, type ParsedBackup } from './backup';
+import { parseStoryFile, STORY_FILE_KIND, STORY_PROGRESS_EVENT, STORY_PROGRESS_KEY } from '@/lib/story/storyProgress';
+import { parseMusicData } from '@/lib/music/musicData';
+import { MUSIC_PLAYLISTS_EVENT, MUSIC_PLAYLISTS_KEY } from '@/lib/music/musicPlaylists';
+import { MUSIC_FAVORITES_EVENT, MUSIC_FAVORITES_KEY } from '@/lib/music/musicFavorites';
 
 export type ImportedFile =
   | { kind: 'backup'; backup: ParsedBackup }
@@ -27,6 +31,18 @@ export function readImportFile(text: string, aliases: ImportAliases): ImportedFi
   const backup = parseBackup(text);
   if (backup === 'invalid') return { kind: 'refused', reason: 'That backup is damaged or from a newer Arkpedia, so nothing was changed.' };
   if (backup) return { kind: 'backup', backup };
+  let kind = '';
+  try { kind = JSON.parse(text)?.kind ?? ''; } catch { /* CSV and older planner exports are tried below. */ }
+  try {
+    if (kind === STORY_FILE_KIND) return { kind: 'backup', backup: { savedAt: null, stores: [{ key: STORY_PROGRESS_KEY, label: 'story progress', raw: JSON.stringify(parseStoryFile(text)), event: STORY_PROGRESS_EVENT }] } };
+    if (kind === 'arkpedia-music-playlists') {
+      const music = parseMusicData(text);
+      return { kind: 'backup', backup: { savedAt: null, stores: [
+        { key: MUSIC_PLAYLISTS_KEY, label: 'music playlists', raw: JSON.stringify(music.playlists), event: MUSIC_PLAYLISTS_EVENT },
+        ...(music.favorites ? [{ key: MUSIC_FAVORITES_KEY, label: 'music favourites', raw: JSON.stringify(music.favorites), event: MUSIC_FAVORITES_EVENT }] : []),
+      ] } };
+    }
+  } catch (error) { return { kind: 'refused', reason: error instanceof Error ? error.message : 'That file could not be read.' }; }
   if (text.length <= MAX_PLAN_FILE_SIZE && looksLikePullPlan(text)) {
     try {
       return { kind: 'pull-plan', plan: parsePullPlan(text) };

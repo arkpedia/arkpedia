@@ -248,7 +248,7 @@ class WikiImportersDegrade(unittest.TestCase):
                 '    open(os.environ["FETCH_LOG"], "a").write(getattr(request, "full_url", request) + "\\n")\n'
                 '    raise OSError("offline")\n'
                 'urllib.request.urlopen = refuse\n')
-            furnitures = {'furni_pizza_table_01': {'name': 'Pizzeria Long Table', 'iconId': 'furni_pizza_table_01'},
+            furnitures = {'furni_pizza_table_01': {'name': 'Imaginary Store Table', 'iconId': 'furni_pizza_table_01'},
                           'furni_duel_a': {'name': 'Duel Trophy', 'iconId': 'furni_duel_a'}}
             for region in ('en', 'cn'):
                 write(root, f'{region}/gamedata/excel/item_table.json', {'items': {}})
@@ -256,7 +256,7 @@ class WikiImportersDegrade(unittest.TestCase):
             write(root, 'data/events/events_2099.json', [{'name': 'Store Only', 'rewards': {'items': [{'name': 'Shadowed By The Wiki', 'type': 'material'}]}}])
             row = lambda name, kind='furniture': {'name': name, 'type': kind, 'quantity': 1, 'price': 10, 'stock': '1'}
             write(root, 'data/event-stores.json', {'events': {
-                'Store Only': {'stores': [{'name': 'Store', 'currency': 'Token', 'items': [row('Pizzeria Long Table'), row('Unlisted Lamp'), row('Pastry Table', 'upware')]}]},
+                'Store Only': {'stores': [{'name': 'Store', 'currency': 'Token', 'items': [row('Imaginary Store Table'), row('Unlisted Lamp'), row('Pastry Table', 'upware')]}]},
                 'Duel Channel: A': {'stores': [{'name': 'Store', 'currency': 'Token', 'items': [row('Duel Trophy')]}]}}})
             write(root, 'data/event-rewards.json', {'events': {'Duel Channel: A': {'groups': [
                 {'kind': 'milestones', 'title': 't', 'source': 's', 'items': [{'name': 'Duel Trophy', 'count': 1, 'kind': 'furniture', 'id': 'furni_duel_a'}]}]}}})
@@ -269,7 +269,7 @@ class WikiImportersDegrade(unittest.TestCase):
                                                                'https://torappu.prts.wiki/assets/furniture/furni_duel_a.png',
                                                                'https://torappu.prts.wiki/assets/furniture/furni_pizza_table_01.png'])
             reasons = {entry['key']: entry['reason'] for entry in entries(root)}
-            self.assertEqual(sorted(reasons), ['reward-icon:Pizzeria Long Table', 'reward-icon:Unlisted Lamp', 'reward-icon:furni_duel_a'])
+            self.assertEqual(sorted(reasons), ['reward-icon:Imaginary Store Table', 'reward-icon:Unlisted Lamp', 'reward-icon:furni_duel_a'])
             self.assertIn('the EN wiki could not be reached to ask for one', reasons['reward-icon:Unlisted Lamp'])
             # The wiki's store stands in for the record's own import, so its row is not asked for.
             self.assertNotIn('reward-icon:Shadowed By The Wiki', reasons)

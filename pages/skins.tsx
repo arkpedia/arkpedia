@@ -186,7 +186,8 @@ export default function SkinsGallery({ skins, events, now, availabilityWindows, 
      (lib/skins/skinPlan), by "Operator / Outfit". An entry the first read could not place
      is still the outfit's bare name, so both forms count. */
   const keyByName = useMemo(() => new Map(skins.filter((skin) => skin.model).map((skin) => [skin.name, skinKey(skin)])), [skins]);
-  const [planIds, setPlanIds] = useSkinPlan((name) => keyByName.get(name));
+  const ownedPlanKeys = useMemo(() => new Set(skins.filter(skin => ownedSkins.has(skin.skinId ?? '')).flatMap(skin => [skinKey(skin), skin.name])), [skins, ownedSkins]);
+  const [planIds, setPlanIds] = useSkinPlan((name) => keyByName.get(name), ownedPlanKeys);
   const planned = useMemo(() => new Set(planIds), [planIds]);
   const isWished = useCallback((skin: Skin) => planned.has(skinKey(skin)) || planned.has(skin.name), [planned]);
   const wishCount = useMemo(() => skins.filter(isWished).length, [skins, isWished]);
@@ -369,9 +370,10 @@ export default function SkinsGallery({ skins, events, now, availabilityWindows, 
               type="button"
               className="filter-chip skin-wishlist-btn"
               aria-pressed={isWished(active)}
+              disabled={ownedSkins.has(active.skinId ?? '')}
               onClick={() => toggleWishlist(active)}
             >
-              {isWished(active) ? '★ Wishlisted' : '☆ Wishlist'}
+              {ownedSkins.has(active.skinId ?? '') ? '✓ Owned' : isWished(active) ? '★ Wishlisted' : '☆ Wishlist'}
             </button>
             <div className="skin-modal-image-wrap-full">
               {active.image && (

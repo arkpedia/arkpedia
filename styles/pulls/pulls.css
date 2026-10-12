@@ -217,14 +217,22 @@
 .pulls-report .pulls-wish-option b { font-size: 12px; white-space: nowrap; }
 @media (max-width: 640px) { .pulls-report th, .pulls-report td { padding: 6px 4px; } .pulls-report .pulls-wish-options { flex-wrap: wrap; } }
 
-/* The OP Tracker (pages/free-op.tsx): the same lists, each group a section of the page. */
+/* The Reward Tracker (pages/free-op.tsx): the same lists, each group a section of the page. */
 .pulls-past-page { display: grid; gap: 12px; align-content: start; }
 .pulls-past-section h2 .pulls-note { margin-left: 10px; font-weight: 400; }
-.free-op-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 0; }
+.free-op-page { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; }
+.free-op-page > * { min-width: 0; }
+.free-op-page .pulls-eventlist-acts { flex-wrap: wrap; }
+.free-op-overview.op-section { margin-bottom: 0; padding: 16px 20px; border: 1px solid var(--card-border); border-radius: var(--radius); background: var(--panel-2); }
+.free-op-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 16px; margin-bottom: 16px; }
+.free-op-heading h2 { margin: 0; }
+.free-op-heading > label { color: var(--text-dim); font-size: 12px; }
+.free-op-demo-note { margin: -4px 0 12px; }
+.free-op-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 0; }
 .free-op-summary div { display: grid; gap: 4px; }
 .free-op-summary dt { color: var(--text-dim); font: 12px var(--font-body); }
 .free-op-summary dd { margin: 0; color: var(--text-bright); font: 600 22px var(--font-display); font-variant-numeric: tabular-nums; }
-@media (max-width: 640px) { .free-op-summary { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 640px) { .free-op-summary { grid-template-columns: 1fr 1fr; } .free-op-overview.op-section { padding: 14px; } .free-op-heading { gap: 4px 12px; margin-bottom: 12px; } }
 .pulls-past-list { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
 .pulls-past-row {
   display: grid;
@@ -534,3 +542,23 @@ button.pulls-past-name:hover, button.pulls-past-name[aria-expanded="true"] { col
 
 .pulls-select-caption { display:flex; flex-wrap:wrap; align-items:baseline; gap:2px 10px; margin-top:3px; color:var(--text-dim); font-size:11px; }
 .pulls-select-meta { white-space:nowrap; font-variant-numeric:tabular-nums; }
+
+.free-rewards-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 12px; }
+.free-rewards-filters > input { flex: 1; min-width: min(240px, 100%); }
+/* A quiet list frame keeps the claim label and its item tray together. */
+.free-reward-list, .pulls-past-page .pulls-past-list { gap: 0; border: 1px solid var(--card-border); border-radius: var(--radius); overflow: hidden; }
+.free-reward-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; gap: 12px; padding: 10px 12px; background: var(--panel-2); }
+.free-reward-row + .free-reward-row, .pulls-past-page .pulls-past-row + .pulls-past-row { border-top: 1px solid var(--line-soft); }
+.free-reward-row.is-claimed { color: var(--text-dim); }
+.free-reward-row.is-claimed .free-reward-items { opacity: .55; }
+.free-reward-content { min-width: 0; }
+.free-reward-items { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.free-reward-item { display: grid; justify-items: center; align-content: center; min-width: 44px; min-height: 56px; padding: 2px 4px; border-radius: var(--radius); color: var(--text); font: 12px var(--font-mono); font-variant-numeric: tabular-nums; }
+.free-reward-item:hover, .free-reward-item:focus-visible { background: var(--teal-dim); }
+.free-reward-item img { object-fit: contain; }
+.free-reward-no-art { max-width: 180px; color: var(--text-dim); font-size: 12px; overflow-wrap: anywhere; }
+.free-reward-meta { display: flex; flex-wrap: wrap; gap: 12px; color: var(--text-dim); font-size: 11px; }
+.free-reward-tooltip { position: fixed; z-index: 1200; padding: 10px 12px; border: 1px solid var(--card-border); border-radius: var(--radius); background: var(--panel); color: var(--text); box-shadow: var(--shadow-panel); font-size: 13px; overflow: auto; pointer-events: none; }
+.pulls-past-page .pulls-past-row { border: 0; border-radius: 0; padding: 8px 12px; }
+.pulls-past-page .pulls-past-amount .pulls-reward-amount { gap: 4px; }
+@media (max-width: 640px) { .free-reward-row { grid-template-columns: minmax(0, 1fr) minmax(44px, 38%); gap: 8px; } }

@@ -25,6 +25,7 @@
         "pages/planner.tsx",
         "pages/community.tsx",
         "pages/skin-planner.tsx",
+        "pages/free-op.tsx",
         "components/schedule/EventsPanel.tsx"
       ],
       "rules": {

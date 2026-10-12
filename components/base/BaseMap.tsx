@@ -4,14 +4,12 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 export default function BaseMap({ children }: { children: ReactNode }) {
   const viewport = useRef<HTMLDivElement>(null);
   const content = useRef<HTMLDivElement>(null);
-  const fullscreenButton = useRef<HTMLButtonElement>(null);
   const [size, setSize] = useState({ width: 974, height: 774 });
   const [zoom, setZoom] = useState(1);
   const zoomRef = useRef(1);
   const [minimumZoom, setMinimumZoom] = useState(1);
   const minimumZoomRef = useRef(1);
   const userZoomed = useRef(false);
-  const [fullscreen, setFullscreen] = useState(false);
   const drag = useRef<{ x: number; y: number; left: number; top: number } | null>(null);
   const moved = useRef(false);
 
@@ -107,36 +105,13 @@ export default function BaseMap({ children }: { children: ReactNode }) {
     };
   }, [zoomAt]);
 
-  useEffect(() => {
-    if (!fullscreen) return;
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    const escape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setFullscreen(false);
-        fullscreenButton.current?.focus();
-      } else if (event.key === 'Tab') {
-        const controls = Array.from(viewport.current!.parentElement!.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled)'));
-        const first = controls[0], last = controls[controls.length - 1];
-        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
-        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
-      }
-    };
-    document.addEventListener('keydown', escape);
-    return () => {
-      document.body.style.overflow = previous;
-      document.removeEventListener('keydown', escape);
-    };
-  }, [fullscreen]);
-
-  return <section className={`base-map${fullscreen ? ' is-fullscreen' : ''}`} aria-label="Base floor plan" role={fullscreen ? 'dialog' : undefined} aria-modal={fullscreen || undefined}>
+  return <section className="base-map" aria-label="Base floor plan">
     <div className="base-map-controls">
       <button type="button" className="ghost" aria-label="Zoom out" disabled={zoom <= minimumZoom} onClick={() => zoomAt(zoomRef.current / 1.2)}>−</button>
       <input type="range" aria-label="Base zoom" min={minimumZoom} max="2.5" step="0.01" value={zoom} onChange={event => zoomAt(Number(event.target.value))} />
       <button type="button" className="ghost" aria-label="Zoom in" onClick={() => zoomAt(zoomRef.current * 1.2)}>+</button>
       <span className="base-map-zoom-value">{Math.round(zoom * 100)}%</span>
       <button type="button" className="ghost" onClick={() => { userZoomed.current = false; fit(); }}>Fit base</button>
-      <button ref={fullscreenButton} type="button" className="ghost" aria-label={fullscreen ? 'Exit fullscreen' : 'View fullscreen'} aria-pressed={fullscreen} onClick={() => setFullscreen(value => !value)}>{fullscreen ? 'Exit fullscreen' : 'Fullscreen'}</button>
     </div>
     <div ref={viewport} className="base-map-viewport" aria-label="Zoomable base map"
       onDragStart={event => event.preventDefault()}
@@ -154,7 +129,6 @@ export default function BaseMap({ children }: { children: ReactNode }) {
       onMouseUp={() => { drag.current = null; }} onMouseLeave={() => { drag.current = null; }}
       onClickCapture={event => {
         if (moved.current && event.detail !== 0) { event.preventDefault(); event.stopPropagation(); }
-        else if ((event.target as HTMLElement).closest('.base-overview-room')) setFullscreen(false);
         moved.current = false;
       }}>
       <div className="base-map-canvas" style={{ width: size.width * zoom + 16, height: size.height * zoom + 16 }}>

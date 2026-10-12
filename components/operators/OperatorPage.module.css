@@ -193,10 +193,10 @@
    than the "Skills" h2 above it. It was 22px under an 18px section heading. */
 /* Keep the recorded priorities beside the tabs, adapting to the information panel
    rather than the window: the desktop artwork layout can leave a phone-width panel. */
-.skillTabLabel { display: inline-flex; align-items: center; gap: 4px; }
+.skillTabLabel { display: inline-flex; align-items: baseline; gap: 6px; }
 .skillTabShort { display: none; }
 .recommendLevel { display: inline; }
-.recommendArt { display: inline-flex; }
+.recommendArt { display: inline-flex; align-self: center; }
 @container operatorDetails (max-width: 600px) {
   .skillTabs { column-gap: 10px; }
   .skillTabs > :global(.tab) { gap: 4px; letter-spacing: .03em; }

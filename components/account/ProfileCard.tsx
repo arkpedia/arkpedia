@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { hiddenUnless } from '@/lib/ui/inert';
 import { useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import { ContentArt, ContentImg } from '@/components/content/ContentImage';
@@ -31,6 +32,7 @@ const DEFAULT_PANELS = ['module_sign', 'module_assist', 'module_medal'];
 // Default Skin's, for a theme whose colours have not been read yet.
 const DEFAULT_STYLE = { theme: '#0098dc', themeText: '#323232', panel: '#0000004d', panelText: '#ffffffb2', panelIcon: '#ffffff4d' };
 const UI = (name: string) => `/profile-ui/${name}.webp`;
+const MedalCollectionDialog = dynamic(() => import('./MedalCollectionDialog'));
 // The roster's faction filter spells two nations its own way (lib/operators/factionAliases).
 const ROSTER_FACTION: Record<string, string> = { 'Yan-Lungmen': 'Lungmen', Ægir: 'Aegir' };
 
@@ -117,7 +119,7 @@ function CollectionLink({ onClick, href, className, title, children }: { onClick
     : <Link prefetch={false} href={href} className={className} title={title}>{children}</Link>;
 }
 
-export default function ProfileCard({ account, map, outfits, outfitArt, outfitNames, onOperators, onSkins }: {
+export default function ProfileCard({ account, map, outfits, outfitArt, outfitNames, onOperators, onSkins, collectionOwner = 'friend' }: {
   account: AccountRecord; map: GameAccountMap; outfits: number;
   /** Each outfit's art by its game id, for the assistant on a theme without one of its own. */
   outfitArt: ReadonlyMap<string, string>;
@@ -125,6 +127,7 @@ export default function ProfileCard({ account, map, outfits, outfitArt, outfitNa
   outfitNames: ReadonlyMap<string, string>;
   onOperators?: () => void;
   onSkins?: () => void;
+  collectionOwner?: 'self' | 'friend';
 }) {
   const profile = account.profile ?? { level: null, registeredAt: null, secretary: null, bio: null };
   // The game dates the card by its server's day (UTC-7, rolling over at 04:00), not UTC's.
@@ -147,6 +150,7 @@ export default function ProfileCard({ account, map, outfits, outfitArt, outfitNa
   const [collapsed, setCollapsed] = useState(false);
   const [asShare, setAsShare] = useState(false);
   const [fullLength, setFullLength] = useState(false);
+  const [medalsOpen, setMedalsOpen] = useState(false);
   // Every operator the Global game has, Amiya once: what the game's percentage divides by.
   const globalOperators = useMemo(() => Object.values(map.chars).filter((char) => char.global && !char.formOf).length, [map]);
   const hiredCount = profile.hired ?? account.operators.length;
@@ -191,10 +195,15 @@ export default function ProfileCard({ account, map, outfits, outfitArt, outfitNa
       );
     }
     if (id === 'module_medal') {
+      if (profile.medals?.length) return (
+        <button key={id} type="button" className="btn-bare account-card-box account-card-medal-box account-card-medal-link"
+          aria-label="Show medal collection" aria-haspopup="dialog" title="Show medal collection" onClick={() => setMedalsOpen(true)}>
+          <MedalBoard medals={profile.medals} names={map.medals ?? {}} />
+          <span className="account-card-medal-hint">View medals ↗</span>
+        </button>
+      );
       return (
-        <div key={id} className="account-card-box account-card-medal-box">
-          {!!profile.medals?.length && <MedalBoard medals={profile.medals} names={map.medals ?? {}} />}
-        </div>
+        <div key={id} className="account-card-box account-card-medal-box" />
       );
     }
     if (id === 'module_equip') {
@@ -222,6 +231,7 @@ export default function ProfileCard({ account, map, outfits, outfitArt, outfitNa
   };
 
   return (
+    <>
     <div className={`account-card${collapsed ? ' is-collapsed' : ''}${style ? ' has-banner' : ''}`}
       style={{ '--card-accent': colours.theme, '--card-accent-text': colours.themeText, '--card-panel': colours.panel, '--card-panel-text': colours.panelText,
         '--card-panel-icon': colours.panelIcon } as CSSProperties}>
@@ -250,7 +260,7 @@ export default function ProfileCard({ account, map, outfits, outfitArt, outfitNa
         </div>
         <div className="account-card-outfits">
           <ContentImg className="account-card-outfits-decor" src={UI('decor_skin')} alt="" aria-hidden="true" />
-          <CollectionLink onClick={onSkins} href="/skins?owned=missing" className="account-card-outfits-count account-card-link" title={onSkins ? "Show friend's skins" : "The outfits you don't have"}>
+          <CollectionLink onClick={onSkins} href="/skins?owned=missing" className="account-card-outfits-count account-card-link" title={onSkins ? `Show ${collectionOwner === 'self' ? 'your' : "friend's"} skins` : "The outfits you don't have"}>
             <ContentImg src={UI('icon_skin')} alt="" aria-hidden="true" />
             <span>Outfits Owned</span>
             <b>{outfits}</b>
@@ -264,7 +274,7 @@ export default function ProfileCard({ account, map, outfits, outfitArt, outfitNa
               aria-label={asShare ? 'Show the operators hired as a count' : 'Show the operators hired as a percentage'} onClick={() => setAsShare(!asShare)}>
               <ContentImg key={`hired-${asShare}`} src={UI('style_change_icon')} alt="" />
             </button>
-            <CollectionLink onClick={onOperators} href="/operators?owned=missing" className="account-card-hired account-card-link" title={onOperators ? "Show friend's operators" : "The operators you don't have"}>
+            <CollectionLink onClick={onOperators} href="/operators?owned=missing" className="account-card-hired account-card-link" title={onOperators ? `Show ${collectionOwner === 'self' ? 'your' : "friend's"} operators` : "The operators you don't have"}>
               {asShare ? `${((100 * hiredCount) / Math.max(1, globalOperators)).toFixed(1)}%` : hiredCount}
             </CollectionLink>
           </div>
@@ -289,6 +299,11 @@ export default function ProfileCard({ account, map, outfits, outfitArt, outfitNa
           )}
           </div>
         </div>
+        {(!profile.medals?.length || !panels.includes('module_medal')) && (
+          <button type="button" className="btn-sm account-card-box account-card-view-medals" aria-haspopup="dialog" onClick={() => setMedalsOpen(true)}>
+            View medals ↗
+          </button>
+        )}
       </div>
       <div className="account-card-simple" {...hiddenUnless(collapsed)}>
         <div className="account-card-name"><b>{account.doctor ?? 'Doctor'}</b>{profile.uid && <span>ID {profile.uid}</span>}</div>
@@ -310,5 +325,7 @@ export default function ProfileCard({ account, map, outfits, outfitArt, outfitNa
         <ContentImg src={UI('extend_btn')} alt="" />
       </button>
     </div>
+    {medalsOpen && <MedalCollectionDialog account={account} onClose={() => setMedalsOpen(false)} />}
+    </>
   );
 }

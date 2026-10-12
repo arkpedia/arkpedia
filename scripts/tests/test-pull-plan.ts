@@ -534,7 +534,7 @@ test('archived OP never suppresses scheduled shops or invents expired shop stock
   const event = {...a, event:'Event', name:'Event rerun', rerun:true, inBacklog:true, op:28, shopPermits:3, legacyNames:['Old banner']};
   const haul = bannerHaul([event], new Date('2026-12-31'), {cleared:new Set()});
   assert.equal(haul.op, 0); assert.equal(haul.permits, 3); assert.equal(haul.skipped.length, 1);
-  assert.equal(remainingBacklog(bundledBacklogSources(), new Set(), new Set(), false).permits, 0);
+  assert.equal(remainingBacklog({ ...bundledBacklogSources(), freeRewards: [] }, new Set(), new Set(), false).permits, 0);
   assert.equal(eventWasCleared(event, new Set(['Old banner'])), true);
   assert.equal(bannerHaul([{...event,inBacklog:false}], new Date('2026-12-31'), {cleared:new Set(['Old banner'])}).op, 0);
 });

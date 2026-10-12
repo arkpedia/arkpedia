@@ -108,12 +108,12 @@ test('yellow cert budgets persist per month and show skipped months without spen
 test('fully uncompleted OP presentation uses temporary completion and restores saved progress',async({page})=>{
   await page.goto('/free-op');
   const saved=await page.evaluate(()=>Object.fromEntries(Object.entries(localStorage)));
-  await page.getByRole('button',{name:'Fully uncompleted view',exact:true}).click();
+  await page.getByRole('checkbox',{name:'Fully uncompleted view',exact:true}).click();
   await expect(page.getByText('Presentation view. Your saved completion stays unchanged.')).toBeVisible();
   const checkbox=page.getByRole('checkbox',{name:/claimed/}).first();
   if(await checkbox.count())await checkbox.check();
   expect(await page.evaluate(()=>Object.fromEntries(Object.entries(localStorage)))).toEqual(saved);
-  await page.getByRole('button',{name:'Fully uncompleted view',exact:true}).click();
+  await page.getByRole('checkbox',{name:'Fully uncompleted view',exact:true}).click();
   await expect(page.getByText('Presentation view. Your saved completion stays unchanged.')).toHaveCount(0);
 });
 test('summon stats follow promotion and level without mixing operator bonuses',async({page})=>{

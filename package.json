@@ -24,7 +24,7 @@
     "start": "next start",
     "test:pull-plan": "tsx --test scripts/tests/test-pull-plan.ts scripts/tests/test-pull-probability.ts",
     "audit:pulls": "tsx scripts/audits/audit-pulls.ts",
-    "pulls:refresh": "tsx scripts/build/build-pull-sources.ts && node scripts/build/build-pull-first-clears.mjs",
+    "pulls:refresh": "tsx scripts/build/build-pull-sources.ts && node scripts/build/build-pull-first-clears.mjs && node scripts/build/build-free-rewards.mjs",
     "test:music-guesser": "tsx --test scripts/tests/test-music-guesser.ts",
     "audit:music-guesser": "tsx scripts/audits/audit-music-guesser.ts",
     "audit:base": "node scripts/audits/audit-base-skills.mjs",
@@ -61,6 +61,7 @@
   },
   "dependencies": {
     "@vercel/analytics": "^2.0.1",
+    "fflate": "^0.8.3",
     "libcurl.js": "0.7.4",
     "next": "^14.2.0",
     "pg": "^8.23.0",

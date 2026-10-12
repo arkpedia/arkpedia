@@ -79,7 +79,7 @@ for (const name of fs.readdirSync(release).filter(name => name.startsWith('entri
 function walk(dir) { return fs.readdirSync(dir, { withFileTypes: true }).flatMap(entry => entry.isDirectory() ? walk(path.join(dir, entry.name)) : [path.join(dir, entry.name)]); }
 const files = {};
 const publicFiles = walk('public').filter(file => /^public\/(?:stage-detail|enemy-detail|planner-data|stage-guesser|lyrics)\/.+\.json$/.test(file)
-  || /^public\/(?:stages-index|enemies-index|operator-deploy|operator-search|music-catalogue)\.json$/.test(file));
+  || /^public\/(?:stages-index|enemies-index|operator-deploy|operator-search|music-catalogue|medal-catalogue)\.json$/.test(file));
 for (const file of publicFiles.sort()) {
   const bytes = fs.readFileSync(file);
   JSON.parse(bytes);

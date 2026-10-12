@@ -1156,7 +1156,7 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
       />
 
       <main>
-        {goalFilter}
+        {plannerMode === 'simple' && goalFilter}
         {/* Not a nicety. This browser's storage is the only copy there is, so
             clearing site data or moving machine loses the depot and the roster
             both -- which is why the way out lives in the page header rather
@@ -1174,6 +1174,9 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
           <PlanRows
             clearControl={clearControl('goals')}
             planned={planRows.planned}
+            excluded={excludedGoals}
+            onInclude={(name, included) => setExcludedGoals(values => { const next = new Set(values); if (included) next.delete(name); else next.add(name); return next; })}
+            selectionControl={<><button type="button" className="ghost btn-sm" onClick={() => setExcludedGoals(new Set())}>All</button><button type="button" className="ghost btn-sm" onClick={() => setExcludedGoals(new Set(selectedNames))}>None</button></>}
             openName={activeName}
             /* A row's Edit is the GOAL window at its second step, with a queue
                of one: editing a target and setting one are the same act

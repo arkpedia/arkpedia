@@ -126,6 +126,7 @@ export default function SkinPlanner({ catalogue, collections, today, ids, onChan
           </span>
         </button>
         <button type="button" className="btn-bare skin-plan-card-foot" aria-pressed={isPlanned}
+          disabled={has}
           aria-label={`${skin.operator} — ${skin.name}, ${skin.op} OP${has ? ', owned' : ''}`}
           onClick={() => toggle(skin.id)}>
           <span>{skin.op} OP</span><strong>{has ? 'Owned' : isPlanned ? '✓ Planned' : '+ Plan'}</strong>

@@ -31,6 +31,7 @@ import { SKIN_PLAN_EVENT, SKIN_PLAN_KEY, parseSkinPlan } from '@/lib/skins/skinP
 import { MUSIC_FAVORITES_EVENT, MUSIC_FAVORITES_KEY } from '@/lib/music/musicFavorites';
 
 import { MUSIC_PLAYLISTS_KEY, MUSIC_PLAYLISTS_EVENT, validatePlaylists } from '@/lib/music/musicPlaylists';
+import { STORY_PROGRESS_EVENT, STORY_PROGRESS_KEY, parseStoryProgress } from '@/lib/story/storyProgress';
 
 export const BACKUP_KIND = 'arkpedia-backup';
 export const BACKUP_VERSION = 1;
@@ -86,14 +87,16 @@ export const BACKUP_STORES: readonly Store[] = [
   // The music player holds them on every page, the Account page included.
   { key: MUSIC_PLAYLISTS_KEY, label: 'music playlists', valid: (_, value) => { try { validatePlaylists(value); return true; } catch { return false; } }, event: MUSIC_PLAYLISTS_EVENT },
   { key: MUSIC_FAVORITES_KEY, label: 'music favourites', valid: (_, value) => isStringList(value), event: MUSIC_FAVORITES_EVENT },
+  { key: STORY_PROGRESS_KEY, label: 'story progress', valid: (raw) => parseStoryProgress(raw) !== null, event: STORY_PROGRESS_EVENT },
 ];
 
 type ReadStorage = Pick<Storage, 'getItem'>;
 
 /** The backup file's text, from what this browser holds. */
-export function formatBackup(storage: ReadStorage, now = new Date()): string {
+export function formatBackup(storage: ReadStorage, now = new Date(), keys?: readonly string[]): string {
   const stores: Record<string, unknown> = {};
   for (const store of BACKUP_STORES) {
+    if (keys && !keys.includes(store.key)) continue;
     const raw = storage.getItem(store.key);
     if (raw === null) continue;
     try {
@@ -142,8 +145,17 @@ export function parseBackup(text: string): ParsedBackup | null | 'invalid' {
 
 /** Write a parsed backup into this browser, store by store, then tell this tab's listeners,
  *  each event once. */
-export function applyBackup(backup: ParsedBackup, storage: Pick<Storage, 'setItem'> = window.localStorage,
+export function applyBackup(backup: ParsedBackup, storage: Pick<Storage, 'setItem'> & Partial<Pick<Storage, 'getItem' | 'removeItem'>> = window.localStorage,
   target: Pick<EventTarget, 'dispatchEvent'> | null = typeof window === 'undefined' ? null : window): void {
-  for (const store of backup.stores) storage.setItem(store.key, store.raw);
+  const previous = storage.getItem && storage.removeItem ? backup.stores.map(store => ({ key: store.key, raw: storage.getItem!(store.key) })) : null;
+  let written = 0;
+  try {
+    for (const store of backup.stores) { storage.setItem(store.key, store.raw); written++; }
+  } catch (error) {
+    if (previous) for (const store of previous.slice(0, written).reverse()) {
+      if (store.raw === null) storage.removeItem!(store.key); else storage.setItem(store.key, store.raw);
+    }
+    throw error;
+  }
   for (const event of new Set(backup.stores.flatMap((store) => (store.event ? [store.event] : [])))) target?.dispatchEvent(new Event(event));
 }

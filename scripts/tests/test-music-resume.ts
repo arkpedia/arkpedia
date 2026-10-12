@@ -44,6 +44,7 @@ test('a record round-trips: the same song, moment, queue, shuffled order, repeat
   // its sessionStorage) does not start the song a second time.
   assert.equal(takeMusicResume(storage, NOW + 1000), null);
   assert.equal(JSON.parse(storage.entries[MUSIC_RESUME_KEY]).left, false);
+  assert.deepEqual(parseMusicResume(JSON.stringify({ ...RECORD, playingPlaylistId: 'night-music' })), { ...RECORD, playingPlaylistId: 'night-music' });
 });
 
 test('only a record written as the document went resumes, or one of a tab the browser dropped', () => {
@@ -84,6 +85,8 @@ test('a corrupt record is ignored and removed', () => {
     { ...RECORD, repeat: 'forever' },
     { ...RECORD, volume: 400 },
     { ...RECORD, left: undefined },
+    { ...RECORD, playingPlaylistId: 7 },
+    { ...RECORD, playingPlaylistId: 'invalid/id' },
   ];
   for (const value of broken) {
     const raw = typeof value === 'string' ? value : JSON.stringify(value);

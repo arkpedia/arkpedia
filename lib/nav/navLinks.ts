@@ -38,7 +38,7 @@ export const LINKS: NavLink[] = [
   /* Always "Import Account", import or not: a menu entry whose name changed once you had
      imported read as a different page (2026-10-03). */
   { href: '/account', label: 'Import Account', icon: 'roster' },
-  { href: '/free-op', label: 'OP Tracker', icon: 'prime' },
+  { href: '/free-op', label: 'Reward Tracker', icon: 'prime' },
   { href: '/planner', label: 'Operator Planner', icon: 'planner' },
   { href: '/pulls', label: 'Pull Planner', icon: 'calculator' },
   { href: '/skin-planner', label: 'Skin Planner', icon: 'skins' },

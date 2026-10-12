@@ -300,7 +300,7 @@ test('the production floor plan stays intact at desktop and narrow phone widths'
   expect(imported.prod7.y).toBe(imported.training.y);
 });
 
-test('zoom, drag and fullscreen preserve room selection and keyboard access', async ({ page }) => {
+test('zoom and drag preserve room selection and keyboard access without fullscreen', async ({ page }) => {
   await begin(page);
   const zoom = page.getByLabel('Base zoom', { exact: true });
   const initial = Number(await zoom.inputValue());
@@ -319,17 +319,14 @@ test('zoom, drag and fullscreen preserve room selection and keyboard access', as
   expect(await view.evaluate(element => element.scrollLeft)).toBeGreaterThan(before);
   await expect(page.locator('.base-room-panel')).toHaveCount(0);
   await source(page, 'Fit base').click();
-  await source(page, 'View fullscreen').click();
-  const fullscreen = page.getByRole('dialog', { name: 'Base floor plan' });
-  await expect(fullscreen).toBeVisible();
-  const lastControl = fullscreen.locator('button:not(:disabled), input:not(:disabled)').last();
-  await lastControl.focus(); await page.keyboard.press('Tab');
+  await expect(page.getByRole('button', { name: /fullscreen/i })).toHaveCount(0);
+  await zoom.focus();
+  await page.keyboard.press('Tab');
+  await expect(source(page, 'Zoom in')).toBeFocused();
+  await page.keyboard.press('Shift+Tab');
   await expect(zoom).toBeFocused();
-  await page.keyboard.press('Shift+Tab'); await expect(lastControl).toBeFocused();
-  await page.keyboard.press('Escape');
-  await expect(source(page, 'View fullscreen')).toBeFocused();
-  await source(page, 'View fullscreen').click();
-  await room(page).click();
+  await room(page).focus();
+  await page.keyboard.press('Enter');
   await expect(page.getByRole('dialog', { name: 'Base floor plan' })).toHaveCount(0);
   await expect(page.getByLabel('Room level')).toBeVisible();
 });
@@ -367,10 +364,6 @@ test('Fit base is the zoom-out limit for slider, buttons, wheel and pinch after 
   await expect.poll(async () => Number(await zoom.inputValue()) >= Number(await zoom.getAttribute('min'))).toBe(true);
   const wide = await expectLimit();
   expect(wide).toBeGreaterThan(narrow);
-  await source(page, 'View fullscreen').click();
-  await expectLimit();
-  await page.keyboard.press('Escape');
-  await expectLimit();
 });
 
 test('changing staffing preserves a panned map while room summaries grow', async ({ page }) => {
