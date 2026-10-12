@@ -14,3 +14,13 @@ export function recommendationsTellApart(skills: readonly { recommendation?: rea
   const said = shown.map((entries) => entries.map((entry) => entry.mastery ?? '').join(','));
   return new Set(said).size > 1;
 }
+
+/** A mastery level alone is a placeholder, not an editorial priority. */
+export function hasMasteryPriority(entry: { priority?: string | null; order?: string | null }): boolean {
+  return entry.priority === 'main' || entry.priority === 'sub' || Boolean(entry.order?.trim());
+}
+
+/** Keep explicit notes such as "no masteries to consider", but hide empty placeholders. */
+export function hasMasteryGuidance(entry: { priority?: string | null; order?: string | null; explanation?: string | null }): boolean {
+  return hasMasteryPriority(entry) || Boolean(entry.explanation?.trim());
+}

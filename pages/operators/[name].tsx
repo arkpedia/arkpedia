@@ -1,3 +1,4 @@
+import { hasMasteryGuidance, hasMasteryPriority } from '@/lib/operators/skillRecommendation';
 import { getModuleStageEffects } from '@/lib/operators/moduleEffects';
 import { useContentUrl } from '@/lib/content/context';
 import { cssUrl } from '@/lib/content/urls';
@@ -258,7 +259,7 @@ function CostRow({ cost, order, promotion = false }: { cost: CostGroup | null | 
 
 function RecommendationBadge({ entries }: { entries: SkillRecommendationEntry[] | null | undefined }) {
   if (!entries || entries.length === 0) return null;
-  const visible = entries.filter((e) => e.mastery || e.order);
+  const visible = entries.filter(hasMasteryPriority);
   if (visible.length === 0) return null;
   return (
     <span className="op-skill-recommend-stack">
@@ -623,14 +624,14 @@ export default function OperatorDetailPage({ chibis = {}, summons = [], epTrack,
   const availableSections: { key: SectionKey; label: string }[] = [];
   const skillList = useMemo(() => getSkillList(operator), [operator]);
   // Show the recorded mastery and priority beside every recommended skill tab.
-  const showRecommendations = skillList.some(skill => skill.recommendation?.length);
+  const showRecommendations = skillList.some(skill => skill.recommendation?.some(hasMasteryPriority));
   const skillCost = useMemo(() => getSkillCost(operator), [operator]);
   const priorityGuideGroups = useMemo(() => {
     type Row = { skillIndex: number; iconPath: string | null; entry: SkillRecommendationEntry };
     const rows: Row[] = [];
     skillList.forEach((s, i) => {
       const iconPath = getSkillIconPath(operator.name, s.name);
-      (s.recommendation || []).forEach((entry) => {
+      (s.recommendation || []).filter(hasMasteryGuidance).forEach((entry) => {
         rows.push({ skillIndex: i, iconPath, entry });
       });
     });
@@ -1130,7 +1131,7 @@ export default function OperatorDetailPage({ chibis = {}, summons = [], epTrack,
                         <span className={pageStyles.skillTabShort} aria-hidden="true">S{i + 1}</span>
                         {showRecommendations && <RecommendationBadge entries={s.recommendation} />}
                       </span>,
-                      ariaLabel: `Skill ${i + 1}: ${s.name || `Skill ${i + 1}`}${showRecommendations ? (s.recommendation ?? []).filter(e => e.mastery || e.order).map(e => `, ${[e.mastery?.toUpperCase(), e.order].filter(Boolean).join(' · ')}`).join('') : ''}`,
+                      ariaLabel: `Skill ${i + 1}: ${s.name || `Skill ${i + 1}`}${showRecommendations ? (s.recommendation ?? []).filter(hasMasteryPriority).map(e => `, ${[e.mastery?.toUpperCase(), e.order].filter(Boolean).join(' · ')}`).join('') : ''}`,
                       title: s.name || `Skill ${i + 1}`,
                       icon: iconPath ? <Image src={iconPath} alt="" width={40} height={40} /> : undefined,
                     };
