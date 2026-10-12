@@ -1713,3 +1713,18 @@ a.primary:where(:has(~ :is(button, a).ghost)),
 .chibi-window-header, .chibi-controls, .chibi-page-controls { position: relative; z-index: 1; }
 
 .chibi-window .chibi-viewer { height: min(var(--chibi-stage-height), max(60px, calc(100dvh - 220px))); }
+
+.chibi-window { min-width: min(300px, calc(100vw - 16px)); }
+.chibi-window .chibi-viewer { width: 100%; --chibi-stage-height: calc(260px * var(--chibi-size, 1)); height: min(var(--chibi-stage-height), max(60px, calc(100dvh - 280px))); }
+.chibi-size-control { display: flex; align-items: center; gap: 6px; margin-top: 8px; }
+.chibi-size-control input { flex: 1; min-width: 0; }
+.chibi-size-control output { min-width: 4ch; text-align: center; font: 12px var(--font-mono); }
+.chibi-size-control.compact { background: var(--panel); border: 1px solid var(--line-soft); padding: 2px; border-radius: var(--radius); gap: 2px; }
+.chibi-page-controls { display: flex; flex-wrap: wrap; gap: 8px; }
+.chibi-roaming { height: auto; aspect-ratio: 8 / 9; }
+.chibi-roaming .chibi-viewer { width: 100%; height: 100%; }
+.chibi-roaming-controls > .chibi-size-control { pointer-events: auto; }
+.chibi-roaming .chibi-furniture { width: 100%; height: 65.5556%; }
+.chibi-roaming .chibi-furniture-sit { top: 31.1111%; }
+.chibi-roaming .chibi-furniture-sleep { top: 34.4444%; }
+@media (max-width: 650px) { .chibi-window .chibi-viewer { --chibi-stage-height: calc(180px * var(--chibi-size, 1)); } }

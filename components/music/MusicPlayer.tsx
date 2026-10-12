@@ -5,6 +5,7 @@ import { GAME_PATHS } from '@/lib/minigames/catalogue';
 import { useMusicPlayer } from '@/lib/music/musicPlayerContext';
 import { useCrossFadeTitle } from '@/lib/music/useCrossFadeTitle';
 import TransportIcon from './TransportIcons';
+import SongPlaylistPicker from './SongPlaylistPicker';
 import { XGlyph } from '@/components/ui/XButton';
 
 function formatTime(seconds: number): string {
@@ -92,7 +93,7 @@ export default function MusicPlayer() {
     if (collapsed) return;
     const onPointerDown = (e: PointerEvent) => {
       const target = e.target as Node;
-      if (shellRef.current?.contains(target)) return;
+      if (shellRef.current?.contains(target) || (target instanceof Element && target.closest('[data-music-player-popover]'))) return;
       setCollapsed(true);
     };
     document.addEventListener('pointerdown', onPointerDown);
@@ -247,6 +248,7 @@ export default function MusicPlayer() {
             >
               <TransportIcon name="heart" />
             </button>
+            <SongPlaylistPicker player song={{ id: videoId || '', title: catalogTitle }} />
             <button
               type="button"
               className="filter-chip music-stream-safe-btn"

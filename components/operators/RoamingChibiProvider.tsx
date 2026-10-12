@@ -7,6 +7,8 @@ import { ContentImg } from '@/components/content/ContentImage';
 import type { ChibiModel, ChibiFacings } from '@/lib/operators/chibi';
 import { CHIBI_FURNITURE, chooseChibiBreak, chooseChibiTap, chibiActivities } from '@/lib/operators/chibiRoutine';
 import ChibiWindow from './ChibiWindow';
+import ChibiSizeControl from './ChibiSizeControl';
+import { chibiDimensions } from '@/lib/operators/chibiSize';
 import type { ChibiAnimation, ChibiBreak } from '@/lib/operators/chibiRoutine';
 
 const ChibiCanvas = dynamic(() => import('./ChibiCanvas'), { ssr: false });
@@ -22,7 +24,8 @@ interface RoamingChibiContextValue {
   pet: Pet | null;
   walkOnPage: (pet: Pet, point: Point) => void;
   startDrag: (event: ReactPointerEvent<HTMLCanvasElement>, pet: Pet) => void;
-  setPaused: (paused: boolean) => void;
+  size: number;
+  setSize: (size: number) => void;
   dismiss: () => void;
 }
 const RoamingChibiContext = createContext<RoamingChibiContextValue | null>(null);
@@ -31,23 +34,66 @@ export function useRoamingChibi() {
   if (!context) throw new Error('Chibi viewers require RoamingChibiProvider');
   return context;
 }
-const clampToPage = ({ x, y }: Point): Point => ({
-  x: Math.max(0, Math.min(window.innerWidth - PET_WIDTH, x)),
-  y: Math.max(0, Math.min(window.innerHeight - PET_HEIGHT, y)),
-});
+const clampToPage = ({ x, y }: Point, size = 100): Point => {
+  const bounds = chibiDimensions(size, window.innerWidth, window.innerHeight);
+  return { x: Math.max(0, Math.min(window.innerWidth - bounds.width, x)), y: Math.max(0, Math.min(window.innerHeight - bounds.height, y)) };
+};
+type Drag = { pointer: number; origin: Point; offset: Point; bounds: DOMRect; detached: boolean; moved: boolean; pet: Pet };
+type Walker = { id: number; pet: Pet; point: Point; drag?: Drag; size: number };
 const ignoreAnimation = () => {};
 
-/** The detached canvas belongs to the app, so viewer and route changes cannot dispose it. */
+/** Each roaming canvas owns its motion and controls; opening another viewer leaves it alive. */
 export default function RoamingChibiProvider({ children }: { children: ReactNode }) {
   const [viewer, setViewer] = useState<ChibiViewerConfig | null>(null), [viewerOpen, setViewerOpen] = useState(false);
+  const [walkers, setWalkers] = useState<Walker[]>([]);
+  const [size, setSize] = useState(100);
+  const nextId = useRef(0), drag = useRef<Drag | null>(null);
   const viewerRef = useRef(viewer); viewerRef.current = viewer;
   const openViewer = useCallback((next: ChibiViewerConfig) => { setViewer(next); setViewerOpen(true); }, []);
   const closeViewer = useCallback(() => {
     setViewerOpen(false);
     const source = viewerRef.current?.returnFocus;
-    (source?.isConnected ? source : petRef.current ?? document.getElementById('page-content'))?.focus({ preventScroll: true });
+    (source?.isConnected ? source : document.getElementById('page-content'))?.focus({ preventScroll: true });
   }, []);
-  const [pet, setPet] = useState<Pet | null>(null);
+  const walkOnPage = useCallback((pet: Pet, point: Point) => {
+    const id = ++nextId.current;
+    setWalkers(current => [...current, { id, pet, point, size }]);
+  }, [size]);
+  const startDrag = useCallback((event: ReactPointerEvent<HTMLCanvasElement>, pet: Pet) => {
+    if (event.button !== 0 || !event.isPrimary) return;
+    event.preventDefault();
+    const bounds = chibiDimensions(size, window.innerWidth, window.innerHeight);
+    drag.current = { pointer: event.pointerId, origin: { x: event.clientX, y: event.clientY }, offset: { x: bounds.width / 2, y: bounds.height / 2 }, bounds: event.currentTarget.getBoundingClientRect(), detached: false, moved: false, pet };
+  }, [size]);
+  useEffect(() => {
+    const move = (event: PointerEvent) => {
+      const active = drag.current;
+      if (!active || active.pointer !== event.pointerId) return;
+      const outside = event.clientX < active.bounds.left || event.clientX > active.bounds.right || event.clientY < active.bounds.top || event.clientY > active.bounds.bottom;
+      if (!outside || Math.hypot(event.clientX - active.origin.x, event.clientY - active.origin.y) <= 6) return;
+      event.preventDefault(); drag.current = null;
+      const id = ++nextId.current;
+      setWalkers(current => [...current, { id, pet: active.pet, size, point: { x: event.clientX - active.offset.x, y: event.clientY - active.offset.y }, drag: { ...active, detached: true, moved: true } }]);
+    };
+    const finish = () => { drag.current = null; };
+    window.addEventListener('pointermove', move, { passive: false });
+    window.addEventListener('pointerup', finish); window.addEventListener('pointercancel', finish); window.addEventListener('blur', finish);
+    return () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', finish); window.removeEventListener('pointercancel', finish); window.removeEventListener('blur', finish); };
+  }, [size]);
+  const dismiss = () => setWalkers(current => current.filter(walker => walker.pet.label !== viewer?.label));
+  const pet = walkers.find(walker => walker.pet.label === viewer?.label)?.pet ?? null;
+  return <RoamingChibiContext.Provider value={{ pet, viewer, viewerOpen, openViewer, closeViewer, walkOnPage, startDrag, size, setSize, dismiss }}>
+    {children}
+    {viewer && <ChibiWindow config={viewer} open={viewerOpen} />}
+    {walkers.map(walker => <RoamingChibi key={walker.id} initial={walker} onDismiss={() => setWalkers(current => current.filter(item => item.id !== walker.id))} />)}
+  </RoamingChibiContext.Provider>;
+}
+
+function RoamingChibi({ initial, onDismiss }: { initial: Walker; onDismiss: () => void }) {
+  const [size, setSize] = useState(initial.size);
+  const sizeRef = useRef(size); sizeRef.current = size;
+  const dismissRef = useRef(onDismiss); dismissRef.current = onDismiss;
+  const [pet, setPet] = useState<Pet | null>(initial.pet);
   const [controlsVisible, setControlsVisible] = useState(false);
   useEffect(() => {
     if (!controlsVisible) return;
@@ -55,7 +101,7 @@ export default function RoamingChibiProvider({ children }: { children: ReactNode
     return () => window.clearTimeout(timeout);
   }, [controlsVisible]);
   const label = pet?.label, paused = pet?.paused;
-  const [dragging, setDragging] = useState(false), [moving, setMoving] = useState(false), [flipped, setFlipped] = useState(false);
+  const [dragging, setDragging] = useState(Boolean(initial.drag)), [moving, setMoving] = useState(false), [flipped, setFlipped] = useState(false);
   const [rest, setRest] = useState<ChibiBreak | null>(null);
   const firstTap = useRef(true), [animationSequence, setAnimationSequence] = useState(0);
   const animations = useRef<ChibiAnimation[]>([]), resting = useRef<ChibiBreak | null>(null);
@@ -72,10 +118,10 @@ export default function RoamingChibiProvider({ children }: { children: ReactNode
   }, [activeModel?.skeleton]);
   const endRest = useCallback(() => { resting.current = null; remaining.current = 0; cycleFinished.current = false; setRest(null); setMoving(false); }, []);
   const currentPet = useRef(pet); currentPet.current = pet;
-  const petRef = useRef<HTMLDivElement>(null), position = useRef<Point>({ x: 0, y: 0 });
-  const drag = useRef<{ pointer: number; origin: Point; offset: Point; bounds: DOMRect; detached: boolean; moved: boolean; pet: Pet } | null>(null);
+  const petRef = useRef<HTMLDivElement>(null), position = useRef<Point>(clampToPage(initial.point, initial.size));
+  const drag = useRef<Drag | null>(initial.drag ?? null);
   const place = useCallback((point: Point) => {
-    position.current = clampToPage(point);
+    position.current = clampToPage(point, sizeRef.current);
     if (petRef.current) {
       petRef.current.style.left = `${position.current.x}px`;
       petRef.current.style.top = `${position.current.y}px`;
@@ -87,12 +133,9 @@ export default function RoamingChibiProvider({ children }: { children: ReactNode
   }, []);
   const dismiss = useCallback(() => {
     const target = currentPet.current?.returnFocus;
-    drag.current = null; setDragging(false); endRest(); setPet(null);
+    drag.current = null; setDragging(false); endRest(); dismissRef.current();
     (target?.isConnected ? target : document.getElementById('page-content'))?.focus({ preventScroll: true });
   }, [endRest]);
-  const walkOnPage = useCallback((next: Pet, point: Point) => {
-    drag.current = null; setDragging(false); firstTap.current = true; endRest(); place(point); setPet(next);
-  }, [place, endRest]);
   const tap = useCallback(() => {
     const next = chooseChibiTap(animations.current, firstTap.current);
     if (!next) return;
@@ -111,7 +154,7 @@ export default function RoamingChibiProvider({ children }: { children: ReactNode
     if (detached) petRef.current?.focus({ preventScroll: true });
     setDragging(true);
   }, [endRest]);
-  const startDrag = useCallback((event: ReactPointerEvent<HTMLCanvasElement>, next: Pet) => beginDrag(event, next, false), [beginDrag]);
+  useEffect(() => { place(position.current); }, [size, place]);
   useEffect(() => {
     // These listeners also survive the source viewer closing during a drag.
     const move = (event: PointerEvent) => {
@@ -181,7 +224,7 @@ export default function RoamingChibiProvider({ children }: { children: ReactNode
           const next = hasWalked ? chooseChibiBreak(available) : null;
           if (next) { setAnimationSequence(value => value + 1); cycleFinished.current = false; remaining.current = next.duration; resting.current = next; setRest(next); }
           hasWalked = false;
-          target = clampToPage({ x: Math.random() * Math.max(0, window.innerWidth - PET_WIDTH), y: Math.random() * Math.max(0, window.innerHeight - PET_HEIGHT) });
+          target = clampToPage({ x: Math.random() * window.innerWidth, y: Math.random() * window.innerHeight }, sizeRef.current);
           waitUntil = now + 1000 + Math.random() * 2000;
         } else {
           hasWalked = true; setMoving(true); setFlipped(dx < 0);
@@ -191,23 +234,20 @@ export default function RoamingChibiProvider({ children }: { children: ReactNode
       }
       frame = requestAnimationFrame(walk);
     };
-    const resize = () => { place(position.current); target = clampToPage(target); };
+    const resize = () => { place(position.current); target = clampToPage(target, sizeRef.current); };
     const visibility = () => { previous = performance.now(); };
     frame = requestAnimationFrame(walk); window.addEventListener('resize', resize); document.addEventListener('visibilitychange', visibility);
     return () => { cancelAnimationFrame(frame); window.removeEventListener('resize', resize); document.removeEventListener('visibilitychange', visibility); };
   }, [label, pet?.model, paused, dragging, place, endRest]);
   const furniture = rest?.activity === 'sit' || rest?.activity === 'sleep' ? CHIBI_FURNITURE[rest.activity] : null;
-  return <RoamingChibiContext.Provider value={{ pet, viewer, viewerOpen, openViewer, closeViewer, walkOnPage, startDrag, setPaused, dismiss }}>
-    {children}
-    {viewer && <ChibiWindow config={viewer} open={viewerOpen} />}
-    {pet && createPortal(<div className={`chibi-roaming${dragging ? ' is-dragging' : ''}${controlsVisible ? ' show-controls' : ''}`} ref={petRef} data-activity={rest?.activity ?? (moving ? 'walking' : 'idle')} data-break-duration={rest?.duration}
-      style={{ left: position.current.x, top: position.current.y }} tabIndex={0} role="group" aria-label={`${pet.label} roaming chibi`}
+  return pet ? createPortal(<div className={`chibi-roaming${dragging ? ' is-dragging' : ''}${controlsVisible ? ' show-controls' : ''}`} ref={petRef} data-activity={rest?.activity ?? (moving ? 'walking' : 'idle')} data-break-duration={rest?.duration}
+      style={{ left: position.current.x, top: position.current.y, width: `min(${PET_WIDTH * size / 100}px, calc(100vw - 16px), calc((100dvh - 16px) * 8 / 9))` }} tabIndex={0} role="group" aria-label={`${pet.label} roaming chibi`}
       title="Tap to interact · Enter or Space to interact · Drag or arrow keys to move · Escape to dismiss" onKeyDown={event => {
         if (event.key === 'Escape') { event.preventDefault(); dismiss(); }
         if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) {
           event.preventDefault(); if (!event.repeat) tap();
         }
-        if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) {
+        if (event.target === event.currentTarget && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) {
           event.preventDefault(); endRest(); setPaused(true);
           place({ x: position.current.x + (event.key === 'ArrowLeft' ? -20 : event.key === 'ArrowRight' ? 20 : 0), y: position.current.y + (event.key === 'ArrowUp' ? -20 : event.key === 'ArrowDown' ? 20 : 0) });
         }
@@ -218,12 +258,12 @@ export default function RoamingChibiProvider({ children }: { children: ReactNode
         onAnimationsChange={onAnimationsChange} onAnimationComplete={onAnimationComplete} paused={false} moving={moving} flipped={flipped} roaming onPointerDown={event => beginDrag(event, pet, true)} />
       <div className="chibi-roaming-controls" onPointerDown={() => setControlsVisible(true)}>
         <XButton label="Dismiss roaming chibi" onClick={dismiss} />
+        <ChibiSizeControl size={size} onChange={setSize} compact />
         <button className="btn-x" type="button" aria-label={pet.paused ? 'Resume walking' : 'Pause walking'} title={pet.paused ? 'Resume walking' : 'Pause walking'} onClick={() => setPaused(!pet.paused)}>
           <svg aria-hidden="true" focusable="false" viewBox="0 0 16 16" width="16" height="16" fill="currentColor">
             {pet.paused ? <path d="M5 3v10l6-5Z" /> : <><rect x="4" y="3" width="2" height="10" /><rect x="10" y="3" width="2" height="10" /></>}
           </svg>
         </button>
       </div>
-    </div>, document.body)}
-  </RoamingChibiContext.Provider>;
+    </div>, document.body) : null;
 }

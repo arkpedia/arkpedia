@@ -642,3 +642,17 @@
 .music-song-menu-options { display: grid; gap: 4px; margin-top: 8px; }
 .music-song-menu-options > button { display: flex; align-items: center; justify-content: flex-start; gap: 10px; text-align: left; }
 .music-song-menu-options > button > span { margin-left: auto; }
+
+.music-playlist-add-btn { color: var(--teal); }
+.music-playlist-add-btn[aria-expanded="true"] { background: var(--teal-dim); border-color: var(--teal); }
+@media (max-width: 380px) {
+  .music-player-bottombar-controls { display: grid; grid-template-columns: repeat(4, var(--control-h)); grid-template-areas: "fav prev play next" "add shuffle repeat list"; }
+  .music-player-bottombar-controls .music-fav-btn { grid-area: fav; }
+  .music-player-bottombar-controls .music-playlist-add-btn { grid-area: add; }
+  .music-player-bottombar-controls .music-prev-btn { grid-area: prev; }
+  .music-player-bottombar-controls .music-play-btn { grid-area: play; }
+  .music-player-bottombar-controls .music-next-btn { grid-area: next; }
+  .music-player-bottombar-controls .music-shuffle-btn { grid-area: shuffle; }
+  .music-player-bottombar-controls .music-repeat-btn { grid-area: repeat; }
+  .music-player-bottombar-controls .music-list-btn { grid-area: list; }
+}

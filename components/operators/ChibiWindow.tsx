@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { CSSProperties } from 'react';
+import ChibiSizeControl from './ChibiSizeControl';
 import { createPortal } from 'react-dom';
 import dynamic from 'next/dynamic';
 import SegmentedControl from '@/components/ui/SegmentedControl';
@@ -106,7 +108,7 @@ export default function ChibiWindow({ config, open }: { config: ChibiViewerConfi
   const furnitureActivity = playing.base && /^(sit|sleep)(?:[_\d].*)?$/i.test(playing.clip) ? /^sit/i.test(playing.clip) ? 'sit' : 'sleep' : undefined;
   if (!open) return null;
   return createPortal(<div ref={windowRef} className="chibi-window" role="dialog" aria-label={`Chibi viewer — ${config.label}`} tabIndex={-1}
-    style={{ left: position.current.x, top: position.current.y }} onKeyDown={event => {
+    style={{ left: position.current.x, top: position.current.y, width: `min(${380 * chibi.size / 100}px, calc(100vw - 16px))`, '--chibi-size': chibi.size / 100 } as CSSProperties} onKeyDown={event => {
       if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); chibi.closeViewer(); }
     }}>
     <div className="chibi-window-header">
@@ -137,12 +139,13 @@ export default function ChibiWindow({ config, open }: { config: ChibiViewerConfi
       <button className="ghost btn-icon" type="button" aria-label="Pause" title="Pause" aria-pressed={paused}
         onClick={() => setPreviewPaused(true)}>Ⅱ</button>
     </div>}
+    <ChibiSizeControl size={chibi.size} onChange={chibi.setSize} />
     {(model || roaming) && <div className="chibi-page-controls"><button className="ghost" type="button" onClick={() => {
       if (roaming) chibi.dismiss(); else { const next = nextPet(); if (next && windowRef.current) { const bounds = windowRef.current.getBoundingClientRect(); const point = bounds.left >= 168 ? { x: bounds.left - 168, y: bounds.top }
           : window.innerHeight - bounds.bottom >= 188 ? { x: 8, y: bounds.bottom + 8 }
           : bounds.top >= 188 ? { x: 8, y: bounds.top - 188 } : { x: 8, y: window.innerHeight - 180 };
         chibi.walkOnPage(next, point); } }
-    }}>{roaming ? 'Return to viewer' : 'Walk on page'}</button></div>}
+    }}>{roaming ? 'Return to viewer' : 'Walk on page'}</button>{roaming && <button type="button" className="ghost" onClick={() => { const next = nextPet(); if (next) chibi.walkOnPage(next, { x: 8, y: window.innerHeight - 200 }); }}>Add another</button>}</div>}
     {error && <p className="hint" role="status">{error}</p>}
   </div>, document.body);
 }

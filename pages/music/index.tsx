@@ -693,6 +693,7 @@ export default function MusicPage({ songLookup }: Props) {
             >
               <TransportIcon name="heart" />
             </button>
+            <SongPlaylistPicker player song={{ id: videoId || '', title: catalogTitle }} />
             <button
               type="button"
               className="filter-chip music-stream-safe-btn"
@@ -713,7 +714,7 @@ export default function MusicPage({ songLookup }: Props) {
             >
               <TransportIcon name="shuffle" />
             </button>
-            <button type="button" onClick={prevTrack} aria-label="Previous track">
+            <button type="button" className="music-prev-btn" onClick={prevTrack} aria-label="Previous track">
               <TransportIcon name="prev" />
             </button>
             <button
@@ -725,7 +726,7 @@ export default function MusicPage({ songLookup }: Props) {
             >
               <TransportIcon name={starting ? 'loading' : isPlaying ? 'pause' : 'play'} />
             </button>
-            <button type="button" onClick={nextTrack} aria-label="Next track">
+            <button type="button" className="music-next-btn" onClick={nextTrack} aria-label="Next track">
               <TransportIcon name="next" />
             </button>
             <button
