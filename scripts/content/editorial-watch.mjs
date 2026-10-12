@@ -12,7 +12,10 @@ export function editorialPlan(comparison, busy = false) {
   if (comparison.status !== 'ahead') throw new Error('Editorial branch must contain current data main. Pull data main into the editorial branch before pushing.');
   if (comparison.ahead_by > 100) throw new Error('Editorial branch is over 100 commits ahead of main; consolidate it before publishing.');
   const changed = comparison.files ?? [];
-  if (!changed.some(file => file.filename.startsWith('source/')) && changed.length < 300) return { request: false, reason: 'No source records changed.' };
+  if (changed.length >= 300) throw new Error('The compare may be truncated. Review this large change and prepare it manually.');
+  const allowed = name => name.startsWith('source/') || name.endsWith('.md');
+  if (changed.some(file => !allowed(file.filename) || (file.previous_filename && !allowed(file.previous_filename)))) throw new Error('Automatic editorial releases accept source records and documentation only. Submit workflow, script, or generated release changes through a reviewed pull request.');
+  if (!changed.some(file => file.filename.startsWith('source/') || file.previous_filename?.startsWith('source/'))) return { request: false, reason: 'No source records changed.' };
   return { request: true, reason: 'Unpublished editorial source changes.' };
 }
 export function devPlan(comparison, busy = false) {

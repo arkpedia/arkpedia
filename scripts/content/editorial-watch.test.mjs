@@ -16,8 +16,13 @@ test('diverged and long editorial branches cannot replace newer canonical data',
   assert.throws(() => editorialPlan({ status: 'diverged' }), /contain current data main/);
   assert.throws(() => editorialPlan({ status: 'ahead', ahead_by: 101 }), /100 commits/);
 });
-test('a truncated compare is conservative rather than missing source edits', () => {
-  assert.equal(editorialPlan({ status: 'ahead', ahead_by: 1, files: Array.from({ length: 300 }, (_, i) => ({ filename: `notes/${i}.md` })) }).request, true);
+test('automatic preparation refuses executable changes and incomplete change inventories', () => {
+  assert.throws(() => editorialPlan({ status: 'ahead', ahead_by: 1, files: Array.from({ length: 300 }, (_, i) => ({ filename: `notes/${i}.md` })) }), /truncated/);
+  for (const filename of ['scripts/validate-release.mjs', '.github/workflows/content.yml', 'release/manifest.json']) {
+    assert.throws(() => editorialPlan({ status: 'ahead', ahead_by: 1, files: [{ filename }, { filename: 'source/data/operator.json' }] }), /source records and documentation only/);
+    assert.throws(() => editorialPlan({ status: 'ahead', ahead_by: 1, files: [{ filename: 'source/data/operator.json', previous_filename: filename }] }), /source records and documentation only/);
+  }
+  assert.equal(editorialPlan({ status: 'ahead', ahead_by: 1, files: [{ filename: 'notes/operator.md', previous_filename: 'source/data/operator.json' }] }).request, true);
 });
 test('dev refreshes shared main once, including its first release and divergent output', () => {
   for (const status of ['ahead', 'identical']) assert.equal(devPlan({ status }).request, false);
