@@ -8,11 +8,13 @@ import { rewardIconPath } from '@/lib/events/rewardIcons';
 import { FINAL_STATS_ROWS } from '@/lib/results/finalPollResults';
 import ratingsData from '@/config/selector-ratings.json';
 import packArt from '@/config/event-pack-art.json';
+import type { TicketDetails } from '@/lib/events/announcements';
 import type { ResolvedTicket } from '@/components/events/RewardDetails';
 import type { SelectorCandidate } from './scoring';
 
 const EVENT = '[Celebration] Critical Phase Transition';
 const CURRENT = [
+  { name: 'Top Operator Transfer Permit - Starter', label: 'Beginner 6★ selector', pack: 'Beginner rewards · Day 5' },
   { name: 'Special Event Transfer Permit', label: 'Gifted 6★ selector', pack: null },
   { name: '2026 Celebration Operator Permit', label: 'Purchasable 6★ selector', pack: 'Rhodes Island Headhunting Pack' },
   { name: 'Top Operator Transfer Permit - Kernel', label: 'Purchasable Kernel 6★ selector', pack: 'Rhodes Island Headhunting Pack - Kernel' },
@@ -49,7 +51,14 @@ export function buildSelectorCatalogue() {
       isModule: (op.modules ?? []).some(m => /^ISW[- ]/.test(m.name ?? '')),
       raModule: (op.modules ?? []).some(m => /^RA[- ]/.test(m.name ?? '')) };
   });
-  const announced = announcedRewards(EVENT, []).tickets;
+  const eventRewards = announcedRewards(EVENT, []);
+  const announced: Record<string, TicketDetails> = { ...eventRewards.tickets,
+    'Top Operator Transfer Permit - Starter': {
+      source: 'https://closure.wiki/items/voucher_recruitR6_pick5301',
+      description: 'Choose one of these six operators with the beginner login reward.',
+      operators: ['Blaze', 'Exusiai', 'SilverAsh', 'Saria', 'Mountain', 'Thorns'],
+    },
+  };
   const tickets: Record<string, ResolvedTicket> = {};
   const cards = CURRENT.map(card => {
     const ticket = announced[card.name];
@@ -59,8 +68,24 @@ export function buildSelectorCatalogue() {
       if (!op) throw new Error(`Unknown selector operator: ${name}`);
       return { name, iconPath: getOperatorIconPath(op), href: operatorHref(name, null) };
     }) };
-    const imagePath = card.pack ? (packArt as Record<string, string>)[card.pack] : rewardIconPath({ name: card.name, type: 'material', id: null }, () => null, publicFileExists);
+    const imagePath = card.name === 'Top Operator Transfer Permit - Starter' ? '/material-icons/Top Operator Transfer Permit - Starter.webp' : card.pack ? (packArt as Record<string, string>)[card.pack] : rewardIconPath({ name: card.name, type: 'material', id: null }, () => null, publicFileExists);
     return { ...card, imagePath: imagePath ?? null };
   });
+  const newcomerGroup = eventRewards.groups.find(group => group.packs?.some(pack => pack.name === 'Newcomer Special Headhunting Pack'));
+  if (!newcomerGroup) throw new Error('Missing newcomer pack source');
+  const pools = [
+    { name: 'α', names: ['Ascalon', 'Typhon', "Ho'olheyak"] },
+    { name: 'β', names: ['Lemuen', 'Nymph', 'Jessica the Liberated'] },
+    { name: 'γ', names: ['Goldenglow', 'Reed the Flame Shadow', 'Gnosis'] },
+  ].map(pool => ({ name: pool.name, operators: pool.names.map(name => {
+    const op = roster.find(op => op.name === name && op.rarity === 6);
+    if (!op) throw new Error(`Unknown pool operator: ${name}`);
+    return { name, iconPath: getOperatorIconPath(op), href: operatorHref(name, null) };
+  }) }));
+  const name = 'Newcomer Special Headhunting Pack';
+  tickets[name] = { source: newcomerGroup.source, description: 'Compare the three ticket pools. Each score adds the points of all three operators.',
+    note: 'JP preview. A ticket guarantees one random 6★ from the chosen pool, not all three. Global availability awaits confirmation.',
+    operators: pools.flatMap(pool => pool.operators), pools };
+  cards.push({ name, label: 'Three-operator ticket pools', pack: 'Newcomer / Welcome Special Headhunting Pack', imagePath: packArt[name] });
   return { tickets, cards, candidates };
 }

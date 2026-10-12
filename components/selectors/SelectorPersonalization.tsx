@@ -11,6 +11,9 @@ export function useSelectorPreferences(server: string | null) {
       const stored = JSON.parse(localStorage.getItem(key) ?? 'null');
       const next = { ...DEFAULT_SELECTOR_PREFERENCES };
       if (stored?.version === 1) {
+        for (const field of ['kukkikazeRating', 'communityRating', 'mainSkills'] as const) {
+          if (typeof stored[field] === 'boolean') next[field] = stored[field];
+        }
         for (const field of ['subSkills', 'likesIS', 'likesRA'] as const) next[field] = stored[field] === true;
         for (const field of ['arts', 'trueDamage', 'gameDestroyer', 'reveal'] as const) {
           if (typeof stored[field] === 'boolean') next[field] = stored[field];
@@ -42,14 +45,11 @@ export default function SelectorPersonalization({ candidates, ownedNames, prefer
     { key: 'reveal', label: 'Lack invisibility reveal', points: '+0.25', note: 'Base talents only; skills and module upgrades are excluded.' },
   ] as const;
   return <div className="selector-personalization">
-    <div className="selector-personalization-row">
-      <span>Kukkikaze rating <span className="hint">· Fixed</span></span>
-      <button type="button" className="ghost btn-sm" aria-expanded={showScoring} aria-controls="selector-rating-scale" onClick={() => setShowScoring(value => !value)}>See scoring</button>
-    </div>
-    <div className="selector-personalization-row">
-      <span>Community average <span className="hint">· Fixed</span></span>
-      <button type="button" className="ghost btn-sm" aria-expanded={showScoring} aria-controls="selector-rating-scale" onClick={() => setShowScoring(value => !value)}>See scoring</button>
-    </div>
+    {([{ key: 'kukkikazeRating', label: 'Kukkikaze rating' }, { key: 'communityRating', label: 'Community average' }] as const).map(row => <div key={row.key} className="selector-personalization-row">
+      <span>{row.label}</span>
+      <SegmentedControl className="selector-personalization-choice" label={row.label} options={YES_NO} value={preferences[row.key] ? 'yes' : 'no'} onChange={value => onChange({ ...preferences, [row.key]: value === 'yes' })} />
+    </div>)}
+    <button type="button" className="ghost btn-sm" aria-expanded={showScoring} aria-controls="selector-rating-scale" onClick={() => setShowScoring(value => !value)}>See scoring</button>
     {showScoring && <div id="selector-rating-scale" className="selector-rating-scale">
       <div className="selector-rating-key"><span>Rating → points</span><span>Maximum +2</span></div>
       <dl className="selector-rating-grid" aria-label="Rating to recommendation points">
@@ -57,13 +57,12 @@ export default function SelectorPersonalization({ candidates, ownedNames, prefer
           <dt>{rating.toFixed(1)}</dt><dd>{pointLabel(ratingPoints(rating)!)}</dd>
         </div>)}
       </dl>
-      <p className="hint">Community averages round to one decimal. If only one rating is available, its points double.</p>
+      <p className="hint">Community averages round to one decimal. If only one rating is available, its points double. Turning a rating off removes its points without doubling the other rating.</p>
     </div>}
-    <div className="selector-personalization-row"><span>Main priority skills <span className="hint">· Fixed</span></span><strong>+0.5 / skill</strong></div>
-    <div className="selector-personalization-row">
-      <span>Sub priority skills <span className="hint">· +0.1 / skill</span></span>
-      <SegmentedControl className="selector-personalization-choice" label="Sub priority skill bonus" options={[{ value: 'on', label: 'On' }, { value: 'off', label: 'Off' }]} value={preferences.subSkills ? 'on' : 'off'} onChange={value => onChange({ ...preferences, subSkills: value === 'on' })} />
-    </div>
+    {([{ key: 'mainSkills', label: 'Main priority skills', points: '+0.5' }, { key: 'subSkills', label: 'Sub priority skills', points: '+0.1' }] as const).map(row => <div key={row.key} className="selector-personalization-row">
+      <span>{row.label} <span className="hint">· {row.points} / skill</span></span>
+      <SegmentedControl className="selector-personalization-choice" label={row.label} options={YES_NO} value={preferences[row.key] ? 'yes' : 'no'} onChange={value => onChange({ ...preferences, [row.key]: value === 'yes' })} />
+    </div>)}
     {coverageRows.map(row => {
       const value = preferences[row.key] ?? automatic[row.key];
       const source = preferences[row.key] !== null ? 'Manual' : ownedNames !== null ? value === null ? 'Account: unknown' : 'Account' : 'Default';

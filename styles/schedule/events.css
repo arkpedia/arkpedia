@@ -469,3 +469,7 @@ button.events-row-main.btn-bare { border: 0; background: transparent; padding: 0
   .selector-card-art { grid-row: 1 / 6; height: 88px; }
   .selector-card-art img { height: 88px; }
 }
+
+.selector-pool { border-top: 1px solid var(--line-soft); padding: 12px 0; }
+.selector-pool h3 { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; margin: 0 0 12px; }
+.selector-pool-total { font-size: .85em; }

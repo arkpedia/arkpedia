@@ -25,6 +25,9 @@ export interface Recommendation {
   lines: { label: string; points: number }[];
 }
 export interface SelectorPreferences {
+  kukkikazeRating: boolean;
+  communityRating: boolean;
+  mainSkills: boolean;
   subSkills: boolean;
   likesIS: boolean;
   likesRA: boolean;
@@ -33,7 +36,7 @@ export interface SelectorPreferences {
   gameDestroyer: boolean | null;
   reveal: boolean | null;
 }
-export const DEFAULT_SELECTOR_PREFERENCES: SelectorPreferences = { subSkills: false, likesIS: false, likesRA: false, arts: null, trueDamage: null, gameDestroyer: null, reveal: null };
+export const DEFAULT_SELECTOR_PREFERENCES: SelectorPreferences = { kukkikazeRating: true, communityRating: true, mainSkills: true, subSkills: false, likesIS: false, likesRA: false, arts: null, trueDamage: null, gameDestroyer: null, reveal: null };
 const superMetaIds = new Set(superMetaOperators.map(op => op.id));
 export function isSuperMeta(candidate: SelectorCandidate) {
   return superMetaIds.has(candidate.id) || (candidate.kukkikaze !== null && candidate.kukkikaze >= 7 && candidate.kukkikaze <= 7.2);
@@ -65,9 +68,9 @@ export function recommendation(candidate: SelectorCandidate, roster: SelectorCan
   const lines: Recommendation['lines'] = [];
   const add = (label: string, points: number) => lines.push({ label, points: Math.round(points * 100) / 100 });
   const kukki = ratingPoints(candidate.kukkikaze), community = ratingPoints(candidate.community);
-  if (kukki !== null) add(community === null ? 'Kukkikaze rating ×2 (no community rating)' : 'Kukkikaze rating', kukki * (community === null ? 2 : 1));
-  if (community !== null) add(kukki === null ? 'Community rating ×2 (no Kukkikaze rating)' : 'Community rating', community * (kukki === null ? 2 : 1));
-  add(`${candidate.mainSkills} main priority skill${candidate.mainSkills === 1 ? '' : 's'}`, candidate.mainSkills * .5);
+  if (preferences.kukkikazeRating && kukki !== null) add(community === null ? 'Kukkikaze rating ×2 (no community rating)' : 'Kukkikaze rating', kukki * (community === null ? 2 : 1));
+  if (preferences.communityRating && community !== null) add(kukki === null ? 'Community rating ×2 (no Kukkikaze rating)' : 'Community rating', community * (kukki === null ? 2 : 1));
+  if (preferences.mainSkills) add(`${candidate.mainSkills} main priority skill${candidate.mainSkills === 1 ? '' : 's'}`, candidate.mainSkills * .5);
   add(`${candidate.subSkills} sub priority skill${candidate.subSkills === 1 ? '' : 's'}`, preferences.subSkills ? candidate.subSkills * .1 : 0);
   if (preferences.likesIS && candidate.isModule) add('Integrated Strategies module', 1);
   if (preferences.likesRA && candidate.raModule) add('Reclamation Algorithm module', 1);
@@ -76,7 +79,8 @@ export function recommendation(candidate: SelectorCandidate, roster: SelectorCan
   if (candidate.trueDamage && coverage.trueDamage) add('True damage coverage: lacking True damage dealers', .5);
   if (gameDestroyer && coverage.gameDestroyer) add('Super-meta coverage: lacking a super-meta operator', 1);
   const total = Math.round(lines.reduce((sum, line) => sum + line.points, 0) * 100) / 100;
-  return { total, complete: (kukki !== null || community !== null) && (!gameDestroyer || coverage.gameDestroyer !== null), owned: own.has(candidate.name), personalized: ownedNames !== null || preferences.subSkills || preferences.likesIS || preferences.likesRA || [preferences.arts, preferences.trueDamage, preferences.gameDestroyer, preferences.reveal].some(value => value !== null),
+  const ratingsComplete = (!preferences.kukkikazeRating && !preferences.communityRating) || (preferences.kukkikazeRating && kukki !== null) || (preferences.communityRating && community !== null);
+  return { total, complete: ratingsComplete && (!gameDestroyer || coverage.gameDestroyer !== null), owned: own.has(candidate.name), personalized: ownedNames !== null || !preferences.kukkikazeRating || !preferences.communityRating || !preferences.mainSkills || preferences.subSkills || preferences.likesIS || preferences.likesRA || [preferences.arts, preferences.trueDamage, preferences.gameDestroyer, preferences.reveal].some(value => value !== null),
     tone: total < 0 ? 'negative' : total < 5 ? 'middle' : 'great', lines };
 }
 export const pointLabel = (points: number) => `${points > 0 ? '+' : ''}${points}`;
@@ -87,4 +91,13 @@ export function rankByRecommendation<T extends { name: string }>(operators: read
   return [...operators].sort((a, b) =>
     ((scores[b.name]?.total ?? -Infinity) - (scores[a.name]?.total ?? -Infinity))
     || a.name.localeCompare(b.name, 'en'));
+}
+
+/** Pool totals sum every operator, including owned operators, without averaging. */
+export function combinedRecommendation(operators: readonly { name: string }[], scores: Record<string, Recommendation>): Recommendation {
+  const members = operators.map(op => scores[op.name]);
+  const total = Math.round(members.reduce((sum, score) => sum + (score?.total ?? 0), 0) * 100) / 100;
+  return { total, complete: members.every(score => score?.complete), owned: members.every(score => score?.owned),
+    personalized: members.some(score => score?.personalized), tone: total < 0 ? 'negative' : total < 5 ? 'middle' : 'great',
+    lines: operators.map((op, index) => ({ label: op.name, points: members[index]?.total ?? 0 })) };
 }
