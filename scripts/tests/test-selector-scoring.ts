@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { recommendation, ratingPoints, pointLabel, rankByRecommendation, DEFAULT_SELECTOR_PREFERENCES, selectorCoverage, type SelectorCandidate } from '../../lib/selectors/scoring';
+import { recommendation, ratingPoints, pointLabel, rankByRecommendation, DEFAULT_SELECTOR_PREFERENCES, selectorCoverage, isSuperMeta, type SelectorCandidate } from '../../lib/selectors/scoring';
 import { buildSelectorCatalogue, damageTypes, hasTalentReveal } from '../../lib/selectors/catalogue';
 import snapshot from '../../data/selector-catalogue.json';
 import { getAllOperators } from '../../lib/operators/operators';
@@ -165,4 +165,26 @@ test('personalization overrides coverage without needing an account and never ad
   assert.equal(selectorCoverage([unknown], [unknown.name]).gameDestroyer, null);
   assert.equal(recommendation(op, [unknown], [unknown.name]).complete, false);
   assert.equal(recommendation(op, [unknown], [unknown.name], { ...DEFAULT_SELECTOR_PREFERENCES, gameDestroyer: true }).complete, true);
+});
+
+
+test('explicit super-meta members earn coverage below 7.0 and block coverage when owned', () => {
+  const names = ['Ines', 'Ela', 'Lemuen', 'Eyjafjalla the Hvít Aska', 'Ascalon', 'Lappland the Decadenza', 'Logos', 'Yu', 'Ulpianus', 'Exusiai the New Covenant', "Wiš'adel", 'Tragodia'];
+  for (const name of names) {
+    const op = snapshot.candidates.find(op => op.name === name)!;
+    assert.ok(op, name);
+    assert.equal(isSuperMeta(op), true, name);
+    const base = recommendation(op, snapshot.candidates, null);
+    const manual = recommendation(op, snapshot.candidates, null, { ...DEFAULT_SELECTOR_PREFERENCES, gameDestroyer: true });
+    assert.equal(manual.total, base.total + 1, name);
+    assert.equal(selectorCoverage(snapshot.candidates, [name]).gameDestroyer, false, name);
+    assert.equal(recommendation(op, snapshot.candidates, [name]).lines.some(line => line.label.startsWith('Super-meta coverage')), false, name);
+  }
+  for (const name of ['Eyjafjalla', 'Exusiai', 'Chongyue', 'SilverAsh']) {
+    assert.equal(isSuperMeta(snapshot.candidates.find(op => op.name === name)!), false, name);
+  }
+  assert.equal(isSuperMeta({ ...candidate, kukkikaze: 7.0 }), true);
+  assert.equal(isSuperMeta({ ...candidate, kukkikaze: 6.9 }), false);
+  const ines = { ...snapshot.candidates.find(op => op.name === 'Ines')!, kukkikaze: null };
+  assert.equal(selectorCoverage([ines], ['Ines']).gameDestroyer, false);
 });

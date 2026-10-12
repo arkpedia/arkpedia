@@ -1,3 +1,5 @@
+import superMetaOperators from '../../config/selector-super-meta.json';
+
 /** Recommendation inputs are release data; ownership comes only from the imported account. */
 export interface SelectorCandidate {
   name: string;
@@ -30,6 +32,10 @@ export interface SelectorPreferences {
   reveal: boolean | null;
 }
 export const DEFAULT_SELECTOR_PREFERENCES: SelectorPreferences = { subSkills: false, arts: null, trueDamage: null, gameDestroyer: null, reveal: null };
+const superMetaIds = new Set(superMetaOperators.map(op => op.id));
+export function isSuperMeta(candidate: SelectorCandidate) {
+  return superMetaIds.has(candidate.id) || (candidate.kukkikaze !== null && candidate.kukkikaze >= 7 && candidate.kukkikaze <= 7.2);
+}
 /** Null keeps a coverage answer linked to the imported account instead of freezing it. */
 export function selectorCoverage(roster: SelectorCandidate[], ownedNames: readonly string[] | null) {
   const names = new Set(ownedNames ?? []);
@@ -37,7 +43,7 @@ export function selectorCoverage(roster: SelectorCandidate[], ownedNames: readon
   return {
     arts: ownedNames !== null && owned.filter(op => op.caster || op.supporter).length <= 3,
     trueDamage: ownedNames !== null && !owned.some(op => op.trueDamage),
-    gameDestroyer: ownedNames === null || owned.some(op => op.kukkikaze !== null && op.kukkikaze >= 7)
+    gameDestroyer: ownedNames === null || owned.some(isSuperMeta)
       ? false : owned.some(op => ratingPoints(op.kukkikaze) === null) ? null : true,
     reveal: ownedNames === null || !owned.some(op => op.talentReveal),
   };
@@ -50,7 +56,7 @@ export function ratingPoints(value: number | null): number | null {
 }
 export function recommendation(candidate: SelectorCandidate, roster: SelectorCandidate[], ownedNames: readonly string[] | null, preferences: SelectorPreferences = DEFAULT_SELECTOR_PREFERENCES): Recommendation {
   const own = new Set(ownedNames ?? []);
-  const gameDestroyer = candidate.kukkikaze !== null && candidate.kukkikaze >= 7 && candidate.kukkikaze <= 7.2;
+  const gameDestroyer = isSuperMeta(candidate);
   const automatic = selectorCoverage(roster, ownedNames);
   const coverage = { arts: preferences.arts ?? automatic.arts, trueDamage: preferences.trueDamage ?? automatic.trueDamage,
     gameDestroyer: preferences.gameDestroyer ?? automatic.gameDestroyer, reveal: preferences.reveal ?? automatic.reveal };
@@ -66,7 +72,7 @@ export function recommendation(candidate: SelectorCandidate, roster: SelectorCan
   if (candidate.talentReveal && coverage.reveal) add('Invisibility reveal talent', .25);
   if (candidate.arts && coverage.arts) add('Arts coverage: lacking Arts dealers', .5);
   if (candidate.trueDamage && coverage.trueDamage) add('True damage coverage: lacking True damage dealers', .5);
-  if (gameDestroyer && coverage.gameDestroyer) add('Game-Destroyer coverage: lacking a 7.0+ operator', 1);
+  if (gameDestroyer && coverage.gameDestroyer) add('Super-meta coverage: lacking a super-meta operator', 1);
   const total = Math.round(lines.reduce((sum, line) => sum + line.points, 0) * 100) / 100;
   return { total, complete: (kukki !== null || community !== null) && (!gameDestroyer || coverage.gameDestroyer !== null), owned: own.has(candidate.name), personalized: ownedNames !== null || preferences.subSkills || [preferences.arts, preferences.trueDamage, preferences.gameDestroyer, preferences.reveal].some(value => value !== null),
     tone: total < 0 ? 'negative' : total < 5 ? 'middle' : 'great', lines };

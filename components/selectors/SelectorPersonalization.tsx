@@ -38,7 +38,7 @@ export default function SelectorPersonalization({ candidates, ownedNames, prefer
   const coverageRows = [
     { key: 'arts', label: 'Lack Arts damage dealers', points: '+0.5', note: 'Account default: three or fewer owned 6★ Casters / Supporters combined.' },
     { key: 'trueDamage', label: 'Lack True damage dealers', points: '+0.5', note: 'Account default: no owned 6★ True damage dealer.' },
-    { key: 'gameDestroyer', label: 'Lack super-meta operators (7.0+)', points: '+1', note: 'Applies to Kukkikaze ratings of 7.0 and above.' },
+    { key: 'gameDestroyer', label: 'Lack super-meta operators', points: '+1', note: 'Includes Kukkikaze ratings of 7.0+ plus Ines, Ela, Lemuen, Eyjafjalla the Hvít Aska, Ascalon, Lappland the Decadenza, Logos, Yu, Ulpianus, Exusiai the New Covenant, Wiš\'adel and Tragodia.' },
     { key: 'reveal', label: 'Lack invisibility reveal', points: '+0.25', note: 'Base talents only; skills and module upgrades are excluded.' },
   ] as const;
   return <div className="selector-personalization">
