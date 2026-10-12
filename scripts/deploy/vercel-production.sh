@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
-# Build and deploy the production Build Output bundle through Vercel's archive
-# transport. The prerendered site contains more entries than the direct-upload
-# API accepts even though its actual payload is modest.
+# Production artifacts are built only by the NAS Deploy job, never this machine.
 set -euo pipefail
-
-VERCEL_SCOPE="${VERCEL_SCOPE:-mocchibirds}"
-
-npx vercel build --prod --yes --scope "$VERCEL_SCOPE"
-node scripts/deploy/prepare-vercel-output.mjs
-npx vercel deploy --prebuilt --prod --archive=tgz --yes --scope "$VERCEL_SCOPE"
+branch="${DEPLOY_BRANCH:-$(git branch --show-current)}"
+case "$branch" in
+  main|dev) ;;
+  *) echo "Choose DEPLOY_BRANCH=main or DEPLOY_BRANCH=dev to deploy the remote branch." >&2; exit 1 ;;
+esac
+gh workflow run deploy.yml --repo arkpedia/arkpedia --ref "$branch"
+echo "Queued the NAS Deploy workflow for remote $branch. Follow it in GitHub Actions."
