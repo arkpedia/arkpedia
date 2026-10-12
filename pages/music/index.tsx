@@ -12,9 +12,14 @@ import { useCrossFadeTitle } from '@/lib/music/useCrossFadeTitle';
 import { useQueryState } from '@/lib/hooks/useQueryState';
 import MusicWaveVisualizer from '@/components/music/MusicWaveVisualizer';
 import MusicPlaylists from '@/components/music/MusicPlaylists';
+import AllSongsList from '@/components/music/AllSongsList';
+import SongActionsMenu from '@/components/music/SongActionsMenu';
+import { useSongQueueDrag } from '@/components/music/useSongQueueDrag';
+import SongPlaylistPicker from '@/components/music/SongPlaylistPicker';
 import TransportIcon from '@/components/music/TransportIcons';
 import PageHeader from '@/components/ui/PageHeader';
 import SearchInput from '@/components/ui/SearchInput';
+import SegmentedControl from '@/components/ui/SegmentedControl';
 import XButton from '@/components/ui/XButton';
 import LoadOnScroll from '@/components/ui/LoadOnScroll';
 import { hiddenUnless } from '@/lib/ui/inert';
@@ -81,16 +86,20 @@ interface QueueRowProps {
   displayPos: number;
   isActive: boolean;
   isDragging: boolean;
-  isSelected: boolean;
   /** Where the dragged song would land if dropped now: the line above or below this row. */
   dropSide: 'before' | 'after' | null;
   onTap: () => void;
   onDragStart: (e: React.DragEvent<HTMLDivElement>) => void;
-  onDragOverRow: () => void;
   onDragEnd: () => void;
-  onPlayNow: () => void;
+  onPointerDrag: (e: React.PointerEvent<HTMLButtonElement>) => void;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+  canMoveUp: boolean;
+  canMoveDown: boolean;
   onPushToTop: () => void;
   onRemove: () => void;
+  isFavorite: boolean;
+  onFavorite: () => void;
 }
 
 function QueueRow({
@@ -98,60 +107,47 @@ function QueueRow({
   displayPos,
   isActive,
   isDragging,
-  isSelected,
   dropSide,
   onTap,
   onDragStart,
-  onDragOverRow,
   onDragEnd,
-  onPlayNow,
+  onPointerDrag, onMoveUp, onMoveDown, canMoveUp, canMoveDown,
   onPushToTop,
   onRemove,
+  isFavorite,
+  onFavorite,
 }: QueueRowProps) {
   const { displayName, fading } = useCrossFadeTitle(song.title, song.altTitle);
   return (
     <div
-      className={`music-queue-row${isActive ? ' active' : ''}${isDragging ? ' dragging' : ''}${isSelected ? ' selected' : ''}${dropSide ? ` drop-${dropSide}` : ''}`}
+      className={`music-queue-row${isActive ? ' active' : ''}${isDragging ? ' dragging' : ''}${dropSide ? ` drop-${dropSide}` : ''}`}
       draggable
-      // Both drag AND tap-select are always wired up, on every device
-      // -- feature-detecting "is this a touch device" turned out
-      // unreliable across specific browser/device combinations, so
-      // rather than debug detection blind, there's simply no gate to
-      // fail: native drag only ever actually fires from a mouse
-      // anyway (touch browsers largely don't generate drag events at
-      // all, so draggable is harmless-but-inert there), and the
-      // two-step select-then-swap gesture is safe to leave on
-      // everywhere since it's deliberate (needs a second tap to
-      // actually move anything), not an instant single-tap reorder.
-      // The tap itself lives on the TITLE (a real <button> below), not
-      // on this div: the row also contains the play/top/remove
-      // buttons, so making the div itself a click target (let alone
-      // role="button") would nest interactive controls inside an
-      // interactive control -- unreachable for keyboards, ambiguous
-      // for screen readers. The div only handles drag, which has no
-      // keyboard equivalent anyway; keyboard reordering goes through
-      // the title button's two-tap gesture instead.
       onDragStart={onDragStart}
-      onDragOver={onDragOverRow}
       onDragEnd={onDragEnd}
+      data-display-pos={displayPos}
+      data-song-id={song.id}
     >
-      <span className="music-queue-drag-handle" aria-hidden="true">
-        ⠿
-      </span>
+      <button type="button" className="btn-bare btn-icon btn-sm music-queue-drag-handle"
+        aria-label={`Reorder ${song.title}`} title="Drag to reorder; arrow keys move one position"
+        onPointerDown={onPointerDrag} onKeyDown={event => {
+          if (event.key === 'ArrowUp' && canMoveUp) { event.preventDefault(); onMoveUp(); }
+          if (event.key === 'ArrowDown' && canMoveDown) { event.preventDefault(); onMoveDown(); }
+        }}>⠿</button>
       <span className="music-queue-row-index">{isActive ? '▶' : displayPos + 1}</span>
       <button
         type="button"
         className={fading ? 'btn-bare music-queue-row-title music-crossfade-text fading' : 'btn-bare music-queue-row-title music-crossfade-text'}
         title={song.title}
         onClick={onTap}
-        aria-pressed={isSelected}
       >
         {displayName}
       </button>
-      <div className="music-queue-row-actions">
-        <button type="button" className="ghost" onClick={onPlayNow} aria-label="Play now" title="Play now">
-          <TransportIcon name="play" size={14} />
+      <div className="music-queue-row-actions music-song-desktop-actions">
+        <button type="button" className="ghost music-song-favorite" onClick={onFavorite} aria-pressed={isFavorite}
+          aria-label={`${isFavorite ? 'Remove' : 'Add'} ${song.title} ${isFavorite ? 'from' : 'to'} favorites`} title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}>
+          <TransportIcon name="heart" size={18} />
         </button>
+        <SongPlaylistPicker song={song} />
         <button type="button" className="ghost" onClick={onPushToTop} disabled={isActive} aria-label="Push to top" title="Push to top">
           ⤒
         </button>
@@ -161,6 +157,11 @@ function QueueRow({
           label="Remove"
           title={isActive ? "Can't remove the currently-playing track" : 'Remove'}
         />
+      </div>
+      <div className="music-queue-row-actions music-song-mobile-actions">
+        <SongActionsMenu song={song} isFavorite={isFavorite} isActive={isActive} onFavorite={onFavorite}
+          canMoveUp={canMoveUp} canMoveDown={canMoveDown} onMoveUp={onMoveUp} onMoveDown={onMoveDown}
+          onPlayNext={onPushToTop} onRemove={onRemove} />
       </div>
     </div>
   );
@@ -351,80 +352,17 @@ export default function MusicPage({ songLookup }: Props) {
     }
   }, [videoId, catalogTitle]);
 
-  // Queue display + drag-and-drop reordering (disabled while shuffle
-  // is on, same as the old up/down buttons were -- queue POSITION
-  // doesn't mean the same thing while shuffled).
-  const displayList =
-    shuffle && shuffleOrder ? shuffleOrder.map((queueIdx) => ({ song: queue[queueIdx], queueIdx })) : queue.map((song, queueIdx) => ({ song, queueIdx }));
-
-  // Tracked by DISPLAY position (position within displayList), not
-  // queue index -- when shuffled, that's what dragging one visual row
-  // onto another actually corresponds to (see handleDrop below). When
-  // not shuffled, display position and queue index are the same thing
-  // anyway, so this still works correctly either way.
-  const [dragPos, setDragPos] = useState<number | null>(null);
-  // The row the dragged song is over, which places the drop line (dropSide).
-  const [overPos, setOverPos] = useState<number | null>(null);
-  function handleDrop(targetDisplayPos: number) {
-    const target = displayList[targetDisplayPos];
-    if (dragPos !== null && target && dragPos !== targetDisplayPos) {
-      if (shuffle) {
-        // Once something's shuffled, rearranging a row rearranges the
-        // shuffled PLAY SEQUENCE itself (which song plays 3rd vs 7th),
-        // not the underlying catalog order those songs came from.
-        reorderShuffleOrder(dragPos, targetDisplayPos);
-      } else {
-        reorderQueue(dragPos, target.queueIdx);
-      }
-    }
-    setDragPos(null);
-    setOverPos(null);
-  }
-  /* Both reorders take the song out and put it back at the target's index, so one dragged down
-     lands after the row it is dropped on and one dragged up before it: the line says which. */
-  const dropSide = (displayPos: number): 'before' | 'after' | null =>
-    dragPos === null || overPos !== displayPos || dragPos === displayPos ? null : dragPos < displayPos ? 'after' : 'before';
-  /* Each list takes the drop, not each row, so the 4px between rows is part of the row the line
-     is at: the line does not flicker off between them, and a drop there lands where it shows. */
-  const dropZone = {
-    onDragOver: (e: React.DragEvent<HTMLDivElement>) => { if (dragPos !== null) e.preventDefault(); },
-    onDrop: (e: React.DragEvent<HTMLDivElement>) => {
-      e.preventDefault();
-      if (overPos !== null) handleDrop(overPos);
-    },
-    onDragLeave: (e: React.DragEvent<HTMLDivElement>) => {
-      if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setOverPos(null);
-    },
-  };
-
-  // Tap-to-select, tap-again-to-swap -- reordering via a plain click,
-  // available on every device (see QueueRow's own comment on why this
-  // doesn't need to be gated to touch specifically). Regardless of
-  // which of the two songs gets tapped first,
-  // whichever one sits LATER in the list always ends up moving to
-  // occupy the EARLIER one's position (shifting everything between
-  // down by one) -- never the reverse. That keeps the gesture's result
-  // predictable regardless of tap order, rather than needing the user
-  // to remember "select the one that should move first."
-  const [selected, setSelected] = useState<{ pos: number; queueIdx: number; title: string } | null>(null);
-  function handleRowTap(displayPos: number, queueIdx: number, title: string) {
-    if (!selected) {
-      setSelected({ pos: displayPos, queueIdx, title });
-      return;
-    }
-    if (selected.pos === displayPos) {
-      setSelected(null); // tapped the same song again -- cancel
-      return;
-    }
-    const tapped = { pos: displayPos, queueIdx, title };
-    const [laterEntry, earlierEntry] = selected.pos > tapped.pos ? [selected, tapped] : [tapped, selected];
-    if (shuffle) {
-      reorderShuffleOrder(laterEntry.pos, earlierEntry.pos);
-    } else {
-      reorderQueue(laterEntry.queueIdx, earlierEntry.queueIdx);
-    }
-    setSelected(null);
-  }
+  const displayList = shuffle && shuffleOrder
+    ? shuffleOrder.map(queueIdx => ({ song: queue[queueIdx], queueIdx }))
+    : queue.map((song, queueIdx) => ({ song, queueIdx }));
+  const drag = useSongQueueDrag((from, to) => {
+    if (from < 0 || to < 0 || from >= displayList.length || to >= displayList.length) return;
+    if (shuffle) reorderShuffleOrder(from, to);
+    else reorderQueue(displayList[from].queueIdx, displayList[to].queueIdx);
+  }, shuffle ? shuffleOrder : queue);
+  const dropSide = (position: number): 'before' | 'after' | null =>
+    drag.dragPos === null || drag.overPos !== position || drag.dragPos === position ? null
+      : drag.dragPos < position ? 'after' : 'before';
 
   const MAX_ROWS = 5;
 
@@ -455,6 +393,22 @@ export default function MusicPage({ songLookup }: Props) {
   // before you've typed anything at all, so starting to type doesn't
   // itself cause a layout jump.
   const [queueSearch, setQueueSearch] = useState('');
+  const [allSongsSearch, setAllSongsSearch] = useState('');
+  const [songScope, setSongScope] = useState<'queue' | 'all'>('queue');
+  const queueScroll = useRef(0);
+  const queuePanel = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (songScope === 'queue') {
+      const list = queuePanel.current?.querySelector<HTMLElement>('[data-song-list]');
+      if (list) list.scrollTop = queueScroll.current;
+    }
+  }, [songScope]);
+  function changeSongScope(next: 'queue' | 'all') {
+    const list = queuePanel.current?.querySelector<HTMLElement>('[data-song-list]');
+    if (songScope === 'queue' && list) queueScroll.current = list.scrollTop;
+    drag.cancel();
+    setSongScope(next);
+  }
   const isSearching = queueSearch.trim().length > 0;
   const searchResultRows = useMemo(() => {
     if (!isSearching) return [];
@@ -593,34 +547,35 @@ export default function MusicPage({ songLookup }: Props) {
             </div>
           </div>
           {view === 'queue' && (
-          <div className="music-queue-panel">
-            <h2 className="section-title">Songs ({displayList.length})</h2>
-            <SearchInput label="Search songs" name="queue-search" placeholder="Search songs…" value={queueSearch} onChange={setQueueSearch} />
-            {isSearching ? (
+          <div className="music-queue-panel" ref={queuePanel}>
+            <div className="music-song-list-heading">
+              <h2 className="section-title">{songScope === 'queue' ? `Songs (${displayList.length})` : 'Songs'}</h2>
+              <SegmentedControl label="Song list" value={songScope} onChange={changeSongScope}
+                options={[{ value: 'queue', label: 'Queue' }, { value: 'all', label: 'All songs' }]} />
+            </div>
+            <SearchInput label={songScope === 'queue' ? 'Search songs' : 'Search all songs'} name="queue-search" placeholder="Search songs…"
+              value={songScope === 'queue' ? queueSearch : allSongsSearch} onChange={songScope === 'queue' ? setQueueSearch : setAllSongsSearch} />
+            <AllSongsList search={allSongsSearch} shown={songScope === 'all'} />
+            {songScope === 'queue' && (isSearching ? (
               <>
-                <div className="music-queue-list" {...dropZone}>
+                <div className={`music-queue-list${drag.nativeDragging ? ' music-queue-native-drag' : ''}`} data-song-list>
                   {searchResultRows.map(({ song, queueIdx, displayPos }) => (
                     <QueueRow
-                      key={song.id + queueIdx}
+                      key={song.id}
                       song={song}
+                      isFavorite={favorites.has(song.id)}
+                      onFavorite={() => toggleFavorite(song.id)}
                       displayPos={displayPos}
                       isActive={queueIdx === queueIndex && videoId === song.id}
-                      isDragging={dragPos === displayPos}
-                      isSelected={selected?.pos === displayPos}
+                      isDragging={drag.dragPos === displayPos}
                       dropSide={dropSide(displayPos)}
-                      onTap={() => handleRowTap(displayPos, queueIdx, song.title)}
-                      onDragStart={(e) => {
-                        setDragPos(displayPos);
-                        // Firefox (and to a lesser extent some other
-                        // browsers) require at least one setData call
-                        // during dragstart, or the drag never actually
-                        // initiates at all.
-                        e.dataTransfer.effectAllowed = 'move';
-                        e.dataTransfer.setData('text/plain', String(displayPos));
-                      }}
-                      onDragOverRow={() => setOverPos(displayPos)}
-                      onDragEnd={() => { setDragPos(null); setOverPos(null); }}
-                      onPlayNow={() => playTrackByVideoId(song.id)}
+                      onTap={() => playTrackByVideoId(song.id)}
+                      onDragStart={e => drag.startNative(e, displayPos, song.title)}
+                      onDragEnd={drag.cancel}
+                      onPointerDrag={e => drag.startPointer(e, displayPos, song.title)}
+                      canMoveUp={displayPos > 0} canMoveDown={displayPos < displayList.length - 1}
+                      onMoveUp={() => drag.move(displayPos, displayPos - 1)}
+                      onMoveDown={() => drag.move(displayPos, displayPos + 1)}
                       onPushToTop={() => moveQueueItemToTop(queueIdx)}
                       onRemove={() => removeFromQueue(queueIdx)}
                     />
@@ -629,25 +584,24 @@ export default function MusicPage({ songLookup }: Props) {
                     <div key={`search-empty-${i}`} className="music-queue-row music-queue-row-placeholder" aria-hidden="true" />
                   ))}
                 </div>
-                <div className="music-queue-list" {...dropZone}>
+                <div className={`music-queue-list${drag.nativeDragging ? ' music-queue-native-drag' : ''}`} data-song-list>
                   {comingUpRows.map(({ song, queueIdx, displayPos }) => (
                     <QueueRow
-                      key={song.id + queueIdx}
+                      key={song.id}
                       song={song}
+                      isFavorite={favorites.has(song.id)}
+                      onFavorite={() => toggleFavorite(song.id)}
                       displayPos={displayPos}
                       isActive={queueIdx === queueIndex && videoId === song.id}
-                      isDragging={dragPos === displayPos}
-                      isSelected={selected?.pos === displayPos}
+                      isDragging={drag.dragPos === displayPos}
                       dropSide={dropSide(displayPos)}
-                      onTap={() => handleRowTap(displayPos, queueIdx, song.title)}
-                      onDragStart={(e) => {
-                        setDragPos(displayPos);
-                        e.dataTransfer.effectAllowed = 'move';
-                        e.dataTransfer.setData('text/plain', String(displayPos));
-                      }}
-                      onDragOverRow={() => setOverPos(displayPos)}
-                      onDragEnd={() => { setDragPos(null); setOverPos(null); }}
-                      onPlayNow={() => playTrackByVideoId(song.id)}
+                      onTap={() => playTrackByVideoId(song.id)}
+                      onDragStart={e => drag.startNative(e, displayPos, song.title)}
+                      onDragEnd={drag.cancel}
+                      onPointerDrag={e => drag.startPointer(e, displayPos, song.title)}
+                      canMoveUp={displayPos > 0} canMoveDown={displayPos < displayList.length - 1}
+                      onMoveUp={() => drag.move(displayPos, displayPos - 1)}
+                      onMoveDown={() => drag.move(displayPos, displayPos + 1)}
                       onPushToTop={() => moveQueueItemToTop(queueIdx)}
                       onRemove={() => removeFromQueue(queueIdx)}
                     />
@@ -658,7 +612,7 @@ export default function MusicPage({ songLookup }: Props) {
                 </div>
               </>
             ) : (
-              <div className="music-queue-list" {...dropZone}>
+              <div className={`music-queue-list${drag.nativeDragging ? ' music-queue-native-drag' : ''}`} data-song-list>
                 {/* Same quiet .hint treatment as the discover page's
                     no-results message -- without it, "Songs (0)" sits
                     above a silent void and reads like the list simply
@@ -668,29 +622,28 @@ export default function MusicPage({ songLookup }: Props) {
                 )}
                 {visibleFullQueue.map(({ song, queueIdx, displayPos }) => (
                   <QueueRow
-                    key={song.id + queueIdx}
+                    key={song.id}
                     song={song}
+                    isFavorite={favorites.has(song.id)}
+                    onFavorite={() => toggleFavorite(song.id)}
                     displayPos={displayPos}
                     isActive={queueIdx === queueIndex && videoId === song.id}
-                    isDragging={dragPos === displayPos}
-                    isSelected={selected?.pos === displayPos}
+                    isDragging={drag.dragPos === displayPos}
                     dropSide={dropSide(displayPos)}
-                    onTap={() => handleRowTap(displayPos, queueIdx, song.title)}
-                    onDragStart={(e) => {
-                      setDragPos(displayPos);
-                      e.dataTransfer.effectAllowed = 'move';
-                      e.dataTransfer.setData('text/plain', String(displayPos));
-                    }}
-                    onDragOverRow={() => setOverPos(displayPos)}
-                    onDragEnd={() => { setDragPos(null); setOverPos(null); }}
-                    onPlayNow={() => playTrackByVideoId(song.id)}
+                    onTap={() => playTrackByVideoId(song.id)}
+                    onDragStart={e => drag.startNative(e, displayPos, song.title)}
+                    onDragEnd={drag.cancel}
+                    onPointerDrag={e => drag.startPointer(e, displayPos, song.title)}
+                    canMoveUp={displayPos > 0} canMoveDown={displayPos < displayList.length - 1}
+                    onMoveUp={() => drag.move(displayPos, displayPos - 1)}
+                    onMoveDown={() => drag.move(displayPos, displayPos + 1)}
                     onPushToTop={() => moveQueueItemToTop(queueIdx)}
                     onRemove={() => removeFromQueue(queueIdx)}
                   />
                 ))}
                 <LoadOnScroll shown={queueVisibleCount} total={displayListWithPos.length} onMore={() => setQueueVisibleCount((c) => c + QUEUE_PAGE_SIZE)} />
               </div>
-            )}
+            ))}
           </div>
           )}
         </div>
@@ -808,6 +761,7 @@ export default function MusicPage({ songLookup }: Props) {
           </div>
         </div>
       </main>
+      {drag.feedback}
     </>
   );
 }

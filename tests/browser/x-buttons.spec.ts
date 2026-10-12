@@ -237,10 +237,14 @@ const PLACES: Place[] = [
   },
   {
     id: '/music queue', route: '/music',
-    open: async (page) => { await expect(page.locator('.music-queue-row').nth(1)).toBeVisible(); },
-    // The first row is the playing track, whose remove is disabled.
-    x: (page) => page.locator('.music-queue-row').nth(1).getByRole('button', { name: 'Remove', exact: true }),
-    gone: async () => {},
+    open: async (page) => {
+      const row = page.locator('.music-queue-row').nth(1);
+      await expect(row).toBeVisible();
+      if (page.viewportSize()!.width <= 720) await row.getByRole('button', { name: /^Actions for / }).click();
+    },
+    x: (page) => page.viewportSize()!.width <= 720 ? page.getByRole('button', { name: 'Close song actions' })
+      : page.locator('.music-queue-row').nth(1).getByRole('button', { name: 'Remove', exact: true }),
+    gone: async (page) => { if (page.viewportSize()!.width <= 720) await expect(page.getByRole('dialog', { name: 'Song actions', exact: true })).toHaveCount(0); },
   },
   {
     id: 'a search field\'s clear', route: '/operators',
@@ -364,7 +368,7 @@ for (const place of PLACES) {
     }
     // Pressed 8px right of the glyph, it still does its job.
     const glyph = await target.evaluate((el) => { const r = (el.querySelector('svg') ?? el).getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
-    const before = place.id === '/music queue' ? await page.locator('.music-queue-row').nth(1).locator('.music-queue-row-title').textContent() : null;
+    const before = place.id === '/music queue' && page.viewportSize()!.width > 720 ? await page.locator('.music-queue-row').nth(1).locator('.music-queue-row-title').textContent() : null;
     await page.mouse.click(glyph.x + 8, glyph.y);
     // The queue keeps its row count (a placeholder takes the place), so the removed track
     // is gone when the row holds another.

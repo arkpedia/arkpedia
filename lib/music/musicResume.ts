@@ -50,6 +50,8 @@ export interface MusicResumeState {
   queue: string[];
   /** A saved playlist limits which songs stream-safe can put back into this queue. */
   playlistIds?: string[] | null;
+  /** Saved playlist behind the queue, used to default the add-song picker after reload. */
+  playingPlaylistId?: string | null;
   queueIndex: number;
   shuffle: boolean;
   /** The shuffled order of play, as songs (null with shuffle off). */
@@ -102,8 +104,10 @@ export function parseMusicResume(raw: string | null): MusicResumeState | null {
   if (shuffleOrder !== null && !isIdList(shuffleOrder)) return null;
   if (!REPEAT_MODES.includes(repeat as never) || typeof volume !== 'number' || !Number.isFinite(volume) || volume < 0 || volume > 100) return null;
   if (value.playlistIds != null && !isIdList(value.playlistIds)) return null;
+  if (value.playingPlaylistId != null && (typeof value.playingPlaylistId !== 'string' || !/^[a-zA-Z0-9_-]{1,100}$/.test(value.playingPlaylistId))) return null;
   return {
     ...(value.playlistIds !== undefined ? { playlistIds: value.playlistIds as string[] | null } : {}),
+    ...(value.playingPlaylistId !== undefined ? { playingPlaylistId: value.playingPlaylistId as string | null } : {}),
     version: 1, savedAt, left, videoId, title, seconds, duration, playing, queue, queueIndex, shuffle,
     shuffleOrder: shuffleOrder as string[] | null, shufflePosition, repeat: repeat as MusicResumeState['repeat'], volume,
   };

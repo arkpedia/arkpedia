@@ -343,7 +343,7 @@ test("the /music queue's titles keep their room at the one row height", async ({
   const m = await row.evaluate((el) => {
     const title = el.querySelector('.music-queue-row-title')!;
     const cs = getComputedStyle(title);
-    const heights = [title, ...Array.from(el.querySelectorAll('.music-queue-row-actions button'))].map((b) => Math.round(b.getBoundingClientRect().height));
+    const heights = [title, ...Array.from(el.querySelectorAll('.music-queue-row-actions button'))].filter(b => b.getBoundingClientRect().height > 0).map((b) => Math.round(b.getBoundingClientRect().height));
     return { room: title.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight), heights };
   });
   expect(new Set(m.heights).size, `the title and its buttons are one height: ${m.heights.join(', ')}`).toBe(1);

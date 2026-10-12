@@ -4,7 +4,7 @@ import { chapterRead, formatStoryFile, parseStoryFile, parseStoryProgress, setSt
 import { applyBackup, formatBackup, parseBackup } from '../../lib/account/backup';
 import { exportDataArchive, exportDataFiles, EXPORT_NAMES, parseDataArchive } from '../../lib/account/exportFiles';
 import { readImportFile } from '../../lib/account/importFile';
-import { MUSIC_PLAYLISTS_KEY } from '../../lib/music/musicPlaylists';
+import { FAVORITES_PLAYLIST_ID, MUSIC_PLAYLISTS_KEY } from '../../lib/music/musicPlaylists';
 import { strToU8, zipSync } from 'fflate';
 import type { Section } from '../../lib/story/storyChapters';
 
@@ -43,6 +43,11 @@ test('export everything carries three independent JSON files, excludes logins an
   const player = JSON.parse(files[EXPORT_NAMES[0]]);
   assert.deepEqual(Object.keys(player.stores), ['arkpediaAccount']);
   assert.deepEqual(JSON.parse(files[EXPORT_NAMES[1]]).favorites, ['abcdefghijk']);
+  const expectedPlaylists = [
+    { id: FAVORITES_PLAYLIST_ID, name: 'Favourites', tracks: ['abcdefghijk'] },
+    { id: 'a', name: 'Favorite songs', tracks: ['abcdefghijk'] },
+  ];
+  assert.deepEqual(JSON.parse(files[EXPORT_NAMES[1]]).playlists, expectedPlaylists);
   assert.deepEqual(JSON.parse(files[EXPORT_NAMES[2]]).progress, { main_0: [0, 1] });
   for (const text of Object.values(files)) {
     assert.ok(!text.includes('secret') && !text.includes('friend-only'));
@@ -51,7 +56,8 @@ test('export everything carries three independent JSON files, excludes logins an
   const restored: Record<string, string> = { friend: 'untouched' };
   const events: string[] = [];
   applyBackup(parseDataArchive(exportDataArchive(storage)), { setItem: (key, raw) => { restored[key] = raw; } }, { dispatchEvent: event => { events.push(event.type); return true; } });
-  for (const key of ['arkpediaAccount', MUSIC_PLAYLISTS_KEY, 'musicFavorites', STORY_PROGRESS_KEY]) assert.deepEqual(JSON.parse(restored[key]), JSON.parse(entries[key as keyof typeof entries]));
+  for (const key of ['arkpediaAccount', 'musicFavorites', STORY_PROGRESS_KEY]) assert.deepEqual(JSON.parse(restored[key]), JSON.parse(entries[key as keyof typeof entries]));
+  assert.deepEqual(JSON.parse(restored[MUSIC_PLAYLISTS_KEY]), expectedPlaylists);
   assert.equal(restored.friend, 'untouched');
   assert.ok(events.includes('arkpediaStoryProgressChanged') && events.includes('arkpediaMusicPlaylistsChanged'));
 });
