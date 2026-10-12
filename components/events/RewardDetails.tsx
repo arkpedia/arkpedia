@@ -6,10 +6,11 @@ import type { TicketDetails } from '@/lib/events/announcements';
 import type { EventExtras } from '@/lib/events/tableRewards';
 import { RewardTile } from './RewardTile';
 import { packDay } from '@/lib/events/packDay';
-import { pointLabel, rankByRecommendation, type Recommendation } from '@/lib/selectors/scoring';
+import { combinedRecommendation, pointLabel, rankByRecommendation, type Recommendation } from '@/lib/selectors/scoring';
 
 export interface ResolvedTicket extends Omit<TicketDetails, 'operators'> {
   operators: { name: string; iconPath: string; href: string }[];
+  pools?: { name: string; operators: ResolvedTicket['operators'] }[];
 }
 type Pack = EventExtras['packs'][number]['packs'][number];
 type Detail = { name: string; ticket: ResolvedTicket } | { name: string; pack: Pack; source: string };
@@ -58,6 +59,18 @@ export function RewardDetailsProvider({ tickets, children, recommendations, reco
     setStack(current => [...current, detail]);
   };
   const close = () => { operatorScroll.current = 0; setStack([]); };
+  const renderOperators = (items: ResolvedTicket['operators']) => (
+<div className="event-selector-operators">
+            {items.map(op => { const score = recommendations?.[op.name]; const breakdown = score ? `${score.complete ? "Recommendation" : "Available subtotal (rating data missing)"}: ${pointLabel(score.total)}. ${score.lines.map(line => `${line.label}: ${pointLabel(line.points)}`).join("; ")}` : undefined; return <button key={op.name} type="button" className="btn-bare event-selector-operator" aria-haspopup="dialog" title={breakdown} aria-label={`${op.name}: operator preview${score ? `, ${breakdown}${score.owned ? ", already owned" : ""}` : ""}`}
+              onClick={() => setOperatorPreview({ name: op.name, icon: op.iconPath, rarity: 6 })}>
+              <span className="selector-portrait"><Image src={op.iconPath} alt="" width={56} height={56} />
+              {score && <span className={`selector-score selector-score-${score.tone}`} aria-hidden="true">{pointLabel(score.total)}</span>}
+              </span>
+              <span>{op.name}</span>
+            {score?.owned && <span className="selector-owned">Owned</span>}
+            </button>; })}
+          </div>
+  );
   return <Details.Provider value={{ tickets, open }}>
     {children}
     <dialog ref={dialog} className="event-details-dialog" style={showSettings ? { height: settingsHeight } : undefined} aria-labelledby="event-details-title" onCancel={e => { e.preventDefault(); if (showSettings) { setShowSettings(false); settingsTrigger.current?.focus(); } else close(); }} onKeyDown={e => {
@@ -84,16 +97,13 @@ export function RewardDetailsProvider({ tickets, children, recommendations, reco
           <p>{active.ticket.description}</p>
           {active.ticket.note && <p className="hint">{active.ticket.note}</p>}
           {recommendationNote && <p className="hint">{recommendationNote}</p>}
-          <div className="event-selector-operators">
-            {operators.map(op => { const score = recommendations?.[op.name]; const breakdown = score ? `${score.complete ? "Recommendation" : "Available subtotal (rating data missing)"}: ${pointLabel(score.total)}. ${score.lines.map(line => `${line.label}: ${pointLabel(line.points)}`).join("; ")}` : undefined; return <button key={op.name} type="button" className="btn-bare event-selector-operator" aria-haspopup="dialog" title={breakdown} aria-label={`${op.name}: operator preview${score ? `, ${breakdown}${score.owned ? ", already owned" : ""}` : ""}`}
-              onClick={() => setOperatorPreview({ name: op.name, icon: op.iconPath, rarity: 6 })}>
-              <span className="selector-portrait"><Image src={op.iconPath} alt="" width={56} height={56} />
-              {score && <span className={`selector-score selector-score-${score.tone}`} aria-hidden="true">{pointLabel(score.total)}</span>}
-              </span>
-              <span>{op.name}</span>
-            {score?.owned && <span className="selector-owned">Owned</span>}
-            </button>; })}
-          </div>
+          {active.ticket.pools ? [...active.ticket.pools].sort((a, b) => recommendations ? combinedRecommendation(b.operators, recommendations).total - combinedRecommendation(a.operators, recommendations).total : 0).map(pool => {
+            const score = recommendations ? combinedRecommendation(pool.operators, recommendations) : null;
+            return <section key={pool.name} className="selector-pool">
+              <h3>Ticket {pool.name}{score && <span className={`selector-pool-total selector-score-${score.tone}`}>{score.complete ? 'Combined score' : 'Available subtotal'} {pointLabel(score.total)}</span>}</h3>
+              {renderOperators(rankByRecommendation(pool.operators, recommendations))}
+            </section>;
+          }) : renderOperators(operators)}
           <p className="hint"><a href={active.ticket.source} target="_blank" rel="noopener noreferrer">Source announcement</a></p>
         </>}</div> : <>
           {active.pack.imagePath && <Image className="event-pack-detail-image" src={active.pack.imagePath} alt={`${active.pack.name} artwork`} width={200} height={150} />}

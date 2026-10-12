@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { recommendation, ratingPoints, pointLabel, rankByRecommendation, DEFAULT_SELECTOR_PREFERENCES, selectorCoverage, isSuperMeta, type SelectorCandidate } from '../../lib/selectors/scoring';
+import { recommendation, combinedRecommendation, ratingPoints, pointLabel, rankByRecommendation, DEFAULT_SELECTOR_PREFERENCES, selectorCoverage, isSuperMeta, type SelectorCandidate } from '../../lib/selectors/scoring';
 import { buildSelectorCatalogue, damageTypes, hasTalentReveal } from '../../lib/selectors/catalogue';
 import snapshot from '../../data/selector-catalogue.json';
 import { getAllOperators } from '../../lib/operators/operators';
@@ -78,8 +78,8 @@ test('score colors retain negative and quarter points', () => {
 });
 test('current guide shares all three event ticket pools and official artwork', () => {
   const { cards, tickets, candidates } = buildSelectorCatalogue();
-  assert.equal(cards.length, 3);
-  assert.deepEqual(Object.values(tickets).map(t => t.operators.length), [8,35,48]);
+  assert.equal(cards.length, 5);
+  assert.deepEqual(Object.values(tickets).map(t => t.operators.length), [6,8,35,48,9]);
   assert.ok(cards.every(c => c.imagePath));
   for (const t of Object.values(tickets)) for (const op of t.operators) assert.ok(candidates.some(c => c.name === op.name));
   assert.equal(candidates.find(c => c.name === 'Passenger')?.raModule, true);
@@ -200,5 +200,38 @@ test('mode preferences award one point each for matching IS and RA modules', () 
       assert.equal(score.personalized, likesIS || likesRA);
     }
     assert.equal(recommendation(op, [op], null).total, base);
+  }
+});
+
+
+test('rating and main-skill toggles are independent, including absent ratings', () => {
+  const prefs = { ...DEFAULT_SELECTOR_PREFERENCES, kukkikazeRating: false, communityRating: false, mainSkills: false, reveal: false };
+  const off = recommendation(candidate, [candidate], null, prefs);
+  assert.equal(off.total, 0);
+  assert.equal(off.complete, true);
+  assert.equal(off.personalized, true);
+  assert.equal(recommendation(candidate, [candidate], null, { ...prefs, kukkikazeRating: true }).total, .75);
+  assert.equal(recommendation(candidate, [candidate], null, { ...prefs, communityRating: true }).total, .5);
+  assert.equal(recommendation(candidate, [candidate], null, { ...prefs, mainSkills: true }).total, .5);
+  const missing = { ...candidate, community: null };
+  assert.equal(recommendation(missing, [missing], null, { ...prefs, kukkikazeRating: true }).total, 1.5);
+  assert.equal(recommendation(missing, [missing], null, { ...prefs, communityRating: true }).complete, false);
+});
+
+test('beginner pool and newcomer pools are complete and sum all three personalized scores', () => {
+  const { tickets, candidates } = buildSelectorCatalogue();
+  assert.deepEqual(tickets['Top Operator Transfer Permit - Starter'].operators.map(op => op.name), ['Blaze', 'Exusiai', 'SilverAsh', 'Saria', 'Mountain', 'Thorns']);
+  const pools = tickets['Newcomer Special Headhunting Pack'].pools!;
+  assert.deepEqual(pools.map(pool => pool.operators.map(op => op.name)), [
+    ['Ascalon', 'Typhon', "Ho'olheyak"], ['Lemuen', 'Nymph', 'Jessica the Liberated'], ['Goldenglow', 'Reed the Flame Shadow', 'Gnosis'],
+  ]);
+  for (const preferences of [DEFAULT_SELECTOR_PREFERENCES, { ...DEFAULT_SELECTOR_PREFERENCES, mainSkills: false, subSkills: true, likesIS: true, likesRA: true }]) {
+    const scores = Object.fromEntries(candidates.map(op => [op.name, recommendation(op, candidates, ['Ascalon'], preferences)]));
+    for (const pool of pools) {
+      const score = combinedRecommendation(pool.operators, scores);
+      assert.equal(score.total, Math.round(pool.operators.reduce((sum, op) => sum + scores[op.name].total, 0) * 100) / 100);
+      assert.equal(score.lines.length, 3);
+    }
+    assert.equal(combinedRecommendation(pools[0].operators, { ...scores, Ascalon: { ...scores.Ascalon, complete: false } }).complete, false);
   }
 });
