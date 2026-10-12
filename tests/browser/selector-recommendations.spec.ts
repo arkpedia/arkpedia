@@ -17,13 +17,19 @@ test('all ticket pools show signed, colored ratings and preserve the nested oper
     await expect(dialog).toBeVisible();
     await expect(dialog.locator('.selector-score')).toHaveCount(count);
     for (const text of await dialog.locator('.selector-score').allTextContents()) expect(text).toMatch(/^(?:[+-]\d+(?:\.\d+)?|0)$/);
+    if (ticket === '2026 Celebration Operator Permit') {
+      const ines = dialog.getByRole('button', { name: /^Ines: operator preview/ });
+      await expect(ines.locator('.selector-score-middle')).toHaveText('+4.5');
+      await expect(ines).toHaveAttribute('title', /Invisibility reveal talent: \+0\.5/);
+    }
     if (ticket.includes('Kernel')) {
       const siege = dialog.getByRole('button', { name: /^Siege: operator preview/ });
       await expect(siege.locator('.selector-score-negative')).toHaveText('-2');
-      await expect(dialog.getByRole('button', { name: /^Ceobe: operator preview/ }).locator('.selector-score-middle')).toHaveText('+2');
-      await expect(dialog.getByRole('button', { name: /^Saria: operator preview/ }).locator('.selector-score-great')).toHaveText('+5');
-      const colors = await dialog.locator('.selector-score').evaluateAll(elements => Object.fromEntries(elements.map(element => [element.className, getComputedStyle(element).color])));
-      expect(new Set(Object.values(colors)).size).toBe(3);
+      await expect(dialog.getByRole('button', { name: /^Ceobe: operator preview/ }).locator('.selector-score-middle')).toHaveText('+1.75');
+      await expect(dialog.getByRole('button', { name: /^Saria: operator preview/ }).locator('.selector-score-middle')).toHaveText('+3');
+      const silverAsh = dialog.getByRole('button', { name: /^SilverAsh: operator preview/ });
+      await expect(silverAsh.locator('.selector-score-middle')).toHaveText('+2.5');
+      await expect(silverAsh).toHaveAttribute('title', /Invisibility reveal talent: \+0\.5/);
       await siege.click();
       await expect(page.getByRole('dialog', { name: 'Siege', exact: true })).toBeVisible();
       await expect(page).toHaveURL(/\/selector-tickets$/);
@@ -49,7 +55,17 @@ test('imported own roster changes coverage scores while friend ownership stays s
   await expect(page.getByText(/Using My Doctor/)).toBeVisible();
   await page.getByRole('button', { name: 'Top Operator Transfer Permit - Kernel: selectable operators', exact: true }).click();
   const ceobe = page.getByRole('button', { name: /^Ceobe: operator preview/ });
-  await expect(ceobe.locator('.selector-score')).toHaveText('+3');
+  await expect(ceobe.locator('.selector-score')).toHaveText('+2.75');
   await expect(ceobe).not.toContainText('Owned');
-  await expect(ceobe).toHaveAttribute('title', /Arts coverage/);
+  await expect(ceobe).toHaveAttribute('title', /Arts coverage: 3 or fewer owned 6★ Casters \/ Supporters/);
+});
+
+test('four owned Casters and Supporters combined block the Arts coverage bonus', async ({ page }) => {
+  const own: AccountRecord = { version: 1, server: 'en', importedAt: '2026-10-12T00:00:00Z', doctor: 'Mixed roster', operators: ['Eyjafjalla', 'Ifrit', 'Angelina', 'Suzuran'], skins: [], cleared: [] };
+  await page.addInitScript(own => localStorage.setItem('arkpediaAccount', JSON.stringify(own)), own);
+  await page.goto('/selector-tickets');
+  await page.getByRole('button', { name: 'Top Operator Transfer Permit - Kernel: selectable operators', exact: true }).click();
+  const ceobe = page.getByRole('button', { name: /^Ceobe: operator preview/ });
+  await expect(ceobe.locator('.selector-score')).toHaveText('+1.75');
+  await expect(ceobe).not.toHaveAttribute('title', /Arts coverage/);
 });

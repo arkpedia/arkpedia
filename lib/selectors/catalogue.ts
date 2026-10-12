@@ -26,6 +26,13 @@ export function damageTypes(op: Operator) {
   const deals = (type: string) => texts.some(t => typeof t === 'string' && new RegExp(`(?:deal\\w*|inflict\\w*|attacks?|convert\\w*)[^.;\\n]{0,180}\\b${type} damage\\b`, 'i').test(t));
   return { arts: deals('Arts'), trueDamage: deals('True') };
 }
+/** Base talents only: skills and module talent upgrades never grant this bonus. */
+export function hasTalentReveal(op: Operator): boolean {
+  return (op.talents ?? []).some(t => t.rows.some(r => {
+    const text = (r.description ?? '').replace(/<[^>]*>/g, '');
+    return /\breveals?\b[^.;\n]{0,120}\binvisible\b|\benemies\b[^.;\n]{0,120}\blose\s+invisibility\b|\b(?:removes?|disables?)\s+(?:the\s+)?invisibility\b/i.test(text);
+  }));
+}
 export function buildSelectorCatalogue() {
   const roster = getAllOperators();
   const ratings = ratingsData.ratings as Record<string, number>;
@@ -35,7 +42,8 @@ export function buildSelectorCatalogue() {
     // Count each skill once; a main M3 and a sub breakpoint on the same skill are one main skill.
     const priorities = skills.map(s => s.recommendation?.some(r => r.priority === 'main') ? 'main'
       : s.recommendation?.some(r => r.priority === 'sub') ? 'sub' : null);
-    return { name: op.name, id: op.internalName ?? op.name, caster: op.class === 'Caster', ...damageTypes(op),
+    return { name: op.name, id: op.internalName ?? op.name, caster: op.class === 'Caster', supporter: op.class === 'Supporter',
+      talentReveal: hasTalentReveal(op), ...damageTypes(op),
       kukkikaze: ratings[op.internalName ?? ''] ?? null, community: community.get(op.name) ?? null,
       mainSkills: priorities.filter(p => p === 'main').length, subSkills: priorities.filter(p => p === 'sub').length,
       isModule: (op.modules ?? []).some(m => /^ISW[- ]/.test(m.name ?? '')),
