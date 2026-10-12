@@ -26,12 +26,14 @@ export interface Recommendation {
 }
 export interface SelectorPreferences {
   subSkills: boolean;
+  likesIS: boolean;
+  likesRA: boolean;
   arts: boolean | null;
   trueDamage: boolean | null;
   gameDestroyer: boolean | null;
   reveal: boolean | null;
 }
-export const DEFAULT_SELECTOR_PREFERENCES: SelectorPreferences = { subSkills: false, arts: null, trueDamage: null, gameDestroyer: null, reveal: null };
+export const DEFAULT_SELECTOR_PREFERENCES: SelectorPreferences = { subSkills: false, likesIS: false, likesRA: false, arts: null, trueDamage: null, gameDestroyer: null, reveal: null };
 const superMetaIds = new Set(superMetaOperators.map(op => op.id));
 export function isSuperMeta(candidate: SelectorCandidate) {
   return superMetaIds.has(candidate.id) || (candidate.kukkikaze !== null && candidate.kukkikaze >= 7 && candidate.kukkikaze <= 7.2);
@@ -52,7 +54,7 @@ export function selectorCoverage(roster: SelectorCandidate[], ownedNames: readon
 export function ratingPoints(value: number | null): number | null {
   if (value === null || !Number.isFinite(value) || value < 5.8 || value > 7.2) return null;
   const tenth = Math.round(value * 10);
-  return (tenth - 63) * .25;
+  return Math.min(2, (tenth - 63) * .25);
 }
 export function recommendation(candidate: SelectorCandidate, roster: SelectorCandidate[], ownedNames: readonly string[] | null, preferences: SelectorPreferences = DEFAULT_SELECTOR_PREFERENCES): Recommendation {
   const own = new Set(ownedNames ?? []);
@@ -67,14 +69,14 @@ export function recommendation(candidate: SelectorCandidate, roster: SelectorCan
   if (community !== null) add(kukki === null ? 'Community rating ×2 (no Kukkikaze rating)' : 'Community rating', community * (kukki === null ? 2 : 1));
   add(`${candidate.mainSkills} main priority skill${candidate.mainSkills === 1 ? '' : 's'}`, candidate.mainSkills * .5);
   add(`${candidate.subSkills} sub priority skill${candidate.subSkills === 1 ? '' : 's'}`, preferences.subSkills ? candidate.subSkills * .1 : 0);
-  if (candidate.isModule) add('Integrated Strategies module', .5);
-  if (candidate.raModule) add('Reclamation Algorithm module', .5);
+  if (preferences.likesIS && candidate.isModule) add('Integrated Strategies module', 1);
+  if (preferences.likesRA && candidate.raModule) add('Reclamation Algorithm module', 1);
   if (candidate.talentReveal && coverage.reveal) add('Invisibility reveal talent', .25);
   if (candidate.arts && coverage.arts) add('Arts coverage: lacking Arts dealers', .5);
   if (candidate.trueDamage && coverage.trueDamage) add('True damage coverage: lacking True damage dealers', .5);
   if (gameDestroyer && coverage.gameDestroyer) add('Super-meta coverage: lacking a super-meta operator', 1);
   const total = Math.round(lines.reduce((sum, line) => sum + line.points, 0) * 100) / 100;
-  return { total, complete: (kukki !== null || community !== null) && (!gameDestroyer || coverage.gameDestroyer !== null), owned: own.has(candidate.name), personalized: ownedNames !== null || preferences.subSkills || [preferences.arts, preferences.trueDamage, preferences.gameDestroyer, preferences.reveal].some(value => value !== null),
+  return { total, complete: (kukki !== null || community !== null) && (!gameDestroyer || coverage.gameDestroyer !== null), owned: own.has(candidate.name), personalized: ownedNames !== null || preferences.subSkills || preferences.likesIS || preferences.likesRA || [preferences.arts, preferences.trueDamage, preferences.gameDestroyer, preferences.reveal].some(value => value !== null),
     tone: total < 0 ? 'negative' : total < 5 ? 'middle' : 'great', lines };
 }
 export const pointLabel = (points: number) => `${points > 0 ? '+' : ''}${points}`;
