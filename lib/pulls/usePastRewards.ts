@@ -5,6 +5,7 @@
  * pays (unclaimedBacklog), and what all of it adds up to (remainingBacklog).
  */
 import { useEffect, useMemo } from 'react';
+import { mergeRewardClaims } from '@/lib/account/rewardClaims';
 import { useAccount } from '@/lib/account/accountStore';
 import { backlogFromAccount, remainingBacklog, unclaimedBacklog, type BacklogSources } from './pulls';
 import { PAST_PROGRESS_UNREAD, usePastProgress, type PastProgress } from './pastProgress';
@@ -22,7 +23,7 @@ export function usePastRewards(backlogSources: BacklogSources) {
     if (progress === PAST_PROGRESS_UNREAD || !account || !fromAccount || progress.ticksFrom === account.importedAt) return;
     const kept = !!account.annihilation;
     setProgress({
-      doneKeys: [...new Set([...fromAccount.doneKeys, ...progress.doneKeys.filter(key => key.startsWith('free:') || key.startsWith('paradox:')), ...(kept ? [] : progress.doneKeys.filter((key) => key.startsWith('annihilation:')))])],
+      doneKeys: [...new Set([...fromAccount.doneKeys, ...mergeRewardClaims(progress.doneKeys.filter(key => key.startsWith('free:')), account.rewardClaims), ...(kept ? [] : progress.doneKeys.filter((key) => key.startsWith('annihilation:')))])],
       doneEvents: [...fromAccount.doneEvents],
       annihilationDone: kept ? false : progress.annihilationDone,
       ticksFrom: account.importedAt,

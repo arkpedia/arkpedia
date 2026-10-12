@@ -1,3 +1,4 @@
+import { rewardClaimsFromGame, parseRewardClaims, type RewardClaims } from './rewardClaims';
 /**
  * What the reader's Arknights account holds, as the last game import read it: the one
  * record every page that cares about ownership reads (issue #94). The import is the
@@ -54,6 +55,7 @@ export interface AccountRecord {
   operators: string[];
   skins: string[];
   cleared: string[];
+  rewardClaims?: RewardClaims;
   annihilation?: string[];
   outfits?: Record<string, string>;
   wallet?: AccountWallet;
@@ -186,6 +188,7 @@ export function parseAccount(raw: string | null): AccountRecord | null {
     version: 1, server: value.server, importedAt: value.importedAt,
     doctor: typeof value.doctor === 'string' ? value.doctor : null,
     ...(base ? { base } : {}),
+    ...(parseRewardClaims(value.rewardClaims) ? { rewardClaims: parseRewardClaims(value.rewardClaims) } : {}),
     operators: value.operators as string[], skins: value.skins as string[], cleared: value.cleared as string[],
     ...(operatorBuilds ? { operatorBuilds } : {}),
     ...(strings(value.annihilation, 500) ? { annihilation: value.annihilation as string[] } : {}),
@@ -244,6 +247,7 @@ export function accountFromGame(user: Record<string, any>, map: GameAccountMap, 
   const base = baseSnapshotFromGame(user, map);
   return {
     version: 1,
+    rewardClaims: rewardClaimsFromGame(user),
     server,
     importedAt: now.toISOString(),
     ...(base ? { base } : {}),

@@ -9,21 +9,22 @@ import { addSongToPlaylists, MUSIC_PLAYLISTS_EVENT, MUSIC_PLAYLISTS_KEY, readPla
 
 type Song = { id: string; title: string };
 
-export default function SongPlaylistPicker({ song }: { song: Song }) {
+export default function SongPlaylistPicker({ song, player = false }: { song: Song; player?: boolean }) {
   const { open, setOpen, close, buttonRef, menuRef, menuStyle } = useAnchoredPopover(320);
   const id = useId();
+  useEffect(() => { close(); }, [song.id, close]);
   function dismiss() {
     close();
     buttonRef.current?.focus({ preventScroll: true });
   }
   return <>
-    <button ref={buttonRef} type="button" className="ghost" onClick={() => setOpen(value => !value)}
+    <button ref={buttonRef} type="button" className={player ? "filter-chip music-playlist-add-btn" : "ghost"} disabled={!song.id} onClick={() => setOpen(value => !value)}
       aria-label={`Add ${song.title} to playlists`} title="Add to playlists"
       aria-expanded={open} aria-haspopup="dialog" aria-controls={open ? id : undefined}>
       <TransportIcon name="plus" size={18} />
     </button>
     {open && createPortal(<div id={id} ref={menuRef} role="dialog" aria-label="Add to playlists"
-      className="music-song-playlists-popover" style={menuStyle}
+      data-music-player-popover={player ? "" : undefined} className="music-song-playlists-popover" style={menuStyle}
       onBlur={event => {
         const next = event.relatedTarget as Node | null;
         if (next && !event.currentTarget.contains(next) && !buttonRef.current?.contains(next)) close();
