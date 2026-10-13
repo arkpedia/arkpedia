@@ -166,6 +166,13 @@ const GENERIC = new Set(['login', 'event', 'events', 'sign', 'in', 'open', 'open
 /** A login's name without its generic words and years: what tells two logins apart. */
 const distinctive = title => new Set(String(title ?? '').toLowerCase().replace(/\[[^\]]*\]/g, ' ').split(/[^a-z]+/).filter(w => w.length > 2 && !GENERIC.has(w)));
 const NOT_NOTICE = /PACK|LOGIN|SIGN-IN|SIGN IN|OUTFIT|HEADHUNTING OPEN|FURNITURE/;
+/** A post section the event page already shows in a tab of its own: the limited banner (Banner),
+ *  outfits and the Fashion Review (Skins), furniture (Furniture). The rest of an announcement that no
+ *  other group takes is the event's news (NEWS_LINES). */
+const SHOWN_ELSEWHERE = /HEADHUNTING OPEN|LIMITED HEADHUNTING|OUTFIT|FASHION REVIEW|FURNITURE/;
+/** The most lines a news section keeps: an announcement's longest lists (a selector's pool, a
+ *  Kernel Locating banner's operators) fit; a runaway parse does not fill the page. */
+const NEWS_LINES = 40;
 
 /** A namer that names an id the Global tables know in English, and any other by `fallback`'s. */
 function regionalNamer(primary, fallback) {
@@ -304,7 +311,9 @@ export function buildEventRewards(events, tables, posts, cn) {
     const window = line && parseDuration(line[1]);
     return window ? { start: Date.parse(window.start) / 1000, end: window.end ? Date.parse(window.end) / 1000 : null } : null;
   };
-  const isLogin = title => /LOGIN|SIGN-IN|SIGN IN/.test(title);
+  // A change to the game's sign-in system ("CUMULATIVE SIGN-IN SYSTEM UPDATE") is not a login event
+  // to collect: it is news (4814, 2026-10-14).
+  const isLogin = title => /LOGIN|SIGN-IN|SIGN IN/.test(title) && !/SYSTEM UPDATE/.test(title);
   const claims = announced.flatMap(({ event, sections }) => sections.filter(s => isLogin(s.title)).map(s => ({ event: event.name, start: sectionStart(s)?.start })).filter(c => c.start != null));
   // Global: its own activity has the event's name and opens on its Global start; a rerun's
   // "Retrospection" and a numbered run's "#3" are the same name.
@@ -349,6 +358,16 @@ export function buildEventRewards(events, tables, posts, cn) {
       const same = sameGroup('notice', title);
       if (same) same.lines.push(...lines.filter(line => !same.lines.includes(line)));
       else groups.push({ kind: 'notice', title, source: post.url, items: [], lines });
+    };
+    const own = fold(eventTitle(event.name));
+    // The rest of the announcement: what changes with the event besides its rewards (a Sanity limit
+    // raised, a recruitment pool, a store's new redeemables, a Kernel Locating banner). Shown as the
+    // official post words it, under its heading, on the event page's News tab (2026-10-14: "a News
+    // section or QOL section, with all the other changes"). The event's own section is its page.
+    const addNews = section => {
+      const lines = section.lines.slice(0, NEWS_LINES);
+      if (!lines.length || (own.length >= 6 && fold(section.title).includes(own)) || sameGroup('news', section.title)) return;
+      groups.push({ kind: 'news', title: section.title, source: post.url, ...(Number.isFinite(post.publishTime) ? { published: new Date(post.publishTime).toISOString() } : {}), items: [], lines });
     };
     for (const section of sections) {
       const when = sectionStart(section);
@@ -399,6 +418,8 @@ export function buildEventRewards(events, tables, posts, cn) {
         else if (packs.length) groups.push({ kind: 'packs', title: section.title, source: post.url, region: 'Global', items: [], packs, tickets: parseSelectorTickets(section, post.url) });
       } else if (NOTICE.test(section.title) && !NOT_NOTICE.test(section.title)) {
         if (lines.length) addNotice(section.title, lines);
+      } else if (!SHOWN_ELSEWHERE.test(section.title)) {
+        addNews(section);
       }
       const set = section.title.match(/FURNITURE SET\s*[–—:-]\s*(.+)$/);
       if (set) {
