@@ -94,6 +94,7 @@ function dataRepository(root: string) {
       assert.equal(result.status, 0, result.output);
     },
     tryLoad: (ref: string) => step(loadStep, { DATA_REF: ref }),
+    loadWith: (ref: string, extra: Record<string, string>) => step(loadStep, { DATA_REF: ref, ...extra }),
     // What export.mjs leaves for the publish step.
     prepare(release: string, value = release, content?: string) {
       const out = path.join(runner, 'prepared-content');
@@ -142,6 +143,7 @@ function dataRepository(root: string) {
     deepened: () => fs.existsSync(deepenLog) ? fs.readFileSync(deepenLog, 'utf8').trim().split('\n') : [],
     scripts: () => fs.existsSync(scriptLog) ? fs.readFileSync(scriptLog, 'utf8').trim().split('\n') : [],
     mainFile: (file: string) => JSON.parse(git('-C', origin, 'show', `main:${file}`)),
+    mainText: (file: string) => git('-C', origin, 'show', `main:${file}`),
   };
   git('init', '-q', '--bare', origin);
   git('clone', '-q', `file://${origin}`, seed);
@@ -246,6 +248,33 @@ test('a correction branch cut before main last moved fails when it is loaded, be
     const result = repo.tryLoad('fix');
     assert.equal(result.status, 1);
     assert.match(result.output, /::error::fix \([0-9a-f]{40}\) does not contain data main \([0-9a-f]{40}\)\. Merge main into the correction branch/);
+    assert.deepEqual(repo.main(), ['main 2', 'main 1', 'main 0']);
+  });
+});
+
+test('with merge_main, a branch main moved past is merged with main when loaded and publishes as a fast-forward', () => {
+  withDataRepository(repo => {
+    repo.checkout('-b', 'fix', 'HEAD~1');
+    repo.commit('fix', 'r1', 'r1', 'an editorial note');
+    repo.push('fix');
+    const loaded = repo.loadWith('fix', { MERGE_MAIN: 'true' });
+    assert.equal(loaded.status, 0, loaded.output);
+    assert.match(loaded.output, /Merged data main \([0-9a-f]{40}\) into fix/);
+    repo.prepare('r4', 'r2');
+    const result = repo.publish();
+    assert.equal(result.status, 0, result.output);
+    const published = repo.main();
+    for (const subject of [regenerated, 'Merge data main into fix', 'fix', 'main 2']) assert.ok(published.includes(subject), `${subject} in ${published}`);
+    assert.equal(repo.mainText('README.md'), 'an editorial note');
+  });
+  // A conflict still fails, before the compile, and leaves main alone.
+  withDataRepository(repo => {
+    repo.checkout('-b', 'fix', 'HEAD~1');
+    repo.commit('fix', 'r1', 'clashes with main 2');
+    repo.push('fix');
+    const result = repo.loadWith('fix', { MERGE_MAIN: 'true' });
+    assert.equal(result.status, 1);
+    assert.match(result.output, /::error::fix \([0-9a-f]{40}\) conflicts with data main/);
     assert.deepEqual(repo.main(), ['main 2', 'main 1', 'main 0']);
   });
 });
