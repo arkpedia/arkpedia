@@ -4,7 +4,7 @@ import { expect, test, type Page, type TestInfo } from '@playwright/test';
 import { CENSUS_STATES, censusRoutes, fontsSettled, openCensus, readOnly, type CensusState } from './census-routes';
 import { sectionCensus, type StackOffence } from './section-census';
 import {
-  baseline, BASELINE_FILE, boundsRoutes, buttonVoiceLeaks, census, censusWidth, CONTENT_CARDS, EAGER_ALLOWED, expectOnlyAllowed, FIRST_GAP, FIRST_GAP_OTHERS,
+  baseline, BASELINE_FILE, boundsRoutes, buttonVoiceLeaks, uncolouredLinks, census, censusWidth, CONTENT_CARDS, EAGER_ALLOWED, expectOnlyAllowed, FIRST_GAP, FIRST_GAP_OTHERS,
   HEADING_GAP, HEADING_ROUTES, HOME_CARDS, imageLoading, LAZY_FOLD, movingAnimations, PICTURE_DRIVES, PICTURE_ROUTES, PICTURE_STATES, pictureCards, SECTION_GAP, settled, stackBaseline, stackDir, tabAlignBothThemes,
   themeOf, tokenColour, UPDATE, type Baseline,
 } from './layout-checks';
@@ -30,6 +30,8 @@ import { overlayText, setTheme, themeStillOff } from './overlay-checks';
  *   picture hover   PICTURE_ROUTES: the teal edge on hover and focus  both  1440
  *   home cards      /                                        dark+light  1440+390 (hover 1440)
  *   button voice    every census address and state           dark        1440
+ *   link colour     every census address and state: no link left in the browser's
+ *                   own blue/visited purple (layout-checks.ts)  dark   1440+390
  *   page bounds     boundsRoutes(): no-h1, h1-align, frame, page-scroll-x, motion,
  *                   tab-align (both themes, flipped in place), first-gap, stack-align
  *                                                            dark        1440+390
@@ -357,6 +359,11 @@ async function run(page: Page, info: TestInfo, t: Target, theme: 'dark' | 'light
   if (dark && t.rows && desktop) {
     await part(p('button-voice'), async () => {
       expect.soft(await buttonVoiceLeaks(page), `${p('button-voice')}${decodeURIComponent(t.key)}: buttons in Inter or JetBrains Mono with the button tracking (a card takes .btn-bare)`).toEqual([]);
+    });
+  }
+  if (dark && t.rows) {
+    await part(p('link-colour'), async () => {
+      expect.soft(await uncolouredLinks(page), `${p('link-colour')}${decodeURIComponent(t.key)}: links in the browser's own blue (purple once visited) -- give them a colour: put them in .sub/.hint text, or make an action a .btn`).toEqual([]);
     });
   }
   let cards: Awaited<ReturnType<typeof pictureCards>> = [];

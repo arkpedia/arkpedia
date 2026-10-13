@@ -22,7 +22,10 @@ export default function SelectorTickets({ cards, tickets, candidates }: Props) {
     <Head><title>Selector Tickets — Arkpedia</title></Head>
     <PageHeader eyebrow="Rhodes Island // Guides" title="Selector Tickets" sub="Compare the current 6★ selectors for your roster." />
     <main>
-      <p className="selector-account">{account ? `Using ${account.doctor ?? 'your imported account'} · ${account.server}` : 'Import your account for personalized recommendations.'} <Link href="/account">{account ? 'Manage account' : 'Import account'}</Link></p>
+      <div className="selector-account">
+        <p>{account ? <>Using <strong>{account.doctor ?? 'your imported account'}</strong> · {account.server.toUpperCase()}</> : 'Import your account for personalized recommendations.'}</p>
+        <Link href="/account" className="btn btn-sm">{account ? 'Manage account' : 'Import account'}</Link>
+      </div>
       {missingRatings && <p className="hint" role="status">Some operators have no available enabled rating. Those operators show available subtotals.</p>}
       <RewardDetailsProvider tickets={tickets} recommendations={scores} recommendationNote={note} recommendationSettings={<SelectorPersonalization candidates={candidates} ownedNames={account?.operators ?? null} preferences={preferences} onChange={setPreferences} />}>
         <div className="selector-cards">{cards.map(card => <RewardClick key={card.name} name={card.name} className="selector-card">

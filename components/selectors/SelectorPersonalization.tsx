@@ -80,7 +80,7 @@ export default function SelectorPersonalization({ candidates, ownedNames, prefer
     </div>)}
     <div className="selector-personalization-footer">
       <button type="button" className="ghost btn-sm" onClick={() => onChange({ ...DEFAULT_SELECTOR_PREFERENCES })}>{ownedNames === null ? 'Reset defaults' : 'Use account defaults'}</button>
-      {ownedNames === null && <Link href="/account">Import account</Link>}
+      {ownedNames === null && <Link href="/account" className="btn btn-sm">Import account</Link>}
     </div>
   </div>;
 }
