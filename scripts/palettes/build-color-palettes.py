@@ -58,7 +58,7 @@ from pathlib import Path
 import certifi
 from PIL import Image, UnidentifiedImageError
 sys.dont_write_bytecode = True
-from palette_review import load_reviews, approved_palette, atomic_json
+from palette_review import load_reviews, approved_palette, atomic_json, review_digest
 
 ROOT = Path(__file__).resolve().parents[2]
 OUTPUT = ROOT / 'data' / 'color-palettes.json'
@@ -391,6 +391,44 @@ def build(source, reviews, features, previous):
     return {'version': VERSION, 'artworks': result, 'unavailable': unavailable}, holds
 
 
+def stale(previous, reviews, features):
+    """The artworks whose palette was made from another review or recipe than the current one.
+
+    No download: it reads only the palette file and the two input files. A content run that
+    does not refresh upstream (an editorial edit, compiled with refresh_upstream=false) skips
+    the palettes stage, so a recipe or review added there left its palette automatic and the
+    release's palette test refused the whole compile (2026-10-13: a recipe for six artworks
+    blocked every later editorial edit for nine hours). `--if-stale` rebuilds only when this
+    finds one. Only artworks the palette file already has are checked: new art comes with a
+    new skin pin, which only a refresh adopts."""
+    cache = previous.get('artworks', {}) if previous.get('version') == VERSION else None
+    if cache is None:
+        return sorted(features['artworks'])
+    found = []
+    for key, entry in sorted(cache.items()):
+        review = reviews.get(key)
+        recipe = features['artworks'].get(key)
+        if review and review.get('status') in ('accepted', 'approved'):
+            try:
+                current = review_digest(review)
+            except (KeyError, TypeError):
+                current = None
+            if entry.get('reviewSha256') != current:
+                found.append(key)
+        elif recipe:
+            try:
+                targets = [features['references'][name] for name in recipe]
+            except (KeyError, TypeError):
+                found.append(key)
+                continue
+            if entry.get('automatic') or entry.get('recipeSha256') != recipe_digest(features['roles'], targets):
+                found.append(key)
+        elif not entry.get('automatic') and key not in (previous.get('unavailable') or []):
+            # Its review or recipe was removed: it goes back to an automatic palette and a hold.
+            found.append(key)
+    return found
+
+
 def report(entries):
     """Replace the stage's quarantine entries (scripts/lib/quarantine.mjs, the file's one writer)."""
     subprocess.run(['node', str(QUARANTINE), STAGE], input=json.dumps(entries), text=True, check=True, cwd=ROOT)
@@ -408,10 +446,20 @@ def main(argv=None):
     where = parser.add_mutually_exclusive_group(required=True)
     where.add_argument('--revisions', help=f'a revisions.json naming the {SKIN_REPOSITORY} commit to read (the release passes data/assets/revisions.json)')
     where.add_argument('--source-dir', help=f'a local checkout of {SKIN_REPOSITORY}')
+    parser.add_argument('--if-stale', action='store_true',
+                        help='do nothing unless a palette was made from another review or recipe than the current one (see stale())')
     args = parser.parse_args(argv)
-    source = source_from(args)
     previous = json.loads(OUTPUT.read_text()) if OUTPUT.exists() else {}
-    output, holds = build(source, load_reviews()['artworks'], json.loads(FEATURES.read_text()), previous)
+    reviews, features = load_reviews()['artworks'], json.loads(FEATURES.read_text())
+    if args.if_stale:
+        changed = stale(previous, reviews, features)
+        if not changed:
+            print(f'Every palette in {OUTPUT.relative_to(ROOT)} follows its current review or recipe: nothing to rebuild')
+            return
+        print(f"{len(changed)} palette(s) made from another review or recipe than the current one: {', '.join(changed[:10])}"
+              f"{' ...' if len(changed) > 10 else ''}")
+    source = source_from(args)
+    output, holds = build(source, reviews, features, previous)
     atomic_json(OUTPUT, output)
     report(holds)
     automatic = sum(1 for entry in output['artworks'].values() if entry.get('automatic'))

@@ -105,6 +105,7 @@ jobs:
           path: .cache/prepared-inputs
           key: prepared-content-v1-${{ steps.upstream.outputs.fingerprint }}
       - name: Load public source records
+        id: source
         if: github.event_name != 'schedule' || steps.prepared.outputs.cache-hit != 'true'
         env:
           DATA_REF: ${{ inputs.data_ref || 'main' }}
@@ -119,6 +120,9 @@ jobs:
           # step checks again in case main moves in between.
           data_head=$(git -C "$RUNNER_TEMP/arkpedia-data" rev-parse HEAD)
           data_main=$(git -C "$RUNNER_TEMP/arkpedia-data" rev-parse origin/main)
+          # The source commit this run compiles: a failure records it on the failed-release
+          # issue, and only a run that compiled it (or a descendant) closes that issue.
+          echo "head=$data_head" >> "${GITHUB_OUTPUT:-/dev/null}"
           if [ "$data_head" != "$data_main" ]; then
             # Both checkouts are shallow; deepen the branch until it reaches main.
             git -C "$RUNNER_TEMP/arkpedia-data" fetch --deepen=100 origin "$data_head"
@@ -260,6 +264,17 @@ jobs:
           # out (scripts/audits/check-payload-budgets.ts).
           stage payload-budgets -- npm run check:payload-budgets
           stage completeness --invariant --keep data/quarantine.json -- node scripts/content/check-completeness.mjs
+      # A run that does not refresh upstream (an editorial edit, which the watcher dispatches with
+      # refresh_upstream=false) skips the refresh above and with it its palettes stage. A recipe or
+      # review added on the editorial branch then left its palette automatic, and the palette test
+      # below refused the whole compile: on 2026-10-13 six recipes blocked every later editorial
+      # edit for nine hours. --if-stale reads only the palette file and its two inputs, and
+      # downloads the art of just the palettes made from another review or recipe; with none it
+      # does nothing, so an ordinary editorial run stays offline here.
+      - name: Rebuild palettes whose review or recipe changed
+        if: steps.refresh.outcome == 'skipped' && (github.event_name != 'schedule' || steps.prepared.outputs.cache-hit != 'true')
+        run: python3 scripts/palettes/build-color-palettes.py --revisions data/assets/revisions.json --if-stale
+
       - name: Validate and compile data (no website build)
         if: github.event_name != 'schedule' || steps.prepared.outputs.cache-hit != 'true'
         env:
@@ -566,6 +581,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           JOB_STATUS: ${{ job.status }}
+          SOURCE_HEAD: ${{ steps.source.outputs.head }}
         run: |
           # Failed before the checkout or setup-node: no alert-issue.mjs, or no node to run it (the
           # NAS runners' image keeps its Node off PATH, infra/runners/nas/Dockerfile; setup-node
@@ -593,7 +609,10 @@ jobs:
           fi
           body="$RUNNER_TEMP/failed-release.md"
           echo "Prepare content release ended with $JOB_STATUS ($GITHUB_EVENT_NAME, $(date -u '+%Y-%m-%d %H:%M UTC')): $RUN_URL" > "$body"
-          node scripts/content/alert-issue.mjs open --alert "content-release-failing$ALERT_SUFFIX" --title "Content release failing$TITLE_SUFFIX" --body-file "$body"
+          # With the source commit it compiled, kept with every earlier one still failing
+          # (scripts/content/release-failure.mjs): the issue closes only once one run has
+          # compiled them all.
+          node scripts/content/release-failure.mjs record --alert "content-release-failing$ALERT_SUFFIX" --title "Content release failing$TITLE_SUFFIX" --body-file "$body" --source "${SOURCE_HEAD:-none}"
       - name: Close the failed-release report
         if: success()
         continue-on-error: true
@@ -602,8 +621,12 @@ jobs:
           TITLE_SUFFIX: ${{ github.ref_name != 'main' && format(' ({0})', github.ref_name) || '' }}
           GH_TOKEN: ${{ github.token }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          SOURCE_HEAD: ${{ steps.source.outputs.head }}
         run: |
-          node scripts/content/alert-issue.mjs close --alert "content-release-failing$ALERT_SUFFIX" --title "Content release failing$TITLE_SUFFIX" --comment "Recovered: $RUN_URL"
+          # Only when this run compiled every source commit the issue records as failing: on
+          # 2026-10-13 a run of data main closed it while the failing editorial commit, which
+          # it did not contain, stayed unpublished (scripts/content/release-failure.mjs).
+          node scripts/content/release-failure.mjs recover --alert "content-release-failing$ALERT_SUFFIX" --title "Content release failing$TITLE_SUFFIX" --source "${SOURCE_HEAD:-none}" --comment "Recovered: $RUN_URL"
           node scripts/content/alert-issue.mjs close --alert "content-release-held$ALERT_SUFFIX" --title "Content release held$TITLE_SUFFIX" --comment "The deployments of its branch run the code this run compiled with, and the run succeeded: $RUN_URL"
       # The public watchdog in arkpedia-data (.github/workflows/release-heartbeat.yml) opens an
       # issue there when neither a release nor a heartbeat is newer than 26 hours: the one
@@ -647,4 +670,16 @@ jobs:
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh workflow run prepare-content.yml --repo "$GITHUB_REPOSITORY" --ref dev -f refresh_upstream=true
+          PREPARE_RESULT: ${{ needs.prepare.result }}
+        run: |
+          gh workflow run prepare-content.yml --repo "$GITHUB_REPOSITORY" --ref dev -f refresh_upstream=true
+          # The editorial watcher is a 10-minute schedule, but GitHub ran it twice on 2026-10-13
+          # (09:53 and 17:17), and a watcher that finds a main preparation running skips its edit
+          # until its next run. So a successful main run asks it to look again at once: an edit
+          # pushed while this run compiled is published now, not whenever the schedule fires.
+          # Never after a failure, which would recompile the same failing commit in a loop. This
+          # run is still in progress meanwhile; after_run tells the watcher not to count it busy.
+          if [ "$GITHUB_REF_NAME" = main ] && [ "$PREPARE_RESULT" = success ]; then
+            gh workflow run editorial-content.yml --repo "$GITHUB_REPOSITORY" --ref main -f "after_run=$GITHUB_RUN_ID" \
+              || echo "Could not ask the editorial watcher to look again; its schedule still will."
+          fi
