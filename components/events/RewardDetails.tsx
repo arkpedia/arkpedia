@@ -6,10 +6,12 @@ import type { TicketDetails } from '@/lib/events/announcements';
 import type { EventExtras } from '@/lib/events/tableRewards';
 import { RewardTile } from './RewardTile';
 import { packDay } from '@/lib/events/packDay';
+import { VIDEOS_COMING_SOON } from '@/lib/selectors/videosComingSoon';
 import { combinedRecommendation, pointLabel, rankByRecommendation, type Recommendation } from '@/lib/selectors/scoring';
 
 export interface ResolvedTicket extends Omit<TicketDetails, 'operators'> {
-  operators: { name: string; iconPath: string; href: string }[];
+  /** howToUseVideoId: Kukkikaze's How to Use video, set by the selector guide only (lib/selectors/howToUse.ts). */
+  operators: { name: string; iconPath: string; href: string; howToUseVideoId?: string | null }[];
   pools?: { name: string; operators: ResolvedTicket['operators'] }[];
 }
 type Pack = EventExtras['packs'][number]['packs'][number];
@@ -59,18 +61,29 @@ export function RewardDetailsProvider({ tickets, children, recommendations, reco
     setStack(current => [...current, detail]);
   };
   const close = () => { operatorScroll.current = 0; setStack([]); };
-  const renderOperators = (items: ResolvedTicket['operators']) => (
-<div className="event-selector-operators">
-            {items.map(op => { const score = recommendations?.[op.name]; const breakdown = score ? `${score.complete ? "Recommendation" : "Available subtotal (rating data missing)"}: ${pointLabel(score.total)}. ${score.lines.map(line => `${line.label}: ${pointLabel(line.points)}`).join("; ")}` : undefined; return <button key={op.name} type="button" className="btn-bare event-selector-operator" aria-haspopup="dialog" title={breakdown} aria-label={`${op.name}: operator preview${score ? `, ${breakdown}${score.owned ? ", already owned" : ""}` : ""}`}
+  // A "How to use" link sits under the portrait, outside its button (a link inside a button is
+  // invalid and unreachable by keyboard). While any operator in the list has a video, the
+  // others hold an empty line of the same height so every row of portraits stays even; on a
+  // ticket whose videos are on the way (VIDEOS_COMING_SOON) that line says "Coming soon".
+  const renderOperators = (items: ResolvedTicket['operators'], comingSoon = false) => {
+    const videos = comingSoon || items.some(op => op.howToUseVideoId);
+    return <div className="event-selector-operators">
+            {items.map(op => { const score = recommendations?.[op.name]; const breakdown = score ? `${score.complete ? "Recommendation" : "Available subtotal (rating data missing)"}: ${pointLabel(score.total)}. ${score.lines.map(line => `${line.label}: ${pointLabel(line.points)}`).join("; ")}` : undefined; return <div key={op.name} className="event-selector-cell">
+              <button type="button" className="btn-bare event-selector-operator" aria-haspopup="dialog" title={breakdown} aria-label={`${op.name}: operator preview${score ? `, ${breakdown}${score.owned ? ", already owned" : ""}` : ""}`}
               onClick={() => setOperatorPreview({ name: op.name, icon: op.iconPath, rarity: 6 })}>
               <span className="selector-portrait"><Image src={op.iconPath} alt="" width={56} height={56} />
               {score && <span className={`selector-score selector-score-${score.tone}`} aria-hidden="true">{pointLabel(score.total)}</span>}
               </span>
               <span>{op.name}</span>
             {score?.owned && <span className="selector-owned">Owned</span>}
-            </button>; })}
-          </div>
-  );
+            </button>
+              {op.howToUseVideoId
+                ? <a className="selector-howto" href={`https://www.youtube.com/watch?v=${encodeURIComponent(op.howToUseVideoId)}`} target="_blank" rel="noopener noreferrer" aria-label={`How to use ${op.name} (YouTube video by Kukkikaze)`}>How to use <span aria-hidden="true">▶</span></a>
+                : comingSoon ? <span className="selector-howto-none selector-howto-soon">Coming soon<span className="visually-hidden">: a How to use video for {op.name}</span></span>
+                : videos && <span className="selector-howto-none" aria-hidden="true" />}
+            </div>; })}
+          </div>;
+  };
   return <Details.Provider value={{ tickets, open }}>
     {children}
     <dialog ref={dialog} className="event-details-dialog" style={showSettings ? { height: settingsHeight } : undefined} aria-labelledby="event-details-title" onCancel={e => { e.preventDefault(); if (showSettings) { setShowSettings(false); settingsTrigger.current?.focus(); } else close(); }} onKeyDown={e => {
@@ -101,9 +114,9 @@ export function RewardDetailsProvider({ tickets, children, recommendations, reco
             const score = recommendations ? combinedRecommendation(pool.operators, recommendations) : null;
             return <section key={pool.name} className="selector-pool">
               <h3>Ticket {pool.name}{score && <span className={`selector-pool-total selector-score-${score.tone}`}>{score.complete ? 'Combined score' : 'Available subtotal'} {pointLabel(score.total)}</span>}</h3>
-              {renderOperators(rankByRecommendation(pool.operators, recommendations))}
+              {renderOperators(rankByRecommendation(pool.operators, recommendations), VIDEOS_COMING_SOON.has(active.name))}
             </section>;
-          }) : renderOperators(operators)}
+          }) : renderOperators(operators, VIDEOS_COMING_SOON.has(active.name))}
           <p className="hint"><a href={active.ticket.source} target="_blank" rel="noopener noreferrer">Source announcement</a></p>
         </>}</div> : <>
           {active.pack.imagePath && <Image className="event-pack-detail-image" src={active.pack.imagePath} alt={`${active.pack.name} artwork`} width={200} height={150} />}

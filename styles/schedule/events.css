@@ -415,6 +415,8 @@ button.events-row-main.btn-bare { border: 0; background: transparent; padding: 0
 .event-details-head .btn + h2 { margin-top: 10px; }
 .event-details-dialog h2:focus { outline: none; }
 .event-selector-operators { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; margin: 18px 0; }
+.event-selector-cell { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.event-selector-cell > .event-selector-operator { flex: 1; }
 .event-selector-operator { display: flex; flex-direction: column; align-items: center; gap: 7px; text-align: center; padding: 9px 5px; border: 1px solid var(--line-soft); border-radius: var(--radius); background: var(--panel-2); color: var(--text); font-size: 12px; text-decoration: none; }
 .event-selector-operator img { border: 1px solid var(--rarity-6); border-radius: var(--radius); object-fit: cover; }
 .event-selector-operator:hover { border-color: var(--heading); }
@@ -443,6 +445,14 @@ button.events-row-main.btn-bare { border: 0; background: transparent; padding: 0
 .selector-score-middle { color: var(--amber); }
 .selector-score-great { color: var(--cat-green); }
 .selector-owned { font-size: 11px; color: var(--text-dim); }
+/* Kukkikaze's How to Use video under a portrait; operators without one hold the same line. */
+.selector-howto, .selector-howto-none { display: flex; align-items: center; justify-content: center; min-height: 28px; }
+.selector-howto { gap: 4px; padding: 2px 4px; border: 1px solid var(--line-soft); border-radius: var(--radius); color: var(--teal); font-size: 12px; text-decoration: none; }
+.selector-howto:hover { border-color: var(--teal); }
+.selector-howto:focus-visible { outline: 2px solid var(--heading); outline-offset: 2px; }
+.selector-howto > span { font-size: 10px; }
+.selector-howto-soon { border: 1px dashed var(--line-soft); border-radius: var(--radius); color: var(--text-dim); font-size: 12px; }
+@media (pointer: coarse) { .selector-howto, .selector-howto-none { min-height: 44px; } }
 .selector-personalize-button { margin-top: 10px; min-width: 220px; }
 .selector-personalization { min-width: 0; }
 .selector-personalization-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--line-soft); }

@@ -102,3 +102,68 @@ test('personalization keeps popup geometry, changes scores, persists choices, an
   await dialog.getByRole('button', { name: 'Show recommendations', exact: true }).click();
   await expect(dialog.getByRole('button', { name: /^Surtr: operator preview/ }).locator('.selector-score')).toHaveText('+2.5');
 });
+
+test('a How to Use video sits under its portrait and the other portraits keep the row even', async ({ page }, info) => {
+  // Fixture props: the videos are editorial data (operator guides in arkpedia-data), not this build's.
+  const VIDEO = 'S0zeA3uXINI';
+  let given = false;
+  await page.route(url => url.pathname === '/selector-tickets', async route => {
+    const html = await (await route.fetch()).text();
+    const body = html.replace(/(<script id="__NEXT_DATA__" type="application\/json"[^>]*>)([\s\S]*?)(<\/script>)/, (_, open: string, json: string, close: string) => {
+      const data = JSON.parse(json);
+      // Surtr in the gifted ticket alone has one, whatever the bundled records' guides say, so the
+      // Kernel ticket below is a list with no video at all.
+      for (const [name, ticket] of Object.entries(data.props.pageProps.tickets) as [string, { operators: { name: string; howToUseVideoId?: string | null }[] }][]) {
+        for (const op of ticket.operators) {
+          const video = name === 'Special Event Transfer Permit' && op.name === 'Surtr';
+          op.howToUseVideoId = video ? VIDEO : null;
+          given ||= video;
+        }
+      }
+      return open + JSON.stringify(data).replace(/</g, '\\u003c') + close;
+    });
+    await route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body });
+  });
+  await page.goto('/selector-tickets');
+  expect(given, 'the page carries its tickets in __NEXT_DATA__ and Surtr is in one').toBe(true);
+  await page.getByRole('button', { name: 'Special Event Transfer Permit: selectable operators', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Special Event Transfer Permit', exact: true });
+  const link = dialog.getByRole('link', { name: 'How to use Surtr (YouTube video by Kukkikaze)', exact: true });
+  await expect(link).toHaveAttribute('href', `https://www.youtube.com/watch?v=${VIDEO}`);
+  await expect(link).toHaveAttribute('target', '_blank');
+  await expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+  await expect(link).toHaveText(/How to use/);
+  // One link and seven "Coming soon" lines: this ticket's videos are on the way, so the
+  // operators without one say so on the line a link would take.
+  await expect(dialog.locator('.selector-howto')).toHaveCount(1);
+  await expect(dialog.locator('.selector-howto-none')).toHaveCount(7);
+  await expect(dialog.locator('.selector-howto-soon')).toHaveCount(7);
+  await expect(dialog.locator('.selector-howto-soon').first()).toHaveText(/^Coming soon/);
+  // Per row of the grid (a long name may wrap and make one row taller than another): every
+  // portrait button is one height and every link line starts at one height, link or not.
+  const rows = await dialog.locator('.event-selector-cell').evaluateAll(cells => {
+    const byRow = new Map<number, { button: number; line: number }[]>();
+    for (const cell of cells) {
+      const top = Math.round(cell.getBoundingClientRect().top);
+      const button = Math.round(cell.querySelector('.event-selector-operator')!.getBoundingClientRect().height);
+      const line = Math.round(cell.querySelector('.selector-howto, .selector-howto-none')!.getBoundingClientRect().top);
+      byRow.set(top, [...(byRow.get(top) ?? []), { button, line }]);
+    }
+    return [...byRow.values()];
+  });
+  expect(rows.length).toBeGreaterThan(0);
+  for (const row of rows) {
+    expect(new Set(row.map(cell => cell.button)).size, `portrait buttons ${JSON.stringify(row)}`).toBe(1);
+    expect(new Set(row.map(cell => cell.line)).size, `link lines ${JSON.stringify(row)}`).toBe(1);
+  }
+  const box = await link.boundingBox();
+  expect(box!.height).toBeGreaterThanOrEqual(info.project.name === 'mobile' ? 44 : 28);
+  // The portrait still opens the operator preview; the link is outside its button.
+  await expect(dialog.getByRole('button', { name: /^Surtr: operator preview/ }).getByRole('link')).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  // A ticket without any video adds nothing under its portraits.
+  await page.getByRole('button', { name: 'Top Operator Transfer Permit - Kernel: selectable operators', exact: true }).click();
+  const kernel = page.getByRole('dialog', { name: 'Top Operator Transfer Permit - Kernel', exact: true });
+  await expect(kernel).toBeVisible();
+  await expect(kernel.locator('.selector-howto, .selector-howto-none')).toHaveCount(0);
+});

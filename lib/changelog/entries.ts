@@ -34,6 +34,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-10-13T06:09:29Z',
+    title: 'How to Use videos in the selector guide',
+    added: [
+      { title: 'How to Use videos under selector portraits', detail: 'Selector portraits link to Kukkikaze\'s How to Use video, like Surtr, Mudrock and Saileach in the gifted selector.', href: '/selector-tickets' },
+    ],
+  },
+  {
     at: '2026-10-12T13:17:15Z',
     title: 'Reading progress and free rewards',
     added: [

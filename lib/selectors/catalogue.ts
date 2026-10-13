@@ -2,6 +2,7 @@ import { getAllOperators } from '@/lib/operators/operators';
 import { getSkillList, type Operator } from '@/lib/operators/operatorTypes';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
 import { operatorHref } from '@/lib/operators/operatorHref';
+import { howToUseVideoId } from './howToUse';
 import { announcedRewards } from '@/lib/events/announcements';
 import { publicFileExists } from '@/lib/assets/publicAssets';
 import { rewardIconPath } from '@/lib/events/rewardIcons';
@@ -66,7 +67,7 @@ export function buildSelectorCatalogue() {
     tickets[card.name] = { ...ticket, operators: ticket.operators.map(name => {
       const op = roster.find(o => o.name === name && o.rarity === 6);
       if (!op) throw new Error(`Unknown selector operator: ${name}`);
-      return { name, iconPath: getOperatorIconPath(op), href: operatorHref(name, null) };
+      return { name, iconPath: getOperatorIconPath(op), href: operatorHref(name, null), howToUseVideoId: howToUseVideoId(op) };
     }) };
     const imagePath = card.name === 'Top Operator Transfer Permit - Starter' ? '/material-icons/Top Operator Transfer Permit - Starter.webp' : card.pack ? (packArt as Record<string, string>)[card.pack] : rewardIconPath({ name: card.name, type: 'material', id: null }, () => null, publicFileExists);
     return { ...card, imagePath: imagePath ?? null };
@@ -80,7 +81,7 @@ export function buildSelectorCatalogue() {
   ].map(pool => ({ name: pool.name, operators: pool.names.map(name => {
     const op = roster.find(op => op.name === name && op.rarity === 6);
     if (!op) throw new Error(`Unknown pool operator: ${name}`);
-    return { name, iconPath: getOperatorIconPath(op), href: operatorHref(name, null) };
+    return { name, iconPath: getOperatorIconPath(op), href: operatorHref(name, null), howToUseVideoId: howToUseVideoId(op) };
   }) }));
   const name = 'Newcomer Special Headhunting Pack';
   tickets[name] = { source: newcomerGroup.source, description: 'Compare the three ticket pools. Each score adds the points of all three operators.',

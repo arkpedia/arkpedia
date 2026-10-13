@@ -12,11 +12,14 @@ import { test } from 'node:test';
  * It reads the code the reader can be shown: every .tsx under pages/ and components/,
  * with comments removed, so a comment that explains why a placeholder went is fine.
  *
- * ALLOWED is empty: the last ones (/community's Art and Cosplayer panels and /music's
- * playlists note) went with the media and community migration, so any placeholder now
- * fails. Keep it empty; hide the panel until it has content instead of adding a line.
+ * The last panels (/community's Art and Cosplayer panels and /music's playlists note) went
+ * with the media and community migration. Hide a panel until it has content instead of
+ * adding a line here. The one exception is not a panel: the selector guide's beginner and
+ * gifted tickets, whose How to Use videos Kukki is recording, say "Coming soon" on the line
+ * under a portrait that has no video yet, beside the ones that do (asked for by the user,
+ * 2026-10-13; the tickets are lib/selectors/videosComingSoon.ts).
  */
-const ALLOWED: Record<string, number> = {};
+const ALLOWED: Record<string, number> = { 'components/events/RewardDetails.tsx': 1 };
 
 const PLACEHOLDER = /coming soon/gi;
 const root = join(__dirname, '..', '..');
