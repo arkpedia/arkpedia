@@ -10,6 +10,7 @@ import SongActionsMenu from './SongActionsMenu';
 import SongPlaylistPicker from './SongPlaylistPicker';
 import TransportIcon from './TransportIcons';
 import { useSongQueueDrag } from './useSongQueueDrag';
+import { songTitle } from '@/lib/music/musicPolish';
 import { MUSIC_VIEW_HREF } from './MusicNav';
 
 // Each row its own component, so each can call useCrossFadeTitle (hooks cannot run in a loop).
@@ -54,7 +55,7 @@ function QueueRow({
     >
       {isCurrent
         ? <span className="music-queue-drag-handle music-queue-drag-handle-spacer" aria-hidden="true" />
-        : <button type="button" className="btn-bare btn-icon btn-sm music-queue-drag-handle"
+        : <button type="button" className="btn-bare btn-sm music-queue-drag-handle"
           aria-label={`Reorder ${song.title}`} title="Drag to reorder; arrow keys move one position"
           onPointerDown={onPointerDrag} onKeyDown={event => {
             if (event.key === 'ArrowUp' && canMoveUp) { event.preventDefault(); onMoveUp(); }
@@ -122,16 +123,19 @@ export default function MusicQueue({ shown }: { shown: boolean }) {
   const {
     queue, queueIndex, queueLoading, shuffle, shuffleOrder, shufflePosition, videoId, favorites, queued, queueSource, playingPlaylistId,
     canUndoClear, playQueueIndex, reorderQueue, reorderShuffleOrder, moveQueueItemToTop, removeFromQueue, toggleFavorite, clearQueue,
-    undoClearQueue, playPlaylist, ready,
+    undoClearQueue, autoplay, autoplayTracks, autoplayVideoId, currentTrack, setAutoplay, queueSong, playNow,
   } = useMusicPlayer();
   const playlistName = usePlaylistName(queueSource === 'playlist' ? playingPlaylistId : null);
-  const source = queueSource === 'playlist' ? playlistName ?? 'a saved playlist' : queueSource === 'custom' ? 'your queue' : 'all songs';
+  const source = queueSource === 'playlist' ? playlistName ?? 'a saved playlist' : 'your choices';
+  const [showAutoplay, setShowAutoplay] = useState(false);
+  const [autoplayVisible, setAutoplayVisible] = useState(50);
 
   const displayList = useMemo(() => (shuffle && shuffleOrder
     ? shuffleOrder.map((queueIdx, displayPos) => ({ song: queue[queueIdx], queueIdx, displayPos }))
     : queue.map((song, queueIdx) => ({ song, queueIdx, displayPos: queueIdx }))).filter(entry => entry.song), [queue, shuffle, shuffleOrder]);
-  const current = Math.min(shuffle && shuffleOrder ? shufflePosition : queueIndex, Math.max(0, displayList.length - 1));
+  const current = videoId && !autoplayVideoId && queue.some(track => track.id === videoId) ? (shuffle && shuffleOrder ? shufflePosition : queueIndex) : -1;
   const playing = displayList[current]?.song.id === videoId && Boolean(videoId);
+  const boundary = autoplayVideoId && queue.length && !queued.has(queue[queueIndex]?.id) ? (shuffle && shuffleOrder ? shufflePosition : queueIndex) : current;
 
   const drag = useSongQueueDrag((from, to) => {
     if (from < 0 || to < 0 || from >= displayList.length || to >= displayList.length) return;
@@ -153,23 +157,23 @@ export default function MusicQueue({ shown }: { shown: boolean }) {
     || Boolean(song.artist?.toLowerCase().includes(q));
 
   let run = 0;
-  while (current + 1 + run < displayList.length && queued.has(displayList[current + 1 + run].song.id)) run += 1;
+  while (boundary + 1 + run < displayList.length && queued.has(displayList[boundary + 1 + run].song.id)) run += 1;
   const nowRow = displayList[current] ? [displayList[current]] : [];
-  const nextInQueue = displayList.slice(current + 1, current + 1 + run);
-  const rest = displayList.slice(current + 1 + run);
-  const history = displayList.slice(0, current);
+  const nextInQueue = displayList.slice(boundary + 1, boundary + 1 + run);
+  const rest = displayList.slice(boundary + 1 + run);
+  const history = boundary >= 0 ? displayList.slice(0, autoplayVideoId ? boundary + 1 : current) : [];
 
   const sections = [
     { key: 'now', title: playing ? 'Now playing' : 'Up first', rows: nowRow.filter(e => matches(e.song)), offset: 0 },
     { key: 'queued', title: 'Next in queue', rows: nextInQueue.filter(e => matches(e.song)), offset: 1 },
-    { key: 'rest', title: `Next from ${source}`, rows: rest.filter(e => matches(e.song)), offset: 1 + run },
+    { key: 'rest', title: 'Next in your queue', rows: rest.filter(e => matches(e.song)), offset: 1 + run },
   ];
   const restShown = q ? sections[2].rows : sections[2].rows.slice(0, visible);
   const historyRows = history.filter(e => matches(e.song));
 
   const row = (entry: { song: QueueTrack; queueIdx: number; displayPos: number }, label: ReactNode) => {
     const { song, queueIdx, displayPos } = entry;
-    const isCurrent = displayPos === current;
+    const isCurrent = current >= 0 && displayPos === current;
     return <QueueRow
       key={song.id}
       song={song}
@@ -194,25 +198,23 @@ export default function MusicQueue({ shown }: { shown: boolean }) {
     />;
   };
 
-  const upcoming = displayList.length - current - 1;
+  const upcoming = displayList.length - boundary - 1;
   return (
     <section className="music-queue-panel music-queue-view" aria-labelledby="music-queue-heading">
       <div className="music-song-list-heading">
-        <h2 className="section-title" id="music-queue-heading">Queue</h2>
+        <h2 className="section-title" id="music-queue-heading">Your queue</h2>
         <div className="music-queue-tools">
           {canUndoClear
             ? <button type="button" className="ghost btn-sm" onClick={undoClearQueue}>Undo clear</button>
-            : <button type="button" className="ghost btn-sm" onClick={clearQueue} disabled={upcoming <= 0 && history.length === 0}>Clear queue</button>}
+            : <button type="button" className="ghost btn-sm" onClick={clearQueue} disabled={!queue.length || (queue.length === 1 && current >= 0)}>Clear queue</button>}
         </div>
       </div>
-      <p className="hint music-view-hint">
-        Playing from <b>{source}</b>{displayList.length > 0 && <> · {upcoming} {upcoming === 1 ? 'song' : 'songs'} after this one</>}.
-        {' '}Drag <span aria-hidden="true">⠿</span> to reorder; Library and Discover add songs.
-      </p>
+      {queueSource === 'playlist' && <p className="hint music-view-hint">Playing from <b>{source}</b>.</p>}
+      {autoplayVideoId && currentTrack && <p className="hint music-view-hint">Autoplay now: <Link href={MUSIC_VIEW_HREF.player} shallow scroll={false}>{songTitle(currentTrack.title, currentTrack.altTitle)}</Link></p>}
       <SearchInput label="Search the queue" name="queue-search" placeholder="Search the queue…" value={search} onChange={setSearch} />
       <div className={`music-queue-list${drag.nativeDragging ? ' music-queue-native-drag' : ''}`} data-song-list>
         {queueLoading && !displayList.length && <p className="hint" role="status">Loading the queue…</p>}
-        {!queueLoading && !displayList.length && <p className="hint">The queue is empty. Add songs from the <Link href={MUSIC_VIEW_HREF.library} shallow scroll={false} prefetch={false}>Library</Link> or Discover.</p>}
+        {!queueLoading && !displayList.length && <p className="hint">Your queue is empty. Pick songs from the <Link href={MUSIC_VIEW_HREF.library} shallow scroll={false} prefetch={false}>Library</Link> or Discover.</p>}
         {sections.map(section => section.rows.length > 0 && (
           <Fragment key={section.key}>
             <h3 className="music-queue-section-title">{section.title}{section.key === 'queued' && <span className="music-heading-count"> · {nextInQueue.length}</span>}</h3>
@@ -221,12 +223,12 @@ export default function MusicQueue({ shown }: { shown: boolean }) {
           </Fragment>
         ))}
         {!q && shown && <LoadOnScroll shown={visible} total={sections[2].rows.length} onMore={() => setVisible(n => n + PAGE_SIZE)} />}
-        {displayList.length > 0 && upcoming === 0 && !q && (
+        {displayList.length > 0 && upcoming === 0 && !q && !autoplay && (
           <div className="music-queue-empty-next">
             <p className="hint music-queue-empty-next-text">Nothing plays after this song.{history.length > 0 ? ' Repeat all plays the songs below again.' : ''}</p>
             <div className="music-queue-tools">
               <Link href={MUSIC_VIEW_HREF.library} shallow scroll={false} prefetch={false} className="ghost btn-sm">Add from Library</Link>
-              <button type="button" className="ghost btn-sm" disabled={!ready} onClick={() => void playPlaylist(null)}>Play all songs</button>
+
             </div>
           </div>
         )}
@@ -240,6 +242,24 @@ export default function MusicQueue({ shown }: { shown: boolean }) {
           {(showHistory || q) && historyRows.map(entry => row(entry, ''))}
         </>}
         {q && sections.every(s => !s.rows.length) && !historyRows.length && <p className="hint">No songs in the queue match your search.</p>}
+        <section className="music-autoplay" aria-label="Autoplay from library">
+          <div className="music-autoplay-heading">
+            <button type="button" className="btn-bare music-queue-history-toggle" aria-expanded={showAutoplay} onClick={() => setShowAutoplay(value => !value)}>
+              Autoplay from library <TransportIcon name={showAutoplay ? 'up' : 'down'} size={14} />
+            </button>
+            <label className="check"><input type="checkbox" checked={autoplay} onChange={event => setAutoplay(event.target.checked)} />On</label>
+          </div>
+          {showAutoplay && <>
+            <p className="hint">{autoplay ? 'Plays after your queue ends. Repeat all keeps repeating your chosen queue.' : 'Off. Only your chosen songs will play.'}</p>
+            <div className="music-autoplay-list">
+              {autoplayTracks.filter(matches).slice(0, autoplayVisible).map(track => <div className="music-autoplay-row" key={track.id}>
+                <button type="button" className="btn-bare music-autoplay-song" aria-label={`Play ${songTitle(track.title, track.altTitle)} now`} onClick={() => playNow(track.id)}>{songTitle(track.title, track.altTitle)}</button>
+                <button type="button" className="ghost btn-sm" aria-label={`Play next: ${track.title}`} onClick={() => void queueSong(track.id, 'next')}>Play next</button>
+              </div>)}
+              <LoadOnScroll shown={autoplayVisible} total={autoplayTracks.filter(matches).length} onMore={() => setAutoplayVisible(value => value + 50)} />
+            </div>
+          </>}
+        </section>
       </div>
       {drag.feedback}
     </section>

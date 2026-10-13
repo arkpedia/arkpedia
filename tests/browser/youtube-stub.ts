@@ -36,6 +36,7 @@ const stub = (policy: AutoplayPolicy) => `(() => {
     // An asynchronous YouTube failure arrives after the pending state notification.
     S.fail = () => setTimeout(() => { S.state = -1; if (events.onError) events.onError({ target: player, data: 100 }); }, 20);
     const emit = (state) => { S.state = state; setTimeout(() => events.onStateChange && events.onStateChange({ data: state, target: player }), 10); };
+    S.finish = () => emit(0);
     const video = (arg) => typeof arg === 'string' ? { videoId: arg, startSeconds: 0 } : { videoId: arg.videoId, startSeconds: arg.startSeconds || 0 };
     const mayPlay = () => S.policy === 'allow' || Date.now() - S.pressedAt < 5000;
     const play = () => {
@@ -93,9 +94,17 @@ export function youtube(page: Page): Promise<StubState | null> {
 
 /** Opens the corner player and presses Play, as a reader does; resolves once the song plays. */
 export async function startMusic(page: Page): Promise<StubState> {
+  const original = page.url();
   const player = page.locator('.music-player');
   await player.getByRole('button', { name: 'Expand player' }).click();
   await player.getByRole('button', { name: /^(Play|Starting…)$/ }).click();
+  await expect(page).toHaveURL(/view=library/);
+  await page.locator('.music-library-row .music-queue-row-title').first().click();
+  await expect.poll(async () => (await youtube(page))?.state ?? null, { timeout: 20000 }).toBe(1);
+  // The stub marks PLAYING before delivering onStateChange. Wait for the app to
+  // acknowledge it before this setup navigation; the resume test drives its own reload.
+  await expect(page.getByRole('region', { name: 'Player', exact: true }).getByRole('button', { name: 'Pause', exact: true })).toBeVisible();
+  await page.goto(original);
   await expect.poll(async () => (await youtube(page))?.state ?? null, { timeout: 20000 }).toBe(1);
   return (await youtube(page))!;
 }
@@ -106,4 +115,17 @@ export async function markDocument(page: Page) {
 }
 export function sameDocument(page: Page): Promise<boolean> {
   return page.evaluate(() => (window as unknown as { __sameDocument?: boolean }).__sameDocument === true);
+}
+
+/** Explicitly choose the whole catalogue for regressions that need a populated queue.
+ * Fresh visits themselves now have an empty queue. This uses the real playlist action. */
+export async function playAllSongs(page: Page) {
+  await page.getByRole('button', { name: 'Playlists', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Music playlists', exact: true });
+  await expect(dialog.getByRole('button', { name: 'Play all songs', exact: true })).toBeEnabled();
+  await dialog.getByRole('button', { name: 'Play all songs', exact: true }).click();
+  await expect(dialog.getByRole('status')).toContainText('Playing all songs');
+  await expect.poll(async () => (await youtube(page))?.state).toBe(1);
+  await dialog.getByRole('button', { name: 'Close Music playlists', exact: true }).click();
+  if (new URL(page.url()).searchParams.get('view') === 'queue') await expect(page.locator('[data-song-list] .music-queue-row.current')).toBeVisible();
 }

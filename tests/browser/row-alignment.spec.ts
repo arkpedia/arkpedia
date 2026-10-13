@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { playAllSongs, stubYouTube } from './youtube-stub';
 import { rowCensus } from './row-census';
 import { CENSUS_STATES, fontsSettled, openCensus, readOnly } from './census-routes';
 import { census, censusWidth, expectOnlyAllowed, TOLERANCE } from './layout-checks';
@@ -337,7 +338,9 @@ test("the /music queue's titles keep their room at the one row height", async ({
   test.skip(page.viewportSize()!.width >= 1000, 'a phone: the 40px buttons are the phone height');
   await censusWidth(page);
   // The Queue view (the Library opens by default when nothing has played).
+  await stubYouTube(page);
   await openCensus(page, '/music?view=queue');
+  await playAllSongs(page);
   await fontsSettled(page);
   const row = page.locator('.music-queue-list .music-queue-row:not(.music-queue-row-placeholder)').first();
   await expect(row).toBeVisible();

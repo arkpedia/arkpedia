@@ -20,13 +20,16 @@ export const MUSIC_VIEW_HREF: Record<MusicView, string> = {
  * address. Shallow links within /music, so the player and its audio carry on untouched.
  */
 export default function MusicNav({ current }: { current: MusicView }) {
-  const { queued } = useMusicPlayer();
+  const { queue, videoId, shuffle, shuffleOrder } = useMusicPlayer();
+  const order = shuffle && shuffleOrder ? shuffleOrder : queue.map((_, index) => index);
+  const currentPosition = order.findIndex(index => queue[index]?.id === videoId);
+  const upcoming = order.length - currentPosition - 1;
   // Only the songs the reader queued: a count of the whole queue would tick down with every song.
   const items: { view: MusicView; label: string; count?: number }[] = [
     { view: 'discover', label: 'Discover' },
     { view: 'library', label: 'Library' },
     { view: 'player', label: 'Now playing' },
-    { view: 'queue', label: 'Queue', count: queued.size || undefined },
+    { view: 'queue', label: 'Queue', count: upcoming || undefined },
   ];
   return (
     <nav className="tabs music-nav" aria-label="Music">
@@ -34,7 +37,7 @@ export default function MusicNav({ current }: { current: MusicView }) {
         <Link key={view} href={MUSIC_VIEW_HREF[view]} prefetch={false} shallow={view !== 'discover' && current !== 'discover'} scroll={false}
           className="tab" aria-current={view === current ? 'page' : undefined}>
           {label}
-          {count !== undefined && <span className="tab-count"><span className="visually-hidden">, </span>{count}<span className="visually-hidden"> queued by you</span></span>}
+          {count !== undefined && <span className="tab-count"><span className="visually-hidden">, </span>{count}<span className="visually-hidden"> chosen songs next</span></span>}
         </Link>
       ))}
     </nav>

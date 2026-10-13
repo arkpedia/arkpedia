@@ -6,7 +6,8 @@ import XButton from '@/components/ui/XButton';
 import { useMusicPlayer } from '@/lib/music/musicPlayerContext';
 import { PlaylistOptions } from './SongPlaylistPicker';
 import TransportIcon from './TransportIcons';
-import { MUSIC_VIEW_HREF } from './MusicNav';
+import { useCrossFadeTitle } from '@/lib/music/useCrossFadeTitle';
+import { MUSIC_VIEW_HREF, type MusicView } from './MusicNav';
 
 const REPEAT_LABEL = { off: 'Off', one: 'This song', all: 'All' } as const;
 
@@ -17,14 +18,14 @@ const REPEAT_LABEL = { off: 'Off', one: 'This song', all: 'All' } as const;
  * the same anchored dialog as a song row's More (SongActionsMenu). Escape and Close give focus
  * back to the ⋯; Before this, a phone reached Favourite, Shuffle and Repeat only on Now playing.
  */
-export default function PlayerMoreMenu({ onFullPlayer }: { onFullPlayer?: boolean }) {
-  const { videoId, title, queue, favorites, shuffle, repeatMode, toggleFavorite, toggleShuffle, cycleRepeat } = useMusicPlayer();
+export default function PlayerMoreMenu({ onFullPlayer, view }: { onFullPlayer?: boolean; view?: MusicView }) {
+  const { videoId, title, currentTrack, favorites, shuffle, repeatMode, toggleFavorite, toggleShuffle, cycleRepeat } = useMusicPlayer();
   const { open, setOpen, close, buttonRef, menuRef, menuStyle } = useAnchoredPopover(300);
   const [section, setSection] = useState<'player' | 'playlists'>('player');
   const id = useId();
   const closeRef = useRef<HTMLButtonElement>(null);
   useEffect(() => { if (open && section === 'player') closeRef.current?.focus({ preventScroll: true }); }, [open, section]);
-  const songTitle = queue.find(track => track.id === videoId)?.title || title || 'This song';
+  const { displayName: songTitle } = useCrossFadeTitle(currentTrack?.title || title || 'This song', currentTrack?.altTitle);
   const isFav = Boolean(videoId) && favorites.has(videoId);
   function dismiss() { close(); buttonRef.current?.focus({ preventScroll: true }); }
   return <>
@@ -56,8 +57,8 @@ export default function PlayerMoreMenu({ onFullPlayer }: { onFullPlayer?: boolea
           <button type="button" className="ghost" disabled={!videoId} onClick={() => setSection('playlists')}>
             <TransportIcon name="plus" />Add to playlist<span aria-hidden="true">›</span>
           </button>
-          <Link href={MUSIC_VIEW_HREF.queue} shallow={onFullPlayer} scroll={false} prefetch={false} className="ghost music-player-more-link" onClick={() => close()}>
-            <TransportIcon name="queue" />Open queue
+          <Link href={view === 'queue' ? MUSIC_VIEW_HREF.player : MUSIC_VIEW_HREF.queue} shallow={onFullPlayer} scroll={false} prefetch={false} className="ghost music-player-more-link" onClick={() => close()}>
+            <TransportIcon name={view === 'queue' ? 'note' : 'queue'} />{view === 'queue' ? 'Now playing' : 'Open queue'}
           </Link>
         </div>
       </>}

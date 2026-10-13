@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { GAME_PATHS } from '@/lib/minigames/catalogue';
 import { useMusicPlayer } from '@/lib/music/musicPlayerContext';
+import { songTitle, upcomingIndices } from '@/lib/music/musicPolish';
 import { useCrossFadeTitle } from '@/lib/music/useCrossFadeTitle';
 import TransportIcon from './TransportIcons';
 import SongPlaylistPicker from './SongPlaylistPicker';
@@ -34,6 +35,7 @@ export default function MusicPlayer() {
     currentTime,
     duration,
     queue,
+    currentTrack: currentQueueTrack,
     queueIndex,
     shuffleOrder,
     shufflePosition,
@@ -62,7 +64,7 @@ export default function MusicPlayer() {
   // title only if this track somehow isn't in the queue yet (a brief
   // window right as playback starts, before the queue's own lookup
   // catches up).
-  const currentQueueTrack = queue.find((t) => t.id === videoId);
+
   const catalogTitle = currentQueueTrack?.title || title || 'Monster Siren Records';
   const { displayName: crossfadeName, fading } = useCrossFadeTitle(catalogTitle, currentQueueTrack?.altTitle);
   const artist = currentQueueTrack?.artist;
@@ -135,13 +137,9 @@ export default function MusicPlayer() {
   // needs to reflect whichever mode is actually active, since that's
   // controlled globally, not reset just because this widget doesn't
   // expose the buttons anymore.
-  const nextQueueTrack =
-    repeatMode === 'one'
-      ? queue[queueIndex]
-      : shuffle && shuffleOrder
-      ? queue[shuffleOrder[(shufflePosition + 1) % shuffleOrder.length]]
-      : queue[queueIndex + 1] || queue[0];
-  const nextTitle = nextQueueTrack ? formatTrackLabel(nextQueueTrack.title, nextQueueTrack.artist) : '';
+  const order = shuffle && shuffleOrder ? shuffleOrder : queue.map((_, index) => index);
+  const nextQueueTrack = queue[upcomingIndices(order, shuffle && shuffleOrder ? shufflePosition : queueIndex, repeatMode, 1)[0]];
+  const nextTitle = nextQueueTrack ? formatTrackLabel(songTitle(nextQueueTrack.title, nextQueueTrack.altTitle), nextQueueTrack.artist) : '';
 
   return (
     /* On /music the page is the player: the widget keeps only its hidden audio frame

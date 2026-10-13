@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { stubYouTube, youtube } from './youtube-stub';
+import { playAllSongs, stubYouTube, youtube } from './youtube-stub';
 
 const rows = (page: Page) => page.locator('.music-queue-list .music-queue-row[data-song-id]');
 const order = (page: Page) => rows(page).evaluateAll(elements => elements.map(el => (el as HTMLElement).dataset.songId));
@@ -24,6 +24,7 @@ async function dragInput(page: Page) {
 test('song titles play immediately without inserting or changing the queue', async ({ page }) => {
   await stubYouTube(page);
   await page.goto('/music?view=queue');
+  await playAllSongs(page);
   await expect(rows(page).nth(2)).toBeVisible();
   const before = await order(page);
   const song = before[2];
@@ -48,6 +49,7 @@ test('mobile song actions have anchored playlist and reorder submenus', async ({
   test.skip(test.info().project.name !== 'mobile', 'phone action menu');
   await stubYouTube(page);
   await page.goto('/music?view=queue');
+  await playAllSongs(page);
   const row = rows(page).nth(1);
   await expect(row).toBeVisible();
   const more = row.getByRole('button', { name: /^More actions for / });
@@ -68,7 +70,7 @@ test('mobile song actions have anchored playlist and reorder submenus', async ({
   const before = await order(page);
   await reorder.getByRole('button', { name: 'Move down', exact: true }).click();
   await expect.poll(async () => (await order(page))[2]).toBe(before[1]);
-  expect(await youtube(page)).toMatchObject({ state: 5 });
+  expect(await youtube(page)).toMatchObject({ state: 1 });
   await rows(page).nth(1).getByRole('button', { name: /^More actions for / }).click();
   await page.screenshot({ path: '.cache/song-mobile-actions.png' });
   await page.keyboard.press('Escape');
@@ -83,6 +85,7 @@ for (const shuffled of [false, true]) {
   test(`dragging reorders the visible sequence without changing playback (shuffle ${shuffled})`, async ({ page }) => {
     await stubYouTube(page);
     await page.goto('/music?view=queue');
+  await playAllSongs(page);
     await expect(rows(page).nth(3)).toBeVisible();
     // Shuffle: the bar's button, or on a phone's mini player the bar's More.
     if (test.info().project.name === 'mobile') {
@@ -98,6 +101,11 @@ for (const shuffled of [false, true]) {
     await expect.poll(async () => (await youtube(page))?.state).toBe(1);
     const playing = await youtube(page);
     const before = await order(page);
+    // Reveal only the clipped part, keeping the earlier drop target in the same visible list.
+    await rows(page).nth(3).locator('.music-queue-drag-handle').evaluate(el => {
+      const list = el.closest('[data-song-list]')!;
+      list.scrollTop += Math.max(0, el.getBoundingClientRect().bottom - list.getBoundingClientRect().bottom + 4);
+    });
     const handle = (await rows(page).nth(3).locator('.music-queue-drag-handle').boundingBox())!;
     const target = (await rows(page).nth(1).boundingBox())!;
     const input = await dragInput(page);
@@ -115,10 +123,11 @@ for (const shuffled of [false, true]) {
 test('edge scrolling is fast, loads more than one batch, and an outside drop cancels', async ({ page }) => {
   await stubYouTube(page);
   await page.goto('/music?view=queue');
+  await playAllSongs(page);
   await expect(rows(page).nth(1)).toBeVisible();
   const before = await order(page);
   await page.evaluate(() => document.fonts.ready);
-  await expect.poll(async () => (await youtube(page))?.state).toBe(5);
+  await expect.poll(async () => (await youtube(page))?.state).toBe(1);
   const handle = (await rows(page).nth(1).locator('.music-queue-drag-handle').boundingBox())!;
   const list = page.locator('[data-song-list]').first();
   const box = (await list.boundingBox())!;
@@ -142,8 +151,10 @@ test('Escape cancels a drag, and keyboard arrows reorder with reduced motion', a
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await stubYouTube(page);
   await page.goto('/music?view=queue');
+  await playAllSongs(page);
   await expect(rows(page).nth(2)).toBeVisible();
   const before = await order(page);
+  await rows(page).nth(2).locator('.music-queue-drag-handle').scrollIntoViewIfNeeded();
   const handle = (await rows(page).nth(2).locator('.music-queue-drag-handle').boundingBox())!;
   const target = (await rows(page).first().boundingBox())!;
   const input = await dragInput(page);
@@ -163,9 +174,10 @@ for (const native of [false, true]) {
     test.skip(native && test.info().project.name === 'mobile', 'native mouse dragging only');
     await stubYouTube(page);
     await page.goto('/music?view=queue');
+  await playAllSongs(page);
     await expect(rows(page).nth(1)).toBeVisible();
     await page.evaluate(() => document.fonts.ready);
-    await expect.poll(async () => (await youtube(page))?.state).toBe(5);
+    await expect.poll(async () => (await youtube(page))?.state).toBe(1);
     const list = page.locator('[data-song-list]').first();
     const box = (await list.boundingBox())!;
     const source = (await rows(page).nth(1).locator(native ? '.music-queue-row-title' : '.music-queue-drag-handle').boundingBox())!;
@@ -209,6 +221,7 @@ test('native desktop dragging supports a drop and cancels an outside release', a
   test.skip(test.info().project.name === 'mobile', 'touch dragging covered separately');
   await stubYouTube(page);
   await page.goto('/music?view=queue');
+  await playAllSongs(page);
   await expect(rows(page).nth(3)).toBeVisible();
   const before = await order(page);
   await rows(page).nth(3).locator('.music-queue-row-title').dragTo(rows(page).nth(1).locator('.music-queue-row-title'));

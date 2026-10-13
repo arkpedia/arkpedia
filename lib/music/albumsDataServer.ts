@@ -122,6 +122,7 @@ export function parseLrc(content: string): LyricLine[] {
       lines.push({ time: minutes * 60 + seconds + fraction, text });
     }
   }
+  if (!lines.length && !/\[\d{1,3}:\d{2}/.test(content)) return content.split(/\r?\n/).map(text => text.trim()).filter(text => text && !/^\[[a-z]+:.*\]$/i.test(text) && !isCreditLine(text)).map(text => ({ time: 0, text }));
   return lines.sort((a, b) => a.time - b.time);
 }
 

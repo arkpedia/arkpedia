@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
+import { playAllSongs, stubYouTube } from './youtube-stub';
 import { readOnly } from './census-routes';
 
 /*
@@ -232,6 +233,7 @@ const PLACES: Place[] = [
   {
     id: '/music queue', route: '/music?view=queue',
     open: async (page) => {
+      await playAllSongs(page);
       const row = page.locator('.music-queue-row').nth(1);
       await expect(row).toBeVisible();
       if (page.viewportSize()!.width <= 720) await row.getByRole('button', { name: /^More actions for / }).click();
@@ -316,14 +318,19 @@ for (const place of PLACES) {
     test.skip(!!place.desktopOnly && info.project.name !== 'desktop', `${place.id}: ${place.desktopOnly}`);
     await readOnly(page);
     if (place.visit) await place.visit(page);
-    else await page.goto(place.route);
+    else {
+      if (place.id === '/music queue') await stubYouTube(page);
+      await page.goto(place.route);
+    }
     await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {});
     await place.open(page);
-    await page.mouse.move(0, 0);
-    await page.waitForTimeout(250);
     const target = place.x(page);
     await expect(target, `${place.id} shows its ×`).toBeVisible();
     await target.scrollIntoViewIfNeeded();
+    await target.click({ trial: true });
+    // The actionability check scrolls and hovers the target. Measure its resting state.
+    await page.mouse.move(0, 0);
+    await page.waitForTimeout(250);
 
     // Opened by pointer, nothing draws the site's focus ring but a text field, which shows
     // it on any focus (the goal dialog focuses its search). The ring is :focus-visible's

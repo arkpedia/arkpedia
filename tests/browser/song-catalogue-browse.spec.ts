@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { stubYouTube, youtube } from './youtube-stub';
+import { playAllSongs, stubYouTube, youtube } from './youtube-stub';
 
 const KEY = 'arkpedia.music-playlists.v1';
 const queueRows = (page: Page) => page.locator('[data-song-list] .music-queue-row[data-song-id]');
@@ -26,6 +26,7 @@ for (const theme of ['dark', 'light']) {
     const ids = songs.map((song: { videoId: string }) => song.videoId);
     await stubYouTube(page);
     await page.goto('/music?view=queue');
+  await playAllSongs(page);
     await expect(queueRows(page).first()).toBeVisible();
     await page.evaluate(({ key, tracks }) => {
       localStorage.setItem(key, JSON.stringify([{ id: 'night', name: 'Night music', tracks }, { id: 'other', name: 'Other music', tracks: [] }]));
@@ -85,6 +86,7 @@ for (const theme of ['dark', 'light']) {
 test('catalogue failure can retry without replacing the queue or stopping playback', async ({ page }) => {
   await stubYouTube(page);
   await page.goto('/music?view=queue');
+  await playAllSongs(page);
   await expect(queueRows(page).nth(1)).toBeVisible();
   await queueRows(page).first().locator('.music-queue-row-title').click();
   await expect.poll(async () => (await youtube(page))?.state).toBe(1);
@@ -101,9 +103,10 @@ test('catalogue failure can retry without replacing the queue or stopping playba
 test('switching lists preserves browsing positions and independent searches', async ({ page }) => {
   await stubYouTube(page);
   await page.goto('/music?view=queue');
+  await playAllSongs(page);
   await expect(queueRows(page).nth(1)).toBeVisible();
   await page.evaluate(() => document.fonts.ready);
-  await expect.poll(async () => (await youtube(page))?.state).toBe(5);
+  await expect.poll(async () => (await youtube(page))?.state).toBe(1);
   const list = page.locator('[data-song-list]').first();
   await list.evaluate(el => { el.scrollTop = 600; });
   const queueAt = await list.evaluate(el => el.scrollTop);

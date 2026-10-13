@@ -19,7 +19,7 @@ type Session = {
 function visibleBounds(list: HTMLElement) {
   const r = list.getBoundingClientRect();
   const bar = document.querySelector<HTMLElement>('.music-player-bottombar');
-  const barTop = bar && getComputedStyle(bar).position === 'sticky' ? bar.getBoundingClientRect().top : window.innerHeight;
+  const barTop = bar && ['sticky', 'fixed'].includes(getComputedStyle(bar).position) ? bar.getBoundingClientRect().top : window.innerHeight;
   const top = Math.max(r.top, 0);
   const bottom = Math.max(top, Math.min(r.bottom, barTop, window.innerHeight));
   return { left: r.left, right: r.right, top, bottom, height: bottom - top };

@@ -1,11 +1,12 @@
 import { expect, test } from '@playwright/test';
-import { stubYouTube, youtube } from './youtube-stub';
+import { playAllSongs, stubYouTube, youtube } from './youtube-stub';
 
 for (const theme of ['dark', 'light']) {
   test(`saved playlists export and import without interrupting music (${theme})`, async ({ page }) => {
     await page.addInitScript(value => localStorage.setItem('theme', value), theme);
     await stubYouTube(page);
     await page.goto('/music?view=queue');
+  await playAllSongs(page);
     await expect(page.locator('.music-queue-row').first()).toBeVisible();
     await page.locator('.music-queue-row').first().locator('.music-queue-row-title').click();
     await expect.poll(async () => (await youtube(page))?.state).toBe(1);
@@ -61,6 +62,7 @@ for (const theme of ['dark', 'light']) {
 test('an imported playlist plays in its saved order and stream-safe does not add unrelated songs after reload', async ({ page }) => {
   await stubYouTube(page);
   await page.goto('/music?view=queue');
+  await playAllSongs(page);
   await expect(page.locator('.music-queue-row').first()).toBeVisible();
   await page.getByRole('button', { name: 'Playlists', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Music playlists' });

@@ -1,5 +1,5 @@
 import { expect, test, type Page, type Locator } from '@playwright/test';
-import { stubYouTube, youtube } from './youtube-stub';
+import { playAllSongs, stubYouTube, youtube } from './youtube-stub';
 
 const KEY = 'arkpedia.music-playlists.v1';
 const mobile = (page: Page) => page.viewportSize()!.width <= 720;
@@ -21,6 +21,7 @@ for (const theme of ['dark', 'light']) {
     await page.addInitScript(value => localStorage.setItem('theme', value), theme);
     await stubYouTube(page);
     await page.goto('/music?view=queue');
+  await playAllSongs(page);
     const rows = page.locator('.music-queue-row:not(.music-queue-row-placeholder)');
     await expect(rows.nth(1)).toBeVisible();
     await rows.first().locator('.music-queue-row-title').click();
@@ -52,7 +53,8 @@ for (const theme of ['dark', 'light']) {
     expect(popup.x).toBeGreaterThanOrEqual(0);
     expect(popup.x + popup.width).toBeLessThanOrEqual(page.viewportSize()!.width);
     expect(Math.min(Math.abs(popup.y - anchor.y - anchor.height), Math.abs(anchor.y - popup.y - popup.height))).toBeLessThanOrEqual(8);
-    await page.getByRole('heading', { name: 'Music', exact: true }).click();
+    // A compact phone header may be underneath the anchored popover; click the clear page gutter.
+    await page.mouse.click(8, page.viewportSize()!.height / 2);
     await expect(dialog).not.toBeVisible();
     await expect(plus).toHaveAttribute('aria-expanded', 'false');
     await openPicker(page, rows.nth(1));
@@ -112,6 +114,7 @@ for (const theme of ['dark', 'light']) {
 test('the picker keeps a second tab’s playlist edits and does not duplicate existing songs', async ({ page, context }) => {
   await stubYouTube(page);
   await page.goto('/music?view=queue');
+  await playAllSongs(page);
   const row = page.locator('.music-queue-row').first();
   await expect(row).toBeVisible();
   await page.evaluate(key => {
@@ -144,6 +147,7 @@ test('playlist picker flips above a low button and stays within the viewport as 
   await page.setViewportSize({ width: page.viewportSize()!.width, height: 700 });
   await stubYouTube(page);
   await page.goto('/music?view=queue');
+  await playAllSongs(page);
   const buttons = page.locator(`${mobile(page) ? '.music-song-mobile-actions' : '.music-song-desktop-actions'} button[aria-haspopup="dialog"]`);
   await expect(buttons.first()).toBeVisible();
   // Pick a visible row near the queue's bottom without scrolling it into a new position.
@@ -178,6 +182,7 @@ test('playlist picker flips above a low button and stays within the viewport as 
 test('Favourites exists by default and stays in sync with hearts and playlist imports', async ({ page }) => {
   await stubYouTube(page);
   await page.goto('/music?view=queue');
+  await playAllSongs(page);
   const row = page.locator('.music-queue-row').first();
   await row.locator('.music-queue-row-title').click();
   await expect.poll(async () => (await youtube(page))?.state).toBe(1);
@@ -221,6 +226,7 @@ test('Favourites exists by default and stays in sync with hearts and playlist im
 test('music backup imports keep existing hearts and the default Favourites playlist together', async ({ page }) => {
   await stubYouTube(page);
   await page.goto('/music?view=queue');
+  await playAllSongs(page);
   const row = page.locator('[data-song-list] .music-queue-row').first();
   await expect(row).toBeVisible();
   const existing = await row.getAttribute('data-song-id');

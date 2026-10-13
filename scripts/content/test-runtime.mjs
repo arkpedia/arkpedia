@@ -184,7 +184,12 @@ try {
     // By role and name, not class: the Library's and the queue's searches are the shared SearchInput.
     await page.getByRole('searchbox', { name: 'Search all songs' }).fill('Runtime Song B');
     await page.locator('.music-all-songs-list .music-queue-row', { hasText: 'Runtime Song B' }).first().waitFor({ timeout: 10_000 });
-    // And the queue the player built from the same catalogue holds it too.
+    // Choosing the new song adds it to Your queue; browsing the release does not.
+    const newSong = page.locator('.music-all-songs-list .music-queue-row', { hasText: 'Runtime Song B' }).first();
+    if (name === 'mobile') {
+      await newSong.getByRole('button', { name: /^More actions for / }).click();
+      await page.getByRole('dialog', { name: 'Song actions', exact: true }).getByRole('button', { name: 'Add to queue', exact: true }).click();
+    } else await newSong.getByRole('button', { name: /^Add to queue:/ }).click();
     await page.getByRole('navigation', { name: 'Music' }).getByRole('link', { name: /^Queue/ }).click();
     await page.getByRole('searchbox', { name: 'Search the queue' }).fill('Runtime Song B');
     await page.locator('[data-song-list] .music-queue-row', { hasText: 'Runtime Song B' }).first().waitFor({ timeout: 10_000 });

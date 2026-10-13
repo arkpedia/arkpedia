@@ -234,7 +234,7 @@ export default function DiscoverPage({ songs, characters, origins, artists, rece
 
       {/* The music section's one header and nav, in the same place as on /music, so moving
           between Discover and the player's views moves nothing. */}
-      <PageHeader slim eyebrow="Rhodes Island // Sound Archive" title="Music" actions={<MusicPlaylists songs={songs} />} />
+      <PageHeader slim compact eyebrow="Sound Archive" title="Music" actions={<MusicPlaylists songs={songs} />} />
       <main className="music-discover-page">
         <MusicNav current="discover" />
         <div className="music-discover-search-row">

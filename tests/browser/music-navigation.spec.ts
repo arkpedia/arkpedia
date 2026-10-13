@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { stubYouTube, youtube } from './youtube-stub';
+import { playAllSongs, stubYouTube, youtube } from './youtube-stub';
 
 /*
  * The music section's navigation and queue actions (2026-10-13 redesign): Discover, Library, Now
@@ -160,6 +160,7 @@ test('Library: Play now keeps the queue, Play next and Add to queue line songs u
 test('Queue: the song playing is marked and stays put, songs come out, and Clear queue undoes', async ({ page }) => {
   await stubYouTube(page);
   await page.goto('/music?view=queue');
+  await playAllSongs(page);
   await expect(queueRows(page).nth(5)).toBeVisible();
   await queueRows(page).first().locator('.music-queue-row-title').click();
   await expect.poll(async () => (await youtube(page))?.state).toBe(1);
@@ -204,6 +205,7 @@ test('a video the catalogue lists twice is one song in the queue and the Library
   test.skip(!twice.length, 'the catalogue lists no video twice');
   await stubYouTube(page);
   await page.goto('/music?view=queue');
+  await playAllSongs(page);
   await expect(queueRows(page).first()).toBeVisible();
   for (const song of twice) {
     await page.getByRole('searchbox', { name: 'Search the queue', exact: true }).fill(song.title);
@@ -293,6 +295,10 @@ test("the one-row player bar's More reaches Favourite, Shuffle, Repeat and the q
   await expect(queueRows(page).first()).toBeVisible();
   expect((await youtube(page))!).toMatchObject({ state: 1, videoId: playing, players: 1 });
   await nav(page).getByRole('link', { name: 'Now playing', exact: true }).click();
-  await expect(bar(page).getByRole('button', { name: 'Favorite', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  if (mobile) {
+    await more.click();
+    await expect(page.getByRole('dialog', { name: 'Player actions', exact: true }).getByRole('button', { name: 'Unfavourite', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await page.keyboard.press('Escape');
+  } else await expect(bar(page).getByRole('button', { name: 'Favorite', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await expect(bar(page).getByRole('button', { name: 'Repeat: one', exact: true })).toBeVisible();
 });

@@ -63,6 +63,11 @@ export interface MusicResumeState {
    *  still shows them as "Next in queue" after a reload. Absent from records written before
    *  2026-10-13: those load with none. */
   queued?: string[];
+  /** Explicit queue vs legacy catalogue-backed queue. */
+  queueMode?: 'chosen';
+  autoplay?: boolean;
+  autoplayOrder?: string[];
+  autoplayVideoId?: string;
 }
 
 type SessionStore = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
@@ -112,6 +117,10 @@ export function parseMusicResume(raw: string | null): MusicResumeState | null {
   return {
     // Optional and only a label: a malformed list is dropped on its own, not the whole record.
     ...(isIdList(value.queued) ? { queued: value.queued } : {}),
+    ...(value.queueMode === 'chosen' ? { queueMode: 'chosen' as const } : {}),
+    ...(typeof value.autoplay === 'boolean' ? { autoplay: value.autoplay } : {}),
+    ...(isIdList(value.autoplayOrder) ? { autoplayOrder: value.autoplayOrder } : {}),
+    ...(isId(value.autoplayVideoId) ? { autoplayVideoId: value.autoplayVideoId } : {}),
     ...(value.playlistIds !== undefined ? { playlistIds: value.playlistIds as string[] | null } : {}),
     ...(value.playingPlaylistId !== undefined ? { playingPlaylistId: value.playingPlaylistId as string | null } : {}),
     version: 1, savedAt, left, videoId, title, seconds, duration, playing, queue, queueIndex, shuffle,
@@ -195,4 +204,21 @@ export function restoreQueue<T extends { id: string }>(tracks: readonly T[], sta
   const playing = queue[queueIndex]?.id;
   const queued = [...new Set(state.queued ?? [])].filter((id) => index.has(id) && id !== playing);
   return { queue, queueIndex, shuffleOrder, shufflePosition, queued };
+}
+
+/** Legacy all-library queues become the automatic source, retaining their edited order.
+ * Saved/custom playlists stay chosen queues. No playlist or favourites storage is changed. */
+export function migrateChosenQueue(state: MusicResumeState, catalogueIds?: readonly string[]): MusicResumeState {
+  if (state.queueMode === 'chosen') return state;
+  const catalogue = new Set(catalogueIds ?? []);
+  const saved = new Set(state.queue);
+  const isFullLibrary = catalogue.size > 0 && catalogue.size === saved.size && [...catalogue].every(id => saved.has(id));
+  // Without positive evidence of the old default queue, retain every saved choice.
+  if (state.playlistIds != null || !isFullLibrary) return { ...state, queueMode: 'chosen', playlistIds: state.playlistIds ?? state.queue };
+  const chosen = new Set([state.videoId, ...(state.queued ?? [])]);
+  const queue = state.queue.filter(id => chosen.has(id));
+  const order = state.shuffleOrder?.filter(id => chosen.has(id)) ?? null;
+  return { ...state, queueMode: 'chosen', queue, queueIndex: Math.max(0, queue.indexOf(state.videoId)),
+    shuffleOrder: order, shufflePosition: Math.max(0, order?.indexOf(state.videoId) ?? 0),
+    autoplay: state.autoplay ?? true, autoplayOrder: state.shuffleOrder ?? state.queue };
 }

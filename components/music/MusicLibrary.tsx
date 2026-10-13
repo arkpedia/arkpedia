@@ -96,7 +96,6 @@ export default function MusicLibrary({ shown }: { shown: boolean }) {
       <SegmentedControl label="Library songs" value={scope} onChange={setScope}
         options={[{ value: 'all', label: 'All songs' }, { value: 'favorites', label: 'Favourites' }]} />
     </div>
-    <p className="hint music-view-hint">Browsing never changes the queue. Press a song to play it now; Play next and Add to queue line it up.</p>
     <SearchInput label="Search all songs" name="library-search" placeholder="Search songs or artists…" value={search} onChange={setSearch} />
     <div className="music-song-list music-all-songs-list" aria-label={scope === 'all' ? 'All songs' : 'Favourite songs'} data-library-list>
       {error ? <p className="hint" role="status">Could not load songs. <button type="button" className="ghost btn-sm" onClick={() => setAttempt(n => n + 1)}>Try again</button></p>

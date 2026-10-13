@@ -9,6 +9,7 @@ import { withContentPage } from '@/lib/content/server';
 import { useContentUrl } from '@/lib/content/context';
 import type { LyricLine } from '@/lib/music/albumsDataServer';
 import { useMusicPlayer } from '@/lib/music/musicPlayerContext';
+import { songTitle, upcomingIndices, lyricPreview } from '@/lib/music/musicPolish';
 import { useCrossFadeTitle } from '@/lib/music/useCrossFadeTitle';
 import MusicWaveVisualizer from '@/components/music/MusicWaveVisualizer';
 import MusicPlaylists from '@/components/music/MusicPlaylists';
@@ -84,6 +85,7 @@ export default function MusicPage({ songLookup }: Props) {
     repeatMode,
     currentTime,
     queue,
+    currentTrack, autoplay, autoplayTracks, autoplayVideoId, queued, playNow,
     queueIndex,
     shuffleOrder,
     shufflePosition,
@@ -119,7 +121,7 @@ export default function MusicPage({ songLookup }: Props) {
 
   const detailByVideoId = useMemo(() => new Map(songLookup.map((s) => [s.videoId, s])), [songLookup]);
   const currentDetail = detailByVideoId.get(videoId);
-  const currentTrack = queue.find((t) => t.id === videoId);
+
   // From this page's release props, like the credits: a lyric file is published for exactly
   // the songs whose lyrics parse, which is what this flag says, so the Lyrics button never
   // offers a file the release does not have.
@@ -161,7 +163,7 @@ export default function MusicPage({ songLookup }: Props) {
   // The currently-singing line -- the last line whose own timestamp
   // has already passed, per the actual playback position.
   const activeLineIndex = useMemo(() => {
-    if (lyrics.length === 0) return -1;
+    if (!lyrics.some(line => line.time > 0)) return -1;
     let idx = -1;
     for (let i = 0; i < lyrics.length; i++) {
       if (lyrics[i].time <= currentTime) idx = i;
@@ -182,13 +184,15 @@ export default function MusicPage({ songLookup }: Props) {
   useEffect(() => {
     // Not while the song list is shown: the player behind it is hidden, and centring its line
     // would scroll the page instead.
-    if (suppressAutoScrollRef.current || view !== 'player') return;
+    if (suppressAutoScrollRef.current || view !== 'player' || !mobileShowLyrics) return;
     // Honors the reduced-motion preference: the active line still gets
     // centered (that's function, not decoration), just without
     // animating the travel there.
     const smooth = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    activeLineRef.current?.scrollIntoView({ block: 'center', behavior: smooth ? 'smooth' : 'auto' });
-  }, [activeLineIndex, view]);
+    const line = activeLineRef.current;
+    const panel = line?.parentElement;
+    if (line && panel) panel.scrollTo({ top: panel.scrollTop + line.getBoundingClientRect().top - panel.getBoundingClientRect().top - (panel.clientHeight - line.clientHeight) / 2, behavior: smooth ? 'smooth' : 'auto' });
+  }, [activeLineIndex, view, mobileShowLyrics]);
 
   useEffect(() => {
     return () => {
@@ -205,7 +209,7 @@ export default function MusicPage({ songLookup }: Props) {
   }
 
   const youtubeUrl = videoId ? `https://www.youtube.com/watch?v=${videoId}` : null;
-  const catalogTitle = currentTrack?.title || title || 'Monster Siren Records';
+  const catalogTitle = currentTrack?.title || title || 'Nothing playing yet';
   const { displayName: nowPlayingName, fading: titleFading } = useCrossFadeTitle(catalogTitle, currentTrack?.altTitle);
 
   // Screen-reader announcement when the track changes -- the visible title swap is purely
@@ -230,13 +234,17 @@ export default function MusicPage({ songLookup }: Props) {
   // rows tall, so the player (which sets the views' height) does not grow as the queue arrives.
   const order = shuffle && shuffleOrder ? shuffleOrder : queue.map((_, i) => i);
   const position = shuffle && shuffleOrder ? shufflePosition : queueIndex;
-  const upNext = repeatMode === 'one' ? [] : order.slice(position + 1, position + 4).map(index => ({ song: queue[index], index })).filter(e => e.song);
+  const pending = autoplayVideoId ? order.filter(index => queued.has(queue[index]?.id)) : [];
+  const nextPosition = autoplayVideoId ? pending.length ? order.indexOf(pending[0]) - 1 : order.length - 1 : videoId ? position : -1;
+  const nextChosen = upcomingIndices(order, nextPosition, repeatMode).map(index => ({ song: queue[index], index })).filter(e => e.song);
+  const upNext = repeatMode === 'one' ? [] : [...nextChosen, ...(autoplay && (repeatMode !== 'all' || !queue.length) ? autoplayTracks.slice(0, 3 - nextChosen.length).map(song => ({ song, index: -1 })) : [])];
+  const preview = lyricPreview(lyrics, currentTime);
 
   return (
     <>
       <Head><title>{`${view === 'library' ? 'Library' : view === 'queue' ? 'Queue' : 'Now playing'} · Music — Arkpedia`}</title></Head>
 
-      <PageHeader slim eyebrow="Rhodes Island // Sound Archive" title="Music" actions={<MusicPlaylists songs={songLookup} />} />
+      <PageHeader slim compact eyebrow="Sound Archive" title="Music" actions={<MusicPlaylists songs={songLookup} />} />
       <main className="music-player-page">
         <MusicNav current={view} />
         <div className="visually-hidden" aria-live="polite">
@@ -252,7 +260,7 @@ export default function MusicPage({ songLookup }: Props) {
         <div className="music-view" data-music-view={view}>
           <div className={`music-now-playing${view === 'player' ? '' : ' music-now-playing-behind'}`} aria-hidden={view === 'player' ? undefined : true} {...hiddenUnless(view === 'player')}>
 
-            <div className={`music-now-playing-cover-col${mobileShowLyrics ? ' mobile-hidden' : ''}`}>
+            <div className="music-now-playing-cover-col">
               <div className="music-now-playing-cover">
                 {currentDetail?.coverPath ? (
                   <Image src={currentDetail.coverPath} alt={currentDetail.albumName || title} fill sizes="280px" style={{ objectFit: 'cover' }} />
@@ -262,7 +270,7 @@ export default function MusicPage({ songLookup }: Props) {
               </div>
             </div>
 
-            <div className={`music-now-playing-song-info${mobileShowLyrics ? ' mobile-hidden' : ''}`}>
+            <div className="music-now-playing-song-info">
               <h2>
                 <span className={titleFading ? 'music-crossfade-text fading' : 'music-crossfade-text'}>
                   {ready ? nowPlayingName : 'Loading…'}
@@ -295,22 +303,22 @@ export default function MusicPage({ songLookup }: Props) {
                 "buttons" row further down. */}
             <div className="music-now-playing-actions">
               {hasLyrics && (
-                <button type="button" className="ghost btn-sm music-mobile-lyrics-btn" onClick={() => setMobileShowLyrics((v) => !v)}>
-                  {mobileShowLyrics ? '‹ Back' : 'Lyrics'}
+                <button type="button" aria-expanded={mobileShowLyrics} aria-controls="music-lyrics" className="ghost btn-sm music-mobile-lyrics-btn" onClick={() => setMobileShowLyrics((v) => !v)}>
+                  {mobileShowLyrics ? 'Collapse lyrics' : 'Expand lyrics'}
                 </button>
               )}
             </div>
 
-            <div className={`music-lyrics-scroll${mobileShowLyrics ? ' mobile-active' : ''}`} onScroll={handleLyricsScroll}>
+            <div id="music-lyrics" className={`music-lyrics-scroll${mobileShowLyrics ? ' mobile-active' : ' music-lyrics-preview'}`} onScroll={handleLyricsScroll}>
               {hasLyrics ? (
                 lyricsLoading ? (
                   <p className="hint">Loading lyrics…</p>
                 ) : lyrics.length > 0 ? (
-                  lyrics.map((line, i) => (
+                  (mobileShowLyrics ? lyrics.map((line, i) => ({ line, active: i === activeLineIndex })) : preview).map(({ line, active }, i) => (
                     <p
                       key={i}
-                      ref={i === activeLineIndex ? activeLineRef : undefined}
-                      className={i === activeLineIndex ? 'music-lyric-line active' : 'music-lyric-line'}
+                      ref={active && mobileShowLyrics ? activeLineRef : undefined}
+                      className={active ? 'music-lyric-line active' : 'music-lyric-line'}
                     >
                       {line.text}
                     </p>
@@ -337,9 +345,9 @@ export default function MusicPage({ songLookup }: Props) {
                   const entry = upNext[i];
                   return <li key={entry?.song.id ?? `empty-${i}`}>
                     {entry
-                      ? <button type="button" className="btn-bare music-up-next-song" onClick={() => playQueueIndex(entry.index)} title={`Play ${entry.song.title} now`}>
+                      ? <button type="button" className="btn-bare music-up-next-song" onClick={() => entry.index < 0 ? playNow(entry.song.id) : playQueueIndex(entry.index)} title={`Play ${entry.song.title} now`}>
                         <span className="music-up-next-index">{i + 1}</span>
-                        <span className="music-up-next-title">{entry.song.title}</span>
+                        <span className="music-up-next-title">{songTitle(entry.song.title, entry.song.altTitle)}</span>
                         {entry.song.artist && <span className="music-up-next-artist">{entry.song.artist}</span>}
                       </button>
                       : <span className="music-up-next-empty">{i === 0 ? (repeatMode === 'one' ? 'Repeat one plays this song again.' : queueLoading ? 'Loading…' : 'Nothing after this song.') : '\u00a0'}</span>}
