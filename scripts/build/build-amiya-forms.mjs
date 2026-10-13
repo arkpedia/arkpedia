@@ -33,17 +33,19 @@
  * and three Amiyas each offering Agreement and Violin Solo would let its optimizer post
  * her to three facilities at once. They stay on Amiya's own page.
  *
- * Two things are deliberately left empty rather than invented. Module STAGES need the
+ * Two things are deliberately left empty rather than invented here. Module STAGES need the
  * module tables and would mean writing effect text the game did not write, so the modules
- * are listed by name with no stages -- exactly the state Amiya's own Original module is
- * already in. And `guides` is editorial, so it stays empty rather than borrowing a guide
- * written about the Caster.
+ * are listed by name with no stages. The English refresh (operator-english, which runs
+ * before this in the content run) builds those stages from the module tables, and the
+ * record keeps them: see scripts/lib/amiya-form-modules.mjs. And `guides` is editorial, so
+ * it stays empty rather than borrowing a guide written about the Caster.
  *
  * Run: node scripts/build/build-amiya-forms.mjs   (wired into scripts/sync/refresh-stage-data.sh)
  */
 import fs from 'node:fs';
 import path from 'node:path';
 import { stripRichText, interpolateBlackboard } from '../lib/gametext.mjs';
+import { keepRefreshedModules } from '../lib/amiya-form-modules.mjs';
 
 const ROOT = process.cwd();
 const EN = process.env.ARKPEDIA_EN || path.join(ROOT, '.cache/upstream/en-gamedata/en/gamedata');
@@ -389,6 +391,8 @@ for (const { record } of written) {
     if (existing.internalName === record.internalName) {
       if (existing.stats) record.stats = existing.stats;
       if (existing.files) record.files = existing.files;
+      // The English refresh, which ran first, built the modules' stages and costs.
+      record.modules = keepRefreshedModules(record.modules, existing.modules);
     }
   }
   fs.writeFileSync(file, `${JSON.stringify(record, null, 2)}\n`);
