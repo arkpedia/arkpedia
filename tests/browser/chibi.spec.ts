@@ -117,7 +117,9 @@ test('roaming chibi survives viewer close, page navigation and browser back with
     return Math.hypot(current!.x - start!.x, current!.y - start!.y);
   }, { timeout: 10000 }).toBeGreaterThan(5);
   await revealControls(page);
-  await expect(pet.getByRole('button')).toHaveCount(2);
+  // Pause/resume, dismiss, and the −/+ size pair centred at its feet (#395).
+  await expect(pet.getByRole('button')).toHaveCount(4);
+  await expect(pet.getByRole('group', { name: 'Chibi size', exact: true }).getByRole('button')).toHaveCount(2);
   await revealControls(page);
   await expect(pet.getByRole('button', { name: 'Dismiss roaming chibi', exact: true })).toBeVisible();
   await pet.focus(); await page.keyboard.press('ArrowLeft');
@@ -191,9 +193,15 @@ for (const theme of ['dark', 'light'] as const) for (const [activity, choice, cl
     await expect(pet.locator('canvas')).toHaveAttribute('data-animation', /.+/);
     // Preloaded game furniture is required before choosing a sitting/sleeping pose.
     await expect.poll(() => page.evaluate(() => performance.getEntriesByType('resource').filter(entry => entry.name.includes('/furnitureicons/')).length)).toBe(2);
+    // The scripted draws start at the drop, not now: the pet is still walking, and on a
+    // loaded runner it could reach a target between this line and the drag and spend the
+    // first draws, shifting the pick (CI 2026-10-13: idle with no break, special never
+    // starting). A capture listener on window runs before the provider's own pointerup.
     await page.evaluate(pick => {
-      const values = [0, 0, 0, 0, pick, 0, 0];
-      Math.random = () => values.shift() ?? 0;
+      const values = [0, 0, 0, 0, pick, 0, 0], real = Math.random.bind(Math);
+      let armed = false;
+      window.addEventListener('pointerup', () => { armed = true; }, { capture: true, once: true });
+      Math.random = () => (armed ? values.shift() ?? 0 : real());
     }, choice);
     const bounds = await pet.locator('canvas').boundingBox();
     const start = { x: bounds!.x + 80, y: bounds!.y + 90 }, drop = { x: 90, y: 90 };
@@ -241,9 +249,13 @@ test('ordinary stationary chibi visibly animates between walks without a timed b
   const pet = page.locator('.chibi-roaming'), canvas = pet.locator('canvas');
   await expect(canvas).toHaveAttribute('data-animation', /.+/);
   // Choose a nearby destination, skip the optional break, then stay at that point.
+  // Armed at the drop, as in the break tests above: a walk that ends before the drag would
+  // otherwise spend the scripted draws.
   await page.evaluate(() => {
-    const values = [0, 0, 0, .9, 0, 0, 0];
-    Math.random = () => values.shift() ?? 0;
+    const values = [0, 0, 0, .9, 0, 0, 0], real = Math.random.bind(Math);
+    let armed = false;
+    window.addEventListener('pointerup', () => { armed = true; }, { capture: true, once: true });
+    Math.random = () => (armed ? values.shift() ?? 0 : real());
   });
   const bounds = await canvas.boundingBox();
   const start = { x: bounds!.x + 80, y: bounds!.y + 90 }, drop = { x: 90, y: 90 };
@@ -396,9 +408,15 @@ for (const theme of ['dark', 'light']) {
     const movementBox = (await movement.boundingBox())!;
     await revealControls(page);
     const dismissBox = (await pet.getByRole('button', { name: 'Dismiss roaming chibi', exact: true }).boundingBox())!;
-    expect(movementBox.x + movementBox.width).toBeCloseTo(position!.x + position!.width, 0);
-    expect(movementBox.y + movementBox.height).toBeCloseTo(position!.y + position!.height, 0);
+    // #395: pause/resume at the top left, dismiss at the top right, −/+ centred at the feet,
+    // so all of them still fit at the smallest chibi size.
+    expect(movementBox.x).toBeCloseTo(position!.x, 0);
+    expect(movementBox.y).toBeCloseTo(position!.y, 0);
+    expect(dismissBox.x + dismissBox.width).toBeCloseTo(position!.x + position!.width, 0);
     expect(dismissBox.y).toBeCloseTo(position!.y, 0);
+    const sizeBox = (await pet.getByRole('group', { name: 'Chibi size', exact: true }).boundingBox())!;
+    expect(sizeBox.x + sizeBox.width / 2).toBeCloseTo(position!.x + position!.width / 2, 0);
+    expect(sizeBox.y + sizeBox.height).toBeCloseTo(position!.y + position!.height, 0);
     expect(movementBox.width).toBeGreaterThanOrEqual(36);
     expect(movementBox.height).toEqual(movementBox.width);
     await expect(movement).toHaveCSS('border-top-width', '0px');

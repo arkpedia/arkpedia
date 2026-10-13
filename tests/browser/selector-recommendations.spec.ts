@@ -5,7 +5,8 @@ import type { AccountRecord } from '../../lib/account/accountStore';
 test('all ticket pools show signed, colored ratings and preserve the nested operator popup', async ({ page }) => {
   await page.goto('/selector-tickets');
   await expect(page.getByText('Kukkikaze ratings are pending.', { exact: false })).toHaveCount(0);
-  await expect(page.locator('.selector-card img')).toHaveCount(3);
+  // Five cards since #381/#386: the starter (beginner) selector and the newcomer pack join the three tickets.
+  await expect(page.locator('.selector-card img')).toHaveCount(5);
   for (const [ticket, count] of [
     ['Special Event Transfer Permit', 8],
     ['2026 Celebration Operator Permit', 35],
@@ -76,24 +77,28 @@ test('personalization keeps popup geometry, changes scores, persists choices, an
   await ticket.click();
   const dialog = page.getByRole('dialog', { name: 'Special Event Transfer Permit', exact: true });
   const before = await dialog.boundingBox();
+  const mizuki = dialog.getByRole('button', { name: /^Mizuki: operator preview/ }).locator('.selector-score');
+  await expect(mizuki).toHaveText('-0.75');
   await dialog.getByRole('button', { name: 'Personalize recommendations', exact: true }).click();
   expect(await dialog.boundingBox()).toEqual(before);
-  const subSkills = dialog.getByRole('group', { name: 'Sub priority skill bonus', exact: true });
-  await expect(subSkills.getByRole('button', { name: 'Off', exact: true })).toHaveAttribute('aria-pressed', 'true');
-  await subSkills.getByRole('button', { name: 'On', exact: true }).click();
+  // Every scoring component is a Yes/No choice since #381 (it was On/Off for this one).
+  const subSkills = dialog.getByRole('group', { name: 'Sub priority skills', exact: true });
+  await expect(subSkills.getByRole('button', { name: 'No', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await subSkills.getByRole('button', { name: 'Yes', exact: true }).click();
   await page.keyboard.press('Escape');
   await expect(dialog.getByRole('button', { name: 'Personalize recommendations', exact: true })).toBeFocused();
-  await expect(dialog.getByRole('button', { name: /^Mizuki: operator preview/ }).locator('.selector-score')).toHaveText('+0.05');
+  // Three sub priority skills add +0.3. No unconditional IS/RA +0.5 any more (#375: "I like IS" is opt-in).
+  await expect(mizuki).toHaveText('-0.45');
   await page.reload();
   await ticket.click();
   await dialog.getByRole('button', { name: 'Personalize recommendations', exact: true }).click();
-  await expect(subSkills.getByRole('button', { name: 'On', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(subSkills.getByRole('button', { name: 'Yes', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await dialog.getByRole('group', { name: 'Lack Arts damage dealers', exact: true }).getByRole('button', { name: 'Yes', exact: true }).click();
   await dialog.getByRole('button', { name: 'Show recommendations', exact: true }).click();
   await expect(dialog.getByRole('button', { name: /^Surtr: operator preview/ }).locator('.selector-score')).toHaveText('+3');
   await dialog.getByRole('button', { name: 'Personalize recommendations', exact: true }).click();
   await dialog.getByRole('button', { name: 'Reset defaults', exact: true }).click();
-  await expect(subSkills.getByRole('button', { name: 'Off', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(subSkills.getByRole('button', { name: 'No', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await dialog.getByRole('button', { name: 'Show recommendations', exact: true }).click();
   await expect(dialog.getByRole('button', { name: /^Surtr: operator preview/ }).locator('.selector-score')).toHaveText('+2.5');
 });

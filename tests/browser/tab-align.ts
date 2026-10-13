@@ -50,6 +50,7 @@ export function tabAlign({ tolerance }: TabAlignOptions): TabAlignOffence[] {
     ['.supply-schedule', 'Mon-Sun: seven equal day cells, a week row'],
     ['[aria-label="Clip length"]', 'the clip-length scale under the full-width seek bar in the centred listening console'],
     ['[class*="guesser_categories"]', 'the operator guesser\'s ten hint categories as a checklist in columns, each label left in its cell'],
+    ['.op-skill-tabs', 'the operator page\'s skill tabs share the panel\'s width on purpose (#376), each label left in its tab (#377)'],
   ];
   /** Rows that are not on a section's edge by design, with the reason. */
   const PLACED_OK: [string, string][] = [

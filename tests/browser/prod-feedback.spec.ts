@@ -18,6 +18,10 @@ test('Story list reports progress and continuation survives reload', async ({ pa
   await expect(chapter).toContainText('50% read');
   await expect(page.locator('.story-list-card[href="/story?chapter=main_1"]')).toContainText('Unread');
   await chapter.click();
+  // The card is a client-side link: reloading before it lands reloads the list without the
+  // chapter (it failed that way once on a loaded runner, dev Check 38336857836).
+  await expect(page).toHaveURL(/[?&]chapter=main_0(&|$)/);
+  await expect(dialog).toBeVisible();
   await page.reload();
   await expect(dialog.getByRole('link', { name: /Continue reading/ })).toHaveAttribute('href', /&7$/);
 });

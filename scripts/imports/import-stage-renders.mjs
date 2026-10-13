@@ -73,6 +73,15 @@ export function planRenders({ stages, records, published, mapFiles, excluded }) 
     if (!waiting.has(canonical)) waiting.set(canonical, []);
     waiting.get(canonical).push(record);
   }
+  // A form with no render of its own shows its base stage's render on its page
+  // (getStagePreviewFile in lib/stages/stages.ts): Story and Adverse Environment are the
+  // chapter stage's map. Once the base has one, the form needs no lookup -- Closure Wiki
+  // has no previews for easy_/tough_ ids, so the 40 forms of chapters 10-12 failed it
+  // every night, held as quarantined and took the batch from stages with no map at all.
+  const byId = new Map(records.map(record => [record.id, record]));
+  const hasRender = record => Boolean(record?.preview)
+    || (canonicalOf.has(record?.id) && published.has(stems.get(canonicalOf.get(record.id))));
+  const borrowsBase = record => hasRender(byId.get(record.variant?.of_stage_id));
   const adopt = new Map(), stage = [], fallback = [];
   for (const [canonical, list] of waiting) {
     const stem = stems.get(canonical);
@@ -83,6 +92,7 @@ export function planRenders({ stages, records, published, mapFiles, excluded }) 
     if (list.every(record => excluded.has(record.content?.id))) continue;
     const file = renderCandidates(canonical, groups.get(canonical), stages).find(name => mapFiles?.has(name));
     if (file) stage.push({ stem, file, records: list });
+    else if (list.every(borrowsBase)) continue;
     else if (/^[a-zA-Z0-9_-]+$/.test(canonical) && stages[canonical]?.levelId) {
       fallback.push({ stem, stageId: canonical, levelId: stages[canonical].levelId, records: list });
     }

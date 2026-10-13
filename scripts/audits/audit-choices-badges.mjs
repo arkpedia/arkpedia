@@ -51,6 +51,8 @@ export const STRETCH_ALLOWED = new Map([
     'The operator guesser\'s hint categories: ten sentences, each with its tick box, as a three-column checklist (two on a phone). Nothing is centred -- each label starts at its cell\'s left (.category, justify-content: flex-start) -- and the first cell starts on the section edge.'],
   ['styles/music/music.css: .music-player-bottombar-controls',
     'The music player\'s transport (like, credits, shuffle, previous, play, next, repeat, volume, queue): independent toggles and actions centred under the full-width seek bar, as every media player lays them out. Not a pick-one row, and no section heading sits above it.'],
+  ['components/operators/OperatorPage.module.css: .skillTabs > :global(.tab)',
+    'The operator page\'s skill tabs: two or three tabs, each holding the skill icon, its name and its mastery and priority badges, share the panel\'s width on purpose (#376, "Skill tabs share the full available width"). Each label starts at its tab\'s left (justify-content: flex-start, #377) and the first tab starts on the section edge; in a panel under 320px they stack icon over name.'],
 ]);
 
 /** Classes kept in arkpedia-theme.css although no page renders them today. */
