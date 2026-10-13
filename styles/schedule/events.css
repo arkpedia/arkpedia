@@ -455,7 +455,7 @@ button.events-row-main.btn-bare { border: 0; background: transparent; padding: 0
 .selector-rating-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; margin: 0 0 8px; }
 .selector-rating-grid > div { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; padding: 7px 10px; border: 1px solid var(--line-soft); border-radius: var(--radius); background: var(--panel-2); white-space: nowrap; }
 .selector-rating-grid dt { color: var(--text-dim); font-size: 13px; }
-.selector-rating-grid dd { margin: 0; color: var(--heading); font-size: 14px; font-weight: 700; }
+.selector-rating-grid dd { margin: 0; color: var(--heading); font-size: 15px; font-weight: 700; }
 .selector-rating-scale p { margin: 0; }
 @media (max-width: 480px) {
   .selector-rating-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }

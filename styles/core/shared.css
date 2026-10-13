@@ -1733,7 +1733,7 @@ a.primary:where(:has(~ :is(button, a).ghost)),
 .chibi-size-control input { flex: 1; min-width: 0; }
 .chibi-size-control output { min-width: 4ch; text-align: center; font: 12px var(--font-mono); }
 .chibi-size-control.compact { position: absolute; left: 50%; bottom: 0; transform: translateX(-50%); margin: 0; padding: 0; gap: 0; background: transparent; border: 0; }
-.chibi-size-control.compact > button { width: 32px; height: 32px; min-width: 32px; padding: 0; border: 0; background: transparent; box-shadow: none; font-size: 24px; line-height: 1; text-shadow: 0 1px 3px var(--panel); }
+.chibi-size-control.compact > button { width: 32px; height: 32px; min-width: 32px; padding: 0; border: 0; background: transparent; box-shadow: none; font-size: 22px; line-height: 1; text-shadow: 0 1px 3px var(--panel); }
 .chibi-size-control.compact > button:hover, .chibi-size-control.compact > button:active { background: transparent; border: 0; box-shadow: none; color: var(--teal); }
 .chibi-page-controls { display: flex; flex-wrap: wrap; gap: 8px; }
 .chibi-roaming { height: auto; aspect-ratio: 8 / 9; }

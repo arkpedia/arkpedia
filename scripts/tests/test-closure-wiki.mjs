@@ -103,3 +103,39 @@ test('nightly map fallback preserves primary art, skips exclusions, survives fai
     assert.ok(read('.cache/stage-renders/staged.json').files['stages-images/failed.webp']);
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
+
+test('a form whose base stage has a render borrows it on its page, so it takes no lookup and its old report clears', async () => {
+  // Closure Wiki has no previews for Story (easy_) or Adverse (tough_) ids: the 40 forms of
+  // chapters 10-12 failed the lookup every night and filled the batch (issue #59, 2026-10-13).
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'arkpedia-closure-forms-'));
+  const write = (file, value) => {
+    fs.mkdirSync(path.dirname(path.join(root, file)), { recursive: true });
+    fs.writeFileSync(path.join(root, file), JSON.stringify(value));
+  };
+  const read = file => JSON.parse(fs.readFileSync(path.join(root, file), 'utf8'));
+  try {
+    const stages = Object.fromEntries([['main_10-05', '10-6'], ['tough_10-05', '10-6'], ['main_11-01', '11-1'], ['easy_11-01', '11-1'],
+      ['main_11-02', '11-2'], ['tough_11-02', '11-2']].map(([id, code]) => [id, { code, levelId: `Obt/Main/level_${id}`, difficulty: 'NORMAL' }]));
+    const form = (slug, id, base, kind) => ({ slug, id, code: stages[id].code, preview: null, content: { id: 'main' },
+      variant: { kind, of_stage_id: base, shares_parent_level_file: false } });
+    write('data/stages/10-6.json', { slug: '10-6', id: 'main_10-05', code: '10-6', preview: 'images/stages/10-6_main_10-05.png', content: { id: 'main' } });
+    write('data/stages/10-6_adverse_environment.json', form('10-6_adverse_environment', 'tough_10-05', 'main_10-05', 'adverse_environment'));
+    // Its base's render is published but not yet on the record: adopted in this same run.
+    write('data/stages/11-1.json', { slug: '11-1', id: 'main_11-01', code: '11-1', preview: null, content: { id: 'main' } });
+    write('data/stages/11-1_story_environment.json', form('11-1_story_environment', 'easy_11-01', 'main_11-01', 'story_environment'));
+    // No render for the base either: both are still looked up.
+    write('data/stages/11-2.json', { slug: '11-2', id: 'main_11-02', code: '11-2', preview: null, content: { id: 'main' } });
+    write('data/stages/11-2_adverse_environment.json', form('11-2_adverse_environment', 'tough_11-02', 'main_11-02', 'adverse_environment'));
+    write('data/excluded-contents.json', {});
+    write('data/assets/external-asset-index.json', { files: ['stages-images/11-1_main_11-01.webp'] });
+    write('data/quarantine.json', { version: 1, entries: ['10-6_tough_10-05', '11-1_easy_11-01'].map(stem => ({ key: `stage-render:${stem}`, stage: 'stage-renders',
+      action: 'published-partial', since: '2026-10-11T00:00:00.000Z', reason: 'the supplemental Closure Wiki lookup failed' })) });
+    const looked = [];
+    const closureLookup = async candidate => { looked.push(candidate.stageId); throw new Error('Closure request failed (404)'); };
+    await importStageRenders({ root, stages, cn: 'cn', closureLookup, log: () => {}, now: new Date('2026-10-13T00:00:00Z') });
+    assert.deepEqual(looked.sort(), ['main_11-02', 'tough_11-02']);
+    const held = read('data/quarantine.json').entries.map(row => row.key).filter(key => key.startsWith('stage-render:')).sort();
+    assert.deepEqual(held, ['stage-render:11-2_main_11-02', 'stage-render:11-2_tough_11-02']);
+    assert.equal(read('data/stages/11-1.json').preview, 'images/stages/11-1_main_11-01.png');
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
