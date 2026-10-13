@@ -2,8 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { stripRichText } from '../lib/gametext.mjs';
-
-const ROOMS = { CONTROL: 'Control Center', DORMITORY: 'Dormitory', HIRE: 'Office', MANUFACTURE: 'Factory', MEETING: 'Reception Room', POWER: 'Power Plant', TRADING: 'Trading Post', TRAINING: 'Training Room', WORKSHOP: 'Workshop' };
+import { BASE_ROOMS as ROOMS, facilityLabel } from '../lib/base-rooms.mjs';
 const clean = name => String(name ?? '').split('Replaces')[0].trim();
 const norm = name => clean(name).replace(/[·’“”"']/g, '').replace(/\s+/g, '').toLowerCase();
 const rank = skill => skill.phase ?? Math.max(0, ['Base', 'Elite 1', 'Elite 2'].indexOf(skill.eliteLevel));
@@ -20,20 +19,27 @@ export function reconcileBaseSkills(operator, building, region, translations = {
   for (const [slot, chain] of (character.buffChar ?? []).entries()) {
     for (const entry of Array.isArray(chain.buffData) ? chain.buffData : []) {
       const buff = building.buffs[entry.buffId];
-      if (!buff || !ROOMS[buff.roomType]) throw new Error(`${operator.name}: unknown buff ${entry.buffId}`);
+      if (!buff) throw new Error(`${operator.name}: unknown buff ${entry.buffId}`);
+      // A new facility must be named in scripts/lib/base-rooms.mjs before its skills import.
+      if (!ROOMS[buff.roomType]) throw new Error(`${operator.name}: ${entry.buffId} is in facility ${buff.roomType}, which scripts/lib/base-rooms.mjs does not name`);
       const phase = Number(entry.cond.phase.replace('PHASE_', ''));
       const exact = old.map((skill, index) => ({ skill, index })).filter(({ skill, index }) => !used.has(index) && skill.buffId === entry.buffId && skill.slot === slot && skill.phase === phase);
-      let candidates = old.map((skill, index) => ({ skill, index })).filter(({ skill, index }) => !used.has(index) && skill.facility === ROOMS[buff.roomType] && norm(skill.name) === norm(buff.buffName));
+      let candidates = old.map((skill, index) => ({ skill, index })).filter(({ skill, index }) => !used.has(index) && facilityLabel(skill.facility) === ROOMS[buff.roomType] && norm(skill.name) === norm(buff.buffName));
       if (candidates.length > 1) candidates = candidates.filter(({ skill }) => rank(skill) === phase);
       if (!candidates.length && region === 'CN') {
-        candidates = old.map((skill, index) => ({ skill, index })).filter(({ skill, index }) => !used.has(index) && skill.facility === ROOMS[buff.roomType] && rank(skill) === phase);
+        candidates = old.map((skill, index) => ({ skill, index })).filter(({ skill, index }) => !used.has(index) && facilityLabel(skill.facility) === ROOMS[buff.roomType] && rank(skill) === phase);
       }
       if (exact.length) candidates = exact;
       if (candidates.length > 1) candidates = candidates.filter(({ skill }) => skill.slot === slot && skill.phase === phase);
       if (candidates.length > 1) throw new Error(`${operator.name}: ambiguous translation join for ${entry.buffId}`);
       // CN text needs an existing translation. Ordering is valid only for repeated
       // same-facility/same-promotion steps within the record's source slot order.
-      const prior = candidates[0] ?? (translations[entry.buffId] ? { skill: { ...translations[entry.buffId], icon: null } } : undefined);
+      // A reviewed translation (data/base-skill-translations.json) is the CN skill's English: it
+      // wins over the record's text, which the catalogue first writes in Chinese for a new CN
+      // operator (Homebound, 2026-10-13). Global skills keep the game's English.
+      const reviewed = region === 'CN' ? translations[entry.buffId] : undefined;
+      const prior = reviewed ? { ...candidates[0], skill: { ...(candidates[0]?.skill ?? { icon: null }), ...reviewed } }
+        : candidates[0] ?? (translations[entry.buffId] ? { skill: { ...translations[entry.buffId], icon: null } } : undefined);
       if (!prior && region === 'CN') throw new Error(`${operator.name}: untranslated ${entry.buffId}`);
       if (prior?.index !== undefined) used.add(prior.index);
       const level = entry.cond.level;

@@ -2,9 +2,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { stripRichText } from '../lib/gametext.mjs';
+import { BASE_ROOMS } from '../lib/base-rooms.mjs';
+
 const [enFile, cnFile] = process.argv.slice(2);
 const en = JSON.parse(fs.readFileSync(enFile)), cn = JSON.parse(fs.readFileSync(cnFile));
-const rooms = { CONTROL: 'Control Center', DORMITORY: 'Dormitory', HIRE: 'Office', MANUFACTURE: 'Factory', MEETING: 'Reception Room', POWER: 'Power Plant', TRADING: 'Trading Post', TRAINING: 'Training Room', WORKSHOP: 'Workshop' };
+const rooms = BASE_ROOMS;
 const hashes = { en: createHash('sha256').update(fs.readFileSync(enFile)).digest('hex'), cn: createHash('sha256').update(fs.readFileSync(cnFile)).digest('hex') };
 const operators = [];
 const found = new Set();

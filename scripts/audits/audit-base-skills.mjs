@@ -34,6 +34,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
+import { BASE_ROOMS } from '../lib/base-rooms.mjs';
+
 
 const REPO = path.resolve(import.meta.dirname, '../..');
 // Same directory scripts/stage-pipeline/lib/gamedata.mjs reads, so one refresh serves
@@ -78,11 +80,7 @@ const GENERIC = {
     /morale (consumed per hour|loss)[^.]{0,20}?(of operators in the|of all operators)/i],
 };
 
-const ROOM_TO_FACILITY = {
-  CONTROL: 'Control Center', DORMITORY: 'Dormitory', HIRE: 'Office', MANUFACTURE: 'Factory',
-  MEETING: 'Reception Room', POWER: 'Power Plant', TRADING: 'Trading Post',
-  TRAINING: 'Training Room', WORKSHOP: 'Workshop',
-};
+const ROOM_TO_FACILITY = BASE_ROOMS;
 const PHASE_RANK = { PHASE_0: 0, PHASE_1: 1, PHASE_2: 2 };
 const TIERS = [['Base', 0], ['Elite 1', 1], ['Elite 2', 2]];
 
