@@ -272,6 +272,37 @@ export async function buttonVoiceLeaks(page: Page) {
   return [...new Map(leaks.map((b) => [b.el, b])).values()];
 }
 
+/* ---- Every link has a colour of its own (2026-10-13) ---------------------------------
+ * A link no author rule colours comes out in the browser's own link colour, then its visited
+ * one, which on this ground reads as a broken page: /selector-tickets' "Manage account" sat in
+ * a paragraph that is not .sub or .hint, so the prose-link rule (styles/core/shared.css) never
+ * reached it, and it showed purple once visited. The browser's colour is not one number: the
+ * root's color-scheme: dark gives Chromium's dark link colours, not rgb(0, 0, 238). So the
+ * default is read from a probe link put outside <body>, where no author rule reaches it, in
+ * the theme the page is in. getComputedStyle reports a visited link with its unvisited
+ * colour (a privacy rule), so a link equal to the probe has no author colour at all and one
+ * comparison catches the purple too. Every address and driven state, both widths: the
+ * phone menu and its sheets hold links of their own. */
+export async function uncolouredLinks(page: Page) {
+  const found = await page.evaluate(() => {
+    const probe = document.createElement('a');
+    probe.href = '#probe';
+    document.documentElement.appendChild(probe);
+    const ua = getComputedStyle(probe).color;
+    probe.remove();
+    return Array.from(document.querySelectorAll('a[href]'))
+      .filter((el) => el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden' && !el.closest('[aria-hidden="true"]'))
+      .filter((el) => getComputedStyle(el).color === ua)
+      .map((el) => {
+        let host = el.parentElement;
+        while (host && !host.classList.length && host !== document.body) host = host.parentElement;
+        const where = host && host !== document.body ? `${host.tagName.toLowerCase()}.${[...host.classList].join('.')} > ` : '';
+        return `${where}a${el.classList.length ? `.${[...el.classList].join('.')}` : ''} "${(el.textContent ?? '').trim().slice(0, 40)}"`;
+      });
+  });
+  return [...new Set(found)];
+}
+
 /* ======================================================================================
  * From page-bounds.spec.ts
  * ==================================================================================== */

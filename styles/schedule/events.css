@@ -428,7 +428,11 @@ button.events-row-main.btn-bare { border: 0; background: transparent; padding: 0
 .event-login-day h4 { margin: 0 0 8px; color: var(--heading); }
 
 /* Selector recommendations are opt-in; event pack dialogs retain their own presentation. */
-.selector-account { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 0; }
+/* The imported account the scores use, and the way to it: a status line and a secondary button,
+   not a bare link (a bare one came out in the browser's visited purple, 2026-10-13). */
+.selector-account { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin: 0 0 4px; }
+.selector-account > p { margin: 0; color: var(--text-dim); }
+.selector-account strong { color: var(--text); font-weight: 600; }
 .selector-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 18px 0; }
 .selector-card { position: relative; display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 18px; border: 1px solid var(--line-soft); border-radius: var(--radius-frame); background: var(--panel); color: var(--text); text-align: center; font: inherit; cursor: pointer; }
 .selector-card:hover { border-color: var(--heading); }
