@@ -78,6 +78,11 @@ jobs:
     # self-hosted runner, whose files persist into the next Deploy or release job.
     runs-on: ${{ (github.actor == 'dependabot[bot]' || startsWith(github.head_ref, 'dependabot/')) && 'ubuntu-latest' || vars.ARKPEDIA_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: ${{ (github.actor == 'dependabot[bot]' || startsWith(github.head_ref, 'dependabot/')) && 20 || vars.ARKPEDIA_RUNNER && 60 || 20 }}
+    permissions:
+      contents: read
+      issues: write
+      # Only to ask whether the base commit passed Check (scripts/ci/browser-relevant.mjs).
+      actions: read
     steps:
       - uses: actions/checkout@v7
 
@@ -207,7 +212,22 @@ jobs:
         # --with-deps installs system libraries with sudo; a self-hosted runner has them already.
         run: npx playwright install ${{ runner.environment == 'github-hosted' && '--with-deps' || '' }} chromium
 
+      # The browser step is 14 of this job's 23 minutes on the NAS (846s, 2026-10-13), and a
+      # change only to importers, sync scripts, unit tests or other workflows cannot change what
+      # it tests. The script derives what the build and the specs read and skips the step only
+      # when no changed file is among it AND the base commit has a green Check; a manual run and
+      # any doubt run it. Its log lists the files either way.
+      - name: Which browser regressions this change needs
+        id: browser
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+        run: node scripts/ci/browser-relevant.mjs >> "$GITHUB_OUTPUT"
+
+      # Runs unless the step above said no in so many words: a failed or missing answer runs it.
       - name: Desktop and mobile browser regressions
+        if: steps.browser.outputs.run != 'false'
         run: npm run test:browser
 
       - name: Content updates and rollback without rebuilding
