@@ -95,7 +95,10 @@ jobs:
       matrix:
         target: ${{ fromJSON(needs.targets.outputs.targets) }}
     # Never fall back to paid hosted builds or the VPS when the NAS is unavailable.
-    runs-on: [self-hosted, Linux, X64, arkpedia-nas]
+    # arkpedia-nas-build is on all three NAS runners; truenas-deploy carries ONLY it, so no
+    # Check (vars.ARKPEDIA_RUNNER, arkpedia-nas) can take it and a deploy never queues behind
+    # two 23-minute Checks (2026-10-13: a production deploy waited 40 minutes for a runner).
+    runs-on: [self-hosted, Linux, X64, arkpedia-nas-build]
     timeout-minutes: 45
     env:
       VERCEL_ORG_ID: ${{ matrix.target.orgId }}

@@ -2,9 +2,11 @@
 
 ## Website deployments: NAS only
 
-Deploy's build/upload job requires `[self-hosted, Linux, X64, arkpedia-nas]`.
-If both NAS runners are offline, it waits; it cannot fall back to Vercel, GitHub's
-hosted machines or the VPS. The lightweight target-list job may still use the VPS.
+Deploy's build/upload job requires `[self-hosted, Linux, X64, arkpedia-nas-build]`.
+All three NAS runners carry that label, and `truenas-deploy` carries only it, so no Check
+or content job (which ask for `arkpedia-nas`) can take that runner and a deploy starts at
+once instead of waiting behind two Checks. If every NAS runner is offline, it waits; it
+cannot fall back to Vercel, GitHub's hosted machines or the VPS. The lightweight target-list job may still use the VPS.
 `npm run deploy:vercel` dispatches this workflow for the remote main/dev branch
 (`DEPLOY_BRANCH=dev` selects dev); it no longer builds on the invoking computer.
 
@@ -33,7 +35,11 @@ runs-on: ${{ vars.ARKPEDIA_RUNNER || 'ubuntu-latest' }}
   - `truenas` and `truenas-2` (labels `arkpedia-nas`, `arkpedia-self`): two containers on a
     maintainer's NAS, 6 GB and up to 6 of its 8 cores each, so two jobs run at once instead of
     queueing (since 2026-10-02; one runner had every job wait behind every other). One Check
-    alone takes about 15 minutes; two at once share the cores.
+    alone takes about 15 minutes; two at once share the cores. Both also carry
+    `arkpedia-nas-build`, so either can take a deploy.
+  - `truenas-deploy` (label `arkpedia-nas-build` only, since 2026-10-13): a third container in
+    the same stack, up to 4 cores and 6 GB, that only Deploy can use. A deploy is a
+    `next build` and an upload, about 3 minutes.
   - `hetzner-vps` (labels `arkpedia-vps`, `arkpedia-self`): a maintainer's VPS, 2 vCPUs,
     about 3 GB. A full Check takes about 19 minutes.
 
