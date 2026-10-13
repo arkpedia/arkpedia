@@ -12,9 +12,11 @@ test('pending runs suppress duplicate preparations while later source pushes rem
   assert.equal(editorialPlan(changes, false).request, true);
   assert.equal(devPlan(undefined, true).request, false);
 });
-test('diverged and long editorial branches cannot replace newer canonical data', () => {
-  assert.throws(() => editorialPlan({ status: 'diverged' }), /contain current data main/);
+test('a branch main moved past is still published (the preparation merges main in), but not a long one', () => {
+  assert.equal(editorialPlan({ status: 'diverged', ahead_by: 1, behind_by: 4, files: [{ filename: 'source/data/events.json' }] }).request, true);
+  assert.throws(() => editorialPlan({ status: 'diverged', ahead_by: 101 }), /100 commits/);
   assert.throws(() => editorialPlan({ status: 'ahead', ahead_by: 101 }), /100 commits/);
+  assert.throws(() => editorialPlan({ status: 'unknown' }), /GitHub compare answered/);
 });
 test('automatic preparation refuses executable changes and incomplete change inventories', () => {
   assert.throws(() => editorialPlan({ status: 'ahead', ahead_by: 1, files: Array.from({ length: 300 }, (_, i) => ({ filename: `notes/${i}.md` })) }), /truncated/);

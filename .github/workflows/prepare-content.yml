@@ -14,6 +14,13 @@ on:
         description: Refresh supported upstream game data and asset revisions
         default: true
         type: boolean
+      # Set by the editorial watcher (scripts/content/editorial-watch.mjs): every daily refresh
+      # moves data main past the editorial branch, and on 2026-10-13 that held three edits back
+      # until someone merged main into it by hand.
+      merge_main:
+        description: 'If data_ref does not contain data main, merge main into it for this run (a conflict still fails)'
+        default: false
+        type: boolean
       # The one way past the record-count invariant, for a removal you intend: this run only,
       # named collections only, and the log and job summary still say how much each one lost.
       allow_shrink:
@@ -109,6 +116,7 @@ jobs:
         if: github.event_name != 'schedule' || steps.prepared.outputs.cache-hit != 'true'
         env:
           DATA_REF: ${{ inputs.data_ref || 'main' }}
+          MERGE_MAIN: ${{ inputs.merge_main && 'true' || '' }}
         run: |
           set -euo pipefail
           [[ "$DATA_REF" =~ ^[A-Za-z0-9][A-Za-z0-9_./-]*$ ]]
@@ -126,7 +134,19 @@ jobs:
           if [ "$data_head" != "$data_main" ]; then
             # Both checkouts are shallow; deepen the branch until it reaches main.
             git -C "$RUNNER_TEMP/arkpedia-data" fetch --deepen=100 origin "$data_head"
-            if ! git -C "$RUNNER_TEMP/arkpedia-data" merge-base --is-ancestor "$data_main" "$data_head"; then
+            if git -C "$RUNNER_TEMP/arkpedia-data" merge-base --is-ancestor "$data_main" "$data_head"; then :
+            elif [ "${MERGE_MAIN:-}" = true ]; then
+              # The merge commit exists only in this checkout; the publish step pushes it to
+              # main under the release commit, which leaves the branch behind main: published.
+              git -C "$RUNNER_TEMP/arkpedia-data" fetch --deepen=100 origin main
+              if ! git -C "$RUNNER_TEMP/arkpedia-data" -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+                  merge --quiet --no-edit -m "Merge data main into $DATA_REF" "$data_main"; then
+                git -C "$RUNNER_TEMP/arkpedia-data" merge --abort || true
+                echo "::error::$DATA_REF ($data_head) conflicts with data main ($data_main). Merge main into it by hand, resolving the conflict, and push again."
+                exit 1
+              fi
+              echo "Merged data main ($data_main) into $DATA_REF ($data_head) for this run."
+            else
               echo "::error::$DATA_REF ($data_head) does not contain data main ($data_main). Merge main into the correction branch and dispatch again. Only the branch's last 100 commits are searched, so a longer branch reads as not containing main too."
               exit 1
             fi

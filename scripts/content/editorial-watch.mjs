@@ -10,7 +10,9 @@ const api = route => JSON.parse(execFileSync('gh', ['api', route], { encoding: '
 export function editorialPlan(comparison, busy = false) {
   if (busy) return { request: false, reason: 'A main preparation is already queued or running.' };
   if (['identical', 'behind'].includes(comparison.status)) return { request: false, reason: 'Editorial commits are already in data main.' };
-  if (comparison.status !== 'ahead') throw new Error('Editorial branch must contain current data main. Pull data main into the editorial branch before pushing.');
+  // Diverged is the usual case: each daily refresh moves main past the branch. The preparation
+  // merges main in (merge_main), and fails on a conflict.
+  if (!['ahead', 'diverged'].includes(comparison.status)) throw new Error(`GitHub compare answered ${JSON.stringify(comparison.status)}.`);
   if (comparison.ahead_by > 100) throw new Error('Editorial branch is over 100 commits ahead of main; consolidate it before publishing.');
   const changed = comparison.files ?? [];
   if (changed.length >= 300) throw new Error('The compare may be truncated. Review this large change and prepare it manually.');
@@ -32,7 +34,7 @@ export const UNPUBLISHED_TITLE = 'Editorial edits unpublished';
  * nothing; a new stuck commit is news.
  */
 export function unpublishedPlan(comparison, now = new Date()) {
-  if (!comparison || comparison.status !== 'ahead') return { open: false };
+  if (!comparison || !['ahead', 'diverged'].includes(comparison.status)) return { open: false };
   const commits = (comparison.commits ?? []).map(entry => ({
     sha: entry.sha, subject: String(entry.commit?.message ?? '').split('\n')[0],
     at: Date.parse(entry.commit?.committer?.date ?? entry.commit?.author?.date ?? ''),
@@ -63,9 +65,10 @@ export const isBusy = (runs, afterRun = '') => runs.some(run => run.status !== '
 const busy = branch => isBusy(api(`repos/${APP}/actions/workflows/prepare-content.yml/runs?branch=${branch}&per_page=30`).workflow_runs, process.env.ARKPEDIA_AFTER_RUN);
 const ref = branch => api(`repos/${DATA}/commits/${encodeURIComponent(branch)}`).sha;
 const compare = (base, head) => api(`repos/${DATA}/compare/${base}...${head}`);
-function dispatch(branch, revision, dryRun) {
-  console.log(`${dryRun ? 'Would start' : 'Starting'} ${branch} preparation from data ${revision}, refresh_upstream=false.`);
-  if (!dryRun) execFileSync('gh', ['workflow', 'run', 'prepare-content.yml', '--repo', APP, '--ref', branch, '-f', `data_ref=${revision}`, '-f', 'refresh_upstream=false'], { stdio: 'inherit' });
+function dispatch(branch, revision, dryRun, mergeMain = false) {
+  const inputs = [`data_ref=${revision}`, 'refresh_upstream=false', ...(mergeMain ? ['merge_main=true'] : [])];
+  console.log(`${dryRun ? 'Would start' : 'Starting'} ${branch} preparation from data ${revision}, ${inputs.slice(1).join(', ')}.`);
+  if (!dryRun) execFileSync('gh', ['workflow', 'run', 'prepare-content.yml', '--repo', APP, '--ref', branch, ...inputs.flatMap(input => ['-f', input])], { stdio: 'inherit' });
 }
 export function watch({ mode = 'poll', editorialBranch = process.env.ARKPEDIA_EDITORIAL_BRANCH || 'editorial', dryRun = false } = {}) {
   if (!['poll', 'dev'].includes(mode)) throw new Error('Mode must be poll or dev.');
@@ -81,7 +84,7 @@ export function watch({ mode = 'poll', editorialBranch = process.env.ARKPEDIA_ED
     reportUnpublished(comparison, dryRun);
     const plan = editorialPlan(comparison, mainBusy);
     console.log(plan.reason);
-    if (plan.request) dispatch('main', head, dryRun);
+    if (plan.request) dispatch('main', head, dryRun, true);
     return;
   }
   if (mainBusy) { console.log('Waiting for main preparation before refreshing dev.'); return; }

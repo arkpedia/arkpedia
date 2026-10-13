@@ -48,6 +48,7 @@ test('editorial edits not in data main for over two hours raise "Editorial edits
   assert.match(plan.body, /`eeeeeeeeeeee` Give three operators palette recipes\n/);
   assert.doesNotMatch(plan.body, /body|08:17|2026-10-13/, 'subjects only, and no times: an unchanged backlog edits nothing');
   assert.equal(unpublishedPlan(stuck, now).body, plan.body);
+  assert.equal(unpublishedPlan({ ...stuck, status: 'diverged' }, now).body, plan.body, 'main moving past the branch hides nothing');
   const fresh = { status: 'ahead', commits: [commit(later, '2026-10-13T17:30:00Z', 'Just pushed')] };
   assert.deepEqual(unpublishedPlan(fresh, now), { open: false, waiting: true }, 'an edit minutes old is still on its way');
   for (const status of ['identical', 'behind']) assert.deepEqual(unpublishedPlan({ status }, now), { open: false }, 'published: close');
