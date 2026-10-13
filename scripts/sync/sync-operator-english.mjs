@@ -6,6 +6,8 @@ import { beginStage, defaultNow } from '../lib/quarantine.mjs';
 import { materialItems, readMaterialNames } from '../lib/material-items.mjs';
 import { pinnedRef } from '../content/pin-upstream.mjs';
 import { moduleStages } from './module-stages.mjs';
+import { BASE_ROOMS, facilityLabel } from '../lib/base-rooms.mjs';
+
 
 /** The quarantine stage this refresh reports under (data/quarantine.json). */
 export const STAGE = 'operator-english';
@@ -20,11 +22,7 @@ const RECOVERY = {
   ON_DEPLOY: 'Deployment Recovery',
 };
 const ACTIVATION = { MANUAL: 'Manual', AUTO: 'Auto', PASSIVE: 'Passive' };
-const ROOM = {
-  CONTROL: 'Control Center', DORMITORY: 'Dormitory', HIRE: 'Office', MANUFACTURE: 'Factory',
-  MEETING: 'Reception Room', POWER: 'Power Plant', TRADING: 'Trading Post',
-  TRAINING: 'Training Room', WORKSHOP: 'Workshop',
-};
+const ROOM = BASE_ROOMS;
 const PHASE = { PHASE_0: 'Base', PHASE_1: 'Elite 1', PHASE_2: 'Elite 2' };
 const VOICE_LANGUAGE = {
   EN: 'English', JP: 'Japanese', KR: 'Korean', CN_MANDARIN: 'Chinese',
@@ -262,8 +260,8 @@ function officialBaseSkills(characterId, building, current) {
     const facility = ROOM[buff.roomType] ?? buff.roomType;
     const phase = Number(String(entry.cond?.phase ?? 'PHASE_0').replace('PHASE_', '')) || 0;
     const level = entry.cond?.level ?? 1;
-    const prior = previous.find(p => p.facility === facility && nameKey(p.name) === nameKey(buff.buffName))
-      ?? (previous[index]?.facility === facility ? previous[index] : {});
+    const prior = previous.find(p => facilityLabel(p.facility) === facility && nameKey(p.name) === nameKey(buff.buffName))
+      ?? (facilityLabel(previous[index]?.facility) === facility ? previous[index] : {});
     return {
       ...prior,
       name: keepSpelling(prior.name, buff.buffName),
