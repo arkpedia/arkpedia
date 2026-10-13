@@ -5,10 +5,11 @@ import { stubYouTube, youtube } from './youtube-stub';
  * The music pages' one song row (components/music/SongRow.tsx, 2026-10-13). Every list -- a
  * Discover search with a song not on YouTube yet, the Library, Favourites, the Queue and its
  * autoplay, Up next and a saved playlist -- draws the same row: one height, the album art at one
- * size and one inset from the row's edge, whatever the variant (playing, queued, unavailable,
- * draggable). Before, five lists drew five rows, and Discover's unplayable songs had their art
- * flush against the edge. Every action in a row has an accessible name, and a desktop icon action
- * shows its name on hover and on keyboard focus.
+ * size and one inset from the row's edge, whatever the variant (playing, queued, draggable). Before,
+ * five lists drew five rows, and Discover's unplayable songs had their art flush against the edge.
+ * A song not on YouTube is an ordinary row: it plays from Monster Siren (music-msr-playback.spec).
+ * Every action in a row has an accessible name, and a desktop icon action shows its name on hover
+ * and on keyboard focus.
  */
 
 interface Metrics { view: string; variant: string; height: number; art: number; artHeight: number; inset: number; album: number | null }
@@ -17,7 +18,7 @@ async function measure(rows: Locator, view: string): Promise<Metrics[]> {
   return rows.evaluateAll((elements, name) => elements.filter(el => el.getBoundingClientRect().height > 0).map(el => {
     const row = el.getBoundingClientRect();
     const art = el.querySelector('.music-song-row-art')!.getBoundingClientRect();
-    const variant = ['active', 'current', 'queued', 'unavailable', 'draggable', 'disabled'].filter(c => el.classList.contains(c)).join('+') || 'plain';
+    const variant = ['active', 'current', 'queued', 'draggable', 'disabled'].filter(c => el.classList.contains(c)).join('+') || 'plain';
     // The album's own column (wide rows): where it shows, it starts at one offset down a list.
     const album = el.querySelector('.music-song-row-album');
     const albumBox = album && getComputedStyle(album).display !== 'none' ? album.getBoundingClientRect() : null;
@@ -49,16 +50,16 @@ test('every music list draws the same song row, and its actions are named', asyn
 
   // Discover: a search that lists a song with no YouTube upload yet beside playable ones.
   await page.goto('/music/discover');
-  const pending = await page.evaluate(() => (window as unknown as { __NEXT_DATA__: { props: { pageProps: { pendingSongs: { title: string; albumName: string }[] } } } })
+  const pending = await page.evaluate(() => (window as unknown as { __NEXT_DATA__: { props: { pageProps: { pendingSongs: { songId: string; albumName: string }[] } } } })
     .__NEXT_DATA__.props.pageProps.pendingSongs[0]);
   expect(pending, 'the bundled albums have a song with no YouTube upload').toBeTruthy();
   await page.getByRole('searchbox', { name: /Search songs, characters/ }).fill(pending.albumName);
-  await expect(page.locator('.music-discover-song-list .music-song-row.unavailable').first()).toBeVisible();
+  const msrRow = page.locator(`.music-discover-song-list [data-song-id="msr:${pending.songId}"]`);
+  await expect(msrRow).toBeVisible();
   await collect(rowsIn(page, '.music-discover-song-list'), 'discover');
-  expect(all.some(row => row.view === 'discover' && row.variant.includes('unavailable'))).toBe(true);
-  // The unplayable song links to Monster Siren, named with where it goes.
-  await expect(page.locator('.music-song-row.unavailable .music-song-row-main').first()).toHaveAttribute('href', /monster-siren\.hypergryph\.com\/music\//);
-  await expect(page.locator('.music-song-row.unavailable .music-song-row-main').first()).toHaveAttribute('aria-label', /Not on YouTube yet/);
+  // It is a row like the rest: a button that plays it, and the same actions.
+  await expect(msrRow.locator('.music-song-row-main')).toHaveAttribute('aria-label', /^Play .+ now$/);
+  await expect(msrRow.locator('a')).toHaveCount(0);
 
   // Library: play one song, queue two more, favourite one.
   await page.goto('/music?view=library');

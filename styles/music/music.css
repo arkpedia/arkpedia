@@ -431,12 +431,11 @@
 .music-song-row-sub { overflow: hidden; color: var(--text-dim); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 .music-song-row-main:hover .music-song-row-title,
 .music-song-row.active .music-song-row-title { color: var(--teal); }
-.music-song-row.unavailable .music-song-row-main:hover .music-song-row-sub { color: var(--teal); }
 .music-song-row.disabled { opacity: .7; }
 /* A wide row gives the album a column of its own, so the second line is the artist alone. */
 .music-song-row-album { display: none; }
 /* Measured against the row (a container, cqw), not the song area, so the column starts at one x
-   down a list whatever actions a row has (an unavailable song has none). */
+   down a list whatever actions a row has (a disabled song has none). */
 .music-song-row { container-type: inline-size; }
 @container (min-width: 760px) {
   .music-song-row-text { flex: 0 0 calc(45cqw - 64px); }
@@ -602,7 +601,6 @@
 .music-discover-album-tile-cover { display: block; width: 100%; height: auto; aspect-ratio: 1; border: 1px solid transparent; border-radius: var(--radius-control); object-fit: cover; background: var(--panel-2); background-clip: padding-box; transition: border-color 0.15s ease; }
 .music-discover-album-tile:hover .music-discover-album-tile-cover { border-color: var(--teal); }
 .music-discover-album-tile-cover.music-album-cover-placeholder { display: flex; font-size: 26px; }
-.music-discover-album-tile-note { font-size: 11px; color: var(--text-faint); }
 .music-discover-album-tile-name { display: block; overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .music-discover-album-tile:hover .music-discover-album-tile-name { color: var(--teal); }
 

@@ -15,14 +15,14 @@ import SongRow from './SongRow';
  */
 function LibraryRow({ song }: { song: MusicCatalogueSong }) {
   const { favorites, toggleFavorite, videoId, queued, playNow, queueSong } = useMusicPlayer();
-  const playing = videoId === song.videoId;
-  return <SongRow marker="music-library-row" song={{ id: song.videoId, title: song.title, altTitle: song.altTitle, artist: song.artist, album: song.album, cover: song.cover }}
-    active={playing} queued={queued.has(song.videoId)} onPlay={() => playNow(song.videoId)}
+  const playing = videoId === song.id;
+  return <SongRow marker="music-library-row" song={{ id: song.id, title: song.title, altTitle: song.altTitle, artist: song.artist, album: song.album, cover: song.cover }}
+    active={playing} queued={queued.has(song.id)} onPlay={() => playNow(song.id)}
     actions={{
-      playNow: () => playNow(song.videoId),
-      playNext: playing ? undefined : () => void queueSong(song.videoId, 'next'),
-      addToQueue: playing ? undefined : () => void queueSong(song.videoId, 'last'),
-      favorite: { on: favorites.has(song.videoId), toggle: () => toggleFavorite(song.videoId) },
+      playNow: () => playNow(song.id),
+      playNext: playing ? undefined : () => void queueSong(song.id, 'next'),
+      addToQueue: playing ? undefined : () => void queueSong(song.id, 'last'),
+      favorite: { on: favorites.has(song.id), toggle: () => toggleFavorite(song.id) },
       playlist: true,
     }} />;
 }
@@ -57,7 +57,7 @@ export default function MusicLibrary({ shown }: { shown: boolean }) {
   // (lib/music/songSearch.ts); built once per catalogue, not per keystroke.
   const index = useMemo(() => createSongIndex(songs ?? [], song => song), [songs]);
   const matches = useMemo(() => index.search(search).filter(song => !(excludeCopyrighted && song.copyright)
-    && (scope === 'all' || favorites.has(song.videoId))), [index, search, excludeCopyrighted, scope, favorites]);
+    && (scope === 'all' || favorites.has(song.id))), [index, search, excludeCopyrighted, scope, favorites]);
   useEffect(() => { setVisible(50); }, [search, excludeCopyrighted, scope]);
   const total = songs ? songs.filter(song => !(excludeCopyrighted && song.copyright)).length : null;
   return <section className="music-queue-panel music-library" aria-labelledby="music-library-heading">
@@ -71,7 +71,7 @@ export default function MusicLibrary({ shown }: { shown: boolean }) {
       {error ? <p className="hint" role="status">Could not load songs. <button type="button" className="ghost btn-sm" onClick={() => setAttempt(n => n + 1)}>Try again</button></p>
         : !songs ? <p className="hint" role="status">Loading all songs…</p>
           : !matches.length ? <p className="hint">{scope === 'favorites' && !search.trim() ? 'No favourites yet: press ♥ on a song to keep it here.' : 'No songs match your search.'}</p> : null}
-      {matches.slice(0, visible).map(song => <LibraryRow key={song.videoId} song={song} />)}
+      {matches.slice(0, visible).map(song => <LibraryRow key={song.id} song={song} />)}
       {shown && <LoadOnScroll shown={visible} total={matches.length} onMore={() => setVisible(n => n + 50)} />}
     </div>
   </section>;

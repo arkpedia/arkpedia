@@ -7,7 +7,8 @@
 import fs from 'fs';
 import path from 'path';
 import albumsRaw from '@/data/albums.json';
-import { albumCoverPath, getAllSongsFull, songsFromAlbums, MonsterSirenSong, RawAlbum, RawCredit } from './albumsData';
+import { albumCoverPath, getAllPlayerSongs, songsFromAlbums, MonsterSirenSong, RawAlbum, RawCredit } from './albumsData';
+import { lyricsPath } from './trackId';
 import { getAllOperators } from '@/lib/operators/operators';
 import { getOperatorAppearances } from '@/lib/operators/operatorAppearances';
 import { normalizeReleaseDate, parseReleaseDate } from './releaseDate.mjs';
@@ -36,9 +37,10 @@ export interface AlbumSummary {
   albumCategory: string[];
   albumGenre: string[];
   characters: string[];
-  /** Songs with a YouTube videoId: what the player can queue. */
+  /** Songs with a YouTube videoId. */
   songCount: number;
-  /** Songs Monster Siren published that have no videoId yet (the album sync flags each). */
+  /** Songs Monster Siren published that have no videoId yet (the album sync flags each); the
+   *  player plays these from Monster Siren (lib/music/trackId.ts). */
   pendingCount: number;
 }
 
@@ -179,7 +181,8 @@ export function albumSummaries(albums: readonly RawAlbum[]): AlbumSummary[] {
 let cachedSongDetails: SongDetail[] | null = null;
 function getAllSongDetails(): SongDetail[] {
   if (cachedSongDetails) return cachedSongDetails;
-  cachedSongDetails = getAllSongsFull().map((s) => ({
+  // The songs only Monster Siren has too: the player plays them, with their credits and lyrics.
+  cachedSongDetails = getAllPlayerSongs().map((s) => ({
     ...s,
     characterArt: resolveCharacterArt(s.characters),
     lyrics: getLyricsText(s.lyricFilename),
@@ -204,6 +207,8 @@ function getAllSongDetails(): SongDetail[] {
 // here at all -- see writeLyricsFilesToPublic below, which is how the
 // modal gets the real text on demand instead.
 export interface SongModalLookupEntry {
+  /** The track id (lib/music/trackId.ts): the YouTube video id, or msr:<cid> for a song that
+   *  plays from Monster Siren. Named videoId since releases carry it by that name. */
   videoId: string;
   title: string;
   albumName: string;
@@ -217,7 +222,7 @@ let cachedModalLookup: SongModalLookupEntry[] | null = null;
 export function getAllSongModalLookup(): SongModalLookupEntry[] {
   if (cachedModalLookup) return cachedModalLookup;
   cachedModalLookup = getAllSongDetails().map((s) => ({
-    videoId: s.videoId,
+    videoId: s.trackId,
     title: s.title,
     albumName: s.albumName,
     coverPath: s.coverPath,
@@ -247,7 +252,7 @@ export function writeLyricsFilesToPublic(): void {
   fs.mkdirSync(dir, { recursive: true });
   for (const s of getAllSongDetails()) {
     if (s.lyrics && s.lyrics.length > 0) {
-      const outPath = path.join(dir, `${s.videoId}.json`);
+      const outPath = path.join(process.cwd(), 'public', lyricsPath(s.trackId));
       fs.writeFileSync(outPath, JSON.stringify(s.lyrics), 'utf-8');
     }
   }
@@ -300,7 +305,8 @@ export interface DiscoverAlbum {
   albumAltName: string;
   coverPath: string | null;
   releaseDate: string;
-  /** False while none of its songs has a YouTube videoId: the player has nothing to queue. */
+  /** False while none of its songs has a YouTube videoId. Kept for releases that carry it; the
+   *  page no longer marks such an album, since its songs play from Monster Siren. */
   playable: boolean;
 }
 

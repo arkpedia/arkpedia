@@ -89,8 +89,9 @@ export function writeMusicResume(storage: SessionStore | null, state: MusicResum
   }
 }
 
-// A YouTube video id, as the player is handed it: nothing else reaches loadVideoById.
-const VIDEO_ID = /^[A-Za-z0-9_-]{1,64}$/;
+// A track id, as the player is handed it (lib/music/trackId.ts): a YouTube video id, or a Monster
+// Siren song's msr:<cid>. Nothing else reaches loadVideoById.
+const VIDEO_ID = /^(?:[A-Za-z0-9_-]{1,64}|msr:\d{1,12})$/;
 const isId = (value: unknown): value is string => typeof value === 'string' && VIDEO_ID.test(value);
 const isIdList = (value: unknown): value is string[] => Array.isArray(value) && value.length <= 20000 && value.every(isId);
 const isCount = (value: unknown): value is number => Number.isInteger(value) && (value as number) >= 0;

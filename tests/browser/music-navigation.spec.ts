@@ -202,7 +202,9 @@ test('a video the catalogue lists twice is one song in the queue and the Library
   // Dawn). The default queue held it twice, which #407's Check caught only when the shuffle put
   // both copies on screen; searching finds them wherever they are. Whatever the catalogue lists
   // twice is checked; the unit test (test-music-catalogue.ts) holds the rule without the data.
-  const catalogue = await (await page.request.get('/music-catalogue.json')).json() as { songs: { videoId: string; title: string }[] };
+  // A row is a YouTube video, or a Monster Siren song with no upload (cid, lib/music/trackId.ts).
+  const published = await (await page.request.get('/music-catalogue.json')).json() as { songs: { videoId?: string; cid?: string; title: string }[] };
+  const catalogue = { songs: published.songs.map(song => ({ ...song, videoId: song.videoId ?? `msr:${song.cid}` })) };
   const twice = catalogue.songs.filter((song, i) => catalogue.songs.findIndex(other => other.videoId === song.videoId) !== i);
   test.skip(!twice.length, 'the catalogue lists no video twice');
   await stubYouTube(page);

@@ -20,6 +20,7 @@ import MusicPlaylists from '@/components/music/MusicPlaylists';
 import MusicTransportBar from '@/components/music/MusicTransportBar';
 import SongRow from '@/components/music/SongRow';
 import { createSongIndex } from '@/lib/music/songSearch';
+import { msrTrackId } from '@/lib/music/trackId';
 
 interface Props {
   songs: DiscoverSong[];
@@ -36,8 +37,9 @@ interface Props {
 const searchFields = (originals: ReadonlyMap<string, string>) => (s: DiscoverSong | DiscoverPendingSong) => ({ title: s.title, altTitle: s.altTitle,
   artist: s.artist, album: s.albumName, albumOriginal: 'videoId' in s ? originals.get(s.videoId) : undefined, extra: [...s.characters, ...s.origin] });
 
-/** Where a song without a YouTube upload can be heard: its page on Monster Siren. */
-const monsterSirenSong = (songId: string) => `https://monster-siren.hypergryph.com/music/${encodeURIComponent(songId)}`;
+/** The player's id for a Discover song (lib/music/trackId.ts): a song with no YouTube upload
+ *  plays Monster Siren's own audio. */
+const trackIdOf = (s: DiscoverSong | DiscoverPendingSong) => ('videoId' in s ? s.videoId : msrTrackId(s.songId));
 
 // Keep the initial browse rows bounded. Show all expands a collection inline.
 const ROW_PREVIEW_COUNT = 24;
@@ -74,7 +76,9 @@ function Collection({ id, label, expanded, cloud = false, children }: { id: stri
 export default function DiscoverPage({ songs, characters, origins, artists, recentAlbums, pendingSongs }: Props) {
   const { playNow, queueSong, videoId: playingId, queued, favorites, toggleFavorite, libraryTracks } = useMusicPlayer();
   // The player bar's album art, as on /music: this page's songs carry their covers.
-  const coverByVideoId = useMemo(() => new Map(songs.map((s) => [s.videoId, s.coverPath])), [songs]);
+  const coverByVideoId = useMemo(() => new Map([...songs, ...pendingSongs].map((s) => [trackIdOf(s), s.coverPath])), [songs, pendingSongs]);
+  // Every song in one list, those on YouTube and those only Monster Siren has: all of them play.
+  const allSongs = useMemo(() => [...songs, ...pendingSongs], [songs, pendingSongs]);
   const router = useRouter();
 
   // Both the search text (?q=...) and the active facet are mirrored
@@ -132,14 +136,11 @@ export default function DiscoverPage({ songs, characters, origins, artists, rece
   // The music pages' one song search (lib/music/songSearch.ts): title, album in both names,
   // artist, then characters and story, typo-tolerant, best match first while a query is typed.
   const originals = useMemo(() => new Map(libraryTracks.filter(track => track.albumOriginal).map(track => [track.id, track.albumOriginal as string])), [libraryTracks]);
-  const songIndex = useMemo(() => createSongIndex(songs, searchFields(originals)), [songs, originals]);
-  const pendingIndex = useMemo(() => createSongIndex(pendingSongs, searchFields(originals)), [pendingSongs, originals]);
+  /* Songs of a new album nobody has found a YouTube upload for yet are ranked with the rest:
+     the player plays them from Monster Siren. They used to be listed after every match, as
+     links to Monster Siren, and before that left a new album's tile on "No songs match". */
+  const songIndex = useMemo(() => createSongIndex(allSongs, searchFields(originals)), [allSongs, originals]);
   const filteredSongs = useMemo(() => (isBrowsing ? [] : songIndex.search(query).filter(inFacets)), [songIndex, query, inFacets, isBrowsing]);
-  /* Songs of a new album nobody has found a YouTube upload for yet: the player cannot queue
-     them, so they are listed after the playable ones, linking to Monster Siren. Without them
-     a new album's tile opened onto "No songs match". */
-  const filteredPending = useMemo(() => (isBrowsing ? [] : pendingIndex.search(query).filter(inFacets)), [pendingIndex, query, inFacets, isBrowsing]);
-  const playableAlbums = useMemo(() => new Set(songs.map((s) => s.albumId)), [songs]);
 
   // Mirrors the queue panel's "Show more" pagination on /music (see
   // QUEUE_PAGE_SIZE in pages/music/index.tsx): a broad facet -- one
@@ -164,11 +165,11 @@ export default function DiscoverPage({ songs, characters, origins, artists, rece
   // for each: "what's IN these results" is the same question either way.
   const resultAlbums = useMemo(() => {
     const seen = new Map<string, { albumId: string; albumName: string; coverPath: string | null }>();
-    for (const s of [...filteredSongs, ...filteredPending]) {
+    for (const s of filteredSongs) {
       if (!seen.has(s.albumId)) seen.set(s.albumId, { albumId: s.albumId, albumName: s.albumName, coverPath: s.coverPath });
     }
     return Array.from(seen.values());
-  }, [filteredSongs, filteredPending]);
+  }, [filteredSongs]);
 
   const resultArtists = useMemo(() => {
     const seen = new Set<string>();
@@ -183,6 +184,7 @@ export default function DiscoverPage({ songs, characters, origins, artists, rece
   }, [filteredSongs]);
 
   const artByName = useMemo(() => new Map(characters.map((c) => [c.name, c.artPath])), [characters]);
+  const playlistSongs = useMemo(() => allSongs.map((s) => ({ videoId: trackIdOf(s), title: s.title })), [allSongs]);
 
   function backToBrowse() {
     setQuery('');
@@ -231,7 +233,7 @@ export default function DiscoverPage({ songs, characters, origins, artists, rece
 
       {/* The music section's one header and nav, in the same place as on /music, so moving
           between Discover and the player's views moves nothing. */}
-      <PageHeader slim compact eyebrow="Sound Archive" title="Music" actions={<MusicPlaylists songs={songs} />} />
+      <PageHeader slim compact eyebrow="Sound Archive" title="Music" actions={<MusicPlaylists songs={playlistSongs} />} />
       <main className="music-discover-page">
         <MusicNav current="discover" />
         <div className="music-discover-search-row">
@@ -253,30 +255,26 @@ export default function DiscoverPage({ songs, characters, origins, artists, rece
                 Songs
                 {activeFacetLabel && <span className="music-discover-active-facet"> · {activeFacetLabel}</span>}
               </h2>
-              {filteredSongs.length === 0 && filteredPending.length === 0 ? (
+              {filteredSongs.length === 0 ? (
                 <p className="hint">No songs match. Try a different search or go back and pick something else.</p>
               ) : (
                 <div className="music-discover-song-list">
-                  {visibleFilteredSongs.map((s) => (
+                  {visibleFilteredSongs.map((s) => {
+                    const id = trackIdOf(s);
                     // One upload can be on two albums (切尔诺伯格 is on OST 3 and Prelude to Dawn): a
                     // row per album listing, keyed by both.
-                    <SongRow key={`${s.albumId}:${s.videoId}`} marker="music-discover-song-row"
-                      song={{ id: s.videoId, title: s.title, altTitle: s.altTitle, artist: s.artist, album: s.albumName, cover: s.coverPath }}
-                      active={playingId === s.videoId} queued={queued.has(s.videoId)} onPlay={() => playSong(s.videoId)}
+                    return <SongRow key={`${s.albumId}:${id}`} marker="music-discover-song-row"
+                      song={{ id, title: s.title, altTitle: s.altTitle, artist: s.artist, album: s.albumName, cover: s.coverPath }}
+                      active={playingId === id} queued={queued.has(id)} onPlay={() => playSong(id)}
                       actions={{
-                        playNow: () => playSong(s.videoId),
-                        playNext: playingId === s.videoId ? undefined : () => void queueSong(s.videoId, 'next'),
-                        addToQueue: playingId === s.videoId ? undefined : () => void queueSong(s.videoId, 'last'),
-                        favorite: { on: favorites.has(s.videoId), toggle: () => toggleFavorite(s.videoId) },
+                        playNow: () => playSong(id),
+                        playNext: playingId === id ? undefined : () => void queueSong(id, 'next'),
+                        addToQueue: playingId === id ? undefined : () => void queueSong(id, 'last'),
+                        favorite: { on: favorites.has(id), toggle: () => toggleFavorite(id) },
                         playlist: true,
-                      }} />
-                  ))}
+                      }} />;
+                  })}
                   <LoadOnScroll shown={songsVisibleCount} total={filteredSongs.length} onMore={() => setSongsVisibleCount((c) => c + SONGS_PAGE_SIZE)} />
-                  {songsVisibleCount >= filteredSongs.length && filteredPending.map((s) => (
-                    <SongRow key={s.songId} marker="music-discover-song-row"
-                      song={{ id: `pending:${s.songId}`, title: s.title, altTitle: s.altTitle, album: s.albumName, cover: s.coverPath }}
-                      unavailable={{ href: monsterSirenSong(s.songId), label: 'Not on YouTube yet · Listen on Monster Siren ↗' }} />
-                  ))}
                 </div>
               )}
             </section>
@@ -295,7 +293,6 @@ export default function DiscoverPage({ songs, characters, origins, artists, rece
                     >
                       <AlbumCover coverPath={a.coverPath} size={120} className="music-discover-album-tile-cover" />
                       <span className="music-discover-album-tile-name">{a.albumName}</span>
-                      {!playableAlbums.has(a.albumId) && <span className="music-discover-album-tile-note">Not on YouTube yet</span>}
                     </button>
                   ))}
                 </ScrollRow>
@@ -353,7 +350,6 @@ export default function DiscoverPage({ songs, characters, origins, artists, rece
                   >
                     <AlbumCover coverPath={a.coverPath} size={120} className="music-discover-album-tile-cover" />
                     <span className="music-discover-album-tile-name">{a.albumAltName}</span>
-                    {!a.playable && <span className="music-discover-album-tile-note">Not on YouTube yet</span>}
                   </button>
                 ))}
               </ScrollRow>

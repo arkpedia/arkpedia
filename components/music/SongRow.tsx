@@ -15,10 +15,10 @@ import { songTitle } from '@/lib/music/musicPolish';
  *
  * Variants are modifiers of the same row, never other markup: the song playing (active, ▶ on its
  * art), the queue's current song (current: not dragged or removed), a queued badge, a draggable
- * queue row (its handle last, so the art keeps its inset), and a song with no YouTube upload yet
- * (unavailable: the row links to Monster Siren and has no play or queue actions). Before
- * 2026-10-13 four views drew four rows, and Discover's unplayable songs a fifth with its art
- * flush against the edge.
+ * queue row (its handle last, so the art keeps its inset), and a saved playlist's song the
+ * catalogue no longer has (disabled). Before 2026-10-13 four views drew four rows, and
+ * Discover's unplayable songs a fifth with its art flush against the edge. A song with no YouTube
+ * upload is an ordinary row: the player plays it from Monster Siren (lib/music/trackId.ts).
  */
 export interface SongRowSong {
   id: string;
@@ -59,7 +59,6 @@ export interface SongRowProps {
   active?: boolean;
   current?: boolean;
   queued?: boolean;
-  unavailable?: { href: string; label: string };
   /** A saved playlist's song the catalogue no longer has: shown, not playable, no actions. */
   disabled?: boolean;
   onPlay?: () => void;
@@ -75,12 +74,12 @@ function ActionButton({ label, tip, icon, onClick, pressed }: { label: string; t
   </button>;
 }
 
-export default function SongRow({ song, marker, active = false, current = false, queued = false, unavailable, disabled = false, onPlay, actions = {}, drag, data }: SongRowProps) {
+export default function SongRow({ song, marker, active = false, current = false, queued = false, disabled = false, onPlay, actions = {}, drag, data }: SongRowProps) {
   const title = songTitle(song.title, song.altTitle);
-  // The second line: artist · album (an unavailable song: album · where to hear it). On a wide
-  // screen the album has its own column instead, so the line keeps only what remains.
-  const lead = unavailable ? unavailable.label : song.artist;
-  const classes = ['music-song-row', marker, active && 'active', current && 'current', queued && 'queued', unavailable && 'unavailable', disabled && 'disabled',
+  // The second line: artist · album. On a wide screen the album has its own column instead, so
+  // the line keeps only what remains.
+  const lead = song.artist;
+  const classes = ['music-song-row', marker, active && 'active', current && 'current', queued && 'queued', disabled && 'disabled',
     drag && 'draggable', drag?.dragging && 'dragging', drag?.dropSide && `drop-${drag.dropSide}`].filter(Boolean).join(' ');
   const body = <>
     <span className="music-song-row-art">
@@ -90,19 +89,16 @@ export default function SongRow({ song, marker, active = false, current = false,
     <span className="music-song-row-text">
       <span className="music-song-row-title">{title}</span>
       {(lead || song.album) && <span className="music-song-row-sub">
-        {unavailable ? <>{song.album && <span className="music-song-row-sub-album">{song.album} · </span>}{lead}</>
-          : <>{lead}{lead && song.album && <span className="music-song-row-sub-album"> · </span>}{song.album && <span className="music-song-row-sub-album">{song.album}</span>}</>}
+        {lead}{lead && song.album && <span className="music-song-row-sub-album"> · </span>}{song.album && <span className="music-song-row-sub-album">{song.album}</span>}
       </span>}
     </span>
     {song.album && <span className="music-song-row-album">{song.album}</span>}
   </>;
   const { playNow, playNext, addToQueue, favorite, playlist, remove, reorder } = actions;
-  const menu = !unavailable && !disabled && (favorite || playlist || playNow || playNext || addToQueue || remove || reorder);
+  const menu = !disabled && (favorite || playlist || playNow || playNext || addToQueue || remove || reorder);
   return <div className={classes} data-song-id={song.id} {...Object.fromEntries(Object.entries(data ?? {}).map(([key, value]) => [`data-${key}`, value]))}
     draggable={drag ? !drag.locked : undefined} onDragStart={drag && !drag.locked ? drag.onDragStart : undefined} onDragEnd={drag?.onDragEnd}>
-    {unavailable
-      ? <a className="music-song-row-main" href={unavailable.href} target="_blank" rel="noopener noreferrer" title={title} aria-label={`${title}: ${unavailable.label}`}>{body}</a>
-      : <button type="button" className="btn-bare music-song-row-main" disabled={disabled} title={title} aria-label={disabled ? title : active ? `${title}, playing now` : `Play ${title} now`} onClick={onPlay}>{body}</button>}
+    <button type="button" className="btn-bare music-song-row-main" disabled={disabled} title={title} aria-label={disabled ? title : active ? `${title}, playing now` : `Play ${title} now`} onClick={onPlay}>{body}</button>
     {queued && !active && <span className="music-song-row-badge">Queued</span>}
     {menu && <div className="music-song-row-actions music-song-desktop-actions">
       {playNext && <ActionButton label={`Play next: ${title}`} tip="Play next" icon="playNext" onClick={playNext} />}

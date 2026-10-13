@@ -1,6 +1,8 @@
 import { MUSIC_FAVORITES_KEY, readMusicFavorites } from './musicFavorites';
+import { isStoredTrackId } from './trackId';
 
-/** Portable Arkpedia playlists: stable video IDs in the reader's chosen order. */
+/** Portable Arkpedia playlists: stable track ids (YouTube video ids, or msr:<cid> for a song that
+ *  plays from Monster Siren, lib/music/trackId.ts) in the reader's chosen order. */
 export const MUSIC_PLAYLISTS_KEY = 'arkpedia.music-playlists.v1';
 export const MUSIC_PLAYLISTS_EVENT = 'arkpediaMusicPlaylistsChanged';
 export const FAVORITES_PLAYLIST_ID = 'arkpedia-favourites';
@@ -17,7 +19,7 @@ export function validatePlaylists(value: unknown): MusicPlaylist[] {
     if (!object(item) || typeof item.id !== 'string' || !/^[a-zA-Z0-9_-]{1,100}$/.test(item.id) || ids.has(item.id)
       || typeof item.name !== 'string' || !item.name.trim() || item.name.length > 100
       || !Array.isArray(item.tracks) || item.tracks.length > 5000
-      || !item.tracks.every(id => typeof id === 'string' && /^[a-zA-Z0-9_-]{11}$/.test(id))) {
+      || !item.tracks.every(isStoredTrackId)) {
       throw new Error('This file contains an invalid playlist.');
     }
     total += item.tracks.length;
@@ -44,7 +46,7 @@ function readStoredPlaylists(storage: Pick<Storage, 'getItem'>): MusicPlaylist[]
 /** Favourites is always present and derives its songs from the same storage as the hearts. */
 export function readPlaylists(storage: Pick<Storage, 'getItem'>): MusicPlaylist[] {
   return [{ id: FAVORITES_PLAYLIST_ID, name: FAVORITES_PLAYLIST_NAME,
-    tracks: [...readMusicFavorites(storage)].filter(id => /^[a-zA-Z0-9_-]{11}$/.test(id)) },
+    tracks: [...readMusicFavorites(storage)].filter(isStoredTrackId) },
     ...readStoredPlaylists(storage).filter(p => p.id !== FAVORITES_PLAYLIST_ID)];
 }
 /** Promote old manually saved favourites once, without losing their songs. */
@@ -69,7 +71,7 @@ export function writePlaylists(storage: Pick<Storage, 'getItem' | 'setItem'>, ne
 }
 /** Append to selected playlists without reordering tracks or adding duplicates. */
 export function addSongToPlaylists(existing: MusicPlaylist[], selected: string[], videoId: string): MusicPlaylist[] {
-  if (!/^[a-zA-Z0-9_-]{11}$/.test(videoId)) throw new Error('This song could not be saved.');
+  if (!isStoredTrackId(videoId)) throw new Error('This song could not be saved.');
   if (selected.some(id => !existing.some(p => p.id === id))) throw new Error('A selected playlist no longer exists. Choose another playlist.');
   const ids = new Set(selected);
   return validatePlaylists(existing.map(p => ids.has(p.id) && !p.tracks.includes(videoId) ? { ...p, tracks: [...p.tracks, videoId] } : p));

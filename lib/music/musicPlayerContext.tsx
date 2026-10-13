@@ -7,20 +7,14 @@ import { MUSIC_FAVORITES_EVENT, MUSIC_FAVORITES_KEY, readMusicFavorites } from '
 import { migrateChosenQueue, restoreQueue, sessionStore, takeMusicResume, writeMusicResume, type MusicResumeState } from './musicResume';
 import { songTitle } from './musicPolish';
 import { clearUpcoming, placeSong, restoreAround, type Placement, type QueueState } from './queueOps';
+import { PLAYER_STATE, createMsrAudioEngine, createTrackEngine, type PlaybackEngine, type TrackEngine } from './playbackEngine';
+import { useMsrMediaSession } from './useMsrMediaSession';
 
-export interface YTPlayer {
-  playVideo(): void;
-  pauseVideo(): void;
-  setVolume(v: number): void;
+/** YouTube's iframe player, which is a PlaybackEngine as it stands (lib/music/playbackEngine.ts). */
+export interface YTPlayer extends PlaybackEngine {
   mute(): void;
   unMute(): void;
-  seekTo(seconds: number, allowSeekAhead: boolean): void;
-  getCurrentTime(): number;
-  getDuration(): number;
   getPlaylist(): string[] | undefined;
-  getVideoData(): { title?: string; video_id?: string };
-  loadVideoById(video: string | { videoId: string; startSeconds?: number }): void;
-  cueVideoById(video: string | { videoId: string; startSeconds?: number }): void;
 }
 
 declare global {
@@ -88,7 +82,7 @@ export interface MusicNotice {
 export type QueueSongResult = 'queued' | 'current' | 'unavailable';
 
 function toQueueTrack(song: MusicCatalogueSong): QueueTrack {
-  return { id: song.videoId, title: song.title, altTitle: song.altTitle ?? null, artist: song.artist ?? null,
+  return { id: song.id, title: song.title, altTitle: song.altTitle ?? null, artist: song.artist ?? null,
     album: song.album ?? null, albumOriginal: song.albumOriginal ?? null, cover: song.cover ?? null };
 }
 
@@ -164,7 +158,10 @@ export function useMusicPlayer(): MusicPlayerContextValue {
 }
 
 export function MusicPlayerProvider({ children }: { children: ReactNode }) {
-  const playerRef = useRef<YTPlayer | null>(null);
+  // The player's engine (lib/music/playbackEngine.ts): YouTube's iframe for a song on YouTube,
+  // Monster Siren's audio for one that is not, behind one surface. Set once YouTube is ready.
+  const playerRef = useRef<TrackEngine | null>(null);
+  const playerCreatedRef = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const catalogRef = useRef<MusicCatalogueSong[] | null>(null);
   const catalogPromiseRef = useRef<Promise<MusicCatalogueSong[]> | null>(null);
@@ -418,7 +415,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     // Until loading finishes, the preference above is all we need:
     // buildQueueFromCatalog will apply it to the initial queue.
     if (!fullCatalog) return;
-    const catalogById = new Map(fullCatalog.map((s) => [s.videoId, s]));
+    const catalogById = new Map(fullCatalog.map((s) => [s.id, s]));
 
     let nextQueue: QueueTrack[];
     // Maps each OLD queue index to its new index (or -1 if it got
@@ -442,7 +439,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
       });
       const existingIds = new Set(oldQueue.map((t) => t.id));
       const toAdd = fullCatalog
-        .filter((s) => !existingIds.has(s.videoId) && (!playlistIdsRef.current || playlistIdsRef.current.includes(s.videoId)))
+        .filter((s) => !existingIds.has(s.id) && (!playlistIdsRef.current || playlistIdsRef.current.includes(s.id)))
         .map(toQueueTrack);
       nextQueue = [...oldQueue, ...toAdd];
     }
@@ -531,7 +528,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   }, []);
 
   function nextAutoplayTracks(): QueueTrack[] {
-    const byId = new Map((catalogRef.current ?? []).filter(song => !(excludeCopyrightedRef.current && song.copyright)).map(song => [song.videoId, toQueueTrack(song)]));
+    const byId = new Map((catalogRef.current ?? []).filter(song => !(excludeCopyrightedRef.current && song.copyright)).map(song => [song.id, toQueueTrack(song)]));
     const chosen = new Set(queueRef.current.map(track => track.id));
     const ids = [...new Set([...autoplayOrderRef.current, ...byId.keys()])];
     const at = ids.indexOf(autoplayVideoIdRef.current || videoIdRef.current);
@@ -645,9 +642,90 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     // The catalogue can arrive after the iframe API on a slow network.
     // Wait for both so the first Play click uses the intended queue.
     Promise.all([loadYouTubeApi(), loadFullQueue()]).then(() => {
-      if (cancelled || !containerRef.current || playerRef.current) return;
+      if (cancelled || !containerRef.current || playerCreatedRef.current) return;
+      playerCreatedRef.current = true;
 
-      playerRef.current = new window.YT.Player(containerRef.current, {
+      // What either engine reports, handled once (lib/music/playbackEngine.ts). Only the engine
+      // of the track loaded is heard: the other one's last events (YouTube's pause as a Monster
+      // Siren song starts, the audio's as YouTube takes over) are not about this track.
+      const fromEngine = (kind: 'youtube' | 'msr', run: (engine: TrackEngine) => void) => {
+        const engine = playerRef.current;
+        if (engine?.active() === kind) run(engine);
+      };
+      const audio = createMsrAudioEngine({
+        onState: (state) => fromEngine('msr', (engine) => onPlayerState(state, engine)),
+        onError: () => fromEngine('msr', onPlayerError),
+        onAutoplayBlocked: () => fromEngine('msr', onAutoplayRefused),
+      });
+
+      const onPlayerError = () => {
+        // Unplayable video (deleted, region-blocked, embedding
+        // disabled, age-restricted, etc.), or Monster Siren audio that
+        // would not load -- skip it instead of leaving playback dead
+        // with no recovery.
+        setIsPlaying(false);
+        // A short saved playlist may consist entirely of unavailable videos.
+        // Stop at its end instead of wrapping and retrying the same failures forever.
+        const order = shuffleRef.current ? shuffleOrderRef.current : null;
+        const atEnd = order ? shufflePositionRef.current >= order.length - 1
+          : queueIndexRef.current >= queueRef.current.length - 1;
+        if (playlistIdsRef.current && atEnd) { endResumeWatch(); return; }
+        nextTrack();
+      };
+
+      // The browser would not let this document start sound by itself (autoplay): a resumed
+      // song waits at its moment for the reader's Play. So does a song that came up by itself
+      // (the last one ended): it is loaded and shown, paused, one press away, rather than the
+      // player hanging on the song before. Monster Siren's audio meets this on iOS, where only
+      // a press starts sound.
+      const onAutoplayRefused = (engine: TrackEngine) => {
+        if (resumeWatchRef.current) { refuseResume(); return; }
+        setIsPlaying(false);
+        setStarting(false);
+        const id = engine.getVideoData()?.video_id;
+        if (!id) return;
+        const seconds = engine.getCurrentTime();
+        cuedAtRef.current = { videoId: id, seconds };
+        videoIdRef.current = id;
+        setVideoId(id);
+        setTitle(catalogRef.current?.find((song) => song.id === id)?.title ?? '');
+        setCurrentTime(seconds);
+        setDuration(engine.getDuration());
+      };
+
+      const onPlayerState = (data: number, engine: TrackEngine) => {
+        const state = PLAYER_STATE;
+        playerStateRef.current = data;
+        const watch = resumeWatchRef.current;
+        if (data === state.CUED && watch?.phase === 'cue') {
+          watch.phase = 'play';
+          watch.since = Date.now();
+          engine.playVideo();
+        }
+        if (data === state.PLAYING) {
+          cuedAtRef.current = null;
+          endResumeWatch();
+          setIsPlaying(true);
+          const video = engine.getVideoData();
+          setTitle(video?.title || '');
+          setVideoId(video?.video_id || '');
+          setDuration(engine.getDuration());
+          // Retry if the initial catalogue load failed.
+          if (queueRef.current.length === 0) loadFullQueue();
+        } else if (data === state.PAUSED) {
+          setIsPlaying(false);
+        } else if (data === state.ENDED) {
+          setIsPlaying(false);
+          if (repeatModeRef.current === 'one') {
+            const id = engine.getVideoData()?.video_id || videoIdRef.current;
+            if (id) engine.loadVideoById(id);
+          } else {
+            nextTrack();
+          }
+        }
+      };
+
+      new window.YT.Player(containerRef.current, {
         height: '1',
         width: '1',
         playerVars: {
@@ -655,6 +733,8 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
         },
         events: {
           onReady: (e: { target: YTPlayer }) => {
+            const engine = createTrackEngine(e.target, audio);
+            playerRef.current = engine;
             playerReadyRef.current = true;
             // The song the last document was playing (lib/music/musicResume.ts), if any.
             const record = resumeRef.current;
@@ -668,7 +748,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
             } catch {
               /* ignore */
             }
-            e.target.setVolume(savedVolume);
+            engine.setVolume(savedVolume);
             setVolume(savedVolume);
 
             // A specific track was requested (via playTrackByVideoId)
@@ -690,7 +770,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
                   setShufflePosition(pos);
                 }
               }
-              e.target.loadVideoById(vid);
+              engine.loadVideoById(vid);
               setReady(true);
               setStarting(false);
               return;
@@ -702,7 +782,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
             // copyrighted song while stream-safe is on, which another tab may have
             // turned on since.
             const excluded = record && excludeCopyrightedRef.current
-              && catalogRef.current?.some((song) => song.videoId === record.videoId && song.copyright);
+              && catalogRef.current?.some((song) => song.id === record.videoId && song.copyright);
             if (record && excluded) {
               // The queue as it would start, stopped; not the record's song on show.
               pendingPlayRef.current = false;
@@ -714,7 +794,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
               const play = pendingPlayRef.current;
               pendingPlayRef.current = false;
               cuedAtRef.current = { videoId: record.videoId, seconds: record.seconds };
-              e.target.cueVideoById({ videoId: record.videoId, startSeconds: record.seconds });
+              engine.cueVideoById({ videoId: record.videoId, startSeconds: record.seconds });
               setReady(true);
               if (play) {
                 resumeWatchRef.current = { videoId: record.videoId, seconds: record.seconds, phase: 'cue', since: Date.now() };
@@ -735,7 +815,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
             const order = shuffleRef.current ? shuffleOrderRef.current : null;
             const startIdx = order && order.length > 0 ? order[0] : 0;
             if (q.length > 0) {
-              e.target.cueVideoById(q[startIdx].id);
+              engine.cueVideoById(q[startIdx].id);
               setQueueIndex(startIdx);
               if (order && order.length > 0) {
                 shufflePositionRef.current = 0;
@@ -749,60 +829,14 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
             // press play a second time.
             if (pendingPlayRef.current) {
               pendingPlayRef.current = false;
-              if (q.length) e.target.playVideo();
+              if (q.length) engine.playVideo();
               else if (!playAutoplayTrack()) { announce('Pick a song in Library or Discover.'); void router.push('/music?view=library'); }
             }
             setStarting(false);
           },
-          onError: () => {
-            // Unplayable video (deleted, region-blocked, embedding
-            // disabled, age-restricted, etc.) -- skip it instead of
-            // leaving playback dead with no recovery.
-            setIsPlaying(false);
-            // A short saved playlist may consist entirely of unavailable videos.
-            // Stop at its end instead of wrapping and retrying the same failures forever.
-            const order = shuffleRef.current ? shuffleOrderRef.current : null;
-            const atEnd = order ? shufflePositionRef.current >= order.length - 1
-              : queueIndexRef.current >= queueRef.current.length - 1;
-            if (playlistIdsRef.current && atEnd) { endResumeWatch(); return; }
-            nextTrack();
-          },
-          // The browser would not let this document start sound by itself (autoplay):
-          // a resumed song waits at its moment for the reader's Play.
-          onAutoplayBlocked: () => {
-            if (resumeWatchRef.current) refuseResume();
-          },
-          onStateChange: (e: { data: number; target: YTPlayer }) => {
-            const state = window.YT.PlayerState;
-            playerStateRef.current = e.data;
-            const watch = resumeWatchRef.current;
-            if (e.data === state.CUED && watch?.phase === 'cue') {
-              watch.phase = 'play';
-              watch.since = Date.now();
-              e.target.playVideo();
-            }
-            if (e.data === state.PLAYING) {
-              cuedAtRef.current = null;
-              endResumeWatch();
-              setIsPlaying(true);
-              const data = e.target.getVideoData();
-              setTitle(data?.title || '');
-              setVideoId(data?.video_id || '');
-              setDuration(e.target.getDuration());
-              // Retry if the initial catalogue load failed.
-              if (queueRef.current.length === 0) loadFullQueue();
-            } else if (e.data === state.PAUSED) {
-              setIsPlaying(false);
-            } else if (e.data === state.ENDED) {
-              setIsPlaying(false);
-              if (repeatModeRef.current === 'one') {
-                const id = e.target.getVideoData()?.video_id || videoIdRef.current;
-                if (id) e.target.loadVideoById(id);
-              } else {
-                nextTrack();
-              }
-            }
-          },
+          onError: () => fromEngine('youtube', onPlayerError),
+          onAutoplayBlocked: () => fromEngine('youtube', onAutoplayRefused),
+          onStateChange: (e: { data: number }) => fromEngine('youtube', (engine) => onPlayerState(e.data, engine)),
         },
       });
     });
@@ -824,7 +858,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     if (!watch || !player) return;
     // Paused somewhere: it stays there. Otherwise cued again, as a refused start may have left
     // YouTube unstarted, without the moment.
-    if (playerStateRef.current === window.YT.PlayerState.PAUSED) {
+    if (playerStateRef.current === PLAYER_STATE.PAUSED) {
       setCurrentTime(player.getCurrentTime());
       return;
     }
@@ -842,7 +876,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
         return;
       }
       const waited = Date.now() - watch.since;
-      if (playerStateRef.current === window.YT.PlayerState.BUFFERING && waited < RESUME_BUFFER_MS) return;
+      if (playerStateRef.current === PLAYER_STATE.BUFFERING && waited < RESUME_BUFFER_MS) return;
       if (waited < (watch.phase === 'cue' ? RESUME_CUE_MS : RESUME_PLAY_MS)) return;
       refuseResume();
     }, 500);
@@ -1034,7 +1068,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   function putFirst(videoId: string) {
     const previous = queueRef.current;
     const index = previous.findIndex(track => track.id === videoId);
-    const song = catalogRef.current?.find(song => song.videoId === videoId);
+    const song = catalogRef.current?.find(song => song.id === videoId);
     const track = previous[index] ?? (song && !(excludeCopyrightedRef.current && song.copyright) ? toQueueTrack(song) : null);
     if (!track) return;
     const next = [track, ...previous.filter(track => track.id !== videoId)];
@@ -1089,7 +1123,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   async function playPlaylist(videoIds: string[] | null, playlistId?: string): Promise<number> {
     if (!playerReadyRef.current) return 0;
     await buildQueueFromCatalog();
-    const byId = new Map((catalogRef.current ?? []).map(song => [song.videoId, song]));
+    const byId = new Map((catalogRef.current ?? []).map(song => [song.id, song]));
     const tracks = [...new Set(videoIds ?? [...byId.keys()])].flatMap(id => {
       const song = byId.get(id);
       return song && !(excludeCopyrightedRef.current && song.copyright) ? [toQueueTrack(song)] : [];
@@ -1126,8 +1160,8 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     const position = order ? Math.max(0, order.indexOf(queueIndexRef.current)) : 0;
     shufflePositionRef.current = position; setShufflePosition(position);
     const library = catalogRef.current ?? [];
-    const at = Math.max(0, library.findIndex(song => song.videoId === videoIdRef.current));
-    autoplayOrderRef.current = turningOn && library.length ? generateShuffleOrder(library.length, at).map(index => library[index].videoId) : [];
+    const at = Math.max(0, library.findIndex(song => song.id === videoIdRef.current));
+    autoplayOrderRef.current = turningOn && library.length ? generateShuffleOrder(library.length, at).map(index => library[index].id) : [];
   }
 
   function cycleRepeat() {
@@ -1308,12 +1342,12 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   }
   /** The catalogue's song as a queue row, unless stream-safe leaves it out. */
   function playableTrack(id: string): QueueTrack | null {
-    const song = catalogRef.current?.find(entry => entry.videoId === id);
+    const song = catalogRef.current?.find(entry => entry.id === id);
     return song && !(excludeCopyrightedRef.current && song.copyright) ? toQueueTrack(song) : null;
   }
   const trackTitle = (id: string) => {
     const track = queueRef.current.find(track => track.id === id);
-    const song = catalogRef.current?.find(song => song.videoId === id);
+    const song = catalogRef.current?.find(song => song.id === id);
     return songTitle(track?.title ?? song?.title ?? 'This song', track?.altTitle ?? song?.altTitle);
   };
 
@@ -1394,6 +1428,15 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     announce('Restored the queue.');
   }
 
+  const currentTrack = libraryTracks.find(track => track.id === videoId) ?? queue.find(track => track.id === videoId);
+  useMsrMediaSession(videoId, currentTrack, isPlaying, contentUrl, {
+    play: () => { if (!isPlayingRef.current) togglePlay(); },
+    pause: pausePlayback,
+    next: () => void nextTrack(),
+    previous: prevTrack,
+    seek: (seconds) => { setCurrentTime(seconds); handleSeekCommit(seconds); },
+  });
+
   const value: MusicPlayerContextValue = {
     ready,
     starting,
@@ -1416,7 +1459,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     queued,
     queueSource,
     libraryTracks,
-    currentTrack: libraryTracks.find(track => track.id === videoId) ?? queue.find(track => track.id === videoId),
+    currentTrack,
     autoplay, autoplayVideoId, autoplayTracks: nextAutoplayTracks(), setAutoplay,
     notice,
     dismissNotice,

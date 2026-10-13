@@ -160,8 +160,10 @@ try {
     assert.ok(Math.abs(servedNow - Date.now() / 1000) < 120, `${name} runtime stage clock is stale`);
     // The Library's song count and search, and the player's queue, come from the release's
     // catalogue. Counted as the player reads it (lib/music/musicCatalogue.ts): one song per
-    // video, since the catalogue may list an upload twice; release B adds one new video.
-    const songs = new Set(JSON.parse(fs.readFileSync(path.join(root, 'public/music-catalogue.json'))).songs.map(song => song.videoId)).size;
+    // track -- a YouTube video, or a Monster Siren song (cid) with no upload -- since the catalogue
+    // may list an upload twice; release B adds one new video.
+    const songs = new Set(JSON.parse(fs.readFileSync(path.join(root, 'public/music-catalogue.json'))).songs
+      .map(song => song.videoId || `msr:${song.cid}`)).size;
     const catalogueRequests = [];
     const noteCatalogue = request => { if (request.url().includes('/public/music-catalogue.json')) catalogueRequests.push(request.url()); };
     page.on('request', noteCatalogue);

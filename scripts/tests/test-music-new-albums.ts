@@ -57,9 +57,9 @@ test('every album cover on the music pages goes through AlbumCover, so none can 
   const offenders: string[] = [];
   for (const file of files) {
     fs.readFileSync(file, 'utf8').split('\n').forEach((line, i) => {
-      if (!/<Image\b[^>]*\bsrc=\{[^}]*coverPath/.test(line)) return;
+      if (!/<Image\b[^>]*\bsrc=\{[^}]*[cC]over/.test(line)) return;
       // The now-playing cover fills a 280px frame and has its own ♪ fallback beside it.
-      if (file === 'pages/music/index.tsx' && /currentDetail\.coverPath/.test(line)) return;
+      if (file === 'pages/music/index.tsx' && /src=\{nowPlayingCover\}/.test(line)) return;
       offenders.push(`${file}:${i + 1}: ${line.trim()}`);
     });
   }

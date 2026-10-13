@@ -11,6 +11,7 @@ import type { LyricLine } from '@/lib/music/albumsDataServer';
 import { useMusicPlayer } from '@/lib/music/musicPlayerContext';
 import { songTitle, upcomingIndices, lyricPreview } from '@/lib/music/musicPolish';
 import { useCrossFadeTitle } from '@/lib/music/useCrossFadeTitle';
+import { lyricsPath, youtubeWatchUrl } from '@/lib/music/trackId';
 import MusicWaveVisualizer from '@/components/music/MusicWaveVisualizer';
 import MusicPlaylists from '@/components/music/MusicPlaylists';
 import MusicLibrary from '@/components/music/MusicLibrary';
@@ -43,7 +44,7 @@ function formatRoleLabel(role: string): string {
 
 // Module-level per-song cache -- same pattern as SongDetailModal.tsx
 // used before it: each song's lyrics are fetched at most once per
-// session, from lyrics/{videoId}.json, not embedded in this page's own
+// session, from lyrics/{track}.json (lib/music/trackId.ts lyricsPath), not embedded in this page's own
 // static props.
 //
 // The address is passed in rather than built here: this is module scope, so it
@@ -124,6 +125,9 @@ export default function MusicPage({ songLookup }: Props) {
 
   const detailByVideoId = useMemo(() => new Map(songLookup.map((s) => [s.videoId, s])), [songLookup]);
   const currentDetail = detailByVideoId.get(videoId);
+  // The album's cover: from this page's release props, else from the player's catalogue (a song
+  // a release compiled before Monster Siren songs were listed here has its cover only there).
+  const nowPlayingCover = currentDetail?.coverPath ?? currentTrack?.cover ?? null;
 
   // From this page's release props, like the credits: a lyric file is published for exactly
   // the songs whose lyrics parse, which is what this flag says, so the Lyrics button never
@@ -152,7 +156,7 @@ export default function MusicPage({ songLookup }: Props) {
     }
     let cancelled = false;
     setLyricsLoading(true);
-    fetchLyricsFor(contentUrl(`/lyrics/${videoId}.json`)).then((lines) => {
+    fetchLyricsFor(contentUrl(lyricsPath(videoId))).then((lines) => {
       if (!cancelled) {
         setLyrics(lines);
         setLyricsLoading(false);
@@ -211,7 +215,8 @@ export default function MusicPage({ songLookup }: Props) {
     }, 4000);
   }
 
-  const youtubeUrl = videoId ? `https://www.youtube.com/watch?v=${videoId}` : null;
+  // A Monster Siren song (lib/music/trackId.ts) has no YouTube page to link to.
+  const youtubeUrl = youtubeWatchUrl(videoId);
   const catalogTitle = currentTrack?.title || title || 'Nothing playing yet';
   const { displayName: nowPlayingName, fading: titleFading } = useCrossFadeTitle(catalogTitle, currentTrack?.altTitle);
 
@@ -265,8 +270,8 @@ export default function MusicPage({ songLookup }: Props) {
 
             <div className="music-now-playing-cover-col">
               <div className="music-now-playing-cover">
-                {currentDetail?.coverPath ? (
-                  <Image src={currentDetail.coverPath} alt={currentDetail.albumName || title} fill sizes="280px" style={{ objectFit: 'cover' }} />
+                {nowPlayingCover ? (
+                  <Image src={nowPlayingCover} alt={currentDetail?.albumName || currentTrack?.album || title} fill sizes="280px" style={{ objectFit: 'cover' }} />
                 ) : (
                   <span className="music-now-playing-cover-fallback">♪</span>
                 )}
@@ -380,7 +385,7 @@ export default function MusicPage({ songLookup }: Props) {
           </div>
         </div>
 
-        <MusicTransportBar view={view} onFullPlayer coverPath={currentDetail ? currentDetail.coverPath ?? null : undefined} />
+        <MusicTransportBar view={view} onFullPlayer coverPath={currentDetail || currentTrack ? nowPlayingCover : undefined} />
       </main>
     </>
   );
