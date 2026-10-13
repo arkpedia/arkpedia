@@ -5,6 +5,7 @@ import { parseReleaseDate } from '../../lib/music/releaseDate.mjs';
 import { unconfirmedOutfitSales } from './outfit-windows.mjs';
 import { checkMaterialCatalogue, uncataloguedCosts } from '../../lib/farming/materialCatalogue.mjs';
 import { waitsForGlobal } from '../../lib/gacha/waitsForGlobal.mjs';
+import { furnitureKey } from '../../lib/events/furnitureName.mjs';
 
 const safe = name => name.replace(/[\\/*?:"<>|]/g, '').trim();
 // A reward name that is a scrape's stand-in for a missing item, not the item.
@@ -44,7 +45,7 @@ export const LISTED_REWARD_KINDS = ['login', 'banner-gift', 'free-rolls', 'missi
  * nothing that could ever clear them. The page still draws one if a file under its name is ever
  * published.
  */
-export function eventRewardIcons(event, { eventStores, eventRewards }) {
+export function eventRewardIcons(event, { eventStores, eventRewards, outfitNames = new Map() }) {
   const icons = [];
   const named = (name, file) => icons.push({ name, file });
   // A row drawn by its name: the scrape's stand-ins for an item ("?", "TBD", "Furniture not
@@ -56,8 +57,8 @@ export function eventRewardIcons(event, { eventStores, eventRewards }) {
     else named(name, `material-icons/${safe(text)}.webp`);
   };
   const groups = list(eventRewards.events?.[event.name]?.groups);
-  const furniture = new Map(groups.flatMap(group => [...list(group.items).filter(item => item?.kind === 'furniture' && /^furni_/.test(item.id ?? '')).map(item => [item.name, item.id]),
-    ...list(group.pieces).map(piece => [piece.name, piece.id])]));
+  const furniture = new Map(groups.flatMap(group => [...list(group.items).filter(item => item?.kind === 'furniture' && /^furni_/.test(item.id ?? '')).map(item => [furnitureKey(item.name), item.id]),
+    ...list(group.pieces).map(piece => [furnitureKey(piece.name), piece.id])]));
   const storeNames = eventRewards.storeNames ?? {};
   const wiki = list(eventStores.events?.[event.name]?.stores);
   const store = wiki.length ? wiki.flatMap(block => list(block?.items)).map(({ iconName: _, ...item }) => item)
@@ -66,7 +67,7 @@ export function eventRewardIcons(event, { eventStores, eventRewards }) {
     const name = typeof item?.name === 'string' ? item.name.trim() : '';
     if (!name || PLACEHOLDER.test(name)) icons.push({ name: item?.name ?? '', placeholder: true });
     else if (item.type === 'upware') continue; // a mode's own piece: unsourced (see above)
-    else if (item.type === 'furniture' && furniture.has(item.name)) named(name, `material-icons/${safe(furniture.get(item.name))}.webp`);
+    else if (item.type === 'furniture' && furniture.has(furnitureKey(item.name))) named(name, `material-icons/${safe(furniture.get(furnitureKey(item.name)))}.webp`);
     else if (item.type === 'skin') icons.push({ name, outfit: name });
     else byName(name, item.iconName ?? name);
   }
@@ -80,7 +81,10 @@ export function eventRewardIcons(event, { eventStores, eventRewards }) {
         if (item?.kind === 'free-roll') named(item.name, 'material-icons/Headhunting Permit.webp');
         else if (/^avatar_/.test(id)) named(item.name, `profile-avatars/${id.toLowerCase()}.webp`);
         else if (/^furni_/.test(id)) named(item.name, `material-icons/${safe(id)}.webp`);
-        else if (item?.kind === 'outfit') icons.push({ name: item.name, outfit: String(item.name).split(' / ').pop() });
+        // By its skin id where the outfit records have it (outfitNames: skinId -> English name, as
+        // the page reads it): a CN reward names the outfit in Chinese ("阿罗玛 / 舒心野趣"), and
+        // the icon is under its English name (Aroma - Picnic Times.webp; issue #59, 2026-10-13).
+        else if (item?.kind === 'outfit') icons.push({ name: item.name, outfit: outfitNames.get(id) ?? String(item.name).split(' / ').pop() });
         else if (item?.kind !== 'other' || item?.iconName) byName(item?.name, item?.iconName ?? item?.name);
       }
     }
@@ -262,13 +266,26 @@ export function reviewCompleteness({ inventory, operators, skins, banners, event
   // import-reward-icons.py's to fetch (a test holds the two to the same files), and it reports the
   // ones it cannot find under 'reward-icons', one entry each, with why.
   const SHOWN = 3;
+  // An event's player icons come from Global's client alone (the image repository imports
+  // profile-avatars/ from EN display_meta_table), so before Global runs the event there is none
+  // to publish: Dolly's Playground, Thunder in the Azure Dream and Sur le lac lune vivante were
+  // held as overdue for icons no source could have (issue #59, 2026-10-13). Held from the day
+  // the record dates its Global run, estimated or not; never before. The day alone is read: a
+  // few hours early only starts the wait that much sooner.
+  const today = new Date(now ?? Date.now()).getTime();
+  const onGlobal = event => {
+    const day = String(event?.global?.startAt ?? event?.global?.dateRange ?? '').match(/(\d{4})[/-](\d{2})[/-](\d{2})/);
+    return Boolean(day) && Date.UTC(Number(day[1]), Number(day[2]) - 1, Number(day[3])) <= today;
+  };
+  const outfitNames = new Map(list(skins).filter(skin => skin?.skinId && skin?.name).map(skin => [skin.skinId, skin.name]));
   for (const event of events) {
     const unpublished = new Set();
     const held = new Set();
     const holdReward = reason => { if (!held.has(reason)) { held.add(reason); hold(eventKey(event), 'published-partial', reason); } };
-    for (const icon of eventRewardIcons(event, { eventStores, eventRewards })) {
+    for (const icon of eventRewardIcons(event, { eventStores, eventRewards, outfitNames })) {
       if (icon.placeholder) holdReward(`${event.name} reward "${icon.name}": a placeholder, not an item name`);
       else if (icon.outfit != null) { if (!outfitIcons.has(icon.outfit.trim().toLowerCase())) holdReward(`${event.name} reward outfit ${icon.outfit}: no published outfit icon`); }
+      else if (icon.file.startsWith('profile-avatars/') && !onGlobal(event)) continue;
       else if (missing(icon.file)) unpublished.add(icon.file);
     }
     if (unpublished.size) {

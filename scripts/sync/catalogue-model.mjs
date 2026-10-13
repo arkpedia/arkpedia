@@ -3,6 +3,7 @@ import { cnModuleTables, gapReason, localizeReleasedMechanics } from './sync-ope
 import { stripRichText } from '../lib/gametext.mjs';
 import { cnDays, daysOverlap, windowDays, sameAnnouncedBanner } from '../build/cn-news.mjs';
 import { serverDay } from '../lib/server-day.mjs';
+import { waitsForGlobal } from '../../lib/gacha/waitsForGlobal.mjs';
 const list = x => Array.isArray(x) ? x : [];
 const stableOrder = (previous, next) => [...list(previous).filter(n => next.includes(n)), ...next.filter(n => !list(previous).includes(n))];
 const CLASSES = { WARRIOR: 'Guard', SNIPER: 'Sniper', TANK: 'Defender', MEDIC: 'Medic', SUPPORT: 'Supporter', CASTER: 'Caster', SPECIAL: 'Specialist', PIONEER: 'Vanguard' };
@@ -829,16 +830,6 @@ export function reconcileCalendars({ events, banners, operators, cn, en, eventRo
       banner.banner_image ??= art;
     }
     if (isNew || banner.nameStatus === 'cn-official') banner.nameStatus = 'en-unofficial';
-    // Planned for every record a row touches: assetPlan drops what is published, so art
-    // the wiki had not uploaded yet is asked for again on each run until it lands.
-    if (banner.banner_image?.startsWith('/headhunting-banner-images/')) {
-      // A Joint Operation's or an Orienteering's art is Global's upload only: CN's shows the
-      // operators CN offered, and Global offers others. Until Global runs it the wiki has none,
-      // and its record is not shown anyway (lib/gacha/headhuntingBannerData.ts).
-      media.push({ path: banner.banner_image.slice(1), wikiFiles: ['jo', 'orient'].includes(row.type)
-        ? [wikiFile(`EN ${title} banner.png`)]
-        : [wikiFile(`CN ${title} banner.png`), wikiFile(`${title} banner.png`)] });
-    }
     banner.cnPoolId = client.gachaPoolId;
     banner.cn_date = `${serverDay(client.openTime)}–${serverDay(client.endTime)}`;
     // Keep confirmed CN announcement timestamps; calendar discovery adds days only.
@@ -883,6 +874,19 @@ export function reconcileCalendars({ events, banners, operators, cn, en, eventRo
       banner.globalPoolId = pool.gachaPoolId;
       banner.global_date = `${serverDay(pool.openTime,-7)}–${serverDay(pool.endTime,-7)}`;
       banner.global_window = windowFor(pool.openTime,pool.endTime,enSource,banner.global_window);
+    }
+    // Planned for every record a row touches: assetPlan drops what is published, so art
+    // the wiki had not uploaded yet is asked for again on each run until it lands. Planned
+    // last, once the row has set the kind and the CN and Global pools waitsForGlobal reads.
+    // A Joint Operation's or an Orienteering's art is Global's upload only: CN's shows the
+    // operators CN offered, and Global offers others. Until Global runs it the wiki has none
+    // and its record is not shown (lib/gacha/headhuntingBannerData.ts), so it is not asked
+    // for: JO 22/23 and Orienteering 7/#8 were held as overdue for art no one had uploaded
+    // (issue #59, 2026-10-13). check-completeness skips the same records.
+    if (banner.banner_image?.startsWith('/headhunting-banner-images/') && !waitsForGlobal(banner)) {
+      media.push({ path: banner.banner_image.slice(1), wikiFiles: ['jo', 'orient'].includes(row.type)
+        ? [wikiFile(`EN ${title} banner.png`)]
+        : [wikiFile(`CN ${title} banner.png`), wikiFile(`${title} banner.png`)] });
     }
   }
   // A recent CN pool no record holds is a banner in its own right, wiki row or not: it is

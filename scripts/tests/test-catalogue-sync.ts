@@ -133,11 +133,16 @@ test('a numbered banner\'s art is asked of the wiki without its #, and a Joint O
   const result=reconcileCalendars({announced:noNews,events:[],banners:[],operators:sixStar,cn:cnTables,en:empty,eventRows:[],now:september,
     bannerRows:[{type:'orient',no:'8',cnstart:'2026/09/15',operators:'Featured Six, Five A'},{type:'jo',no:'19',cnstart:'2026/09/17',operators:'Featured Six, Five A'}]});
   assert.deepEqual(result.banners.map((b:any)=>[b.name,b.banner_image]),[['Orienteering #8','/headhunting-banner-images/Orienteering #8.webp'],['Joint Operation #19','/headhunting-banner-images/Joint Operation #19.webp']]);
-  // Their CN art shows CN's operators, which Global's will not have: only the EN upload is asked for.
-  assert.deepEqual(result.media,[
-    {path:'headhunting-banner-images/Orienteering #8.webp',wikiFiles:['EN Orienteering 8 banner.png']},
-    {path:'headhunting-banner-images/Joint Operation #19.webp',wikiFiles:['EN Joint Operation 19 banner.png']},
-  ]);
+  // Global has run neither: there is no EN upload to ask for yet. Asking every night held JO 22/23
+  // and Orienteering 7/#8 as overdue in the content quarantine (issue #59, 2026-10-13).
+  assert.deepEqual(result.media,[]);
+  // Global runs the Joint Operation (its pool opens on the row's Global start): its EN upload is
+  // asked for, and only that -- CN's art shows CN's operators, which Global's will not have.
+  const enPool={...pool('NORM_76_0_9','NORMAL','2026/10/01','Joint Operation #19'),openTime:Date.parse('2026-10-01T12:00:00Z')/1000};
+  const global=reconcileCalendars({announced:noNews,events:[],banners:[],operators:sixStar,cn:cnTables,en:{...empty,gacha:{gachaPoolClient:[enPool]}},eventRows:[],now:september,
+    bannerRows:[{type:'orient',no:'8',cnstart:'2026/09/15',operators:'Featured Six, Five A'},{type:'jo',no:'19',cnstart:'2026/09/17',start:'2026/10/01',operators:'Featured Six, Five A'}]});
+  assert.equal(global.banners.find((b:any)=>b.name==='Joint Operation #19').globalPoolId,'NORM_76_0_9');
+  assert.deepEqual(global.media,[{path:'headhunting-banner-images/Joint Operation #19.webp',wikiFiles:['EN Joint Operation 19 banner.png']}]);
 });
 
 test('a recent CN pool with no record is published from the client under its Chinese name, and the wiki row renames and completes it later',()=>{

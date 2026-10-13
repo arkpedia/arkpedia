@@ -32,6 +32,7 @@ import { computeRewardTotals, type ResolvedRewardItem, type ResolvedRewardStore,
 import { eventExtras, furniturePieceSource, NO_EXTRAS, tableRewardStores, type EventExtras, type EventRewardsFile } from '@/lib/events/tableRewards';
 import { ALL_TAB, eventLink, EXTRA_TABS, readEventLink, rewardTabsFor, shownRewardTab } from '@/lib/events/rewardTabs';
 import { eventTitle, isRerun } from '@/lib/events/eventName.mjs';
+import { furnitureKey } from '@/lib/events/furnitureName.mjs';
 import { announcedRewards } from '@/lib/events/announcements';
 import { RewardClick, RewardDetailsProvider, type ResolvedTicket } from '@/components/events/RewardDetails';
 import { EventFurniture, EventLoginDays, EventNotices, EventPacks, type LoginDetails } from '@/components/events/EventExtras';
@@ -502,6 +503,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
   const artAspect = cgImages.length > 0 ? CG_ASPECT : POSTER_ASPECT;
 
   const skinImageByName = new Map(allSkins.filter((s) => s.image).map((s) => [s.name, s.image as string]));
+  const skinNameById = new Map(allSkins.filter((s) => s.skinId && s.name).map((s) => [s.skinId as string, s.name]));
   const eventRewards = (await import('@/data/event-rewards.json')).default as EventRewardsFile;
   // The store's Chinese item names in English, where the Global tables have them.
   const storeNames = eventRewards.storeNames ?? {};
@@ -531,8 +533,8 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
   // events' "Duel Trophy" are different pieces, so the name is looked up in this event alone.
   const furnitureIds = new Map<string, string>();
   for (const group of rewardEntry?.groups ?? []) {
-    for (const item of group.items) if (item.kind === 'furniture' && /^furni_/.test(item.id)) furnitureIds.set(item.name, item.id);
-    for (const piece of group.pieces ?? []) furnitureIds.set(piece.name, piece.id);
+    for (const item of group.items) if (item.kind === 'furniture' && /^furni_/.test(item.id)) furnitureIds.set(furnitureKey(item.name), item.id);
+    for (const piece of group.pieces ?? []) furnitureIds.set(furnitureKey(piece.name), piece.id);
   }
   const rewardStores: ResolvedRewardStore[] = rawStores.map((store) => ({
     type: store.type,
@@ -552,7 +554,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
       stock: item.stock ?? '1',
       // Null while the image repository has not published the icon: the row keeps its
       // box without a broken image, and the release quarantines it (rewardIconPath).
-      iconPath: rewardIconPath({ ...item, id: item.type === 'furniture' ? furnitureIds.get(item.name) ?? null : null }, (skinName) => findSkinIconPath(skinName) || skinImageByName.get(skinName) || null, publicFileExists),
+      iconPath: rewardIconPath({ ...item, id: item.type === 'furniture' ? furnitureIds.get(furnitureKey(item.name)) ?? null : null }, (skinName) => findSkinIconPath(skinName) || skinImageByName.get(skinName) || null, publicFileExists),
     })),
   }));
   // The rewards the game tables list beyond the store: sign-in events, gifts, missions and
@@ -570,7 +572,9 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
     if (item.kind === 'free-roll') return rewardIconPath({ name: 'Headhunting Permit', type: 'material', id: null }, () => null, publicFileExists);
     return rewardIconPath(
       { name: item.name, iconName: item.iconName, type: item.kind === 'outfit' ? 'skin' : 'material', id: item.id ?? null },
-      (skinName) => findSkinIconPath(skinName.split(' / ').pop() ?? skinName) || null,
+      // By the skin id first: a CN reward names its outfit in Chinese ("阿罗玛 / 舒心野趣"),
+      // and the icon is under the English name the outfit record gives that id.
+      (skinName) => findSkinIconPath((item.id && skinNameById.get(item.id)) || (skinName.split(' / ').pop() ?? skinName)) || null,
       publicFileExists,
     );
   };

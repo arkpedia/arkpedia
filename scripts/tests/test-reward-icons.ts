@@ -9,6 +9,7 @@ import { buildSkinIconIndex } from '../../lib/skins/skinIconLookup';
 // @ts-expect-error Node publication scripts are plain JavaScript.
 import { checkCompleteness, eventRewardIcons, LISTED_REWARD_KINDS, reviewCompleteness } from '../content/check-completeness.mjs';
 import { TABLE_REWARD_LABEL } from '../../lib/events/tableRewards';
+import { furnitureKey } from '../../lib/events/furnitureName.mjs';
 import { emptyCatalogue } from './fixtures/catalogue';
 
 /* A made-up store in the shape of the Contingency Contract Obliteration listing that drew a
@@ -131,8 +132,10 @@ const eventRewards = { storeNames: { '制式木盆': 'Standard Wooden Basin' }, 
   [duelB]: { groups: [{ kind: 'missions', title: 'Event missions', source: 's', items: [reward('Duel Trophy', 'furniture', 'furni_enemyduel_diceAll_02'), reward('?', 'material', '30012')] },
     { kind: 'packs', title: 'PACKS', source: 's', items: [], packs: [{ name: 'Mystery Pack', contents: [{ name: 'TBD', count: 1, kind: 'permit' }] }] }] },
 } };
-const duelEvents = [{ name: duelA, activityId: 'act99duel', rewards: [{ items: [{ name: 'Furniture not found' }] }] },
-  { name: duelB, activityId: 'act98duel', rewards: [{ items: [{ name: 'Duel Trophy', type: 'furniture' }, { name: '制式木盆', type: 'furniture' }, { name: 'Furniture not found' }, { name: 'Unseen Terrain', type: 'skin' }] }] }];
+// Both ran on Global (a player icon is held only from the record's Global start).
+const ranOnGlobal = { dateRange: '2026/01/01–2026/01/14' };
+const duelEvents = [{ name: duelA, activityId: 'act99duel', global: ranOnGlobal, rewards: [{ items: [{ name: 'Furniture not found' }] }] },
+  { name: duelB, activityId: 'act98duel', global: ranOnGlobal, rewards: [{ items: [{ name: 'Duel Trophy', type: 'furniture' }, { name: '制式木盆', type: 'furniture' }, { name: 'Furniture not found' }, { name: 'Unseen Terrain', type: 'skin' }] }] }];
 const filesOf = (events: object[]) => [...new Set(events.flatMap(event => eventRewardIcons(event, { eventStores, eventRewards }) as { file?: string }[]).flatMap(icon => (icon.file ? [icon.file] : [])))];
 const byCodeUnit = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 
@@ -203,6 +206,66 @@ test('every reward icon the release holds is one import-reward-icons.py fetches 
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
+});
+
+test('a store row finds its piece of furniture whichever quotes each source wraps the name in, in the importer and the release alike', () => {
+  // Dorothy's Vision: building_data names the pieces 'Contemplation' and 'Tree of Life', the wiki's
+  // store "Contemplation" and "Tree of Life", the rerun's store Contemplation: no piece matched, so
+  // the rows were asked for and held as "Contemplation".webp (issue #59, 2026-10-13).
+  const vision = '[Side Story] Vision', rerun = '[Rerun] Vision Rerun';
+  const pieces = { kind: 'furniture-set', title: 'Set', source: 's', items: [], pieces: [{ name: "'Contemplation'", id: 'furni_rhineLab_ceilingLight_01' }, { name: '\u2018Tree of Life\u2019', id: 'furni_rhineLab_plant_01' }] };
+  const stores = { events: { [vision]: { stores: [{ name: 'Store', currency: 'Token', items: [row('"Contemplation"'), row('\u201cTree of Life\u201d'), row("Rock 'n' Roll")] }] },
+    [rerun]: { stores: [{ name: 'Store', currency: 'Token', items: [row('Contemplation'), row('Tree of Life')] }] } } };
+  const rewards = { events: { [vision]: { groups: [pieces] }, [rerun]: { groups: [pieces] } } };
+  const events = [{ name: vision, activityId: 'act97side', rewards: [] }, { name: rerun, activityId: 'act97side_re', rewards: [] }];
+  const held = [...new Set(events.flatMap(event => eventRewardIcons(event, { eventStores: stores, eventRewards: rewards }) as { file?: string }[]).flatMap(icon => (icon.file ? [icon.file] : [])))].sort(byCodeUnit);
+  assert.deepEqual(held, ["material-icons/Rock 'n' Roll.webp", 'material-icons/furni_rhineLab_ceilingLight_01.webp', 'material-icons/furni_rhineLab_plant_01.webp']);
+  assert.equal(furnitureKey('"Contemplation"'), 'Contemplation');
+  assert.equal(furnitureKey("Rock 'n' Roll"), "Rock 'n' Roll", 'quotes inside a name stay');
+  assert.equal(furnitureKey('"Mismatched\u2019'), '"Mismatched\u2019', 'only a matching pair is a wrapping');
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'arkpedia-reward-quotes-'));
+  try {
+    const write = (file: string, data: unknown) => { fs.mkdirSync(path.dirname(path.join(root, file)), { recursive: true }); fs.writeFileSync(path.join(root, file), JSON.stringify(data)); };
+    write('data/events/events_2099.json', events);
+    write('data/event-stores.json', stores);
+    write('data/event-rewards.json', rewards);
+    const run = spawnSync('python3', [path.resolve('scripts/imports/import-reward-icons.py'), '--wanted'], { cwd: root, encoding: 'utf8', env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1' } });
+    assert.equal(run.status, 0, run.stdout + run.stderr);
+    assert.deepEqual((JSON.parse(run.stdout) as string[]).sort(byCodeUnit), held);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('an outfit reward named in Chinese finds its icon by its skin id, through the outfit records', () => {
+  // Critical Phase Transition's login outfit is "阿罗玛 / 舒心野趣"; its icon is
+  // five-star-icons/Aroma - Picnic Times.webp, the English name skins.json gives
+  // char_446_aroma@epoque#54. By the Chinese name it was held for good (issue #59, 2026-10-13).
+  const name = '[Celebration] Phase';
+  const rewards = { events: { [name]: { groups: [{ kind: 'login', title: 'Login', source: 's', items: [reward('阿罗玛 / 舒心野趣', 'outfit', 'char_446_aroma@epoque#54')] }] } } };
+  const skins = [{ name: 'Picnic Times', skinId: 'char_446_aroma@epoque#54' }];
+  const review = (assets: Set<string>, records: object[]) => reviewCompleteness(emptyCatalogue({ events: [{ name, activityId: 'act96' }], eventStores: { events: {} }, eventRewards: rewards, skins: records, assets }))
+    .quarantine.map((entry: { reason: string }) => entry.reason).filter((reason: string) => reason.includes('reward outfit'));
+  const icon = new Set(['five-star-icons/Aroma - Picnic Times.webp']);
+  assert.deepEqual(review(icon, skins), []);
+  assert.deepEqual(review(new Set(), skins), [`${name} reward outfit Picnic Times: no published outfit icon`]);
+  // An outfit the records do not have yet is still looked up by the name the reward gives.
+  assert.deepEqual(review(icon, []), [`${name} reward outfit 舒心野趣: no published outfit icon`]);
+});
+
+test('an event\'s player icon is not held before the record dates its Global run, and is from that day on', () => {
+  // Player icons come from Global's client alone: Dolly's Playground (Global unannounced) and two
+  // crossovers estimated for November and February were held as overdue for them (issue #59).
+  const name = '[Event] Playground';
+  const rewards = { events: { [name]: { groups: [{ kind: 'milestones', title: 'Milestones', source: 's', items: [reward("Icon 'Play'", 'other', 'avatar_activity_PG1'), reward('Orirock Cube', 'material', '30013')] }] } } };
+  const review = (global: object, now: string) => reviewCompleteness(emptyCatalogue({ events: [{ name, activityId: 'act95', global }], eventStores: { events: {} }, eventRewards: rewards, assets: new Set(), now: new Date(now) }))
+    .quarantine.map((entry: { reason: string }) => entry.reason);
+  const both = `${name}: 2 reward icons not published: material-icons/Orirock Cube.webp, profile-avatars/avatar_activity_pg1.webp`;
+  const material = `${name}: 1 reward icon not published: material-icons/Orirock Cube.webp`;
+  assert.deepEqual(review({ dateRange: null, note: 'Global release unannounced' }, '2026-10-13T00:00:00Z'), [material]);
+  assert.deepEqual(review({ dateRange: '2026/11/07–2026/11/21', note: 'ESTIMATED Global date' }, '2026-10-13T00:00:00Z'), [material]);
+  assert.deepEqual(review({ dateRange: '2026/11/07–2026/11/21', note: 'ESTIMATED Global date' }, '2026-11-07T12:00:00Z'), [both]);
+  assert.deepEqual(review({ dateRange: '2025/01/01–2025/01/14' }, '2026-10-13T00:00:00Z'), [both]);
 });
 
 test('the kinds of table reward the release checks are the kinds the page lists', () => {
