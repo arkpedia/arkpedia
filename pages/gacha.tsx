@@ -829,7 +829,7 @@ function KernelLocatingPageSelection() {
 const KERNEL_LOCATING_PAGES: { Visual: () => JSX.Element; text: string }[] = [
   {
     Visual: KernelLocatingPageSelection,
-    text: 'Choose 2 out of 12 six stars and 3 out of 12 five stars. You may choose which 6 stars and 5 stars are buyable in shop for 180 and 45 gold certs respectively.',
+    text: 'Choose 2 out of 12 six stars and 3 out of 24 five stars. You may choose which 6 stars and 5 stars are buyable in shop for 180 and 45 gold certs respectively.',
   },
   {
     Visual: KernelPageSplit,
@@ -2058,8 +2058,8 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
                       </button>
                     </div>
                     <p className="hint" style={{ marginBottom: 12 }}>
-                      Kernel Locating: only your chosen 2 six-stars and 3 five-stars exist in this
-                      banner&apos;s pool at all -- nothing else can appear.
+                      Kernel Locating: your chosen 2 six-stars share half of every 6★ result and your
+                      3 five-stars half of every 5★ result; the other candidates share the rest.
                     </p>
                     <h3 style={{ marginBottom: 8 }}>Six-star candidates ({kernelLocatingSixSelected.length}/2)</h3>
                     <div className="orienteering-pick-grid">

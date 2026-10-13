@@ -27,6 +27,8 @@ import { readWikiRows } from './wiki-pages.mjs';
 import { beginStage } from '../lib/quarantine.mjs';
 import { pinnedRef } from '../content/pin-upstream.mjs';
 import { lineReader, nameArtUrl, readArtLineup } from './banner-art-lineup.mjs';
+import { kernelLocatingNotices, reconcileKernelLocating } from './kernel-locating.mjs';
+import { readOfficialNews } from './sync-official-news.mjs';
 
 // At the commit this run pinned (run-stage.mjs), else the branch; a banner created from it
 // records that URL as its timingSource.
@@ -309,8 +311,15 @@ export async function syncRecurringBanners(root = process.cwd(), now = new Date(
   let result = reconcileRecurringBanners(input);
   // Most days no pool needs its art read, and no reader is started.
   if (result.wantsArt.length) result = reconcileRecurringBanners({ ...input, artLineups: await readArtLineups(result.wantsArt, roster) });
-  if (result.changed) fs.writeFileSync(bannersAt, `${JSON.stringify(result.banners, null, 2)}\n`);
-  for (const entry of result.quarantine) alerts.add(entry);
+  // Kernel Locating, Global's own kind (kernel-locating.mjs): the client, then the official
+  // posts this content run's previous official-news stage cached, then the wiki rows.
+  const posts = readOfficialNews(root);
+  const recordName = lineupNameLookup([...roster.keys()].map((name) => [name, name]));
+  const locating = reconcileKernelLocating({ banners: result.banners, gachaTable, characters, notices: kernelLocatingNotices(posts),
+    wikiRows: cells, roster, recordName, clientSource: CLIENT_SOURCE, now: now.getTime() });
+  if (result.changed || locating.changed) fs.writeFileSync(bannersAt, `${JSON.stringify(result.banners, null, 2)}\n`);
+  for (const entry of [...result.quarantine, ...locating.quarantine]) alerts.add(entry);
+  result.additions.push(...locating.additions);
   alerts.commit();
   return result.additions;
 }
