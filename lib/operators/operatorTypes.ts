@@ -152,6 +152,8 @@ export interface TechniqueEntry {
 export interface GuideEntry {
   videoId: string;
   label?: string | null;
+  /** The channel that made it, as the records write it (e.g. "kukkikaze"). */
+  creator?: string | null;
 }
 
 // A welfare unit is free, obtained only during a specific time window
