@@ -6,6 +6,7 @@ import AlbumCover from './AlbumCover';
 import SongPlaylistPicker from './SongPlaylistPicker';
 import TransportIcon from './TransportIcons';
 import { MUSIC_VIEW_HREF, type MusicView } from './MusicNav';
+import PlayerMoreMenu from './PlayerMoreMenu';
 
 function formatTime(seconds: number): string {
   if (!isFinite(seconds) || seconds < 0) return '0:00';
@@ -107,6 +108,7 @@ export default function MusicTransportBar({ view, compact = false, coverPath, on
             <button type="button" className="music-prev-btn" onClick={prevTrack} aria-label="Previous track"><TransportIcon name="prev" /></button>
             {play}
             <button type="button" className="music-next-btn" onClick={nextTrack} aria-label="Next track"><TransportIcon name="next" /></button>
+            <PlayerMoreMenu onFullPlayer={onFullPlayer} />
             {queueLink}
           </div>
         </>
@@ -165,6 +167,7 @@ export default function MusicTransportBar({ view, compact = false, coverPath, on
               </button>
               <input type="range" min={0} max={100} step={1} value={volume} onChange={(e) => setVolumeLevel(parseInt(e.target.value, 10))}
                 className="music-volume" aria-label="Volume" />
+              {view !== 'player' && <PlayerMoreMenu onFullPlayer={onFullPlayer} />}
               {queueLink}
             </div>
           </div>

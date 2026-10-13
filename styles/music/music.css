@@ -791,3 +791,16 @@
 /* Discover is not a flex column like /music: the nav keeps the same gap below it (16px). */
 .music-discover-page > .music-nav { margin-bottom: 16px; }
 .music-widget-queue-link { flex-shrink: 0; margin-left: auto; color: var(--teal); }
+
+/* The player bar's More (components/music/PlayerMoreMenu.tsx): the one-row bars' way to
+   Favourite, Shuffle, Repeat, Add to playlist and the queue. Discover's bar shows it at every
+   width; the full bar only where it folds to the mini player (a phone, outside Now playing),
+   where it takes the Queue button's place so the row keeps its room. */
+.music-player-more-btn { display: none; }
+.music-player-bottombar-compact .music-player-more-btn { display: inline-flex; align-items: center; justify-content: center; }
+.music-song-menu-options > .music-player-more-link { display: flex; align-items: center; justify-content: flex-start; gap: 10px; min-height: var(--control-h); padding: 0 12px; text-align: left; text-decoration: none; }
+@media (max-width: 720px) {
+  .music-player-bottombar-phone-mini .music-player-more-btn { display: inline-flex; align-items: center; justify-content: center; }
+  .music-player-bottombar-phone-mini .music-list-btn,
+  .music-player-bottombar-compact .music-list-btn { display: none; }
+}

@@ -45,6 +45,11 @@ export const CHANGELOG: ChangelogEntry[] = [
     changed: [
       { title: 'The player bar follows you', detail: 'On Discover and every music view the song stays at the bottom of the screen, one tap from Now playing.', href: '/music/discover' },
       { title: 'A Library of every song', detail: 'Search and browse all songs or your favourites without changing what plays.', href: '/music' },
+      { title: 'Player options on phones', detail: 'The player bar\'s More button holds Favourite, Shuffle, Repeat, Add to playlist and the queue.', href: '/music' },
+    ],
+    fixed: [
+      { title: 'Queued songs after a reload', detail: 'Songs you queued stay under Next in queue when the page reloads.', href: '/music' },
+      { title: 'Links right after a search', detail: 'Following a link just after typing in a search no longer brings you back to the search.', href: '/music/discover' },
     ],
   },
   {

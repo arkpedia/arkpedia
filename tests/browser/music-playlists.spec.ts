@@ -10,9 +10,12 @@ for (const theme of ['dark', 'light']) {
     await page.locator('.music-queue-row').first().locator('.music-queue-row-title').click();
     await expect.poll(async () => (await youtube(page))?.state).toBe(1);
     const before = (await youtube(page))!;
-    // The full transport (Favorite among it) is Now playing's on a phone; the Queue's bar is the mini player.
-    await page.getByRole('navigation', { name: 'Music' }).getByRole('link', { name: 'Now playing', exact: true }).click();
-    await page.getByRole('button', { name: 'Favorite', exact: true }).click();
+    // A phone's Queue shows the mini player: Favorite is in its More; a desktop bar has the button.
+    if (page.viewportSize()!.width <= 720) {
+      await page.getByRole('button', { name: 'More player actions', exact: true }).click();
+      await page.getByRole('dialog', { name: 'Player actions', exact: true }).getByRole('button', { name: 'Favourite', exact: true }).click();
+      await page.keyboard.press('Escape');
+    } else await page.getByRole('button', { name: 'Favorite', exact: true }).click();
     await page.getByRole('button', { name: 'Playlists', exact: true }).click();
     const dialog = page.getByRole('dialog', { name: 'Music playlists' });
     await dialog.getByRole('textbox', { name: 'New playlist name' }).fill('Night music');

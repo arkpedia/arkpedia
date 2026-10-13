@@ -82,13 +82,18 @@ test('mobile song actions have anchored playlist and reorder submenus', async ({
 for (const shuffled of [false, true]) {
   test(`dragging reorders the visible sequence without changing playback (shuffle ${shuffled})`, async ({ page }) => {
     await stubYouTube(page);
-    // Shuffle is on Now playing's full transport (a phone's Queue shows the mini player).
-    await page.goto('/music?view=player');
-    const shuffle = page.locator('.music-player-bottombar').getByRole('button', { name: 'Shuffle', exact: true });
-    await expect(shuffle).toBeVisible();
-    if ((await shuffle.getAttribute('aria-pressed') === 'true') !== shuffled) await shuffle.click();
-    await page.getByRole('navigation', { name: 'Music' }).getByRole('link', { name: /^Queue/ }).click();
+    await page.goto('/music?view=queue');
     await expect(rows(page).nth(3)).toBeVisible();
+    // Shuffle: the bar's button, or on a phone's mini player the bar's More.
+    if (test.info().project.name === 'mobile') {
+      await page.getByRole('button', { name: 'More player actions', exact: true }).click();
+      const shuffle = page.getByRole('dialog', { name: 'Player actions', exact: true }).getByRole('button', { name: 'Shuffle', exact: true });
+      if ((await shuffle.getAttribute('aria-pressed') === 'true') !== shuffled) await shuffle.click();
+      await page.keyboard.press('Escape');
+    } else {
+      const shuffle = page.locator('.music-player-bottombar').getByRole('button', { name: 'Shuffle', exact: true });
+      if ((await shuffle.getAttribute('aria-pressed') === 'true') !== shuffled) await shuffle.click();
+    }
     await rows(page).first().locator('.music-queue-row-title').click();
     await expect.poll(async () => (await youtube(page))?.state).toBe(1);
     const playing = await youtube(page);

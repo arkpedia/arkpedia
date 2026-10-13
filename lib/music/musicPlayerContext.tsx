@@ -488,6 +488,9 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
       const restored = resumeRef.current ? restoreQueue(built, resumeRef.current) : null;
       if (restored) {
         built = restored.queue;
+        // "Next in queue" as the last document had it.
+        queuedRef.current = new Set(restored.queued);
+        setQueued(queuedRef.current);
         if (restored.shuffleOrder) {
           shuffleOrderRef.current = restored.shuffleOrder;
           setShuffleOrder(restored.shuffleOrder);
@@ -924,6 +927,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
       shufflePosition: shufflePositionRef.current,
       repeat: repeatModeRef.current,
       volume: Math.min(100, Math.max(0, Number.isFinite(volumeRef.current) ? volumeRef.current : 50)),
+      queued: [...queuedRef.current],
     });
   }, []);
 

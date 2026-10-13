@@ -59,6 +59,10 @@ export interface MusicResumeState {
   shufflePosition: number;
   repeat: (typeof REPEAT_MODES)[number];
   volume: number;
+  /** The songs the reader queued (Play next, Add to queue) and has not heard yet, so the queue
+   *  still shows them as "Next in queue" after a reload. Absent from records written before
+   *  2026-10-13: those load with none. */
+  queued?: string[];
 }
 
 type SessionStore = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
@@ -106,6 +110,8 @@ export function parseMusicResume(raw: string | null): MusicResumeState | null {
   if (value.playlistIds != null && !isIdList(value.playlistIds)) return null;
   if (value.playingPlaylistId != null && (typeof value.playingPlaylistId !== 'string' || !/^[a-zA-Z0-9_-]{1,100}$/.test(value.playingPlaylistId))) return null;
   return {
+    // Optional and only a label: a malformed list is dropped on its own, not the whole record.
+    ...(isIdList(value.queued) ? { queued: value.queued } : {}),
     ...(value.playlistIds !== undefined ? { playlistIds: value.playlistIds as string[] | null } : {}),
     ...(value.playingPlaylistId !== undefined ? { playingPlaylistId: value.playingPlaylistId as string | null } : {}),
     version: 1, savedAt, left, videoId, title, seconds, duration, playing, queue, queueIndex, shuffle,
@@ -149,6 +155,8 @@ export interface RestoredQueue<T> {
   /** Positions in `queue`, every one once; null when the record had none (shuffle off). */
   shuffleOrder: number[] | null;
   shufflePosition: number;
+  /** The record's queued songs still in `queue`, but not the song playing. */
+  queued: string[];
 }
 
 /**
@@ -184,5 +192,7 @@ export function restoreQueue<T extends { id: string }>(tracks: readonly T[], sta
       ? shuffleOrder.indexOf(queueIndex)
       : Math.min(state.shufflePosition, shuffleOrder.length - 1);
   }
-  return { queue, queueIndex, shuffleOrder, shufflePosition };
+  const playing = queue[queueIndex]?.id;
+  const queued = [...new Set(state.queued ?? [])].filter((id) => index.has(id) && id !== playing);
+  return { queue, queueIndex, shuffleOrder, shufflePosition, queued };
 }
