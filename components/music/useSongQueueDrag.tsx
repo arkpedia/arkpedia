@@ -10,6 +10,21 @@ type Session = {
   handle?: HTMLButtonElement; pointerId?: number;
 };
 
+/**
+ * The part of a song list the reader can see: the window cuts it, and so does the music section's
+ * player bar, which sticks to the bottom of the window over whatever scrolls under it. Edge
+ * scrolling starts at this bottom, not at a bottom hidden under the bar (on a phone, dragging to
+ * the visible end of the queue scrolled nothing).
+ */
+function visibleBounds(list: HTMLElement) {
+  const r = list.getBoundingClientRect();
+  const bar = document.querySelector<HTMLElement>('.music-player-bottombar');
+  const barTop = bar && getComputedStyle(bar).position === 'sticky' ? bar.getBoundingClientRect().top : window.innerHeight;
+  const top = Math.max(r.top, 0);
+  const bottom = Math.max(top, Math.min(r.bottom, barTop, window.innerHeight));
+  return { left: r.left, right: r.right, top, bottom, height: bottom - top };
+}
+
 function updatePosition(current: Session, x: number, y: number) {
   const delta = y - current.intentY;
   // A small reversal pauses scrolling before the pointer has left the edge zone.
@@ -59,11 +74,14 @@ export function useSongQueueDrag(onMove: (from: number, to: number) => void, rev
     const current = session.current;
     if (!current?.active) return;
     const hit = document.elementFromPoint(current.x, current.y);
-    const list = hit?.closest<HTMLElement>('[data-song-list]') ?? null;
+    // Over the player bar, the pointer is still over the list it hides.
+    const under = current.list && current.x >= current.list.getBoundingClientRect().left && current.x <= current.list.getBoundingClientRect().right
+      && current.y >= current.list.getBoundingClientRect().top && current.y <= current.list.getBoundingClientRect().bottom ? current.list : null;
+    const list = hit?.closest<HTMLElement>('[data-song-list]') ?? under;
     current.list = list;
     let target: number | null = null;
     if (list) {
-      const bounds = list.getBoundingClientRect();
+      const bounds = visibleBounds(list);
       let distance = Infinity;
       for (const row of list.querySelectorAll<HTMLElement>('[data-display-pos]')) {
         const r = row.getBoundingClientRect();
@@ -89,7 +107,7 @@ export function useSongQueueDrag(onMove: (from: number, to: number) => void, rev
     const dt = lastTime.current ? Math.min(now - lastTime.current, 32) / 1000 : 0;
     lastTime.current = now;
     if (current.list) {
-      const bounds = current.list.getBoundingClientRect();
+      const bounds = visibleBounds(current.list);
       const edge = Math.min(80, bounds.height / 3);
       const up = Math.max(0, (bounds.top + edge - current.y) / edge);
       const down = Math.max(0, (current.y - bounds.bottom + edge) / edge);
@@ -134,7 +152,7 @@ export function useSongQueueDrag(onMove: (from: number, to: number) => void, rev
     const row = handle.closest<HTMLElement>('[data-display-pos]')!;
     handle.setPointerCapture(event.pointerId);
     session.current = { kind: 'pointer', from, title, x: event.clientX, y: event.clientY, startX: event.clientX, startY: event.clientY,
-      width: row.getBoundingClientRect().width, handle, pointerId: event.pointerId, active: false, list: null, target: null,
+      width: row.getBoundingClientRect().width, handle, pointerId: event.pointerId, active: false, list: row.closest<HTMLElement>('[data-song-list]'), target: null,
       intentY: event.clientY, scrollIntent: 0 };
   }, []);
   const startNative = useCallback((event: DragEvent<HTMLDivElement>, from: number, title: string) => {
@@ -142,7 +160,7 @@ export function useSongQueueDrag(onMove: (from: number, to: number) => void, rev
     event.dataTransfer.effectAllowed = 'move';
     event.dataTransfer.setData('text/plain', String(from));
     session.current = { kind: 'native', from, title, x: event.clientX, y: event.clientY, startX: event.clientX, startY: event.clientY,
-      width: event.currentTarget.getBoundingClientRect().width, active: false, list: null, target: null,
+      width: event.currentTarget.getBoundingClientRect().width, active: false, list: event.currentTarget.closest<HTMLElement>('[data-song-list]'), target: null,
       intentY: event.clientY, scrollIntent: 0 };
     activate();
   }, [activate]);

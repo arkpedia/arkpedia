@@ -79,7 +79,9 @@ export default function MusicPlayer() {
   // full player page runs its own identical announcer -- so this one
   // stays quiet there to avoid every track change being spoken twice.
   const router = useRouter();
-  const onFullPlayerPage = router.pathname === '/music';
+  // The music section (/music and Discover) has its own player bar, which says the song and
+  // links back to it; the widget keeps only its hidden audio frame there.
+  const onFullPlayerPage = router.pathname === '/music' || router.pathname === '/music/discover';
   /**
    * Collapse when the click lands anywhere else.
    *
@@ -191,7 +193,8 @@ export default function MusicPlayer() {
                   title/altTitle pairing. */}
               <Link prefetch={false}
                 ref={titleRef}
-                href="/music"
+                href="/music?view=player"
+                aria-label={`${displayTitle}. Open Now playing`}
                 className={scrollDistance > 0 ? 'music-track-title marquee' : 'music-track-title'}
                 style={{ '--scroll-distance': `${scrollDistance}px` } as React.CSSProperties}
                 title={displayTitle}
@@ -286,7 +289,10 @@ export default function MusicPlayer() {
             />
           </div>
 
-          {nextTitle && <div className="music-next-up">Up next: {nextTitle}</div>}
+          <div className="music-next-up">
+            {nextTitle && <span>Up next: {nextTitle}</span>}
+            <Link prefetch={false} href="/music?view=queue" className="music-widget-queue-link">Queue</Link>
+          </div>
         </div>
       )}
     </div>

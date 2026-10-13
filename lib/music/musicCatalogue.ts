@@ -51,7 +51,12 @@ async function fetchMusicCatalogue(url: string, signal: AbortSignal | undefined,
   if (!response.ok) throw new Error(`Music catalogue returned ${response.status}`);
   const data = await response.json() as { songs?: unknown };
   if (!Array.isArray(data?.songs) || !data.songs.length) throw new Error('Music catalogue is invalid');
-  return data.songs.filter(isSong);
+  // One row per video, the first listing kept: a song on two albums under two credits is one
+  // YouTube upload. The release listed ZCiLqOcjA0Y twice (2026-10-13), so the default queue,
+  // built from this list, played it twice per cycle and its rows shared a React key. Read here,
+  // where the queue and the Library both load it, so releases already published are covered.
+  const seen = new Set<string>();
+  return data.songs.filter(isSong).filter((song) => !seen.has(song.videoId) && Boolean(seen.add(song.videoId)));
 }
 
 /**

@@ -8,11 +8,11 @@ async function openPicker(page: Page, id: string) {
   // The row itself carries the id; scope directly to it for both phone and desktop controls.
   const target = page.locator(`.music-all-songs-list [data-song-id="${id}"]`);
   if (test.info().project.name === 'mobile') {
-    await target.getByRole('button', { name: /^Actions for / }).click();
+    await target.getByRole('button', { name: /^More actions for / }).click();
     const menu = page.getByRole('dialog', { name: 'Song actions', exact: true });
     await expect(menu.getByRole('button', { name: 'Reorder', exact: true })).toHaveCount(0);
     await expect(menu.getByRole('button', { name: 'Remove', exact: true })).toHaveCount(0);
-    await menu.getByRole('button', { name: 'Add to playlists', exact: true }).click();
+    await menu.getByRole('button', { name: 'Add to playlist', exact: true }).click();
   } else await target.locator('.music-song-desktop-actions button[aria-haspopup="dialog"]').click();
   return page.getByRole('dialog', { name: 'Add to playlists', exact: true });
 }
@@ -42,7 +42,7 @@ for (const theme of ['dark', 'light']) {
     await expect(queueRows(page)).toHaveCount(2);
     const before = (await youtube(page))!;
     const queueBefore = await queueRows(page).evaluateAll(rows => rows.map(row => (row as HTMLElement).dataset.songId));
-    await page.getByRole('group', { name: 'Song list', exact: true }).getByRole('button', { name: 'All songs', exact: true }).click();
+    await page.getByRole('navigation', { name: 'Music' }).getByRole('link', { name: 'Library', exact: true }).click();
     await expect(catalogueRows(page).first()).toBeVisible();
     await page.getByRole('searchbox', { name: 'Search all songs', exact: true }).fill(songs[2].title);
     const picker = await openPicker(page, ids[2]);
@@ -57,7 +57,7 @@ for (const theme of ['dark', 'light']) {
     expect(stored.find((p: { id: string }) => p.id === 'other').tracks).toEqual([]);
     await page.screenshot({ path: `.cache/song-catalogue-${theme}-${test.info().project.name}.png` });
     await page.keyboard.press('Escape');
-    await page.getByRole('button', { name: 'Queue', exact: true }).click();
+    await page.getByRole('navigation', { name: 'Music' }).getByRole('link', { name: /^Queue/ }).click();
     expect(await queueRows(page).evaluateAll(rows => rows.map(row => (row as HTMLElement).dataset.songId))).toEqual(queueBefore);
     const after = (await youtube(page))!;
     expect(after).toMatchObject({ state: 1, videoId: before.videoId, players: 1, calls: before.calls });
@@ -67,7 +67,7 @@ for (const theme of ['dark', 'light']) {
     await page.reload();
     await expect(queueRows(page)).toHaveCount(2);
     await expect.poll(async () => (await youtube(page))?.state).toBe(1);
-    await page.getByRole('button', { name: 'All songs', exact: true }).click();
+    await page.getByRole('navigation', { name: 'Music' }).getByRole('link', { name: 'Library', exact: true }).click();
     await page.getByRole('searchbox', { name: 'Search all songs', exact: true }).fill(songs[3].title);
     const restored = await openPicker(page, ids[3]);
     await expect(restored.getByRole('checkbox', { name: 'Night music', exact: true })).toBeChecked();
@@ -90,7 +90,7 @@ test('catalogue failure can retry without replacing the queue or stopping playba
   await expect.poll(async () => (await youtube(page))?.state).toBe(1);
   const before = (await youtube(page))!;
   await page.route('**/music-catalogue.json', route => route.fulfill({ status: 503, body: '' }));
-  await page.getByRole('button', { name: 'All songs', exact: true }).click();
+  await page.getByRole('navigation', { name: 'Music' }).getByRole('link', { name: 'Library', exact: true }).click();
   await expect(page.getByRole('status').filter({ hasText: 'Could not load songs' })).toBeVisible();
   await page.unroute('**/music-catalogue.json');
   await page.getByRole('button', { name: 'Try again', exact: true }).click();
@@ -107,19 +107,19 @@ test('switching lists preserves browsing positions and independent searches', as
   const list = page.locator('[data-song-list]').first();
   await list.evaluate(el => { el.scrollTop = 600; });
   const queueAt = await list.evaluate(el => el.scrollTop);
-  await page.getByRole('button', { name: 'All songs', exact: true }).click();
+  await page.getByRole('navigation', { name: 'Music' }).getByRole('link', { name: 'Library', exact: true }).click();
   await expect(catalogueRows(page).first()).toBeVisible();
   const all = page.locator('.music-all-songs-list');
   await all.evaluate(el => { el.scrollTop = 600; });
   const allAt = await all.evaluate(el => el.scrollTop);
-  await page.getByRole('button', { name: 'Queue', exact: true }).click();
+  await page.getByRole('navigation', { name: 'Music' }).getByRole('link', { name: /^Queue/ }).click();
   expect(await list.evaluate(el => el.scrollTop)).toBeCloseTo(queueAt, 0);
-  await page.getByRole('searchbox', { name: 'Search songs', exact: true }).fill('queue-only-query');
-  await page.getByRole('button', { name: 'All songs', exact: true }).click();
+  await page.getByRole('searchbox', { name: 'Search the queue', exact: true }).fill('queue-only-query');
+  await page.getByRole('navigation', { name: 'Music' }).getByRole('link', { name: 'Library', exact: true }).click();
   expect(await all.evaluate(el => el.scrollTop)).toBeCloseTo(allAt, 0);
   await expect(page.getByRole('searchbox', { name: 'Search all songs', exact: true })).toHaveValue('');
   await page.getByRole('searchbox', { name: 'Search all songs', exact: true }).fill('catalogue-only-query');
   await expect(all).toContainText('No songs match your search.');
-  await page.getByRole('button', { name: 'Queue', exact: true }).click();
-  await expect(page.getByRole('searchbox', { name: 'Search songs', exact: true })).toHaveValue('queue-only-query');
+  await page.getByRole('navigation', { name: 'Music' }).getByRole('link', { name: /^Queue/ }).click();
+  await expect(page.getByRole('searchbox', { name: 'Search the queue', exact: true })).toHaveValue('queue-only-query');
 });

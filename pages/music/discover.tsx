@@ -15,6 +15,12 @@ import { useQueryState } from '@/lib/hooks/useQueryState';
 import AlbumCover from '@/components/music/AlbumCover';
 import { discoverFromRelease, getDiscoverPageData, DiscoverSong, DiscoverFacet, DiscoverCharacter, DiscoverAlbum, DiscoverPendingSong } from '@/lib/music/albumsDataServer';
 import LoadOnScroll from '@/components/ui/LoadOnScroll';
+import MusicNav from '@/components/music/MusicNav';
+import MusicPlaylists from '@/components/music/MusicPlaylists';
+import MusicTransportBar from '@/components/music/MusicTransportBar';
+import TransportIcon from '@/components/music/TransportIcons';
+import SongActionsMenu from '@/components/music/SongActionsMenu';
+import SongPlaylistPicker from '@/components/music/SongPlaylistPicker';
 
 interface Props {
   songs: DiscoverSong[];
@@ -61,7 +67,9 @@ function Collection({ id, label, expanded, cloud = false, children }: { id: stri
 }
 
 export default function DiscoverPage({ songs, characters, origins, artists, recentAlbums, pendingSongs }: Props) {
-  const { playTrackByVideoId } = useMusicPlayer();
+  const { playNow, queueSong, videoId: playingId, queued, favorites, toggleFavorite } = useMusicPlayer();
+  // The player bar's album art, as on /music: this page's songs carry their covers.
+  const coverByVideoId = useMemo(() => new Map(songs.map((s) => [s.videoId, s.coverPath])), [songs]);
   const router = useRouter();
 
   // Both the search text (?q=...) and the active facet are mirrored
@@ -196,8 +204,10 @@ export default function DiscoverPage({ songs, characters, origins, artists, rece
     router.replace({ pathname: router.pathname, query: cleaned }, undefined, { shallow: true, scroll: false });
   }
 
+  // Play now: the song plays right away and the queue plays on after it, so browsing never
+  // throws away what was lined up (it used to jump to the song's place in the shuffled queue).
   function playSong(videoId: string) {
-    playTrackByVideoId(videoId);
+    playNow(videoId);
   }
 
   const maxOriginCount = origins[0]?.count || 1;
@@ -222,19 +232,21 @@ export default function DiscoverPage({ songs, characters, origins, artists, rece
     <>
       <Head><title>Discover — Arkpedia</title></Head>
 
-      <PageHeader eyebrow="Rhodes Island // Sound Archive" title="Discover"
-        sub={<>Know these tracks by heart? <Link href={GAME_PATHS.music} prefetch={false}>Play Music Guesser</Link></>}
-        actions={<div className="music-discover-search-row">
+      {/* The music section's one header and nav, in the same place as on /music, so moving
+          between Discover and the player's views moves nothing. */}
+      <PageHeader slim eyebrow="Rhodes Island // Sound Archive" title="Music" actions={<MusicPlaylists songs={songs} />} />
+      <main className="music-discover-page">
+        <MusicNav current="discover" />
+        <div className="music-discover-search-row">
           {!isBrowsing && (
-            <button type="button" className="back-btn music-discover-back-btn" onClick={backToBrowse} aria-label="Back to browse">
-              ‹ Back
+            <button type="button" className="back-btn music-discover-back-btn" onClick={backToBrowse}>
+              ‹ Back to browse
             </button>
           )}
           <SearchInput label="Search songs, characters, artists, albums" name="discover-search"
             placeholder="Search songs, characters, artists, albums…" value={query} onChange={setQuery} />
-        </div>} />
-
-      <main className="music-discover-page">
+        </div>
+        <p className="hint music-view-hint">Know these tracks by heart? <Link href={GAME_PATHS.music} prefetch={false}>Play Music Guesser</Link></p>
         <div ref={browseFloor.ref} className="music-discover-body">
 
         {!isBrowsing ? (
@@ -249,18 +261,46 @@ export default function DiscoverPage({ songs, characters, origins, artists, rece
               ) : (
                 <div className="music-discover-song-list">
                   {visibleFilteredSongs.map((s) => (
-                    <button key={s.videoId} type="button" className="btn-bare music-discover-song-row" onClick={() => playSong(s.videoId)}>
-                      <div className="music-discover-song-cover">
-                        <AlbumCover coverPath={s.coverPath} size={44} className="music-discover-song-cover-art" />
+                    // One upload can be on two albums (切尔诺伯格 is on OST 3 and Prelude to Dawn): a
+                    // row per album listing, keyed by both.
+                    <div key={`${s.albumId}:${s.videoId}`} className={`music-discover-song-row${playingId === s.videoId ? ' active' : ''}`} data-song-id={s.videoId}>
+                      <button type="button" className="btn-bare music-discover-song-play" onClick={() => playSong(s.videoId)}
+                        aria-label={playingId === s.videoId ? `${s.title}, playing now` : `Play ${s.title} now`}>
+                        <div className="music-discover-song-cover">
+                          <AlbumCover coverPath={s.coverPath} size={44} className="music-discover-song-cover-art" />
+                        </div>
+                        <div className="music-discover-song-info">
+                          <span className="music-discover-song-title">{s.title}</span>
+                          <span className="music-discover-song-meta">
+                            {playingId === s.videoId ? 'Playing now · ' : queued.has(s.videoId) ? 'Queued · ' : ''}
+                            {s.albumName}
+                            {s.artist ? ` · ${s.artist}` : ''}
+                          </span>
+                        </div>
+                      </button>
+                      {/* Written actions on a desktop; on a phone one More menu (the Queue's pattern).
+                          The song playing has no queue actions. */}
+                      <div className="music-queue-row-actions music-song-desktop-actions music-discover-song-actions">
+                        {playingId !== s.videoId && <>
+                          <button type="button" className="ghost music-row-text-btn" onClick={() => void queueSong(s.videoId, 'next')} aria-label={`Play next: ${s.title}`}>
+                            <TransportIcon name="playNext" size={16} />Play next
+                          </button>
+                          <button type="button" className="ghost music-row-text-btn" onClick={() => void queueSong(s.videoId, 'last')} aria-label={`Add to queue: ${s.title}`}>
+                            <TransportIcon name="addToQueue" size={16} />Add to queue
+                          </button>
+                        </>}
+                        <button type="button" className="ghost music-song-favorite" aria-pressed={favorites.has(s.videoId)} onClick={() => toggleFavorite(s.videoId)}
+                          aria-label={`Favourite: ${s.title}`} title={favorites.has(s.videoId) ? 'Unfavourite' : 'Favourite'}>
+                          <TransportIcon name="heart" size={18} />
+                        </button>
+                        <SongPlaylistPicker song={{ id: s.videoId, title: s.title }} text />
                       </div>
-                      <div className="music-discover-song-info">
-                        <span className="music-discover-song-title">{s.title}</span>
-                        <span className="music-discover-song-meta">
-                          {s.albumName}
-                          {s.artist ? ` · ${s.artist}` : ''}
-                        </span>
+                      <div className="music-queue-row-actions music-song-mobile-actions music-discover-song-actions">
+                        <SongActionsMenu song={{ id: s.videoId, title: s.title }} isFavorite={favorites.has(s.videoId)} isActive={playingId === s.videoId}
+                          onFavorite={() => toggleFavorite(s.videoId)} onPlayNow={() => playSong(s.videoId)}
+                          onQueueNext={() => void queueSong(s.videoId, 'next')} onQueueLast={() => void queueSong(s.videoId, 'last')} />
                       </div>
-                    </button>
+                    </div>
                   ))}
                   <LoadOnScroll shown={songsVisibleCount} total={filteredSongs.length} onMore={() => setSongsVisibleCount((c) => c + SONGS_PAGE_SIZE)} />
                   {songsVisibleCount >= filteredSongs.length && filteredPending.map((s) => (
@@ -417,6 +457,7 @@ export default function DiscoverPage({ songs, characters, origins, artists, rece
         )}
         {browseFloor.spacer}
         </div>
+        <MusicTransportBar view="discover" compact coverPath={playingId ? coverByVideoId.get(playingId) ?? null : undefined} />
       </main>
     </>
   );

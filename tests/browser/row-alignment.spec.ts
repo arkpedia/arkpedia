@@ -336,9 +336,10 @@ test("the operator page's panel header is no taller than before", async ({ page 
 test("the /music queue's titles keep their room at the one row height", async ({ page }) => {
   test.skip(page.viewportSize()!.width >= 1000, 'a phone: the 40px buttons are the phone height');
   await censusWidth(page);
-  await openCensus(page, '/music');
+  // The Queue view (the Library opens by default when nothing has played).
+  await openCensus(page, '/music?view=queue');
   await fontsSettled(page);
-  const row = page.locator('.music-queue-row:not(.music-queue-row-placeholder)').first();
+  const row = page.locator('.music-queue-list .music-queue-row:not(.music-queue-row-placeholder)').first();
   await expect(row).toBeVisible();
   const m = await row.evaluate((el) => {
     const title = el.querySelector('.music-queue-row-title')!;

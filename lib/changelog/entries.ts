@@ -34,6 +34,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-10-13T05:16:20Z',
+    title: 'A clearer music player',
+    added: [
+      { title: 'Discover, Library, Now playing and Queue', detail: 'One menu across the music pages; Back and Forward step between them without stopping the song.', href: '/music' },
+      { title: 'Play next and Add to queue', detail: 'Line songs up from the Library or Discover; Play now plays a song and keeps the rest of your queue.', href: '/music' },
+      { title: 'Clear the queue', detail: 'Keep only the song playing, with Undo; the queue shows what you queued and what plays after it.', href: '/music' },
+    ],
+    changed: [
+      { title: 'The player bar follows you', detail: 'On Discover and every music view the song stays at the bottom of the screen, one tap from Now playing.', href: '/music/discover' },
+      { title: 'A Library of every song', detail: 'Search and browse all songs or your favourites without changing what plays.', href: '/music' },
+    ],
+  },
+  {
     at: '2026-10-12T13:17:15Z',
     title: 'Reading progress and free rewards',
     added: [

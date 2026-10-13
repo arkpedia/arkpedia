@@ -66,8 +66,8 @@ const INTENTIONALLY_UNSTYLED = new Map([
   ['base-facility-notes', 'stacks .hint paragraphs in normal block flow -- the notes carry every pixel'],
   ['gacha-content-group', 'groups a heading and a row so the two stay together; both are styled, the group is a name'],
   ['stage-legend-overlay-inner', 'click-and-key catcher filling .stage-legend-overlay, which sizes and places it'],
-  ['music-prev-btn', 'a plain <button> with the site button look; the hook places it in the phone player grid (music.css, max-width 380px)'],
-  ['music-next-btn', 'a plain <button> with the site button look; the hook places it in the phone player grid (music.css, max-width 380px)'],
+  ['music-prev-btn', 'a plain <button> with the site button look and the transport\'s square size (music.css, .music-transport-buttons > button); the class names it for the browser specs'],
+  ['music-next-btn', 'a plain <button> with the site button look and the transport\'s square size (music.css, .music-transport-buttons > button); the class names it for the browser specs'],
 ]);
 
 function walk(dir, out = []) {

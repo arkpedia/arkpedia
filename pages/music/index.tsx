@@ -2,26 +2,21 @@ import { GetStaticProps } from 'next';
 import Head from 'next/head';
 import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
+import { useRouter } from 'next/router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { getAllSongModalLookup, writeLyricsFilesToPublic, SongModalLookupEntry } from '@/lib/music/albumsDataServer';
 import { withContentPage } from '@/lib/content/server';
 import { useContentUrl } from '@/lib/content/context';
 import type { LyricLine } from '@/lib/music/albumsDataServer';
-import { useMusicPlayer, QueueTrack } from '@/lib/music/musicPlayerContext';
+import { useMusicPlayer } from '@/lib/music/musicPlayerContext';
 import { useCrossFadeTitle } from '@/lib/music/useCrossFadeTitle';
-import { useQueryState } from '@/lib/hooks/useQueryState';
 import MusicWaveVisualizer from '@/components/music/MusicWaveVisualizer';
 import MusicPlaylists from '@/components/music/MusicPlaylists';
-import AllSongsList from '@/components/music/AllSongsList';
-import SongActionsMenu from '@/components/music/SongActionsMenu';
-import { useSongQueueDrag } from '@/components/music/useSongQueueDrag';
-import SongPlaylistPicker from '@/components/music/SongPlaylistPicker';
-import TransportIcon from '@/components/music/TransportIcons';
+import MusicLibrary from '@/components/music/MusicLibrary';
+import MusicQueue from '@/components/music/MusicQueue';
+import MusicNav, { MUSIC_VIEW_HREF } from '@/components/music/MusicNav';
+import MusicTransportBar from '@/components/music/MusicTransportBar';
 import PageHeader from '@/components/ui/PageHeader';
-import SearchInput from '@/components/ui/SearchInput';
-import SegmentedControl from '@/components/ui/SegmentedControl';
-import XButton from '@/components/ui/XButton';
-import LoadOnScroll from '@/components/ui/LoadOnScroll';
 import { hiddenUnless } from '@/lib/ui/inert';
 
 interface Props {
@@ -77,101 +72,10 @@ function fetchLyricsFor(url: string): Promise<LyricLine[]> {
   return promise;
 }
 
-// Extracted from the queue list's .map() specifically so each row can
-// call useCrossFadeTitle independently -- React hooks can't be called
-// inside a loop/callback, only at a component's own top level, so each
-// row needs to genuinely BE its own component instance.
-interface QueueRowProps {
-  song: QueueTrack;
-  displayPos: number;
-  isActive: boolean;
-  isDragging: boolean;
-  /** Where the dragged song would land if dropped now: the line above or below this row. */
-  dropSide: 'before' | 'after' | null;
-  onTap: () => void;
-  onDragStart: (e: React.DragEvent<HTMLDivElement>) => void;
-  onDragEnd: () => void;
-  onPointerDrag: (e: React.PointerEvent<HTMLButtonElement>) => void;
-  onMoveUp: () => void;
-  onMoveDown: () => void;
-  canMoveUp: boolean;
-  canMoveDown: boolean;
-  onPushToTop: () => void;
-  onRemove: () => void;
-  isFavorite: boolean;
-  onFavorite: () => void;
-}
-
-function QueueRow({
-  song,
-  displayPos,
-  isActive,
-  isDragging,
-  dropSide,
-  onTap,
-  onDragStart,
-  onDragEnd,
-  onPointerDrag, onMoveUp, onMoveDown, canMoveUp, canMoveDown,
-  onPushToTop,
-  onRemove,
-  isFavorite,
-  onFavorite,
-}: QueueRowProps) {
-  const { displayName, fading } = useCrossFadeTitle(song.title, song.altTitle);
-  return (
-    <div
-      className={`music-queue-row${isActive ? ' active' : ''}${isDragging ? ' dragging' : ''}${dropSide ? ` drop-${dropSide}` : ''}`}
-      draggable
-      onDragStart={onDragStart}
-      onDragEnd={onDragEnd}
-      data-display-pos={displayPos}
-      data-song-id={song.id}
-    >
-      <button type="button" className="btn-bare btn-icon btn-sm music-queue-drag-handle"
-        aria-label={`Reorder ${song.title}`} title="Drag to reorder; arrow keys move one position"
-        onPointerDown={onPointerDrag} onKeyDown={event => {
-          if (event.key === 'ArrowUp' && canMoveUp) { event.preventDefault(); onMoveUp(); }
-          if (event.key === 'ArrowDown' && canMoveDown) { event.preventDefault(); onMoveDown(); }
-        }}>⠿</button>
-      <span className="music-queue-row-index">{isActive ? '▶' : displayPos + 1}</span>
-      <button
-        type="button"
-        className={fading ? 'btn-bare music-queue-row-title music-crossfade-text fading' : 'btn-bare music-queue-row-title music-crossfade-text'}
-        title={song.title}
-        onClick={onTap}
-      >
-        {displayName}
-      </button>
-      <div className="music-queue-row-actions music-song-desktop-actions">
-        <button type="button" className="ghost music-song-favorite" onClick={onFavorite} aria-pressed={isFavorite}
-          aria-label={`${isFavorite ? 'Remove' : 'Add'} ${song.title} ${isFavorite ? 'from' : 'to'} favorites`} title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}>
-          <TransportIcon name="heart" size={18} />
-        </button>
-        <SongPlaylistPicker song={song} />
-        <button type="button" className="ghost" onClick={onPushToTop} disabled={isActive} aria-label="Push to top" title="Push to top">
-          ⤒
-        </button>
-        <XButton
-          onClick={onRemove}
-          disabled={isActive}
-          label="Remove"
-          title={isActive ? "Can't remove the currently-playing track" : 'Remove'}
-        />
-      </div>
-      <div className="music-queue-row-actions music-song-mobile-actions">
-        <SongActionsMenu song={song} isFavorite={isFavorite} isActive={isActive} onFavorite={onFavorite}
-          canMoveUp={canMoveUp} canMoveDown={canMoveDown} onMoveUp={onMoveUp} onMoveDown={onMoveDown}
-          onPlayNext={onPushToTop} onRemove={onRemove} />
-      </div>
-    </div>
-  );
-}
-
 export default function MusicPage({ songLookup }: Props) {
   const contentUrl = useContentUrl();
   const {
     ready,
-    starting,
     isPlaying,
     title,
     videoId,
@@ -179,32 +83,15 @@ export default function MusicPage({ songLookup }: Props) {
     shuffle,
     repeatMode,
     currentTime,
-    duration,
     queue,
-    queueLoading,
     queueIndex,
     shuffleOrder,
     shufflePosition,
-    favorites,
-    excludeCopyrighted,
+    queueLoading,
     initializePlayer,
-    togglePlay,
-    nextTrack,
-    prevTrack,
-    toggleShuffle,
-    cycleRepeat,
-    setVolumeLevel,
-    handleSeekChange,
-    handleSeekCommit,
-    setSeeking,
-    playTrackByVideoId,
-    reorderQueue,
-    reorderShuffleOrder,
-    moveQueueItemToTop,
-    removeFromQueue,
-    toggleFavorite,
-    setExcludeCopyrighted,
+    playQueueIndex,
   } = useMusicPlayer();
+  const router = useRouter();
 
   // The YouTube player otherwise only starts initializing on an
   // explicit action elsewhere (pressing play, expanding the mini-
@@ -215,23 +102,16 @@ export default function MusicPage({ songLookup }: Props) {
     initializePlayer();
   }, [initializePlayer]);
 
-  // Mirrored into the URL (?view=queue) so the queue view survives a
-  // reload and can be linked to directly -- the hook applies the URL's
-  // value only after hydration, so first paint is always the default
-  // player view (hydration-safe). Anything other than the exact string
-  // 'queue' falls back to the player, so a mangled URL can't render a
-  // broken in-between state.
-  //
-  // With no ?view, the page opens where there is something to do: the player when a
-  // track has played this session, the song list when none has -- the player view
-  // with nothing loaded was an empty 280px cover beside an empty lyrics column, with
-  // the 884 songs one ☰ away. Decided once, on mount (the player context outlives the
-  // page, so a track started elsewhere is known here), so the view never swaps under
-  // the reader; server and client both start from "nothing played".
-  const [viewParam, setViewParam] = useQueryState('view', '');
-  const [initialView] = useState<'player' | 'queue'>(() => (videoId ? 'player' : 'queue'));
-  const view: 'player' | 'queue' = viewParam === 'queue' || viewParam === 'player' ? viewParam : initialView;
-  const setView = (next: 'player' | 'queue') => setViewParam(next);
+  // The view is the address (?view=library|player|queue), and the nav and the transport link
+  // to each with a shallow push: Back and Forward step between them, a view can be reloaded or
+  // shared, and the player under them never reloads. With no ?view the page opens where there is
+  // something to do: Now playing when a song has played this session, else the Library. Decided
+  // once, on mount (the player context outlives the page, so a song started elsewhere is known
+  // here), so the view never swaps under the reader; server and client both start from "nothing
+  // played", and the URL's view applies once the router has read it.
+  const [initialView] = useState<'player' | 'library'>(() => (videoId ? 'player' : 'library'));
+  const viewParam = router.isReady ? router.query.view : undefined;
+  const view: 'player' | 'queue' | 'library' = viewParam === 'queue' || viewParam === 'player' || viewParam === 'library' ? viewParam : initialView;
   const [mobileShowLyrics, setMobileShowLyrics] = useState(false);
   const [lyrics, setLyrics] = useState<LyricLine[]>([]);
   const [lyricsLoading, setLyricsLoading] = useState(false);
@@ -324,20 +204,14 @@ export default function MusicPage({ songLookup }: Props) {
     }, 4000);
   }
 
-  const isFav = Boolean(videoId) && favorites.has(videoId);
   const youtubeUrl = videoId ? `https://www.youtube.com/watch?v=${videoId}` : null;
   const catalogTitle = currentTrack?.title || title || 'Monster Siren Records';
   const { displayName: nowPlayingName, fading: titleFading } = useCrossFadeTitle(catalogTitle, currentTrack?.altTitle);
 
-  // Screen-reader announcement when the track changes -- the visible
-  // title swap is purely visual, so when playback auto-advances (or
-  // the user hits next) nothing is otherwise announced at all. The
-  // first track a session sees is deliberately seeded WITHOUT
-  // announcing: page load / hydration picking up an already-loaded
-  // queue shouldn't speak a song title nobody just asked for. (The
-  // global mini player runs the same announcer everywhere else, but
-  // stays quiet on this page specifically so track changes here are
-  // spoken exactly once -- see components/MusicPlayer.tsx.)
+  // Screen-reader announcement when the track changes -- the visible title swap is purely
+  // visual. The first track a session sees is seeded WITHOUT announcing: hydration picking up a
+  // loaded queue should not speak a title nobody asked for. (The global mini player runs the same
+  // announcer elsewhere and stays quiet in the music section, so a change is spoken once.)
   const [nowPlayingAnnouncement, setNowPlayingAnnouncement] = useState('');
   const announcedVideoIdRef = useRef<string | null>(null);
   useEffect(() => {
@@ -352,110 +226,30 @@ export default function MusicPage({ songLookup }: Props) {
     }
   }, [videoId, catalogTitle]);
 
-  const displayList = shuffle && shuffleOrder
-    ? shuffleOrder.map(queueIdx => ({ song: queue[queueIdx], queueIdx }))
-    : queue.map((song, queueIdx) => ({ song, queueIdx }));
-  const drag = useSongQueueDrag((from, to) => {
-    if (from < 0 || to < 0 || from >= displayList.length || to >= displayList.length) return;
-    if (shuffle) reorderShuffleOrder(from, to);
-    else reorderQueue(displayList[from].queueIdx, displayList[to].queueIdx);
-  }, shuffle ? shuffleOrder : queue);
-  const dropSide = (position: number): 'before' | 'after' | null =>
-    drag.dragPos === null || drag.overPos !== position || drag.dragPos === position ? null
-      : drag.dragPos < position ? 'after' : 'before';
-
-  const MAX_ROWS = 5;
-
-  // displayPos attached explicitly here, BEFORE any slicing happens
-  // below -- once search results and Coming Up become subsets of this
-  // list, each row still needs to carry its TRUE position in the full
-  // queue, not whatever local index it happens to land at within a
-  // slice (which would silently point every button/drag action at the
-  // wrong song).
-  const displayListWithPos = displayList.map((entry, displayPos) => ({ ...entry, displayPos }));
-
-  // Paginates the default (non-search) full queue view -- with shuffle
-  // covering close to the whole ~900-song catalog, rendering every row
-  // at once meant mounting ~900 QueueRow instances simultaneously,
-  // each running its own independent useCrossFadeTitle timer. That's
-  // not a network/bandwidth cost, but it is real ongoing client-side
-  // work on every visitor's device for rows nobody's even scrolled to
-  // yet. "Show more" only mounts what's actually been asked for.
-  const QUEUE_PAGE_SIZE = 50;
-  const [queueVisibleCount, setQueueVisibleCount] = useState(QUEUE_PAGE_SIZE);
-  const visibleFullQueue = displayListWithPos.slice(0, queueVisibleCount);
-
-  // Search: purely a DISPLAY concern, doesn't touch queueIdx/displayPos
-  // at all, so every row action (play/push-to-top/push-to-bottom/
-  // remove) keeps operating on the real underlying queue positions
-  // regardless of what's currently filtered. Always reserves 5 rows'
-  // worth of space (real results, or empty placeholders) -- including
-  // before you've typed anything at all, so starting to type doesn't
-  // itself cause a layout jump.
-  const [queueSearch, setQueueSearch] = useState('');
-  const [allSongsSearch, setAllSongsSearch] = useState('');
-  const [songScope, setSongScope] = useState<'queue' | 'all'>('queue');
-  const queueScroll = useRef(0);
-  const queuePanel = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (songScope === 'queue') {
-      const list = queuePanel.current?.querySelector<HTMLElement>('[data-song-list]');
-      if (list) list.scrollTop = queueScroll.current;
-    }
-  }, [songScope]);
-  function changeSongScope(next: 'queue' | 'all') {
-    const list = queuePanel.current?.querySelector<HTMLElement>('[data-song-list]');
-    if (songScope === 'queue' && list) queueScroll.current = list.scrollTop;
-    drag.cancel();
-    setSongScope(next);
-  }
-  const isSearching = queueSearch.trim().length > 0;
-  const searchResultRows = useMemo(() => {
-    if (!isSearching) return [];
-    const q = queueSearch.trim().toLowerCase();
-    return displayListWithPos
-      .filter(({ song }) => song.title.toLowerCase().includes(q) || (song.altTitle && song.altTitle.toLowerCase().includes(q)))
-      .slice(0, MAX_ROWS);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [queue, shuffleOrder, shuffle, queueSearch, isSearching]);
-  const searchEmptyCount = MAX_ROWS - searchResultRows.length;
-
-  // Coming Up: the currently-playing song plus the next four, in
-  // whatever order actually plays next (shuffled or not) -- always
-  // visible, independent of search. Dragging a row FROM the search
-  // results ABOVE into one of these slots works with zero extra
-  // logic: both sections are just different slices of the exact same
-  // displayListWithPos, addressed by the same real queueIdx/displayPos
-  // pairs, so the existing handleDrop already handles moving a song
-  // from anywhere in the catalog into a specific near-term position
-  // (e.g. making a search result the 2nd or 3rd thing that plays next).
-  const currentDisplayPos = shuffle && shuffleOrder ? shufflePosition : queueIndex;
-  const comingUpRows = displayListWithPos.slice(currentDisplayPos, currentDisplayPos + MAX_ROWS);
-  const comingUpEmptyCount = MAX_ROWS - comingUpRows.length;
+  // Up next on Now playing: the next three in the order they play, each a press away. Always three
+  // rows tall, so the player (which sets the views' height) does not grow as the queue arrives.
+  const order = shuffle && shuffleOrder ? shuffleOrder : queue.map((_, i) => i);
+  const position = shuffle && shuffleOrder ? shufflePosition : queueIndex;
+  const upNext = repeatMode === 'one' ? [] : order.slice(position + 1, position + 4).map(index => ({ song: queue[index], index })).filter(e => e.song);
 
   return (
     <>
-      <Head><title>Music — Arkpedia</title></Head>
+      <Head><title>{`${view === 'library' ? 'Library' : view === 'queue' ? 'Queue' : 'Now playing'} · Music — Arkpedia`}</title></Head>
 
-      <PageHeader slim eyebrow="Rhodes Island // Sound Archive" title="Music"
-        actions={<><MusicPlaylists songs={songLookup} /><Link prefetch={false} href="/music/discover" className="ghost btn-sm music-discover-btn">
-          <svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-            <circle cx="10" cy="10" r="7.5" />
-            <path d="M13 7 L11 11 L7 13 L9 9 Z" strokeLinejoin="round" />
-          </svg>
-          Discover
-        </Link></>} />
-
+      <PageHeader slim eyebrow="Rhodes Island // Sound Archive" title="Music" actions={<MusicPlaylists songs={songLookup} />} />
       <main className="music-player-page">
+        <MusicNav current={view} />
         <div className="visually-hidden" aria-live="polite">
           {nowPlayingAnnouncement}
         </div>
-        {queueLoading && <p className="hint" role="status">Loading music catalogue…</p>}
-        {/* Both views in one place (the Anti-Page Jump rule's swap in place): the player always
-            lays out, and so sets the place's height, hidden and inert while the song list lies
-            over it. The list is the player's height on the first visit too, before anything has
-            played, and the transport bar below never moves. */}
-        <div className="music-view">
+        {/* The three views in one place (the Anti-Page Jump rule's swap in place): Now playing
+            always lays out and so sets the place's height, hidden and inert while Library or
+            Queue lies over it, and those two keep their own size contained, so switching changes
+            nothing above or below. Library and Queue stay mounted while hidden: their searches and
+            scroll positions survive a trip to the other and back. */}
+        {/* A view counts as opened (loads its songs) only once the router has read ?view: the
+            first render shows the default view, and must not load the Library behind a Queue. */}
+        <div className="music-view" data-music-view={view}>
           <div className={`music-now-playing${view === 'player' ? '' : ' music-now-playing-behind'}`} aria-hidden={view === 'player' ? undefined : true} {...hiddenUnless(view === 'player')}>
 
             <div className={`music-now-playing-cover-col${mobileShowLyrics ? ' mobile-hidden' : ''}`}>
@@ -533,8 +327,27 @@ export default function MusicPage({ songLookup }: Props) {
 
             {isPlaying && <MusicWaveVisualizer volume={volume} className={mobileShowLyrics ? 'mobile-active' : ''} />}
 
-            {/* "Add to Playlist" lived here and only ever answered "Playlists are
-                coming soon!": a placeholder, hidden until the feature exists. */}
+            <div className="music-up-next" aria-labelledby="music-up-next-heading">
+              <div className="music-up-next-heading">
+                <h3 id="music-up-next-heading">Up next</h3>
+                <Link href={MUSIC_VIEW_HREF.queue} shallow scroll={false} prefetch={false} className="ghost btn-sm">Open queue</Link>
+              </div>
+              <ol className="music-up-next-list">
+                {[0, 1, 2].map(i => {
+                  const entry = upNext[i];
+                  return <li key={entry?.song.id ?? `empty-${i}`}>
+                    {entry
+                      ? <button type="button" className="btn-bare music-up-next-song" onClick={() => playQueueIndex(entry.index)} title={`Play ${entry.song.title} now`}>
+                        <span className="music-up-next-index">{i + 1}</span>
+                        <span className="music-up-next-title">{entry.song.title}</span>
+                        {entry.song.artist && <span className="music-up-next-artist">{entry.song.artist}</span>}
+                      </button>
+                      : <span className="music-up-next-empty">{i === 0 ? (repeatMode === 'one' ? 'Repeat one plays this song again.' : queueLoading ? 'Loading…' : 'Nothing after this song.') : '\u00a0'}</span>}
+                  </li>;
+                })}
+              </ol>
+            </div>
+
             <div className="music-now-playing-buttons">
               {youtubeUrl && (
                 <a href={youtubeUrl} target="_blank" rel="noreferrer" className="ghost btn-sm music-watch-youtube-btn">
@@ -546,223 +359,16 @@ export default function MusicPage({ songLookup }: Props) {
               )}
             </div>
           </div>
-          {view === 'queue' && (
-          <div className="music-queue-panel" ref={queuePanel}>
-            <div className="music-song-list-heading">
-              <h2 className="section-title">{songScope === 'queue' ? `Songs (${displayList.length})` : 'Songs'}</h2>
-              <SegmentedControl label="Song list" value={songScope} onChange={changeSongScope}
-                options={[{ value: 'queue', label: 'Queue' }, { value: 'all', label: 'All songs' }]} />
-            </div>
-            <SearchInput label={songScope === 'queue' ? 'Search songs' : 'Search all songs'} name="queue-search" placeholder="Search songs…"
-              value={songScope === 'queue' ? queueSearch : allSongsSearch} onChange={songScope === 'queue' ? setQueueSearch : setAllSongsSearch} />
-            <AllSongsList search={allSongsSearch} shown={songScope === 'all'} />
-            {songScope === 'queue' && (isSearching ? (
-              <>
-                <div className={`music-queue-list${drag.nativeDragging ? ' music-queue-native-drag' : ''}`} data-song-list>
-                  {searchResultRows.map(({ song, queueIdx, displayPos }) => (
-                    <QueueRow
-                      key={song.id}
-                      song={song}
-                      isFavorite={favorites.has(song.id)}
-                      onFavorite={() => toggleFavorite(song.id)}
-                      displayPos={displayPos}
-                      isActive={queueIdx === queueIndex && videoId === song.id}
-                      isDragging={drag.dragPos === displayPos}
-                      dropSide={dropSide(displayPos)}
-                      onTap={() => playTrackByVideoId(song.id)}
-                      onDragStart={e => drag.startNative(e, displayPos, song.title)}
-                      onDragEnd={drag.cancel}
-                      onPointerDrag={e => drag.startPointer(e, displayPos, song.title)}
-                      canMoveUp={displayPos > 0} canMoveDown={displayPos < displayList.length - 1}
-                      onMoveUp={() => drag.move(displayPos, displayPos - 1)}
-                      onMoveDown={() => drag.move(displayPos, displayPos + 1)}
-                      onPushToTop={() => moveQueueItemToTop(queueIdx)}
-                      onRemove={() => removeFromQueue(queueIdx)}
-                    />
-                  ))}
-                  {Array.from({ length: searchEmptyCount }, (_, i) => (
-                    <div key={`search-empty-${i}`} className="music-queue-row music-queue-row-placeholder" aria-hidden="true" />
-                  ))}
-                </div>
-                <div className={`music-queue-list${drag.nativeDragging ? ' music-queue-native-drag' : ''}`} data-song-list>
-                  {comingUpRows.map(({ song, queueIdx, displayPos }) => (
-                    <QueueRow
-                      key={song.id}
-                      song={song}
-                      isFavorite={favorites.has(song.id)}
-                      onFavorite={() => toggleFavorite(song.id)}
-                      displayPos={displayPos}
-                      isActive={queueIdx === queueIndex && videoId === song.id}
-                      isDragging={drag.dragPos === displayPos}
-                      dropSide={dropSide(displayPos)}
-                      onTap={() => playTrackByVideoId(song.id)}
-                      onDragStart={e => drag.startNative(e, displayPos, song.title)}
-                      onDragEnd={drag.cancel}
-                      onPointerDrag={e => drag.startPointer(e, displayPos, song.title)}
-                      canMoveUp={displayPos > 0} canMoveDown={displayPos < displayList.length - 1}
-                      onMoveUp={() => drag.move(displayPos, displayPos - 1)}
-                      onMoveDown={() => drag.move(displayPos, displayPos + 1)}
-                      onPushToTop={() => moveQueueItemToTop(queueIdx)}
-                      onRemove={() => removeFromQueue(queueIdx)}
-                    />
-                  ))}
-                  {Array.from({ length: comingUpEmptyCount }, (_, i) => (
-                    <div key={`comingup-empty-${i}`} className="music-queue-row music-queue-row-placeholder" aria-hidden="true" />
-                  ))}
-                </div>
-              </>
-            ) : (
-              <div className={`music-queue-list${drag.nativeDragging ? ' music-queue-native-drag' : ''}`} data-song-list>
-                {/* Same quiet .hint treatment as the discover page's
-                    no-results message -- without it, "Songs (0)" sits
-                    above a silent void and reads like the list simply
-                    failed to load rather than being genuinely empty. */}
-                {displayListWithPos.length === 0 && (
-                  <p className="hint">Nothing in the queue right now. Head over to Discover to find something to play.</p>
-                )}
-                {visibleFullQueue.map(({ song, queueIdx, displayPos }) => (
-                  <QueueRow
-                    key={song.id}
-                    song={song}
-                    isFavorite={favorites.has(song.id)}
-                    onFavorite={() => toggleFavorite(song.id)}
-                    displayPos={displayPos}
-                    isActive={queueIdx === queueIndex && videoId === song.id}
-                    isDragging={drag.dragPos === displayPos}
-                    dropSide={dropSide(displayPos)}
-                    onTap={() => playTrackByVideoId(song.id)}
-                    onDragStart={e => drag.startNative(e, displayPos, song.title)}
-                    onDragEnd={drag.cancel}
-                    onPointerDrag={e => drag.startPointer(e, displayPos, song.title)}
-                    canMoveUp={displayPos > 0} canMoveDown={displayPos < displayList.length - 1}
-                    onMoveUp={() => drag.move(displayPos, displayPos - 1)}
-                    onMoveDown={() => drag.move(displayPos, displayPos + 1)}
-                    onPushToTop={() => moveQueueItemToTop(queueIdx)}
-                    onRemove={() => removeFromQueue(queueIdx)}
-                  />
-                ))}
-                <LoadOnScroll shown={queueVisibleCount} total={displayListWithPos.length} onMore={() => setQueueVisibleCount((c) => c + QUEUE_PAGE_SIZE)} />
-              </div>
-            ))}
+          <div className={`music-view-panel${view === 'queue' ? '' : ' music-view-behind'}`} aria-hidden={view === 'queue' ? undefined : true} {...hiddenUnless(view === 'queue')}>
+            <MusicQueue shown={router.isReady && view === 'queue'} />
           </div>
-          )}
-        </div>
-
-        <div className="music-player-bottombar">
-          <div className="music-player-bottombar-seek">
-            <span className="music-time music-time-start">{formatTime(currentTime)}</span>
-            <input
-              type="range"
-              min={0}
-              max={duration || 0}
-              step={1}
-              value={currentTime}
-              onChange={(e) => handleSeekChange(parseFloat(e.target.value))}
-              onMouseDown={() => setSeeking(true)}
-              onTouchStart={() => setSeeking(true)}
-              onMouseUp={(e) => handleSeekCommit(parseFloat((e.target as HTMLInputElement).value))}
-              onTouchEnd={(e) => handleSeekCommit(parseFloat((e.target as HTMLInputElement).value))}
-              // Keyboard seeking: arrow keys fire onChange (which only
-              // updates the DISPLAYED time, see handleSeekChange) but
-              // never any mouse/touch event, so without this keyup
-              // commit the slider moved while the player itself never
-              // seeked at all. Guarded to the keys that actually move a
-              // range input, so merely tabbing through the slider
-              // doesn't trigger a pointless re-seek to the current
-              // position (an audible stutter).
-              onKeyUp={(e) => {
-                if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown'].includes(e.key)) {
-                  handleSeekCommit(parseFloat((e.target as HTMLInputElement).value));
-                }
-              }}
-              className="music-seek"
-              aria-label="Seek"
-            />
-            <span className="music-time music-time-end">{formatTime(duration)}</span>
-          </div>
-
-          <div className="music-player-bottombar-controls">
-            <button
-              type="button"
-              className="filter-chip music-fav-btn"
-              onClick={() => videoId && toggleFavorite(videoId)}
-              disabled={!videoId}
-              aria-pressed={isFav}
-              aria-label="Favorite"
-              title="Favorite"
-            >
-              <TransportIcon name="heart" />
-            </button>
-            <SongPlaylistPicker player song={{ id: videoId || '', title: catalogTitle }} />
-            <button
-              type="button"
-              className="filter-chip music-stream-safe-btn"
-              onClick={() => setExcludeCopyrighted(!excludeCopyrighted)}
-              aria-pressed={excludeCopyrighted}
-              aria-label="Stream-safe: hide copyrighted songs"
-              title="Stream-safe (hide copyrighted songs)"
-            >
-              <TransportIcon name="streamSafe" />
-            </button>
-            <button
-              type="button"
-              className="filter-chip music-shuffle-btn"
-              onClick={toggleShuffle}
-              aria-pressed={shuffle}
-              aria-label="Shuffle"
-              title="Shuffle"
-            >
-              <TransportIcon name="shuffle" />
-            </button>
-            <button type="button" className="music-prev-btn" onClick={prevTrack} aria-label="Previous track">
-              <TransportIcon name="prev" />
-            </button>
-            <button
-              type="button"
-              className={starting ? 'primary music-play-btn loading' : 'primary music-play-btn'}
-              onClick={togglePlay}
-              disabled={starting}
-              aria-label={starting ? 'Starting…' : isPlaying ? 'Pause' : 'Play'}
-            >
-              <TransportIcon name={starting ? 'loading' : isPlaying ? 'pause' : 'play'} />
-            </button>
-            <button type="button" className="music-next-btn" onClick={nextTrack} aria-label="Next track">
-              <TransportIcon name="next" />
-            </button>
-            <button
-              type="button"
-              className="filter-chip music-repeat-btn"
-              onClick={cycleRepeat}
-              aria-pressed={repeatMode !== 'off'}
-              aria-label={repeatMode === 'off' ? 'Repeat: off' : repeatMode === 'one' ? 'Repeat: one' : 'Repeat: all'}
-              title={repeatMode === 'off' ? 'Repeat off' : repeatMode === 'one' ? 'Repeat one' : 'Repeat all'}
-            >
-              <TransportIcon name="repeat" />{repeatMode === 'one' && <span className="music-repeat-one-badge">1</span>}
-            </button>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              step={1}
-              value={volume}
-              onChange={(e) => setVolumeLevel(parseInt(e.target.value, 10))}
-              className="music-volume"
-              aria-label="Volume"
-            />
-            <button
-              type="button"
-              className="filter-chip music-list-btn"
-              onClick={() => setView(view === 'queue' ? 'player' : 'queue')}
-              aria-pressed={view === 'queue'}
-              aria-label="Song list"
-              title="Song list"
-            >
-              <TransportIcon name="list" />
-            </button>
+          <div className={`music-view-panel${view === 'library' ? '' : ' music-view-behind'}`} aria-hidden={view === 'library' ? undefined : true} {...hiddenUnless(view === 'library')}>
+            <MusicLibrary shown={router.isReady && view === 'library'} />
           </div>
         </div>
+
+        <MusicTransportBar view={view} onFullPlayer coverPath={currentDetail ? currentDetail.coverPath ?? null : undefined} />
       </main>
-      {drag.feedback}
     </>
   );
 }

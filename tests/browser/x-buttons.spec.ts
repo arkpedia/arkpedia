@@ -230,11 +230,11 @@ const PLACES: Place[] = [
     gone: async (page) => { await expect(page.locator('.base-room-team-x')).toHaveCount(0); },
   },
   {
-    id: '/music queue', route: '/music',
+    id: '/music queue', route: '/music?view=queue',
     open: async (page) => {
       const row = page.locator('.music-queue-row').nth(1);
       await expect(row).toBeVisible();
-      if (page.viewportSize()!.width <= 720) await row.getByRole('button', { name: /^Actions for / }).click();
+      if (page.viewportSize()!.width <= 720) await row.getByRole('button', { name: /^More actions for / }).click();
     },
     x: (page) => page.viewportSize()!.width <= 720 ? page.getByRole('button', { name: 'Close song actions' })
       : page.locator('.music-queue-row').nth(1).getByRole('button', { name: 'Remove', exact: true }),

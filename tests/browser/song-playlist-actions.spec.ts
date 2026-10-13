@@ -4,16 +4,16 @@ import { stubYouTube, youtube } from './youtube-stub';
 const KEY = 'arkpedia.music-playlists.v1';
 const mobile = (page: Page) => page.viewportSize()!.width <= 720;
 function playlistTrigger(page: Page, row: Locator) {
-  return mobile(page) ? row.getByRole('button', { name: /^Actions for / }) : row.getByRole('button', { name: /to playlists$/ });
+  return mobile(page) ? row.getByRole('button', { name: /^More actions for / }) : row.getByRole('button', { name: /^Add to playlist: / });
 }
 async function openPicker(page: Page, row: Locator) {
   await playlistTrigger(page, row).click();
-  if (mobile(page)) await page.getByRole('dialog', { name: 'Song actions', exact: true }).getByRole('button', { name: 'Add to playlists', exact: true }).click();
+  if (mobile(page)) await page.getByRole('dialog', { name: 'Song actions', exact: true }).getByRole('button', { name: 'Add to playlist', exact: true }).click();
 }
 async function toggleFavorite(page: Page, row: Locator) {
   if (mobile(page)) {
-    await row.getByRole('button', { name: /^Actions for / }).click();
-    await page.getByRole('dialog', { name: 'Song actions', exact: true }).getByRole('button', { name: /(?:from|to) favorites$/ }).click();
+    await row.getByRole('button', { name: /^More actions for / }).click();
+    await page.getByRole('dialog', { name: 'Song actions', exact: true }).getByRole('button', { name: /^(?:Un)?favourite$/i }).click();
   } else await row.locator('.music-song-favorite').click();
 }
 for (const theme of ['dark', 'light']) {
@@ -99,8 +99,8 @@ for (const theme of ['dark', 'light']) {
     await expect(favorite).toHaveAttribute('aria-pressed', 'false');
     await page.reload();
     await expect(favorite).toHaveAttribute('aria-pressed', 'false');
-    // Search result and Coming Up rows use the same actions and stable song IDs.
-    await page.getByRole('searchbox', { name: 'Search songs' }).fill(song!);
+    // A search narrows the queue's rows; they keep the same actions and stable song IDs.
+    await page.getByRole('searchbox', { name: 'Search the queue' }).fill(song!);
     const result = rows.filter({ has: page.locator(`.music-queue-row-title[title=${JSON.stringify(song)}]`) }).first();
     await expect(result.locator('.music-song-favorite')).toHaveAttribute('aria-pressed', 'false');
     await toggleFavorite(page, result);
@@ -123,7 +123,7 @@ test('the picker keeps a second tab’s playlist edits and does not duplicate ex
   await dialog.getByRole('checkbox', { name: 'Shared', exact: true }).check();
   const other = await context.newPage();
   await stubYouTube(other);
-  await other.goto('/music');
+  await other.goto('/music?view=queue');
   await other.evaluate(key => localStorage.setItem(key, JSON.stringify([{ id: 'a', name: 'Shared', tracks: ['abcdefghijk'] }, { id: 'b', name: 'New in other tab', tracks: [] }])), KEY);
   await expect(dialog.getByRole('checkbox', { name: 'New in other tab', exact: true })).toBeVisible();
   await dialog.getByRole('button', { name: 'Add to playlists', exact: true }).click();
@@ -156,7 +156,7 @@ test('playlist picker flips above a low button and stays within the viewport as 
   expect(index).toBeGreaterThanOrEqual(0);
   const plus = buttons.nth(index);
   await plus.click();
-  if (mobile(page)) await page.getByRole('dialog', { name: 'Song actions', exact: true }).getByRole('button', { name: 'Add to playlists', exact: true }).click();
+  if (mobile(page)) await page.getByRole('dialog', { name: 'Song actions', exact: true }).getByRole('button', { name: 'Add to playlist', exact: true }).click();
   const picker = page.getByRole('dialog', { name: 'Add to playlists', exact: true });
   await expect(picker).toBeVisible();
   await picker.getByRole('textbox', { name: 'New playlist name' }).fill('A playlist with a long title that wraps onto more than one line');

@@ -3,6 +3,10 @@ import { stubYouTube, youtube } from './youtube-stub';
 
 const rows = (page: Page) => page.locator('.music-queue-list .music-queue-row[data-song-id]');
 const order = (page: Page) => rows(page).evaluateAll(elements => elements.map(el => (el as HTMLElement).dataset.songId));
+/** The queue's own order (its display positions), whatever part of it the view shows first. */
+const queueOrder = (page: Page) => rows(page).evaluateAll(elements => elements
+  .map(el => ({ pos: Number((el as HTMLElement).dataset.displayPos), id: (el as HTMLElement).dataset.songId }))
+  .sort((a, b) => a.pos - b.pos).map(row => row.id));
 async function dragInput(page: Page) {
   if (test.info().project.name !== 'mobile') return {
     start: async (x: number, y: number) => { await page.mouse.move(x, y); await page.mouse.down(); },
@@ -26,12 +30,18 @@ test('song titles play immediately without inserting or changing the queue', asy
   await rows(page).nth(2).locator('.music-queue-row-title').click();
   await expect.poll(async () => (await youtube(page))?.videoId).toBe(song);
   await expect.poll(async () => (await youtube(page))?.state).toBe(1);
-  expect(await order(page)).toEqual(before);
+  // The Queue shows the song playing first (the two before it fold into Played earlier); the
+  // queue's own order, which data-display-pos carries, is unchanged.
+  const played = await queueOrder(page);
+  expect(played.slice(0, before.length - 2)).toEqual(before.slice(2));
+  await expect(rows(page).first()).toHaveClass(/\bcurrent\b/);
+  await expect(page.getByRole('heading', { name: 'Now playing', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Play now', exact: true })).toHaveCount(0);
   await expect(page.locator('.music-queue-row.selected')).toHaveCount(0);
+  const next = (await order(page))[1];
   await rows(page).nth(1).locator('.music-queue-row-title').click();
-  await expect.poll(async () => (await youtube(page))?.videoId).toBe(before[1]);
-  expect(await order(page)).toEqual(before);
+  await expect.poll(async () => (await youtube(page))?.videoId).toBe(next);
+  expect((await queueOrder(page)).slice(0, before.length - 3)).toEqual(before.slice(3));
 });
 
 test('mobile song actions have anchored playlist and reorder submenus', async ({ page }) => {
@@ -40,7 +50,7 @@ test('mobile song actions have anchored playlist and reorder submenus', async ({
   await page.goto('/music?view=queue');
   const row = rows(page).nth(1);
   await expect(row).toBeVisible();
-  const more = row.getByRole('button', { name: /^Actions for / });
+  const more = row.getByRole('button', { name: /^More actions for / });
   await expect(more).toBeVisible();
   expect(await row.evaluate(el => el.getBoundingClientRect().height)).toBeLessThanOrEqual(44);
   await expect(row.locator('.music-song-desktop-actions')).not.toBeVisible();
@@ -49,7 +59,7 @@ test('mobile song actions have anchored playlist and reorder submenus', async ({
   const iconPositions = await menu.locator('.music-song-menu-options > button > svg').evaluateAll(icons => icons.map(icon => icon.getBoundingClientRect().left));
   expect(Math.max(...iconPositions) - Math.min(...iconPositions)).toBeLessThan(1);
   await expect(menu.getByRole('button', { name: 'Reorder', exact: true })).toBeVisible();
-  await menu.getByRole('button', { name: 'Add to playlists', exact: true }).click();
+  await menu.getByRole('button', { name: 'Add to playlist', exact: true }).click();
   const picker = page.getByRole('dialog', { name: 'Add to playlists', exact: true });
   await expect(picker.getByRole('checkbox', { name: 'Favourites', exact: true })).toBeVisible();
   await picker.getByRole('button', { name: 'Back to song actions' }).click();
@@ -59,12 +69,12 @@ test('mobile song actions have anchored playlist and reorder submenus', async ({
   await reorder.getByRole('button', { name: 'Move down', exact: true }).click();
   await expect.poll(async () => (await order(page))[2]).toBe(before[1]);
   expect(await youtube(page)).toMatchObject({ state: 5 });
-  await rows(page).nth(1).getByRole('button', { name: /^Actions for / }).click();
+  await rows(page).nth(1).getByRole('button', { name: /^More actions for / }).click();
   await page.screenshot({ path: '.cache/song-mobile-actions.png' });
   await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog')).toHaveCount(0);
   const removedId = (await order(page))[1];
-  await rows(page).nth(1).getByRole('button', { name: /^Actions for / }).click();
+  await rows(page).nth(1).getByRole('button', { name: /^More actions for / }).click();
   await page.getByRole('dialog', { name: 'Song actions', exact: true }).getByRole('button', { name: 'Remove', exact: true }).click();
   expect(await order(page)).not.toContain(removedId);
 });
@@ -72,10 +82,13 @@ test('mobile song actions have anchored playlist and reorder submenus', async ({
 for (const shuffled of [false, true]) {
   test(`dragging reorders the visible sequence without changing playback (shuffle ${shuffled})`, async ({ page }) => {
     await stubYouTube(page);
-    await page.goto('/music?view=queue');
-    await expect(rows(page).nth(3)).toBeVisible();
+    // Shuffle is on Now playing's full transport (a phone's Queue shows the mini player).
+    await page.goto('/music?view=player');
     const shuffle = page.locator('.music-player-bottombar').getByRole('button', { name: 'Shuffle', exact: true });
+    await expect(shuffle).toBeVisible();
     if ((await shuffle.getAttribute('aria-pressed') === 'true') !== shuffled) await shuffle.click();
+    await page.getByRole('navigation', { name: 'Music' }).getByRole('link', { name: /^Queue/ }).click();
+    await expect(rows(page).nth(3)).toBeVisible();
     await rows(page).first().locator('.music-queue-row-title').click();
     await expect.poll(async () => (await youtube(page))?.state).toBe(1);
     const playing = await youtube(page);

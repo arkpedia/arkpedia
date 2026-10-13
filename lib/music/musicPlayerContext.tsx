@@ -7,6 +7,7 @@ import { GAME_PATHS } from '@/lib/minigames/catalogue';
 import { MUSIC_CATALOGUE_PATH, loadMusicCatalogue, type MusicCatalogueSong } from './musicCatalogue';
 import { MUSIC_FAVORITES_EVENT, MUSIC_FAVORITES_KEY, readMusicFavorites } from './musicFavorites';
 import { restoreQueue, sessionStore, takeMusicResume, writeMusicResume, type MusicResumeState } from './musicResume';
+import { clearUpcoming, placeSong, restoreAround, type Placement, type QueueState } from './queueOps';
 
 export interface YTPlayer {
   playVideo(): void;
@@ -68,6 +69,20 @@ export interface QueueTrack {
   artist?: string | null;
 }
 
+/** Where the queue came from, for the Queue view's "Playing from": every song (the default),
+ *  a saved playlist, or the reader's own (a queue they cleared and built up again). */
+export type QueueSource = 'all' | 'playlist' | 'custom';
+
+/** What a queue action did, shown under the transport for a moment (pages/music). */
+export interface MusicNotice {
+  id: number;
+  text: string;
+  /** Clear queue can be undone from the notice. */
+  undo?: boolean;
+}
+
+export type QueueSongResult = 'queued' | 'current' | 'unavailable';
+
 function toQueueTrack(song: MusicCatalogueSong): QueueTrack {
   return { id: song.videoId, title: song.title, altTitle: song.altTitle ?? null, artist: song.artist ?? null };
 }
@@ -91,6 +106,11 @@ interface MusicPlayerContextValue {
   shufflePosition: number; // where the currently-playing track sits within shuffleOrder
   queueLoading: boolean;
   playingPlaylistId: string | null;
+  /** Songs the reader queued (Play next, Add to queue) that have not played yet. */
+  queued: ReadonlySet<string>;
+  queueSource: QueueSource;
+  notice: MusicNotice | null;
+  dismissNotice: () => void;
   excludeCopyrighted: boolean; // "stream-safe mode" -- filters copyrighted songs out of the queue entirely, not just a display filter on one page
   initializePlayer: () => void;
   togglePlay: () => void;
@@ -112,6 +132,14 @@ interface MusicPlayerContextValue {
   reorderShuffleOrder: (fromPos: number, toPos: number) => void;
   moveQueueItemToTop: (index: number) => void;
   removeFromQueue: (index: number) => void;
+  /** Plays a song right away; the rest of the queue plays on after it. */
+  playNow: (videoId: string) => void;
+  /** Play next (right after the current song) or Add to queue (after the songs already queued). */
+  queueSong: (videoId: string, where: Placement) => Promise<QueueSongResult>;
+  /** Takes out every song but the one playing; undoClearQueue puts them back. */
+  clearQueue: () => void;
+  undoClearQueue: () => void;
+  canUndoClear: boolean;
   setExcludeCopyrighted: (v: boolean) => void;
   containerRef: React.RefObject<HTMLDivElement>;
 }
@@ -185,6 +213,18 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   const [queueLoading, setQueueLoading] = useState(false);
   const [playingPlaylistId, setPlayingPlaylistId] = useState<string | null>(null);
   const playingPlaylistIdRef = useRef<string | null>(null);
+  const [queued, setQueued] = useState<ReadonlySet<string>>(new Set());
+  const queuedRef = useRef<ReadonlySet<string>>(new Set());
+  const [queueSource, setQueueSourceState] = useState<QueueSource>('all');
+  const queueSourceRef = useRef<QueueSource>('all');
+  const setQueueSource = (source: QueueSource) => { queueSourceRef.current = source; setQueueSourceState(source); };
+  const [notice, setNotice] = useState<MusicNotice | null>(null);
+  const noticeIdRef = useRef(0);
+  const announce = (text: string, undo = false) => { noticeIdRef.current += 1; setNotice({ id: noticeIdRef.current, text, undo }); };
+  const dismissNotice = useCallback(() => setNotice(null), []);
+  // The queue as Clear queue found it, for Undo.
+  const clearedRef = useRef<{ state: QueueState<QueueTrack>; playlistIds: string[] | null; playingPlaylistId: string | null; source: QueueSource } | null>(null);
+  const [canUndoClear, setCanUndoClear] = useState(false);
   // Shuffle is a full pre-computed permutation of queue indices, not a
   // fresh random roll on every advance -- that's what lets "Up next",
   // the queue display, the next/previous buttons, and auto-advance on
@@ -927,6 +967,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     playlistIdsRef.current = record.playlistIds ?? null;
     playingPlaylistIdRef.current = record.playingPlaylistId ?? null;
     setPlayingPlaylistId(playingPlaylistIdRef.current);
+    setQueueSource(playingPlaylistIdRef.current ? 'playlist' : playlistIdsRef.current ? 'custom' : 'all');
     pendingPlayRef.current = play;
     shuffleRef.current = record.shuffle;
     setShuffle(record.shuffle);
@@ -1032,6 +1073,9 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     playlistIdsRef.current = videoIds ? [...videoIds] : null;
     playingPlaylistIdRef.current = videoIds ? playlistId ?? null : null;
     setPlayingPlaylistId(playingPlaylistIdRef.current);
+    setQueueSource(videoIds ? (playlistId ? 'playlist' : 'custom') : 'all');
+    queuedRef.current = new Set(); setQueued(queuedRef.current);
+    clearedRef.current = null; setCanUndoClear(false);
     queueRef.current = tracks; setQueue(tracks);
     queueIndexRef.current = 0; setQueueIndex(0);
     // Start in the saved order. The reader can turn shuffle on afterwards.
@@ -1090,6 +1134,13 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   }
 
   function playQueueIndex(index: number) {
+    // Before YouTube is ready a tap waited for nothing: it now waits for the player, as a song
+    // chosen elsewhere does (playTrackByVideoId's pending request).
+    if (!playerReadyRef.current) {
+      const id = queueRef.current[index]?.id;
+      if (id) playTrackByVideoId(id);
+      return;
+    }
     loadTrackAt(index);
     const order = shuffleOrderRef.current;
     if (shuffleRef.current && order) {
@@ -1110,40 +1161,27 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   // on, since the queue display now renders directly from it -- a
   // stale or cleared order would show the wrong list after a reorder.
   function reorderQueue(fromIndex: number, toIndex: number) {
-    if (fromIndex === toIndex) return;
-    let newLength = 0;
-    let newCurrentIndex = queueIndexRef.current;
-    setQueue((current) => {
-      if (fromIndex < 0 || fromIndex >= current.length || toIndex < 0 || toIndex >= current.length) return current;
-      const next = [...current];
-      const [moved] = next.splice(fromIndex, 1);
-      next.splice(toIndex, 0, moved);
-      newLength = next.length;
-      return next;
-    });
-    setQueueIndex((current) => {
-      if (current === fromIndex) {
-        newCurrentIndex = toIndex;
-      } else if (fromIndex < current && toIndex >= current) {
-        newCurrentIndex = current - 1;
-      } else if (fromIndex > current && toIndex <= current) {
-        newCurrentIndex = current + 1;
-      } else {
-        newCurrentIndex = current;
-      }
-      return newCurrentIndex;
-    });
-    if (shuffleRef.current && newLength > 0) {
+    // Computed from the refs, here and now: the old version read values its setState updaters
+    // assigned, which React 18 may run only at the next render, so the shuffle position was
+    // worked out from stale ones and "the song playing" could land anywhere in the queue.
+    const current = queueRef.current;
+    if (fromIndex === toIndex || fromIndex < 0 || fromIndex >= current.length || toIndex < 0 || toIndex >= current.length) return;
+    const next = [...current];
+    const [moved] = next.splice(fromIndex, 1);
+    next.splice(toIndex, 0, moved);
+    const playing = queueIndexRef.current;
+    const newCurrentIndex = playing === fromIndex ? toIndex
+      : fromIndex < playing && toIndex >= playing ? playing - 1
+        : fromIndex > playing && toIndex <= playing ? playing + 1 : playing;
+    let order: number[] | null = null;
+    if (shuffleRef.current && next.length > 0) {
       const existingOrder = shuffleOrderRef.current;
-      const remapped = existingOrder
+      order = existingOrder
         ? existingOrder.map((idx) => remapIndexAfterMove(idx, fromIndex, toIndex))
-        : generateShuffleOrder(newLength, newCurrentIndex); // no order to remap yet -- only path that still needs a fresh one
-      shuffleOrderRef.current = remapped;
-      setShuffleOrder(remapped);
-      const pos = remapped.indexOf(newCurrentIndex);
-      shufflePositionRef.current = pos !== -1 ? pos : 0;
-      setShufflePosition(shufflePositionRef.current);
+        : generateShuffleOrder(next.length, newCurrentIndex); // no order to remap yet -- only path that still needs a fresh one
     }
+    applyQueueState({ queue: next, queueIndex: newCurrentIndex, shuffleOrder: order,
+      shufflePosition: order ? Math.max(0, order.indexOf(newCurrentIndex)) : 0, queued: queuedRef.current });
   }
 
   // Reorders the SHUFFLE ORDER's own positions directly -- once
@@ -1199,31 +1237,129 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   // (pause/skip) are for, not the queue manager. Also regenerates the
   // shuffle order, for the same reason as reorderQueue above.
   function removeFromQueue(index: number) {
-    if (index === queueIndex) return;
-    let newLength = 0;
-    let newCurrentIndex = queueIndexRef.current;
-    setQueue((current) => {
-      const next = current.filter((_, i) => i !== index);
-      newLength = next.length;
-      return next;
-    });
-    setQueueIndex((current) => {
-      newCurrentIndex = index < current ? current - 1 : current;
-      return newCurrentIndex;
-    });
-    if (shuffleRef.current && newLength > 0) {
+    // From the refs, synchronously, for the reason given at reorderQueue.
+    const current = queueRef.current;
+    const playing = queueIndexRef.current;
+    if (index === playing || index < 0 || index >= current.length) return;
+    const removedId = current[index].id;
+    const next = current.filter((_, i) => i !== index);
+    const newCurrentIndex = index < playing ? playing - 1 : playing;
+    let order: number[] | null = null;
+    if (shuffleRef.current && next.length > 0) {
       const existingOrder = shuffleOrderRef.current;
-      const remapped = existingOrder
+      order = existingOrder
         ? existingOrder
             .map((idx) => remapIndexAfterRemoval(idx, index))
             .filter((idx): idx is number => idx !== null)
-        : generateShuffleOrder(newLength, newCurrentIndex); // no order to remap yet -- only path that still needs a fresh one
-      shuffleOrderRef.current = remapped;
-      setShuffleOrder(remapped);
-      const pos = remapped.indexOf(newCurrentIndex);
-      shufflePositionRef.current = pos !== -1 ? pos : 0;
-      setShufflePosition(shufflePositionRef.current);
+        : generateShuffleOrder(next.length, newCurrentIndex); // no order to remap yet -- only path that still needs a fresh one
     }
+    const queuedNow = new Set(queuedRef.current);
+    queuedNow.delete(removedId);
+    applyQueueState({ queue: next, queueIndex: newCurrentIndex, shuffleOrder: order,
+      shufflePosition: order ? Math.max(0, order.indexOf(newCurrentIndex)) : 0, queued: queuedNow });
+  }
+
+  // A queued song that starts playing is no longer waiting in "Next in queue".
+  useEffect(() => {
+    if (!videoId || !queuedRef.current.has(videoId)) return;
+    const next = new Set(queuedRef.current);
+    next.delete(videoId);
+    queuedRef.current = next;
+    setQueued(next);
+  }, [videoId]);
+
+  function queueState(): QueueState<QueueTrack> {
+    return { queue: queueRef.current, queueIndex: queueIndexRef.current, shuffleOrder: shuffleRef.current ? shuffleOrderRef.current : null,
+      shufflePosition: shufflePositionRef.current, queued: queuedRef.current };
+  }
+  /** One queue edit, written to the refs (which the next call and YouTube's events read) and state. */
+  function applyQueueState(next: QueueState<QueueTrack>) {
+    queueRef.current = next.queue; setQueue(next.queue);
+    queueIndexRef.current = next.queueIndex; setQueueIndex(next.queueIndex);
+    if (shuffleRef.current) {
+      shuffleOrderRef.current = next.shuffleOrder; setShuffleOrder(next.shuffleOrder);
+      shufflePositionRef.current = next.shufflePosition; setShufflePosition(next.shufflePosition);
+    }
+    queuedRef.current = next.queued; setQueued(next.queued);
+  }
+  /** The catalogue's song as a queue row, unless stream-safe leaves it out. */
+  function playableTrack(id: string): QueueTrack | null {
+    const song = catalogRef.current?.find(entry => entry.videoId === id);
+    return song && !(excludeCopyrightedRef.current && song.copyright) ? toQueueTrack(song) : null;
+  }
+  const trackTitle = (id: string) => queueRef.current.find(track => track.id === id)?.title
+    ?? catalogRef.current?.find(song => song.videoId === id)?.title ?? 'This song';
+
+  async function queueSong(id: string, where: Placement): Promise<QueueSongResult> {
+    if (!queueRef.current.length) {
+      initializePlayer();
+      await loadFullQueue();
+    }
+    if (!catalogRef.current) {
+      try { await buildQueueFromCatalog(); } catch { /* Only songs already in the queue can be placed. */ }
+    }
+    const result = placeSong(queueState(), id, where, playableTrack(id));
+    const title = trackTitle(id);
+    if (!result.ok) {
+      announce(result.reason === 'current' ? `${title} is playing now.` : `${title} can’t be queued${excludeCopyrightedRef.current ? ' while stream-safe is on' : ''}.`);
+      return result.reason;
+    }
+    applyQueueState(result.state);
+    if (queueSourceRef.current === 'custom' && playlistIdsRef.current && !playlistIdsRef.current.includes(id)) playlistIdsRef.current = [...playlistIdsRef.current, id];
+    announce(where === 'next' ? `Playing next: ${title}` : `Added to queue: ${title}`);
+    return 'queued';
+  }
+
+  function playNow(id: string) {
+    // Not loaded yet: the song is put first as the player starts (playFirst), which is the same
+    // thing -- nothing has played, so the queue plays on after it.
+    if (!playerReadyRef.current) {
+      playFirst(id);
+      return;
+    }
+    if (queueRef.current[queueIndexRef.current]?.id === id && videoIdRef.current === id) {
+      if (!isPlayingRef.current) playerRef.current?.playVideo();
+      return;
+    }
+    const result = placeSong(queueState(), id, 'next', playableTrack(id));
+    if (!result.ok) {
+      // A song the queue cannot take (stream-safe): it plays on its own, as a discovery link did.
+      playTrackByVideoId(id);
+      return;
+    }
+    const queuedNow = new Set(result.state.queued);
+    queuedNow.delete(id);
+    applyQueueState({ ...result.state, queued: queuedNow });
+    playQueueIndex(result.state.queue.findIndex(track => track.id === id));
+  }
+
+  function clearQueue() {
+    const state = queueState();
+    if (state.queue.length <= 1) return;
+    clearedRef.current = { state, playlistIds: playlistIdsRef.current, playingPlaylistId: playingPlaylistIdRef.current, source: queueSourceRef.current };
+    setCanUndoClear(true);
+    const cleared = clearUpcoming(state);
+    applyQueueState(cleared);
+    // Stream-safe turned off must not refill a cleared queue with the whole catalogue.
+    playlistIdsRef.current = cleared.queue.map(track => track.id);
+    playingPlaylistIdRef.current = null; setPlayingPlaylistId(null);
+    setQueueSource('custom');
+    announce(`Cleared ${state.queue.length - cleared.queue.length} songs from the queue.`, true);
+  }
+
+  function undoClearQueue() {
+    const saved = clearedRef.current;
+    if (!saved) return;
+    clearedRef.current = null;
+    setCanUndoClear(false);
+    const playing = queueRef.current[queueIndexRef.current] ?? null;
+    const restored = restoreAround(saved.state, playing?.id ?? null, playing);
+    // Songs queued since the clear stay queued.
+    applyQueueState({ ...restored, queued: new Set([...restored.queued, ...queuedRef.current]) });
+    playlistIdsRef.current = saved.playlistIds;
+    playingPlaylistIdRef.current = saved.playingPlaylistId; setPlayingPlaylistId(saved.playingPlaylistId);
+    setQueueSource(saved.source);
+    announce('Restored the queue.');
   }
 
   const value: MusicPlayerContextValue = {
@@ -1245,6 +1381,10 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     shufflePosition,
     queueLoading,
     playingPlaylistId,
+    queued,
+    queueSource,
+    notice,
+    dismissNotice,
     excludeCopyrighted,
     initializePlayer,
     togglePlay,
@@ -1264,6 +1404,11 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     reorderShuffleOrder,
     moveQueueItemToTop,
     removeFromQueue,
+    playNow,
+    queueSong,
+    clearQueue,
+    undoClearQueue,
+    canUndoClear,
     setExcludeCopyrighted,
     containerRef,
   };

@@ -53,6 +53,20 @@ test('the player reads the release catalogue, and the deployment copy only when 
   await assert.rejects(() => loadMusicCatalogue(MUSIC_CATALOGUE_PATH, undefined, async () => answer(500, null)), /returned 500/);
 });
 
+test('the player gets one row per video: a song the release lists twice is queued once', async () => {
+  // The release listed ZCiLqOcjA0Y twice (切尔诺伯格, credited to BaoUner and to Yuki Hayashi): the
+  // default queue, built from this list, played it twice per cycle, its rows shared a React key,
+  // and Play next moved only the first copy (#407's browser Check, 2026-10-13).
+  const answer = { ok: true, status: 200, json: async () => ({ songs: [
+    { videoId: 'twice', title: '切尔诺伯格', artist: 'BaoUner' },
+    { videoId: 'once', title: 'Other' },
+    { videoId: 'twice', title: '切尔诺伯格', artist: 'Yuki Hayashi' },
+  ] }) };
+  const songs = await loadMusicCatalogue('https://example.test/catalogue.json', undefined, async () => answer);
+  assert.deepEqual(songs.map(song => song.videoId), ['twice', 'once']);
+  assert.equal(songs[0].artist, 'BaoUner', 'the first listing wins');
+});
+
 test('every catalogue the release validator requires is published by the export and read from the release', () => {
   const validator = fs.readFileSync('scripts/content/validate-release.mjs', 'utf8');
   const required = JSON.parse(validator.match(/for \(const file of (\[[^\]]*'music-catalogue\.json'[^\]]*\])\) check\(m\.files\[file\], `Missing catalogue/)![1].replace(/'/g, '"'));
