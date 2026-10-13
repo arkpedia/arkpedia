@@ -74,6 +74,15 @@ export function campaignWindow(text, region) {
       } else {
         const named = [...duration.matchAll(/([A-Za-z]+)\s+(\d{1,2}),\s*(\d{4}),?\s*(\d{1,2}):(\d{2})(?!:)/g)];
         if (named.length === 2) [start, end] = named.map(m => stamp(m[3], MONTHS.indexOf(m[1].toLowerCase()) + 1, m[2], m[4], m[5], region.offset));
+        else {
+          // Year first, as Kal'tsit's Archives' rules give it: "2026/10/13-2026/10/19 12:59
+          // (UTC-7)". The end needs its time; a start without one opens that day (no opensAt).
+          const ymd = [...duration.matchAll(/(\d{4})\/(\d{1,2})\/(\d{1,2})(?:,?\s*(\d{1,2}):(\d{2})(?!:))?/g)];
+          if (ymd.length === 2 && ymd[1][4] != null) {
+            exactStart = ymd[0][4] != null;
+            [start, end] = ymd.map(m => stamp(m[1], m[2], m[3], m[4] ?? 0, m[5] ?? 0, region.offset));
+          }
+        }
       }
     } else if (region.id !== 'en') {
       const local = [...duration.matchAll(/(\d{4})\s*[年년]\s*(\d{1,2})\s*[月월]\s*(\d{1,2})\s*[日일](?:\s*(?:（[^）]*）|\([^)]*\))?\s*(\d{1,2}):(\d{2})(?!:))?/g)];
@@ -194,6 +203,12 @@ export async function syncWebEvents(root, { fetcher = globalThis.fetch, now = de
     }
     catch (error) {
       console.warn(`Web campaign ${url}: ${error.message}`);
+      // Some campaigns publish their rules only as an image (Kal'tsit's Archives, 2026-10-13):
+      // the page verifies (canonical URL and title) but holds no text window. A record whose
+      // window was read from that official rules image by a person (windowSource) stands as
+      // it is, rather than being reported every night; a page that stops verifying still is.
+      const prior = events.get(url);
+      if (prior?.windowSource && error.verifiedCampaign && /campaign window/.test(error.message)) continue;
       // An absent sibling is normal; an announced or already published page needs review.
       if (announced || events.has(url) || error.verifiedCampaign) report(`campaign:${url}`, 'The campaign canonical URL or regional rules could not be verified; no dates were inferred.', sourceUrl, events.has(url) ? 'kept-previous' : 'omitted-new');
     }
