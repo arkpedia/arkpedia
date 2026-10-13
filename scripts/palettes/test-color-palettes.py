@@ -285,6 +285,77 @@ server = importlib.util.module_from_spec(server_spec)
 server_spec.loader.exec_module(server)
 
 
+class EditorialRecipes(unittest.TestCase):
+    """A recipe or review edited on the editorial branch is compiled without the refresh and
+    its palettes stage (refresh_upstream=false). On 2026-10-13 six recipes added there left
+    their palettes automatic, the release's palette test refused the compile, and every later
+    editorial edit waited nine hours. --if-stale rebuilds exactly those palettes."""
+
+    path = 'five-star-skins/Example - Base.webp'
+    key = '/' + path
+    features = {'roles': ROLES, 'references': {'red': '#ff0000', 'blue': '#0000ff'},
+                'artworks': {'/five-star-skins/Example - Base.webp': ['red', 'blue', 'blue', 'blue', 'red']}}
+
+    def test_a_recipe_added_to_an_automatic_palette_is_stale_until_it_is_rebuilt(self):
+        skins = FakeSkins({self.path: webp(figure())})
+        automatic, _ = generator.build(skins, {}, NO_RECIPES, {})
+        self.assertEqual(generator.stale(automatic, {}, NO_RECIPES), [], 'unchanged inputs: nothing to do')
+        self.assertEqual(generator.stale(automatic, {}, self.features), [self.key])
+        rebuilt, holds = generator.build(skins, {}, self.features, automatic)
+        self.assertEqual(generator.stale(rebuilt, {}, self.features), [])
+        self.assertNotIn('automatic', rebuilt['artworks'][self.key], 'the palette follows its recipe')
+        self.assertEqual(holds, [], 'and its automatic-palette hold clears')
+
+    def test_a_changed_or_removed_recipe_and_a_new_review_are_stale(self):
+        skins = FakeSkins({self.path: webp(figure())})
+        made, _ = generator.build(skins, {}, self.features, {})
+        changed = deepcopy(self.features)
+        changed['artworks'][self.key] = ['blue', 'red', 'red', 'red', 'blue']
+        self.assertEqual(generator.stale(made, {}, changed), [self.key])
+        self.assertEqual(generator.stale(made, {}, NO_RECIPES), [self.key], 'without a recipe it goes back to automatic')
+        review = {'status': 'accepted', 'sourceSha256': skins.digests[self.path], 'colors': ['#111111'] * 5}
+        self.assertEqual(generator.stale(made, {self.key: review}, self.features), [self.key])
+        reviewed, _ = generator.build(skins, {self.key: review}, self.features, made)
+        self.assertEqual(generator.stale(reviewed, {self.key: review}, self.features), [])
+
+    def test_if_stale_does_nothing_offline_when_every_palette_is_current(self):
+        skins = FakeSkins({self.path: webp(figure())})
+        current, _ = generator.build(skins, {}, self.features, {})
+        with tempfile.TemporaryDirectory() as tmp:
+            output, features = Path(tmp) / 'color-palettes.json', Path(tmp) / 'features.json'
+            output.write_text(json.dumps(current))
+            features.write_text(json.dumps(self.features))
+            skins.fetched.clear()
+            reported = []
+            with patch.object(generator, 'OUTPUT', output), patch.object(generator, 'FEATURES', features), \
+                    patch.object(generator, 'ROOT', Path(tmp)), \
+                    patch.object(generator, 'load_reviews', lambda: {'artworks': {}}), \
+                    patch.object(generator, 'source_from', lambda args: self.fail('no source may be read')), \
+                    patch.object(generator, 'report', reported.append), redirect_stdout(StringIO()):
+                generator.main(['--revisions', 'unused.json', '--if-stale'])
+            self.assertEqual(json.loads(output.read_text()), current)
+            self.assertEqual(reported, [], 'the quarantine is left as it was')
+
+    def test_if_stale_rebuilds_a_recipe_added_without_a_palette_rebuild(self):
+        skins = FakeSkins({self.path: webp(figure())})
+        automatic, _ = generator.build(skins, {}, NO_RECIPES, {})
+        with tempfile.TemporaryDirectory() as tmp:
+            output, features = Path(tmp) / 'color-palettes.json', Path(tmp) / 'features.json'
+            output.write_text(json.dumps(automatic))
+            features.write_text(json.dumps(self.features))
+            reported = []
+            with patch.object(generator, 'OUTPUT', output), patch.object(generator, 'FEATURES', features), \
+                    patch.object(generator, 'ROOT', Path(tmp)), \
+                    patch.object(generator, 'load_reviews', lambda: {'artworks': {}}), \
+                    patch.object(generator, 'source_from', lambda args: skins), \
+                    patch.object(generator, 'report', reported.append), redirect_stdout(StringIO()):
+                generator.main(['--revisions', 'unused.json', '--if-stale'])
+            entry = json.loads(output.read_text())['artworks'][self.key]
+            self.assertNotIn('automatic', entry)
+            self.assertEqual(entry['recipeSha256'], generator.recipe_digest(ROLES, ['#ff0000', '#0000ff', '#0000ff', '#0000ff', '#ff0000']))
+            self.assertEqual(reported, [[]], 'the palettes stage reports its holds: none left')
+
+
 class ManualReviews(unittest.TestCase):
     def setUp(self):
         self.image = Image.new('RGBA', (6, 1))

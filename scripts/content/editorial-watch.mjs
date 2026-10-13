@@ -2,6 +2,7 @@
 /** Public data is polled with this repository's own token; no cross-repository secret. */
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
+import { closeAlert, openAlert } from './alert-issue.mjs';
 
 const DATA = 'arkpedia/arkpedia-data';
 const APP = 'arkpedia/arkpedia';
@@ -18,12 +19,48 @@ export function editorialPlan(comparison, busy = false) {
   if (!changed.some(file => file.filename.startsWith('source/') || file.previous_filename?.startsWith('source/'))) return { request: false, reason: 'No source records changed.' };
   return { request: true, reason: 'Unpublished editorial source changes.' };
 }
+// Editorial source commits not in data main this long are reported: an edit is compiled within
+// minutes when nothing fails, so two hours means it is stuck. On 2026-10-13 a palette recipe
+// failed every editorial compile, and it and two later edits waited nine hours unnoticed.
+export const UNPUBLISHED_AFTER_HOURS = 2;
+export const UNPUBLISHED_ALERT = 'editorial-unpublished';
+export const UNPUBLISHED_TITLE = 'Editorial edits unpublished';
+/**
+ * Whether the editorial branch holds source edits data main has not published for too long:
+ * { open: false } once they are in, else the issue body. The body names the commits by sha and
+ * subject only (no ages or times, which change by themselves), so an unchanged backlog edits
+ * nothing; a new stuck commit is news.
+ */
+export function unpublishedPlan(comparison, now = new Date()) {
+  if (!comparison || comparison.status !== 'ahead') return { open: false };
+  const commits = (comparison.commits ?? []).map(entry => ({
+    sha: entry.sha, subject: String(entry.commit?.message ?? '').split('\n')[0],
+    at: Date.parse(entry.commit?.committer?.date ?? entry.commit?.author?.date ?? ''),
+  }));
+  const oldest = Math.min(...commits.map(entry => entry.at).filter(Number.isFinite));
+  if (!Number.isFinite(oldest) || now - oldest < UNPUBLISHED_AFTER_HOURS * 3_600_000) return { open: false, waiting: true };
+  const listed = commits.map(entry => `- \`${entry.sha.slice(0, 12)}\` ${entry.subject}`).join('\n');
+  return { open: true, body: `${commits.length} editorial commit(s) in arkpedia-data have not reached data main for over ${UNPUBLISHED_AFTER_HOURS} hours. `
+    + 'An editorial edit is published within minutes unless its main preparation fails: see "Prepare content release" on main '
+    + '(and the "Content release failing" issue) for the reason.\n\n'
+    + `${listed}\n<!-- arkpedia-alert-digest:${commits.map(entry => entry.sha).sort().join(',')} -->` };
+}
+function reportUnpublished(comparison, dryRun) {
+  const repo = process.env.GITHUB_REPOSITORY;
+  const plan = unpublishedPlan(comparison);
+  if (plan.waiting || dryRun || !repo) return;
+  if (plan.open) console.log(`Unpublished editorial edits: ${openAlert({ repo, alert: UNPUBLISHED_ALERT, title: UNPUBLISHED_TITLE, body: plan.body, rewrite: true })}.`);
+  else closeAlert({ repo, alert: UNPUBLISHED_ALERT, title: UNPUBLISHED_TITLE, comment: 'Every editorial commit is in data main.' });
+}
 export function devPlan(comparison, busy = false) {
   if (busy) return { request: false, reason: 'A preparation is already queued or running.' };
   if (comparison && ['identical', 'ahead'].includes(comparison.status)) return { request: false, reason: 'Dev already includes shared data main.' };
   return { request: true, reason: 'Dev needs the shared data main revision.' };
 }
-const busy = branch => api(`repos/${APP}/actions/workflows/prepare-content.yml/runs?branch=${branch}&per_page=30`).workflow_runs.some(run => run.status !== 'completed');
+// A run that dispatched this watcher as its last step (ARKPEDIA_AFTER_RUN) is still in progress
+// then, but has nothing left to publish: it is not busy.
+export const isBusy = (runs, afterRun = '') => runs.some(run => run.status !== 'completed' && String(run.id) !== String(afterRun));
+const busy = branch => isBusy(api(`repos/${APP}/actions/workflows/prepare-content.yml/runs?branch=${branch}&per_page=30`).workflow_runs, process.env.ARKPEDIA_AFTER_RUN);
 const ref = branch => api(`repos/${DATA}/commits/${encodeURIComponent(branch)}`).sha;
 const compare = (base, head) => api(`repos/${DATA}/compare/${base}...${head}`);
 function dispatch(branch, revision, dryRun) {
@@ -38,7 +75,11 @@ export function watch({ mode = 'poll', editorialBranch = process.env.ARKPEDIA_ED
   const mainBusy = busy('main');
   if (mode === 'poll') {
     const head = ref(editorialBranch);
-    const plan = editorialPlan(compare(main, head), mainBusy);
+    const comparison = compare(main, head);
+    // Reported before the plan, which throws on a branch it refuses to publish: that is
+    // exactly when its edits stay out.
+    reportUnpublished(comparison, dryRun);
+    const plan = editorialPlan(comparison, mainBusy);
     console.log(plan.reason);
     if (plan.request) dispatch('main', head, dryRun);
     return;

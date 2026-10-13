@@ -577,7 +577,9 @@ test('the daily refresh runs every command as a uniquely named stage that needs 
   // The completeness gate's holds are true whether or not an invariant stops the release.
   assert.deepEqual(of('completeness').keep, ['data/quarantine.json']);
   // No command of the refresh runs outside a stage.
-  const step = fs.readFileSync('.github/workflows/prepare-content.yml', 'utf8').split('- name: Refresh supported upstream records')[1].split('- name: Validate and compile data')[0];
+  // The refresh step alone: up to the next step of the job, whatever it is (the palette rebuild
+  // of a run without the refresh sits between it and the compile).
+  const step = fs.readFileSync('.github/workflows/prepare-content.yml', 'utf8').split('- name: Refresh supported upstream records')[1].split('\n      - ')[0];
   const run = step.slice(step.indexOf('run: |') + 'run: |'.length).replace(/\\\n\s*/g, ' ').split('\n').map(line => line.trim()).filter(line => line && !line.startsWith('#'));
   const plumbing = /^(set -euo pipefail|stage\(\) \{.*\}|node scripts\/content\/run-stage\.mjs begin|trap .*|supplemental_charwords=.*|supplement=.*|if \[ ! -s "\$supplement" \].*|bash scripts\/sync\/refresh-stage-data\.sh)$/;
   for (const line of run) assert.ok(line.startsWith('stage ') || plumbing.test(line), `outside a stage: ${line}`);
