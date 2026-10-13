@@ -44,7 +44,7 @@ export const REFRESH_PATHS = [
   '.github/workflows/prepare-content.yml', 'package.json', 'package-lock.json', 'config/', 'data/',
   'scripts/audits/', 'scripts/build/', 'scripts/content/', 'scripts/imports/', 'scripts/lib/', 'scripts/palettes/',
   'scripts/stage-pipeline/', 'scripts/sync/',
-  'lib/events/furnitureArt.mjs',
+  'lib/events/furnitureArt.mjs', 'lib/events/furnitureName.mjs',
   'lib/farming/', 'lib/gacha/', 'lib/guesser/', 'lib/minigames/', 'lib/music/', 'lib/music-guesser/', 'lib/operators/',
   'lib/pulls/', 'lib/schedule/', 'lib/skins/', 'lib/stages/',
 ];

@@ -304,6 +304,18 @@ def is_piece(item):
     return item.get('kind') == 'furniture' and str(item.get('id', '')).startswith('furni_')
 
 
+_WRAPPED = re.compile(r"^(['\"\u2018\u201c])(.*)(['\"\u2019\u201d])$", re.S)
+_PAIRS = {"'": "'", '"': '"', '\u2018': '\u2019', '\u201c': '\u201d'}
+
+
+def furniture_key(name):
+    """lib/events/furnitureName.mjs's furnitureKey: one pair of wrapping quotes left out, so
+    building_data's 'Contemplation' and the wiki store's "Contemplation" are one piece."""
+    text = str(name if name is not None else '').strip()
+    m = _WRAPPED.match(text)
+    return m.group(2).strip() if m and _PAIRS[m.group(1)] == m.group(3) else text
+
+
 def event_furniture(groups):
     """The furniture an event's rewards name, {name: furniture id}: its rewards' pieces and its
     set's. A store row names a piece and gives no id; two events' "Duel Trophy" are two pieces,
@@ -312,9 +324,9 @@ def event_furniture(groups):
     for group in groups:
         for item in group.get('items', []):
             if is_piece(item):
-                ids[item['name']] = item['id']
+                ids[furniture_key(item['name'])] = item['id']
         for piece in group.get('pieces', []) or []:
-            ids[piece['name']] = piece['id']
+            ids[furniture_key(piece['name'])] = piece['id']
     return ids
 
 
@@ -329,8 +341,8 @@ def want_store_row(name, kind, event, furniture_ids, icon_name=None):
         placeholders.add(name.strip() if isinstance(name, str) else '')
     elif kind == UNSOURCED_STORE_TYPE:
         pass
-    elif kind == 'furniture' and name in furniture_ids:
-        want_furniture(furniture_ids[name], name, event)
+    elif kind == 'furniture' and furniture_key(name) in furniture_ids:
+        want_furniture(furniture_ids[furniture_key(name)], name, event)
     elif kind != 'skin':
         want_name(name if icon_name is None else icon_name, event)
 
@@ -459,12 +471,12 @@ def load_furniture():
                 if f.get('iconId'):
                     furniture_by_id[furniture_id] = f['iconId']
                     if f.get('name'):
-                        furniture_by_name[f['name']] = f['iconId']
+                        furniture_by_name[furniture_key(f['name'])] = f['iconId']
 
 
 def furniture_icon(name):
     load_furniture()
-    return furniture_by_name.get(name)
+    return furniture_by_name.get(furniture_key(name))
 
 
 def furniture_icon_by_id(furniture_id):
@@ -535,7 +547,7 @@ for index, (target, (name, event, furniture_id, item_id)) in enumerate(pending):
     if download_budget.remaining() <= 0:
         defer_remaining(index)
         break
-    url = mirror = None
+    url = mirror = also = None
     if furniture_id:
         # A piece the game names by id: its own icon, whatever other pieces share its name.
         icon = furniture_icon_by_id(furniture_id)
@@ -543,6 +555,11 @@ for index, (target, (name, event, furniture_id, item_id)) in enumerate(pending):
             unresolved.append((furniture_id, name, event, NOT_FOUND))
             continue
         url = f'{FURNI_ART}/{urllib.parse.quote(icon)}.png'
+        # The art host names a few pieces by their id, not the iconId building_data gives:
+        # furni_fNearl_banner_01's iconId furni_fNearl_banner2_01 is a 404 there and its own id is
+        # not (Maria Nearl, issue #59, 2026-10-13). Asked for only when the iconId's answer is a 404.
+        if icon != furniture_id:
+            also = f'{FURNI_ART}/{urllib.parse.quote(furniture_id)}.png'
     elif icon := icon_by_id.get(item_id) or by_name.get(name):
         url = f'{ITEM_ART}/{urllib.parse.quote(icon)}.png'
         # The mirror's own file at the pinned commit, which the image repository maps for its sync.
@@ -574,7 +591,13 @@ for index, (target, (name, event, furniture_id, item_id)) in enumerate(pending):
         unresolved.append((furniture_id or name, name, event, FAILED.format(host=host)))
         continue
     try:
-        blob = fetch(url)
+        try:
+            blob = fetch(url)
+        except urllib.error.HTTPError as e:
+            if e.code != 404 or not also:
+                raise
+            print(f'  "{name}": {url} is a 404; asking for {also}')
+            url, blob = also, fetch(also)
         host_failures[host] = 0
     except BudgetExpired:
         defer_remaining(index)

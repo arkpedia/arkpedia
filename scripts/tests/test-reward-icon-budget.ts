@@ -4,7 +4,7 @@ import { spawnSync } from 'node:child_process';
 
 test('reward icon batches publish completed art and report deferred icons when their budget expires', () => {
   const result = spawnSync('python3', ['-c', `
-import ast, hashlib, io, json, pathlib, re, sys, tempfile, urllib.parse
+import ast, hashlib, io, json, pathlib, re, sys, tempfile, urllib.parse, urllib.error
 from types import SimpleNamespace
 from PIL import Image
 sys.path.insert(0, str(pathlib.Path('scripts/imports').resolve()))
@@ -97,6 +97,45 @@ try:
   raise AssertionError('truncated download accepted')
 except http.client.IncompleteRead as error:
   assert error.partial == b'abc' and error.expected == 1
+`], { encoding: 'utf8', env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1' } });
+  assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+});
+
+test('a piece whose iconId the furniture art host 404s is fetched by its own id, and any other answer is not retried', () => {
+  // Maria Nearl's Decorative Banner: building_data's iconId furni_fNearl_banner2_01 is a 404 at
+  // torappu.prts.wiki, furni_fNearl_banner_01 is served (issue #59, 2026-10-13).
+  const result = spawnSync('python3', ['-c', `
+import ast, io, pathlib, re, sys, tempfile, urllib.parse, urllib.error
+from types import SimpleNamespace
+from PIL import Image
+sys.path.insert(0, str(pathlib.Path('scripts/imports').resolve()))
+from download_budget import DownloadBudget, BudgetExpired
+from staged_art import Staging
+source = ast.parse(pathlib.Path('scripts/imports/import-reward-icons.py').read_text())
+loop = next(n for n in source.body if isinstance(n, ast.For) and ast.unparse(n.target).startswith('(index,'))
+image = Image.new('RGBA', (2, 2), (1, 2, 3, 255))
+buffer = io.BytesIO(); image.save(buffer, 'PNG'); blob = buffer.getvalue()
+ART = 'https://torappu.prts.wiki/assets/furniture'
+for answer in [404, 500]:
+  with tempfile.TemporaryDirectory() as root:
+    requested = []
+    def fetch(url):
+      requested.append(url)
+      if url.endswith('/furni_fNearl_banner2_01.png'): raise urllib.error.HTTPError(url, answer, 'no', {}, None)
+      return blob
+    scope = dict(pending=[('material-icons/furni_fNearl_banner_01.webp', ('Decorative Banner', 'Maria Nearl', 'furni_fNearl_banner_01', None))],
+      download_budget=DownloadBudget(600), unresolved=[], fetched=[], staging=Staging('reward-icons', root),
+      furniture_icon_by_id={'furni_fNearl_banner_01': 'furni_fNearl_banner2_01'}.get, FURNI_ART=ART,
+      fetch=fetch, Image=Image, BytesIO=io.BytesIO, BudgetExpired=BudgetExpired, re=re, urllib=urllib,
+      host_is_down=lambda e: False, DOWN_AFTER=3, hosts_down=set(), host_failures={},
+      NOT_FOUND='missing', FAILED='has an icon at {host}, but downloading it failed', UNREADABLE='unreadable at {host}')
+    exec(compile(ast.Module(body=[loop], type_ignores=[]), '<actual reward icon batch>', 'exec'), scope)
+    if answer == 404:
+      assert requested == [ART + '/furni_fNearl_banner2_01.png', ART + '/furni_fNearl_banner_01.png'], requested
+      assert [row[3] for row in scope['fetched']] == [ART + '/furni_fNearl_banner_01.png'] and not scope['unresolved']
+    else:
+      assert requested == [ART + '/furni_fNearl_banner2_01.png'], requested
+      assert not scope['fetched'] and scope['unresolved'][0][3] == 'has an icon at torappu.prts.wiki, but downloading it failed'
 `], { encoding: 'utf8', env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1' } });
   assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
 });
