@@ -12,7 +12,7 @@ export interface PackContents { name: string; count: number; kind: string }
 export interface EventPack { name: string; start?: string; end?: string | null; contents: PackContents[]; limit?: number; notes?: string[] }
 export interface FurniturePiece { name: string; id: string; obtain: string | null; comfort: number | null }
 export interface TableRewardGroup {
-  kind: 'login' | 'banner-gift' | 'free-rolls' | 'missions' | 'milestones' | 'first-clear' | 'pray' | 'packs' | 'notice' | 'furniture-set';
+  kind: 'login' | 'banner-gift' | 'free-rolls' | 'missions' | 'milestones' | 'first-clear' | 'pray' | 'packs' | 'notice' | 'news' | 'furniture-set';
   title: string;
   source: string;
   start?: string;
@@ -25,8 +25,11 @@ export interface TableRewardGroup {
   /** packs: the packs a post's section offers. */
   packs?: EventPack[];
   tickets?: Record<string, import('./announcements').TicketDetails>;
-  /** notice: the section's DURATION/DETAILS/REWARDS lines as the post words them. */
+  /** notice: the section's DURATION/DETAILS/REWARDS lines as the post words them; news: all of the
+   *  section's lines (build-event-rewards.mjs NEWS_LINES). */
   lines?: string[];
+  /** news: when the official post was published (ISO). */
+  published?: string;
   /** furniture-set: the set's pieces and its description. */
   pieces?: FurniturePiece[];
   themeId?: string;
@@ -66,6 +69,7 @@ export const TABLE_REWARD_LABEL: Record<TableRewardGroup['kind'], string | null>
   // Not a list of rewards to total: their own tabs (eventExtras, components/events/EventExtras.tsx).
   packs: null,
   notice: null,
+  news: null,
   'furniture-set': null,
 };
 
@@ -74,9 +78,11 @@ export interface EventExtras {
   packs: { title: string; source: string; packs: (Omit<EventPack, 'contents'> & { imagePath?: string | null; contents: (PackContents & { iconPath: string | null })[] })[] }[];
   furniture: { title: string; source: string; imagePath?: string | null; description: string | null; pieces: FurniturePiece[] }[];
   notices: { title: string; source: string; lines: string[] }[];
+  /** The rest of the event's official announcement, section by section: the page's News tab. */
+  news: { title: string; source: string; published: string | null; lines: string[] }[];
 }
 
-export const NO_EXTRAS: EventExtras = { packs: [], furniture: [], notices: [] };
+export const NO_EXTRAS: EventExtras = { packs: [], furniture: [], notices: [], news: [] };
 
 export function eventExtras(groups: TableRewardGroup[], iconFor: (name: string) => string | null, packArt: (name: string) => string | null = () => null, isPublished: (file: string) => boolean = () => false): EventExtras {
   return {
@@ -86,6 +92,7 @@ export function eventExtras(groups: TableRewardGroup[], iconFor: (name: string) 
     })),
     furniture: groups.filter(g => g.kind === 'furniture-set' && g.pieces?.length).map(g => ({ title: g.title, source: g.source, imagePath: furnitureArtPath(g, isPublished), description: g.description ?? null, pieces: g.pieces! })),
     notices: groups.filter(g => g.kind === 'notice' && g.lines?.length).map(g => ({ title: g.title, source: g.source, lines: g.lines! })),
+    news: groups.filter(g => g.kind === 'news' && g.lines?.length).map(g => ({ title: g.title, source: g.source, published: g.published ?? null, lines: g.lines! })),
   };
 }
 

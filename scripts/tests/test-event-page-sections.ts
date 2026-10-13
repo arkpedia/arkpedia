@@ -60,7 +60,7 @@ test('an event with a banner opens on the banner', () => {
   assert.equal((right.match(/No banner/g) ?? []).length, 0);
 });
 
-const extras = (over: Partial<NonNullable<PageProps['extras']>>) => ({ packs: [], furniture: [], notices: [], ...over });
+const extras = (over: Partial<NonNullable<PageProps['extras']>>) => ({ packs: [], furniture: [], notices: [], news: [], ...over });
 
 test('an event whose rewards are only an announcement and packs has Rewards, opened on the first of them', () => {
   // Rhodes Island Icebreaker Games, Wishes from Stars and eleven more: no store and no table
@@ -87,4 +87,24 @@ test('All is the reward card when the release carries one', () => {
   assert.match(right, /reward-summary-label">Headhunting</);
   assert.match(right, /Free rewards: Login event/);
   assert.doesNotMatch(right, /event-reward-totals/, 'the totals row is only the fallback');
+});
+
+test('an event with announced news has a News tab after its other sections; one without has none', () => {
+  const news = [{ title: 'SANITY LIMIT INCREASE', source: 'https://www.arknights.global/news/4814', published: '2026-10-09T10:58:00.000Z',
+    lines: ['UPDATE TIME: October 14, 2026, 08:00 (UTC-7)', 'DETAILS: After the update, all players will receive a 30-point increase to max Sanity.', 'Note:', '- One', '- Two'] }];
+  const store = [{ type: 'Event Store', name: 'Store', items: [{ name: 'Device', quantity: 1, price: 10, currency: 'Token', stock: '3', iconPath: null }] }];
+  const right = column(page({ rewardStores: store, extras: extras({ news }) }));
+  assert.match(right, />Rewards<[\s\S]*>News</, 'News comes after Rewards');
+  assert.doesNotMatch(right, /SANITY LIMIT INCREASE/, 'it opens on Rewards, not News');
+  // Only news: the page opens on it, keys as labels, a "- " list as a list, the post linked once.
+  const only = column(page({ extras: extras({ news }) }));
+  assert.match(only, /<h3>SANITY LIMIT INCREASE<\/h3>/);
+  assert.match(only, /event-news-key">Update time<\/span> October 14, 2026/);
+  assert.match(only, /<ul><li>One<\/li><li>Two<\/li><\/ul>/);
+  assert.match(only, /From the official announcement of 2026\/10\/09\./);
+  assert.equal((only.match(/href="https:\/\/www\.arknights\.global\/news\/4814"/g) ?? []).length, 1);
+  assert.doesNotMatch(column(page({ rewardStores: store, extras: extras({}) })), />News</, 'no news, no tab');
+  // A page compiled by a release from before the News tab: no `news` key at all.
+  const older = { packs: [], furniture: [], notices: [] } as unknown as NonNullable<PageProps['extras']>;
+  assert.doesNotMatch(column(page({ rewardStores: store, extras: older })), />News</);
 });

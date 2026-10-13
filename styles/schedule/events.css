@@ -487,3 +487,9 @@ button.events-row-main.btn-bare { border: 0; background: transparent; padding: 0
 .selector-pool { border-top: 1px solid var(--line-soft); padding: 12px 0; }
 .selector-pool h3 { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; margin: 0 0 12px; }
 .selector-pool-total { font-size: .85em; }
+/* The News tab: the rest of an event's official announcement, section by section. */
+.event-news-post { display: grid; gap: 12px; }
+.event-news-from { margin: 0; }
+.event-news-section ul { margin: 0 0 6px; padding-left: 18px; font-size: 12px; line-height: 1.5; }
+.event-news-section li { overflow-wrap: anywhere; }
+.event-news-key { color: var(--text-dim); font-weight: 600; }

@@ -34,10 +34,11 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    at: '2026-10-13T06:09:29Z',
-    title: 'How to Use videos in the selector guide',
+    at: '2026-10-13T15:17:12Z',
+    title: 'Selector videos and event news',
     added: [
       { title: 'How to Use videos under selector portraits', detail: 'Selector portraits link to Kukkikaze\'s How to Use video, like Surtr, Mudrock and Saileach in the gifted selector.', href: '/selector-tickets' },
+      { title: 'News on event pages', detail: 'The rest of an event\'s official announcement, like a Sanity limit increase or a Kernel Locating banner, in a News tab.', href: '/schedule' },
     ],
   },
   {

@@ -35,7 +35,7 @@ import { eventTitle, isRerun } from '@/lib/events/eventName.mjs';
 import { furnitureKey } from '@/lib/events/furnitureName.mjs';
 import { announcedRewards } from '@/lib/events/announcements';
 import { RewardClick, RewardDetailsProvider, type ResolvedTicket } from '@/components/events/RewardDetails';
-import { EventFurniture, EventLoginDays, EventNotices, EventPacks, type LoginDetails } from '@/components/events/EventExtras';
+import { EventFurniture, EventLoginDays, EventNews, EventNotices, EventPacks, type LoginDetails } from '@/components/events/EventExtras';
 import { RewardSummaryCard } from '@/components/events/RewardSummary';
 import { RewardTile } from '@/components/events/RewardTile';
 import { rewardSummary, type RewardSummary } from '@/lib/events/rewardSummary';
@@ -78,7 +78,7 @@ interface Props {
   materialOrder: string[];
 }
 
-type SectionKey = 'banner' | 'rewards' | 'skins';
+type SectionKey = 'banner' | 'rewards' | 'skins' | 'news';
 
 /* A section with nothing linked is left out. Packs and Miscellaneous were sections
    once, two tabs that only ever said "Coming soon", which pushed the row onto a second
@@ -88,6 +88,9 @@ const SECTIONS: { key: SectionKey; label: string }[] = [
   { key: 'banner', label: 'Banner' },
   { key: 'rewards', label: 'Rewards' },
   { key: 'skins', label: 'Skins' },
+  /* The rest of the event's official announcement: a Sanity limit raised, a recruitment pool, a
+     store's redeemables, a Kernel Locating banner (build-event-rewards.mjs `news`). */
+  { key: 'news', label: 'News' },
 ];
 
 /** The page's address with this hash, without a scroll or a history entry. */
@@ -163,8 +166,10 @@ export default function EventDetailPage({
   rewardNote = null,
 }: Props) {
   const hasExtras = extras.packs.length + extras.furniture.length + extras.notices.length > 0;
+  // A page compiled by a release from before the News tab has no `news` at all.
+  const news = extras.news ?? [];
   const sections = SECTIONS.filter((section) => (
-    section.key === 'banner' ? !!bannerName : section.key === 'rewards' ? rewardStores.length > 0 || hasExtras : skins.length > 0
+    section.key === 'banner' ? !!bannerName : section.key === 'rewards' ? rewardStores.length > 0 || hasExtras : section.key === 'news' ? news.length > 0 : skins.length > 0
   ));
   const [chosenSection, setActiveSection] = useState<SectionKey | null>(sections[0]?.key ?? null);
   /* The section on screen: the one chosen if this event has it, else the event's
@@ -401,6 +406,12 @@ export default function EventDetailPage({
                   );
                 })}
               </div>
+            </section>
+          )}
+
+          {activeSection === 'news' && (
+            <section className="op-section" {...tabPanelProps('event-section', 'news')}>
+              <EventNews news={news} />
             </section>
           )}
 
