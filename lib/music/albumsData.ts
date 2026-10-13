@@ -51,6 +51,8 @@ export interface MonsterSirenSong {
   origin: string[]; // inherited from the song's parent album -- the story event it's tied to, if any (most operator EPs have none)
   albumId: string;
   albumName: string;
+  /** The album's own (usually Chinese) name, when albumName is its English one: searchable too. */
+  albumOriginalName: string;
   coverPath: string | null; // /album-covers/{coverFilename}
   copyright: boolean; // true = copyrighted -- excluded when stream-safe mode is on
   length: string;
@@ -121,6 +123,7 @@ export function songsFromAlbums(albums: readonly RawAlbum[]): MonsterSirenSong[]
         origin: album.origin || [],
         albumId: album.albumId,
         albumName: album.albumAltName || album.albumName,
+        albumOriginalName: album.albumName,
         coverPath,
         copyright: song.copyright === 'yes',
         length: song.length || '',

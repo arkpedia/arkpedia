@@ -66,6 +66,11 @@ export interface QueueTrack {
   title: string;
   altTitle?: string | null;
   artist?: string | null;
+  /** Album (English where it has one), its own name when different, and cover: the song row's
+   *  art and second line. Absent from a catalogue published before they were added. */
+  album?: string | null;
+  albumOriginal?: string | null;
+  cover?: string | null;
 }
 
 /** Where the queue came from, for the Queue view's "Playing from": every song (the default),
@@ -83,7 +88,8 @@ export interface MusicNotice {
 export type QueueSongResult = 'queued' | 'current' | 'unavailable';
 
 function toQueueTrack(song: MusicCatalogueSong): QueueTrack {
-  return { id: song.videoId, title: song.title, altTitle: song.altTitle ?? null, artist: song.artist ?? null };
+  return { id: song.videoId, title: song.title, altTitle: song.altTitle ?? null, artist: song.artist ?? null,
+    album: song.album ?? null, albumOriginal: song.albumOriginal ?? null, cover: song.cover ?? null };
 }
 
 interface MusicPlayerContextValue {

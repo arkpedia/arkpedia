@@ -8,7 +8,7 @@ for (const theme of ['dark', 'light']) {
     await page.goto('/music?view=queue');
   await playAllSongs(page);
     await expect(page.locator('.music-queue-row').first()).toBeVisible();
-    await page.locator('.music-queue-row').first().locator('.music-queue-row-title').click();
+    await page.locator('.music-queue-row').first().locator('.music-song-row-main').click();
     await expect.poll(async () => (await youtube(page))?.state).toBe(1);
     const before = (await youtube(page))!;
     // A phone's Queue shows the mini player: Favorite is in its More; a desktop bar has the button.

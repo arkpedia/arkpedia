@@ -22,24 +22,27 @@ for (const theme of ['dark', 'light']) {
     await stubYouTube(page);
     await page.goto('/music?view=queue');
   await playAllSongs(page);
-    const rows = page.locator('.music-queue-row:not(.music-queue-row-placeholder)');
+    const rows = page.locator('.music-queue-row');
     await expect(rows.nth(1)).toBeVisible();
-    await rows.first().locator('.music-queue-row-title').click();
+    await rows.first().locator('.music-song-row-main').click();
     await expect.poll(async () => (await youtube(page))?.state).toBe(1);
     const playing = (await youtube(page))!;
-    const song = await rows.nth(1).locator('.music-queue-row-title').getAttribute('title');
+    const song = await rows.nth(1).locator('.music-song-row-main').getAttribute('title');
     const favorite = rows.nth(1).locator('.music-song-favorite');
     const plus = playlistTrigger(page, rows.nth(1));
     await toggleFavorite(page, rows.nth(1));
     await expect(favorite).toHaveAttribute('aria-pressed', 'true');
-    // Styling changes without moving controls or truncating phone titles to make space.
+    // Styling changes without moving controls or truncating phone titles to make space: the
+    // action buttons share one size and the song's own area fills the row's height.
     const layout = await rows.nth(1).evaluate(row => {
-      const title = row.querySelector('.music-queue-row-title') as HTMLElement;
-      const buttons = [...row.querySelectorAll('.music-queue-row-actions button')].filter(el => el.getBoundingClientRect().height > 0);
-      const css = getComputedStyle(title);
-      return { room: title.clientWidth - parseFloat(css.paddingLeft) - parseFloat(css.paddingRight), heights: [title, ...buttons].map(el => el.getBoundingClientRect().height) };
+      const main = row.querySelector('.music-song-row-main') as HTMLElement;
+      const text = row.querySelector('.music-song-row-text') as HTMLElement;
+      const buttons = [...row.querySelectorAll('.music-song-row-actions button')].filter(el => el.getBoundingClientRect().height > 0);
+      return { room: text.parentElement!.clientWidth - (text.getBoundingClientRect().left - main.getBoundingClientRect().left), main: main.getBoundingClientRect().height,
+        row: row.clientHeight, heights: buttons.map(el => el.getBoundingClientRect().height) };
     });
     expect(new Set(layout.heights).size).toBe(1);
+    expect(layout.main).toBe(layout.row);
     expect(layout.room).toBeGreaterThan(151);
     await openPicker(page, rows.nth(1));
     const dialog = page.getByRole('dialog', { name: 'Add to playlists', exact: true });
@@ -103,7 +106,7 @@ for (const theme of ['dark', 'light']) {
     await expect(favorite).toHaveAttribute('aria-pressed', 'false');
     // A search narrows the queue's rows; they keep the same actions and stable song IDs.
     await page.getByRole('searchbox', { name: 'Search the queue' }).fill(song!);
-    const result = rows.filter({ has: page.locator(`.music-queue-row-title[title=${JSON.stringify(song)}]`) }).first();
+    const result = rows.filter({ has: page.locator(`.music-song-row-main[title=${JSON.stringify(song)}]`) }).first();
     await expect(result.locator('.music-song-favorite')).toHaveAttribute('aria-pressed', 'false');
     await toggleFavorite(page, result);
     await expect(result.locator('.music-song-favorite')).toHaveAttribute('aria-pressed', 'true');
@@ -148,7 +151,7 @@ test('playlist picker flips above a low button and stays within the viewport as 
   await stubYouTube(page);
   await page.goto('/music?view=queue');
   await playAllSongs(page);
-  const buttons = page.locator(`${mobile(page) ? '.music-song-mobile-actions' : '.music-song-desktop-actions'} button[aria-haspopup="dialog"]`);
+  const buttons = page.locator(`.music-queue-list ${mobile(page) ? '.music-song-mobile-actions' : '.music-song-desktop-actions'} button[aria-haspopup="dialog"]`);
   await expect(buttons.first()).toBeVisible();
   // Pick a visible row near the queue's bottom without scrolling it into a new position.
   const positions = await buttons.evaluateAll(elements => elements.map(el => {
@@ -184,7 +187,7 @@ test('Favourites exists by default and stays in sync with hearts and playlist im
   await page.goto('/music?view=queue');
   await playAllSongs(page);
   const row = page.locator('.music-queue-row').first();
-  await row.locator('.music-queue-row-title').click();
+  await row.locator('.music-song-row-main').click();
   await expect.poll(async () => (await youtube(page))?.state).toBe(1);
   const favorite = row.locator('.music-song-favorite');
   await expect(favorite).toHaveAttribute('aria-pressed', 'false');

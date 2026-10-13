@@ -17,6 +17,7 @@ import MusicLibrary from '@/components/music/MusicLibrary';
 import MusicQueue from '@/components/music/MusicQueue';
 import MusicNav, { MUSIC_VIEW_HREF } from '@/components/music/MusicNav';
 import MusicTransportBar from '@/components/music/MusicTransportBar';
+import SongRow from '@/components/music/SongRow';
 import PageHeader from '@/components/ui/PageHeader';
 import { hiddenUnless } from '@/lib/ui/inert';
 
@@ -92,6 +93,8 @@ export default function MusicPage({ songLookup }: Props) {
     queueLoading,
     initializePlayer,
     playQueueIndex,
+    favorites,
+    toggleFavorite,
   } = useMusicPlayer();
   const router = useRouter();
 
@@ -345,11 +348,13 @@ export default function MusicPage({ songLookup }: Props) {
                   const entry = upNext[i];
                   return <li key={entry?.song.id ?? `empty-${i}`}>
                     {entry
-                      ? <button type="button" className="btn-bare music-up-next-song" onClick={() => entry.index < 0 ? playNow(entry.song.id) : playQueueIndex(entry.index)} title={`Play ${entry.song.title} now`}>
-                        <span className="music-up-next-index">{i + 1}</span>
-                        <span className="music-up-next-title">{songTitle(entry.song.title, entry.song.altTitle)}</span>
-                        {entry.song.artist && <span className="music-up-next-artist">{entry.song.artist}</span>}
-                      </button>
+                      ? <SongRow marker="music-up-next-row" song={entry.song}
+                        onPlay={() => entry.index < 0 ? playNow(entry.song.id) : playQueueIndex(entry.index)}
+                        actions={{
+                          playNow: () => entry.index < 0 ? playNow(entry.song.id) : playQueueIndex(entry.index),
+                          favorite: { on: favorites.has(entry.song.id), toggle: () => toggleFavorite(entry.song.id) },
+                          playlist: true,
+                        }} />
                       : <span className="music-up-next-empty">{i === 0 ? (repeatMode === 'one' ? 'Repeat one plays this song again.' : queueLoading ? 'Loading…' : 'Nothing after this song.') : '\u00a0'}</span>}
                   </li>;
                 })}

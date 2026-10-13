@@ -3,7 +3,7 @@ import { playAllSongs, stubYouTube, youtube } from './youtube-stub';
 
 const KEY = 'arkpedia.music-playlists.v1';
 const queueRows = (page: Page) => page.locator('[data-song-list] .music-queue-row[data-song-id]');
-const catalogueRows = (page: Page) => page.locator('.music-all-songs-list .music-queue-row');
+const catalogueRows = (page: Page) => page.locator('.music-all-songs-list .music-song-row');
 async function openPicker(page: Page, id: string) {
   // The row itself carries the id; scope directly to it for both phone and desktop controls.
   const target = page.locator(`.music-all-songs-list [data-song-id="${id}"]`);
@@ -88,7 +88,7 @@ test('catalogue failure can retry without replacing the queue or stopping playba
   await page.goto('/music?view=queue');
   await playAllSongs(page);
   await expect(queueRows(page).nth(1)).toBeVisible();
-  await queueRows(page).first().locator('.music-queue-row-title').click();
+  await queueRows(page).first().locator('.music-song-row-main').click();
   await expect.poll(async () => (await youtube(page))?.state).toBe(1);
   const before = (await youtube(page))!;
   await page.route('**/music-catalogue.json', route => route.fulfill({ status: 503, body: '' }));

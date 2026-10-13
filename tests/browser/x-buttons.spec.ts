@@ -236,11 +236,16 @@ const PLACES: Place[] = [
       await playAllSongs(page);
       const row = page.locator('.music-queue-row').nth(1);
       await expect(row).toBeVisible();
+      // A queue row's Remove is one of its icon actions (components/music/SongRow.tsx), not an ×;
+      // the ×s here close the row's menus: Song actions on a phone, the playlist picker on a desktop.
       if (page.viewportSize()!.width <= 720) await row.getByRole('button', { name: /^More actions for / }).click();
+      else await row.getByRole('button', { name: /^Add to playlist: / }).click();
     },
     x: (page) => page.viewportSize()!.width <= 720 ? page.getByRole('button', { name: 'Close song actions' })
-      : page.locator('.music-queue-row').nth(1).getByRole('button', { name: 'Remove', exact: true }),
-    gone: async (page) => { if (page.viewportSize()!.width <= 720) await expect(page.getByRole('dialog', { name: 'Song actions', exact: true })).toHaveCount(0); },
+      : page.getByRole('button', { name: 'Close playlist picker' }),
+    gone: async (page) => {
+      await expect(page.getByRole('dialog', { name: page.viewportSize()!.width <= 720 ? 'Song actions' : 'Add to playlists', exact: true })).toHaveCount(0);
+    },
   },
   {
     id: 'a search field\'s clear', route: '/operators',
@@ -369,11 +374,7 @@ for (const place of PLACES) {
     }
     // Pressed 8px right of the glyph, it still does its job.
     const glyph = await target.evaluate((el) => { const r = (el.querySelector('svg') ?? el).getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
-    const before = place.id === '/music queue' && page.viewportSize()!.width > 720 ? await page.locator('.music-queue-row').nth(1).locator('.music-queue-row-title').textContent() : null;
     await page.mouse.click(glyph.x + 8, glyph.y);
-    // The queue keeps its row count (a placeholder takes the place), so the removed track
-    // is gone when the row holds another.
-    if (before !== null) await expect(page.locator('.music-queue-row').nth(1).locator('.music-queue-row-title')).not.toHaveText(before);
     await place.gone(page);
   });
 }

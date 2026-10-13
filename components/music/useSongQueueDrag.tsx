@@ -156,7 +156,7 @@ export function useSongQueueDrag(onMove: (from: number, to: number) => void, rev
       intentY: event.clientY, scrollIntent: 0 };
   }, []);
   const startNative = useCallback((event: DragEvent<HTMLDivElement>, from: number, title: string) => {
-    if (session.current || (event.target as HTMLElement).closest('button:not(.music-queue-row-title)')) { event.preventDefault(); return; }
+    if (session.current || (event.target as HTMLElement).closest('button:not(.music-song-row-main)')) { event.preventDefault(); return; }
     event.dataTransfer.effectAllowed = 'move';
     event.dataTransfer.setData('text/plain', String(from));
     session.current = { kind: 'native', from, title, x: event.clientX, y: event.clientY, startX: event.clientX, startY: event.clientY,

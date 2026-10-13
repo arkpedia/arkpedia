@@ -342,15 +342,18 @@ test("the /music queue's titles keep their room at the one row height", async ({
   await openCensus(page, '/music?view=queue');
   await playAllSongs(page);
   await fontsSettled(page);
-  const row = page.locator('.music-queue-list .music-queue-row:not(.music-queue-row-placeholder)').first();
+  const row = page.locator('.music-queue-list .music-queue-row').first();
   await expect(row).toBeVisible();
+  // The music lists' one row (components/music/SongRow.tsx): its buttons share one height, the
+  // song's own area fills the row, and the title keeps the room it had before the album art.
   const m = await row.evaluate((el) => {
-    const title = el.querySelector('.music-queue-row-title')!;
-    const cs = getComputedStyle(title);
-    const heights = [title, ...Array.from(el.querySelectorAll('.music-queue-row-actions button'))].filter(b => b.getBoundingClientRect().height > 0).map((b) => Math.round(b.getBoundingClientRect().height));
-    return { room: title.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight), heights };
+    const main = el.querySelector('.music-song-row-main')!.getBoundingClientRect();
+    const text = el.querySelector('.music-song-row-text')!.getBoundingClientRect();
+    const heights = Array.from(el.querySelectorAll('.music-song-row-actions button')).filter(b => b.getBoundingClientRect().height > 0).map((b) => Math.round(b.getBoundingClientRect().height));
+    return { room: Math.round(main.right - text.left - 8), heights, main: Math.round(main.height), row: el.clientHeight };
   });
-  expect(new Set(m.heights).size, `the title and its buttons are one height: ${m.heights.join(', ')}`).toBe(1);
+  expect(new Set(m.heights).size, `its buttons are one height: ${m.heights.join(', ')}`).toBe(1);
+  expect(m.main, 'the song area fills the row').toBe(m.row);
   expect(m.room, `the title has ${m.room}px for its text at 390, under the 153px it had`).toBeGreaterThanOrEqual(153 - 2);
 });
 

@@ -28,7 +28,7 @@ test('song titles play immediately without inserting or changing the queue', asy
   await expect(rows(page).nth(2)).toBeVisible();
   const before = await order(page);
   const song = before[2];
-  await rows(page).nth(2).locator('.music-queue-row-title').click();
+  await rows(page).nth(2).locator('.music-song-row-main').click();
   await expect.poll(async () => (await youtube(page))?.videoId).toBe(song);
   await expect.poll(async () => (await youtube(page))?.state).toBe(1);
   // The Queue shows the song playing first (the two before it fold into Played earlier); the
@@ -40,7 +40,7 @@ test('song titles play immediately without inserting or changing the queue', asy
   await expect(page.getByRole('button', { name: 'Play now', exact: true })).toHaveCount(0);
   await expect(page.locator('.music-queue-row.selected')).toHaveCount(0);
   const next = (await order(page))[1];
-  await rows(page).nth(1).locator('.music-queue-row-title').click();
+  await rows(page).nth(1).locator('.music-song-row-main').click();
   await expect.poll(async () => (await youtube(page))?.videoId).toBe(next);
   expect((await queueOrder(page)).slice(0, before.length - 3)).toEqual(before.slice(3));
 });
@@ -54,7 +54,8 @@ test('mobile song actions have anchored playlist and reorder submenus', async ({
   await expect(row).toBeVisible();
   const more = row.getByRole('button', { name: /^More actions for / });
   await expect(more).toBeVisible();
-  expect(await row.evaluate(el => el.getBoundingClientRect().height)).toBeLessThanOrEqual(44);
+  // The music lists' one row height (components/music/SongRow.tsx): 56px with its album art.
+  expect(await row.evaluate(el => el.getBoundingClientRect().height)).toBeLessThanOrEqual(57);
   await expect(row.locator('.music-song-desktop-actions')).not.toBeVisible();
   await more.click();
   const menu = page.getByRole('dialog', { name: 'Song actions', exact: true });
@@ -97,7 +98,7 @@ for (const shuffled of [false, true]) {
       const shuffle = page.locator('.music-player-bottombar').getByRole('button', { name: 'Shuffle', exact: true });
       if ((await shuffle.getAttribute('aria-pressed') === 'true') !== shuffled) await shuffle.click();
     }
-    await rows(page).first().locator('.music-queue-row-title').click();
+    await rows(page).first().locator('.music-song-row-main').click();
     await expect.poll(async () => (await youtube(page))?.state).toBe(1);
     const playing = await youtube(page);
     const before = await order(page);
@@ -180,7 +181,7 @@ for (const native of [false, true]) {
     await expect.poll(async () => (await youtube(page))?.state).toBe(1);
     const list = page.locator('[data-song-list]').first();
     const box = (await list.boundingBox())!;
-    const source = (await rows(page).nth(1).locator(native ? '.music-queue-row-title' : '.music-queue-drag-handle').boundingBox())!;
+    const source = (await rows(page).nth(1).locator(native ? '.music-song-row-main' : '.music-queue-drag-handle').boundingBox())!;
     const input = native ? {
       start: async (x: number, y: number) => { await page.mouse.move(x, y); await page.mouse.down(); await page.mouse.move(x + 8, y, { steps: 3 }); },
       move: async (x: number, y: number) => { await page.mouse.move(x, y, { steps: 8 }); },
@@ -224,10 +225,10 @@ test('native desktop dragging supports a drop and cancels an outside release', a
   await playAllSongs(page);
   await expect(rows(page).nth(3)).toBeVisible();
   const before = await order(page);
-  await rows(page).nth(3).locator('.music-queue-row-title').dragTo(rows(page).nth(1).locator('.music-queue-row-title'));
+  await rows(page).nth(3).locator('.music-song-row-main').dragTo(rows(page).nth(1).locator('.music-song-row-main'));
   await expect.poll(async () => (await order(page))[1]).toBe(before[3]);
   const after = await order(page);
-  await rows(page).nth(2).locator('.music-queue-row-title').dragTo(page.getByRole('heading', { name: 'Music', exact: true }));
+  await rows(page).nth(2).locator('.music-song-row-main').dragTo(page.getByRole('heading', { name: 'Music', exact: true }));
   expect(await order(page)).toEqual(after);
   await expect(page.locator('.music-queue-row.dragging')).toHaveCount(0);
 });

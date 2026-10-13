@@ -1,100 +1,15 @@
 import Link from 'next/link';
-import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useMusicPlayer, type QueueTrack } from '@/lib/music/musicPlayerContext';
-import { useCrossFadeTitle } from '@/lib/music/useCrossFadeTitle';
 import { MUSIC_PLAYLISTS_EVENT, readPlaylists } from '@/lib/music/musicPlaylists';
 import LoadOnScroll from '@/components/ui/LoadOnScroll';
 import SearchInput from '@/components/ui/SearchInput';
-import XButton from '@/components/ui/XButton';
-import SongActionsMenu from './SongActionsMenu';
-import SongPlaylistPicker from './SongPlaylistPicker';
+import SongRow from './SongRow';
 import TransportIcon from './TransportIcons';
 import { useSongQueueDrag } from './useSongQueueDrag';
 import { songTitle } from '@/lib/music/musicPolish';
+import { createSongIndex } from '@/lib/music/songSearch';
 import { MUSIC_VIEW_HREF } from './MusicNav';
-
-// Each row its own component, so each can call useCrossFadeTitle (hooks cannot run in a loop).
-interface QueueRowProps {
-  song: QueueTrack;
-  displayPos: number;
-  /** What the index column shows: the row's place in what plays next, or nothing. */
-  label: ReactNode;
-  isActive: boolean;
-  /** The song playing (or cued to start): not dragged, moved or removed from here. */
-  isCurrent: boolean;
-  isDragging: boolean;
-  /** Where the dragged song would land if dropped now: the line above or below this row. */
-  dropSide: 'before' | 'after' | null;
-  onTap: () => void;
-  onDragStart: (e: React.DragEvent<HTMLDivElement>) => void;
-  onDragEnd: () => void;
-  onPointerDrag: (e: React.PointerEvent<HTMLButtonElement>) => void;
-  onMoveUp: () => void;
-  onMoveDown: () => void;
-  canMoveUp: boolean;
-  canMoveDown: boolean;
-  onPushToTop: () => void;
-  onRemove: () => void;
-  isFavorite: boolean;
-  onFavorite: () => void;
-}
-
-function QueueRow({
-  song, displayPos, label, isActive, isCurrent, isDragging, dropSide, onTap, onDragStart, onDragEnd,
-  onPointerDrag, onMoveUp, onMoveDown, canMoveUp, canMoveDown, onPushToTop, onRemove, isFavorite, onFavorite,
-}: QueueRowProps) {
-  const { displayName, fading } = useCrossFadeTitle(song.title, song.altTitle);
-  return (
-    <div
-      className={`music-queue-row${isActive ? ' active' : ''}${isCurrent ? ' current' : ''}${isDragging ? ' dragging' : ''}${dropSide ? ` drop-${dropSide}` : ''}`}
-      draggable={!isCurrent}
-      onDragStart={isCurrent ? undefined : onDragStart}
-      onDragEnd={onDragEnd}
-      data-display-pos={displayPos}
-      data-song-id={song.id}
-    >
-      {isCurrent
-        ? <span className="music-queue-drag-handle music-queue-drag-handle-spacer" aria-hidden="true" />
-        : <button type="button" className="btn-bare btn-sm music-queue-drag-handle"
-          aria-label={`Reorder ${song.title}`} title="Drag to reorder; arrow keys move one position"
-          onPointerDown={onPointerDrag} onKeyDown={event => {
-            if (event.key === 'ArrowUp' && canMoveUp) { event.preventDefault(); onMoveUp(); }
-            if (event.key === 'ArrowDown' && canMoveDown) { event.preventDefault(); onMoveDown(); }
-          }}>⠿</button>}
-      <span className="music-queue-row-index">{label}</span>
-      <button
-        type="button"
-        className={fading ? 'btn-bare music-queue-row-title music-crossfade-text fading' : 'btn-bare music-queue-row-title music-crossfade-text'}
-        title={song.title}
-        onClick={onTap}
-      >
-        {displayName}
-        {song.artist && <span className="music-library-row-artist"> · {song.artist}</span>}
-      </button>
-      <div className="music-queue-row-actions music-song-desktop-actions">
-        <button type="button" className="ghost music-song-favorite" onClick={onFavorite} aria-pressed={isFavorite}
-          aria-label={`Favourite: ${song.title}`} title={isFavorite ? 'Unfavourite' : 'Favourite'}>
-          <TransportIcon name="heart" size={18} />
-        </button>
-        <SongPlaylistPicker song={song} text />
-        {!isCurrent && <button type="button" className="ghost music-row-text-btn" onClick={onPushToTop} aria-label={`Play next: ${song.title}`}>
-          <TransportIcon name="playNext" size={16} />Play next
-        </button>}
-        <XButton
-          onClick={onRemove}
-          disabled={isCurrent}
-          label="Remove"
-          title={isCurrent ? "Can't remove the currently-playing track" : 'Remove from queue'}
-        />
-      </div>
-      <div className="music-queue-row-actions music-song-mobile-actions">
-        <SongActionsMenu song={song} isFavorite={isFavorite} isActive={isCurrent} onFavorite={onFavorite}
-          canMoveUp={canMoveUp} canMoveDown={canMoveDown} onMoveUp={onMoveUp} onMoveDown={onMoveDown}
-          onPlayNext={onPushToTop} onRemove={onRemove} />
-      </div>
-    </div>
-  );
-}
 
 const PAGE_SIZE = 50;
 
@@ -152,9 +67,10 @@ export default function MusicQueue({ shown }: { shown: boolean }) {
   const [search, setSearch] = useState('');
   const [visible, setVisible] = useState(PAGE_SIZE);
   const [showHistory, setShowHistory] = useState(false);
-  const q = search.trim().toLowerCase();
-  const matches = (song: QueueTrack) => !q || song.title.toLowerCase().includes(q) || Boolean(song.altTitle?.toLowerCase().includes(q))
-    || Boolean(song.artist?.toLowerCase().includes(q));
+  const q = search.trim();
+  // The shared song search (lib/music/songSearch.ts), as a filter: the queue keeps its play order.
+  const searchIndex = useMemo(() => createSongIndex([...queue, ...autoplayTracks], track => track), [queue, autoplayTracks]);
+  const matches = useMemo(() => searchIndex.matches(search), [searchIndex, search]);
 
   let run = 0;
   while (boundary + 1 + run < displayList.length && queued.has(displayList[boundary + 1 + run].song.id)) run += 1;
@@ -171,30 +87,34 @@ export default function MusicQueue({ shown }: { shown: boolean }) {
   const restShown = q ? sections[2].rows : sections[2].rows.slice(0, visible);
   const historyRows = history.filter(e => matches(e.song));
 
-  const row = (entry: { song: QueueTrack; queueIdx: number; displayPos: number }, label: ReactNode) => {
+  const row = (entry: { song: QueueTrack; queueIdx: number; displayPos: number }) => {
     const { song, queueIdx, displayPos } = entry;
     const isCurrent = current >= 0 && displayPos === current;
-    return <QueueRow
+    const canUp = displayPos > current + 1 || (displayPos < current && displayPos > 0);
+    const canDown = displayPos < displayList.length - 1 && displayPos !== current && displayPos !== current - 1;
+    return <SongRow
       key={song.id}
+      marker="music-queue-row"
       song={song}
-      label={label}
-      isFavorite={favorites.has(song.id)}
-      onFavorite={() => toggleFavorite(song.id)}
-      displayPos={displayPos}
-      isActive={isCurrent && playing}
-      isCurrent={isCurrent}
-      isDragging={drag.dragPos === displayPos}
-      dropSide={dropSide(displayPos)}
-      onTap={() => playQueueIndex(queueIdx)}
-      onDragStart={e => drag.startNative(e, displayPos, song.title)}
-      onDragEnd={drag.cancel}
-      onPointerDrag={e => drag.startPointer(e, displayPos, song.title)}
-      canMoveUp={displayPos > current + 1 || (displayPos < current && displayPos > 0)}
-      canMoveDown={displayPos < displayList.length - 1 && displayPos !== current && displayPos !== current - 1}
-      onMoveUp={() => drag.move(displayPos, displayPos - 1)}
-      onMoveDown={() => drag.move(displayPos, displayPos + 1)}
-      onPushToTop={() => moveQueueItemToTop(queueIdx)}
-      onRemove={() => removeFromQueue(queueIdx)}
+      active={isCurrent && playing}
+      current={isCurrent}
+      data={{ 'display-pos': displayPos }}
+      onPlay={() => playQueueIndex(queueIdx)}
+      drag={{
+        locked: isCurrent,
+        dragging: drag.dragPos === displayPos,
+        dropSide: dropSide(displayPos),
+        onDragStart: e => drag.startNative(e, displayPos, song.title),
+        onDragEnd: drag.cancel,
+        onPointerDown: e => drag.startPointer(e, displayPos, song.title),
+      }}
+      actions={{
+        playNext: isCurrent ? undefined : () => moveQueueItemToTop(queueIdx),
+        favorite: { on: favorites.has(song.id), toggle: () => toggleFavorite(song.id) },
+        playlist: true,
+        remove: isCurrent ? undefined : { run: () => removeFromQueue(queueIdx), label: 'Remove from queue' },
+        reorder: isCurrent ? undefined : { canUp, canDown, up: () => drag.move(displayPos, displayPos - 1), down: () => drag.move(displayPos, displayPos + 1) },
+      }}
     />;
   };
 
@@ -218,8 +138,7 @@ export default function MusicQueue({ shown }: { shown: boolean }) {
         {sections.map(section => section.rows.length > 0 && (
           <Fragment key={section.key}>
             <h3 className="music-queue-section-title">{section.title}{section.key === 'queued' && <span className="music-heading-count"> · {nextInQueue.length}</span>}</h3>
-            {(section.key === 'rest' ? restShown : section.rows).map(entry => row(entry,
-              entry.displayPos === current ? <TransportIcon name={playing ? 'play' : 'next'} size={12} /> : entry.displayPos - current))}
+            {(section.key === 'rest' ? restShown : section.rows).map(entry => row(entry))}
           </Fragment>
         ))}
         {!q && shown && <LoadOnScroll shown={visible} total={sections[2].rows.length} onMore={() => setVisible(n => n + PAGE_SIZE)} />}
@@ -239,7 +158,7 @@ export default function MusicQueue({ shown }: { shown: boolean }) {
               <TransportIcon name={showHistory || q ? 'up' : 'down'} size={14} />
             </button>
           </h3>
-          {(showHistory || q) && historyRows.map(entry => row(entry, ''))}
+          {(showHistory || q) && historyRows.map(entry => row(entry))}
         </>}
         {q && sections.every(s => !s.rows.length) && !historyRows.length && <p className="hint">No songs in the queue match your search.</p>}
         <section className="music-autoplay" aria-label="Autoplay from library">
@@ -252,10 +171,15 @@ export default function MusicQueue({ shown }: { shown: boolean }) {
           {showAutoplay && <>
             <p className="hint">{autoplay ? 'Plays after your queue ends. Repeat all keeps repeating your chosen queue.' : 'Off. Only your chosen songs will play.'}</p>
             <div className="music-autoplay-list">
-              {autoplayTracks.filter(matches).slice(0, autoplayVisible).map(track => <div className="music-autoplay-row" key={track.id}>
-                <button type="button" className="btn-bare music-autoplay-song" aria-label={`Play ${songTitle(track.title, track.altTitle)} now`} onClick={() => playNow(track.id)}>{songTitle(track.title, track.altTitle)}</button>
-                <button type="button" className="ghost btn-sm" aria-label={`Play next: ${track.title}`} onClick={() => void queueSong(track.id, 'next')}>Play next</button>
-              </div>)}
+              {autoplayTracks.filter(matches).slice(0, autoplayVisible).map(track => <SongRow key={track.id} marker="music-autoplay-row" song={track}
+                active={track.id === videoId} onPlay={() => playNow(track.id)}
+                actions={{
+                  playNow: () => playNow(track.id),
+                  playNext: () => void queueSong(track.id, 'next'),
+                  addToQueue: () => void queueSong(track.id, 'last'),
+                  favorite: { on: favorites.has(track.id), toggle: () => toggleFavorite(track.id) },
+                  playlist: true,
+                }} />)}
               <LoadOnScroll shown={autoplayVisible} total={autoplayTracks.filter(matches).length} onMore={() => setAutoplayVisible(value => value + 50)} />
             </div>
           </>}

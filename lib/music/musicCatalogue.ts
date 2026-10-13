@@ -16,6 +16,12 @@ export interface MusicCatalogueSong {
   title: string;
   altTitle?: string;
   artist?: string;
+  /** The album's English name where it has one (its own name otherwise), for the song row's
+   *  second line; albumOriginal is its own name when that differs, kept for search. */
+  album?: string;
+  albumOriginal?: string;
+  /** /album-covers/<file>, the song row's art: absent until the album's cover is published. */
+  cover?: string;
   /** Present, and true, only for the few copyrighted songs stream-safe mode leaves out. */
   copyright?: true;
 }
@@ -32,6 +38,9 @@ export function projectMusicCatalogue(songs: readonly MonsterSirenSong[]): Music
       title: song.title,
       ...(song.altTitle ? { altTitle: song.altTitle } : {}),
       ...(song.artist ? { artist: song.artist } : {}),
+      ...(song.albumName ? { album: song.albumName } : {}),
+      ...(song.albumOriginalName && song.albumOriginalName !== song.albumName ? { albumOriginal: song.albumOriginalName } : {}),
+      ...(song.coverPath ? { cover: song.coverPath } : {}),
       ...(song.copyright ? { copyright: true as const } : {}),
     })),
   };
@@ -41,7 +50,10 @@ function isSong(value: unknown): value is MusicCatalogueSong {
   const row = value as Partial<MusicCatalogueSong> | null;
   return Boolean(row) && typeof row!.videoId === 'string' && row!.videoId !== '' && typeof row!.title === 'string'
     && (row!.altTitle === undefined || typeof row!.altTitle === 'string')
-    && (row!.artist === undefined || typeof row!.artist === 'string');
+    && (row!.artist === undefined || typeof row!.artist === 'string')
+    && (row!.album === undefined || typeof row!.album === 'string')
+    && (row!.albumOriginal === undefined || typeof row!.albumOriginal === 'string')
+    && (row!.cover === undefined || (typeof row!.cover === 'string' && row!.cover.startsWith('/album-covers/')));
 }
 
 type FetchCatalogue = (input: string, init?: RequestInit) => Promise<Pick<Response, 'ok' | 'status' | 'json'>>;

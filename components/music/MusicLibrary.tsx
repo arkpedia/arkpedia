@@ -2,58 +2,29 @@ import { useEffect, useMemo, useState } from 'react';
 import { useContentUrl } from '@/lib/content/context';
 import { loadMusicCatalogue, MUSIC_CATALOGUE_PATH, type MusicCatalogueSong } from '@/lib/music/musicCatalogue';
 import { useMusicPlayer } from '@/lib/music/musicPlayerContext';
-import { useCrossFadeTitle } from '@/lib/music/useCrossFadeTitle';
+import { createSongIndex } from '@/lib/music/songSearch';
 import LoadOnScroll from '@/components/ui/LoadOnScroll';
 import SearchInput from '@/components/ui/SearchInput';
 import SegmentedControl from '@/components/ui/SegmentedControl';
-import SongActionsMenu from './SongActionsMenu';
-import SongPlaylistPicker from './SongPlaylistPicker';
-import TransportIcon from './TransportIcons';
+import SongRow from './SongRow';
 
 /**
- * A Library row. Its title plays the song now (the queue plays on after it); Play next and Add to
- * queue put it in "Next in queue" without stopping the song playing. A phone gets the same
- * actions in one menu (SongActionsMenu).
+ * A Library row (components/music/SongRow.tsx). Pressing it plays the song now (the queue plays on
+ * after it); Play next and Add to queue put it in "Next in queue" without stopping the song
+ * playing. The song playing has no queue actions (nothing to line up after itself).
  */
-function LibraryRow({ song, position }: { song: MusicCatalogueSong; position: number }) {
+function LibraryRow({ song }: { song: MusicCatalogueSong }) {
   const { favorites, toggleFavorite, videoId, queued, playNow, queueSong } = useMusicPlayer();
-  const { displayName, fading } = useCrossFadeTitle(song.title, song.altTitle);
-  const track = { id: song.videoId, title: song.title };
-  const favorite = favorites.has(song.videoId);
   const playing = videoId === song.videoId;
-  const isQueued = queued.has(song.videoId);
-  return <div className={`music-queue-row music-library-row${playing ? ' active' : ''}`} data-song-id={song.videoId}>
-    <span className="music-queue-row-index">{playing ? <TransportIcon name="play" size={12} /> : position + 1}</span>
-    <button type="button" className={`btn-bare music-queue-row-title music-crossfade-text${fading ? ' fading' : ''}`}
-      aria-label={playing ? `${song.title}, playing now` : `Play ${song.title} now`} title={playing ? 'Playing now' : 'Play now'}
-      onClick={() => playNow(song.videoId)}>
-      {displayName}
-      {song.artist && <span className="music-library-row-artist"> · {song.artist}</span>}
-    </button>
-    {isQueued && <span className="music-library-queued">Queued</span>}
-    <div className="music-queue-row-actions music-song-desktop-actions">
-      {/* Written, so Play next, Add to queue and Add to playlist cannot be taken for each other;
-          the song playing has no queue actions (nothing to line up after itself). */}
-      {!playing && <>
-        <button type="button" className="ghost music-row-text-btn" onClick={() => void queueSong(song.videoId, 'next')} aria-label={`Play next: ${song.title}`}>
-          <TransportIcon name="playNext" size={16} />Play next
-        </button>
-        <button type="button" className="ghost music-row-text-btn" onClick={() => void queueSong(song.videoId, 'last')} aria-label={`Add to queue: ${song.title}`}>
-          <TransportIcon name="addToQueue" size={16} />Add to queue
-        </button>
-      </>}
-      <button type="button" className="ghost music-song-favorite" aria-pressed={favorite} onClick={() => toggleFavorite(song.videoId)}
-        aria-label={`Favourite: ${song.title}`} title={favorite ? 'Unfavourite' : 'Favourite'}>
-        <TransportIcon name="heart" size={18} />
-      </button>
-      <SongPlaylistPicker song={track} text />
-    </div>
-    <div className="music-queue-row-actions music-song-mobile-actions">
-      <SongActionsMenu song={track} isFavorite={favorite} isActive={playing} onFavorite={() => toggleFavorite(song.videoId)}
-        onPlayNow={() => playNow(song.videoId)} onQueueNext={() => void queueSong(song.videoId, 'next')}
-        onQueueLast={() => void queueSong(song.videoId, 'last')} />
-    </div>
-  </div>;
+  return <SongRow marker="music-library-row" song={{ id: song.videoId, title: song.title, altTitle: song.altTitle, artist: song.artist, album: song.album, cover: song.cover }}
+    active={playing} queued={queued.has(song.videoId)} onPlay={() => playNow(song.videoId)}
+    actions={{
+      playNow: () => playNow(song.videoId),
+      playNext: playing ? undefined : () => void queueSong(song.videoId, 'next'),
+      addToQueue: playing ? undefined : () => void queueSong(song.videoId, 'last'),
+      favorite: { on: favorites.has(song.videoId), toggle: () => toggleFavorite(song.videoId) },
+      playlist: true,
+    }} />;
 }
 
 /**
@@ -82,12 +53,11 @@ export default function MusicLibrary({ shown }: { shown: boolean }) {
     });
     return () => controller.abort();
   }, [requested, songs, url, attempt]);
-  const matches = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return (songs ?? []).filter(song => !(excludeCopyrighted && song.copyright)
-      && (scope === 'all' || favorites.has(song.videoId))
-      && (!q || song.title.toLowerCase().includes(q) || song.altTitle?.toLowerCase().includes(q) || song.artist?.toLowerCase().includes(q)));
-  }, [songs, search, excludeCopyrighted, scope, favorites]);
+  // Title, album (English and its own name) and artist, typo-tolerant, best match first
+  // (lib/music/songSearch.ts); built once per catalogue, not per keystroke.
+  const index = useMemo(() => createSongIndex(songs ?? [], song => song), [songs]);
+  const matches = useMemo(() => index.search(search).filter(song => !(excludeCopyrighted && song.copyright)
+    && (scope === 'all' || favorites.has(song.videoId))), [index, search, excludeCopyrighted, scope, favorites]);
   useEffect(() => { setVisible(50); }, [search, excludeCopyrighted, scope]);
   const total = songs ? songs.filter(song => !(excludeCopyrighted && song.copyright)).length : null;
   return <section className="music-queue-panel music-library" aria-labelledby="music-library-heading">
@@ -96,12 +66,12 @@ export default function MusicLibrary({ shown }: { shown: boolean }) {
       <SegmentedControl label="Library songs" value={scope} onChange={setScope}
         options={[{ value: 'all', label: 'All songs' }, { value: 'favorites', label: 'Favourites' }]} />
     </div>
-    <SearchInput label="Search all songs" name="library-search" placeholder="Search songs or artists…" value={search} onChange={setSearch} />
+    <SearchInput label="Search all songs" name="library-search" placeholder="Search songs, albums or artists…" value={search} onChange={setSearch} />
     <div className="music-song-list music-all-songs-list" aria-label={scope === 'all' ? 'All songs' : 'Favourite songs'} data-library-list>
       {error ? <p className="hint" role="status">Could not load songs. <button type="button" className="ghost btn-sm" onClick={() => setAttempt(n => n + 1)}>Try again</button></p>
         : !songs ? <p className="hint" role="status">Loading all songs…</p>
           : !matches.length ? <p className="hint">{scope === 'favorites' && !search.trim() ? 'No favourites yet: press ♥ on a song to keep it here.' : 'No songs match your search.'}</p> : null}
-      {matches.slice(0, visible).map((song, position) => <LibraryRow key={song.videoId} song={song} position={position} />)}
+      {matches.slice(0, visible).map(song => <LibraryRow key={song.videoId} song={song} />)}
       {shown && <LoadOnScroll shown={visible} total={matches.length} onMore={() => setVisible(n => n + 50)} />}
     </div>
   </section>;

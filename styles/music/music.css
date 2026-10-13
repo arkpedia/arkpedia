@@ -386,73 +386,75 @@
 .music-view > .music-queue-panel > .music-queue-list { flex: 1 1 0; min-height: 0; max-height: none; }
 .music-queue-list:focus-visible,
 .music-queue-list :focus-visible { outline-offset: -2px; }
-/* The title plays the song; the handle reorders without starting playback. */
-.music-queue-row {
+/* The music pages' one song row (components/music/SongRow.tsx): Discover, the Library, the Queue
+   and its autoplay, Up next and the saved playlists. One size everywhere -- a 56px row, the 40px
+   album art 8px in from the row's edge, the title over "artist · album" -- and the actions as
+   icon buttons named on hover and focus (a phone has the row's one More menu). Before
+   2026-10-13 five lists drew five rows (Discover's unplayable songs with their art flush left). */
+.music-song-row {
   display: flex;
   flex-shrink: 0;
   align-items: center;
-  gap: 8px;
-  position: relative; /* the drop line's box (below) */
-  min-height: 40px;
-  user-select: none; /* a drag that starts mid-text must move the row, not select the title */
-  cursor: grab;
-}
-.music-queue-row.dragging { opacity: 0.4; }
-.music-queue-drag-handle {
-  touch-action: none;
-  flex-shrink: 0;
-  color: var(--text-faint);
-  cursor: grab;
-}
-.music-queue-row-index {
-  flex-shrink: 0;
-  width: 24px;
-  color: var(--text-faint);
-  font-family: var(--font-mono);
-  font-size: 12px;
-  text-align: center;
-}
-.music-queue-row-title {
-  flex: 1;
-  min-width: 0;
-  /* A bordered button beside the row's three icon buttons: the same control height
-     (it was a literal 36px, 4px short of them on a phone). */
-  min-height: var(--control-h);
-  overflow: hidden;
-  padding: 0 10px;
+  gap: 6px;
+  position: relative; /* the drop line's box, and the tooltips' */
+  box-sizing: border-box;
+  min-height: 56px;
+  padding: 0 6px 0 0;
   border: 1px solid var(--control-border);
   border-radius: var(--radius);
   background: var(--row-grad);
   color: var(--text);
-  font-size: 13px;
+}
+.music-song-row:hover { border-color: var(--teal); }
+/* The song playing now: teal, with ▶ over its art. */
+.music-song-row.active { border-color: var(--teal); background: var(--teal-dim); }
+.music-song-row-main {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  align-self: stretch;
+  gap: 12px;
+  min-width: 0;
+  padding: 7px 8px;
+  color: inherit;
   text-align: left;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  text-decoration: none;
   cursor: pointer;
 }
-.music-queue-row-title:hover { border-color: var(--teal); color: var(--teal); }
-/* The track playing now. */
-.music-queue-row.active .music-queue-row-title { border-color: var(--teal); background: var(--teal-dim); color: var(--teal); }
-.music-queue-row.active .music-queue-row-index { color: var(--teal); }
-.music-queue-row-actions {
-  display: flex;
-  flex-shrink: 0;
-  gap: 4px;
+.music-song-row-main:disabled { cursor: default; }
+.music-song-row-art { position: relative; flex-shrink: 0; width: 40px; height: 40px; overflow: hidden; border-radius: var(--radius); background: var(--panel-2); }
+.music-song-row-cover { display: block; width: 100%; height: 100%; object-fit: cover; }
+.music-song-row-cover.music-album-cover-placeholder { display: flex; align-items: center; justify-content: center; color: var(--text-faint); font-size: 15px; }
+.music-song-row-playing { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgb(0 0 0 / .45); color: var(--teal); }
+.music-song-row-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.music-song-row-title { overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.music-song-row-sub { overflow: hidden; color: var(--text-dim); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.music-song-row-main:hover .music-song-row-title,
+.music-song-row.active .music-song-row-title { color: var(--teal); }
+.music-song-row.unavailable .music-song-row-main:hover .music-song-row-sub { color: var(--teal); }
+.music-song-row.disabled { opacity: .7; }
+/* A wide row gives the album a column of its own, so the second line is the artist alone. */
+.music-song-row-album { display: none; }
+/* Measured against the row (a container, cqw), not the song area, so the column starts at one x
+   down a list whatever actions a row has (an unavailable song has none). */
+.music-song-row { container-type: inline-size; }
+@container (min-width: 760px) {
+  .music-song-row-text { flex: 0 0 calc(45cqw - 64px); }
+  .music-song-row-album { display: block; flex: 1; min-width: 0; overflow: hidden; color: var(--text-dim); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+  .music-song-row-sub-album { display: none; }
 }
-.music-queue-row-actions button {
-  width: var(--control-h);
-  height: var(--control-h);
-  min-height: var(--control-h);
-  padding: 0;
-  font-size: 13px;
-}
-.music-song-favorite[aria-pressed="true"] { color: var(--teal); border-color: var(--teal); }
-.music-song-favorite[aria-pressed="true"] svg { fill: currentColor; }
-/* Where a dragged song lands: a teal line in the gap above or below the row it is over (the
-   page's dropSide). The list's 4px gap is centred on it, and the list's own padding keeps the
-   first row's line and the last's inside its scroll box. It grows in (motion.css). */
-.music-queue-row.drop-before::before,
-.music-queue-row.drop-after::after {
+.music-song-row-badge { flex-shrink: 0; color: var(--teal); font-family: var(--font-mono); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; }
+.music-song-row-actions { display: flex; flex-shrink: 0; gap: 4px; }
+.music-song-row-actions > button { width: var(--control-h); height: var(--control-h); min-height: var(--control-h); padding: 0; }
+/* A queue row's handle comes last, so its art keeps the inset every other list's has. */
+.music-song-row-handle { flex-shrink: 0; align-self: stretch; width: 28px; padding: 0; color: var(--text-faint); cursor: grab; touch-action: none; }
+.music-song-row-handle-spacer { display: inline-block; }
+.music-song-row.draggable { user-select: none; } /* a drag that starts mid-text moves the row */
+.music-song-row.dragging { opacity: .4; }
+/* Where a dragged song lands: a teal line in the gap above or below the row it is over. The
+   list's 4px gap is centred on it. It grows in (motion.css). */
+.music-song-row.drop-before::before,
+.music-song-row.drop-after::after {
   content: '';
   position: absolute;
   left: 0;
@@ -463,8 +465,39 @@
   box-shadow: 0 0 6px var(--teal);
   pointer-events: none;
 }
-.music-queue-row.drop-before::before { top: -3px; }
-.music-queue-row.drop-after::after { bottom: -3px; }
+.music-song-row.drop-before::before { top: -3px; }
+.music-song-row.drop-after::after { bottom: -3px; }
+/* An icon action's name, beside it on hover and keyboard focus (data-tip; aria-label carries the
+   song too). To its left, inside the row, so a list's scroll box never clips it. */
+.music-song-row [data-tip] { position: relative; }
+.music-song-row [data-tip]::after {
+  content: attr(data-tip);
+  position: absolute;
+  top: 50%;
+  right: calc(100% + 6px);
+  z-index: 3;
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  box-shadow: 0 6px 18px rgb(0 0 0 / .3);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 11px;
+  letter-spacing: normal;
+  text-transform: none;
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translateY(-50%);
+  visibility: hidden;
+}
+.music-song-row [data-tip]:focus-visible::after { visibility: visible; }
+@media (hover: hover) {
+  .music-song-row [data-tip]:hover::after { visibility: visible; }
+}
+.music-up-next-list > li > .music-song-row { flex: 1; min-width: 0; }
+.music-song-favorite[aria-pressed="true"] { color: var(--teal); border-color: var(--teal); }
+.music-song-favorite[aria-pressed="true"] svg { fill: currentColor; }
 .music-song-mobile-actions { display: none; }
 .music-song-drag-ghost { position: fixed; top: 0; left: 0; z-index: 150; pointer-events: none; box-sizing: border-box; padding: 10px 12px; border: 1px solid var(--teal); border-radius: var(--radius-frame); background: var(--panel); box-shadow: 0 12px 32px rgb(0 0 0 / .3); }
 .music-song-drag-ghost > b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -473,8 +506,9 @@
 @media (max-width: 720px) {
   .music-song-desktop-actions { display: none; }
   .music-song-mobile-actions { display: flex; }
-  .music-queue-row { gap: 4px; }
-  .music-queue-row-title { padding: 0 8px; }
+  /* A phone keeps #414's narrow gutter: the handle gives its room to the title. */
+  .music-song-row-handle { width: 24px; }
+  .music-song-row-main { gap: 10px; }
 }
 @media (max-width: 720px) and (pointer: coarse) {
   .music-queue-list { padding-right: 0; }
@@ -554,29 +588,6 @@
 .music-discover-active-facet { color: var(--text-dim); font-weight: 600; }
 
 .music-discover-song-list { display: flex; flex-direction: column; gap: 4px; }
-.music-discover-song-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-  padding: 8px 10px;
-  border: 1px solid var(--control-border);
-  border-radius: var(--radius);
-  background: var(--row-grad);
-  color: var(--text);
-  text-align: left;
-  cursor: pointer;
-}
-.music-discover-song-row:hover { border-color: var(--teal); }
-.music-discover-song-row:hover .music-discover-song-title { color: var(--teal); }
-.music-discover-song-cover { flex-shrink: 0; width: 44px; height: 44px; overflow: hidden; border-radius: var(--radius); background: var(--panel-2); }
-.music-discover-song-cover-art { display: block; width: 100%; height: 100%; object-fit: cover; }
-/* A song with no YouTube upload yet links to Monster Siren instead of playing. */
-.music-discover-song-row-pending { text-decoration: none; }
-.music-discover-song-cover-art.music-album-cover-placeholder { display: flex; font-size: 18px; }
-.music-discover-song-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.music-discover-song-title { overflow: hidden; color: var(--text); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
-.music-discover-song-meta { overflow: hidden; color: var(--text-dim); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 
 /* A preview row (inside ScrollRow) or, with Show all, every item wrapped. */
 .music-discover-row { gap: 14px; padding-bottom: 6px; }
@@ -617,9 +628,8 @@
 .music-playlists-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 12px 0; }
 .music-playlists-toolbar > input { flex: 1; min-width: 160px; }
 .music-playlists-toolbar > div { max-width: 100%; }
-.music-playlist-tracks { max-height: 240px; overflow: auto; }
-.music-playlist-tracks ol { padding-left: 28px; }
-.music-playlist-tracks li { padding: 4px 0; overflow-wrap: anywhere; }
+.music-playlist-tracks { max-height: 320px; overflow: auto; }
+.music-playlist-tracks ol { display: flex; flex-direction: column; gap: 4px; margin: 0; padding: 0; list-style: none; }
 .music-playlist-status { min-height: 1.5em; }
 .music-song-playlists-popover { position: fixed; z-index: 120; box-sizing: border-box; overflow: auto; padding: 12px; border: 1px solid var(--line); border-top: 2px solid var(--teal); border-radius: var(--radius-frame); background: var(--panel); box-shadow: 0 18px 48px rgb(0 0 0 / .38); overscroll-behavior: contain; }
 .music-song-playlist-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
@@ -679,24 +689,14 @@
 }
 .music-song-list:focus-visible,
 .music-song-list :focus-visible { outline-offset: -2px; }
-.music-library-row { cursor: default; }
 /* On a phone the Library's All songs / Favourites pair goes under its heading, side by side. */
 .music-library > .music-song-list-heading { flex-wrap: wrap; row-gap: 8px; }
-/* A Library row leads with its number, so the number starts on the list's edge (stack-align). */
-.music-library-row > .music-queue-row-index { text-align: left; }
-.music-library-row-artist { color: var(--text-dim); }
-.music-queue-row-title:hover .music-library-row-artist,
-.music-queue-row.active .music-library-row-artist { color: inherit; }
-.music-library-queued { flex-shrink: 0; color: var(--teal); font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; }
 
 /* Queue sections: Now playing, Next in queue, Next from ..., Played earlier. */
 .music-queue-section-title { margin: 8px 0 0; }
 .music-queue-section-title:first-child { margin-top: 0; }
 .music-queue-history-toggle { display: inline-flex; align-items: center; gap: 6px; min-height: var(--control-h); color: inherit; font: inherit; letter-spacing: inherit; text-transform: inherit; cursor: pointer; }
 .music-queue-history-toggle:hover { color: var(--teal); }
-.music-queue-drag-handle-spacer { display: inline-block; width: 28px; height: 1px; }
-.music-queue-row.current { cursor: default; }
-.music-queue-row.current .music-queue-row-index { color: var(--teal); }
 .music-queue-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .music-queue-empty-next { display: flex; flex-direction: column; gap: 8px; padding: 6px 0; }
 .music-queue-empty-next-text { margin: 0; }
@@ -706,12 +706,7 @@
 .music-up-next-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .music-up-next-heading > h3 { margin: 0; }
 .music-up-next-list { display: flex; flex-direction: column; gap: 2px; margin: 0; padding: 0; list-style: none; }
-.music-up-next-list > li { min-height: 32px; display: flex; }
-.music-up-next-song { display: flex; flex: 1; align-items: baseline; gap: 8px; min-width: 0; padding: 6px 4px; color: var(--text); text-align: left; cursor: pointer; }
-.music-up-next-song:hover .music-up-next-title { color: var(--teal); }
-.music-up-next-index { flex-shrink: 0; width: 14px; color: var(--text-faint); font-family: var(--font-mono); font-size: 11px; }
-.music-up-next-title { overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
-.music-up-next-artist { flex-shrink: 1; min-width: 0; overflow: hidden; color: var(--text-dim); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.music-up-next-list > li { min-height: 56px; display: flex; }
 .music-up-next-empty { padding: 6px 4px; color: var(--text-faint); font-size: 12px; }
 
 /* The player bar (components/music/MusicTransportBar.tsx): held at the bottom of the window,
@@ -752,19 +747,10 @@
   .music-player-bottombar-controls > .music-list-btn,
   .music-transport-buttons > button,
   .music-transport-buttons > .music-list-btn { width: 44px; height: 44px; min-height: 44px; }
-  /* A song row on a touch screen: its title, its More and its icon toggles are 44px too. */
-  .music-queue-row-actions > button { width: 44px; height: 44px; min-height: 44px; }
-  .music-queue-row-title { min-height: 44px; }
+  /* A song row on a touch screen: its More and its icon actions are 44px (the row is 56px). */
+  .music-song-row-actions > button { width: 44px; height: 44px; min-height: 44px; }
 }
-/* A song row's written action (Play next, Add to queue, Add to playlist): as wide as its words. */
-.music-queue-row-actions .music-row-text-btn { display: inline-flex; align-items: center; gap: 6px; width: auto; padding: 0 10px; white-space: nowrap; }
 
-/* Discover's song row: press the song to play it now; queue it from the buttons beside it. */
-.music-discover-song-row { padding: 0 6px 0 0; gap: 6px; cursor: default; }
-.music-discover-song-row.active { border-color: var(--teal); background: var(--teal-dim); }
-.music-discover-song-play { display: flex; flex: 1; align-items: center; gap: 12px; min-width: 0; padding: 8px 10px; color: inherit; text-align: left; cursor: pointer; }
-.music-discover-song-play:hover .music-discover-song-title { color: var(--teal); }
-.music-discover-song-actions { flex-shrink: 0; }
 .music-discover-page > .music-view-hint { margin: 8px 0 var(--section-gap); }
 /* Discover is not a flex column like /music: the nav keeps the same gap below it (16px). */
 .music-discover-page > .music-nav { margin-bottom: 16px; }
@@ -800,9 +786,6 @@
 .music-autoplay { margin-top: 12px; border-top: 1px solid var(--line); padding-top: 8px; }
 .music-autoplay-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .music-autoplay-list { display: flex; flex-direction: column; gap: 4px; max-height: 30vh; overflow-y: auto; padding: 4px 0; }
-.music-autoplay-row { display: flex; align-items: center; gap: 8px; }
-.music-autoplay-song { flex: 1; min-width: 0; min-height: var(--control-h); color: var(--text); text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.music-autoplay-song:hover { color: var(--teal); }
 @media (max-width: 900px) {
   .music-now-playing { grid-template-areas: 'cover' 'info' 'actions' 'lyrics' 'wave' 'upnext' 'buttons'; }
   .music-player-bottombar .music-volume { display: none; }
@@ -812,12 +795,6 @@
   .music-nav > .tab { flex: none; justify-content: flex-start; padding-inline: 0; font-size: 12px; letter-spacing: 0.03em; min-height: var(--control-h); white-space: nowrap; }
   .music-player-page { gap: 10px; }
   .music-discover-page > .music-nav { margin-bottom: 10px; }
-  .music-queue-row { gap: 3px; }
-  .music-queue-drag-handle { width: 24px; padding-inline: 0; }
-  .music-queue-drag-handle-spacer { width: 24px; }
-  .music-queue-row-index { width: 16px; font-size: 10px; }
-  .music-queue-row-title { padding-inline: 6px; }
-  .music-library-row-artist { display: none; }
   .music-transport-left .music-fav-btn,
   .music-transport-left .music-playlist-add-btn,
   .music-transport-left .music-stream-safe-btn { display: none; }

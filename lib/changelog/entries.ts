@@ -34,7 +34,7 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    at: '2026-10-13T06:09:29Z',
+    at: '2026-10-13T14:58:00Z',
     title: 'A clearer music player and selector videos',
     added: [
       { title: 'Discover, Library, Now playing and Queue', detail: 'One menu across the music pages; Back and Forward step between them without stopping the song.', href: '/music' },
@@ -46,6 +46,8 @@ export const CHANGELOG: ChangelogEntry[] = [
       { title: 'The player bar follows you', detail: 'On Discover and every music view the song stays at the bottom of the screen, one tap from Now playing.', href: '/music/discover' },
       { title: 'A Library of every song', detail: 'Search and browse all songs or your favourites without changing what plays.', href: '/music' },
       { title: 'Player options on phones', detail: 'The player bar\'s More button holds Favourite, Shuffle, Repeat, Add to playlist and the queue.', href: '/music' },
+      { title: 'One song row everywhere', detail: 'Every song list shows the album art, title, artist and album the same way, with icon actions that name themselves on hover.', href: '/music' },
+      { title: 'Search songs by album, with typos', detail: 'Music searches match titles, albums in English or Chinese and artists, in any word order, and forgive a typo.', href: '/music' },
     ],
     fixed: [
       { title: 'Queued songs after a reload', detail: 'Songs you queued stay under Next in queue when the page reloads.', href: '/music' },

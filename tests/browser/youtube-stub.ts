@@ -99,7 +99,7 @@ export async function startMusic(page: Page): Promise<StubState> {
   await player.getByRole('button', { name: 'Expand player' }).click();
   await player.getByRole('button', { name: /^(Play|Starting…)$/ }).click();
   await expect(page).toHaveURL(/view=library/);
-  await page.locator('.music-library-row .music-queue-row-title').first().click();
+  await page.locator('.music-library-row .music-song-row-main').first().click();
   await expect.poll(async () => (await youtube(page))?.state ?? null, { timeout: 20000 }).toBe(1);
   // The stub marks PLAYING before delivering onStateChange. Wait for the app to
   // acknowledge it before this setup navigation; the resume test drives its own reload.

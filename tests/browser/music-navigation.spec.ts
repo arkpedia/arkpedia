@@ -14,7 +14,7 @@ import { playAllSongs, stubYouTube, youtube } from './youtube-stub';
 const nav = (page: Page) => page.getByRole('navigation', { name: 'Music' });
 const bar = (page: Page) => page.getByRole('region', { name: 'Player' });
 const queueRows = (page: Page) => page.locator('[data-song-list] .music-queue-row[data-song-id]');
-const libraryRows = (page: Page) => page.locator('.music-all-songs-list .music-queue-row[data-song-id]');
+const libraryRows = (page: Page) => page.locator('.music-all-songs-list .music-song-row[data-song-id]');
 const ids = (rows: ReturnType<typeof queueRows>) => rows.evaluateAll(els => els.map(el => (el as HTMLElement).dataset.songId!));
 /** Loads of a song asked of YouTube: navigation must add none. */
 const loads = async (page: Page) => (await youtube(page))!.calls.filter(([name]) => name === 'loadVideoById' || name === 'cueVideoById').length;
@@ -33,7 +33,7 @@ async function libraryAction(page: Page, id: string, action: 'Play now' | 'Play 
     await row.getByRole('button', { name: /^More actions for / }).click();
     await page.getByRole('dialog', { name: 'Song actions', exact: true }).getByRole('button', { name: action, exact: true }).click();
     await expect(page.getByRole('dialog', { name: 'Song actions', exact: true })).toHaveCount(0);
-  } else if (action === 'Play now') await row.locator('.music-queue-row-title').click();
+  } else if (action === 'Play now') await row.locator('.music-song-row-main').click();
   else await row.getByRole('button', { name: action === 'Play next' ? /^Play next: / : /^Add to queue: / }).click();
 }
 
@@ -46,7 +46,7 @@ test('Discover to Now playing and back, Back and Forward, and repeated trips nev
   await expect(page).toHaveURL(/[?&]q=a/);
   const first = page.locator('.music-discover-song-row').first();
   const id = (await first.getAttribute('data-song-id'))!;
-  await first.locator('.music-discover-song-play').click();
+  await first.locator('.music-song-row-main').click();
   await expect.poll(async () => (await youtube(page))?.state).toBe(1);
   expect((await youtube(page))!.videoId).toBe(id);
   const count = await loads(page);
@@ -69,8 +69,9 @@ test('Discover to Now playing and back, Back and Forward, and repeated trips nev
     await page.keyboard.press('Escape');
   } else {
     await expect(first.getByRole('button', { name: /^(?:Play next|Add to queue): / })).toHaveCount(0);
-    await expect(page.locator('.music-discover-song-row').nth(1).getByRole('button', { name: /^Play next: / })).toHaveText('Play next');
-    await expect(page.locator('.music-discover-song-row').nth(1).getByRole('button', { name: /^Add to playlist: / })).toHaveText('Add to playlist');
+    // Icon actions (components/music/SongRow.tsx), each named for the song and with its tooltip.
+    await expect(page.locator('.music-discover-song-row').nth(1).getByRole('button', { name: /^Play next: / })).toHaveAttribute('data-tip', 'Play next');
+    await expect(page.locator('.music-discover-song-row').nth(1).getByRole('button', { name: /^Add to playlist: / })).toHaveAttribute('data-tip', 'Add to playlist');
   }
   await expect(page.getByRole('button', { name: '‹ Back to browse', exact: true })).toBeVisible();
 
@@ -162,7 +163,7 @@ test('Queue: the song playing is marked and stays put, songs come out, and Clear
   await page.goto('/music?view=queue');
   await playAllSongs(page);
   await expect(queueRows(page).nth(5)).toBeVisible();
-  await queueRows(page).first().locator('.music-queue-row-title').click();
+  await queueRows(page).first().locator('.music-song-row-main').click();
   await expect.poll(async () => (await youtube(page))?.state).toBe(1);
   const playing = (await youtube(page))!.videoId as string;
   const current = queueRows(page).first();
@@ -177,8 +178,9 @@ test('Queue: the song playing is marked and stays put, songs come out, and Clear
     await queueRows(page).nth(2).getByRole('button', { name: /^More actions for / }).click();
     await page.getByRole('dialog', { name: 'Song actions', exact: true }).getByRole('button', { name: 'Remove', exact: true }).click();
   } else {
-    await expect(current.getByRole('button', { name: 'Remove', exact: true })).toBeDisabled();
-    await queueRows(page).nth(2).getByRole('button', { name: 'Remove', exact: true }).click();
+    // The song playing has no Remove (left out, not shown disabled); the others name the song.
+    await expect(current.getByRole('button', { name: /^Remove from queue: / })).toHaveCount(0);
+    await queueRows(page).nth(2).getByRole('button', { name: /^Remove from queue: / }).click();
   }
   await expect.poll(() => ids(queueRows(page))).not.toContain(removed);
   const kept = await ids(queueRows(page));
@@ -257,11 +259,11 @@ test("the one-row player bar's More reaches Favourite, Shuffle, Repeat and the q
   await page.goto(mobile ? '/music?view=library' : '/music/discover');
   if (mobile) {
     await expect(libraryRows(page).first()).toBeVisible();
-    await libraryRows(page).first().locator('.music-queue-row-title').click();
+    await libraryRows(page).first().locator('.music-song-row-main').click();
   } else {
     await page.getByRole('searchbox', { name: /Search songs, characters/ }).fill('a');
     await expect(page).toHaveURL(/[?&]q=a/);
-    await page.locator('.music-discover-song-play').first().click();
+    await page.locator('.music-song-row-main').first().click();
   }
   await expect.poll(async () => (await youtube(page))?.state).toBe(1);
   const playing = (await youtube(page))!.videoId as string;

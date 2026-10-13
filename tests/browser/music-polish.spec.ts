@@ -25,7 +25,7 @@ async function add(page: Page, i: number, action = 'Add to queue') {
   } else await row.getByRole('button', { name: new RegExp(`^${action}:`) }).click();
 }
 async function start(page: Page) {
-  await libraryRow(page, 0).locator('.music-queue-row-title').click();
+  await libraryRow(page, 0).locator('.music-song-row-main').click();
   await expect.poll(async () => (await youtube(page))?.videoId).toBe(letter.videoId);
   await expect.poll(async () => (await youtube(page))?.state).toBe(1);
 }
@@ -38,7 +38,7 @@ test('1: fresh queue is empty; only chosen tracks enter it, optional autoplay pe
   const automatic = page.getByRole('region', { name: 'Autoplay from library', exact: true });
   await expect(automatic.getByRole('checkbox')).not.toBeChecked();
   await automatic.getByRole('button', { name: 'Autoplay from library', exact: true }).click();
-  await expect(automatic.locator('.music-autoplay-song')).toHaveCount(4);
+  await expect(automatic.locator('.music-autoplay-row .music-song-row-main')).toHaveCount(4);
   await automatic.getByRole('checkbox').check();
   await page.reload();
   await expect(automatic.getByRole('checkbox')).toBeChecked();
@@ -119,7 +119,7 @@ test('5: compact header and queue gutters prioritize phone titles', async ({ pag
   if (test.info().project.name === 'mobile') {
     const header = await page.locator('.page-header').boundingBox();
     expect(header!.height).toBeLessThan(100);
-    const title = await queueRows(page).first().locator('.music-queue-row-title').boundingBox();
+    const title = await queueRows(page).first().locator('.music-song-row-main').boundingBox();
     const row = await queueRows(page).first().boundingBox();
     expect(title!.width / row!.width).toBeGreaterThan(0.6);
     const handle = await queueRows(page).last().locator('.music-queue-drag-handle').boundingBox();
@@ -138,7 +138,7 @@ test('6: Repeat all preview and next wrap to the same first chosen song', async 
   await bar(page).getByRole('button', { name: 'Repeat: off', exact: true }).click();
   await bar(page).getByRole('button', { name: 'Repeat: one', exact: true }).click();
   await nav(page).getByRole('link', { name: 'Now playing', exact: true }).click();
-  await expect(page.locator('.music-up-next-title').first()).toHaveText(letter.altTitle || letter.title);
+  await expect(page.locator('.music-up-next-row .music-song-row-title').first()).toHaveText(letter.altTitle || letter.title);
   await bar(page).getByRole('button', { name: 'Next track' }).click();
   await expect.poll(async () => (await youtube(page))?.videoId).toBe(letter.videoId);
 });
@@ -195,7 +195,7 @@ test('9: localized title stays identical across Now playing, Queue and both bars
   await expect(page.locator('.music-now-playing-song-info h2')).toHaveText(title);
   await expect(bar(page).locator('.music-transport-song-title')).toHaveText(title);
   await nav(page).getByRole('link', { name: /^Queue/ }).click();
-  await expect(queueRows(page).first().locator('.music-queue-row-title')).toContainText(title);
+  await expect(queueRows(page).first().locator('.music-song-row-main')).toContainText(title);
   await expect(bar(page).locator('.music-transport-song-title')).toHaveText(title);
   await nav(page).getByRole('link', { name: 'Discover', exact: true }).click();
   await expect(bar(page).locator('.music-transport-song-title')).toHaveText(title);

@@ -15,17 +15,20 @@ const release = { release: 'a'.repeat(64), baseUrl: 'https://example.test/rev/re
 
 function song(videoId: string, extra: Partial<MonsterSirenSong> = {}): MonsterSirenSong {
   return { videoId, title: `Title ${videoId}`, altTitle: null, artist: null, composer: 'Composer', credits: [{ role: 'composer', names: ['Composer'] }],
-    genre: [], characters: ['Someone'], origin: [], albumId: '1', albumName: 'Album', coverPath: null, copyright: false, length: '03:00',
+    genre: [], characters: ['Someone'], origin: [], albumId: '1', albumName: 'Album', albumOriginalName: 'Album', coverPath: null, copyright: false, length: '03:00',
     lyricFilename: 'x.lrc', hasLyrics: true, ...extra };
 }
 
 test('the published queue catalogue carries what a queue row shows and nothing else', () => {
   assert.deepEqual(projectMusicCatalogue([
     song('plainVideo1'),
-    song('fullVideo01', { altTitle: 'English', artist: 'Singer', copyright: true }),
+    song('fullVideo01', { altTitle: 'English', artist: 'Singer', copyright: true,
+      albumName: 'Arknights OST 1', albumOriginalName: '明日方舟OST1', coverPath: '/album-covers/明日方舟OST1_cover.webp' }),
   ]), { songs: [
-    { videoId: 'plainVideo1', title: 'Title plainVideo1' },
-    { videoId: 'fullVideo01', title: 'Title fullVideo01', altTitle: 'English', artist: 'Singer', copyright: true },
+    // An album whose two names agree carries one; the original is kept only where it differs.
+    { videoId: 'plainVideo1', title: 'Title plainVideo1', album: 'Album' },
+    { videoId: 'fullVideo01', title: 'Title fullVideo01', altTitle: 'English', artist: 'Singer', album: 'Arknights OST 1',
+      albumOriginal: '明日方舟OST1', cover: '/album-covers/明日方舟OST1_cover.webp', copyright: true },
   ] });
 });
 
