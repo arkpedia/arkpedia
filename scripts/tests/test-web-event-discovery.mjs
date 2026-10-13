@@ -106,3 +106,28 @@ test('an unverifiable regional sibling is not published on the strength of anoth
     assert.ok(quarantine.entries.some(entry => entry.key === `campaign:${campaign(REGIONS[2])}` && entry.action === 'omitted-new'));
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
+
+test('year-first periods parse, as in Kal\'tsit\'s Archives\' rules (a start with no time opens that day)', () => {
+  const window = campaignWindow(rules('Event Period: 2026/10/13-2026/10/19 12:59 (UTC-7).'), REGIONS[0]);
+  assert.deepEqual(window, { start: '2026-10-13', end: '2026-10-19', closingTime: '12:59 (UTC−7)', expiresAt: '2026-10-19T20:00:00.000Z' });
+  assert.equal(campaignWindow(rules('2026/10/13 04:00 – 2026/10/19 12:59 (UTC-7)'), REGIONS[0]).opensAt, '2026-10-13T11:00:00.000Z');
+  assert.throws(() => campaignWindow(rules('2026/10/13 – 2026/10/19 (UTC-7)'), REGIONS[0]), /No complete/);
+});
+
+test('a window read by a person from an official rules image stands while its page still verifies', async () => {
+  // Kal'tsit's Archives (2026-10-13) was announced only on the official X account and gives its
+  // period only as an image: the page verifies but carries no text window.
+  for (const curated of [true, false]) {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'web-events-'));
+    try {
+      const record = { name: 'Journey', region: 'Global (EN)', start: '2026-10-08', end: '2026-11-07', closingTime: '19:59 (UTC−7)',
+        expiresAt: '2026-11-08T03:00:00.000Z', url: campaign(REGIONS[0]), image: art, sourceUrl: campaign(REGIONS[0]), ...(curated ? { windowSource: 'official rules image' } : {}) };
+      fs.mkdirSync(path.join(root, 'data'), { recursive: true });
+      fs.writeFileSync(path.join(root, 'data/community-web-events.json'), JSON.stringify([record]));
+      const events = await syncWebEvents(root, { seeds: [], fetcher: fixture({ empty: true, invalid: { en: 'The rules are an image' } }).fetcher, now: NOW });
+      assert.deepEqual(events, [record], 'the record stands either way');
+      const quarantine = fs.existsSync(path.join(root, 'data/quarantine.json')) ? JSON.parse(fs.readFileSync(path.join(root, 'data/quarantine.json'), 'utf8')).entries : [];
+      assert.equal(quarantine.some(entry => entry.key === `campaign:${campaign(REGIONS[0])}`), !curated, curated ? 'no nightly report' : 'an uncurated record is still reported');
+    } finally { fs.rmSync(root, { recursive: true, force: true }); }
+  }
+});
