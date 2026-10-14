@@ -19,8 +19,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (typeof id !== 'string' || !SONG_ID.test(id)) return res.status(404).json({ error: 'Unknown song' });
   try {
     const url = await monsterSirenAudioUrl(id);
-    // Signed addresses expire (about five hours): the redirect is kept a minute at most.
-    res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=60');
+    // Signed addresses last about five hours: the edge keeps the redirect half an hour, so a press
+    // is not kept waiting on Monster Siren's API (the first load took about seven seconds on an
+    // iPhone over 5G, 2026-10-14); a browser keeps it a minute.
+    res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=1800');
     res.setHeader('Location', url.href);
     return res.status(302).end();
   } catch {

@@ -122,18 +122,19 @@ export interface MsrEngineEvents extends EngineEvents {
   onStuck(): void;
 }
 
-/** How long a play that was asked for may go with the clock standing still before the engine
- *  steps in: from the request (`start`), and after it had played (`stall`). Once, it asks for a
- *  fresh address and carries on from the same moment; the next time, it gives up (onStuck). A
- *  check may set window.__arkpediaAudioWatchdogMs to shorten them. */
-export const AUDIO_WATCHDOG_MS = { start: 8000, stall: 10000 } as const;
+/** How long a play that was asked for may go without sound before the engine pauses it and the
+ *  player says so (onStuck): from the request while no file has come (`load`), from the element's
+ *  "playing" while the clock has not moved (`start`), and after it had played (`stall`). The next
+ *  Play loads a fresh address, in its press. A check may set window.__arkpediaAudioWatchdogMs to
+ *  shorten them. */
+export const AUDIO_WATCHDOG_MS = { load: 30000, start: 8000, stall: 20000 } as const;
 /** A clock standing still this long while playing is shown as loading, not as playing. */
 const STALL_SHOWN_MS = 1500;
 const WATCHDOG_TICK_MS = 500;
-function watchdogMs(): { start: number; stall: number } {
+function watchdogMs(): { load: number; start: number; stall: number } {
   const hook = typeof window === 'undefined' ? undefined
-    : (window as unknown as { __arkpediaAudioWatchdogMs?: { start?: number; stall?: number } }).__arkpediaAudioWatchdogMs;
-  return { start: hook?.start ?? AUDIO_WATCHDOG_MS.start, stall: hook?.stall ?? AUDIO_WATCHDOG_MS.stall };
+    : (window as unknown as { __arkpediaAudioWatchdogMs?: { load?: number; start?: number; stall?: number } }).__arkpediaAudioWatchdogMs;
+  return { load: hook?.load ?? AUDIO_WATCHDOG_MS.load, start: hook?.start ?? AUDIO_WATCHDOG_MS.start, stall: hook?.stall ?? AUDIO_WATCHDOG_MS.stall };
 }
 
 interface AudioEngineOptions {
@@ -161,8 +162,8 @@ interface AudioEngineOptions {
  * its "playing" event or a play() call -- an iPhone showed Pause, and a lock-screen clock running,
  * over a song that stayed silent at 0:00. Until the clock moves, and whenever it stands still
  * while playing ("waiting", or no progress for STALL_SHOWN_MS), it reports BUFFERING. A watchdog
- * (AUDIO_WATCHDOG_MS) asks once for a fresh address when the clock does not move, and gives up
- * after that (onStuck), the song paused where it was.
+ * (AUDIO_WATCHDOG_MS) pauses a song that made no sound in its time (onStuck), where it was; the
+ * next Play loads a fresh address in the press.
  *
  * When a song ends the next one is set on this same element and played in the same task as the
  * end: the browser keeps the page's audio session, and the lock screen's controls, from song to
@@ -196,7 +197,10 @@ export function createMsrAudioEngine(events: MsrEngineEvents, { address = msrAud
   let clock = 0;
   let movedAt = 0;
   let everPlayed = false;
+  /** The silence ended the last play: the next Play (a press) loads a fresh address, in the press. */
   let rescued = false;
+  /** When the element said it plays (its "playing" event) for this play; 0 before. */
+  let startedAt = 0;
   let watchdog: number | undefined;
 
   // A state the engine reaches by being asked (a cue, a pause, fetching the address) is reported
@@ -218,6 +222,7 @@ export function createMsrAudioEngine(events: MsrEngineEvents, { address = msrAud
 
   function arm() {
     confirmed = false;
+    startedAt = 0;
     clock = position();
     movedAt = now();
     if (watchdog === undefined) watchdog = window.setInterval(tick, WATCHDOG_TICK_MS);
@@ -248,33 +253,34 @@ export function createMsrAudioEngine(events: MsrEngineEvents, { address = msrAud
     }
   }
 
+  /** Loading is not silence: the file may take a while on a phone's network (an iPhone took about
+   *  seven seconds over 5G, 2026-10-14). The clock is held to `start` only once the element says
+   *  it plays, and to `stall` once it has moved; before that, to `load`. */
   function tick() {
     if (!wantPlay) { disarm(); return; }
     observe();
-    const quiet = now() - movedAt;
+    const t = now();
     const limits = watchdogMs();
-    if (confirmed && quiet > Math.min(STALL_SHOWN_MS, limits.stall)) {
+    if (confirmed && t - movedAt > Math.min(STALL_SHOWN_MS, limits.stall)) {
       confirmed = false;
       logAudioEvent('engine: clock stopped');
       events.onState(PLAYER_STATE.BUFFERING);
     }
-    if (!confirmed && quiet > (everPlayed ? limits.stall : limits.start)) silent();
+    if (confirmed) return;
+    if (everPlayed) { if (t - movedAt > limits.stall) silent('the clock stopped'); return; }
+    if (startedAt) { if (t - Math.max(startedAt, movedAt) > limits.start) silent('it says it plays, the clock does not move'); return; }
+    if (t - movedAt > limits.load) silent('no file came');
   }
 
-  /** No sound for the watchdog's time: once, a fresh address at the same moment; then, give up. */
-  function silent() {
+  /** No sound for the watchdog's time: paused where it was, and the player says so (onStuck). It is
+   *  never loaded again from here: an iPhone loads a file only in a press, so a fresh address set
+   *  by this timer sat there with no data (2026-10-14). The next Play does it, in its press. */
+  function silent(why: string) {
     const at = position();
     start = at;
     clock = at;
-    movedAt = now();
-    if (!rescued) {
-      rescued = true;
-      logAudioEvent('engine: no sound, asking for a fresh address');
-      loadedCid = '';
-      begin(true);
-      return;
-    }
-    logAudioEvent('engine: no sound from a fresh address either, gave up');
+    logAudioEvent(`engine: no sound (${why}), paused for a Play`);
+    rescued = true;
     wantPlay = false;
     disarm();
     if (!el.paused) el.pause();
@@ -336,7 +342,7 @@ export function createMsrAudioEngine(events: MsrEngineEvents, { address = msrAud
       // A play a later load, pause or address replaced; a file the element cannot play is its
       // error event's (below). Any other refusal is a start that made no sound.
       if (name === 'AbortError' || el.error || !el.paused) return;
-      silent();
+      silent(`play() refused: ${name}`);
     });
   }
 
@@ -386,6 +392,7 @@ export function createMsrAudioEngine(events: MsrEngineEvents, { address = msrAud
     if (!current() || el.paused) return;
     // Started from outside the player (the system's own controls): watched like a Play.
     if (!wantPlay) { wantPlay = true; rescued = false; arm(); }
+    if (!startedAt) startedAt = now();
     observe();
   });
   el.addEventListener('timeupdate', observe);
@@ -429,10 +436,12 @@ export function createMsrAudioEngine(events: MsrEngineEvents, { address = msrAud
       // Already heard playing: nothing to ask again (the lock screen's Play over a playing song).
       if (wantPlay && confirmed && !el.paused) return;
       wantPlay = true;
+      // After a silence the file is loaded again from a fresh address, here, in the press.
+      const fresh = rescued;
       rescued = false;
       arm();
       reportPending();
-      begin();
+      begin(fresh);
     },
     pauseVideo() {
       wantPlay = false;
@@ -466,7 +475,8 @@ export function createMsrAudioEngine(events: MsrEngineEvents, { address = msrAud
       wantPlay,
       heard: confirmed,
       everPlayed,
-      freshTried: rescued,
+      freshOnPlay: rescued,
+      startedMs: startedAt ? Math.round(now() - startedAt) : 0,
       quietMs: wantPlay ? Math.round(now() - movedAt) : 0,
     }),
   };

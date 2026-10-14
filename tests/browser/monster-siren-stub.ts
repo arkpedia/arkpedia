@@ -31,11 +31,13 @@ export interface Siren {
   /** Every file request is left unanswered: the CDN never sends a byte (what an iPhone met as a
    *  song that stayed silent at 0:00 while everything said it played). */
   hangFiles: boolean;
+  /** Each file request answered this many milliseconds late: a phone's slow network. */
+  delayFilesMs: number;
 }
 
 /** Monster Siren as the page meets it: the address route and the file it names. */
 export async function stubMonsterSiren(page: Page): Promise<Siren> {
-  const siren: Siren = { resolves: [], files: [], arts: [], refuseNextFile: false, hangFiles: false };
+  const siren: Siren = { resolves: [], files: [], arts: [], refuseNextFile: false, hangFiles: false, delayFilesMs: 0 };
   await page.route('**/api/music-art/**', (route) => {
     siren.arts.push(new URL(route.request().url()).pathname.split('/').pop()!);
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ cover: null, artists: [], albumName: null }) });
@@ -46,9 +48,10 @@ export async function stubMonsterSiren(page: Page): Promise<Siren> {
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ url: `http://127.0.0.1:3192/__siren/${cid}.wav?sig=${siren.resolves.length}` }) });
   });
   // The file, in byte ranges as Monster Siren's CDN serves it.
-  const serve = (route: Route) => {
+  const serve = async (route: Route) => {
     siren.files.push(route.request().url());
     if (siren.hangFiles) return new Promise<void>(() => { /* never answered */ });
+    if (siren.delayFilesMs) await new Promise((done) => setTimeout(done, siren.delayFilesMs));
     if (siren.refuseNextFile) { siren.refuseNextFile = false; return route.fulfill({ status: 403, body: '' }); }
     const range = /bytes=(\d+)-(\d*)/.exec(route.request().headers().range ?? '');
     if (!range) return route.fulfill({ status: 200, contentType: 'audio/wav', body: WAV, headers: { 'Accept-Ranges': 'bytes' } });

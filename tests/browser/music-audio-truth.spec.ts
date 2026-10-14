@@ -8,12 +8,13 @@ import { stubYouTube } from './youtube-stub';
  * On an iPhone (2026-10-14) a Monster Siren song stayed silent at 0:00 while the corner player
  * showed Pause and the lock screen ran its clock to 1:41. Now: a song asked to play shows the
  * loading button, never Pause, and the lock screen is told "paused", until the element's clock
- * moves; a song whose clock does not move is asked for once more from a fresh address, then left
- * paused with a word under the player; and every bit of that can be read off the phone with
- * ?audio-debug=1.
+ * moves; a song that makes no sound in the watchdog's time is left paused with a word under the
+ * player, never loaded again by the timer (an iPhone loads a file only in a press: the fresh
+ * address the timer set sat with no data), and the next Play loads a fresh address in its press;
+ * and every bit of that can be read off the phone with ?audio-debug=1.
  *
  * The watchdog's times are shortened here (window.__arkpediaAudioWatchdogMs); the player's are
- * 8 and 10 seconds.
+ * 30 seconds for a file to come, 8 for the clock to move once it says it plays, 20 once it has.
  */
 
 test.beforeEach(({}, info) => {
@@ -36,7 +37,7 @@ const audio = (page: Page) => page.evaluate(() => {
 async function watchTruth(page: Page) {
   await page.addInitScript((ms) => {
     const w = window as unknown as { __arkpediaAudioWatchdogMs: object; __labels: string[]; __sessionStates: string[] };
-    w.__arkpediaAudioWatchdogMs = { start: ms, stall: ms };
+    w.__arkpediaAudioWatchdogMs = { load: ms, start: ms, stall: ms };
     w.__labels = [];
     w.__sessionStates = [];
     const descriptor = Object.getOwnPropertyDescriptor(MediaSession.prototype, 'playbackState');
@@ -64,7 +65,7 @@ async function playMsrSong(page: Page): Promise<CatalogueRow> {
   return msr;
 }
 
-test('a file that never sends a byte shows loading, never Pause, is asked for once more, then waits paused with a word', async ({ page }) => {
+test('a file that never sends a byte shows loading, never Pause, then waits paused with a word, and Play loads it afresh in the press', async ({ page }) => {
   await watchTruth(page);
   await stubYouTube(page);
   const siren = await stubMonsterSiren(page);
@@ -74,16 +75,15 @@ test('a file that never sends a byte shows loading, never Pause, is asked for on
   // Asked to play, not heard: the loading button, still pressable; the lock screen is told paused.
   await expect(bar(page).getByRole('button', { name: 'Starting…', exact: true })).toBeEnabled();
   await expect.poll(() => page.evaluate(() => navigator.mediaSession.playbackState)).toBe('paused');
-  // The watchdog asks once for a fresh address and plays on from it...
-  await expect.poll(() => siren.resolves, { timeout: 15_000 }).toEqual([msr.cid, msr.cid]);
-  // ... and when that is silent too, gives up: paused, with a word under the player.
+  // No sound in the watchdog's time: paused, with a word under the player.
   await expect(bar(page).getByText(STUCK)).toBeVisible({ timeout: 15_000 });
   await expect(bar(page).getByRole('button', { name: 'Play', exact: true })).toBeEnabled();
   expect((await audio(page))!.paused).toBe(true);
   expect(await page.evaluate(() => navigator.mediaSession.playbackState)).toBe('paused');
-  // It stops trying: no third address.
+  // The timer never loads it again (an iPhone loads a file only in a press): one load, its first.
   await page.waitForTimeout(WATCHDOG_MS + 1000);
-  await expect.poll(() => siren.resolves).toEqual([msr.cid, msr.cid]);
+  expect(siren.resolves).toEqual([msr.cid]);
+  expect((await audio(page))!.src).toBe(`/api/music-audio/${msr.cid}`);
   // Never Pause over silence, never "playing" to the lock screen.
   expect(await labels(page)).not.toContain('Pause');
   expect(await sessionStates(page)).not.toContain('playing');
@@ -96,10 +96,12 @@ test('a file that never sends a byte shows loading, never Pause, is asked for on
   await expect(widget.getByText(STUCK)).toBeVisible();
   await expect(widget.getByRole('button', { name: 'Play', exact: true })).toBeEnabled();
 
-  // The CDN answers again: one press of Play plays it, and the word goes.
+  // The CDN answers again: one press of Play loads a fresh address in the press and plays it,
+  // and the word goes.
   siren.hangFiles = false;
   await widget.getByRole('button', { name: 'Play', exact: true }).click();
   await expect(widget.getByText(STUCK)).toHaveCount(0);
+  expect((await audio(page))!.src).toMatch(new RegExp(`/api/music-audio/${msr.cid}\\?retry=`));
   await expect(widget.getByRole('button', { name: 'Pause', exact: true })).toBeVisible({ timeout: 15_000 });
   const heard = (await audio(page))!;
   expect(heard.paused).toBe(false);
@@ -135,9 +137,11 @@ test('an element that says "playing" while its clock stands still (as on the iPh
 
   await expect(bar(page).getByRole('button', { name: 'Starting…', exact: true })).toBeVisible();
   await expect(bar(page).getByText(STUCK)).toBeVisible({ timeout: 15_000 });
-  // A play() faked to make no sound loads no file: the fresh try shows in the element's address.
-  expect((await audio(page))!.src).toMatch(new RegExp(`/api/music-audio/${msr.cid}\\?retry=`));
+  // The timer loads nothing again; the next Play does, from a fresh address, in its press.
+  expect((await audio(page))!.src).toBe(`/api/music-audio/${msr.cid}`);
   await expect(bar(page).getByRole('button', { name: 'Play', exact: true })).toBeEnabled();
+  await bar(page).getByRole('button', { name: 'Play', exact: true }).click();
+  expect((await audio(page))!.src).toMatch(new RegExp(`/api/music-audio/${msr.cid}\\?retry=`));
   expect(await labels(page)).not.toContain('Pause');
   expect(await sessionStates(page)).not.toContain('playing');
 });
@@ -159,10 +163,9 @@ test('a play() the browser rejects later, with no error on the element, never sh
   await page.getByRole('searchbox', { name: 'Search all songs' }).fill(msr.altTitle || msr.title);
   await page.locator(`.music-all-songs-list [data-song-id="msr:${msr.cid}"] .music-song-row-main`).click();
 
-  // The rejection is taken at once as a start that made no sound: a fresh address, then the word.
+  // The rejection is taken at once as a start that made no sound: the word, nothing loaded again.
   await expect(bar(page).getByText(STUCK)).toBeVisible({ timeout: 15_000 });
-  // A play() faked to make no sound loads no file: the fresh try shows in the element's address.
-  expect((await audio(page))!.src).toMatch(new RegExp(`/api/music-audio/${msr.cid}\\?retry=`));
+  expect((await audio(page))!.src).toBe(`/api/music-audio/${msr.cid}`);
   await expect(bar(page).getByRole('button', { name: 'Play', exact: true })).toBeEnabled();
   expect((await audio(page))!.paused).toBe(true);
   expect(await labels(page)).not.toContain('Pause');
@@ -302,4 +305,25 @@ test('the press plays the song\'s own file inside the press, before YouTube\'s p
   await expect.poll(async () => (await audio(page))!.time, { timeout: 20_000 }).toBeGreaterThan(1);
   await expect(bar(page).getByRole('button', { name: 'Pause', exact: true })).toBeVisible();
   await expect.poll(() => siren.resolves).toEqual([msr.cid]);
+});
+
+/*
+ * The iPhone's log (2026-10-14): the first file came about seven seconds after the press, the
+ * element said it played, and 1.2 seconds later the watchdog -- counting from the press -- called
+ * it silent and loaded it again; that load, set by a timer, never got a byte. Loading is not
+ * silence: a file slower than the old limit plays, from its one load.
+ */
+test('a file that comes later than the clock\'s limit is waited for, and plays from its one load', async ({ page }) => {
+  await watchTruth(page);
+  // The clock's limits short, the file's long: it comes after `start` has passed since the press.
+  await page.addInitScript(() => { (window as unknown as { __arkpediaAudioWatchdogMs: object }).__arkpediaAudioWatchdogMs = { load: 20_000, start: 1500, stall: 1500 }; });
+  await stubYouTube(page);
+  const siren = await stubMonsterSiren(page);
+  siren.delayFilesMs = 3000;
+  const msr = await playMsrSong(page);
+  await expect.poll(async () => (await audio(page))!.time, { timeout: 20_000 }).toBeGreaterThan(1);
+  await expect(bar(page).getByRole('button', { name: 'Pause', exact: true })).toBeVisible();
+  await expect(bar(page).getByText(STUCK)).toHaveCount(0);
+  expect(siren.resolves).toEqual([msr.cid]);
+  expect((await audio(page))!.src).toBe(`/api/music-audio/${msr.cid}`);
 });
