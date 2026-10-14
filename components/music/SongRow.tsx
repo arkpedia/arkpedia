@@ -11,7 +11,8 @@ import { songTitle } from '@/lib/music/musicPolish';
  * (your queue and autoplay), Now playing's Up next and the saved playlists. One markup and one
  * CSS block (.music-song-row in styles/music/music.css), so a song looks the same wherever it is
  * listed: the album art at one size and inset, its title, then artist · album, and its actions
- * as icon buttons whose name shows on hover and focus (a phone has one More menu instead).
+ * as icon buttons whose name shows on hover and focus (a phone has one More menu instead, beside
+ * the heart: Favourite is one press on every row at every width, never inside a menu).
  *
  * Variants are modifiers of the same row, never other markup: the song playing (active, ▶ on its
  * art), the queue's current song (current: not dragged or removed), a queued badge, a draggable
@@ -109,8 +110,9 @@ export default function SongRow({ song, marker, active = false, current = false,
       {remove && <XButton label={`${remove.label}: ${title}`} data-tip={remove.label} onClick={remove.run} />}
     </div>}
     {menu && <div className="music-song-row-actions music-song-mobile-actions">
-      <SongActionsMenu song={{ id: song.id, title }} isFavorite={Boolean(favorite?.on)} isActive={current || active}
-        onFavorite={() => favorite?.toggle()} onPlayNow={playNow} onQueueNext={reorder ? undefined : playNext} onQueueLast={addToQueue}
+      {favorite && <ActionButton label={`Favourite: ${title}`} tip={favorite.on ? 'Unfavourite' : 'Favourite'} icon="heart" pressed={favorite.on} onClick={favorite.toggle} />}
+      <SongActionsMenu song={{ id: song.id, title }} isActive={current || active}
+        onPlayNow={playNow} onQueueNext={reorder ? undefined : playNext} onQueueLast={addToQueue}
         canMoveUp={reorder?.canUp} canMoveDown={reorder?.canDown} onMoveUp={reorder?.up} onMoveDown={reorder?.down}
         onPlayNext={reorder ? playNext : undefined} onRemove={remove?.run} />
     </div>}

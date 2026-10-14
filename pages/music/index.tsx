@@ -1,6 +1,6 @@
 import { GetStaticProps } from 'next';
 import Head from 'next/head';
-import Image from '@/components/content/ContentImage';
+import Image, { ContentImg } from '@/components/content/ContentImage';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -96,6 +96,8 @@ export default function MusicPage({ songLookup }: Props) {
     playQueueIndex,
     favorites,
     toggleFavorite,
+    nowPlayingCover: fallbackCover,
+    nowPlayingArtist,
   } = useMusicPlayer();
   const router = useRouter();
 
@@ -126,8 +128,9 @@ export default function MusicPage({ songLookup }: Props) {
   const detailByVideoId = useMemo(() => new Map(songLookup.map((s) => [s.videoId, s])), [songLookup]);
   const currentDetail = detailByVideoId.get(videoId);
   // The album's cover: from this page's release props, else from the player's catalogue (a song
-  // a release compiled before Monster Siren songs were listed here has its cover only there).
-  const nowPlayingCover = currentDetail?.coverPath ?? currentTrack?.cover ?? null;
+  // a release compiled before Monster Siren songs were listed here has its cover only there),
+  // else the player's fallback: Monster Siren's own cover or the YouTube thumbnail (lib/music/songArt.ts).
+  const nowPlayingCover = currentDetail?.coverPath ?? currentTrack?.cover ?? fallbackCover ?? null;
 
   // From this page's release props, like the credits: a lyric file is published for exactly
   // the songs whose lyrics parse, which is what this flag says, so the Lyrics button never
@@ -270,7 +273,9 @@ export default function MusicPage({ songLookup }: Props) {
 
             <div className="music-now-playing-cover-col">
               <div className="music-now-playing-cover">
-                {nowPlayingCover ? (
+                {nowPlayingCover && /^https:\/\//.test(nowPlayingCover) ? (
+                  <ContentImg src={nowPlayingCover} alt={currentDetail?.albumName || currentTrack?.album || title} className="music-now-playing-cover-img" />
+                ) : nowPlayingCover ? (
                   <Image src={nowPlayingCover} alt={currentDetail?.albumName || currentTrack?.album || title} fill sizes="280px" style={{ objectFit: 'cover' }} />
                 ) : (
                   <span className="music-now-playing-cover-fallback">♪</span>
@@ -291,6 +296,9 @@ export default function MusicPage({ songLookup }: Props) {
                       <b>{formatRoleLabel(c.role)}:</b> {c.names.join(', ')}
                     </span>
                   ))
+                ) : videoId && nowPlayingArtist ? (
+                  /* A song the release has no credits for yet: the artist Monster Siren credits. */
+                  <span><b>{formatRoleLabel('artist')}:</b> {nowPlayingArtist}</span>
                 ) : (
                   /* Before anything is playing there is no song to be missing
                      credits FOR, and "not available" read as a failed load on a

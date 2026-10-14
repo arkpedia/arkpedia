@@ -75,6 +75,19 @@
   border-color: transparent;
   color: var(--text);
 }
+/* Open (components/music/MusicPlayer.tsx): the /music bar's look in a card -- the song with
+   its art, one row of icon buttons, the seek bar -- and its × a small icon in the top-right
+   corner, over the card's padding. Tooltips rise above the buttons, so the card lets them out. */
+.music-player:not(.collapsed) { overflow: visible; }
+.music-player:not(.collapsed) > .music-collapse-toggle {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+  min-height: 32px;
+}
 .music-body {
   display: flex;
   flex: 1;
@@ -82,22 +95,34 @@
   gap: 8px;
   min-width: 0;
 }
-.music-title-row { min-width: 0; }
-.music-title-scroll {
-  overflow: hidden;
-  white-space: nowrap;
-}
-/* The track playing now: current, so teal. */
-.music-track-title {
-  display: inline-block;
-  border-bottom: 1px dotted var(--teal-dim);
-  color: var(--teal);
-  font-family: var(--font-mono);
-  font-size: 11px;
+/* The song: art, then title over artist, one line each; it opens Now playing. Its right edge
+   leaves the × its corner. */
+.music-widget-song {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  min-height: 44px;
+  margin-right: 34px;
+  border-radius: var(--radius);
+  color: var(--text);
   text-decoration: none;
-  white-space: nowrap;
 }
-.music-track-title:hover { border-bottom-color: var(--teal); }
+.music-widget-song:hover .music-widget-title { color: var(--teal); }
+.music-widget-cover {
+  display: flex;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  overflow: hidden;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  background: var(--panel-2);
+}
+.music-widget-cover-art { display: block; width: 100%; height: 100%; object-fit: cover; }
+.music-widget-cover-art.music-album-cover-placeholder { display: flex; align-items: center; justify-content: center; color: var(--text-faint); font-size: 15px; }
+.music-widget-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.music-widget-artist { overflow: hidden; color: var(--text-dim); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 
 /* Cross-fade between a song's title and its translated alt title, 5 seconds each
    (lib/music/useCrossFadeTitle.ts). */
@@ -106,7 +131,7 @@
   transition: opacity 0.4s ease;
 }
 .music-crossfade-text.fading { opacity: 0; }
-.music-track-title.marquee { animation: title-marquee 9s ease-in-out infinite; }
+.music-widget-title { display: block; overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
 
 .music-seek-row {
   display: flex;
@@ -126,14 +151,53 @@
   font-size: 10px;
 }
 .music-time:last-child { text-align: right; }
+/* One row at every width: Favourite at the left, Previous, Play and Next in the middle, Queue at
+   the right. */
 .music-controls {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 6px;
   min-width: 0;
 }
+.music-widget-transport { display: flex; justify-content: center; gap: 6px; }
+/* An icon button's name, above it on hover and keyboard focus (data-tip; aria-label names it).
+   The end buttons' tips line up with their outer edge, so none leaves the card's side. */
+.music-player [data-tip] { position: relative; }
+.music-player [data-tip]::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  z-index: 3;
+  max-width: 220px;
+  overflow: hidden;
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  box-shadow: 0 6px 18px rgb(0 0 0 / .3);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 11px;
+  letter-spacing: normal;
+  text-overflow: ellipsis;
+  text-transform: none;
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translateX(-50%);
+  visibility: hidden;
+}
+.music-controls > [data-tip]:first-child::after { left: 0; transform: none; }
+.music-controls > [data-tip]:last-child::after { left: auto; right: 0; transform: none; }
+.music-player [data-tip]:focus-visible::after { visibility: visible; }
+@media (hover: hover) {
+  .music-player [data-tip]:hover::after { visibility: visible; }
+}
 /* The transport buttons are square at the control height (ui-primitives rule 4). */
 .music-controls > button,
+.music-controls > .music-list-btn,
+.music-widget-transport > button,
 .music-player-bottombar-controls > button,
 .music-transport-buttons > button,
 .music-transport-buttons > .music-list-btn,
@@ -157,17 +221,6 @@
   min-width: 48px;
   margin-left: 4px;
 }
-.music-next-up {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  min-width: 0;
-  color: var(--text-faint);
-  font-family: var(--font-mono);
-  font-size: 10px;
-  white-space: nowrap;
-}
-.music-next-up > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 
 @media (max-width: 640px) {
   .music-player {
@@ -177,7 +230,6 @@
     width: auto;
   }
   .music-player.collapsed { left: auto; }
-  .music-controls { flex-wrap: wrap; row-gap: 6px; }
   .music-seek,
   .music-volume { height: 22px; }
   /* The collapsed widget floats 44px tall, 8px off the bottom edge. Every page it
@@ -259,6 +311,8 @@
   border-radius: var(--radius-frame);
   background: var(--panel-2);
 }
+/* The player's fallback art (Monster Siren's cover or the YouTube thumbnail), a plain <img>. */
+.music-now-playing-cover-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .music-now-playing-cover-fallback {
   display: flex;
   align-items: center;
@@ -343,7 +397,6 @@
 }
 @media (prefers-reduced-motion: reduce) {
   /* Every infinite loop goes still; the waves stay visible as a static strip. */
-  .music-track-title.marquee,
   .music-play-btn.loading,
   .music-wave-visualizer,
   .music-wave-1,
@@ -505,9 +558,14 @@
 @media (max-width: 720px) {
   .music-song-desktop-actions { display: none; }
   .music-song-mobile-actions { display: flex; }
-  /* A phone keeps #414's narrow gutter: the handle gives its room to the title. */
-  .music-song-row-handle { width: 24px; }
-  .music-song-row-main { gap: 10px; }
+  /* A phone keeps #414's narrow gutter: the handle gives its room to the title. The heart
+     outside the More menu (one press to favourite) costs a 44px button; the art, gutters and
+     handle give those pixels back so the title keeps its room (row-alignment.spec.ts). */
+  .music-song-row { gap: 4px; }
+  .music-song-row-handle { width: 20px; }
+  .music-song-row-main { gap: 8px; padding-left: 6px; }
+  .music-song-row-art { width: 36px; height: 36px; }
+  .music-song-row-actions { gap: 2px; }
 }
 @media (max-width: 720px) and (pointer: coarse) {
   .music-queue-list { padding-right: 0; }
@@ -752,11 +810,10 @@
 .music-discover-page > .music-view-hint { margin: 8px 0 var(--section-gap); }
 /* Discover is not a flex column like /music: the nav keeps the same gap below it (16px). */
 .music-discover-page > .music-nav { margin-bottom: 16px; }
-.music-widget-queue-link { flex-shrink: 0; margin-left: auto; color: var(--teal); }
 
-/* The player bar's More (components/music/PlayerMoreMenu.tsx): the one-row bars' way to
-   Favourite, Shuffle, Repeat, Add to playlist and the queue, and every bar's way to the player's
-   settings (Data saver), so it shows at every width on every bar. */
+/* The player bar's More (components/music/PlayerMoreMenu.tsx): Add to playlist, the queue and
+   the player's settings (Data saver), so it shows at every width on every bar. Favourite, Shuffle
+   and Repeat are buttons on every bar, so they are not in it. */
 .music-player-more-btn { display: inline-flex; align-items: center; justify-content: center; }
 .music-song-menu-options > .music-player-more-link { display: flex; align-items: center; justify-content: flex-start; gap: 10px; min-height: var(--control-h); padding: 0 12px; text-align: left; text-decoration: none; }
 
@@ -777,7 +834,11 @@
 .music-discover-page { padding-bottom: calc(var(--music-bar-height, 160px) + 16px + env(safe-area-inset-bottom, 0px)); }
 .music-player-bottombar { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: min(100%, var(--frame-max)); box-sizing: border-box; padding: 8px var(--page-gutter) calc(8px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--line); gap: 6px; }
 .music-transport-song-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.music-transport-song-row .music-list-btn { flex: none; width: var(--control-h); height: var(--control-h); }
+.music-transport-song-row .music-list-btn,
+.music-transport-song-row .music-fav-btn { flex: none; width: var(--control-h); height: var(--control-h); padding: 0; }
+/* The heart beside the song is the phone's (720px and under), where the left group keeps only
+   More; a wider bar has its heart in the left group. Favourite is one press at every width. */
+.music-transport-song-row .music-transport-fav-phone { display: none; }
 .music-player-bottombar-controls { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 8px; width: 100%; }
 .music-transport-buttons { flex-wrap: nowrap; gap: 6px; min-width: 0; }
 .music-transport-left { justify-content: flex-start; }
@@ -806,13 +867,22 @@
   .music-transport-left .music-fav-btn,
   .music-transport-left .music-playlist-add-btn,
   .music-transport-left .music-stream-safe-btn { display: none; }
+  .music-transport-song-row .music-transport-fav-phone { display: inline-flex; align-items: center; justify-content: center; }
   .music-transport-buttons { gap: 4px; }
   .music-player-bottombar-compact .music-transport-left .music-fav-btn,
   .music-player-bottombar-compact .music-transport-left .music-playlist-add-btn,
   .music-player-bottombar-compact .music-transport-left .music-stream-safe-btn { display: none; }
-  .music-player .music-volume { display: none; }
 }
-@media (max-width: 380px) {
+/* The row under the song -- More; Previous, Play, Next; Shuffle, Repeat -- stays one row with
+   Play centred: at 44px a button it fits from 390 up; under 390 the buttons take the phone's
+   control height (40px) and closer gaps, which fits it down to 352; only under that does it fall
+   back to two rows, Shuffle and Repeat above. */
+@media (max-width: 389px) {
+  .music-player-bottombar-controls { gap: 4px; }
+  .music-transport-buttons > button,
+  .music-transport-buttons > .music-list-btn { width: var(--control-h); height: var(--control-h); min-height: var(--control-h); }
+}
+@media (max-width: 351px) {
   .music-transport-right { grid-column: 1 / -1; grid-row: 1; }
   .music-transport-left { grid-column: 1; grid-row: 2; }
   .music-transport-playback { grid-column: 2; grid-row: 2; }

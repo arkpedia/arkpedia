@@ -7,6 +7,7 @@ import SongPlaylistPicker from './SongPlaylistPicker';
 import TransportIcon from './TransportIcons';
 import { MUSIC_VIEW_HREF, type MusicView } from './MusicNav';
 import PlayerMoreMenu from './PlayerMoreMenu';
+import { MSR_LABEL } from '@/lib/music/songArt';
 
 function formatTime(seconds: number): string {
   if (!isFinite(seconds) || seconds < 0) return '0:00';
@@ -23,10 +24,12 @@ const UNDO_NOTICE_MS = 9000;
  * The music section's player bar, held at the bottom of the window (sticky) on /music and on
  * Discover, so the song playing and the way back to it are always in reach -- the mini player's
  * job on a music app's every screen. Its song names the track and opens Now playing; its Queue
- * button opens the queue. The full bar (/music) also seeks, repeats, shuffles and sets the
- * volume; the compact one (Discover) is the song, Previous, Play and Next, as in a phone app's
- * mini player. A queue action's result (Play next, Add to queue, Clear) shows above the
- * controls for a moment, Clear's with Undo.
+ * button opens the queue. The full bar (/music) also seeks and sets the volume; the compact one
+ * (Discover) has a progress line instead of the seek bar. Every form, at every width, has
+ * Favourite, Previous, Play, Next, Shuffle and Repeat as buttons: on a phone the row under the
+ * song is More, Previous, Play, Next, Shuffle, Repeat, and the heart sits beside the song, before
+ * Queue. A queue action's result (Play next, Add to queue, Clear) shows above the controls for a
+ * moment, Clear's with Undo.
  */
 export default function MusicTransportBar({ view, compact = false, coverPath, onFullPlayer }: {
   view: MusicView;
@@ -38,7 +41,7 @@ export default function MusicTransportBar({ view, compact = false, coverPath, on
 }) {
   const {
     ready, starting, isPlaying, title, videoId, volume, shuffle, repeatMode, currentTime, duration, favorites,
-    currentTrack, excludeCopyrighted, notice, togglePlay, nextTrack, prevTrack, toggleShuffle, cycleRepeat, setVolumeLevel,
+    currentTrack, nowPlayingCover, nowPlayingArtist, excludeCopyrighted, notice, togglePlay, nextTrack, prevTrack, toggleShuffle, cycleRepeat, setVolumeLevel,
     handleSeekChange, handleSeekCommit, setSeeking, toggleFavorite, setExcludeCopyrighted, dismissNotice, undoClearQueue,
   } = useMusicPlayer();
   const barRef = useRef<HTMLDivElement>(null);
@@ -70,6 +73,9 @@ export default function MusicTransportBar({ view, compact = false, coverPath, on
   const catalogTitle = currentTrack?.title || title || '';
   const { displayName, fading } = useCrossFadeTitle(catalogTitle, currentTrack?.altTitle);
   const isFav = Boolean(videoId) && favorites.has(videoId);
+  // The page's cover for the song where it has one, else the player's fallback (lib/music/songArt.ts).
+  const cover = videoId ? coverPath || nowPlayingCover || null : coverPath;
+  const artist = nowPlayingArtist ?? currentTrack?.artist ?? null;
   const progress = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
 
   useEffect(() => {
@@ -82,16 +88,16 @@ export default function MusicTransportBar({ view, compact = false, coverPath, on
     <div className="music-transport-song">
       <Link href={MUSIC_VIEW_HREF.player} shallow={onFullPlayer} scroll={false} prefetch={false}
         className="btn-bare music-transport-song-link" aria-current={view === 'player' ? 'page' : undefined}
-        aria-label={videoId ? `Now playing: ${catalogTitle}${currentTrack?.artist ? `, ${currentTrack.artist}` : ''}. Open Now playing` : 'Open Now playing'}>
+        aria-label={videoId ? `Now playing: ${catalogTitle}${artist ? `, ${artist}` : ''}. Open Now playing` : 'Open Now playing'}>
         <span className="music-transport-cover" aria-hidden="true">
-          {coverPath !== undefined ? <AlbumCover coverPath={coverPath} size={40} className="music-transport-cover-art" /> : <TransportIcon name="note" size={20} />}
+          {cover !== undefined ? <AlbumCover coverPath={cover} size={40} className="music-transport-cover-art" /> : <TransportIcon name="note" size={20} />}
         </span>
         <span className="music-transport-song-text">
           <span className={`music-transport-song-title music-crossfade-text${fading ? ' fading' : ''}`}>
             {videoId ? displayName : ready || !starting ? 'Nothing playing yet' : 'Loading…'}
           </span>
           <span className="music-transport-song-sub">
-            {videoId ? (currentTrack?.artist ?? 'Monster Siren Records') : 'Pick a song in Library or Discover'}
+            {videoId ? (artist ?? MSR_LABEL) : 'Pick a song in Library or Discover'}
           </span>
         </span>
       </Link>
@@ -103,6 +109,13 @@ export default function MusicTransportBar({ view, compact = false, coverPath, on
       disabled={starting} aria-label={starting ? 'Starting…' : isPlaying ? 'Pause' : 'Play'}>
       <TransportIcon name={starting ? 'loading' : isPlaying ? 'pause' : 'play'} />
     </button>
+  );
+  // Favourite is one press at every width: the left group's heart on a wide bar, this one beside
+  // the song on a phone, where the left group keeps only More (CSS). Its name stays "Favourite";
+  // aria-pressed says whether it is, and the tooltip says what a press does.
+  const favorite = (extra: string) => (
+    <button type="button" className={`filter-chip music-fav-btn music-song-favorite ${extra}`} disabled={!videoId} aria-pressed={isFav}
+      aria-label="Favourite" title={isFav ? 'Unfavourite' : 'Favourite'} onClick={() => videoId && toggleFavorite(videoId)}><TransportIcon name="heart" /></button>
   );
   const queueLink = (
     <Link href={view === 'queue' ? MUSIC_VIEW_HREF.player : MUSIC_VIEW_HREF.queue} shallow={onFullPlayer} scroll={false} prefetch={false}
@@ -124,7 +137,7 @@ export default function MusicTransportBar({ view, compact = false, coverPath, on
             : view !== 'queue' && <Link href={MUSIC_VIEW_HREF.queue} shallow={onFullPlayer} scroll={false} prefetch={false} className="ghost btn-sm" onClick={dismissNotice}>View queue</Link>}
         </>}
       </div>
-      <div className="music-transport-song-row">{song}{queueLink}</div>
+      <div className="music-transport-song-row">{song}{favorite('music-transport-fav-phone')}{queueLink}</div>
       {compact ? <div className="music-transport-progress" aria-hidden="true"><span style={{ width: `${progress}%` }} /></div> : <div className="music-player-bottombar-seek">
         <span className="music-time">{formatTime(currentTime)}</span>
         <input type="range" min={0} max={duration || 0} step={1} value={currentTime}
@@ -138,8 +151,7 @@ export default function MusicTransportBar({ view, compact = false, coverPath, on
       </div>}
       <div className="music-player-bottombar-controls">
         <div className="music-transport-left music-transport-buttons">
-          <button type="button" className="filter-chip music-fav-btn" disabled={!videoId} aria-pressed={isFav}
-            aria-label="Favorite" title="Favorite" onClick={() => videoId && toggleFavorite(videoId)}><TransportIcon name="heart" /></button>
+          {favorite('music-transport-fav-wide')}
           <SongPlaylistPicker player song={{ id: videoId || '', title: catalogTitle }} />
           <button type="button" className="filter-chip music-stream-safe-btn" onClick={() => setExcludeCopyrighted(!excludeCopyrighted)}
             aria-pressed={excludeCopyrighted} aria-label="Stream-safe: hide copyrighted songs" title="Stream-safe"><TransportIcon name="streamSafe" /></button>

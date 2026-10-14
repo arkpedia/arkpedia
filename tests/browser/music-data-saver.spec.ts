@@ -120,12 +120,15 @@ test('Data saver mid-song moves the song to YouTube at the same moment, and back
   const saver = menu.getByRole('checkbox', { name: 'Data saver', exact: true });
   await expect(saver).not.toBeChecked();
   const before = (await audio(page))!.time;
+  const checkedAt = Date.now();
   await saver.check();
   // YouTube takes the same track, from where the audio was, and plays; the audio lets its file go.
   await expect.poll(async () => (await youtube(page))?.state).toBe(1);
   const load = youtubeLoads((await youtube(page))!.calls).at(-1)!;
   expect(load.videoId).toBe(song.videoId);
-  expect(Math.abs(load.startSeconds - before)).toBeLessThan(2);
+  // The song plays on while the box is checked: it may be further on by the time that took.
+  expect(load.startSeconds).toBeGreaterThan(before - 2);
+  expect(load.startSeconds).toBeLessThan(before + 2 + (Date.now() - checkedAt) / 1000);
   await expect.poll(async () => (await audio(page))).toMatchObject({ src: '', paused: true });
   await expect(bar(page).getByRole('button', { name: 'Pause', exact: true })).toBeVisible();
   expect(await page.evaluate((key) => localStorage.getItem(key), DATA_SAVER_KEY)).toBe('true');
@@ -135,11 +138,16 @@ test('Data saver mid-song moves the song to YouTube at the same moment, and back
   // Back: Monster Siren again, from where YouTube was; YouTube paused, never two at once.
   await expect.poll(async () => (await youtube(page))!.time).toBeGreaterThan(load.startSeconds + 1);
   const youtubeAt = (await youtube(page))!.time;
+  const uncheckedAt = Date.now();
   await saver.uncheck();
   await expect.poll(async () => (await audio(page))?.paused).toBe(false);
   await expect.poll(async () => (await youtube(page))!.state).toBe(2);
   expect(siren.resolves).toEqual([song.cid, song.cid]);
-  expect(Math.abs((await audio(page))!.time - youtubeAt)).toBeLessThan(2.5);
+  // Read after the waits above, while the audio plays on: no further on than the time they
+  // took (the NAS runner is slower; 2026-10-14 it read 5.8s on), and not from the start.
+  const audioAt = (await audio(page))!.time;
+  expect(audioAt).toBeGreaterThan(youtubeAt - 2.5);
+  expect(audioAt).toBeLessThan(youtubeAt + 2.5 + (Date.now() - uncheckedAt) / 1000);
   await expect(bar(page).getByRole('button', { name: 'Pause', exact: true })).toBeVisible();
   await expect(libraryRow(page, song.videoId)).toHaveClass(/\bactive\b/);
 

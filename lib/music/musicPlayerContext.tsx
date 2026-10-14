@@ -10,6 +10,7 @@ import { clearUpcoming, placeSong, restoreAround, type Placement, type QueueStat
 import { PLAYER_STATE, createMsrAudioEngine, createTrackEngine, type EngineKind, type MsrAudioEngine, type PlaybackEngine, type TrackEngine } from './playbackEngine';
 import { trackSource, type TrackSource } from './trackId';
 import { useMsrMediaSession } from './useMsrMediaSession';
+import { SITE_ICON_PATH, artistLine, sessionArtwork, useSongArt, youtubeThumbnail } from './songArt';
 
 /** YouTube's iframe player, which is a PlaybackEngine as it stands (lib/music/playbackEngine.ts). */
 export interface YTPlayer extends PlaybackEngine {
@@ -116,6 +117,11 @@ interface MusicPlayerContextValue {
   queueSource: QueueSource;
   libraryTracks: QueueTrack[];
   currentTrack: QueueTrack | undefined;
+  /** The playing song's picture: the catalogue's cover (a /album-covers/ path), else Monster
+   *  Siren's album cover or the YouTube thumbnail (absolute addresses), else null (lib/music/songArt.ts). */
+  nowPlayingCover: string | null;
+  /** The playing song's artist: the catalogue's, else Monster Siren's credit, else null. */
+  nowPlayingArtist: string | null;
   autoplay: boolean;
   autoplayVideoId: string;
   autoplayTracks: QueueTrack[];
@@ -1580,7 +1586,22 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   }
 
   const currentTrack = libraryTracks.find(track => track.id === videoId) ?? queue.find(track => track.id === videoId);
-  useMsrMediaSession(Boolean(videoId) && engineKind === 'msr', currentTrack, isPlaying, contentUrl, {
+  // The playing song's art and artist where the catalogue has none (lib/music/songArt.ts), and
+  // Monster Siren's JPEG cover for the lock screen whenever its audio plays the song.
+  const msrSession = Boolean(videoId) && engineKind === 'msr';
+  const currentSource = videoId ? trackSource(videoId) : null;
+  const currentCid = currentSource?.kind === 'msr' ? currentSource.cid : videoId ? cidOf(videoId) : undefined;
+  const songArt = useSongArt(msrSession || !currentTrack?.cover ? currentCid : undefined);
+  const nowPlayingCover = videoId ? currentTrack?.cover ?? songArt?.cover ?? youtubeThumbnail(videoId) : null;
+  const nowPlayingArtist = videoId ? currentTrack?.artist ?? artistLine(songArt?.artists) : null;
+  const artwork = sessionArtwork({
+    msrCover: songArt?.cover,
+    youtube: youtubeThumbnail(videoId),
+    cover: currentTrack?.cover ? contentUrl(currentTrack.cover) : null,
+    icon: contentUrl(SITE_ICON_PATH),
+    base: typeof window === 'undefined' ? 'https://www.arkpedia.net/' : window.location.href,
+  });
+  useMsrMediaSession(msrSession, currentTrack, isPlaying, { artist: nowPlayingArtist, album: songArt?.albumName ?? null, artwork }, {
     play: () => { if (!isPlayingRef.current) togglePlay(); },
     pause: pausePlayback,
     next: () => void nextTrack(),
@@ -1611,6 +1632,8 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     queueSource,
     libraryTracks,
     currentTrack,
+    nowPlayingCover,
+    nowPlayingArtist,
     autoplay, autoplayVideoId, autoplayTracks: nextAutoplayTracks(), setAutoplay,
     notice,
     dismissNotice,

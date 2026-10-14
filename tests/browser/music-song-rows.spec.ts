@@ -71,7 +71,8 @@ test('every music list draws the same song row, and its actions are named', asyn
   const mobile = test.info().project.name === 'mobile';
   const act = async (id: string, action: 'Play next' | 'Add to queue' | 'Favourite') => {
     const row = page.locator(`.music-all-songs-list [data-song-id="${id}"]`);
-    if (mobile) {
+    // Favourite is the row's heart at every width: one press, never in the menu.
+    if (mobile && action !== 'Favourite') {
       await row.getByRole('button', { name: /^More actions for / }).click();
       await page.getByRole('dialog', { name: 'Song actions', exact: true }).getByRole('button', { name: action, exact: true }).click();
     } else await row.getByRole('button', { name: new RegExp(`^${action}: `) }).click();

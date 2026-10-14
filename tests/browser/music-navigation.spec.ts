@@ -56,9 +56,11 @@ test('Discover to Now playing and back, Back and Forward, and repeated trips nev
   await expect(bar(page).locator('.music-transport-cover img')).toBeVisible();
   // The song playing offers no queue actions: left out, not shown disabled.
   if (test.info().project.name === 'mobile') {
+    // Favourite is the row's heart, beside its More: one press, not a menu item.
+    await expect(first.getByRole('button', { name: /^Favourite: / })).toBeVisible();
     await first.getByRole('button', { name: /^More actions for / }).click();
     const menu = page.getByRole('dialog', { name: 'Song actions', exact: true });
-    await expect(menu.getByRole('button', { name: /^(?:Un)?favourite$/i })).toBeVisible();
+    await expect(menu.getByRole('button', { name: /favourite/i })).toHaveCount(0);
     await expect(menu.getByRole('button', { name: 'Add to playlist', exact: true })).toBeVisible();
     for (const name of ['Play now', 'Play next', 'Add to queue']) await expect(menu.getByRole('button', { name, exact: true })).toHaveCount(0);
     await page.keyboard.press('Escape');
@@ -254,7 +256,7 @@ test('songs queued with Play next and Add to queue stay under Next in queue afte
   await expect(nav(page).getByRole('link', { name: /^Queue/ })).toContainText('2');
 });
 
-test("the one-row player bar's More reaches Favourite, Shuffle, Repeat and the queue", async ({ page }) => {
+test("the player bar's heart, Shuffle and Repeat are buttons; its More holds only the rest", async ({ page }) => {
   // A phone's Library and Queue show the mini player; Discover's bar is one row at every width.
   const mobile = test.info().project.name === 'mobile';
   await stubYouTube(page);
@@ -273,36 +275,45 @@ test("the one-row player bar's More reaches Favourite, Shuffle, Repeat and the q
   await expect(more).toBeVisible();
   const box = (await more.boundingBox())!;
   if (mobile) expect(Math.min(box.width, box.height)).toBeGreaterThanOrEqual(44);
-  // Still one row on a phone: the More sits level with Play.
+  // Still one row on a phone: More, Shuffle and Repeat sit level with Play.
   const play = (await bar(page).getByRole('button', { name: 'Pause', exact: true }).boundingBox())!;
   expect(Math.abs(box.y - play.y)).toBeLessThan(4);
-  await more.click();
-  const menu = page.getByRole('dialog', { name: 'Player actions', exact: true });
-  const favourite = menu.getByRole('button', { name: /^(?:Un)?favourite$/i });
-  await expect(favourite).toHaveAttribute('aria-pressed', 'false');
-  await favourite.click();
-  await expect(favourite).toHaveAttribute('aria-pressed', 'true');
-  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('musicFavorites')!))).toContain(playing);
-  const shuffle = menu.getByRole('button', { name: 'Shuffle', exact: true });
+  const shuffle = bar(page).getByRole('button', { name: 'Shuffle', exact: true });
+  const repeat = bar(page).getByRole('button', { name: /^Repeat: / });
+  for (const button of [shuffle, repeat]) expect(Math.abs((await button.boundingBox())!.y - play.y)).toBeLessThan(4);
+  // Favourite is one press, on the bar itself (beside the song on a phone).
+  const heart = bar(page).getByRole('button', { name: 'Favourite', exact: true });
+  await expect(heart).toBeVisible();
+  await expect(heart).toHaveAttribute('aria-pressed', 'false');
+  await expect(heart).toHaveAttribute('title', 'Favourite');
+  await heart.click();
+  await expect(heart).toHaveAttribute('aria-pressed', 'true');
+  await expect(heart).toHaveAttribute('title', 'Unfavourite');
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('musicFavorites')!))).toContain(playing);
   const shuffled = await shuffle.getAttribute('aria-pressed');
   await shuffle.click();
   await expect(shuffle).toHaveAttribute('aria-pressed', shuffled === 'true' ? 'false' : 'true');
-  await menu.getByRole('button', { name: 'Repeat: Off', exact: true }).click();
-  await expect(menu.getByRole('button', { name: 'Repeat: This song', exact: true })).toBeVisible();
+  await bar(page).getByRole('button', { name: 'Repeat: off', exact: true }).click();
+  await expect(bar(page).getByRole('button', { name: 'Repeat: one', exact: true })).toBeVisible();
+  // The More has what the bar does not show: no Favourite, Shuffle or Repeat in it.
+  await more.click();
+  const menu = page.getByRole('dialog', { name: 'Player actions', exact: true });
+  await expect(menu).toBeVisible();
+  await expect(menu.getByRole('button', { name: /favourite/i })).toHaveCount(0);
+  await expect(menu.getByRole('button', { name: /^(Shuffle|Repeat)/ })).toHaveCount(0);
+  await expect(menu.getByText(/^(Shuffle|Repeat)$/)).toHaveCount(0);
+  await expect(menu.getByRole('button', { name: 'Add to playlist', exact: true })).toBeVisible();
+  await expect(menu.getByRole('checkbox', { name: 'Data saver' })).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(menu).toHaveCount(0);
   await expect(more).toBeFocused();
-  // The transport (Now playing on a phone) shows the same states.
   await more.click();
   await menu.getByRole('link', { name: 'Open queue', exact: true }).click();
   await expect(page).toHaveURL(/\/music\?view=queue$/);
   await expect(queueRows(page).first()).toBeVisible();
   expect((await youtube(page))!).toMatchObject({ state: 1, videoId: playing, players: 1 });
+  // Now playing's bar shows the same states.
   await nav(page).getByRole('link', { name: 'Now playing', exact: true }).click();
-  if (mobile) {
-    await more.click();
-    await expect(page.getByRole('dialog', { name: 'Player actions', exact: true }).getByRole('button', { name: 'Unfavourite', exact: true })).toHaveAttribute('aria-pressed', 'true');
-    await page.keyboard.press('Escape');
-  } else await expect(bar(page).getByRole('button', { name: 'Favorite', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(bar(page).getByRole('button', { name: 'Favourite', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await expect(bar(page).getByRole('button', { name: 'Repeat: one', exact: true })).toBeVisible();
 });

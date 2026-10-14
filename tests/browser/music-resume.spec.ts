@@ -38,7 +38,8 @@ async function widget(page: Page) {
     button: await play.getAttribute('aria-label'),
     enabled: await play.isEnabled(),
     time: await shell.locator('.music-time').first().innerText(),
-    upNext: await shell.locator('.music-next-up').innerText(),
+    // What plays next: the Next button's tooltip.
+    upNext: await shell.locator('.music-next-btn').getAttribute('data-tip'),
   };
 }
 async function collapse(page: Page) {
@@ -197,7 +198,7 @@ test('restoring a backup keeps the page and the song, and the player has the res
   // next toggle would write it back over the restored one).
   await page.keyboard.press('Escape');
   await player(page).getByRole('button', { name: 'Expand player' }).click();
-  await expect(player(page).getByRole('button', { name: 'Favorite' })).toHaveAttribute('aria-pressed', 'true');
-  await player(page).getByRole('button', { name: 'Favorite' }).click();
+  await expect(player(page).getByRole('button', { name: 'Favourite', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await player(page).getByRole('button', { name: 'Favourite', exact: true }).click();
   await expect.poll(() => page.evaluate(() => localStorage.getItem('musicFavorites'))).toBe('[]');
 });

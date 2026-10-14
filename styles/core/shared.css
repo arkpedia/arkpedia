@@ -1155,11 +1155,6 @@ a.primary:where(:has(~ :is(button, a).ghost)),
     display: none;
   }
 }
-@keyframes title-marquee {
-  0%, 12% { transform: translateX(0); }
-  50% { transform: translateX(calc(-1 * var(--scroll-distance))); }
-  88%, 100% { transform: translateX(0); }
-}
 .modal-overlay {
   position: fixed;
   inset: 0;

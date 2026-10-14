@@ -1,12 +1,19 @@
 import { useEffect, useRef } from 'react';
 import { songTitle } from './musicPolish';
+import { MSR_LABEL } from './songArt';
 
 interface SessionTrack {
   title: string;
   altTitle?: string | null;
-  artist?: string | null;
   album?: string | null;
-  cover?: string | null;
+}
+
+/** What the page says of the song beyond its title (lib/music/songArt.ts): its artist, the
+ *  catalogue's or Monster Siren's, and its artwork, never an empty list. */
+interface SessionArt {
+  artist: string | null;
+  album: string | null;
+  artwork: MediaImage[];
 }
 
 interface SessionActions {
@@ -28,19 +35,24 @@ const ACTIONS = ['play', 'pause', 'nexttrack', 'previoustrack', 'seekto'] as con
  * previous and seek from there, and says how long it is and where it is. While YouTube plays the
  * page says nothing and leaves the session to YouTube.
  *
+ * The artwork is a list of absolute, encoded addresses with their sizes and types, JPEGs first
+ * (lib/music/songArt.ts's sessionArtwork): a song described with the site's WebP cover alone
+ * showed a blank white square on an iPhone's lock screen.
+ *
  * `msr`: a song is loaded and Monster Siren's audio plays it (the player's engineKind).
  * `position`: where the song is and how long it is, read as the state changes.
  */
 export function useMsrMediaSession(msr: boolean, track: SessionTrack | undefined, isPlaying: boolean,
-  coverUrl: (path: string) => string, actions: SessionActions, position?: () => { seconds: number; duration: number }) {
+  art: SessionArt, actions: SessionActions, position?: () => { seconds: number; duration: number }) {
   const actionsRef = useRef(actions);
   actionsRef.current = actions;
   const positionRef = useRef(position);
   positionRef.current = position;
   const title = track ? songTitle(track.title, track.altTitle) : '';
-  const artist = track?.artist ?? 'Monster Siren Records';
-  const album = track?.album ?? '';
-  const cover = track?.cover ? coverUrl(track.cover) : '';
+  const artist = art.artist ?? MSR_LABEL;
+  const album = track?.album ?? art.album ?? '';
+  // A key for the list, so the metadata is set again only when an entry changes.
+  const artworkKey = JSON.stringify(art.artwork);
 
   useEffect(() => {
     const session = typeof navigator !== 'undefined' ? navigator.mediaSession : undefined;
@@ -53,7 +65,7 @@ export function useMsrMediaSession(msr: boolean, track: SessionTrack | undefined
       }
       return;
     }
-    session.metadata = new MediaMetadata({ title, artist, album, artwork: cover ? [{ src: cover }] : [] });
+    session.metadata = new MediaMetadata({ title, artist, album, artwork: JSON.parse(artworkKey) as MediaImage[] });
     const handlers: Record<(typeof ACTIONS)[number], MediaSessionActionHandler> = {
       play: () => actionsRef.current.play(),
       pause: () => actionsRef.current.pause(),
@@ -71,7 +83,7 @@ export function useMsrMediaSession(msr: boolean, track: SessionTrack | undefined
     for (const action of ACTIONS) {
       try { session.setActionHandler(action, handlers[action]); } catch { /* not supported here */ }
     }
-  }, [msr, title, artist, album, cover]);
+  }, [msr, title, artist, album, artworkKey]);
 
   useEffect(() => {
     const session = typeof navigator !== 'undefined' ? navigator.mediaSession : undefined;

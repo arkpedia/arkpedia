@@ -5,14 +5,15 @@ import XButton from '@/components/ui/XButton';
 import TransportIcon from './TransportIcons';
 import { PlaylistOptions } from './SongPlaylistPicker';
 
-/** A song's actions on a phone, where its row has room for its title and this one More button:
- *  every action as a written item. Library and Discover rows pass the three queue actions
+/** A song's actions on a phone, where its row has room for its title, its heart and this one More
+ *  button: every other action as a written item (Favourite is the row's heart, one press, so it
+ *  is not listed here too). Library and Discover rows pass the three queue actions
  *  (onPlayNow, onQueueNext, onQueueLast); queue rows reorder and remove instead. The song playing
  *  (isActive) offers none of those -- left out rather than shown disabled. */
-export default function SongActionsMenu({ song, isFavorite, isActive, canMoveUp, canMoveDown, onFavorite, onPlayNext, onMoveUp, onMoveDown, onRemove, onPlayNow, onQueueNext, onQueueLast }: {
-  song: { id: string; title: string }; isFavorite: boolean; isActive?: boolean;
+export default function SongActionsMenu({ song, isActive, canMoveUp, canMoveDown, onPlayNext, onMoveUp, onMoveDown, onRemove, onPlayNow, onQueueNext, onQueueLast }: {
+  song: { id: string; title: string }; isActive?: boolean;
   canMoveUp?: boolean; canMoveDown?: boolean;
-  onFavorite: () => void; onPlayNext?: () => void; onMoveUp?: () => void; onMoveDown?: () => void; onRemove?: () => void;
+  onPlayNext?: () => void; onMoveUp?: () => void; onMoveDown?: () => void; onRemove?: () => void;
   onPlayNow?: () => void; onQueueNext?: () => void; onQueueLast?: () => void;
 }) {
   const { open, setOpen, close, buttonRef, menuRef, menuStyle } = useAnchoredPopover(320);
@@ -42,9 +43,6 @@ export default function SongActionsMenu({ song, isFavorite, isActive, canMoveUp,
             {onPlayNow && !isActive && <button type="button" className="ghost" onClick={() => action(onPlayNow)}><TransportIcon name="play" />Play now</button>}
             {onQueueNext && !isActive && <button type="button" className="ghost" onClick={() => action(onQueueNext)}><TransportIcon name="playNext" />Play next</button>}
             {onQueueLast && !isActive && <button type="button" className="ghost" onClick={() => action(onQueueLast)}><TransportIcon name="addToQueue" />Add to queue</button>}
-            <button type="button" className="ghost music-song-favorite" aria-pressed={isFavorite} onClick={() => action(onFavorite)}>
-              <TransportIcon name="heart" />{isFavorite ? 'Unfavourite' : 'Favourite'}
-            </button>
             <button type="button" className="ghost" onClick={() => setSection('playlists')}><TransportIcon name="plus" />Add to playlist<span aria-hidden="true">›</span></button>
             {onMoveUp && onMoveDown && onPlayNext && !isActive && <button type="button" className="ghost" onClick={() => setSection('reorder')}><TransportIcon name="reorder" />Reorder<span aria-hidden="true">›</span></button>}
             {onRemove && !isActive && <button type="button" className="ghost" onClick={() => action(onRemove)}><TransportIcon name="trash" />Remove</button>}

@@ -10,12 +10,8 @@ async function openPicker(page: Page, row: Locator) {
   await playlistTrigger(page, row).click();
   if (mobile(page)) await page.getByRole('dialog', { name: 'Song actions', exact: true }).getByRole('button', { name: 'Add to playlist', exact: true }).click();
 }
-async function toggleFavorite(page: Page, row: Locator) {
-  if (mobile(page)) {
-    await row.getByRole('button', { name: /^More actions for / }).click();
-    await page.getByRole('dialog', { name: 'Song actions', exact: true }).getByRole('button', { name: /^(?:Un)?favourite$/i }).click();
-  } else await row.locator('.music-song-favorite').click();
-}
+/** A row's heart: one press at every width (a phone shows it beside the row's More). */
+const heart = (row: Locator) => row.getByRole('button', { name: /^Favourite: / });
 for (const theme of ['dark', 'light']) {
   test(`song favourites and multi-playlist additions persist without changing playback (${theme})`, async ({ page }) => {
     await page.addInitScript(value => localStorage.setItem('theme', value), theme);
@@ -28,9 +24,9 @@ for (const theme of ['dark', 'light']) {
     await expect.poll(async () => (await youtube(page))?.state).toBe(1);
     const playing = (await youtube(page))!;
     const song = await rows.nth(1).locator('.music-song-row-main').getAttribute('title');
-    const favorite = rows.nth(1).locator('.music-song-favorite');
+    const favorite = heart(rows.nth(1));
     const plus = playlistTrigger(page, rows.nth(1));
-    await toggleFavorite(page, rows.nth(1));
+    await heart(rows.nth(1)).click();
     await expect(favorite).toHaveAttribute('aria-pressed', 'true');
     // Styling changes without moving controls or truncating phone titles to make space: the
     // action buttons share one size and the song's own area fills the row's height.
@@ -100,16 +96,16 @@ for (const theme of ['dark', 'light']) {
     await expect(dialog.getByRole('checkbox', { name: /Study/ })).toBeChecked();
     await expect(dialog.getByRole('checkbox', { name: /Travel/ })).toBeChecked();
     await page.keyboard.press('Escape');
-    await toggleFavorite(page, rows.nth(1));
+    await heart(rows.nth(1)).click();
     await expect(favorite).toHaveAttribute('aria-pressed', 'false');
     await page.reload();
     await expect(favorite).toHaveAttribute('aria-pressed', 'false');
     // A search narrows the queue's rows; they keep the same actions and stable song IDs.
     await page.getByRole('searchbox', { name: 'Search the queue' }).fill(song!);
     const result = rows.filter({ has: page.locator(`.music-song-row-main[title=${JSON.stringify(song)}]`) }).first();
-    await expect(result.locator('.music-song-favorite')).toHaveAttribute('aria-pressed', 'false');
-    await toggleFavorite(page, result);
-    await expect(result.locator('.music-song-favorite')).toHaveAttribute('aria-pressed', 'true');
+    await expect(heart(result)).toHaveAttribute('aria-pressed', 'false');
+    await heart(result).click();
+    await expect(heart(result)).toHaveAttribute('aria-pressed', 'true');
     expect(await page.locator('body').evaluate(el => el.scrollWidth <= window.innerWidth)).toBe(true);
   });
 }
@@ -189,7 +185,7 @@ test('Favourites exists by default and stays in sync with hearts and playlist im
   const row = page.locator('.music-queue-row').first();
   await row.locator('.music-song-row-main').click();
   await expect.poll(async () => (await youtube(page))?.state).toBe(1);
-  const favorite = row.locator('.music-song-favorite');
+  const favorite = heart(row);
   await expect(favorite).toHaveAttribute('aria-pressed', 'false');
   await openPicker(page, row);
   const picker = page.getByRole('dialog', { name: 'Add to playlists', exact: true });
@@ -201,7 +197,7 @@ test('Favourites exists by default and stays in sync with hearts and playlist im
   await page.reload();
   await expect(favorite).toHaveAttribute('aria-pressed', 'true');
   const favoriteId = await page.evaluate(() => JSON.parse(localStorage.getItem('musicFavorites')!)[0]);
-  await toggleFavorite(page, row);
+  await heart(row).click();
   await openPicker(page, row);
   await expect(picker.getByRole('checkbox', { name: 'Favourites', exact: true })).not.toBeChecked();
   await page.keyboard.press('Escape');
@@ -233,7 +229,7 @@ test('music backup imports keep existing hearts and the default Favourites playl
   const row = page.locator('[data-song-list] .music-queue-row').first();
   await expect(row).toBeVisible();
   const existing = await row.getAttribute('data-song-id');
-  await toggleFavorite(page, row);
+  await heart(row).click();
   await page.getByRole('button', { name: 'Playlists', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Music playlists', exact: true });
   const backup = { kind: 'arkpedia-music-playlists', version: 1,

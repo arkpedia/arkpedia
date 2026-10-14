@@ -88,16 +88,9 @@ for (const shuffled of [false, true]) {
     await page.goto('/music?view=queue');
   await playAllSongs(page);
     await expect(rows(page).nth(3)).toBeVisible();
-    // Shuffle: the bar's button, or on a phone's mini player the bar's More.
-    if (test.info().project.name === 'mobile') {
-      await page.getByRole('button', { name: 'More player actions', exact: true }).click();
-      const shuffle = page.getByRole('dialog', { name: 'Player actions', exact: true }).getByRole('button', { name: 'Shuffle', exact: true });
-      if ((await shuffle.getAttribute('aria-pressed') === 'true') !== shuffled) await shuffle.click();
-      await page.keyboard.press('Escape');
-    } else {
-      const shuffle = page.locator('.music-player-bottombar').getByRole('button', { name: 'Shuffle', exact: true });
-      if ((await shuffle.getAttribute('aria-pressed') === 'true') !== shuffled) await shuffle.click();
-    }
+    // Shuffle: the bar's button, at every width.
+    const shuffle = page.locator('.music-player-bottombar').getByRole('button', { name: 'Shuffle', exact: true });
+    if ((await shuffle.getAttribute('aria-pressed') === 'true') !== shuffled) await shuffle.click();
     await rows(page).first().locator('.music-song-row-main').click();
     await expect.poll(async () => (await youtube(page))?.state).toBe(1);
     const playing = await youtube(page);
