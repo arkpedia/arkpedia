@@ -73,8 +73,8 @@ test('a song on YouTube that has a Monster Siren id plays from Monster Siren by 
 
   await playFromLibrary(page, song, song.videoId);
   await expect.poll(async () => (await audio(page))?.paused).toBe(false);
-  expect(siren.resolves).toEqual([song.cid]);
-  expect((await audio(page))!.src).toContain(`/__siren/${song.cid}.wav`);
+  await expect.poll(() => siren.resolves).toEqual([song.cid]);
+  expect((await audio(page))!.src).toContain(`/api/music-audio/${song.cid}`);
   await expect(bar(page).getByRole('button', { name: 'Pause', exact: true })).toBeVisible();
   // Its row is the one playing: the song is still named by its video id.
   await expect(libraryRow(page, song.videoId)).toHaveClass(/\bactive\b/);
@@ -105,7 +105,7 @@ test('a song with no Monster Siren id plays from YouTube, whatever the setting',
   await playFromLibrary(page, song, song.videoId);
   await expect.poll(async () => (await youtube(page))?.state).toBe(1);
   expect((await youtube(page))!.videoId).toBe(song.videoId);
-  expect(siren.resolves).toEqual([]);
+  await expect.poll(() => siren.resolves).toEqual([]);
   expect(await audio(page)).toMatchObject({ src: '', paused: true });
 });
 
@@ -143,7 +143,7 @@ test('Data saver mid-song moves the song to YouTube at the same moment, and back
   await saver.uncheck();
   await expect.poll(async () => (await audio(page))?.paused).toBe(false);
   await expect.poll(async () => (await youtube(page))!.state).toBe(2);
-  expect(siren.resolves).toEqual([song.cid, song.cid]);
+  await expect.poll(() => siren.resolves).toEqual([song.cid, song.cid]);
   // Read after the waits above, while the audio plays on: no further on than the time they
   // took (the NAS runner is slower; 2026-10-14 it read 5.8s on), and not from the start.
   const audioAt = (await audio(page))!.time;
@@ -181,7 +181,7 @@ test('Data saver is kept across a reload, and a song with no YouTube upload stil
   await page.waitForTimeout(500);
   expect((await audio(page))!.paused).toBe(false);
   expect(youtubeLoads((await youtube(page))?.calls ?? [])).toEqual([]);
-  expect(siren.resolves).toEqual([msrOnly.cid]);
+  await expect.poll(() => siren.resolves).toEqual([msrOnly.cid]);
 
   await page.reload();
   await expect.poll(() => page.evaluate((key) => localStorage.getItem(key), DATA_SAVER_KEY)).toBe('true');
@@ -202,12 +202,13 @@ test('a song played from Monster Siren carries across a reload under its own tra
   // Saved as it always was: the video id, not a Monster Siren one.
   expect(record.videoId).toBe(song.videoId);
   expect(record.queue).toContain(song.videoId);
-  await expect.poll(async () => (await audio(page))?.src ?? '', { timeout: 30_000 }).toContain(`/__siren/${song.cid}.wav`);
+  await expect.poll(async () => (await audio(page))?.src ?? '', { timeout: 30_000 }).toContain(`/api/music-audio/${song.cid}`);
   const playButton = bar(page).getByRole('button', { name: 'Play', exact: true });
   await expect.poll(async () => !(await audio(page))!.paused || await playButton.isVisible(), { timeout: 20_000 }).toBe(true);
   if ((await audio(page))!.paused) await playButton.click();
   await expect.poll(async () => (await audio(page))!.paused).toBe(false);
-  expect((await audio(page))!.time).toBeGreaterThanOrEqual(before - 0.5);
+  // Playing is said before the saved moment is applied (once the file says how long it is).
+  await expect.poll(async () => (await audio(page))!.time).toBeGreaterThanOrEqual(before - 0.5);
   expect(youtubeLoads((await youtube(page))?.calls ?? []).some(arg => arg?.videoId === song.videoId)).toBe(false);
 });
 
@@ -228,18 +229,19 @@ test('hidden, the audio plays on, and the next song starts on the same <audio> e
   await expect.poll(async () => (await audio(page))!.time).toBeGreaterThan(hiddenAt + 1);
   expect((await audio(page))!.paused).toBe(false);
   expect(await page.evaluate(() => sessionStorage.getItem('arkpediaMusicResume'))).toContain(first.videoId);
-  // The next song's address is asked for ahead, so it can start in the end's own task.
-  await expect.poll(() => siren.resolves).toEqual([first.cid, second.cid]);
+  // Nothing is asked for ahead: the next song's address needs no request, so its file is set and
+  // played in the end's own task.
+  await expect.poll(() => siren.resolves).toEqual([first.cid]);
 
   await page.evaluate((seconds) => { document.querySelector<HTMLAudioElement>('audio[data-music-audio]')!.currentTime = seconds - 0.4; }, WAV_SECONDS);
-  await expect.poll(async () => (await audio(page))!.src, { timeout: 15_000 }).toContain(`/__siren/${second.cid}.wav`);
+  await expect.poll(async () => (await audio(page))!.src, { timeout: 15_000 }).toContain(`/api/music-audio/${second.cid}`);
   await expect.poll(async () => (await audio(page))!.paused).toBe(false);
   await expect.poll(async () => (await audio(page))!.time).toBeGreaterThan(0.5);
   const same = await page.evaluate(() => (document.querySelector('audio[data-music-audio]') as HTMLAudioElement & { __same?: boolean }).__same === true);
   expect(same, 'the same element plays the next song').toBe(true);
   expect((await audio(page))!.count).toBe(1);
-  // No second request for it as it started, and YouTube was never asked.
-  expect(siren.resolves).toEqual([first.cid, second.cid]);
+  // Its file was loaded once, as it started, and YouTube was never asked.
+  await expect.poll(() => siren.resolves).toEqual([first.cid, second.cid]);
   expect(youtubeLoads((await youtube(page))?.calls ?? [])).toEqual([]);
   await expect.poll(() => page.evaluate(() => navigator.mediaSession?.playbackState)).toBe('playing');
 

@@ -98,6 +98,9 @@ const NAMED_AS_ADDRESSES: Record<string, string> = {
   // Monster Siren's album cover, served from this site: the lock screen's artwork and the
   // player's <img> (its CDN refuses requests from these pages).
   'pages/api/music-cover/[id].ts': 'lib/music/songArt.ts',
+  // A Monster Siren song's audio, as the player's <audio> address: a redirect to the signed file,
+  // so a press can set it and play at once (an iPhone starts sound only inside a press).
+  'pages/api/music-audio/[id].ts': 'lib/music/audioElement.ts',
 };
 
 test('every API route is called by client code or refuses outside development', () => {

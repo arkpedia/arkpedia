@@ -5,13 +5,10 @@
  *
  * The element is made the first time anything asks for it -- at the latest, the press that first
  * plays a song -- not when YouTube's player API has loaded, which is when the engine that drives
- * it is made. An iPhone lets an element start sound by itself only once a press has asked it to
- * play (WebKit lifts the element's restriction inside play(), in the press); the engine's play()
- * comes after the song's address is fetched, outside the press, and before this the element did
- * not even exist during the first one -- the old one-time unlock ran when YouTube was ready,
- * seconds after the press, and never tried again. So every press that asks for music primes it
- * (primeMusicAudio): with no song's file set, play() and pause() there and then, in the press. A
- * press on the song already set plays it in the same task anyway (the engine's begin()).
+ * it is made. An iPhone lets an element start sound only inside a press, so a press that asks for
+ * a Monster Siren song before the engine can play it sets that song's file and plays it in the
+ * press (primeMusicAudio); once the engine is up, its own play() runs in the press too (the
+ * address needs no request first: msrAudioAddress).
  */
 
 /** The element, made (hidden, preload none, in <body>) the first time it is asked for. One per
@@ -31,22 +28,36 @@ export function musicAudioElement(): HTMLAudioElement {
   return element;
 }
 
+/** The player's address for a Monster Siren song's audio (pages/api/music-audio): a redirect to
+ *  Monster Siren's signed address, so a press can set it and play at once, with no request first.
+ *  `fresh` asks past the edge's minute-long copy of the redirect, after a file made no sound. */
+export function msrAudioAddress(cid: string, fresh = false): string {
+  return `/api/music-audio/${encodeURIComponent(cid)}${fresh ? `?retry=${Date.now()}` : ''}`;
+}
+/** The song an element's address (msrAudioAddress) is the audio of, or null. */
+export function msrAudioCid(src: string | null | undefined): string | null {
+  const match = /\/api\/music-audio\/(\d+)(?:[?#]|$)/.exec(src ?? '');
+  return match ? match[1] : null;
+}
+
 /**
- * Called in a press that asks for music, before anything else it does: an element with no song's
- * file is asked to play and paused at once, in the press, so the play() that follows the address
- * fetch is let through. An element with a file set is left alone: a pause there would be heard as
- * the song's own, and a press for that song plays it in this same task anyway. Harmless outside a
- * press: the browser refuses it, and nothing waits on that.
+ * Called in a press that asks for music before the player can (YouTube's player API, which the
+ * player waits for, can take seconds on a phone): the song's own file is set and played there and
+ * then, in the press, and the engine takes it over when it loads that song (createMsrAudioEngine's
+ * load). An iPhone starts sound only inside a press; before 2026-10-14 the press only played and
+ * paused the empty element, and the song's file played seconds later, said it played, and stayed
+ * silent at 0:00. Without a Monster Siren song to play (one played from YouTube) it does nothing.
  */
-export function primeMusicAudio(): void {
-  if (typeof document === 'undefined') return;
+export function primeMusicAudio(cid?: string | null, seconds = 0): void {
+  if (typeof document === 'undefined' || !cid) return;
   const el = musicAudioElement();
-  if (el.getAttribute('src')) return;
-  logAudioEvent('prime: play() and pause() in the press');
+  // From where the song is to go on (a reload's resume), not heard from its start first: the
+  // engine seeks there exactly once it takes the file over.
+  if (msrAudioCid(el.getAttribute('src')) !== cid) el.src = `${msrAudioAddress(cid)}${seconds > 0 ? `#t=${seconds.toFixed(1)}` : ''}`;
+  logAudioEvent(`prime: ${cid}, play() in the press`);
   el.play().then(() => logAudioEvent('prime play() resolved'), (error: unknown) => {
     logAudioEvent(`prime play() rejected: ${(error as { name?: string })?.name ?? 'Error'}`);
   });
-  el.pause();
 }
 
 /* ---- What the element did: the last few events, for the debug panel. Never sent anywhere. ---- */

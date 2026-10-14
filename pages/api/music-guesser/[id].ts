@@ -1,8 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-
-// Monster Siren song ids are digits (six, so far). Checked before the id goes into the
-// upstream address, so nothing but a song id can ever reach it.
-const SONG_ID = /^\d{1,12}$/;
+import { SONG_ID, monsterSirenAudioUrl } from '@/lib/music/monsterSirenAudio';
 
 /**
  * Resolves a Monster Siren song id to its signed audio address, for the song guesser.
@@ -25,11 +22,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const { id } = req.query;
   if (typeof id !== 'string' || !SONG_ID.test(id)) return res.status(404).json({ error: 'Unknown song' });
   try {
-    const response = await fetch(`https://monster-siren.hypergryph.com/api/song/${id}`, { signal: AbortSignal.timeout(8000) });
-    if (!response.ok) throw new Error('Song source unavailable');
-    const data = await response.json();
-    const url = new URL(data.data?.sourceUrl);
-    if (data.code !== 0 || String(data.data?.cid) !== id || url.protocol !== 'https:' || !url.hostname.endsWith('.hycdn.cn')) throw new Error('Invalid audio source');
+    const url = await monsterSirenAudioUrl(id);
     // These CDN URLs are signed and expire. Cache only briefly; never proxy audio bytes.
     res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=300');
     return res.status(200).json({ url: url.href });

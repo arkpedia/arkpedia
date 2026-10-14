@@ -83,7 +83,7 @@ test('a file that never sends a byte shows loading, never Pause, is asked for on
   expect(await page.evaluate(() => navigator.mediaSession.playbackState)).toBe('paused');
   // It stops trying: no third address.
   await page.waitForTimeout(WATCHDOG_MS + 1000);
-  expect(siren.resolves).toEqual([msr.cid, msr.cid]);
+  await expect.poll(() => siren.resolves).toEqual([msr.cid, msr.cid]);
   // Never Pause over silence, never "playing" to the lock screen.
   expect(await labels(page)).not.toContain('Pause');
   expect(await sessionStates(page)).not.toContain('playing');
@@ -126,7 +126,7 @@ test('an element that says "playing" while its clock stands still (as on the iPh
     };
   });
   await stubYouTube(page);
-  const siren = await stubMonsterSiren(page);
+  await stubMonsterSiren(page);
   await page.goto('/music?view=library');
   await page.evaluate(() => { (window as unknown as { __silentPlay: boolean }).__silentPlay = true; });
   const msr = (await (await page.request.get('/music-catalogue.json')).json()).songs.find((row: CatalogueRow) => row.cid && !row.videoId) as CatalogueRow;
@@ -135,7 +135,8 @@ test('an element that says "playing" while its clock stands still (as on the iPh
 
   await expect(bar(page).getByRole('button', { name: 'Starting…', exact: true })).toBeVisible();
   await expect(bar(page).getByText(STUCK)).toBeVisible({ timeout: 15_000 });
-  expect(siren.resolves).toEqual([msr.cid, msr.cid]);
+  // A play() faked to make no sound loads no file: the fresh try shows in the element's address.
+  expect((await audio(page))!.src).toMatch(new RegExp(`/api/music-audio/${msr.cid}\\?retry=`));
   await expect(bar(page).getByRole('button', { name: 'Play', exact: true })).toBeEnabled();
   expect(await labels(page)).not.toContain('Pause');
   expect(await sessionStates(page)).not.toContain('playing');
@@ -151,7 +152,7 @@ test('a play() the browser rejects later, with no error on the element, never sh
     };
   });
   await stubYouTube(page);
-  const siren = await stubMonsterSiren(page);
+  await stubMonsterSiren(page);
   await page.goto('/music?view=library');
   await page.evaluate(() => { (window as unknown as { __rejectPlay: boolean }).__rejectPlay = true; });
   const msr = (await (await page.request.get('/music-catalogue.json')).json()).songs.find((row: CatalogueRow) => row.cid && !row.videoId) as CatalogueRow;
@@ -160,7 +161,8 @@ test('a play() the browser rejects later, with no error on the element, never sh
 
   // The rejection is taken at once as a start that made no sound: a fresh address, then the word.
   await expect(bar(page).getByText(STUCK)).toBeVisible({ timeout: 15_000 });
-  expect(siren.resolves).toEqual([msr.cid, msr.cid]);
+  // A play() faked to make no sound loads no file: the fresh try shows in the element's address.
+  expect((await audio(page))!.src).toMatch(new RegExp(`/api/music-audio/${msr.cid}\\?retry=`));
   await expect(bar(page).getByRole('button', { name: 'Play', exact: true })).toBeEnabled();
   expect((await audio(page))!.paused).toBe(true);
   expect(await labels(page)).not.toContain('Pause');
@@ -262,4 +264,42 @@ test('?audio-debug=1 shows the audio panel, lists the media events, stays across
   await expect(panel).toHaveCount(0);
   await page.reload();
   await expect(page.locator('[data-audio-debug]')).toHaveCount(0);
+});
+
+/*
+ * An iPhone starts sound only inside a press. On 2026-10-14 a song said it played and stayed
+ * silent at 0:00 there, while the same file opened directly played: the press only played and
+ * paused the empty <audio>, and the song's file was set and played seconds later, once YouTube's
+ * player API had loaded and the signed address had been fetched. Now the press itself sets the
+ * song's file (our redirect address, which needs no request first) and plays it. Chromium tells
+ * whether a call runs inside a press (navigator.userActivation.isActive), so this checks that the
+ * first play() the <audio> gets is that song's file, in the press, with YouTube's API held back.
+ */
+test('the press plays the song\'s own file inside the press, before YouTube\'s player API has loaded', async ({ page }) => {
+  await page.addInitScript(() => {
+    const plays: { src: string; inPress: boolean }[] = [];
+    (window as unknown as { __plays: typeof plays }).__plays = plays;
+    const { play } = HTMLMediaElement.prototype;
+    HTMLMediaElement.prototype.play = function (this: HTMLMediaElement) {
+      if (this.matches('audio[data-music-audio]')) plays.push({ src: this.getAttribute('src') ?? '', inPress: navigator.userActivation.isActive });
+      return play.call(this);
+    };
+  });
+  await stubYouTube(page);
+  // YouTube's API held back for a few seconds, as on a phone: the player is not ready at the press.
+  await page.route(/^https:\/\/www\.youtube\.com\/iframe_api/, async (route) => { await new Promise((done) => setTimeout(done, 4000)); await route.fallback(); });
+  const siren = await stubMonsterSiren(page);
+  await page.goto('/music?view=library');
+  const msr = (await (await page.request.get('/music-catalogue.json')).json()).songs.find((row: CatalogueRow) => row.cid && !row.videoId) as CatalogueRow;
+  await page.getByRole('searchbox', { name: 'Search all songs' }).fill(msr.altTitle || msr.title);
+  await page.locator(`.music-all-songs-list [data-song-id="msr:${msr.cid}"] .music-song-row-main`).click();
+
+  const plays = () => page.evaluate(() => (window as unknown as { __plays: { src: string; inPress: boolean }[] }).__plays);
+  await expect.poll(plays).not.toEqual([]);
+  expect((await plays())[0], 'the first play() is the song\'s file, in the press').toEqual({ src: `/api/music-audio/${msr.cid}`, inPress: true });
+  expect((await plays()).some(({ src }) => !src), 'no play() of the empty element').toBe(false);
+  // It sounds, and the engine, once up, takes the same file over rather than loading it again.
+  await expect.poll(async () => (await audio(page))!.time, { timeout: 20_000 }).toBeGreaterThan(1);
+  await expect(bar(page).getByRole('button', { name: 'Pause', exact: true })).toBeVisible();
+  await expect.poll(() => siren.resolves).toEqual([msr.cid]);
 });

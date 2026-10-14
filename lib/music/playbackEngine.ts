@@ -1,4 +1,4 @@
-import { logAudioEvent, musicAudioElement } from './audioElement';
+import { logAudioEvent, musicAudioElement, msrAudioAddress, msrAudioCid } from './audioElement';
 import { trackSource, type TrackSource } from './trackId';
 
 /*
@@ -104,26 +104,12 @@ export function createTrackEngine(youtube: PlaybackEngine, audio: PlaybackEngine
   };
 }
 
-/** Monster Siren's signed address for a song's audio, by way of pages/api/music-guesser (which
- *  checks the answer is that song, on Monster Siren's CDN). Audio bytes never pass through us. */
-export async function resolveMsrAudio(cid: string, fresh: boolean): Promise<string> {
-  // `fresh` skips the edge cache of the address (a few minutes), after the CDN refused one.
-  const response = await fetch(`/api/music-guesser/${encodeURIComponent(cid)}${fresh ? `?retry=${Date.now()}` : ''}`);
-  if (!response.ok) throw new Error(`Monster Siren audio returned ${response.status}`);
-  const { url } = await response.json() as { url?: unknown };
-  if (typeof url !== 'string' || !url) throw new Error('Monster Siren audio is invalid');
-  return url;
-}
-
 /** Monster Siren's addresses are signed for a few hours (about five, 2026-10-12). One older than
  *  this is asked again before it plays, rather than waiting for the CDN to refuse it. */
 const ADDRESS_MAX_AGE_MS = 60 * 60 * 1000;
 
 export interface MsrAudioEngine extends PlaybackEngine {
   stop(): void;
-  /** Asks for a song's address ahead of its turn (kept for ADDRESS_MAX_AGE_MS), so it starts at
-   *  once, with no request between the last song's end and its start. */
-  prepare(cid: string): void;
   element: HTMLAudioElement;
   /** What the engine believes, for the debug panel (components/music/AudioDebugPanel.tsx). */
   debug(): Record<string, string | number | boolean>;
@@ -151,21 +137,25 @@ function watchdogMs(): { start: number; stall: number } {
 }
 
 interface AudioEngineOptions {
-  resolve?: (cid: string, fresh: boolean) => Promise<string>;
+  /** The address of a song's audio (lib/music/audioElement.ts msrAudioAddress): one the press
+   *  can set and play at once, with no request first. */
+  address?: (cid: string, fresh: boolean) => string;
   now?: () => number;
   element?: HTMLAudioElement;
 }
 
 /**
  * The Monster Siren engine: one hidden <audio> element (data-music-audio, lib/music/
- * audioElement.ts), kept for the whole visit so a browser that only lets a page start sound after
- * a press (iOS) counts the press that primed it (primeMusicAudio) for every later track.
+ * audioElement.ts), kept for the whole visit; a press that came before the engine could play has
+ * already set and played its song's file there (primeMusicAudio), and load() takes it over.
  *
- * The file's address is asked for only when the track is to play, never when it is queued or
- * cued (preload none: each is a WAV of about 50 MB). The address is signed and expires, so a
- * refused one (the CDN answers 403, which the element reports as an error) is asked again once
- * and the song carries on from where it was; a second failure is the player's to handle, as a
- * YouTube video that cannot play is (it skips).
+ * The file is loaded only when the track is to play, never when it is queued or cued (preload
+ * none: each is a WAV of about 50 MB). Its address is ours (pages/api/music-audio), a redirect to
+ * Monster Siren's signed one, so it is set and played in the same task as the press or the last
+ * song's end, with no request between. A refused file (the CDN answers 403, which the element
+ * reports as an error) is loaded again once, past the redirect's edge copy, and the song carries
+ * on from where it was; a second failure is the player's to handle, as a YouTube video that
+ * cannot play is (it skips).
  *
  * Playing means sound: the engine reports PLAYING only once the element's clock moves, not on
  * its "playing" event or a play() call -- an iPhone showed Pause, and a lock-screen clock running,
@@ -174,11 +164,11 @@ interface AudioEngineOptions {
  * (AUDIO_WATCHDOG_MS) asks once for a fresh address when the clock does not move, and gives up
  * after that (onStuck), the song paused where it was.
  *
- * While the page is hidden the player asks ahead for the next song's address (prepare), so when
- * a song ends the next one is set on this same element and played in the same task as the end:
- * the browser keeps the page's audio session, and the lock screen's controls, from song to song.
+ * When a song ends the next one is set on this same element and played in the same task as the
+ * end: the browser keeps the page's audio session, and the lock screen's controls, from song to
+ * song, the page hidden or not.
  */
-export function createMsrAudioEngine(events: MsrEngineEvents, { resolve = resolveMsrAudio, now = Date.now, element }: AudioEngineOptions = {}): MsrAudioEngine {
+export function createMsrAudioEngine(events: MsrEngineEvents, { address = msrAudioAddress, now = Date.now, element }: AudioEngineOptions = {}): MsrAudioEngine {
   const el = element ?? musicAudioElement();
 
   let id = '';
@@ -198,9 +188,6 @@ export function createMsrAudioEngine(events: MsrEngineEvents, { resolve = resolv
   /** True from releasing a file until the next one starts loading: the old file's last events
    *  (its pause, its abort) are queued before the new file's loadstart, and are not this track's. */
   let settling = false;
-  /** An address asked for ahead (prepare): the song, the address, when it was given. */
-  let prepared: { cid: string; url: string; at: number } | null = null;
-  let preparing = '';
 
   /* The watchdog's view: whether PLAYING has been reported for this play, where the clock was
    * last seen and when it last moved, whether the song played at all since it was loaded, and
@@ -284,7 +271,7 @@ export function createMsrAudioEngine(events: MsrEngineEvents, { resolve = resolv
       rescued = true;
       logAudioEvent('engine: no sound, asking for a fresh address');
       loadedCid = '';
-      void begin(true);
+      begin(true);
       return;
     }
     logAudioEvent('engine: no sound from a fresh address either, gave up');
@@ -330,34 +317,13 @@ export function createMsrAudioEngine(events: MsrEngineEvents, { resolve = resolv
     events.onAutoplayBlocked();
   }
 
-  /** The address asked for ahead, while it is still good, taken (it is used once). */
-  function takePrepared(): string | null {
-    const ready = prepared && prepared.cid === cid && now() - prepared.at <= ADDRESS_MAX_AGE_MS ? prepared.url : null;
-    if (prepared?.cid === cid) prepared = null;
-    return ready;
-  }
-
-  async function begin(fresh = false) {
+  /** The song's file set (when it is not, or its address is old, or a fresh one is asked for)
+   *  and played, in this same task: in a press, the press starts the sound (iOS). */
+  function begin(fresh = false) {
     const g = generation;
     if (loadedCid !== cid || now() - loadedAt > ADDRESS_MAX_AGE_MS || fresh) {
-      const at = position();
-      // Asked for ahead: set and played in this same task, with no request in between.
-      const ready = fresh ? null : takePrepared();
-      if (ready) {
-        setFile(ready, at);
-      } else {
-        reportPending();
-        let url: string;
-        try {
-          url = await resolve(cid, fresh);
-        } catch {
-          if (g === generation) { wantPlay = false; disarm(); events.onError(); }
-          return;
-        }
-        if (g !== generation) return;
-        setFile(url, at);
-      }
-      // Paused while the address came: the file is set, so the next Play starts at once.
+      setFile(address(cid, fresh), position());
+      // Paused: the file is set, so the next Play starts at once.
       if (!wantPlay) { report(PLAYER_STATE.PAUSED); return; }
     }
     el.volume = volume;
@@ -383,18 +349,25 @@ export function createMsrAudioEngine(events: MsrEngineEvents, { resolve = resolv
     generation += 1;
     // Named as the player names it, whichever file plays: what it saves and resumes is the track.
     id = next.videoId;
-    if (song !== loadedCid) { release(); everPlayed = false; }
+    // A file the press set and played before the engine could (primeMusicAudio) is this song's:
+    // taken over where it is, not reloaded.
+    const primed = song !== loadedCid && msrAudioCid(el.getAttribute('src')) === song;
+    if (primed) {
+      settling = false;
+      loadedCid = song;
+      loadedAt = now();
+    } else if (song !== loadedCid) { release(); everPlayed = false; }
     cid = song;
     start = next.startSeconds || 0;
     wantPlay = play;
     retried = false;
     rescued = false;
     // The same song again (repeat one, a resume cued once more): its file stays, at the moment.
-    if (loadedCid === cid) seekLoaded(start);
+    if (loadedCid === cid && !(primed && start === 0)) seekLoaded(start);
     if (play) {
       arm();
       reportPending();
-      void begin();
+      begin();
     } else {
       disarm();
       if (loadedCid === cid) el.pause();
@@ -444,7 +417,7 @@ export function createMsrAudioEngine(events: MsrEngineEvents, { resolve = resolv
     start = el.currentTime || pendingSeek || start;
     loadedCid = '';
     if (wantPlay) movedAt = now();
-    void begin(true);
+    begin(true);
   });
 
   return {
@@ -459,7 +432,7 @@ export function createMsrAudioEngine(events: MsrEngineEvents, { resolve = resolv
       rescued = false;
       arm();
       reportPending();
-      void begin();
+      begin();
     },
     pauseVideo() {
       wantPlay = false;
@@ -479,12 +452,6 @@ export function createMsrAudioEngine(events: MsrEngineEvents, { resolve = resolv
       el.volume = volume;
     },
     getVideoData: () => ({ video_id: id, title: '' }),
-    prepare(next) {
-      if (!next || next === preparing || next === loadedCid || (prepared?.cid === next && now() - prepared.at <= ADDRESS_MAX_AGE_MS)) return;
-      preparing = next;
-      resolve(next, false).then((url) => { prepared = { cid: next, url, at: now() }; }, () => { /* Asked again when it plays. */ })
-        .finally(() => { if (preparing === next) preparing = ''; });
-    },
     stop() {
       generation += 1;
       wantPlay = false;

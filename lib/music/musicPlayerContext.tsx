@@ -292,9 +292,18 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   const dismissNotice = useCallback(() => setNotice(null), []);
   /** A play asked for: a notice about the last one that would not start is done with. */
   const clearPlaybackNotice = () => setNotice((current) => (current?.playback ? null : current));
-  /** Called first in every press that asks for music (lib/music/audioElement.ts): the <audio>
-   *  Monster Siren plays through is primed in the press itself, which an iPhone requires. */
-  const primeAudio = () => { primeMusicAudio(); clearPlaybackNotice(); };
+  /** Called first in every press that asks for music, with the song it asks for when it knows
+   *  it. An iPhone starts sound only inside a press: where the engine cannot play that song in
+   *  this same press -- YouTube's player API, which the player waits for, has not loaded, or the
+   *  <audio> has never had a file -- the song's own file is set and played here
+   *  (lib/music/audioElement.ts primeMusicAudio), and the engine takes it over. */
+  const primeAudio = (id?: string | null, seconds = 0) => {
+    clearPlaybackNotice();
+    const source = id ? routeTrack(id) : null;
+    if (source?.kind !== 'msr') return;
+    if (playerReadyRef.current && playerRef.current && musicAudioElement().getAttribute('src')) return;
+    primeMusicAudio(source.cid, seconds);
+  };
   // The queue as Clear queue found it, for Undo.
   const clearedRef = useRef<{ state: QueueState<QueueTrack>; playlistIds: string[] | null; playingPlaylistId: string | null; source: QueueSource } | null>(null);
   const [canUndoClear, setCanUndoClear] = useState(false);
@@ -697,17 +706,6 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     return autoplayRef.current ? nextAutoplayTracks()[0]?.id ?? null : null;
   }
 
-  /** While the page is hidden, the next song's Monster Siren address is asked for ahead, so the
-   *  audio element goes from one song to the next in the end's own task (lib/music/
-   *  playbackEngine.ts, prepare). Visible, it is asked for as the song starts, as ever. */
-  function prepareUpcoming() {
-    if (typeof document === 'undefined' || document.visibilityState !== 'hidden') return;
-    const id = upcomingTrackId();
-    const source = id ? routeTrack(id) : null;
-    if (source?.kind === 'msr') audioRef.current?.prepare(source.cid);
-  }
-  const prepareUpcomingRef = useRef(prepareUpcoming);
-  prepareUpcomingRef.current = prepareUpcoming;
 
   const nextTrack = useCallback(async () => {
     primeAudio();
@@ -870,7 +868,6 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
           videoIdRef.current = video?.video_id || '';
           setVideoId(videoIdRef.current);
           setDuration(engine.getDuration());
-          prepareUpcomingRef.current();
           // Retry if the initial catalogue load failed.
           if (queueRef.current.length === 0) loadFullQueue();
         } else if (data === state.PAUSED) {
@@ -1167,15 +1164,15 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
 
   /*
    * The page hidden (another app or tab, the screen locked): nothing here pauses or releases the
-   * music -- Monster Siren's <audio> plays on, and goes on to the next song by itself (its
-   * address asked for ahead, prepareUpcoming). A song YouTube was given meanwhile (no Monster
+   * music -- Monster Siren's <audio> plays on, and goes on to the next song by itself (set and
+   * played in the last one's end, lib/music/playbackEngine.ts). A song YouTube was given meanwhile (no Monster
    * Siren id, or Data saver on) may not start until the page is back, as a phone pauses YouTube
    * there: once it is, that song is shown and given the resume's few seconds to start, and if it
    * does not it waits, shown and paused at its start, for the reader's Play (refuseResume).
    */
   useEffect(() => {
     const onVisibility = () => {
-      if (document.visibilityState === 'hidden') { prepareUpcomingRef.current(); return; }
+      if (document.visibilityState === 'hidden') return;
       const id = hiddenLoadRef.current;
       hiddenLoadRef.current = null;
       const engine = playerRef.current;
@@ -1237,7 +1234,16 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   function togglePlay() {
     // A press that may start music primes the audio first, in the press (iOS); one that pauses
     // a loading or playing song needs none.
-    if (!isPlayingRef.current && !bufferingRef.current) primeAudio();
+    if (!isPlayingRef.current && !bufferingRef.current) {
+      // Before the player is up, a reload's song is the one Play goes on with, where it was.
+      const resume = !playerReadyRef.current ? resumeRef.current : null;
+      if (resume?.videoId) primeAudio(resume.videoId, resume.seconds);
+      else {
+        const id = videoIdRef.current || queueRef.current[shuffleOrderRef.current?.[0] ?? 0]?.id;
+        const cued = cuedAtRef.current;
+        primeAudio(id, id && cued?.videoId === id ? cued.seconds : 0);
+      }
+    }
     const player = playerRef.current;
     if (!player || typeof player.playVideo !== 'function' || typeof player.pauseVideo !== 'function') {
       // Not initialized, or the underlying player object exists but
@@ -1287,7 +1293,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     playTrackByVideoId(videoId);
   }
   function playTrackByVideoId(videoId: string) {
-    primeAudio();
+    primeAudio(videoId);
     const player = playerRef.current;
     if (!playerReadyRef.current || !player || typeof player.loadVideoById !== 'function') {
       // Not initialized yet -- remember which track was requested and
@@ -1322,8 +1328,9 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
 
   async function playPlaylist(videoIds: string[] | null, playlistId?: string): Promise<number> {
     if (!playerReadyRef.current) return 0;
-    // Before the catalogue is awaited: after it, the press is over.
-    primeAudio();
+    // Before the catalogue is awaited: after it, the press is over. Shuffled, the first song is
+    // not known yet, and a guess would be heard: the press then primes nothing.
+    primeAudio(shuffleRef.current ? null : videoIds?.[0]);
     await buildQueueFromCatalog();
     const byId = new Map((catalogRef.current ?? []).map(song => [song.id, song]));
     const tracks = [...new Set(videoIds ?? [...byId.keys()])].flatMap(id => {
@@ -1391,7 +1398,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     endResumeWatch();
     hiddenLoadRef.current = null;
     if (play) {
-      primeAudio();
+      primeAudio(id);
       cuedAtRef.current = null;
       engine.loadVideoById({ videoId: id, startSeconds: seconds });
     } else {
@@ -1424,7 +1431,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   }
 
   function playQueueIndex(index: number) {
-    primeAudio();
+    primeAudio(queueRef.current[index]?.id);
     // Before YouTube is ready a tap waited for nothing: it now waits for the player, as a song
     // chosen elsewhere does (playTrackByVideoId's pending request).
     if (!playerReadyRef.current) {
@@ -1607,7 +1614,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   }
 
   function playNow(id: string) {
-    primeAudio();
+    primeAudio(id);
     // Not loaded yet: the song is put first as the player starts (playFirst), which is the same
     // thing -- nothing has played, so the queue plays on after it.
     if (!playerReadyRef.current) {
@@ -1690,7 +1697,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     actions: {
       // From the lock screen, a press too: a song still loading is asked to play again in it.
       play: () => {
-        if (bufferingRef.current) { primeAudio(); playerRef.current?.playVideo(); } else if (!isPlayingRef.current) togglePlay();
+        if (bufferingRef.current) { primeAudio(videoIdRef.current); playerRef.current?.playVideo(); } else if (!isPlayingRef.current) togglePlay();
       },
       pause: pausePlayback,
       next: () => void nextTrack(),

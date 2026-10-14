@@ -1,11 +1,12 @@
-import type { Page } from '@playwright/test';
+import type { Page, Route } from '@playwright/test';
 
 /*
  * Monster Siren as the music player meets it (lib/music/playbackEngine.ts), so its checks need no
- * network: the address route (/api/music-guesser/<cid>) answers with an address on this server,
- * and that address serves a few seconds of silence this file makes, in byte ranges as Monster
- * Siren's CDN does. `resolves` lists the songs whose address was asked for, `files` each request
- * for a file. The song's art and credits (/api/music-art/<cid>, lib/music/songArt.ts) answer that
+ * network: the player's audio address (/api/music-audio/<cid>, a redirect to the signed file)
+ * serves a few seconds of silence this file makes, in byte ranges as Monster Siren's CDN does
+ * (and the song guesser's /api/music-guesser/<cid> names an address here that does the same).
+ * `resolves` lists the songs whose file was loaded (a load asks from byte 0), `files` each
+ * request for a file. The song's art and credits (/api/music-art/<cid>, lib/music/songArt.ts) answer that
  * Monster Siren says nothing more, so the player falls back as it would; `arts` lists those asked.
  * A check that wants art routes that address itself (its route, added later, is matched first).
  * `hangFiles` leaves every file request unanswered, a CDN that never sends a byte.
@@ -44,19 +45,25 @@ export async function stubMonsterSiren(page: Page): Promise<Siren> {
     siren.resolves.push(cid);
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ url: `http://127.0.0.1:3192/__siren/${cid}.wav?sig=${siren.resolves.length}` }) });
   });
-  await page.route('**/__siren/**', (route) => {
+  // The file, in byte ranges as Monster Siren's CDN serves it.
+  const serve = (route: Route) => {
     siren.files.push(route.request().url());
     if (siren.hangFiles) return new Promise<void>(() => { /* never answered */ });
-    // An address whose signature has expired: the CDN refuses it.
     if (siren.refuseNextFile) { siren.refuseNextFile = false; return route.fulfill({ status: 403, body: '' }); }
-    // As Monster Siren's CDN does, it answers byte ranges: a moment past what has loaded (a resume,
-    // a seek) is fetched from there, not played from the start.
     const range = /bytes=(\d+)-(\d*)/.exec(route.request().headers().range ?? '');
     if (!range) return route.fulfill({ status: 200, contentType: 'audio/wav', body: WAV, headers: { 'Accept-Ranges': 'bytes' } });
     const from = Number(range[1]);
     const to = range[2] ? Math.min(Number(range[2]), WAV.length - 1) : WAV.length - 1;
     return route.fulfill({ status: 206, contentType: 'audio/wav', body: WAV.subarray(from, to + 1),
       headers: { 'Accept-Ranges': 'bytes', 'Content-Range': `bytes ${from}-${to}/${WAV.length}` } });
+  };
+  await page.route('**/__siren/**', serve);
+  // The player's own address (pages/api/music-audio, a redirect to the signed file): answered
+  // with the file itself. A load asks from the start; its later ranges are the same load's.
+  await page.route('**/api/music-audio/**', (route) => {
+    const range = /bytes=(\d+)-/.exec(route.request().headers().range ?? '');
+    if (!range || range[1] === '0') siren.resolves.push(new URL(route.request().url()).pathname.split('/').pop()!);
+    return serve(route);
   });
   return siren;
 }

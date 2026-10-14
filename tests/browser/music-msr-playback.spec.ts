@@ -50,13 +50,13 @@ test('a song with no YouTube upload is listed, plays from Monster Siren through 
   // An ordinary row: it plays, queues and is favourited like any other, and links nowhere.
   await expect(row.locator('a')).toHaveCount(0);
   await expect(row.getByRole('button', { name: /^Add to queue: / })).toBeVisible();
-  expect(siren.resolves, 'listing a song asks Monster Siren for nothing').toEqual([]);
+  await expect.poll(() => siren.resolves, { message: 'listing a song asks Monster Siren for nothing' }).toEqual([]);
 
   await row.locator('.music-song-row-main').click();
   await expect.poll(async () => (await audio(page))?.paused).toBe(false);
-  expect(siren.resolves).toEqual([msr.cid]);
+  await expect.poll(() => siren.resolves).toEqual([msr.cid]);
   const started = (await audio(page))!;
-  expect(started.src).toContain(`/__siren/${msr.cid}.wav`);
+  expect(started.src).toContain(`/api/music-audio/${msr.cid}`);
   await expect.poll(async () => (await audio(page))!.time, { message: 'the audio clock runs' }).toBeGreaterThan(started.time + 0.5);
   await expect(bar(page).getByRole('button', { name: 'Pause', exact: true })).toBeVisible();
   // YouTube is asked for nothing: it never loads a Monster Siren id.
@@ -75,7 +75,7 @@ test('a song with no YouTube upload is listed, plays from Monster Siren through 
   await expect(bar(page).getByRole('button', { name: 'Play', exact: true })).toBeVisible();
   await bar(page).getByRole('button', { name: 'Play', exact: true }).click();
   await expect.poll(async () => (await audio(page))!.paused).toBe(false);
-  expect(siren.resolves, 'a pause and Play keep the address').toEqual([msr.cid]);
+  await expect.poll(() => siren.resolves, { message: 'a pause and Play keep the address' }).toEqual([msr.cid]);
 });
 
 test('a song on YouTube plays as before, then hands over to a queued Monster Siren song, which carries across a reload', async ({ page }) => {
@@ -95,11 +95,11 @@ test('a song on YouTube plays as before, then hands over to a queued Monster Sir
 
   await page.getByRole('searchbox', { name: 'Search all songs' }).fill(msr.altTitle || msr.title);
   await libraryRow(page, id).getByRole('button', { name: /^Play next: / }).click();
-  expect(siren.resolves, 'queueing asks Monster Siren for nothing').toEqual([]);
+  await expect.poll(() => siren.resolves, { message: 'queueing asks Monster Siren for nothing' }).toEqual([]);
   // The YouTube song ends: the Monster Siren song is next, and YouTube stops.
   await page.evaluate(() => (window as unknown as { __yt: { finish: () => void } }).__yt.finish());
   await expect.poll(async () => (await audio(page))?.paused).toBe(false);
-  expect(siren.resolves).toEqual([msr.cid]);
+  await expect.poll(() => siren.resolves).toEqual([msr.cid]);
   await expect(bar(page).getByRole('button', { name: 'Pause', exact: true })).toBeVisible();
   await expect(libraryRow(page, id)).toHaveClass(/\bactive\b/);
   await expect.poll(async () => (await audio(page))!.time).toBeGreaterThan(1.5);
@@ -107,14 +107,15 @@ test('a song on YouTube plays as before, then hands over to a queued Monster Sir
   // A reload: the same song at the same moment, from Monster Siren again.
   const before = (await audio(page))!.time;
   await page.reload();
-  await expect.poll(async () => (await audio(page))?.src ?? '', { timeout: 30_000 }).toContain(`/__siren/${msr.cid}.wav`);
+  await expect.poll(async () => (await audio(page))?.src ?? '', { timeout: 30_000 }).toContain(`/api/music-audio/${msr.cid}`);
   const playButton = bar(page).getByRole('button', { name: 'Play', exact: true });
   // Whether the browser lets a new document start sound by itself is its call: either it plays
   // on, or the song waits there for one press of Play.
   await expect.poll(async () => !(await audio(page))!.paused || await playButton.isVisible(), { timeout: 20_000 }).toBe(true);
   if ((await audio(page))!.paused) await playButton.click();
   await expect.poll(async () => (await audio(page))!.paused).toBe(false);
-  expect((await audio(page))!.time).toBeGreaterThanOrEqual(before - 0.5);
+  // Playing is said before the saved moment is applied (once the file says how long it is).
+  await expect.poll(async () => (await audio(page))!.time).toBeGreaterThanOrEqual(before - 0.5);
   const record = await page.evaluate(() => JSON.parse(sessionStorage.getItem('arkpediaMusicResume') ?? 'null'));
   expect(record.videoId).toBe(id);
   expect(record.queue).toContain(id);
@@ -193,7 +194,7 @@ test('Discover lists a song with no YouTube upload as a playable row, not a link
   await expect(page.getByText('Not on YouTube yet')).toHaveCount(0);
   await row.locator('.music-song-row-main').click();
   await expect.poll(async () => (await audio(page))?.paused).toBe(false);
-  expect(siren.resolves).toEqual([pending.songId]);
+  await expect.poll(() => siren.resolves).toEqual([pending.songId]);
 });
 
 test('from a Monster Siren song to one on YouTube: the audio stops and lets its file go, and YouTube plays', async ({ page }) => {
@@ -218,7 +219,7 @@ test('from a Monster Siren song to one on YouTube: the audio stops and lets its 
   await bar(page).getByRole('button', { name: 'Previous track', exact: true }).click();
   await expect.poll(async () => (await audio(page))?.paused).toBe(false);
   await expect.poll(async () => (await youtube(page))!.state).toBe(2);
-  expect(siren.resolves).toEqual([msr.cid, msr.cid]);
+  await expect.poll(() => siren.resolves).toEqual([msr.cid, msr.cid]);
   await expect(bar(page).getByRole('button', { name: 'Pause', exact: true })).toBeVisible();
 });
 
@@ -234,7 +235,7 @@ test('a file that fails mid-song (its address expired) is asked for again, and t
   // The element reports what a refused range request would (the fixture is too small for one).
   await page.evaluate(() => document.querySelector('audio[data-music-audio]')!.dispatchEvent(new Event('error')));
   await expect.poll(() => siren.resolves.length).toBe(2);
-  await expect.poll(async () => (await audio(page))!.src).toContain('sig=2');
+  await expect.poll(async () => (await audio(page))!.src).toContain('retry=');
   await expect.poll(async () => (await audio(page))!.paused).toBe(false);
   expect((await audio(page))!.time).toBeGreaterThanOrEqual(at);
   await expect(bar(page).getByRole('button', { name: 'Pause', exact: true })).toBeVisible();
