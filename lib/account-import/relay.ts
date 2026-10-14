@@ -49,7 +49,20 @@ async function read(response: Response & { raw_headers?: [string, string][] }) {
   }
 }
 
-export const relayTransport: Transport = async (url, { method, headers, body }) => read(await (await libcurl()).fetch(url, { method, headers, body }));
+declare global {
+  interface Window {
+    /** A browser test's stand-in for the relay (tests/browser/account-import.spec.ts), set by
+     *  its init script before the page loads, so a test drives the sign-in without Yostar, the
+     *  game or the relay. The site never sets it. */
+    __arkpediaImportTransport?: Transport;
+  }
+}
+
+export const relayTransport: Transport = async (url, { method, headers, body }) => {
+  const stub = typeof window === 'undefined' ? undefined : window.__arkpediaImportTransport;
+  if (stub) return stub(url, { method, headers, body });
+  return read(await (await libcurl()).fetch(url, { method, headers, body }));
+};
 
 /** The page's own fetch, for a host that allows any origin. */
 export const directTransport: Transport = async (url, { method, headers, body }) => read(await fetch(url, { method, headers, body }));
