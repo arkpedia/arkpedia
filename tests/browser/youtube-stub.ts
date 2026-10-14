@@ -71,10 +71,25 @@ const stub = (policy: AutoplayPolicy) => `(() => {
 
 export interface YouTubeStub { policy: AutoplayPolicy }
 
+/** The player's Data saver setting (lib/music/musicPlayerContext.tsx, MUSIC_DATA_SAVER_KEY). */
+export const DATA_SAVER_KEY = 'arkpediaMusicDataSaver';
+
 /** Every later document of this page gets the stub in place of YouTube, which is never reached;
- *  set `policy` before a load to change the autoplay rule for it. */
-export async function stubYouTube(page: Page, policy: AutoplayPolicy = 'allow'): Promise<YouTubeStub> {
+ *  set `policy` before a load to change the autoplay rule for it.
+ *
+ *  Every song with a Monster Siren id plays from Monster Siren's own file unless the reader turns
+ *  on Data saver -- and the catalogue gives one to nearly every song on YouTube -- so a check that
+ *  stubs YouTube to watch the player drive it starts with Data saver on (where the reader's tab
+ *  has not set it), and YouTube plays every song that has a video, as it did before Monster Siren
+ *  playback. `dataSaver: false` leaves the setting alone: the default, checked by
+ *  music-data-saver.spec.ts. */
+export async function stubYouTube(page: Page, policy: AutoplayPolicy = 'allow', { dataSaver = true }: { dataSaver?: boolean } = {}): Promise<YouTubeStub> {
   const control: YouTubeStub = { policy };
+  if (dataSaver) {
+    await page.addInitScript((key) => {
+      try { if (localStorage.getItem(key) === null) localStorage.setItem(key, 'true'); } catch { /* an opaque origin */ }
+    }, DATA_SAVER_KEY);
+  }
   await page.route(/^https:\/\/([a-z0-9-]+\.)?(youtube\.com|youtube-nocookie\.com|ytimg\.com|googlevideo\.com)\//, (route) => (route.request().url().startsWith('https://www.youtube.com/iframe_api')
     ? route.fulfill({ status: 200, contentType: 'text/javascript', body: stub(control.policy) })
     : route.fulfill({ status: 404, body: '' })));

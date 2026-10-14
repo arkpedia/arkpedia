@@ -1,58 +1,23 @@
 import { expect, test, type Page } from '@playwright/test';
+import { stubMonsterSiren } from './monster-siren-stub';
 import { stubYouTube, youtube } from './youtube-stub';
 
 /*
+ * These checks run with Data saver on (stubYouTube's default), so a song on YouTube plays from
+ * YouTube; music-data-saver.spec.ts checks the default, where it plays from Monster Siren too.
+ *
  * A song nobody has found a YouTube upload for plays Monster Siren's own audio (lib/music/
  * trackId.ts, lib/music/playbackEngine.ts): an <audio> element, its file's signed address asked
  * of /api/music-guesser/<cid> only when it is to play. It is listed like any song, has no YouTube
  * link, sits in the queue and carries across a reload like any song, and a song on YouTube plays
  * exactly as before. Monster Siren is never reached: its address answer points at a few seconds
- * of silence this file makes, and YouTube is the stub.
+ * of silence (monster-siren-stub.ts), and YouTube is the stub.
  */
 
 test.beforeEach(({}, info) => {
   test.skip(info.project.name !== 'desktop', 'the engines are the same at every width; the song rows are checked at both in music-song-rows');
   test.setTimeout(90_000);
 });
-
-/** A mono 8 kHz 8-bit WAV of silence: about a quarter of a megabyte for 30 seconds. */
-function silentWav(seconds: number): Buffer {
-  const rate = 8000;
-  const data = rate * seconds;
-  const header = Buffer.alloc(44);
-  header.write('RIFF', 0); header.writeUInt32LE(36 + data, 4); header.write('WAVE', 8);
-  header.write('fmt ', 12); header.writeUInt32LE(16, 16); header.writeUInt16LE(1, 20); header.writeUInt16LE(1, 22);
-  header.writeUInt32LE(rate, 24); header.writeUInt32LE(rate, 28); header.writeUInt16LE(1, 32); header.writeUInt16LE(8, 34);
-  header.write('data', 36); header.writeUInt32LE(data, 40);
-  return Buffer.concat([header, Buffer.alloc(data, 0x80)]);
-}
-const WAV = silentWav(30);
-
-interface Siren { resolves: string[]; files: string[]; refuseNextFile: boolean }
-
-/** Monster Siren as the page meets it: the address route and the file it names. */
-async function stubMonsterSiren(page: Page): Promise<Siren> {
-  const siren: Siren = { resolves: [], files: [], refuseNextFile: false };
-  await page.route('**/api/music-guesser/**', (route) => {
-    const cid = new URL(route.request().url()).pathname.split('/').pop()!;
-    siren.resolves.push(cid);
-    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ url: `http://127.0.0.1:3192/__siren/${cid}.wav?sig=${siren.resolves.length}` }) });
-  });
-  await page.route('**/__siren/**', (route) => {
-    siren.files.push(route.request().url());
-    // An address whose signature has expired: the CDN refuses it.
-    if (siren.refuseNextFile) { siren.refuseNextFile = false; return route.fulfill({ status: 403, body: '' }); }
-    // As Monster Siren's CDN does, it answers byte ranges: a moment past what has loaded (a resume,
-    // a seek) is fetched from there, not played from the start.
-    const range = /bytes=(\d+)-(\d*)/.exec(route.request().headers().range ?? '');
-    if (!range) return route.fulfill({ status: 200, contentType: 'audio/wav', body: WAV, headers: { 'Accept-Ranges': 'bytes' } });
-    const from = Number(range[1]);
-    const to = range[2] ? Math.min(Number(range[2]), WAV.length - 1) : WAV.length - 1;
-    return route.fulfill({ status: 206, contentType: 'audio/wav', body: WAV.subarray(from, to + 1),
-      headers: { 'Accept-Ranges': 'bytes', 'Content-Range': `bytes ${from}-${to}/${WAV.length}` } });
-  });
-  return siren;
-}
 
 interface CatalogueRow { videoId?: string; cid?: string; title: string; altTitle?: string }
 async function catalogue(page: Page): Promise<CatalogueRow[]> {
@@ -75,7 +40,7 @@ test('a song with no YouTube upload is listed, plays from Monster Siren through 
   await stubYouTube(page);
   const siren = await stubMonsterSiren(page);
   await page.goto('/music?view=library');
-  const msr = (await catalogue(page)).find(row => row.cid)!;
+  const msr = (await catalogue(page)).find(row => row.cid && !row.videoId)!;
   expect(msr, 'the bundled catalogue lists a song with no YouTube upload').toBeTruthy();
   const id = `msr:${msr.cid}`;
 
@@ -118,7 +83,7 @@ test('a song on YouTube plays as before, then hands over to a queued Monster Sir
   const siren = await stubMonsterSiren(page);
   await page.goto('/music?view=library');
   const rows = await catalogue(page);
-  const msr = rows.find(row => row.cid)!;
+  const msr = rows.find(row => row.cid && !row.videoId)!;
   const yt = rows.find(row => row.videoId)!;
   const id = `msr:${msr.cid}`;
 
@@ -163,7 +128,7 @@ test('an address the CDN refuses (expired) is asked again once, and the song pla
   await stubYouTube(page);
   const siren = await stubMonsterSiren(page);
   await page.goto('/music?view=library');
-  const msr = (await catalogue(page)).find(row => row.cid)!;
+  const msr = (await catalogue(page)).find(row => row.cid && !row.videoId)!;
   siren.refuseNextFile = true;
   await page.getByRole('searchbox', { name: 'Search all songs' }).fill(msr.altTitle || msr.title);
   await libraryRow(page, `msr:${msr.cid}`).locator('.music-song-row-main').click();
@@ -192,7 +157,7 @@ test('where the browser refuses to start the audio by itself, the next song wait
   await stubMonsterSiren(page);
   await page.goto('/music?view=library');
   const rows = await catalogue(page);
-  const msr = rows.find(row => row.cid)!;
+  const msr = rows.find(row => row.cid && !row.videoId)!;
   const yt = rows.find(row => row.videoId)!;
   const id = `msr:${msr.cid}`;
   await page.getByRole('searchbox', { name: 'Search all songs' }).fill(yt.altTitle || yt.title);
@@ -236,7 +201,7 @@ test('from a Monster Siren song to one on YouTube: the audio stops and lets its 
   const siren = await stubMonsterSiren(page);
   await page.goto('/music?view=library');
   const rows = await catalogue(page);
-  const msr = rows.find(row => row.cid)!;
+  const msr = rows.find(row => row.cid && !row.videoId)!;
   const yt = rows.find(row => row.videoId)!;
   await page.getByRole('searchbox', { name: 'Search all songs' }).fill(msr.altTitle || msr.title);
   await libraryRow(page, `msr:${msr.cid}`).locator('.music-song-row-main').click();
@@ -261,7 +226,7 @@ test('a file that fails mid-song (its address expired) is asked for again, and t
   await stubYouTube(page);
   const siren = await stubMonsterSiren(page);
   await page.goto('/music?view=library');
-  const msr = (await catalogue(page)).find(row => row.cid)!;
+  const msr = (await catalogue(page)).find(row => row.cid && !row.videoId)!;
   await page.getByRole('searchbox', { name: 'Search all songs' }).fill(msr.altTitle || msr.title);
   await libraryRow(page, `msr:${msr.cid}`).locator('.music-song-row-main').click();
   await expect.poll(async () => (await audio(page))!.time).toBeGreaterThan(2);

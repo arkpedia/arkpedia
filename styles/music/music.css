@@ -755,12 +755,22 @@
 .music-widget-queue-link { flex-shrink: 0; margin-left: auto; color: var(--teal); }
 
 /* The player bar's More (components/music/PlayerMoreMenu.tsx): the one-row bars' way to
-   Favourite, Shuffle, Repeat, Add to playlist and the queue. Discover's bar shows it at every
-   width; the full bar only where it folds to the mini player (a phone, outside Now playing),
-   where it takes the Queue button's place so the row keeps its room. */
-.music-player-more-btn { display: none; }
-.music-player-bottombar-compact .music-player-more-btn { display: inline-flex; align-items: center; justify-content: center; }
+   Favourite, Shuffle, Repeat, Add to playlist and the queue, and every bar's way to the player's
+   settings (Data saver), so it shows at every width on every bar. */
+.music-player-more-btn { display: inline-flex; align-items: center; justify-content: center; }
 .music-song-menu-options > .music-player-more-link { display: flex; align-items: center; justify-content: flex-start; gap: 10px; min-height: var(--control-h); padding: 0 12px; text-align: left; text-decoration: none; }
+
+/* Data saver (components/music/DataSaverSetting.tsx): a settings row under the menu's actions,
+   the site's checkbox and an ⓘ whose note opens in place, beneath it. */
+.music-data-saver { display: grid; gap: 6px; margin-top: 4px; padding: 6px 0 0 12px; border-top: 1px solid var(--line-soft); }
+.music-data-saver-row { display: flex; align-items: center; gap: 4px; }
+.music-data-saver-info-btn { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: 1px solid transparent; border-radius: var(--radius); color: var(--text-dim); cursor: pointer; }
+.music-data-saver-info-btn:hover,
+.music-data-saver-info-btn[aria-expanded="true"] { color: var(--teal); }
+.music-data-saver-info-btn[aria-expanded="true"] { border-color: var(--teal); background: var(--teal-dim); }
+.music-data-saver-note { display: flex; align-items: flex-start; gap: 6px; margin-right: 0; padding: 8px 6px 8px 10px; border: 1px solid var(--line-soft); border-left: 2px solid var(--teal); border-radius: var(--radius); background: var(--panel-2); }
+.music-data-saver-note > p { flex: 1; min-width: 0; margin: 0; color: var(--text); font-size: 12px; line-height: 1.5; }
+.music-data-saver-note > .btn-x { flex: none; }
 
 /* Music polish: independent centered transport, and measured clearance for every view. */
 .music-player-page,
@@ -796,7 +806,6 @@
   .music-transport-left .music-fav-btn,
   .music-transport-left .music-playlist-add-btn,
   .music-transport-left .music-stream-safe-btn { display: none; }
-  .music-player-more-btn { display: inline-flex; align-items: center; justify-content: center; }
   .music-transport-buttons { gap: 4px; }
   .music-player-bottombar-compact .music-transport-left .music-fav-btn,
   .music-player-bottombar-compact .music-transport-left .music-playlist-add-btn,

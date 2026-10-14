@@ -8,15 +8,18 @@ import { PlaylistOptions } from './SongPlaylistPicker';
 import TransportIcon from './TransportIcons';
 import { useCrossFadeTitle } from '@/lib/music/useCrossFadeTitle';
 import { MUSIC_VIEW_HREF, type MusicView } from './MusicNav';
+import DataSaverSetting from './DataSaverSetting';
 
 const REPEAT_LABEL = { off: 'Off', one: 'This song', all: 'All' } as const;
 
 /**
- * The player bar's More (⋯) on its one-row forms -- a phone's mini player and Discover's bar --
- * which have room for the song, Previous, Play and Next only: Favourite, Shuffle, Repeat, Add to
- * playlist and Open queue as written items, each saying its state (aria-pressed on the toggles),
- * the same anchored dialog as a song row's More (SongActionsMenu). Escape and Close give focus
- * back to the ⋯; Before this, a phone reached Favourite, Shuffle and Repeat only on Now playing.
+ * The player bar's More (⋯): on its one-row forms -- a phone's mini player and Discover's bar --
+ * which have room for the song, Previous, Play and Next only, it holds Favourite, Shuffle, Repeat,
+ * Add to playlist and Open queue as written items, each saying its state (aria-pressed on the
+ * toggles), the same anchored dialog as a song row's More (SongActionsMenu). Escape and Close give
+ * focus back to the ⋯; Before this, a phone reached Favourite, Shuffle and Repeat only on Now
+ * playing. It is also where the player's settings live (Data saver), so the full bar shows it at
+ * every width too: the one place a phone and a desktop both reach them.
  */
 export default function PlayerMoreMenu({ onFullPlayer, view }: { onFullPlayer?: boolean; view?: MusicView }) {
   const { videoId, title, currentTrack, favorites, shuffle, repeatMode, toggleFavorite, toggleShuffle, cycleRepeat } = useMusicPlayer();
@@ -60,6 +63,7 @@ export default function PlayerMoreMenu({ onFullPlayer, view }: { onFullPlayer?: 
           <Link href={view === 'queue' ? MUSIC_VIEW_HREF.player : MUSIC_VIEW_HREF.queue} shallow={onFullPlayer} scroll={false} prefetch={false} className="ghost music-player-more-link" onClick={() => close()}>
             <TransportIcon name={view === 'queue' ? 'note' : 'queue'} />{view === 'queue' ? 'Now playing' : 'Open queue'}
           </Link>
+          <DataSaverSetting />
         </div>
       </>}
     </div>, document.body)}

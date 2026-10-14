@@ -7,7 +7,8 @@ import { MUSIC_FAVORITES_EVENT, MUSIC_FAVORITES_KEY, readMusicFavorites } from '
 import { migrateChosenQueue, restoreQueue, sessionStore, takeMusicResume, writeMusicResume, type MusicResumeState } from './musicResume';
 import { songTitle } from './musicPolish';
 import { clearUpcoming, placeSong, restoreAround, type Placement, type QueueState } from './queueOps';
-import { PLAYER_STATE, createMsrAudioEngine, createTrackEngine, type PlaybackEngine, type TrackEngine } from './playbackEngine';
+import { PLAYER_STATE, createMsrAudioEngine, createTrackEngine, type EngineKind, type MsrAudioEngine, type PlaybackEngine, type TrackEngine } from './playbackEngine';
+import { trackSource, type TrackSource } from './trackId';
 import { useMsrMediaSession } from './useMsrMediaSession';
 
 /** YouTube's iframe player, which is a PlaybackEngine as it stands (lib/music/playbackEngine.ts). */
@@ -33,6 +34,11 @@ declare global {
 const RESUME_CUE_MS = 8000;
 const RESUME_PLAY_MS = 3000;
 const RESUME_BUFFER_MS = 20000;
+
+/** Data saver (localStorage, 'true' or 'false'; off when absent): songs play from YouTube, a few
+ *  MB each, instead of Monster Siren's own files (35-65 MB), which keep playing while the page is
+ *  hidden. A song with no YouTube upload plays from Monster Siren either way. */
+export const MUSIC_DATA_SAVER_KEY = 'arkpediaMusicDataSaver';
 
 let apiLoadPromise: Promise<void> | null = null;
 
@@ -117,6 +123,11 @@ interface MusicPlayerContextValue {
   notice: MusicNotice | null;
   dismissNotice: () => void;
   excludeCopyrighted: boolean; // "stream-safe mode" -- filters copyrighted songs out of the queue entirely, not just a display filter on one page
+  /** Data saver (MUSIC_DATA_SAVER_KEY): play songs from YouTube rather than Monster Siren's files. */
+  dataSaver: boolean;
+  setDataSaver: (on: boolean) => void;
+  /** The engine playing the song loaded now: Monster Siren's audio or YouTube's player. */
+  engineKind: EngineKind;
   initializePlayer: () => void;
   togglePlay: () => void;
   pausePlayback: () => void;
@@ -161,6 +172,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   // The player's engine (lib/music/playbackEngine.ts): YouTube's iframe for a song on YouTube,
   // Monster Siren's audio for one that is not, behind one surface. Set once YouTube is ready.
   const playerRef = useRef<TrackEngine | null>(null);
+  const audioRef = useRef<MsrAudioEngine | null>(null);
   const playerCreatedRef = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const catalogRef = useRef<MusicCatalogueSong[] | null>(null);
@@ -215,6 +227,18 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   const [seeking, setSeeking] = useState(false);
   const [excludeCopyrighted, setExcludeCopyrightedState] = useState(false);
   const excludeCopyrightedRef = useRef(false);
+  const [dataSaver, setDataSaverState] = useState(false);
+  const dataSaverRef = useRef(false);
+  const [engineKind, setEngineKind] = useState<EngineKind>('youtube');
+  // A song an automatic advance (an end, a skip) loaded into YouTube while the page was hidden,
+  // until it plays: a phone may never start it there (see the visibility effect below).
+  const hiddenLoadRef = useRef<string | null>(null);
+  useEffect(() => {
+    try {
+      dataSaverRef.current = window.localStorage.getItem(MUSIC_DATA_SAVER_KEY) === 'true';
+      setDataSaverState(dataSaverRef.current);
+    } catch { /* refused: off */ }
+  }, []);
 
   const [libraryTracks, setLibraryTracks] = useState<QueueTrack[]>([]);
   const [autoplay, setAutoplayState] = useState(false);
@@ -476,6 +500,35 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  // Each song's Monster Siren id, from the catalogue: the catalogue's rows carry it for songs on
+  // YouTube too (lib/music/musicCatalogue.ts), until a release published before that, where
+  // they play from YouTube as they always did.
+  const cidsRef = useRef<{ catalog: MusicCatalogueSong[]; cids: Map<string, string> } | null>(null);
+  function cidOf(id: string): string | undefined {
+    const catalog = catalogRef.current;
+    if (!catalog) return undefined;
+    if (cidsRef.current?.catalog !== catalog) {
+      cidsRef.current = { catalog, cids: new Map(catalog.flatMap((song) => (song.cid ? [[song.id, song.cid] as [string, string]] : []))) };
+    }
+    return cidsRef.current.cids.get(id);
+  }
+  /** Where a track's sound comes from now (lib/music/playbackEngine.ts): Monster Siren's own
+   *  file for every song that has one, so it plays on while the page is hidden; YouTube for a
+   *  song with none, and for every song on YouTube while Data saver is on. Chosen at each load,
+   *  never stored: the track id, which favourites, playlists and the queue keep, stays the same. */
+  function routeTrack(id: string): TrackSource {
+    const source = trackSource(id) ?? { kind: 'youtube' as const, videoId: id };
+    if (source.kind === 'msr' || dataSaverRef.current) return source;
+    const cid = cidOf(id);
+    return cid ? { kind: 'msr', cid } : source;
+  }
+
+  /** A track an automatic step loads while the page is hidden, into YouTube: watched once the
+   *  page is back (the visibility effect below), as a phone may not start YouTube there. */
+  function noteHiddenLoad(id: string) {
+    hiddenLoadRef.current = document.visibilityState === 'hidden' && playerRef.current?.active() === 'youtube' ? id : null;
+  }
+
   // A song resumed from the last document stops waiting to start: it plays, the reader
   // chose another, or the browser refused to start it.
   const endResumeWatch = useCallback(() => {
@@ -494,6 +547,9 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     endResumeWatch();
     cuedAtRef.current = null;
     playerRef.current?.loadVideoById(q[clamped].id);
+    noteHiddenLoad(q[clamped].id);
+  // noteHiddenLoad reads refs only.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [endResumeWatch]);
 
   // Load metadata and restore an explicitly chosen queue; a fresh session stays empty.
@@ -545,6 +601,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     autoplayVideoIdRef.current = track.id; setAutoplayVideoId(track.id);
     endResumeWatch(); cuedAtRef.current = null;
     playerRef.current?.loadVideoById(track.id);
+    noteHiddenLoad(track.id);
     return true;
   }
 
@@ -590,7 +647,9 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     return idx > removedIndex ? idx - 1 : idx;
   }
 
-  const nextTrack = useCallback(async () => {
+  /** Where Next goes in the queue -- the next song in play order, or the first again under
+   *  Repeat all -- with its place in that order; undefined past the end. */
+  function nextQueueStep(): { index: number; position: number } | undefined {
     const q = queueRef.current;
     const order = shuffleRef.current ? shuffleOrderRef.current ?? q.map((_, i) => i) : q.map((_, i) => i);
     const current = q.findIndex(track => track.id === videoIdRef.current);
@@ -599,11 +658,36 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     const nextIndex = autoplayVideoIdRef.current
       ? order.find(index => queuedRef.current.has(q[index].id))
       : order[position + 1];
-    if (nextIndex !== undefined) {
-      shufflePositionRef.current = order.indexOf(nextIndex); setShufflePosition(shufflePositionRef.current);
-      loadTrackAt(nextIndex);
-    } else if (repeatModeRef.current === 'all' && order.length) {
-      shufflePositionRef.current = 0; setShufflePosition(0); loadTrackAt(order[0]);
+    if (nextIndex !== undefined) return { index: nextIndex, position: order.indexOf(nextIndex) };
+    if (repeatModeRef.current === 'all' && order.length) return { index: order[0], position: 0 };
+    return undefined;
+  }
+
+  /** The song that plays when this one ends: what nextTrack (or Repeat one) would load. */
+  function upcomingTrackId(): string | null {
+    if (repeatModeRef.current === 'one') return videoIdRef.current || null;
+    const step = nextQueueStep();
+    if (step) return queueRef.current[step.index]?.id ?? null;
+    return autoplayRef.current ? nextAutoplayTracks()[0]?.id ?? null : null;
+  }
+
+  /** While the page is hidden, the next song's Monster Siren address is asked for ahead, so the
+   *  audio element goes from one song to the next in the end's own task (lib/music/
+   *  playbackEngine.ts, prepare). Visible, it is asked for as the song starts, as ever. */
+  function prepareUpcoming() {
+    if (typeof document === 'undefined' || document.visibilityState !== 'hidden') return;
+    const id = upcomingTrackId();
+    const source = id ? routeTrack(id) : null;
+    if (source?.kind === 'msr') audioRef.current?.prepare(source.cid);
+  }
+  const prepareUpcomingRef = useRef(prepareUpcoming);
+  prepareUpcomingRef.current = prepareUpcoming;
+
+  const nextTrack = useCallback(async () => {
+    const step = nextQueueStep();
+    if (step) {
+      shufflePositionRef.current = step.position; setShufflePosition(step.position);
+      loadTrackAt(step.index);
     } else if (!playAutoplayTrack()) {
       playerRef.current?.pauseVideo(); setIsPlaying(false);
     }
@@ -657,6 +741,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
         onError: () => fromEngine('msr', onPlayerError),
         onAutoplayBlocked: () => fromEngine('msr', onAutoplayRefused),
       });
+      audioRef.current = audio;
 
       const onPlayerError = () => {
         // Unplayable video (deleted, region-blocked, embedding
@@ -679,10 +764,11 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
       // player hanging on the song before. Monster Siren's audio meets this on iOS, where only
       // a press starts sound.
       const onAutoplayRefused = (engine: TrackEngine) => {
+        setEngineKind(engine.active());
         if (resumeWatchRef.current) { refuseResume(); return; }
         setIsPlaying(false);
         setStarting(false);
-        const id = engine.getVideoData()?.video_id;
+        const id = engine.getVideoData()?.video_id || engine.loaded();
         if (!id) return;
         const seconds = engine.getCurrentTime();
         cuedAtRef.current = { videoId: id, seconds };
@@ -696,6 +782,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
       const onPlayerState = (data: number, engine: TrackEngine) => {
         const state = PLAYER_STATE;
         playerStateRef.current = data;
+        setEngineKind(engine.active());
         const watch = resumeWatchRef.current;
         if (data === state.CUED && watch?.phase === 'cue') {
           watch.phase = 'play';
@@ -704,12 +791,16 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
         }
         if (data === state.PLAYING) {
           cuedAtRef.current = null;
+          hiddenLoadRef.current = null;
           endResumeWatch();
           setIsPlaying(true);
           const video = engine.getVideoData();
           setTitle(video?.title || '');
-          setVideoId(video?.video_id || '');
+          // The ref too, at once: the next song is worked out from it just below.
+          videoIdRef.current = video?.video_id || '';
+          setVideoId(videoIdRef.current);
           setDuration(engine.getDuration());
+          prepareUpcomingRef.current();
           // Retry if the initial catalogue load failed.
           if (queueRef.current.length === 0) loadFullQueue();
         } else if (data === state.PAUSED) {
@@ -733,7 +824,8 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
         },
         events: {
           onReady: (e: { target: YTPlayer }) => {
-            const engine = createTrackEngine(e.target, audio);
+            // routeTrack reads the refs it needs at each call: Data saver, the catalogue.
+            const engine = createTrackEngine(e.target, audio, (id) => routeTrack(id));
             playerRef.current = engine;
             playerReadyRef.current = true;
             // The song the last document was playing (lib/music/musicResume.ts), if any.
@@ -1000,6 +1092,36 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     if (videoId) saveResume(false);
   }, [videoId, isPlaying, saveResume]);
 
+  /*
+   * The page hidden (another app or tab, the screen locked): nothing here pauses or releases the
+   * music -- Monster Siren's <audio> plays on, and goes on to the next song by itself (its
+   * address asked for ahead, prepareUpcoming). A song YouTube was given meanwhile (no Monster
+   * Siren id, or Data saver on) may not start until the page is back, as a phone pauses YouTube
+   * there: once it is, that song is shown and given the resume's few seconds to start, and if it
+   * does not it waits, shown and paused at its start, for the reader's Play (refuseResume).
+   */
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') { prepareUpcomingRef.current(); return; }
+      const id = hiddenLoadRef.current;
+      hiddenLoadRef.current = null;
+      const engine = playerRef.current;
+      if (!id || !engine || engine.loaded() !== id || engine.active() !== 'youtube') return;
+      if (playerStateRef.current === PLAYER_STATE.PLAYING) return;
+      cuedAtRef.current = null;
+      videoIdRef.current = id;
+      setVideoId(id);
+      setTitle(catalogRef.current?.find((song) => song.id === id)?.title ?? '');
+      setCurrentTime(0);
+      resumeWatchRef.current = { videoId: id, seconds: 0, phase: 'play', since: Date.now() };
+      watchResume();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  // watchResume reads refs only.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // ... and this document picks it up, once, on its first render.
   useEffect(() => {
     // Only where the player is drawn: the recruitment pop-out has none (hideSiteChrome),
@@ -1168,6 +1290,35 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     const current = repeatModeRef.current;
     const next = current === 'off' ? 'one' : current === 'one' ? 'all' : 'off';
     repeatModeRef.current = next; setRepeatMode(next);
+  }
+
+  /**
+   * Data saver on or off. The song loaded now moves to the engine the setting gives it, at the
+   * same moment and in the same state: playing on (the press that changed it lets the new engine
+   * start sound) or paused there, with the other engine stopped first (createTrackEngine).
+   */
+  function setDataSaver(on: boolean) {
+    dataSaverRef.current = on;
+    setDataSaverState(on);
+    try { window.localStorage.setItem(MUSIC_DATA_SAVER_KEY, String(on)); } catch { /* refused: this visit only */ }
+    const engine = playerRef.current;
+    const id = engine?.loaded();
+    if (!engine || !playerReadyRef.current || !id || engine.routeOf(id) === engine.active()) return;
+    const cued = cuedAtRef.current?.videoId === id ? cuedAtRef.current : null;
+    let seconds = cued ? cued.seconds : engine.getCurrentTime();
+    if (!Number.isFinite(seconds) || seconds < 0) seconds = 0;
+    const play = isPlayingRef.current || Boolean(resumeWatchRef.current) || playerStateRef.current === PLAYER_STATE.BUFFERING;
+    endResumeWatch();
+    hiddenLoadRef.current = null;
+    if (play) {
+      cuedAtRef.current = null;
+      engine.loadVideoById({ videoId: id, startSeconds: seconds });
+    } else {
+      cuedAtRef.current = { videoId: id, seconds };
+      engine.cueVideoById({ videoId: id, startSeconds: seconds });
+      setCurrentTime(seconds);
+    }
+    setEngineKind(engine.active());
   }
 
   function setVolumeLevel(v: number) {
@@ -1429,13 +1580,13 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   }
 
   const currentTrack = libraryTracks.find(track => track.id === videoId) ?? queue.find(track => track.id === videoId);
-  useMsrMediaSession(videoId, currentTrack, isPlaying, contentUrl, {
+  useMsrMediaSession(Boolean(videoId) && engineKind === 'msr', currentTrack, isPlaying, contentUrl, {
     play: () => { if (!isPlayingRef.current) togglePlay(); },
     pause: pausePlayback,
     next: () => void nextTrack(),
     previous: prevTrack,
     seek: (seconds) => { setCurrentTime(seconds); handleSeekCommit(seconds); },
-  });
+  }, () => ({ seconds: playerRef.current?.getCurrentTime() ?? currentTimeRef.current, duration: playerRef.current?.getDuration() ?? durationRef.current }));
 
   const value: MusicPlayerContextValue = {
     ready,
@@ -1464,6 +1615,9 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     notice,
     dismissNotice,
     excludeCopyrighted,
+    dataSaver,
+    setDataSaver,
+    engineKind,
     initializePlayer,
     togglePlay,
     pausePlayback,

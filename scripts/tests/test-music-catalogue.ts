@@ -26,12 +26,17 @@ test('the published queue catalogue carries what a queue row shows and nothing e
       albumName: 'Arknights OST 1', albumOriginalName: '明日方舟OST1', coverPath: '/album-covers/明日方舟OST1_cover.webp' }),
     // No YouTube upload: named by its Monster Siren id, which the player plays it by.
     song('', { songId: '697616', title: 'Yanking', coverPath: '/album-covers/Yanking_cover.webp' }),
+    // A songId that is not a Monster Siren id is left out; the song still plays from YouTube.
+    song('noSirenId01', { songId: 'n/a' }),
   ]), { songs: [
     // An album whose two names agree carries one; the original is kept only where it differs.
-    { videoId: 'plainVideo1', title: 'Title plainVideo1', album: 'Album' },
-    { videoId: 'fullVideo01', title: 'Title fullVideo01', altTitle: 'English', artist: 'Singer', album: 'Arknights OST 1',
+    // A song on YouTube carries its Monster Siren id too: the player plays it from there unless
+    // Data saver is on (lib/music/musicPlayerContext.tsx, routeTrack).
+    { videoId: 'plainVideo1', cid: '100000', title: 'Title plainVideo1', album: 'Album' },
+    { videoId: 'fullVideo01', cid: '100000', title: 'Title fullVideo01', altTitle: 'English', artist: 'Singer', album: 'Arknights OST 1',
       albumOriginal: '明日方舟OST1', cover: '/album-covers/明日方舟OST1_cover.webp', copyright: true },
     { cid: '697616', title: 'Yanking', album: 'Album', cover: '/album-covers/Yanking_cover.webp' },
+    { videoId: 'noSirenId01', title: 'Title noSirenId01', album: 'Album' },
   ] });
 });
 
@@ -71,6 +76,20 @@ test('the player gets one row per video: a song the release lists twice is queue
   const songs = await loadMusicCatalogue('https://example.test/catalogue.json', undefined, async () => answer);
   assert.deepEqual(songs.map(song => song.videoId), ['twice', 'once']);
   assert.equal(songs[0].artist, 'BaoUner', 'the first listing wins');
+});
+
+test('a song on YouTube with a Monster Siren id is still named by its video id, and keeps the cid it can play from', async () => {
+  const answer = { ok: true, status: 200, json: async () => ({ songs: [
+    { videoId: 'onYouTube01', cid: '697615', title: 'Both' },
+    // The same video listed again under its other cid: one row, the first listing's.
+    { videoId: 'onYouTube01', cid: '697699', title: 'Both, again' },
+    { videoId: 'onYouTube02', cid: '../x', title: 'A cid that is not one' },
+    { cid: '697616', title: 'Only on Monster Siren' },
+  ] }) };
+  const songs = await loadMusicCatalogue('https://example.test/catalogue.json', undefined, async () => answer);
+  assert.deepEqual(songs.map(song => [song.id, song.cid]), [['onYouTube01', '697615'], ['onYouTube02', undefined], ['msr:697616', '697616']]);
+  // A bad cid is dropped from the row, not kept for the player to route by.
+  assert.equal('cid' in songs[1], false);
 });
 
 test('a song with no YouTube upload is a catalogue row of its own, named msr:<cid>, and nothing else is', async () => {

@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { monsterSirenOnlySongsFromAlbums, songsFromAlbums, type RawAlbum } from '../../lib/music/albumsData';
 import { parseMusicResume, restoreQueue, type MusicResumeState } from '../../lib/music/musicResume';
 import { addSongToPlaylists, formatPlaylistFile, parsePlaylistFile, readPlaylists } from '../../lib/music/musicPlaylists';
-import { createTrackEngine, PLAYER_STATE, type PlaybackEngine, type VideoArg } from '../../lib/music/playbackEngine';
+import { createTrackEngine, PLAYER_STATE, routeById, type PlaybackEngine, type TrackRoute, type VideoArg } from '../../lib/music/playbackEngine';
 import { isStoredTrackId, lyricsPath, msrTrackId, trackSource, youtubeWatchUrl } from '../../lib/music/trackId';
 
 /*
@@ -67,9 +67,11 @@ test('favourites and playlists keep Monster Siren songs, and a file holding them
 function fakeEngine(name: string, log: string[]): PlaybackEngine & { stop(): void } {
   const id = (video: VideoArg) => (typeof video === 'string' ? video : video.videoId);
   let loaded = '';
+  const at = (video: VideoArg) => (typeof video === 'object' && video.startSeconds ? ` @${video.startSeconds}` : '');
+  const cid = (video: VideoArg) => (typeof video === 'object' && video.cid ? ` (${video.cid})` : '');
   return {
-    loadVideoById: (video) => { loaded = id(video); log.push(`${name}.load ${loaded}`); },
-    cueVideoById: (video) => { loaded = id(video); log.push(`${name}.cue ${loaded}`); },
+    loadVideoById: (video) => { loaded = id(video); log.push(`${name}.load ${loaded}${cid(video)}${at(video)}`); },
+    cueVideoById: (video) => { loaded = id(video); log.push(`${name}.cue ${loaded}${cid(video)}${at(video)}`); },
     playVideo: () => log.push(`${name}.play`),
     pauseVideo: () => log.push(`${name}.pause`),
     seekTo: (seconds) => log.push(`${name}.seek ${seconds}`),
@@ -97,12 +99,49 @@ test('the player\'s engine hands each track to its own engine and stops the othe
   engine.setVolume(40);
   assert.deepEqual(log, [
     'youtube.load aaaaaaaaaaa',
-    'youtube.pause', 'audio.load msr:697616',
+    'youtube.pause', 'audio.load msr:697616 (697616)',
     'audio.seek 30',
     // A second Monster Siren song: the audio engine changes its file itself.
-    'audio.load msr:697617',
-    'audio.stop', 'youtube.cue bbbbbbbbbbb',
+    'audio.load msr:697617 (697617)',
+    'audio.stop', 'youtube.cue bbbbbbbbbbb @5',
     'youtube.volume 40', 'audio.volume 40',
   ]);
   assert.deepEqual(PLAYER_STATE, { UNSTARTED: -1, ENDED: 0, PLAYING: 1, PAUSED: 2, BUFFERING: 3, CUED: 5 });
+});
+
+test('the engine for a song on YouTube is chosen at each load: Monster Siren\'s file by default, YouTube under Data saver, and the track id stays the same', () => {
+  const log: string[] = [];
+  let dataSaver = false;
+  const cids: Record<string, string> = { aaaaaaaaaaa: '697615' };
+  // The player's routeTrack (lib/music/musicPlayerContext.tsx), with the catalogue's cids.
+  const route: TrackRoute = (trackId) => {
+    const source = routeById(trackId);
+    return source.kind === 'msr' || dataSaver || !cids[trackId] ? source : { kind: 'msr', cid: cids[trackId] };
+  };
+  const engine = createTrackEngine(fakeEngine('youtube', log), fakeEngine('audio', log), route);
+  engine.loadVideoById('aaaaaaaaaaa');
+  assert.equal(engine.active(), 'msr');
+  // Named as the queue names it: the audio engine is given the video id and the song to play.
+  assert.equal(engine.getVideoData().video_id, 'aaaaaaaaaaa');
+  assert.equal(engine.loaded(), 'aaaaaaaaaaa');
+  // Data saver on, mid-song: the same track, at the same moment, now from YouTube.
+  dataSaver = true;
+  assert.equal(engine.routeOf('aaaaaaaaaaa'), 'youtube');
+  engine.loadVideoById({ videoId: 'aaaaaaaaaaa', startSeconds: 12 });
+  assert.equal(engine.active(), 'youtube');
+  // And off again, paused: cued back on the audio engine.
+  dataSaver = false;
+  engine.cueVideoById({ videoId: 'aaaaaaaaaaa', startSeconds: 34 });
+  // A song with no Monster Siren id plays from YouTube whatever the setting; one with no YouTube
+  // upload from Monster Siren.
+  engine.loadVideoById('ccccccccccc');
+  dataSaver = true;
+  engine.loadVideoById('msr:697616');
+  assert.deepEqual(log, [
+    'youtube.pause', 'audio.load aaaaaaaaaaa (697615)',
+    'audio.stop', 'youtube.load aaaaaaaaaaa @12',
+    'youtube.pause', 'audio.cue aaaaaaaaaaa (697615) @34',
+    'audio.stop', 'youtube.load ccccccccccc',
+    'youtube.pause', 'audio.load msr:697616 (697616)',
+  ]);
 });

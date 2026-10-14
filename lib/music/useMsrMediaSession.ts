@@ -1,6 +1,5 @@
 import { useEffect, useRef } from 'react';
 import { songTitle } from './musicPolish';
-import { isMsrTrackId } from './trackId';
 
 interface SessionTrack {
   title: string;
@@ -21,18 +20,23 @@ interface SessionActions {
 const ACTIONS = ['play', 'pause', 'nexttrack', 'previoustrack', 'seekto'] as const;
 
 /**
- * The lock screen's and the media keys' view of a Monster Siren song (the Media Session API).
- * A YouTube song is played inside YouTube's iframe, which tells the browser about it itself; a
- * Monster Siren song plays from this page's own <audio> (lib/music/playbackEngine.ts), so the
- * page says what it is -- title, artist, album and cover -- and takes play, pause, next,
- * previous and seek from there. While a YouTube song plays the page says nothing and leaves the
- * session to YouTube.
+ * The lock screen's and the media keys' view of a song played from Monster Siren (the Media
+ * Session API). A song played from YouTube plays inside YouTube's iframe, which tells the
+ * browser about it itself; one played from Monster Siren plays from this page's own <audio>
+ * (lib/music/playbackEngine.ts) -- every song with a Monster Siren id, unless Data saver is on --
+ * so the page says what it is -- title, artist, album and cover -- and takes play, pause, next,
+ * previous and seek from there, and says how long it is and where it is. While YouTube plays the
+ * page says nothing and leaves the session to YouTube.
+ *
+ * `msr`: a song is loaded and Monster Siren's audio plays it (the player's engineKind).
+ * `position`: where the song is and how long it is, read as the state changes.
  */
-export function useMsrMediaSession(trackId: string, track: SessionTrack | undefined, isPlaying: boolean,
-  coverUrl: (path: string) => string, actions: SessionActions) {
+export function useMsrMediaSession(msr: boolean, track: SessionTrack | undefined, isPlaying: boolean,
+  coverUrl: (path: string) => string, actions: SessionActions, position?: () => { seconds: number; duration: number }) {
   const actionsRef = useRef(actions);
   actionsRef.current = actions;
-  const msr = Boolean(trackId) && isMsrTrackId(trackId);
+  const positionRef = useRef(position);
+  positionRef.current = position;
   const title = track ? songTitle(track.title, track.altTitle) : '';
   const artist = track?.artist ?? 'Monster Siren Records';
   const album = track?.album ?? '';
@@ -55,7 +59,14 @@ export function useMsrMediaSession(trackId: string, track: SessionTrack | undefi
       pause: () => actionsRef.current.pause(),
       nexttrack: () => actionsRef.current.next(),
       previoustrack: () => actionsRef.current.previous(),
-      seekto: (details) => { if (typeof details.seekTime === 'number') actionsRef.current.seek(details.seekTime); },
+      seekto: (details) => {
+        if (typeof details.seekTime !== 'number') return;
+        actionsRef.current.seek(details.seekTime);
+        const at = positionRef.current?.();
+        if (at && at.duration > 0 && typeof session.setPositionState === 'function') {
+          try { session.setPositionState({ duration: at.duration, position: Math.min(Math.max(0, details.seekTime), at.duration), playbackRate: 1 }); } catch { /* not supported here */ }
+        }
+      },
     };
     for (const action of ACTIONS) {
       try { session.setActionHandler(action, handlers[action]); } catch { /* not supported here */ }
@@ -64,6 +75,13 @@ export function useMsrMediaSession(trackId: string, track: SessionTrack | undefi
 
   useEffect(() => {
     const session = typeof navigator !== 'undefined' ? navigator.mediaSession : undefined;
-    if (session && msr) session.playbackState = isPlaying ? 'playing' : 'paused';
-  }, [msr, isPlaying]);
+    if (!session || !msr) return;
+    session.playbackState = isPlaying ? 'playing' : 'paused';
+    // The lock screen's progress bar runs from here by itself while playing.
+    const at = positionRef.current?.();
+    if (!at || !(at.duration > 0) || typeof session.setPositionState !== 'function') return;
+    try {
+      session.setPositionState({ duration: at.duration, position: Math.min(Math.max(0, at.seconds), at.duration), playbackRate: 1 });
+    } catch { /* not supported here */ }
+  }, [msr, isPlaying, title]);
 }

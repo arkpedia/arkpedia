@@ -13,10 +13,13 @@ export const MUSIC_CATALOGUE_PATH = '/music-catalogue.json';
 /** One published row: what the queue shows and filters by. Credits, characters and lyrics come
  * from the /music page's own release props (its songLookup), not from here.
  *
- * A song on YouTube has its `videoId`; a song with no YouTube upload has its Monster Siren id
- * (`cid`) instead and plays Monster Siren's own audio. A row has exactly one of the two. A
- * player older than Monster Siren playback reads only rows with a videoId (its isSong), so it
- * drops the others and carries on as before. */
+ * A song on YouTube has its `videoId`, and its Monster Siren id (`cid`) too where the albums
+ * have one; a song with no YouTube upload has only its `cid`. The track id (lib/music/trackId.ts)
+ * is the videoId wherever there is one, so a row with both is still named by its videoId, and the
+ * cid only says the song can also be played from Monster Siren's own audio (the player does, unless
+ * the reader turned on Data saver: lib/music/musicPlayerContext.tsx). A player older than Monster
+ * Siren playback reads only rows with a videoId (its isSong) and ignores the extra field; one from
+ * before cids on YouTube rows names a row by its videoId first, so it plays them from YouTube. */
 export interface PublishedCatalogueSong {
   videoId?: string;
   cid?: string;
@@ -43,11 +46,16 @@ export interface MusicCatalogue {
   songs: PublishedCatalogueSong[];
 }
 
+/** A Monster Siren song id, the rule lib/music/trackId.ts and pages/api/music-guesser apply. */
+const MSR_CID = /^\d{1,12}$/;
+const validCid = (cid: unknown): cid is string => typeof cid === 'string' && MSR_CID.test(cid);
+
 /** The published projection of the full song list, the fields above and nothing else. */
 export function projectMusicCatalogue(songs: readonly MonsterSirenSong[]): MusicCatalogue {
   return {
     songs: songs.map((song) => ({
-      ...(song.videoId ? { videoId: song.videoId } : { cid: song.songId }),
+      ...(song.videoId ? { videoId: song.videoId } : {}),
+      ...(MSR_CID.test(song.songId || '') ? { cid: song.songId } : {}),
       title: song.title,
       ...(song.altTitle ? { altTitle: song.altTitle } : {}),
       ...(song.artist ? { artist: song.artist } : {}),
@@ -62,7 +70,7 @@ export function projectMusicCatalogue(songs: readonly MonsterSirenSong[]): Music
 /** The row's track id, or null for a row that names no playable song. */
 function rowId(row: Partial<PublishedCatalogueSong>): string | null {
   if (typeof row.videoId === 'string' && row.videoId !== '') return row.videoId;
-  if (row.videoId === undefined && typeof row.cid === 'string' && /^\d{1,12}$/.test(row.cid)) return msrTrackId(row.cid);
+  if (row.videoId === undefined && validCid(row.cid)) return msrTrackId(row.cid);
   return null;
 }
 
@@ -89,8 +97,11 @@ async function fetchMusicCatalogue(url: string, signal: AbortSignal | undefined,
   // where the queue and the Library both load it, so releases already published are covered.
   // Read by track id, so a Monster Siren row (no videoId) is a song of its own too.
   const seen = new Set<string>();
-  return data.songs.filter(isSong).map((song) => ({ ...song, id: rowId(song)! }))
-    .filter((song) => !seen.has(song.id) && Boolean(seen.add(song.id)));
+  // A cid that is not a Monster Siren id is dropped, not the row: the song still plays from YouTube.
+  return data.songs.filter(isSong).map((song) => {
+    const { cid, ...row } = song;
+    return { ...row, ...(validCid(cid) ? { cid } : {}), id: rowId(song)! };
+  }).filter((song) => !seen.has(song.id) && Boolean(seen.add(song.id)));
 }
 
 /**
