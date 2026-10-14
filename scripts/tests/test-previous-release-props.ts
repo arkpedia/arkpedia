@@ -261,6 +261,11 @@ const DATA_ONLY: Record<string, Record<string, string>> = {
     '.ongoingBanners[].global_window': 'optional exact game-table window; parseBannerWindow falls back to the legacy global_date range when absent',
     '.ongoingBanners[].globalPoolId': 'optional game pool identity for account pull-history matching; the homepage does not read it',
     '.ongoingBanners[].announcedName': "the name an official CN announcement gave a banner (applyAnnouncements, new on 2026-10-04), on the banners an announcement created; HeadhuntingBanner has it optional and nothing on the page reads it",
+    // Which outfits are on sale is worked out at the day's clock from each release's own outfit
+    // records, and on 2026-10-15 one in the fixture's older records came on sale: those records
+    // predate the release-time fields, so the release's ongoingSkins lacked them that day.
+    '.ongoingSkins[].cnReleaseAt': "an outfit's CN release time (catalogue-model.mjs), absent from older outfit records; Skin has it optional and the carousel never reads it",
+    '.ongoingSkins[].globalReleaseAt': "the same outfit's Global release time, absent from older records the same way",
   },
   '/schedule': {
     '.operators[].portraitPending': 'optional publication status while a new portrait is pending; older releases retain their existing portrait rendering',
