@@ -6,6 +6,8 @@ import { unconfirmedOutfitSales } from './outfit-windows.mjs';
 import { checkMaterialCatalogue, uncataloguedCosts } from '../../lib/farming/materialCatalogue.mjs';
 import { waitsForGlobal } from '../../lib/gacha/waitsForGlobal.mjs';
 import { furnitureKey } from '../../lib/events/furnitureName.mjs';
+import { reviewKernelPool, STANDARD, KERNEL } from '../sync/kernel-pool.mjs';
+import { readOfficialNews } from '../sync/sync-official-news.mjs';
 
 const safe = name => name.replace(/[\\/*?:"<>|]/g, '').trim();
 // A reward name that is a scrape's stand-in for a missing item, not the item.
@@ -156,7 +158,7 @@ export function artPath(value) {
  * 'Content quarantined' issue, and the rest of the day's content still goes out. The keys name
  * records by their source ids, the same way every stage's quarantine entries do.
  */
-export function reviewCompleteness({ inventory, operators, skins, banners, events, eventStores, eventRewards, bundles = [], albums = [], assets, skinWindows, now, stageEnemies, enemyRecords, enemyIndex, materials, mappedStages, palettes, counts, baseline, allowShrink = [] }) {
+export function reviewCompleteness({ inventory, operators, skins, banners, events, eventStores, eventRewards, bundles = [], albums = [], assets, skinWindows, now, stageEnemies, enemyRecords, enemyIndex, materials, mappedStages, palettes, officialNews = [], counts, baseline, allowShrink = [] }) {
   if (!Array.isArray(materials?.order)) throw new Error('reviewCompleteness needs the material catalogue (data/material-catalogue.json)');
   if (!eventStores?.events || typeof eventStores.events !== 'object') throw new Error('reviewCompleteness needs the event stores (data/event-stores.json)');
   if (!eventRewards?.events || typeof eventRewards.events !== 'object') throw new Error('reviewCompleteness needs the event rewards (data/event-rewards.json)');
@@ -340,6 +342,25 @@ export function reviewCompleteness({ inventory, operators, skins, banners, event
       ? `${title}: release date ${JSON.stringify(album.releaseDate)} is not written YYYY/MM/DD`
       : `${title}: no release date, so Recently added leaves it out`);
   }
+  // The gacha simulator and the pull planner put an operator in a banner's pools by its
+  // Standard and Kernel Headhunting fields and its Kernel Addition Date, which only a person or
+  // the kernel-pool stage sets (scripts/sync/kernel-pool.mjs). Global's own announcements say
+  // outright who was in Kernel Headhunting on a day -- a Top Operator Transfer Permit's range of
+  // every 6★ in it, a Kernel Locating's every operator -- and a record they contradict is held:
+  // the batch of 2026-10-09 sat in the Standard pools of every simulated banner for five days
+  // with nothing to say so. Held, not blocking: yesterday's release has the same records.
+  for (const entry of reviewKernelPool({ operators, posts: officialNews })) hold(entry.key, entry.action, entry.reason);
+  // A released operator without the two fields is in no banner's pool at all, and neither can be
+  // inferred: 45 6★ are rightly in neither pool. So it is held until someone fills them in.
+  for (const op of operators) {
+    const release = recordedRelease(op);
+    if (op.rarity < 3 || (release === null ? op.isFuture === true || op.sourceRegion === 'CN' : release > today)) continue;
+    const obtain = op.howToObtain && typeof op.howToObtain === 'object' ? op.howToObtain : {};
+    const unset = [STANDARD, KERNEL].filter(field => !['Yes', 'No'].includes(obtain[field]));
+    if (unset.length) {
+      hold(`operator:${op.internalName || op.name}`, 'published-partial', `${op.name}: released on Global, but its record has no ${unset.join(' or ')} field ("Yes" or "No" under howToObtain), so the gacha simulator and the pull planner leave it out of every pool; set it from the official announcement in arkpedia-data (source/data/operators-${op.rarity}star/${op.recordName ?? op.name}.json)`);
+    }
+  }
   const unknown = allowShrink.filter(name => !COLLECTIONS.includes(name));
   if (unknown.length) errors.push(`allow_shrink names no collection: ${unknown.join(', ')} (the collections: ${COLLECTIONS.join(', ')})`);
   if (baseline) {
@@ -449,6 +470,8 @@ export function readCompletenessInputs(root = process.cwd()) {
     mappedStages: stageMapRows({ records: stageRecords, index, windows: optional('data/content-windows.json', {}),
       isNodes: optional('data/is-nodes.json', {}), ccStages: optional('data/cc-stages.json', {}) }),
     palettes: new Set(Object.keys(read('data/color-palettes.json').artworks)),
+    // Hydrated from arkpedia-data in a content run; none in the application's own checkout.
+    officialNews: readOfficialNews(root),
     stageEnemies, enemyRecords, enemyIndex: new Set(read('public/enemies-index.json').map(row => row.slug)) };
   input.counts = { operators: operators.length, skins: input.skins.length, events: input.events.length,
     banners: input.banners.length, enemies: enemyRecords.size, stages: stageFiles.length, ...collectionCounts(root) };

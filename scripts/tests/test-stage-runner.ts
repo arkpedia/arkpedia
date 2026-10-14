@@ -564,7 +564,7 @@ test('the daily refresh runs every command as a uniquely named stage that needs 
   assert.match(fs.readFileSync('scripts/sync/refresh-stage-data.sh', 'utf8'),
     /stage pin-upstream -- node scripts\/content\/pin-upstream\.mjs\n(?:\s*#[^\n]*\n)*\s*stage upstream-cn --invariant --timeout-minutes \d+ -- node scripts\/content\/cn-tables\.mjs\nfi\n/);
   assert.equal(stages.at(-1)!.name, 'completeness');
-  for (const script of ['sync-catalogue.mjs', 'import_ra_maps.py', 'import-nation-marks.py', 'sync-recurring-banners.mjs', 'import-reward-icons.py', 'import-item-icons.mjs', 'charword_table.json']) {
+  for (const script of ['sync-catalogue.mjs', 'import_ra_maps.py', 'import-nation-marks.py', 'sync-recurring-banners.mjs', 'sync-kernel-pool.mjs', 'import-reward-icons.py', 'import-item-icons.mjs', 'charword_table.json']) {
     assert.ok(stages.some(stage => stage.command.includes(script) && !stage.invariant), `${script} runs in a stage that is not an invariant`);
   }
   // The three steps that finish the stage build's own files in place say so, so that one

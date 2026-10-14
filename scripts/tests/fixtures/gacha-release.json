@@ -1,5 +1,5 @@
 {
- "source": "arkpedia-data release 7f1ac550 (revision 7d363718), release/pages/gacha.json props: the banners the 2026-09-24 sweep found crashing, one complete banner of every mechanic, and three invented short lineups (named [Fixture]); the pools cut to every fourth operator plus every named one, and the lookups to those operators",
+ "source": "arkpedia-data release 7f1ac550 (revision 7d363718), release/pages/gacha.json props: the banners the 2026-09-24 sweep found crashing, one complete banner of every mechanic, and three invented short lineups (named [Fixture]); the pools cut to every fourth operator plus every named one, and the lookups to those operators. Added 2026-10-14 from arkpedia-data release 44d57b62 (release/pages/gacha.json, after the batch of 2026-10-09 was moved to Kernel Headhunting): Standard Pool #177, Kernel #63, Kernel Locating #13 and Kernel #24, with the pools and lookups of the operators they name, of that batch and of Passenger as that release has them",
  "props": {
   "pools": {
    "six": [
@@ -116,6 +116,10 @@
      "icon": "/six-star-icons/Horn - Base.webp"
     },
     {
+     "name": "Hoshiguma",
+     "icon": "/six-star-icons/Hoshiguma - Base.webp"
+    },
+    {
      "name": "Ifrit",
      "icon": "/six-star-icons/Ifrit - Base.webp"
     },
@@ -176,12 +180,12 @@
      "icon": "/six-star-icons/Mechanist - Base.webp"
     },
     {
-     "name": "Mountain",
-     "icon": "/six-star-icons/Mountain - Base.webp"
-    },
-    {
      "name": "Młynar",
      "icon": "/six-star-icons/Młynar - Base.webp"
+    },
+    {
+     "name": "Mountain",
+     "icon": "/six-star-icons/Mountain - Base.webp"
     },
     {
      "name": "Narantuya",
@@ -248,8 +252,16 @@
      "icon": "/six-star-icons/Shu - Base.webp"
     },
     {
+     "name": "Siege",
+     "icon": "/six-star-icons/Siege - Base.webp"
+    },
+    {
      "name": "Silence the Paradigmatic",
      "icon": "/six-star-icons/Silence the Paradigmatic - Base.webp"
+    },
+    {
+     "name": "SilverAsh",
+     "icon": "/six-star-icons/SilverAsh - Base.webp"
     },
     {
      "name": "Skadi the Corrupting Heart",
@@ -374,6 +386,10 @@
      "icon": "/five-star-icons/Bena - Base.webp"
     },
     {
+     "name": "Blacknight",
+     "icon": "/five-star-icons/Blacknight - Base.webp"
+    },
+    {
      "name": "Blitz",
      "icon": "/five-star-icons/Blitz - Base.webp"
     },
@@ -416,6 +432,10 @@
     {
      "name": "Crackborne",
      "icon": "/five-star-icons/Crackborne - Base.webp"
+    },
+    {
+     "name": "Croissant",
+     "icon": "/five-star-icons/Croissant - Base.webp"
     },
     {
      "name": "Czerny",
@@ -470,12 +490,20 @@
      "icon": "/five-star-icons/GreyThroat - Base.webp"
     },
     {
+     "name": "Greyy the Lightningbearer",
+     "icon": "/five-star-icons/Greyy the Lightningbearer - Base.webp"
+    },
+    {
      "name": "Harmonie",
      "icon": "/five-star-icons/Harmonie - Base.webp"
     },
     {
      "name": "Harold",
      "icon": "/five-star-icons/Harold - Base.webp"
+    },
+    {
+     "name": "Hibiscus the Purifier",
+     "icon": "/five-star-icons/Hibiscus the Purifier - Base.webp"
     },
     {
      "name": "Highmore",
@@ -488,6 +516,10 @@
     {
      "name": "Indra",
      "icon": "/five-star-icons/Indra - Base.webp"
+    },
+    {
+     "name": "Iris",
+     "icon": "/five-star-icons/Iris - Base.webp"
     },
     {
      "name": "Jacinta",
@@ -514,6 +546,10 @@
      "icon": "/five-star-icons/Lappland - Base.webp"
     },
     {
+     "name": "Leizi",
+     "icon": "/five-star-icons/Leizi - Base.webp"
+    },
+    {
      "name": "Leto",
      "icon": "/five-star-icons/Leto - Base.webp"
     },
@@ -522,8 +558,16 @@
      "icon": "/five-star-icons/Liskarm - Base.webp"
     },
     {
+     "name": "Lucilla",
+     "icon": "/five-star-icons/Lucilla - Base.webp"
+    },
+    {
      "name": "Manticore",
      "icon": "/five-star-icons/Manticore - Base.webp"
+    },
+    {
+     "name": "Mayer",
+     "icon": "/five-star-icons/Mayer - Base.webp"
     },
     {
      "name": "Meteorite",
@@ -602,6 +646,10 @@
      "icon": "/five-star-icons/Sesa - Base.webp"
     },
     {
+     "name": "Shamare",
+     "icon": "/five-star-icons/Shamare - Base.webp"
+    },
+    {
      "name": "Sideroca",
      "icon": "/five-star-icons/Sideroca - Base.webp"
     },
@@ -634,12 +682,20 @@
      "icon": "/five-star-icons/Taraxacum - Base.webp"
     },
     {
+     "name": "Tecno",
+     "icon": "/five-star-icons/Tecno - Base.webp"
+    },
+    {
      "name": "Timeslot",
      "icon": "/five-star-icons/Timeslot - Base.webp"
     },
     {
      "name": "Tippi",
      "icon": "/five-star-icons/Tippi - Base.webp"
+    },
+    {
+     "name": "Toddifons",
+     "icon": "/five-star-icons/Toddifons - Base.webp"
     },
     {
      "name": "Tomimi",
@@ -676,6 +732,10 @@
     {
      "name": "Whisperain",
      "icon": "/five-star-icons/Whisperain - Base.webp"
+    },
+    {
+     "name": "Windflit",
+     "icon": "/five-star-icons/Windflit - Base.webp"
     },
     {
      "name": "Wulfenite",
@@ -1416,6 +1476,143 @@
     "pull_type": "featured",
     "year": 0,
     "linked_event": "[Side Story] People, A People"
+   },
+   {
+    "name": "Standard Pool #177 (Global)",
+    "category": "",
+    "cn_date": null,
+    "global_date": "2026/10/09–2026/10/23",
+    "global_date_estimated": false,
+    "global_window": {
+     "startAt": "2026-10-09T11:00:00.000Z",
+     "endAt": "2026-10-23T11:00:00.000Z",
+     "timingSource": "https://raw.githubusercontent.com/ArknightsAssets/ArknightsGamedata/56aee3d6c5a29c3a0d192456d70d14252cbb0804/en/gamedata/excel/gacha_table.json"
+    },
+    "banner_image": "/headhunting-banner-images/Standard Pool 177 (Global).webp",
+    "lineupSource": "client-art",
+    "six_stars": [
+     "Hoederer",
+     "Ho'olheyak"
+    ],
+    "rate_up_six_stars": [],
+    "five_stars": [
+     "Lucilla",
+     "Tecno",
+     "Almond"
+    ],
+    "four_stars": [],
+    "pull_type": "standard",
+    "year": 0,
+    "linked_event": null
+   },
+   {
+    "name": "Kernel #63 (Global)",
+    "category": "",
+    "cn_date": null,
+    "global_date": "2026/10/06–2026/10/20",
+    "global_date_estimated": false,
+    "global_window": {
+     "startAt": "2026-10-06T11:00:00.000Z",
+     "endAt": "2026-10-20T11:00:00.000Z",
+     "timingSource": "https://raw.githubusercontent.com/ArknightsAssets/ArknightsGamedata/56aee3d6c5a29c3a0d192456d70d14252cbb0804/en/gamedata/excel/gacha_table.json"
+    },
+    "banner_image": "/headhunting-banner-images/Kernel 63 (Global).webp",
+    "lineupSource": "client",
+    "six_stars": [
+     "Hoshiguma",
+     "Flametail"
+    ],
+    "rate_up_six_stars": [],
+    "five_stars": [
+     "Toddifons",
+     "Mayer",
+     "FEater"
+    ],
+    "four_stars": [],
+    "pull_type": "kernel",
+    "year": 0,
+    "linked_event": null
+   },
+   {
+    "name": "Kernel Locating #13 (Global)",
+    "category": "",
+    "cn_date": null,
+    "global_date": "2026/10/20–2026/11/03",
+    "global_date_estimated": false,
+    "global_window": {
+     "startAt": "2026-10-20T11:00:00.000Z",
+     "endAt": "2026-11-03T10:59:00.000Z",
+     "timingSource": "https://www.arknights.global/news/4814"
+    },
+    "banner_image": null,
+    "lineupSource": "announcement",
+    "six_stars": [
+     "Goldenglow",
+     "Dorothy",
+     "Kal'tsit",
+     "Archetto",
+     "Blemishine",
+     "Gnosis",
+     "Surtr",
+     "Weedy",
+     "Eyjafjalla",
+     "Rosa",
+     "SilverAsh",
+     "Passenger"
+    ],
+    "rate_up_six_stars": [],
+    "five_stars": [
+     "Blacknight",
+     "Quercus",
+     "Zima",
+     "Kirara",
+     "La Pluma",
+     "Mulberry",
+     "April",
+     "Corroserum",
+     "Aurora",
+     "Andreana",
+     "Blue Poison",
+     "Beeswax",
+     "Silence",
+     "Shamare",
+     "Astesia",
+     "Executor",
+     "GreyThroat",
+     "Iris",
+     "Leizi",
+     "Nightmare",
+     "Tsukinogi",
+     "Skyfire",
+     "Croissant",
+     "Firewatch"
+    ],
+    "four_stars": [],
+    "pull_type": "kernel",
+    "year": 0,
+    "linked_event": null
+   },
+   {
+    "name": "Kernel #24 (Global)",
+    "category": "",
+    "cn_date": null,
+    "global_date": "2024/12/03–2024/12/17",
+    "global_date_estimated": false,
+    "banner_image": "/headhunting-banner-images/Kernel 24 (Global).webp",
+    "six_stars": [
+     "Ifrit",
+     "Siege"
+    ],
+    "rate_up_six_stars": [],
+    "five_stars": [
+     "Croissant",
+     "Firewatch",
+     "Tsukinogi"
+    ],
+    "four_stars": [],
+    "pull_type": "kernel",
+    "year": 0,
+    "linked_event": null
    }
   ],
   "kernelLookup": {
@@ -1531,7 +1728,30 @@
    "Weedy": "2024/12/17",
    "Whisperain": "2024/12/17",
    "Windscoot": "N/A",
-   "Yūtenji Nyamu": "N/A"
+   "Yūtenji Nyamu": "N/A",
+   "Lee": "2026/10/09",
+   "Goldenglow": "2026/10/09",
+   "Fiammetta": "2026/10/09",
+   "Horn": "2026/10/09",
+   "Irene": "2026/10/09",
+   "Ebenholz": "2026/10/09",
+   "Dorothy": "2026/10/09",
+   "Blacknight": "2026/10/09",
+   "Quercus": "2026/10/09",
+   "Kazemaru": "2026/10/09",
+   "Rockrock": "2026/10/09",
+   "Windflit": "2026/10/09",
+   "Hibiscus the Purifier": "2026/10/09",
+   "Greyy the Lightningbearer": "2026/10/09",
+   "Hoshiguma": "2023/10/24",
+   "Toddifons": "2024/12/17",
+   "Mayer": "2023/10/24",
+   "SilverAsh": "2023/10/24",
+   "Shamare": "2023/10/24",
+   "Iris": "2024/12/17",
+   "Leizi": "2023/10/24",
+   "Croissant": "2023/10/24",
+   "Siege": "2023/10/24"
   },
   "releaseLookup": {
    "Aak": "2020/07/29",
@@ -1740,7 +1960,22 @@
    "Zima": "2020/01/16",
    "Zima the Raging Tide": "2026/09/16",
    "Zinogre S Catapult": "2026/11/04",
-   "Zuo Le": "2024/07/31"
+   "Zuo Le": "2024/07/31",
+   "Blacknight": "2022/07/29",
+   "Windflit": "2022/11/03",
+   "Hibiscus the Purifier": "2022/12/27",
+   "Greyy the Lightningbearer": "2023/03/14",
+   "Lucilla": "2024/12/03",
+   "Tecno": "2025/06/05",
+   "Hoshiguma": "2020/01/16",
+   "Toddifons": "2021/09/30",
+   "Mayer": "2020/01/16",
+   "SilverAsh": "2020/01/16",
+   "Shamare": "2020/12/10",
+   "Iris": "2021/07/06",
+   "Leizi": "2020/08/26",
+   "Croissant": "2020/01/16",
+   "Siege": "2020/01/16"
   },
   "kernelExclusiveNames": [
    "Aak",
@@ -1752,33 +1987,49 @@
    "Aurora",
    "Bagpipe",
    "Beeswax",
+   "Blacknight",
    "Blemishine",
    "Blue Poison",
    "Ceobe",
    "Chiave",
    "Corroserum",
+   "Croissant",
+   "Dorothy",
+   "Ebenholz",
    "Elysium",
    "Eunectes",
    "Executor",
    "Eyjafjalla",
    "Fartooth",
    "FEater",
+   "Fiammetta",
    "Firewatch",
    "Flametail",
    "Franka",
    "Glaucus",
    "Gnosis",
+   "Goldenglow",
    "GreyThroat",
+   "Greyy the Lightningbearer",
    "Hellagur",
+   "Hibiscus the Purifier",
+   "Horn",
+   "Hoshiguma",
    "Hung",
    "Ifrit",
+   "Irene",
+   "Iris",
    "Kal'tsit",
+   "Kazemaru",
    "Kirara",
    "La Pluma",
    "Lappland",
+   "Lee",
+   "Leizi",
    "Liskarm",
    "Magallan",
    "Manticore",
+   "Mayer",
    "Meteorite",
    "Mountain",
    "Mulberry",
@@ -1788,20 +2039,27 @@
    "Phantom",
    "Pramanix",
    "Provence",
+   "Quercus",
+   "Rockrock",
    "Rosa",
    "Saga",
    "Saileach",
    "Schwarz",
    "Sesa",
+   "Shamare",
+   "Siege",
    "Silence",
+   "SilverAsh",
    "Skyfire",
    "Surtr",
    "Suzuran",
    "Swire",
+   "Toddifons",
    "Tsukinogi",
    "Waai Fu",
    "Weedy",
    "Whisperain",
+   "Windflit",
    "Zima"
   ],
   "howToObtainLookup": {
@@ -2180,8 +2438,8 @@
    },
    "Dorothy": {
     "Limited": "No",
-    "Standard Headhunting": "Yes",
-    "Kernel Headhunting": "No",
+    "Standard Headhunting": "No",
+    "Kernel Headhunting": "Yes",
     "Recruitment": "No",
     "Welfare": "No",
     "Shop Operator": "No"
@@ -2196,8 +2454,8 @@
    },
    "Ebenholz": {
     "Limited": "No",
-    "Standard Headhunting": "Yes",
-    "Kernel Headhunting": "No",
+    "Standard Headhunting": "No",
+    "Kernel Headhunting": "Yes",
     "Recruitment": "No",
     "Welfare": "No",
     "Shop Operator": "No"
@@ -2295,8 +2553,8 @@
    },
    "Fiammetta": {
     "Limited": "No",
-    "Standard Headhunting": "Yes",
-    "Kernel Headhunting": "No",
+    "Standard Headhunting": "No",
+    "Kernel Headhunting": "Yes",
     "Recruitment": "No",
     "Welfare": "No",
     "Shop Operator": "No"
@@ -2362,8 +2620,8 @@
    },
    "Goldenglow": {
     "Limited": "No",
-    "Standard Headhunting": "Yes",
-    "Kernel Headhunting": "No",
+    "Standard Headhunting": "No",
+    "Kernel Headhunting": "Yes",
     "Recruitment": "No",
     "Welfare": "No",
     "Shop Operator": "No"
@@ -2464,8 +2722,8 @@
    },
    "Horn": {
     "Limited": "No",
-    "Standard Headhunting": "Yes",
-    "Kernel Headhunting": "No",
+    "Standard Headhunting": "No",
+    "Kernel Headhunting": "Yes",
     "Recruitment": "No",
     "Welfare": "No",
     "Shop Operator": "No"
@@ -2512,8 +2770,8 @@
    },
    "Irene": {
     "Limited": "No",
-    "Standard Headhunting": "Yes",
-    "Kernel Headhunting": "No",
+    "Standard Headhunting": "No",
+    "Kernel Headhunting": "Yes",
     "Recruitment": "No",
     "Welfare": "No",
     "Shop Operator": "No"
@@ -2560,8 +2818,8 @@
    },
    "Kazemaru": {
     "Limited": "No",
-    "Standard Headhunting": "Yes",
-    "Kernel Headhunting": "No",
+    "Standard Headhunting": "No",
+    "Kernel Headhunting": "Yes",
     "Recruitment": "No",
     "Welfare": "No",
     "Shop Operator": "No"
@@ -2627,8 +2885,8 @@
    },
    "Lee": {
     "Limited": "No",
-    "Standard Headhunting": "Yes",
-    "Kernel Headhunting": "No",
+    "Standard Headhunting": "No",
+    "Kernel Headhunting": "Yes",
     "Recruitment": "No",
     "Welfare": "No",
     "Shop Operator": "No"
@@ -2974,8 +3232,8 @@
    },
    "Quercus": {
     "Limited": "No",
-    "Standard Headhunting": "Yes",
-    "Kernel Headhunting": "No",
+    "Standard Headhunting": "No",
+    "Kernel Headhunting": "Yes",
     "Recruitment": "No",
     "Welfare": "No",
     "Shop Operator": "No"
@@ -3014,8 +3272,8 @@
    },
    "Rockrock": {
     "Limited": "No",
-    "Standard Headhunting": "Yes",
-    "Kernel Headhunting": "No",
+    "Standard Headhunting": "No",
+    "Kernel Headhunting": "Yes",
     "Recruitment": "No",
     "Welfare": "No",
     "Shop Operator": "No"
@@ -3532,6 +3790,126 @@
     "Standard Headhunting": "Yes",
     "Kernel Headhunting": "No",
     "Recruitment": "No",
+    "Welfare": "No",
+    "Shop Operator": "No"
+   },
+   "Blacknight": {
+    "Limited": "No",
+    "Standard Headhunting": "No",
+    "Kernel Headhunting": "Yes",
+    "Recruitment": "No",
+    "Welfare": "No",
+    "Shop Operator": "No"
+   },
+   "Windflit": {
+    "Limited": "No",
+    "Standard Headhunting": "No",
+    "Kernel Headhunting": "Yes",
+    "Recruitment": "No",
+    "Welfare": "No",
+    "Shop Operator": "No"
+   },
+   "Hibiscus the Purifier": {
+    "Limited": "No",
+    "Standard Headhunting": "No",
+    "Kernel Headhunting": "Yes",
+    "Recruitment": "No",
+    "Welfare": "No",
+    "Shop Operator": "No"
+   },
+   "Greyy the Lightningbearer": {
+    "Limited": "No",
+    "Standard Headhunting": "No",
+    "Kernel Headhunting": "Yes",
+    "Recruitment": "No",
+    "Welfare": "No",
+    "Shop Operator": "No"
+   },
+   "Lucilla": {
+    "Limited": "No",
+    "Standard Headhunting": "Yes",
+    "Kernel Headhunting": "No",
+    "Recruitment": "No",
+    "Welfare": "No",
+    "Shop Operator": "No"
+   },
+   "Tecno": {
+    "Limited": "No",
+    "Standard Headhunting": "Yes",
+    "Kernel Headhunting": "No",
+    "Recruitment": "No",
+    "Welfare": "No",
+    "Shop Operator": "No"
+   },
+   "Hoshiguma": {
+    "Limited": "No",
+    "Standard Headhunting": "No",
+    "Kernel Headhunting": "Yes",
+    "Recruitment": "Yes",
+    "Welfare": "No",
+    "Shop Operator": "No"
+   },
+   "Toddifons": {
+    "Limited": "No",
+    "Standard Headhunting": "No",
+    "Kernel Headhunting": "Yes",
+    "Recruitment": "Yes",
+    "Welfare": "No",
+    "Shop Operator": "No"
+   },
+   "Mayer": {
+    "Limited": "No",
+    "Standard Headhunting": "No",
+    "Kernel Headhunting": "Yes",
+    "Recruitment": "Yes",
+    "Welfare": "No",
+    "Shop Operator": "No"
+   },
+   "SilverAsh": {
+    "Limited": "No",
+    "Standard Headhunting": "No",
+    "Kernel Headhunting": "Yes",
+    "Recruitment": "Yes",
+    "Welfare": "No",
+    "Shop Operator": "No"
+   },
+   "Shamare": {
+    "Limited": "No",
+    "Standard Headhunting": "No",
+    "Kernel Headhunting": "Yes",
+    "Recruitment": "Yes",
+    "Welfare": "No",
+    "Shop Operator": "No"
+   },
+   "Iris": {
+    "Limited": "No",
+    "Standard Headhunting": "No",
+    "Kernel Headhunting": "Yes",
+    "Recruitment": "Yes",
+    "Welfare": "No",
+    "Shop Operator": "No"
+   },
+   "Leizi": {
+    "Limited": "No",
+    "Standard Headhunting": "No",
+    "Kernel Headhunting": "Yes",
+    "Recruitment": "Yes",
+    "Welfare": "No",
+    "Shop Operator": "No"
+   },
+   "Croissant": {
+    "Limited": "No",
+    "Standard Headhunting": "No",
+    "Kernel Headhunting": "Yes",
+    "Recruitment": "Yes",
+    "Welfare": "No",
+    "Shop Operator": "No"
+   },
+   "Siege": {
+    "Limited": "No",
+    "Standard Headhunting": "No",
+    "Kernel Headhunting": "Yes",
+    "Recruitment": "Yes",
     "Welfare": "No",
     "Shop Operator": "No"
    }
