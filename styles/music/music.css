@@ -154,6 +154,10 @@
   min-width: 48px;
   margin-left: 4px;
 }
+/* The corner player's buttons and volume share one row, and where the buttons leave the
+   slider less than its 48px it takes a row of its own instead of running out of the card
+   (desktop, 2026-10-14: its right end was cut off). */
+.music-controls { flex-wrap: wrap; row-gap: 6px; }
 .music-next-up {
   overflow: hidden;
   color: var(--text-faint);
@@ -171,7 +175,6 @@
     width: auto;
   }
   .music-player.collapsed { left: auto; }
-  .music-controls { flex-wrap: wrap; row-gap: 6px; }
   .music-seek,
   .music-volume { height: 22px; }
   /* The collapsed widget floats 44px tall, 8px off the bottom edge. Every page it

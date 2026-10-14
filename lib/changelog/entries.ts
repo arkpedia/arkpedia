@@ -34,6 +34,12 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-10-14T04:00:00Z',
+    fixed: [
+      { title: 'Corner music player volume', detail: 'On a desktop its volume slider ran out of the card; it now takes a row of its own when there is no room.' },
+    ],
+  },
+  {
     at: '2026-10-13T15:17:12Z',
     title: 'Selector videos and event news',
     added: [
