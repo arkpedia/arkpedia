@@ -1,11 +1,20 @@
 {
-  "source": "data/operators-6star/Surtr.json at arkpedia 9afaae8, trimmed to the fields the cost-shape and release-date checks read",
+  "source": "data/operators-6star/Surtr.json at arkpedia 9afaae8, trimmed to the fields the cost-shape, release-date and pool-field checks read",
   "operator": {
     "name": "Surtr",
     "rarity": 6,
     "internalName": "char_350_surtr",
+    "howToObtain": {
+      "Limited": "No",
+      "Standard Headhunting": "No",
+      "Kernel Headhunting": "Yes",
+      "Recruitment": "Yes",
+      "Welfare": "No",
+      "Shop Operator": "No"
+    },
     "characterInfo": {
-      "Release Date": "2021/03/25"
+      "Release Date": "2021/03/25",
+      "Kernel Addition Date": "2024/12/17"
     },
     "potential": {
       "totalCost": [

@@ -10,11 +10,10 @@ import { getGachaIconPools, GachaIconPools } from '@/lib/gacha/gachaIconPools';
 import type { HeadhuntingBanner } from '@/lib/gacha/headhuntingBanners';
 import { getBannersSortedByDate } from '@/lib/gacha/headhuntingBannerData';
 import { resolveGachaSimulatorBanners } from '@/lib/gacha/gachaBannerWindows';
-import { buildRealBannerConfig, getDisplayFeaturedSixStars, getDisplayFeaturedSixStarsWithRerunLabel, getMechanicType, HowToObtainLookup, parseBannerDate } from '@/lib/gacha/realGachaBanners';
+import { getDisplayFeaturedSixStars, getDisplayFeaturedSixStarsWithRerunLabel, getMechanicType, HowToObtainLookup, parseBannerDate, simulatorBannerConfig } from '@/lib/gacha/realGachaBanners';
 import { isBannerLive, upcomingBanners } from '@/lib/gacha/upcomingBanners';
 import { useReaderClock } from '@/lib/time/readerClock';
 import { buildOperatorSeriesMap, OperatorSeries } from '@/lib/operators/operatorSeries';
-import { buildEligiblePool } from '@/lib/gacha/gachaOperatorEligibility';
 import { KernelAdditionLookup } from '@/lib/operators/kernelAdditionDates';
 import { ReleaseDateLookup, deriveReleaseDatesFromBanners, getReleaseDate } from '@/lib/operators/operatorReleaseDates';
 import { getAllOperators } from '@/lib/operators/operators';
@@ -1640,57 +1639,7 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
         ? []
         : selectedBanner.six_stars.filter((n) => !missingSixStars.has(n))
       : [];
-    const base = buildRealBannerConfig(selectedBanner, pools, celebrationExcludeNames, kernelLookup, releaseLookup, new Set(kernelExclusiveNames), howToObtainLookup, operatorSeriesMap);
-
-    // Recompute the general "everyone else" pools for all four rarities
-    // using the eligibility rules derived directly from each operator's
-    // own howToObtain + release/kernel-addition dates, rather than the
-    // series-matching logic buildRealBannerConfig uses internally --
-    // this is what actually makes newer 6-star through 3-star operators
-    // (who may not be covered by the older series classification) show
-    // up correctly in every banner they're eligible for.
-    const bannerDate = parseBannerDate(selectedBanner);
-    const mechanicType = getMechanicType(selectedBanner);
-    const isKernelMechanic = mechanicType === 'kernel' || mechanicType === 'kernelLocating';
-    const featuredSixNames = new Set(base.sixStarFeatured.map((o) => o.name));
-    const featuredFiveNames = new Set(base.fiveStarFeatured.map((o) => o.name));
-    const featuredFourNames = new Set((base.fourStarFeatured || []).map((o) => o.name));
-
-    const eligibleOtherSix = buildEligiblePool(pools.six, howToObtainLookup, releaseLookup, kernelLookup, bannerDate, isKernelMechanic, featuredSixNames);
-    const eligibleOtherFive = buildEligiblePool(pools.five, howToObtainLookup, releaseLookup, kernelLookup, bannerDate, isKernelMechanic, featuredFiveNames);
-    const eligibleFour = buildEligiblePool(pools.four, howToObtainLookup, releaseLookup, kernelLookup, bannerDate, isKernelMechanic, featuredFourNames);
-    const eligibleThree = buildEligiblePool(pools.three, howToObtainLookup, releaseLookup, kernelLookup, bannerDate, isKernelMechanic);
-
-    // These mechanic types have NO "other" 6★/5★ pool at all -- the
-    // featured roster IS the entire 6★/5★ chance, full stop. Preserve
-    // buildRealBannerConfig's already-correctly-emptied values instead
-    // of letting the general eligibility override below repopulate them.
-    const noOtherPoolTypes = new Set(['orienteering', 'joint', 'celebration', 'trio']);
-    const hasNoOtherPool = noOtherPoolTypes.has(mechanicType);
-
-    // For Limited banners specifically, base.otherSixStarPool/otherFiveStarPool
-    // (from buildRealBannerConfig's series-matching logic) and
-    // eligibleOtherSix/eligibleOtherFive (from the Standard/Kernel-flag-based
-    // eligibility rules) each catch operators the other misses: base correctly
-    // includes genuinely Limited-exclusive operators via their derived series,
-    // which eligibleOtherSix has no concept of at all (it only checks Standard/
-    // Kernel Headhunting); eligibleOtherSix catches newer operators who may not
-    // yet be reflected in the series derivation. Letting eligibleOtherSix fully
-    // REPLACE base's result -- as this used to do -- silently dropped every
-    // Limited-exclusive operator whose howToObtain has neither flag set to
-    // "Yes", which is exactly what Limited-exclusive operators look like.
-    function mergeByName(a: GachaItem[], b: GachaItem[]): GachaItem[] {
-      const seen = new Set(a.map((item) => item.name));
-      return [...a, ...b.filter((item) => !seen.has(item.name))];
-    }
-
-    const withEligibility: BannerConfig = {
-      ...base,
-      otherSixStarPool: hasNoOtherPool ? base.otherSixStarPool : mergeByName(base.otherSixStarPool, eligibleOtherSix),
-      otherFiveStarPool: hasNoOtherPool ? base.otherFiveStarPool : mergeByName(base.otherFiveStarPool, eligibleOtherFive),
-      fourStarPool: eligibleFour,
-      threeStarPool: eligibleThree,
-    };
+    const withEligibility = simulatorBannerConfig(selectedBanner, pools, celebrationExcludeNames, kernelLookup, releaseLookup, new Set(kernelExclusiveNames), howToObtainLookup, operatorSeriesMap);
 
     if (isOrienteering && orienteeringConfirmed && orienteeringSelected.length === 3 && orienteeringFiveSelected.length === 3) {
       // Six-stars stay fully exclusive (only the chosen 3 are pullable

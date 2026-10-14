@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import fixture from './fixtures/gacha-release.json';
 import { doPulls, fiveStarWeightedPool, simulatorPullable, sixStarWeightedPool } from '../../lib/gacha/gachaEngine';
-import { buildRealBannerConfig, getMechanicType } from '../../lib/gacha/realGachaBanners';
+import { buildRealBannerConfig, getMechanicType, simulatorBannerConfig } from '../../lib/gacha/realGachaBanners';
 import { createInitialState, type BannerConfig, type GachaItem } from '../../lib/gacha/gachaTypes';
 import type { GachaIconPools } from '../../lib/gacha/gachaIconPools';
 import type { HeadhuntingBanner } from '../../lib/gacha/headhuntingBanners';
@@ -210,4 +210,75 @@ test('a crossover with no rate-up 5★ in its first 50 pulls makes the next 5★
   assert.equal(items[9].isFeatured, false);
   assert.equal(items[50].rarity, 5);
   assert.ok(['Aegis', 'Yukari Takeba'].includes(items[50].name), items[50].name);
+});
+
+/* Who the simulator can give, with the operators' real pool fields: Global moved seven 6★ and
+   seven 5★ from Standard to Kernel Headhunting with Standard Pool #177 (2026-10-09). The
+   fixture's lookups are the release's after that batch was recorded (arkpedia-data 003abcaf).
+   simulatorBannerConfig is what the page pulls from before a reader's own picks. */
+function simulated(name: string, lookups: Partial<typeof props> = {}): BannerConfig {
+  const p = { ...props, ...lookups };
+  return simulatorBannerConfig(banner(name), p.pools, [], p.kernelLookup, p.releaseLookup, new Set(p.kernelExclusiveNames), p.howToObtainLookup, p.operatorSeriesMap);
+}
+const names = (items: GachaItem[]) => new Set(items.map(item => item.name));
+const MOVED_SIX = ['Lee', 'Goldenglow', 'Fiammetta', 'Horn', 'Irene', 'Ebenholz', 'Dorothy'];
+const MOVED_FIVE = ['Blacknight', 'Quercus', 'Kazemaru', 'Rockrock', 'Windflit', 'Hibiscus the Purifier', 'Greyy the Lightningbearer'];
+
+test('from Standard Pool #177 the batch of 2026-10-09 is out of every Standard and limited off-rate pool', () => {
+  for (const name of MOVED_SIX) assert.equal(props.kernelLookup[name], '2026/10/09', name);
+  for (const source of ['Standard Pool #177 (Global)', '[Celebration] Sealed With Time']) {
+    const built = simulated(source);
+    const six = names(built.otherSixStarPool), five = names(built.otherFiveStarPool);
+    assert.ok(six.size > 10 && five.size > 10, `${source} has off-rate pools`);
+    for (const name of MOVED_SIX) assert.ok(!six.has(name), `${source} off-rate 6★ has ${name}`);
+    for (const name of MOVED_FIVE) assert.ok(!five.has(name), `${source} off-rate 5★ has ${name}`);
+    // Their weighted pools, as a pull draws from them.
+    assert.ok(!sixStarWeightedPool(built).some(entry => MOVED_SIX.includes(entry.item.name)), source);
+    assert.ok(!fiveStarWeightedPool(built).some(entry => MOVED_FIVE.includes(entry.item.name)), source);
+  }
+});
+
+test('Standard Pool #176, which closed the morning the batch moved, still has it', () => {
+  const built = simulated('Standard Pool #176 (Global)');
+  for (const name of MOVED_SIX) assert.ok(names(built.otherSixStarPool).has(name), name);
+  for (const name of MOVED_FIVE) assert.ok(names(built.otherFiveStarPool).has(name), name);
+});
+
+test('Kernel Locating #13 (2026-10-20) offers the batch it names: Goldenglow, Dorothy, Blacknight and Quercus', () => {
+  const built = simulated('Kernel Locating #13 (Global)');
+  assert.equal(built.type, 'kernelLocating');
+  for (const name of ['Goldenglow', 'Dorothy']) assert.ok(names(built.sixStarFeatured).has(name), name);
+  for (const name of ['Blacknight', 'Quercus']) assert.ok(names(built.fiveStarFeatured).has(name), name);
+  // Every operator the announcement names is one the simulator offers.
+  assert.equal(built.sixStarFeatured.length, banner('Kernel Locating #13 (Global)').six_stars.length);
+  assert.equal(built.fiveStarFeatured.length, banner('Kernel Locating #13 (Global)').five_stars.length);
+});
+
+test('a Kernel banner has whoever was in the Kernel pool while it ran: Kernel #63 gains the batch, Kernel #62 and #24 closed before their moves', () => {
+  // Kernel #63 ran 2026/10/06-10/20; the batch joined Kernel Headhunting on 10/09, and the official
+  // permit range of that day (news/4814) already counts the seven 6★ among the pool's.
+  const k63 = simulated('Kernel #63 (Global)');
+  for (const name of MOVED_SIX) assert.ok(names(k63.otherSixStarPool).has(name), `Kernel #63 has ${name}`);
+  for (const name of MOVED_FIVE) assert.ok(names(k63.otherFiveStarPool).has(name), `Kernel #63 has ${name}`);
+  // Kernel #62 closed 10/06.
+  const k62 = simulated('Kernel #62 (Global)');
+  for (const name of MOVED_SIX) assert.ok(!names(k62.otherSixStarPool).has(name), `Kernel #62 has ${name}`);
+  // Kernel #24 closed at the 04:00 reset of 2024/12/17 that opened Kernel #25 and moved the
+  // second batch: Passenger is not in it, in any time zone.
+  assert.equal(props.kernelLookup.Passenger, '2024/12/17');
+  assert.ok(!names(simulated('Kernel #24 (Global)').otherSixStarPool).has('Passenger'));
+  assert.ok(names(k62.otherSixStarPool).has('Passenger'));
+});
+
+test('with the batch still recorded as Standard, as the records were until 2026-10-14, Standard Pool #177 gave it and Kernel Locating #13 did not', () => {
+  const howToObtainLookup = structuredClone(props.howToObtainLookup);
+  const kernelLookup = { ...props.kernelLookup };
+  for (const name of [...MOVED_SIX, ...MOVED_FIVE]) {
+    howToObtainLookup[name] = { ...howToObtainLookup[name], 'Standard Headhunting': 'Yes', 'Kernel Headhunting': 'No' };
+    delete kernelLookup[name];
+  }
+  const kernelExclusiveNames = props.kernelExclusiveNames.filter(name => ![...MOVED_SIX, ...MOVED_FIVE].includes(name));
+  const stale = { howToObtainLookup, kernelLookup, kernelExclusiveNames };
+  assert.ok(names(simulated('Standard Pool #177 (Global)', stale).otherSixStarPool).has('Goldenglow'));
+  assert.ok(!names(simulated('Kernel Locating #13 (Global)', stale).sixStarFeatured).has('Goldenglow'));
 });

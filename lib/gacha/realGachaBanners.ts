@@ -4,9 +4,10 @@ import { GachaIconPools } from './gachaIconPools';
 import { HeadhuntingBanner } from './headhuntingBanners';
 import { wasReleasedBy, getReleaseDate, ReleaseDateLookup } from '@/lib/operators/operatorReleaseDates';
 import { buildOperatorSeriesMap, bannerSeriesFromName, OperatorSeries } from '@/lib/operators/operatorSeries';
-import { wasInStandardPoolAsOf, KernelAdditionLookup } from '@/lib/operators/kernelAdditionDates';
+import { wasInKernelPoolDuring, wasInStandardPoolAsOf, KernelAdditionLookup } from '@/lib/operators/kernelAdditionDates';
 
 import { HowToObtainInfo } from '@/lib/operators/operatorTypes';
+import { buildEligiblePool } from './gachaOperatorEligibility';
 
 export type HowToObtainLookup = Record<string, HowToObtainInfo>;
 
@@ -188,6 +189,7 @@ export function buildRealBannerConfig(
   const mechanicType = getMechanicType(banner);
   const excludeSet = new Set(excludeSixStarNames);
   const bannerDate = parseBannerDate(banner);
+  const bannerEnd = parseBannerEndDate(banner);
 
   let featuredSixNames = banner.six_stars.filter((name) => !excludeSet.has(name));
   let rateUpSixNames = (banner.rate_up_six_stars || []).filter((name) => !excludeSet.has(name));
@@ -268,14 +270,16 @@ export function buildRealBannerConfig(
   // operators that exist in both pools simultaneously once released),
   // no date-gating applies -- they're not "exclusive" to kernel, so
   // there's no addition-date transition to check. Date-gating only
-  // applies to genuinely kernel-EXCLUSIVE operators.
+  // applies to genuinely kernel-EXCLUSIVE operators: in the Kernel pool
+  // at some point while the banner ran, i.e. moved before it closed (the
+  // same rule as isEligibleForKernelBanner, gachaOperatorEligibility.ts).
   function kernelEligible(name: string): boolean {
     const obtain = howToObtainLookup[name];
     if (!obtain) return false;
     if (obtain['Kernel Headhunting'] !== 'Yes') return false;
     if (obtain['Standard Headhunting'] === 'Yes') return true;
     if (!bannerDate) return true;
-    return !wasInStandardPoolAsOf(name, bannerDate, kernelLookup);
+    return wasInKernelPoolDuring(name, bannerDate, bannerEnd, kernelLookup);
   }
 
   function applySeriesFilter(pool: GachaItem[]): GachaItem[] {
@@ -360,4 +364,67 @@ export function buildRealBannerConfig(
     default:
       return { ...base, type: mechanicType, otherSixStarPool, otherFiveStarPool };
   }
+}
+
+/**
+ * The banner the simulator pulls from, before a reader's own choices (an Orienteering or Kernel
+ * Locating pick, a Celebration's owned operators, which pages/gacha.tsx applies on top):
+ * buildRealBannerConfig's lineup and pools, with each "everyone else" pool of all four rarities
+ * recomputed from the operators' own pool fields, release and kernel-addition dates
+ * (buildEligiblePool), which catches newer 6-star through 3-star operators the older series
+ * classification misses. Here, not in the page, so the tests pull from what the page does.
+ */
+export function simulatorBannerConfig(
+  banner: HeadhuntingBanner,
+  pools: GachaIconPools,
+  excludeSixStarNames: string[],
+  kernelLookup: KernelAdditionLookup,
+  releaseLookup: ReleaseDateLookup,
+  kernelExclusiveNames: Set<string>,
+  howToObtainLookup: HowToObtainLookup,
+  operatorSeriesMap: Record<string, OperatorSeries>
+): BannerConfig {
+  const base = buildRealBannerConfig(banner, pools, excludeSixStarNames, kernelLookup, releaseLookup, kernelExclusiveNames, howToObtainLookup, operatorSeriesMap);
+  const run = { start: parseBannerDate(banner), end: parseBannerEndDate(banner) };
+  const mechanicType = getMechanicType(banner);
+  const isKernelMechanic = mechanicType === 'kernel' || mechanicType === 'kernelLocating';
+  const featuredSixNames = new Set(base.sixStarFeatured.map((o) => o.name));
+  const featuredFiveNames = new Set(base.fiveStarFeatured.map((o) => o.name));
+  const featuredFourNames = new Set((base.fourStarFeatured || []).map((o) => o.name));
+
+  const eligibleOtherSix = buildEligiblePool(pools.six, howToObtainLookup, releaseLookup, kernelLookup, run, isKernelMechanic, featuredSixNames);
+  const eligibleOtherFive = buildEligiblePool(pools.five, howToObtainLookup, releaseLookup, kernelLookup, run, isKernelMechanic, featuredFiveNames);
+  const eligibleFour = buildEligiblePool(pools.four, howToObtainLookup, releaseLookup, kernelLookup, run, isKernelMechanic, featuredFourNames);
+  const eligibleThree = buildEligiblePool(pools.three, howToObtainLookup, releaseLookup, kernelLookup, run, isKernelMechanic);
+
+  // These mechanic types have NO "other" 6★/5★ pool at all -- the
+  // featured roster IS the entire 6★/5★ chance, full stop. Preserve
+  // buildRealBannerConfig's already-correctly-emptied values instead
+  // of letting the general eligibility override below repopulate them.
+  const noOtherPoolTypes = new Set(['orienteering', 'joint', 'celebration', 'trio']);
+  const hasNoOtherPool = noOtherPoolTypes.has(mechanicType);
+
+  // For Limited banners specifically, base.otherSixStarPool/otherFiveStarPool
+  // (from buildRealBannerConfig's series-matching logic) and
+  // eligibleOtherSix/eligibleOtherFive (from the Standard/Kernel-flag-based
+  // eligibility rules) each catch operators the other misses: base correctly
+  // includes genuinely Limited-exclusive operators via their derived series,
+  // which eligibleOtherSix has no concept of at all (it only checks Standard/
+  // Kernel Headhunting); eligibleOtherSix catches newer operators who may not
+  // yet be reflected in the series derivation. Letting eligibleOtherSix fully
+  // REPLACE base's result -- as this used to do -- silently dropped every
+  // Limited-exclusive operator whose howToObtain has neither flag set to
+  // "Yes", which is exactly what Limited-exclusive operators look like.
+  function mergeByName(a: GachaItem[], b: GachaItem[]): GachaItem[] {
+    const seen = new Set(a.map((item) => item.name));
+    return [...a, ...b.filter((item) => !seen.has(item.name))];
+  }
+
+  return {
+    ...base,
+    otherSixStarPool: hasNoOtherPool ? base.otherSixStarPool : mergeByName(base.otherSixStarPool, eligibleOtherSix),
+    otherFiveStarPool: hasNoOtherPool ? base.otherFiveStarPool : mergeByName(base.otherFiveStarPool, eligibleOtherFive),
+    fourStarPool: eligibleFour,
+    threeStarPool: eligibleThree,
+  };
 }

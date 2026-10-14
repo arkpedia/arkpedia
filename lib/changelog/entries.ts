@@ -34,6 +34,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-10-14T03:26:00Z',
+    title: 'Gacha pools that follow Kernel Headhunting',
+    changed: [
+      { title: 'Gacha pools follow Kernel Headhunting moves', detail: 'When Global moves operators from Standard to Kernel Headhunting, the simulator follows by the next day.', href: '/gacha' },
+    ],
+    fixed: [
+      { title: 'The October 9 Kernel Headhunting batch', detail: 'Goldenglow, Dorothy, Quercus and the rest of that batch leave Standard and limited pools from Standard Pool #177 on.', href: '/gacha' },
+      { title: 'Kernel banners running during a move', detail: 'Kernel #63 now includes the operators who joined Kernel Headhunting while it ran.', href: '/gacha' },
+    ],
+  },
+  {
     at: '2026-10-13T15:17:12Z',
     title: 'A clearer music player, selector videos and event news',
     added: [

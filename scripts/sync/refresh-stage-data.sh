@@ -195,6 +195,10 @@ stage stronghold-enemies --needs enemy-index -- node scripts/build/build-strongh
 # which reads the same client tables via build-content-windows.mjs.
 # Recurring Standard and Kernel banners first, so their windows are reconciled too.
 stage recurring-banners -- node scripts/sync/sync-recurring-banners.mjs
+# The operators Global moves from Standard to Kernel Headhunting, as the yearly banner page
+# states them, onto the records whose pool fields the gacha simulator and the pull planner read
+# (scripts/sync/kernel-pool.mjs). One way only: a move is never taken back.
+stage kernel-pool -- node scripts/sync/sync-kernel-pool.mjs
 stage event-windows -- node scripts/sync/sync-event-windows.mjs
 # Permanent RA themes are outside activity_table; import each launch by its stable topic ID.
 stage ra-releases -- node scripts/sync/sync-ra-releases.mjs

@@ -357,6 +357,28 @@ test('a CN record without a release date must be marked as future', () => {
   assert.equal(withCnRecord(op => { delete op.isFuture; op.characterInfo['Release Date'] = '2026/09/01'; }), '');
   assert.equal(withCnRecord(op => { delete op.isFuture; delete op.sourceRegion; op.characterInfo['Release Date'] = null; }), '');
 });
+test('a released operator without its Standard and Kernel Headhunting fields is held: no banner pool can have it', () => {
+  // The fields cannot be inferred from a release: 45 6★ are rightly in neither pool.
+  assert.match(withOperator(op => { op.howToObtain = null; }), /^Surtr: released on Global, but its record has no Standard Headhunting or Kernel Headhunting field \("Yes" or "No" under howToObtain\)/);
+  assert.match(withOperator(op => { delete op.howToObtain['Kernel Headhunting']; }), /^Surtr: released on Global, but its record has no Kernel Headhunting field/);
+  // Not on Global yet: a CN-only record (Clementia, Homebound and de Toledo have none), or a Global day still ahead.
+  assert.equal(withOperator(op => { op.howToObtain = null; Object.assign(op, { sourceRegion: 'CN', isFuture: true }); op.characterInfo['Release Date'] = null; }), '');
+  assert.equal(withOperator(op => { op.howToObtain = null; op.characterInfo['Release Date'] = '2026/12/01'; }), '');
+});
+test('the official Kernel pool lists reach the completeness stage: a record they contradict is held, and the release still goes out', () => {
+  // Post 4814's permit range lists Surtr among every 6★ in Kernel Headhunting on 2026-10-09.
+  const post = JSON.parse(fs.readFileSync('scripts/tests/fixtures/official-news/4814.json', 'utf8'));
+  const standard = costRecord();
+  standard.howToObtain = { ...standard.howToObtain, 'Standard Headhunting': 'Yes', 'Kernel Headhunting': 'No' };
+  const { errors, quarantine } = reviewCompleteness(emptyCatalogue({ operators: [standard], officialNews: [post] }));
+  assert.deepEqual(errors, []);
+  const surtr = (quarantine as Hold[]).filter(hold => hold.key === 'operator:char_350_surtr');
+  // Once for the permit's range and once for Kernel Locating #13, which the same post announces.
+  assert.deepEqual(surtr.map(hold => [hold.action, /^Surtr: the (.+?) in https:\/\/www\.arknights\.global\/news\/4814 has it in Kernel Headhunting by (\S+), but its record says Standard Headhunting "Yes" and Kernel Headhunting "No"/.exec(hold.reason)?.slice(1)]),
+    [['published-partial', ['Top Operator Transfer Permit - Kernel range', '2026/10/09']], ['published-partial', ['Kernel Locating opening 2026/10/20', '2026/10/20']]]);
+  // As recorded (kernel-exclusive since 2024/12/17), Surtr passes.
+  assert.deepEqual((reviewCompleteness(emptyCatalogue({ operators: [costRecord()], officialNews: [post] })).quarantine as Hold[]).filter(hold => hold.key.startsWith('operator:')), []);
+});
 test('the release-date guard makes the same call as the site', () => {
   const edges = [null, '', '  ', 'TBA', '2026/10/04', '2026-2-30', '2026/13/01', 'October 4, 2026']
     .map(date => ({ characterInfo: { 'Release Date': date } }));

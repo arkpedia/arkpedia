@@ -98,7 +98,10 @@ export function getBannerOdds(schedule: UpcomingBanner[]): Record<string, Banner
     const crossover = CROSSOVER_SOURCES[banner.poolId];
     const type = limited ? 'limited' : crossover ? 'crossover' : raw.pull_type === 'featured' && banner.ruleType === 'SINGLE' ? 'single' : ORIENTEERING_SOURCES[banner.poolId] ? 'orienteering' : null;
     if (!type || !raw.six_stars.length || !raw.five_stars.length) continue; // unknown special rules need verification
-    const ordinarySix = buildEligiblePool(pools.six, obtain, release, kernel, new Date(`${banner.start}T00:00:00`), false, new Set(raw.six_stars)).map(op => op.name);
+    // The schedule's Global days, at the server reset (04:00 UTC-7) that opens and closes them:
+    // the instants a Kernel Addition Date is read at (kernelMoveInstant).
+    const run = { start: new Date(`${banner.start}T11:00:00Z`), end: new Date(`${banner.end}T11:00:00Z`) };
+    const ordinarySix = buildEligiblePool(pools.six, obtain, release, kernel, run, false, new Set(raw.six_stars)).map(op => op.name);
     const operators: OddsOperator[] = [];
     const add = (name: string, rarity: 5 | 6, share: number, kind: OddsOperator['kind'], spark?: number) => {
       const icon = (rarity === 6 ? pools.six : pools.five).find(op => op.name === name)?.icon;

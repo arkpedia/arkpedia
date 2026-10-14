@@ -19,9 +19,20 @@
  *    Kernel Addition Date -- i.e. banners that ran while they were
  *    still in the standard pool, before they were moved to
  *    kernel-only status.
+ * 5. A banner whose run a move falls in -- Kernel #63 ran 2026/10/06 to
+ *    10/20, and Global moved seven 6★ and seven 5★ into Kernel
+ *    Headhunting on 10/09 -- is simulated with everyone it could give
+ *    at any time while it ran: such an operator is in the Standard
+ *    side's pool if the banner opened before the move (rule 4), and in
+ *    the Kernel side's if it closed after it. Global's own Top Operator
+ *    Transfer Permit range of 10/09 already counts the seven among "all
+ *    6★ Operators currently available in Kernel Headhunting", while
+ *    Kernel #63 still had eleven days to run. The day is the move's
+ *    server reset (kernelMoveInstant), the banner's ends instants.
  */
 
 import { HowToObtainInfo, HowToObtainValue } from '@/lib/operators/operatorTypes';
+import { kernelMoveInstant } from '@/lib/operators/kernelAdditionDates';
 
 // Re-exported under this file's original name so nothing importing
 // HowToObtain from here needs to change -- this now just aliases the
@@ -30,6 +41,14 @@ import { HowToObtainInfo, HowToObtainValue } from '@/lib/operators/operatorTypes
 // is exactly how this file's version drifted out of sync with the new
 // Welfare object schema in the first place).
 export type HowToObtain = HowToObtainInfo;
+
+/** A banner's run, as instants (parseBannerWindow): when it opened and when it closed. Either
+ *  may be unknown. Both ends are passed everywhere, so no caller can judge the Kernel side by
+ *  the opening alone (rule 5 above). */
+export interface BannerDates {
+  start: Date | null;
+  end: Date | null;
+}
 
 /**
  * Parses a date string robustly -- tries strict, unambiguous
@@ -83,10 +102,10 @@ export function isEligibleForKernelBanner(
   obtain: HowToObtain,
   releaseDate: Date | null,
   kernelAdditionDate: Date | null,
-  bannerDate: Date | null
+  banner: BannerDates
 ): boolean {
   if (!isYes(obtain['Kernel Headhunting'])) return false;
-  if (!hasReleasedBy(releaseDate, bannerDate)) return false;
+  if (!hasReleasedBy(releaseDate, banner.start)) return false;
 
   // Dual-pool operators (also Standard Headhunting eligible) aren't
   // exclusive to Kernel, so there's no addition-date transition to
@@ -95,13 +114,14 @@ export function isEligibleForKernelBanner(
   if (isYes(obtain['Standard Headhunting'])) return true;
 
   // Genuinely kernel-exclusive: only eligible for THIS kernel banner
-  // once it actually ran on or after the date they were added to the
-  // Kernel pool -- an older kernel banner shouldn't show operators who
-  // hadn't been moved into that pool yet, even if they'd already
-  // released through some other pool by then.
+  // if they were in the Kernel pool at some point while it ran -- moved
+  // before it closed (rule 5) -- so an older kernel banner doesn't show
+  // operators who hadn't been moved into that pool yet, even if they'd
+  // already released through some other pool by then.
   if (!kernelAdditionDate) return false; // no known transition date -- can't confirm they'd been added yet
-  if (!bannerDate) return true; // unknown banner date -- don't wrongly exclude
-  return bannerDate >= kernelAdditionDate;
+  if (banner.end) return kernelAdditionDate < banner.end;
+  if (!banner.start) return true; // unknown banner date -- don't wrongly exclude
+  return banner.start >= kernelAdditionDate;
 }
 
 /**
@@ -116,8 +136,9 @@ export function isEligibleForNonKernelBanner(
   obtain: HowToObtain,
   releaseDate: Date | null,
   kernelAdditionDate: Date | null,
-  bannerDate: Date | null
+  banner: BannerDates
 ): boolean {
+  const bannerDate = banner.start;
   const released = hasReleasedBy(releaseDate, bannerDate);
   if (!released) return false;
 
@@ -153,13 +174,13 @@ export function isEligibleForBanner(
   obtain: HowToObtain,
   releaseDate: Date | null,
   kernelAdditionDate: Date | null,
-  bannerDate: Date | null,
+  banner: BannerDates,
   isKernelMechanic: boolean
 ): boolean {
   if (!isHeadhuntingEligible(obtain)) return false;
   return isKernelMechanic
-    ? isEligibleForKernelBanner(obtain, releaseDate, kernelAdditionDate, bannerDate)
-    : isEligibleForNonKernelBanner(obtain, releaseDate, kernelAdditionDate, bannerDate);
+    ? isEligibleForKernelBanner(obtain, releaseDate, kernelAdditionDate, banner)
+    : isEligibleForNonKernelBanner(obtain, releaseDate, kernelAdditionDate, banner);
 }
 
 export interface GachaItemLike {
@@ -179,7 +200,7 @@ export function buildEligiblePool<T extends GachaItemLike>(
   obtainLookup: Record<string, HowToObtain>,
   releaseLookup: Record<string, string>,
   kernelAdditionLookup: Record<string, string>,
-  bannerDate: Date | null,
+  banner: BannerDates,
   isKernelMechanic: boolean,
   excludeNames: Set<string> = new Set()
 ): T[] {
@@ -188,7 +209,7 @@ export function buildEligiblePool<T extends GachaItemLike>(
     const obtain = obtainLookup[item.name];
     if (!obtain) return false; // no howToObtain data at all -- can't determine eligibility
     const releaseDate = parseOperatorDate(releaseLookup[item.name]);
-    const kernelAdditionDate = parseOperatorDate(kernelAdditionLookup[item.name]);
-    return isEligibleForBanner(obtain, releaseDate, kernelAdditionDate, bannerDate, isKernelMechanic);
+    const kernelAdditionDate = kernelMoveInstant(kernelAdditionLookup[item.name]);
+    return isEligibleForBanner(obtain, releaseDate, kernelAdditionDate, banner, isKernelMechanic);
   });
 }

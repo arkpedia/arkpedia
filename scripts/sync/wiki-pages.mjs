@@ -129,6 +129,17 @@ async function fetchWikiJson(url) {
   }
 }
 
+/**
+ * The wikitext of one page, through the same request and the same checks as readWikiRows:
+ * '' for this year's banner page before the wiki creates it (January only), else the text,
+ * or an Error whose message stays the same while the problem does (the request's own error
+ * is its cause, for the log). For a reader that needs more of a page than its template rows
+ * (sync-kernel-pool.mjs reads a section of prose).
+ */
+export async function readWikiText(page, now = new Date()) {
+  return wikiText(page, await fetchWikiJson(wikiParseUrl(page)), now);
+}
+
 function lastGoodRead(file) {
   try {
     const cached = JSON.parse(fs.readFileSync(file, 'utf8'));
@@ -154,7 +165,7 @@ export async function readWikiRows(root, page, template, { now = new Date(), ale
   const today = utcDay(now);
   let rows, problem;
   try {
-    const text = wikiText(page, await fetchWikiJson(wikiParseUrl(page)), now);
+    const text = await readWikiText(page, now);
     // The only excused absence: this year's banner page before the wiki creates it.
     if (!text) {
       console.warn(`${page} does not exist on the wiki yet; reading it as no rows until the end of January (UTC).`);
