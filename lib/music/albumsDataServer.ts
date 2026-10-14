@@ -12,6 +12,9 @@ import { lyricsPath } from './trackId';
 import { getAllOperators } from '@/lib/operators/operators';
 import { getOperatorAppearances } from '@/lib/operators/operatorAppearances';
 import { normalizeReleaseDate, parseReleaseDate } from './releaseDate.mjs';
+import { characterPortrait } from './characterPortraits.mjs';
+import { artistFacets } from './artistCredits';
+import { servedAssetExists } from '@/lib/assets/publicAssets';
 
 export interface CharacterArt {
   name: string;
@@ -58,11 +61,13 @@ function getRarityMap(): Map<string, number | null> {
   return rarityByName;
 }
 
+/** A character's art: an operator's Base outfit, else the game's own portrait of a character
+ *  who is not one (lib/music/characterPortraits.mjs), else null and the page draws initials. */
 function resolveCharacterArt(names: string[], prefer: 'icon' | 'full' = 'full'): CharacterArt[] {
   const rarities = getRarityMap();
   return names.map((name) => {
     const rarity = rarities.get(name);
-    if (rarity == null) return { name, path: null };
+    if (rarity == null) return { name, path: characterPortrait(name, servedAssetExists) };
     const appearances = getOperatorAppearances({ name, rarity });
     const base = appearances.find((a) => a.label.toLowerCase() === 'base');
     const path = prefer === 'icon' ? base?.iconPath || base?.fullPath || null : base?.fullPath || base?.iconPath || null;
@@ -328,7 +333,7 @@ export interface DiscoverPageData {
   songs: DiscoverSong[];
   characters: DiscoverCharacter[]; // sorted by mostRecentDate desc, NOT by count -- see DiscoverCharacter's own comment
   origins: DiscoverFacet[]; // sorted by count desc -- the story event an album is tied to. NO "unspecified" bucket like genre's Ungenred: most operator EPs simply aren't tied to any event at all, so a catch-all bucket here would just be "most of the catalog" and add no discovery value. Songs with no origin are omitted from this facet entirely, same as characters already does.
-  artists: DiscoverFacet[]; // sorted by count desc
+  artists: DiscoverFacet[]; // one entry per artist (lib/music/artistCredits.ts), most songs first, then by name
   recentAlbums: DiscoverAlbum[]; // sorted by releaseDate desc, capped
   pendingSongs: DiscoverPendingSong[];
 }
@@ -385,7 +390,6 @@ export function discoverPageData(rawAlbums: readonly RawAlbum[]): DiscoverPageDa
   }));
 
   const allCharacterNames = fullSongs.flatMap((s) => s.characters);
-  const allArtistNames = fullSongs.map((s) => s.artist).filter((a): a is string => !!a);
   const allOriginNames = fullSongs.flatMap((s) => s.origin);
 
   const albums = albumSummaries(rawAlbums);
@@ -445,7 +449,7 @@ export function discoverPageData(rawAlbums: readonly RawAlbum[]): DiscoverPageDa
     songs,
     characters,
     origins: countBy(allOriginNames),
-    artists: countBy(allArtistNames),
+    artists: artistFacets(songs),
     recentAlbums,
     pendingSongs,
   };
@@ -480,5 +484,20 @@ export function discoverFromRelease<P extends DiscoverReleaseProps>(props: P): P
     ...props,
     pendingSongs: Array.isArray(props.pendingSongs) ? props.pendingSongs : [],
     recentAlbums: props.recentAlbums.map((a) => (typeof a.playable === 'boolean' ? a as DiscoverAlbum : { ...a, playable: onYouTube.has(a.albumId) })),
+  };
+}
+
+/**
+ * What the page draws from a release's props, by this code's rules rather than the rules of the
+ * code that compiled the release: the artists split, folded and counted (artistFacets), and a
+ * portrait for every character the release left without one (characterPortraits.mjs). A release
+ * compiled before either rule listed combined credits and drew an empty square for the Doctor;
+ * this way the deploy alone fixes both, with no new release.
+ */
+export function discoverForDisplay<P extends Pick<DiscoverPageData, 'songs' | 'characters' | 'artists'>>(props: P): P {
+  return {
+    ...props,
+    artists: artistFacets(props.songs),
+    characters: props.characters.map((c) => (c.artPath ? c : { ...c, artPath: characterPortrait(c.name, servedAssetExists) })),
   };
 }

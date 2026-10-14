@@ -13,7 +13,7 @@ import { useHeightFloor } from '@/components/ui/useHeightFloor';
 import { useMusicPlayer } from '@/lib/music/musicPlayerContext';
 import { useQueryState } from '@/lib/hooks/useQueryState';
 import AlbumCover from '@/components/music/AlbumCover';
-import { discoverFromRelease, getDiscoverPageData, DiscoverSong, DiscoverFacet, DiscoverCharacter, DiscoverAlbum, DiscoverPendingSong } from '@/lib/music/albumsDataServer';
+import { discoverForDisplay, discoverFromRelease, getDiscoverPageData, DiscoverSong, DiscoverFacet, DiscoverCharacter, DiscoverAlbum, DiscoverPendingSong } from '@/lib/music/albumsDataServer';
 import LoadOnScroll from '@/components/ui/LoadOnScroll';
 import MusicNav from '@/components/music/MusicNav';
 import MusicPlaylists from '@/components/music/MusicPlaylists';
@@ -21,6 +21,8 @@ import MusicTransportBar from '@/components/music/MusicTransportBar';
 import SongRow from '@/components/music/SongRow';
 import { createSongIndex } from '@/lib/music/songSearch';
 import { msrTrackId } from '@/lib/music/trackId';
+import { artistKey, creditedArtists, creditsArtist } from '@/lib/music/artistCredits';
+import { characterInitials } from '@/lib/music/characterPortraits.mjs';
 
 interface Props {
   songs: DiscoverSong[];
@@ -49,6 +51,20 @@ const ROW_PREVIEW_COUNT = 24;
 // obvious, inviting entry point; one with just a song or two stays
 // small and specific, which is exactly what invites "wait, what's
 // that?" curiosity rather than looking like an afterthought.
+/** A character's tile picture: their art, or their initials where the game has none we
+ *  publish (lib/music/characterPortraits.mjs), never an empty square. */
+function CharacterPortrait({ name, artPath }: { name: string; artPath: string | null | undefined }) {
+  return (
+    <div className="music-discover-character-portrait">
+      {artPath
+        ? <Image src={artPath} alt="" width={64} height={64} />
+        : <span className="music-discover-character-initials" aria-hidden="true">{characterInitials(name)}</span>}
+    </div>
+  );
+}
+
+const songCount = (count: number) => `${count} song${count === 1 ? '' : 's'}`;
+
 function weightedPillSize(count: number, maxCount: number): number {
   if (maxCount <= 1) return 14;
   const t = Math.sqrt(count / maxCount); // sqrt compresses the range so one huge outlier doesn't shrink everything else to illegibility
@@ -66,10 +82,10 @@ const EMPTY_FACETS: FacetState = { character: null, artist: null, origin: null, 
 /** A browse collection: a ScrollRow of previews, or every item wrapped once "Show all"
  *  is on. The row scrolls under the site's drawn bar; its old overlay bar was invisible
  *  and the "room for the scrollbar" padding under it reserved nothing. */
-function Collection({ id, label, expanded, cloud = false, children }: { id: string; label: string; expanded: boolean; cloud?: boolean; children: ReactNode }) {
+function Collection({ id, label, expanded, cloud = false, grid = false, children }: { id: string; label: string; expanded: boolean; cloud?: boolean; grid?: boolean; children: ReactNode }) {
   const className = `music-discover-row${cloud ? ' music-discover-cloud-row' : ''}`;
   return expanded
-    ? <div id={id} className={`${className} expanded`}>{children}</div>
+    ? <div id={id} className={`${className} expanded${grid ? ' music-discover-grid' : ''}`}>{children}</div>
     : <div id={id}><ScrollRow label={label} className={className}>{children}</ScrollRow></div>;
 }
 
@@ -130,7 +146,8 @@ export default function DiscoverPage({ songs, characters, origins, artists, rece
   // page -- it filters inline exactly like character/artist/origin do.
   const inFacets = useMemo(() => (s: DiscoverSong | DiscoverPendingSong) =>
     (!facets.character || s.characters.includes(facets.character))
-    && (!facets.artist || s.artist === facets.artist)
+    // Every song that credits the artist, alone or with others (lib/music/artistCredits.ts).
+    && (!facets.artist || creditsArtist(s.artist, facets.artist))
     && (!facets.origin || s.origin.includes(facets.origin))
     && (!facets.albumId || s.albumId === facets.albumId), [facets]);
   // The music pages' one song search (lib/music/songSearch.ts): title, album in both names,
@@ -172,9 +189,9 @@ export default function DiscoverPage({ songs, characters, origins, artists, rece
   }, [filteredSongs]);
 
   const resultArtists = useMemo(() => {
-    const seen = new Set<string>();
-    for (const s of filteredSongs) if (s.artist) seen.add(s.artist);
-    return Array.from(seen);
+    const seen = new Map<string, string>();
+    for (const s of filteredSongs) for (const name of creditedArtists(s.artist)) if (!seen.has(artistKey(name))) seen.set(artistKey(name), name);
+    return Array.from(seen.values());
   }, [filteredSongs]);
 
   const resultCharacters = useMemo(() => {
@@ -212,7 +229,15 @@ export default function DiscoverPage({ songs, characters, origins, artists, rece
   const maxOriginCount = origins[0]?.count || 1;
   const visibleCharacters = browseCollection === 'characters' ? characters : characters.slice(0, ROW_PREVIEW_COUNT);
   const visibleOrigins = browseCollection === 'origins' ? origins : origins.slice(0, ROW_PREVIEW_COUNT);
-  const visibleArtists = browseCollection === 'artists' ? artists : artists.slice(0, ROW_PREVIEW_COUNT);
+  /* Featured artists: one card per artist with their song count, most songs first. Show all
+     lists every one in a grid, with a filter to find a name among them. */
+  const [artistFilter, setArtistFilter] = useState('');
+  const artistsExpanded = browseCollection === 'artists';
+  const visibleArtists = useMemo(() => {
+    if (!artistsExpanded) return artists.slice(0, ROW_PREVIEW_COUNT);
+    const wanted = artistKey(artistFilter.trim());
+    return wanted ? artists.filter((a) => artistKey(a.name).includes(wanted)) : artists;
+  }, [artists, artistsExpanded, artistFilter]);
 
   const activeFacetLabel = facets.character || facets.origin || facets.artist || (facets.albumId && resultAlbums[0]?.albumName) || null;
   /* "Show less" folds a wrapped collection (hundreds of tiles) back to one row. Pressed
@@ -323,9 +348,7 @@ export default function DiscoverPage({ songs, characters, origins, artists, rece
                       className="btn-bare music-discover-character-tile"
                       onClick={() => setFacets({ ...EMPTY_FACETS, character: name })}
                     >
-                      <div className="music-discover-character-portrait">
-                        {artByName.get(name) ? <Image src={artByName.get(name) as string} alt="" width={64} height={64} /> : null}
-                      </div>
+                      <CharacterPortrait name={name} artPath={artByName.get(name)} />
                       <span className="music-discover-character-name">{name}</span>
                     </button>
                   ))}
@@ -367,9 +390,9 @@ export default function DiscoverPage({ songs, characters, origins, artists, rece
                     type="button"
                     className="btn-bare music-discover-character-tile"
                     onClick={() => setFacets({ ...EMPTY_FACETS, character: c.name })}
-                    title={`${c.count} song${c.count === 1 ? '' : 's'}`}
+                    title={songCount(c.count)}
                   >
-                    <div className="music-discover-character-portrait">{c.artPath && <Image src={c.artPath} alt="" width={64} height={64} />}</div>
+                    <CharacterPortrait name={c.name} artPath={c.artPath} />
                     <span className="music-discover-character-name">{c.name}</span>
                   </button>
                 ))}
@@ -390,7 +413,7 @@ export default function DiscoverPage({ songs, characters, origins, artists, rece
                       className="btn-bare music-discover-origin-pill"
                       style={{ fontSize: weightedPillSize(o.count, maxOriginCount) }}
                       onClick={() => setFacets({ ...EMPTY_FACETS, origin: o.name })}
-                      title={`${o.count} song${o.count === 1 ? '' : 's'}`}
+                      title={songCount(o.count)}
                     >
                       {o.name}
                     </button>
@@ -404,13 +427,21 @@ export default function DiscoverPage({ songs, characters, origins, artists, rece
                 <h2>Featured artists</h2>
                 {artists.length > ROW_PREVIEW_COUNT && showAllButton('artists', 'discover-artists')}
               </div>
-              <Collection id="discover-artists" label="Artists" expanded={browseCollection === 'artists'}>
+              {artistsExpanded && (
+                <div className="music-discover-artist-filter">
+                  <SearchInput label="Filter artists" name="discover-artist-filter" placeholder={`Filter ${artists.length} artists…`}
+                    value={artistFilter} onChange={setArtistFilter} />
+                </div>
+              )}
+              <Collection id="discover-artists" label="Artists" expanded={artistsExpanded} grid>
                 {visibleArtists.map((a) => (
-                  <button key={a.name} type="button" className="filter-chip music-discover-artist-pill" onClick={() => setFacets({ ...EMPTY_FACETS, artist: a.name })}>
-                    {a.name}
+                  <button key={a.name} type="button" className="btn-bare music-discover-artist-card" onClick={() => setFacets({ ...EMPTY_FACETS, artist: a.name })}>
+                    <span className="music-discover-artist-name">{a.name}</span>
+                    <span className="music-discover-artist-count">{songCount(a.count)}</span>
                   </button>
                 ))}
               </Collection>
+              {artistsExpanded && visibleArtists.length === 0 && <p className="hint">No artist matches “{artistFilter.trim()}”.</p>}
             </section>
           </>
         )}
@@ -427,5 +458,6 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/mu
   return { props: data };
 }, {
   // The live release can be one compiled before pendingSongs and playable existed.
-  finalize: async (props) => discoverFromRelease(props),
+  // The artists and the characters' portraits by this code's rules, whichever release it renders.
+  finalize: async (props) => discoverForDisplay(discoverFromRelease(props)),
 });

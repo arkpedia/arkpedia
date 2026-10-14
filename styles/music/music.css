@@ -673,9 +673,25 @@
 
 .music-discover-artist-pill { flex-shrink: 0; }
 
+/* Featured artists: one card per artist, name over song count, most songs first
+   (lib/music/artistCredits.ts). A fixed-width card in the preview row; with Show all, a
+   grid that fills the frame, under a filter for finding a name among a hundred. */
+.music-discover-artist-card { display: flex; flex-direction: column; flex-shrink: 0; align-items: flex-start; justify-content: center; gap: 2px; width: 180px; min-height: 56px; padding: 8px 12px; border: 1px solid var(--line-soft); border-radius: var(--radius-control); color: var(--text); text-align: left; cursor: pointer; }
+.music-discover-artist-card:hover,
+.music-discover-artist-card:focus-visible { border-color: var(--teal); }
+.music-discover-artist-name { max-width: 100%; overflow: hidden; font-size: 13px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.music-discover-artist-card:hover .music-discover-artist-name { color: var(--teal); }
+.music-discover-artist-count { color: var(--text-dim); font-size: 11px; }
+.music-discover-row.expanded.music-discover-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.music-discover-grid .music-discover-artist-card { width: auto; min-width: 0; }
+.music-discover-artist-filter { max-width: 420px; margin-bottom: 12px; }
+
 .music-discover-character-tile { display: flex; flex-direction: column; flex-shrink: 0; align-items: center; gap: 6px; width: 72px; padding: 0; color: var(--text-dim); cursor: pointer; }
 .music-discover-character-portrait { width: 64px; height: 64px; overflow: hidden; border: 1px solid transparent; border-radius: var(--radius-control); background: var(--panel-2); background-clip: padding-box; transition: border-color 0.15s ease; }
 .music-discover-character-portrait img { width: 100%; height: 100%; object-fit: cover; }
+/* A character the game draws no art of that we publish: their initials, in the heading's
+   teal on the tile's ground, so the tile reads as deliberate rather than as art that failed. */
+.music-discover-character-initials { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; color: var(--teal); font-family: var(--font-display); font-size: 22px; font-weight: 700; letter-spacing: 0.04em; }
 .music-discover-character-tile:hover .music-discover-character-portrait { border-color: var(--teal); }
 .music-discover-character-name { max-width: 100%; overflow: hidden; font-size: 11px; text-align: center; text-overflow: ellipsis; white-space: nowrap; }
 .music-discover-character-tile:hover .music-discover-character-name { color: var(--teal); }
