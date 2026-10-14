@@ -535,7 +535,7 @@ test('/stages/content/[id] works out the scene the previous release does not car
   }
 });
 
-test('/music/discover gives the previous release\'s props pendingSongs and a playable flag per album', async () => {
+test('/music/discover gives the previous release\'s props pendingSongs, a playable flag per album and Browse by album\'s list', async () => {
   const { page, props } = await fromPreviousRelease('/music/discover');
   const raw = (JSON.parse(previousPage('/music/discover')) as { props: Record<string, unknown> }).props;
   assert.ok(!('pendingSongs' in raw), 'the fixture is a release from before pendingSongs');
@@ -547,6 +547,12 @@ test('/music/discover gives the previous release\'s props pendingSongs and a pla
   // It listed only albums with a song on YouTube, and each of them is in its songs.
   assert.ok(albums.every((album) => album.playable === true), 'every recent album of that release is playable');
   assert.doesNotMatch(renderPage(page.default, props), /Not on YouTube yet/, 'no recent album says it is not on YouTube');
+  // Browse by album (2026-10-14): that release has no list of albums; its songs give one.
+  assert.ok(!('albums' in raw), 'the fixture is a release from before Browse by album');
+  const browse = props.albums as { albumId: string; songCount: number }[];
+  assert.equal(browse.length, new Set((props.songs as { albumId: string }[]).map((s) => s.albumId)).size, 'one entry per album its songs name');
+  assert.deepEqual(browse.slice(0, albums.length).map((a) => a.albumId), albums.map((a) => a.albumId), 'Recently added\'s albums lead, in its order');
+  assert.match(renderPage(page.default, props), /Browse by album/);
 });
 
 test('a release this code compiled passes through unchanged', () => {

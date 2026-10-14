@@ -670,6 +670,15 @@
 .music-discover-album-tile-cover.music-album-cover-placeholder { display: flex; font-size: 26px; }
 .music-discover-album-tile-name { display: block; overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .music-discover-album-tile:hover .music-discover-album-tile-name { color: var(--teal); }
+/* Browse by album's Show all: a grid of covers the size of Recently added's (three across on a
+   phone), each name on up to two lines and its song count under it, as Monster Siren lists them. */
+.music-discover-row.expanded.music-discover-grid.music-discover-album-row { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 16px 12px; }
+.music-discover-album-row.expanded .music-discover-album-tile { width: auto; min-width: 0; gap: 6px; }
+.music-discover-album-row.expanded .music-discover-album-tile-name { display: -webkit-box; min-height: 2.7em; overflow: hidden; line-height: 1.35; white-space: normal; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
+.music-discover-album-tile-count { margin-top: -2px; color: var(--text-dim); font-size: 11px; }
+.music-discover-album-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-bottom: 12px; }
+.music-discover-album-tools .music-discover-artist-filter { flex: 1 1 260px; margin-bottom: 0; }
+.music-discover-album-order { display: flex; gap: 6px; }
 
 .music-discover-artist-pill { flex-shrink: 0; }
 

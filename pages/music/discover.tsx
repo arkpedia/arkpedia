@@ -13,13 +13,13 @@ import { useHeightFloor } from '@/components/ui/useHeightFloor';
 import { useMusicPlayer } from '@/lib/music/musicPlayerContext';
 import { useQueryState } from '@/lib/hooks/useQueryState';
 import AlbumCover from '@/components/music/AlbumCover';
-import { discoverForDisplay, discoverFromRelease, getDiscoverPageData, DiscoverSong, DiscoverFacet, DiscoverCharacter, DiscoverAlbum, DiscoverPendingSong } from '@/lib/music/albumsDataServer';
+import { discoverForDisplay, discoverFromRelease, getDiscoverPageData, DiscoverSong, DiscoverFacet, DiscoverCharacter, DiscoverAlbum, DiscoverBrowseAlbum, DiscoverPendingSong } from '@/lib/music/albumsDataServer';
 import LoadOnScroll from '@/components/ui/LoadOnScroll';
 import MusicNav from '@/components/music/MusicNav';
 import MusicPlaylists from '@/components/music/MusicPlaylists';
 import MusicTransportBar from '@/components/music/MusicTransportBar';
 import SongRow from '@/components/music/SongRow';
-import { createSongIndex } from '@/lib/music/songSearch';
+import { createSongIndex, normalizeSearch } from '@/lib/music/songSearch';
 import { msrTrackId } from '@/lib/music/trackId';
 import { artistKey, creditedArtists, creditsArtist } from '@/lib/music/artistCredits';
 import { characterInitials } from '@/lib/music/characterPortraits.mjs';
@@ -30,6 +30,7 @@ interface Props {
   origins: DiscoverFacet[];
   artists: DiscoverFacet[];
   recentAlbums: DiscoverAlbum[];
+  albums: DiscoverBrowseAlbum[];
   pendingSongs: DiscoverPendingSong[];
 }
 
@@ -82,14 +83,31 @@ const EMPTY_FACETS: FacetState = { character: null, artist: null, origin: null, 
 /** A browse collection: a ScrollRow of previews, or every item wrapped once "Show all"
  *  is on. The row scrolls under the site's drawn bar; its old overlay bar was invisible
  *  and the "room for the scrollbar" padding under it reserved nothing. */
-function Collection({ id, label, expanded, cloud = false, grid = false, children }: { id: string; label: string; expanded: boolean; cloud?: boolean; grid?: boolean; children: ReactNode }) {
-  const className = `music-discover-row${cloud ? ' music-discover-cloud-row' : ''}`;
+function Collection({ id, label, expanded, cloud = false, grid = false, albums = false, children }: { id: string; label: string; expanded: boolean; cloud?: boolean; grid?: boolean; albums?: boolean; children: ReactNode }) {
+  const className = `music-discover-row${cloud ? ' music-discover-cloud-row' : ''}${albums ? ' music-discover-album-row' : ''}`;
   return expanded
     ? <div id={id} className={`${className} expanded${grid ? ' music-discover-grid' : ''}`}>{children}</div>
     : <div id={id}><ScrollRow label={label} className={className}>{children}</ScrollRow></div>;
 }
 
-export default function DiscoverPage({ songs, characters, origins, artists, recentAlbums, pendingSongs }: Props) {
+type AlbumOrder = 'newest' | 'name';
+
+/** An album tile: its cover and its English name (its own where it has none), the song count
+ *  once the albums are a grid. Opens the album's songs in place, as Recently added does. */
+function AlbumTile({ album, withCount, onOpen }: { album: Pick<DiscoverBrowseAlbum, 'albumName' | 'albumAltName' | 'coverPath'> & { songCount?: number }; withCount: boolean; onOpen: () => void }) {
+  const original = album.albumName && album.albumName !== album.albumAltName ? album.albumName : null;
+  const count = typeof album.songCount === 'number' ? songCount(album.songCount) : null;
+  return (
+    <button type="button" className="btn-bare music-discover-album-tile" onClick={onOpen}
+      title={[album.albumAltName, original, withCount ? null : count].filter(Boolean).join(' · ')}>
+      <AlbumCover coverPath={album.coverPath} size={120} className="music-discover-album-tile-cover" />
+      <span className="music-discover-album-tile-name">{album.albumAltName}</span>
+      {withCount && count && <span className="music-discover-album-tile-count">{count}</span>}
+    </button>
+  );
+}
+
+export default function DiscoverPage({ songs, characters, origins, artists, recentAlbums, albums, pendingSongs }: Props) {
   const { playNow, queueSong, videoId: playingId, queued, favorites, toggleFavorite, libraryTracks } = useMusicPlayer();
   // The player bar's album art, as on /music: this page's songs carry their covers.
   const coverByVideoId = useMemo(() => new Map([...songs, ...pendingSongs].map((s) => [trackIdOf(s), s.coverPath])), [songs, pendingSongs]);
@@ -239,6 +257,35 @@ export default function DiscoverPage({ songs, characters, origins, artists, rece
     return wanted ? artists.filter((a) => artistKey(a.name).includes(wanted)) : artists;
   }, [artists, artistsExpanded, artistFilter]);
 
+  /* Browse by album (2026-10-14), as Monster Siren's own site lists them: every album's cover
+     and name. The row starts where Recently added stops, so the two rows above each other
+     never show the same covers; Show all lists every album, newest first or by name, with a
+     filter that reads both its English and its own name. */
+  const [albumFilter, setAlbumFilter] = useState('');
+  const [albumOrder, setAlbumOrder] = useState<AlbumOrder>('newest');
+  const albumsExpanded = browseCollection === 'albums';
+  const recentAlbumIds = useMemo(() => new Set(recentAlbums.map((a) => a.albumId)), [recentAlbums]);
+  // An album's own name from the player's catalogue too, for a release whose albums lack it.
+  const albumOriginals = useMemo(() => {
+    const byAlbum = new Map<string, string>();
+    for (const s of songs) { const own = originals.get(s.videoId); if (own && !byAlbum.has(s.albumId)) byAlbum.set(s.albumId, own); }
+    return byAlbum;
+  }, [songs, originals]);
+  const visibleAlbums = useMemo(() => {
+    if (!albumsExpanded) {
+      const past = albums.filter((a) => !recentAlbumIds.has(a.albumId));
+      return (past.length ? past : albums).slice(0, ROW_PREVIEW_COUNT);
+    }
+    const wanted = normalizeSearch(albumFilter);
+    const matching = wanted
+      ? albums.filter((a) => [a.albumAltName, a.albumName, albumOriginals.get(a.albumId) ?? ''].some((name) => normalizeSearch(name).includes(wanted)))
+      : albums;
+    return albumOrder === 'name'
+      ? [...matching].sort((a, b) => a.albumAltName.localeCompare(b.albumAltName, 'en', { numeric: true, sensitivity: 'base' }))
+      : matching;
+  }, [albums, albumsExpanded, albumFilter, albumOrder, recentAlbumIds, albumOriginals]);
+  const openAlbum = (albumId: string) => setFacets({ ...EMPTY_FACETS, albumId });
+
   const activeFacetLabel = facets.character || facets.origin || facets.artist || (facets.albumId && resultAlbums[0]?.albumName) || null;
   /* "Show less" folds a wrapped collection (hundreds of tiles) back to one row. Pressed
      from low on the page it took 373px (1440) / 344px (390) out from under the reader;
@@ -363,20 +410,34 @@ export default function DiscoverPage({ songs, characters, origins, artists, rece
                 <h2>Recently added</h2>
               </div>
               <ScrollRow label="Recently added albums" className="music-discover-row">
-                {recentAlbums.map((a) => (
-                  <button
-                    key={a.albumId}
-                    type="button"
-                    className="btn-bare music-discover-album-tile"
-                    onClick={() => setFacets({ ...EMPTY_FACETS, albumId: a.albumId })}
-                    title={a.albumAltName}
-                  >
-                    <AlbumCover coverPath={a.coverPath} size={120} className="music-discover-album-tile-cover" />
-                    <span className="music-discover-album-tile-name">{a.albumAltName}</span>
-                  </button>
-                ))}
+                {recentAlbums.map((a) => <AlbumTile key={a.albumId} album={a} withCount={false} onOpen={() => openAlbum(a.albumId)} />)}
               </ScrollRow>
             </section>
+
+            {albums.length > 0 && (
+              <section className="op-section music-discover-section">
+                <div className="music-discover-section-heading">
+                  <h2>Browse by album</h2>
+                  {albums.length > ROW_PREVIEW_COUNT && showAllButton('albums', 'discover-albums')}
+                </div>
+                {albumsExpanded && (
+                  <div className="music-discover-album-tools">
+                    <div className="music-discover-artist-filter">
+                      <SearchInput label="Filter albums" name="discover-album-filter" placeholder={`Filter ${albums.length} albums…`}
+                        value={albumFilter} onChange={setAlbumFilter} />
+                    </div>
+                    <div role="group" aria-label="Order albums" className="music-discover-album-order">
+                      <button type="button" className="filter-chip" aria-pressed={albumOrder === 'newest'} onClick={() => setAlbumOrder('newest')}>Newest</button>
+                      <button type="button" className="filter-chip" aria-pressed={albumOrder === 'name'} onClick={() => setAlbumOrder('name')}>A–Z</button>
+                    </div>
+                  </div>
+                )}
+                <Collection id="discover-albums" label="Albums" expanded={albumsExpanded} grid albums>
+                  {visibleAlbums.map((a) => <AlbumTile key={a.albumId} album={a} withCount={albumsExpanded} onOpen={() => openAlbum(a.albumId)} />)}
+                </Collection>
+                {albumsExpanded && visibleAlbums.length === 0 && <p className="hint">No album matches “{albumFilter.trim()}”.</p>}
+              </section>
+            )}
 
             <section className="op-section music-discover-section">
               <div className="music-discover-section-heading">

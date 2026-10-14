@@ -315,6 +315,20 @@ export interface DiscoverAlbum {
   playable: boolean;
 }
 
+/** An album as Browse by album lists it: every album with a song the player can play. */
+export interface DiscoverBrowseAlbum {
+  albumId: string;
+  /** Its own name, often Chinese. */
+  albumName: string;
+  /** Its English name, or its own where it has none: what the tile shows. */
+  albumAltName: string;
+  coverPath: string | null;
+  /** YYYY/MM/DD, or '' when unknown (such an album is listed after every dated one). */
+  releaseDate: string;
+  /** The songs its tile opens: those on YouTube and those only Monster Siren has. */
+  songCount: number;
+}
+
 /** A song Monster Siren published that has no YouTube videoId yet, so the player cannot queue
  * it; Discover lists it with a link to the song on Monster Siren instead. */
 export interface DiscoverPendingSong {
@@ -335,6 +349,8 @@ export interface DiscoverPageData {
   origins: DiscoverFacet[]; // sorted by count desc -- the story event an album is tied to. NO "unspecified" bucket like genre's Ungenred: most operator EPs simply aren't tied to any event at all, so a catch-all bucket here would just be "most of the catalog" and add no discovery value. Songs with no origin are omitted from this facet entirely, same as characters already does.
   artists: DiscoverFacet[]; // one entry per artist (lib/music/artistCredits.ts), most songs first, then by name
   recentAlbums: DiscoverAlbum[]; // sorted by releaseDate desc, capped
+  /** Every album, newest first, undated last: Browse by album. */
+  albums: DiscoverBrowseAlbum[];
   pendingSongs: DiscoverPendingSong[];
 }
 
@@ -356,6 +372,17 @@ export function newestFirst<T extends { releaseDate: string }>(albums: T[]): T[]
     .map((album) => ({ album, day: parseReleaseDate(normalizeReleaseDate(album.releaseDate)) }))
     .filter((row): row is { album: T; day: number } => row.day !== null)
     .sort((a, b) => b.day - a.day)
+    .map((row) => row.album);
+}
+
+/**
+ * Every album newest first by the day it names, the undated ones after them in the catalogue's
+ * order. Unlike newestFirst nothing is left out: Browse by album lists the whole catalogue.
+ */
+export function newestFirstKeepingUndated<T extends { releaseDate: string }>(albums: readonly T[]): T[] {
+  return albums
+    .map((album, index) => ({ album, index, day: releaseDay(normalizeReleaseDate(album.releaseDate) ?? '') }))
+    .sort((a, b) => (b.day === a.day ? a.index - b.index : b.day > a.day ? 1 : -1))
     .map((row) => row.album);
 }
 
@@ -445,26 +472,70 @@ export function discoverPageData(rawAlbums: readonly RawAlbum[]): DiscoverPageDa
       playable: a.songCount > 0,
     }));
 
+  // Every album with a song to play; albumSummaries leaves out an album with none, and a song
+  // with no YouTube upload plays from Monster Siren, so no album is listed that opens on nothing.
+  const browseAlbums: DiscoverBrowseAlbum[] = newestFirstKeepingUndated(albums).map((a) => ({
+    albumId: a.albumId,
+    albumName: a.albumName,
+    albumAltName: a.albumAltName,
+    coverPath: a.coverPath,
+    releaseDate: a.releaseDate,
+    songCount: a.songCount + a.pendingCount,
+  }));
+
   return {
     songs,
     characters,
     origins: countBy(allOriginNames),
     artists: artistFacets(songs),
     recentAlbums,
+    albums: browseAlbums,
     pendingSongs,
   };
 }
 
+/**
+ * Browse by album's list from what a release compiled before it existed does carry: one entry
+ * per album its songs name, in the order they name them, with the counts its tile opens on. The
+ * dates come from Recently added, the only albums such a release dates, so those lead (newest
+ * first) and the rest follow newest first by the catalogue's order, which adds each album after
+ * the ones before it. The next release this code compiles carries the real list.
+ */
+export function browseAlbumsFromSongs(
+  songs: readonly Pick<DiscoverSong, 'albumId' | 'albumName' | 'coverPath'>[],
+  recentAlbums: readonly Pick<DiscoverAlbum, 'albumId' | 'albumName' | 'albumAltName' | 'releaseDate'>[],
+): DiscoverBrowseAlbum[] {
+  const recent = new Map(recentAlbums.map((a) => [a.albumId, a]));
+  const byId = new Map<string, DiscoverBrowseAlbum>();
+  for (const song of songs) {
+    const known = byId.get(song.albumId);
+    if (known) { known.songCount += 1; continue; }
+    const dated = recent.get(song.albumId);
+    byId.set(song.albumId, {
+      albumId: song.albumId,
+      albumName: dated?.albumName ?? song.albumName,
+      albumAltName: dated?.albumAltName ?? song.albumName,
+      coverPath: song.coverPath,
+      releaseDate: dated?.releaseDate ?? '',
+      songCount: 1,
+    });
+  }
+  const all = Array.from(byId.values());
+  const leading = newestFirst(all.filter((a) => a.releaseDate));
+  return [...leading, ...all.filter((a) => !leading.includes(a)).reverse()];
+}
+
 /** The Discover page's props, as a release this code compiled carries them or as an older
  * one does. */
-type DiscoverReleaseProps = Omit<DiscoverPageData, 'pendingSongs' | 'recentAlbums'> & {
+type DiscoverReleaseProps = Omit<DiscoverPageData, 'pendingSongs' | 'recentAlbums' | 'albums'> & {
   pendingSongs?: DiscoverPendingSong[];
+  albums?: DiscoverBrowseAlbum[];
   recentAlbums: (Omit<DiscoverAlbum, 'playable'> & { playable?: boolean })[];
 };
 
 /**
- * Discover's props with `pendingSongs` and each recent album's `playable`, whichever release
- * they came from.
+ * Discover's props with `pendingSongs`, each recent album's `playable` and Browse by album's
+ * `albums`, whichever release they came from.
  *
  * A release compiled before those two existed has neither, and production renders the live
  * release, which after a deploy is still the one the previous code compiled (the release
@@ -476,14 +547,17 @@ type DiscoverReleaseProps = Omit<DiscoverPageData, 'pendingSongs' | 'recentAlbum
  * compiled passes through unchanged (the same object).
  * scripts/tests/test-previous-release-props.ts renders the page from the live release's copy.
  */
-export function discoverFromRelease<P extends DiscoverReleaseProps>(props: P): P & Pick<DiscoverPageData, 'pendingSongs' | 'recentAlbums'> {
-  const complete = Array.isArray(props.pendingSongs) && props.recentAlbums.every((a) => typeof a.playable === 'boolean');
-  if (complete) return props as P & Pick<DiscoverPageData, 'pendingSongs' | 'recentAlbums'>;
+export function discoverFromRelease<P extends DiscoverReleaseProps>(props: P): P & Pick<DiscoverPageData, 'pendingSongs' | 'recentAlbums' | 'albums'> {
+  const complete = Array.isArray(props.pendingSongs) && Array.isArray(props.albums) && props.recentAlbums.every((a) => typeof a.playable === 'boolean');
+  if (complete) return props as P & Pick<DiscoverPageData, 'pendingSongs' | 'recentAlbums' | 'albums'>;
   const onYouTube = new Set(props.songs.map((s) => s.albumId));
+  const pendingSongs = Array.isArray(props.pendingSongs) ? props.pendingSongs : [];
   return {
     ...props,
-    pendingSongs: Array.isArray(props.pendingSongs) ? props.pendingSongs : [],
+    pendingSongs,
     recentAlbums: props.recentAlbums.map((a) => (typeof a.playable === 'boolean' ? a as DiscoverAlbum : { ...a, playable: onYouTube.has(a.albumId) })),
+    // Browse by album (2026-10-14): a release compiled before it has no list of albums.
+    albums: Array.isArray(props.albums) ? props.albums : browseAlbumsFromSongs([...props.songs, ...pendingSongs], props.recentAlbums),
   };
 }
 
