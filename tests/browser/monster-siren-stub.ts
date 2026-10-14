@@ -33,11 +33,16 @@ export interface Siren {
   hangFiles: boolean;
   /** Each file request answered this many milliseconds late: a phone's slow network. */
   delayFilesMs: number;
+  /** Only the direct route hangs (/api/music-audio): a network whose CDN edge does not deliver,
+   *  while the relay (relay.arkpedia.net/msr) does. */
+  hangDirect: boolean;
+  /** Each load of a file through the relay. */
+  relays: string[];
 }
 
 /** Monster Siren as the page meets it: the address route and the file it names. */
 export async function stubMonsterSiren(page: Page): Promise<Siren> {
-  const siren: Siren = { resolves: [], files: [], arts: [], refuseNextFile: false, hangFiles: false, delayFilesMs: 0 };
+  const siren: Siren = { resolves: [], files: [], arts: [], refuseNextFile: false, hangFiles: false, delayFilesMs: 0, hangDirect: false, relays: [] };
   await page.route('**/api/music-art/**', (route) => {
     siren.arts.push(new URL(route.request().url()).pathname.split('/').pop()!);
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ cover: null, artists: [], albumName: null }) });
@@ -66,6 +71,13 @@ export async function stubMonsterSiren(page: Page): Promise<Siren> {
   await page.route('**/api/music-audio/**', (route) => {
     const range = /bytes=(\d+)-/.exec(route.request().headers().range ?? '');
     if (!range || range[1] === '0') siren.resolves.push(new URL(route.request().url()).pathname.split('/').pop()!);
+    if (siren.hangDirect) return new Promise<void>(() => { /* the CDN edge never delivers */ });
+    return serve(route);
+  });
+  // The audio relay (infra/audio-relay): the same file, streamed through our own server.
+  await page.route('https://relay.arkpedia.net/msr/**', (route) => {
+    const range = /bytes=(\d+)-/.exec(route.request().headers().range ?? '');
+    if (!range || range[1] === '0') siren.relays.push(new URL(route.request().url()).pathname.split('/').pop()!);
     return serve(route);
   });
   return siren;

@@ -1,4 +1,4 @@
-import { logAudioEvent, musicAudioElement, msrAudioAddress, msrAudioCid } from './audioElement';
+import { audioRelayOn, logAudioEvent, musicAudioElement, msrAudioAddress, msrAudioCid, rememberAudioRelay } from './audioElement';
 import { trackSource, type TrackSource } from './trackId';
 
 /*
@@ -127,14 +127,14 @@ export interface MsrEngineEvents extends EngineEvents {
  *  "playing" while the clock has not moved (`start`), and after it had played (`stall`). The next
  *  Play loads a fresh address, in its press. A check may set window.__arkpediaAudioWatchdogMs to
  *  shorten them. */
-export const AUDIO_WATCHDOG_MS = { load: 30000, start: 8000, stall: 20000 } as const;
+export const AUDIO_WATCHDOG_MS = { load: 30000, nodata: 10000, start: 8000, stall: 20000 } as const;
 /** A clock standing still this long while playing is shown as loading, not as playing. */
 const STALL_SHOWN_MS = 1500;
 const WATCHDOG_TICK_MS = 500;
-function watchdogMs(): { load: number; start: number; stall: number } {
+function watchdogMs(): { load: number; nodata: number; start: number; stall: number } {
   const hook = typeof window === 'undefined' ? undefined
-    : (window as unknown as { __arkpediaAudioWatchdogMs?: { load?: number; start?: number; stall?: number } }).__arkpediaAudioWatchdogMs;
-  return { load: hook?.load ?? AUDIO_WATCHDOG_MS.load, start: hook?.start ?? AUDIO_WATCHDOG_MS.start, stall: hook?.stall ?? AUDIO_WATCHDOG_MS.stall };
+    : (window as unknown as { __arkpediaAudioWatchdogMs?: { load?: number; nodata?: number; start?: number; stall?: number } }).__arkpediaAudioWatchdogMs;
+  return { load: hook?.load ?? AUDIO_WATCHDOG_MS.load, nodata: hook?.nodata ?? AUDIO_WATCHDOG_MS.nodata, start: hook?.start ?? AUDIO_WATCHDOG_MS.start, stall: hook?.stall ?? AUDIO_WATCHDOG_MS.stall };
 }
 
 interface AudioEngineOptions {
@@ -201,6 +201,10 @@ export function createMsrAudioEngine(events: MsrEngineEvents, { address = msrAud
   let rescued = false;
   /** When the element said it plays (its "playing" event) for this play; 0 before. */
   let startedAt = 0;
+  /** How much of the file the element held, and when that last grew: a file that comes slowly is
+   *  waited for (`load`), one that has stopped coming is not (`nodata`). */
+  let held = 0;
+  let heldAt = 0;
   let watchdog: number | undefined;
 
   // A state the engine reaches by being asked (a cue, a pause, fetching the address) is reported
@@ -223,6 +227,8 @@ export function createMsrAudioEngine(events: MsrEngineEvents, { address = msrAud
   function arm() {
     confirmed = false;
     startedAt = 0;
+    held = 0;
+    heldAt = now();
     clock = position();
     movedAt = now();
     if (watchdog === undefined) watchdog = window.setInterval(tick, WATCHDOG_TICK_MS);
@@ -269,7 +275,10 @@ export function createMsrAudioEngine(events: MsrEngineEvents, { address = msrAud
     if (confirmed) return;
     if (everPlayed) { if (t - movedAt > limits.stall) silent('the clock stopped'); return; }
     if (startedAt) { if (t - Math.max(startedAt, movedAt) > limits.start) silent('it says it plays, the clock does not move'); return; }
-    if (t - movedAt > limits.load) silent('no file came');
+    const buffered = el.buffered.length ? el.buffered.end(el.buffered.length - 1) : 0;
+    if (buffered > held) { held = buffered; heldAt = t; }
+    if (t - Math.max(movedAt, heldAt) > limits.nodata) silent('no data came');
+    else if (t - movedAt > limits.load) silent('no file came');
   }
 
   /** No sound for the watchdog's time: paused where it was, and the player says so (onStuck). It is
@@ -280,6 +289,12 @@ export function createMsrAudioEngine(events: MsrEngineEvents, { address = msrAud
     start = at;
     clock = at;
     logAudioEvent(`engine: no sound (${why}), paused for a Play`);
+    // Monster Siren's CDN did not deliver here: this device plays through the relay from the
+    // next Play on (lib/music/audioElement.ts).
+    if (!everPlayed && !audioRelayOn()) {
+      rememberAudioRelay();
+      logAudioEvent('engine: this device plays through the relay from now on');
+    }
     rescued = true;
     wantPlay = false;
     disarm();
