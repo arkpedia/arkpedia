@@ -8,6 +8,7 @@ import type { Page } from '@playwright/test';
  * for a file. The song's art and credits (/api/music-art/<cid>, lib/music/songArt.ts) answer that
  * Monster Siren says nothing more, so the player falls back as it would; `arts` lists those asked.
  * A check that wants art routes that address itself (its route, added later, is matched first).
+ * `hangFiles` leaves every file request unanswered, a CDN that never sends a byte.
  */
 
 /** A mono 8 kHz 8-bit WAV of silence: about a quarter of a megabyte for 30 seconds. */
@@ -24,11 +25,16 @@ function silentWav(seconds: number): Buffer {
 export const WAV_SECONDS = 30;
 const WAV = silentWav(WAV_SECONDS);
 
-export interface Siren { resolves: string[]; files: string[]; arts: string[]; refuseNextFile: boolean }
+export interface Siren {
+  resolves: string[]; files: string[]; arts: string[]; refuseNextFile: boolean;
+  /** Every file request is left unanswered: the CDN never sends a byte (what an iPhone met as a
+   *  song that stayed silent at 0:00 while everything said it played). */
+  hangFiles: boolean;
+}
 
 /** Monster Siren as the page meets it: the address route and the file it names. */
 export async function stubMonsterSiren(page: Page): Promise<Siren> {
-  const siren: Siren = { resolves: [], files: [], arts: [], refuseNextFile: false };
+  const siren: Siren = { resolves: [], files: [], arts: [], refuseNextFile: false, hangFiles: false };
   await page.route('**/api/music-art/**', (route) => {
     siren.arts.push(new URL(route.request().url()).pathname.split('/').pop()!);
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ cover: null, artists: [], albumName: null }) });
@@ -40,6 +46,7 @@ export async function stubMonsterSiren(page: Page): Promise<Siren> {
   });
   await page.route('**/__siren/**', (route) => {
     siren.files.push(route.request().url());
+    if (siren.hangFiles) return new Promise<void>(() => { /* never answered */ });
     // An address whose signature has expired: the CDN refuses it.
     if (siren.refuseNextFile) { siren.refuseNextFile = false; return route.fulfill({ status: 403, body: '' }); }
     // As Monster Siren's CDN does, it answers byte ranges: a moment past what has loaded (a resume,

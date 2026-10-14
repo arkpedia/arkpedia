@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { songTitle } from './musicPolish';
 import { MSR_LABEL } from './songArt';
 
@@ -9,11 +9,13 @@ interface SessionTrack {
 }
 
 /** What the page says of the song beyond its title (lib/music/songArt.ts): its artist, the
- *  catalogue's or Monster Siren's, and its artwork, never an empty list. */
+ *  catalogue's or Monster Siren's, and its one picture. `artworkPending`: Monster Siren's cover may
+ *  still come (its art is being asked for), so the picture waits for it a moment. */
 interface SessionArt {
   artist: string | null;
   album: string | null;
   artwork: MediaImage[];
+  artworkPending: boolean;
 }
 
 interface SessionActions {
@@ -24,7 +26,28 @@ interface SessionActions {
   seek: (seconds: number) => void;
 }
 
+interface SessionOptions {
+  /** A song is loaded and Monster Siren's audio plays it (the player's engineKind). */
+  msr: boolean;
+  /** The track id loaded, which the picture's wait is counted for. */
+  trackId: string;
+  track: SessionTrack | undefined;
+  /** Sound is coming out: the engine heard the clock move (lib/music/playbackEngine.ts). A play
+   *  asked for and still loading is not playing, here or on the lock screen. */
+  playing: boolean;
+  art: SessionArt;
+  actions: SessionActions;
+  /** Where the song is and how long it is, read as the state changes. */
+  position: () => { seconds: number; duration: number };
+  /** The <audio> Monster Siren plays through, whose events keep the lock screen's clock true. */
+  element: HTMLAudioElement | null;
+}
+
 const ACTIONS = ['play', 'pause', 'nexttrack', 'previoustrack', 'seekto'] as const;
+/** How long the lock screen's picture waits for Monster Siren's cover before taking the next best. */
+export const ARTWORK_WAIT_MS = 1500;
+/** How often, while playing, the lock screen is told where the song is (besides every change). */
+const POSITION_EVERY_MS = 5000;
 
 /**
  * The lock screen's and the media keys' view of a song played from Monster Siren (the Media
@@ -35,24 +58,38 @@ const ACTIONS = ['play', 'pause', 'nexttrack', 'previoustrack', 'seekto'] as con
  * previous and seek from there, and says how long it is and where it is. While YouTube plays the
  * page says nothing and leaves the session to YouTube.
  *
- * The artwork is a list of absolute, encoded addresses with their sizes and types, JPEGs first
- * (lib/music/songArt.ts's sessionArtwork): a song described with the site's WebP cover alone
- * showed a blank white square on an iPhone's lock screen.
+ * The picture is one image (lib/music/songArt.ts's sessionArtwork), set once: while Monster
+ * Siren's cover is still being asked for, the title and artist are set with no picture, and the
+ * picture follows when the cover answers or after ARTWORK_WAIT_MS -- never the site's icon first
+ * and the cover after, which Safari may not swap.
  *
- * `msr`: a song is loaded and Monster Siren's audio plays it (the player's engineKind).
- * `position`: where the song is and how long it is, read as the state changes.
+ * The lock screen runs its own clock from the position it was last given while it is told
+ * "playing": an iPhone ran it to 1:41 over a song that stayed silent at 0:00. So it is told
+ * "playing" only while sound is coming out (`playing`), "paused" while a play is loading or the
+ * audio waits for data, and where the song is at every play, pause, seek, rate change and wait,
+ * and every few seconds while it plays.
  */
-export function useMsrMediaSession(msr: boolean, track: SessionTrack | undefined, isPlaying: boolean,
-  art: SessionArt, actions: SessionActions, position?: () => { seconds: number; duration: number }) {
+export function useMsrMediaSession({ msr, trackId, track, playing, art, actions, position, element }: SessionOptions) {
   const actionsRef = useRef(actions);
   actionsRef.current = actions;
   const positionRef = useRef(position);
   positionRef.current = position;
+  const playingRef = useRef(playing);
+  playingRef.current = playing;
   const title = track ? songTitle(track.title, track.altTitle) : '';
   const artist = art.artist ?? MSR_LABEL;
   const album = track?.album ?? art.album ?? '';
-  // A key for the list, so the metadata is set again only when an entry changes.
-  const artworkKey = JSON.stringify(art.artwork);
+
+  // The picture waits for Monster Siren's cover, a moment at most, once per track.
+  const [waitedFor, setWaitedFor] = useState('');
+  useEffect(() => {
+    if (!msr || !art.artworkPending) return;
+    const timer = window.setTimeout(() => setWaitedFor(trackId), ARTWORK_WAIT_MS);
+    return () => window.clearTimeout(timer);
+  }, [msr, trackId, art.artworkPending]);
+  const holdArtwork = art.artworkPending && waitedFor !== trackId;
+  // A key for the picture, so the metadata is set again only when it changes.
+  const artworkKey = holdArtwork ? '[]' : JSON.stringify(art.artwork);
 
   useEffect(() => {
     const session = typeof navigator !== 'undefined' ? navigator.mediaSession : undefined;
@@ -74,26 +111,56 @@ export function useMsrMediaSession(msr: boolean, track: SessionTrack | undefined
       seekto: (details) => {
         if (typeof details.seekTime !== 'number') return;
         actionsRef.current.seek(details.seekTime);
-        const at = positionRef.current?.();
-        if (at && at.duration > 0 && typeof session.setPositionState === 'function') {
-          try { session.setPositionState({ duration: at.duration, position: Math.min(Math.max(0, details.seekTime), at.duration), playbackRate: 1 }); } catch { /* not supported here */ }
-        }
+        const at = positionRef.current();
+        tell(session, { seconds: details.seekTime, duration: at.duration }, element);
       },
     };
     for (const action of ACTIONS) {
       try { session.setActionHandler(action, handlers[action]); } catch { /* not supported here */ }
     }
-  }, [msr, title, artist, album, artworkKey]);
+  }, [msr, title, artist, album, artworkKey, element]);
 
+  // Playing or paused, as the sound is, and where the song is.
   useEffect(() => {
     const session = typeof navigator !== 'undefined' ? navigator.mediaSession : undefined;
     if (!session || !msr) return;
-    session.playbackState = isPlaying ? 'playing' : 'paused';
-    // The lock screen's progress bar runs from here by itself while playing.
-    const at = positionRef.current?.();
-    if (!at || !(at.duration > 0) || typeof session.setPositionState !== 'function') return;
-    try {
-      session.setPositionState({ duration: at.duration, position: Math.min(Math.max(0, at.seconds), at.duration), playbackRate: 1 });
-    } catch { /* not supported here */ }
-  }, [msr, isPlaying, title]);
+    session.playbackState = playing ? 'playing' : 'paused';
+    tell(session, positionRef.current(), element);
+  }, [msr, playing, title, element]);
+
+  // The element's own changes, between the player's.
+  useEffect(() => {
+    const session = typeof navigator !== 'undefined' ? navigator.mediaSession : undefined;
+    if (!session || !msr || !element) return;
+    let toldAt = 0;
+    const update = () => {
+      toldAt = Date.now();
+      tell(session, positionRef.current(), element);
+    };
+    // Waiting for data: the lock screen's clock stops at once, before the player's state follows.
+    const waiting = () => {
+      session.playbackState = 'paused';
+      update();
+    };
+    const ticking = () => { if (playingRef.current && Date.now() - toldAt >= POSITION_EVERY_MS) update(); };
+    const changes = ['playing', 'pause', 'seeked', 'ratechange', 'durationchange'] as const;
+    for (const type of changes) element.addEventListener(type, update);
+    element.addEventListener('waiting', waiting);
+    element.addEventListener('timeupdate', ticking);
+    return () => {
+      for (const type of changes) element.removeEventListener(type, update);
+      element.removeEventListener('waiting', waiting);
+      element.removeEventListener('timeupdate', ticking);
+    };
+  }, [msr, element]);
+}
+
+/** The lock screen's position: where the song is, how long it is, at the element's rate. Whether
+ *  its clock runs is playbackState's to say (a rate of 0 is not allowed). */
+function tell(session: MediaSession, at: { seconds: number; duration: number }, element: HTMLAudioElement | null) {
+  if (!(at.duration > 0) || !Number.isFinite(at.duration) || typeof session.setPositionState !== 'function') return;
+  const rate = element && element.playbackRate > 0 ? element.playbackRate : 1;
+  try {
+    session.setPositionState({ duration: at.duration, position: Math.min(Math.max(0, at.seconds || 0), at.duration), playbackRate: rate });
+  } catch { /* not supported here */ }
 }

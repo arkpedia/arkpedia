@@ -40,7 +40,7 @@ export default function MusicTransportBar({ view, compact = false, coverPath, on
   onFullPlayer?: boolean;
 }) {
   const {
-    ready, starting, isPlaying, title, videoId, volume, shuffle, repeatMode, currentTime, duration, favorites,
+    ready, starting, buffering, isPlaying, title, videoId, volume, shuffle, repeatMode, currentTime, duration, favorites,
     currentTrack, nowPlayingCover, nowPlayingArtist, excludeCopyrighted, notice, togglePlay, nextTrack, prevTrack, toggleShuffle, cycleRepeat, setVolumeLevel,
     handleSeekChange, handleSeekCommit, setSeeking, toggleFavorite, setExcludeCopyrighted, dismissNotice, undoClearQueue,
   } = useMusicPlayer();
@@ -79,7 +79,8 @@ export default function MusicTransportBar({ view, compact = false, coverPath, on
   const progress = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
 
   useEffect(() => {
-    if (!notice) return;
+    // A song that would not start says so until the next Play (musicPlayerContext's STUCK_NOTICE).
+    if (!notice || notice.playback) return;
     const timer = window.setTimeout(dismissNotice, notice.undo ? UNDO_NOTICE_MS : NOTICE_MS);
     return () => window.clearTimeout(timer);
   }, [notice, dismissNotice]);
@@ -104,10 +105,13 @@ export default function MusicTransportBar({ view, compact = false, coverPath, on
     </div>
   );
 
+  // Loading (the player starting, or a song not yet heard) shows the loading look and never
+  // Pause; the player's own start-up cannot be pressed, a loading song can, to stop it.
+  const busy = starting || buffering;
   const play = (
-    <button type="button" className={starting ? 'primary music-play-btn loading' : 'primary music-play-btn'} onClick={togglePlay}
-      disabled={starting} aria-label={starting ? 'Starting…' : isPlaying ? 'Pause' : 'Play'}>
-      <TransportIcon name={starting ? 'loading' : isPlaying ? 'pause' : 'play'} />
+    <button type="button" className={busy ? 'primary music-play-btn loading' : 'primary music-play-btn'} onClick={togglePlay}
+      disabled={starting} aria-label={busy ? 'Starting…' : isPlaying ? 'Pause' : 'Play'} title={buffering && !starting ? 'Starting… Press to stop' : undefined}>
+      <TransportIcon name={busy ? 'loading' : isPlaying ? 'pause' : 'play'} />
     </button>
   );
   // Favourite is one press at every width: the left group's heart on a wide bar, this one beside
@@ -132,7 +136,7 @@ export default function MusicTransportBar({ view, compact = false, coverPath, on
       <div className="music-transport-notice" role="status">
         {notice && <>
           <span>{notice.text}</span>
-          {notice.undo
+          {notice.playback ? null : notice.undo
             ? <button type="button" className="ghost btn-sm" onClick={() => { undoClearQueue(); }}>Undo</button>
             : view !== 'queue' && <Link href={MUSIC_VIEW_HREF.queue} shallow={onFullPlayer} scroll={false} prefetch={false} className="ghost btn-sm" onClick={dismissNotice}>View queue</Link>}
         </>}

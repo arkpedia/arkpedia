@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { monsterSirenImage, monsterSirenSongArt } from '../../lib/music/monsterSirenArt';
-import { MSR_LABEL, artistLine, imageType, sessionArtwork, youtubeThumbnail } from '../../lib/music/songArt';
+import { MSR_LABEL, artistLine, imageType, isDirectImage, msrCoverPath, sessionArtwork, youtubeThumbnail } from '../../lib/music/songArt';
 
 /*
  * The lock screen's artwork and the player's fallback art (lib/music/songArt.ts), and what
@@ -12,19 +12,28 @@ import { MSR_LABEL, artistLine, imageType, sessionArtwork, youtubeThumbnail } fr
 const ICON = 'https://raw.githubusercontent.com/arkpedia/arkpedia-image-assets/0000000000000000000000000000000000000000/essential-icons/Arkpedia.webp';
 const BASE = 'https://www.arkpedia.net/music';
 
-test('the artwork list is never empty, leads with Monster Siren\'s JPEG and gives every entry its size and type', () => {
+const COVER = 'https://raw.githubusercontent.com/arkpedia/arkpedia-image-assets/0000000000000000000000000000000000000000/album-covers/%E6%98%A8%E6%97%A5%E6%B5%B7OST_cover.webp';
+const THUMB = 'https://i.ytimg.com/vi/abcdefghijk/hqdefault.jpg';
+
+test('the lock screen gets exactly one picture, the best there is, with its size and type', () => {
+  // Monster Siren's cover, as this site serves it, over everything else.
+  assert.deepEqual(sessionArtwork({ msrCover: msrCoverPath('306864'), msrCoverType: 'image/jpeg', cover: COVER, youtube: youtubeThumbnail('abcdefghijk'), icon: ICON, base: BASE }),
+    [{ src: 'https://www.arkpedia.net/api/music-cover/306864', sizes: '500x500', type: 'image/jpeg' }]);
+  // Then the site's copy of the cover, then YouTube's thumbnail; the icon only when there is nothing else.
+  assert.deepEqual(sessionArtwork({ cover: COVER, youtube: youtubeThumbnail('abcdefghijk'), icon: ICON, base: BASE }), [{ src: COVER, sizes: '500x500', type: 'image/webp' }]);
+  assert.deepEqual(sessionArtwork({ youtube: youtubeThumbnail('abcdefghijk'), icon: ICON, base: BASE }), [{ src: THUMB, sizes: '480x360', type: 'image/jpeg' }]);
   assert.deepEqual(sessionArtwork({ icon: ICON, base: BASE }), [{ src: ICON, sizes: '256x256', type: 'image/webp' }]);
-  const all = sessionArtwork({
-    msrCover: 'https://web.hycdn.cn/siren/pic/20261010/abc.jpg',
-    cover: 'https://raw.githubusercontent.com/arkpedia/arkpedia-image-assets/0000000000000000000000000000000000000000/album-covers/%E6%98%A8%E6%97%A5%E6%B5%B7OST_cover.webp',
-    youtube: youtubeThumbnail('abcdefghijk'),
-    icon: ICON,
-    base: BASE,
-  });
-  assert.deepEqual(all.map(entry => entry.type), ['image/jpeg', 'image/webp', 'image/jpeg', 'image/webp']);
-  assert.deepEqual(all.map(entry => entry.sizes), ['500x500', '500x500', '480x360', '256x256']);
-  assert.equal(all[2].src, 'https://i.ytimg.com/vi/abcdefghijk/hqdefault.jpg');
-  for (const entry of all) assert.match(entry.src, /^https:\/\/[\x21-\x7e]+$/);
+});
+
+test('a picture on Monster Siren\'s own CDN is never handed to the lock screen: it refuses requests from this site', () => {
+  // web.hycdn.cn answers 403 to a request carrying another site's Referer (2026-10-14).
+  assert.deepEqual(sessionArtwork({ msrCover: 'https://web.hycdn.cn/siren/pic/20261010/abc.jpg', cover: COVER, icon: ICON, base: BASE }).map(entry => entry.src), [COVER]);
+  for (const src of ['https://web.hycdn.cn/a.jpg', 'https://res01.hycdn.cn/b.jpg', 'https://HYCDN.CN/c.jpg']) {
+    assert.deepEqual(sessionArtwork({ msrCover: src, cover: src, youtube: src, icon: ICON, base: BASE }).map(entry => entry.src), [ICON], src);
+  }
+  assert.equal(msrCoverPath('306864'), '/api/music-cover/306864');
+  assert.ok(isDirectImage(msrCoverPath('306864')) && isDirectImage(THUMB));
+  assert.ok(!isDirectImage('/album-covers/x.webp'));
 });
 
 test('an address is made absolute and a Chinese file name percent-encoded, once', () => {
@@ -32,8 +41,6 @@ test('an address is made absolute and a Chinese file name percent-encoded, once'
   assert.equal(cover.src, `https://www.arkpedia.net/album-covers/${encodeURIComponent('昨日海OST_cover.webp')}`);
   const [again] = sessionArtwork({ cover: cover.src, icon: ICON, base: BASE });
   assert.equal(again.src, cover.src, 'an encoded address is not encoded twice');
-  // The same address twice is listed once.
-  assert.equal(sessionArtwork({ cover: ICON, icon: ICON, base: BASE }).length, 1);
 });
 
 test('the image type follows the extension; a Monster Siren id has no YouTube thumbnail', () => {

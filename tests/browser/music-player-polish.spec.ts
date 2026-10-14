@@ -6,10 +6,11 @@ import { playAllSongs, stubYouTube, youtube } from './youtube-stub';
  * The music player after the maintainer's iPhone test (2026-10-14):
  *
  * - "some of the music doesn't have cover art in the background player": the lock screen
- *   (navigator.mediaSession) always gets artwork -- Monster Siren's own JPEG cover first
- *   (pages/api/music-art), the site's cover, and the site's icon last, every address absolute,
- *   encoded and with its size and type -- and the artist Monster Siren credits when the
- *   catalogue has none. The player bar shows the same fallback cover.
+ *   (navigator.mediaSession) gets exactly one picture, the best there is -- Monster Siren's own
+ *   JPEG cover as this site serves it (pages/api/music-cover: its CDN refuses requests from these
+ *   pages), else the site's cover, else the site's icon -- absolute, encoded, with its size and
+ *   type, and never a lesser one first while the cover is being asked for; and the artist Monster
+ *   Siren credits when the catalogue has none. The player bar shows the same fallback cover.
  * - "it should be only one click to favourite a song": every song surface has a heart that
  *   toggles the favourite in one press, at every width, outside any menu.
  * - "the small player in the corner ... needs also some rework": at 390px its five controls
@@ -31,6 +32,24 @@ const artwork = (page: Page) => page.evaluate(() => (navigator.mediaSession?.met
 const MSR_COVER = 'https://web.hycdn.cn/siren/pic/20261010/0123456789abcdef0123456789abcdef.jpg';
 /** A 1x1 PNG: what the stubbed cover address serves, so no check reaches Monster Siren. */
 const PIXEL = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64');
+
+/** Every picture the page hands the lock screen, in order (the metadata setter, recorded). */
+async function recordArtwork(page: Page) {
+  await page.addInitScript(() => {
+    const seen: string[][] = [];
+    (window as unknown as { __artworks: string[][] }).__artworks = seen;
+    const descriptor = Object.getOwnPropertyDescriptor(MediaSession.prototype, 'metadata');
+    if (!descriptor?.set) return;
+    Object.defineProperty(MediaSession.prototype, 'metadata', {
+      ...descriptor,
+      set(this: MediaSession, value: MediaMetadata | null) {
+        if (value) seen.push(value.artwork.map(image => image.src));
+        descriptor.set!.call(this, value);
+      },
+    });
+  });
+}
+const artworks = (page: Page) => page.evaluate(() => (window as unknown as { __artworks: string[][] }).__artworks);
 
 /** The bundled catalogue's first song with no YouTube upload, served as `change` makes it: a
  *  song the albums have not credited or covered yet. */
@@ -56,16 +75,16 @@ async function playFromLibrary(page: Page, song: CatalogueRow) {
   await expect.poll(() => audioPlaying(page)).toBe(true);
 }
 
-/** Every entry absolute https, printable ASCII only (a Chinese file name percent-encoded), with
- *  its size and type, and the site's icon last: the list is never empty. */
-function expectWellFormed(entries: { src: string; sizes: string; type: string }[]) {
-  expect(entries.length).toBeGreaterThan(0);
-  for (const entry of entries) {
-    expect(entry.src, 'absolute and encoded').toMatch(/^https:\/\/[\x21-\x7e]+$/);
-    expect(entry.sizes, `${entry.src} has a size`).toMatch(/^\d+x\d+$/);
-    expect(entry.type, `${entry.src} has a type`).toMatch(/^image\/(jpeg|png|webp)$/);
-  }
-  expect(entries.at(-1)!.src).toContain('/essential-icons/Arkpedia.webp');
+/** Exactly one picture, absolute https, printable ASCII only (a Chinese file name
+ *  percent-encoded), with its size and type, and never on Monster Siren's CDN (it refuses
+ *  requests from these pages). */
+function expectOnePicture(entries: { src: string; sizes: string; type: string }[]) {
+  expect(entries).toHaveLength(1);
+  const [entry] = entries;
+  expect(entry.src, 'absolute and encoded').toMatch(/^https?:\/\/[\x21-\x7e]+$/);
+  expect(entry.src).not.toContain('hycdn.cn');
+  expect(entry.sizes, `${entry.src} has a size`).toMatch(/^\d+x\d+$/);
+  expect(entry.type, `${entry.src} has a type`).toMatch(/^image\/(jpeg|png|webp)$/);
 }
 
 test.describe('lock screen artwork', () => {
@@ -74,7 +93,8 @@ test.describe('lock screen artwork', () => {
     test.setTimeout(90_000);
   });
 
-  test('a song with no catalogue cover or artist gets Monster Siren\'s cover and credit, on the lock screen and in the player', async ({ page }) => {
+  test('a song with no catalogue cover or artist gets Monster Siren\'s cover, served from this site, and its credit, on the lock screen and in the player', async ({ page }) => {
+    await recordArtwork(page);
     await stubYouTube(page);
     await stubMonsterSiren(page);
     const asked: string[] = [];
@@ -82,43 +102,74 @@ test.describe('lock screen artwork', () => {
       asked.push(new URL(route.request().url()).pathname.split('/').pop()!);
       return route.fulfill({ json: { cover: MSR_COVER, artists: ['塞壬唱片-MSR', 'Test Vocalist'], albumName: 'Test Album OST' } });
     });
-    await page.route('https://web.hycdn.cn/**', (route) => route.fulfill({ contentType: 'image/png', body: PIXEL }));
+    const covers: string[] = [];
+    await page.route('**/api/music-cover/**', (route) => {
+      covers.push(route.request().url());
+      return route.fulfill({ contentType: 'image/png', body: PIXEL });
+    });
+    // Monster Siren's CDN is never asked from the page.
+    const cdn: string[] = [];
+    await page.route('https://web.hycdn.cn/**', (route) => { cdn.push(route.request().url()); return route.fulfill({ status: 403, body: '' }); });
     const song = await msrSongWithout(page, row => ({ ...row, cover: undefined, artist: undefined }));
     await playFromLibrary(page, song);
 
-    await expect.poll(async () => (await artwork(page))[0]?.src, { message: 'Monster Siren\'s JPEG cover leads the artwork' }).toBe(MSR_COVER);
+    const ours = new URL(`/api/music-cover/${song.cid}`, page.url()).href;
+    await expect.poll(async () => (await artwork(page))[0]?.src, { message: 'Monster Siren\'s cover, from this site' }).toBe(ours);
     const entries = await artwork(page);
-    expect(entries[0]).toEqual({ src: MSR_COVER, sizes: '500x500', type: 'image/jpeg' });
-    expectWellFormed(entries);
+    expectOnePicture(entries);
+    expect(entries[0]).toEqual({ src: ours, sizes: '500x500', type: 'image/jpeg' });
+    // Set once: never the site's icon first and the cover after.
+    expect((await artworks(page)).flat().filter(src => src.includes('/essential-icons/'))).toEqual([]);
     expect(asked).toEqual([song.cid]);
     // The label's own credit is said in English.
     expect(await page.evaluate(() => navigator.mediaSession.metadata?.artist)).toBe('Monster Siren Records, Test Vocalist');
 
     // The bar says the same credit where the catalogue has none (its cover is the page's own).
     await expect(bar(page).locator('.music-transport-song-sub')).toHaveText('Monster Siren Records, Test Vocalist');
-    // The corner player on another page has only the catalogue: it shows Monster Siren's cover.
+    // The corner player on another page has only the catalogue: it shows Monster Siren's cover, from this site.
     await page.evaluate(() => (window as unknown as { next: { router: { push: (url: string) => Promise<boolean> } } }).next.router.push('/operators'));
     await page.waitForURL('**/operators');
     await page.getByRole('button', { name: 'Expand player' }).click();
     const widget = page.locator('[data-music-widget]');
-    await expect(widget.locator('.music-widget-cover img')).toHaveAttribute('src', MSR_COVER);
+    await expect(widget.locator('.music-widget-cover img')).toHaveAttribute('src', `/api/music-cover/${song.cid}`);
     await expect(widget.locator('.music-widget-artist')).toHaveText('Monster Siren Records, Test Vocalist');
+    expect(covers.length).toBeGreaterThan(0);
+    expect(cdn, 'Monster Siren\'s CDN refuses requests from these pages').toEqual([]);
   });
 
-  test('when Monster Siren cannot say, the artwork is still never empty and a Chinese cover name is encoded', async ({ page }) => {
+  test('while Monster Siren\'s cover is being asked for, the lock screen waits for it rather than show the site\'s cover first', async ({ page }) => {
+    await recordArtwork(page);
+    await stubYouTube(page);
+    await stubMonsterSiren(page);
+    await page.route('**/api/music-art/**', async (route) => {
+      // Slower than the song's start, well within the lock screen's wait (ARTWORK_WAIT_MS, 1.5 s).
+      await new Promise(resolve => setTimeout(resolve, 400));
+      return route.fulfill({ json: { cover: MSR_COVER, artists: [], albumName: null } });
+    });
+    await page.route('**/api/music-cover/**', (route) => route.fulfill({ contentType: 'image/png', body: PIXEL }));
+    const song = await msrSongWithout(page, row => ({ ...row, cover: '/album-covers/昨日海OST_cover.webp' }));
+    await playFromLibrary(page, song);
+
+    await expect.poll(async () => (await artwork(page))[0]?.src ?? '').toContain(`/api/music-cover/${song.cid}`);
+    const pictures = (await artworks(page)).filter(list => list.length);
+    expect(pictures[0], 'the first picture handed over is the cover asked for').toEqual([new URL(`/api/music-cover/${song.cid}`, page.url()).href]);
+    expect(pictures.flat().some(src => src.includes('/album-covers/') || src.includes('/essential-icons/'))).toBe(false);
+  });
+
+  test('when Monster Siren cannot say, the one picture is the site\'s cover, its Chinese name encoded, and never the icon', async ({ page }) => {
+    await recordArtwork(page);
     await stubYouTube(page);
     await stubMonsterSiren(page);
     await page.route('**/api/music-art/**', (route) => route.fulfill({ status: 502, json: { error: 'unavailable' } }));
     const song = await msrSongWithout(page, row => ({ ...row, artist: undefined, cover: '/album-covers/昨日海OST_cover.webp' }));
     await playFromLibrary(page, song);
 
-    await expect.poll(async () => (await artwork(page)).length).toBeGreaterThan(0);
+    await expect.poll(async () => (await artwork(page)).length).toBe(1);
     const entries = await artwork(page);
-    expectWellFormed(entries);
-    const cover = entries.find(entry => entry.src.includes('/album-covers/'));
-    expect(cover, 'the catalogue\'s cover is in the list').toBeTruthy();
-    expect(cover!.src).toContain(`/album-covers/${encodeURIComponent('昨日海OST_cover.webp')}`);
-    expect(cover).toMatchObject({ sizes: '500x500', type: 'image/webp' });
+    expectOnePicture(entries);
+    expect(entries[0].src).toContain(`/album-covers/${encodeURIComponent('昨日海OST_cover.webp')}`);
+    expect(entries[0]).toMatchObject({ sizes: '500x500', type: 'image/webp' });
+    expect((await artworks(page)).flat().filter(src => src.includes('/essential-icons/'))).toEqual([]);
     expect(await page.evaluate(() => navigator.mediaSession.metadata?.artist)).toBe('Monster Siren Records');
   });
 });

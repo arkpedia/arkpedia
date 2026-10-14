@@ -91,12 +91,24 @@ const CALLED_BY_WORKFLOWS: Record<string, string> = {
   'pages/api/release-refresh.ts': 'scripts/content/refresh-pages.mjs',
 };
 
+/** API routes the page names as an address it does not fetch (an image's src), each with the
+ *  module that builds the address: it must name the route's fixed part (up to its first [param]),
+ *  so a renamed or dropped caller fails here. */
+const NAMED_AS_ADDRESSES: Record<string, string> = {
+  // Monster Siren's album cover, served from this site: the lock screen's artwork and the
+  // player's <img> (its CDN refuses requests from these pages).
+  'pages/api/music-cover/[id].ts': 'lib/music/songArt.ts',
+};
+
 test('every API route is called by client code or refuses outside development', () => {
   const called = new Set(fetches.map(({ address }) => routeFor(address, routes)));
   const byWorkflow = (route: string) => route in CALLED_BY_WORKFLOWS
     && fs.readFileSync(path.join(ROOT, CALLED_BY_WORKFLOWS[route]), 'utf8').includes(`/api/${route.slice('pages/api/'.length).replace(/\.tsx?$/, '')}`);
-  const orphans = routes.filter(route => !called.has(route) && !byWorkflow(route)
+  const asAddress = (route: string) => route in NAMED_AS_ADDRESSES
+    && fs.readFileSync(path.join(ROOT, NAMED_AS_ADDRESSES[route]), 'utf8').includes(`/api/${route.slice('pages/api/'.length).split('[')[0]}`);
+  const orphans = routes.filter(route => !called.has(route) && !byWorkflow(route) && !asAddress(route)
     && !/process\.env\.NODE_ENV\s*!==\s*'development'|NODE_ENV\s*===\s*'development'/.test(fs.readFileSync(path.join(ROOT, route), 'utf8')));
   assert.deepEqual(orphans, []);
   for (const route of Object.keys(CALLED_BY_WORKFLOWS)) assert.ok(byWorkflow(route), `${CALLED_BY_WORKFLOWS[route]} calls ${route}`);
+  for (const route of Object.keys(NAMED_AS_ADDRESSES)) assert.ok(asAddress(route), `${NAMED_AS_ADDRESSES[route]} names ${route}`);
 });

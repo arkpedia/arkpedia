@@ -82,7 +82,8 @@ test('a song on YouTube that has a Monster Siren id plays from Monster Siren by 
   expect((await youtube(page))?.state ?? -1).not.toBe(1);
   // The lock screen's view of it, from the page (YouTube is not playing to give one).
   await expect.poll(() => page.evaluate(() => navigator.mediaSession?.metadata?.title ?? '')).not.toBe('');
-  expect(await page.evaluate(() => navigator.mediaSession?.playbackState)).toBe('playing');
+  // "playing" once its clock moves, not at play() (lib/music/playbackEngine.ts).
+  await expect.poll(() => page.evaluate(() => navigator.mediaSession?.playbackState)).toBe('playing');
   // It still links to its YouTube page (Now playing), as every song on YouTube does.
   await page.getByRole('navigation', { name: 'Music' }).getByRole('link', { name: /^Now playing/ }).click();
   await expect(page.getByRole('link', { name: /Watch on YouTube/ })).toBeVisible();

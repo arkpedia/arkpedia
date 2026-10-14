@@ -21,6 +21,7 @@ import MusicTransportBar from '@/components/music/MusicTransportBar';
 import SongRow from '@/components/music/SongRow';
 import PageHeader from '@/components/ui/PageHeader';
 import { hiddenUnless } from '@/lib/ui/inert';
+import { isDirectImage } from '@/lib/music/songArt';
 
 interface Props {
   songLookup: SongModalLookupEntry[];
@@ -273,7 +274,7 @@ export default function MusicPage({ songLookup }: Props) {
 
             <div className="music-now-playing-cover-col">
               <div className="music-now-playing-cover">
-                {nowPlayingCover && /^https:\/\//.test(nowPlayingCover) ? (
+                {nowPlayingCover && isDirectImage(nowPlayingCover) ? (
                   <ContentImg src={nowPlayingCover} alt={currentDetail?.albumName || currentTrack?.album || title} className="music-now-playing-cover-img" />
                 ) : nowPlayingCover ? (
                   <Image src={nowPlayingCover} alt={currentDetail?.albumName || currentTrack?.album || title} fill sizes="280px" style={{ objectFit: 'cover' }} />

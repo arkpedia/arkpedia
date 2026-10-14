@@ -26,7 +26,9 @@ export default function MusicPlayer() {
   const {
     ready,
     starting,
+    buffering,
     isPlaying,
+    notice,
     title,
     videoId,
     shuffle,
@@ -68,6 +70,7 @@ export default function MusicPlayer() {
   const artist = nowPlayingArtist ?? currentQueueTrack?.artist ?? null;
   const displayTitle = ready ? formatTrackLabel(crossfadeName, artist) : 'Loading…';
   const isFav = Boolean(videoId) && favorites.has(videoId);
+  const busy = starting || buffering;
 
   // Screen-reader announcement when the track changes -- the visible
   // title swap is purely visual, so when the player auto-advances (or
@@ -217,6 +220,9 @@ export default function MusicPlayer() {
             <span className="music-time">{formatTime(duration)}</span>
           </div>
 
+          {/* A song that would not start says so here too, until the next Play. */}
+          {notice?.playback && <p className="music-widget-notice" role="status">{notice.text}</p>}
+
           <div className="music-controls">
             <button type="button" className="filter-chip music-fav-btn music-song-favorite" onClick={() => videoId && toggleFavorite(videoId)}
               disabled={!videoId} aria-pressed={isFav} aria-label="Favourite" data-tip={isFav ? 'Unfavourite' : 'Favourite'}>
@@ -226,9 +232,12 @@ export default function MusicPlayer() {
               <button type="button" className="music-prev-btn" onClick={prevTrack} aria-label="Previous track" data-tip="Previous">
                 <TransportIcon name="prev" />
               </button>
-              <button type="button" className={starting ? 'primary music-play-btn loading' : 'primary music-play-btn'} onClick={togglePlay}
-                disabled={starting} aria-label={starting ? 'Starting…' : isPlaying ? 'Pause' : 'Play'} data-tip={starting ? 'Starting…' : isPlaying ? 'Pause' : 'Play'}>
-                <TransportIcon name={starting ? 'loading' : isPlaying ? 'pause' : 'play'} />
+              {/* Loading never shows Pause: the player starting cannot be pressed, a song not yet
+                  heard can, to stop it (lib/music/musicPlayerContext.tsx's buffering). */}
+              <button type="button" className={busy ? 'primary music-play-btn loading' : 'primary music-play-btn'} onClick={togglePlay}
+                disabled={starting} aria-label={busy ? 'Starting…' : isPlaying ? 'Pause' : 'Play'}
+                data-tip={starting ? 'Starting…' : buffering ? 'Starting… Press to stop' : isPlaying ? 'Pause' : 'Play'}>
+                <TransportIcon name={busy ? 'loading' : isPlaying ? 'pause' : 'play'} />
               </button>
               {/* Its tooltip says what plays next (the queue, shuffle and repeat as they stand). */}
               <button type="button" className="music-next-btn" onClick={nextTrack} aria-label="Next track" data-tip={nextTitle ? `Next: ${nextTitle}` : 'Next'}>

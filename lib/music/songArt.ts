@@ -11,9 +11,14 @@ import { trackSource } from './trackId';
  * neither, and iOS then drew a blank white square and "Monster Siren Records" on the lock screen.
  * So the player falls back, in order: Monster Siren's own album cover and artists for a song it
  * has (pages/api/music-art/[id]), the song's YouTube thumbnail for one on YouTube, and last the
- * site's own icon -- the lock screen is never handed an empty artwork list. Monster Siren is asked
- * for every song its audio plays (the lock screen's JPEG) and for any song with no cover; a song
- * missing only its artist is not asked for, as Monster Siren mostly credits its own label there.
+ * site's own icon. Monster Siren is asked for every song its audio plays (the lock screen's JPEG)
+ * and for any song with no cover; a song missing only its artist is not asked for, as Monster
+ * Siren mostly credits its own label there.
+ *
+ * Monster Siren's cover is never shown from its own CDN: web.hycdn.cn answers 403 to a request
+ * carrying another site's Referer (an <img> here, the lock screen's artwork fetch), so it is
+ * served from this site (pages/api/music-cover/[id], msrCoverPath), and sessionArtwork refuses
+ * an address on that CDN outright.
  */
 
 /** Monster Siren's label as its API credits it ("塞壬唱片-MSR"), said the way the player says it. */
@@ -55,38 +60,54 @@ export function absoluteUrl(src: string, base: string): string | null {
   }
 }
 
+/** Monster Siren's cover for the song `cid`, as this site serves it (pages/api/music-cover). */
+export function msrCoverPath(cid: string): string {
+  return `/api/music-cover/${encodeURIComponent(cid)}`;
+}
+
+/** A cover address drawn as a plain <img> (components/music/AlbumCover.tsx): an absolute one, or
+ *  Monster Siren's cover as this site serves it; anything else is a content path. */
+export function isDirectImage(src: string): boolean {
+  return /^https:\/\//.test(src) || src.startsWith('/api/music-cover/');
+}
+
+/** Hosts that refuse a request carrying another site's Referer (hotlink protection): an address
+ *  there is never handed to the lock screen, which would be refused and show nothing. */
+const REFERER_CHECKED = /(^|\.)hycdn\.cn$/i;
+
 export interface ArtworkSources {
-  /** Monster Siren's album cover (JPEG), from pages/api/music-art. */
+  /** Monster Siren's album cover as this site serves it (msrCoverPath), and its image type (its
+   *  CDN's covers are JPEGs). */
   msrCover?: string | null;
+  msrCoverType?: string;
   /** The catalogue's cover, already resolved to its published address (WebP). */
   cover?: string | null;
   /** The song's YouTube thumbnail. */
   youtube?: string | null;
-  /** The site's icon, resolved: always last, so the list is never empty. */
+  /** The site's icon, resolved: only when there is nothing else. */
   icon: string;
   /** What relative addresses are read against (the page's address). */
   base: string;
 }
 
 /**
- * The Media Session's artwork: Monster Siren's own cover (a 500x500 JPEG) first, then the site's
- * copy of it (WebP, the same size), then YouTube's thumbnail, then the site's icon. Every entry is
- * absolute and encoded, with its size and type. The JPEG leads because the songs whose lock screen
- * stayed blank on an iPhone were exactly the ones the page described with a WebP cover alone,
- * while YouTube's own session (JPEG thumbnails) showed art; WebKit takes the best-sized image it
- * can load, so the rest stay in the list as fallbacks.
+ * The Media Session's artwork: exactly one picture, the best there is -- Monster Siren's own cover
+ * (a 500x500 JPEG, served from this site), else the site's copy of it (WebP, the same size), else
+ * YouTube's thumbnail, else the site's icon. Absolute and encoded, with its size and type.
+ *
+ * One, not a list to choose from: given Monster Siren's JPEG, the site's WebP and the icon, an
+ * iPhone showed the icon (2026-10-14), and given the WebP alone, a blank white square. Which one
+ * Safari takes from a list, and whether it falls back when one fails, is not something to lean on.
  */
-export function sessionArtwork({ msrCover, cover, youtube, icon, base }: ArtworkSources): MediaImage[] {
-  const entries: MediaImage[] = [];
-  const add = (src: string | null | undefined, sizes: string) => {
+export function sessionArtwork({ msrCover, msrCoverType, cover, youtube, icon, base }: ArtworkSources): MediaImage[] {
+  const entry = (src: string | null | undefined, sizes: string, type?: string): MediaImage | null => {
     const href = src ? absoluteUrl(src, base) : null;
-    if (href && !entries.some((entry) => entry.src === href)) entries.push({ src: href, sizes, type: imageType(href) });
+    if (!href || REFERER_CHECKED.test(new URL(href).hostname)) return null;
+    return { src: href, sizes, type: type ?? imageType(href) };
   };
-  add(msrCover, COVER_SIZE);
-  add(cover, COVER_SIZE);
-  add(youtube, '480x360');
-  add(icon, SITE_ICON_SIZE);
-  return entries;
+  const best = entry(msrCover, COVER_SIZE, msrCoverType ?? 'image/jpeg') ?? entry(cover, COVER_SIZE)
+    ?? entry(youtube, '480x360') ?? entry(icon, SITE_ICON_SIZE);
+  return best ? [best] : [];
 }
 
 function validArt(value: unknown): SongArt | null {
@@ -114,9 +135,17 @@ export function loadSongArt(cid: string): Promise<SongArt | null> {
   return request;
 }
 
-/** Monster Siren's art for the song `cid`, once it has answered; null while it has not, when
- *  it cannot, and when `cid` is undefined (nothing to ask). */
-export function useSongArt(cid: string | undefined): SongArt | null {
+export interface SongArtState {
+  /** Monster Siren's art, once it has answered; null while it has not, and when it cannot. */
+  art: SongArt | null;
+  /** Nothing more to wait for: it answered, it failed, or there was nothing to ask. */
+  settled: boolean;
+}
+
+/** Monster Siren's art for the song `cid` (undefined: nothing to ask), and whether it is still
+ *  being asked for: the lock screen waits a moment for it rather than show a lesser picture first
+ *  (lib/music/useMsrMediaSession.ts). */
+export function useSongArt(cid: string | undefined): SongArtState {
   const [art, setArt] = useState<{ cid: string; art: SongArt | null } | null>(null);
   useEffect(() => {
     if (!cid) return;
@@ -124,5 +153,6 @@ export function useSongArt(cid: string | undefined): SongArt | null {
     void loadSongArt(cid).then((result) => { if (live) setArt({ cid, art: result }); });
     return () => { live = false; };
   }, [cid]);
-  return cid && art?.cid === cid ? art.art : null;
+  if (!cid) return { art: null, settled: true };
+  return art?.cid === cid ? { art: art.art, settled: true } : { art: null, settled: false };
 }

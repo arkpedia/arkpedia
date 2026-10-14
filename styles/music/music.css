@@ -892,3 +892,39 @@
 .music-view[data-music-view="queue"],
 .music-view[data-music-view="library"] { height: max(220px, calc(100dvh - var(--music-bar-height, 160px) - var(--music-view-top, 240px) - 16px)); }
 .music-now-playing-behind { contain: size; min-height: 0; overflow: hidden; }
+
+/* A play still loading (lib/music/musicPlayerContext.tsx's buffering): the loading look, but a
+   press stops it, unlike the player's own start-up (disabled). */
+.music-play-btn.loading:not(:disabled) { cursor: pointer; }
+
+/* The corner player's word about a song that would not start (a playback notice). */
+.music-widget-notice { margin: 0; color: var(--text); font-size: 12px; line-height: 1.4; }
+
+/* The opt-in audio debug panel (?audio-debug=1, components/music/AudioDebugPanel.tsx): fixed over
+   the page's top-left corner, so it moves nothing; plain selectable text for a screenshot. */
+.audio-debug-panel {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 10000;
+  width: min(360px, calc(100vw - 16px));
+  max-height: 60vh;
+  overflow: auto;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.35;
+  -webkit-user-select: text;
+  user-select: text;
+}
+.audio-debug-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+.audio-debug-panel dl { margin: 0; }
+.audio-debug-panel dl > div { display: flex; gap: 8px; }
+.audio-debug-panel dt { flex: 0 0 96px; color: var(--text-dim); }
+.audio-debug-panel dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.audio-debug-events { margin: 6px 0 0; padding: 6px 0 0; border-top: 1px solid var(--line-soft); list-style: none; }
+.audio-debug-events li { overflow-wrap: anywhere; }
