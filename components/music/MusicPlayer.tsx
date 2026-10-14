@@ -36,6 +36,8 @@ export default function MusicPlayer() {
     favorites,
     currentTime,
     duration,
+    volume,
+    setVolumeLevel,
     queue,
     currentTrack: currentQueueTrack,
     nowPlayingCover,
@@ -170,9 +172,11 @@ export default function MusicPlayer() {
            when on another page needs also some rework"): the /music bar's look in a card. The
            album art and the song, title over artist on one line each, open Now playing; one row
            of icon buttons -- Favourite, Previous, Play, Next, Queue -- each named and with its
-           tooltip on hover and focus; the seek bar and its times between the two, as on the
-           /music bar. Fixed in the corner, so opening it moves nothing on the page. Add to
-           playlist, Stream-safe and the volume are the /music bar's. */
+           tooltip on hover and focus, and on a desktop the volume beside Queue ("we still need
+           the volume controls in this smaller player", 2026-10-14; a phone has its own buttons,
+           and an iPhone ignores a page's volume); the seek bar and its times between the two, as
+           on the /music bar. Fixed in the corner, so opening it moves nothing on the page. Add to
+           playlist and Stream-safe are the /music bar's. */
         <div className="music-body">
           <Link prefetch={false} href="/music?view=player" className="music-widget-song" title={displayTitle}
             aria-label={videoId ? `${displayTitle}. Open Now playing` : 'Open Now playing'}>
@@ -244,6 +248,8 @@ export default function MusicPlayer() {
                 <TransportIcon name="next" />
               </button>
             </div>
+            <input type="range" min={0} max={100} step={1} value={volume} onChange={(event) => setVolumeLevel(Number(event.target.value))}
+              className="music-volume music-widget-volume" aria-label="Volume" aria-valuetext={`${volume}%`} />
             <Link prefetch={false} href="/music?view=queue" className="ghost filter-chip music-list-btn" aria-label="Queue" data-tip="Queue">
               <TransportIcon name="queue" />
             </Link>

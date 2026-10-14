@@ -161,6 +161,15 @@
   min-width: 0;
 }
 .music-widget-transport { display: flex; justify-content: center; gap: 6px; }
+/* On a desktop the volume sits between the transport and Queue; a touch screen has its own
+   buttons (and an iPhone ignores a page's volume), so there the row keeps its three columns. */
+@media (pointer: fine) {
+  .music-controls { grid-template-columns: auto minmax(0, 1fr) 72px auto; }
+}
+.music-controls > .music-widget-volume { width: 100%; min-width: 0; margin: 0; }
+@media (pointer: coarse), (pointer: none) {
+  .music-controls > .music-widget-volume { display: none; }
+}
 /* An icon button's name, above it on hover and keyboard focus (data-tip; aria-label names it).
    The end buttons' tips line up with their outer edge, so none leaves the card's side. */
 .music-player [data-tip] { position: relative; }
