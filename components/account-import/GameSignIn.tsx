@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { ImportError, readAccount, readNetwork, readPulls, sendCode, SERVERS, signIn, type ImportStep, type Network, type ServerId, type YostarAccount } from '@/lib/account-import/yostar';
+import { ImportError, isNewGameAccount, readAccount, readNetwork, readPulls, sendCode, SERVERS, signIn, type ImportStep, type Network, type ServerId, type YostarAccount } from '@/lib/account-import/yostar';
 import type { PullRead } from '@/lib/account/pulls';
 import { directTransport, relayTransport } from '@/lib/account-import/relay';
 import { forgetLogin, maskEmail, readSavedLogin, saveLogin, type SavedLogin } from '@/lib/account-import/savedLogin';
@@ -31,6 +31,59 @@ const STEPS: { id: ImportStep; label: string }[] = [
 
 const describe = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
+/* Where in the game the login is shown and an email is linked to the account: the Settings
+   menu's Account tab (arknights.wiki.gg's 2025 screenshots of the Global client and its list:
+   "Yostar: Binding to/unbinding from a Yostar account"). The binding there emails a code
+   (Krooster's import page, which also warns that a recovery email or a Google, Apple or Facebook
+   binding is not a Yostar login). No menu name past the tab is written here. */
+const ACCOUNT_SETTINGS = 'Settings → Account';
+
+/** What a failure says, and whether it is the case of a Yostar account with no Arknights
+ *  account (ImportError noGameAccount), which is told with the way back (NoGameAccount). */
+type Failure = { step: ImportStep | null; message: string; noGameAccount?: boolean };
+const failure = (error: unknown, fallback: ImportStep = 'account'): Failure => (error instanceof ImportError
+  ? { step: error.step, message: describe(error), noGameAccount: error.noGameAccount }
+  : { step: fallback, message: describe(error) });
+
+/** The account the game gave was new and empty (isNewGameAccount). */
+export const NEW_ACCOUNT = 'the game opened a new, empty level-1 account for this login';
+
+/**
+ * The Yostar login has no Arknights account: Yostar made it for this email just now, as it does
+ * for any email that is not already a game account's Yostar login. So a player whose game is
+ * linked to Google or Apple, who typed that Gmail, has a second Yostar account, and must undo it
+ * in the game before this email is any use for theirs (the steps are the site owner's).
+ * Nothing was imported.
+ */
+export function NoGameAccount({ reason }: { reason: string }) {
+  // A new, empty account is sure; a refusal from the game is most likely the same, not certain.
+  const sure = reason === NEW_ACCOUNT;
+  return (
+    <div className="import-error import-no-account" role="alert">
+      <p>
+        This Yostar account {sure ? 'has' : 'may have'} no Arknights account, so nothing was imported. It may have just been
+        created by this login: Yostar makes a new account for any email that is not already the Yostar login of a game account, as
+        when you play with Google or Apple.
+      </p>
+      {!sure && (
+        <p>
+          If this email is the login you already use in the game, the game was most likely unavailable: try again later. Only if
+          it is not, and you play with Google or Apple, do this:
+        </p>
+      )}
+      <p>To use this email with your game account:</p>
+      <ol>
+        <li>Sign in to Arknights with this email. This makes a game account on it.</li>
+        <li>Play until the game lets you delete that account, then delete it.</li>
+        <li>Sign back in to the game with Google or Apple, your real account.</li>
+        <li>Link this email to it as its Yostar login ({ACCOUNT_SETTINGS}), then import here with it.</li>
+      </ol>
+      <p>Or link a different email, one never used with Yostar, to your game account, and import with that.</p>
+      <p className="hint">What the game said: {reason}.</p>
+    </div>
+  );
+}
+
 export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
   server: ServerId;
   /** The account, the pull history and their server, once read. A throw is shown as the last
@@ -44,7 +97,7 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
   const [codeSent, setCodeSent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [step, setStep] = useState<ImportStep | null>(null);
-  const [failed, setFailed] = useState<{ step: ImportStep | null; message: string } | null>(null);
+  const [failed, setFailed] = useState<Failure | null>(null);
   const [done, setDone] = useState(false);
   // Why the pull history was not read, when the rest was: its step shows a cross, nothing else does.
   const [pullsFailed, setPullsFailed] = useState<string | null>(null);
@@ -92,7 +145,7 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
       await sendCode(flow(), email.trim());
       setCodeSent(true);
     } catch (error) {
-      setFailed({ step: 'send-code', message: describe(error) });
+      setFailed(failure(error, 'send-code'));
     } finally {
       setBusy(false);
     }
@@ -101,6 +154,8 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
   /** Steps 3 to 6 with a Yostar login on `from`, then the account and the pulls to the caller. */
   async function read(yostar: YostarAccount, device: string, signedInAs: string, from: ServerId) {
     const user = await readAccount({ transport: relayTransport, direct: directTransport, deviceId: device, network: await connect(from), onStep: setStep }, yostar);
+    // Not the reader's account: imported, it would take the place of theirs.
+    if (isNewGameAccount(user)) throw new ImportError('account', NEW_ACCOUNT, true);
     setStep('pulls');
     let pulls: PullRead;
     try {
@@ -133,7 +188,7 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
       setCode('');
       setCodeSent(false);
     } catch (error) {
-      setFailed({ step: error instanceof ImportError ? error.step : 'account', message: describe(error) });
+      setFailed(failure(error));
     } finally {
       setBusy(false);
     }
@@ -158,7 +213,8 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
         setSaved(null);
         setFailed({ step: at, message: 'Your remembered sign-in no longer works, so it was forgotten. Sign in with a code again.' });
       } else {
-        setFailed({ step: at, message: describe(error) });
+        // It had an account when it was remembered.
+        setFailed({ ...failure(error), noGameAccount: false });
       }
     } finally {
       setBusy(false);
@@ -177,6 +233,17 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
 
   return (
     <>
+      <div className="import-yostar">
+        <p>
+          <b>Use the email that is already the Yostar login of your Arknights account.</b> Any other email, such as the Gmail
+          you play with through Google, makes Yostar create a separate, empty account for it, and nothing is imported. Undoing
+          that takes several steps in the game.
+        </p>
+        <p>
+          So check in the game which login you use first ({ACCOUNT_SETTINGS}). If you play with Google, Apple or Facebook only,
+          link an email there as its Yostar login (the option that emails you a code), then use that email here.
+        </p>
+      </div>
       {saved && (
         <div className="import-saved">
           <span className="hint">Remembered on this browser: <b>{maskEmail(saved.email)}</b> ({SERVERS[saved.server].label})</span>
@@ -203,7 +270,7 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
             {codeSent ? 'Send again' : 'Send code'}
           </button>
         </form>
-        {codeSent && <p className="hint import-sent">Yostar has emailed a code to that address. It arrives within a minute or two.</p>}
+        {codeSent && <p className="hint import-sent">Yostar has emailed a code to that address. It arrives within a minute or two; if none comes, check your spam folder, and that this is the Yostar login of your game account.</p>}
         <form className="import-row" onSubmit={onImport}>
           <label className="visually-hidden" htmlFor={`${idPrefix}-code`}>Code from the email</label>
           <input
@@ -236,7 +303,7 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
           );
         })}
       </ol>
-      {failed && <p className="import-error" role="alert">{failed.message}</p>}
+      {failed && (failed.noGameAccount ? <NoGameAccount reason={failed.message} /> : <p className="import-error" role="alert">{failed.message}</p>)}
       {done && pullsFailed && <p className="hint import-note">The pull history could not be read ({pullsFailed}). Everything else was imported.</p>}
     </>
   );

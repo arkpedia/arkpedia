@@ -42,6 +42,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     fixed: [
       { title: 'The October 9 Kernel Headhunting batch', detail: 'Goldenglow, Dorothy, Quercus and the rest of that batch leave Standard and limited pools from Standard Pool #177 on.', href: '/gacha' },
       { title: 'Kernel banners running during a move', detail: 'Kernel #63 now includes the operators who joined Kernel Headhunting while it ran.', href: '/gacha' },
+      { title: 'Importing a Google or Apple account', detail: 'It says which email to use first, and an email with no game account imports nothing, with the steps to fix it.', href: '/account' },
     ],
   },
   {
