@@ -97,6 +97,14 @@ test('a refusal names the step that failed and what the server said', async () =
     'send-code', /Yostar refused yostar\/send-code: Too many requests/);
   await refusal(signIn(options({ ...ANSWERS, 'https://en-sdk-api.yostarplat.com/yostar/get-auth': { Code: 100110, Msg: 'Wrong code' } }), 'a@b.c', '1'),
     'sign-in', /Wrong code/);
+  // An email that was not yet a game account's Yostar login: Yostar makes it an account and
+  // says so (IsNew 1, as it answered a fresh test address on 2026-10-14). It stops at sign-in,
+  // marked as no game account, so the reader is told the way back and nothing is read.
+  const fresh = signIn(options({ ...ANSWERS, 'https://en-sdk-api.yostarplat.com/user/login': { Code: 200, Data: { IsNew: 1, UserInfo: { ID: 4243, Token: 'new-token' } } } }), 'a@b.c', '1');
+  await refusal(fresh, 'sign-in', /new account for this email/);
+  assert.equal(await fresh.then(() => null, (error: ImportError) => error.noGameAccount), true);
+  // An existing login answers IsNew 0 and signs in as before.
+  assert.equal((await signIn(options({ ...ANSWERS, 'https://en-sdk-api.yostarplat.com/user/login': { Code: 200, Data: { IsNew: 0, UserInfo: { ID: 4242, Token: 'yostar-token' } } } }), 'a@b.c', '1')).uid, '4242');
   const { relay, direct } = server({ ...ANSWERS, 'https://as.example/u8/user/v1/getToken': { result: 4 } });
   await refusal(readAccount({ transport: relay, direct, deviceId: 'd', network: await readNetwork(relay, 'en') }, { uid: '1', token: 't', authToken: 'a' }), 'game-token', /result 4/);
   await refusal(readNetwork(server({ 'https://ak-conf.arknights.global/config/prod/official/network_config': { content: '{}' } }).relay, 'en'), 'network', /server list could not be read/);

@@ -202,6 +202,13 @@ export async function signIn({ transport, server, deviceId, now = Date.now }: Fl
     Geetest: { CaptchaID: null, CaptchaOutput: null, GenTime: null, LotNumber: null, PassToken: null },
     OpenID: email, Secret: '', Token: auth.Token, Type: 'yostar', UserName: email,
   }, deviceId, now);
+  // Yostar's own word that this login just made the account (IsNew 1): an email that was not yet
+  // any game account's Yostar login. Checked against Yostar on 2026-10-14 with a fresh test
+  // address: CheckAccount 1 did not stop the account being made, and the answer said IsNew 1.
+  // Stopped here, before the game is asked, so the new account is never read or imported.
+  if (Number(login.IsNew) === 1) {
+    throw new ImportError('sign-in', 'Yostar made a new account for this email just now: it was not the Yostar login of a game account', true);
+  }
   const user = object(login.UserInfo);
   if (user.ID == null || typeof user.Token !== 'string') throw new ImportError('sign-in', 'Yostar signed in but sent no account');
   return { uid: String(user.ID), token: user.Token, authToken: auth.Token };
