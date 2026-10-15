@@ -34,6 +34,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-10-15T01:29:00Z',
+    title: 'Account sign-in',
+    fixed: [
+      { title: 'Account sign-in', detail: 'Restored the previous email-code login flow while keeping the notice about which Yostar email to use.', href: '/account' },
+    ],
+  },
+  {
     at: '2026-10-15T01:00:00Z',
     title: 'The new music player',
     added: [
@@ -71,7 +78,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       { title: 'The October 9 Kernel Headhunting batch', detail: 'Goldenglow, Dorothy, Quercus and the rest of that batch leave Standard and limited pools from Standard Pool #177 on.', href: '/gacha' },
       { title: 'Kernel banners running during a move', detail: 'Kernel #63 now includes the operators who joined Kernel Headhunting while it ran.', href: '/gacha' },
       { title: 'Corner music player volume', detail: 'On a desktop its volume slider ran out of the card; it now takes a row of its own when there is no room.' },
-      { title: 'Importing a Google or Apple account', detail: 'It says which email to use first, and an email with no game account imports nothing, with the steps to fix it.', href: '/account' },
+      { title: 'Importing a Google or Apple account', detail: 'The import explains which Yostar email to use and warns that another email can create a separate, empty account.', href: '/account' },
     ],
   },
   {

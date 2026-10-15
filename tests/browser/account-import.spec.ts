@@ -1,37 +1,28 @@
 import { expect, test, type Page } from '@playwright/test';
 import { readOnly } from './census-routes';
 
-/*
- * The sign-in from the game (components/account-import/GameSignIn) in the Account page's
- * Import / export, driven end to end with every answer made up here: Yostar, the game and the
- * Account Center are a stand-in transport the page reads in place of the relay
- * (window.__arkpediaImportTransport, lib/account-import/relay.ts), so nothing reaches Yostar,
- * the game or relay.arkpedia.net. People who play through Google typed their Gmail, and Yostar's
- * email code made it a new Yostar account with a new, empty game account (level 1), which the
- * import then wrote over theirs (2026-10). The notice says first which email to use and what
- * any other does; a level-1 account, or a game that gives the login no account, imports nothing
- * and says how to undo it.
- */
+/* The previous email-code flow, with the Yostar email notice kept. All server answers are
+ * fixtures: these checks never send a code or sign in to a real account. */
 
 const EMAIL = 'player@example.invalid';
 const VERSION = 'https://hv.example.invalid/Android/version';
 
 /** The stand-in transport, answering as the servers do: the account at `level`, or the game's
  *  token exchange refusing the login (`level: null`). */
-async function stubServers(page: Page, level: number | null) {
+async function stubServers(page: Page, level: number | null, isNew = 0) {
   await readOnly(page);
   // The relay is never opened: the page's transport is the stand-in.
   await page.routeWebSocket(/relay\.arkpedia\.net/, (socket) => socket.close());
   // The game's version file is the one request the page makes itself (directTransport).
   await page.route(VERSION, (route) => route.fulfill({ status: 200, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' },
     body: JSON.stringify({ resVersion: '00-00-00', clientVersion: '0.0.0' }) }));
-  await page.addInitScript((level) => {
+  await page.addInitScript(({ level, isNew }) => {
     const network = { u8: 'https://u8.example.invalid', gs: 'https://gs.example.invalid', hv: 'https://hv.example.invalid/{0}/version' };
     const answers: Record<string, { json: unknown; headers?: [string, string][] }> = {
       'https://ak-conf.arknights.global/config/prod/official/network_config': { json: { content: JSON.stringify({ funcVer: 'V1', configs: { V1: { network } } }) } },
       'https://en-sdk-api.yostarplat.com/yostar/send-code': { json: { Code: 200, Data: {} } },
       'https://en-sdk-api.yostarplat.com/yostar/get-auth': { json: { Code: 200, Data: { Token: 'code-token' } } },
-      'https://en-sdk-api.yostarplat.com/user/login': { json: { Code: 200, Data: { UserInfo: { ID: 4242, Token: 'yostar-token' } } } },
+      'https://en-sdk-api.yostarplat.com/user/login': { json: { Code: 200, Data: { IsNew: isNew, UserInfo: { ID: 4242, Token: 'yostar-token' } } } },
       'https://u8.example.invalid/user/v1/getToken': { json: level === null ? { result: 2 } : { result: 0, token: 'u8-token', uid: '1' } },
       'https://gs.example.invalid/account/login': { json: { result: 0, secret: 'session', uid: '1' } },
       'https://gs.example.invalid/account/syncData': { json: { result: 0, user: { status: { level, nickName: level === 1 ? '' : 'Doctor', nickNumber: '0001' }, troop: { chars: {} } } } },
@@ -45,7 +36,7 @@ async function stubServers(page: Page, level: number | null) {
       const answer = answers[url];
       return answer ? { status: 200, json: answer.json, headers: answer.headers ?? [] } : { status: 404, json: null, headers: [] };
     };
-  }, level);
+  }, { level, isNew });
 }
 
 /** /account's Import / export, open on the sign-in. */
@@ -73,7 +64,7 @@ test('the import says, above the email field, which email to use and what any ot
   const notice = dialog.locator('.import-yostar');
   await expect(notice).toBeVisible();
   await expect(notice).toContainText('Use the email that is already the Yostar login of your Arknights account.');
-  await expect(notice).toContainText('makes Yostar create a separate, empty account for it, and nothing is imported');
+  await expect(notice).toContainText('makes Yostar create a separate, empty account for it');
   await expect(notice).toContainText('Undoing that takes several steps in the game.');
   await expect(notice).toContainText('check in the game which login you use first (Settings → Account)');
   // Read before the field: above it, with nothing typed yet.
@@ -81,49 +72,30 @@ test('the import says, above the email field, which email to use and what any ot
   expect(noticeBox && fieldBox && noticeBox.y + noticeBox.height <= fieldBox.y).toBe(true);
 });
 
-/** The way back, as the failure lists it, and that nothing was imported. */
-async function expectNothingImported(page: Page, step: RegExp) {
-  const dialog = page.locator('dialog.data-dialog');
-  const error = dialog.getByRole('alert');
-  await expect(error).toContainText('no Arknights account, so nothing was imported');
-  await expect(error).toContainText('It may have just been created by this login');
-  await expect(error.locator('ol > li')).toHaveText([
-    'Sign in to Arknights with this email. This makes a game account on it.',
-    'Play until the game lets you delete that account, then delete it.',
-    'Sign back in to the game with Google or Apple, your real account.',
-    'Link this email to it as its Yostar login (Settings → Account), then import here with it.',
-  ]);
-  await expect(dialog.locator('.import-step-failed')).toHaveText(step);
-  // Nothing written over the reader's: no account, no import line, the pull history never asked for.
-  await expect(dialog.locator('.import-note[role="status"]')).toHaveCount(0);
-  expect(await page.evaluate(() => localStorage.getItem('arkpediaAccount'))).toBeNull();
-  const asked = await page.evaluate(() => (window as unknown as { __asked: string[] }).__asked);
-  expect(asked.some((url) => url.startsWith('https://account.yo-star.com/'))).toBe(false);
-  return { error, asked };
-}
-
-test('a Yostar login the game opens a new, empty account for (level 1) imports nothing and says how to undo it', async ({ page }) => {
+test('a level-1 account imports through the previous flow', async ({ page }) => {
   await stubServers(page, 1);
-  await openImport(page);
+  const dialog = await openImport(page);
   await signIn(page);
-  const { error, asked } = await expectNothingImported(page, /Read the account/);
-  await expect(error).toContainText('This Yostar account has no Arknights account');
-  await expect(error).toContainText('What the game said: the game opened a new, empty level-1 account for this login.');
-  await expect(error).not.toContainText('the game was most likely unavailable');
-  expect(asked).toContain('https://gs.example.invalid/account/syncData');
+  await expect(dialog.locator('.import-note[role="status"]')).toContainText('Imported:');
+  await expect(dialog.getByRole('alert')).toHaveCount(0);
+  expect(JSON.parse(await page.evaluate(() => localStorage.getItem('arkpediaAccount') ?? 'null'))).toMatchObject({ server: 'en' });
 });
 
-test('a Yostar login the game gives no account imports nothing and says the same, as a likelihood', async ({ page }) => {
-  await stubServers(page, null);
-  await openImport(page);
+test('a successful Yostar login marked IsNew continues to the game as before', async ({ page }) => {
+  await stubServers(page, 120, 1);
+  const dialog = await openImport(page);
   await signIn(page);
-  const { error, asked } = await expectNothingImported(page, /Get a game token/);
-  await expect(error).toContainText('This Yostar account may have no Arknights account');
-  // A refusal may be the game being down for a real login: the steps, which delete an account,
-  // are only for an email that is not the game's login.
-  await expect(error).toContainText('If this email is the login you already use in the game, the game was most likely unavailable: try again later.');
-  await expect(error).toContainText('What the game said: the game refused the Yostar sign-in (result 2).');
-  expect(asked).not.toContain('https://gs.example.invalid/account/login');
+  await expect(dialog.locator('.import-note[role="status"]')).toContainText('Imported:');
+  await expect(dialog.getByRole('alert')).toHaveCount(0);
+});
+
+test('a refused game token keeps the previous error and does not import', async ({ page }) => {
+  await stubServers(page, null);
+  const dialog = await openImport(page);
+  await signIn(page);
+  await expect(dialog.getByRole('alert')).toHaveText('the game refused the Yostar sign-in (result 2)');
+  await expect(dialog.locator('.import-step-failed')).toContainText('Get a game token');
+  expect(await page.evaluate(() => localStorage.getItem('arkpediaAccount'))).toBeNull();
 });
 
 test('the same sign-in with a linked account (level 120) imports it', async ({ page }) => {
@@ -133,4 +105,17 @@ test('the same sign-in with a linked account (level 120) imports it', async ({ p
   await expect(dialog.locator('.import-note[role="status"]')).toContainText('Imported:');
   await expect(dialog.getByRole('alert')).toHaveCount(0);
   expect(JSON.parse(await page.evaluate(() => localStorage.getItem('arkpediaAccount') ?? 'null'))).toMatchObject({ server: 'en', doctor: 'Doctor#0001' });
+});
+
+
+test('remembering a successful sign-in still allows importing again', async ({ page }) => {
+  await stubServers(page, 120);
+  const dialog = await openImport(page);
+  await dialog.getByLabel('Remember this sign-in on this browser').check();
+  await signIn(page);
+  await expect(dialog.getByRole('button', { name: 'Import again', exact: true })).toBeVisible();
+  await dialog.getByRole('button', { name: 'Import again', exact: true }).click();
+  await expect(dialog.getByRole('button', { name: 'Import again', exact: true })).toBeEnabled();
+  await expect(dialog.getByRole('alert')).toHaveCount(0);
+  await expect(dialog.locator('.import-note[role="status"]')).toContainText('Imported:');
 });

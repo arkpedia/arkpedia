@@ -80,12 +80,7 @@ export const isServerId = (value: unknown): value is ServerId => typeof value ==
 export type ImportStep = 'send-code' | 'sign-in' | 'network' | 'game-token' | 'game-login' | 'account' | 'pulls';
 
 export class ImportError extends Error {
-  /** `noGameAccount`: the game answered, and would not give this Yostar login an account (a
-   *  token, a login or the account itself refused by its result), or gave a new, empty one
-   *  (isNewGameAccount). Either can mean the Yostar account has no Arknights account: Yostar makes
-   *  a new account for any email that is not already one's login (GameSignIn says what to do).
-   *  Not set where a host could not be reached or answered an HTTP error. */
-  constructor(readonly step: ImportStep, message: string, readonly noGameAccount = false) {
+  constructor(readonly step: ImportStep, message: string) {
     super(message);
     this.name = 'ImportError';
   }
@@ -202,13 +197,6 @@ export async function signIn({ transport, server, deviceId, now = Date.now }: Fl
     Geetest: { CaptchaID: null, CaptchaOutput: null, GenTime: null, LotNumber: null, PassToken: null },
     OpenID: email, Secret: '', Token: auth.Token, Type: 'yostar', UserName: email,
   }, deviceId, now);
-  // Yostar's own word that this login just made the account (IsNew 1): an email that was not yet
-  // any game account's Yostar login. Checked against Yostar on 2026-10-14 with a fresh test
-  // address: CheckAccount 1 did not stop the account being made, and the answer said IsNew 1.
-  // Stopped here, before the game is asked, so the new account is never read or imported.
-  if (Number(login.IsNew) === 1) {
-    throw new ImportError('sign-in', 'Yostar made a new account for this email just now: it was not the Yostar login of a game account', true);
-  }
   const user = object(login.UserInfo);
   if (user.ID == null || typeof user.Token !== 'string') throw new ImportError('sign-in', 'Yostar signed in but sent no account');
   return { uid: String(user.ID), token: user.Token, authToken: auth.Token };
@@ -255,7 +243,7 @@ export async function readAccount({ transport, direct, deviceId, network, onStep
     deviceId, deviceId2: '', deviceId3: '',
   };
   const u8 = await post(transport, 'game-token', `${network.u8}/user/v1/getToken`, CLIENT_HEADERS, { ...fields, sign: await u8Sign(fields) });
-  if (u8.result !== 0 || typeof u8.token !== 'string') throw new ImportError('game-token', `the game refused the Yostar sign-in (result ${u8.result ?? 'none'})`, true);
+  if (u8.result !== 0 || typeof u8.token !== 'string') throw new ImportError('game-token', `the game refused the Yostar sign-in (result ${u8.result ?? 'none'})`);
 
   onStep('game-login');
   let version: Record<string, any>;
@@ -268,23 +256,12 @@ export async function readAccount({ transport, direct, deviceId, network, onStep
     platform: 1, networkVersion: '1', assetsVersion: version.resVersion, clientVersion: version.clientVersion,
     token: u8.token, uid: String(u8.uid), deviceId, deviceId2: '', deviceId3: '',
   });
-  if (login.result !== 0 || typeof login.secret !== 'string') throw new ImportError('game-login', `the game server refused the login (result ${login.result ?? 'none'})`, true);
+  if (login.result !== 0 || typeof login.secret !== 'string') throw new ImportError('game-login', `the game server refused the login (result ${login.result ?? 'none'})`);
 
   onStep('account');
   const data = await post(transport, 'account', `${network.gs}/account/syncData`, { ...CLIENT_HEADERS, secret: login.secret, seqnum: '2', uid: String(login.uid) }, { platform: 1 });
-  if (data.result !== 0 || !data.user) throw new ImportError('account', `the game server sent no account (result ${data.result ?? 'none'})`, true);
+  if (data.result !== 0 || !data.user) throw new ImportError('account', `the game server sent no account (result ${data.result ?? 'none'})`);
   return object(data.user);
-}
-
-/**
- * Whether the account the game sent is a new, empty one: level 1. Yostar's email code signs in
- * any email, and makes one that is not yet a Yostar login a new Yostar account of its own, with a
- * new level-1 game account (Krooster warns its readers of the same). So a reader whose game is
- * linked to Google or Apple, who types that Gmail here, reaches an empty account, not theirs.
- * The sign-in (components/account-import/GameSignIn) imports nothing then.
- */
-export function isNewGameAccount(user: Record<string, any>): boolean {
-  return Number(object(object(user).status).level) === 1;
 }
 
 /* Yostar's Account Center, where the reader's headhunting history is (Game Info > Headhunting
