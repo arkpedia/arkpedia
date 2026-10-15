@@ -50,6 +50,20 @@ test('voice credits merge official Global sources and prefer the newer source', 
   });
 });
 
+test('partial voice tables preserve other languages, normalize renamed enums, and refresh idempotently', () => {
+  const previous = { Japanese: 'Accurate existing spelling', Chinese: 'Existing CN credit', 'Regional Chinese (Cantonese)': 'Existing dialect credit' };
+  const tables = [{ voiceLangDict: { char_test: { dict: {
+    EN: { cvName: [' Current EN actor '] }, KR: { cvName: [] },
+    11: { voiceLangType: 'SPA', cvName: ['Spanish actor'] },
+  } } } }];
+  const refreshed = officialVoiceActors('char_test', tables, previous);
+  assert.deepEqual(refreshed, { ...previous, English: 'Current EN actor', Spanish: 'Spanish actor' });
+  assert.deepEqual(officialVoiceActors('char_test', tables, refreshed), refreshed);
+  assert.deepEqual(officialVoiceActors('char_test', [], refreshed), refreshed);
+  assert.equal(officialVoiceActors('char_test', [{ voiceLangDict: { char_test: { dict: { EN: { cvName: ['Replacement actor'] } } } } }], refreshed).English, 'Replacement actor');
+  assert.deepEqual(previous, { Japanese: 'Accurate existing spelling', Chinese: 'Existing CN credit', 'Regional Chinese (Cantonese)': 'Existing dialect credit' });
+});
+
 test('only recent or untranslated records take the game\'s voice credits', () => {
   const now = Date.UTC(2026, 8, 17);
   assert.equal(usesGameVoiceCredits({ characterInfo: { 'Release Date': '2026/09/10' } }, now), true);
@@ -424,12 +438,12 @@ test('one record the refresh refuses is kept and quarantined; every other record
     tagList: [], potentialRanks: [], skills: [], allSkillLvlup: [], talents: [] });
     const tables = { characters: { char_good: character('Good'), char_bad: character('Bad') }, skills: {}, building: { chars: {}, buffs: {} },
       modules: { equipDict: {} }, battleEquip: {}, items: { items: {} }, patch: {}, cn: null,
-      voiceTables: [{ voiceLangDict: { char_good: { dict: { JP: { cvName: ['Game Actor'] } } } } }] };
+      voiceTables: [{ voiceLangDict: { char_good: { dict: { JP: { cvName: ['Game Actor'] }, EN: { cvName: ['New EN Actor'] } } } } }] };
     const changed = syncOperatorEnglish(root, { handbookDict: {} }, tables, new Date('2026-10-05T00:00:00Z'));
     assert.equal(changed, 1);
     const good = JSON.parse(fs.readFileSync(path.join(root, 'data/operators-5star/Good.json'), 'utf8'));
     assert.equal(good.trait, 'Heals to 80%');
-    assert.deepEqual(good.characterVoices, { Japanese: 'Kept Actor (dialect note)' }, 'an old record keeps its voice credits');
+    assert.deepEqual(good.characterVoices, { Japanese: 'Kept Actor (dialect note)', English: 'New EN Actor' }, 'an old record keeps its detailed credits and fills a newly published language');
     assert.equal(JSON.parse(fs.readFileSync(path.join(root, 'data/operators-5star/Bad.json'), 'utf8')).trait, 'Old trait', 'kept as it was');
     const quarantine = JSON.parse(fs.readFileSync(path.join(root, 'data/quarantine.json'), 'utf8'));
     assert.deepEqual(quarantine.entries.map((entry: { key: string; stage: string; action: string }) => [entry.key, entry.stage, entry.action]), [['operator:char_bad', 'operator-english', 'kept-previous']]);

@@ -208,6 +208,8 @@ test('every outfit voice set is complete, distinct and points at its own folders
       assert.equal(new Set(set.lines.map(line => line.id)).size, set.lines.length, `${id} ${set.id} has duplicate line IDs`);
       for (const pack of set.packs) {
         assert.equal(pack.status, 'current', `${id} ${set.id} ${pack.id}`);
+        // Credits can precede the pinned recording; null cannot offer a playable URL.
+        if (pack.audioTemplate === null) continue;
         // The '#' in a set's word key is encoded, or the browser would cut the address there.
         assert.ok(pack.audioTemplate?.includes(`/current/${encodeURIComponent(set.id)}/`), `${id} ${set.id} ${pack.id}: ${pack.audioTemplate}`);
         assert.ok(!pack.audioTemplate?.includes('#'), `${id} ${set.id} ${pack.id}: raw # in ${pack.audioTemplate}`);
