@@ -7,6 +7,12 @@ import { pathToFileURL } from 'node:url';
 import { releaseDeployments } from '../deploy/deploy-targets.mjs';
 const digest = bytes => createHash('sha256').update(bytes).digest('hex');
 
+export function publicationExamples(contents, manifest) {
+  return ['story', 'event'].flatMap(kind => contents.filter(row => row.kind === kind && row.release_date
+    && Object.hasOwn(manifest.pages, `/stages/content/${row.id}`))
+    .sort((a, b) => b.release_date.localeCompare(a.release_date)).slice(0, 1));
+}
+
 async function pageProps(origin, route, fetch) {
   const response = await fetch(`${origin}${route}`, { cache: 'no-store', signal: AbortSignal.timeout(20000) });
   if (!response.ok) throw new Error(`${origin}${route}: HTTP ${response.status}`);
@@ -59,8 +65,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.ar
   const file = process.argv[2];
   if (!file) throw new Error('usage: check-served-stages.mjs <prepared manifest>');
   const contents = Object.values(JSON.parse(fs.readFileSync(path.resolve(path.dirname(file), '../source/data/stages-content.json'))));
-  const examples = ['story', 'event'].flatMap(kind => contents.filter(row => row.kind === kind && row.release_date)
-    .sort((a, b) => b.release_date.localeCompare(a.release_date)).slice(0, 1));
-  verifyServedStages({ manifest: JSON.parse(fs.readFileSync(file)), examples, deployments: releaseDeployments() })
+  const manifest = JSON.parse(fs.readFileSync(file));
+  const examples = publicationExamples(contents, manifest);
+  verifyServedStages({ manifest, examples, deployments: releaseDeployments() })
     .catch(error => { console.error(`Stage publication verification failed: ${error.message}`); process.exitCode = 1; });
 }
