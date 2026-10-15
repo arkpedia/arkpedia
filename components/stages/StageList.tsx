@@ -8,6 +8,7 @@ import { compareStageSummaries } from '@/lib/stages/stageSort';
 import { matchesSearch, searchRelevance } from '@/lib/search/searchNormalize';
 import StyledSelect, { type SelectOption } from '@/components/ui/StyledSelect';
 import SearchInput from '@/components/ui/SearchInput';
+import { fetchAsset } from '@/lib/assets/assetRetry';
 
 /** One choice in the rail's filters: a chapter or event has a code column
  *  ("EP 04"), a stage type does not. */
@@ -168,7 +169,7 @@ export default function StageList({ typeCounts, now, selectedSlug }: Props) {
 
   useEffect(() => {
     let live = true;
-    fetch(contentUrl(`${basePath}/stages-index.json`))
+    fetchAsset(contentUrl(`${basePath}/stages-index.json`))
       .then((r) => (r.ok ? r.json() : null))
       .then((rows) => {
         if (!live || !Array.isArray(rows)) return;

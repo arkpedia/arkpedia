@@ -77,6 +77,7 @@ import {
   maxSkillRankForElite,
   moduleUnlock,
 } from '@/lib/planner/plannerLogic';
+import { fetchAsset } from '@/lib/assets/assetRetry';
 
 interface Props {
   /** Every plannable operator, released or not, each with its release marker. */
@@ -448,7 +449,7 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
     setFailedNames(cur => { const next = new Set(cur); next.delete(name); return next; });
     setLoadingNames((cur) => new Set(cur).add(name));
     // The filename itself is encoded on disk, so encode it again for the URL.
-    fetch(contentUrl(`/planner-data/${encodeURIComponent(encodeURIComponent(name))}.json`))
+    fetchAsset(contentUrl(`/planner-data/${encodeURIComponent(encodeURIComponent(name))}.json`))
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`Failed to load ${name}`))))
       .then((data: PlannerOperator) => {
         setDetailCache((cur) => ({ ...cur, [name]: data }));

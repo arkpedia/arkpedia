@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { useContentUrl } from '@/lib/content/context';
 import EnemyDetailPanel, { type EnemyDetailData } from '@/components/enemies/EnemyDetailPanel';
 import RecordDialog from '@/components/ui/RecordDialog';
+import { fetchAsset } from '@/lib/assets/assetRetry';
 
 /**
  * The enemy handbook's own record, over the page it was opened from: a Stronghold
@@ -33,7 +34,7 @@ export default function EnemyRecord({ slug, name, intro, fieldedLevel = null, on
     let live = true;
     setDetail(null);
     setFailed(false);
-    fetch(contentUrl(`/enemy-detail/${encodeURIComponent(slug)}.json`))
+    fetchAsset(contentUrl(`/enemy-detail/${encodeURIComponent(slug)}.json`))
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
       .then((d: EnemyDetailData) => { if (live) setDetail(d); })
       .catch(() => { if (live) setFailed(true); });

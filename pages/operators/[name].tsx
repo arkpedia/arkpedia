@@ -72,6 +72,7 @@ import { checkMaterialCatalogue, plannerCostNames } from '@/lib/farming/material
 import { withMaterialOrder } from '@/lib/content/materialOrderFallback';
 import { getOperatorVoiceData, OperatorVoiceData } from '@/lib/operators/operatorVoices';
 import OperatorRelationPopover, { RelatedOperator } from '@/components/operators/OperatorRelationPopover';
+import { useAssetUrl } from '@/lib/assets/assetRetry';
 
 interface SynergyMatchOperator {
   name: string;
@@ -490,6 +491,9 @@ function GuideVideoCard({ guide, operatorName }: { guide: GuideEntry; operatorNa
 export default function OperatorDetailPage({ chibis = {}, summons = [], epTrack, operator, appearances, skinObtainByLabel, synergyMatches, autoSynergyGroups, techniqueUnitIcons, techniqueBranchOperators, techniqueGroupOperators, techniqueRelatedOperators, forms, skillRanges, skillTimings, factionEmblem, artworkCredits, overviewRanges, voiceData, branchRelatedOperators = [], relatedByArtist = {}, relatedByVoiceActor = {}, materialOrder, dynamicArt = {} }: Props) {
   const music = useMusicPlayer();
   const contentUrl = useContentUrl();
+  // The faction emblem is a CSS mask, which has no error event (lib/assets/assetRetry.ts).
+  const emblemRef = useRef<HTMLSpanElement>(null);
+  const emblem = useAssetUrl(factionEmblem ? contentUrl(factionEmblem) : '', emblemRef);
   const router = useRouter();
 
   const frameRef = useRef<HTMLDivElement | null>(null);
@@ -952,7 +956,7 @@ export default function OperatorDetailPage({ chibis = {}, summons = [], epTrack,
       }}>
           <section id="operator-artwork" tabIndex={-1} aria-label="Operator artwork" className={pageStyles.gallery}>
             <div className="op-carousel-main">
-              {factionEmblem && <span aria-hidden="true" className={pageStyles.artworkEmblem} style={{ maskImage: cssUrl(contentUrl(factionEmblem)), WebkitMaskImage: cssUrl(contentUrl(factionEmblem)) }} />}
+              {factionEmblem && <span ref={emblemRef} aria-hidden="true" className={pageStyles.artworkEmblem} style={{ maskImage: cssUrl(emblem), WebkitMaskImage: cssUrl(emblem) }} />}
               {warmAppearance?.fullPath && (
                 <div key={`warm-img-${warmAppearance.label}`} className="op-carousel-main-img op-carousel-warm" aria-hidden="true">
                   <ResponsiveSkinArtwork src={warmAppearance.fullPath} alt="" fill sizes={ARTWORK_SIZES}

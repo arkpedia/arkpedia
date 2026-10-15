@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useContentUrl } from '@/lib/content/context';
+import { assetRetryPending, playAssetAudio } from '@/lib/assets/assetRetry';
 import SearchInput from '../ui/SearchInput';
 import SegmentedControl from '../ui/SegmentedControl';
 import StyledSelect from '../ui/StyledSelect';
@@ -358,12 +359,14 @@ export default function OperatorVoiceLines({ data }: { data: OperatorVoiceData }
       return;
     }
     audio.pause();
-    audio.src = contentUrl(source);
-    audio.load();
     try {
-      await audio.play();
+      // A clip GitHub falsely reports missing is tried at another encoding first
+      // (lib/assets/assetRetry.ts); the element's onError waits for the last try.
+      await playAssetAudio(audio, contentUrl(source), () => request === playRequestRef.current);
       if (request !== playRequestRef.current) return;
       setPlaying(true);
+      // An earlier try's failure may have reached onError before it re-rendered: the clip plays.
+      setAudioError('');
     } catch {
       // Replaced while it loaded: the newer request (or the reset) owns the player now.
       if (request !== playRequestRef.current) return;
@@ -459,6 +462,8 @@ export default function OperatorVoiceLines({ data }: { data: OperatorVoiceData }
           onError={event => {
             // A source the reset took away (another pack or voice set) is not a failed clip.
             if (!event.currentTarget.getAttribute('src')) return;
+            // Not yet: playLine tries the clip at another encoding before it gives up.
+            if (!playing && assetRetryPending(event.currentTarget)) return;
             setPlaying(false);
             setAudioError('Audio could not be loaded for this recording.');
           }} />

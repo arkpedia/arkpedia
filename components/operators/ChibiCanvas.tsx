@@ -4,6 +4,7 @@ import type { ChibiModel } from '@/lib/operators/chibi';
 import type { ChibiActivity } from '@/lib/operators/chibiRoutine';
 import { chibiIdleAnimation, isChibiTap } from '@/lib/operators/chibiRoutine';
 import { chibiAtlas } from '@/lib/operators/chibiAtlas';
+import { fetchAsset, loadAssetImage } from '@/lib/assets/assetRetry';
 interface ChibiCanvasProps {
   model: ChibiModel; label: string; animation: string; onAnimationChange: (value: string) => void;
   onAnimationsChange: (values: string[], durations?: Record<string, number>) => void; paused: boolean; moving: boolean; flipped: boolean;
@@ -25,9 +26,10 @@ export default function ChibiCanvas({ model, label, animation, onAnimationChange
     (async () => {
       const [{ spine }, skeletonBytes, atlasText, images] = await Promise.all([
         import('@/lib/vendor/spine-3.8/spine-webgl'),
-        fetch(model.skeleton, { signal: abort.signal }).then(res => { if (!res.ok) throw Error('Skeleton unavailable'); return res.arrayBuffer(); }),
-        fetch(model.atlas, { signal: abort.signal }).then(res => { if (!res.ok) throw Error('Atlas unavailable'); return res.text(); }),
-        Promise.all(Object.entries(model.textures).map(([name, url]) => new Promise<[string, HTMLImageElement]>((resolve, reject) => { const image = new Image(); image.crossOrigin = 'anonymous'; image.onload = () => resolve([name, image]); image.onerror = () => reject(Error('Texture unavailable')); image.src = url; abort.signal.addEventListener('abort', () => { image.src = ''; reject(Error('Aborted')); }, { once: true }); }))),
+        fetchAsset(model.skeleton, { signal: abort.signal }).then(res => { if (!res.ok) throw Error('Skeleton unavailable'); return res.arrayBuffer(); }),
+        fetchAsset(model.atlas, { signal: abort.signal }).then(res => { if (!res.ok) throw Error('Atlas unavailable'); return res.text(); }),
+        Promise.all(Object.entries(model.textures).map(([name, url]) => loadAssetImage(url, { crossOrigin: 'anonymous', signal: abort.signal })
+          .then((image): [string, HTMLImageElement] => [name, image], () => { throw Error(abort.signal.aborted ? 'Aborted' : 'Texture unavailable'); }))),
       ]);
       if (stopped) return;
       const context = new spine.webgl.ManagedWebGLRenderingContext(canvas, { alpha: true, antialias: true });

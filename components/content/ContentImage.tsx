@@ -1,7 +1,8 @@
 import NextImage, { type ImageProps } from 'next/image';
-import { forwardRef, version as reactVersion, type HTMLAttributes, type ImgHTMLAttributes } from 'react';
+import { forwardRef, useRef, version as reactVersion, type HTMLAttributes, type ImgHTMLAttributes } from 'react';
 import { useContentUrl } from '@/lib/content/context';
 import { cssUrl } from '@/lib/content/urls';
+import { useAssetUrl } from '@/lib/assets/assetRetry';
 
 /*
  * Every picture on the site is one of these two, and both wait for the reader
@@ -44,9 +45,11 @@ export const ContentImg = forwardRef<HTMLImageElement, ContentImgProps>(function
   return <img {...props} {...loading} alt={alt ?? ''} src={src ? url(src) : src} ref={ref} />;
 });
 
-/** CSS artwork needs the same release pin as ordinary images. */
+/** CSS artwork needs the same release pin as ordinary images, and, having no error event,
+ *  its own look at a false 404 once it is shown (useAssetUrl, lib/assets/assetRetry.ts). */
 export function ContentArt({ src, ownColors = false, style, ...props }: HTMLAttributes<HTMLSpanElement> & { src: string; ownColors?: boolean }) {
   const url = useContentUrl();
-  const image = cssUrl(url(src));
-  return <span {...props} style={{ ...style, ...(ownColors ? { backgroundImage: image } : { maskImage: image, WebkitMaskImage: image }) }} />;
+  const ref = useRef<HTMLSpanElement>(null);
+  const image = cssUrl(useAssetUrl(url(src), ref));
+  return <span {...props} ref={ref} style={{ ...style, ...(ownColors ? { backgroundImage: image } : { maskImage: image, WebkitMaskImage: image }) }} />;
 }

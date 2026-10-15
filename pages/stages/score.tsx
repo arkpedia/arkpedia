@@ -1,5 +1,7 @@
 import { useContentUrl } from '@/lib/content/context';
 import { cssUrl } from '@/lib/content/urls';
+import { useAssetUrl } from '@/lib/assets/assetRetry';
+import { useRef } from 'react';
 import { withContentPage } from '@/lib/content/server';
 import { GetStaticProps } from 'next';
 import Image from '@/components/content/ContentImage';
@@ -30,6 +32,9 @@ const YEAR = (unix: number | null) => (unix ? new Date(unix * 1000).getUTCFullYe
 
 export default function ScorePage({ lines }: Props) {
   const contentUrl = useContentUrl();
+  // CSS art has no error event: a false 404 is looked at once it is shown (lib/assets/assetRetry.ts).
+  const emblemRef = useRef<HTMLSpanElement>(null);
+  const emblem = useAssetUrl(contentUrl('/story-marks/main-story.webp'), emblemRef);
   const acts = lines.filter((l) => l.mainline);
   const stories = lines.filter((l) => !l.mainline);
   return (
@@ -50,7 +55,8 @@ export default function ScorePage({ lines }: Props) {
           <h2 className="score-block-title">
             <span
               className="score-block-emblem"
-              style={{ ['--score-emblem' as string]: cssUrl(contentUrl('/story-marks/main-story.webp')) }}
+              ref={emblemRef}
+              style={{ ['--score-emblem' as string]: cssUrl(emblem) }}
               aria-hidden="true"
             />
             Main Theme
@@ -69,6 +75,10 @@ export default function ScorePage({ lines }: Props) {
 
 function Line({ line, act }: { line: ScoreLine; act?: boolean }) {
   const contentUrl = useContentUrl();
+  const lineRef = useRef<HTMLDivElement>(null);
+  const markRef = useRef<HTMLSpanElement>(null);
+  const backdrop = useAssetUrl(line.backdrop ? contentUrl(line.backdrop) : '', lineRef);
+  const lineMark = useAssetUrl(line.mark ? contentUrl(line.mark) : '', markRef);
   // An act the list does not know (an Act IV) gets no wordmark rather than initium's.
   const mark = line.act != null ? actMark(line.act) : null;
   return (
@@ -76,7 +86,8 @@ function Line({ line, act }: { line: ScoreLine; act?: boolean }) {
       className={`score-line${act ? ' act' : ''}`}
       /* The wash behind the line -- see .score-line::before for why it is the
          line's own banner rather than the game's storyline background. */
-      style={line.backdrop ? { ['--line-bg' as string]: cssUrl(contentUrl(line.backdrop)) } : undefined}
+      ref={lineRef}
+      style={line.backdrop ? { ['--line-bg' as string]: cssUrl(backdrop) } : undefined}
     >
       <div className="score-line-head">
         {/* The game's own wordmark for an act, and the line's two-letter code for a
@@ -95,7 +106,8 @@ function Line({ line, act }: { line: ScoreLine; act?: boolean }) {
              way the stat glyphs do. */
           <span
             className="score-line-emblem"
-            style={{ maskImage: cssUrl(contentUrl(line.mark)), WebkitMaskImage: cssUrl(contentUrl(line.mark)) }}
+            ref={markRef}
+            style={{ maskImage: cssUrl(lineMark), WebkitMaskImage: cssUrl(lineMark) }}
             aria-hidden="true"
           />
         ) : (

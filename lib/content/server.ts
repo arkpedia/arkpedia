@@ -3,6 +3,7 @@ import { pageFilePath, isContentPagePath, contentFileUrlPath } from './pagePaths
 import { missingPageTables, pageTables } from './tables.mjs';
 import { readChannelPointer } from './pointer.mjs';
 import { createHash } from 'node:crypto';
+import { fetchAsset } from '../assets/githubRetry.mjs';
 import type { GetStaticProps, GetStaticPropsContext, GetStaticPropsResult, Redirect } from 'next';
 import { CONTENT_SCHEMA, contentRoute, type ContentFile, type ContentManifest, type ContentPointer, type ContentRelease } from './types';
 
@@ -66,7 +67,12 @@ function origin(): string {
 }
 
 async function read(url: string, maxBytes: number): Promise<Buffer> {
-  const response = await fetch(url, { signal: AbortSignal.timeout(10_000), cache: 'no-store' });
+  // GitHub's raw origin sometimes answers 404 for a file it has, and its CDN keeps that answer
+  // for minutes: fetchAsset asks again at other encodings of the address (lib/assets/
+  // githubRetry.mjs), all inside the one 10-second budget. Without it one false 404 was a page
+  // regenerated from the bundled snapshot or, for a channel's pointer, live's release instead
+  // of the channel's own.
+  const response = await fetchAsset(url, { signal: AbortSignal.timeout(10_000), cache: 'no-store' });
   // The status rides on the error: a missing channel pointer (404) falls back to live's.
   if (!response.ok) throw Object.assign(new Error(`Content HTTP ${response.status}: ${url}`), { status: response.status });
   if (Number(response.headers.get('content-length')) > maxBytes) throw new Error('Content response too large');

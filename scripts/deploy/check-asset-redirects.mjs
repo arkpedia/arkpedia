@@ -42,6 +42,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { deploymentUrls } from '../content/deploy-gate.mjs';
 import { REVISIONS, contentOrigin, githubCompare, readLiveAssetPins } from '../build/adopt-release-asset-pins.mjs';
 import { contentPointer } from '../content/channel.mjs';
+import { fetchAsset } from '../../lib/assets/githubRetry.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const FOLDERS = JSON.parse(fs.readFileSync(path.join(root, 'config/asset-folders.json'), 'utf8'));
@@ -66,7 +67,8 @@ export function probeFile({ folders, committedFiles, liveFiles }) {
 }
 
 async function manifestFiles(fetch, repository, revision) {
-  const response = await fetch(assetAddress(repository, revision, 'asset-manifest.json'), { signal: AbortSignal.timeout(30_000) });
+  // A 404 counts only once every encoding of the address has said it (lib/assets/githubRetry.mjs).
+  const response = await fetchAsset(assetAddress(repository, revision, 'asset-manifest.json'), { signal: AbortSignal.timeout(30_000) }, { fetcher: fetch });
   if (!response.ok) throw new Error(`${repository}@${short(revision)} asset-manifest.json answered HTTP ${response.status}`);
   const files = (await response.json())?.files;
   if (!files || typeof files !== 'object') throw new Error(`${repository}@${short(revision)} asset-manifest.json lists no files`);
@@ -81,7 +83,7 @@ export async function probe(fetch, url) {
   const location = first.headers.get('location');
   if (first.status < 300 || first.status >= 400 || !location) return { ok: false, status: first.status, location };
   const target = new URL(location, url).href;
-  const final = await fetch(target, { method: 'HEAD', redirect: 'follow', cache: 'no-store', signal: AbortSignal.timeout(20_000) });
+  const final = await fetchAsset(target, { method: 'HEAD', redirect: 'follow', cache: 'no-store', signal: AbortSignal.timeout(20_000) }, { fetcher: fetch });
   return { ok: final.status === 200, status: final.status, location: target };
 }
 

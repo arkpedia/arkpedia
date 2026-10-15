@@ -1,6 +1,7 @@
 import type { ChibiModel } from './chibi';
 import type { ChibiAnimation } from './chibiRoutine';
 import { chibiAtlas } from './chibiAtlas';
+import { fetchAsset } from '@/lib/assets/assetRetry';
 
 const inventories = new Map<string, Promise<ChibiAnimation[]>>();
 /** Read the native animation catalogue without loading textures or creating a WebGL canvas. */
@@ -10,8 +11,8 @@ export function loadChibiAnimations(model: ChibiModel): Promise<ChibiAnimation[]
   const pending = (async () => {
     const [{ spine }, bytes, text] = await Promise.all([
       import('@/lib/vendor/spine-3.8/spine-webgl'),
-      fetch(model.skeleton).then(res => { if (!res.ok) throw Error('Skeleton unavailable'); return res.arrayBuffer(); }),
-      fetch(model.atlas).then(res => { if (!res.ok) throw Error('Atlas unavailable'); return res.text(); }),
+      fetchAsset(model.skeleton).then(res => { if (!res.ok) throw Error('Skeleton unavailable'); return res.arrayBuffer(); }),
+      fetchAsset(model.atlas).then(res => { if (!res.ok) throw Error('Atlas unavailable'); return res.text(); }),
     ]);
     const atlas = chibiAtlas(spine, text, () => ({
       getImage: () => ({ width: 2048, height: 2048 }), setFilters() {}, setWraps() {}, dispose() {},

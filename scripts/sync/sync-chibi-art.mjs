@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { fetchAsset } from '../../lib/assets/githubRetry.mjs';
 import { assertSdChibiIndex, chibiIndex } from '../build/build-chibi-index.mjs';
 
 export const REPOSITORY = 'arkpedia/arkpedia-sd-assets';
@@ -21,7 +22,8 @@ export async function readChibiArt({ fetch: fetcher = globalThis.fetch, token } 
   if (!head.ok) throw Error(`SD commit: HTTP ${head.status}`);
   const revision = (await head.json()).sha;
   if (!/^[a-f0-9]{40}$/.test(revision ?? '')) throw Error('SD repository returned no pinned commit');
-  const response = await fetcher(`https://raw.githubusercontent.com/${REPOSITORY}/${revision}/manifest.json`, { signal: AbortSignal.timeout(60_000) });
+  // A 404 only once every encoding of the address has said it (lib/assets/githubRetry.mjs).
+  const response = await fetchAsset(`https://raw.githubusercontent.com/${REPOSITORY}/${revision}/manifest.json`, { signal: AbortSignal.timeout(60_000) }, { fetcher });
   if (!response.ok) throw Error(`SD manifest: HTTP ${response.status}`);
   return chibiIndex(await response.json(), revision);
 }

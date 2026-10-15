@@ -25,6 +25,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { fetchAsset } from '../../lib/assets/githubRetry.mjs';
 
 export const REPOSITORY = 'arkpedia/arkpedia-l2d-assets';
 export const BRANCH = 'main';
@@ -60,8 +61,10 @@ export function dynamicArtFromManifest(manifest, commit) {
   return { data: { schemaVersion: 1, repository: REPOSITORY, commit, models }, skipped };
 }
 
+/** A raw 404 counts only once every encoding of the address has said it (lib/assets/githubRetry.mjs):
+ *  a false one used to read as "no manifest" and publish no animated art at all. */
 async function get(fetcher, url, headers = {}) {
-  return fetcher(url, { headers: { 'User-Agent': 'ArkpediaBot/1.0 (+https://www.arkpedia.net)', ...headers }, signal: AbortSignal.timeout(60_000) });
+  return fetchAsset(url, { headers: { 'User-Agent': 'ArkpediaBot/1.0 (+https://www.arkpedia.net)', ...headers }, signal: AbortSignal.timeout(60_000) }, { fetcher });
 }
 
 /**

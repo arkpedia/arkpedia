@@ -4,6 +4,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { clipUrl, hasRecording } from '../../lib/operators/voiceRecording.mjs';
 import { clipFile, fetchFolderListing, folderListingUrl, packFolder, restrictToRecordedClips } from '../lib/voice-clip-availability.mjs';
 import { beginStage, defaultNow } from '../lib/quarantine.mjs';
+import { fetchAsset } from '../../lib/assets/githubRetry.mjs';
 
 /*
  * Every clip an operator page offers that a builder narrowed file by file, checked at the
@@ -46,8 +47,11 @@ import { beginStage, defaultNow } from '../lib/quarantine.mjs';
  *                                           revision may drop a clip they offer; either used
  *                                           to fail the whole release over one line.
  *
- * A request that does not answer 200 or 404 (a 429, a 5xx, a timeout) is asked again, three
- * times in all with a pause between. One still unanswered is a clip nobody could check (for
+ * raw.githubusercontent.com sometimes answers 404 for a clip it has, and its CDN keeps that
+ * answer for minutes whatever the query string, so a legacy clip's 404 counts only once every
+ * other encoding of its address has said it too (fetchAsset, lib/assets/githubRetry.mjs); one
+ * 200 wins. A request that does not answer 200 or 404 (a 429, a 5xx, a timeout) is asked
+ * again, three times in all with a pause between. One still unanswered is a clip nobody could check (for
  * a folder, every clip it offers): CI fails on it, and the release holds it back like a
  * missing one, with its own reason, rather than offer what it could not confirm.
  */
@@ -116,7 +120,8 @@ export async function probeClip(address, { fetcher = fetch, attempts = 3, sleep 
   let last = '';
   for (let attempt = 1; attempt <= attempts; attempt++) {
     try {
-      const response = await fetcher(address, { method: 'HEAD', signal: AbortSignal.timeout(30_000) });
+      // A 404 only once every encoding of the address has said it (lib/assets/githubRetry.mjs).
+      const response = await fetchAsset(address, { method: 'HEAD', signal: AbortSignal.timeout(30_000) }, { fetcher });
       if (response.ok) return 'present';
       if (response.status === 404) return 'absent';
       last = `HTTP ${response.status}`;

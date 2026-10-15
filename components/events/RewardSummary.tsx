@@ -4,6 +4,7 @@ import Image from '@/components/content/ContentImage';
 import { eventTitle } from '@/lib/events/eventName.mjs';
 import type { RewardSummary as Summary, SummaryItem } from '@/lib/events/rewardSummary';
 import { downloadBlob } from '@/lib/ui/downloadBlob';
+import { loadAssetImage } from '@/lib/assets/assetRetry';
 
 /*
  * An event's free rewards as one card, laid out the way community compilations share them, with
@@ -140,17 +141,15 @@ async function drawSummary(eventName: string, title: string, summary: Summary, r
   }
   const H = y + FOOT_GAP + 24;
 
-  // Fresh, CORS-enabled copies of the icons the card has already loaded; one that has not come in
-  // after ICON_WAIT_MS is drawn as its name.
+  // Fresh, CORS-enabled copies of the icons the card has already loaded (each from the address
+  // that worked, and tried again at another encoding if GitHub falsely answers 404); one that
+  // has not come in after ICON_WAIT_MS is drawn as its name.
   const images = new Map<string, HTMLImageElement>();
-  await Promise.all([...rendered.entries()].map(([name, el]) => new Promise<void>((resolve) => {
-    const img = new window.Image();
-    img.crossOrigin = 'anonymous';
-    const wait = setTimeout(() => { img.onload = img.onerror = null; resolve(); }, ICON_WAIT_MS);
-    img.onload = () => { clearTimeout(wait); images.set(name, img); resolve(); };
-    img.onerror = () => { clearTimeout(wait); resolve(); };
-    img.src = el.currentSrc || el.src;
-  })));
+  const giveUp = new AbortController();
+  const wait = setTimeout(() => giveUp.abort(), ICON_WAIT_MS);
+  await Promise.all([...rendered.entries()].map(([name, el]) => loadAssetImage(el.currentSrc || el.src, { crossOrigin: 'anonymous', signal: giveUp.signal })
+    .then((img) => { images.set(name, img); }, () => {})));
+  clearTimeout(wait);
 
   const canvas = document.createElement('canvas');
   const scale = 2;

@@ -22,6 +22,7 @@ import SongRow from '@/components/music/SongRow';
 import PageHeader from '@/components/ui/PageHeader';
 import { hiddenUnless } from '@/lib/ui/inert';
 import { isDirectImage } from '@/lib/music/songArt';
+import { fetchAsset } from '@/lib/assets/assetRetry';
 
 interface Props {
   songLookup: SongModalLookupEntry[];
@@ -61,7 +62,7 @@ function fetchLyricsFor(url: string): Promise<LyricLine[]> {
   if (cached) return Promise.resolve(cached);
   let promise = lyricsPromises.get(url);
   if (!promise) {
-    promise = fetch(url)
+    promise = fetchAsset(url)
       .then((res) => res.json())
       .then((lines: LyricLine[]) => {
         lyricsCache.set(url, lines);

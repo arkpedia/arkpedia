@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { folderDriftByKind, folderMode, folderVerdict } from '../lib/asset-folders.mjs';
 import { beginStage } from '../lib/quarantine.mjs';
+import { fetchAsset } from '../../lib/assets/githubRetry.mjs';
 
 /*
  *   node scripts/audits/check-published-assets.mjs               Check: any folder drift fails
@@ -24,7 +25,8 @@ const cdn = await read('config/asset-delivery.json');
 // Fetch through the same template the site emits, so this verifies what readers load.
 const url = (repo, path) => cdn.template.replace('{repository}', repo).replace('{revision}', revisions[repo]).replace('{path}', path.split('/').map(encodeURIComponent).join('/'));
 async function download(address) {
-  const response = await fetch(address, { signal: AbortSignal.timeout(30000) });
+  // A 404 counts only once GitHub has said it at every encoding (lib/assets/githubRetry.mjs).
+  const response = await fetchAsset(address, { signal: AbortSignal.timeout(30000) });
   if (!response.ok) throw new Error(`${response.status}: ${address}`);
   return Buffer.from(await response.arrayBuffer());
 }

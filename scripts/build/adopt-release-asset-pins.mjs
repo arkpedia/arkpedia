@@ -40,6 +40,7 @@ import { createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import { contentPointer } from '../content/channel.mjs';
 import { readChannelPointer } from '../../lib/content/pointer.mjs';
+import { fetchAsset } from '../../lib/assets/githubRetry.mjs';
 
 export const REVISIONS = 'data/assets/revisions.json';
 const DEFAULT_ORIGIN = 'https://raw.githubusercontent.com/arkpedia/arkpedia-data';
@@ -60,13 +61,17 @@ export function contentOrigin(env = process.env) {
  *  pointer (404) falls back to live's (lib/content/pointer.mjs). A 404 is an answer, not a fault,
  *  so it is thrown at once, as the release gate takes one (readBuildInfo, deploy-gate.mjs): retried,
  *  every build of a channel with no pointer yet asked twice more for a branch that is not there
- *  before it fell back. Anything else -- another status, a timeout, a reset -- is tried again. */
+ *  before it fell back. Once fetchAsset has confirmed it, that is: GitHub sometimes answers 404 for
+ *  a file it has, so a raw 404 counts only after the other encodings of the address say it too
+ *  (lib/assets/githubRetry.mjs), quick requests with no pause. Anything else -- another status, a
+ *  timeout, a reset -- is tried again. */
 async function get(fetch, url, attempts = 3) {
   let last;
   for (let attempt = 1; attempt <= attempts; attempt++) {
     let response;
     try {
-      response = await fetch(url, { cache: 'no-store', signal: AbortSignal.timeout(20_000) });
+      // A 404 only once every encoding of the address has said it (lib/assets/githubRetry.mjs).
+      response = await fetchAsset(url, { cache: 'no-store', signal: AbortSignal.timeout(20_000) }, { fetcher: fetch });
       if (response.ok) return Buffer.from(await response.arrayBuffer());
     } catch (error) {
       last = error;
