@@ -184,6 +184,11 @@ stage chibi-art -- node scripts/sync/sync-chibi-art.mjs
 # The build writes the index raw; this rewrites it in place.
 stage stage-index --needs stage-dataset --output public/stages-index.json -- node scripts/build/enrich-stage-index.mjs
 
+# A rolled-back import must not look like a successful fresh stage catalogue.
+# Verify every Global source id and its navigation entry after filtering, at the
+# run's pinned revision. Missing/skipped dependencies fail the release explicitly.
+stage stage-coverage --needs stage-index --invariant -- node scripts/audits/check-stage-coverage.mjs
+
 # After the enrichment, not before. The enemy steps take the index as the allowlist
 # of stages that get a page, and until the exclusions are applied it still lists the
 # limited-time modes that have none; the stage links also key on its variantOf and

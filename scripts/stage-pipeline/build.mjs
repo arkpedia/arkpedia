@@ -32,6 +32,7 @@ import { assetFileNames } from '../lib/public-assets.mjs';
 import { missingLevels, syntheticSlugs, syntheticRecord, tableLevelMetadata, compareNatural } from './lib/synthetic.mjs';
 import { isVariations } from './lib/isvariations.mjs';
 import { raBeginnerCuts } from './lib/rabeginner.mjs';
+import { assertStageCoverage } from './lib/coverage.mjs';
 
 const ROOT = process.env.ARKPEDIA_ROOT || process.cwd();
 const out = (...p) => path.join(ROOT, ...p);
@@ -242,6 +243,9 @@ for (const [id, { of }] of raBeginnerCuts(records)) {
 }
 
 // --- write -----------------------------------------------------------------
+// Before swapping any output: a newly introduced type or content mapping may
+// not silently drop source rows while the historical total still passes.
+assertStageCoverage({ stages, records });
 if (records.length < 3000 || !geoWritten) {
   console.error(`only ${records.length} records and ${geoWritten} maps -- refusing to write`);
   process.exit(1);
