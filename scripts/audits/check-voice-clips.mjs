@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { clipUrl, hasRecording } from '../../lib/operators/voiceRecording.mjs';
-import { clipFile, folderListingUrl, packFolder, restrictToRecordedClips } from '../lib/voice-clip-availability.mjs';
+import { clipFile, fetchFolderListing, folderListingUrl, packFolder, restrictToRecordedClips } from '../lib/voice-clip-availability.mjs';
 import { beginStage, defaultNow } from '../lib/quarantine.mjs';
 
 /*
@@ -111,30 +111,6 @@ export function offeredOutfitClips(voices, revisions) {
   return clips;
 }
 
-/** A folder's file names at a revision, 'absent', or the last error of one never listed. */
-export async function listFolder(repository, folder, revision, { fetcher = fetch, token = process.env.GH_TOKEN, attempts = 3, sleep = pause, backoffMs = 2000 } = {}) {
-  let last = '';
-  for (let attempt = 1; attempt <= attempts; attempt++) {
-    try {
-      const response = await fetcher(folderListingUrl(repository, folder, revision), {
-        method: 'GET', headers: token ? { Authorization: `Bearer ${token}` } : {}, signal: AbortSignal.timeout(30_000),
-      });
-      if (response.status === 404) return 'absent';
-      if (response.ok) {
-        const entries = await response.json();
-        if (Array.isArray(entries)) return new Set(entries.filter(entry => entry.type === 'file').map(entry => entry.name));
-        last = 'not a folder';
-      } else {
-        last = `HTTP ${response.status}`;
-      }
-    } catch (error) {
-      last = error?.name === 'TimeoutError' ? 'timed out' : String(error?.message ?? error);
-    }
-    if (attempt < attempts) await sleep(backoffMs * attempt);
-  }
-  return { error: last };
-}
-
 /** 'present', 'absent', or the last error of a clip that never answered either way. */
 export async function probeClip(address, { fetcher = fetch, attempts = 3, sleep = pause, backoffMs = 2000 } = {}) {
   let last = '';
@@ -181,7 +157,7 @@ export async function checkVoiceClips({ root, quarantine = false, fetcher = fetc
   for (let offset = 0; offset < groups.length; offset += batch) {
     await Promise.all(groups.slice(offset, offset + batch).map(async group => {
       const { repo, folder } = group[0];
-      const listing = await listFolder(repo, folder, revisions[repo], { fetcher, token, attempts, sleep });
+      const listing = await fetchFolderListing(repo, folder, revisions[repo], { fetcher, token, attempts, sleep });
       for (const clip of group) {
         if (listing === 'absent' || (listing instanceof Set && !listing.has(clip.file))) absent.push(clip);
         else if (!(listing instanceof Set)) unchecked.push({ ...clip, address: folderListingUrl(repo, folder, revisions[repo]), error: listing.error });
