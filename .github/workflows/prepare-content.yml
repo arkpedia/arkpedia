@@ -672,14 +672,16 @@ jobs:
           push_file_to_branch heartbeat "$beat" "Prepare content release succeeded ($GITHUB_EVENT_NAME)"
   # The dev channel follows the day's upstream too: after the scheduled run, dev's own run
   # compiles that data with dev's code (scripts/content/channel.mjs). Whatever the release job's
-  # outcome (a status function in `if:` drops the implicit success()): dev's release does not
-  # depend on main's. A job of its own, so only this one command holds a token that can start
+  # outcome (a status function in `if:` drops the implicit success()): nightly dev refresh
+  # does not depend on main's. Successful manual main runs also hand shared editorial data
+  # directly to dev, pinned to current data main with upstream refresh off. A job of its own,
+  # so only this one command holds a token that can start
   # workflows; the release job, which runs the day's scrapers, does not. One gh call and no
   # checkout, so it takes the light runner (ARKPEDIA_LIGHT_RUNNER, docs/development/ci-runner.md)
   # like Check's `seen` and Deploy's `targets`, and does not wait behind a Check on the NAS.
   start-dev:
     needs: prepare
-    if: ${{ !cancelled() && github.event_name == 'schedule' }}
+    if: ${{ !cancelled() && (github.event_name == 'schedule' || (github.ref_name == 'main' && needs.prepare.result == 'success')) }}
     runs-on: ${{ vars.ARKPEDIA_LIGHT_RUNNER || vars.ARKPEDIA_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 5
     permissions:
@@ -690,9 +692,12 @@ jobs:
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
+          REFRESH_UPSTREAM: ${{ github.event_name == 'schedule' && 'true' || 'false' }}
           PREPARE_RESULT: ${{ needs.prepare.result }}
         run: |
-          gh workflow run prepare-content.yml --repo "$GITHUB_REPOSITORY" --ref dev -f refresh_upstream=true
+          set -euo pipefail
+          revision=$(gh api repos/arkpedia/arkpedia-data/commits/main --jq .sha)
+          gh workflow run prepare-content.yml --repo "$GITHUB_REPOSITORY" --ref dev -f "data_ref=$revision" -f "refresh_upstream=$REFRESH_UPSTREAM"
           # The editorial watcher is a 10-minute schedule, but GitHub ran it twice on 2026-10-13
           # (09:53 and 17:17), and a watcher that finds a main preparation running skips its edit
           # until its next run. So a successful main run asks it to look again at once: an edit
