@@ -37,6 +37,7 @@ function make(label) {
   };
   const operator = readPage('/operators/Penance').props;
   operator.operator.name = 'Runtime Content Test';
+  operator.operator.aliases = ['runtime content test'];
   operator.operator.trait = `Approved content release ${label.toUpperCase()}`;
   setPage('/operators/Runtime%20Content%20Test', operator);
   if (label === 'b') {
@@ -110,6 +111,11 @@ try {
     };
     active = 'a'; corrupt = false;
     const visit = async () => { const url = 'http://localhost:3193/operators/Runtime%20Content%20Test#overview'; if (page.url() === url) await page.reload(); else await page.goto(url); return page.locator('body').innerText(); };
+    // Alias first: on a case-insensitive development disk, a cached canonical HTML file
+    // could otherwise make the alias appear to work without exercising its lookup.
+    await page.goto('http://localhost:3193/operators/runtime%20content%20test#overview');
+    assert.match(await page.locator('h1').innerText(), /Runtime Content Test/i);
+    assert.match(await page.locator('body').innerText(), /Approved content release A/);
     await waitFor(async () => (await visit()).includes('Approved content release A'), `${name} release A`);
     await checkVoice('a');
     active = 'b';

@@ -17,6 +17,10 @@
  * A match must be unique both ways: one upload for the song, and one song in the whole
  * catalogue for the upload (so a re-upload of an older track with the same name is never
  * given to the new one), and the video must not already belong to another song.
+ *
+ * The feed reader (parseFeedEntries) is the refresh's one reader of a channel's Atom feed: the
+ * guide-videos stage (scripts/sync/sync-guide-videos.mjs) reads the trusted creators' feeds
+ * through it too.
  */
 import * as OpenCC from 'opencc-js';
 
@@ -43,15 +47,27 @@ const decode = text => text.replace(/&(#x[0-9a-f]+|#\d+|\w+);/gi, (whole, name) 
   name[0] === '#' ? String.fromCodePoint(Number.parseInt(name.slice(name[1].toLowerCase() === 'x' ? 2 : 1), name[1].toLowerCase() === 'x' ? 16 : 10))
     : ENTITIES[name.toLowerCase()] ?? whole);
 
-/** The feed's uploads, newest first: [{ videoId, title }]. */
-export function parseFeed(xml) {
+/**
+ * A channel's Atom feed, newest first: [{ videoId, title, published, short }]. `published` is
+ * the entry's own timestamp (or null); `short` says the feed links the upload as a Short
+ * (youtube.com/shorts/<id>), which is how a feed tells one apart.
+ */
+export function parseFeedEntries(xml) {
   const uploads = [];
   for (const [entry] of String(xml).matchAll(/<entry>[\s\S]*?<\/entry>/g)) {
     const videoId = entry.match(/<yt:videoId>([\w-]{11})<\/yt:videoId>/)?.[1];
     const title = entry.match(/<title>([\s\S]*?)<\/title>/)?.[1];
-    if (videoId && title) uploads.push({ videoId, title: decode(title).trim() });
+    if (!videoId || !title) continue;
+    const published = entry.match(/<published>([^<]+)<\/published>/)?.[1]?.trim() ?? null;
+    const short = /<link rel="alternate" href="https:\/\/www\.youtube\.com\/shorts\//.test(entry);
+    uploads.push({ videoId, title: decode(title).trim(), published, short });
   }
   return uploads;
+}
+
+/** The feed's uploads, newest first: [{ videoId, title }]. */
+export function parseFeed(xml) {
+  return parseFeedEntries(xml).map(({ videoId, title }) => ({ videoId, title }));
 }
 
 /** The channel's latest uploads, or [] when the feed does not load: a missing feed changes

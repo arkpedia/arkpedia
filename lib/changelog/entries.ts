@@ -37,6 +37,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     at: '2026-10-15T11:16:00Z',
     added: [
       { title: 'Live and upcoming banners on the home page', detail: 'Banners running now say LIVE, the next one says when it starts, and one without art yet shows a placeholder.', href: '/' },
+      { title: 'New guide videos every day', detail: 'Operator pages pick up new guides from trusted YouTube creators daily, and older operators got theirs too.', href: '/operators' },
     ],
     fixed: [
       { title: 'Account sign-in', detail: 'Restored the previous email-code login flow while keeping the notice about which Yostar email to use.', href: '/account' },

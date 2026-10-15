@@ -2,6 +2,7 @@ import { contentPageClock, type PageClockField, type PageClockMoment } from './p
 import { pageFilePath, isContentPagePath, contentFileUrlPath } from './pagePaths.mjs';
 import { missingPageTables, pageTables } from './tables.mjs';
 import { readChannelPointer } from './pointer.mjs';
+import { operatorPageAcceptsName, operatorPageRoute } from '../operators/operatorPagePaths';
 import { createHash } from 'node:crypto';
 import { fetchAsset } from '../assets/githubRetry.mjs';
 import type { GetStaticProps, GetStaticPropsContext, GetStaticPropsResult, Redirect } from 'next';
@@ -18,9 +19,10 @@ let pending: Promise<Loaded | undefined> | undefined;
 const pageCache = new Map<string, Record<string, unknown>>();
 
 async function readPageProps(loaded: Loaded, route: string): Promise<Record<string, unknown> | null> {
-  const file = loaded.manifest.pages[route];
-  if (!file || !validFile(route, file)) return null;
-  const cacheKey = `${loaded.context.release}:${route}`;
+  const resolved = operatorPageRoute(loaded.manifest.pages, route) ?? route;
+  const file = loaded.manifest.pages[resolved];
+  if (!file || !validFile(resolved, file)) return null;
+  const cacheKey = `${loaded.context.release}:${resolved}`;
   let props = pageCache.get(cacheKey);
   if (!props) {
     const bytes = await read(`${loaded.context.baseUrl}/${contentFileUrlPath(file.path)}`, file.bytes);
@@ -31,7 +33,7 @@ async function readPageProps(loaded: Loaded, route: string): Promise<Record<stri
     if (pageCache.size >= 64) pageCache.delete(pageCache.keys().next().value!);
     pageCache.set(cacheKey, props);
   }
-  return props;
+  return resolved === route || operatorPageAcceptsName(props, route) ? props : null;
 }
 
 /** Read one verified page from the same published release used by ISR. */
@@ -211,7 +213,8 @@ export function withContentPage<P extends object>(template: string, builder: Con
     const loaded = await loadRelease();
     if (loaded) {
       const route = contentRoute(template, context.params);
-      const file = loaded.manifest.pages[route];
+      const resolved = operatorPageRoute(loaded.manifest.pages, route) ?? route;
+      const file = loaded.manifest.pages[resolved];
       if (!file) {
         if (template.includes('[')) return { notFound: true, revalidate: process.env.ARKPEDIA_CONTENT_TEST === '1' ? 1 : 60 };
         if (!bundledFallbackAvailable && !options.bundledWhenUnpublished) throw new Error(`Published content is missing ${route}`);
@@ -222,7 +225,10 @@ export function withContentPage<P extends object>(template: string, builder: Con
       }
       try {
         const props = await readPageProps(loaded, route);
-        if (!props) throw new Error('Published content page disappeared');
+        if (!props) {
+          if (template.includes('[')) return { notFound: true, revalidate: process.env.ARKPEDIA_CONTENT_TEST === '1' ? 1 : 60 };
+          throw new Error('Published content page disappeared');
+        }
         const currentProps = await attachTables(template, contentPageClock(template, { ...props, __contentRelease: loaded.context } as unknown as P, moment()), loaders, loaded.context.release);
         return { props: options.finalize ? await options.finalize(currentProps) : currentProps, revalidate: revalidate() };
       } catch (error) {

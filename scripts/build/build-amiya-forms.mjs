@@ -38,7 +38,8 @@
  * are listed by name with no stages. The English refresh (operator-english, which runs
  * before this in the content run) builds those stages from the module tables, and the
  * record keeps them: see scripts/lib/amiya-form-modules.mjs. And `guides` is editorial, so
- * it stays empty rather than borrowing a guide written about the Caster.
+ * a new form's stays empty rather than borrowing a guide written about the Caster; the guides
+ * a form's record already has (by hand, or from the guide-videos stage) are kept.
  *
  * Run: node scripts/build/build-amiya-forms.mjs   (wired into scripts/sync/refresh-stage-data.sh)
  */
@@ -391,6 +392,8 @@ for (const { record } of written) {
     if (existing.internalName === record.internalName) {
       if (existing.stats) record.stats = existing.stats;
       if (existing.files) record.files = existing.files;
+      // The form's own guides, added by hand or by the guide-videos stage, never the Caster's.
+      if (Array.isArray(existing.guides) && existing.guides.length) record.guides = existing.guides;
       // The English refresh, which ran first, built the modules' stages and costs.
       record.modules = keepRefreshedModules(record.modules, existing.modules);
     }

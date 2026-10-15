@@ -162,8 +162,11 @@ jobs:
           python-version: '3.12'
       - run: npm ci
         if: github.event_name != 'schedule' || steps.prepared.outputs.cache-hit != 'true'
-      # UnityPy and lz4 read the client's theme bundles (scripts/imports/import-namecard-styles.py).
-      - run: python -m pip install pillow certifi UnityPy==1.25.3 lz4==4.4.5
+      # The Python the refresh's stages use, pinned in scripts/content/requirements.txt, which
+      # Dependabot watches: UnityPy and lz4 read the client's theme bundles
+      # (scripts/imports/import-namecard-styles.py), and yt-dlp lists a trusted creator's channel
+      # for the guide-videos stage, with no API key (scripts/sync/sync-guide-videos.mjs).
+      - run: python -m pip install -r scripts/content/requirements.txt
         if: github.event_name != 'schedule' || steps.prepared.outputs.cache-hit != 'true'
       - name: Refresh supported upstream records
         id: refresh
@@ -378,6 +381,9 @@ jobs:
           git -C "$repo" checkout -B main "$prepared_base"
           rm -rf "$repo/source" "$repo/release"
           cp -R "$RUNNER_TEMP/prepared-content/source" "$RUNNER_TEMP/prepared-content/release" "$repo/"
+          # Replaced trees may contain a case-only rename (Gallus² -> GALLUS²).
+          # Rebuild these index entries so core.ignorecase cannot keep the old path.
+          git -C "$repo" rm -r --cached --quiet --ignore-unmatch source release
           git -C "$repo" add source release
           if ! git -C "$repo" diff --cached --quiet; then
             git -C "$repo" config user.name 'github-actions[bot]'
@@ -428,6 +434,9 @@ jobs:
           git -C "$repo" checkout -B "$ARKPEDIA_DATA_BRANCH" HEAD
           rm -rf "$repo/source" "$repo/release"
           cp -R "$RUNNER_TEMP/prepared-content/source" "$RUNNER_TEMP/prepared-content/release" "$repo/"
+          # Replaced trees may contain a case-only rename (Gallus² -> GALLUS²).
+          # Rebuild these index entries so core.ignorecase cannot keep the old path.
+          git -C "$repo" rm -r --cached --quiet --ignore-unmatch source release
           git -C "$repo" add source release
           git -C "$repo" config user.name 'github-actions[bot]'
           git -C "$repo" config user.email '41898282+github-actions[bot]@users.noreply.github.com'
@@ -564,6 +573,28 @@ jobs:
             node scripts/content/alert-issue.mjs open "${alert[@]}" --rewrite --body-file "$report/body.md" --comment-file "$report/comment.md"
           elif [ "$state" = clear ] && [ "$JOB_STATUS" = success ]; then
             node scripts/content/alert-issue.mjs close "${alert[@]}" --comment "Nothing is quarantined and every refresh stage ran: $RUN_URL"
+          fi
+      # One open issue while the guide-videos stage has suggestions waiting for a person: videos by
+      # the trusted creators that name an operator but were not added to its guides by themselves
+      # (scripts/sync/sync-guide-videos.mjs). Rewritten by every run from data/guide-videos-state.json;
+      # its body holds no date, so a run with the same list edits nothing, and it is commented on at
+      # most once a day, only when the list changed. Closed when nothing is waiting. Main's only: the
+      # dev channel compiles the same data main.
+      - name: Report guide suggestions
+        if: ${{ !cancelled() && steps.prepared.outputs.cache-hit != 'true' && github.ref_name == 'main' }}
+        continue-on-error: true
+        timeout-minutes: 3
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          report="$RUNNER_TEMP/guide-suggestions"
+          state=$(npx tsx scripts/sync/sync-guide-videos.mjs --report "$report")
+          alert=(--alert guide-suggestions --title 'Guide suggestions')
+          if [ "$state" = alert ]; then
+            node scripts/content/alert-issue.mjs open "${alert[@]}" --rewrite --body-file "$report/body.md" --comment-file "$report/comment.md"
+          elif [ "$state" = clear ]; then
+            node scripts/content/alert-issue.mjs close "${alert[@]}" --comment 'No guide suggestion is waiting.'
           fi
       - name: Keep discovery evidence on failure
         if: failure()
