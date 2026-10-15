@@ -15,18 +15,45 @@ function instant(value: string | undefined): Date | null {
   return Number.isFinite(date.getTime()) ? date : null;
 }
 
+/** A calendar day as a record writes it: the year, the month (1-12) and the day of the month. */
+export interface GameDay { year: number; month: number; day: number }
+
+/**
+ * The two calendar days of a recorded range, "YYYY/MM/DD–YYYY/MM/DD": an en dash or a hyphen,
+ * spaces allowed around it, and an optional "; note" tail ("2022/03/17–2022/03/31; 181 days
+ * after CN"), which is ignored. Null when the text is not a range or names a day that does not
+ * exist (2026/02/30). Says nothing about order or time of day: parseGameWindow places the days
+ * in server time, and the /schedule grid (parseDateRange) on the reader's own calendar. Both
+ * read the text here, so a range one of them accepts is never one the other drops: the grid
+ * once split on the dash alone and lost all 23 Global events of 2022, which carry the tail.
+ */
+export function parseGameRangeDays(range: string | null | undefined): { start: GameDay; end: GameDay } | null {
+  const match = matchGameRange(range);
+  const start = match && rangeDay(match, 1), end = match && rangeDay(match, 4);
+  return start && end ? { start, end } : null;
+}
+
+function matchGameRange(range: string | null | undefined): RegExpMatchArray | null {
+  return range?.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})\s*[–-]\s*(\d{4})\/(\d{1,2})\/(\d{1,2})(?:\s*;.*)?$/) ?? null;
+}
+
+/** One side of a matched range (offset 1 the start, 4 the end), or null for a day that does not exist. */
+function rangeDay(match: RegExpMatchArray, offset: number): GameDay | null {
+  const year = +match[offset], month = +match[offset + 1], day = +match[offset + 2];
+  const midnight = new Date(Date.UTC(year, month - 1, day));
+  if (midnight.getUTCFullYear() !== year || midnight.getUTCMonth() !== month - 1 || midnight.getUTCDate() !== day) return null;
+  return { year, month, day };
+}
+
 /** Date-only legacy records use a server-time estimate, never the host timezone.
  * Global event releases normally open at 08:00 UTC-7; routine pools at 04:00.
  * Exact announcement/client times always take precedence over those defaults.
  */
 export function parseGameWindow(range: string | null | undefined, times: GameWindowTimes = {}, region: 'global' | 'cn' = 'global', routinePool = false): { start: Date; end: Date } | null {
-  const match = range?.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})\s*[–-]\s*(\d{4})\/(\d{1,2})\/(\d{1,2})(?:\s*;.*)?$/);
+  const match = matchGameRange(range);
   const day = (offset: number, hour: number): Date | null => {
-    if (!match) return null;
-    const y = +match[offset], m = +match[offset + 1], d = +match[offset + 2];
-    const midnight = new Date(Date.UTC(y, m - 1, d));
-    if (midnight.getUTCFullYear() !== y || midnight.getUTCMonth() !== m - 1 || midnight.getUTCDate() !== d) return null;
-    return new Date(midnight.getTime() + hour * 3600000);
+    const date = match && rangeDay(match, offset);
+    return date ? new Date(Date.UTC(date.year, date.month - 1, date.day) + hour * 3600000) : null;
   };
   // CN reset is 04:00 UTC+8, or 20:00 UTC on the preceding calendar day.
   const start = times.startAt ? instant(times.startAt) : day(1, region === 'global' ? (routinePool ? 11 : 15) : (routinePool ? -4 : 8));
