@@ -91,3 +91,24 @@ a fresh build in that spelling alone. The first refresh normalises them.
 New renders for a new event still need the upstream image repos: this pipeline
 decides which stage points at which render, and resolves it against
 `public/stages-images/` in this repo, but it does not fetch new artwork.
+
+## Coverage and publication guarantees
+
+The build refuses to swap output if any Global stage-table ID is missing or any
+ID/slug is duplicated. The `stage-coverage` invariant runs after index enrichment:
+every retained record must be indexed, only declared content/type exclusions may
+be absent, every geometry reference must exist, and the source checkout must match
+the run pin. Its deterministic `data/stage-coverage.json` records the source commit,
+table hash and counts. A failed or rolled-back dataset/index step fails this invariant
+and the release, so yesterday's stages cannot count as a fresh import.
+
+Episodes 9 onward take dates from their Global story-review rows without an episode
+allowlist. Episodes 0–8 retain the documented corrections; missing dates remain null.
+CN maps only restore Global-known stages; CN schedules are never Global release dates.
+
+After publication and the existing cache wait, `check-served-stages.mjs` checks each
+live deployment of the current channel: `/stages/browse` must name the compiled release,
+its immutable stage index must match the manifest byte count/hash, and the newest dated
+Global story/event content pages must serve that release and source date. Bounded
+retries accommodate ISR. Stale pages, bundled fallback, 404s and corrupt indices fail
+the workflow explicitly. This check does not redeploy or trigger another refresh.

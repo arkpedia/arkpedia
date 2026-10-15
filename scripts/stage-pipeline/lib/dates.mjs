@@ -26,11 +26,17 @@ export const RELEASED = {
   main_7: '2020-12-30',   // The Birth of Tragedy
   main_8: '2021-04-30',   // Roaring Flare           data says 2020-11-01
 };
-// main_8 is deliberately absent: its startShowTime is the value we reject.
-// Note main_15/main_16: story_review_table keys chapters 15 and 16 that way even
-// though their zones are act2mainss_zone1 / act3mainss_zone1.
-export const DERIVES_FROM_DATA = new Set(['main_9', 'main_10', 'main_11', 'main_12',
-  'main_13', 'main_14', 'main_15', 'main_16']);
+/** Global chronology before Episode 9 needs the corrections above. Every newer
+ * episode uses its Global review row, including episodes not known to this code.
+ * The review key follows the EP label even when the zone is actNmainss_zone1.
+ * A missing/undated row stays unknown; CN dates and forecasts are never substituted. */
+export function storyReleaseDate(label, review) {
+  const match = /^EP\s+(\d+)$/.exec(label || '');
+  if (!match) return null;
+  const number = Number(match[1]);
+  const id = `main_${number}`;
+  return number >= 9 ? iso(review[id]?.startShowTime) : RELEASED[id] ?? null;
+}
 
 const STORY_ENTRY_TYPES = new Set(['ACTIVITY', 'MINI_ACTIVITY']);
 const RUN_SUFFIX = /\s*[-–—]\s*(?:Rerun|Retrospection)\s*$/i;
@@ -118,10 +124,7 @@ export function releaseDates(entries) {
   const key = (e) => `${e.kind} ${e.id}`;
   for (const entry of entries) {
     if (entry.kind === 'story') {
-      const match = /(\d+)$/.exec(entry.label || '');
-      const zoneId = match ? `main_${Number(match[1])}` : null;
-      const derived = DERIVES_FROM_DATA.has(zoneId) ? iso(review[zoneId]?.startShowTime) : null;
-      out.set(key(entry), derived ?? RELEASED[zoneId] ?? null);
+      out.set(key(entry), storyReleaseDate(entry.label, review));
     } else if (entry.kind === 'event') {
       out.set(key(entry), reviewEventDate.get(entry.id) || activityDate.get(entry.id) || null);
     } else if (entry.kind === 'integrated_strategies') {

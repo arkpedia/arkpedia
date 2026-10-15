@@ -550,10 +550,11 @@ test('the daily refresh runs every command as a uniquely named stage that needs 
   // before the catalogue or anything else reads one (scripts/content/cn-tables.mjs).
   assert.deepEqual(stages.slice(0, 2).map(stage => [stage.name, stage.command]), [
     ['pin-upstream', 'node scripts/content/pin-upstream.mjs'], ['upstream-cn', 'node scripts/content/cn-tables.mjs']]);
-  // Only what no release can do without is an invariant: the game tables (CN from any of its
-  // mirrors, EN) and the completeness gate. Every importer, wiki reader and downloader failing
+  // Invariants include game tables, exact stage coverage after navigation filtering,
+  // and the completeness gate. Every importer, wiki reader and downloader failing
   // costs its stage -- the CN art too, which only one mirror carries.
-  assert.deepEqual(stages.filter(stage => stage.invariant).map(stage => stage.name), ['upstream-cn', 'upstream-en', 'completeness']);
+  assert.deepEqual(stages.filter(stage => stage.invariant).map(stage => stage.name), ['upstream-cn', 'upstream-en', 'stage-coverage', 'completeness']);
+  assert.deepEqual(stages.find(stage => stage.name === 'stage-coverage')!.needs, ['stage-index']);
   const art = stages.find(stage => stage.name === 'upstream-cn-art')!;
   assert.deepEqual([art.invariant, art.command], [false, 'node scripts/content/cn-tables.mjs art']);
   assert.ok(stages.find(stage => stage.name === 'item-icons')!.needs.includes('upstream-cn-art'), 'item-icons keeps its records on a day without the art');
