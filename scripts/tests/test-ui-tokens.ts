@@ -179,6 +179,18 @@ for (const [name, theme] of Object.entries(themes)) {
   });
 }
 
+// The LIVE badge (.badge-live) and its "Starts in" twin (.badge-upcoming) are white ink on a
+// solid fill over art, in both themes: --danger and --amber are tuned as text and read 3.11:1
+// and 2.09:1 under white, so each has a -solid fill for this (arkpedia-theme.css).
+for (const [name, theme] of Object.entries(themes)) {
+  test(`${name}: white on the badge fills (--danger-solid, --amber-solid) clears 4.5:1`, () => {
+    for (const fill of ['--danger-solid', '--amber-solid']) {
+      const ratio = contrast({ r: 255, g: 255, b: 255, a: 1 }, colour(theme, fill));
+      assert.ok(ratio >= 4.5, `white on ${fill} is ${ratio.toFixed(2)}:1`);
+    }
+  });
+}
+
 test('rarity fills are one set for both themes (dark ink sits on them)', () => {
   for (let n = 1; n <= 6; n += 1) {
     assert.ok(dark.tokens.has(`--rarity-fill-${n}`), `--rarity-fill-${n} missing`);

@@ -180,6 +180,17 @@ body.front-page-no-scroll {
   transition: border-color 0.15s ease;
 }
 .front-gacha-poster-wrap:hover { border-color: var(--teal); }
+/* No art yet: .art-placeholder (arkpedia-theme.css) over the whole poster box. */
+.front-gacha-art-placeholder { position: absolute; inset: 0; }
+/* The banner's state: .badge-live and .badge-upcoming (arkpedia-theme.css) draw it; this
+   only places it, over the art's top left corner, as /gacha's sidebar places its LIVE NOW.
+   Out of flow, so the poster is the same box with a badge, without one, and as it changes. */
+.front-gacha-poster-wrap > :is(.badge-live, .badge-upcoming) {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  z-index: 1;
+}
 /* Stacked, always. This was a wrapping space-between row, so where the
    banner's name fit the countdown sat beside it hard right, and where it did
    not the countdown dropped to its own line and went left -- the same panel
@@ -200,6 +211,7 @@ body.front-page-no-scroll {
   margin-top: 10px;
 }
 .front-gacha-thumb {
+  position: relative;
   width: 56px;
   height: 56px;
   border-radius: var(--radius-control);
@@ -212,14 +224,12 @@ body.front-page-no-scroll {
 }
 .front-gacha-thumb:hover { border-color: var(--teal); }
 .front-gacha-thumb.active { border-color: var(--teal); box-shadow: inset 0 0 0 1px var(--teal); }
-.front-gacha-thumb-fallback {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 100%;
-  font-weight: 700;
-  color: var(--text-dim);
+/* The thumbnail's state, placed as the poster's is but in its bottom left corner: the 56px
+   box keeps its size. */
+.front-gacha-thumb > :is(.badge-live, .badge-upcoming) {
+  position: absolute;
+  left: 3px;
+  bottom: 3px;
 }
 
 /* Skins on sale: a ScrollRow (components/ui) of cards the reader scrolls, under the

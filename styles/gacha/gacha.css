@@ -11,11 +11,13 @@
   margin: 0;
   border: 1px solid var(--line-soft);
 }
-/* Where the key art goes before the image repository has it: the banners' own
-   1024x559 proportions, so nothing below moves when switching to a banner with art. */
+/* Where the key art goes before the image repository has it: .art-placeholder
+   (arkpedia-theme.css) in the banners' own 1024x559 proportions, so nothing below moves
+   when switching to a banner with art. Flex again, over .gacha-banner-main-image's block,
+   to centre its words. */
 .gacha-banner-main-placeholder {
+  display: flex;
   aspect-ratio: 1024 / 559;
-  background: var(--panel-2);
 }
 .gacha-banner-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; }
 /* Details and How does this work? are .ghost .btn-sm: they were teal on teal-dim at

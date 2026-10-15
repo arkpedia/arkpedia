@@ -522,8 +522,11 @@ a.ghost, a.primary, a.danger, a.btn { text-decoration: none; }
    on --danger-solid, one height, one padding. A page places it (position, top, left)
    and does nothing else to it: audit:styles (liveBadge) rejects a font, background or
    colour on a live-badge class outside this file, and a LIVE text without this class.
-   Inline-flex with a gap, so its dot (::before, below) sits beside the text. */
-.badge-live {
+   Inline-flex with a gap, so its dot (::before, below) sits beside the text.
+   .badge-upcoming is its twin for what has not opened yet ("Starts in 3d 4h", the home
+   page's banners): the same box on --amber-solid, and no dot, which means live. */
+.badge-live,
+.badge-upcoming {
   box-sizing: border-box;
   display: inline-flex;
   align-items: center;
@@ -542,6 +545,7 @@ a.ghost, a.primary, a.danger, a.btn { text-decoration: none; }
   text-transform: uppercase;
   white-space: nowrap;
 }
+.badge-upcoming { background: var(--amber-solid); }
 /* r11 quiet polish: the LIVE dot (option A's, maintainer 2026-09-26). A 6px circle in the
    badge's own white, drawn here and so present from the server's first paint: the badge
    is its final width before any script runs, and nothing beside or under it moves when
@@ -554,6 +558,29 @@ a.ghost, a.primary, a.danger, a.btn { text-decoration: none; }
   height: 6px;
   border-radius: 50%;
   background: currentColor;
+}
+
+/* Where art goes before the image repository publishes it (publishedArt is null): the
+   frame the art will fill, on --panel-2, saying so quietly. It fills its box and sizes
+   nothing, so a record with art and one without lay out the same. /gacha's banner (which
+   gives it the art's proportions), and the home page's banner poster and thumbnails, where
+   a bare initial ("K") stood in for Kernel Locating #13. */
+.art-placeholder {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  padding: 4px;
+  background: var(--panel-2);
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1.2;
+  letter-spacing: 0.04em;
+  text-align: center;
+  text-transform: uppercase;
 }
 
 /* --- inputs --------------------------------------------------------------

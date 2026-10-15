@@ -75,6 +75,10 @@
      sit UNDER white text: a white LIVE badge on it measured 3.11:1. This is the
      same red taken down to where white clears 4.5:1, for solid fills only. */
   --danger-solid: #b8483d;
+  /* The same for --amber, which under white ink read 2.09:1: the "Starts in" badge
+     (.badge-upcoming), the LIVE badge's twin for what has not opened yet. 5.19:1 under
+     white; scripts/tests/test-ui-tokens.ts holds both solids to 4.5:1 in both themes. */
+  --amber-solid: #9A6006;
 
   /* Rarity -- the game's own scale, softened into this palette. These encode
      DATA, which makes them the one exception to the single-accent rule. Never
@@ -298,6 +302,7 @@
   --status-positive: #247744;
   --danger-dim: #FBE2DF;
   --danger-solid: #C33D30;
+  --amber-solid: #8F5808;
 
   /* The same rarity hues taken down to clear 4.5:1 as TEXT on --panel-2 (they did
      not: -6 was 3.83 and -5 4.38 before this). As a background FILL -- an operator
