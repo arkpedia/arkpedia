@@ -11,6 +11,18 @@ const valid = pool => Number.isSafeInteger(pool.openTime) && Number.isSafeIntege
 const recent = (pool, now) => pool.endTime * 1000 >= now;
 const EN_POOL = /_EN_/;
 
+/** A persisted first-party announcement remains evidence when its cache is unavailable.
+ * Only for these same server days: it cannot confirm a subsequently moved client run. */
+export function savedGlobalBannerNotice(banner, pool) {
+  const saved = banner.global_window;
+  const start = Date.parse(saved?.startAt), end = Date.parse(saved?.endAt);
+  return banner.globalScheduleStatus === 'announced'
+    && /^https:\/\/(?:www\.)?arknights\.global\/news\/\d+(?:[#?].*)?$/.test(saved?.timingSource ?? '')
+    && Number.isFinite(start) && Number.isFinite(end) && start < end
+    && day(start / 1000) === day(pool.openTime) && day((end - 1000) / 1000) === day(pool.endTime)
+    ? { startAt: saved.startAt, endAt: saved.endAt, source: saved.timingSource } : null;
+}
+
 export function globalBannerNotices(posts) {
   return [...posts].sort((a, b) => (a.publishTime ?? 0) - (b.publishTime ?? 0)).flatMap(post => newsSections(post.lines ?? []).flatMap(section => {
     const title = /^(?:LIMITED|LIMITED-TIME|SPECIAL|STANDARD) HEADHUNTING(?: OPEN)?\s*[–—-]\s*(.+)$/i.exec(section.title);
@@ -62,16 +74,9 @@ export function reconcileGlobalClientBanners({ banners, gachaTable, operators, c
     const firstGlobalPool = !banner.globalPoolId;
     // Client opens may precede maintenance ending. A named official window for
     // this run wins; a shared generic title alone never identifies an edition.
-    const saved = banner.global_window;
-    const savedStart = Date.parse(saved?.startAt), savedEnd = Date.parse(saved?.endAt);
-    const savedAnnouncement = banner.globalScheduleStatus === 'announced'
-      && /^https:\/\/(?:www\.)?arknights\.global\/news\/\d+(?:[#?].*)?$/.test(saved?.timingSource ?? '')
-      && Number.isFinite(savedStart) && Number.isFinite(savedEnd) && savedStart < savedEnd
-      && day(savedStart / 1000) === day(pool.openTime) && day((savedEnd - 1000) / 1000) === day(pool.endTime)
-      ? { startAt: saved.startAt, endAt: saved.endAt, source: saved.timingSource } : null;
     const notice = notices.filter(n => (n.kind ? n.kind === pool.gachaRuleType : bare(n.name) === bare(pool.gachaPoolName))
       && day(Date.parse(n.startAt) / 1000) === day(pool.openTime)
-      && day((Date.parse(n.endAt) - 1000) / 1000) === day(pool.endTime)).at(-1) ?? savedAnnouncement;
+      && day((Date.parse(n.endAt) - 1000) / 1000) === day(pool.endTime)).at(-1) ?? savedGlobalBannerNotice(banner, pool);
     const startAt = notice?.startAt ?? new Date(pool.openTime * 1000).toISOString();
     const endAt = notice?.endAt ?? new Date((pool.endTime + (pool.endTime % 60 === 59 ? 1 : 0)) * 1000).toISOString();
     const same = banner.global_window?.startAt === startAt && banner.global_window?.endAt === endAt;

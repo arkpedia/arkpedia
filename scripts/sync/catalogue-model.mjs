@@ -4,6 +4,7 @@ import { stripRichText } from '../lib/gametext.mjs';
 import { cnDays, daysOverlap, windowDays, sameAnnouncedBanner } from '../build/cn-news.mjs';
 import { serverDay } from '../lib/server-day.mjs';
 import { waitsForGlobal } from '../../lib/gacha/waitsForGlobal.mjs';
+import { savedGlobalBannerNotice } from './global-client-banners.mjs';
 const list = x => Array.isArray(x) ? x : [];
 const stableOrder = (previous, next) => [...list(previous).filter(n => next.includes(n)), ...next.filter(n => !list(previous).includes(n))];
 const CLASSES = { WARRIOR: 'Guard', SNIPER: 'Sniper', TANK: 'Defender', MEDIC: 'Medic', SUPPORT: 'Supporter', CASTER: 'Caster', SPECIAL: 'Specialist', PIONEER: 'Vanguard' };
@@ -873,7 +874,11 @@ export function reconcileCalendars({ events, banners, operators, cn, en, eventRo
       if (namesItsBanner(pool) && !banner.global_date && fold(banner.name)!==fold(officialName)) { rename(banner,officialName); banner.nameStatus='en-official'; }
       banner.globalPoolId = pool.gachaPoolId;
       banner.global_date = `${serverDay(pool.openTime,-7)}–${serverDay(pool.endTime,-7)}`;
-      banner.global_window = windowFor(pool.openTime,pool.endTime,enSource,banner.global_window);
+      const savedNotice = savedGlobalBannerNotice(banner, pool);
+      if (!savedNotice) {
+        banner.global_window = windowFor(pool.openTime,pool.endTime,enSource,banner.global_window);
+        if (banner.globalScheduleStatus === 'announced') banner.globalScheduleStatus = 'datamined';
+      }
     }
     // Planned for every record a row touches: assetPlan drops what is published, so art
     // the wiki had not uploaded yet is asked for again on each run until it lands. Planned
