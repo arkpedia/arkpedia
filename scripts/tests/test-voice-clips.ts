@@ -288,6 +288,16 @@ function outfitHost(folders: Record<string, string[] | number[]>) {
   const calls: Record<string, number> = {};
   const fetcher = async (url: string, init: { method?: string; headers?: Record<string, string> }) => {
     if (init.method === 'HEAD') return { ok: true, status: 200 } as Response;
+    // The git trees walk that confirms a folder the contents API calls missing: a repository
+    // answered with statuses has no such folder; one answered with names has it.
+    const walk = url.match(/\/repos\/arkpedia\/([^/]+)\/git\/trees\/(.+)$/);
+    if (walk) {
+      const has = typeof folders[walk[1]][0] === 'string';
+      const tree = walk[2] === 'current' ? (has ? [{ path: OUTFIT, type: 'tree', sha: 'folder' }] : [])
+        : walk[2] === 'folder' ? (folders[walk[1]] as string[]).map(name => ({ path: name, type: 'blob', sha: name }))
+        : [{ path: 'current', type: 'tree', sha: 'current' }];
+      return { ok: true, status: 200, json: async () => ({ tree, truncated: false }) } as unknown as Response;
+    }
     listed.push(url);
     headers.push(init.headers ?? {});
     const repository = url.match(/\/repos\/arkpedia\/([^/]+)\//)![1];
@@ -403,7 +413,9 @@ test('both steps that run the voice clip check pass a GitHub token for the folde
 test('a folder listing that answers 404 before its files is present; one that only answers 404 is absent', async () => {
   const answering = (statuses: (number | string[])[]) => {
     let calls = 0;
-    const fetcher = async () => {
+    const fetcher = async (url: string) => {
+      // The git trees walk: a revision whose current/ holds no such folder.
+      if (url.includes('/git/trees/')) return { ok: true, status: 200, json: async () => ({ tree: url.endsWith('/current-tree') ? [] : [{ path: 'current', type: 'tree', sha: 'current-tree' }] }) } as unknown as Response;
       const answer = statuses[Math.min(calls++, statuses.length - 1)];
       if (Array.isArray(answer)) return { ok: true, status: 200, json: async () => answer.map(name => ({ name, type: 'file' })) } as unknown as Response;
       return { ok: false, status: answer, json: async () => ({}) } as unknown as Response;
@@ -416,7 +428,7 @@ test('a folder listing that answers 404 before its files is present; one that on
   assert.equal(flaky.calls(), 3);
   const gone = answering([404]);
   assert.equal(await fetchFolderListing('arkpedia-voice-mandarin', 'current/gone', revision, { fetcher: gone.fetcher, token: '', sleep: noPause }), 'absent');
-  assert.equal(gone.calls(), 3, 'asked three times before it is called absent');
+  assert.equal(gone.calls(), 3, 'asked three times, then confirmed by the git trees, before it is called absent');
   assert.deepEqual(await fetchFolderListing('arkpedia-voice-mandarin', 'current/gone', revision, { fetcher: answering([404, 503, 404]).fetcher, token: '', sleep: noPause }), { error: 'HTTP 404' }, 'one answer that was not a 404 makes it unchecked, not absent');
 
   const outfit = { id: 'cn', label: 'Chinese', actors: [], status: 'current' as const, audioTemplate: 'https://raw.githubusercontent.com/arkpedia/arkpedia-voice-mandarin/main/current/char_1041_angel2_iteration%236/{voiceIdLower}.mp3' };
@@ -436,4 +448,32 @@ test('a folder listing that answers 404 before its files is present; one that on
     assert.equal(strict.exitCode, 0, strict.errors.join('\n'));
     assert.equal(english, 3);
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
+/* The contents API kept answering 404 for one folder (char_1038_whitw2_sale#15) in two CI runs
+   45 minutes apart while the git trees served it, and the trees API itself answered 500
+   ("Unable to read Git repository contents") once for a tree it served a moment later. So a
+   folder every listing called missing is looked up by the trees, and only a tree that was read
+   and lacks it makes it absent; a tree never read leaves it unchecked. */
+test('a folder the contents API calls missing is confirmed by the git trees: found there it is present, a tree never read leaves it unchecked', async () => {
+  const revision = 'd'.repeat(40);
+  const walk = (folderTree: () => Response) => {
+    const asked: string[] = [];
+    const fetcher = async (url: string) => {
+      asked.push(url.replace('https://api.github.com/repos/arkpedia/arkpedia-voice-mandarin', ''));
+      if (url.includes('/contents/')) return { ok: false, status: 404, json: async () => ({}) } as unknown as Response;
+      if (url.endsWith(`/git/trees/${revision}`)) return { ok: true, status: 200, json: async () => ({ tree: [{ path: 'current', type: 'tree', sha: 'c1' }], truncated: false }) } as unknown as Response;
+      if (url.endsWith('/git/trees/c1')) return { ok: true, status: 200, json: async () => ({ tree: [{ path: 'char_1038_whitw2_sale#15', type: 'tree', sha: 'f1' }], truncated: false }) } as unknown as Response;
+      return folderTree();
+    };
+    return { fetcher, asked };
+  };
+  const found = walk(() => ({ ok: true, status: 200, json: async () => ({ tree: [{ path: 'cn_001.mp3', type: 'blob' }, { path: 'nested', type: 'tree' }] }) }) as unknown as Response);
+  assert.deepEqual([...await fetchFolderListing('arkpedia-voice-mandarin', 'current/char_1038_whitw2_sale#15', revision, { fetcher: found.fetcher, token: '', sleep: noPause }) as Set<string>], ['cn_001.mp3']);
+  assert.deepEqual(found.asked.slice(3), [`/git/trees/${revision}`, '/git/trees/c1', '/git/trees/f1'], 'walked by object id after three 404s');
+  let tries = 0;
+  const unreadable = walk(() => { tries += 1; return { ok: false, status: 500, statusText: 'Internal Server Error', json: async () => ({}) } as unknown as Response; });
+  assert.deepEqual(await fetchFolderListing('arkpedia-voice-mandarin', 'current/char_1038_whitw2_sale#15', revision, { fetcher: unreadable.fetcher, token: '', sleep: noPause }),
+    { error: 'HTTP 404, and its git tree: HTTP 500 Internal Server Error' });
+  assert.equal(tries, 3, 'the tree read is asked again too');
 });

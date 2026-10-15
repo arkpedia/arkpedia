@@ -112,8 +112,12 @@ const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
  * that is there -- on 2026-10-15, 11 of 198 listings of folders at the pinned revisions, a
  * different folder each round, one answering 404, 404 and then its 38 files -- and main's
  * Check failed on 140 clips it called missing. So a 404 is asked again like any other
- * failure, and a folder is absent only when every answer was a 404. The one rule for the
- * voices stage (listClips) and the release audit (check-voice-clips.mjs).
+ * failure, and a folder every answer called missing is looked up once more, by another road:
+ * the git trees of the revision, walked by object id from the commit (folderTreeListing).
+ * GitHub read the same folder there while its contents API kept answering 404 for it, and on
+ * the same day the trees API, too, answered "Unable to read Git repository contents" (500)
+ * for a tree it served a moment later. A folder is absent only when the trees say so as well.
+ * The one rule for the voices stage (listClips) and the release audit (check-voice-clips.mjs).
  */
 export async function fetchFolderListing(repository, folder, revision, { fetcher = fetch, token = process.env.GH_TOKEN, attempts = 3, sleep = pause, backoffMs = 2000 } = {}) {
   let last = '';
@@ -138,7 +142,46 @@ export async function fetchFolderListing(repository, folder, revision, { fetcher
     }
     if (attempt < attempts) await sleep(backoffMs * attempt);
   }
-  return notFound === attempts ? 'absent' : { error: last };
+  if (notFound < attempts) return { error: last };
+  const tree = await folderTreeListing(repository, folder, revision, { fetcher, token, attempts, sleep, backoffMs });
+  return tree instanceof Set || tree === 'absent' ? tree : { error: `HTTP 404, and its git tree: ${tree.error}` };
+}
+
+/** One GitHub API read, asked again on any answer but a 200 (a 404 included): the body, or
+ *  the last error. */
+async function readApi(url, { fetcher, token, attempts, sleep, backoffMs }) {
+  let last = '';
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      const response = await fetcher(url, { method: 'GET', headers: token ? { Authorization: `Bearer ${token}` } : {}, signal: AbortSignal.timeout(30_000) });
+      if (response.ok) return { body: await response.json() };
+      last = `HTTP ${response.status}${response.statusText ? ` ${response.statusText}` : ''}`;
+    } catch (error) {
+      last = error?.name === 'TimeoutError' ? 'timed out' : String(error?.message ?? error);
+    }
+    if (attempt < attempts) await sleep(backoffMs * attempt);
+  }
+  return { error: last };
+}
+
+/**
+ * A folder's file names by the git trees API: the revision's tree, then each folder on the
+ * way down by its object id. Absent only when a tree that was read has no such entry; a
+ * tree never read is an error, never an absence.
+ */
+export async function folderTreeListing(repository, folder, revision, options) {
+  const trees = `https://api.github.com/repos/arkpedia/${repository}/git/trees`;
+  let tree = await readApi(`${trees}/${revision}`, options);
+  for (const name of folder.split('/')) {
+    if (tree.error) return tree;
+    if (!Array.isArray(tree.body?.tree) || tree.body.truncated) return { error: 'the git tree was not listed whole' };
+    const entry = tree.body.tree.find(item => item.path === name && item.type === 'tree');
+    if (!entry) return 'absent';
+    tree = await readApi(`${trees}/${entry.sha}`, options);
+  }
+  if (tree.error) return tree;
+  if (!Array.isArray(tree.body?.tree)) return { error: 'the git tree was not listed whole' };
+  return new Set(tree.body.tree.filter(item => item.type === 'blob').map(item => item.path));
 }
 
 async function listClips(packs, folderOf, { revisions, fetcher = fetch, token = process.env.GH_TOKEN, localIndex = null, sleep = pause }) {
