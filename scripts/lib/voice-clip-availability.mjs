@@ -104,7 +104,44 @@ export function folderListingUrl(repository, folder, revision) {
   return `https://api.github.com/repos/arkpedia/${repository}/contents/${folder.split('/').map(encodeURIComponent).join('/')}?ref=${revision}`;
 }
 
-async function listClips(packs, folderOf, { revisions, fetcher = fetch, token = process.env.GH_TOKEN, localIndex = null }) {
+const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+/**
+ * A voice folder's file names at a revision, by the contents API: a Set, 'absent', or the last
+ * error of a folder never listed. GitHub's contents API answers 404 now and then for a folder
+ * that is there -- on 2026-10-15, 11 of 198 listings of folders at the pinned revisions, a
+ * different folder each round, one answering 404, 404 and then its 38 files -- and main's
+ * Check failed on 140 clips it called missing. So a 404 is asked again like any other
+ * failure, and a folder is absent only when every answer was a 404. The one rule for the
+ * voices stage (listClips) and the release audit (check-voice-clips.mjs).
+ */
+export async function fetchFolderListing(repository, folder, revision, { fetcher = fetch, token = process.env.GH_TOKEN, attempts = 3, sleep = pause, backoffMs = 2000 } = {}) {
+  let last = '';
+  let notFound = 0;
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      const response = await fetcher(folderListingUrl(repository, folder, revision), {
+        method: 'GET', headers: token ? { Authorization: `Bearer ${token}` } : {}, signal: AbortSignal.timeout(30_000),
+      });
+      if (response.status === 404) {
+        notFound += 1;
+        last = 'HTTP 404';
+      } else if (response.ok) {
+        const entries = await response.json();
+        if (Array.isArray(entries)) return new Set(entries.filter(entry => entry.type === 'file').map(entry => entry.name));
+        last = 'not a folder';
+      } else {
+        last = `HTTP ${response.status}${response.statusText ? ` ${response.statusText}` : ''}`;
+      }
+    } catch (error) {
+      last = error?.name === 'TimeoutError' ? 'timed out' : String(error?.message ?? error);
+    }
+    if (attempt < attempts) await sleep(backoffMs * attempt);
+  }
+  return notFound === attempts ? 'absent' : { error: last };
+}
+
+async function listClips(packs, folderOf, { revisions, fetcher = fetch, token = process.env.GH_TOKEN, localIndex = null, sleep = pause }) {
   const listings = new Map();
   for (const pack of packs) {
     const found = folderOf(pack);
@@ -116,13 +153,10 @@ async function listClips(packs, folderOf, { revisions, fetcher = fetch, token = 
     }
     const revision = revisions[found.repository];
     if (!/^[a-f0-9]{40}$/.test(revision ?? '')) throw new Error(`Missing adopted voice revision: ${found.repository}`);
-    const response = await fetcher(folderListingUrl(found.repository, found.folder, revision), {
-      headers: token ? { Authorization: `Bearer ${token}` } : {}, signal: AbortSignal.timeout(30_000),
-    });
-    if (!response.ok) throw new Error(`Voice folder ${key}: ${response.status} ${response.statusText}`);
-    const entries = await response.json();
-    if (!Array.isArray(entries)) throw new Error(`Voice folder ${key} is not a folder`);
-    listings.set(pack.id, new Set(entries.filter(entry => entry.type === 'file').map(entry => entry.name)));
+    const listing = await fetchFolderListing(found.repository, found.folder, revision, { fetcher, token, sleep });
+    if (listing === 'absent') throw new Error(`Voice folder ${key}: not found at ${revision}`);
+    if (!(listing instanceof Set)) throw new Error(`Voice folder ${key}: ${listing.error}`);
+    listings.set(pack.id, listing);
   }
   return listings;
 }
