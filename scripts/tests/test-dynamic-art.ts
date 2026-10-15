@@ -65,15 +65,20 @@ test('a broken manifest entry is skipped, a manifest that is not one fails the s
   assert.throws(() => dynamicArtFromManifest({ schemaVersion: 1, models: {} }, 'main'), /Not a commit/);
 });
 
-/** A stand-in for GitHub: the API's answer for the branch head, then the raw host's. */
-function github(head: { status: number; sha?: string }, manifest: { status: number; body?: string }) {
+/** A stand-in for GitHub: the API's answer for the branch head, then the raw host's, at any
+ *  encoding of the manifest's address (a raw 404 is asked again at the others,
+ *  lib/assets/githubRetry.mjs). `manifest.statuses` answers the manifest's requests in turn. */
+function github(head: { status: number; sha?: string }, manifest: { status: number; body?: string; statuses?: number[] }) {
   const asked: string[] = [];
   const fetch = async (url: string) => {
     asked.push(url);
     if (url === `https://api.github.com/repos/${REPOSITORY}/commits/main`) {
       return new Response(head.sha ? JSON.stringify({ sha: head.sha }) : '{}', { status: head.status });
     }
-    if (url === raw('manifest.json', head.sha)) return new Response(manifest.body ?? '', { status: manifest.status });
+    if (decodeURIComponent(url) === raw('manifest.json', head.sha)) {
+      const status = manifest.statuses?.shift() ?? manifest.status;
+      return new Response(status === 200 ? manifest.body ?? '' : '404: Not Found', { status });
+    }
     throw new Error(`unexpected request: ${url}`);
   };
   return { fetch, asked };
@@ -86,8 +91,17 @@ test('the stage reads the manifest at main\'s commit, and a repository with none
   // GET only: the commit from the API, then the manifest at that commit, nothing at the moving branch.
   assert.deepEqual(live.asked, [`https://api.github.com/repos/${REPOSITORY}/commits/main`, raw('manifest.json')]);
 
-  // While the asset PR is open, main has no manifest.json: no models, and the stage succeeds.
-  const noManifest = await readDynamicArt({ fetch: github({ status: 200, sha: COMMIT }, { status: 404 }).fetch });
+  // GitHub's false 404 (two in a row here) is not "no manifest": the other encodings of its
+  // address are asked, and the one that answers is read.
+  const falseNotFound = github({ status: 200, sha: COMMIT }, { status: 200, statuses: [404, 404], body: JSON.stringify({ schemaVersion: 1, models: { 'char_1044_hsgma2#2': HOSHIGUMA_E2 } }) });
+  assert.deepEqual((await readDynamicArt({ fetch: falseNotFound.fetch })).data.models, { 'char_1044_hsgma2#2': raw(HOSHIGUMA_E2) });
+  assert.equal(falseNotFound.asked.length, 4);
+
+  // While the asset PR is open, main has no manifest.json (404 at every address): no models,
+  // and the stage succeeds.
+  const missing = github({ status: 200, sha: COMMIT }, { status: 404 });
+  const noManifest = await readDynamicArt({ fetch: missing.fetch });
+  assert.equal(missing.asked.length, 5, 'the head, then the manifest at its own address and three others');
   assert.deepEqual(noManifest.data, { schemaVersion: 1, repository: 'arkpedia/arkpedia-l2d-assets', commit: null, models: {} });
   assert.deepEqual(noManifest.data, emptyDynamicArt());
   // A repository with no commit at all (GitHub answers 409).

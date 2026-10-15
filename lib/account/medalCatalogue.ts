@@ -1,4 +1,5 @@
 import type { MedalCatalogue } from './medals';
+import { fetchAsset } from '@/lib/assets/assetRetry';
 
 const finite = (n: unknown, max = 10000) => typeof n === 'number' && Number.isFinite(n) && Math.abs(n) <= max;
 const art = (s: unknown) => s === null || s === undefined || typeof s === 'string' && (/^\/profile-medals\/[a-z0-9_-]+\.webp$/.test(s) || /^https:\/\/raw\.githubusercontent\.com\/arkpedia\/arkpedia-image-assets\/[a-f0-9]{40}\/profile-medals\/[a-z0-9_-]+-background\.webp$/.test(s));
@@ -14,8 +15,8 @@ export function loadMedalCatalogue(url: string): Promise<MedalCatalogue> {
   const cached = pending.get(url);
   if (cached) return cached;
   const request = (async () => {
-    let response = await fetch(url);
-    if (response.status === 404 && url !== '/medal-catalogue.json') response = await fetch('/medal-catalogue.json');
+    let response = await fetchAsset(url);
+    if (response.status === 404 && url !== '/medal-catalogue.json') response = await fetchAsset('/medal-catalogue.json');
     if (!response.ok) throw new Error('Medal details could not be loaded. Please try again.');
     const data = await response.json();
     if (data?.version !== 1 || !Array.isArray(data.medals) || !data.medals.length || !Array.isArray(data.sets) || !Array.isArray(data.categories)

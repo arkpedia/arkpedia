@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 import { nextIndex, readRetired } from '../lib/published-asset-index.mjs';
+import { fetchAsset } from '../../lib/assets/githubRetry.mjs';
 
 // Resolve and validate the whole set before adopting it. Restore all three files
 // on failure, so a failed validation does not leave a mixed manifest and lock.
@@ -18,11 +19,13 @@ for (const repo of Object.keys(oldRevisions)) {
 const published = {};
 const retired = new Map();
 for (const repo of ['arkpedia-image-assets', 'arkpedia-skin-assets']) {
-  const response = await fetch(`https://raw.githubusercontent.com/arkpedia/${repo}/${next[repo]}/asset-manifest.json`, { signal: AbortSignal.timeout(30000) });
+  // A 404 counts only once every encoding of the address has said it (lib/assets/githubRetry.mjs):
+  // a false one on retired-assets.json read as "nothing retired".
+  const response = await fetchAsset(`https://raw.githubusercontent.com/arkpedia/${repo}/${next[repo]}/asset-manifest.json`, { signal: AbortSignal.timeout(30000) });
   if (!response.ok) throw new Error(`Cannot load ${repo} manifest: ${response.status}`);
   const manifest = await response.json();
   // Removals the repository made on purpose (scripts/lib/published-asset-index.mjs); none when it has no list.
-  const list = await fetch(`https://raw.githubusercontent.com/arkpedia/${repo}/${next[repo]}/retired-assets.json`, { signal: AbortSignal.timeout(30000) });
+  const list = await fetchAsset(`https://raw.githubusercontent.com/arkpedia/${repo}/${next[repo]}/retired-assets.json`, { signal: AbortSignal.timeout(30000) });
   if (!list.ok && list.status !== 404) throw new Error(`Cannot load ${repo} retired-assets.json: ${list.status}`);
   for (const [path, reason] of readRetired(list.ok ? await list.json() : null, repo)) retired.set(path, reason);
   for (const [path, row] of Object.entries(manifest.files)) {

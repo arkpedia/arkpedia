@@ -1,5 +1,6 @@
 import { useEffect, useRef, type PointerEvent } from 'react';
 import { useContentUrl } from '@/lib/content/context';
+import { assetRetryPending, fetchAsset, loadAssetImage, playAssetAudio, retryAssetMedia } from '@/lib/assets/assetRetry';
 import { alphaBox, visibleWorldBox, posterView, type ArtworkBox } from '@/lib/skins/artworkFraming';
 import { selectableAnimations, voiceActionEnd, voiceAnimation, VoiceChoreography, type ArtworkVoice } from '@/lib/skins/dynamicPlayback';
 import type { spine as Spine } from '@/lib/vendor/spine-3.8/spine-webgl';
@@ -97,19 +98,14 @@ interface Player {
 type SpineRuntime = typeof Spine;
 
 async function fetchOk(url: string, signal: AbortSignal): Promise<Response> {
-  const response = await fetch(url, { signal, mode: 'cors', credentials: 'omit' });
+  const response = await fetchAsset(url, { signal, mode: 'cors', credentials: 'omit' });
   if (!response.ok) throw new Error(`HTTP ${response.status} for ${url}`);
   return response;
 }
 
 function loadImage(url: string, signal: AbortSignal): Promise<HTMLImageElement> {
-  const image = new Image();
   // Cross-origin pixels may only reach WebGL through CORS.
-  image.crossOrigin = 'anonymous';
-  image.decoding = 'async';
-  signal.addEventListener('abort', () => { image.src = ''; }, { once: true });
-  image.src = url;
-  return image.decode().then(() => image);
+  return loadAssetImage(url, { crossOrigin: 'anonymous', signal });
 }
 
 type SkeletonPart = Pick<DynamicModel, 'skeleton' | 'atlas' | 'textures'>;
@@ -147,7 +143,8 @@ function loadAudio(url: string, signal: AbortSignal): Promise<HTMLAudioElement |
   signal.addEventListener('abort', () => { audio.removeAttribute('src'); audio.load(); }, { once: true });
   return new Promise((resolve) => {
     audio.addEventListener('canplaythrough', () => resolve(audio), { once: true });
-    audio.addEventListener('error', () => resolve(null), { once: true });
+    // A false 404 is tried again at another encoding of the file (lib/assets/assetRetry.ts).
+    audio.addEventListener('error', () => { if (signal.aborted || !retryAssetMedia(audio)) resolve(null); });
     audio.src = url;
     audio.load();
   });
@@ -641,15 +638,21 @@ function createPlayer(spine: SpineRuntime, host: HTMLElement, files: Awaited<Ret
         const clip = files.voices.find(v => v.id === action.id);
         if (clip) {
           const current = speech;
-          const heard = voiceAudio = new Audio(clip.url);
+          const heard = voiceAudio = new Audio();
           heard.muted = !sound;
           current.waiting = true;
           const silent = () => { if (speech === current && !current.heard) { current.waiting = false; heard.pause(); heard.removeAttribute('src'); heard.load(); } };
           voiceTimeout = setTimeout(silent, 8000);
-          heard.play().then(() => {
+          // A clip GitHub falsely reports missing is tried at another encoding first.
+          playAssetAudio(heard, clip.url, () => speech === current && current.waiting).then(() => {
             if (speech === current && current.waiting) { current.waiting = false; current.heard = true; if (voiceTimeout) clearTimeout(voiceTimeout); }
           }, silent);
-          heard.addEventListener('error', () => { if (speech === current) { current.heard = false; current.waiting = false; current.time = heard.currentTime; heard.pause(); } }, { once: true });
+          const failed = () => {
+            if (current.waiting && assetRetryPending(heard)) return;
+            heard.removeEventListener('error', failed);
+            if (speech === current) { current.heard = false; current.waiting = false; current.time = heard.currentTime; heard.pause(); }
+          };
+          heard.addEventListener('error', failed);
         }
         run();
         return;

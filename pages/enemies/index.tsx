@@ -14,6 +14,7 @@ import { getAllOperators } from '@/lib/operators/operators';
 import { releaseMarker } from '@/lib/operators/operatorAvailability';
 import { buildEnemyStatusCandidates, selectEnemyStatusOperators, type EnemyStatusCandidates, type EnemyStatusOperatorMap } from '@/lib/enemies/statusOperators';
 import PageHeader from '@/components/ui/PageHeader';
+import { fetchAsset } from '@/lib/assets/assetRetry';
 
 interface Props {
   /** Enough grid rows to paint immediately. The full 1,585 arrive from
@@ -54,7 +55,7 @@ export default function EnemiesPage({ siblings, contents, firstSlug, statusCandi
   useEffect(() => {
     let live = true;
     setFailed(false);
-    fetch(contentUrl(`/enemy-detail/${encodeURIComponent(slug)}.json`))
+    fetchAsset(contentUrl(`/enemy-detail/${encodeURIComponent(slug)}.json`))
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
       .then((d: EnemyDetailData) => { if (live) setDetail(d); })
       .catch(() => { if (live) { setDetail(null); setFailed(true); } });

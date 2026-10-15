@@ -22,6 +22,7 @@ import { getDropIcons } from '@/lib/stages/dropIcon';
 import { describeStage } from '@/lib/stages/stageText';
 import XButton from '@/components/ui/XButton';
 import EnemyRecord from '@/components/enemies/EnemyRecord';
+import { fetchAsset, useAssetUrl } from '@/lib/assets/assetRetry';
 
 /**
  * The operator catalogue, fetched once per session and shared.
@@ -41,7 +42,7 @@ function loadOperators(url: string): Promise<DeployData | null> {
   if (operatorCacheUrl !== url) { operatorCacheUrl = url; operatorCache = null; operatorPromise = null; }
   if (operatorCache) return Promise.resolve(operatorCache);
   if (!operatorPromise) {
-    operatorPromise = fetch(url)
+    operatorPromise = fetchAsset(url)
       .then((r) => (r.ok ? (r.json() as Promise<DeployData>) : null))
       .then((json) => { operatorCache = json; return json; })
       .catch(() => {
@@ -332,6 +333,8 @@ function StageDetailPanel({ stage, geometry, borrowedGeometryFrom, enemyDetails,
    * first time the bar is shown, which today means the first time fullscreen is opened.
    */
   const contentUrl = useContentUrl();
+  // The fullscreen cursor is CSS art, which has no error event (lib/assets/assetRetry.ts).
+  const cursor = useAssetUrl(contentUrl('/cursors/prts.png'), simulator);
   /* The game's names and descriptions for tile types, the same on every stage: the release
      hands it to the route once (lib/content/tables.mjs) rather than to each stage payload. */
   const tileLegend = useReleaseTable<TileLegend>('stage-tile-legend');
@@ -1175,7 +1178,7 @@ function StageDetailPanel({ stage, geometry, borrowedGeometryFrom, enemyDetails,
             ref={simulator}
             /* The game's pointer for fullscreen (see .op-section:fullscreen), pinned to
                the page's release like every other piece of art. */
-            style={{ ['--stage-cursor' as string]: `${cssUrl(contentUrl('/cursors/prts.png'))} 6 5, default` }}
+            style={{ ['--stage-cursor' as string]: `${cssUrl(cursor)} 6 5, default` }}
           >
             <div className="stage-section-head">
               {/* A stage with no schematic and no render has no map to head --
@@ -2361,7 +2364,7 @@ export default function StagesBrowsePage({ typeCounts, now }: Props) {
     }
     let live = true;
     setFailed(false);
-    fetch(contentUrl(`/stage-detail/${encodeURIComponent(slug)}.json`))
+    fetchAsset(contentUrl(`/stage-detail/${encodeURIComponent(slug)}.json`))
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
       .then((d: StageDetailData) => { if (live) setDetail(d); })
       .catch(() => { if (live) { setDetail(null); setFailed(true); } });

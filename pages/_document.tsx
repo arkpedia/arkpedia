@@ -1,6 +1,7 @@
 import { Html, Head, Main, NextScript } from 'next/document';
 import { COMPANION_PAGE } from '@/lib/gamemodes/companionRoute';
 import { THEME_COLOR } from '@/lib/nav/themeColor';
+import { assetRetryScript } from '@/lib/assets/assetRetry';
 
 export default function Document() {
   return (
@@ -29,6 +30,10 @@ export default function Document() {
             token names. THEME_COLOR in lib/nav/themeColor.ts is the one source;
             ThemeToggle and the boot script below keep it in step with the theme. */}
         <meta name="theme-color" content={THEME_COLOR.dark} />
+        {/* A published picture that GitHub falsely answers 404 for is asked for again at
+            another encoding of its address (lib/assets/assetRetry.ts). Here, before <body>,
+            because operator icons fail while the HTML is still being read, before React runs. */}
+        <script dangerouslySetInnerHTML={{ __html: assetRetryScript() }} />
         <script
           dangerouslySetInnerHTML={{
             __html: `(function(){try{var t=localStorage.getItem('theme');if(t==='light'){document.documentElement.setAttribute('data-theme','light');var m=document.querySelector('meta[name="theme-color"]');if(m){m.setAttribute('content',${JSON.stringify(THEME_COLOR.light)});}}}catch(e){}})();`,

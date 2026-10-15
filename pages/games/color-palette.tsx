@@ -15,6 +15,7 @@ import { applyCommunityPaletteOverrides, CommunityPaletteOverrides, getPaletteCa
 import { newProgress, PaletteMode, PaletteOperator, pickNext, playablePalettes, submitAnswer } from '@/lib/minigames/logic';
 import styles from '@/styles/games/minigames.module.css';
 import { operatorHref } from '@/lib/operators/operatorHref';
+import { fetchAsset } from '@/lib/assets/assetRetry';
 
 /** `now` is the request's clock (contentPageClock); who is released follows from it. */
 interface Props { operators: PaletteOperator[]; now: number }
@@ -114,7 +115,7 @@ export default function PaletteGame({ operators: catalogue, now }: Props) {
 export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/games/color-palette", async () => {
   let overrides: CommunityPaletteOverrides = {};
   try {
-    const response = await fetch(
+    const response = await fetchAsset(
       pinAssetUrl('https://raw.githubusercontent.com/arkpedia/arkpedia-color-palette/main/palettes/community-overrides.json'),
       { signal: AbortSignal.timeout(5000) },
     );

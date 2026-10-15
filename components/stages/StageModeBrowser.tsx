@@ -10,6 +10,7 @@ import { matchesSearch, searchRelevance } from '@/lib/search/searchNormalize';
 import SegmentedControl from '@/components/ui/SegmentedControl';
 import SearchInput from '@/components/ui/SearchInput';
 import LoadOnScroll from '@/components/ui/LoadOnScroll';
+import { fetchAsset } from '@/lib/assets/assetRetry';
 
 interface Props {
   cards: StageModeCard[];
@@ -86,7 +87,7 @@ export default function StageModeBrowser({ cards, counts, now }: Props) {
   useEffect(() => {
     if (!wanted || stages) return;
     let live = true;
-    fetch(contentUrl(`${basePath}/stages-index.json`))
+    fetchAsset(contentUrl(`${basePath}/stages-index.json`))
       .then((r) => (r.ok ? r.json() : null))
       .then((rows) => {
         if (!live || !Array.isArray(rows)) return;

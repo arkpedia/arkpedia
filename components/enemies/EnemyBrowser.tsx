@@ -10,6 +10,7 @@ import SegmentedControl from '@/components/ui/SegmentedControl';
 import SearchInput from '@/components/ui/SearchInput';
 import { searchEnemies } from '@/lib/enemies/enemySearch';
 import { useVirtualRows, type VirtualRowLayout } from '@/components/ui/useVirtualRows';
+import { fetchAsset } from '@/lib/assets/assetRetry';
 
 /**
  * Enemy icons skip Next's image optimizer.
@@ -128,7 +129,7 @@ export default function EnemyBrowser({ seed, contents, selectedSlug, children }:
   const [all, setAll] = useState<EnemySummary[] | null>(null);
   useEffect(() => {
     let live = true;
-    fetch(contentUrl('/enemies-index.json'))
+    fetchAsset(contentUrl('/enemies-index.json'))
       .then((r) => (r.ok ? r.json() : null))
       .then((rows) => { if (live && rows) setAll(rows as EnemySummary[]); })
       .catch(() => {});

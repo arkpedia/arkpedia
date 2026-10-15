@@ -18,6 +18,7 @@ import { normalizeAnswer, pickNext } from '@/lib/minigames/logic';
 import { guessStage, newStageRound, revealStageHint, filterStagePool, StageEntry, StageCatalogue, StageAnswer as StageAnswerEntry, StageGroup, StagePool, StageLayout, StageQuestion, StageSearchMode, STAGE_HINT_AT, STAGE_HINTS, STAGE_MISTAKES } from '@/lib/minigames/stageGuesser';
 import common from '@/styles/games/minigames.module.css';
 import styles from '@/styles/games/stage-guesser.module.css';
+import { fetchAsset } from '@/lib/assets/assetRetry';
 
 interface Props { catalogueUrl: string; groups: StageGroup[]; counts: { all: number; classic: number } }
 const COLLECTIONS: { id: StagePool; label: string }[] = [
@@ -81,7 +82,7 @@ export default function StageGuesser({ catalogueUrl, groups, counts }: Props) {
     try {
       let catalogue = questions;
       if (!catalogue.length) {
-        const response = await fetch(contentUrl(catalogueUrl));
+        const response = await fetchAsset(contentUrl(catalogueUrl));
         if (!response.ok) throw new Error('catalogue');
         const data = await response.json() as StageCatalogue;
         catalogue = data.entries;
@@ -89,7 +90,7 @@ export default function StageGuesser({ catalogueUrl, groups, counts }: Props) {
       }
       const next = pickNext(filterStagePool(catalogue, collection, selectedGroups), recent, (question) => question.slug);
       if (!next) throw new Error('empty');
-      const response = await fetch(contentUrl(next.layoutUrl));
+      const response = await fetchAsset(contentUrl(next.layoutUrl));
       if (!response.ok) throw new Error('layout');
       const layout = await response.json() as StageLayout;
       if (!layout.rows || !layout.cols || !Array.isArray(layout.tileGrid)) throw new Error('layout');

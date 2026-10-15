@@ -6,6 +6,7 @@ import path from 'node:path';
 import { clipUrl, hasRecording } from '../../lib/operators/voiceRecording.mjs';
 // @ts-expect-error Node audit scripts are plain JavaScript.
 import { checkVoiceClips, offeredOutfitClips } from '../audits/check-voice-clips.mjs';
+import { alternateAssetUrl } from '../../lib/assets/githubRetry.mjs';
 // @ts-expect-error Node build helpers are plain JavaScript.
 import { clipFile, fetchFolderListing, legacyFolder, listFolderClips, listLegacyClips, packFolder, restrictToRecordedClips, unlistedRecordings } from '../lib/voice-clip-availability.mjs';
 
@@ -135,23 +136,27 @@ function voiceTree(skinVoices?: object[]) {
   write('data/operator-voice-lines.json', { meta: { note: 'fixture' }, operators: { char_103_angel: { textLocale: 'en', lines, packs, ...(skinVoices ? { skinVoices } : {}) } } });
   return root;
 }
-/** A host that answers each clip by its line id; `calls` counts the requests per line. */
+/** A host that answers each clip by its line id, at any encoding of its address (a raw 404 is
+ *  asked again at the others, lib/assets/githubRetry.mjs); `calls` counts the requests per line
+ *  and `asked` lists them. */
 function host(answers: Record<string, number[]>) {
   const calls: Record<string, number> = {};
+  const asked: string[] = [];
   const fetcher = async (url: string, init: { method?: string }) => {
     // A folder listing (an outfit set's current pack): every clip there.
     if (init.method === 'GET') return { ok: true, status: 200, json: async () => ['cn_006.mp3', 'cn_042.mp3', 'cn_043.mp3', 'cn_044.mp3'].map(name => ({ name, type: 'file' })) } as unknown as Response;
     assert.equal(init.method, 'HEAD');
     // At the pinned revision, through the delivery template, as readers ask.
     assert.ok(url.startsWith(`https://raw.githubusercontent.com/arkpedia/arkpedia-voice-english/${REVISION}/legacy/cb13f0369f083541c7143cc4bb50b2eb448dc9fc/char_103_angel/`), url);
-    const id = url.match(/\/(CN_\d+)\.mp3$/)![1];
+    asked.push(url);
+    const id = decodeURIComponent(url).match(/\/(CN_\d+)\.mp3$/)![1];
     calls[id] = (calls[id] ?? 0) + 1;
     const queue = answers[id] ?? [200];
     const status = queue[Math.min(calls[id], queue.length) - 1];
     if (status === 0) throw new TypeError('fetch failed');
     return { ok: status >= 200 && status < 300, status } as Response;
   };
-  return { fetcher, calls };
+  return { fetcher, calls, asked };
 }
 const noPause = async () => {};
 const readTree = (root: string, file: string) => JSON.parse(fs.readFileSync(path.join(root, file), 'utf8'));
@@ -175,7 +180,8 @@ test('the release holds back a missing legacy clip instead of failing, and the h
     const { fetcher, calls } = host({ CN_043: [404] });
     const result = await checkVoiceClips({ root, quarantine: true, fetcher, sleep: noPause, now: new Date('2026-09-26T20:00:00Z') });
     assert.equal(result.exitCode, 0, result.errors.join('\n'));
-    assert.deepEqual(calls, { CN_042: 1, CN_043: 1, CN_044: 1 });
+    // A 404 counts once its own address and the three other encodings all say it.
+    assert.deepEqual(calls, { CN_042: 1, CN_043: 4, CN_044: 1 });
     const narrowed = readTree(root, 'data/operator-voice-lines.json').operators.char_103_angel.lines;
     assert.deepEqual(narrowed[1], { ...lines[1], availablePacks: ['en', 'jp'] }, 'the page says No recording in the legacy pack');
     for (const i of [0, 2, 3]) assert.deepEqual(narrowed[i], lines[i]);
@@ -190,6 +196,29 @@ test('the release holds back a missing legacy clip instead of failing, and the h
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
 
+test("GitHub's false 404 is not a missing clip: one 200 at another encoding wins, and only a 404 at every one counts", async () => {
+  const root = voiceTree();
+  try {
+    // Twice "404: Not Found" (GitHub's CDN keeps one per address), then the file.
+    const flaky = host({ CN_043: [404, 404, 200] });
+    const result = await checkVoiceClips({ root, fetcher: flaky.fetcher, sleep: noPause });
+    assert.equal(result.exitCode, 0, result.errors.join('\n'));
+    assert.equal(flaky.calls.CN_043, 3);
+    const own = flaky.asked.find(url => url.endsWith('/CN_043.mp3'))!;
+    assert.deepEqual(flaky.asked.filter(url => /CN_043|%43N_043|%43%4E_043/.test(url)), [own, alternateAssetUrl(own, 1), alternateAssetUrl(own, 2)]);
+    const release = await checkVoiceClips({ root, quarantine: true, fetcher: host({ CN_043: [404, 404, 200] }).fetcher, sleep: noPause });
+    assert.deepEqual(release.out, ['Verified 3 legacy voice clips and 0 outfit voice clips in 0 folders.'], 'nothing held back');
+    assert.ok(!fs.existsSync(path.join(root, 'data/quarantine.json')) || readTree(root, 'data/quarantine.json').entries.length === 0);
+
+    // A 404 at every address is a clip the repository lacks.
+    const gone = host({ CN_043: [404, 404, 404, 404] });
+    const strict = await checkVoiceClips({ root, fetcher: gone.fetcher, sleep: noPause });
+    assert.equal(strict.exitCode, 1);
+    assert.equal(gone.calls.CN_043, 4);
+    assert.match(strict.errors.join('\n'), /do not have: char_103_angel old_en CN_043/);
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
 test('a clip the host fails to answer is asked again; one never answered fails CI and is held back by the release', async () => {
   const root = voiceTree();
   try {
@@ -198,7 +227,9 @@ test('a clip the host fails to answer is asked again; one never answered fails C
     const recovered = await checkVoiceClips({ root, fetcher: flaky.fetcher, sleep: async (ms: number) => { pauses.push(ms); } });
     assert.equal(recovered.exitCode, 0, recovered.errors.join('\n'));
     assert.deepEqual(flaky.calls, { CN_042: 3, CN_043: 1, CN_044: 2 });
-    assert.deepEqual(pauses.sort((a, b) => a - b), [2000, 2000, 4000], 'a longer pause before each retry');
+    // A request that failed outright is asked again at once at another encoding of the address
+    // (fetchAsset, lib/assets/githubRetry.mjs): only the 503 and the 429 wait.
+    assert.deepEqual(pauses.sort((a, b) => a - b), [2000, 2000], 'a pause before each retry of a refused answer');
 
     const down = () => host({ CN_044: [503] }).fetcher;
     const strict = await checkVoiceClips({ root, fetcher: down(), sleep: noPause });
@@ -222,7 +253,7 @@ test('a legacy clip an outfit voice set offers is checked, named by the set, and
     // The operator's CN_043 is there (first answer), the outfit's is not (second).
     const strict = await checkVoiceClips({ root, fetcher, sleep: noPause });
     assert.equal(strict.exitCode, 1);
-    assert.deepEqual(calls, { CN_042: 2, CN_043: 2, CN_044: 2 }, 'every offered clip, in both voices');
+    assert.deepEqual(calls, { CN_042: 2, CN_043: 5, CN_044: 2 }, 'every offered clip, in both voices (the missing one at all four addresses)');
     assert.match(strict.errors.join('\n'), /offer 1 voice clip\(s\) the pinned voice repositories do not have: char_103_angel char_103_angel_sale#1 old_en CN_043/);
 
     const release = await checkVoiceClips({ root, quarantine: true, fetcher: host({ CN_043: [200, 404] }).fetcher, sleep: noPause, now: new Date('2026-10-06T20:00:00Z') });
