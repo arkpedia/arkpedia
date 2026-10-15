@@ -1,6 +1,6 @@
 import { useEffect, useRef, type PointerEvent } from 'react';
 import { useContentUrl } from '@/lib/content/context';
-import { assetRetryPending, fetchAsset, loadAssetImage, playAssetAudio, retryAssetMedia } from '@/lib/assets/assetRetry';
+import { assetAudioUrl, fetchAsset, loadAssetImage, retryAssetAudioOnNextPress, retryAssetMedia } from '@/lib/assets/assetRetry';
 import { alphaBox, visibleWorldBox, posterView, type ArtworkBox } from '@/lib/skins/artworkFraming';
 import { selectableAnimations, voiceActionEnd, voiceAnimation, VoiceChoreography, type ArtworkVoice } from '@/lib/skins/dynamicPlayback';
 import type { spine as Spine } from '@/lib/vendor/spine-3.8/spine-webgl';
@@ -638,21 +638,22 @@ function createPlayer(spine: SpineRuntime, host: HTMLElement, files: Awaited<Ret
         const clip = files.voices.find(v => v.id === action.id);
         if (clip) {
           const current = speech;
-          const heard = voiceAudio = new Audio();
+          // Played inside the press, as a phone requires: from the clip's own address, or from the
+          // encoding an earlier press's false 404 left for this one (lib/assets/assetRetry.ts).
+          const address = assetAudioUrl(clip.url);
+          const heard = voiceAudio = new Audio(address);
           heard.muted = !sound;
           current.waiting = true;
           const silent = () => { if (speech === current && !current.heard) { current.waiting = false; heard.pause(); heard.removeAttribute('src'); heard.load(); } };
           voiceTimeout = setTimeout(silent, 8000);
-          // A clip GitHub falsely reports missing is tried at another encoding first.
-          playAssetAudio(heard, clip.url, () => speech === current && current.waiting).then(() => {
+          heard.play().then(() => {
             if (speech === current && current.waiting) { current.waiting = false; current.heard = true; if (voiceTimeout) clearTimeout(voiceTimeout); }
           }, silent);
-          const failed = () => {
-            if (current.waiting && assetRetryPending(heard)) return;
-            heard.removeEventListener('error', failed);
+          heard.addEventListener('error', () => {
+            // GitHub sometimes refuses a file it has: the next press of this line asks at another encoding.
+            retryAssetAudioOnNextPress(clip.url, address);
             if (speech === current) { current.heard = false; current.waiting = false; current.time = heard.currentTime; heard.pause(); }
-          };
-          heard.addEventListener('error', failed);
+          }, { once: true });
         }
         run();
         return;

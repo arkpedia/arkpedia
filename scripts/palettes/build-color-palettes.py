@@ -50,6 +50,7 @@ import ssl
 import subprocess
 import sys
 import unicodedata
+import urllib.error
 import urllib.parse
 import urllib.request
 from io import BytesIO
@@ -59,6 +60,7 @@ import certifi
 from PIL import Image, UnidentifiedImageError
 sys.dont_write_bytecode = True
 from palette_review import load_reviews, approved_palette, atomic_json, review_digest
+from github_retry import next_asset_url
 
 ROOT = Path(__file__).resolve().parents[2]
 OUTPUT = ROOT / 'data' / 'color-palettes.json'
@@ -244,13 +246,26 @@ class PinnedSkins:
 
     def fetch(self, path):
         url = RAW.format(repository=SKIN_REPOSITORY, revision=self.revision, path=urllib.parse.quote(path, safe='/'))
-        last = None
-        for _ in range(3):
+        address, last, failures = url, None, 0
+        while True:
             try:
-                with urllib.request.urlopen(urllib.request.Request(url, headers={'User-Agent': 'arkpedia-palettes'}), timeout=60, context=SSL_CONTEXT) as response:
+                with urllib.request.urlopen(urllib.request.Request(address, headers={'User-Agent': 'arkpedia-palettes'}), timeout=60, context=SSL_CONTEXT) as response:
                     return response.read()
+            except urllib.error.HTTPError as error:
+                last = error
+                # GitHub's false 404, which its CDN keeps for minutes whatever the query: asked at
+                # the next encoding of the address (github_retry.py); a 404 counts only at every one.
+                if error.code == 404:
+                    address = next_asset_url(address)
+                    if address:
+                        continue
+                    break
+                failures += 1
             except OSError as error:
                 last = error
+                failures += 1
+            if failures >= 3:
+                break
         raise OSError(f'{url}: {last}')
 
     def manifest(self):

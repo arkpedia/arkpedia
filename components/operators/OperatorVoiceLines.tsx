@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useContentUrl } from '@/lib/content/context';
-import { assetRetryPending, playAssetAudio } from '@/lib/assets/assetRetry';
+import { assetAudioUrl, retryAssetAudioOnNextPress } from '@/lib/assets/assetRetry';
 import SearchInput from '../ui/SearchInput';
 import SegmentedControl from '../ui/SegmentedControl';
 import StyledSelect from '../ui/StyledSelect';
@@ -136,6 +136,12 @@ export default function OperatorVoiceLines({ data }: { data: OperatorVoiceData }
      line, another pack or voice set, which pause and reload the element -- rejects its
      play() with an AbortError, and that is no failure of the clip now selected. */
   const playRequestRef = useRef(0);
+  /* The address a press loaded and whether it has started playing. Until it has, a failure is
+     playLine's to report: its play() rejects, and it says whether another press will try the
+     clip at another encoding. The element's error event can come before that rejection
+     (Chromium) or after it (WebKit, Firefox), so onError leaves that address alone, and reports
+     only what fails once a clip plays (a stream cut off mid-line). */
+  const pressRef = useRef<{ address: string; playing: boolean } | null>(null);
   const playerRef = useRef<HTMLDivElement>(null);
   const playerAnchorRef = useRef<HTMLDivElement>(null);
   const [playerStuck, setPlayerStuck] = useState(false);
@@ -269,6 +275,7 @@ export default function OperatorVoiceLines({ data }: { data: OperatorVoiceData }
 
   useEffect(() => {
     playRequestRef.current++;
+    pressRef.current = null;
     const audio = audioRef.current;
     if (audio) {
       audio.pause();
@@ -359,19 +366,28 @@ export default function OperatorVoiceLines({ data }: { data: OperatorVoiceData }
       return;
     }
     audio.pause();
+    // Played here, inside the press, as a phone requires: from the clip's own address, or from
+    // the encoding an earlier press's false 404 left for this one (lib/assets/assetRetry.ts).
+    const own = contentUrl(source);
+    const address = assetAudioUrl(own);
+    const press = { address, playing: false };
+    pressRef.current = press;
+    audio.src = address;
+    audio.load();
     try {
-      // A clip GitHub falsely reports missing is tried at another encoding first
-      // (lib/assets/assetRetry.ts); the element's onError waits for the last try.
-      await playAssetAudio(audio, contentUrl(source), () => request === playRequestRef.current);
+      await audio.play();
       if (request !== playRequestRef.current) return;
+      press.playing = true;
       setPlaying(true);
-      // An earlier try's failure may have reached onError before it re-rendered: the clip plays.
-      setAudioError('');
     } catch {
       // Replaced while it loaded: the newer request (or the reset) owns the player now.
       if (request !== playRequestRef.current) return;
       setPlaying(false);
-      setAudioError('Audio could not be loaded for this recording.');
+      // GitHub sometimes refuses a file it has. The next press asks at another encoding; a
+      // retry from here would be outside the press, which a phone refuses.
+      setAudioError(audio.error && retryAssetAudioOnNextPress(own, address)
+        ? 'This recording did not load. Press play to try again.'
+        : 'Audio could not be loaded for this recording.');
     }
   }
 
@@ -462,8 +478,9 @@ export default function OperatorVoiceLines({ data }: { data: OperatorVoiceData }
           onError={event => {
             // A source the reset took away (another pack or voice set) is not a failed clip.
             if (!event.currentTarget.getAttribute('src')) return;
-            // Not yet: playLine tries the clip at another encoding before it gives up.
-            if (!playing && assetRetryPending(event.currentTarget)) return;
+            // A press's clip that never started: playLine reports it, and says whether to press again.
+            const press = pressRef.current;
+            if (press && !press.playing && event.currentTarget.getAttribute('src') === press.address) return;
             setPlaying(false);
             setAudioError('Audio could not be loaded for this recording.');
           }} />

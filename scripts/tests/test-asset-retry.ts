@@ -1,12 +1,14 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import vm from 'node:vm';
 import { test } from 'node:test';
 import ts from 'typescript';
 import {
-  ASSET_RETRY_ATTEMPTS, NEXT_ASSET_URL_SOURCE, alternateAssetUrl, assetRetryScript, fetchAsset, nextAssetUrl, playAssetAudio,
+  ASSET_RETRY_ATTEMPTS, NEXT_ASSET_URL_SOURCE, alternateAssetUrl, assetAudioUrl, assetRetryScript, fetchAsset, nextAssetUrl, retryAssetAudioOnNextPress,
 } from '../../lib/assets/assetRetry';
+import { readChannelPointer } from '../../lib/content/pointer.mjs';
 
 /*
  * GitHub's raw origin sometimes answers 404 for a published file that exists, and its CDN keeps
@@ -69,6 +71,37 @@ test('only files in the arkpedia repositories on raw.githubusercontent.com are r
     `https://raw.githubusercontent.com/arkpedia/arkpedia-image-assets/${COMMIT}/x/1.2`,
     '',
   ]) assert.equal(nextAssetUrl(url), null, url);
+});
+
+test('the Python scripts run the same rule (scripts/palettes/github_retry.py)', (t) => {
+  const seeds = [
+    ICON, `${ICON}?v=3`, `${ICON}#top`,
+    `https://raw.githubusercontent.com/arkpedia/arkpedia-image-assets/${COMMIT}/branch-icons/%CE%B1-Fate.webp`,
+    `https://raw.githubusercontent.com/arkpedia/arkpedia-image-assets/${COMMIT}/x/%4bal%25tsit.webp`,
+    `https://raw.githubusercontent.com/arkpedia/arkpedia-image-assets/${COMMIT}/x/100%.webp`,
+    `https://raw.githubusercontent.com/arkpedia/arkpedia-skin-assets/${COMMIT}/five-star-skins/Kal%27tsit%20-%20Base.webp`,
+    'https://raw.githubusercontent.com/arkpedia/arkpedia-data/live/current.json',
+    'https://raw.githubusercontent.com/arkpedia/arkpedia-data/live',
+    `https://raw.githubusercontent.com/arkpedia/arkpedia-image-assets/${COMMIT}/x/1.2`,
+    'https://raw.githubusercontent.com/ArknightsAssets/ArknightsAssets2/main/a.png',
+    '/six-star-icons/Amiya.webp',
+  ];
+  // Every seed and every encoding it leads to.
+  const corpus = seeds.flatMap((seed) => {
+    const chain = [seed];
+    for (let next = nextAssetUrl(seed); next; next = nextAssetUrl(next)) chain.push(next);
+    return chain;
+  });
+  const program = "import json, sys\nsys.path.insert(0, 'scripts/palettes')\nfrom github_retry import next_asset_url\nprint(json.dumps([next_asset_url(url) for url in json.loads(sys.argv[1])]))";
+  let out: string;
+  try {
+    out = execFileSync('python3', ['-I', '-c', program, JSON.stringify(corpus)], { cwd: ROOT, encoding: 'utf8' });
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') { t.skip('no python3 here'); return; }
+    throw error;
+  }
+  assert.deepEqual(JSON.parse(out), corpus.map((url) => nextAssetUrl(url)));
+  assert.ok(corpus.length > seeds.length + 20, 'not vacuous: the chains were walked');
 });
 
 test('the rule runs as written in every browser: ES5, from one source', () => {
@@ -221,6 +254,17 @@ test('fetchAsset asks again at the next encoding after a 404 or a failed request
     assert.equal((await fetchAsset(ICON)).status, 404, 'a file really missing is reported as before');
     assert.equal(asked.length, ASSET_RETRY_ATTEMPTS + 1);
 
+    // A 404, then requests that fail outright: still a 404, so a caller's fallback on a missing
+    // file (a channel's pointer, lib/content/pointer.mjs) runs, as it would without retries.
+    asked.length = 0; answers = [404, 'network', 'network', 'network'];
+    const confirmed = await fetchAsset(ICON);
+    assert.equal(confirmed.status, 404);
+    assert.equal(asked.length, ASSET_RETRY_ATTEMPTS + 1);
+    asked.length = 0; answers = ['network', 404, 'network', 'network'];
+    assert.equal((await fetchAsset(ICON)).status, 404);
+    asked.length = 0; answers = ['network', 'network', 'network', 'network'];
+    await assert.rejects(fetchAsset(ICON), /Failed to fetch/, 'with no answer at all, the failure itself');
+
     asked.length = 0; answers = [404];
     assert.equal((await fetchAsset('/medal-catalogue.json')).status, 404);
     assert.equal(asked.length, 1, 'any other address is fetched once');
@@ -238,32 +282,45 @@ test('fetchAsset asks again at the next encoding after a 404 or a failed request
   }
 });
 
-test('playAssetAudio tries the next encoding when the file fails to load, not when play is refused', async () => {
-  const media = (outcomes: ('missing' | 'refused' | 'ok')[]) => {
-    const element = {
-      src: '', currentSrc: '', error: null as { code: number } | null, sources: [] as string[],
-      load() { element.currentSrc = element.src; element.error = null; element.sources.push(element.src); },
-      async play() {
-        const outcome = outcomes.shift() ?? 'ok';
-        if (outcome === 'missing') { element.error = { code: 4 }; throw new DOMException('no supported source', 'NotSupportedError'); }
-        if (outcome === 'refused') throw new DOMException('not allowed', 'NotAllowedError');
-      },
-    };
-    return element;
+test("a channel with no pointer still falls back to live's when a retry of its 404 fails outright", async () => {
+  const root = 'https://raw.githubusercontent.com/arkpedia/arkpedia-data';
+  const asked: string[] = [];
+  const fetcher = async (url: string) => {
+    asked.push(url);
+    if (decodeURIComponent(url) === `${root}/live/current.json`) return new Response('{"live":true}');
+    if (decodeURIComponent(url) !== `${root}/dev-live/current.json`) throw new Error(`unexpected ${url}`);
+    if (asked.filter((each) => decodeURIComponent(each).includes('/dev-live/')).length === 1) return new Response('404: Not Found', { status: 404 });
+    throw new TypeError('fetch failed');
   };
+  // lib/content/server.ts's read(): the status rides on the error.
+  const read = async (url: string) => {
+    const response = await fetchAsset(url, {}, { fetcher });
+    if (!response.ok) throw Object.assign(new Error(`Content HTTP ${response.status}: ${url}`), { status: response.status });
+    return Buffer.from(await response.arrayBuffer());
+  };
+  const pointer = await readChannelPointer({ root, channel: 'dev-live', read });
+  assert.equal(pointer.toString(), '{"live":true}');
+});
+
+test('a clip that failed to load is asked for at the next encoding on the next press, never from an await', () => {
   const clip = `https://raw.githubusercontent.com/arkpedia/arkpedia-voice-japanese/${COMMIT}/char_002_amiya/CN_001.mp3`;
-  const once = media(['missing', 'ok']);
-  await playAssetAudio(once as unknown as HTMLMediaElement, clip);
-  assert.deepEqual(once.sources, [clip, alternateAssetUrl(clip, 1)]);
-  const refused = media(['refused']);
-  await assert.rejects(playAssetAudio(refused as unknown as HTMLMediaElement, clip), /not allowed/);
-  assert.equal(refused.sources.length, 1);
-  const gone = media(['missing', 'missing', 'missing', 'missing']);
-  await assert.rejects(playAssetAudio(gone as unknown as HTMLMediaElement, clip), /no supported source/);
-  assert.equal(gone.sources.length, ASSET_RETRY_ATTEMPTS + 1);
-  const replaced = media(['missing']);
-  await assert.rejects(playAssetAudio(replaced as unknown as HTMLMediaElement, clip, () => false));
-  assert.equal(replaced.sources.length, 1, 'a request the reader replaced is not retried');
+  assert.equal(assetAudioUrl(clip), clip, 'a first press plays the clip from its own address');
+  const tried = [clip];
+  for (let attempt = 1; attempt <= ASSET_RETRY_ATTEMPTS; attempt++) {
+    assert.equal(retryAssetAudioOnNextPress(clip, tried.at(-1)!), true, `press ${attempt + 1} has another encoding to try`);
+    assert.equal(assetAudioUrl(clip), alternateAssetUrl(clip, attempt));
+    tried.push(assetAudioUrl(clip));
+  }
+  assert.equal(retryAssetAudioOnNextPress(clip, tried.at(-1)!), false, 'after the last encoding the failure is the last');
+  assert.equal(assetAudioUrl(clip), clip, 'and a later press starts again from its own address');
+  // The helpers set no address and call no play(): the press does, inside itself.
+  const source = fs.readFileSync(path.join(ROOT, 'lib/assets/assetRetry.ts'), 'utf8');
+  assert.doesNotMatch(source, /\.play\(/);
+  for (const file of ['components/operators/OperatorVoiceLines.tsx', 'components/skins/DynamicArtwork.tsx']) {
+    const text = fs.readFileSync(path.join(ROOT, file), 'utf8');
+    assert.match(text, /assetAudioUrl\(/, `${file} plays a clip from assetAudioUrl`);
+    assert.match(text, /retryAssetAudioOnNextPress\(/, `${file} leaves the next encoding for the next press`);
+  }
 });
 
 test('the retry script is in <head>, ahead of every image', () => {
@@ -278,7 +335,7 @@ test('the retry script is in <head>, ahead of every image', () => {
 
 /*
  * Every fetch() in the app, and every picture or sound made outside the page, is one of: the
- * shared helpers (fetchAsset, loadAssetImage, playAssetAudio), an /api route of the site's own,
+ * shared helpers (fetchAsset, loadAssetImage, assetAudioUrl), an /api route of the site's own,
  * a third-party address, or a call listed here with what it fetches. A new fetch of a published
  * file fails here until it uses fetchAsset.
  */
@@ -294,7 +351,7 @@ const NOT_PUBLISHED_FILES: Record<string, string> = {
 /** Pictures and sounds made outside the page: how many each file makes, and why they need no retry. */
 const DETACHED_MEDIA: Record<string, { count: number; why: string }> = {
   'components/operators/RoamingChibiProvider.tsx: new Image': { count: 1, why: 'furniture from the ArknightsAssets mirror, not an arkpedia repository' },
-  'components/skins/DynamicArtwork.tsx: new Audio': { count: 2, why: 'retried with retryAssetMedia (the entrance) and playAssetAudio (voices)' },
+  'components/skins/DynamicArtwork.tsx: new Audio': { count: 2, why: 'retried with retryAssetMedia (the entrance) and on the next press (voices, assetAudioUrl)' },
   'lib/music-guesser/useSongClip.ts: new Audio': { count: 1, why: "Monster Siren's own audio CDN" },
   "lib/music/audioElement.ts: createElement('audio')": { count: 1, why: "the music player's element, which plays Monster Siren's own files" },
 };
@@ -362,7 +419,7 @@ test('every fetch of a published file goes through fetchAsset', () => {
   }
   for (const [key, count] of detached) {
     const known = DETACHED_MEDIA[key];
-    if (!known) failures.push(`${key}: load a published picture with loadAssetImage, a sound with playAssetAudio/retryAssetMedia, or list it in DETACHED_MEDIA`);
+    if (!known) failures.push(`${key}: load a published picture with loadAssetImage, a sound with assetAudioUrl/retryAssetMedia, or list it in DETACHED_MEDIA`);
     else if (known.count !== count) failures.push(`${key}: ${count} found, DETACHED_MEDIA expects ${known.count}; check the new one is retried`);
   }
   for (const key of Object.keys(DETACHED_MEDIA)) if (!detached.has(key)) failures.push(`${key} is gone: remove it from DETACHED_MEDIA`);
@@ -378,44 +435,116 @@ test('the content release is read through fetchAsset on the server too', () => {
 /*
  * The CI and release scripts read the same files, and a false 404 there is worse than a broken
  * picture: check-voice-clips failed main's Check on 140 clips it then found, and with
- * --quarantine the release would have held back clips and art that were there all along. Every
- * script that decides "missing" from a raw 404 asks through fetchAsset.
+ * --quarantine the release would have held back clips and art that were there all along.
+ *
+ * Deny by default. In each script that reads published files (RAW_READERS) every bare
+ * fetch()/fetcher() is a failure unless listed here with what it asks for, and fetchAsset must
+ * be called (an import alone proves nothing). In every other script, a fetch of an address
+ * built from a raw arkpedia literal -- written in the call or held in a variable of the same
+ * file, however many assignments away -- is a failure.
  */
-const RAW_READERS = [
-  'scripts/audits/check-published-assets.mjs',
-  'scripts/audits/check-voice-clips.mjs',
-  'scripts/build/adopt-release-asset-pins.mjs',
-  'scripts/deploy/check-asset-redirects.mjs',
-  'scripts/sync/sync-chibi-art.mjs',
-  'scripts/sync/sync-dynamic-art.mjs',
-  'scripts/sync/update-asset-revisions.mjs',
-];
-const RAW_ARGUMENT = /raw\.githubusercontent\.com\/(?:arkpedia\/|\$\{REPOSITORY\})|assetAddress\(|cdn\.template|^address$|^url\((?:\w+\.)?repo/;
+type Allowed = { call: RegExp; why: string };
+const RAW_READERS: Record<string, Allowed[]> = {
+  'scripts/audits/check-published-assets.mjs': [],
+  'scripts/audits/check-voice-clips.mjs': [],
+  'scripts/build/adopt-release-asset-pins.mjs': [
+    { call: /^fetch\(`https:\/\/api\.github\.com\/repos\/arkpedia\/\$\{repository\}\/compare\//, why: "GitHub's compare API (githubCompare), not a published file" },
+  ],
+  'scripts/deploy/check-asset-redirects.mjs': [
+    { call: /^fetch\(url, \{ method: 'HEAD', redirect: 'manual'/, why: "the site's own address, whose redirect is read by hand before its target is asked through fetchAsset" },
+  ],
+  'scripts/sync/sync-chibi-art.mjs': [
+    { call: /^fetcher\(`https:\/\/api\.github\.com\/repos\/\$\{REPOSITORY\}\/commits\/main`/, why: "the API's commit lookup, not a published file" },
+  ],
+  'scripts/sync/sync-dynamic-art.mjs': [],
+  'scripts/sync/update-asset-revisions.mjs': [],
+};
+const RAW_LITERAL = /raw\.githubusercontent\.com\/(?:arkpedia\/|\$\{REPOSITORY\})/;
 
-test('the scripts that read published files confirm a 404 through fetchAsset', () => {
+function calleeName(node: ts.CallExpression): string {
+  const callee = node.expression;
+  if (ts.isIdentifier(callee)) return callee.text;
+  if (ts.isPropertyAccessExpression(callee) && ts.isIdentifier(callee.expression) && ['globalThis', 'window', 'self'].includes(callee.expression.text)) return callee.name.text;
+  return '';
+}
+
+/** What the scripts guard finds wrong in `sources` (path to text). */
+function scriptGuardFailures(sources: Record<string, string>): string[] {
   const failures: string[] = [];
-  for (const file of RAW_READERS) {
-    if (!/import \{[^}]*\bfetchAsset\b[^}]*\} from '\.\.\/\.\.\/lib\/assets\/githubRetry\.mjs'/.test(fs.readFileSync(path.join(ROOT, file), 'utf8'))) failures.push(`${file} does not import fetchAsset`);
-  }
-  const scripts = sourceFiles('scripts').filter((file) => !file.startsWith('scripts/tests/') && !file.startsWith('scripts/palettes/palette-review/'));
-  for (const file of scripts) {
-    const text = fs.readFileSync(path.join(ROOT, file), 'utf8');
-    if (!/\bfetch(?:er)?\s*\(/.test(text)) continue;
+  const used = new Set<RegExp>();
+  for (const [file, text] of Object.entries(sources)) {
     const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+    const where = (node: ts.Node) => `${file}:${source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1}`;
+    const calls: ts.CallExpression[] = [];
+    // Names assigned an address built from a raw arkpedia literal, directly or through another such name.
+    const declarations: { name: string; text: string }[] = [];
     const visit = (node: ts.Node) => {
-      if (ts.isCallExpression(node) && node.arguments[0]) {
-        const callee = node.expression;
-        const name = ts.isIdentifier(callee) ? callee.text : ts.isPropertyAccessExpression(callee) && ts.isIdentifier(callee.expression) && callee.expression.text === 'globalThis' ? callee.name.text : '';
-        const argument = node.arguments[0].getText(source).replace(/\s+/g, ' ');
-        if ((name === 'fetch' || name === 'fetcher') && RAW_ARGUMENT.test(argument)) {
-          failures.push(`${file}:${source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1}: ${name}(${argument}) -- a raw 404 counts only once confirmed: use fetchAsset (lib/assets/githubRetry.mjs)`);
-        }
-      }
+      if (ts.isCallExpression(node)) calls.push(node);
+      if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer) declarations.push({ name: node.name.text, text: node.initializer.getText(source) });
+      if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.EqualsToken && ts.isIdentifier(node.left)) declarations.push({ name: node.left.text, text: node.right.getText(source) });
       ts.forEachChild(node, visit);
     };
     visit(source);
+    const tainted = new Set<string>();
+    for (let grew = true; grew;) {
+      grew = false;
+      for (const { name, text: value } of declarations) {
+        if (tainted.has(name)) continue;
+        if (RAW_LITERAL.test(value) || [...tainted].some((other) => new RegExp(`\\b${other}\\b`).test(value))) { tainted.add(name); grew = true; }
+      }
+    }
+    const allowed = RAW_READERS[file];
+    let confirmed = false;
+    for (const call of calls) {
+      const name = calleeName(call);
+      if (name === 'fetchAsset') { confirmed = true; continue; }
+      if (name !== 'fetch' && name !== 'fetcher') continue;
+      const text = call.getText(source).replace(/\s+/g, ' ');
+      const argument = call.arguments[0]?.getText(source).replace(/\s+/g, ' ') ?? '';
+      if (allowed) {
+        const entry = allowed.find(({ call: pattern }) => pattern.test(text));
+        if (entry) used.add(entry.call);
+        else failures.push(`${where(call)}: ${text.slice(0, 120)} -- this script reads published files: ask through fetchAsset (lib/assets/githubRetry.mjs), or list the call in RAW_READERS with what it asks for`);
+      } else if (RAW_LITERAL.test(argument) || [...tainted].some((other) => new RegExp(`\\b${other}\\b`).test(argument))) {
+        failures.push(`${where(call)}: ${name}(${argument}) -- a raw arkpedia address: a 404 counts only once confirmed, so ask through fetchAsset (lib/assets/githubRetry.mjs) and add the file to RAW_READERS`);
+      }
+    }
+    if (allowed && !confirmed) failures.push(`${file} never calls fetchAsset`);
   }
-  assert.deepEqual(failures, []);
+  for (const [file, entries] of Object.entries(RAW_READERS)) {
+    if (!(file in sources)) { failures.push(`${file} is gone: remove it from RAW_READERS`); continue; }
+    for (const entry of entries) if (!used.has(entry.call)) failures.push(`${file}: no call matches ${entry.call} any more: remove it from RAW_READERS`);
+  }
+  return failures;
+}
+
+function scriptSources(): Record<string, string> {
+  const files = sourceFiles('scripts').filter((file) => !file.startsWith('scripts/tests/') && !file.startsWith('scripts/palettes/palette-review/'));
+  return Object.fromEntries(files.map((file) => [file, fs.readFileSync(path.join(ROOT, file), 'utf8')]));
+}
+
+test('the scripts that read published files confirm a 404 through fetchAsset', () => {
+  assert.deepEqual(scriptGuardFailures(scriptSources()), []);
+});
+
+test('the scripts guard fails each way a script can go around fetchAsset', () => {
+  const sources = scriptSources();
+  const reverted = (file: string, from: RegExp, to: string) => {
+    assert.match(sources[file], from, `${file} still has the call this case reverts`);
+    return scriptGuardFailures({ ...sources, [file]: sources[file].replace(from, to) });
+  };
+  // adopt-release-asset-pins' get() back on plain fetch: the pointer's 404 decides live's fallback.
+  const pins = reverted('scripts/build/adopt-release-asset-pins.mjs', /fetchAsset\(url, (\{ cache: 'no-store', signal: AbortSignal\.timeout\(20_000\) \}), \{ fetcher: fetch \}\)/, 'fetch(url, $1)');
+  assert.ok(pins.some((line) => /adopt-release-asset-pins\.mjs:\d+: fetch\(url/.test(line)), pins.join('\n'));
+  // check-asset-redirects' probe() asking the redirect's target with plain fetch.
+  const probe = reverted('scripts/deploy/check-asset-redirects.mjs', /fetchAsset\(target, (\{[^}]*\}), \{ fetcher: fetch \}\)/, 'fetch(target, $1)');
+  assert.ok(probe.some((line) => /check-asset-redirects\.mjs:\d+: fetch\(target/.test(line)), probe.join('\n'));
+  // A new script holding a raw address in a variable.
+  const added = scriptGuardFailures({ ...sources, 'scripts/sync/sync-new-art.mjs': "const base = 'https://raw.githubusercontent.com/arkpedia/arkpedia-image-assets';\nconst manifest = `${base}/${process.argv[2]}/asset-manifest.json`;\nconst response = await fetch(manifest);\n" });
+  assert.ok(added.some((line) => /sync-new-art\.mjs:3: fetch\(manifest\)/.test(line)), added.join('\n'));
+  // And a reader that only imports fetchAsset.
+  const imported = scriptGuardFailures({ ...sources, 'scripts/sync/update-asset-revisions.mjs': sources['scripts/sync/update-asset-revisions.mjs'].replaceAll('await fetchAsset(', 'await fetch(') });
+  assert.ok(imported.includes('scripts/sync/update-asset-revisions.mjs never calls fetchAsset'), imported.join('\n'));
 });
 
 test('CSS art built in code looks at a false 404 once it is shown (useAssetUrl)', () => {
