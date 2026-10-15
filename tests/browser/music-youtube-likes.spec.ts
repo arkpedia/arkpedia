@@ -64,8 +64,9 @@ test('likes ordering survives reload and keeps zero before unknown songs and ord
   await expect(rows).toHaveCount(albumSongs.length);
   const original = await rows.evaluateAll(els => els.map(el => el.getAttribute('data-song-id')!));
   const order = page.getByRole('combobox', { name: 'Order songs' });
-  await expect(order.locator('option[value="likes"]')).toBeEnabled();
-  await order.selectOption('likes');
+  await order.click();
+  await expect(page.getByRole('option', { name: 'Most liked on YouTube', exact: true })).not.toHaveAttribute('aria-disabled', 'true');
+  await page.getByRole('option', { name: 'Most liked on YouTube', exact: true }).click();
   const expected = [...original].sort((a, b) => (likes[b] ?? -1) - (likes[a] ?? -1));
   await expect.poll(() => rows.evaluateAll(els => els.map(el => el.getAttribute('data-song-id')!))).toEqual(expected);
   await expect(page).toHaveURL(/[?&]sort=likes\b/);
@@ -73,13 +74,14 @@ test('likes ordering survives reload and keeps zero before unknown songs and ord
   const zero = page.locator(`.music-discover-song-list [data-song-id="${albumSongs[3].videoId}"]`);
   await expect(zero).toContainText('0 YouTube likes');
   await page.reload();
-  await expect(order).toHaveValue('likes');
+  await expect(order).toContainText('Most liked on YouTube');
   await expect.poll(() => rows.evaluateAll(els => els.map(el => el.getAttribute('data-song-id')!))).toEqual(expected);
   await rows.first().getByRole('button', { name: /^Favourite:/ }).click();
   await expect(rows.first().getByRole('button', { name: /^Favourite:/ })).toHaveAttribute('aria-pressed', 'true');
   await rows.first().locator('.music-song-row-main').click();
   await expect(rows.first()).toHaveClass(/\bactive\b/);
-  await order.selectOption('');
+  await order.click();
+  await page.getByRole('option', { name: 'Default', exact: true }).click();
   await expect.poll(() => rows.evaluateAll(els => els.map(el => el.getAttribute('data-song-id')!))).toEqual(original);
 });
 
@@ -90,7 +92,9 @@ test('API failure and empty counts leave browsing available without a fabricated
   await expect(page.locator('#discover-likes .music-discover-album-tile')).toHaveCount(0);
   await page.getByRole('searchbox', { name: /Search songs, characters/ }).fill(album.albumAltName || album.albumName);
   await expect(page.locator('.music-discover-song-list .music-song-row').first()).toBeVisible();
-  await expect(page.getByRole('combobox', { name: 'Order songs' }).locator('option[value="likes"]')).toHaveAttribute('disabled', '');
+  await page.getByRole('combobox', { name: 'Order songs' }).click();
+  await expect(page.getByRole('option', { name: 'Most liked on YouTube', exact: true })).toHaveAttribute('aria-disabled', 'true');
+  await page.getByRole('combobox', { name: 'Order songs' }).press('Escape');
   await page.route('**/api/music/youtube-likes', route => route.fulfill({ json: { updatedAt: new Date().toISOString(), likes: {} } }));
   await page.goto('/music/discover');
   await expect(page.getByText('YouTube likes are temporarily unavailable.', { exact: true })).toBeVisible();

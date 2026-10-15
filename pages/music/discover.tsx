@@ -9,6 +9,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import PageHeader from '@/components/ui/PageHeader';
 import ScrollRow from '@/components/ui/ScrollRow';
 import SearchInput from '@/components/ui/SearchInput';
+import StyledSelect from '@/components/ui/StyledSelect';
 import { useHeightFloor } from '@/components/ui/useHeightFloor';
 import { useMusicPlayer } from '@/lib/music/musicPlayerContext';
 import { useQueryState } from '@/lib/hooks/useQueryState';
@@ -340,13 +341,14 @@ export default function DiscoverPage({ songs, characters, origins, artists, rece
                   Songs
                   {activeFacetLabel && <span className="music-discover-active-facet"> · {activeFacetLabel}</span>}
                 </h2>
-                <label className="music-discover-song-order">
-                  Sort
-                  <select aria-label="Order songs" value={songOrder === 'likes' ? 'likes' : ''} onChange={event => setSongOrder(event.target.value)}>
-                    <option value="">{hasActiveQuery ? 'Best match' : 'Default'}</option>
-                    <option value="likes" disabled={!rankedSongs.length}>Most liked on YouTube</option>
-                  </select>
-                </label>
+                <div className="music-discover-song-order">
+                  <span aria-hidden="true">Sort</span>
+                  <StyledSelect label="Order songs" value={songOrder === 'likes' ? 'likes' : ''} onChange={setSongOrder} align="end"
+                    options={[
+                      { value: '', label: hasActiveQuery ? 'Best match' : 'Default' },
+                      { value: 'likes', label: 'Most liked on YouTube', disabled: !rankedSongs.length },
+                    ]} />
+                </div>
               </div>
               {songOrder === 'likes' && !rankedSongs.length && <p className="hint" role="status">
                 {likesLoading ? 'Loading YouTube likes…' : 'YouTube likes are temporarily unavailable. Showing default order.'}
