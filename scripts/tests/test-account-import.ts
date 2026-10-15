@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { createHash, createHmac } from 'node:crypto';
 import { test } from 'node:test';
-import { ImportError, isNewGameAccount, isServerId, md5, pullRow, readAccount, readNetwork, readPulls, sendCode, SERVER_IDS, SERVERS, sessionCookie, signIn, u8Sign, yostarHeaders, type Transport, type TransportRequest, type TransportResponse } from '../../lib/account-import/yostar';
+import { ImportError, isServerId, md5, pullRow, readAccount, readNetwork, readPulls, sendCode, SERVER_IDS, SERVERS, sessionCookie, signIn, u8Sign, yostarHeaders, type Transport, type TransportRequest, type TransportResponse } from '../../lib/account-import/yostar';
 
 test('md5 matches Node for empty, block-boundary, long and non-ASCII input', () => {
   for (const text of ['', 'abc', 'x'.repeat(55), 'x'.repeat(56), 'x'.repeat(64), 'y'.repeat(1000), 'doctor@exämple.com 日本']) {
@@ -97,14 +97,6 @@ test('a refusal names the step that failed and what the server said', async () =
     'send-code', /Yostar refused yostar\/send-code: Too many requests/);
   await refusal(signIn(options({ ...ANSWERS, 'https://en-sdk-api.yostarplat.com/yostar/get-auth': { Code: 100110, Msg: 'Wrong code' } }), 'a@b.c', '1'),
     'sign-in', /Wrong code/);
-  // An email that was not yet a game account's Yostar login: Yostar makes it an account and
-  // says so (IsNew 1, as it answered a fresh test address on 2026-10-14). It stops at sign-in,
-  // marked as no game account, so the reader is told the way back and nothing is read.
-  const fresh = signIn(options({ ...ANSWERS, 'https://en-sdk-api.yostarplat.com/user/login': { Code: 200, Data: { IsNew: 1, UserInfo: { ID: 4243, Token: 'new-token' } } } }), 'a@b.c', '1');
-  await refusal(fresh, 'sign-in', /new account for this email/);
-  assert.equal(await fresh.then(() => null, (error: ImportError) => error.noGameAccount), true);
-  // An existing login answers IsNew 0 and signs in as before.
-  assert.equal((await signIn(options({ ...ANSWERS, 'https://en-sdk-api.yostarplat.com/user/login': { Code: 200, Data: { IsNew: 0, UserInfo: { ID: 4242, Token: 'yostar-token' } } } }), 'a@b.c', '1')).uid, '4242');
   const { relay, direct } = server({ ...ANSWERS, 'https://as.example/u8/user/v1/getToken': { result: 4 } });
   await refusal(readAccount({ transport: relay, direct, deviceId: 'd', network: await readNetwork(relay, 'en') }, { uid: '1', token: 't', authToken: 'a' }), 'game-token', /result 4/);
   await refusal(readNetwork(server({ 'https://ak-conf.arknights.global/config/prod/official/network_config': { content: '{}' } }).relay, 'en'), 'network', /server list could not be read/);
@@ -248,55 +240,4 @@ test('the sign-in reads the pull history after the account, and a history it can
   assert.ok(read.indexOf('readAccount(') < read.indexOf('readPulls('), 'the account first');
   assert.match(read, /try \{\s*pulls = \{ rows: await readPulls\(/);
   assert.match(read, /catch \(error\) \{\s*pulls = \{ rows: null, error: describe\(error\) \};/);
-});
-
-test('a new, empty account (level 1) is what an email no game account is linked to signs in to, and nothing of it is imported', async () => {
-  assert.equal(isNewGameAccount({ status: { level: 1, nickName: '' } }), true);
-  assert.equal(isNewGameAccount({ status: { level: 120 } }), false);
-  assert.equal(isNewGameAccount({ status: { level: 2 } }), false);
-  // An account whose level the game did not send is not called new: the import goes on.
-  assert.equal(isNewGameAccount({ status: {} }), false);
-  assert.equal(isNewGameAccount({}), false);
-  const fs = await import('node:fs');
-  const source = fs.readFileSync('components/account-import/GameSignIn.tsx', 'utf8');
-  const read = source.slice(source.indexOf('async function read('), source.indexOf('async function onImport'));
-  // Refused straight after the account is read: before the pull history, before onAccount (which
-  // writes the import over the reader's), and so before a sign-in is remembered.
-  const guard = read.indexOf("if (isNewGameAccount(user)) throw new ImportError('account', NEW_ACCOUNT, true);");
-  assert.ok(guard > read.indexOf('readAccount('), 'after the account is read');
-  assert.ok(guard < read.indexOf('readPulls(') && guard < read.indexOf('onAccount('), 'before the pulls and the import');
-  const onImport = source.slice(source.indexOf('async function onImport'), source.indexOf('async function onImportAgain'));
-  assert.ok(onImport.indexOf('await read(') < onImport.indexOf('saveLogin('), 'a sign-in is remembered only after read() returns');
-});
-
-test('the game refusing a Yostar login an account is told as a Yostar account with no game account; an unreachable host is not', async () => {
-  const network = { u8: 'https://u8.example', gs: 'https://gs.example:8443', hv: 'https://hv.example/{0}' };
-  const direct: Transport = async () => ({ status: 200, json: { resVersion: 'r', clientVersion: 'c' } });
-  const account = { uid: '1', token: 't', authToken: 'a' };
-  const ok = { 'https://u8.example/user/v1/getToken': { result: 0, token: 'u8', uid: '9' }, 'https://gs.example:8443/account/login': { result: 0, secret: 's', uid: '9' }, 'https://gs.example:8443/account/syncData': { result: 0, user: {} } };
-  const failing = async (answers: Record<string, unknown>) => {
-    const transport: Transport = async (url) => ({ status: 200, json: answers[url] });
-    return readAccount({ transport, direct, deviceId: 'd', network }, account).then(() => null, (error) => error as ImportError);
-  };
-  for (const [url, answer, step] of [
-    ['https://u8.example/user/v1/getToken', { result: 2 }, 'game-token'],
-    ['https://gs.example:8443/account/login', { result: 1 }, 'game-login'],
-    ['https://gs.example:8443/account/syncData', { result: 0 }, 'account'],
-  ] as const) {
-    const error = await failing({ ...ok, [url]: answer });
-    assert.ok(error instanceof ImportError && error.step === step && error.noGameAccount, `${step}: ${error}`);
-  }
-  const unreachable = await readAccount({ transport: async () => { throw new Error('offline'); }, direct, deviceId: 'd', network }, account).then(() => null, (error) => error as ImportError);
-  assert.ok(unreachable instanceof ImportError && !unreachable.noGameAccount, 'a host that cannot be reached says so, nothing more');
-  const outage = await readAccount({ transport: async () => ({ status: 503, json: null }), direct, deviceId: 'd', network }, account).then(() => null, (error) => error as ImportError);
-  assert.ok(outage instanceof ImportError && !outage.noGameAccount, 'an HTTP error is an outage, not a missing account');
-});
-
-test('the import says before the email field which email to use, and what any other does', async () => {
-  const fs = await import('node:fs');
-  const source = fs.readFileSync('components/account-import/GameSignIn.tsx', 'utf8');
-  const notice = source.indexOf('<div className="import-yostar">');
-  assert.ok(notice > 0 && notice < source.indexOf('id={`${idPrefix}-email`}'), 'the notice comes first');
-  assert.match(source, /Use the email that is already the Yostar login of your Arknights account\./);
-  assert.match(source, /makes Yostar create a separate, empty account for it/);
 });

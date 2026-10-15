@@ -59,10 +59,3 @@
 .import-yostar p { margin: 0; }
 .import-yostar p + p { margin-top: 6px; }
 .import-yostar b { color: var(--text); font-weight: 600; }
-/* A Yostar login with no Arknights account (GameSignIn NoGameAccount): what happened and the way
-   back, in reading type, under a danger rule rather than all in the error's mono. */
-.import-no-account { max-width: 70ch; margin-top: 12px; padding: 8px 12px; border-left: 2px solid var(--danger); font: 13px/1.6 var(--font-body); color: var(--text-dim); }
-.import-no-account > * { margin: 0; }
-.import-no-account > p:first-child { color: var(--danger); }
-.import-no-account > * + * { margin-top: 6px; }
-.import-no-account ol { padding-left: 20px; }
