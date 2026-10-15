@@ -381,6 +381,9 @@ jobs:
           git -C "$repo" checkout -B main "$prepared_base"
           rm -rf "$repo/source" "$repo/release"
           cp -R "$RUNNER_TEMP/prepared-content/source" "$RUNNER_TEMP/prepared-content/release" "$repo/"
+          # Replaced trees may contain a case-only rename (Gallus² -> GALLUS²).
+          # Rebuild these index entries so core.ignorecase cannot keep the old path.
+          git -C "$repo" rm -r --cached --quiet --ignore-unmatch source release
           git -C "$repo" add source release
           if ! git -C "$repo" diff --cached --quiet; then
             git -C "$repo" config user.name 'github-actions[bot]'
@@ -431,6 +434,9 @@ jobs:
           git -C "$repo" checkout -B "$ARKPEDIA_DATA_BRANCH" HEAD
           rm -rf "$repo/source" "$repo/release"
           cp -R "$RUNNER_TEMP/prepared-content/source" "$RUNNER_TEMP/prepared-content/release" "$repo/"
+          # Replaced trees may contain a case-only rename (Gallus² -> GALLUS²).
+          # Rebuild these index entries so core.ignorecase cannot keep the old path.
+          git -C "$repo" rm -r --cached --quiet --ignore-unmatch source release
           git -C "$repo" add source release
           git -C "$repo" config user.name 'github-actions[bot]'
           git -C "$repo" config user.email '41898282+github-actions[bot]@users.noreply.github.com'

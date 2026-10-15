@@ -160,6 +160,31 @@ function dataRepository(root: string) {
 }
 const regenerated = 'Refresh game content and prepared page data';
 
+test('main and dev publication commit the new casing of a replaced operator page', () => {
+  for (const channel of ['main', 'dev']) withDataRepository(repo => {
+    const oldPath = 'release/pages/operators/Gallus².json';
+    const newPath = 'release/pages/operators/GALLUS².json';
+    fs.mkdirSync(path.dirname(path.join(repo.root, 'seed', oldPath)), { recursive: true });
+    fs.writeFileSync(path.join(repo.root, 'seed', oldPath), '{"old":true}');
+    repo.commit('old operator route', 'r2');
+    repo.push('main');
+    repo.load('main');
+    // Exercise the runner's index behavior even on a case-sensitive CI filesystem.
+    const configured = spawnSync('git', ['config', 'core.ignorecase', 'true'], {
+      cwd: path.join(repo.root, 'runner/arkpedia-data'), encoding: 'utf8',
+    });
+    assert.equal(configured.status, 0, configured.stderr);
+    repo.prepareRelease({ release: '3'.repeat(64), content: 'c'.repeat(64) });
+    const prepared = path.join(repo.root, 'runner/prepared-content', newPath);
+    fs.mkdirSync(path.dirname(prepared), { recursive: true });
+    fs.writeFileSync(prepared, '{"canonical":"GALLUS²"}');
+    const result = channel === 'main' ? repo.publish() : repo.publishDev();
+    assert.equal(result.status, 0, result.output);
+    assert.deepEqual(JSON.parse(repo.bytes(channel, newPath).toString()), { canonical: 'GALLUS²' });
+    assert.equal(repo.bytes(channel, oldPath).length, 0, 'the old path must not remain in the Git tree');
+  });
+});
+
 test('the daily run publishes a new release on data main and skips an unchanged one', () => {
   withDataRepository(repo => {
     repo.load('main');

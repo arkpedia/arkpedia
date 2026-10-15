@@ -35,10 +35,12 @@
  *     back to it, up to GAP_ENTRIES: not the whole channel. If the marker is not among those
  *     either (the video was deleted or made private), they are read as a backfill reads: no
  *     suggestion but a guide-like one, so a lost marker cannot fill the issue with old videos.
- *   - The marker is always an upload of the Videos tab. The feed also lists streams, which the
- *     tab does not: a stream as the marker would send the next night that reads the listing
- *     back through GAP_ENTRIES uploads. So when the marker has to move on a night the feed was
- *     read, it moves to the head of the listing (FALLBACK_ENTRIES), read for that.
+ *   - The feed also lists the channel's past streams, as ordinary uploads: the Videos tab does
+ *     not. On a night the feed was read, an upload of it is added only when the head of the
+ *     listing (FALLBACK_ENTRIES, read for that) has it too; one the head does not have goes to a
+ *     person as likely a stream. The marker, too, is always an upload of the Videos tab: a stream
+ *     as the marker would send the next night that reads the listing back through GAP_ENTRIES
+ *     uploads, so when it has to move on a feed night, it moves to the listing's head.
  *
  * Uploads at or below the marker were decided on by an earlier run and are read as a backfill
  * reads them, and every video the stage has added, suggested, or seen in a record's guides is
@@ -73,7 +75,7 @@ import { parseFeedEntries } from '../lib/youtube-uploads.mjs';
 import { cell } from '../content/quarantine-report.mjs';
 import { readOperatorRecords } from './sync-kernel-pool.mjs';
 import {
-  applyUploads, checkGuideCreators, checkGuideState, cutAtMarker, feedReaches, gameContentNames, guideIndex, markHandled, nextMarker, prunePending,
+  applyUploads, checkGuideCreators, checkGuideState, classifyUpload, cutAtMarker, feedReaches, gameContentNames, guideIndex, markHandled, nextMarker, prunePending,
   REGISTRY_FILE, REVIEW_DAYS, STATE_FILE, VIDEO_ID,
 } from './guide-videos.mjs';
 
@@ -95,15 +97,23 @@ export const CONTENT_NAME_FILES = { stagesContent: 'data/stages-content.json', e
 const feedUrl = channelId => `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`;
 export const channelUrl = channelId => `https://www.youtube.com/channel/${channelId}`;
 
-/** A flat listing as yt-dlp --dump-single-json writes it, as uploads (newest first). */
+/**
+ * A flat listing as yt-dlp --dump-single-json writes it, as uploads (newest first). A listing
+ * with no usable upload is a failed read, not an empty channel: a yt-dlp that no longer
+ * understands YouTube's page exits 0 with no entries (or entries without titles), and taken as
+ * read, it would mark a new creator's one-time backfill done with nothing read.
+ */
 export function parseListing(json, channelId) {
   const listing = typeof json === 'string' ? JSON.parse(json) : json;
   if (!Array.isArray(listing?.entries)) throw new Error('the listing has no entries');
   if (listing.channel_id && listing.channel_id !== channelId) throw new Error(`the listing is of channel ${listing.channel_id}`);
-  return listing.entries.filter(entry => VIDEO_ID.test(entry?.id ?? '') && typeof entry.title === 'string').map(entry => ({
+  const uploads = listing.entries.filter(entry => VIDEO_ID.test(entry?.id ?? '') && typeof entry.title === 'string' && entry.title.trim()).map(entry => ({
     videoId: entry.id, title: entry.title, published: null,
-    short: /\/shorts\//.test(entry.url ?? ''), live: ['is_live', 'is_upcoming', 'post_live'].includes(entry.live_status),
+    short: /\/shorts\//.test(entry.url ?? ''),
+    live: ['is_live', 'is_upcoming', 'was_live', 'post_live'].includes(entry.live_status) || entry.is_live === true || entry.was_live === true,
   }));
+  if (!uploads.length) throw new Error(`the listing has no usable upload (${listing.entries.length} entries)`);
+  return uploads;
 }
 
 /**
@@ -242,8 +252,8 @@ export async function syncGuideVideos(root = process.cwd(), {
   let backfills = 0;
   for (const [position, creator] of readingOrder(registry.creators, now).entries()) {
     if (position) await pause(CHANNEL_PAUSE_MS);
+    // A channel held tonight keeps its entry as it was (none, for a creator never read).
     const memory = state.creators[creator.channelId] ?? {};
-    creators[creator.channelId] = memory;
     const hold = why => alerts.add({ key: `guide-channel:${creator.channelId}`, action: 'kept-previous', sourceRef: channelUrl(creator.channelId),
       reason: `${creator.name}'s ${why}, so none of their videos was added to an operator's guides or suggested; the next run reads the channel again` });
     log(`${creator.name} (${creator.channelId})`);
@@ -283,22 +293,43 @@ export async function syncGuideVideos(root = process.cwd(), {
       hold(`${backfill ? 'upload history' : 'latest uploads'} could not be read (YouTube feed and channel listing)`);
       continue;
     }
-    let newest = memory.newest;
-    if (!keepMarker && listed) newest = nextMarker(memory.newest, markable(listed));
-    else if (!keepMarker && nextMarker(memory.newest, markable(uploads)) !== memory.newest) {
-      // Only the feed was read, and the marker has to move: to the newest upload of the Videos
-      // tab, which a stream at the top of the feed is not on. Its uploads down to the marker are
-      // read with the feed's, so everything from the new marker down has been decided on.
-      if (left() < MIN_CALL_MS) log('  no time left to read the listing\'s head: the marker stays');
+    // The feed lists the channel's past streams as ordinary uploads, with no live flag; the Videos
+    // tab does not. So on a night only the feed was read, the tab's head is read too whenever an
+    // upload of the feed would be added, or the marker has to move: an upload is added only when
+    // the tab has it, and the marker moves only onto one the tab has (a stream as the marker would
+    // send the next night the feed fails back through GAP_ENTRIES uploads). Its uploads down to
+    // the marker are read with the feed's, so everything from the new marker down is decided on.
+    // A gap read is a listing of the Videos tab too, longer than the head.
+    let newest = memory.newest, tab = listed;
+    const fromFeed = uploads.some(upload => upload.feed);
+    const markerMoves = !keepMarker && nextMarker(memory.newest, markable(uploads)) !== memory.newest;
+    const wouldAdd = upload => upload.feed && !upload.old && !present.has(upload.videoId) && !decided.has(upload.videoId) && !registry.dismissed.has(upload.videoId)
+      && classifyUpload(upload, creator, index).action === 'add';
+    if (fromFeed && !tab && (markerMoves || uploads.some(wouldAdd))) {
+      if (left() < MIN_CALL_MS) log('  no time left to read the listing\'s head: no upload of the feed is added tonight, and the marker stays');
       else {
         try {
-          const head = await sources.listing(creator.channelId, { limit: FALLBACK_ENTRIES, timeoutMs: timeFor(LISTING_TIMEOUT_MS) });
-          uploads = [...uploads, ...markHandled(head, memory.newest)];
-          newest = markable(head)[0]?.videoId ?? memory.newest;
+          tab = await sources.listing(creator.channelId, { limit: FALLBACK_ENTRIES, timeoutMs: timeFor(LISTING_TIMEOUT_MS) });
+          uploads = [...uploads, ...markHandled(tab, memory.newest)];
         } catch (error) {
-          log(`  the listing's head did not load (${error.message}): the marker stays`);
+          log(`  the listing's head did not load (${error.message}): no upload of the feed is added tonight, and the marker stays`);
         }
       }
+    }
+    if (!keepMarker && listed) newest = nextMarker(memory.newest, markable(listed));
+    else if (!keepMarker && tab && markerMoves) newest = markable(tab)[0]?.videoId ?? memory.newest;
+    if (fromFeed) {
+      // feedOnly: the tab's head was read and does not have it (a stream); unconfirmed: the head
+      // was not read, so it is not added tonight, nor decided on, and is read again.
+      const onTab = new Map((tab ?? []).map(upload => [upload.videoId, upload]));
+      uploads = uploads.map(upload => {
+        if (!upload.feed) return upload;
+        const confirmed = onTab.get(upload.videoId);
+        // The feed omits live metadata. Keep the listing's explicit stream/Short flags
+        // on the first occurrence too: applyUploads deduplicates by video ID.
+        if (confirmed) return { ...upload, live: upload.live || confirmed.live, short: upload.short || confirmed.short };
+        return { ...upload, ...(tab ? { feedOnly: true } : { unconfirmed: true }) };
+      });
     }
     const result = applyUploads({ creator, uploads, index, present, pending, dismissed: registry.dismissed, decided, today, backfill });
     result.touched.forEach(record => touched.add(record));
