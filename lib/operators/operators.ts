@@ -5,7 +5,6 @@ import { getScheduledOperatorDebut } from './operatorReleaseSchedule';
 import { getCurrentOperatorVoiceCredits } from './operatorVoices';
 import { isPortraitPending } from './operatorPortrait';
 
-const FUTURE_ICONS_DIR = path.join(process.cwd(), 'public', 'future_operator_icons');
 const DATA_DIR = path.join(process.cwd(), 'data');
 
 const RARITY_FOLDERS = [
@@ -21,7 +20,7 @@ const RARITY_FOLDERS = [
  * and returns the parsed contents -- one operator per file, replacing
  * the old single monolithic operators-Nstar.json array. Missing
  * folders (e.g. a rarity not scraped yet) return an empty array rather
- * than throwing, same defensive pattern as getFutureOperators().
+ * than throwing.
  */
 function readOperatorFolder(folderName: string): unknown[] {
   const dir = path.join(DATA_DIR, folderName);
@@ -43,46 +42,6 @@ function readOperatorFolder(folderName: string): unknown[] {
       }
     })
     .filter((op): op is unknown => op !== null);
-}
-
-/**
- * Reads public/future_operator_icons/ and builds minimal placeholder
- * Operator entries from whatever WebP files are present -- for upcoming
- * operators that have art but no wiki page / full data yet. Drop a new
- * "OperatorName.webp" in that folder and it'll show up in the roster
- * automatically, no code changes needed.
- */
-function getFutureOperators(): Operator[] {
-  let files: string[] = [];
-  try {
-    files = fs.readdirSync(FUTURE_ICONS_DIR);
-  } catch {
-    return [];
-  }
-
-  return files
-    .filter((f) => f.toLowerCase().endsWith('.webp'))
-    .map((f) => {
-      const name = f.replace(/\.webp$/i, '');
-      return {
-        name,
-        rarity: null,
-        class: null,
-        branch: null,
-        faction: null,
-        umbrellaFactions: [],
-        connectedFactions: [],
-        position: null,
-        tags: [],
-        trait: null,
-        howToObtain: null,
-        alternate: null,
-        potential: { levels: [], totalCost: [] },
-        promotion: [],
-        skills: [],
-        isFuture: true,
-      } satisfies Operator;
-    });
 }
 
 interface TalentRow {
@@ -179,14 +138,7 @@ export function getAllOperators(): Operator[] {
     characterVoices: getCurrentOperatorVoiceCredits(op.internalName, op.characterVoices),
     talents: normalizeTalents(op.talents as unknown as RawTalent[] | undefined) as unknown as Operator['talents'],
   }));
-  const releasedNames = new Set(released.flatMap((op) => [op.name, ...(op.aliases ?? [])]));
-
-  // Only include a future stub if that operator isn't already in the
-  // real, fully-scraped dataset (once released and re-scraped, the real
-  // entry takes over automatically).
-  const future = getFutureOperators().filter((op) => !releasedNames.has(op.name));
-
-  cachedOperators = [...released, ...future].map(op => {
+  cachedOperators = released.map(op => {
     // Decided here, where the release's asset index is, and carried with the record:
     // the browser renders the placeholder from the flag instead of loading the index.
     if (isPortraitPending(op)) op = { ...op, portraitPending: true };
