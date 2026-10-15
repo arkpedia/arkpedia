@@ -143,12 +143,6 @@ export async function loadAssetImage(url: string, { crossOrigin, signal }: { cro
   }
 }
 
-/** Whether a media element's failure will be tried again at another encoding: its error
- *  listener should then wait for the last one. */
-export function assetRetryPending(media: Pick<HTMLMediaElement, 'currentSrc'>): boolean {
-  return nextAssetUrl(media.currentSrc) !== null;
-}
-
 /**
  * Point a media element that failed to load at the next encoding of its file and load it
  * again. False when there is none: the failure is the last.
@@ -161,25 +155,27 @@ export function retryAssetMedia(media: HTMLMediaElement): boolean {
   return true;
 }
 
-/**
- * Load `url` into `media` and play it, trying the next encoding when the file fails to load
- * (media.error is set), while `stillWanted()`. Resolves and rejects like play(): a refused
- * autoplay or an interrupted play is not a missing file and is not retried.
+/*
+ * A sound is not retried from an await. A phone plays <audio> only from inside the press that
+ * asked for it, with the real file (iOS; lib/music/audioElement.ts), so a play() called once
+ * the first try has failed is refused there. Instead the next press asks for the clip at the
+ * next encoding, from inside that press: the reader is told to press play again, and the clip
+ * plays. Each clip remembers where its next try is due for the rest of the page.
  */
-export async function playAssetAudio(media: HTMLMediaElement, url: string, stillWanted: () => boolean = () => true): Promise<void> {
-  let current = url;
-  for (;;) {
-    media.src = current;
-    media.load();
-    try {
-      await media.play();
-      return;
-    } catch (error) {
-      const next = nextAssetUrl(current);
-      if (!next || !media.error || !stillWanted()) throw error;
-      current = next;
-    }
-  }
+const clipAddresses = new Map<string, string>();
+
+/** The address to play `url` from on this press: its own, or the encoding its next try is due at. */
+export function assetAudioUrl(url: string): string {
+  return clipAddresses.get(url) ?? url;
+}
+
+/** After `url`, played from `tried`, failed to load: true when another encoding is left for the
+ *  next press (assetAudioUrl then gives it), false when the failure is the last. */
+export function retryAssetAudioOnNextPress(url: string, tried: string): boolean {
+  const next = nextAssetUrl(tried);
+  if (next) clipAddresses.set(url, next);
+  else clipAddresses.delete(url);
+  return next !== null;
 }
 
 /*

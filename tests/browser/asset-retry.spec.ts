@@ -1,4 +1,4 @@
-import { expect, test, type Page, type Route } from '@playwright/test';
+import { devices, expect, test, type Page, type Route } from '@playwright/test';
 import { ASSET_RETRY_ATTEMPTS, alternateAssetUrl, nextAssetUrl } from '../../lib/assets/assetRetry';
 
 /*
@@ -68,7 +68,8 @@ function pictures(page: Page) {
 
 async function scrollThrough(page: Page) {
   for (let i = 0; i < 8; i++) {
-    await page.mouse.wheel(0, 1200);
+    // Scrolled by script: mobile WebKit has no mouse wheel.
+    await page.evaluate(() => window.scrollBy(0, 1200));
     await page.waitForTimeout(120);
   }
 }
@@ -149,4 +150,91 @@ test('an <img> missing at every address gets its error after exactly the bounded
   expect(errors, 'the element hears only the last failure').toBe(1);
   expect(asked.filter(({ url }) => decodeURIComponent(url).includes('__retry-missing')).map(({ url }) => url))
     .toEqual([own, ...[1, 2, 3].map((attempt) => alternateAssetUrl(own, attempt)!)]);
+});
+
+/*
+ * A phone plays <audio> only from inside the press that asked for it (iOS; lib/music/
+ * audioElement.ts), so a voice clip GitHub refused is not retried from an await: the reader is
+ * told to press play again, and that press asks at the next encoding, inside itself. Here
+ * play() outside a press is refused the way iOS refuses it, so a retry from an await would
+ * fail; in WebKit's iPhone profile and in Chromium alike.
+ */
+test.describe('voice clips on a phone', () => {
+  const { defaultBrowserType: _browser, ...iPhone } = devices['iPhone 13'];
+  test.use(iPhone);
+  const wav = Buffer.alloc(44 + 8000 * 2);
+  wav.write('RIFF'); wav.writeUInt32LE(wav.length - 8, 4); wav.write('WAVEfmt ', 8);
+  wav.writeUInt32LE(16, 16); wav.writeUInt16LE(1, 20); wav.writeUInt16LE(1, 22);
+  wav.writeUInt32LE(8000, 24); wav.writeUInt32LE(16000, 28); wav.writeUInt16LE(2, 32);
+  wav.writeUInt16LE(16, 34); wav.write('data', 36); wav.writeUInt32LE(wav.length - 44, 40);
+  const RETRY = 'This recording did not load. Press play to try again.';
+  const FINAL = 'Audio could not be loaded for this recording.';
+
+  async function phone(page: Page, missingEverywhere: boolean) {
+    await page.addInitScript(() => {
+      let inPress = false;
+      for (const type of ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown']) {
+        addEventListener(type, () => { inPress = true; setTimeout(() => { inPress = false; }, 0); }, true);
+      }
+      const plays: { src: string; inPress: boolean }[] = [];
+      (window as unknown as { __plays: typeof plays }).__plays = plays;
+      const play = HTMLMediaElement.prototype.play;
+      HTMLMediaElement.prototype.play = function (this: HTMLMediaElement) {
+        plays.push({ src: this.src, inPress });
+        if (!inPress) return Promise.reject(new DOMException('The request is not allowed by the user agent.', 'NotAllowedError'));
+        return play.call(this);
+      };
+    });
+    const asked: string[] = [];
+    await page.route(/^https:\/\/raw\.githubusercontent\.com\/arkpedia\/arkpedia-voice-/, async (route) => {
+      const url = route.request().url();
+      asked.push(url);
+      const own = !ENCODED_LETTER.test(new URL(url).pathname.split('/').pop() ?? '');
+      if (own || missingEverywhere) return route.fulfill({ status: 404, contentType: 'text/plain; charset=utf-8', body: '404: Not Found' });
+      return route.fulfill({ status: 200, contentType: 'audio/wav', body: wav });
+    });
+    await page.goto('/operators/Kroos#voiceLines');
+    const voice = page.locator('#operator-voiceLines');
+    await expect(voice.getByRole('searchbox', { name: 'Search voice lines' })).toBeVisible();
+    const status = voice.locator('[aria-label="Voice line player"] [aria-live="polite"]');
+    // Every message the player shows, however briefly.
+    await status.evaluate((el) => {
+      const seen: string[] = [];
+      (window as unknown as { __said: string[] }).__said = seen;
+      new MutationObserver(() => seen.push(el.textContent ?? '')).observe(el, { childList: true, subtree: true, characterData: true });
+    });
+    return { voice, status, asked, line: voice.locator('ol button:not([disabled])').first() };
+  }
+  const plays = (page: Page) => page.evaluate(() => (window as unknown as { __plays: { src: string; inPress: boolean }[] }).__plays);
+  const said = (page: Page) => page.evaluate(() => (window as unknown as { __said: string[] }).__said);
+
+  test('a clip GitHub refused plays at the next press, from inside it', async ({ page }) => {
+    const { voice, status, asked, line } = await phone(page, false);
+    await line.click();
+    await expect(status).toHaveText(RETRY);
+    await line.click();
+    await expect.poll(() => voice.locator('audio').evaluate((el: HTMLAudioElement) => !el.paused && el.currentSrc)).toMatch(ENCODED_LETTER);
+    await expect(status).not.toHaveAttribute('data-error', /.*/);
+    expect(await said(page), 'the last failure message never shows during a retry').not.toContain(FINAL);
+    const called = await plays(page);
+    expect(called.length).toBe(2);
+    expect(called.every(({ inPress }) => inPress), JSON.stringify(called)).toBe(true);
+    expect(called[1].src).toBe(alternateAssetUrl(called[0].src, 1));
+    expect(asked).toEqual([called[0].src, called[1].src]);
+  });
+
+  test('a clip missing at every address says so after the last encoding, never sooner', async ({ page }) => {
+    const { status, asked, line } = await phone(page, true);
+    for (let press = 1; press <= ASSET_RETRY_ATTEMPTS; press++) {
+      await line.click();
+      await expect(status).toHaveText(RETRY);
+      await expect.poll(() => asked.length).toBe(press);
+    }
+    expect(await said(page)).not.toContain(FINAL);
+    await line.click();
+    await expect(status).toHaveText(FINAL);
+    const called = await plays(page);
+    expect(called.map(({ src }) => src)).toEqual([called[0].src, ...[1, 2, 3].map((attempt) => alternateAssetUrl(called[0].src, attempt))]);
+    expect(called.every(({ inPress }) => inPress)).toBe(true);
+  });
 });

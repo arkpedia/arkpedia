@@ -496,5 +496,54 @@ class ManualReviews(unittest.TestCase):
                 self.assertEqual(fetched, [key.lstrip('/')], 'downloaded once')
 
 
+
+class FalseNotFound(unittest.TestCase):
+    """GitHub's raw origin sometimes answers 404 for a file it has, and its CDN keeps that answer
+    for minutes: a 404 is asked again at the next encoding (github_retry.py), and counts only when
+    every encoding says it."""
+
+    def answering(self, codes):
+        asked = []
+
+        class Answer(BytesIO):
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_):
+                return False
+
+        def urlopen(request, **_):
+            asked.append(request.full_url)
+            code = codes[min(len(asked), len(codes)) - 1]
+            if code != 200:
+                raise generator.urllib.error.HTTPError(request.full_url, code, 'Not Found', {}, None)
+            return Answer(b'file')
+        return asked, urlopen
+
+    def test_a_404_then_the_file_is_the_file(self):
+        asked, urlopen = self.answering([404, 404, 200])
+        with patch.object(generator.urllib.request, 'urlopen', urlopen):
+            self.assertEqual(generator.PinnedSkins('a' * 40).fetch("five-star-skins/Kal'tsit - Base.webp"), b'file')
+        self.assertEqual(len(asked), 3)
+        self.assertEqual(asked[1], generator.next_asset_url(asked[0]))
+        self.assertEqual(asked[2], generator.next_asset_url(asked[1]))
+        self.assertIn('%4B', asked[1])
+
+    def test_a_404_at_every_encoding_is_missing(self):
+        asked, urlopen = self.answering([404])
+        with patch.object(generator.urllib.request, 'urlopen', urlopen):
+            with self.assertRaises(OSError):
+                generator.PinnedSkins('a' * 40).fetch('five-star-skins/Amiya - Base.webp')
+        self.assertEqual(len(asked), 4)
+        self.assertEqual(len(set(asked)), 4)
+
+    def test_other_failures_are_asked_three_times_as_before(self):
+        asked, urlopen = self.answering([503])
+        with patch.object(generator.urllib.request, 'urlopen', urlopen):
+            with self.assertRaises(OSError):
+                generator.PinnedSkins('a' * 40).fetch('five-star-skins/Amiya - Base.webp')
+        self.assertEqual(len(asked), 3)
+        self.assertEqual(len(set(asked)), 1)
+
 if __name__ == '__main__':
     unittest.main()
