@@ -11,7 +11,7 @@ import { useEffect, useMemo, useRef, useState, CSSProperties, type ReactNode } f
 import { generateMonths, computeWeekBars, WeekEventSource } from '@/lib/schedule/timelineUtils';
 import { getAllEvents } from '@/lib/schedule/schedule';
 import { modeReleaseRow } from '@/lib/schedule/modeReleases';
-import { getOperatorBirthdays, parseDateRange, type OperatorBirthday } from '@/lib/schedule/scheduleDates';
+import { getOperatorBirthdays, scheduleBarSources, type OperatorBirthday } from '@/lib/schedule/scheduleDates';
 import { getAllOperators } from '@/lib/operators/operators';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
 import { releaseMarker } from '@/lib/operators/operatorAvailability';
@@ -175,22 +175,7 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
 
   const monthGrid = useMemo(() => generateMonths(new Date(year, month, 1), 1)[0], [year, month]);
 
-  const barSources: WeekEventSource[] = useMemo(() => {
-    if (!showOfficialEvents) return [];
-    return events
-      .map((e): WeekEventSource | null => {
-        const range = parseDateRange(e.global.dateRange);
-        if (!range) return null;
-        return {
-          key: e.name,
-          name: e.name,
-          start: range.start,
-          end: range.end,
-          colorClass: 'timeline-pill-ingame',
-        };
-      })
-      .filter((s): s is WeekEventSource => s !== null);
-  }, [events, showOfficialEvents]);
+  const barSources: WeekEventSource[] = useMemo(() => (showOfficialEvents ? scheduleBarSources(events) : []), [events, showOfficialEvents]);
 
   const eventByName = useMemo(() => new Map(events.map((e) => [e.name, e])), [events]);
   const skinByName = useMemo(() => new Map(skins.map((s) => [s.name, s])), [skins]);
