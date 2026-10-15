@@ -66,6 +66,8 @@ export interface SongRowProps {
   actions?: SongRowActions;
   drag?: SongRowDrag;
   data?: Record<string, string | number>;
+  /** Optional factual metadata beside the credits, such as the linked upload's YouTube likes. */
+  detail?: string;
 }
 
 function ActionButton({ label, tip, icon, onClick, pressed }: { label: string; tip: string; icon: Parameters<typeof TransportIcon>[0]['name']; onClick: () => void; pressed?: boolean }) {
@@ -75,11 +77,11 @@ function ActionButton({ label, tip, icon, onClick, pressed }: { label: string; t
   </button>;
 }
 
-export default function SongRow({ song, marker, active = false, current = false, queued = false, disabled = false, onPlay, actions = {}, drag, data }: SongRowProps) {
+export default function SongRow({ song, marker, active = false, current = false, queued = false, disabled = false, onPlay, actions = {}, drag, data, detail }: SongRowProps) {
   const title = songTitle(song.title, song.altTitle);
   // The second line: artist · album. On a wide screen the album has its own column instead, so
   // the line keeps only what remains.
-  const lead = song.artist;
+  const lead = [song.artist, detail].filter(Boolean).join(' · ');
   const classes = ['music-song-row', marker, active && 'active', current && 'current', queued && 'queued', disabled && 'disabled',
     drag && 'draggable', drag?.dragging && 'dragging', drag?.dropSide && `drop-${drag.dropSide}`].filter(Boolean).join(' ');
   const body = <>

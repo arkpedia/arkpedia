@@ -23,6 +23,9 @@ import { createSongIndex, normalizeSearch } from '@/lib/music/songSearch';
 import { msrTrackId } from '@/lib/music/trackId';
 import { artistKey, creditedArtists, creditsArtist } from '@/lib/music/artistCredits';
 import { characterInitials } from '@/lib/music/characterPortraits.mjs';
+import { useYouTubeLikes } from '@/lib/music/useYouTubeLikes';
+import { byYouTubeLikes, mostLikedSongs } from '@/lib/music/youtubeLikes';
+import { songTitle } from '@/lib/music/musicPolish';
 
 interface Props {
   songs: DiscoverSong[];
@@ -83,11 +86,11 @@ const EMPTY_FACETS: FacetState = { character: null, artist: null, origin: null, 
 /** A browse collection: a ScrollRow of previews, or every item wrapped once "Show all"
  *  is on. The row scrolls under the site's drawn bar; its old overlay bar was invisible
  *  and the "room for the scrollbar" padding under it reserved nothing. */
-function Collection({ id, label, expanded, cloud = false, grid = false, albums = false, children }: { id: string; label: string; expanded: boolean; cloud?: boolean; grid?: boolean; albums?: boolean; children: ReactNode }) {
+function Collection({ id, label, expanded, cloud = false, grid = false, albums = false, controls = false, children }: { id: string; label: string; expanded: boolean; cloud?: boolean; grid?: boolean; albums?: boolean; controls?: boolean; children: ReactNode }) {
   const className = `music-discover-row${cloud ? ' music-discover-cloud-row' : ''}${albums ? ' music-discover-album-row' : ''}`;
   return expanded
     ? <div id={id} className={`${className} expanded${grid ? ' music-discover-grid' : ''}`}>{children}</div>
-    : <div id={id}><ScrollRow label={label} className={className}>{children}</ScrollRow></div>;
+    : <div id={id}><ScrollRow label={label} className={className} controls={controls} persistentScrollbar={controls}>{children}</ScrollRow></div>;
 }
 
 type AlbumOrder = 'newest' | 'name';
@@ -121,6 +124,11 @@ export default function DiscoverPage({ songs, characters, origins, artists, rece
   // paint is always the plain browse view (hydration-safe).
   const [query, setQuery] = useQueryState('q');
   const [browseCollection, setBrowseCollection] = useQueryState('browse');
+  const [songOrder, setSongOrder] = useQueryState('sort');
+  const { data: youtubeLikes, loading: likesLoading } = useYouTubeLikes();
+  const rankedSongs = useMemo(() => youtubeLikes ? mostLikedSongs(songs, youtubeLikes.likes) : [], [songs, youtubeLikes]);
+  const likesExpanded = browseCollection === 'likes';
+  const visibleRankedSongs = rankedSongs.slice(0, likesExpanded ? undefined : ROW_PREVIEW_COUNT);
 
   // Only ONE facet is ever active at a time (every setter below spreads
   // EMPTY_FACETS first), so the whole FacetState fits in a single
@@ -175,7 +183,11 @@ export default function DiscoverPage({ songs, characters, origins, artists, rece
      the player plays them from Monster Siren. They used to be listed after every match, as
      links to Monster Siren, and before that left a new album's tile on "No songs match". */
   const songIndex = useMemo(() => createSongIndex(allSongs, searchFields(originals)), [allSongs, originals]);
-  const filteredSongs = useMemo(() => (isBrowsing ? [] : songIndex.search(query).filter(inFacets)), [songIndex, query, inFacets, isBrowsing]);
+  const filteredSongs = useMemo(() => {
+    if (isBrowsing) return [];
+    const matching = songIndex.search(query).filter(inFacets);
+    return songOrder === 'likes' && youtubeLikes ? byYouTubeLikes(matching, youtubeLikes.likes, trackIdOf) : matching;
+  }, [songIndex, query, inFacets, isBrowsing, songOrder, youtubeLikes]);
 
   // Mirrors the queue panel's "Show more" pagination on /music (see
   // QUEUE_PAGE_SIZE in pages/music/index.tsx): a broad facet -- one
@@ -190,7 +202,7 @@ export default function DiscoverPage({ songs, characters, origins, artists, rece
   const [songsVisibleCount, setSongsVisibleCount] = useState(SONGS_PAGE_SIZE);
   useEffect(() => {
     setSongsVisibleCount(SONGS_PAGE_SIZE);
-  }, [query, facetParam]);
+  }, [query, facetParam, songOrder]);
   const visibleFilteredSongs = filteredSongs.slice(0, songsVisibleCount);
 
   // What albums/artists/characters are actually represented within the
@@ -323,10 +335,22 @@ export default function DiscoverPage({ songs, characters, origins, artists, rece
         {!isBrowsing ? (
           <div className="music-discover-results">
             <section className="op-section music-discover-section">
-              <h2>
-                Songs
-                {activeFacetLabel && <span className="music-discover-active-facet"> · {activeFacetLabel}</span>}
-              </h2>
+              <div className="music-discover-section-heading">
+                <h2>
+                  Songs
+                  {activeFacetLabel && <span className="music-discover-active-facet"> · {activeFacetLabel}</span>}
+                </h2>
+                <label className="music-discover-song-order">
+                  Sort
+                  <select aria-label="Order songs" value={songOrder === 'likes' ? 'likes' : ''} onChange={event => setSongOrder(event.target.value)}>
+                    <option value="">{hasActiveQuery ? 'Best match' : 'Default'}</option>
+                    <option value="likes" disabled={!rankedSongs.length}>Most liked on YouTube</option>
+                  </select>
+                </label>
+              </div>
+              {songOrder === 'likes' && !rankedSongs.length && <p className="hint" role="status">
+                {likesLoading ? 'Loading YouTube likes…' : 'YouTube likes are temporarily unavailable. Showing default order.'}
+              </p>}
               {filteredSongs.length === 0 ? (
                 <p className="hint">No songs match. Try a different search or go back and pick something else.</p>
               ) : (
@@ -337,6 +361,7 @@ export default function DiscoverPage({ songs, characters, origins, artists, rece
                     // row per album listing, keyed by both.
                     return <SongRow key={`${s.albumId}:${id}`} marker="music-discover-song-row"
                       song={{ id, title: s.title, altTitle: s.altTitle, artist: s.artist, album: s.albumName, cover: s.coverPath }}
+                      detail={songOrder === 'likes' && youtubeLikes?.likes[id] !== undefined ? `${youtubeLikes.likes[id].toLocaleString('en-US')} YouTube likes` : undefined}
                       active={playingId === id} queued={queued.has(id)} onPlay={() => playSong(id)}
                       actions={{
                         playNow: () => playSong(id),
@@ -412,6 +437,32 @@ export default function DiscoverPage({ songs, characters, origins, artists, rece
               <ScrollRow label="Recently added albums" className="music-discover-row">
                 {recentAlbums.map((a) => <AlbumTile key={a.albumId} album={a} withCount={false} onOpen={() => openAlbum(a.albumId)} />)}
               </ScrollRow>
+            </section>
+
+            <section className="op-section music-discover-section" aria-labelledby="discover-likes-heading">
+              <div className="music-discover-section-heading">
+                <h2 id="discover-likes-heading">Most liked on YouTube</h2>
+                {rankedSongs.length > ROW_PREVIEW_COUNT && showAllButton('likes', 'discover-likes')}
+              </div>
+              <div className="music-discover-likes-content" aria-busy={likesLoading}>
+                {rankedSongs.length > 0 ? <>
+                  <Collection id="discover-likes" label="Songs ordered by YouTube likes" expanded={likesExpanded} grid albums controls>
+                    {visibleRankedSongs.map(song => {
+                      const title = songTitle(song.title, song.altTitle);
+                      const count = youtubeLikes!.likes[song.videoId].toLocaleString('en-US');
+                      return <button key={song.videoId} type="button" className="btn-bare music-discover-album-tile"
+                        data-song-id={song.videoId} aria-label={`Play ${title} now, ${count} YouTube likes`}
+                        title={`${title} · ${count} YouTube likes`} aria-current={playingId === song.videoId ? 'true' : undefined}
+                        onClick={() => playSong(song.videoId)}>
+                        <AlbumCover coverPath={song.coverPath} size={120} className="music-discover-album-tile-cover" />
+                        <span className="music-discover-album-tile-name">{title}</span>
+                        <span className="music-discover-album-tile-count">{count} likes</span>
+                      </button>;
+                    })}
+                  </Collection>
+                  <p className="hint music-discover-likes-note">Likes on each linked upload · Updated <time dateTime={youtubeLikes!.updatedAt}>{youtubeLikes!.updatedAt.slice(0, 10)}</time></p>
+                </> : <p className="hint" role="status">{likesLoading ? 'Loading YouTube likes…' : 'YouTube likes are temporarily unavailable.'}</p>}
+              </div>
             </section>
 
             {albums.length > 0 && (

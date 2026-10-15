@@ -12,11 +12,13 @@ interface ScrollRowProps {
    *  (the /skins "Available now" shelf): a mouse with only a vertical wheel, and iOS,
    *  which ignores ::-webkit-scrollbar and so shows no bar, get a way along it. */
   controls?: boolean;
+  /** An always-visible rail, including browsers that hide native scrollbars at rest. */
+  persistentScrollbar?: boolean;
 }
 
 /** Where the row is scrolled to, and how far it can go. Zero until measured, so the
  *  server markup and the first client render agree (both buttons disabled). */
-interface Extent { left: number; max: number }
+interface Extent { left: number; max: number; share: number }
 
 /**
  * A row of cards that scrolls sideways under the site's drawn scrollbar.
@@ -40,10 +42,10 @@ interface Extent { left: number; max: number }
  * The Stronghold companion has its own drawn rail (components/gamemodes/
  * CompanionScrollRow) for iOS, which ignores ::-webkit-scrollbar.
  */
-export default function ScrollRow({ label, children, className, style, controls = false }: ScrollRowProps) {
+export default function ScrollRow({ label, children, className, style, controls = false, persistentScrollbar = false }: ScrollRowProps) {
   const ref = useRef<HTMLDivElement>(null);
   const id = useId();
-  const [extent, setExtent] = useState<Extent>({ left: 0, max: 0 });
+  const [extent, setExtent] = useState<Extent>({ left: 0, max: 0, share: 1 });
   const overflows = extent.max > 1;
 
   const measure = useCallback(() => {
@@ -51,7 +53,8 @@ export default function ScrollRow({ label, children, className, style, controls 
     if (!el) return;
     const max = Math.max(0, el.scrollWidth - el.clientWidth);
     const left = Math.max(0, Math.min(max, el.scrollLeft));
-    setExtent((current) => (current.left === left && current.max === max ? current : { left, max }));
+    const share = el.scrollWidth ? el.clientWidth / el.scrollWidth : 1;
+    setExtent((current) => (current.left === left && current.max === max && current.share === share ? current : { left, max, share }));
   }, []);
 
   useEffect(() => {
@@ -74,21 +77,26 @@ export default function ScrollRow({ label, children, className, style, controls 
   const row = (
     <div
       ref={ref}
-      id={controls ? id : undefined}
-      className={`scroll-row sidescroll${className ? ` ${className}` : ''}`}
+      id={controls || persistentScrollbar ? id : undefined}
+      className={`scroll-row sidescroll${persistentScrollbar ? ' scroll-row-with-rail' : ''}${className ? ` ${className}` : ''}`}
       style={style}
       role={overflows ? 'region' : undefined}
       aria-label={overflows ? label : undefined}
       tabIndex={overflows ? 0 : undefined}
-      onScroll={controls ? measure : undefined}
+      onScroll={controls || persistentScrollbar ? measure : undefined}
     >
       {children}
     </div>
   );
-  if (!controls) return row;
+  if (!controls && !persistentScrollbar) return row;
   return (
     <>
       {row}
+      {persistentScrollbar && <input className="scroll-row-rail" type="range" min={0} max={Math.max(1, extent.max)} value={extent.left}
+        style={{ '--scroll-thumb-width': `${extent.share * 100}%` } as CSSProperties}
+        aria-label={`Scroll through ${label}`} aria-controls={id} disabled={!overflows}
+        onChange={event => { if (ref.current) ref.current.scrollLeft = Number(event.target.value); }} />}
+      {controls &&
       <div className="scroll-row-controls" data-idle={overflows ? undefined : ''}>
         <button type="button" className="ghost btn-sm" aria-label={`Scroll back through ${label}`} aria-controls={id}
           disabled={extent.left <= 1} onClick={() => move(-1)}>
@@ -98,7 +106,7 @@ export default function ScrollRow({ label, children, className, style, controls 
           disabled={extent.left >= extent.max - 1} onClick={() => move(1)}>
           <svg aria-hidden="true" width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="m8 5 5 5-5 5" /></svg>
         </button>
-      </div>
+      </div>}
     </>
   );
 }

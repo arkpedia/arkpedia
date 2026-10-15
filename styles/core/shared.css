@@ -1468,6 +1468,15 @@ a.primary:where(:has(~ :is(button, a).ghost)),
 .scroll-row-controls { display: flex; justify-content: flex-end; gap: 8px; padding-top: 6px; }
 .scroll-row-controls[data-idle] { visibility: hidden; }
 .scroll-row-controls button { display: inline-flex; align-items: center; justify-content: center; width: 38px; padding: 6px 0; line-height: 1; }
+/* Opt-in drawn rail for rows that need a resting scrollbar even on iOS/macOS. */
+.scroll-row.sidescroll.scroll-row-with-rail { scrollbar-width: none; }
+.scroll-row-with-rail::-webkit-scrollbar { display: none; }
+.scroll-row-rail { display: block; appearance: none; width: 100%; height: 18px; min-height: 18px; margin: 0; padding: 0; border: 0; background: transparent; cursor: ew-resize; }
+.scroll-row-rail::-webkit-slider-runnable-track { height: 6px; border: 1px solid var(--line); border-radius: 2px; background: var(--panel-2); }
+.scroll-row-rail::-webkit-slider-thumb { appearance: none; width: var(--scroll-thumb-width); height: 6px; margin-top: -1px; border: 0; border-radius: 2px; background: var(--text-faint); }
+.scroll-row-rail::-moz-range-track { height: 4px; border: 1px solid var(--line); border-radius: 2px; background: var(--panel-2); }
+.scroll-row-rail::-moz-range-thumb { width: var(--scroll-thumb-width); height: 6px; border: 0; border-radius: 2px; background: var(--text-faint); }
+.scroll-row-rail:disabled { visibility: hidden; }
 
 /* --- enemies as faces (Stronghold Protocol's pools, a stage's enemies) ------------ */
 
