@@ -425,6 +425,36 @@ test('the quarantine step opens, updates and closes its issue from the run\'s fi
   });
 });
 
+test('the guide suggestions step opens its issue, edits nothing while the list is the same, and closes it when the list empties', () => {
+  withGitHub(github => {
+    const tree = path.join(github.root, 'tree');
+    fs.mkdirSync(path.join(tree, 'data/operators-6star'), { recursive: true });
+    fs.writeFileSync(path.join(tree, 'data/operators-6star/Chiave.json'), JSON.stringify({ name: 'Chiave', rarity: 6, guides: [] }));
+    const registry = (dismissed: string[]) => fs.writeFileSync(path.join(tree, 'data/guide-creators.json'),
+      JSON.stringify({ version: 1, creators: [{ name: 'DragonGJY', channelId: 'UC4kAu36j1X8qGXys4ZEc77Q' }], dismissed }));
+    registry([]);
+    fs.writeFileSync(path.join(tree, 'data/guide-videos-state.json'), JSON.stringify({ version: 1, creators: {}, pending: [
+      { videoId: 'S5m6sXaH0V8', creator: 'DragonGJY', title: 'Chiave Siracusa Guide - Stronghold Protocol Alliance Part II', operators: ['Chiave'], reason: 'reads as another kind of video', firstSeen: '2026-10-15' }] }));
+    // The step reads the tree it runs in; the scripts it calls come from this checkout, and tsx from its node_modules.
+    const script = stepScript('Report guide suggestions')
+      .replaceAll('npx tsx scripts/', `${JSON.stringify(path.resolve('node_modules/.bin/tsx'))} ${JSON.stringify(path.resolve('scripts'))}/`)
+      .replaceAll('node scripts/', `node ${JSON.stringify(path.resolve('scripts'))}/`);
+    const run = () => github.step(`cd ${JSON.stringify(tree)} && ${script}`);
+    assert.equal(run().status, 0);
+    assert.equal(github.issues().length, 1);
+    assert.equal(github.issues()[0].title, 'Guide suggestions');
+    assert.match(github.issues()[0].body, /^<!-- arkpedia-alert:guide-suggestions -->\n<!-- arkpedia-alert-digest:/);
+    assert.match(github.issues()[0].body, /\[Chiave Siracusa Guide - Stronghold Protocol Alliance Part II\]\(https:\/\/www\.youtube\.com\/watch\?v=S5m6sXaH0V8\)/);
+    const calls = github.calls().length;
+    assert.equal(run().status, 0);
+    assert.deepEqual(github.calls().slice(calls), ['issue list --repo'], 'the same list: looked up, nothing edited or commented');
+    registry(['S5m6sXaH0V8']);
+    assert.equal(run().status, 0);
+    assert.equal(github.issues()[0].state, 'closed');
+    assert.match(github.issues()[0].comments.at(-1)!.body, /No guide suggestion is waiting/);
+  });
+});
+
 // The once-a-day limit itself is the alert script's, tested above with a fixed clock.
 test('a failed release reports on the one open issue, and the next good run closes it', () => {
   withGitHub(github => {

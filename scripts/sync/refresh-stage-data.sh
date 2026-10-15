@@ -156,6 +156,18 @@ stage skill-ranges -- node scripts/build/build-skill-ranges.mjs
 # Module stat bonuses from the Global client.
 stage module-stats -- node scripts/sync/sync-module-stats.mjs
 
+# Guide videos: the trusted creators' new YouTube guides (data/guide-creators.json, kept in
+# arkpedia-data), added to the operator records' guides when a title names exactly one operator
+# and reads as a guide; the rest wait in data/guide-videos-state.json for the 'Guide suggestions'
+# issue. A creator's whole upload history is read once, the night after they are trusted; then
+# only their latest uploads (scripts/sync/sync-guide-videos.mjs). After the Amiya forms, which
+# write two operator records, so their guides are read as written. Reads the release's event and
+# mode names (data/stages-content.json, event-rewards.json, event-stores.json), no game tables; GET
+# only, and yt-dlp for channel listings, each call within the stage's own 10 minutes. Main's run
+# only: on dev's (ARKPEDIA_DATA_BRANCH dev) it logs that it skipped. Under tsx: the matcher reads
+# the site's alter map.
+stage guide-videos -- npx tsx scripts/sync/sync-guide-videos.mjs
+
 # Animated outfit art: which artwork has a Spine model in arkpedia-l2d-assets, as model.json
 # URLs pinned to that repository's commit (data/dynamic-art.json), for the focused artwork view.
 # Reads no game data, so it needs no earlier stage; GET only. Fails, and keeps yesterday's file, when the

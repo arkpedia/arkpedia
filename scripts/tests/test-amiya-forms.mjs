@@ -60,6 +60,21 @@ test('amiya-forms keeps the module stages the English refresh built, so their co
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
+test('amiya-forms keeps the guides the form\'s record has, and gives a new form none of the Caster\'s', () => {
+  // The guide-videos stage (scripts/sync/sync-guide-videos.mjs) adds a form's guide once and never
+  // again: written over with [], it would be gone for good.
+  const guides = [{ videoId: 'aaaaaaaaaaa', creator: 'Dokutah Shikikan' }];
+  const kept = root({ name: 'Amiya (Guard)', internalName: 'char_1001_amiya2', guides });
+  const fresh = root(null);
+  try {
+    assert.deepEqual(build(kept).guides, guides);
+    assert.deepEqual(build(fresh).guides, []);
+  } finally {
+    fs.rmSync(kept, { recursive: true, force: true });
+    fs.rmSync(fresh, { recursive: true, force: true });
+  }
+});
+
 test('amiya-forms still writes the bare module list for a new form, or a record of another operator', () => {
   for (const existing of [null, { internalName: 'char_9999_other', modules: [{ type: 'Upgrade', name: 'AFT-X: Other', stages: STAGES }] }]) {
     const dir = root(existing);
