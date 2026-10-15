@@ -22,13 +22,12 @@ export function isStageGuesserVersion(stage: Stage): boolean {
 const ANNIHILATION_LABELS: Record<string, number> = { ursus_camp_01: 1, yan_camp_02: 2, yan_camp_03: 3 };
 const externalDigests = externalAssets.sha256 as Record<string, string>;
 
+/* The published map's digest, from the asset index alone (data/assets/external-asset-index.json):
+   the file a reader is shown, never a local copy under public/, which no export machine has and
+   which could differ from it. A new curated entry's mapSha256 is therefore the index's sha256 for
+   its stages-images/ file, after the asset sync has published and indexed it. */
 function stageMapDigest(filename: string): string | null {
-  const relative = `stages-images/${filename}`;
-  const local = path.join(process.cwd(), 'public', relative);
-  if (!fs.existsSync(local)) return externalDigests[relative] || null;
-  const bytes = fs.readFileSync(local);
-  if (bytes.toString('ascii', 0, 4) !== 'RIFF' || bytes.toString('ascii', 8, 12) !== 'WEBP') return null;
-  return crypto.createHash('sha256').update(bytes).digest('hex');
+  return externalDigests[`stages-images/${filename}`] || null;
 }
 function answerLabels(stage: Stage) {
   const number = ANNIHILATION_LABELS[stage.slug];

@@ -1,8 +1,5 @@
-import fs from 'fs';
-import path from 'path';
+import { publicFiles } from '@/lib/assets/publicAssets';
 import { eventTitle } from './eventName.mjs';
-
-const CG_COLLECTION_DIR = path.join(process.cwd(), 'public', 'cg-collection');
 
 // Sorts filenames so embedded numbers compare numerically, not
 // lexically -- e.g. "Crossing CG 2.webp" before "Crossing CG 10.webp",
@@ -26,30 +23,23 @@ function naturalCompare(a: string, b: string): number {
   return 0;
 }
 
-
+/* From the compiled-in asset index (lib/assets/publicAssets.ts), never the disk: the art lives in
+   arkpedia-image-assets, and no machine that exports a release has it under public/, where
+   images are git-ignored. Listing the disk gave every published event page its poster alone
+   while its CG set was published (scripts/audits/check-public-disk-reads.mjs keeps it so). */
 function readFolderImages(folderName: string): string[] {
-  const dir = path.join(CG_COLLECTION_DIR, folderName);
-  let files: string[] = [];
-  try {
-    files = fs.readdirSync(dir);
-  } catch {
-    return [];
-  }
-  return files
+  return publicFiles(`cg-collection/${folderName}`)
     .filter((f) => /\.(webp|png|jpe?g)$/i.test(f))
     .sort(naturalCompare)
     .map((f) => `/cg-collection/${folderName}/${f}`);
 }
 
 /**
- * Reads public/cg-collection/<eventName>/ (trying the event's exact
- * name first, then that name with a leading "[Tag] " prefix stripped)
- * and returns web-servable paths for every image inside, naturally
- * sorted. Most events won't have a folder here yet -- both attempts
- * missing returns an empty array rather than throwing, same defensive
- * pattern as lib/operators/operators.ts's folder readers, so callers
- * can just fall back to the event's single poster image when this
- * comes back empty.
+ * The CG set the image repository publishes for an event under cg-collection/<eventName>/
+ * (trying the event's exact name first, then that name with its leading "[Tag] " stripped), as
+ * web-servable paths, naturally sorted. Most events have no folder: both attempts missing
+ * returns an empty array, and the caller falls back to the event's single poster. A new folder
+ * shows with the next content run, once the asset sync has indexed it; no deploy.
  */
 export function getEventCgImages(eventName: string): string[] {
   const direct = readFolderImages(eventName);

@@ -34,13 +34,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    at: '2026-10-15T11:05:00Z',
+    at: '2026-10-15T11:16:00Z',
     added: [
       { title: 'Live and upcoming banners on the home page', detail: 'Banners running now say LIVE, the next one says when it starts, and one without art yet shows a placeholder.', href: '/' },
     ],
     fixed: [
       { title: 'Account sign-in', detail: 'Restored the previous email-code login flow while keeping the notice about which Yostar email to use.', href: '/account' },
       { title: 'Broken operator icons', detail: 'Icons and art that sometimes showed a broken-image "?" now load on a second try.', href: '/operators' },
+      { title: 'Picture galleries on event pages', detail: 'An event with a published set of pictures, like Crossing, shows all of them instead of its poster alone.', href: '/schedule' },
       { title: '2022 events on the calendar', detail: 'The Schedule calendar shows the 23 Global events of 2022 again, which only the Events list had.', href: '/schedule' },
     ],
   },

@@ -1,4 +1,3 @@
-import path from 'path';
 import indexData from '@/public/stages-index.json';
 import contentData from '@/data/stages-content.json';
 import isNodeData from '@/data/is-nodes.json';
@@ -23,18 +22,15 @@ import { publicFiles } from '@/lib/assets/publicAssets';
  * this module works in kinds throughout and never in types.
  */
 
-const POSTER_DIR = path.join(process.cwd(), 'public', 'event-poster');
-const RENDER_DIR = path.join(process.cwd(), 'public', 'stages-images');
-const CONTENT_ART_DIR = path.join(process.cwd(), 'public', 'content-art');
-
 let dirCache: Map<string, Set<string>> | null = null;
-/** One listing per directory, because this is asked ~150 times per build. */
-function listing(dir: string): Set<string> {
+/** One published folder's files, from the asset index (never the disk), listed once per folder
+ *  because this is asked ~150 times per build. */
+function listing(folder: 'event-poster' | 'stages-images' | 'content-art'): Set<string> {
   if (!dirCache) dirCache = new Map();
-  let set = dirCache.get(dir);
+  let set = dirCache.get(folder);
   if (!set) {
-    set = new Set(publicFiles(path.basename(dir)));
-    dirCache.set(dir, set);
+    set = new Set(publicFiles(folder));
+    dirCache.set(folder, set);
   }
   return set;
 }
@@ -71,7 +67,7 @@ const POSTERED_KINDS = new Set(['event', 'story']);
  * Annihilation Bolívar the poster for "Bolívar Diagnosed".
  */
 function contentArtFor(id: string): string | null {
-  return listing(CONTENT_ART_DIR).has(`${id}.webp`) ? `/content-art/${id}.webp` : null;
+  return listing('content-art').has(`${id}.webp`) ? `/content-art/${id}.webp` : null;
 }
 
 /**
@@ -87,7 +83,7 @@ function posterFor(kind: string, name: string, events: ScheduleEvent[]): string 
     const hit = getEventPoster(candidate, events);
     if (!hit || !hit.startsWith('/event-poster/')) continue;
     const file = decodeURIComponent(hit.slice('/event-poster/'.length));
-    if (listing(POSTER_DIR).has(file)) return `/event-poster/${file}`;
+    if (listing('event-poster').has(file)) return `/event-poster/${file}`;
   }
   // Last resort: match the folder directly.
   //
@@ -124,7 +120,7 @@ let postersByName: Map<string, string> | null = null;
 function posterByName(): Map<string, string> {
   if (!postersByName) {
     postersByName = new Map();
-    for (const file of listing(POSTER_DIR)) {
+    for (const file of listing('event-poster')) {
       const stem = file.replace(/\.[a-z0-9]+$/i, '');
       const key = normalisePosterName(stem);
       // First writer wins, so a plain name is never displaced by a Rerun that
@@ -155,8 +151,8 @@ function renderFor(slug: string): string | null {
   const own =
     (isNodeData as Record<string, { render?: string }>)[slug]?.render ||
     (ccStageData as Record<string, { render?: string }>)[slug]?.render;
-  if (own && listing(RENDER_DIR).has(own)) return `/stages-images/${own}`;
-  return listing(RENDER_DIR).has(`${slug}.webp`) ? `/stages-images/${slug}.webp` : null;
+  if (own && listing('stages-images').has(own)) return `/stages-images/${own}`;
+  return listing('stages-images').has(`${slug}.webp`) ? `/stages-images/${slug}.webp` : null;
 }
 
 /**
