@@ -11,7 +11,7 @@ import type { HeadhuntingBanner } from '@/lib/gacha/headhuntingBanners';
 import { getBannersSortedByDate } from '@/lib/gacha/headhuntingBannerData';
 import { resolveGachaSimulatorBanners } from '@/lib/gacha/gachaBannerWindows';
 import { getDisplayFeaturedSixStars, getDisplayFeaturedSixStarsWithRerunLabel, getMechanicType, HowToObtainLookup, parseBannerDate, simulatorBannerConfig } from '@/lib/gacha/realGachaBanners';
-import { isBannerLive, upcomingBanners } from '@/lib/gacha/upcomingBanners';
+import { isBannerLive } from '@/lib/gacha/upcomingBanners';
 import { useReaderClock } from '@/lib/time/readerClock';
 import { buildOperatorSeriesMap, OperatorSeries } from '@/lib/operators/operatorSeries';
 import { KernelAdditionLookup } from '@/lib/operators/kernelAdditionDates';
@@ -31,6 +31,9 @@ import XButton from '@/components/ui/XButton';
 import { historyCsvFilename, pullHistoryCsv } from '@/lib/gacha/historyCsv';
 import { downloadBlob } from '@/lib/ui/downloadBlob';
 
+import { CATEGORIES, CATEGORY_LABELS, displayCategory, groupSimulatorBanners, type DisplayCategory } from '@/lib/gacha/bannerCategories';
+import { bannerTimingLabel as bannerDateLabel } from '@/lib/gacha/bannerTimingLabel';
+
 interface Props {
   pools: GachaIconPools;
   banners: HeadhuntingBanner[]; // sorted newest-first
@@ -45,23 +48,6 @@ interface Props {
   now: number;
 }
 
-type DisplayCategory = BannerType | 'other' | 'upcoming';
-
-const CATEGORY_LABELS: Record<DisplayCategory, string> = {
-  upcoming: 'Upcoming',
-  featured: 'Featured',
-  limited: 'Limited',
-  standard: 'Standard',
-  kernel: 'Kernel',
-  kernelLocating: 'Kernel Locating',
-  joint: 'Joint Operation',
-  orienteering: 'Orienteering',
-  celebration: 'Celebration',
-  crossover: 'Crossover',
-  trio: 'The Front That Was',
-  other: 'Other (unclassified)',
-};
-const CATEGORIES: DisplayCategory[] = ['upcoming', 'featured', 'limited', 'standard', 'kernel', 'kernelLocating', 'joint', 'orienteering', 'celebration', 'crossover', 'trio', 'other'];
 const BANNER_ROW_STRIDE = 138;
 function bannerRowLayout(): VirtualRowLayout { return { columns: 1, rowStride: BANNER_ROW_STRIDE }; }
 function historyRowLayout(element: HTMLDivElement): VirtualRowLayout {
@@ -72,11 +58,6 @@ function historyRowLayout(element: HTMLDivElement): VirtualRowLayout {
   const gap = parseFloat(styles.columnGap) || 0;
   const rowGap = parseFloat(styles.rowGap) || 0;
   return { columns, rowStride: (grid.clientWidth - gap * (columns - 1)) / columns + rowGap };
-}
-
-function bannerDateLabel(banner: HeadhuntingBanner): string {
-  const prefix = banner.global_date_estimated ? 'Estimated Global · ' : banner.global_date ? '' : 'CN · ';
-  return `${prefix}${banner.global_date || banner.cn_date || 'date unknown'}`;
 }
 
 function rarityClass(rarity: number): string {
@@ -1435,19 +1416,7 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
   // first render uses the request's `now`, so it matches the markup, and the reader's
   // clock takes over after mount (a tab left open follows a banner's end, too).
   const clock = useReaderClock(now, { tickMs: 60_000, onFocus: true });
-  const bannersByCategory = useMemo(() => {
-    const grouped: Record<DisplayCategory, HeadhuntingBanner[]> = {
-      upcoming: [], featured: [], limited: [], standard: [], kernel: [], kernelLocating: [], joint: [], orienteering: [], celebration: [], crossover: [], trio: [], other: [],
-    };
-    for (const b of banners) {
-      const cat: DisplayCategory = getMechanicType(b) || 'other';
-      grouped[cat].push(b);
-    }
-    // Upcoming is additive: live and not-yet-started banners of every mechanic, in the
-    // order lib/gacha/upcomingBanners.ts documents.
-    grouped.upcoming = upcomingBanners(banners, clock);
-    return grouped;
-  }, [banners, clock]);
+  const bannersByCategory = useMemo(() => groupSimulatorBanners(banners, clock), [banners, clock]);
 
   const [category, setCategory] = useState<DisplayCategory>('upcoming');
   const categoryBanners = bannersByCategory[category];
@@ -1567,20 +1536,15 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
     setKernelLocatingConfirmed(false);
   }
 
-  // Deep-link support: /gacha?banner=<name> (used by the home page's
-  // banner poster link) lands already on that specific banner, in the
-  // default "upcoming" category. If the name isn't found in that
-  // category's list, selectedBanner already falls back to
-  // categoryBanners[0] elsewhere, so this degrades gracefully rather
-  // than crashing.
+  // Resolve old names and historical links into the banner's current navigation group.
   useEffect(() => {
-    if (!router.isReady) return;
-    const bannerParam = router.query.banner;
-    if (typeof bannerParam === 'string' && bannerParam) {
-      changeBanner(bannerParam);
-    }
+    if (!router.isReady || typeof router.query.banner !== 'string') return;
+    const target = banners.find(b => b.name === router.query.banner || b.aliases?.includes(router.query.banner as string));
+    if (!target) return;
+    setCategory(bannersByCategory.upcoming.includes(target) ? 'upcoming' : displayCategory(target));
+    changeBanner(target.name);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router.isReady, router.query.banner]);
+  }, [router.isReady, router.query.banner, banners]);
 
   function toggleMissingSixStar(name: string) {
     setMissingSixStars((current) => {
@@ -2490,10 +2454,12 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ga
   // and lineupSource by the page's own "lineup to be confirmed" note.
   const trimmedBanners: HeadhuntingBanner[] = banners.map((b) => ({
     name: b.name ?? '',
+    ...(b.aliases?.length ? { aliases: b.aliases } : {}),
     category: '',
     cn_date: b.cn_date ?? null,
     global_date: b.global_date ?? null,
     global_date_estimated: b.global_date_estimated ?? false,
+    ...(b.globalScheduleStatus ? { globalScheduleStatus: b.globalScheduleStatus } : {}),
     ...(b.globalLineupPending ? { globalLineupPending: true } : {}),
     ...(b.schedule_anchor ? { schedule_anchor: b.schedule_anchor } : {}),
     ...(b.global_window ? { global_window: b.global_window } : {}),
