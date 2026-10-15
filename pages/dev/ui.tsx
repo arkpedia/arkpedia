@@ -105,6 +105,7 @@ export default function UiPrimitivesPage() {
           <div style={{ ...row, marginTop: 14 }}>
             <span className="badge-live">Live now</span>
             <span className="badge-live">Running now</span>
+            <span className="badge-upcoming">Starts in 3d 4h</span>
           </div>
         </section>
 

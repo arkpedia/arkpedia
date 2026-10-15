@@ -29,9 +29,9 @@ function pageFile(route: string): string {
 }
 
 // Every page contentPageClock gives a clock, and the components that render from it.
-const GUARDED = [...new Set([...CLOCK_ROUTES.map(pageFile), 'pages/gacha.tsx', 'components/schedule/EventsPanel.tsx'])];
+const GUARDED = [...new Set([...CLOCK_ROUTES.map(pageFile), 'pages/gacha.tsx', 'components/schedule/EventsPanel.tsx', 'components/home/GachaBannersPanel.tsx'])];
 
-test('the clock ban covers every page with a request clock, /gacha and the Events panel', async () => {
+test('the clock ban covers every page with a request clock, /gacha, the Events panel and the home page\'s banners', async () => {
   assert.ok(CLOCK_ROUTES.includes('/gacha') && CLOCK_ROUTES.includes('/'), 'the two pages this guard was written for have a clock');
   for (const file of GUARDED) assert.ok(await guarded(file), `${file} renders from a request clock but .eslintrc.json does not ban clock reads in it`);
   // The helper that reads the clock after mount is not under the ban, nor is a page without a clock.

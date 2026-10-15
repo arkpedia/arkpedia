@@ -110,7 +110,7 @@ export default function HomePage({
               they have content (decision of 2026-09-25). */}
         </div>
         <div className="front-page-right">
-          <GachaBannersPanel banners={deserializedBanners} activeIndex={activeBannerIndex} onSelect={setActiveBannerIndex} />
+          <GachaBannersPanel banners={deserializedBanners} activeIndex={activeBannerIndex} onSelect={setActiveBannerIndex} now={now} />
           <FeaturedOperatorsPanel banner={activeBanner} />
           <CommunityFader stream={featuredStream} video={featuredVideo} event={earliestCommunityEvent} />
         </div>

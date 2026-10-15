@@ -1856,10 +1856,11 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
                         priority
                       />
                     ) : (
-                      /* No art yet (null until the image repository publishes it): an
-                         empty frame the size the art will have, so switching between a
-                         banner with art and one without moves nothing below it. */
-                      <div className="gacha-banner-main-image gacha-banner-main-placeholder" aria-hidden="true" />
+                      /* No art yet (null until the image repository publishes it): the
+                         site's art placeholder (.art-placeholder), framed the size the art
+                         will have, so switching between a banner with art and one without
+                         moves nothing below it. The home page's banners use it too. */
+                      <div className="gacha-banner-main-image gacha-banner-main-placeholder art-placeholder">No art yet</div>
                     )}
                     <div className="gacha-banner-actions">
                       <button type="button" className="ghost btn-sm gacha-banner-action" onClick={() => setShowDetails(true)}>Details</button>
