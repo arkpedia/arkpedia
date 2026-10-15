@@ -10,6 +10,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { getAllOperators, getOperatorByName } from '@/lib/operators/operators';
+import { operatorPageNames } from '@/lib/operators/operatorPagePaths';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
 import { portraitStatus } from '@/lib/operators/operatorPortrait';
 import OperatorSearch from '@/components/operators/OperatorSearch';
@@ -1650,7 +1651,7 @@ export default function OperatorDetailPage({ chibis = {}, summons = [], epTrack,
 export const getStaticPaths: GetStaticPaths = async () => {
   const operators = getAllOperators();
   return {
-    paths: operators.flatMap((op) => [op.name, ...(op.aliases ?? [])].map(name => ({ params: { name } }))),
+    paths: operatorPageNames(operators).map(name => ({ params: { name } })),
     fallback: 'blocking',
   };
 };

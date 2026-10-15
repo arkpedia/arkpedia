@@ -29,7 +29,9 @@
  * reads as a guide to it: a guide word (GUIDE_WORDS, or one of the creator's own titlePatterns)
  * and none of the words of another kind of video (NOT_A_GUIDE: stage clears, tier lists, modules,
  * events, pulls...), tested with the operator's name taken out of the title. Every other title
- * that names an operator goes to the pending list for a person. A Short or a stream is ignored.
+ * that names an operator goes to the pending list for a person. A Short or a stream is ignored,
+ * and an upload only the feed lists, not the channel's Videos tab (a past stream, which the feed
+ * gives as an ordinary video), is never added by itself (sync-guide-videos.mjs marks it).
  * The names of the game's events and modes the release holds ("Maria Nearl", "Mizuki & Caerula
  * Arbor", "Dorothy's Vision") are taken out of a title before it is matched, so they never name
  * the operator inside them, and a title that names one goes to a person. An operator name that
@@ -384,6 +386,10 @@ export const NOT_A_GUIDE = new RegExp([
   String.raw`\bcompar(?:e|ed|ing|ison)\b`, String.raw`\bnerf`, String.raw`\bbuff`, String.raw`\bleaks?\b`, String.raw`\bspeedrun`, String.raw`\bmemes?\b`,
   String.raw`\bcosplay\b`, String.raw`\bmusic\b`, String.raw`\btrailer\b`, String.raw`\bcollab(?:oration)?s?\b`, String.raw`\brate[- ]?ups?\b`,
   String.raw`\bmods?\b`, String.raw`\bparadox simulation\b`, String.raw`\breact(?:s|ion|ing)?\b`, String.raw`\bvoices?\b`,
+  // How the creators write an event or an Integrated Strategies theme when not by its full name
+  // ("Mizuki Roguelike", "Mizuki Arbor", "Crimson Solitare", "Grani Rerun", "Gavial Returns"):
+  // the release's names are blanked out of a title only as written in full (gameContentNames).
+  String.raw`\brogue-?likes?\b`, String.raw`\breruns?\b`, String.raw`\barbor\b`, String.raw`\bcaerula\b`, String.raw`\bsolitai?re\b`, String.raw`\bfungimist\b`,
   // Several operators ("Welfare Operators Showcase"), a channel special, one part of a series.
   String.raw`\boperators\b`, String.raw`\bsub(?:scriber)?s? special\b`, String.raw`\b\d+k sub(?:scriber)?s?\b`, String.raw`\bpart (?:\d+|[ivx]+)\b`,
   // The same in Chinese titles, which have no spaces between words: Contingency Contract, Integrated
@@ -395,12 +401,15 @@ export const NOT_A_GUIDE = new RegExp([
   String.raw`\bblue archive\b`, String.raw`\blimbus\b`, String.raw`\breverse: ?1999\b`, String.raw`\bnikke\b`, String.raw`\bgray ?raven\b`, String.raw`\bazur lane\b`,
 ].join('|'), 'iu');
 /**
- * The same in capitals only: mode and stage codes (CC#12, IS5, H12-4, 1-7, H8 4, CW-8, SV-EX-8,
- * MN-EX 8, CW EX 8) and Challenge Mode (CM). Not a skill, elite or module level and a number
+ * The same in capitals only: mode and stage codes (CC#12, IS5, IS, H12-4, 1-7, H8 4, CW-8,
+ * SV-EX-8, MN-EX 8, CW EX 8) and Challenge Mode (CM). Not a skill, elite or module level and a number
  * ("S3 10", "E2 90").
  */
 export const NOT_A_GUIDE_CODES = new RegExp([
-  String.raw`\bZZZ\b`, String.raw`\bCC ?#?\d`, String.raw`\bIS ?#?\d\b`, String.raw`\bSSS\b`, String.raw`\bLR\b`, String.raw`\bOST\b`, String.raw`\bPV\b`, String.raw`\bCM\b`,
+  // IS alone too ("Mizuki IS Beginner Guide"), but not the word in capitals between capitals
+  // ("VIRTUOSA IS AMAZING", "HOW GOOD IS SKALTER", "IS SHE IMMORTAL"). "Returns" as an event's
+  // title has it ("Gavial Returns"), not "the healer returns".
+  String.raw`\bZZZ\b`, String.raw`\bCC ?#?\d`, String.raw`\bIS ?#?\d\b`, String.raw`(?<![A-Z]{2}[^\p{L}\p{N}\s]*\s+)\bIS\b(?!\s+[A-Z]{2,}\b)`, String.raw`\bReturns\b`, String.raw`\bSSS\b`, String.raw`\bLR\b`, String.raw`\bOST\b`, String.raw`\bPV\b`, String.raw`\bCM\b`,
   String.raw`\b[A-Z]{0,4}\d{1,2}-\d{1,2}\b`, String.raw`\b(?![SEM]\d )[A-Z]{1,4}\d{1,2} \d{1,2}\b`,
   String.raw`\b[A-Z]{2,4}-\s?(?:EX[- ]?)?\d{1,2}\b`, String.raw`\b[A-Z]{2,4} EX[- ]?\d{1,2}\b`,
 ].join('|'), 'u');
@@ -489,6 +498,13 @@ export function applyUploads({ creator, uploads, index, present, pending, dismis
     // file from before `decided` (the one-time backfill's) knows no guide taken out since.
     if (verdict.action === 'add' && upload.old) {
       verdicts.push({ upload, order, action: 'review', records: [verdict.record], guideLike: true, reason: `an earlier run read it and it is not in ${verdict.record.name}'s guides now` });
+    // An upload only the feed lists, not the channel's Videos tab, is a past stream: the feed links
+    // one as an ordinary video, with no live flag. One the tab could not be asked about tonight is
+    // left for another night, undecided.
+    } else if (verdict.action === 'add' && upload.unconfirmed) {
+      return;
+    } else if (verdict.action === 'add' && upload.feedOnly) {
+      verdicts.push({ upload, order, action: 'review', records: [verdict.record], guideLike: true, reason: 'only the feed lists it, not the channel\'s Videos tab: likely a stream' });
     } else verdicts.push({ upload, order, ...verdict });
   });
   // One guide per creator per record: the chosen one, the rest suggested.
@@ -511,7 +527,8 @@ export function applyUploads({ creator, uploads, index, present, pending, dismis
     touched.add(record);
     added.push({ videoId: upload.videoId, operator: record.name, title: upload.title });
   }
-  const suggested = verdicts.filter(entry => entry.action === 'review' && ((!backfill && !entry.upload.old) || entry.guideLike)).sort((a, b) => a.order - b.order)
+  // A stream (feedOnly) that names an operator is suggested only when it reads as a guide, too.
+  const suggested = verdicts.filter(entry => entry.action === 'review' && ((!backfill && !entry.upload.old && !entry.upload.feedOnly) || entry.guideLike)).sort((a, b) => a.order - b.order)
     .map(({ upload, records, reason }) => ({ videoId: upload.videoId, creator: creator.name, title: String(upload.title).slice(0, 200),
       operators: records.map(record => record.name), reason, firstSeen: today }));
   pending.unshift(...suggested);

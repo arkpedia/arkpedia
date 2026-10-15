@@ -35,7 +35,7 @@ const FROST = { name: 'FrostByte262', channelId: 'UCjmigXcFhjldwmVBpdLoARg', han
 const SHARKY = { name: 'SharkyFerret', channelId: 'UCvoo-02rKEN1gx-LCPcBwyQ', handle: '@sharkyferret' };
 const YII = { name: 'Yii', channelId: 'UCL-oKkU4QPKsW7apo5xBx7A', handle: '@HiImYii' };
 const KUKKI = { name: 'kukkikaze', channelId: 'UCYKqSTaebCjNrQSPZ3_uHcw', titlePatterns: ['^How to (?:\\(\\w+\\) )?Use §', 'Operator Showcase: §$'] };
-const LISTINGS = { [CHANNEL]: LISTING, [FROST.channelId]: JSON.parse(fixture('frostbyte262-listing.json')),
+const LISTINGS = { [CHANNEL]: LISTING, [FROST.channelId]: JSON.parse(fixture('frostbyte262-listing.json')), [KUKKI.channelId]: JSON.parse(fixture('kukkikaze-listing.json')),
   [SHARKY.channelId]: JSON.parse(fixture('sharkyferret-listing.json')), [YII.channelId]: JSON.parse(fixture('yii-listing.json')) };
 const records = () => structuredClone(RECORDS);
 const creator = (overrides = {}) => checkGuideCreators({ version: 1, creators: [{ ...DRAGON, ...overrides }] }).creators[0];
@@ -666,4 +666,142 @@ test('the suggestions issue says to merge data main into editorial first, and ho
   const docs = fs.readFileSync('docs/development/data-pipelines.md', 'utf8');
   assert.match(docs, /git fetch origin && git merge origin\/main/);
   assert.match(docs, /never adds or suggests a video it has decided on again/);
+});
+
+test('a listing with no usable upload is a failed read: a new creator\'s backfill is not marked done, and the channel is held', async () => {
+  assert.throws(() => parseListing({ channel_id: CHANNEL, entries: [] }, CHANNEL), /no usable upload \(0 entries\)/);
+  assert.throws(() => parseListing({ channel_id: CHANNEL, entries: [{ id: 'HGKEVgGLgUw', title: null }] }, CHANNEL), /no usable upload \(1 entries\)/);
+  for (const title of ['', '   ']) assert.throws(() => parseListing({ entries: [{ id: 'HGKEVgGLgUw', title }] }, CHANNEL), /no usable upload/);
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'arkpedia-yt-dlp-'));
+  try {
+    for (const listing of [{ channel_id: CHANNEL, entries: [] }, { channel_id: CHANNEL, entries: [{ id: 'HGKEVgGLgUw', title: null }] }]) {
+      // yt-dlp exits 0 with that listing, and the feed answers 404.
+      const fake = path.join(dir, 'yt-dlp');
+      fs.writeFileSync(fake, `#!/bin/sh\n[ "$1" = --version ] && { echo 2026.08.19; exit 0; }\necho '${JSON.stringify(listing)}'\n`, { mode: 0o755 });
+      const youtube = youtubeSources({ ytdlp: fake, fetcher: async () => ({ ok: false, status: 404 }), log: () => {} });
+      await assert.rejects(youtube.listing(CHANNEL, { limit: 6000 }), /no usable upload/);
+      // A new creator: no backfilledAt. Held, its state as it was.
+      const root = tree();
+      try {
+        const before = readState(root);
+        const result = await syncGuideVideos(root, { now: new Date('2026-10-20T20:00:00Z'), sources: youtube, log: () => {}, pause: async () => {} });
+        assert.deepEqual(result.read, []);
+        assert.deepEqual(result.held.map(entry => entry.key), [`guide-channel:${CHANNEL}`]);
+        assert.equal(readState(root).creators[CHANNEL], undefined, 'no backfilledAt: the history is read again once yt-dlp lists it');
+        assert.deepEqual(readState(root).creators, before.creators);
+        // A creator with a marker, the feed failing too: held, the marker as it was.
+        const marked = tree({ state: settled({ version: 1, creators: { [CHANNEL]: { backfilledAt: '2026-10-01', newest: 'HGKEVgGLgUw' } }, pending: [] }) });
+        try {
+          const night = await syncGuideVideos(marked, { now: new Date('2026-10-20T20:00:00Z'), sources: youtube, log: () => {}, pause: async () => {} });
+          assert.deepEqual(night.held.map(entry => entry.key), [`guide-channel:${CHANNEL}`]);
+          assert.deepEqual(readState(marked).creators[CHANNEL], { backfilledAt: '2026-10-01', newest: 'HGKEVgGLgUw' });
+        } finally { fs.rmSync(marked, { recursive: true, force: true }); }
+      } finally { fs.rmSync(root, { recursive: true, force: true }); }
+    }
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('an event or theme written short or misspelt still reads as another kind of video', () => {
+  const verdict = title => classifyUpload({ videoId: 'aaaaaaaaaaa', title }, creator({ titlePatterns: [] }), index);
+  for (const title of ['Mizuki IS Beginner Guide', 'Mizuki Arbor Guide', 'Mizuki Roguelike Guide for New Players', 'Mizuki & Caerula Abor Guide', 'Phantom IS Guide',
+    'Phantom & Crimson Solitare Beginner Guide', 'Grani Rerun Guide', 'Nearl Rerun Guide', 'Breeze Rerun Guide', 'Gavial Returns Guide']) {
+    const result = verdict(title);
+    assert.equal(result.action, 'review', title);
+    assert.match(result.reason, /another kind of video/, title);
+  }
+  // "is" the word is not IS the mode, nor IS in capitals between capitals, nor a lower-case "returns".
+  for (const title of ['Mizuki is a great guard: a guide', 'MIZUKI IS AMAZING!!! | Mizuki Showcase', 'IS SHE IMMORTAL?? - Arknights [Mizuki] Showcase', 'Mizuki Guide: the guard returns!']) {
+    assert.equal(verdict(title).action, 'add', title);
+  }
+});
+
+/* kukkikaze's real feed, with a stream recording the reviewer copied from its lGcn8pCenn0
+ * ("Handling Selector Ticket Guide! | Arknights", which the Videos tab does not list) and
+ * retitled as a guide to one operator: the feed gives it as an ordinary video. */
+const KUKKI_FEED = fixture('kukkikaze-feed.xml');
+const streamEntry = KUKKI_FEED.match(/<entry>(?:(?!<\/entry>)[\s\S])*?lGcn8pCenn0[\s\S]*?<\/entry>/)[0];
+const STREAM = streamEntry.replaceAll('lGcn8pCenn0', 'STREAMVOD01').replace(/<title>[^<]*<\/title>/g, '<title>Handling Ela Guide! | Arknights</title>');
+const kukkiFeed = ({ drop = [] } = {}) => parseFeedEntries(KUKKI_FEED.replace('<entry>', `${STREAM}\n <entry>`)).filter(upload => !drop.includes(upload.videoId));
+const kukkiState = () => settled({ version: 1, creators: { [KUKKI.channelId]: { backfilledAt: '2026-10-15', newest: 'mrzwqHcvjOg' } }, pending: [] });
+
+test('a stream recording the feed lists as an ordinary video is never added: the Videos tab\'s head is read, and it goes to a person', async () => {
+  const feed = kukkiFeed();
+  assert.deepEqual([feed[0].videoId, feed[0].short, feed[0].title], ['STREAMVOD01', false, 'Handling Ela Guide! | Arknights'], 'no Short link, no live flag');
+  assert.equal(classifyUpload(feed[0], creator(KUKKI), index).action, 'add', 'by its title alone, a guide to Ela');
+  const root = tree({ registry: { version: 1, creators: [KUKKI] }, state: kukkiState() });
+  try {
+    const night = sources({ feed: channelId => (channelId === KUKKI.channelId ? kukkiFeed() : null) });
+    const result = await run(root, night, '2026-10-17T20:00:00Z');
+    assert.deepEqual(night.calls, [['latest', KUKKI.channelId], ['listing', KUKKI.channelId, 30]]);
+    assert.deepEqual(result.added, []);
+    assert.ok(!read(root, 'Ela').guides.some(guide => guide.videoId === 'STREAMVOD01'), 'not on Ela\'s page, nor her selector\'s "How to use"');
+    assert.match(result.suggested.find(entry => entry.videoId === 'STREAMVOD01').reason, /only the feed lists it, not the channel's Videos tab: likely a stream/);
+    // The real streams that name an operator without reading as a guide are not suggested either.
+    assert.ok(!result.suggested.some(entry => entry.videoId === 'q5ErpS-GPBY'), "1000 PULL REQUEST, ... KAL'TSIT ESPERANTA AND CLOSURE ARRIVES");
+    assert.equal(readState(root).creators[KUKKI.channelId].newest, 'mrzwqHcvjOg', 'the marker stays on the Videos tab');
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
+test('the head is read for a feed upload that would be added even when the marker stays, and an upload the tab has is added', async () => {
+  // The four streams above the marker gone: the marker is second in the feed and stays.
+  const drop = ['GXxrvlAnAew', '5yENw8W1EjI', 'q5ErpS-GPBY', 'CqasfzW5miI'];
+  const root = tree({ registry: { version: 1, creators: [KUKKI] }, state: kukkiState() });
+  try {
+    const night = sources({ feed: channelId => (channelId === KUKKI.channelId ? kukkiFeed({ drop }) : null) });
+    const result = await run(root, night, '2026-10-17T20:00:00Z');
+    assert.deepEqual(night.calls, [['latest', KUKKI.channelId], ['listing', KUKKI.channelId, 30]], 'read because of the would-be guide');
+    assert.deepEqual(result.added, []);
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+  // The same upload on the Videos tab too: a real upload, added.
+  const real = tree({ registry: { version: 1, creators: [KUKKI] }, state: kukkiState() });
+  try {
+    const listing = (limit, channelId) => {
+      const uploads = parseListing(LISTINGS[channelId], channelId).slice(0, limit);
+      return channelId === KUKKI.channelId ? [{ videoId: 'STREAMVOD01', title: 'Handling Ela Guide! | Arknights', published: null, short: false, live: false }, ...uploads] : uploads;
+    };
+    const result = await run(real, sources({ feed: channelId => (channelId === KUKKI.channelId ? kukkiFeed({ drop }) : null), listing }), '2026-10-17T20:00:00Z');
+    assert.deepEqual(result.added.map(entry => [entry.videoId, entry.operator]), [['STREAMVOD01', 'Ela']]);
+  } finally { fs.rmSync(real, { recursive: true, force: true }); }
+});
+
+test('when the Videos tab\'s head cannot be read, no upload of the feed is added or decided on: it is read again the next night', async () => {
+  const root = tree({ registry: { version: 1, creators: [KUKKI] }, state: kukkiState() });
+  try {
+    const failing = sources({ feed: channelId => (channelId === KUKKI.channelId ? kukkiFeed() : null), listing: () => { throw new Error('yt-dlp failed (1)'); } });
+    const result = await run(root, failing, '2026-10-17T20:00:00Z');
+    assert.deepEqual(result.added, []);
+    assert.ok(!result.suggested.some(entry => entry.videoId === 'STREAMVOD01'));
+    assert.ok(!readState(root).decided.includes('STREAMVOD01'), 'undecided');
+    assert.equal(readState(root).creators[KUKKI.channelId].newest, 'mrzwqHcvjOg');
+    // The next night the head loads: the stream goes to a person, as above.
+    const next = await run(root, sources({ feed: channelId => (channelId === KUKKI.channelId ? kukkiFeed() : null) }), '2026-10-18T20:00:00Z');
+    assert.match(next.suggested.find(entry => entry.videoId === 'STREAMVOD01').reason, /likely a stream/);
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
+test('on a night the feed does not reach the marker, the gap read is the Videos tab: a stream from the feed is not added then either', async () => {
+  const state = kukkiState();
+  const root = tree({ registry: { version: 1, creators: [KUKKI] }, state: { ...state, creators: { [KUKKI.channelId]: { ...state.creators[KUKKI.channelId], newest: 'zzzzzzzzzzz' } } } });
+  try {
+    const night = sources({ feed: channelId => (channelId === KUKKI.channelId ? kukkiFeed() : null) });
+    const result = await run(root, night, '2026-10-17T20:00:00Z');
+    assert.deepEqual(night.calls, [['latest', KUKKI.channelId], ['listing', KUKKI.channelId, 300]]);
+    assert.deepEqual(result.added, []);
+    assert.match(result.suggested.find(entry => entry.videoId === 'STREAMVOD01').reason, /likely a stream/);
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
+test('explicit past-stream metadata survives a duplicate feed entry without a live flag', async () => {
+  for (const live of [{ live_status: 'was_live' }, { was_live: true }, { is_live: true }]) {
+    const stream = parseListing({ entries: [{ id: 'STREAMVOD01', title: 'Handling Ela Guide! | Arknights', ...live }] }, KUKKI.channelId)[0];
+    assert.equal(stream.live, true);
+    const root = tree({ registry: { version: 1, creators: [KUKKI] }, state: kukkiState() });
+    try {
+      const listing = (limit, channelId) => [stream, ...parseListing(LISTINGS[channelId], channelId)].slice(0, limit);
+      const result = await run(root, sources({ feed: () => kukkiFeed(), listing }), '2026-10-17T20:00:00Z');
+      assert.ok(!result.added.some(entry => entry.videoId === 'STREAMVOD01'));
+      assert.ok(!result.suggested.some(entry => entry.videoId === 'STREAMVOD01'), 'a known stream is ignored');
+      assert.equal(readState(root).creators[KUKKI.channelId].newest, 'mrzwqHcvjOg');
+    } finally { fs.rmSync(root, { recursive: true, force: true }); }
+  }
 });

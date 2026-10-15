@@ -1093,5 +1093,24 @@
     "creator": "MineMoon"
    }
   ]
+ },
+ {
+  "name": "Ela",
+  "rarity": 6,
+  "internalName": "char_4123_ela",
+  "alternate": null,
+  "otherLanguages": {
+   "Chinese": "艾拉"
+  },
+  "guides": [
+   {
+    "videoId": "75onwqACp3A",
+    "creator": "FrostByte262"
+   },
+   {
+    "videoId": "6Xq1M0kUv4w",
+    "creator": "DragonGJY"
+   }
+  ]
  }
 ]
