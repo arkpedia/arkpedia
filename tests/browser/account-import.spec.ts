@@ -9,14 +9,14 @@ const VERSION = 'https://hv.example.invalid/Android/version';
 
 /** The stand-in transport, answering as the servers do: the account at `level`, or the game's
  *  token exchange refusing the login (`level: null`). */
-async function stubServers(page: Page, level: number | null, isNew = 0) {
+async function stubServers(page: Page, level: number | null, isNew = 0, networkFailures = 0) {
   await readOnly(page);
   // The relay is never opened: the page's transport is the stand-in.
   await page.routeWebSocket(/relay\.arkpedia\.net/, (socket) => socket.close());
   // The game's version file is the one request the page makes itself (directTransport).
   await page.route(VERSION, (route) => route.fulfill({ status: 200, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' },
     body: JSON.stringify({ resVersion: '00-00-00', clientVersion: '0.0.0' }) }));
-  await page.addInitScript(({ level, isNew }) => {
+  await page.addInitScript(({ level, isNew, networkFailures }) => {
     const network = { u8: 'https://u8.example.invalid', gs: 'https://gs.example.invalid', hv: 'https://hv.example.invalid/{0}/version' };
     const answers: Record<string, { json: unknown; headers?: [string, string][] }> = {
       'https://ak-conf.arknights.global/config/prod/official/network_config': { json: { content: JSON.stringify({ funcVer: 'V1', configs: { V1: { network } } }) } },
@@ -33,11 +33,41 @@ async function stubServers(page: Page, level: number | null, isNew = 0) {
     Object.assign(window, { __asked: asked });
     window.__arkpediaImportTransport = async (url) => {
       asked.push(url);
+      if (url.endsWith('/network_config') && networkFailures-- > 0) throw new Error('Request failed with error code 7: Could not connect to server');
       const answer = answers[url];
       return answer ? { status: 200, json: answer.json, headers: answer.headers ?? [] } : { status: 404, json: null, headers: [] };
     };
-  }, { level, isNew });
+  }, { level, isNew, networkFailures });
 }
+
+test('a temporary server-list connection failure recovers before sending a code', async ({ page }) => {
+  await stubServers(page, 120, 0, 2);
+  const dialog = await openImport(page);
+  await dialog.getByPlaceholder('Yostar email').fill(EMAIL);
+  await dialog.getByRole('button', { name: 'Send code', exact: true }).click();
+  await expect(dialog.locator('.import-sent')).toBeVisible();
+  await expect(dialog.getByRole('alert')).toHaveCount(0);
+  const asked = await page.evaluate(() => (window as unknown as { __asked: string[] }).__asked);
+  expect(asked.slice(0, 3).every((url) => url.endsWith('/network_config'))).toBe(true);
+  expect(asked.filter((url) => url.endsWith('/yostar/send-code'))).toHaveLength(1);
+});
+
+test('a failed connection can be retried without sending or spending a code', async ({ page }) => {
+  await stubServers(page, 120, 0, 6);
+  const dialog = await openImport(page);
+  await dialog.getByPlaceholder('Yostar email').fill(EMAIL);
+  await expect(dialog.getByRole('alert')).toContainText('error code 7');
+  // Sending after the failed preflight attempts the connection again, before asking Yostar.
+  await dialog.getByRole('button', { name: 'Send code', exact: true }).click();
+  await expect(dialog.getByRole('alert')).toContainText('error code 7');
+  expect(await page.evaluate(() => (window as unknown as { __asked: string[] }).__asked)).toHaveLength(6);
+  await dialog.getByRole('button', { name: 'Retry connection', exact: true }).click();
+  await expect(dialog.getByRole('alert')).toHaveCount(0);
+  await expect(dialog.locator('.import-step').first()).toHaveClass(/import-step-done/);
+  const asked = await page.evaluate(() => (window as unknown as { __asked: string[] }).__asked);
+  expect(asked).toHaveLength(7);
+  expect(asked.every((url) => url.endsWith('/network_config'))).toBe(true);
+});
 
 /** /account's Import / export, open on the sign-in. */
 async function openImport(page: Page) {

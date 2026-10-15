@@ -213,7 +213,23 @@ export interface Network {
  *  through the relay, so it also opens the encrypted connection before it is needed. */
 export async function readNetwork(transport: Transport, server: ServerId): Promise<Network> {
   try {
-    const answer = object((await transport(SERVERS[server].networkConfig, { method: 'GET', headers: CLIENT_HEADERS })).json);
+    let response: TransportResponse | undefined;
+    for (let attempt = 0; ; attempt++) {
+      try {
+        response = await transport(SERVERS[server].networkConfig, { method: 'GET', headers: CLIENT_HEADERS });
+      } catch (error) {
+        // Only this public GET is replayed. A temporary TCP/DNS failure through Wisp
+        // (curl 7 in particular) must not spend an email code or replay a login POST.
+        const transient = error instanceof Error && /Request failed with error code (6|7|28|52|55|56):/.test(error.message);
+        if (!transient || attempt === 2) throw error;
+      }
+      if (response && ![502, 503, 504].includes(response.status)) break;
+      if (attempt === 2) throw new Error(`server list returned HTTP ${response!.status}`);
+      await new Promise((resolve) => setTimeout(resolve, attempt === 0 ? 300 : 900));
+      response = undefined;
+    }
+    if (response!.status !== 200) throw new Error(`server list returned HTTP ${response!.status}`);
+    const answer = object(response!.json);
     const content = JSON.parse(answer.content);
     const network = content.configs[content.funcVer].network;
     if (!network?.u8 || !network?.gs || !network?.hv) throw new Error('missing u8, gs or hv');
