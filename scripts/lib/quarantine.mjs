@@ -100,6 +100,13 @@ export function beginStage(root, stage, now = defaultNow()) {
         throw new Error(`Quarantine entry ${key} in ${stage} carries "${volatile}" in its reason, which changes by itself and would make every run a new release; `
           + `name the kind of failure there and print the error to the log: ${reason}`);
       }
+      // The file is a released record, and arknights.wiki.gg is only ever a citation in one
+      // (test-data-records.ts): its address goes in sourceRef, and a reason names it "the EN
+      // wiki". On 2026-10-15 a reward icon's reason named the host and failed the whole release;
+      // refused here, it fails the one stage, which is put back while the release goes on.
+      if (/wiki\.gg/i.test(reason)) {
+        throw new Error(`Quarantine entry ${key} in ${stage} names wiki.gg in its reason; put the address in sourceRef and call it "the EN wiki" there: ${reason}`);
+      }
       if (sourceRef != null && typeof sourceRef !== 'string') throw new Error(`Quarantine entry ${key} has a non-string sourceRef`);
       if (overdueAfterDays != null && !(Number.isInteger(overdueAfterDays) && overdueAfterDays > 0)) throw new Error(`Quarantine entry ${key} has overdueAfterDays ${overdueAfterDays}; expected a whole number of days`);
       // One entry per key: the first report of a run stands.

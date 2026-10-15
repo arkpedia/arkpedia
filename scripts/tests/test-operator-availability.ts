@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { isOperatorReleased, operatorRelease, operatorReleaseLabel } from '../../lib/operators/operatorAvailability';
 import { getAllOperators } from '../../lib/operators/operators';
+import { portraitStatus } from '../../lib/operators/operatorPortrait';
 import operatorSearch from '../../public/operator-search.json';
 
 const opening = Date.parse('2026-09-16T15:00:00Z');
@@ -42,10 +43,14 @@ test('unknown or invalid release dates do not imply availability', () => {
 
 test('the shared operator search catalogue uses the current release source', () => {
   // No release state: a record is drawn from its name, rarity and portraitStatus. The isFuture
-  // it used to carry was judged by the clock of its build, and nothing read it.
+  // it used to carry was judged by the clock of its build, and nothing read it. portraitStatus
+  // as build-operator-search.ts writes it: left out here, the test held while every portrait was
+  // published, and failed the content run of 2026-10-15, whose asset pin lacked the art Global
+  // had renamed (GALLUS², Kal'tsit Esperanta) -- portraits check-completeness holds anyway.
   const expected = getAllOperators().map((operator) => ({
     name: operator.name,
     rarity: operator.rarity,
+    ...portraitStatus(operator),
     ...(operator.sourceRegion ? { sourceRegion: operator.sourceRegion } : {}),
   }));
   assert.deepEqual(operatorSearch.operators, expected);

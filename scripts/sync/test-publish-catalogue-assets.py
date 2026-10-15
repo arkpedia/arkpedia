@@ -292,7 +292,7 @@ class CatalogueImports(unittest.TestCase):
 
         self.assertEqual(files[1], files[0])
         self.assertEqual({e['key']: e['reason'] for e in entries}, {
-            'art:event-poster/Gone.webp': 'Downloading https://arknights.wiki.gg/images/CN_Gone_banner.png?0a1b2c failed; the record is published without event-poster/Gone.webp until a later run imports it.',
+            'art:event-poster/Gone.webp': 'Downloading File:CN Gone banner.png on the EN wiki failed; the record is published without event-poster/Gone.webp until a later run imports it.',
             'art:headhunting-banner-images/Down.webp': 'The wiki could not be reached to ask for File:CN Down banner.png; the record is published without headhunting-banner-images/Down.webp until a later run imports it.',
             'art:six-star-icons/Html - Base.webp': 'avatar/char_901_html.png is not an image that decodes; the record is published without six-star-icons/Html - Base.webp until a later run imports it.',
             'art:six-star-icons/Renamed - Base.webp': 'Downloading avatar/char_902_renamed.png from yuanyan3060/ArknightsGameResource failed; the record is published without six-star-icons/Renamed - Base.webp until a later run imports it.',

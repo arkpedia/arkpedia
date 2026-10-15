@@ -176,7 +176,7 @@ test('a reason that carries text which changes by itself is refused, from any im
       '/five-star-skins/Harold - Base.webp: keeps its previous palette, since it could not be downloaded from the pinned skin repository',
       'PA-4 (People, A People): the in-game render map/act51side_04.png is staged as .cache/stage-renders/pa-4.png, but no run has published it to arkpedia-image-assets as stages-images/pa-4.webp yet; the stage is published without a map preview until one does.',
       'stage:asset-revisions failed or timed out; the run\'s stage report says how',
-      'Downloading https://arknights.wiki.gg/images/CN_Gone_banner.png?0a1b2c failed; the record is published without event-poster/Gone.webp until a later run imports it.',
+      'Downloading File:CN Gone banner.png on the EN wiki failed; the record is published without event-poster/Gone.webp until a later run imports it.',
       'Rage of The Many (act99mini) is a MULTIPLAY_V4 activity, a type data/game-modes.json does not classify, so it is listed as an ordinary event.',
       'The staged file .cache/stage-renders/pa-4.png is not the file its importer staged (#c03030 hair)',
     ]) assert.doesNotThrow(() => stage.add({ key: `k:${reason.length}`, reason, action: 'published-partial', sourceRef: 'https://raw.githubusercontent.com/o/r/eb9f58b6c1f2a3d4e5f60718293a4b5c6d7e8f90/x.png' }), reason);
@@ -185,6 +185,33 @@ test('a reason that carries text which changes by itself is refused, from any im
     assert.throws(() => execFileSync(process.execPath, [HELPER, 'palettes'], { cwd: root, input: JSON.stringify(bad), stdio: 'pipe' }), /0x10ab3c2d0/);
     assert.equal(fs.existsSync(file(root)), false);
   });
+});
+
+test('a reason never names wiki.gg, which a released record may only cite, from any importer', () => {
+  temporary(root => {
+    const stage = beginStage(root, 'reward-icons', new Date('2026-10-15T10:00:00Z'));
+    // What the reward-icons stage wrote on 2026-10-15 for an icon it staged and could not publish:
+    // test-data-records.ts failed the whole release on the host in it.
+    for (const reason of [
+      'The reward "Playback Stool" of [Celebration] Critical Phase Transition has an icon at arknights.wiki.gg, staged as .cache/reward-icons/Playback Stool.png, but no run has published it to arkpedia-image-assets as material-icons/Playback Stool.webp yet; it renders without one until one does.',
+      'Downloading https://arknights.wiki.gg/images/CN_Gone_banner.png?0a1b2c failed; the record is published without event-poster/Gone.webp until a later run imports it.',
+    ]) assert.throws(() => stage.add({ key: 'reward-icon:Playback Stool', reason, action: 'published-partial' }), /names wiki\.gg in its reason/, reason);
+    // The same in the words the stages write now, with the address where it belongs.
+    assert.doesNotThrow(() => stage.add({ key: 'reward-icon:Playback Stool', action: 'published-partial', sourceRef: 'https://arknights.wiki.gg/images/Playback_Stool.png?e877ba',
+      reason: 'The reward "Playback Stool" of [Celebration] Critical Phase Transition has an icon at the EN wiki, staged as .cache/reward-icons/Playback Stool.png, but no run has published it to arkpedia-image-assets as material-icons/Playback Stool.webp yet; it renders without one until one does.' }));
+    const bad = [{ key: 'reward-icon:Paper Crown', reason: 'The reward "Paper Crown" of [Side Story] Test has an icon at arknights.wiki.gg, but downloading it failed', action: 'published-partial' }];
+    assert.throws(() => execFileSync(process.execPath, [HELPER, 'reward-icons'], { cwd: root, input: JSON.stringify(bad), stdio: 'pipe' }), /names wiki\.gg/);
+    assert.equal(fs.existsSync(file(root)), false);
+  });
+  // The reward-icons stage's own wording, from its source: the wiki by name, other hosts as they are.
+  const named = execFileSync('python3', ['-c', `
+import ast, pathlib, re
+source = ast.parse(pathlib.Path('scripts/imports/import-reward-icons.py').read_text())
+scope = {'re': re}
+exec(compile(ast.Module(body=[next(n for n in source.body if isinstance(n, ast.FunctionDef) and n.name == 'cited')], type_ignores=[]), 'cited', 'exec'), scope)
+for text in ['has an icon at arknights.wiki.gg, staged', 'has an icon at torappu.prts.wiki, but downloading it failed']: print(scope['cited'](text))
+`], { encoding: 'utf8', env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1' } }).trim().split('\n');
+  assert.deepEqual(named, ['has an icon at the EN wiki, staged', 'has an icon at torappu.prts.wiki, but downloading it failed']);
 });
 
 test('a sourceRef that moves only to a newer mirror commit is the same source, and leaves the file byte for byte', () => {

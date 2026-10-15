@@ -228,7 +228,7 @@ def build(plan, image_root, skin_root=None, alerts=None, app_root=APP):
         if target in manifests[kind]['files']:
             built.append(target)
             continue
-        source, local = entry.get('sourcePath'), entry.get('localPath')
+        source, local, upload = entry.get('sourcePath'), entry.get('localPath'), None
         titles = ['File:'+t for t in entry.get('wikiFiles') or []]
         urls = entry.get('urls') or []
         def left_out(why, ref=(source or entry.get('source') or (urls[0] if urls else None) or (titles[0] if titles else None)), error=None):
@@ -274,19 +274,24 @@ def build(plan, image_root, skin_root=None, alerts=None, app_root=APP):
                     normalized = {p['from']:p['to'] for p in response['query'].get('normalized',[])}
                 except Exception as exc:
                     left_out(said(f'The wiki could not be reached to ask for {", ".join(titles)}'), error=exc);continue
-                info = next((available[normalized.get(t,t)] for t in titles if normalized.get(t,t) in available),None)
+                title = next((t for t in titles if normalized.get(t,t) in available),None)
+                info = available[normalized.get(title,title)] if title else None
                 if not info:
                     left_out(said(f'The wiki has no upload for {", ".join(titles)} yet'));continue
                 url = info['url']
+                # A reason names the upload, never its wiki.gg address: the quarantine file is a
+                # released record, where that address may only be a citation (sourceRef), and
+                # scripts/lib/quarantine.mjs refuses a reason that names it.
+                upload = f'{title} on the EN wiki'
                 host = urllib.parse.urlparse(url).hostname
                 if host not in ('arknights.wiki.gg','static.wikitide.net'):
                     left_out(said(f'The wiki answered {titles[0]} with an image on an unexpected host ({host}), which is never fetched'));continue
                 try:
                     data = fetch(url)
                 except Exception as exc:
-                    left_out(said(f'Downloading {url} failed'), error=exc);continue
+                    left_out(said(f'Downloading {upload} failed'), error=exc);continue
         # The mirror's URL names the plan's revision; the file is named by its path instead.
-        name = local or source or url
+        name = local or source or upload or url
         try:
             image = Image.open(io.BytesIO(data));image.load()
         except Exception as exc:

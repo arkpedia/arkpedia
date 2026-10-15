@@ -510,6 +510,14 @@ WIKI_DOWN = 'has no icon from the item tables or the furniture art, and the EN w
 FAILED = 'has an icon at {host}, but downloading it failed'
 UNREADABLE = 'has an icon at {host}, but it is not an image that decodes'
 
+
+def cited(reason):
+    """A reason as the quarantine file takes it: the wiki by name, never by its wiki.gg host. The
+    file is a released record, where that address may only be a citation (sourceRef):
+    test-data-records.ts failed the release of 2026-10-15 over a staged icon's reason that named
+    it, and scripts/lib/quarantine.mjs refuses one now. Any other host keeps its own name."""
+    return re.sub(r'\b(?:[\w-]+\.)*wiki\.gg\b', 'the EN wiki', reason)
+
 fetched, unresolved = [], []
 # Set once the wiki stays unreachable through its retries: the rest of the run does not ask it again
 # (a night of 429s, each name waiting out its backoff, would outrun the stage's timeout), and every
@@ -630,10 +638,10 @@ for key, name, event, why in unresolved:
     print(f'  ? "{name}" of {event} {why}')
 # Keyed by the furniture id for a piece (two events' "Duel Trophy" are two reports), else the name.
 report('reward-icons', [{'key': f'reward-icon:{key}', 'action': 'published-partial',
-                         'reason': f'The reward "{name}" of {event} {why}; it renders without one until a later run finds it.'}
+                         'reason': cited(f'The reward "{name}" of {event} {why}; it renders without one until a later run finds it.')}
                         for key, name, event, why in unresolved]
        + [{'key': f'reward-icon:{key}', 'action': 'published-partial', 'sourceRef': url,
-           'reason': f'The reward "{name}" of {event} has an icon at {url.split("/")[2]}, staged as '
+           'reason': f'The reward "{name}" of {event} has an icon at {cited(url.split("/")[2])}, staged as '
                      f'.cache/reward-icons/{file}, but no run has published it to arkpedia-image-assets as '
                      f'{target} yet; it renders without one until one does.'}
           for key, name, event, url, file, target in fetched])
