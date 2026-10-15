@@ -7,7 +7,7 @@ import StyledSelect from '../ui/StyledSelect';
 import { renderGameText } from '../ui/HighlightedText';
 // Types only: the module's value import is the whole voice table, which stays on the server.
 import type { OperatorVoiceData, OperatorVoiceLine, OperatorVoicePack, OperatorVoiceSet } from '@/lib/operators/operatorVoices';
-import { clipUrl, hasRecording } from '@/lib/operators/voiceRecording.mjs';
+import { clipUrl, hasRecording, preferredRecordingPack } from '@/lib/operators/voiceRecording.mjs';
 import styles from './OperatorVoiceLines.module.css';
 
 function formatTime(value: number) {
@@ -51,10 +51,7 @@ function packOptionLabel(pack: OperatorVoicePack) {
 }
 
 function preferredPackOf(voice: OperatorVoiceSet) {
-  return voice.packs.find(pack => pack.id === 'en' && pack.status === 'current')
-    ?? voice.packs.find(pack => pack.id === 'jp' && pack.status === 'current')
-    ?? voice.packs.find(pack => pack.id === 'cn' && pack.status === 'current')
-    ?? voice.packs[0];
+  return preferredRecordingPack(voice.packs);
 }
 
 /* A menu value for an outfit's pack: the set's word key and the pack id. An operator's own

@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { hasRecording, preferredRecordingPack } from '../../lib/operators/voiceRecording.mjs';
 // @ts-expect-error Shared Node importer helper.
 import { mergeVoicePacks } from '../lib/voice-pack-metadata.mjs';
 
@@ -79,4 +80,15 @@ test('audio fallback preserves preferred actor spelling and keeps recording lang
   const pack = (id: string, actors: string[], audioTemplate: string | null) => ({ id, actors, audioTemplate, label: id, status: 'current' });
   assert.deepEqual(mergeVoicePacks([pack('jp', ['Verified spelling'], null)], [pack('jp', ['Native spelling'], 'recorded'), pack('en', ['Separate actor'], null)]),
     [pack('jp', ['Verified spelling'], 'recorded'), pack('en', ['Separate actor'], null)]);
+});
+
+test('a newly credited language without audio does not displace a playable default or offer playback', () => {
+  const en = { id: 'en', status: 'current' as const, audioTemplate: null };
+  const jp = { id: 'jp', status: 'current' as const, audioTemplate: 'recorded' };
+  assert.equal(preferredRecordingPack([en, jp]), jp);
+  assert.equal(hasRecording({ id: 'CN_001' }, en), false);
+  assert.equal(hasRecording({ id: 'CN_001' }, jp), true);
+  assert.equal(preferredRecordingPack([en]), en);
+  const available = { ...en, audioTemplate: 'recorded' };
+  assert.equal(preferredRecordingPack([available, jp]), available);
 });
