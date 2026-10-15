@@ -22,7 +22,7 @@ const tileNames = (page: Page, scope: string) => page.locator(`${scope} .music-d
 test('Browse by album: a row of covers after Recently added that does not repeat it', async ({ page }) => {
   await page.goto('/music/discover');
   const headings = await page.locator('.music-discover-section h2').allTextContents();
-  expect(headings.slice(0, 3)).toEqual(['Recently added', 'Browse by album', 'Browse by character']);
+  expect(headings.slice(0, 4)).toEqual(['Recently added', 'Most liked on YouTube', 'Browse by album', 'Browse by character']);
   const { albums, recentAlbums } = await pageProps(page);
   expect(albums.length, 'every album with a song is listed').toBeGreaterThan(200);
 
