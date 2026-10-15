@@ -6,6 +6,7 @@ import { beginStage, defaultNow } from '../lib/quarantine.mjs';
 import { materialItems, readMaterialNames } from '../lib/material-items.mjs';
 import { pinnedRef } from '../content/pin-upstream.mjs';
 import { moduleStages } from './module-stages.mjs';
+import { voiceType } from '../lib/voice-pack-metadata.mjs';
 import { BASE_ROOMS, facilityLabel } from '../lib/base-rooms.mjs';
 
 
@@ -27,7 +28,7 @@ const PHASE = { PHASE_0: 'Base', PHASE_1: 'Elite 1', PHASE_2: 'Elite 2' };
 const VOICE_LANGUAGE = {
   EN: 'English', JP: 'Japanese', KR: 'Korean', CN_MANDARIN: 'Chinese',
   CN_TOPOLECT: 'Regional Chinese', ITA: 'Italian', GER: 'German', RUS: 'Russian',
-  FRE: 'French', 11: 'Spanish', LINKAGE: 'English',
+  FRE: 'French', SPA: 'Spanish', LINKAGE: 'Collaboration',
 };
 // Only when ARKPEDIA_EN_SUPPLEMENTAL_CHARWORDS is unset; at the commit this run pinned, else the branch.
 const SUPPLEMENTAL_CHARWORDS = `https://raw.githubusercontent.com/PuppiizSunniiz/ArknightsGameData_YoStar/${pinnedRef('PuppiizSunniiz/ArknightsGameData_YoStar')}/en_US/gamedata/excel/charword_table.json`;
@@ -379,13 +380,14 @@ export function cnModuleTables(read, materialNames) {
 }
 
 export function officialVoiceActors(characterId, tables, current = null) {
-  const voices = {};
+  const voices = { ...current };
   for (const table of tables ?? []) {
     const entries = table?.voiceLangDict?.[characterId]?.dict;
     if (!entries || typeof entries !== 'object') continue;
-    for (const [type, entry] of Object.entries(entries)) {
+    for (const [key, entry] of Object.entries(entries)) {
+      const type = voiceType(key, entry);
       const language = VOICE_LANGUAGE[type] ?? table.voiceLangTypeDict?.[type]?.name ?? type;
-      const actors = (Array.isArray(entry?.cvName) ? entry.cvName : []).filter(name => typeof name === 'string' && name.trim());
+      const actors = (Array.isArray(entry?.cvName) ? entry.cvName : []).filter(name => typeof name === 'string' && name.trim()).map(name => name.trim());
       if (actors.length) voices[language] = actors.join(' / ');
     }
   }
@@ -573,7 +575,8 @@ export function syncOperatorEnglish(root, handbook, tables = null, now = default
         // Except voice credits, outside the recent-release window: the records carry what the EN
         // table does not (the actor's own name beside the EN credit, the dialect where the game says
         // "Regional Chinese", languages the table lacks), so the game's list would drop it.
-        next = usesGameVoiceCredits(operator) || !operator.characterVoices ? rebuilt : { ...rebuilt, characterVoices: operator.characterVoices };
+        next = usesGameVoiceCredits(operator) || !operator.characterVoices ? rebuilt
+          : { ...rebuilt, characterVoices: { ...rebuilt.characterVoices, ...operator.characterVoices } };
         if (handWrittenFields(next) !== handWrittenFields(operator)) {
           throw refusal('would lose or move hand-written techniques or recommendations', `${operator.name}: the refresh would lose or move hand-written techniques or recommendations`);
         }
