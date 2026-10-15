@@ -105,6 +105,14 @@ test('named official announcements override maintenance start times and remain i
   assert.equal(banners[0].global_window.endAt, '2026-10-28T11:00:00.000Z');
   assert.equal(banners[0].global_window.timingSource, posts[0].url);
   assert.equal(run(banners, fixture, { posts }).changed, false);
+  assert.equal(run(banners).changed, false, 'missing announcement cache cannot replace the saved official opening with maintenance time');
+  const moved = structuredClone(fixture);
+  const pool = moved.gachaPoolClient.find(p => p.gachaPoolId === banners[0].globalPoolId);
+  pool.openTime += 86400;
+  pool.endTime += 86400;
+  run(banners, moved);
+  assert.equal(banners[0].globalScheduleStatus, 'datamined', 'a saved announcement for other days cannot confirm a moved client window');
+  assert.equal(banners[0].global_window.startAt, '2026-10-15T12:00:00.000Z');
 });
 
 test('a later wiki/CN enrichment cannot restore CN candidates over the shipped EN pool', () => {
