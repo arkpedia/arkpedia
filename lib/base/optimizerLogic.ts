@@ -1,5 +1,6 @@
 import { jayeContribution } from './jaye';
 import { activeBaseSkills } from './activeBaseSkills';
+import { specialSkillKey, type NamedSkillCheck } from './specialSkillKeys';
 import { BaseOperator, BaseSkill } from '../operators/operatorTypes';
 import { TRADING_POST_SPECIAL_SKILLS, TradingPostContext } from './tradingPostSpecialSkills';
 import { FACTORY_SPECIAL_SKILLS, FactorySkillContext } from './factorySpecialSkills';
@@ -87,8 +88,12 @@ function findSkill(operatorName: string, matcher: (s: BaseSkill, cleanName: stri
  * by hand. */
 export interface Candidate {
   operatorName: string;
-  skills: { skillName: string; eliteLevel?: string }[]; // ALL skills this operator has for this facility, applied simultaneously
+  skills: { skillName: string; eliteLevel?: string; key?: string }[]; // ALL skills this operator has for this facility, applied simultaneously
 }
+
+/** A candidate skill's handler key: the one specialSkillKey gave it from the record (a skill or
+ *  operator Global renamed keeps its handler), else made from its names, for a hand-built one. */
+const keyOf = (operatorName: string, sk: Candidate['skills'][number]) => sk.key ?? `${operatorName}|${sk.skillName}`;
 
 function skillTextForOne(operatorName: string, skillName: string, eliteLevel?: string): string | null {
   const skill = findSkill(operatorName, (s, cleanName) => cleanName === skillName && (!eliteLevel || s.eliteLevel === eliteLevel));
@@ -146,8 +151,7 @@ const BATTLE_RECORDS_MENTION = /battle record/i;
 const PRECIOUS_METALS_MENTION = /precious metal/i;
 const UNRECOGNIZED_PRODUCT_CONDITIONAL = /\bformula\b/i; // e.g. "Originium formula related productivity" -- a real, different product type this optimizer doesn't model yet, not a bug to work around
 
-function isSkillUnderstood(operatorName: string, skillName: string, facility: 'Factory' | 'Trading Post', description: string | null): boolean {
-  const key = `${operatorName}|${skillName}`;
+function isSkillUnderstood(key: string, facility: 'Factory' | 'Trading Post', description: string | null): boolean {
   if (facility === 'Trading Post' && key in TRADING_POST_SPECIAL_SKILLS) return true;
   if (facility === 'Factory' && key in FACTORY_SPECIAL_SKILLS) return true;
   if (!description) return false; // no description text at all to verify anything against
@@ -177,7 +181,7 @@ function isSkillUnderstood(operatorName: string, skillName: string, facility: 'F
 function filterToUnderstoodCandidates(candidates: Record<string, Candidate>, facility: 'Factory' | 'Trading Post'): Record<string, Candidate> {
   const result: Record<string, Candidate> = {};
   for (const [id, c] of Object.entries(candidates)) {
-    const allUnderstood = c.skills.every((sk) => isSkillUnderstood(c.operatorName, sk.skillName, facility, skillTextForOne(c.operatorName, sk.skillName, sk.eliteLevel)));
+    const allUnderstood = c.skills.every((sk) => isSkillUnderstood(keyOf(c.operatorName, sk), facility, skillTextForOne(c.operatorName, sk.skillName, sk.eliteLevel)));
     if (allUnderstood) result[id] = c;
   }
   return result;
@@ -202,7 +206,7 @@ function autoGenerateCandidates(facility: 'Factory' | 'Trading Post'): Record<st
     if (skills.length === 0) continue;
     result[op.name] = {
       operatorName: op.name,
-      skills: skills.map((s) => ({ skillName: cleanSkillName(s.name) ?? s.name ?? '', eliteLevel: s.eliteLevel ?? undefined })),
+      skills: skills.map((s) => ({ skillName: cleanSkillName(s.name) ?? s.name ?? '', eliteLevel: s.eliteLevel ?? undefined, key: specialSkillKey(op.name, s, op.aliases) })),
     };
   }
   return filterToUnderstoodCandidates(result, facility);
@@ -215,7 +219,7 @@ function autoGenerateEliteZeroCandidates(facility: 'Factory' | 'Trading Post'): 
     if (skills.length === 0) continue;
     result[op.name] = {
       operatorName: op.name,
-      skills: skills.map((s) => ({ skillName: cleanSkillName(s.name) ?? s.name ?? '', eliteLevel: s.eliteLevel ?? undefined })),
+      skills: skills.map((s) => ({ skillName: cleanSkillName(s.name) ?? s.name ?? '', eliteLevel: s.eliteLevel ?? undefined, key: specialSkillKey(op.name, s, op.aliases) })),
     };
   }
   return filterToUnderstoodCandidates(result, facility);
@@ -308,7 +312,7 @@ export function evalTradingPost(comboIds: string[], overrides?: DynamicContextOv
   const specialEntries: { operatorName: string; skillName: string; key: string }[] = [];
   for (const c of candidates) {
     for (const sk of c.skills) {
-      const key = `${c.operatorName}|${sk.skillName}`;
+      const key = keyOf(c.operatorName, sk);
       if (key in TRADING_POST_SPECIAL_SKILLS) {
         specialEntries.push({ operatorName: c.operatorName, skillName: sk.skillName, key });
       } else {
@@ -316,8 +320,8 @@ export function evalTradingPost(comboIds: string[], overrides?: DynamicContextOv
       }
     }
   }
-  const pending = specialEntries.filter((e) => !TP_SELF_REFERENTIAL.has(`${e.operatorName}|${e.skillName}`));
-  const deferred = specialEntries.filter((e) => TP_SELF_REFERENTIAL.has(`${e.operatorName}|${e.skillName}`));
+  const pending = specialEntries.filter((e) => !TP_SELF_REFERENTIAL.has(e.key));
+  const deferred = specialEntries.filter((e) => TP_SELF_REFERENTIAL.has(e.key));
   // Among the deferred group, only Jaye's "Basic Needs" ALSO produces an
   // orderLimit output of its own (her CAP reduction) -- Swire's
   // "Investment Solicitations" and Degenbrecher's "Champion's Bearing"
@@ -391,14 +395,14 @@ export function evalTradingPost(comboIds: string[], overrides?: DynamicContextOv
   const tequilaCandidate = candidates.find((c) => c.operatorName === 'Tequila');
   const tequilaSkill = tequilaCandidate?.skills.find((s) => s.skillName in TEQUILA_LMD_BONUS);
   const goldTier = goldOrderTier(candidates.flatMap(c => c.skills.map(sk => ({ operatorName: c.operatorName, skillName: sk.skillName }))));
-  const isPepe = candidates.some((c) => c.operatorName === 'Pepe' && c.skills.some((s) => s.skillName === 'Insightful'));
+  const isPepe = candidates.some((c) => c.skills.some((s) => keyOf(c.operatorName, s) === ('Pepe|Insightful' satisfies NamedSkillCheck)));
   const isUOfficial = candidates.some((c) => c.operatorName === 'U-Official');
 
   let dailyGold: number;
   let dailyLmd: number;
   if (isPepe) {
     return { combo: comboIds, effectiveProductivity: null, effectiveLimit: null, dailyGold: 0, dailyLmd: (24 * 60 / 270) * 1000 };
-  } else if (candidates.some(c => c.operatorName === 'Closure' && c.skills.some(sk => sk.skillName === 'Special Orders'))) {
+  } else if (candidates.some(c => c.skills.some(sk => keyOf(c.operatorName, sk) === ('Closure|Special Orders' satisfies NamedSkillCheck)))) {
     const dailyOrders = effectiveProductivity * 24 / 2.4;
     dailyGold = dailyOrders * 2;
     dailyLmd = dailyOrders * 1200;
@@ -476,7 +480,7 @@ export function evalFactory(comboIds: string[], product: 'Battle Records' | 'Pre
   const specialEntries: { key: string }[] = [];
   for (const c of candidates) {
     for (const sk of c.skills) {
-      const key = `${c.operatorName}|${sk.skillName}`;
+      const key = keyOf(c.operatorName, sk);
       if (key in FACTORY_SPECIAL_SKILLS) {
         specialEntries.push({ key });
       } else {

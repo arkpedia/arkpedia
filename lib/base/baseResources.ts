@@ -3,6 +3,7 @@
  * See that file's docstring for the full reasoning behind each design
  * decision; this mirrors it exactly, just adapted to TS syntax.
  */
+import type { NamedSkillCheck } from './specialSkillKeys';
 
 /** The initial two recruitment slots are followed by one per Office upgrade. */
 export function recruitSlotCount(officeLevel: number): number {
@@ -89,17 +90,20 @@ function emptyPools(): ResourcePools {
 
 /** present is a set of "OperatorName|SkillName" strings for every base
  * skill actually active in the current placement -- same key format as
- * FACTORY_SPECIAL_SKILLS, so the two share one convention. */
+ * FACTORY_SPECIAL_SKILLS, so the two share one convention, and made the
+ * same way (specialSkillKey), so a skill Global renamed keeps its key. Each
+ * key read here is a NamedSkillCheck, which special-skill-buffs.json covers. */
 export function computeResourcePools(state: BaseResourceState, present: Set<string>): ResourcePools {
   const pools = emptyPools();
+  const has = (key: NamedSkillCheck) => present.has(key);
 
   // --- Generators ---
-  if (present.has("Misumi Uika|Idol's Aura")) pools.passion += state.dormitoryOperatorCount;
-  if (present.has('Wakaba Mutsumi|Monster of Acting')) pools.passion += 20;
-  if (present.has('Yahata Umiri|Reliable Companion')) pools.passion += 10;
-  if (present.has('Yūtenji Nyamu|Diligent Worker')) pools.passion += 10;
+  if (has("Misumi Uika|Idol's Aura")) pools.passion += state.dormitoryOperatorCount;
+  if (has('Wakaba Mutsumi|Monster of Acting')) pools.passion += 20;
+  if (has('Yahata Umiri|Reliable Companion')) pools.passion += 10;
+  if (has('Yūtenji Nyamu|Diligent Worker')) pools.passion += 10;
 
-  if (present.has('Mr. Nothing|"Obvious Deception"')) pools.worldlyPlight += state.dormitoryOperatorCount;
+  if (has('Mr. Nothing|"Obvious Deception"')) pools.worldlyPlight += state.dormitoryOperatorCount;
   // "for each Sui Operator assigned to buildings other than Dormitories and
   // Activity Rooms, Worldly Plight +5 (max 5)" -- the cap is on the number of
   // Operators counted, not on the Worldly Plight itself, so five of them is
@@ -107,31 +111,31 @@ export function computeResourcePools(state: BaseResourceState, present: Set<stri
   // Chongyue in the Control Center plus three other Sui Operators outside
   // Dormitories = four counted = +20. This previously added the headcount
   // itself, giving +3 for three Operators, which is neither reading.
-  if (present.has('Chongyue|I am I')) pools.worldlyPlight += 5 * Math.min(5, state.suiOperatorsInNonDormFacilities);
-  if (present.has('Dusk|"Unstirred by Gain"')) pools.worldlyPlight += 15 * (1 - state.duskFractionAbove12);
-  if (present.has('Mulberry|Rescue Team - Post-Catastrophe Census')) pools.worldlyPlight += 10 * nonDefaultRecruitSlots(state.officeLevel);
-  if (present.has('Ling|"Vast Mountains and Rivers"')) pools.worldlyPlight += 15 * state.lingFractionAbove12;
+  if (has('Chongyue|I am I')) pools.worldlyPlight += 5 * Math.min(5, state.suiOperatorsInNonDormFacilities);
+  if (has('Dusk|"Unstirred by Gain"')) pools.worldlyPlight += 15 * (1 - state.duskFractionAbove12);
+  if (has('Mulberry|Rescue Team - Post-Catastrophe Census')) pools.worldlyPlight += 10 * nonDefaultRecruitSlots(state.officeLevel);
+  if (has('Ling|"Vast Mountains and Rivers"')) pools.worldlyPlight += 15 * state.lingFractionAbove12;
 
-  if (present.has('Dusk|"Unmoved by Loss"')) pools.perceptionInformation += 10 * state.duskFractionAbove12;
-  if (present.has('Ling|"Vast Mountains and Rivers"')) pools.perceptionInformation += 10 * (1 - state.lingFractionAbove12);
+  if (has('Dusk|"Unmoved by Loss"')) pools.perceptionInformation += 10 * state.duskFractionAbove12;
+  if (has('Ling|"Vast Mountains and Rivers"')) pools.perceptionInformation += 10 * (1 - state.lingFractionAbove12);
   // Rosmontis's Extrasensory and Ebenholz's Musicianship each GENERATE
   // Perception Information as well as converting it -- "for every 1 Operator in
   // the Dormitories, Perception Information +1, and every 1 Perception
   // Information is converted to ..." is one skill doing both. Their generation
   // belongs here, in the shared pool, so that each one's conversion can see the
   // other's contribution; the conversions themselves run in stage 3.
-  if (present.has('Rosmontis|Extrasensory')) pools.perceptionInformation += state.dormitoryOperatorCount;
-  if (present.has('Ebenholz|Musicianship')) pools.perceptionInformation += state.dormitoryOperatorCount;
+  if (has('Rosmontis|Extrasensory')) pools.perceptionInformation += state.dormitoryOperatorCount;
+  if (has('Ebenholz|Musicianship')) pools.perceptionInformation += state.dormitoryOperatorCount;
 
-  if (present.has('Ash|Intelligence Reserve')) pools.intelligenceReserve += state.teamRainbowOperatorsInCC;
+  if (has('Ash|Intelligence Reserve')) pools.intelligenceReserve += state.teamRainbowOperatorsInCC;
 
-  if (present.has('Whisperain|Itinerant')) pools.memoryFragments += 10 * nonDefaultRecruitSlots(state.officeLevel);
+  if (has('Whisperain|Itinerant')) pools.memoryFragments += 10 * nonDefaultRecruitSlots(state.officeLevel);
 
-  if (present.has("Bassline|Drawing the Heart's Voice")) pools.soundlessResonance += 15 * nonDefaultRecruitSlots(state.officeLevel);
-  if (present.has('Virtuosa|Soundless Resonance')) pools.soundlessResonance += state.virtuosaRoomOperatorCount;
+  if (has("Bassline|Drawing the Heart's Voice")) pools.soundlessResonance += 15 * nonDefaultRecruitSlots(state.officeLevel);
+  if (has('Virtuosa|Soundless Resonance')) pools.soundlessResonance += state.virtuosaRoomOperatorCount;
 
-  if (present.has('Czerny|Adagio')) pools.measure += state.czernyDormitoryLevel;
-  if (present.has('Iris|Bedtime Story')) pools.dreamland += state.irisDormitoryLevel;
+  if (has('Czerny|Adagio')) pools.measure += state.czernyDormitoryLevel;
+  if (has('Iris|Bedtime Story')) pools.dreamland += state.irisDormitoryLevel;
 
   // --- Conversions ---------------------------------------------------------
   // A conversion does NOT consume what it reads. PRTS states it outright:
@@ -153,19 +157,19 @@ export function computeResourcePools(state: BaseResourceState, present: Set<stri
   // -- and the workaround for it -- was unnecessary.
 
   // Stage 1: everything that converts INTO Perception Information.
-  if (present.has('Czerny|Walking the Keyboard')) pools.perceptionInformation += pools.measure;
-  if (present.has('Iris|Sleep Talking')) pools.perceptionInformation += pools.dreamland;
-  if (present.has('Whisperain|Memory Seeker')) pools.perceptionInformation += pools.memoryFragments;
+  if (has('Czerny|Walking the Keyboard')) pools.perceptionInformation += pools.measure;
+  if (has('Iris|Sleep Talking')) pools.perceptionInformation += pools.dreamland;
+  if (has('Whisperain|Memory Seeker')) pools.perceptionInformation += pools.memoryFragments;
 
   // Stage 2: everything that converts OUT of Perception Information. Both read
   // the same completed total, and neither reduces it.
-  if (present.has('Ebenholz|Musicianship')) pools.soundlessResonance += pools.perceptionInformation;
-  if (present.has('Rosmontis|Extrasensory')) pools.chainOfThought += pools.perceptionInformation;
+  if (has('Ebenholz|Musicianship')) pools.soundlessResonance += pools.perceptionInformation;
+  if (has('Rosmontis|Extrasensory')) pools.chainOfThought += pools.perceptionInformation;
 
   // Stage 3: Worldly Plight -> Witchcraft Crystal at 5:1. Also non-consuming,
   // which matters here because Shu, Wind Chimes, Chongyue and Ch'en the
   // Dawnstreak all read Worldly Plight too.
-  if (present.has('Jieyun|Ancient Witchcraft')) {
+  if (has('Jieyun|Ancient Witchcraft')) {
     pools.witchcraftCrystal += Math.floor(pools.worldlyPlight / 5);
   }
 

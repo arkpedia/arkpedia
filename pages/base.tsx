@@ -2139,6 +2139,8 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ba
     class: op.class,
     branch: op.branch,
     baseSkills: op.baseSkills,
+    // The names a Global rename replaced, which the calculator's special-skill keys may still use.
+    ...(op.aliases?.length ? { aliases: op.aliases } : {}),
   }));
 
   return { props: { operators } };

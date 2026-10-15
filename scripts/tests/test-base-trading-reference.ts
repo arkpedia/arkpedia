@@ -11,7 +11,15 @@ import reference from './fixtures/base-trading-reference.json';
 // Pepe records provide their special skills, and the complete page calculator
 // must reproduce the sheet's output. This is arithmetic calibration, not proof
 // that every operator label in the reference can attain that input rate.
-for (const row of reference.rows) test(`complete calculator trading reference ${reference.sheet}:${row.row}`, () => {
+/** Closure's record as a Global rename leaves it: another name, the old one kept in aliases, and
+ *  every base skill renamed (on 2026-10-14 her Special Orders became Special Order, and rows 54-58
+ *  lost her special orders in that night's content run). The output must not move. */
+const RENAMED = 'Closure (Global name)';
+function renameClosure(operators: BaseOperator[]): BaseOperator[] {
+  return operators.map(op => op.name !== 'Closure' ? op : { ...op, name: RENAMED, aliases: ['Closure'], baseSkills: op.baseSkills?.map(skill => ({ ...skill, name: `${skill.name} (Global name)` })) });
+}
+
+function referenceRow(row: (typeof reference.rows)[number], renamed = false) {
   const {input} = buildSheetCase(sheetCases.find(c=>c.id==='TP:17')!);
   input.facilities = input.facilities.map(f=>f.id==='prod5'?{...f,level:row.level,capacity:row.level}:f);
   const staff: SlotAssignment[] = [];
@@ -30,7 +38,7 @@ for (const row of reference.rows) test(`complete calculator trading reference ${
   else if (row.tailoring === 'alpha') addWorker('Tailoring α');
   if (row.tequila !== '(none)') push('Tequila',row.tequila);
   if (row.proviso !== '(none)') push('Proviso',row.proviso);
-  if (row.row >=54 && row.row<=58) push('Closure','E2');
+  if (row.row >=54 && row.row<=58) push(renamed ? RENAMED : 'Closure','E2');
   if (row.row===62) push('Pepe','E2');
   if (!synthetic.length && staff.length < row.level) addWorker();
   while(staff.length < row.level) addWorker();
@@ -44,8 +52,13 @@ for (const row of reference.rows) test(`complete calculator trading reference ${
     const contribution = row.rate - (1 + staff.length*0.01 + 0.07 + intrinsic);
     synthetic[0].baseSkills![0].description = `When this Operator is assigned to a Trading Post, order acquisition efficiency +${(contribution*100).toFixed(8)}%.`;
   }
-  input.operators = [...input.operators,...synthetic];
+  input.operators = [...(renamed ? renameClosure(input.operators) : input.operators),...synthetic];
   const result = calculateBase(input);
   const expected = row.lmd ?? row.baselineLmd*row.rate;
   assert(Math.abs(result.dailyGoldWorthRed-expected)<0.001, `${row.row}: ${result.dailyGoldWorthRed} != ${expected}`);
-});
+}
+
+for (const row of reference.rows) test(`complete calculator trading reference ${reference.sheet}:${row.row}`, () => referenceRow(row));
+for (const row of reference.rows.filter(r => r.row >= 54 && r.row <= 58)) {
+  test(`complete calculator trading reference ${reference.sheet}:${row.row}, with Closure renamed as Global renames`, () => referenceRow(row, true));
+}

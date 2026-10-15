@@ -8,7 +8,7 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
-import { reconcileOperators, reconcileSkins, reconcileCalendars, operatorReleaseDates, renameReferences, serverDay, safeName, rarityWord, onYearlyPage, inGlobalClient } from './catalogue-model.mjs';
+import { reconcileOperators, reconcileSkins, reconcileCalendars, operatorReleaseDates, renameReferences, renameAlternates, serverDay, safeName, rarityWord, onYearlyPage, inGlobalClient } from './catalogue-model.mjs';
 import { buildInventory, withStableSource } from './sync-content-inventory.mjs';
 import { readWikiRows } from './wiki-pages.mjs';
 import { beginStage } from '../lib/quarantine.mjs';
@@ -157,6 +157,10 @@ export async function syncCatalogue(root, options={}) {
   const outfitNames=new Map(outfits.renames.map(([before, after])=>[before.split(' / ').slice(1).join(' / '),after.split(' / ').slice(1).join(' / ')]));
   for (const op of updated.operators) op.skins=(op.skins ?? []).map(name=>outfitNames.get(name) ?? name);
   const renames=new Map([...initial.renames,...updated.renames,...outfits.renames,...calendars.renames]);
+  // The alters an operator's record names follow an operator's rename too (renameAlternates); the
+  // records themselves are written as they are, not through replace().
+  const alternatesRenamed=renameAlternates(updated.operators,new Map([...initial.renames,...updated.renames]));
+  if (alternatesRenamed.length) console.log(`Alternate names renamed, or released on Global, on: ${alternatesRenamed.join(', ')}`);
   // Every reference to a renamed record follows it; the names a record is found by, its aliases and
   // announcedName, stay as they are (renameReferences).
   const replace=value=>renameReferences(value,renames);

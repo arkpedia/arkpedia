@@ -358,6 +358,9 @@ export interface BaseOperator {
   rarity: number | null;
   faction: string | null;
   baseSkills?: BaseSkill[];
+  /** The names the operator had before a rename (Operator.aliases), so the calculator still finds
+   *  a special skill keyed by one of them (lib/base/specialSkillKeys.ts). */
+  aliases?: string[];
 }
 
 // The guesser only needs skill names/icons and the M3 description,

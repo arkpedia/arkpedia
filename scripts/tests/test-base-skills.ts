@@ -24,6 +24,16 @@ import fixture from './fixtures/base-skill-source.json';
 import rosterData from '../../data/base-group-rosters.json';
 import recipes from '../../data/base-workshop-recipes.json';
 const ops = new Map(getAllOperators().map(op => [op.name, op]));
+// The fixture's operators by the game's character id, not the name it recorded on 2026-10-09: a CN
+// operator's name is our translation until Global ships it, and Global renames some on the day
+// (Gallus² became GALLUS² on 2026-10-14, Kal'tsit - Esperanta became Kal'tsit Esperanta), which
+// failed both fixture tests in that night's content run.
+const byId = new Map(getAllOperators().map(op => [op.internalName, op]));
+const fixtureOperator = (expected: { name: string; internalName: string }) => {
+  const op = byId.get(expected.internalName);
+  assert(op, `${expected.name} (${expected.internalName}) has a record`);
+  return op;
+};
 const rosters = toBaseRosters(checkBaseRosters(rosterData));
 const near = (actual: number | undefined, expected: number) => assert(Math.abs((actual ?? NaN) - expected) < 1e-8, `${actual} != ${expected}`);
 const training = (name: string, className = 'Guard', mastery = 1, placed = [name], branch = '') => trainingResult(name, activeBaseSkills(ops.get(name)!, 'Training Room', 'Elite 2'), { target: { class: className, branch, mastery, timeReductionActive: false, instantTrainingReady: false }, allPlacedNames: placed, rosters, worldlyPlight: 0 }, 0);
@@ -32,9 +42,7 @@ test('all 429 game operators and 921 source steps match IDs, unlocks, facilities
   assert.equal(fixture.operators.length, 429);
   assert.equal(fixture.operators.reduce((s, op) => s + op.steps.length, 0), 921);
   for (const expected of fixture.operators) {
-    const op = ops.get(expected.name)!;
-    assert(op, expected.name);
-    assert.equal(op.internalName, expected.internalName);
+    const op = fixtureOperator(expected);
     assert.equal(op.baseSkills?.length, expected.steps.length, expected.name);
     for (const [i, row] of expected.steps.entries()) {
       const actual: BaseSkill = op.baseSkills![i];
@@ -88,7 +96,7 @@ test('named trainee traits override stale preset metadata, while manual and lega
 test('only operators who can train mastery can occupy the named trainee slot', () => {
   const target = { operatorName: 'Lancet-2', class: 'Medic', branch: 'Medic', mastery: 1, timeReductionActive: false, instantTrainingReady: false };
   for (const expected of fixture.operators) {
-    const op = ops.get(expected.name)!;
+    const op = fixtureOperator(expected);
     const hasElite2 = op.promotion.some(row => row.tier === 'Elite 2');
     assert.equal(canTrainMastery(op), hasElite2, op.name);
     const resolved = resolveTrainingTarget({ ...target, operatorName: op.name }, [...ops.values()]);
