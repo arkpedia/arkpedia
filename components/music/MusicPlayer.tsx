@@ -3,9 +3,11 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { GAME_PATHS } from '@/lib/minigames/catalogue';
 import { useMusicPlayer } from '@/lib/music/musicPlayerContext';
+import { songTitle, upcomingIndices } from '@/lib/music/musicPolish';
 import { useCrossFadeTitle } from '@/lib/music/useCrossFadeTitle';
+import { MSR_LABEL } from '@/lib/music/songArt';
 import TransportIcon from './TransportIcons';
-import SongPlaylistPicker from './SongPlaylistPicker';
+import AlbumCover from './AlbumCover';
 import { XGlyph } from '@/components/ui/XButton';
 
 function formatTime(seconds: number): string {
@@ -24,16 +26,22 @@ export default function MusicPlayer() {
   const {
     ready,
     starting,
+    buffering,
     isPlaying,
+    notice,
     title,
     videoId,
-    volume,
     shuffle,
     repeatMode,
     favorites,
     currentTime,
     duration,
+    volume,
+    setVolumeLevel,
     queue,
+    currentTrack: currentQueueTrack,
+    nowPlayingCover,
+    nowPlayingArtist,
     queueIndex,
     shuffleOrder,
     shufflePosition,
@@ -42,19 +50,14 @@ export default function MusicPlayer() {
     nextTrack,
     prevTrack,
     toggleFavorite,
-    excludeCopyrighted,
-    setExcludeCopyrighted,
-    setVolumeLevel,
     handleSeekChange,
     handleSeekCommit,
     setSeeking,
     containerRef,
   } = useMusicPlayer();
 
-  const titleRef = useRef<HTMLAnchorElement>(null);
   const [collapsed, setCollapsed] = useState(true);
   const shellRef = useRef<HTMLDivElement>(null);
-  const [scrollDistance, setScrollDistance] = useState(0);
 
   // The queue's own catalog title/altTitle (not YouTube's raw video
   // metadata) is what actually has a meaningful translation pairing --
@@ -62,12 +65,14 @@ export default function MusicPlayer() {
   // title only if this track somehow isn't in the queue yet (a brief
   // window right as playback starts, before the queue's own lookup
   // catches up).
-  const currentQueueTrack = queue.find((t) => t.id === videoId);
+
   const catalogTitle = currentQueueTrack?.title || title || 'Monster Siren Records';
   const { displayName: crossfadeName, fading } = useCrossFadeTitle(catalogTitle, currentQueueTrack?.altTitle);
-  const artist = currentQueueTrack?.artist;
+  // The catalogue's artist, else Monster Siren's credit (lib/music/songArt.ts).
+  const artist = nowPlayingArtist ?? currentQueueTrack?.artist ?? null;
   const displayTitle = ready ? formatTrackLabel(crossfadeName, artist) : 'Loading…';
   const isFav = Boolean(videoId) && favorites.has(videoId);
+  const busy = starting || buffering;
 
   // Screen-reader announcement when the track changes -- the visible
   // title swap is purely visual, so when the player auto-advances (or
@@ -79,7 +84,9 @@ export default function MusicPlayer() {
   // full player page runs its own identical announcer -- so this one
   // stays quiet there to avoid every track change being spoken twice.
   const router = useRouter();
-  const onFullPlayerPage = router.pathname === '/music';
+  // The music section (/music and Discover) has its own player bar, which says the song and
+  // links back to it; the widget keeps only its hidden audio frame there.
+  const onFullPlayerPage = router.pathname === '/music' || router.pathname === '/music/discover';
   /**
    * Collapse when the click lands anywhere else.
    *
@@ -114,32 +121,14 @@ export default function MusicPlayer() {
     }
   }, [videoId, catalogTitle, onFullPlayerPage]);
 
-  // Only animate the title if it's actually too wide to fit -- measured
-  // against the real rendered element, not guessed from character count.
-  // Re-measures whenever displayTitle changes, which includes every
-  // cross-fade swap (a translated title is often a different length).
-  useEffect(() => {
-    const el = titleRef.current;
-    if (!el) {
-      setScrollDistance(0);
-      return;
-    }
-    const diff = el.scrollWidth - el.clientWidth;
-    setScrollDistance(diff > 2 ? diff : 0);
-  }, [displayTitle, ready, collapsed]);
-
   // Shuffle/repeat themselves are no longer toggleable from here (that
   // now lives on the full /music player page), but this preview still
   // needs to reflect whichever mode is actually active, since that's
   // controlled globally, not reset just because this widget doesn't
   // expose the buttons anymore.
-  const nextQueueTrack =
-    repeatMode === 'one'
-      ? queue[queueIndex]
-      : shuffle && shuffleOrder
-      ? queue[shuffleOrder[(shufflePosition + 1) % shuffleOrder.length]]
-      : queue[queueIndex + 1] || queue[0];
-  const nextTitle = nextQueueTrack ? formatTrackLabel(nextQueueTrack.title, nextQueueTrack.artist) : '';
+  const order = shuffle && shuffleOrder ? shuffleOrder : queue.map((_, index) => index);
+  const nextQueueTrack = queue[upcomingIndices(order, shuffle && shuffleOrder ? shufflePosition : queueIndex, repeatMode, 1)[0]];
+  const nextTitle = nextQueueTrack ? formatTrackLabel(songTitle(nextQueueTrack.title, nextQueueTrack.altTitle), nextQueueTrack.artist) : '';
 
   return (
     /* On /music the page is the player: the widget keeps only its hidden audio frame
@@ -179,30 +168,28 @@ export default function MusicPlayer() {
       </button>}
 
       {!collapsed && !onFullPlayerPage && (
+        /* The corner player, open (the maintainer, 2026-10-14: "the small player in the corner
+           when on another page needs also some rework"): the /music bar's look in a card. The
+           album art and the song, title over artist on one line each, open Now playing; one row
+           of icon buttons -- Favourite, Previous, Play, Next, Queue -- each named and with its
+           tooltip on hover and focus, and on a desktop the volume beside Queue ("we still need
+           the volume controls in this smaller player", 2026-10-14; a phone has its own buttons,
+           and an iPhone ignores a page's volume); the seek bar and its times between the two, as
+           on the /music bar. Fixed in the corner, so opening it moves nothing on the page. Add to
+           playlist and Stream-safe are the /music bar's. */
         <div className="music-body">
-          <div className="music-title-row">
-            <div className="music-title-scroll">
-              {/* Clicking the title navigates to the full player page
-                  (album art + karaoke lyrics + queue), which is also
-                  where the song list now lives -- covers what the
-                  burger/list button used to do, so that's gone. Only
-                  the name portion cross-fades (see .fading below) --
-                  the artist suffix stays put, it's not part of the
-                  title/altTitle pairing. */}
-              <Link prefetch={false}
-                ref={titleRef}
-                href="/music"
-                className={scrollDistance > 0 ? 'music-track-title marquee' : 'music-track-title'}
-                style={{ '--scroll-distance': `${scrollDistance}px` } as React.CSSProperties}
-                title={displayTitle}
-              >
-                <span className={fading ? 'music-crossfade-text fading' : 'music-crossfade-text'}>
-                  {ready ? crossfadeName : 'Loading…'}
-                </span>
-                {ready && artist && <span> — {artist}</span>}
-              </Link>
-            </div>
-          </div>
+          <Link prefetch={false} href="/music?view=player" className="music-widget-song" title={displayTitle}
+            aria-label={videoId ? `${displayTitle}. Open Now playing` : 'Open Now playing'}>
+            <span className="music-widget-cover" aria-hidden="true">
+              <AlbumCover coverPath={videoId ? nowPlayingCover : null} size={44} className="music-widget-cover-art" />
+            </span>
+            <span className="music-widget-text">
+              <span className={`music-widget-title music-crossfade-text${fading ? ' fading' : ''}`}>
+                {!videoId ? 'Nothing playing yet' : ready ? crossfadeName : 'Loading…'}
+              </span>
+              <span className="music-widget-artist">{videoId ? artist ?? MSR_LABEL : 'Pick a song in Library or Discover'}</span>
+            </span>
+          </Link>
 
           <div className="music-seek-row">
             <span className="music-time">{formatTime(currentTime)}</span>
@@ -220,7 +207,7 @@ export default function MusicPlayer() {
               // Keyboard seeking: arrow keys fire onChange (which only
               // updates the DISPLAYED time, see handleSeekChange) but
               // never any mouse/touch event, so without this keyup
-              // commit the slider moved while the player itself never
+              // the slider moved while the player itself never
               // seeked at all. Guarded to the keys that actually move a
               // range input, so merely tabbing through the slider
               // doesn't trigger a pointless re-seek to the current
@@ -232,61 +219,41 @@ export default function MusicPlayer() {
               }}
               className="music-seek"
               aria-label="Seek"
+              aria-valuetext={`${formatTime(currentTime)} of ${formatTime(duration)}`}
             />
             <span className="music-time">{formatTime(duration)}</span>
           </div>
 
+          {/* A song that would not start says so here too, until the next Play. */}
+          {notice?.playback && <p className="music-widget-notice" role="status">{notice.text}</p>}
+
           <div className="music-controls">
-            <button
-              type="button"
-              className="filter-chip music-fav-btn"
-              onClick={() => videoId && toggleFavorite(videoId)}
-              disabled={!videoId}
-              aria-pressed={isFav}
-              aria-label="Favorite"
-              title="Favorite"
-            >
+            <button type="button" className="filter-chip music-fav-btn music-song-favorite" onClick={() => videoId && toggleFavorite(videoId)}
+              disabled={!videoId} aria-pressed={isFav} aria-label="Favourite" data-tip={isFav ? 'Unfavourite' : 'Favourite'}>
               <TransportIcon name="heart" />
             </button>
-            <SongPlaylistPicker player song={{ id: videoId || '', title: catalogTitle }} />
-            <button
-              type="button"
-              className="filter-chip music-stream-safe-btn"
-              onClick={() => setExcludeCopyrighted(!excludeCopyrighted)}
-              aria-pressed={excludeCopyrighted}
-              aria-label="Stream-safe: hide copyrighted songs"
-              title="Stream-safe (hide copyrighted songs)"
-            >
-              <TransportIcon name="streamSafe" />
-            </button>
-            <button type="button" onClick={prevTrack} aria-label="Previous track">
-              <TransportIcon name="prev" />
-            </button>
-            <button
-              type="button"
-              className={starting ? 'primary music-play-btn loading' : 'primary music-play-btn'}
-              onClick={togglePlay}
-              disabled={starting}
-              aria-label={starting ? 'Starting…' : isPlaying ? 'Pause' : 'Play'}
-            >
-              <TransportIcon name={starting ? 'loading' : isPlaying ? 'pause' : 'play'} />
-            </button>
-            <button type="button" onClick={nextTrack} aria-label="Next track">
-              <TransportIcon name="next" />
-            </button>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              step={1}
-              value={volume}
-              onChange={(e) => setVolumeLevel(parseInt(e.target.value, 10))}
-              className="music-volume"
-              aria-label="Volume"
-            />
+            <div className="music-widget-transport">
+              <button type="button" className="music-prev-btn" onClick={prevTrack} aria-label="Previous track" data-tip="Previous">
+                <TransportIcon name="prev" />
+              </button>
+              {/* Loading never shows Pause: the player starting cannot be pressed, a song not yet
+                  heard can, to stop it (lib/music/musicPlayerContext.tsx's buffering). */}
+              <button type="button" className={busy ? 'primary music-play-btn loading' : 'primary music-play-btn'} onClick={togglePlay}
+                disabled={starting} aria-label={busy ? 'Starting…' : isPlaying ? 'Pause' : 'Play'}
+                data-tip={starting ? 'Starting…' : buffering ? 'Starting… Press to stop' : isPlaying ? 'Pause' : 'Play'}>
+                <TransportIcon name={busy ? 'loading' : isPlaying ? 'pause' : 'play'} />
+              </button>
+              {/* Its tooltip says what plays next (the queue, shuffle and repeat as they stand). */}
+              <button type="button" className="music-next-btn" onClick={nextTrack} aria-label="Next track" data-tip={nextTitle ? `Next: ${nextTitle}` : 'Next'}>
+                <TransportIcon name="next" />
+              </button>
+            </div>
+            <input type="range" min={0} max={100} step={1} value={volume} onChange={(event) => setVolumeLevel(Number(event.target.value))}
+              className="music-volume music-widget-volume" aria-label="Volume" aria-valuetext={`${volume}%`} />
+            <Link prefetch={false} href="/music?view=queue" className="ghost filter-chip music-list-btn" aria-label="Queue" data-tip="Queue">
+              <TransportIcon name="queue" />
+            </Link>
           </div>
-
-          {nextTitle && <div className="music-next-up">Up next: {nextTitle}</div>}
         </div>
       )}
     </div>

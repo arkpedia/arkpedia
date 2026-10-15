@@ -21,4 +21,12 @@ test('the corner player keeps every control inside its card', async ({ page }) =
       .map(({ el, r }) => `${el.getAttribute('aria-label') ?? el.textContent?.trim()}: ${Math.round(r.left)}-${Math.round(r.right)} in ${Math.round(box.left)}-${Math.round(box.right)}`);
   });
   expect(out, 'controls outside the card').toEqual([]);
+  // The volume is there on a desktop (it was dropped once, 2026-10-14), not on a touch screen.
+  const volume = shell.getByRole('slider', { name: 'Volume', exact: true });
+  if (await page.evaluate(() => matchMedia('(pointer: fine)').matches)) {
+    await expect(volume).toBeVisible();
+    expect((await volume.boundingBox())!.width, 'the volume has room to set').toBeGreaterThanOrEqual(56);
+  } else {
+    await expect(volume).toBeHidden();
+  }
 });

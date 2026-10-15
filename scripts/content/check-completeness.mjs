@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { parseReleaseDate } from '../../lib/music/releaseDate.mjs';
+import { CHARACTER_PORTRAITS } from '../../lib/music/characterPortraits.mjs';
 import { unconfirmedOutfitSales } from './outfit-windows.mjs';
 import { checkMaterialCatalogue, uncataloguedCosts } from '../../lib/farming/materialCatalogue.mjs';
 import { waitsForGlobal } from '../../lib/gacha/waitsForGlobal.mjs';
@@ -341,6 +342,22 @@ export function reviewCompleteness({ inventory, operators, skins, banners, event
     hold(`album:${album.albumId}`, 'published-partial', album.releaseDate
       ? `${title}: release date ${JSON.stringify(album.releaseDate)} is not written YYYY/MM/DD`
       : `${title}: no release date, so Recently added leaves it out`);
+  }
+  // Discover's Browse by character draws each character an album credits: an operator by their
+  // Base outfit, anyone else by lib/music/characterPortraits.mjs. A character who is neither an
+  // operator nor has a published portrait there shows initials, and is held here so a new
+  // album's NPC gets art rather than going unnoticed; the album itself still goes out.
+  const charactersHeld = new Set();
+  for (const album of albums) {
+    for (const name of list(album.characters)) {
+      if (typeof name !== 'string' || !name || charactersHeld.has(name) || names.has(name)) continue;
+      const portraits = Object.hasOwn(CHARACTER_PORTRAITS, name) ? CHARACTER_PORTRAITS[name] : [];
+      if (portraits.some(file => !missing(file))) continue;
+      charactersHeld.add(name);
+      hold(`music-character:${name}`, 'published-partial', portraits.length
+        ? `${name} (${album.albumAltName || album.albumName || album.albumId}): no portrait published yet (${portraits.join(', ')}), so Browse by character shows initials`
+        : `${name} (${album.albumAltName || album.albumName || album.albumId}): not an operator and not in lib/music/characterPortraits.mjs, so Browse by character shows initials`);
+    }
   }
   // The gacha simulator and the pull planner put an operator in a banner's pools by its
   // Standard and Kernel Headhunting fields and its Kernel Addition Date, which only a person or

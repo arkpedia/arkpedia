@@ -158,8 +158,12 @@ try {
     }, `${name} new stage`, 75_000);
     const servedNow = await page.evaluate(() => window.__NEXT_DATA__.props.pageProps.now);
     assert.ok(Math.abs(servedNow - Date.now() / 1000) < 120, `${name} runtime stage clock is stale`);
-    // The player's queue, song count and search come from the release's catalogue.
-    const songs = JSON.parse(fs.readFileSync(path.join(root, 'public/music-catalogue.json'))).songs.length;
+    // The Library's song count and search, and the player's queue, come from the release's
+    // catalogue. Counted as the player reads it (lib/music/musicCatalogue.ts): one song per
+    // track -- a YouTube video, or a Monster Siren song (cid) with no upload -- since the catalogue
+    // may list an upload twice; release B adds one new video.
+    const songs = new Set(JSON.parse(fs.readFileSync(path.join(root, 'public/music-catalogue.json'))).songs
+      .map(song => song.videoId || `msr:${song.cid}`)).size;
     const catalogueRequests = [];
     const noteCatalogue = request => { if (request.url().includes('/public/music-catalogue.json')) catalogueRequests.push(request.url()); };
     page.on('request', noteCatalogue);
@@ -175,13 +179,22 @@ try {
       return data.pageProps?.__contentRelease?.release === states.b.manifest.release;
     }, `${name} music page from release B`, 75_000);
     await waitFor(async () => {
-      await page.goto('http://localhost:3193/music?view=queue');
-      await page.locator('.music-queue-panel h2', { hasText: `Songs (${songs + 1})` }).waitFor({ timeout: 10_000 });
+      await page.goto('http://localhost:3193/music?view=library');
+      await page.locator('#music-library-heading', { hasText: `${songs + 1} songs` }).waitFor({ timeout: 10_000 });
       return true;
-    }, `${name} music queue from release B`, 75_000);
-    // By role and name, not class: the queue search is the shared SearchInput now.
-    await page.locator('.music-queue-panel').getByRole('searchbox', { name: 'Search songs' }).fill('Runtime Song B');
-    await page.locator('.music-queue-row', { hasText: 'Runtime Song B' }).first().waitFor({ timeout: 10_000 });
+    }, `${name} music library from release B`, 75_000);
+    // By role and name, not class: the Library's and the queue's searches are the shared SearchInput.
+    await page.getByRole('searchbox', { name: 'Search all songs' }).fill('Runtime Song B');
+    await page.locator('.music-all-songs-list .music-song-row', { hasText: 'Runtime Song B' }).first().waitFor({ timeout: 10_000 });
+    // Choosing the new song adds it to Your queue; browsing the release does not.
+    const newSong = page.locator('.music-all-songs-list .music-song-row', { hasText: 'Runtime Song B' }).first();
+    if (name === 'mobile') {
+      await newSong.getByRole('button', { name: /^More actions for / }).click();
+      await page.getByRole('dialog', { name: 'Song actions', exact: true }).getByRole('button', { name: 'Add to queue', exact: true }).click();
+    } else await newSong.getByRole('button', { name: /^Add to queue:/ }).click();
+    await page.getByRole('navigation', { name: 'Music' }).getByRole('link', { name: /^Queue/ }).click();
+    await page.getByRole('searchbox', { name: 'Search the queue' }).fill('Runtime Song B');
+    await page.locator('[data-song-list] .music-queue-row', { hasText: 'Runtime Song B' }).first().waitFor({ timeout: 10_000 });
     assert.ok(catalogueRequests.some(url => url.startsWith(`http://127.0.0.1:3204/${'b'.repeat(40)}/release/public/`)), `${name} music catalogue was not read from release B: ${catalogueRequests.join(', ')}`);
     page.off('request', noteCatalogue);
     active = 'a';

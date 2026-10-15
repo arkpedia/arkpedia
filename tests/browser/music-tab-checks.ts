@@ -23,9 +23,9 @@ import { expect, type Page } from '@playwright/test';
  */
 
 export const WIDTHS = [412, 390, 360];
-/** The pages the widget does not float on: /music is the player, and the music guesser
- *  hides it (components/music/MusicPlayer.tsx). */
-export const NO_WIDGET = new Set(['/music', '/games/music-guesser']);
+/** The pages the widget does not float on: /music and Discover have the music section's own
+ *  player bar, and the music guesser hides it (components/music/MusicPlayer.tsx). */
+export const NO_WIDGET = new Set(['/music', '/music/discover', '/games/music-guesser']);
 
 export interface Hit { what: string; box: string }
 

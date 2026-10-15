@@ -145,3 +145,23 @@ test('no code of the site reloads the page or sets its address', () => {
   }
   assert.deepEqual(found, [], 'a new document ends the music: navigate with next/router, and tell a store\'s readers with its event');
 });
+
+test('"Next in queue" survives a reload, and a record from before it existed loads with none', () => {
+  // Queued by the reader: d, then a (both still in the queue), and b, which they later removed.
+  const withQueued: MusicResumeState = { ...RECORD, queued: ['vid-d', 'vid-a', 'vid-b'] };
+  const storage = memory();
+  writeMusicResume(storage, withQueued);
+  const taken = takeMusicResume(storage, NOW)!;
+  assert.deepEqual(taken.queued, ['vid-d', 'vid-a', 'vid-b']);
+  // Only the queued songs the restored queue holds, and never the song playing.
+  assert.deepEqual(restoreQueue(CATALOGUE, taken)!.queued, ['vid-d', 'vid-a']);
+  assert.deepEqual(restoreQueue(CATALOGUE, { ...taken, queued: ['vid-c', 'vid-d'] })!.queued, ['vid-d']);
+  // A record written before the field existed: the same queue, nothing marked queued.
+  const old = parseMusicResume(JSON.stringify(RECORD))!;
+  assert.equal('queued' in old, false);
+  assert.deepEqual(restoreQueue(CATALOGUE, old)!.queued, []);
+  // A malformed list is dropped on its own; the rest of the record still resumes.
+  const broken = parseMusicResume(JSON.stringify({ ...RECORD, queued: ['ok', 'not a video id!'] }))!;
+  assert.equal(broken.videoId, 'vid-c');
+  assert.equal('queued' in broken, false);
+});

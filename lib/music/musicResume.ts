@@ -59,6 +59,15 @@ export interface MusicResumeState {
   shufflePosition: number;
   repeat: (typeof REPEAT_MODES)[number];
   volume: number;
+  /** The songs the reader queued (Play next, Add to queue) and has not heard yet, so the queue
+   *  still shows them as "Next in queue" after a reload. Absent from records written before
+   *  2026-10-13: those load with none. */
+  queued?: string[];
+  /** Explicit queue vs legacy catalogue-backed queue. */
+  queueMode?: 'chosen';
+  autoplay?: boolean;
+  autoplayOrder?: string[];
+  autoplayVideoId?: string;
 }
 
 type SessionStore = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
@@ -80,8 +89,9 @@ export function writeMusicResume(storage: SessionStore | null, state: MusicResum
   }
 }
 
-// A YouTube video id, as the player is handed it: nothing else reaches loadVideoById.
-const VIDEO_ID = /^[A-Za-z0-9_-]{1,64}$/;
+// A track id, as the player is handed it (lib/music/trackId.ts): a YouTube video id, or a Monster
+// Siren song's msr:<cid>. Nothing else reaches loadVideoById.
+const VIDEO_ID = /^(?:[A-Za-z0-9_-]{1,64}|msr:\d{1,12})$/;
 const isId = (value: unknown): value is string => typeof value === 'string' && VIDEO_ID.test(value);
 const isIdList = (value: unknown): value is string[] => Array.isArray(value) && value.length <= 20000 && value.every(isId);
 const isCount = (value: unknown): value is number => Number.isInteger(value) && (value as number) >= 0;
@@ -106,6 +116,12 @@ export function parseMusicResume(raw: string | null): MusicResumeState | null {
   if (value.playlistIds != null && !isIdList(value.playlistIds)) return null;
   if (value.playingPlaylistId != null && (typeof value.playingPlaylistId !== 'string' || !/^[a-zA-Z0-9_-]{1,100}$/.test(value.playingPlaylistId))) return null;
   return {
+    // Optional and only a label: a malformed list is dropped on its own, not the whole record.
+    ...(isIdList(value.queued) ? { queued: value.queued } : {}),
+    ...(value.queueMode === 'chosen' ? { queueMode: 'chosen' as const } : {}),
+    ...(typeof value.autoplay === 'boolean' ? { autoplay: value.autoplay } : {}),
+    ...(isIdList(value.autoplayOrder) ? { autoplayOrder: value.autoplayOrder } : {}),
+    ...(isId(value.autoplayVideoId) ? { autoplayVideoId: value.autoplayVideoId } : {}),
     ...(value.playlistIds !== undefined ? { playlistIds: value.playlistIds as string[] | null } : {}),
     ...(value.playingPlaylistId !== undefined ? { playingPlaylistId: value.playingPlaylistId as string | null } : {}),
     version: 1, savedAt, left, videoId, title, seconds, duration, playing, queue, queueIndex, shuffle,
@@ -149,6 +165,8 @@ export interface RestoredQueue<T> {
   /** Positions in `queue`, every one once; null when the record had none (shuffle off). */
   shuffleOrder: number[] | null;
   shufflePosition: number;
+  /** The record's queued songs still in `queue`, but not the song playing. */
+  queued: string[];
 }
 
 /**
@@ -184,5 +202,24 @@ export function restoreQueue<T extends { id: string }>(tracks: readonly T[], sta
       ? shuffleOrder.indexOf(queueIndex)
       : Math.min(state.shufflePosition, shuffleOrder.length - 1);
   }
-  return { queue, queueIndex, shuffleOrder, shufflePosition };
+  const playing = queue[queueIndex]?.id;
+  const queued = [...new Set(state.queued ?? [])].filter((id) => index.has(id) && id !== playing);
+  return { queue, queueIndex, shuffleOrder, shufflePosition, queued };
+}
+
+/** Legacy all-library queues become the automatic source, retaining their edited order.
+ * Saved/custom playlists stay chosen queues. No playlist or favourites storage is changed. */
+export function migrateChosenQueue(state: MusicResumeState, catalogueIds?: readonly string[]): MusicResumeState {
+  if (state.queueMode === 'chosen') return state;
+  const catalogue = new Set(catalogueIds ?? []);
+  const saved = new Set(state.queue);
+  const isFullLibrary = catalogue.size > 0 && catalogue.size === saved.size && [...catalogue].every(id => saved.has(id));
+  // Without positive evidence of the old default queue, retain every saved choice.
+  if (state.playlistIds != null || !isFullLibrary) return { ...state, queueMode: 'chosen', playlistIds: state.playlistIds ?? state.queue };
+  const chosen = new Set([state.videoId, ...(state.queued ?? [])]);
+  const queue = state.queue.filter(id => chosen.has(id));
+  const order = state.shuffleOrder?.filter(id => chosen.has(id)) ?? null;
+  return { ...state, queueMode: 'chosen', queue, queueIndex: Math.max(0, queue.indexOf(state.videoId)),
+    shuffleOrder: order, shufflePosition: Math.max(0, order?.indexOf(state.videoId) ?? 0),
+    autoplay: state.autoplay ?? true, autoplayOrder: state.shuffleOrder ?? state.queue };
 }

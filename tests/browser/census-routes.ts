@@ -255,7 +255,7 @@ export async function fontsSettled(page: Page, ms = 8000): Promise<boolean> {
 
 /** Only reads go to other hosts: a YouTube embed's POSTs are dropped. */
 export async function readOnly(page: Page) {
-  await page.route(/^https?:\/\/(?!127\.0\.0\.1|localhost)/, (route) => (['GET', 'HEAD'].includes(route.request().method()) ? route.continue() : route.abort()));
+  await page.route(/^https?:\/\/(?!127\.0\.0\.1|localhost)/, (route) => (['GET', 'HEAD'].includes(route.request().method()) ? route.fallback() : route.abort()));
 }
 
 /** Opens an address, or opens a state's page and drives it, then waits for the page to

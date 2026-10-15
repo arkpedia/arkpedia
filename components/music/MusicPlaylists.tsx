@@ -7,6 +7,7 @@ import { downloadBlob } from '@/lib/ui/downloadBlob';
 import { MUSIC_FAVORITES_EVENT, MUSIC_FAVORITES_KEY } from '@/lib/music/musicFavorites';
 import { formatPlaylistFile, MAX_PLAYLIST_BYTES, mergePlaylists, MUSIC_PLAYLISTS_EVENT, MUSIC_PLAYLISTS_KEY, readPlaylists, validatePlaylists, writePlaylists, initializeFavoritesPlaylist, FAVORITES_PLAYLIST_ID, isFavoritesPlaylistName, type MusicPlaylist } from '@/lib/music/musicPlaylists';
 import { parseMusicData } from '@/lib/music/musicData';
+import SongRow from './SongRow';
 
 export default function MusicPlaylists({ songs }: { songs: { videoId: string; title: string }[] }) {
   const player = useMusicPlayer();
@@ -19,6 +20,7 @@ export default function MusicPlaylists({ songs }: { songs: { videoId: string; ti
   const [busy, setBusy] = useState(false);
   const [visible, setVisible] = useState(50);
   const titles = new Map(songs.map(song => [song.videoId, song.title]));
+  const tracks = new Map([...player.libraryTracks, ...player.queue].map(track => [track.id, track]));
   const trigger = useRef<HTMLButtonElement>(null);
   const file = useRef<HTMLInputElement>(null);
   useEffect(() => {
@@ -121,7 +123,21 @@ export default function MusicPlaylists({ songs }: { songs: { videoId: string; ti
           <button type="button" className="ghost btn-sm" disabled={busy || chosen.id === FAVORITES_PLAYLIST_ID} onClick={() => store(playlists.filter(p => p.id !== chosen.id), `Removed ${chosen.name}. Use Undo to restore it.`)}>Delete playlist</button>
         </div>
         <div className="music-playlist-tracks"><ol>
-          {chosen.tracks.slice(0, visible).map(id => <li key={id}>{titles.get(id) ?? player.queue.find(t => t.id === id)?.title ?? `Unavailable song (${id})`}</li>)}
+          {chosen.tracks.slice(0, visible).map(id => {
+            const track = tracks.get(id);
+            // The songs' one row (components/music/SongRow.tsx); a song the catalogue no longer
+            // has keeps its place, named by its id, with nothing to play.
+            return <li key={id}>{track
+              ? <SongRow marker="music-playlist-row" song={track} active={player.videoId === id} queued={player.queued.has(id)} onPlay={() => void player.playNow(id)}
+                actions={{
+                  playNow: () => void player.playNow(id),
+                  playNext: player.videoId === id ? undefined : () => void player.queueSong(id, 'next'),
+                  addToQueue: player.videoId === id ? undefined : () => void player.queueSong(id, 'last'),
+                  favorite: { on: player.favorites.has(id), toggle: () => player.toggleFavorite(id) },
+                  playlist: true,
+                }} />
+              : <SongRow marker="music-playlist-row" song={{ id, title: titles.get(id) ?? `Unavailable song (${id})` }} disabled />}</li>;
+          })}
         </ol>
         <LoadOnScroll shown={visible} total={chosen.tracks.length} onMore={() => setVisible(n => n + 50)} /></div>
       </> : <p className="hint">Save your queue or favorites to create a playlist.</p>}

@@ -14,18 +14,29 @@ const { ClientDataGuard, deniedClientModules } = require('../build/client-bundle
 const release = { release: 'a'.repeat(64), baseUrl: 'https://example.test/rev/release', assets: {} };
 
 function song(videoId: string, extra: Partial<MonsterSirenSong> = {}): MonsterSirenSong {
-  return { videoId, title: `Title ${videoId}`, altTitle: null, artist: null, composer: 'Composer', credits: [{ role: 'composer', names: ['Composer'] }],
-    genre: [], characters: ['Someone'], origin: [], albumId: '1', albumName: 'Album', coverPath: null, copyright: false, length: '03:00',
+  return { trackId: videoId || `msr:${extra.songId}`, videoId, songId: '100000', title: `Title ${videoId}`, altTitle: null, artist: null, composer: 'Composer', credits: [{ role: 'composer', names: ['Composer'] }],
+    genre: [], characters: ['Someone'], origin: [], albumId: '1', albumName: 'Album', albumOriginalName: 'Album', coverPath: null, copyright: false, length: '03:00',
     lyricFilename: 'x.lrc', hasLyrics: true, ...extra };
 }
 
 test('the published queue catalogue carries what a queue row shows and nothing else', () => {
   assert.deepEqual(projectMusicCatalogue([
     song('plainVideo1'),
-    song('fullVideo01', { altTitle: 'English', artist: 'Singer', copyright: true }),
+    song('fullVideo01', { altTitle: 'English', artist: 'Singer', copyright: true,
+      albumName: 'Arknights OST 1', albumOriginalName: '明日方舟OST1', coverPath: '/album-covers/明日方舟OST1_cover.webp' }),
+    // No YouTube upload: named by its Monster Siren id, which the player plays it by.
+    song('', { songId: '697616', title: 'Yanking', coverPath: '/album-covers/Yanking_cover.webp' }),
+    // A songId that is not a Monster Siren id is left out; the song still plays from YouTube.
+    song('noSirenId01', { songId: 'n/a' }),
   ]), { songs: [
-    { videoId: 'plainVideo1', title: 'Title plainVideo1' },
-    { videoId: 'fullVideo01', title: 'Title fullVideo01', altTitle: 'English', artist: 'Singer', copyright: true },
+    // An album whose two names agree carries one; the original is kept only where it differs.
+    // A song on YouTube carries its Monster Siren id too: the player plays it from there unless
+    // Data saver is on (lib/music/musicPlayerContext.tsx, routeTrack).
+    { videoId: 'plainVideo1', cid: '100000', title: 'Title plainVideo1', album: 'Album' },
+    { videoId: 'fullVideo01', cid: '100000', title: 'Title fullVideo01', altTitle: 'English', artist: 'Singer', album: 'Arknights OST 1',
+      albumOriginal: '明日方舟OST1', cover: '/album-covers/明日方舟OST1_cover.webp', copyright: true },
+    { cid: '697616', title: 'Yanking', album: 'Album', cover: '/album-covers/Yanking_cover.webp' },
+    { videoId: 'noSirenId01', title: 'Title noSirenId01', album: 'Album' },
   ] });
 });
 
@@ -42,15 +53,55 @@ test('the player reads the release catalogue, and the deployment copy only when 
     requests.push(input);
     return input === MUSIC_CATALOGUE_PATH ? answer(200, deploySongs) : releaseAnswer;
   };
-  assert.deepEqual(await loadMusicCatalogue(url, undefined, serve(answer(200, releaseSongs))), [{ videoId: 'releaseOnly', title: 'In the release' }]);
+  assert.deepEqual(await loadMusicCatalogue(url, undefined, serve(answer(200, releaseSongs))), [{ videoId: 'releaseOnly', title: 'In the release', id: 'releaseOnly' }]);
   assert.deepEqual(requests, [url]);
   // A release published before the catalogue existed, or a broken one: the deploy's copy.
   for (const broken of [answer(404, null), answer(200, { songs: [] }), answer(200, { list: [] })]) {
     requests.length = 0;
-    assert.deepEqual(await loadMusicCatalogue(url, undefined, serve(broken)), deploySongs.songs);
+    assert.deepEqual(await loadMusicCatalogue(url, undefined, serve(broken)), deploySongs.songs.map(row => ({ ...row, id: row.videoId })));
     assert.deepEqual(requests, [url, MUSIC_CATALOGUE_PATH]);
   }
   await assert.rejects(() => loadMusicCatalogue(MUSIC_CATALOGUE_PATH, undefined, async () => answer(500, null)), /returned 500/);
+});
+
+test('the player gets one row per video: a song the release lists twice is queued once', async () => {
+  // The release listed ZCiLqOcjA0Y twice (切尔诺伯格, credited to BaoUner and to Yuki Hayashi): the
+  // default queue, built from this list, played it twice per cycle, its rows shared a React key,
+  // and Play next moved only the first copy (#407's browser Check, 2026-10-13).
+  const answer = { ok: true, status: 200, json: async () => ({ songs: [
+    { videoId: 'twice', title: '切尔诺伯格', artist: 'BaoUner' },
+    { videoId: 'once', title: 'Other' },
+    { videoId: 'twice', title: '切尔诺伯格', artist: 'Yuki Hayashi' },
+  ] }) };
+  const songs = await loadMusicCatalogue('https://example.test/catalogue.json', undefined, async () => answer);
+  assert.deepEqual(songs.map(song => song.videoId), ['twice', 'once']);
+  assert.equal(songs[0].artist, 'BaoUner', 'the first listing wins');
+});
+
+test('a song on YouTube with a Monster Siren id is still named by its video id, and keeps the cid it can play from', async () => {
+  const answer = { ok: true, status: 200, json: async () => ({ songs: [
+    { videoId: 'onYouTube01', cid: '697615', title: 'Both' },
+    // The same video listed again under its other cid: one row, the first listing's.
+    { videoId: 'onYouTube01', cid: '697699', title: 'Both, again' },
+    { videoId: 'onYouTube02', cid: '../x', title: 'A cid that is not one' },
+    { cid: '697616', title: 'Only on Monster Siren' },
+  ] }) };
+  const songs = await loadMusicCatalogue('https://example.test/catalogue.json', undefined, async () => answer);
+  assert.deepEqual(songs.map(song => [song.id, song.cid]), [['onYouTube01', '697615'], ['onYouTube02', undefined], ['msr:697616', '697616']]);
+  // A bad cid is dropped from the row, not kept for the player to route by.
+  assert.equal('cid' in songs[1], false);
+});
+
+test('a song with no YouTube upload is a catalogue row of its own, named msr:<cid>, and nothing else is', async () => {
+  const answer = { ok: true, status: 200, json: async () => ({ songs: [
+    { videoId: 'onYouTube01', title: 'On YouTube' },
+    { cid: '697616', title: 'Only on Monster Siren' },
+    { cid: '697616', title: 'Listed twice' },
+    // Neither id, both ids (a row has one), and a cid that is not a Monster Siren id.
+    { title: 'Nothing to play' }, { videoId: '', cid: '1', title: 'Blank video' }, { cid: '../x', title: 'Not an id' },
+  ] }) };
+  const songs = await loadMusicCatalogue('https://example.test/catalogue.json', undefined, async () => answer);
+  assert.deepEqual(songs.map(song => [song.id, song.title]), [['onYouTube01', 'On YouTube'], ['msr:697616', 'Only on Monster Siren']]);
 });
 
 test('every catalogue the release validator requires is published by the export and read from the release', () => {

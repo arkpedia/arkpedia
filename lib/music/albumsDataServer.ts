@@ -7,10 +7,14 @@
 import fs from 'fs';
 import path from 'path';
 import albumsRaw from '@/data/albums.json';
-import { albumCoverPath, getAllSongsFull, songsFromAlbums, MonsterSirenSong, RawAlbum, RawCredit } from './albumsData';
+import { albumCoverPath, getAllPlayerSongs, songsFromAlbums, MonsterSirenSong, RawAlbum, RawCredit } from './albumsData';
+import { lyricsPath } from './trackId';
 import { getAllOperators } from '@/lib/operators/operators';
 import { getOperatorAppearances } from '@/lib/operators/operatorAppearances';
 import { normalizeReleaseDate, parseReleaseDate } from './releaseDate.mjs';
+import { characterPortrait } from './characterPortraits.mjs';
+import { artistFacets } from './artistCredits';
+import { servedAssetExists } from '@/lib/assets/publicAssets';
 
 export interface CharacterArt {
   name: string;
@@ -36,9 +40,10 @@ export interface AlbumSummary {
   albumCategory: string[];
   albumGenre: string[];
   characters: string[];
-  /** Songs with a YouTube videoId: what the player can queue. */
+  /** Songs with a YouTube videoId. */
   songCount: number;
-  /** Songs Monster Siren published that have no videoId yet (the album sync flags each). */
+  /** Songs Monster Siren published that have no videoId yet (the album sync flags each); the
+   *  player plays these from Monster Siren (lib/music/trackId.ts). */
   pendingCount: number;
 }
 
@@ -56,11 +61,13 @@ function getRarityMap(): Map<string, number | null> {
   return rarityByName;
 }
 
+/** A character's art: an operator's Base outfit, else the game's own portrait of a character
+ *  who is not one (lib/music/characterPortraits.mjs), else null and the page draws initials. */
 function resolveCharacterArt(names: string[], prefer: 'icon' | 'full' = 'full'): CharacterArt[] {
   const rarities = getRarityMap();
   return names.map((name) => {
     const rarity = rarities.get(name);
-    if (rarity == null) return { name, path: null };
+    if (rarity == null) return { name, path: characterPortrait(name, servedAssetExists) };
     const appearances = getOperatorAppearances({ name, rarity });
     const base = appearances.find((a) => a.label.toLowerCase() === 'base');
     const path = prefer === 'icon' ? base?.iconPath || base?.fullPath || null : base?.fullPath || base?.iconPath || null;
@@ -122,6 +129,7 @@ export function parseLrc(content: string): LyricLine[] {
       lines.push({ time: minutes * 60 + seconds + fraction, text });
     }
   }
+  if (!lines.length && !/\[\d{1,3}:\d{2}/.test(content)) return content.split(/\r?\n/).map(text => text.trim()).filter(text => text && !/^\[[a-z]+:.*\]$/i.test(text) && !isCreditLine(text)).map(text => ({ time: 0, text }));
   return lines.sort((a, b) => a.time - b.time);
 }
 
@@ -178,7 +186,8 @@ export function albumSummaries(albums: readonly RawAlbum[]): AlbumSummary[] {
 let cachedSongDetails: SongDetail[] | null = null;
 function getAllSongDetails(): SongDetail[] {
   if (cachedSongDetails) return cachedSongDetails;
-  cachedSongDetails = getAllSongsFull().map((s) => ({
+  // The songs only Monster Siren has too: the player plays them, with their credits and lyrics.
+  cachedSongDetails = getAllPlayerSongs().map((s) => ({
     ...s,
     characterArt: resolveCharacterArt(s.characters),
     lyrics: getLyricsText(s.lyricFilename),
@@ -203,6 +212,8 @@ function getAllSongDetails(): SongDetail[] {
 // here at all -- see writeLyricsFilesToPublic below, which is how the
 // modal gets the real text on demand instead.
 export interface SongModalLookupEntry {
+  /** The track id (lib/music/trackId.ts): the YouTube video id, or msr:<cid> for a song that
+   *  plays from Monster Siren. Named videoId since releases carry it by that name. */
   videoId: string;
   title: string;
   albumName: string;
@@ -216,7 +227,7 @@ let cachedModalLookup: SongModalLookupEntry[] | null = null;
 export function getAllSongModalLookup(): SongModalLookupEntry[] {
   if (cachedModalLookup) return cachedModalLookup;
   cachedModalLookup = getAllSongDetails().map((s) => ({
-    videoId: s.videoId,
+    videoId: s.trackId,
     title: s.title,
     albumName: s.albumName,
     coverPath: s.coverPath,
@@ -246,7 +257,7 @@ export function writeLyricsFilesToPublic(): void {
   fs.mkdirSync(dir, { recursive: true });
   for (const s of getAllSongDetails()) {
     if (s.lyrics && s.lyrics.length > 0) {
-      const outPath = path.join(dir, `${s.videoId}.json`);
+      const outPath = path.join(process.cwd(), 'public', lyricsPath(s.trackId));
       fs.writeFileSync(outPath, JSON.stringify(s.lyrics), 'utf-8');
     }
   }
@@ -299,8 +310,23 @@ export interface DiscoverAlbum {
   albumAltName: string;
   coverPath: string | null;
   releaseDate: string;
-  /** False while none of its songs has a YouTube videoId: the player has nothing to queue. */
+  /** False while none of its songs has a YouTube videoId. Kept for releases that carry it; the
+   *  page no longer marks such an album, since its songs play from Monster Siren. */
   playable: boolean;
+}
+
+/** An album as Browse by album lists it: every album with a song the player can play. */
+export interface DiscoverBrowseAlbum {
+  albumId: string;
+  /** Its own name, often Chinese. */
+  albumName: string;
+  /** Its English name, or its own where it has none: what the tile shows. */
+  albumAltName: string;
+  coverPath: string | null;
+  /** YYYY/MM/DD, or '' when unknown (such an album is listed after every dated one). */
+  releaseDate: string;
+  /** The songs its tile opens: those on YouTube and those only Monster Siren has. */
+  songCount: number;
 }
 
 /** A song Monster Siren published that has no YouTube videoId yet, so the player cannot queue
@@ -321,8 +347,10 @@ export interface DiscoverPageData {
   songs: DiscoverSong[];
   characters: DiscoverCharacter[]; // sorted by mostRecentDate desc, NOT by count -- see DiscoverCharacter's own comment
   origins: DiscoverFacet[]; // sorted by count desc -- the story event an album is tied to. NO "unspecified" bucket like genre's Ungenred: most operator EPs simply aren't tied to any event at all, so a catch-all bucket here would just be "most of the catalog" and add no discovery value. Songs with no origin are omitted from this facet entirely, same as characters already does.
-  artists: DiscoverFacet[]; // sorted by count desc
+  artists: DiscoverFacet[]; // one entry per artist (lib/music/artistCredits.ts), most songs first, then by name
   recentAlbums: DiscoverAlbum[]; // sorted by releaseDate desc, capped
+  /** Every album, newest first, undated last: Browse by album. */
+  albums: DiscoverBrowseAlbum[];
   pendingSongs: DiscoverPendingSong[];
 }
 
@@ -344,6 +372,17 @@ export function newestFirst<T extends { releaseDate: string }>(albums: T[]): T[]
     .map((album) => ({ album, day: parseReleaseDate(normalizeReleaseDate(album.releaseDate)) }))
     .filter((row): row is { album: T; day: number } => row.day !== null)
     .sort((a, b) => b.day - a.day)
+    .map((row) => row.album);
+}
+
+/**
+ * Every album newest first by the day it names, the undated ones after them in the catalogue's
+ * order. Unlike newestFirst nothing is left out: Browse by album lists the whole catalogue.
+ */
+export function newestFirstKeepingUndated<T extends { releaseDate: string }>(albums: readonly T[]): T[] {
+  return albums
+    .map((album, index) => ({ album, index, day: releaseDay(normalizeReleaseDate(album.releaseDate) ?? '') }))
+    .sort((a, b) => (b.day === a.day ? a.index - b.index : b.day > a.day ? 1 : -1))
     .map((row) => row.album);
 }
 
@@ -378,7 +417,6 @@ export function discoverPageData(rawAlbums: readonly RawAlbum[]): DiscoverPageDa
   }));
 
   const allCharacterNames = fullSongs.flatMap((s) => s.characters);
-  const allArtistNames = fullSongs.map((s) => s.artist).filter((a): a is string => !!a);
   const allOriginNames = fullSongs.flatMap((s) => s.origin);
 
   const albums = albumSummaries(rawAlbums);
@@ -434,26 +472,70 @@ export function discoverPageData(rawAlbums: readonly RawAlbum[]): DiscoverPageDa
       playable: a.songCount > 0,
     }));
 
+  // Every album with a song to play; albumSummaries leaves out an album with none, and a song
+  // with no YouTube upload plays from Monster Siren, so no album is listed that opens on nothing.
+  const browseAlbums: DiscoverBrowseAlbum[] = newestFirstKeepingUndated(albums).map((a) => ({
+    albumId: a.albumId,
+    albumName: a.albumName,
+    albumAltName: a.albumAltName,
+    coverPath: a.coverPath,
+    releaseDate: a.releaseDate,
+    songCount: a.songCount + a.pendingCount,
+  }));
+
   return {
     songs,
     characters,
     origins: countBy(allOriginNames),
-    artists: countBy(allArtistNames),
+    artists: artistFacets(songs),
     recentAlbums,
+    albums: browseAlbums,
     pendingSongs,
   };
 }
 
+/**
+ * Browse by album's list from what a release compiled before it existed does carry: one entry
+ * per album its songs name, in the order they name them, with the counts its tile opens on. The
+ * dates come from Recently added, the only albums such a release dates, so those lead (newest
+ * first) and the rest follow newest first by the catalogue's order, which adds each album after
+ * the ones before it. The next release this code compiles carries the real list.
+ */
+export function browseAlbumsFromSongs(
+  songs: readonly Pick<DiscoverSong, 'albumId' | 'albumName' | 'coverPath'>[],
+  recentAlbums: readonly Pick<DiscoverAlbum, 'albumId' | 'albumName' | 'albumAltName' | 'releaseDate'>[],
+): DiscoverBrowseAlbum[] {
+  const recent = new Map(recentAlbums.map((a) => [a.albumId, a]));
+  const byId = new Map<string, DiscoverBrowseAlbum>();
+  for (const song of songs) {
+    const known = byId.get(song.albumId);
+    if (known) { known.songCount += 1; continue; }
+    const dated = recent.get(song.albumId);
+    byId.set(song.albumId, {
+      albumId: song.albumId,
+      albumName: dated?.albumName ?? song.albumName,
+      albumAltName: dated?.albumAltName ?? song.albumName,
+      coverPath: song.coverPath,
+      releaseDate: dated?.releaseDate ?? '',
+      songCount: 1,
+    });
+  }
+  const all = Array.from(byId.values());
+  const leading = newestFirst(all.filter((a) => a.releaseDate));
+  return [...leading, ...all.filter((a) => !leading.includes(a)).reverse()];
+}
+
 /** The Discover page's props, as a release this code compiled carries them or as an older
  * one does. */
-type DiscoverReleaseProps = Omit<DiscoverPageData, 'pendingSongs' | 'recentAlbums'> & {
+type DiscoverReleaseProps = Omit<DiscoverPageData, 'pendingSongs' | 'recentAlbums' | 'albums'> & {
   pendingSongs?: DiscoverPendingSong[];
+  albums?: DiscoverBrowseAlbum[];
   recentAlbums: (Omit<DiscoverAlbum, 'playable'> & { playable?: boolean })[];
 };
 
 /**
- * Discover's props with `pendingSongs` and each recent album's `playable`, whichever release
- * they came from.
+ * Discover's props with `pendingSongs`, each recent album's `playable` and Browse by album's
+ * `albums`, whichever release they came from.
  *
  * A release compiled before those two existed has neither, and production renders the live
  * release, which after a deploy is still the one the previous code compiled (the release
@@ -465,13 +547,31 @@ type DiscoverReleaseProps = Omit<DiscoverPageData, 'pendingSongs' | 'recentAlbum
  * compiled passes through unchanged (the same object).
  * scripts/tests/test-previous-release-props.ts renders the page from the live release's copy.
  */
-export function discoverFromRelease<P extends DiscoverReleaseProps>(props: P): P & Pick<DiscoverPageData, 'pendingSongs' | 'recentAlbums'> {
-  const complete = Array.isArray(props.pendingSongs) && props.recentAlbums.every((a) => typeof a.playable === 'boolean');
-  if (complete) return props as P & Pick<DiscoverPageData, 'pendingSongs' | 'recentAlbums'>;
+export function discoverFromRelease<P extends DiscoverReleaseProps>(props: P): P & Pick<DiscoverPageData, 'pendingSongs' | 'recentAlbums' | 'albums'> {
+  const complete = Array.isArray(props.pendingSongs) && Array.isArray(props.albums) && props.recentAlbums.every((a) => typeof a.playable === 'boolean');
+  if (complete) return props as P & Pick<DiscoverPageData, 'pendingSongs' | 'recentAlbums' | 'albums'>;
   const onYouTube = new Set(props.songs.map((s) => s.albumId));
+  const pendingSongs = Array.isArray(props.pendingSongs) ? props.pendingSongs : [];
   return {
     ...props,
-    pendingSongs: Array.isArray(props.pendingSongs) ? props.pendingSongs : [],
+    pendingSongs,
     recentAlbums: props.recentAlbums.map((a) => (typeof a.playable === 'boolean' ? a as DiscoverAlbum : { ...a, playable: onYouTube.has(a.albumId) })),
+    // Browse by album (2026-10-14): a release compiled before it has no list of albums.
+    albums: Array.isArray(props.albums) ? props.albums : browseAlbumsFromSongs([...props.songs, ...pendingSongs], props.recentAlbums),
+  };
+}
+
+/**
+ * What the page draws from a release's props, by this code's rules rather than the rules of the
+ * code that compiled the release: the artists split, folded and counted (artistFacets), and a
+ * portrait for every character the release left without one (characterPortraits.mjs). A release
+ * compiled before either rule listed combined credits and drew an empty square for the Doctor;
+ * this way the deploy alone fixes both, with no new release.
+ */
+export function discoverForDisplay<P extends Pick<DiscoverPageData, 'songs' | 'characters' | 'artists'>>(props: P): P {
+  return {
+    ...props,
+    artists: artistFacets(props.songs),
+    characters: props.characters.map((c) => (c.artPath ? c : { ...c, artPath: characterPortrait(c.name, servedAssetExists) })),
   };
 }

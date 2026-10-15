@@ -1155,11 +1155,6 @@ a.primary:where(:has(~ :is(button, a).ghost)),
     display: none;
   }
 }
-@keyframes title-marquee {
-  0%, 12% { transform: translateX(0); }
-  50% { transform: translateX(calc(-1 * var(--scroll-distance))); }
-  88%, 100% { transform: translateX(0); }
-}
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -1744,3 +1739,9 @@ a.primary:where(:has(~ :is(button, a).ghost)),
 .chibi-roaming .chibi-furniture-sit { top: 31.1111%; }
 .chibi-roaming .chibi-furniture-sleep { top: 34.4444%; }
 @media (max-width: 650px) { .chibi-window .chibi-viewer { height: min(180px, max(60px, calc(100dvh - 220px))); } }
+
+/* Compact tool header: one title/action row, with the section eyebrow above it. */
+.page-header-compact { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 12px; align-items: center; }
+.page-header-compact > .eyebrow { grid-column: 1 / -1; }
+.page-header-compact > .page-header-actions { margin-top: 0; }
+.page-header-compact > h1 { margin-bottom: 0; }

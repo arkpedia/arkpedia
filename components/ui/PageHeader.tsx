@@ -16,6 +16,8 @@ interface PageHeaderProps {
   /** Less vertical air, for a tool whose first screen should be the tool. The
    *  title stays the same size: slim is spacing, not hierarchy. */
   slim?: boolean;
+  /** Tool header with its actions beside the title, keeping the first viewport for content. */
+  compact?: boolean;
   /** An id for the h1, when a landmark or a skip link names it. */
   titleId?: string;
   /** A detail page's Back, above the eyebrow: to the page before it in this tab, else to the
@@ -36,9 +38,9 @@ interface PageHeaderProps {
  * header nested in it starts 24px to the right of the content below
  * (tests/browser/page-bounds.spec.ts measures that edge on every route).
  */
-export default function PageHeader({ eyebrow, title, sub, actions, slim = false, titleId, back }: PageHeaderProps) {
+export default function PageHeader({ eyebrow, title, sub, actions, slim = false, compact = false, titleId, back }: PageHeaderProps) {
   return (
-    <header className={`page-header${slim ? ' page-header-slim' : ''}`}>
+    <header className={`page-header${slim ? ' page-header-slim' : ''}${compact ? ' page-header-compact' : ''}`}>
       {back ? <BackLink href={back.href} label={back.label} /> : null}
       <div className="eyebrow">{eyebrow}</div>
       <h1 id={titleId}>{title}</h1>

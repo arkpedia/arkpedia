@@ -1,5 +1,6 @@
 /**
- * The music favourites (the ♥ on the player): YouTube video ids, a JSON list in this browser's
+ * The music favourites (the ♥ on the player): track ids (YouTube video ids, or msr:<cid> for a
+ * song that plays from Monster Siren, lib/music/trackId.ts), a JSON list in this browser's
  * localStorage. The player (lib/music/musicPlayerContext.tsx) holds them for as long as the
  * site is open, and the Import / export dialog can restore them under it from a backup
  * (lib/account/backup.ts) without reloading the page, so the restore says so with

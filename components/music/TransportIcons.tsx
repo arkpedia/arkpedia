@@ -4,9 +4,15 @@
  * baseline it chose -- iOS drew ⏸ as a colour emoji. One 20px grid, currentColor, so
  * each takes the colour of the button it sits in (teal when that button is on).
  */
-type IconName = 'prev' | 'play' | 'pause' | 'next' | 'shuffle' | 'repeat' | 'list' | 'heart' | 'plus' | 'streamSafe' | 'close' | 'note' | 'loading' | 'more' | 'back' | 'up' | 'down' | 'reorder' | 'trash';
+type IconName = 'prev' | 'play' | 'pause' | 'next' | 'shuffle' | 'repeat' | 'list' | 'heart' | 'plus' | 'streamSafe' | 'close' | 'note' | 'loading' | 'more' | 'back' | 'up' | 'down' | 'reorder' | 'trash' | 'playNext' | 'addToQueue' | 'queue' | 'library' | 'nowPlaying';
 
 const PATHS: Record<IconName, JSX.Element> = {
+  // Play next: a song lifted to the top of a list. Add to queue: a song added at its end.
+  playNext: <><path d="M3.5 5.5h8M3.5 10h8M3.5 14.5h13" /><path d="M14.5 9V3.5M12.2 5.7l2.3-2.2 2.3 2.2" /></>,
+  addToQueue: <><path d="M3.5 5.5h13M3.5 10h8M3.5 14.5h8" /><path d="M14.5 9.5v6M11.5 12.5h6" /></>,
+  queue: <><path d="M3.5 5.5h13M3.5 10h13M3.5 14.5h7" /><path d="M13 12.5v4l3.5-2z" fill="currentColor" stroke="none" /></>,
+  library: <><path d="M4 3.5v13M7.5 3.5v13" /><path d="m11 4 4.5 12.3" /></>,
+  nowPlaying: <><circle cx="10" cy="10" r="6.5" /><circle cx="10" cy="10" r="1.6" fill="currentColor" stroke="none" /></>,
   trash: <><path d="M4 6h12M8 6V3h4v3M6 6l1 11h6l1-11M9 9v5M11 9v5" /></>,
   more: <><circle cx="4" cy="10" r="1.4" fill="currentColor" stroke="none" /><circle cx="10" cy="10" r="1.4" fill="currentColor" stroke="none" /><circle cx="16" cy="10" r="1.4" fill="currentColor" stroke="none" /></>,
   back: <path d="m12 4-6 6 6 6" />,

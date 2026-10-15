@@ -1,16 +1,18 @@
 import { expect, test } from '@playwright/test';
-import { stubYouTube, youtube } from './youtube-stub';
+import { playAllSongs, stubYouTube, youtube } from './youtube-stub';
 
 for (const theme of ['dark', 'light']) {
   test(`saved playlists export and import without interrupting music (${theme})`, async ({ page }) => {
     await page.addInitScript(value => localStorage.setItem('theme', value), theme);
     await stubYouTube(page);
-    await page.goto('/music');
+    await page.goto('/music?view=queue');
+  await playAllSongs(page);
     await expect(page.locator('.music-queue-row').first()).toBeVisible();
-    await page.locator('.music-queue-row').first().locator('.music-queue-row-title').click();
+    await page.locator('.music-queue-row').first().locator('.music-song-row-main').click();
     await expect.poll(async () => (await youtube(page))?.state).toBe(1);
     const before = (await youtube(page))!;
-    await page.getByRole('button', { name: 'Favorite', exact: true }).click();
+    // The bar's heart, at every width (beside the song on a phone).
+    await page.locator('.music-player-bottombar').getByRole('button', { name: 'Favourite', exact: true }).click();
     await page.getByRole('button', { name: 'Playlists', exact: true }).click();
     const dialog = page.getByRole('dialog', { name: 'Music playlists' });
     await dialog.getByRole('textbox', { name: 'New playlist name' }).fill('Night music');
@@ -55,7 +57,8 @@ for (const theme of ['dark', 'light']) {
 
 test('an imported playlist plays in its saved order and stream-safe does not add unrelated songs after reload', async ({ page }) => {
   await stubYouTube(page);
-  await page.goto('/music');
+  await page.goto('/music?view=queue');
+  await playAllSongs(page);
   await expect(page.locator('.music-queue-row').first()).toBeVisible();
   await page.getByRole('button', { name: 'Playlists', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Music playlists' });
@@ -77,13 +80,15 @@ test('an imported playlist plays in its saved order and stream-safe does not add
   await page.getByRole('button', { name: 'Next track', exact: true }).click();
   await expect.poll(async () => (await youtube(page))?.videoId).toBe(ids[1]);
   await page.reload();
+  // The first song has played: the Queue keeps it under Played earlier, folded.
+  await page.getByRole('button', { name: /^Played earlier/ }).click();
   await expect(page.locator('.music-queue-row')).toHaveCount(2);
   const safe = page.getByRole('button', { name: 'Stream-safe: hide copyrighted songs', exact: true });
   // The compact phone transport hides this optional control; exercise it where it is exposed.
   if (await safe.isVisible()) { await safe.click(); await safe.click(); }
   await expect(page.locator('.music-queue-row')).toHaveCount(2);
   await page.getByRole('button', { name: 'Playlists', exact: true }).click();
-  await page.getByRole('button', { name: 'Play all songs', exact: true }).click();
+  await page.getByRole('dialog', { name: 'Music playlists' }).getByRole('button', { name: 'Play all songs', exact: true }).click();
   await page.keyboard.press('Escape');
   await expect.poll(() => page.locator('.music-queue-row').count()).toBeGreaterThan(2);
 });

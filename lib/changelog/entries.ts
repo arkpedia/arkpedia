@@ -34,6 +34,34 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-10-15T01:00:00Z',
+    title: 'The new music player',
+    added: [
+      { title: 'Discover, Library, Now playing and Queue', detail: 'One menu across the music pages; Back and Forward step between them without stopping the song.', href: '/music' },
+      { title: 'Music keeps playing in the background', detail: 'Songs play from Monster Siren\'s own files, so they go on when you switch apps or lock your phone.', href: '/music' },
+      { title: 'Data saver', detail: 'In the player\'s More menu: play songs from YouTube instead, which uses far less data but stops in the background.', href: '/music' },
+      { title: 'Lock-screen controls and covers', detail: 'Your phone\'s lock screen shows the song, its album cover and play, pause, next and seek.', href: '/music' },
+      { title: 'Every Monster Siren song', detail: 'Songs with no YouTube upload yet play too, from Monster Siren.', href: '/music' },
+      { title: 'Play next and Add to queue', detail: 'Line songs up from the Library or Discover; Play now plays a song and keeps the rest of your queue.', href: '/music' },
+      { title: 'Browse by album', detail: 'Every album on Discover as a cover grid, newest first or A-Z, with a filter.', href: '/music/discover' },
+      { title: 'Clear the queue', detail: 'Keep only the song playing, with Undo; the queue shows what you queued and what plays after it.', href: '/music' },
+    ],
+    changed: [
+      { title: 'The player follows you', detail: 'The song stays at the bottom of every music view, and a compact player sits in the corner on other pages.', href: '/music/discover' },
+      { title: 'One-tap favourite everywhere', detail: 'The heart sits on every song row, the player bar and the corner player.', href: '/music' },
+      { title: 'One song row everywhere', detail: 'Every song list shows the album art, title, artist and album the same way, with icon actions that name themselves.', href: '/music' },
+      { title: 'Search songs by album, with typos', detail: 'Music searches match titles, albums in English or Chinese and artists, in any word order, and forgive a typo.', href: '/music' },
+      { title: 'Featured artists, one card each', detail: 'Shared credits are split into artists, with their song counts, sorted by the most songs.', href: '/music/discover' },
+      { title: 'Portraits for every character', detail: 'Browse by character shows story characters like Doctor, Theresa and Rat King with their own art.', href: '/music/discover' },
+    ],
+    fixed: [
+      { title: 'Music on iPhones', detail: 'A tap starts the song at once, and a song that cannot start says so instead of showing Pause over silence.', href: '/music' },
+      { title: 'Music on networks the CDN misses', detail: 'Where Monster Siren\'s nearest server does not deliver, songs come through Arkpedia\'s own relay instead.', href: '/music' },
+      { title: 'Queued songs after a reload', detail: 'Songs you queued stay under Next in queue when the page reloads.', href: '/music' },
+      { title: 'Links right after a search', detail: 'Following a link just after typing in a search no longer brings you back to the search.', href: '/music/discover' },
+    ],
+  },
+  {
     at: '2026-10-14T05:00:00Z',
     title: 'Gacha pools that follow Kernel Headhunting',
     changed: [

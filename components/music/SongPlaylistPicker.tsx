@@ -9,7 +9,10 @@ import { addSongToPlaylists, MUSIC_PLAYLISTS_EVENT, MUSIC_PLAYLISTS_KEY, readPla
 
 type Song = { id: string; title: string };
 
-export default function SongPlaylistPicker({ song, player = false }: { song: Song; player?: boolean }) {
+/** `row`: a song row's icon action (components/music/SongRow.tsx), named and with the rows'
+ *  hover/focus tooltip, so it reads apart from Add to queue; the player bar keeps its square +
+ *  (`player`). */
+export default function SongPlaylistPicker({ song, player = false, row = false }: { song: Song; player?: boolean; row?: boolean }) {
   const { open, setOpen, close, buttonRef, menuRef, menuStyle } = useAnchoredPopover(320);
   const id = useId();
   useEffect(() => { close(); }, [song.id, close]);
@@ -18,8 +21,8 @@ export default function SongPlaylistPicker({ song, player = false }: { song: Son
     buttonRef.current?.focus({ preventScroll: true });
   }
   return <>
-    <button ref={buttonRef} type="button" className={player ? "filter-chip music-playlist-add-btn" : "ghost"} disabled={!song.id} onClick={() => setOpen(value => !value)}
-      aria-label={`Add ${song.title} to playlists`} title="Add to playlists"
+    <button ref={buttonRef} type="button" className={player ? "filter-chip music-playlist-add-btn" : row ? "ghost music-song-action" : "ghost"} disabled={!song.id} onClick={() => setOpen(value => !value)}
+      aria-label={row ? `Add to playlist: ${song.title}` : `Add ${song.title} to playlists`} title={row ? undefined : 'Add to playlist'} data-tip={row ? 'Add to playlist' : undefined}
       aria-expanded={open} aria-haspopup="dialog" aria-controls={open ? id : undefined}>
       <TransportIcon name="plus" size={18} />
     </button>

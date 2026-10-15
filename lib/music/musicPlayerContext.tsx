@@ -1,26 +1,24 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, ReactNode } from 'react';
 import { useRouter } from 'next/router';
-import { MUSIC_CHANNEL_ID, getUploadsPlaylistId } from './musicConfig';
-import { fetchVideoOEmbedInfo } from './youtube';
 import { useContentUrl } from '@/lib/content/context';
 import { GAME_PATHS } from '@/lib/minigames/catalogue';
 import { MUSIC_CATALOGUE_PATH, loadMusicCatalogue, type MusicCatalogueSong } from './musicCatalogue';
 import { MUSIC_FAVORITES_EVENT, MUSIC_FAVORITES_KEY, readMusicFavorites } from './musicFavorites';
-import { restoreQueue, sessionStore, takeMusicResume, writeMusicResume, type MusicResumeState } from './musicResume';
+import { migrateChosenQueue, restoreQueue, sessionStore, takeMusicResume, writeMusicResume, type MusicResumeState } from './musicResume';
+import { songTitle } from './musicPolish';
+import { clearUpcoming, placeSong, restoreAround, type Placement, type QueueState } from './queueOps';
+import { PLAYER_STATE, createMsrAudioEngine, createTrackEngine, type EngineKind, type MsrAudioEngine, type PlaybackEngine, type TrackEngine } from './playbackEngine';
+import { trackSource, type TrackSource } from './trackId';
+import { useMsrMediaSession } from './useMsrMediaSession';
+import { SITE_ICON_PATH, artistLine, imageType, msrCoverPath, sessionArtwork, useSongArt, youtubeThumbnail } from './songArt';
+import { musicAudioElement, primeMusicAudio } from './audioElement';
+import AudioDebugPanel from '@/components/music/AudioDebugPanel';
 
-export interface YTPlayer {
-  playVideo(): void;
-  pauseVideo(): void;
-  setVolume(v: number): void;
+/** YouTube's iframe player, which is a PlaybackEngine as it stands (lib/music/playbackEngine.ts). */
+export interface YTPlayer extends PlaybackEngine {
   mute(): void;
   unMute(): void;
-  seekTo(seconds: number, allowSeekAhead: boolean): void;
-  getCurrentTime(): number;
-  getDuration(): number;
   getPlaylist(): string[] | undefined;
-  getVideoData(): { title?: string; video_id?: string };
-  loadVideoById(video: string | { videoId: string; startSeconds?: number }): void;
-  cueVideoById(video: string | { videoId: string; startSeconds?: number }): void;
 }
 
 declare global {
@@ -39,6 +37,11 @@ declare global {
 const RESUME_CUE_MS = 8000;
 const RESUME_PLAY_MS = 3000;
 const RESUME_BUFFER_MS = 20000;
+
+/** Data saver (localStorage, 'true' or 'false'; off when absent): songs play from YouTube, a few
+ *  MB each, instead of Monster Siren's own files (35-65 MB), which keep playing while the page is
+ *  hidden. A song with no YouTube upload plays from Monster Siren either way. */
+export const MUSIC_DATA_SAVER_KEY = 'arkpediaMusicDataSaver';
 
 let apiLoadPromise: Promise<void> | null = null;
 
@@ -66,16 +69,46 @@ export interface QueueTrack {
   title: string;
   altTitle?: string | null;
   artist?: string | null;
+  /** Album (English where it has one), its own name when different, and cover: the song row's
+   *  art and second line. Absent from a catalogue published before they were added. */
+  album?: string | null;
+  albumOriginal?: string | null;
+  cover?: string | null;
 }
 
+/** Where the queue came from, for the Queue view's "Playing from": every song (the default),
+ *  a saved playlist, or the reader's own (a queue they cleared and built up again). */
+export type QueueSource = 'all' | 'playlist' | 'custom';
+
+/** What a queue action did, shown under the transport for a moment (pages/music). */
+export interface MusicNotice {
+  id: number;
+  text: string;
+  /** Clear queue can be undone from the notice. */
+  undo?: boolean;
+  /** About playback itself (a song that would not start), not a queue action: it stays until the
+   *  next Play, links to no queue, and the corner player shows it too. */
+  playback?: boolean;
+}
+
+/** What the player says when a Monster Siren song made no sound, even from a fresh address. */
+export const STUCK_NOTICE = 'Couldn’t start this song. Tap Play to try again.';
+
+export type QueueSongResult = 'queued' | 'current' | 'unavailable';
+
 function toQueueTrack(song: MusicCatalogueSong): QueueTrack {
-  return { id: song.videoId, title: song.title, altTitle: song.altTitle ?? null, artist: song.artist ?? null };
+  return { id: song.id, title: song.title, altTitle: song.altTitle ?? null, artist: song.artist ?? null,
+    album: song.album ?? null, albumOriginal: song.albumOriginal ?? null, cover: song.cover ?? null };
 }
 
 interface MusicPlayerContextValue {
   ready: boolean;
   starting: boolean;
+  /** Sound is coming out. A Monster Siren song is playing only once its clock moves. */
   isPlaying: boolean;
+  /** A play was asked for and no sound comes yet (Monster Siren's audio loading, or waiting for
+   *  data): the Play button shows loading, still pressable to stop. */
+  buffering: boolean;
   title: string;
   videoId: string;
   volume: number;
@@ -91,7 +124,28 @@ interface MusicPlayerContextValue {
   shufflePosition: number; // where the currently-playing track sits within shuffleOrder
   queueLoading: boolean;
   playingPlaylistId: string | null;
+  /** Songs the reader queued (Play next, Add to queue) that have not played yet. */
+  queued: ReadonlySet<string>;
+  queueSource: QueueSource;
+  libraryTracks: QueueTrack[];
+  currentTrack: QueueTrack | undefined;
+  /** The playing song's picture: the catalogue's cover (a /album-covers/ path), else Monster
+   *  Siren's album cover or the YouTube thumbnail (absolute addresses), else null (lib/music/songArt.ts). */
+  nowPlayingCover: string | null;
+  /** The playing song's artist: the catalogue's, else Monster Siren's credit, else null. */
+  nowPlayingArtist: string | null;
+  autoplay: boolean;
+  autoplayVideoId: string;
+  autoplayTracks: QueueTrack[];
+  setAutoplay: (enabled: boolean) => void;
+  notice: MusicNotice | null;
+  dismissNotice: () => void;
   excludeCopyrighted: boolean; // "stream-safe mode" -- filters copyrighted songs out of the queue entirely, not just a display filter on one page
+  /** Data saver (MUSIC_DATA_SAVER_KEY): play songs from YouTube rather than Monster Siren's files. */
+  dataSaver: boolean;
+  setDataSaver: (on: boolean) => void;
+  /** The engine playing the song loaded now: Monster Siren's audio or YouTube's player. */
+  engineKind: EngineKind;
   initializePlayer: () => void;
   togglePlay: () => void;
   pausePlayback: () => void;
@@ -112,6 +166,14 @@ interface MusicPlayerContextValue {
   reorderShuffleOrder: (fromPos: number, toPos: number) => void;
   moveQueueItemToTop: (index: number) => void;
   removeFromQueue: (index: number) => void;
+  /** Plays a song right away; the rest of the queue plays on after it. */
+  playNow: (videoId: string) => void;
+  /** Play next (right after the current song) or Add to queue (after the songs already queued). */
+  queueSong: (videoId: string, where: Placement) => Promise<QueueSongResult>;
+  /** Takes out every song but the one playing; undoClearQueue puts them back. */
+  clearQueue: () => void;
+  undoClearQueue: () => void;
+  canUndoClear: boolean;
   setExcludeCopyrighted: (v: boolean) => void;
   containerRef: React.RefObject<HTMLDivElement>;
 }
@@ -125,7 +187,11 @@ export function useMusicPlayer(): MusicPlayerContextValue {
 }
 
 export function MusicPlayerProvider({ children }: { children: ReactNode }) {
-  const playerRef = useRef<YTPlayer | null>(null);
+  // The player's engine (lib/music/playbackEngine.ts): YouTube's iframe for a song on YouTube,
+  // Monster Siren's audio for one that is not, behind one surface. Set once YouTube is ready.
+  const playerRef = useRef<TrackEngine | null>(null);
+  const audioRef = useRef<MsrAudioEngine | null>(null);
+  const playerCreatedRef = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const catalogRef = useRef<MusicCatalogueSong[] | null>(null);
   const catalogPromiseRef = useRef<Promise<MusicCatalogueSong[]> | null>(null);
@@ -168,10 +234,13 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   // all, which read as broken rather than just loading.
   const [starting, setStarting] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [buffering, setBufferingState] = useState(false);
+  const bufferingRef = useRef(false);
+  const setBuffering = (on: boolean) => { bufferingRef.current = on; setBufferingState(on); };
   const [title, setTitle] = useState('');
   const [videoId, setVideoId] = useState('');
   const [volume, setVolume] = useState(50);
-  const [shuffle, setShuffle] = useState(true);
+  const [shuffle, setShuffle] = useState(false);
   const [repeatMode, setRepeatMode] = useState<RepeatMode>('off');
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [currentTime, setCurrentTime] = useState(0);
@@ -179,12 +248,65 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   const [seeking, setSeeking] = useState(false);
   const [excludeCopyrighted, setExcludeCopyrightedState] = useState(false);
   const excludeCopyrightedRef = useRef(false);
+  const [dataSaver, setDataSaverState] = useState(false);
+  const dataSaverRef = useRef(false);
+  const [engineKind, setEngineKind] = useState<EngineKind>('youtube');
+  // A song an automatic advance (an end, a skip) loaded into YouTube while the page was hidden,
+  // until it plays: a phone may never start it there (see the visibility effect below).
+  const hiddenLoadRef = useRef<string | null>(null);
+  useEffect(() => {
+    try {
+      dataSaverRef.current = window.localStorage.getItem(MUSIC_DATA_SAVER_KEY) === 'true';
+      setDataSaverState(dataSaverRef.current);
+    } catch { /* refused: off */ }
+  }, []);
 
+  const [libraryTracks, setLibraryTracks] = useState<QueueTrack[]>([]);
+  const [autoplay, setAutoplayState] = useState(false);
+  const autoplayRef = useRef(false);
+  const [autoplayVideoId, setAutoplayVideoId] = useState('');
+  const autoplayVideoIdRef = useRef('');
+  const autoplayOrderRef = useRef<string[]>([]);
+  function setAutoplay(enabled: boolean) {
+    autoplayRef.current = enabled; setAutoplayState(enabled);
+    try { window.localStorage.setItem('arkpediaMusicAutoplay', String(enabled)); } catch { /* refused */ }
+  }
+  useEffect(() => {
+    try { const saved = window.localStorage.getItem('arkpediaMusicAutoplay');
+      if (saved !== null) { autoplayRef.current = saved === 'true'; setAutoplayState(autoplayRef.current); }
+    } catch { /* refused */ }
+  }, []);
   const [queue, setQueue] = useState<QueueTrack[]>([]);
   const [queueIndex, setQueueIndex] = useState(0);
   const [queueLoading, setQueueLoading] = useState(false);
   const [playingPlaylistId, setPlayingPlaylistId] = useState<string | null>(null);
   const playingPlaylistIdRef = useRef<string | null>(null);
+  const [queued, setQueued] = useState<ReadonlySet<string>>(new Set());
+  const queuedRef = useRef<ReadonlySet<string>>(new Set());
+  const [queueSource, setQueueSourceState] = useState<QueueSource>('custom');
+  const queueSourceRef = useRef<QueueSource>('custom');
+  const setQueueSource = (source: QueueSource) => { queueSourceRef.current = source; setQueueSourceState(source); };
+  const [notice, setNotice] = useState<MusicNotice | null>(null);
+  const noticeIdRef = useRef(0);
+  const announce = (text: string, undo = false, playback = false) => { noticeIdRef.current += 1; setNotice({ id: noticeIdRef.current, text, undo, playback }); };
+  const dismissNotice = useCallback(() => setNotice(null), []);
+  /** A play asked for: a notice about the last one that would not start is done with. */
+  const clearPlaybackNotice = () => setNotice((current) => (current?.playback ? null : current));
+  /** Called first in every press that asks for music, with the song it asks for when it knows
+   *  it. An iPhone starts sound only inside a press: where the engine cannot play that song in
+   *  this same press -- YouTube's player API, which the player waits for, has not loaded, or the
+   *  <audio> has never had a file -- the song's own file is set and played here
+   *  (lib/music/audioElement.ts primeMusicAudio), and the engine takes it over. */
+  const primeAudio = (id?: string | null, seconds = 0) => {
+    clearPlaybackNotice();
+    const source = id ? routeTrack(id) : null;
+    if (source?.kind !== 'msr') return;
+    if (playerReadyRef.current && playerRef.current && musicAudioElement().getAttribute('src')) return;
+    primeMusicAudio(source.cid, seconds);
+  };
+  // The queue as Clear queue found it, for Undo.
+  const clearedRef = useRef<{ state: QueueState<QueueTrack>; playlistIds: string[] | null; playingPlaylistId: string | null; source: QueueSource } | null>(null);
+  const [canUndoClear, setCanUndoClear] = useState(false);
   // Shuffle is a full pre-computed permutation of queue indices, not a
   // fresh random roll on every advance -- that's what lets "Up next",
   // the queue display, the next/previous buttons, and auto-advance on
@@ -201,7 +323,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   // onStateChange callback (registered once at setup) always reads
   // current values instead of stale ones from its original closure.
   const queueRef = useRef<QueueTrack[]>([]);
-  const playlistIdsRef = useRef<string[] | null>(null);
+  const playlistIdsRef = useRef<string[] | null>([]);
   const queueIndexRef = useRef(0);
   const repeatModeRef = useRef<RepeatMode>('off');
   const favoritesRef = useRef<Set<string>>(new Set());
@@ -321,6 +443,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     }
     const catalog = catalogRef.current ?? await catalogPromiseRef.current;
     catalogRef.current = catalog;
+    setLibraryTracks(catalog.map(toQueueTrack));
     // Read the latest preference after loading: it may have changed
     // while the catalogue was downloading.
     const songs = excludeCopyrightedRef.current ? catalog.filter((s) => !s.copyright) : catalog;
@@ -351,7 +474,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     // Until loading finishes, the preference above is all we need:
     // buildQueueFromCatalog will apply it to the initial queue.
     if (!fullCatalog) return;
-    const catalogById = new Map(fullCatalog.map((s) => [s.videoId, s]));
+    const catalogById = new Map(fullCatalog.map((s) => [s.id, s]));
 
     let nextQueue: QueueTrack[];
     // Maps each OLD queue index to its new index (or -1 if it got
@@ -375,7 +498,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
       });
       const existingIds = new Set(oldQueue.map((t) => t.id));
       const toAdd = fullCatalog
-        .filter((s) => !existingIds.has(s.videoId) && (!playlistIdsRef.current || playlistIdsRef.current.includes(s.videoId)))
+        .filter((s) => !existingIds.has(s.id) && (!playlistIdsRef.current || playlistIdsRef.current.includes(s.id)))
         .map(toQueueTrack);
       nextQueue = [...oldQueue, ...toAdd];
     }
@@ -384,7 +507,8 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     setQueue(nextQueue);
 
     const newIdx = currentId ? nextQueue.findIndex((t) => t.id === currentId) : -1;
-    const resolvedIdx = newIdx !== -1 ? newIdx : Math.floor(Math.random() * nextQueue.length);
+    const resolvedIdx = newIdx !== -1 ? newIdx : 0;
+    queueIndexRef.current = resolvedIdx;
     setQueueIndex(resolvedIdx);
 
     if (shuffleRef.current && nextQueue.length > 0) {
@@ -411,6 +535,35 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  // Each song's Monster Siren id, from the catalogue: the catalogue's rows carry it for songs on
+  // YouTube too (lib/music/musicCatalogue.ts), until a release published before that, where
+  // they play from YouTube as they always did.
+  const cidsRef = useRef<{ catalog: MusicCatalogueSong[]; cids: Map<string, string> } | null>(null);
+  function cidOf(id: string): string | undefined {
+    const catalog = catalogRef.current;
+    if (!catalog) return undefined;
+    if (cidsRef.current?.catalog !== catalog) {
+      cidsRef.current = { catalog, cids: new Map(catalog.flatMap((song) => (song.cid ? [[song.id, song.cid] as [string, string]] : []))) };
+    }
+    return cidsRef.current.cids.get(id);
+  }
+  /** Where a track's sound comes from now (lib/music/playbackEngine.ts): Monster Siren's own
+   *  file for every song that has one, so it plays on while the page is hidden; YouTube for a
+   *  song with none, and for every song on YouTube while Data saver is on. Chosen at each load,
+   *  never stored: the track id, which favourites, playlists and the queue keep, stays the same. */
+  function routeTrack(id: string): TrackSource {
+    const source = trackSource(id) ?? { kind: 'youtube' as const, videoId: id };
+    if (source.kind === 'msr' || dataSaverRef.current) return source;
+    const cid = cidOf(id);
+    return cid ? { kind: 'msr', cid } : source;
+  }
+
+  /** A track an automatic step loads while the page is hidden, into YouTube: watched once the
+   *  page is back (the visibility effect below), as a phone may not start YouTube there. */
+  function noteHiddenLoad(id: string) {
+    hiddenLoadRef.current = document.visibilityState === 'hidden' && playerRef.current?.active() === 'youtube' ? id : null;
+  }
+
   // A song resumed from the last document stops waiting to start: it plays, the reader
   // chose another, or the browser refused to start it.
   const endResumeWatch = useCallback(() => {
@@ -424,80 +577,68 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     const q = queueRef.current;
     if (q.length === 0) return;
     const clamped = ((index % q.length) + q.length) % q.length;
-    setQueueIndex(clamped);
+    queueIndexRef.current = clamped; setQueueIndex(clamped);
+    autoplayVideoIdRef.current = ''; setAutoplayVideoId('');
     endResumeWatch();
     cuedAtRef.current = null;
     playerRef.current?.loadVideoById(q[clamped].id);
+    noteHiddenLoad(q[clamped].id);
+  // noteHiddenLoad reads refs only.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [endResumeWatch]);
 
-  // Download the catalogue on demand and construct the queue once.
+  // Load metadata and restore an explicitly chosen queue; a fresh session stays empty.
   const loadFullQueue = useCallback(async (): Promise<QueueTrack[]> => {
-    const player = playerRef.current;
-    if (queueRef.current.length > 0) return queueRef.current;
+    if (queueRef.current.length) return queueRef.current;
     setQueueLoading(true);
     try {
-      let built = await buildQueueFromCatalog();
-      // Concurrent requests share the catalogue download. Only the first
-      // completion should create the queue and choose its shuffle order.
-      if (queueRef.current.length > 0) {
-        setQueueLoading(false);
-        return queueRef.current;
+      const catalog = await buildQueueFromCatalog();
+      if (queueRef.current.length) return queueRef.current;
+      const record = resumeRef.current ? migrateChosenQueue(resumeRef.current, catalog.map(track => track.id)) : null;
+      if (record) {
+        resumeRef.current = record;
+        playlistIdsRef.current = record.playlistIds ?? record.queue;
+        autoplayOrderRef.current = record.autoplayOrder ?? [];
+        if (record.autoplay !== undefined) {
+          let preference = record.autoplay;
+          try { const saved = window.localStorage.getItem('arkpediaMusicAutoplay'); if (saved !== null) preference = saved === 'true'; } catch { /* refused */ }
+          autoplayRef.current = preference; setAutoplayState(preference);
+        }
       }
-      // The queue the last document had, in its order, and its place in it
-      // (lib/music/musicResume.ts).
-      const restored = resumeRef.current ? restoreQueue(built, resumeRef.current) : null;
+      const restored = record ? restoreQueue(catalog, record) : null;
       if (restored) {
-        built = restored.queue;
-        if (restored.shuffleOrder) {
-          shuffleOrderRef.current = restored.shuffleOrder;
-          setShuffleOrder(restored.shuffleOrder);
-          shufflePositionRef.current = restored.shufflePosition;
-          setShufflePosition(restored.shufflePosition);
-        }
+        queueRef.current = restored.queue; setQueue(restored.queue);
+        queueIndexRef.current = restored.queueIndex; setQueueIndex(restored.queueIndex);
+        queuedRef.current = new Set(restored.queued); setQueued(queuedRef.current);
+        shuffleOrderRef.current = restored.shuffleOrder; setShuffleOrder(restored.shuffleOrder);
+        shufflePositionRef.current = restored.shufflePosition; setShufflePosition(restored.shufflePosition);
       }
-      if (built.length > 0) {
-        queueRef.current = built;
-        setQueue(built);
-        const currentId = player?.getVideoData()?.video_id;
-        const idx = restored ? restored.queueIndex : currentId ? built.findIndex((t) => t.id === currentId) : -1;
-        if (idx !== -1) {
-          queueIndexRef.current = idx;
-          setQueueIndex(idx);
-        }
-        if (shuffleRef.current && shuffleOrderRef.current === null) {
-          const order = generateShuffleOrder(built.length, idx !== -1 ? idx : Math.floor(Math.random() * built.length));
-          shuffleOrderRef.current = order;
-          setShuffleOrder(order);
-          shufflePositionRef.current = 0;
-          setShufflePosition(0);
-        }
-        setQueueLoading(false);
-        return built;
-      }
-    } catch {
-      /* fall through to the oEmbed fallback below */
-    }
-
-    // Last-resort fallback (catalog genuinely empty, or the above
-    // failed): whatever the embedded player itself has loaded, with
-    // titles looked up individually via the free oEmbed endpoint. No
-    // composer/artist/characters available from oEmbed.
-    if (!player) {
-      setQueueLoading(false);
-      return [];
-    }
-    const playlist = player.getPlaylist();
-    if (!playlist || playlist.length === 0) {
-      setQueueLoading(false);
-      return [];
-    }
-    const titles = await Promise.all(playlist.map((id) => fetchVideoOEmbedInfo(id).then((info) => info.title)));
-    const built = playlist.map((id, i) => ({ id, title: titles[i] || `Track ${i + 1}` }));
-    queueRef.current = built;
-    setQueue(built);
-    setQueueLoading(false);
-    return built;
+    } catch { /* Library offers retry; never fabricate a queue from YouTube uploads. */ }
+    finally { setQueueLoading(false); }
+    return queueRef.current;
   }, []);
+
+  function nextAutoplayTracks(): QueueTrack[] {
+    const byId = new Map((catalogRef.current ?? []).filter(song => !(excludeCopyrightedRef.current && song.copyright)).map(song => [song.id, toQueueTrack(song)]));
+    const chosen = new Set(queueRef.current.map(track => track.id));
+    const ids = [...new Set([...autoplayOrderRef.current, ...byId.keys()])];
+    const at = ids.indexOf(autoplayVideoIdRef.current || videoIdRef.current);
+    return [...ids.slice(at + 1), ...ids.slice(0, at + 1)].flatMap(id => {
+      const track = byId.get(id);
+      return track && !chosen.has(id) && id !== videoIdRef.current ? [track] : [];
+    });
+  }
+
+  function playAutoplayTrack() {
+    if (!autoplayRef.current) return false;
+    const track = nextAutoplayTracks()[0];
+    if (!track) return false;
+    autoplayVideoIdRef.current = track.id; setAutoplayVideoId(track.id);
+    endResumeWatch(); cuedAtRef.current = null;
+    playerRef.current?.loadVideoById(track.id);
+    noteHiddenLoad(track.id);
+    return true;
+  }
 
   // Fisher-Yates shuffle of every OTHER index, with currentIndex forced
   // to the front -- so shufflePosition starts at 0 and the currently-
@@ -541,26 +682,54 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     return idx > removedIndex ? idx - 1 : idx;
   }
 
+  /** Where Next goes in the queue -- the next song in play order, or the first again under
+   *  Repeat all -- with its place in that order; undefined past the end. */
+  function nextQueueStep(): { index: number; position: number } | undefined {
+    const q = queueRef.current;
+    const order = shuffleRef.current ? shuffleOrderRef.current ?? q.map((_, i) => i) : q.map((_, i) => i);
+    const current = q.findIndex(track => track.id === videoIdRef.current);
+    const position = order.indexOf(current);
+    // An automatic track never enters Your queue. Chosen additions take priority next.
+    const nextIndex = autoplayVideoIdRef.current
+      ? order.find(index => queuedRef.current.has(q[index].id))
+      : order[position + 1];
+    if (nextIndex !== undefined) return { index: nextIndex, position: order.indexOf(nextIndex) };
+    if (repeatModeRef.current === 'all' && order.length) return { index: order[0], position: 0 };
+    return undefined;
+  }
+
+  /** The song that plays when this one ends: what nextTrack (or Repeat one) would load. */
+  function upcomingTrackId(): string | null {
+    if (repeatModeRef.current === 'one') return videoIdRef.current || null;
+    const step = nextQueueStep();
+    if (step) return queueRef.current[step.index]?.id ?? null;
+    return autoplayRef.current ? nextAutoplayTracks()[0]?.id ?? null : null;
+  }
+
+
   const nextTrack = useCallback(async () => {
-    let q = queueRef.current;
-    if (q.length === 0) {
-      q = await loadFullQueue();
-      if (q.length === 0) return; // genuinely nothing to play (e.g. the catalog fetch itself failed)
+    primeAudio();
+    const step = nextQueueStep();
+    if (step) {
+      shufflePositionRef.current = step.position; setShufflePosition(step.position);
+      loadTrackAt(step.index);
+    } else if (!playAutoplayTrack()) {
+      playerRef.current?.pauseVideo(); setIsPlaying(false); setBuffering(false);
     }
-    if (shuffleRef.current) {
-      const order = shuffleOrderRef.current ?? generateShuffleOrder(q.length, queueIndexRef.current);
-      const nextPos = (shufflePositionRef.current + 1) % order.length;
-      shuffleOrderRef.current = order;
-      setShuffleOrder(order);
-      shufflePositionRef.current = nextPos;
-      setShufflePosition(nextPos);
-      loadTrackAt(order[nextPos]);
-    } else {
-      loadTrackAt(queueIndexRef.current + 1);
-    }
-  }, [loadTrackAt, loadFullQueue]);
+  // These helpers read refs, so the YouTube instance can retain one callback.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadTrackAt]);
 
   const prevTrack = useCallback(() => {
+    primeAudio();
+    if (autoplayVideoIdRef.current) {
+      if (queueRef.current.length) loadTrackAt(queueIndexRef.current);
+      else {
+        const track = nextAutoplayTracks().at(-1);
+        if (track) { autoplayVideoIdRef.current = track.id; setAutoplayVideoId(track.id); playerRef.current?.loadVideoById(track.id); }
+      }
+      return;
+    }
     if (shuffleRef.current) {
       const order = shuffleOrderRef.current;
       const q = queueRef.current;
@@ -572,6 +741,8 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
       return;
     }
     loadTrackAt(queueIndexRef.current - 1);
+  // The automatic source helper reads refs.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadTrackAt]);
 
   useEffect(() => {
@@ -581,18 +752,148 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     // The catalogue can arrive after the iframe API on a slow network.
     // Wait for both so the first Play click uses the intended queue.
     Promise.all([loadYouTubeApi(), loadFullQueue()]).then(() => {
-      if (cancelled || !containerRef.current || playerRef.current) return;
+      if (cancelled || !containerRef.current || playerCreatedRef.current) return;
+      playerCreatedRef.current = true;
 
-      playerRef.current = new window.YT.Player(containerRef.current, {
+      // What either engine reports, handled once (lib/music/playbackEngine.ts). Only the engine
+      // of the track loaded is heard: the other one's last events (YouTube's pause as a Monster
+      // Siren song starts, the audio's as YouTube takes over) are not about this track.
+      const fromEngine = (kind: 'youtube' | 'msr', run: (engine: TrackEngine) => void) => {
+        const engine = playerRef.current;
+        if (engine?.active() === kind) run(engine);
+      };
+      // The element the first press already primed (lib/music/audioElement.ts), or made now.
+      const audio = createMsrAudioEngine({
+        onState: (state) => fromEngine('msr', (engine) => onPlayerState(state, engine)),
+        onError: () => fromEngine('msr', onPlayerError),
+        onAutoplayBlocked: () => fromEngine('msr', onAutoplayRefused),
+        onStuck: () => fromEngine('msr', onStuck),
+      }, { element: musicAudioElement() });
+      audioRef.current = audio;
+
+      const onPlayerError = () => {
+        // Unplayable video (deleted, region-blocked, embedding
+        // disabled, age-restricted, etc.), or Monster Siren audio that
+        // would not load -- skip it instead of leaving playback dead
+        // with no recovery.
+        setIsPlaying(false);
+        setBuffering(false);
+        // A short saved playlist may consist entirely of unavailable videos.
+        // Stop at its end instead of wrapping and retrying the same failures forever.
+        const order = shuffleRef.current ? shuffleOrderRef.current : null;
+        const atEnd = order ? shufflePositionRef.current >= order.length - 1
+          : queueIndexRef.current >= queueRef.current.length - 1;
+        if (playlistIdsRef.current && atEnd) { endResumeWatch(); return; }
+        nextTrack();
+      };
+
+      // The browser would not let this document start sound by itself (autoplay): a resumed
+      // song waits at its moment for the reader's Play. So does a song that came up by itself
+      // (the last one ended): it is loaded and shown, paused, one press away, rather than the
+      // player hanging on the song before. Monster Siren's audio meets this on iOS, where only
+      // a press starts sound.
+      const onAutoplayRefused = (engine: TrackEngine) => {
+        setEngineKind(engine.active());
+        setBuffering(false);
+        if (resumeWatchRef.current) { refuseResume(); return; }
+        setIsPlaying(false);
+        setStarting(false);
+        const id = engine.getVideoData()?.video_id || engine.loaded();
+        if (!id) return;
+        const seconds = engine.getCurrentTime();
+        cuedAtRef.current = { videoId: id, seconds };
+        videoIdRef.current = id;
+        setVideoId(id);
+        setTitle(catalogRef.current?.find((song) => song.id === id)?.title ?? '');
+        setCurrentTime(seconds);
+        setDuration(engine.getDuration());
+      };
+
+      // A Monster Siren song that made no sound, from its address and from a fresh one: it waits,
+      // paused where it was, with a word under the player, for the reader's Play
+      // (lib/music/playbackEngine.ts's watchdog). Never Pause over silence.
+      const onStuck = (engine: TrackEngine) => {
+        playerStateRef.current = PLAYER_STATE.PAUSED;
+        setEngineKind(engine.active());
+        endResumeWatch();
+        pendingPlayRef.current = false;
+        setIsPlaying(false);
+        setBuffering(false);
+        setStarting(false);
+        const id = engine.getVideoData()?.video_id || engine.loaded();
+        if (id) {
+          videoIdRef.current = id;
+          setVideoId(id);
+          setCurrentTime(engine.getCurrentTime());
+        }
+        announce(STUCK_NOTICE, false, true);
+      };
+
+      const onPlayerState = (data: number, engine: TrackEngine) => {
+        const state = PLAYER_STATE;
+        playerStateRef.current = data;
+        setEngineKind(engine.active());
+        // Monster Siren's audio reports BUFFERING from the press until its clock moves, and
+        // whenever it stops for data: not playing, and shown as loading. (YouTube's own brief
+        // buffering keeps the button as it was, as before.)
+        if (data === state.BUFFERING && engine.active() === 'msr') {
+          setIsPlaying(false);
+          setBuffering(true);
+          // The song loading is the one shown, not the one before it.
+          const id = engine.getVideoData()?.video_id;
+          if (id && id !== videoIdRef.current) {
+            videoIdRef.current = id;
+            setVideoId(id);
+            setTitle('');
+            setCurrentTime(engine.getCurrentTime());
+            setDuration(engine.getDuration());
+          }
+        } else if (data !== state.BUFFERING) {
+          setBuffering(false);
+        }
+        const watch = resumeWatchRef.current;
+        if (data === state.CUED && watch?.phase === 'cue') {
+          watch.phase = 'play';
+          watch.since = Date.now();
+          engine.playVideo();
+        }
+        if (data === state.PLAYING) {
+          cuedAtRef.current = null;
+          hiddenLoadRef.current = null;
+          endResumeWatch();
+          setIsPlaying(true);
+          const video = engine.getVideoData();
+          setTitle(video?.title || '');
+          // The ref too, at once: the next song is worked out from it just below.
+          videoIdRef.current = video?.video_id || '';
+          setVideoId(videoIdRef.current);
+          setDuration(engine.getDuration());
+          // Retry if the initial catalogue load failed.
+          if (queueRef.current.length === 0) loadFullQueue();
+        } else if (data === state.PAUSED) {
+          setIsPlaying(false);
+        } else if (data === state.ENDED) {
+          setIsPlaying(false);
+          if (repeatModeRef.current === 'one') {
+            const id = engine.getVideoData()?.video_id || videoIdRef.current;
+            if (id) engine.loadVideoById(id);
+          } else {
+            nextTrack();
+          }
+        }
+      };
+
+      new window.YT.Player(containerRef.current, {
         height: '1',
         width: '1',
         playerVars: {
-          listType: 'playlist',
-          list: getUploadsPlaylistId(MUSIC_CHANNEL_ID),
           autoplay: 0,
         },
         events: {
           onReady: (e: { target: YTPlayer }) => {
+            // routeTrack reads the refs it needs at each call: Data saver, the catalogue.
+            const engine = createTrackEngine(e.target, audio, (id) => routeTrack(id));
+            playerRef.current = engine;
             playerReadyRef.current = true;
             // The song the last document was playing (lib/music/musicResume.ts), if any.
             const record = resumeRef.current;
@@ -606,7 +907,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
             } catch {
               /* ignore */
             }
-            e.target.setVolume(savedVolume);
+            engine.setVolume(savedVolume);
             setVolume(savedVolume);
 
             // A specific track was requested (via playTrackByVideoId)
@@ -628,7 +929,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
                   setShufflePosition(pos);
                 }
               }
-              e.target.loadVideoById(vid);
+              engine.loadVideoById(vid);
               setReady(true);
               setStarting(false);
               return;
@@ -640,7 +941,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
             // copyrighted song while stream-safe is on, which another tab may have
             // turned on since.
             const excluded = record && excludeCopyrightedRef.current
-              && catalogRef.current?.some((song) => song.videoId === record.videoId && song.copyright);
+              && catalogRef.current?.some((song) => song.id === record.videoId && song.copyright);
             if (record && excluded) {
               // The queue as it would start, stopped; not the record's song on show.
               pendingPlayRef.current = false;
@@ -652,7 +953,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
               const play = pendingPlayRef.current;
               pendingPlayRef.current = false;
               cuedAtRef.current = { videoId: record.videoId, seconds: record.seconds };
-              e.target.cueVideoById({ videoId: record.videoId, startSeconds: record.seconds });
+              engine.cueVideoById({ videoId: record.videoId, startSeconds: record.seconds });
               setReady(true);
               if (play) {
                 resumeWatchRef.current = { videoId: record.videoId, seconds: record.seconds, phase: 'cue', since: Date.now() };
@@ -673,7 +974,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
             const order = shuffleRef.current ? shuffleOrderRef.current : null;
             const startIdx = order && order.length > 0 ? order[0] : 0;
             if (q.length > 0) {
-              e.target.cueVideoById(q[startIdx].id);
+              engine.cueVideoById(q[startIdx].id);
               setQueueIndex(startIdx);
               if (order && order.length > 0) {
                 shufflePositionRef.current = 0;
@@ -687,72 +988,14 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
             // press play a second time.
             if (pendingPlayRef.current) {
               pendingPlayRef.current = false;
-              e.target.playVideo();
+              if (q.length) engine.playVideo();
+              else if (!playAutoplayTrack()) { announce('Pick a song in Library or Discover.'); void router.push('/music?view=library'); }
             }
             setStarting(false);
           },
-          onError: () => {
-            // Unplayable video (deleted, region-blocked, embedding
-            // disabled, age-restricted, etc.) -- skip it instead of
-            // leaving playback dead with no recovery.
-            setIsPlaying(false);
-            // A short saved playlist may consist entirely of unavailable videos.
-            // Stop at its end instead of wrapping and retrying the same failures forever.
-            const order = shuffleRef.current ? shuffleOrderRef.current : null;
-            const atEnd = order ? shufflePositionRef.current >= order.length - 1
-              : queueIndexRef.current >= queueRef.current.length - 1;
-            if (playlistIdsRef.current && atEnd) { endResumeWatch(); return; }
-            nextTrack();
-          },
-          // The browser would not let this document start sound by itself (autoplay):
-          // a resumed song waits at its moment for the reader's Play.
-          onAutoplayBlocked: () => {
-            if (resumeWatchRef.current) refuseResume();
-          },
-          onStateChange: (e: { data: number; target: YTPlayer }) => {
-            const state = window.YT.PlayerState;
-            playerStateRef.current = e.data;
-            const watch = resumeWatchRef.current;
-            if (e.data === state.CUED && watch?.phase === 'cue') {
-              watch.phase = 'play';
-              watch.since = Date.now();
-              e.target.playVideo();
-            }
-            if (e.data === state.PLAYING) {
-              cuedAtRef.current = null;
-              endResumeWatch();
-              setIsPlaying(true);
-              const data = e.target.getVideoData();
-              setTitle(data?.title || '');
-              setVideoId(data?.video_id || '');
-              setDuration(e.target.getDuration());
-              // Retry if the initial catalogue load failed.
-              if (queueRef.current.length === 0) loadFullQueue();
-            } else if (e.data === state.PAUSED) {
-              setIsPlaying(false);
-            } else if (e.data === state.ENDED) {
-              setIsPlaying(false);
-              if (repeatModeRef.current === 'one') {
-                const q = queueRef.current;
-                if (q.length > 0) e.target.loadVideoById(q[queueIndexRef.current].id);
-              } else if (repeatModeRef.current === 'all') {
-                // loadTrackAt's own index wraparound (modulo) already
-                // takes care of looping back to the start once the end
-                // is reached -- nothing extra needed here.
-                nextTrack();
-              } else {
-                // repeatMode === 'off' -- unlike 'all', playback should
-                // actually STOP once the last track finishes, rather
-                // than nextTrack's wraparound silently looping back to
-                // the beginning anyway.
-                const order = shuffleRef.current ? shuffleOrderRef.current : null;
-                const atEnd = order
-                  ? shufflePositionRef.current >= order.length - 1
-                  : queueIndexRef.current >= queueRef.current.length - 1;
-                if (!atEnd) nextTrack();
-              }
-            }
-          },
+          onError: () => fromEngine('youtube', onPlayerError),
+          onAutoplayBlocked: () => fromEngine('youtube', onAutoplayRefused),
+          onStateChange: (e: { data: number }) => fromEngine('youtube', (engine) => onPlayerState(e.data, engine)),
         },
       });
     });
@@ -774,7 +1017,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     if (!watch || !player) return;
     // Paused somewhere: it stays there. Otherwise cued again, as a refused start may have left
     // YouTube unstarted, without the moment.
-    if (playerStateRef.current === window.YT.PlayerState.PAUSED) {
+    if (playerStateRef.current === PLAYER_STATE.PAUSED) {
       setCurrentTime(player.getCurrentTime());
       return;
     }
@@ -792,7 +1035,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
         return;
       }
       const waited = Date.now() - watch.since;
-      if (playerStateRef.current === window.YT.PlayerState.BUFFERING && waited < RESUME_BUFFER_MS) return;
+      if (playerStateRef.current === PLAYER_STATE.BUFFERING && waited < RESUME_BUFFER_MS) return;
       if (waited < (watch.phase === 'cue' ? RESUME_CUE_MS : RESUME_PLAY_MS)) return;
       refuseResume();
     }, 500);
@@ -830,6 +1073,8 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     playerRef.current?.pauseVideo?.();
     setStarting(false);
     setIsPlaying(false);
+    bufferingRef.current = false;
+    setBufferingState(false);
   }, [endResumeWatch]);
 
   /*
@@ -874,7 +1119,8 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
       title: titleRef.current.slice(0, 500),
       seconds: Number.isFinite(seconds) && seconds > 0 ? seconds : 0,
       duration: Number.isFinite(durationRef.current) && durationRef.current > 0 ? durationRef.current : 0,
-      playing: isPlayingRef.current || pendingPlayRef.current || !!resumeWatchRef.current,
+      // A play still loading is carried as playing: the next document asks for it again.
+      playing: isPlayingRef.current || bufferingRef.current || pendingPlayRef.current || !!resumeWatchRef.current,
       queue: queue.map((track) => track.id),
       playlistIds: playlistIdsRef.current,
       playingPlaylistId: playingPlaylistIdRef.current,
@@ -884,6 +1130,9 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
       shufflePosition: shufflePositionRef.current,
       repeat: repeatModeRef.current,
       volume: Math.min(100, Math.max(0, Number.isFinite(volumeRef.current) ? volumeRef.current : 50)),
+      queued: [...queuedRef.current],
+      queueMode: 'chosen', autoplay: autoplayRef.current, autoplayOrder: autoplayOrderRef.current,
+      ...(autoplayVideoIdRef.current ? { autoplayVideoId: autoplayVideoIdRef.current } : {}),
     });
   }, []);
 
@@ -913,20 +1162,59 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     if (videoId) saveResume(false);
   }, [videoId, isPlaying, saveResume]);
 
+  /*
+   * The page hidden (another app or tab, the screen locked): nothing here pauses or releases the
+   * music -- Monster Siren's <audio> plays on, and goes on to the next song by itself (set and
+   * played in the last one's end, lib/music/playbackEngine.ts). A song YouTube was given meanwhile (no Monster
+   * Siren id, or Data saver on) may not start until the page is back, as a phone pauses YouTube
+   * there: once it is, that song is shown and given the resume's few seconds to start, and if it
+   * does not it waits, shown and paused at its start, for the reader's Play (refuseResume).
+   */
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') return;
+      const id = hiddenLoadRef.current;
+      hiddenLoadRef.current = null;
+      const engine = playerRef.current;
+      if (!id || !engine || engine.loaded() !== id || engine.active() !== 'youtube') return;
+      if (playerStateRef.current === PLAYER_STATE.PLAYING) return;
+      cuedAtRef.current = null;
+      videoIdRef.current = id;
+      setVideoId(id);
+      setTitle(catalogRef.current?.find((song) => song.id === id)?.title ?? '');
+      setCurrentTime(0);
+      resumeWatchRef.current = { videoId: id, seconds: 0, phase: 'play', since: Date.now() };
+      watchResume();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  // watchResume reads refs only.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // ... and this document picks it up, once, on its first render.
   useEffect(() => {
     // Only where the player is drawn: the recruitment pop-out has none (hideSiteChrome),
     // and a window opened from this tab starts with a copy of its sessionStorage.
     if (!containerRef.current) return;
-    const record = takeMusicResume(sessionStore(), Date.now(), { discarded: (document as Document & { wasDiscarded?: boolean }).wasDiscarded === true });
+    const savedRecord = takeMusicResume(sessionStore(), Date.now(), { discarded: (document as Document & { wasDiscarded?: boolean }).wasDiscarded === true });
+    const record = savedRecord;
     if (!record) return;
     // The music guesser pauses the player as it opens (its effect runs before this one): a
     // song resumed there would play over its clips.
     const play = record.playing && router.pathname !== GAME_PATHS.music;
     resumeRef.current = { ...record, playing: play };
-    playlistIdsRef.current = record.playlistIds ?? null;
+    playlistIdsRef.current = record.playlistIds ?? record.queue;
+    autoplayOrderRef.current = record.autoplayOrder ?? [];
+    autoplayVideoIdRef.current = record.autoplayVideoId ?? ''; setAutoplayVideoId(autoplayVideoIdRef.current);
+    if (record.autoplay !== undefined) {
+      let preference = record.autoplay;
+      try { const stored = window.localStorage.getItem('arkpediaMusicAutoplay'); if (stored !== null) preference = stored === 'true'; } catch { /* refused */ }
+      autoplayRef.current = preference; setAutoplayState(preference);
+    }
     playingPlaylistIdRef.current = record.playingPlaylistId ?? null;
     setPlayingPlaylistId(playingPlaylistIdRef.current);
+    setQueueSource(playingPlaylistIdRef.current ? 'playlist' : 'custom');
     pendingPlayRef.current = play;
     shuffleRef.current = record.shuffle;
     setShuffle(record.shuffle);
@@ -944,6 +1232,18 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   }, []);
 
   function togglePlay() {
+    // A press that may start music primes the audio first, in the press (iOS); one that pauses
+    // a loading or playing song needs none.
+    if (!isPlayingRef.current && !bufferingRef.current) {
+      // Before the player is up, a reload's song is the one Play goes on with, where it was.
+      const resume = !playerReadyRef.current ? resumeRef.current : null;
+      if (resume?.videoId) primeAudio(resume.videoId, resume.seconds);
+      else {
+        const id = videoIdRef.current || queueRef.current[shuffleOrderRef.current?.[0] ?? 0]?.id;
+        const cued = cuedAtRef.current;
+        primeAudio(id, id && cued?.videoId === id ? cued.seconds : 0);
+      }
+    }
     const player = playerRef.current;
     if (!player || typeof player.playVideo !== 'function' || typeof player.pauseVideo !== 'function') {
       // Not initialized, or the underlying player object exists but
@@ -957,8 +1257,11 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
       return;
     }
     endResumeWatch();
-    if (isPlaying) player.pauseVideo();
-    else player.playVideo();
+    // Loading counts as playing here: the button shows it, and a press stops it.
+    if (isPlayingRef.current || bufferingRef.current) pausePlayback();
+    else if (videoIdRef.current) player.playVideo();
+    else if (queueRef.current.length) loadTrackAt(shuffleOrderRef.current?.[0] ?? 0);
+    else if (!playAutoplayTrack()) { announce('Pick a song in Library or Discover.'); void router.push('/music?view=library'); }
   }
 
   // Jumps playback to a SPECIFIC song by videoId -- used by the /music
@@ -970,10 +1273,12 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   function putFirst(videoId: string) {
     const previous = queueRef.current;
     const index = previous.findIndex(track => track.id === videoId);
-    const song = catalogRef.current?.find(song => song.videoId === videoId);
+    const song = catalogRef.current?.find(song => song.id === videoId);
     const track = previous[index] ?? (song && !(excludeCopyrightedRef.current && song.copyright) ? toQueueTrack(song) : null);
     if (!track) return;
     const next = [track, ...previous.filter(track => track.id !== videoId)];
+    autoplayVideoIdRef.current = ''; setAutoplayVideoId('');
+    playlistIdsRef.current = [...new Set([...(playlistIdsRef.current ?? []), videoId])];
     queueRef.current = next; setQueue(next); queueIndexRef.current = 0; setQueueIndex(0);
     if (shuffleRef.current) {
       const existing = shuffleOrderRef.current ?? previous.map((_, i) => i);
@@ -988,6 +1293,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     playTrackByVideoId(videoId);
   }
   function playTrackByVideoId(videoId: string) {
+    primeAudio(videoId);
     const player = playerRef.current;
     if (!playerReadyRef.current || !player || typeof player.loadVideoById !== 'function') {
       // Not initialized yet -- remember which track was requested and
@@ -1022,16 +1328,22 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
 
   async function playPlaylist(videoIds: string[] | null, playlistId?: string): Promise<number> {
     if (!playerReadyRef.current) return 0;
+    // Before the catalogue is awaited: after it, the press is over. Shuffled, the first song is
+    // not known yet, and a guess would be heard: the press then primes nothing.
+    primeAudio(shuffleRef.current ? null : videoIds?.[0]);
     await buildQueueFromCatalog();
-    const byId = new Map((catalogRef.current ?? []).map(song => [song.videoId, song]));
+    const byId = new Map((catalogRef.current ?? []).map(song => [song.id, song]));
     const tracks = [...new Set(videoIds ?? [...byId.keys()])].flatMap(id => {
       const song = byId.get(id);
       return song && !(excludeCopyrightedRef.current && song.copyright) ? [toQueueTrack(song)] : [];
     });
     if (!tracks.length) return 0;
-    playlistIdsRef.current = videoIds ? [...videoIds] : null;
+    playlistIdsRef.current = videoIds ? [...videoIds] : tracks.map(track => track.id);
     playingPlaylistIdRef.current = videoIds ? playlistId ?? null : null;
     setPlayingPlaylistId(playingPlaylistIdRef.current);
+    setQueueSource(playlistId ? 'playlist' : 'custom');
+    queuedRef.current = new Set(); setQueued(queuedRef.current);
+    clearedRef.current = null; setCanUndoClear(false);
     queueRef.current = tracks; setQueue(tracks);
     queueIndexRef.current = 0; setQueueIndex(0);
     // Start in the saved order. The reader can turn shuffle on afterwards.
@@ -1043,29 +1355,58 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   }
 
   function toggleShuffle() {
-    setShuffle((s) => {
-      const turningOn = !s;
-      if (turningOn) {
-        const q = queueRef.current;
-        if (q.length > 0) {
-          const order = generateShuffleOrder(q.length, queueIndexRef.current);
-          shuffleOrderRef.current = order;
-          setShuffleOrder(order);
-          shufflePositionRef.current = 0;
-          setShufflePosition(0);
-        }
-      } else {
-        shuffleOrderRef.current = null;
-        setShuffleOrder(null);
-        shufflePositionRef.current = 0;
-        setShufflePosition(0);
-      }
-      return turningOn;
-    });
+    const turningOn = !shuffleRef.current;
+    shuffleRef.current = turningOn; setShuffle(turningOn);
+    let q = queueRef.current;
+    if (autoplayVideoIdRef.current && shuffleOrderRef.current) {
+      const previous = shuffleOrderRef.current;
+      const index = Math.max(0, previous.indexOf(queueIndexRef.current));
+      q = previous.map(position => q[position]);
+      queueRef.current = q; setQueue(q); queueIndexRef.current = index; setQueueIndex(index);
+    }
+    const order = turningOn && q.length ? autoplayVideoIdRef.current ? q.map((_, index) => index) : generateShuffleOrder(q.length, queueIndexRef.current) : null;
+    shuffleOrderRef.current = order; setShuffleOrder(order);
+    const position = order ? Math.max(0, order.indexOf(queueIndexRef.current)) : 0;
+    shufflePositionRef.current = position; setShufflePosition(position);
+    const library = catalogRef.current ?? [];
+    const at = Math.max(0, library.findIndex(song => song.id === videoIdRef.current));
+    autoplayOrderRef.current = turningOn && library.length ? generateShuffleOrder(library.length, at).map(index => library[index].id) : [];
   }
 
   function cycleRepeat() {
-    setRepeatMode((r) => (r === 'off' ? 'one' : r === 'one' ? 'all' : 'off'));
+    const current = repeatModeRef.current;
+    const next = current === 'off' ? 'one' : current === 'one' ? 'all' : 'off';
+    repeatModeRef.current = next; setRepeatMode(next);
+  }
+
+  /**
+   * Data saver on or off. The song loaded now moves to the engine the setting gives it, at the
+   * same moment and in the same state: playing on (the press that changed it lets the new engine
+   * start sound) or paused there, with the other engine stopped first (createTrackEngine).
+   */
+  function setDataSaver(on: boolean) {
+    dataSaverRef.current = on;
+    setDataSaverState(on);
+    try { window.localStorage.setItem(MUSIC_DATA_SAVER_KEY, String(on)); } catch { /* refused: this visit only */ }
+    const engine = playerRef.current;
+    const id = engine?.loaded();
+    if (!engine || !playerReadyRef.current || !id || engine.routeOf(id) === engine.active()) return;
+    const cued = cuedAtRef.current?.videoId === id ? cuedAtRef.current : null;
+    let seconds = cued ? cued.seconds : engine.getCurrentTime();
+    if (!Number.isFinite(seconds) || seconds < 0) seconds = 0;
+    const play = isPlayingRef.current || Boolean(resumeWatchRef.current) || playerStateRef.current === PLAYER_STATE.BUFFERING;
+    endResumeWatch();
+    hiddenLoadRef.current = null;
+    if (play) {
+      primeAudio(id);
+      cuedAtRef.current = null;
+      engine.loadVideoById({ videoId: id, startSeconds: seconds });
+    } else {
+      cuedAtRef.current = { videoId: id, seconds };
+      engine.cueVideoById({ videoId: id, startSeconds: seconds });
+      setCurrentTime(seconds);
+    }
+    setEngineKind(engine.active());
   }
 
   function setVolumeLevel(v: number) {
@@ -1090,6 +1431,14 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   }
 
   function playQueueIndex(index: number) {
+    primeAudio(queueRef.current[index]?.id);
+    // Before YouTube is ready a tap waited for nothing: it now waits for the player, as a song
+    // chosen elsewhere does (playTrackByVideoId's pending request).
+    if (!playerReadyRef.current) {
+      const id = queueRef.current[index]?.id;
+      if (id) playTrackByVideoId(id);
+      return;
+    }
     loadTrackAt(index);
     const order = shuffleOrderRef.current;
     if (shuffleRef.current && order) {
@@ -1110,40 +1459,27 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   // on, since the queue display now renders directly from it -- a
   // stale or cleared order would show the wrong list after a reorder.
   function reorderQueue(fromIndex: number, toIndex: number) {
-    if (fromIndex === toIndex) return;
-    let newLength = 0;
-    let newCurrentIndex = queueIndexRef.current;
-    setQueue((current) => {
-      if (fromIndex < 0 || fromIndex >= current.length || toIndex < 0 || toIndex >= current.length) return current;
-      const next = [...current];
-      const [moved] = next.splice(fromIndex, 1);
-      next.splice(toIndex, 0, moved);
-      newLength = next.length;
-      return next;
-    });
-    setQueueIndex((current) => {
-      if (current === fromIndex) {
-        newCurrentIndex = toIndex;
-      } else if (fromIndex < current && toIndex >= current) {
-        newCurrentIndex = current - 1;
-      } else if (fromIndex > current && toIndex <= current) {
-        newCurrentIndex = current + 1;
-      } else {
-        newCurrentIndex = current;
-      }
-      return newCurrentIndex;
-    });
-    if (shuffleRef.current && newLength > 0) {
+    // Computed from the refs, here and now: the old version read values its setState updaters
+    // assigned, which React 18 may run only at the next render, so the shuffle position was
+    // worked out from stale ones and "the song playing" could land anywhere in the queue.
+    const current = queueRef.current;
+    if (fromIndex === toIndex || fromIndex < 0 || fromIndex >= current.length || toIndex < 0 || toIndex >= current.length) return;
+    const next = [...current];
+    const [moved] = next.splice(fromIndex, 1);
+    next.splice(toIndex, 0, moved);
+    const playing = queueIndexRef.current;
+    const newCurrentIndex = playing === fromIndex ? toIndex
+      : fromIndex < playing && toIndex >= playing ? playing - 1
+        : fromIndex > playing && toIndex <= playing ? playing + 1 : playing;
+    let order: number[] | null = null;
+    if (shuffleRef.current && next.length > 0) {
       const existingOrder = shuffleOrderRef.current;
-      const remapped = existingOrder
+      order = existingOrder
         ? existingOrder.map((idx) => remapIndexAfterMove(idx, fromIndex, toIndex))
-        : generateShuffleOrder(newLength, newCurrentIndex); // no order to remap yet -- only path that still needs a fresh one
-      shuffleOrderRef.current = remapped;
-      setShuffleOrder(remapped);
-      const pos = remapped.indexOf(newCurrentIndex);
-      shufflePositionRef.current = pos !== -1 ? pos : 0;
-      setShufflePosition(shufflePositionRef.current);
+        : generateShuffleOrder(next.length, newCurrentIndex); // no order to remap yet -- only path that still needs a fresh one
     }
+    applyQueueState({ queue: next, queueIndex: newCurrentIndex, shuffleOrder: order,
+      shufflePosition: order ? Math.max(0, order.indexOf(newCurrentIndex)) : 0, queued: queuedRef.current });
   }
 
   // Reorders the SHUFFLE ORDER's own positions directly -- once
@@ -1199,37 +1535,184 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   // (pause/skip) are for, not the queue manager. Also regenerates the
   // shuffle order, for the same reason as reorderQueue above.
   function removeFromQueue(index: number) {
-    if (index === queueIndex) return;
-    let newLength = 0;
-    let newCurrentIndex = queueIndexRef.current;
-    setQueue((current) => {
-      const next = current.filter((_, i) => i !== index);
-      newLength = next.length;
-      return next;
-    });
-    setQueueIndex((current) => {
-      newCurrentIndex = index < current ? current - 1 : current;
-      return newCurrentIndex;
-    });
-    if (shuffleRef.current && newLength > 0) {
+    // From the refs, synchronously, for the reason given at reorderQueue.
+    const current = queueRef.current;
+    const playing = queueIndexRef.current;
+    if (index === playing || index < 0 || index >= current.length) return;
+    const removedId = current[index].id;
+    const next = current.filter((_, i) => i !== index);
+    const newCurrentIndex = index < playing ? playing - 1 : playing;
+    let order: number[] | null = null;
+    if (shuffleRef.current && next.length > 0) {
       const existingOrder = shuffleOrderRef.current;
-      const remapped = existingOrder
+      order = existingOrder
         ? existingOrder
             .map((idx) => remapIndexAfterRemoval(idx, index))
             .filter((idx): idx is number => idx !== null)
-        : generateShuffleOrder(newLength, newCurrentIndex); // no order to remap yet -- only path that still needs a fresh one
-      shuffleOrderRef.current = remapped;
-      setShuffleOrder(remapped);
-      const pos = remapped.indexOf(newCurrentIndex);
-      shufflePositionRef.current = pos !== -1 ? pos : 0;
-      setShufflePosition(shufflePositionRef.current);
+        : generateShuffleOrder(next.length, newCurrentIndex); // no order to remap yet -- only path that still needs a fresh one
     }
+    const queuedNow = new Set(queuedRef.current);
+    queuedNow.delete(removedId);
+    applyQueueState({ queue: next, queueIndex: newCurrentIndex, shuffleOrder: order,
+      shufflePosition: order ? Math.max(0, order.indexOf(newCurrentIndex)) : 0, queued: queuedNow });
   }
+
+  // A queued song that starts playing is no longer waiting in "Next in queue".
+  useEffect(() => {
+    if (!videoId || !queuedRef.current.has(videoId)) return;
+    const next = new Set(queuedRef.current);
+    next.delete(videoId);
+    queuedRef.current = next;
+    setQueued(next);
+  }, [videoId]);
+
+  function queueState(): QueueState<QueueTrack> {
+    return { queue: queueRef.current, queueIndex: queueIndexRef.current, shuffleOrder: shuffleRef.current ? shuffleOrderRef.current : null,
+      shufflePosition: shufflePositionRef.current, queued: queuedRef.current };
+  }
+  /** One queue edit, written to the refs (which the next call and YouTube's events read) and state. */
+  function applyQueueState(next: QueueState<QueueTrack>) {
+    queueRef.current = next.queue; setQueue(next.queue);
+    queueIndexRef.current = next.queueIndex; setQueueIndex(next.queueIndex);
+    if (shuffleRef.current) {
+      shuffleOrderRef.current = next.shuffleOrder; setShuffleOrder(next.shuffleOrder);
+      shufflePositionRef.current = next.shufflePosition; setShufflePosition(next.shufflePosition);
+    }
+    queuedRef.current = next.queued; setQueued(next.queued);
+  }
+  /** The catalogue's song as a queue row, unless stream-safe leaves it out. */
+  function playableTrack(id: string): QueueTrack | null {
+    const song = catalogRef.current?.find(entry => entry.id === id);
+    return song && !(excludeCopyrightedRef.current && song.copyright) ? toQueueTrack(song) : null;
+  }
+  const trackTitle = (id: string) => {
+    const track = queueRef.current.find(track => track.id === id);
+    const song = catalogRef.current?.find(song => song.id === id);
+    return songTitle(track?.title ?? song?.title ?? 'This song', track?.altTitle ?? song?.altTitle);
+  };
+
+  async function queueSong(id: string, where: Placement): Promise<QueueSongResult> {
+    if (!queueRef.current.length) {
+      initializePlayer();
+      await loadFullQueue();
+    }
+    if (!catalogRef.current) {
+      try { await buildQueueFromCatalog(); } catch { /* Only songs already in the queue can be placed. */ }
+    }
+    const state = queueState();
+    const current = state.queue[state.queueIndex]?.id === videoIdRef.current || (autoplayVideoIdRef.current && state.queue.length && !state.queued.has(state.queue[state.queueIndex]?.id)) ? state.queueIndex : -1;
+    const result = placeSong({ ...state, queueIndex: current, shufflePosition: current < 0 ? -1 : state.shufflePosition }, id, where, playableTrack(id));
+    const title = trackTitle(id);
+    if (!result.ok) {
+      announce(result.reason === 'current' ? `${title} is playing now.` : `${title} can’t be queued${excludeCopyrightedRef.current ? ' while stream-safe is on' : ''}.`);
+      return result.reason;
+    }
+    applyQueueState(result.state);
+    if (playlistIdsRef.current && !playlistIdsRef.current.includes(id)) playlistIdsRef.current = [...playlistIdsRef.current, id];
+    announce(where === 'next' ? `Playing next: ${title}` : `Added to queue: ${title}`);
+    return 'queued';
+  }
+
+  function playNow(id: string) {
+    primeAudio(id);
+    // Not loaded yet: the song is put first as the player starts (playFirst), which is the same
+    // thing -- nothing has played, so the queue plays on after it.
+    if (!playerReadyRef.current) {
+      playFirst(id);
+      return;
+    }
+    if (queueRef.current[queueIndexRef.current]?.id === id && videoIdRef.current === id) {
+      if (!isPlayingRef.current && !bufferingRef.current) playerRef.current?.playVideo();
+      return;
+    }
+    const state = queueState();
+    const current = state.queue[state.queueIndex]?.id === videoIdRef.current || (autoplayVideoIdRef.current && state.queue.length && !state.queued.has(state.queue[state.queueIndex]?.id)) ? state.queueIndex : -1;
+    const result = placeSong({ ...state, queueIndex: current, shufflePosition: current < 0 ? -1 : state.shufflePosition }, id, 'next', playableTrack(id));
+    if (!result.ok) {
+      // A song the queue cannot take (stream-safe): it plays on its own, as a discovery link did.
+      playTrackByVideoId(id);
+      return;
+    }
+    const queuedNow = new Set(result.state.queued);
+    queuedNow.delete(id);
+    applyQueueState({ ...result.state, queued: queuedNow });
+    if (playlistIdsRef.current && !playlistIdsRef.current.includes(id)) playlistIdsRef.current = [...playlistIdsRef.current, id];
+    playQueueIndex(result.state.queue.findIndex(track => track.id === id));
+  }
+
+  function clearQueue() {
+    const state = queueState();
+    if (!state.queue.length) return;
+    clearedRef.current = { state, playlistIds: playlistIdsRef.current, playingPlaylistId: playingPlaylistIdRef.current, source: queueSourceRef.current };
+    setCanUndoClear(true);
+    const cleared = clearUpcoming({ ...state, queueIndex: state.queue[state.queueIndex]?.id === videoIdRef.current ? state.queueIndex : -1 });
+    applyQueueState(cleared);
+    // Stream-safe turned off must not refill a cleared queue with the whole catalogue.
+    playlistIdsRef.current = cleared.queue.map(track => track.id);
+    playingPlaylistIdRef.current = null; setPlayingPlaylistId(null);
+    setQueueSource('custom');
+    announce(`Cleared ${state.queue.length - cleared.queue.length} songs from the queue.`, true);
+  }
+
+  function undoClearQueue() {
+    const saved = clearedRef.current;
+    if (!saved) return;
+    clearedRef.current = null;
+    setCanUndoClear(false);
+    const playing = queueRef.current[queueIndexRef.current] ?? null;
+    const restored = restoreAround(saved.state, playing?.id ?? null, playing);
+    // Songs queued since the clear stay queued.
+    applyQueueState({ ...restored, queued: new Set([...restored.queued, ...queuedRef.current]) });
+    playlistIdsRef.current = saved.playlistIds;
+    playingPlaylistIdRef.current = saved.playingPlaylistId; setPlayingPlaylistId(saved.playingPlaylistId);
+    setQueueSource(saved.source);
+    announce('Restored the queue.');
+  }
+
+  const currentTrack = libraryTracks.find(track => track.id === videoId) ?? queue.find(track => track.id === videoId);
+  // The playing song's art and artist where the catalogue has none (lib/music/songArt.ts), and
+  // Monster Siren's JPEG cover for the lock screen whenever its audio plays the song.
+  const msrSession = Boolean(videoId) && engineKind === 'msr';
+  const currentSource = videoId ? trackSource(videoId) : null;
+  const currentCid = currentSource?.kind === 'msr' ? currentSource.cid : videoId ? cidOf(videoId) : undefined;
+  const { art: songArt, settled: songArtSettled } = useSongArt(msrSession || !currentTrack?.cover ? currentCid : undefined);
+  // Monster Siren's cover as this site serves it: its CDN refuses a request from this page.
+  const msrCover = songArt?.cover && currentCid ? msrCoverPath(currentCid) : null;
+  const nowPlayingCover = videoId ? currentTrack?.cover ?? msrCover ?? youtubeThumbnail(videoId) : null;
+  const nowPlayingArtist = videoId ? currentTrack?.artist ?? artistLine(songArt?.artists) : null;
+  const artwork = sessionArtwork({
+    msrCover,
+    msrCoverType: songArt?.cover ? imageType(songArt.cover) : undefined,
+    youtube: youtubeThumbnail(videoId),
+    cover: currentTrack?.cover ? contentUrl(currentTrack.cover) : null,
+    icon: contentUrl(SITE_ICON_PATH),
+    base: typeof window === 'undefined' ? 'https://www.arkpedia.net/' : window.location.href,
+  });
+  useMsrMediaSession({
+    msr: msrSession,
+    trackId: videoId,
+    track: currentTrack,
+    playing: isPlaying,
+    art: { artist: nowPlayingArtist, album: songArt?.albumName ?? null, artwork, artworkPending: msrSession && !songArtSettled },
+    actions: {
+      // From the lock screen, a press too: a song still loading is asked to play again in it.
+      play: () => {
+        if (bufferingRef.current) { primeAudio(videoIdRef.current); playerRef.current?.playVideo(); } else if (!isPlayingRef.current) togglePlay();
+      },
+      pause: pausePlayback,
+      next: () => void nextTrack(),
+      previous: prevTrack,
+      seek: (seconds) => { setCurrentTime(seconds); handleSeekCommit(seconds); },
+    },
+    position: () => ({ seconds: playerRef.current?.getCurrentTime() ?? currentTimeRef.current, duration: playerRef.current?.getDuration() ?? durationRef.current }),
+    element: msrSession ? audioRef.current?.element ?? null : null,
+  });
 
   const value: MusicPlayerContextValue = {
     ready,
     starting,
     isPlaying,
+    buffering,
     title,
     videoId,
     volume,
@@ -1245,7 +1728,19 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     shufflePosition,
     queueLoading,
     playingPlaylistId,
+    queued,
+    queueSource,
+    libraryTracks,
+    currentTrack,
+    nowPlayingCover,
+    nowPlayingArtist,
+    autoplay, autoplayVideoId, autoplayTracks: nextAutoplayTracks(), setAutoplay,
+    notice,
+    dismissNotice,
     excludeCopyrighted,
+    dataSaver,
+    setDataSaver,
+    engineKind,
     initializePlayer,
     togglePlay,
     pausePlayback,
@@ -1264,9 +1759,22 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     reorderShuffleOrder,
     moveQueueItemToTop,
     removeFromQueue,
+    playNow,
+    queueSong,
+    clearQueue,
+    undoClearQueue,
+    canUndoClear,
     setExcludeCopyrighted,
     containerRef,
   };
 
-  return <MusicPlayerContext.Provider value={value}>{children}</MusicPlayerContext.Provider>;
+  return (
+    <MusicPlayerContext.Provider value={value}>
+      {children}
+      {/* Only with ?audio-debug=1 (or once set, localStorage arkpediaAudioDebug=1): what the
+          <audio> element and the player believe, for a phone that cannot be inspected. */}
+      <AudioDebugPanel engineKind={engineKind} isPlaying={isPlaying} buffering={buffering}
+        engineState={() => audioRef.current?.debug() ?? null} />
+    </MusicPlayerContext.Provider>
+  );
 }
