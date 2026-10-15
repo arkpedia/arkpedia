@@ -16,21 +16,34 @@ import relayConfig from '@/config/relay.json';
 /** Where the relay is: config/relay.json (the relay itself is arkpedia/arkpedia-relay). */
 export const RELAY_URL = relayConfig.url;
 
-interface Libcurl {
-  load_wasm(): Promise<void>;
-  set_websocket(url: string): void;
+interface CurlSession {
+  set_connections(total: number, cached: number, perHost: number): void;
   /** raw_headers: every header line as sent. A Headers object folds two Set-Cookie lines into
    *  one, and a page's own fetch never shows them at all; libcurl's response keeps them. */
   fetch(url: string, init: { method: string; headers: Record<string, string>; body?: string }): Promise<Response & { raw_headers?: [string, string][] }>;
 }
+interface Libcurl {
+  load_wasm(): Promise<void>;
+  set_websocket(url: string): void;
+  HTTPSession: new () => CurlSession;
+}
 
-let loading: Promise<Libcurl> | null = null;
-function libcurl(): Promise<Libcurl> {
+/** Keep this page's pool below the relay's eight-stream visitor budget. The default
+ * libcurl pool caches forty connections: changing regions can otherwise exhaust Wisp
+ * with idle connections and refuse the next server list or TLS handshake. */
+export function createRelaySession(curl: Pick<Libcurl, 'HTTPSession'>): CurlSession {
+  const session = new curl.HTTPSession();
+  session.set_connections(6, 4, 2);
+  return session;
+}
+
+let loading: Promise<CurlSession> | null = null;
+function libcurl(): Promise<CurlSession> {
   loading ??= import('libcurl.js/bundled').then(async (module) => {
     const curl = module.libcurl as Libcurl;
     await curl.load_wasm();
     curl.set_websocket(RELAY_URL);
-    return curl;
+    return createRelaySession(curl);
   }).catch((error) => {
     loading = null;
     throw error;

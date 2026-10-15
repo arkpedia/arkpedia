@@ -105,6 +105,45 @@ test('a refusal names the step that failed and what the server said', async () =
   await refusal(sendCode({ transport: down, server: 'en', deviceId: 'd' }, 'a@b.c'), 'send-code', /could not reach en-sdk-api\.yostarplat\.com: .*SSL connect error/);
 });
 
+test('the server list recovers from temporary curl connection refusals on every server', async () => {
+  for (const id of SERVER_IDS) {
+    const calls: string[] = [];
+    const transport: Transport = async (url, request) => {
+      calls.push(url);
+      assert.equal(request.method, 'GET');
+      if (calls.length < 3) throw new Error('Request failed with error code 7: Could not connect to server');
+      return { status: 200, json: NETWORK };
+    };
+    assert.equal((await readNetwork(transport, id)).gs, 'https://gs.example:8443');
+    assert.deepEqual(calls, Array(3).fill(SERVERS[id].networkConfig));
+  }
+});
+
+test('server-list retries stop after three connection failures and allow a fresh attempt', async () => {
+  let calls = 0;
+  const transport: Transport = async () => {
+    if (++calls <= 3) throw new Error('Request failed with error code 7: Could not connect to server');
+    return { status: 200, json: NETWORK };
+  };
+  await assert.rejects(readNetwork(transport, 'en'), (error: unknown) => error instanceof ImportError && error.step === 'network' && /error code 7/.test(error.message));
+  assert.equal(calls, 3);
+  assert.equal((await readNetwork(transport, 'en')).gs, 'https://gs.example:8443');
+});
+
+test('server-list gateway errors retry, but HTTP refusals, TLS errors and malformed data do not', async () => {
+  let gatewayCalls = 0;
+  await readNetwork(async () => ({ status: ++gatewayCalls < 3 ? 503 : 200, json: NETWORK }), 'en');
+  assert.equal(gatewayCalls, 3);
+  for (const answer of [{ status: 403, json: NETWORK }, { status: 200, json: { content: '{}' } }]) {
+    let calls = 0;
+    await assert.rejects(readNetwork(async () => { calls++; return answer; }, 'en'), ImportError);
+    assert.equal(calls, 1);
+  }
+  let tlsCalls = 0;
+  await assert.rejects(readNetwork(async () => { tlsCalls++; throw new Error('Request failed with error code 60: certificate verification failed'); }, 'en'), /certificate verification failed/);
+  assert.equal(tlsCalls, 1);
+});
+
 test('a sign-in is kept only when the reader asks, after it worked, and never in a backup file', async () => {
   const fs = await import('node:fs');
   const source = fs.readFileSync('components/account-import/GameSignIn.tsx', 'utf8');
@@ -141,6 +180,19 @@ test('the relay address is config/relay.json\'s, a wss:// Wisp endpoint', async 
   assert.equal(RELAY_URL, config.url);
   // libcurl.js needs the trailing slash, and only an encrypted WebSocket is acceptable.
   assert.match(RELAY_URL, /^wss:\/\/[a-z0-9.-]+\/wisp\/$/);
+});
+
+test('the relay uses a bounded session instead of retaining more connections than Wisp permits', async () => {
+  const { createRelaySession } = await import('../../lib/account-import/relay');
+  const limits: number[][] = [];
+  class Session {
+    set_connections(...values: number[]) { limits.push(values); }
+    async fetch(_url: string, _request: unknown) { return new Response('{}'); }
+  }
+  const session = createRelaySession({ HTTPSession: Session });
+  assert.ok(session instanceof Session);
+  assert.deepEqual(limits, [[6, 4, 2]], 'at most six active and four idle connections, below the eight-stream relay budget');
+  assert.equal((await session.fetch('https://as.example/', { method: 'GET', headers: {} })).status, 200);
 });
 
 /* The Account Center: a sign-in that sets the session in two cookies, then the pull history a

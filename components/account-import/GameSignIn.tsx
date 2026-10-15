@@ -91,10 +91,11 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
     setFailed(null);
     setDone(false);
     try {
+      await connect();
       await sendCode(flow(), email.trim());
       setCodeSent(true);
     } catch (error) {
-      setFailed({ step: 'send-code', message: describe(error) });
+      setFailed({ step: error instanceof ImportError ? error.step : 'send-code', message: describe(error) });
     } finally {
       setBusy(false);
     }
@@ -123,6 +124,7 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
     setPullsFailed(null);
     setStep('sign-in');
     try {
+      await connect();
       const yostar = await signIn(flow(), email.trim(), code.trim());
       await read(yostar, flow().deviceId, email.trim(), server);
       // Kept only when the reader asked, and only once the sign-in has worked.
@@ -250,6 +252,7 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
         })}
       </ol>
       {failed && <p className="import-error" role="alert">{failed.message}</p>}
+      {failed?.step === 'network' && <button type="button" className="ghost btn-sm" disabled={busy || connection === 'opening'} onClick={() => { connect().catch(() => {}); }}>Retry connection</button>}
       {done && pullsFailed && <p className="hint import-note">The pull history could not be read ({pullsFailed}). Everything else was imported.</p>}
     </>
   );
