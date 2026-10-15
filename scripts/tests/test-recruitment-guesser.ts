@@ -108,10 +108,18 @@ test('the reveal reads each answer\'s rarity back from its icon, because the pub
   // Page props come from the content release, shaped by the code that compiled it; a
   // rarity field added to them was undefined in production until the next release and
   // crashed every reveal. The icon path is in every release, and names the rarity.
+  // An operator whose portrait the release's asset pin lacks shows the placeholder, which names
+  // no rarity, and the reveal leaves its stars out (pages/games/recruitment-guesser.tsx). On
+  // 2026-10-15 the content run's pin had GALLUS²'s art only under its CN name, Gallus², and
+  // this failed the release over a portrait check-completeness already holds as published-partial.
   const byName = new Map(getAllOperators().map((operator) => [operator.name, operator]));
+  let read = 0;
   for (const operator of game.operators) {
-    assert.equal(rarityFromIconPath(operator.icon), byName.get(operator.name)!.rarity, operator.name);
+    const record = byName.get(operator.name)!;
+    assert.equal(rarityFromIconPath(operator.icon), record.portraitPending ? null : record.rarity, operator.name);
+    if (!record.portraitPending) read += 1;
   }
+  assert.ok(read > game.operators.length / 2, 'most answers have their portrait, and their rarity is read from it');
   for (const rarity of [1, 2, 3, 4, 5, 6]) assert.equal(rarityFromIconPath(getOperatorIconPath({ name: 'Amiya', rarity })), rarity);
   assert.equal(rarityFromIconPath(OPERATOR_PORTRAIT_PLACEHOLDER), null);
   assert.throws(() => rarityFromIconPath('/skill-icons/Amiya - Chimera.webp'));

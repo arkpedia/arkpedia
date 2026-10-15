@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 import { nextIndex, readRetired } from '../lib/published-asset-index.mjs';
 import { fetchAsset } from '../../lib/assets/githubRetry.mjs';
+import { branchHead } from '../lib/branch-head.mjs';
 
 // Resolve and validate the whole set before adopting it. Restore all three files
 // on failure, so a failed validation does not leave a mixed manifest and lock.
@@ -11,11 +12,13 @@ const previous = await Promise.all(paths.map(path => fs.readFile(new URL(path, r
 const oldRevisions = JSON.parse(previous[0]);
 const index = JSON.parse(previous[1]);
 const next = {};
-for (const repo of Object.keys(oldRevisions)) {
-  const sha = execFileSync('gh', ['api', `repos/arkpedia/${repo}/commits/main`, '--jq', '.sha'], { encoding: 'utf8' }).trim();
-  if (!/^[a-f0-9]{40}$/.test(sha)) throw new Error(`Invalid revision for ${repo}`);
-  next[repo] = sha;
-}
+// Each head from git itself, then GitHub's API, asked again while none answers
+// (scripts/lib/branch-head.mjs): the commits API alone answered 409 for the image repository
+// all through the content run of 2026-10-15, and the day's pins stayed behind.
+// All at once, so a GitHub that hangs costs one repository's wait, not eight in a row.
+const repos = Object.keys(oldRevisions);
+const heads = await Promise.all(repos.map(repo => branchHead(`arkpedia/${repo}`, 'main')));
+repos.forEach((repo, i) => { next[repo] = heads[i]; });
 const published = {};
 const retired = new Map();
 for (const repo of ['arkpedia-image-assets', 'arkpedia-skin-assets']) {
