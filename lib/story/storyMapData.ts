@@ -1,5 +1,7 @@
 import storyMapData from '../../data/story-map.json';
 import storyChaptersData from '../../data/story-chapters.json';
+import storyLibraryData from '../../data/story-library.json';
+import type { StoryLibraryEntry } from './storyLibrary';
 import type { StoryChapters } from './storyChapters';
 import { assertStoryMap, type StoryMap } from './storyMap';
 
@@ -11,8 +13,12 @@ export function bundledStoryMap(): StoryMap {
   return map;
 }
 
-/** Each map chapter's sections, as Timo's reader numbers them (data/story-chapters.json), compiled
+/** Every library chapter's sections, as Timo's reader numbers them (data/story-chapters.json), compiled
  *  into this deployment like the map. */
 export function bundledStoryChapters(): StoryChapters {
   return (storyChaptersData as unknown as { chapters: StoryChapters }).chapters;
+}
+
+export function bundledStoryLibrary(): StoryLibraryEntry[] {
+  return storyLibraryData.entries as StoryLibraryEntry[];
 }

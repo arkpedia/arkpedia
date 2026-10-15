@@ -111,3 +111,10 @@ a.story-list-card:hover { border-color: var(--teal); }
   .story-chapter-buttons { grid-column: 1 / -1; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 .story-list-progress { margin-left: auto; flex-shrink: 0; color: var(--text-dim); font-family: var(--font-mono); font-size: 11px; }
+.story-library-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: var(--heading-gap); }
+.story-library-search { flex: 1; min-width: min(240px, 100%); }
+.story-library-count { white-space: nowrap; }
+.story-library .story-list-card { border-color: transparent; text-align: left; }
+.story-library .story-list-card:hover, .story-library .story-list-card:focus-visible { border-color: var(--teal); }
+.story-library .story-list-title { overflow-wrap: anywhere; }
+.story-library .story-list-card { min-height: 66px; }

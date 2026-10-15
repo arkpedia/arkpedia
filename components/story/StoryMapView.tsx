@@ -1,7 +1,11 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { ContentImg } from '@/components/content/ContentImage';
 import SegmentedControl from '@/components/ui/SegmentedControl';
-import { lineDrawing, storyListSections, withManga, type StoryElement, type StoryMap, type StoryPicture, type StoryText } from '@/lib/story/storyMap';
+import { lineDrawing, withManga, type StoryElement, type StoryMap, type StoryText } from '@/lib/story/storyMap';
+import dynamic from 'next/dynamic';
+import type { StoryLibraryEntry } from '@/lib/story/storyLibrary';
+import { useQueryState } from '@/lib/hooks/useQueryState';
+import { useHeightFloor } from '@/components/ui/useHeightFloor';
 
 /*
  * The Arknights Story Map as its author laid it out (lib/story/storyMap.ts): the board is drawn
@@ -11,11 +15,11 @@ import { lineDrawing, storyListSections, withManga, type StoryElement, type Stor
  *
  * Zoom with the buttons, or Ctrl/⌘ and the wheel (a trackpad's pinch); drag to move around.
  * Below the board, the official comics, each under the section it belongs to (withManga). The List
- * view is every story and comic under the board's own section names, for a small screen
- * (storyListSections), with the comics nobody has placed last.
+ * view is the reader's complete library, grouped by reading category, independent of the board.
  */
 
 const RECT = 'M0 0H64V64H0z';
+const StoryLibrary = dynamic(() => import('./StoryLibrary'));
 const ink = (color: string | null) => (!color ? 'none' : color.toLowerCase() === '#000000' ? 'var(--text)' : color);
 const MAX_SCALE = 1;
 const STEP = 1.5;
@@ -104,21 +108,12 @@ function Picture({ element, chapters }: { element: Extract<StoryElement, { type:
   return <a className={`story-map-picture${read ? ' is-read' : ''}`} style={style} {...storyLinkProps(element.link, chapters)} title={title} aria-label={`${inPopup ? `${title}: its chapters` : `${title} (opens in a new tab)`}${read ? ', read' : ''}`} draggable={false}>{art}{read && <svg className="story-map-read-mark" width="72" height="72" viewBox="0 0 72 72" fill="none" stroke="currentColor" strokeWidth="8" aria-hidden="true"><path d="M16 38 29 51 56 20" /></svg>}</a>;
 }
 
-function ListCard({ story, chapters }: { story: StoryPicture; chapters: ChapterOpener }) {
-  const title = story.link?.title ?? 'A story on the map';
-  const art = story.image && <ContentImg src={`/${story.image}`} alt="" />;
-  const label = <span className="story-list-title">{title}{story.manga && <span className="label-tag">Manga</span>}</span>;
-  const read = chapters.isRead?.(story.link?.story);
-  const kind = `story-list-card${story.manga ? ' is-manga' : ''}${read ? ' is-read' : ''}`;
-  return story.link?.url
-    ? <a className={kind} {...storyLinkProps(story.link, chapters)}>{art}{label}{chapters.progressLabel?.(story.link.story) && <span className="story-list-progress">{chapters.progressLabel(story.link.story)}</span>}</a>
-    : <span className={`${kind} is-plain`}>{art}{label}</span>;
-}
-
-export default function StoryMapView({ map, chapters }: { map: StoryMap; chapters: ChapterOpener }) {
+export default function StoryMapView({ map, chapters, library }: { map: StoryMap; chapters: ChapterOpener; library: StoryLibraryEntry[] }) {
   const board = useMemo(() => withManga(map), [map]);
   const { bounds } = board;
-  const [view, setView] = useState<'map' | 'list'>('map');
+  const [viewQuery, setView] = useQueryState('view', 'map');
+  const view = viewQuery === 'list' ? 'list' : 'map';
+  const floor = useHeightFloor('story-view');
   const viewport = useRef<HTMLDivElement>(null);
   const [fit, setFit] = useState(0.15);
   const [scale, setScale] = useState<number | null>(null);
@@ -238,12 +233,11 @@ export default function StoryMapView({ map, chapters }: { map: StoryMap; chapter
     return () => { cancelAnimationFrame(frameId); document.body.style.overflow = overflow; document.removeEventListener('keydown', onKey); };
   }, [full, bounds.height]);
 
-  const sections = useMemo(() => storyListSections(map), [map]);
-  const count = sections.reduce((n, section) => n + section.stories.length, 0);
+  const count = library.length + (map.manga?.length ?? 0);
 
   const atFit = shown <= fit + 1e-6;
   return (
-    <div style={held ? { minHeight: held } : undefined}>
+    <div ref={floor.ref} style={held ? { minHeight: held } : undefined}>
     <div ref={frame} className={`story-map-frame${full ? ' is-full' : ''}${full === 'window' ? ' is-window' : ''}`}>
       <div className="story-map-toolbar">
         <SegmentedControl label="Show the map as" value={view} onChange={setView}
@@ -287,19 +281,10 @@ export default function StoryMapView({ map, chapters }: { map: StoryMap; chapter
           </div>
         </div>
       ) : (
-        <div className="story-list-sections">
-          {sections.map((section) => (
-            <div key={section.name} className="story-list-section">
-              <h3>{section.name}</h3>
-              {section.note && <p className="hint story-list-note">{section.note}</p>}
-              <ul className="story-list">
-                {section.stories.map((story) => <li key={story.id}><ListCard story={story} chapters={chapters} /></li>)}
-              </ul>
-            </div>
-          ))}
-        </div>
+        <StoryLibrary entries={library} map={map} chapters={chapters} />
       )}
     </div>
+    {floor.spacer}
     </div>
   );
 }

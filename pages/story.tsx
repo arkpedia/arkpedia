@@ -11,6 +11,7 @@ import { withContentPage } from '@/lib/content/server';
 import { useQueryState } from '@/lib/hooks/useQueryState';
 import type { StoryLink, StoryMap } from '@/lib/story/storyMap';
 import type { StoryChapters } from '@/lib/story/storyChapters';
+import type { StoryLibraryEntry } from '@/lib/story/storyLibrary';
 
 /*
  * Where to read Arknights' story, and in what order: Timo's story reader, which has every
@@ -28,9 +29,10 @@ interface Props {
   /** Each chapter's sections (data/story-chapters.json). Absent from a release compiled before the
    *  popup: every story then links straight into the reader, as it did. */
   chapters?: StoryChapters;
+  library?: StoryLibraryEntry[];
 }
 
-export default function StoryPage({ map, chapters = {} }: Props) {
+export default function StoryPage({ map, chapters = {}, library = [] }: Props) {
   const [chapter, setChapter] = useQueryState('chapter', '');
   const progress = useStoryProgress();
   const [transfer, setTransfer] = useState(false);
@@ -39,38 +41,27 @@ export default function StoryPage({ map, chapters = {} }: Props) {
     element.type === 'picture' && element.link?.story && element.link.url ? [[element.link.story, { link: element.link as StoryLink & { url: string; story: string },
       // Its box on the board has the picture's own shape: the dialog shows the cover whole at it.
       image: element.image && element.width > 0 && element.height > 0 ? { src: element.image, ratio: element.width / element.height } : null }] as const] : [])), [map]);
-  const opener = useMemo<ChapterOpener>(() => ({ has: (story) => !!story && !!chapters[story]?.length && pictures.has(story), open: setChapter,
+  const links = useMemo(() => new Map(library.map(entry => [entry.id, entry])), [library]);
+  const opener = useMemo<ChapterOpener>(() => ({ has: (story) => !!story && !!chapters[story]?.length && (links.has(story) || pictures.has(story)), open: setChapter,
     isRead: (story) => !!story && chapterRead(progress, story, chapters[story] ?? []),
-    progressLabel: (story) => story && chapters[story]?.length ? chapterProgress(progress, story, chapters[story]).label : undefined }), [chapters, pictures, setChapter, progress]);
-  const shown = opener.has(chapter) ? pictures.get(chapter)! : null;
+    progressLabel: (story) => story && chapters[story]?.length ? chapterProgress(progress, story, chapters[story]).label : undefined }), [chapters, links, pictures, setChapter, progress]);
+  const entry = links.get(chapter);
+  const shown = opener.has(chapter) ? { link: entry ? { title: entry.title, url: entry.url, story: entry.id } : pictures.get(chapter)!.link, image: pictures.get(chapter)?.image ?? null } : null;
   return (
     <>
       <Head><title>Story — Arkpedia</title></Head>
-      <PageHeader eyebrow="Rhodes Island // Story" title="Story"
-        sub="Read Arknights' story outside the game, and find where to start." actions={
+      <PageHeader slim compact eyebrow="Rhodes Island // Story" title="Story" actions={
           <button type="button" className="ghost btn-sm" onClick={() => setTransfer(true)}>Import / export</button>
-        } />
+        }
+        />
       <main>
-        <section className="op-section story-links" aria-labelledby="story-read">
-          <h2 id="story-read">Read the story</h2>
-          <div className="story-link-grid">
-            <a className="story-link-card" href={READER} target="_blank" rel="noopener noreferrer">
-              <strong>Timo&apos;s Arknights Story Reader <span aria-hidden="true">↗</span></strong>
-              <span className="hint">Every main story, side story, vignette and operator record, read the way the game plays it.</span>
-            </a>
-            <Link prefetch={false} className="story-link-card" href="/manga">
-              <strong>Arknights Manga</strong>
-              <span className="hint">Every official comic from the Global site, each a link to read it there.</span>
-            </Link>
-          </div>
-        </section>
         <section className="op-section" aria-labelledby="story-map">
-          <h2 id="story-map">Story map</h2>
+          <h2 id="story-map">Story library</h2>
           <p className="hint story-map-credit">
-            <a href={map.source} target="_blank" rel="noopener noreferrer">{map.title}</a>, kept up to date from the original. Click
-            a story to choose where to start reading it in Timo&apos;s reader.
+            <a href={READER} target="_blank" rel="noopener noreferrer">Timo&apos;s reader ↗</a> · <Link prefetch={false} href="/manga">Manga</Link> · <a href={map.source} target="_blank" rel="noopener noreferrer">{map.title}</a>
           </p>
-          <StoryMapView map={map} chapters={opener} />
+          {chapter && !shown && <p className="hint" role="status">This chapter is not available in the current catalogue. <a href={entry?.url ?? READER} target="_blank" rel="noopener noreferrer">Open Timo&apos;s reader ↗</a></p>}
+          <StoryMapView map={map} chapters={opener} library={library} />
         </section>
       </main>
       {shown && <ChapterDialog link={shown.link} image={shown.image} sections={chapters[chapter]} onClose={() => setChapter('')} />}
@@ -84,6 +75,11 @@ export default function StoryPage({ map, chapters = {} }: Props) {
    once a release carries the page, the map comes from the release, so a change to the board
    reaches readers without a deployment. */
 export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>('/story', async () => {
-  const { bundledStoryChapters, bundledStoryMap } = await import('@/lib/story/storyMapData');
-  return { props: { map: bundledStoryMap(), chapters: bundledStoryChapters() } };
-}, { bundledWhenUnpublished: true });
+  const { bundledStoryChapters, bundledStoryMap, bundledStoryLibrary } = await import('@/lib/story/storyMapData');
+  return { props: { map: bundledStoryMap(), chapters: bundledStoryChapters(), library: bundledStoryLibrary() } };
+}, { bundledWhenUnpublished: true, finalize: async props => {
+  // Releases exported before the library existed still get this deployment's complete list.
+  if (props.library) return props;
+  const { bundledStoryChapters, bundledStoryLibrary } = await import('@/lib/story/storyMapData');
+  return { ...props, library: bundledStoryLibrary(), chapters: { ...bundledStoryChapters(), ...props.chapters } };
+} });

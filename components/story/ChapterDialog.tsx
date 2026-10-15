@@ -41,7 +41,7 @@ export default function ChapterDialog({ link, image, sections, onClose }: { link
       <div className="story-chapter-top">
         {image && <ContentImg className="story-chapter-art" src={`/${image.src}`} alt="" style={{ aspectRatio: String(image.ratio) }} />}
         <div className="story-chapter-head">
-          <span className="hint">{stages ? `${stages} stage${stages === 1 ? '' : 's'} · ` : ''}{sections.length} parts, in Timo&apos;s story reader</span>
+          <span className="hint">{stages ? `${stages} stage${stages === 1 ? '' : 's'} · ` : ''}{sections.length} {sections.length === 1 ? 'part' : 'parts'}, in Timo&apos;s story reader</span>
           <div className="story-chapter-actions">
             <a className="primary btn-sm" href={readerLink(link.url, status.next)} target="_blank" rel="noopener noreferrer"
               onClick={() => mark(status.next, true)} onAuxClick={event => { if (event.button === 1) mark(status.next, true); }}>{status.label === 'Read' ? 'Read again' : 'Continue reading'} <span aria-hidden="true">↗</span></a>

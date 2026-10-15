@@ -1,5 +1,5 @@
 /**
- * The Story page's chapter popup: each chapter on the map, section by section, from Timo's story
+ * The Story page's chapter popup: each chapter in the library, section by section, from Timo's story
  * reader (data/story-chapters.json, scripts/imports/import-story-chapters.mjs). A section is
  * [index, code, name, tag]: its place in the reader's chapter, which a link opens it by; the stage
  * code ("3-1"), its name ("Meeting"), and whether it is the stage's story before the operation, after

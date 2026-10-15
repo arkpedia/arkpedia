@@ -75,6 +75,10 @@ const SEEDED_SOURCE_FILES = new Set([
   // run): the board's layout, and each picture's link, which a person corrects in the data
   // repository and the importer then keeps.
   'data/story-map.json',
+  // The complete reader catalogue and its section indices, introduced independently of
+  // the board. Keep the bundled snapshot through the first refresh if the reader is down.
+  'data/story-library.json',
+  'data/story-chapters.json',
   // Which artwork has an animated version, as model.json URLs pinned to arkpedia-l2d-assets'
   // commit (scripts/sync/sync-dynamic-art.mjs, every run). /skins and every operator page import
   // it, so a release before the data repository carries it must not lose the app's copy.

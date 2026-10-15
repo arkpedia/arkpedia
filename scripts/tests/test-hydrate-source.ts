@@ -70,6 +70,15 @@ test('the animated-art pointers survive hydration until arkpedia-data carries th
   assert.match(kept.stderr, /does not carry [^\n]*data\/dynamic-art\.json/);
 });
 
+test('the complete story library and sections survive the first hydration, then follow the published source', () => {
+  const app = { 'data/story-library.json': '{"entries":["app"]}', 'data/story-chapters.json': '{"chapters":{"app":[]}}' };
+  const first = hydrate({}, app);
+  for (const [file, text] of Object.entries(app)) assert.equal(first.read(file), text);
+  const published = { 'data/story-library.json': '{"entries":["published"]}', 'data/story-chapters.json': '{"chapters":{"published":[]}}' };
+  const later = hydrate(published, app);
+  for (const [file, text] of Object.entries(published)) assert.equal(later.read(file), text);
+});
+
 /* SEEDED_SOURCE_FILES had no end: whenever arkpedia-data lacked one of the tables, the app's
    copy was kept and published again, so a table the data repository deleted on purpose came
    back from the app's stale copy with the next release. The ledger, carried in the data
