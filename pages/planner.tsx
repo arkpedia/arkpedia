@@ -1632,7 +1632,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/pl
   /* Built from every operator, including the future ones filtered out of the list
      below: an alter's `alternate` field can point at a record global has not shipped,
      and the map has to resolve it either way or buildAliasMap throws. */
-  const aliases = buildAliasMap(getAllOperators().map((op) => ({ name: op.name, alternate: op.alternate })));
+  const aliases = buildAliasMap(getAllOperators().map((op) => ({ name: op.name, alternate: op.alternate, aliases: op.aliases })));
   const operators: PlannerOperatorSummary[] = allOps.map((op) => ({
     name: op.name,
     rarity: op.rarity,

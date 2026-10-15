@@ -31,9 +31,17 @@ function cleanAlterName(raw: string): string {
  * a typo or a rename leaves an alias pointing at nothing, the search silently stops
  * finding that operator by their other name, and nothing says a word. All 38 resolve
  * as of writing.
+ *
+ * A name a record had before a rename (its `aliases`, which the catalogue adds on every
+ * rename) resolves to that record: on 2026-10-14 Global renamed Kal'tsit - Esperanta to
+ * Kal'tsit Esperanta, Kal'tsit's `alternate` still named the old one, and /planner's
+ * export threw. The catalogue now renames the field with the record
+ * (scripts/sync/catalogue-model.mjs renameAlternates); this keeps a rename it missed
+ * from taking the page down.
  */
-export function buildAliasMap(operators: { name: string; alternate?: string | null }[]): AliasMap {
+export function buildAliasMap(operators: { name: string; alternate?: string | null; aliases?: string[] | null }[]): AliasMap {
   const known = new Set(operators.map((o) => o.name));
+  const formerly = new Map(operators.flatMap((o) => (o.aliases ?? []).filter((alias) => !known.has(alias)).map((alias) => [alias, o.name] as const)));
   const map: AliasMap = {};
   const add = (name: string, alias: string) => {
     if (alias === name) return;
@@ -46,9 +54,10 @@ export function buildAliasMap(operators: { name: string; alternate?: string | nu
   for (const op of operators) {
     if (!op.alternate) continue;
     for (const part of op.alternate.split(',')) {
-      const alter = cleanAlterName(part);
-      if (!alter) continue;
-      if (!known.has(alter)) { unresolved.push(`${op.name} -> ${alter}`); continue; }
+      const named = cleanAlterName(part);
+      if (!named) continue;
+      const alter = known.has(named) ? named : formerly.get(named);
+      if (!alter) { unresolved.push(`${op.name} -> ${named}`); continue; }
       add(op.name, alter);
       add(alter, op.name);
     }

@@ -960,6 +960,38 @@ export function renameReferences(value, renames) {
   return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, KEPT_NAMES.has(key) ? item : renameReferences(item, renames)]));
 }
 
+/**
+ * Every operator's `alternate` (the alters it names, lib/operators/operatorAliases.ts) after the
+ * operator renames of this run (`renames`, old -> new). The operator records are written as they
+ * are, never through renameReferences, and the field is not a whole name anyway -- "[CN] Kal'tsit
+ * - Esperanta", "Ch'en the Holungday , Ch'en the Dawnstreak" -- so on 2026-10-14, when Global
+ * renamed Kal'tsit - Esperanta to Kal'tsit Esperanta, Kal'tsit's alternate kept the old name and
+ * /planner's alias map threw on it. Each part is renamed -- by this run's renames, or, for a name
+ * no record has any more, by the record that keeps it among its former names (`aliases`), so a
+ * rename an earlier run missed heals too -- and keeps its `[CN]` marker only while Global has not
+ * shipped the alter it names: a CN record, or a Global one still to be released (isFuture).
+ * Changes the records in place; returns the names of those it changed.
+ */
+export function renameAlternates(operators, renames) {
+  const byName = new Map(operators.map(op => [op.name, op]));
+  const former = new Map(operators.flatMap(op => (op.aliases ?? []).filter(alias => !byName.has(alias)).map(alias => [alias, op.name])));
+  const unshipped = name => { const op = byName.get(name); return !!op && (op.sourceRegion === 'CN' || op.isFuture === true); };
+  const changed = [];
+  for (const op of operators) {
+    if (typeof op.alternate !== 'string' || !op.alternate.trim()) continue;
+    const next = op.alternate.split(',').map(part => {
+      // Each part keeps its own spacing ("Ch'en the Holungday , Ch'en the Dawnstreak").
+      const [, lead, marker, name, trail] = /^(\s*)(\[CN\]\s*)?(.*?)(\s*)$/.exec(part);
+      if (!name) return part;
+      const renamed = renames.get(name) ?? (byName.has(name) ? name : former.get(name) ?? name);
+      if (renamed === name && !(marker && byName.has(name) && !unshipped(name))) return part;
+      return `${lead}${unshipped(renamed) ? '[CN] ' : ''}${renamed}${trail}`;
+    }).join(',');
+    if (next !== op.alternate) { op.alternate = next; changed.push(op.name); }
+  }
+  return changed;
+}
+
 export function operatorReleaseDates(operators, banners, cn, en) {
   const releases = new Map(), ids = new Map(operators.flatMap(op => [op.name,...(op.aliases ?? [])].map(n => [n,op.internalName])));
   const add = (id, region, ts) => { const row = releases.get(id) ?? {}; row[region] = Math.min(row[region] ?? Infinity, ts); releases.set(id,row); };

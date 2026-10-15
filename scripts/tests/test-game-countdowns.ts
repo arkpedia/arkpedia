@@ -8,7 +8,7 @@ import { eventShopEnd, parseGameWindow, windowCountdown } from '@/lib/schedule/g
 import { parseBannerDate, parseBannerEndDate } from '@/lib/gacha/realGachaBanners';
 import { getAllHeadhuntingBanners } from '@/lib/gacha/headhuntingBannerData';
 import { getHomeGachaBanners, getOngoingGachaBanners, getOngoingEvents, loadGameEvents } from '@/lib/home/frontPageContent';
-import { isDebutAvailable, plannerOperators, releaseMarker } from '@/lib/operators/operatorAvailability';
+import { isDebutAvailable, isOperatorReleased, plannerOperators, releaseMarker } from '@/lib/operators/operatorAvailability';
 import { getAllOperators } from '@/lib/operators/operators';
 
 const start = new Date('2026-09-16T15:00:00Z');
@@ -225,11 +225,22 @@ test('the planner offers every operator, the ones not on Global yet marked CN', 
     { name: 'old payload' },
   ];
   assert.deepEqual(plannerOperators(ops, now).map((op) => [op.name, op.cnOnly ?? false]), [['out', false], ['dated', true], ['undated', true], ['old payload', false]]);
-  // Every operator the data has is offered, and everything not out on Global is a CN record.
-  const all = getAllOperators().map((op) => ({ ...releaseMarker(op), name: op.name, sourceRegion: op.sourceRegion }));
-  const offered = plannerOperators(all, now);
+  // The data, at the clock it is judged by on the day: the content run tests the night's refresh.
+  // Judged at the fixed date above, Closure (CN-only then, a Global record since 2026-10-14) read
+  // as "marked CN but a Global record" and failed that night's run. "Marked CN => CN record" never
+  // held around a patch anyway: the EN tables make a record Global before its release instant
+  // (GALLUS²'s day-only date opens at 07:00 UTC the next day). What must hold at any clock: every
+  // operator is offered, marked CN exactly when the site calls it unreleased, and a CN record with
+  // no Global date is never offered as out on Global.
+  const today = Date.now();
+  const records = getAllOperators();
+  const all = records.map((op) => ({ ...releaseMarker(op), name: op.name, sourceRegion: op.sourceRegion }));
+  const offered = plannerOperators(all, today);
   assert.equal(offered.length, all.length);
-  for (const op of offered.filter((o) => o.cnOnly)) assert.equal(op.sourceRegion, 'CN', `${op.name} is marked CN and is a CN record`);
+  records.forEach((record, i) => {
+    assert.equal(offered[i].cnOnly === true, !isOperatorReleased(record, today), `${record.name}: the planner marks CN exactly what the site calls unreleased`);
+    if (record.sourceRegion === 'CN' && offered[i].releasedAt === null) assert.equal(offered[i].cnOnly, true, `${record.name} is a CN record with no Global date, so it is marked CN`);
+  });
   assert.ok(offered.some((op) => op.cnOnly), 'some operator is not on Global yet');
   assert.match(fs.readFileSync('pages/planner.tsx', 'utf8'), /useMemo\(\(\) => plannerOperators\(exportedOperators, now\)/);
 });

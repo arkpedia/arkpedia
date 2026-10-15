@@ -250,6 +250,19 @@ const DATA_ONLY: Record<string, Record<string, string>> = {
     // runs this test on that day's data. The page reads it only as optional text (isPredicted).
     '.ongoingEvents[].note': "each event's global.note, spread onto it (loadGameEvents): null, '' or a sentence depending on the event, so present or not by which events run that day",
     '.upcomingEvent.note': "the same global.note, on the next event to open",
+    // The same spread carries an event's exact window, which only events whose times the client
+    // tables or an announcement gave have (sync-event-windows.mjs); a date-only one has none. So
+    // whether the fields show depends on which events run that day: on 2026-10-14 the release's
+    // running event was a date-only estimate and the refresh's had the client's times. finalizeHome
+    // reparses every event with parseGameWindow(dateRange, event), which falls back to the date
+    // range when they are absent, and EventsPanel reads only start/end.
+    '.ongoingEvents[].startAt': "an event's exact opening (GameWindowTimes, optional), present only on events the client or an announcement timed; finalizeHome falls back to the date range without it",
+    '.ongoingEvents[].endAt': "an event's exact close, optional the same way, with the same fallback",
+    '.ongoingEvents[].timingSource': "where the exact window came from, optional with it; nothing on / reads it",
+    '.upcomingEvent.startAt': "the same exact opening, on the next event to open",
+    '.upcomingEvent.endAt': "the same exact close, on the next event to open",
+    '.upcomingEvent.timingSource': "the same window source, on the next event to open",
+    '.upcomingEvent.shopEndAt': "the event store's close (as on .ongoingEvents[]), on the next event to open; eventShopEnd reads its absence as a store that closes with the stages",
     // The finalize fetches the channels' live feeds at each request, and they answer nothing
     // for hours at a time (YouTube's returned 404 on 2026-09-27): the release's copy was made
     // while they did, and on 2026-10-02 they answered, so the field showed here and not there.
