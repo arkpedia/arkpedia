@@ -64,6 +64,14 @@ test('the map places a module by its type code, whatever order the client lists 
   assert.doesNotThrow(() => buildGameAccountMap(skillless, { ...tables, characters: { ...tables.characters, char_4145_radian: { skills: {} as never } } }));
 });
 
+test('the account map carries dated beginner programmes without inventing identity for older releases', () => {
+  assert.equal(buildGameAccountMap(records, tables).beginnerPrograms, undefined);
+  const current = buildGameAccountMap(records, { ...tables, openServer: { schedule: [
+    { id: 'later', startTs: 200 }, { id: 'earlier', startTs: 100 }, { id: '../invalid', startTs: 300 },
+  ] } });
+  assert.deepEqual(current.beginnerPrograms, [{ id: 'earlier', startTs: 100 }, { id: 'later', startTs: 200 }]);
+});
+
 test('a record that no longer lines up with the client fails the map, naming it', () => {
   const renamed = structuredClone(records);
   renamed[0].modules[1].name = 'A Long Journey';

@@ -46,6 +46,7 @@ interface RecordFile {
 
 export interface GameAccountMapFile {
   version: 1;
+  beginnerPrograms?: { id: string; startTs: number }[];
   /** character id -> the record's name, by equipment id the planner's module index, and
    *  whether the Global client has it (the account page's operator count). */
   /** formOf: for another form of one character (Amiya's Guard and Medic), the character id
@@ -102,6 +103,7 @@ export function buildGameAccountMap(
     medalTable?: { medalList?: { medalId?: string; medalName?: string }[] };
     /** data/headhunting_banners.json. */
     banners?: { name?: string; globalPoolId?: string | null }[];
+    openServer?: { schedule?: { id: string; startTs: number }[] };
   },
 ): GameAccountMapFile {
   const problems: string[] = [];
@@ -166,6 +168,7 @@ export function buildGameAccountMap(
     .filter(([id, skill]) => typeof skill.iconId === 'string' && skill.iconId && skill.iconId !== id)
     .map(([id, skill]) => [id, skill.iconId as string]).sort(([a], [b]) => a.localeCompare(b)));
   return { version: 1, chars, nameCards, nameCardThemes, nameCardVariants, nameCardPlain, nameCardStyles, medals, nations, moduleTypes, skillIcons,
+    ...(tables.openServer ? { beginnerPrograms: (tables.openServer.schedule ?? []).filter(row => /^[\w-]+$/.test(row.id) && Number.isSafeInteger(row.startTs)).sort((a, b) => a.startTs - b.startTs) } : {}),
     pools: bannerPoolNames(tables.banners ?? []) };
 }
 
@@ -195,6 +198,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(__filename
     styles: fs.existsSync(path.join(root, 'data', 'namecard-styles.json')) ? readJson<{ themes: Record<string, NameCardStyle> }>(path.join(root, 'data', 'namecard-styles.json')).themes : {},
     forms: fs.existsSync(path.join(root, 'data', 'operator-forms.json')) ? readJson(path.join(root, 'data', 'operator-forms.json')) : {},
     banners: readJson(path.join(root, 'data', 'headhunting_banners.json')),
+    openServer: readJson(path.join(excel, 'open_server_table.json')),
   });
   // Each nation's emblem must be published, or the card shows a broken image: a nation the
   // game adds, or an emblem filed under another name, fails the run (the stage keeps yesterday's).
