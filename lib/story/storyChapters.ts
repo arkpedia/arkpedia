@@ -9,6 +9,11 @@ export type SectionTag = 'before' | 'after' | 'intro' | '';
 export type Section = [index: number, code: string, name: string, tag: SectionTag];
 export type StoryChapters = Record<string, Section[]>;
 
+/** Pre-library releases contain only canvas chapters. Complete catalogues own omissions. */
+export function storyChaptersForRelease(published: StoryChapters, bundled: StoryChapters, complete: boolean): StoryChapters {
+  return complete ? published : { ...bundled, ...published };
+}
+
 /** One row of the popup: a stage with its Before and After, or a story read on its own. */
 export interface ChapterRow {
   code: string;

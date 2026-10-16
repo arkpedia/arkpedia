@@ -42,6 +42,13 @@ from https://arknights.timo.beer/json/covers.json. No wiki descriptions are copi
 Existing released image projections are retained; older releases are enriched by
 the deployment until the next dev content release carries their own artwork.
 
+Complete chapter imports carry `completeLibrary: true`. Until that marker reaches
+a page, missing off-canvas chapter groups are filled from the deployment snapshot;
+published groups keep their own section indices. A complete catalogue owns its
+omissions, so removed groups are not resurrected by the fallback. This keeps a
+compile-only refresh from pairing a full dev library with production's canvas-only
+chapter table and losing record/module dialogs.
+
 ## Cross-device progress scope
 
 The supplied screenshot was visually verified by the parent task. It depicts

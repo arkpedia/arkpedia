@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 // @ts-expect-error Importers are plain JavaScript.
 import { timoLibrary } from '../lib/timo-library.mjs';
 import { STORY_CATEGORIES, type StoryLibraryEntry } from '../../lib/story/storyLibrary';
-import type { StoryChapters } from '../../lib/story/storyChapters';
+import { storyChaptersForRelease, type StoryChapters } from '../../lib/story/storyChapters';
 import { bundledStoryLibrary } from '../../lib/story/storyMapData';
 import { storyLibraryArt } from '../../lib/story/storyLibraryArt';
 
@@ -69,4 +69,16 @@ test('a future story without art stays navigable and released image projections 
   assert.deepEqual(storyLibraryArt([future], map), [future]);
   const published = { ...future, image: '/content-art/published.webp', imageKind: 'art' as const };
   assert.deepEqual(storyLibraryArt([published], map), [published]);
+});
+
+test('canvas-only chapter releases retain off-canvas dialogs; complete catalogues retain their own omissions', () => {
+  const bundled: StoryChapters = { main_0: [[0, '', 'Old title', '']], story_ling_set_1: [[0, '', 'Record', '']], uniequip_002_ling: [[0, '', 'Module', '']] };
+  const legacy: StoryChapters = { main_0: [[9, '', 'Published title', '']] };
+  const chapters = storyChaptersForRelease(legacy, bundled, false);
+  assert.equal(chapters.main_0[0][0], 9, 'published section indices retain authority');
+  assert.equal(chapters.story_ling_set_1[0][2], 'Record');
+  assert.equal(chapters.uniequip_002_ling[0][2], 'Module');
+  assert.equal(legacy.story_ling_set_1, undefined, 'the input release is unchanged');
+  assert.equal(storyChaptersForRelease(legacy, bundled, true).story_ling_set_1, undefined, 'complete new catalogues can intentionally omit a group');
+  assert.deepEqual(storyChaptersForRelease({ story_ling_set_1: [] }, bundled, false).story_ling_set_1, [], 'an explicit empty group is respected');
 });

@@ -145,6 +145,24 @@ for (const file of SEEDED_SOURCE_FILES) {
   else if (ledger.has(file)) retired.push(file);
   else if (fs.existsSync(file)) { seeded.push(file); ledger.add(file); }
 }
+// Main can still publish a canvas-only chapter table while the complete library
+// is dev-only. Keep sections for library entries through compile-only hydration;
+// a table marked complete owns deletions and is never supplemented.
+const chapterFile = 'data/story-chapters.json', libraryFile = 'data/story-library.json';
+if (incoming.has(chapterFile) && fs.existsSync(chapterFile) && (incoming.has(libraryFile) || seeded.includes(libraryFile))) {
+  const published = JSON.parse(incoming.get(chapterFile));
+  const bundled = JSON.parse(fs.readFileSync(chapterFile, 'utf8'));
+  const library = JSON.parse(incoming.get(libraryFile) ?? fs.readFileSync(libraryFile));
+  if (published.completeLibrary !== true && published.chapters && bundled.chapters && Array.isArray(library.entries)
+    && library.entries.some(entry => entry?.category === 'record' || entry?.category === 'module')) {
+    const ids = new Set(library.entries.map(entry => entry?.id));
+    const missing = Object.entries(bundled.chapters).filter(([id]) => ids.has(id) && !Object.hasOwn(published.chapters, id));
+    if (missing.length) {
+      incoming.set(chapterFile, Buffer.from(`${JSON.stringify({ ...published, chapters: { ...Object.fromEntries(missing), ...published.chapters } })}\n`));
+      console.warn(`Legacy canvas-only chapter table: retained ${missing.length} library groups from the deployment snapshot.`);
+    }
+  }
+}
 // Work only in the disposable CI checkout. Deleted game records must not survive
 // silently in the bundled fallback and reappear in the next generated release.
 for (const file of walk('data').filter(file => (file.endsWith('.json') || file.endsWith('.lrc')) && !file.includes('final-poll-results'))) {

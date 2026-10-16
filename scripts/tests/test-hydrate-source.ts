@@ -79,6 +79,17 @@ test('the complete story library and sections survive the first hydration, then 
   for (const [file, text] of Object.entries(published)) assert.equal(later.read(file), text);
 });
 
+test('a canvas-only source retains listed off-canvas chapters, while a complete source can remove them', () => {
+  const library = JSON.stringify({ entries: [{ id: 'main', category: 'main' }, { id: 'record', category: 'record' }] });
+  const app = { 'data/story-library.json': library, 'data/story-chapters.json': JSON.stringify({ chapters: { main: [[0]], record: [[1]], removed: [[2]] } }) };
+  const source = { 'data/story-library.json': library, 'data/story-chapters.json': JSON.stringify({ chapters: { main: [[9]] } }) };
+  const legacy = hydrate(source, app);
+  assert.deepEqual(JSON.parse(legacy.read('data/story-chapters.json')!).chapters, { record: [[1]], main: [[9]] });
+  assert.match(legacy.stderr, /retained 1 library groups/);
+  const complete = hydrate({ ...source, 'data/story-chapters.json': JSON.stringify({ completeLibrary: true, chapters: { main: [[9]] } }) }, app);
+  assert.deepEqual(JSON.parse(complete.read('data/story-chapters.json')!).chapters, { main: [[9]] });
+});
+
 /* SEEDED_SOURCE_FILES had no end: whenever arkpedia-data lacked one of the tables, the app's
    copy was kept and published again, so a table the data repository deleted on purpose came
    back from the app's stale copy with the next release. The ledger, carried in the data

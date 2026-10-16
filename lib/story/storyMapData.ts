@@ -20,6 +20,10 @@ export function bundledStoryChapters(): StoryChapters {
   return (storyChaptersData as unknown as { chapters: StoryChapters }).chapters;
 }
 
+export function bundledStoryChaptersComplete(): boolean {
+  return (storyChaptersData as { completeLibrary?: boolean }).completeLibrary === true;
+}
+
 export function bundledStoryLibrary(): StoryLibraryEntry[] {
   return storyLibraryArt(storyLibraryData.entries as StoryLibraryEntry[], bundledStoryMap());
 }

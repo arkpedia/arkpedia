@@ -10,7 +10,7 @@ import StoryMapView, { type ChapterOpener } from '@/components/story/StoryMapVie
 import { withContentPage } from '@/lib/content/server';
 import { useQueryState } from '@/lib/hooks/useQueryState';
 import type { StoryLink, StoryMap } from '@/lib/story/storyMap';
-import type { StoryChapters } from '@/lib/story/storyChapters';
+import { storyChaptersForRelease, type StoryChapters } from '@/lib/story/storyChapters';
 import type { StoryLibraryEntry } from '@/lib/story/storyLibrary';
 
 /*
@@ -30,6 +30,7 @@ interface Props {
    *  popup: every story then links straight into the reader, as it did. */
   chapters?: StoryChapters;
   library?: StoryLibraryEntry[];
+  chaptersComplete?: boolean;
 }
 
 export default function StoryPage({ map, chapters = {}, library = [] }: Props) {
@@ -75,12 +76,12 @@ export default function StoryPage({ map, chapters = {}, library = [] }: Props) {
    once a release carries the page, the map comes from the release, so a change to the board
    reaches readers without a deployment. */
 export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>('/story', async () => {
-  const { bundledStoryChapters, bundledStoryMap, bundledStoryLibrary } = await import('@/lib/story/storyMapData');
-  return { props: { map: bundledStoryMap(), chapters: bundledStoryChapters(), library: bundledStoryLibrary() } };
+  const { bundledStoryChapters, bundledStoryChaptersComplete, bundledStoryMap, bundledStoryLibrary } = await import('@/lib/story/storyMapData');
+  return { props: { map: bundledStoryMap(), chapters: bundledStoryChapters(), chaptersComplete: bundledStoryChaptersComplete(), library: bundledStoryLibrary() } };
 }, { bundledWhenUnpublished: true, finalize: async props => {
   // Releases exported before the library existed still get this deployment's complete list.
   const { storyLibraryArt } = await import('@/lib/story/storyLibraryArt');
-  if (props.library) return { ...props, library: storyLibraryArt(props.library, props.map) };
   const { bundledStoryChapters, bundledStoryLibrary } = await import('@/lib/story/storyMapData');
-  return { ...props, library: storyLibraryArt(bundledStoryLibrary(), props.map), chapters: { ...bundledStoryChapters(), ...props.chapters } };
+  return { ...props, library: storyLibraryArt(props.library ?? bundledStoryLibrary(), props.map),
+    chapters: storyChaptersForRelease(props.chapters ?? {}, bundledStoryChapters(), props.chaptersComplete === true) };
 } });
