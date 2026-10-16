@@ -1,3 +1,5 @@
+import { useRegionalTime } from '@/lib/time/useRegionalTime';
+import { useReaderClock } from '@/lib/time/readerClock';
 import { withContentPage } from '@/lib/content/server';
 import { GetStaticProps } from 'next';
 import Head from 'next/head';
@@ -21,7 +23,17 @@ interface Props {
   now: number;
 }
 
-export default function FarmingPage({ windows, countdowns: exportedCountdowns, eventStoreCountdown: exportedEventStoreCountdown, now }: Props) {
+export default function FarmingPage({ windows: globalWindows, countdowns: exportedCountdowns, eventStoreCountdown: exportedEventStoreCountdown, now: requestNow }: Props) {
+  const { server, schedule } = useRegionalTime();
+  const now = useReaderClock(requestNow, { tickMs: 1000, onFocus: true });
+  const windows = useMemo(() => {
+    if (server === 'en' || !globalWindows) return globalWindows;
+    const project = (rows: FarmingWindows['eventStore'], shop: boolean) => rows.flatMap(row => {
+      const time = row.event ? schedule?.events?.[row.event] : undefined;
+      return time ? [{ ...row, start: Date.parse(time.startAt), end: Date.parse(shop ? time.shopEndAt ?? time.endAt : time.endAt) }] : [];
+    });
+    return { eventStore: project(globalWindows.eventStore, true), materials: Object.fromEntries(Object.entries(globalWindows.materials).map(([key, rows]) => [key, project(rows, false)])) } as FarmingWindows;
+  }, [globalWindows, server, schedule]);
   /* Each tier opens and closes on its own, and Tier 3 -- the one worth reading -- is
      open in the server's HTML. This was one exclusive accordion opened by a 650ms
      timer: the timer moved everything under Tier 3 down 450-1350px after the page had

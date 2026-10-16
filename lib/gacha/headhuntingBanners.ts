@@ -26,6 +26,7 @@ export type BannerLineupSource = 'wiki' | 'client' | 'client-art' | 'announcemen
 export type BannerNameStatus = 'cn-official' | 'en-unofficial' | 'en-official';
 
 export interface HeadhuntingBanner {
+  timingServer?: import('@/lib/time/servers.mjs').GameServer;
   name: string;
   /** Names the record had before the catalogue renamed it, for matching old links. */
   aliases?: string[];

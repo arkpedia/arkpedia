@@ -161,6 +161,3 @@ export const SOURCE_LABELS: Record<SourceKind, { tag: string; title: string; not
   farm: { tag: 'Farm', title: 'Run these stages', note: 'codes are the drop sources' },
   unknown: { tag: 'Elsewhere', title: 'No listed source', note: 'not in the farming guide' },
 };
-
-/** The order the groups are shown in: cheapest route first. */
-export const SOURCE_ORDER: SourceKind[] = ['workshop', 'factory', 'certificate', 'event', 'farm', 'unknown'];

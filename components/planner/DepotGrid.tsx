@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useHeightFloor } from '@/components/ui/useHeightFloor';
 import SearchInput from '@/components/ui/SearchInput';
 import SegmentedControl from '@/components/ui/SegmentedControl';

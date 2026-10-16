@@ -35,7 +35,7 @@
  *   node scripts/build/build-alliance-icons.mjs
  */
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, readFileSync, writeFileSync, existsSync, rmSync, readdirSync } from 'node:fs';
+import { mkdirSync, readFileSync, existsSync, rmSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 const OUT = 'public/alliance-icons';

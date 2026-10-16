@@ -1,3 +1,4 @@
+import { regionalFixture } from './regional-fixture';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createElement } from 'react';
@@ -25,7 +26,7 @@ const props = (now: number) => ({
   howToObtainLookup: {}, operatorSeriesMap: {}, now,
 });
 const at = (iso: string) => Date.parse(iso);
-const render = (zone: string, hostClock: string, now: number) => renderOnHost(zone, at(hostClock), createElement(GachaSimulator, props(now)));
+const render = (zone: string, hostClock: string, now: number) => renderOnHost(zone, at(hostClock), regionalFixture(createElement(GachaSimulator, props(now))));
 const liveBadges = (html: string) => html.match(/LIVE NOW/g)?.length ?? 0;
 
 test('/gacha renders the same HTML on the server and in a browser on either side of a banner closing', () => {

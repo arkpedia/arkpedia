@@ -395,18 +395,6 @@ export interface GuesserOperator {
   skills: GuesserSkill[] | { skillList: GuesserSkill[] };
 }
 
-// Lightweight projection for the recruitment calculator -- verified
-// against every field read in recruitmentCalc.ts and recruitment.tsx's
-// own direct usage.
-export interface RecruitmentOperator {
-  name: string;
-  rarity: number | null;
-  class: string | null;
-  position: string | null;
-  tags: string[];
-  howToObtain: string | HowToObtainInfo | null;
-}
-
 export function getSkillList<T>(operator: { skills: T[] | { skillList: T[] } }): T[] {
   const s = operator.skills;
   if (Array.isArray(s)) return s;

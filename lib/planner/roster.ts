@@ -199,11 +199,6 @@ export function parseRosterExport(text: string): Roster | null {
   return out;
 }
 
-export function formatRosterExport(roster: Roster): string {
-  const sorted = Object.keys(roster).sort();
-  return JSON.stringify(Object.fromEntries(sorted.map((k) => [k, roster[k]])), null, 2);
-}
-
 /** "E2 L60 SL7 S1M3 Mod1S2" -- the same shape the build panel's from-to line uses.
  *  Modules read Mod<n>S<stage> so they cannot be mistaken for a mastery, which is the
  *  other thing here written as a letter and a number. */

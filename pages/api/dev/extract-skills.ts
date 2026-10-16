@@ -2,10 +2,7 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import fs from 'fs';
 import path from 'path';
 import { Operator } from '@/lib/operators/operatorTypes';
-
-function isLocalDev(): boolean {
-  return process.env.NODE_ENV === 'development';
-}
+import { devOnlyApi } from '@/lib/dev/devOnly';
 
 const RARITY_FOLDERS = [
   'operators-1star',
@@ -35,17 +32,10 @@ function readOperatorFolder(dir: string): Operator[] {
   return results;
 }
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (!isLocalDev()) {
-    return res.status(403).json({ error: 'The dev console only works when running locally (npm run dev).' });
-  }
-  const passcode = process.env.DEV_CONSOLE_PASSCODE;
-  if (passcode && req.headers['x-dev-passcode'] !== passcode) {
-    return res.status(401).json({ error: 'Invalid passcode' });
-  }
-
-  const facility = req.query.facility as string;
-  if (!facility) {
+export default devOnlyApi(async function handler(req: NextApiRequest, res: NextApiResponse) {
+  if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+  const facility = req.query.facility;
+  if (typeof facility !== 'string' || !facility) {
     return res.status(400).json({ error: 'Missing facility query param. Use ?facility=list to see every facility value actually present in the data.' });
   }
 
@@ -88,4 +78,4 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   return res.status(200).json({ facility, count: results.length, skills: results });
-}
+}, { passcode: 'writes' });

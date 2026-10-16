@@ -10,7 +10,7 @@ import XButton from '@/components/ui/XButton';
 
 export default function PullBannerRow({row,rules,expanded,onExpand,onChange,onRemove}: {row:BudgetRow;rules?:BannerOdds;expanded:boolean;onExpand:()=>void;onChange:(goal:BannerGoal)=>void;onRemove:()=>void}) {
   const [response,setResponse] = useState<{key:string; result?:OddsResult; error?:string}|null>(null);
-  const request = useMemo<OddsRequest|null>(()=>rules && row.goal.targets?.length ? {rules,pulls:row.goal.pulls,targets:row.goal.targets,spark:row.goal.includeSpark ?? false,roster:row.goal.rateUpRoster}:null,[rules,row.goal]);
+  const request = useMemo<OddsRequest|null>(()=>!row.issue && rules && row.goal.targets?.length ? {rules,pulls:row.goal.pulls,targets:row.goal.targets,spark:row.goal.includeSpark ?? false,roster:row.goal.rateUpRoster}:null,[rules,row.goal,row.issue]);
   const key=JSON.stringify(request);
   useEffect(()=>{
     if(!request)return;
@@ -33,7 +33,7 @@ export default function PullBannerRow({row,rules,expanded,onExpand,onChange,onRe
         {row.banner?.image ? <ContentImg src={row.banner.image} alt="" width="96" height="60" /> : <span className={styles.bannerArtPending} aria-hidden="true" />}
         <span><strong>{names}</strong><small>{row.goal.banner.replace(/^\[[^\]]*\]\s*/,'')}</small><em>{expanded?'Hide goals':'Edit goals'} <span aria-hidden="true">{expanded?'−':'+'}</span></em></span>
       </button>
-      <div className={styles.date}><span className={styles.mobileLabel}>Until</span><b>{date}</b><small>{row.banner?.datesEstimated?'Estimated':''}</small></div>
+      <div className={styles.date}><span className={styles.mobileLabel}>Until</span><b>{date}</b><small>{row.expired?'Closed':row.issue?'Check schedule':row.banner?.datesEstimated?'Estimated':''}</small></div>
       <label className={styles.budget}><span className={styles.mobileLabel}>Pulls</span><NumberInput aria-label={`Pull budget for ${row.goal.banner}`} min="0" max="100000" inputMode="numeric" value={row.goal.pulls} onFocus={e=>e.currentTarget.select()} onChange={e=>onChange({...row.goal,pulls:Math.max(0,Math.min(100000,Math.floor(Number(e.target.value)||0)))})} /></label>
       <div className={styles.figure}><span className={styles.mobileLabel}>Available</span><b>{row.issue?'—':row.available}</b><small>{row.free>0?`${row.free} free`:''}</small></div>
       <div className={`${styles.figure} ${styles.chance}`}><span className={styles.mobileLabel}>All goals</span><b>{result?formatChance(result.all):request?'…':'—'}</b><small>{request?'Estimate':''}</small></div>
@@ -41,8 +41,9 @@ export default function PullBannerRow({row,rules,expanded,onExpand,onChange,onRe
       <XButton className={styles.remove} onClick={onRemove} label={`Remove ${row.goal.banner}`} />
     </div>
     {expanded && <div className={`${styles.goalEditor} pulls-banner-editor`}>
-      <OperatorGoals rules={rules} goal={row.goal} onChange={onChange}><span /></OperatorGoals>
+      <OperatorGoals rules={rules} inactive={!!row.issue} goal={row.goal} onChange={onChange}><span /></OperatorGoals>
       <div className={styles.spending}><span>Banner free pulls <b>{row.free}</b></span><span>From savings <b>{row.paid}</b></span><span>After earlier banners <b>{row.available}</b></span></div>
+      {row.issue && <p className="hint" role="status">{row.issue}</p>}
     </div>}
   </article>;
 }

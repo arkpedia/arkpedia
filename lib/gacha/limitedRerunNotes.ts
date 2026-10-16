@@ -1,5 +1,5 @@
 import { isOperatorReleased, type ReleaseOperator } from '@/lib/operators/operatorAvailability';
-import { toServerTime } from '@/lib/time/serverDay';
+import { toServerTime } from '@/lib/time/servers.mjs';
 import type { LimitedBannerType, LimitedOperatorInfo } from './limitedBannerType';
 
 /**

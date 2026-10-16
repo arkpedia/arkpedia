@@ -1,3 +1,5 @@
+import { serverCalendarTime } from '@/lib/time/servers.mjs';
+import { planningWindowEnd } from './planningWindows';
 import type { BannerOdds } from './probability';
 import type { UpcomingBanner } from './pulls';
 import type { SkinCollection } from './skinCollections';
@@ -9,9 +11,9 @@ export interface PullPlanWindows {
   skinCollections: SkinCollection[];
 }
 
-/** The shops still open on `today` (YYYY-MM-DD, UTC): a shop is kept through its last day. */
-export function openSkinCollections(collections: readonly SkinCollection[], today: string): SkinCollection[] {
-  return collections.filter(collection => collection.end >= today);
+/** The shops still open on `today` (YYYY-MM-DD, Global calendar): a shop is kept through its last day. */
+export function openSkinCollections(collections: readonly SkinCollection[], today: string, now?: number): SkinCollection[] {
+  return collections.filter(collection => now === undefined ? collection.end >= today : planningWindowEnd(collection) > now);
 }
 
 /**
@@ -23,13 +25,14 @@ export function openSkinCollections(collections: readonly SkinCollection[], toda
  * A banner stays through the end of its last day, as the planner's own filter has it.
  */
 export function currentPullPlan<P extends PullPlanWindows>(props: P, now: number): P {
-  const today = new Date(now).toISOString().slice(0, 10);
-  const scheduledBanners = props.scheduledBanners.filter(banner => Date.parse(`${banner.end}T23:59:59Z`) > now);
+  if ((props as P & { __contentTables?: Record<string, unknown> }).__contentTables?.['regional-schedules']) return props;
+  const today = serverCalendarTime(new Date(now), 'en').toISOString().slice(0, 10);
+  const scheduledBanners = props.scheduledBanners.filter(banner => planningWindowEnd(banner) > now);
   const names = new Set(scheduledBanners.map(banner => banner.name));
   return {
     ...props,
     scheduledBanners,
     bannerOdds: Object.fromEntries(Object.entries(props.bannerOdds).filter(([name]) => names.has(name))),
-    skinCollections: openSkinCollections(props.skinCollections, today),
+    skinCollections: openSkinCollections(props.skinCollections, today, now),
   };
 }

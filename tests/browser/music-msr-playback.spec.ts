@@ -31,11 +31,6 @@ const audio = (page: Page) => page.evaluate(() => {
 const bar = (page: Page) => page.getByRole('region', { name: 'Player', exact: true });
 const libraryRow = (page: Page, id: string) => page.locator(`.music-all-songs-list [data-song-id="${id}"]`);
 
-async function openLibraryAt(page: Page, search: string) {
-  await page.goto('/music?view=library');
-  await page.getByRole('searchbox', { name: 'Search all songs' }).fill(search);
-}
-
 test('a song with no YouTube upload is listed, plays from Monster Siren through <audio>, and has no YouTube link', async ({ page }) => {
   await stubYouTube(page);
   const siren = await stubMonsterSiren(page);

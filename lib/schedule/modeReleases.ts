@@ -1,3 +1,4 @@
+import { serverDayBoundary } from '@/lib/time/servers.mjs';
 import type { ScheduleEvent } from './scheduleTypes';
 import type { EventRow } from './eventRows';
 
@@ -21,7 +22,7 @@ export function modeReleaseRow(event: ScheduleEvent): EventRow | null {
   if (!event.modeId || !event.global.releaseDate) return null;
   const date = event.global.releaseDate;
   // A forecast is a calendar day, with the same default launch hour as events.
-  const start = Date.parse(event.global.startAt ?? `${date.replaceAll('/', '-')}T15:00:00Z`);
+  const start = event.global.startAt ? Date.parse(event.global.startAt) : serverDayBoundary(Date.parse(`${date.replaceAll('/', '-')}T00:00:00Z`), 'en', 'event');
   if (!Number.isFinite(start)) return null;
   return { name: event.name, poster: event.poster, dateRange: date, isPredicted: /estimated|predicted/i.test(event.global.note ?? ''), start, end: start + DAY, modeId: event.modeId, pullBanner: null, featuredOperators: [] };
 }

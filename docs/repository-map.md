@@ -6,12 +6,11 @@
 | --- | --- |
 | `pages/` | Public URLs, page composition, static props, and API endpoints. Paths follow Next.js routing. |
 | `components/<feature>/` | Feature UI and its colocated CSS modules. Shared controls live in `ui/`; site navigation in `layout/`. |
-| `lib/<feature>/` | Data access, calculations, and reusable logic. React hooks live in `hooks/`; database access in `server/`. |
+| `lib/<feature>/` | Data access, calculations, and reusable logic. React hooks live in `hooks/`. |
 | `styles/<feature>/` | Feature-wide global styles. Shared tokens and theme live in `core/`. |
-| `data/` | Game records, curated content, and checked-in data snapshots. `assets/` holds media indexes; `survey/` contains the private raw poll export. |
+| `data/` | Game records, curated content, and checked-in data snapshots. `assets/` holds media indexes; closed poll aggregates stay bundled. |
 | `public/` | Site files and generated JSON delivery payloads. Image URLs redirect to public asset repositories. |
 | `scripts/` | Data builds/imports/sync, tests, audits, and developer tools, grouped by task. |
-| `database/` | SQL schema for the survey submission API. |
 | `docs/features/` | Maintained feature behavior and validation notes. |
 | `docs/development/` | Setup and data pipeline documentation. |
 | `docs/archive/` | Historical reviews and superseded preview notes; not current implementation requirements. |
@@ -32,7 +31,7 @@ Pages remain in `pages/` because their paths define public URLs. Their component
 | Skins | `pages/skins.tsx` | `components/skins/` | `lib/skins/` | `styles/skins/` |
 | Recruitment | `pages/recruitment.tsx`, `pages/recruitment/` | `components/recruitment/` | `lib/gacha/recruitment*.ts` | `styles/recruitment/` |
 | Base | `pages/base.tsx`, `pages/bases/` | Page-local UI | `lib/base/` | `styles/base/` |
-| Survey | `pages/results.tsx` | `components/survey/` | `lib/results/`, `lib/survey/` | `styles/survey/` |
+| Survey | `pages/results.tsx` | `components/survey/` | `lib/results/` | `styles/survey/` |
 
 ## Public repository ownership
 
@@ -49,7 +48,7 @@ Pages remain in `pages/` because their paths define public URLs. Their component
 
 Voice repositories use `current/` for current recordings and `legacy/<upstream commit>/` for preserved recordings. Those revision folders are provenance, not temporary clutter.
 
-[`arkpedia-data`](https://github.com/arkpedia/arkpedia-data) owns reviewed game records in `source/` and generated runtime payloads in `release/`. The application reads a validated, immutable release selected by `live/current.json`. See [runtime content](development/runtime-content.md). Application `data/` records are a bundled build/development fallback, not a separately maintained canonical dataset. Refresh jobs hydrate them from `arkpedia-data` before compiling. Raw poll submissions stay private.
+[`arkpedia-data`](https://github.com/arkpedia/arkpedia-data) owns reviewed game records in `source/` and generated runtime payloads in `release/`. The application reads a validated, immutable release selected by `live/current.json`. See [runtime content](development/runtime-content.md). Application `data/` records are a bundled build/development fallback, not a separately maintained canonical dataset. Refresh jobs hydrate them from `arkpedia-data` before compiling. Raw poll submissions are archived privately outside the application checkout.
 
 ## Adding or changing artwork
 

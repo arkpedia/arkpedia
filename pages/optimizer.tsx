@@ -1,4 +1,4 @@
-import { useEffect, useState, ReactNode } from 'react';
+import { useEffect, useState } from 'react';
 import Head from 'next/head';
 import PageHeader from '@/components/ui/PageHeader';
 import { devOnlyStaticProps } from '@/lib/dev/devOnly';
@@ -157,7 +157,7 @@ export default function OptimizerPage() {
   async function loadCachedResults() {
     setLoading(true);
     try {
-      const res = await fetch('/api/optimizer-results');
+      const res = await fetch('/api/dev/optimizer-results');
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setResults(data);

@@ -187,7 +187,9 @@ test('withContentPage itself never reads the clock while exporting', async () =>
     // /schedule declares tables (lib/content/tables.mjs), so the export also attaches them here.
     const tables = { event_colors: async () => ({ event: '#fff' }), event_materials: async () => ({}), headhunting_banners: async () => [] };
     const result = await withContentPage('/schedule', async () => ({ props: { value: 'record' } }), { tables })({ revalidateReason: 'build' });
-    assert.deepEqual(await result.props, { value: 'record', __contentTables: { event_colors: { event: '#fff' }, event_materials: {}, headhunting_banners: [] } });
+    const projected = await result.props;
+    delete projected.__contentTables['regional-schedules'];
+    assert.deepEqual(projected, { value: 'record', __contentTables: { event_colors: { event: '#fff' }, event_materials: {}, headhunting_banners: [] } });
   } finally {
     clock.restore();
     if (saved.disabled === undefined) delete process.env.ARKPEDIA_CONTENT_DISABLED; else process.env.ARKPEDIA_CONTENT_DISABLED = saved.disabled;

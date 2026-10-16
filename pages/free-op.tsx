@@ -1,3 +1,5 @@
+import { useRegionalTime } from '@/lib/time/useRegionalTime';
+import { currentRegionalFreeRewards, regionalFreeRewards, type RegionalSchedules } from '@/lib/time/regional';
 import { useState } from 'react';
 import { remainingBacklog } from '@/lib/pulls/pulls';
 import type { GetStaticProps } from 'next';
@@ -31,10 +33,13 @@ interface Props {
   rewardIcons?: Record<string, string>;
   now: number;
   __contentRelease?: ContentRelease;
+  __contentTables?: { 'regional-schedules'?: RegionalSchedules };
 }
 
-export default function FreeOpPage({ backlogSources, freeRewards = [], rewardIcons = {}, now }: Props) {
-  const clock = useReaderClock(now);
+export default function FreeOpPage({ backlogSources, freeRewards: globalFreeRewards = [], rewardIcons = {}, now }: Props) {
+  const { server, schedule } = useRegionalTime();
+  const freeRewards = regionalFreeRewards(globalFreeRewards, schedule, server);
+  const clock = useReaderClock(now, { tickMs: 1000, onFocus: true });
   const [view, setView] = useState('stages');
   const past = usePastRewards(backlogSources);
   const [presentation, setPresentation] = useState(false);
@@ -72,7 +77,7 @@ export default function FreeOpPage({ backlogSources, freeRewards = [], rewardIco
         <Tabs label="Reward type" id="free-reward-type" value={view} onChange={setView} options={[{ value: 'stages', label: 'Stage rewards' }, { value: 'free', label: 'Free rewards' }]} />
         {view === 'stages' ? <div {...tabPanelProps('free-reward-type', 'stages')}><PastRewards backlog={presentation ? backlogSources : past.counting} doneKeys={presentation ? demoKeys : past.doneKeys} doneEvents={presentation ? demoEvents : past.doneEvents} annihilationDone={presentation ? demoAnnihilation : past.annihilationDone}
           onKeys={presentation ? setDemoKeys : past.onKeys} onEvents={presentation ? setDemoEvents : past.onEvents} onAnnihilation={presentation ? setDemoAnnihilation : past.onAnnihilation} imported={presentation ? null : past.imported} cleared={presentation ? null : past.cleared} layout="page" />
-        </div> : <div {...tabPanelProps('free-reward-type', 'free')}><FreeRewards icons={rewardIcons} rewards={eligible} done={keys} onKeys={presentation ? setDemoKeys : past.onKeys} now={clock} /></div>}
+        </div> : <div {...tabPanelProps('free-reward-type', 'free')}><FreeRewards icons={rewardIcons} rewards={eligible} done={keys} onKeys={presentation ? setDemoKeys : past.onKeys} now={clock} server={server} /></div>}
       </main>
     </>
   );
@@ -93,7 +98,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>('/fr
     const { bundledBacklogSources } = await import('@/lib/pulls/sources');
     const { default: free } = await import('@/data/free-rewards.json');
     const { rewardTrackerArt } = await import('@/lib/pulls/rewardIcons');
-    const freeRewards = (props.freeRewards ?? allFreeRewards(free)).filter(reward => !('endAt' in reward) || !reward.endAt || reward.endAt > props.now);
+    const freeRewards = currentRegionalFreeRewards(props.freeRewards ?? allFreeRewards(free), props.__contentTables?.['regional-schedules'], props.now);
     return { ...props, freeRewards, ...rewardTrackerArt(freeRewards, props.rewardIcons, props.__contentRelease), backlogSources: fillFromDeployment(props.backlogSources, bundledBacklogSources()) };
   },
 });

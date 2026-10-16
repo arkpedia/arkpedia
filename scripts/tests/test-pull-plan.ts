@@ -8,7 +8,7 @@ import { publicFileExists } from '../../lib/assets/publicAssets';
 import { openSkinCollections } from '../../lib/pulls/currentPlan';
 const now = new Date('2026-09-01T12:00:00Z');
 function banner(name: string, start = '2026-09-02', end = '2026-09-15', freeTicket = 0): UpcomingBanner {
-  return { ...ALL_BANNERS[0], name, start, end, freeDaily: 0, freeTicket, freePulls: freeTicket };
+  return { ...ALL_BANNERS[0], name, start, end, startAt: `${start}T15:00:00Z`, endAt: `${end}T11:00:00Z`, freeDaily: 0, freeTicket, freePulls: freeTicket };
 }
 const a = banner('First'); const b = banner('Second', '2026-09-16', '2026-09-29');
 const saved: SavedPullPlan = { version: 1, orundum: '12345', originite: '60', permits: '10', reservedOP: '42', until: '2026-09-29', manualEventDate: '', bannerName: b.name, monthlyCard: true, includeBacklog: true, annihilationDone: false, doneEvents: ['event'], doneKeys: ['main_0'], clearedReruns: ['rerun'], future: { sidestory: 2 }, goals: [{ banner: a.name, spendOn: a.end, pulls: 80, ticketUsed: false }] };
@@ -22,6 +22,13 @@ test('every planner resource icon is published', () => {
 });
 test('saved plans round trip all resource, content, and goal settings', () => {
   assert.deepEqual(parsePullPlan(JSON.stringify(saved)), saved);
+});
+test('saved closing instants round trip alongside manual goals, and refuse timestamps without a timezone', () => {
+  const plan = { ...saved, goals: saved.goals.map(goal => ({ ...goal, bannerEndAt: '2026-09-15T11:00:00Z' })) };
+  assert.deepEqual(parsePullPlan(JSON.stringify(plan)), plan);
+  for (const bannerEndAt of ['2026-09-15T11:00:00', 'bad', null, 123]) {
+    assert.throws(() => parsePullPlan(JSON.stringify({ ...plan, goals: [{ ...plan.goals[0], bannerEndAt }] })), /deadline/);
+  }
 });
 test('imports reject wrong versions, invalid dates, duplicate goals, unsafe values and oversized input', () => {
   for (const value of [{...saved, version: 2}, {...saved, originite: '-2'}, {...saved, permits: 'Infinity'}, {...saved, goals: [...saved.goals, ...saved.goals]}, {...saved, until: '2026-02-30'}, {...saved, monthlyCard: 'yes'}, {...saved, goals: [{...saved.goals[0], pulls: 1.5}]}, {...saved, goals: [{...saved.goals[0], ticketUsed: 'yes'}]}, {...saved, future: JSON.parse('{"__proto__": 1}')}]) assert.throws(() => parsePullPlan(JSON.stringify(value)));
@@ -512,7 +519,7 @@ test('event rewards include bannerless reruns and custom exchanges by the event 
   const cleared = bannerHaul(events, by, {cleared:new Set([rerun.name])});
   assert.equal(cleared.op, haul.op - (rerun.inBacklog ? 0 : rerun.op));
   assert.equal(cleared.permits, haul.permits);
-  const rerunEnd = new Date(`${rerun.end}T23:59:59Z`);
+  const rerunEnd = new Date(rerun.endAt!);
   assert.equal(bannerHaul([rerun], new Date(rerunEnd.getTime() - 1), {cleared:new Set()}).op, 0);
   assert.equal(bannerHaul([rerun], rerunEnd, {cleared:new Set()}).op, rerun.inBacklog ? 0 : rerun.op);
 });
@@ -560,8 +567,8 @@ test('certificate exchanges respect owned funds, full sets and Global monthly sh
   const {certificatePulls} = await import('../../lib/pulls/incomeSettings');
   const from = new Date('2026-09-15T12:00:00Z');
   assert.equal(certificatePulls(from,new Date('2026-09-30T23:59:59Z'),516,true),38);
-  assert.equal(certificatePulls(from,new Date('2026-10-01T06:59:59Z'),516,true),38);
-  assert.equal(certificatePulls(from,new Date('2026-10-01T07:00:00Z'),516,true),76);
+  assert.equal(certificatePulls(from,new Date('2026-10-01T10:59:59Z'),516,true),38);
+  assert.equal(certificatePulls(from,new Date('2026-10-01T11:00:00Z'),516,true),76);
   assert.equal(certificatePulls(from,new Date('2026-12-01T07:00:00Z'),258,true),38);
   assert.equal(certificatePulls(from,new Date('2026-12-01'),257,true),0);
   assert.equal(certificatePulls(from,new Date('2026-12-01'),516,false),0);
@@ -589,8 +596,8 @@ test('individual first clears reconcile with old aggregate rewards and never dou
 test('green certificates count future Global monthly refreshes and preserve currency units', async () => {
   const {greenCertificateIncome} = await import('../../lib/pulls/incomeSettings');
   const from = new Date('2026-09-15T12:00:00Z');
-  assert.deepEqual(greenCertificateIncome(from, new Date('2026-10-01T06:59:59Z'), true), {months:0,orundum:0,permits:0});
-  assert.deepEqual(greenCertificateIncome(from, new Date('2026-10-01T07:00:00Z'), true), {months:1,orundum:600,permits:4});
+  assert.deepEqual(greenCertificateIncome(from, new Date('2026-10-01T10:59:59Z'), true), {months:0,orundum:0,permits:0});
+  assert.deepEqual(greenCertificateIncome(from, new Date('2026-10-01T11:00:00Z'), true), {months:1,orundum:600,permits:4});
   assert.deepEqual(greenCertificateIncome(from, new Date('2027-01-31T12:00:00Z'), true), {months:4,orundum:2400,permits:16});
   assert.deepEqual(greenCertificateIncome(from, from, true), {months:0,orundum:0,permits:0});
   assert.deepEqual(greenCertificateIncome(from, new Date('2027-01-31'), false), {months:0,orundum:0,permits:0});

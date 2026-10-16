@@ -5,8 +5,7 @@ import Image from '@/components/content/ContentImage';
 import { useMemo, useState } from 'react';
 import { getAllOperators } from '@/lib/operators/operators';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
-import { StatsRow, POWER_VALUES } from '@/lib/survey/types';
-import { RESULTS_READY } from '@/lib/config/siteConfig';
+import { StatsRow, POWER_VALUES } from '@/lib/results/types';
 import { FINAL_STATS_ROWS, FINAL_HISTOGRAMS, FINAL_SUBMISSION_COUNT } from '@/lib/results/finalPollResults';
 import PowerBoxPlot from '@/components/survey/PowerBoxPlot';
 import PowerDistributionCurve from '@/components/survey/PowerDistributionCurve';
@@ -77,105 +76,94 @@ export default function Results({ iconMap }: Props) {
       <PageHeader eyebrow="Rhodes Island // Community Survey" title="Community results" />
 
       <main className="results-page">
-        {!RESULTS_READY && (
-          <div className="waiting-box">
-            <h2>Results not yet available</h2>
-            <p className="hint">Check back once submissions have closed.</p>
+        <div className="results-toolbar">
+          <p className="hint results-count">{submissionCount} submission(s) so far.</p>
+          <SegmentedControl<ViewMode>
+            label="View"
+            value={mode}
+            onChange={setMode}
+            options={[
+              { value: 'compact', label: 'Compact' },
+              { value: 'detailed', label: 'Detailed' },
+            ]}
+          />
+        </div>
+
+        {mode === 'compact' && (
+          <div>
+            {POWER_VALUES.map((value) => {
+              const group = compactGroups[value];
+              if (!group || group.length === 0) return null;
+              return (
+                <div key={value} className="tier-row">
+                  <div className="tier-label">{value}</div>
+                  <div className="tier-drop">
+                    {group.map((r) => (
+                      <button
+                        key={r.operator_name}
+                        type="button"
+                        className="chip results-chip"
+                        title={`${r.operator_name} (avg ${r.mean}) -- click to view distribution`}
+                        onClick={() => setZoomedRow(r)}
+                      >
+                        <Image src={iconMap[r.operator_name]} alt={r.operator_name} width={72} height={72} />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
 
-        {RESULTS_READY && (
-          <>
-            <div className="results-toolbar">
-              <p className="hint results-count">{submissionCount} submission(s) so far.</p>
-              <SegmentedControl<ViewMode>
-                label="View"
-                value={mode}
-                onChange={setMode}
-                options={[
-                  { value: 'compact', label: 'Compact' },
-                  { value: 'detailed', label: 'Detailed' },
-                ]}
-              />
-            </div>
-
-            {mode === 'compact' && (
-              <div>
-                {POWER_VALUES.map((value) => {
-                  const group = compactGroups[value];
-                  if (!group || group.length === 0) return null;
-                  return (
-                    <div key={value} className="tier-row">
-                      <div className="tier-label">{value}</div>
-                      <div className="tier-drop">
-                        {group.map((r) => (
-                          <button
-                            key={r.operator_name}
-                            type="button"
-                            className="chip results-chip"
-                            title={`${r.operator_name} (avg ${r.mean}) -- click to view distribution`}
-                            onClick={() => setZoomedRow(r)}
-                          >
-                            <Image src={iconMap[r.operator_name]} alt={r.operator_name} width={72} height={72} />
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
-            {mode === 'detailed' && (
-              /* The table is wider than a phone (543px of columns in a 342px frame),
-                 so it scrolls inside its own box under the site's drawn bar instead of
-                 widening the whole page to 567px (GE-02). */
-              <div className="sidescroll stats-table-scroll" role="region" aria-label="Results table" tabIndex={0}>
-                <table className="stats-table">
-                  <thead>
-                    <tr>
-                      {COLUMNS.map((column) => column.sort ? (
-                        <th key={column.label} aria-sort={sortBy === column.sort ? 'descending' : 'none'}>
-                          <button type="button" className="btn-bare stats-table-sort" onClick={() => setSortBy(column.sort ?? null)}>
-                            {column.label}
-                            <span className="stats-table-sort-mark" aria-hidden="true">{sortBy === column.sort ? '▾' : '↕'}</span>
-                          </button>
-                        </th>
-                      ) : (
-                        <th key={column.label}>{column.label}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sortedRows.map((r) => (
-                      <tr key={r.operator_name}>
-                        <td>
-                          <Image src={iconMap[r.operator_name]} alt={r.operator_name} width={28} height={28} />
-                          {r.operator_name}
-                        </td>
-                        <td>{r.mean}</td>
-                        <td>{r.median}</td>
-                        <td>{r.q1} - {r.q3}</td>
-                        <td>{(r.q3 - r.q1).toFixed(1)}</td>
-                        <td>
-                          <button
-                            type="button"
-                            className="btn-bare stats-table-boxplot-btn"
-                            onClick={() => setZoomedRow(r)}
-                            title="Click to zoom in"
-                            aria-label={`${r.operator_name}: show the distribution`}
-                          >
-                            <PowerBoxPlot row={r} width={130} height={34} showScaleEnds />
-                          </button>
-                        </td>
-                        <td>{r.n}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </>
+        {mode === 'detailed' && (
+          /* The table is wider than a phone (543px of columns in a 342px frame),
+             so it scrolls inside its own box under the site's drawn bar instead of
+             widening the whole page to 567px (GE-02). */
+          <div className="sidescroll stats-table-scroll" role="region" aria-label="Results table" tabIndex={0}>
+            <table className="stats-table">
+              <thead>
+                <tr>
+                  {COLUMNS.map((column) => column.sort ? (
+                    <th key={column.label} aria-sort={sortBy === column.sort ? 'descending' : 'none'}>
+                      <button type="button" className="btn-bare stats-table-sort" onClick={() => setSortBy(column.sort ?? null)}>
+                        {column.label}
+                        <span className="stats-table-sort-mark" aria-hidden="true">{sortBy === column.sort ? '▾' : '↕'}</span>
+                      </button>
+                    </th>
+                  ) : (
+                    <th key={column.label}>{column.label}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {sortedRows.map((r) => (
+                  <tr key={r.operator_name}>
+                    <td>
+                      <Image src={iconMap[r.operator_name]} alt={r.operator_name} width={28} height={28} />
+                      {r.operator_name}
+                    </td>
+                    <td>{r.mean}</td>
+                    <td>{r.median}</td>
+                    <td>{r.q1} - {r.q3}</td>
+                    <td>{(r.q3 - r.q1).toFixed(1)}</td>
+                    <td>
+                      <button
+                        type="button"
+                        className="btn-bare stats-table-boxplot-btn"
+                        onClick={() => setZoomedRow(r)}
+                        title="Click to zoom in"
+                        aria-label={`${r.operator_name}: show the distribution`}
+                      >
+                        <PowerBoxPlot row={r} width={130} height={34} showScaleEnds />
+                      </button>
+                    </td>
+                    <td>{r.n}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </main>
 

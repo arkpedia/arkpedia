@@ -96,7 +96,7 @@ test("check.yml's two builds and the Playwright webServer name the same fixture"
   const build = steps.find((step) => step.name === 'Build');
   assert.equal(build?.env?.[ENV], FIXTURE, 'check.yml Build step env');
   // Every step that builds the site, by what it runs: the live-release build too.
-  const builds = steps.filter((step) => /\b(?:npm run build|next build)\b/.test(step.run ?? ''));
+  const builds = steps.filter((step) => /\b(?:npm run (?:--ignore-scripts )?build|next build)\b/.test(step.run ?? ''));
   assert.ok(builds.length >= 2, `check.yml builds the site in ${builds.length} step(s)`);
   for (const step of builds) assert.equal(step.env?.[ENV], FIXTURE, `check.yml "${step.name}" step env`);
   const config = fs.readFileSync('playwright.config.ts', 'utf8');

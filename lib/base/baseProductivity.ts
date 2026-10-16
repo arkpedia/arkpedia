@@ -1,4 +1,3 @@
-import { BaseSkill } from '@/lib/operators/operatorTypes';
 import { FactoryProduct, ProductivityResult, CapacityResult, MoraleResult } from './baseTypes';
 
 /** Grey productivity: 1.01 for the first operator, +0.01 flat for each
@@ -375,14 +374,6 @@ export function goldOrderTier(skills: { operatorName: string; skillName: string 
   return count >= 2 ? 'doubleLower' : count === 1 ? 'lower' : 'base';
 }
 
-export function calcTradingPostGoldPerHourWithTier(effectiveProductivity: number, tier: GoldOrderTier, level = 3): number {
-  if (effectiveProductivity <= 0) return 0;
-  const scenarios = tradingPostGoldScenarios(tier, level);
-  const expectedGold = scenarios.reduce((sum, s) => sum + s.gold * s.probability, 0);
-  const expectedMinutes = scenarios.reduce((sum, s) => sum + (s.minutes / effectiveProductivity) * s.probability, 0);
-  return expectedGold / (expectedMinutes / 60);
-}
-
 /** Proviso ("Contract Law" + "Damages for Breach") and Tequila
  * ("Investment") both react to the SAME underlying gold-spawn scenarios
  * but on genuinely disjoint subsets -- confirmed mutually exclusive by
@@ -395,7 +386,7 @@ export function calcTradingPostGoldPerHourWithTier(effectiveProductivity: number
  * per qualifying trade, not a gold-count change, so it's returned
  * separately rather than folded into goldPerHour.
  *
- * Takes a tier parameter (same tiers as calcTradingPostGoldPerHourWithTier)
+ * Uses the requested order-value tier
  * so Tailoring's distribution shift stays in effect even when Proviso
  * and/or Tequila are ALSO present -- confirmed by the user this was
  * previously being silently dropped whenever Proviso or Tequila showed
@@ -508,16 +499,6 @@ export function calcDormitoryRecovery(level: number, ambience: number): number {
   const cap = dormitoryAmbienceCap(level);
   const effectiveAmbience = Math.max(0, Math.min(ambience, cap));
   return base + DORMITORY_AMBIENCE_RATE * effectiveAmbience;
-}
-
-/** Formats decimal hours as "Xh Ym", matching the style used elsewhere
- * on this page (e.g. "1:12:00" -> here shown as "1h 12m"). */
-export function formatHours(hours: number): string {
-  const totalMinutes = Math.round(hours * 60);
-  const h = Math.floor(totalMinutes / 60);
-  const m = totalMinutes % 60;
-  if (h === 0) return `${m}m`;
-  return `${h}h ${m}m`;
 }
 // confirmed real example of how a Capacity Limit adjustment actually reads
 // in scraped skill text -- this is a best-effort pattern (the word

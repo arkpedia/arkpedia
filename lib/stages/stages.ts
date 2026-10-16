@@ -5,12 +5,11 @@ import path from 'path';
 // stage page made each page a 2MB download (see getStageSiblings).
 import indexData from '@/public/stages-index.json';
 import contentData from '@/data/stages-content.json';
-import tileLegendData from '@/data/stage-tile-legend.json';
 import isNodeData from '@/data/is-nodes.json';
 import storyGroupData from '@/data/story-groups.json';
 import ccStageData from '@/data/cc-stages.json';
 import contentWindowData from '@/data/content-windows.json';
-import { filterType, Stage, StageContent, StageContentEntry, StageDevice, StageGeometry, StageGroup, StageSummary, StageEnemyDetail, TileLegend, TYPE_ORDER } from './stageTypes';
+import { filterType, Stage, StageContent, StageDevice, StageGeometry, StageGroup, StageSummary, StageEnemyDetail } from './stageTypes';
 import { compareStageSummaries } from './stageSort';
 import { buildStageGroups, NavData } from './stageNav';
 import { getEnemyBySlug } from '@/lib/enemies/enemies';

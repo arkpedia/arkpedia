@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
 import { formatCountdown } from '@/lib/schedule/opsSchedules';
 import { useAccount } from '@/lib/account/accountStore';
-import { serverClockAt } from '@/lib/time/serverReset';
+import { serverClockAt, serverOffsetLabel, SERVER_TIME } from '@/lib/time/servers.mjs';
 
 /**
  * The server's wall clock and the time left until the daily reset.
  *
- * Both follow the selected account's server through lib/time/serverReset.ts.
+ * Both follow the selected account's server through lib/time/servers.mjs.
  * Regional resets use fixed offsets rather than the reader's device timezone.
  *
  * Nothing renders a real time on the server. A clock is by definition different on
@@ -95,7 +95,7 @@ export default function ServerClock({ variant }: { variant: ServerClockVariant }
        countdown is counting to. */
     <div
       className={`site-nav-clock site-nav-clock-${variant}`}
-      title={`${server.toUpperCase()} daily reset at 04:00 server time (UTC${server === 'en' ? '−7' : '+9'})`}
+      title={`${server.toUpperCase()} daily reset at ${String(SERVER_TIME[server].resetHour).padStart(2, '0')}:00 server time (${serverOffsetLabel(server)})`}
     >
       <span className="site-nav-clock-label">{variant === 'mobile' ? 'SVR' : 'Server Time'}</span>
       <span className="site-nav-clock-time">{clock}</span>

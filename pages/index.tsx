@@ -1,3 +1,7 @@
+import { useRegionalTime } from '@/lib/time/useRegionalTime';
+import { regionalBanners, regionalGameEvents, regionalSkinWindows } from '@/lib/time/regional';
+import { useReaderClock } from '@/lib/time/readerClock';
+import { parseBannerWindow } from '@/lib/gacha/realGachaBanners';
 import { getEventFarmingMaterials } from '@/lib/farming/eventFarming';
 import { withContentPage } from '@/lib/content/server';
 import { parseGameWindow } from '@/lib/schedule/gameWindow';
@@ -9,7 +13,7 @@ import { getAllEvents } from '@/lib/schedule/schedule';
 import type { HeadhuntingBanner } from '@/lib/gacha/headhuntingBanners';
 import { getBannersSortedByDate } from '@/lib/gacha/headhuntingBannerData';
 import { GetStaticProps } from 'next';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import AnnouncementTicker from '@/components/layout/AnnouncementTicker';
 import { useReleaseTable } from '@/lib/content/context';
 import { checkSssCycle, type SssCycle } from '@/lib/schedule/sssCycle';
@@ -56,6 +60,7 @@ interface Props {
    *  (lib/content/pageClock.ts). finalizeHome picks the panels' rows by it, and the
    *  Events panel's first paint uses it too, so the server markup and hydration agree. */
   now: number;
+  regionalCalendar?: { events: SerializedGameEvent[]; banners: HeadhuntingBanner[]; skinWindows: SkinWindow[]; skins: Skin[] };
   __calendar?: {
     events: (Omit<GameEvent, 'start' | 'end'> & { start: string; end: string })[]; banners: HeadhuntingBanner[]; skins: Skin[];
     /** Every outfit's acquisition windows, from the release's tables, as /skins has them
@@ -65,16 +70,36 @@ interface Props {
 }
 
 export default function HomePage({
-  ongoingEvents,
-  upcomingEvent,
-  ongoingBanners,
-  ongoingSkins,
-  farmableMaterials,
+  ongoingEvents: globalOngoing,
+  upcomingEvent: globalUpcoming,
+  ongoingBanners: globalBanners,
+  ongoingSkins: globalSkins,
+  farmableMaterials: globalMaterials,
   featuredStream,
   featuredVideo,
   earliestCommunityEvent,
-  now,
+  now: requestNow,
+  regionalCalendar,
 }: Props) {
+  const { server, schedule } = useRegionalTime();
+  const now = useReaderClock(requestNow, { tickMs: 1000, onFocus: true });
+  const selected = useMemo(() => {
+    if (server === 'en' || !regionalCalendar) return { ongoingEvents: globalOngoing, upcomingEvent: globalUpcoming, ongoingBanners: globalBanners, ongoingSkins: globalSkins };
+    const events = regionalGameEvents(regionalCalendar.events, schedule, server);
+    const ongoingEvents = events.filter(event => Date.parse(event.start) <= now && now < Date.parse(event.shopEndAt ?? event.end));
+    const upcomingEvent = events.filter(event => Date.parse(event.start) > now).sort((a, b) => Date.parse(a.start) - Date.parse(b.start))[0] ?? null;
+    const banners = regionalBanners(regionalCalendar.banners, schedule, server).flatMap(banner => {
+      const window = parseBannerWindow(banner);
+      return window ? [{ ...banner, start: window.start.toISOString(), end: window.end.toISOString() }] : [];
+    });
+    const active = banners.filter(banner => Date.parse(banner.start) <= now && now < Date.parse(banner.end));
+    const next = banners.filter(banner => Date.parse(banner.start) > now).sort((a, b) => Date.parse(a.start) - Date.parse(b.start))[0];
+    const windows = regionalSkinWindows(regionalCalendar.skinWindows, schedule, server);
+    return { ongoingEvents, upcomingEvent, ongoingBanners: next ? [...active, next] : active,
+      ongoingSkins: availableSkins(regionalCalendar.skins, windows, new Date(now)) };
+  }, [server, schedule, now, regionalCalendar, globalOngoing, globalUpcoming, globalBanners, globalSkins]);
+  const { ongoingEvents, upcomingEvent, ongoingBanners, ongoingSkins } = selected;
+  const farmableMaterials = useMemo(() => server === 'en' ? globalMaterials : getEventFarmingMaterials(schedule?.farming ?? []), [globalMaterials, server, schedule]);
   useEffect(() => {
     document.body.classList.add('front-page-no-scroll');
     return () => document.body.classList.remove('front-page-no-scroll');
@@ -141,7 +166,10 @@ async function finalizeHome(props: Props): Promise<Props> {
     const end = event.endTime ? new Date(event.endTime) : new Date(new Date(event.startTime).getTime() + 86400000);
     return end.getTime() >= now.getTime();
   }).sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())[0] || null;
+  const regional = (props as Props & { __contentTables?: { 'regional-schedules'?: import('@/lib/time/regional').RegionalSchedules } }).__contentTables?.['regional-schedules'];
+  const regionalIds = new Set(Object.entries(regional?.servers ?? {}).filter(([server]) => server !== 'en').flatMap(([, schedule]) => (schedule as { skinWindows?: SkinWindow[] }).skinWindows?.flatMap(window => window.skinIds) ?? []));
   return { ...rest,
+    ...(__calendar ? { regionalCalendar: { events: __calendar.events.map(event => ({ ...event, shopEndAt: event.shopEndAt ?? event.end })), banners: __calendar.banners.map(banner => ({ name: banner.name, category: banner.category, cn_date: null, global_date: null, six_stars: banner.six_stars, five_stars: banner.five_stars, rate_up_six_stars: banner.rate_up_six_stars ?? [], pull_type: banner.pull_type, year: banner.year, linked_event: banner.linked_event ?? null, banner_image: banner.banner_image ?? null, lineupSource: banner.lineupSource ?? 'wiki' })), skinWindows: __calendar.skinWindows ?? [], skins: __calendar.skins.filter(skin => regionalIds.has(`${skin.model} / ${skin.name}`)).map(skin => ({ ...skin, searchAliases: skin.searchAliases ?? [] })) } } : {}),
     ongoingEvents: getOngoingEvents(now, events).map(serialize),
     upcomingEvent: upcoming ? serialize(upcoming) : null,
     ongoingBanners: getHomeGachaBanners(now, __calendar?.banners).map(banner => ({ ...banner, start: banner.start.toISOString(), end: banner.end.toISOString() })),

@@ -1,3 +1,5 @@
+import { planningWindowEnd } from './planningWindows';
+import { toServerTime, parseInstant, type GameServer } from '@/lib/time/servers.mjs';
 import { freeRewardTotals, type FreeReward } from './freeRewards';
 import { getAnnihilationNextEnd, getNextDailyReset } from '@/lib/schedule/opsSchedules';
 import { wishingWallOrundum, type WishingWallMode } from './wishingWall';
@@ -191,14 +193,6 @@ export function fillFromDeployment(release: BacklogSources, deployment: BacklogS
     ...(!release.freeRewards && !release.beginnerRewards && deployment.beginnerRewards ? { beginnerRewards: deployment.beginnerRewards } : {}) };
 }
 
-/** The labels a reader knows these by; the gamedata's own words are internal. */
-export const EVENT_TYPE_LABEL: Record<string, string> = {
-  sidestory: 'Sidestory',
-  ministory: 'Mini event',
-  special: 'Collab / anniversary',
-  branchline: 'Branchline',
-};
-
 /**
  * What is LEFT of the back catalogue once the player says what they have done.
  *
@@ -323,15 +317,18 @@ export { WISH_MIN_ORUNDUM } from './wishingWall';
 export const EVENT_SHOP_PERMITS = 3;
 
 export interface UpcomingBanner {
+  server?: GameServer;
   name: string;
   aliases?: string[];
   /** The linked event still uses a predicted Global window in the schedule. */
   datesEstimated?: boolean;
   globalLineupPending?: boolean;
   category: string;
-  /** ISO dates, inclusive. */
+  /** Calendar labels; exact source instants take precedence for availability. */
   start: string;
   end: string;
+  startAt?: string;
+  endAt?: string;
   days: number;
   sixStars: string[];
   alsoRatedUp: string[];
@@ -369,15 +366,21 @@ export interface UpcomingBanner {
  * limited banner, and it is a real difference -- 11 free pulls against 24.
  */
 export function bannerFreePulls(banner: UpcomingBanner, when: Date): number {
-  const start = new Date(`${banner.start}T00:00:00Z`).getTime();
-  if (when.getTime() < start) return 0;
-  const daysIn = Math.floor((when.getTime() - start) / 86400000) + 1;
+  const start = banner.startAt === undefined ? Date.parse(`${banner.start}T00:00:00Z`) : parseInstant(banner.startAt)?.getTime() ?? NaN;
+  if (!Number.isFinite(start) || when.getTime() < start) return 0;
+  // Older payloads have only UTC day labels. New payloads carry the owning
+  // Global banner's actual opening/closing instants and reset on its game day.
+  const end = planningWindowEnd(banner);
+  if (!Number.isFinite(end)) return 0;
+  const through = Math.min(when.getTime(), end - 1);
+  const daysIn = banner.startAt === undefined ? Math.floor((when.getTime() - start) / 86400000) + 1
+    : incomeBetween(new Date(start), new Date(through), banner.server ?? 'en').days + 1;
   const daily = Math.max(0, Math.min(banner.freeDaily, daysIn));
   return banner.freeTicket + daily;
 }
 
 /** The reward schedule also contains events without a headhunting banner. */
-export type PullEventReward = Pick<UpcomingBanner, 'name' | 'event' | 'start' | 'end' | 'rerun' | 'op' | 'opSource' | 'inBacklog' | 'hasShop' | 'wishActId' | 'wishDays' | 'wishOrundum'> & {
+export type PullEventReward = Pick<UpcomingBanner, 'name' | 'event' | 'start' | 'end' | 'startAt' | 'endAt' | 'rerun' | 'op' | 'opSource' | 'inBacklog' | 'hasShop' | 'wishActId' | 'wishDays' | 'wishOrundum'> & {
   shopPermits?: number;
   /** Preserve saved rerun choices previously keyed by banner name. */
   legacyNames?: string[];
@@ -436,7 +439,7 @@ export function bannerHaul(
   const wishWalls: PullEventReward[] = [];
   const shops: PullEventReward[] = [];
   for (const b of banners) {
-    const ended = new Date(`${b.end}T23:59:59Z`).getTime() <= by.getTime();
+    const ended = planningWindowEnd(b) <= by.getTime();
     if (!ended) continue;
 
     /* The Wishing Wall is checked FIRST and on its own terms. It pays Orundum
@@ -479,7 +482,7 @@ export interface Income {
   days: number;
   /** Weekly resets crossed -- the weekly mission AND the Annihilation cap. */
   weeks: number;
-  /** Calendar months crossed, for the certificate shop's allowance. */
+  /** Game-calendar months crossed at 04:00, for the certificate shop allowance. */
   months: number;
   daily: number;
   weekly: number;
@@ -494,26 +497,24 @@ export interface Income {
  * COUNTED, not divided. `days / 7` is out by one most of the time: asking on a
  * Sunday about a banner ten days out crosses two weekly resets, not 1.43, and
  * the difference is 2,300 Orundum -- nearly four pulls. The site already knows
- * when the resets are (19:00 SGT daily, Monday for the week), so this walks
+ * when the selected server resets (04:00 daily, Monday for the week), so this walks
  * them rather than approximating.
  */
-export function incomeBetween(from: Date, to: Date): Income {
+export function incomeBetween(from: Date, to: Date, server: GameServer = 'en'): Income {
   if (!(to > from)) {
     return { days: 0, weeks: 0, months: 0, daily: 0, weekly: 0, annihilation: 0, orundum: 0 };
   }
   /* Bounded so a nonsense date cannot spin: ten years of resets is far past any
      banner anyone is planning for. */
   let days = 0;
-  for (let t = getNextDailyReset(from); t <= to && days < 4000; t = getNextDailyReset(t)) days += 1;
+  for (let t = getNextDailyReset(from, server); t <= to && days < 4000; t = getNextDailyReset(t, server)) days += 1;
   let weeks = 0;
-  for (let t = getAnnihilationNextEnd(from); t <= to && weeks < 600; t = getAnnihilationNextEnd(t)) weeks += 1;
+  for (let t = getAnnihilationNextEnd(from, server); t <= to && weeks < 600; t = getAnnihilationNextEnd(t, server)) weeks += 1;
 
   /* Calendar months, which is what a monthly shop allowance follows -- not
      30-day blocks. */
-  const months = Math.max(
-    0,
-    (to.getUTCFullYear() - from.getUTCFullYear()) * 12 + (to.getUTCMonth() - from.getUTCMonth()),
-  );
+  const startMonth = toServerTime(from, server), endMonth = toServerTime(to, server);
+  const months = Math.max(0, (endMonth.getUTCFullYear() - startMonth.getUTCFullYear()) * 12 + endMonth.getUTCMonth() - startMonth.getUTCMonth());
 
   const daily = days * DAILY_ORUNDUM;
   const weekly = weeks * WEEKLY_ORUNDUM;

@@ -2,7 +2,7 @@ import { getAllOperators } from '@/lib/operators/operators';
 import { getSkillList } from '@/lib/operators/operatorTypes';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
 import { getSkillIconPath } from '@/lib/operators/operatorIconPaths';
-import { detectAutoTechniqueMatches, mergeTechniques, UMBRELLA_MEMBERS, MEMBER_TO_UMBRELLA, AutoTechniqueMatch } from '@/lib/techniques/autoTechniques';
+import { detectAutoTechniqueMatches, mergeTechniques, MEMBER_TO_UMBRELLA, AutoTechniqueMatch } from '@/lib/techniques/autoTechniques';
 import { getBranchIconPath } from '@/lib/operators/classBranchIcons';
 import techniqueDefinitionsData from '@/data/techniques_definitions.json';
 

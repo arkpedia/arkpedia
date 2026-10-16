@@ -8,6 +8,28 @@ import { expect, test } from '@playwright/test';
 // clock is set months away from the server's, across a daylight-saving change.
 const HYDRATION = /Minified React error #(?:418|423|425)|Hydration failed|did not match|error while hydrating/i;
 
+test('switching imported accounts keeps the header clock and supply rotation on the same server', async ({ page }) => {
+  await page.clock.setFixedTime(new Date('2026-10-18T19:00:00Z'));
+  await page.addInitScript(() => localStorage.setItem('arkpediaAccount', JSON.stringify({
+    version: 1, server: 'jp', importedAt: '2026-10-16T00:00:00Z', doctor: 'Regional fixture', operators: [], skins: [], cleared: [],
+  })));
+  const errors: string[] = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/stages/supplies');
+  const clock = page.locator('.site-nav-clock:visible').first();
+  for (const server of ['jp', 'kr', 'en', 'jp']) {
+    await page.evaluate(server => {
+      const account = JSON.parse(localStorage.getItem('arkpediaAccount')!);
+      localStorage.setItem('arkpediaAccount', JSON.stringify({ ...account, server }));
+      window.dispatchEvent(new Event('arkpediaAccountChanged'));
+    }, server);
+    await expect(clock).toContainText(server.toUpperCase());
+    await expect(clock).toContainText(server === 'en' ? '12:00' : '04:00');
+    await expect(page.getByRole('button', { name: server === 'en' ? 'Sunday, today' : 'Monday, today', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  }
+  expect(errors).toEqual([]);
+});
+
 for (const timezoneId of ['Europe/Berlin', 'America/Los_Angeles', 'Pacific/Auckland']) {
   test.describe(timezoneId, () => {
     test.use({ timezoneId });

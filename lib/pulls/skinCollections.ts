@@ -1,3 +1,4 @@
+import { serverCalendarTime } from '@/lib/time/servers.mjs';
 import confirmedAvailability from '../../data/skin-availability-windows.json';
 import shopRotations from '../../data/skin-shop-rotations.json';
 import { getSkinsForEvent } from '../schedule/scheduleSkinMatch';
@@ -6,7 +7,7 @@ import type { Skin } from '../skins/skinTypes';
 import type { PlannedSkin } from './skins';
 
 export interface SkinCollection {
-  id: string; name: string; start: string; end: string; estimated: boolean;
+  id: string; name: string; start: string; end: string; startAt?: string; endAt?: string; estimated: boolean;
   skinIds: string[]; featuredIds: string[];
   source?: string; sourceRegion?: string; fashionReview?: boolean;
 }
@@ -57,15 +58,15 @@ export function pullSkinCollections(events: ScheduleEvent[], skins: Skin[], cata
     if (!Number.isFinite(startTime) || !Number.isFinite(endTime) || endTime <= startTime) {
       throw new Error(`Invalid confirmed shop window: ${window.event} / ${window.label}`);
     }
-    const start = new Date(startTime).toISOString().slice(0, 10);
+    const start = serverCalendarTime(new Date(startTime), 'en').toISOString().slice(0, 10);
     // endAt is exclusive, including a shop closing exactly at midnight.
-    const end = new Date(endTime - 1).toISOString().slice(0, 10);
+    const end = serverCalendarTime(new Date(endTime - 1), 'en').toISOString().slice(0, 10);
     const skinIds = [...new Set(window.skinIds)];
     for (const id of skinIds) if (!paid.has(id)) throw new Error(`Shop outfit missing OP metadata: ${id}`);
     return skinIds.length ? [{
       id: `${window.event} / ${start} / ${window.label}`,
       name: `${window.event} · ${window.label}`,
-      start, end, estimated: false, skinIds,
+      start, end, startAt: window.startAt, endAt: window.endAt, estimated: false, skinIds,
       featuredIds: window.newRelease ? skinIds : [],
       source: window.source, sourceRegion: 'global',
     }] : [];

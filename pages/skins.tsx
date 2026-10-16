@@ -1,3 +1,6 @@
+import { useRegionalTime } from '@/lib/time/useRegionalTime';
+import { regionalSkinWindows, regionalEvents } from '@/lib/time/regional';
+import { SERVER_TIME, serverOffsetLabel } from '@/lib/time/servers.mjs';
 import { withContentPage } from '@/lib/content/server';
 import { GetStaticProps } from 'next';
 import Head from 'next/head';
@@ -21,8 +24,8 @@ import { ownedFilter, useAccount } from '@/lib/account/accountStore';
 import { useSkinPlan } from '@/lib/skins/skinPlan';
 import StyledSelect from '@/components/ui/StyledSelect';
 import SkinZoomOverlay from '@/components/skins/SkinZoomOverlay';
-import { assertDynamicArtIndex, skinDynamicArt } from '@/lib/skins/dynamicArt';
-import { withSkinDynamicArt } from '@/lib/skins/dynamicArtFallback';
+import { skinDynamicArt } from '@/lib/skins/dynamicArt';
+import { withSkinDynamicArt, loadDynamicArtIndex } from '@/lib/skins/dynamicArtFallback';
 import ResponsiveSkinArtwork from '@/components/skins/ResponsiveSkinArtwork';
 import { getAllEvents } from '@/lib/schedule/schedule';
 import { ScheduleEvent } from '@/lib/schedule/scheduleTypes';
@@ -56,7 +59,9 @@ const SORT_OPTIONS = [
   { value: 'available', label: 'Availability' },
 ];
 
-export default function SkinsGallery({ skins, events, now, availabilityWindows, dynamicArt = {} }: Props) {
+export default function SkinsGallery({ skins, events: globalEvents, now, availabilityWindows, dynamicArt = {} }: Props) {
+  const { server, schedule } = useRegionalTime();
+  const events = useMemo(() => regionalEvents(globalEvents, schedule, server), [globalEvents, schedule, server]);
   // The open skin lives in the URL, addressed by name (the same key the
   // wishlist already treats as a skin's identity) -- so a specific
   // skin's detail view can be shared as a link. Opening the dialog sets
@@ -83,7 +88,7 @@ export default function SkinsGallery({ skins, events, now, availabilityWindows, 
   // Recompute from acquisition windows even when runtime content contains old
   // build-time availability flags. Initial server/client clocks still agree.
   // SL-4b: the bundled confirmed windows still merge in here until the maintainer decides.
-  const windows = useMemo(() => withLocalConfirmedSkinWindows(availabilityWindows), [availabilityWindows]);
+  const windows = useMemo(() => regionalSkinWindows(withLocalConfirmedSkinWindows(availabilityWindows), schedule, server), [availabilityWindows, schedule, server]);
   const availability = useMemo(() => computeSkinCountdowns(skins, events, new Date(clock), windows), [skins, events, clock, windows]);
   const availabilityFilter = query.availability === 'draw' ? '' : query.availability;
   const setAvailabilityFilter = (value: string) => setQuery('availability', value);
@@ -97,8 +102,8 @@ export default function SkinsGallery({ skins, events, now, availabilityWindows, 
   const setOwned = (value: string) => setQuery('owned', value === 'all' ? '' : value);
   const account = useAccount();
   const ownedSkins = useMemo(() => new Set(account?.skins ?? []), [account]);
-  const shortDate = (value: string) => new Date(value).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'Etc/GMT+7' });
-  const exactDate = (value: string) => new Date(value).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Etc/GMT+7' }) + ' (UTC−7)';
+  const shortDate = (value: string) => new Date(value).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: SERVER_TIME.en.timeZone });
+  const exactDate = (value: string) => new Date(value).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: SERVER_TIME.en.timeZone }) + ` (${serverOffsetLabel('en')})`;
   function availabilityText(skin: Skin): string | null {
     const window = availability.get(skinKey(skin));
     if (!window) return null;
@@ -462,7 +467,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/sk
     confirmed: (await import('@/data/skin-availability-windows.json')).default,
     rotations: (await import('@/data/skin-shop-rotations.json')).default,
   });
-  const dynamicArt = skinDynamicArt(assertDynamicArtIndex((await import('@/data/dynamic-art.json')).default), skins);
+  const dynamicArt = skinDynamicArt(await loadDynamicArtIndex(), skins);
   return { props: { skins, seriesLogos, events, availabilityWindows, dynamicArt } };
 }, {
   // A release exported before animated art: this deployment's data/dynamic-art.json fills the pointers in.

@@ -1,5 +1,8 @@
-import { withPlannerDynamicArt } from '@/lib/skins/dynamicArtFallback';
-import { assertDynamicArtIndex, skinDynamicArt } from '@/lib/skins/dynamicArt';
+import { useRegionalTime } from '@/lib/time/useRegionalTime';
+import { regionalSkinCollections } from '@/lib/time/regional';
+import { serverCalendarTime } from '@/lib/time/servers.mjs';
+import { withPlannerDynamicArt, loadDynamicArtIndex } from '@/lib/skins/dynamicArtFallback';
+import { skinDynamicArt } from '@/lib/skins/dynamicArt';
 import { useMemo } from 'react';
 import type { GetStaticProps } from 'next';
 import Head from 'next/head';
@@ -26,9 +29,11 @@ interface Props {
   now: number;
 }
 
-export default function SkinPlannerPage({ catalogue, collections, now }: Props) {
-  const clock = useReaderClock(now);
-  const today = new Date(clock).toISOString().slice(0, 10);
+export default function SkinPlannerPage({ catalogue, collections: globalCollections, now }: Props) {
+  const { server, schedule } = useRegionalTime();
+  const collections = useMemo(() => regionalSkinCollections(globalCollections, schedule, server), [globalCollections, schedule, server]);
+  const clock = useReaderClock(now, { tickMs: 1000, onFocus: true });
+  const today = serverCalendarTime(new Date(clock), server).toISOString().slice(0, 10);
   const byName = useMemo(() => new Map(catalogue.map((skin) => [skin.name, skin.id])), [catalogue]);
   const account = useAccount();
   const owned = useMemo(() => (account ? new Set(account.skins) : null), [account]);
@@ -41,7 +46,7 @@ export default function SkinPlannerPage({ catalogue, collections, now }: Props) 
         sub={<>The outfits you want, by the event shop that sells them and when. The <Link prefetch={false} href="/pulls">Pull Planner</Link> sets your OP against the same plan.</>} />
       <main>
         <section className="op-section">
-          <SkinPlanner catalogue={catalogue} collections={collections} today={today} ids={ids} onChange={setIds} owned={owned} />
+          <SkinPlanner catalogue={catalogue} collections={collections} today={today} now={clock} ids={ids} onChange={setIds} owned={owned} />
         </section>
       </main>
     </>
@@ -57,7 +62,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>('/sk
   ]);
   const skins = getAllSkins();
   const events = getAllEvents();
-  const catalogue = pullSkinCatalogue(skins, skinReleaseDates(events, skins), skinDynamicArt(assertDynamicArtIndex((await import('@/data/dynamic-art.json')).default), skins));
+  const catalogue = pullSkinCatalogue(skins, skinReleaseDates(events, skins), skinDynamicArt(await loadDynamicArtIndex(), skins));
   const predicted = new Set(getEventCalendar().filter((event) => event.isPredicted).map((event) => event.name));
   // `now` is the request's clock, from contentPageClock (lib/content/pageClock.ts).
   return { props: { catalogue, collections: pullSkinCollections(events, skins, catalogue, predicted) } };

@@ -1,6 +1,11 @@
+import { useRegionalTime } from '@/lib/time/useRegionalTime';
+import { regionalPullBanners, regionalPullEvents, regionalSkinCollections } from '@/lib/time/regional';
+import { planningWindowEnd, planningDayEnd } from '@/lib/pulls/planningWindows';
+import { useReaderValue } from '@/lib/time/readerClock';
+import { serverCalendarTime, serverOffsetLabel } from '@/lib/time/servers.mjs';
 import NumberInput from '@/components/ui/NumberInput';
-import { withPullPlannerDynamicArt } from '@/lib/skins/dynamicArtFallback';
-import { assertDynamicArtIndex, skinDynamicArt } from '@/lib/skins/dynamicArt';
+import { withPullPlannerDynamicArt, loadDynamicArtIndex } from '@/lib/skins/dynamicArtFallback';
+import { skinDynamicArt } from '@/lib/skins/dynamicArt';
 import BannerPicker from '@/components/pulls/BannerPicker';
 import PullBannerRow from '@/components/pulls/PullBannerRow';
 import workspace from '@/styles/pulls/pulls-workspace.module.css';
@@ -33,20 +38,32 @@ import { IncludePastCheckbox, IncludeSkinsCheckbox } from '@/components/pulls/In
 import SkinPlanner from '@/components/skins/SkinPlanner';
 import { SkinsHelp } from '@/components/pulls/PlannerHelp';
 import { useSkinPlan } from '@/lib/skins/skinPlan';
-import { useAccount } from '@/lib/account/accountStore';
+import { useAccount, storedAccount } from '@/lib/account/accountStore';
 import { usePastRewards } from '@/lib/pulls/usePastRewards';
 import { pullSkinCatalogue, skinReservation, type PlannedSkin } from '@/lib/pulls/skins';
-import { availableBannerFreePulls, goalsAtBannerEnd, MAX_GOALS, PULL_PLAN_KEY, parsePullPlan, planBudgets, planHorizon, planNumber, savingsAfterPlanAt, validPlanDate, type BannerGoal, type SavedPullPlan } from '@/lib/pulls/plan';
+import { availableBannerFreePulls, MAX_GOALS, PULL_PLAN_KEY, parsePullPlan, planBudgets, planHorizon, planNumber, savingsAfterPlanAt, validPlanDate, type BannerGoal, type SavedPullPlan } from '@/lib/pulls/plan';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import LockToggle from '@/components/ui/LockToggle';
 import { useLock } from '@/lib/ui/useLock';
 import {
-  ANNIHILATION_WEEKLY_ORUNDUM, DAILY_ORUNDUM, ORUNDUM_PER_ORIGINITE, ORUNDUM_PER_PULL,
-  MONTHLY_CARD_DAILY_ORUNDUM, MONTHLY_CARD_ORIGINITE,
+  ANNIHILATION_WEEKLY_ORUNDUM,
+  DAILY_ORUNDUM,
+  ORUNDUM_PER_ORIGINITE,
+  ORUNDUM_PER_PULL,
+  MONTHLY_CARD_DAILY_ORUNDUM,
+  MONTHLY_CARD_ORIGINITE,
   WEEKLY_ORUNDUM,
-  eventWasCleared, eventShopPermits, bannerHaul, incomeBetween, monthlyCardIncome,
-  fillFromDeployment, pullsFrom,
-  type BacklogSources, type Holdings, type UpcomingBanner, type PullEventReward,
+  eventWasCleared,
+  eventShopPermits,
+  bannerHaul,
+  incomeBetween,
+  monthlyCardIncome,
+  fillFromDeployment,
+  pullsFrom,
+  type BacklogSources,
+  type Holdings,
+  type UpcomingBanner,
+  type PullEventReward,
 } from '@/lib/pulls/pulls';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -86,12 +103,6 @@ function Field({
   );
 }
 
-/** Events in the list that actually pay: a rerun you have cleared is shown but
- *  contributes nothing, and counting it would overstate the line above it. */
-function haulCountedPaying(counted: PullEventReward[], cleared: ReadonlySet<string>): number {
-  return counted.filter((b) => b.op > 0 && !eventWasCleared(b, cleared)).length;
-}
-
 /** One line of the condensed income report: the source, its working, and its pulls. */
 function ReportRow({ what, how, pulls, off }: { what: string; how: string; pulls: number; off: boolean }) {
   return (
@@ -105,7 +116,7 @@ function ReportRow({ what, how, pulls, off }: { what: string; how: string; pulls
 
 type PullsProps = { skinCollections: SkinCollection[]; bannerOdds: Record<string, BannerOdds>; scheduledEvents: PullEventReward[]; scheduledBanners: UpcomingBanner[]; skinCatalogue: PlannedSkin[]; backlogSources: BacklogSources };
 
-export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatalogue, skinCollections, bannerOdds, backlogSources }: PullsProps) {
+export default function PullsPage({ scheduledEvents: globalEvents, scheduledBanners: globalBanners, skinCatalogue, skinCollections: globalCollections, bannerOdds, backlogSources }: PullsProps) {
   const router = useRouter();
   const [incomeOpen, setIncomeOpen] = useState(false);
   const [skinsOpen, setSkinsOpen] = useState(false);
@@ -116,6 +127,10 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
      reserves counts the outfits sold for OP that the imported account does not own yet. */
   const skinByName = useMemo(() => new Map(skinCatalogue.map((skin) => [skin.name, skin.id])), [skinCatalogue]);
   const account = useAccount();
+  const { server, schedule } = useRegionalTime();
+  const scheduledBanners = useMemo(() => regionalPullBanners(globalBanners, schedule, server), [globalBanners, schedule, server]);
+  const scheduledEvents = useMemo(() => regionalPullEvents(globalEvents, schedule, server), [globalEvents, schedule, server]);
+  const skinCollections = useMemo(() => regionalSkinCollections(globalCollections, schedule, server), [globalCollections, schedule, server]);
   /* The Past events ticks, shared with the OP Tracker (lib/pulls/usePastRewards.ts): ticked
      once per import from its cleared stages, the reader's to change after that. */
   const past = usePastRewards(backlogSources);
@@ -160,7 +175,8 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
   const [walletLocked, setWalletLocked] = useLock('pulls-resources', !!account?.wallet && walletFrom === account.importedAt);
   const [pastOpen, setPastOpen] = useState(false);
 
-  const [now, setNow] = useState<Date | null>(null);
+  const nowMs = useReaderValue<number | null>(null, value => value, { tickMs: 1000, onFocus: true });
+  const now = useMemo(() => nowMs === null ? null : new Date(nowMs), [nowMs]);
 
   /* `skins`: take the plan's outfits into the shared skin plan -- for an imported file, not for
      the copy this page saved, which the shared plan already holds and may have moved past. */
@@ -170,14 +186,13 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
     setUntil(plan.until); setBannerName(plan.bannerName);
     setMonthlyCard(plan.monthlyCard); setIncludeBacklog(plan.includeBacklog); setIncludeSkins(plan.includeSkins ?? true); setClearedReruns(new Set(plan.clearedReruns));
     setWishingWallMode(plan.wishingWallMode ?? 'average'); setWalletFrom(plan.walletFrom ?? '');
-    setGoals(goalsAtBannerEnd(plan.goals, scheduledBanners));
+    setGoals(plan.goals);
     if (skins) setSkinIds(plan.skinIds ?? []);
-  }, [scheduledBanners, setSkinIds]);
+  }, [setSkinIds]);
 
   useEffect(() => {
     const today = new Date();
-    setNow(today);
-    setUntil(new Date(today.getTime() + 30 * DAY_MS).toISOString().slice(0, 10));
+    setUntil(new Date(serverCalendarTime(today, storedAccount()?.server ?? 'en').getTime() + 30 * DAY_MS).toISOString().slice(0, 10));
     try {
       const saved = localStorage.getItem(PULL_PLAN_KEY);
       if (saved) applyPlan(parsePullPlan(saved), false);
@@ -225,21 +240,21 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
 
   const target = useMemo(() => {
     if (!validPlanDate(until)) return null;
-    /* End of the chosen day, so "until the 30th" includes the 30th. */
-    const d = new Date(`${until}T23:59:59Z`);
+    /* The selected server's calendar day, including its final millisecond. */
+    const d = new Date(planningDayEnd(until, server) - 1);
     return Number.isNaN(d.getTime()) ? null : d;
-  }, [until]);
+  }, [until, server]);
 
-  const banners = useMemo(() => (now ? scheduledBanners.filter(b => new Date(`${b.end}T23:59:59Z`) > now).sort((a, b) => a.start.localeCompare(b.start)) : []), [now, scheduledBanners]);
-  const rewardEvents = useMemo(() => now ? scheduledEvents.filter(event => new Date(`${event.end}T23:59:59Z`) > now) : [], [now, scheduledEvents]);
+  const banners = useMemo(() => (now ? scheduledBanners.filter(b => planningWindowEnd(b) > now.getTime()).sort((a, b) => a.start.localeCompare(b.start)) : []), [now, scheduledBanners]);
+  const rewardEvents = useMemo(() => now ? scheduledEvents.filter(event => planningWindowEnd(event) > now.getTime()) : [], [now, scheduledEvents]);
   const picked = useMemo(
     () => banners.find((b) => b.name === bannerName) ?? null,
     [banners, bannerName],
   );
 
   const income = useMemo(
-    () => selectedIncome(now && target ? incomeBetween(now, target) : incomeBetween(new Date(0), new Date(0)), incomeSettings),
-    [now, target, incomeSettings],
+    () => selectedIncome(now && target ? incomeBetween(now, target, server) : incomeBetween(new Date(0), new Date(0), server), incomeSettings),
+    [now, target, incomeSettings, server],
   );
   /* The card pays at the daily sign-in, so it rides the same counted resets as
      the daily mission rather than being multiplied out by calendar days. */
@@ -270,9 +285,9 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
    * one of them.
    */
   const totalAt = useCallback((when: Date) => {
-    const inc = selectedIncome(now ? incomeBetween(now, when) : incomeBetween(new Date(0), new Date(0)), incomeSettings);
-    const certs = now ? certificatePulls(now, when, readNumber(yellowCerts), incomeSettings.certificates, certSpending) : 0;
-    const green = greenCertificateIncome(now ?? when, when, !!incomeSettings.greenCertificates);
+    const inc = selectedIncome(now ? incomeBetween(now, when, server) : incomeBetween(new Date(0), new Date(0), server), incomeSettings);
+    const certs = now ? certificatePulls(now, when, readNumber(yellowCerts), incomeSettings.certificates, certSpending, server) : 0;
+    const green = greenCertificateIncome(now ?? when, when, !!incomeSettings.greenCertificates, server);
     const mc = monthlyCardIncome(inc);
     const haul = bannerHaul(rewardEvents, when, rerunOptions);
     const withExtras = {
@@ -310,34 +325,34 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
       arriving: withExtras.orundum,
     };
   }, [now, rewardEvents, picked, rerunOptions, monthlyCard, inHand.orundum, inHand.originitePrime,
-    inHand.permits, reserve, orundum, originite, permits, goals, incomeSettings, yellowCerts, certSpending]);
+    inHand.permits, reserve, orundum, originite, permits, goals, incomeSettings, yellowCerts, certSpending, server]);
 
   const at = useMemo(() => (target ? totalAt(target) : null), [target, totalAt]);
-  const total = at ? at.pulls : pullsFrom({ ...held, originitePrime: Math.max(0, held.originitePrime - reserve) }, incomeBetween(new Date(0), new Date(0)));
+  const total = at ? at.pulls : pullsFrom({ ...held, originitePrime: Math.max(0, held.originitePrime - reserve) }, incomeBetween(new Date(0), new Date(0), server));
   const haul = at ? at.haul : bannerHaul([], new Date(0), rerunOptions);
 
-  const today = pullsFrom({ ...held, originitePrime: Math.max(0, held.originitePrime - reserve) }, incomeBetween(new Date(0), new Date(0)));
-  const greenIncome = greenCertificateIncome(now ?? new Date(0), target ?? now ?? new Date(0), !!incomeSettings.greenCertificates);
+  const today = pullsFrom({ ...held, originitePrime: Math.max(0, held.originitePrime - reserve) }, incomeBetween(new Date(0), new Date(0), server));
+  const greenIncome = greenCertificateIncome(now ?? new Date(0), target ?? now ?? new Date(0), !!incomeSettings.greenCertificates, server);
   const recurringGained = (at?.recurringOnly ?? today.pulls) - today.pulls;
   const rewardGained = at ? total.pulls - at.free - at.recurringOnly : 0;
 
 
-  const budgetRows = useMemo(() => now ? planBudgets(goals, banners, now, date => {
+  const budgetRows = useMemo(() => now ? planBudgets(goals, scheduledBanners, now, date => {
     const result = totalAt(date);
     return result.pulls.pulls - result.free;
-  }) : [], [goals, banners, now, totalAt]);
+  }, server) : [], [goals, scheduledBanners, now, totalAt, server]);
   const forecastSavings = total.pulls - (at?.free ?? 0);
   /* The banner plan is judged through its own last banner, not the Pull calculation's date: the
      savings left once every planned banner has been paid for, at the last one's spending date. */
-  const planThrough = now ? planHorizon(goals, now.toISOString().slice(0, 10)) : null;
+  const planThrough = now ? planHorizon(goals, serverCalendarTime(now, server).toISOString().slice(0, 10)) : null;
   const savingsAfterPlan = useMemo(() => {
     if (!planThrough) return today.pulls;
-    const at = totalAt(new Date(`${planThrough}T23:59:59Z`));
+    const at = totalAt(new Date(planningDayEnd(planThrough) - 1));
     return savingsAfterPlanAt(at.pulls.pulls - at.free, budgetRows, planThrough);
   }, [planThrough, totalAt, budgetRows, today.pulls]);
   const totalShortfall = budgetRows.reduce((max, row) => Math.max(max, row.shortfall), 0);
   const addGoal = useCallback((banner: UpcomingBanner) => {
-    setGoals(previous => previous.some(g => g.banner === banner.name) || previous.length >= MAX_GOALS ? previous : [...previous, { banner: banner.name, pulls: 0, spendOn: banner.end }]);
+    setGoals(previous => previous.some(g => g.banner === banner.name) || previous.length >= MAX_GOALS ? previous : [...previous, { banner: banner.name, pulls: 0, spendOn: banner.end, ...(banner.endAt ? { bannerEndAt: banner.endAt } : {}) }]);
   }, []);
   useEffect(() => {
     if (!hydrated || !router.isReady || !now) return;
@@ -350,10 +365,10 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
   }, [hydrated, router.isReady, router.query.banner, now, banners, addGoal]);
 
   const monthlyEnd = new Date((now?.getTime() ?? 0) + 30 * DAY_MS);
-  const monthlyBase = selectedIncome(incomeBetween(now ?? monthlyEnd, monthlyEnd), incomeSettings);
+  const monthlyBase = selectedIncome(incomeBetween(now ?? monthlyEnd, monthlyEnd, server), incomeSettings);
   const monthlyBonus = monthlyCardIncome(monthlyBase);
-  const monthlyGreen = greenCertificateIncome(now ?? monthlyEnd, monthlyEnd, !!incomeSettings.greenCertificates);
-  const monthlyIncome = (monthlyBase.orundum + monthlyGreen.orundum + (monthlyCard ? monthlyBonus.orundum + monthlyBonus.originitePrime * ORUNDUM_PER_ORIGINITE : 0)) / ORUNDUM_PER_PULL + monthlyGreen.permits + certificatePulls(now ?? monthlyEnd, monthlyEnd, readNumber(yellowCerts), incomeSettings.certificates, certSpending);
+  const monthlyGreen = greenCertificateIncome(now ?? monthlyEnd, monthlyEnd, !!incomeSettings.greenCertificates, server);
+  const monthlyIncome = (monthlyBase.orundum + monthlyGreen.orundum + (monthlyCard ? monthlyBonus.orundum + monthlyBonus.originitePrime * ORUNDUM_PER_ORIGINITE : 0)) / ORUNDUM_PER_PULL + monthlyGreen.permits + certificatePulls(now ?? monthlyEnd, monthlyEnd, readNumber(yellowCerts), incomeSettings.certificates, certSpending, server);
   return <>
     <Head><title>Pull Planner — Arkpedia</title></Head>
     {/* The site's page header, outside <main> like every page's: it was a 34px
@@ -362,6 +377,7 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
     <PageHeader
       eyebrow="Rhodes Island // Headhunting Budget"
       title="Pull Planner"
+      sub={server === 'en' ? undefined : <>Income follows your {server.toUpperCase()} account ({serverOffsetLabel(server)}). Banner and event schedules follow your account server.</>}
       actions={<DataLink />}
     />
     <main className={`pulls-page ${workspace.page}`}>
@@ -410,7 +426,7 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
         {incomeSettings.certificates && now && target && <details className="pulls-disclosure" open>
           <summary>Yellow cert shop · monthly spending</summary>
           <p className="hint">Enter a budget for each month. Complete tiers cost 10 / 28 / 68 / 138 / 258 certs for 1 / 3 / 8 / 18 / 38 pulls. Include only purchases you have not already claimed.</p>
-          <div className="pulls-cert-months">{certificateSpending(now, target, readNumber(yellowCerts), certSpending).rows.map(row => <label key={row.month}>{row.month}<NumberInput min="0" max="258" step="1" aria-label={`Yellow cert spending ${row.month}`} value={certSpending[row.month] ?? 0} onChange={e => setCertSpending(value => ({ ...value, [row.month]: Math.max(0, Math.min(258, Math.floor(Number(e.target.value) || 0))) }))} /><span>{row.spent} certs → {row.pulls} pulls{row.short ? ` · ${row.short} certs short` : ''}</span></label>)}</div>
+          <div className="pulls-cert-months">{certificateSpending(now, target, readNumber(yellowCerts), certSpending, server).rows.map(row => <label key={row.month}>{row.month}<NumberInput min="0" max="258" step="1" aria-label={`Yellow cert spending ${row.month}`} value={certSpending[row.month] ?? 0} onChange={e => setCertSpending(value => ({ ...value, [row.month]: Math.max(0, Math.min(258, Math.floor(Number(e.target.value) || 0))) }))} /><span>{row.spent} certs → {row.pulls} pulls{row.short ? ` · ${row.short} certs short` : ''}</span></label>)}</div>
         </details>}
 
         <dl>
@@ -468,7 +484,7 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
               <ReportRow what="Annihilation" how={`${income.weeks} weeks × ${ANNIHILATION_WEEKLY_ORUNDUM} Orundum`} pulls={income.annihilation / ORUNDUM_PER_PULL} off={!incomeSettings.annihilation} />
               <ReportRow what="Monthly card" how={`${income.days} sign-ins × ${MONTHLY_CARD_DAILY_ORUNDUM} Orundum · ${card.cards} × ${MONTHLY_CARD_ORIGINITE} OP`} pulls={monthlyCard ? (card.orundum + card.originitePrime * ORUNDUM_PER_ORIGINITE) / ORUNDUM_PER_PULL : 0} off={!monthlyCard} />
               <ReportRow what="Green cert shop" how={`${greenIncome.months} resets · 600 Orundum + 4 permits each`} pulls={greenIncome.orundum / ORUNDUM_PER_PULL + greenIncome.permits} off={!incomeSettings.greenCertificates} />
-              <ReportRow what="Yellow cert shop" how="planned monthly shop purchases" pulls={now && target ? certificatePulls(now, target, readNumber(yellowCerts), incomeSettings.certificates, certSpending) : 0} off={!incomeSettings.certificates} />
+              <ReportRow what="Yellow cert shop" how="planned monthly shop purchases" pulls={now && target ? certificatePulls(now, target, readNumber(yellowCerts), incomeSettings.certificates, certSpending, server) : 0} off={!incomeSettings.certificates} />
               <tr className="pulls-report-sum"><th scope="row">Income</th><td>in whole pulls, with what you hold</td><td>{recurringGained}</td></tr>
             </tbody>
             <tbody>
@@ -521,8 +537,8 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
         <div id="panel-skins" className="pulls-skins-body">
             {/* The Skin Planner's own view, with this plan's OP set against it. */}
           <div className="pulls-panel-head"><p className="hint">The same plan as the <Link prefetch={false} href="/skin-planner">Skin Planner</Link>: a change here shows there, and the other way round.</p><SkinsHelp /></div>
-          <SkinPlanner collections={skinCollections} today={now?.toISOString().slice(0, 10) ?? null} catalogue={skinCatalogue} ids={skinIds} onChange={setSkinIds} owned={ownedSkins}
-            budget={{ heldOP: held.originitePrime, extraOP: readNumber(reservedOP), forecastOP: (date) => totalAt(new Date(`${date}T23:59:59Z`)).grossOP,
+          <SkinPlanner collections={skinCollections} today={now ? serverCalendarTime(now, server).toISOString().slice(0, 10) : null} now={now?.getTime()} catalogue={skinCatalogue} ids={skinIds} onChange={setSkinIds} owned={ownedSkins}
+            budget={{ heldOP: held.originitePrime, extraOP: readNumber(reservedOP), forecastOP: (date) => totalAt(new Date(planningDayEnd(date) - 1)).grossOP,
               extraField: <Field label="Extra OP reserve" unit="OP" value={reservedOP} onChange={setReservedOP} /> }} />
         </div>
       </ImportDialog>
@@ -546,7 +562,7 @@ export const getStaticProps: GetStaticProps<PullsProps> = withContentPage<PullsP
   const backlogSources = bundledBacklogSources();
   const skins = getAllSkins();
   const events = getAllEvents();
-  const skinCatalogue = pullSkinCatalogue(skins, skinReleaseDates(events, skins), skinDynamicArt(assertDynamicArtIndex((await import('@/data/dynamic-art.json')).default), skins));
+  const skinCatalogue = pullSkinCatalogue(skins, skinReleaseDates(events, skins), skinDynamicArt(await loadDynamicArtIndex(), skins));
   const predicted = new Set(getEventCalendar().filter(event => event.isPredicted).map(event => event.name));
   const skinCollections = pullSkinCollections(events, skins, skinCatalogue, predicted);
   return { props: { scheduledEvents: getPullEventSchedule(backlogSources), backlogSources, skinCatalogue, skinCollections, scheduledBanners, bannerOdds: getBannerOdds(scheduledBanners) } };

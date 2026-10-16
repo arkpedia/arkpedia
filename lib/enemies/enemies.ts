@@ -1,15 +1,11 @@
 import fs from 'fs';
 import path from 'path';
 import appearancesData from '@/data/enemy_appearances.json';
-import stageAppearancesData from '@/data/enemy-stage-appearances.json';
 import {
   Enemy,
   EnemyAppearance,
   EnemyBundle,
   EnemyContent,
-  ContentKind,
-  EnemyStage,
-  EnemyStageAppearance,
   EnemySummary,
   KIND_ORDER,
 } from './enemyTypes';
@@ -55,15 +51,6 @@ export function getEnemyBundles(): EnemyBundle[] {
   return bundles;
 }
 
-/**
- * Every enemy record, flattened out of the bundles. Safe to treat as a
- * set: the bundles partition by introduction, so a slug appears in
- * exactly one of them and this never yields a duplicate.
- */
-export function getAllEnemies(): Enemy[] {
-  return getEnemyBundles().flatMap((b) => b.enemies);
-}
-
 export function getEnemyBySlug(slug: string): { enemy: Enemy; introducedBy: EnemyContent } | undefined {
   if (!CACHE || !bySlugCache) {
     const index = new Map<string, { enemy: Enemy; introducedBy: EnemyContent }>();
@@ -103,26 +90,6 @@ export function getEnemyContents(): EnemyContent[] {
       }
       return a.name.localeCompare(b.name);
     });
-}
-
-/**
- * enemy slug -> the contents that field it, each with the stages inside it.
- * From data/enemy-stage-appearances.json, built by
- * scripts/build/build-enemy-stage-appearances.mjs out of the stage dataset.
- *
- * The file is normalised -- contents and stages are listed once and referred to by
- * index, because the flat shape repeated 129 contents 4,943 times and 2,299 stages
- * 13,112 times, at 1.4MB against 229KB. Rehydrated here, server-side, and sliced to
- * one enemy in getStaticProps, so nothing but that enemy's own rows ships.
- */
-interface AppearanceFile {
-  /** [kind, id, label, name] */
-  contents: [ContentKind, string, string | null, string][];
-  /** [code, slug?, name?, variant?] -- slug omitted where it is the lowercased
-   *  code, name omitted where it repeats the code. */
-  stages: [string, (string | null)?, (string | null)?, string?][];
-  /** enemy slug -> [[content index, ...stage indexes]] */
-  enemies: Record<string, number[][]>;
 }
 
 

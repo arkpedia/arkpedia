@@ -5,6 +5,9 @@ if (!process.argv[2] || root === process.cwd()) throw new Error('Specify a separ
 const source = path.join(root, 'source');
 const deprecatedSourceFiles = new Set([
   'data/events.json',
+  // Local optimizer calculations belong only in .cache/optimizers.
+  'data/optimizer-results.json',
+  'data/whole-base-optimizer-results.json',
   'data/operator-release-overrides.json',
   // Always '{}' and read by nothing: lyrics are published one file per song
   // (writeLyricsFilesToPublic in lib/music/albumsDataServer.ts).
@@ -38,6 +41,7 @@ const deprecated = relative => deprecatedSourceFiles.has(relative) || deprecated
 // deletes on purpose is then deleted here as well, never brought back from the app's
 // stale copy, and the log names it. Take an entry out once every release carries it.
 const SEEDED_SOURCE_FILES = new Set([
+  'data/regional-schedules.json',
   'data/free-rewards.json',
   // Web campaign discovery (official regional feeds and campaign rules), seeded until
   // the first release publishes it. Later discoveries arrive without a code deploy.

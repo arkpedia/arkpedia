@@ -9,14 +9,13 @@ import { currentPullPlan } from '../../lib/pulls/currentPlan';
 import type { UpcomingBanner } from '../../lib/pulls/pulls';
 import type { SkinCollection } from '../../lib/pulls/skinCollections';
 import { isOperatorReleased, isReleasedAt, releaseMarker } from '../../lib/operators/operatorAvailability';
-import { serverDate } from '../../lib/time/serverDay';
+import { serverDate } from '../../lib/time/servers.mjs';
 import { withContentPage } from '../../lib/content/server';
 
 // Every value that depends on "now" is computed from a moment passed in: the request's
 // (contentPageClock) or the reader's. Fixtures and fixed instants only; nothing here
 // reads the real date or the repository's data.
 const at = (iso: string) => Date.parse(iso);
-const HOUR = 3_600_000, DAY = 24 * HOUR;
 
 test('schedule rows: LIVE, membership and the pull-planner link follow the request clock', () => {
   const row = (name: string, start: string, end: string, pullBanner: EventRow['pullBanner'] = null): EventRow =>
@@ -145,7 +144,7 @@ test('the pull planner drops banners and shops per request, through the end of t
   assert.deepEqual(Object.keys(current.bannerOdds), ['Last day', 'Next']);
   assert.deepEqual(current.skinCollections.map(c => c.id), ['open']);
   assert.equal(current.backlogSources, null);
-  assert.deepEqual(currentPullPlan(props, at('2026-09-26T00:00:00Z')).scheduledBanners.map(b => b.name), ['Next']);
+  assert.deepEqual(currentPullPlan(props, at('2026-09-26T07:00:00Z')).scheduledBanners.map(b => b.name), ['Next']);
 });
 
 test('withContentPage takes revalidate as an option, and exports carry no clock field', async () => {
@@ -170,7 +169,10 @@ test('withContentPage takes revalidate as an option, and exports carry no clock 
     process.env.ARKPEDIA_EXPORT_CONTENT = '1';
     const exported = await page(context);
     assert.ok('props' in exported);
-    assert.deepEqual(await exported.props, { value: 'record', __contentTables: { event_colors: {}, event_materials: {}, headhunting_banners: [] } }, 'no clock field in exported data');
+    const projected = await exported.props as unknown as { value: string; __contentTables: Record<string, unknown> };
+    assert.equal((projected.__contentTables['regional-schedules'] as { version: number }).version, 1);
+    delete projected.__contentTables['regional-schedules'];
+    assert.deepEqual(projected, { value: 'record', __contentTables: { event_colors: {}, event_materials: {}, headhunting_banners: [] } }, 'no clock field in exported data');
   } finally {
     if (saved.disabled === undefined) delete process.env.ARKPEDIA_CONTENT_DISABLED; else process.env.ARKPEDIA_CONTENT_DISABLED = saved.disabled;
     if (saved.exporting === undefined) delete process.env.ARKPEDIA_EXPORT_CONTENT; else process.env.ARKPEDIA_EXPORT_CONTENT = saved.exporting;

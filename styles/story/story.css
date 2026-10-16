@@ -73,7 +73,7 @@ a.story-list-card:hover { border-color: var(--teal); }
    The chapter's cover and line on top, then a row per stage: its code, its name, and Before / After,
    each in its own column so the buttons line up down the list (myrtle.moe's layout); a story of its
    own has one Read across both. */
-.account-dialog.story-chapter-dialog { width: min(760px, calc(100vw - 32px)); }
+.story-chapter-dialog { --dialog-w: 760px; }
 /* The cover whole, 180px tall at its own shape (ChapterDialog's ratio, which also holds its place
    while it loads), centred on a line of its own above the chapter's line. */
 .story-chapter-top { display: flex; flex-direction: column; align-items: center; gap: 12px; margin-bottom: 10px; }

@@ -27,11 +27,11 @@ permissions:
   issues: write
 
 jobs:
-  # A push to main whose code a pull request's Check already passed is not checked again:
-  # its merge result had this same git tree, so Deploy follows at once. Anything else that
-  # landed in between changes the tree, and the full Check runs (scripts/ci/already-checked.mjs).
+  # Reuse a successful PR Check of this exact merge tree on pushes and same-repository PRs.
+  # This also covers a rebase that changes only ancestry. Any changed file, missing proof or
+  # API failure runs the full Check; forks and manual checks always run it.
   seen:
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
     # A few seconds of API calls: on the light runner (ARKPEDIA_LIGHT_RUNNER, the VPS), so a
     # merge's push is not queued behind another pull request's whole Check on the NAS before
     # it can vouch and let Deploy start. Falls back to ARKPEDIA_RUNNER when unset.
@@ -68,8 +68,8 @@ jobs:
 
   check:
     needs: seen
-    # Runs when `seen` found nothing, and on every pull request (where `seen` is skipped);
-    # a failed `seen` runs it too.
+    # A cache miss, failed lookup or skipped lookup runs the full Check.
+    # Only an explicit exact-tree proof skips it.
     if: ${{ !cancelled() && needs.seen.outputs.checked != 'true' }}
     # ARKPEDIA_RUNNER (a repository variable) names the self-hosted runner's label, e.g.
     # arkpedia-vps; unset, jobs run on GitHub's hosted runners. See docs/development/ci-runner.md.
@@ -89,12 +89,12 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: '22'
-          cache: npm
+          # Self-hosted runner homes persist: downloading ~484 MB over that local
+          # npm cache costs more than npm ci. Fresh hosted runners still restore it.
+          cache: ${{ runner.environment == 'github-hosted' && 'npm' || '' }}
+          package-manager-cache: ${{ runner.environment == 'github-hosted' }}
 
       - run: npm ci
-
-      - name: Typecheck
-        run: npm run typecheck
 
       # Before npm test: it runs the Python importers too (test-cn-tables.ts), and they
       # import Pillow and certifi at the top.
@@ -102,30 +102,19 @@ jobs:
         with:
           python-version: "3.12"
 
-      - run: python -m pip install pillow certifi lz4==4.4.5
+      - run: python -m pip install -r scripts/requirements.txt
 
-      - name: Application regression tests
-        run: npm test
-
-      - name: Palette import tests
-        run: python3 scripts/palettes/test-color-palettes.py
-
-      - name: Catalogue media import tests
-        run: python3 scripts/sync/test-publish-catalogue-assets.py
-
-      - name: Profile card theme colour import tests
-        run: python3 scripts/imports/test-namecard-styles.py
-
-      - name: Medal set layout import tests
-        run: python3 scripts/tests/test-medal-layouts.py
-
-      - name: Story map import tests
-        run: python3 scripts/imports/test-story-map.py
-
-      # The RA map, nation crest and reward icon importers against an unreachable wiki:
-      # each reports to the quarantine list and exits 0 instead of failing the release.
-      - name: Wiki importer degradation tests
-        run: python3 scripts/imports/test-degrading-importers.py
+      # Independent processes; Python suites use temporary fixtures. Keep npm test's
+      # existing parallel runner, overlap the importer tests, and collect BOTH verdicts.
+      - name: Application and Python regression tests
+        run: |
+          npm run test:py > "$RUNNER_TEMP/python-tests.log" 2>&1 &
+          python_pid=$!
+          regression_status=0
+          npm test || regression_status=$?
+          wait "$python_pid" || regression_status=$?
+          cat "$RUNNER_TEMP/python-tests.log"
+          exit "$regression_status"
 
       # The voice clip check lists every outfit voice folder (66) with the contents API, past
       # its 60 unauthenticated requests an hour.
@@ -141,13 +130,6 @@ jobs:
       - name: Page payload budgets
         run: npm run check:payload-budgets
 
-      # A ratchet, not a wall: 15 warnings exist today (react-hooks/exhaustive-deps
-      # in the four big pages, plus two ARIA roles), every one of them a judgement
-      # call about behaviour rather than a mechanical fix, so they are left standing
-      # and capped. Errors fail on their own. Lower the number as they go.
-      - name: Lint
-        run: npm run lint -- --max-warnings 15
-
       # A ratchet over style drift: rarity colour literals, the pre-token teal, pill
       # radii, h1 overrides, font weights that are not loaded, native <select> and
       # hand-built listboxes outside components/ui, class collisions, off-scale sizes.
@@ -157,11 +139,16 @@ jobs:
       - name: Style drift ratchet
         run: npm run audit:styles
 
+      # Code graph only, independent of the bundled game records. Next/Playwright
+      # entrypoints, manual scripts and declaration twins are covered by fixtures.
+      - name: Unused code and dependencies
+        run: npm run audit:unused
+
       # A class the app renders that no stylesheet styles is invisible to the type
       # checker and to the linter: nothing fails, the page just quietly looks wrong.
       # That was 45 names when this check went in; it is 0 now, so --strict can gate.
       - name: Every rendered class is styled
-        run: node scripts/audits/check-unstyled-classes.mjs --strict
+        run: npm run check:styles
 
       - name: Compile and validate runtime content
         run: npm run content:export && npm run content:validate
@@ -169,23 +156,42 @@ jobs:
           NODE_ENV: production
           ARKPEDIA_CONTENT_DISABLED: '1'
 
+      # Generate before typechecking: prebuild can change JSON imported by the app.
+      # The two Next builds below then reuse these explicit checks in this same job.
+      - name: Prepare build inputs
+        run: npm run prebuild
+        env:
+          NODE_ENV: production
+          ARKPEDIA_CONTENT_DISABLED: '1'
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      # A ratchet, not a wall: 15 warnings exist today (react-hooks/exhaustive-deps
+      # in the four big pages, plus two ARIA roles), every one of them a judgement
+      # call about behaviour rather than a mechanical fix, so they are left standing
+      # and capped. Errors fail on their own. Lower the number as they go.
+      - name: Lint
+        run: npm run lint -- --max-warnings 15
+
+      - name: Lint pipeline scripts
+        run: npm run lint:scripts
+
       # NEXT_TELEMETRY_DISABLED so a CI run is not also a ping to Vercel.
       - name: Build
-        run: npm run build
+        # prebuild ran above, and postbuild must still enforce BOTH output budgets.
+        run: npm run --ignore-scripts build && npm run postbuild
         env:
           NEXT_TELEMETRY_DISABLED: '1'
+          ARKPEDIA_BUILD_CHECKS_PASSED: '1'
           ARKPEDIA_CONTENT_DISABLED: '1'
           # The community pages' videos from a checked-in feed, not the channels' live ones,
           # which returned 404 for hours on 2026-09-27 and failed the picture-card tests. The
           # browser specs run against this build; playwright.config.ts sets the same file on
           # the server it starts, for the pages' regenerations. Deploy never sets it.
           ARKPEDIA_YOUTUBE_FEED_FIXTURE: tests/fixtures/youtube-feeds.xml
-          # prebuild runs before Next sets this; enable immutable data caches
-          # while generating thousands of stage files in this fresh process.
+          # Keep data readers in their production cache mode while prerendering.
           NODE_ENV: production
-
-      - name: Deployment traces stay lean
-        run: npm run check:deployment-traces
 
       # Deploy builds against the live content release, and right after a merge that release
       # is still the one the previous code compiled: the release gate (deploy-gate.mjs) holds
@@ -198,9 +204,10 @@ jobs:
       # from this checkout's data instead, which would prove nothing.
       - name: Pages render the live content release
         run: |
-          npx next build --no-lint
+          npx next build
           grep -q '"__contentRelease"' .next-live/server/pages/stages/seasonal.json
         env:
+          ARKPEDIA_BUILD_CHECKS_PASSED: '1'
           NEXT_DIST_DIR: .next-live
           NEXT_TELEMETRY_DISABLED: '1'
           # The same checked-in feed as Build: this step proves the content release renders,

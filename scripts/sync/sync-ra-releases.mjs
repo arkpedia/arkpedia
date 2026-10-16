@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { SERVER_TIME } from '../../lib/time/servers.mjs';
 /** Permanent RA themes live in sandbox_perm_table, not activity_table. Import their
  * launch dates by topicId, with no event end date. Global confirmation replaces the
  * schedule's runtime estimate as soon as the English client carries that same ID. */
@@ -21,14 +22,14 @@ export function reconcileRaReleases(events, cn, en, { cnSource, enSource }, name
     const title = global?.topicName ?? names[id]?.name ?? chinese.topicName;
     let event = next.find(e => e.modeId === id);
     if (!event) {
-      event = { name: `[Reclamation Algorithm] ${title}`, modeId: id, year: Number(serverDay((global ?? chinese).topicStartTime, global ? -7 : 8).slice(0, 4)), poster: names[id]?.poster ?? null, cn: { dateRange: null, note: null }, global: { dateRange: null, note: 'Global release unannounced' }, tw: { dateRange: null, note: null }, hasFashionReview: false };
+      event = { name: `[Reclamation Algorithm] ${title}`, modeId: id, year: Number(serverDay((global ?? chinese).topicStartTime, global ? SERVER_TIME.en.offset : SERVER_TIME.cn.offset).slice(0, 4)), poster: names[id]?.poster ?? null, cn: { dateRange: null, note: null }, global: { dateRange: null, note: 'Global release unannounced' }, tw: { dateRange: null, note: null }, hasFashionReview: false };
       next.push(event);
     }
     // Once localization ships, use its actual title and timestamp. Unknown themes
     // remain in their native name until a reviewed translation or Global table exists.
     event.name = `[Reclamation Algorithm] ${title}`;
     if (names[id]?.poster) event.poster = names[id].poster;
-    for (const [key, topic, source, offset] of [['cn', chinese, cnSource, 8], ['global', global, enSource, -7]]) {
+    for (const [key, topic, source, offset] of [['cn', chinese, cnSource, SERVER_TIME.cn.offset], ['global', global, enSource, SERVER_TIME.en.offset]]) {
       if (!topic) continue; // A missing regional row never deletes a prior confirmation.
       event[key] = { ...event[key], dateRange: null, releaseDate: serverDay(topic.topicStartTime, offset), startAt: new Date(topic.topicStartTime * 1000).toISOString(), timingSource: source, note: null };
     }

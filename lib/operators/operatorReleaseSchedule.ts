@@ -75,9 +75,3 @@ export function getScheduledOperatorDebut(
     .filter(({ startAt }) => Math.abs(Date.parse(startAt) - recorded) <= MAX_SOURCE_DRIFT)
     .sort((a, b) => Date.parse(a.startAt) - Date.parse(b.startAt))[0] ?? null;
 }
-
-export function getScheduledOperatorRelease(
-  operator: Pick<Operator, 'name' | 'characterInfo' | 'howToObtain'>,
-): string | null {
-  return getScheduledOperatorDebut(operator)?.startAt ?? null;
-}

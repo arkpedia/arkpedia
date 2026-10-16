@@ -233,9 +233,7 @@ export let TP_CANDIDATES_ELITE_ZERO: Record<string, Candidate> = {};
 // to however a candidate happens to be identified.
 const TP_SELF_REFERENTIAL = new Set(['Jaye|Basic Needs', 'Jaye|Street Economics', 'Snowsant|Heavenly Reward α', 'Snowsant|Heavenly Reward β', "Degenbrecher|Champion's Bearing", 'Swire the Elegant Wit|Investment Solicitations']);
 const PROVISO_GOLD_BONUS: Record<string, number> = { 'Damages for Breach α': 1, 'Damages for Breach β': 2 };
-const TEQUILA_LMD_BONUS: Record<string, number> = { 'Investment α': 250, 'Investment β': 500 };
-const GOLD_TIER_HIGHER: Record<string, string> = { Bibeak: 'Tailoring β', Kafka: 'Handicrafts β', Paprika: 'Tailoring β', "Diamante": "Appraiser's Means" };
-const GOLD_TIER_LOWER: Record<string, string> = { Bena: 'Tailoring α', Shamare: 'Tailoring α' }; // Bena and Shamare only ever have the LOWER-tier version -- Shamare's is a permanent, separate skill (not replaced at Elite 2, her E2 slot is "Whispers" instead), so she carries this alongside her override for as long as she's placed
+const TEQUILA_LMD_BONUS: Record<string, number> = { 'Investment α': 250, 'Investment β': 500 }; // Bena and Shamare only ever have the LOWER-tier version -- Shamare's is a permanent, separate skill (not replaced at Elite 2, her E2 slot is "Whispers" instead), so she carries this alongside her override for as long as she's placed
 
 export interface TpResult {
   combo: string[];

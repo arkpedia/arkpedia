@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { serverDay, SERVER_TIME } from '../../lib/time/servers.mjs';
 /**
  * Add recurring Global Standard and Kernel banners from current sources.
  *
@@ -36,11 +37,6 @@ import { reconcileGlobalClientBanners } from './global-client-banners.mjs';
 const CLIENT_BASE = `https://raw.githubusercontent.com/ArknightsAssets/ArknightsGamedata/${pinnedRef('ArknightsAssets/ArknightsGamedata')}/en/gamedata/excel`;
 const CLIENT_SOURCE = `${CLIENT_BASE}/gacha_table.json`;
 
-function serverDate(timestamp, utcOffsetHours = -7) {
-  const date = new Date((timestamp + utcOffsetHours * 3600) * 1000);
-  const pad = (value) => String(value).padStart(2, '0');
-  return `${date.getUTCFullYear()}/${pad(date.getUTCMonth() + 1)}/${pad(date.getUTCDate())}`;
-}
 
 function isoEnd(timestamp) {
   return new Date((timestamp + (timestamp % 60 === 59 ? 1 : 0)) * 1000).toISOString();
@@ -121,7 +117,7 @@ export function reconcileRecurringBanners({ banners, gachaTable, characters, wik
 
   for (const type of ['standard', 'kernel']) {
     const shipped = clientRows(gachaTable, type).sort((a, b) => a.openTime - b.openTime);
-    const windowOf = (row) => `${serverDate(row.openTime)}–${serverDate(row.endTime)}`;
+    const windowOf = (row) => `${serverDay(row.openTime, SERVER_TIME.en.offset)}–${serverDay(row.endTime, SERVER_TIME.en.offset)}`;
     const recordOf = (client) => next.find((banner) => banner.globalPoolId === client.gachaPoolId)
       ?? next.find((banner) => numberOf(type, banner.name) != null && banner.global_date === windowOf(client));
     /* A Kernel pool's rate-ups as the client names them, when its metadata is complete. The
@@ -162,7 +158,7 @@ export function reconcileRecurringBanners({ banners, gachaTable, characters, wik
       return { split, source };
     };
     shipped.forEach((client, i) => {
-      const wiki = wikiRows.find((row) => row.type === type && row.start === serverDate(client.openTime) && row.end === serverDate(client.endTime));
+      const wiki = wikiRows.find((row) => row.type === type && row.start === serverDay(client.openTime, SERVER_TIME.en.offset) && row.end === serverDay(client.endTime, SERVER_TIME.en.offset));
       const recorded = recordOf(client) ?? (wiki ? next.find((banner) => banner.name === nameFor(type, wiki.number)) : null);
       if (recorded) {
         // A banner added before its lineup was known takes it once it is: a Standard one
@@ -211,7 +207,7 @@ export function reconcileRecurringBanners({ banners, gachaTable, characters, wik
           timingSource: CLIENT_SOURCE,
         },
         banner_image: `/headhunting-banner-images/${imageName}.webp`,
-        year: Number(serverDate(client.openTime).slice(0, 4)),
+        year: Number(serverDay(client.openTime, SERVER_TIME.en.offset).slice(0, 4)),
         four_stars: [],
         five_stars: lineupSource === 'pending' ? [] : split.fiveStars,
         rate_up_six_stars: [],

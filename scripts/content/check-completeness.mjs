@@ -1,3 +1,4 @@
+import { serverDayBoundary, DAY_MS } from '../../lib/time/servers.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -124,7 +125,7 @@ export function recordedRelease(op) {
   const date = new Date(day);
   if (match && (date.getUTCFullYear() !== +match[1] || date.getUTCMonth() !== +match[2] - 1 || date.getUTCDate() !== +match[3])) return null;
   // A calendar date is a UTC-7 day, and the site waits for it to pass.
-  return day + 7 * 3_600_000 + 86_400_000;
+  return serverDayBoundary(day, 'en', 'calendar') + DAY_MS;
 }
 /** Whether a record carries a release instant at all. */
 export const hasRecordedRelease = op => recordedRelease(op) !== null;

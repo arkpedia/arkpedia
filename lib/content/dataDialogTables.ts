@@ -4,17 +4,15 @@
  * the dialog passes these and lists the names in lib/content/tables.mjs. Read only from
  * getStaticProps, so the data never reaches a browser bundle (check:client-chunks).
  */
-import { checkMaterialCatalogue } from '@/lib/farming/materialCatalogue.mjs';
+import { loadMaterialCatalogue } from '@/lib/farming/materialCatalogueServer';
 import { checkImportAliases } from '@/lib/planner/foreignImport';
 import { checkGameAccountMap } from '@/lib/planner/gameAccount';
 import { bannerPoolNames } from '@/lib/gacha/bannerPools';
 
-const catalogue = async () => checkMaterialCatalogue((await import('@/data/material-catalogue.json')).default);
-
 export const DATA_DIALOG_TABLES = {
   'game-account-map': async () => checkGameAccountMap((await import('@/data/game-account-map.json')).default),
-  'import-aliases': async () => checkImportAliases((await import('@/data/import-aliases.json')).default, await catalogue()),
-  'material-catalogue': catalogue,
+  'import-aliases': async () => checkImportAliases((await import('@/data/import-aliases.json')).default, await loadMaterialCatalogue()),
+  'material-catalogue': loadMaterialCatalogue,
 };
 
 /**

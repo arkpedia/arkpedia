@@ -6,7 +6,7 @@ import { ContentArt, ContentImg } from '@/components/content/ContentImage';
 import { assistantArtPath, moduleMarkPath, portraitPath, profileArtPath, skillIconPath, avatarSources } from '@/lib/account/portraits';
 import { getFactionIconPath } from '@/lib/operators/classBranchIcons';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
-import { toServerTime } from '@/lib/time/serverDay';
+import { toServerTime } from '@/lib/time/servers.mjs';
 import type { AccountRecord, SupportUnit } from '@/lib/account/accountStore';
 import type { GameAccountMap } from '@/lib/planner/gameAccount';
 
@@ -130,8 +130,8 @@ export default function ProfileCard({ account, map, outfits, outfitArt, outfitNa
   collectionOwner?: 'self' | 'friend';
 }) {
   const profile = account.profile ?? { level: null, registeredAt: null, secretary: null, bio: null };
-  // The game dates the card by its server's day (UTC-7, rolling over at 04:00), not UTC's.
-  const hired = profile.registeredAt ? toServerTime(new Date(profile.registeredAt)) : null;
+  // Keep the existing game-day convention, using this card's own account server.
+  const hired = profile.registeredAt ? toServerTime(new Date(profile.registeredAt), account.server) : null;
   const style = profile.nameCard ?? null;
   const theme = style ? map.nameCards?.[style] ?? null : null;
   const subtitle = style ? map.nameCardThemes?.[style] ?? null : null;

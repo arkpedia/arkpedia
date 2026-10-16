@@ -8,4 +8,3 @@ export function getAllEvents(): ScheduleEvent[] {
 }
 
 /* The pure helpers live in ./scheduleDates, so browser code can use them without this module. */
-export { getOperatorBirthdays, parseDateRange, type OperatorBirthday } from './scheduleDates';

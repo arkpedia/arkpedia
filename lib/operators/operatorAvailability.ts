@@ -1,3 +1,4 @@
+import { serverDayBoundary } from '@/lib/time/servers.mjs';
 export type ReleaseOperator = {
   releaseAt?: string;
   /** Until when the debut lasts (Operator.availableUntil). */
@@ -23,7 +24,7 @@ export function operatorRelease(op: ReleaseOperator): { at: number; dayStart: nu
   if (!Number.isFinite(day)) return null;
   const date = new Date(day);
   if (match && (date.getUTCFullYear() !== +match[1] || date.getUTCMonth() !== +match[2] - 1 || date.getUTCDate() !== +match[3])) return null;
-  const dayStart = day + 7 * 3_600_000;
+  const dayStart = serverDayBoundary(day, 'en', 'calendar');
   return { at: dayStart + DAY, dayStart, exact: false };
 }
 

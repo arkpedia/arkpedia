@@ -1,3 +1,4 @@
+import { serverDay, SERVER_TIME } from '../../lib/time/servers.mjs';
 /**
  * Kernel Locating banners: Global's own pool type (CN has none), named "Kernel Locating #N
  * (Global)". The bulk import of 2026-09-16 brought #1 to #12 and nothing added any after it:
@@ -29,13 +30,8 @@ const numberOf = name => {
 const CREATE_WITHIN = 30 * 86400;
 
 /** Server days (UTC-7), as the records write global_date. */
-function serverDate(seconds) {
-  const date = new Date((seconds - 7 * 3600) * 1000);
-  const pad = value => String(value).padStart(2, '0');
-  return `${date.getUTCFullYear()}/${pad(date.getUTCMonth() + 1)}/${pad(date.getUTCDate())}`;
-}
 const seconds = iso => Math.floor(Date.parse(iso) / 1000);
-const daysOf = (start, end) => `${serverDate(start)}–${serverDate(end)}`;
+const daysOf = (start, end) => `${serverDay(start, SERVER_TIME.en.offset)}–${serverDay(end, SERVER_TIME.en.offset)}`;
 
 /** Every "KERNEL LOCATING OPEN" section of the cached Global posts, newest post last:
  *  { start, end } (ISO), the 6- and 5-star names as written, and the post's address. */
@@ -90,7 +86,7 @@ export function reconcileKernelLocating({ banners, gachaTable, characters, notic
   const isLocating = banner => numberOf(banner.name) != null;
   const rows = (wikiRows ?? []).filter(row => row.type === 'kernel locating' && /^\d+$/.test(row.no ?? ''));
   const wikiNumber = start => {
-    const day = serverDate(start);
+    const day = serverDay(start, SERVER_TIME.en.offset);
     const row = rows.find(cell => String(cell.start ?? '').startsWith(day));
     return row ? Number(row.no) : null;
   };
@@ -115,7 +111,7 @@ export function reconcileKernelLocating({ banners, gachaTable, characters, notic
     const banner = {
       name, category: 'kernel', cn_date: null, global_date: daysOf(start, end), global_date_estimated: false,
       global_window: window, banner_image: `/headhunting-banner-images/${name.replace('#', '')}.webp`,
-      year: Number(serverDate(start).slice(0, 4)), four_stars: [], five_stars: [], rate_up_six_stars: [], six_stars: [],
+      year: Number(serverDay(start, SERVER_TIME.en.offset).slice(0, 4)), four_stars: [], five_stars: [], rate_up_six_stars: [], six_stars: [],
       pull_type: 'kernel', linked_event: null, lineupSource: 'pending',
     };
     banners.push(banner);

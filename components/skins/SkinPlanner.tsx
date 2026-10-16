@@ -31,7 +31,7 @@ const ORDER_OPTIONS = [{ value: 'closing' as const, label: 'Closing soonest' }, 
 const shopName = (name: string) => name.replace(/^\[[^\]]*\]\s*/, '');
 
 /** "closes in 5 days", "closes today", "opens in 6 days": how long a shop has, from the
- *  reader's server day (YYYY-MM-DD, inclusive of the shop's last day). */
+ *  shop's Global calendar day (YYYY-MM-DD, inclusive of the shop's last day). */
 function shopCountdown(shop: { start: string; end: string }, today: string): string {
   const days = (from: string, to: string) => Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);
   if (today < shop.start) { const n = days(today, shop.start); return n === 1 ? 'opens tomorrow' : `opens in ${n} days`; }
@@ -47,11 +47,13 @@ function SkinPlannerArt({ image }: { image: string | null }) {
   </span>;
 }
 
-export default function SkinPlanner({ catalogue, collections, today, ids, onChange, owned, budget }: {
+export default function SkinPlanner({ catalogue, collections, today, now, ids, onChange, owned, budget }: {
   catalogue: PlannedSkin[];
   collections: SkinCollection[];
   /** YYYY-MM-DD, for which shops are over; null before the reader's clock is known. */
   today: string | null;
+  /** Current instant for exact source closing times. */
+  now?: number;
   ids: string[];
   onChange: (ids: string[]) => void;
   /** The game skin ids the imported account owns (lib/account), or null without an import. */
@@ -76,9 +78,9 @@ export default function SkinPlanner({ catalogue, collections, today, ids, onChan
   const isOwned = (skin: PlannedSkin) => !!owned && !!skin.skinId && owned.has(skin.skinId);
   const planned = useMemo(() => new Set(ids), [ids]);
   const shops = useMemo(() => {
-    const open = today ? openSkinCollections(collections, today) : collections;
+    const open = today ? openSkinCollections(collections, today, now) : collections;
     return [...open].sort((a, b) => (order === 'closing' ? a.end.localeCompare(b.end) || a.start.localeCompare(b.start) : a.start.localeCompare(b.start) || a.end.localeCompare(b.end)));
-  }, [collections, today, order]);
+  }, [collections, today, now, order]);
 
   // What the plan costs: outfits the account already owns are left out.
   const plannedSkins = ids.flatMap((id) => (byId.has(id) ? [byId.get(id)!] : []));

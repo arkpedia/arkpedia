@@ -1,3 +1,4 @@
+import { serverCalendarTime } from '../../lib/time/servers.mjs';
 /**
  * Reads the official CN activity announcements (data/official-news/cn, scripts/sync/sync-cn-news.mjs)
  * for what the calendar needs before the CN client carries it: the events that open stages and the
@@ -57,7 +58,7 @@ const ROLLOVER_MONTHS = 6;
 export function cnWindow(text, published) {
   const m = String(text ?? '').match(TIME);
   if (!m) return null;
-  const posted = new Date((published + 8 * 3600) * 1000);
+  const posted = serverCalendarTime(new Date(published * 1000), 'cn');
   const yearOf = month => posted.getUTCFullYear() + (month < posted.getUTCMonth() + 1 - ROLLOVER_MONTHS ? 1 : 0);
   const instant = (year, month, day, hour, minute) => Date.UTC(year, month - 1, day, hour - 8, minute) / 1000;
   const start = instant(yearOf(+m[1]), +m[1], +m[2], +m[3], +m[4]);

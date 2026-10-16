@@ -3,7 +3,7 @@ import { getEventMaterials } from './eventMaterials';
 import { parseGameWindow } from './gameWindow';
 import type { CountdownWindow, FarmingWindows } from './countdownWindows';
 
-export type { CountdownWindow, FarmingWindows, MaterialCountdown } from './countdownWindows';
+export type { FarmingWindows } from './countdownWindows';
 
 /** Event Store materials (Loxic Kohl, Manganese Ore, Grindstone) aren't
  * tied to one specific named event -- they're purchasable whenever ANY
@@ -18,8 +18,8 @@ export function getFarmingWindows(eventMaterials: Record<string, Record<string, 
   for (const event of getAllEvents()) {
     const window = parseGameWindow(event.global.dateRange, event.global);
     if (!window) continue;
-    const span = { start: window.start.getTime(), end: window.end.getTime() };
-    if (/\[(Side Story|Story Collection|Intermezzo|Rerun)/i.test(event.name)) eventStore.push(span);
+    const span = { event: event.name, start: window.start.getTime(), end: window.end.getTime() };
+    if (/\[(Side Story|Story Collection|Intermezzo|Rerun)/i.test(event.name)) eventStore.push({ ...span, end: event.global.shopEndAt ? Date.parse(event.global.shopEndAt) : span.end });
     for (const [material, stageCode] of Object.entries(getEventMaterials(event.name, eventMaterials) ?? {})) {
       (materials[material] ??= []).push({ ...span, stageCode });
     }

@@ -1,7 +1,6 @@
 // Global release dates per content entry. Every kind has its own source, and
 // three of them need a correction the tables cannot supply on their own.
 import { excel } from './gamedata.mjs';
-import { clean } from './contents.mjs';
 import { list } from './text.mjs';
 
 /** An epoch timestamp as a Global-server UTC calendar date. */
@@ -200,5 +199,3 @@ export function releaseDates(entries) {
   }
   return out;
 }
-
-export { clean };

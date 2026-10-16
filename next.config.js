@@ -23,6 +23,13 @@ function externalAssetRedirects(folders, repository) {
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Only Check sets this after prebuild, typecheck and the warning-capped lint passed.
+  // Avoid repeating those checks in both of its Next builds. Normal/local/Deploy
+  // builds retain Next's validation, including manually dispatched deployments.
+  ...(process.env.CI === 'true' && process.env.ARKPEDIA_BUILD_CHECKS_PASSED === '1' ? {
+    typescript: { ignoreBuildErrors: true },
+    eslint: { ignoreDuringBuilds: true },
+  } : {}),
   // Check builds a second time against the live content release, into a directory of its
   // own so the first build's output stays for the browser suites (check.yml, "Pages render
   // the live content release"). Unset everywhere else.
@@ -51,9 +58,9 @@ const nextConfig = {
       ...Object.fromEntries(contentPageRoutes.map((route) => [route === '/' ? '/index' : route, [
         'data/**/*', 'public/**/*', '.env*',
       ]])),
-      // These endpoints are hard-blocked outside `next dev`; their local editor
-      // files must never be packaged into a deployed function.
-      '/api/dev/**': ['data/**/*', 'public/**/*', '.env*'],
+      // These endpoints are hard-blocked outside `next dev`; local tool inputs
+      // and cached results must never be packaged into a deployed function.
+      '/api/dev/**': ['data/**/*', 'public/**/*', '.cache/**/*', '.env*'],
       // Artwork voices read the published operator page; local catalogue readers are dev-only.
       '/api/artwork-voices': ['data/**/*', 'public/**/*', '.env*'],
     },

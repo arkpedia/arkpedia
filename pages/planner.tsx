@@ -10,7 +10,6 @@ import { upgradeCostGroups } from '@/lib/planner/upgradeCostGroups';
 import { publicFiles, publicFileExists } from '@/lib/assets/publicAssets';
 import { GetStaticProps } from 'next';
 import Head from 'next/head';
-import Link from 'next/link';
 import Image from '@/components/content/ContentImage';
 import fs from 'fs';
 import path from 'path';
@@ -24,7 +23,8 @@ import { highlightStats } from '@/components/ui/HighlightedText';
 import { PlannerOperator, PlannerOperatorSummary, Skill, OperatorModule, PromotionTier, getSkillList, type CostGroup } from '@/lib/operators/operatorTypes';
 import { buildAliasMap } from '@/lib/operators/operatorAliases';
 import { checkItemSortIds } from '@/lib/farming/materialSortOrder';
-import { checkMaterialCatalogue, depotNames, uncataloguedCosts } from '@/lib/farming/materialCatalogue.mjs';
+import { depotNames, uncataloguedCosts } from '@/lib/farming/materialCatalogue.mjs';
+import { loadMaterialCatalogue } from '@/lib/farming/materialCatalogueServer';
 import { DepotGrid } from '@/components/planner/DepotGrid';
 import { OperatorBill, ShortfallList } from '@/components/planner/ShortfallList';
 import { MaterialIcon } from '@/components/planner/MaterialIcon';
@@ -37,7 +37,7 @@ import { OperatorWizard, type WizardFlow } from '@/components/planner/OperatorWi
 import { BuildDialog, type BuildStep } from '@/components/planner/BuildDialog';
 import { clampBuilderStates, defaultStartingState, knownPlanNames, type BuilderState } from '@/lib/planner/builderStates';
 import { clampOwned, liftToOwned, syncPlansToRoster } from '@/lib/planner/ownedSync';
-import { checkImportAliases } from '@/lib/planner/foreignImport';
+import { DATA_DIALOG_TABLES } from '@/lib/content/dataDialogTables';
 import { goalsFor, type Goal, type GoalFrom } from '@/lib/planner/goals';
 import { compactCount } from '@/lib/planner/format';
 import { applyGoal, goalBlocker, goalReady, plannerModules, priceGoal, type BuildPlan } from '@/lib/planner/build';
@@ -62,17 +62,10 @@ import {
   type Depot,
 } from '@/lib/planner/depot';
 import {
-  moduleStageCostRemaining,
-  LEVEL_CAPS,
   maxLevelForElite,
   defaultTarget,
-  computeLevelCostRemaining,
-  promotionCostsNeeded,
   addCostGroup,
   totalsToCostGroup,
-  skillLevelCostRemaining,
-  skillMasteryCostRemaining,
-  moduleStageCost,
   maxEliteForRarity,
   maxSkillRankForElite,
   moduleUnlock,
@@ -220,14 +213,6 @@ function goalsOf(rarity: number, detail: PlannerOperator | undefined, from: Owne
     masteryOf: (i) => b.masteryTargets[i] ?? at.masteryOf(i),
     moduleStageOf: (i) => b.moduleStageTargets[i] ?? at.moduleStageOf(i),
   });
-}
-
-/** "4 Vanguard Chip · 5 Polyester · 20,000 LMD" -- a bill in one line. */
-function costLine(cost: CostGroup): string {
-  return cost
-    .filter((c) => Number(c.quantity) > 0)
-    .map((c) => `${Math.ceil(Number(c.quantity)).toLocaleString()} ${c.name}`)
-    .join(' · ');
 }
 
 
@@ -440,7 +425,7 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
   // keyed by name. undefined = not yet fetched/loaded.
   const [detailCache, setDetailCache] = useState<Record<string, PlannerOperator>>({});
   const [failedNames, setFailedNames] = useState<Set<string>>(new Set());
-  const [loadingNames, setLoadingNames] = useState<Set<string>>(new Set());
+  const [, setLoadingNames] = useState<Set<string>>(new Set());
   const fetchInFlightRef = useRef<Set<string>>(new Set());
 
   function fetchOperatorDetail(name: string) {
@@ -695,7 +680,6 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
   }
 
   const activeOp = activeName ? detailCache[activeName] : null;
-  const activeOpLoading = activeName ? !detailCache[activeName] && loadingNames.has(activeName) : false;
   const builder = activeName ? builderStates[activeName] : null;
 
   // --- Building ---
@@ -803,35 +787,7 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [build, detailCache, roster, builderStates, depot, crafting, autoCraft, levels]);
 
-  const levelCost = activeOp && builder
-    ? computeLevelCostRemaining(levels, activeOp.rarity || 1, builder.startingElite, builder.startingLevel, builder.elite, builder.level)
-    : null;
-  const promotions = activeOp && builder ? promotionCostsNeeded(activeOp, builder.elite, builder.startingElite) : [];
-  const promotionTotals = useMemo(() => {
-    const totals = new Map<string, number>();
-    for (const p of promotions) addCostGroup(totals, p.cost);
-    return totalsToCostGroup(totals);
-  }, [promotions]);
-
   const skillList = activeOp ? getSkillList(activeOp) : [];
-  const sharedSkillCost = activeOp && builder ? skillLevelCostRemaining(activeOp, builder.startingSkillLevel, builder.skillLevel) : [];
-
-  const skillsTotal = useMemo(() => {
-    if (!activeOp || !builder) return [];
-    const totals = new Map<string, number>();
-    for (const item of sharedSkillCost) addCostGroup(totals, [item]);
-    /* E2 as well as rank 7. Every mastery row in the gamedata sits behind
-       PHASE_2, so rank 7 alone -- which is reachable at E1 -- is not enough,
-       and this used to charge for masteries the game would not sell. */
-    if (builder.skillLevel === 7 && builder.elite === 2) {
-      for (const [idxStr, level] of Object.entries(builder.masteryTargets)) {
-        const idx = Number(idxStr);
-        const startMastery = builder.startingMasteryLevels[idx] || 0;
-        addCostGroup(totals, skillMasteryCostRemaining(idx, activeOp, startMastery, level));
-      }
-    }
-    return totalsToCostGroup(totals);
-  }, [activeOp, builder, sharedSkillCost]);
 
   /**
    * The mastery a plan targets, set OUTRIGHT rather than toggled.
@@ -875,19 +831,6 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
      one you have already paid for. */
   const ownedModuleStage = (b: BuilderState, moduleIndex: number) =>
     (b.startingModuleStages?.[moduleIndex] ?? -1);
-
-  const modulesTotal = useMemo(() => {
-    if (!activeOp || !builder) return [];
-    const totals = new Map<string, number>();
-    for (const [idxStr, stageIdx] of Object.entries(builder.moduleStageTargets)) {
-      const mod = moduleList[Number(idxStr)];
-      /* From where you already are, not from nothing. This counted every stage of
-         every targeted module however far along the operator already was -- the one
-         dimension of a build that had no starting point to subtract. */
-      if (mod) addCostGroup(totals, moduleStageCostRemaining(mod, ownedModuleStage(builder, Number(idxStr)), stageIdx));
-    }
-    return totalsToCostGroup(totals);
-  }, [activeOp, builder, moduleList]);
 
   /**
    * The bill, one operator at a time, and then the sum.
@@ -974,7 +917,6 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
     }
     return result;
   }, [shares, fullBill, depot, BATTLE_RECORDS]);
-  const shortMaterialCount = resolution.rows.filter((r) => r.short > 0).length;
 
   /**
    * A row per operator: the goals, the next one, and how covered the bill is.
@@ -1065,13 +1007,6 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
     const planned = selectedNames.map((n) => build(n)).filter(Boolean) as PlanRowView[];
     return { planned };
   }, [selectedNames, roster, builderStates, detailCache, operatorByName, bills, shares]);
-
-  /* Only the rows that can answer. A total that included the half-loaded ones
-     would tick upwards as their data landed, which reads as the plan growing. */
-  const goalTotal = useMemo(
-    () => planRows.planned.filter((r) => !r.pending).reduce((n, r) => n + r.goals, 0),
-    [planRows],
-  );
   /* Everyone this page knows about: recorded, planned, or both. It used to be
      the plan panel's two lists added together, and that panel no longer renders
      the operators without goals -- the roster grid does -- so the number comes
@@ -1739,7 +1674,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/pl
    * and says nothing -- so the builder's promise is checked again here, against the index
    * this export resolves art from.
    */
-  const catalogue = checkMaterialCatalogue((await import('@/data/material-catalogue.json')).default);
+  const catalogue = await loadMaterialCatalogue();
   const iconStems = new Set(
     publicFiles('material-icons')
       .map((f) => path.parse(f).name),
@@ -1839,10 +1774,10 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/pl
     operatorLevelExpLmd: async () => (await import('@/data/operatorLevelExpLmd.json')).default,
     // Both checked against the material catalogue wherever they are read from data/,
     // so a release that disagrees fails its export (they used to fail at import).
-    'import-aliases': async () => checkImportAliases((await import('@/data/import-aliases.json')).default, checkMaterialCatalogue((await import('@/data/material-catalogue.json')).default)),
-    'item-sort-ids': async () => checkItemSortIds((await import('@/data/item-sort-ids.json')).default, checkMaterialCatalogue((await import('@/data/material-catalogue.json')).default)),
+    'import-aliases': DATA_DIALOG_TABLES['import-aliases'],
+    'item-sort-ids': async () => checkItemSortIds((await import('@/data/item-sort-ids.json')).default, await loadMaterialCatalogue()),
     'farming-tiers': async () => (await import('@/data/farming-tiers.json')).default,
     // The depot's materials, their order and groups (scripts/build/build-material-catalogue.mjs).
-    'material-catalogue': async () => checkMaterialCatalogue((await import('@/data/material-catalogue.json')).default),
+    'material-catalogue': DATA_DIALOG_TABLES['material-catalogue'],
   },
 });

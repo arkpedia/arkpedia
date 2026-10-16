@@ -88,7 +88,7 @@ let browser;
 async function waitFor(check, description, timeout = 15_000) {
   const start = Date.now();
   while (Date.now() - start < timeout) {
-    try { if (await check()) return; } catch {}
+    try { if (await check()) return; } catch { /* The server may still be starting; retry until the deadline. */ }
     await new Promise(resolve => setTimeout(resolve, 1000));
   }
   throw new Error(`Timed out: ${description}`);

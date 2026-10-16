@@ -96,8 +96,8 @@ palette, since the game leaves such an operator out without a word.
 npm ci
 npm run typecheck
 npm test
-python3 -m pip install pillow certifi
-python3 scripts/palettes/test-color-palettes.py
+python3 -m pip install -r scripts/requirements.txt
+npm run test:py
 npm run check:assets
 npm run check:published-assets
 npm run check:payload-budgets

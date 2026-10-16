@@ -2,6 +2,10 @@
 
 The website reads reviewed game records from the public [arkpedia-data repository](https://github.com/arkpedia/arkpedia-data). Its `live/current.json` pointer selects an immutable, validated commit. Operators, stages, banners, schedules, skins, recruitment and the supported game catalogues can update without a website deployment.
 
+## Bundled record access
+
+Content and bundled-page builders use compiled-in imports so they also work in deployments without a loose `data/` directory. Material catalogue reads go through `loadMaterialCatalogue` in `lib/farming/materialCatalogueServer.ts`; animated-art index reads go through `loadDynamicArtIndex` in `lib/skins/dynamicArtFallback.ts`. Both validate the same records as before. Keep these loaders server-only and leave the pure validators/types client-safe. Filesystem reads remain appropriate for export/build-time per-file inventories and writers. Preserve route-specific projections and optional `tables` overrides; use `DATA_DIALOG_TABLES` for the shared import-dialog loaders instead of creating another catalogue check. A common loader does not justify combining unrelated page projections or replacing other compiled-in imports with filesystem reads.
+
 ## Update flow
 
 1. `Prepare content release` checks daily at 19:57 UTC (8h 57m after the 11:00 UTC Global reset), or runs manually. The public image, skin and voice syncs are scheduled earlier (16:07-16:31 UTC), but GitHub starts scheduled runs 2-4 hours late, so a scheduled release first waits, up to 30 minutes, until each sync has finished its run of the day (`scripts/content/asset-syncs.mjs`); a manual run does not wait. The daily job compares upstream revisions and reuses a successful preparation when nothing changed, avoiding dependency installation and compilation on unchanged days. Manual runs always run. Changed inputs load public source records, refresh supported importers, then compile page JSON without running a Next.js build.

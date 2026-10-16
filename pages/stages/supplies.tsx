@@ -1,9 +1,11 @@
+import { useRegionalTime } from '@/lib/time/useRegionalTime';
+import { supplyDays, supplyOpen } from '@/lib/time/regional';
 import { withContentPage } from '@/lib/content/server';
 import { GetStaticProps } from 'next';
 import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
 import { useState } from 'react';
-import { useReaderValue } from '@/lib/time/readerClock';
+import { useReaderClock } from '@/lib/time/readerClock';
 import ModeMark from '@/components/stages/ModeMark';
 import TerminalNav from '@/components/stages/TerminalNav';
 import PageHeader from '@/components/ui/PageHeader';
@@ -12,7 +14,7 @@ import { getSupplyCards } from '@/lib/stages/terminal';
 import type { SupplyCard } from '@/lib/stages/terminal';
 import { WEEKDAYS } from '@/lib/stages/stageTypes';
 import { countOf } from '@/lib/stages/stageText';
-import { serverWeekday } from '@/lib/time/serverDay';
+import { serverWeekday, serverOffsetLabel, SERVER_TIME } from '@/lib/time/servers.mjs';
 
 /**
  * Supplies: the rotating operations, and which of them is open today.
@@ -25,26 +27,24 @@ import { serverWeekday } from '@/lib/time/serverDay';
  * can reach and a grey stage map answers nothing; and the strip is every weekday
  * rather than a rolling window, so it doubles as "when is Cargo Escort next open".
  *
- * Today is the GLOBAL SERVER's day, worked out on the client rather than baked into
- * the build: a static build is stale within hours for a page whose whole subject is
- * what day it is.
- *
- * The server's day, not the reader's. The rotation turns over at 04:00 UTC-7, so for
- * eleven hours of every UTC day the game is still on the day before, and a reader east
- * of that can be well into Sunday while the operation open in game is Saturday's. It
- * used to read the reader's own clock and named the wrong operation for exactly that
- * window. See lib/time/serverDay.ts.
+ * Today follows the selected account's server and its daily reset. The request's
+ * Global weekday remains the hydration fallback before the client account loads.
+ * See lib/time/servers.mjs for the shared fixed-offset policy.
  */
 interface Props {
   cards: SupplyCard[];
   /** The server's weekday at build time, so the first client render agrees with the
    *  markup and does not flash a different day before the effect below runs. */
   buildDay: string;
+  now: number;
 }
 
-export default function SuppliesPage({ cards, buildDay }: Props) {
+export default function SuppliesPage({ cards: globalCards, buildDay, now = 0 }: Props) {
   // The request's server weekday first, the reader's after mount.
-  const today = useReaderValue(buildDay, (readerMs) => serverWeekday(new Date(readerMs)));
+  const { server, schedule } = useRegionalTime();
+  const cards = globalCards.map(card => ({ ...card, days: supplyDays(card.id, schedule, card.days) }));
+  const clock = useReaderClock(now, { tickMs: 60_000, onFocus: true });
+  const today = clock ? serverWeekday(new Date(clock), server) : buildDay;
   const [picked, setPicked] = useState<string | null>(null);
   const day = picked ?? today;
 
@@ -57,8 +57,8 @@ export default function SuppliesPage({ cards, buildDay }: Props) {
         title="Supplies"
         sub={<>
           The rotating operations. Pick a day to see what it opens -- it starts on{' '}
-          {today.toLowerCase()}, which is today on the Global server. The day turns over
-          at 04:00 UTC-7, so it can still be yesterday in game while your own clock has
+          {today.toLowerCase()}, which is today on the {server.toUpperCase()} server. The day turns over
+          at {String(SERVER_TIME[server].resetHour).padStart(2, '0')}:00 {serverOffsetLabel(server)}, so it can still be yesterday in game while your own clock has
           moved on.
         </>}
       />
@@ -88,7 +88,7 @@ export default function SuppliesPage({ cards, buildDay }: Props) {
         <div className="supply-grid">
           {cards.map((card) => {
             const always = card.days.length === WEEKDAYS.length;
-            const open = always || card.days.includes(day);
+            const open = schedule ? supplyOpen(card.id, clock, schedule, server, day) : always || card.days.includes(day);
             return (
               <Link prefetch={false}
                 key={card.id}

@@ -12,7 +12,7 @@ import { getOperatorAppearances } from '../../lib/operators/operatorAppearances'
 import { getOperatorArtworkCredits } from '../../lib/operators/operatorArtworkCredits';
 import { getAllSkins } from '../../lib/skins/skins';
 import { getOperatorAttackRanges } from '../../lib/operators/operatorAttackRanges';
-import type { CroppedRange } from '../../lib/operators/branchRanges';
+import type { CroppedRange } from '../../lib/operators/operatorAttackRanges';
 import OPERATOR_DEPLOY from '../../public/operator-deploy.json';
 import { getFactionIconPath } from '../../lib/operators/classBranchIcons';
 import { getAllOperators } from '../../lib/operators/operators';

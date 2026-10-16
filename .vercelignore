@@ -29,5 +29,5 @@ public/**/*.avif
 public/**/*.ico
 scripts/ra-tracer.html
 
-# Private survey source used only to produce the checked-in aggregate results.
+# Keep stale local/private survey sources out of uploads; only aggregates are published.
 data/survey/poll_raw_export_clean.csv

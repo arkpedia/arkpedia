@@ -8,7 +8,7 @@ import { createHash } from 'node:crypto';
 import type { BaseSkill } from '../../lib/operators/operatorTypes';
 import { getAllOperators } from '../../lib/operators/operators';
 import { activeBaseSkills } from '../../lib/base/activeBaseSkills';
-import { trainingResult, trainingSkillContribution, resolveTrainingTarget, canTrainMastery } from '../../lib/base/trainingRoomSkills';
+import { trainingResult, resolveTrainingTarget, canTrainMastery } from '../../lib/base/trainingRoomSkills';
 import { workshopResult } from '../../lib/base/workshopSkills';
 import { crossFacilityMoraleRelief } from '../../lib/base/crossFacilityMorale';
 import { jayeContribution } from '../../lib/base/jaye';

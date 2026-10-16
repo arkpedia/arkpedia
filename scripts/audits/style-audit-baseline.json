@@ -1,7 +1,6 @@
 {
   "collisions": [
     "fallback: enemies.css, roster.css",
-    "future-skins-month-scroller: future.css, shared.css",
     "hint: roster.css, shared.css",
     "mobile-nav-bar: gamemodes.css, nav.css",
     "mobile-nav-spacer: gamemodes.css, nav.css",
@@ -32,7 +31,6 @@
     "shared.css: 14px",
     "shared.css: 14px",
     "shared.css: 14px",
-    "shared.css: 14px",
     "shared.css: 24px",
     "shared.css: 8px"
   ],
@@ -44,8 +42,7 @@
   "fontWeights": [],
   "nativeControls": [
     "components/gamemodes/StrongholdCompanion.tsx: role=\"listbox\"",
-    "components/gamemodes/StrongholdCompanion.tsx: role=\"listbox\"",
-    "pages/dev/index.tsx: <select>"
+    "components/gamemodes/StrongholdCompanion.tsx: role=\"listbox\""
   ],
   "scrollbarThumb": [],
   "primaryToggle": [],
@@ -59,5 +56,6 @@
   "xButton": [],
   "motionScope": [],
   "controlHeight": [],
-  "primitiveLayout": []
+  "primitiveLayout": [],
+  "deadResponsiveOverride": []
 }

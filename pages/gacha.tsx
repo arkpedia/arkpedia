@@ -1,3 +1,5 @@
+import { useRegionalTime } from '@/lib/time/useRegionalTime';
+import { regionalBanners } from '@/lib/time/regional';
 import { isLineupPending, lineupPendingNote, RETURNING_LIMITED_NOTE } from '@/lib/gacha/bannerLineup';
 import { bannerDisplayName } from '@/lib/gacha/bannerDisplayName';
 import { withContentPage } from '@/lib/content/server';
@@ -10,7 +12,7 @@ import { getGachaIconPools, GachaIconPools } from '@/lib/gacha/gachaIconPools';
 import type { HeadhuntingBanner } from '@/lib/gacha/headhuntingBanners';
 import { getBannersSortedByDate } from '@/lib/gacha/headhuntingBannerData';
 import { resolveGachaSimulatorBanners } from '@/lib/gacha/gachaBannerWindows';
-import { getDisplayFeaturedSixStars, getDisplayFeaturedSixStarsWithRerunLabel, getMechanicType, HowToObtainLookup, parseBannerDate, simulatorBannerConfig } from '@/lib/gacha/realGachaBanners';
+import { getDisplayFeaturedSixStarsWithRerunLabel, getMechanicType, HowToObtainLookup, parseBannerDate, simulatorBannerConfig } from '@/lib/gacha/realGachaBanners';
 import { isBannerLive } from '@/lib/gacha/upcomingBanners';
 import { useReaderClock } from '@/lib/time/readerClock';
 import { buildOperatorSeriesMap, OperatorSeries } from '@/lib/operators/operatorSeries';
@@ -22,8 +24,6 @@ import { createInitialState, GachaState, BannerConfig, BannerType, PulledItem, G
 import { doPulls, sixStarWeightedPool, fiveStarWeightedPool, simulatorPullable, BASE_RATES, ratesAtPull } from '@/lib/gacha/gachaEngine';
 import { useVirtualRows, type VirtualRowLayout } from '@/components/ui/useVirtualRows';
 import StyledSelect from '@/components/ui/StyledSelect';
-import SegmentedControl from '@/components/ui/SegmentedControl';
-import Tabs from '@/components/ui/Tabs';
 import PageHeader from '@/components/ui/PageHeader';
 import Rarity, { rarityLevel } from '@/components/ui/Rarity';
 import { useHeightFloor } from '@/components/ui/useHeightFloor';
@@ -1410,7 +1410,9 @@ function bannerTutorialPages(banner: BannerConfig | null) {
   return (banner && BANNER_TUTORIAL_PAGES[banner.type]) || null;
 }
 
-export default function GachaSimulator({ pools, banners, kernelLookup, releaseLookup, kernelExclusiveNames, howToObtainLookup, operatorSeriesMap, now }: Props) {
+export default function GachaSimulator({ pools, banners: globalBanners, kernelLookup, releaseLookup, kernelExclusiveNames, howToObtainLookup, operatorSeriesMap, now }: Props) {
+  const { server, schedule } = useRegionalTime();
+  const banners = useMemo(() => regionalBanners(globalBanners, schedule, server), [globalBanners, schedule, server]);
   const router = useRouter();
   // What is live or upcoming is judged on the reader's clock, not the server's: the
   // first render uses the request's `now`, so it matches the markup, and the reader's

@@ -1,3 +1,6 @@
+import { useRegionalTime } from '@/lib/time/useRegionalTime';
+import { regionalEvents, regionalBanners, regionalRange } from '@/lib/time/regional';
+import { useReaderClock } from '@/lib/time/readerClock';
 import { useReleaseTable } from '@/lib/content/context';
 import type { HeadhuntingBanner } from '@/lib/gacha/headhuntingBanners';
 import { withContentPage } from '@/lib/content/server';
@@ -27,7 +30,7 @@ import { getAllHeadhuntingBanners } from '@/lib/gacha/headhuntingBannerData';
 import { portraitStatus } from '@/lib/operators/operatorPortrait';
 import { getEventCalendar } from '@/lib/home/frontPageContent';
 import { currentEventRows, currentPullBannerLinks, pruneScheduleProps, timelineOperatorsAt, type EventRow, type EventRowView, type ExportedTimelineOperator, type PullBannerWindows } from '@/lib/schedule/eventRows';
-import { toServerTime } from '@/lib/time/serverDay';
+import { toServerTime } from '@/lib/time/servers.mjs';
 import { getDisplayFeaturedSixStars } from '@/lib/gacha/realGachaBanners';
 import { isLineupPending, lineupPendingNote } from '@/lib/gacha/bannerLineup';
 import { publishedArt } from '@/lib/art/publishedArt';
@@ -94,25 +97,35 @@ function ScheduleRowLink({ name, modeId, bannerName, onOpen, children }: { name:
     : <Link prefetch={false} href={`/events/${encodeURIComponent(name)}`} className="events-row-main">{children}</Link>;
 }
 
-export default function SchedulePage({ events, operators: exportedOperators, skins, releaseLookup, eventRows: calendarRows, pullBanners, pullBannerLinks: legacyPullBannerLinks, now }: Props) {
+export default function SchedulePage({ events: globalEvents, operators: exportedOperators, skins, releaseLookup, eventRows: calendarRows, pullBanners, pullBannerLinks: legacyPullBannerLinks, now: requestNow }: Props) {
   /* The release's tables, which the page's props always carry (lib/content/tables.mjs). The
      bundled copies behind them are gone: a page rendered from a newer release read them
      whenever a table was missing, and the banner list alone was 223 KB of the chunk. */
+  const { server, schedule } = useRegionalTime();
+  const now = useReaderClock(requestNow, { tickMs: 1000, onFocus: true });
+  const events = useMemo(() => regionalEvents(globalEvents, schedule, server), [globalEvents, schedule, server]);
+  const regionalRows = useMemo(() => server === 'en' ? calendarRows : calendarRows.flatMap(row => {
+    const time = row.bannerName ? schedule?.banners?.[row.bannerName] : schedule?.events?.[row.name];
+    if (!time) return [];
+    return [{ ...row, dateRange: row.modeId && time.releaseDate ? time.releaseDate : regionalRange(time, server), isPredicted: false, start: Date.parse(time.startAt), end: Date.parse(time.endAt),
+      pullBanner: 'pullBanner' in row && row.pullBanner ? { ...row.pullBanner, end: Date.parse(schedule?.banners?.[row.pullBanner.name]?.endAt ?? time.endAt) } : null }];
+  }), [calendarRows, server, schedule]);
   const colors = useReleaseTable<typeof import('@/data/event_colors.json')>('event_colors');
   const materials = useReleaseTable<typeof import('@/data/event_materials.json')>('event_materials');
-  const banners = useReleaseTable<HeadhuntingBanner[]>('headhunting_banners');
+  const globalBanners = useReleaseTable<HeadhuntingBanner[]>('headhunting_banners');
+  const banners = useMemo(() => regionalBanners(globalBanners, schedule, server), [globalBanners, schedule, server]);
   const router = useRouter();
   /* Everything that depends on the moment comes from `now`, the request's clock, so
      the server render and hydration agree and a release never freezes it. */
   const operators = useMemo(() => timelineOperatorsAt(exportedOperators, now), [exportedOperators, now]);
-  const eventRows = useMemo(() => currentEventRows(calendarRows, now), [calendarRows, now]);
+  const eventRows = useMemo(() => currentEventRows(regionalRows, now), [regionalRows, now]);
   const pullBannerLinks = useMemo(() => currentPullBannerLinks(pullBanners, legacyPullBannerLinks, now), [pullBanners, legacyPullBannerLinks, now]);
-  /* The game's day, not the host's: the server's rollover (lib/time/serverDay.ts), read
+  /* The game's day, not the host's: the server's rollover (lib/time/servers.mjs), read
      with UTC getters so a reader in any timezone hydrates the same month and marker. */
   const today = useMemo(() => {
-    const day = toServerTime(new Date(now));
+    const day = toServerTime(new Date(now), server);
     return { year: day.getUTCFullYear(), month: day.getUTCMonth(), key: day.toISOString().slice(0, 10) };
-  }, [now]);
+  }, [now, server]);
 
   /**
    * Which of the two views is showing, read from the URL rather than held in state.
@@ -581,7 +594,7 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
                 <h2 className="entity-title entity-title-sm schedule-panel-title">{displayEvent.name}</h2>
                 {displayEvent.modeId ? (
                   <>
-                    <p className="hint">{displayEvent.global.note ? 'Predicted launch' : 'Global launch'}: {displayEvent.global.releaseDate} · Permanent mode</p>
+                    <p className="hint">{displayEvent.global.note ? 'Predicted launch' : `${server.toUpperCase()} launch`}: {displayEvent.global.releaseDate} · Permanent mode</p>
                     {displayEvent.global.note && <p className="hint">{displayEvent.global.note}</p>}
                     <p className="hint">CN launch: {displayEvent.cn.releaseDate}. Available permanently after launch.</p>
                     {displayEvent.cn.timingSource && <a href={displayEvent.cn.timingSource} target="_blank" rel="noopener noreferrer" className="ghost btn-sm schedule-panel-event-link">CN game data</a>}

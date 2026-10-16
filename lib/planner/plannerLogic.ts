@@ -168,13 +168,6 @@ export function skillMasteryCost(skillIndex: number, operator: Pick<Operator, 's
   return totalsToCostGroup(totals);
 }
 
-/** Cost to reach a specific stage of one module -- stages are
- * sequential (targeting Stage 2 includes Stage 1's cost too), matching
- * how skill mastery works. targetStageIndex is 0-based (0 = Stage 1). */
-export function moduleStageCost(module: OperatorModule, targetStageIndex: number): CostGroup {
-  return moduleStageCostRemaining(module, -1, targetStageIndex);
-}
-
 /**
  * What is still owed on a module, from a stage you already have to one you want.
  *

@@ -12,10 +12,10 @@ function read(relative: string): string {
 test('obsolete monolithic operator and event files cannot return as editable sources', () => {
   assert.equal(fs.existsSync(path.join(ROOT, 'data/events.json')), false);
   assert.equal(fs.existsSync(path.join(ROOT, 'data/operator-release-overrides.json')), false);
-  const devSources = [read('pages/dev/index.tsx'), read('pages/api/dev/data.ts'), read('pages/api/dev/add-event.ts')].join('\n');
-  assert.doesNotMatch(devSources, /operators-[1-6]star\.json/);
-  assert.doesNotMatch(devSources, /['"]events\.json['"]/);
-  assert.match(devSources, /events\/events_/);
+  for (const route of ['data', 'add-event', 'add-skin', 'upload']) {
+    assert.equal(fs.existsSync(path.join(ROOT, `pages/api/dev/${route}.ts`)), false, route);
+  }
+  assert.match(read('pages/dev/index.tsx'), /github\.com\/arkpedia\/arkpedia-data\/tree\/main\/source/);
 });
 
 test('application asset delivery configuration lives outside hydrated game data', () => {
@@ -27,6 +27,8 @@ test('content hydration cannot restore retired public source records', () => {
   const hydration = read('scripts/content/hydrate-source.mjs');
   assert.match(hydration, /data\/events\.json/);
   assert.match(hydration, /data\/operator-release-overrides\.json/);
+  assert.match(hydration, /'data\/optimizer-results\.json'/);
+  assert.match(hydration, /'data\/whole-base-optimizer-results\.json'/);
   assert.match(hydration, /deprecated\(relative\)/);
   // The retired banner-art stage's record: arkpedia-data still carries a copy, and hydrated
   // back it would be published with every release, read by nothing.

@@ -1,0 +1,28 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema-jsonc.json",
+  // Next and Playwright supply framework entrypoints. Scripts also have supported
+  // manual CLI entrypoints; library code is analysed transitively from all of them.
+  "entry": [
+    "scripts/{audits,build,content,deploy,imports,palettes,particles,sync}/**/*.{ts,mjs,cjs}",
+    "scripts/tests/test-*.{ts,mjs}",
+    "tests/browser/**/*.spec.ts",
+    // Browser script loaded by the palette review tool's HTML.
+    "scripts/palettes/palette-review/review.js",
+    "scripts/stage-pipeline/{build,verify,settle-float-churn}.mjs",
+    "scripts/tests/fixtures/previous-release/refresh.mjs"
+  ],
+  "project": [
+    "{components,lib,pages,scripts,tests}/**/*.{js,jsx,ts,tsx,mts,mjs,cjs}",
+    "*.{js,ts,mjs}"
+  ],
+  "ignoreExportsUsedInFile": true,
+  // TypeScript resolves these declarations with their .mjs twins implicitly;
+  // their runtime export names are checked separately rather than deleting them.
+  "ignoreFiles": ["**/*.d.mts"],
+  // System tools used by offline fixtures and manual WebP importers.
+  "ignoreBinaries": ["jq", "shasum", "cwebp"],
+  "exclude": ["enumMembers", "duplicates"],
+  "next": true,
+  "eslint": [".eslintrc.json", "scripts/.eslintrc.json"],
+  "playwright": true
+}

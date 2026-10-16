@@ -5,7 +5,6 @@ import { baseWorkshopRecipes } from '../imports/import-base-workshop.mjs';
 /** Discover content before derived pages are compiled. --dry-run never writes source records. */
 import fs from 'node:fs';
 import path from 'node:path';
-import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import { reconcileOperators, reconcileSkins, reconcileCalendars, operatorReleaseDates, renameReferences, renameAlternates, serverDay, safeName, rarityWord, onYearlyPage, inGlobalClient } from './catalogue-model.mjs';

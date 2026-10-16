@@ -1,3 +1,4 @@
+import { serverDayBoundary } from '@/lib/time/servers.mjs';
 import type { Skin } from './skinTypes';
 import type { ScheduleEvent } from '../schedule/scheduleTypes';
 import { getSkinsForEvent } from '../schedule/scheduleSkinMatch';
@@ -60,7 +61,7 @@ export function getSkinWindows(skins: Skin[], events: ScheduleEvent[], sources: 
       for (const rotation of source.rotations) {
         const verifiedIds = new Set(windows.filter(window => !window.estimated && window.kind === 'shop'
           && normalizeEvent(window.event) === normalizeEvent(event.name)).flatMap(window => window.skinIds));
-        const startAt = new Date(Date.parse(rotation.start) + offset + 15 * 3600000).toISOString();
+        const startAt = new Date(serverDayBoundary(Date.parse(rotation.start) + offset, 'en', 'event')).toISOString();
         const skinIds = [...rotation.new.filter(id => {
           const released = byId.get(id)?.globalReleaseAt;
           return !released || released * 1000 >= Date.parse(startAt);
@@ -70,7 +71,7 @@ export function getSkinWindows(skins: Skin[], events: ScheduleEvent[], sources: 
         windows.push({
           event: event.name, kind: 'shop', label: rotation.label, skinIds,
           startAt,
-          endAt: new Date(Date.parse(rotation.end) + offset + 11 * 3600000).toISOString(),
+          endAt: new Date(serverDayBoundary(Date.parse(rotation.end) + offset, 'en', 'reset')).toISOString(),
           source: source.source, estimated: true, newRelease: false,
         });
       }

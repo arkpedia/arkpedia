@@ -13,10 +13,10 @@ Game records are kept separate from UI code. Existing dataset names remain stabl
 | Planner and materials | `material-catalogue.json` (derived by `scripts/build/build-material-catalogue.mjs`), `material-names.json` (English names of CN-only materials, kept by hand), `operatorLevelExpLmd.json`, `battle-records.json`, `item-sort-ids.json`, `item-icons.json`, `import-aliases.json` |
 | Games and curation | `stage-guesser.json`, `music-guesser-review.json`, `color-palette*.json`, `techniques_definitions.json` |
 | Asset manifests | `assets/`: external file inventory, public availability index, and the asset repositories' pinned commits (`revisions.json`) |
-| Survey | `survey/poll_raw_export_clean.csv` (private source export); `final-poll-results.json` (published aggregate) |
+| Survey | `final-poll-results.json` (closed survey aggregate; raw responses are archived privately outside this checkout) |
 
 `public/enemy-detail/`, `public/stage-detail/`, `public/stage-guesser/`, `public/planner-data/`, and `public/lyrics/` are generated delivery data, not additional sources to edit. They stay out of Git.
 
-Do not blanket-publish this folder: it contains the private raw survey export as well as curated content. A future public game-data repository should explicitly select its datasets and retain source provenance.
+The canonical game records are in `arkpedia-data/source/`; these copies are a development/build fallback. Keep publication explicit and preserve source provenance. Never add raw survey responses to either public content or this application checkout.
 
 See [data sources](../docs/development/data-sources.md) and [pipelines](../docs/development/data-pipelines.md) for refresh instructions.

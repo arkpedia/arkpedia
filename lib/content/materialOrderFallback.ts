@@ -1,4 +1,4 @@
-import { checkMaterialCatalogue } from '@/lib/farming/materialCatalogue.mjs';
+import { loadMaterialCatalogue } from '@/lib/farming/materialCatalogueServer';
 import { materialOrderFor } from '@/lib/farming/materialSortOrder';
 
 /**
@@ -13,6 +13,6 @@ import { materialOrderFor } from '@/lib/farming/materialSortOrder';
  */
 export async function withMaterialOrder<P extends { materialOrder?: string[] }>(props: P, names: (props: P) => Iterable<string>): Promise<P & { materialOrder: string[] }> {
   if (Array.isArray(props.materialOrder)) return props as P & { materialOrder: string[] };
-  const catalogue = checkMaterialCatalogue((await import('@/data/material-catalogue.json')).default);
+  const catalogue = await loadMaterialCatalogue();
   return { ...props, materialOrder: materialOrderFor(catalogue, names(props)) };
 }

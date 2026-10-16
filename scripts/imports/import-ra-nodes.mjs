@@ -268,7 +268,6 @@ if (icons) console.log(`${icons} glyphs -> public/ra-map/node/ and public/ra-map
  * answer and 965 is a long path. It also lands ids 128 and 129 on the Headquarters and
  * the market, which the adjacency never mentions -- consistent rather than convenient.
  */
-const TAIL_OFFSET = 2;
 
 /**
  * One map: its nodes in the game's coordinates, and the paths between them.

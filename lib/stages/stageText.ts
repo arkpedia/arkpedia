@@ -1,17 +1,4 @@
-/** Arknights rich text.
- *
- * Stage and enemy descriptions carry the game's own inline markup --
- * `<@lv.item>Stun Generator</>` names an item, `<$ba.stun>` a status effect.
- * The prototype turned those into <em> via innerHTML; this returns segments
- * instead so the page can render them as real elements and never has to hand
- * game data to dangerouslySetInnerHTML.
- */
-export interface TextSegment {
-  text: string;
-  emphasis: boolean;
-}
 
-const OPEN = /<[@$][a-z0-9._]+>/gi;
 
 
 /**

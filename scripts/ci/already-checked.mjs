@@ -1,13 +1,14 @@
 #!/usr/bin/env node
 /*
- * Whether a push to main is code a pull request's Check already passed, so Check need not
+ * Whether a push or same-repository PR is code a pull request's Check already passed, so Check need not
  * run it again (.github/workflows/check.yml, the `seen` job).
  *
  * A pull request's Check runs on its merge result (refs/pull/N/merge) and, when green,
  * uploads an empty artifact named checked-tree-<tree>, the git tree of that result. When
  * main has not moved since, merging the pull request makes a commit with that same tree,
  * so the code is the code already checked, and Deploy can follow at once. When anything
- * else landed in between, the tree differs and the full Check runs.
+ * else landed in between, the tree differs and the full Check runs. A history-only PR
+ * rebase can use the same proof: checkout is the prospective merge tree in either case.
  *
  * Only a completed, successful Check of a pull_request event from this repository counts:
  * not a fork's run, not a run that uploaded and then failed, not another workflow. Any
@@ -21,15 +22,17 @@ export const ARTIFACT_PREFIX = 'checked-tree-';
 
 /** The run among `runs` that vouches for `tree`, or null. `artifacts` are those named for
  *  it; `runs` maps a run id to that run's API record. */
-export function vouching(tree, artifacts, runs, repository) {
+export function vouching(tree, artifacts, runs, repository, baseRef) {
   for (const artifact of artifacts) {
-    if (artifact.name !== `${ARTIFACT_PREFIX}${tree}` || artifact.expired) continue;
+    if (artifact.name !== `${ARTIFACT_PREFIX}${tree}` || artifact.expired !== false) continue;
     const run = runs[artifact.workflow_run?.id];
     if (!run) continue;
     if (run.status !== 'completed' || run.conclusion !== 'success') continue;
     if (run.event !== 'pull_request') continue;
     if (run.path !== '.github/workflows/check.yml') continue;
     if (run.repository?.full_name !== repository || run.head_repository?.full_name !== repository) continue;
+    if (baseRef !== undefined && (!baseRef || !Array.isArray(run.pull_requests)
+      || run.pull_requests.length !== 1 || run.pull_requests[0]?.base?.ref !== baseRef)) continue;
     return run;
   }
   return null;
@@ -49,7 +52,10 @@ async function main() {
       const id = artifact.workflow_run?.id;
       if (id && !runs[id]) runs[id] = api(`repos/${repository}/actions/runs/${id}`);
     }
-    const run = vouching(tree, artifacts, runs, repository);
+    // A PR proof belongs to its target branch as well as its exact merge tree.
+    // Unknown PR metadata fails closed; push reuse keeps its established policy.
+    const baseRef = process.env.GITHUB_EVENT_NAME === 'pull_request' ? process.env.GITHUB_BASE_REF ?? '' : undefined;
+    const run = vouching(tree, artifacts, runs, repository, baseRef);
     if (run) {
       console.error(`Tree ${tree.slice(0, 12)} passed Check in pull request run ${run.html_url}; not checking it again.`);
       console.log('checked=true');

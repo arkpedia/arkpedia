@@ -233,7 +233,7 @@ test('a dev deploy refreshes upstream only when the commit changes what the refr
   // a stage that starts importing from a new folder fails here until REFRESH_PATHS lists it.
   const uncovered = (refreshScripts() as string[]).filter(file => !refreshes(file));
   assert.deepEqual(uncovered, []);
-  for (const file of ['.github/workflows/prepare-content.yml', 'scripts/sync/refresh-stage-data.sh', 'package-lock.json']) assert.ok(refreshes(file), file);
+  for (const file of ['.github/workflows/prepare-content.yml', 'scripts/sync/refresh-stage-data.sh', 'scripts/requirements.txt', 'package-lock.json']) assert.ok(refreshes(file), file);
   assert.equal(needsRefresh(['components/layout/MobileNavDrawer.tsx', 'pages/optimizer.tsx', 'styles/core/nav.css', 'docs/x.md', 'lib/changelog/entries.ts']), false);
   assert.equal(needsRefresh(['pages/optimizer.tsx', 'scripts/sync/sync-catalogue.mjs']), true);
   assert.ok(!(REFRESH_PATHS as string[]).some(entry => /^(?:components|pages|styles|public)\//.test(entry)));

@@ -1,3 +1,4 @@
+import { serverInstant } from '../../lib/time/servers.mjs';
 /**
  * Reading Arknights Global's official event announcements (www.arknights.global news, cached by
  * scripts/sync/sync-official-news.mjs into data/official-news/global/<id>.json).
@@ -82,7 +83,7 @@ export function parseDuration(line) {
   const at = match => {
     const month = MONTHS.indexOf(match[1].toLowerCase());
     if (month < 0) return null;
-    return new Date(Date.UTC(+match[3], month, +match[2], +match[4] + 7, +match[5])).toISOString();
+    return new Date(serverInstant(+match[3], month + 1, +match[2], +match[4], 'en') + Number(match[5]) * 60_000).toISOString();
   };
   const [start, end] = stamps.map(at);
   return start ? { start, end: end ?? null } : null;

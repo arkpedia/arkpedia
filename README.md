@@ -48,14 +48,14 @@ The imported account is kept only in the reader's browser storage. It feeds:
 
 ## Local development
 
-Use Node.js 20 or newer. From the repository root:
+Use Node.js 22.12 or newer; deployment builds and hosted functions use Node.js 24. From the repository root:
 
 ```sh
 npm ci
 npm run dev
 ```
 
-Game images and voices load from the public Arkpedia asset repositories, so no media download is needed. A database is only needed for survey submission; see the [development guide](docs/development/setup.md).
+Game images and voices load from the public Arkpedia asset repositories, so no media download is needed. No database is required; the retired survey's published results are static records.
 
 ## Verify a change
 

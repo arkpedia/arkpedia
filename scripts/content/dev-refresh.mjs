@@ -41,12 +41,12 @@ import { pathToFileURL } from 'node:url';
 
 /** What the refresh's stages run or read: a folder (ending in /) or one file. */
 export const REFRESH_PATHS = [
-  '.github/workflows/prepare-content.yml', 'package.json', 'package-lock.json', 'config/', 'data/',
+  '.github/workflows/prepare-content.yml', 'scripts/requirements.txt', 'package.json', 'package-lock.json', 'config/', 'data/',
   'scripts/audits/', 'scripts/build/', 'scripts/content/', 'scripts/imports/', 'scripts/lib/', 'scripts/palettes/',
   'scripts/stage-pipeline/', 'scripts/sync/',
   'lib/assets/githubRetry.mjs', 'lib/events/furnitureArt.mjs', 'lib/events/furnitureName.mjs',
   'lib/farming/', 'lib/gacha/', 'lib/guesser/', 'lib/minigames/', 'lib/music/', 'lib/music-guesser/', 'lib/operators/',
-  'lib/pulls/', 'lib/schedule/', 'lib/skins/', 'lib/stages/',
+  'lib/time/', 'lib/pulls/', 'lib/schedule/', 'lib/skins/', 'lib/stages/',
 ];
 
 export const refreshes = file => REFRESH_PATHS.some(entry => (entry.endsWith('/') ? file.startsWith(entry) : file === entry));

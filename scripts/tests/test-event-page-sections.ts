@@ -1,3 +1,4 @@
+import { regionalFixture } from './regional-fixture';
 import './css-modules';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -21,7 +22,7 @@ import EventDetailPage from '../../pages/events/[slug]';
 // tsx compiles the page's JSX to React.createElement (tsconfig keeps JSX for Next).
 (globalThis as { React?: typeof React }).React = React;
 const render = (element: ReactElement) => renderToStaticMarkup(
-  createElement(ImageConfigContext.Provider, { value: { ...imageConfigDefault, unoptimized: true } }, element));
+  createElement(ImageConfigContext.Provider, { value: { ...imageConfigDefault, unoptimized: true } }, regionalFixture(element)));
 
 type PageProps = Parameters<typeof EventDetailPage>[0];
 const page = (over: Partial<PageProps>) => render(createElement(EventDetailPage, {

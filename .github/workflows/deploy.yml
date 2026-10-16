@@ -120,7 +120,10 @@ jobs:
         with:
           # Matches the runtime the functions declare (nodejs24.x).
           node-version: '24'
-          cache: npm
+          # Self-hosted runner homes persist: downloading ~484 MB over that local
+          # npm cache costs more than npm ci. Fresh hosted runners still restore it.
+          cache: ${{ runner.environment == 'github-hosted' && 'npm' || '' }}
+          package-manager-cache: ${{ runner.environment == 'github-hosted' }}
       - name: Refuse to run without the deploy token
         env:
           VERCEL_TOKEN: ${{ secrets[matrix.target.tokenSecret] }}

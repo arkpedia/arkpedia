@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { test } from 'node:test';
+import ts from 'typescript';
 
 /*
  * The games shipped a 198-line global stylesheet (styles/games/guesser.css) whose
@@ -173,15 +174,59 @@ const OWNED_GLOBAL = [
   'styles/community/video.css',
   'styles/maps/world.css',
   'styles/core/nav.css',
+  'styles/pulls/pulls.css',
 ];
 
 const sourceText = sources.map((file) => fs.readFileSync(file, 'utf8')).join('\n');
+/** A dynamic id is not a rendered class. Inspect actual className/classList contexts. */
+function classPrefixes(file: string, code: string): Set<string> {
+  const source = ts.createSourceFile(file, code, ts.ScriptTarget.Latest, true, file.endsWith('x') ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
+  const prefixes = new Set<string>();
+  // Follow className={classes}, including array/filter/join expressions. Keep
+  // this conservative when a file has several declarations with the same name.
+  const declarations = new Map<string, ts.Expression[]>();
+  const index = (node: ts.Node) => {
+    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer) {
+      declarations.set(node.name.text, [...(declarations.get(node.name.text) ?? []), node.initializer]);
+    }
+    node.forEachChild(index);
+  };
+  index(source);
+  const visited = new Set<ts.Node>();
+  const collect = (node: ts.Node) => {
+    if (visited.has(node)) return;
+    visited.add(node);
+    if (ts.isIdentifier(node)) declarations.get(node.text)?.forEach(collect);
+    if (ts.isTemplateExpression(node)) {
+      for (const text of [node.head.text, ...node.templateSpans.slice(0, -1).map(span => span.literal.text)]) {
+        const last = text.match(/(?:^|\s)([\w-]+)$/)?.[1];
+        if (last) prefixes.add(last);
+      }
+    }
+    node.forEachChild(collect);
+  };
+  const visit = (node: ts.Node) => {
+    if (ts.isJsxAttribute(node) && node.name.getText(source) === 'className' && node.initializer) collect(node.initializer);
+    else if ((ts.isPropertyAssignment(node) || ts.isVariableDeclaration(node)) && node.name.getText(source) === 'className' && node.initializer) collect(node.initializer);
+    else if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression)
+      && ts.isPropertyAccessExpression(node.expression.expression) && node.expression.expression.name.text === 'classList') node.arguments.forEach(collect);
+    node.forEachChild(visit);
+  };
+  visit(source);
+  return prefixes;
+}
+const dynamicClasses = new Set(sources.flatMap(file => [...classPrefixes(file, fs.readFileSync(file, 'utf8'))]));
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 function rendered(name: string): boolean {
   if (new RegExp(`(?<![\\w-])${escape(name)}(?![\\w-])`).test(sourceText)) return true;
-  const cut = name.lastIndexOf('-');
-  return cut > 0 && sourceText.includes(`${name.slice(0, cut + 1)}\${`);
+  return [...dynamicClasses].some(prefix => name.startsWith(prefix));
 }
+
+test('dynamic class usage follows class contexts rather than ids and unrelated templates', () => {
+  assert.deepEqual([...classPrefixes('fixture.tsx', 'const id = `pulls-${label}`; const text = `old-${name}`; const el = <div id={id} className={`live-${state} other-${kind}`} />;')], ['live-', 'other-']);
+  assert.deepEqual([...classPrefixes('fixture.tsx', 'const props = { className: `panel-${state}` }; document.body.classList.add(`mode-${variant}`);')], ['panel-', 'mode-']);
+  assert.deepEqual([...classPrefixes('fixture.tsx', 'const id = `unused-${label}`; const classes = [`drop-${side}`].filter(Boolean).join(" "); const el = <div id={id} className={classes} />;')], ['drop-']);
+});
 
 test('every class a migrated global stylesheet styles is rendered somewhere', () => {
   const dead: string[] = [];
@@ -198,7 +243,7 @@ test('every class a migrated global stylesheet styles is rendered somewhere', ()
 
 test('every class an owned CSS module reaches through :global() is rendered somewhere', () => {
   const dead: string[] = [];
-  for (const file of modules) {
+  for (const file of new Set([...modules, path.join(ROOT, 'styles/pulls/pulls-workspace.module.css')])) {
     for (const { selector } of rules(fs.readFileSync(file, 'utf8'))) {
       for (const g of selector.matchAll(/:global\(([^)]*)\)/g)) {
         for (const m of g[1].matchAll(/\.(-?[_a-zA-Z][\w-]*)/g)) if (!rendered(m[1])) dead.push(`${path.relative(ROOT, file)}: :global(.${m[1]})`);

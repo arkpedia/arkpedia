@@ -1,8 +1,18 @@
 {
+  "root": true,
   "extends": "next/core-web-vitals",
-  "ignorePatterns": ["lib/vendor/**"],
+  "ignorePatterns": [
+    "lib/vendor/**"
+  ],
   "rules": {
-    "@next/next/no-img-element": "warn"
+    "@next/next/no-img-element": "warn",
+    "no-restricted-syntax": [
+      "error",
+      {
+        "selector": "AssignmentExpression[left.property.name=/^__/][left.property.name!='__assetRetry']",
+        "message": "Keep private client state inside its module instead of exporting debug globals."
+      }
+    ]
   },
   "overrides": [
     {
@@ -43,6 +53,10 @@
           {
             "selector": "CallExpression[callee.name=/^(toServerTime|serverWeekday)$/][arguments.length=0]",
             "message": "Called with no argument this reads the clock; pass the moment explicitly (e.g. serverWeekday(new Date(clock)) with clock from useReaderClock)."
+          },
+          {
+            "selector": "AssignmentExpression[left.property.name=/^__/][left.property.name!='__assetRetry']",
+            "message": "Keep private client state inside its module instead of exporting debug globals."
           }
         ]
       }

@@ -1,4 +1,4 @@
-import { StatsRow } from '@/lib/survey/types';
+import { StatsRow } from '@/lib/results/types';
 
 interface Props {
   row: StatsRow;

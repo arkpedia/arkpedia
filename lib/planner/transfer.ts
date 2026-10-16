@@ -100,12 +100,6 @@ export function formatBundle(
   return JSON.stringify(bundle, null, 2);
 }
 
-/** A filename that sorts by date and says what it is. */
-export function bundleFilename(now = new Date()): string {
-  const d = now.toISOString().slice(0, 10);
-  return `arkpedia-planner-${d}.json`;
-}
-
 /**
  * Read a pasted or opened file, all or nothing.
  *

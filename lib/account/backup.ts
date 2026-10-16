@@ -109,10 +109,6 @@ export function formatBackup(storage: ReadStorage, now = new Date(), keys?: read
   return JSON.stringify({ kind: BACKUP_KIND, version: BACKUP_VERSION, savedAt: now.toISOString(), stores }, null, 2);
 }
 
-export function backupFilename(now = new Date()): string {
-  return `arkpedia-backup-${now.toISOString().slice(0, 10)}.json`;
-}
-
 export interface ParsedBackup {
   savedAt: string | null;
   /** Each store the file carries, as the text to store. */

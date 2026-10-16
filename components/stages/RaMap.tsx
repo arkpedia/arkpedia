@@ -60,18 +60,6 @@ const MIN_ZOOM = 1;
 const MAX_ZOOM = 6;
 
 /**
- * The visible span, in map units, that the label sizes below are drawn for: the
- * overworld's 5400 at MAX_ZOOM. Every map scales its labels by its own opening span
- * over this one, so a rift -- which opens showing 2700-odd units rather than 900 --
- * gets labels three times the size in map units and the same size on screen.
- *
- * Per MAP and not per zoom, deliberately. Sized from the live zoom the labels would be
- * screen-fixed again, and a plate that keeps its screen size while the ground moves
- * under it is the drift this was built to stop.
- */
-const LABEL_REFERENCE = 5400 / MAX_ZOOM;
-
-/**
  * And they appear from this fraction of a map's opening zoom -- so a map shows them as
  * it opens, and keeps them until you have pulled back a good way. A fraction of the
  * zoom rather than a span in units, because a span has to be compared against

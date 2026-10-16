@@ -1,3 +1,5 @@
+import { useRegionalTime } from '@/lib/time/useRegionalTime';
+import { regionalRange } from '@/lib/time/regional';
 import { withContentPage } from '@/lib/content/server';
 import { useEffect, useRef, useState } from 'react';
 import { GetStaticPaths, GetStaticProps } from 'next';
@@ -21,7 +23,7 @@ import { publishedArt } from '@/lib/art/publishedArt';
 import packArt from '@/config/event-pack-art.json';
 import { findSkinIconPath } from '@/lib/skins/skinIconLookup';
 import { materialOrderFor } from '@/lib/farming/materialSortOrder';
-import { checkMaterialCatalogue } from '@/lib/farming/materialCatalogue.mjs';
+import { loadMaterialCatalogue } from '@/lib/farming/materialCatalogueServer';
 import { withMaterialOrder } from '@/lib/content/materialOrderFallback';
 import SkinZoomOverlay from '@/components/skins/SkinZoomOverlay';
 import PageHeader from '@/components/ui/PageHeader';
@@ -151,8 +153,8 @@ export default function EventDetailPage({
   name,
   images,
   artAspect,
-  dateRange,
-  isPredicted,
+  dateRange: globalDateRange,
+  isPredicted: globalPredicted,
   bannerName,
   bannerImage,
   lineupPending,
@@ -165,6 +167,10 @@ export default function EventDetailPage({
   summary = null,
   rewardNote = null,
 }: Props) {
+  const { server, schedule } = useRegionalTime();
+  const regionalWindow = schedule?.events?.[name];
+  const dateRange = server === 'en' ? globalDateRange : regionalWindow ? regionalRange(regionalWindow, server) : `${server.toUpperCase()} schedule not announced`;
+  const isPredicted = server === 'en' && globalPredicted;
   const hasExtras = extras.packs.length + extras.furniture.length + extras.notices.length > 0;
   // A page compiled by a release from before the News tab has no `news` at all.
   const news = extras.news ?? [];
@@ -591,7 +597,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
   };
   rewardStores.push(...tableRewardStores(tableRewards, tableIcon));
 
-  const catalogue = checkMaterialCatalogue((await import('@/data/material-catalogue.json')).default);
+  const catalogue = await loadMaterialCatalogue();
   const materialOrder = materialOrderFor(catalogue, rewardStores.flatMap((store) => store.items.map((item) => item.name)));
   const builtExtras = eventExtras(tableRewards, (itemName) => rewardIconPath({ name: itemName, type: 'material', id: null }, () => null, publicFileExists), (packName) => publishedArt((packArt as Record<string, string>)[packName]), publicFileExists);
   /* The furniture set as a checklist: each piece with where this event gives it (its missions,

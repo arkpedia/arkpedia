@@ -225,6 +225,8 @@ stage kernel-pool -- node scripts/sync/sync-kernel-pool.mjs
 stage event-windows -- node scripts/sync/sync-event-windows.mjs
 # Permanent RA themes are outside activity_table; import each launch by its stable topic ID.
 stage ra-releases -- node scripts/sync/sync-ra-releases.mjs
+# Regional IDs and first-party notice corrections, independently of English calendars.
+stage regional-schedules -- node scripts/sync/sync-regional-schedules.mjs
 
 # The event-reward stages, after event-windows: each one dates the events it reads, and an
 # estimated date the client has since corrected misplaces a login, a post or a store's 30-day

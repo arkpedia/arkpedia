@@ -132,6 +132,7 @@ import { join, dirname, basename, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { collectChoicesAndBadges, CHOICE_BADGE_LABELS } from './audit-choices-badges.mjs';
 import { collectMotion, MOTION_LABELS } from './audit-motion.mjs'; // r11 quiet polish
+import { collectDeadResponsiveOverrides } from './dead-responsive-overrides.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, '../..');
@@ -737,6 +738,7 @@ function collect() {
   // controlHeight (r9 controls)
   out.controlHeight = controlHeights(cssFiles, controlClasses(tsxFiles), boxedClasses(cssFiles, bareButtonClasses(tsxFiles)), textareaClasses(tsxFiles));
   out.primitiveLayout = primitiveLayouts(cssFiles);
+  out.deadResponsiveOverride = collectDeadResponsiveOverrides(root);
 
   out.collisions = [...owners.entries()]
     .filter(([, fs]) => fs.size > 1)
@@ -746,6 +748,7 @@ function collect() {
 }
 
 const LABELS = {
+  deadResponsiveOverride: 'a media-query declaration always defeated by a later unconditional rule with the same selector and property; remove it from the earlier sheet or put an intentional responsive rule after its owner',
   collisions: 'the same bare class styled in more than one global stylesheet, so load order decides which wins',
   fontSizes: 'font-size off the scale (9-13 body, 15/18/22/26/30 display)',
   rawHex: 'a hex literal for a colour a token already names, so the light theme does not reach it',
@@ -764,7 +767,7 @@ const LABELS = {
   ...CHOICE_BADGE_LABELS,
 };
 
-const STRICT = ['rawHex', 'rarityLiteral', 'oldTeal', 'pills', 'h1Rules', 'fontWeights', 'scrollbarThumb', 'primaryToggle', 'tealDecoration', 'checkboxPrimitive', 'tglOutsideToolbar', 'headingRules',
+const STRICT = ['rawHex', 'rarityLiteral', 'oldTeal', 'pills', 'h1Rules', 'fontWeights', 'scrollbarThumb', 'primaryToggle', 'tealDecoration', 'checkboxPrimitive', 'tglOutsideToolbar', 'headingRules', 'deadResponsiveOverride',
   ...Object.keys(CHOICE_BADGE_LABELS)];
 // controlHeight (r9 controls)
 LABELS.controlHeight = 'a literal height or min-height on a control outside styles/core, or on a primitive inside it -- controls take var(--control-h) from the primitives (.btn-sm for a base or primary button in a row, .btn-icon for a square icon button); a control that is not a row control goes in CONTROL_HEIGHT_EXEMPT with its reason';

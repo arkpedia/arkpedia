@@ -10,14 +10,8 @@
  * named "X Rerun" was a rerun to the store sync and an original run to the rewards build.
  */
 
-const HOUR = 3_600_000;
-/* The hour each region's calendar day starts, as an offset from UTC midnight: a Global date is
-   a UTC-7 day (the server's), a CN date a UTC+8 one. */
-const DAY_STARTS = { Global: 7 * HOUR, CN: -8 * HOUR };
-/* An event closes at the server's daily reset, 04:00, on its last date: what the records' exact
-   endAt says wherever they hold one (Global 11:00 UTC, CN 20:00 UTC the day before), and what the
-   site's own countdowns take a date for (parseGameWindow, lib/schedule/gameWindow.ts). */
-const RESET = 4 * HOUR;
+import { serverDayBoundary, DAY_MS } from '../../lib/time/servers.mjs';
+const SERVERS = { Global: 'en', CN: 'cn' };
 
 /** The event's name without its "[Side Story]"-style prefix: "[Side Story – Festival] Invitation to Wine". */
 export const eventTitle = name => String(name ?? '').replace(/^\s*\[[^\]]*\]\s*/, '').trim();
@@ -36,13 +30,14 @@ export const isRerun = name => /^\s*\[Rerun\]/i.test(String(name ?? '')) || /\sR
  * event's last hours as over, and a store page missing then went unreported.
  */
 export function eventWindow(event, region) {
-  if (!(region in DAY_STARTS)) throw new Error(`eventWindow needs the region, 'Global' or 'CN': ${region}`);
+  if (!(region in SERVERS)) throw new Error(`eventWindow needs the region, 'Global' or 'CN': ${region}`);
+  const server = SERVERS[region];
   const record = region === 'Global' ? event?.global : event?.cn;
   const days = [...String(record?.dateRange ?? '').matchAll(/(\d{4})\/(\d{2})\/(\d{2})/g)]
-    .map(m => Date.UTC(+m[1], +m[2] - 1, +m[3]) + DAY_STARTS[region]);
+    .map(m => Date.UTC(+m[1], +m[2] - 1, +m[3]));
   const exact = value => (value && Number.isFinite(Date.parse(value)) ? Date.parse(value) : null);
-  const start = exact(record?.startAt) ?? days[0] ?? null;
+  const start = exact(record?.startAt) ?? (days.length ? serverDayBoundary(days[0], server) : null);
   if (start === null) return null;
-  const last = days.length > 1 ? days[1] + RESET : days.length ? days[0] + 24 * HOUR + RESET : start;
+  const last = days.length > 1 ? serverDayBoundary(days[1], server, 'reset') : days.length ? serverDayBoundary(days[0] + DAY_MS, server, 'reset') : start;
   return { start, end: exact(record?.endAt) ?? last };
 }
