@@ -1,4 +1,5 @@
-import { serverCalendarTime, type GameServer } from '@/lib/time/servers.mjs';
+import { planningWindowEnd } from './planningWindows';
+import { serverCalendarTime, parseInstant, type GameServer } from '@/lib/time/servers.mjs';
 import { freeRewardTotals, type FreeReward } from './freeRewards';
 import { getAnnihilationNextEnd, getNextDailyReset } from '@/lib/schedule/opsSchedules';
 import { wishingWallOrundum, type WishingWallMode } from './wishingWall';
@@ -320,9 +321,11 @@ export interface UpcomingBanner {
   datesEstimated?: boolean;
   globalLineupPending?: boolean;
   category: string;
-  /** ISO dates, inclusive. */
+  /** Calendar labels; exact source instants take precedence for availability. */
   start: string;
   end: string;
+  startAt?: string;
+  endAt?: string;
   days: number;
   sixStars: string[];
   alsoRatedUp: string[];
@@ -360,15 +363,21 @@ export interface UpcomingBanner {
  * limited banner, and it is a real difference -- 11 free pulls against 24.
  */
 export function bannerFreePulls(banner: UpcomingBanner, when: Date): number {
-  const start = new Date(`${banner.start}T00:00:00Z`).getTime();
-  if (when.getTime() < start) return 0;
-  const daysIn = Math.floor((when.getTime() - start) / 86400000) + 1;
+  const start = banner.startAt === undefined ? Date.parse(`${banner.start}T00:00:00Z`) : parseInstant(banner.startAt)?.getTime() ?? NaN;
+  if (!Number.isFinite(start) || when.getTime() < start) return 0;
+  // Older payloads have only UTC day labels. New payloads carry the owning
+  // Global banner's actual opening/closing instants and reset on its game day.
+  const end = planningWindowEnd(banner);
+  if (!Number.isFinite(end)) return 0;
+  const through = Math.min(when.getTime(), end - 1);
+  const daysIn = banner.startAt === undefined ? Math.floor((when.getTime() - start) / 86400000) + 1
+    : incomeBetween(new Date(start), new Date(through), 'en').days + 1;
   const daily = Math.max(0, Math.min(banner.freeDaily, daysIn));
   return banner.freeTicket + daily;
 }
 
 /** The reward schedule also contains events without a headhunting banner. */
-export type PullEventReward = Pick<UpcomingBanner, 'name' | 'event' | 'start' | 'end' | 'rerun' | 'op' | 'opSource' | 'inBacklog' | 'hasShop' | 'wishActId' | 'wishDays' | 'wishOrundum'> & {
+export type PullEventReward = Pick<UpcomingBanner, 'name' | 'event' | 'start' | 'end' | 'startAt' | 'endAt' | 'rerun' | 'op' | 'opSource' | 'inBacklog' | 'hasShop' | 'wishActId' | 'wishDays' | 'wishOrundum'> & {
   shopPermits?: number;
   /** Preserve saved rerun choices previously keyed by banner name. */
   legacyNames?: string[];
@@ -427,7 +436,7 @@ export function bannerHaul(
   const wishWalls: PullEventReward[] = [];
   const shops: PullEventReward[] = [];
   for (const b of banners) {
-    const ended = new Date(`${b.end}T23:59:59Z`).getTime() <= by.getTime();
+    const ended = planningWindowEnd(b) <= by.getTime();
     if (!ended) continue;
 
     /* The Wishing Wall is checked FIRST and on its own terms. It pays Orundum

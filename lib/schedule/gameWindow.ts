@@ -1,4 +1,4 @@
-import { SERVER_TIME, serverInstant, type GameServer } from '@/lib/time/servers.mjs';
+import { SERVER_TIME, serverInstant, parseInstant, type GameServer } from '@/lib/time/servers.mjs';
 /** Explicit instants use ISO 8601 with a timezone; endAt is exclusive. */
 export interface GameWindowTimes {
   startAt?: string;
@@ -8,12 +8,6 @@ export interface GameWindowTimes {
    *  rewardEndTime (scripts/sync/sync-event-windows.mjs). Absent when the store closes with
    *  the stages, and on events from before the sync recorded it. */
   shopEndAt?: string;
-}
-
-function instant(value: string | undefined): Date | null {
-  if (!value || !/(?:Z|[+-]\d{2}:\d{2})$/i.test(value)) return null;
-  const date = new Date(value);
-  return Number.isFinite(date.getTime()) ? date : null;
 }
 
 /** A calendar day as a record writes it: the year, the month (1-12) and the day of the month. */
@@ -58,8 +52,8 @@ export function parseGameWindow(range: string | null | undefined, times: GameWin
     const date = match && rangeDay(match, offset);
     return date ? new Date(serverInstant(date.year, date.month, date.day, hour, server)) : null;
   };
-  const start = times.startAt ? instant(times.startAt) : day(1, routinePool ? profile.resetHour : profile.eventOpenHour);
-  const end = times.endAt ? instant(times.endAt) : day(4, profile.resetHour);
+  const start = times.startAt ? parseInstant(times.startAt) : day(1, routinePool ? profile.resetHour : profile.eventOpenHour);
+  const end = times.endAt ? parseInstant(times.endAt) : day(4, profile.resetHour);
   return start && end && start < end ? { start, end } : null;
 }
 

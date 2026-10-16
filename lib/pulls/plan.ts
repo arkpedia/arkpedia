@@ -1,3 +1,5 @@
+import { DAY_MS, getNextDailyReset, parseInstant } from '@/lib/time/servers.mjs';
+import { planningWindowEnd, planningDeadline } from './planningWindows';
 import { type IncomeSettings } from './incomeSettings';
 import type { WishingWallMode } from './wishingWall';
 import { bannerFreePulls, type UpcomingBanner } from './pulls';
@@ -5,12 +7,17 @@ import { bannerFreePulls, type UpcomingBanner } from './pulls';
 export const PULL_PLAN_KEY = 'arkpedia.pull-plan.v1';
 export const MAX_PLAN_FILE_SIZE = 250_000;
 export const MAX_GOALS = 40;
-export interface BannerGoal { banner: string; pulls: number; spendOn: string; ticketUsed?: boolean; targets?: { name: string; copies: number }[]; includeSpark?: boolean; rateUpRoster?: string[] }
+export interface BannerGoal { banner: string; pulls: number; spendOn: string; bannerEndAt?: string; ticketUsed?: boolean; targets?: { name: string; copies: number }[]; includeSpark?: boolean; rateUpRoster?: string[] }
 /** The planner forecasts through each banner's end; migrate former custom dates
  * when a saved/imported plan is opened. Keep missing banners available to remove. */
 export function goalsAtBannerEnd(goals: readonly BannerGoal[], banners: readonly UpcomingBanner[]): BannerGoal[] {
   const current = new Map(banners.flatMap(banner => [banner.name, ...(banner.aliases ?? [])].map(name => [name, banner] as const)));
-  return goals.map(goal => ({ ...goal, banner: current.get(goal.banner)?.name ?? goal.banner, spendOn: current.get(goal.banner)?.end ?? goal.spendOn }));
+  return goals.map(goal => {
+    const banner = current.get(goal.banner);
+    const { bannerEndAt, ...manual } = goal;
+    const deadline = banner?.endAt ?? (!banner || banner.end === goal.spendOn ? bannerEndAt : undefined);
+    return { ...manual, banner: banner?.name ?? goal.banner, spendOn: banner?.end ?? goal.spendOn, ...(deadline ? { bannerEndAt: deadline } : {}) };
+  });
 }
 
 export interface SavedPullPlan {
@@ -86,6 +93,7 @@ export function parsePullPlan(raw: string): SavedPullPlan {
     if (!goal || typeof goal !== 'object') throw new Error('Invalid banner goal.');
     const g = goal as Record<string, unknown>;
     if (typeof g.banner !== 'string' || !g.banner || g.banner.length > 200 || !validPlanDate(g.spendOn) || !Number.isInteger(g.pulls) || (g.pulls as number) < 0 || (g.pulls as number) > 100_000) throw new Error('Invalid banner goal.');
+    if (g.bannerEndAt !== undefined && (typeof g.bannerEndAt !== 'string' || !parseInstant(g.bannerEndAt))) throw new Error('Invalid banner deadline.');
     if (g.ticketUsed !== undefined && typeof g.ticketUsed !== 'boolean') throw new Error('Invalid banner ticket setting.');
     if (g.includeSpark !== undefined && typeof g.includeSpark !== 'boolean') throw new Error('Invalid spark setting.');
     let targets: BannerGoal['targets'];
@@ -100,7 +108,7 @@ export function parsePullPlan(raw: string): SavedPullPlan {
       if (new Set(targets.map(t => t.name)).size !== targets.length) throw new Error('Duplicate operator goals.');
     }
     if (g.rateUpRoster !== undefined && (!Array.isArray(g.rateUpRoster) || g.rateUpRoster.length > 6 || g.rateUpRoster.some(n => typeof n !== 'string' || !n || n.length > 200) || new Set(g.rateUpRoster).size !== g.rateUpRoster.length)) throw new Error('Invalid rate-up roster.');
-    return { ...(targets ? { targets } : {}), ...(g.includeSpark === undefined ? {} : { includeSpark: g.includeSpark }), ...(g.rateUpRoster === undefined ? {} : { rateUpRoster: g.rateUpRoster as string[] }), banner: g.banner, spendOn: g.spendOn, pulls: g.pulls as number, ticketUsed: g.ticketUsed === true };
+    return { ...(g.bannerEndAt === undefined ? {} : { bannerEndAt: g.bannerEndAt as string }), ...(targets ? { targets } : {}), ...(g.includeSpark === undefined ? {} : { includeSpark: g.includeSpark }), ...(g.rateUpRoster === undefined ? {} : { rateUpRoster: g.rateUpRoster as string[] }), banner: g.banner, spendOn: g.spendOn, pulls: g.pulls as number, ticketUsed: g.ticketUsed === true };
   });
   if (new Set(goals.map(g => g.banner)).size !== goals.length) throw new Error('A banner is listed more than once.');
   if (data.wishingWallMode !== undefined && !['minimum', 'average', 'lucky'].includes(data.wishingWallMode as string)) throw new Error('Invalid Wishing Wall setting.');
@@ -127,8 +135,10 @@ export function parsePullPlan(raw: string): SavedPullPlan {
 /** Past daily freebies cannot be saved. An unused banner ticket can be kept
  * during that banner's run, so the player explicitly marks it when spent. */
 export function availableBannerFreePulls(banner: UpcomingBanner, when: Date, now: Date, ticketUsed = false): number {
-  if (when < now || now > new Date(`${banner.end}T23:59:59Z`)) return 0;
-  const dayBeforeNow = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) - 1);
+  if (when < now || now.getTime() >= planningWindowEnd(banner)) return 0;
+  const dayBeforeNow = banner.startAt === undefined
+    ? new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) - 1)
+    : new Date(getNextDailyReset(now, 'en').getTime() - DAY_MS - 1);
   const pastDaily = Math.max(0, bannerFreePulls(banner, dayBeforeNow) - banner.freeTicket);
   return Math.max(0, bannerFreePulls(banner, when) - pastDaily - (ticketUsed ? banner.freeTicket : 0));
 }
@@ -137,6 +147,7 @@ export interface BudgetRow {
   goal: BannerGoal;
   banner: UpcomingBanner | null;
   issue: string | null;
+  expired: boolean;
   available: number;
   free: number;
   paid: number;
@@ -151,9 +162,9 @@ export function planBudgets(goals: readonly BannerGoal[], banners: readonly Upco
   let spent = 0;
   return goals.map((goal, index) => ({ goal, index })).sort((a, b) => a.goal.spendOn.localeCompare(b.goal.spendOn) || a.index - b.index).map(({ goal }) => {
     const banner = banners.find(b => b.name === goal.banner || b.aliases?.includes(goal.banner)) ?? null;
-    const when = new Date(`${goal.spendOn}T23:59:59Z`);
+    const when = planningDeadline(banner ?? { end: goal.spendOn, endAt: goal.bannerEndAt }, goal.spendOn);
     const expired = when < now;
-    const issue = !banner ? 'This banner is missing from the current schedule.' : expired ? 'This spending date has passed. Remove this goal and update your holdings with what you actually spent.' : goal.spendOn < banner.start || goal.spendOn > banner.end ? 'This date is outside the current banner dates. Choose a date during its run.' : null;
+    const issue = expired ? 'This spending date has passed. Remove this goal and update your holdings with what you actually spent.' : !banner ? 'This banner is missing from the current schedule.' : goal.spendOn < banner.start || goal.spendOn > banner.end ? 'This date is outside the current banner dates. Choose a date during its run.' : null;
     // Past goals are not deducted again from today's updated holdings. Unknown
     // or rescheduled future goals retain their budget, but gain no free pulls.
     const free = !issue && banner ? availableBannerFreePulls(banner, when, now, goal.ticketUsed) : 0;
@@ -161,7 +172,7 @@ export function planBudgets(goals: readonly BannerGoal[], banners: readonly Upco
     const spentBefore = spent;
     const available = expired ? 0 : walletAt(when) - spentBefore + free;
     spent += paid;
-    return { goal, banner, issue, available, free, paid, shortfall: expired ? 0 : Math.max(0, goal.pulls - available), remaining: expired ? 0 : walletAt(when) - spent, spentBefore };
+    return { goal, banner, issue, expired, available, free, paid, shortfall: expired ? 0 : Math.max(0, goal.pulls - available), remaining: expired ? 0 : walletAt(when) - spent, spentBefore };
   });
 }
 

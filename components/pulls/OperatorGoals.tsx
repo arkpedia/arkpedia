@@ -7,11 +7,11 @@ import { formatChance, selectedRules, type BannerOdds, type OddsRequest, type Od
 import { ContentImg } from '@/components/content/ContentImage';
 import { formatNumber } from '@/lib/pulls/format';
 
-export function OperatorGoals({ rules, goal, onChange, children }: { children: ReactNode; rules?: BannerOdds; goal: BannerGoal; onChange: (goal: BannerGoal) => void }) {
+export function OperatorGoals({ rules, goal, onChange, children, inactive = false }: { children: ReactNode; inactive?: boolean; rules?: BannerOdds; goal: BannerGoal; onChange: (goal: BannerGoal) => void }) {
   const [response, setResponse] = useState<{ key: string; result?: OddsResult; error?: string } | null>(null);
   const [retry, setRetry] = useState(0);
   const [detailsOpen, setDetailsOpen] = useState(false);
-  const request = useMemo<OddsRequest | null>(() => rules && goal.targets?.length ? { rules, pulls: goal.pulls, targets: goal.targets, spark: goal.includeSpark ?? false, roster: goal.rateUpRoster } : null, [rules, goal.pulls, goal.targets, goal.includeSpark, goal.rateUpRoster]);
+  const request = useMemo<OddsRequest | null>(() => !inactive && rules && goal.targets?.length ? { rules, pulls: goal.pulls, targets: goal.targets, spark: goal.includeSpark ?? false, roster: goal.rateUpRoster } : null, [inactive, rules, goal.pulls, goal.targets, goal.includeSpark, goal.rateUpRoster]);
   const key = JSON.stringify(request);
   useEffect(() => {
     if (!request) return;
@@ -88,7 +88,7 @@ export function OperatorGoals({ rules, goal, onChange, children }: { children: R
     </div>
     <div className="pulls-goals-outcome">
     {children}
-    {targets.length > 0 ? (
+    {inactive ? null : targets.length > 0 ? (
       <div className="pulls-odds-result" aria-live="polite" aria-busy={!result && !error}>
         {error ? <p className="pulls-plan-warning">{error} <button type="button" className="ghost btn-sm" onClick={() => setRetry(n => n + 1)}>Retry</button></p> : result ? <>
           <div className="pulls-odds-headline"><span>{targets.length > 1 ? 'All goals' : 'Goal chance'}<small>Estimate · {formatNumber(goal.pulls)} pulls · 0 pity</small></span><strong>{formatChance(result.all)}</strong></div>

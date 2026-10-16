@@ -144,7 +144,7 @@ test('the pull planner drops banners and shops per request, through the end of t
   assert.deepEqual(Object.keys(current.bannerOdds), ['Last day', 'Next']);
   assert.deepEqual(current.skinCollections.map(c => c.id), ['open']);
   assert.equal(current.backlogSources, null);
-  assert.deepEqual(currentPullPlan(props, at('2026-09-26T00:00:00Z')).scheduledBanners.map(b => b.name), ['Next']);
+  assert.deepEqual(currentPullPlan(props, at('2026-09-26T07:00:00Z')).scheduledBanners.map(b => b.name), ['Next']);
 });
 
 test('withContentPage takes revalidate as an option, and exports carry no clock field', async () => {

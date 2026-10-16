@@ -1,3 +1,4 @@
+import { serverCalendarTime } from '@/lib/time/servers.mjs';
 import { withPlannerDynamicArt } from '@/lib/skins/dynamicArtFallback';
 import { assertDynamicArtIndex, skinDynamicArt } from '@/lib/skins/dynamicArt';
 import { useMemo } from 'react';
@@ -27,8 +28,8 @@ interface Props {
 }
 
 export default function SkinPlannerPage({ catalogue, collections, now }: Props) {
-  const clock = useReaderClock(now);
-  const today = new Date(clock).toISOString().slice(0, 10);
+  const clock = useReaderClock(now, { tickMs: 1000, onFocus: true });
+  const today = serverCalendarTime(new Date(clock), 'en').toISOString().slice(0, 10);
   const byName = useMemo(() => new Map(catalogue.map((skin) => [skin.name, skin.id])), [catalogue]);
   const account = useAccount();
   const owned = useMemo(() => (account ? new Set(account.skins) : null), [account]);
@@ -41,7 +42,7 @@ export default function SkinPlannerPage({ catalogue, collections, now }: Props) 
         sub={<>The outfits you want, by the event shop that sells them and when. The <Link prefetch={false} href="/pulls">Pull Planner</Link> sets your OP against the same plan.</>} />
       <main>
         <section className="op-section">
-          <SkinPlanner catalogue={catalogue} collections={collections} today={today} ids={ids} onChange={setIds} owned={owned} />
+          <SkinPlanner catalogue={catalogue} collections={collections} today={today} now={clock} ids={ids} onChange={setIds} owned={owned} />
         </section>
       </main>
     </>

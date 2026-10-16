@@ -1,6 +1,7 @@
 export type GameServer = 'en' | 'jp' | 'kr' | 'cn';
 export declare const HOUR_MS: number;
 export declare const DAY_MS: number;
+export declare function parseInstant(value: string | null | undefined): Date | null;
 export declare const SERVER_TIME: Readonly<Record<GameServer, Readonly<{ offset: number; resetHour: number; eventOpenHour: number; timeZone: string }>>>;
 export declare function serverCalendarTime(now: Date, server?: GameServer): Date;
 export declare function toServerTime(now?: Date, server?: GameServer): Date;

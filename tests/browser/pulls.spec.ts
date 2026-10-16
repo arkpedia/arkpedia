@@ -281,3 +281,29 @@ test('Fashion Review has its own planner inventory', async ({ page }) => {
   const cards = page.locator('.skin-plan-card');
   expect(await cards.evaluateAll(nodes => nodes.every(node => node.closest('section[aria-label]')?.getAttribute('aria-label')?.includes('Fashion Review')))).toBe(true);
 });
+
+test('the planner rechecks closing windows on focus and retains the manual goal and wallet', async ({ page }) => {
+  await page.goto('/pulls');
+  const data = JSON.parse((await page.locator('#__NEXT_DATA__').textContent())!);
+  const choices = data.props.pageProps.scheduledBanners as { name: string; end: string; endAt?: string }[];
+  const banner = choices.find(value => value.endAt && Date.parse(value.endAt) > Date.now() + 86_400_000);
+  expect(banner, 'a future resolved window from this content release').toBeTruthy();
+  if (!banner?.endAt) throw new Error('No future resolved banner window');
+  const close = Date.parse(banner.endAt);
+  const plan = {
+    version: 1, orundum: '12345', originite: '60', permits: '10', reservedOP: '42', until: banner.end,
+    manualEventDate: '', bannerName: '', monthlyCard: true, includeBacklog: false, annihilationDone: false,
+    doneEvents: [], doneKeys: [], clearedReruns: [], future: {},
+    goals: [{ banner: banner.name, spendOn: banner.end, bannerEndAt: banner.endAt, pulls: 80, ticketUsed: true }],
+  };
+  await page.evaluate(plan => localStorage.setItem('arkpedia.pull-plan.v1', JSON.stringify(plan)), plan);
+  await page.clock.setFixedTime(new Date(close - 60_000));
+  await page.reload();
+  await expect(page.getByRole('spinbutton', { name: `Pull budget for ${banner.name}`, exact: true })).toHaveValue('80');
+  await expect(page.getByText('Closed', { exact: true })).toHaveCount(0);
+  await page.clock.setFixedTime(new Date(Math.ceil(close / 60_000) * 60_000));
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+  await expect(page.getByText('Closed', { exact: true })).toBeVisible();
+  const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('arkpedia.pull-plan.v1')!));
+  for (const key of ['orundum', 'originite', 'permits', 'reservedOP', 'until', 'goals'] as const) expect(stored[key]).toEqual(plan[key]);
+});

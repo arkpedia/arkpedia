@@ -1,4 +1,6 @@
-import { serverDayBoundary, serverOffsetLabel } from '@/lib/time/servers.mjs';
+import { planningWindowEnd, planningDayEnd } from '@/lib/pulls/planningWindows';
+import { useReaderValue } from '@/lib/time/readerClock';
+import { serverCalendarTime, serverOffsetLabel } from '@/lib/time/servers.mjs';
 import NumberInput from '@/components/ui/NumberInput';
 import { withPullPlannerDynamicArt } from '@/lib/skins/dynamicArtFallback';
 import { assertDynamicArtIndex, skinDynamicArt } from '@/lib/skins/dynamicArt';
@@ -34,7 +36,7 @@ import { IncludePastCheckbox, IncludeSkinsCheckbox } from '@/components/pulls/In
 import SkinPlanner from '@/components/skins/SkinPlanner';
 import { SkinsHelp } from '@/components/pulls/PlannerHelp';
 import { useSkinPlan } from '@/lib/skins/skinPlan';
-import { useAccount } from '@/lib/account/accountStore';
+import { useAccount, storedAccount } from '@/lib/account/accountStore';
 import { usePastRewards } from '@/lib/pulls/usePastRewards';
 import { pullSkinCatalogue, skinReservation, type PlannedSkin } from '@/lib/pulls/skins';
 import { availableBannerFreePulls, goalsAtBannerEnd, MAX_GOALS, PULL_PLAN_KEY, parsePullPlan, planBudgets, planHorizon, planNumber, savingsAfterPlanAt, validPlanDate, type BannerGoal, type SavedPullPlan } from '@/lib/pulls/plan';
@@ -168,7 +170,8 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
   const [walletLocked, setWalletLocked] = useLock('pulls-resources', !!account?.wallet && walletFrom === account.importedAt);
   const [pastOpen, setPastOpen] = useState(false);
 
-  const [now, setNow] = useState<Date | null>(null);
+  const nowMs = useReaderValue<number | null>(null, value => value, { tickMs: 1000, onFocus: true });
+  const now = useMemo(() => nowMs === null ? null : new Date(nowMs), [nowMs]);
 
   /* `skins`: take the plan's outfits into the shared skin plan -- for an imported file, not for
      the copy this page saved, which the shared plan already holds and may have moved past. */
@@ -184,8 +187,7 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
 
   useEffect(() => {
     const today = new Date();
-    setNow(today);
-    setUntil(new Date(today.getTime() + 30 * DAY_MS).toISOString().slice(0, 10));
+    setUntil(new Date(serverCalendarTime(today, storedAccount()?.server ?? 'en').getTime() + 30 * DAY_MS).toISOString().slice(0, 10));
     try {
       const saved = localStorage.getItem(PULL_PLAN_KEY);
       if (saved) applyPlan(parsePullPlan(saved), false);
@@ -234,12 +236,12 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
   const target = useMemo(() => {
     if (!validPlanDate(until)) return null;
     /* The selected server's calendar day, including its final millisecond. */
-    const d = new Date(serverDayBoundary(Date.parse(`${until}T00:00:00Z`) + DAY_MS, server) - 1);
+    const d = new Date(planningDayEnd(until, server) - 1);
     return Number.isNaN(d.getTime()) ? null : d;
   }, [until, server]);
 
-  const banners = useMemo(() => (now ? scheduledBanners.filter(b => new Date(`${b.end}T23:59:59Z`) > now).sort((a, b) => a.start.localeCompare(b.start)) : []), [now, scheduledBanners]);
-  const rewardEvents = useMemo(() => now ? scheduledEvents.filter(event => new Date(`${event.end}T23:59:59Z`) > now) : [], [now, scheduledEvents]);
+  const banners = useMemo(() => (now ? scheduledBanners.filter(b => planningWindowEnd(b) > now.getTime()).sort((a, b) => a.start.localeCompare(b.start)) : []), [now, scheduledBanners]);
+  const rewardEvents = useMemo(() => now ? scheduledEvents.filter(event => planningWindowEnd(event) > now.getTime()) : [], [now, scheduledEvents]);
   const picked = useMemo(
     () => banners.find((b) => b.name === bannerName) ?? null,
     [banners, bannerName],
@@ -337,15 +339,15 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
   const forecastSavings = total.pulls - (at?.free ?? 0);
   /* The banner plan is judged through its own last banner, not the Pull calculation's date: the
      savings left once every planned banner has been paid for, at the last one's spending date. */
-  const planThrough = now ? planHorizon(goals, now.toISOString().slice(0, 10)) : null;
+  const planThrough = now ? planHorizon(goals, serverCalendarTime(now, 'en').toISOString().slice(0, 10)) : null;
   const savingsAfterPlan = useMemo(() => {
     if (!planThrough) return today.pulls;
-    const at = totalAt(new Date(`${planThrough}T23:59:59Z`));
+    const at = totalAt(new Date(planningDayEnd(planThrough) - 1));
     return savingsAfterPlanAt(at.pulls.pulls - at.free, budgetRows, planThrough);
   }, [planThrough, totalAt, budgetRows, today.pulls]);
   const totalShortfall = budgetRows.reduce((max, row) => Math.max(max, row.shortfall), 0);
   const addGoal = useCallback((banner: UpcomingBanner) => {
-    setGoals(previous => previous.some(g => g.banner === banner.name) || previous.length >= MAX_GOALS ? previous : [...previous, { banner: banner.name, pulls: 0, spendOn: banner.end }]);
+    setGoals(previous => previous.some(g => g.banner === banner.name) || previous.length >= MAX_GOALS ? previous : [...previous, { banner: banner.name, pulls: 0, spendOn: banner.end, ...(banner.endAt ? { bannerEndAt: banner.endAt } : {}) }]);
   }, []);
   useEffect(() => {
     if (!hydrated || !router.isReady || !now) return;
@@ -530,8 +532,8 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
         <div id="panel-skins" className="pulls-skins-body">
             {/* The Skin Planner's own view, with this plan's OP set against it. */}
           <div className="pulls-panel-head"><p className="hint">The same plan as the <Link prefetch={false} href="/skin-planner">Skin Planner</Link>: a change here shows there, and the other way round.</p><SkinsHelp /></div>
-          <SkinPlanner collections={skinCollections} today={now?.toISOString().slice(0, 10) ?? null} catalogue={skinCatalogue} ids={skinIds} onChange={setSkinIds} owned={ownedSkins}
-            budget={{ heldOP: held.originitePrime, extraOP: readNumber(reservedOP), forecastOP: (date) => totalAt(new Date(`${date}T23:59:59Z`)).grossOP,
+          <SkinPlanner collections={skinCollections} today={now ? serverCalendarTime(now, 'en').toISOString().slice(0, 10) : null} now={now?.getTime()} catalogue={skinCatalogue} ids={skinIds} onChange={setSkinIds} owned={ownedSkins}
+            budget={{ heldOP: held.originitePrime, extraOP: readNumber(reservedOP), forecastOP: (date) => totalAt(new Date(planningDayEnd(date) - 1)).grossOP,
               extraField: <Field label="Extra OP reserve" unit="OP" value={reservedOP} onChange={setReservedOP} /> }} />
         </div>
       </ImportDialog>

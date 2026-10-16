@@ -1,3 +1,4 @@
+import { parseGameWindow } from '@/lib/schedule/gameWindow';
 import eventRewards from '@/data/pull-event-rewards.json';
 import { getAllEvents } from '@/lib/schedule/schedule';
 import type { BacklogSources, PullEventReward } from './pulls';
@@ -16,7 +17,7 @@ export const pullBannerKey = (name: string) => name.normalize('NFKC').toLowerCas
  * dates after the site's schedule is corrected. Resolve dates at page build/ISR.
  * Unknown windows are omitted instead of reviving a stale estimated date. */
 type CurrentPullBanner = { pull_type?: string; globalPoolId?: string; globalLineupPending?: boolean; name: string; aliases?: string[]; global_date: string | null; global_date_estimated?: boolean;
-  global_window?: { timingSource?: string | null }; category?: string; six_stars?: string[]; rate_up_six_stars?: string[];
+  global_window?: { startAt?: string; endAt?: string; timingSource?: string | null }; category?: string; six_stars?: string[]; rate_up_six_stars?: string[];
   banner_image?: string | null; linked_event?: string | null; cnPoolId?: string;
 };
 export function resolvePullSchedule(rewards: readonly UpcomingBanner[], current: readonly CurrentPullBanner[]): UpcomingBanner[] {
@@ -29,13 +30,15 @@ export function resolvePullSchedule(rewards: readonly UpcomingBanner[], current:
     });
     if (!dates || dates.length !== 2 || !validPlanDate(dates[0]) || !validPlanDate(dates[1]) || dates[1] < dates[0]) return [];
     const [start, end] = dates;
+    const window = parseGameWindow(latest.global_date, { startAt: latest.global_window?.startAt, endAt: latest.global_window?.endAt }, 'global', latest.pull_type === 'standard' || latest.pull_type === 'kernel');
+    if (!window) return [];
     const featured = latest.six_stars ?? banner?.sixStars ?? [];
     return [{
       rerun: false,
       op: 0, opSource: 'none' as const, cnAct: null, inBacklog: false, ruleType: null,
       freeDaily: 0, freeTicket: 0, freePulls: 0, wishActId: null, wishDays: 0, wishOrundum: 0, hasShop: false,
       ...banner,
-      name: latest.name, aliases: latest.aliases ?? [], start, end,
+      name: latest.name, aliases: latest.aliases ?? [], start, end, startAt: window.start.toISOString(), endAt: window.end.toISOString(),
       category: latest.category ?? banner?.category ?? 'standard',
       sixStars: featured,
       ...(waitsForGlobal(latest) ? { globalLineupPending: true, ruleType: null, freeDaily: 0, freeTicket: 0, freePulls: 0 } : {}),
@@ -69,8 +72,10 @@ export function resolvePullEventSchedule(current: ReturnType<typeof getAllEvents
     const dates = event?.global.dateRange?.split(/[–—]/).map(date => date.trim().replaceAll('/', '-'));
     if (!dates || dates.length !== 2 || !dates.every(validPlanDate) || dates[1] < dates[0]) return [];
     if (!reward.op && !reward.shopPermits && !reward.wishOrundum) return [];
+    const window = event ? parseGameWindow(event.global.dateRange, event.global) : null;
+    if (!window) return [];
     return [{
-      name: reward.event, event: reward.event, start: dates[0], end: dates[1],
+      name: reward.event, event: reward.event, start: dates[0], end: dates[1], startAt: window.start.toISOString(), endAt: window.end.toISOString(),
       rerun: /rerun/i.test(reward.event), op: reward.op, opSource: 'cn' as const,
       inBacklog: backlog.playable.some(known => plain(known.name) === plain(reward.event)),
       hasShop: reward.shopPermits > 0, shopPermits: reward.shopPermits,
