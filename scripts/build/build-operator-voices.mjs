@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { englishVoiceTitles, englishVoiceTitle } from '../lib/voice-line-titles.mjs';
-import { actorAliases, normalizeVoicePack } from '../lib/voice-pack-metadata.mjs';
+import { actorAliases, mergeVoicePacks, normalizeVoicePack, voiceType } from '../lib/voice-pack-metadata.mjs';
 import { listFolderClips, listLegacyClips, restrictToRecordedClips, unlistedRecordings } from '../lib/voice-clip-availability.mjs';
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
@@ -115,11 +115,11 @@ function operatorIds() {
 const PACK_LABELS = {
   EN: 'English', JP: 'Japanese', KR: 'Korean', CN_MANDARIN: 'Mandarin',
   CN_TOPOLECT: 'Regional Chinese', ITA: 'Italian', GER: 'German', RUS: 'Russian',
-  FRE: 'French', 11: 'Spanish', LINKAGE: 'Collaboration',
+  FRE: 'French', SPA: 'Spanish', LINKAGE: 'Collaboration',
 };
 
 function packId(type) {
-  return ({ CN_MANDARIN: 'cn', CN_TOPOLECT: 'cn_topolect', LINKAGE: 'linkage', 11: 'spa' }[type] || String(type).toLowerCase());
+  return ({ CN_MANDARIN: 'cn', CN_TOPOLECT: 'cn_topolect', LINKAGE: 'linkage' }[type] || String(type).toLowerCase());
 }
 
 function audioLocations(charId, type, voicePath) {
@@ -129,7 +129,7 @@ function audioLocations(charId, type, voicePath) {
   if (type === 'KR') return [{ directory: 'voice_kr', folder: charId }];
   if (type === 'CN_MANDARIN') return [{ directory: 'voice_cn', folder: charId }];
   if (type === 'ITA' || type === 'CN_TOPOLECT') return [{ directory: 'voice_custom', folder: `${charId}_${id}` }];
-  if (['GER', 'RUS', 'FRE', '11'].includes(String(type))) return [{ directory: 'voice_custom', folder: charId }];
+  if (['GER', 'RUS', 'FRE', 'SPA'].includes(String(type))) return [{ directory: 'voice_custom', folder: charId }];
   if (type === 'LINKAGE') {
     if (String(voicePath || '').toLowerCase().includes('cn')) {
       return [{ directory: 'voice_cn', folder: charId }];
@@ -180,15 +180,18 @@ function wordsFor(table, charId) {
 function currentPacks(table, wordKey, directoryIndex) {
   const config = table.voiceLangDict?.[wordKey];
   if (!config) return [];
-  const order = ['EN', 'JP', 'CN_MANDARIN', 'KR', '11', 'ITA', 'GER', 'RUS', 'FRE', 'CN_TOPOLECT', 'LINKAGE'];
+  const order = ['EN', 'JP', 'CN_MANDARIN', 'KR', 'SPA', 'ITA', 'GER', 'RUS', 'FRE', 'CN_TOPOLECT', 'LINKAGE'];
   const rank = new Map(order.map((type, index) => [packId(type), index]));
-  return Object.entries(config.dict || {}).map(([type, value]) => ({
-    id: packId(type),
-    label: PACK_LABELS[type] || table.voiceLangTypeDict?.[type]?.name || type,
-    actors: value.cvName || [],
-    status: 'current',
-    audioTemplate: audioTemplate(wordKey, type, value.voicePath, directoryIndex),
-  })).sort((a, b) => (rank.get(a.id) ?? 999) - (rank.get(b.id) ?? 999));
+  return Object.entries(config.dict || {}).map(([key, value]) => {
+    const type = voiceType(key, value);
+    return {
+      id: packId(type),
+      label: PACK_LABELS[type] || table.voiceLangTypeDict?.[type]?.name || type,
+      actors: (Array.isArray(value.cvName) ? value.cvName : []).filter(name => typeof name === 'string' && name.trim()).map(name => name.trim()),
+      status: 'current',
+      audioTemplate: audioTemplate(wordKey, type, value.voicePath, directoryIndex),
+    };
+  }).sort((a, b) => (rank.get(a.id) ?? 999) - (rank.get(b.id) ?? 999));
 }
 
 function readTlvr(directory) {
@@ -347,21 +350,8 @@ let outfitSetCount = 0;
 
 /** A set's current packs: Global's table first, the supplement and CN filling what it lacks. */
 function mergedCurrentPacks(wordKey) {
-  const packsById = new Map();
-  for (const pack of currentPacks(en, wordKey, audioDirectories)) packsById.set(pack.id, pack);
-  for (const pack of currentPacks(enSupplemental, wordKey, audioDirectories)) {
-    const existing = packsById.get(pack.id);
-    if (!existing || (!existing.audioTemplate && pack.audioTemplate)) {
-      packsById.set(pack.id, { ...pack, actors: existing?.actors?.length ? existing.actors : pack.actors });
-    }
-  }
-  for (const pack of currentPacks(cn, wordKey, audioDirectories)) {
-    const existing = packsById.get(pack.id);
-    if (!existing || (!existing.audioTemplate && pack.audioTemplate)) {
-      packsById.set(pack.id, { ...pack, actors: existing?.actors?.length ? existing.actors : pack.actors });
-    }
-  }
-  return [...packsById.values()].filter(pack => pack.audioTemplate);
+  // Credits are published by the game before our recording folders necessarily arrive.
+  return mergeVoicePacks(...[en, enSupplemental, cn].map(table => currentPacks(table, wordKey, audioDirectories)));
 }
 
 /**
