@@ -1,3 +1,6 @@
+const EMPTY_WINDOWS: Record<string, number[]> = {};
+
+import { useRegionalTime } from '@/lib/time/useRegionalTime';
 import { useContentUrl, useReleaseTable } from '@/lib/content/context';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
@@ -207,7 +210,9 @@ export default function StageList({ typeCounts, now, selectedSlug }: Props) {
    * after mount, so first paint is exactly what it was.
    */
   const contents = useReleaseTable<NavData['contents']>('stages-content');
-  const windows = useReleaseTable<NavData['windows']>('content-windows');
+  const globalWindows = useReleaseTable<NavData['windows']>('content-windows');
+  const { server, schedule } = useRegionalTime();
+  const windows = server === 'en' ? globalWindows : schedule?.contents ?? EMPTY_WINDOWS;
   const storyGroups = useReleaseTable<NavData['storyGroups']>('story-groups');
   const [navGroups, setNavGroups] = useState<StageGroup[]>([]);
   useEffect(() => {

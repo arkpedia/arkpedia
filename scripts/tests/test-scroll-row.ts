@@ -37,3 +37,11 @@ test('without controls, the row is as it was: no buttons, no id', () => {
   assert.doesNotMatch(html, /<button/);
   assert.match(html, /^<div class="scroll-row sidescroll">/);
 });
+
+test('an opt-in persistent scrollbar controls the row and starts disabled until measured', () => {
+  const html = renderToString(createElement(ScrollRow, { label: 'Ranked songs', controls: true, persistentScrollbar: true, children: cards }));
+  assert.match(html, /type="range"/);
+  assert.match(html, /aria-label="Scroll through Ranked songs"/);
+  assert.match(html, /class="scroll-row-rail"[^>]*disabled=""/);
+  assert.match(html, /--scroll-thumb-width:100%/);
+});

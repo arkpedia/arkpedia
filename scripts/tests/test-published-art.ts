@@ -1,3 +1,4 @@
+import { regionalFixture } from './regional-fixture';
 import './css-modules';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -24,7 +25,7 @@ const PENDING_NOTE = lineupPendingNote({});
 (globalThis as { React?: typeof React }).React = React;
 // next.config.js serves every image unoptimized, straight from the asset repositories.
 const render = (element: ReactElement) => renderToStaticMarkup(
-  createElement(ImageConfigContext.Provider, { value: { ...imageConfigDefault, unoptimized: true } }, element));
+  createElement(ImageConfigContext.Provider, { value: { ...imageConfigDefault, unoptimized: true } }, regionalFixture(element)));
 
 // Records published before their art, and before their lineup, as the catalogue and the
 // recurring-banner importer write them. Names and files are invented; the one published

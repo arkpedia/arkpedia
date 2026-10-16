@@ -1,3 +1,4 @@
+import { supplyOpen, type RegionalSchedule } from '@/lib/time/regional';
 import { nextSssEnd, type SssCycle } from './sssCycle';
 
 import { DAY_MS, getNextWeeklyReset, toServerTime, type GameServer } from '@/lib/time/servers.mjs';
@@ -75,7 +76,7 @@ export function formatRemaining(ms: number): string {
 // pairs happen to be active.
 const CHIP_SCHEDULE: { classes: [string, string]; days: number[] }[] = [
   { classes: ['Medic', 'Defender'], days: [WEEKDAY.MON, WEEKDAY.THU, WEEKDAY.FRI, WEEKDAY.SUN] },
-  { classes: ['Caster', 'Sniper'], days: [WEEKDAY.MON, WEEKDAY.TUE, WEEKDAY.FRI, WEEKDAY.SUN] },
+  { classes: ['Caster', 'Sniper'], days: [WEEKDAY.MON, WEEKDAY.TUE, WEEKDAY.FRI, WEEKDAY.SAT] },
   { classes: ['Vanguard', 'Support'], days: [WEEKDAY.WED, WEEKDAY.THU, WEEKDAY.SAT, WEEKDAY.SUN] },
   { classes: ['Guard', 'Specialist'], days: [WEEKDAY.TUE, WEEKDAY.WED, WEEKDAY.SAT, WEEKDAY.SUN] },
 ];
@@ -96,7 +97,8 @@ export function getCurrentResetWindowWeekday(now: Date, server: GameServer = 'en
   return toServerTime(now, server).getUTCDay();
 }
 
-export function getCurrentlyAvailableChipClasses(now: Date, server: GameServer = 'en'): string[] {
+export function getCurrentlyAvailableChipClasses(now: Date, server: GameServer = 'en', schedule?: RegionalSchedule): string[] {
+  if (schedule) return CHIP_SCHEDULE.flatMap((pair, index) => supplyOpen(`weekly_${index + 1}`, now.getTime(), schedule, server) ? pair.classes : []);
   const windowDay = getCurrentResetWindowWeekday(now, server);
   const active = new Set<string>();
   for (const pair of CHIP_SCHEDULE) {
@@ -108,7 +110,7 @@ export function getCurrentlyAvailableChipClasses(now: Date, server: GameServer =
 }
 
 /** What the ticker says at `now`, counting SSS down to the release's cycle. */
-export function getActiveReminders(now: Date, sssCycle: SssCycle, server: GameServer = 'en'): Reminder[] {
+export function getActiveReminders(now: Date, sssCycle: SssCycle, server: GameServer = 'en', schedule?: RegionalSchedule): Reminder[] {
   const reminders: Reminder[] = [];
 
   const annihilationEnd = getAnnihilationNextEnd(now, server);
@@ -117,12 +119,14 @@ export function getActiveReminders(now: Date, sssCycle: SssCycle, server: GameSe
     reminders.push({ id: 'annihilation', text: `Annihilation ends in ${formatRemaining(annihilationDiff)}` });
   }
 
-  const sssDiff = getSSSNextEnd(now, sssCycle).getTime() - now.getTime();
+  const season = schedule?.sss?.find(season => season.start * 1000 <= now.getTime() && now.getTime() < season.end * 1000);
+  const sssEnd = season ? season.end * 1000 : server === 'en' && !schedule ? getSSSNextEnd(now, sssCycle).getTime() : NaN;
+  const sssDiff = sssEnd - now.getTime();
   if (sssDiff > 0 && sssDiff <= REMINDER_WINDOW_MS) {
-    reminders.push({ id: 'sss', text: `${server === 'en' ? '' : 'Global '}SSS ends in ${formatRemaining(sssDiff)}` });
+    reminders.push({ id: 'sss', text: `${season ? 'SSS season' : 'SSS'} ends in ${formatRemaining(sssDiff)}` });
   }
 
-  const availableClasses = getCurrentlyAvailableChipClasses(now, server);
+  const availableClasses = getCurrentlyAvailableChipClasses(now, server, schedule);
   if (availableClasses.length > 0) {
     reminders.push({ id: 'chips', text: `${availableClasses.join(', ')} available right now!` });
   }

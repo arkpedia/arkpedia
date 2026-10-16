@@ -567,8 +567,8 @@ test('certificate exchanges respect owned funds, full sets and Global monthly sh
   const {certificatePulls} = await import('../../lib/pulls/incomeSettings');
   const from = new Date('2026-09-15T12:00:00Z');
   assert.equal(certificatePulls(from,new Date('2026-09-30T23:59:59Z'),516,true),38);
-  assert.equal(certificatePulls(from,new Date('2026-10-01T06:59:59Z'),516,true),38);
-  assert.equal(certificatePulls(from,new Date('2026-10-01T07:00:00Z'),516,true),76);
+  assert.equal(certificatePulls(from,new Date('2026-10-01T10:59:59Z'),516,true),38);
+  assert.equal(certificatePulls(from,new Date('2026-10-01T11:00:00Z'),516,true),76);
   assert.equal(certificatePulls(from,new Date('2026-12-01T07:00:00Z'),258,true),38);
   assert.equal(certificatePulls(from,new Date('2026-12-01'),257,true),0);
   assert.equal(certificatePulls(from,new Date('2026-12-01'),516,false),0);
@@ -596,8 +596,8 @@ test('individual first clears reconcile with old aggregate rewards and never dou
 test('green certificates count future Global monthly refreshes and preserve currency units', async () => {
   const {greenCertificateIncome} = await import('../../lib/pulls/incomeSettings');
   const from = new Date('2026-09-15T12:00:00Z');
-  assert.deepEqual(greenCertificateIncome(from, new Date('2026-10-01T06:59:59Z'), true), {months:0,orundum:0,permits:0});
-  assert.deepEqual(greenCertificateIncome(from, new Date('2026-10-01T07:00:00Z'), true), {months:1,orundum:600,permits:4});
+  assert.deepEqual(greenCertificateIncome(from, new Date('2026-10-01T10:59:59Z'), true), {months:0,orundum:0,permits:0});
+  assert.deepEqual(greenCertificateIncome(from, new Date('2026-10-01T11:00:00Z'), true), {months:1,orundum:600,permits:4});
   assert.deepEqual(greenCertificateIncome(from, new Date('2027-01-31T12:00:00Z'), true), {months:4,orundum:2400,permits:16});
   assert.deepEqual(greenCertificateIncome(from, from, true), {months:0,orundum:0,permits:0});
   assert.deepEqual(greenCertificateIncome(from, new Date('2027-01-31'), false), {months:0,orundum:0,permits:0});

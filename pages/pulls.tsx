@@ -1,3 +1,5 @@
+import { useRegionalTime } from '@/lib/time/useRegionalTime';
+import { regionalPullBanners, regionalPullEvents, regionalSkinCollections } from '@/lib/time/regional';
 import { planningWindowEnd, planningDayEnd } from '@/lib/pulls/planningWindows';
 import { useReaderValue } from '@/lib/time/readerClock';
 import { serverCalendarTime, serverOffsetLabel } from '@/lib/time/servers.mjs';
@@ -39,7 +41,7 @@ import { useSkinPlan } from '@/lib/skins/skinPlan';
 import { useAccount, storedAccount } from '@/lib/account/accountStore';
 import { usePastRewards } from '@/lib/pulls/usePastRewards';
 import { pullSkinCatalogue, skinReservation, type PlannedSkin } from '@/lib/pulls/skins';
-import { availableBannerFreePulls, goalsAtBannerEnd, MAX_GOALS, PULL_PLAN_KEY, parsePullPlan, planBudgets, planHorizon, planNumber, savingsAfterPlanAt, validPlanDate, type BannerGoal, type SavedPullPlan } from '@/lib/pulls/plan';
+import { availableBannerFreePulls, MAX_GOALS, PULL_PLAN_KEY, parsePullPlan, planBudgets, planHorizon, planNumber, savingsAfterPlanAt, validPlanDate, type BannerGoal, type SavedPullPlan } from '@/lib/pulls/plan';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import LockToggle from '@/components/ui/LockToggle';
 import { useLock } from '@/lib/ui/useLock';
@@ -114,7 +116,7 @@ function ReportRow({ what, how, pulls, off }: { what: string; how: string; pulls
 
 type PullsProps = { skinCollections: SkinCollection[]; bannerOdds: Record<string, BannerOdds>; scheduledEvents: PullEventReward[]; scheduledBanners: UpcomingBanner[]; skinCatalogue: PlannedSkin[]; backlogSources: BacklogSources };
 
-export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatalogue, skinCollections, bannerOdds, backlogSources }: PullsProps) {
+export default function PullsPage({ scheduledEvents: globalEvents, scheduledBanners: globalBanners, skinCatalogue, skinCollections: globalCollections, bannerOdds, backlogSources }: PullsProps) {
   const router = useRouter();
   const [incomeOpen, setIncomeOpen] = useState(false);
   const [skinsOpen, setSkinsOpen] = useState(false);
@@ -125,7 +127,10 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
      reserves counts the outfits sold for OP that the imported account does not own yet. */
   const skinByName = useMemo(() => new Map(skinCatalogue.map((skin) => [skin.name, skin.id])), [skinCatalogue]);
   const account = useAccount();
-  const server = account?.server ?? 'en';
+  const { server, schedule } = useRegionalTime();
+  const scheduledBanners = useMemo(() => regionalPullBanners(globalBanners, schedule, server), [globalBanners, schedule, server]);
+  const scheduledEvents = useMemo(() => regionalPullEvents(globalEvents, schedule, server), [globalEvents, schedule, server]);
+  const skinCollections = useMemo(() => regionalSkinCollections(globalCollections, schedule, server), [globalCollections, schedule, server]);
   /* The Past events ticks, shared with the OP Tracker (lib/pulls/usePastRewards.ts): ticked
      once per import from its cleared stages, the reader's to change after that. */
   const past = usePastRewards(backlogSources);
@@ -181,9 +186,9 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
     setUntil(plan.until); setBannerName(plan.bannerName);
     setMonthlyCard(plan.monthlyCard); setIncludeBacklog(plan.includeBacklog); setIncludeSkins(plan.includeSkins ?? true); setClearedReruns(new Set(plan.clearedReruns));
     setWishingWallMode(plan.wishingWallMode ?? 'average'); setWalletFrom(plan.walletFrom ?? '');
-    setGoals(goalsAtBannerEnd(plan.goals, scheduledBanners));
+    setGoals(plan.goals);
     if (skins) setSkinIds(plan.skinIds ?? []);
-  }, [scheduledBanners, setSkinIds]);
+  }, [setSkinIds]);
 
   useEffect(() => {
     const today = new Date();
@@ -332,14 +337,14 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
   const rewardGained = at ? total.pulls - at.free - at.recurringOnly : 0;
 
 
-  const budgetRows = useMemo(() => now ? planBudgets(goals, banners, now, date => {
+  const budgetRows = useMemo(() => now ? planBudgets(goals, scheduledBanners, now, date => {
     const result = totalAt(date);
     return result.pulls.pulls - result.free;
-  }) : [], [goals, banners, now, totalAt]);
+  }, server) : [], [goals, scheduledBanners, now, totalAt, server]);
   const forecastSavings = total.pulls - (at?.free ?? 0);
   /* The banner plan is judged through its own last banner, not the Pull calculation's date: the
      savings left once every planned banner has been paid for, at the last one's spending date. */
-  const planThrough = now ? planHorizon(goals, serverCalendarTime(now, 'en').toISOString().slice(0, 10)) : null;
+  const planThrough = now ? planHorizon(goals, serverCalendarTime(now, server).toISOString().slice(0, 10)) : null;
   const savingsAfterPlan = useMemo(() => {
     if (!planThrough) return today.pulls;
     const at = totalAt(new Date(planningDayEnd(planThrough) - 1));
@@ -372,7 +377,7 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
     <PageHeader
       eyebrow="Rhodes Island // Headhunting Budget"
       title="Pull Planner"
-      sub={server === 'en' ? undefined : <>Income follows your {server.toUpperCase()} account ({serverOffsetLabel(server)}). Banner and event schedules are Global.</>}
+      sub={server === 'en' ? undefined : <>Income follows your {server.toUpperCase()} account ({serverOffsetLabel(server)}). Banner and event schedules follow your account server.</>}
       actions={<DataLink />}
     />
     <main className={`pulls-page ${workspace.page}`}>
@@ -532,7 +537,7 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
         <div id="panel-skins" className="pulls-skins-body">
             {/* The Skin Planner's own view, with this plan's OP set against it. */}
           <div className="pulls-panel-head"><p className="hint">The same plan as the <Link prefetch={false} href="/skin-planner">Skin Planner</Link>: a change here shows there, and the other way round.</p><SkinsHelp /></div>
-          <SkinPlanner collections={skinCollections} today={now ? serverCalendarTime(now, 'en').toISOString().slice(0, 10) : null} now={now?.getTime()} catalogue={skinCatalogue} ids={skinIds} onChange={setSkinIds} owned={ownedSkins}
+          <SkinPlanner collections={skinCollections} today={now ? serverCalendarTime(now, server).toISOString().slice(0, 10) : null} now={now?.getTime()} catalogue={skinCatalogue} ids={skinIds} onChange={setSkinIds} owned={ownedSkins}
             budget={{ heldOP: held.originitePrime, extraOP: readNumber(reservedOP), forecastOP: (date) => totalAt(new Date(planningDayEnd(date) - 1)).grossOP,
               extraField: <Field label="Extra OP reserve" unit="OP" value={reservedOP} onChange={setReservedOP} /> }} />
         </div>

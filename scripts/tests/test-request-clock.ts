@@ -169,7 +169,10 @@ test('withContentPage takes revalidate as an option, and exports carry no clock 
     process.env.ARKPEDIA_EXPORT_CONTENT = '1';
     const exported = await page(context);
     assert.ok('props' in exported);
-    assert.deepEqual(await exported.props, { value: 'record', __contentTables: { event_colors: {}, event_materials: {}, headhunting_banners: [] } }, 'no clock field in exported data');
+    const projected = await exported.props as unknown as { value: string; __contentTables: Record<string, unknown> };
+    assert.equal((projected.__contentTables['regional-schedules'] as { version: number }).version, 1);
+    delete projected.__contentTables['regional-schedules'];
+    assert.deepEqual(projected, { value: 'record', __contentTables: { event_colors: {}, event_materials: {}, headhunting_banners: [] } }, 'no clock field in exported data');
   } finally {
     if (saved.disabled === undefined) delete process.env.ARKPEDIA_CONTENT_DISABLED; else process.env.ARKPEDIA_CONTENT_DISABLED = saved.disabled;
     if (saved.exporting === undefined) delete process.env.ARKPEDIA_EXPORT_CONTENT; else process.env.ARKPEDIA_EXPORT_CONTENT = saved.exporting;

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { freeRewardAvailable, freeRewardTotals, type FreeReward } from '../../lib/pulls/freeRewards';
+import { freeRewardAvailable, freeRewardTotals, freeRewardsForAccount, type FreeReward } from '../../lib/pulls/freeRewards';
+import type { AccountRecord } from '../../lib/account/accountStore';
 import { remainingBacklog } from '../../lib/pulls/pulls';
 import catalogue from '../../data/free-rewards.json';
 
@@ -22,6 +23,17 @@ test('Paradox and permanent free rewards share claimed keys without counting sch
   assert.deepEqual(remainingBacklog(sources, new Set(), new Set(['paradox:mem_a', 'free:gift']), false), { originitePrime: 0, annihilationOrundum: 0, orundum: 0, permits: 0 });
 });
 const rewards: FreeReward[] = catalogue.rewards;
+
+test('replacement beginner programmes use registration windows, retaining current defaults for unknown or other-region accounts', () => {
+  const old = { ...gift, id: 'old', beginner: { id: 'old', startTs: 100, endTs: 199, current: false } };
+  const current = { ...gift, id: 'current', beginner: { id: 'current', startTs: 200, endTs: 999, current: true } };
+  const rows = [gift, old, current];
+  const account = (registered: number | null, server = 'en') => ({ server, profile: { registeredAt: registered ? new Date(registered * 1000).toISOString() : null } } as AccountRecord);
+  for (const timestamp of [100, 150, 199]) assert.deepEqual(freeRewardsForAccount(rows, account(timestamp)).map(row => row.id), [gift.id, 'old']);
+  assert.deepEqual(freeRewardsForAccount(rows, account(200)).map(row => row.id), [gift.id, 'current']);
+  for (const value of [null, account(null), account(150, 'jp'), account(150, 'kr')]) assert.deepEqual(freeRewardsForAccount(rows, value).map(row => row.id), [gift.id, 'current']);
+  assert.deepEqual(freeRewardsForAccount([gift], account(150)), [gift], 'older releases without programme metadata keep their rows');
+});
 test('catalogue includes beginner selectors and pinboard rewards, excludes paid packages and keeps restricted tickets out of savings', () => {
   assert.ok(catalogue.paradox.length > 0);
   assert.equal(new Set(rewards.map(reward => reward.id)).size, catalogue.rewards.length);

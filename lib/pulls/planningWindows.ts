@@ -10,11 +10,11 @@ export function planningDayEnd(day: string, server: GameServer = 'en'): number {
 
 /** Exact source closes are exclusive. Missing instants retain the legacy inclusive
  * day convention; a malformed supplied instant must not revive a closed window. */
-export function planningWindowEnd(window: { end: string; endAt?: string }): number {
-  return window.endAt === undefined ? planningDayEnd(window.end) : parseInstant(window.endAt)?.getTime() ?? NaN;
+export function planningWindowEnd(window: { end: string; endAt?: string; server?: GameServer }): number {
+  return window.endAt === undefined ? planningDayEnd(window.end, window.server) : parseInstant(window.endAt)?.getTime() ?? NaN;
 }
 
 /** A goal on a banner's last date must forecast only until that banner actually closes. */
-export function planningDeadline(window: { end: string; endAt?: string }, day: string): Date {
-  return new Date(Math.min(planningDayEnd(day), planningWindowEnd(window)) - 1);
+export function planningDeadline(window: { end: string; endAt?: string; server?: GameServer }, day: string): Date {
+  return new Date(Math.min(planningDayEnd(day, window.server), planningWindowEnd(window)) - 1);
 }

@@ -8,10 +8,6 @@ on:
         description: A main Prepare content run that asked for this look (it is not counted as busy)
         required: false
         default: ''
-  workflow_run:
-    workflows: [Prepare content release]
-    branches: [main]
-    types: [completed]
 permissions:
   contents: read
 concurrency:
@@ -21,9 +17,7 @@ jobs:
   watch:
     if: >-
       github.repository == 'arkpedia/arkpedia' &&
-      ((github.event_name != 'workflow_run' && github.ref_name == 'main') ||
-      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.event != 'schedule' && github.event.workflow_run.head_repository.full_name == github.repository))
+      github.ref_name == 'main'
     runs-on: ${{ vars.ARKPEDIA_LIGHT_RUNNER || vars.ARKPEDIA_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 5
     permissions:
@@ -46,5 +40,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           ARKPEDIA_EDITORIAL_BRANCH: ${{ vars.ARKPEDIA_EDITORIAL_BRANCH || 'editorial' }}
           ARKPEDIA_AFTER_RUN: ${{ inputs.after_run || '' }}
-          MODE: ${{ github.event_name == 'workflow_run' && '--dev' || '' }}
-        run: node scripts/content/editorial-watch.mjs $MODE
+        run: node scripts/content/editorial-watch.mjs

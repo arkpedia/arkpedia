@@ -1,3 +1,6 @@
+import { serverCalendarTime, type GameServer } from '@/lib/time/servers.mjs';
+import { useRegionalTime } from '@/lib/time/useRegionalTime';
+import { regionalCards } from '@/lib/time/regional';
 import { withContentPage } from '@/lib/content/server';
 import { GetStaticProps } from 'next';
 import Head from 'next/head';
@@ -34,9 +37,11 @@ function daysLeft(end: number, from: number): number {
   return Math.max(0, Math.ceil((end - from) / 86400));
 }
 
-export default function TerminalPage({ candidates, latestIs, latestRa, isThemes, raSeasons, now }: Props) {
+export default function TerminalPage({ candidates: globalCandidates, latestIs, latestRa, isThemes, raSeasons, now }: Props) {
+  const { server, schedule } = useRegionalTime();
+  const candidates = useMemo(() => regionalCards(globalCandidates, schedule, server), [globalCandidates, schedule, server]);
   // The request's clock first, the reader's (to the minute) after mount.
-  const clock = useReaderClockSeconds(now);
+  const clock = useReaderClockSeconds(now, { tickMs: 1000, onFocus: true });
 
   /**
    * What the board leads with.
@@ -49,7 +54,7 @@ export default function TerminalPage({ candidates, latestIs, latestRa, isThemes,
    * right and no use to anybody.
    */
   const { lead, rest } = useMemo(() => {
-    const live = (c: StageModeCard) => !!c.start && !!c.end && c.start <= clock && c.end >= clock;
+    const live = (c: StageModeCard) => !!c.start && !!c.end && c.start <= clock && clock < c.end;
     const byRecency = candidates.slice().sort((a, b) => (b.end || 0) - (a.end || 0));
     const running = byRecency.filter(live).sort((a, b) => (b.start || 0) - (a.start || 0));
     const head = running[0] ?? byRecency[0];
@@ -58,7 +63,7 @@ export default function TerminalPage({ candidates, latestIs, latestRa, isThemes,
       rest: byRecency.filter((c) => c.id !== head?.id).slice(0, 4),
     };
   }, [candidates, clock]);
-  const isLive = (c: StageModeCard) => !!c.start && !!c.end && c.start <= clock && c.end >= clock;
+  const isLive = (c: StageModeCard) => !!c.start && !!c.end && c.start <= clock && clock < c.end;
 
   // Each panel is an .op-section headed by a real h2, the site's section heading (--heading).
   // The labels used to be painted by CSS out of a data-tab attribute, a 10px teal tab
@@ -102,7 +107,7 @@ export default function TerminalPage({ candidates, latestIs, latestRa, isThemes,
                       </span>
                       {card.end && (
                         <span className={`terminal-pill${isLive(card) ? ' live' : ''}`}>
-                          {isLive(card) ? `${daysLeft(card.end, clock)}d` : ended(card.end)}
+                          {isLive(card) ? `${daysLeft(card.end, clock)}d` : ended(card.end, server)}
                         </span>
                       )}
                     </Link>
@@ -133,12 +138,13 @@ export default function TerminalPage({ candidates, latestIs, latestRa, isThemes,
  * markup -- and the format a reader saw depended on when they looked. A locale the
  * page names is the same on the server, in the hydration render and after.
  */
-function ended(end: number): string {
-  return new Date(end * 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+function ended(end: number, server: GameServer): string {
+  return serverCalendarTime(new Date(end * 1000), server).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
 }
 
 /** The event the board leads with, the way the game leads with it: its art, big. */
 function Lead({ card, clock, live }: { card: StageModeCard; clock: number; live: boolean }) {
+  const { server } = useRegionalTime();
   return (
     <Link prefetch={false} href={`/stages/content/${card.id}`} scroll={false} className={`terminal-lead${live ? ' live' : ''}`}>
       <span className="terminal-lead-art">
@@ -156,7 +162,7 @@ function Lead({ card, clock, live }: { card: StageModeCard; clock: number; live:
         <span className="terminal-lead-meta">
           {countOf(card.count, 'stage')}
           {card.end
-            ? live ? ` · ${daysLeft(card.end, clock)} days left` : ` · ran until ${ended(card.end)}`
+            ? live ? ` · ${daysLeft(card.end, clock)} days left` : ` · ran until ${ended(card.end, server)}`
             : ''}
         </span>
       </span>

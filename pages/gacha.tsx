@@ -1,3 +1,5 @@
+import { useRegionalTime } from '@/lib/time/useRegionalTime';
+import { regionalBanners } from '@/lib/time/regional';
 import { isLineupPending, lineupPendingNote, RETURNING_LIMITED_NOTE } from '@/lib/gacha/bannerLineup';
 import { bannerDisplayName } from '@/lib/gacha/bannerDisplayName';
 import { withContentPage } from '@/lib/content/server';
@@ -1408,7 +1410,9 @@ function bannerTutorialPages(banner: BannerConfig | null) {
   return (banner && BANNER_TUTORIAL_PAGES[banner.type]) || null;
 }
 
-export default function GachaSimulator({ pools, banners, kernelLookup, releaseLookup, kernelExclusiveNames, howToObtainLookup, operatorSeriesMap, now }: Props) {
+export default function GachaSimulator({ pools, banners: globalBanners, kernelLookup, releaseLookup, kernelExclusiveNames, howToObtainLookup, operatorSeriesMap, now }: Props) {
+  const { server, schedule } = useRegionalTime();
+  const banners = useMemo(() => regionalBanners(globalBanners, schedule, server), [globalBanners, schedule, server]);
   const router = useRouter();
   // What is live or upcoming is judged on the reader's clock, not the server's: the
   // first render uses the request's `now`, so it matches the markup, and the reader's

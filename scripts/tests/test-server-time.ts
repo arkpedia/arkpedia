@@ -40,7 +40,7 @@ test('regional daily and weekly income, rotations and month keys use the same ac
     assert.deepEqual([incomeBetween(from, to, server).days, incomeBetween(from, to, server).weeks], [1, 1]);
     assert.notDeepEqual(getCurrentlyAvailableChipClasses(from, server), getCurrentlyAvailableChipClasses(to, server));
     assert.equal(serverOffsetLabel(server), 'UTC+9');
-    const monthFrom = at('2026-10-31T14:59:59Z'), monthTo = at('2026-10-31T15:00:00Z');
+    const monthFrom = at('2026-10-31T18:59:59Z'), monthTo = at('2026-10-31T19:00:00Z');
     assert.deepEqual(certificateMonths(monthFrom, monthTo, server), ['2026-10', '2026-11']);
     assert.equal(greenCertificateIncome(monthFrom, monthTo, true, server).months, 1);
     assert.deepEqual(certificateMonths(monthFrom, monthTo, 'en'), ['2026-10']);

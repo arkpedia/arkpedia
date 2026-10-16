@@ -641,6 +641,14 @@
 
 .music-discover-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: var(--heading-gap); }
 .music-discover-section-heading h2 { margin: 0; }
+.music-discover-song-order { display: flex; align-items: center; flex-shrink: 0; gap: 6px; color: var(--text-dim); font-size: 12px; }
+.music-discover-song-order > div { width: 190px; }
+.music-discover-likes-note { margin: 8px 0 0; }
+.music-discover-likes-content { min-height: 230px; }
+.music-discover-album-tile[aria-current="true"] .music-discover-album-tile-cover { border-color: var(--teal); }
+@media (max-width: 600px) {
+  .music-discover-section-heading:has(.music-discover-song-order) { flex-wrap: wrap; }
+}
 .music-discover-active-facet { color: var(--text-dim); font-weight: 600; }
 
 .music-discover-song-list { display: flex; flex-direction: column; gap: 4px; }

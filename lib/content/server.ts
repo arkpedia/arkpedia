@@ -1,6 +1,6 @@
 import { contentPageClock, type PageClockField, type PageClockMoment } from './pageClock';
 import { pageFilePath, isContentPagePath, contentFileUrlPath } from './pagePaths.mjs';
-import { missingPageTables, pageTables } from './tables.mjs';
+import { REGIONAL_ROUTES, missingPageTables, pageTables } from './tables.mjs';
 import { readChannelPointer } from './pointer.mjs';
 import { operatorPageAcceptsName, operatorPageRoute } from '../operators/operatorPagePaths';
 import { createHash } from 'node:crypto';
@@ -187,7 +187,7 @@ export function withContentPage<P extends object>(template: string, builder: Con
   // The page and lib/content/tables.mjs must name the same tables: validate-release
   // checks the list, and the browser reads what the loaders attach. Thrown at module
   // load, so a mismatch fails the build and the export rather than a request.
-  const loaders = options.tables ?? {};
+  const loaders = { ...options.tables, ...(REGIONAL_ROUTES.includes(template) ? { 'regional-schedules': async () => (await import('../time/regionalServer')).regionalTable(template) } : {}) };
   const declared = [...pageTables(template)].sort().join(', ');
   if (Object.keys(loaders).sort().join(', ') !== declared) {
     throw new Error(`${template} must pass a table loader for exactly: ${declared || '(none)'} (lib/content/tables.mjs)`);

@@ -56,6 +56,7 @@ export function currentEventRows(rows: readonly (EventRow | EventRowView)[], now
  * export pruned them itself. Rendering then filters with the same `now`, so this only
  * saves bytes and never changes what is shown. */
 export function pruneScheduleProps<P extends { eventRows: (EventRow | EventRowView)[]; pullBanners?: PullBannerWindows; now: number }>(props: P): P {
+  if ((props as P & { __contentTables?: Record<string, unknown> }).__contentTables?.['regional-schedules']) return props;
   const { now } = props;
   return {
     ...props,

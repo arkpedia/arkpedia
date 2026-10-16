@@ -1,6 +1,7 @@
 import firstClears from '@/data/pull-first-clears.json';
 import freeRewards from '@/data/free-rewards.json';
 import sources from '@/data/pull-sources.json';
+import { allFreeRewards } from './freeRewards';
 import { ORUNDUM_PER_ORIGINITE, type BacklogSources, type Chapter, type PastEvent, type UpcomingBanner } from './pulls';
 
 /**
@@ -82,6 +83,7 @@ export function futureEventOrundum(planned: FutureEvents): { op: number; orundum
  * `inBacklog` against, so the two can only agree when they come from one call.
  */
 export function bundledBacklogSources(): BacklogSources {
+  const beginnerRewards = allFreeRewards(freeRewards).filter(reward => reward.beginner && !reward.beginner.current);
   return {
     chapters: ONE_TIME.chapters,
     originiteByStageType: ONE_TIME.originiteByStageType,
@@ -91,6 +93,7 @@ export function bundledBacklogSources(): BacklogSources {
     annihilation: firstClears.annihilation,
     paradox: freeRewards.paradox,
     freeRewards: freeRewards.rewards.filter(reward => reward.forecast),
+    ...(beginnerRewards.length ? { beginnerRewards } : {}),
   };
 }
 

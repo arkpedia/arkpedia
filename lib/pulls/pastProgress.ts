@@ -25,6 +25,10 @@ export interface PastProgress {
   doneEvents: string[];
   annihilationDone: boolean;
   ticksFrom: string;
+  /** Provenance lets imports replace their own marks without erasing manual progress. */
+  importedDoneKeys?: string[];
+  importedDoneEvents?: string[];
+  importedAccount?: { server: string; uid: string | null };
 }
 
 const strings = (value: unknown) => Array.isArray(value) && value.length <= 5000 && value.every((item) => typeof item === 'string' && item.length <= 200);
@@ -40,6 +44,14 @@ export function parsePastProgress(raw: string | null): PastProgress | null {
       doneEvents: [...new Set(value.doneEvents as string[])],
       annihilationDone: value.annihilationDone === true,
       ticksFrom: typeof value.ticksFrom === 'string' && value.ticksFrom.length <= 40 ? value.ticksFrom : '',
+      ...(strings(value.importedDoneKeys) ? { importedDoneKeys: [...new Set(value.importedDoneKeys as string[])] } : {}),
+      ...(strings(value.importedDoneEvents) ? { importedDoneEvents: [...new Set(value.importedDoneEvents as string[])] } : {}),
+      ...(() => {
+        const account = value.importedAccount as { server?: unknown; uid?: unknown } | undefined;
+        return account && typeof account.server === 'string' && /^[a-z]{2,8}$/.test(account.server)
+          && (account.uid === null || typeof account.uid === 'string' && account.uid.length <= 200)
+          ? { importedAccount: { server: account.server, uid: account.uid as string | null } } : {};
+      })(),
     };
   } catch {
     return null;

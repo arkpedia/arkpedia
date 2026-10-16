@@ -25,6 +25,7 @@ export function openSkinCollections(collections: readonly SkinCollection[], toda
  * A banner stays through the end of its last day, as the planner's own filter has it.
  */
 export function currentPullPlan<P extends PullPlanWindows>(props: P, now: number): P {
+  if ((props as P & { __contentTables?: Record<string, unknown> }).__contentTables?.['regional-schedules']) return props;
   const today = serverCalendarTime(new Date(now), 'en').toISOString().slice(0, 10);
   const scheduledBanners = props.scheduledBanners.filter(banner => planningWindowEnd(banner) > now);
   const names = new Set(scheduledBanners.map(banner => banner.name));

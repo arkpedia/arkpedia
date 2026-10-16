@@ -1,3 +1,5 @@
+import { serverCalendarTime, type GameServer } from '@/lib/time/servers.mjs';
+import { useRegionalTime } from '@/lib/time/useRegionalTime';
 import { withContentPage } from '@/lib/content/server';
 import { GetStaticProps } from 'next';
 import Image from '@/components/content/ContentImage';
@@ -32,25 +34,28 @@ interface Props extends RegularTasks {
   now: number;
 }
 
-const day = (unix: number) =>
-  new Date(unix * 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
+const day = (unix: number, server: GameServer) =>
+  serverCalendarTime(new Date(unix * 1000), server).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
 const weeksLeft = (end: number, from: number) => Math.max(0, Math.round((end - from) / (7 * 86400)));
 
-export default function RegularTasksPage({ rotations, zones, seasons, towers, now }: Props) {
+export default function RegularTasksPage({ rotations: globalRotations, zones, seasons: globalSeasons, towers, now }: Props) {
+  const { server, schedule } = useRegionalTime();
+  const rotations = useMemo(() => server === 'en' ? globalRotations : schedule?.annihilation ?? [], [server, globalRotations, schedule]);
+  const seasons = useMemo(() => server === 'en' ? globalSeasons : schedule?.sss ?? [], [server, globalSeasons, schedule]);
   // The request's clock first, the reader's (to the minute) after mount.
-  const clock = useReaderClockSeconds(now);
+  const clock = useReaderClockSeconds(now, { tickMs: 1000, onFocus: true });
 
   const byId = useMemo(() => new Map(zones.concat(towers).map((c) => [c.id, c])), [zones, towers]);
   const live = useMemo(
-    () => rotations.find((r) => r.start <= clock && r.end >= clock) ?? rotations[rotations.length - 1],
+    () => rotations.find((r) => r.start <= clock && clock < r.end) ?? rotations[rotations.length - 1],
     [rotations, clock]
   );
   const season = useMemo(
-    () => seasons.find((s) => s.start <= clock && s.end >= clock) ?? seasons[seasons.length - 1],
+    () => seasons.find((s) => s.start <= clock && clock < s.end) ?? seasons[seasons.length - 1],
     [seasons, clock]
   );
-  const running = !!live && live.start <= clock && live.end >= clock;
-  const seasonRunning = !!season && season.start <= clock && season.end >= clock;
+  const running = !!live && live.start <= clock && clock < live.end;
+  const seasonRunning = !!season && season.start <= clock && clock < season.end;
 
   const liveZone = live?.contentId ? byId.get(live.contentId) : undefined;
   // A season pairs a NEW tower with a re-run of an older one, and climb_tower_table
@@ -98,8 +103,8 @@ export default function RegularTasksPage({ rotations, zones, seasons, towers, no
                 <span className="regular-now-name">{liveZone?.name ?? live.slug}</span>
                 <span className="regular-now-meta">
                   {running
-                    ? `until ${day(live.end)} · ${countOf(weeksLeft(live.end, clock), 'week')} left`
-                    : `ran until ${day(live.end)}`}
+                    ? `until ${day(live.end, server)} · ${countOf(weeksLeft(live.end, clock), 'week')} left`
+                    : `ran until ${day(live.end, server)}`}
                 </span>
                 <span className="regular-now-go btn btn-sm ghost">Open the map</span>
               </span>
@@ -121,8 +126,8 @@ export default function RegularTasksPage({ rotations, zones, seasons, towers, no
                 <span className="regular-now-name">{season.name}</span>
                 <span className="regular-now-meta">
                   {seasonRunning
-                    ? `until ${day(season.end)} · ${countOf(weeksLeft(season.end, clock), 'week')} left`
-                    : `ran until ${day(season.end)}`}
+                    ? `until ${day(season.end, server)} · ${countOf(weeksLeft(season.end, clock), 'week')} left`
+                    : `ran until ${day(season.end, server)}`}
                 </span>
               </span>
               {/* The season's own two towers, as cards rather than a line of text: they

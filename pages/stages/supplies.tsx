@@ -1,4 +1,5 @@
-import { useAccount } from '@/lib/account/accountStore';
+import { useRegionalTime } from '@/lib/time/useRegionalTime';
+import { supplyDays, supplyOpen } from '@/lib/time/regional';
 import { withContentPage } from '@/lib/content/server';
 import { GetStaticProps } from 'next';
 import Image from '@/components/content/ContentImage';
@@ -38,9 +39,10 @@ interface Props {
   now: number;
 }
 
-export default function SuppliesPage({ cards, buildDay, now = 0 }: Props) {
+export default function SuppliesPage({ cards: globalCards, buildDay, now = 0 }: Props) {
   // The request's server weekday first, the reader's after mount.
-  const server = useAccount()?.server ?? 'en';
+  const { server, schedule } = useRegionalTime();
+  const cards = globalCards.map(card => ({ ...card, days: supplyDays(card.id, schedule, card.days) }));
   const clock = useReaderClock(now, { tickMs: 60_000, onFocus: true });
   const today = clock ? serverWeekday(new Date(clock), server) : buildDay;
   const [picked, setPicked] = useState<string | null>(null);
@@ -86,7 +88,7 @@ export default function SuppliesPage({ cards, buildDay, now = 0 }: Props) {
         <div className="supply-grid">
           {cards.map((card) => {
             const always = card.days.length === WEEKDAYS.length;
-            const open = always || card.days.includes(day);
+            const open = schedule ? supplyOpen(card.id, clock, schedule, server, day) : always || card.days.includes(day);
             return (
               <Link prefetch={false}
                 key={card.id}

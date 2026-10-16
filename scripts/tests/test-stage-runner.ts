@@ -485,10 +485,10 @@ function cnTablesNotSettled(text: string): string[] {
   if (/\bCN_TABLE_SOURCES\b|\bTABLE_CHECKOUTS\b|\.cache\/upstream\/cn-tables/.test(text)) problems.push('reads the CN table sources or their checkouts, not the tables the run settled on');
   // yuanyan3060's art (item/, map/) at its pin is right; anything under its gamedata/ is a CN table.
   if (/yuanyan3060\/ArknightsGameResource(?:\$\{[^}]*\}|\{[^}]*\}|[\w.@/-])*?\/gamedata\b/i.test(text)) problems.push('reads a CN table from yuanyan3060/ArknightsGameResource by itself');
-  // A URL to any gamedata/ folder but Global's (en/, en_US/) is a CN table, however the rest is built.
+  // Explicit EN/JP/KR mirrors are regional clients; other gamedata folders must use the settled CN source.
   const url = /(?:raw\.githubusercontent\.com|api\.github\.com\/repos|cdn\.jsdelivr\.net\/gh|github\.com)\/(?:\$\{[^}]*\}|\{[^}]*\}|[^\s'"`{}])*/g;
   for (const [address] of text.matchAll(url)) {
-    if (/(?<!\/en|\/en_US)\/gamedata(?=\/|$)/.test(address)) problems.push(`builds a URL to a CN table: ${address}`);
+    if (/(?<!\/en|\/en_US|\/jp|\/kr|\/ja_JP|\/ko_KR)\/gamedata(?=\/|$)/.test(address)) problems.push(`builds a URL to a CN table: ${address}`);
   }
   // The same through pin-upstream's raw-url command or rawUrl(), or a checkout of its own.
   for (const line of text.replace(/\\\n\s*/g, ' ').split('\n')) {

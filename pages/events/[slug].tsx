@@ -1,3 +1,5 @@
+import { useRegionalTime } from '@/lib/time/useRegionalTime';
+import { regionalRange } from '@/lib/time/regional';
 import { withContentPage } from '@/lib/content/server';
 import { useEffect, useRef, useState } from 'react';
 import { GetStaticPaths, GetStaticProps } from 'next';
@@ -151,8 +153,8 @@ export default function EventDetailPage({
   name,
   images,
   artAspect,
-  dateRange,
-  isPredicted,
+  dateRange: globalDateRange,
+  isPredicted: globalPredicted,
   bannerName,
   bannerImage,
   lineupPending,
@@ -165,6 +167,10 @@ export default function EventDetailPage({
   summary = null,
   rewardNote = null,
 }: Props) {
+  const { server, schedule } = useRegionalTime();
+  const regionalWindow = schedule?.events?.[name];
+  const dateRange = server === 'en' ? globalDateRange : regionalWindow ? regionalRange(regionalWindow, server) : `${server.toUpperCase()} schedule not announced`;
+  const isPredicted = server === 'en' && globalPredicted;
   const hasExtras = extras.packs.length + extras.furniture.length + extras.notices.length > 0;
   // A page compiled by a release from before the News tab has no `news` at all.
   const news = extras.news ?? [];

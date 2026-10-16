@@ -55,6 +55,8 @@ export interface AccountRecord {
   operators: string[];
   skins: string[];
   cleared: string[];
+  /** Three-star clears that actually award the first-clear Originite. Older snapshots omit it. */
+  rewardCleared?: string[];
   rewardClaims?: RewardClaims;
   annihilation?: string[];
   outfits?: Record<string, string>;
@@ -190,6 +192,7 @@ export function parseAccount(raw: string | null): AccountRecord | null {
     ...(base ? { base } : {}),
     ...(parseRewardClaims(value.rewardClaims) ? { rewardClaims: parseRewardClaims(value.rewardClaims) } : {}),
     operators: value.operators as string[], skins: value.skins as string[], cleared: value.cleared as string[],
+    ...(strings(value.rewardCleared, 50000) ? { rewardCleared: value.rewardCleared as string[] } : {}),
     ...(operatorBuilds ? { operatorBuilds } : {}),
     ...(strings(value.annihilation, 500) ? { annihilation: value.annihilation as string[] } : {}),
     ...(value.outfits && typeof value.outfits === 'object' ? { outfits: Object.fromEntries(Object.entries(value.outfits as Record<string, unknown>)
@@ -242,19 +245,28 @@ export function accountFromGame(user: Record<string, any>, map: GameAccountMap, 
     }
   }
   const stages = (user.dungeon?.stages ?? {}) as Record<string, { state?: number }>;
+  // Paradox Simulations are operator handbook stages, outside dungeon.stages.
+  // UNLOCKED/PLAYED/PASS are not the COMPLETE first-reward state.
+  const handbookStages = Object.values(user.troop?.addon && typeof user.troop.addon === 'object' && !Array.isArray(user.troop.addon)
+    ? user.troop.addon : {}).flatMap((addon: any) => addon?.stage && typeof addon.stage === 'object' && !Array.isArray(addon.stage)
+      ? Object.entries(addon.stage) as [string, { state?: number }][] : []);
+  const cleared = [...Object.entries(stages), ...handbookStages].filter(([, stage]) => typeof stage?.state === 'number' && stage.state >= 2).map(([id]) => id);
+  const rewardCleared = [...Object.entries(stages), ...handbookStages].filter(([, stage]) => stage?.state === 3).map(([id]) => id);
   const status = user.status ?? {};
   const medalCollection = medalsFromGame(user.medal?.medals);
   const base = baseSnapshotFromGame(user, map);
   return {
     version: 1,
-    rewardClaims: rewardClaimsFromGame(user),
+    rewardClaims: rewardClaimsFromGame(user, server === 'en' ? map.beginnerPrograms : undefined),
     server,
     importedAt: now.toISOString(),
     ...(base ? { base } : {}),
     doctor: status.nickName ? `${status.nickName}#${status.nickNumber ?? ''}` : null,
     operators: [...operators].sort(),
     skins: Object.keys(user.skin?.characterSkins ?? {}).sort(),
-    cleared: Object.entries(stages).filter(([, stage]) => (stage?.state ?? 0) >= 2).map(([id]) => id).sort(),
+    cleared: [...new Set(cleared)].sort(),
+    ...((user.dungeon?.stages && typeof user.dungeon.stages === 'object' && !Array.isArray(user.dungeon.stages)) || handbookStages.length
+      ? { rewardCleared: [...new Set(rewardCleared)].sort() } : {}),
     annihilation: Object.entries((user.campaignsV2?.instances ?? {}) as Record<string, { rewardStatus?: unknown }>)
       .filter(([, map]) => Array.isArray(map?.rewardStatus) && map.rewardStatus.length > 0 && map.rewardStatus.every((claimed) => claimed === 1))
       .map(([id]) => id).sort(),

@@ -38,7 +38,7 @@ test('the ticker names SSS inside the last three days of the cycle it is given',
 test('the cycle is a checked release table of the home page, and no date is typed into the code', () => {
   assert.throws(() => checkSssCycle({ version: 1, cycleEnd: '2026-08-17 19:00', periodDays: 28 }), /is not/);
   assert.throws(() => checkSssCycle({ version: 1, cycleEnd: '2026-08-17T11:00:00Z', periodDays: 0 }), /is not/);
-  assert.deepEqual(pageTables('/'), ['sss-cycle']);
+  assert.deepEqual(pageTables('/'), ['sss-cycle', 'regional-schedules']);
   const code = fs.readFileSync('lib/schedule/opsSchedules.ts', 'utf8');
   assert.doesNotMatch(code, /SSS_FIRST_END|SSS_CYCLE_MS|\b20\d\d, month:/);
   assert.match(fs.readFileSync('scripts/content/hydrate-source.mjs', 'utf8'), /'data\/sss-cycle\.json'/);
@@ -46,5 +46,5 @@ test('the cycle is a checked release table of the home page, and no date is type
   assert.match(fs.readFileSync('pages/index.tsx', 'utf8'), /<AnnouncementTicker sssCycle=\{sssCycle\} \/>/);
   const ticker = fs.readFileSync('components/layout/AnnouncementTicker.tsx', 'utf8');
   assert.match(ticker, /AnnouncementTicker\(\{ sssCycle \}: \{ sssCycle: SssCycle \}\)/);
-  assert.match(ticker, /getActiveReminders\(new Date\(\), sssCycleRef\.current, server\)/);
+  assert.match(ticker, /getActiveReminders\(new Date\(\), sssCycleRef\.current, server, scheduleRef\.current\)/);
 });

@@ -8,7 +8,7 @@ export interface MaterialCountdown {
 }
 
 /** A Global event window as epoch ms, end exclusive (parseGameWindow). */
-export interface CountdownWindow { start: number; end: number }
+export interface CountdownWindow { start: number; end: number; event?: string }
 
 /**
  * What the Farming page needs to work out its countdowns, and nothing decided yet.

@@ -24,7 +24,7 @@ function without(pool: GachaItem[], featured: GachaItem[]): GachaItem[] {
 export function parseBannerWindow(banner: HeadhuntingBanner) {
   const global = Boolean(banner.global_date);
   return parseGameWindow(global ? banner.global_date : banner.cn_date,
-    global ? banner.global_window : banner.cn_window, global ? 'global' : 'cn',
+    global ? banner.global_window : banner.cn_window, global ? banner.timingServer ?? 'global' : 'cn',
     banner.pull_type === 'standard' || banner.pull_type === 'kernel');
 }
 

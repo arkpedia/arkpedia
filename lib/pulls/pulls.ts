@@ -1,5 +1,5 @@
 import { planningWindowEnd } from './planningWindows';
-import { serverCalendarTime, parseInstant, type GameServer } from '@/lib/time/servers.mjs';
+import { toServerTime, parseInstant, type GameServer } from '@/lib/time/servers.mjs';
 import { freeRewardTotals, type FreeReward } from './freeRewards';
 import { getAnnihilationNextEnd, getNextDailyReset } from '@/lib/schedule/opsSchedules';
 import { wishingWallOrundum, type WishingWallMode } from './wishingWall';
@@ -160,6 +160,7 @@ export interface BacklogSources {
   annihilation: FirstClear[];
   paradox?: FirstClear[];
   freeRewards?: FreeReward[];
+  beginnerRewards?: FreeReward[];
 }
 
 /** `stages` and `stageCodes` are absent from a release exported by code from before they were
@@ -188,7 +189,8 @@ export function fillFromDeployment(release: BacklogSources, deployment: BacklogS
   };
   const listed = new Set(release.annihilation.map((map) => map.id));
   const annihilation = [...release.annihilation, ...deployment.annihilation.filter((map) => !listed.has(map.id))].sort((a, b) => a.id.localeCompare(b.id));
-  return { ...release, chapters: release.chapters.map(fill), playable: release.playable.map(fill), annihilation, paradox: release.paradox ?? deployment.paradox ?? [], freeRewards: release.freeRewards ?? deployment.freeRewards ?? [] };
+  return { ...release, chapters: release.chapters.map(fill), playable: release.playable.map(fill), annihilation, paradox: release.paradox ?? deployment.paradox ?? [], freeRewards: release.freeRewards ?? deployment.freeRewards ?? [],
+    ...(!release.freeRewards && !release.beginnerRewards && deployment.beginnerRewards ? { beginnerRewards: deployment.beginnerRewards } : {}) };
 }
 
 /**
@@ -315,6 +317,7 @@ export { WISH_MIN_ORUNDUM } from './wishingWall';
 export const EVENT_SHOP_PERMITS = 3;
 
 export interface UpcomingBanner {
+  server?: GameServer;
   name: string;
   aliases?: string[];
   /** The linked event still uses a predicted Global window in the schedule. */
@@ -371,7 +374,7 @@ export function bannerFreePulls(banner: UpcomingBanner, when: Date): number {
   if (!Number.isFinite(end)) return 0;
   const through = Math.min(when.getTime(), end - 1);
   const daysIn = banner.startAt === undefined ? Math.floor((when.getTime() - start) / 86400000) + 1
-    : incomeBetween(new Date(start), new Date(through), 'en').days + 1;
+    : incomeBetween(new Date(start), new Date(through), banner.server ?? 'en').days + 1;
   const daily = Math.max(0, Math.min(banner.freeDaily, daysIn));
   return banner.freeTicket + daily;
 }
@@ -479,7 +482,7 @@ export interface Income {
   days: number;
   /** Weekly resets crossed -- the weekly mission AND the Annihilation cap. */
   weeks: number;
-  /** Calendar months crossed, for the certificate shop's allowance. */
+  /** Game-calendar months crossed at 04:00, for the certificate shop allowance. */
   months: number;
   daily: number;
   weekly: number;
@@ -510,7 +513,7 @@ export function incomeBetween(from: Date, to: Date, server: GameServer = 'en'): 
 
   /* Calendar months, which is what a monthly shop allowance follows -- not
      30-day blocks. */
-  const startMonth = serverCalendarTime(from, server), endMonth = serverCalendarTime(to, server);
+  const startMonth = toServerTime(from, server), endMonth = toServerTime(to, server);
   const months = Math.max(0, (endMonth.getUTCFullYear() - startMonth.getUTCFullYear()) * 12 + endMonth.getUTCMonth() - startMonth.getUTCMonth());
 
   const daily = days * DAILY_ORUNDUM;

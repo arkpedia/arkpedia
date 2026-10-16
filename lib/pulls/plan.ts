@@ -1,4 +1,4 @@
-import { DAY_MS, getNextDailyReset, parseInstant } from '@/lib/time/servers.mjs';
+import { DAY_MS, getNextDailyReset, parseInstant, type GameServer } from '@/lib/time/servers.mjs';
 import { planningWindowEnd, planningDeadline } from './planningWindows';
 import { type IncomeSettings } from './incomeSettings';
 import type { WishingWallMode } from './wishingWall';
@@ -138,7 +138,7 @@ export function availableBannerFreePulls(banner: UpcomingBanner, when: Date, now
   if (when < now || now.getTime() >= planningWindowEnd(banner)) return 0;
   const dayBeforeNow = banner.startAt === undefined
     ? new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) - 1)
-    : new Date(getNextDailyReset(now, 'en').getTime() - DAY_MS - 1);
+    : new Date(getNextDailyReset(now, banner.server ?? 'en').getTime() - DAY_MS - 1);
   const pastDaily = Math.max(0, bannerFreePulls(banner, dayBeforeNow) - banner.freeTicket);
   return Math.max(0, bannerFreePulls(banner, when) - pastDaily - (ticketUsed ? banner.freeTicket : 0));
 }
@@ -158,11 +158,11 @@ export interface BudgetRow {
 /** walletAt is cumulative ordinary savings, including fractional currency before
  * rounding to whole pulls. Banner-only free pulls never enter that wallet.
  * Negative balances remain negative: later rows must not forgive earlier debt. */
-export function planBudgets(goals: readonly BannerGoal[], banners: readonly UpcomingBanner[], now: Date, walletAt: (date: Date) => number): BudgetRow[] {
+export function planBudgets(goals: readonly BannerGoal[], banners: readonly UpcomingBanner[], now: Date, walletAt: (date: Date) => number, server: GameServer = 'en'): BudgetRow[] {
   let spent = 0;
   return goals.map((goal, index) => ({ goal, index })).sort((a, b) => a.goal.spendOn.localeCompare(b.goal.spendOn) || a.index - b.index).map(({ goal }) => {
     const banner = banners.find(b => b.name === goal.banner || b.aliases?.includes(goal.banner)) ?? null;
-    const when = planningDeadline(banner ?? { end: goal.spendOn, endAt: goal.bannerEndAt }, goal.spendOn);
+    const when = planningDeadline(banner ?? { end: goal.spendOn, endAt: goal.bannerEndAt, server }, goal.spendOn);
     const expired = when < now;
     const issue = expired ? 'This spending date has passed. Remove this goal and update your holdings with what you actually spent.' : !banner ? 'This banner is missing from the current schedule.' : goal.spendOn < banner.start || goal.spendOn > banner.end ? 'This date is outside the current banner dates. Choose a date during its run.' : null;
     // Past goals are not deducted again from today's updated holdings. Unknown

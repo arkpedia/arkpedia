@@ -1,0 +1,91 @@
+import { test, expect } from '@playwright/test';
+import regional from '../../data/regional-schedules.json';
+const NAME = '[Celebration] Sealed With Time';
+const EVENT = '[Celebration] Critical Phase Transition';
+async function account(page: import('@playwright/test').Page, server: string) {
+  await page.evaluate(server => { localStorage.setItem('arkpediaAccount', JSON.stringify({ version: 1, server, importedAt: '2026-10-16T00:00:00Z', doctor: 'Regional QA', operators: [], skins: [], cleared: [] }));window.dispatchEvent(new Event('arkpediaAccountChanged')); }, server);
+}
+
+test('regional banner closes before Global and same-page account changes update live status', async ({ page }) => {
+  const closing = new Date(regional.servers.jp.banners[NAME].endAt);
+  await page.clock.setFixedTime(new Date(closing.getTime() - 60_000));
+  await page.goto('/gacha');await account(page, 'jp');
+  // Use the real record's stable name, independently of translated visible lineup text.
+  const sidebar = page.locator('.gacha-banner-sidebar');
+  await expect(sidebar).toContainText('LIVE NOW');
+  expect(await page.locator('#__NEXT_DATA__').evaluate(el => JSON.parse(el.textContent!).props.pageProps.__contentTables['regional-schedules'].servers.jp.banners['[Celebration] Sealed With Time'].endAt)).toBe(closing.toISOString());
+  await page.clock.setFixedTime(closing);await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
+  await expect(sidebar.getByTitle(NAME,{exact:true})).toHaveCount(0);
+  await account(page, 'en');
+  await expect(sidebar.getByTitle(NAME,{exact:true})).toBeVisible();
+  await account(page, 'kr');
+  await expect(sidebar.getByTitle(NAME,{exact:true})).toHaveCount(0);
+});
+
+test('selected-server Supplies use the reset weekday and actual sniper-chip rotation', async ({ page }) => {
+  await page.clock.setFixedTime(new Date('2026-10-17T18:59:00Z')); // JP Saturday 03:59 Sunday wall clock.
+  await page.goto('/stages/supplies');await account(page,'jp');
+  await expect(page.getByRole('button',{name:'Saturday, today',exact:true})).toHaveAttribute('aria-pressed','true');
+  const sniper = page.locator('a.supply-card[href="/stages/content/weekly_2"]');
+  await expect(sniper).toHaveClass(/open/);
+  await page.clock.setFixedTime(new Date('2026-10-17T19:00:00Z'));await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
+  await expect(page.getByRole('button',{name:'Sunday, today',exact:true})).toHaveAttribute('aria-pressed','true');
+  await expect(sniper).toHaveClass(/shut/);
+  await account(page,'en');
+  await expect(page.getByRole('button',{name:'Saturday, today',exact:true})).toHaveAttribute('aria-pressed','true');
+  await expect(sniper).toHaveClass(/open/);
+});
+
+test('regional event and shop deadlines stay distinct on schedule and skin planner', async ({page})=>{
+  const closing = new Date(regional.servers.jp.events[EVENT].endAt);
+  await page.clock.setFixedTime(new Date(closing.getTime()-60_000));
+  await page.goto('/schedule');await account(page,'jp');
+  const event = page.locator('.events-row').filter({hasText:EVENT});await expect(event).toBeVisible();
+  await page.clock.setFixedTime(closing);await page.evaluate(()=>window.dispatchEvent(new Event('focus')));await expect(event).toHaveCount(0);
+  await account(page,'en');await expect(event).toBeVisible();
+  const shop = regional.servers.kr.skinWindows.find(window=>window.event===EVENT && window.label==='New outfits')!;
+  await page.clock.setFixedTime(new Date(Date.parse(shop.endAt)-60_000));await page.goto('/skin-planner');await account(page,'kr');
+  const collection=page.getByRole('region',{name:`${EVENT.replace(/^\[[^\]]*\]\s*/, '')} · New outfits`,exact:true});await expect(collection).toBeVisible();
+  await page.clock.setFixedTime(new Date(shop.endAt));await page.evaluate(()=>window.dispatchEvent(new Event('focus')));await expect(collection).toHaveCount(0);
+});
+
+
+test('a saved Global deadline cannot keep a JP/KR goal reserved after its regional close', async ({ page }) => {
+  const close = new Date(regional.servers.jp.banners[NAME].endAt);
+  const plan = { version: 1, orundum: '12345', originite: '60', permits: '10', reservedOP: '42', until: '2026-10-28', manualEventDate: '', bannerName: '', monthlyCard: true, includeBacklog: false, annihilationDone: false, doneEvents: [], doneKeys: [], clearedReruns: [], future: {}, goals: [{ banner: NAME, spendOn: '2026-10-28', bannerEndAt: '2026-10-28T11:00:00.000Z', pulls: 80, ticketUsed: true, targets: [{ name: 'Amiya', copies: 2 }] }] };
+  await page.addInitScript(plan => localStorage.setItem('arkpedia.pull-plan.v1', JSON.stringify(plan)), plan);
+  await page.clock.setFixedTime(new Date(close.getTime() - 60_000));
+  await page.goto('/pulls');await account(page,'jp');
+  await expect(page.getByRole('heading',{name:/Your banners 1/})).toBeVisible();
+  await expect(page.locator('.site-nav-clock:visible').first()).toContainText('03:59');
+  const before = await page.evaluate(()=>JSON.parse(localStorage.getItem('arkpedia.pull-plan.v1')!));
+  await page.clock.setFixedTime(close);await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
+  await expect(page.getByText('Closed',{exact:true})).toBeVisible();
+  await account(page,'en');await expect(page.getByText('Closed',{exact:true})).toHaveCount(0);
+  await account(page,'kr');await expect(page.getByText('Closed',{exact:true})).toBeVisible();
+  const after = await page.evaluate(()=>JSON.parse(localStorage.getItem('arkpedia.pull-plan.v1')!));
+  for (const key of ['orundum','originite','permits','reservedOP','until','goals']) expect(after[key]).toEqual(before[key]);
+});
+
+test('regional reward labels use the server calendar and manual claims survive closing and switching', async ({ page }) => {
+  const id = 'free:signin82:1';
+  const close = new Date(regional.servers.jp.rewardWindows[id].endAt);
+  const progress = { doneKeys: [id, 'manual:regional-qa'], doneEvents: ['manual:event'], annihilationDone: true, ticksFrom: '2026-10-16T00:00:00Z', importedDoneKeys: [] };
+  await page.addInitScript(progress => localStorage.setItem('arkpedia.past-rewards.v1', JSON.stringify(progress)), progress);
+  await page.clock.setFixedTime(new Date(close.getTime() - 60_000));
+  await page.goto('/free-op');await account(page, 'jp');
+  await page.getByRole('tab', { name: 'Free rewards', exact: true }).click();
+  await page.getByRole('group', { name: 'Free rewards status' }).getByRole('button', { name: 'Claimed', exact: true }).click();
+  await page.getByRole('searchbox', { name: 'Search free rewards' }).fill('October · Day 1');
+  await page.getByText('Monthly sign-in', { exact: true }).click();
+  const reward = page.getByRole('checkbox', { name: 'October · Day 1', exact: true });
+  await expect(reward).toBeChecked();
+  await expect(page.locator('.free-reward-meta')).toHaveText('Until 2026-11-01');
+  await page.clock.setFixedTime(close);await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+  await expect(reward).toHaveCount(0);
+  await account(page, 'en');
+  await expect(reward).toBeChecked();
+  await account(page, 'kr');await expect(reward).toHaveCount(0);
+  const after = await page.evaluate(() => JSON.parse(localStorage.getItem('arkpedia.past-rewards.v1')!));
+  for (const key of ['doneKeys', 'doneEvents', 'annihilationDone']) expect(after[key]).toEqual(progress[key as keyof typeof progress]);
+});

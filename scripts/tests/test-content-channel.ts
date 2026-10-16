@@ -123,7 +123,7 @@ test('a superseded dev run and a branch with no channel open no failed-release i
 });
 
 /* Least privilege for the release job, which runs the day's scrapers over upstream data: no token
-   that can start workflows (only the job that starts dev's run after the scheduled one has it),
+   that can start workflows (only the job that starts dev after scheduled or successful manual main preparation has it),
    and on the dev channel no write key to the art repositories, which are production's. */
 test('only the dev dispatch can start workflows, and only main\'s run gets the art repositories\' keys', () => {
   type Job = { if?: string; needs?: string; 'runs-on'?: string; permissions?: Record<string, string>; steps: { name?: string; run?: string; env?: Record<string, string>; 'continue-on-error'?: boolean }[] };
@@ -132,9 +132,12 @@ test('only the dev dispatch can start workflows, and only main\'s run gets the a
   const dispatchers = Object.entries(workflow.jobs).filter(([, job]) => job.steps.some(step => /\bgh workflow run\b/.test(step.run ?? '')));
   assert.deepEqual(dispatchers.map(([name]) => name), ['start-dev']);
   const [, start] = dispatchers[0];
-  assert.deepEqual([start.needs, start.if, start.permissions], ['prepare', "${{ !cancelled() && github.event_name == 'schedule' }}", { contents: 'read', actions: 'write' }]);
-  assert.equal(start.steps.length, 1, 'no checkout: it runs one gh command');
-  // One gh call, so the light runner, as Deploy's targets job (which also only calls GitHub's API):
+  assert.deepEqual([start.needs, start.if, start.permissions], ['prepare', "${{ !cancelled() && (github.event_name == 'schedule' || (github.ref_name == 'main' && needs.prepare.result == 'success')) }}", { contents: 'read', actions: 'write' }]);
+  assert.equal(start.steps.length, 1, 'no checkout: the one step calls the API and dispatches dev');
+  assert.equal(start.steps[0].env?.REFRESH_UPSTREAM, "${{ github.event_name == 'schedule' && 'true' || 'false' }}");
+  assert.match(start.steps[0].run ?? '', /revision=\$\(gh api repos\/arkpedia\/arkpedia-data\/commits\/main --jq \.sha\)/);
+  assert.match(start.steps[0].run ?? '', /--ref dev -f "data_ref=\$revision" -f "refresh_upstream=\$REFRESH_UPSTREAM"/);
+  // API calls only, so the light runner, as Deploy's targets job (which also only calls GitHub's API):
   // on the NAS it queued behind a whole Check.
   const deploy = yaml.load(fs.readFileSync('.github/workflows/deploy.yml', 'utf8')) as { jobs: Record<string, { 'runs-on'?: string }> };
   assert.equal(start['runs-on'], deploy.jobs.targets['runs-on']);

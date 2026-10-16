@@ -1,3 +1,5 @@
+import { useRegionalTime } from '@/lib/time/useRegionalTime';
+import { regionalSkinWindows, regionalEvents } from '@/lib/time/regional';
 import { SERVER_TIME, serverOffsetLabel } from '@/lib/time/servers.mjs';
 import { withContentPage } from '@/lib/content/server';
 import { GetStaticProps } from 'next';
@@ -57,7 +59,9 @@ const SORT_OPTIONS = [
   { value: 'available', label: 'Availability' },
 ];
 
-export default function SkinsGallery({ skins, events, now, availabilityWindows, dynamicArt = {} }: Props) {
+export default function SkinsGallery({ skins, events: globalEvents, now, availabilityWindows, dynamicArt = {} }: Props) {
+  const { server, schedule } = useRegionalTime();
+  const events = useMemo(() => regionalEvents(globalEvents, schedule, server), [globalEvents, schedule, server]);
   // The open skin lives in the URL, addressed by name (the same key the
   // wishlist already treats as a skin's identity) -- so a specific
   // skin's detail view can be shared as a link. Opening the dialog sets
@@ -84,7 +88,7 @@ export default function SkinsGallery({ skins, events, now, availabilityWindows, 
   // Recompute from acquisition windows even when runtime content contains old
   // build-time availability flags. Initial server/client clocks still agree.
   // SL-4b: the bundled confirmed windows still merge in here until the maintainer decides.
-  const windows = useMemo(() => withLocalConfirmedSkinWindows(availabilityWindows), [availabilityWindows]);
+  const windows = useMemo(() => regionalSkinWindows(withLocalConfirmedSkinWindows(availabilityWindows), schedule, server), [availabilityWindows, schedule, server]);
   const availability = useMemo(() => computeSkinCountdowns(skins, events, new Date(clock), windows), [skins, events, clock, windows]);
   const availabilityFilter = query.availability === 'draw' ? '' : query.availability;
   const setAvailabilityFilter = (value: string) => setQuery('availability', value);
