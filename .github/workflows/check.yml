@@ -27,11 +27,11 @@ permissions:
   issues: write
 
 jobs:
-  # A push to main whose code a pull request's Check already passed is not checked again:
-  # its merge result had this same git tree, so Deploy follows at once. Anything else that
-  # landed in between changes the tree, and the full Check runs (scripts/ci/already-checked.mjs).
+  # Reuse a successful PR Check of this exact merge tree on pushes and same-repository PRs.
+  # This also covers a rebase that changes only ancestry. Any changed file, missing proof or
+  # API failure runs the full Check; forks and manual checks always run it.
   seen:
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
     # A few seconds of API calls: on the light runner (ARKPEDIA_LIGHT_RUNNER, the VPS), so a
     # merge's push is not queued behind another pull request's whole Check on the NAS before
     # it can vouch and let Deploy start. Falls back to ARKPEDIA_RUNNER when unset.
@@ -68,8 +68,8 @@ jobs:
 
   check:
     needs: seen
-    # Runs when `seen` found nothing, and on every pull request (where `seen` is skipped);
-    # a failed `seen` runs it too.
+    # A cache miss, failed lookup or skipped lookup runs the full Check.
+    # Only an explicit exact-tree proof skips it.
     if: ${{ !cancelled() && needs.seen.outputs.checked != 'true' }}
     # ARKPEDIA_RUNNER (a repository variable) names the self-hosted runner's label, e.g.
     # arkpedia-vps; unset, jobs run on GitHub's hosted runners. See docs/development/ci-runner.md.

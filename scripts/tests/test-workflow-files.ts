@@ -176,11 +176,19 @@ test('Deploy runs once per listed deployment, with that project\'s ids and token
   assert.deepEqual([byName('Forget the pulled project settings').if, byName('Forget the pulled project settings').run], ['always()', 'rm -rf .vercel']);
 });
 
-test("main runs the full Check unless a green pull request Check already ran its exact code", () => {
+test("pushes and same-repository PRs reuse only a successful exact-tree Check", () => {
   const workflow = load('check.yml') as unknown as { jobs: Record<string, Job & { needs?: unknown; outputs?: Record<string, string>; permissions?: Record<string, string> }> };
   const seen = workflow.jobs.seen;
   const check = workflow.jobs.check;
-  assert.equal(String(seen.if), "github.event_name == 'push'", 'the lookup runs on pushes only');
+  // Exercise the actual workflow condition: forks and explicit manual rechecks
+  // must never take the cache path. A matching tree is still required by the script.
+  const eligible = new Function('github', `return (${String(seen.if)});`) as (github: unknown) => boolean;
+  const github = (event_name: string, head = 'arkpedia/arkpedia') => ({ event_name, repository: 'arkpedia/arkpedia', event: { pull_request: { head: { repo: { full_name: head } } } } });
+  assert.equal(eligible(github('push')), true);
+  assert.equal(eligible(github('pull_request')), true);
+  assert.equal(eligible(github('pull_request', 'someone/fork')), false);
+  assert.equal(eligible(github('pull_request', '')), false);
+  assert.equal(eligible(github('workflow_dispatch')), false);
   // Self-hosted like Check, never a hosted runner for our pushes: the light runner first (a few
   // seconds of API calls, so a merge does not queue behind a whole Check), then Check's own.
   assert.equal(String(seen['runs-on']), String(check['runs-on']).replace('vars.ARKPEDIA_RUNNER ||', 'vars.ARKPEDIA_LIGHT_RUNNER || vars.ARKPEDIA_RUNNER ||'),
@@ -189,7 +197,7 @@ test("main runs the full Check unless a green pull request Check already ran its
   assert.equal(seen.outputs?.checked, '${{ steps.seen.outputs.checked }}');
   assert.ok(seen.steps!.some(step => step.run === 'node scripts/ci/already-checked.mjs >> "$GITHUB_OUTPUT"'));
   assert.equal(check.needs, 'seen');
-  // A failed or skipped lookup (every pull request) still runs everything; only an explicit true skips.
+  // A failed or skipped lookup still runs everything; only an explicit true skips.
   assert.equal(String(check.if).replace(/\s+/g, ' '), "${{ !cancelled() && needs.seen.outputs.checked != 'true' }}");
   const steps = (check.steps ?? []) as (Step & { with?: Record<string, unknown> })[];
   const record = steps.find(step => step.name === 'Record the code this Check passed');

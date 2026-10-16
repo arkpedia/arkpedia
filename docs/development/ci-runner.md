@@ -104,6 +104,16 @@ Workflows must not assume a fresh machine: write temporary files under
 
 ## Avoid repeated checks
 
+Pushes and same-repository pull requests first ask whether a completed, successful
+PR Check already tested their exact prospective merge tree. A history-only rebase
+can reuse that proof. Every file belongs to the tree, including tests and workflows:
+a changed file or changed integration result requires its own Check. The proof must
+come from this repository's Check workflow, with a matching unexpired artifact and
+a successful completed run from this repository. PR reuse also requires the same
+target branch; unknown base metadata runs the full Check. Missing or unreadable evidence
+runs the full Check. Forks and explicit manual rechecks always run it. Only full
+checks record artifacts; a reused result cannot create a new proof chain.
+
 Check runs application regressions and `npm run test:py` concurrently in one step;
 Python suites run sequentially within their own process and use temporary fixtures.
 Both verdicts are collected and either failure fails Check. `test:py` discovers
