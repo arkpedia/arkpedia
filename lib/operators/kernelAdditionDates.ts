@@ -1,3 +1,4 @@
+import { serverDayBoundary } from '@/lib/time/servers.mjs';
 // Every operator with a specifically-recorded Kernel Addition Date so
 // far shares the exact same date -- a strong signal this was one bulk
 // migration event that moved many older operators into Kernel-only
@@ -22,7 +23,7 @@ export function kernelMoveInstant(s: string | null | undefined): Date | null {
   if (!trimmed || trimmed.toUpperCase() === 'N/A') return null;
   const strict = trimmed.match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})$/);
   const day = strict ? Date.UTC(Number(strict[1]), Number(strict[2]) - 1, Number(strict[3])) : Date.parse(`${trimmed} UTC`);
-  return Number.isFinite(day) ? new Date(day + 11 * 3_600_000) : null;
+  return Number.isFinite(day) ? new Date(serverDayBoundary(day, 'en', 'reset')) : null;
 }
 
 export type KernelAdditionLookup = Record<string, string>;

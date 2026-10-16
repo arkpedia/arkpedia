@@ -1,8 +1,8 @@
+import { serverDay, SERVER_TIME } from '../../lib/time/servers.mjs';
 /** EN client reconciliation, independent of wiki availability and forecast dates.
  * Mutates records; existing pool IDs and historical lineups remain stable. */
 import { newsSections, parseDuration } from '../build/official-news.mjs';
-const day = seconds => new Date((seconds - 7 * 3600) * 1000).toISOString().slice(0, 10).replaceAll('-', '/');
-const days = pool => `${day(pool.openTime)}–${day(pool.endTime)}`;
+const days = pool => `${serverDay(pool.openTime, SERVER_TIME.en.offset)}–${serverDay(pool.endTime, SERVER_TIME.en.offset)}`;
 const bare = name => String(name ?? '').replace(/\[[^\]]*\]/g, '').replace(/\s+rerun\s*$/i, '')
   .normalize('NFKD').replace(/[^\p{L}\p{N}]/gu, '').toLowerCase();
 const ordinal = banner => /^Orienteering #?(\d+)$/.exec(banner.name)?.[1];
@@ -19,7 +19,7 @@ export function savedGlobalBannerNotice(banner, pool) {
   return banner.globalScheduleStatus === 'announced'
     && /^https:\/\/(?:www\.)?arknights\.global\/news\/\d+(?:[#?].*)?$/.test(saved?.timingSource ?? '')
     && Number.isFinite(start) && Number.isFinite(end) && start < end
-    && day(start / 1000) === day(pool.openTime) && day((end - 1000) / 1000) === day(pool.endTime)
+    && serverDay(start / 1000, SERVER_TIME.en.offset) === serverDay(pool.openTime, SERVER_TIME.en.offset) && serverDay((end - 1000) / 1000, SERVER_TIME.en.offset) === serverDay(pool.endTime, SERVER_TIME.en.offset)
     ? { startAt: saved.startAt, endAt: saved.endAt, source: saved.timingSource } : null;
 }
 
@@ -58,7 +58,7 @@ export function reconcileGlobalClientBanners({ banners, gachaTable, operators, c
       }
       banner = candidates[0];
       if (!banner) {
-        banner = { name: `Orienteering #${number}`, category: 'special', pull_type: 'orienteering', year: Number(day(pool.openTime).slice(0, 4)),
+        banner = { name: `Orienteering #${number}`, category: 'special', pull_type: 'orienteering', year: Number(serverDay(pool.openTime, SERVER_TIME.en.offset).slice(0, 4)),
           cn_date: null, global_date: null, linked_event: null, banner_image: null, six_stars: [], five_stars: [], lineupSource: 'pending' };
         banners.push(banner); additions.push(banner.name);
       }
@@ -75,8 +75,8 @@ export function reconcileGlobalClientBanners({ banners, gachaTable, operators, c
     // Client opens may precede maintenance ending. A named official window for
     // this run wins; a shared generic title alone never identifies an edition.
     const notice = notices.filter(n => (n.kind ? n.kind === pool.gachaRuleType : bare(n.name) === bare(pool.gachaPoolName))
-      && day(Date.parse(n.startAt) / 1000) === day(pool.openTime)
-      && day((Date.parse(n.endAt) - 1000) / 1000) === day(pool.endTime)).at(-1) ?? savedGlobalBannerNotice(banner, pool);
+      && serverDay(Date.parse(n.startAt) / 1000, SERVER_TIME.en.offset) === serverDay(pool.openTime, SERVER_TIME.en.offset)
+      && serverDay((Date.parse(n.endAt) - 1000) / 1000, SERVER_TIME.en.offset) === serverDay(pool.endTime, SERVER_TIME.en.offset)).at(-1) ?? savedGlobalBannerNotice(banner, pool);
     const startAt = notice?.startAt ?? new Date(pool.openTime * 1000).toISOString();
     const endAt = notice?.endAt ?? new Date((pool.endTime + (pool.endTime % 60 === 59 ? 1 : 0)) * 1000).toISOString();
     const same = banner.global_window?.startAt === startAt && banner.global_window?.endAt === endAt;

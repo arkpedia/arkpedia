@@ -1,4 +1,4 @@
-import { serverWeekday } from '@/lib/time/serverDay';
+import { serverWeekday } from '@/lib/time/servers.mjs';
 
 /** Presentation clocks belong to the request, not to a versioned game record.
  *
@@ -12,6 +12,7 @@ const CLOCK_UNITS: Record<string, number> = {
   '/': 60_000,
   '/operators': 60_000,
   '/skins': 60_000,
+  '/stages/supplies': 60_000,
   '/stages': 1000,
   '/stages/all': 1000,
   '/stages/browse': 1000,
@@ -31,10 +32,10 @@ const CLOCK_UNITS: Record<string, number> = {
 };
 
 /** Every route contentPageClock gives a clock: each CLOCK_UNITS route (`now`), and
- *  /stages/supplies (`buildDay`). Their pages may read the clock only through
+ *  /stages/supplies also receives `buildDay` for older payload compatibility. Their pages may read the clock only through
  *  lib/time/readerClock.ts; the no-restricted-syntax override in .eslintrc.json lists
  *  them, and scripts/tests/test-clock-lint.ts fails when a route here is missing there. */
-export const CLOCK_ROUTES: readonly string[] = [...Object.keys(CLOCK_UNITS), '/stages/supplies'];
+export const CLOCK_ROUTES: readonly string[] = Object.keys(CLOCK_UNITS);
 
 /** The props contentPageClock owns. A page's data builder never sets them. */
 export type PageClockField = 'now' | 'buildDay';

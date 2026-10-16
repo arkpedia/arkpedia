@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { SERVER_TIME } from '../../lib/time/servers.mjs';
 /**
  * Reconciles the hand-maintained calendars against the game's own client data:
  *
@@ -226,8 +227,8 @@ for (const file of fs.readdirSync(path.join(root, 'data', 'events')).filter((f) 
   const log = [];
   for (const e of rows) {
     const key = fold(e.name);
-    const line = apply(e.global, enActs.get(key), -7, `${e.name} [global]`, `${RAW.en}/activity_table.json`);
-    const cnLine = apply(e.cn, cnActs.get(key), 8, `${e.name} [cn]`, `${RAW.cn}/activity_table.json`);
+    const line = apply(e.global, enActs.get(key), SERVER_TIME.en.offset, `${e.name} [global]`, `${RAW.en}/activity_table.json`);
+    const cnLine = apply(e.cn, cnActs.get(key), SERVER_TIME.cn.offset, `${e.name} [cn]`, `${RAW.cn}/activity_table.json`);
     // After apply(), so an event whose window the client just shipped gets its store too.
     const shopLine = applyShop(e.global, enActs.get(key), `${e.name} [global]`);
     if (line) log.push(line);
@@ -259,8 +260,8 @@ for (const b of banners) {
   const c = { ...b.cn_window, dateRange: b.cn_date ?? null, note: null };
   // The named Global announcement can open after the client's maintenance window.
   // The banner reconciler runs immediately before this stage and resolves it.
-  const gl = b.globalScheduleStatus === 'announced' ? null : apply(g, enCands, -7, `${b.name} [global]`, `${RAW.en}/gacha_table.json`);
-  const cl = apply(c, cnCands, 8, `${b.name} [cn]`, `${RAW.cn}/gacha_table.json`);
+  const gl = b.globalScheduleStatus === 'announced' ? null : apply(g, enCands, SERVER_TIME.en.offset, `${b.name} [global]`, `${RAW.en}/gacha_table.json`);
+  const cl = apply(c, cnCands, SERVER_TIME.cn.offset, `${b.name} [cn]`, `${RAW.cn}/gacha_table.json`);
   if (gl) { b.global_date = g.dateRange; b.global_window = { startAt: g.startAt, endAt: g.endAt, timingSource: g.timingSource }; bannerLog.push(gl); }
   if (cl) { b.cn_date = c.dateRange; b.cn_window = { startAt: c.startAt, endAt: c.endAt, timingSource: c.timingSource }; bannerLog.push(cl); }
 }

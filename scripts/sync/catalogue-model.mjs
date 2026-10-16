@@ -1,3 +1,4 @@
+import { SERVER_TIME } from '../../lib/time/servers.mjs';
 /** Pure catalogue reconciliation. Display names are never used as source identities. */
 import { cnModuleTables, gapReason, localizeReleasedMechanics } from './sync-operator-english.mjs';
 import { stripRichText } from '../lib/gametext.mjs';
@@ -161,9 +162,9 @@ export function reconcileOperators({ operators, cn, en, releases = new Map(), no
     if (isNew) op.promotion = character.phases.slice(1).map((phase, i) => ({ tier: `Elite ${i + 1}`, upgrades: [], prerequisite: `Level ${character.phases[i].maxLevel}`,
       cost: [...costs(phase.evolveCost, tables), { name: 'LMD', quantity: tables.constants.evolveGoldCost[op.rarity-1][i] }] }));
     const release = releases.get(id);
-    if (release?.cn) op.characterInfo['CN Release Date'] = serverDay(release.cn, 8);
+    if (release?.cn) op.characterInfo['CN Release Date'] = serverDay(release.cn, SERVER_TIME.cn.offset);
     if (global && release?.global) {
-      op.characterInfo['Release Date'] = serverDay(release.global, -7);
+      op.characterInfo['Release Date'] = serverDay(release.global, SERVER_TIME.en.offset);
       op.releaseAt = new Date(release.global * 1000).toISOString();
       op.releaseIsEstimated = false;
       op.isFuture = release.global * 1000 > now;
@@ -216,7 +217,7 @@ function releaseEvent(events, activity, time, global) {
   if (!opened.length) return null;
   const byId = events.filter(e => opened.some(a => a.id === e.activityId));
   if (byId.length === 1) return byId[0];
-  const day = serverDay(time, global ? -7 : 8);
+  const day = serverDay(time, global ? SERVER_TIME.en.offset : SERVER_TIME.cn.offset);
   const sameDay = events.filter(e => dayPart(e[global ? 'global' : 'cn']?.dateRange) === day);
   if (sameDay.length <= 1) return sameDay[0] ?? null;
   const named = sameDay.filter(e => opened.some(a => fold(a.name) === fold(e.name)));
@@ -417,7 +418,7 @@ export function bannerKind(banner) {
   if (banner.category === 'limited' || banner.pull_type === 'limited') return 'limited';
   return 'featured';
 }
-export const POOL_REGIONS = { cn: { field: 'cn_date', id: 'cnPoolId', offset: 8 }, global: { field: 'global_date', id: 'globalPoolId', offset: -7 } };
+export const POOL_REGIONS = { cn: { field: 'cn_date', id: 'cnPoolId', offset: SERVER_TIME.cn.offset }, global: { field: 'global_date', id: 'globalPoolId', offset: SERVER_TIME.en.offset } };
 export const poolWindow = (pool, offset) => `${serverDay(pool.openTime, offset)}–${serverDay(pool.endTime, offset)}`;
 // "[Limited-Time] Never Gilded Rerun" and the client's "Never Gilded" are one name.
 const bareName = name => fold(String(name ?? '').replace(/^(?:\s*\[[^\]]*\])+/, '').replace(/\s+rerun\s*$/i, '').replace(/\s*\(global\)\s*$/i, ''));
@@ -743,7 +744,7 @@ export function reconcileCalendars({ events, banners, operators, cn, en, eventRo
     // the wiki's upload of the same art fills the file if that cannot be had, or after the post.
     if (CN_POST_POSTER.test(event.poster ?? '')) media.push({ path: event.poster.slice(1), wikiFiles: [wikiFile(`CN ${row.name} banner.png`)] });
     event.cn = { ...event.cn, dateRange: clientDays };
-    if (global) event.global = { ...event.global, dateRange: `${serverDay(global.startTime, -7)}–${serverDay(global.endTime, -7)}`, note: null, ...windowFor(global.startTime, global.endTime, enSource, event.global) };
+    if (global) event.global = { ...event.global, dateRange: `${serverDay(global.startTime, SERVER_TIME.en.offset)}–${serverDay(global.endTime, SERVER_TIME.en.offset)}`, note: null, ...windowFor(global.startTime, global.endTime, enSource, event.global) };
   }
   // A single row can rightly match no activity (Contingency Contract is not one, a crossover
   // minigame has no stages) or carry a loose date ("Late September 2026"), so rows are not
@@ -860,7 +861,7 @@ export function reconcileCalendars({ events, banners, operators, cn, en, eventRo
       : row.type === 'jo' ? 'joint' : row.type === 'orient' ? 'orienteering'
       : client.gachaRuleType === 'SINGLE' ? 'featured' : (banner.pull_type || 'unknown');
     const globalStart = dayPart(row.start || row.globalstart);
-    const globalCandidates = globalStart ? enPools.filter(p => serverDay(p.openTime,-7) === globalStart && p.gachaRuleType === client.gachaRuleType) : [];
+    const globalCandidates = globalStart ? enPools.filter(p => serverDay(p.openTime,SERVER_TIME.en.offset) === globalStart && p.gachaRuleType === client.gachaRuleType) : [];
     const pool = globalCandidates.find(p => fold(p.gachaPoolName) === fold(title)) || (globalCandidates.length === 1 ? globalCandidates[0] : null);
     // A recorded id is never replaced, and one pool is never two banners.
     const globalHolder = pool && nextBanners.find(b => b !== banner && b.globalPoolId === pool.gachaPoolId);
@@ -873,7 +874,7 @@ export function reconcileCalendars({ events, banners, operators, cn, en, eventRo
       // pool whose name is not its banner's own still gives the record its id and Global window.
       if (namesItsBanner(pool) && !banner.global_date && fold(banner.name)!==fold(officialName)) { rename(banner,officialName); banner.nameStatus='en-official'; }
       banner.globalPoolId = pool.gachaPoolId;
-      banner.global_date = `${serverDay(pool.openTime,-7)}–${serverDay(pool.endTime,-7)}`;
+      banner.global_date = `${serverDay(pool.openTime,SERVER_TIME.en.offset)}–${serverDay(pool.endTime,SERVER_TIME.en.offset)}`;
       const savedNotice = savedGlobalBannerNotice(banner, pool);
       if (!savedNotice) {
         banner.global_window = windowFor(pool.openTime,pool.endTime,enSource,banner.global_window);
@@ -934,7 +935,7 @@ export function reconcileCalendars({ events, banners, operators, cn, en, eventRo
       const officialName=`${event.name.match(/^\[[^\]]*\]\s*/)?.[0] || ''}${global.name}`;
       if (!alreadyGlobalEvents.has(event.name) && fold(event.name)!==fold(officialName)) rename(event,officialName);
     }
-    if (global) event.global={...event.global,dateRange:`${serverDay(global.startTime,-7)}–${serverDay(global.endTime,-7)}`,note:null,...windowFor(global.startTime,global.endTime,enSource,event.global)};
+    if (global) event.global={...event.global,dateRange:`${serverDay(global.startTime,SERVER_TIME.en.offset)}–${serverDay(global.endTime,SERVER_TIME.en.offset)}`,note:null,...windowFor(global.startTime,global.endTime,enSource,event.global)};
   }
   return { events: nextEvents, banners: nextBanners, media: mergeMedia(media), renames, quarantine, linked };
 }

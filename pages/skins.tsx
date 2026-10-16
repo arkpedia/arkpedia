@@ -1,3 +1,4 @@
+import { SERVER_TIME, serverOffsetLabel } from '@/lib/time/servers.mjs';
 import { withContentPage } from '@/lib/content/server';
 import { GetStaticProps } from 'next';
 import Head from 'next/head';
@@ -97,8 +98,8 @@ export default function SkinsGallery({ skins, events, now, availabilityWindows, 
   const setOwned = (value: string) => setQuery('owned', value === 'all' ? '' : value);
   const account = useAccount();
   const ownedSkins = useMemo(() => new Set(account?.skins ?? []), [account]);
-  const shortDate = (value: string) => new Date(value).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'Etc/GMT+7' });
-  const exactDate = (value: string) => new Date(value).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Etc/GMT+7' }) + ' (UTC−7)';
+  const shortDate = (value: string) => new Date(value).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: SERVER_TIME.en.timeZone });
+  const exactDate = (value: string) => new Date(value).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: SERVER_TIME.en.timeZone }) + ` (${serverOffsetLabel('en')})`;
   function availabilityText(skin: Skin): string | null {
     const window = availability.get(skinKey(skin));
     if (!window) return null;

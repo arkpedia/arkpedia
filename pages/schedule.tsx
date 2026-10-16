@@ -27,7 +27,7 @@ import { getAllHeadhuntingBanners } from '@/lib/gacha/headhuntingBannerData';
 import { portraitStatus } from '@/lib/operators/operatorPortrait';
 import { getEventCalendar } from '@/lib/home/frontPageContent';
 import { currentEventRows, currentPullBannerLinks, pruneScheduleProps, timelineOperatorsAt, type EventRow, type EventRowView, type ExportedTimelineOperator, type PullBannerWindows } from '@/lib/schedule/eventRows';
-import { toServerTime } from '@/lib/time/serverDay';
+import { toServerTime } from '@/lib/time/servers.mjs';
 import { getDisplayFeaturedSixStars } from '@/lib/gacha/realGachaBanners';
 import { isLineupPending, lineupPendingNote } from '@/lib/gacha/bannerLineup';
 import { publishedArt } from '@/lib/art/publishedArt';
@@ -107,7 +107,7 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
   const operators = useMemo(() => timelineOperatorsAt(exportedOperators, now), [exportedOperators, now]);
   const eventRows = useMemo(() => currentEventRows(calendarRows, now), [calendarRows, now]);
   const pullBannerLinks = useMemo(() => currentPullBannerLinks(pullBanners, legacyPullBannerLinks, now), [pullBanners, legacyPullBannerLinks, now]);
-  /* The game's day, not the host's: the server's rollover (lib/time/serverDay.ts), read
+  /* The game's day, not the host's: the server's rollover (lib/time/servers.mjs), read
      with UTC getters so a reader in any timezone hydrates the same month and marker. */
   const today = useMemo(() => {
     const day = toServerTime(new Date(now));

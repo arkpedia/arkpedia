@@ -1,3 +1,5 @@
+import { SERVER_TIME } from '../../lib/time/servers.mjs';
+import { serverCalendarTime } from '../../lib/time/servers.mjs';
 /**
  * Which operators Global moved from Standard to Kernel Headhunting, and when: the three pool
  * fields of an operator record that the gacha simulator and the pull planner decide every
@@ -215,11 +217,11 @@ export function planKernelMoves({ operators, moves, source }) {
  * ------------------------------------------------------------------------------------------- */
 const PERMIT = /range includes all 6★ Operators currently available in Kernel Headhunting\s*:\s*(.*)$/i;
 const utcDay = ms => serverDay(Math.floor(ms / 1000), 0);
-const globalDay = iso => serverDay(Math.floor(Date.parse(iso) / 1000), -7);
+const globalDay = iso => serverDay(Math.floor(Date.parse(iso) / 1000), SERVER_TIME.en.offset);
 const MONTH = /\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2}),?\s+(\d{1,2}:\d{2})/gi;
 /** A DURATION line with the year put back where the post left it out. */
 function withYear(line, publishTime) {
-  const published = new Date(publishTime - 7 * 3_600_000);
+  const published = serverCalendarTime(new Date(publishTime), 'en');
   return line.replace(MONTH, (whole, month, day, time) => {
     const index = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'].indexOf(month.toLowerCase());
     const year = published.getUTCFullYear() + (index < published.getUTCMonth() - 6 ? 1 : 0);

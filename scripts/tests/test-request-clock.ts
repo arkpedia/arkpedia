@@ -9,7 +9,7 @@ import { currentPullPlan } from '../../lib/pulls/currentPlan';
 import type { UpcomingBanner } from '../../lib/pulls/pulls';
 import type { SkinCollection } from '../../lib/pulls/skinCollections';
 import { isOperatorReleased, isReleasedAt, releaseMarker } from '../../lib/operators/operatorAvailability';
-import { serverDate } from '../../lib/time/serverDay';
+import { serverDate } from '../../lib/time/servers.mjs';
 import { withContentPage } from '../../lib/content/server';
 
 // Every value that depends on "now" is computed from a moment passed in: the request's

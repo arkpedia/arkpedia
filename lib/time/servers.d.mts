@@ -1,0 +1,15 @@
+export type GameServer = 'en' | 'jp' | 'kr' | 'cn';
+export declare const HOUR_MS: number;
+export declare const DAY_MS: number;
+export declare const SERVER_TIME: Readonly<Record<GameServer, Readonly<{ offset: number; resetHour: number; eventOpenHour: number; timeZone: string }>>>;
+export declare function serverCalendarTime(now: Date, server?: GameServer): Date;
+export declare function toServerTime(now?: Date, server?: GameServer): Date;
+export declare function serverDate(now: Date, server?: GameServer): string;
+export declare function serverWeekday(now?: Date, server?: GameServer): string;
+export declare function serverInstant(year: number, month: number, day: number, hour: number, server?: GameServer): number;
+export declare function serverDayBoundary(day: number, server?: GameServer, boundary?: 'calendar' | 'reset' | 'event'): number;
+export declare function serverOffsetLabel(server?: GameServer): string;
+export declare function getNextDailyReset(now: Date, server?: GameServer): Date;
+export declare function getNextWeeklyReset(now: Date, server?: GameServer): Date;
+export declare function serverClockAt(now: Date, server?: GameServer): { clock: string; reset: number; offset: number };
+export declare function serverDay(seconds: number, offset?: number): string;

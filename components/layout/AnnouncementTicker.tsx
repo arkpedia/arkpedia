@@ -1,3 +1,4 @@
+import { useAccount } from '@/lib/account/accountStore';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { getActiveReminders, Reminder } from '@/lib/schedule/opsSchedules';
 import type { SssCycle } from '@/lib/schedule/sssCycle';
@@ -17,6 +18,7 @@ const MIN_DURATION_S = 4;
 /** `sssCycle` is the release's SSS cycle (data/sss-cycle.json), which the home page's props
  *  carry (lib/content/tables.mjs). Required: it used to be a date typed into opsSchedules.ts. */
 export default function AnnouncementTicker({ sssCycle }: { sssCycle: SssCycle }) {
+  const server = useAccount()?.server ?? 'en';
   /* Read by the timer below, which is set up once; the ref keeps it on the latest props. */
   const sssCycleRef = useRef(sssCycle);
   sssCycleRef.current = sssCycle;
@@ -42,7 +44,7 @@ export default function AnnouncementTicker({ sssCycle }: { sssCycle: SssCycle })
   // cycle, the bar just stays hidden until the next one.
   useEffect(() => {
     function runCycle() {
-      const reminders: Reminder[] = getActiveReminders(new Date(), sssCycleRef.current);
+      const reminders: Reminder[] = getActiveReminders(new Date(), sssCycleRef.current, server);
       if (reminders.length === 0) {
         setVisible(false);
         return;
@@ -51,13 +53,14 @@ export default function AnnouncementTicker({ sssCycle }: { sssCycle: SssCycle })
       setVisible(true);
     }
 
+    setVisible(false);
     const firstTimer = setTimeout(runCycle, FIRST_SHOW_DELAY_MS);
     const interval = setInterval(runCycle, REPEAT_INTERVAL_MS);
     return () => {
       clearTimeout(firstTimer);
       clearInterval(interval);
     };
-  }, []);
+  }, [server]);
 
   // Measures the container and text BEFORE the browser paints (see the
   // AnnouncementTicker on-mount-resume patch notes for why

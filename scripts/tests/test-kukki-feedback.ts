@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import fs from 'node:fs';
 import { certificateMonths, certificateSpending, certShopPurchase } from '../../lib/pulls/incomeSettings';
-import { serverClockAt } from '../../lib/time/serverReset';
+import { serverClockAt } from '../../lib/time/servers.mjs';
 import { readRecruitmentView, recruitmentViewHash } from '../../lib/gacha/recruitmentViewState';
 import { summonStats, type Summon } from '../../lib/operators/summonStats';
 import { skillTechniques } from '../../lib/techniques/autoTechniques';

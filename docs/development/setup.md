@@ -17,6 +17,8 @@ The survey submission backend is retired. Reference pages and closed poll result
 
 Python import/review tools require Python 3 with Pillow, certifi and lz4==4.4.5. Upstream refresh tools use Git and network access. See [tooling](../../scripts/README.md) and [data pipelines](data-pipelines.md).
 
+Server clock, daily reset and regional account behavior follow the [shared timekeeping policy](timekeeping.md).
+
 ## Validation
 
 ```sh

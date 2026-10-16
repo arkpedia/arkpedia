@@ -1,3 +1,4 @@
+import { serverCalendarTime, type GameServer } from '@/lib/time/servers.mjs';
 import { freeRewardTotals, type FreeReward } from './freeRewards';
 import { getAnnihilationNextEnd, getNextDailyReset } from '@/lib/schedule/opsSchedules';
 import { wishingWallOrundum, type WishingWallMode } from './wishingWall';
@@ -484,26 +485,24 @@ export interface Income {
  * COUNTED, not divided. `days / 7` is out by one most of the time: asking on a
  * Sunday about a banner ten days out crosses two weekly resets, not 1.43, and
  * the difference is 2,300 Orundum -- nearly four pulls. The site already knows
- * when the resets are (19:00 SGT daily, Monday for the week), so this walks
+ * when the selected server resets (04:00 daily, Monday for the week), so this walks
  * them rather than approximating.
  */
-export function incomeBetween(from: Date, to: Date): Income {
+export function incomeBetween(from: Date, to: Date, server: GameServer = 'en'): Income {
   if (!(to > from)) {
     return { days: 0, weeks: 0, months: 0, daily: 0, weekly: 0, annihilation: 0, orundum: 0 };
   }
   /* Bounded so a nonsense date cannot spin: ten years of resets is far past any
      banner anyone is planning for. */
   let days = 0;
-  for (let t = getNextDailyReset(from); t <= to && days < 4000; t = getNextDailyReset(t)) days += 1;
+  for (let t = getNextDailyReset(from, server); t <= to && days < 4000; t = getNextDailyReset(t, server)) days += 1;
   let weeks = 0;
-  for (let t = getAnnihilationNextEnd(from); t <= to && weeks < 600; t = getAnnihilationNextEnd(t)) weeks += 1;
+  for (let t = getAnnihilationNextEnd(from, server); t <= to && weeks < 600; t = getAnnihilationNextEnd(t, server)) weeks += 1;
 
   /* Calendar months, which is what a monthly shop allowance follows -- not
      30-day blocks. */
-  const months = Math.max(
-    0,
-    (to.getUTCFullYear() - from.getUTCFullYear()) * 12 + (to.getUTCMonth() - from.getUTCMonth()),
-  );
+  const startMonth = serverCalendarTime(from, server), endMonth = serverCalendarTime(to, server);
+  const months = Math.max(0, (endMonth.getUTCFullYear() - startMonth.getUTCFullYear()) * 12 + endMonth.getUTCMonth() - startMonth.getUTCMonth());
 
   const daily = days * DAILY_ORUNDUM;
   const weekly = weeks * WEEKLY_ORUNDUM;

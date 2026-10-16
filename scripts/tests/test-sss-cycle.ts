@@ -46,5 +46,5 @@ test('the cycle is a checked release table of the home page, and no date is type
   assert.match(fs.readFileSync('pages/index.tsx', 'utf8'), /<AnnouncementTicker sssCycle=\{sssCycle\} \/>/);
   const ticker = fs.readFileSync('components/layout/AnnouncementTicker.tsx', 'utf8');
   assert.match(ticker, /AnnouncementTicker\(\{ sssCycle \}: \{ sssCycle: SssCycle \}\)/);
-  assert.match(ticker, /getActiveReminders\(new Date\(\), sssCycleRef\.current\)/);
+  assert.match(ticker, /getActiveReminders\(new Date\(\), sssCycleRef\.current, server\)/);
 });

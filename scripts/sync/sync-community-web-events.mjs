@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { SERVER_TIME } from '../../lib/time/servers.mjs';
 /** Discover campaigns from official regional news and the KR official event board.
  * Read-only GET/HEAD; campaign HTML/JSON/entry scripts are read as text, never executed.
  * A regional counterpart is only a candidate until its own canonical URL and rules agree.
@@ -12,9 +13,9 @@ import { beginStage, defaultNow } from '../lib/quarantine.mjs';
 
 export const OUTPUT = 'data/community-web-events.json';
 export const REGIONS = [
-  { id: 'en', domain: 'arknights.global', region: 'Global (EN)', offset: -7, zone: 'UTC−7' },
-  { id: 'kr', domain: 'arknights.kr', region: 'Korea (KR)', offset: 9, zone: 'KST' },
-  { id: 'jp', domain: 'arknights.jp', region: 'Japan (JP)', offset: 9, zone: 'JST' },
+  { id: 'en', domain: 'arknights.global', region: 'Global (EN)', offset: SERVER_TIME.en.offset, zone: 'UTC−7' },
+  { id: 'kr', domain: 'arknights.kr', region: 'Korea (KR)', offset: SERVER_TIME.kr.offset, zone: 'KST' },
+  { id: 'jp', domain: 'arknights.jp', region: 'Japan (JP)', offset: SERVER_TIME.jp.offset, zone: 'JST' },
 ];
 const MAX_BYTES = 5_000_000;
 const RECENT = 180 * 86400_000;

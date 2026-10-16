@@ -48,7 +48,7 @@ test('the clock ban covers every page with a request clock, /gacha, the Events p
 
 test('lint rejects each argument-less clock read in a guarded file, and nothing else', async () => {
   const code = [
-    "import { serverWeekday, toServerTime } from '@/lib/time/serverDay';",
+    "import { serverWeekday, toServerTime } from '@/lib/time/servers.mjs';",
     'export function f(): number { return new Date().getTime() + Date.now(); }',
     'export const g = new Date(0);',
     'export const h = serverWeekday() + serverWeekday(g) + toServerTime().getTime() + toServerTime(g).getTime();',

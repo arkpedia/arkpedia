@@ -21,7 +21,7 @@ import { useSongClip } from '@/lib/music-guesser/useSongClip';
 import { useSongQueue } from '@/lib/music-guesser/useSongQueue';
 import { useMusicPlayer } from '@/lib/music/musicPlayerContext';
 import { useMediaQuery } from '@/lib/hooks/useMediaQuery';
-import { serverDate } from '@/lib/time/serverDay';
+import { serverDate } from '@/lib/time/servers.mjs';
 import styles from '@/styles/games/song-guesser.module.css';
 
 /** `now` is the request's clock (contentPageClock). Which groups count as released on

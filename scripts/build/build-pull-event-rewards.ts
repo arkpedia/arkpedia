@@ -1,3 +1,4 @@
+import { serverDay } from '../../lib/time/servers.mjs';
 /** Generate event rewards independently of headhunting banners.
  * Run with PULL_CN_DATA_DIR pointing to the cached CN excel tables.
  * Dates are deliberately NOT stored: the planner resolves the live event calendar.
@@ -18,7 +19,7 @@ for (const st of Object.values(stages) as any[]) {
   const id = activity.zoneToActivity[st.zoneId] ?? st.zoneId?.match(/^(act[0-9a-z]+?)_(zone|sub|perm)/)?.[1] ?? st.stageId?.match(/^(act[0-9a-z]+?)_/)?.[1];
   if (id) op[id] = (op[id] ?? 0) + 1;
 }
-const cnDate = (timestamp: number) => new Date(timestamp * 1000 + 8 * 3600000).toISOString().slice(0, 10).replaceAll('-', '/');
+const cnDate = (timestamp: number) => serverDay(timestamp);
 // The calendar's translated crossover date differs by one day from CN gamedata.
 const bindings: Record<string, string> = {'[Side Story ‐ Crossover] Sur le lac lune vivante': 'act54side'};
 const output = [];
