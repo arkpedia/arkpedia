@@ -12,7 +12,7 @@ import { formatNumber, formatOneDecimal } from '@/lib/pulls/format';
 import { fillFromDeployment, ORUNDUM_PER_ORIGINITE, ORUNDUM_PER_PULL, type BacklogSources } from '@/lib/pulls/pulls';
 import { usePastRewards } from '@/lib/pulls/usePastRewards';
 import FreeRewards from '@/components/pulls/FreeRewards';
-import { freeRewardTotals, type FreeReward } from '@/lib/pulls/freeRewards';
+import { allFreeRewards, freeRewardsForAccount, freeRewardTotals, type FreeReward } from '@/lib/pulls/freeRewards';
 import { useReaderClock } from '@/lib/time/readerClock';
 import Tabs, { tabPanelProps } from '@/components/ui/Tabs';
 
@@ -41,9 +41,10 @@ export default function FreeOpPage({ backlogSources, freeRewards = [], rewardIco
   const [demoKeys, setDemoKeys] = useState(new Set<string>());
   const [demoEvents, setDemoEvents] = useState(new Set<string>());
   const [demoAnnihilation, setDemoAnnihilation] = useState(false);
-  const remaining = presentation ? remainingBacklog(backlogSources, demoEvents, demoKeys, demoAnnihilation) : past.remaining;
+  const remaining = presentation ? remainingBacklog(past.backlog, demoEvents, demoKeys, demoAnnihilation) : past.remaining;
   const keys = presentation ? demoKeys : past.doneKeys;
-  const timed = freeRewardTotals(freeRewards.filter(reward => !reward.forecast), keys, clock);
+  const eligible = freeRewardsForAccount(freeRewards, past.account);
+  const timed = freeRewardTotals(eligible.filter(reward => !reward.forecast), keys, clock);
   const originitePrime = remaining.originitePrime + timed.op;
   const orundum = remaining.orundum - remaining.originitePrime * ORUNDUM_PER_ORIGINITE + timed.orundum;
   const permits = remaining.permits + timed.permits;
@@ -71,7 +72,7 @@ export default function FreeOpPage({ backlogSources, freeRewards = [], rewardIco
         <Tabs label="Reward type" id="free-reward-type" value={view} onChange={setView} options={[{ value: 'stages', label: 'Stage rewards' }, { value: 'free', label: 'Free rewards' }]} />
         {view === 'stages' ? <div {...tabPanelProps('free-reward-type', 'stages')}><PastRewards backlog={presentation ? backlogSources : past.counting} doneKeys={presentation ? demoKeys : past.doneKeys} doneEvents={presentation ? demoEvents : past.doneEvents} annihilationDone={presentation ? demoAnnihilation : past.annihilationDone}
           onKeys={presentation ? setDemoKeys : past.onKeys} onEvents={presentation ? setDemoEvents : past.onEvents} onAnnihilation={presentation ? setDemoAnnihilation : past.onAnnihilation} imported={presentation ? null : past.imported} cleared={presentation ? null : past.cleared} layout="page" />
-        </div> : <div {...tabPanelProps('free-reward-type', 'free')}><FreeRewards icons={rewardIcons} rewards={freeRewards} done={keys} onKeys={presentation ? setDemoKeys : past.onKeys} now={clock} /></div>}
+        </div> : <div {...tabPanelProps('free-reward-type', 'free')}><FreeRewards icons={rewardIcons} rewards={eligible} done={keys} onKeys={presentation ? setDemoKeys : past.onKeys} now={clock} /></div>}
       </main>
     </>
   );
@@ -84,14 +85,15 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>('/fr
   const { bundledBacklogSources } = await import('@/lib/pulls/sources');
   const { default: free } = await import('@/data/free-rewards.json');
   const { freeRewardIcons } = await import('@/lib/pulls/rewardIcons');
-  return { props: { backlogSources: bundledBacklogSources(), freeRewards: free.rewards, rewardIcons: freeRewardIcons(free.rewards) } };
+  const rewards = allFreeRewards(free);
+  return { props: { backlogSources: bundledBacklogSources(), freeRewards: rewards, rewardIcons: freeRewardIcons(rewards) } };
 }, {
   bundledWhenUnpublished: true,
   finalize: async (props) => {
     const { bundledBacklogSources } = await import('@/lib/pulls/sources');
     const { default: free } = await import('@/data/free-rewards.json');
     const { rewardTrackerArt } = await import('@/lib/pulls/rewardIcons');
-    const freeRewards = (props.freeRewards ?? free.rewards).filter(reward => !('endAt' in reward) || !reward.endAt || reward.endAt > props.now);
+    const freeRewards = (props.freeRewards ?? allFreeRewards(free)).filter(reward => !('endAt' in reward) || !reward.endAt || reward.endAt > props.now);
     return { ...props, freeRewards, ...rewardTrackerArt(freeRewards, props.rewardIcons, props.__contentRelease), backlogSources: fillFromDeployment(props.backlogSources, bundledBacklogSources()) };
   },
 });

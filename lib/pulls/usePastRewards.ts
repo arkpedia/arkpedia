@@ -9,13 +9,17 @@ import { mergeImportedProgress } from './importedProgress';
 import { useAccount } from '@/lib/account/accountStore';
 import { backlogFromAccount, remainingBacklog, unclaimedBacklog, type BacklogSources } from './pulls';
 import { PAST_PROGRESS_UNREAD, usePastProgress, type PastProgress } from './pastProgress';
+import { freeRewardsForAccount } from './freeRewards';
 
 export function usePastRewards(backlogSources: BacklogSources) {
   const account = useAccount();
   const [progress, setProgress] = usePastProgress();
+  const backlog = useMemo(() => ({ ...backlogSources, freeRewards: freeRewardsForAccount([
+    ...(backlogSources.freeRewards ?? []), ...(backlogSources.beginnerRewards ?? []),
+  ], account) }), [backlogSources, account]);
   const fromAccount = useMemo(
-    () => (account ? backlogFromAccount(backlogSources, new Set(account.rewardCleared ?? account.cleared), account.annihilation ? new Set(account.annihilation) : null) : null),
-    [account, backlogSources],
+    () => (account ? backlogFromAccount(backlog, new Set(account.rewardCleared ?? account.cleared), account.annihilation ? new Set(account.annihilation) : null) : null),
+    [account, backlog],
   );
   /* A new import adds verified claims once. Manual marks and unknown claims survive. */
   useEffect(() => {
@@ -24,12 +28,12 @@ export function usePastRewards(backlogSources: BacklogSources) {
   }, [progress, account, fromAccount, setProgress]);
   const doneKeys = useMemo(() => new Set(progress.doneKeys), [progress.doneKeys]);
   const doneEvents = useMemo(() => new Set(progress.doneEvents), [progress.doneEvents]);
-  const counting = useMemo(() => (fromAccount ? unclaimedBacklog(backlogSources, fromAccount.sources) : backlogSources), [fromAccount, backlogSources]);
+  const counting = useMemo(() => (fromAccount ? unclaimedBacklog(backlog, fromAccount.sources) : backlog), [fromAccount, backlog]);
   const remaining = useMemo(() => remainingBacklog(counting, doneEvents, doneKeys, progress.annihilationDone), [counting, doneEvents, doneKeys, progress.annihilationDone]);
   const cleared = useMemo(() => (account ? new Set(account.rewardCleared ?? account.cleared) : null), [account]);
   const update = (patch: Partial<PastProgress>) => setProgress({ ...progress, ...patch });
   return {
-    progress, setProgress, counting, remaining, cleared,
+    progress, setProgress, counting, remaining, cleared, backlog,
     doneKeys, doneEvents, annihilationDone: progress.annihilationDone,
     onKeys: (keys: Set<string>) => update({ doneKeys: [...keys], ...(progress.importedDoneKeys ? {
       importedDoneKeys: progress.importedDoneKeys.filter(key => doneKeys.has(key) === keys.has(key)),

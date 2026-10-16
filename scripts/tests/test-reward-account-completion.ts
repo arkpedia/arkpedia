@@ -6,6 +6,7 @@ import { mergeImportedProgress } from '../../lib/pulls/importedProgress';
 import { parsePastProgress, type PastProgress } from '../../lib/pulls/pastProgress';
 import { backlogFromAccount, type BacklogSources } from '../../lib/pulls/pulls';
 import { buildFreeRewards } from '../build/build-free-rewards.mjs';
+import { allFreeRewards, freeRewardsForAccount, freeRewardTotals } from '../../lib/pulls/freeRewards';
 
 // Synthetic protocol fixtures. Field shapes: Torappu PlayerCheckIn, PlayerActivity,
 // PlayerOpenServer and PlayerGiftProgressPerData at bc6e6155ccb61f8028b1b09209919052e8a9704c.
@@ -38,6 +39,7 @@ test('beginner programmes use the account registration schedule; missing evidenc
   assert.deepEqual(rewardClaimsFromGame({}), { known: [], claimed: [] });
   assert.deepEqual(rewardClaimsFromGame({ checkIn: [], activity: null, shop: 'bad', openServer: [] }), { known: [], claimed: [] });
   assert(!accountFromGame(fixture, map, 'jp').rewardClaims?.known.some(id => id.startsWith('free:current:')));
+  assert(!rewardClaimsFromGame(fixture, [{ id: 'ended', startTs: 100, endTs: 199 }, { id: 'future', startTs: 300 }]).known.some(id => /:(checkInData|chainLoginData):/.test(id)), 'a gap between programme windows stays unknown');
 });
 
 test('every supported imported claim resolves to an identity emitted by the reward catalogue producer', () => {
@@ -46,15 +48,29 @@ test('every supported imported claim resolves to an identity emitted by the rewa
   const info = (name: string) => ({ name, startTime: 1, rewardEndTime: 9999 });
   const built = buildFreeRewards({ handbook: { handbookStageData: {} }, characters: {}, items: { items: { '4003': { name: 'Orundum' } } },
     missions: { missions: {}, missionGroups: {} },
-    openServer: { schedule: map.beginnerPrograms, dataMap: { current: { openServerMissionData: [],
+    openServer: { schedule: map.beginnerPrograms, dataMap: { old: { openServerMissionData: [{ id: 'old_task', description: 'Old programme mission', rewards: [item] }],
+      checkInData: days.map(day => ({ order: day.order, item })), chainLoginData: days.map(day => ({ order: day.order, item })) }, current: { openServerMissionData: [{ id: 'current_task', description: 'Replacement mission', rewards: [item] }],
       checkInData: days.map(day => ({ order: day.order, item })), chainLoginData: days.map(day => ({ order: day.order, item })) } },
       constant: { firstDiamondShardMailCount: 3800 }, longTermCheckInData: { groupList: [{ groupId: 'milestone', days: 30, level: 10, rewardList: [item] }] } },
     checkin: { groups: { signin_test: { groupId: 'signin_test', title: 'Monthly', items: [item, item], signStartTime: 1, signEndTime: 9999 } } },
     activity: { activity: { CHECKIN_ONLY: { event_a: { checkInList: days } }, CHECKIN_ALL_PLAYER: { event_b: { checkInList: days } }, LOGIN_ONLY: { gift: { itemList: [item] } } },
       basicInfo: { event_a: info('A'), event_b: info('B'), gift: info('Gift') } },
     shops: { shopGPDataDict: { GP_freeL_5: { displayName: 'Free pack' } } } });
-  const ids = new Set(built.rewards.map((reward: { id: string }) => reward.id));
+  const all = allFreeRewards(built);
+  const ids = new Set(all.map(reward => reward.id));
   for (const id of rewardClaimsFromGame(fixture, map.beginnerPrograms).claimed) assert(ids.has(id), `Imported claim has no catalogue row: ${id}`);
+  const older = { ...fixture, status: { ...fixture.status, registerTs: 150 }, mission: { missions: { OPENSERVER: { old_task: { state: 3 } } } } };
+  for (const id of rewardClaimsFromGame(older, map.beginnerPrograms).claimed) assert(ids.has(id), `Older account claim has no catalogue row: ${id}`);
+  const oldAccount = accountFromGame(older, map, 'en');
+  const visible = freeRewardsForAccount(all, oldAccount);
+  assert(visible.some(reward => reward.id === 'free:old:checkInData:1'));
+  assert(!visible.some(reward => reward.id.startsWith('free:current:')));
+  assert(visible.some(reward => reward.id === 'free:old_task'));
+  assert(!visible.some(reward => reward.id === 'free:current_task'));
+  assert(oldAccount.rewardClaims?.claimed.includes('free:old_task'));
+  assert(!built.rewards.some(reward => reward.id.startsWith('free:old:')), 'older readers still receive only the current default collection');
+  const oldSignins = visible.filter(reward => reward.beginner);
+  assert.equal(freeRewardTotals(oldSignins, new Set(oldAccount.rewardClaims?.claimed), 0).orundum, 200, 'only the two explicitly unreceived old-programme days remain');
 });
 
 test('first-clear rewards require three stars, while ordinary account clears retain two-star progress', () => {

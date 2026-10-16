@@ -3,7 +3,7 @@ export interface RewardClaims { known: string[]; claimed: string[] }
 const object = (value: unknown): Record<string, unknown> => value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
 const validId = (id: string) => /^[a-zA-Z0-9_:-]{1,180}$/.test(id);
 
-export interface BeginnerProgram { id: string; startTs: number }
+export interface BeginnerProgram { id: string; startTs: number; endTs?: number }
 
 export function rewardClaimsFromGame(user: Record<string, unknown>, programs: readonly BeginnerProgram[] = []): RewardClaims {
   const states = new Map<string, boolean>();
@@ -47,7 +47,8 @@ export function rewardClaimsFromGame(user: Record<string, unknown>, programs: re
   // Global schedule and registration time; an old/unknown programme stays unknown.
   const registered = object(user.status).registerTs;
   const program = typeof registered === 'number' && Number.isSafeInteger(registered) && registered > 0 ? programs.filter(row => typeof row.id === 'string' && validId(row.id)
-    && Number.isSafeInteger(row.startTs) && row.startTs <= registered).sort((a, b) => b.startTs - a.startTs)[0] : undefined;
+    && Number.isSafeInteger(row.startTs) && row.startTs <= registered
+    && (row.endTs === undefined || Number.isSafeInteger(row.endTs) && registered <= row.endTs)).sort((a, b) => b.startTs - a.startTs)[0] : undefined;
   if (program) {
     const starter = object(user.openServer);
     history(`${program.id}:checkInData`, object(starter.checkIn).history);

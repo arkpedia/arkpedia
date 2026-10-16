@@ -12,4 +12,4 @@ export function buildFreeRewards(tables: {
   shops: unknown;
   eventRewards?: unknown;
   announcements?: unknown;
-}): { paradox: { id: string; name: string; amount: number }[]; rewards: FreeReward[] };
+}): { paradox: { id: string; name: string; amount: number }[]; rewards: FreeReward[]; beginnerRewards: FreeReward[] };

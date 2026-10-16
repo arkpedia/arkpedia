@@ -158,6 +158,7 @@ export interface BacklogSources {
   annihilation: FirstClear[];
   paradox?: FirstClear[];
   freeRewards?: FreeReward[];
+  beginnerRewards?: FreeReward[];
 }
 
 /** `stages` and `stageCodes` are absent from a release exported by code from before they were
@@ -186,7 +187,8 @@ export function fillFromDeployment(release: BacklogSources, deployment: BacklogS
   };
   const listed = new Set(release.annihilation.map((map) => map.id));
   const annihilation = [...release.annihilation, ...deployment.annihilation.filter((map) => !listed.has(map.id))].sort((a, b) => a.id.localeCompare(b.id));
-  return { ...release, chapters: release.chapters.map(fill), playable: release.playable.map(fill), annihilation, paradox: release.paradox ?? deployment.paradox ?? [], freeRewards: release.freeRewards ?? deployment.freeRewards ?? [] };
+  return { ...release, chapters: release.chapters.map(fill), playable: release.playable.map(fill), annihilation, paradox: release.paradox ?? deployment.paradox ?? [], freeRewards: release.freeRewards ?? deployment.freeRewards ?? [],
+    ...(!release.freeRewards && !release.beginnerRewards && deployment.beginnerRewards ? { beginnerRewards: deployment.beginnerRewards } : {}) };
 }
 
 /** The labels a reader knows these by; the gamedata's own words are internal. */

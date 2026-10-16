@@ -17,9 +17,10 @@ export function buildFreeRewards({ handbook, missions, openServer, checkin, acti
     };
   });
   const out = [];
-  const add = (id, group, name, rewards, timing = {}, forecast = false) => {
+  const beginnerRewards = [];
+  const add = (id, group, name, rewards, timing = {}, forecast = false, target = out) => {
     const list = rewardItems(rewards);
-    if (list.length) out.push({ id: `free:${id}`, group, name: clean(name), rewards: list, ...timing, forecast });
+    if (list.length) target.push({ id: `free:${id}`, group, name: clean(name), rewards: list, ...timing, forecast });
   };
   for (const mission of Object.values(missions.missions)) {
     if (!['GUIDE', 'MAIN', 'SUB'].includes(mission.type)) continue;
@@ -28,12 +29,17 @@ export function buildFreeRewards({ handbook, missions, openServer, checkin, acti
   for (const group of Object.values(missions.missionGroups)) {
     if (group.type === 'GUIDE') add(group.id, 'Pinboard missions', group.title, group.rewards, {}, true);
   }
-  // The current free beginner programme. Old replacement programmes and paid newbieCheckInPackageList are excluded.
+  // Older builds keep the current default; account-aware builds also read historical sign-ins.
   const current = [...openServer.schedule].sort((a, b) => b.startTs - a.startTs)[0];
-  const starter = openServer.dataMap[current.id];
-  for (const mission of starter.openServerMissionData) add(mission.id, 'Beginner rewards', mission.description, mission.rewards, {}, true);
-  for (const key of ['checkInData', 'chainLoginData']) for (const day of starter[key]) {
-    add(`${current.id}:${key}:${day.order}`, 'Beginner rewards', `${key === 'chainLoginData' ? 'Consecutive' : 'Cumulative'} sign-in · Day ${day.order}`, [day.item], {}, true);
+  for (const programme of openServer.schedule) {
+    const data = openServer.dataMap[programme.id];
+    if (!data) continue;
+    const beginner = { id: programme.id, startTs: programme.startTs, ...(Number.isSafeInteger(programme.endTs) ? { endTs: programme.endTs } : {}), current: programme.id === current.id };
+    const target = beginner.current ? out : beginnerRewards;
+    for (const mission of data.openServerMissionData ?? []) add(mission.id, 'Beginner rewards', mission.description, mission.rewards, { beginner }, true, target);
+    for (const key of ['checkInData', 'chainLoginData']) for (const day of data[key] ?? []) {
+      add(`${programme.id}:${key}:${day.order}`, 'Beginner rewards', `${key === 'chainLoginData' ? 'Consecutive' : 'Cumulative'} sign-in · Day ${day.order}`, [day.item], { beginner }, true, target);
+    }
   }
   add('welcome-mail', 'Beginner rewards', 'Welcome mail', [{ id: '4003', count: openServer.constant.firstDiamondShardMailCount }], {}, true);
   for (const milestone of openServer.longTermCheckInData?.groupList ?? []) add(milestone.groupId, 'Sign-in milestones', `${milestone.days} sign-in days · Doctor Lv.${milestone.level}`, milestone.rewardList);
@@ -85,8 +91,9 @@ export function buildFreeRewards({ handbook, missions, openServer, checkin, acti
     id: `paradox:${stage.stageId}`, name: clean(`${characters[stage.charId]?.name ?? stage.charId} · ${stage.name}`),
     amount: stage.rewardItem.filter(item => item.id === '4003').reduce((sum, item) => sum + item.count, 0),
   })).filter(stage => stage.amount > 0).sort((a, b) => a.name.localeCompare(b.name));
-  if (new Set(out.map(item => item.id)).size !== out.length) throw new Error('Duplicate free reward IDs');
-  return { paradox, rewards: out };
+  const all = [...out, ...beginnerRewards];
+  if (new Set(all.map(item => item.id)).size !== all.length) throw new Error('Duplicate free reward IDs');
+  return { paradox, rewards: out, beginnerRewards };
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
