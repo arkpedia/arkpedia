@@ -35,8 +35,8 @@
     "audit:build": "npx tsx scripts/audits/audit-build.ts",
     "stages:refresh": "bash scripts/sync/refresh-stage-data.sh",
     "events:sync": "node scripts/sync/sync-event-windows.mjs",
-    "prebuild": "node scripts/build/write-build-info.mjs && node scripts/build/adopt-release-asset-pins.mjs && node scripts/audits/check-skin-catalogue.mjs && node scripts/build/build-enemy-details.mjs && npx tsx scripts/build/build-stage-details.ts && npx tsx scripts/build/build-stage-guesser.ts && npx tsx scripts/build/build-operator-search.ts && npx tsx scripts/build/build-music-catalogue.ts && npx tsx scripts/build/build-selector-catalogue.ts",
-    "predev": "node scripts/build/build-enemy-details.mjs && npx tsx scripts/build/build-stage-details.ts && npx tsx scripts/build/build-stage-guesser.ts && npx tsx scripts/build/build-operator-search.ts && npx tsx scripts/build/build-music-catalogue.ts && npx tsx scripts/build/build-selector-catalogue.ts",
+    "prebuild": "node scripts/build/write-build-info.mjs && node scripts/build/adopt-release-asset-pins.mjs && node scripts/audits/check-skin-catalogue.mjs && NODE_ENV=production npm run generate:public",
+    "predev": "NODE_ENV=production npm run generate:public",
     "test": "env -u ARKPEDIA_RELEASE_BRANCH -u ARKPEDIA_DATA_BRANCH -u ARKPEDIA_CONTENT_POINTER -u ARKPEDIA_CONTENT_CHANNEL tsx --test scripts/tests/test-*.ts scripts/tests/test-*.mjs scripts/palettes/test-color-palette.ts scripts/content/*.test.mjs",
     "check:styles": "node scripts/audits/check-unstyled-classes.mjs --strict",
     "check:assets": "node scripts/audits/check-external-assets.cjs && node scripts/audits/check-stage-previews.mjs && npx tsx scripts/audits/check-icon-coverage.ts",
@@ -60,7 +60,9 @@
     "selectors:ratings": "tsx scripts/imports/import-selector-ratings.ts",
     "test:py": "node scripts/tests/run-python-tests.mjs",
     "audit:unused": "knip",
-    "check:local": "npm run typecheck && npm test && npm run test:py && npm run lint -- --max-warnings 15 && npm run check:styles && npm run audit:styles && npm run audit:unused"
+    "check:local": "npm run typecheck && npm test && npm run test:py && npm run lint -- --max-warnings 15 && npm run lint:scripts && npm run check:styles && npm run audit:styles && npm run audit:unused",
+    "generate:public": "node scripts/build/build-enemy-details.mjs && npx tsx scripts/build/build-stage-details.ts && npx tsx scripts/build/build-stage-guesser.ts && npx tsx scripts/build/build-operator-search.ts && npx tsx scripts/build/build-music-catalogue.ts && npx tsx scripts/build/build-selector-catalogue.ts",
+    "lint:scripts": "eslint scripts --ext .mjs,.cjs,.js --max-warnings 0"
   },
   "dependencies": {
     "@vercel/analytics": "^2.0.1",
@@ -81,6 +83,7 @@
     "@types/react-dom": "^18.3.0",
     "@types/topojson-client": "^3.1.5",
     "@types/topojson-specification": "^1.0.5",
+    "@typescript-eslint/parser": "8.70.0",
     "esbuild": "^0.28.2",
     "eslint": "^8.57.1",
     "eslint-config-next": "^14.2.35",

@@ -9,7 +9,7 @@ npm ci
 npm run dev
 ```
 
-Next starts at http://localhost:3000 by default; use `npm run dev -- -p 3180` for another port. The predev step generates enemy, stage, and stage-guesser JSON. Images and audio use the public Arkpedia asset repositories, so normal development does not need media downloads.
+Next starts at http://localhost:3000 by default; use `npm run dev -- -p 3180` for another port. The predev step generates enemy/stage details, stage-guesser, operator-search, music and selector payloads using finite-process loader caches. Next itself still starts in development mode. Images and audio use the public Arkpedia asset repositories, so normal development does not need media downloads.
 
 The survey submission backend is retired. Reference pages and closed poll results need no database. `.env.example` lists optional development and runtime-content settings; never commit local secrets or raw survey responses.
 
@@ -24,7 +24,7 @@ python3 -m pip install -r scripts/requirements.txt
 npm run check:local
 ```
 
-`check:local` runs typechecking, every application/Python test, lint, both style audits and unused-code analysis. It performs no Next build or browser run. Use the CI workflow for both build modes and complete browser/content-runtime checks.
+`check:local` runs typechecking, every application/Python test, application and pipeline-script lint, both style audits and unused-code analysis. It performs no Next build or browser run. Use the CI workflow for both build modes and complete browser/content-runtime checks.
 
 The lint warning ceiling preserves existing warnings. Do not raise it to accommodate new warnings. `npm run audit:styles` is a CI gate: a ratchet over style drift (rarity literals, the pre-token teal, pill radii, h1 overrides, unloaded font weights, native selects and hand-built listboxes) against `scripts/audits/style-audit-baseline.json`. It fails on anything new and on a fixed entry left in the baseline; it is not a substitute for the rendered-class check. UI work follows [UI primitives and tokens](ui-primitives.md), which also documents the page-bounds ratchet in the browser tests.
 

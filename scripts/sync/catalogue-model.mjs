@@ -679,7 +679,7 @@ export function reconcileCalendars({ events, banners, operators, cn, en, eventRo
   }
   const operatorNamed = lineupNameLookup(operators.flatMap(op => [op.name, ...(op.aliases ?? [])].map(n => [n, op])));
   const roster = new Map(operators.map(op => [op.internalName, op]));
-  const cnSource = cn.source, enSource = en.source;
+  const enSource = en.source;
   const alreadyGlobalEvents = new Set(events.filter(e => e.global?.dateRange).map(e => e.name));
   const pools = list(cn.gacha?.gachaPoolClient), nowSeconds = Math.floor(now / 1000), today = serverDay(nowSeconds);
   // Every rename goes through here: the old name stays an alias (lib/pulls/plan.ts and schedule.ts

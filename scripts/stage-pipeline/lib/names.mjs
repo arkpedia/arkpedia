@@ -1,7 +1,6 @@
 // Stage naming. Every builder that writes a file per stage has to agree on the
 // stem, so the map is derived once, from the WHOLE table: deriving it from a
 // subset changes which codes collide and therefore which get disambiguated.
-import { text } from './text.mjs';
 
 /** A display name as a lowercase, underscore-separated identifier. */
 export function slug(s, fallback = 'unknown') {

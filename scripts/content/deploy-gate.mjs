@@ -30,14 +30,12 @@
  * about to compile (the first step), so a held run stops before the compile.
  */
 import fs from 'node:fs';
-import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { pathToFileURL } from 'node:url';
 import { codeFingerprint } from './code-fingerprint.mjs';
 import { SCHEMA } from './release-input.mjs';
 import { RELEASE_BRANCH, releaseDeployments } from '../deploy/deploy-targets.mjs';
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const HEX64 = /^[a-f0-9]{64}$/;
 const GIT_SHA = /^[a-f0-9]{40}$/;
 const short = value => String(value).slice(0, 12);

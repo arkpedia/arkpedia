@@ -72,7 +72,6 @@ if (!seed) throw new Error(`no Stronghold content with id ${asked}`);
 // release date come from the latest run.
 const family = strongholds.filter((s) => gameName(s.content.name) === gameName(seed.content.name));
 const ids = new Set(family.map((s) => s.id));
-const chosen = seed;
 
 // --- the stages, and who is in them ----------------------------------------
 const stages = [];

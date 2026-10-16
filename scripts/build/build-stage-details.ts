@@ -84,36 +84,10 @@ const byUnquoted = new Map<string, IndexedEnemy>();
 
 const OUT_DIR = path.join(process.cwd(), 'public', 'stage-detail');
 
-/**
- * Skips the whole job when the output is already newer than every input.
- *
- * This runs from `predev` as well as `prebuild`, and regenerating thousands of
- * files on every `npm run dev` turned a one-second start into a long one. The
- * inputs are data files that change only when the refresh pipeline runs, so
- * comparing timestamps is enough. Pass --force to rebuild regardless.
- */
-function upToDate(outDir: string, inputGlobs: string[]): boolean {
-  if (process.argv.includes('--force')) return false;
-  if (!fs.existsSync(outDir)) return false;
-  const outFiles = fs.readdirSync(outDir);
-  if (!outFiles.length) return false;
-  const newest = (files: string[]) => files.reduce((t: number, f: string) => Math.max(t, fs.statSync(f).mtimeMs), 0);
-  const outNewest = newest(outFiles.slice(0, 50).map((f) => path.join(outDir, f)));
-  const inFiles = inputGlobs.flatMap((dir) =>
-    fs.existsSync(dir)
-      ? (fs.statSync(dir).isDirectory()
-        ? fs.readdirSync(dir).map((f) => path.join(dir, f))
-        : [dir])
-      : []);
-  if (!inFiles.length) return false;
-  return newest(inFiles) < outNewest;
-}
-
-if (upToDate(OUT_DIR, [path.join(process.cwd(), 'data', 'stages')])) {
-  console.log('stage details are up to date; skipping (use --force to rebuild)');
-  process.exit(0);
-}
-
+// Rebuild from current stage, geometry, enemy, device, operator and icon inputs.
+// The old timestamp shortcut watched stages alone and sampled only 50 outputs;
+// it missed changed enemy/geometry records and incomplete output directories.
+// generate:public uses production-mode loader caches for this finite build.
 
 /** The stage's own variant rows, ordered the way the toggle shows them. */
 function familyOf(slug: string) {

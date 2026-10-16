@@ -206,7 +206,7 @@ function main() {
     for (const s of op.skills) {
       const fac = s.facility; const desc = s.description ?? '';
       const key = `${op.name}|${cleanName(s.name)}`;
-      const { keys, noteOnly } = maps[fac] ?? { keys: new Set(), noteOnly: new Set() };
+      const { keys } = maps[fac] ?? { keys: new Set() };
       if (keys.has(key)) continue; // handled, or a documented note
       if ((GENERIC[fac] ?? []).some((re) => re.test(desc))) continue;
       if (handledElsewhere(op.name, cleanName(s.name))) continue;

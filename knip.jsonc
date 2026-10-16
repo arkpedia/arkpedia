@@ -23,5 +23,6 @@
   "ignoreBinaries": ["jq", "shasum", "cwebp"],
   "exclude": ["enumMembers", "duplicates"],
   "next": true,
+  "eslint": [".eslintrc.json", "scripts/.eslintrc.json"],
   "playwright": true
 }

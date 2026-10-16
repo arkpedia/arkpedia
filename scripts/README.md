@@ -30,7 +30,7 @@ npm run voices:refresh
 npm run palettes:review
 ```
 
-`predev` and `prebuild` run the browser-payload builders automatically. Refresh commands can download data and rewrite generated records; inspect their diff before committing.
+`predev` and `prebuild` run the same `generate:public` browser-payload builders automatically. Only those finite generator processes use production-mode loader caches; `next dev` itself still runs in development. Stage details rebuild from every current input instead of trusting a partial timestamp sample. Refresh commands can download data and rewrite generated records; inspect their diff before committing.
 
 See [pipeline documentation](../docs/development/data-pipelines.md) for prerequisites, source repositories, and refresh order. [Repository ownership](../docs/repository-map.md) explains where imported images and preserved captures belong.
 
@@ -48,3 +48,6 @@ runtime export names and parameter counts. It does not prove semantic return typ
 The test inventory checks that every suite has an actual runner, including the separate
 production content-runtime checks. Shared global initializers require an explicit owner;
 page-sized debug exports such as window.__operators are prohibited.
+
+
+Pipeline JavaScript (`.mjs`, `.cjs`, `.js`) has its own `npm run lint:scripts` gate, using ESLint recommended rules at zero warnings. TypeScript scripts remain covered by the existing strict compiler pass. The script parser is an explicit pinned dependency so JSON import attributes are checked too. Only the runtime browser harness and palette review script enable browser globals for their browser callbacks. Keep the CLI's reusable functions separate from its entrypoint; shared helpers live under `scripts/lib/`, upstream table selection under `scripts/content/cn-tables.mjs`, stage helpers under `scripts/stage-pipeline/lib/`, and release/pin policy under `scripts/content/`. Read pinned upstream records through `pin-upstream.mjs`/`cn-tables.mjs` rather than constructing a moving upstream URL.
