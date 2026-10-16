@@ -3,6 +3,7 @@ import SegmentedControl from '@/components/ui/SegmentedControl';
 import Head from 'next/head';
 import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import PipWindow, { isOperaBrowser, pipSupported, usePipWindow } from '@/components/ui/PipWindow';
 import ThemeToggle from '@/components/layout/ThemeToggle';
@@ -15,7 +16,9 @@ import { computeTagCombos, getRecruitmentTagCategories, type GuaranteedCombo, ty
 import type { RecruitmentProps } from '@/lib/gacha/recruitmentPageData';
 import { DEFAULT_RECRUITMENT_VIEW, MAX_RECRUITMENT_TAGS, readRecruitmentView, recruitmentViewHash, type RecruitmentViewState } from '@/lib/gacha/recruitmentViewState';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
-import { operatorHref } from '@/lib/operators/operatorHref';
+import type { OperatorPreviewItem } from '@/components/operators/OperatorPreview';
+
+const OperatorPreview = dynamic(() => import('@/components/operators/OperatorPreview').then(module => module.OperatorPreview), { ssr: false });
 
 const POPOUT_SIZE = { width: 480, height: 760 };
 
@@ -32,6 +35,9 @@ export default function RecruitmentTool({ operators, guaranteedCombos4, guarante
   const popupRef = useRef<Window | null>(null);
   const pipRef = useRef<Window | null>(null);
   const pip = usePipWindow(POPOUT_SIZE, 'recruit-pip-body');
+  const [preview, setPreview] = useState<{ item: OperatorPreviewItem; inPip: boolean } | null>(null);
+  const closePreview = useCallback(() => setPreview(null), []);
+  useEffect(() => { if (!pip.isOpen) setPreview(current => current?.inPip ? null : current); }, [pip.isOpen]);
   /* The Anti-Page Jump hold for the view tabs (useSwitchHold): the calculator is half the
      cheat sheet's height, and Guarantee cheat sheet -> Calculator from the tab row clamped
      the reader 143px up at 1440. The page's own copy only: the pop-out window scrolls on
@@ -159,6 +165,7 @@ export default function RecruitmentTool({ operators, guaranteedCombos4, guarante
 
   function renderTool(isCompact: boolean, inPip = false) {
     const otherPage = `${isCompact ? '/recruitment' : '/recruitment/popout'}${recruitmentViewHash(view)}`;
+    const openPreview = (operator: RecruitableOperator) => setPreview({ inPip, item: { name: operator.name, rarity: operator.rarity ?? 6, icon: getOperatorIconPath(operator) } });
     return (
       <div className={`recruit-page${isCompact ? ' recruit-page-compact' : ''}`} style={{ '--recruit-text-size': `${view.textSize ?? 14}px` } as CSSProperties}>
         {isCompact ? (
@@ -285,8 +292,8 @@ export default function RecruitmentTool({ operators, guaranteedCombos4, guarante
                   </div>
                 ) : (
                   <>
-                    {multiTagCombos.length > 0 && <ComboGroup title="Combined tags" combos={multiTagCombos} hideTwoStars={!showAllPossibilities} external={isCompact} tagLabel={tagLabel} />}
-                    {singleTagCombos.length > 0 && <ComboGroup title="Single tags" combos={singleTagCombos} hideTwoStars={!showAllPossibilities} external={isCompact} tagLabel={tagLabel} />}
+                    {multiTagCombos.length > 0 && <ComboGroup title="Combined tags" combos={multiTagCombos} hideTwoStars={!showAllPossibilities} onPreview={openPreview} tagLabel={tagLabel} />}
+                    {singleTagCombos.length > 0 && <ComboGroup title="Single tags" combos={singleTagCombos} hideTwoStars={!showAllPossibilities} onPreview={openPreview} tagLabel={tagLabel} />}
                   </>
                 )}
               </section>
@@ -324,6 +331,7 @@ export default function RecruitmentTool({ operators, guaranteedCombos4, guarante
           )}
           </div>
         </main>
+        {preview?.inPip === inPip && <OperatorPreview key={preview.item.name} item={preview.item} onClose={closePreview} nativeModal />}
       </div>
     );
   }
@@ -382,16 +390,16 @@ function TagRow({ label, options, selectedTags, onToggle, tagLabel }: { tagLabel
   );
 }
 
-function ComboGroup({ title, combos, hideTwoStars, external, tagLabel }: { tagLabel: (tag: string) => string; title: string; combos: TagCombo[]; hideTwoStars: boolean; external: boolean }) {
+function ComboGroup({ title, combos, hideTwoStars, onPreview, tagLabel }: { tagLabel: (tag: string) => string; title: string; combos: TagCombo[]; hideTwoStars: boolean; onPreview: (operator: RecruitableOperator) => void }) {
   return (
     <div className="recruit-combo-block">
       <h3 className="recruit-combo-heading">{title}</h3>
-      {combos.map((combo) => <ComboRow key={combo.tags.join('|')} combo={combo} hideTwoStars={hideTwoStars} external={external} tagLabel={tagLabel} />)}
+      {combos.map((combo) => <ComboRow key={combo.tags.join('|')} combo={combo} hideTwoStars={hideTwoStars} onPreview={onPreview} tagLabel={tagLabel} />)}
     </div>
   );
 }
 
-function ComboRow({ combo, hideTwoStars, external, tagLabel }: { tagLabel: (tag: string) => string; combo: TagCombo; hideTwoStars: boolean; external: boolean }) {
+function ComboRow({ combo, hideTwoStars, onPreview, tagLabel }: { tagLabel: (tag: string) => string; combo: TagCombo; hideTwoStars: boolean; onPreview: (operator: RecruitableOperator) => void }) {
   const { colorClass } = getComboRarityInfo(combo.operators);
   const sorted = combo.operators.filter((operator) => !hideTwoStars || operator.rarity !== 2).sort((a, b) => (a.rarity || 0) - (b.rarity || 0));
   const rarities = sorted.map((operator) => operator.rarity).filter((rarity): rarity is number => rarity != null);
@@ -407,12 +415,11 @@ function ComboRow({ combo, hideTwoStars, external, tagLabel }: { tagLabel: (tag:
       </div>
       <div className="recruit-combo-operators">
         {sorted.map((operator) => (
-          <Link prefetch={false} key={operator.name} href={operatorHref(operator.name, null)} className="recruit-combo-op" target={external ? '_blank' : undefined} rel={external ? 'noopener noreferrer' : undefined}>
+          <button type="button" key={operator.name} className="btn-bare recruit-combo-op" aria-label={`View ${operator.name} details`} aria-haspopup="dialog" onClick={() => onPreview(operator)}>
             <Image src={getOperatorIconPath(operator)} alt="" width={28} height={28} />
             <span>{operator.name}</span>
             {operator.rarity ? <Rarity n={rarityLevel(operator.rarity)} className="recruit-combo-op-rarity" /> : null}
-            {external && <span className="visually-hidden"> (opens in a new tab)</span>}
-          </Link>
+          </button>
         ))}
       </div>
     </div>

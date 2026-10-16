@@ -40,20 +40,21 @@ export function OperatorPreview({ item, onClose, nativeModal = false }: { item: 
   const modulePanel = usePanelFloor(item.name);
   useEffect(() => {
     const element = modal.current;
-    const previousFocus = document.activeElement as HTMLElement | null;
+    const ownerDocument = element?.ownerDocument ?? document;
+    const previousFocus = ownerDocument.activeElement as HTMLElement | null;
     const parentDialog = previousFocus?.closest('dialog');
     const parentScrollTop = parentDialog?.scrollTop;
-    const previousOverflow = document.body.style.overflow;
+    const previousOverflow = ownerDocument.body.style.overflow;
     // A native preview sits above the selector, which owns its scroll lock.
-    if (!nativeModal) document.body.style.overflow = 'hidden';
+    if (!nativeModal) ownerDocument.body.style.overflow = 'hidden';
     if (nativeModal) element?.showModal();
     closeButton.current?.focus();
     const onKeyDown = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose(); };
-    if (!nativeModal) document.addEventListener('keydown', onKeyDown);
+    if (!nativeModal) ownerDocument.addEventListener('keydown', onKeyDown);
     return () => {
-      document.removeEventListener('keydown', onKeyDown);
+      ownerDocument.removeEventListener('keydown', onKeyDown);
       if (nativeModal) element?.close();
-      if (!nativeModal) document.body.style.overflow = previousOverflow;
+      if (!nativeModal) ownerDocument.body.style.overflow = previousOverflow;
       previousFocus?.focus({ preventScroll: true });
       // Closing a native dialog can scroll its opener before preventScroll focus runs.
       if (parentDialog && parentScrollTop !== undefined) parentDialog.scrollTop = parentScrollTop;
