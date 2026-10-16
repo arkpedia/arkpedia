@@ -22,8 +22,8 @@ import { ownedFilter, useAccount } from '@/lib/account/accountStore';
 import { useSkinPlan } from '@/lib/skins/skinPlan';
 import StyledSelect from '@/components/ui/StyledSelect';
 import SkinZoomOverlay from '@/components/skins/SkinZoomOverlay';
-import { assertDynamicArtIndex, skinDynamicArt } from '@/lib/skins/dynamicArt';
-import { withSkinDynamicArt } from '@/lib/skins/dynamicArtFallback';
+import { skinDynamicArt } from '@/lib/skins/dynamicArt';
+import { withSkinDynamicArt, loadDynamicArtIndex } from '@/lib/skins/dynamicArtFallback';
 import ResponsiveSkinArtwork from '@/components/skins/ResponsiveSkinArtwork';
 import { getAllEvents } from '@/lib/schedule/schedule';
 import { ScheduleEvent } from '@/lib/schedule/scheduleTypes';
@@ -463,7 +463,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/sk
     confirmed: (await import('@/data/skin-availability-windows.json')).default,
     rotations: (await import('@/data/skin-shop-rotations.json')).default,
   });
-  const dynamicArt = skinDynamicArt(assertDynamicArtIndex((await import('@/data/dynamic-art.json')).default), skins);
+  const dynamicArt = skinDynamicArt(await loadDynamicArtIndex(), skins);
   return { props: { skins, seriesLogos, events, availabilityWindows, dynamicArt } };
 }, {
   // A release exported before animated art: this deployment's data/dynamic-art.json fills the pointers in.

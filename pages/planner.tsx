@@ -23,7 +23,8 @@ import { highlightStats } from '@/components/ui/HighlightedText';
 import { PlannerOperator, PlannerOperatorSummary, Skill, OperatorModule, PromotionTier, getSkillList, type CostGroup } from '@/lib/operators/operatorTypes';
 import { buildAliasMap } from '@/lib/operators/operatorAliases';
 import { checkItemSortIds } from '@/lib/farming/materialSortOrder';
-import { checkMaterialCatalogue, depotNames, uncataloguedCosts } from '@/lib/farming/materialCatalogue.mjs';
+import { depotNames, uncataloguedCosts } from '@/lib/farming/materialCatalogue.mjs';
+import { loadMaterialCatalogue } from '@/lib/farming/materialCatalogueServer';
 import { DepotGrid } from '@/components/planner/DepotGrid';
 import { OperatorBill, ShortfallList } from '@/components/planner/ShortfallList';
 import { MaterialIcon } from '@/components/planner/MaterialIcon';
@@ -36,7 +37,7 @@ import { OperatorWizard, type WizardFlow } from '@/components/planner/OperatorWi
 import { BuildDialog, type BuildStep } from '@/components/planner/BuildDialog';
 import { clampBuilderStates, defaultStartingState, knownPlanNames, type BuilderState } from '@/lib/planner/builderStates';
 import { clampOwned, liftToOwned, syncPlansToRoster } from '@/lib/planner/ownedSync';
-import { checkImportAliases } from '@/lib/planner/foreignImport';
+import { DATA_DIALOG_TABLES } from '@/lib/content/dataDialogTables';
 import { goalsFor, type Goal, type GoalFrom } from '@/lib/planner/goals';
 import { compactCount } from '@/lib/planner/format';
 import { applyGoal, goalBlocker, goalReady, plannerModules, priceGoal, type BuildPlan } from '@/lib/planner/build';
@@ -1673,7 +1674,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/pl
    * and says nothing -- so the builder's promise is checked again here, against the index
    * this export resolves art from.
    */
-  const catalogue = checkMaterialCatalogue((await import('@/data/material-catalogue.json')).default);
+  const catalogue = await loadMaterialCatalogue();
   const iconStems = new Set(
     publicFiles('material-icons')
       .map((f) => path.parse(f).name),
@@ -1773,10 +1774,10 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/pl
     operatorLevelExpLmd: async () => (await import('@/data/operatorLevelExpLmd.json')).default,
     // Both checked against the material catalogue wherever they are read from data/,
     // so a release that disagrees fails its export (they used to fail at import).
-    'import-aliases': async () => checkImportAliases((await import('@/data/import-aliases.json')).default, checkMaterialCatalogue((await import('@/data/material-catalogue.json')).default)),
-    'item-sort-ids': async () => checkItemSortIds((await import('@/data/item-sort-ids.json')).default, checkMaterialCatalogue((await import('@/data/material-catalogue.json')).default)),
+    'import-aliases': DATA_DIALOG_TABLES['import-aliases'],
+    'item-sort-ids': async () => checkItemSortIds((await import('@/data/item-sort-ids.json')).default, await loadMaterialCatalogue()),
     'farming-tiers': async () => (await import('@/data/farming-tiers.json')).default,
     // The depot's materials, their order and groups (scripts/build/build-material-catalogue.mjs).
-    'material-catalogue': async () => checkMaterialCatalogue((await import('@/data/material-catalogue.json')).default),
+    'material-catalogue': DATA_DIALOG_TABLES['material-catalogue'],
   },
 });

@@ -21,7 +21,7 @@ import { publishedArt } from '@/lib/art/publishedArt';
 import packArt from '@/config/event-pack-art.json';
 import { findSkinIconPath } from '@/lib/skins/skinIconLookup';
 import { materialOrderFor } from '@/lib/farming/materialSortOrder';
-import { checkMaterialCatalogue } from '@/lib/farming/materialCatalogue.mjs';
+import { loadMaterialCatalogue } from '@/lib/farming/materialCatalogueServer';
 import { withMaterialOrder } from '@/lib/content/materialOrderFallback';
 import SkinZoomOverlay from '@/components/skins/SkinZoomOverlay';
 import PageHeader from '@/components/ui/PageHeader';
@@ -591,7 +591,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
   };
   rewardStores.push(...tableRewardStores(tableRewards, tableIcon));
 
-  const catalogue = checkMaterialCatalogue((await import('@/data/material-catalogue.json')).default);
+  const catalogue = await loadMaterialCatalogue();
   const materialOrder = materialOrderFor(catalogue, rewardStores.flatMap((store) => store.items.map((item) => item.name)));
   const builtExtras = eventExtras(tableRewards, (itemName) => rewardIconPath({ name: itemName, type: 'material', id: null }, () => null, publicFileExists), (packName) => publishedArt((packArt as Record<string, string>)[packName]), publicFileExists);
   /* The furniture set as a checklist: each piece with where this event gives it (its missions,

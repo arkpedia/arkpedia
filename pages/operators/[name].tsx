@@ -40,8 +40,8 @@ import { getSkillIconPath, getBaseSkillIconPath, baseSkillDisplayName, talentDis
 import { getAllSkins } from '@/lib/skins/skins';
 import { parsePrices, formatPrices } from '@/lib/skins/skinPrice';
 import SkinZoomOverlay from '@/components/skins/SkinZoomOverlay';
-import { appearanceSkinId, assertDynamicArtIndex, operatorDynamicArt } from '@/lib/skins/dynamicArt';
-import { withOperatorDynamicArt } from '@/lib/skins/dynamicArtFallback';
+import { appearanceSkinId, operatorDynamicArt } from '@/lib/skins/dynamicArt';
+import { withOperatorDynamicArt, loadDynamicArtIndex } from '@/lib/skins/dynamicArtFallback';
 import { highlightStats } from '@/components/ui/HighlightedText';
 import { CroppedRange } from '@/lib/operators/operatorAttackRanges';
 import { getOperatorAttackRanges, OperatorAttackRange as AttackRangeChoice } from '@/lib/operators/operatorAttackRanges';
@@ -69,7 +69,8 @@ import OperatorVoiceLines from '@/components/operators/OperatorVoiceLines';
 import StyledSelect from '@/components/ui/StyledSelect';
 import pageStyles from '@/components/operators/OperatorPage.module.css';
 import { materialOrderFor, sortMaterials } from '@/lib/farming/materialSortOrder';
-import { checkMaterialCatalogue, plannerCostNames } from '@/lib/farming/materialCatalogue.mjs';
+import { plannerCostNames } from '@/lib/farming/materialCatalogue.mjs';
+import { loadMaterialCatalogue } from '@/lib/farming/materialCatalogueServer';
 import { withMaterialOrder } from '@/lib/content/materialOrderFallback';
 import { getOperatorVoiceData, OperatorVoiceData } from '@/lib/operators/operatorVoices';
 import OperatorRelationPopover, { RelatedOperator } from '@/components/operators/OperatorRelationPopover';
@@ -1912,9 +1913,9 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/op
   const factionPath = getFactionIconPath(operator.faction);
   const factionEmblem = factionPath && publicFileExists(factionPath) ? factionPath : null;
   // The cost rows sort by the release's catalogue, not by a list compiled into the page.
-  const materialOrder = materialOrderFor(checkMaterialCatalogue((await import('@/data/material-catalogue.json')).default), plannerCostNames(operator));
+  const materialOrder = materialOrderFor(await loadMaterialCatalogue(), plannerCostNames(operator));
   // Only the pointer of each artwork that has an animated version: the model loads in the browser, when asked for.
-  const dynamicArt = operatorDynamicArt(assertDynamicArtIndex((await import('@/data/dynamic-art.json')).default), operator, appearances, skins);
+  const dynamicArt = operatorDynamicArt(await loadDynamicArtIndex(), operator, appearances, skins);
   const { operatorEP } = await import('@/lib/operators/operatorEP');
   const summonTable = (await import('@/data/operator-summons.json')).default as unknown as Record<string, Summon[]>;
   const chibiIndex = (await import('@/data/chibi-art.json')).default as unknown as Record<string, ChibiFacings>;
