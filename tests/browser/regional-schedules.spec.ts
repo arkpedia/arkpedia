@@ -68,19 +68,42 @@ test('a saved Global deadline cannot keep a JP/KR goal reserved after its region
 });
 
 test('regional reward labels use the server calendar and manual claims survive closing and switching', async ({ page }) => {
-  const id = 'free:signin82:1';
-  const close = new Date(regional.servers.jp.rewardWindows[id].endAt);
+  const id = 'free:regional-browser-fixture';
+  const close = new Date('2030-10-31T19:00:00Z');
+  // The server retires expired monthly rewards. Inject this isolated catalogue
+  // through real client navigation, so the regression survives October ending
+  // without changing SSR markup or depending on the current upstream month.
+  const response = await page.request.get('/free-op');
+  expect(response.ok()).toBeTruthy();
+  const html = await response.text();
+  const data = JSON.parse(html.match(/<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/)![1]).props;
+  const props = data.pageProps;
+  props.freeRewards = [...props.freeRewards.filter((reward: { startAt?: number; endAt?: number }) => !reward.startAt && !reward.endAt), {
+    id, group: 'Monthly sign-in', name: 'Regional monthly claim', forecast: false,
+    startAt: Date.parse('2030-10-01T11:00:00Z'), endAt: close.getTime() + 16 * 3600000,
+    rewards: [{ id: '4003', name: 'Orundum', count: 100, orundum: 100 }],
+  }];
+  for (const server of ['jp', 'kr']) props.__contentTables['regional-schedules'].servers[server].rewardWindows[id] = {
+    startAt: '2030-09-30T19:00:00Z', endAt: close.toISOString(), timingSource: 'https://example.test/regional-monthly-fixture',
+  };
+  await page.route('**/_next/data/**/free-op.json*', route => route.fulfill({ json: data }));
   const progress = { doneKeys: [id, 'manual:regional-qa'], doneEvents: ['manual:event'], annihilationDone: true, ticksFrom: '2026-10-16T00:00:00Z', importedDoneKeys: [] };
   await page.addInitScript(progress => localStorage.setItem('arkpedia.past-rewards.v1', JSON.stringify(progress)), progress);
   await page.clock.setFixedTime(new Date(close.getTime() - 60_000));
-  await page.goto('/free-op');await account(page, 'jp');
+  await page.goto('/stages/supplies');await account(page, 'jp');
+  const mobileMenu = page.getByRole('button', { name: 'Open navigation menu', exact: true });
+  if (await mobileMenu.isVisible()) await mobileMenu.click();
+  const planner = page.getByRole('button', { name: 'Planner', exact: true });
+  if (await planner.getAttribute('aria-expanded') !== 'true') await planner.click();
+  await page.locator('a[href="/free-op"]:visible').click();
+  await expect(page.locator('.site-nav-clock:visible').first()).toContainText('03:59');
   await page.getByRole('tab', { name: 'Free rewards', exact: true }).click();
   await page.getByRole('group', { name: 'Free rewards status' }).getByRole('button', { name: 'Claimed', exact: true }).click();
-  await page.getByRole('searchbox', { name: 'Search free rewards' }).fill('October · Day 1');
+  await page.getByRole('searchbox', { name: 'Search free rewards' }).fill('Regional monthly claim');
   await page.getByText('Monthly sign-in', { exact: true }).click();
-  const reward = page.getByRole('checkbox', { name: 'October · Day 1', exact: true });
+  const reward = page.getByRole('checkbox', { name: 'Regional monthly claim', exact: true });
   await expect(reward).toBeChecked();
-  await expect(page.locator('.free-reward-meta')).toHaveText('Until 2026-11-01');
+  await expect(page.locator('.free-reward-meta')).toHaveText('Until 2030-11-01');
   await page.clock.setFixedTime(close);await page.evaluate(() => window.dispatchEvent(new Event('focus')));
   await expect(reward).toHaveCount(0);
   await account(page, 'en');
