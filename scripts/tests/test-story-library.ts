@@ -63,6 +63,21 @@ test('story categories follow the requested order and representative groups use 
   assert.match(entries.find(entry => entry.id === 'story_ling_set_1')!.image!, /Ling/);
 });
 
+test('main-story chapters absent from the canvas use reader covers before event banners', () => {
+  const entries = bundledStoryLibrary();
+  const art = JSON.parse(readFileSync('data/story-library-art.json', 'utf8'));
+  for (const id of ['main_16', 'main_17']) {
+    const entry = entries.find(entry => entry.id === id)!;
+    assert.equal(entry.image, art.images[id]);
+    assert.match(entry.image!, new RegExp(`^/story-map/timo-${id}-[a-f0-9]+\\.webp$`));
+    assert.equal(entry.imageKind, 'art');
+  }
+  assert.ok(Object.values(art.images).every(image => typeof image === 'string' && image.startsWith('/story-map/')), 'reader images are delivered by our assets repository');
+  const legacy = { ...entries.find(entry => entry.id === 'main_17')!, image: 'https://arknights.timo.beer/covers/main_17.jpg' };
+  const map = JSON.parse(readFileSync('data/story-map.json', 'utf8'));
+  assert.equal(storyLibraryArt([legacy], map)[0].image, art.images.main_17, 'legacy hotlinks are projected onto mirrored artwork');
+});
+
 test('a future story without art stays navigable and released image projections are preserved', () => {
   const map = JSON.parse(readFileSync('data/story-map.json', 'utf8'));
   const future: StoryLibraryEntry = { id: 'unknown-future-story', category: 'side', title: 'Unknown future story', url: 'https://arknights.timo.beer/story.html#side&unknown-future-story&0' };

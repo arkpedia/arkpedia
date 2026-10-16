@@ -127,6 +127,8 @@ stage story-map -- python3 scripts/imports/import_story_map.py
 # page's complete library and chapter popups: read from the reader's catalogue as data,
 # independently of the map, so a failed canvas import cannot block new stories.
 stage story-chapters -- node scripts/imports/import-story-chapters.mjs
+# Reader cover images are staged separately, so an art-source outage cannot discard stories.
+stage story-covers -- node scripts/imports/import-story-covers.mjs
 
 # Run windows, for the Current group and the default chapter.
 stage content-windows --needs stage-dataset -- node scripts/build/build-content-windows.mjs

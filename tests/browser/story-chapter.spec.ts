@@ -17,3 +17,22 @@ test('a chapter pop-up shows its cover whole and centred, above the chapter line
   expect(Math.abs(left - right), `the cover is centred (${left.toFixed(1)}px left, ${right.toFixed(1)}px right)`).toBeLessThanOrEqual(2);
   expect(head!.y, 'the chapter line is under the cover').toBeGreaterThanOrEqual(cover!.y + cover!.height - 1);
 });
+
+test('chapters outside the story canvas show their reader covers in the list and popup', async ({ page }) => {
+  await page.goto('/story?view=list&category=main');
+  for (const chapter of [16, 17]) {
+    const card = page.locator('.story-list-card').filter({ hasText: `Chapter ${chapter}:` });
+    const cover = new RegExp(`^https://raw\\.githubusercontent\\.com/arkpedia/arkpedia-image-assets/[a-f0-9]{40}/story-map/timo-main_${chapter}-[a-f0-9]+\\.webp$`);
+    await expect(card.locator('img')).toHaveAttribute('src', cover);
+    await card.click();
+    const dialog = page.locator('.story-chapter-dialog');
+    const image = dialog.locator('.story-chapter-art');
+    await expect(image).toBeVisible();
+    await expect(image).toHaveAttribute('src', cover);
+    await expect.poll(() => image.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true);
+    expect(await image.evaluate(img => getComputedStyle(img).objectFit)).toBe('contain');
+    await expect(dialog.getByRole('link', { name: /Continue reading/ })).toHaveAttribute('href', new RegExp(`#main&main_${chapter}&\\d+$`));
+    await page.keyboard.press('Escape');
+    await expect(dialog).not.toBeVisible();
+  }
+});

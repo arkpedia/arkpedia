@@ -41,13 +41,14 @@ export default function StoryPage({ map, chapters = {}, library = [] }: Props) {
   const pictures = useMemo(() => new Map(map.elements.flatMap((element) =>
     element.type === 'picture' && element.link?.story && element.link.url ? [[element.link.story, { link: element.link as StoryLink & { url: string; story: string },
       // Its box on the board has the picture's own shape: the dialog shows the cover whole at it.
-      image: element.image && element.width > 0 && element.height > 0 ? { src: element.image, ratio: element.width / element.height } : null }] as const] : [])), [map]);
+      image: element.image && element.width > 0 && element.height > 0 ? { src: `/${element.image}`, ratio: element.width / element.height } : null }] as const] : [])), [map]);
   const links = useMemo(() => new Map(library.map(entry => [entry.id, entry])), [library]);
   const opener = useMemo<ChapterOpener>(() => ({ has: (story) => !!story && !!chapters[story]?.length && (links.has(story) || pictures.has(story)), open: setChapter,
     isRead: (story) => !!story && chapterRead(progress, story, chapters[story] ?? []),
     progressLabel: (story) => story && chapters[story]?.length ? chapterProgress(progress, story, chapters[story]).label : undefined }), [chapters, links, pictures, setChapter, progress]);
   const entry = links.get(chapter);
-  const shown = opener.has(chapter) ? { link: entry ? { title: entry.title, url: entry.url, story: entry.id } : pictures.get(chapter)!.link, image: pictures.get(chapter)?.image ?? null } : null;
+  const shown = opener.has(chapter) ? { link: entry ? { title: entry.title, url: entry.url, story: entry.id } : pictures.get(chapter)!.link,
+    image: pictures.get(chapter)?.image ?? (entry?.image && entry.imageKind === 'art' ? { src: entry.image, ratio: 1 } : null) } : null;
   return (
     <>
       <Head><title>Story — Arkpedia</title></Head>

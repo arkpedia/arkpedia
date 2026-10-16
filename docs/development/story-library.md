@@ -39,8 +39,9 @@ modules, content-ID art and event posters for chapters/modes, then mapped canvas
 art and the reader's cover manifest. The optional cover refresh preserves its
 previous snapshot on failure. Cover images are Arknights game art; mappings come
 from https://arknights.timo.beer/json/covers.json. No wiki descriptions are copied.
-Existing released image projections are retained; older releases are enriched by
-the deployment until the next dev content release carries their own artwork.
+Existing asset projections are retained; legacy Timo image hotlinks are reprojected
+onto mirrored assets. Older releases are enriched by the deployment until the next
+dev content release carries their own artwork.
 
 Complete chapter imports carry `completeLibrary: true`. Until that marker reaches
 a page, missing off-canvas chapter groups are filled from the deployment snapshot;
@@ -71,3 +72,14 @@ backend; a browser-only implementation cannot synchronize independent devices.
 Storage provider, retention, recovery and revocation behavior need an agreed
 scope before implementation. No auth, security, or storage infrastructure was
 added in this change.
+
+## Story cover delivery
+
+Reader cover artwork is mirrored into `arkpedia-image-assets`, never loaded from Timo at runtime.
+The independent `story-covers` refresh stage reads Timo's cover manifest, stages missing source
+images through `scripts/lib/staged-art.mjs`, and adopts only paths present in the published asset
+index. The staged-art publisher encodes them as versioned `story-map/timo-<group>-<version>.webp`
+files with source provenance and manifest checksums. An art-source outage keeps previously
+mirrored covers and does not block the chapter catalogue. New main-story chapters absent from
+the community canvas prefer their reader cover to a stage/event banner; their popups fall back
+to that same library artwork. Existing canvas cover geometry is preserved.

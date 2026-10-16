@@ -46,6 +46,11 @@
       "folders": ["story-map"],
       "adopt": ["python3", "scripts/imports/import_story_map.py"]
     },
+    "story-covers": {
+      "stage": "story-covers",
+      "folders": ["story-map"],
+      "adopt": ["node", "scripts/imports/import-story-covers.mjs"]
+    },
     "album-covers": {
       "stage": "albums",
       "folders": ["album-covers"],
