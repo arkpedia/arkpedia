@@ -200,5 +200,3 @@ export function releaseDates(entries) {
   }
   return out;
 }
-
-export { clean };

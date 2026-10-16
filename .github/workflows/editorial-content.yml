@@ -39,7 +39,8 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: '22'
-      - run: node --test scripts/content/editorial-watch.test.mjs
+      # The deterministic watcher regressions run in Check's npm test; this
+      # ten-minute poll only needs to inspect current source and dispatch work.
       - name: Start preparations for changed shared source
         env:
           GH_TOKEN: ${{ github.token }}

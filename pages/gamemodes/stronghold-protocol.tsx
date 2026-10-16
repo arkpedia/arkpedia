@@ -241,7 +241,6 @@ export default function StrongholdProtocolPage({ data, picker }: Props) {
   const [spoilers, setSpoilers] = useState(false);
   /** Which creature's handbook record is over the page, if any. */
   const [record, setRecord] = useState<{ slug: string; name: string; bossIndex?: number } | null>(null);
-  const detail = open?.detail ?? null;
   /**
    * Closing a sheet must not yank the page upward.
    *

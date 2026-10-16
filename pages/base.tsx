@@ -30,7 +30,6 @@ import {
   presetSpots,
   PRODUCTION_KINDS,
   PRODUCTION_SPOTS,
-  productionKindCounts,
   reconcileAssignments,
 } from '@/lib/base/baseConfig';
 import { BASE_ROSTER_NAMES, checkBaseRosters, toBaseRosters, type BaseRosterData } from '@/lib/base/baseGroupRosters';
@@ -498,12 +497,6 @@ export default function BasePage({ operators }: Props) {
     try { window.localStorage.setItem(MODEL_SETTINGS_KEY, JSON.stringify({ trainingTarget: resolvedTrainingTarget, workshopSettings })); } catch { /* Session remains usable. */ }
   }, [modelSettingsLoaded, resolvedTrainingTarget, workshopSettings, baseSource]);
 
-  // Debug-only: exposes the full operator dataset to the dev console for
-  // manual inspection/extraction (e.g. window.__operators.filter(...)).
-  // Read-only, doesn't affect app behavior.
-  useEffect(() => {
-    (window as unknown as { __operators?: BaseOperator[] }).__operators = operators;
-  }, [operators]);
 
   function persist(next: BaseAssignments) {
     if (baseSource === 'account') return;

@@ -3,7 +3,7 @@ import { getEventMaterials } from './eventMaterials';
 import { parseGameWindow } from './gameWindow';
 import type { CountdownWindow, FarmingWindows } from './countdownWindows';
 
-export type { CountdownWindow, FarmingWindows, MaterialCountdown } from './countdownWindows';
+export type { FarmingWindows } from './countdownWindows';
 
 /** Event Store materials (Loxic Kohl, Manganese Ore, Grindstone) aren't
  * tied to one specific named event -- they're purchasable whenever ANY

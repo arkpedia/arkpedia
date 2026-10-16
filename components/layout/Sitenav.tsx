@@ -1,4 +1,4 @@
-import { ContentImg, ContentArt } from '@/components/content/ContentImage';
+import { ContentArt } from '@/components/content/ContentImage';
 import Link from 'next/link';
 import Image from '@/components/content/ContentImage';
 import { useRouter } from 'next/router';
@@ -188,7 +188,7 @@ export const ICONS: Record<string, JSX.Element> = {
 /* The registry of destinations -- LINKS, the menus, the loose links, NAV_ORDER and which
    entry is lit -- is plain data in lib/nav/navLinks.ts, so a test can check every href
    against the pages and the redirects without rendering the bar. */
-export { LINKS, GROUPS, LOOSE, NAV_ORDER, isActiveLink, type NavLink, type NavGroup } from '@/lib/nav/navLinks';
+export { GROUPS, LOOSE, isActiveLink, type NavLink } from '@/lib/nav/navLinks';
 
 export default function SiteNav({ mobileNav }: { mobileNav?: MobileNavOverride }) {
   const router = useRouter();

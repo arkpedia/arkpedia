@@ -47,7 +47,6 @@ const READ_BY_PEOPLE: Record<string, string> = {
   'persona-collaboration-sources.json': 'where the Persona 3 collaboration records were checked, and when (hand-kept provenance)',
   'skin-catalogue-refresh-sources.json': 'per-outfit gallery and module citations, named in docs/pull-planner.md (hand-kept provenance)',
   'operator-import-report.json': 'the report scripts/imports/import-operator-details.ts writes for a person to review',
-  'survey': 'the private raw poll export final-poll-results.json is aggregated from; never published',
 };
 
 test('every top-level record in data/ is read by code, or is a named record kept for people', () => {

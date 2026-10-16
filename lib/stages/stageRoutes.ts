@@ -94,23 +94,6 @@ function findPath(m: WalkGrid, a: Point, b: Point, diag: boolean, cutCorners: bo
   return null;
 }
 
-/** Drops the intermediate points of a straight run, so a long corridor is two
- * points rather than twenty. Run per leg, so checkpoints survive it. */
-function simplify(pts: Point[]): Point[] {
-  if (pts.length < 3) return pts;
-  const out: Point[] = [pts[0]];
-  for (let i = 1; i < pts.length - 1; i++) {
-    const a = out[out.length - 1];
-    const b = pts[i];
-    const c = pts[i + 1];
-    const d1 = [Math.sign(b[0] - a[0]), Math.sign(b[1] - a[1])];
-    const d2 = [Math.sign(c[0] - b[0]), Math.sign(c[1] - b[1])];
-    if (d1[0] !== d2[0] || d1[1] !== d2[1]) out.push(b);
-  }
-  out.push(pts[pts.length - 1]);
-  return out;
-}
-
 /** Pathfind one leg of a route. The playback work (routes walked at real
  * movement speed) builds on this; the map currently draws checkpoint-to-
  * checkpoint straight lines, which is not the walked path. */

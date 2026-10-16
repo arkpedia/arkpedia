@@ -31,6 +31,14 @@ function pageFile(route: string): string {
 // Every page contentPageClock gives a clock, and the components that render from it.
 const GUARDED = [...new Set([...CLOCK_ROUTES.map(pageFile), 'pages/gacha.tsx', 'components/schedule/EventsPanel.tsx', 'components/home/GachaBannersPanel.tsx'])];
 
+test('debug globals cannot retain page data after navigation; internal reads remain allowed', async () => {
+  const code = 'window.__operators = []; const x = window.__operators; window.__assetRetry = true;';
+  for (const filePath of ['pages/base.tsx', 'pages/gacha.tsx', 'lib/assets/assetRetry.ts']) {
+    const messages = (await eslint.lintText(code, { filePath }))[0].messages.filter(m => m.ruleId === 'no-restricted-syntax');
+    assert.equal(messages.length, 1, filePath);
+  }
+});
+
 test('the clock ban covers every page with a request clock, /gacha, the Events panel and the home page\'s banners', async () => {
   assert.ok(CLOCK_ROUTES.includes('/gacha') && CLOCK_ROUTES.includes('/'), 'the two pages this guard was written for have a clock');
   for (const file of GUARDED) assert.ok(await guarded(file), `${file} renders from a request clock but .eslintrc.json does not ban clock reads in it`);

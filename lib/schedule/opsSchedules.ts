@@ -113,14 +113,6 @@ if (RESET_HOUR_SGT * 3_600_000 - SGT_OFFSET_MS !== RESET_HOUR_SERVER * 3_600_000
   );
 }
 
-/** The server's wall clock, HH:MM, as the game shows it. */
-export function formatServerClock(now: Date): string {
-  const server = new Date(now.getTime() + SERVER_OFFSET_MS);
-  const hh = String(server.getUTCHours()).padStart(2, '0');
-  const mm = String(server.getUTCMinutes()).padStart(2, '0');
-  return `${hh}:${mm}`;
-}
-
 /**
  * A gap in milliseconds as "7h 46m", rounded UP to the next whole minute.
  *

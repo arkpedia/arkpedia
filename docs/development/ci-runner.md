@@ -130,3 +130,13 @@ it on every job. A cold self-hosted home remains correct: `npm ci` fetches missi
 packages and verifies lockfile integrity. No node_modules directory is reused.
 The observed remote archive was 484 MB and cost 44 seconds in Check and 84 seconds
 in Deploy (2026-10-16). See [setup-node's cache inputs](https://github.com/actions/setup-node/blob/v7/action.yml).
+
+## Keep the code graph clean
+
+Check runs `audit:unused` once, alongside the existing style and type gates. Knip's
+framework/manual entrypoints are exercised by a small fixture that deliberately adds
+unused files, exports and dependencies. The compiler's noUnusedLocals flag reuses the
+existing typecheck rather than adding another compiler pass. Shared .mjs declaration
+twins have export/parameter-count checks, and a test inventory covers every suite.
+The editorial watcher's deterministic regressions run in npm test instead of on every
+ten-minute poll. `npm run check:local` is the non-build/non-browser local entrypoint.

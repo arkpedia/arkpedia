@@ -364,7 +364,7 @@ export function expandSystem(system: SystemFrame, ctx: ExpandContext, out: Verte
   for (let k = 0; k < drawn.length; k++) {
     const i = drawn[k];
     sim.attributes(i, attributes, custom);
-    const cx = positions[i * 3], cy = positions[i * 3 + 1], cz = positions[i * 3 + 2];
+    const cx = positions[i * 3], cy = positions[i * 3 + 1];
     // Size on each axis, Unity units: the particle's times the scale on sizes.
     let sx = attributes[0] * sx0, sy = attributes[1] * sy0, sz = attributes[2] * sz0;
     if (capped) {

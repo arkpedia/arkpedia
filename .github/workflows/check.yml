@@ -102,7 +102,7 @@ jobs:
         with:
           python-version: "3.12"
 
-      - run: python -m pip install pillow certifi lz4==4.4.5
+      - run: python -m pip install -r scripts/requirements.txt
 
       # Independent processes; Python suites use temporary fixtures. Keep npm test's
       # existing parallel runner, overlap the importer tests, and collect BOTH verdicts.
@@ -139,11 +139,16 @@ jobs:
       - name: Style drift ratchet
         run: npm run audit:styles
 
+      # Code graph only, independent of the bundled game records. Next/Playwright
+      # entrypoints, manual scripts and declaration twins are covered by fixtures.
+      - name: Unused code and dependencies
+        run: npm run audit:unused
+
       # A class the app renders that no stylesheet styles is invisible to the type
       # checker and to the linter: nothing fails, the page just quietly looks wrong.
       # That was 45 names when this check went in; it is 0 now, so --strict can gate.
       - name: Every rendered class is styled
-        run: node scripts/audits/check-unstyled-classes.mjs --strict
+        run: npm run check:styles
 
       - name: Compile and validate runtime content
         run: npm run content:export && npm run content:validate

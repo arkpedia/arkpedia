@@ -1,32 +1,6 @@
 import { LEVEL_CAPS, maxLevelForElite } from '@/lib/planner/plannerLogic';
 
 /**
- * A plan, counted as the discrete upgrades it is made of.
- *
- * "27 goals" and "Next: E2 promotion" are the same fact read two ways, so they
- * come out of one list rather than two counters that could disagree.
- *
- * THE MODEL IS THE HANDOFF'S OWN, quoted from the caption under option 15a:
- *
- *     "E1, E2 · three level runs · SL2-7 · S1 M1-M3 · module S1"  = 15 goals
- *
- * which is Chiave from E0 Lv1 SL1 to E2 Lv50 SL7 M3 with her one module at
- * stage 1 -- two promotions, three level runs, six skill ranks, three masteries
- * and one module stage. This function reproduces that 15 exactly, and it is the
- * only number in either mock that two frames agree on: 15b prints Suzuran at 4,
- * Texas at 6 and Leizi at 2, and no consistent rule produces all three. Those
- * are illustrative, the same way "76 materials" was.
- *
- * The categories match ak-roster's `OperatorGoalCategory` -- Elite, Level,
- * SkillLevel, Mastery, Module -- and the order is the caption's: promotions,
- * then levels, then ranks, then masteries, then modules. Not interleaved by
- * what the game unlocks when, because a reader scanning "what is left" wants
- * them grouped by kind, and the locks are stated on the editor's own blocks.
- */
-
-export type GoalKind = 'elite' | 'level' | 'skill' | 'mastery' | 'module';
-
-/**
  * One upgrade, with what it is -- so it can be priced and BUILT, not only
  * counted. The label is for the "Next:" line; the fields are for
  * lib/planner/build.ts, which prices a goal from the operator's current state
@@ -103,9 +77,4 @@ export function goalsFor(
   });
 
   return goals;
-}
-
-/** The one to do next, which is the first in upgrade order. */
-export function nextGoal(goals: Goal[]): Goal | null {
-  return goals[0] ?? null;
 }

@@ -9,7 +9,7 @@ import { withContentPage } from '@/lib/content/server';
 import { useContentUrl } from '@/lib/content/context';
 import type { LyricLine } from '@/lib/music/albumsDataServer';
 import { useMusicPlayer } from '@/lib/music/musicPlayerContext';
-import { songTitle, upcomingIndices, lyricPreview } from '@/lib/music/musicPolish';
+import { upcomingIndices, lyricPreview } from '@/lib/music/musicPolish';
 import { useCrossFadeTitle } from '@/lib/music/useCrossFadeTitle';
 import { lyricsPath, youtubeWatchUrl } from '@/lib/music/trackId';
 import MusicWaveVisualizer from '@/components/music/MusicWaveVisualizer';
@@ -26,13 +26,6 @@ import { fetchAsset } from '@/lib/assets/assetRetry';
 
 interface Props {
   songLookup: SongModalLookupEntry[];
-}
-
-function formatTime(seconds: number): string {
-  if (!isFinite(seconds) || seconds < 0) return '0:00';
-  const m = Math.floor(seconds / 60);
-  const s = Math.floor(seconds % 60);
-  return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
 // Displays the role exactly as it appears in the source JSON (artist,

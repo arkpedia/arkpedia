@@ -16,7 +16,6 @@ import { withContentPage } from '../../lib/content/server';
 // (contentPageClock) or the reader's. Fixtures and fixed instants only; nothing here
 // reads the real date or the repository's data.
 const at = (iso: string) => Date.parse(iso);
-const HOUR = 3_600_000, DAY = 24 * HOUR;
 
 test('schedule rows: LIVE, membership and the pull-planner link follow the request clock', () => {
   const row = (name: string, start: string, end: string, pullBanner: EventRow['pullBanner'] = null): EventRow =>

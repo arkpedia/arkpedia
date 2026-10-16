@@ -1,4 +1,4 @@
-import { useEffect, useState, ReactNode } from 'react';
+import { useEffect, useState } from 'react';
 import Head from 'next/head';
 import PageHeader from '@/components/ui/PageHeader';
 import { devOnlyStaticProps } from '@/lib/dev/devOnly';

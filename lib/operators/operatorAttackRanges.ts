@@ -1,5 +1,12 @@
-import type { CroppedRange } from './branchRanges';
 import type { Operator } from './operatorTypes';
+
+/** Cropped operator range, with the operator tile retained separately. */
+export interface CroppedRange {
+  cols: number;
+  rows: number;
+  opCell: [number, number];
+  rangeCells: [number, number][];
+}
 
 /** The deployment dataset stores offsets as [forward, lateral]. */
 export type AttackRangeTable = Record<string, number[][]>;

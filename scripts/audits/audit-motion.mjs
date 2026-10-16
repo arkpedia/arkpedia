@@ -79,8 +79,6 @@ export const MOTION_LEGACY = new Map([
   ['styles/core/nav.css: @keyframes mobile-nav-overlay-in', { count: 1, reason: DRAWER }],
   ['styles/core/nav.css: .mobile-nav-drawer { transition }', { count: 1, reason: DRAWER }],
   ['styles/core/nav.css: .mobile-nav-drawer.open { transition }', { count: 1, reason: DRAWER }],
-  ['styles/core/shared.css: .card.invalid { animation }', { count: 1, reason: FEEDBACK }],
-  ['styles/core/shared.css: @keyframes shake', { count: 1, reason: FEEDBACK }],
   ['styles/core/shared.css: @keyframes cardRiseIn', { count: 1, reason: ENTRANCE }],
   ['styles/enemies/enemies.css: .enemy-status-trigger > svg { transition }', { count: 1, reason: DISCLOSURE }],
   ['styles/enemies/enemies.css: .enemy-flavour-drop > summary { transition }', { count: 1, reason: DISCLOSURE }],

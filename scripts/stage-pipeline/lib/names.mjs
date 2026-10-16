@@ -126,5 +126,3 @@ export function stageSlugs(stages, trialTiers = new Map()) {
   for (const [sid, key] of keys) out.set(sid, resolved.get(key));
   return out;
 }
-
-export { text };

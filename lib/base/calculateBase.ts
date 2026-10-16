@@ -1512,7 +1512,6 @@ export function calculateBase(input: BaseCalculationInput) {
       }
     }
   }
-  const prelimCcGreyRate = ccSlots.length > 0 ? Math.max(0, 1 - 0.05 * (ccSlots.length - 1)) : 0;
   // Manual setting instead of a calculated fraction -- confirmed by the
   // user: the real trigger depends on how the whole day actually plays
   // out, which this steady-state simulator can't track, so it's a

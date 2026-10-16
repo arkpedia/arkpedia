@@ -219,24 +219,6 @@ export function defaultProductionSpots(): ProductionSpots {
   return presetSpots('2-4-3');
 }
 
-/** How many of each production kind the given arrangement builds. Counts
- * only spots that are actually BUILT: a spot set to Level 0 contributes
- * nothing, which matters because several base skills scale off the number
- * of Power Plants or Factories in the base. */
-export function productionKindCounts(
-  spots: ProductionSpots,
-  levels: FacilityLevels = {},
-): Record<ProductionKind, number> {
-  const counts: Record<ProductionKind, number> = { tradingPost: 0, factory: 0, powerPlant: 0 };
-  PRODUCTION_SPOT_IDS.forEach((id) => {
-    const kind = spots[id];
-    if (!kind) return;
-    if (levelFor(id, kind, levels) <= 0) return;
-    counts[kind] += 1;
-  });
-  return counts;
-}
-
 /** Counts a kind for the max-five rule, which is about what is BUILT in the
  * spots rather than what each one is set to -- so this ignores levels and
  * counts every spot assigned to the kind. */

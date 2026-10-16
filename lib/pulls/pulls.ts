@@ -189,14 +189,6 @@ export function fillFromDeployment(release: BacklogSources, deployment: BacklogS
   return { ...release, chapters: release.chapters.map(fill), playable: release.playable.map(fill), annihilation, paradox: release.paradox ?? deployment.paradox ?? [], freeRewards: release.freeRewards ?? deployment.freeRewards ?? [] };
 }
 
-/** The labels a reader knows these by; the gamedata's own words are internal. */
-export const EVENT_TYPE_LABEL: Record<string, string> = {
-  sidestory: 'Sidestory',
-  ministory: 'Mini event',
-  special: 'Collab / anniversary',
-  branchline: 'Branchline',
-};
-
 /**
  * What is LEFT of the back catalogue once the player says what they have done.
  *

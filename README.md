@@ -48,7 +48,7 @@ The imported account is kept only in the reader's browser storage. It feeds:
 
 ## Local development
 
-Use Node.js 20 or newer. From the repository root:
+Use Node.js 22.12 or newer; deployment builds and hosted functions use Node.js 24. From the repository root:
 
 ```sh
 npm ci

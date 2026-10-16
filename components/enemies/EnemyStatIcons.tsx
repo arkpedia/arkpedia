@@ -1,4 +1,4 @@
-import { ContentImg, ContentArt } from '@/components/content/ContentImage';
+import { ContentArt } from '@/components/content/ContentImage';
 /**
  * The glyphs the in-game enemy handbook puts beside each stat.
  *

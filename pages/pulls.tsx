@@ -41,12 +41,24 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import LockToggle from '@/components/ui/LockToggle';
 import { useLock } from '@/lib/ui/useLock';
 import {
-  ANNIHILATION_WEEKLY_ORUNDUM, DAILY_ORUNDUM, ORUNDUM_PER_ORIGINITE, ORUNDUM_PER_PULL,
-  MONTHLY_CARD_DAILY_ORUNDUM, MONTHLY_CARD_ORIGINITE,
+  ANNIHILATION_WEEKLY_ORUNDUM,
+  DAILY_ORUNDUM,
+  ORUNDUM_PER_ORIGINITE,
+  ORUNDUM_PER_PULL,
+  MONTHLY_CARD_DAILY_ORUNDUM,
+  MONTHLY_CARD_ORIGINITE,
   WEEKLY_ORUNDUM,
-  eventWasCleared, eventShopPermits, bannerHaul, incomeBetween, monthlyCardIncome,
-  fillFromDeployment, pullsFrom,
-  type BacklogSources, type Holdings, type UpcomingBanner, type PullEventReward,
+  eventWasCleared,
+  eventShopPermits,
+  bannerHaul,
+  incomeBetween,
+  monthlyCardIncome,
+  fillFromDeployment,
+  pullsFrom,
+  type BacklogSources,
+  type Holdings,
+  type UpcomingBanner,
+  type PullEventReward,
 } from '@/lib/pulls/pulls';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -84,12 +96,6 @@ function Field({
       </span>
     </label>
   );
-}
-
-/** Events in the list that actually pay: a rerun you have cleared is shown but
- *  contributes nothing, and counting it would overstate the line above it. */
-function haulCountedPaying(counted: PullEventReward[], cleared: ReadonlySet<string>): number {
-  return counted.filter((b) => b.op > 0 && !eventWasCleared(b, cleared)).length;
 }
 
 /** One line of the condensed income report: the source, its working, and its pulls. */

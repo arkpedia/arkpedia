@@ -10,8 +10,19 @@ import { POOL_NEEDS, poolTail } from '@/lib/gamemodes/plannerNeeds';
 import { byTier, nudgeFor } from '@/lib/gamemodes/strongholdPlaybook';
 import { Badge } from '@/components/gamemodes/StrongholdIcons';
 import {
-  COPIERS, FREE_CHOICE, GUIDE, ISOMORPH_CHOICE, ISOMORPH_ITEM, NEW_PLAYER_EXTRA_ACCESS, OPENING,
-  SIX_STAR_OPERATORS, goodStackerMap, lockdownMap, nudgeMap, openingFor, type OpeningFor,
+  COPIERS,
+  FREE_CHOICE,
+  GUIDE,
+  ISOMORPH_CHOICE,
+  ISOMORPH_ITEM,
+  NEW_PLAYER_EXTRA_ACCESS,
+  OPENING,
+  SIX_STAR_OPERATORS,
+  goodStackerMap,
+  lockdownMap,
+  nudgeMap,
+  openingFor,
+  type OpeningFor,
 } from '@/lib/gamemodes/strongholdOpening';
 import PipWindow, { pipSupported, usePipWindow } from '@/components/ui/PipWindow';
 /* The address the New tab button points at and the phone link navigates to. Its own
@@ -1563,13 +1574,6 @@ export default function StrongholdCompanion({ data, picker, standalone }: Props)
     () => new Map(data.items.map((i) => [i.name, i])),
     [data.items],
   );
-  /** Name plus what the item does, for a badge's tooltip. The icon alone says
-   *  which piece of equipment, not why the combo wants it. */
-  const itemTitle = (name: string) => {
-    const it = itemByName.get(name);
-    const effect = it?.base_effect && it.base_effect !== 'None' ? it.base_effect.split('\n')[0] : null;
-    return effect ? `${name} — ${effect}` : name;
-  };
 
   /**
    * The pools you drew, and what each one asks of a squad.
@@ -1778,7 +1782,6 @@ export default function StrongholdCompanion({ data, picker, standalone }: Props)
       .filter((a) => isActive(a) || isLockedIn(a)),
     [picker, bannedAlliances, isActive, isLockedIn],
   );
-  const buildingSet = useMemo(() => new Set(building), [building]);
 
   /**
    * A Core that is locked down AND manned (its three heads marked) has settled the
@@ -3828,11 +3831,6 @@ export default function StrongholdCompanion({ data, picker, standalone }: Props)
         const say = allianceSay(a);
         const n = effectiveCount(a);
         const need = needOf(a);
-        const locked = isLockedIn(a);
-        /* Which mechanism locked it: a farmer in hand beats the label, and only a
-           strategy lock with no farmer yet says so. The distinction is what tells
-           the player whether the lock-down units below are still worth hunting. */
-        const byUnit = (lockdowns.get(a) ?? []).some((u) => got.includes(u));
         const done = settled.includes(a);
         const isCore = kindOf(a) === 'Core';
         /* Opened from a restricted chip. The roster below already drops the operators

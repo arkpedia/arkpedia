@@ -10,7 +10,7 @@ import { getGachaIconPools, GachaIconPools } from '@/lib/gacha/gachaIconPools';
 import type { HeadhuntingBanner } from '@/lib/gacha/headhuntingBanners';
 import { getBannersSortedByDate } from '@/lib/gacha/headhuntingBannerData';
 import { resolveGachaSimulatorBanners } from '@/lib/gacha/gachaBannerWindows';
-import { getDisplayFeaturedSixStars, getDisplayFeaturedSixStarsWithRerunLabel, getMechanicType, HowToObtainLookup, parseBannerDate, simulatorBannerConfig } from '@/lib/gacha/realGachaBanners';
+import { getDisplayFeaturedSixStarsWithRerunLabel, getMechanicType, HowToObtainLookup, parseBannerDate, simulatorBannerConfig } from '@/lib/gacha/realGachaBanners';
 import { isBannerLive } from '@/lib/gacha/upcomingBanners';
 import { useReaderClock } from '@/lib/time/readerClock';
 import { buildOperatorSeriesMap, OperatorSeries } from '@/lib/operators/operatorSeries';
@@ -22,8 +22,6 @@ import { createInitialState, GachaState, BannerConfig, BannerType, PulledItem, G
 import { doPulls, sixStarWeightedPool, fiveStarWeightedPool, simulatorPullable, BASE_RATES, ratesAtPull } from '@/lib/gacha/gachaEngine';
 import { useVirtualRows, type VirtualRowLayout } from '@/components/ui/useVirtualRows';
 import StyledSelect from '@/components/ui/StyledSelect';
-import SegmentedControl from '@/components/ui/SegmentedControl';
-import Tabs from '@/components/ui/Tabs';
 import PageHeader from '@/components/ui/PageHeader';
 import Rarity, { rarityLevel } from '@/components/ui/Rarity';
 import { useHeightFloor } from '@/components/ui/useHeightFloor';

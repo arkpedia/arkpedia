@@ -20,7 +20,7 @@ import SegmentedControl from '@/components/ui/SegmentedControl';
 import Tabs, { tabPanelProps } from '@/components/ui/Tabs';
 import Rarity, { rarityLevel } from '@/components/ui/Rarity';
 import type { SearchableOperatorRecord as SearchableOperator } from '@/lib/operators/operatorSearch';
-import { Operator, GuideEntry, SynergyEntry, SkillRecommendationEntry, SkillTechnique, getSkillList, getSkillCost, CostGroup, getWelfareInfo } from '@/lib/operators/operatorTypes';
+import { Operator, GuideEntry, SkillRecommendationEntry, SkillTechnique, getSkillList, getSkillCost, CostGroup, getWelfareInfo } from '@/lib/operators/operatorTypes';
 import { MEMBER_TO_UMBRELLA, UMBRELLA_DESCRIPTIONS, skillTechniques, talentTechniques } from '@/lib/techniques/autoTechniques';
 import { buildTechniqueGroups } from '@/lib/techniques/buildTechniqueGroups';
 import { SYNERGY_CLASS_NAMES, findSynergyMatches, isSynergyExcluded } from '@/lib/techniques/synergyDetection';
@@ -43,7 +43,7 @@ import SkinZoomOverlay from '@/components/skins/SkinZoomOverlay';
 import { appearanceSkinId, assertDynamicArtIndex, operatorDynamicArt } from '@/lib/skins/dynamicArt';
 import { withOperatorDynamicArt } from '@/lib/skins/dynamicArtFallback';
 import { highlightStats } from '@/components/ui/HighlightedText';
-import { CroppedRange } from '@/lib/operators/branchRanges';
+import { CroppedRange } from '@/lib/operators/operatorAttackRanges';
 import { getOperatorAttackRanges, OperatorAttackRange as AttackRangeChoice } from '@/lib/operators/operatorAttackRanges';
 import OperatorAttackRange from '@/components/operators/OperatorAttackRange';
 import { operatorBelongsToFaction } from '@/lib/operators/factionAliases';
@@ -206,7 +206,7 @@ function sumCostGroups(groups: (CostGroup | null | undefined)[]): CostGroup {
 
 /** Renders a branch's cropped range grid as a small box -- amber tile
  * for the operator's own position, teal tiles for where they can
- * attack. Columns are never cropped (see branchRanges.ts), so a
+ * attack, using the operator-specific offsets from operatorAttackRanges.ts. A
  * branch like Fortress still shows the real gap between the operator
  * and their range. */
 function RangeGridBox({ range, label }: { range: CroppedRange | null; label?: string }) {

@@ -1,6 +1,3 @@
-import { InGameEvent, OperatorBirthday } from './timelineTypes';
-import { CommunityEvent } from './eventTypes';
-
 export interface DayCell {
   date: Date;
   dateKey: string; // YYYY-MM-DD
@@ -66,13 +63,6 @@ export function generateMonths(start: Date, count: number): MonthGrid[] {
   }
 
   return months;
-}
-
-function addDays(dateKey: string, days: number): Date {
-  const [y, m, d] = dateKey.split('-').map(Number);
-  const dt = new Date(y, m - 1, d);
-  dt.setDate(dt.getDate() + days);
-  return dt;
 }
 
 

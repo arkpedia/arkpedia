@@ -3,7 +3,7 @@ import { BannerConfig, BannerType, GachaItem } from './gachaTypes';
 import { GachaIconPools } from './gachaIconPools';
 import { HeadhuntingBanner } from './headhuntingBanners';
 import { wasReleasedBy, getReleaseDate, ReleaseDateLookup } from '@/lib/operators/operatorReleaseDates';
-import { buildOperatorSeriesMap, bannerSeriesFromName, OperatorSeries } from '@/lib/operators/operatorSeries';
+import { bannerSeriesFromName, OperatorSeries } from '@/lib/operators/operatorSeries';
 import { wasInKernelPoolDuring, wasInStandardPoolAsOf, KernelAdditionLookup } from '@/lib/operators/kernelAdditionDates';
 
 import { HowToObtainInfo } from '@/lib/operators/operatorTypes';

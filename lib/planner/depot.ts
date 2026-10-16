@@ -11,8 +11,7 @@
  *
  * Kept deliberately separate from `plannerState`, which holds the goals. They change
  * on completely different rhythms -- a goal a few times a run, a depot every time you
- * clear a stage -- and lib/planner/plannerStorage.ts already reads and writes plannerState
- * from the operator pages. One key each means neither can corrupt the other, and
+ * clear a stage -- and lib/planner/plannerStorage.ts writes imported goals to plannerState. One key each means neither can corrupt the other, and
  * nothing existing needed a migration.
  */
 
@@ -111,9 +110,4 @@ export function parseDepotExport(text: string): Depot | null {
     if (n > 0) out[name] = n;
   }
   return out;
-}
-
-export function formatDepotExport(depot: Depot): string {
-  const sorted = Object.keys(depot).sort();
-  return JSON.stringify(Object.fromEntries(sorted.map((k) => [k, depot[k]])), null, 2);
 }

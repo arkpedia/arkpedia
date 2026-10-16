@@ -14,9 +14,7 @@
  * TIER 1 -- File System Access (Chrome, Edge, Opera). A real OS save dialog, so
  * the reader chooses the folder; `id` makes the browser remember that folder
  * for this origin, so the next save and the next open both start there. And
- * `showDirectoryPicker({ startIn: handle })` opens a native folder browser AT
- * the export's own directory, which is as close to "show me where it went" as
- * the platform allows.
+ * the saved handle lets a later save write back to the same chosen file.
  *
  * TIER 2 -- everywhere else (Firefox, Safari). A download, which lands in the
  * browser's download folder, and an `<input type=file>` to read one back. The
@@ -36,7 +34,6 @@ interface FilePickerHandle {
 interface FilePickerWindow {
   showSaveFilePicker?: (opts: unknown) => Promise<FilePickerHandle>;
   showOpenFilePicker?: (opts: unknown) => Promise<FilePickerHandle[]>;
-  showDirectoryPicker?: (opts: unknown) => Promise<{ name: string }>;
 }
 
 /** One id for the whole feature, so save and open share a remembered folder. */
@@ -60,16 +57,6 @@ const OPEN_TYPES = [{
 
 function api(): FilePickerWindow {
   return (typeof window === 'undefined' ? {} : window) as unknown as FilePickerWindow;
-}
-
-/** Whether this browser can put a native file dialog on screen. */
-export function hasFilePicker(): boolean {
-  return typeof api().showSaveFilePicker === 'function';
-}
-
-/** Whether it can open a folder browser at a place we know. */
-export function hasFolderPicker(): boolean {
-  return typeof api().showDirectoryPicker === 'function';
 }
 
 export interface SaveResult {
@@ -176,29 +163,4 @@ export async function loadFromFile({ archives = false }: { archives?: boolean } 
     input.addEventListener('cancel', () => { input.remove(); resolve(null); });
     input.click();
   });
-}
-
-/**
- * Open the reader's file browser at the folder the export is in.
- *
- * The nearest honest thing to "show path". It is a directory picker, so the
- * browser will ask permission for the folder -- we ask for nothing beyond the
- * dialog and read nothing from the handle; the point is the native folder view
- * it puts on screen, at the right place.
- */
-export async function showFolder(): Promise<boolean> {
-  const w = api();
-  if (!w.showDirectoryPicker) return false;
-  try {
-    await w.showDirectoryPicker({ id: PICKER_ID, startIn: lastHandle ?? 'documents', mode: 'read' });
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-/** Whether a file has been saved or opened this visit, which is what makes
- *  "show folder" meaningful rather than a jump to Documents. */
-export function hasLastFile(): boolean {
-  return lastHandle !== null;
 }

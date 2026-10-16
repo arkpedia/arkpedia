@@ -1,15 +1,3 @@
-export interface Operator {
-  name: string;
-  icon: string; // path under /operator_icons, e.g. "Aak.png"
-}
-
-export interface Rating {
-  power: number | null;
-  unrated: boolean;
-}
-
-export type Ratings = Record<string, Rating>;
-
 export interface StatsRow {
   operator_name: string;
   n: number;

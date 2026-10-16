@@ -18,7 +18,7 @@
 // and cached, instead of being re-fetched as page data every time the route is
 // entered. Moving it to props would have traded the same bytes for a worse cache.
 import pollData from '@/data/final-poll-results.json';
-import { StatsRow } from '@/lib/survey/types';
+import { StatsRow } from '@/lib/results/types';
 
 interface PollResults {
   submission_count: number;

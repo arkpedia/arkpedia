@@ -698,14 +698,6 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     return undefined;
   }
 
-  /** The song that plays when this one ends: what nextTrack (or Repeat one) would load. */
-  function upcomingTrackId(): string | null {
-    if (repeatModeRef.current === 'one') return videoIdRef.current || null;
-    const step = nextQueueStep();
-    if (step) return queueRef.current[step.index]?.id ?? null;
-    return autoplayRef.current ? nextAutoplayTracks()[0]?.id ?? null : null;
-  }
-
 
   const nextTrack = useCallback(async () => {
     primeAudio();

@@ -1,5 +1,4 @@
 import { useContentUrl } from '@/lib/content/context';
-import { ContentImg } from '@/components/content/ContentImage';
 import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
