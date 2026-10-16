@@ -10,6 +10,8 @@ The shared native dialog frame (`.account-dialog` and its header/body/backdrop) 
 
 Both stylesheet audits recurse through these folders. Run `npm run check:styles` after moving or renaming styles. UI interactions should preserve layout positions as much as possible.
 
+The application suite's `test-module-css-usage.ts` also rejects unused selectors in migrated stylesheet families, including `pulls/pulls.css`, and stale global reach-ins from the planner workspace module. Dynamic class prefixes must come from a `className` or `classList` expression; a matching dynamic element ID does not establish class usage. Keep shared planner fields/rewards here and workspace layout in its CSS module.
+
 Tokens are defined only in `core/shared.css`, and the shared components live in `components/ui`. A new transition or animation goes in `core/motion.css`, inside `@media (prefers-reduced-motion: no-preference)`, imported last; the older ones elsewhere are listed, with their reasons, in `MOTION_LEGACY` (`scripts/audits/audit-motion.mjs`), which only shrinks (rule 23; `audit:styles` checks it as `motionScope`). Read [UI primitives and tokens](../docs/development/ui-primitives.md) before styling a page. `npm run audit:styles` checks this folder and every `components/**.css` against a ratchet baseline.
 
 The retired submission form has no styles or runtime flags. Closed survey results keep their shared row/empty-state primitives and `styles/survey/boxplot.css`.

@@ -37,7 +37,6 @@
 .detailPanel { padding: 20px; }
 .detailPanel[hidden],.detailArea[hidden] { display: none; }
 .detailPanel>h2 { display: none; }
-.detailPanel :global(.pulls-panel) { padding: 0; border: 0; background: transparent; }
 .detailPanel :global(.pulls-target-row) { margin-top: 0; }
 .forecast { display: flex; align-items: center; gap: 28px; padding: 0 4px; }
 .forecastDate { display: flex; align-items: center; gap: 10px; white-space: nowrap; font-size: 13px; }
