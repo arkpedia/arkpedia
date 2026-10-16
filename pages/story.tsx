@@ -57,10 +57,24 @@ export default function StoryPage({ map, chapters = {}, library = [] }: Props) {
         }
         />
       <main>
+        <section className="op-section story-links" aria-labelledby="story-read">
+          <h2 id="story-read">Read the story</h2>
+          <div className="story-link-grid">
+            <a className="story-link-card" href={READER} target="_blank" rel="noopener noreferrer">
+              <strong>Timo&apos;s Arknights Story Reader <span aria-hidden="true">↗</span></strong>
+              <span className="hint">Every main story, side story, vignette and operator record, read the way the game plays it.</span>
+            </a>
+            <Link prefetch={false} className="story-link-card" href="/manga">
+              <strong>Arknights Manga</strong>
+              <span className="hint">Every official comic from the Global site, each a link to read it there.</span>
+            </Link>
+          </div>
+        </section>
         <section className="op-section" aria-labelledby="story-map">
           <h2 id="story-map">Story library</h2>
           <p className="hint story-map-credit">
-            <a href={READER} target="_blank" rel="noopener noreferrer">Timo&apos;s reader ↗</a> · <Link prefetch={false} href="/manga">Manga</Link> · <a href={map.source} target="_blank" rel="noopener noreferrer">{map.title}</a>
+            <a href={map.source} target="_blank" rel="noopener noreferrer">{map.title}</a>, kept up to date from the original. Click
+            a story to choose where to start reading it in Timo&apos;s reader.
           </p>
           {chapter && !shown && <p className="hint" role="status">This chapter is not available in the current catalogue. <a href={entry?.url ?? READER} target="_blank" rel="noopener noreferrer">Open Timo&apos;s reader ↗</a></p>}
           <StoryMapView map={map} chapters={opener} library={library} />
