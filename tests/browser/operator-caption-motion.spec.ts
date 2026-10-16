@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 
 for (const theme of ['dark', 'light']) for (const reducedMotion of ['no-preference', 'reduce'] as const) {
   test(`outfit name and price hand off without moving the gallery (${theme}, ${reducedMotion})`, async ({ page }, testInfo) => {
+    await page.clock.install();
     await page.emulateMedia({ reducedMotion });
     await page.addInitScript(value => localStorage.setItem('theme', value), theme);
     await page.goto('/operators/Aak');
@@ -26,6 +27,12 @@ for (const theme of ['dark', 'light']) for (const reducedMotion of ['no-preferen
     for (const pip of pipColors) { expect(pip.actual).toEqual(pip.expected); expect(pip.width).toEqual('14px'); }
     const before = await page.locator('.op-carousel-main').boundingBox();
     const captionBox = await current.locator('..').boundingBox();
+    // Keep the 500 ms cleanup timer from removing the outgoing caption while
+    // browser round trips sample it. CSS animations are paused separately below.
+    await page.clock.pauseAt(await page.evaluate(() => Date.now() + 50));
+    const pausedInk = reducedMotion === 'no-preference' ? await page.addStyleTag({ content:
+      '[data-artwork-caption] > [data-caption-name], [data-artwork-caption] > [data-caption-price] { animation-play-state: paused !important; }',
+    }) : null;
     await choices.getByRole('button', { name: 'Healing Hand, Evil Heart', exact: true }).click();
     await expect(current.locator('[data-caption-name]')).toHaveText('Healing Hand, Evil Heart');
     const outgoing = page.locator('[data-artwork-caption="exit"]');
@@ -58,6 +65,8 @@ for (const theme of ['dark', 'light']) for (const reducedMotion of ['no-preferen
     }
     expect(await page.locator('.op-carousel-main').boundingBox()).toEqual(before);
     expect(await current.locator('..').boundingBox()).toEqual(captionBox);
+    await pausedInk?.evaluate(el => { el.parentNode?.removeChild(el); });
+    await page.clock.resume();
     // Reverse, then change again before the previous handoff completes.
     await page.getByRole('button', { name: 'Show previous outfit', exact: true }).click();
     await expect(current.locator('[data-caption-name]')).toHaveText('Doctor of Faces');
