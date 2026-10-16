@@ -74,9 +74,11 @@ test('the complete library navigates categories and opens an off-canvas module',
   await expect(dialog.getByRole('status')).toHaveText('Read');
   await page.keyboard.press('Escape');
   await expect(dialog).not.toBeVisible();
+  // Closing the dialog and settling its shallow URL update are separate effects.
+  await expect(page).not.toHaveURL(/[?&]chapter=/);
   await expect(card).toContainText('Read');
   await expect(page.getByRole('searchbox', { name: 'Search stories' })).toHaveValue('Ling');
-  await expect(page).toHaveURL(/chapter=uniequip_002_ling|q=Ling/);
+  await expect(page).toHaveURL(/q=Ling/);
   // A saved mark survives leaving and returning, without opening the external reader.
   await page.reload();
   await expect(library.getByRole('link', { name: /Ling, SUM Y/ })).toContainText('Read');
