@@ -55,7 +55,7 @@ npm ci
 npm run dev
 ```
 
-Game images and voices load from the public Arkpedia asset repositories, so no media download is needed. A database is only needed for survey submission; see the [development guide](docs/development/setup.md).
+Game images and voices load from the public Arkpedia asset repositories, so no media download is needed. No database is required; the retired survey's published results are static records.
 
 ## Verify a change
 

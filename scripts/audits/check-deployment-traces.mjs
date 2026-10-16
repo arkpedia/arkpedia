@@ -27,7 +27,7 @@ for (const trace of walk(pagesDir).filter(file => file.endsWith('.js.nft.json'))
   for (const file of files) {
     const resolved = path.resolve(path.dirname(trace), file);
     const relative = path.relative(root, resolved).replace(/\\/g, '/');
-    if (relative === '.env' || relative.startsWith('.env.') || relative.startsWith('data/') || relative.startsWith('public/')) {
+    if (relative === '.env' || relative.startsWith('.env.') || relative.startsWith('data/') || relative.startsWith('public/') || relative.startsWith('.cache/')) {
       leaks.push(`${route}: ${relative}`);
       if (leaks.length >= 20) break;
     }

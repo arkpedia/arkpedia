@@ -58,9 +58,9 @@ const nextConfig = {
       ...Object.fromEntries(contentPageRoutes.map((route) => [route === '/' ? '/index' : route, [
         'data/**/*', 'public/**/*', '.env*',
       ]])),
-      // These endpoints are hard-blocked outside `next dev`; their local editor
-      // files must never be packaged into a deployed function.
-      '/api/dev/**': ['data/**/*', 'public/**/*', '.env*'],
+      // These endpoints are hard-blocked outside `next dev`; local tool inputs
+      // and cached results must never be packaged into a deployed function.
+      '/api/dev/**': ['data/**/*', 'public/**/*', '.cache/**/*', '.env*'],
       // Artwork voices read the published operator page; local catalogue readers are dev-only.
       '/api/artwork-voices': ['data/**/*', 'public/**/*', '.env*'],
     },

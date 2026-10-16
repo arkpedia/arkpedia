@@ -1,4 +1,4 @@
-import type { GetStaticProps } from 'next';
+import type { GetStaticProps, NextApiHandler } from 'next';
 
 /**
  * getStaticProps for a local tool. Its API routes answer only under `next dev`
@@ -10,3 +10,16 @@ import type { GetStaticProps } from 'next';
  */
 export const devOnlyStaticProps: GetStaticProps = async () =>
   process.env.NODE_ENV === 'development' ? { props: {} } : { notFound: true };
+
+/** One policy for local APIs. Read-only inspection works without a write passcode. */
+export function devOnlyApi(handler: NextApiHandler, { passcode }: { passcode: 'writes' | 'all' }): NextApiHandler {
+  return async (req, res) => {
+    if (process.env.NODE_ENV !== 'development') return res.status(404).json({ error: 'Not found' });
+    const secret = process.env.DEV_CONSOLE_PASSCODE;
+    const writes = req.method !== 'GET' && req.method !== 'HEAD';
+    if (secret && (passcode === 'all' || writes) && req.headers['x-dev-passcode'] !== secret) {
+      return res.status(401).json({ error: 'Invalid passcode' });
+    }
+    return handler(req, res);
+  };
+}

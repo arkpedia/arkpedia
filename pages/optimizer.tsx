@@ -157,7 +157,7 @@ export default function OptimizerPage() {
   async function loadCachedResults() {
     setLoading(true);
     try {
-      const res = await fetch('/api/optimizer-results');
+      const res = await fetch('/api/dev/optimizer-results');
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setResults(data);

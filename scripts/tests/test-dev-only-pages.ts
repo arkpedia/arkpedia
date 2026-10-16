@@ -13,7 +13,7 @@ import ts from 'typescript';
  * things that let both happen:
  * - every address client code fetches under /api/ is a route that exists;
  * - a page that calls a local-only route (pages/api/dev) is itself local-only;
- * - every API route is called by client code, or refuses outside development.
+ * - every API route has a known caller; development APIs share one gate.
  */
 const ROOT = process.cwd();
 
@@ -30,7 +30,7 @@ export function apiFetches(file: string, text: string): string[] {
   const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, file.endsWith('x') ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
   const found: string[] = [];
   const visit = (node: ts.Node) => {
-    if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === 'fetch' && node.arguments[0]) {
+    if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && ['fetch', 'fetchOk', 'fetchAsset'].includes(node.expression.text) && node.arguments[0]) {
       const argument = node.arguments[0];
       const address = ts.isStringLiteralLike(argument) ? argument.text
         : ts.isTemplateExpression(argument) ? argument.head.text + argument.templateSpans.map(span => `\${}${span.literal.text}`).join('')
@@ -80,7 +80,7 @@ test('a page that calls a local-only route is itself local-only', () => {
     }
   }
   assert.deepEqual([...new Set(problems)], []);
-  // Not vacuous: the dev console, the optimizer and the whole-base optimizer are covered.
+  // Not vacuous: the inspection tool and both optimizer pages are covered.
   assert.ok(fetches.some(({ file }) => file === path.join('pages', 'bases', 'whole-base-optimizer.tsx')));
 });
 
@@ -103,15 +103,26 @@ const NAMED_AS_ADDRESSES: Record<string, string> = {
   'pages/api/music-audio/[id].ts': 'lib/music/audioElement.ts',
 };
 
-test('every API route is called by client code or refuses outside development', () => {
+test('every API route has an actual client, workflow or address consumer', () => {
   const called = new Set(fetches.map(({ address }) => routeFor(address, routes)));
   const byWorkflow = (route: string) => route in CALLED_BY_WORKFLOWS
     && fs.readFileSync(path.join(ROOT, CALLED_BY_WORKFLOWS[route]), 'utf8').includes(`/api/${route.slice('pages/api/'.length).replace(/\.tsx?$/, '')}`);
   const asAddress = (route: string) => route in NAMED_AS_ADDRESSES
     && fs.readFileSync(path.join(ROOT, NAMED_AS_ADDRESSES[route]), 'utf8').includes(`/api/${route.slice('pages/api/'.length).split('[')[0]}`);
-  const orphans = routes.filter(route => !called.has(route) && !byWorkflow(route) && !asAddress(route)
-    && !/process\.env\.NODE_ENV\s*!==\s*'development'|NODE_ENV\s*===\s*'development'/.test(fs.readFileSync(path.join(ROOT, route), 'utf8')));
+  const orphans = routes.filter(route => !called.has(route) && !byWorkflow(route) && !asAddress(route));
   assert.deepEqual(orphans, []);
   for (const route of Object.keys(CALLED_BY_WORKFLOWS)) assert.ok(byWorkflow(route), `${CALLED_BY_WORKFLOWS[route]} calls ${route}`);
   for (const route of Object.keys(NAMED_AS_ADDRESSES)) assert.ok(asAddress(route), `${NAMED_AS_ADDRESSES[route]} names ${route}`);
+});
+
+test('every development API uses the shared gate and contains no direct filesystem writes', () => {
+  for (const route of routes.filter(file => file.startsWith('pages/api/dev/'))) {
+    const source = fs.readFileSync(path.join(ROOT, route), 'utf8');
+    assert.match(source, /export default devOnlyApi\(/, route);
+    assert.doesNotMatch(source, /process\.env\.NODE_ENV/, route);
+  }
+  for (const route of routes) {
+    const source = fs.readFileSync(path.join(ROOT, route), 'utf8');
+    assert.doesNotMatch(source, /\b(?:writeFile(?:Sync)?|copyFile(?:Sync)?|mkdir(?:Sync)?|appendFile(?:Sync)?|createWriteStream)\s*\(/, route);
+  }
 });

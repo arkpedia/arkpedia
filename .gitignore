@@ -79,3 +79,10 @@ __pycache__/
 # Local browser regression output
 /test-results/
 /playwright-report/
+
+# Legacy local optimizer outputs: only .cache/optimizers is used now. Never publish
+# a stale calculation as a canonical game record.
+/data/optimizer-results.json
+/data/optimizer-results.json.bak
+/data/whole-base-optimizer-results.json
+/data/whole-base-optimizer-results.json.bak

@@ -42,8 +42,7 @@
   "fontWeights": [],
   "nativeControls": [
     "components/gamemodes/StrongholdCompanion.tsx: role=\"listbox\"",
-    "components/gamemodes/StrongholdCompanion.tsx: role=\"listbox\"",
-    "pages/dev/index.tsx: <select>"
+    "components/gamemodes/StrongholdCompanion.tsx: role=\"listbox\""
   ],
   "scrollbarThumb": [],
   "primaryToggle": [],

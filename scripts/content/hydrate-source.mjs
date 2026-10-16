@@ -5,6 +5,9 @@ if (!process.argv[2] || root === process.cwd()) throw new Error('Specify a separ
 const source = path.join(root, 'source');
 const deprecatedSourceFiles = new Set([
   'data/events.json',
+  // Local optimizer calculations belong only in .cache/optimizers.
+  'data/optimizer-results.json',
+  'data/whole-base-optimizer-results.json',
   'data/operator-release-overrides.json',
   // Always '{}' and read by nothing: lyrics are published one file per song
   // (writeLyricsFilesToPublic in lib/music/albumsDataServer.ts).

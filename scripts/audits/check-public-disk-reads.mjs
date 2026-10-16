@@ -15,7 +15,6 @@ const root = process.cwd();
 /* Each a file whose public/ path is computed and is not art, with why. A file listed here is
    still flagged for a path that names an asset folder or an image. */
 const COMPUTED_PATHS_ALLOWED = {
-  'pages/api/dev/upload.ts': 'the dev uploader writes new art into a local checkout, under next dev only',
   'lib/music/albumsDataServer.ts': 'writes the generated lyrics JSON files (public/lyrics/, lyricsPath)',
 };
 

@@ -481,7 +481,7 @@ Two checked-in baselines listed the offenders while the page families migrated. 
 
 What still carries accepted cases, all in `scripts/audits/style-audit-baseline.json`:
 
-- `nativeControls` (3): the Stronghold companion's two language pickers (`StrongholdCompanion.tsx`, `role="listbox"`; the companion runs in a Document Picture-in-Picture window and `StyledSelect` portals its menu to the main document) and the development-only `pages/dev/index.tsx` `<select>`.
+- `nativeControls` (2): the Stronghold companion's two language pickers (`StrongholdCompanion.tsx`, `role="listbox"`; the companion runs in a Document Picture-in-Picture window and `StyledSelect` portals its menu to the main document). The local development tools use `StyledSelect`.
 - `collisions` (20) and `fontSizes` (21): scoped descendant rules the audit's heuristic flags, and deliberate sizes (16px iOS no-zoom inputs, the 88px tutorial emoji).
 
 ### 1. `scripts/audits/style-audit-baseline.json` (`npm run audit:styles`, a Check step)

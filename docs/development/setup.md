@@ -13,6 +13,8 @@ Next starts at http://localhost:3000 by default; use `npm run dev -- -p 3180` fo
 
 The survey submission backend is retired. Reference pages and closed poll results need no database. `.env.example` lists optional development and runtime-content settings; never commit local secrets or raw survey responses.
 
+`/dev` provides read-only base-skill extraction and links to the local optimizers and UI catalogue. Edit game records in `arkpedia-data/source/` and publish artwork through its asset repository; the application no longer has copied-data editors or uploads. Optimizer runs save under `.cache/optimizers/`, with a backup of the previous result. A first read imports a legacy local result from `data/` without altering that original. These tools and APIs return 404 outside development. An optional `DEV_CONSOLE_PASSCODE` protects optimizer writes; reading local results needs no write passcode.
+
 Python import/review tools require Python 3 with Pillow, certifi and lz4==4.4.5. Upstream refresh tools use Git and network access. See [tooling](../../scripts/README.md) and [data pipelines](data-pipelines.md).
 
 ## Validation
