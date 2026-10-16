@@ -30,6 +30,7 @@
  */
 import fs from 'fs';
 import path from 'path';
+import { INDEX_EXCLUDED_TYPES as EXCLUDED_TYPES } from '../stage-pipeline/lib/coverage.mjs';
 
 const root = process.cwd();
 const indexPath = path.join(root, 'public', 'stages-index.json');
@@ -132,7 +133,6 @@ for (const row of index) {
  *  every section of a stage page is empty for them. They also share their
  *  chapters with real stages, which is why they cannot be excluded by content the
  *  way the game modes are. */
-const EXCLUDED_TYPES = new Set(['special_story']);
 
 /** The fields anything actually reads -- the rail, the sort, the groups and the
  *  sibling lookup. The other ten (chapter, zoneId, zoneGroup, zoneType, sanity,

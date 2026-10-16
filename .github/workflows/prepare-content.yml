@@ -509,6 +509,14 @@ jobs:
           # on dev the commit its own step pointed dev-live at.
           REVISION: ${{ steps.live.outputs.revision || steps.publish_dev.outputs.pushed }}
         run: node scripts/content/refresh-pages.mjs --revision "$REVISION" --pointer "$ARKPEDIA_CONTENT_POINTER"
+      # Import/compile/push success does not prove readers see the new catalogue.
+      # After the existing cache wait, verify the channel's real stage page and
+      # its immutable index against this run's manifest. A stale/fallback page is
+      # an explicit failed run, not a green import with an old served catalogue.
+      - name: Verify served stage catalogue
+        if: steps.live.outcome == 'success' || steps.publish_dev.outputs.pushed != ''
+        timeout-minutes: 5
+        run: node scripts/audits/check-served-stages.mjs "$RUNNER_TEMP/prepared-content/release/manifest.json"
       # Asset pins take whatever each repository's HEAD is, so a red sync never shows up
       # here on its own. Report it, but never hold back the day's content over it: this
       # runs after the publish step, and a slow or failing GitHub API call only fails
