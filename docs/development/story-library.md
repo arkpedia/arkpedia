@@ -28,6 +28,20 @@ art does not hide a story. Search and category/view choices are URL-backed.
 Validation: `node --import tsx --test scripts/tests/test-story-{library,chapters,map,progress}.ts`
 and the `story-library`, `story-chapter`, and `story-progress` browser specs.
 
+The list orders Manga after Vignettes, with Operator Records and Modules last. It
+mounts 48 cards initially and appends batches as the reader approaches the end;
+the shared LoadOnScroll component also follows keyboard focus to the last card.
+Filtering searches the complete catalogue and resets only the rendered batch.
+Images use the shared native lazy loading component with reserved dimensions.
+
+Artwork is projected on the server: published operator portraits for records and
+modules, content-ID art and event posters for chapters/modes, then mapped canvas
+art and the reader's cover manifest. The optional cover refresh preserves its
+previous snapshot on failure. Cover images are Arknights game art; mappings come
+from https://arknights.timo.beer/json/covers.json. No wiki descriptions are copied.
+Existing released image projections are retained; older releases are enriched by
+the deployment until the next dev content release carries their own artwork.
+
 ## Cross-device progress scope
 
 The supplied screenshot was visually verified by the parent task. It depicts

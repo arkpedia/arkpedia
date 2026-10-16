@@ -1,4 +1,5 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
+import LoadOnScroll from '@/components/ui/LoadOnScroll';
 import { ContentImg } from '@/components/content/ContentImage';
 import SearchInput from '@/components/ui/SearchInput';
 import StyledSelect from '@/components/ui/StyledSelect';
@@ -24,22 +25,39 @@ export default function StoryLibrary({ entries, map, chapters }: { entries: Stor
       <span className="hint story-library-count" role="status">{count} {count === 1 ? 'story' : 'stories'}</span>
     </div>
     {!count && <p className="hint" role="status">{all.length ? 'No stories match these filters.' : 'The story list is unavailable. Open Timo’s reader to browse the story.'} <button type="button" className="ghost btn-sm" onClick={() => { setQuery(''); setCategory(''); }}>Clear filters</button></p>}
-    <div className="story-list-sections">
-      {groups.filter(group => group.entries.length).map(group => <section key={group.id} className="story-list-section" aria-labelledby={`story-category-${group.id}`}>
+    <StoryResults key={`${category}:${needle}`} groups={groups} count={count} images={images} chapters={chapters} />
+  </div>;
+}
+
+
+const BATCH = 48;
+type Group = { id: string; title: string; entries: StoryLibraryEntry[] };
+
+function StoryResults({ groups: source, count, images, chapters }: {
+  groups: Group[]; count: number; images: Map<string, string>; chapters: ChapterOpener;
+}) {
+  const [visible, setVisible] = useState(BATCH);
+  let offset = 0;
+  const groups = source.map(group => {
+    const row = { ...group, offset }; offset += group.entries.length; return row;
+  });
+  return <>
+    <div className="story-list-sections" id="story-library-results">
+      {groups.filter(group => group.entries.length && group.offset < visible).map(group => <section key={group.id} className="story-list-section" aria-labelledby={`story-category-${group.id}`}>
         <h3 id={`story-category-${group.id}`}>{group.title} <span className="hint">{group.entries.length}</span></h3>
         <ul className="story-list">
-          {group.entries.map(entry => {
+          {group.entries.slice(0, visible - group.offset).map(entry => {
             const popup = entry.category !== 'manga' && chapters.has(entry.id);
-            const image = images.get(entry.id);
+            const image = entry.image ?? (images.get(entry.id) ? `/${images.get(entry.id)}` : undefined);
             const read = popup && chapters.isRead?.(entry.id);
-            return <li key={entry.id}><a className={`story-list-card${entry.category === 'manga' ? ' is-manga' : ''}${read ? ' is-read' : ''}`}
+            return <li key={entry.id}><a className={`story-list-card${entry.category === 'manga' ? ' is-manga' : ''}${read ? ' is-read' : ''}${entry.imageKind === 'portrait' ? ' has-portrait' : ''}`}
               href={popup ? `/story?chapter=${encodeURIComponent(entry.id)}` : entry.url}
               target={popup ? undefined : '_blank'} rel={popup ? undefined : 'noopener noreferrer'}
               onClick={event => {
                 if (!popup || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
                 event.preventDefault(); chapters.open(entry.id);
               }}>
-              {image && <ContentImg src={`/${image}`} alt="" />}
+              {image && <ContentImg src={image} alt="" width={44} height={54} />}
               <span className="story-list-title">{entry.title}{!popup && <span aria-label="opens in a new tab">↗</span>}</span>
               {popup && <span className="story-list-progress">{chapters.progressLabel?.(entry.id)}</span>}
             </a></li>;
@@ -47,5 +65,6 @@ export default function StoryLibrary({ entries, map, chapters }: { entries: Stor
         </ul>
       </section>)}
     </div>
-  </div>;
+    <LoadOnScroll shown={Math.min(visible, count)} total={count} onMore={() => setVisible(value => value + BATCH)} />
+  </>;
 }

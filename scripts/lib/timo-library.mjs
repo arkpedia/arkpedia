@@ -77,7 +77,7 @@ export function timoLibrary(catalog) {
     add(id, act.shelf === 'sandbox' ? 'sandbox' : 'extra', act.name, rows);
   }
   // The reference's chapters ascend numerically, records/modules by operator name.
-  const order = ['main', 'side', 'mini', 'record', 'module', 'rogue', 'sandbox', 'extra'];
+  const order = ['main', 'side', 'mini', 'rogue', 'sandbox', 'extra', 'record', 'module'];
   entries.sort((a, b) => order.indexOf(a.category) - order.indexOf(b.category) || (a.category === 'main' ? Number(a.id.slice(5)) - Number(b.id.slice(5)) : ['record', 'module'].includes(a.category) ? a.title.localeCompare(b.title) : 0));
   return { entries, chapters };
 }

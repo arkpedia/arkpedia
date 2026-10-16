@@ -79,7 +79,8 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>('/st
   return { props: { map: bundledStoryMap(), chapters: bundledStoryChapters(), library: bundledStoryLibrary() } };
 }, { bundledWhenUnpublished: true, finalize: async props => {
   // Releases exported before the library existed still get this deployment's complete list.
-  if (props.library) return props;
+  const { storyLibraryArt } = await import('@/lib/story/storyLibraryArt');
+  if (props.library) return { ...props, library: storyLibraryArt(props.library, props.map) };
   const { bundledStoryChapters, bundledStoryLibrary } = await import('@/lib/story/storyMapData');
-  return { ...props, library: bundledStoryLibrary(), chapters: { ...bundledStoryChapters(), ...props.chapters } };
+  return { ...props, library: storyLibraryArt(bundledStoryLibrary(), props.map), chapters: { ...bundledStoryChapters(), ...props.chapters } };
 } });

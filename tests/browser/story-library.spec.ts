@@ -1,8 +1,59 @@
 import { expect, test } from '@playwright/test';
 import { rowCensus } from './row-census';
+import libraryData from '../../data/story-library.json';
+import mapData from '../../data/story-map.json';
+import { STORY_CATEGORIES } from '../../lib/story/storyLibrary';
+
+test('list content mounts in batches; full search, category counts and portraits stay available', async ({ page }) => {
+  // Hold intersections to verify that off-screen content is absent from the DOM.
+  await page.addInitScript(() => {
+    Object.defineProperty(window, 'IntersectionObserver', { value: class {
+      constructor(private callback: IntersectionObserverCallback) {}
+      observe(target: Element) {
+        if (target.classList.contains('load-on-scroll') && target.closest('.story-library')) Object.defineProperty(window, 'storyNextBatch', { configurable: true, value: () => this.callback([{ target, isIntersecting: true } as IntersectionObserverEntry], this as unknown as IntersectionObserver) });
+      }
+      disconnect() {} unobserve() {}
+    }, configurable: true });
+  });
+  await page.goto('/story?view=list');
+  const cards = page.locator('.story-library .story-list-card');
+  await expect(cards).toHaveCount(48);
+  const total = libraryData.entries.length + mapData.manga.length;
+  await expect(page.locator('.story-library-count')).toHaveText(`${total} stories`);
+  await page.evaluate(() => (window as unknown as { storyNextBatch: () => void }).storyNextBatch());
+  await expect(cards).toHaveCount(96);
+  await page.getByRole('combobox', { name: 'Story category' }).click();
+  const options = page.getByRole('option');
+  await expect(options).toHaveText([`All categories (${total})`, ...STORY_CATEGORIES.map(([id, label]) => `${label} (${id === 'manga' ? mapData.manga.length : libraryData.entries.filter(entry => entry.category === id).length})`)]);
+  await page.getByRole('option', { name: 'Operator Records (372)', exact: true }).click();
+  await expect(cards).toHaveCount(48);
+  await page.getByRole('searchbox', { name: 'Search stories' }).fill('Ling');
+  const ling = cards.filter({ hasText: /^Ling \[/ }).first();
+  await expect(ling).toBeVisible();
+  await expect(ling.locator('img')).toHaveAttribute('src', /star-icons\/Ling/);
+  await expect(ling.locator('img')).toHaveAttribute('loading', 'lazy');
+  await ling.click();
+  await expect(page.locator('.story-chapter-dialog')).toBeVisible();
+});
+
+test('approaching the end loads another batch without changing the full category count', async ({ page }) => {
+  await page.goto('/story?view=list&category=record');
+  const cards = page.locator('.story-library .story-list-card');
+  await expect(cards.first()).toBeVisible();
+  const before = await cards.count();
+  const records = libraryData.entries.filter(entry => entry.category === 'record').length;
+  expect(before).toBeLessThan(records);
+  await cards.last().focus();
+  await cards.last().scrollIntoViewIfNeeded();
+  await expect.poll(() => cards.count()).toBeGreaterThan(before);
+  await expect(page.locator('.story-library-count')).toHaveText(`${records} stories`);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
 
 test('the complete library navigates categories and opens an off-canvas module', async ({ page }) => {
   await page.goto('/story?view=list&category=module&q=Ling');
+  await expect(page.locator('.page-header h1')).toBeVisible();
+  await expect(page.locator('.page-header-actions')).toBeVisible();
   const title = await page.locator('.page-header h1').boundingBox();
   const actions = await page.locator('.page-header-actions').boundingBox();
   expect(title && actions).toBeTruthy();

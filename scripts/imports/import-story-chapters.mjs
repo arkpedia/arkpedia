@@ -37,3 +37,22 @@ if (!fs.existsSync(OUT) || fs.readFileSync(OUT, 'utf8') !== text) fs.writeFileSy
 const library = path.join(process.cwd(), 'data', 'story-library.json');
 fs.writeFileSync(library, `${JSON.stringify({ source: CATALOG, entries })}\n`);
 console.log(`Wrote story library: ${entries.length} groups, ${Object.keys(chapters).length} chapters with sections.`);
+
+// Keep art optional: a cover-manifest outage must not discard newly published stories.
+const coverSource = 'https://arknights.timo.beer/json/covers.json';
+try {
+  const manifest = process.env.ARKPEDIA_STORY_COVERS ? JSON.parse(fs.readFileSync(process.env.ARKPEDIA_STORY_COVERS, 'utf8'))
+    : await fetch(coverSource, { signal: AbortSignal.timeout(30_000) }).then(response => {
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      return response.json();
+    });
+  const images = Object.fromEntries(Object.entries(manifest.groups ?? {}).flatMap(([id, value]) => {
+    if (!/^[\w-]+$/.test(id) || typeof value.cover !== 'string' || !/^[\w-]+\.(?:jpg|png|webp)$/.test(value.cover)) return [];
+    const hash = /^[a-f0-9]{6,64}$/.test(value.v?.cover ?? '') ? `?v=${value.v.cover}` : '';
+    return [[id, `https://arknights.timo.beer/covers/${value.cover}${hash}`]];
+  }));
+  if (Object.keys(images).length < 80) throw new Error('Incomplete cover manifest');
+  fs.writeFileSync(path.join(process.cwd(), 'data/story-library-art.json'), `${JSON.stringify({ source: coverSource, images }, null, 2)}\n`);
+} catch (error) {
+  console.warn(`Story covers unavailable; keeping previous art (${error.message}).`);
+}

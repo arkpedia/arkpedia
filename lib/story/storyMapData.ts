@@ -4,6 +4,7 @@ import storyLibraryData from '../../data/story-library.json';
 import type { StoryLibraryEntry } from './storyLibrary';
 import type { StoryChapters } from './storyChapters';
 import { assertStoryMap, type StoryMap } from './storyMap';
+import { storyLibraryArt } from './storyLibraryArt';
 
 /** The map compiled into this deployment, checked. Server code only (the page's builder, the
  *  tests): the browser gets the map in the page's props, so a release can change it. */
@@ -20,5 +21,5 @@ export function bundledStoryChapters(): StoryChapters {
 }
 
 export function bundledStoryLibrary(): StoryLibraryEntry[] {
-  return storyLibraryData.entries as StoryLibraryEntry[];
+  return storyLibraryArt(storyLibraryData.entries as StoryLibraryEntry[], bundledStoryMap());
 }

@@ -5,6 +5,8 @@ import { readFileSync } from 'node:fs';
 import { timoLibrary } from '../lib/timo-library.mjs';
 import { STORY_CATEGORIES, type StoryLibraryEntry } from '../../lib/story/storyLibrary';
 import type { StoryChapters } from '../../lib/story/storyChapters';
+import { bundledStoryLibrary } from '../../lib/story/storyMapData';
+import { storyLibraryArt } from '../../lib/story/storyLibraryArt';
 
 test('the library uses reader/game categories, including groups absent from a canvas and missing sections', () => {
   const section = { storyTxt: 'obt/main/test', storyName: 'First part' };
@@ -43,4 +45,28 @@ test('the shipped library has all eight reading categories, unique deep links, a
     assert.equal(new Set(rows.map(s => s[0])).size, rows.length, entry.id);
     assert.ok(rows.every(s => Number.isInteger(s[0]) && s[0] >= 0), entry.id);
   }
+});
+
+test('story categories follow the requested order and representative groups use their own art', () => {
+  assert.deepEqual(STORY_CATEGORIES.map(([id]) => id), ['main', 'side', 'mini', 'manga', 'rogue', 'sandbox', 'extra', 'record', 'module']);
+  const entries = bundledStoryLibrary();
+  for (const id of ['main_0', '1stact', 'act10d5', 'story_ling_set_1', 'uniequip_002_ling']) {
+    const entry = entries.find(entry => entry.id === id)!;
+    assert.ok(entry.image, id);
+    if (['record', 'module'].includes(entry.category)) {
+      assert.equal(entry.imageKind, 'portrait', id);
+      assert.match(entry.image!, /-star-icons\//, id);
+    }
+  }
+  assert.match(entries.find(entry => entry.id === 'main_15')!.image!, /act2mainss_zone1/);
+  assert.match(entries.find(entry => entry.id === 'rogue_1_month_team_1')!.image!, /rogue_1/);
+  assert.match(entries.find(entry => entry.id === 'story_ling_set_1')!.image!, /Ling/);
+});
+
+test('a future story without art stays navigable and released image projections are preserved', () => {
+  const map = JSON.parse(readFileSync('data/story-map.json', 'utf8'));
+  const future: StoryLibraryEntry = { id: 'unknown-future-story', category: 'side', title: 'Unknown future story', url: 'https://arknights.timo.beer/story.html#side&unknown-future-story&0' };
+  assert.deepEqual(storyLibraryArt([future], map), [future]);
+  const published = { ...future, image: '/content-art/published.webp', imageKind: 'art' as const };
+  assert.deepEqual(storyLibraryArt([published], map), [published]);
 });

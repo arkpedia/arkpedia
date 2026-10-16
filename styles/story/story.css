@@ -118,3 +118,5 @@ a.story-list-card:hover { border-color: var(--teal); }
 .story-library .story-list-card:hover, .story-library .story-list-card:focus-visible { border-color: var(--teal); }
 .story-library .story-list-title { overflow-wrap: anywhere; }
 .story-library .story-list-card { min-height: 66px; }
+.story-library .story-list-card img { object-fit: contain; }
+.story-library .story-list-card.has-portrait img { height: 44px; }

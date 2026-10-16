@@ -78,6 +78,7 @@ const SEEDED_SOURCE_FILES = new Set([
   // The complete reader catalogue and its section indices, introduced independently of
   // the board. Keep the bundled snapshot through the first refresh if the reader is down.
   'data/story-library.json',
+  'data/story-library-art.json',
   'data/story-chapters.json',
   // Which artwork has an animated version, as model.json URLs pinned to arkpedia-l2d-assets'
   // commit (scripts/sync/sync-dynamic-art.mjs, every run). /skins and every operator page import
