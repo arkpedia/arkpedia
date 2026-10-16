@@ -86,6 +86,38 @@ test('first-clear rewards require three stars, while ordinary account clears ret
   assert.equal(accountFromGame({}, map, 'en').rewardCleared, undefined);
 });
 
+test('real handbook addon nesting imports Paradox completion into catalogue rewards and preserves manual progress', () => {
+  const raw = { status: fixture.status, troop: { addon: {
+    char_done: { stage: { mem_done: { state: 3, startTimes: 5, completeTimes: 2, fts: 100, rts: 100 } } },
+    char_pending: { stage: { mem_unlocked: { state: 0, fts: 100, rts: 0 }, mem_played: { state: 1, completeTimes: 0 },
+      mem_pass: { state: 2 }, mem_bad: { state: '3', completeTimes: 99 }, mem_unknown: { completeTimes: 99, rts: 100 }, mem_null: null },
+      story: { mem_story: { state: 3, fts: 100, rts: 100 } } },
+    char_invalid: { stage: ['mem_array'] }, char_null: null,
+  } } };
+  const imported = accountFromGame(raw, map, 'en');
+  assert.deepEqual(imported.cleared, ['mem_done', 'mem_pass']);
+  assert.deepEqual(imported.rewardCleared, ['mem_done']);
+  assert.deepEqual(parseAccount(JSON.stringify(imported)), imported);
+  const ids = ['done', 'unlocked', 'played', 'pass', 'bad', 'unknown', 'null', 'story'];
+  const built = buildFreeRewards({ handbook: { handbookStageData: Object.fromEntries(ids.map(id => [id,
+    { stageId: `mem_${id}`, charId: `char_${id}`, name: id, rewardItem: [{ id: '4003', count: 200 }] }])) }, characters: {}, items: { items: {} },
+    missions: { missions: {}, missionGroups: {} }, openServer: { schedule: [], dataMap: {}, constant: { firstDiamondShardMailCount: 3800 } }, checkin: { groups: {} },
+    activity: { activity: {}, basicInfo: {} }, shops: { shopGPDataDict: {} } });
+  const sources = { chapters: [], playable: [], resources: [], annihilation: [], paradox: built.paradox,
+    originiteByStageType: {}, annihilationOrundum: 0 } as unknown as BacklogSources;
+  const completed = backlogFromAccount(sources, new Set(imported.rewardCleared), null);
+  assert.deepEqual([...completed.doneKeys], ['paradox:mem_done']);
+  const manual: PastProgress = { doneKeys: ['paradox:mem_unlocked', 'manual-chapter'], doneEvents: [], annihilationDone: false, ticksFrom: '' };
+  const next = mergeImportedProgress(manual, imported, completed);
+  assert.deepEqual(next.doneKeys, ['manual-chapter', 'paradox:mem_done', 'paradox:mem_unlocked']);
+  assert.deepEqual(next.importedDoneKeys, ['paradox:mem_done']);
+  assert.deepEqual(mergeImportedProgress(next, imported, completed), next);
+  assert.deepEqual(mergeImportedProgress(next, accountFromGame({}, map, 'en'), { doneKeys: new Set(), doneEvents: new Set() }).doneKeys, next.doneKeys);
+  const duplicate = accountFromGame({ ...raw, dungeon: { stages: { mem_done: { state: 3 } } } }, map, 'en');
+  assert.deepEqual(duplicate.rewardCleared, ['mem_done']);
+  for (const addon of [null, [], 'bad', { bad: { stage: null } }]) assert.equal(accountFromGame({ troop: { addon } }, map, 'en').rewardCleared, undefined);
+});
+
 const progress: PastProgress = { doneKeys: ['manual-chapter', 'free:welcome-mail', 'free:event_a:2'], doneEvents: ['manual-event'], annihilationDone: true, ticksFrom: '' };
 const completed = { doneKeys: new Set(['auto-chapter']), doneEvents: new Set(['auto-event']) };
 const account = (user = fixture, at = '2026-10-16T00:00:00Z') => accountFromGame(user, map, 'en', new Date(at));

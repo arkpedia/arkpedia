@@ -38,3 +38,32 @@ for (const theme of ['light', 'dark'] as const) test(`imported and manual reward
   expect(errors).toEqual([]);
   await page.screenshot({ path: `test-results/reward-import-${info.project.name}-${theme}.png` });
 });
+
+test('Paradox rewards import from operator handbook stages without changing manual marks', async ({ page }, info) => {
+  await readOnly(page);
+  const raw = (state: number) => accountFromGame({ status: { uid: 'paradox-fixture' }, troop: { addon: {
+    char_009_12fce: { stage: { mem_12fce_1: { state: 3, completeTimes: 1 } } },
+    char_225_haak: { stage: { mem_haak_1: { state: 0 } } },
+    char_405_absin: { stage: { mem_absin_1: { state } } },
+  } } }, map, 'en', new Date(state === 3 ? '2026-10-17T00:00:00Z' : '2026-10-16T00:00:00Z'));
+  await page.addInitScript(first => {
+    if (sessionStorage.getItem('paradox-fixture-seeded')) return;
+    sessionStorage.setItem('paradox-fixture-seeded', '1');
+    localStorage.setItem('arkpediaAccount', JSON.stringify(first));
+    localStorage.setItem('arkpedia.past-rewards.v1', JSON.stringify({ doneKeys: ['paradox:mem_haak_1'], doneEvents: [], annihilationDone: false, ticksFrom: '' }));
+  }, raw(1));
+  const open = async () => {
+    await page.getByRole('tab', { name: 'Paradox Simulations', exact: true }).click();
+    await page.getByRole('button', { name: 'All', exact: true }).click();
+  };
+  const reward = (name: string) => page.getByRole('checkbox', { name: new RegExp(`^${name} ·`) });
+  await page.goto('/free-op'); await open();
+  await expect(reward('12F')).toBeChecked(); await expect(reward('Aak')).toBeChecked(); await expect(reward('Absinthe')).not.toBeChecked();
+  await page.evaluate(value => {
+    localStorage.setItem('arkpediaAccount', JSON.stringify(value)); window.dispatchEvent(new Event('arkpediaAccountChanged'));
+  }, raw(3));
+  await expect(reward('Absinthe')).toBeChecked(); await expect(reward('Aak')).toBeChecked();
+  await page.reload(); await open();
+  await expect(reward('12F')).toBeChecked(); await expect(reward('Aak')).toBeChecked(); await expect(reward('Absinthe')).toBeChecked();
+  await page.screenshot({ path: `test-results/paradox-import-${info.project.name}.png` });
+});

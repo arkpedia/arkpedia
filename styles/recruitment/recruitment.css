@@ -74,7 +74,7 @@
 .recruit-combo-plus { margin-right: 7px; color: var(--text-faint); }
 .recruit-combo-range { flex: none; font: 500 12px var(--font-mono); color: var(--text); }
 .recruit-combo-operators { display: flex; flex-wrap: wrap; gap: 6px; }
-.recruit-combo-op { display: inline-flex; align-items: center; gap: 5px; min-height: 32px; padding: 2px 7px 2px 2px; border: 1px solid var(--control-border); border-radius: var(--radius); background: var(--panel-2); color: var(--text); font-size: 11px; text-decoration: none; transition: border-color 0.15s ease, color 0.15s ease; }
+.recruit-combo-op { display: inline-flex; align-items: center; gap: 5px; min-height: var(--control-h); padding: 2px 7px 2px 2px; border: 1px solid var(--control-border); border-radius: var(--radius); background: var(--panel-2); color: var(--text); font-size: 11px; text-decoration: none; transition: border-color 0.15s ease, color 0.15s ease; }
 .recruit-combo-op:hover { border-color: var(--teal); color: var(--teal); }
 .recruit-combo-op img { width: 28px; height: 28px; border-radius: var(--radius); }
 .recruit-combo-op-rarity { font-size: 10px; white-space: nowrap; }

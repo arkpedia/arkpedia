@@ -1,5 +1,5 @@
 /**
- * The Story page's chapter popup: each chapter on the map, section by section, from Timo's story
+ * The Story page's chapter popup: each chapter in the library, section by section, from Timo's story
  * reader (data/story-chapters.json, scripts/imports/import-story-chapters.mjs). A section is
  * [index, code, name, tag]: its place in the reader's chapter, which a link opens it by; the stage
  * code ("3-1"), its name ("Meeting"), and whether it is the stage's story before the operation, after
@@ -8,6 +8,11 @@
 export type SectionTag = 'before' | 'after' | 'intro' | '';
 export type Section = [index: number, code: string, name: string, tag: SectionTag];
 export type StoryChapters = Record<string, Section[]>;
+
+/** Pre-library releases contain only canvas chapters. Complete catalogues own omissions. */
+export function storyChaptersForRelease(published: StoryChapters, bundled: StoryChapters, complete: boolean): StoryChapters {
+  return complete ? published : { ...bundled, ...published };
+}
 
 /** One row of the popup: a stage with its Before and After, or a story read on its own. */
 export interface ChapterRow {
