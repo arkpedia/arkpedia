@@ -613,21 +613,11 @@
   .music-stream-safe-btn { display: none; }
   .music-now-playing {
     grid-template-columns: 1fr;
-    grid-template-areas:
-      'cover'
-      'info'
-      'actions'
-      'lyrics'
-      'wave'
-      'upnext'
-      'buttons';
   }
-  .music-now-playing-actions { display: flex; }
   .music-now-playing-cover-col { justify-self: center; }
   /* The wave shows on a phone only while the lyrics are up. */
   .music-wave-visualizer { display: none; }
   .music-wave-visualizer.mobile-active { display: block; }
-  .music-lyrics-scroll { display: none; }
   .music-lyrics-scroll.mobile-active { display: block; width: 100%; }
   .music-player-bottombar .music-volume { display: none; }
 }

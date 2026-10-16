@@ -672,7 +672,7 @@
     gap: 7px 12px;
   }
   .short-row-main > img { flex: none; }
-  .short-row .name { flex: 1 1 130px; min-width: 0; }
+  .short-row .name { flex: 1 1 130px; }
   .short-row .where { flex: 1 1 100%; order: 5; }
   .short-row .have, .short-row .gap, .short-row .status-ok { flex: none; }
   .short-row .craft-none { flex: none; margin-left: auto; }

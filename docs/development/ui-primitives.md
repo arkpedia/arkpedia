@@ -19,6 +19,7 @@ The canonical style is the `/operators` list page plus `/gacha`, as decided on 2
 |---|---|
 | Every token (colour, radius, frame, fonts) | `styles/core/shared.css`. Dark values are in `:root` and light values in `:root[data-theme="light"]`. Tokens are never defined anywhere else. |
 | Primitive rules: buttons, chips, checkboxes, inputs, tabs, the live badge, rarity classes, panels | `styles/core/arkpedia-theme.css` |
+| Shared native dialog frame (`.account-dialog`), header, scrolling body and backdrop | `styles/core/arkpedia-theme.css`; consumer sizing uses `--dialog-w` and optional `--dialog-gutter` |
 | The global element rules: header, h1–h3, main, scrollbars, focus ring | `styles/core/shared.css` |
 | The nav frame | `styles/core/nav.css` |
 | Every new transition and animation (rule 23) | `styles/core/motion.css`, all inside `@media (prefers-reduced-motion: no-preference)`, imported last (the older ones are `MOTION_LEGACY` in `scripts/audits/audit-motion.mjs`) |

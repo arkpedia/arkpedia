@@ -952,34 +952,14 @@ a.primary:where(:has(~ :is(button, a).ghost)),
   :root {
     --base-view-height: min(70vh, 480px);
   }
-  .base-zoom-controls {
-    top: 8px;
-    left: 8px;
-    padding: 5px 8px;
-    gap: 6px;
-  }
-  .base-zoom-slider {
-    width: 70px;
-  }
   .base-fullscreen-btn {
     display: none;
   }
-
-  .base-room-panel {
-    padding: 10px;
-    gap: 8px;
-  }
   .base-room-panel-header {
     flex-wrap: wrap;
-    gap: 8px;
-  }
-  .base-room-panel-title {
-    font-size: 14px;
   }
   .base-room-panel-controls {
     flex-direction: column;
-    align-items: stretch;
-    gap: 8px;
   }
   .base-room-panel-controls .base-sidebar-search {
     width: 100%;
@@ -992,7 +972,6 @@ a.primary:where(:has(~ :is(button, a).ghost)),
     flex-direction: column;
   }
   .base-extra-resources-settings-panel {
-    flex: 1 1 auto;
     width: 100%;
   }
 
@@ -1002,7 +981,6 @@ a.primary:where(:has(~ :is(button, a).ghost)),
   .base-popover {
     max-width: min(85vw, 320px);
     max-height: 70vh;
-    overflow-y: auto;
   }
 }
 
@@ -1012,9 +990,6 @@ a.primary:where(:has(~ :is(button, a).ghost)),
   }
   .base-room-card {
     flex-basis: 130px;
-  }
-  .base-room-panel-title {
-    font-size: 13px;
   }
 }
 .info-row {
@@ -1033,20 +1008,12 @@ a.primary:where(:has(~ :is(button, a).ghost)),
   text-transform: uppercase;
 }
 .info-row-value { font-size: 13px; }
-@media (prefers-reduced-motion: reduce) {
-  .farming-table-enter { animation: none; }
-}
 
 @media (max-width: 700px) {
-  .farming-accordion-header { font-size: 15px; padding: 12px 14px; }
-  .farming-accordion-body { padding: 4px 12px 14px; }
-  .farming-tile-grid-open,
+  .farming-accordion-header { font-size: 15px; }
   .farming-tile-grid-open.farming-tile-grid-t3 {
-    grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
     gap: 8px;
   }
-  .farming-material-icon-open { width: 36px; height: 36px; }
-  .farming-material-name-open { font-size: 10px; }
 }
 
 /* --- Gacha simulator --- */
@@ -1058,7 +1025,7 @@ a.primary:where(:has(~ :is(button, a).ghost)),
 }
 
 @media (max-width: 640px) {
-  .timeline-bar, .timeline-pill { font-size: 8px; }
+  .timeline-pill { font-size: 8px; }
 }
 @media (max-width: 720px) {
   .series-filter-row {
@@ -1120,8 +1087,6 @@ a.primary:where(:has(~ :is(button, a).ghost)),
 .mobile-nav-bar .theme-toggle img { width: 34px; height: 34px; }
 @media (max-width: 640px) {
   .site-nav-link span:last-child { display: none; }
-  .site-nav-link { padding: 8px; }
-  .site-nav-icon { width: 17px; height: 17px; }
 }
 
 /* --- Collectibles / Tongbaos theme page --- */
@@ -1288,7 +1253,14 @@ a.primary:where(:has(~ :is(button, a).ghost)),
 /* On mobile, the skin and stage detail modals take over the full
    screen like a new page rather than sitting as an embedded popup. */
 @media (max-width: 700px) {
-  .skin-modal,
+  .skin-modal {
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    max-height: 100%;
+    border-radius: 0;
+    margin: 0;
+  }
   .stage-detail-modal {
     position: fixed;
     inset: 0;
@@ -1302,7 +1274,7 @@ a.primary:where(:has(~ :is(button, a).ghost)),
 }
 @media (max-width: 800px) {
   .gacha-layout { flex-direction: column; }
-  .gacha-banner-sidebar { flex: none; width: 100%; max-height: 220px; }
+  .gacha-banner-sidebar { width: 100%; max-height: 220px; }
 
   .submit-row {
     flex-direction: column;
@@ -1438,7 +1410,6 @@ a.primary:where(:has(~ :is(button, a).ghost)),
 .sidescroll,
 .base-room-scroll,
 .event-rewards-scroll-grid,
-.future-skins-month-scroller,
 .gacha-ramp-table-wrap,
 .gm-gridwrap,
 .score-rail,
@@ -1584,7 +1555,6 @@ a.primary:where(:has(~ :is(button, a).ghost)),
 .sidescroll::-webkit-scrollbar,
 .base-room-scroll::-webkit-scrollbar,
 .event-rewards-scroll-grid::-webkit-scrollbar,
-.future-skins-month-scroller::-webkit-scrollbar,
 .gacha-ramp-table-wrap::-webkit-scrollbar,
 .gm-gridwrap::-webkit-scrollbar,
 .score-rail::-webkit-scrollbar,
@@ -1596,7 +1566,6 @@ a.primary:where(:has(~ :is(button, a).ghost)),
 .sidescroll::-webkit-scrollbar-track,
 .base-room-scroll::-webkit-scrollbar-track,
 .event-rewards-scroll-grid::-webkit-scrollbar-track,
-.future-skins-month-scroller::-webkit-scrollbar-track,
 .gacha-ramp-table-wrap::-webkit-scrollbar-track,
 .gm-gridwrap::-webkit-scrollbar-track,
 .score-rail::-webkit-scrollbar-track,
@@ -1610,7 +1579,6 @@ a.primary:where(:has(~ :is(button, a).ghost)),
 .sidescroll::-webkit-scrollbar-thumb,
 .base-room-scroll::-webkit-scrollbar-thumb,
 .event-rewards-scroll-grid::-webkit-scrollbar-thumb,
-.future-skins-month-scroller::-webkit-scrollbar-thumb,
 .gacha-ramp-table-wrap::-webkit-scrollbar-thumb,
 .gm-gridwrap::-webkit-scrollbar-thumb,
 .score-rail::-webkit-scrollbar-thumb,
@@ -1626,7 +1594,6 @@ a.primary:where(:has(~ :is(button, a).ghost)),
 .sidescroll::-webkit-scrollbar-thumb:hover,
 .base-room-scroll::-webkit-scrollbar-thumb:hover,
 .event-rewards-scroll-grid::-webkit-scrollbar-thumb:hover,
-.future-skins-month-scroller::-webkit-scrollbar-thumb:hover,
 .gacha-ramp-table-wrap::-webkit-scrollbar-thumb:hover,
 .scrollable-row::-webkit-scrollbar-thumb:hover,
 .gm-gridwrap::-webkit-scrollbar-thumb:hover,
@@ -1641,7 +1608,6 @@ a.primary:where(:has(~ :is(button, a).ghost)),
   .sidescroll,
   .base-room-scroll,
   .event-rewards-scroll-grid,
-  .future-skins-month-scroller,
   .gacha-ramp-table-wrap,
   .scrollable-row,
   .gm-gridwrap,
