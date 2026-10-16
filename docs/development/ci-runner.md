@@ -101,3 +101,32 @@ How each runner is built, and how to change or remove it: [infra/runners/](../..
 
 Workflows must not assume a fresh machine: write temporary files under
 `$RUNNER_TEMP` (cleared after every job), never `/tmp`.
+
+## Avoid repeated checks
+
+Check runs application regressions and `npm run test:py` concurrently in one step;
+Python suites run sequentially within their own process and use temporary fixtures.
+Both verdicts are collected and either failure fails Check. `test:py` discovers
+`scripts/**/test-*.py`, so a new importer suite joins the same runner automatically.
+
+After content export, Check runs `prebuild` once, then typecheck and the warning-capped
+lint. Generating first matters: prebuild can change JSON imported by TypeScript.
+Only the two Check builds set `ARKPEDIA_BUILD_CHECKS_PASSED=1`, with `CI=true`, to
+avoid repeating those explicit gates inside Next. The bundled build invokes
+`npm run --ignore-scripts build` followed by `npm run postbuild`; postbuild still
+checks deployment traces and client chunks. Normal `npm run build` and Deploy
+retain their lifecycle scripts and Next validation, including manual deployments.
+
+The bundled-data build and the live-content build prove different contracts; keep
+both. The browser suite still runs desktop and mobile unless the existing
+input-graph/green-base guard proves the change irrelevant. A manual Check always
+runs it. Content preparation's data tests and publication checks are also separate
+from code checks: new source records can fail even when the app code is unchanged.
+
+Check, Deploy and Prepare content release restore the remote npm cache only on
+GitHub-hosted runners. Self-hosted runners keep their own npm cache under their
+persistent home volume; setup-node must not download/unpack the whole archive over
+it on every job. A cold self-hosted home remains correct: `npm ci` fetches missing
+packages and verifies lockfile integrity. No node_modules directory is reused.
+The observed remote archive was 484 MB and cost 44 seconds in Check and 84 seconds
+in Deploy (2026-10-16). See [setup-node's cache inputs](https://github.com/actions/setup-node/blob/v7/action.yml).

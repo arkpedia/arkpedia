@@ -57,7 +57,8 @@
     "test:module-stats": "node --test scripts/tests/test-module-stats.mjs",
     "test:base": "tsx --test scripts/tests/test-base-skills.ts scripts/tests/test-base-imports.mjs scripts/tests/test-base-combinations.ts scripts/tests/test-base-trading-reference.ts scripts/tests/test-base-cross-room-boundaries.ts scripts/tests/test-base-combination-properties.ts",
     "audit:base-combinations": "tsx scripts/audits/audit-base-combinations.ts",
-    "selectors:ratings": "tsx scripts/imports/import-selector-ratings.ts"
+    "selectors:ratings": "tsx scripts/imports/import-selector-ratings.ts",
+    "test:py": "node scripts/tests/run-python-tests.mjs"
   },
   "dependencies": {
     "@vercel/analytics": "^2.0.1",
