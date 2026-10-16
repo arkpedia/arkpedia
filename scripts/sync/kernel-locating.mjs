@@ -18,6 +18,7 @@
  * are only ever linked to their pool, never rewritten.
  */
 import { newsSections, parseDuration } from '../build/official-news.mjs';
+import { savedGlobalBannerNotice } from './global-client-banners.mjs';
 
 export const kernelLocatingName = number => `Kernel Locating #${number} (Global)`;
 const numberOf = name => {
@@ -148,8 +149,9 @@ export function reconcileKernelLocating({ banners, gachaTable, characters, notic
     // By where the timing came from, not the address: the client's carries the commit each
     // run pins, and rewriting it every night would make every night a new release.
     const fromClient = /\/ArknightsGamedata\/[^/]+\/en\/gamedata\/excel\/gacha_table\.json$/.test(banner.global_window?.timingSource ?? '');
-    if (!fromClient || banner.global_date !== days) {
+    if (!savedGlobalBannerNotice(banner, pool) && (!fromClient || banner.global_date !== days)) {
       Object.assign(banner, { global_date: days, global_date_estimated: false, global_window: window });
+      if (banner.globalScheduleStatus === 'announced') banner.globalScheduleStatus = 'datamined';
       changed = true;
     }
     const lineup = clientLineup(pool, characters);

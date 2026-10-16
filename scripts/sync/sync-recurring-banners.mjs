@@ -29,6 +29,7 @@ import { pinnedRef } from '../content/pin-upstream.mjs';
 import { lineReader, nameArtUrl, readArtLineup } from './banner-art-lineup.mjs';
 import { kernelLocatingNotices, reconcileKernelLocating } from './kernel-locating.mjs';
 import { readOfficialNews } from './sync-official-news.mjs';
+import { reconcileGlobalClientBanners } from './global-client-banners.mjs';
 
 // At the commit this run pinned (run-stage.mjs), else the branch; a banner created from it
 // records that URL as its timingSource.
@@ -290,10 +291,12 @@ export async function syncRecurringBanners(root = process.cwd(), now = new Date(
   const bannersAt = path.join(root, 'data/headhunting_banners.json');
   const operatorFolders = fs.readdirSync(path.join(root, 'data')).filter((name) => /^operators-[1-6]star$/.test(name));
   const roster = new Map();
+  const operators = [];
   for (const folder of operatorFolders) {
     for (const file of fs.readdirSync(path.join(root, 'data', folder)).filter((name) => name.endsWith('.json'))) {
       const operator = JSON.parse(fs.readFileSync(path.join(root, 'data', folder, file), 'utf8'));
       roster.set(operator.name, operator.rarity);
+      operators.push(operator);
     }
   }
   // One clock names the year's page and decides whether its absence is excused, and
@@ -317,9 +320,11 @@ export async function syncRecurringBanners(root = process.cwd(), now = new Date(
   const recordName = lineupNameLookup([...roster.keys()].map((name) => [name, name]));
   const locating = reconcileKernelLocating({ banners: result.banners, gachaTable, characters, notices: kernelLocatingNotices(posts),
     wikiRows: cells, roster, recordName, clientSource: CLIENT_SOURCE, now: now.getTime() });
-  if (result.changed || locating.changed) fs.writeFileSync(bannersAt, `${JSON.stringify(result.banners, null, 2)}\n`);
-  for (const entry of [...result.quarantine, ...locating.quarantine]) alerts.add(entry);
-  result.additions.push(...locating.additions);
+  // Last: wiki/CN catalogue enrichment must never overwrite a shipped EN candidate pool.
+  const global = reconcileGlobalClientBanners({ banners: result.banners, gachaTable, operators, posts, clientSource: CLIENT_SOURCE, now: now.getTime() });
+  if (result.changed || locating.changed || global.changed) fs.writeFileSync(bannersAt, `${JSON.stringify(result.banners, null, 2)}\n`);
+  for (const entry of [...result.quarantine, ...locating.quarantine, ...global.quarantine]) alerts.add(entry);
+  result.additions.push(...locating.additions, ...global.additions);
   alerts.commit();
   return result.additions;
 }

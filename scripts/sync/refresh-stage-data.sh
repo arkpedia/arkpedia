@@ -201,6 +201,9 @@ stage enemy-index --needs enemy-records -- node scripts/build/build-enemies-inde
 stage stronghold-enemies --needs enemy-index -- node scripts/build/build-stronghold-enemies.mjs
 
 # Event and banner calendars: real windows over estimates.
+# Read today's official Global announcements before banner reconciliation. The
+# client may open before maintenance ends; named announcements supply playable times.
+stage official-news -- node scripts/sync/sync-official-news.mjs
 # The events files are written from announcements and carry ESTIMATED dates for
 # the future; once the client ships an activity or gacha window, that window is
 # the truth. This keeps the home page's countdowns agreeing with the Terminal,
@@ -219,9 +222,6 @@ stage ra-releases -- node scripts/sync/sync-ra-releases.mjs
 # estimated date the client has since corrected misplaces a login, a post or a store's 30-day
 # refetch window. None of them writes anything event-windows reads.
 #
-# The official Global event announcements, cached post by post (data/official-news/global): a
-# quiet day reads two pages of the list. GET only; a day the site is down keeps the cache.
-stage official-news -- node scripts/sync/sync-official-news.mjs
 stage community-web-events -- node scripts/sync/sync-community-web-events.mjs
 
 # Each event's store as arknights.wiki.gg lists it, a rerun's from its /Rerun page

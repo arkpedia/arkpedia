@@ -257,7 +257,9 @@ for (const b of banners) {
   // wrap and unwrap so apply() serves both shapes.
   const g = { ...b.global_window, dateRange: b.global_date ?? null, note: null };
   const c = { ...b.cn_window, dateRange: b.cn_date ?? null, note: null };
-  const gl = apply(g, enCands, -7, `${b.name} [global]`, `${RAW.en}/gacha_table.json`);
+  // The named Global announcement can open after the client's maintenance window.
+  // The banner reconciler runs immediately before this stage and resolves it.
+  const gl = b.globalScheduleStatus === 'announced' ? null : apply(g, enCands, -7, `${b.name} [global]`, `${RAW.en}/gacha_table.json`);
   const cl = apply(c, cnCands, 8, `${b.name} [cn]`, `${RAW.cn}/gacha_table.json`);
   if (gl) { b.global_date = g.dateRange; b.global_window = { startAt: g.startAt, endAt: g.endAt, timingSource: g.timingSource }; bannerLog.push(gl); }
   if (cl) { b.cn_date = c.dateRange; b.cn_window = { startAt: c.startAt, endAt: c.endAt, timingSource: c.timingSource }; bannerLog.push(cl); }

@@ -718,3 +718,20 @@ test('catalogue removes a persisted event link contradicted by both regional cal
   assert.equal(result.banners[0].linked_event, null);
   assert.equal(old.linked_event, event.name, 'input remains intact');
 });
+
+test('catalogue wiki enrichment preserves a saved Global announcement beyond maintenance opening', () => {
+  const operators = reconcileOperators({ operators: [], cn, en: empty }).operators;
+  const pool = { ...structuredClone(cn).gacha.gachaPoolClient[0], gachaPoolName: rows.bannerRows[0].name };
+  const globalStart = new Date((pool.openTime - 7 * 3600) * 1000).toISOString().slice(0, 10).replaceAll('-', '/');
+  const run = (banners: object[]) => reconcileCalendars({ announced: noNews, events: [], banners, operators, cn,
+    en: { ...empty, source: 'client-mirror', gacha: { gachaPoolClient: [pool] } }, eventRows: [],
+    bannerRows: [{ ...rows.bannerRows[0], start: globalStart }] });
+  const initial = run([{ name: rows.bannerRows[0].name, cn_date: '2026/09/04–2026/09/18', global_date: null, cnPoolId: pool.gachaPoolId }]);
+  const banner = initial.banners[0];
+  banner.globalScheduleStatus = 'announced';
+  banner.global_window = { ...banner.global_window, startAt: new Date((pool.openTime + 3 * 3600) * 1000).toISOString(), timingSource: 'https://www.arknights.global/news/4814' };
+  const expected = structuredClone(banner.global_window);
+  const next = run(initial.banners);
+  assert.deepEqual(next.banners[0].global_window, expected);
+  assert.equal(next.banners[0].globalScheduleStatus, 'announced');
+});

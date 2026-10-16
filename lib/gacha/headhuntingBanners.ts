@@ -33,6 +33,8 @@ export interface HeadhuntingBanner {
   cn_date: string | null;
   global_date: string | null;
   global_date_estimated?: boolean;
+  /** Client-extracted timing is provisional until a published Global announcement. */
+  globalScheduleStatus?: 'datamined' | 'announced';
   /** Forecast timing is available; Global has not confirmed its own lineup yet. */
   globalLineupPending?: boolean;
   schedule_anchor?: string;

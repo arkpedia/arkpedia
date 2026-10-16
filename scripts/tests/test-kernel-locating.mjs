@@ -115,3 +115,15 @@ test('a banner already over, or announced long ago, is not created', () => {
   const old = { gachaPoolId: 'FESCLASSIC_EN_30_0_2', gachaRuleType: 'FESCLASSIC', openTime: 1730800000, endTime: 1732000000 };
   assert.deepEqual(run({ pools: [old], notices: [] }).additions, []);
 });
+
+test('client refresh preserves a saved first-party window when the announcement cache is missing', () => {
+  const first = run();
+  const b = first.banners.at(-1);
+  b.globalScheduleStatus = 'announced';
+  b.global_window.endAt = '2026-11-03T11:00:00.000Z';
+  const expected = structuredClone(b.global_window);
+  const pool = { gachaPoolId: 'FESCLASSIC_EN_FIXTURE_13', gachaRuleType: 'FESCLASSIC', openTime: 1792494000, endTime: 1793703599 };
+  const next = run({ banners: first.banners, pools: [pool], notices: [] });
+  assert.deepEqual(next.banners.at(-1).global_window, expected);
+  assert.equal(next.banners.at(-1).globalScheduleStatus, 'announced');
+});
