@@ -3,8 +3,12 @@
 The installation-free importer saves a successful sign-in locally by default. The reader can
 check “Don’t save this sign-in on this browser” to keep it in memory for that import only.
 Saved credentials include their server, so reopening the dialog selects the same region and
-shows one Import action. Forget sign-in or rejected saved credentials return to email login;
-choosing a different server shows that server's email login. Backups exclude sign-in credentials.
+shows Import, Request code and Forget everything. Request code sends to the saved email on its
+own server without importing or changing the saved login. Rejected saved credentials return to
+email login; choosing a different server shows that server's email login. Backups exclude
+sign-in credentials. Forget everything confirms the full scope, clears local/session storage,
+retires active state in open tabs and reloads; it includes every account, manual progress,
+playlists and preferences.
 Its WebAssembly TLS session connects to the real
 provider through the Wisp relay; the relay carries encrypted bytes and cannot read the requests.
 

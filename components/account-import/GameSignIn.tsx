@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { ImportError, readAccount, readNetwork, readPulls, sendCode, SERVERS, signIn, type ImportStep, type Network, type ServerId, type YostarAccount } from '@/lib/account-import/yostar';
+import { isResettingBrowserData } from '@/lib/account/resetData';
 import type { PullRead } from '@/lib/account/pulls';
 import { directTransport, networkTransport, relayTransport } from '@/lib/account-import/relay';
 import { forgetLogin, maskEmail, readSavedLogin, saveLogin, type SavedLogin } from '@/lib/account-import/savedLogin';
@@ -11,7 +12,7 @@ import { forgetLogin, maskEmail, readSavedLogin, saveLogin, type SavedLogin } fr
  * it, what the Account Center gave of the pull history (a history it could not read is said in the
  * last step and stops nothing), and the server both came from. A successful sign-in is remembered
  * locally unless the reader chooses not to save it (lib/account-import/savedLogin.ts). Its own
- * server shows one Import action until they forget it or the game stops accepting it; other
+ * server shows Import and Request code until the game stops accepting it; other
  * servers show their own email login.
  */
 
@@ -32,13 +33,15 @@ const describe = (error: unknown) => (error instanceof Error ? error.message : S
 
 const ACCOUNT_SETTINGS = 'Settings → Account';
 
-export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
+export default function GameSignIn({ server, onAccount, onForget, idPrefix = 'import' }: {
   server: ServerId;
   /** The account, the pull history and their server, once read. A throw is shown as the last
    *  step's failure. */
   onAccount: (user: Record<string, any>, pulls: PullRead, server: ServerId) => void;
   /** Field ids, distinct per use on one page. */
   idPrefix?: string;
+  /** Clears all saved site data after the dialog confirms the scope. */
+  onForget: () => void;
 }) {
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
@@ -57,16 +60,21 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
   const [dontSave, setDontSave] = useState(false);
   const emailInput = useRef<HTMLInputElement>(null);
   const savedImport = useRef<HTMLButtonElement>(null);
+  const codeRequest = useRef<HTMLButtonElement>(null);
   const hasSaved = Boolean(savedForServer);
   const previousSaved = useRef(hasSaved);
   useEffect(() => {
     try { window.localStorage?.removeItem(LEGACY_LOGIN_KEY); } catch { /* Nothing was kept. */ }
   }, []);
   useEffect(() => {
-    if (busy || previousSaved.current === hasSaved) return;
-    previousSaved.current = hasSaved;
-    (hasSaved ? savedImport.current : emailInput.current)?.focus();
-  }, [hasSaved, busy]);
+    if (busy) return;
+    if (previousSaved.current !== hasSaved) {
+      previousSaved.current = hasSaved;
+      (hasSaved ? savedImport.current : emailInput.current)?.focus();
+    } else if (step === 'send-code') {
+      codeRequest.current?.focus();
+    }
+  }, [hasSaved, busy, step]);
   // One device id per visit, as one phone signing in.
   const deviceId = useRef<string | null>(null);
   const flow = () => {
@@ -94,21 +102,29 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
     return network;
   }
 
-  async function onSendCode(event: FormEvent) {
-    event.preventDefault();
-    if (busy || !validEmail) return;
+  async function requestCode(address: string) {
+    if (busy) return;
     setBusy(true);
     setFailed(null);
     setDone(false);
+    setStep('send-code');
     try {
-      await connect();
-      await sendCode(flow(), email.trim());
+      // A saved-account code is also useful for signing in to the game: it needs only
+      // Yostar's code endpoint, so a game-settings outage must not block it.
+      if (savedForServer) deviceId.current = savedForServer.deviceId;
+      else await connect();
+      await sendCode(flow(), address);
       setCodeSent(true);
     } catch (error) {
       setFailed({ step: error instanceof ImportError ? error.step : 'send-code', message: describe(error) });
     } finally {
       setBusy(false);
     }
+  }
+
+  async function onSendCode(event: FormEvent) {
+    event.preventDefault();
+    if (validEmail) await requestCode(email.trim());
   }
 
   /** Steps 3 to 6 with a Yostar login on `from`, then the account and the pulls to the caller. */
@@ -122,6 +138,7 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
       pulls = { rows: null, error: describe(error) };
     }
     setPullsFailed(pulls.error);
+    if (isResettingBrowserData()) return;
     onAccount(user, pulls, from);
     setDone(true);
     setStep(null);
@@ -139,6 +156,7 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
       await connect();
       const yostar = await signIn(flow(), email.trim(), code.trim());
       await read(yostar, flow().deviceId, email.trim(), server);
+      if (isResettingBrowserData()) return;
       // Save only after the import works. Opting out clears any older saved login too.
       if (!dontSave) {
         const login: SavedLogin = { server, email: email.trim(), ...yostar, deviceId: flow().deviceId };
@@ -188,20 +206,6 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
     }
   }
 
-  function onForgetSaved() {
-    forgetLogin();
-    setSaved(null);
-    setEmail('');
-    setCode('');
-    setCodeSent(false);
-    setDontSave(false);
-    setDone(false);
-    setFailed(null);
-    setPullsFailed(null);
-    setStep(null);
-    deviceId.current = null;
-  }
-
   const steps = savedForServer ? STEPS.filter(entry => entry.id !== 'sign-in') : STEPS;
   const stepIndex = steps.findIndex((entry) => entry.id === (failed?.step ?? step));
   const stateOf = (index: number) => {
@@ -213,13 +217,16 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
     return busy && index === stepIndex ? 'running' : 'waiting';
   };
 
+  const forgetButton = <button type="button" className="ghost btn-sm" onClick={onForget} disabled={busy}>Forget everything</button>;
   return (
     <>
       {savedForServer ? (
         <div className="import-saved">
           <span className="hint import-saved-identity">Saved on this browser: <b>{maskEmail(savedForServer.email)}</b> ({SERVERS[savedForServer.server].label})</span>
           <button ref={savedImport} type="button" className="primary btn-sm" onClick={onSavedImport} disabled={busy}>Import</button>
-          <button type="button" className="ghost btn-sm" onClick={onForgetSaved} disabled={busy}>Forget sign-in</button>
+          <button ref={codeRequest} type="button" className="ghost btn-sm" onClick={() => requestCode(savedForServer.email)} disabled={busy}>Request code</button>
+          {forgetButton}
+          {codeSent && <p className="hint import-sent" role="status">Yostar has emailed a code to your saved address.</p>}
         </div>
       ) : (
         <>
@@ -250,7 +257,7 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
                 disabled={busy}
                 required
               />
-              <button type="submit" className="primary btn-sm" disabled={busy || !validEmail}>
+              <button ref={codeRequest} type="submit" className="primary btn-sm" disabled={busy || !validEmail}>
                 {codeSent ? 'Send again' : 'Send code'}
               </button>
             </form>
@@ -275,10 +282,11 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
               Don’t save this sign-in on this browser
             </label>
           </div>
+          <div className="data-dialog-acts">{forgetButton}</div>
         </>
       )}
 
-      {(!savedForServer || busy || done || failed) && (
+      {(!savedForServer || (step !== 'send-code' && (busy || done || failed))) && (
         <ol className="import-steps" aria-live="polite">
           {steps.map((entry, index) => {
             const state = stateOf(index);

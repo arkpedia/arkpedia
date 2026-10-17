@@ -18,6 +18,10 @@ test('What’s new groups local dates and categories and marks later same-day re
       if (!day[kind]?.length) continue;
       await expect(entry.locator(`.is-${kind} h3`)).toHaveCount(1);
       await expect(entry.locator(`.is-${kind} li`)).toHaveCount(day[kind]!.length);
+      for (const item of day[kind]!) {
+        if (item.href) await expect(entry.getByRole('link', { name: item.title, exact: true })).toHaveAttribute('href', item.href);
+        if (item.detail) await expect(entry).toContainText(item.detail);
+      }
     }
   }
   const today = page.locator('#changes-2026-10-09').locator('..');

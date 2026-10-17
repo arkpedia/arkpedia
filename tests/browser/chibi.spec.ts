@@ -332,7 +332,9 @@ for (const theme of ['dark', 'light']) {
     // Viewer close/navigation do not reset the first-tap guarantee on this pet.
     await page.getByRole('button', { name: 'Close chibi viewer', exact: true }).click();
     await page.getByRole('link', { name: /^Arkpedia ARKPEDIA(?: Beta)?$/ }).click();
-    await expect(page).toHaveURL(/\/$/);
+    // Home's first ISR response may be cold on the shared runner; wait for the
+    // client navigation before checking that this same roaming pet survives it.
+    await expect(page).toHaveURL(/\/$/, { timeout: 30000 });
     await page.evaluate(() => { Math.random = () => .9; });
     await pet.focus(); await page.keyboard.press('Enter');
     await expect(pet).toHaveAttribute('data-activity', 'tap');

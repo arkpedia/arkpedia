@@ -172,7 +172,12 @@ test('a scroll row is a named region that the keyboard scrolls, on the site\'s d
   await row.focus();
   for (let i = 0; i < 3; i++) await page.keyboard.press('ArrowRight');
   await expect.poll(scrollLeft).toBeGreaterThan(0);
-  for (let i = 0; i < 6; i++) await page.keyboard.press('ArrowLeft');
+  // Follow actual movement rather than a fixed key count: rapid presses can coalesce
+  // with Chromium's native smooth scrolling and leave one reverse step pending.
+  await expect.poll(async () => {
+    await page.keyboard.press('ArrowLeft');
+    return scrollLeft();
+  }, { intervals: [100] }).toBe(0);
   await expect.poll(scrollLeft).toBe(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
   // The page does not switch the whole document to a thin scrollbar.

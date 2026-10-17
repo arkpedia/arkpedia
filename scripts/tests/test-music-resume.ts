@@ -127,11 +127,13 @@ test('the queue keeps to the songs the catalogue still offers, and its shuffled 
 });
 
 /*
- * No code of the site loads a new document: it ends the music, and the record above only puts
- * the song back. The Import / export dialog reloaded the page after a backup restore
+ * Ordinary navigation and imports must not load a new document: it ends the music, and the
+ * record above only puts the song back. Forget everything deliberately clears music too,
+ * retires live state and reloads in one dedicated helper. The Import / export dialog once
+ * reloaded the page after a backup restore
  * (components/account/DataDialog.tsx); the stores now tell their readers (lib/account/backup.ts).
  */
-test('no code of the site reloads the page or sets its address', () => {
+test('only the full-data reset may deliberately reload the site', () => {
   const found: string[] = [];
   for (const dir of ['pages', 'components', 'lib']) {
     for (const rel of fs.readdirSync(dir, { recursive: true }) as string[]) {
@@ -143,7 +145,7 @@ test('no code of the site reloads the page or sets its address', () => {
       }
     }
   }
-  assert.deepEqual(found, [], 'a new document ends the music: navigate with next/router, and tell a store\'s readers with its event');
+  assert.deepEqual(found, ['lib/account/resetData.ts: location.reload('], 'only Forget everything may end playback; ordinary navigation and imports must keep the document');
 });
 
 test('"Next in queue" survives a reload, and a record from before it existed loads with none', () => {

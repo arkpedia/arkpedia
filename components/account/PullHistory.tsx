@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useId, useMemo, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import Image from '@/components/content/ContentImage';
 import LoadOnScroll from '@/components/ui/LoadOnScroll';
@@ -14,7 +14,7 @@ import { operatorHref } from '@/lib/operators/operatorHref';
 /*
  * The Account page's Pull History: what the imports have kept of the reader's headhunting
  * (lib/account/pulls.ts). The totals, each banner with the six- and five-stars it gave, and every
- * press newest first, growing as the reader scrolls, and Export CSV for the reader's own charts
+ * press newest first when Every pull is opened, growing as the reader scrolls, and Export CSV for the reader's own charts
  * (lib/account/pullHistoryCsv.ts). Names and rarities come from pullLabels, which the CSV reads
  * too, so the two always agree.
  */
@@ -24,14 +24,14 @@ const day = (seconds: number) => DAY.format(new Date(seconds * 1000));
 const percent = (part: number, total: number) => (total ? `${((part / total) * 100).toFixed(1)}%` : '0%');
 const SESSIONS_PAGE = 20;
 
-/** Holds every pull at once: an account with years of history is still a few thousand rows. */
 export default function PullHistory({ account, map }: { account: AccountRecord | null; map: GameAccountMap }) {
   const history = account?.pulls;
-  const [shown, setShown] = useState(SESSIONS_PAGE);
+  const [open, setOpen] = useState(false);
+  const listId = useId();
   const view = useMemo(() => {
     if (!history?.rows.length) return null;
     const labels = pullLabels(history, map);
-    return { ...labels, counts: rarityCounts(history.rows, labels.rarity), banners: bannerPulls(history.rows, labels.rarity), sessions: pullSessions(history.rows) };
+    return { ...labels, counts: rarityCounts(history.rows, labels.rarity), banners: bannerPulls(history.rows, labels.rarity) };
   }, [history, map]);
 
   if (!account) return <p className="hint">No account imported yet: use Import / export above, and the pulls Yostar keeps come with it.</p>;
@@ -88,11 +88,31 @@ export default function PullHistory({ account, map }: { account: AccountRecord |
       </ul>
 
       <div className="account-pulls-list-head">
-        <h3>Every pull</h3>
+        <h3><button type="button" className="ghost btn-sm" aria-expanded={open} aria-controls={listId} onClick={() => setOpen(!open)}><span aria-hidden="true">{open ? '▾' : '▸'}</span> Every pull</button></h3>
         <button type="button" className="ghost btn-sm" onClick={exportCsv} title="One row per pull, for a spreadsheet or a chart">Export CSV</button>
       </div>
+      <div id={listId}>
+        {open && <PullSessions rows={history.rows} bannerName={bannerName} icon={icon} />}
+      </div>
+      <p className="hint">
+        Yostar keeps 90 days of pulls{account.server === 'en' ? ', none before 11 Dec 2025' : ''}. Each import adds what is new to what this browser has kept,
+        {history.readAt ? ` last on ${DAY.format(new Date(history.readAt))}` : ''}, so the history here grows past that.
+      </p>
+    </>
+  );
+}
+
+/** Group and mount individual pulls only on request; retire the rows and observer on close. */
+function PullSessions({ rows, bannerName, icon }: {
+  rows: PullRecord[];
+  bannerName: (pool: string) => string;
+  icon: (row: PullRecord, key: string | number, size: number) => ReactNode;
+}) {
+  const sessions = useMemo(() => pullSessions(rows), [rows]);
+  const [shown, setShown] = useState(SESSIONS_PAGE);
+  return <>
       <ol className="account-pulls-sessions">
-        {view.sessions.slice(0, shown).map((session) => (
+        {sessions.slice(0, shown).map((session) => (
           <li key={`${session.at}|${session.pool}`} className="account-pulls-session">
             <div className="account-pulls-session-head">
               <LocalTime iso={new Date(session.at * 1000).toISOString()} precision="minute" />
@@ -104,11 +124,6 @@ export default function PullHistory({ account, map }: { account: AccountRecord |
           </li>
         ))}
       </ol>
-      <LoadOnScroll shown={shown} total={view.sessions.length} onMore={() => setShown((count) => count + SESSIONS_PAGE)} />
-      <p className="hint">
-        Yostar keeps 90 days of pulls{account.server === 'en' ? ', none before 11 Dec 2025' : ''}. Each import adds what is new to what this browser has kept,
-        {history.readAt ? ` last on ${DAY.format(new Date(history.readAt))}` : ''}, so the history here grows past that.
-      </p>
-    </>
-  );
+      <LoadOnScroll shown={shown} total={sessions.length} onMore={() => setShown((count) => count + SESSIONS_PAGE)} />
+  </>;
 }

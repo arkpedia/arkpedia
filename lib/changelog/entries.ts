@@ -34,6 +34,45 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-10-17T01:46:30Z',
+    changed: [
+      { title: 'Simpler account imports', detail: 'Sign-ins and regions are saved on this browser by default, with an opt-out; next time, choose Import.', href: '/account' },
+      { title: 'Request a code with a saved sign-in', detail: 'Request code emails your saved address without importing, so you can use the code to sign in to the game.', href: '/account' },
+      { title: 'One button to forget everything', detail: 'Forget everything clears all accounts, sign-ins, planner edits, story progress, music data and preferences on this browser.', href: '/account' },
+      { title: 'Pull history opens on request', detail: 'Choose Every pull to load individual pulls; totals, banner summaries and CSV export stay available.', href: '/account' },
+    ],
+    fixed: [
+      { title: 'Import with a code you already received', detail: 'The code field stays available if sending an email fails, with a clearer message for email limits.', href: '/account' },
+    ],
+  },
+  {
+    at: '2026-10-16T16:23:28Z',
+    added: [
+      { title: 'Japan and Korea schedules', detail: 'Events and banners use their own server schedules when you select a Japanese or Korean account.', href: '/schedule' },
+    ],
+    fixed: [
+      { title: 'Server resets and timed rewards', detail: 'Farming stages, banners, events, shops and timed rewards follow the selected account’s server clock.', href: '/account' },
+    ],
+  },
+  {
+    at: '2026-10-16T06:18:30Z',
+    added: [
+      { title: 'Operator previews in recruitment', detail: 'Select a recruitment result to see artwork, stats and skills in a popup without leaving your results.', href: '/recruitment' },
+      { title: 'New story chapters', detail: 'The story library includes the expanded reader catalogue with chapter artwork and preserved reading progress.', href: '/story' },
+      { title: 'Episode 17 stages', detail: 'Browse Episode 17 stages and their details in the stage database.', href: '/stages' },
+    ],
+    changed: [
+      { title: 'Story library artwork and loading', detail: 'Chapter covers and Operator Record portraits are restored, with gradual list loading and lazy images.', href: '/story' },
+    ],
+    fixed: [
+      { title: 'Imported rewards and Paradox Simulations', detail: 'Completed stages and claimed rewards import without replacing manual tracker progress; reimport to update older accounts.', href: '/free-op' },
+      { title: 'Beginner reward programmes', detail: 'Beginner reward claims match the programme on the imported account.', href: '/free-op' },
+      { title: 'Crossover banners under Limited', detail: 'Crossover banners appear under Limited in the gacha simulator.', href: '/gacha' },
+      { title: 'Updated voice actor credits', detail: 'Operator voice credits are kept when only some languages or audio files refresh.', href: '/operators' },
+      { title: 'Chapter 16 and 17 story covers', detail: 'Both chapter popups show their story artwork, including the correct cover for Chapter 17.', href: '/story' },
+    ],
+  },
+  {
     at: '2026-10-15T11:16:00Z',
     added: [
       { title: 'Live and upcoming banners on the home page', detail: 'Banners running now say LIVE, the next one says when it starts, and one without art yet shows a placeholder.', href: '/' },

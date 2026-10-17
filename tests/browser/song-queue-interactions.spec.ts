@@ -189,8 +189,12 @@ for (const native of [false, true]) {
     const reversedAt = await list.evaluate(el => el.scrollTop);
     await page.waitForTimeout(250);
     expect(await list.evaluate(el => el.scrollTop)).toBeCloseTo(reversedAt, 0);
+    // A slow first poll can reach the current lazy batch's foot. Leave room for a
+    // fresh 150px run instead of asking the paused list to scroll past its end.
+    await list.evaluate(el => { el.scrollTop = Math.min(el.scrollTop, (el.scrollHeight - el.clientHeight) / 2); });
+    const resumedAt = await list.evaluate(el => el.scrollTop);
     await input.move(x, box.y + box.height - 5);
-    await expect.poll(() => list.evaluate(el => el.scrollTop), { timeout: 1000 }).toBeGreaterThan(reversedAt + 150);
+    await expect.poll(() => list.evaluate(el => el.scrollTop), { timeout: 1000, intervals: [50] }).toBeGreaterThan(resumedAt + 150);
     await input.move(x, box.y + box.height / 2);
     const stoppedAt = await list.evaluate(el => el.scrollTop);
     await page.waitForTimeout(250); // Several animation frames must stay still, not merely one sample.

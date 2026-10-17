@@ -168,8 +168,13 @@ test("a numbered list's markers stay inside the list", async ({ page }) => {
  * Every panel's heading starts the same distance in from its panel's edge, within 1px, at
  * both widths: box edges and the start of text, nothing that depends on the fonts. */
 test("the gacha operator preview's panels share one inset", async ({ page }) => {
+  test.setTimeout(60000);
   const state = CENSUS_STATES.find((s) => s.id === 'gacha operator preview')!;
-  await openCensus(page, state);
+  const [details] = await Promise.all([
+    page.waitForResponse(response => new URL(response.url()).pathname.startsWith('/api/gacha-operator/'), { timeout: 45000 }),
+    openCensus(page, state),
+  ]);
+  expect(details.ok(), 'operator details must load before measuring their panels').toBe(true);
   await expect(page.getByRole('tablist', { name: 'Skill' })).toBeVisible({ timeout: 15000 });
   const insets = await page.evaluate(() => Array.from(document.querySelectorAll('.gacha-preview-section')).filter((s) => s.getClientRects().length > 0).map((s) => {
     const h = s.querySelector('h3')!;

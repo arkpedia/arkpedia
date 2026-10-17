@@ -7,8 +7,8 @@
  *
  * It lives in localStorage and goes nowhere but Yostar's and the game's own servers, through the
  * relay, which carries the encrypted bytes and cannot read them. No Arkpedia server ever receives
- * it, and a backup file leaves it out (lib/account/backup.ts lists what it keeps). "Forget sign-in"
- * and "Forget this account" remove it, and a sign-in the game no longer accepts is removed the
+ * it, and a backup file leaves it out (lib/account/backup.ts lists what it keeps). "Forget everything"
+ * clears it along with all other site data, and a sign-in the game no longer accepts is removed the
  * first time it fails.
  */
 import { isServerId, type ServerId, type YostarAccount } from './yostar';

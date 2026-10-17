@@ -3,6 +3,7 @@ import GameSignIn from '@/components/account-import/GameSignIn';
 import SegmentedControl from '@/components/ui/SegmentedControl';
 import { SERVER_IDS, SERVERS, type ServerId } from '@/lib/account-import/yostar';
 import { readSavedLogin } from '@/lib/account-import/savedLogin';
+import { storedAccount } from '@/lib/account/accountStore';
 import ImportDialog from '@/components/account/ImportDialog';
 import { useReleaseTable } from '@/lib/content/context';
 import { depotNames, type MaterialCatalogue } from '@/lib/farming/materialCatalogue.mjs';
@@ -15,10 +16,9 @@ import { PULL_PLAN_KEY, type SavedPullPlan } from '@/lib/pulls/plan';
 import { writePastProgress } from '@/lib/pulls/pastProgress';
 import { importGameAccount, type ImportResult } from '@/lib/account/importAccount';
 import type { PullRead } from '@/lib/account/pulls';
-import { forgetLogin } from '@/lib/account-import/savedLogin';
+import { isResettingBrowserData, resetBrowserData } from '@/lib/account/resetData';
 import { applyBackup, formatBackup, type ParsedBackup } from '@/lib/account/backup';
 import { readImportFile } from '@/lib/account/importFile';
-import { forgetShownAccount, storedAccount, useAccount } from '@/lib/account/accountStore';
 
 /** "412 operators, 375 skins, 77 materials, 1,840 stages cleared and your profile". */
 function importedSummary(result: ImportResult): string {
@@ -37,45 +37,35 @@ function pullsSummary(read: PullRead): string {
  * Import / export: the one dialog for everything the site keeps of the reader, on the Account
  * page only (the planners link there: components/account/DataLink). From the game
  * (components/account-import/GameSignIn); from a file or pasted text, whatever
- * lib/account/importFile reads; an export of all of it (lib/account/backup); and Forget this
- * account. A file is written to storage, which the page it belongs to reads when it next
- * loads. The page must carry the three tables it reads (lib/content/tables.mjs).
+ * lib/account/importFile reads; an export of all of it (lib/account/backup); and Forget everything.
+ * A file is written to storage, which its page reads when it next loads. The page must carry
+ * the three tables it reads (lib/content/tables.mjs).
  */
 export default function DataDialog({ onClose }: { onClose: () => void }) {
-  const account = useAccount();
   const map = useReleaseTable<GameAccountMap>('game-account-map');
   const aliases = useReleaseTable<ImportAliases>('import-aliases');
   const catalogue = useReleaseTable<MaterialCatalogue>('material-catalogue');
-  const [loginRevision, setLoginRevision] = useState(0);
   const [result, setResult] = useState<{ imported: ImportResult; pulls: PullRead } | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
   const [text, setText] = useState('');
   // The dialog opens on a click, after hydration, so storage can be read for its first render:
   // the remembered sign-in's server, else the imported account's, else Global.
-  const [server, setServer] = useState<ServerId>(() => readSavedLogin()?.server ?? account?.server ?? 'en');
+  const [server, setServer] = useState<ServerId>(() => readSavedLogin()?.server ?? storedAccount()?.server ?? 'en');
 
   function onAccount(user: Record<string, any>, pulls: PullRead, from: ServerId) {
+    if (isResettingBrowserData()) return;
     setResult({ imported: importGameAccount(user, { map, aliases, depotNames: depotNames(catalogue) }, pulls, from), pulls });
   }
 
-  /** The shown server's account and its remembered sign-in; another server's account, if one is
-   *  kept, is shown in its place. */
   function forget() {
-    if (!account) return;
-    const server = SERVERS[account.server].label;
-    const login = readSavedLogin();
-    if (login?.server === account.server) {
-      forgetLogin();
-      setLoginRevision(revision => revision + 1);
-    }
-    forgetShownAccount();
-    const next = storedAccount();
-    setResult(null);
-    setNote(`Your ${server} account${login?.server === account.server ? ' and its remembered sign-in are' : ' is'} forgotten on this browser.${next ? ` Your ${SERVERS[next.server].label} account is shown now.` : ''} The planners keep their own data until you clear it there.`);
+    if (!window.confirm('Forget all Arkpedia data saved in this browser? This removes every account and sign-in, planner edits, story progress, music playlists and preferences. Export everything first if you want a backup.')) return;
+    try { resetBrowserData(); }
+    catch { setNote('This browser could not clear all saved data. Check its site-data settings.'); }
   }
 
   function restore(backup: ParsedBackup) {
+    if (isResettingBrowserData()) return;
     try {
       applyBackup(backup);
     } catch {
@@ -89,6 +79,7 @@ export default function DataDialog({ onClose }: { onClose: () => void }) {
     setNote(`Restored ${what.length ? what.join(', ') : 'nothing (the backup is empty)'}${backup.savedAt ? `, from a backup of ${backup.savedAt.slice(0, 10)}` : ''}.`);
   }
   function applyText(input: string, source: string) {
+    if (isResettingBrowserData()) return;
     const file = readImportFile(input, aliases);
     if (file.kind === 'refused') { setNote(`${file.reason} (${source})`); return; }
     if (file.kind === 'backup') { restore(file.backup); return; }
@@ -96,7 +87,7 @@ export default function DataDialog({ onClose }: { onClose: () => void }) {
       /* The file's resources and ticks stand over the current account import's: marked as
          already filled from it (walletFrom, ticksFrom), and the ticks go to their own store
          (lib/pulls/pastProgress.ts), which the Pull Planner and the OP Tracker read. */
-      const at = account?.importedAt ?? '';
+      const at = storedAccount()?.importedAt ?? '';
       const plan: SavedPullPlan = { ...file.plan, ...(at ? { walletFrom: at, ticksFrom: at } : {}) };
       window.localStorage.setItem(PULL_PLAN_KEY, JSON.stringify(plan));
       writePastProgress({ doneKeys: plan.doneKeys, doneEvents: plan.doneEvents, annihilationDone: plan.annihilationDone, ticksFrom: plan.ticksFrom ?? '' });
@@ -135,7 +126,7 @@ export default function DataDialog({ onClose }: { onClose: () => void }) {
             server's sign-in is its own (key). */}
         <SegmentedControl label="Server" className="import-server" value={server} onChange={setServer}
           options={SERVER_IDS.map((id) => ({ value: id, label: SERVERS[id].label }))} />
-        <GameSignIn key={`${server}-${loginRevision}`} server={server} idPrefix="data" onAccount={onAccount} />
+        <GameSignIn key={server} server={server} idPrefix="data" onAccount={onAccount} onForget={forget} />
         {result && (
           <p className="hint import-note" role="status">
             Imported: {importedSummary(result.imported)}.{pullsSummary(result.pulls)}{unheldSummary(result.imported.unknown)}
@@ -184,12 +175,6 @@ export default function DataDialog({ onClose }: { onClose: () => void }) {
 
       {note && <p className="hint data-dialog-note" role="status">{note}</p>}
 
-      <section className="data-dialog-part data-dialog-forget" aria-label="Forget this account">
-        <button type="button" className="ghost btn-sm" disabled={!account} onClick={forget}>
-          Forget this account
-        </button>
-        <span className="hint">Clears the shown server&apos;s imported account, and its remembered sign-in, from this browser. Other servers&apos; accounts stay.</span>
-      </section>
       </div>
     </ImportDialog>
   );

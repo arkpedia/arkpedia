@@ -47,8 +47,7 @@
 .data-dialog-paste > summary:hover { color: var(--teal); }
 .data-dialog-paste textarea { width: 100%; margin: 10px 0; box-sizing: border-box; }
 .data-dialog-note { margin: 0 0 12px; }
-.data-dialog-forget { grid-auto-flow: column; justify-content: start; align-items: center; gap: 12px; }
-/* A saved sign-in replaces the email form with its identity, Import and Forget.
+/* A saved sign-in replaces the email form with its identity, Import, Request code and Forget everything.
    The email form's opt-out spans its grid. */
 .import-saved { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
 .import-saved-identity { flex-basis: 100%; min-width: 0; overflow-wrap: anywhere; }
