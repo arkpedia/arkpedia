@@ -150,19 +150,7 @@ test('server-list gateway errors retry, but HTTP refusals, TLS errors and malfor
   assert.equal(tlsCalls, 1);
 });
 
-test('a sign-in is kept only when the reader asks, after it worked, and never in a backup file', async () => {
-  const fs = await import('node:fs');
-  const source = fs.readFileSync('components/account-import/GameSignIn.tsx', 'utf8');
-  // A login a build before 2026-10-02 kept without asking is still removed.
-  assert.match(source, /removeItem\(LEGACY_LOGIN_KEY\)/);
-  // Storage only through savedLogin.ts, and its one save behind the reader's box, after the import.
-  assert.doesNotMatch(source, /setItem/);
-  assert.equal(source.match(/saveLogin\(/g)?.length, 1);
-  assert.match(source, /await read\(yostar, flow\(\)\.deviceId, email\.trim\(\), server\);\s*\/\/[^\n]*\n\s*if \(remember\) \{[\s\S]{0,200}saveLogin\(login\)/);
-  // A remembered sign-in is read on its own server, whichever the dialog shows.
-  assert.match(source, /await read\(saved, saved\.deviceId, saved\.email, saved\.server\);/);
-  assert.match(source, /useState\(false\);\s*useEffect/, 'the box starts unticked');
-  // A backup lists what it keeps, and the sign-in is not among it, nor is any of its fields.
+test('saved sign-in credentials are excluded from backup files', async () => {
   const { formatBackup } = await import('../../lib/account/backup');
   const { SAVED_LOGIN_KEY } = await import('../../lib/account-import/savedLogin');
   const store = new Map([[SAVED_LOGIN_KEY, JSON.stringify({ server: 'en', email: 'doctor@example.com', uid: '42', token: 'secret-token', authToken: 'secret-auth', deviceId: 'd' })]]);

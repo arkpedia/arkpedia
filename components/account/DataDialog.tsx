@@ -46,6 +46,7 @@ export default function DataDialog({ onClose }: { onClose: () => void }) {
   const map = useReleaseTable<GameAccountMap>('game-account-map');
   const aliases = useReleaseTable<ImportAliases>('import-aliases');
   const catalogue = useReleaseTable<MaterialCatalogue>('material-catalogue');
+  const [loginRevision, setLoginRevision] = useState(0);
   const [result, setResult] = useState<{ imported: ImportResult; pulls: PullRead } | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
@@ -64,7 +65,10 @@ export default function DataDialog({ onClose }: { onClose: () => void }) {
     if (!account) return;
     const server = SERVERS[account.server].label;
     const login = readSavedLogin();
-    if (login?.server === account.server) forgetLogin();
+    if (login?.server === account.server) {
+      forgetLogin();
+      setLoginRevision(revision => revision + 1);
+    }
     forgetShownAccount();
     const next = storedAccount();
     setResult(null);
@@ -131,7 +135,7 @@ export default function DataDialog({ onClose }: { onClose: () => void }) {
             server's sign-in is its own (key). */}
         <SegmentedControl label="Server" className="import-server" value={server} onChange={setServer}
           options={SERVER_IDS.map((id) => ({ value: id, label: SERVERS[id].label }))} />
-        <GameSignIn key={server} server={server} idPrefix="data" onAccount={onAccount} />
+        <GameSignIn key={`${server}-${loginRevision}`} server={server} idPrefix="data" onAccount={onAccount} />
         {result && (
           <p className="hint import-note" role="status">
             Imported: {importedSummary(result.imported)}.{pullsSummary(result.pulls)}{unheldSummary(result.imported.unknown)}

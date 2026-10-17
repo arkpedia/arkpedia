@@ -1,7 +1,11 @@
 # Account import transport
 
-The installation-free importer keeps credentials and account data in browser memory unless
-the reader explicitly remembers a sign-in. Its WebAssembly TLS session connects to the real
+The installation-free importer saves a successful sign-in locally by default. The reader can
+check “Don’t save this sign-in on this browser” to keep it in memory for that import only.
+Saved credentials include their server, so reopening the dialog selects the same region and
+shows one Import action. Forget sign-in or rejected saved credentials return to email login;
+choosing a different server shows that server's email login. Backups exclude sign-in credentials.
+Its WebAssembly TLS session connects to the real
 provider through the Wisp relay; the relay carries encrypted bytes and cannot read the requests.
 
 | Request | Route | Reason |
@@ -22,7 +26,7 @@ authenticated requests never change route or replay automatically after a refusa
 The progress list describes reading game server settings. Loading public settings does not
 prove that an encrypted relay connection has opened. Sending a code and verifying a code are
 independent: a reader can try a code already received without requesting another email.
-The optional remembered sign-in also avoids new code requests on later imports.
+The saved sign-in also avoids new code requests on later imports.
 
 ## Provider and capacity limits
 
