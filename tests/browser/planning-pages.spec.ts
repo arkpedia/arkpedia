@@ -464,6 +464,9 @@ test.describe('/gacha', () => {
         for (let i = 0; i < 25 && ys[ys.length - 1] > 0; i += 1) {
           await page.mouse.move(200, 400);
           await page.mouse.wheel(0, -300);
+          // wheel() dispatches input before the compositor applies it. Observe this
+          // step first, then keep the stability sample that catches a delayed pullback.
+          await expect.poll(() => page.evaluate(() => Math.round(window.scrollY))).toBeLessThan(ys[ys.length - 1]);
           await page.waitForTimeout(300);
           ys.push(await page.evaluate(() => Math.round(window.scrollY)));
         }

@@ -50,12 +50,16 @@ import { MusicPlayerProvider } from '@/lib/music/musicPlayerContext';
 import { getEssentialIconPath } from '@/lib/operators/operatorIconPaths';
 import type { PageWithMobileNav } from '@/lib/nav/mobileNavOverride';
 import { watchImageArrivals } from '@/lib/ui/imageArrival';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { flushSync } from 'react-dom';
+import { watchBrowserDataReset } from '@/lib/account/resetData';
 import { useRouter } from 'next/router';
 import { recordPage } from '@/lib/nav/pageTrail';
 import { Analytics } from '@vercel/analytics/react';
 
 export default function App({ Component, pageProps }: AppProps) {
+  const [resetting, setResetting] = useState(false);
+  useEffect(() => watchBrowserDataReset(() => flushSync(() => setResetting(true))), []);
   // Dedicated compact tools declare their layout before the server's first paint.
   const hideSiteChrome = (Component as typeof Component & { hideSiteChrome?: boolean }).hideSiteChrome === true;
   /* The logo is art like any other: pinned to the page's content release rather than
@@ -76,6 +80,7 @@ export default function App({ Component, pageProps }: AppProps) {
   // Once: the listener records every change after the first page.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router.events]);
+  if (resetting) return <p role="status">Clearing saved data…</p>;
   return (
     <ContentContext.Provider value={pageProps.__contentRelease ?? null}>
     <ContentTablesContext.Provider value={pageProps.__contentTables ?? {}}>

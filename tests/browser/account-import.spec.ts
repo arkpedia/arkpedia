@@ -1,6 +1,9 @@
 import { expect, test, type Page } from '@playwright/test';
 import { SERVERS, type ServerId } from '../../lib/account-import/yostar';
 import { readOnly } from './census-routes';
+import { BACKUP_STORES } from '../../lib/account/backup';
+import { STORY_PROGRESS_KEY } from '../../lib/story/storyProgress';
+import { markDocument, sameDocument, startMusic, stubYouTube } from './youtube-stub';
 
 /* The previous email-code flow, with the Yostar email notice kept. All server answers are
  * fixtures: these checks never send a code or sign in to a real account. */
@@ -10,7 +13,9 @@ const VERSION = 'https://hv.example.invalid/Android/version';
 
 test.beforeEach(async ({ page }, testInfo) => {
   // Arkpedia follows its stored theme, rather than the browser's colour-scheme preference.
-  await page.addInitScript(theme => localStorage.setItem('theme', theme), testInfo.project.use.colorScheme === 'light' ? 'light' : 'dark');
+  await page.addInitScript(theme => {
+    if (performance.getEntriesByType('navigation')[0]?.toJSON().type !== 'reload') localStorage.setItem('theme', theme);
+  }, testInfo.project.use.colorScheme === 'light' ? 'light' : 'dark');
 });
 
 /** The stand-in transport, answering as the servers do: the account at `level`, or the game's
@@ -43,9 +48,11 @@ async function stubServers(page: Page, level: number | null, isNew = 0, networkF
       [`${region.accountCenter}/api/game/gachas?key=ark&index=1&size=50`]: { json: { code: 0, data: { rows: [] } } },
     };
     const asked: string[] = [];
-    Object.assign(window, { __asked: asked });
-    window.__arkpediaImportTransport = async (url) => {
+    const requests: { url: string; body?: string; headers: Record<string, string> }[] = [];
+    Object.assign(window, { __asked: asked, __requests: requests });
+    window.__arkpediaImportTransport = async (url, request) => {
       asked.push(url);
+      requests.push({ url, body: request.body, headers: request.headers });
       if (url.endsWith('/network_config') && networkFailures-- > 0) throw new Error('Request failed with error code 7: Could not connect to server');
       const answer = answers[url];
       return answer ? { status: 200, json: answer.json, headers: answer.headers ?? [] } : { status: 404, json: null, headers: [] };
@@ -166,7 +173,7 @@ test('the same sign-in with a linked account (level 120) imports it', async ({ p
 });
 
 
-test('successful sign-in saves by default and reopening offers only Import', async ({ page }, testInfo) => {
+test('successful sign-in saves by default and reopens with saved sign-in actions', async ({ page }, testInfo) => {
   await stubServers(page, 120);
   let dialog = await openImport(page);
   await expect(dialog.getByLabel('Don’t save this sign-in on this browser')).not.toBeChecked();
@@ -188,12 +195,9 @@ test('successful sign-in saves by default and reopening offers only Import', asy
 });
 
 async function seedSavedLogin(page: Page, server: ServerId = 'en') {
-  await page.addInitScript(({ email, server }) => {
-    // Seed once, so a later reload cannot silently restore forgotten credentials.
-    if (!sessionStorage.getItem('seeded-sign-in')) {
-      localStorage.setItem('arkpediaYostarLogin', JSON.stringify({ server, email, uid: '4242', token: 'yostar-token', authToken: 'code-token', deviceId: 'fixture-device' }));
-      sessionStorage.setItem('seeded-sign-in', '1');
-    }
+  await page.goto('/account');
+  await page.evaluate(({ email, server }) => {
+    localStorage.setItem('arkpediaYostarLogin', JSON.stringify({ server, email, uid: '4242', token: 'yostar-token', authToken: 'code-token', deviceId: 'fixture-device' }));
   }, { email: EMAIL, server });
 }
 
@@ -211,17 +215,20 @@ test('opting out leaves the email login available after a successful import', as
   await expect(dialog.locator('.import-saved')).toHaveCount(0);
 });
 
-test('forgetting a saved sign-in returns focus to an empty email login', async ({ page }) => {
+test('one Forget everything action confirms its full scope and cancelling keeps data', async ({ page }) => {
   await stubServers(page, 120);
   await seedSavedLogin(page);
-  let dialog = await openImport(page);
-  await dialog.getByRole('button', { name: 'Forget sign-in', exact: true }).click();
-  await expect(dialog.getByPlaceholder('Yostar email')).toBeFocused();
-  await expect(dialog.getByPlaceholder('Yostar email')).toHaveValue('');
-  await expect(dialog.getByLabel('Don’t save this sign-in on this browser')).not.toBeChecked();
-  expect(await page.evaluate(() => localStorage.getItem('arkpediaYostarLogin'))).toBeNull();
-  dialog = await openImport(page);
-  await expect(dialog.locator('.import-forms')).toBeVisible();
+  const dialog = await openImport(page);
+  await expect(dialog.getByRole('button', { name: /^Forget/ })).toHaveCount(1);
+  const before = await page.evaluate(() => localStorage.getItem('arkpediaYostarLogin'));
+  page.once('dialog', async confirmation => {
+    expect(confirmation.message()).toContain('every account and sign-in');
+    expect(confirmation.message()).toContain('planner edits, story progress, music playlists and preferences');
+    await confirmation.dismiss();
+  });
+  await dialog.getByRole('button', { name: 'Forget everything', exact: true }).click();
+  await expect(dialog.locator('.import-saved')).toBeVisible();
+  expect(await page.evaluate(() => localStorage.getItem('arkpediaYostarLogin'))).toBe(before);
 });
 
 test('an expired saved sign-in returns to code login without sending a code', async ({ page }) => {
@@ -261,15 +268,110 @@ for (const server of ['jp', 'kr'] as const) {
   });
 }
 
-test('forgetting the imported account also removes its saved Import action', async ({ page }) => {
+test('Forget everything removes all stored categories and returns to email login', async ({ page }) => {
   await stubServers(page, 120);
-  const dialog = await openImport(page);
+  let dialog = await openImport(page);
   await signIn(page);
   await expect(dialog.locator('.import-saved')).toBeVisible();
-  await dialog.getByRole('button', { name: 'Forget this account', exact: true }).click();
-  await expect(dialog.locator('.import-saved')).toHaveCount(0);
+  const keys = [...BACKUP_STORES.map(store => store.key), STORY_PROGRESS_KEY, 'theme', 'arkpediaYostarLogin', 'future-private-data'];
+  await page.evaluate(keys => {
+    // Include future data without a known key: resetting must not silently leave it behind.
+    for (const key of keys) if (localStorage.getItem(key) === null) localStorage.setItem(key, JSON.stringify({ private: true }));
+    sessionStorage.setItem('private-session-data', 'private');
+  }, keys);
+  page.once('dialog', confirmation => confirmation.accept());
+  await Promise.all([
+    page.waitForNavigation({ waitUntil: 'domcontentloaded' }),
+    dialog.getByRole('button', { name: 'Forget everything', exact: true }).click(),
+  ]);
+  expect(await page.evaluate(keys => keys.filter(key => localStorage.getItem(key) !== null), keys)).toEqual([]);
+  expect(await page.evaluate(() => sessionStorage.getItem('private-session-data'))).toBeNull();
+  dialog = await openImport(page);
   await expect(dialog.locator('.import-forms')).toBeVisible();
-  expect(await page.evaluate(() => localStorage.getItem('arkpediaYostarLogin'))).toBeNull();
+  await expect(dialog.getByRole('button', { name: /^Forget/ })).toHaveCount(1);
+});
+
+test('Forget everything is available without a saved sign-in and reports refused storage', async ({ page }) => {
+  await stubServers(page, 120);
+  await page.addInitScript(() => {
+    const clear = Storage.prototype.clear;
+    Storage.prototype.clear = function () {
+      if (this === localStorage) throw new DOMException('Blocked', 'SecurityError');
+      return clear.call(this);
+    };
+  });
+  const dialog = await openImport(page);
+  await page.evaluate(() => localStorage.setItem('private-planner-data', 'keep until clearing succeeds'));
+  page.once('dialog', confirmation => confirmation.accept());
+  await dialog.getByRole('button', { name: 'Forget everything', exact: true }).click();
+  await expect(dialog.locator('.data-dialog-note')).toContainText('could not clear all saved data');
+  expect(await page.evaluate(() => localStorage.getItem('private-planner-data'))).toBe('keep until clearing succeeds');
+  await expect(dialog.locator('.import-forms')).toBeVisible();
+});
+
+test('Forget everything clears other open tabs and does not restore their playing music', async ({ page, context }, testInfo) => {
+  test.skip(!testInfo.project.name.startsWith('desktop'), 'the cross-tab reset is independent of viewport');
+  await stubServers(page, 120);
+  await seedSavedLogin(page);
+  const other = await context.newPage();
+  await stubServers(other, 120);
+  await stubYouTube(other, 'allow', { dataSaver: false });
+  await page.evaluate(() => localStorage.setItem('arkpediaMusicDataSaver', 'true'));
+  await other.addInitScript(() => { if (performance.getEntriesByType('navigation')[0]?.toJSON().type !== 'reload') localStorage.setItem('arkpediaMusicDataSaver', 'true'); });
+  await other.goto('/account');
+  await startMusic(other);
+  await markDocument(other);
+  await other.evaluate(() => sessionStorage.setItem('private-other-tab', 'private'));
+  const dialog = await openImport(page);
+  page.once('dialog', confirmation => confirmation.accept());
+  await Promise.all([
+    page.waitForNavigation({ waitUntil: 'domcontentloaded' }),
+    other.waitForNavigation({ waitUntil: 'domcontentloaded' }),
+    dialog.getByRole('button', { name: 'Forget everything', exact: true }).click(),
+  ]);
+  expect(await sameDocument(other)).toBe(false);
+  for (const tab of [page, other]) {
+    expect(await tab.evaluate(() => ({ login: localStorage.getItem('arkpediaYostarLogin'), resume: sessionStorage.getItem('arkpediaMusicResume'), other: sessionStorage.getItem('private-other-tab') }))).toEqual({ login: null, resume: null, other: null });
+    await expect(tab.locator('.music-player').getByRole('button', { name: 'Pause', exact: true })).toHaveCount(0);
+  }
+  await other.close();
+});
+
+for (const server of ['en', 'jp', 'kr'] as const) {
+  test(`Request code uses the saved ${server} address and region without importing`, async ({ page }, testInfo) => {
+    await stubServers(page, 120, 0, 99, false, false, server);
+    await seedSavedLogin(page, server);
+    const dialog = await openImport(page);
+    const before = await page.evaluate(() => localStorage.getItem('arkpediaYostarLogin'));
+    await dialog.getByRole('button', { name: 'Request code', exact: true }).click();
+    await expect(dialog.locator('.import-sent')).toContainText('emailed a code to your saved address');
+    await expect(dialog.getByRole('button', { name: 'Request code', exact: true })).toBeFocused();
+    await expect(dialog.locator('.import-forms, .import-steps')).toHaveCount(0);
+    if (server === 'en' && process.env.ARKPEDIA_QA_CAPTURE) await page.screenshot({ path: `${process.env.ARKPEDIA_QA_CAPTURE}/requested-code-${testInfo.project.name}.png` });
+    const requests = await page.evaluate(() => (window as unknown as { __requests: { url: string; body: string; headers: Record<string, string> }[] }).__requests);
+    expect(requests).toHaveLength(1);
+    expect(requests[0].url).toBe(`${SERVERS[server].yostar}/yostar/send-code`);
+    expect(JSON.parse(requests[0].body).Account).toBe(EMAIL);
+    expect(JSON.parse(requests[0].headers.Authorization).Head).toMatchObject({ PID: SERVERS[server].pid, DeviceID: 'fixture-device' });
+    expect(await page.evaluate(() => localStorage.getItem('arkpediaYostarLogin'))).toBe(before);
+    expect(await page.evaluate(() => localStorage.getItem('arkpediaAccount'))).toBeNull();
+  });
+}
+
+test('a saved-sign-in code refusal keeps Import available without retrying or discarding the token', async ({ page }) => {
+  await stubServers(page, 120, 0, 0, true, true);
+  await seedSavedLogin(page);
+  const dialog = await openImport(page);
+  const before = await page.evaluate(() => localStorage.getItem('arkpediaYostarLogin'));
+  await dialog.getByRole('button', { name: 'Request code', exact: true }).click();
+  await expect(dialog.getByRole('alert')).toContainText('Yostar is limiting email-code requests');
+  expect(await page.evaluate(() => localStorage.getItem('arkpediaYostarLogin'))).toBe(before);
+  await expect(dialog.getByRole('button', { name: 'Import', exact: true })).toBeEnabled();
+  await dialog.getByRole('button', { name: 'Import', exact: true }).click();
+  await expect(dialog.locator('.import-note[role="status"]')).toContainText('Imported:');
+  const asked = await page.evaluate(() => (window as unknown as { __asked: string[] }).__asked);
+  expect(asked.filter(url => url.endsWith('/yostar/send-code'))).toHaveLength(1);
+  expect(asked.some(url => url.endsWith('/yostar/get-auth'))).toBe(false);
 });
 
 test('a code already received imports without requesting another code', async ({ page }) => {

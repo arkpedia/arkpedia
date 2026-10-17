@@ -107,7 +107,7 @@ export default function AccountPage({ skins, operators }: Props) {
 
         <section className="op-section">
           <h2>Pull History</h2>
-          <PullHistory account={account} map={map} />
+          <PullHistory key={account ? `${account.server}:${account.importedAt}` : 'empty'} account={account} map={map} />
         </section>
       </main>
 
