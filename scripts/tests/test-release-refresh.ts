@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 // @ts-expect-error js-yaml ships no types; only load() is used.
 import yaml from 'js-yaml';
+import { defaultContentRevalidate } from '../../lib/content/revalidation';
 import { RELEASE_REFRESH_ROUTES } from '../../lib/content/releaseRefresh';
 import handler, { authorized } from '../../pages/api/release-refresh';
 // @ts-expect-error Node import scripts are plain JavaScript.
@@ -28,7 +29,7 @@ function slowContentRoutes(): string[] {
     const source = fs.readFileSync(file, 'utf8');
     const route = source.match(/withContentPage(?:<[^>]*>)?\(\s*['"]([^'"]+)['"]/)?.[1];
     if (!route) continue;
-    const revalidate = Number(source.match(/withContentPage[\s\S]*?\{[^{}]*\brevalidate:\s*(\d+)/)?.[1] ?? source.match(/\brevalidate:\s*(\d+)\s*[,}]/)?.[1] ?? 60);
+    const revalidate = Number(source.match(/withContentPage[\s\S]*?\{[^{}]*\brevalidate:\s*(\d+)/)?.[1] ?? source.match(/\brevalidate:\s*(\d+)\s*[,}]/)?.[1] ?? defaultContentRevalidate(route));
     if (revalidate > 60) routes.push(route);
   }
   return routes.sort();
