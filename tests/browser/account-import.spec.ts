@@ -9,18 +9,25 @@ const VERSION = 'https://hv.example.invalid/Android/version';
 
 /** The stand-in transport, answering as the servers do: the account at `level`, or the game's
  *  token exchange refusing the login (`level: null`). */
-async function stubServers(page: Page, level: number | null, isNew = 0, networkFailures = 0) {
+async function stubServers(page: Page, level: number | null, isNew = 0, networkFailures = 0, sendCodeRefused = false, cachedNetwork = false) {
   await readOnly(page);
   // The relay is never opened: the page's transport is the stand-in.
   await page.routeWebSocket(/relay\.arkpedia\.net/, (socket) => socket.close());
+  // A cache outage exercises the existing relay fallback in the older regression cases.
+  await page.route('**/api/account-import/network?server=*', (route) => route.fulfill({
+    status: cachedNetwork ? 200 : 503, contentType: 'application/json',
+    body: JSON.stringify(cachedNetwork ? { content: JSON.stringify({ funcVer: 'V1', configs: { V1: { network: {
+      u8: 'https://u8.example.invalid', gs: 'https://gs.example.invalid', hv: 'https://hv.example.invalid/{0}/version',
+    } } } }) } : { error: 'Public server list temporarily unavailable' }),
+  }));
   // The game's version file is the one request the page makes itself (directTransport).
   await page.route(VERSION, (route) => route.fulfill({ status: 200, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' },
     body: JSON.stringify({ resVersion: '00-00-00', clientVersion: '0.0.0' }) }));
-  await page.addInitScript(({ level, isNew, networkFailures }) => {
+  await page.addInitScript(({ level, isNew, networkFailures, sendCodeRefused }) => {
     const network = { u8: 'https://u8.example.invalid', gs: 'https://gs.example.invalid', hv: 'https://hv.example.invalid/{0}/version' };
     const answers: Record<string, { json: unknown; headers?: [string, string][] }> = {
       'https://ak-conf.arknights.global/config/prod/official/network_config': { json: { content: JSON.stringify({ funcVer: 'V1', configs: { V1: { network } } }) } },
-      'https://en-sdk-api.yostarplat.com/yostar/send-code': { json: { Code: 200, Data: {} } },
+      'https://en-sdk-api.yostarplat.com/yostar/send-code': { json: sendCodeRefused ? { Code: 1, Msg: '邮件发送频率上限,错误代码:1' } : { Code: 200, Data: {} } },
       'https://en-sdk-api.yostarplat.com/yostar/get-auth': { json: { Code: 200, Data: { Token: 'code-token' } } },
       'https://en-sdk-api.yostarplat.com/user/login': { json: { Code: 200, Data: { IsNew: isNew, UserInfo: { ID: 4242, Token: 'yostar-token' } } } },
       'https://u8.example.invalid/user/v1/getToken': { json: level === null ? { result: 2 } : { result: 0, token: 'u8-token', uid: '1' } },
@@ -37,8 +44,23 @@ async function stubServers(page: Page, level: number | null, isNew = 0, networkF
       const answer = answers[url];
       return answer ? { status: 200, json: answer.json, headers: answer.headers ?? [] } : { status: 404, json: null, headers: [] };
     };
-  }, { level, isNew, networkFailures });
+  }, { level, isNew, networkFailures, sendCodeRefused });
 }
+
+test('public settings use the website cache while account requests keep the encrypted transport', async ({ page }) => {
+  await stubServers(page, 120, 0, 0, false, true);
+  const requests: string[] = [];
+  page.on('request', request => { if (request.url().includes('/api/account-import/network')) requests.push(request.url()); });
+  const dialog = await openImport(page);
+  await signIn(page);
+  await expect(dialog.locator('.import-note[role="status"]')).toContainText('Imported:');
+  expect(requests).toHaveLength(1);
+  expect(new URL(requests[0]).search).toBe('?server=en');
+  const asked = await page.evaluate(() => (window as unknown as { __asked: string[] }).__asked);
+  expect(asked.some(url => url.includes('ak-conf.'))).toBe(false);
+  expect(asked.filter(url => url.endsWith('/yostar/send-code'))).toHaveLength(1);
+  expect(asked.filter(url => url.endsWith('/account/syncData'))).toHaveLength(1);
+});
 
 test('a temporary server-list connection failure recovers before sending a code', async ({ page }) => {
   await stubServers(page, 120, 0, 2);
@@ -148,4 +170,48 @@ test('remembering a successful sign-in still allows importing again', async ({ p
   await expect(dialog.getByRole('button', { name: 'Import again', exact: true })).toBeEnabled();
   await expect(dialog.getByRole('alert')).toHaveCount(0);
   await expect(dialog.locator('.import-note[role="status"]')).toContainText('Imported:');
+});
+
+
+test('a code already received imports without requesting another code', async ({ page }) => {
+  await stubServers(page, 120);
+  const dialog = await openImport(page);
+  const submit = dialog.getByRole('button', { name: 'Import', exact: true });
+  const code = dialog.getByPlaceholder('Code from the email');
+  await expect(code).toBeEnabled();
+  await code.fill('123456');
+  await expect(submit).toBeDisabled();
+  await dialog.getByPlaceholder('Yostar email').fill('not-an-email');
+  await expect(submit).toBeDisabled();
+  await dialog.getByPlaceholder('Yostar email').fill(EMAIL);
+  await expect(submit).toBeEnabled();
+  await submit.click();
+  await expect(dialog.locator('.import-note[role="status"]')).toContainText('Imported:');
+  const asked = await page.evaluate(() => (window as unknown as { __asked: string[] }).__asked);
+  expect(asked.some(url => url.endsWith('/yostar/send-code'))).toBe(false);
+  expect(asked.filter(url => url.endsWith('/yostar/get-auth'))).toHaveLength(1);
+  expect(JSON.parse(await page.evaluate(() => localStorage.getItem('arkpediaAccount') ?? 'null'))).toMatchObject({ server: 'en', doctor: 'Doctor#0001' });
+});
+
+test('a send-code refusal keeps existing-code import available without an automatic resend', async ({ page }, testInfo) => {
+  await stubServers(page, 120, 0, 0, true);
+  const dialog = await openImport(page);
+  await dialog.getByPlaceholder('Yostar email').fill(EMAIL);
+  await dialog.getByRole('button', { name: 'Send code', exact: true }).click();
+  await expect(dialog.getByRole('alert')).toContainText('Yostar is limiting email-code requests');
+  await expect(dialog.getByRole('alert')).toContainText('already received for this account and server');
+  if (process.env.ARKPEDIA_QA_CAPTURE) {
+    await dialog.getByRole('alert').scrollIntoViewIfNeeded();
+    await page.screenshot({ path: `${process.env.ARKPEDIA_QA_CAPTURE}/code-refusal-${testInfo.project.name}.png` });
+  }
+  expect(await page.evaluate(() => localStorage.getItem('arkpediaAccount'))).toBeNull();
+  const code = dialog.getByPlaceholder('Code from the email');
+  await expect(code).toBeEnabled();
+  await code.fill('123456');
+  await dialog.getByRole('button', { name: 'Import', exact: true }).click();
+  await expect(dialog.locator('.import-note[role="status"]')).toContainText('Imported:');
+  await expect(dialog.getByRole('alert')).toHaveCount(0);
+  const asked = await page.evaluate(() => (window as unknown as { __asked: string[] }).__asked);
+  expect(asked.filter(url => url.endsWith('/yostar/send-code'))).toHaveLength(1);
+  expect(asked.filter(url => url.endsWith('/yostar/get-auth'))).toHaveLength(1);
 });

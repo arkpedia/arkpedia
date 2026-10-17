@@ -10,7 +10,7 @@
  * libcurl.js (LGPL-3.0-or-later, unmodified) is about 550 KB compressed. It is loaded
  * as its own chunk the first time an import starts, never with the page.
  */
-import type { Transport } from './yostar';
+import { parseNetwork, SERVER_IDS, SERVERS, type Transport } from './yostar';
 import relayConfig from '@/config/relay.json';
 
 /** Where the relay is: config/relay.json (the relay itself is arkpedia/arkpedia-relay). */
@@ -77,5 +77,24 @@ export const relayTransport: Transport = async (url, { method, headers, body }) 
   return read(await (await libcurl()).fetch(url, { method, headers, body }));
 };
 
-/** The page's own fetch, for a host that allows any origin. */
+/** The page's own fetch, for same-origin metadata or a host that allows browser access. */
 export const directTransport: Transport = async (url, { method, headers, body }) => read(await fetch(url, { method, headers, body }));
+
+/** Public metadata uses the shared website cache. Only this harmless GET may fall back;
+ *  code requests and every authenticated request keep their one encrypted route. */
+export function createNetworkTransport(direct: Transport, relay: Transport): Transport {
+  return async (url, request) => {
+    const server = SERVER_IDS.find(id => SERVERS[id].networkConfig === url);
+    if (!server || request.method !== 'GET' || request.body) throw new Error('Not a public server-list request');
+    try {
+      const response = await direct(`/api/account-import/network?server=${server}`, { method: 'GET', headers: {} });
+      if (response.status === 200) {
+        parseNetwork(response.json);
+        return response;
+      }
+    } catch { /* A public-cache outage must not prevent an otherwise working import. */ }
+    return relay(url, request);
+  };
+}
+
+export const networkTransport = createNetworkTransport(directTransport, relayTransport);

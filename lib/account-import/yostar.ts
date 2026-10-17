@@ -14,9 +14,9 @@
  * Account Center keeps it, signed in with the step 2 code token, as ArkPRTS's successors
  * (myrtle) read it.
  *
- * Only the first two hosts answer a page's request (they allow any origin). The game
- * token exchange and the game server send no CORS headers, so the page talks to all of
- * them through relay.arkpedia.net (account-import/relay.ts), which carries TLS it cannot
+ * The SDK advertises CORS preflight headers but rejects website Origins in its
+ * application response (verified 2026-10-17). It, the game token exchange, the game
+ * server and Account Center use relay.arkpedia.net (account-import/relay.ts), which carries TLS it cannot
  * read: the TLS runs in the page. Nothing here keeps anything. The email, the code and
  * every token live in the caller's memory for the length of one import.
  *
@@ -148,6 +148,7 @@ export async function u8Sign(fields: Record<string, string | number>): Promise<s
 }
 
 const object = (value: unknown): Record<string, any> => (value && typeof value === 'object' ? value as Record<string, any> : {});
+const CODE_LIMIT_MESSAGE = 'Yostar is limiting email-code requests. Wait before requesting another code. You can still try a code already received for this account and server.';
 
 async function post(transport: Transport, step: ImportStep, url: string, headers: Record<string, string>, body: unknown) {
   let response: TransportResponse;
@@ -156,6 +157,7 @@ async function post(transport: Transport, step: ImportStep, url: string, headers
   } catch (error) {
     throw new ImportError(step, `could not reach ${new URL(url).host}: ${error instanceof Error ? error.message : String(error)}`);
   }
+  if (response.status === 429 && step === 'send-code') throw new ImportError(step, CODE_LIMIT_MESSAGE);
   if (response.status < 200 || response.status >= 300) throw new ImportError(step, `${new URL(url).host} answered HTTP ${response.status}`);
   return object(response.json);
 }
@@ -164,6 +166,8 @@ async function post(transport: Transport, step: ImportStep, url: string, headers
 async function yostar(transport: Transport, step: ImportStep, server: ServerId, path: string, body: unknown, deviceId: string, now: () => number) {
   const text = JSON.stringify(body);
   const answer = await post(transport, step, `${SERVERS[server].yostar}/${path}`, yostarHeaders(text, server, deviceId, now()), body);
+  if (answer.Code !== 200 && step === 'send-code' && typeof answer.Msg === 'string'
+    && /邮件发送频率上限|too many requests/i.test(answer.Msg)) throw new ImportError(step, CODE_LIMIT_MESSAGE);
   if (answer.Code !== 200) throw new ImportError(step, `Yostar refused ${path}: ${answer.Msg ?? `code ${answer.Code}`}`);
   return object(answer.Data);
 }
@@ -209,8 +213,21 @@ export interface Network {
   hv: string;
 }
 
-/** The game's server list, as the client reads it on start. The page reads it first,
- *  through the relay, so it also opens the encrypted connection before it is needed. */
+/** Read the public server-list response, shared by the browser and its public cache. */
+export function parseNetwork(value: unknown): Network {
+  const content = JSON.parse(object(value).content);
+  const network = content.configs?.[content.funcVer]?.network;
+  if (!network?.u8 || !network?.gs || !network?.hv) throw new Error('missing u8, gs or hv');
+  for (const key of ['u8', 'gs', 'hv'] as const) {
+    if (typeof network[key] !== 'string') throw new Error(`invalid ${key}`);
+    const url = new URL(network[key]);
+    if (url.protocol !== 'https:' || url.username || url.password) throw new Error(`invalid ${key}`);
+  }
+  return { u8: network.u8, gs: network.gs, hv: network.hv };
+}
+
+/** The game's public server list. The page uses Arkpedia's short-lived public cache,
+ *  falling back to the encrypted relay for this GET only if the cache is unavailable. */
 export async function readNetwork(transport: Transport, server: ServerId): Promise<Network> {
   try {
     let response: TransportResponse | undefined;
@@ -229,11 +246,7 @@ export async function readNetwork(transport: Transport, server: ServerId): Promi
       response = undefined;
     }
     if (response!.status !== 200) throw new Error(`server list returned HTTP ${response!.status}`);
-    const answer = object(response!.json);
-    const content = JSON.parse(answer.content);
-    const network = content.configs[content.funcVer].network;
-    if (!network?.u8 || !network?.gs || !network?.hv) throw new Error('missing u8, gs or hv');
-    return { u8: network.u8, gs: network.gs, hv: network.hv };
+    return parseNetwork(response!.json);
   } catch (error) {
     throw new ImportError('network', `the game's server list could not be read: ${error instanceof Error ? error.message : String(error)}`);
   }

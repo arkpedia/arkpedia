@@ -91,10 +91,12 @@ const CALLED_BY_WORKFLOWS: Record<string, string> = {
   'pages/api/release-refresh.ts': 'scripts/content/refresh-pages.mjs',
 };
 
-/** API routes the page names as an address it does not fetch (an image's src), each with the
+/** API routes addressed through image src or a transport wrapper, each with the
  *  module that builds the address: it must name the route's fixed part (up to its first [param]),
  *  so a renamed or dropped caller fails here. */
 const NAMED_AS_ADDRESSES: Record<string, string> = {
+  // Public game settings are fetched by the import's dedicated transport wrapper.
+  'pages/api/account-import/network.ts': 'lib/account-import/relay.ts',
   // Monster Siren's album cover, served from this site: the lock screen's artwork and the
   // player's <img> (its CDN refuses requests from these pages).
   'pages/api/music-cover/[id].ts': 'lib/music/songArt.ts',
@@ -108,7 +110,7 @@ test('every API route has an actual client, workflow or address consumer', () =>
   const byWorkflow = (route: string) => route in CALLED_BY_WORKFLOWS
     && fs.readFileSync(path.join(ROOT, CALLED_BY_WORKFLOWS[route]), 'utf8').includes(`/api/${route.slice('pages/api/'.length).replace(/\.tsx?$/, '')}`);
   const asAddress = (route: string) => route in NAMED_AS_ADDRESSES
-    && fs.readFileSync(path.join(ROOT, NAMED_AS_ADDRESSES[route]), 'utf8').includes(`/api/${route.slice('pages/api/'.length).split('[')[0]}`);
+    && fs.readFileSync(path.join(ROOT, NAMED_AS_ADDRESSES[route]), 'utf8').includes(`/api/${route.slice('pages/api/'.length).replace(/\.tsx?$/, '').split('[')[0]}`);
   const orphans = routes.filter(route => !called.has(route) && !byWorkflow(route) && !asAddress(route));
   assert.deepEqual(orphans, []);
   for (const route of Object.keys(CALLED_BY_WORKFLOWS)) assert.ok(byWorkflow(route), `${CALLED_BY_WORKFLOWS[route]} calls ${route}`);
