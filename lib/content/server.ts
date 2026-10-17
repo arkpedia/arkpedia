@@ -1,4 +1,5 @@
 import { contentPageClock, type PageClockField, type PageClockMoment } from './pageClock';
+import { defaultContentRevalidate } from './revalidation';
 import { pageFilePath, isContentPagePath, contentFileUrlPath } from './pagePaths.mjs';
 import { REGIONAL_ROUTES, missingPageTables, pageTables } from './tables.mjs';
 import { readChannelPointer } from './pointer.mjs';
@@ -196,7 +197,7 @@ export function withContentPage<P extends object>(template: string, builder: Con
   if (options.bundledWhenUnpublished && template.includes('[')) {
     throw new Error(`${template}: bundledWhenUnpublished is for static routes only`);
   }
-  const revalidate = () => process.env.ARKPEDIA_CONTENT_TEST === '1' ? 1 : (options.revalidate ?? 60);
+  const revalidate = () => process.env.ARKPEDIA_CONTENT_TEST === '1' ? 1 : (options.revalidate ?? defaultContentRevalidate(template));
   const bundled = async (context: GetStaticPropsContext): Promise<GetStaticPropsResult<P>> => {
     const result = await builder(context);
     if (!('props' in result)) return result;

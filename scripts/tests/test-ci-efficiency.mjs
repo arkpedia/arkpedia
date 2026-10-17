@@ -105,6 +105,15 @@ test('both Check builds follow generated inputs and explicit validation, with ou
   assert.equal(steps.filter(step => String(step.run).includes('npm run check:deployment-traces')).length, 0, 'postbuild owns the trace audit');
 });
 
+test('publication checks fail before browser regressions and use their separate build', () => {
+  const index = name => steps.findIndex(step => step.name === name);
+  const runtime = index('Content updates and rollback without rebuilding');
+  assert.ok(runtime > index('Pages render the live content release'));
+  assert.ok(runtime < index('Desktop and mobile browser regressions'));
+  assert.equal(steps[runtime].env.NEXT_DIST_DIR, '.next-live');
+  assert.equal(steps[runtime].if, undefined, 'publication must pass even when browser coverage is not needed');
+});
+
 test('only fresh hosted runners restore npm archives; all three workflows retain clean installs', () => {
   for (const name of ['check', 'deploy', 'prepare-content']) {
     const jobs = Object.values(workflow(name).jobs);

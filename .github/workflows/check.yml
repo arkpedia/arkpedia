@@ -232,13 +232,17 @@ jobs:
           BEFORE: ${{ github.event.before }}
         run: node scripts/ci/browser-relevant.mjs >> "$GITHUB_OUTPUT"
 
-      # Runs unless the step above said no in so many words: a failed or missing answer runs it.
+      # Fail on broken publication before the long browser suite. Its own build directory
+      # keeps fixture releases out of the bundled pages the browser suite reads.
+      - name: Content updates and rollback without rebuilding
+        run: npm run test:content-runtime
+        env:
+          NEXT_DIST_DIR: .next-live
+
+      # Runs unless the browser decision said no in so many words: a failed or missing answer runs it.
       - name: Desktop and mobile browser regressions
         if: steps.browser.outputs.run != 'false'
         run: npm run test:browser
-
-      - name: Content updates and rollback without rebuilding
-        run: npm run test:content-runtime
 
       # A red Check on main deploys nothing (deploy.yml follows only a green one), and the
       # content release is held while production runs other code than main

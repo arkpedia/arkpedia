@@ -80,9 +80,10 @@ const source = createServer((request, response) => {
 await new Promise(resolve => source.listen(3204, '127.0.0.1', resolve));
 const buildFile = path.join(process.env.NEXT_DIST_DIR || '.next', 'BUILD_ID');
 const buildId = fs.readFileSync(buildFile, 'utf8');
+const refreshSecret = 'local-runtime-refresh-fixture';
 const log = fs.openSync('/tmp/arkpedia-content-runtime-server.log', 'w');
 const server = spawn(process.execPath, ['node_modules/next/dist/bin/next', 'start', '-p', '3193'], {
-  env: { ...process.env, ARKPEDIA_CONTENT_URL: 'http://127.0.0.1:3204', ARKPEDIA_CONTENT_TEST: '1', ARKPEDIA_CONTENT_DISABLED: '0' }, stdio: ['ignore', log, log],
+  env: { ...process.env, ARKPEDIA_CONTENT_URL: 'http://127.0.0.1:3204', ARKPEDIA_CONTENT_TEST: '1', ARKPEDIA_CONTENT_DISABLED: '0', ARKPEDIA_RELEASE_REFRESH_SECRET: refreshSecret, ARKPEDIA_YOUTUBE_FEED_FIXTURE: 'tests/fixtures/youtube-feeds.xml' }, stdio: ['ignore', log, log],
 });
 let browser;
 async function waitFor(check, description, timeout = 15_000) {
@@ -93,6 +94,18 @@ async function waitFor(check, description, timeout = 15_000) {
   }
   throw new Error(`Timed out: ${description}`);
 }
+// Model publication, rather than waiting for a production cache interval to expire.
+// This also exercises Next's actual res.revalidate implementation for the fixed list.
+async function refreshPublishedPages() {
+  const response = await fetch('http://127.0.0.1:3193/api/release-refresh', {
+    method: 'POST', headers: { authorization: `Bearer ${refreshSecret}` }, signal: AbortSignal.timeout(120_000),
+  });
+  const result = await response.json();
+  assert.equal(response.status, 200, JSON.stringify(result));
+  for (const route of ['/gacha', '/stages/browse', '/schedule']) assert.equal(result.refreshed[route], 'regenerated', route);
+  assert.ok(Object.values(result.refreshed).every(value => value === 'regenerated'), JSON.stringify(result));
+}
+
 try {
   await waitFor(async () => (await fetch('http://localhost:3193/api/health')).status > 0, 'production server', 30_000);
   browser = await chromium.launch({ headless: true });
@@ -110,6 +123,7 @@ try {
       assert.ok(src?.includes(pinnedRevision(label.repeat(40))), `${name} voice URL did not use release ${label}`);
     };
     active = 'a'; corrupt = false;
+    await refreshPublishedPages();
     const visit = async () => { const url = 'http://localhost:3193/operators/Runtime%20Content%20Test#overview'; if (page.url() === url) await page.reload(); else await page.goto(url); return page.locator('body').innerText(); };
     // Alias first: on a case-insensitive development disk, a cached canonical HTML file
     // could otherwise make the alias appear to work without exercising its lookup.
@@ -119,6 +133,7 @@ try {
     await waitFor(async () => (await visit()).includes('Approved content release A'), `${name} release A`);
     await checkVoice('a');
     active = 'b';
+    await refreshPublishedPages();
     await waitFor(async () => (await visit()).includes('Approved content release B'), `${name} updated existing operator`);
     assert.ok(await page.locator('.site-nav-glyph').first().evaluate(el => el.style.maskImage.includes('b'.repeat(40))), `${name} CSS artwork did not adopt the release`);
     await checkVoice('b');
@@ -204,9 +219,11 @@ try {
     assert.ok(catalogueRequests.some(url => url.startsWith(`http://127.0.0.1:3204/${'b'.repeat(40)}/release/public/`)), `${name} music catalogue was not read from release B: ${catalogueRequests.join(', ')}`);
     page.off('request', noteCatalogue);
     active = 'a';
+    await refreshPublishedPages();
     await waitFor(async () => (await visit()).includes('Approved content release A'), `${name} rollback`);
     await checkVoice('a');
     active = 'b'; corrupt = true;
+    await refreshPublishedPages();
     await waitFor(async () => (await visit()).includes('Approved content release A'), `${name} corrupt pointer retains previous content`);
     assert.deepEqual(errors, [], `${name} client errors`);
     console.log(`${name}: existing operator updated, new operator, stage and song appeared, banners updated, rollback and corruption fallback passed`);

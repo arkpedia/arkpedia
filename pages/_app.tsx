@@ -55,7 +55,7 @@ import { flushSync } from 'react-dom';
 import { watchBrowserDataReset } from '@/lib/account/resetData';
 import { useRouter } from 'next/router';
 import { recordPage } from '@/lib/nav/pageTrail';
-import { Analytics } from '@vercel/analytics/react';
+import SiteAnalytics from '@/components/layout/SiteAnalytics';
 
 export default function App({ Component, pageProps }: AppProps) {
   const [resetting, setResetting] = useState(false);
@@ -149,11 +149,7 @@ export default function App({ Component, pageProps }: AppProps) {
         <Component {...pageProps} />
       </div>
       {!hideSiteChrome && <MusicPlayer />}
-      {/* Page views for Vercel Web Analytics (cookieless; client-side navigations too). Only
-          in a build made for Vercel -- see ARKPEDIA_WEB_ANALYTICS in next.config.js. The
-          react entry, not the next one: that one reads App Router hooks, and this is the
-          Pages Router. */}
-      {process.env.ARKPEDIA_WEB_ANALYTICS === '1' && <Analytics />}
+      {process.env.ARKPEDIA_WEB_ANALYTICS === '1' && <SiteAnalytics />}
     </RoamingChibiProvider>
     </MusicPlayerProvider>
     </ContentTablesContext.Provider>

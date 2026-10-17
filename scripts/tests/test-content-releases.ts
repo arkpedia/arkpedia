@@ -177,3 +177,21 @@ test('content snapshots omit presentation clocks and old or new snapshots get fr
   const unrelated = { now: 123 };
   assert.equal(contentPageClock('/events/[slug]', unrelated, { exporting: true }), unrelated);
 });
+
+
+test('clock pages cache for five minutes while detail discovery and explicit intervals stay intact', async () => {
+  const keys = ['ARKPEDIA_CONTENT_DISABLED', 'ARKPEDIA_CONTENT_TEST'] as const;
+  const before = Object.fromEntries(keys.map(key => [key, process.env[key]]));
+  Object.assign(process.env, { ARKPEDIA_CONTENT_DISABLED: '1', ARKPEDIA_CONTENT_TEST: '0' });
+  try {
+    const read = (route: string, revalidate?: number) => withContentPage(route, async () => ({ props: { value: 'bundled' } }), { revalidate })({ revalidateReason: 'build' });
+    // Routes with no declared tables isolate the cache contract from data attachment.
+    assert.equal((await read('/enemies')).revalidate, 300);
+    assert.equal((await read('/operators/[name]')).revalidate, 60);
+    assert.equal((await read('/enemies', 1500)).revalidate, 1500);
+    process.env.ARKPEDIA_CONTENT_TEST = '1';
+    assert.equal((await read('/enemies')).revalidate, 1, 'runtime update/rollback fixtures keep their short interval');
+  } finally {
+    for (const key of keys) { if (before[key] === undefined) delete process.env[key]; else process.env[key] = before[key]; }
+  }
+});
