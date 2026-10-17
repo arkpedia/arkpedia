@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { ImportError, readAccount, readNetwork, readPulls, sendCode, SERVERS, signIn, type ImportStep, type Network, type ServerId, type YostarAccount } from '@/lib/account-import/yostar';
 import type { PullRead } from '@/lib/account/pulls';
-import { directTransport, relayTransport } from '@/lib/account-import/relay';
+import { directTransport, networkTransport, relayTransport } from '@/lib/account-import/relay';
 import { forgetLogin, maskEmail, readSavedLogin, saveLogin, type SavedLogin } from '@/lib/account-import/savedLogin';
 
 /*
@@ -21,7 +21,7 @@ import { forgetLogin, maskEmail, readSavedLogin, saveLogin, type SavedLogin } fr
 export const LEGACY_LOGIN_KEY = 'arkpediaGameLogin';
 
 const STEPS: { id: ImportStep; label: string }[] = [
-  { id: 'network', label: 'Open the encrypted connection' },
+  { id: 'network', label: 'Read the game server settings' },
   { id: 'sign-in', label: 'Sign in with the code' },
   { id: 'game-token', label: 'Get a game token' },
   { id: 'game-login', label: 'Log in to the game server' },
@@ -45,6 +45,7 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
   const [code, setCode] = useState('');
   const [codeSent, setCodeSent] = useState(false);
   const [busy, setBusy] = useState(false);
+  const validEmail = /^\S+@\S+\.\S+$/.test(email.trim());
   const [step, setStep] = useState<ImportStep | null>(null);
   const [failed, setFailed] = useState<{ step: ImportStep | null; message: string } | null>(null);
   const [done, setDone] = useState(false);
@@ -63,9 +64,8 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
     deviceId.current ??= crypto.randomUUID();
     return { transport: relayTransport, server, deviceId: deviceId.current };
   };
-  // Opened when the reader first focuses the email field: libcurl.js loads and the game's
-  // server list comes back through the relay while they type, and a relay that cannot be
-  // reached says so before they have asked Yostar for a code.
+  // Public settings load while the reader types. The website shares these small reads;
+  // credentials and account data still go through the browser's encrypted tunnel.
   // One per server: a remembered sign-in may be another server's than the one shown.
   const networks = useRef<Partial<Record<ServerId, Promise<Network>>>>({});
   const [connection, setConnection] = useState<'idle' | 'opening' | 'open' | 'failed'>('idle');
@@ -74,7 +74,7 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
     if (!network) {
       setConnection('opening');
       setFailed((current) => (current?.step === 'network' ? null : current));
-      network = readNetwork(relayTransport, from);
+      network = readNetwork(networkTransport, from);
       networks.current[from] = network;
       network.then(() => setConnection('open'), (error) => {
         delete networks.current[from];
@@ -87,6 +87,7 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
 
   async function onSendCode(event: FormEvent) {
     event.preventDefault();
+    if (busy || !validEmail) return;
     setBusy(true);
     setFailed(null);
     setDone(false);
@@ -119,6 +120,7 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
 
   async function onImport(event: FormEvent) {
     event.preventDefault();
+    if (busy || !validEmail || !code.trim()) return;
     setBusy(true);
     setFailed(null);
     setPullsFailed(null);
@@ -173,7 +175,7 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
   const stateOf = (index: number) => {
     if (done) return STEPS[index].id === 'pulls' && pullsFailed ? 'failed' : 'done';
     if (failed && index === stepIndex) return 'failed';
-    // The connection is its own step, open before anything else runs.
+    // Server settings are their own step, read before anything else runs.
     if (index === 0) return connection === 'open' ? 'done' : connection === 'opening' ? 'running' : connection === 'failed' ? 'failed' : 'waiting';
     if (stepIndex > index) return 'done';
     return busy && index === stepIndex ? 'running' : 'waiting';
@@ -209,12 +211,12 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
             autoComplete="email"
             placeholder="Yostar email"
             value={email}
-            onChange={(event) => setEmail(event.target.value)}
+            onChange={(event) => { setEmail(event.target.value); setCodeSent(false); }}
             onFocus={() => { connect().catch(() => {}); }}
             disabled={busy}
             required
           />
-          <button type="submit" className="primary btn-sm" disabled={busy || !/^\S+@\S+\.\S+$/.test(email.trim())}>
+          <button type="submit" className="primary btn-sm" disabled={busy || !validEmail}>
             {codeSent ? 'Send again' : 'Send code'}
           </button>
         </form>
@@ -229,10 +231,10 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
             placeholder="Code from the email"
             value={code}
             onChange={(event) => setCode(event.target.value)}
-            disabled={busy || !codeSent}
+            disabled={busy}
             required
           />
-          <button type="submit" className="primary btn-sm" disabled={busy || !codeSent || !code.trim()}>Import</button>
+          <button type="submit" className="primary btn-sm" disabled={busy || !validEmail || !code.trim()}>Import</button>
         </form>
         <label className="check import-remember" title="Kept in this browser only. Anyone using this browser could import with it, so leave it off on a shared computer.">
           <input type="checkbox" checked={remember} onChange={(event) => setRemember(event.target.checked)} disabled={busy} />

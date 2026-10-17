@@ -93,8 +93,14 @@ test('a refusal names the step that failed and what the server said', async () =
     assert.equal(error.step, step);
     assert.match(error.message, message);
   };
-  await refusal(sendCode(options({ ...ANSWERS, 'https://en-sdk-api.yostarplat.com/yostar/send-code': { Code: 100403, Msg: 'Too many requests' } }), 'a@b.c'),
-    'send-code', /Yostar refused yostar\/send-code: Too many requests/);
+  for (const Msg of ['Too many requests', '邮件发送频率上限,错误代码:1']) {
+    await refusal(sendCode(options({ ...ANSWERS, 'https://en-sdk-api.yostarplat.com/yostar/send-code': { Code: 100403, Msg } }), 'a@b.c'),
+      'send-code', /Yostar is limiting email-code requests.*already received/);
+  }
+  let requests = 0;
+  await refusal(sendCode({ transport: async () => { requests++; return { status: 429, json: null }; }, server: 'en', deviceId: 'd' }, 'a@b.c'),
+    'send-code', /Yostar is limiting email-code requests/);
+  assert.equal(requests, 1);
   await refusal(signIn(options({ ...ANSWERS, 'https://en-sdk-api.yostarplat.com/yostar/get-auth': { Code: 100110, Msg: 'Wrong code' } }), 'a@b.c', '1'),
     'sign-in', /Wrong code/);
   const { relay, direct } = server({ ...ANSWERS, 'https://as.example/u8/user/v1/getToken': { result: 4 } });
