@@ -256,7 +256,7 @@ test('?audio-debug=1 shows the audio panel, lists the media events, stays across
   await expect(events).toContainText('loadedmetadata');
   await expect(panel).toContainText('isPlaying');
   await expect(panel).toContainText('src host');
-  await expect(panel).toContainText('127.0.0.1:3192');
+  await expect(panel).toContainText(new URL(page.url()).host);
   await expect(panel).toContainText(/lock screen\s*playing/);
   // Its text can be selected for a screenshot.
   expect(await panel.evaluate(el => getComputedStyle(el).userSelect)).not.toBe('none');

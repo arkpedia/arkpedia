@@ -8,6 +8,8 @@ relay only after a song made no sound there; it remembers that for a week.
 
 The relay fetches Monster Siren's signed address for the song (its public song API) and streams
 the file through, byte ranges and all. It stores nothing and logs no listener.
+Public responses allow credential-free cross-origin reads, so the player can prepare its next
+file through the relay too. Audio bytes still bypass Vercel.
 
 ## Deploy (by hand, on hetzner-vps)
 

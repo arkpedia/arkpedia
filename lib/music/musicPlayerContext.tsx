@@ -11,7 +11,8 @@ import { PLAYER_STATE, createMsrAudioEngine, createTrackEngine, type EngineKind,
 import { trackSource, type TrackSource } from './trackId';
 import { useMsrMediaSession } from './useMsrMediaSession';
 import { SITE_ICON_PATH, artistLine, imageType, msrCoverPath, sessionArtwork, useSongArt, youtubeThumbnail } from './songArt';
-import { musicAudioElement, primeMusicAudio } from './audioElement';
+import { musicAudioPreloader } from './audioPreload';
+import { musicAudioElement, primeMusicAudio, msrAudioAddress } from './audioElement';
 import AudioDebugPanel from '@/components/music/AudioDebugPanel';
 
 /** YouTube's iframe player, which is a PlaybackEngine as it stands (lib/music/playbackEngine.ts). */
@@ -698,6 +699,32 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     return undefined;
   }
 
+
+  // Prepare only the actual next song. Queue edits, shuffle, repeat and automatic tracks
+  // read the same decision as Next; paused players retain a completed file but stop fetching.
+  useEffect(() => {
+    const saver = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData;
+    const step = nextQueueStep();
+    const next = repeatModeRef.current === 'one' ? undefined : step ? queueRef.current[step.index]
+      : autoplayRef.current ? nextAutoplayTracks()[0] : undefined;
+    const source = next ? routeTrack(next.id) : null;
+    const playing = videoIdRef.current ? routeTrack(videoIdRef.current) : null;
+    const target = playerRef.current?.loaded() === videoIdRef.current && !dataSaver && !saver && source?.kind === 'msr'
+      && !(playing?.kind === 'msr' && playing.cid === source.cid)
+      ? { cid: source.cid, address: msrAudioAddress(source.cid) } : null;
+    let buffered = playing?.kind !== 'msr';
+    if (!buffered && audioRef.current) {
+      const el = audioRef.current.element;
+      for (let index = 0; index < el.buffered.length; index++) {
+        if (el.buffered.start(index) <= el.currentTime && el.buffered.end(index) - el.currentTime >= Math.min(15, el.duration - el.currentTime)) buffered = true;
+      }
+    }
+    musicAudioPreloader.select(target, Boolean(isPlaying && !seeking && currentTime >= 3 && buffered));
+  // Helpers read current refs; preloading never chooses its own shuffle order.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPlaying, seeking, currentTime, videoId, queue, queueIndex, queued, shuffle, shuffleOrder,
+    shufflePosition, repeatMode, autoplay, autoplayVideoId, dataSaver, excludeCopyrighted, libraryTracks]);
+  useEffect(() => () => musicAudioPreloader.select(null, false), []);
 
   const nextTrack = useCallback(async () => {
     primeAudio();

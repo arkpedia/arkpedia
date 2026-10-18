@@ -41,6 +41,8 @@ async function upstream(cid, range, signal) {
 }
 
 const server = http.createServer(async (req, res) => {
+  // Public audio only: the browser can prepare the next file without credentials or a Vercel proxy.
+  res.setHeader('Access-Control-Allow-Origin', '*');
   const match = SONG.exec(req.url?.split('?')[0] ?? '');
   if (!match || (req.method !== 'GET' && req.method !== 'HEAD')) { res.writeHead(404).end(); return; }
   const controller = new AbortController();

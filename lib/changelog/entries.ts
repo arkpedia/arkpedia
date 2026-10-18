@@ -34,6 +34,10 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-10-18T06:12:08Z',
+    changed: [{ title: 'Smoother song transitions', detail: 'The player prepares the next audio track while you listen, following your queue and shuffle order.', href: '/music' }],
+  },
+  {
     at: '2026-10-18T06:00:00Z',
     added: [
       { title: 'Search the whole site', detail: 'The magnifier in the top bar finds operators, events, stages, enemies, albums, songs and pages as you type.', href: '/search' },

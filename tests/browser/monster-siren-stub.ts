@@ -59,11 +59,11 @@ export async function stubMonsterSiren(page: Page): Promise<Siren> {
     if (siren.delayFilesMs) await new Promise((done) => setTimeout(done, siren.delayFilesMs));
     if (siren.refuseNextFile) { siren.refuseNextFile = false; return route.fulfill({ status: 403, body: '' }); }
     const range = /bytes=(\d+)-(\d*)/.exec(route.request().headers().range ?? '');
-    if (!range) return route.fulfill({ status: 200, contentType: 'audio/wav', body: WAV, headers: { 'Accept-Ranges': 'bytes' } });
+    if (!range) return route.fulfill({ status: 200, contentType: 'audio/wav', body: WAV, headers: { 'Accept-Ranges': 'bytes', 'Access-Control-Allow-Origin': '*' } });
     const from = Number(range[1]);
     const to = range[2] ? Math.min(Number(range[2]), WAV.length - 1) : WAV.length - 1;
     return route.fulfill({ status: 206, contentType: 'audio/wav', body: WAV.subarray(from, to + 1),
-      headers: { 'Accept-Ranges': 'bytes', 'Content-Range': `bytes ${from}-${to}/${WAV.length}` } });
+      headers: { 'Accept-Ranges': 'bytes', 'Content-Range': `bytes ${from}-${to}/${WAV.length}`, 'Access-Control-Allow-Origin': '*' } });
   };
   await page.route('**/__siren/**', serve);
   // The player's own address (pages/api/music-audio, a redirect to the signed file): answered
