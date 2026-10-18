@@ -738,6 +738,7 @@ export function reconcileCalendars({ events, banners, operators, cn, en, eventRo
         cn: {}, global: { dateRange: null, note: 'Global release unannounced' }, tw: { dateRange: null, note: null } };
       planPoster(event, row.name); nextEvents.push(event);
     }
+    if (!event.poster) planPoster(event, row.name);
     event.activityId = source.id;
     // A poster an official post gave it (planArt) is asked of the wiki too, by the wiki's name for
     // the event, as a banner's art is below: the post's image comes first while the post runs, and
@@ -745,6 +746,12 @@ export function reconcileCalendars({ events, banners, operators, cn, en, eventRo
     if (CN_POST_POSTER.test(event.poster ?? '')) media.push({ path: event.poster.slice(1), wikiFiles: [wikiFile(`CN ${row.name} banner.png`)] });
     event.cn = { ...event.cn, dateRange: clientDays };
     if (global) event.global = { ...event.global, dateRange: `${serverDay(global.startTime, SERVER_TIME.en.offset)}–${serverDay(global.endTime, SERVER_TIME.en.offset)}`, note: null, ...windowFor(global.startTime, global.endTime, enSource, event.global) };
+  }
+  // Older records can already hold a stable activity without matching today's wiki dates.
+  // Plan their missing artwork too; creation-only planning left existing reruns blank forever.
+  for (const event of nextEvents) {
+    if (!event.modeId && !event.poster && event.activityId && cn.activity.basicInfo[event.activityId])
+      planPoster(event, unprefixed(event.name));
   }
   // A single row can rightly match no activity (Contingency Contract is not one, a crossover
   // minigame has no stages) or carry a loose date ("Late September 2026"), so rows are not

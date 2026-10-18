@@ -85,6 +85,7 @@ export function reconcileGlobalClientBanners({ banners, gachaTable, operators, c
       global_window: { startAt, endAt, timingSource: notice?.source || same && banner.global_window.timingSource || clientSource },
       globalScheduleStatus: official ? 'announced' : 'datamined' });
     delete banner.globalLineupPending;
+    delete banner.globalForecastWithdrawn;
     delete banner.schedule_anchor;
 
     if (pool.gachaRuleType !== 'SPECIAL') continue;

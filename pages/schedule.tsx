@@ -92,7 +92,7 @@ const MONTH_NAMES = [
 ];
 
 function ScheduleRowLink({ name, modeId, bannerName, onOpen, children }: { name: string; modeId?: string; bannerName?: string; onOpen: () => void; children: ReactNode }) {
-  return modeId || bannerName
+  return bannerName
     ? <button type="button" className="events-row-main btn-bare" onClick={onOpen}>{children}</button>
     : <Link prefetch={false} href={`/events/${encodeURIComponent(name)}`} className="events-row-main">{children}</Link>;
 }
@@ -103,7 +103,10 @@ export default function SchedulePage({ events: globalEvents, operators: exported
      whenever a table was missing, and the banner list alone was 223 KB of the chunk. */
   const { server, schedule } = useRegionalTime();
   const now = useReaderClock(requestNow, { tickMs: 1000, onFocus: true });
-  const events = useMemo(() => regionalEvents(globalEvents, schedule, server), [globalEvents, schedule, server]);
+  const events = useMemo(() => regionalEvents(globalEvents, schedule, server).map(event => {
+    const range = event.bannerName && event.global.note ? parseGameWindow(event.global.dateRange, event.global) : null;
+    return range && +range.start <= now ? { ...event, global: { ...event.global, dateRange: null, note: 'Global date unannounced; the previous estimate has passed.' } } : event;
+  }), [globalEvents, schedule, server, now]);
   const regionalRows = useMemo(() => server === 'en' ? calendarRows : calendarRows.flatMap(row => {
     const time = row.bannerName ? schedule?.banners?.[row.bannerName] : schedule?.events?.[row.name];
     if (!time) return [];
@@ -195,7 +198,7 @@ export default function SchedulePage({ events: globalEvents, operators: exported
   const [showNewestOnly, setShowNewestOnly] = useState(false);
 
   const baseEventSkins = displayEvent
-    ? displayEvent.linkedSkinNames && displayEvent.linkedSkinNames.length > 0
+    ? displayEvent.linkedSkinNames !== undefined
       ? displayEvent.linkedSkinNames.map((n) => skinByName.get(n)).filter((s): s is Skin => !!s)
       : getSkinsForEvent(displayEvent.name, skins, events.map((e) => e.name))
     : [];
@@ -597,11 +600,12 @@ export default function SchedulePage({ events: globalEvents, operators: exported
                     <p className="hint">{displayEvent.global.note ? 'Predicted launch' : `${server.toUpperCase()} launch`}: {displayEvent.global.releaseDate} · Permanent mode</p>
                     {displayEvent.global.note && <p className="hint">{displayEvent.global.note}</p>}
                     <p className="hint">CN launch: {displayEvent.cn.releaseDate}. Available permanently after launch.</p>
+                    <Link prefetch={false} href={`/events/${encodeURIComponent(displayEvent.name)}`} className="ghost btn-sm schedule-panel-event-link">Event page</Link>
                     {displayEvent.cn.timingSource && <a href={displayEvent.cn.timingSource} target="_blank" rel="noopener noreferrer" className="ghost btn-sm schedule-panel-event-link">CN game data</a>}
                   </>
                 ) : (
                   <>
-                    <p className="hint">{displayEvent.bannerName && displayEvent.global.note ? 'Estimated Global: ' : ''}{displayEvent.global.dateRange}</p>
+                    <p className="hint">{displayEvent.bannerName && displayEvent.global.note && displayEvent.global.dateRange ? 'Estimated Global: ' : ''}{displayEvent.global.dateRange ?? displayEvent.global.note}</p>
                     <Link prefetch={false} href={displayEvent.bannerName ? { pathname: '/gacha', query: { banner: displayEvent.bannerName } } : `/events/${encodeURIComponent(displayEvent.name)}`} className="ghost btn-sm schedule-panel-event-link">{displayEvent.bannerName ? 'Banner page' : 'Event page'}</Link>
                   </>
                 )}
@@ -878,11 +882,11 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/sc
   for (const event of bannerScheduleEvents(scheduledBanners)) {
     if (events.some(existing => existing.name === event.name)) continue;
     events.push(event);
-    const range = parseGameWindow(event.global.dateRange, event.global)!;
+    const range = parseGameWindow(event.global.dateRange, event.global);
     const banner = scheduledBanners.find(b => b.name === event.bannerName)!;
     eventRows.push({
-      name: event.name, bannerName: event.bannerName, poster: event.poster, dateRange: event.global.dateRange!,
-      isPredicted: !!banner.global_date_estimated, start: range.start.getTime(), end: range.end.getTime(),
+      name: event.name, bannerName: event.bannerName, poster: event.poster, dateRange: event.global.dateRange ?? 'Global date unannounced',
+      isPredicted: !!range && !!banner.global_date_estimated, start: range?.start.getTime() ?? Number.MAX_SAFE_INTEGER, end: range?.end.getTime() ?? Number.MAX_SAFE_INTEGER,
       pullBanner: pullBanners[banner.name.toLowerCase()] ?? null,
       featuredOperators: [...banner.six_stars.map(name => ({ name, rarity: 6 as const })), ...banner.five_stars.map(name => ({ name, rarity: 5 as const }))],
     });

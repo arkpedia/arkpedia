@@ -101,12 +101,8 @@ const startIn = region => event => {
 };
 const globalStart = startIn('Global');
 const cnStart = startIn('CN');
-/** Whether an event's rewards come from the CN tables at `now` (seconds): not a rerun (it shows its
- *  original run's), and Global has not started it -- no Global date, or one still ahead. The CN
- *  build goes by it, and so, on a day the CN tables cannot be read, does the choice of the last
- *  run's CN entries to keep: kept by a looser rule, an event whose Global start had passed kept its
- *  CN groups on a numbered day and lost them on the next named one. */
-export const awaitsGlobal = (event, now) => !isRerun(event.name) && (globalStart(event) ?? Infinity) > now;
+/** Pending Global runs, including reruns, prefer their own CN activity over inheritance. */
+export const awaitsGlobal = (event, now) => (globalStart(event) ?? Infinity) > now;
 
 /** Names for a table reward: { name, count, kind, id }. */
 export function rewardNamer(tables) {
@@ -335,7 +331,9 @@ export function buildEventRewards(events, tables, posts, cn) {
     const cnResult = tableGroups(pending, cn, {
       startOf: cnStart, name: regionalNamer(tables, cn), region: 'CN',
       match: (event, opened, start) => {
-        const candidates = opened.filter(entry => !SIDE_TYPES.has(entry.type) && Math.abs(entry.startTime - start) <= 86400);
+        const exact = event.activityId && opened.find(entry => entry.id === event.activityId);
+        if (exact) return exact;
+        const candidates = opened.filter(entry => !SIDE_TYPES.has(entry.type) && !!entry.isReplicate === isRerun(event.name) && Math.abs(entry.startTime - start) <= 86400);
         return candidates.length === 1 ? candidates[0] : null;
       },
     });
@@ -453,6 +451,7 @@ export function buildEventRewards(events, tables, posts, cn) {
       .sort((a, b) => (globalStart(a) ?? cnStart(a) ?? 0) - (globalStart(b) ?? cnStart(b) ?? 0))[0];
     if (!original) continue;
     const entry = (result[event.name] ??= { activity: null, groups: [] });
+    if (entry.activity) continue;
     entry.inheritsFrom = original.name;
     const have = new Set(entry.groups.map(group => group.kind));
     for (const group of result[original.name]?.groups ?? []) {

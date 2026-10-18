@@ -1,3 +1,7 @@
+import { loadAllEventYears } from '@/lib/events/loadEventsData';
+import { scheduleModeRelease } from '@/lib/schedule/modeReleases';
+import type { ScheduleEvent } from '@/lib/schedule/scheduleTypes';
+import { permanentEventListing, modeDetails, type ModeDetails } from '@/lib/events/modeDetails';
 import { useRegionalTime } from '@/lib/time/useRegionalTime';
 import { regionalRange } from '@/lib/time/regional';
 import { withContentPage } from '@/lib/content/server';
@@ -5,13 +9,15 @@ import { useEffect, useRef, useState } from 'react';
 import { GetStaticPaths, GetStaticProps } from 'next';
 import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
-import { getEventCalendar } from '@/lib/home/frontPageContent';
+import { getEventCalendar, PREDICTED_GAP_DAYS } from '@/lib/home/frontPageContent';
 import { getBannerForEvent } from '@/lib/gacha/headhuntingBanners';
 import { getAllHeadhuntingBanners } from '@/lib/gacha/headhuntingBannerData';
 import { isLineupPending, lineupPendingNote, RETURNING_LIMITED_NOTE } from '@/lib/gacha/bannerLineup';
 import { getFeaturedOperatorRates, splitEventBannerRates, FeaturedOperatorRate } from '@/lib/gacha/eventBannerRates';
 import { getAllSkins } from '@/lib/skins/skins';
-import { getSkinsForEvent } from '@/lib/schedule/scheduleSkinMatch';
+import { eventSkins } from '@/lib/events/eventSkins';
+import confirmed from '@/data/skin-availability-windows.json';
+import rotations from '@/data/skin-shop-rotations.json';
 import { Skin } from '@/lib/skins/skinTypes';
 import { parsePrices } from '@/lib/skins/skinPrice';
 import PriceDisplay from '@/components/ui/PriceDisplay';
@@ -50,6 +56,7 @@ const PAUSE_AFTER_CLICK_MS = 30000;
 
 interface Props {
   name: string;
+  mode?: ModeDetails | null;
   /** null while the image repository has not published it (see publishedArt). */
   poster: string | null;
   images: string[];
@@ -80,13 +87,14 @@ interface Props {
   materialOrder: string[];
 }
 
-type SectionKey = 'banner' | 'rewards' | 'skins' | 'news';
+type SectionKey = 'overview' | 'banner' | 'rewards' | 'skins' | 'news';
 
 /* A section with nothing linked is left out. Packs and Miscellaneous were sections
    once, two tabs that only ever said "Coming soon", which pushed the row onto a second
    line at 390; an event's packs are a tab inside Rewards now (rewardTabsFor), beside
    its announced gifts and furniture. */
 const SECTIONS: { key: SectionKey; label: string }[] = [
+  { key: 'overview', label: 'Overview' },
   { key: 'banner', label: 'Banner' },
   { key: 'rewards', label: 'Rewards' },
   { key: 'skins', label: 'Skins' },
@@ -151,6 +159,7 @@ function RewardStorePanelGrid({ items }: { items: ResolvedRewardItem[] }) {
 
 export default function EventDetailPage({
   name,
+  mode = null,
   images,
   artAspect,
   dateRange: globalDateRange,
@@ -175,7 +184,7 @@ export default function EventDetailPage({
   // A page compiled by a release from before the News tab has no `news` at all.
   const news = extras.news ?? [];
   const sections = SECTIONS.filter((section) => (
-    section.key === 'banner' ? !!bannerName : section.key === 'rewards' ? rewardStores.length > 0 || hasExtras : section.key === 'news' ? news.length > 0 : skins.length > 0
+    section.key === 'overview' ? !!mode : section.key === 'banner' ? !!bannerName : section.key === 'rewards' ? rewardStores.length > 0 || hasExtras : section.key === 'news' ? news.length > 0 : skins.length > 0
   ));
   const [chosenSection, setActiveSection] = useState<SectionKey | null>(sections[0]?.key ?? null);
   /* The section on screen: the one chosen if this event has it, else the event's
@@ -284,7 +293,7 @@ export default function EventDetailPage({
         back={{ href: '/schedule', label: 'Events' }}
         eyebrow={<>Rhodes Island // <Link prefetch={false} href="/schedule">Events</Link></>}
         title={name}
-        sub={`${isPredicted ? 'Predicted release: ' : 'Release: '}${dateRange}`}
+        sub={`${isPredicted ? (mode ? 'Predicted launch: ' : 'Predicted release: ') : (mode ? 'Launch: ' : 'Release: ')}${dateRange}${mode ? ' · Permanent mode' : ''}`}
       />
 
       <main className="event-detail-layout">
@@ -320,6 +329,16 @@ export default function EventDetailPage({
               onChange={changeSection}
               options={sections.map((section) => ({ value: section.key, label: section.label }))}
             />
+          )}
+          {activeSection === 'overview' && mode && (
+            <section className="op-section" {...tabPanelProps('event-section', 'overview')}>
+              {mode.description.map(line => <p key={line}>{line}</p>)}
+              <h3>Unlock</h3><p>{mode.unlock}</p>
+              <h3>Rewards (CN)</h3>
+              <p>{mode.rewards}</p>
+              <p className="hint">CN launch: {mode.cnLaunch}. Global timing and rewards await confirmation.</p>
+              <a href={mode.source} target="_blank" rel="noopener noreferrer">Official CN announcement</a>
+            </section>
           )}
           {sections.length === 0 && <p className="hint">No banner, reward store or skins are linked to this event yet.</p>}
 
@@ -387,6 +406,7 @@ export default function EventDetailPage({
 
           {activeSection === 'skins' && (
             <section className="op-section" {...tabPanelProps('event-section', 'skins')}>
+              {isPredicted && <p className="hint">CN outfit inventory; Global availability awaits confirmation.</p>}
               <div className="event-detail-skins">
                 {skins.map((skin) => {
                   const prices = parsePrices(skin.howToObtain);
@@ -496,7 +516,7 @@ export default function EventDetailPage({
    after an event ended dropped its page and every link to it hit a 404 while the
    record was still there. Only a record that is gone now leaves no page. */
 export const getStaticPaths: GetStaticPaths = async () => {
-  const listings = getEventCalendar();
+  const listings = [...getEventCalendar(), ...(loadAllEventYears() as ScheduleEvent[]).flatMap(event => { const listing = permanentEventListing(scheduleModeRelease(event, PREDICTED_GAP_DAYS)); return listing ? [listing] : []; })];
   return {
     paths: listings.map((e) => ({ params: { slug: e.name } })),
     fallback: 'blocking',
@@ -505,7 +525,7 @@ export const getStaticPaths: GetStaticPaths = async () => {
 
 export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/events/[slug]", async ({ params }) => {
   const name = params?.slug as string;
-  const listings = getEventCalendar();
+  const listings = [...getEventCalendar(), ...(loadAllEventYears() as ScheduleEvent[]).flatMap(event => { const listing = permanentEventListing(scheduleModeRelease(event, PREDICTED_GAP_DAYS)); return listing ? [listing] : []; })];
   const event = listings.find((e) => e.name === name);
   if (!event) return { notFound: true };
 
@@ -513,7 +533,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
   const featuredOperators = banner ? getFeaturedOperatorRates(banner) : [];
 
   const allSkins = getAllSkins();
-  const skins = getSkinsForEvent(event.name, allSkins, listings.map((e) => e.name));
+  const skins = eventSkins(event.name, allSkins, listings.map((e) => e.name), { confirmed, rotations });
 
   const cgImages = getEventCgImages(event.name);
   const images = cgImages.length > 0 ? cgImages : event.poster ? [event.poster] : [];
@@ -541,7 +561,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
   const rewardNote = fromOriginal
     ? `Missions, first clears and furniture are the original run's (${eventTitle(rewardEntry!.inheritsFrom!)}) until this rerun's own are in the game data: a rerun repeats them. Its store is its own. First-clear rewards are once per account: a stage cleared before gives none again.`
     : fromCn
-      ? 'Stage rewards and furniture marked CN use the original release until Global game data is available. Confirmed Global announcements take priority.'
+      ? 'Rewards marked CN come from this run’s CN game data. Global dates and rewards await confirmation; first clears remain once per account.'
       : isRerun(event.name) && (rewardEntry?.groups ?? []).some((g) => g.kind === 'first-clear')
         ? 'First-clear rewards are once per account: a stage cleared in the original run gives none in the rerun.'
         : null;
@@ -610,6 +630,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
   return {
     props: {
       name: event.name,
+      mode: modeDetails(event.name),
       poster: event.poster,
       images,
       artAspect,
