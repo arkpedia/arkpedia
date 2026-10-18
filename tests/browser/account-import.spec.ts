@@ -20,7 +20,7 @@ test.beforeEach(async ({ page }, testInfo) => {
 
 /** The stand-in transport, answering as the servers do: the account at `level`, or the game's
  *  token exchange refusing the login (`level: null`). */
-async function stubServers(page: Page, level: number | null, isNew = 0, networkFailures = 0, sendCodeRefused = false, cachedNetwork = false, server: ServerId = 'en') {
+async function stubServers(page: Page, level: number | null, isNew = 0, networkFailures = 0, sendCodeRefused = false, cachedNetwork = false, server: ServerId = 'en', codeFailure: { count: number; message: string } | null = null) {
   await readOnly(page);
   // The relay is never opened: the page's transport is the stand-in.
   await page.routeWebSocket(/relay\.arkpedia\.net/, (socket) => socket.close());
@@ -34,7 +34,7 @@ async function stubServers(page: Page, level: number | null, isNew = 0, networkF
   // The game's version file is the one request the page makes itself (directTransport).
   await page.route(VERSION, (route) => route.fulfill({ status: 200, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' },
     body: JSON.stringify({ resVersion: '00-00-00', clientVersion: '0.0.0' }) }));
-  await page.addInitScript(({ level, isNew, networkFailures, sendCodeRefused, region }) => {
+  await page.addInitScript(({ level, isNew, networkFailures, sendCodeRefused, region, codeFailure }) => {
     const network = { u8: 'https://u8.example.invalid', gs: 'https://gs.example.invalid', hv: 'https://hv.example.invalid/{0}/version' };
     const answers: Record<string, { json: unknown; headers?: [string, string][] }> = {
       [region.networkConfig]: { json: { content: JSON.stringify({ funcVer: 'V1', configs: { V1: { network } } }) } },
@@ -54,11 +54,89 @@ async function stubServers(page: Page, level: number | null, isNew = 0, networkF
       asked.push(url);
       requests.push({ url, body: request.body, headers: request.headers });
       if (url.endsWith('/network_config') && networkFailures-- > 0) throw new Error('Request failed with error code 7: Could not connect to server');
+      if (url.endsWith('/yostar/send-code') && codeFailure && codeFailure.count-- > 0) throw new Error(codeFailure.message);
       const answer = answers[url];
       return answer ? { status: 200, json: answer.json, headers: answer.headers ?? [] } : { status: 404, json: null, headers: [] };
     };
-  }, { level, isNew, networkFailures, sendCodeRefused, region: SERVERS[server] });
+  }, { level, isNew, networkFailures, sendCodeRefused, region: SERVERS[server], codeFailure });
 }
+
+test('a failed email connection retries once even when game settings are unavailable', async ({ page }) => {
+  await stubServers(page, 120, 0, 99, false, false, 'en', { count: 1, message: 'Request failed with error code 7: Could not connect to server' });
+  const dialog = await openImport(page);
+  await dialog.getByPlaceholder('Yostar email').fill(EMAIL);
+  await dialog.getByRole('button', { name: 'Send code', exact: true }).click();
+  await expect(dialog.getByRole('status')).toContainText('Retrying once');
+  await expect(dialog.locator('.import-sent')).toBeVisible();
+  await expect(dialog.getByRole('alert')).toHaveCount(0);
+  await expect(dialog.locator('.import-step').first()).toHaveClass(/import-step-waiting/);
+  await expect(dialog.getByRole('button', { name: 'Send again', exact: true })).toBeDisabled();
+  await expect(dialog.getByPlaceholder('Code from the email')).toBeFocused();
+  const asked = await page.evaluate(() => (window as unknown as { __asked: string[] }).__asked);
+  expect(asked.filter(url => url.endsWith('/yostar/send-code'))).toHaveLength(2);
+  if (process.env.ARKPEDIA_QA_CAPTURE) await page.screenshot({ path: `${process.env.ARKPEDIA_QA_CAPTURE}/code-retry-${test.info().project.name}.png` });
+});
+
+test('failed code requests stop retrying and the cooldown survives reopen, reload and expiry', async ({ page }) => {
+  await page.clock.install();
+  await stubServers(page, 120, 0, 0, false, true, 'en', { count: 99, message: 'Request failed with error code 7: Could not connect to server' });
+  let dialog = await openImport(page);
+  await dialog.getByPlaceholder('Yostar email').fill(EMAIL);
+  await dialog.getByRole('button', { name: 'Send code', exact: true }).click();
+  await expect(dialog.getByRole('alert')).toContainText('wait 1 minute');
+  expect((await page.evaluate(() => (window as unknown as { __asked: string[] }).__asked)).filter(url => url.endsWith('/yostar/send-code'))).toHaveLength(2);
+  await page.keyboard.press('Escape');
+  await page.locator('.page-header').getByRole('button', { name: 'Import / export', exact: true }).click();
+  dialog = page.locator('dialog.data-dialog');
+  await dialog.getByPlaceholder('Yostar email').fill(EMAIL);
+  await expect(dialog.getByRole('button', { name: 'Send code', exact: true })).toBeDisabled();
+  await page.reload();
+  await page.locator('.page-header').getByRole('button', { name: 'Import / export', exact: true }).click();
+  await dialog.getByPlaceholder('Yostar email').fill(EMAIL);
+  await expect(dialog.getByRole('button', { name: 'Send code', exact: true })).toBeDisabled();
+  await dialog.getByPlaceholder('Code from the email').fill('123456');
+  await expect(dialog.getByRole('button', { name: 'Import', exact: true })).toBeEnabled();
+  await page.clock.fastForward(61_000);
+  await expect(dialog.getByRole('button', { name: 'Send code', exact: true })).toBeEnabled();
+  const asked = await page.evaluate(() => (window as unknown as { __asked: string[] }).__asked);
+  expect(asked.some(url => url.endsWith('/yostar/send-code'))).toBe(false); // Reload resets fixtures, not the cooldown.
+});
+
+test('an unconfirmed email never resends automatically and keeps saved-token Import usable', async ({ page }) => {
+  await page.clock.install();
+  await stubServers(page, 120, 0, 0, false, true, 'en', { count: 99, message: 'Request failed with error code 28: Operation timed out' });
+  await seedSavedLogin(page);
+  const dialog = await openImport(page);
+  const saved = await page.evaluate(() => localStorage.getItem('arkpediaYostarLogin'));
+  await dialog.getByRole('button', { name: 'Request code', exact: true }).click();
+  await expect(dialog.getByRole('alert')).toContainText('Check your email');
+  await expect(dialog.getByRole('button', { name: 'Request code', exact: true })).toBeDisabled();
+  await expect(dialog.getByRole('button', { name: 'Import', exact: true })).toBeEnabled();
+  expect(await page.evaluate(() => localStorage.getItem('arkpediaYostarLogin'))).toBe(saved);
+  await page.clock.fastForward(61_000);
+  expect((await page.evaluate(() => (window as unknown as { __asked: string[] }).__asked)).filter(url => url.endsWith('/yostar/send-code'))).toHaveLength(1);
+  await dialog.getByRole('button', { name: 'Import', exact: true }).click();
+  await expect(dialog.locator('.import-note[role="status"]')).toContainText('Imported:');
+});
+
+test('a code request updates the resend cooldown in another open tab', async ({ page, context }, testInfo) => {
+  test.skip(!testInfo.project.name.startsWith('desktop'), 'storage events are independent of viewport');
+  await stubServers(page, 120, 0, 0, false, true);
+  const other = await context.newPage();
+  try {
+    await stubServers(other, 120, 0, 0, false, true);
+    const first = await openImport(page);
+    const second = await openImport(other);
+    await first.getByPlaceholder('Yostar email').fill(EMAIL);
+    await second.getByPlaceholder('Yostar email').fill(EMAIL);
+    await first.getByRole('button', { name: 'Send code', exact: true }).click();
+    await expect(first.locator('.import-sent')).toBeVisible();
+    await expect(second.getByRole('button', { name: 'Send code', exact: true })).toBeDisabled();
+    await second.getByPlaceholder('Code from the email').fill('123456');
+    await expect(second.getByRole('button', { name: 'Import', exact: true })).toBeEnabled();
+    expect((await other.evaluate(() => (window as unknown as { __asked: string[] }).__asked)).some(url => url.endsWith('/yostar/send-code'))).toBe(false);
+  } finally { await other.close(); }
+});
 
 test('public settings use the website cache while account requests keep the encrypted transport', async ({ page }) => {
   await stubServers(page, 120, 0, 0, false, true);
@@ -75,32 +153,32 @@ test('public settings use the website cache while account requests keep the encr
   expect(asked.filter(url => url.endsWith('/account/syncData'))).toHaveLength(1);
 });
 
-test('a temporary server-list connection failure recovers before sending a code', async ({ page }) => {
+test('background settings recover independently of sending a code', async ({ page }) => {
   await stubServers(page, 120, 0, 2);
   const dialog = await openImport(page);
   await dialog.getByPlaceholder('Yostar email').fill(EMAIL);
   await dialog.getByRole('button', { name: 'Send code', exact: true }).click();
   await expect(dialog.locator('.import-sent')).toBeVisible();
   await expect(dialog.getByRole('alert')).toHaveCount(0);
+  await expect(dialog.locator('.import-step').first()).toHaveClass(/import-step-done/);
   const asked = await page.evaluate(() => (window as unknown as { __asked: string[] }).__asked);
-  expect(asked.slice(0, 3).every((url) => url.endsWith('/network_config'))).toBe(true);
+  expect(asked.filter(url => url.endsWith('/network_config'))).toHaveLength(3);
   expect(asked.filter((url) => url.endsWith('/yostar/send-code'))).toHaveLength(1);
 });
 
-test('a failed connection can be retried without sending or spending a code', async ({ page }) => {
-  await stubServers(page, 120, 0, 6);
+test('an import settings failure can be retried without sending or spending a code', async ({ page }) => {
+  await stubServers(page, 120, 0, 3);
   const dialog = await openImport(page);
   await dialog.getByPlaceholder('Yostar email').fill(EMAIL);
+  await dialog.getByPlaceholder('Code from the email').fill('123456');
+  await dialog.getByRole('button', { name: 'Import', exact: true }).click();
   await expect(dialog.getByRole('alert')).toContainText('error code 7');
-  // Sending after the failed preflight attempts the connection again, before asking Yostar.
-  await dialog.getByRole('button', { name: 'Send code', exact: true }).click();
-  await expect(dialog.getByRole('alert')).toContainText('error code 7');
-  expect(await page.evaluate(() => (window as unknown as { __asked: string[] }).__asked)).toHaveLength(6);
+  expect(await page.evaluate(() => (window as unknown as { __asked: string[] }).__asked)).toHaveLength(3);
   await dialog.getByRole('button', { name: 'Retry connection', exact: true }).click();
   await expect(dialog.getByRole('alert')).toHaveCount(0);
   await expect(dialog.locator('.import-step').first()).toHaveClass(/import-step-done/);
   const asked = await page.evaluate(() => (window as unknown as { __asked: string[] }).__asked);
-  expect(asked).toHaveLength(7);
+  expect(asked).toHaveLength(4);
   expect(asked.every((url) => url.endsWith('/network_config'))).toBe(true);
 });
 
@@ -345,7 +423,7 @@ for (const server of ['en', 'jp', 'kr'] as const) {
     const before = await page.evaluate(() => localStorage.getItem('arkpediaYostarLogin'));
     await dialog.getByRole('button', { name: 'Request code', exact: true }).click();
     await expect(dialog.locator('.import-sent')).toContainText('emailed a code to your saved address');
-    await expect(dialog.getByRole('button', { name: 'Request code', exact: true })).toBeFocused();
+    await expect(dialog.getByRole('button', { name: 'Import', exact: true })).toBeFocused();
     await expect(dialog.locator('.import-forms, .import-steps')).toHaveCount(0);
     if (server === 'en' && process.env.ARKPEDIA_QA_CAPTURE) await page.screenshot({ path: `${process.env.ARKPEDIA_QA_CAPTURE}/requested-code-${testInfo.project.name}.png` });
     const requests = await page.evaluate(() => (window as unknown as { __requests: { url: string; body: string; headers: Record<string, string> }[] }).__requests);

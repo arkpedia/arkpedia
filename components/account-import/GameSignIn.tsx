@@ -4,6 +4,7 @@ import { isResettingBrowserData } from '@/lib/account/resetData';
 import type { PullRead } from '@/lib/account/pulls';
 import { directTransport, networkTransport, relayTransport } from '@/lib/account-import/relay';
 import { forgetLogin, maskEmail, readSavedLogin, saveLogin, type SavedLogin } from '@/lib/account-import/savedLogin';
+import { useCodeCooldown } from '@/lib/account-import/codeCooldown';
 
 /*
  * The sign-in with a Yostar email code, and the account it reads (lib/account-import):
@@ -46,6 +47,8 @@ export default function GameSignIn({ server, onAccount, onForget, idPrefix = 'im
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
   const [codeSent, setCodeSent] = useState(false);
+  const [retryingCode, setRetryingCode] = useState(false);
+  const { secondsLeft, begin: beginCodeRequest, finish: finishCodeRequest } = useCodeCooldown(server);
   const [busy, setBusy] = useState(false);
   const validEmail = /^\S+@\S+\.\S+$/.test(email.trim());
   const [step, setStep] = useState<ImportStep | null>(null);
@@ -59,6 +62,7 @@ export default function GameSignIn({ server, onAccount, onForget, idPrefix = 'im
   const savedForServer = saved?.server === server ? saved : null;
   const [dontSave, setDontSave] = useState(false);
   const emailInput = useRef<HTMLInputElement>(null);
+  const codeInput = useRef<HTMLInputElement>(null);
   const savedImport = useRef<HTMLButtonElement>(null);
   const codeRequest = useRef<HTMLButtonElement>(null);
   const hasSaved = Boolean(savedForServer);
@@ -72,7 +76,7 @@ export default function GameSignIn({ server, onAccount, onForget, idPrefix = 'im
       previousSaved.current = hasSaved;
       (hasSaved ? savedImport.current : emailInput.current)?.focus();
     } else if (step === 'send-code') {
-      codeRequest.current?.focus();
+      (hasSaved ? savedImport.current : codeInput.current)?.focus();
     }
   }, [hasSaved, busy, step]);
   // One device id per visit, as one phone signing in.
@@ -93,31 +97,34 @@ export default function GameSignIn({ server, onAccount, onForget, idPrefix = 'im
       setFailed((current) => (current?.step === 'network' ? null : current));
       network = readNetwork(networkTransport, from);
       networks.current[from] = network;
-      network.then(() => setConnection('open'), (error) => {
+      network.then(() => setConnection('open'), () => {
         delete networks.current[from];
         setConnection('failed');
-        setFailed({ step: 'network', message: describe(error) });
+        // Background metadata readiness must not turn a successful email into an error.
+        // Import and Retry connection report this rejection at their own action boundary.
       });
     }
     return network;
   }
 
   async function requestCode(address: string) {
-    if (busy) return;
+    if (busy || !beginCodeRequest()) return;
     setBusy(true);
     setFailed(null);
     setDone(false);
+    setCodeSent(false);
+    setRetryingCode(false);
     setStep('send-code');
     try {
-      // A saved-account code is also useful for signing in to the game: it needs only
-      // Yostar's code endpoint, so a game-settings outage must not block it.
+      // Emailing a code needs only Yostar, including when no sign-in is saved.
       if (savedForServer) deviceId.current = savedForServer.deviceId;
-      else await connect();
-      await sendCode(flow(), address);
+      await sendCode(flow(), address, () => setRetryingCode(true));
       setCodeSent(true);
     } catch (error) {
       setFailed({ step: error instanceof ImportError ? error.step : 'send-code', message: describe(error) });
     } finally {
+      finishCodeRequest();
+      setRetryingCode(false);
       setBusy(false);
     }
   }
@@ -212,7 +219,7 @@ export default function GameSignIn({ server, onAccount, onForget, idPrefix = 'im
     if (done) return steps[index].id === 'pulls' && pullsFailed ? 'failed' : 'done';
     if (failed && index === stepIndex) return 'failed';
     // Server settings are their own step, read before anything else runs.
-    if (index === 0) return connection === 'open' ? 'done' : connection === 'opening' ? 'running' : connection === 'failed' ? 'failed' : 'waiting';
+    if (index === 0) return connection === 'open' ? 'done' : connection === 'opening' ? 'running' : 'waiting';
     if (stepIndex > index) return 'done';
     return busy && index === stepIndex ? 'running' : 'waiting';
   };
@@ -224,7 +231,7 @@ export default function GameSignIn({ server, onAccount, onForget, idPrefix = 'im
         <div className="import-saved">
           <span className="hint import-saved-identity">Saved on this browser: <b>{maskEmail(savedForServer.email)}</b> ({SERVERS[savedForServer.server].label})</span>
           <button ref={savedImport} type="button" className="primary btn-sm" onClick={onSavedImport} disabled={busy}>Import</button>
-          <button ref={codeRequest} type="button" className="ghost btn-sm" onClick={() => requestCode(savedForServer.email)} disabled={busy}>Request code</button>
+          <button ref={codeRequest} type="button" className="ghost btn-sm" onClick={() => requestCode(savedForServer.email)} disabled={busy || secondsLeft > 0}>Request code</button>
           {forgetButton}
           {codeSent && <p className="hint import-sent" role="status">Yostar has emailed a code to your saved address.</p>}
         </div>
@@ -257,7 +264,7 @@ export default function GameSignIn({ server, onAccount, onForget, idPrefix = 'im
                 disabled={busy}
                 required
               />
-              <button ref={codeRequest} type="submit" className="primary btn-sm" disabled={busy || !validEmail}>
+              <button ref={codeRequest} type="submit" className="primary btn-sm" disabled={busy || !validEmail || secondsLeft > 0}>
                 {codeSent ? 'Send again' : 'Send code'}
               </button>
             </form>
@@ -265,6 +272,7 @@ export default function GameSignIn({ server, onAccount, onForget, idPrefix = 'im
             <form className="import-row" onSubmit={onImport}>
               <label className="visually-hidden" htmlFor={`${idPrefix}-code`}>Code from the email</label>
               <input
+                ref={codeInput}
                 id={`${idPrefix}-code`}
                 type="text"
                 inputMode="numeric"
@@ -286,6 +294,9 @@ export default function GameSignIn({ server, onAccount, onForget, idPrefix = 'im
         </>
       )}
 
+      {retryingCode && <p className="hint import-note" role="status">Connection failed. Retrying once…</p>}
+      {!busy && secondsLeft > 0 && <p className="hint import-note" aria-live="off">Request another code in {secondsLeft}s.</p>}
+
       {(!savedForServer || (step !== 'send-code' && (busy || done || failed))) && (
         <ol className="import-steps" aria-live="polite">
           {steps.map((entry, index) => {
@@ -300,7 +311,7 @@ export default function GameSignIn({ server, onAccount, onForget, idPrefix = 'im
         </ol>
       )}
       {failed && <p className="import-error" role="alert">{failed.message}</p>}
-      {failed?.step === 'network' && <button type="button" className="ghost btn-sm" disabled={busy || connection === 'opening'} onClick={() => { connect().catch(() => {}); }}>Retry connection</button>}
+      {failed?.step === 'network' && <button type="button" className="ghost btn-sm" disabled={busy || connection === 'opening'} onClick={() => { connect().catch(error => setFailed({ step: 'network', message: describe(error) })); }}>Retry connection</button>}
       {done && pullsFailed && <p className="hint import-note">The pull history could not be read ({pullsFailed}). Everything else was imported.</p>}
     </>
   );

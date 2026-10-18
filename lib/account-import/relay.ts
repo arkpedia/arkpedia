@@ -20,7 +20,7 @@ interface CurlSession {
   set_connections(total: number, cached: number, perHost: number): void;
   /** raw_headers: every header line as sent. A Headers object folds two Set-Cookie lines into
    *  one, and a page's own fetch never shows them at all; libcurl's response keeps them. */
-  fetch(url: string, init: { method: string; headers: Record<string, string>; body?: string }): Promise<Response & { raw_headers?: [string, string][] }>;
+  fetch(url: string, init: { method: string; headers: Record<string, string>; body?: string; redirect?: 'manual' }): Promise<Response & { raw_headers?: [string, string][] }>;
 }
 interface Libcurl {
   load_wasm(): Promise<void>;
@@ -71,14 +71,14 @@ declare global {
   }
 }
 
-export const relayTransport: Transport = async (url, { method, headers, body }) => {
+export const relayTransport: Transport = async (url, request) => {
   const stub = typeof window === 'undefined' ? undefined : window.__arkpediaImportTransport;
-  if (stub) return stub(url, { method, headers, body });
-  return read(await (await libcurl()).fetch(url, { method, headers, body }));
+  if (stub) return stub(url, request);
+  return read(await (await libcurl()).fetch(url, request));
 };
 
 /** The page's own fetch, for same-origin metadata or a host that allows browser access. */
-export const directTransport: Transport = async (url, { method, headers, body }) => read(await fetch(url, { method, headers, body }));
+export const directTransport: Transport = async (url, request) => read(await fetch(url, request));
 
 /** Public metadata uses the shared website cache. Only this harmless GET may fall back;
  *  code requests and every authenticated request keep their one encrypted route. */
