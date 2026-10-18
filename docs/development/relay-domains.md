@@ -23,14 +23,13 @@ Update that set and the nginx Origin map together, validating before restarting
 `arkrelay` and reloading nginx. Preserve the live sandbox, firewall, destination
 allowlist, limits and logging policy.
 
-Music uses the separate Referer allowlist in
-`infra/audio-relay/nginx-relay.arkpedia.net.conf`. Merge its change into
-`/etc/nginx/sites-enabled/relay.arkpedia.net`, preserving the account routes and
-certificate configuration. Keep a backup, run `nginx -t`, then reload nginx.
-The account relay installer replaces this nginx site; do not run it blindly over
-the combined installation.
+Music streams directly from Monster Siren's CDN and no longer uses this relay.
+Retire only the `arkaudio` service, its `/msr/<cid>` nginx location and its two
+`arkaudio_*` limit zones after the direct-playback release is verified. Keep a
+backup, validate with `nginx -t`, and reload nginx before stopping `arkaudio`.
+Do not change the `/wisp/` route, the `arkrelay` service or its firewall/sandbox.
+The retired audio implementation is recoverable from Git history if rollback is needed.
 
 Verify allowed account origins upgrade to WebSocket status 101 and a foreign
-origin is refused with 403. For music, request a short byte range with each
-allowed Referer and confirm 206 `audio/mpeg`; an unrelated Referer must get 403.
+origin is refused with 403. The retired `/msr/<cid>` route should return 404.
 No email, code, token or imported account is needed for these checks.

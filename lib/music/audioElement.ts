@@ -21,6 +21,7 @@ export function musicAudioElement(): HTMLAudioElement {
   element = document.querySelector<HTMLAudioElement>('audio[data-music-audio]');
   if (!element) {
     element = document.createElement('audio');
+    element.crossOrigin = 'anonymous';
     element.preload = 'none';
     element.hidden = true;
     element.setAttribute('data-music-audio', '');
@@ -30,40 +31,22 @@ export function musicAudioElement(): HTMLAudioElement {
   return element;
 }
 
-/** The audio relay (arkpedia-app infra/audio-relay): Monster Siren's file streamed through our
- *  own server, for a device whose route to Monster Siren's nearest CDN edge does not deliver (an
- *  iPhone on a Korean mobile network got a song's first bytes and then nothing, 2026-10-14; over
- *  a VPN it played). A device uses it after a song made no sound from the CDN, for a week. */
-export const AUDIO_RELAY = 'https://relay.arkpedia.net';
-const RELAY_KEY = 'arkpediaAudioRelay';
-const RELAY_DAYS = 7;
-/** Whether this device plays through the relay: remembered after a silent song, or asked for
- *  with ?audio-relay=1 (and ended with ?audio-relay=0). */
-export function audioRelayOn(): boolean {
-  if (typeof window === 'undefined') return false;
-  try {
-    const asked = new URLSearchParams(window.location.search).get('audio-relay');
-    if (asked === '1') rememberAudioRelay();
-    if (asked === '0') localStorage.removeItem(RELAY_KEY);
-    return Number(localStorage.getItem(RELAY_KEY) ?? 0) > Date.now();
-  } catch { return false; }
-}
-export function rememberAudioRelay(): void {
-  try { localStorage.setItem(RELAY_KEY, String(Date.now() + RELAY_DAYS * 86_400_000)); } catch { /* private mode: this visit only */ }
-}
+let removedLegacyRelayPreference = false;
 
-/** The player's address for a Monster Siren song's audio: our redirect to Monster Siren's signed
- *  address (pages/api/music-audio), or the relay on a device that needs it; either is set and
- *  played in a press, with no request first. `fresh` asks past any kept copy of the address,
- *  after a file made no sound. */
+/** Always redirect to Monster Siren's signed CDN address, set and played in the same press.
+ *  `fresh` asks past an old redirect after a failed start. Old relay preferences and query
+ *  parameters cannot change delivery; clear only that retired preference on first use. */
 export function msrAudioAddress(cid: string, fresh = false): string {
+  if (typeof window !== 'undefined' && !removedLegacyRelayPreference) {
+    removedLegacyRelayPreference = true;
+    try { localStorage.removeItem('arkpediaAudioRelay'); } catch { /* storage may be unavailable */ }
+  }
   const song = encodeURIComponent(cid);
-  const base = audioRelayOn() ? `${AUDIO_RELAY}/msr/${song}` : `/api/music-audio/${song}`;
-  return `${base}${fresh ? `?retry=${Date.now()}` : ''}`;
+  return `/api/music-audio/${song}${fresh ? `?retry=${Date.now()}` : ''}`;
 }
 /** The song an element's address (msrAudioAddress) is the audio of, or null. */
 export function msrAudioCid(src: string | null | undefined): string | null {
-  const match = /(?:\/api\/music-audio|relay\.arkpedia\.net\/msr)\/(\d+)(?:[?#]|$)/.exec(src ?? '');
+  const match = /\/api\/music-audio\/(\d+)(?:[?#]|$)/.exec(src ?? '');
   return match ? match[1] : musicAudioPreloader.cid(src ?? '');
 }
 

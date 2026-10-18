@@ -101,8 +101,8 @@ test('a file that never sends a byte shows loading, never Pause, then waits paus
   siren.hangFiles = false;
   await widget.getByRole('button', { name: 'Play', exact: true }).click();
   await expect(widget.getByText(STUCK)).toHaveCount(0);
-  // A song that never played here: this device now plays through the relay, from a fresh try.
-  expect((await audio(page))!.src).toMatch(new RegExp(`^https://relay\\.arkpedia\\.net/msr/${msr.cid}\\?retry=`));
+  // The same direct route, with a fresh redirect requested inside this press.
+  expect((await audio(page))!.src).toMatch(new RegExp(`^/api/music-audio/${msr.cid}\\?retry=`));
   await expect(widget.getByRole('button', { name: 'Pause', exact: true })).toBeVisible({ timeout: 15_000 });
   const heard = (await audio(page))!;
   expect(heard.paused).toBe(false);
@@ -142,8 +142,8 @@ test('an element that says "playing" while its clock stands still (as on the iPh
   expect((await audio(page))!.src).toBe(`/api/music-audio/${msr.cid}`);
   await expect(bar(page).getByRole('button', { name: 'Play', exact: true })).toBeEnabled();
   await bar(page).getByRole('button', { name: 'Play', exact: true }).click();
-  // A song that never played here: this device now plays through the relay, from a fresh try.
-  expect((await audio(page))!.src).toMatch(new RegExp(`^https://relay\\.arkpedia\\.net/msr/${msr.cid}\\?retry=`));
+  // The same direct route, with a fresh redirect requested inside this press.
+  expect((await audio(page))!.src).toMatch(new RegExp(`^/api/music-audio/${msr.cid}\\?retry=`));
   expect(await labels(page)).not.toContain('Pause');
   expect(await sessionStates(page)).not.toContain('playing');
 });
@@ -330,47 +330,47 @@ test('a file that comes later than the clock\'s limit is waited for, and plays f
   expect((await audio(page))!.src).toBe(`/api/music-audio/${msr.cid}`);
 });
 
-/*
- * The owner's iPhone on a Korean mobile network (2026-10-14): Monster Siren's nearest CDN edge
- * gave a song's first bytes and then nothing, and over a VPN the same song played. A song that
- * gets no data from the CDN makes this device play through our relay (infra/audio-relay): the
- * press after the word plays it from there, and so does every later press, at once.
- */
-test('when the CDN never delivers here, the next press plays through the relay, and so does the next song', async ({ page }) => {
+test('a failed CDN start retries directly on Play and never changes delivery for later songs', async ({ page }) => {
   await watchTruth(page);
   await stubYouTube(page);
   const siren = await stubMonsterSiren(page);
-  siren.hangDirect = true;
+  siren.hangFiles = true;
   const msr = await playMsrSong(page);
   await expect(bar(page).getByText(STUCK)).toBeVisible({ timeout: 15_000 });
-  expect(await page.evaluate(() => Number(localStorage.getItem('arkpediaAudioRelay')) > Date.now())).toBe(true);
+  expect(await page.evaluate(() => localStorage.getItem('arkpediaAudioRelay'))).toBeNull();
   expect(siren.relays).toEqual([]);
 
-  // One press: the relay, in the press, and it plays.
+  // The CDN recovers. One press asks for a fresh direct address and plays it.
+  siren.hangFiles = false;
   await bar(page).getByRole('button', { name: 'Play', exact: true }).click();
-  expect((await audio(page))!.src).toMatch(new RegExp(`^https://relay\\.arkpedia\\.net/msr/${msr.cid}\\?retry=`));
+  expect((await audio(page))!.src).toMatch(new RegExp(`^/api/music-audio/${msr.cid}\\?retry=`));
   await expect.poll(async () => (await audio(page))!.time, { timeout: 15_000 }).toBeGreaterThan(0.5);
   await expect(bar(page).getByRole('button', { name: 'Pause', exact: true })).toBeVisible();
-  await expect.poll(() => siren.relays).toEqual([msr.cid]);
+  expect(siren.relays).toEqual([]);
 
-  // A reload, and another song: straight to the relay, with no wait on the CDN first.
+  // A reload and another song still use the direct CDN route.
   await page.reload();
   const other = (await (await page.request.get('/music-catalogue.json')).json()).songs.find((row: CatalogueRow) => row.cid && row.cid !== msr.cid && !row.videoId) as CatalogueRow | undefined;
   test.skip(!other, 'the bundled catalogue has one Monster Siren-only song');
   await page.getByRole('searchbox', { name: 'Search all songs' }).fill(other!.altTitle || other!.title);
   await page.locator(`.music-all-songs-list [data-song-id="msr:${other!.cid}"] .music-song-row-main`).click();
-  await expect.poll(async () => (await audio(page))?.src ?? '').toBe(`https://relay.arkpedia.net/msr/${other!.cid}`);
+  await expect.poll(async () => (await audio(page))?.src ?? '').toBe(`/api/music-audio/${other!.cid}`);
   await expect.poll(async () => (await audio(page))!.time, { timeout: 15_000 }).toBeGreaterThan(0.5);
-  expect(siren.resolves.filter((cid) => cid === other!.cid)).toEqual([]);
+  expect(siren.resolves).toContain(other!.cid);
+  expect(siren.relays).toEqual([]);
 });
 
-test('?audio-relay=0 sends a device back to the CDN', async ({ page }) => {
+test('an old relay preference and old opt-in link cannot route playback through the retired service', async ({ page }) => {
   await stubYouTube(page);
-  await stubMonsterSiren(page);
+  const siren = await stubMonsterSiren(page);
   await page.addInitScript(() => localStorage.setItem('arkpediaAudioRelay', String(Date.now() + 86_400_000)));
-  await page.goto('/music?view=library&audio-relay=0');
+  await page.goto('/music?view=library&audio-relay=1');
   const msr = (await (await page.request.get('/music-catalogue.json')).json()).songs.find((row: CatalogueRow) => row.cid && !row.videoId) as CatalogueRow;
   await page.getByRole('searchbox', { name: 'Search all songs' }).fill(msr.altTitle || msr.title);
   await page.locator(`.music-all-songs-list [data-song-id="msr:${msr.cid}"] .music-song-row-main`).click();
   await expect.poll(async () => (await audio(page))?.src ?? '').toBe(`/api/music-audio/${msr.cid}`);
+  await expect.poll(async () => (await audio(page))!.time).toBeGreaterThan(0.1);
+  expect(await page.evaluate(() => localStorage.getItem('arkpediaAudioRelay'))).toBeNull();
+  expect(siren.relays).toEqual([]);
+  expect(await page.locator('audio[data-music-audio]').evaluate(el => (el as HTMLAudioElement).crossOrigin)).toBe('anonymous');
 });

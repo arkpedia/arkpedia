@@ -123,24 +123,30 @@ test('a failed preload leaves playback alone and the next song uses ordinary str
   expect(await prepared(page)).toHaveLength(0);
 });
 
-test('an unfinished download never delays Next, and a prepared relay file uses the same handoff', async ({ page }) => {
-  await page.addInitScript(() => localStorage.setItem('arkpediaAudioRelay', String(Date.now() + 60000)));
+test('an unfinished direct download never delays Next, and old relay preferences cannot affect preloading', async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('arkpediaAudioRelay', String(Date.now() + 60000));
+    localStorage.setItem('musicFavorites', JSON.stringify(['msr:697616']));
+  });
   const { siren, songs: [first, second, third] } = await setup(page);
   let waiting = false;
-  await page.route(`https://relay.arkpedia.net/msr/${second.cid}`, route => {
+  await page.route(`**/api/music-audio/${second.cid}`, route => {
     if (route.request().resourceType() === 'fetch') { waiting = true; return new Promise<void>(() => {}); }
     return route.fallback();
   });
   await select(page, first, true); await select(page, second);
   await expect.poll(() => waiting).toBe(true);
   await bar(page).getByRole('button', { name: 'Next track', exact: true }).click();
-  await expect(audio(page)).toHaveAttribute('src', `https://relay.arkpedia.net/msr/${second.cid}`);
+  await expect(audio(page)).toHaveAttribute('src', `/api/music-audio/${second.cid}`);
   await expect.poll(() => audio(page).evaluate(el => (el as HTMLAudioElement).currentTime)).toBeGreaterThan(0.1);
   await select(page, third);
   await expect.poll(() => prepared(page)).toHaveLength(1);
   await finish(page);
   await expect(audio(page)).toHaveAttribute('src', (await prepared(page))[0]);
-  expect(siren.relays.filter(cid => cid === third.cid)).toHaveLength(1);
+  expect(siren.resolves.filter(cid => cid === third.cid)).toHaveLength(1);
+  expect(siren.relays).toEqual([]);
+  expect(await page.evaluate(() => localStorage.getItem('arkpediaAudioRelay'))).toBeNull();
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('musicFavorites')!))).toEqual(['msr:697616']);
 });
 
 test('shuffle prepares its actual next row; Repeat one discards it and Repeat all wraps to the first song', async ({ page }) => {

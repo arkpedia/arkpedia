@@ -1,4 +1,4 @@
-import { audioRelayOn, logAudioEvent, musicAudioElement, msrAudioAddress, msrAudioCid, rememberAudioRelay, releaseMusicAudioFile, setMusicAudioFile } from './audioElement';
+import { logAudioEvent, musicAudioElement, msrAudioAddress, msrAudioCid, releaseMusicAudioFile, setMusicAudioFile } from './audioElement';
 import { trackSource, type TrackSource } from './trackId';
 
 /*
@@ -290,12 +290,6 @@ export function createMsrAudioEngine(events: MsrEngineEvents, { address = msrAud
     start = at;
     clock = at;
     logAudioEvent(`engine: no sound (${why}), paused for a Play`);
-    // Monster Siren's CDN did not deliver here: this device plays through the relay from the
-    // next Play on (lib/music/audioElement.ts).
-    if (!everPlayed && !audioRelayOn()) {
-      rememberAudioRelay();
-      logAudioEvent('engine: this device plays through the relay from now on');
-    }
     rescued = true;
     wantPlay = false;
     disarm();

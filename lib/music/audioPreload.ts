@@ -70,7 +70,7 @@ export function createAudioPreloader({ fetch: request = fetch, createURL = blob 
       prepared = { ...next, url, at: now() };
       cids.set(url, next.cid);
     }).catch(() => {
-      // Optional loading never changes the current song, playback errors, or the relay preference.
+      // Optional loading never changes the current song or playback errors.
       if (pending === task) failed = true;
     }).finally(() => {
       clearTimeout(task.timer);
