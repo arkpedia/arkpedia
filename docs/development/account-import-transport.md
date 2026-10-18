@@ -27,9 +27,26 @@ make a successful response up to roughly two minutes old. Version files remain f
 reads. A cache failure falls back to the original public GET through the encrypted relay;
 authenticated requests never change route or replay automatically after a refusal.
 
+Email-code requests retry once after one second only for curl DNS/connect failures (6/7),
+which occur before an HTTP request can be delivered. Each attempt signs a fresh timestamp,
+keeping its email, server, device and relay. HTTP errors, provider refusals, TLS failures,
+timeouts and lost replies never retry automatically: the code might already have been sent.
+Code requests do not follow redirects, so a later redirect-target connection failure cannot
+be misclassified as a failure before delivery.
+Errors distinguish a failed connection from unconfirmed delivery, and code-limit wording says
+to wait at least a minute without promising that Yostar's own limit expires then.
+
+A 60-second per-server browser cooldown starts with a code request and restarts when it
+finishes, including failure. It persists across dialog reopening/reload and updates other tabs
+through local storage without storing an email, code or token. Blocked storage uses memory.
+This is local pacing, not provider rate-limit enforcement; simultaneous tabs can race.
+Existing-code import and saved-token import remain available during the resend countdown.
+
 The progress list describes reading game server settings. Loading public settings does not
 prove that an encrypted relay connection has opened. Sending a code and verifying a code are
 independent: a reader can try a code already received without requesting another email.
+Both new and saved sign-ins request codes independently of game-server settings. Background
+settings errors are reported when importing, rather than making a delivered email look failed.
 The saved sign-in also avoids new code requests on later imports.
 
 ## Provider and capacity limits

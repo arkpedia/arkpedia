@@ -34,6 +34,12 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-10-18T03:00:00Z',
+    fixed: [
+      { title: 'More reliable email-code requests', detail: 'Failed connections retry once; clearer errors and a resend countdown help avoid duplicate requests.', href: '/account' },
+    ],
+  },
+  {
     at: '2026-10-17T01:46:30Z',
     changed: [
       { title: 'Simpler account imports', detail: 'Sign-ins and regions are saved on this browser by default, with an opt-out; next time, choose Import.', href: '/account' },
