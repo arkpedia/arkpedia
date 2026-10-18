@@ -205,6 +205,10 @@ jobs:
           # fetch theirs from the mirror this settles on, the stages of refresh-stage-data.sh
           # read its checkout (scripts/content/cn-tables.mjs).
           stage upstream-cn --invariant --timeout-minutes 30 -- node scripts/content/cn-tables.mjs
+          # Each region's live client version (data/client-versions.json), after the pins: whether
+          # the mirror the tables come from has caught up with the game is read at the pinned commit
+          # (scripts/sync/watch-client-versions.mjs). It reports a mirror behind; it blocks nothing.
+          stage client-versions -- node scripts/sync/watch-client-versions.mjs
           supplemental_charwords="$RUNNER_TEMP/en-supplemental-charwords.json"
           stage charwords --output "$supplemental_charwords" -- curl --fail --silent --show-error --location --retry 3 \
             "$(node scripts/content/pin-upstream.mjs raw-url PuppiizSunniiz/ArknightsGameData_YoStar en_US/gamedata/excel/charword_table.json)" \
@@ -222,6 +226,10 @@ jobs:
           # The official CN announcements (data/official-news/cn), before the catalogue: an event or
           # banner announced on CN is published that day, a week before the client carries it.
           stage cn-news -- node scripts/sync/sync-cn-news.mjs
+          # The in-game notice boards of every region (data/official-bulletins.json): banners by pool
+          # id with their official art's hash, events and notices, as derived facts only
+          # (scripts/sync/sync-official-bulletins.mjs).
+          stage official-bulletins -- node scripts/sync/sync-official-bulletins.mjs
           stage catalogue -- node scripts/sync/sync-catalogue.mjs
           # Publishes the media plan the catalogue stage wrote in this run, never an older one.
           stage catalogue-assets --needs catalogue -- bash scripts/sync/publish-catalogue-assets.sh
