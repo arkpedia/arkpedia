@@ -13,7 +13,9 @@
  *     the banners in data/headhunting_banners.json carry). Its `bannerImageUrl` is the
  *     official art: hashed once (sha1 and size) and not kept.
  *   - the announcement list at network_config's `an` (en, jp, kr; CN's is dead, see
- *     DEAD_ANNOUNCEMENT_LISTS): id, group (ACTIVITY, SYSTEM), title and a month and day.
+ *     DEAD_ANNOUNCEMENT_LISTS): id, group (ACTIVITY, SYSTEM), title and a month and day. A SYSTEM
+ *     notice of a MAINTENANCE_REGIONS region also gets `maintenance`, the window its page
+ *     announces ({ startAt, endAt }, or null for none), which the home page and its ticker show.
  *
  * Kept per item: id, kind, title, date, link, pool id, image address and hash, and the day
  * this reader first saw it. Never the notice's text or picture. The boards hold about a dozen
@@ -38,6 +40,9 @@ import { DEAD_ANNOUNCEMENT_LISTS, getBytes, getJson, REGIONS, regionNetwork } fr
 export const OFFICIAL_BULLETINS = 'data/official-bulletins.json';
 /** The newest item of a live board is days old; one older than this is a board that moved. */
 export const STALE_DAYS = 45;
+/** The regions whose SYSTEM notices are read for a maintenance window: their prose is parsed
+ *  (parseMaintenance), so a region joins once its wording has been looked at. */
+export const MAINTENANCE_REGIONS = new Set(['en']);
 
 const day = now => new Date(now).toISOString().slice(0, 10);
 const daysBetween = (from, to) => Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);
@@ -86,6 +91,34 @@ export function stableUrl(url) {
   } catch {
     return String(url ?? '');
   }
+}
+
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const STAMP = String.raw`(${MONTHS.join('|')})\s+(\d{1,2}),\s*(\d{4}),?\s*(\d{1,2}):([0-5]\d)`;
+const WINDOW = new RegExp(String.raw`${STAMP}\s*[-–~]\s*(?:(${MONTHS.join('|')})\s+(\d{1,2}),\s*(\d{4}),?\s*)?(\d{1,2}):([0-5]\d)\s*\(UTC\s*([+\-−])\s*(\d{1,2})(?::?([0-5]\d))?\)`, 'g');
+
+/**
+ * The maintenance window a SYSTEM notice page announces, { startAt, endAt } as ISO instants, or
+ * null. Global's notices put it as "July 30, 2026, 08:00-08:10 (UTC-7)" (or with the closing day
+ * spelled out), once in their first sentence and again under "Maintenance Date and Time"; a page
+ * naming two different windows, or none, gives null. Only this derived window is kept.
+ */
+export function parseMaintenance(html) {
+  const text = String(html ?? '').replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/[ \t]+/g, ' ');
+  if (!/maintenance/i.test(text)) return null;
+  const windows = new Set();
+  for (const m of text.matchAll(WINDOW)) {
+    const offset = (m[11] === '+' ? 1 : -1) * (Number(m[12]) * 60 + Number(m[13] ?? 0)) * 60_000;
+    const at = (month, day, year, hour, minute) => Date.UTC(Number(year), MONTHS.indexOf(month), Number(day), Number(hour), Number(minute)) - offset;
+    const start = at(m[1], m[2], m[3], m[4], m[5]);
+    let end = at(m[6] ?? m[1], m[7] ?? m[2], m[8] ?? m[3], m[9], m[10]);
+    if (!m[6] && end <= start) end += 86_400_000;
+    if (end <= start || end - start > 2 * 86_400_000) continue;
+    windows.add(`${new Date(start).toISOString()}/${new Date(end).toISOString()}`);
+  }
+  if (windows.size !== 1) return null;
+  const [startAt, endAt] = [...windows][0].split('/');
+  return { startAt, endAt };
 }
 
 /** A bulletin record from the board's list item and its detail. */
@@ -208,6 +241,21 @@ export async function syncOfficialBulletins(root, { fetcher = globalThis.fetch, 
           notices.set(item.announceId, { id: item.announceId, group: String(item.group ?? ''), title: cleanTitle(item.title),
             ...(date ? { date } : {}), ...(item.webUrl ? { url: stableUrl(item.webUrl) } : {}), firstSeen: today });
           added[region]++;
+        }
+        // A SYSTEM notice's maintenance window, read once, and again while it is still to come
+        // or under way (a notice can move it). A page that names no window keeps `null`.
+        if (MAINTENANCE_REGIONS.has(region)) {
+          for (const notice of notices.values()) {
+            if (notice.group !== 'SYSTEM' || !notice.url) continue;
+            if ('maintenance' in notice && !(notice.maintenance && Date.parse(notice.maintenance.endAt) > new Date(now).getTime())) continue;
+            try {
+              notice.maintenance = parseMaintenance((await getBytes(notice.url, fetcher)).toString('utf8'));
+            } catch (error) {
+              console.warn(`${region} notice ${notice.id} could not be read for a maintenance window (asked again next run): ${error.message}`);
+            } finally {
+              await pause();
+            }
+          }
         }
         const newest = listed.map(item => noticeDate(item.month, item.day, now)).filter(Boolean).sort().at(-1);
         if (newest && daysBetween(newest, today) > STALE_DAYS) {

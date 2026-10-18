@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 // @ts-expect-error Node publication scripts are plain JavaScript.
-import { bulletinKind, cleanTitle, noticeDate, OFFICIAL_BULLETINS, parseJumpLink, stableUrl, syncOfficialBulletins } from '../sync/sync-official-bulletins.mjs';
+import { bulletinKind, cleanTitle, noticeDate, OFFICIAL_BULLETINS, parseJumpLink, parseMaintenance, stableUrl, syncOfficialBulletins } from '../sync/sync-official-bulletins.mjs';
 // @ts-expect-error Node publication scripts are plain JavaScript.
 import { OFFICIAL_USER_AGENT } from '../lib/official-endpoints.mjs';
 
@@ -188,6 +188,56 @@ test('an image that cannot be hashed keeps its address and is hashed on a later 
     assert.deepEqual(read(root).regions.en.bulletins.find((b: any) => b.id === '0100').image, { url: 'https://img.test/b.png' });
     await syncOfficialBulletins(root, options(server(banner())));
     assert.equal(read(root).regions.en.bulletins.find((b: any) => b.id === '0100').image.bytes, 3);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+// The wording of Global's maintenance notices (seven of them, 2026-07-30 to 09-29, all read alike).
+const maintenancePage = (window: string) => `<div class="head-title-container"><span class="head-title">MAINTENANCE</span></div>
+<div class="content"><p>Dear Doctor,<br/>We plan to perform the following server maintenance on ${window}. Players may be logged out.<br/><br/>
+<strong>Maintenance Date and Time</strong><br/>${window}<br/></p></div>`;
+
+test('a SYSTEM notice page gives its maintenance window, in UTC, or null', () => {
+  assert.deepEqual(parseMaintenance(maintenancePage('July 30, 2026, 08:00-08:10 (UTC-7)')), { startAt: '2026-07-30T15:00:00.000Z', endAt: '2026-07-30T15:10:00.000Z' });
+  assert.deepEqual(parseMaintenance(maintenancePage('August 13, 2026, 04:00-08:00 (UTC-7)')), { startAt: '2026-08-13T11:00:00.000Z', endAt: '2026-08-13T15:00:00.000Z' });
+  assert.deepEqual(parseMaintenance(maintenancePage('October 21, 2026, 23:00 - October 22, 2026, 02:00 (UTC-7)')), { startAt: '2026-10-22T06:00:00.000Z', endAt: '2026-10-22T09:00:00.000Z' });
+  assert.deepEqual(parseMaintenance(maintenancePage('October 21, 2026, 23:00-01:00 (UTC-7)')).endAt, '2026-10-22T08:00:00.000Z', 'past midnight without a day');
+  assert.equal(parseMaintenance('<p>Official Statement on Fair Play. Players acting on October 21, 2026, 08:00-09:00 (UTC-7)…</p>'), null, 'no maintenance');
+  assert.equal(parseMaintenance(`${maintenancePage('July 30, 2026, 08:00-08:10 (UTC-7)')}<p>Maintenance July 31, 2026, 08:00-08:10 (UTC-7)</p>`), null, 'two windows');
+  assert.equal(parseMaintenance(maintenancePage('soon')), null);
+});
+
+test('EN SYSTEM notices are read for their window once, and again while it is still to come', async () => {
+  const root = tmp();
+  try {
+    const page = (id: string) => `https://en.test/announce/Android/announcement/${id}.html`;
+    const list = { json: { announceList: [
+      { announceId: '1640', group: 'SYSTEM', title: 'October 21, 2026, 08:00 (UTC-7) MAINTENANCE', month: 10, day: 18, webUrl: `${page('1640')}?t=1` },
+      { announceId: '1090', group: 'SYSTEM', title: 'Official Statement on Fair Play', month: 7, day: 31, webUrl: page('1090') },
+      { announceId: '1634', group: 'ACTIVITY', title: 'Sealed With Time', month: 10, day: 14, webUrl: page('1634') },
+    ] } };
+    const answers = boards({
+      'https://en.test/announce/Android/announcement.meta.json': list,
+      'https://jp.test/announce/Android/announcement.meta.json': { json: { announceList: [{ announceId: '9', group: 'SYSTEM', title: 'メンテナンス', month: 10, day: 18, webUrl: 'https://jp.test/announce/Android/announcement/9.html' }] } },
+      [page('1640')]: { bytes: Buffer.from(maintenancePage('October 21, 2026, 08:00-09:00 (UTC-7)')) },
+      [page('1090')]: { bytes: Buffer.from('<p>Dear Players, please play fair.</p>') },
+    });
+    const seen: string[] = [];
+    await syncOfficialBulletins(root, options(server(answers, seen)));
+    const notices = read(root).regions.en.notices;
+    assert.deepEqual(notices.find((n: any) => n.id === '1640').maintenance, { startAt: '2026-10-21T15:00:00.000Z', endAt: '2026-10-21T16:00:00.000Z' });
+    assert.equal(notices.find((n: any) => n.id === '1090').maintenance, null, 'read, and no window');
+    assert.ok(!('maintenance' in notices.find((n: any) => n.id === '1634')), 'only SYSTEM notices');
+    assert.ok(!('maintenance' in read(root).regions.jp.notices[0]), 'only the regions whose wording is parsed');
+    assert.ok(!seen.some(url => url.includes('jp.test/announce/Android/announcement/')));
+
+    const again: string[] = [];
+    await syncOfficialBulletins(root, options(server(answers, again)));
+    assert.deepEqual(again.filter(url => url.includes('/announcement/1')), [page('1640')], 'the window to come is asked again; the rest are not');
+    const after: string[] = [];
+    await syncOfficialBulletins(root, { ...options(server(answers, after)), now: new Date('2026-10-22T00:00:00Z') });
+    assert.deepEqual(after.filter(url => url.includes('/announcement/1')), [], 'a window over is not');
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
