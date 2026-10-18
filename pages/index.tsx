@@ -22,6 +22,9 @@ import GachaBannersPanel from '@/components/home/GachaBannersPanel';
 import FeaturedOperatorsPanel from '@/components/home/FeaturedOperatorsPanel';
 import SkinsCarousel from '@/components/skins/SkinsCarousel';
 import CommunityFader from '@/components/home/CommunityFader';
+import MaintenanceNotice from '@/components/home/MaintenanceNotice';
+import { currentMaintenance, type MaintenanceWindow } from '@/lib/home/maintenance';
+import { readMaintenanceWindows } from '@/lib/home/maintenanceServer';
 import {
   GameEvent,
   GachaBannerWithWindow,
@@ -56,6 +59,9 @@ interface Props {
   featuredStream: TwitchStream | null;
   featuredVideo: YouTubeVideo | null;
   earliestCommunityEvent: CommunityEvent | null;
+  /** Global server maintenance announced in game and not over (lib/home/maintenance.ts): the
+   *  notice above the panels and the ticker. Absent from releases before it, so finalize fills it. */
+  maintenance: MaintenanceWindow[];
   /** The request's clock (epoch ms, to the minute), which contentPageClock adds
    *  (lib/content/pageClock.ts). finalizeHome picks the panels' rows by it, and the
    *  Events panel's first paint uses it too, so the server markup and hydration agree. */
@@ -78,6 +84,7 @@ export default function HomePage({
   featuredStream,
   featuredVideo,
   earliestCommunityEvent,
+  maintenance,
   now: requestNow,
   regionalCalendar,
 }: Props) {
@@ -122,12 +129,13 @@ export default function HomePage({
   return (
     <>
       {/* Home-page-only, not global -- see AnnouncementTicker.tsx. */}
-      <AnnouncementTicker sssCycle={sssCycle} />
+      <AnnouncementTicker sssCycle={sssCycle} maintenance={maintenance} />
       <main className="front-page-layout">
         {/* The page's visual identity is the nav's wordmark, so the document
             outline gets its h1 invisibly -- without it the outline started at
             the panels' h2s with nothing above them. */}
         <h1 className="visually-hidden">Arkpedia — Arknights community hub</h1>
+        <MaintenanceNotice windows={maintenance} now={now} />
         <div className="front-page-left">
           <EventsPanel ongoing={deserializedEvents} upcoming={deserializedUpcoming} farmableMaterials={farmableMaterials} now={now} />
           <SkinsCarousel skins={ongoingSkins} />
@@ -179,12 +187,14 @@ async function finalizeHome(props: Props): Promise<Props> {
       ? availableSkins(__calendar.skins, withLocalConfirmedSkinWindows(__calendar.skinWindows), now)
       : getOngoingSkins(now, __calendar?.skins, events),
     featuredVideo: videos[0] || null, featuredStream: streams[0] || null, earliestCommunityEvent: communityEvent,
+    maintenance: currentMaintenance(props.maintenance ?? [], props.now),
   };
 }
 
 export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>('/', async () => ({ props: {
   ongoingEvents: [], upcomingEvent: null, ongoingBanners: [], ongoingSkins: [],
   farmableMaterials: getEventFarmingMaterials((await import('@/data/event-farming.json')).default.drops), featuredStream: null, featuredVideo: null, earliestCommunityEvent: null,
+  maintenance: readMaintenanceWindows(),
   // Stored in the data release, consumed on the server, and never sent to the browser.
   __calendar: {
     events: loadGameEvents().map(event => ({ ...event, start: event.start.toISOString(), end: event.end.toISOString() })), banners: getBannersSortedByDate(), skins: getAllSkins(),

@@ -24,6 +24,45 @@ body.front-page-no-scroll {
    it; this now does the same. The fallback is deliberately the TALL two-row
    value: before hydration a too-small box leaves a harmless gap, while a
    too-large one hides content again. */
+/* Global server maintenance announced in game (components/home/MaintenanceNotice.tsx): a quiet
+   strip above the panels in the ticker's voice -- its mono caps and its amber, as the dot -- on
+   the panels' own surface. Rendered from the props, so it is there from the first paint. The
+   board's first row, across both columns, so it keeps the panels' gutters at every width. */
+.maintenance-notice {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 8px 14px;
+  background: var(--panel);
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+}
+.maintenance-notice p {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+.maintenance-notice-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--amber);
+}
+.maintenance-notice a {
+  color: var(--teal);
+  font-family: inherit;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
 /* A floor, not a ceiling. At min-height the two columns still fill the first
    screen the way the dashboard intends, and anything taller simply makes the
    page longer instead of being clipped into a pane you have to discover. */
@@ -463,6 +502,7 @@ body.front-page-no-scroll {
   .front-page-right {
     display: contents;
   }
+  .maintenance-notice { order: 0; }
   .front-events-panel { order: 1; }
   .front-gacha-panel { order: 2; }
   .front-featured-ops-panel { order: 3; }
