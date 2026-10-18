@@ -59,3 +59,9 @@
 .import-yostar p { margin: 0; }
 .import-yostar p + p { margin-top: 6px; }
 .import-yostar b { color: var(--text); font-weight: 600; }
+
+/* Optional connection support report: normal sign-in controls stay anchored above it. */
+.import-diagnostics { margin-top: 10px; }
+.import-diagnostics-body { display: grid; gap: 8px; margin-top: 8px; }
+.import-diagnostics-body p { margin: 0; }
+.import-diagnostics-report { width: 100%; box-sizing: border-box; resize: vertical; }
