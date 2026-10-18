@@ -63,6 +63,7 @@ import { decodeEntities, leftoverEntity, newsSections, parseDuration, parsePacks
 import { eventTitle, eventWindow, isRerun } from '../lib/event-records.mjs';
 import { cnTables } from '../content/pin-upstream.mjs';
 import { readOfficialNews } from '../sync/sync-official-news.mjs';
+import { readOfficialBulletins } from '../sync/sync-official-bulletins.mjs';
 
 const LOGIN_TYPES = new Set(['CHECKIN_ONLY', 'CHECKIN_ALL_PLAYER', 'CHECKIN_VS']);
 /* The side activities an event carries beside its own: its sign-ins (LOGIN_TYPES), its one-off
@@ -300,7 +301,7 @@ export function buildEventRewards(events, tables, posts, cn) {
     const start = Date.parse(window.start) / 1000;
     const named = fold(postEventName(post.title));
     const entry = dated.find(candidate => Math.abs(candidate.start - start) <= 1.5 * 86400 && named && (candidate.title.includes(named) || named.includes(candidate.title)));
-    return entry ? { post, event: entry.event, sections: newsSections(post.lines ?? []) } : null;
+    return entry ? { post, event: entry.event, sections: newsSections(post.lines ?? []), art: post.art ?? [] } : null;
   }).filter(Boolean);
   const sectionStart = section => {
     const line = section.lines.map(l => l.match(/^DURATION:\s*(.*)$/)).find(Boolean);
@@ -345,7 +346,7 @@ export function buildEventRewards(events, tables, posts, cn) {
   // their existing official art while displaying the announcement's spelling.
   const announcementArt = { 'A Sealed Vow Headhunting Permit': 'A Sealed Vow Headhunting Permit (ten-roll)', 'New Model Data Terminal': 'New Information Terminal' };
   const themesNamed = new Map();
-  for (const { post, event, sections } of announced) {
+  for (const { post, event, sections, art } of announced) {
     const groups = (result[event.name] ??= { activity: null, groups: [] }).groups;
     // A post may open two sections under one heading, and two posts can word one section alike:
     // one group of each kind and title, each later section adding only the lines it does not
@@ -362,10 +363,22 @@ export function buildEventRewards(events, tables, posts, cn) {
     // raised, a recruitment pool, a store's new redeemables, a Kernel Locating banner). Shown as the
     // official post words it, under its heading, on the event page's News tab (2026-10-14: "a News
     // section or QOL section, with all the other changes"). The event's own section is its page.
+    // The post's pictures go with it, where it has them (newsArt). The one the post opens with is
+    // its own (postArt). Each other one is the section's it stands in, `at` the line it stands
+    // above (the end, when that is past the lines kept), or -1 when it stands right above the
+    // section's heading: the post heads most sections with a title picture.
+    const postArt = art.find(picture => !sections.length || picture.line <= sections[0].at)?.url;
+    const sectionArt = section => {
+      const next = sections[sections.indexOf(section) + 1]?.at ?? Infinity;
+      return art.filter(picture => picture.line >= section.at && picture.line < next)
+        .map(picture => ({ url: picture.url, at: Math.min(picture.line - section.at - 1, Math.min(section.lines.length, NEWS_LINES)) }));
+    };
     const addNews = section => {
       const lines = section.lines.slice(0, NEWS_LINES);
       if (!lines.length || (own.length >= 6 && fold(section.title).includes(own)) || sameGroup('news', section.title)) return;
-      groups.push({ kind: 'news', title: section.title, source: post.url, ...(Number.isFinite(post.publishTime) ? { published: new Date(post.publishTime).toISOString() } : {}), items: [], lines });
+      const pictures = sectionArt(section);
+      groups.push({ kind: 'news', title: section.title, source: post.url, ...(Number.isFinite(post.publishTime) ? { published: new Date(post.publishTime).toISOString() } : {}), items: [], lines,
+        ...(pictures.length ? { art: pictures } : {}), ...(postArt ? { postArt } : {}) });
     };
     for (const section of sections) {
       const when = sectionStart(section);
@@ -505,6 +518,29 @@ export function storeNameTranslations(events, cn, en) {
  * name ("Profile Theme &apos;Vista&apos;"), a reward shown by its id ("avatar_activity_ED3"), or
  * one event showing two sections under one heading.
  */
+/**
+ * Global's in-game notice board (data/official-bulletins.json, sync-official-bulletins.mjs) for each
+ * event's News: the board item of each headhunting banner the event opens with (linked_event), by
+ * the banner's Global pool id, with its art's address (the picture is not kept) and the day the
+ * board showed it. The item links to the announcement page of its title and day when there is one.
+ * { event name: [board groups] }.
+ */
+export function boardGroups(events, banners, board) {
+  const items = (board?.bulletins ?? []).filter(item => item.kind === 'banner' && item.poolId && item.image?.url);
+  const pages = board?.notices ?? [];
+  const names = new Set(events.map(event => event.name));
+  const result = {};
+  for (const banner of banners) {
+    if (!banner.globalPoolId || !names.has(banner.linked_event)) continue;
+    for (const item of items.filter(entry => entry.poolId === banner.globalPoolId)) {
+      const page = pages.filter(notice => notice.url && notice.title === item.title && notice.date === item.displayDate);
+      (result[banner.linked_event] ??= []).push({ kind: 'board', title: item.title, source: page.length === 1 ? page[0].url : '',
+        published: item.displayDate, image: item.image.url, items: [] });
+    }
+  }
+  return result;
+}
+
 export function assertEventRewards(rewards, text = JSON.stringify(rewards)) {
   // A reference the decoder would decode (official-news.mjs), not text that only looks like one.
   const entity = leftoverEntity(text);
@@ -563,6 +599,14 @@ async function main() {
         groups: [...entry.groups.filter(group => group.region === 'CN' && !has.has(`${group.kind}: ${group.title}`)), ...today.groups] };
     }
     console.warn(`The CN tables number the game's enums today: ${kept.length} event(s) built from CN keep the last run's rewards.`);
+  }
+  // The in-game board's banner art, for the News tab (boardGroups): today's, in place of any an
+  // entry kept from the last run carries.
+  const bannerFile = path.join(root, 'data/headhunting_banners.json');
+  const banners = fs.existsSync(bannerFile) ? JSON.parse(fs.readFileSync(bannerFile, 'utf8')) : [];
+  for (const [name, groups] of Object.entries(boardGroups(events, banners, readOfficialBulletins(root).regions.en))) {
+    const entry = (rewards[name] ??= { activity: null, groups: [] });
+    entry.groups = [...entry.groups.filter(group => group.kind !== 'board'), ...groups];
   }
   const storeNames = storeNameTranslations(events, cn, en);
   const storeFurniture = storeFurnitureNames(events, cn, en);

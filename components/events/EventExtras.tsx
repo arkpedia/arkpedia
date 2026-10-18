@@ -1,5 +1,5 @@
 import type { EventExtras } from '@/lib/events/tableRewards';
-import Image from '@/components/content/ContentImage';
+import Image, { ContentImg } from '@/components/content/ContentImage';
 import { PackButton } from './RewardDetails';
 import { RewardTile } from './RewardTile';
 import { packDay } from '@/lib/events/packDay';
@@ -108,21 +108,58 @@ function NewsLines({ lines }: { lines: string[] }) {
 /** The day an ISO time falls on, as the page writes dates (2026/10/09), the same on server and client. */
 const newsDay = (iso: string | null) => (iso && /^\d{4}-\d{2}-\d{2}/.test(iso) ? iso.slice(0, 10).replace(/-/g, '/') : null);
 
-export function EventNews({ news }: { news: EventExtras['news'] }) {
+/** A section's lines with the post's pictures where the post has them: each above the line `at`. */
+function NewsBody({ section }: { section: EventExtras['news'][number] }) {
+  const art = [...(section.art ?? [])].filter((picture) => picture.at >= 0).sort((a, b) => a.at - b.at);
+  const parts: JSX.Element[] = [];
+  let from = 0;
+  for (const [i, picture] of art.entries()) {
+    const at = Math.max(from, Math.min(picture.at, section.lines.length));
+    if (at > from) parts.push(<NewsLines key={`l${i}`} lines={section.lines.slice(from, at)} />);
+    parts.push(<ContentImg key={`a${i}`} className="event-news-art" src={picture.url} alt="" />);
+    from = at;
+  }
+  if (from < section.lines.length) parts.push(<NewsLines key="rest" lines={section.lines.slice(from)} />);
+  return <>{parts}</>;
+}
+
+/** The News tab: the in-game board's items for the event (its banners', with their art), then each
+ *  official announcement with its pictures where the post has them. Every picture is shown from
+ *  the official host's address; none is kept. */
+export function EventNews({ news, board }: { news: EventExtras['news']; board: EventExtras['board'] }) {
   // Each announcement once, above its sections: the date it was published and a link to it.
-  const posts = [...new Map(news.map((section) => [section.source, section.published])).entries()];
+  const posts = [...new Map(news.map((section) => [section.source, section])).entries()];
   return (
     <div className="event-extras event-news">
-      {posts.map(([source, published]) => (
+      {board.length > 0 && (
+        <div className="event-news-post">
+          <p className="hint event-news-from">On the in-game notice board.</p>
+          <div className="event-news-board">
+            {board.map((item) => (
+              <article key={item.title + item.image} className="event-notice event-news-board-item">
+                <ContentImg className="event-news-board-art" src={item.image} alt={item.title} />
+                <h3>{item.title}</h3>
+                <p className="hint">
+                  {newsDay(item.shown) ? `Shown from ${newsDay(item.shown)}.` : null}
+                  {item.source && <>{' '}<a href={item.source} target="_blank" rel="noopener noreferrer">In-game notice</a></>}
+                </p>
+              </article>
+            ))}
+          </div>
+        </div>
+      )}
+      {posts.map(([source, first]) => (
         <div key={source} className="event-news-post">
           <p className="hint event-news-from">
-            {newsDay(published) ? `From the official announcement of ${newsDay(published)}. ` : 'From the official announcement. '}
+            {newsDay(first.published) ? `From the official announcement of ${newsDay(first.published)}. ` : 'From the official announcement. '}
             <a href={source} target="_blank" rel="noopener noreferrer">Read it on arknights.global</a>
           </p>
+          {first.postArt && <ContentImg className="event-news-art" src={first.postArt} alt="" />}
           {news.filter((section) => section.source === source).map((section) => (
             <article key={section.title} className="event-notice event-news-section">
+              {(section.art ?? []).filter((picture) => picture.at < 0).map((picture) => <ContentImg key={picture.url} className="event-news-art" src={picture.url} alt="" />)}
               <h3>{section.title}</h3>
-              <NewsLines lines={section.lines} />
+              <NewsBody section={section} />
             </article>
           ))}
         </div>

@@ -60,14 +60,36 @@ export function newsLines(html) {
   return text.split('\n').map(line => line.replace(/[ \t]+/g, ' ').trim().replace(/^([A-Z][A-Z ]{1,20}?)\s+:/, '$1:')).filter(Boolean);
 }
 
-/** The numbered sections: { number, title, lines }. A heading is "NN TITLE" in capitals. */
+/** Where the official website keeps the pictures of its posts. Any other address a post names is
+ *  never kept. */
+export const NEWS_IMAGE_HOSTS = new Set(['webusstatic.yo-star.com']);
+
+/**
+ * The pictures of a post, where it has them: [{ url, line }], `line` being how many of the post's
+ * lines (newsLines) come before the picture, so it stands above lines[line] (at the end when
+ * that is the last). Only an https address on NEWS_IMAGE_HOSTS; the picture itself is not kept.
+ */
+export function newsArt(html) {
+  const text = String(html ?? '');
+  const art = [];
+  for (const match of text.matchAll(/<img\b[^>]*?\ssrc=["']([^"']+)["'][^>]*>/gi)) {
+    let url;
+    try { url = new URL(decodeEntities(match[1])); } catch { continue; }
+    if (url.protocol !== 'https:' || !NEWS_IMAGE_HOSTS.has(url.hostname)) continue;
+    art.push({ url: url.href, line: newsLines(text.slice(0, match.index)).length });
+  }
+  return art;
+}
+
+/** The numbered sections: { number, title, lines, at }. A heading is "NN TITLE" in capitals; `at`
+ *  is its index in `lines`. */
 export function newsSections(lines) {
   const sections = [];
   let current = null;
-  for (const line of lines) {
+  for (const [at, line] of lines.entries()) {
     const heading = line.match(/^(\d{2})\s+(.+)$/);
     if (heading && heading[2] === heading[2].toUpperCase() && /[A-Z]/.test(heading[2])) {
-      current = { number: heading[1], title: heading[2].replace(/\s+/g, ' ').trim(), lines: [] };
+      current = { number: heading[1], title: heading[2].replace(/\s+/g, ' ').trim(), lines: [], at };
       sections.push(current);
     } else if (current) {
       current.lines.push(line);
