@@ -217,6 +217,63 @@ class CatalogueImports(unittest.TestCase):
         self.assertFalse(any('Tuesday' in reason for reason in reasons.values()))
         self.assertEqual({e['sourceRef'] for e in entries}, {gone, 'https://images.example/a.jpg'})
 
+    def test_board_key_art_replaces_the_cn_poster_once_only_from_a_board_host_and_only_the_picture_the_board_showed(self):
+        board_art, cn_art = png('#c03060', (1650, 900)), png('#3060c0', (1560, 500))
+        board = 'https://ark-us-static-online.yo-star.com/announce/images/20261008/cb6e6d64e69924ac96b5aaff7ff66f4d.jpg'
+        changed = 'https://ark-us-static-online.yo-star.com/announce/images/20261008/changed.jpg'
+        fetched = []
+
+        def fetch(url):
+            fetched.append(url)
+            if url in (board, changed):
+                return board_art if url == board else png('#000000', (1650, 900))
+            raise subprocess.CalledProcessError(22, ['curl'], output=b'', stderr=b'HTTP 404')
+
+        sha1 = hashlib.sha1(board_art).hexdigest()
+        plan = {'files': [
+            # Holds CN art: the board's picture replaces it.
+            {'path': 'event-poster/CN 5101-1.webp', 'boardImage': {'url': board, 'sha1': sha1}},
+            # The board's address now answers another picture: the file keeps what it holds.
+            {'path': 'event-poster/Kept.webp', 'boardImage': {'url': changed, 'sha1': sha1}},
+            # Not a board host or path: never requested, nothing to fall back on, left out.
+            {'path': 'event-poster/Elsewhere.webp', 'boardImage': {'url': 'https://images.example/announce/images/a.jpg', 'sha1': sha1}},
+        ]}
+        with tempfile.TemporaryDirectory() as temporary:
+            image_root, app = Path(temporary)/'image', Path(temporary)/'app'
+            asset_repository(image_root)
+            for name in ('CN 5101-1.webp', 'Kept.webp'):
+                (image_root/'event-poster').mkdir(exist_ok=True)
+                (image_root/'event-poster'/name).write_bytes(cn_art)
+            (image_root/'asset-manifest.json').write_text(json.dumps({'files': {f'event-poster/{name}': {'bytes': 1, 'sha256': 'x', 'width': 1560, 'height': 500} for name in ('CN 5101-1.webp', 'Kept.webp')}}))
+            (app/'data').mkdir(parents=True)
+            (Path(temporary)/'plan.json').write_text(json.dumps(plan))
+            cwd = os.getcwd()
+            run = lambda: publish.main([str(Path(temporary)/'plan.json'), str(image_root)])
+            try:
+                os.chdir(app)
+                with patch.object(publish, 'fetch', fetch), patch.dict(os.environ, {'ARKPEDIA_NOW': '2026-10-19T20:00:00Z'}), patch.object(sys, 'stderr', io.StringIO()):
+                    run()
+                    first = list(fetched)
+                    fetched.clear()
+                    run()
+            finally:
+                os.chdir(cwd)
+            manifest = json.loads((image_root/'asset-manifest.json').read_text())['files']
+            provenance = json.loads((image_root/'sources/catalogue-imports.json').read_text())
+            global_art = json.loads((image_root/'sources/global-banner-art.json').read_text())
+            built = Image.open(image_root/'event-poster/CN 5101-1.webp')
+            kept = (image_root/'event-poster/Kept.webp').read_bytes()
+            entries = json.loads((app/'data/quarantine.json').read_text())['entries']
+
+        self.assertEqual((built.width, built.height, manifest['event-poster/CN 5101-1.webp']['width']), (1600, 873, 1600))
+        self.assertEqual(provenance['event-poster/CN 5101-1.webp'], {'url': board, 'sha256': hashlib.sha256(board_art).hexdigest()})
+        # The image repository's wiki swap then finds the same sha1 and leaves the file be.
+        self.assertEqual(global_art, {'event-poster/CN 5101-1.webp': {'title': 'In-game notice board', 'url': board, 'sha1': sha1}})
+        self.assertEqual(kept, cn_art)
+        self.assertNotIn('https://images.example/announce/images/a.jpg', first)
+        self.assertEqual(fetched, [changed], 'the board art is fetched once; only the file still waiting for it is asked again')
+        self.assertEqual([e['key'] for e in entries], ['art:event-poster/Elsewhere.webp'])
+
     def test_a_mirror_file_that_fails_or_does_not_decode_is_left_out_and_reported_while_the_rest_is_built(self):
         base = f'https://raw.githubusercontent.com/yuanyan3060/ArknightsGameResource/{REVISION}'
         responses = {f'{base}/avatar/char_900_test.png': png('#c03030'), f'{base}/avatar/char_901_html.png': b'<html>rate limited</html>'}

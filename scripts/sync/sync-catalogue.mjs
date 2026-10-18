@@ -7,12 +7,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
-import { reconcileOperators, reconcileSkins, reconcileCalendars, operatorReleaseDates, renameReferences, renameAlternates, serverDay, safeName, rarityWord, onYearlyPage, inGlobalClient } from './catalogue-model.mjs';
+import { reconcileOperators, reconcileSkins, reconcileCalendars, operatorReleaseDates, renameReferences, renameAlternates, mergeMedia, serverDay, safeName, rarityWord, onYearlyPage, inGlobalClient } from './catalogue-model.mjs';
 import { buildInventory, withStableSource } from './sync-content-inventory.mjs';
 import { readWikiRows } from './wiki-pages.mjs';
 import { beginStage } from '../lib/quarantine.mjs';
 import { cnAnnouncements } from '../build/cn-news.mjs';
 import { readCnNews } from './sync-cn-news.mjs';
+import { readOfficialBulletins } from './sync-official-bulletins.mjs';
+import { applyBoardEvents } from './board-events.mjs';
 import { cnTables, pinnedCommit } from '../content/pin-upstream.mjs';
 const read = p => JSON.parse(fs.readFileSync(p,'utf8'));
 const write = (p,data) => { if (fs.existsSync(p) && JSON.stringify(read(p)) === JSON.stringify(data)) return; fs.mkdirSync(path.dirname(p),{recursive:true}); fs.writeFileSync(p,JSON.stringify(data,null,2)+'\n'); };
@@ -69,7 +71,8 @@ export function cnSource(cache, env = process.env) {
    event page asks for, from the same item art. */
 export function assetPlan(operators, skins, cn, en, published, extra) {
   if (!Array.isArray(extra)) throw new Error('assetPlan needs the extra media, as [] where there are none');
-  const planned = new Map(extra.filter(a => !published.has(a.path)).map(a => [a.path,a]));
+  // Official board art replaces what a file holds (the publisher skips it once it holds that art).
+  const planned = new Map(extra.filter(a => a.boardImage || !published.has(a.path)).map(a => [a.path,a]));
   const add = (target,source) => { if (!published.has(target)) planned.set(target,{path:target,sourcePath:source}); };
   for (const op of operators) {
     const id=op.internalName, c=cn.characters[id]; if (!c) continue;
@@ -140,6 +143,10 @@ export async function syncCatalogue(root, options={}) {
   // The official CN announcements cached by sync-cn-news.mjs: events and banners a week before the client has them.
   const announced=cnAnnouncements(readCnNews(root));
   const calendars=reconcileCalendars({events,banners,operators:initial.operators,cn,en,eventRows:sources.eventRows,bannerRows:sources.bannerRows,announced,now:now.getTime()});
+  // Global's in-game notice board: the day an event was announced, and its key art ahead of the wiki's.
+  const board=applyBoardEvents(calendars.events,readOfficialBulletins(root).regions.en);
+  calendars.media=mergeMedia([...calendars.media,...board.media]);
+  if (board.announced.length) console.log(`Announced on Global's in-game board: ${board.announced.join(', ')}`);
   const updated=reconcileOperators({operators:initial.operators,cn,en,releases:operatorReleaseDates(initial.operators,calendars.banners,cn,en)});
   // Populate CN release dates for newly imported records too; reconciliation only revisits Global releases.
   const releases=operatorReleaseDates(updated.operators,calendars.banners,cn,en);

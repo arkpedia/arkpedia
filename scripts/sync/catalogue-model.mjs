@@ -27,6 +27,7 @@ export function mergeMedia(media) {
   for (const entry of media) {
     const held = byPath.get(entry.path) ?? { path: entry.path };
     for (const key of ['urls', 'wikiFiles']) if (entry[key]?.length) held[key] = [...new Set([...(held[key] ?? []), ...entry[key]])];
+    if (entry.boardImage) held.boardImage ??= entry.boardImage;
     byPath.set(entry.path, held);
   }
   return [...byPath.values()];
