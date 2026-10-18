@@ -1,3 +1,4 @@
+import type { GetStaticProps } from 'next';
 import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
@@ -7,6 +8,7 @@ import SearchInput from '@/components/ui/SearchInput';
 import SiteSearchRow from '@/components/search/SiteSearchRow';
 import { searchSite, siteSearchJump } from '@/lib/search/siteSearch';
 import { useSiteSearch } from '@/lib/search/useSiteSearch';
+import { withContentPage } from '@/lib/content/server';
 
 /** Rows drawn at once; a query that matches more is one to narrow, not to scroll. */
 const SHOWN = 100;
@@ -23,8 +25,10 @@ const URL_DELAY_MS = 300;
  * that page straight away, in place of this one in the history, so Back returns to
  * wherever the search started.
  *
- * No data function: the rows come from the content release in the browser, the same
- * file the nav's box reads, so this page needs no redeploy to find a new operator.
+ * The rows come from the content release in the browser, the same file the nav's box
+ * reads, so this page needs no redeploy to find a new operator. That takes the empty data
+ * function at the bottom: a page without one carries no release, and its box would read the
+ * deployment's copy of the index instead.
  */
 export default function SearchPage() {
   const router = useRouter();
@@ -116,3 +120,12 @@ export default function SearchPage() {
     </>
   );
 }
+
+/* No props of its own: withContentPage is here for the release it attaches, which points
+   the index fetch at the release's copy (useSiteSearch). bundledWhenUnpublished: the
+   releases before this have no /search page, and the builder reads nothing from data/. */
+type Props = Record<string, never>;
+
+export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>('/search', async () => ({ props: {} }), {
+  bundledWhenUnpublished: true,
+});

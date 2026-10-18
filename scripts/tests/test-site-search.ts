@@ -150,6 +150,15 @@ test('the index is read from the content release, falling back to the deployment
   await assert.rejects(() => loadSiteSearch(SITE_SEARCH_PATH, undefined, async () => ({ ok: true, status: 200, json: async () => ({ rows: [] }) })), /invalid/);
 });
 
+/* /search shipped without a data function, so it carried no release and read the deployment's
+   copy of the index -- 70 rows behind dev's release within the hour. It is where ?s= and a
+   browser's search engine land, so it has to be a release page. */
+test('/search is a content page, so its rows come from the release rather than the deployment', () => {
+  const routes = JSON.parse(fs.readFileSync('scripts/content/pages.json', 'utf8')) as string[];
+  assert.ok(routes.includes('/search'), 'scripts/content/pages.json lists /search');
+  assert.match(fs.readFileSync('pages/search.tsx', 'utf8'), /withContentPage\s*(?:<[^>]*>)?\s*\(\s*'\/search'/);
+});
+
 test('the export writes the index after the stage and enemy builders whose files it reads', () => {
   const exporter = fs.readFileSync('scripts/content/export.mjs', 'utf8');
   const at = (script: string) => exporter.indexOf(`'scripts/build/${script}'`);
