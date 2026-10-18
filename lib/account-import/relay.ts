@@ -12,6 +12,7 @@
  */
 import { parseNetwork, SERVER_IDS, SERVERS, type Transport } from './yostar';
 import relayConfig from '@/config/relay.json';
+import { connectionDiagnostics, type WispDiagnosticsAPI } from './connectionDiagnostics';
 
 /** Where the relay is: config/relay.json (the relay itself is arkpedia/arkpedia-relay). */
 export const RELAY_URL = relayConfig.url;
@@ -23,6 +24,7 @@ interface CurlSession {
   fetch(url: string, init: { method: string; headers: Record<string, string>; body?: string; redirect?: 'manual' }): Promise<Response & { raw_headers?: [string, string][] }>;
 }
 interface Libcurl {
+  wisp: WispDiagnosticsAPI;
   load_wasm(): Promise<void>;
   set_websocket(url: string): void;
   HTTPSession: new () => CurlSession;
@@ -42,6 +44,7 @@ function libcurl(): Promise<CurlSession> {
   loading ??= import('libcurl.js/bundled').then(async (module) => {
     const curl = module.libcurl as Libcurl;
     await curl.load_wasm();
+    connectionDiagnostics.install(curl.wisp, RELAY_URL);
     curl.set_websocket(RELAY_URL);
     return createRelaySession(curl);
   }).catch((error) => {
@@ -73,8 +76,15 @@ declare global {
 
 export const relayTransport: Transport = async (url, request) => {
   const stub = typeof window === 'undefined' ? undefined : window.__arkpediaImportTransport;
-  if (stub) return stub(url, request);
-  return read(await (await libcurl()).fetch(url, request));
+  const finish = connectionDiagnostics.begin(url);
+  try {
+    const response = stub ? await stub(url, request) : await read(await (await libcurl()).fetch(url, request));
+    finish({ status: response.status });
+    return response;
+  } catch (error) {
+    finish({ error });
+    throw error;
+  }
 };
 
 /** The page's own fetch, for same-origin metadata or a host that allows browser access. */
