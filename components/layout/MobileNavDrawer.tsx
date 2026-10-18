@@ -3,6 +3,7 @@ import Image from '@/components/content/ContentImage';
 import { useRouter } from 'next/router';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import ThemeToggle from './ThemeToggle';
+import SiteSearch from './SiteSearch';
 import { GROUPS, LOOSE, ICONS, isActiveLink, type NavLink } from './Sitenav';
 import ServerClock from './ServerClock';
 import { getEssentialIconPath } from '@/lib/operators/operatorIconPaths';
@@ -27,7 +28,7 @@ const SWIPE_DISTANCE_PX = 60;
 // instead of also opening the drawer as a side effect. .mobile-nav-back is the back
 // link a page can put where the brand normally is: without it here, tapping Back
 // navigates AND flings the drawer open over the page you are arriving at.
-const BAR_TAP_EXCLUDED_SELECTOR = '.site-brand, .site-nav-theme-wrap, .mobile-nav-back';
+const BAR_TAP_EXCLUDED_SELECTOR = '.site-brand, .site-nav-theme-wrap, .mobile-nav-back, .site-search';
 
 export default function MobileNavDrawer({ mobileNav }: { mobileNav?: MobileNavOverride }) {
   const router = useRouter();
@@ -244,6 +245,7 @@ export default function MobileNavDrawer({ mobileNav }: { mobileNav?: MobileNavOv
             clock. It fits: the back label ellipsises long before the strip has to. */}
         <ServerClock variant="mobile" />
         <div className="mobile-nav-bar-side">
+          <SiteSearch variant="mobile" />
           <div className="site-nav-theme-wrap">
             <ThemeToggle />
           </div>
