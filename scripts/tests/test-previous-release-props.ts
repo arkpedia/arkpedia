@@ -303,6 +303,7 @@ const DATA_ONLY: Record<string, Record<string, string>> = {
     '.events[].global.shopEndAt': "the event store's close (sync-event-windows.mjs, from activity_table rewardEndTime), which the data first carried on 2026-09-30; GameWindowTimes has it optional, and eventShopEnd reads its absence as a store that closes with the stages, as the page did before; nothing on /skins reads it yet",
   },
   '/gacha': {
+    '.banners[].globalForecastWithdrawn': 'optional status for withdrawn estimates; older releases retain their existing provisional label until source publication',
     '.banners[].globalScheduleStatus': 'optional imported timing confidence; bannerTimingLabel compares it safely and retains the legacy label when absent',
     '.banners[].aliases': 'optional former banner names used by historical links; the deep-link resolver uses optional chaining when absent',
     '.banners[].globalLineupPending': 'optional metadata on newly restored special banner forecasts; older releases omitted these banners altogether, so existing Global banners remain confirmed',
