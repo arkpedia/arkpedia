@@ -4,6 +4,7 @@ import { isResettingBrowserData } from '@/lib/account/resetData';
 import type { PullRead } from '@/lib/account/pulls';
 import { directTransport, networkTransport, relayTransport } from '@/lib/account-import/relay';
 import { forgetLogin, maskEmail, readSavedLogin, saveLogin, type SavedLogin } from '@/lib/account-import/savedLogin';
+import ConnectionDiagnostics from './ConnectionDiagnostics';
 import { useCodeCooldown } from '@/lib/account-import/codeCooldown';
 
 /*
@@ -311,6 +312,7 @@ export default function GameSignIn({ server, onAccount, onForget, idPrefix = 'im
         </ol>
       )}
       {failed && <p className="import-error" role="alert">{failed.message}</p>}
+      <ConnectionDiagnostics />
       {failed?.step === 'network' && <button type="button" className="ghost btn-sm" disabled={busy || connection === 'opening'} onClick={() => { connect().catch(error => setFailed({ step: 'network', message: describe(error) })); }}>Retry connection</button>}
       {done && pullsFailed && <p className="hint import-note">The pull history could not be read ({pullsFailed}). Everything else was imported.</p>}
     </>

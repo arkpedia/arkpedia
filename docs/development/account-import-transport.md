@@ -76,3 +76,27 @@ WebSocket openings, not encrypted email-code requests inside a tunnel.
 `account-import.spec.ts` cover protocol routing, cache coalescing/expiry and failures,
 server isolation, invalid API input, existing-code recovery and no automatic resend.
 Browser account responses are fixtures; no test sends a real email or signs in to an account.
+
+## Connection diagnostics
+
+The browser observes libcurl.js 0.7.4's exported Wisp lifecycle methods, without reading
+message packets or changing encryption, routing, retries or relay logging. A bounded report
+of the last 12 relay attempts stays only in page memory; the reader can copy it from the
+Connection diagnostics disclosure after a transport failure. It is never uploaded or saved.
+
+The allow-listed report schema contains destination categories, rounded elapsed duration,
+HTTP status, numeric curl/Wisp reason codes, a relay-handshake flag and a failure leg. No
+URLs, request/response bodies, headers, errors, emails, codes, tokens, device/account IDs,
+IP addresses, user agent or exact timestamps are captured. Internal host/port matching lives
+only for the active request and is never exported. Reload clears the report.
+
+A socket error/closure identifies browser-to-relay loss, including failed relay admission; it
+does not distinguish network, browser policy, nginx rejection or a relay outage. Explicit
+Wisp upstream DNS/connect/transfer failures identify relay-to-upstream; policy/throttle codes
+identify relay-policy. TLS curl codes are separate. A successful handshake alone does not
+prove an upstream failure: ambiguous requests, concurrent same-destination streams, missing
+events and unclassified codes remain unknown. HTTP/provider refusals are responses, not
+connection failures. No diagnostic probe resends authentication or sends a real email.
+
+Protocol reasons: https://github.com/MercuryWorkshop/wisp-protocol/blob/main/protocol.md
+Dependency integration: https://github.com/ading2210/libcurl.js (pinned 0.7.4).
