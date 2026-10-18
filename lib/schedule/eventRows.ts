@@ -45,6 +45,9 @@ const hasWindow = (row: EventRow | EventRowView): row is EventRow => typeof (row
 export function currentEventRows(rows: readonly (EventRow | EventRowView)[], now: number): EventRowView[] {
   return rows.flatMap((row): EventRowView[] => {
     if (!hasWindow(row)) return [row];
+    if (row.bannerName && row.isPredicted && row.start <= now) {
+      return [{ name: row.name, bannerName: row.bannerName, poster: row.poster, dateRange: 'Global date unannounced', isPredicted: false, isOngoing: false, pullBannerName: null, featuredOperators: [] }];
+    }
     if (row.end <= now) return [];
     const { start, end: _end, pullBanner, ...rest } = row;
     return [{ ...rest, isOngoing: start <= now && !(row.bannerName && row.isPredicted), pullBannerName: pullBanner && pullBanner.end > now ? pullBanner.name : null }];
@@ -60,7 +63,7 @@ export function pruneScheduleProps<P extends { eventRows: (EventRow | EventRowVi
   const { now } = props;
   return {
     ...props,
-    eventRows: props.eventRows.filter(row => !hasWindow(row) || row.end > now),
+    eventRows: props.eventRows.filter(row => !hasWindow(row) || row.end > now || !!row.bannerName && row.isPredicted),
     ...(props.pullBanners ? { pullBanners: Object.fromEntries(Object.entries(props.pullBanners).filter(([, banner]) => banner.end > now)) } : {}),
   };
 }

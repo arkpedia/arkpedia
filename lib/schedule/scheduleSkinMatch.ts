@@ -1,23 +1,16 @@
+import { isRerun } from '../events/eventName.mjs';
 import { Skin } from '../skins/skinTypes';
 
 /** Region and format tags a name may carry without changing which event it is:
  *  [CN], (CN), (event), [Side Story], [Rerun] and so on. */
 function normalize(s: string): string {
-  return s
+  return (isRerun(s) ? `${s.replace(/\s+rerun\s*$/i, '')} rerun` : s)
     .toLowerCase()
     .replace(/\[[^\]]*\]/g, '')
     .replace(/\((?:cn|global|tw|event|jp|kr)\)/g, '')
     .replace(/^(?:cn|global|tw)\s*:/g, '')
     .replace(/[^a-z0-9]+/g, ' ')
     .trim();
-}
-
-/** A rerun sells the same skins as the run it repeats, so the two names are one
- *  event for matching. A "Part 2" or a "2nd Half" is NOT: those are separate
- *  windows of a larger run, each with its own skins, which is exactly the
- *  distinction that used to be lost. */
-function withoutRerun(s: string): string {
-  return s.replace(/\s+rerun\s*$/, '').trim();
 }
 
 /** Whether `short` is a whole-word prefix of `long`. Word-wise, never by
@@ -45,8 +38,8 @@ const PART_MARKER = /^(?:part|pt|chapter|day|week|phase)?\s*\d*(?:st|nd|rd|th)?\
  */
 function matchRank(eventName: string, release: string): number | null {
   if (eventName === release) return 0;
-  // A rerun and its original run are the same event.
-  if (withoutRerun(eventName) === withoutRerun(release)) return 0;
+  // An original release cannot establish a rerun's inventory (or the reverse).
+  if (/\brerun$/.test(eventName) !== /\brerun$/.test(release)) return null;
   // The skin names a part of the event: "Heart of Surging Flame Part 2" -> the event.
   if (isWordPrefix(eventName, release)
       && PART_MARKER.test(release.split(' ').slice(eventName.split(' ').length).join(' '))) {
@@ -110,10 +103,8 @@ export function assertSkinMatching(eventNames: string[], skins: Skin[]): void {
     const normRelease = normalize(skin.release);
     if (!normRelease) continue;
     const exact = names.filter((n) => matchRank(n, normRelease) === 0);
-    /* A run and its rerun both matching is the rerun rule working: the same skins are
-       sold twice and both windows are real. Only DIFFERENT events sharing a release
-       are a problem, so compare the names with the rerun marker off. */
-    const distinct = new Set(exact.map(withoutRerun));
+    /* Release identities include the rerun marker; two different runs cannot claim one debut. */
+    const distinct = new Set(exact);
     if (distinct.size > 1) {
       ambiguous.push(`${skin.name}: release "${skin.release}" matches ${distinct.size} different events exactly (${[...distinct].join('; ')})`);
     }

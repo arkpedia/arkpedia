@@ -34,6 +34,12 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-10-18T03:00:00Z',
+    fixed: [
+      { title: 'Rerun event details', detail: 'Reruns use their own outfits and rewards; Relaunch Anchor has a full page, and expired banner estimates show as unannounced.', href: '/schedule' },
+    ],
+  },
+  {
     at: '2026-10-17T01:46:30Z',
     changed: [
       { title: 'Simpler account imports', detail: 'Sign-ins and regions are saved on this browser by default, with an opt-out; next time, choose Import.', href: '/account' },

@@ -279,7 +279,10 @@
     },
     "global": {
       "dateRange": "2026/07/16 – 2026/08/06",
-      "note": null
+      "note": null,
+      "startAt": "2026-07-16T15:00:00.000Z",
+      "endAt": "2026-08-06T11:00:00.000Z",
+      "timingSource": "https://raw.githubusercontent.com/ArknightsAssets/ArknightsGamedata/master/en/gamedata/excel/activity_table.json"
     },
     "tw": {
       "dateRange": "To be confirmed",
@@ -297,7 +300,11 @@
     },
     "global": {
       "dateRange": "2026/07/30 – 2026/08/20",
-      "note": null
+      "note": null,
+      "startAt": "2026-07-30T15:00:00.000Z",
+      "endAt": "2026-08-20T11:00:00.000Z",
+      "timingSource": "https://raw.githubusercontent.com/ArknightsAssets/ArknightsGamedata/master/en/gamedata/excel/activity_table.json",
+      "shopEndAt": "2026-08-23T11:00:00.000Z"
     },
     "tw": {
       "dateRange": "To be confirmed",
@@ -405,7 +412,11 @@
     },
     "global": {
       "dateRange": "2026/08/13–2026/08/20",
-      "note": "ESTIMATED Global date, not officially confirmed"
+      "note": null,
+      "startAt": "2026-08-13T12:00:00.000Z",
+      "endAt": "2026-08-20T11:00:00.000Z",
+      "timingSource": "https://raw.githubusercontent.com/ArknightsAssets/ArknightsGamedata/master/en/gamedata/excel/activity_table.json",
+      "shopEndAt": "2026-08-23T11:00:00.000Z"
     },
     "tw": {
       "dateRange": null,
@@ -619,7 +630,11 @@
     },
     "global": {
       "dateRange": "2026/08/27–2026/09/06",
-      "note": null
+      "note": null,
+      "startAt": "2026-08-27T11:00:00.000Z",
+      "endAt": "2026-09-06T11:00:00.000Z",
+      "timingSource": "https://raw.githubusercontent.com/ArknightsAssets/ArknightsGamedata/master/en/gamedata/excel/activity_table.json",
+      "shopEndAt": "2026-09-10T11:00:00.000Z"
     },
     "tw": {
       "dateRange": null,
@@ -878,7 +893,8 @@
       "note": "",
       "startAt": "2026-09-16T15:00:00.000Z",
       "endAt": "2026-09-30T11:00:00.000Z",
-      "timingSource": "https://www.arknights.global/news/4635"
+      "timingSource": "https://www.arknights.global/news/4635",
+      "shopEndAt": "2026-10-07T11:00:00.000Z"
     },
     "tw": {
       "dateRange": null,
@@ -975,52 +991,58 @@
           "price": 40
         },
         {
-          "name": "制式木盆",
+          "name": "Standard Wooden Basin",
           "type": "material",
           "reward_quantity": 1,
           "stock": "1",
           "price": 40,
-          "icon": "white_square"
+          "icon": "white_square",
+          "cnName": "制式木盆"
         },
         {
-          "name": "小型高脚凳",
+          "name": "Small High Stool",
           "type": "material",
           "reward_quantity": 1,
           "stock": "1",
           "price": 45,
-          "icon": "white_square"
+          "icon": "white_square",
+          "cnName": "小型高脚凳"
         },
         {
-          "name": "带框小窗",
+          "name": "Small Framed Window",
           "type": "material",
           "reward_quantity": 1,
           "stock": "1",
           "price": 55,
-          "icon": "white_square"
+          "icon": "white_square",
+          "cnName": "带框小窗"
         },
         {
-          "name": "风铃挂毯架",
+          "name": "Chimed Tapestry Rack",
           "type": "material",
           "reward_quantity": 1,
           "stock": "1",
           "price": 65,
-          "icon": "white_square"
+          "icon": "white_square",
+          "cnName": "风铃挂毯架"
         },
         {
-          "name": "“烛火之中”",
+          "name": "'V Plameni Svechi'",
           "type": "material",
           "reward_quantity": 1,
           "stock": "1",
           "price": 80,
-          "icon": "white_square"
+          "icon": "white_square",
+          "cnName": "“烛火之中”"
         },
         {
-          "name": "集会长桌",
+          "name": "Long Meeting Table",
           "type": "material",
           "reward_quantity": 1,
           "stock": "1",
           "price": 140,
-          "icon": "white_square"
+          "icon": "white_square",
+          "cnName": "集会长桌"
         },
         {
           "name": "Data Supplement Instrument",
@@ -1171,7 +1193,8 @@
       "note": null,
       "startAt": "2026-09-23T16:00:00.000Z",
       "endAt": "2026-10-07T11:00:00.000Z",
-      "timingSource": "https://www.arknights.global/news/4683"
+      "timingSource": "https://www.arknights.global/news/4683",
+      "shopEndAt": "2026-10-10T11:00:00.000Z"
     },
     "tw": {
       "dateRange": null,
@@ -1189,7 +1212,11 @@
     },
     "global": {
       "dateRange": "2026/10/14–2026/10/28",
-      "note": ""
+      "note": null,
+      "startAt": "2026-10-14T15:00:00.000Z",
+      "endAt": "2026-10-28T11:00:00.000Z",
+      "timingSource": "https://www.arknights.global/news/4814",
+      "shopEndAt": "2026-11-04T11:00:00.000Z"
     },
     "tw": {
       "dateRange": null,
@@ -1265,36 +1292,42 @@
           "price": 60
         },
         {
-          "name": "胶片照明灯",
+          "name": "Film Reel Pendant",
           "type": "material",
           "reward_quantity": 1,
           "stock": "1",
           "price": 45,
-          "icon": "white_square"
+          "icon": "white_square",
+          "cnName": "胶片照明灯"
         },
         {
-          "name": "“回看”高脚凳",
+          "name": "'Playback' Stool",
           "type": "material",
           "reward_quantity": 1,
           "stock": "1",
           "price": 65,
-          "icon": "white_square"
+          "icon": "white_square",
+          "cnName": "“回看”高脚凳",
+          "iconName": "“回看”高脚凳"
         },
         {
-          "name": "影音室零食架",
+          "name": "Media Room Snack Cabinet",
           "type": "material",
           "reward_quantity": 1,
           "stock": "1",
           "price": 75,
-          "icon": "white_square"
+          "icon": "white_square",
+          "cnName": "影音室零食架"
         },
         {
-          "name": "“清新像素”",
+          "name": "'Fresh Pixel'",
           "type": "material",
           "reward_quantity": 1,
           "stock": "1",
           "price": 70,
-          "icon": "white_square"
+          "icon": "white_square",
+          "cnName": "“清新像素”",
+          "iconName": "“清新像素”"
         },
         {
           "name": "Data Supplement Instrument",
@@ -1448,14 +1481,14 @@
   },
   {
     "name": "[Rerun] The Masses' Travels Rerun",
-    "poster": "/event-poster/[Side Story – Celebration] The Masses' Travels.webp",
+    "poster": "/event-poster/[Rerun] The Masses' Travels Rerun.webp",
     "year": 2026,
     "cn": {
       "dateRange": "2026/05/22–2026/06/01",
       "note": null
     },
     "global": {
-      "dateRange": "2026/10/28–2026/11/07",
+      "dateRange": "2026/11/05–2026/11/15",
       "note": "ESTIMATED Global date, not officially confirmed"
     },
     "tw": {
@@ -1474,7 +1507,7 @@
       "note": null
     },
     "global": {
-      "dateRange": "2026/11/07–2026/11/21",
+      "dateRange": "2026/11/16–2026/11/30",
       "note": "ESTIMATED Global date, not officially confirmed"
     },
     "tw": {
@@ -1493,7 +1526,7 @@
       "note": null
     },
     "global": {
-      "dateRange": "2026/11/14–2026/11/28",
+      "dateRange": "2026/11/23–2026/12/07",
       "note": "ESTIMATED Global date, not officially confirmed"
     },
     "tw": {
@@ -1512,7 +1545,7 @@
       "note": null
     },
     "global": {
-      "dateRange": "2026/11/21–2026/12/01",
+      "dateRange": "2026/11/30–2026/12/10",
       "note": "ESTIMATED Global date, not officially confirmed"
     },
     "tw": {
@@ -1531,7 +1564,7 @@
       "note": null
     },
     "global": {
-      "dateRange": "2026/12/02–2026/12/16",
+      "dateRange": "2026/12/10–2026/12/24",
       "note": "ESTIMATED Global date, not officially confirmed"
     },
     "tw": {
@@ -1552,7 +1585,7 @@
           "price": 2000
         },
         {
-          "name": "Furniture not found",
+          "name": "涤墨之旗",
           "type": "material",
           "reward_quantity": 1,
           "stock": "1",
@@ -1724,7 +1757,7 @@
       "note": null
     },
     "global": {
-      "dateRange": "2026/12/09–2026/12/30",
+      "dateRange": "2026/12/17–2027/01/07",
       "note": "ESTIMATED Global date, not officially confirmed"
     },
     "tw": {
@@ -1742,7 +1775,7 @@
       "note": null
     },
     "global": {
-      "dateRange": "2026/12/16–2026/12/23",
+      "dateRange": "2026/12/24–2026/12/31",
       "note": "ESTIMATED Global date, not officially confirmed"
     },
     "tw": {
@@ -1761,7 +1794,7 @@
       "note": null
     },
     "global": {
-      "dateRange": "2026/12/26–2027/01/05",
+      "dateRange": "2027/01/03–2027/01/13",
       "note": "ESTIMATED Global date, not officially confirmed"
     },
     "tw": {
@@ -1789,16 +1822,11 @@
     "activityId": "act1dp"
   },
   {
-    "name": "[Reclamation Algorithm] Relaunch Anchor",
-    "modeId": "sandbox_2",
+    "name": "[Event] Vector Breakthrough Bio Mimicry",
     "year": 2026,
-    "poster": "/album-covers/重启锚点OST_cover.webp",
+    "poster": "/event-poster/Vector Breakthrough Bio Mimicry.webp",
     "cn": {
-      "dateRange": null,
-      "note": null,
-      "releaseDate": "2026/05/15",
-      "startAt": "2026-05-15T08:00:00.000Z",
-      "timingSource": "https://raw.githubusercontent.com/Kengxxiao/ArknightsGameData/17759cc8cdf37388414145d16262a3a06f3ab25e/zh_CN/gamedata/excel/sandbox_perm_table.json"
+      "dateRange": "2026/09/29–2026/10/20"
     },
     "global": {
       "dateRange": null,
@@ -1808,6 +1836,71 @@
       "dateRange": null,
       "note": null
     },
+    "activityId": "act3break"
+  },
+  {
+    "name": "[side story] Yet Another Wave",
+    "year": 2026,
+    "poster": "/event-poster/CN 5101-1.webp",
+    "cn": {
+      "dateRange": "2026/10/09–2026/10/23",
+      "startAt": "2026-10-09T04:00:00.000Z",
+      "endAt": "2026-10-22T20:00:00.000Z",
+      "timingSource": "https://ak.hypergryph.com/news/5101"
+    },
+    "global": {
+      "dateRange": null,
+      "note": "Global release unannounced"
+    },
+    "tw": {
+      "dateRange": null,
+      "note": null
+    },
+    "activityId": "act52side",
+    "aliases": [
+      "[Side Story] 昨日海"
+    ]
+  },
+  {
+    "name": "[Reclamation Algorithm] Relaunch Anchor",
+    "modeId": "sandbox_2",
+    "year": 2026,
+    "poster": "/event-poster/[Reclamation Algorithm] Relaunch Anchor.webp",
+    "cn": {
+      "dateRange": null,
+      "note": null,
+      "releaseDate": "2026/05/15",
+      "startAt": "2026-05-15T08:00:00.000Z",
+      "timingSource": "https://raw.githubusercontent.com/Kengxxiao/ArknightsGameData/bee3f83c5d60590b5e1cd42b8d09d00ce32ab10d/zh_CN/gamedata/excel/sandbox_perm_table.json"
+    },
+    "global": {
+      "dateRange": null,
+      "note": "ESTIMATED Global launch, not officially confirmed",
+      "releaseDate": "2026/10/28"
+    },
+    "tw": {
+      "dateRange": null,
+      "note": null
+    },
     "hasFashionReview": false
+  },
+  {
+    "name": "[Event] 恒远津梁",
+    "year": 2026,
+    "poster": "/event-poster/CN 1454-1.webp",
+    "cn": {
+      "dateRange": "2026/10/16–2026/10/30",
+      "startAt": "2026-10-16T08:00:00.000Z",
+      "endAt": "2026-10-29T20:00:00.000Z",
+      "timingSource": "https://ak.hypergryph.com/news/1454"
+    },
+    "global": {
+      "dateRange": null,
+      "note": "Global release unannounced"
+    },
+    "tw": {
+      "dateRange": null,
+      "note": null
+    }
   }
 ]
