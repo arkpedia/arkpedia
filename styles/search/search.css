@@ -1,0 +1,70 @@
+/* The site search's result row (components/search/SiteSearchRow.tsx), which the nav's
+   panel and /search share, and /search itself (pages/search.tsx). The nav's button and
+   panel are in styles/core/nav.css with the rest of the bar. */
+
+/* --- One result ------------------------------------------------------------------- */
+
+.site-search-art {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: 6px;
+  object-fit: cover;
+}
+.site-search-art-blank {
+  display: block;
+  background: var(--panel-2);
+}
+.site-search-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.site-search-title,
+.site-search-sub {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.site-search-title { font-size: 13px; line-height: 17px; }
+.site-search-sub { font-size: 11px; line-height: 15px; color: var(--text-faint); }
+.site-search-kind {
+  flex-shrink: 0;
+  font: 500 10px/1 var(--font-mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.site-search-more {
+  font: 500 12px/1.3 var(--font-mono);
+  color: var(--teal);
+}
+
+/* --- /search ---------------------------------------------------------------------- */
+
+.site-search-page .site-search-page-field { max-width: 560px; }
+.site-search-page-count {
+  margin: 14px 0 8px;
+  font: 400 12px/1.4 var(--font-mono);
+  color: var(--text-dim);
+}
+.site-search-page-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-width: 720px;
+}
+.site-search-page-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  padding: 6px 10px;
+  border-radius: var(--radius-control);
+  color: var(--text);
+  text-decoration: none;
+}
+.site-search-page-row:hover,
+.site-search-page-row:focus-visible { background: var(--panel-2); }
+.site-search-page-row:hover .site-search-title { color: var(--teal); }

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Lets a browser add Arkpedia as a search engine (pages/_document.tsx links it). The
+     template is the live site's on every deployment, dev included: dev is kept out of
+     search indexes (its robots.txt), and a browser that picked it up there should still
+     search the site people read. /search?s= opens the one exact match straight away and
+     lists the rest (pages/search.tsx). -->
+<OpenSearchDescription xmlns="http://a9.com/-/spec/opensearch/1.1/" xmlns:moz="http://www.mozilla.org/2006/browser/search/">
+  <ShortName>Arkpedia</ShortName>
+  <Description>Search Arkpedia: operators, events, stages, enemies, music and pages</Description>
+  <InputEncoding>UTF-8</InputEncoding>
+  <Url type="text/html" method="get" template="https://www.arkpedia.net/search?s={searchTerms}"/>
+  <moz:SearchForm>https://www.arkpedia.net/search</moz:SearchForm>
+</OpenSearchDescription>

@@ -34,8 +34,12 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    at: '2026-10-18T04:00:00Z',
-    added: [{ title: 'Private connection diagnostics', detail: 'Copy a login-free report after an import connection fails to help identify where it broke.', href: '/account' }],
+    at: '2026-10-18T06:00:00Z',
+    added: [
+      { title: 'Search the whole site', detail: 'The magnifier in the top bar finds operators, events, stages, enemies, albums, songs and pages as you type.', href: '/search' },
+      { title: 'Search Arkpedia from your browser', detail: 'Add Arkpedia as a search engine, or open arkpedia.net/?s= followed by a name to jump straight there.' },
+      { title: 'Private connection diagnostics', detail: 'Copy a login-free report after an import connection fails to help identify where it broke.', href: '/account' },
+    ],
   },
   {
     at: '2026-10-18T03:00:00Z',

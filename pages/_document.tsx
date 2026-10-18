@@ -30,6 +30,9 @@ export default function Document() {
             token names. THEME_COLOR in lib/nav/themeColor.ts is the one source;
             ThemeToggle and the boot script below keep it in step with the theme. */}
         <meta name="theme-color" content={THEME_COLOR.dark} />
+        {/* "Add Arkpedia as a search engine": public/opensearch.xml points the browser at
+            /search?s=, the site search's own query URL (pages/search.tsx). */}
+        <link rel="search" type="application/opensearchdescription+xml" title="Arkpedia" href="/opensearch.xml" />
         {/* A published picture that GitHub falsely answers 404 for is asked for again at
             another encoding of its address (lib/assets/assetRetry.ts). Here, before <body>,
             because operator icons fail while the HTML is still being read, before React runs. */}

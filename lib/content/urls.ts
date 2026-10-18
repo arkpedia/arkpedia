@@ -53,7 +53,7 @@ export function contentUrl(src: string, release?: ContentRelease | null): string
   }
   // These are generated game records, not application/API routes.
   if (release && (/^\/(?:stage-detail|enemy-detail|planner-data|stage-guesser|lyrics)\//.test(src)
-    || /^\/(?:stages-index|enemies-index|operator-deploy|operator-search|music-catalogue|medal-catalogue)\.json(?:\?|$)/.test(src))) {
+    || /^\/(?:stages-index|enemies-index|operator-deploy|operator-search|music-catalogue|medal-catalogue|site-search)\.json(?:\?|$)/.test(src))) {
     return `${release.baseUrl}/public${src}`;
   }
   return src;

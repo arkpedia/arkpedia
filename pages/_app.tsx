@@ -8,6 +8,7 @@ import '@/styles/core/shared.css';
    with its own bespoke rule. */
 import '@/styles/core/arkpedia-theme.css';
 import '@/styles/core/nav.css';
+import '@/styles/search/search.css';
 import '@/styles/ui/ticker.css';
 import '@/styles/base/base.css';
 import '@/styles/schedule/events.css';

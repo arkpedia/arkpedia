@@ -84,7 +84,10 @@ function scan(file: string, text: string): Scan {
         ts.isJsxAttribute(attribute) && attribute.name.getText(source) === name && !!attribute.initializer && ts.isStringLiteral(attribute.initializer))?.initializer as ts.StringLiteral | undefined;
       // A <meta> holds an address only as a preview's image, video or audio.
       const mediaMeta = tag !== 'meta' || /:(?:image|video|audio)(?::url)?$/.test(literal('property')?.text ?? literal('name')?.text ?? '');
-      if (DOCUMENT_URL_ATTRIBUTES[tag] && mediaMeta) {
+      // A <link rel="search"> names the OpenSearch description (public/opensearch.xml), a
+      // document served by the deployment, not art: no release pins it.
+      const artLink = tag !== 'link' || literal('rel')?.text !== 'search';
+      if (DOCUMENT_URL_ATTRIBUTES[tag] && mediaMeta && artLink) {
         for (const attribute of node.attributes.properties) {
           if (!ts.isJsxAttribute(attribute) || !DOCUMENT_URL_ATTRIBUTES[tag].includes(attribute.name.getText(source)) || !attribute.initializer) continue;
           const value = attribute.initializer;
