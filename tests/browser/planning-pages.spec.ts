@@ -234,7 +234,10 @@ test.describe('/events/[slug]', () => {
       const blankBelow = () => page.evaluate(() => {
         const el = document.querySelector('.event-detail-right') as HTMLElement;
         const last = el.lastElementChild as HTMLElement;
-        const content = last.getBoundingClientRect().bottom - el.getBoundingClientRect().top;
+        // Natural section spacing is content too: a taller outfit inventory exposes
+        // the section's bottom margin, which is not empty space added by the hold.
+        const content = last.getBoundingClientRect().bottom + parseFloat(getComputedStyle(last).marginBottom || '0')
+          - el.getBoundingClientRect().top;
         const doc = document.documentElement.scrollHeight;
         const natural = doc - (el.getBoundingClientRect().height - content);
         return Math.round(doc - Math.max(natural, window.innerHeight));
