@@ -61,3 +61,16 @@ test('/search lists every match when no one row is the answer', async ({ page })
   expect(await page.locator('.site-search-page-row').count()).toBeGreaterThan(10);
   await expect(page).toHaveURL(/\/search\?s=sarkaz$/);
 });
+
+test('typing on /search keeps what was typed, and the URL follows it', async ({ page }) => {
+  await page.goto('/search');
+  const field = page.locator('main input[name="s"]');
+  // Faster than the URL's 300ms delay, with a pause long enough for some writes to land
+  // mid-word: a write catching up must not put an older query back in the field.
+  await field.pressSequentially('kal', { delay: 40 });
+  await page.waitForTimeout(350);
+  await field.pressSequentially('tsit', { delay: 120 });
+  await expect(page).toHaveURL(/\/search\?s=kaltsit$/);
+  await expect(field).toHaveValue('kaltsit');
+  await expect(page.locator('.site-search-page-row').first()).toContainText('Kal');
+});

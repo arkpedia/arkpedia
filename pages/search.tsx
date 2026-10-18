@@ -30,17 +30,26 @@ export default function SearchPage() {
   const router = useRouter();
   const urlQuery = router.isReady && typeof router.query.s === 'string' ? router.query.s : '';
   const [query, setQuery] = useState('');
-  /* The query this page last put in the URL. A different one arriving there is a new
-     search from outside -- a first visit, the nav's box, Back -- which may jump. */
-  const written = useRef<string | null>(null);
+  /* The queries this page has put in the URL since the last search from outside. One of
+     them arriving there is this page's own write catching up -- possibly after the field
+     has moved on, so comparing with the latest write alone would snap the field back.
+     Anything else is a new search from outside (a first visit, the nav's box, Back),
+     which may jump. */
+  const written = useRef<string[] | null>(null);
   const pendingJump = useRef(false);
   const writeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { entries, loading, failed } = useSiteSearch(true);
   const results = useMemo(() => searchSite(entries, query), [entries, query]);
 
+  const arrived = useRef('');
   useEffect(() => {
-    if (!router.isReady || urlQuery === written.current) return;
-    written.current = urlQuery;
+    if (!router.isReady) return;
+    const caughtUp = written.current?.indexOf(urlQuery) ?? -1;
+    // Caught up: forget that write and the ones before it; the later ones are still on
+    // their way. Forgotten, the same query sent again from the nav counts as a new search.
+    if (caughtUp >= 0) { written.current = written.current!.slice(caughtUp + 1); return; }
+    written.current = [];
+    arrived.current = urlQuery;
     setQuery(urlQuery);
     pendingJump.current = urlQuery.trim() !== '';
   }, [router.isReady, urlQuery]);
@@ -48,7 +57,7 @@ export default function SearchPage() {
   useEffect(() => {
     if (!pendingJump.current || loading) return;
     pendingJump.current = false;
-    const jump = siteSearchJump(searchSite(entries, written.current ?? ''));
+    const jump = siteSearchJump(searchSite(entries, arrived.current));
     if (jump) void router.replace(jump.href);
   }, [entries, loading, router]);
 
@@ -59,7 +68,7 @@ export default function SearchPage() {
     if (writeTimer.current) clearTimeout(writeTimer.current);
     writeTimer.current = setTimeout(() => {
       const next = value.trim();
-      written.current = next;
+      (written.current ??= []).push(next);
       void router.replace({ pathname: '/search', query: next ? { s: next } : {} }, undefined, { shallow: true, scroll: false });
     }, URL_DELAY_MS);
   }
