@@ -229,18 +229,17 @@ test('hidden, the audio plays on, and the next song starts on the same <audio> e
   await expect.poll(async () => (await audio(page))!.time).toBeGreaterThan(hiddenAt + 1);
   expect((await audio(page))!.paused).toBe(false);
   expect(await page.evaluate(() => sessionStorage.getItem('arkpediaMusicResume'))).toContain(first.videoId);
-  // Nothing is asked for ahead: the next song's address needs no request, so its file is set and
-  // played in the end's own task.
-  await expect.poll(() => siren.resolves).toEqual([first.cid]);
+  // The next file is prepared silently while the first song keeps playing.
+  await expect.poll(() => siren.resolves).toEqual([first.cid, second.cid]);
 
   await page.evaluate((seconds) => { document.querySelector<HTMLAudioElement>('audio[data-music-audio]')!.currentTime = seconds - 0.4; }, WAV_SECONDS);
-  await expect.poll(async () => (await audio(page))!.src, { timeout: 15_000 }).toContain(`/api/music-audio/${second.cid}`);
+  await expect.poll(async () => (await audio(page))!.src, { timeout: 15_000 }).toMatch(/^blob:/);
   await expect.poll(async () => (await audio(page))!.paused).toBe(false);
   await expect.poll(async () => (await audio(page))!.time).toBeGreaterThan(0.5);
   const same = await page.evaluate(() => (document.querySelector('audio[data-music-audio]') as HTMLAudioElement & { __same?: boolean }).__same === true);
   expect(same, 'the same element plays the next song').toBe(true);
   expect((await audio(page))!.count).toBe(1);
-  // Its file was loaded once, as it started, and YouTube was never asked.
+  // Its prepared bytes are reused, without fetching the second file again or asking YouTube.
   await expect.poll(() => siren.resolves).toEqual([first.cid, second.cid]);
   expect(youtubeLoads((await youtube(page))?.calls ?? [])).toEqual([]);
   await expect.poll(() => page.evaluate(() => navigator.mediaSession?.playbackState)).toBe('playing');

@@ -1,4 +1,4 @@
-import { audioRelayOn, logAudioEvent, musicAudioElement, msrAudioAddress, msrAudioCid, rememberAudioRelay } from './audioElement';
+import { audioRelayOn, logAudioEvent, musicAudioElement, msrAudioAddress, msrAudioCid, rememberAudioRelay, releaseMusicAudioFile, setMusicAudioFile } from './audioElement';
 import { trackSource, type TrackSource } from './trackId';
 
 /*
@@ -150,8 +150,9 @@ interface AudioEngineOptions {
  * audioElement.ts), kept for the whole visit; a press that came before the engine could play has
  * already set and played its song's file there (primeMusicAudio), and load() takes it over.
  *
- * The file is loaded only when the track is to play, never when it is queued or cued (preload
- * none: each is a WAV of about 50 MB). Its address is ours (pages/api/music-audio), a redirect to
+ * Playback uses the same element throughout. One upcoming file may be prepared by
+ * audioPreload.ts while this song plays; otherwise files load only when asked to play. Its
+ * address is ours (pages/api/music-audio), a redirect to
  * Monster Siren's signed one, so it is set and played in the same task as the press or the last
  * song's end, with no request between. A refused file (the CDN answers 403, which the element
  * reports as an error) is loaded again once, past the redirect's edge copy, and the song carries
@@ -308,6 +309,7 @@ export function createMsrAudioEngine(events: MsrEngineEvents, { address = msrAud
     el.pause();
     el.removeAttribute('src');
     el.load();
+    releaseMusicAudioFile(el);
     loadedCid = '';
     pendingSeek = null;
   }
@@ -323,7 +325,7 @@ export function createMsrAudioEngine(events: MsrEngineEvents, { address = msrAud
 
   function setFile(url: string, at: number) {
     settling = true;
-    el.src = url;
+    setMusicAudioFile(el, cid, url);
     loadedCid = cid;
     loadedAt = now();
     pendingSeek = at > 0 ? at : null;

@@ -34,6 +34,10 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-10-18T05:00:00Z',
+    changed: [{ title: 'Smoother song transitions', detail: 'The player prepares the next audio track while you listen, following your queue and shuffle order.', href: '/music' }],
+  },
+  {
     at: '2026-10-18T04:41:29Z',
     fixed: [
       { title: 'Rerun event details', detail: 'Reruns use their own outfits and rewards; Relaunch Anchor has a full page, and expired banner estimates show as unannounced.', href: '/schedule' },

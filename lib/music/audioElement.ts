@@ -1,3 +1,5 @@
+import { musicAudioPreloader } from './audioPreload';
+
 /*
  * The one <audio data-music-audio> element Monster Siren's songs play through (lib/music/
  * playbackEngine.ts), and what it did, for the opt-in debug panel (components/music/
@@ -62,7 +64,22 @@ export function msrAudioAddress(cid: string, fresh = false): string {
 /** The song an element's address (msrAudioAddress) is the audio of, or null. */
 export function msrAudioCid(src: string | null | undefined): string | null {
   const match = /(?:\/api\/music-audio|relay\.arkpedia\.net\/msr)\/(\d+)(?:[?#]|$)/.exec(src ?? '');
-  return match ? match[1] : null;
+  return match ? match[1] : musicAudioPreloader.cid(src ?? '');
+}
+
+/** The original audio element owns its prepared file until it changes or stops. */
+const preparedFiles = new WeakMap<HTMLAudioElement, { release: () => void }>();
+export function setMusicAudioFile(el: HTMLAudioElement, cid: string, address: string, seconds = 0): void {
+  const previous = preparedFiles.get(el);
+  const ready = musicAudioPreloader.take(cid, address);
+  preparedFiles.delete(el);
+  if (ready) preparedFiles.set(el, ready);
+  el.src = `${ready?.url ?? address}${seconds > 0 ? `#t=${seconds.toFixed(1)}` : ''}`;
+  previous?.release();
+}
+export function releaseMusicAudioFile(el: HTMLAudioElement): void {
+  preparedFiles.get(el)?.release();
+  preparedFiles.delete(el);
 }
 
 /**
@@ -78,7 +95,7 @@ export function primeMusicAudio(cid?: string | null, seconds = 0): void {
   const el = musicAudioElement();
   // From where the song is to go on (a reload's resume), not heard from its start first: the
   // engine seeks there exactly once it takes the file over.
-  if (msrAudioCid(el.getAttribute('src')) !== cid) el.src = `${msrAudioAddress(cid)}${seconds > 0 ? `#t=${seconds.toFixed(1)}` : ''}`;
+  if (msrAudioCid(el.getAttribute('src')) !== cid) setMusicAudioFile(el, cid, msrAudioAddress(cid), seconds);
   logAudioEvent(`prime: ${cid}, play() in the press`);
   el.play().then(() => logAudioEvent('prime play() resolved'), (error: unknown) => {
     logAudioEvent(`prime play() rejected: ${(error as { name?: string })?.name ?? 'Error'}`);
