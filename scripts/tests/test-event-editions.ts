@@ -55,3 +55,8 @@ test('wiki enrichment cannot revive a withdrawn Global forecast', async () => {
   assert.equal(estimateBannerFromCn(banner, 175).global_date, null);
   assert.equal(globalBannerPreview(banner).global_date, null);
 });
+
+test('withdrawn forecasts never label CN dates as an estimated Global window', async () => {
+  const { bannerTimingLabel } = await import('../../lib/gacha/bannerTimingLabel');
+  assert.equal(bannerTimingLabel({ globalForecastWithdrawn: true, global_date_estimated: true, global_date: null, cn_date: '2026/05/15–2026/05/29' } as never), 'Global date unannounced');
+});
