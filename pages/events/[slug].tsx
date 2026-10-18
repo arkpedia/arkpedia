@@ -183,8 +183,9 @@ export default function EventDetailPage({
   const hasExtras = extras.packs.length + extras.furniture.length + extras.notices.length > 0;
   // A page compiled by a release from before the News tab has no `news` at all.
   const news = extras.news ?? [];
+  const board = extras.board ?? [];
   const sections = SECTIONS.filter((section) => (
-    section.key === 'overview' ? !!mode : section.key === 'banner' ? !!bannerName : section.key === 'rewards' ? rewardStores.length > 0 || hasExtras : section.key === 'news' ? news.length > 0 : skins.length > 0
+    section.key === 'overview' ? !!mode : section.key === 'banner' ? !!bannerName : section.key === 'rewards' ? rewardStores.length > 0 || hasExtras : section.key === 'news' ? news.length + board.length > 0 : skins.length > 0
   ));
   const [chosenSection, setActiveSection] = useState<SectionKey | null>(sections[0]?.key ?? null);
   /* The section on screen: the one chosen if this event has it, else the event's
@@ -437,7 +438,7 @@ export default function EventDetailPage({
 
           {activeSection === 'news' && (
             <section className="op-section" {...tabPanelProps('event-section', 'news')}>
-              <EventNews news={news} />
+              <EventNews news={news} board={board} />
             </section>
           )}
 
@@ -522,6 +523,12 @@ export const getStaticPaths: GetStaticPaths = async () => {
     fallback: 'blocking',
   };
 };
+
+function withNewsArt(props: Props): Props {
+  if (!props.extras) return props;
+  return { ...props, extras: { ...props.extras, board: props.extras.board ?? [],
+    news: (props.extras.news ?? []).map((section) => ({ ...section, art: section.art ?? [], postArt: section.postArt ?? null })) } };
+}
 
 export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/events/[slug]", async ({ params }) => {
   const name = params?.slug as string;
@@ -666,5 +673,6 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
   };
 }, {
   // A release exported before reward totals carried their order: this deployment's catalogue fills it in.
-  finalize: (props) => withMaterialOrder(props, (page) => page.rewardStores.flatMap((store) => store.items.map((item) => item.name))),
+  // One exported before the News tab's official art has none: no board items, no pictures.
+  finalize: async (props) => withNewsArt(await withMaterialOrder(props, (page) => page.rewardStores.flatMap((store) => store.items.map((item) => item.name)))),
 });

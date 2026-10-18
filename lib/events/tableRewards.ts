@@ -12,7 +12,7 @@ export interface PackContents { name: string; count: number; kind: string }
 export interface EventPack { name: string; start?: string; end?: string | null; contents: PackContents[]; limit?: number; notes?: string[] }
 export interface FurniturePiece { name: string; id: string; obtain: string | null; comfort: number | null }
 export interface TableRewardGroup {
-  kind: 'login' | 'banner-gift' | 'free-rolls' | 'missions' | 'milestones' | 'first-clear' | 'pray' | 'packs' | 'notice' | 'news' | 'furniture-set';
+  kind: 'login' | 'banner-gift' | 'free-rolls' | 'missions' | 'milestones' | 'first-clear' | 'pray' | 'packs' | 'notice' | 'news' | 'board' | 'furniture-set';
   title: string;
   source: string;
   start?: string;
@@ -28,8 +28,15 @@ export interface TableRewardGroup {
   /** notice: the section's DURATION/DETAILS/REWARDS lines as the post words them; news: all of the
    *  section's lines (build-event-rewards.mjs NEWS_LINES). */
   lines?: string[];
-  /** news: when the official post was published (ISO). */
+  /** news: when the official post was published (ISO); board: the day the in-game board showed it. */
   published?: string;
+  /** news: the post's pictures in this section, each above the line `at` (at the end when `at` is
+   *  the number of lines; above the heading when -1), on the official website's image host. */
+  art?: NewsArt[];
+  /** news: the picture the post opens with, above its first section. */
+  postArt?: string;
+  /** board: the in-game board item's art (a headhunting banner's), on the game's image host. */
+  image?: string;
   /** furniture-set: the set's pieces and its description. */
   pieces?: FurniturePiece[];
   themeId?: string;
@@ -40,6 +47,8 @@ export interface TableRewardGroup {
   /** 'CN' for a group read from the CN tables while Global has not had the event yet. */
   region?: string;
 }
+
+export interface NewsArt { url: string; at: number }
 
 /** data/event-rewards.json, as /events/[slug] reads it. */
 export interface EventRewardsFile {
@@ -70,6 +79,7 @@ export const TABLE_REWARD_LABEL: Record<TableRewardGroup['kind'], string | null>
   packs: null,
   notice: null,
   news: null,
+  board: null,
   'furniture-set': null,
 };
 
@@ -79,10 +89,12 @@ export interface EventExtras {
   furniture: { title: string; source: string; imagePath?: string | null; description: string | null; pieces: FurniturePiece[] }[];
   notices: { title: string; source: string; lines: string[] }[];
   /** The rest of the event's official announcement, section by section: the page's News tab. */
-  news: { title: string; source: string; published: string | null; lines: string[] }[];
+  news: { title: string; source: string; published: string | null; lines: string[]; art: NewsArt[]; postArt: string | null }[];
+  /** The in-game board's items for the event (its banners'), with their art: atop the News tab. */
+  board: { title: string; source: string | null; shown: string | null; image: string }[];
 }
 
-export const NO_EXTRAS: EventExtras = { packs: [], furniture: [], notices: [], news: [] };
+export const NO_EXTRAS: EventExtras = { packs: [], furniture: [], notices: [], news: [], board: [] };
 
 export function eventExtras(groups: TableRewardGroup[], iconFor: (name: string) => string | null, packArt: (name: string) => string | null = () => null, isPublished: (file: string) => boolean = () => false): EventExtras {
   return {
@@ -92,7 +104,8 @@ export function eventExtras(groups: TableRewardGroup[], iconFor: (name: string) 
     })),
     furniture: groups.filter(g => g.kind === 'furniture-set' && g.pieces?.length).map(g => ({ title: g.title, source: g.source, imagePath: furnitureArtPath(g, isPublished), description: g.description ?? null, pieces: g.pieces! })),
     notices: groups.filter(g => g.kind === 'notice' && g.lines?.length).map(g => ({ title: g.title, source: g.source, lines: g.lines! })),
-    news: groups.filter(g => g.kind === 'news' && g.lines?.length).map(g => ({ title: g.title, source: g.source, published: g.published ?? null, lines: g.lines! })),
+    news: groups.filter(g => g.kind === 'news' && g.lines?.length).map(g => ({ title: g.title, source: g.source, published: g.published ?? null, lines: g.lines!, art: g.art ?? [], postArt: g.postArt ?? null })),
+    board: groups.filter(g => g.kind === 'board' && g.image).map(g => ({ title: g.title, source: g.source || null, shown: g.published ?? null, image: g.image! })),
   };
 }
 

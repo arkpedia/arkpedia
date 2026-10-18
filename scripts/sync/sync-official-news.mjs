@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 /**
  * Caches Arknights Global's official event announcements into data/official-news/global/<id>.json
- * ({ id, title, publishTime, url, lines }), for build-event-rewards.mjs to read packs, gifts and
- * the like from (scripts/build/official-news.mjs). The official website is a source the user named
+ * ({ id, title, publishTime, url, lines, art }), for build-event-rewards.mjs to read packs, gifts and
+ * the like from (scripts/build/official-news.mjs). `art` is where the post's pictures stand
+ * ({ url, line }, newsArt): their addresses on the website's own image host, never the pictures;
+ * a post cached before it gets it when it is next fetched (within RETRY_DAYS, or the Sunday walk). The official website is a source the user named
  * for news (2026-10-03), ahead of the wiki.
  *
  * Reads the public list, newest first, page by page until a page holds nothing new, and fetches
@@ -33,7 +35,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { newsLines } from '../build/official-news.mjs';
+import { newsArt, newsLines } from '../build/official-news.mjs';
 import { beginStage, defaultNow, readQuarantine } from '../lib/quarantine.mjs';
 
 const API = 'https://www.arknights.global/api/resource/news';
@@ -111,7 +113,7 @@ export async function syncOfficialNews(root, { fetcher = globalThis.fetch, now =
   for (const row of queue) {
     try {
       const post = await getJson(`${API}/detail?id=${row.id}`, fetcher);
-      const record = { id: post.id ?? row.id, title: post.title ?? row.title, publishTime: post.publishTime ?? row.publishTime, url: postUrl(row.id), lines: newsLines(post.content) };
+      const record = { id: post.id ?? row.id, title: post.title ?? row.title, publishTime: post.publishTime ?? row.publishTime, url: postUrl(row.id), lines: newsLines(post.content), art: newsArt(post.content) };
       const file = path.join(dir, `${record.id}.json`);
       const text = `${JSON.stringify(record, null, 1)}\n`;
       if (!fs.existsSync(file) || fs.readFileSync(file, 'utf8') !== text) { fs.writeFileSync(file, text); written++; }
