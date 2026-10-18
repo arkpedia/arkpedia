@@ -10,6 +10,7 @@ import { pinnedRef } from '../content/pin-upstream.mjs';
 import { beginStage, defaultNow } from '../lib/quarantine.mjs';
 import { buildEventFarming } from './sync-event-farming.mjs';
 import { newsLines } from '../build/official-news.mjs';
+import { readOfficialBulletins } from './sync-official-bulletins.mjs';
 import { serverDay, SERVER_TIME, serverInstant } from '../../lib/time/servers.mjs';
 
 export const OUTPUT = 'data/regional-schedules.json';
@@ -57,6 +58,26 @@ export function noticeOpening(record, notices, server) {
   return starts.size === 1 ? { ...record, ...times[0], status: 'announced' } : record;
 }
 
+/** The in-game notice board as first-party confirmation that a banner opened (data/official-
+ * bulletins.json, sync-official-bulletins.mjs): its banner item links to the pool by the
+ * gacha_table id. One board date for the pool, on the regional calendar day the client opens it,
+ * marks the window announced. The board gives a day and no time, so it never moves an opening
+ * or a closing; a notice's exact time (noticeOpening) stands, and a board date on another day is
+ * left for review. The source is the announcement page of the same title and date when there is
+ * exactly one, else the board item itself.
+ */
+export function boardOpening(record, board, server) {
+  if (record.status === 'announced' || !record.poolId) return record;
+  const items = (board?.bulletins ?? []).filter(item => item.kind === 'banner' && item.poolId === record.poolId);
+  const dates = new Set(items.map(item => item.displayDate));
+  if (dates.size !== 1) return record;
+  const [date] = dates;
+  if (serverDay(Date.parse(record.startAt) / 1000, SERVER_TIME[server].offset).replaceAll('/', '-') !== date) return record;
+  const item = items[0];
+  const pages = (board.notices ?? []).filter(notice => notice.url && notice.title === item.title && notice.date === date);
+  return { ...record, timingSource: pages.length === 1 ? pages[0].url : `ingame-board:${server}/${item.id}`, status: 'announced' };
+}
+
 /** Published Japanese sale paragraphs name the exact outfit. Read the following
  * explicit sale interval, never a release association or another region's shop. */
 export function noticeSkinWindows(notices, tables, skins, server) {
@@ -99,7 +120,7 @@ function eventActivity(event, english) {
   return near.length === 1 ? near[0][0] : null;
 }
 
-export function buildRegionalSchedule({ server, tables, english, events, banners, skins, stages, contents, rewards = [], notices = [], shopOverrides = [], base }) {
+export function buildRegionalSchedule({ server, tables, english, events, banners, skins, stages, contents, rewards = [], notices = [], board = null, shopOverrides = [], base }) {
   const source = table => `${base}/${table}_table.json`;
   if (Object.keys(tables.activity?.basicInfo ?? {}).length < 100 || (tables.gacha?.gachaPoolClient?.length ?? 0) < 100
     || Object.keys(tables.zone?.weeklyAdditionInfo ?? {}).length < 9 || Object.keys(tables.stage?.stages ?? {}).length < 1000) throw new Error(`Incomplete ${server} client tables`);
@@ -130,7 +151,7 @@ export function buildRegionalSchedule({ server, tables, english, events, banners
     const pool = pools.get(id);
     if (!pool) return [];
     const span = window(pool.openTime, pool.endTime, source('gacha'));
-    return span ? [[banner.name, noticeOpening({ ...span, poolId: id, localName: pool.gachaPoolName, status: 'datamined' }, notices, server)]] : [];
+    return span ? [[banner.name, boardOpening(noticeOpening({ ...span, poolId: id, localName: pool.gachaPoolName, status: 'datamined' }, notices, server), board, server)]] : [];
   }));
   const contentWindows = {};
   for (const id of Object.keys(contents)) {
@@ -252,6 +273,7 @@ export async function syncRegionalSchedules(root, { fetcher = globalThis.fetch, 
     return { base, tables };
   };
   const english = (await load('en')).tables;
+  const boards = readOfficialBulletins(root).regions;
   const servers = { ...previous.servers };
   for (const server of ['en', 'jp', 'kr']) {
     try {
@@ -265,7 +287,7 @@ export async function syncRegionalSchedules(root, { fetcher = globalThis.fetch, 
         console.warn(`${server} notices: ${error.message}`);
         stage.add({ key: `${server}:notices`, reason: 'Regional official notices could not be read; prior announcement overrides are retained.', action: 'kept-previous' });
       }
-      const next = buildRegionalSchedule({ server, tables, english, events, banners, skins, stages, contents, rewards, notices, shopOverrides, base });
+      const next = buildRegionalSchedule({ server, tables, english, events, banners, skins, stages, contents, rewards, notices, board: server === 'en' ? null : boards[server], shopOverrides, base });
       // A notice-feed outage or old notice leaving the bounded list cannot undo its confirmed opening.
       for (const kind of ['activities', 'events', 'banners']) for (const [id, old] of Object.entries(previous.servers?.[server]?.[kind] ?? {})) {
         const row = next[kind][id];

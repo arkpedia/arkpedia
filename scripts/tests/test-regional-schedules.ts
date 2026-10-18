@@ -2,7 +2,7 @@ import { certificateMonths, greenCertificateIncome, certificatePulls } from '../
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 // @ts-expect-error Plain Node ingestion.
-import { noticeOpening, noticeSkinWindows, buildRegionalSchedule } from '../sync/sync-regional-schedules.mjs';
+import { boardOpening, noticeOpening, noticeSkinWindows, buildRegionalSchedule } from '../sync/sync-regional-schedules.mjs';
 import { regionalBanners, regionalEvents, regionalPullBanners, regionalFreeRewards, currentRegionalFreeRewards, supplyOpen, regionalSkinWindows, type RegionalSchedule } from '../../lib/time/regional';
 import { bannerFreePulls, type UpcomingBanner } from '../../lib/pulls/pulls';
 import { availableBannerFreePulls, planBudgets } from '../../lib/pulls/plan';
@@ -38,6 +38,29 @@ test('a named regional announcement corrects maintenance preloading without shif
   assert.equal(noticeOpening(client, [{ ...notices[0], lines: [...notices[0].lines, '2026年10月14日（水）17:00'] }], 'jp').startAt, client.startAt);
   const korean = { ...client, localName: '서약' };
   assert.equal(noticeOpening(korean, [{ ...notices[0], title: '한정 헤드헌팅 서약', lines: ['10월 14일(수) 16:00 부터 개방'] }], 'kr').startAt, time.startAt);
+});
+
+test('the in-game board confirms a JP/KR banner by pool id on its opening day, and never moves a date', () => {
+  // DOUBLE_JP_41_0_9 opens 2026-10-08T19:00Z, 04:00 on the 9th in Japan and Korea.
+  const client = { startAt: '2026-10-08T19:00:00.000Z', endAt: '2026-10-22T19:00:00.000Z', timingSource: 'gacha_table.json', poolId: 'DOUBLE_JP_41_0_9', localName: '常設', status: 'datamined' };
+  const item = { id: '2095', kind: 'banner', title: '常設スカウト 10.9更新', displayDate: '2026-10-09', poolId: 'DOUBLE_JP_41_0_9', firstSeen: '2026-10-18' };
+  const page = { id: '1426', group: 'ACTIVITY', title: '常設スカウト 10.9更新', date: '2026-10-09', url: 'https://ark-jp-static-online.yo-star.com/announce/Android/announcement/1426.html', firstSeen: '2026-10-18' };
+  const confirmed = boardOpening(client, { bulletins: [item], notices: [page] }, 'jp');
+  assert.deepEqual(confirmed, { ...client, status: 'announced', timingSource: page.url });
+  assert.equal(boardOpening(client, { bulletins: [item], notices: [] }, 'jp').timingSource, 'ingame-board:jp/2095', 'the board item when no page matches');
+  assert.equal(boardOpening(client, { bulletins: [{ ...item, displayDate: '2026-10-10' }] }, 'jp'), client, 'a board date on another day is left for review');
+  assert.equal(boardOpening(client, { bulletins: [item, { ...item, id: '9', displayDate: '2026-10-08' }] }, 'jp'), client, 'two board dates are ambiguous');
+  assert.equal(boardOpening(client, { bulletins: [{ ...item, poolId: 'DOUBLE_JP_41_0_8' }] }, 'jp'), client, 'another pool');
+  assert.equal(boardOpening(client, { bulletins: [{ ...item, kind: 'event' }] }, 'jp'), client, 'only banner items');
+  assert.equal(boardOpening(client, null, 'jp'), client);
+  const announced = { ...client, startAt: '2026-10-09T07:00:00.000Z', timingSource: 'https://www.arknights.jp/news/1', status: 'announced' };
+  assert.equal(boardOpening(announced, { bulletins: [item] }, 'jp'), announced, "a notice's exact time stands");
+  const korean = { ...client, poolId: 'DOUBLE_KR_41_0_9' };
+  assert.equal(boardOpening(korean, { bulletins: [{ ...item, poolId: 'DOUBLE_KR_41_0_9' }] }, 'kr').status, 'announced');
+  for (const result of [confirmed, boardOpening(korean, { bulletins: [{ ...item, poolId: 'DOUBLE_KR_41_0_9' }] }, 'kr')]) {
+    assert.equal(result.startAt, client.startAt);
+    assert.equal(result.endAt, client.endAt);
+  }
 });
 
 test('shop extraction uses the sale paragraph and OP inventory, not an earlier login or stage deadline', () => {
