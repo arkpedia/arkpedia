@@ -3,9 +3,16 @@ name: Client version dispatch
 # tables come from already carries it, instead of waiting for the nightly run
 # (scripts/content/client-version-dispatch.mjs says when it does and does not). A schedule only
 # fires from the default branch: elsewhere this runs when dispatched, and then only as a dry run.
+# A push that changes the dispatcher runs it once as a dry run too, on any branch: GitHub only
+# lets a workflow be dispatched once it has run, so this is also how dev gets to try it.
 on:
   schedule:
     - cron: '23 */3 * * *'
+  push:
+    branches: [main, dev]
+    paths:
+      - .github/workflows/client-version-dispatch.yml
+      - scripts/content/client-version-dispatch.mjs
   workflow_dispatch:
     inputs:
       dry_run:
@@ -52,7 +59,7 @@ jobs:
         id: dispatch
         env:
           GH_TOKEN: ${{ github.token }}
-          DRY_RUN: ${{ (github.ref_name != 'main' || (github.event_name == 'workflow_dispatch' && inputs.dry_run)) && '--dry-run' || '' }}
+          DRY_RUN: ${{ (github.ref_name != 'main' || github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.dry_run)) && '--dry-run' || '' }}
           DATA_BRANCH: ${{ inputs.data_branch || 'main' }}
         run: |
           set -euo pipefail

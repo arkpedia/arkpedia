@@ -158,3 +158,19 @@ test('a dry run decides but starts and remembers nothing; an unreadable client i
   assert.deepEqual(unread.regions.find((entry: any) => entry.region === 'cn'), { region: 'cn', status: 'unread', detail: "the client's version could not be read" });
   assert.equal(unread.dispatch, false);
 });
+
+test('the workflow starts a real refresh only from main, on its schedule or when dispatched without dry_run', () => {
+  const text = fs.readFileSync('.github/workflows/client-version-dispatch.yml', 'utf8');
+  const expression = text.match(/DRY_RUN: \$\{\{ (.+) \}\}/)?.[1] ?? '';
+  // The expression, evaluated for each way the workflow starts.
+  const dryRun = (ref: string, event: string, input = false) => expression
+    .replace(/github\.ref_name/g, JSON.stringify(ref)).replace(/github\.event_name/g, JSON.stringify(event)).replace(/inputs\.dry_run/g, String(input))
+    .replace(/ && '--dry-run' \|\| ''$/, '');
+  const evaluate = (ref: string, event: string, input?: boolean) => Function(`return (${dryRun(ref, event, input)})`)() as boolean;
+  assert.equal(evaluate('main', 'schedule'), false);
+  assert.equal(evaluate('main', 'workflow_dispatch', false), false);
+  assert.equal(evaluate('main', 'workflow_dispatch', true), true);
+  assert.equal(evaluate('main', 'push'), true, 'a push to the dispatcher only tries it');
+  assert.equal(evaluate('dev', 'push'), true);
+  assert.equal(evaluate('dev', 'workflow_dispatch', false), true, 'off main, always a dry run');
+});
