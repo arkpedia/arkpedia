@@ -34,9 +34,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    at: '2026-10-18T03:00:00Z',
+    at: '2026-10-18T03:45:59Z',
     fixed: [
       { title: 'Rerun event details', detail: 'Reruns use their own outfits and rewards; Relaunch Anchor has a full page, and expired banner estimates show as unannounced.', href: '/schedule' },
+    ],
+  },
+  {
+    at: '2026-10-18T03:00:00Z',
+    fixed: [
+      { title: 'More reliable email-code requests', detail: 'Failed connections retry once; clearer errors and a resend countdown help avoid duplicate requests.', href: '/account' },
     ],
   },
   {

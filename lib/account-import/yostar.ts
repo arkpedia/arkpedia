@@ -28,6 +28,8 @@ export interface TransportRequest {
   method: 'GET' | 'POST';
   headers: Record<string, string>;
   body?: string;
+  /** A code request must not follow a redirect and then mistake its connect failure for no delivery. */
+  redirect?: 'manual';
 }
 export interface TransportResponse {
   status: number;
@@ -80,7 +82,7 @@ export const isServerId = (value: unknown): value is ServerId => typeof value ==
 export type ImportStep = 'send-code' | 'sign-in' | 'network' | 'game-token' | 'game-login' | 'account' | 'pulls';
 
 export class ImportError extends Error {
-  constructor(readonly step: ImportStep, message: string) {
+  constructor(readonly step: ImportStep, message: string, readonly connectionCode?: number) {
     super(message);
     this.name = 'ImportError';
   }
@@ -148,14 +150,16 @@ export async function u8Sign(fields: Record<string, string | number>): Promise<s
 }
 
 const object = (value: unknown): Record<string, any> => (value && typeof value === 'object' ? value as Record<string, any> : {});
-const CODE_LIMIT_MESSAGE = 'Yostar is limiting email-code requests. Wait before requesting another code. You can still try a code already received for this account and server.';
+const CODE_LIMIT_MESSAGE = 'Yostar is limiting email-code requests. Please wait at least 1 minute before trying again; Yostar may need longer. You can still try a code already received for this account and server.';
 
 async function post(transport: Transport, step: ImportStep, url: string, headers: Record<string, string>, body: unknown) {
   let response: TransportResponse;
   try {
-    response = await transport(url, { method: 'POST', headers, body: JSON.stringify(body) });
+    response = await transport(url, { method: 'POST', headers, body: JSON.stringify(body), ...(step === 'send-code' ? { redirect: 'manual' as const } : {}) });
   } catch (error) {
-    throw new ImportError(step, `could not reach ${new URL(url).host}: ${error instanceof Error ? error.message : String(error)}`);
+    const message = error instanceof Error ? error.message : String(error);
+    const code = /^Request failed with error code (\d+):/.exec(message);
+    throw new ImportError(step, `could not reach ${new URL(url).host}: ${message}`, code ? Number(code[1]) : undefined);
   }
   if (response.status === 429 && step === 'send-code') throw new ImportError(step, CODE_LIMIT_MESSAGE);
   if (response.status < 200 || response.status >= 300) throw new ImportError(step, `${new URL(url).host} answered HTTP ${response.status}`);
@@ -180,9 +184,29 @@ export interface FlowOptions {
   now?: () => number;
 }
 
-/** Step 1: Yostar emails the code. */
-export async function sendCode({ transport, server, deviceId, now = Date.now }: FlowOptions, email: string): Promise<void> {
-  await yostar(transport, 'send-code', server, 'yostar/send-code', { Account: email, Randstr: '', Ticket: '' }, deviceId, now);
+/** Step 1: Yostar emails the code. Only curl's DNS/connect failures (6/7) establish
+ * that no HTTP request reached Yostar. Retry those once, on the same route/device.
+ * Timeouts, dropped replies, HTTP errors and provider refusals may follow delivery:
+ * never replay those. Rebuild the signed timestamp for the second attempt. */
+export async function sendCode({ transport, server, deviceId, now = Date.now }: FlowOptions, email: string, onRetry?: () => void): Promise<void> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      await yostar(transport, 'send-code', server, 'yostar/send-code', { Account: email, Randstr: '', Ticket: '' }, deviceId, now);
+      return;
+    } catch (error) {
+      const connection = error instanceof ImportError && (error.connectionCode === 6 || error.connectionCode === 7);
+      if (connection && attempt === 0) {
+        onRetry?.();
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        continue;
+      }
+      if (connection) throw new ImportError('send-code', `Could not connect to Yostar. Please wait 1 minute and try again. (Connection error ${error.connectionCode}.)`, error.connectionCode);
+      if (error instanceof ImportError && (error.connectionCode !== undefined || error.message.startsWith('could not reach ') || /answered HTTP 5\d\d/.test(error.message))) {
+        throw new ImportError('send-code', `The code request could not be confirmed. Check your email before requesting another code, and wait at least 1 minute before trying again. (${error.message})`, error.connectionCode);
+      }
+      throw error;
+    }
+  }
 }
 
 export interface YostarAccount {

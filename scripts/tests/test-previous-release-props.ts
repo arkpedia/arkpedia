@@ -282,6 +282,7 @@ const DATA_ONLY: Record<string, Record<string, string>> = {
     '.ongoingSkins[].globalReleaseAt': "the same outfit's Global release time, absent from older records the same way",
   },
   '/schedule': {
+    '.events[].linkedSkinNames': 'optional run-specific inventory; older releases safely use strict edition-aware matching until their content refresh',
     '.operators[].portraitPending': 'optional publication status while a new portrait is pending; older releases retain their existing portrait rendering',
     '.events[].aliases': 'optional historic names on renamed source records; Schedule does not read this field',
     '.events[].bannerName': 'optional metadata on new headhunting calendar entries; older releases contain only event entries and keep their event navigation',
@@ -293,6 +294,7 @@ const DATA_ONLY: Record<string, Record<string, string>> = {
     '.events[].global.shopEndAt': "the event store's close (sync-event-windows.mjs, from activity_table rewardEndTime), which the data first carried on 2026-09-30; GameWindowTimes has it optional, and eventShopEnd reads its absence as a store that closes with the stages, as the page did before; nothing on /schedule reads it yet",
   },
   '/skins': {
+    '.events[].linkedSkinNames': 'optional run-specific inventory; older releases safely use strict edition-aware matching until their content refresh',
     '.events[].aliases': 'optional historic names on renamed source records; the skin page does not read this field',
     '.events[].modeId': 'permanent RA launch metadata is optional; releases without it contain only timed events and retain their existing behavior',
     '.events[].cn.releaseDate': 'permanent RA launch metadata is optional; releases without it contain only timed events and retain their existing behavior',

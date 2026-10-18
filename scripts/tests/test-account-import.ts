@@ -125,6 +125,70 @@ test('the server list recovers from temporary curl connection refusals on every 
   }
 });
 
+test('email codes retry a failed connection once on the same server/device with a fresh signature', async () => {
+  for (const id of SERVER_IDS) {
+    const calls: { url: string; request: TransportRequest }[] = [];
+    let retries = 0;
+    let time = 1_790_000_000_000;
+    await sendCode({ server: id, deviceId: 'same-device', now: () => time, transport: async (url, request) => {
+      calls.push({ url, request });
+      if (calls.length === 1) throw new Error('Request failed with error code 7: Could not connect to server');
+      return { status: 200, json: { Code: 200, Data: {} } };
+    } }, 'a@b.c', () => { retries++; time += 1000; });
+    assert.equal(retries, 1);
+    assert.equal(calls.length, 2);
+    assert.ok(calls.every(call => call.url === `${SERVERS[id].yostar}/yostar/send-code`));
+    assert.ok(calls.every(call => call.request.redirect === 'manual'), 'no hidden redirect can deliver before a later connect failure');
+    assert.equal(calls[0].request.body, calls[1].request.body);
+    const heads = calls.map(call => JSON.parse(call.request.headers.Authorization).Head);
+    assert.ok(heads.every(head => head.DeviceID === 'same-device' && head.PID === SERVERS[id].pid));
+    assert.equal(heads[1].Time - heads[0].Time, 1);
+  }
+});
+
+test('email-code DNS/connect retries are bounded and explain when to try again', async () => {
+  for (const code of [6, 7]) {
+    let calls = 0;
+    await assert.rejects(sendCode({ server: 'en', deviceId: 'd', transport: async () => {
+      calls++;
+      throw new Error(`Request failed with error code ${code}: unavailable`);
+    } }, 'a@b.c'), error => error instanceof ImportError && error.step === 'send-code'
+      && error.connectionCode === code && /wait 1 minute/.test(error.message));
+    assert.equal(calls, 2);
+  }
+});
+
+test('possible code delivery, TLS failures and provider refusals never automatically resend', async () => {
+  for (const code of [28, 35, 52, 55, 56, 60]) {
+    let calls = 0;
+    await assert.rejects(sendCode({ server: 'en', deviceId: 'd', transport: async () => {
+      calls++;
+      throw new Error(`Request failed with error code ${code}: transport failure`);
+    } }, 'a@b.c'), /Check your email.*at least 1 minute/);
+    assert.equal(calls, 1);
+  }
+  for (const status of [302, 307, 403, 429, 500, 502, 504]) {
+    let calls = 0;
+    await assert.rejects(sendCode({ server: 'en', deviceId: 'd', transport: async () => {
+      calls++;
+      return { status, json: null };
+    } }, 'a@b.c'), ImportError);
+    assert.equal(calls, 1);
+  }
+  let calls = 0;
+  await assert.rejects(sendCode({ server: 'en', deviceId: 'd', transport: async () => {
+    calls++;
+    return { status: 200, json: { Code: 1, Msg: '邮件发送频率上限' } };
+  } }, 'a@b.c'), /at least 1 minute.*may need longer/);
+  assert.equal(calls, 1);
+  calls = 0;
+  await assert.rejects(signIn({ server: 'en', deviceId: 'd', transport: async () => {
+    calls++;
+    throw new Error('Request failed with error code 7: Could not connect to server');
+  } }, 'a@b.c', '123456'), ImportError);
+  assert.equal(calls, 1, 'code verification is never automatically replayed');
+});
+
 test('server-list retries stop after three connection failures and allow a fresh attempt', async () => {
   let calls = 0;
   const transport: Transport = async () => {

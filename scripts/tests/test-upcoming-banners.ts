@@ -117,6 +117,10 @@ test('Joint Operation and Orienteering forecasts keep timing but never CN lineup
     assert.deepEqual(shown.six_stars, []);
     assert.equal(shown.banner_image, null);
     const scheduled = planner.find(b => b.name === raw.name)!;
+    if (raw.globalForecastWithdrawn) {
+      assert.equal(scheduled, undefined, raw.name + ' has no supported planning window');
+      continue;
+    }
     assert.ok(scheduled, raw.name + ' has an approximate planning window');
     assert.deepEqual(scheduled.sixStars, []);
     assert.deepEqual(scheduled.alsoRatedUp, []);
