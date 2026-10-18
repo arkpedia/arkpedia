@@ -4,6 +4,7 @@ import Image from '@/components/content/ContentImage';
 import { useRouter } from 'next/router';
 import { useEffect, useRef, useState } from 'react';
 import ThemeToggle from './ThemeToggle';
+import SiteSearch from './SiteSearch';
 import MobileNavDrawer from './MobileNavDrawer';
 import type { MobileNavOverride } from '@/lib/nav/mobileNavOverride';
 import ServerClock from './ServerClock';
@@ -260,15 +261,19 @@ export default function SiteNav({ mobileNav }: { mobileNav?: MobileNavOverride }
 
   // A dot on What's new, and on the menu holding it, until the latest entry has been read.
   const changelogUnseen = useChangelogUnseen();
-  const renderLink = (link: NavLink, className: string) => (
+  /* Support is its heart alone in the bar, named by a tooltip and for screen readers. The
+     bar had about 1px to spare at its 1040px cap, and the search button needed ~50: the
+     heart's label was the one word in the row whose icon already says it. */
+  const renderLink = (link: NavLink, className: string, iconOnly = false) => (
     <Link
       prefetch={false}
       key={link.href}
       href={link.href}
-      className={isActiveLink(link, router.pathname) ? `${className} active` : className}
+      title={iconOnly ? link.label : undefined}
+      className={`${className}${iconOnly ? ' site-nav-link-icon-only' : ''}${isActiveLink(link, router.pathname) ? ' active' : ''}`}
     >
       <span className="site-nav-icon" aria-hidden="true">{ICONS[link.icon]}</span>
-      <span>{link.label}</span>
+      <span className={iconOnly ? 'visually-hidden' : undefined}>{link.label}</span>
       {link.href === '/changelog' && changelogUnseen && <span className="nav-new-dot" aria-label="New" />}
     </Link>
   );
@@ -320,7 +325,7 @@ export default function SiteNav({ mobileNav }: { mobileNav?: MobileNavOverride }
               );
             })}
 
-            {LOOSE.map((l) => renderLink(l, 'site-nav-link'))}
+            {LOOSE.map((l) => renderLink(l, 'site-nav-link', l.href === '/support'))}
           </div>
 
           {/* Carries the margin-left:auto that used to sit on the theme wrap. Only one
@@ -329,6 +334,7 @@ export default function SiteNav({ mobileNav }: { mobileNav?: MobileNavOverride }
           <ServerClock variant="bar" />
 
           <div className="site-nav-theme-wrap">
+            <SiteSearch variant="bar" />
             <ThemeToggle />
           </div>
         </div>

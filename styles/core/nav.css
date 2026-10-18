@@ -45,6 +45,10 @@
    both end up adrift in the middle. */
 .site-nav-theme-wrap {
   flex-shrink: 0;
+  /* The search button and the theme toggle, side by side (.site-search below). */
+  display: flex;
+  align-items: center;
+  gap: 2px;
 }
 .site-brand {
   display: flex;
@@ -583,6 +587,87 @@
 }
 .mobile-nav-drawer-link.active .site-nav-icon {
   opacity: 1;
+}
+
+/* --- Site search (components/layout/SiteSearch.tsx) -------------------------------- */
+
+/* The bar's control pair: search, then the theme toggle, 6px apart -- the toggle's own
+   4px margin plus 2. The nav has no room for a standing field (1px of slack at its 1040px
+   cap), so search is a 30px button, the toggle's size, square-cornered like every other
+   control (only the toggle's portrait is round). */
+.site-search {
+  display: flex;
+  flex-shrink: 0;
+}
+.site-search-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  padding: 0;
+  border-radius: var(--radius-control);
+  border: 1px solid var(--control-border);
+  background: var(--panel-2);
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.site-search-trigger:hover,
+.site-search-trigger[aria-expanded="true"] { border-color: var(--teal); color: var(--teal); }
+.site-search-trigger:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+
+/* The Support link with its label kept for screen readers only: the same pill, square. */
+.site-nav-link.site-nav-link-icon-only {
+  padding: 7px 9px;
+}
+
+/* Fixed under the bar like the menus (.site-nav-pop), right-aligned with the frame the
+   bar's controls end at. Never in flow, so opening it moves nothing on the page. */
+.site-search-pop {
+  position: fixed;
+  top: var(--nav-h, 52px);
+  margin-top: 2px;
+  z-index: 60;
+  box-sizing: border-box;
+  padding: 10px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 12px 28px rgb(0 0 0 / 0.38);
+}
+:root[data-theme="light"] .site-search-pop { box-shadow: 0 12px 28px rgb(15 25 35 / 0.13); }
+.site-search-bar .site-search-pop {
+  right: max(var(--page-gutter), calc((100% - var(--frame-max)) / 2 + var(--page-gutter)));
+  width: 440px;
+}
+/* On the phone: the bar's full width, less a margin, under the 52px bar. */
+.site-search-mobile .site-search-pop {
+  left: 10px;
+  right: 10px;
+}
+/* The list under the field: taller than a filter's 320px, since it is the whole point of
+   the panel, and never longer than the screen left under the bar. */
+.site-search-pop [role="listbox"] {
+  max-height: min(480px, calc(100vh - var(--nav-h, 52px) - 90px));
+}
+
+/* The phone's bar: the same 44px tile as the menu button and the toggle. */
+.mobile-nav-bar .site-search-trigger {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-control);
+  border-color: transparent;
+  background: none;
+  color: var(--text);
+}
+.mobile-nav-bar .site-search-trigger svg { width: 19px; height: 19px; }
+.mobile-nav-bar .site-search-trigger:hover { border-color: transparent; color: var(--teal); }
+.mobile-nav-bar .site-search-trigger:active { background: var(--panel-2); }
+/* The search tile took the room the wordmark had on a narrow phone: there the logo alone
+   says whose site this is, and the clock keeps its place. */
+@media (max-width: 400px) {
+  .mobile-nav-bar .site-brand-text { display: none; }
 }
 
 /* The bar's inner is capped at 1040px, so every viewport at or above that gets the

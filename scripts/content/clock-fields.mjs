@@ -41,7 +41,7 @@ export const DERIVED_CLOCK_PATHS = {
  * a page's props are. The rest of release/public is records (stage and enemy details,
  * lyrics, planner data) and is not searched by name.
  */
-export const BUILD_OUTPUTS = ['music-catalogue.json', 'operator-search.json', 'stage-guesser/catalogue.json', 'stage-guesser/manifest.json'];
+export const BUILD_OUTPUTS = ['music-catalogue.json', 'operator-search.json', 'site-search.json', 'stage-guesser/catalogue.json', 'stage-guesser/manifest.json'];
 
 const plain = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 const topLevel = (value, where) => (plain(value) ? Object.keys(value).filter(key => CLOCK_FIELDS.has(key)).map(key => `${where}.${key}`) : []);
