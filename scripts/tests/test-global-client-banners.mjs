@@ -130,3 +130,10 @@ test('the automatic release reads announcements before reconciling banners and a
   assert.ok(news >= 0 && news < banners && banners < windows);
   assert.equal(script.match(/stage official-news --/g).length, 1);
 });
+
+test('a datamined Global pool replaces a withdrawn forecast', () => {
+  const banners = structuredClone([predecessor, { ...forecast, global_date: null, globalForecastWithdrawn: true }]);
+  run(banners, table, { operators });
+  assert.equal(banners[1].globalForecastWithdrawn, undefined);
+  assert.equal(banners[1].global_date, '2026/10/30–2026/11/13');
+});

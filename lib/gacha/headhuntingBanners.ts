@@ -34,6 +34,8 @@ export interface HeadhuntingBanner {
   cn_date: string | null;
   global_date: string | null;
   global_date_estimated?: boolean;
+  /** An obsolete forecast is withheld until a Global pool or announcement replaces it. */
+  globalForecastWithdrawn?: boolean;
   /** Client-extracted timing is provisional until a published Global announcement. */
   globalScheduleStatus?: 'datamined' | 'announced';
   /** Forecast timing is available; Global has not confirmed its own lineup yet. */

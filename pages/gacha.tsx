@@ -2461,6 +2461,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ga
     cn_date: b.cn_date ?? null,
     global_date: b.global_date ?? null,
     global_date_estimated: b.global_date_estimated ?? false,
+    ...(b.globalForecastWithdrawn ? { globalForecastWithdrawn: true } : {}),
     ...(b.globalScheduleStatus ? { globalScheduleStatus: b.globalScheduleStatus } : {}),
     ...(b.globalLineupPending ? { globalLineupPending: true } : {}),
     ...(b.schedule_anchor ? { schedule_anchor: b.schedule_anchor } : {}),

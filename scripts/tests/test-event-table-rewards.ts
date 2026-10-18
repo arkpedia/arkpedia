@@ -333,3 +333,17 @@ test('official daily sign-in totals and selector lists work before the Global pa
   assert.equal(packs.tickets['Top Operator Transfer Permit'].operators.length, 35);
   assert.equal(packs.packs.length, 16);
 });
+
+test('a pending Global rerun uses its own CN mission inventory instead of the original run', () => {
+  const cn = structuredClone(fixture.tables);
+  const source = cn.activity.basicInfo.act15side;
+  cn.activity.basicInfo.act15side = { ...source, id: 'act15sre', isReplicate: true };
+  cn.activity.missionData = cn.activity.missionData.map((m: { missionGroup: string }) => ({ ...m, missionGroup: m.missionGroup === 'act15side' ? 'act15sre' : m.missionGroup }));
+  const rerun = { name: '[Rerun] Invitation to Wine Rerun', activityId: 'act15sre', global: { dateRange: '2099/01/01–2099/01/10' }, cn: fixture.event.global };
+  const entry = buildEventRewards([fixture.event, rerun], fixture.tables, [], cn)[rerun.name];
+  assert.equal(entry.activity, 'act15sre');
+  assert.equal(entry.region, 'CN');
+  assert.equal(entry.inheritsFrom, undefined);
+  assert(entry.groups.some((g: {kind: string}) => g.kind === 'missions'));
+  assert(entry.groups.every((g: {inherited?: string}) => !g.inherited));
+});

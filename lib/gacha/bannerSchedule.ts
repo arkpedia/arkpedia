@@ -5,6 +5,7 @@ interface BannerWindow {
   global_date: string | null;
   cn_date: string | null;
   global_date_estimated?: boolean;
+  globalForecastWithdrawn?: boolean;
   schedule_anchor?: string;
   pull_type?: string;
   globalPoolId?: string | null;
@@ -48,6 +49,7 @@ export function resolveBannerEventWindow<T extends BannerWindow>(banner: T, even
 
 /** Calendar-style fallback for CN-only banners without a linked event window. */
 export function estimateBannerFromCn<T extends BannerWindow>(banner: T, gapDays: number): T {
+  if (banner.globalForecastWithdrawn) return { ...banner, global_date: null };
   if (banner.global_date) return banner;
   const cn = range(banner.cn_date);
   if (!cn) return banner;

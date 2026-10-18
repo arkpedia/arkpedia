@@ -35,5 +35,5 @@ test('datamined current pools and Orienteering forecasts keep distinct labels', 
   await page.goto('/gacha?banner=' + encodeURIComponent('Orienteering #7'));
   await expect(page.getByText('Awaiting Global lineup confirmation.', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Pull one operator', exact: true })).toBeDisabled();
-  await expect(page.locator('.gacha-banner-sidebar-item[aria-pressed="true"]')).toContainText('Estimated Global');
+  await expect(page.locator('.gacha-banner-sidebar-item[aria-pressed="true"]')).toContainText('Global date unannounced');
 });

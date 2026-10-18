@@ -735,3 +735,11 @@ test('catalogue wiki enrichment preserves a saved Global announcement beyond mai
   assert.deepEqual(next.banners[0].global_window, expected);
   assert.equal(next.banners[0].globalScheduleStatus, 'announced');
 });
+
+test('an existing activity with missing artwork gets a media plan even without a matching wiki calendar row', () => {
+  const event = { name: '[Rerun] A Story Rerun', activityId: 'act1sre', poster: null, cn: { dateRange: '2026/01/01–2026/01/10' }, global: { dateRange: null } };
+  const cnTables = { ...empty, activity: { basicInfo: { act1sre: { id: 'act1sre' } } } };
+  const result = reconcileCalendars({ announced: noNews, events: [event], banners: [], operators: [], cn: cnTables, en: empty, eventRows: [], bannerRows: [] });
+  assert.equal(result.events[0].poster, '/event-poster/A Story Rerun.webp');
+  assert(result.media.some((entry: { path: string }) => entry.path === 'event-poster/A Story Rerun.webp'));
+});

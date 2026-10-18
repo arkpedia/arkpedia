@@ -36,7 +36,7 @@ test('schedule artwork uses Arkpedia image-asset paths', () => {
     for (const event of events) {
       if (!event.poster) continue;
       const asset = publishedImagePath(event.poster);
-      assert.match(asset, event.modeId ? /^\/(?:content-art|album-covers)\/.+\.(?:webp|jpg)$/ : /^\/event-poster\/.+\.(?:webp|jpg)$/, `${file}: ${event.name}`);
+      assert.match(asset, event.modeId ? /^\/(?:content-art|album-covers|event-poster)\/.+\.(?:webp|jpg)$/ : /^\/event-poster\/.+\.(?:webp|jpg)$/, `${file}: ${event.name}`);
     }
   }
 });
