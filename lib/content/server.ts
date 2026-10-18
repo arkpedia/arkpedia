@@ -78,7 +78,11 @@ async function read(url: string, maxBytes: number): Promise<Buffer> {
   const response = await fetchAsset(url, { signal: AbortSignal.timeout(10_000), cache: 'no-store' });
   // The status rides on the error: a missing channel pointer (404) falls back to live's.
   if (!response.ok) throw Object.assign(new Error(`Content HTTP ${response.status}: ${url}`), { status: response.status });
-  if (Number(response.headers.get('content-length')) > maxBytes) throw new Error('Content response too large');
+  // Content-Length counts the bytes on the wire, gzip's when the origin compressed them, and gzip
+  // makes a tiny file bigger: /search's 12-byte {"props":{}} came as 32, so its every regeneration
+  // threw and Vercel kept the deploy's build. The limit is on the decoded bytes the loop below
+  // counts; the header only answers early for a body sent as it is.
+  if (!response.headers.get('content-encoding') && Number(response.headers.get('content-length')) > maxBytes) throw new Error('Content response too large');
   if (!response.body) throw new Error('Empty content response');
   const chunks: Uint8Array[] = [];
   let bytes = 0;
