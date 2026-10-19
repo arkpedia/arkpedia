@@ -8,6 +8,7 @@ import TransportIcon from './TransportIcons';
 import { MUSIC_VIEW_HREF, type MusicView } from './MusicNav';
 import PlayerMoreMenu from './PlayerMoreMenu';
 import { MSR_LABEL } from '@/lib/music/songArt';
+import { youtubeWatchUrl } from '@/lib/music/trackId';
 
 function formatTime(seconds: number): string {
   if (!isFinite(seconds) || seconds < 0) return '0:00';
@@ -73,6 +74,8 @@ export default function MusicTransportBar({ view, compact = false, coverPath, on
   const catalogTitle = currentTrack?.title || title || '';
   const { displayName, fading } = useCrossFadeTitle(catalogTitle, currentTrack?.altTitle);
   const isFav = Boolean(videoId) && favorites.has(videoId);
+  // The song's YouTube upload, for a song that has one (a Monster Siren-only song has none).
+  const youtubeUrl = videoId ? youtubeWatchUrl(videoId) : null;
   // The page's cover for the song where it has one, else the player's fallback (lib/music/songArt.ts).
   const cover = videoId ? coverPath || nowPlayingCover || null : coverPath;
   const artist = nowPlayingArtist ?? currentTrack?.artist ?? null;
@@ -157,6 +160,8 @@ export default function MusicTransportBar({ view, compact = false, coverPath, on
         <div className="music-transport-left music-transport-buttons">
           {favorite('music-transport-fav-wide')}
           <SongPlaylistPicker player song={{ id: videoId || '', title: catalogTitle }} />
+          {youtubeUrl && <a href={youtubeUrl} target="_blank" rel="noreferrer" className="ghost filter-chip music-youtube-btn"
+            aria-label={`Open ${catalogTitle} on YouTube`} title="Open on YouTube"><TransportIcon name="youtube" /></a>}
           <button type="button" className="filter-chip music-stream-safe-btn" onClick={() => setExcludeCopyrighted(!excludeCopyrighted)}
             aria-pressed={excludeCopyrighted} aria-label="Stream-safe: hide copyrighted songs" title="Stream-safe"><TransportIcon name="streamSafe" /></button>
           <PlayerMoreMenu onFullPlayer={onFullPlayer} view={view} />
