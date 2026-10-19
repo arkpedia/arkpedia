@@ -1,10 +1,11 @@
-import { useAccount } from '@/lib/account/accountStore';
+import { useSiteServer } from './siteServer';
 import { useReleaseTable } from '@/lib/content/context';
 import type { RegionalSchedules } from './regional';
 
-/** Account server is the sole regional preference; snapshots travel with the page release. */
+/** The site's server (lib/time/siteServer.ts: the nav's choice, else the account's) and its
+ *  schedule; snapshots travel with the page release. */
 export function useRegionalTime() {
-  const server = useAccount()?.server ?? 'en';
+  const server = useSiteServer();
   const schedules = useReleaseTable<RegionalSchedules>('regional-schedules');
   return { server, schedule: schedules.servers[server] };
 }

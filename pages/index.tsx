@@ -23,7 +23,7 @@ import FeaturedOperatorsPanel from '@/components/home/FeaturedOperatorsPanel';
 import SkinsCarousel from '@/components/skins/SkinsCarousel';
 import CommunityFader from '@/components/home/CommunityFader';
 import MaintenanceNotice from '@/components/home/MaintenanceNotice';
-import { currentMaintenance, type MaintenanceWindow } from '@/lib/home/maintenance';
+import { currentRegionalMaintenance, type RegionalMaintenance } from '@/lib/home/maintenance';
 import { readMaintenanceWindows } from '@/lib/home/maintenanceServer';
 import {
   GameEvent,
@@ -59,9 +59,9 @@ interface Props {
   featuredStream: TwitchStream | null;
   featuredVideo: YouTubeVideo | null;
   earliestCommunityEvent: CommunityEvent | null;
-  /** Global server maintenance announced in game and not over (lib/home/maintenance.ts): the
+  /** Each server's maintenance announced in game and not over (lib/home/maintenance.ts): the
    *  notice above the panels and the ticker. Absent from releases before it, so finalize fills it. */
-  maintenance: MaintenanceWindow[];
+  maintenance: RegionalMaintenance;
   /** The request's clock (epoch ms, to the minute), which contentPageClock adds
    *  (lib/content/pageClock.ts). finalizeHome picks the panels' rows by it, and the
    *  Events panel's first paint uses it too, so the server markup and hydration agree. */
@@ -135,7 +135,7 @@ export default function HomePage({
             outline gets its h1 invisibly -- without it the outline started at
             the panels' h2s with nothing above them. */}
         <h1 className="visually-hidden">Arkpedia — Arknights community hub</h1>
-        <MaintenanceNotice windows={maintenance} now={now} />
+        <MaintenanceNotice maintenance={maintenance} now={now} />
         <div className="front-page-left">
           <EventsPanel ongoing={deserializedEvents} upcoming={deserializedUpcoming} farmableMaterials={farmableMaterials} now={now} />
           <SkinsCarousel skins={ongoingSkins} />
@@ -187,7 +187,8 @@ async function finalizeHome(props: Props): Promise<Props> {
       ? availableSkins(__calendar.skins, withLocalConfirmedSkinWindows(__calendar.skinWindows), now)
       : getOngoingSkins(now, __calendar?.skins, events),
     featuredVideo: videos[0] || null, featuredStream: streams[0] || null, earliestCommunityEvent: communityEvent,
-    maintenance: currentMaintenance(props.maintenance ?? [], props.now),
+    // A release from before the regions, which held Global's list alone, counts as Global's.
+    maintenance: currentRegionalMaintenance(Array.isArray(props.maintenance) ? { en: props.maintenance } : props.maintenance ?? {}, props.now),
   };
 }
 

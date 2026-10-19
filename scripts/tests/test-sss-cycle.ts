@@ -45,6 +45,6 @@ test('the cycle is a checked release table of the home page, and no date is type
   // The home page hands it to the ticker as a required prop; the ticker uses nothing else.
   assert.match(fs.readFileSync('pages/index.tsx', 'utf8'), /<AnnouncementTicker sssCycle=\{sssCycle\} maintenance=\{maintenance\} \/>/);
   const ticker = fs.readFileSync('components/layout/AnnouncementTicker.tsx', 'utf8');
-  assert.match(ticker, /AnnouncementTicker\(\{ sssCycle, maintenance \}: \{ sssCycle: SssCycle; maintenance: readonly MaintenanceWindow\[\] \}\)/);
+  assert.match(ticker, /AnnouncementTicker\(\{ sssCycle, maintenance \}: \{ sssCycle: SssCycle; maintenance: RegionalMaintenance \}\)/);
   assert.match(ticker, /getActiveReminders\(now, sssCycleRef\.current, server, scheduleRef\.current\)/);
 });

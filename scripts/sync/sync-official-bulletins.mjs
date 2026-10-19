@@ -13,7 +13,7 @@
  *     the banners in data/headhunting_banners.json carry). Its `bannerImageUrl` is the
  *     official art: hashed once (sha1 and size) and not kept.
  *   - the announcement list at network_config's `an` (en, jp, kr; CN's is dead, see
- *     DEAD_ANNOUNCEMENT_LISTS): id, group (ACTIVITY, SYSTEM), title and a month and day. A SYSTEM
+ *     DEAD_ANNOUNCEMENT_LISTS): id, group (ACTIVITY, SYSTEM), title and a month and day. A maintenance
  *     notice of a MAINTENANCE_REGIONS region also gets `maintenance`, the window its page
  *     announces ({ startAt, endAt }, or null for none), which the home page and its ticker show.
  *
@@ -35,14 +35,24 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { beginStage, defaultNow } from '../lib/quarantine.mjs';
+import { serverInstant } from '../../lib/time/servers.mjs';
 import { DEAD_ANNOUNCEMENT_LISTS, getBytes, getJson, REGIONS, regionNetwork } from '../lib/official-endpoints.mjs';
 
 export const OFFICIAL_BULLETINS = 'data/official-bulletins.json';
 /** The newest item of a live board is days old; one older than this is a board that moved. */
 export const STALE_DAYS = 45;
-/** The regions whose SYSTEM notices are read for a maintenance window: their prose is parsed
- *  (parseMaintenance), so a region joins once its wording has been looked at. */
-export const MAINTENANCE_REGIONS = new Set(['en']);
+/** The regions whose notices are read for a maintenance window: their prose is parsed
+ *  (parseMaintenance), so a region joins once its wording has been looked at. JP and KR joined on
+ *  2026-10-20, from their notices of Aug-Oct 2026 (scripts/tests/test-official-bulletins.ts). */
+export const MAINTENANCE_REGIONS = new Set(['en', 'jp', 'kr']);
+
+/** Whether a notice may announce a maintenance: Global files them under SYSTEM. JP and KR list
+ *  every notice under ACTIVITY, so there the title says it (メンテナンス, 점검). */
+export function maybeMaintenance(region, notice) {
+  if (!notice.url) return false;
+  if (notice.group === 'SYSTEM') return true;
+  return region !== 'en' && /メンテナンス|점검/.test(notice.title ?? '');
+}
 
 const day = now => new Date(now).toISOString().slice(0, 10);
 const daysBetween = (from, to) => Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);
@@ -97,24 +107,59 @@ const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 
 const STAMP = String.raw`(${MONTHS.join('|')})\s+(\d{1,2}),\s*(\d{4}),?\s*(\d{1,2}):([0-5]\d)`;
 const WINDOW = new RegExp(String.raw`${STAMP}\s*[-–~]\s*(?:(${MONTHS.join('|')})\s+(\d{1,2}),\s*(\d{4}),?\s*)?(\d{1,2}):([0-5]\d)\s*\(UTC\s*([+\-−])\s*(\d{1,2})(?::?([0-5]\d))?\)`, 'g');
 
+const JP_WINDOW = /(\d{4})年(\d{1,2})月(\d{1,2})日\s*[（(][^）)]*[）)]\s*(\d{1,2}):([0-5]\d)\s*[~〜～\-–]\s*(?:(\d{4})年(\d{1,2})月(\d{1,2})日\s*[（(][^）)]*[）)]\s*)?(\d{1,2}):([0-5]\d)/g;
+const KR_DAY = String.raw`(?:(\d{1,2})월\s*(\d{1,2})일|(\d{1,2})\/(\d{1,2}))(?:\s*\([^)]*\))?,?\s*`;
+const KR_WINDOW = new RegExp(String.raw`${KR_DAY}(\d{1,2}):([0-5]\d)\s*~\s*(?:${KR_DAY})?(\d{1,2}):([0-5]\d)`, 'g');
+
+/** One window from its wall-clock parts, or null for one that ends before it starts or lasts
+ *  over two days. A closing time with no day of its own is that day, or the next past midnight. */
+function windowFrom(start, end, endHasDay) {
+  if (!endHasDay && end <= start) end += 86_400_000;
+  if (end <= start || end - start > 2 * 86_400_000) return null;
+  return `${new Date(start).toISOString()}/${new Date(end).toISOString()}`;
+}
+
 /**
- * The maintenance window a SYSTEM notice page announces, { startAt, endAt } as ISO instants, or
- * null. Global's notices put it as "July 30, 2026, 08:00-08:10 (UTC-7)" (or with the closing day
- * spelled out), once in their first sentence and again under "Maintenance Date and Time"; a page
- * naming two different windows, or none, gives null. Only this derived window is kept.
+ * The maintenance window a notice page announces, { startAt, endAt } as ISO instants, or null. A
+ * page naming two different windows, or none, gives null. Only this derived window is kept.
+ *  - Global (en) puts it as "July 30, 2026, 08:00-08:10 (UTC-7)" (or with the closing day spelled
+ *    out), once in the first sentence and again under "Maintenance Date and Time".
+ *  - JP as "2026年10月14日（水）10:00 ~ 16:00", in Japan server time (lib/time/servers.mjs).
+ *  - KR as "10월 14일 (수) 10:00 ~ 16:00" or "8/20 (목) 16:00 ~ 17:00", in Korea time and with no
+ *    year: the year is the notice's own (`date`, from the list), or the next one for a window
+ *    that would otherwise fall months before the notice.
+ * A KR "resource update" says it happens without maintenance (점검 없이) and gives null.
  */
-export function parseMaintenance(html) {
+export function parseMaintenance(html, region, date) {
   const text = String(html ?? '').replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/[ \t]+/g, ' ');
-  if (!/maintenance/i.test(text)) return null;
   const windows = new Set();
-  for (const m of text.matchAll(WINDOW)) {
+  if (region === 'jp') {
+    if (!/メンテナンス/.test(text)) return null;
+    for (const m of text.matchAll(JP_WINDOW)) {
+      const at = (year, month, day, hour, minute) => serverInstant(Number(year), Number(month), Number(day), Number(hour), 'jp') + Number(minute) * 60_000;
+      const window = windowFrom(at(m[1], m[2], m[3], m[4], m[5]), at(m[6] ?? m[1], m[7] ?? m[2], m[8] ?? m[3], m[9], m[10]), Boolean(m[6]));
+      if (window) windows.add(window);
+    }
+  } else if (region === 'kr') {
+    if (!/점검/.test(text) || /점검\s*없이/.test(text) || !/^\d{4}-\d{2}-\d{2}$/.test(String(date ?? ''))) return null;
+    const noticeAt = Date.parse(`${date}T00:00:00Z`);
+    for (const m of text.matchAll(KR_WINDOW)) {
+      const month = Number(m[1] ?? m[3]), day = Number(m[2] ?? m[4]);
+      let year = Number(date.slice(0, 4));
+      if (Date.UTC(year, month - 1, day) < noticeAt - 60 * 86_400_000) year += 1;
+      const endMonth = m[7] ?? m[9], endDay = m[8] ?? m[10];
+      const at = (mo, d, hour, minute) => serverInstant(year, Number(mo), Number(d), Number(hour), 'kr') + Number(minute) * 60_000;
+      const window = windowFrom(at(month, day, m[5], m[6]), at(endMonth ?? month, endDay ?? day, m[11], m[12]), Boolean(endMonth));
+      if (window) windows.add(window);
+    }
+  } else {
+    if (!/maintenance/i.test(text)) return null;
+    for (const m of text.matchAll(WINDOW)) {
     const offset = (m[11] === '+' ? 1 : -1) * (Number(m[12]) * 60 + Number(m[13] ?? 0)) * 60_000;
     const at = (month, day, year, hour, minute) => Date.UTC(Number(year), MONTHS.indexOf(month), Number(day), Number(hour), Number(minute)) - offset;
-    const start = at(m[1], m[2], m[3], m[4], m[5]);
-    let end = at(m[6] ?? m[1], m[7] ?? m[2], m[8] ?? m[3], m[9], m[10]);
-    if (!m[6] && end <= start) end += 86_400_000;
-    if (end <= start || end - start > 2 * 86_400_000) continue;
-    windows.add(`${new Date(start).toISOString()}/${new Date(end).toISOString()}`);
+    const window = windowFrom(at(m[1], m[2], m[3], m[4], m[5]), at(m[6] ?? m[1], m[7] ?? m[2], m[8] ?? m[3], m[9], m[10]), Boolean(m[6]));
+    if (window) windows.add(window);
+    }
   }
   if (windows.size !== 1) return null;
   const [startAt, endAt] = [...windows][0].split('/');
@@ -242,14 +287,14 @@ export async function syncOfficialBulletins(root, { fetcher = globalThis.fetch, 
             ...(date ? { date } : {}), ...(item.webUrl ? { url: stableUrl(item.webUrl) } : {}), firstSeen: today });
           added[region]++;
         }
-        // A SYSTEM notice's maintenance window, read once, and again while it is still to come
-        // or under way (a notice can move it). A page that names no window keeps `null`.
+        // A maintenance notice's window, read once, and again while it is still to come or under
+        // way (a notice can move it). A page that names no window keeps `null`.
         if (MAINTENANCE_REGIONS.has(region)) {
           for (const notice of notices.values()) {
-            if (notice.group !== 'SYSTEM' || !notice.url) continue;
+            if (!maybeMaintenance(region, notice)) continue;
             if ('maintenance' in notice && !(notice.maintenance && Date.parse(notice.maintenance.endAt) > new Date(now).getTime())) continue;
             try {
-              notice.maintenance = parseMaintenance((await getBytes(notice.url, fetcher)).toString('utf8'));
+              notice.maintenance = parseMaintenance((await getBytes(notice.url, fetcher)).toString('utf8'), region, notice.date);
             } catch (error) {
               console.warn(`${region} notice ${notice.id} could not be read for a maintenance window (asked again next run): ${error.message}`);
             } finally {

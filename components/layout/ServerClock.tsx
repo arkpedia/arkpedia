@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react';
 import { formatCountdown } from '@/lib/schedule/opsSchedules';
-import { useAccount } from '@/lib/account/accountStore';
+import { applySiteServerAttribute, cycleSiteServer, nextServer, useSiteServer } from '@/lib/time/siteServer';
+import { SERVERS } from '@/lib/account-import/yostar';
 import { serverClockAt, serverOffsetLabel, SERVER_TIME } from '@/lib/time/servers.mjs';
 
 /**
  * The server's wall clock and the time left until the daily reset.
  *
- * Both follow the selected account's server through lib/time/servers.mjs.
+ * Both follow the site's server (lib/time/siteServer.ts) through lib/time/servers.mjs. The
+ * reset's label is the switch: clicking it steps the whole site to the next server.
  * Regional resets use fixed offsets rather than the reader's device timezone.
  *
  * Nothing renders a real time on the server. A clock is by definition different on
@@ -54,8 +56,9 @@ interface Display {
 }
 
 export default function ServerClock({ variant }: { variant: ServerClockVariant }) {
-  const account = useAccount();
-  const server = account?.server ?? 'en';
+  const server = useSiteServer();
+  // The nav is on every page, so it is what keeps the boot script's attribute current.
+  useEffect(() => applySiteServerAttribute(server), [server]);
   const [display, setDisplay] = useState<Display | null>(null);
 
   useEffect(() => {
@@ -100,7 +103,17 @@ export default function ServerClock({ variant }: { variant: ServerClockVariant }
       <span className="site-nav-clock-label">{variant === 'mobile' ? 'SVR' : 'Server Time'}</span>
       <span className="site-nav-clock-time">{clock}</span>
       <span className="site-nav-clock-sep" aria-hidden="true" />
-      <span className="site-nav-clock-label">{server.toUpperCase()} {variant === 'mobile' ? 'RST' : 'Reset'}</span>
+      {/* The button is the label alone, so the strip keeps its measured width; the three server
+          codes are all two letters. */}
+      <button
+        type="button"
+        className="btn-bare site-nav-clock-label site-nav-clock-server"
+        onClick={() => cycleSiteServer()}
+        aria-label={`${SERVERS[server].label} server. Switch the site to ${SERVERS[nextServer(server)].label}`}
+        title={`Showing ${SERVERS[server].label} times. Click for ${SERVERS[nextServer(server)].label}`}
+      >
+        {server.toUpperCase()} {variant === 'mobile' ? 'RST' : 'Reset'}
+      </button>
       <span className="site-nav-clock-reset">{reset}</span>
     </div>
   );

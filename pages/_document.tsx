@@ -2,6 +2,8 @@ import { Html, Head, Main, NextScript } from 'next/document';
 import { COMPANION_PAGE } from '@/lib/gamemodes/companionRoute';
 import { THEME_COLOR } from '@/lib/nav/themeColor';
 import { assetRetryScript } from '@/lib/assets/assetRetry';
+import { ACCOUNT_STORAGE_KEY } from '@/lib/account/accountStore';
+import { SITE_SERVER_KEY } from '@/lib/time/siteServer';
 
 export default function Document() {
   return (
@@ -39,7 +41,7 @@ export default function Document() {
         <script dangerouslySetInnerHTML={{ __html: assetRetryScript() }} />
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem('theme');if(t==='light'){document.documentElement.setAttribute('data-theme','light');var m=document.querySelector('meta[name="theme-color"]');if(m){m.setAttribute('content',${JSON.stringify(THEME_COLOR.light)});}}}catch(e){}})();`,
+            __html: `(function(){try{var s=localStorage.getItem(${JSON.stringify(SITE_SERVER_KEY)});if(!s){var a=JSON.parse(localStorage.getItem(${JSON.stringify(ACCOUNT_STORAGE_KEY)})||'null');s=a&&a.server;}if(s==='jp'||s==='kr'){document.documentElement.setAttribute('data-site-server',s);}}catch(e){}try{var t=localStorage.getItem('theme');if(t==='light'){document.documentElement.setAttribute('data-theme','light');var m=document.querySelector('meta[name="theme-color"]');if(m){m.setAttribute('content',${JSON.stringify(THEME_COLOR.light)});}}}catch(e){}})();`,
           }}
         />
       </Head>
