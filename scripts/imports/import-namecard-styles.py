@@ -35,6 +35,11 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
+import importlib.util as _importlib_util
+_spec = _importlib_util.spec_from_file_location('client_bundles', Path(__file__).with_name('client_bundles.py'))
+_client_bundles = _importlib_util.module_from_spec(_spec)
+_spec.loader.exec_module(_client_bundles)
+
 ROOT = Path(__file__).resolve().parents[2]
 OUTPUT = ROOT / 'data' / 'namecard-styles.json'
 CDN = os.environ.get('ARKPEDIA_YOSTAR_CDN', 'https://ark-us-static-online.yo-star.com/assetbundle/official/Android')
@@ -49,35 +54,9 @@ THEME_BUNDLE = re.compile(r'arts/ui/namecardskin/\[uc\](nc_[\w]+)\.ab')
 FIELDS = {'theme': '_themeColor', 'themeText': '_themeTextColor', 'panel': '_moduleBgColor', 'panelText': '_moduleTextColor', 'panelIcon': '_moduleIconColor'}
 
 
-def decompress_lz4ak(data: bytes, uncompressed_size: int) -> bytes:
-    """The client's LZ4: undo the swapped token nibbles and big-endian offsets, then decode."""
-    import lz4.block
-    block = bytearray(data)
-    pos, end = 0, len(block)
-    while pos < end:
-        token = block[pos]
-        literal, match = token & 0x0F, token >> 4
-        block[pos] = (literal << 4) | match
-        pos += 1
-        if literal == 0x0F:
-            while pos < end:
-                extra = block[pos]
-                pos += 1
-                literal += extra
-                if extra != 0xFF:
-                    break
-        pos += literal
-        if pos >= end:
-            break
-        block[pos], block[pos + 1] = block[pos + 1], block[pos]
-        pos += 2
-        if match == 0x0F:
-            while pos < end:
-                extra = block[pos]
-                pos += 1
-                if extra != 0xFF:
-                    break
-    return lz4.block.decompress(bytes(block), uncompressed_size)
+# The client's LZ4, shared by every importer that reads the client's bundles (client_bundles.py).
+# Re-exported here for import-medal-layouts.py and the tests, which take it from this module.
+decompress_lz4ak = _client_bundles.decompress_lz4ak
 
 
 def colour(value: dict) -> str:
