@@ -15,6 +15,7 @@ public/enemy-detail
 public/stage-detail
 public/stage-guesser
 public/music-catalogue.json
+public/site-search.json
 
 # Local/importer outputs. Runtime media is served by the public asset repos.
 public/lyrics

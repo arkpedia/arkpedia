@@ -17,7 +17,17 @@ import { LINKS, NAV_ORDER, isActiveLink } from '../../lib/nav/navLinks';
 const require = createRequire(import.meta.url);
 const { pathToRegexp } = require('next/dist/compiled/path-to-regexp') as { pathToRegexp: (source: string) => RegExp };
 // A phase other than build or dev, so loading the config does not rebuild the asset index.
-const config = require('../../next.config.js')('test') as { redirects: () => Promise<{ source: string; destination: string }[]> };
+type Redirect = { source: string; destination: string; has?: { type: string; key: string }[] };
+const config = require('../../next.config.js')('test') as { redirects: () => Promise<Redirect[]> };
+
+/* Whether a redirect serves `href`: its path, and any query its `has` asks for. The
+   site search's `/` + `?s=` rule must not read as "every link home is redirected". A
+   condition on something a link cannot carry (a header, a cookie) is taken as met. */
+function serves(redirect: Redirect, href: string): boolean {
+  if (!pathToRegexp(redirect.source).test(href.split(/[?#]/)[0])) return false;
+  const query = new URLSearchParams(href.split('#')[0].split('?')[1] ?? '');
+  return (redirect.has ?? []).every((condition) => condition.type !== 'query' || query.has(condition.key));
+}
 
 /** The page file a route resolves to, if any. */
 function pageFile(href: string): string | null {
@@ -27,7 +37,7 @@ function pageFile(href: string): string | null {
 
 test('every nav href is a page no next.config.js redirect matches', async () => {
   const redirects = await config.redirects();
-  const redirected = (href: string) => redirects.filter(r => pathToRegexp(r.source).test(href.split(/[?#]/)[0]));
+  const redirected = (href: string) => redirects.filter(r => serves(r, href));
   // Not vacuous: the old Enemies href is exactly what this refuses.
   assert.ok(redirected('/enemies/originium_slug_enemy_1007_slime').length, 'the retired per-enemy path is a redirect');
   const problems: string[] = [];
@@ -66,9 +76,10 @@ test('no <Link> on the site points at an address a next.config.js redirect serve
   // per-stage path -- a click fetched /stages/14-1 as a document, then the browse page,
   // and the app restarted (measured 2026-09-26).
   const redirects = await config.redirects();
-  const redirected = (href: string) => redirects.filter(r => pathToRegexp(r.source).test(href.split(/[?#]/)[0]));
+  const redirected = (href: string) => redirects.filter(r => serves(r, href));
   // Not vacuous: both retired shapes are redirects, and the scan sees the site's links.
   assert.ok(redirected('/enemies/x').length && redirected('/stages/x').length, 'the retired per-enemy and per-stage paths are redirects');
+  assert.ok(redirected('/?s=amiya').length && !redirected('/').length && !redirected('/#top').length, 'only a search query sends home to /search');
   const links = linkHrefs();
   assert.ok(links.length > 50, `the scan found ${links.length} links`);
   assert.ok(links.some(({ href }) => href === '/enemies?e=x') && links.some(({ href }) => href === '/stages/browse?s=x'));

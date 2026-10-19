@@ -85,6 +85,15 @@ const nextConfig = {
         permanent: false,
       },
       { source: '/community/livestreams', destination: '/community/videos', permanent: true },
+      // arkpedia.net/?s=<query> is the site search too (pages/search.tsx), for anyone who
+      // sets the site up as a search engine by hand. Only on the home page: /stages/browse
+      // already reads ?s= as its selected stage. The query string is carried across.
+      {
+        source: '/',
+        has: [{ type: 'query', key: 's' }],
+        destination: '/search',
+        permanent: false,
+      },
       ...['characters', 'artists', 'origins'].map((collection) => ({
         source: `/music/discover/${collection}`,
         destination: `/music/discover?browse=${collection}`,

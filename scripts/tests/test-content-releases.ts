@@ -113,6 +113,50 @@ test('a static route the release lacks regenerates on Vercel only when its page 
   }
 });
 
+/* GitHub's raw origin gzips, and its Content-Length is the gzip's: bigger than the file for a
+   tiny one. /search's {"props":{}} (12 bytes, 32 gzipped) failed every regeneration on Vercel
+   as "Content response too large", and the deploy's build stayed up. */
+/* As the origin sends it. CompressionStream, not zlib: test-payload-budgets keeps zlib, the tool
+   of size budgets, out of npm test, and this measures no size. */
+const gzip = async (text: string) => Buffer.from(await new Response(new Blob([text]).stream().pipeThrough(new CompressionStream('gzip'))).arrayBuffer());
+
+test('a gzipped page smaller than its own gzip still loads, and the decoded size is still capped', async () => {
+  const revision = 'f'.repeat(40), release = 'f'.repeat(64);
+  const pages: Record<string, string> = { '/search': JSON.stringify({ props: {} }), '/community': JSON.stringify({ props: { value: 'x'.repeat(5000) } }) };
+  const manifest: ContentManifest = { schema: CONTENT_SCHEMA, release, generatedAt: '2026-10-18T00:00:00Z', generator: revision,
+    assets: { 'arkpedia-image-assets': revision, 'arkpedia-skin-assets': revision }, pages: {}, files: {} };
+  const gzipped = Object.fromEntries(await Promise.all(Object.entries(pages).map(async ([route, body]) => [route, await gzip(body)] as const)));
+  for (const [route, body] of Object.entries(pages)) manifest.pages[route] = { path: pageFilePath(route), bytes: Buffer.byteLength(body), sha256: sha(body) };
+  // Understated, so the decoded body runs past the limit the manifest sets.
+  manifest.pages['/community'].bytes = 100;
+  const body = JSON.stringify(manifest);
+  const pointer: ContentPointer = { schema: CONTENT_SCHEMA, release, revision, manifestSha256: sha(body) };
+  const server = createServer((request, response) => {
+    if (request.url === '/live/current.json') { response.end(JSON.stringify(pointer)); return; }
+    if (request.url === `/${revision}/release/manifest.json`) { response.end(body); return; }
+    const route = Object.keys(pages).find(key => request.url === `/${revision}/release/${pageFilePath(key)}`);
+    if (!route) { response.writeHead(404); response.end(); return; }
+    response.writeHead(200, { 'content-encoding': 'gzip', 'content-length': gzipped[route].length });
+    response.end(gzipped[route]);
+  });
+  await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
+  const address = server.address();
+  assert.ok(address && typeof address !== 'string');
+  const keys = ['ARKPEDIA_CONTENT_URL', 'ARKPEDIA_CONTENT_TEST', 'ARKPEDIA_CONTENT_DISABLED', 'ARKPEDIA_EXPORT_CONTENT', 'VERCEL'] as const;
+  const before = Object.fromEntries(keys.map(key => [key, process.env[key]]));
+  Object.assign(process.env, { ARKPEDIA_CONTENT_URL: `http://127.0.0.1:${address.port}`, ARKPEDIA_CONTENT_TEST: '1', ARKPEDIA_CONTENT_DISABLED: '0', ARKPEDIA_EXPORT_CONTENT: '0', VERCEL: '1' });
+  try {
+    assert.ok(gzipped['/search'].length > Buffer.byteLength(pages['/search']), 'the fixture is smaller than its gzip');
+    const result = await withContentPage('/search', async () => ({ props: {} }), { bundledWhenUnpublished: true })({ revalidateReason: 'stale' });
+    assert.ok('props' in result);
+    assert.ok((await result.props as { __contentRelease?: unknown }).__contentRelease, 'the release page, not the builder');
+    await assert.rejects(async () => withContentPage('/community', async () => ({ props: {} }), { bundledWhenUnpublished: true })({ revalidateReason: 'stale' }), /too large/);
+  } finally {
+    for (const key of keys) { if (before[key] === undefined) delete process.env[key]; else process.env[key] = before[key]; }
+    await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+  }
+});
+
 test('release URLs cover artwork sizes and lazy game data without redirecting application routes', () => {
   const release = { release: 'a'.repeat(64), baseUrl: 'https://example.org/commit/release', assets: { 'arkpedia-image-assets': 'b'.repeat(40), 'arkpedia-skin-assets': 'c'.repeat(40) } };
   assert.equal(contentRoute('/operators/[name]', { name: 'Thorns the Lodestar' }), '/operators/Thorns%20the%20Lodestar');

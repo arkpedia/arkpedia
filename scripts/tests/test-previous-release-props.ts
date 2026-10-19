@@ -374,6 +374,10 @@ const REGENERATED: Record<string, (props: Record<string, unknown>, clock: { from
     assert.ok(people.length > 50 && people.every(person => person.name && person.operators.every(op => op.name && op.credits.length)));
     assert.ok(people.some(person => person.operators.some(op => op.name === 'Thorns')));
   },
+  // No props of its own: the page is a content route only for the release withContentPage attaches.
+  '/search': props => {
+    assert.deepEqual(Object.keys(props).filter(key => !key.startsWith('__')), []);
+  },
   '/voice-actors': props => {
     const people = props.people as {name:string;operators:{name:string;credits:string[]}[]}[];
     assert.ok(people.length > 100 && people.every(person => person.name && person.operators.every(op => op.name && op.credits.length)));

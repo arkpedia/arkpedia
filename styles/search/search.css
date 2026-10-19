@@ -1,0 +1,201 @@
+/* The site search's pop-up (components/layout/SiteSearch.tsx), the result row it shares with
+   /search (components/search/SiteSearchRow.tsx), and /search itself (pages/search.tsx). The
+   bar's search button is in styles/core/nav.css with the rest of the bar. */
+
+/* --- The pop-up (components/layout/SiteSearch.tsx) --------------------------------- */
+
+/* Fixed over the whole window and never in flow: opening it moves nothing under it. */
+.site-search-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1300;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  box-sizing: border-box;
+  padding: max(10vh, 72px) var(--page-gutter) var(--page-gutter);
+  background: rgb(4 8 11 / 0.66);
+  backdrop-filter: blur(2px);
+}
+:root[data-theme="light"] .site-search-overlay { background: rgb(15 25 35 / 0.32); }
+
+/* A readout frame: crosshairs on all four corners, a filled tag and a hatched band for its
+   head, the key legend along its foot. */
+.site-search-dialog {
+  position: relative;
+  box-sizing: border-box;
+  width: min(640px, 100%);
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 14px 16px 10px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-frame);
+  box-shadow: 0 24px 60px rgb(0 0 0 / 0.5);
+}
+:root[data-theme="light"] .site-search-dialog { box-shadow: 0 24px 60px rgb(15 25 35 / 0.18); }
+.site-search-dialog::before,
+.site-search-dialog::after {
+  content: '';
+  position: absolute;
+  left: -5px;
+  right: -5px;
+  height: 9px;
+  pointer-events: none;
+  background:
+    linear-gradient(var(--hud-line), var(--hud-line)) left 4px top 0 / 1px 9px no-repeat,
+    linear-gradient(var(--hud-line), var(--hud-line)) left 0 top 4px / 9px 1px no-repeat,
+    linear-gradient(var(--hud-line), var(--hud-line)) right 4px top 0 / 1px 9px no-repeat,
+    linear-gradient(var(--hud-line), var(--hud-line)) right 0 top 4px / 9px 1px no-repeat;
+}
+.site-search-dialog::before { top: -5px; }
+.site-search-dialog::after { bottom: -5px; }
+.site-search-dialog-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.site-search-dialog-hatch {
+  flex: 1 1 auto;
+  height: 7px;
+  background: repeating-linear-gradient(-45deg, var(--hud-hatch) 0 2px, transparent 2px 6px);
+}
+.site-search-dialog-status {
+  font: 500 10px/1 var(--font-mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+/* The matches sit in the frame, on their own line under the field, rather than dropping over
+   the page the way a filter's list does. The field's row wraps for them, so its icon and clear
+   button, placed against the row, are pinned to the field's own height rather than the row's
+   middle. By element under the field's own class, so the field's shared rules stay in
+   arkpedia-theme.css; the list's own position (SuggestMenu) is outweighed by the attribute. */
+.site-search-dialog-field {
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+.site-search-dialog-field > svg { top: calc((var(--control-h) - 16px) / 2); }
+.site-search-dialog-field > button { top: calc((var(--control-h) - max(24px, var(--control-h) - 12px)) / 2); }
+.site-search-dialog .site-search-dialog-field > [role="listbox"] {
+  position: static;
+  flex: 0 0 100%;
+  margin-top: 8px;
+  max-height: min(56vh, 520px);
+}
+.site-search-dialog-hint {
+  margin: 14px 2px 6px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+.site-search-dialog-keys {
+  display: flex;
+  justify-content: flex-end;
+  gap: 16px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line-soft);
+  font: 500 10px/1 var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.site-search-dialog-keys kbd {
+  margin-right: 4px;
+  padding: 2px 5px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  font: inherit;
+  letter-spacing: 0;
+}
+/* A phone: the whole screen, under nothing, so the keyboard covers the least of the list. */
+@media (max-width: 700px) {
+  .site-search-overlay { padding: 0; }
+  .site-search-dialog { width: 100%; height: 100%; border: none; border-radius: 0; padding-top: 16px; }
+  .site-search-dialog::before,
+  .site-search-dialog::after { display: none; }
+  .site-search-dialog .site-search-dialog-field > [role="listbox"] { max-height: none; }
+  .site-search-dialog-keys { display: none; }
+}
+
+/* The game's filled label ("NO INFO/", "EDITING"): mono caps on a light plate, its right end
+   cut on the slant. The pop-up's head carries it. */
+.hud-tag {
+  display: inline-block;
+  padding: 3px 12px 3px 7px;
+  font: 600 10px/1 var(--font-mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  background: var(--hud-tag-bg);
+  color: var(--hud-tag-ink);
+  clip-path: polygon(0 0, 100% 0, calc(100% - 6px) 100%, 0 100%);
+}
+
+/* --- One result ------------------------------------------------------------------- */
+
+.site-search-art {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: 6px;
+  object-fit: cover;
+}
+.site-search-art-blank {
+  display: block;
+  background: var(--panel-2);
+}
+.site-search-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.site-search-title,
+.site-search-sub {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.site-search-title { font-size: 13px; line-height: 17px; }
+.site-search-sub { font-size: 11px; line-height: 15px; color: var(--text-faint); }
+.site-search-kind {
+  flex-shrink: 0;
+  font: 500 10px/1 var(--font-mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.site-search-more {
+  font: 500 12px/1.3 var(--font-mono);
+  color: var(--teal);
+}
+
+/* --- /search ---------------------------------------------------------------------- */
+
+.site-search-page .site-search-page-field { max-width: 560px; }
+.site-search-page-count {
+  margin: 14px 0 8px;
+  font: 400 12px/1.4 var(--font-mono);
+  color: var(--text-dim);
+}
+.site-search-page-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-width: 720px;
+}
+.site-search-page-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  padding: 6px 10px;
+  border-radius: var(--radius-control);
+  color: var(--text);
+  text-decoration: none;
+}
+.site-search-page-row:hover,
+.site-search-page-row:focus-visible { background: var(--panel-2); }
+.site-search-page-row:hover .site-search-title { color: var(--teal); }

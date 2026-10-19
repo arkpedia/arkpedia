@@ -55,6 +55,10 @@ public/stage-guesser
 # content release, and written by prebuild/predev as the deployment's fail-safe copy.
 # Ignored, so export.mjs never publishes it as a source record.
 public/music-catalogue.json
+# The site search's index (scripts/build/build-site-search.ts): the same arrangement as the
+# music catalogue -- published in the content release, written by prebuild/predev as the
+# deployment's fail-safe copy, and ignored so export.mjs never publishes it as a source record.
+public/site-search.json
 # Which code a build is (scripts/build/write-build-info.mjs, the first step of prebuild),
 # served by the deployment for the content release gate. Ignored, so export.mjs never
 # publishes it as a source record and a deploy never becomes a new release id.
