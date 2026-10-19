@@ -259,6 +259,10 @@ jobs:
           stage namecard-styles -- python3 scripts/imports/import-namecard-styles.py
           stage game-account-map -- npx tsx scripts/build/build-game-account-map.ts
           stage medal-layouts -- python3 scripts/imports/import-medal-layouts.py
+          # Shadow mode, publishing nothing: the CN client's own avatar and skill-icon sprites compared
+          # with the mirror files arkpedia-image-assets publishes (scripts/imports/shadow-client-art.py),
+          # and any operator whose avatar the client ships while the site has no icon for them yet.
+          stage client-art -- python3 scripts/imports/shadow-client-art.py
           stage medal-catalogue -- node scripts/build/build-medal-catalogue.mjs
           stage reward-names -- node scripts/sync/sync-reward-names.mjs
           # The voice lines take newly released operators' English text from the supplement:
