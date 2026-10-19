@@ -34,9 +34,10 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    at: '2026-10-19T15:00:00Z',
+    at: '2026-10-19T16:30:00Z',
     added: [
-      { title: 'Server maintenance on the home page', detail: 'Global maintenance from the in-game notices shows above the panels and in the ticker.', href: '/' },
+      { title: 'Switch server from the clock', detail: 'Click the reset time in the top bar to show the whole site in Global, Japan or Korea time.' },
+      { title: 'Server maintenance on the home page', detail: 'Maintenance from the in-game notices shows above the panels and in the ticker, for the server you are viewing.', href: '/' },
       { title: 'Event dates and art from the game', detail: 'Events show their announced day and key art as soon as the in-game board posts them.', href: '/schedule' },
       { title: 'Pictures in event news', detail: 'Event News shows the official posts\' pictures where they stand, with the board\'s banner art.' },
     ],
