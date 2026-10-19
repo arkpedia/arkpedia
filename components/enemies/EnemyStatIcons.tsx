@@ -13,8 +13,9 @@ import { ContentArt } from '@/components/content/ContentImage';
  * has skill/item/map art, yuanyan3060 and Aceship have character and enemy art,
  * akgcc/arkdata's spritepack carries atlases for items, potentials and
  * sub-professions but nothing for the handbook, and neither arknights.wiki.gg nor
- * prts.wiki uses stat icons on its enemy pages at all. Eltik/myrtle does publish
- * them, which is what closed that gap.
+ * prts.wiki uses stat icons on its enemy pages at all. They are read from the Global client
+ * itself now: the operator info screen's sprites (ui/pages/character_info_page.ab), through
+ * scripts/imports/client_bundles.py.
  *
  * Still drawn, for want of a source: Elemental RES and Effect Res (the atlas mirror
  * has no elemental pair), Weight, Taunt and Silence. Those last two are not handbook
