@@ -4,7 +4,7 @@
  * baseline it chose -- iOS drew ⏸ as a colour emoji. One 20px grid, currentColor, so
  * each takes the colour of the button it sits in (teal when that button is on).
  */
-type IconName = 'prev' | 'play' | 'pause' | 'next' | 'shuffle' | 'repeat' | 'list' | 'heart' | 'plus' | 'streamSafe' | 'close' | 'note' | 'loading' | 'more' | 'back' | 'up' | 'down' | 'reorder' | 'trash' | 'playNext' | 'addToQueue' | 'queue' | 'library' | 'nowPlaying';
+type IconName = 'prev' | 'play' | 'pause' | 'next' | 'shuffle' | 'repeat' | 'list' | 'heart' | 'plus' | 'streamSafe' | 'close' | 'note' | 'loading' | 'more' | 'back' | 'up' | 'down' | 'reorder' | 'trash' | 'playNext' | 'addToQueue' | 'queue' | 'library' | 'nowPlaying' | 'noAutoplay' | 'youtube';
 
 const PATHS: Record<IconName, JSX.Element> = {
   // Play next: a song lifted to the top of a list. Add to queue: a song added at its end.
@@ -14,6 +14,10 @@ const PATHS: Record<IconName, JSX.Element> = {
   library: <><path d="M4 3.5v13M7.5 3.5v13" /><path d="m11 4 4.5 12.3" /></>,
   nowPlaying: <><circle cx="10" cy="10" r="6.5" /><circle cx="10" cy="10" r="1.6" fill="currentColor" stroke="none" /></>,
   trash: <><path d="M4 6h12M8 6V3h4v3M6 6l1 11h6l1-11M9 9v5M11 9v5" /></>,
+  // YouTube: a play triangle in a rounded screen, the shape of its logo, drawn in currentColor.
+  youtube: <><rect x="2.5" y="4.5" width="15" height="11" rx="3" /><path d="M8.5 7.6v4.8l4-2.4z" fill="currentColor" stroke="none" /></>,
+  // Don't autoplay: a circle struck through, the sign for "not this one".
+  noAutoplay: <><circle cx="10" cy="10" r="6.5" /><path d="m5.4 14.6 9.2-9.2" /></>,
   more: <><circle cx="4" cy="10" r="1.4" fill="currentColor" stroke="none" /><circle cx="10" cy="10" r="1.4" fill="currentColor" stroke="none" /><circle cx="16" cy="10" r="1.4" fill="currentColor" stroke="none" /></>,
   back: <path d="m12 4-6 6 6 6" />,
   up: <path d="m4 12 6-6 6 6" />,

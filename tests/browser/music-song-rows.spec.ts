@@ -135,7 +135,7 @@ test('a row\'s icon actions show their name on hover and on keyboard focus', asy
   });
   const actions = row.locator('.music-song-desktop-actions > button');
   const names = await actions.evaluateAll(els => els.map(el => [el.getAttribute('aria-label'), el.getAttribute('data-tip')]));
-  expect(names.map(([, label]) => label)).toEqual(['Play next', 'Add to queue', 'Favourite', 'Add to playlist']);
+  expect(names.map(([, label]) => label)).toEqual(['Play next', 'Add to queue', 'Favourite', "Don't autoplay", 'Add to playlist']);
   for (const [name] of names) expect(name).toMatch(/: .+/);
   const addToQueue = row.getByRole('button', { name: /^Add to queue: / });
   expect(await tip(addToQueue)).toEqual({ text: 'Add to queue', visible: false });

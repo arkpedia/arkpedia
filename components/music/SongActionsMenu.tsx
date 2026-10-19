@@ -10,11 +10,12 @@ import { PlaylistOptions } from './SongPlaylistPicker';
  *  is not listed here too). Library and Discover rows pass the three queue actions
  *  (onPlayNow, onQueueNext, onQueueLast); queue rows reorder and remove instead. The song playing
  *  (isActive) offers none of those -- left out rather than shown disabled. */
-export default function SongActionsMenu({ song, isActive, canMoveUp, canMoveDown, onPlayNext, onMoveUp, onMoveDown, onRemove, onPlayNow, onQueueNext, onQueueLast }: {
+export default function SongActionsMenu({ song, isActive, canMoveUp, canMoveDown, onPlayNext, onMoveUp, onMoveDown, onRemove, onPlayNow, onQueueNext, onQueueLast, noAutoplay }: {
   song: { id: string; title: string }; isActive?: boolean;
   canMoveUp?: boolean; canMoveDown?: boolean;
   onPlayNext?: () => void; onMoveUp?: () => void; onMoveDown?: () => void; onRemove?: () => void;
   onPlayNow?: () => void; onQueueNext?: () => void; onQueueLast?: () => void;
+  noAutoplay?: { on: boolean; toggle: () => void };
 }) {
   const { open, setOpen, close, buttonRef, menuRef, menuStyle } = useAnchoredPopover(320);
   const [section, setSection] = useState<'actions' | 'playlists' | 'reorder'>('actions');
@@ -44,6 +45,7 @@ export default function SongActionsMenu({ song, isActive, canMoveUp, canMoveDown
             {onQueueNext && !isActive && <button type="button" className="ghost" onClick={() => action(onQueueNext)}><TransportIcon name="playNext" />Play next</button>}
             {onQueueLast && !isActive && <button type="button" className="ghost" onClick={() => action(onQueueLast)}><TransportIcon name="addToQueue" />Add to queue</button>}
             <button type="button" className="ghost" onClick={() => setSection('playlists')}><TransportIcon name="plus" />Add to playlist<span aria-hidden="true">›</span></button>
+            {noAutoplay && <button type="button" className="ghost" aria-pressed={noAutoplay.on} onClick={() => action(noAutoplay.toggle)}><TransportIcon name="noAutoplay" />{noAutoplay.on ? 'Let autoplay play it' : "Don't autoplay"}</button>}
             {onMoveUp && onMoveDown && onPlayNext && !isActive && <button type="button" className="ghost" onClick={() => setSection('reorder')}><TransportIcon name="reorder" />Reorder<span aria-hidden="true">›</span></button>}
             {onRemove && !isActive && <button type="button" className="ghost" onClick={() => action(onRemove)}><TransportIcon name="trash" />Remove</button>}
           </> : <>

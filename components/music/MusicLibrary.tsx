@@ -14,7 +14,7 @@ import SongRow from './SongRow';
  * playing. The song playing has no queue actions (nothing to line up after itself).
  */
 function LibraryRow({ song }: { song: MusicCatalogueSong }) {
-  const { favorites, toggleFavorite, videoId, queued, playNow, queueSong } = useMusicPlayer();
+  const { favorites, toggleFavorite, noAutoplay, toggleNoAutoplay, videoId, queued, playNow, queueSong } = useMusicPlayer();
   const playing = videoId === song.id;
   return <SongRow marker="music-library-row" song={{ id: song.id, title: song.title, altTitle: song.altTitle, artist: song.artist, album: song.album, cover: song.cover }}
     active={playing} queued={queued.has(song.id)} onPlay={() => playNow(song.id)}
@@ -23,6 +23,7 @@ function LibraryRow({ song }: { song: MusicCatalogueSong }) {
       playNext: playing ? undefined : () => void queueSong(song.id, 'next'),
       addToQueue: playing ? undefined : () => void queueSong(song.id, 'last'),
       favorite: { on: favorites.has(song.id), toggle: () => toggleFavorite(song.id) },
+      noAutoplay: { on: noAutoplay.has(song.id), toggle: () => toggleNoAutoplay(song.id) },
       playlist: true,
     }} />;
 }

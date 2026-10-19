@@ -110,6 +110,9 @@ test('a song with no Monster Siren id plays from YouTube, whatever the setting',
 });
 
 test('Data saver mid-song moves the song to YouTube at the same moment, and back to Monster Siren when unchecked', async ({ page }) => {
+  // Autoplay off: with it on (the default) the next autoplay song is prepared too, and this
+  // counts the playing song's lookups alone.
+  await page.addInitScript(() => localStorage.setItem('arkpediaMusicAutoplay', 'false'));
   await stubYouTube(page, 'allow', { dataSaver: false });
   const siren = await stubMonsterSiren(page);
   await page.goto('/music?view=library');

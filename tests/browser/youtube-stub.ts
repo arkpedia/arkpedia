@@ -111,6 +111,11 @@ export function youtube(page: Page): Promise<StubState | null> {
 export async function startMusic(page: Page): Promise<StubState> {
   const original = page.url();
   const player = page.locator('.music-player');
+  // Autoplay off for this setup: with nothing queued, Play then opens the library to choose a
+  // song, the known one this starts. (With autoplay on, the default, Play starts autoplay where
+  // the reader is: music-polish.spec.ts.)
+  await page.evaluate(() => localStorage.setItem('arkpediaMusicAutoplay', 'false'));
+  await page.reload();
   await player.getByRole('button', { name: 'Expand player' }).click();
   await player.getByRole('button', { name: /^(Play|Starting…)$/ }).click();
   await expect(page).toHaveURL(/view=library/);

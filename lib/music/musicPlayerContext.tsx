@@ -14,6 +14,7 @@ import { SITE_ICON_PATH, artistLine, imageType, msrCoverPath, sessionArtwork, us
 import { musicAudioPreloader } from './audioPreload';
 import { musicAudioElement, primeMusicAudio, msrAudioAddress } from './audioElement';
 import AudioDebugPanel from '@/components/music/AudioDebugPanel';
+import { noAutoplaySongs, toggleNoAutoplay, useNoAutoplay } from './noAutoplay';
 
 /** YouTube's iframe player, which is a PlaybackEngine as it stands (lib/music/playbackEngine.ts). */
 export interface YTPlayer extends PlaybackEngine {
@@ -155,6 +156,11 @@ interface MusicPlayerContextValue {
   toggleShuffle: () => void;
   cycleRepeat: () => void;
   toggleFavorite: (videoId: string) => void;
+  /** Keeps a song out of autoplay, or lets it back (lib/music/noAutoplay.ts); keeping out the
+   *  song autoplay is playing moves on to the next one. */
+  toggleNoAutoplay: (videoId: string) => void;
+  /** The songs kept out of autoplay. */
+  noAutoplay: ReadonlySet<string>;
   setVolumeLevel: (v: number) => void;
   handleSeekChange: (v: number) => void;
   handleSeekCommit: (v: number) => void;
@@ -263,8 +269,11 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const [libraryTracks, setLibraryTracks] = useState<QueueTrack[]>([]);
-  const [autoplay, setAutoplayState] = useState(false);
-  const autoplayRef = useRef(false);
+  // Read here so the provider renders again when it changes: autoplayTracks is worked out per render.
+  const noAutoplay = useNoAutoplay();
+  // On unless the reader turned it off (owner, 2026-10-20): only a click writes the stored choice.
+  const [autoplay, setAutoplayState] = useState(true);
+  const autoplayRef = useRef(true);
   const [autoplayVideoId, setAutoplayVideoId] = useState('');
   const autoplayVideoIdRef = useRef('');
   const autoplayOrderRef = useRef<string[]>([]);
@@ -600,11 +609,9 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
         resumeRef.current = record;
         playlistIdsRef.current = record.playlistIds ?? record.queue;
         autoplayOrderRef.current = record.autoplayOrder ?? [];
-        if (record.autoplay !== undefined) {
-          let preference = record.autoplay;
-          try { const saved = window.localStorage.getItem('arkpediaMusicAutoplay'); if (saved !== null) preference = saved === 'true'; } catch { /* refused */ }
-          autoplayRef.current = preference; setAutoplayState(preference);
-        }
+        // The saved queue's own `autoplay` is not read: every queue saved while it defaulted to
+        // off carries false, which would keep it off for readers who never chose. Only the
+        // reader's own click (arkpediaMusicAutoplay, read on mount above) decides.
       }
       const restored = record ? restoreQueue(catalog, record) : null;
       if (restored) {
@@ -624,10 +631,17 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     const chosen = new Set(queueRef.current.map(track => track.id));
     const ids = [...new Set([...autoplayOrderRef.current, ...byId.keys()])];
     const at = ids.indexOf(autoplayVideoIdRef.current || videoIdRef.current);
+    const keptOut = noAutoplaySongs();
     return [...ids.slice(at + 1), ...ids.slice(0, at + 1)].flatMap(id => {
       const track = byId.get(id);
-      return track && !chosen.has(id) && id !== videoIdRef.current ? [track] : [];
+      return track && !chosen.has(id) && !keptOut.has(id) && id !== videoIdRef.current ? [track] : [];
     });
+  }
+
+  function toggleSongNoAutoplay(id: string) {
+    const out = toggleNoAutoplay(id);
+    // Kept out while autoplay is playing it: autoplay moves on, as the reader meant.
+    if (out && autoplayVideoIdRef.current === id && videoIdRef.current === id) playAutoplayTrack();
   }
 
   function playAutoplayTrack() {
@@ -1768,6 +1782,8 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     toggleShuffle,
     cycleRepeat,
     toggleFavorite,
+    toggleNoAutoplay: toggleSongNoAutoplay,
+    noAutoplay,
     setVolumeLevel,
     handleSeekChange,
     handleSeekCommit,

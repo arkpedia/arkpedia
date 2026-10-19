@@ -112,7 +112,7 @@ function AlbumTile({ album, withCount, onOpen }: { album: Pick<DiscoverBrowseAlb
 }
 
 export default function DiscoverPage({ songs, characters, origins, artists, recentAlbums, albums, pendingSongs }: Props) {
-  const { playNow, queueSong, videoId: playingId, queued, favorites, toggleFavorite, libraryTracks } = useMusicPlayer();
+  const { playNow, queueSong, videoId: playingId, queued, favorites, toggleFavorite, noAutoplay, toggleNoAutoplay, libraryTracks } = useMusicPlayer();
   // The player bar's album art, as on /music: this page's songs carry their covers.
   const coverByVideoId = useMemo(() => new Map([...songs, ...pendingSongs].map((s) => [trackIdOf(s), s.coverPath])), [songs, pendingSongs]);
   // Every song in one list, those on YouTube and those only Monster Siren has: all of them play.
@@ -370,6 +370,7 @@ export default function DiscoverPage({ songs, characters, origins, artists, rece
                         playNext: playingId === id ? undefined : () => void queueSong(id, 'next'),
                         addToQueue: playingId === id ? undefined : () => void queueSong(id, 'last'),
                         favorite: { on: favorites.has(id), toggle: () => toggleFavorite(id) },
+                        noAutoplay: { on: noAutoplay.has(id), toggle: () => toggleNoAutoplay(id) },
                         playlist: true,
                       }} />;
                   })}

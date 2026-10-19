@@ -1,3 +1,4 @@
+import { clearNoAutoplay } from '@/lib/music/noAutoplay';
 import Link from 'next/link';
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useMusicPlayer, type QueueTrack } from '@/lib/music/musicPlayerContext';
@@ -37,7 +38,7 @@ function usePlaylistName(id: string | null): string | null {
 export default function MusicQueue({ shown }: { shown: boolean }) {
   const {
     queue, queueIndex, queueLoading, shuffle, shuffleOrder, shufflePosition, videoId, favorites, queued, queueSource, playingPlaylistId,
-    canUndoClear, playQueueIndex, reorderQueue, reorderShuffleOrder, moveQueueItemToTop, removeFromQueue, toggleFavorite, clearQueue,
+    canUndoClear, playQueueIndex, reorderQueue, reorderShuffleOrder, moveQueueItemToTop, removeFromQueue, toggleFavorite, noAutoplay, toggleNoAutoplay, clearQueue,
     undoClearQueue, autoplay, autoplayTracks, autoplayVideoId, currentTrack, setAutoplay, queueSong, playNow,
   } = useMusicPlayer();
   const playlistName = usePlaylistName(queueSource === 'playlist' ? playingPlaylistId : null);
@@ -170,6 +171,10 @@ export default function MusicQueue({ shown }: { shown: boolean }) {
           </div>
           {showAutoplay && <>
             <p className="hint">{autoplay ? 'Plays after your queue ends. Repeat all keeps repeating your chosen queue.' : 'Off. Only your chosen songs will play.'}</p>
+            {noAutoplay.size > 0 && <p className="hint music-autoplay-kept-out">
+              {noAutoplay.size === 1 ? '1 song is' : `${noAutoplay.size} songs are`} kept out of autoplay.{' '}
+              <button type="button" className="ghost btn-sm" onClick={() => clearNoAutoplay()}>Let {noAutoplay.size === 1 ? 'it' : 'them all'} back</button>
+            </p>}
             <div className="music-autoplay-list">
               {autoplayTracks.filter(matches).slice(0, autoplayVisible).map(track => <SongRow key={track.id} marker="music-autoplay-row" song={track}
                 active={track.id === videoId} onPlay={() => playNow(track.id)}
@@ -178,6 +183,7 @@ export default function MusicQueue({ shown }: { shown: boolean }) {
                   playNext: () => void queueSong(track.id, 'next'),
                   addToQueue: () => void queueSong(track.id, 'last'),
                   favorite: { on: favorites.has(track.id), toggle: () => toggleFavorite(track.id) },
+                  noAutoplay: { on: false, toggle: () => toggleNoAutoplay(track.id) },
                   playlist: true,
                 }} />)}
               <LoadOnScroll shown={autoplayVisible} total={autoplayTracks.filter(matches).length} onMore={() => setAutoplayVisible(value => value + 50)} />

@@ -161,6 +161,8 @@ test('Library: Play now keeps the queue, Play next and Add to queue line songs u
 });
 
 test('Queue: the song playing is marked and stays put, songs come out, and Clear queue undoes', async ({ page }) => {
+  // Autoplay off, so a cleared queue has nothing after the song (it is on by default).
+  await page.addInitScript(() => localStorage.setItem('arkpediaMusicAutoplay', 'false'));
   await stubYouTube(page);
   await page.goto('/music?view=queue');
   await playAllSongs(page);

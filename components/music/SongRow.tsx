@@ -37,6 +37,8 @@ export interface SongRowActions {
   playNext?: () => void;
   addToQueue?: () => void;
   favorite?: { on: boolean; toggle: () => void };
+  /** Keep out of autoplay (lib/music/noAutoplay.ts): `on` while it is kept out. */
+  noAutoplay?: { on: boolean; toggle: () => void };
   playlist?: boolean;
   remove?: { run: () => void; label: string };
   reorder?: { canUp: boolean; canDown: boolean; up: () => void; down: () => void };
@@ -70,8 +72,8 @@ export interface SongRowProps {
   detail?: string;
 }
 
-function ActionButton({ label, tip, icon, onClick, pressed }: { label: string; tip: string; icon: Parameters<typeof TransportIcon>[0]['name']; onClick: () => void; pressed?: boolean }) {
-  return <button type="button" className={`ghost music-song-action${pressed !== undefined ? ' music-song-favorite' : ''}`} aria-label={label} data-tip={tip}
+function ActionButton({ label, tip, icon, onClick, pressed, toggleClass = 'music-song-favorite' }: { label: string; tip: string; icon: Parameters<typeof TransportIcon>[0]['name']; onClick: () => void; pressed?: boolean; toggleClass?: string }) {
+  return <button type="button" className={`ghost music-song-action${pressed !== undefined ? ` ${toggleClass}` : ''}`} aria-label={label} data-tip={tip}
     aria-pressed={pressed} onClick={onClick}>
     <TransportIcon name={icon} size={18} />
   </button>;
@@ -97,8 +99,8 @@ export default function SongRow({ song, marker, active = false, current = false,
     </span>
     {song.album && <span className="music-song-row-album">{song.album}</span>}
   </>;
-  const { playNow, playNext, addToQueue, favorite, playlist, remove, reorder } = actions;
-  const menu = !disabled && (favorite || playlist || playNow || playNext || addToQueue || remove || reorder);
+  const { playNow, playNext, addToQueue, favorite, noAutoplay, playlist, remove, reorder } = actions;
+  const menu = !disabled && (favorite || noAutoplay || playlist || playNow || playNext || addToQueue || remove || reorder);
   return <div className={classes} data-song-id={song.id} {...Object.fromEntries(Object.entries(data ?? {}).map(([key, value]) => [`data-${key}`, value]))}
     draggable={drag ? !drag.locked : undefined} onDragStart={drag && !drag.locked ? drag.onDragStart : undefined} onDragEnd={drag?.onDragEnd}>
     <button type="button" className="btn-bare music-song-row-main" disabled={disabled} title={title} aria-label={disabled ? title : active ? `${title}, playing now` : `Play ${title} now`} onClick={onPlay}>{body}</button>
@@ -107,6 +109,7 @@ export default function SongRow({ song, marker, active = false, current = false,
       {playNext && <ActionButton label={`Play next: ${title}`} tip="Play next" icon="playNext" onClick={playNext} />}
       {addToQueue && <ActionButton label={`Add to queue: ${title}`} tip="Add to queue" icon="addToQueue" onClick={addToQueue} />}
       {favorite && <ActionButton label={`Favourite: ${title}`} tip={favorite.on ? 'Unfavourite' : 'Favourite'} icon="heart" pressed={favorite.on} onClick={favorite.toggle} />}
+      {noAutoplay && <ActionButton label={`Don't autoplay: ${title}`} tip={noAutoplay.on ? 'Let autoplay play it' : "Don't autoplay"} icon="noAutoplay" pressed={noAutoplay.on} toggleClass="music-song-no-autoplay" onClick={noAutoplay.toggle} />}
       {playlist && <SongPlaylistPicker row song={{ id: song.id, title }} />}
       {/* Remove is the site's × (XButton), as every remove/close icon is (tests/browser/x-buttons). */}
       {remove && <XButton label={`${remove.label}: ${title}`} data-tip={remove.label} onClick={remove.run} />}
@@ -116,7 +119,8 @@ export default function SongRow({ song, marker, active = false, current = false,
       <SongActionsMenu song={{ id: song.id, title }} isActive={current || active}
         onPlayNow={playNow} onQueueNext={reorder ? undefined : playNext} onQueueLast={addToQueue}
         canMoveUp={reorder?.canUp} canMoveDown={reorder?.canDown} onMoveUp={reorder?.up} onMoveDown={reorder?.down}
-        onPlayNext={reorder ? playNext : undefined} onRemove={remove?.run} />
+        onPlayNext={reorder ? playNext : undefined} onRemove={remove?.run}
+        noAutoplay={noAutoplay} />
     </div>}
     {drag && (drag.locked
       ? <span className="music-song-row-handle music-song-row-handle-spacer" aria-hidden="true" />
