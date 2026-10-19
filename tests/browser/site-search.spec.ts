@@ -30,6 +30,32 @@ test('a stage code matches as a code, and a pick opens the stage', async ({ page
   await expect(page).toHaveURL(/\/stages\/browse\?s=1-7$/);
 });
 
+test('Ctrl+K and "/" open the search from anywhere, and "/" stays a character in a field', async ({ page }, info) => {
+  test.skip(info.project.name !== 'desktop', 'a keyboard');
+  await page.goto('/schedule');
+  // The shortcut is the app's, so it answers once the page has hydrated: press until it does.
+  await expect(async () => {
+    await page.keyboard.press('Control+k');
+    await expect(page.getByRole('dialog', { name: 'Search Arkpedia' })).toBeVisible({ timeout: 500 });
+  }).toPass();
+  await expect(page.getByRole('combobox', { name: 'Search Arkpedia' })).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog', { name: 'Search Arkpedia' })).toHaveCount(0);
+  await page.keyboard.press('/');
+  await expect(page.getByRole('dialog', { name: 'Search Arkpedia' })).toBeVisible();
+  await page.getByRole('combobox', { name: 'Search Arkpedia' }).pressSequentially('1/');
+  await expect(page.getByRole('combobox', { name: 'Search Arkpedia' })).toHaveValue('1/');
+});
+
+test('a click outside the pop-up closes it', async ({ page }, info) => {
+  test.skip(info.project.name !== 'desktop', 'on a phone the pop-up is the whole screen');
+  await page.goto('/schedule');
+  await page.getByRole('button', { name: 'Search Arkpedia' }).click();
+  await expect(page.getByRole('dialog', { name: 'Search Arkpedia' })).toBeVisible();
+  await page.mouse.click(5, 300);
+  await expect(page.getByRole('dialog', { name: 'Search Arkpedia' })).toHaveCount(0);
+});
+
 test('Escape closes the panel and returns focus to the button', async ({ page }) => {
   await page.goto('/schedule');
   const button = page.getByRole('button', { name: 'Search Arkpedia' });
@@ -65,6 +91,9 @@ test('/search lists every match when no one row is the answer', async ({ page })
 test('typing on /search keeps what was typed, and the URL follows it', async ({ page }) => {
   await page.goto('/search');
   const field = page.locator('main input[name="s"]');
+  // Text typed into the server's copy of the field before the page hydrates is replaced by
+  // React's, so wait until the router is up.
+  await page.waitForFunction(() => (window as unknown as { next?: { router?: { isReady?: boolean } } }).next?.router?.isReady === true);
   // Faster than the URL's 300ms delay, with a pause long enough for some writes to land
   // mid-word: a write catching up must not put an older query back in the field.
   await field.pressSequentially('kal', { delay: 40 });

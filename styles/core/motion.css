@@ -22,8 +22,14 @@
    --dur-2 (styles/core/shared.css). */
 
 @media (prefers-reduced-motion: no-preference) {
-  /* The nav's search panel opens the way its menus do (site-nav-pop-in, nav.css). */
-  .site-search-pop { animation: site-nav-pop-in 0.14s ease; }
+  /* The site search pop-up's hatched head slides into place as it opens. */
+  .site-search-dialog-hatch { animation: site-search-band-in 0.5s var(--ease) 0.08s both; transform-origin: left center; }
+  @keyframes site-search-band-in { from { opacity: 0; transform: translateX(18px); } to { opacity: 1; transform: none; } }
+  /* The site search pop-up rises into place over a fading ground (components/layout/SiteSearch.tsx). */
+  .site-search-overlay { animation: site-search-ground-in 0.16s ease; }
+  .site-search-dialog { animation: site-search-in 0.18s var(--ease); }
+  @keyframes site-search-ground-in { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes site-search-in { from { opacity: 0; transform: translateY(-8px) scale(0.985); } to { opacity: 1; transform: none; } }
   /* Outfit captions trade places like the game's compact information readouts.
      The caption grid reserves every name's height; only the ink moves. */
   [data-artwork-caption="exit"] { visibility: visible; pointer-events: none; }

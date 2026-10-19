@@ -1,17 +1,16 @@
 import { useRouter } from 'next/router';
-import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { flushSync } from 'react-dom';
 import SearchInput from '@/components/ui/SearchInput';
 import SiteSearchRow from '@/components/search/SiteSearchRow';
 import { searchSite, siteSearchHref, siteSearchJump, type SiteSearchEntry } from '@/lib/search/siteSearch';
 import { useSiteSearch } from '@/lib/search/useSiteSearch';
 
-/** How many rows the nav's list shows; the rest are on /search. */
-const SUGGESTIONS = 8;
+/** How many rows the pop-up lists; the rest are on /search. */
+const SUGGESTIONS = 10;
 
 /* The list's last row when there are more matches than it shows: a row and not a link
-   under the field, because the list is drawn over whatever sits under the field, and a
-   row is reached with the arrow keys like the others. */
+   under the list, so the arrow keys reach it like the others. */
 type MoreRow = { kind: 'more'; count: number };
 type Row = SiteSearchEntry | MoreRow;
 const isMore = (row: Row): row is MoreRow => row.kind === 'more';
@@ -23,115 +22,168 @@ export const SearchGlyph = () => (
   </svg>
 );
 
+/** A key press that is typing somewhere, where "/" belongs to the field. */
+function typing(target: EventTarget | null): boolean {
+  const el = target as HTMLElement | null;
+  return !!el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName));
+}
+
+export interface SiteSearchControl {
+  open: boolean;
+  inputRef: RefObject<HTMLInputElement>;
+  /** Opens the pop-up from a tap or click; returns focus to `from` when it closes. */
+  openFrom: (from: HTMLElement | null) => void;
+  close: () => void;
+}
+
 /**
- * The nav's search: a button beside the theme toggle that opens a search field over the
- * page, the way Terra Wiki's header box works -- type a name, pick a row, land on its
- * page. Every operator, event, episode, stage, enemy, album, song and nav page
- * (lib/search/siteSearch.ts).
+ * The one site search pop-up's state, held by the nav (components/layout/Sitenav.tsx) so the
+ * bar's trigger, the phone bar's trigger and the keyboard all open the same dialog.
  *
- * A button and not a standing field because the bar has no room for one: it measures
- * about 1px of slack at its 1040px cap (see .site-nav-clock-bar in nav.css). The panel
- * is positioned, never in flow, so opening it moves nothing on the page.
- *
- * Enter on a highlighted row opens it; Enter otherwise opens the one exact match, or
- * /search with the whole list.
+ * Ctrl+K or Cmd+K opens it from anywhere; "/" opens it unless the reader is typing in a field.
+ * openFrom renders the field inside the tap itself (flushSync) and focuses it there: iOS
+ * raises the keyboard only for a focus made during the gesture, and an autoFocus on the next
+ * render is too late for it.
  */
-export default function SiteSearch({ variant }: { variant: 'bar' | 'mobile' }) {
+export function useSiteSearchControl(): SiteSearchControl {
   const router = useRouter();
-  const panelId = useId();
-  const wrapRef = useRef<HTMLDivElement>(null);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const returnTo = useRef<HTMLElement | null>(null);
+
+  const openFrom = useCallback((from: HTMLElement | null) => {
+    returnTo.current = from;
+    flushSync(() => setOpen(true));
+    inputRef.current?.focus();
+  }, []);
+  const close = useCallback(() => {
+    setOpen(false);
+    returnTo.current?.focus();
+    returnTo.current = null;
+  }, []);
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.isComposing) return;
+      const shortcut = event.key.toLowerCase() === 'k' && (event.metaKey || event.ctrlKey) && !event.altKey && !event.shiftKey;
+      const slash = event.key === '/' && !event.metaKey && !event.ctrlKey && !event.altKey && !typing(event.target);
+      if (!shortcut && !slash) return;
+      event.preventDefault();
+      if (open) inputRef.current?.focus();
+      else openFrom(document.activeElement as HTMLElement | null);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [open, openFrom]);
+
+  useEffect(() => {
+    const onRoute = () => { setOpen(false); returnTo.current = null; };
+    router.events.on('routeChangeStart', onRoute);
+    return () => router.events.off('routeChangeStart', onRoute);
+  }, [router.events]);
+
+  return { open, inputRef, openFrom, close };
+}
+
+/**
+ * The search button in a nav bar: the magnifier, the theme toggle's size on the desktop bar and
+ * a 44px tile on the phone bar (nav.css). Its tooltip names the shortcut.
+ */
+export function SiteSearchTrigger({ variant, control }: { variant: 'bar' | 'mobile'; control: SiteSearchControl }) {
+  // Ctrl on the server and everywhere but a Mac, so the first paint never disagrees with it.
+  const [mod, setMod] = useState('Ctrl');
+  useEffect(() => {
+    if (/Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent)) setMod('⌘');
+  }, []);
+  return (
+    <button
+      type="button"
+      // btn-bare: a field-like control, not a button, so it takes none of the button voice.
+      className={`btn-bare site-search-trigger site-search-trigger-${variant}`}
+      aria-label="Search Arkpedia"
+      title={`Search Arkpedia (${mod === '⌘' ? '⌘' : 'Ctrl'}+K)`}
+      aria-haspopup="dialog"
+      aria-expanded={control.open}
+      onClick={(event) => {
+        event.stopPropagation();
+        control.openFrom(event.currentTarget);
+      }}
+    >
+      <SearchGlyph />
+    </button>
+  );
+}
+
+/**
+ * The site search as a pop-up over the page: the field, the best matches under it, and a key
+ * legend, in a frame drawn like the game's Stronghold Protocol readouts (search.css). Every
+ * operator, event, episode, stage, enemy, album, song and nav page (lib/search/siteSearch.ts).
+ *
+ * Enter on a highlighted row opens it; Enter otherwise opens the one exact match, or /search
+ * with the whole list. Escape, a click outside the frame, or a route change closes it. It is
+ * fixed over the page and never in flow, so opening it moves nothing under it.
+ */
+export default function SiteSearchDialog({ control }: { control: SiteSearchControl }) {
+  const router = useRouter();
   const [query, setQuery] = useState('');
-  /* Fetched the first time the panel opens, then kept: a reader who never searches never
-     downloads the index. */
+  /* The index is fetched the first time the pop-up opens, then kept: a reader who never
+     searches never downloads it. */
   const [wanted, setWanted] = useState(false);
+  useEffect(() => { if (control.open) setWanted(true); }, [control.open]);
   const { entries, loading, failed } = useSiteSearch(wanted);
   const results = useMemo(() => searchSite(entries, query), [entries, query]);
   const q = query.trim();
   const suggestions: Row[] = results.slice(0, SUGGESTIONS).map((r) => r.entry);
   if (results.length > SUGGESTIONS) suggestions.push({ kind: 'more', count: results.length });
 
-  function close(returnFocus: boolean) {
-    setOpen(false);
-    if (returnFocus) triggerRef.current?.focus();
-  }
-
-  /* flushSync so the field exists before this handler returns, and is focused inside the
-     tap itself: iOS raises the keyboard only for a focus made during the gesture, and an
-     autoFocus on the next render is too late for it. */
-  function openPanel() {
-    flushSync(() => { setOpen(true); setWanted(true); });
-    inputRef.current?.focus();
-  }
-
   function go(href: string) {
     setQuery('');
-    setOpen(false);
+    control.close();
     void router.push(href);
   }
 
-  useEffect(() => {
-    if (!open) return;
-    const onClick = (e: MouseEvent) => {
-      if (!wrapRef.current?.contains(e.target as Node)) close(false);
-    };
-    document.addEventListener('click', onClick);
-    return () => document.removeEventListener('click', onClick);
-  }, [open]);
-
-  useEffect(() => {
-    const onRoute = () => setOpen(false);
-    router.events.on('routeChangeStart', onRoute);
-    return () => router.events.off('routeChangeStart', onRoute);
-  }, [router.events]);
-
+  if (!control.open) return null;
   return (
-    <div ref={wrapRef} className={`site-search site-search-${variant}`}>
-      <button
-        ref={triggerRef}
-        type="button"
-        className="site-search-trigger"
-        aria-label="Search Arkpedia"
-        title="Search Arkpedia"
-        aria-expanded={open}
-        aria-controls={open ? panelId : undefined}
-        onClick={(e) => {
-          e.stopPropagation();
-          if (open) close(false); else openPanel();
-        }}
-      >
-        <SearchGlyph />
-      </button>
-      {open && (
-        <div id={panelId} className="site-search-pop" role="dialog" aria-label="Search Arkpedia">
-          <SearchInput<Row>
-            label="Search Arkpedia"
-            name="site-search"
-            placeholder="Operators, stages, events, enemies…"
-            value={query}
-            onChange={setQuery}
-            inputRef={inputRef}
-            suggestions={suggestions}
-            getKey={(row) => (isMore(row) ? 'more' : `${row.kind}:${row.href}`)}
-            renderSuggestion={(row) => (isMore(row)
-              ? <span className="site-search-more">All {row.count} results for “{q}”</span>
-              : <SiteSearchRow entry={row} />)}
-            onPick={(row) => go(isMore(row) ? siteSearchHref(q) : row.href)}
-            suggestLabel="Search results"
-            emptyText={failed ? 'Search is unavailable right now.' : loading ? 'Loading search…' : 'Nothing found.'}
-            onKeyDown={(event) => {
-              if (event.defaultPrevented) return;
-              if (event.key === 'Escape') { event.preventDefault(); close(true); }
-              else if (event.key === 'Enter' && q) {
-                event.preventDefault();
-                go(siteSearchJump(results)?.href ?? siteSearchHref(q));
-              }
-            }}
-          />
+    <div className="site-search-overlay" onMouseDown={(event) => { if (event.target === event.currentTarget) control.close(); }}>
+      <div className="site-search-dialog" role="dialog" aria-modal="true" aria-label="Search Arkpedia"
+        onKeyDown={(event) => { if (event.key === 'Tab') event.preventDefault(); }}>
+        <div className="site-search-dialog-head" aria-hidden="true">
+          <span className="hud-tag">Search</span>
+          <span className="site-search-dialog-hatch" />
+          <span className="site-search-dialog-status">{failed ? 'Offline' : loading ? 'Loading index' : `${entries.length.toLocaleString('en-US')} records`}</span>
         </div>
-      )}
+        <SearchInput<Row>
+          label="Search Arkpedia"
+          name="site-search"
+          className="site-search-dialog-field"
+          placeholder="Operators, stage codes, events, enemies, songs…"
+          value={query}
+          onChange={setQuery}
+          inputRef={control.inputRef}
+          suggestions={suggestions}
+          getKey={(row) => (isMore(row) ? 'more' : `${row.kind}:${row.href}`)}
+          renderSuggestion={(row) => (isMore(row)
+            ? <span className="site-search-more">All {row.count} results for “{q}”</span>
+            : <SiteSearchRow entry={row} />)}
+          onPick={(row) => go(isMore(row) ? siteSearchHref(q) : row.href)}
+          suggestLabel="Search results"
+          emptyText={failed ? 'Search is unavailable right now.' : loading ? 'Loading search…' : 'Nothing found.'}
+          onKeyDown={(event) => {
+            if (event.defaultPrevented) return;
+            if (event.key === 'Escape') { event.preventDefault(); control.close(); }
+            else if (event.key === 'Enter' && q) {
+              event.preventDefault();
+              go(siteSearchJump(results)?.href ?? siteSearchHref(q));
+            }
+          }}
+        />
+        {!q && <p className="site-search-dialog-hint">Try an operator, a stage code like 1-7, an event, an enemy or a song.</p>}
+        <div className="site-search-dialog-keys" aria-hidden="true">
+          <span><kbd>↑</kbd><kbd>↓</kbd> Move</span>
+          <span><kbd>Enter</kbd> Open</span>
+          <span><kbd>Esc</kbd> Close</span>
+        </div>
+      </div>
     </div>
   );
 }

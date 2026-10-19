@@ -36,7 +36,7 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     at: '2026-10-19T04:10:00Z',
     added: [
-      { title: 'Search the whole site', detail: 'Press Ctrl+K (⌘K on a Mac), "/" or the magnifier in the top bar to find operators, events, stages, enemies, albums, songs and pages as you type.', href: '/search' },
+      { title: 'Search the whole site', detail: 'Press Ctrl+K (⌘K on a Mac), "/" or the magnifier to find operators, events, stages, enemies, songs and pages as you type.', href: '/search' },
       { title: 'Search Arkpedia from your browser', detail: 'Add Arkpedia as a search engine, or open arkpedia.net/?s= followed by a name to jump straight there.' },
     ],
   },

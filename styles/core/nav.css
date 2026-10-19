@@ -23,12 +23,9 @@
   view-transition-name: site-nav;
 }
 ::view-transition-group(site-nav) { z-index: 50; }
-/* Held to the same 1040px the page content uses, and centred with it.
-   Full width was tried and looks wrong here: the brand ends up at the window's edge
-   while everything it labels starts a couple of hundred pixels inboard, so the bar
-   stops reading as the top of this page and starts reading as a separate strip laid
-   over it. myrtle.moe runs its header full width and gets away with it, but their nav
-   sits immediately beside the logo rather than being spread across the bar. */
+/* Held to the same 1040px the page content uses, and centred with it. A full-width bar
+   (menus beside the brand, controls at the window's far edge) was built and tried on
+   2026-10-19; the owner kept this one. */
 .site-nav-inner {
   max-width: var(--frame-max);
   margin: 0 auto;
@@ -591,14 +588,10 @@
 
 /* --- Site search (components/layout/SiteSearch.tsx) -------------------------------- */
 
-/* The bar's control pair: search, then the theme toggle, 6px apart -- the toggle's own
-   4px margin plus 2. The nav has no room for a standing field (1px of slack at its 1040px
-   cap), so search is a 30px button, the toggle's size, square-cornered like every other
-   control (only the toggle's portrait is round). */
-.site-search {
-  display: flex;
-  flex-shrink: 0;
-}
+/* The bar's control pair: search, then the theme toggle. The bar has about 1px of slack at
+   its 1040px cap (see .site-nav-clock-bar), so search is a 30px button, the toggle's size,
+   square-cornered like every other control; Ctrl/Cmd+K and "/" open the same pop-up
+   (search.css). */
 .site-search-trigger {
   display: flex;
   align-items: center;
@@ -606,57 +599,33 @@
   width: 30px;
   height: 30px;
   flex-shrink: 0;
+  box-sizing: border-box;
   padding: 0;
   border-radius: var(--radius-control);
   border: 1px solid var(--control-border);
-  background: var(--panel-2);
+  background: var(--well);
   color: var(--text-dim);
+  font: 400 12px/1 var(--font-mono);
+  letter-spacing: normal;
+  text-transform: none;
   cursor: pointer;
+}
+/* The Support link with its label kept for screen readers only: the same pill, square. The
+   heart is the one word in the row whose icon already says it, and the search button needed
+   the room. */
+.site-nav-link.site-nav-link-icon-only {
+  padding: 7px 9px;
 }
 .site-search-trigger:hover,
 .site-search-trigger[aria-expanded="true"] { border-color: var(--teal); color: var(--teal); }
 .site-search-trigger:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
 
-/* The Support link with its label kept for screen readers only: the same pill, square. */
-.site-nav-link.site-nav-link-icon-only {
-  padding: 7px 9px;
-}
-
-/* Fixed under the bar like the menus (.site-nav-pop), right-aligned with the frame the
-   bar's controls end at. Never in flow, so opening it moves nothing on the page. */
-.site-search-pop {
-  position: fixed;
-  top: var(--nav-h, 52px);
-  margin-top: 2px;
-  z-index: 60;
-  box-sizing: border-box;
-  padding: 10px;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  box-shadow: 0 12px 28px rgb(0 0 0 / 0.38);
-}
-:root[data-theme="light"] .site-search-pop { box-shadow: 0 12px 28px rgb(15 25 35 / 0.13); }
-.site-search-bar .site-search-pop {
-  right: max(var(--page-gutter), calc((100% - var(--frame-max)) / 2 + var(--page-gutter)));
-  width: 440px;
-}
-/* On the phone: the bar's full width, less a margin, under the 52px bar. */
-.site-search-mobile .site-search-pop {
-  left: 10px;
-  right: 10px;
-}
-/* The list under the field: taller than a filter's 320px, since it is the whole point of
-   the panel, and never longer than the screen left under the bar. */
-.site-search-pop [role="listbox"] {
-  max-height: min(480px, calc(100vh - var(--nav-h, 52px) - 90px));
-}
-
 /* The phone's bar: the same 44px tile as the menu button and the toggle. */
 .mobile-nav-bar .site-search-trigger {
   width: 44px;
   height: 44px;
-  border-radius: var(--radius-control);
+  justify-content: center;
+  padding: 0;
   border-color: transparent;
   background: none;
   color: var(--text);
@@ -670,19 +639,16 @@
   .mobile-nav-bar .site-brand-text { display: none; }
 }
 
-/* The bar's inner is capped at 1040px, so every viewport at or above that gets the
-   same 1040 and the clock either fits at all of them or at none. Below it the inner is
-   the viewport, and the width the clock needs comes straight out of the nav links --
-   which squeeze silently and clip their own labels rather than overflowing. So it is
-   dropped for the whole band between the mobile breakpoint and a full-width bar. The
-   drawer's copy is unaffected: it is in a column and has the room for the full form.
+/* The bar's inner is capped at 1040px, so every viewport at or above that gets the same
+   1040 and the clock either fits at all of them or at none. Below it the inner is the
+   viewport, and the width the clock needs comes straight out of the nav links -- which
+   squeeze silently and clip their own labels rather than overflowing. So it is dropped for
+   the band between the phone bar and a full bar (tests/browser/nav-bar.spec.ts holds every
+   width to no overlap and no clipped label). The drawer's copy is unaffected.
 
-   1054 and not 1039 because a media query measures the viewport INCLUDING the
-   scrollbar while layout gets what is left. On a platform with classic ~15px
-   scrollbars -- Windows, and Linux -- a 1050px window passes a 1039 test, hands layout
-   about 1035, and quietly eats the slack this strip is holding. macOS overlay
-   scrollbars are 0px wide, so that band cannot be reproduced here and the number is
-   reasoned rather than measured: 1040 of layout plus 15 of scrollbar, minus one. */
+   1054 and not 1039 because a media query measures the viewport INCLUDING the scrollbar
+   while layout gets what is left: on a platform with classic ~15px scrollbars (Windows,
+   Linux) a 1050px window passes a 1039 test and hands layout about 1035. */
 @media (max-width: 1054px) {
   .site-nav .site-nav-clock { display: none; }
 }
