@@ -34,7 +34,7 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    at: '2026-10-19T20:15:00Z',
+    at: '2026-10-19T22:30:00Z',
     added: [
       { title: 'Base skill keywords explained', detail: 'Tap or hover an underlined term, such as Closure\'s Special Order or Worldly Plight, for the game\'s own explanation.' },
       { title: "Don't autoplay a song", detail: 'Mark songs you never want autoplay to pick; they still play when you choose them.', href: '/music' },
@@ -53,6 +53,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       { title: 'Stat icons from the game', detail: 'Enemy and operator stat icons now come from the game client itself.', href: '/enemies' },
     ],
     fixed: [
+      { title: 'All outfits on sale on Global', detail: 'Skins on the home page and Available now list every outfit in Global\'s store, new and returning, as for JP and KR.', href: '/skins' },
       { title: 'Chibi glow effects', detail: 'Glowing effects such as Mudrock\'s Silent Night candles draw softly instead of as solid blobs.', href: '/operators' },
     ],
   },
