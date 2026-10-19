@@ -4,7 +4,7 @@ import Image from '@/components/content/ContentImage';
 import { useRouter } from 'next/router';
 import { useEffect, useRef, useState } from 'react';
 import ThemeToggle from './ThemeToggle';
-import SiteSearch from './SiteSearch';
+import SiteSearchDialog, { SiteSearchTrigger, useSiteSearchControl } from './SiteSearch';
 import MobileNavDrawer from './MobileNavDrawer';
 import type { MobileNavOverride } from '@/lib/nav/mobileNavOverride';
 import ServerClock from './ServerClock';
@@ -261,9 +261,9 @@ export default function SiteNav({ mobileNav }: { mobileNav?: MobileNavOverride }
 
   // A dot on What's new, and on the menu holding it, until the latest entry has been read.
   const changelogUnseen = useChangelogUnseen();
-  /* Support is its heart alone in the bar, named by a tooltip and for screen readers. The
-     bar had about 1px to spare at its 1040px cap, and the search button needed ~50: the
-     heart's label was the one word in the row whose icon already says it. */
+  const search = useSiteSearchControl();
+  /* Support is its heart alone in the bar, named by a tooltip and for screen readers: the bar
+     has about 1px to spare at its 1040px cap, and the search button needed the room. */
   const renderLink = (link: NavLink, className: string, iconOnly = false) => (
     <Link
       prefetch={false}
@@ -334,7 +334,7 @@ export default function SiteNav({ mobileNav }: { mobileNav?: MobileNavOverride }
           <ServerClock variant="bar" />
 
           <div className="site-nav-theme-wrap">
-            <SiteSearch variant="bar" />
+            <SiteSearchTrigger variant="bar" control={search} />
             <ThemeToggle />
           </div>
         </div>
@@ -343,7 +343,9 @@ export default function SiteNav({ mobileNav }: { mobileNav?: MobileNavOverride }
           under the reader. Hidden on mobile, where MobileNavDrawer has its own. */}
       <div className="site-nav-spacer" style={{ height: navHeight }} aria-hidden="true" />
 
-      <MobileNavDrawer mobileNav={mobileNav} />
+      <MobileNavDrawer mobileNav={mobileNav} search={search} />
+      {/* One pop-up for both bars and the keyboard (Ctrl/Cmd+K, "/"). */}
+      <SiteSearchDialog control={search} />
     </>
   );
 }
