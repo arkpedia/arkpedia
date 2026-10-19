@@ -91,6 +91,7 @@ export default function MusicPage({ songLookup }: Props) {
     playQueueIndex,
     favorites,
     toggleFavorite,
+    toggleNoAutoplay,
     nowPlayingCover: fallbackCover,
     nowPlayingArtist,
   } = useMusicPlayer();
@@ -361,6 +362,8 @@ export default function MusicPage({ songLookup }: Props) {
                         actions={{
                           playNow: () => entry.index < 0 ? playNow(entry.song.id) : playQueueIndex(entry.index),
                           favorite: { on: favorites.has(entry.song.id), toggle: () => toggleFavorite(entry.song.id) },
+                          // An autoplay pick (no queue index) can be kept out of autoplay from here.
+                          ...(entry.index < 0 ? { noAutoplay: { on: false, toggle: () => toggleNoAutoplay(entry.song.id) } } : {}),
                           playlist: true,
                         }} />
                       : <span className="music-up-next-empty">{i === 0 ? (repeatMode === 'one' ? 'Repeat one plays this song again.' : queueLoading ? 'Loading…' : 'Nothing after this song.') : '\u00a0'}</span>}

@@ -84,6 +84,9 @@ test('Play next replaces a prepared file, and only the newly selected song plays
 });
 
 test('pause retains a prepared file, and Clear queue releases it without interrupting the current song', async ({ page }) => {
+  // Autoplay off (it is on by default): with it on, a cleared queue's next song is an autoplay
+  // pick, which may be the very file prepared.
+  await page.addInitScript(() => localStorage.setItem('arkpediaMusicAutoplay', 'false'));
   const { songs: [first, second] } = await setup(page);
   await select(page, first, true); await select(page, second);
   await expect.poll(() => prepared(page)).toHaveLength(1);

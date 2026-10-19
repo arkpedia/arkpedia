@@ -36,9 +36,12 @@ test('1: fresh queue is empty; only chosen tracks enter it, optional autoplay pe
   await expect(queueRows(page)).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Your queue', exact: true })).toBeVisible();
   const automatic = page.getByRole('region', { name: 'Autoplay from library', exact: true });
-  await expect(automatic.getByRole('checkbox')).not.toBeChecked();
+  await expect(automatic.getByRole('checkbox')).toBeChecked();
   await automatic.getByRole('button', { name: 'Autoplay from library', exact: true }).click();
   await expect(automatic.locator('.music-autoplay-row .music-song-row-main')).toHaveCount(4);
+  await automatic.getByRole('checkbox').uncheck();
+  await page.reload();
+  await expect(automatic.getByRole('checkbox'), 'turned off, it stays off').not.toBeChecked();
   await automatic.getByRole('checkbox').check();
   await page.reload();
   await expect(automatic.getByRole('checkbox')).toBeChecked();
@@ -201,4 +204,35 @@ test('9: localized title stays identical across Now playing, Queue and both bars
   await expect(bar(page).locator('.music-transport-song-title')).toHaveText(title);
   await page.waitForTimeout(8500);
   await expect(bar(page).locator('.music-transport-song-title')).toHaveText(title);
+});
+
+test('a song kept out of autoplay leaves the autoplay list, is never picked, and can be let back', async ({ page }) => {
+  await setup(page);
+  const mobile = test.info().project.name === 'mobile';
+  await nav(page).getByRole('link', { name: /^Queue/ }).click();
+  const automatic = page.getByRole('region', { name: 'Autoplay from library', exact: true });
+  await expect(automatic.getByRole('checkbox'), 'autoplay is on by default').toBeChecked();
+  await automatic.getByRole('button', { name: 'Autoplay from library', exact: true }).click();
+  const rows = automatic.locator('.music-autoplay-row');
+  await expect(rows).toHaveCount(4);
+  const out = await rows.first().getAttribute('data-song-id');
+  if (mobile) {
+    await rows.first().getByRole('button', { name: /^More actions/ }).click();
+    await page.getByRole('dialog', { name: 'Song actions', exact: true }).getByRole('button', { name: "Don't autoplay", exact: true }).click();
+  } else await rows.first().getByRole('button', { name: /^Don't autoplay:/ }).click();
+  await expect(rows).toHaveCount(3);
+  await expect(automatic.locator(`.music-autoplay-row[data-song-id="${out}"]`)).toHaveCount(0);
+  await expect(automatic.getByText('1 song is kept out of autoplay.')).toBeVisible();
+  await page.reload();
+  await automatic.getByRole('button', { name: 'Autoplay from library', exact: true }).click();
+  await expect(rows, 'kept out across a reload').toHaveCount(3);
+  // Still the reader's to play: the library row shows it kept out, and plays it when chosen.
+  await nav(page).getByRole('link', { name: 'Library', exact: true }).click();
+  const libraryOut = page.locator(`.music-library-row[data-song-id="${out}"]`);
+  if (!mobile) await expect(libraryOut.getByRole('button', { name: /^Don't autoplay:/ })).toHaveAttribute('aria-pressed', 'true');
+  await libraryOut.locator('.music-song-row-main').click();
+  await expect.poll(async () => (await youtube(page))?.videoId).toBe(out);
+  await nav(page).getByRole('link', { name: /^Queue/ }).click();
+  await automatic.getByRole('button', { name: 'Let it back', exact: true }).click();
+  await expect(automatic.getByText(/kept out of autoplay/)).toHaveCount(0);
 });

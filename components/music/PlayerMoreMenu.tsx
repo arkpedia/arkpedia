@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 import { useAnchoredPopover } from '@/components/ui/useAnchoredPopover';
 import XButton from '@/components/ui/XButton';
 import { useMusicPlayer } from '@/lib/music/musicPlayerContext';
+import { youtubeWatchUrl } from '@/lib/music/trackId';
 import { PlaylistOptions } from './SongPlaylistPicker';
 import TransportIcon from './TransportIcons';
 import { useCrossFadeTitle } from '@/lib/music/useCrossFadeTitle';
@@ -22,7 +23,7 @@ import DataSaverSetting from './DataSaverSetting';
  * "we don't need the shuffle and repeat option in that menu when it's in the player").
  */
 export default function PlayerMoreMenu({ onFullPlayer, view }: { onFullPlayer?: boolean; view?: MusicView }) {
-  const { videoId, title, currentTrack } = useMusicPlayer();
+  const { videoId, title, currentTrack, noAutoplay, toggleNoAutoplay } = useMusicPlayer();
   const { open, setOpen, close, buttonRef, menuRef, menuStyle } = useAnchoredPopover(300);
   const [section, setSection] = useState<'player' | 'playlists'>('player');
   const id = useId();
@@ -47,6 +48,13 @@ export default function PlayerMoreMenu({ onFullPlayer, view }: { onFullPlayer?: 
         <div className="music-song-menu-options">
           <button type="button" className="ghost" disabled={!videoId} onClick={() => setSection('playlists')}>
             <TransportIcon name="plus" />Add to playlist<span aria-hidden="true">›</span>
+          </button>
+          {videoId && youtubeWatchUrl(videoId) && <a href={youtubeWatchUrl(videoId)!} target="_blank" rel="noreferrer" className="ghost music-player-more-link" onClick={() => close()}>
+            <TransportIcon name="youtube" />Open on YouTube
+          </a>}
+          <button type="button" className="ghost" disabled={!videoId} aria-pressed={videoId ? noAutoplay.has(videoId) : undefined}
+            onClick={() => { toggleNoAutoplay(videoId); dismiss(); }}>
+            <TransportIcon name="noAutoplay" />{videoId && noAutoplay.has(videoId) ? 'Let autoplay play it' : "Don't autoplay this song"}
           </button>
           <Link href={view === 'queue' ? MUSIC_VIEW_HREF.player : MUSIC_VIEW_HREF.queue} shallow={onFullPlayer} scroll={false} prefetch={false} className="ghost music-player-more-link" onClick={() => close()}>
             <TransportIcon name={view === 'queue' ? 'note' : 'queue'} />{view === 'queue' ? 'Now playing' : 'Open queue'}
