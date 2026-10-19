@@ -68,6 +68,26 @@
   text-transform: uppercase;
   color: var(--text-faint);
 }
+/* The field's row: the field, and on a phone the pop-up's Cancel (hidden where Esc and a
+   click outside close it). */
+.site-search-dialog-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.site-search-dialog-row > .site-search-dialog-field { flex: 1 1 auto; min-width: 0; }
+.site-search-dialog .site-search-dialog-close {
+  display: none;
+  align-items: center;
+  height: var(--control-h);
+  padding: 0 4px;
+  font: 500 13px/1 var(--font-body);
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.site-search-dialog .site-search-dialog-close:hover,
+.site-search-dialog .site-search-dialog-close:focus-visible { color: var(--teal); }
+
 /* The matches sit in the frame, on their own line under the field, rather than dropping over
    the page the way a filter's list does. The field's row wraps for them, so its icon and clear
    button, placed against the row, are pinned to the field's own height rather than the row's
@@ -118,6 +138,7 @@
   .site-search-dialog::after { display: none; }
   .site-search-dialog .site-search-dialog-field > [role="listbox"] { max-height: none; }
   .site-search-dialog-keys { display: none; }
+  .site-search-dialog .site-search-dialog-close { display: inline-flex; flex-shrink: 0; }
 }
 
 /* --- One result ------------------------------------------------------------------- */

@@ -152,31 +152,37 @@ export default function SiteSearchDialog({ control }: { control: SiteSearchContr
           <span className="site-search-dialog-hatch" />
           <span className="site-search-dialog-status">{failed ? 'Offline' : loading ? 'Loading index' : `${entries.length.toLocaleString('en-US')} records`}</span>
         </div>
-        <SearchInput<Row>
-          label="Search Arkpedia"
-          name="site-search"
-          className="site-search-dialog-field"
-          placeholder="Operators, stage codes, events, enemies, songs…"
-          value={query}
-          onChange={setQuery}
-          inputRef={control.inputRef}
-          suggestions={suggestions}
-          getKey={(row) => (isMore(row) ? 'more' : `${row.kind}:${row.href}`)}
-          renderSuggestion={(row) => (isMore(row)
-            ? <span className="site-search-more">All {row.count} results for “{q}”</span>
-            : <SiteSearchRow entry={row} />)}
-          onPick={(row) => go(isMore(row) ? siteSearchHref(q) : row.href)}
-          suggestLabel="Search results"
-          emptyText={failed ? 'Search is unavailable right now.' : loading ? 'Loading search…' : 'Nothing found.'}
-          onKeyDown={(event) => {
-            if (event.defaultPrevented) return;
-            if (event.key === 'Escape') { event.preventDefault(); control.close(); }
-            else if (event.key === 'Enter' && q) {
-              event.preventDefault();
-              go(siteSearchJump(results)?.href ?? siteSearchHref(q));
-            }
-          }}
-        />
+        {/* The field, and on a phone Cancel beside it: there the pop-up is the whole screen, with
+            no Esc key and nothing outside it to tap, so this is its way out. Words, not a second
+            ×: the field's own × beside it clears the text. */}
+        <div className="site-search-dialog-row">
+          <SearchInput<Row>
+            label="Search Arkpedia"
+            name="site-search"
+            className="site-search-dialog-field"
+            placeholder="Operators, stage codes, events, enemies, songs…"
+            value={query}
+            onChange={setQuery}
+            inputRef={control.inputRef}
+            suggestions={suggestions}
+            getKey={(row) => (isMore(row) ? 'more' : `${row.kind}:${row.href}`)}
+            renderSuggestion={(row) => (isMore(row)
+              ? <span className="site-search-more">All {row.count} results for “{q}”</span>
+              : <SiteSearchRow entry={row} />)}
+            onPick={(row) => go(isMore(row) ? siteSearchHref(q) : row.href)}
+            suggestLabel="Search results"
+            emptyText={failed ? 'Search is unavailable right now.' : loading ? 'Loading search…' : 'Nothing found.'}
+            onKeyDown={(event) => {
+              if (event.defaultPrevented) return;
+              if (event.key === 'Escape') { event.preventDefault(); control.close(); }
+              else if (event.key === 'Enter' && q) {
+                event.preventDefault();
+                go(siteSearchJump(results)?.href ?? siteSearchHref(q));
+              }
+            }}
+          />
+          <button type="button" className="btn-bare site-search-dialog-close" aria-label="Close search" onClick={() => control.close()}>Cancel</button>
+        </div>
         {!q && <p className="site-search-dialog-hint">Try an operator, a stage code like 1-7, an event, an enemy or a song.</p>}
         <div className="site-search-dialog-keys" aria-hidden="true">
           <span><kbd>↑</kbd><kbd>↓</kbd> Move</span>

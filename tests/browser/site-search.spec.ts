@@ -73,6 +73,22 @@ test('on the phone, the search button opens search and not the menu drawer', asy
   await expect(page.locator('.mobile-nav-overlay')).toHaveCount(0);
 });
 
+test('on the phone the pop-up has a × that closes it: it fills the screen and there is no Esc key', async ({ page }, info) => {
+  test.skip(info.project.name !== 'mobile', 'the phone pop-up');
+  await page.goto('/schedule');
+  await page.getByRole('button', { name: 'Search Arkpedia' }).tap();
+  await expect(page.getByRole('dialog', { name: 'Search Arkpedia' })).toBeVisible();
+  await page.getByRole('button', { name: 'Close search' }).tap();
+  await expect(page.getByRole('dialog', { name: 'Search Arkpedia' })).toHaveCount(0);
+});
+
+test('on the desktop the pop-up shows no ×: Esc and a click outside close it', async ({ page }, info) => {
+  test.skip(info.project.name !== 'desktop', 'the desktop pop-up');
+  await page.goto('/schedule');
+  await page.getByRole('button', { name: 'Search Arkpedia' }).click();
+  await expect(page.getByRole('button', { name: 'Close search' })).toBeHidden();
+});
+
 test('arkpedia.net/?s= and /search?s= open the one exact answer, in place of the search page', async ({ page }) => {
   await page.goto('/?s=wisadel');
   await expect(page).toHaveURL(/\/operators\/Wi%C5%A1(%27|')adel(\?|#|$)/);
