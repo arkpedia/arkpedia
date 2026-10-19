@@ -76,6 +76,20 @@
 .recruit-combo-operators { display: flex; flex-wrap: wrap; gap: 6px; }
 .recruit-combo-op { display: inline-flex; align-items: center; gap: 5px; min-height: var(--control-h); padding: 2px 7px 2px 2px; border: 1px solid var(--control-border); border-radius: var(--radius); background: var(--panel-2); color: var(--text); font-size: 11px; text-decoration: none; transition: border-color 0.15s ease, color 0.15s ease; }
 .recruit-combo-op:hover { border-color: var(--teal); color: var(--teal); }
+/* Each operator's box lightly takes its rarity's colour, so a 5★ or a 6★ reads at a glance across a
+   long list, not only from the stars after its name (owner, 2026-10-20). The rarity tokens are the
+   site's (shared.css), so both themes keep their contrast; hover still turns the border teal. */
+.recruit-combo-op[data-rarity] {
+  --recruit-op-rarity: var(--rarity-1);
+  background: color-mix(in srgb, var(--recruit-op-rarity) 14%, var(--panel-2));
+  border-color: color-mix(in srgb, var(--recruit-op-rarity) 45%, var(--control-border));
+}
+.recruit-combo-op[data-rarity="2"] { --recruit-op-rarity: var(--rarity-2); }
+.recruit-combo-op[data-rarity="3"] { --recruit-op-rarity: var(--rarity-3); }
+.recruit-combo-op[data-rarity="4"] { --recruit-op-rarity: var(--rarity-4); }
+.recruit-combo-op[data-rarity="5"] { --recruit-op-rarity: var(--rarity-5); }
+.recruit-combo-op[data-rarity="6"] { --recruit-op-rarity: var(--rarity-6); }
+.recruit-combo-op[data-rarity]:hover { border-color: var(--teal); }
 .recruit-combo-op img { width: 28px; height: 28px; border-radius: var(--radius); }
 .recruit-combo-op-rarity { font-size: 10px; white-space: nowrap; }
 .recruit-cheatsheet { padding: 20px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-frame); box-shadow: var(--shadow-panel); /* r11 quiet polish: rule 23 */ }
