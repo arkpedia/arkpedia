@@ -38,7 +38,8 @@ import { IncludePastCheckbox, IncludeSkinsCheckbox } from '@/components/pulls/In
 import SkinPlanner from '@/components/skins/SkinPlanner';
 import { SkinsHelp } from '@/components/pulls/PlannerHelp';
 import { useSkinPlan } from '@/lib/skins/skinPlan';
-import { useAccount, storedAccount } from '@/lib/account/accountStore';
+import { useAccount } from '@/lib/account/accountStore';
+import { siteServerNow } from '@/lib/time/siteServer';
 import { usePastRewards } from '@/lib/pulls/usePastRewards';
 import { pullSkinCatalogue, skinReservation, type PlannedSkin } from '@/lib/pulls/skins';
 import { availableBannerFreePulls, MAX_GOALS, PULL_PLAN_KEY, parsePullPlan, planBudgets, planHorizon, planNumber, savingsAfterPlanAt, validPlanDate, type BannerGoal, type SavedPullPlan } from '@/lib/pulls/plan';
@@ -192,7 +193,7 @@ export default function PullsPage({ scheduledEvents: globalEvents, scheduledBann
 
   useEffect(() => {
     const today = new Date();
-    setUntil(new Date(serverCalendarTime(today, storedAccount()?.server ?? 'en').getTime() + 30 * DAY_MS).toISOString().slice(0, 10));
+    setUntil(new Date(serverCalendarTime(today, siteServerNow()).getTime() + 30 * DAY_MS).toISOString().slice(0, 10));
     try {
       const saved = localStorage.getItem(PULL_PLAN_KEY);
       if (saved) applyPlan(parsePullPlan(saved), false);

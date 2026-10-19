@@ -49,6 +49,22 @@ body.front-page-no-scroll {
   text-transform: uppercase;
   color: var(--text);
 }
+/* One row that never wraps: the text wraps inside itself instead, so on a phone the dot stays
+   beside its first line rather than standing alone above it, and the Notice link stays right
+   after the text on a wide screen. */
+.maintenance-notice p { flex-wrap: nowrap; }
+.maintenance-notice p > span:not(.maintenance-notice-dot) {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+.maintenance-notice p > a { flex: none; }
+/* One notice per server is in the markup (MaintenanceNotice); only the site's server's shows.
+   <html data-site-server> is set before the first paint (_document), Global when unset. */
+html:not([data-site-server="jp"]):not([data-site-server="kr"]) .maintenance-notice:not([data-server="en"]),
+html[data-site-server="jp"] .maintenance-notice:not([data-server="jp"]),
+html[data-site-server="kr"] .maintenance-notice:not([data-server="kr"]) {
+  display: none;
+}
 .maintenance-notice-dot {
   flex: none;
   width: 8px;
