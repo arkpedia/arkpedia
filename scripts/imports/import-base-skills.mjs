@@ -7,10 +7,48 @@ const clean = name => String(name ?? '').split('Replaces')[0].trim();
 const norm = name => clean(name).replace(/[·’“”"']/g, '').replace(/\s+/g, '').toLowerCase();
 const rank = skill => skill.phase ?? Math.max(0, ['Base', 'Elite 1', 'Elite 2'].indexOf(skill.eliteLevel));
 
+/* `<$cc.tra.closure><@cc.kw>Closure's Special Order</></>`: a keyword the game underlines and
+   explains on a tap, its term id, then the words, which may carry a colour tag of their own. */
+const TERM_SPAN = /<\$([\w.]+)>((?:<@[^>]*>)?[^<]*(?:<\/>)?)<\/>/g;
+
+/**
+ * The keywords a base skill's description links to the game's glossary, each with the game's own
+ * explanation (gamedata_const termDescriptionDict, EN): Closure's Special Order, Worldly Plight,
+ * a faction's members. The page underlines `text` in the description and shows `definition` on
+ * hover, focus or tap. A Global skill's keywords are the words the game tags. A CN-only skill's
+ * description is a reviewed English translation, so its CN tags count where the term's English
+ * name appears in that text. Then any other Base term (a `cc.` term of two words or more, such
+ * as Rhine Lab) the text names without the game's tag: four skills name Rhine Lab untagged.
+ * One-word names (Passion) are left to the game's tags, as ordinary words. One per term.
+ */
+export function baseSkillKeywords(rawDescription, description, terms) {
+  const seen = new Set();
+  const keywords = [];
+  for (const [, term, inner] of String(rawDescription ?? '').matchAll(TERM_SPAN)) {
+    const entry = terms[term];
+    if (!entry || seen.has(term)) continue;
+    const tagged = stripRichText(inner);
+    const name = stripRichText(entry.termName);
+    const text = description.includes(tagged) && /[A-Za-z]/.test(tagged) ? tagged : description.includes(name) ? name : null;
+    if (!text) continue;
+    seen.add(term);
+    keywords.push({ text, term, name, definition: stripRichText(entry.description) });
+  }
+  for (const [term, entry] of Object.entries(terms)) {
+    const name = stripRichText(entry?.termName);
+    if (!term.startsWith('cc.') || seen.has(term) || !/\S\s+\S/.test(name) || !description.includes(name)) continue;
+    if (keywords.some(keyword => keyword.text.includes(name) || name.includes(keyword.text))) continue;
+    seen.add(term);
+    keywords.push({ text: name, term, name, definition: stripRichText(entry.description) });
+  }
+  return keywords;
+}
+
 /** Rebuild only base skills. Names/icons stay compatible with the site's assets and handlers.
  * EN supplies descriptions; CN-only translations retain their text, but use CN slot chains.
  * A missing/ambiguous join fails before ANY operator file is written. */
-export function reconcileBaseSkills(operator, building, region, translations = {}) {
+export function reconcileBaseSkills(operator, building, region, translations, terms) {
+  if (!terms || typeof terms !== 'object') throw new Error(`${operator.name}: no glossary (gamedata_const termDescriptionDict) for the base skill keywords`);
   const character = building.chars?.[operator.internalName];
   if (!character) throw new Error(`${operator.name}: no building_data character ${operator.internalName}`);
   const old = operator.baseSkills ?? [];
@@ -43,12 +81,16 @@ export function reconcileBaseSkills(operator, building, region, translations = {
       if (!prior && region === 'CN') throw new Error(`${operator.name}: untranslated ${entry.buffId}`);
       if (prior?.index !== undefined) used.add(prior.index);
       const level = entry.cond.level;
+      const description = region === 'Global' ? stripRichText(buff.description) : prior.skill.description;
+      const keywords = baseSkillKeywords(buff.description, description, terms);
+      const { keywords: _stale, ...kept } = prior?.skill ?? { icon: null };
       skills.push({
-        ...(prior?.skill ?? { icon: null }),
+        ...kept,
         name: prior ? prior.skill.name : buff.buffName.replace(/·/g, ' '),
         facility: ROOMS[buff.roomType],
         eliteLevel: phase === 0 && level > 1 ? `Level ${level}` : ['Base', 'Elite 1', 'Elite 2'][phase],
-        description: region === 'Global' ? stripRichText(buff.description) : prior.skill.description,
+        description,
+        ...(keywords.length ? { keywords } : {}),
         buffId: entry.buffId, slot, phase, level,
       });
     }
@@ -58,14 +100,14 @@ export function reconcileBaseSkills(operator, building, region, translations = {
 }
 
 /** A Base schema or translation gap belongs to that operator, not the event/banner catalogue. */
-export function reconcileCatalogueBaseSkills(operators, previous, cn, en, translations = {}) {
+export function reconcileCatalogueBaseSkills(operators, previous, cn, en, translations) {
   const saved = new Map(previous.map(op => [op.internalName, op]));
   const problems = [];
   for (const op of operators) {
     if (/^Amiya \(/.test(op.name)) continue;
     const region = en.building.chars[op.internalName] ? 'Global' : 'CN';
     try {
-      op.baseSkills = reconcileBaseSkills(op, region === 'Global' ? en.building : cn.building, region, translations);
+      op.baseSkills = reconcileBaseSkills(op, region === 'Global' ? en.building : cn.building, region, translations, en.constants.termDescriptionDict);
     } catch (error) {
       const prior = saved.get(op.internalName);
       op.baseSkills = structuredClone(prior?.baseSkills ?? []);
@@ -76,7 +118,7 @@ export function reconcileCatalogueBaseSkills(operators, previous, cn, en, transl
   return problems;
 }
 
-export function importBaseSkills({ root, en, cn, write = false }) {
+export function importBaseSkills({ root, en, cn, terms, write = false }) {
   const report = { operators: 0, skills: 0, global: 0, cn: 0, changed: [], descriptionChanges: [], problems: [] };
   const writes = [];
   const translationFile = path.join(root, 'data/base-skill-translations.json');
@@ -91,7 +133,7 @@ export function importBaseSkills({ root, en, cn, write = false }) {
       report.operators++;
       const region = en.chars[op.internalName] ? 'Global' : 'CN';
       try {
-        const skills = reconcileBaseSkills(op, region === 'Global' ? en : cn, region, translations);
+        const skills = reconcileBaseSkills(op, region === 'Global' ? en : cn, region, translations, terms);
         report[region === 'Global' ? 'global' : 'cn']++;
         report.skills += skills.length;
         for (const skill of skills) {
@@ -111,9 +153,10 @@ export function importBaseSkills({ root, en, cn, write = false }) {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
-  const [enPath, cnPath] = process.argv.slice(2).filter(arg => !arg.startsWith('--'));
-  if (!enPath || !cnPath) throw new Error('Usage: node scripts/imports/import-base-skills.mjs EN/building_data.json CN/building_data.json [--write]');
-  const report = importBaseSkills({ root: process.cwd(), en: JSON.parse(fs.readFileSync(enPath)), cn: JSON.parse(fs.readFileSync(cnPath)), write: process.argv.includes('--write') });
+  const [enPath, cnPath, constPath] = process.argv.slice(2).filter(arg => !arg.startsWith('--'));
+  if (!enPath || !cnPath || !constPath) throw new Error('Usage: node scripts/imports/import-base-skills.mjs EN/building_data.json CN/building_data.json EN/gamedata_const.json [--write]');
+  const terms = JSON.parse(fs.readFileSync(constPath)).termDescriptionDict;
+  const report = importBaseSkills({ root: process.cwd(), en: JSON.parse(fs.readFileSync(enPath)), cn: JSON.parse(fs.readFileSync(cnPath)), terms, write: process.argv.includes('--write') });
   fs.mkdirSync('.cache/base-audit', { recursive: true });
   fs.writeFileSync('.cache/base-audit/data-report.json', JSON.stringify(report, null, 2) + '\n');
   console.log(JSON.stringify({ ...report, changed: report.changed.length, descriptionChanges: report.descriptionChanges.length }, null, 2));

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import BaseSkillText from '@/components/operators/BaseSkillText';
 import { ContentImg } from '@/components/content/ContentImage';
 import { useEffect, useRef, useState } from 'react';
 import type { GachaOperatorPreview } from '@/lib/gacha/operatorPreviewData';
@@ -180,7 +181,7 @@ export function OperatorPreview({ item, onClose, nativeModal = false }: { item: 
                   <div>
                     <strong>{baseSkill.name}</strong>
                     {(baseSkill.facility || baseSkill.unlock) && <div className="gacha-preview-meta">{[baseSkill.facility, baseSkill.unlock].filter(Boolean).join(' · ')}</div>}
-                    <p>{baseSkill.description}</p>
+                    <p><BaseSkillText text={baseSkill.description} keywords={baseSkill.keywords} /></p>
                   </div>
                 </div>)}
               </div>

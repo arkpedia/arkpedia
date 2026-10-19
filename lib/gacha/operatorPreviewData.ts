@@ -1,4 +1,4 @@
-import type { Operator, OperatorModule } from '@/lib/operators/operatorTypes';
+import type { BaseSkillKeyword, Operator, OperatorModule } from '@/lib/operators/operatorTypes';
 import type { StatValues } from '@/lib/operators/operatorStats';
 import { getSkillList } from '@/lib/operators/operatorTypes';
 import { baseSkillDisplayName, getBaseSkillIconPath, getSkillIconPath, talentDisplayName } from '@/lib/operators/operatorIconPaths';
@@ -19,7 +19,7 @@ export interface GachaOperatorPreview {
   talents: { name: string; stage: string | null; description: string }[];
   skills: { name: string; icon: string | null; rank: string; recovery: string | null; activation: string | null; initialSp: number | string | null; spCost: number | string | null; duration: number | string | null; description: string }[];
   modules: { name: string; type: OperatorModule['type']; stages: { stage: string; attributes: string | null; label: string | null; effect: string | null }[] }[];
-  baseSkills: { name: string; icon: string | null; facility: string | null; unlock: string | null; description: string }[];
+  baseSkills: { name: string; icon: string | null; facility: string | null; unlock: string | null; description: string; keywords: BaseSkillKeyword[] }[];
 }
 
 /** Keep the pop-up small: fetch the selected operator only, and send its final
@@ -77,6 +77,7 @@ export function buildGachaOperatorPreview(operator: Operator): GachaOperatorPrev
       facility: skill.facility,
       unlock: skill.eliteLevel,
       description: skill.description ?? '',
+      keywords: skill.keywords ?? [],
     })).filter((skill) => skill.description),
   };
 }

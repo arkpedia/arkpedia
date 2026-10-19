@@ -1,4 +1,5 @@
 import NumberInput from '@/components/ui/NumberInput';
+import BaseSkillText from '@/components/operators/BaseSkillText';
 import ImportDialog from '@/components/account/ImportDialog';
 import BaseOverview, { type BaseRoomSummary } from '@/components/base/BaseOverview';
 import BaseRotationPanel from '@/components/base/BaseRotationPanel';
@@ -1739,7 +1740,7 @@ export default function BasePage({ operators }: Props) {
                                       return (
                                         <div key={si} className="base-room-card-skill">
                                           {iconSrc && <Image src={iconSrc} alt="" width={26} height={26} className="base-room-card-skill-icon" />}
-                                          <span className="base-room-card-skill-desc">{sk.description}</span>
+                                          <span className="base-room-card-skill-desc"><BaseSkillText text={sk.description} keywords={sk.keywords} /></span>
                                         </div>
                                       );
                                     })}
