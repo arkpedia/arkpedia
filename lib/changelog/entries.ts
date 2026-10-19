@@ -34,7 +34,7 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    at: '2026-10-19T17:45:00Z',
+    at: '2026-10-19T20:15:00Z',
     added: [
       { title: 'Base skill keywords explained', detail: 'Tap or hover an underlined term, such as Closure\'s Special Order or Worldly Plight, for the game\'s own explanation.' },
       { title: "Don't autoplay a song", detail: 'Mark songs you never want autoplay to pick; they still play when you choose them.', href: '/music' },
@@ -45,10 +45,15 @@ export const CHANGELOG: ChangelogEntry[] = [
       { title: 'Pictures in event news', detail: 'Event News shows the official posts\' pictures where they stand, with the board\'s banner art.' },
     ],
     changed: [
+      { title: 'Recruitment rarity at a glance', detail: 'Each operator box in recruitment results is tinted with its rarity colour.', href: '/recruitment' },
+      { title: 'Farming guide updated', detail: 'New EN recommendations, including Electrode Unit and Liquefied High-Energy Gas.', href: '/farming' },
       { title: 'Autoplay on by default', detail: 'Autoplay from your library is on unless you turn it off.', href: '/music' },
       { title: 'Show all always in reach', detail: 'Section headings on Discover stay at the top while you scroll a long list.', href: '/music/discover' },
       { title: 'JP and KR banner days confirmed', detail: 'Their opening day is checked against the in-game board.', href: '/pulls' },
       { title: 'Stat icons from the game', detail: 'Enemy and operator stat icons now come from the game client itself.', href: '/enemies' },
+    ],
+    fixed: [
+      { title: 'Chibi glow effects', detail: 'Glowing effects such as Mudrock\'s Silent Night candles draw softly instead of as solid blobs.', href: '/operators' },
     ],
   },
   {
