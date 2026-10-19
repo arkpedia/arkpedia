@@ -10,7 +10,8 @@ The mirrors and arkprts decode the same client tables into JSON that differs onl
   - 30.0 and 30, and BSON's Int64 and a plain int.
 canon() writes each such pair the same way, and first_diff() names the first place two
 canonical tables part, as a path into the table. Measured 2026-10-19: with these rules the
-official decode matched Kengxxiao (CN, 57 of 57 tables) and ArknightsAssets (EN, 55 of 55).
+official decode matched Kengxxiao (CN, 57 of 57 tables) and ArknightsAssets (EN, 55 of 55; JP
+and KR, 55 of 55 each).
 """
 import base64
 
