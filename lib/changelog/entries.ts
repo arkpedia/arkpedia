@@ -34,6 +34,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-10-19T15:00:00Z',
+    added: [
+      { title: 'Server maintenance on the home page', detail: 'Global maintenance from the in-game notices shows above the panels and in the ticker.', href: '/' },
+      { title: 'Event dates and art from the game', detail: 'Events show their announced day and key art as soon as the in-game board posts them.', href: '/schedule' },
+      { title: 'Pictures in event news', detail: 'Event News shows the official posts\' pictures where they stand, with the board\'s banner art.' },
+    ],
+    changed: [
+      { title: 'JP and KR banner days confirmed', detail: 'Their opening day is checked against the in-game board.', href: '/pulls' },
+      { title: 'Stat icons from the game', detail: 'Enemy and operator stat icons now come from the game client itself.', href: '/enemies' },
+    ],
+  },
+  {
     at: '2026-10-18T14:10:00Z',
     changed: [{ title: 'Direct music playback', detail: 'Songs play straight from Monster Siren while the player prepares the next track as you listen.', href: '/music' }],
   },
