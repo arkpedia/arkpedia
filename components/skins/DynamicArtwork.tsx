@@ -4,6 +4,7 @@ import { assetAudioUrl, fetchAsset, loadAssetImage, retryAssetAudioOnNextPress, 
 import { alphaBox, visibleWorldBox, posterView, type ArtworkBox } from '@/lib/skins/artworkFraming';
 import { selectableAnimations, voiceActionEnd, voiceAnimation, VoiceChoreography, type ArtworkVoice } from '@/lib/skins/dynamicPlayback';
 import type { spine as Spine } from '@/lib/vendor/spine-3.8/spine-webgl';
+import { premultipliedTexture } from '@/lib/spine/premultipliedTexture';
 import {
   ANIMATION_MIX, HANDOVER_SECONDS, INTRO_ANIMATION, TOUCH_ANIMATION, cameraAt, fadesAt, handoverIn, handoverOut, openingPlan,
   parseDynamicModel, pressPlan, restingView, viewBetween, type DynamicModel, type View,
@@ -219,11 +220,11 @@ async function loadModel(url: string, signal: AbortSignal, operator: string | un
 type SpineContext = InstanceType<SpineRuntime['webgl']['ManagedWebGLRenderingContext']>;
 
 /** A skeleton and its animation state, read from loaded files. */
-function readSkeleton(spine: SpineRuntime, context: SpineContext, files: Awaited<ReturnType<typeof loadSkeleton>>, track: Spine.TextureAtlas[]) {
+function readSkeleton(spine: SpineRuntime, context: SpineContext, files: Awaited<ReturnType<typeof loadSkeleton>>, track: Spine.TextureAtlas[], filePremultiplied: boolean) {
   const atlas = new spine.TextureAtlas(files.atlas, (page) => {
     const image = files.pages.get(page);
     if (!image) throw new Error(`The atlas names a page model.json does not list: ${page}`);
-    return new spine.webgl.GLTexture(context, image);
+    return premultipliedTexture(spine, context, image, filePremultiplied);
   });
   track.push(atlas);
   const loader = new spine.AtlasAttachmentLoader(atlas);
@@ -283,10 +284,10 @@ function createPlayer(spine: SpineRuntime, host: HTMLElement, files: Awaited<Ret
   };
   try {
     if (!gl) throw new Error('WebGL is not available');
-    const { data, skeleton, state } = readSkeleton(spine, context, files, atlases);
+    const { data, skeleton, state } = readSkeleton(spine, context, files, atlases, model.premultipliedAlpha);
     for (const mix of model.mixes) state.data.setMix(mix.from, mix.to, mix.duration);
     // The entrance: its own skeleton and state, drawn instead of the illustration while it plays.
-    const entrance = files.entrance ? readSkeleton(spine, context, files.entrance, atlases) : null;
+    const entrance = files.entrance ? readSkeleton(spine, context, files.entrance, atlases, model.premultipliedAlpha) : null;
     renderer = new spine.webgl.SceneRenderer(canvas, context, true);
     let layers = files.layers?.layers ?? null;
     if (files.layers) {
@@ -465,13 +466,13 @@ function createPlayer(spine: SpineRuntime, host: HTMLElement, files: Awaited<Ret
       gl.clear(gl.COLOR_BUFFER_BIT);
       if (inEntrance && entrance) {
         scene.begin();
-        scene.drawSkeleton(entrance.skeleton, model.premultipliedAlpha);
+        scene.drawSkeleton(entrance.skeleton, true);
         scene.end();
         return;
       }
       if (!layers || !layerRenderer) {
         scene.begin();
-        scene.drawSkeleton(skeleton, model.premultipliedAlpha);
+        scene.drawSkeleton(skeleton, true);
         scene.end();
         return;
       }
@@ -486,8 +487,8 @@ function createPlayer(spine: SpineRuntime, host: HTMLElement, files: Awaited<Ret
         if (entry.kind === 'part') {
           if (!open) { scene.begin(); open = true; }
           const range = ranges[entry.index];
-          if (range && parts === 1 && !layers.separators.length) scene.drawSkeleton(skeleton, model.premultipliedAlpha);
-          else if (range) scene.drawSkeleton(skeleton, model.premultipliedAlpha, range[0], range[1]);
+          if (range && parts === 1 && !layers.separators.length) scene.drawSkeleton(skeleton, true);
+          else if (range) scene.drawSkeleton(skeleton, true, range[0], range[1]);
           continue;
         }
         if (open) { scene.end(); open = false; }

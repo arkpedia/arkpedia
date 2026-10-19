@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { premultipliedTexture } from '@/lib/spine/premultipliedTexture';
 import type { PointerEventHandler } from 'react';
 import type { ChibiModel } from '@/lib/operators/chibi';
 import type { ChibiActivity } from '@/lib/operators/chibiRoutine';
@@ -35,7 +36,7 @@ export default function ChibiCanvas({ model, label, animation, onAnimationChange
       const context = new spine.webgl.ManagedWebGLRenderingContext(canvas, { alpha: true, antialias: true });
       cleanup = () => context.gl.getExtension('WEBGL_lose_context')?.loseContext();
       const textures = new Map(images);
-      const atlas = chibiAtlas(spine, atlasText, name => { const image = textures.get(name); if (!image) throw Error(`Missing texture ${name}`); return new spine.webgl.GLTexture(context, image); });
+      const atlas = chibiAtlas(spine, atlasText, name => { const image = textures.get(name); if (!image) throw Error(`Missing texture ${name}`); return premultipliedTexture(spine, context, image, model.premultipliedAlpha); });
       cleanup = () => { atlas.dispose(); context.gl.getExtension('WEBGL_lose_context')?.loseContext(); };
       const data = new spine.SkeletonBinary(new spine.AtlasAttachmentLoader(atlas)).readSkeletonData(new Uint8Array(skeletonBytes));
       const skeleton = new spine.Skeleton(data); skeleton.setToSetupPose(); skeleton.updateWorldTransform();
@@ -137,7 +138,7 @@ export default function ChibiCanvas({ model, label, animation, onAnimationChange
         canvas.dataset.framed = String(!Number.isFinite(actualSize.x) || (actualOrigin.x >= camera.x - viewWidth / 2 && actualOrigin.x + actualSize.x <= camera.x + viewWidth / 2
           && actualOrigin.y >= camera.y - viewHeight / 2 && actualOrigin.y + actualSize.y <= camera.y + viewHeight / 2));
         renderer.camera.viewportHeight = viewHeight; renderer.camera.viewportWidth = viewWidth; renderer.camera.update();
-        renderer.begin(); renderer.drawSkeleton(skeleton, model.premultipliedAlpha); renderer.end();
+        renderer.begin(); renderer.drawSkeleton(skeleton, true); renderer.end();
         frame = requestAnimationFrame(render);
       };
       frame = requestAnimationFrame(render);
