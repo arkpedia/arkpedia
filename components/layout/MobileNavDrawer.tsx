@@ -27,8 +27,10 @@ const SWIPE_DISTANCE_PX = 60;
 // Elements inside the top bar that should handle their own tap
 // instead of also opening the drawer as a side effect. .mobile-nav-back is the back
 // link a page can put where the brand normally is: without it here, tapping Back
-// navigates AND flings the drawer open over the page you are arriving at.
-const BAR_TAP_EXCLUDED_SELECTOR = '.site-brand, .site-nav-theme-wrap, .mobile-nav-back, .site-search';
+// navigates AND flings the drawer open over the page you are arriving at. Every link and button
+// is excluded rather than each by name: the clock's server switch (ServerClock) is a button in
+// the bar, and naming them one by one let it open the drawer as well as switch the server.
+const BAR_TAP_EXCLUDED_SELECTOR = 'a, button, .site-nav-theme-wrap, .site-search';
 
 export default function MobileNavDrawer({ mobileNav, search }: { mobileNav?: MobileNavOverride; search: SiteSearchControl }) {
   const router = useRouter();

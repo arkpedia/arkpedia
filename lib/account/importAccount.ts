@@ -15,6 +15,7 @@ import { writeRoster } from '@/lib/planner/roster';
 import type { ServerId } from '@/lib/account-import/yostar';
 import { accountFromGame, storedAccount, storedOtherAccounts, writeAccount, writeOtherAccounts, type AccountRecord } from './accountStore';
 import { mergePulls, type PullRead } from './pulls';
+import { rememberSiteServer } from '@/lib/time/siteServer';
 
 /**
  * Whether an import is the stored account's player: the same server, and the same game uid when
@@ -57,6 +58,8 @@ export function importGameAccount(user: Record<string, any>, tables: ImportTable
   if (shown && shown.server !== server) others[shown.server] = shown;
   writeOtherAccounts(others);
   writeAccount(record);
+  // The site follows the account just imported, whatever server the nav showed before.
+  rememberSiteServer(server);
   writeRoster(roster);
   writeDepot(depot);
   return { record, operators: Object.keys(roster).length, materials: Object.values(depot).filter((count) => count > 0).length, unknown };

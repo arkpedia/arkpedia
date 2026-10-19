@@ -4,6 +4,7 @@ import SegmentedControl from '@/components/ui/SegmentedControl';
 import { SERVER_IDS, SERVERS, type ServerId } from '@/lib/account-import/yostar';
 import { readSavedLogin } from '@/lib/account-import/savedLogin';
 import { storedAccount } from '@/lib/account/accountStore';
+import { siteServerNow } from '@/lib/time/siteServer';
 import ImportDialog from '@/components/account/ImportDialog';
 import { useReleaseTable } from '@/lib/content/context';
 import { depotNames, type MaterialCatalogue } from '@/lib/farming/materialCatalogue.mjs';
@@ -50,8 +51,8 @@ export default function DataDialog({ onClose }: { onClose: () => void }) {
   const [exporting, setExporting] = useState(false);
   const [text, setText] = useState('');
   // The dialog opens on a click, after hydration, so storage can be read for its first render:
-  // the remembered sign-in's server, else the imported account's, else Global.
-  const [server, setServer] = useState<ServerId>(() => readSavedLogin()?.server ?? storedAccount()?.server ?? 'en');
+  // the remembered sign-in's server, else the site's (the nav's choice, else the account's).
+  const [server, setServer] = useState<ServerId>(() => readSavedLogin()?.server ?? siteServerNow());
 
   function onAccount(user: Record<string, any>, pulls: PullRead, from: ServerId) {
     if (isResettingBrowserData()) return;

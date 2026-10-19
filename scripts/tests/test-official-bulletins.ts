@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 // @ts-expect-error Node publication scripts are plain JavaScript.
-import { bulletinKind, cleanTitle, noticeDate, OFFICIAL_BULLETINS, parseJumpLink, parseMaintenance, stableUrl, syncOfficialBulletins } from '../sync/sync-official-bulletins.mjs';
+import { bulletinKind, cleanTitle, maybeMaintenance, noticeDate, OFFICIAL_BULLETINS, parseJumpLink, parseMaintenance, stableUrl, syncOfficialBulletins } from '../sync/sync-official-bulletins.mjs';
 // @ts-expect-error Node publication scripts are plain JavaScript.
 import { OFFICIAL_USER_AGENT } from '../lib/official-endpoints.mjs';
 
@@ -199,16 +199,42 @@ const maintenancePage = (window: string) => `<div class="head-title-container"><
 <strong>Maintenance Date and Time</strong><br/>${window}<br/></p></div>`;
 
 test('a SYSTEM notice page gives its maintenance window, in UTC, or null', () => {
-  assert.deepEqual(parseMaintenance(maintenancePage('July 30, 2026, 08:00-08:10 (UTC-7)')), { startAt: '2026-07-30T15:00:00.000Z', endAt: '2026-07-30T15:10:00.000Z' });
-  assert.deepEqual(parseMaintenance(maintenancePage('August 13, 2026, 04:00-08:00 (UTC-7)')), { startAt: '2026-08-13T11:00:00.000Z', endAt: '2026-08-13T15:00:00.000Z' });
-  assert.deepEqual(parseMaintenance(maintenancePage('October 21, 2026, 23:00 - October 22, 2026, 02:00 (UTC-7)')), { startAt: '2026-10-22T06:00:00.000Z', endAt: '2026-10-22T09:00:00.000Z' });
-  assert.deepEqual(parseMaintenance(maintenancePage('October 21, 2026, 23:00-01:00 (UTC-7)')).endAt, '2026-10-22T08:00:00.000Z', 'past midnight without a day');
-  assert.equal(parseMaintenance('<p>Official Statement on Fair Play. Players acting on October 21, 2026, 08:00-09:00 (UTC-7)…</p>'), null, 'no maintenance');
-  assert.equal(parseMaintenance(`${maintenancePage('July 30, 2026, 08:00-08:10 (UTC-7)')}<p>Maintenance July 31, 2026, 08:00-08:10 (UTC-7)</p>`), null, 'two windows');
-  assert.equal(parseMaintenance(maintenancePage('soon')), null);
+  assert.deepEqual(parseMaintenance(maintenancePage('July 30, 2026, 08:00-08:10 (UTC-7)'), 'en', '2026-07-28'), { startAt: '2026-07-30T15:00:00.000Z', endAt: '2026-07-30T15:10:00.000Z' });
+  assert.deepEqual(parseMaintenance(maintenancePage('August 13, 2026, 04:00-08:00 (UTC-7)'), 'en', '2026-07-28'), { startAt: '2026-08-13T11:00:00.000Z', endAt: '2026-08-13T15:00:00.000Z' });
+  assert.deepEqual(parseMaintenance(maintenancePage('October 21, 2026, 23:00 - October 22, 2026, 02:00 (UTC-7)'), 'en', '2026-07-28'), { startAt: '2026-10-22T06:00:00.000Z', endAt: '2026-10-22T09:00:00.000Z' });
+  assert.deepEqual(parseMaintenance(maintenancePage('October 21, 2026, 23:00-01:00 (UTC-7)'), 'en', '2026-07-28').endAt, '2026-10-22T08:00:00.000Z', 'past midnight without a day');
+  assert.equal(parseMaintenance('<p>Official Statement on Fair Play. Players acting on October 21, 2026, 08:00-09:00 (UTC-7)…</p>', 'en', '2026-10-18'), null, 'no maintenance');
+  assert.equal(parseMaintenance(`${maintenancePage('July 30, 2026, 08:00-08:10 (UTC-7)')}<p>Maintenance July 31, 2026, 08:00-08:10 (UTC-7)</p>`, 'en', '2026-07-28'), null, 'two windows');
+  assert.equal(parseMaintenance(maintenancePage('soon'), 'en', '2026-07-28'), null);
 });
 
-test('EN SYSTEM notices are read for their window once, and again while it is still to come', async () => {
+// JP's and KR's notices (Aug-Oct 2026), shortened to the lines that carry the window. Both give
+// server time, UTC+9, and KR gives no year.
+const jpPage = (line: string) => `<div class="head-title">メンテナンスのお知らせ</div><p>${line}より、メンテナンスを実施いたします。</p><p>■日時<br/>${line}</p>`;
+const krPage = (body: string) => `<div class="head-title">점검 안내</div><p>안녕하세요 박사님,<br/>${body}</p><p>※ 보상 지급 대상: 2026년 8월 20일 17:00 이전에 게임 계정을 생성하신 모든 유저</p>`;
+
+test('JP and KR notice pages give their maintenance window, in UTC, or null', () => {
+  assert.deepEqual(parseMaintenance(jpPage('2026年10月14日（水）10:00 ~ 16:00'), 'jp', '2026-10-09'), { startAt: '2026-10-14T01:00:00.000Z', endAt: '2026-10-14T07:00:00.000Z' });
+  assert.deepEqual(parseMaintenance(jpPage('2026年9月23日（水）16:00 ~ 17:00'), 'jp', '2026-09-18'), { startAt: '2026-09-23T07:00:00.000Z', endAt: '2026-09-23T08:00:00.000Z' });
+  assert.equal(parseMaintenance('<p>2026年10月14日（水）16:00 ~ 2026年10月28日（水）3:59 開催</p>', 'jp', '2026-10-14'), null, 'an event period is no maintenance');
+  assert.deepEqual(parseMaintenance(krPage('8/20 (목) 16:00 ~ 17:00 기간 중 시스템 최적화 및 신규 이벤트 리소스 업데이트 등을 위한 점검이 진행될 예정입니다.'), 'kr', '2026-08-18'), { startAt: '2026-08-20T07:00:00.000Z', endAt: '2026-08-20T08:00:00.000Z' });
+  assert.deepEqual(parseMaintenance(krPage('10월 14일 (수) 10:00 ~ 16:00 기간 중 점검 및 애플리케이션 업데이트가 진행될 예정입니다'), 'kr', '2026-10-10'), { startAt: '2026-10-14T01:00:00.000Z', endAt: '2026-10-14T07:00:00.000Z' });
+  assert.deepEqual(parseMaintenance(krPage('9/9 (수) 21:00~21:30 기간 중 임시 점검이 진행될 예정입니다.'), 'kr', '2026-09-09'), { startAt: '2026-09-09T12:00:00.000Z', endAt: '2026-09-09T12:30:00.000Z' });
+  assert.deepEqual(parseMaintenance(krPage('1/6 (수) 10:00 ~ 16:00 점검이 진행될 예정입니다.'), 'kr', '2026-12-30')?.startAt, '2027-01-06T01:00:00.000Z', 'a January window announced in December is next year');
+  assert.equal(parseMaintenance(krPage('9/2 (수), 16:00 ~ 16:10 기간 중 리소스 업데이트가 진행될 예정입니다. 이번 리소스 업데이트는 점검 없이 진행되며'), 'kr', '2026-09-01'), null, 'an update without maintenance');
+  assert.equal(parseMaintenance(krPage('8/20 (목) 16:00 ~ 17:00 점검'), 'kr', undefined), null, 'no year without the notice date');
+});
+
+test('JP and KR list maintenance under ACTIVITY, so their titles pick the notices to read', () => {
+  assert.equal(maybeMaintenance('jp', { group: 'ACTIVITY', title: 'メンテナンスのお知らせ', url: 'u' }), true);
+  assert.equal(maybeMaintenance('kr', { group: 'ACTIVITY', title: '10/14 점검 및 리소스 업데이트 안내', url: 'u' }), true);
+  assert.equal(maybeMaintenance('kr', { group: 'ACTIVITY', title: '신규 이벤트 안내', url: 'u' }), false);
+  assert.equal(maybeMaintenance('en', { group: 'ACTIVITY', title: 'Maintenance', url: 'u' }), false, 'Global files maintenance under SYSTEM');
+  assert.equal(maybeMaintenance('en', { group: 'SYSTEM', title: 'MAINTENANCE', url: 'u' }), true);
+  assert.equal(maybeMaintenance('jp', { group: 'SYSTEM', title: 'メンテナンス' }), false, 'no page to read');
+});
+
+test('maintenance notices are read for their window once, and again while it is still to come', async () => {
   const root = tmp();
   try {
     const page = (id: string) => `https://en.test/announce/Android/announcement/${id}.html`;
@@ -222,6 +248,7 @@ test('EN SYSTEM notices are read for their window once, and again while it is st
       'https://jp.test/announce/Android/announcement.meta.json': { json: { announceList: [{ announceId: '9', group: 'SYSTEM', title: 'メンテナンス', month: 10, day: 18, webUrl: 'https://jp.test/announce/Android/announcement/9.html' }] } },
       [page('1640')]: { bytes: Buffer.from(maintenancePage('October 21, 2026, 08:00-09:00 (UTC-7)')) },
       [page('1090')]: { bytes: Buffer.from('<p>Dear Players, please play fair.</p>') },
+      'https://jp.test/announce/Android/announcement/9.html': { bytes: Buffer.from(jpPage('2026年10月21日（水）16:00 ~ 17:00')) },
     });
     const seen: string[] = [];
     await syncOfficialBulletins(root, options(server(answers, seen)));
@@ -229,8 +256,7 @@ test('EN SYSTEM notices are read for their window once, and again while it is st
     assert.deepEqual(notices.find((n: any) => n.id === '1640').maintenance, { startAt: '2026-10-21T15:00:00.000Z', endAt: '2026-10-21T16:00:00.000Z' });
     assert.equal(notices.find((n: any) => n.id === '1090').maintenance, null, 'read, and no window');
     assert.ok(!('maintenance' in notices.find((n: any) => n.id === '1634')), 'only SYSTEM notices');
-    assert.ok(!('maintenance' in read(root).regions.jp.notices[0]), 'only the regions whose wording is parsed');
-    assert.ok(!seen.some(url => url.includes('jp.test/announce/Android/announcement/')));
+    assert.deepEqual(read(root).regions.jp.notices[0].maintenance, { startAt: '2026-10-21T07:00:00.000Z', endAt: '2026-10-21T08:00:00.000Z' }, 'JP is read too, in Japan time');
 
     const again: string[] = [];
     await syncOfficialBulletins(root, options(server(answers, again)));
