@@ -12,7 +12,10 @@ Two plans come here. The catalogue stage's (.cache/catalogue/asset-plan.json) na
 a game-resource mirror at the plan's revision (`sourcePath`), or key art from an official CN
 announcement (`urls`, the images on the post; scripts/sync/sync-cn-news.mjs) and wiki uploads
 (`wikiFiles`), tried in that order: the post's image is the file the wiki uploads later, from the
-source. Only an https address on OFFICIAL_IMAGE_HOSTS is ever downloaded.
+source. Only an https address on OFFICIAL_IMAGE_HOSTS is ever downloaded. An event's key art from
+Global's in-game notice board (`boardImage`, {url, sha1}; scripts/sync/board-events.mjs) comes
+before all of them and replaces what the file holds, once: only from BOARD_IMAGE_HOSTS, and only
+the picture the board showed (by its sha1).
 The staged-art plan (`plan-staged` writes it) names files the refresh's importers staged
 under .cache/<kind>/ (`localPath`, with the `source` they came from; config/staged-art.json):
 only the kinds whose stage ran to the end in this run (data/stage-report.json), and only
@@ -56,6 +59,14 @@ REGISTRY = APP/'config/staged-art.json'
 # Where the official CN website (ak.hypergryph.com/news) keeps the images of its posts. Any other
 # address a post names is never fetched; a new host is added here once someone has looked at it.
 OFFICIAL_IMAGE_HOSTS = ('web.hycdn.cn',)
+# Where the in-game notice boards keep their images (data/official-bulletins.json): Global's,
+# Japan's and Korea's on Yostar's hosts, CN's on hycdn. Fetched only for a plan entry's
+# `boardImage` (scripts/sync/board-events.mjs), and only under /announce/images/.
+BOARD_IMAGE_HOSTS = ('ark-us-static-online.yo-star.com', 'ark-jp-static-online.yo-star.com',
+    'ark-kr-static-online-1300509597.yo-star.com', 'web.hycdn.cn')
+# Global's event key art on its board is the 1650x900 announcement image: byte for byte the file
+# the wiki uploads later as "EN <event> banner.png", a day or so before it.
+BOARD_ASPECT = (1.6, 2.1)
 
 
 def official_image(urls):
@@ -91,6 +102,40 @@ def official_image(urls):
             continue
         return data, url
     return None, '; '.join(failed)
+
+
+def board_image(board):
+    """(bytes, url) of a board's key art, or (None, why). The poller hashed the image when the board
+    showed it (sha1): the bytes fetched now must be that picture, the size of the board's art."""
+    url, expected = board.get('url', ''), board.get('sha1', '')
+    parsed = urllib.parse.urlparse(url)
+    if parsed.scheme != 'https' or parsed.hostname not in BOARD_IMAGE_HOSTS or not parsed.path.startswith('/announce/images/'):
+        return None, f'{url} is not an in-game board image ({", ".join(BOARD_IMAGE_HOSTS)}) and is never fetched'
+    try:
+        data = fetch(url)
+    except Exception as exc:
+        print(f'Downloading the board image {url} failed: {exc}', file=sys.stderr)
+        return None, f'downloading the board image {url} failed'
+    if hashlib.sha1(data).hexdigest() != expected:
+        return None, f'the board image {url} is no longer the picture the board showed'
+    try:
+        with Image.open(io.BytesIO(data)) as image:
+            image.load()
+            width, height = image.size
+    except Exception as exc:
+        print(f'The board image {url} does not decode: {exc}', file=sys.stderr)
+        return None, f'the board image {url} is not an image that decodes'
+    if width < 1000 or not BOARD_ASPECT[0] <= width / height <= BOARD_ASPECT[1]:
+        return None, f'the board image {url} is {width}x{height}, not the shape of the board\'s key art'
+    return data, url
+
+
+def holds_board_art(root, target, board):
+    """Whether the image repository's file already is this board picture: imported from it here, or
+    the wiki's upload of the same bytes by the image repository's Global art sync (by sha1)."""
+    read = lambda name: json.loads((root/'sources'/name).read_text()) if (root/'sources'/name).exists() else {}
+    return read('catalogue-imports.json').get(target, {}).get('url') == board.get('url') \
+        or read('global-banner-art.json').get(target, {}).get('sha1') == board.get('sha1')
 
 
 class Folder:
@@ -216,7 +261,7 @@ def build(plan, image_root, skin_root=None, alerts=None, app_root=APP):
     roots = {'image': image_root, **({'skin': skin_root} if skin_root else {})}
     manifests = {k: json.loads((v/'asset-manifest.json').read_text()) for k,v in roots.items()}
     maps = {k: json.loads((v/'asset-source-map.json').read_text()) for k,v in roots.items()}
-    sources = {}
+    sources, boards = {}, {}
     built = []
     variants = None
     for entry in plan['files']:
@@ -225,6 +270,25 @@ def build(plan, image_root, skin_root=None, alerts=None, app_root=APP):
         if kind not in roots:
             raise ValueError(f'{target} belongs in the artwork repository, which this plan was not given')
         root = roots[kind]
+        board = entry.get('boardImage')
+        # A board's key art replaces the file (the CN art until Global shows the event) once.
+        if board and kind == 'image' and not (target in manifests[kind]['files'] and holds_board_art(root, target, board)):
+            data, url = board_image(board)
+            if data is None:
+                print(f'{target}: no board image ({url})', file=sys.stderr)
+                if target in manifests[kind]['files']:
+                    built.append(target)
+                    continue
+            else:
+                encoded, size = FOLDERS[target.split('/')[0]].encode(Image.open(io.BytesIO(data)))
+                (root/target).parent.mkdir(parents=True, exist_ok=True)
+                (root/target).write_bytes(encoded)
+                manifests[kind]['files'][target] = {'bytes': len(encoded), 'sha256': sha(encoded), 'width': size[0], 'height': size[1]}
+                sources[target] = {'url': url, 'sha256': sha(data)}
+                boards[target] = {'title': 'In-game notice board', 'url': url, 'sha1': board['sha1']}
+                built.append(target)
+                print(f'Built {target} from the in-game board')
+                continue
         if target in manifests[kind]['files']:
             built.append(target)
             continue
@@ -335,6 +399,12 @@ def build(plan, image_root, skin_root=None, alerts=None, app_root=APP):
         previous = json.loads(provenance.read_text()) if provenance.exists() else {}
         previous.update({k:v for k,v in sources.items() if ('-star-skins/' in k)==(kind=='skin')})
         if previous: provenance.parent.mkdir(exist_ok=True);provenance.write_text(json.dumps(previous,ensure_ascii=False,indent=2)+'\n')
+        if kind == 'image' and boards:
+            # The image repository's Global art sync skips a file whose recorded sha1 is the wiki
+            # upload's: the board's picture is that upload, so it is not fetched again.
+            global_art = root/'sources/global-banner-art.json'
+            known = json.loads(global_art.read_text()) if global_art.exists() else {}
+            known.update(boards);global_art.write_text(json.dumps(dict(sorted(known.items())),ensure_ascii=False,indent=2)+'\n')
         subprocess.run(['git','add','--sparse','--all'],cwd=root,check=True)
         subprocess.run(['python3','scripts/validate_images.py','--staged'],cwd=root,check=True)
     return built

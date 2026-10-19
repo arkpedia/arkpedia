@@ -9,15 +9,14 @@ components/enemies/EnemyStatIcons.tsx for the search that concluded so.
 
 Two sources, because no single one has all of them:
 
-  stat glyphs   Eltik/myrtle mirrors the atlas as individual 26x26 PNGs, which is
-                the gap the earlier search could not fill. The commit is pinned so
-                a re-run fetches the same files. NOTE: that repo carries no
-                licence. The art itself is Hypergryph's, the same as every other
-                game asset on this site and the same as what the other unofficial
-                mirrors (yuanyan3060, fexli, Aceship) redistribute -- the repo is a
-                convenient mirror of it, not its author. If it ever goes away, or a
-                first-party extraction is preferred, these nine files are the only
-                thing to replace.
+  stat glyphs   the Global client's own operator info screen
+                (ui/pages/character_info_page.ab, read from the official servers by
+                client_bundles.py): icon_atk, icon_def, icon_res, icon_block,
+                icon_attack_speed, icon_hp, icon_time (redeploy) and icon_cost. Each
+                sprite is a white glyph on the screen's dark 23px tile, so the tile is
+                keyed out by brightness and the glyph centred on 26px, the size these
+                files have always had. (They came from Eltik/myrtle's copy until
+                2026-10-19; that repo has no licence, and the client is the source.)
 
   sanity        AP_GAMEPLAY.png, which IS in cn-resource's item/ folder, so it
                 comes off the local cache rather than the network.
@@ -30,6 +29,7 @@ either way.
 
 Run:  python3 scripts/imports/import-stat-icons.py
 """
+import importlib.util
 import json
 import os
 import ssl
@@ -41,23 +41,44 @@ from io import BytesIO
 import certifi
 from PIL import Image
 
-# Pinned: bumping this picks up whatever the mirror has re-extracted since.
-REPO_COMMIT = '0ff3dd71ad9e6d2f06ab440675760c818c1dcc00'
-RAW = f'https://raw.githubusercontent.com/Eltik/myrtle/{REPO_COMMIT}/frontend/public/stat-icons'
+_spec = importlib.util.spec_from_file_location('client_bundles', os.path.join(os.path.dirname(os.path.abspath(__file__)), 'client_bundles.py'))
+client_bundles = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(client_bundles)
+
+# The Global client's operator info screen, and the sprite in it behind each of our names.
+BUNDLE = 'ui/pages/character_info_page.ab'
+SPRITES = {
+    'icon_atk': 'atk',
+    'icon_def': 'def',
+    'icon_res': 'res',
+    'icon_block': 'block',
+    'icon_attack_speed': 'aspd',
+    'icon_hp': 'hp',
+    'icon_time': 'redeploy',
+    'icon_cost': 'cost',
+}
+SIZE = 26
 
 CN = os.environ.get('ARKPEDIA_CN', '.cache/upstream/cn-resource')
 
-# Upstream name -> ours. Lowercase, matching public/enemy-stat-icons/.
-REMOTE = {
-    'ATK': 'atk',
-    'DEF': 'def',
-    'RES': 'res',
-    'BLOCK': 'block',
-    'ASPD': 'aspd',
-    'HP': 'hp',
-    'RDP': 'redeploy',
-    'COST': 'cost',
-}
+
+def glyph(sprite):
+    """A white glyph on its screen's dark tile -> the same glyph, pure white on transparent,
+    centred on SIZE px. Brightness is the alpha: the tile's near-black goes clear, the white
+    strokes stay whole, and the anti-aliased edge between keeps its weight."""
+    rgba = sprite.convert('RGBA')
+    lum = rgba.convert('L')
+    floor = lum.getextrema()[0]
+    span = max(1, 255 - floor)
+    alpha = lum.point(lambda v: max(0, min(255, round((v - floor) * 255 / span))))
+    alpha = Image.composite(alpha, Image.new('L', rgba.size, 0), rgba.split()[3])
+    white = Image.new('RGBA', rgba.size, (255, 255, 255, 0))
+    white.putalpha(alpha)
+    canvas = Image.new('RGBA', (SIZE, SIZE), (255, 255, 255, 0))
+    canvas.alpha_composite(white, ((SIZE - rgba.width) // 2, (SIZE - rgba.height) // 2))
+    return canvas
+
+
 # Local, from the CN dump: the game's own sanity glyph.
 LOCAL = {os.path.join(CN, 'item', 'AP_GAMEPLAY.png'): 'sanity'}
 # From arknights.wiki.gg, which is the only place the enemy-count marker exists as a
@@ -105,17 +126,20 @@ def main():
     os.makedirs(out_dir, exist_ok=True)
     written = []
 
-    for remote, name in sorted(REMOTE.items()):
-        url = f'{RAW}/{remote}.png'
-        try:
-            with urllib.request.urlopen(url, context=SSL_CONTEXT, timeout=30) as r:
-                raw = r.read()
-        except Exception as exc:  # noqa: BLE001 -- any failure is the same failure
-            print(f'FAILED {remote}: {exc}', file=sys.stderr)
-            return 1
-        im = Image.open(BytesIO(raw))
+    try:
+        client = client_bundles.Client('en')
+        found = {name: image for name, image in client_bundles.sprites(client.bundle(BUNDLE))}
+    except Exception as exc:  # noqa: BLE001 -- any failure is the same failure
+        print(f'FAILED {BUNDLE}: {exc}', file=sys.stderr)
+        return 1
+    missing = sorted(set(SPRITES) - set(found))
+    if missing:
+        print(f'FAILED {BUNDLE} at {client.version} has no {", ".join(missing)}: the screen was reworked', file=sys.stderr)
+        return 1
+    for sprite, name in sorted(SPRITES.items()):
+        im = glyph(found[sprite])
         path, size = save(im, name)
-        written.append((name, im.size, size, remote))
+        written.append((name, im.size, size, f'{sprite} ({client.version})'))
 
     for src, name in LOCAL.items():
         if not os.path.exists(src):

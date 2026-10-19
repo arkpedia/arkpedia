@@ -171,6 +171,20 @@ jobs:
       # for the guide-videos stage, with no API key (scripts/sync/sync-guide-videos.mjs).
       - run: python -m pip install -r scripts/content/requirements.txt
         if: github.event_name != 'schedule' || steps.prepared.outputs.cache-hit != 'true'
+      # flatc for the official-tables shadow (arkprts decodes the client's tables through it),
+      # pinned by version and checksum. A failed install only costs that stage.
+      - name: Install flatc
+        if: github.event_name != 'schedule' || steps.prepared.outputs.cache-hit != 'true'
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          dir="$RUNNER_TEMP/flatc"; mkdir -p "$dir"
+          curl --fail --silent --show-error --location --retry 3 -o "$dir/flatc.zip" \
+            "https://github.com/google/flatbuffers/releases/download/v25.12.19/Linux.flatc.binary.g%2B%2B-13.zip"
+          echo "9f87066dc5dfa7fe02090b55bab5f3e55df03e32c9b0cdf229004ade7d091039  $dir/flatc.zip" | sha256sum --check --status
+          unzip -o -q "$dir/flatc.zip" -d "$dir" && chmod +x "$dir/flatc"
+          "$dir/flatc" --version
+          echo "$dir" >> "$GITHUB_PATH"
       - name: Refresh supported upstream records
         id: refresh
         if: (github.event_name != 'schedule' || steps.prepared.outputs.cache-hit != 'true') && (github.event_name == 'schedule' || inputs.refresh_upstream)
@@ -205,6 +219,10 @@ jobs:
           # fetch theirs from the mirror this settles on, the stages of refresh-stage-data.sh
           # read its checkout (scripts/content/cn-tables.mjs).
           stage upstream-cn --invariant --timeout-minutes 30 -- node scripts/content/cn-tables.mjs
+          # Each region's live client version (data/client-versions.json), after the pins: whether
+          # the mirror the tables come from has caught up with the game is read at the pinned commit
+          # (scripts/sync/watch-client-versions.mjs). It reports a mirror behind; it blocks nothing.
+          stage client-versions -- node scripts/sync/watch-client-versions.mjs
           supplemental_charwords="$RUNNER_TEMP/en-supplemental-charwords.json"
           stage charwords --output "$supplemental_charwords" -- curl --fail --silent --show-error --location --retry 3 \
             "$(node scripts/content/pin-upstream.mjs raw-url PuppiizSunniiz/ArknightsGameData_YoStar en_US/gamedata/excel/charword_table.json)" \
@@ -222,11 +240,20 @@ jobs:
           # The official CN announcements (data/official-news/cn), before the catalogue: an event or
           # banner announced on CN is published that day, a week before the client carries it.
           stage cn-news -- node scripts/sync/sync-cn-news.mjs
+          # The in-game notice boards of every region (data/official-bulletins.json): banners by pool
+          # id with their official art's hash, events and notices, as derived facts only
+          # (scripts/sync/sync-official-bulletins.mjs).
+          stage official-bulletins -- node scripts/sync/sync-official-bulletins.mjs
           stage catalogue -- node scripts/sync/sync-catalogue.mjs
           # Publishes the media plan the catalogue stage wrote in this run, never an older one.
           stage catalogue-assets --needs catalogue -- bash scripts/sync/publish-catalogue-assets.sh
           stage media-pins -- node scripts/sync/refresh-media-pins.mjs
           bash scripts/sync/refresh-stage-data.sh
+          # Shadow mode, publishing nothing: the CN and Global game tables decoded from the official
+          # servers ourselves (arkprts + flatc), compared by content with the mirror copies this run
+          # read (scripts/imports/shadow-official-tables.py). After the stage refresh, which checks
+          # out both mirrors' tables.
+          stage official-tables --timeout-minutes 30 -- python3 scripts/imports/shadow-official-tables.py
           stage pulls -- npm run pulls:refresh
           # Every operator's costs -- promotions, skill levels, masteries, module stages -- written
           # over whatever the record had, from the Global tables or, for a CN-only operator, the CN
@@ -251,6 +278,10 @@ jobs:
           stage namecard-styles -- python3 scripts/imports/import-namecard-styles.py
           stage game-account-map -- npx tsx scripts/build/build-game-account-map.ts
           stage medal-layouts -- python3 scripts/imports/import-medal-layouts.py
+          # Shadow mode, publishing nothing: the CN client's own avatar and skill-icon sprites compared
+          # with the mirror files arkpedia-image-assets publishes (scripts/imports/shadow-client-art.py),
+          # and any operator whose avatar the client ships while the site has no icon for them yet.
+          stage client-art -- python3 scripts/imports/shadow-client-art.py
           stage medal-catalogue -- node scripts/build/build-medal-catalogue.mjs
           stage reward-names -- node scripts/sync/sync-reward-names.mjs
           # The voice lines take newly released operators' English text from the supplement:

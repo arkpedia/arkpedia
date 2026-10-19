@@ -47,9 +47,12 @@ export const CREDIT_GROUPS: CreditGroup[] = [
     sources: [
       { name: "Timo's story reader", links: ['https://arknights.timo.beer'] },
       { name: 'Arknights Story Map', links: ['https://www.canva.com/design/DAHBABXJpds/tgUQ72n0pCw8HHq56-OBOA/view'] },
-      { name: 'myrtle.moe', links: ['https://github.com/Eltik/myrtle'] },
       { name: 'Reclamation Algorithm map', links: ['https://github.com/QingXia-Ela/reclamation-algorithm-map'] },
       { name: 'arkgraph', links: ['https://github.com/Houdou/arkgraph'] },
+      { name: 'ArkPRTS', links: ['https://github.com/thesadru/ArkPRTS'] },
+      { name: 'OpenArknightsFBS', links: ['https://github.com/MooncellWiki/OpenArknightsFBS'] },
+      { name: 'ArknightsFlatbuffers', links: ['https://github.com/ArknightsAssets/ArknightsFlatbuffers'] },
+      { name: 'FlatBuffers', links: ['https://github.com/google/flatbuffers'] },
       { name: 'Arknights Wiki JP', links: ['https://arknights.wikiru.jp'] },
     ],
   },

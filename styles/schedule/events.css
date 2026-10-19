@@ -493,3 +493,10 @@ button.events-row-main.btn-bare { border: 0; background: transparent; padding: 0
 .event-news-section ul { margin: 0 0 6px; padding-left: 18px; font-size: 12px; line-height: 1.5; }
 .event-news-section li { overflow-wrap: anywhere; }
 .event-news-key { color: var(--text-dim); font-weight: 600; }
+/* The official pictures in the News tab, where the post has them (EventNews): shown from the
+   official host at their own shape, never wider than the reading column, never upscaled. */
+.event-news-art { display: block; width: 100%; max-width: 640px; height: auto; margin: 4px 0 8px; border-radius: 6px; }
+/* The in-game board's banner art: its 1650x900 announcement image, its box held before it loads. */
+.event-news-board { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.event-news-board-item h3 { margin: 8px 0 4px; }
+.event-news-board-art { display: block; width: 100%; height: auto; aspect-ratio: 1650 / 900; object-fit: cover; border-radius: 6px; background: var(--panel-2); }

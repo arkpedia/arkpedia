@@ -2,6 +2,7 @@ import { useRegionalTime } from '@/lib/time/useRegionalTime';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { getActiveReminders, Reminder } from '@/lib/schedule/opsSchedules';
 import type { SssCycle } from '@/lib/schedule/sssCycle';
+import { currentMaintenance, maintenanceText, type MaintenanceWindow } from '@/lib/home/maintenance';
 
 // useLayoutEffect on the server is a no-op React warns about on every SSR'd page,
 // and this component rides _app so that was every page. On the server the swap is
@@ -16,14 +17,18 @@ const PIXELS_PER_SECOND = 90; // scroll speed, tuned for the mono ticker font at
 const MIN_DURATION_S = 4;
 
 /** `sssCycle` is the release's SSS cycle (data/sss-cycle.json), which the home page's props
- *  carry (lib/content/tables.mjs). Required: it used to be a date typed into opsSchedules.ts. */
-export default function AnnouncementTicker({ sssCycle }: { sssCycle: SssCycle }) {
+ *  carry (lib/content/tables.mjs). Required: it used to be a date typed into opsSchedules.ts.
+ *  `maintenance` is Global's announced server maintenance (lib/home/maintenance.ts), which leads
+ *  the reminders while it is still to come or under way. */
+export default function AnnouncementTicker({ sssCycle, maintenance }: { sssCycle: SssCycle; maintenance: readonly MaintenanceWindow[] }) {
   const { server, schedule } = useRegionalTime();
   const scheduleRef = useRef(schedule);
   scheduleRef.current = schedule;
   /* Read by the timer below, which is set up once; the ref keeps it on the latest props. */
   const sssCycleRef = useRef(sssCycle);
   sssCycleRef.current = sssCycle;
+  const maintenanceRef = useRef(maintenance);
+  maintenanceRef.current = maintenance;
   const [visible, setVisible] = useState(false);
   const [text, setText] = useState('');
   const [duration, setDuration] = useState(MIN_DURATION_S);
@@ -46,7 +51,11 @@ export default function AnnouncementTicker({ sssCycle }: { sssCycle: SssCycle })
   // cycle, the bar just stays hidden until the next one.
   useEffect(() => {
     function runCycle() {
-      const reminders: Reminder[] = getActiveReminders(new Date(), sssCycleRef.current, server, scheduleRef.current);
+      const now = new Date();
+      const reminders: Reminder[] = [
+        ...currentMaintenance(maintenanceRef.current, now.getTime()).map(window => ({ id: `maintenance-${window.startAt}`, text: maintenanceText(window, now.getTime()) })),
+        ...getActiveReminders(now, sssCycleRef.current, server, scheduleRef.current),
+      ];
       if (reminders.length === 0) {
         setVisible(false);
         return;

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { test } from 'node:test';
 // @ts-expect-error Node scripts are plain JavaScript.
-import { decodeEntities, newsLines, newsSections, parseContents, parseDuration, parsePacks, parseLoginDays, parseSelectorTickets, postEventName, postWindow } from '../build/official-news.mjs';
+import { decodeEntities, newsArt, newsLines, newsSections, parseContents, parseDuration, parsePacks, parseLoginDays, parseSelectorTickets, postEventName, postWindow } from '../build/official-news.mjs';
 
 /*
  * The official Global announcements (scripts/build/official-news.mjs), on posts cached by
@@ -75,4 +75,15 @@ test('Global EP17 packs have unique names, special pack rules, both selector poo
 
 test('an unfamiliar login item preserves the notice instead of dropping part of a daily reward', () => {
   assert.deepEqual(parseLoginDays({ lines: ['Day 1: LMD * 10000, Unfamiliar reward wording'] }), []);
+});
+
+test("a post's pictures are kept as where they stand and their address on the website's host, nothing else", () => {
+  const html = '<p><img src="https://webusstatic.yo-star.com/a.jpg"></p><h2>01 SANITY</h2><p>DETAILS: x</p><p>y<img src="https://webusstatic.yo-star.com/b.jpg?x=1&amp;y=2"></p>'
+    + '<p><img src="https://images.example/c.jpg"><img src="http://webusstatic.yo-star.com/d.jpg"></p><h2>02 NEXT</h2>';
+  assert.deepEqual(newsLines(html), ['01 SANITY', 'DETAILS: x', 'y', '02 NEXT']);
+  assert.deepEqual(newsArt(html), [
+    { url: 'https://webusstatic.yo-star.com/a.jpg', line: 0 },
+    { url: 'https://webusstatic.yo-star.com/b.jpg?x=1&y=2', line: 3 },
+  ]);
+  assert.deepEqual(newsSections(newsLines(html)).map((s: { at: number }) => s.at), [0, 3]);
 });
