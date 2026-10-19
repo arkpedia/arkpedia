@@ -415,7 +415,7 @@ function ComboRow({ combo, hideTwoStars, onPreview, tagLabel }: { tagLabel: (tag
       </div>
       <div className="recruit-combo-operators">
         {sorted.map((operator) => (
-          <button type="button" key={operator.name} className="btn-bare recruit-combo-op" aria-label={`View ${operator.name} details`} aria-haspopup="dialog" onClick={() => onPreview(operator)}>
+          <button type="button" key={operator.name} className="btn-bare recruit-combo-op" data-rarity={operator.rarity ? rarityLevel(operator.rarity) : undefined} aria-label={`View ${operator.name} details`} aria-haspopup="dialog" onClick={() => onPreview(operator)}>
             <Image src={getOperatorIconPath(operator)} alt="" width={28} height={28} />
             <span>{operator.name}</span>
             {operator.rarity ? <Rarity n={rarityLevel(operator.rarity)} className="recruit-combo-op-rarity" /> : null}
