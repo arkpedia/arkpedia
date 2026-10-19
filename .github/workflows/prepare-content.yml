@@ -249,10 +249,10 @@ jobs:
           stage catalogue-assets --needs catalogue -- bash scripts/sync/publish-catalogue-assets.sh
           stage media-pins -- node scripts/sync/refresh-media-pins.mjs
           bash scripts/sync/refresh-stage-data.sh
-          # Shadow mode, publishing nothing: the CN and Global game tables decoded from the official
-          # servers ourselves (arkprts + flatc), compared by content with the mirror copies this run
-          # read (scripts/imports/shadow-official-tables.py). After the stage refresh, which checks
-          # out both mirrors' tables.
+          # Shadow mode, publishing nothing: the CN, Global, JP and KR game tables decoded from the
+          # official servers ourselves (arkprts + flatc), compared by content with the mirror copies
+          # this run read (scripts/imports/shadow-official-tables.py). After the stage refresh, which
+          # checks out the CN and EN tables; the stage checks out the JP and KR ones itself.
           stage official-tables --timeout-minutes 30 -- python3 scripts/imports/shadow-official-tables.py
           stage pulls -- npm run pulls:refresh
           # Every operator's costs -- promotions, skill levels, masteries, module stages -- written

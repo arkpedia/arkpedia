@@ -2,8 +2,8 @@
 """The game tables decoded from the official servers ourselves, compared with the mirrors' copies.
 
 Shadow mode: this publishes nothing and no stage reads its output. Every table the site uses
-comes from a mirror today -- Kengxxiao (or yuanyan3060) for CN, ArknightsAssets for Global --
-which decodes the client's encrypted tables each patch. This decodes the same tables from the
+comes from a mirror today -- Kengxxiao (or yuanyan3060) for CN, ArknightsAssets for Global, JP
+and KR -- which decodes the client's encrypted tables each patch. This decodes the same tables from the
 official servers with arkprts (https://github.com/thesadru/ArkPRTS, pinned in
 scripts/content/requirements.txt; GPL-3.0, run as a tool, not shipped), which reads them through
 the table schemas of https://github.com/MooncellWiki/OpenArknightsFBS and
@@ -53,12 +53,20 @@ quarantine = _module('quarantine', 'quarantine.py')
 STATE = ROOT / 'data' / 'official-tables-shadow.json'
 CLIENT_VERSIONS = ROOT / 'data' / 'client-versions.json'
 CACHE = ROOT / '.cache' / 'official-tables'
-# The tables this run read, where its stages checked them out (cn-tables.mjs, upstream.sh).
+REGIONS = ('cn', 'en', 'jp', 'kr')
+# The tables this run read, where its stages checked them out (cn-tables.mjs, upstream.sh). No
+# stage reads the JP and KR tables from a checkout, so this one checks them out itself, from the
+# same repository and pinned commit as the EN tables (fetch_regional_mirror).
+REGIONAL = ROOT / '.cache' / 'upstream' / 'regional-gamedata'
 MIRROR_TABLES = {
     'cn': ROOT / '.cache' / 'upstream' / 'cn-resource' / 'gamedata' / 'excel',
     'en': ROOT / '.cache' / 'upstream' / 'en-gamedata' / 'en' / 'gamedata' / 'excel',
+    'jp': REGIONAL / 'jp' / 'gamedata' / 'excel',
+    'kr': REGIONAL / 'kr' / 'gamedata' / 'excel',
 }
-DECODE_TIMEOUT_S = 12 * 60  # per region; the stage allows 30 minutes for both
+# Per region; the stage allows 30 minutes for all four. Measured 2026-10-19: about a minute each.
+DECODE_TIMEOUT_S = 6 * 60
+FETCH_TIMEOUT_S = 5 * 60
 
 
 def mirror_name(region):
@@ -79,6 +87,22 @@ def live_and_mirror(region):
         return None, None
     mirror = (entry.get('mirror') or {}).get('resVersion')
     return entry.get('resVersion'), (mirror == entry.get('resVersion') if mirror else None)
+
+
+def fetch_regional_mirror(regions):
+    """Check out the JP and KR tables of the regions to compare, at the commit this run pinned
+    (scripts/lib/upstream.sh reads it from ARKPEDIA_PIN_). If that fails the checkout is removed,
+    so an older one is never compared with tonight's decode: the regions are reported as having
+    no mirror tables instead."""
+    paths = [f'{region}/gamedata/excel' for region in regions if region in ('jp', 'kr') and live_and_mirror(region)[1] is not False]
+    if not paths:
+        return
+    try:
+        subprocess.run(['bash', 'scripts/lib/upstream.sh', REGIONAL.name, 'https://github.com/ArknightsAssets/ArknightsGamedata.git',
+                        'default', *paths], check=True, cwd=str(ROOT), timeout=FETCH_TIMEOUT_S)
+    except Exception as error:
+        print(f'the JP/KR mirror tables could not be checked out: {error}', file=sys.stderr)
+        shutil.rmtree(REGIONAL, ignore_errors=True)
 
 
 def decode(region, out_dir):
@@ -113,7 +137,7 @@ def compare_dirs(official, mirror):
     return out
 
 
-def run(regions=('cn', 'en'), decoder=decode):
+def run(regions=REGIONS, decoder=decode):
     previous = json.loads(STATE.read_text()) if STATE.exists() else {}
     state = {'version': 1, 'regions': dict(previous.get('regions', {}))}
     entries = []
@@ -158,6 +182,7 @@ def run(regions=('cn', 'en'), decoder=decode):
 
 def main():
     CACHE.mkdir(parents=True, exist_ok=True)
+    fetch_regional_mirror(REGIONS)
     state, entries = run()
     quarantine.report('official-tables', entries)
     for region, row in state['regions'].items():

@@ -57,7 +57,7 @@ class StageTest(unittest.TestCase):
     def setUp(self):
         self.dir = tempfile.TemporaryDirectory()
         root = Path(self.dir.name)
-        self.mirror = {region: root / 'mirror' / region for region in ('cn', 'en')}
+        self.mirror = {region: root / 'mirror' / region for region in shadow.REGIONS}
         for path in self.mirror.values():
             path.mkdir(parents=True)
         shadow.STATE = root / 'data' / 'official-tables-shadow.json'
@@ -65,8 +65,8 @@ class StageTest(unittest.TestCase):
         shadow.CACHE = root / 'cache'
         shadow.MIRROR_TABLES = self.mirror
         shadow.mirror_name = lambda region: f'mirror-{region}'
-        self.versions({'cn': ('v1', 'v1'), 'en': ('v1', 'v1')})
-        self.official = {'cn': {}, 'en': {}}
+        self.versions({region: ('v1', 'v1') for region in shadow.REGIONS})
+        self.official = {region: {} for region in shadow.REGIONS}
         self.decoded = []
 
     def tearDown(self):
@@ -107,10 +107,10 @@ class StageTest(unittest.TestCase):
         self.assertEqual([(e['key'], e['action']) for e in entries], [('official-tables:cn:differs', 'kept-previous')])
 
     def test_a_mirror_behind_the_live_client_is_not_compared(self):
-        self.versions({'cn': ('v2', 'v1'), 'en': ('v1', 'v1')})
+        self.versions({'cn': ('v2', 'v1'), 'en': ('v1', 'v1'), 'jp': ('v1', 'v1'), 'kr': ('v3', 'v2')})
         self.table('cn', 'skill_table.json', {'s': 1}, {'s': 2})
         state, entries = shadow.run(decoder=self.decoder)
-        self.assertEqual(self.decoded, ['en'], 'nothing is downloaded for a region that would only show the patch')
+        self.assertEqual(self.decoded, ['en', 'jp'], 'nothing is downloaded for a region that would only show the patch')
         self.assertEqual(entries, [])
 
     def test_a_failed_decode_keeps_the_last_comparison(self):
@@ -122,6 +122,45 @@ class StageTest(unittest.TestCase):
         state, entries = shadow.run(regions=('en',), decoder=broken)
         self.assertEqual([(e['key'], e['action']) for e in entries], [('official-tables:en', 'kept-previous')])
         self.assertEqual(state['regions']['en']['identical'], 1)
+
+    def test_all_four_regions_are_compared(self):
+        for region in shadow.REGIONS:
+            self.table(region, 'skill_table.json', {'s': region}, {'s': region})
+        state, entries = shadow.run(decoder=self.decoder)
+        self.assertEqual(self.decoded, ['cn', 'en', 'jp', 'kr'])
+        self.assertEqual({region: row['identical'] for region, row in state['regions'].items()}, {'cn': 1, 'en': 1, 'jp': 1, 'kr': 1})
+
+
+class RegionalMirrorTest(unittest.TestCase):
+    """The JP and KR mirror tables, which the stage checks out itself."""
+    def setUp(self):
+        self.dir = tempfile.TemporaryDirectory()
+        root = Path(self.dir.name)
+        self.saved = shadow.REGIONAL, shadow.CLIENT_VERSIONS, shadow.subprocess.run
+        shadow.REGIONAL = root / 'regional-gamedata'
+        shadow.CLIENT_VERSIONS = root / 'client-versions.json'
+        shadow.CLIENT_VERSIONS.write_text(json.dumps({'version': 1, 'regions': {
+            'jp': {'resVersion': 'v1', 'mirror': {'resVersion': 'v1'}}, 'kr': {'resVersion': 'v2', 'mirror': {'resVersion': 'v1'}}}}))
+        self.calls = []
+
+    def tearDown(self):
+        shadow.REGIONAL, shadow.CLIENT_VERSIONS, shadow.subprocess.run = self.saved
+        self.dir.cleanup()
+
+    def test_only_the_regions_whose_mirror_is_current_are_checked_out(self):
+        shadow.subprocess.run = lambda args, **kw: self.calls.append(args)
+        shadow.fetch_regional_mirror(shadow.REGIONS)
+        self.assertEqual(len(self.calls), 1)
+        self.assertEqual(self.calls[0][-1:], ['jp/gamedata/excel'], 'kr lags its client, cn and en are checked out by other stages')
+
+    def test_a_failed_checkout_leaves_no_older_tables_to_compare(self):
+        (shadow.REGIONAL / 'jp' / 'gamedata' / 'excel').mkdir(parents=True)
+
+        def fail(args, **kw):
+            raise shadow.subprocess.CalledProcessError(128, args)
+        shadow.subprocess.run = fail
+        shadow.fetch_regional_mirror(('jp',))
+        self.assertFalse(shadow.REGIONAL.exists())
 
 
 if __name__ == '__main__':
