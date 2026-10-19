@@ -34,14 +34,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    at: '2026-10-19T16:30:00Z',
+    at: '2026-10-19T17:45:00Z',
     added: [
+      { title: 'Base skill keywords explained', detail: 'Tap or hover an underlined term, such as Closure\'s Special Order or Worldly Plight, for the game\'s own explanation.' },
+      { title: "Don't autoplay a song", detail: 'Mark songs you never want autoplay to pick; they still play when you choose them.', href: '/music' },
+      { title: 'YouTube button in the player', detail: 'Open the song playing on YouTube from the player bar or its More menu.', href: '/music' },
       { title: 'Switch server from the clock', detail: 'Click the reset time in the top bar to show the whole site in Global, Japan or Korea time.' },
       { title: 'Server maintenance on the home page', detail: 'Maintenance from the in-game notices shows above the panels and in the ticker, for the server you are viewing.', href: '/' },
       { title: 'Event dates and art from the game', detail: 'Events show their announced day and key art as soon as the in-game board posts them.', href: '/schedule' },
       { title: 'Pictures in event news', detail: 'Event News shows the official posts\' pictures where they stand, with the board\'s banner art.' },
     ],
     changed: [
+      { title: 'Autoplay on by default', detail: 'Autoplay from your library is on unless you turn it off.', href: '/music' },
+      { title: 'Show all always in reach', detail: 'Section headings on Discover stay at the top while you scroll a long list.', href: '/music/discover' },
       { title: 'JP and KR banner days confirmed', detail: 'Their opening day is checked against the in-game board.', href: '/pulls' },
       { title: 'Stat icons from the game', detail: 'Enemy and operator stat icons now come from the game client itself.', href: '/enemies' },
     ],
