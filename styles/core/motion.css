@@ -22,9 +22,6 @@
    --dur-2 (styles/core/shared.css). */
 
 @media (prefers-reduced-motion: no-preference) {
-  /* The site search pop-up's hatched head slides into place as it opens. */
-  .site-search-dialog-hatch { animation: site-search-band-in 0.5s var(--ease) 0.08s both; transform-origin: left center; }
-  @keyframes site-search-band-in { from { opacity: 0; transform: translateX(18px); } to { opacity: 1; transform: none; } }
   /* The site search pop-up rises into place over a fading ground (components/layout/SiteSearch.tsx). */
   .site-search-overlay { animation: site-search-ground-in 0.16s ease; }
   .site-search-dialog { animation: site-search-in 0.18s var(--ease); }

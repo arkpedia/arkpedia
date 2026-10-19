@@ -19,8 +19,7 @@
 }
 :root[data-theme="light"] .site-search-overlay { background: rgb(15 25 35 / 0.32); }
 
-/* A readout frame: crosshairs on all four corners, a filled tag and a hatched band for its
-   head, the key legend along its foot. */
+/* The site's floating panel: the field, the matches under it, and the key legend along its foot. */
 .site-search-dialog {
   position: relative;
   box-sizing: border-box;
@@ -35,39 +34,6 @@
   box-shadow: 0 24px 60px rgb(0 0 0 / 0.5);
 }
 :root[data-theme="light"] .site-search-dialog { box-shadow: 0 24px 60px rgb(15 25 35 / 0.18); }
-.site-search-dialog::before,
-.site-search-dialog::after {
-  content: '';
-  position: absolute;
-  left: -5px;
-  right: -5px;
-  height: 9px;
-  pointer-events: none;
-  background:
-    linear-gradient(var(--hud-line), var(--hud-line)) left 4px top 0 / 1px 9px no-repeat,
-    linear-gradient(var(--hud-line), var(--hud-line)) left 0 top 4px / 9px 1px no-repeat,
-    linear-gradient(var(--hud-line), var(--hud-line)) right 4px top 0 / 1px 9px no-repeat,
-    linear-gradient(var(--hud-line), var(--hud-line)) right 0 top 4px / 9px 1px no-repeat;
-}
-.site-search-dialog::before { top: -5px; }
-.site-search-dialog::after { bottom: -5px; }
-.site-search-dialog-head {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 12px;
-}
-.site-search-dialog-hatch {
-  flex: 1 1 auto;
-  height: 7px;
-  background: repeating-linear-gradient(-45deg, var(--hud-hatch) 0 2px, transparent 2px 6px);
-}
-.site-search-dialog-status {
-  font: 500 10px/1 var(--font-mono);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--text-faint);
-}
 /* The matches sit in the frame, on their own line under the field, rather than dropping over
    the page the way a filter's list does. The field's row wraps for them, so its icon and clear
    button, placed against the row, are pinned to the field's own height rather than the row's
@@ -114,23 +80,8 @@
 @media (max-width: 700px) {
   .site-search-overlay { padding: 0; }
   .site-search-dialog { width: 100%; height: 100%; border: none; border-radius: 0; padding-top: 16px; }
-  .site-search-dialog::before,
-  .site-search-dialog::after { display: none; }
   .site-search-dialog .site-search-dialog-field > [role="listbox"] { max-height: none; }
   .site-search-dialog-keys { display: none; }
-}
-
-/* The game's filled label ("NO INFO/", "EDITING"): mono caps on a light plate, its right end
-   cut on the slant. The pop-up's head carries it. */
-.hud-tag {
-  display: inline-block;
-  padding: 3px 12px 3px 7px;
-  font: 600 10px/1 var(--font-mono);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  background: var(--hud-tag-bg);
-  color: var(--hud-tag-ink);
-  clip-path: polygon(0 0, 100% 0, calc(100% - 6px) 100%, 0 100%);
 }
 
 /* --- One result ------------------------------------------------------------------- */
