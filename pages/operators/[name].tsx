@@ -1,4 +1,5 @@
 import { hasMasteryGuidance, hasMasteryPriority } from '@/lib/operators/skillRecommendation';
+import BaseSkillText from '@/components/operators/BaseSkillText';
 import { getModuleStageEffects } from '@/lib/operators/moduleEffects';
 import { useContentUrl } from '@/lib/content/context';
 import { cssUrl } from '@/lib/content/urls';
@@ -1413,7 +1414,7 @@ export default function OperatorDetailPage({ chibis = {}, summons = [], epTrack,
                             </p>
                           </div>
                         </div>
-                        <p>{highlightStats(bs.description)}</p>
+                        <p><BaseSkillText text={bs.description} keywords={bs.keywords} /></p>
                       </div>
                     );
                   })}

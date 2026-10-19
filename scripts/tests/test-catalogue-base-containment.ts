@@ -7,8 +7,8 @@ test('an unsupported Base facility preserves existing skills and does not stop t
   const skill = { name: 'Original', facility: 'Workshop', eliteLevel: 'Base', description: 'Previous valid translation' };
   const previous = [{ name: 'Old', internalName: 'old', baseSkills: [skill] }];
   const operators = [{ ...previous[0], baseSkills: [] }, { name: 'New', internalName: 'new', baseSkills: [] }, { name: 'Valid', internalName: 'valid', baseSkills: [] }];
-  const source = { source: 'https://example.org/client', building: { chars: { old: { buffChar: [{ buffData: [{ buffId: 'recycle', cond: { phase: 'PHASE_0', level: 1 } }] }] }, new: { buffChar: [{ buffData: [{ buffId: 'recycle', cond: { phase: 'PHASE_0', level: 1 } }] }] }, valid: { buffChar: [] } }, buffs: { recycle: { roomType: 'RECYCLE' } } } };
-  const problems = reconcileCatalogueBaseSkills(operators, previous, source, source);
+  const source = { source: 'https://example.org/client', building: { chars: { old: { buffChar: [{ buffData: [{ buffId: 'recycle', cond: { phase: 'PHASE_0', level: 1 } }] }] }, new: { buffChar: [{ buffData: [{ buffId: 'recycle', cond: { phase: 'PHASE_0', level: 1 } }] }] }, valid: { buffChar: [] } }, buffs: { recycle: { roomType: 'RECYCLE' } } }, constants: { termDescriptionDict: {} } };
+  const problems = reconcileCatalogueBaseSkills(operators, previous, source, source, {});
   assert.deepEqual(operators[0].baseSkills, [skill]);
   assert.notEqual(operators[0].baseSkills, previous[0].baseSkills);
   assert.deepEqual(operators[1].baseSkills, []);

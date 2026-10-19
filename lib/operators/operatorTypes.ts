@@ -89,6 +89,16 @@ export interface Talent {
   technique?: SkillTechnique[] | null; // manually populated -- not every talent has one
 }
 
+/** A keyword the game explains in a base skill's description, with the game's own definition
+ *  (gamedata_const termDescriptionDict, via scripts/imports/import-base-skills.mjs). */
+export interface BaseSkillKeyword {
+  /** The words in `description` that carry it. */
+  text: string;
+  term: string;
+  name: string;
+  definition: string;
+}
+
 export interface BaseSkill {
   buffId?: string;
   name: string | null;
@@ -97,6 +107,7 @@ export interface BaseSkill {
   facility: string | null;
   eliteLevel: string | null;
   description: string | null;
+  keywords?: BaseSkillKeyword[];
   /* From the game's building_data (scripts/sync/sync-operator-english.mjs): the buffChar entry
      the skill belongs to (same slot = an upgrade chain), and the promotion and level that unlock
      it. Absent on records the refresh has not rebuilt yet. */
