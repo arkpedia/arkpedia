@@ -483,7 +483,9 @@ export function readCompletenessInputs(root = process.cwd()) {
     eventStores: optional('data/event-stores.json', null), eventRewards: optional('data/event-rewards.json', null),
     bundles: read('data/content-bundles.json'), assets: new Set([...assetIndex, ...remote]),
     albums: fs.existsSync(path.join(root, 'data/albums.json')) ? list(read('data/albums.json')) : [],
-    skinWindows: read('data/skin-availability-windows.json').entries,
+    // The hand-confirmed windows, and the sales Global's official posts list (regional-schedules
+    // en, englishNoticeSkinWindows), which /skins and the home page show as confirmed too.
+    skinWindows: [...read('data/skin-availability-windows.json').entries, ...(optional('data/regional-schedules.json', null)?.servers?.en?.skinWindows ?? [])],
     materials: checkMaterialCatalogue(read('data/material-catalogue.json')),
     mappedStages: stageMapRows({ records: stageRecords, index, windows: optional('data/content-windows.json', {}),
       isNodes: optional('data/is-nodes.json', {}), ccStages: optional('data/cc-stages.json', {}) }),

@@ -78,9 +78,58 @@ export function boardOpening(record, board, server) {
   return { ...record, timingSource: pages.length === 1 ? pages[0].url : `ingame-board:${server}/${item.id}`, status: 'announced' };
 }
 
+const EN_MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const EN_STAMP = /([A-Z][a-z]+) (\d{1,2}), (\d{4}), (\d{1,2}):([0-5]\d)/g;
+
+/**
+ * Global's official posts list a sale as a numbered section:
+ *   "10 ... NEW ARRIVALS AT THE OUTFIT STORE" (or "RE-EDITION ... AT THE OUTFIT STORE"),
+ *   "DURATION: October 14, 2026, 08:00 - November 11, 2026, 03:59 (UTC-7)",
+ *   then one line per outfit, "<Series> - <Outfit> for <Operator>", up to the next section.
+ * An outfit is the store outfit of that operator with that name (letters and digits only, so
+ * "The Spirit Farer" is "The Spirit-Farer"), else the operator's only store outfit of that series
+ * (the post calls Archetto's "Glory to the Devout" "Glory of the Devout", 2026-10-14).
+ */
+export function englishNoticeSkinWindows(notices, skins) {
+  const store = skins.filter(skin => /Outfit Store.*Originite/i.test(skin.howToObtain ?? ''));
+  const groups = new Map();
+  for (const post of notices) {
+    const lines = post.lines ?? [];
+    lines.forEach((header, at) => {
+      if (!/AT THE OUTFIT STORE|AT OUTFIT STORE/i.test(header) || !/NEW ARRIVALS|RE-EDITION/i.test(header) || !/^\d{2}\s/.test(header)) return;
+      const duration = lines.slice(at + 1, at + 3).find(line => /^DURATION:/i.test(line)) ?? '';
+      const stamps = [...duration.matchAll(EN_STAMP)].map(m => serverInstant(+m[3], EN_MONTHS.indexOf(m[1]) + 1, +m[2], +m[4], 'en') + +m[5] * 60000);
+      if (stamps.length !== 2 || stamps[1] <= stamps[0] || stamps[1] - stamps[0] > 60 * 86400000 || stamps.some(Number.isNaN)) return;
+      const fresh = /NEW ARRIVALS/i.test(header);
+      const startAt = new Date(stamps[0]).toISOString(), endAt = new Date(stamps[1] + 60000).toISOString();
+      const key = `${post.url}/${startAt}/${endAt}/${fresh}`;
+      for (const line of lines.slice(at + 1)) {
+        if (/^\d{2}\s/.test(line)) break;
+        const m = line.match(/^(.+?)\s+-\s+(.+)\s+for\s+(.+)$/);
+        if (!m) continue;
+        const [, series, outfit, operator] = m.map(fold);
+        const theirs = store.filter(skin => fold(skin.model) === operator);
+        let skin = theirs.find(row => fold(row.name) === outfit);
+        if (!skin) {
+          const bySeries = theirs.filter(row => row.series && (series.startsWith(fold(row.series)) || fold(row.series).startsWith(series)));
+          if (bySeries.length === 1) skin = bySeries[0];
+        }
+        if (!skin) continue;
+        const record = groups.get(key) ?? { event: post.title, kind: 'shop', label: fresh ? 'New outfits' : 'Returning outfits', startAt, endAt,
+          skinIds: [], source: post.url, inventorySource: post.url, estimated: false, newRelease: fresh };
+        record.skinIds.push(`${skin.model} / ${skin.name}`);
+        groups.set(key, record);
+      }
+    });
+  }
+  return [...groups.values()].map(record => ({ ...record, skinIds: [...new Set(record.skinIds)].sort() }));
+}
+
 /** Published Japanese sale paragraphs name the exact outfit. Read the following
- * explicit sale interval, never a release association or another region's shop. */
+ * explicit sale interval, never a release association or another region's shop. Global's
+ * English posts read by englishNoticeSkinWindows. */
 export function noticeSkinWindows(notices, tables, skins, server) {
+  if (server === 'en') return englishNoticeSkinWindows(notices, skins);
   const dates = /(?:(\d{4})[年년]\s*)?(\d{1,2})[月월]\s*(\d{1,2})[日일](?:[（(][^）)]*[）)])?\s*(\d{1,2}):([0-5]\d)/gu;
   const groups = new Map();
   for (const post of notices) for (const skin of skins) {
