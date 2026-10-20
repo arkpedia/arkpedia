@@ -369,7 +369,12 @@ export function createMsrAudioEngine(events: MsrEngineEvents, { address = msrAud
     // A file the press set and played before the engine could (primeMusicAudio) is this song's:
     // taken over where it is, not reloaded.
     const primed = song !== loadedCid && msrAudioCid(el.getAttribute('src')) === song;
-    if (primed) {
+    // A primed file the CDN already refused: its error event came before the engine was up, so
+    // went unheard (and play() on it only rejects, with the error set). It is asked again here,
+    // once, from a fresh address, as the error event would have (CI met this when a press beat
+    // YouTube's player API, 2026-10-19).
+    const primedFailed = primed && Boolean(el.error);
+    if (primed && !primedFailed) {
       settling = false;
       loadedCid = song;
       loadedAt = now();
@@ -377,14 +382,14 @@ export function createMsrAudioEngine(events: MsrEngineEvents, { address = msrAud
     cid = song;
     start = next.startSeconds || 0;
     wantPlay = play;
-    retried = false;
-    rescued = false;
+    retried = primedFailed;
+    rescued = primedFailed && !play;
     // The same song again (repeat one, a resume cued once more): its file stays, at the moment.
     if (loadedCid === cid && !(primed && start === 0)) seekLoaded(start);
     if (play) {
       arm();
       reportPending();
-      begin();
+      begin(primedFailed);
     } else {
       disarm();
       if (loadedCid === cid) el.pause();

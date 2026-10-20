@@ -120,20 +120,57 @@ test('a song on YouTube plays as before, then hands over to a queued Monster Sir
     .some(([, arg]) => typeof arg === 'object' && String(arg?.videoId).startsWith('msr:'))).toBe(false);
 });
 
-test('an address the CDN refuses (expired) is asked again once, and the song plays on', async ({ page }) => {
+/*
+ * The first press sets and plays the song's file itself (primeMusicAudio), before the engine may be
+ * up: YouTube's player API, which the engine waits for, can come later. So the CDN's refusal may
+ * land after the engine took the file over, or before the engine existed. Each order is checked:
+ * the second used to leave the song dead at one address (CI, 2026-10-19). Autoplay is off: its
+ * next song, prepared ahead, would be asked for too.
+ */
+async function refusedFirstFile(page: Page, { engineLate }: { engineLate: boolean }) {
+  await page.addInitScript(() => localStorage.setItem('arkpediaMusicAutoplay', 'false'));
   await stubYouTube(page);
+  if (engineLate) {
+    // The API's script loads, but says it is ready only once released: the player waits for that.
+    // (Holding the script itself would hold the page's load event, and goto with it, on a runner
+    // where the player asks for it before the page has loaded.)
+    await page.addInitScript(() => {
+      let ready: (() => void) | undefined;
+      let asked = false;
+      let released = false;
+      (window as unknown as { __releaseYouTubeApi: () => void }).__releaseYouTubeApi = () => { released = true; if (asked) ready?.(); };
+      Object.defineProperty(window, 'onYouTubeIframeAPIReady', {
+        configurable: true,
+        get: () => ready && (() => { asked = true; if (released) ready?.(); }),
+        set: (fn: () => void) => { ready = fn; },
+      });
+    });
+  }
   const siren = await stubMonsterSiren(page);
   await page.goto('/music?view=library');
   const msr = (await catalogue(page)).find(row => row.cid && !row.videoId)!;
   siren.refuseNextFile = true;
   await page.getByRole('searchbox', { name: 'Search all songs' }).fill(msr.altTitle || msr.title);
   await libraryRow(page, `msr:${msr.cid}`).locator('.music-song-row-main').click();
+  if (engineLate) {
+    // The refusal has reached the element before the engine is made.
+    await expect.poll(() => page.evaluate(() => document.querySelector<HTMLAudioElement>('audio[data-music-audio]')?.error?.code ?? 0)).toBeGreaterThan(0);
+    await page.evaluate(() => (window as unknown as { __releaseYouTubeApi: () => void }).__releaseYouTubeApi());
+  }
   // play() unpauses the element at once, before the refused file has failed: wait for the second
   // address, then for the song to play on from it.
   await expect.poll(() => siren.resolves, { timeout: 20_000 }).toEqual([msr.cid, msr.cid]);
   await expect.poll(() => siren.files.length, { timeout: 20_000 }).toBeGreaterThanOrEqual(2);
   await expect.poll(async () => (await audio(page))?.paused, { timeout: 20_000 }).toBe(false);
   await expect(bar(page).getByRole('button', { name: 'Pause', exact: true })).toBeVisible();
+}
+
+test('an address the CDN refuses (expired) is asked again once, and the song plays on', async ({ page }) => {
+  await refusedFirstFile(page, { engineLate: false });
+});
+
+test('a refusal that came before the player was up is asked again once too, and the song plays on', async ({ page }) => {
+  await refusedFirstFile(page, { engineLate: true });
 });
 
 test('where the browser refuses to start the audio by itself, the next song waits, shown and paused, for one press', async ({ page }) => {
