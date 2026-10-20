@@ -259,6 +259,12 @@ const DATA_ONLY: Record<string, Record<string, string>> = {
     '.ongoingEvents[].startAt': "an event's exact opening (GameWindowTimes, optional), present only on events the client or an announcement timed; finalizeHome falls back to the date range without it",
     '.ongoingEvents[].endAt': "an event's exact close, optional the same way, with the same fallback",
     '.ongoingEvents[].timingSource': "where the exact window came from, optional with it; nothing on / reads it",
+    // Which outfits are on sale depends on the day's windows, and two optional outfit fields come
+    // with only some outfits: on 2026-10-20 Global's own Outfit Store windows (#585) listed the
+    // anniversary's 28, some with these, where the release's 3 had neither. SkinsCarousel reads
+    // neither field (name, art, price and window only).
+    '.ongoingSkins[].searchAliases': "an outfit's other search names (Skin, optional), on some outfits only; SkinsCarousel does not read it",
+    '.ongoingSkins[].fashionReviewDate': "an outfit's Fashion Review date (Skin, optional), on some outfits only; SkinsCarousel does not read it",
     '.upcomingEvent.startAt': "the same exact opening, on the next event to open",
     '.upcomingEvent.endAt': "the same exact close, on the next event to open",
     '.upcomingEvent.timingSource': "the same window source, on the next event to open",
