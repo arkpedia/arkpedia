@@ -1,9 +1,10 @@
 /**
- * A remembered sign-in, saved locally after a successful import unless the reader checks
- * "Don’t save this sign-in on this browser" in components/account-import/GameSignIn. The next import needs no
+ * A remembered sign-in, saved locally after a successful import only when the reader checks
+ * "Save this sign-in on this browser" in components/account-import/GameSignIn. The next import needs no
  * emailed code: the Yostar uid, its access token and the code's own token (the Account Center signs
  * in with it, for the pull history), the email it was issued to, and the device id the game's token
- * exchange expects again. The maintainer changed this to opt-out on 2026-10-17.
+ * exchange expects again. Opt-out from 2026-10-17; opt-in again from 2026-10-20, after readers raised
+ * the security of a token kept by default.
  *
  * It lives in localStorage and goes nowhere but Yostar's and the game's own servers, through the
  * relay, which carries the encrypted bytes and cannot read them. No Arkpedia server ever receives

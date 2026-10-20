@@ -61,7 +61,8 @@ export default function GameSignIn({ server, onAccount, onForget, idPrefix = 'im
   // briefly showing the email form. A token is usable only on the server it was issued for.
   const [saved, setSaved] = useState<SavedLogin | null>(readSavedLogin);
   const savedForServer = saved?.server === server ? saved : null;
-  const [dontSave, setDontSave] = useState(false);
+  // Off unless the reader asks: a saved sign-in is a login token in this browser (owner, 2026-10-20).
+  const [saveSignIn, setSaveSignIn] = useState(false);
   const emailInput = useRef<HTMLInputElement>(null);
   const codeInput = useRef<HTMLInputElement>(null);
   const savedImport = useRef<HTMLButtonElement>(null);
@@ -165,8 +166,8 @@ export default function GameSignIn({ server, onAccount, onForget, idPrefix = 'im
       const yostar = await signIn(flow(), email.trim(), code.trim());
       await read(yostar, flow().deviceId, email.trim(), server);
       if (isResettingBrowserData()) return;
-      // Save only after the import works. Opting out clears any older saved login too.
-      if (!dontSave) {
+      // Save only after the import works, and only when asked. Not asking clears any older saved login too.
+      if (saveSignIn) {
         const login: SavedLogin = { server, email: email.trim(), ...yostar, deviceId: flow().deviceId };
         saveLogin(login);
         setSaved(readSavedLogin());
@@ -286,9 +287,9 @@ export default function GameSignIn({ server, onAccount, onForget, idPrefix = 'im
               />
               <button type="submit" className="primary btn-sm" disabled={busy || !validEmail || !code.trim()}>Import</button>
             </form>
-            <label className="check import-remember" title="Sign-in is saved locally after a successful import. Check this on a shared browser to require a code next time.">
-              <input type="checkbox" checked={dontSave} onChange={(event) => setDontSave(event.target.checked)} disabled={busy} />
-              Don’t save this sign-in on this browser
+            <label className="check import-remember" title="Keeps the sign-in in this browser only, so the next import needs no emailed code. Leave it off on a shared browser.">
+              <input type="checkbox" checked={saveSignIn} onChange={(event) => setSaveSignIn(event.target.checked)} disabled={busy} />
+              Save this sign-in on this browser
             </label>
           </div>
           <div className="data-dialog-acts">{forgetButton}</div>
