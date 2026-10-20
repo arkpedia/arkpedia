@@ -37,6 +37,14 @@ export interface TableRewardGroup {
   postArt?: string;
   /** board: the in-game board item's art (a headhunting banner's), on the game's image host. */
   image?: string;
+  /** board: the server whose in-game board it is, for JP's and KR's (build-event-rewards.mjs
+   *  regionalBoardGroups); none for Global's. */
+  server?: 'jp' | 'kr';
+  /** board, regional: the board item's id, what tells its items apart. */
+  id?: string;
+  /** board, regional: what the item is about, and the site's own English name for it. */
+  subject?: 'event' | 'banner';
+  name?: string;
   /** furniture-set: the set's pieces and its description. */
   pieces?: FurniturePiece[];
   themeId?: string;
@@ -90,9 +98,15 @@ export interface EventExtras {
   notices: { title: string; source: string; lines: string[] }[];
   /** The rest of the event's official announcement, section by section: the page's News tab. */
   news: { title: string; source: string; published: string | null; lines: string[]; art: NewsArt[]; postArt: string | null }[];
-  /** The in-game board's items for the event (its banners'), with their art: atop the News tab. */
-  board: { title: string; source: string | null; shown: string | null; image: string }[];
+  /** The in-game boards' items for the event, with their art: atop the News tab. Global's (its
+   *  banners') and JP's and KR's (their own event items and banners'); the page shows the site's
+   *  server's (components/events/EventExtras.tsx EventNews). `name` is the site's English name of
+   *  what a regional item is about, null for Global's, whose title is English; a regional item's
+   *  image is null when the board's picture is too large to load (regional-board.mjs). */
+  board: BoardItem[];
 }
+
+export interface BoardItem { server: 'en' | 'jp' | 'kr'; title: string; name: string | null; source: string | null; shown: string | null; image: string | null }
 
 export const NO_EXTRAS: EventExtras = { packs: [], furniture: [], notices: [], news: [], board: [] };
 
@@ -105,7 +119,10 @@ export function eventExtras(groups: TableRewardGroup[], iconFor: (name: string) 
     furniture: groups.filter(g => g.kind === 'furniture-set' && g.pieces?.length).map(g => ({ title: g.title, source: g.source, imagePath: furnitureArtPath(g, isPublished), description: g.description ?? null, pieces: g.pieces! })),
     notices: groups.filter(g => g.kind === 'notice' && g.lines?.length).map(g => ({ title: g.title, source: g.source, lines: g.lines! })),
     news: groups.filter(g => g.kind === 'news' && g.lines?.length).map(g => ({ title: g.title, source: g.source, published: g.published ?? null, lines: g.lines!, art: g.art ?? [], postArt: g.postArt ?? null })),
-    board: groups.filter(g => g.kind === 'board' && g.image).map(g => ({ title: g.title, source: g.source || null, shown: g.published ?? null, image: g.image! })),
+    // Global's items are its banners' art, so one without a picture is nothing; a regional item is
+    // still its notice when its picture is left out.
+    board: groups.filter(g => g.kind === 'board' && (g.image || g.server)).map(g => ({ server: g.server ?? 'en', title: g.title, name: g.name ?? null,
+      source: g.source || null, shown: g.published ?? null, image: g.image ?? null })),
   };
 }
 

@@ -110,3 +110,10 @@
 .world-web-event-art { display: block; width: 100%; height: auto; aspect-ratio: 1200 / 630; object-fit: contain; background: var(--panel); margin-bottom: 6px; }
 .world-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); gap: 16px; margin-top: 16px; }
 .world-gallery img { max-width: 100%; height: auto; object-fit: contain; }
+/* Web Events: the site's server's campaigns (webEventServer), all in the markup and picked by the
+   <html data-site-server> the boot script in _document sets before the first paint, Global when
+   unset (as the home maintenance notice, front.css): the server is the reader's choice, which the
+   server render cannot know, and the list differs in length per server. */
+html:not([data-site-server="jp"]):not([data-site-server="kr"]) :is(.world-web-event, .world-web-events-none)[data-server]:not([data-server="en"]),
+html[data-site-server="jp"] :is(.world-web-event, .world-web-events-none)[data-server]:not([data-server="jp"]),
+html[data-site-server="kr"] :is(.world-web-event, .world-web-events-none)[data-server]:not([data-server="kr"]) { display: none; }

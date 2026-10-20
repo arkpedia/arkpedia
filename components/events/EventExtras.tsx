@@ -123,47 +123,93 @@ function NewsBody({ section }: { section: EventExtras['news'][number] }) {
   return <>{parts}</>;
 }
 
+const REGIONAL_SERVERS = ['jp', 'kr'] as const;
+const SERVER_LABEL = { jp: 'JP', kr: 'KR' } as const;
+
+/** A JP or KR board item, in English: the site's own name for what it is about (its event or
+ *  banner), never the board's Japanese or Korean title, and an English label for the link. */
+function RegionalBoardItem({ item, server }: { item: EventExtras['board'][number]; server: 'jp' | 'kr' }) {
+  const label = `Official ${SERVER_LABEL[server]} notice`;
+  return (
+    <article className="event-notice event-news-board-item">
+      {item.image && <ContentImg className="event-news-board-art" src={item.image} alt={item.name ?? label} />}
+      <h3>{item.name ?? label}</h3>
+      <p className="hint">
+        {newsDay(item.shown) ? `Shown from ${newsDay(item.shown)}.` : null}
+        {item.source && <>{' '}<a href={item.source} target="_blank" rel="noopener noreferrer">{label}</a></>}
+      </p>
+    </article>
+  );
+}
+
 /** The News tab: the in-game board's items for the event (its banners', with their art), then each
  *  official announcement with its pictures where the post has them. Every picture is shown from
- *  the official host's address; none is kept. */
+ *  the official host's address; none is kept.
+ *
+ *  Every server's items are in the markup and CSS shows the site's server's (events.css, by the
+ *  <html data-site-server> _document's boot script sets before the first paint), as the home
+ *  maintenance notice does: the server is the reader's choice, which the server render cannot
+ *  know, and the lists differ in height. In JP or KR mode that server's board stands in place of
+ *  Global's material; a server whose board has nothing for the event says so, and Global's
+ *  follows (data-own-jp / data-own-kr say which servers have their own). */
 export function EventNews({ news, board }: { news: EventExtras['news']; board: EventExtras['board'] }) {
   // Each announcement once, above its sections: the date it was published and a link to it.
   const posts = [...new Map(news.map((section) => [section.source, section])).entries()];
+  // A release from before the servers were told apart has only Global's, with no server.
+  const globalBoard = board.filter((item) => (item.server ?? 'en') === 'en');
+  const regional = REGIONAL_SERVERS.map((server) => ({ server, items: board.filter((item) => item.server === server) }));
+  const own = Object.fromEntries(regional.filter(({ items }) => items.length > 0).map(({ server }) => [`data-own-${server}`, '']));
   return (
-    <div className="event-extras event-news">
-      {board.length > 0 && (
-        <div className="event-news-post">
-          <p className="hint event-news-from">On the in-game notice board.</p>
-          <div className="event-news-board">
-            {board.map((item) => (
-              <article key={item.title + item.image} className="event-notice event-news-board-item">
-                <ContentImg className="event-news-board-art" src={item.image} alt={item.title} />
-                <h3>{item.title}</h3>
-                <p className="hint">
-                  {newsDay(item.shown) ? `Shown from ${newsDay(item.shown)}.` : null}
-                  {item.source && <>{' '}<a href={item.source} target="_blank" rel="noopener noreferrer">In-game notice</a></>}
-                </p>
+    <div className="event-extras event-news" {...own}>
+      {regional.map(({ server, items }) => (
+        <div key={server} className="event-news-server" data-server={server}>
+          {items.length > 0 ? (
+            <div className="event-news-post">
+              <p className="hint event-news-from">On the {SERVER_LABEL[server]} in-game notice board.</p>
+              <div className="event-news-board">
+                {items.map((item) => <RegionalBoardItem key={item.title + item.shown + item.source + item.image} item={item} server={server} />)}
+              </div>
+            </div>
+          ) : (
+            <p className="hint event-news-from">The {SERVER_LABEL[server]} in-game notice board has shown nothing for this event yet. Global&apos;s news follows.</p>
+          )}
+        </div>
+      ))}
+      <div className="event-news-server" data-server="en">
+        {globalBoard.length > 0 && (
+          <div className="event-news-post">
+            <p className="hint event-news-from">On the in-game notice board.</p>
+            <div className="event-news-board">
+              {globalBoard.map((item) => (
+                <article key={item.title + item.image} className="event-notice event-news-board-item">
+                  {item.image && <ContentImg className="event-news-board-art" src={item.image} alt={item.title} />}
+                  <h3>{item.title}</h3>
+                  <p className="hint">
+                    {newsDay(item.shown) ? `Shown from ${newsDay(item.shown)}.` : null}
+                    {item.source && <>{' '}<a href={item.source} target="_blank" rel="noopener noreferrer">In-game notice</a></>}
+                  </p>
+                </article>
+              ))}
+            </div>
+          </div>
+        )}
+        {posts.map(([source, first]) => (
+          <div key={source} className="event-news-post">
+            <p className="hint event-news-from">
+              {newsDay(first.published) ? `From the official announcement of ${newsDay(first.published)}. ` : 'From the official announcement. '}
+              <a href={source} target="_blank" rel="noopener noreferrer">Read it on arknights.global</a>
+            </p>
+            {first.postArt && <ContentImg className="event-news-art" src={first.postArt} alt="" />}
+            {news.filter((section) => section.source === source).map((section) => (
+              <article key={section.title} className="event-notice event-news-section">
+                {(section.art ?? []).filter((picture) => picture.at < 0).map((picture) => <ContentImg key={picture.url} className="event-news-art" src={picture.url} alt="" />)}
+                <h3>{section.title}</h3>
+                <NewsBody section={section} />
               </article>
             ))}
           </div>
-        </div>
-      )}
-      {posts.map(([source, first]) => (
-        <div key={source} className="event-news-post">
-          <p className="hint event-news-from">
-            {newsDay(first.published) ? `From the official announcement of ${newsDay(first.published)}. ` : 'From the official announcement. '}
-            <a href={source} target="_blank" rel="noopener noreferrer">Read it on arknights.global</a>
-          </p>
-          {first.postArt && <ContentImg className="event-news-art" src={first.postArt} alt="" />}
-          {news.filter((section) => section.source === source).map((section) => (
-            <article key={section.title} className="event-notice event-news-section">
-              {(section.art ?? []).filter((picture) => picture.at < 0).map((picture) => <ContentImg key={picture.url} className="event-news-art" src={picture.url} alt="" />)}
-              <h3>{section.title}</h3>
-              <NewsBody section={section} />
-            </article>
-          ))}
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   );
 }

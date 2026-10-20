@@ -3,7 +3,7 @@ import { scheduleModeRelease } from '@/lib/schedule/modeReleases';
 import type { ScheduleEvent } from '@/lib/schedule/scheduleTypes';
 import { permanentEventListing, modeDetails, type ModeDetails } from '@/lib/events/modeDetails';
 import { useRegionalTime } from '@/lib/time/useRegionalTime';
-import { regionalRange } from '@/lib/time/regional';
+import { regionalArt, regionalRange } from '@/lib/time/regional';
 import { withContentPage } from '@/lib/content/server';
 import { useEffect, useRef, useState } from 'react';
 import { GetStaticPaths, GetStaticProps } from 'next';
@@ -180,6 +180,11 @@ export default function EventDetailPage({
   const regionalWindow = schedule?.events?.[name];
   const dateRange = server === 'en' ? globalDateRange : regionalWindow ? regionalRange(regionalWindow, server) : `${server.toUpperCase()} schedule not announced`;
   const isPredicted = server === 'en' && globalPredicted;
+  /* JP's and KR's own key art, from their in-game boards (regionalArt), else Global's. Read after
+     hydration like the dates: both sit in boxes of a fixed shape, so the swap moves nothing. A CG
+     set stays: the board's art stands in for the poster only. */
+  const shownImages = artAspect === POSTER_ASPECT && server !== 'en' ? [regionalArt(regionalWindow, images[0] ?? null, server)].filter((src): src is string => !!src) : images;
+  const shownBannerImage = bannerName ? regionalArt(schedule?.banners?.[bannerName], bannerImage, server) : bannerImage;
   const hasExtras = extras.packs.length + extras.furniture.length + extras.notices.length > 0;
   // A page compiled by a release from before the News tab has no `news` at all.
   const news = extras.news ?? [];
@@ -215,7 +220,7 @@ export default function EventDetailPage({
   const [imgIndex, setImgIndex] = useState(0);
   const [paused, setPaused] = useState(false);
   const resumeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const activeImage = images[Math.min(imgIndex, images.length - 1)];
+  const activeImage = shownImages[Math.min(imgIndex, shownImages.length - 1)];
 
   const rewardTypes = Array.from(new Set(rewardStores.map((s) => s.type)));
   // One list for the Tabs and for reading a link: All only when there are blocks to total.
@@ -268,12 +273,12 @@ export default function EventDetailPage({
   }, [activeSkin]);
 
   useEffect(() => {
-    if (paused || images.length <= 1) return;
+    if (paused || shownImages.length <= 1) return;
     const interval = setInterval(() => {
-      setImgIndex((i) => (i + 1) % images.length);
+      setImgIndex((i) => (i + 1) % shownImages.length);
     }, CAROUSEL_INTERVAL_MS);
     return () => clearInterval(interval);
-  }, [paused, images.length]);
+  }, [paused, shownImages.length]);
 
   useEffect(() => {
     return () => {
@@ -305,9 +310,9 @@ export default function EventDetailPage({
           <div className="event-detail-image-wrap" style={{ aspectRatio: artAspect }}>
             {activeImage && <Image src={activeImage} alt={name} fill sizes="(max-width: 1240px) 100vw, 1200px" style={{ objectFit: 'cover' }} />}
           </div>
-          {images.length > 1 && (
+          {shownImages.length > 1 && (
             <div className="event-detail-carousel-dots">
-              {images.map((_, i) => (
+              {shownImages.map((_, i) => (
                 <button
                   type="button"
                   key={i}
@@ -348,7 +353,7 @@ export default function EventDetailPage({
               {/* The frame stays when the art is not published yet, empty at the
                   same size, rather than the section closing up around it. */}
               <div className="event-detail-banner-art-wrap">
-                {bannerImage && <Image src={bannerImage} alt={bannerName} fill sizes="600px" style={{ objectFit: 'contain' }} />}
+                {shownBannerImage && <Image src={shownBannerImage} alt={bannerName} fill sizes="600px" style={{ objectFit: 'contain' }} />}
               </div>
               <p className="hint">{bannerName}</p>
               {pendingNote && <p className="hint">{pendingNote}</p>}
@@ -526,7 +531,8 @@ export const getStaticPaths: GetStaticPaths = async () => {
 
 function withNewsArt(props: Props): Props {
   if (!props.extras) return props;
-  return { ...props, extras: { ...props.extras, board: props.extras.board ?? [],
+  // A release from before the servers were told apart: its items are Global's, each with its art.
+  return { ...props, extras: { ...props.extras, board: (props.extras.board ?? []).map((item) => ({ ...item, server: item.server ?? 'en', name: item.name ?? null, image: item.image ?? null })),
     news: (props.extras.news ?? []).map((section) => ({ ...section, art: section.art ?? [], postArt: section.postArt ?? null })) } };
 }
 

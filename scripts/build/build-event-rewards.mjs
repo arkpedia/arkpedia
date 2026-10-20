@@ -64,6 +64,7 @@ import { eventTitle, eventWindow, isRerun } from '../lib/event-records.mjs';
 import { cnTables } from '../content/pin-upstream.mjs';
 import { readOfficialNews } from '../sync/sync-official-news.mjs';
 import { readOfficialBulletins } from '../sync/sync-official-bulletins.mjs';
+import { boardBannerItems, boardEventItems, showablePicture } from '../sync/regional-board.mjs';
 
 const LOGIN_TYPES = new Set(['CHECKIN_ONLY', 'CHECKIN_ALL_PLAYER', 'CHECKIN_VS']);
 /* The side activities an event carries beside its own: its sign-ins (LOGIN_TYPES), its one-off
@@ -541,6 +542,44 @@ export function boardGroups(events, banners, board) {
   return result;
 }
 
+/** The site's servers other than Global whose in-game boards an event's News tab shows. */
+export const REGIONAL_BOARDS = ['jp', 'kr'];
+
+/**
+ * One regional server's in-game board for each event's News (JP or KR; Global's is boardGroups):
+ * the items regional-board.mjs joins to the event -- its own event items, by the event's name in
+ * that server's language, and the items of each headhunting banner it opens with (linked_event),
+ * by the server's pool id -- from that server's regional schedule (data/regional-schedules.json,
+ * which the regional-schedules stage writes before this one). Each group is tagged `server`, and
+ * `name` is the site's own English name of what it is about (the event or the banner): the page
+ * shows that and an English label, never the board's Japanese or Korean title, which is kept as a
+ * derived fact like Global's. The picture is the board's own address, left out over the size a
+ * page may load (showablePicture); no notice text is kept. { event name: [board groups] }.
+ */
+export function regionalBoardGroups(events, banners, schedule, board, server) {
+  if (!REGIONAL_BOARDS.includes(server)) throw new Error(`regionalBoardGroups: ${server} is not a regional board`);
+  const names = new Set(events.map(event => event.name));
+  const pages = board?.notices ?? [];
+  const byEvent = boardEventItems(schedule?.events, board);
+  const result = {};
+  const add = (eventName, item, name, subject) => {
+    const groups = (result[eventName] ??= []);
+    if (groups.some(group => group.id === item.id)) return;
+    const page = pages.filter(notice => notice.url && notice.title === item.title && notice.date === item.displayDate);
+    groups.push({ kind: 'board', server, id: item.id, subject, name, title: item.title, source: page.length === 1 ? page[0].url : '',
+      published: item.displayDate, ...(showablePicture(item) ? { image: item.image.url } : {}), items: [] });
+  };
+  for (const [eventName, items] of Object.entries(byEvent)) {
+    if (!names.has(eventName)) continue;
+    for (const item of items) add(eventName, item, eventName, 'event');
+  }
+  for (const banner of banners) {
+    if (!names.has(banner.linked_event)) continue;
+    for (const item of boardBannerItems(board, schedule?.banners?.[banner.name]?.poolId)) add(banner.linked_event, item, banner.name, 'banner');
+  }
+  return result;
+}
+
 export function assertEventRewards(rewards, text = JSON.stringify(rewards)) {
   // A reference the decoder would decode (official-news.mjs), not text that only looks like one.
   const entity = leftoverEntity(text);
@@ -550,7 +589,8 @@ export function assertEventRewards(rewards, text = JSON.stringify(rewards)) {
     for (const group of groups) {
       const raw = group.items?.find(item => item.name === item.id && /_/.test(item.id));
       if (raw) throw new Error(`event-rewards: ${name} shows "${raw.id}", a reward no table names (${group.kind})`);
-      const key = `${group.kind}: ${group.title}`;
+      // A regional board's items are told apart by their id: KR titles every event's "신규 이벤트 안내".
+      const key = group.server ? `${group.kind}@${group.server}: ${group.id}` : `${group.kind}: ${group.title}`;
       if (seen.has(key)) throw new Error(`event-rewards: ${name} has two "${key}" sections`);
       seen.add(key);
     }
@@ -604,9 +644,19 @@ async function main() {
   // entry kept from the last run carries.
   const bannerFile = path.join(root, 'data/headhunting_banners.json');
   const banners = fs.existsSync(bannerFile) ? JSON.parse(fs.readFileSync(bannerFile, 'utf8')) : [];
-  for (const [name, groups] of Object.entries(boardGroups(events, banners, readOfficialBulletins(root).regions.en))) {
+  // JP's and KR's (regionalBoardGroups) beside Global's, each tagged with its server.
+  const boards = readOfficialBulletins(root).regions;
+  const scheduleFile = path.join(root, 'data/regional-schedules.json');
+  const schedules = fs.existsSync(scheduleFile) ? JSON.parse(fs.readFileSync(scheduleFile, 'utf8')).servers ?? {} : {};
+  const boardByEvent = {};
+  for (const [name, groups] of Object.entries(boardGroups(events, banners, boards.en))) (boardByEvent[name] ??= []).push(...groups);
+  for (const server of REGIONAL_BOARDS) {
+    for (const [name, groups] of Object.entries(regionalBoardGroups(events, banners, schedules[server], boards[server], server))) (boardByEvent[name] ??= []).push(...groups);
+  }
+  for (const entry of Object.values(rewards)) entry.groups = entry.groups.filter(group => group.kind !== 'board');
+  for (const [name, groups] of Object.entries(boardByEvent)) {
     const entry = (rewards[name] ??= { activity: null, groups: [] });
-    entry.groups = [...entry.groups.filter(group => group.kind !== 'board'), ...groups];
+    entry.groups = [...entry.groups, ...groups];
   }
   const storeNames = storeNameTranslations(events, cn, en);
   const storeFurniture = storeFurnitureNames(events, cn, en);
