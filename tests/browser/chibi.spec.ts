@@ -36,6 +36,16 @@ test('default and skin battle/base animations load exclusively from pinned SD as
   for (const url of requested) expect(url).toMatch(/^https:\/\/raw\.githubusercontent\.com\/arkpedia\/arkpedia-sd-assets\/[a-f0-9]{40}\/models\//);
 });
 
+/** How many pixels of a chibi canvas hold part of the chibi. Each chibi is a 2D canvas the page's
+ *  one WebGL context draws into (lib/spine/sharedChibiGL.ts); a lost picture reads 0. */
+const drawnPixels = (element: Element) => {
+  const canvas = element as HTMLCanvasElement;
+  const data = canvas.getContext('2d')?.getImageData(0, 0, canvas.width, canvas.height).data;
+  let count = 0;
+  if (data) for (let i = 3; i < data.length; i += 4) if (data[i] > 0) count++;
+  return count;
+};
+
 async function revealControls(page: import('@playwright/test').Page) {
   // Keyboard users can reveal the controls without triggering a chibi interaction.
   await page.keyboard.press('Tab');
@@ -60,7 +70,7 @@ test('facing preserves animation and pause, with facing beside the viewer title'
   await expect(page.locator('.chibi-viewer [role="status"]')).toHaveCount(0);
   await expect(select).toContainText('Attack_1');
   await expect(page.locator('.chibi-window canvas')).toHaveAttribute('data-animation', 'Attack_1');
-  expect(await page.locator('.chibi-window canvas').evaluate(canvas => ((canvas as HTMLCanvasElement).getContext('webgl2') ?? (canvas as HTMLCanvasElement).getContext('webgl'))?.isContextLost())).toBe(false);
+  await expect.poll(() => page.locator('.chibi-window canvas').evaluate(drawnPixels), { message: 'the chibi is drawn' }).toBeGreaterThan(0);
   await expect(page.locator('.chibi-controls').getByRole('button', { name: 'Pause', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await page.getByRole('button', { name: 'Front', exact: true }).click();
   await expect(select).toContainText('Attack_1');
@@ -130,7 +140,7 @@ test('roaming chibi survives viewer close, page navigation and browser back with
   await expect(pet).toHaveAccessibleName(petLabel!);
   expect(await canvas!.evaluate(element => element.isConnected)).toBe(true);
   expect(await pet.boundingBox()).toEqual(stopped);
-  expect(await canvas!.evaluate(element => ((element as HTMLCanvasElement).getContext('webgl2') ?? (element as HTMLCanvasElement).getContext('webgl'))?.isContextLost())).toBe(false);
+  await expect.poll(() => canvas!.evaluate(drawnPixels), { message: 'the roaming chibi is still drawn' }).toBeGreaterThan(0);
   await page.goBack();
   await expect(page).toHaveURL(/\/operators\/Thorns$/);
   await expect(pet).toBeVisible();
@@ -563,4 +573,38 @@ test('viewer controls fit a short viewport', async ({ page }) => {
   expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(382);
   await expect(viewer.getByRole('button', { name: 'Play', exact: true })).toBeInViewport();
   await expect(viewer.getByRole('button', { name: 'Close chibi viewer', exact: true })).toBeInViewport();
+});
+
+test('twenty chibis on the page all keep their picture (one WebGL context for all)', async ({ page, isMobile }) => {
+  test.skip(isMobile, 'twenty chibis cover a phone screen, Add another included');
+  test.setTimeout(120_000);
+  await openChibi(page);
+  await page.getByRole('button', { name: 'Walk on page', exact: true }).click();
+  const add = page.getByRole('button', { name: 'Add another', exact: true });
+  // A page gets about 16 WebGL contexts; each chibi had one, so the 16th took the first one's away.
+  for (let i = 1; i < 20; i++) await add.click();
+  const pets = page.locator('.chibi-roaming');
+  await expect(pets).toHaveCount(20);
+  await expect(pets.locator('[role="status"]')).toHaveCount(0, { timeout: 60_000 });
+  await expect.poll(() => pets.locator('canvas').evaluateAll(canvases => canvases.filter(canvas => {
+    const element = canvas as HTMLCanvasElement;
+    const data = element.getContext('2d')?.getImageData(0, 0, element.width, element.height).data;
+    if (!data) return false;
+    for (let i = 3; i < data.length; i += 4) if (data[i] > 0) return true;
+    return false;
+  }).length), { timeout: 30_000, message: 'every chibi is drawn' }).toBe(20);
+});
+
+test('a tapped roaming chibi keeps its size while its reaction plays', async ({ page, isMobile }) => {
+  const pet = await openTapChibi(page), canvas = pet.locator('canvas');
+  const scale = Number(await canvas.getAttribute('data-world-per-pixel'));
+  expect(scale).toBeGreaterThan(0);
+  await page.evaluate(() => { Math.random = () => .9; });
+  if (isMobile) await canvas.tap(); else await canvas.click();
+  await expect(pet).toHaveAttribute('data-activity', 'trust-tap');
+  // Sampled through the reaction: the scale never changes (it used to grow to fit wide effects).
+  for (let i = 0; i < 6; i++) {
+    expect(Number(await canvas.getAttribute('data-world-per-pixel'))).toBeCloseTo(scale, 6);
+    await page.waitForTimeout(150);
+  }
 });
