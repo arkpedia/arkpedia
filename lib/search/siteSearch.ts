@@ -9,9 +9,20 @@ import { normalizeForSearch } from './searchNormalize';
  * release beside operator-search.json, so a new operator or event is findable the night
  * its release lands, with no redeploy. The row carries a title, an href and the other
  * names the destination answers to, and nothing that changes with the clock.
+ *
+ * The community's YouTube and Twitch are the same search, in two halves. The curated
+ * channels (lib/music/youtubeConfig.ts) are stable, so they ride in the index. Their latest
+ * videos and who is live on Twitch are not: they are the feeds the community pages already
+ * fetch, served by /api/search-feeds under the pages' own 25-minute cache and loaded once
+ * when the search opens (useSiteSearch), never per keystroke. Baked into the index, a video
+ * list would change every export and publish a new release for a code change that alters
+ * no page, and a live stream would still read as live days after it ended.
  */
 
-export const SITE_SEARCH_KINDS = ['page', 'operator', 'event', 'content', 'stage', 'enemy', 'album', 'song'] as const;
+export const SITE_SEARCH_KINDS = [
+  'page', 'operator', 'event', 'content', 'stage', 'enemy', 'album', 'song',
+  'creator', 'video', 'streamer', 'stream',
+] as const;
 export type SiteSearchKind = typeof SITE_SEARCH_KINDS[number];
 
 /** What a row is called in the results, in the order a tie is broken by. */
@@ -24,7 +35,16 @@ export const SITE_SEARCH_KIND_LABEL: Record<SiteSearchKind, string> = {
   enemy: 'Enemy',
   album: 'Album',
   song: 'Song',
+  creator: 'YouTube',
+  video: 'YouTube',
+  streamer: 'Twitch',
+  stream: 'Twitch',
 };
+
+/** The rows that leave the site: YouTube and Twitch. They open in a new tab, rank under
+ *  every row of the site's own (compare), and /search never jumps to one. */
+const OFF_SITE = new Set<SiteSearchKind>(['creator', 'video', 'streamer', 'stream']);
+export const siteSearchOffSite = (entry: SiteSearchEntry): boolean => OFF_SITE.has(entry.kind);
 
 export interface SiteSearchEntry {
   kind: SiteSearchKind;
@@ -39,7 +59,8 @@ export interface SiteSearchEntry {
   /** Operators: what getOperatorIconPath draws the portrait from. */
   rarity?: number | null;
   portraitPending?: true;
-  /** Enemies: the handbook icon, when it is not the usual file (enemyIconFor). */
+  /** Enemies: the handbook icon, when it is not the usual file (enemyIconFor). Videos and
+   *  streams: the thumbnail the community page's card draws. */
   icon?: string;
   /** Enemies: the handbook has no icon for this one. */
   iconless?: true;
@@ -56,8 +77,9 @@ export function enemyIconFor(name: string): string {
 }
 
 /** The row's art: an operator portrait is drawn by the caller (getOperatorIconPath), so
- *  this answers for enemies only. */
+ *  this answers for enemies, and for the videos and streams whose feed names a thumbnail. */
 export function siteSearchIcon(entry: SiteSearchEntry): string | null {
+  if (entry.kind === 'video' || entry.kind === 'stream') return entry.icon ?? null;
   if (entry.kind !== 'enemy' || entry.iconless) return null;
   return entry.icon ?? enemyIconFor(entry.title);
 }
@@ -96,6 +118,14 @@ export async function loadSiteSearch(
     if (signal?.aborted || releaseUrl === SITE_SEARCH_PATH) throw error;
     return fetchSiteSearch(SITE_SEARCH_PATH, signal, fetcher);
   }
+}
+
+/** The deployment's own route, not the release's: the feeds are fetched live, never exported. */
+export const SITE_SEARCH_FEEDS_PATH = '/api/search-feeds';
+
+/** The YouTube videos and live Twitch streams (pages/api/search-feeds.ts). */
+export async function loadSiteSearchFeeds(signal?: AbortSignal, fetcher: FetchSiteSearch = fetch): Promise<SiteSearchEntry[]> {
+  return fetchSiteSearch(SITE_SEARCH_FEEDS_PATH, signal, fetcher);
 }
 
 /** Lower is better. Exact name, start of the name, start of a word in it, anywhere in it,
@@ -153,8 +183,12 @@ function scoreEntry(entry: SiteSearchEntry, query: string, words: string[], keep
   return { entry, score: Math.min(titleTier, termTier), onTitle: titleTier <= termTier, exact: onTitle === EXACT || onTerm === EXACT };
 }
 
+/* The site's own rows first, at any tier: a video titled "Amiya guide" starts with "amiya"
+   as much as Amiya (Guard) does, and a long feed of titles must not push the game out of
+   the pop-up's ten rows. YouTube and Twitch follow, ranked the same way among themselves. */
 function compare(a: SiteSearchResult, b: SiteSearchResult): number {
-  return a.score - b.score
+  return Number(siteSearchOffSite(a.entry)) - Number(siteSearchOffSite(b.entry))
+    || a.score - b.score
     || Number(b.onTitle) - Number(a.onTitle)
     || KIND_RANK[a.entry.kind] - KIND_RANK[b.entry.kind]
     || a.entry.title.length - b.entry.title.length
@@ -182,11 +216,12 @@ export function searchSite(entries: readonly SiteSearchEntry[], query: string): 
  * (her alters answer to "Amiya" too, but on another name, so they rank under her), "W"
  * opens W. Two rows tied on everything that ranks them -- two stages coded "1-7" in
  * different modes -- are a question the reader has to answer, so they get the list. A
- * prefix never jumps: "ama" is not a request for Amiya.
+ * prefix never jumps: "ama" is not a request for Amiya. Nor does a YouTube or Twitch row:
+ * Enter is not a request to leave the site, so a channel's name gets the list.
  */
 export function siteSearchJump(results: readonly SiteSearchResult[]): SiteSearchEntry | null {
   const [first, second] = results;
-  if (!first?.exact) return null;
+  if (!first?.exact || siteSearchOffSite(first.entry)) return null;
   if (second?.exact && second.score === first.score && second.onTitle === first.onTitle && second.entry.kind === first.entry.kind) return null;
   return first.entry;
 }

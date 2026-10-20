@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } fro
 import { flushSync } from 'react-dom';
 import SearchInput from '@/components/ui/SearchInput';
 import SiteSearchRow from '@/components/search/SiteSearchRow';
-import { searchSite, siteSearchHref, siteSearchJump, type SiteSearchEntry } from '@/lib/search/siteSearch';
+import { searchSite, siteSearchHref, siteSearchJump, siteSearchOffSite, type SiteSearchEntry } from '@/lib/search/siteSearch';
 import { useSiteSearch } from '@/lib/search/useSiteSearch';
 
 /** How many rows the pop-up lists; the rest are on /search. */
@@ -117,7 +117,8 @@ export function SiteSearchTrigger({ variant, control }: { variant: 'bar' | 'mobi
 /**
  * The site search as a pop-up over the page: the field, the best matches under it, and a key
  * legend, in a frame drawn like the game's Stronghold Protocol readouts (search.css). Every
- * operator, event, episode, stage, enemy, album, song and nav page (lib/search/siteSearch.ts).
+ * operator, event, episode, stage, enemy, album, song and nav page, and the community's YouTube
+ * channels and videos and who is live on Twitch (lib/search/siteSearch.ts).
  *
  * Enter on a highlighted row opens it; Enter otherwise opens the one exact match, or /search
  * with the whole list. Escape, a click outside the frame, or a route change closes it. It is
@@ -130,7 +131,7 @@ export default function SiteSearchDialog({ control }: { control: SiteSearchContr
      searches never downloads it. */
   const [wanted, setWanted] = useState(false);
   useEffect(() => { if (control.open) setWanted(true); }, [control.open]);
-  const { entries, loading, failed } = useSiteSearch(wanted);
+  const { entries, loading, failed } = useSiteSearch(wanted, control.open);
   const results = useMemo(() => searchSite(entries, query), [entries, query]);
   const q = query.trim();
   const suggestions: Row[] = results.slice(0, SUGGESTIONS).map((r) => r.entry);
@@ -140,6 +141,14 @@ export default function SiteSearchDialog({ control }: { control: SiteSearchContr
     setQuery('');
     control.close();
     void router.push(href);
+  }
+  /* A YouTube or Twitch row opens in a new tab, as the community page's links do, and the
+     pop-up closes behind it; the pick is a click or a key press, so no blocker stops it. */
+  function pick(entry: SiteSearchEntry) {
+    if (!siteSearchOffSite(entry)) return go(entry.href);
+    setQuery('');
+    control.close();
+    window.open(entry.href, '_blank', 'noopener,noreferrer');
   }
 
   if (!control.open) return null;
@@ -160,7 +169,7 @@ export default function SiteSearchDialog({ control }: { control: SiteSearchContr
             label="Search Arkpedia"
             name="site-search"
             className="site-search-dialog-field"
-            placeholder="Operators, stage codes, events, enemies, songs…"
+            placeholder="Operators, stage codes, events, enemies, songs, creators…"
             value={query}
             onChange={setQuery}
             inputRef={control.inputRef}
@@ -169,7 +178,7 @@ export default function SiteSearchDialog({ control }: { control: SiteSearchContr
             renderSuggestion={(row) => (isMore(row)
               ? <span className="site-search-more">All {row.count} results for “{q}”</span>
               : <SiteSearchRow entry={row} />)}
-            onPick={(row) => go(isMore(row) ? siteSearchHref(q) : row.href)}
+            onPick={(row) => (isMore(row) ? go(siteSearchHref(q)) : pick(row))}
             suggestLabel="Search results"
             emptyText={failed ? 'Search is unavailable right now.' : loading ? 'Loading search…' : 'Nothing found.'}
             onKeyDown={(event) => {
@@ -183,7 +192,7 @@ export default function SiteSearchDialog({ control }: { control: SiteSearchContr
           />
           <button type="button" className="btn-bare site-search-dialog-close" aria-label="Close search" onClick={() => control.close()}>Cancel</button>
         </div>
-        {!q && <p className="site-search-dialog-hint">Try an operator, a stage code like 1-7, an event, an enemy or a song.</p>}
+        {!q && <p className="site-search-dialog-hint">Try an operator, a stage code like 1-7, an event, an enemy, a song or a YouTube or Twitch creator.</p>}
         <div className="site-search-dialog-keys" aria-hidden="true">
           <span><kbd>↑</kbd><kbd>↓</kbd> Move</span>
           <span><kbd>Enter</kbd> Open</span>

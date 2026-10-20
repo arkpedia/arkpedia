@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import PageHeader from '@/components/ui/PageHeader';
 import SearchInput from '@/components/ui/SearchInput';
 import SiteSearchRow from '@/components/search/SiteSearchRow';
-import { searchSite, siteSearchJump } from '@/lib/search/siteSearch';
+import { searchSite, siteSearchJump, siteSearchOffSite } from '@/lib/search/siteSearch';
 import { useSiteSearch } from '@/lib/search/useSiteSearch';
 import { withContentPage } from '@/lib/content/server';
 
@@ -42,7 +42,7 @@ export default function SearchPage() {
   const written = useRef<string[] | null>(null);
   const pendingJump = useRef(false);
   const writeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const { entries, loading, failed } = useSiteSearch(true);
+  const { entries, loading, failed } = useSiteSearch(true, true);
   const results = useMemo(() => searchSite(entries, query), [entries, query]);
 
   const arrived = useRef('');
@@ -85,7 +85,7 @@ export default function SearchPage() {
         {/* A results page is not a page of its own to a search engine. */}
         <meta name="robots" content="noindex" />
       </Head>
-      <PageHeader eyebrow="Rhodes Island // Search" title="Search" sub="Operators, events, stages, enemies, music and every page of the site." />
+      <PageHeader eyebrow="Rhodes Island // Search" title="Search" sub="Operators, events, stages, enemies, music, every page of the site, and the community's YouTube and Twitch." />
       <main className="site-search-page">
         <SearchInput
           label="Search Arkpedia"
@@ -109,9 +109,10 @@ export default function SearchPage() {
           <ul className="site-search-page-list">
             {results.slice(0, SHOWN).map(({ entry }) => (
               <li key={`${entry.kind}:${entry.href}`}>
-                <Link prefetch={false} href={entry.href} className="site-search-page-row">
-                  <SiteSearchRow entry={entry} />
-                </Link>
+                {/* YouTube and Twitch open in a new tab, as the community page's links do. */}
+                {siteSearchOffSite(entry)
+                  ? <a href={entry.href} target="_blank" rel="noopener noreferrer" className="site-search-page-row"><SiteSearchRow entry={entry} /></a>
+                  : <Link prefetch={false} href={entry.href} className="site-search-page-row"><SiteSearchRow entry={entry} /></Link>}
               </li>
             ))}
           </ul>

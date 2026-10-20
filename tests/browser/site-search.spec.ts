@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { YOUTUBE_CHANNELS } from '../../lib/music/youtubeConfig';
 
 /*
  * The site search (components/layout/SiteSearch.tsx, pages/search.tsx): the nav's button
@@ -118,4 +119,45 @@ test('typing on /search keeps what was typed, and the URL follows it', async ({ 
   await expect(page).toHaveURL(/\/search\?s=kaltsit$/);
   await expect(field).toHaveValue('kaltsit');
   await expect(page.locator('.site-search-page-row').first()).toContainText('Kal');
+});
+
+/* The community's YouTube (lib/search/siteSearch.ts): the curated channels from the index, their
+   videos from /api/search-feeds, which the server reads from the checked-in feed
+   (ARKPEDIA_YOUTUBE_FEED_FIXTURE, playwright.config.ts). Twitch has no fixture, so its rows are
+   held by scripts/tests/test-site-search.ts. */
+test('a YouTube creator and their videos are found, and a pick opens YouTube in a new tab', async ({ page, context }) => {
+  // The new tab is answered here, so the run never reaches YouTube.
+  await context.route('https://www.youtube.com/**', (route) => route.fulfill({ status: 200, contentType: 'text/html', body: '<title>YouTube</title>' }));
+  // The first channel the fixture feeds, so the creator has videos to list under it.
+  const creator = YOUTUBE_CHANNELS[0].label;
+  await page.goto('/schedule');
+  await page.getByRole('button', { name: 'Search Arkpedia' }).click();
+  await page.getByRole('combobox', { name: 'Search Arkpedia' }).fill(creator);
+  const options = page.getByRole('option');
+  await expect(options.first()).toContainText(creator);
+  await expect(options.first()).toContainText('YouTube channel');
+  // The feed's videos arrive after the index, under the channel.
+  await expect(options.nth(1)).toContainText(/Arknights/);
+  await expect(options.nth(1)).toContainText(creator);
+  await expect(options.nth(1)).toContainText('YouTube');
+  const opened = context.waitForEvent('page');
+  await options.nth(1).click();
+  const tab = await opened;
+  await expect.poll(() => tab.url()).toMatch(/^https:\/\/www\.youtube\.com\/watch\?v=/);
+  await tab.close();
+  await expect(page).toHaveURL(/\/schedule$/);
+  await expect(page.getByRole('dialog', { name: 'Search Arkpedia' })).toHaveCount(0);
+});
+
+test('/search lists a creator as a link out, and does not jump to it', async ({ page }) => {
+  const creator = YOUTUBE_CHANNELS[0];
+  await page.goto(`/search?s=${encodeURIComponent(creator.label)}`);
+  const row = page.locator('.site-search-page-row').first();
+  await expect(row).toContainText(creator.label);
+  await expect(row).toHaveAttribute('href', `https://www.youtube.com/channel/${creator.id}`);
+  await expect(row).toHaveAttribute('target', '_blank');
+  await expect(row).toHaveAttribute('rel', /noopener/);
+  // The videos, from the feed, follow it.
+  await expect(page.locator('.site-search-page-row[href^="https://www.youtube.com/watch"]').first()).toBeVisible();
+  await expect(page).toHaveURL(/\/search\?s=/);
 });
