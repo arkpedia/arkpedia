@@ -1,5 +1,5 @@
 import { useRegionalTime } from '@/lib/time/useRegionalTime';
-import { regionalEvents, regionalBanners, regionalRange } from '@/lib/time/regional';
+import { regionalArt, regionalEvents, regionalBanners, regionalRange } from '@/lib/time/regional';
 import { useReaderClock } from '@/lib/time/readerClock';
 import { useReleaseTable } from '@/lib/content/context';
 import type { HeadhuntingBanner } from '@/lib/gacha/headhuntingBanners';
@@ -110,7 +110,7 @@ export default function SchedulePage({ events: globalEvents, operators: exported
   const regionalRows = useMemo(() => server === 'en' ? calendarRows : calendarRows.flatMap(row => {
     const time = row.bannerName ? schedule?.banners?.[row.bannerName] : schedule?.events?.[row.name];
     if (!time) return [];
-    return [{ ...row, dateRange: row.modeId && time.releaseDate ? time.releaseDate : regionalRange(time, server), isPredicted: false, start: Date.parse(time.startAt), end: Date.parse(time.endAt),
+    return [{ ...row, poster: regionalArt(time, row.poster, server), dateRange: row.modeId && time.releaseDate ? time.releaseDate : regionalRange(time, server), isPredicted: false, start: Date.parse(time.startAt), end: Date.parse(time.endAt),
       pullBanner: 'pullBanner' in row && row.pullBanner ? { ...row.pullBanner, end: Date.parse(schedule?.banners?.[row.pullBanner.name]?.endAt ?? time.endAt) } : null }];
   }), [calendarRows, server, schedule]);
   const colors = useReleaseTable<typeof import('@/data/event_colors.json')>('event_colors');
