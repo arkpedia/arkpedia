@@ -27,6 +27,7 @@ import { ROSTER_EVENT, ROSTER_STORAGE_KEY, parseRosterExport } from '@/lib/plann
 import { MAX_IMPORT_BYTES } from '@/lib/planner/untrusted';
 import { PULL_PLAN_KEY, parsePullPlan } from '@/lib/pulls/plan';
 import { PAST_PROGRESS_EVENT, PAST_PROGRESS_KEY, parsePastProgress } from '@/lib/pulls/pastProgress';
+import { REWARD_FILTERS_EVENT, REWARD_FILTERS_KEY, parseRewardFilters } from '@/lib/pulls/rewardTrackerFilters';
 import { SKIN_PLAN_EVENT, SKIN_PLAN_KEY, parseSkinPlan } from '@/lib/skins/skinPlan';
 import { MUSIC_FAVORITES_EVENT, MUSIC_FAVORITES_KEY } from '@/lib/music/musicFavorites';
 
@@ -73,6 +74,7 @@ export const BACKUP_STORES: readonly Store[] = [
   // stores are first read).
   { key: PULL_PLAN_KEY, label: 'pull plan', valid: pullPlan, event: null },
   { key: PAST_PROGRESS_KEY, label: 'claimed rewards', valid: (raw) => parsePastProgress(raw) !== null, event: PAST_PROGRESS_EVENT },
+  { key: REWARD_FILTERS_KEY, label: 'Reward Tracker stage filters', valid: (raw) => parseRewardFilters(raw) !== null, event: REWARD_FILTERS_EVENT },
   { key: SKIN_PLAN_KEY, label: 'skin wishlist', valid: (raw) => parseSkinPlan(raw) !== null, event: SKIN_PLAN_EVENT },
   // The base page reads each of these defensively, as it would a value an older build wrote,
   // when it opens.

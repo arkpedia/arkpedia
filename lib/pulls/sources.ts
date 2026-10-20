@@ -88,7 +88,8 @@ export function bundledBacklogSources(): BacklogSources {
     chapters: ONE_TIME.chapters,
     originiteByStageType: ONE_TIME.originiteByStageType,
     annihilationOrundum: ONE_TIME.annihilationOrundum,
-    playable: PLAYABLE_EVENTS.map(({ id, name, op, stages, stageCodes, start }) => ({ id, name, op, stages, stageCodes, start })),
+    // A data/ from before stage kinds were kept has none to pass (and props cannot carry undefined).
+    playable: PLAYABLE_EVENTS.map(({ id, name, op, stages, stageCodes, stageKinds, start }) => ({ id, name, op, stages, stageCodes, ...(stageKinds ? { stageKinds } : {}), start })),
     resources: firstClears.resources,
     annihilation: firstClears.annihilation,
     paradox: freeRewards.paradox,

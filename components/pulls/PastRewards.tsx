@@ -23,10 +23,13 @@ interface Item { id: string; name: string; amount: number; stages?: string[]; st
  * what-if. `backlog` is what each unticked item still pays (unclaimedBacklog: what the import
  * left of it); `cleared` is the import's cleared stages, which name the stages left when an
  * item is opened. Whether any of it counts toward the forecast is the Include checkbox on
- * the frame that opens this.
+ * the frame that opens this. `dropped` is how many stages of each chapter and event the
+ * Reward Tracker's toggles left out (excludeStageKinds), already gone from `backlog`: an item
+ * they leave nothing of is no longer still to claim, so Unclaimed does not list it.
  */
-export function PastRewards({ backlog, doneKeys, doneEvents, annihilationDone, onKeys, onEvents, onAnnihilation, imported, cleared, layout }: {
+export function PastRewards({ backlog, dropped, doneKeys, doneEvents, annihilationDone, onKeys, onEvents, onAnnihilation, imported, cleared, layout }: {
   backlog: BacklogSources;
+  dropped: Readonly<Record<string, number>>;
   doneKeys: Set<string>; doneEvents: Set<string>; annihilationDone: boolean;
   onKeys: (keys: Set<string>) => void; onEvents: (keys: Set<string>) => void; onAnnihilation: (done: boolean) => void;
   imported: { at: string } | null;
@@ -62,16 +65,19 @@ export function PastRewards({ backlog, doneKeys, doneEvents, annihilationDone, o
     ids.forEach((id) => (done ? next.add(id) : next.delete(id)));
     (group.id === 'events' ? onEvents : onKeys)(next);
   };
-  const shown = (group: string, item: Item) => show === 'all' || (show === 'claimed') === complete(group, item.id);
+  const leftOut = (item: Item) => !item.amount && !!dropped[item.id];
+  const shown = (group: string, item: Item) => show === 'all' || (show === 'claimed' ? complete(group, item.id) : !complete(group, item.id) && !leftOut(item));
   /* What opening an item says: every stage claimed, or the ones left by their codes. Without
      an import, or for a stage list the release does not name, its whole list. */
   const stagesLeft = (group: string, item: Item) => {
     if (complete(group, item.id)) return <p className="hint pulls-past-detail">Everything is claimed.</p>;
+    const skipped = dropped[item.id] ? ` ${dropped[item.id]} more left out by your stage filters.` : '';
+    if (leftOut(item)) return <p className="hint pulls-past-detail">Only stages your filters leave out are left.{skipped}</p>;
     const codes = item.stageCodes;
     if (!item.stages || !codes || codes.length !== item.stages.length) return <p className="hint pulls-past-detail">The stages are not listed for this one yet.</p>;
     const left = cleared ? codes.filter((_, index) => !cleared.has(item.stages![index])) : codes;
     if (cleared && !left.length) return <p className="hint pulls-past-detail">Every stage is cleared in your import; untick it only to count it anyway.</p>;
-    return <p className="hint pulls-past-detail">{cleared ? 'Not cleared' : 'Its Originite Prime stages'} ({left.length}): {left.join(', ')}</p>;
+    return <p className="hint pulls-past-detail">{cleared ? 'Not cleared' : 'Its Originite Prime stages'} ({left.length}): {left.join(', ')}.{skipped}</p>;
   };
   /* On the page, opening an item adds a line and closing it takes the line away: the list holds
      the tallest height it has had, so closing one never shortens the page under the reader

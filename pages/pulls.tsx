@@ -41,6 +41,7 @@ import { useSkinPlan } from '@/lib/skins/skinPlan';
 import { useAccount } from '@/lib/account/accountStore';
 import { siteServerNow } from '@/lib/time/siteServer';
 import { usePastRewards } from '@/lib/pulls/usePastRewards';
+import { NO_STAGE_EXCLUSIONS } from '@/lib/pulls/stageKinds';
 import { pullSkinCatalogue, skinReservation, type PlannedSkin } from '@/lib/pulls/skins';
 import { availableBannerFreePulls, MAX_GOALS, PULL_PLAN_KEY, parsePullPlan, planBudgets, planHorizon, planNumber, savingsAfterPlanAt, validPlanDate, type BannerGoal, type SavedPullPlan } from '@/lib/pulls/plan';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -134,7 +135,8 @@ export default function PullsPage({ scheduledEvents: globalEvents, scheduledBann
   const skinCollections = useMemo(() => regionalSkinCollections(globalCollections, schedule, server), [globalCollections, schedule, server]);
   /* The Past events ticks, shared with the OP Tracker (lib/pulls/usePastRewards.ts): ticked
      once per import from its cleared stages, the reader's to change after that. */
-  const past = usePastRewards(backlogSources);
+  // The Reward Tracker's stage toggles are its own; the forecast counts every stage.
+  const past = usePastRewards(backlogSources, NO_STAGE_EXCLUSIONS);
   const ownedSkins = useMemo(() => (account ? new Set(account.skins) : null), [account]);
   const ownedPlanKeys = useMemo(() => new Set(skinCatalogue.filter(skin => skin.skinId && ownedSkins?.has(skin.skinId)).flatMap(skin => [skin.id, skin.name])), [skinCatalogue, ownedSkins]);
   const [skinIds, setSkinIds] = useSkinPlan((name) => skinByName.get(name), ownedPlanKeys);
@@ -546,7 +548,7 @@ export default function PullsPage({ scheduledEvents: globalEvents, scheduledBann
     )}
     {pastOpen && (
       <ImportDialog title="Past events" className="pulls-past-dialog" onClose={() => setPastOpen(false)}>
-        <PastRewards backlog={past.counting} doneKeys={past.doneKeys} doneEvents={past.doneEvents} annihilationDone={past.annihilationDone} onKeys={past.onKeys} onEvents={past.onEvents} onAnnihilation={past.onAnnihilation}
+        <PastRewards backlog={past.counting} dropped={past.dropped} doneKeys={past.doneKeys} doneEvents={past.doneEvents} annihilationDone={past.annihilationDone} onKeys={past.onKeys} onEvents={past.onEvents} onAnnihilation={past.onAnnihilation}
           imported={past.imported} cleared={past.cleared} layout="popup" />
       </ImportDialog>
     )}
