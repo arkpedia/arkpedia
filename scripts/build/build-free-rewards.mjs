@@ -4,6 +4,11 @@ import { pathToFileURL } from 'node:url';
 import { createHash } from 'node:crypto';
 
 const clean = text => String(text ?? '').replace(/<[^>]*>/g, '').trim();
+/* An operator's rarity, 1-6: character_table writes "TIER_6", an older dump 5 (zero-based). */
+const operatorRarity = character => {
+  const tier = /^TIER_([1-6])$/.exec(String(character?.rarity ?? ''));
+  return tier ? Number(tier[1]) : Number.isInteger(character?.rarity) && character.rarity >= 0 && character.rarity <= 5 ? character.rarity + 1 : undefined;
+};
 /** Global client rewards only. Paid login packages and banner-only permits are never savings. */
 export function buildFreeRewards({ handbook, missions, openServer, checkin, activity, items, characters, shops, eventRewards = { events: {} }, announcements = { events: {} } }) {
   const names = items.items;
@@ -11,7 +16,9 @@ export function buildFreeRewards({ handbook, missions, openServer, checkin, acti
     const id = item.id ?? item.itemId, type = item.type ?? item.itemType;
     const count = Number(item.count);
     if (!id || !Number.isFinite(count) || count <= 0) throw new Error('Invalid free reward item');
-    return { id, name: names[id]?.name ?? characters[id]?.name ?? item.name ?? ({ FURN: 'Furniture', CHAR_SKIN: 'Operator outfit', PLAYER_AVATAR: 'Player avatar', HOME_BACKGROUND: 'Home background', NAME_CARD_SKIN: 'Profile theme' }[type] ?? 'Reward item'), count,
+    // An operator says so by its rarity: the Reward Tracker opens its preview (OperatorPreview).
+    const rarity = id.startsWith('char_') && characters[id] ? operatorRarity(characters[id]) : undefined;
+    return { id, ...(rarity ? { rarity } : {}), name: names[id]?.name ?? characters[id]?.name ?? item.name ?? ({ FURN: 'Furniture', CHAR_SKIN: 'Operator outfit', PLAYER_AVATAR: 'Player avatar', HOME_BACKGROUND: 'Home background', NAME_CARD_SKIN: 'Profile theme' }[type] ?? 'Reward item'), count,
       ...(id === '4002' ? { op: count } : id === '4003' ? { orundum: count } : id === '7003' ? { permits: count } : id === '7004' ? { permits: count * 10 } : {}),
       ...(type?.includes('TKT_GACHA') && !['7003', '7004'].includes(id) ? { restricted: true } : {}),
     };
@@ -82,6 +89,21 @@ export function buildFreeRewards({ handbook, missions, openServer, checkin, acti
         items.map(item => ({ ...item, id: item.id || `label:${item.name}`, type: item.kind })),
         { startAt, endAt, href: `/events/${encodeURIComponent(eventName)}` });
     });
+  }
+  /* Welfare operators: the operator an event's missions give (activity_table missionData, as
+     data/event-rewards.json lists it), claimable while the event's stages are open
+     (basicInfo startTime to endTime), as the roster's Now Available counts an event's own
+     operator (lib/operators/operatorReleaseSchedule.ts). Global only. A sign-in's operator is
+     already a day of its sign-in above. */
+  for (const [eventName, entry] of Object.entries(eventRewards.events)) for (const group of entry.groups ?? []) {
+    if (group.kind !== 'missions' || (group.region ?? entry.region ?? 'Global') !== 'Global' || !entry.activity) continue;
+    const info = activity.basicInfo[entry.activity];
+    if (!info?.startTime || !info?.endTime) continue;
+    for (const item of group.items ?? []) {
+      if (item.kind !== 'operator' || !item.id?.startsWith('char_') || out.some(reward => reward.id === `free:welfare:${entry.activity}:${item.id}`)) continue;
+      add(`welfare:${entry.activity}:${item.id}`, 'Welfare operators', characters[item.id]?.name ?? item.name, [{ id: item.id, type: 'CHAR', count: 1 }],
+        { startAt: info.startTime * 1000, endAt: (info.endTime + 1) * 1000, event: clean(info.name) || eventName, href: `/events/${encodeURIComponent(eventName)}` });
+    }
   }
   // The client names these free packs but does not publish their contents here. Track the claim, without inventing currency.
   for (const [id, pack] of Object.entries(shops.shopGPDataDict)) if (id.startsWith('GP_freeL_')) {
