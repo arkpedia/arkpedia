@@ -34,6 +34,12 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-10-20T20:45:00Z',
+    changed: [
+      { title: 'Sign-in not saved unless you ask', detail: 'Account import keeps your sign-in in this browser only when you tick Save this sign-in.', href: '/account' },
+    ],
+  },
+  {
     at: '2026-10-19T22:30:00Z',
     added: [
       { title: 'Base skill keywords explained', detail: 'Tap or hover an underlined term, such as Closure\'s Special Order or Worldly Plight, for the game\'s own explanation.' },

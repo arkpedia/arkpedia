@@ -251,10 +251,10 @@ test('the same sign-in with a linked account (level 120) imports it', async ({ p
 });
 
 
-test('successful sign-in saves by default and reopens with saved sign-in actions', async ({ page }, testInfo) => {
+test('a sign-in the reader asks to save reopens with saved sign-in actions', async ({ page }, testInfo) => {
   await stubServers(page, 120);
   let dialog = await openImport(page);
-  await expect(dialog.getByLabel('Don’t save this sign-in on this browser')).not.toBeChecked();
+  await dialog.getByLabel('Save this sign-in on this browser').check();
   await signIn(page);
   await expect(dialog.locator('.import-saved')).toContainText('Global');
   await expect(dialog.locator('.import-forms')).toHaveCount(0);
@@ -279,10 +279,10 @@ async function seedSavedLogin(page: Page, server: ServerId = 'en') {
   }, { email: EMAIL, server });
 }
 
-test('opting out leaves the email login available after a successful import', async ({ page }, testInfo) => {
+test('by default nothing is saved, and the email login stays for the next import', async ({ page }, testInfo) => {
   await stubServers(page, 120);
   let dialog = await openImport(page);
-  await dialog.getByLabel('Don’t save this sign-in on this browser').check();
+  await expect(dialog.getByLabel('Save this sign-in on this browser'), 'saving a sign-in is opt-in').not.toBeChecked();
   if (process.env.ARKPEDIA_QA_CAPTURE) await page.screenshot({ path: `${process.env.ARKPEDIA_QA_CAPTURE}/email-${testInfo.project.name}.png` });
   await signIn(page);
   await expect(dialog.locator('.import-note[role="status"]')).toContainText('Imported:');
@@ -349,6 +349,7 @@ for (const server of ['jp', 'kr'] as const) {
 test('Forget everything removes all stored categories and returns to email login', async ({ page }) => {
   await stubServers(page, 120);
   let dialog = await openImport(page);
+  await dialog.getByLabel('Save this sign-in on this browser').check();
   await signIn(page);
   await expect(dialog.locator('.import-saved')).toBeVisible();
   const keys = [...BACKUP_STORES.map(store => store.key), STORY_PROGRESS_KEY, 'theme', 'arkpediaYostarLogin', 'future-private-data'];
