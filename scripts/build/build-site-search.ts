@@ -7,6 +7,7 @@ import { getEventCalendar } from '../../lib/home/frontPageContent';
 import { getStageContents } from '../../lib/stages/stages';
 import { getAllPlayerSongs } from '../../lib/music/albumsData';
 import { NAV_ORDER } from '../../lib/nav/navLinks';
+import { YOUTUBE_CHANNELS } from '../../lib/music/youtubeConfig';
 import { buildSiteSearchEntries } from '../../lib/search/siteSearchIndex';
 import type { SiteSearchIndex } from '../../lib/search/siteSearch';
 
@@ -15,6 +16,8 @@ import type { SiteSearchIndex } from '../../lib/search/siteSearch';
 // predev write the deployment's own fail-safe copy. The stage and enemy rows come from the
 // index files those builders just wrote, read from disk rather than imported, so a release
 // indexes the stages it publishes and not the ones this build was compiled with.
+// The YouTube channels are here and their videos are not: a feed is live, and fetching it
+// would make the file change every export (lib/search/siteSearch.ts; /api/search-feeds).
 const root = process.cwd();
 const readJson = <T>(file: string): T => JSON.parse(fs.readFileSync(path.join(root, file), 'utf8')) as T;
 
@@ -37,10 +40,11 @@ const entries = buildSiteSearchEntries({
   enemies: readJson<{ slug: string; name: string; index: string | null; icon?: string | null }[]>('public/enemies-index.json'),
   albums: readJson<{ albumId: string; albumName: string; albumAltName?: string | null }[]>('data/albums.json'),
   songs: getAllPlayerSongs(),
+  creators: YOUTUBE_CHANNELS,
 });
 
 const counts = entries.reduce<Record<string, number>>((acc, e) => ({ ...acc, [e.kind]: (acc[e.kind] ?? 0) + 1 }), {});
-for (const kind of ['page', 'operator', 'event', 'stage', 'enemy']) {
+for (const kind of ['page', 'operator', 'event', 'stage', 'enemy', 'creator']) {
   if (!counts[kind]) throw new Error(`Site search index has no ${kind} rows; refusing to write it`);
 }
 
