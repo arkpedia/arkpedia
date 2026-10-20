@@ -64,7 +64,9 @@ test('the portraits that are published today are used, and an unserved one is sk
   // Fought somewhere in the game, so their boss portraits are published.
   assert.equal(art.get('Kristen Wright'), '/enemies-icons/Kristen.webp');
   assert.equal(art.get('"Playwright"'), "/enemies-icons/'Playwright'.webp");
-  assert.equal(art.get('"Justice Knight"'), '/one-star-icons/Justice Knight - Base.webp');
+  // Credited in quotes, she is the operator Justice Knight (names match apart from punctuation),
+  // so her art is that operator's own Base icon.
+  assert.equal(art.get('"Justice Knight"'), '/one-star-icons/Justice%20Knight%20-%20Base.webp');
   // A file the folder config does not serve is never handed out, published or not.
   assert.equal(characterPortrait('Doctor', (file) => file === 'npc-icons/Doctor.webp'), '/npc-icons/Doctor.webp');
   assert.equal(characterPortrait('Theresis', (file) => file.startsWith('enemies-icons/')), '/enemies-icons/Theresis.webp');
@@ -99,4 +101,11 @@ test('the release holds a credited character with no portrait, and blocks nothin
   assert.deepEqual(errors, []);
   const held = (quarantine as { key: string; action: string }[]).filter((h) => h.key.startsWith('music-character:'));
   assert.deepEqual(held.map((h) => `${h.key} ${h.action}`), ['music-character:Doctor published-partial', 'music-character:Someone New published-partial']);
+});
+
+test('an album credit finds its operator however the two spell the name', async () => {
+  const { foldCharacterName } = await import('../../lib/music/albumsDataServer');
+  // The albums credit "Kal'tsit - Esperanta"; the Global operator record is "Kal'tsit Esperanta".
+  assert.equal(foldCharacterName("Kal'tsit - Esperanta"), foldCharacterName("Kal'tsit Esperanta"));
+  assert.notEqual(foldCharacterName("Kal'tsit"), foldCharacterName("Kal'tsit Esperanta"), 'the original stays her own character');
 });

@@ -114,7 +114,7 @@ test("the News tab shows the official pictures where the post has them, and the 
   const image = (name: string) => `https://webusstatic.yo-star.com/web-cms-test/upload/content/2026/10/09/${name}.jpg`;
   const news = [{ title: 'SANITY LIMIT INCREASE', source: 'https://www.arknights.global/news/4814', published: '2026-10-09T10:58:00.000Z',
     lines: ['UPDATE TIME: October 14, 2026, 08:00 (UTC-7)', 'DETAILS: Max Sanity +30.'], art: [{ url: image('title'), at: -1 }, { url: image('middle'), at: 1 }, { url: image('end'), at: 2 }], postArt: image('lead') }];
-  const board = [{ title: 'Sealed With Time', source: 'https://ark-us-static-online.yo-star.com/announce/Android/announcement/1634.html', shown: '2026-10-14',
+  const board = [{ server: 'en' as const, name: null, title: 'Sealed With Time', source: 'https://ark-us-static-online.yo-star.com/announce/Android/announcement/1634.html', shown: '2026-10-14',
     image: 'https://ark-us-static-online.yo-star.com/announce/images/20261009/8aebe82a214826a0ed47455f8b70a821.jpg' }];
   const html = column(page({ extras: extras({ news, board }) }));
   const at = (text: string) => html.indexOf(text);
@@ -130,4 +130,29 @@ test("the News tab shows the official pictures where the post has them, and the 
   // A release from before the art: news sections without it, and no board, still render.
   const older = { packs: [], furniture: [], notices: [], news: news.map(({ art: _art, postArt: _lead, ...section }) => section) } as unknown as NonNullable<PageProps['extras']>;
   assert.match(column(page({ extras: older })), /SANITY LIMIT INCREASE/);
+});
+
+test("JP's and KR's board items are in the markup beside Global's, in English, for the site's server to pick", () => {
+  const board = [
+    { server: 'en' as const, name: null, title: 'Sealed With Time', source: null, shown: '2026-10-14', image: 'https://ark-us-static-online.yo-star.com/announce/images/20261009/8aebe82a214826a0ed47455f8b70a821.jpg' },
+    { server: 'jp' as const, name: '[Celebration] Sealed With Time', title: 'スカウト 約諾', source: 'https://ark-jp-static-online.yo-star.com/announce/Android/announcement/1431.html', shown: '2026-10-14',
+      image: 'https://ark-jp-static-online.yo-star.com/announce/images/20260923/962dcf6a97e61897ddbff7a68877b55c.png' },
+    { server: 'jp' as const, name: '[Celebration] Critical Phase Transition', title: '10月14日 新章公開！', source: null, shown: '2026-10-09', image: null },
+  ];
+  const html = column(page({ extras: extras({ board }) }));
+  // Every server's block is rendered, whatever the reader picked: CSS shows one (events.css).
+  assert.match(html, /class="event-news-server" data-server="jp"/);
+  assert.match(html, /class="event-news-server" data-server="kr"/);
+  assert.match(html, /class="event-news-server" data-server="en"/);
+  assert.match(html, /data-own-jp=""/, 'JP has its own items');
+  assert.doesNotMatch(html, /data-own-kr/, 'KR has none');
+  assert.match(html, /The KR in-game notice board has shown nothing for this event yet/);
+  // English only: the site's names and the label, never the board's Japanese titles.
+  assert.doesNotMatch(html, /スカウト|新章/);
+  assert.match(html, /<h3>\[Celebration\] Sealed With Time<\/h3>/);
+  assert.match(html, /href="https:\/\/ark-jp-static-online\.yo-star\.com\/announce\/Android\/announcement\/1431\.html"[^>]*>Official JP notice<\/a>/);
+  assert.match(html, /On the JP in-game notice board\./);
+  assert.match(html, /src="https:\/\/ark-jp-static-online\.yo-star\.com\/announce\/images\/20260923\/962dcf6a97e61897ddbff7a68877b55c\.png"/);
+  // A JP item whose picture was too large to load is still its notice, without a picture.
+  assert.match(html, /<h3>\[Celebration\] Critical Phase Transition<\/h3>/);
 });

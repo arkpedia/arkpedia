@@ -51,14 +51,27 @@ export interface AlbumSummary {
 // full operator dataset (skills/talents/etc.), just enough to know
 // which rarity-tiered icon/skin folder to check.
 let rarityByName: Map<string, number | null> | null = null;
+let operatorByFold: Map<string, string> | null = null;
+/* Letters and digits only: an album credit and the operator record can spell one character
+   differently. The albums credit "Kal'tsit - Esperanta" where the Global record is "Kal'tsit
+   Esperanta" (2026-10-20), and the exact match found no operator, so she had no art. */
+export const foldCharacterName = (name: string) => name.normalize('NFKD').toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
 function getRarityMap(): Map<string, number | null> {
   if (!rarityByName) {
     rarityByName = new Map();
+    operatorByFold = new Map();
     for (const op of getAllOperators()) {
       rarityByName.set(op.name, op.rarity ?? null);
+      operatorByFold.set(foldCharacterName(op.name), op.name);
     }
   }
   return rarityByName;
+}
+/** The operator record a credited name is: the same name, else the one spelled the same apart from punctuation and spaces. */
+function operatorName(name: string): string | null {
+  const rarities = getRarityMap();
+  if (rarities.has(name)) return name;
+  return operatorByFold?.get(foldCharacterName(name)) ?? null;
 }
 
 /** A character's art: an operator's Base outfit, else the game's own portrait of a character
@@ -66,9 +79,10 @@ function getRarityMap(): Map<string, number | null> {
 function resolveCharacterArt(names: string[], prefer: 'icon' | 'full' = 'full'): CharacterArt[] {
   const rarities = getRarityMap();
   return names.map((name) => {
-    const rarity = rarities.get(name);
-    if (rarity == null) return { name, path: characterPortrait(name, servedAssetExists) };
-    const appearances = getOperatorAppearances({ name, rarity });
+    const operator = operatorName(name);
+    const rarity = operator ? rarities.get(operator) : null;
+    if (operator == null || rarity == null) return { name, path: characterPortrait(name, servedAssetExists) };
+    const appearances = getOperatorAppearances({ name: operator, rarity });
     const base = appearances.find((a) => a.label.toLowerCase() === 'base');
     const path = prefer === 'icon' ? base?.iconPath || base?.fullPath || null : base?.fullPath || base?.iconPath || null;
     return { name, path };

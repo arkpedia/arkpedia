@@ -21,6 +21,15 @@ export interface SiteSearchSources {
   enemies: readonly { slug: string; name: string; index: string | null; icon?: string | null }[];
   albums: readonly { albumId: string; albumName: string; albumAltName?: string | null }[];
   songs: readonly { title: string; altTitle?: string | null; artist?: string | null }[];
+  /** The curated YouTube channels the community page lists (lib/music/youtubeConfig.ts). */
+  creators: readonly { id: string; label: string }[];
+}
+
+/** What /api/search-feeds has from the feeds the community pages fetch: their latest videos,
+ *  filtered as the pages filter them, and who is live in the Twitch category. */
+export interface SiteSearchFeeds {
+  videos: readonly { videoId: string; title: string; channelLabel: string; thumbnail: string; url: string }[];
+  streams: readonly { userLogin: string; displayName: string; title: string; thumbnailUrl: string; url: string }[];
 }
 
 const others = (title: string, names: readonly (string | null | undefined)[]): string[] | undefined => {
@@ -126,10 +135,75 @@ export function buildSiteSearchEntries(sources: SiteSearchSources): SiteSearchEn
     }));
   }
 
-  // The search normalises every name as a string, so one null took the whole box down in
-  // the browser. Refuse to write such a row rather than ship it.
+  // The community page has no place of its own for a channel (its creator list is a set of
+  // links out), so the row goes where that list does.
+  for (const creator of sources.creators) {
+    entries.push(row({
+      kind: 'creator',
+      title: creator.label,
+      href: youtubeChannelHref(creator.id),
+      sub: 'YouTube channel',
+    }));
+  }
+
+  return refuseNameless(entries);
+}
+
+export const youtubeChannelHref = (id: string): string => `https://www.youtube.com/channel/${encodeURIComponent(id)}`;
+
+/** The search normalises every name as a string, so one null took the whole box down in
+ *  the browser. Refuse to write such a row rather than ship it. */
+function refuseNameless(entries: SiteSearchEntry[]): SiteSearchEntry[] {
   const nameless = entries.filter((e) => typeof e.title !== 'string' || !e.title.trim()
     || (e.terms ?? []).some((t) => typeof t !== 'string'));
   if (nameless.length) throw new Error(`Site search rows with no name: ${nameless.slice(0, 5).map((e) => e.href).join(', ')}`);
   return entries;
+}
+
+/**
+ * The live half of the search: rows for /api/search-feeds. A video reads its title over its
+ * channel and answers to the channel's name too, so a search for a creator lists their videos
+ * under the channel itself. Twitch has no curated list, so a streamer is known only while
+ * live: each stream is a row for the streamer and a row for the stream, both to the channel,
+ * the address a live stream plays at. A feed's nameless item (a stream with no title) reads
+ * its streamer's name, or is left out, rather than taking the route down with the guard above.
+ */
+export function buildSiteSearchFeedEntries(feeds: SiteSearchFeeds): SiteSearchEntry[] {
+  const entries: SiteSearchEntry[] = [];
+  const seenVideos = new Set<string>();
+  for (const video of feeds.videos) {
+    if (!video.title?.trim() || !video.url || seenVideos.has(video.url)) continue;
+    seenVideos.add(video.url);
+    entries.push(row({
+      kind: 'video',
+      title: video.title,
+      href: video.url,
+      sub: video.channelLabel || undefined,
+      terms: others(video.title, [video.channelLabel]),
+      icon: video.thumbnail || undefined,
+    }));
+  }
+  const seenStreams = new Set<string>();
+  for (const stream of feeds.streams) {
+    const name = stream.displayName?.trim() || stream.userLogin?.trim();
+    if (!name || !stream.url || seenStreams.has(stream.url)) continue;
+    seenStreams.add(stream.url);
+    entries.push(row({
+      kind: 'streamer',
+      title: name,
+      href: stream.url,
+      sub: 'Live on Twitch now',
+      terms: others(name, [stream.userLogin]),
+    }));
+    const title = stream.title?.trim() || name;
+    entries.push(row({
+      kind: 'stream',
+      title,
+      href: stream.url,
+      sub: name,
+      terms: others(title, [name, stream.userLogin]),
+      icon: stream.thumbnailUrl || undefined,
+    }));
+  }
+  return refuseNameless(entries);
 }

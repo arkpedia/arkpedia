@@ -103,6 +103,8 @@ const NAMED_AS_ADDRESSES: Record<string, string> = {
   // A Monster Siren song's audio, as the player's <audio> address: a redirect to the signed file,
   // so a press can set it and play at once (an iPhone starts sound only inside a press).
   'pages/api/music-audio/[id].ts': 'lib/music/audioElement.ts',
+  // The site search's YouTube and Twitch rows, loaded through its shared fetch (fetchSiteSearch).
+  'pages/api/search-feeds.ts': 'lib/search/siteSearch.ts',
 };
 
 test('every API route has an actual client, workflow or address consumer', () => {

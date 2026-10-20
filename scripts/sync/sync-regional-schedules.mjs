@@ -11,6 +11,7 @@ import { beginStage, defaultNow } from '../lib/quarantine.mjs';
 import { buildEventFarming } from './sync-event-farming.mjs';
 import { newsLines } from '../build/official-news.mjs';
 import { readOfficialBulletins } from './sync-official-bulletins.mjs';
+import { boardBannerItems, regionalPoolId, withBoardArt } from './regional-board.mjs';
 import { serverDay, SERVER_TIME, serverInstant } from '../../lib/time/servers.mjs';
 
 export const OUTPUT = 'data/regional-schedules.json';
@@ -68,7 +69,7 @@ export function noticeOpening(record, notices, server) {
  */
 export function boardOpening(record, board, server) {
   if (record.status === 'announced' || !record.poolId) return record;
-  const items = (board?.bulletins ?? []).filter(item => item.kind === 'banner' && item.poolId === record.poolId);
+  const items = boardBannerItems(board, record.poolId);
   const dates = new Set(items.map(item => item.displayDate));
   if (dates.size !== 1) return record;
   const [date] = dates;
@@ -196,7 +197,7 @@ export function buildRegionalSchedule({ server, tables, english, events, banners
   }
   const pools = new Map(tables.gacha.gachaPoolClient.map(pool => [pool.gachaPoolId, pool]));
   const bannerWindows = Object.fromEntries(banners.flatMap(banner => {
-    const id = banner.globalPoolId?.replace(/_EN_/, `_${server.toUpperCase()}_`);
+    const id = regionalPoolId(banner.globalPoolId, server);
     const pool = pools.get(id);
     if (!pool) return [];
     const span = window(pool.openTime, pool.endTime, source('gacha'));
@@ -256,7 +257,11 @@ export function buildRegionalSchedule({ server, tables, english, events, banners
     }
   }
   const skinWindows = [...noticeSkinWindows(notices, tables, skins, server), ...shopOverrides.filter(row => row.server === server).map(({ server: _server, ...row }) => row)];
-  return { farming, rewardWindows, skinWindows, sources: Object.fromEntries(TABLES.map(table => [table, source(table)])), activities, events: eventWindows, banners: bannerWindows, contents: contentWindows, weekly, forceOpen, annihilation, sss, skinReleases, releases };
+  // JP's and KR's own key art for their events and banners, from their in-game boards
+  // (regional-board.mjs): an address and a hash on the window, which the page shows in place of
+  // Global's when the site is in that server's mode. Global's comes from the image repository.
+  const art = board ? withBoardArt({ events: eventWindows, banners: bannerWindows }, board) : { events: eventWindows, banners: bannerWindows };
+  return { farming, rewardWindows, skinWindows, sources: Object.fromEntries(TABLES.map(table => [table, source(table)])), activities, events: art.events, banners: art.banners, contents: contentWindows, weekly, forceOpen, annihilation, sss, skinReleases, releases };
 }
 
 async function json(url, fetcher) {

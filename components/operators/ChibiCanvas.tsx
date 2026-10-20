@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { premultipliedTexture } from '@/lib/spine/premultipliedTexture';
+import { acquireChibiGL } from '@/lib/spine/sharedChibiGL';
 import type { PointerEventHandler } from 'react';
 import type { ChibiModel } from '@/lib/operators/chibi';
 import type { ChibiActivity } from '@/lib/operators/chibiRoutine';
@@ -33,11 +34,13 @@ export default function ChibiCanvas({ model, label, animation, onAnimationChange
           .then((image): [string, HTMLImageElement] => [name, image], () => { throw Error(abort.signal.aborted ? 'Aborted' : 'Texture unavailable'); }))),
       ]);
       if (stopped) return;
-      const context = new spine.webgl.ManagedWebGLRenderingContext(canvas, { alpha: true, antialias: true });
-      cleanup = () => context.gl.getExtension('WEBGL_lose_context')?.loseContext();
+      // The page's one WebGL context (lib/spine/sharedChibiGL.ts); this canvas is a 2D copy target.
+      const shared = acquireChibiGL(spine);
+      const context = shared.context;
+      cleanup = () => shared.release();
       const textures = new Map(images);
       const atlas = chibiAtlas(spine, atlasText, name => { const image = textures.get(name); if (!image) throw Error(`Missing texture ${name}`); return premultipliedTexture(spine, context, image, model.premultipliedAlpha); });
-      cleanup = () => { atlas.dispose(); context.gl.getExtension('WEBGL_lose_context')?.loseContext(); };
+      cleanup = () => { atlas.dispose(); shared.release(); };
       const data = new spine.SkeletonBinary(new spine.AtlasAttachmentLoader(atlas)).readSkeletonData(new Uint8Array(skeletonBytes));
       const skeleton = new spine.Skeleton(data); skeleton.setToSetupPose(); skeleton.updateWorldTransform();
       const stateData = new spine.AnimationStateData(data); stateData.defaultMix = .15;
@@ -50,7 +53,6 @@ export default function ChibiCanvas({ model, label, animation, onAnimationChange
       state.setAnimation(0, initial, true);
       const walkAnimation = names.find(name => /^(move|walk)$/i.test(name)) ?? names.find(name => /walk|move/i.test(name));
       const idleAnimation = chibiIdleAnimation(data.animations);
-      const renderer = new spine.webgl.SceneRenderer(canvas, context, true);
       // Frame the visible idle pose. Invisible effect slots can be much larger than
       // the character in the setup pose; including them makes bard chibis tiny.
       state.apply(skeleton); skeleton.updateWorldTransform();
@@ -83,7 +85,7 @@ export default function ChibiCanvas({ model, label, animation, onAnimationChange
         envelopes.set(name, bounds); return bounds;
       };
       let previous = performance.now(), current = initial, sequence = 0, wasTap = false, looping = true;
-      cleanup = () => { atlas.dispose(); renderer.dispose(); context.gl.getExtension('WEBGL_lose_context')?.loseContext(); };
+      cleanup = () => { atlas.dispose(); shared.release(); };
       const render = (now: number) => {
         if (stopped) return;
         const dt = Math.min(.05, (now - previous) / 1000); previous = now;
@@ -119,26 +121,31 @@ export default function ChibiCanvas({ model, label, animation, onAnimationChange
         // At the viewport edge, fit the complete envelope into the space available.
         const width = Math.min(Math.max(baseWidth, worldWidth / baseView * baseHeight), Math.max(baseWidth, 2 * Math.min(rect.left + baseWidth / 2 - 8, window.innerWidth - 8 - rect.left - baseWidth / 2)));
         const height = Math.min(Math.max(baseHeight, worldHeight / baseView * baseHeight), Math.max(baseHeight, 2 * Math.min(rect.top + baseHeight / 2 - 8, window.innerHeight - 8 - rect.top - baseHeight / 2)));
+        // A roaming chibi keeps its size: one world unit is always the same number of pixels, and an
+        // effect that does not fit the space left at the viewport's edge is cut there. Fitting the
+        // whole envelope instead made a chibi tapped near an edge, or one whose interaction clip has
+        // wide effects, shrink to a fraction of its size (2026-10-20). The viewer still fits it all.
+        const worldPerPixel = baseView / baseHeight;
         const left = (baseWidth - width) / 2;
         const top = (baseHeight - height) / 2;
         canvas.style.width = `${width}px`; canvas.style.height = `${height}px`;
         canvas.style.left = `${left}px`; canvas.style.top = `${top}px`;
         const dpr = Math.min(2, window.devicePixelRatio || 1);
-        if (canvas.width !== Math.round(width * dpr) || canvas.height !== Math.round(height * dpr)) { canvas.width = Math.round(width * dpr); canvas.height = Math.round(height * dpr); }
-        const gl = context.gl; gl.viewport(0, 0, canvas.width, canvas.height); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
-        const viewHeight = Math.max(worldHeight, worldWidth * height / width);
+        const viewHeight = control.current.roaming ? height * worldPerPixel : Math.max(worldHeight, worldWidth * height / width);
         const viewWidth = viewHeight * width / height;
-        renderer.camera.position.x = centerX;
-        renderer.camera.position.y = centerY;
         const order = skeleton.drawOrder;
         skeleton.drawOrder = order.filter(slot => slot.color.a * skeleton.color.a >= .01);
         const actualOrigin = new spine.Vector2(), actualSize = new spine.Vector2();
         skeleton.getBounds(actualOrigin, actualSize, []); skeleton.drawOrder = order;
-        const camera = renderer.camera.position;
-        canvas.dataset.framed = String(!Number.isFinite(actualSize.x) || (actualOrigin.x >= camera.x - viewWidth / 2 && actualOrigin.x + actualSize.x <= camera.x + viewWidth / 2
-          && actualOrigin.y >= camera.y - viewHeight / 2 && actualOrigin.y + actualSize.y <= camera.y + viewHeight / 2));
-        renderer.camera.viewportHeight = viewHeight; renderer.camera.viewportWidth = viewWidth; renderer.camera.update();
-        renderer.begin(); renderer.drawSkeleton(skeleton, true); renderer.end();
+        canvas.dataset.framed = String(!Number.isFinite(actualSize.x) || (actualOrigin.x >= centerX - viewWidth / 2 && actualOrigin.x + actualSize.x <= centerX + viewWidth / 2
+          && actualOrigin.y >= centerY - viewHeight / 2 && actualOrigin.y + actualSize.y <= centerY + viewHeight / 2));
+        canvas.dataset.worldPerPixel = String(viewHeight / height);
+        // The renderer and its camera are shared: set the camera for this chibi inside its draw.
+        shared.frame(canvas, width * dpr, height * dpr, renderer => {
+          renderer.camera.position.x = centerX; renderer.camera.position.y = centerY;
+          renderer.camera.viewportHeight = viewHeight; renderer.camera.viewportWidth = viewWidth; renderer.camera.update();
+          renderer.begin(); renderer.drawSkeleton(skeleton, true); renderer.end();
+        });
         frame = requestAnimationFrame(render);
       };
       frame = requestAnimationFrame(render);

@@ -2,10 +2,13 @@ export interface FreeReward {
   id: string;
   group: string;
   name: string;
-  rewards: { id: string; name: string; count: number; op?: number; orundum?: number; permits?: number; restricted?: boolean }[];
+  /** `rarity` (1-6) marks an operator, whose preview the Reward Tracker opens. */
+  rewards: { id: string; name: string; count: number; op?: number; orundum?: number; permits?: number; restricted?: boolean; rarity?: number }[];
   startAt?: number;
   endAt?: number;
   href?: string;
+  /** A welfare operator's event: the one whose missions give it ('Welfare operators'). */
+  event?: string;
   /** Permanent currencies that are not already forecast as scheduled event rewards. */
   forecast: boolean;
   /** Registration window of a replacement Global beginner sign-in programme. */
@@ -33,4 +36,16 @@ export function freeRewardTotals(rewards: FreeReward[], done: ReadonlySet<string
     for (const item of reward.rewards) { total.op += item.op ?? 0; total.orundum += item.orundum ?? 0; total.permits += item.permits ?? 0; }
     return total;
   }, { op: 0, orundum: 0, permits: 0 });
+}
+
+/** An operator among a row's items: its rarity, or for a release built before rarity was kept,
+ *  a character id (an outfit's id carries its skin after an @). */
+export const isOperatorReward = (item: FreeReward['rewards'][number]) => !!item.rarity || /^char_[^@#]+$/.test(item.id);
+
+/** The free operators still to claim right now: every available, unclaimed row that gives an
+ *  operator (a welfare operator's missions, or a sign-in day), soonest to close first. */
+export function freeOperatorsToClaim(rewards: FreeReward[], done: ReadonlySet<string>, now: number) {
+  return rewards.filter(reward => !done.has(reward.id) && freeRewardAvailable(reward, now))
+    .flatMap(reward => reward.rewards.filter(isOperatorReward).map(item => ({ reward, operator: item })))
+    .sort((a, b) => (a.reward.endAt ?? Infinity) - (b.reward.endAt ?? Infinity) || a.operator.name.localeCompare(b.operator.name));
 }

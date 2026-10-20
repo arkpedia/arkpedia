@@ -27,6 +27,7 @@ import fs from 'fs';
 import path from 'path';
 import { resolvePullBannerWindows } from '../../lib/pulls/bannerWindows';
 import type { HeadhuntingBanner } from '../../lib/gacha/headhuntingBanners';
+import { STAGE_KINDS, stageKindsOf, type StageKind } from '../../lib/pulls/stageKinds';
 
 const ROOT = process.cwd();
 const STAGES = path.join(ROOT, 'data', 'stages');
@@ -80,6 +81,7 @@ interface StageRecord {
   chapter?: number;
   zone?: { id?: string; name?: string; group?: string };
   event?: { id?: string };
+  difficulty?: { tier?: string } | null;
   drops?: { item?: { id?: string } }[];
 }
 
@@ -87,6 +89,16 @@ interface StageRecord {
    pays its own Originite Prime under the same code as the stage, so it says which it is. */
 const VARIANT_SUFFIX: Record<string, string> = { challenge_mode: ' CM', six_star: ' 6★' };
 const stageLabel = (rec: StageRecord) => `${rec.code || rec.id}${VARIANT_SUFFIX[rec.variant?.kind ?? ''] ?? ''}`;
+
+/* Each stage's kinds (lib/pulls/stageKinds.ts), parallel to its ids and codes: what the
+   Reward Tracker's toggles leave out. A kind outside the closed set, or a list that does not
+   line up with the stages, fails the build rather than a toggle quietly doing nothing. */
+function assertStageKinds(items: { id: string; stages: string[]; stageKinds: StageKind[][] }[]) {
+  const known = new Set<string>(STAGE_KINDS);
+  const wrong = items.filter((item) => item.stageKinds.length !== item.stages.length
+    || item.stageKinds.some((kinds) => kinds.some((kind) => !known.has(kind)))).map((item) => item.id);
+  if (wrong.length) throw new Error(`build-pull-sources: stage kinds do not line up with the stages in ${wrong.join(', ')}.`);
+}
 
 function originiteFromStages(countableEventIds: ReadonlySet<string>) {
   const byType: Record<string, number> = {};
@@ -100,7 +112,7 @@ function originiteFromStages(countableEventIds: ReadonlySet<string>) {
      their own chapter number. */
   /* Each chapter's stages too, by the game's stage id, so an imported account's cleared
      stages (lib/account/accountStore) say exactly what is left of it. */
-  const zones: Record<string, { id: string; label: string; name: string; op: number; chapter: number; stages: string[]; codes: Record<string, string> }> = {};
+  const zones: Record<string, { id: string; label: string; name: string; op: number; chapter: number; stages: string[]; codes: Record<string, string>; kinds: Record<string, StageKind[]> }> = {};
   let total = 0;
   for (const file of fs.readdirSync(STAGES)) {
     if (!file.endsWith('.json')) continue;
@@ -132,9 +144,10 @@ function originiteFromStages(countableEventIds: ReadonlySet<string>) {
         chapter: Number.POSITIVE_INFINITY,
         stages: [],
         codes: {},
+        kinds: {},
       });
       z.op += 1;
-      if (rec.id) { z.stages.push(rec.id); z.codes[rec.id] = stageLabel(rec); }
+      if (rec.id) { z.stages.push(rec.id); z.codes[rec.id] = stageLabel(rec); z.kinds[rec.id] = stageKindsOf(rec); }
       if (typeof rec.chapter === 'number' && rec.chapter >= 0) z.chapter = Math.min(z.chapter, rec.chapter);
     }
   }
@@ -148,7 +161,9 @@ function originiteFromStages(countableEventIds: ReadonlySet<string>) {
       op: z.op,
       stages: z.stages.sort(),
       stageCodes: z.stages.map((id) => z.codes[id]),
+      stageKinds: z.stages.map((id) => z.kinds[id]),
     }));
+  assertStageKinds(chapters);
 
   /* The chapters ARE the mainline, so they must add up to it exactly. If a zone
      shape ever changes, this fails the build rather than quietly dropping an
@@ -245,7 +260,10 @@ function eventBreakdown() {
     stages: string[];
     /** Each of those stages' code as the game shows it, in the same order. */
     stageCodes: string[];
+    /** Each of those stages' kinds (lib/pulls/stageKinds.ts), in the same order. */
+    stageKinds: StageKind[][];
     codes: Record<string, string>;
+    kinds: Record<string, StageKind[]>;
     /** When it opened on Global (activity_table basicInfo.startTime), as a day: the order the
      *  OP Tracker lists events in. */
     start: string;
@@ -284,20 +302,23 @@ function eventBreakdown() {
         op: 0,
         stages: [],
         stageCodes: [],
+        stageKinds: [],
         codes: {},
+        kinds: {},
         start: basicInfo[ev.id]?.startTime ? new Date(basicInfo[ev.id]!.startTime! * 1000).toISOString().slice(0, 10) : '',
       });
     }
     if ((rec.drops ?? []).some((d) => d.item?.id === ORIGINITE_PRIME)) {
       events.get(ev.id)!.op += 1;
-      if (rec.id) { events.get(ev.id)!.stages.push(rec.id); events.get(ev.id)!.codes[rec.id] = stageLabel(rec); }
+      if (rec.id) { events.get(ev.id)!.stages.push(rec.id); events.get(ev.id)!.codes[rec.id] = stageLabel(rec); events.get(ev.id)!.kinds[rec.id] = stageKindsOf(rec); }
     }
   }
 
-  const all = [...events.values()].filter((e) => e.op > 0).map(({ codes, ...e }) => {
+  const all = [...events.values()].filter((e) => e.op > 0).map(({ codes, kinds, ...e }) => {
     const stages = e.stages.sort();
-    return { ...e, stages, stageCodes: stages.map((id) => codes[id]) };
+    return { ...e, stages, stageCodes: stages.map((id) => codes[id]), stageKinds: stages.map((id) => kinds[id]) };
   });
+  assertStageKinds(all);
   const unnamed = all.filter((e) => e.stages.length !== e.op).map((e) => e.id);
   if (unnamed.length) throw new Error(`build-pull-sources: a stage with no id in ${unnamed.join(', ')}; every Originite stage must name its stage id.`);
   const excluded = all

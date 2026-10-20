@@ -3,10 +3,11 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { contentUrl } from '../../lib/content/urls';
 import {
-  SITE_SEARCH_PATH, loadSiteSearch, searchSite, siteSearchHref, siteSearchIcon, siteSearchJump, siteSearchLabel,
-  type SiteSearchEntry,
+  SITE_SEARCH_FEEDS_PATH, SITE_SEARCH_KIND_LABEL, SITE_SEARCH_PATH, loadSiteSearch, loadSiteSearchFeeds, searchSite, siteSearchHref,
+  siteSearchIcon, siteSearchJump, siteSearchLabel, siteSearchOffSite, type SiteSearchEntry,
 } from '../../lib/search/siteSearch';
-import { buildSiteSearchEntries, type SiteSearchSources } from '../../lib/search/siteSearchIndex';
+import { buildSiteSearchEntries, buildSiteSearchFeedEntries, type SiteSearchFeeds, type SiteSearchSources } from '../../lib/search/siteSearchIndex';
+import { YOUTUBE_CHANNELS } from '../../lib/music/youtubeConfig';
 
 const release = { release: 'a'.repeat(64), baseUrl: 'https://example.test/rev/release', assets: {} };
 
@@ -92,6 +93,7 @@ const SOURCES: SiteSearchSources = {
   ],
   albums: [{ albumId: '4527', albumName: '明日方舟OST1', albumAltName: 'Arknights OST 1' }],
   songs: [{ title: 'Synthetech', altTitle: 'Synthetech', artist: 'BaoUner' }, { title: 'Synthetech', altTitle: null, artist: 'Again' }],
+  creators: [{ id: 'UCaaaaaaaaaaaaaaaaaaaaaa', label: 'Test Creator' }],
 };
 
 test('every row links to the URL its page reads', () => {
@@ -106,6 +108,79 @@ test('every row links to the URL its page reads', () => {
   assert.equal(href('enemy', 'Originium Slug'), '/enemies?e=originium_slug');
   assert.equal(href('album', 'Arknights OST 1'), '/music/discover?facet=album%3A4527');
   assert.equal(href('song', 'Synthetech'), '/music/discover?q=Synthetech');
+  assert.equal(href('creator', 'Test Creator'), 'https://www.youtube.com/channel/UCaaaaaaaaaaaaaaaaaaaaaa', 'the channel, where the community page links it');
+});
+
+test('the index lists every curated YouTube channel, and no video', () => {
+  const rows = buildSiteSearchEntries({ ...SOURCES, creators: YOUTUBE_CHANNELS });
+  const creators = rows.filter((r) => r.kind === 'creator');
+  assert.deepEqual(creators.map((r) => r.title), YOUTUBE_CHANNELS.map((c) => c.label));
+  assert.ok(creators.every((r) => r.href.startsWith('https://www.youtube.com/channel/UC') && siteSearchOffSite(r)));
+  assert.ok(!rows.some((r) => r.kind === 'video' || r.kind === 'stream' || r.kind === 'streamer'),
+    'a feed baked into the release would change it every export and outlive a stream');
+  assert.match(fs.readFileSync('scripts/build/build-site-search.ts', 'utf8'), /creators: YOUTUBE_CHANNELS/);
+});
+
+const FEEDS: SiteSearchFeeds = {
+  videos: [
+    { videoId: 'v1', title: 'Arknights Amiya guide', channelLabel: 'Test Creator', thumbnail: 'https://i.ytimg.com/vi/v1/hqdefault.jpg', url: 'https://www.youtube.com/watch?v=v1' },
+    { videoId: 'v1', title: 'Arknights Amiya guide', channelLabel: 'Test Creator', thumbnail: 'https://i.ytimg.com/vi/v1/hqdefault.jpg', url: 'https://www.youtube.com/watch?v=v1' },
+    { videoId: 'v2', title: '', channelLabel: 'Test Creator', thumbnail: '', url: 'https://www.youtube.com/watch?v=v2' },
+  ],
+  streams: [
+    { userLogin: 'teststreamer', displayName: 'TestStreamer', title: 'Arknights IS6 blind run', thumbnailUrl: 'https://static-cdn.jtvnw.net/previews-ttv/live_user_teststreamer-440x248.jpg', url: 'https://www.twitch.tv/teststreamer' },
+    { userLogin: 'quiet', displayName: '', title: '  ', thumbnailUrl: '', url: 'https://www.twitch.tv/quiet' },
+  ],
+};
+
+test('a video links out to YouTube under its title and creator; a stream and its streamer to the Twitch channel', () => {
+  const rows = buildSiteSearchFeedEntries(FEEDS);
+  const video = rows.filter((r) => r.kind === 'video');
+  assert.equal(video.length, 1, 'a repeated video is one row, and a nameless one is left out');
+  assert.deepEqual(video[0], {
+    kind: 'video', title: 'Arknights Amiya guide', href: 'https://www.youtube.com/watch?v=v1', sub: 'Test Creator',
+    terms: ['Test Creator'], icon: 'https://i.ytimg.com/vi/v1/hqdefault.jpg',
+  });
+  assert.equal(siteSearchIcon(video[0]), 'https://i.ytimg.com/vi/v1/hqdefault.jpg', 'the thumbnail the community card draws');
+  const streamer = rows.find((r) => r.kind === 'streamer' && r.title === 'TestStreamer')!;
+  const stream = rows.find((r) => r.kind === 'stream' && r.title === 'Arknights IS6 blind run')!;
+  assert.equal(streamer.href, 'https://www.twitch.tv/teststreamer');
+  assert.equal(stream.href, 'https://www.twitch.tv/teststreamer');
+  assert.equal(stream.sub, 'TestStreamer');
+  assert.equal(siteSearchIcon(streamer), null, 'Twitch gives no avatar');
+  assert.match(siteSearchIcon(stream) ?? '', /static-cdn\.jtvnw\.net/);
+  // A stream with no name and no title reads its login rather than taking the route down.
+  assert.deepEqual(rows.filter((r) => r.href === 'https://www.twitch.tv/quiet').map((r) => `${r.kind}:${r.title}`), ['streamer:quiet', 'stream:quiet']);
+  assert.ok(rows.every(siteSearchOffSite));
+  assert.deepEqual([...new Set(rows.map((r) => SITE_SEARCH_KIND_LABEL[r.kind]))].sort(), ['Twitch', 'YouTube']);
+  assert.equal(SITE_SEARCH_KIND_LABEL.creator, 'YouTube');
+});
+
+test('YouTube and Twitch rank under every row of the site\'s own, and /search never jumps to one', () => {
+  const rows = [...ENTRIES, ...buildSiteSearchEntries(SOURCES).filter((r) => r.kind === 'creator'), ...buildSiteSearchFeedEntries(FEEDS)];
+  // The video's title starts with "arknights amiya", a better tier than the song's other name.
+  const amiya = searchSite(rows, 'amiya').map((r) => `${r.entry.kind}:${r.entry.title}`);
+  assert.deepEqual(amiya, ['operator:Amiya', 'operator:Amiya (Guard)', 'song:阿米娅', 'video:Arknights Amiya guide']);
+  assert.deepEqual(searchSite(rows, 'test creator').map((r) => r.entry.kind), ['creator', 'video'], 'the channel, then its videos');
+  assert.deepEqual(searchSite(rows, 'teststreamer').map((r) => r.entry.kind), ['streamer', 'stream']);
+  const jump = (query: string) => siteSearchJump(searchSite(rows, query))?.href ?? null;
+  assert.equal(jump('Test Creator'), null, 'Enter is not a request to leave the site');
+  assert.equal(jump('TestStreamer'), null);
+  assert.equal(jump('Amiya'), '/operators/Amiya');
+});
+
+test('the feeds are the deployment\'s route, read from the pages\' own feeds and cached as long', async () => {
+  const requests: string[] = [];
+  const fetcher = async (url: string) => { requests.push(url); return { ok: true, status: 200, json: async () => ({ entries: buildSiteSearchFeedEntries(FEEDS) }) }; };
+  assert.equal((await loadSiteSearchFeeds(undefined, fetcher)).length, 5);
+  assert.deepEqual(requests, [SITE_SEARCH_FEEDS_PATH]);
+  await assert.rejects(() => loadSiteSearchFeeds(undefined, async () => ({ ok: false, status: 500, json: async () => ({}) })), /500/);
+  const route = fs.readFileSync('pages/api/search-feeds.ts', 'utf8');
+  assert.match(route, /filterArknightsVideos\(enriched\.filter\(\(v\) => !v\.isLivestream\)\)/, 'the community pages\' filter, so the search finds no video they hide');
+  assert.match(route, /s-maxage=1500/, 'as old as the pages\' revalidate: 1500, and no older');
+  const community = fs.readFileSync('pages/community.tsx', 'utf8');
+  assert.match(community, /revalidate: 1500/);
+  assert.match(community, /filterArknightsVideos\(enriched\.filter\(\(v\) => !v\.isLivestream\)\)/);
 });
 
 test('rows carry the other names, and no duplicate or variant rows', () => {

@@ -106,7 +106,7 @@ test("the board's banner items are the news of the event their banner opens with
   ];
   const result = boardGroups([cpt], banners, board);
   assert.deepEqual(result, { [cpt.name]: [{ kind: 'board', title: 'Sealed With Time', source: board.notices[0].url, published: '2026-10-14', image: image.url, items: [] }] });
-  assert.deepEqual(eventExtras(result[cpt.name] as TableRewardGroup[], () => null).board, [{ title: 'Sealed With Time', source: board.notices[0].url, shown: '2026-10-14', image: image.url }]);
+  assert.deepEqual(eventExtras(result[cpt.name] as TableRewardGroup[], () => null).board, [{ server: 'en', title: 'Sealed With Time', name: null, source: board.notices[0].url, shown: '2026-10-14', image: image.url }]);
   assert.deepEqual(boardGroups([cpt], banners, undefined), {});
   assert.doesNotThrow(() => assertEventRewards({ [cpt.name]: { groups: [...result[cpt.name], ...(groupsOf([cpt], [post])[cpt.name].groups as TableRewardGroup[])] } }));
 });

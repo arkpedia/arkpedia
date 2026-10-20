@@ -1,6 +1,6 @@
 import { useRegionalTime } from '@/lib/time/useRegionalTime';
-import { currentRegionalFreeRewards, regionalFreeRewards, type RegionalSchedules } from '@/lib/time/regional';
-import { useState } from 'react';
+import { currentRegionalFreeRewards, regionalDate, regionalFreeRewards, type RegionalSchedules } from '@/lib/time/regional';
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { remainingBacklog } from '@/lib/pulls/pulls';
 import type { GetStaticProps } from 'next';
 import type { ContentRelease } from '@/lib/content/types';
@@ -14,7 +14,11 @@ import { formatNumber, formatOneDecimal } from '@/lib/pulls/format';
 import { fillFromDeployment, ORUNDUM_PER_ORIGINITE, ORUNDUM_PER_PULL, type BacklogSources } from '@/lib/pulls/pulls';
 import { usePastRewards } from '@/lib/pulls/usePastRewards';
 import FreeRewards from '@/components/pulls/FreeRewards';
-import { allFreeRewards, freeRewardsForAccount, freeRewardTotals, type FreeReward } from '@/lib/pulls/freeRewards';
+import { allFreeRewards, freeOperatorsToClaim, freeRewardsForAccount, freeRewardTotals, type FreeReward } from '@/lib/pulls/freeRewards';
+import { excludeStageKinds, type StageKind } from '@/lib/pulls/stageKinds';
+import { useRewardFilters } from '@/lib/pulls/rewardTrackerFilters';
+import type { OperatorPreviewItem } from '@/components/operators/OperatorPreview';
+import { FreeOperatorButton, FreeOperatorPreview } from '@/components/pulls/FreeOperator';
 import { useReaderClock } from '@/lib/time/readerClock';
 import Tabs, { tabPanelProps } from '@/components/ui/Tabs';
 
@@ -24,7 +28,19 @@ import Tabs, { tabPanelProps } from '@/components/ui/Tabs';
  * and Annihilation's Orundum -- as its own page, the way the Skin Planner is the Pull
  * Planner's skin section on its own. The ticks are the ones the Pull Planner's Past events
  * popup shows (lib/pulls/usePastRewards.ts): one list, two places to keep it.
+ *
+ * The stage toggles leave the kinds of hard stage a reader cannot clear out of the totals and
+ * the Unclaimed lists (lib/pulls/stageKinds.ts); each is off until the reader turns it on, and
+ * kept in this browser (lib/pulls/rewardTrackerFilters.ts). The welfare operators are the free
+ * operators open to claim now, from the free rewards (scripts/build/build-free-rewards.mjs).
  */
+
+const STAGE_FILTERS: { kind: StageKind; label: string }[] = [
+  { kind: 'challenge', label: 'Exclude Challenge Mode' },
+  { kind: 'h', label: 'Exclude H stages' },
+  { kind: 'adverse', label: 'Exclude Adverse Environment' },
+  { kind: 's', label: 'Exclude S stages' },
+];
 
 interface Props {
   /** The release's back catalogue (lib/pulls/sources.ts), as /pulls carries it. */
@@ -41,12 +57,18 @@ export default function FreeOpPage({ backlogSources, freeRewards: globalFreeRewa
   const freeRewards = regionalFreeRewards(globalFreeRewards, schedule, server);
   const clock = useReaderClock(now, { tickMs: 1000, onFocus: true });
   const [view, setView] = useState('stages');
-  const past = usePastRewards(backlogSources);
+  const [excluded, setExcluded] = useRewardFilters();
+  const past = usePastRewards(backlogSources, excluded);
   const [presentation, setPresentation] = useState(false);
   const [demoKeys, setDemoKeys] = useState(new Set<string>());
   const [demoEvents, setDemoEvents] = useState(new Set<string>());
   const [demoAnnihilation, setDemoAnnihilation] = useState(false);
-  const remaining = presentation ? remainingBacklog(past.backlog, demoEvents, demoKeys, demoAnnihilation) : past.remaining;
+  /* The presentation view counts everything uncleared, its stage filters still applied. */
+  const demo = useMemo(() => excludeStageKinds(past.backlog, excluded, null), [past.backlog, excluded]);
+  const remaining = presentation ? remainingBacklog(demo.backlog, demoEvents, demoKeys, demoAnnihilation) : past.remaining;
+  const leftOut = presentation
+    ? [...demo.backlog.chapters.filter(c => !demoKeys.has(c.id)), ...demo.backlog.playable.filter(e => !demoEvents.has(e.id))].reduce((sum, item) => sum + (demo.dropped[item.id] ?? 0), 0)
+    : past.leftOut;
   const keys = presentation ? demoKeys : past.doneKeys;
   const eligible = freeRewardsForAccount(freeRewards, past.account);
   const timed = freeRewardTotals(eligible.filter(reward => !reward.forecast), keys, clock);
@@ -54,6 +76,21 @@ export default function FreeOpPage({ backlogSources, freeRewards: globalFreeRewa
   const orundum = remaining.orundum - remaining.originitePrime * ORUNDUM_PER_ORIGINITE + timed.orundum;
   const permits = remaining.permits + timed.permits;
   const pulls = (originitePrime * ORUNDUM_PER_ORIGINITE + orundum) / ORUNDUM_PER_PULL + permits;
+  const operators = freeOperatorsToClaim(eligible, keys, clock);
+  const [preview, setPreview] = useState<OperatorPreviewItem | null>(null);
+  const closePreview = useCallback(() => setPreview(null), []);
+  /* Ticking a welfare operator in Free rewards, below, takes its row out of this list: the
+     list holds the tallest height it has had, so the page never shortens under the reader
+     (the Anti-Page Jump rule). */
+  const welfareRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const list = welfareRef.current;
+    if (!list) return;
+    let floor = 0;
+    const observer = new ResizeObserver(() => { if (list.offsetHeight > floor) { floor = list.offsetHeight; list.style.minHeight = `${floor}px`; } });
+    observer.observe(list);
+    return () => observer.disconnect();
+  }, []);
   return (
     <>
       <Head><title>Reward Tracker — Arkpedia</title></Head>
@@ -73,12 +110,32 @@ export default function FreeOpPage({ backlogSources, freeRewards: globalFreeRewa
             <div><dt>Headhunting permits</dt><dd>{formatNumber(permits)}</dd></div>
             <div><dt>Worth, in pulls</dt><dd>{formatOneDecimal(pulls)}</dd></div>
           </dl>
+          {/* Always the same lines, whatever is on, each short enough for one line on a phone: a
+              toggle changes numbers, never the height. */}
+          <fieldset className="free-op-filters">
+            <legend>Stages you cannot clear yet</legend>
+            {STAGE_FILTERS.map(({ kind, label }) => <label key={kind} className="check"><input type="checkbox" checked={excluded.has(kind)} onChange={event => setExcluded(kind, event.target.checked)} />{label}</label>)}
+          </fieldset>
+          <p className="hint free-op-excluded" aria-live="polite">{excluded.size
+            ? `${formatNumber(leftOut)} ${leftOut === 1 ? 'stage' : 'stages'} left out, ${formatNumber(leftOut)} OP.`
+            : 'Every stage counts.'}</p>
+          <div ref={welfareRef} className="free-op-welfare">
+            <h3>Welfare operators</h3>
+            {operators.length
+              ? <ul className="free-op-welfare-list" aria-label="Welfare operators to claim">{operators.map(({ reward, operator }) => <li key={`${reward.id}:${operator.id}`}>
+                  <FreeOperatorButton item={operator} icon={rewardIcons[operator.id]} onPreview={setPreview} />
+                  <span className="free-op-welfare-meta">{reward.href ? <Link prefetch={false} href={reward.href}>{reward.event ?? reward.name}</Link> : reward.event ?? reward.name}
+                    {reward.endAt && <small>Until {regionalDate(new Date(reward.endAt).toISOString(), server)}</small>}</span>
+                </li>)}</ul>
+              : <p className="hint free-op-welfare-empty">No free operator to claim right now.</p>}
+          </div>
         </section>
         <Tabs label="Reward type" id="free-reward-type" value={view} onChange={setView} options={[{ value: 'stages', label: 'Stage rewards' }, { value: 'free', label: 'Free rewards' }]} />
-        {view === 'stages' ? <div {...tabPanelProps('free-reward-type', 'stages')}><PastRewards backlog={presentation ? backlogSources : past.counting} doneKeys={presentation ? demoKeys : past.doneKeys} doneEvents={presentation ? demoEvents : past.doneEvents} annihilationDone={presentation ? demoAnnihilation : past.annihilationDone}
+        {view === 'stages' ? <div {...tabPanelProps('free-reward-type', 'stages')}><PastRewards backlog={presentation ? demo.backlog : past.counting} dropped={presentation ? demo.dropped : past.dropped} doneKeys={presentation ? demoKeys : past.doneKeys} doneEvents={presentation ? demoEvents : past.doneEvents} annihilationDone={presentation ? demoAnnihilation : past.annihilationDone}
           onKeys={presentation ? setDemoKeys : past.onKeys} onEvents={presentation ? setDemoEvents : past.onEvents} onAnnihilation={presentation ? setDemoAnnihilation : past.onAnnihilation} imported={presentation ? null : past.imported} cleared={presentation ? null : past.cleared} layout="page" />
         </div> : <div {...tabPanelProps('free-reward-type', 'free')}><FreeRewards icons={rewardIcons} rewards={eligible} done={keys} onKeys={presentation ? setDemoKeys : past.onKeys} now={clock} server={server} /></div>}
       </main>
+      {preview && <FreeOperatorPreview key={preview.name} item={preview} onClose={closePreview} nativeModal />}
     </>
   );
 }

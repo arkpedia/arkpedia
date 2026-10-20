@@ -11,6 +11,9 @@ import { SERVER_TIME, serverWeekday } from './servers.mjs';
 export interface RegionalWindow extends GameWindowTimes {
   startAt: string; endAt: string; timingSource: string;
   activityId?: string; poolId?: string; releaseDate?: string; modeId?: string; localName?: string; status?: string;
+  /** The server's own key art for the event or banner, from its in-game board: the address on the
+   *  board's host and the hash the poller recorded (scripts/sync/regional-board.mjs). JP and KR only. */
+  art?: { url: string; sha1: string };
 }
 export interface RegionalSchedule {
   sources: Record<string, string>;
@@ -32,14 +35,24 @@ export interface RegionalSchedules { version: 1; servers: Partial<Record<GameSer
 export const regionalDate = (instant: string, server: GameServer) => serverDay(Date.parse(instant) / 1000, SERVER_TIME[server].offset).replaceAll('/', '-');
 export const regionalRange = (window: RegionalWindow, server: GameServer) => `${regionalDate(window.startAt, server).replaceAll('-', '/')}–${regionalDate(window.endAt, server).replaceAll('-', '/')}`;
 
+/** The art a page shows for an event or a banner on the site's server: that server's own, from its
+ *  in-game board, else Global's (`global`, the image repository's). Every picture the regional
+ *  helpers below hand out is this one, so a list and the event's own page cannot disagree. */
+export function regionalArt(window: RegionalWindow | undefined, global: string | null, server: GameServer): string | null {
+  if (server === 'en') return global;
+  return window?.art?.url ?? global;
+}
+
 /** Missing regional evidence is unavailable, never Global in a different timezone. */
 export function regionalEvents<T extends ScheduleEvent>(events: readonly T[], schedule: RegionalSchedule | undefined, server: GameServer): T[] {
   if (server === 'en') return [...events];
   return events.map(event => {
     const time = schedule?.events?.[event.name];
-    const global = time ? { ...time, dateRange: time.modeId && time.releaseDate ? `${time.releaseDate}–${time.releaseDate}` : regionalRange(time, server), note: null }
+    const { art: _art, ...timing } = time ?? {};
+    const global = time ? { ...timing, dateRange: time.modeId && time.releaseDate ? `${time.releaseDate}–${time.releaseDate}` : regionalRange(time, server), note: null }
       : { dateRange: null, note: `${server.toUpperCase()} schedule not announced` };
-    return { ...event, global };
+    const art = event.bannerName ? schedule?.banners?.[event.bannerName] : time;
+    return { ...event, global, poster: regionalArt(art, event.poster, server) };
   });
 }
 export function regionalBanners<T extends HeadhuntingBanner>(banners: readonly T[], schedule: RegionalSchedule | undefined, server: GameServer): T[] {
@@ -47,7 +60,7 @@ export function regionalBanners<T extends HeadhuntingBanner>(banners: readonly T
   return banners.flatMap(banner => {
     const time = schedule?.banners?.[banner.name];
     if (!time) return [];
-    return [{ ...banner, timingServer: server, global_date: regionalRange(time, server), global_window: time,
+    return [{ ...banner, banner_image: regionalArt(time, banner.banner_image ?? null, server), timingServer: server, global_date: regionalRange(time, server), global_window: time,
       global_date_estimated: false, globalLineupPending: false,
       globalScheduleStatus: time.status === 'announced' ? 'announced' as const : 'datamined' as const }];
   });
@@ -56,7 +69,7 @@ export function regionalPullBanners(banners: readonly UpcomingBanner[], schedule
   if (server === 'en') return [...banners];
   return banners.flatMap(banner => {
     const time = schedule?.banners?.[banner.name];
-    return time ? [{ ...banner, startAt: time.startAt, endAt: time.endAt, server, start: regionalDate(time.startAt, server), end: regionalDate(time.endAt, server), datesEstimated: time.status !== 'announced' }] : [];
+    return time ? [{ ...banner, image: regionalArt(time, banner.image, server), startAt: time.startAt, endAt: time.endAt, server, start: regionalDate(time.startAt, server), end: regionalDate(time.endAt, server), datesEstimated: time.status !== 'announced' }] : [];
   });
 }
 export function regionalPullEvents(events: readonly PullEventReward[], schedule: RegionalSchedule | undefined, server: GameServer): PullEventReward[] {
@@ -101,11 +114,13 @@ export function regionalSkinCollections(collections: readonly SkinCollection[], 
   }));
 }
 
-export function regionalGameEvents<T extends { name: string; dateRange: string; start: string; end: string; shopEndAt?: string }>(events: readonly T[], schedule: RegionalSchedule | undefined, server: GameServer): T[] {
+export function regionalGameEvents<T extends { name: string; poster: string | null; dateRange: string; start: string; end: string; shopEndAt?: string }>(events: readonly T[], schedule: RegionalSchedule | undefined, server: GameServer): T[] {
   if (server === 'en') return [...events];
   return events.flatMap(event => {
     const time = schedule?.events?.[event.name];
-    return time ? [{ ...event, ...time, shopEndAt: time.shopEndAt ?? time.endAt, dateRange: regionalRange(time, server), start: time.startAt, end: time.endAt }] : [];
+    // The window's own fields are timings; its art is the poster's, not a field of the event.
+    const { art: _art, ...timing } = time ?? {};
+    return time ? [{ ...event, ...timing, poster: regionalArt(time, event.poster, server), shopEndAt: time.shopEndAt ?? time.endAt, dateRange: regionalRange(time, server), start: time.startAt, end: time.endAt }] : [];
   });
 }
 

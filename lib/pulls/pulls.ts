@@ -3,6 +3,7 @@ import { toServerTime, parseInstant, type GameServer } from '@/lib/time/servers.
 import { freeRewardTotals, type FreeReward } from './freeRewards';
 import { getAnnihilationNextEnd, getNextDailyReset } from '@/lib/schedule/opsSchedules';
 import { wishingWallOrundum, type WishingWallMode } from './wishingWall';
+import type { StageKind } from './stageKinds';
 
 /**
  * How many pulls a player can have by a given date.
@@ -121,6 +122,8 @@ export interface Chapter {
   stages: string[];
   /** Each of those stages as the game names it ("TR-S-1", "0-1 CM"), in the same order. */
   stageCodes: string[];
+  /** Each of those stages' kinds of hard (lib/pulls/stageKinds.ts), in the same order. */
+  stageKinds: StageKind[][];
 }
 
 export interface PastEvent {
@@ -133,6 +136,7 @@ export interface PastEvent {
   op: number;
   stages: string[];
   stageCodes: string[];
+  stageKinds: StageKind[][];
   /** When it opened on Global, as a day ("" when unknown): the order events are listed in. */
   start: string;
 }
@@ -155,7 +159,7 @@ export interface BacklogSources {
   chapters: WithStageIds<Chapter>[];
   originiteByStageType: Record<string, number>;
   annihilationOrundum: number;
-  playable: (WithStageIds<Pick<PastEvent, 'id' | 'name' | 'op' | 'stages' | 'stageCodes'>> & { start?: string })[];
+  playable: (WithStageIds<Pick<PastEvent, 'id' | 'name' | 'op' | 'stages' | 'stageCodes' | 'stageKinds'>> & { start?: string })[];
   resources: FirstClear[];
   annihilation: FirstClear[];
   paradox?: FirstClear[];
@@ -163,10 +167,10 @@ export interface BacklogSources {
   beginnerRewards?: FreeReward[];
 }
 
-/** `stages` and `stageCodes` are absent from a release exported by code from before they were
- *  kept (the nightly release is compiled by main's code, so dev met one), and fillFromDeployment can
- *  only fill an item the deployment also knows. */
-type WithStageIds<T extends { stages: string[]; stageCodes: string[] }> = Omit<T, 'stages' | 'stageCodes'> & { stages?: string[]; stageCodes?: string[] };
+/** `stages`, `stageCodes` and `stageKinds` are absent from a release exported by code from before
+ *  they were kept (the nightly release is compiled by main's code, so dev met one), and
+ *  fillFromDeployment can only fill an item the deployment also knows. */
+type WithStageIds<T extends { stages: string[]; stageCodes: string[]; stageKinds: StageKind[][] }> = Omit<T, 'stages' | 'stageCodes' | 'stageKinds'> & { stages?: string[]; stageCodes?: string[]; stageKinds?: StageKind[][] };
 
 /**
  * The release's back catalogue with what an older release lacks filled in from the
@@ -176,16 +180,20 @@ type WithStageIds<T extends { stages: string[]; stageCodes: string[] }> = Omit<T
  * deployment's lags every Global event until a redeploy.
  */
 export function fillFromDeployment(release: BacklogSources, deployment: BacklogSources): BacklogSources {
-  const known = new Map<string, { stages?: string[]; stageCodes?: string[]; start?: string }>([...deployment.chapters, ...deployment.playable].map((item) => [item.id, item]));
-  /* The codes go with the ids they were written for: a release's own ids keep codes only from
-     a deployment entry with the very same ids. */
-  const fill = <T extends { id: string; stages?: string[]; stageCodes?: string[]; start?: string }>(item: T): T => {
+  const known = new Map<string, { stages?: string[]; stageCodes?: string[]; stageKinds?: StageKind[][]; start?: string }>([...deployment.chapters, ...deployment.playable].map((item) => [item.id, item]));
+  /* The codes and kinds go with the ids they were written for: a release's own ids keep them
+     only from a deployment entry with the very same ids. */
+  const fill = <T extends { id: string; stages?: string[]; stageCodes?: string[]; stageKinds?: StageKind[][]; start?: string }>(item: T): T => {
     const same = known.get(item.id);
     const start = item.start || same?.start;
-    if (item.stages && item.stageCodes?.length === item.stages.length) return start === item.start ? item : { ...item, start };
+    const lined = (list: unknown[] | undefined) => !!item.stages && list?.length === item.stages.length;
+    if (lined(item.stageCodes) && lined(item.stageKinds)) return start === item.start ? item : { ...item, start };
     const stages = item.stages ?? same?.stages;
-    const stageCodes = same?.stages && stages && same.stages.join() === stages.join() ? same.stageCodes : undefined;
-    return { ...item, stages, stageCodes, ...(start ? { start } : {}) };
+    const matches = !!same?.stages && !!stages && same.stages.join() === stages.join();
+    const stageCodes = lined(item.stageCodes) ? item.stageCodes : matches ? same!.stageCodes : undefined;
+    const stageKinds = lined(item.stageKinds) ? item.stageKinds : matches ? same!.stageKinds : undefined;
+    // Page props cannot carry undefined: a list nobody has stays out of the item.
+    return { ...item, stages, stageCodes, ...(stageKinds ? { stageKinds } : {}), ...(start ? { start } : {}) };
   };
   const listed = new Set(release.annihilation.map((map) => map.id));
   const annihilation = [...release.annihilation, ...deployment.annihilation.filter((map) => !listed.has(map.id))].sort((a, b) => a.id.localeCompare(b.id));

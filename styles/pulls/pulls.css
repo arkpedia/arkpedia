@@ -362,3 +362,18 @@ button.pulls-past-name:hover, button.pulls-past-name[aria-expanded="true"] { col
 .pulls-past-page .pulls-past-row { border: 0; border-radius: 0; padding: 8px 12px; }
 .pulls-past-page .pulls-past-amount .pulls-reward-amount { gap: 4px; }
 @media (max-width: 640px) { .free-reward-row { grid-template-columns: minmax(0, 1fr) minmax(44px, 38%); gap: 8px; } }
+
+/* Reward Tracker: the stage toggles and the welfare operators still to claim (pages/free-op.tsx). */
+.free-op-filters { display: flex; flex-wrap: wrap; gap: 8px 20px; margin: 16px 0 0; padding: 0; border: 0; }
+.free-op-filters legend { width: 100%; margin-bottom: 4px; padding: 0; color: var(--text-dim); font-size: 12px; }
+.free-op-excluded { margin: 8px 0 0; }
+.free-op-welfare { margin-top: 16px; }
+/* The global h3 (styles/core/shared.css) as the sub-section heading; only its spacing here. */
+.free-op-welfare h3 { margin: 0 0 8px; }
+.free-op-welfare-empty { margin: 0; }
+.free-op-welfare-list { display: flex; flex-wrap: wrap; gap: 8px 24px; margin: 0; padding: 0; list-style: none; }
+.free-op-welfare-list li { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.free-op-welfare-meta { display: grid; gap: 2px; color: var(--text-dim); font-size: 12px; }
+.free-operator { display: inline-flex; align-items: center; gap: 6px; padding: 2px 6px 2px 2px; border-radius: var(--radius); color: var(--text-bright); font-size: 13px; }
+.free-operator:hover, .free-operator:focus-visible { background: var(--teal-dim); }
+.free-operator img { object-fit: contain; }
