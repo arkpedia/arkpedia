@@ -184,7 +184,7 @@ async function finalizeHome(props: Props): Promise<Props> {
     // What is on sale now, as /skins' Available now tab has it. A release from before the
     // windows were stored falls back to the old match against running events.
     ongoingSkins: __calendar?.skinWindows
-      ? availableSkins(__calendar.skins, withLocalConfirmedSkinWindows(__calendar.skinWindows), now)
+      ? availableSkins(__calendar.skins, regionalSkinWindows(withLocalConfirmedSkinWindows(__calendar.skinWindows), regional?.servers?.en, 'en'), now)
       : getOngoingSkins(now, __calendar?.skins, events),
     featuredVideo: videos[0] || null, featuredStream: streams[0] || null, earliestCommunityEvent: communityEvent,
     // A release from before the regions, which held Global's list alone, counts as Global's.

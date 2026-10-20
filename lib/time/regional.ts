@@ -83,9 +83,12 @@ export function supplyOpen(id: string, now: number, schedule: RegionalSchedule |
 
 /** Shop windows need evidence for their own close. A chapter's stage close is not its shop close.
  * Regional official shop windows are published separately by ingestion; missing inventories
- * are kept unscheduled rather than offered under Global opening/closing instants. */
+ * are kept unscheduled rather than offered under Global opening/closing instants. Global keeps
+ * its catalogue windows and adds the sales its own official posts list (sync-regional-schedules
+ * englishNoticeSkinWindows): the anniversary store's new and re-edition outfits, 2026-10-14,
+ * were in Global's post but in no catalogue window, so Global's home showed 3 of 28. */
 export function regionalSkinWindows(windows: readonly SkinWindow[], schedule: RegionalSchedule | undefined, server: GameServer): SkinWindow[] {
-  if (server === 'en') return [...windows];
+  if (server === 'en') return [...windows, ...(schedule?.skinWindows ?? [])];
   return schedule?.skinWindows ?? [];
 }
 export function regionalSkinCollections(collections: readonly SkinCollection[], schedule: RegionalSchedule | undefined, server: GameServer): SkinCollection[] {
