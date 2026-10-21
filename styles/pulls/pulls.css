@@ -358,6 +358,11 @@ button.pulls-past-name:hover, button.pulls-past-name[aria-expanded="true"] { col
 .free-reward-item img { object-fit: contain; }
 .free-reward-no-art { max-width: 180px; color: var(--text-dim); font-size: 12px; overflow-wrap: anywhere; }
 .free-reward-meta { display: flex; flex-wrap: wrap; gap: 12px; color: var(--text-dim); font-size: 11px; }
+/* The row's "Details →" is a bare link in a meta line, not .sub/.hint prose, so it had no colour of
+   its own: the browser's blue, then purple once visited. Teal both ways, as prose links are. */
+.free-reward-meta a, .free-reward-meta a:visited { color: var(--teal); }
+.free-reward-meta a:hover { color: #6FF0DC; }
+:root[data-theme="light"] .free-reward-meta a:hover { color: #0A7D6B; }
 .free-reward-tooltip { position: fixed; z-index: 1200; padding: 10px 12px; border: 1px solid var(--card-border); border-radius: var(--radius); background: var(--panel); color: var(--text); box-shadow: var(--shadow-panel); font-size: 13px; overflow: auto; pointer-events: none; }
 .pulls-past-page .pulls-past-row { border: 0; border-radius: 0; padding: 8px 12px; }
 .pulls-past-page .pulls-past-amount .pulls-reward-amount { gap: 4px; }
