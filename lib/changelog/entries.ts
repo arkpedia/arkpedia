@@ -34,14 +34,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    at: '2026-10-21T00:30:00Z',
+    at: '2026-10-21T06:30:00Z',
     added: [
+      { title: "KR event art", detail: "In KR time, the current event and its banners show Korea's own key art.", href: '/schedule' },
       { title: 'Search YouTube and Twitch', detail: 'The site search also finds Arknights creators, their latest videos and live Twitch streams.', href: '/search' },
       { title: "Leave out stages you can't clear", detail: 'The reward tracker can leave out Challenge Mode, H stages, Adverse Environment and S stages, each on its own.', href: '/free-op' },
       { title: 'Welfare operators to claim', detail: 'Free operators from event missions show in what is still to claim, with the event and its end date.', href: '/free-op' },
       { title: 'JP and KR art and news', detail: 'In JP or KR time, events, banners and event news use that server\'s own in-game art and notices.' },
     ],
     fixed: [
+      { title: "Every welfare operator", detail: "Operators from event missions, the Archives and Record Restoration, such as Viy, now show as free to claim.", href: '/free-op' },
+      { title: "Account import ticks more rewards", detail: "Event and Archive missions, Record Restoration and anniversary sign-ins are ticked after an import.", href: '/free-op' },
+      { title: "Lighter event pages", detail: "Event pages load much less data." },
       { title: 'Character icons in music', detail: "Characters credited under a different spelling, such as Kal'tsit Esperanta, show their icon.", href: '/music/discover' },
       { title: 'Many chibis at once', detail: 'More than 15 chibis on a page no longer turn into blank boxes, and a tapped chibi keeps its size.' },
     ],
