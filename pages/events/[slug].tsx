@@ -3,7 +3,7 @@ import { scheduleModeRelease } from '@/lib/schedule/modeReleases';
 import type { ScheduleEvent } from '@/lib/schedule/scheduleTypes';
 import { permanentEventListing, modeDetails, type ModeDetails } from '@/lib/events/modeDetails';
 import { useRegionalTime } from '@/lib/time/useRegionalTime';
-import { regionalArt, regionalRange } from '@/lib/time/regional';
+import { regionalArt, regionalRange, regionalScheduleSlice, type RegionalSchedules } from '@/lib/time/regional';
 import { withContentPage } from '@/lib/content/server';
 import { useEffect, useRef, useState } from 'react';
 import { GetStaticPaths, GetStaticProps } from 'next';
@@ -536,6 +536,14 @@ function withNewsArt(props: Props): Props {
     news: (props.extras.news ?? []).map((section) => ({ ...section, art: section.art ?? [], postArt: section.postArt ?? null })) } };
 }
 
+/** The page's regional table cut to its own event and banner (lib/time/regional.ts). */
+function withRegionalSlice<T extends Props>(props: T): T {
+  const tables = (props as T & { __contentTables?: Record<string, unknown> }).__contentTables;
+  const table = tables?.['regional-schedules'] as RegionalSchedules | undefined;
+  if (!tables || !table?.servers) return props;
+  return { ...props, __contentTables: { ...tables, 'regional-schedules': regionalScheduleSlice(table, { events: [props.name], banners: props.bannerName ? [props.bannerName] : [] }) } };
+}
+
 export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/events/[slug]", async ({ params }) => {
   const name = params?.slug as string;
   const listings = [...getEventCalendar(), ...(loadAllEventYears() as ScheduleEvent[]).flatMap(event => { const listing = permanentEventListing(scheduleModeRelease(event, PREDICTED_GAP_DAYS)); return listing ? [listing] : []; })];
@@ -680,5 +688,6 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
 }, {
   // A release exported before reward totals carried their order: this deployment's catalogue fills it in.
   // One exported before the News tab's official art has none: no board items, no pictures.
-  finalize: async (props) => withNewsArt(await withMaterialOrder(props, (page) => page.rewardStores.flatMap((store) => store.items.map((item) => item.name)))),
+  // Each page keeps only its own event's and banner's regional windows (regionalScheduleSlice).
+  finalize: async (props) => withRegionalSlice(withNewsArt(await withMaterialOrder(props, (page) => page.rewardStores.flatMap((store) => store.items.map((item) => item.name))))),
 });
