@@ -3,7 +3,7 @@ import test from 'node:test';
 import { buildFreeRewards } from '../build/build-free-rewards.mjs';
 import { rewardClaimsFromGame } from '../../lib/account/rewardClaims';
 import { accountFromGame } from '../../lib/account/accountStore';
-import { allFreeRewards, freeOperatorsToClaim, freeRewardsForAccount } from '../../lib/pulls/freeRewards';
+import { allFreeRewards, freeOperatorsToClaim, freeRewardsForAccount, obtainableWelfare, rosterClaimedWelfare, rosterOperatorIds, type FreeReward } from '../../lib/pulls/freeRewards';
 
 /*
  * Excerpts of the Global EN tables as the content run reads them (ArknightsAssets/ArknightsGamedata,
@@ -94,24 +94,32 @@ test('welfare operators come from the tables that give them: event missions, per
   assert.equal(viy.event, 'Critical Phase Transition');
   assert.equal(viy.startAt, 1791979200 * 1000);
   assert.equal(viy.endAt, undefined);
+  // ...and says so: a permanent mission, whose event closes on 2026-10-28 (basicInfo endTime).
+  assert.deepEqual([viy.source, viy.eventEndAt], ['retro', (1793185199 + 1) * 1000]);
   assert.equal(viy.href, `/events/${encodeURIComponent('[Celebration] Critical Phase Transition')}`);
   assert.deepEqual(viy.rewards.map(reward => [reward.id, reward.rarity]), [['char_4226_veen', 6]]);
   // A side story's operator: its missions, while its stages are open.
   const botani = welfare['free:51sideActivity_4'];
   assert.equal(botani?.name, 'Botani · Event missions: Clear PA-4');
-  assert.deepEqual([botani.startAt, botani.endAt], [1789570800 * 1000, (1790765999 + 1) * 1000]);
+  assert.deepEqual([botani.startAt, botani.endAt, botani.source], [1789570800 * 1000, (1790765999 + 1) * 1000, 'event']);
   // Record Restoration, keyed by story as well as reward: the two share trailReward_sub_1_1.
   assert.equal(welfare['free:trail:permanent_sub_1_Darknights_Memoir:trailReward_sub_1_1']?.name, 'Sideroca · Record Restoration: 12 stars');
+  assert.equal(welfare['free:trail:permanent_sub_1_Darknights_Memoir:trailReward_sub_1_1'].source, 'trail');
   assert.equal(welfare['free:trail:permanent_sidestory_4_Twilight_Of_Wolumonde:trailReward_sub_1_1']?.name, 'Folinic · Record Restoration: 12 stars');
   assert.ok(!Object.keys(welfare).some(id => id.includes('trailReward_sub_1_2')), 'only the operator of a trail is a welfare row');
   // An event's own data (milestones): manual, while its stages were open.
   assert.equal(welfare['free:welfare:act4d0:char_131_flameb']?.name, 'Flamebringer · Event rewards');
+  assert.equal(welfare['free:welfare:act4d0:char_131_flameb'].source, 'extra');
   // A sign-in's operator stays a day of its sign-in, not a second welfare row.
   assert.ok(!Object.values(welfare).some(row => row.rewards.some(reward => reward.id === 'char_4227_gallus')));
-  // Open on 2026-10-21: Viy, and the Archives' operators; Botani's event closed on 2026-09-30.
+  // Obtainable on 2026-10-21: Viy while her event runs, and the Archives' operators. Not
+  // GALLUS² (a sign-in's day), not Botani (her event closed on 2026-09-30, no Archive yet).
   const open = freeOperatorsToClaim(built.rewards, new Set(), at('2026-10-21T06:00:00Z')).map(({ operator }) => operator.name);
-  assert.deepEqual(open, ['GALLUS²', 'Viy', 'Folinic', 'Sideroca']);
-  assert.deepEqual(freeOperatorsToClaim(built.rewards, new Set(['free:act4mainssPermanent_5']), at('2026-10-21T06:00:00Z')).map(({ operator }) => operator.name), ['GALLUS²', 'Folinic', 'Sideroca']);
+  assert.deepEqual(open, ['Viy', 'Folinic', 'Sideroca']);
+  assert.deepEqual(freeOperatorsToClaim(built.rewards, new Set(['free:act4mainssPermanent_5']), at('2026-10-21T06:00:00Z')).map(({ operator }) => operator.name), ['Folinic', 'Sideroca']);
+  // Once Critical Phase Transition closes, Viy's permanent mission stays in Free rewards for
+  // ticking (no endAt), but she is no longer listed as obtainable.
+  assert.deepEqual(freeOperatorsToClaim(built.rewards, new Set(), at('2026-10-28T12:00:00Z')).map(({ operator }) => operator.name), ['Folinic', 'Sideroca']);
 });
 
 test('an operator the event mission page features without a row stops the build', () => {
@@ -187,4 +195,51 @@ test('the beginner programme follows registration, the same for the import and t
   }
   // Without a registration date (an old backup) or off Global, the current programme.
   assert.deepEqual([...new Set(freeRewardsForAccount(allFreeRewards(built), null).filter(row => row.beginner).map(row => row.beginner!.id))], ['openseverTaskGroup2']);
+});
+
+/* The overview's rule, on one row of each source as the live catalogue has them (2026-10-21). */
+const row = (id: string, group: string, char: string, extra: Partial<FreeReward>): FreeReward =>
+  ({ id, group, name: id, rewards: [{ id: char, name: char, count: 1, rarity: 5 }], forecast: false, ...extra });
+const NOW = at('2026-10-21T06:00:00Z');
+const rows = {
+  // A collab's operator (Senshi, Delicious On Terra, act36side): no Archive, closed 2025-03-24.
+  collab: row('free:36sideActivity_4', 'Welfare operators', 'char_4144_senshi', { source: 'event', startAt: at('2025-03-10T08:00:00Z'), endAt: at('2025-03-24T04:00:00Z') }),
+  // A past event's permanent missions, its event closed: not Record Restoration.
+  pastRetro: row('free:actXmainssPermanent_5', 'Welfare operators', 'char_x_past', { source: 'retro', startAt: at('2025-10-14T08:00:00Z'), eventEndAt: at('2025-10-28T04:00:00Z') }),
+  trail: row('free:trail:permanent_sidestory_4_Twilight_Of_Wolumonde:trailReward_sub_1_1', 'Welfare operators', 'char_345_folnic', { source: 'trail', startAt: at('2023-02-03T00:00:00Z') }),
+  current: row('free:act4mainssPermanent_5', 'Welfare operators', 'char_4226_veen', { source: 'retro', startAt: at('2026-10-14T08:00:00Z'), eventEndAt: at('2026-10-28T04:00:00Z') }),
+  currentEvent: row('free:52sideActivity_4', 'Welfare operators', 'char_y_now', { source: 'event', startAt: at('2026-10-20T08:00:00Z'), endAt: at('2026-11-03T04:00:00Z') }),
+  signIn: row('free:act59sign:2', 'Event sign-in and gifts', 'char_4227_gallus', { startAt: at('2026-10-14T08:00:00Z'), endAt: at('2026-10-28T11:00:00Z') }),
+  beginner: row('free:openseverTaskGroup1:chainLoginData:7', 'Beginner rewards', 'char_173_slchan', {}),
+};
+
+test('the welfare list keeps only what is still obtainable: Record Restoration, and an open event\'s operator', () => {
+  const kept = Object.entries(rows).filter(([, reward]) => obtainableWelfare(reward, NOW)).map(([name]) => name);
+  assert.deepEqual(kept, ['trail', 'current', 'currentEvent']);
+  assert.deepEqual(freeOperatorsToClaim(Object.values(rows), new Set(), NOW).map(({ reward }) => reward.id),
+    ['free:act4mainssPermanent_5', 'free:52sideActivity_4', rows.trail.id], 'soonest to close first, the permanent ones last');
+  // A release built before `source`: a trail by its id, an event row by its end, a permanent mission as before.
+  const old = (reward: FreeReward) => { const { source: _source, eventEndAt: _end, ...rest } = reward; return rest as FreeReward; };
+  assert.ok(obtainableWelfare(old(rows.trail), NOW));
+  assert.ok(!obtainableWelfare(old(rows.collab), NOW));
+  assert.ok(obtainableWelfare(old(rows.current), NOW));
+  assert.ok(!obtainableWelfare(old(rows.signIn), NOW));
+});
+
+test('an imported roster ticks every welfare row of an operator it holds, and nothing else', () => {
+  const map = { version: 1 as const, chars: {}, beginnerPrograms: tables().openServer.schedule };
+  // Folinic in the roster (her Record Restoration has no claim record), and GALLUS² too.
+  const account = accountFromGame({ ...user, troop: { chars: { 1: { charId: 'char_345_folnic', skin: 'char_345_folnic#1' }, 2: { charId: 'char_4227_gallus', skin: 'char_4227_gallus#1' } } } }, map, 'en');
+  assert.deepEqual(account.operatorIds, ['char_345_folnic', 'char_4227_gallus']);
+  const built = allFreeRewards(buildFreeRewards(tables()));
+  const owned = rosterClaimedWelfare(built, rosterOperatorIds(account));
+  assert.deepEqual([...owned], ['free:trail:permanent_sidestory_4_Twilight_Of_Wolumonde:trailReward_sub_1_1']);
+  // A sign-in day giving an owned operator keeps its own claim record (activity history), not the roster's.
+  assert.ok(![...owned].some(id => id.startsWith('free:act59sign')));
+  const shown = freeRewardsForAccount(built, account);
+  const done = new Set([...account.rewardClaims!.claimed, ...owned]);
+  assert.deepEqual(freeOperatorsToClaim(shown, done, NOW).map(({ operator }) => operator.name), []);
+  // A record imported before operatorIds: its default outfits name the roster; a bought outfit does not.
+  assert.deepEqual([...rosterOperatorIds({ skins: ['char_345_folnic#1', 'char_002_amiya#1+', 'char_4119_wanqin@winter#1'] })], ['char_345_folnic', 'char_002_amiya']);
+  assert.equal(rosterOperatorIds(null).size, 0);
 });

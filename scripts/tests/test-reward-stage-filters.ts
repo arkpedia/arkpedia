@@ -31,7 +31,11 @@ test('each kind of hard stage is classified from the stage records, the way stag
   assert.deepEqual(kinds('act13side_s01#f#'), ['challenge', 's'], 'an S stage in Challenge Mode is both');
   assert.deepEqual(kinds('act25side_s01_a'), ['s'], 'CW-S-1-A');
   assert.deepEqual(kinds('tr_s_1'), [], 'TR-S-1 is a training stage, not an event S stage');
-  assert.deepEqual(kinds('main_15-02#s'), [], 'six-star stages are none of the four');
+  // Since Episode 15 the main story's harder variant is the six-star stage (main_15-09#s, shown
+  // "15-10 6★"): stage_table difficulty SIX_STAR, diffGroup NONE. Adverse Environment.
+  assert.deepEqual(kinds('main_15-02#s'), ['adverse'], 'a six-star stage is Adverse Environment');
+  assert.deepEqual(kinds('main_16-01#s'), ['adverse']);
+  assert.deepEqual(kinds('main_15-02'), [], 'its normal stage is not');
 });
 
 test('the classification covers every H and Adverse Environment stage the game ships, and nothing else', () => {
@@ -39,8 +43,10 @@ test('the classification covers every H and Adverse Environment stage the game s
   const h = ids('h'); const adverse = ids('adverse');
   assert.ok(h.length >= 49 && h.every((id) => id.startsWith('hard_')));
   assert.deepEqual(h.length, [...records.keys()].filter((id) => id.startsWith('hard_')).length);
-  assert.ok(adverse.length >= 85 && adverse.every((id) => id.startsWith('tough_')));
-  assert.deepEqual(adverse.length, [...records.keys()].filter((id) => id.startsWith('tough_')).length);
+  const sixStar = [...records.values()].filter((rec) => rec.difficulty?.tier === 'six_star').map((rec) => rec.id);
+  assert.ok(sixStar.length >= 31 && sixStar.every((id) => /^main_1[5-9]-\d+#s$/.test(id)), 'every six-star stage is a main_NN-NN#s of Episode 15 on');
+  assert.ok(adverse.length >= 85 + 31 && adverse.every((id) => id.startsWith('tough_') || sixStar.includes(id)));
+  assert.deepEqual(adverse.length, [...records.keys()].filter((id) => id.startsWith('tough_')).length + sixStar.length);
   assert.ok(ids('challenge').every((id) => id.endsWith('#f#')));
   assert.ok(ids('s').every((id) => records.get(id)!.stage_type === 'activity'));
 });
@@ -82,6 +88,16 @@ test('with an import, a toggle takes out only the excluded stages still uncleare
   assert.equal(excludeStageKinds(full, new Set<StageKind>(['h']), all).backlog.chapters[0].op, 3);
 });
 
+test('a release compiled before six-star stages were Adverse leaves them out by their label', () => {
+  const episode = { id: 'act4mainss_zone1', label: 'Episode 17', name: 'Critical Phase Transition', op: 3,
+    stages: ['main_17-09', 'main_17-09#s', 'main_17-10'], stageCodes: ['17-10', '17-10 6★', '17-11'], stageKinds: [[], [], []] as StageKind[][] };
+  const old: BacklogSources = { ...backlog, chapters: [episode], playable: [] };
+  const { backlog: left, dropped } = excludeStageKinds(old, new Set<StageKind>(['adverse']), null);
+  assert.deepEqual(dropped, { act4mainss_zone1: 1 });
+  assert.deepEqual(left.chapters[0].stageCodes, ['17-10', '17-11']);
+  assert.deepEqual(excludeStageKinds(old, new Set<StageKind>(['challenge']), null).dropped, {}, 'only the Adverse toggle');
+});
+
 test('a release from before stage kinds were kept takes them from the deployment, only for the same stages', () => {
   const old = { ...backlog, chapters: [{ ...chapter, stageKinds: undefined }], playable: [{ ...event, stageKinds: undefined, stages: [...event.stages, 'act13side_02'], stageCodes: undefined }] };
   const filled = fillFromDeployment(old, backlog);
@@ -117,7 +133,7 @@ test('welfare operators come from an event\'s missions, Global only, open while 
   const welfare = result.rewards.filter((reward) => reward.group === 'Welfare operators');
   assert.deepEqual(welfare, [{ id: 'free:51sideActivity_4', group: 'Welfare operators', name: 'Botani · Event missions: Clear PA-4',
     rewards: [{ id: 'char_4223_botany', rarity: 5, name: 'Botani', count: 1 }], startAt: start * 1000, endAt: (end + 1) * 1000,
-    event: 'People, A People', href: '/events/%5BSide%20Story%5D%20People%2C%20A%20People', forecast: false }]);
+    event: 'People, A People', href: '/events/%5BSide%20Story%5D%20People%2C%20A%20People', source: 'event', forecast: false }]);
 
   const rows = welfare as FreeReward[];
   assert.deepEqual(freeOperatorsToClaim(rows, new Set(), start * 1000).map(({ operator }) => operator.name), ['Botani']);

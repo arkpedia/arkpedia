@@ -129,12 +129,19 @@ export function buildFreeRewards({ handbook, missions, openServer, checkin, acti
     return name ? { href: `/events/${encodeURIComponent(name)}` } : {};
   };
   const operators = [];
-  const welfare = (id, charId, how, activityId, window) => {
+  /* Each row says where it comes from (`source`), which is what the Reward Tracker's overview
+     reads to list only the operators still obtainable (lib/pulls/freeRewards.ts
+     obtainableWelfare): 'trail' (Record Restoration, the Archives: permanent), 'event' and
+     'extra' (an event's own missions and data: while it runs, its endAt), 'retro' (a
+     main-story event's permanent missions: claimable for ticking with no end, so the row has
+     none, and `eventEndAt` keeps when the event's own window closes). */
+  const welfare = (id, charId, how, activityId, window, source) => {
     if (!characters[charId] || out.some(reward => reward.id === `free:${id}`)) return;
     const info = activity.basicInfo[activityId];
     operators.push({ charId, activityId, retroId: window.retroId });
     add(id, 'Welfare operators', `${characters[charId].name} · ${how}`, [{ id: charId, type: 'CHAR', count: 1 }],
-      { startAt: window.startAt, ...(window.endAt ? { endAt: window.endAt } : {}), event: clean(window.event ?? info?.name) || activityId, ...eventHref(activityId) });
+      { startAt: window.startAt, ...(window.endAt ? { endAt: window.endAt } : {}), event: clean(window.event ?? info?.name) || activityId, ...eventHref(activityId),
+        source, ...(window.eventEndAt ? { eventEndAt: window.eventEndAt } : {}) });
   };
   const eventWindow = activityId => {
     const info = activity.basicInfo[activityId];
@@ -143,7 +150,7 @@ export function buildFreeRewards({ handbook, missions, openServer, checkin, acti
   const isOperator = reward => (reward?.type ?? reward?.itemType) === 'CHAR' && String(reward?.id ?? reward?.itemId).startsWith('char_');
   for (const mission of activity.missionData ?? []) for (const reward of mission.rewards ?? []) {
     const window = isOperator(reward) && eventWindow(mission.missionGroup);
-    if (window) welfare(mission.id, reward.id, `Event missions: ${clean(mission.description)}`, mission.missionGroup, window);
+    if (window) welfare(mission.id, reward.id, `Event missions: ${clean(mission.description)}`, mission.missionGroup, window, 'event');
   }
   // The event a retro group belongs to: the one it is named for, else the first it links.
   const retroActivity = retroId => {
@@ -155,14 +162,14 @@ export function buildFreeRewards({ handbook, missions, openServer, checkin, acti
     for (const reward of mission.rewards ?? []) {
       const activityId = isOperator(reward) && retroActivity(mission.missionGroup);
       const window = activityId && eventWindow(activityId);
-      if (window) welfare(mission.id, reward.id, `Event missions (permanent): ${clean(mission.description)}`, activityId, { startAt: window.startAt, retroId: mission.missionGroup });
+      if (window) welfare(mission.id, reward.id, `Event missions (permanent): ${clean(mission.description)}`, activityId, { startAt: window.startAt, eventEndAt: window.endAt, retroId: mission.missionGroup }, 'retro');
     }
   }
   for (const [retroId, trail] of Object.entries(retro.retroTrailList ?? {})) for (const step of trail.trailRewardList ?? []) {
     const act = retro.retroActList?.[retroId];
     const opens = trail.trailStartTime > 0 ? trail.trailStartTime : act?.startTime;
     if (!isOperator(step.rewardItem) || !act || !(opens > 0)) continue;
-    welfare(`trail:${retroId}:${step.trailRewardId}`, step.rewardItem.id, `Record Restoration: ${step.starCount} stars`, retroActivity(retroId), { startAt: opens * 1000, event: act.name, retroId });
+    welfare(`trail:${retroId}:${step.trailRewardId}`, step.rewardItem.id, `Record Restoration: ${step.starCount} stars`, retroActivity(retroId), { startAt: opens * 1000, event: act.name, retroId }, 'trail');
   }
   const checkIns = new Set(['CHECKIN_ONLY', 'CHECKIN_ALL_PLAYER', 'CHECKIN_VS', 'LOGIN_ONLY']);
   for (const [type, events] of Object.entries(activity.activity)) if (!checkIns.has(type)) for (const [activityId, data] of Object.entries(events ?? {})) {
@@ -175,7 +182,7 @@ export function buildFreeRewards({ handbook, missions, openServer, checkin, acti
     };
     walk(data);
     for (const charId of found) if (!operators.some(row => row.activityId === activityId && row.charId === charId)) {
-      welfare(`welfare:${activityId}:${charId}`, charId, 'Event rewards', activityId, window);
+      welfare(`welfare:${activityId}:${charId}`, charId, 'Event rewards', activityId, window, 'extra');
     }
   }
   // Every operator the client's event mission pages feature (ILLUST_CHAR_REWARD) has its row:
