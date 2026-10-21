@@ -66,7 +66,6 @@ interface Props {
    *  (lib/content/pageClock.ts). finalizeHome picks the panels' rows by it, and the
    *  Events panel's first paint uses it too, so the server markup and hydration agree. */
   now: number;
-  regionalCalendar?: { events: SerializedGameEvent[]; banners: HeadhuntingBanner[]; skinWindows: SkinWindow[]; skins: Skin[] };
   __calendar?: {
     events: (Omit<GameEvent, 'start' | 'end'> & { start: string; end: string })[]; banners: HeadhuntingBanner[]; skins: Skin[];
     /** Every outfit's acquisition windows, from the release's tables, as /skins has them
@@ -86,25 +85,24 @@ export default function HomePage({
   earliestCommunityEvent,
   maintenance,
   now: requestNow,
-  regionalCalendar,
 }: Props) {
   const { server, schedule } = useRegionalTime();
   const now = useReaderClock(requestNow, { tickMs: 1000, onFocus: true });
+  /* JP and KR show Global's panels one to one, in Global's order, on the server's own dates
+     where it has them (lib/time/regional.ts). Only a server window that has already closed takes
+     an item off, as Global's own close would. This path once picked and sorted its own items
+     from the whole calendar: CN-predicted events and banners vanished, and the banners lost
+     the panel's category order. */
   const selected = useMemo(() => {
-    if (server === 'en' || !regionalCalendar) return { ongoingEvents: globalOngoing, upcomingEvent: globalUpcoming, ongoingBanners: globalBanners, ongoingSkins: globalSkins };
-    const events = regionalGameEvents(regionalCalendar.events, schedule, server);
-    const ongoingEvents = events.filter(event => Date.parse(event.start) <= now && now < Date.parse(event.shopEndAt ?? event.end));
-    const upcomingEvent = events.filter(event => Date.parse(event.start) > now).sort((a, b) => Date.parse(a.start) - Date.parse(b.start))[0] ?? null;
-    const banners = regionalBanners(regionalCalendar.banners, schedule, server).flatMap(banner => {
+    if (server === 'en') return { ongoingEvents: globalOngoing, upcomingEvent: globalUpcoming, ongoingBanners: globalBanners, ongoingSkins: globalSkins };
+    const ongoingEvents = regionalGameEvents(globalOngoing, schedule, server).filter(event => now < Date.parse(event.shopEndAt ?? event.end));
+    const [upcomingEvent = null] = regionalGameEvents(globalUpcoming ? [globalUpcoming] : [], schedule, server);
+    const ongoingBanners = regionalBanners(globalBanners, schedule, server).map(banner => {
       const window = parseBannerWindow(banner);
-      return window ? [{ ...banner, start: window.start.toISOString(), end: window.end.toISOString() }] : [];
-    });
-    const active = banners.filter(banner => Date.parse(banner.start) <= now && now < Date.parse(banner.end));
-    const next = banners.filter(banner => Date.parse(banner.start) > now).sort((a, b) => Date.parse(a.start) - Date.parse(b.start))[0];
-    const windows = regionalSkinWindows(regionalCalendar.skinWindows, schedule, server);
-    return { ongoingEvents, upcomingEvent, ongoingBanners: next ? [...active, next] : active,
-      ongoingSkins: availableSkins(regionalCalendar.skins, windows, new Date(now)) };
-  }, [server, schedule, now, regionalCalendar, globalOngoing, globalUpcoming, globalBanners, globalSkins]);
+      return window ? { ...banner, start: window.start.toISOString(), end: window.end.toISOString() } : banner;
+    }).filter(banner => now < Date.parse(banner.end));
+    return { ongoingEvents, upcomingEvent, ongoingBanners, ongoingSkins: globalSkins };
+  }, [server, schedule, now, globalOngoing, globalUpcoming, globalBanners, globalSkins]);
   const { ongoingEvents, upcomingEvent, ongoingBanners, ongoingSkins } = selected;
   const farmableMaterials = useMemo(() => server === 'en' ? globalMaterials : getEventFarmingMaterials(schedule?.farming ?? []), [globalMaterials, server, schedule]);
   useEffect(() => {
@@ -175,9 +173,8 @@ async function finalizeHome(props: Props): Promise<Props> {
     return end.getTime() >= now.getTime();
   }).sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())[0] || null;
   const regional = (props as Props & { __contentTables?: { 'regional-schedules'?: import('@/lib/time/regional').RegionalSchedules } }).__contentTables?.['regional-schedules'];
-  const regionalIds = new Set(Object.entries(regional?.servers ?? {}).filter(([server]) => server !== 'en').flatMap(([, schedule]) => (schedule as { skinWindows?: SkinWindow[] }).skinWindows?.flatMap(window => window.skinIds) ?? []));
+  // JP and KR read these same panels with their own dates (HomePage), so no other calendar ships.
   return { ...rest,
-    ...(__calendar ? { regionalCalendar: { events: __calendar.events.map(event => ({ ...event, shopEndAt: event.shopEndAt ?? event.end })), banners: __calendar.banners.map(banner => ({ name: banner.name, category: banner.category, cn_date: null, global_date: null, six_stars: banner.six_stars, five_stars: banner.five_stars, rate_up_six_stars: banner.rate_up_six_stars ?? [], pull_type: banner.pull_type, year: banner.year, linked_event: banner.linked_event ?? null, banner_image: banner.banner_image ?? null, lineupSource: banner.lineupSource ?? 'wiki' })), skinWindows: __calendar.skinWindows ?? [], skins: __calendar.skins.filter(skin => regionalIds.has(`${skin.model} / ${skin.name}`)).map(skin => ({ ...skin, searchAliases: skin.searchAliases ?? [] })) } } : {}),
     ongoingEvents: getOngoingEvents(now, events).map(serialize),
     upcomingEvent: upcoming ? serialize(upcoming) : null,
     ongoingBanners: getHomeGachaBanners(now, __calendar?.banners).map(banner => ({ ...banner, start: banner.start.toISOString(), end: banner.end.toISOString() })),
