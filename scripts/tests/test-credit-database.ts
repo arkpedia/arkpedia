@@ -1,3 +1,4 @@
+import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { test } from 'node:test';
 
@@ -23,4 +24,18 @@ test('a cold credit builder refuses missing source data instead of publishing em
       fs.rmSync(empty, { recursive: true, force: true });
     }
   `], { cwd: process.cwd(), stdio: 'pipe' });
+});
+
+test('a release from before the filters renders: its { people } upgrades, placeholders to Uncredited', async () => {
+  const { upgradeCreditProps } = await import('../../lib/operators/creditDatabase');
+  const old = { people: [
+    { name: '-', operators: [{ name: 'Miss.Christine', icon: '/a.webp', credits: ['Japanese'] }] },
+    { name: 'Abby Trott', operators: [{ name: 'Kafka', icon: '/k.webp', credits: ['English'] }] },
+  ] };
+  const next = upgradeCreditProps(old);
+  assert.deepEqual(next.people, [{ name: 'Abby Trott', operators: [{ name: 'Kafka', credits: ['English'] }] }]);
+  assert.deepEqual(next.uncredited, [{ name: 'Miss.Christine', credits: ['Japanese'] }]);
+  assert.deepEqual(next.operators.map(op => [op.name, op.icon, op.rarity]), [['Kafka', '/k.webp', null], ['Miss.Christine', '/a.webp', null]]);
+  // A current release passes through untouched.
+  assert.equal(upgradeCreditProps(next), next);
 });

@@ -36,6 +36,9 @@
         "pages/community.tsx",
         "pages/skin-planner.tsx",
         "pages/free-op.tsx",
+        "pages/artists.tsx",
+        "pages/voice-actors.tsx",
+        "components/operators/CreditDatabase.tsx",
         "components/schedule/EventsPanel.tsx",
         "components/home/GachaBannersPanel.tsx"
       ],

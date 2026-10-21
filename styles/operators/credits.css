@@ -1,0 +1,95 @@
+/* /artists and /voice-actors (components/operators/CreditDatabase.tsx).
+   The toolbar is /operators' (.roster-controls and its rows, roster.css); what is here
+   is the page switch, the letter row and the list: one row per person, their name on
+   the left and their operators as borderless picture tiles on the right. */
+
+.credit-controls { flex: 1 1 100%; min-width: 0; }
+.credit-controls .credit-switch { width: 100%; }
+
+/* The letter row is one line: it wraps on a wide screen and scrolls sideways on a
+   phone, where four wrapped rows of letters would push the list a screen down. */
+.credit-letters { width: 100%; min-width: 0; padding-top: 4px; }
+.credit-letter-row { gap: 4px; }
+.credit-letter-row > * { min-width: 28px; padding: 0 6px; }
+@media (max-width: 720px) {
+  /* The two menus share a line under the search. */
+  .credit-controls .roster-faction { flex: 1 1 140px; min-width: 0; }
+  .credit-letters { overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; padding-bottom: 6px; }
+  .credit-letter-row { flex-wrap: nowrap; }
+  .credit-letter-row > * { flex: none; }
+}
+
+.credit-summary { margin: 0 0 var(--heading-gap); }
+
+/* A heading row: the letter and how many people are under it. */
+.credit-group-head { display: flex; align-items: center; gap: 12px; margin-bottom: var(--heading-gap); }
+.credit-group-head h2 { margin: 0; }
+
+.credit-people { list-style: none; margin: 0; padding: 0; }
+.credit-person {
+  display: grid;
+  grid-template-columns: minmax(0, 200px) minmax(0, 1fr);
+  gap: 8px 20px;
+  padding: 14px 0;
+  border-top: 1px solid var(--line-soft);
+}
+.credit-person:first-child { padding-top: 0; border-top: 0; }
+.credit-person > .credit-ops { margin-top: -5px; }
+.credit-person-head { min-width: 0; padding-top: 3px; }
+.credit-person-head h3 { margin: 0 0 4px; overflow-wrap: anywhere; }
+.credit-person-meta { display: block; overflow-wrap: anywhere; }
+
+/* The tiles' art starts on the column's edge (a tile has no left padding, only its 1px
+   transparent border), so the list stays inside the page frame; beside a name it rises
+   by its top padding and border, so a tile's art sits on the row's top line. */
+.credit-ops {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 2px 8px;
+}
+.credit-uncredited-note { margin: 0 0 12px; }
+
+/* A picture tile: no resting frame, the teal edge on hover and keyboard focus, its fill
+   clipped inside the transparent border (docs/development/ui-primitives.md). */
+.credit-op {
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  align-items: center;
+  column-gap: 10px;
+  height: 100%;
+  padding: 4px 6px 4px 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  background-clip: padding-box;
+  color: var(--text);
+  text-decoration: none;
+}
+.credit-op:hover,
+.credit-op:focus-visible { border-color: var(--teal); color: var(--teal); }
+.credit-op-art { display: block; width: 48px; height: 48px; box-sizing: border-box; overflow: hidden; }
+.credit-op-art img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.credit-op-text { display: grid; gap: 2px; min-width: 0; }
+.credit-op-name { font-size: 13px; font-weight: 600; line-height: 1.25; overflow-wrap: anywhere; }
+.credit-op-credit {
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+.credit-op-cn { color: var(--amber); }
+
+@media (max-width: 720px) {
+  .credit-person { grid-template-columns: minmax(0, 1fr); }
+  .credit-person-head { padding-top: 0; }
+  .credit-ops { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .credit-person > .credit-ops { margin-top: 0; }
+}
