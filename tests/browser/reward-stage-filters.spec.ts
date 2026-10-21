@@ -3,6 +3,7 @@ import path from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 import { stageKindsOf, type StageKind } from '../../lib/pulls/stageKinds';
 import { readOnly } from './census-routes';
+import { uncolouredLinks } from './layout-checks';
 
 /* The bundled data/pull-sources.json may predate stage kinds (they arrive with the content
    release scripts/build/build-pull-sources.ts compiles), so the page's props get them here the
@@ -122,6 +123,10 @@ test('a welfare operator open now is listed with its event and end, opens the op
   await page.getByRole('tab', { name: 'Free rewards', exact: true }).click();
   await page.locator('summary', { hasText: 'Welfare operators' }).click();
   await expect(page.locator('.free-reward-row').filter({ hasText: 'From People, A People' })).toHaveCount(1);
+  // The rows' "Details →" links, and every other link on the tab, have a colour of their own
+  // (layout-checks uncolouredLinks: the census's check, which its data has no such row for).
+  await expect(page.locator('.free-reward-meta a').first()).toBeVisible();
+  expect(await uncolouredLinks(page)).toEqual([]);
   // Unclaimed is the filter: the ticked row leaves the list (so click, not check).
   await page.getByRole('checkbox', { name: 'Botani · Event missions: Clear PA-4', exact: true }).click();
   await expect(page.locator('.free-op-welfare')).not.toContainText('Botani');
