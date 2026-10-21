@@ -109,7 +109,8 @@ test('real handbook addon nesting imports Paradox completion into catalogue rewa
   assert.deepEqual([...completed.doneKeys], ['paradox:mem_done']);
   const manual: PastProgress = { doneKeys: ['paradox:mem_unlocked', 'manual-chapter'], doneEvents: [], annihilationDone: false, ticksFrom: '' };
   const next = mergeImportedProgress(manual, imported, completed);
-  assert.deepEqual(next.doneKeys, ['manual-chapter', 'paradox:mem_done', 'paradox:mem_unlocked']);
+  // mem_unlocked is in the save and not cleared: the manual tick goes; manual-chapter the import cannot judge.
+  assert.deepEqual(next.doneKeys, ['manual-chapter', 'paradox:mem_done']);
   assert.deepEqual(next.importedDoneKeys, ['paradox:mem_done']);
   assert.deepEqual(mergeImportedProgress(next, imported, completed), next);
   assert.deepEqual(mergeImportedProgress(next, accountFromGame({}, map, 'en'), { doneKeys: new Set(), doneEvents: new Set() }).doneKeys, next.doneKeys);
@@ -122,12 +123,12 @@ const progress: PastProgress = { doneKeys: ['manual-chapter', 'free:welcome-mail
 const completed = { doneKeys: new Set(['auto-chapter']), doneEvents: new Set(['auto-event']) };
 const account = (user = fixture, at = '2026-10-16T00:00:00Z') => accountFromGame(user, map, 'en', new Date(at));
 
-test('import adds verified claims, preserves manual marks, round-trips provenance, and is idempotent', () => {
+test('import adds verified claims, keeps manual marks it cannot judge, round-trips provenance, and is idempotent', () => {
   const next = mergeImportedProgress(progress, account(), completed);
-  for (const key of progress.doneKeys) assert(next.doneKeys.includes(key));
+  for (const key of ['manual-chapter', 'free:welcome-mail']) assert(next.doneKeys.includes(key));
   assert(next.doneKeys.includes('auto-chapter')); assert(next.doneKeys.includes('free:event_a:1'));
   assert(next.doneEvents.includes('manual-event')); assert(next.doneEvents.includes('auto-event')); assert(next.annihilationDone);
-  assert(!next.importedDoneKeys?.includes('free:event_a:2'), 'manual mark remains manual despite an explicit unreceived flag');
+  assert(!next.doneKeys.includes('free:event_a:2'), 'a manual tick the save explicitly records as not received goes');
   assert.deepEqual(parsePastProgress(JSON.stringify(next)), next);
   assert.deepEqual(mergeImportedProgress(next, account(), completed), next);
   const partial = account({ status: fixture.status } as typeof fixture, '2026-10-17T00:00:00Z');
@@ -139,8 +140,20 @@ test('explicit negative claims replace only prior automatic marks; another accou
   const next = mergeImportedProgress(progress, account(), completed);
   const unreceived = account({ ...fixture, activity: { ...fixture.activity, CHECKIN_ONLY: { event_a: { history: [0, 0] } } } }, '2026-10-17T00:00:00Z');
   const again = mergeImportedProgress(next, unreceived, completed);
-  assert(!again.doneKeys.includes('free:event_a:1')); assert(again.doneKeys.includes('free:event_a:2'));
+  assert(!again.doneKeys.includes('free:event_a:1')); assert(!again.doneKeys.includes('free:event_a:2'));
   const other = account({ status: { uid: 'other' } } as typeof fixture, '2026-10-18T00:00:00Z');
   const switched = mergeImportedProgress(next, other, { doneKeys: new Set(), doneEvents: new Set() });
-  assert.deepEqual(switched.doneKeys, [...progress.doneKeys].sort()); assert.deepEqual(switched.doneEvents, progress.doneEvents);
+  assert.deepEqual(switched.doneKeys, ['free:welcome-mail', 'manual-chapter']); assert.deepEqual(switched.doneEvents, progress.doneEvents);
+});
+
+test('an import unticks a manual tick on a stage item it knows is not done, and keeps the ones it cannot judge', () => {
+  const ticked: PastProgress = { doneKeys: ['chapter-known', 'chapter-unknown', 'chapter-done'], doneEvents: ['event-known', 'event-unknown'], annihilationDone: false, ticksFrom: '' };
+  const judged = { doneKeys: new Set(['chapter-done']), doneEvents: new Set<string>(), knownKeys: new Set(['chapter-known', 'chapter-done']), knownEvents: new Set(['event-known']) };
+  const withStages = { ...account(), rewardCleared: ['some_stage'] };
+  const next = mergeImportedProgress(ticked, withStages, judged);
+  assert.deepEqual(next.doneKeys.filter(key => key.startsWith('chapter-')), ['chapter-done', 'chapter-unknown']);
+  assert.deepEqual(next.doneEvents, ['event-unknown']);
+  // A save without its stages judges none of them.
+  const none = mergeImportedProgress(ticked, { ...account(), rewardCleared: undefined, cleared: [] }, judged);
+  assert.deepEqual(none.doneKeys.filter(key => key.startsWith('chapter-')), ['chapter-done', 'chapter-known', 'chapter-unknown']);
 });

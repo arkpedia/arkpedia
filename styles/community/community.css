@@ -105,7 +105,9 @@
 
 .world-directory { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; padding: 12px 0; }
 .world-directory a { display: grid; gap: 6px; }
-.world-web-events { grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); }
+.world-web-columns { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 12px; align-items: start; }
+/* A server's column: its events stacked, one card wide. */
+.world-web-events { grid-template-columns: minmax(0, 1fr); }
 /* One column the card's width, and names that wrap: a.ghost is nowrap, which a long
    campaign name (the social contests) pushed past the card. */
 .world-web-events .world-web-event { padding: 12px; align-content: start; text-align: left; grid-template-columns: minmax(0, 1fr); white-space: normal; overflow-wrap: anywhere; }

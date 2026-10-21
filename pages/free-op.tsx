@@ -134,10 +134,14 @@ export default function FreeOpPage({ backlogSources, freeRewards: globalFreeRewa
             {operators.length
               ? <ul className="free-op-welfare-list" aria-label="Welfare operators to claim">{operators.map(({ reward, operator }) => {
                   const event = reward.event ?? reward.name;
-                  const closes = reward.source === 'retro' ? reward.eventEndAt : reward.endAt;
+                  const closes = reward.endAt;
                   const trail = reward.source === 'trail' || (!reward.source && reward.id.startsWith('free:trail:'));
-                  return <WelfareCard key={`${reward.id}:${operator.id}`} item={operator} icon={rewardIcons[operator.id]} source={trail ? `Record Restoration · ${event}` : event}
-                    until={!trail && closes ? regionalDate(new Date(closes).toISOString(), server) : undefined} href={reward.href} onPreview={setPreview} />;
+                  // The row's own requirement, after its kind: "Viy · Event missions (permanent): Clear 17-13".
+                  const task = reward.name.includes(': ') ? reward.name.slice(reward.name.lastIndexOf(': ') + 2) : undefined;
+                  const permanent = trail || reward.source === 'retro';
+                  return <WelfareCard key={`${reward.id}:${operator.id}`} item={operator} icon={rewardIcons[operator.id]} task={task}
+                    source={trail ? `Record Restoration · ${event}` : reward.source === 'retro' ? `${event} · permanent` : event}
+                    until={!permanent && closes ? regionalDate(new Date(closes).toISOString(), server) : undefined} href={reward.href} onPreview={setPreview} />;
                 })}</ul>
               : <p className="hint free-op-welfare-empty">No welfare operator to claim right now.</p>}
           </div>
