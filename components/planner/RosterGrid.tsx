@@ -1,4 +1,5 @@
 import { PlannerStateLabel } from "./PromotionIcon";
+import { sortClasses } from '@/lib/operators/classOrder';
 import Image from '@/components/content/ContentImage';
 import { useEffect, useMemo, useRef } from 'react';
 import { getClassIconPath } from '@/lib/operators/classBranchIcons';
@@ -34,7 +35,6 @@ import Rarity, { rarityLevel } from '@/components/ui/Rarity';
 
 /** The game's own class order, not alphabetical -- the squad screen's filter
  *  runs Vanguard to Specialist, and a reader who plays it expects the same. */
-const CLASS_ORDER = ['Vanguard', 'Guard', 'Defender', 'Sniper', 'Caster', 'Medic', 'Supporter', 'Specialist'];
 
 /**
  * How the grid is narrowed. Owned by the dialog, not by this component: the
@@ -113,7 +113,7 @@ export function RosterGrid({
   /* Only the classes and rarities the list actually has, in the game's order. */
   const classes = useMemo(() => {
     const present = new Set(operators.map((o) => o.className).filter((c): c is string => !!c));
-    return CLASS_ORDER.filter((c) => present.has(c));
+    return sortClasses(present);
   }, [operators]);
   const rarities = useMemo(
     () => Array.from(new Set(operators.map((o) => o.rarity).filter((r): r is number => r != null))).sort((a, b) => b - a),
