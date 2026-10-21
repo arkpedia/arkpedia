@@ -85,7 +85,7 @@ export default function SearchPage() {
         {/* A results page is not a page of its own to a search engine. */}
         <meta name="robots" content="noindex" />
       </Head>
-      <PageHeader eyebrow="Rhodes Island // Search" title="Search" sub="Operators, events, stages, enemies, music, every page of the site, and the community's YouTube and Twitch." />
+      <PageHeader eyebrow="Rhodes Island // Search" title="Search" sub="Operators, artists and voice actors, events, stages, enemies, music, every page of the site, and the community's YouTube and Twitch." />
       <main className="site-search-page">
         <SearchInput
           label="Search Arkpedia"

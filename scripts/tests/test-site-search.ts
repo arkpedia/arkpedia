@@ -94,6 +94,10 @@ const SOURCES: SiteSearchSources = {
   albums: [{ albumId: '4527', albumName: '明日方舟OST1', albumAltName: 'Arknights OST 1' }],
   songs: [{ title: 'Synthetech', altTitle: 'Synthetech', artist: 'BaoUner' }, { title: 'Synthetech', altTitle: null, artist: 'Again' }],
   creators: [{ id: 'UCaaaaaaaaaaaaaaaaaaaaaa', label: 'Test Creator' }],
+  people: [
+    { kind: 'artist', name: 'm9nokuro', operators: 4 },
+    { kind: 'voice-actor', name: '赵爽', operators: 1, languages: ['Mandarin'], aliases: ['zhao shuang', 'zhaoshuang'] },
+  ],
 };
 
 test('every row links to the URL its page reads', () => {
@@ -108,6 +112,8 @@ test('every row links to the URL its page reads', () => {
   assert.equal(href('enemy', 'Originium Slug'), '/enemies?e=originium_slug');
   assert.equal(href('album', 'Arknights OST 1'), '/music/discover?facet=album%3A4527');
   assert.equal(href('song', 'Synthetech'), '/music/discover?q=Synthetech');
+  assert.equal(href('artist', 'm9nokuro'), '/artists?q=m9nokuro');
+  assert.equal(href('voice-actor', '赵爽'), '/voice-actors?q=%E8%B5%B5%E7%88%BD', 'the name the page shows, never an alias');
   assert.equal(href('creator', 'Test Creator'), 'https://www.youtube.com/channel/UCaaaaaaaaaaaaaaaaaaaaaa', 'the channel, where the community page links it');
 });
 
