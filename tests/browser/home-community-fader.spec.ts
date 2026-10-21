@@ -23,8 +23,14 @@ test('the Community panel keeps its height as its slides turn, and holds still u
     await expect(panel.locator('.front-community-slide[data-current]')).toHaveCount(1);
     expect(await panel.evaluate((e) => e.getBoundingClientRect().height)).toBe(height);
   }
-  // Under the pointer the slide does not turn away (the rotation is six seconds).
-  await panel.locator('.front-community-slide[data-current] .front-community-item').hover();
+  // Under the pointer the slide does not turn away (the rotation is six seconds), and its card
+  // lifts on a shadow as every picture card does (motion.spec.ts leaves the turning panel out).
+  const item = panel.locator('.front-community-slide[data-current] .front-community-item');
+  const rest = await item.evaluate((e) => getComputedStyle(e).boxShadow);
+  await item.hover();
+  await page.waitForTimeout(300);
+  if (!(await page.evaluate(() => matchMedia('(hover: hover)').matches))) test.info().annotations.push({ type: 'no hover', description: 'a touch device: the lift is checked at desktop width' });
+  else expect(await item.evaluate((e) => getComputedStyle(e).boxShadow)).not.toBe(rest);
   const shown = await panel.locator('.front-community-slide[data-current]').innerText();
   await page.waitForTimeout(6500);
   expect(await panel.locator('.front-community-slide[data-current]').innerText()).toBe(shown);

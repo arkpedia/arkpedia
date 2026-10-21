@@ -164,7 +164,9 @@ async function pictureCards(page: Page): Promise<Card[]> {
     const out: { id: number; kind: string }[] = [];
     let id = 0;
     for (const el of Array.from(document.querySelectorAll('a[href], button, [role="button"]'))) {
-      if (!shown(el) || el.closest('[role="dialog"], .modal-box')) continue;
+      // The home Community panel's slides turn on a timer, so which one shows depends on when the
+      // test reaches it: tests/browser/home-community-fader.spec.ts checks its card lifts.
+      if (!shown(el) || el.closest('[role="dialog"], .modal-box, .front-community-slide')) continue;
       const box = el.getBoundingClientRect();
       if (box.width < 40 || box.height < 40) continue;
       const picture = [el, ...Array.from(el.querySelectorAll('*'))].some((node) => {
@@ -192,7 +194,7 @@ const NO_LIFT: Record<string, string> = {
 /* The addresses whose picture cards are checked, with how many kinds each shows at least
    (the cards-and-headings list, and /games, whose cards are .lift, and /obtain-method). */
 const LIFT_ROUTES: Record<string, number> = {
-  '/': 5, '/skins': 1, '/gacha': 1, '/enemies': 1, '/community': 1, '/results': 1, '/music/discover': 2, '/stages': 1,
+  '/': 3, '/skins': 1, '/gacha': 1, '/enemies': 1, '/community': 1, '/results': 1, '/music/discover': 2, '/stages': 1,
   '/stages/content/act51side': 1, '/stages/regular': 1, '/stages/all': 1, '/stages/exploration': 1, '/operators': 1,
   '/operators/Amiya': 1, '/synergies': 1, [`/events/${encodeURIComponent('[Rerun] Under Tides Rerun')}#skins`]: 1,
 };
