@@ -107,6 +107,7 @@
 .world-directory a { display: grid; gap: 6px; }
 .world-web-columns { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 12px; align-items: start; }
 /* A server's column: its events stacked, one card wide. */
+.world-web-column { min-width: 0; }
 .world-web-events { grid-template-columns: minmax(0, 1fr); }
 /* One column the card's width, and names that wrap: a.ghost is nowrap, which a long
    campaign name (the social contests) pushed past the card. */
