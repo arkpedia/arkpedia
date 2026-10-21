@@ -39,7 +39,7 @@ export default function ChibiCanvas({ model, label, animation, onAnimationChange
       const context = shared.context;
       cleanup = () => shared.release();
       const textures = new Map(images);
-      const atlas = chibiAtlas(spine, atlasText, name => { const image = textures.get(name); if (!image) throw Error(`Missing texture ${name}`); return premultipliedTexture(spine, context, image, model.premultipliedAlpha); });
+      const atlas = chibiAtlas(spine, atlasText, name => { const image = textures.get(name); if (!image) throw Error(`Missing texture ${name}`); return premultipliedTexture(spine, context, image); });
       cleanup = () => { atlas.dispose(); shared.release(); };
       const data = new spine.SkeletonBinary(new spine.AtlasAttachmentLoader(atlas)).readSkeletonData(new Uint8Array(skeletonBytes));
       const skeleton = new spine.Skeleton(data); skeleton.setToSetupPose(); skeleton.updateWorldTransform();

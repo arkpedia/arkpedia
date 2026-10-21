@@ -220,11 +220,11 @@ async function loadModel(url: string, signal: AbortSignal, operator: string | un
 type SpineContext = InstanceType<SpineRuntime['webgl']['ManagedWebGLRenderingContext']>;
 
 /** A skeleton and its animation state, read from loaded files. */
-function readSkeleton(spine: SpineRuntime, context: SpineContext, files: Awaited<ReturnType<typeof loadSkeleton>>, track: Spine.TextureAtlas[], filePremultiplied: boolean) {
+function readSkeleton(spine: SpineRuntime, context: SpineContext, files: Awaited<ReturnType<typeof loadSkeleton>>, track: Spine.TextureAtlas[]) {
   const atlas = new spine.TextureAtlas(files.atlas, (page) => {
     const image = files.pages.get(page);
     if (!image) throw new Error(`The atlas names a page model.json does not list: ${page}`);
-    return premultipliedTexture(spine, context, image, filePremultiplied);
+    return premultipliedTexture(spine, context, image);
   });
   track.push(atlas);
   const loader = new spine.AtlasAttachmentLoader(atlas);
@@ -284,10 +284,10 @@ function createPlayer(spine: SpineRuntime, host: HTMLElement, files: Awaited<Ret
   };
   try {
     if (!gl) throw new Error('WebGL is not available');
-    const { data, skeleton, state } = readSkeleton(spine, context, files, atlases, model.premultipliedAlpha);
+    const { data, skeleton, state } = readSkeleton(spine, context, files, atlases);
     for (const mix of model.mixes) state.data.setMix(mix.from, mix.to, mix.duration);
     // The entrance: its own skeleton and state, drawn instead of the illustration while it plays.
-    const entrance = files.entrance ? readSkeleton(spine, context, files.entrance, atlases, model.premultipliedAlpha) : null;
+    const entrance = files.entrance ? readSkeleton(spine, context, files.entrance, atlases) : null;
     renderer = new spine.webgl.SceneRenderer(canvas, context, true);
     let layers = files.layers?.layers ?? null;
     if (files.layers) {
