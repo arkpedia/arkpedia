@@ -16,6 +16,31 @@ export function leavesPage(currentPath: string, url: string): boolean {
   return pathOf(url) !== pathOf(currentPath);
 }
 
+type Query = Record<string, string | string[] | undefined>;
+
+/**
+ * The writes every useQueryState on a page has asked for, by page and key ('' removes the
+ * key). Separate hooks each debounce their own write, and each built it from the router's
+ * query when it fired -- which the write fired just before it had not reached yet, so the
+ * later write put back what the earlier one left out: pressing 1★ and then Medic in the
+ * roster's Filters sheet left ?rarity=1 and no class. Each write now carries every key
+ * still asked for on its page, and a key leaves this list once the router's query shows it
+ * (checked at every write and when each write lands).
+ */
+const asked = new Map<string, Map<string, string>>();
+
+/** `query` with every pending write applied, and the writes it already shows dropped from
+ *  `pending` (which this mutates). Exported for its test. */
+export function applyPendingWrites(query: Query, pending: Map<string, string>): Query {
+  const out: Query = { ...query };
+  for (const [key, value] of pending) {
+    if ((value === '' && query[key] === undefined) || query[key] === value) { pending.delete(key); continue; }
+    if (value === '') delete out[key];
+    else out[key] = value;
+  }
+  return out;
+}
+
 /**
  * A piece of UI state mirrored into the URL query string, so filtered and
  * faceted views survive reload and can be shared -- before this, none of the
@@ -79,10 +104,17 @@ export function useQueryState(key: string, defaultValue = ''): [string, (v: stri
       const r = routerRef.current;
       // Written only on the page it was typed on.
       if (pathOf(r.asPath) !== page) return;
-      const query = { ...r.query };
+      const pending = asked.get(page) ?? new Map<string, string>();
+      asked.set(page, pending);
+      pending.set(key, v === defaultValue ? '' : v);
+      const query = applyPendingWrites(r.query, pending);
+      // This key is written now, whatever the router shows: keep asking until it does.
       if (v === defaultValue || v === '') delete query[key];
       else query[key] = v;
-      r.replace({ pathname: r.pathname, query }, undefined, { shallow: true, scroll: false });
+      // Once the address has it, nothing is pending any more: a later link to this page
+      // with another query must not have an old write put back over it.
+      void Promise.resolve(r.replace({ pathname: r.pathname, query }, undefined, { shallow: true, scroll: false }))
+        .then(() => { applyPendingWrites(routerRef.current.query, pending); }, () => {});
     }, 250);
   }, [key, defaultValue]);
 

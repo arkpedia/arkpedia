@@ -157,13 +157,40 @@ test('a shared address opens on its chips, and the sheet keeps the page under it
   const before = await frame(page);
   await page.getByRole('button', { name: /^Filters/ }).click();
   const sheet = page.getByRole('dialog', { name: 'Filters' });
+  // 1★ Medics: one card, a page far shorter than the reader's position needs, so this
+  // passes only if the sheet's hold kept the page's height (not vacuously).
   await sheet.getByRole('button', { name: '1-star', exact: true }).click();
-  await query(page, 'rarity', '1');
+  await sheet.getByRole('button', { name: 'Medic', exact: true }).click();
+  await query(page, 'class', 'Medic');
+  await expect(page.locator('main .roster-card')).toHaveCount(1);
+  const natural = await page.evaluate(() => {
+    const main = document.querySelector('main')!;
+    return Math.round(main.getBoundingClientRect().top + scrollY + main.querySelector('.roster-grid')!.getBoundingClientRect().height);
+  });
+  expect(natural, 'the list alone ends above the bottom of the reader\'s screen').toBeLessThan(before.scroll + 844);
+  expect(await frame(page), 'a filter that shortens the list, under the sheet').toEqual(before);
   await sheet.getByRole('button', { name: 'Done', exact: true }).click();
   await page.waitForTimeout(300);
   expect(await frame(page), 'a filter that shortens the list').toEqual(before);
+  await page.getByRole('button', { name: 'Remove filter: Medic', exact: true }).click();
   await page.getByRole('button', { name: 'Remove filter: 1★', exact: true }).click();
   await query(page, 'rarity', null);
   await page.waitForTimeout(300);
-  expect(await frame(page), 'removing it again').toEqual(before);
+  expect(await frame(page), 'removing them again').toEqual(before);
+});
+
+test('Escape in an open menu inside the sheet closes the menu, not the sheet', async ({ page }) => {
+  const width = await censusWidth(page);
+  test.skip(width !== 390, 'the sheet is the phone layout');
+  await page.goto('/voice-actors');
+  await expect(page.locator('main .credit-person').first()).toBeVisible();
+  await page.getByRole('button', { name: /^Filters/ }).click();
+  const sheet = page.getByRole('dialog', { name: 'Filters' });
+  await sheet.getByRole('combobox', { name: 'Filter by language' }).click();
+  await expect(page.getByRole('listbox', { name: 'Filter by language' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('listbox', { name: 'Filter by language' })).toHaveCount(0);
+  await expect(sheet).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(sheet).toHaveCount(0);
 });
