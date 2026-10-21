@@ -9,7 +9,7 @@ import { getAllOperators } from '../../lib/operators/operators';
 import { buildAliasMap } from '../../lib/operators/operatorAliases';
 import { creditDatabase } from '../../lib/operators/creditDatabase';
 import {
-  JAPANESE_HAN_ARTISTS, JAPANESE_ONLY_HAN, creditNameAliases, creditScript, isJapaneseHanName, romanizationCoverage, romanizeHangul,
+  JAPANESE_HAN_ARTISTS, creditNameAliases, creditScript, isJapaneseHanName, romanizationCoverage, romanizeHangul,
 } from '../lib/credit-romanization';
 
 /*
@@ -66,10 +66,12 @@ test('a Japanese name in kanji gets no reading: pinyin of it would be a wrong na
   assert.equal(creditScript('竜崎いち'), 'kana+han');
 });
 
-test('every Han artist written with a character only Japanese uses is on the reviewed list', () => {
-  const han = creditDatabase('artists').people.map((p) => p.name).filter((name) => creditScript(name) === 'han');
-  const unlisted = han.filter((name) => JAPANESE_ONLY_HAN.test(name) && !JAPANESE_HAN_ARTISTS.includes(name));
-  assert.deepEqual(unlisted, [], 'add these to JAPANESE_HAN_ARTISTS (scripts/lib/credit-romanization.ts) once checked');
+/* Not a check on the live artist list: a new artist must never hold a content release (the
+   no-redeploy rule). A Han name with a character only Japanese writes gets no reading whether
+   or not it is listed (isJapaneseHanName), so an unlisted one is safe, just unaliased. */
+test('a Han artist written with a character only Japanese uses gets no pinyin, listed or not', () => {
+  assert.deepEqual(creditNameAliases({ kind: 'artist', name: '黒田' }), []);
+  assert.ok(isJapaneseHanName({ kind: 'artist', name: '黒田' }));
   for (const name of JAPANESE_HAN_ARTISTS) assert.ok(creditScript(name) === 'han', `${name} is a Han-only name`);
 });
 
