@@ -1,18 +1,26 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 // @ts-expect-error Node publication scripts are plain JavaScript.
-import { bulletinKind, cleanTitle, maybeMaintenance, noticeDate, OFFICIAL_BULLETINS, parseJumpLink, parseMaintenance, stableUrl, syncOfficialBulletins } from '../sync/sync-official-bulletins.mjs';
+import { bulletinKind, cleanTitle, isPicture, maybeMaintenance, noticeDate, OFFICIAL_BULLETINS, parseJumpLink, parseMaintenance, siteHeadline, SMALLER_COPIES, stableUrl, syncOfficialBulletins } from '../sync/sync-official-bulletins.mjs';
 // @ts-expect-error Node publication scripts are plain JavaScript.
-import { OFFICIAL_USER_AGENT } from '../lib/official-endpoints.mjs';
+import { OFFICIAL_USER_AGENT, SITE_HEADLINES } from '../lib/official-endpoints.mjs';
+// @ts-expect-error Node publication scripts are plain JavaScript.
+import { MAX_ART_BYTES } from '../sync/regional-board.mjs';
 
 const NOW = new Date('2026-10-18T12:00:00Z');
 const config = (host: string, an: string | null) => ({ content: JSON.stringify({ funcVer: 'V1', configs: { V1: { network: {
   hv: `https://${host}/assetbundle/official/{0}/version`, hu: `https://${host}/assetbundle/official`,
   ...(an ? { an: `https://${host}/announce/{0}/announcement.meta.json` } : {}), prean: `https://webview.${host}` } } } }) });
 const HOSTS: Record<string, string> = { en: 'en.test', jp: 'jp.test', kr: 'kr.test', cn: 'cn.test' };
+
+// The first bytes of a PNG, a JPEG and a WebP, and enough after them to be one.
+const PNG = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(8)]);
+const JPEG = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(8)]);
+const WEBP = Buffer.concat([Buffer.from('RIFF'), Buffer.alloc(4), Buffer.from('WEBP'), Buffer.alloc(4)]);
 
 type Answer = { status?: number; json?: unknown; bytes?: Buffer };
 function server(answers: Record<string, Answer>, seen: string[] = [], agents: string[] = []) {
@@ -42,6 +50,10 @@ function boards(extra: Record<string, Answer> = {}) {
     answers[`https://webview.${host}/api/game/bulletin/0001`] = { json: { data: { cid: '0001', jumpLink: '', bannerImageUrl: '', header: '' } } };
     answers[`https://${host}/announce/Android/announcement.meta.json`] = { json: { announceList: [] } };
   }
+  // KR's official site and its headline (the answer's shape as www.arknights.kr gave it, 2026-10-21).
+  answers[SITE_HEADLINES.kr] = { json: { code: 0, data: { versionName: "'임계 상전이' 메인 트레일러(PV)", image: 'https://site.test/2026/10/12/hero.png',
+    imageM: 'https://site.test/2026/10/12/phone.png', videoImage: 'https://site.test/2026/10/12/still.png', video: 'https://site.test/2026/10/12/pv.mp4' } } };
+  answers['https://site.test/2026/10/12/still.png'] = { bytes: PNG };
   return { ...answers, ...extra };
 }
 
@@ -190,6 +202,91 @@ test('an image that cannot be hashed keeps its address and is hashed on a later 
     assert.equal(read(root).regions.en.bulletins.find((b: any) => b.id === '0100').image.bytes, 3);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("KR's official site headline is kept once per picture, with its name and hash, after the site moves on", async () => {
+  const root = tmp();
+  try {
+    const { problems, added } = await syncOfficialBulletins(root, options(server(boards())));
+    assert.deepEqual(problems, []);
+    assert.equal(added.kr, 2, "the board's item and the site's headline");
+    const still = { url: 'https://site.test/2026/10/12/still.png', sha1: crypto.createHash('sha1').update(PNG).digest('hex'), bytes: PNG.length };
+    assert.deepEqual(read(root).regions.kr.headlines, [{ title: "'임계 상전이' 메인 트레일러(PV)", image: still, firstSeen: '2026-10-18' }]);
+    assert.equal(read(root).regions.jp.headlines, undefined, 'only KR reads a site headline');
+    // The next event's headline: both stay, newest first, and the first is not hashed again.
+    const seen: string[] = [];
+    await syncOfficialBulletins(root, { ...options(server(boards({
+      [SITE_HEADLINES.kr]: { json: { data: { versionName: '다음 이벤트', videoImage: 'https://site.test/2026/11/01/next.png' } } },
+      'https://site.test/2026/11/01/next.png': { bytes: JPEG },
+    }), seen)), now: new Date('2026-11-02T00:00:00Z') });
+    assert.deepEqual(read(root).regions.kr.headlines.map((h: any) => [h.title, h.firstSeen]), [['다음 이벤트', '2026-11-02'], ["'임계 상전이' 메인 트레일러(PV)", '2026-10-18']]);
+    assert.ok(!seen.includes(still.url));
+    // A site that cannot be read, or that names no headline, keeps the headlines seen before.
+    for (const answer of [{ status: 503 }, { json: { data: { versionName: '' } } }]) {
+      const result = await syncOfficialBulletins(root, { ...options(server(boards({ [SITE_HEADLINES.kr]: answer }))), now: new Date('2026-11-02T00:00:00Z') });
+      assert.deepEqual(result.problems.map((p: any) => [p.key, p.action]), [['official-bulletins:kr:site', 'kept-previous']]);
+      assert.equal(read(root).regions.kr.headlines.length, 2);
+    }
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("the site's headline is the trailer's still, else the page's hero; a picture is told by its first bytes", () => {
+  assert.deepEqual(siteHeadline({ versionName: ' A\\nB ', videoImage: 'https://x.test/still.png', image: 'https://x.test/hero.png' }), { title: 'A B', url: 'https://x.test/still.png' });
+  assert.deepEqual(siteHeadline({ versionName: 'A', image: 'https://x.test/hero.png' }), { title: 'A', url: 'https://x.test/hero.png' });
+  assert.throws(() => siteHeadline({ versionName: 'A', videoImage: 'http://x.test/still.png' }), /layout/);
+  assert.throws(() => siteHeadline(undefined), /layout/);
+  assert.ok(isPicture(PNG) && isPicture(JPEG) && isPicture(WEBP));
+  assert.ok(!isPicture(Buffer.from('<html>not found</html>')) && !isPicture(undefined));
+});
+
+test('an oversize picture is asked of its host once more, smaller, and kept beside the original', async () => {
+  const root = tmp();
+  const big = 'https://kr.test/announce/images/20261008/big.jpg';
+  const original = Buffer.concat([JPEG, Buffer.alloc(MAX_ART_BYTES)]);
+  const banner = (extra: Record<string, Answer>) => boards({
+    'https://webview.kr.test/api/game/bulletinList?target=Android': { json: { data: { list: [{ cid: '2002', title: '일반 헤드헌팅', category: 1, displayTime: '2026-10-09' }] } } },
+    'https://webview.kr.test/api/game/bulletin/2002': { json: { data: { cid: '2002', jumpLink: 'uniwebview://move?target=recruit&param1=DOUBLE_KR_41_0_9', bannerImageUrl: big } } },
+    [big]: { bytes: original },
+    ...extra,
+  });
+  const image = () => read(root).regions.kr.bulletins.find((b: any) => b.id === '2002').image;
+  try {
+    // The host's request fails: no answer yet, asked again the next run.
+    await syncOfficialBulletins(root, options(server(banner({ [`${big}?${SMALLER_COPIES[0]}`]: { status: 502 } }))));
+    assert.equal(image().bytes, original.length);
+    assert.equal(image().small, undefined);
+    // KR's host re-encodes it as WebP at the same size: kept with its own hash; the original's stays.
+    const seen: string[] = [];
+    await syncOfficialBulletins(root, options(server(banner({ [`${big}?${SMALLER_COPIES[0]}`]: { bytes: WEBP } }), seen)));
+    assert.ok(!seen.includes(big), 'the original is not hashed again');
+    assert.deepEqual(image(), { url: big, sha1: crypto.createHash('sha1').update(original).digest('hex'), bytes: original.length,
+      small: { url: `${big}?${SMALLER_COPIES[0]}`, sha1: crypto.createHash('sha1').update(WEBP).digest('hex'), bytes: WEBP.length } });
+    // Asked once: a later run asks nothing.
+    const later: string[] = [];
+    await syncOfficialBulletins(root, options(server(banner({}), later)));
+    assert.ok(!later.some(url => url.startsWith(big)));
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+  // A host without image processing answers every query with the original: none, and not asked again.
+  const other = tmp();
+  try {
+    const plain = boards({
+      'https://webview.jp.test/api/game/bulletinList?target=Android': { json: { data: { list: [{ cid: '0042', title: 'Big', category: 1, displayTime: '2026-10-09' }] } } },
+      'https://webview.jp.test/api/game/bulletin/0042': { json: { data: { cid: '0042', jumpLink: 'uniwebview://move?target=recruit&param1=P', bannerImageUrl: big } } },
+      [big]: { bytes: original },
+      ...Object.fromEntries(SMALLER_COPIES.map((query: string) => [`${big}?${query}`, { bytes: original }])),
+    });
+    await syncOfficialBulletins(other, options(server(plain)));
+    assert.equal(read(other).regions.jp.bulletins.find((b: any) => b.id === '0042').image.small, null);
+    const seen: string[] = [];
+    await syncOfficialBulletins(other, options(server(plain, seen)));
+    assert.ok(!seen.some(url => url.startsWith(big)));
+  } finally {
+    fs.rmSync(other, { recursive: true, force: true });
   }
 });
 
