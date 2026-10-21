@@ -57,7 +57,7 @@ export const EVENTS: CommunityEvent[] = [
     lat: -6.2088,
     lng: 106.8456,
     startTime: '2026-08-20T17:00:00Z',
-    endTime: '2026-09-05T17:00:00Z',
+    endTime: '2026-09-05T16:59:00Z',
     url: 'https://x.com/AKEndfieldID/status/2086769745706316279',
   },
   // Two-day pop-up for the "Sanctuary of Ink" version at Tokyu Plaza Omotesando
@@ -69,7 +69,7 @@ export const EVENTS: CommunityEvent[] = [
     lat: 35.6688,
     lng: 139.7055,
     startTime: '2026-10-17T00:00:00+09:00',
-    endTime: '2026-10-19T00:00:00+09:00',
+    endTime: '2026-10-18T23:59:00+09:00',
     url: 'https://prtimes.jp/main/html/rd/p/000000045.000126152.html',
   },
   // Endfield booth at gamescom asia x Thailand Game Show (QSNCC, Bangkok): playable
@@ -93,7 +93,7 @@ export const EVENTS: CommunityEvent[] = [
     lat: 35.6762,
     lng: 139.6503,
     startTime: '2026-11-10T00:00:00+09:00',
-    endTime: '2027-02-11T00:00:00+09:00',
+    endTime: '2027-02-10T23:59:00+09:00',
     url: 'https://prtimes.jp/main/html/rd/p/000000044.000126152.html',
   },
   // Korean first-anniversary festival ("Endfield Only Event") at KINTEX Exhibition
@@ -105,7 +105,7 @@ export const EVENTS: CommunityEvent[] = [
     lat: 37.6697,
     lng: 126.7437,
     startTime: '2027-01-09T00:00:00+09:00',
-    endTime: '2027-01-11T00:00:00+09:00',
+    endTime: '2027-01-10T23:59:00+09:00',
     url: 'https://x.com/AKEndfieldKR/status/2109539569381355768',
   },
   // Japanese first-anniversary festival at Makuhari Messe International Exhibition
@@ -116,7 +116,7 @@ export const EVENTS: CommunityEvent[] = [
     lat: 35.6480,
     lng: 140.0346,
     startTime: '2027-01-10T00:00:00+09:00',
-    endTime: '2027-01-12T00:00:00+09:00',
+    endTime: '2027-01-11T23:59:00+09:00',
     url: 'https://x.com/AKEndfieldJP/status/2107449958416953597',
   },
 ];
