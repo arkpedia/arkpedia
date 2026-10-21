@@ -44,7 +44,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
     fixed: [
       { title: 'JP and KR list everything Global does', detail: 'Upcoming events, predicted banners and the same order as Global, on that server\'s own dates.', href: '/schedule' },
-      { title: '6★ stages count as Adverse Environment', detail: 'Leaving out Adverse Environment also leaves out 6★ stages such as 17-10 6★.', href: '/free-op' },
+      { title: 'Adverse Combat counts as Adverse Environment', detail: 'Leaving out Adverse Environment also leaves out the newer chapters\' Adverse Combat stages.', href: '/free-op' },
       { title: 'Account import ticks more rewards', detail: 'Event and Archive missions, Record Restoration, sign-ins and welfare operators in your roster are ticked.', href: '/free-op' },
       { title: 'Lighter event pages', detail: 'Event pages load much less data.' },
       { title: 'Character icons in music', detail: "Characters credited under a different spelling, such as Kal'tsit Esperanta, show their icon.", href: '/music/discover' },

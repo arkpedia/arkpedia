@@ -12,7 +12,7 @@
  *   adverse    a main-story Adverse Environment stage (tough_11-01): diffGroup TOUGH, which
  *              the record carries as variant 'adverse_environment'. H stages excepted.
  *              And, since Episode 15, the main story's harder variant in its place: the
- *              six-star stage (main_17-09#s, shown "17-10 6★"), stage_table difficulty
+ *              six-star stage (main_17-09#s, shown "17-10 Adverse Combat", the game's name for the mode), stage_table difficulty
  *              SIX_STAR (diffGroup NONE), which the record carries as difficulty.tier
  *              'six_star'. Episodes 15 to 17 have 45 of them on Global (2026-10).
  *   s          an event's S stage (NL-S-1, CW-S-1-A): an activity stage coded <EVENT>-S-<n>.
@@ -58,8 +58,8 @@ interface Staged { id: string; op: number; stages?: string[]; stageCodes?: strin
  * An item whose stages or kinds the release does not name stays whole.
  */
 /* A release compiled before six-star stages were Adverse Environment (stageKindsOf) gave them
-   no kind; its stage label still says what they are ("17-10 6★", build-pull-sources.ts). */
-const SIX_STAR_LABEL = / 6★$/;
+   no kind; its stage label still says what they are ("17-10 Adverse Combat", build-pull-sources.ts; a release from before 2026-10-21 wrote "17-10 6★"). */
+const SIX_STAR_LABEL = / (?:Adverse Combat|6★)$/;
 const kindsAt = (kinds: StageKind[], code: string | undefined): StageKind[] =>
   code && SIX_STAR_LABEL.test(code) && !kinds.includes('adverse') ? [...kinds, 'adverse'] : kinds;
 
