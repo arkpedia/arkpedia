@@ -6,6 +6,66 @@ import { CommunityEvent } from './eventTypes';
 // omitted, an event is considered "live" for 24h after it starts.
 // ---------------------------------------------------------------------
 export const EVENTS: CommunityEvent[] = [
+  // Official Arknights collaborations in Korea, from the KR official Naver Cafe notices
+  // (cafe 29703924). Times are KST; where a notice gives dates without hours, the record
+  // spans whole days. Pins are approximate: the venue's district or the city.
+  //
+  // Banolim Pizza menu collab at stores across Korea: two collab sets, and a themed box
+  // with an L-size order. The notice gives 10/16 (Fri) to 11/08 (Sun), no hours.
+  {
+    name: 'Arknights x Banolim Pizza',
+    country: 'South Korea',
+    lat: 37.5665,
+    lng: 126.9780,
+    startTime: '2026-10-16T00:00:00+09:00',
+    endTime: '2026-11-08T23:59:00+09:00',
+    url: 'https://cafe.naver.com/f-e/cafes/29703924/articles/1248495',
+    kind: 'collab',
+  },
+  // Two-day "Special Corner" at Banolim Pizza's Seocho store (Banpo-daero 27-gil, Seoul):
+  // reservation-only visits with collab goods and a lucky draw, 10:00-17:40 both days.
+  {
+    name: 'Arknights x Banolim Pizza Special Corner (Seocho)',
+    country: 'South Korea',
+    lat: 37.4920,
+    lng: 127.0110,
+    startTime: '2026-10-24T10:00:00+09:00',
+    endTime: '2026-10-25T17:40:00+09:00',
+    url: 'https://cafe.naver.com/f-e/cafes/29703924/articles/1248505',
+    kind: 'collab',
+  },
+  // animate cafe collab: Hongdae and Jamsil Lotte (a Gratte collab) from 10/16, Busan from
+  // 10/30, all to 11/17 (Tue). Hours differ by store and were not given in the notice.
+  {
+    name: 'Arknights x animate cafe (Hongdae)',
+    country: 'South Korea',
+    lat: 37.5563,
+    lng: 126.9236,
+    startTime: '2026-10-16T00:00:00+09:00',
+    endTime: '2026-11-17T23:59:00+09:00',
+    url: 'https://cafe.naver.com/f-e/cafes/29703924/articles/1247801',
+    kind: 'collab',
+  },
+  {
+    name: 'Arknights x animate Gratte (Jamsil Lotte)',
+    country: 'South Korea',
+    lat: 37.5113,
+    lng: 127.0980,
+    startTime: '2026-10-16T00:00:00+09:00',
+    endTime: '2026-11-17T23:59:00+09:00',
+    url: 'https://cafe.naver.com/f-e/cafes/29703924/articles/1247801',
+    kind: 'collab',
+  },
+  {
+    name: 'Arknights x animate cafe (Busan)',
+    country: 'South Korea',
+    lat: 35.1577,
+    lng: 129.0596,
+    startTime: '2026-10-30T00:00:00+09:00',
+    endTime: '2026-11-17T23:59:00+09:00',
+    url: 'https://cafe.naver.com/f-e/cafes/29703924/articles/1247801',
+    kind: 'collab',
+  },
   {
     name: 'Anime NYC',
     country: 'USA',

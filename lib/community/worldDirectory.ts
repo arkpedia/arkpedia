@@ -1,6 +1,8 @@
 export type WorldCategory = 'offline' | 'web' | 'youtube' | 'twitch' | 'discord' | 'cosplay' | 'art' | 'music';
 export interface WorldCreator { name: string; category: 'cosplay' | 'art' | 'music'; url: string; works: { title: string; character: string; image: string; source: string }[] }
-export interface WorldWebEvent { name: string; start: string; end: string; url: string; region?: string; closingTime?: string; expiresAt?: string; opensAt?: string; image?: string; sourceUrl?: string; windowSource?: string }
+export interface WorldWebEvent { name: string; start: string; end: string; url: string; region?: string; closingTime?: string; expiresAt?: string; opensAt?: string; image?: string; sourceUrl?: string; windowSource?: string;
+  /** Runs on social media or a community board (X, YouTube, Naver Cafe) rather than on its own campaign page: the card labels it "Social". */
+  kind?: 'social' }
 export interface WorldDirectory { creators: WorldCreator[]; webEvents: WorldWebEvent[]; discord: { name: string; url: string }[] }
 /** The deadline is exclusive: a campaign ending at 11:59 is open through that minute. */
 export function currentWebEvents(events: WorldWebEvent[], now: number): WorldWebEvent[] {
