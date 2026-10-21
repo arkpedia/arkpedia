@@ -7,7 +7,7 @@ export interface FreeReward {
   startAt?: number;
   endAt?: number;
   href?: string;
-  /** A welfare operator's event: the one whose missions give it ('Welfare operators'). */
+  /** A welfare operator's event: the one whose missions or Record Restoration give it ('Welfare operators'). */
   event?: string;
   /** Permanent currencies that are not already forecast as scheduled event rewards. */
   forecast: boolean;
@@ -43,9 +43,11 @@ export function freeRewardTotals(rewards: FreeReward[], done: ReadonlySet<string
 export const isOperatorReward = (item: FreeReward['rewards'][number]) => !!item.rarity || /^char_[^@#]+$/.test(item.id);
 
 /** The free operators still to claim right now: every available, unclaimed row that gives an
- *  operator (a welfare operator's missions, or a sign-in day), soonest to close first. */
+ *  operator (a welfare operator's missions or Record Restoration, or a sign-in day), soonest to
+ *  close first; of those with no end (permanent missions, the Archives), the newest first. */
 export function freeOperatorsToClaim(rewards: FreeReward[], done: ReadonlySet<string>, now: number) {
   return rewards.filter(reward => !done.has(reward.id) && freeRewardAvailable(reward, now))
     .flatMap(reward => reward.rewards.filter(isOperatorReward).map(item => ({ reward, operator: item })))
-    .sort((a, b) => (a.reward.endAt ?? Infinity) - (b.reward.endAt ?? Infinity) || a.operator.name.localeCompare(b.operator.name));
+    .sort((a, b) => (a.reward.endAt ?? Infinity) - (b.reward.endAt ?? Infinity) || (b.reward.startAt ?? 0) - (a.reward.startAt ?? 0)
+      || a.operator.name.localeCompare(b.operator.name));
 }

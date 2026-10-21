@@ -10,7 +10,7 @@ const operatorRarity = character => {
   return tier ? Number(tier[1]) : Number.isInteger(character?.rarity) && character.rarity >= 0 && character.rarity <= 5 ? character.rarity + 1 : undefined;
 };
 /** Global client rewards only. Paid login packages and banner-only permits are never savings. */
-export function buildFreeRewards({ handbook, missions, openServer, checkin, activity, items, characters, shops, eventRewards = { events: {} }, announcements = { events: {} } }) {
+export function buildFreeRewards({ handbook, missions, openServer, checkin, activity, items, characters, shops, retro = { retroActList: {}, retroTrailList: {} }, eventRewards = { events: {} }, announcements = { events: {} } }) {
   const names = items.items;
   const rewardItems = rewards => (Array.isArray(rewards) ? rewards : []).map(item => {
     const id = item.id ?? item.itemId, type = item.type ?? item.itemType;
@@ -52,12 +52,18 @@ export function buildFreeRewards({ handbook, missions, openServer, checkin, acti
   for (const milestone of openServer.longTermCheckInData?.groupList ?? []) add(milestone.groupId, 'Sign-in milestones', `${milestone.days} sign-in days · Doctor Lv.${milestone.level}`, milestone.rewardList);
   for (const month of Object.values(checkin.groups)) month.items.forEach((item, index) =>
     add(`${month.groupId}:${index + 1}`, 'Monthly sign-in', `${month.title} · Day ${index + 1}`, [item], { startAt: month.signStartTime * 1000, endAt: (month.signEndTime + 1) * 1000 }));
+  /* Each client sign-in's days, as the counts of its items: an official post announcing the
+     same sign-in under another title and its own item names is that sign-in, not a second one. */
+  const clientSignIns = [];
+  const dayCounts = list => JSON.stringify((Array.isArray(list) ? list : []).map(item => Number(item.count)).sort((a, b) => a - b));
   for (const type of ['CHECKIN_ONLY', 'CHECKIN_ALL_PLAYER', 'CHECKIN_VS', 'LOGIN_ONLY']) for (const [id, event] of Object.entries(activity.activity[type] ?? {})) {
     const info = activity.basicInfo[id];
     if (!info) throw new Error(`Missing Global sign-in dates: ${id}`);
     const timing = { startAt: info.startTime * 1000, endAt: (info.rewardEndTime + 1) * 1000 };
     if (type === 'LOGIN_ONLY') add(id, 'Event sign-in and gifts', info.name, event.itemList, timing);
-    for (const day of Object.values(event.checkInList ?? event.checkInDict ?? {})) {
+    const days = Object.values(event.checkInList ?? event.checkInDict ?? {});
+    if (days.length) clientSignIns.push({ startAt: timing.startAt, days: [...days].sort((a, b) => a.order - b.order).map(day => day.isDynItem ? 'choice' : dayCounts(day.itemList ?? day.rewardList)) });
+    for (const day of days) {
       add(`${id}:${day.order}`, 'Event sign-in and gifts', `${info.name} · Day ${day.order}`, day.isDynItem ? [{ id: `${id}:choice`, name: 'Choice reward (choose one in game)', count: 1 }] : day.itemList ?? day.rewardList, timing);
     }
     for (const bonus of Object.values(event.pubBhvs ?? {})) add(`${id}:${bonus.allBehaviorId}`, 'Event sign-in and gifts', `${info.name} · ${bonus.allBehaviorDesc}`, bonus.rewards, timing);
@@ -80,6 +86,12 @@ export function buildFreeRewards({ handbook, missions, openServer, checkin, acti
     if (recorded.length && totals(recorded.flatMap(reward => reward.rewards)) === totals(rewardItems(group.items))) continue;
     const daily = group.kind === 'login' && group.days > 1 && group.items?.length && group.items.every(item => item.count % group.days === 0);
     const days = group.daily?.length ? group.daily : daily ? Array.from({ length: group.days }, () => group.items.map(item => ({ ...item, count: item.count / group.days }))) : [group.items];
+    // The client's own sign-in, announced under the post's title (2026-10-14: '2026 CELEBRATION
+    // SIGN-IN EVENT OPEN' was act59sign): opening within a day of it, day for day the same counts.
+    // Kept, it was a second, never-imported copy of every day, counted twice in the totals.
+    const announced = days.map(dayCounts);
+    if (group.kind === 'login' && clientSignIns.some(signIn => Math.abs(signIn.startAt - startAt) < 86_400_000 && signIn.days.length === announced.length
+      && signIn.days.every((counts, index) => counts === 'choice' || counts === announced[index]))) continue;
     days.forEach((items, index) => {
       if (!items?.length) return;
       const identity = `${eventName}:${group.title}:${index}`;
@@ -90,19 +102,89 @@ export function buildFreeRewards({ handbook, missions, openServer, checkin, acti
         { startAt, endAt, href: `/events/${encodeURIComponent(eventName)}` });
     });
   }
-  /* Welfare operators: the operator an event's missions give (activity_table missionData, as
-     data/event-rewards.json lists it), claimable while the event's stages are open
-     (basicInfo startTime to endTime), as the roster's Now Available counts an event's own
-     operator (lib/operators/operatorReleaseSchedule.ts). Global only. A sign-in's operator is
-     already a day of its sign-in above. */
-  for (const [eventName, entry] of Object.entries(eventRewards.events)) for (const group of entry.groups ?? []) {
-    if (group.kind !== 'missions' || (group.region ?? entry.region ?? 'Global') !== 'Global' || !entry.activity) continue;
-    const info = activity.basicInfo[entry.activity];
-    if (!info?.startTime || !info?.endTime) continue;
-    for (const item of group.items ?? []) {
-      if (item.kind !== 'operator' || !item.id?.startsWith('char_') || out.some(reward => reward.id === `free:welfare:${entry.activity}:${item.id}`)) continue;
-      add(`welfare:${entry.activity}:${item.id}`, 'Welfare operators', characters[item.id]?.name ?? item.name, [{ id: item.id, type: 'CHAR', count: 1 }],
-        { startAt: info.startTime * 1000, endAt: (info.endTime + 1) * 1000, event: clean(info.name) || eventName, href: `/events/${encodeURIComponent(eventName)}` });
+  /* Welfare operators: every free operator the Global tables give outside sign-ins (a sign-in's
+     operator is already a day of its sign-in above), each where the game records its claim, so an
+     import ticks it (lib/account/rewardClaims.ts). Global only; JP/KR keep a row only through
+     their own schedule's window (lib/time/regional.ts).
+       - An event's missions (activity_table missionData, a CHAR reward): a side story's 4- or
+         5-star. Claimable while the event's stages are open (basicInfo startTime to endTime), as
+         the roster's Now Available counts an event's own operator
+         (lib/operators/operatorReleaseSchedule.ts). Identity: the mission id.
+       - A main-story event's permanent missions (mission_table, type RETRO, a CHAR reward), whose
+         group retro_table links to the event: Viy, act4mainssPermanent_5 'Clear 17-13', for
+         Critical Phase Transition (act4mainss). The group outlives the event (Archives), so the
+         row opens with the event and has no end. Identity: the mission id.
+       - An archived story's Record Restoration (retro_table retroTrailList, a CHAR reward): the
+         side story's operator again, for its stars, from trailStartTime with no end. Identity:
+         trail:<retro id>:<trail reward id>, as the account keys it (retro.trail): the reward ids
+         alone repeat (Twilight of Wolumonde's is Darknights Memoir's trailReward_sub_1_1).
+       - Anything else an event's own data gives (milestones, exploration, investments: a CHAR
+         item in activity_table.activity), while its stages are open. Manual: the account has no
+         per-reward record of these.
+     Stage first clears give operators only in the tutorial and the first chapters (permanent,
+     not an event's); no Global event store sells an operator, only its tokens. */
+  const eventHref = activityId => {
+    if (!activityId) return {};
+    const name = Object.keys(eventRewards.events).find(event => eventRewards.events[event]?.activity === activityId);
+    return name ? { href: `/events/${encodeURIComponent(name)}` } : {};
+  };
+  const operators = [];
+  const welfare = (id, charId, how, activityId, window) => {
+    if (!characters[charId] || out.some(reward => reward.id === `free:${id}`)) return;
+    const info = activity.basicInfo[activityId];
+    operators.push({ charId, activityId, retroId: window.retroId });
+    add(id, 'Welfare operators', `${characters[charId].name} · ${how}`, [{ id: charId, type: 'CHAR', count: 1 }],
+      { startAt: window.startAt, ...(window.endAt ? { endAt: window.endAt } : {}), event: clean(window.event ?? info?.name) || activityId, ...eventHref(activityId) });
+  };
+  const eventWindow = activityId => {
+    const info = activity.basicInfo[activityId];
+    return info?.startTime && info?.endTime ? { startAt: info.startTime * 1000, endAt: (info.endTime + 1) * 1000 } : null;
+  };
+  const isOperator = reward => (reward?.type ?? reward?.itemType) === 'CHAR' && String(reward?.id ?? reward?.itemId).startsWith('char_');
+  for (const mission of activity.missionData ?? []) for (const reward of mission.rewards ?? []) {
+    const window = isOperator(reward) && eventWindow(mission.missionGroup);
+    if (window) welfare(mission.id, reward.id, `Event missions: ${clean(mission.description)}`, mission.missionGroup, window);
+  }
+  // The event a retro group belongs to: the one it is named for, else the first it links.
+  const retroActivity = retroId => {
+    const act = retro.retroActList?.[retroId];
+    return act ? [act.customActId, ...(act.linkedActId ?? [])].find(id => id && activity.basicInfo[id]) : undefined;
+  };
+  for (const mission of Object.values(missions.missions)) {
+    if (mission.type !== 'RETRO') continue;
+    for (const reward of mission.rewards ?? []) {
+      const activityId = isOperator(reward) && retroActivity(mission.missionGroup);
+      const window = activityId && eventWindow(activityId);
+      if (window) welfare(mission.id, reward.id, `Event missions (permanent): ${clean(mission.description)}`, activityId, { startAt: window.startAt, retroId: mission.missionGroup });
+    }
+  }
+  for (const [retroId, trail] of Object.entries(retro.retroTrailList ?? {})) for (const step of trail.trailRewardList ?? []) {
+    const act = retro.retroActList?.[retroId];
+    const opens = trail.trailStartTime > 0 ? trail.trailStartTime : act?.startTime;
+    if (!isOperator(step.rewardItem) || !act || !(opens > 0)) continue;
+    welfare(`trail:${retroId}:${step.trailRewardId}`, step.rewardItem.id, `Record Restoration: ${step.starCount} stars`, retroActivity(retroId), { startAt: opens * 1000, event: act.name, retroId });
+  }
+  const checkIns = new Set(['CHECKIN_ONLY', 'CHECKIN_ALL_PLAYER', 'CHECKIN_VS', 'LOGIN_ONLY']);
+  for (const [type, events] of Object.entries(activity.activity)) if (!checkIns.has(type)) for (const [activityId, data] of Object.entries(events ?? {})) {
+    const window = eventWindow(activityId);
+    if (!window) continue;
+    const found = new Set();
+    const walk = value => {
+      if (Array.isArray(value)) value.forEach(walk);
+      else if (value && typeof value === 'object') { if (isOperator(value)) found.add(value.id ?? value.itemId); else Object.values(value).forEach(walk); }
+    };
+    walk(data);
+    for (const charId of found) if (!operators.some(row => row.activityId === activityId && row.charId === charId)) {
+      welfare(`welfare:${activityId}:${charId}`, charId, 'Event rewards', activityId, window);
+    }
+  }
+  // Every operator the client's event mission pages feature (ILLUST_CHAR_REWARD) has its row:
+  // Viy's page featured her while no table this builder read gave her, and nothing said so.
+  for (const [page, style] of Object.entries(activity.activityTemplateMissionStyles ?? {})) {
+    if (style?.bigRewardType !== 'ILLUST_CHAR_REWARD') continue;
+    const charId = style.bigRewardParamList?.[0];
+    if (!operators.some(row => row.charId === charId && (row.activityId === page || row.retroId === page))) {
+      throw new Error(`Welfare operator without a row: ${charId} featured by ${page}'s missions`);
     }
   }
   // The client names these free packs but does not publish their contents here. Track the claim, without inventing currency.
@@ -121,7 +203,7 @@ export function buildFreeRewards({ handbook, missions, openServer, checkin, acti
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
   const excel = process.env.ARKPEDIA_EN_EXCEL ?? '.cache/upstream/en-gamedata/en/gamedata/excel';
   const read = name => JSON.parse(fs.readFileSync(path.join(excel, `${name}_table.json`), 'utf8'));
-  const data = buildFreeRewards({ handbook: read('handbook_info'), missions: read('mission'), openServer: read('open_server'), checkin: read('checkin'), activity: read('activity'), items: read('item'), characters: read('character'), shops: read('shop_client'), eventRewards: JSON.parse(fs.readFileSync('data/event-rewards.json', 'utf8')), announcements: JSON.parse(fs.readFileSync('config/event-announcements.json', 'utf8')) });
+  const data = buildFreeRewards({ handbook: read('handbook_info'), missions: read('mission'), openServer: read('open_server'), checkin: read('checkin'), activity: read('activity'), items: read('item'), characters: read('character'), shops: read('shop_client'), retro: read('retro'), eventRewards: JSON.parse(fs.readFileSync('data/event-rewards.json', 'utf8')), announcements: JSON.parse(fs.readFileSync('config/event-announcements.json', 'utf8')) });
   fs.writeFileSync('data/free-rewards.json', JSON.stringify(data, null, 2) + '\n');
   console.log(`${data.paradox.length} Paradox Simulations; ${data.rewards.length} free reward claims`);
 }

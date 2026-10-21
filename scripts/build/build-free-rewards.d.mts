@@ -10,6 +10,7 @@ export function buildFreeRewards(tables: {
   items: unknown;
   characters: unknown;
   shops: unknown;
+  retro?: unknown;
   eventRewards?: unknown;
   announcements?: unknown;
 }): { paradox: { id: string; name: string; amount: number }[]; rewards: FreeReward[]; beginnerRewards: FreeReward[] };
