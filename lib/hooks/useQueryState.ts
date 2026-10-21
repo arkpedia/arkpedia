@@ -88,3 +88,77 @@ export function useQueryState(key: string, defaultValue = ''): [string, (v: stri
 
   return [value, set];
 }
+
+/**
+ * useQueryState for a set of keys that change together: a toolbar whose Reset clears
+ * several filters at once. Separate useQueryState hooks each schedule their own write, and
+ * each writes the query it read off the router when it fires, which the write before it
+ * may not have reached yet, so a later write can put back what an earlier one removed.
+ * One record and one debounced write of every key, so a reset reaches the address whole.
+ *
+ * `defaults` names the keys and their defaults; keep it a module constant. A key at its
+ * default (or empty) is left out of the address, as useQueryState does.
+ */
+export function useQueryRecord<K extends string>(defaults: Readonly<Record<K, string>>): [Record<K, string>, (patch: Partial<Record<K, string>>) => void] {
+  const router = useRouter();
+  const [value, setValue] = useState<Record<K, string>>(() => ({ ...defaults }));
+  const valueRef = useRef(value);
+  valueRef.current = value;
+  const appliedRef = useRef(false);
+  const writeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const routerRef = useRef(router);
+  routerRef.current = router;
+
+  useEffect(() => {
+    if (!router.isReady || appliedRef.current) return;
+    appliedRef.current = true;
+    const read: Record<K, string> = { ...defaults };
+    let changed = false;
+    for (const key of Object.keys(defaults) as K[]) {
+      const raw = router.query[key];
+      if (typeof raw === 'string' && raw !== '') { read[key] = raw; changed = true; }
+    }
+    if (changed) setValue(read);
+  }, [router.isReady, router.query, defaults]);
+
+  useEffect(() => () => {
+    if (writeTimerRef.current) clearTimeout(writeTimerRef.current);
+  }, []);
+
+  // A navigation to another page drops the write still waiting for its delay.
+  useEffect(() => {
+    const events = router.events;
+    if (!events) return;
+    const onStart = (url: string) => {
+      if (writeTimerRef.current && leavesPage(routerRef.current.asPath, url)) {
+        clearTimeout(writeTimerRef.current);
+        writeTimerRef.current = null;
+      }
+    };
+    events.on('routeChangeStart', onStart);
+    return () => events.off('routeChangeStart', onStart);
+  }, [router.events]);
+
+  const set = useCallback((patch: Partial<Record<K, string>>) => {
+    const next = { ...valueRef.current, ...patch };
+    valueRef.current = next;
+    setValue(next);
+    if (writeTimerRef.current) clearTimeout(writeTimerRef.current);
+    const page = pathOf(routerRef.current.asPath);
+    writeTimerRef.current = setTimeout(() => {
+      writeTimerRef.current = null;
+      const r = routerRef.current;
+      // Written only on the page it was typed on.
+      if (pathOf(r.asPath) !== page) return;
+      const query = { ...r.query };
+      for (const key of Object.keys(defaults) as K[]) {
+        const v = valueRef.current[key];
+        if (v === defaults[key] || v === '') delete query[key];
+        else query[key] = v;
+      }
+      r.replace({ pathname: r.pathname, query }, undefined, { shallow: true, scroll: false });
+    }, 250);
+  }, [defaults]);
+
+  return [value, set];
+}

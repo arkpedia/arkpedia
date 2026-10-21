@@ -388,6 +388,9 @@ const REGENERATED: Record<string, (props: Record<string, unknown>, clock: { from
     const people = props.people as {name:string;operators:{name:string;credits:string[]}[]}[];
     assert.ok(people.length > 100 && people.every(person => person.name && person.operators.every(op => op.name && op.credits.length)));
     assert.ok(people.some(person => person.operators.some(op => op.name === 'Thorns')));
+    // The source's "-" is not a person: its operators are listed under Uncredited.
+    assert.ok(!people.some(person => person.name.trim() === '-'));
+    assert.ok((props.uncredited as {name:string}[]).some(op => op.name === 'Miss.Christine'));
   },
   '/friends': props => {
     const operators = props.operators as {name:string;rarity:number;icon:string;skills:number}[];
