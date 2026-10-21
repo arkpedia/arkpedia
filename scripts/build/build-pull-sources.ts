@@ -87,7 +87,7 @@ interface StageRecord {
 
 /* A stage's name in the planner's "not cleared" lists. A Challenge Mode or six-star clear
    pays its own Originite Prime under the same code as the stage, so it says which it is. */
-const VARIANT_SUFFIX: Record<string, string> = { challenge_mode: ' CM', six_star: ' 6★' };
+const VARIANT_SUFFIX: Record<string, string> = { challenge_mode: ' CM', six_star: ' Adverse Combat' };
 const stageLabel = (rec: StageRecord) => `${rec.code || rec.id}${VARIANT_SUFFIX[rec.variant?.kind ?? ''] ?? ''}`;
 
 /* Each stage's kinds (lib/pulls/stageKinds.ts), parallel to its ids and codes: what the

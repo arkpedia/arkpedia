@@ -40,7 +40,7 @@ import Tabs, { tabPanelProps } from '@/components/ui/Tabs';
 const STAGE_FILTERS: { kind: StageKind; label: string }[] = [
   { kind: 'challenge', label: 'Exclude Challenge Mode' },
   { kind: 'h', label: 'Exclude H stages' },
-  { kind: 'adverse', label: 'Exclude Adverse Environment and 6★' },
+  { kind: 'adverse', label: 'Exclude Adverse Environment' },
   { kind: 's', label: 'Exclude S stages' },
 ];
 
