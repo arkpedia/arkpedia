@@ -143,3 +143,29 @@ test('/artists: the credit filter keeps outfits, and a search by operator keeps 
   expect(tiles.length).toBeGreaterThan(0);
   for (const name of tiles) expect(name).toMatch(/Thorns/);
 });
+
+test('each credited person is one card: joined credits split, case variants merged', async ({ page }) => {
+  // The list shows forty cards at a time, so each case is found by searching its operator.
+  const cases = [
+    ['/artists', 'Bellone', ['Lowro', 'Studio Montagne']],
+    ['/artists', 'Esperanta', ['海猫络合物', '唯@W', 'Studio Montagne']],
+    ['/artists', 'Blaze the Igniting Spark', ['百慕大飞鱼', 'Mag42', '唯@W']],
+    ['/artists', 'Lappland the Decadenza', ['幻象黑兔', 'Mag42']],
+    ['/artists', 'Makoto Yuki', ['〇亻']],
+    ['/artists', 'Surtr', ['Ask']],
+    ['/artists', 'Bagpipe', ['u介']],
+    ['/voice-actors', 'Passenger', ['Stephen Spencer', 'Georgia Cudby']],
+  ] as const;
+  // The heading's text, not its rendered capitals.
+  const cards = (page: Page) => page.locator('main .credit-person h3').allTextContents();
+  let at = '';
+  for (const [route, search, people] of cases) {
+    if (route !== at) await open(page, (at = route));
+    await page.getByRole('searchbox').fill(search);
+    await expect.poll(() => cards(page), `${route} ${search}`).toEqual(expect.arrayContaining([...people]));
+    const shown = (await cards(page)).map(name => name.trim());
+    expect(shown.filter(name => /&|[,，、]|\(|\s\/\s/.test(name)), `${route} ${search}: joined or annotated names`).toEqual([]);
+    const keys = shown.map(name => name.toLowerCase());
+    expect(keys.filter((key, i) => keys.indexOf(key) !== i), `${route} ${search}: case-only duplicates`).toEqual([]);
+  }
+});

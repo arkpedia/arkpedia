@@ -1,7 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { creditDatabase } from '../../lib/operators/creditDatabase';
-import { artCreditKind, isPlaceholderCredit, letterGroup, letterGroupRank, shortArtCredit } from '../../lib/operators/creditNames';
+import { creditDatabase, creditNameVariants, type CreditKind } from '../../lib/operators/creditDatabase';
+import {
+  CREDIT_NAME_SPELLINGS, JOINT_CREDIT_NAMES, artCreditKind, canonicalCreditSpelling, creditNameKey, creditedPeople, decodeCreditEntities,
+  isPlaceholderCredit, letterGroup, letterGroupRank, shortArtCredit,
+} from '../../lib/operators/creditNames';
 import { publicFileExists } from '../../lib/assets/publicAssets';
 
 test('a placeholder credit names nobody', () => {
@@ -56,4 +59,113 @@ test('names group by letter, script and symbol, in that order', () => {
   assert.equal(shortArtCredit('Operator artwork'), 'Base');
   assert.equal(shortArtCredit('Elite 2'), 'E2');
   assert.equal(shortArtCredit('Summer Flower FA083'), 'Summer Flower FA083');
+});
+
+test('a joined credit is each of its people, entities decoded', () => {
+  const cases: [string, string[]][] = [
+    ['Lowro & Studio Montagne', ['Lowro', 'Studio Montagne']],
+    ['Lowro &amp; Studio Montagne', ['Lowro', 'Studio Montagne']],
+    ['Lowro &amp;amp; Studio Montagne', ['Lowro', 'Studio Montagne']],
+    ['Stephen Spencer & Georgia Cudby', ['Stephen Spencer', 'Georgia Cudby']],
+    ['Stephen Spencer &amp; Georgia Cudby', ['Stephen Spencer', 'Georgia Cudby']],
+    ['幻象黑兔 , Mag42', ['幻象黑兔', 'Mag42']],
+    ['百慕大飞鱼, Mag42', ['百慕大飞鱼', 'Mag42']],
+    ['海猫络合物 & 唯@W', ['海猫络合物', '唯@W']],
+    ['海猫络合物 &#38; 唯@W', ['海猫络合物', '唯@W']],
+    ['海猫络合物、唯@W', ['海猫络合物', '唯@W']],
+    ['幻象黑兔 / Mag42', ['幻象黑兔', 'Mag42']],
+    ['Alessandro\u00a0Pili', ['Alessandro Pili']],
+    ['Mag42, Mag42', ['Mag42']],
+    ['Mag42, -', ['Mag42']],
+    ['-', []],
+    ['唯@W', ['唯@W']],
+    ['D. QQ', ['D. QQ']],
+  ];
+  for (const [raw, people] of cases) assert.deepEqual(creditedPeople(raw), people, raw);
+  assert.equal(decodeCreditEntities('A &quot;B&quot; &lt;C&gt; &#x26; D'), 'A "B" <C> & D');
+});
+
+test('a "(credited as ...)" note is the person it is about', () => {
+  const cases: [string, string][] = [
+    ['〇亻 (credited as "Studio Montagne" in-game)', '〇亻'],
+    ['〇亻 (credited as "Ubisoft" in-game)', '〇亻'],
+    ['Cenm0 (credited as "Ubisoft" in-game)', 'Cenm0'],
+    ['Kumatangent (credited as "熊太")', 'Kumatangent'],
+    ['Liduke (credited as "Ubisoft" in-game)', 'Liduke'],
+    ['m9nokuro (credited as &quot;Ubisoft&quot; in-game)', 'm9nokuro'],
+    ['九日九号 (credited as Studio Montagne in-game)', '九日九号'],
+    ['伍秋秋秋秋 (credited as Studio Montagne in-game)', '伍秋秋秋秋'],
+    ['百慕大飞鱼 (credited as Studio Montagne in-game)', '百慕大飞鱼'],
+    ['Studio Montagne (additional design by Kumatangent)', 'Studio Montagne'],
+    ['KuroBlood (with additional art by 一千 for original design)', 'KuroBlood'],
+  ];
+  for (const [raw, person] of cases) assert.deepEqual(creditedPeople(raw), [person], raw);
+});
+
+test('names differing only in case are one person, under the reviewed spelling', () => {
+  for (const [variants, shown] of [[['Ask', 'ASK'], 'Ask'], [['Hou', 'hou'], 'hou'], [['Infukun', 'infukun'], 'Infukun'], [['Skade', 'skade'], 'Skade'], [['U介', 'u介'], 'u介']] as const) {
+    for (const name of variants) assert.equal(CREDIT_NAME_SPELLINGS[creditNameKey(name)], shown, name);
+    assert.equal(canonicalCreditSpelling(new Map(variants.map(name => [name, 1]))), shown);
+  }
+  // A pair nobody has listed takes the spelling credited on more operators, then a fixed order.
+  assert.equal(canonicalCreditSpelling(new Map([['abc', 1], ['ABC', 4]])), 'ABC');
+  assert.equal(canonicalCreditSpelling(new Map([['abc', 2], ['ABC', 2]])), 'ABC');
+  // Case only: a space or a dot is a different card.
+  assert.notEqual(creditNameKey('Ama Lee'), creditNameKey('AmaLee'));
+});
+
+/** A name still joined, encoded or annotated: what the source strings looked like before. */
+const LEFTOVER = [
+  [/&(?:[a-z]+|#x?[0-9a-f]+);/i, 'an HTML entity'],
+  [/&|＆/, 'an "&"'],
+  [/[,，、;；]|\s[/／]\s/, 'a separator'],
+  [/[()（）]/, 'a note in brackets'],
+  [/\bcredited as\b|\badditional (?:design|art)\b/i, 'a credit note'],
+  [/[^\S ]|\s{2}|^\s|\s$/, 'stray whitespace'],
+] as const;
+
+for (const kind of ['artists', 'voice-actors'] as CreditKind[]) {
+  test(`/${kind}: every person is one person, named once`, () => {
+    const data = creditDatabase(kind);
+    const byKey = new Map<string, string[]>();
+    for (const person of data.people) byKey.set(creditNameKey(person.name), [...(byKey.get(creditNameKey(person.name)) ?? []), person.name]);
+    assert.deepEqual([...byKey.values()].filter(names => names.length > 1), [], 'no two people differ only in case');
+    for (const person of data.people) {
+      if (JOINT_CREDIT_NAMES.includes(person.name)) continue;
+      for (const [pattern, what] of LEFTOVER) assert.ok(!pattern.test(person.name), `${JSON.stringify(person.name)} has ${what}`);
+    }
+    // Every case pair the sources spell two ways is on the reviewed list, so no merge is a guess.
+    for (const [shown, spellings] of creditNameVariants(kind)) {
+      assert.equal(CREDIT_NAME_SPELLINGS[creditNameKey(shown)], shown, `${spellings.join(' / ')}: add the EN tables' spelling to CREDIT_NAME_SPELLINGS`);
+    }
+  });
+}
+
+test('/artists: the joined and annotated credits land on each person', () => {
+  const people = new Map(creditDatabase('artists').people.map(p => [p.name, new Map(p.operators.map(op => [op.name, op.credits]))]));
+  const credited = (person: string, operator: string) => people.get(person)?.get(operator) ?? [];
+  assert.ok(credited('Lowro', 'Bellone').includes('Operator artwork'));
+  assert.ok(credited('Studio Montagne', 'Bellone').includes('Operator artwork'));
+  assert.ok(credited('幻象黑兔', 'Lappland the Decadenza').includes('Unruly Humbleness'));
+  assert.ok(credited('Mag42', 'Lappland the Decadenza').includes('Unruly Humbleness'));
+  assert.ok(credited('百慕大飞鱼', 'Blaze the Igniting Spark').includes('Homecoming Night'));
+  assert.ok(credited('Mag42', 'Blaze the Igniting Spark').includes('Homecoming Night'));
+  assert.ok(credited('海猫络合物', "Kal'tsit - Esperanta").includes('Original design'));
+  assert.ok(credited('唯@W', "Kal'tsit - Esperanta").includes('Original design'));
+  assert.ok(credited('〇亻', 'Makoto Yuki').includes('Operator artwork'));
+  assert.ok(credited('Kumatangent', 'Akafuyu').includes('Operator artwork'));
+  assert.ok(credited('KuroBlood', 'Wang').includes('Operator artwork'));
+  // Both spellings' credits, on one card.
+  assert.ok(credited('Ask', 'Surtr').includes('Operator artwork') && credited('Ask', 'Surtr').includes('Colorful Wonderland CW03'));
+  assert.ok(credited('u介', 'Bagpipe').includes('Operator artwork') && credited('u介', 'Bagpipe').includes('Echo of Bagpipes'));
+  for (const gone of ['ASK', 'Hou', 'infukun', 'skade', 'U介', 'Lowro & Studio Montagne', '幻象黑兔 , Mag42', '百慕大飞鱼, Mag42', '海猫络合物 & 唯@W']) {
+    assert.ok(!people.has(gone), `${gone} is not a card`);
+  }
+});
+
+test('/voice-actors: a joined actor credit is both actors', () => {
+  const people = new Map(creditDatabase('voice-actors').people.map(p => [p.name, new Map(p.operators.map(op => [op.name, op.credits]))]));
+  assert.ok(people.get('Stephen Spencer')?.get('Passenger')?.includes('English'));
+  assert.ok(people.get('Georgia Cudby')?.get('Passenger')?.includes('English'));
+  assert.ok(!people.has('Stephen Spencer & Georgia Cudby'));
 });
