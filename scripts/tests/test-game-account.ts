@@ -70,6 +70,16 @@ test('the account map carries dated beginner programmes without inventing identi
     { id: 'later', startTs: 200 }, { id: 'earlier', startTs: 100 }, { id: '../invalid', startTs: 300 },
   ] } });
   assert.deepEqual(current.beginnerPrograms, [{ id: 'earlier', startTs: 100 }, { id: 'later', startTs: 200 }]);
+  // open_server_table's shape (2026-10-21): each programme's window and its mission group's ids,
+  // which the import reads the save's mission.missionGroups[programme] by. Nothing else is kept.
+  const dated = buildGameAccountMap(records, { ...tables, openServer: {
+    schedule: [{ id: 'openseverTaskGroup1', versionId: 'OpenServer', startTs: 1533898800, endTs: 1733227199, chainLoginDescription: 'text' } as never, { id: 'openseverTaskGroup2', startTs: 1733227200, endTs: 1881658799 }],
+    dataMap: { openseverTaskGroup1: { openServerMissionGroup: { missionIds: ['openserver_1', 'openserver_2', '../bad', 3] } } },
+  } });
+  assert.deepEqual(dated.beginnerPrograms, [
+    { id: 'openseverTaskGroup1', startTs: 1533898800, endTs: 1733227199, missionIds: ['openserver_1', 'openserver_2'] },
+    { id: 'openseverTaskGroup2', startTs: 1733227200, endTs: 1881658799 },
+  ]);
 });
 
 test('a record that no longer lines up with the client fails the map, naming it', () => {

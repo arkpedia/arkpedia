@@ -46,7 +46,7 @@ interface RecordFile {
 
 export interface GameAccountMapFile {
   version: 1;
-  beginnerPrograms?: { id: string; startTs: number; endTs?: number }[];
+  beginnerPrograms?: { id: string; startTs: number; endTs?: number; missionIds?: string[] }[];
   /** character id -> the record's name, by equipment id the planner's module index, and
    *  whether the Global client has it (the account page's operator count). */
   /** formOf: for another form of one character (Amiya's Guard and Medic), the character id
@@ -103,7 +103,7 @@ export function buildGameAccountMap(
     medalTable?: { medalList?: { medalId?: string; medalName?: string }[] };
     /** data/headhunting_banners.json. */
     banners?: { name?: string; globalPoolId?: string | null }[];
-    openServer?: { schedule?: { id: string; startTs: number }[] };
+    openServer?: { schedule?: { id: string; startTs: number; endTs?: number }[]; dataMap?: Record<string, { openServerMissionGroup?: { missionIds?: unknown } | null }> };
   },
 ): GameAccountMapFile {
   const problems: string[] = [];
@@ -168,8 +168,19 @@ export function buildGameAccountMap(
     .filter(([id, skill]) => typeof skill.iconId === 'string' && skill.iconId && skill.iconId !== id)
     .map(([id, skill]) => [id, skill.iconId as string]).sort(([a], [b]) => a.localeCompare(b)));
   return { version: 1, chars, nameCards, nameCardThemes, nameCardVariants, nameCardPlain, nameCardStyles, medals, nations, moduleTypes, skillIcons,
-    ...(tables.openServer ? { beginnerPrograms: (tables.openServer.schedule ?? []).filter(row => /^[\w-]+$/.test(row.id) && Number.isSafeInteger(row.startTs)).sort((a, b) => a.startTs - b.startTs) } : {}),
+    ...(tables.openServer ? { beginnerPrograms: beginnerPrograms(tables.openServer) } : {}),
     pools: bannerPoolNames(tables.banners ?? []) };
+}
+
+/** The Global beginner programmes (open_server_table), oldest first: each one's window, and the
+ *  ids of its missions, which the save marks done as a whole under the programme's own id in
+ *  mission.missionGroups (lib/account/rewardClaims.ts). */
+function beginnerPrograms(openServer: NonNullable<Parameters<typeof buildGameAccountMap>[1]['openServer']>) {
+  return (openServer.schedule ?? []).filter(row => /^[\w-]+$/.test(row.id) && Number.isSafeInteger(row.startTs)).sort((a, b) => a.startTs - b.startTs).map(row => {
+    const ids = openServer.dataMap?.[row.id]?.openServerMissionGroup?.missionIds;
+    const missionIds = Array.isArray(ids) ? ids.filter((id): id is string => typeof id === 'string' && /^[\w-]+$/.test(id)) : [];
+    return { id: row.id, startTs: row.startTs, ...(Number.isSafeInteger(row.endTs) ? { endTs: row.endTs } : {}), ...(missionIds.length ? { missionIds } : {}) };
+  });
 }
 
 function readJson<T>(file: string): T {
