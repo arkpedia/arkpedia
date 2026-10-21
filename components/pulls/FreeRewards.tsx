@@ -39,7 +39,7 @@ export default function FreeRewards({ rewards, icons, done, locked, onKeys, now,
   }
   return <section className="op-section free-rewards" aria-labelledby="free-rewards-title">
     <h2 id="free-rewards-title">Free rewards</h2>
-    <p className="hint">Imports check recorded mission, sign-in and free level-up pack claims. Rewards without a claim record stay manually tracked, and your manual marks are kept. Hover or tap items for names.</p>
+    <p className="hint">Imports check recorded mission, sign-in and free level-up pack claims. Rewards without a claim record stay manually tracked, and your manual marks are kept; beginner rewards your import settles are locked. Hover or tap items for names.</p>
     <div className="free-rewards-filters">
       <input type="search" aria-label="Search free rewards" placeholder="Search rewards or tickets" value={query} onChange={event => { setQuery(event.target.value); setLimits({}); }} />
       <SegmentedControl label="Free rewards status" value={show} onChange={value => { setShow(value); setLimits({}); }} options={[{ value: 'all', label: 'All' }, { value: 'unclaimed', label: 'Unclaimed' }, { value: 'claimed', label: 'Claimed' }]} />

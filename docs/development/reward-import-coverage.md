@@ -15,7 +15,7 @@ The tracker imports received rewards, not merely eligibility. No raw account res
 | Login-only gift | Explicit received flag | `free:<activity id>` |
 | Free level-up pack | A positive received count in `shop.GP.level.info` | `free:GP_freeL_<level>` |
 | Global beginner sign-in | Received history plus the programme selected by registration date from the Global schedule | `free:<programme>:checkInData:<day>` or `chainLoginData` |
-| Global beginner missions, as a programme | `mission.missionGroups[<programme id>]` = 1 (MissionGroupState Complete), read for the programme's `missionIds` (open_server_table `openServerMissionGroup`, kept in the game account map); 0 adds nothing | `free:<mission id>` |
+| Global beginner missions, as a programme | `mission.missionGroups[<programme id>]` = 1 (MissionGroupState Complete), read for the programme's `missionIds` (open_server_table `openServerMissionGroup`, kept in the game account map); 0 adds nothing. Read as all four collected: an inference from the schema, unconfirmed by a real veteran save | `free:<mission id>` |
 | Beginner row giving an operator (the older programme's 7-day sign-in, Cliffheart) | The operator is in the imported roster and the save has no record of the row. Ticked while the roster holds it, not stored (`importClaimedBeginner`) | the row's own identity |
 | Stage first-clear Originite | COMPLETE (3); PASS (2) stays an ordinary clear | Existing chapter/event/resource identities |
 | Paradox Simulation | COMPLETE (3) in `troop.addon[operator].stage[stageId]`; rewards arrive with the battle result | `paradox:<stageId>` |

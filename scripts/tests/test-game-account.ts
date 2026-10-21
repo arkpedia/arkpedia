@@ -80,6 +80,9 @@ test('the account map carries dated beginner programmes without inventing identi
     { id: 'openseverTaskGroup1', startTs: 1533898800, endTs: 1733227199, missionIds: ['openserver_1', 'openserver_2'] },
     { id: 'openseverTaskGroup2', startTs: 1733227200, endTs: 1881658799 },
   ]);
+  // Missions with no group naming them would quietly stop the import's group tick: the run fails.
+  assert.throws(() => buildGameAccountMap(records, { ...tables, openServer: { schedule: [{ id: 'p', startTs: 1 }], dataMap: { p: { openServerMissionData: [{ id: 'm' }] } } } }),
+    /beginner programme p has missions but no openServerMissionGroup.missionIds/);
 });
 
 test('a record that no longer lines up with the client fails the map, naming it', () => {

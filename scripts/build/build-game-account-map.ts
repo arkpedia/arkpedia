@@ -103,7 +103,7 @@ export function buildGameAccountMap(
     medalTable?: { medalList?: { medalId?: string; medalName?: string }[] };
     /** data/headhunting_banners.json. */
     banners?: { name?: string; globalPoolId?: string | null }[];
-    openServer?: { schedule?: { id: string; startTs: number; endTs?: number }[]; dataMap?: Record<string, { openServerMissionGroup?: { missionIds?: unknown } | null }> };
+    openServer?: { schedule?: { id: string; startTs: number; endTs?: number }[]; dataMap?: Record<string, { openServerMissionGroup?: { missionIds?: unknown } | null; openServerMissionData?: unknown[] }> };
   },
 ): GameAccountMapFile {
   const problems: string[] = [];
@@ -179,6 +179,9 @@ function beginnerPrograms(openServer: NonNullable<Parameters<typeof buildGameAcc
   return (openServer.schedule ?? []).filter(row => /^[\w-]+$/.test(row.id) && Number.isSafeInteger(row.startTs)).sort((a, b) => a.startTs - b.startTs).map(row => {
     const ids = openServer.dataMap?.[row.id]?.openServerMissionGroup?.missionIds;
     const missionIds = Array.isArray(ids) ? ids.filter((id): id is string => typeof id === 'string' && /^[\w-]+$/.test(id)) : [];
+    // A programme with missions and no group to name them would silently stop the import's
+    // group tick (lib/account/rewardClaims.ts): fail the run instead.
+    if (openServer.dataMap?.[row.id]?.openServerMissionData?.length && !missionIds.length) throw new Error(`build-game-account-map: beginner programme ${row.id} has missions but no openServerMissionGroup.missionIds`);
     return { id: row.id, startTs: row.startTs, ...(Number.isSafeInteger(row.endTs) ? { endTs: row.endTs } : {}), ...(missionIds.length ? { missionIds } : {}) };
   });
 }

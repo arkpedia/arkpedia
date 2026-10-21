@@ -25,10 +25,11 @@ export function rewardClaimsFromGame(user: Record<string, unknown>, programs: re
     if (id.startsWith('guide_') && (value === 0 || value === 1)) put(id, value === 1);
   }
   // A beginner programme's missions are one mission group, named by the programme's id
-  // (openseverTaskGroup1), marked Complete (1, MissionGroupState) once all of them are done, the
-  // same received flag the guide groups above are read by. It settles the programme's missions
-  // when an older account's OPENSERVER records are gone or were never kept. Uncomplete (0) says
-  // nothing a mission's own state does not, so it adds no unclaimed marks.
+  // (openseverTaskGroup1), and MissionGroupState marks it Complete (1) once the group is done.
+  // Read as all four collected: an inference from the schema, not yet seen in a real veteran
+  // save (docs/development/reward-import-coverage.md). It settles the programme's missions when
+  // an older account's OPENSERVER records are gone. Uncomplete (0) says nothing a mission's own
+  // state does not, so it adds no unclaimed marks.
   for (const program of programs) {
     if (typeof program.id === 'string' && validId(program.id) && groups[program.id] === 1 && Array.isArray(program.missionIds)) {
       for (const id of program.missionIds.slice(0, 50)) if (typeof id === 'string') put(id, true);
