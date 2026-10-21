@@ -101,6 +101,8 @@ export const NAMED_SKILL_CHECKS = [
   'Iris|Sleep Talking',
   'Whisperain|Memory Seeker',
   'Jieyun|Ancient Witchcraft',
+  // baseSimulation.ts
+  'Fiammetta|Communal Suffering',
 ] as const;
 export type NamedSkillCheck = (typeof NAMED_SKILL_CHECKS)[number];
 
