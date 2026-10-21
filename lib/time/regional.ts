@@ -11,8 +11,9 @@ import { SERVER_TIME, serverWeekday } from './servers.mjs';
 export interface RegionalWindow extends GameWindowTimes {
   startAt: string; endAt: string; timingSource: string;
   activityId?: string; poolId?: string; releaseDate?: string; modeId?: string; localName?: string; status?: string;
-  /** The server's own key art for the event or banner, from its in-game board: the address on the
-   *  board's host and the hash the poller recorded (scripts/sync/regional-board.mjs). JP and KR only. */
+  /** The server's own key art for the event or banner, from its in-game board (or KR's official site
+   *  headline): the address on the official host and the hash the poller recorded
+   *  (scripts/sync/regional-board.mjs). JP and KR only. */
   art?: { url: string; sha1: string };
 }
 export interface RegionalSchedule {
