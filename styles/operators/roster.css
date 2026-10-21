@@ -62,6 +62,11 @@
 .roster-search { flex: 1 1 200px; min-width: 160px; width: auto; }
 .roster-faction { flex: 0 1 220px; min-width: 160px; }
 .roster-controls button { font-size: 12px; }
+/* On a phone the rows that held it at full width are in the Filters sheet
+   (components/ui/FilterSheet): the toolbar takes the line itself. */
+@media (max-width: 720px) {
+  .roster-controls { width: 100%; }
+}
 .roster-rarity-class-row {
   display: flex;
   flex-wrap: wrap;

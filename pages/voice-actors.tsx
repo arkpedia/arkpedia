@@ -1,8 +1,11 @@
 import type { GetStaticProps } from 'next';
-import CreditDatabase from '@/components/operators/CreditDatabase';
+import CreditDatabase, { type CreditPageProps } from '@/components/operators/CreditDatabase';
 import { withContentPage } from '@/lib/content/server';
-import { creditDatabase, type CreditPerson } from '@/lib/operators/creditDatabase';
-export default function Page({ people }: { people: CreditPerson[] }) { return <CreditDatabase people={people} kind="voice-actors" />; }
+import { creditDatabase, upgradeCreditProps } from '@/lib/operators/creditDatabase';
+export default function Page(props: CreditPageProps) { return <CreditDatabase {...props} kind="voice-actors" />; }
 // This builder reads operator files. Until a content release publishes the route,
 // retain the populated build snapshot instead of rebuilding without data/ during ISR.
-export const getStaticProps: GetStaticProps = withContentPage('/voice-actors', async () => ({ props: { people: creditDatabase('voice-actors') } }));
+// `now`, the CN-only filter's first paint, is the request's clock (contentPageClock).
+export const getStaticProps: GetStaticProps<CreditPageProps> = withContentPage<CreditPageProps>('/voice-actors', async () => ({ props: creditDatabase('voice-actors') }),
+  // A release from before the filters holds the old shape: upgrade it (upgradeCreditProps).
+  { finalize: async props => ({ ...props, ...upgradeCreditProps(props) }) });

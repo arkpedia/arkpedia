@@ -29,6 +29,9 @@ const CLOCK_UNITS: Record<string, number> = {
   // Which outfit shops are over (components/skins/SkinPlanner).
   '/skin-planner': 60_000,
   '/free-op': 60_000,
+  // Which credited operators are on Global yet (components/operators/CreditDatabase).
+  '/artists': 60_000,
+  '/voice-actors': 60_000,
 };
 
 /** Every route contentPageClock gives a clock: each CLOCK_UNITS route (`now`), and

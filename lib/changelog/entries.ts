@@ -34,11 +34,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    at: '2026-10-21T17:00:00Z',
+    at: '2026-10-21T19:30:00Z',
     added: [
       { title: 'Search YouTube and Twitch', detail: 'The site search also finds Arknights creators, their latest videos and live Twitch streams.', href: '/search' },
       { title: "Leave out stages you can't clear", detail: 'The reward tracker can leave out Challenge Mode, H stages, Adverse Environment and S stages, each on its own.', href: '/free-op' },
       { title: 'Welfare operator cards', detail: 'The welfare operators you can still get, from Record Restoration and open events, as picture cards.', href: '/free-op' },
+      { title: 'Artists and voice actors, filterable', detail: 'Search, language, rarity, class, faction and Global or CN only, with A–Z groups; one card per person.', href: '/voice-actors' },
+      { title: 'Conventions with Arknights guests', detail: 'Global conventions where a credited Arknights artist or voice actor is a guest, and fan gatherings.', href: '/community' },
       { title: 'Endfield offline events', detail: 'Pop-ups, the gamescom asia booth, Round1 and the first-anniversary festivals in Japan and Korea.', href: '/community' },
       { title: 'Korean collabs and fan contests', detail: 'Banolim Pizza, animate cafe and the official fan contests and social events in Korea.', href: '/community' },
     ],
@@ -56,6 +58,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
     changed: [
       { title: 'Welfare operators name the stage', detail: 'Each card says what to clear, and permanent main-story missions such as Viy\'s stay listed after the event.', href: '/free-op' },
+      { title: 'Filters fold away on phones', detail: 'On a phone, list filters open from one Filters button, and active ones show as chips.', href: '/operators' },
       { title: 'Web events by server', detail: 'Global, JP and KR web events each have their own column.', href: '/community' },
       { title: "JP and KR show Global's art for now", detail: "Dates follow that server; art, news and web events stay Global's until the site is translated.", href: '/schedule' },
       { title: "Classes in the game's order", detail: 'Operator lists sort classes as the game does: Vanguard, Guard, Defender, Sniper, Caster, Medic, Supporter, Specialist.', href: '/operators' },

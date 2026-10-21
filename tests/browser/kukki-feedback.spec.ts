@@ -37,9 +37,9 @@ test('artist and actor searches expand matching operator credits', async ({ page
   for (const route of ['/artists', '/voice-actors']) {
     await page.goto(route);
     await page.getByRole('searchbox').fill('Thorns');
-    const person = page.locator('main .credit-database section').first();
-    await person.getByRole('button').click();
-    await expect(person.locator('a[href="/operators/Thorns"], a[href="/operators/Thorns#voiceLines"]')).toBeVisible();
+    // Every person's operators show without opening anything; a search by operator keeps it.
+    const person = page.locator('main .credit-person').first();
+    await expect(person.locator('a[href="/operators/Thorns#artwork"], a[href="/operators/Thorns"], a[href="/operators/Thorns#voiceLines"]').first()).toBeVisible();
   }
 });
 test('simple materials can show only shortages and select a subset without editing saved goals', async ({ page }) => {

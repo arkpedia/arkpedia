@@ -1593,14 +1593,6 @@ a.primary:where(:has(~ :is(button, a).ghost)),
 .pulls-cert-months label { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .pulls-cert-months input { width: 80px; }
 
-.credit-database { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; margin-top: 16px; }
-.credit-database .op-section { margin: 0; }
-.credit-person > span:first-child { min-width: 0; overflow-wrap: anywhere; white-space: normal; }
-.credit-person { display: flex; gap: 8px; justify-content: space-between; width: 100%; text-align: left; }
-.credit-operators { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; padding: 12px 0; }
-.credit-operators a { display: flex; align-items: center; gap: 12px; }
-.credit-operators span { display: grid; }
-.credit-operators small { color: var(--text-dim); }
 
 .chibi-viewer { position: relative; width: min(100%, 420px); height: 260px; --chibi-stage-height: 260px; }
 .chibi-viewer > p { position: absolute; bottom: 8px; left: 0; right: 0; margin: 0; background: var(--panel); }

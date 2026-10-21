@@ -17,6 +17,7 @@ import '@/styles/gacha/gacha-tutorial.css';
 import '@/styles/skins/skins.css';
 import '@/styles/skins/skin-planner.css';
 import '@/styles/operators/roster.css';
+import '@/styles/operators/credits.css';
 import '@/styles/operators/operator-detail.css';
 import '@/styles/planner/planner.css';
 import '@/styles/pulls/pulls.css';

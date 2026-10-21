@@ -38,6 +38,7 @@ import { getAllSkins } from '../../lib/skins/skins';
 import { toGuesserOperator } from '../../lib/guesser/guesserPageData';
 import { buildStageGuesserCatalogue } from '../../lib/minigames/stageGuesserData';
 import { getPaletteCatalogue } from '../../lib/minigames/data';
+import { siteSearchPeople } from '../lib/credit-romanization';
 
 export type Unit = 'gzip' | 'raw';
 export interface PayloadBudget {
@@ -78,6 +79,12 @@ const STAGE_SETUP: PayloadBudget = { name: 'stage guesser setup', shipped: '/gam
   why: 'the initial page carries only setup metadata' };
 const PALETTES: PayloadBudget = { name: 'color palette catalogue', shipped: '/games/color-palette props', unit: 'gzip', limit: 65_000,
   why: 'the page ships the whole catalogue and filters it at render' };
+/* What the artist and voice actor rows are made of (lib/search/siteSearchIndex.ts adds an
+   href and a subtitle from these). Only these: the other rows come from the stage and enemy
+   indexes the builders write to public/, which a Check run does not have. Measured 11.7 KB
+   gzip on 2026-10-22, 19 KB as rows. */
+const SITE_SEARCH_PEOPLE: PayloadBudget = { name: 'site search people', shipped: 'site-search.json (artist and voice actor rows)', unit: 'gzip', limit: 24_000,
+  why: 'every credited person as a name, a count and romanized names, never their operators: the whole index downloads when the search opens' };
 
 /** Every budget, measured on the data under the working directory. */
 export function measurePayloads(): Measured[] {
@@ -97,6 +104,7 @@ export function measurePayloads(): Measured[] {
     [STAGE_ENTRIES, entries],
     [STAGE_SETUP, { groups }],
     [PALETTES, getPaletteCatalogue()],
+    [SITE_SEARCH_PEOPLE, siteSearchPeople()],
   ];
   return rows.map(([budget, value]) => ({ ...budget, bytes: payloadBytes(value, budget.unit) }));
 }
