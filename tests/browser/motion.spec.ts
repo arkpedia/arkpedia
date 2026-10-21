@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type BrowserContext, type Page, type TestInfo } from '@playwright/test';
-import { fontsSettled, plannerExperimental, PLANNER_PLAN, readOnly } from './census-routes';
+import { fontsSettled, openFilters, plannerExperimental, PLANNER_PLAN, readOnly } from './census-routes';
 
 /*
  * Motion: option C, "Quiet polish" (maintainer, 2026-09-26), and the LIVE badge's
@@ -540,6 +540,8 @@ test.describe('cards lift, and only by paint', () => {
       await expect.poll(() => el.evaluate((e) => getComputedStyle(e).scale), { message: `${what} ${scale === 'none' ? 'does not press in' : 'presses in'}` }).toBe(scale);
       await forceActive(page, '[data-motion-press]', false);
     };
+    // On a phone the roster's chips are in its Filters sheet.
+    await openFilters(page);
     await press('a chip', () => page.locator('.filter-chip:visible'), '0.97');
     await page.goto('/events/%5BSide%20Story%5D%20People%2C%20A%20People');
     await settle(page);

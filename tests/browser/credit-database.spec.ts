@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { uncolouredLinks } from './layout-checks';
 import { setTheme } from './overlay-checks';
+import { closeFilters, openFilters } from './census-routes';
 
 /*
  * /artists and /voice-actors (components/operators/CreditDatabase.tsx). The owner's
@@ -47,6 +48,8 @@ for (const route of ['/artists', '/voice-actors']) {
   test(`${route}: rarity, class and server filters narrow every card and reach the address`, async ({ page }) => {
     await open(page, route);
     const before = await total(page);
+    // On a phone the filters are in the Filters sheet, applied as they are pressed.
+    await openFilters(page);
     await page.getByRole('button', { name: '6-star', exact: true }).click();
     await query(page, 'rarity', '6');
     await page.getByRole('button', { name: 'Sniper', exact: true }).click();
@@ -67,18 +70,22 @@ for (const route of ['/artists', '/voice-actors']) {
     await query(page, 'class', null);
     await query(page, 'server', null);
     await expect(page.getByRole('button', { name: '6-star', exact: true })).toHaveAttribute('aria-pressed', 'false');
+    await closeFilters(page);
   });
 
   test(`${route}: a shared address opens on its filters, and the letter and order apply`, async ({ page }) => {
     await open(page, `${route}?letter=S&sort=count`);
+    await openFilters(page);
     await expect(page.getByRole('group', { name: 'First letter' }).getByRole('button', { name: 'S', exact: true })).toHaveAttribute('aria-pressed', 'true');
     await expect(page.getByRole('group', { name: 'Sort by' }).getByRole('button', { name: 'Most operators', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await closeFilters(page);
     const shown = await names(page);
     expect(shown.length).toBeGreaterThan(0);
     for (const name of shown) expect(name.normalize('NFKD').charAt(0).toUpperCase()).toBe('S');
     // Most operators first: the counts never rise down the list.
     const counts = await page.locator('main .credit-person').evaluateAll(rows => rows.map(row => row.querySelectorAll('.credit-op').length));
     expect([...counts].sort((a, b) => b - a)).toEqual(counts);
+    await openFilters(page);
     await page.getByRole('group', { name: 'Sort by' }).getByRole('button', { name: 'Name', exact: true }).click();
     await query(page, 'sort', null);
     await query(page, 'letter', 'S');
@@ -86,6 +93,9 @@ for (const route of ['/artists', '/voice-actors']) {
 
   test(`${route}: filtering from the toolbar does not move the toolbar`, async ({ page }) => {
     await open(page, route);
+    // On a phone the letter row is in the Filters sheet, over the page: filter-sheet.spec.ts
+    // holds the page still under it.
+    test.skip(await page.locator('.filter-bar-open').isVisible(), 'the phone toolbar has no letter row');
     // Put the letter row at the top of the screen, a long list under it, then narrow the
     // list to one letter's handful: the page may not clamp the reader upward.
     const row = page.getByRole('group', { name: 'First letter' });
@@ -120,19 +130,24 @@ test('/voice-actors: no person is a placeholder, and the "-" credits sit under U
 
 test('/voice-actors: the language filter keeps only that language, and reaches the address', async ({ page }) => {
   await open(page, '/voice-actors');
+  await openFilters(page);
   await page.getByRole('combobox', { name: 'Filter by language' }).click();
   await page.getByRole('option', { name: /^Korean/ }).click();
   await query(page, 'lang', 'Korean');
+  await closeFilters(page);
   const credits = await page.locator('main .credit-person .credit-op-credit').allInnerTexts();
   expect(credits.length).toBeGreaterThan(0);
   for (const text of credits) expect(text.replace(/ · CN only$/, '')).toBe('Korean');
   await page.reload();
+  await openFilters(page);
   await expect(page.getByRole('combobox', { name: 'Filter by language' })).toContainText('Korean');
 });
 
 test('/artists: the credit filter keeps outfits, and a search by operator keeps its artists', async ({ page }) => {
   await open(page, '/artists?credit=outfit');
+  await openFilters(page);
   await expect(page.getByRole('combobox', { name: 'Filter by credit' })).toContainText('Outfits');
+  await closeFilters(page);
   const credits = await page.locator('main .credit-person .credit-op-credit').allInnerTexts();
   expect(credits.length).toBeGreaterThan(0);
   for (const text of credits) expect(text).not.toMatch(/(^|· )(Base|E1|E2|Design)( ·|$)/);
@@ -142,4 +157,30 @@ test('/artists: the credit filter keeps outfits, and a search by operator keeps 
   const tiles = await page.locator('main .credit-op-name').allInnerTexts();
   expect(tiles.length).toBeGreaterThan(0);
   for (const name of tiles) expect(name).toMatch(/Thorns/);
+});
+
+test('each credited person is one card: joined credits split, case variants merged', async ({ page }) => {
+  // The list shows forty cards at a time, so each case is found by searching its operator.
+  const cases = [
+    ['/artists', 'Bellone', ['Lowro', 'Studio Montagne']],
+    ['/artists', 'Esperanta', ['海猫络合物', '唯@W', 'Studio Montagne']],
+    ['/artists', 'Blaze the Igniting Spark', ['百慕大飞鱼', 'Mag42', '唯@W']],
+    ['/artists', 'Lappland the Decadenza', ['幻象黑兔', 'Mag42']],
+    ['/artists', 'Makoto Yuki', ['〇亻']],
+    ['/artists', 'Surtr', ['Ask']],
+    ['/artists', 'Bagpipe', ['u介']],
+    ['/voice-actors', 'Passenger', ['Stephen Spencer', 'Georgia Cudby']],
+  ] as const;
+  // The heading's text, not its rendered capitals.
+  const cards = (page: Page) => page.locator('main .credit-person h3').allTextContents();
+  let at = '';
+  for (const [route, search, people] of cases) {
+    if (route !== at) await open(page, (at = route));
+    await page.getByRole('searchbox').fill(search);
+    await expect.poll(() => cards(page), `${route} ${search}`).toEqual(expect.arrayContaining([...people]));
+    const shown = (await cards(page)).map(name => name.trim());
+    expect(shown.filter(name => /&|[,，、]|\(|\s\/\s/.test(name)), `${route} ${search}: joined or annotated names`).toEqual([]);
+    const keys = shown.map(name => name.toLowerCase());
+    expect(keys.filter((key, i) => keys.indexOf(key) !== i), `${route} ${search}: case-only duplicates`).toEqual([]);
+  }
 });

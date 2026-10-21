@@ -27,6 +27,8 @@ import StyledSelect from '@/components/ui/StyledSelect';
 import OwnedFilter, { countOwned } from '@/components/account/OwnedFilter';
 import { ownedFilter, useAccount } from '@/lib/account/accountStore';
 import LoadOnScroll from '@/components/ui/LoadOnScroll';
+import FilterSheet, { INLINE_RESET, type ActiveFilter } from '@/components/ui/FilterSheet';
+import { useSwitchHold } from '@/components/ui/useSwitchHold';
 import { operatorHref } from '@/lib/operators/operatorHref';
 
 interface Props {
@@ -242,6 +244,22 @@ export default function OperatorsIndex({ operators, now }: Props) {
     });
   }, [matching, showUnreleased, factionFilter, search, sortDir, sortField, clock, account, owned, ownedNames]);
 
+  // The phone's Filters sheet (components/ui/FilterSheet): one chip per filter that is on,
+  // and a hold over the list so a filter pressed in the sheet cannot clamp the reader.
+  const hold = useSwitchHold('operators');
+  const activeFilters: ActiveFilter[] = [
+    ...(rarityFilter !== 'all' ? [{ key: 'rarity', label: `${rarityFilter}★`, remove: () => setRarityFilter('all') }] : []),
+    ...(classFilter !== 'all' ? [{ key: 'class', label: classFilter, remove: () => { setClassFilter('all'); setBranchFilter('all'); } }] : []),
+    ...(branchFilter !== 'all' ? [{ key: 'branch', label: branchFilter, remove: () => setBranchFilter('all') }] : []),
+    ...(factionFilter !== 'all' ? [{ key: 'faction', label: factionFilter, remove: () => setFactionFilter('all') }] : []),
+    ...(showUnreleased ? [{ key: 'cn', label: 'Show CN', remove: () => setShowUnreleased(false) }] : []),
+    ...(account && owned !== 'all' ? [{ key: 'owned', label: owned === 'owned' ? 'Owned' : 'Not owned', remove: () => setOwned('all') }] : []),
+  ];
+  /** The sheet's Reset: every filter a chip shows (the search keeps its own ×). */
+  function resetSheet() {
+    for (const filter of activeFilters) filter.remove();
+  }
+
   function resetFilters() {
     setSearch('');
     setRarityFilter('all');
@@ -327,6 +345,8 @@ export default function OperatorsIndex({ operators, now }: Props) {
         actions={<div className="roster-controls">
           <SearchInput className="roster-search" label="Search operators" name="operator-search" placeholder="Search by name…" value={search} onChange={setSearch} />
 
+          {/* On a phone everything but the search folds into the Filters sheet. */}
+          <FilterSheet controlsClassName="roster-controls" active={activeFilters} onReset={resetSheet} hold={hold} controls={<>
           {/* Independent filter chips: pressing the lit one clears it. */}
           <div className="roster-rarity-class-row">
             <div className="roster-button-group" role="group" aria-label="Rarity">
@@ -421,13 +441,15 @@ export default function OperatorsIndex({ operators, now }: Props) {
             {sortDir === 'desc' ? '↓' : '↑'}
           </button>
 
-          <button type="button" className="ghost" onClick={resetFilters}>
+          <button type="button" className={`ghost ${INLINE_RESET}`} onClick={resetFilters}>
             Reset
           </button>
           </div>
+          </>} />
         </div>} />
 
       <main>
+        <div ref={hold.ref} style={hold.style}>
         {filtered.length === 0 ? (
           <div className="waiting-box">
             <h2>No operators match</h2>
@@ -501,6 +523,7 @@ export default function OperatorsIndex({ operators, now }: Props) {
             <LoadOnScroll shown={visibleCount} total={filtered.length} onMore={() => setVisibleCount((c) => c + PAGE_SIZE)} />
           </>
         )}
+        </div>
       </main>
     </>
   );

@@ -16,6 +16,82 @@ export function isPlaceholderCredit(name: string | null | undefined): boolean {
   return PLACEHOLDER.test((name ?? '').normalize('NFKC').trim());
 }
 
+/**
+ * A source credit can name several people in one string, and the sources disagree on how:
+ * the voice tables carry "Stephen Spencer & Georgia Cudby" as one actor, the outfit records
+ * "幻象黑兔 , Mag42" and "百慕大飞鱼, Mag42", the operator records "Lowro & Studio Montagne",
+ * the outfit importer joins the game's drawer list with " / ", and the base-art parser
+ * (operatorArtworkCredits.ts) joins its names with ", " and keeps notes such as
+ * '(credited as "Ubisoft" in-game)' on a name. Each person gets their own card, so the
+ * credit pages split the string into its people here.
+ */
+
+/** Real names that contain a separator, kept whole. None so far; a name joined with "&"
+ *  that is one studio or circle goes here once someone has checked it is one name. */
+export const JOINT_CREDIT_NAMES: readonly string[] = [];
+
+const ENTITIES: Record<string, string> = { amp: '&', quot: '"', apos: "'", lt: '<', gt: '>', nbsp: ' ' };
+const ENTITY = /&(#x[0-9a-f]+|#\d+|[a-z]+);/gi;
+
+/** "&amp;" and its kin, as a scraped page wrote them; a double-encoded "&amp;amp;" too. */
+export function decodeCreditEntities(value: string): string {
+  let out = value;
+  for (let i = 0; i < 3; i++) {
+    const next = out.replace(ENTITY, (whole, entity: string) => {
+      const e = entity.toLowerCase();
+      if (e.startsWith('#x')) return String.fromCodePoint(parseInt(e.slice(2), 16));
+      if (e.startsWith('#')) return String.fromCodePoint(Number(e.slice(1)));
+      return ENTITIES[e] ?? whole;
+    });
+    if (next === out) break;
+    out = next;
+  }
+  return out;
+}
+
+/** The notes a name can carry about how it was credited; the person is the name before it.
+ *  The names inside a note ("additional design by Kumatangent") are not credited from it. */
+const CREDIT_NOTE = /\s*\((?:credited as|additional (?:design|art)|with additional (?:design|art))\b[^)]*\)/gi;
+
+/** " & ", ", ", "、", "; " and " / ", in ASCII or full width. "&" and "/" only between
+ *  spaces, so an unspaced "A&B" reaches the guard test instead of being split unseen. */
+const SEPARATOR = /\s+[&＆]\s+|\s*[,，、;；]\s*|\s+[/／]\s+/;
+
+/** The people one source credit names, each once, placeholders ("-") left out. */
+export function creditedPeople(raw: string | null | undefined): string[] {
+  const value = decodeCreditEntities(raw ?? '').replace(CREDIT_NOTE, '').replace(/\s+/g, ' ').trim();
+  const parts = JOINT_CREDIT_NAMES.includes(value) ? [value] : value.split(SEPARATOR);
+  return [...new Set(parts.map(part => part.trim()).filter(part => !isPlaceholderCredit(part)))];
+}
+
+/**
+ * One spelling for names that differ only in case ("Ask" and "ASK" on Surtr's outfits). The
+ * spelling the EN tables use (skin_table drawerList, charword_table cvName), checked
+ * 2026-10-22: Ask 6, ASK 0; hou 3, Hou 0; Infukun 26, infukun 0; Skade 64, skade 0;
+ * u介 5, U介 0. A pair not listed here takes the spelling credited on more operators (the
+ * credit-names test fails until it is listed, so every merge is a reviewed one).
+ */
+export const CREDIT_NAME_SPELLINGS: Readonly<Record<string, string>> = {
+  ask: 'Ask',
+  hou: 'hou',
+  infukun: 'Infukun',
+  skade: 'Skade',
+  'u介': 'u介',
+};
+
+/** The key two spellings of one name share: case only, never spaces or punctuation
+ *  ("Ama Lee" and "AmaLee" stay two cards). */
+export function creditNameKey(name: string): string {
+  return name.normalize('NFC').toLowerCase();
+}
+
+/** The spelling a name is shown under, given how many operators credit each spelling. */
+export function canonicalCreditSpelling(spellings: ReadonlyMap<string, number>): string {
+  const listed = CREDIT_NAME_SPELLINGS[creditNameKey([...spellings.keys()][0])];
+  if (listed) return listed;
+  return [...spellings].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0))[0][0];
+}
+
 /** The label an operator's own artwork is credited under, its promotions', and an
  *  original designer's; anything else an artist is credited for is an outfit's name. */
 export const BASE_ART_CREDITS = ['Operator artwork', 'Elite 1', 'Elite 2'] as const;

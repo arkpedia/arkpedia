@@ -846,3 +846,28 @@ a.ghost, a.primary, a.danger, a.btn { text-decoration: none; }
 .account-dialog header { flex: none; align-self: stretch; box-sizing: border-box; width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 18px; border-bottom: 1px solid var(--line); }
 .account-dialog header h2 { margin: 0; }
 .account-dialog-body { flex: 1 1 auto; min-height: 0; padding: 18px; overflow-y: auto; overscroll-behavior: contain; }
+
+/* --- FilterSheet (components/ui/FilterSheet.tsx) ------------------------------------
+   A list page's filters on a phone. Over 720px the bar is not drawn and the controls'
+   wrapper lays its children out in the page's toolbar as if it were not there. At 720px
+   and under the wrapper is hidden from the first paint (the component then unmounts it)
+   and the bar takes its place: Filters, then the chips of the filters on, on one line
+   that scrolls sideways, so a chip added or removed never changes the toolbar's height. */
+.filter-bar { display: none; grid-column: 1 / -1; }
+.filter-sheet-inline { display: contents; }
+@media (max-width: 720px) {
+  /* Its chips never widen the toolbar that holds it: they scroll inside its width. */
+  .filter-bar { display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; contain: inline-size; }
+  .filter-sheet-inline { display: none; }
+}
+.filter-bar-open { flex: none; gap: 6px; }
+/* Room for the ×'s focus ring inside the scroller, given back by the margin. */
+.filter-bar-chips { display: flex; flex: 1 1 auto; align-items: center; gap: 6px; min-width: 0; margin: -3px; padding: 3px; list-style: none; overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; scrollbar-width: none; }
+/* A filter that is on: the chip's "on" look, its name in the button voice, and the dense
+   × (XButton) inside its right edge. Not pressable itself: the × is. */
+.filter-tag { box-sizing: border-box; display: inline-flex; flex: none; align-items: center; gap: 2px; min-height: var(--control-h); padding: 0 1px 0 10px; border: 1px solid var(--teal); border-radius: var(--radius); background: var(--teal-dim); color: var(--teal); font-family: var(--font-display); font-weight: 600; font-size: 12px; line-height: 1; letter-spacing: 0.09em; text-transform: uppercase; white-space: nowrap; }
+.filter-sheet:focus { outline: none; }
+.filter-sheet .filter-sheet-controls { margin-top: 0; }
+/* The toolbar's own Reset: the sheet ends in one. */
+.filter-sheet .filter-reset-inline { display: none; }
+.filter-sheet-foot { flex: none; display: flex; justify-content: flex-end; gap: 8px; padding: 12px 18px; border-top: 1px solid var(--line); }
