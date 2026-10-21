@@ -7,7 +7,7 @@ const map = { version: 1 as const, chars: {} };
 const record = (counts: [string, number][], at: string) => accountFromGame({ status: { uid: 'reward-fixture', level: 120 },
   shop: { GP: { level: { info: counts.map(([id, count]) => ({ id, count })) } } } }, map, 'en', new Date(at));
 
-for (const theme of ['light', 'dark'] as const) test(`imported and manual reward claims survive reimport and reload (${theme})`, async ({ page }, info) => {
+for (const theme of ['light', 'dark'] as const) test(`an import's claim records win over manual ticks, both ways, through reimport and reload (${theme})`, async ({ page }, info) => {
   await readOnly(page);
   const first = record([['GP_freeL_5', 1], ['GP_freeL_10', 0]], '2026-10-16T00:00:00Z');
   await page.addInitScript(({ first, theme }) => {
@@ -25,15 +25,17 @@ for (const theme of ['light', 'dark'] as const) test(`imported and manual reward
   };
   await page.goto('/free-op'); await open();
   const pack = (level: number) => page.getByRole('checkbox', { name: `Lv.${level} Enhancement Pack`, exact: true });
-  await expect(pack(5)).toBeChecked(); await expect(pack(10)).toBeChecked();
+  // Lv.10 was ticked by hand, but the save records it as not received: the import unticks it.
+  await expect(pack(5)).toBeChecked(); await expect(pack(10)).not.toBeChecked();
   await expect(pack(15)).not.toBeChecked(); await pack(15).check();
   const second = record([['GP_freeL_5', 0], ['GP_freeL_15', 0]], '2026-10-17T00:00:00Z');
   await page.evaluate(value => {
     localStorage.setItem('arkpediaAccount', JSON.stringify(value)); window.dispatchEvent(new Event('arkpediaAccountChanged'));
   }, second);
-  await expect(pack(5)).not.toBeChecked(); await expect(pack(10)).toBeChecked(); await expect(pack(15)).toBeChecked();
+  // The next import records Lv.5 and Lv.15 as not received: both untick, the hand tick on 15 too.
+  await expect(pack(5)).not.toBeChecked(); await expect(pack(10)).not.toBeChecked(); await expect(pack(15)).not.toBeChecked();
   await page.reload(); await open();
-  await expect(pack(5)).not.toBeChecked(); await expect(pack(10)).toBeChecked(); await expect(pack(15)).toBeChecked();
+  await expect(pack(5)).not.toBeChecked(); await expect(pack(10)).not.toBeChecked(); await expect(pack(15)).not.toBeChecked();
   expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
   expect(errors).toEqual([]);
   await page.screenshot({ path: `test-results/reward-import-${info.project.name}-${theme}.png` });
@@ -63,7 +65,7 @@ test('a beginner reward the save records as received shows claimed and locked; t
   await expect(received).toBeChecked();
 });
 
-test('Paradox rewards import from operator handbook stages without changing manual marks', async ({ page }, info) => {
+test('Paradox rewards import from operator handbook stages, and a hand tick on one the save shows unplayed goes', async ({ page }, info) => {
   await readOnly(page);
   const raw = (state: number) => accountFromGame({ status: { uid: 'paradox-fixture' }, troop: { addon: {
     char_009_12fce: { stage: { mem_12fce_1: { state: 3, completeTimes: 1 } } },
@@ -82,12 +84,13 @@ test('Paradox rewards import from operator handbook stages without changing manu
   };
   const reward = (name: string) => page.getByRole('checkbox', { name: new RegExp(`^${name} ·`) });
   await page.goto('/free-op'); await open();
-  await expect(reward('12F')).toBeChecked(); await expect(reward('Aak')).toBeChecked(); await expect(reward('Absinthe')).not.toBeChecked();
+  // Aak was ticked by hand, but the save has her simulation unplayed (state 0): the import unticks it.
+  await expect(reward('12F')).toBeChecked(); await expect(reward('Aak')).not.toBeChecked(); await expect(reward('Absinthe')).not.toBeChecked();
   await page.evaluate(value => {
     localStorage.setItem('arkpediaAccount', JSON.stringify(value)); window.dispatchEvent(new Event('arkpediaAccountChanged'));
   }, raw(3));
-  await expect(reward('Absinthe')).toBeChecked(); await expect(reward('Aak')).toBeChecked();
+  await expect(reward('Absinthe')).toBeChecked(); await expect(reward('Aak')).not.toBeChecked();
   await page.reload(); await open();
-  await expect(reward('12F')).toBeChecked(); await expect(reward('Aak')).toBeChecked(); await expect(reward('Absinthe')).toBeChecked();
+  await expect(reward('12F')).toBeChecked(); await expect(reward('Aak')).not.toBeChecked(); await expect(reward('Absinthe')).toBeChecked();
   await page.screenshot({ path: `test-results/paradox-import-${info.project.name}.png` });
 });
