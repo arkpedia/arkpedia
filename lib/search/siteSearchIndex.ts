@@ -23,6 +23,36 @@ export interface SiteSearchSources {
   songs: readonly { title: string; altTitle?: string | null; artist?: string | null }[];
   /** The curated YouTube channels the community page lists (lib/music/youtubeConfig.ts). */
   creators: readonly { id: string; label: string }[];
+  /** Every artist and voice actor the credit pages list (lib/operators/creditDatabase.ts),
+   *  as a count and never the operators themselves: the index is downloaded whole. */
+  people: readonly SiteSearchPerson[];
+}
+
+export interface SiteSearchPerson {
+  kind: 'artist' | 'voice-actor';
+  /** The name the credit page shows, which its ?q= is matched against. */
+  name: string;
+  operators: number;
+  /** A voice actor's languages, most operators first ("Japanese"). */
+  languages?: readonly string[];
+  /** The name in Latin letters, worked out at build time (scripts/lib/credit-romanization.ts). */
+  aliases?: readonly string[];
+}
+
+/** The page a person's row opens: their credit page, searched for their name, which the
+ *  page reads as `q` (components/operators/CreditDatabase.tsx). Their name as the page shows
+ *  it, never an alias: the page matches its own names and knows no romanization. */
+export function creditPersonHref(person: Pick<SiteSearchPerson, 'kind' | 'name'>): string {
+  return `/${person.kind === 'artist' ? 'artists' : 'voice-actors'}?q=${encodeURIComponent(person.name)}`;
+}
+
+/** "3 operators · Japanese, English": the kind is on the row already. */
+export function creditPersonSub(person: Pick<SiteSearchPerson, 'operators' | 'languages'>): string {
+  const count = `${person.operators} operator${person.operators === 1 ? '' : 's'}`;
+  const languages = person.languages ?? [];
+  if (!languages.length) return count;
+  const shown = languages.slice(0, 3).join(', ');
+  return `${count} · ${languages.length > 3 ? `${shown} +${languages.length - 3}` : shown}`;
 }
 
 /** What /api/search-feeds has from the feeds the community pages fetch: their latest videos,
@@ -63,6 +93,16 @@ export function buildSiteSearchEntries(sources: SiteSearchSources): SiteSearchEn
       terms: others(op.name, sources.operatorAliases[op.name] ?? []),
       rarity: op.rarity,
       portraitPending: op.portraitPending,
+    }));
+  }
+
+  for (const person of sources.people) {
+    entries.push(row({
+      kind: person.kind,
+      title: person.name,
+      href: creditPersonHref(person),
+      sub: creditPersonSub(person),
+      terms: others(person.name, person.aliases ?? []),
     }));
   }
 

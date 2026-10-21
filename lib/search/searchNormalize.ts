@@ -86,3 +86,45 @@ export function searchRelevance(haystack: string, needle: string): number {
   if (normHay.includes(normNeedle)) return 1;
   return 2;
 }
+
+/**
+ * A looser form for names the tiers above miss: width folded (NFKC, so "Ｍ９" is "m9"),
+ * then normalizeForSearch, then every character that is not a letter or a digit dropped,
+ * spaces too. "M・A・O", "m9 nokuro" and "M9NOKURO" are "mao", "m9nokuro", "m9nokuro".
+ */
+export function foldForSearch(str: string): string {
+  return normalizeForSearch(str.normalize('NFKC')).replace(/[^\p{L}\p{N}]+/gu, '');
+}
+
+/* Digits a name uses for the letter they look like, and the letters that look alike:
+   "m9nokuro" is spelled "mgnokuro" by a reader copying it, "cenm0" "cenmo". */
+const LOOKALIKE: Record<string, string> = { 0: 'o', 1: 'l', i: 'l', 3: 'e', 4: 'a', 5: 's', 7: 't', 8: 'b', 9: 'g', q: 'g' };
+
+/** foldForSearch's output with look-alike characters made one: compare two for equality. */
+export function lookalikeForSearch(folded: string): string {
+  return folded.replace(/[0134579iq]/g, (c) => LOOKALIKE[c]);
+}
+
+/** Whether two strings are at most `max` edits apart (insert, delete, substitute, or swap
+ *  two neighbours), giving up as soon as every path is further. */
+export function withinEdits(a: string, b: string, max: number): boolean {
+  if (Math.abs(a.length - b.length) > max) return false;
+  if (a === b) return true;
+  const n = b.length;
+  let before: number[] = [];
+  let prev = Array.from({ length: n + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    const row = [i];
+    let best = i;
+    for (let j = 1; j <= n; j++) {
+      let d = Math.min(prev[j] + 1, row[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) d = Math.min(d, before[j - 2] + 1);
+      row[j] = d;
+      if (d < best) best = d;
+    }
+    if (best > max) return false;
+    before = prev;
+    prev = row;
+  }
+  return prev[n] <= max;
+}

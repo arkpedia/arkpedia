@@ -161,3 +161,35 @@ test('/search lists a creator as a link out, and does not jump to it', async ({ 
   await expect(page.locator('.site-search-page-row[href^="https://www.youtube.com/watch"]').first()).toBeVisible();
   await expect(page).toHaveURL(/\/search\?s=/);
 });
+
+/* Artists and voice actors (lib/search/siteSearchIndex.ts): every credited person is a row,
+   found by a romanized name (scripts/lib/credit-romanization.ts) and by the loose tiers when
+   typed as it looks (lib/search/siteSearch.ts), and a pick opens their credit page searched
+   for them. The names are the bundled data's. */
+const PEOPLE = [
+  { query: 'mgnokuro', name: 'm9nokuro', kind: 'Artist', href: /\/artists\?q=m9nokuro$/ },
+  { query: 'kawaguchi', name: 'カワグチ', kind: 'Artist', href: /\/artists\?q=%E3%82%AB%E3%83%AF%E3%82%B0%E3%83%81$/ },
+  { query: 'zhaoshuang', name: '赵爽', kind: 'Voice actor', href: /\/voice-actors\?q=%E8%B5%B5%E7%88%BD$/ },
+  { query: 'kana hanazwa', name: 'Kana Hanazawa', kind: 'Voice actor', href: /\/voice-actors\?q=Kana(%20|\+)Hanazawa$/ },
+];
+for (const person of PEOPLE) {
+  test(`"${person.query}" finds the ${person.kind.toLowerCase()} ${person.name}, and a pick opens their credit page`, async ({ page }) => {
+    await page.goto('/schedule');
+    await page.getByRole('button', { name: 'Search Arkpedia' }).click();
+    await page.getByRole('combobox', { name: 'Search Arkpedia' }).fill(person.query);
+    const first = page.getByRole('option').first();
+    await expect(first).toContainText(person.name);
+    await expect(first).toContainText(person.kind);
+    await expect(first).toContainText(/\d+ operators?/);
+    await first.click();
+    await expect(page).toHaveURL(person.href);
+    // The page reads the name as its search: their card is on it.
+    await expect(page.locator('main .credit-person h3', { hasText: person.name }).first()).toBeVisible();
+  });
+}
+
+test('/search lists a person found by a typo, and does not jump on one', async ({ page }) => {
+  await page.goto('/search?s=minokuro');
+  await expect(page.locator('.site-search-page-row').first()).toContainText('m9nokuro');
+  await expect(page).toHaveURL(/\/search\?s=minokuro$/);
+});
