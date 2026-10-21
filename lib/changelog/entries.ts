@@ -34,6 +34,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-10-21T10:30:00Z',
+    added: [
+      { title: 'Welfare operator cards', detail: 'The reward tracker shows the welfare operators you can still get as picture cards, ticked once they are in your roster.', href: '/free-op' },
+    ],
+    changed: [
+      { title: "JP and KR show Global's art for now", detail: "In JP or KR time, dates follow that server; events, banners, news and web events stay Global's until the site is translated.", href: '/schedule' },
+      { title: "Classes in the game's order", detail: 'Operator lists sort classes as the game does: Vanguard, Guard, Defender, Sniper, Caster, Medic, Supporter, Specialist.', href: '/operators' },
+      { title: 'Only welfare operators you can still get', detail: 'The welfare list keeps Record Restoration and open events, and leaves out ones that have closed.', href: '/free-op' },
+      { title: '6★ stages count as Adverse Environment', detail: "Leaving out Adverse Environment in the reward tracker also leaves out 6★ stages.", href: '/free-op' },
+    ],
+  },
+  {
     at: '2026-10-21T06:30:00Z',
     added: [
       { title: "KR event art", detail: "In KR time, the current event and its banners show Korea's own key art.", href: '/schedule' },
