@@ -52,8 +52,10 @@ export const isOperatorReward = (item: FreeReward['rewards'][number]) => !!item.
  * A welfare operator a reader can actually still get, today: the Reward Tracker's overview
  * lists only these (the Free rewards tab keeps every row, for ticking).
  *   - Record Restoration ('trail'): the Archives keep an archived story's trail for good.
- *   - An event's own operator ('event', 'extra', 'retro'): only while that event is open to
- *     play, to its endAt (a 'retro' row's eventEndAt). After it, the operator is gone until
+ *   - A main-story event's permanent missions ('retro', Viy's "Clear 17-13"): for good, as the
+ *     game keeps them after the event closes (owner, 2026-10-21).
+ *   - An event's own operator ('event', 'extra'): only while that event is open to
+ *     play, to its endAt. After it, the operator is gone until
  *     the story reaches the Archives (then as a trail row). A collab event never reaches
  *     the Archives, so its operator (Senshi, Delicious On Terra) goes when the event does:
  *     the event window is what decides, as no game table marks an event a collab.
@@ -63,13 +65,13 @@ export const isOperatorReward = (item: FreeReward['rewards'][number]) => !!item.
  */
 export function obtainableWelfare(reward: FreeReward, now: number): boolean {
   if (reward.group !== 'Welfare operators' || !freeRewardAvailable(reward, now)) return false;
-  if (reward.source === 'trail' || (!reward.source && reward.id.startsWith('free:trail:'))) return true;
-  const end = reward.source === 'retro' ? reward.eventEndAt : reward.endAt;
+  if (reward.source === 'trail' || reward.source === 'retro' || (!reward.source && reward.id.startsWith('free:trail:'))) return true;
+  const end = reward.endAt;
   return end === undefined ? !reward.source : now < end;
 }
 
 /** When a welfare row stops being obtainable (obtainableWelfare), Infinity for never. */
-const closesAt = (reward: FreeReward) => (reward.source === 'retro' ? reward.eventEndAt : reward.endAt) ?? Infinity;
+const closesAt = (reward: FreeReward) => (reward.source === 'retro' ? undefined : reward.endAt) ?? Infinity;
 
 /** The welfare operators still to claim right now: every obtainable (obtainableWelfare),
  *  unclaimed row's operator, soonest to close first; of the permanent ones (Record
@@ -98,4 +100,20 @@ export function rosterClaimedWelfare(rewards: readonly FreeReward[], roster: Rea
   if (!roster.size) return new Set();
   return new Set(rewards.filter(reward => reward.group === 'Welfare operators' && reward.rewards.some(isOperatorReward)
     && reward.rewards.filter(isOperatorReward).every(item => roster.has(item.id))).map(reward => reward.id));
+}
+
+/** Why a row the import settles is shown claimed and locked (components/pulls/FreeRewards). */
+export type LockedReason = 'roster' | 'game';
+export const LOCKED_LABEL: Record<LockedReason, string> = { roster: 'In your roster', game: 'Claimed in game' };
+
+/** The beginner rows an import settles while it lasts (not stored: the next import decides
+ *  again): the ones the save records as received (lib/account/rewardClaims.ts: a collected
+ *  programme mission or its completed mission group, a received sign-in day). Never the roster:
+ *  an operator a sign-in gives (the older programme's 7-day sign-in, Cliffheart) is also in the
+ *  headhunting pool, so owning her proves nothing, and a wrong tick hides a reward. A row the
+ *  save knows unclaimed, or cannot speak to (the welcome mail, a sign-in day the save has no
+ *  history for), stays the reader's to tick. */
+export function importClaimedBeginner(rewards: readonly FreeReward[], claims: { claimed: readonly string[] } | undefined): ReadonlyMap<string, LockedReason> {
+  const claimed = new Set(claims?.claimed);
+  return new Map(rewards.filter(reward => reward.group === 'Beginner rewards' && claimed.has(reward.id)).map(reward => [reward.id, 'game' as const]));
 }

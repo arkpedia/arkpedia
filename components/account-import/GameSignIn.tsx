@@ -5,6 +5,8 @@ import type { PullRead } from '@/lib/account/pulls';
 import { directTransport, networkTransport, relayTransport } from '@/lib/account-import/relay';
 import { forgetLogin, maskEmail, readSavedLogin, saveLogin, type SavedLogin } from '@/lib/account-import/savedLogin';
 import ConnectionDiagnostics from './ConnectionDiagnostics';
+import { connectionDiagnostics } from '@/lib/account-import/connectionDiagnostics';
+import { beginnerDiagnostics } from '@/lib/account-import/beginnerDiagnostics';
 import { useCodeCooldown } from '@/lib/account-import/codeCooldown';
 
 /*
@@ -138,7 +140,10 @@ export default function GameSignIn({ server, onAccount, onForget, idPrefix = 'im
 
   /** Steps 3 to 6 with a Yostar login on `from`, then the account and the pulls to the caller. */
   async function read(yostar: YostarAccount, device: string, signedInAs: string, from: ServerId) {
+    // The report's beginner summary is this import's, never an earlier one's.
+    connectionDiagnostics.setBeginner(null);
     const user = await readAccount({ transport: relayTransport, direct: directTransport, deviceId: device, network: await connect(from), onStep: setStep }, yostar);
+    connectionDiagnostics.setBeginner(beginnerDiagnostics(user));
     setStep('pulls');
     let pulls: PullRead;
     try {

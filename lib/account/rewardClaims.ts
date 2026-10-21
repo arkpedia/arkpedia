@@ -3,7 +3,8 @@ export interface RewardClaims { known: string[]; claimed: string[] }
 const object = (value: unknown): Record<string, unknown> => value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
 const validId = (id: string) => /^[a-zA-Z0-9_:-]{1,180}$/.test(id);
 
-export interface BeginnerProgram { id: string; startTs: number; endTs?: number }
+/** missionIds: the programme's own missions (open_server_table), absent from an older map. */
+export interface BeginnerProgram { id: string; startTs: number; endTs?: number; missionIds?: readonly string[] }
 
 export function rewardClaimsFromGame(user: Record<string, unknown>, programs: readonly BeginnerProgram[] = []): RewardClaims {
   const states = new Map<string, boolean>();
@@ -19,8 +20,20 @@ export function rewardClaimsFromGame(user: Record<string, unknown>, programs: re
       if (typeof state === 'number' && Number.isInteger(state) && state >= 0 && state <= 3) put(id, state === 3);
     }
   }
-  for (const [id, value] of Object.entries(object(mission.missionGroups))) {
+  const groups = object(mission.missionGroups);
+  for (const [id, value] of Object.entries(groups)) {
     if (id.startsWith('guide_') && (value === 0 || value === 1)) put(id, value === 1);
+  }
+  // A beginner programme's missions are one mission group, named by the programme's id
+  // (openseverTaskGroup1), and MissionGroupState marks it Complete (1) once the group is done.
+  // Read as all four collected: an inference from the schema, not yet seen in a real veteran
+  // save (docs/development/reward-import-coverage.md). It settles the programme's missions when
+  // an older account's OPENSERVER records are gone. Uncomplete (0) says nothing a mission's own
+  // state does not, so it adds no unclaimed marks.
+  for (const program of programs) {
+    if (typeof program.id === 'string' && validId(program.id) && groups[program.id] === 1 && Array.isArray(program.missionIds)) {
+      for (const id of program.missionIds.slice(0, 50)) if (typeof id === 'string') put(id, true);
+    }
   }
   const checkIn = object(user.checkIn);
   for (const [id, value] of Object.entries(object(checkIn.longTermRecvRecord))) {

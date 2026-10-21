@@ -15,8 +15,11 @@ The tracker imports received rewards, not merely eligibility. No raw account res
 | Login-only gift | Explicit received flag | `free:<activity id>` |
 | Free level-up pack | A positive received count in `shop.GP.level.info` | `free:GP_freeL_<level>` |
 | Global beginner sign-in | Received history plus the programme selected by registration date from the Global schedule | `free:<programme>:checkInData:<day>` or `chainLoginData` |
+| Global beginner missions, as a programme | `mission.missionGroups[<programme id>]` = 1 (MissionGroupState Complete), read for the programme's `missionIds` (open_server_table `openServerMissionGroup`, kept in the game account map); 0 adds nothing. Read as all four collected: an inference from the schema, unconfirmed by a real veteran save | `free:<mission id>` |
 | Stage first-clear Originite | COMPLETE (3); PASS (2) stays an ordinary clear | Existing chapter/event/resource identities |
 | Paradox Simulation | COMPLETE (3) in `troop.addon[operator].stage[stageId]`; rewards arrive with the battle result | `paradox:<stageId>` |
+
+On the Reward Tracker, a Beginner rewards row the save records as received shows ticked, locked and "Claimed in game" while the import lasts (`importClaimedBeginner`). The roster never ticks a beginner row: the older programme's 7-day sign-in gives Cliffheart, who is also in the headhunting pool, so owning her proves nothing. Other imported claims stay ordinary ticks the reader can change.
 
 Paradox stage records live in the operator handbook, separately from `dungeon.stages`. Unlock timestamps, attempts, clear counters and Operator Record story entries do not establish a completed Paradox reward. Reimport once to populate this field in accounts saved before this mapping was supported. Manual tracker marks survive.
 

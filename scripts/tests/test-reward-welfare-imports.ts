@@ -112,14 +112,14 @@ test('welfare operators come from the tables that give them: event missions, per
   assert.equal(welfare['free:welfare:act4d0:char_131_flameb'].source, 'extra');
   // A sign-in's operator stays a day of its sign-in, not a second welfare row.
   assert.ok(!Object.values(welfare).some(row => row.rewards.some(reward => reward.id === 'char_4227_gallus')));
-  // Obtainable on 2026-10-21: Viy while her event runs, and the Archives' operators. Not
+  // Obtainable on 2026-10-21: Viy (a permanent main-story mission), and the Archives' operators. Not
   // GALLUS² (a sign-in's day), not Botani (her event closed on 2026-09-30, no Archive yet).
   const open = freeOperatorsToClaim(built.rewards, new Set(), at('2026-10-21T06:00:00Z')).map(({ operator }) => operator.name);
   assert.deepEqual(open, ['Viy', 'Folinic', 'Sideroca']);
   assert.deepEqual(freeOperatorsToClaim(built.rewards, new Set(['free:act4mainssPermanent_5']), at('2026-10-21T06:00:00Z')).map(({ operator }) => operator.name), ['Folinic', 'Sideroca']);
-  // Once Critical Phase Transition closes, Viy's permanent mission stays in Free rewards for
-  // ticking (no endAt), but she is no longer listed as obtainable.
-  assert.deepEqual(freeOperatorsToClaim(built.rewards, new Set(), at('2026-10-28T12:00:00Z')).map(({ operator }) => operator.name), ['Folinic', 'Sideroca']);
+  // Once Critical Phase Transition closes, Viy's permanent mission is still claimable in the
+  // game (main-story event missions stay), so she stays listed.
+  assert.deepEqual(freeOperatorsToClaim(built.rewards, new Set(), at('2026-10-28T12:00:00Z')).map(({ operator }) => operator.name), ['Viy', 'Folinic', 'Sideroca']);
 });
 
 test('an operator the event mission page features without a row stops the build', () => {
@@ -204,7 +204,7 @@ const NOW = at('2026-10-21T06:00:00Z');
 const rows = {
   // A collab's operator (Senshi, Delicious On Terra, act36side): no Archive, closed 2025-03-24.
   collab: row('free:36sideActivity_4', 'Welfare operators', 'char_4144_senshi', { source: 'event', startAt: at('2025-03-10T08:00:00Z'), endAt: at('2025-03-24T04:00:00Z') }),
-  // A past event's permanent missions, its event closed: not Record Restoration.
+  // A past main-story event's permanent missions, its event closed: still claimable, so still listed.
   pastRetro: row('free:actXmainssPermanent_5', 'Welfare operators', 'char_x_past', { source: 'retro', startAt: at('2025-10-14T08:00:00Z'), eventEndAt: at('2025-10-28T04:00:00Z') }),
   trail: row('free:trail:permanent_sidestory_4_Twilight_Of_Wolumonde:trailReward_sub_1_1', 'Welfare operators', 'char_345_folnic', { source: 'trail', startAt: at('2023-02-03T00:00:00Z') }),
   current: row('free:act4mainssPermanent_5', 'Welfare operators', 'char_4226_veen', { source: 'retro', startAt: at('2026-10-14T08:00:00Z'), eventEndAt: at('2026-10-28T04:00:00Z') }),
@@ -213,11 +213,11 @@ const rows = {
   beginner: row('free:openseverTaskGroup1:chainLoginData:7', 'Beginner rewards', 'char_173_slchan', {}),
 };
 
-test('the welfare list keeps only what is still obtainable: Record Restoration, and an open event\'s operator', () => {
+test('the welfare list keeps only what is still obtainable: Record Restoration, permanent main-story missions, and an open event\'s operator', () => {
   const kept = Object.entries(rows).filter(([, reward]) => obtainableWelfare(reward, NOW)).map(([name]) => name);
-  assert.deepEqual(kept, ['trail', 'current', 'currentEvent']);
+  assert.deepEqual(kept, ['pastRetro', 'trail', 'current', 'currentEvent']);
   assert.deepEqual(freeOperatorsToClaim(Object.values(rows), new Set(), NOW).map(({ reward }) => reward.id),
-    ['free:act4mainssPermanent_5', 'free:52sideActivity_4', rows.trail.id], 'soonest to close first, the permanent ones last');
+    ['free:52sideActivity_4', 'free:act4mainssPermanent_5', 'free:actXmainssPermanent_5', rows.trail.id], 'soonest to close first, the permanent ones last, newest first');
   // A release built before `source`: a trail by its id, an event row by its end, a permanent mission as before.
   const old = (reward: FreeReward) => { const { source: _source, eventEndAt: _end, ...rest } = reward; return rest as FreeReward; };
   assert.ok(obtainableWelfare(old(rows.trail), NOW));

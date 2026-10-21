@@ -34,7 +34,7 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    at: '2026-10-21T16:00:00Z',
+    at: '2026-10-21T17:00:00Z',
     added: [
       { title: 'Search YouTube and Twitch', detail: 'The site search also finds Arknights creators, their latest videos and live Twitch streams.', href: '/search' },
       { title: "Leave out stages you can't clear", detail: 'The reward tracker can leave out Challenge Mode, H stages, Adverse Environment and S stages, each on its own.', href: '/free-op' },
@@ -49,10 +49,14 @@ export const CHANGELOG: ChangelogEntry[] = [
       { title: 'Lighter event pages', detail: 'Event pages load much less data.' },
       { title: 'Character icons in music', detail: "Characters credited under a different spelling, such as Kal'tsit Esperanta, show their icon.", href: '/music/discover' },
       { title: 'Many chibis at once', detail: 'More than 15 chibis on a page no longer turn into blank boxes, and a tapped chibi keeps its size.' },
+      { title: 'Imports tick beginner rewards', detail: 'Beginner missions and sign-in days the save records as claimed are ticked and locked.', href: '/free-op' },
+      { title: 'Imports untick what is not done', detail: 'A manual tick on something your save shows as not done is removed on the next import.', href: '/free-op' },
       { title: 'Chibi glows drawn right', detail: "Soft glows and edges, such as behind Kal'tsit the Esperanta, no longer show as bright blocks on about 120 operators' chibis." },
       { title: 'Home page holds still', detail: 'The Community panel keeps its height as it turns, and stops turning under the pointer.', href: '/' },
     ],
     changed: [
+      { title: 'Welfare operators name the stage', detail: 'Each card says what to clear, and permanent main-story missions such as Viy\'s stay listed after the event.', href: '/free-op' },
+      { title: 'Web events by server', detail: 'Global, JP and KR web events each have their own column.', href: '/community' },
       { title: "JP and KR show Global's art for now", detail: "Dates follow that server; art, news and web events stay Global's until the site is translated.", href: '/schedule' },
       { title: "Classes in the game's order", detail: 'Operator lists sort classes as the game does: Vanguard, Guard, Defender, Sniper, Caster, Medic, Supporter, Specialist.', href: '/operators' },
       { title: 'Sign-in not saved unless you ask', detail: 'Account import keeps your sign-in in this browser only when you tick Save this sign-in.', href: '/account' },
