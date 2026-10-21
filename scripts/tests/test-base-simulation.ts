@@ -61,6 +61,8 @@ test('a factory stops at its 54-capacity storage (ten Battle Records) until the 
   const steady = simulateBase({ base, loginInterval: 24, shifts: [shift({ [factory]: [plain('FEater', 'Elite 2')] })] });
   assert(steady.periodic);
   assert.equal(steady.perDay.exp, 0);
+  // Starting a window at 0 in a working room is exhaustion, reported at the login.
+  assert.deepEqual(steady.events.filter(e => e.kind === 'exhausted').map(e => e.time), [0]);
 });
 
 test('a level 5 dorm at 5000 ambience recovers 4 Morale/h: from 0 to full in 6 h, then holds', () => {
@@ -125,4 +127,14 @@ test('an exhausted worker stays placed but stops adding the 1% base productivity
   near(run({ Adnachiel: 24, Melantha: 24, Catapult: 24 }).exp, 8000 * 1.03);
   near(run({ Adnachiel: 0, Melantha: 24, Catapult: 24 }).exp, 8000 * 1.02);
   assert.equal(run({ Adnachiel: 0, Melantha: 0, Catapult: 0 }), undefined);
+});
+
+test('a worker who reaches 0 exactly at a login and then rests lost no work, so it is not exhaustion', () => {
+  // A lone worker drains 1/h: 24 h on, 24 h in the dorm.
+  const work = shift({ [factory]: [plain('Adnachiel')], dormitory1: [plain('Melantha')] });
+  const rest = shift({ [factory]: [plain('Melantha')], dormitory1: [plain('Adnachiel')] });
+  const r = simulateBase({ base, loginInterval: 24, shifts: [work, rest] });
+  assert(r.periodic);
+  assert.equal(r.events.filter(e => e.kind === 'exhausted').length, 0);
+  near(r.moraleAtLogins[1].Adnachiel, 0);
 });

@@ -227,10 +227,19 @@ export function simulateBase(input: SimulationInput): SimulationResult {
         log.events.push({ time, kind: 'login', detail: login === 0 ? `Shift ${shiftIndex + 1} goes in.` : 'Collect.' });
         record(time);
         const fill: Record<string, number> = {};
-        const exhaustedSeen = new Set(Object.entries(morale).filter(([n, m]) => m === 0 && nextRoomOf.has(n)).map(([n]) => n));
+        // Reported when a worker spends time at 0: reaching 0 exactly at a login and then
+        // resting loses nothing, and starting a window at 0 in a working room does.
+        const exhaustedSeen = new Set<string>();
         let left = loginInterval;
         while (left > EPS) {
           const rates = ratesFor(shiftIndex, morale);
+          const segmentStart = time + loginInterval - left;
+          for (const [room, names] of Object.entries(rates.workers)) for (const n of names) {
+            if (morale[n] === 0 && !exhaustedSeen.has(n)) {
+              exhaustedSeen.add(n);
+              log.events.push({ time: segmentStart, kind: 'exhausted', room, operators: [n], detail: `${n} is at 0 Morale and stops working.` });
+            }
+          }
           let dt = left;
           for (const [name, r] of Object.entries(rates.morale)) {
             const m = morale[name];
@@ -260,14 +269,7 @@ export function simulateBase(input: SimulationInput): SimulationResult {
           }
           for (const [name, r] of Object.entries(rates.morale)) morale[name] = snap(morale[name] + r * dt);
           left -= dt;
-          const now = time + loginInterval - Math.max(0, left);
-          for (const [room, names] of Object.entries(rates.workers)) for (const n of names) {
-            if (morale[n] === 0 && !exhaustedSeen.has(n)) {
-              exhaustedSeen.add(n);
-              log.events.push({ time: now, kind: 'exhausted', room, operators: [n], detail: `${n} reaches 0 Morale and stops working.` });
-            }
-          }
-          record(now);
+          record(time + loginInterval - Math.max(0, left));
         }
         time += loginInterval;
       }

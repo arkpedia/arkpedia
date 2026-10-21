@@ -70,7 +70,7 @@ A search of every `building_data` buff for "swap", "Full Morale", "previous Oper
   - the workshop's count of dorm operators at 4, 12 or 20 Morale or less: crafts are not simulated;
   - the 16-Morale clue guarantees: reception events, not output.
 - **Storage** fills at 1/`fullTime` per hour. A full room stops producing until the next login. Morale keeps draining while it waits.
-- **Exhaustion.** An operator at 0 stays placed, stops draining, and stops working: their skills and their 1% base productivity are gone, and a room with nobody working produces nothing. Stage 1 corrects the 1% in `calculateBase`; it previously counted exhausted workers.
+- **Exhaustion.** It is reported when a worker spends time at 0. Reaching 0 exactly at a login and then resting loses nothing, so it is not reported. An operator at 0 stays placed, stops draining, and stops working: their skills and their 1% base productivity are gone, and a room with nobody working produces nothing. Stage 1 corrects the 1% in `calculateBase`; it previously counted exhausted workers.
 - **Fiammetta.** When she is placed in a dorm, or re-seated there (`reseat`), at full Morale, she swaps Morale with the operator in the slot before hers. She then recovers exactly 2/h through Self-Discipline.
 - **Steady state.** The shift list repeats until Morale at the start of a cycle equals Morale at its end, or until 30 days have passed. The reported numbers are that repeating cycle, normalized to a day: per-room EXP, Precious Metals made, gold sold and LMD; idle hours with full storage; hours with an exhausted worker; Morale traces; and Morale at every login.
 
@@ -101,26 +101,67 @@ The simulator returns these as `caveats` for the page to show, rather than hidin
 4. **Exhausted base productivity.** That an exhausted worker also loses their 1% base share follows from the game stopping their work. The game tables do not state it as a number, so an in-game check is still owed. It is separable: "a room with nobody working produces nothing" stands on its own, and the 1% part is a one-line revert in `calculateBase` that does not touch the simulator.
 5. **Morale drain at full storage.** The simulator assumes operators keep draining while storage is full. This matches common play and is not stated in the tables.
 
-## The optimizer (stage 2, planned)
+## The optimizer (stage 2)
+
+`optimizeBase({ base, roster, loginInterval, factoryProducts, weights, allowExhaustion })` in `lib/base/baseOptimizer.ts`.
 
 **Input:**
 
-- the imported roster: owned operators with promotion and level, from `operatorProgress` or the planner roster. Unowned operators are never proposed. Base skills unlock by promotion and level through `activeBaseSkills`, so an E1 level 1 operator never gets an E2 skill;
-- the layout: 2-4-3, 2-5-2 or 1-5-3, or the imported account's own rooms and levels. 1-5-3 is not yet a `BASE_PRESETS` entry; it joins in stage 3, where the setup chooser shows it;
+- the imported roster: owned operators with promotion and level, from `operatorProgress` or the planner roster. Unowned operators are never proposed. Skills come from `activeBaseSkills` at that promotion and level, so an Elite 1 never brings an Elite 2 skill;
+- the layout as facilities: a preset (2-4-3, 2-5-2, 1-5-3) or the imported account's own rooms and levels;
 - the login interval;
-- the product mix per factory (Battle Records or Precious Metals).
+- the product of each factory (Battle Records or Precious Metals), chosen by the reader.
 
-**Objective:** a weighted per-day value: LMD + EXP × w(EXP) + Precious Metals × w(gold), with defaults shown and editable. Hard constraint: no worker is exhausted at a login in the steady state, unless the user allows it.
+**Objective:** weighted output per day of the simulator's steady-state cycle: LMD + EXP × w(EXP) + Precious Metals made × w(gold). Defaults are 1, 1 and 500; one Precious Metal counts as the 500 LMD it sells for. A rotation that exhausts a worker is rejected unless `allowExhaustion` is set. A rotation that never repeats is never preferred.
 
-**Search** (heuristic, scored by the simulator):
+**Search.** It is a heuristic. The scoring that decides between rotations is the simulator.
 
-1. *Candidates per room:* every owned operator's active skills in that room type, with dominated operators pruned using `calculateBase` on single rooms. Cross-room enablers are kept, because their value only shows in a full-base evaluation: Control Center buffs, resource generators, Gummy for Leto, Jaye's queue.
-2. *Shift construction:* a greedy pass builds shift A for the whole base. Shift B is built from the remaining roster. Shift count comes from the interval: two shifts for 12 h; one shift plus dorm rotation for 6 h; at 18 and 24 h, a single team often exhausts, so the search tries 2–3 shifts held for one or more logins.
-3. *Dorm assignment:* resting operators go to dorms by need. Single-target and non-full effects are matched to the most drained operator, and Fiammetta is placed after the most drained operator whenever a login finds her full.
-4. *Local search:* swap or replace one operator, or move a team between shifts. Accept on simulator improvement. A small number of restarts. Budget: a few thousand simulator calls (seconds in a Web Worker).
-5. *Explanation:* for each team, the per-skill breakdown `calculateBase` already produces (`facilityBreakdown`), plus the simulator's marginal value of each operator (the result without them). That is the "why this team" text.
+1. *Candidates:* for each working room type (Control Center, Trading Post, Factory, Power Plant, Reception Room, Office), every owned operator with an active skill there.
+2. *Shift A, greedy:* repeatedly add the (room, operator) pair with the largest gain in the snapshot calculator's login-interval totals. Those totals count storage filling before the next login, so 24-hour plans favour capacity. Cross-room effects count, because every step evaluates the whole base. Steps are lazy: the best 40 previous estimates are re-scored, with a full pass every six steps and before stopping. The team stops growing at the dorms' total capacity, because it must rest there.
+3. *Room refinement:* greedy adds one operator at a time, so a pair worth more together than either alone can be missed. Each room is re-picked exhaustively from its own staff plus the eight best unused candidates, everything else fixed. On a one-room base this equals brute force (tested).
+4. *Team B* is built the same way from the operators team A did not use.
+5. *Rotation shape and length.* Two shapes are simulated, at every step length (a multiple of the login interval) a crew can work without passing 24 hours:
+   - **Alternating teams:** A works while B rests whole in the dorms, then they swap. Each team must fit the dorms, 20 places on four level 5 dorms, so steps 2–4 build the teams to that size.
+   - **Staggered crews** (logins every 12 h or less): the rooms are split into two halves of even head count, which change crew on alternate steps. A crew works two steps, rests one in the dorms (4/h refills two steps' drain), and waits one unassigned, which holds its Morale. Only half the base rests at once, so the crews are built to every place the base has.
 
-Tests: hand-built small rosters where the optimum is known by enumeration. Monotonicity: adding an operator never lowers the score. Every proposed rotation, replayed through the simulator, has no exhaustion at a login.
+   The best score wins. Within 0.1%, fewer staffing changes win.
+6. *Support rooms:* greedy sees no output from a Power Plant (drones are not scored) and little from Control Center Morale relief. While the dorms still have room for everyone who rests at a step, the empty Control Center, Power Plant, Office and Reception places are filled with unused operators who have a skill there. This is kept if the simulator does not lose by it, and tried again after the exhaustion repair frees places. When alternating teams are the shape and the dorms are the limit (20 resting places against a 29-place 2-4-3 base), the result says which support rooms stay empty and why.
+7. *Exhaustion repair:* each operator who still reaches 0 is tried out of the rotation, and kept out if the score improves.
+8. *Fiammetta:* if owned and unused, she is tried in the first dorm after the first operator coming off shift, re-seated at every staffing change. This is kept only if the simulation gains.
+9. *Explanation:* for each crew and room, the room's output per day, each operator's marginal value (the snapshot output lost without them) and their active skills there.
+
+Measured on the development machine, whole account, 2-4-3:
+
+| Login | Shape | Places per crew | Weighted per day | Time |
+| --- | --- | --- | --- | --- |
+| 6 h | staggered, 12 h steps | 25 / 24 | 126,740 | 9 s |
+| 12 h | staggered, 12 h steps | 25 / 24 | 127,015 | 9 s |
+| 18 h | alternating, 18 h | 20 / 20 | 122,050 | 3 s |
+| 24 h | alternating, 24 h | 20 / 20 | 106,137 | 3 s |
+
+Stage 3 runs the search in a Web Worker. The 6 h result comes out slightly below 12 h because the greedy pass, which scores with the login interval, builds slightly different teams. The search is a heuristic, not a guarantee.
+
+**Tests** (`scripts/tests/test-base-rotation-optimizer.ts`):
+
+- On a one-room base the result equals brute force over every team of one, two or three.
+- Only owned operators are placed, with exactly the skills their promotion and level unlock.
+- A whole-account rotation at 12 h and 24 h logins:
+  - repeats;
+  - never exhausts a worker;
+  - changes staff only at logins;
+  - never puts one operator in both crews;
+  - never rests more operators than the dorms hold.
+- At 12 h the staggered shape wins and staffs more than 20 places; at 24 h the teams alternate.
+- Each explanation's marginal value equals the snapshot difference.
+- 24 h logins never beat 12 h.
+
+**Limits:**
+
+- Two shapes are searched: alternating teams and staggered halves. Operators who could work through several steps without rest (slow drain, Control Center relief), and three-crew schedules, are not.
+- Power plants score only through cross-room effects, because drones are not part of the output. They are filled only when the dorms have room to spare.
+- Dorm recovery skills are not chosen on purpose; resting operators fill dorms in team order.
+- Selling gold needs gold made. The page should show both figures, since the calculator does not limit Trading Posts by the gold supply.
+- Greedy and refinement do not guarantee a global optimum on a whole base. Adding an operator to the roster can, rarely, lower the score.
 
 ## The page (stage 3, planned)
 
