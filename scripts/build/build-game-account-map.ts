@@ -46,7 +46,7 @@ interface RecordFile {
 
 export interface GameAccountMapFile {
   version: 1;
-  beginnerPrograms?: { id: string; startTs: number }[];
+  beginnerPrograms?: { id: string; startTs: number; endTs?: number }[];
   /** character id -> the record's name, by equipment id the planner's module index, and
    *  whether the Global client has it (the account page's operator count). */
   /** formOf: for another form of one character (Amiya's Guard and Medic), the character id
