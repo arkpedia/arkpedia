@@ -178,8 +178,11 @@ export default function EventDetailPage({
 }: Props) {
   const { server, schedule } = useRegionalTime();
   const regionalWindow = schedule?.events?.[name];
-  const dateRange = server === 'en' ? globalDateRange : regionalWindow ? regionalRange(regionalWindow, server) : `${server.toUpperCase()} schedule not announced`;
-  const isPredicted = server === 'en' && globalPredicted;
+  /* The server's own window where it has one, else Global's date or prediction marked
+     predicted, as every list has it (lib/time/regional.ts). */
+  const ownWindow = server !== 'en' && regionalWindow ? regionalWindow : null;
+  const dateRange = ownWindow ? regionalRange(ownWindow, server) : globalDateRange;
+  const isPredicted = ownWindow ? false : globalPredicted || (server !== 'en' && !!globalDateRange);
   /* JP's and KR's own key art, from their in-game boards (regionalArt), else Global's. Read after
      hydration like the dates: both sit in boxes of a fixed shape, so the swap moves nothing. A CG
      set stays: the board's art stands in for the poster only. */
@@ -412,7 +415,7 @@ export default function EventDetailPage({
 
           {activeSection === 'skins' && (
             <section className="op-section" {...tabPanelProps('event-section', 'skins')}>
-              {isPredicted && <p className="hint">CN outfit inventory; Global availability awaits confirmation.</p>}
+              {globalPredicted && <p className="hint">CN outfit inventory; Global availability awaits confirmation.</p>}
               <div className="event-detail-skins">
                 {skins.map((skin) => {
                   const prices = parsePrices(skin.howToObtain);

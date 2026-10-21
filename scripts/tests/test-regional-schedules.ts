@@ -2,7 +2,7 @@ import { certificateMonths, greenCertificateIncome, certificatePulls } from '../
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 // @ts-expect-error Plain Node ingestion.
-import { boardOpening, noticeOpening, noticeSkinWindows, buildRegionalSchedule } from '../sync/sync-regional-schedules.mjs';
+import { boardOpening, eventActivity, noticeOpening, noticeSkinWindows, buildRegionalSchedule } from '../sync/sync-regional-schedules.mjs';
 import { regionalBanners, regionalEvents, regionalPullBanners, regionalFreeRewards, currentRegionalFreeRewards, supplyOpen, regionalSkinWindows, type RegionalSchedule } from '../../lib/time/regional';
 import { bannerFreePulls, type UpcomingBanner } from '../../lib/pulls/pulls';
 import { availableBannerFreePulls, planBudgets } from '../../lib/pulls/plan';
@@ -17,13 +17,15 @@ const banner: HeadhuntingBanner = { name: 'Limited', category: 'Limited', pull_t
 const event: ScheduleEvent = { name: 'Event', poster: null, year: 2026, cn: { dateRange: null, note: null }, global: { dateRange: '2026/10/14–2026/10/28', note: null }, tw: { dateRange: null, note: null } } satisfies ScheduleEvent;
 const schedule: RegionalSchedule = { sources: {}, banners: { Limited: time }, events: { Event: { ...time, shopEndAt: '2026-11-03T19:00:00.000Z' } }, weekly: { weekly_1: [1, 4, 5, 7], weekly_2: [1, 2, 5, 6], weekly_3: [3, 4, 6, 7], weekly_4: [2, 3, 6, 7] } };
 
-test('JP and KR use their own windows and one exclusive close, never Global fallback', () => {
+test("JP and KR use their own windows and one exclusive close, else Global's dates marked estimated", () => {
   for (const server of ['jp', 'kr'] as const) {
     const [selected] = regionalBanners([banner], schedule, server);
     assert.equal(parseBannerWindow(selected)?.end.toISOString(), time.endAt);
     assert.equal(selected.timingServer, server);
-    assert.deepEqual(regionalBanners([banner], undefined, server), []);
-    assert.equal(regionalEvents([event], undefined, server)[0].global.dateRange, null);
+    const [fallback] = regionalBanners([banner], undefined, server);
+    assert.deepEqual(fallback, { ...banner, global_date_estimated: true }, "Global's banner on Global's dates, marked estimated");
+    assert.equal(parseBannerWindow(fallback)?.end.toISOString(), banner.global_window!.endAt);
+    assert.deepEqual(regionalEvents([event], undefined, server)[0].global, { dateRange: event.global.dateRange, note: `Estimated from Global's dates; ${server.toUpperCase()} schedule not announced` });
     assert.equal(regionalEvents([event], schedule, server)[0].global.shopEndAt, '2026-11-03T19:00:00.000Z');
   }
   assert.deepEqual(regionalBanners([banner], undefined, 'en'), [banner]);
@@ -98,11 +100,12 @@ test('regional free banner pulls reset on JP/KR 04:00 and retain manual budget i
   assert.equal(row.expired, true);assert.equal(row.paid, 0);assert.deepEqual(goal, before);
 });
 
-test('timed regional reward claims keep stable IDs and manual claims; unknown regional gifts stay out', () => {
+test("timed regional reward claims keep stable IDs and manual claims; a gift without a regional window keeps Global's", () => {
   const rewards = [{ id: 'free:act:1', startAt: 1, endAt: 2 }, { id: 'permanent' }, { id: 'free:announcement:unknown', startAt: 1, endAt: 2 }];
   const selected = regionalFreeRewards(rewards, { ...schedule, rewardWindows: { 'free:act:1': time } }, 'kr');
-  assert.deepEqual(selected.map(r => r.id), ['free:act:1', 'permanent']);
+  assert.deepEqual(selected.map(r => r.id), ['free:act:1', 'permanent', 'free:announcement:unknown']);
   assert.equal(selected[0].endAt, Date.parse(time.endAt));assert.equal(rewards[0].endAt, 2);
+  assert.deepEqual(selected[2], rewards[2], "Global's own window");
 });
 
 test('server filtering retains rewards that close after Global in either regional client', () => {
@@ -113,11 +116,26 @@ test('server filtering retains rewards that close after Global in either regiona
   const tables = { version: 1 as const, servers: { jp: { sources: {}, rewardWindows: { 'free:jp': window } }, kr: { sources: {}, rewardWindows: { 'free:kr': window } } } };
   const current = currentRegionalFreeRewards(rewards, tables, now);
   assert.deepEqual(current.map(reward => reward.id), ['free:jp', 'free:kr', 'permanent']);
-  assert.deepEqual(regionalFreeRewards(current, tables.servers.jp, 'jp').map(reward => reward.id), ['free:jp', 'permanent']);
-  assert.deepEqual(regionalFreeRewards(current, tables.servers.kr, 'kr').map(reward => reward.id), ['free:kr', 'permanent']);
+  // Global's list on each server, each reward on that server's window where it has one.
+  const jp = regionalFreeRewards(current, tables.servers.jp, 'jp'), kr = regionalFreeRewards(current, tables.servers.kr, 'kr');
+  assert.deepEqual(jp.map(reward => reward.id), ['free:jp', 'free:kr', 'permanent']);
+  assert.deepEqual(kr.map(reward => reward.id), ['free:jp', 'free:kr', 'permanent']);
+  assert.deepEqual(jp.map(reward => reward.endAt! > now), [true, false, false]);
+  assert.deepEqual(kr.map(reward => reward.endAt! > now), [false, true, false]);
   assert.deepEqual(currentRegionalFreeRewards(rewards, tables, now + 60_000).map(reward => reward.id), ['permanent']);
   assert.deepEqual(currentRegionalFreeRewards(rewards, undefined, now).map(reward => reward.id), ['permanent']);
   assert.deepEqual(rewards, before);
+});
+
+test("a rerun never takes its original's run of the shared activity, which the client table still holds", () => {
+  // act42side as the client has it: the 2025 run, which "[Rerun] ... Rerun" folds onto by name.
+  const english = { act42side: { name: "The Masses' Travels", endTime: Date.parse('2025-11-04T10:59:59Z') / 1000 } };
+  const original = { name: "[Side Story – Celebration] The Masses' Travels", global: { dateRange: '2025/10/14–2025/11/04', note: null } };
+  const rerun = { name: "[Rerun] The Masses' Travels Rerun", activityId: 'act42sre', global: { dateRange: '2026/11/05–2026/11/15', note: 'ESTIMATED Global date, not officially confirmed' } };
+  assert.equal(eventActivity(original, english), 'act42side');
+  assert.equal(eventActivity(rerun, english), null, 'a year before its own Global close');
+  assert.equal(eventActivity({ ...rerun, global: { dateRange: null, note: null } }, english), null, 'a rerun without a Global date');
+  assert.equal(eventActivity({ ...rerun, global: { dateRange: '2025/10/14–2025/11/04', note: null } }, english), 'act42side', 'the run it has');
 });
 
 test('ingestion rejects truncated regional inputs instead of manufacturing schedules', () => {

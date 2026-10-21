@@ -160,11 +160,19 @@ export function noticeSkinWindows(notices, tables, skins, server) {
   return [...groups.values()].map(record => ({ ...record, skinIds: [...new Set(record.skinIds)].sort() }));
 }
 
-function eventActivity(event, english) {
+/** How far a client activity's close may sit from the event's Global close and still be its run. */
+const SAME_RUN_DAYS = 60;
+export function eventActivity(event, english) {
   if (event.activityId && english[event.activityId]) return event.activityId;
   const name = fold(event.name);
   const close = Date.parse(event.global?.endAt ?? String(event.global?.dateRange ?? '').split(/[–—]/)[1]?.trim().replaceAll('/', '-'));
-  const rows = Object.entries(english).filter(([, row]) => fold(row.name) === name);
+  // A rerun reuses its original's activity, and the client table holds one run of it: the
+  // run it last had. Folding drops "Rerun", so "[Rerun] The Masses' Travels Rerun" (Global,
+  // estimated for 2026-11) took the original's 2025 window, and JP/KR listed the rerun as over
+  // (2026-10-21). The activity must be this run: closing near the event's own Global close, or,
+  // for a rerun without one, not taken at all.
+  const sameRun = ([, row]) => Number.isFinite(close) ? Math.abs(end(row.endTime) * 1000 - close) <= SAME_RUN_DAYS * 86400000 : !/\brerun\b/i.test(event.name);
+  const rows = Object.entries(english).filter(([, row]) => fold(row.name) === name).filter(sameRun);
   if (rows.length === 1) return rows[0][0];
   const near = rows.filter(([, row]) => Number.isFinite(close) && Math.abs(end(row.endTime) * 1000 - close) < 3 * 86400000);
   return near.length === 1 ? near[0][0] : null;

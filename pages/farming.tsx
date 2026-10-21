@@ -28,9 +28,10 @@ export default function FarmingPage({ windows: globalWindows, countdowns: export
   const now = useReaderClock(requestNow, { tickMs: 1000, onFocus: true });
   const windows = useMemo(() => {
     if (server === 'en' || !globalWindows) return globalWindows;
-    const project = (rows: FarmingWindows['eventStore'], shop: boolean) => rows.flatMap(row => {
+    // Global's rows one to one: the server's window where it has one, else Global's (lib/time/regional.ts).
+    const project = (rows: FarmingWindows['eventStore'], shop: boolean) => rows.map(row => {
       const time = row.event ? schedule?.events?.[row.event] : undefined;
-      return time ? [{ ...row, start: Date.parse(time.startAt), end: Date.parse(shop ? time.shopEndAt ?? time.endAt : time.endAt) }] : [];
+      return time ? { ...row, start: Date.parse(time.startAt), end: Date.parse(shop ? time.shopEndAt ?? time.endAt : time.endAt) } : row;
     });
     return { eventStore: project(globalWindows.eventStore, true), materials: Object.fromEntries(Object.entries(globalWindows.materials).map(([key, rows]) => [key, project(rows, false)])) } as FarmingWindows;
   }, [globalWindows, server, schedule]);

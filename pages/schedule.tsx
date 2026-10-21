@@ -103,15 +103,22 @@ export default function SchedulePage({ events: globalEvents, operators: exported
      whenever a table was missing, and the banner list alone was 223 KB of the chunk. */
   const { server, schedule } = useRegionalTime();
   const now = useReaderClock(requestNow, { tickMs: 1000, onFocus: true });
-  const events = useMemo(() => regionalEvents(globalEvents, schedule, server).map(event => {
+  /* Global's list first, its passed estimates withdrawn, then the server's dates over it
+     (lib/time/regional.ts): JP and KR list Global's items in Global's order. Withdrawing after
+     would read the estimate mark a JP/KR fallback carries as a passed Global estimate. */
+  const events = useMemo(() => regionalEvents(globalEvents.map(event => {
     const range = event.bannerName && event.global.note ? parseGameWindow(event.global.dateRange, event.global) : null;
     return range && +range.start <= now ? { ...event, global: { ...event.global, dateRange: null, note: 'Global date unannounced; the previous estimate has passed.' } } : event;
-  }), [globalEvents, schedule, server, now]);
-  const regionalRows = useMemo(() => server === 'en' ? calendarRows : calendarRows.flatMap(row => {
+  }), schedule, server), [globalEvents, schedule, server, now]);
+  /* Every Global row, in Global's order: the server's window where it has one, else Global's
+     date marked predicted. A banner row keeps Global's own mark, since currentEventRows reads a
+     predicted banner row whose start has passed as "unannounced", and a JP/KR fallback for a
+     banner live on Global is not that. */
+  const regionalRows = useMemo(() => server === 'en' ? calendarRows : calendarRows.map(row => {
     const time = row.bannerName ? schedule?.banners?.[row.bannerName] : schedule?.events?.[row.name];
-    if (!time) return [];
-    return [{ ...row, poster: regionalArt(time, row.poster, server), dateRange: row.modeId && time.releaseDate ? time.releaseDate : regionalRange(time, server), isPredicted: false, start: Date.parse(time.startAt), end: Date.parse(time.endAt),
-      pullBanner: 'pullBanner' in row && row.pullBanner ? { ...row.pullBanner, end: Date.parse(schedule?.banners?.[row.pullBanner.name]?.endAt ?? time.endAt) } : null }];
+    if (!time) return row.bannerName ? row : { ...row, isPredicted: true };
+    return { ...row, poster: regionalArt(time, row.poster, server), dateRange: row.modeId && time.releaseDate ? time.releaseDate : regionalRange(time, server), isPredicted: false, start: Date.parse(time.startAt), end: Date.parse(time.endAt),
+      pullBanner: 'pullBanner' in row && row.pullBanner ? { ...row.pullBanner, end: Date.parse(schedule?.banners?.[row.pullBanner.name]?.endAt ?? time.endAt) } : null };
   }), [calendarRows, server, schedule]);
   const colors = useReleaseTable<typeof import('@/data/event_colors.json')>('event_colors');
   const materials = useReleaseTable<typeof import('@/data/event_materials.json')>('event_materials');

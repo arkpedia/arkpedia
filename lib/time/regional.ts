@@ -63,45 +63,62 @@ export function regionalArt(window: RegionalWindow | undefined, global: string |
   return window?.art?.url ?? global;
 }
 
-/** Missing regional evidence is unavailable, never Global in a different timezone. */
+/*
+ * JP and KR show Global's lists one to one: the same items in the same order, only the dates
+ * change. Every helper below maps and never drops: an item the server's schedule has a window
+ * for takes that window; any other keeps Global's own date or prediction (CN-based ones
+ * included), marked as an estimate the way Global marks one. They once dropped such items or
+ * blanked their dates, so JP and KR lost every upcoming event, every CN-predicted banner and
+ * Global's order (2026-10-21). Which items are over or live is then decided by the page's own
+ * Global logic on these dates, so a known-ended JP/KR window ends an item as Global's would.
+ * scripts/tests/test-regional-parity.ts holds every helper to it.
+ */
+const notAnnounced = (server: GameServer) => `Estimated from Global's dates; ${server.toUpperCase()} schedule not announced`;
+const isEstimateNote = (note: string | null | undefined) => /estimated|predicted|unannounced|withdrawn/i.test(note ?? '');
+
 export function regionalEvents<T extends ScheduleEvent>(events: readonly T[], schedule: RegionalSchedule | undefined, server: GameServer): T[] {
   if (server === 'en') return [...events];
   return events.map(event => {
     const time = schedule?.events?.[event.name];
     const { art: _art, ...timing } = time ?? {};
+    const dated = !!(event.global.dateRange || event.global.releaseDate);
     const global = time ? { ...timing, dateRange: time.modeId && time.releaseDate ? `${time.releaseDate}–${time.releaseDate}` : regionalRange(time, server), note: null }
-      : { dateRange: null, note: `${server.toUpperCase()} schedule not announced` };
+      : { ...event.global, note: dated && !isEstimateNote(event.global.note) ? notAnnounced(server) : event.global.note };
     const art = event.bannerName ? schedule?.banners?.[event.bannerName] : time;
     return { ...event, global, poster: regionalArt(art, event.poster, server) };
   });
 }
 export function regionalBanners<T extends HeadhuntingBanner>(banners: readonly T[], schedule: RegionalSchedule | undefined, server: GameServer): T[] {
   if (server === 'en') return [...banners];
-  return banners.flatMap(banner => {
+  return banners.map(banner => {
     const time = schedule?.banners?.[banner.name];
-    if (!time) return [];
-    return [{ ...banner, banner_image: regionalArt(time, banner.banner_image ?? null, server), timingServer: server, global_date: regionalRange(time, server), global_window: time,
+    if (!time) return { ...banner, global_date_estimated: banner.global_date_estimated || !!banner.global_date };
+    return { ...banner, banner_image: regionalArt(time, banner.banner_image ?? null, server), timingServer: server, global_date: regionalRange(time, server), global_window: time,
       global_date_estimated: false, globalLineupPending: false,
-      globalScheduleStatus: time.status === 'announced' ? 'announced' as const : 'datamined' as const }];
+      globalScheduleStatus: time.status === 'announced' ? 'announced' as const : 'datamined' as const };
   });
 }
 export function regionalPullBanners(banners: readonly UpcomingBanner[], schedule: RegionalSchedule | undefined, server: GameServer): UpcomingBanner[] {
   if (server === 'en') return [...banners];
-  return banners.flatMap(banner => {
+  return banners.map(banner => {
     const time = schedule?.banners?.[banner.name];
-    return time ? [{ ...banner, image: regionalArt(time, banner.image, server), startAt: time.startAt, endAt: time.endAt, server, start: regionalDate(time.startAt, server), end: regionalDate(time.endAt, server), datesEstimated: time.status !== 'announced' }] : [];
+    return time ? { ...banner, image: regionalArt(time, banner.image, server), startAt: time.startAt, endAt: time.endAt, server, start: regionalDate(time.startAt, server), end: regionalDate(time.endAt, server), datesEstimated: time.status !== 'announced' }
+      : { ...banner, datesEstimated: true };
   });
 }
 export function regionalPullEvents(events: readonly PullEventReward[], schedule: RegionalSchedule | undefined, server: GameServer): PullEventReward[] {
   if (server === 'en') return [...events];
-  return events.flatMap(event => {
+  return events.map(event => {
     const time = (event.event ? schedule?.events?.[event.event] : undefined);
-    return time ? [{ ...event, ...time, start: regionalDate(time.startAt, server), end: regionalDate(time.endAt, server) }] : [];
+    return time ? { ...event, ...time, start: regionalDate(time.startAt, server), end: regionalDate(time.endAt, server) } : { ...event };
   });
 }
 export function regionalCards<T extends Pick<StageModeCard, 'id' | 'start' | 'end'>>(cards: readonly T[], schedule: RegionalSchedule | undefined, server: GameServer): T[] {
   if (server === 'en') return [...cards];
-  return cards.map(card => ({ ...card, start: schedule?.contents?.[card.id]?.[0] ?? null, end: schedule?.contents?.[card.id]?.[1] ?? null }));
+  return cards.map(card => {
+    const window = schedule?.contents?.[card.id];
+    return window ? { ...card, start: window[0] ?? null, end: window[1] ?? null } : { ...card };
+  });
 }
 export const WEEKDAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 /** Exact force-open campaigns override the ordinary reset-day rotation, separately per region. */
@@ -115,42 +132,67 @@ export function supplyOpen(id: string, now: number, schedule: RegionalSchedule |
 }
 
 /** Shop windows need evidence for their own close. A chapter's stage close is not its shop close.
- * Regional official shop windows are published separately by ingestion; missing inventories
- * are kept unscheduled rather than offered under Global opening/closing instants. Global keeps
- * its catalogue windows and adds the sales its own official posts list (sync-regional-schedules
+ * Global keeps its catalogue windows and adds the sales its own official posts list (sync-regional-schedules
  * englishNoticeSkinWindows): the anniversary store's new and re-edition outfits, 2026-10-14,
- * were in Global's post but in no catalogue window, so Global's home showed 3 of 28. */
+ * were in Global's post but in no catalogue window, so Global's home showed 3 of 28.
+ * JP and KR take Global's list (call them with the 'en' result) and move each window onto the
+ * server's own official sale of the same outfits where it has one (regionalSale). A window
+ * without one keeps Global's dates and flags: marking a confirmed Global sale estimated would
+ * take its outfits off "Available now" (computeSkinCountdowns), and the list keeps Global's items. */
 export function regionalSkinWindows(windows: readonly SkinWindow[], schedule: RegionalSchedule | undefined, server: GameServer): SkinWindow[] {
   if (server === 'en') return [...windows, ...(schedule?.skinWindows ?? [])];
-  return schedule?.skinWindows ?? [];
+  return windows.map(window => {
+    const sale = regionalSale(window, schedule);
+    return sale ? { ...window, startAt: sale.startAt, endAt: sale.endAt, estimated: !!sale.estimated, source: sale.source ?? window.source } : { ...window };
+  });
 }
+/** Global's shop collections, each on the server's own sale of its outfits where it has one, else
+ *  on Global's dates marked estimated (the planner only labels them). */
 export function regionalSkinCollections(collections: readonly SkinCollection[], schedule: RegionalSchedule | undefined, server: GameServer): SkinCollection[] {
   if (server === 'en') return [...collections];
-  return regionalSkinWindows([], schedule, server).filter(window => window.kind === 'shop').map(window => ({
-    id: `${server}/${window.event}/${window.label}/${window.startAt}`, name: `${window.event} · ${window.label}`,
-    start: regionalDate(window.startAt, server), end: regionalDate(new Date(Date.parse(window.endAt) - 1).toISOString(), server),
-    startAt: window.startAt, endAt: window.endAt, estimated: !!window.estimated, skinIds: window.skinIds,
-    featuredIds: window.newRelease ? window.skinIds : [], source: window.source, sourceRegion: server,
-  }));
+  return collections.map(collection => {
+    // A CN-projected shop carries calendar days only; its opening day is near enough to match on.
+    const sale = regionalSale({ kind: 'shop', startAt: collection.startAt ?? `${collection.start}T00:00:00.000Z`, endAt: collection.endAt ?? `${collection.end}T00:00:00.000Z`, skinIds: collection.skinIds }, schedule);
+    if (!sale) return { ...collection, estimated: true };
+    return { ...collection, start: regionalDate(sale.startAt, server), end: regionalDate(new Date(Date.parse(sale.endAt) - 1).toISOString(), server),
+      startAt: sale.startAt, endAt: sale.endAt, estimated: !!sale.estimated, source: sale.source, sourceRegion: server };
+  });
+}
+
+const SALE_MATCH_DAYS = 28;
+/** The server's own sale of a Global window's outfits: the same kind, opening within four weeks
+ *  of it, sharing at least half of the two inventories' outfits (by Jaccard), the best such. JP
+ *  names its sales in Japanese and KR in English, so the outfits are the key, not the event's
+ *  name; the overlap rule keeps a 196-outfit Fashion Review off a 23-outfit returning shop. */
+function regionalSale(window: Pick<SkinWindow, 'kind' | 'startAt' | 'endAt' | 'skinIds'>, schedule: RegionalSchedule | undefined): SkinWindow | undefined {
+  const start = Date.parse(window.startAt), ids = new Set(window.skinIds);
+  let best: SkinWindow | undefined, bestScore = 0.5;
+  for (const sale of schedule?.skinWindows ?? []) {
+    if (sale.kind !== window.kind || !(Math.abs(Date.parse(sale.startAt) - start) <= SALE_MATCH_DAYS * 86_400_000)) continue;
+    const saleIds = new Set(sale.skinIds);
+    const shared = [...saleIds].filter(id => ids.has(id)).length;
+    const score = shared / (ids.size + saleIds.size - shared);
+    if (score > bestScore || score === bestScore && !best) { best = sale; bestScore = score; }
+  }
+  return best;
 }
 
 export function regionalGameEvents<T extends { name: string; poster: string | null; dateRange: string; start: string; end: string; shopEndAt?: string }>(events: readonly T[], schedule: RegionalSchedule | undefined, server: GameServer): T[] {
   if (server === 'en') return [...events];
-  return events.flatMap(event => {
+  return events.map(event => {
     const time = schedule?.events?.[event.name];
     // The window's own fields are timings; its art is the poster's, not a field of the event.
     const { art: _art, ...timing } = time ?? {};
-    return time ? [{ ...event, ...timing, poster: regionalArt(time, event.poster, server), shopEndAt: time.shopEndAt ?? time.endAt, dateRange: regionalRange(time, server), start: time.startAt, end: time.endAt }] : [];
+    return time ? { ...event, ...timing, poster: regionalArt(time, event.poster, server), shopEndAt: time.shopEndAt ?? time.endAt, dateRange: regionalRange(time, server), start: time.startAt, end: time.endAt } : { ...event };
   });
 }
 
 
 export function regionalFreeRewards<T extends { id: string; startAt?: number; endAt?: number }>(rewards: readonly T[], schedule: RegionalSchedule | undefined, server: GameServer): T[] {
   if (server === 'en') return [...rewards];
-  return rewards.flatMap(reward => {
-    if (!reward.startAt && !reward.endAt) return [reward];
-    const time = schedule?.rewardWindows?.[reward.id];
-    return time ? [{ ...reward, startAt: Date.parse(time.startAt), endAt: Date.parse(time.endAt) }] : [];
+  return rewards.map(reward => {
+    const time = reward.startAt || reward.endAt ? schedule?.rewardWindows?.[reward.id] : undefined;
+    return time ? { ...reward, startAt: Date.parse(time.startAt), endAt: Date.parse(time.endAt) } : { ...reward };
   });
 }
 

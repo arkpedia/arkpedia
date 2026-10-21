@@ -60,7 +60,7 @@ const SORT_OPTIONS = [
 ];
 
 export default function SkinsGallery({ skins, events: globalEvents, now, availabilityWindows, dynamicArt = {} }: Props) {
-  const { server, schedule } = useRegionalTime();
+  const { server, schedule, globalSchedule } = useRegionalTime();
   const events = useMemo(() => regionalEvents(globalEvents, schedule, server), [globalEvents, schedule, server]);
   // The open skin lives in the URL, addressed by name (the same key the
   // wishlist already treats as a skin's identity) -- so a specific
@@ -88,7 +88,11 @@ export default function SkinsGallery({ skins, events: globalEvents, now, availab
   // Recompute from acquisition windows even when runtime content contains old
   // build-time availability flags. Initial server/client clocks still agree.
   // SL-4b: the bundled confirmed windows still merge in here until the maintainer decides.
-  const windows = useMemo(() => regionalSkinWindows(withLocalConfirmedSkinWindows(availabilityWindows), schedule, server), [availabilityWindows, schedule, server]);
+  // Global's windows first; JP and KR move each onto their own sale of the same outfits (lib/time/regional.ts).
+  const windows = useMemo(() => {
+    const global = regionalSkinWindows(withLocalConfirmedSkinWindows(availabilityWindows), globalSchedule, 'en');
+    return server === 'en' ? global : regionalSkinWindows(global, schedule, server);
+  }, [availabilityWindows, globalSchedule, schedule, server]);
   const availability = useMemo(() => computeSkinCountdowns(skins, events, new Date(clock), windows), [skins, events, clock, windows]);
   const availabilityFilter = query.availability === 'draw' ? '' : query.availability;
   const setAvailabilityFilter = (value: string) => setQuery('availability', value);
