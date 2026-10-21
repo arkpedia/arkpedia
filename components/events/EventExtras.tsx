@@ -1,4 +1,5 @@
 import type { EventExtras } from '@/lib/events/tableRewards';
+import { REGIONAL_MATERIAL } from '@/lib/i18n/regionalMaterial';
 import Image, { ContentImg } from '@/components/content/ContentImage';
 import { PackButton } from './RewardDetails';
 import { RewardTile } from './RewardTile';
@@ -157,7 +158,8 @@ export function EventNews({ news, board }: { news: EventExtras['news']; board: E
   const posts = [...new Map(news.map((section) => [section.source, section])).entries()];
   // A release from before the servers were told apart has only Global's, with no server.
   const globalBoard = board.filter((item) => (item.server ?? 'en') === 'en');
-  const regional = REGIONAL_SERVERS.map((server) => ({ server, items: board.filter((item) => item.server === server) }));
+  // No JP/KR notices until the site has those languages (lib/i18n/regionalMaterial.ts): Global's for every server.
+  const regional = REGIONAL_MATERIAL ? REGIONAL_SERVERS.map((server) => ({ server, items: board.filter((item) => item.server === server) })) : [];
   const own = Object.fromEntries(regional.filter(({ items }) => items.length > 0).map(({ server }) => [`data-own-${server}`, '']));
   return (
     <div className="event-extras event-news" {...own}>

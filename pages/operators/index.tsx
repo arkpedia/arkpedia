@@ -1,4 +1,5 @@
 import { withContentPage } from '@/lib/content/server';
+import { sortClasses } from '@/lib/operators/classOrder';
 import { GetStaticProps } from 'next';
 import path from 'path';
 import Head from 'next/head';
@@ -86,7 +87,7 @@ export default function OperatorsIndex({ operators, now }: Props) {
     [operators]
   );
   const classes = useMemo(
-    () => Array.from(new Set(operators.map((op) => op.class).filter((c): c is string => !!c))).sort(),
+    () => sortClasses(operators.map((op) => op.class).filter((c): c is string => !!c)),
     [operators]
   );
   // Branch options narrow to whichever class is currently selected, so the

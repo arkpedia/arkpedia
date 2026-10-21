@@ -120,8 +120,6 @@ export const MOTION_LEGACY = new Map([
   ['styles/home/front.css: .front-gacha-poster-wrap { transition }', { count: 1, reason: HOVER_FADE }],
   ['styles/home/front.css: .front-skin-item { transition }', { count: 1, reason: HOVER_FADE }],
   ['styles/home/front.css: .front-featured-op { transition }', { count: 1, reason: HOVER_FADE }],
-  ['styles/home/front.css: .front-community-fade-wrap { animation }', { count: 1, reason: CROSSFADE }],
-  ['styles/home/front.css: @keyframes front-community-fade-in', { count: 1, reason: CROSSFADE }],
   ['styles/home/front.css: .front-community-item { transition }', { count: 1, reason: HOVER_FADE }],
   ['styles/music/music.css: .music-crossfade-text { transition }', { count: 1, reason: CROSSFADE }],
   ['styles/music/music.css: .music-play-btn.loading { animation }', { count: 1, reason: LOOP }],

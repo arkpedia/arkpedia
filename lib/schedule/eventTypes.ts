@@ -6,4 +6,6 @@ export interface CommunityEvent {
   startTime: string; // ISO date string, e.g. "2026-08-15T14:00:00Z"
   endTime?: string; // ISO date string. If omitted, defaults to 24h after startTime.
   url: string;
+  /** An official brand, café or shop tie-in rather than a convention: the list labels it "Collab". */
+  kind?: 'collab';
 }

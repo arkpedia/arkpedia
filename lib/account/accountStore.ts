@@ -53,6 +53,9 @@ export interface AccountRecord {
   /** The Doctor's name and number, to say whose it is. */
   doctor: string | null;
   operators: string[];
+  /** The roster by the game's character ids (troop.chars, Amiya's forms too), whatever the
+   *  site has a record of. Absent on a record from before it. */
+  operatorIds?: string[];
   skins: string[];
   cleared: string[];
   /** Three-star clears that actually award the first-clear Originite. Older snapshots omit it. */
@@ -168,6 +171,7 @@ function walletFromStatus(status: Record<string, any>): AccountWallet {
   };
 }
 
+const CHAR_ID = /^char_\w{1,100}$/;
 const strings = (value: unknown, max: number) => Array.isArray(value) && value.length <= max && value.every((item) => typeof item === 'string' && item.length <= 200);
 
 /** A stored record, or null for anything that is not one. */
@@ -192,6 +196,7 @@ export function parseAccount(raw: string | null): AccountRecord | null {
     ...(base ? { base } : {}),
     ...(parseRewardClaims(value.rewardClaims) ? { rewardClaims: parseRewardClaims(value.rewardClaims) } : {}),
     operators: value.operators as string[], skins: value.skins as string[], cleared: value.cleared as string[],
+    ...(strings(value.operatorIds, 5000) && (value.operatorIds as string[]).every((id) => CHAR_ID.test(id)) ? { operatorIds: value.operatorIds as string[] } : {}),
     ...(strings(value.rewardCleared, 50000) ? { rewardCleared: value.rewardCleared as string[] } : {}),
     ...(operatorBuilds ? { operatorBuilds } : {}),
     ...(strings(value.annihilation, 500) ? { annihilation: value.annihilation as string[] } : {}),
@@ -234,11 +239,13 @@ export function parseAccount(raw: string | null): AccountRecord | null {
  */
 export function accountFromGame(user: Record<string, any>, map: GameAccountMap, server: ServerId, now = new Date()): AccountRecord {
   const operators = new Set<string>();
+  const operatorIds = new Set<string>();
   const outfits: Record<string, string> = {};
   for (const char of Object.values((user.troop?.chars ?? {}) as Record<string, { charId?: string; skin?: unknown; tmpl?: Record<string, { skinId?: unknown }> }>)) {
     // Amiya's forms each wear their own outfit (tmpl), every other operator one (skin).
     const forms = char?.tmpl && typeof char.tmpl === 'object' ? Object.entries(char.tmpl).map(([id, form]) => [id, form?.skinId] as const) : [[char?.charId ?? '', char?.skin] as const];
     for (const [id, skin] of forms) {
+      if (CHAR_ID.test(id)) operatorIds.add(id);
       if (!map.chars[id]) continue;
       operators.add(map.chars[id].name);
       if (skinId(skin)) outfits[map.chars[id].name] = skinId(skin)!;
@@ -263,6 +270,7 @@ export function accountFromGame(user: Record<string, any>, map: GameAccountMap, 
     ...(base ? { base } : {}),
     doctor: status.nickName ? `${status.nickName}#${status.nickNumber ?? ''}` : null,
     operators: [...operators].sort(),
+    operatorIds: [...operatorIds].sort(),
     skins: Object.keys(user.skin?.characterSkins ?? {}).sort(),
     cleared: [...new Set(cleared)].sort(),
     ...((user.dungeon?.stages && typeof user.dungeon.stages === 'object' && !Array.isArray(user.dungeon.stages)) || handbookStages.length

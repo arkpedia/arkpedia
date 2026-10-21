@@ -34,6 +34,8 @@ test('an account gives the operators it owns by name, its outfits by skin id and
     version: 1, rewardClaims: { known: [], claimed: [] }, server: 'en', importedAt: '2026-10-01T12:00:00.000Z', doctor: 'Doctor#1234',
     // Amiya's forms each by their own name; one with no record yet is left out.
     operators: ['Amiya', 'Amiya (Guard)', 'Fiammetta'],
+    // ...and the whole roster by the game's ids, a character with no site record too.
+    operatorIds: ['char_002_amiya', 'char_1001_amiya2', 'char_300_phenxi', 'char_9999_brandnew'],
     skins: ['char_002_amiya@winter#1', 'char_300_phenxi@summer#1'],
     cleared: ['main_02', 'main_03'],
     rewardCleared: ['main_03'],

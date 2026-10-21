@@ -22,6 +22,38 @@ test('regional banner closes before Global and same-page account changes update 
   await expect(sidebar.getByTitle(NAME,{exact:true})).toHaveCount(0);
 });
 
+/* The owner's report (2026-10-21): in JP and KR mode the upcoming events, the CN predictions and
+   Global's banner order were gone. JP and KR list Global's items in Global's order, on their own
+   dates where they have them (lib/time/regional.ts). */
+test('JP and KR list the same events and banners as Global, in the same order', async ({ page }) => {
+  await page.clock.setFixedTime(new Date('2026-10-21T12:00:00Z'));
+  const names = (selector: string, attribute?: string) => page.locator(selector).evaluateAll((nodes, attribute) => nodes.map(node => attribute ? node.getAttribute(attribute) : node.textContent?.trim()), attribute);
+  await page.goto('/schedule');await account(page, 'en');
+  await expect(page.locator('.events-row-name').first()).toBeVisible();
+  const global = await names('.events-row-name');
+  expect(global.length).toBeGreaterThan(5);
+  // A CN-based prediction is among them, and stays one on JP and KR.
+  const predicted = page.locator('.events-row').filter({ hasText: 'Predicted' }).first();
+  await expect(predicted).toBeVisible();
+  const predictedName = (await predicted.locator('.events-row-name').textContent())!;
+  for (const server of ['jp', 'kr']) {
+    await account(page, server);
+    await expect(page.locator('html')).toHaveAttribute('data-site-server', server);
+    await expect.poll(() => names('.events-row-name')).toEqual(global);
+    await expect(page.locator('.events-row').filter({ has: page.locator('.events-row-name', { hasText: predictedName }) }).first()).toContainText('Predicted');
+  }
+  await page.goto('/gacha');await account(page, 'en');
+  const sidebar = '.gacha-banner-sidebar-item';
+  await expect(page.locator(sidebar).first()).toBeVisible();
+  const banners = await names(sidebar, 'title');
+  expect(banners.length).toBeGreaterThan(3);
+  for (const server of ['jp', 'kr']) {
+    await account(page, server);
+    await expect(page.locator('html')).toHaveAttribute('data-site-server', server);
+    await expect.poll(() => names(sidebar, 'title')).toEqual(banners);
+  }
+});
+
 test('selected-server Supplies use the reset weekday and actual sniper-chip rotation', async ({ page }) => {
   await page.clock.setFixedTime(new Date('2026-10-17T18:59:00Z')); // JP Saturday 03:59 Sunday wall clock.
   await page.goto('/stages/supplies');await account(page,'jp');
@@ -45,7 +77,8 @@ test('regional event and shop deadlines stay distinct on schedule and skin plann
   await account(page,'en');await expect(event).toBeVisible();
   const shop = regional.servers.kr.skinWindows.find(window=>window.event===EVENT && window.label==='New outfits')!;
   await page.clock.setFixedTime(new Date(Date.parse(shop.endAt)-60_000));await page.goto('/skin-planner');await account(page,'kr');
-  const collection=page.getByRole('region',{name:`${EVENT.replace(/^\[[^\]]*\]\s*/, '')} · New outfits`,exact:true});await expect(collection).toBeVisible();
+  // Global's own collection (its CN-projected main shop), moved onto KR's sale of the same outfits.
+  const collection=page.getByRole('region',{name:`${EVENT.replace(/^\[[^\]]*\]\s*/, '')} · Main shop`,exact:true});await expect(collection).toBeVisible();
   await page.clock.setFixedTime(new Date(shop.endAt));await page.evaluate(()=>window.dispatchEvent(new Event('focus')));await expect(collection).toHaveCount(0);
 });
 

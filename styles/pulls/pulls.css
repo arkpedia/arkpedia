@@ -371,9 +371,21 @@ button.pulls-past-name:hover, button.pulls-past-name[aria-expanded="true"] { col
 /* The global h3 (styles/core/shared.css) as the sub-section heading; only its spacing here. */
 .free-op-welfare h3 { margin: 0 0 8px; }
 .free-op-welfare-empty { margin: 0; }
-.free-op-welfare-list { display: flex; flex-wrap: wrap; gap: 8px 24px; margin: 0; padding: 0; list-style: none; }
-.free-op-welfare-list li { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.free-op-welfare-meta { display: grid; gap: 2px; color: var(--text-dim); font-size: 12px; }
+/* The welfare operators still to claim: equal picture cards in a grid, as wide as the panel
+   allows (one column on a phone). A card has no resting edge, the teal one on hover and focus
+   (the 1px stays, transparent, so it appearing moves nothing), and lifts on hover (.lift,
+   styles/core/motion.css). The button is the picture,
+   name and source; the event's page is a small link under it, inside the card. */
+.free-op-welfare-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 248px), 1fr)); gap: 8px; margin: 0; padding: 0; list-style: none; }
+.free-op-welfare-card { position: relative; display: grid; grid-template-columns: 52px minmax(0, 1fr); column-gap: 12px; align-content: start; min-width: 0; padding: 8px 10px 8px 8px; border: 1px solid transparent; border-radius: var(--radius); background: var(--panel); }
+.free-op-welfare-card:hover, .free-op-welfare-card:focus-within { border-color: var(--teal); }
+.btn-bare.free-op-welfare-open { display: grid; grid-column: 1 / -1; grid-template-columns: subgrid; grid-template-rows: auto auto; align-items: center; row-gap: 2px; min-width: 0; padding: 0; text-align: left; cursor: pointer; }
+.btn-bare.free-op-welfare-open:focus-visible { outline: none; }
+.free-op-welfare-open img, .free-op-welfare-blank { grid-row: 1 / span 2; width: 52px; height: 52px; object-fit: contain; box-sizing: border-box; }
+.free-op-welfare-name { align-self: end; overflow: hidden; color: var(--text-bright); font-size: 13px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.free-op-welfare-source { align-self: start; color: var(--text-dim); font-size: 12px; line-height: 1.35; }
+.free-op-welfare-until { white-space: nowrap; }
+.free-op-welfare-link { grid-column: 2; justify-self: start; margin-top: 4px; font-size: 12px; }
 .free-operator { display: inline-flex; align-items: center; gap: 6px; padding: 2px 6px 2px 2px; border-radius: var(--radius); color: var(--text-bright); font-size: 13px; }
 .free-operator:hover, .free-operator:focus-visible { background: var(--teal-dim); }
 .free-operator img { object-fit: contain; }

@@ -14,9 +14,35 @@ for (const file of fs.readdirSync(path.join(process.cwd(), 'data', 'stages'))) {
   if (rec.id) kinds.set(rec.id, stageKindsOf(rec));
 }
 
-type Item = { stages?: string[]; stageKinds?: StageKind[][] };
+type Item = { stages?: string[]; stageCodes?: string[]; stageKinds?: StageKind[][] };
 let challengeStages = 0;
+/* Adverse Environment stages, the six-star ones (EP15 on, "17-10 6★") among them: by kind, or
+   for a stage the records here predate, by the label the build gives it (lib/pulls/stageKinds.ts). */
+let adverseStages = 0;
+let sixStarStages = 0;
 const welfareId = 'free:welfare:act51side:char_4223_botany';
+const DAY = 86_400_000;
+const trailId = 'free:trail:permanent_sidestory_4_Twilight_Of_Wolumonde:trailReward_sub_1_1';
+/* One welfare row of each source, as build-free-rewards.mjs writes them (the bundled data/
+   predates them), and an operator sign-in day, which is not a welfare operator. */
+const welfareRows = (now: number, opened: number) => [
+  { id: welfareId, group: 'Welfare operators', name: 'Botani · Event missions: Clear PA-4', rewards: [{ id: 'char_4223_botany', rarity: 5, name: 'Botani', count: 1 }],
+    startAt: opened, endAt: now + 5 * DAY, event: 'People, A People', href: '/events/%5BSide%20Story%5D%20People%2C%20A%20People', source: 'event', forecast: false },
+  { id: 'free:act4mainssPermanent_5', group: 'Welfare operators', name: 'Viy · Event missions (permanent): Clear 17-13', rewards: [{ id: 'char_4226_veen', rarity: 6, name: 'Viy', count: 1 }],
+    startAt: opened, eventEndAt: now + 7 * DAY, event: 'Critical Phase Transition', href: '/events/%5BCelebration%5D%20Critical%20Phase%20Transition', source: 'retro', forecast: false },
+  { id: trailId, group: 'Welfare operators', name: 'Folinic · Record Restoration: 12 stars', rewards: [{ id: 'char_345_folnic', rarity: 5, name: 'Folinic', count: 1 }],
+    startAt: opened, event: 'Twilight of Wolumonde', href: '/events/%5BSide%20Story%5D%20Twilight%20of%20Wolumonde', source: 'trail', forecast: false },
+  { id: 'free:trail:permanent_sidestory_25_Here_A_People_Sows:trailReward_sub_25_1', group: 'Welfare operators', name: 'Wanqing · Record Restoration: 15 stars', rewards: [{ id: 'char_4119_wanqin', rarity: 5, name: 'Wanqing', count: 1 }],
+    startAt: opened, event: 'Here A People Sows', source: 'trail', forecast: false },
+  // A collab's operator, its event over: not obtainable (the server's projection drops it; the list must too).
+  { id: 'free:36sideActivity_4', group: 'Welfare operators', name: 'Senshi · Event missions: Clear DT-4', rewards: [{ id: 'char_4144_senshi', rarity: 5, name: 'Senshi', count: 1 }],
+    startAt: now - 400 * DAY, endAt: now - 380 * DAY, event: 'Delicious On Terra', source: 'event', forecast: false },
+  // Viy's permanent mission kind for an event that has closed, and a sign-in day's operator.
+  { id: 'free:actXmainssPermanent_5', group: 'Welfare operators', name: 'Past · Event missions (permanent)', rewards: [{ id: 'char_x_past', rarity: 5, name: 'Pastoperator', count: 1 }],
+    startAt: now - 30 * DAY, eventEndAt: now - 16 * DAY, event: 'A closed event', source: 'retro', forecast: false },
+  { id: 'free:act59sign:2', group: 'Event sign-in and gifts', name: 'Celebration Login Event · Day 2', rewards: [{ id: 'char_4227_gallus', rarity: 1, name: 'GALLUS²', count: 1 }],
+    startAt: opened, endAt: now + 7 * DAY, forecast: false },
+];
 
 async function serve(page: Page) {
   await readOnly(page);
@@ -24,20 +50,23 @@ async function serve(page: Page) {
     const response = await route.fetch(); const html = await response.text();
     const match = /<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/.exec(html)!;
     const data = JSON.parse(match[1]); const props = data.props.pageProps;
-    challengeStages = 0;
+    challengeStages = 0; adverseStages = 0; sixStarStages = 0;
     for (const item of [...props.backlogSources.chapters, ...props.backlogSources.playable] as Item[]) {
       if (!item.stages) continue;
       item.stageKinds = item.stages.map((id) => kinds.get(id) ?? []);
       challengeStages += item.stageKinds.filter((list) => list.includes('challenge')).length;
+      const sixStar = item.stages.map((id, index) => id.endsWith('#s') || / 6★$/.test(item.stageCodes?.[index] ?? ''));
+      sixStarStages += sixStar.filter(Boolean).length;
+      adverseStages += item.stageKinds.filter((list, index) => list.includes('adverse') || sixStar[index]).length;
     }
     /* A welfare operator open now, as build-free-rewards.mjs writes one. It opens after the
        first paint's clock, so that paint matches the server's markup (which never had it), and
        the reader's clock (to the minute: lib/time/readerClock.ts) brings it in on mount. */
     const opened = props.now - 120_000;
     props.now -= 300_000;
-    props.freeRewards = [...props.freeRewards, { id: welfareId, group: 'Welfare operators', name: 'Botani',
-      rewards: [{ id: 'char_4223_botany', rarity: 5, name: 'Botani', count: 1 }], startAt: opened, endAt: Date.now() + 5 * 86_400_000,
-      event: 'People, A People', href: '/events/%5BSide%20Story%5D%20People%2C%20A%20People', forecast: false }];
+    props.freeRewards = [...props.freeRewards.filter((reward: { group: string; id: string }) => reward.group !== 'Welfare operators' && reward.id !== 'free:act59sign:2'), ...welfareRows(Date.now(), opened)];
+    props.rewardIcons = { ...props.rewardIcons, char_4223_botany: '/five-star-icons/Botani - Base.webp', char_4226_veen: '/six-star-icons/Viy - Base.webp',
+      char_345_folnic: '/five-star-icons/Folinic - Base.webp', char_4119_wanqin: '/five-star-icons/Wanqing - Base.webp' };
     await route.fulfill({ response, body: html.replace(match[1], JSON.stringify(data).replace(/</g, '\\u003c')) });
   });
 }
@@ -47,7 +76,7 @@ const number = async (page: Page) => Number((await op(page).textContent())!.repl
 test('the stage toggles start off, leave their stages out of the totals when on, and are remembered', async ({ page }) => {
   await serve(page);
   await page.goto('/free-op');
-  for (const label of ['Exclude Challenge Mode', 'Exclude H stages', 'Exclude Adverse Environment', 'Exclude S stages']) {
+  for (const label of ['Exclude Challenge Mode', 'Exclude H stages', 'Exclude Adverse Environment and 6★', 'Exclude S stages']) {
     await expect(page.getByRole('checkbox', { name: label, exact: true })).not.toBeChecked();
   }
   await expect(page.locator('.free-op-excluded')).toHaveText(/Every stage counts/);
@@ -81,7 +110,7 @@ test('a welfare operator open now is listed with its event and end, opens the op
   const list = page.getByRole('list', { name: 'Welfare operators to claim' });
   const row = list.getByRole('listitem').filter({ hasText: 'Botani' });
   await expect(row).toContainText('People, A People');
-  await expect(row).toContainText('Until');
+  await expect(row).toContainText('until');
   await row.getByRole('button', { name: 'Botani: operator preview' }).click();
   const dialog = page.getByRole('dialog');
   await expect(dialog).toBeVisible();
@@ -94,7 +123,65 @@ test('a welfare operator open now is listed with its event and end, opens the op
   await page.locator('summary', { hasText: 'Welfare operators' }).click();
   await expect(page.locator('.free-reward-row').filter({ hasText: 'From People, A People' })).toHaveCount(1);
   // Unclaimed is the filter: the ticked row leaves the list (so click, not check).
-  await page.getByRole('checkbox', { name: 'Botani', exact: true }).click();
+  await page.getByRole('checkbox', { name: 'Botani · Event missions: Clear PA-4', exact: true }).click();
   await expect(page.locator('.free-op-welfare')).not.toContainText('Botani');
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('arkpedia.past-rewards.v1')!).doneKeys)).toContain(welfareId);
 });
+
+test('Adverse Environment takes the six-star stages out too', async ({ page }) => {
+  await serve(page);
+  await page.goto('/free-op');
+  await expect(page.getByRole('button', { name: 'Botani: operator preview' })).toBeVisible();
+  const before = await number(page);
+  expect(sixStarStages).toBeGreaterThanOrEqual(31);
+  await page.getByRole('checkbox', { name: 'Exclude Adverse Environment and 6★', exact: true }).check();
+  await expect.poll(() => number(page)).toBe(before - adverseStages);
+  await expect(page.locator('.free-op-excluded')).toContainText(`${adverseStages.toLocaleString('en-US')} stages left out`);
+  await page.getByRole('checkbox', { name: 'Exclude Adverse Environment and 6★', exact: true }).uncheck();
+  await expect.poll(() => number(page)).toBe(before);
+});
+
+test('the welfare list holds only what is obtainable now, as cards, and an imported roster ticks its operators', async ({ page }) => {
+  await serve(page);
+  const roster = { version: 1, server: 'en', importedAt: '2026-10-21T00:00:00.000Z', doctor: null, operators: ['Wanqing'], operatorIds: ['char_4119_wanqin'],
+    skins: [], cleared: [], rewardClaims: { known: [], claimed: [] } };
+  await page.addInitScript((value) => { localStorage.setItem('arkpediaAccount', JSON.stringify(value)); }, roster);
+  await page.goto('/free-op');
+  const list = page.getByRole('list', { name: 'Welfare operators to claim' });
+  await expect(list.getByRole('listitem')).toHaveCount(3);
+  // Soonest to close first, Record Restoration (permanent) last.
+  await expect(list.getByRole('listitem').nth(0)).toContainText('Botani');
+  await expect(list.getByRole('listitem').nth(1)).toContainText('Critical Phase Transition · until');
+  await expect(list.getByRole('listitem').nth(2)).toContainText('Record Restoration · Twilight of Wolumonde');
+  for (const gone of ['Senshi', 'Pastoperator', 'GALLUS²', 'Wanqing']) await expect(list).not.toContainText(gone);
+  // Equal cards: every card the same width.
+  const widths = await list.getByRole('listitem').evaluateAll((items) => items.map((item) => Math.round(item.getBoundingClientRect().width)));
+  expect(new Set(widths).size).toBe(1);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
+  // The card opens the preview; the event page is its own link.
+  await expect(list.getByRole('listitem').nth(2).getByRole('link', { name: 'Event page' })).toHaveAttribute('href', /Twilight/);
+  // Wanqing, in the roster: claimed in Free rewards, and not for unticking.
+  await page.getByRole('tab', { name: 'Free rewards', exact: true }).click();
+  await page.getByRole('button', { name: 'All', exact: true }).click();
+  await page.locator('summary', { hasText: 'Welfare operators' }).click();
+  const wanqing = page.getByRole('checkbox', { name: 'Wanqing · Record Restoration: 15 stars', exact: true });
+  await expect(wanqing).toBeChecked();
+  await expect(wanqing).toBeDisabled();
+  await expect(page.getByRole('checkbox', { name: 'Folinic · Record Restoration: 12 stars', exact: true })).not.toBeChecked();
+});
+
+for (const theme of ['dark', 'light'] as const) for (const width of [390, 1440]) {
+  test(`the welfare cards at ${width}px, ${theme}`, async ({ page }, info) => {
+    test.skip(info.project.name !== 'desktop', 'one capture per width, from the desktop project');
+    await page.setViewportSize({ width, height: 900 });
+    await serve(page);
+    await page.addInitScript((value) => { localStorage.setItem('theme', value); }, theme);
+    await page.goto('/free-op');
+    const welfare = page.locator('.free-op-welfare');
+    await expect(welfare.getByRole('listitem')).toHaveCount(4);
+    await page.evaluate(() => document.fonts.ready.then(() => undefined));
+    await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {});
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
+    await page.locator('.free-op-overview').screenshot({ path: `test-results/welfare-cards-${width}-${theme}.png` });
+  });
+}
