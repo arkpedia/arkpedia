@@ -76,6 +76,8 @@ interface Place {
   visit?: (page: Page) => Promise<void>;
   /** A place shown on desktop only: the reason it skips on a phone. */
   desktopOnly?: string;
+  /** A place shown on a phone only: the reason it skips on a desktop. */
+  phoneOnly?: string;
   /** The frame the × is pinned inside: its box must lie wholly within this one. */
   inside?: (page: Page) => Locator;
 }
@@ -260,6 +262,23 @@ const PLACES: Place[] = [
     gone: async (page) => { await expect(page.getByRole('button', { name: 'Expand player' })).toBeVisible(); },
   },
   {
+    // A list page's filters on a phone (components/ui/FilterSheet): each filter on is a chip
+    // whose × removes it, and the sheet that holds the controls closes with one.
+    id: 'a list filter\'s chip', route: '/operators?rarity=6',
+    phoneOnly: 'the chips are the phone toolbar (720px and under)',
+    open: async (page) => { await expect(page.locator('.filter-tag')).toHaveCount(1); },
+    x: (page) => page.getByRole('button', { name: 'Remove filter: 6★', exact: true }),
+    gone: async (page) => { await expect(page.locator('.filter-tag')).toHaveCount(0); },
+  },
+  {
+    // The roster's: /voice-actors' letter row has an "X" button, which reads as a × glyph.
+    id: 'the filter sheet', route: '/operators',
+    phoneOnly: 'the sheet is the phone toolbar (720px and under)',
+    open: async (page) => { await page.getByRole('button', { name: /^Filters/ }).click(); await expect(page.getByRole('dialog', { name: 'Filters' })).toBeVisible(); },
+    x: (page) => page.getByRole('button', { name: 'Close filters', exact: true }),
+    gone: async (page) => { await expect(page.getByRole('dialog', { name: 'Filters' })).toHaveCount(0); },
+  },
+  {
     id: '/community world map', route: '/community', visit: communityWithEvents,
     desktopOnly: 'the fullscreen toggle is not shown at 700px and under (shared.css)',
     open: async (page) => { await page.getByRole('button', { name: 'View fullscreen' }).click(); },
@@ -321,6 +340,7 @@ function measure() {
 for (const place of PLACES) {
   test(`every × is borderless and square, and a press off its glyph lands: ${place.id}`, async ({ page }, info) => {
     test.skip(!!place.desktopOnly && info.project.name !== 'desktop', `${place.id}: ${place.desktopOnly}`);
+    test.skip(!!place.phoneOnly && info.project.name === 'desktop', `${place.id}: ${place.phoneOnly}`);
     await readOnly(page);
     if (place.visit) await place.visit(page);
     else {

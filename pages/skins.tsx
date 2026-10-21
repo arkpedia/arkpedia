@@ -23,6 +23,8 @@ import OwnedFilter, { countOwned } from '@/components/account/OwnedFilter';
 import { ownedFilter, useAccount } from '@/lib/account/accountStore';
 import { useSkinPlan } from '@/lib/skins/skinPlan';
 import StyledSelect from '@/components/ui/StyledSelect';
+import FilterSheet, { type ActiveFilter } from '@/components/ui/FilterSheet';
+import { useSwitchHold } from '@/components/ui/useSwitchHold';
 import SkinZoomOverlay from '@/components/skins/SkinZoomOverlay';
 import { skinDynamicArt } from '@/lib/skins/dynamicArt';
 import { withSkinDynamicArt, loadDynamicArtIndex } from '@/lib/skins/dynamicArtFallback';
@@ -294,6 +296,24 @@ export default function SkinsGallery({ skins, events: globalEvents, now, availab
     });
   }
 
+  // The phone's Filters sheet (components/ui/FilterSheet): one chip per filter that is on,
+  // and a hold over the gallery so a filter pressed in the sheet cannot clamp the reader.
+  const hold = useSwitchHold('skins');
+  const wishlistOn = wishlistOnly === '1' || selectedSeries === 'WISHLIST';
+  const activeFilters: ActiveFilter[] = [
+    ...(selectedSeries && selectedSeries !== 'WISHLIST' ? [{ key: 'series', label: selectedSeries, remove: () => setSelectedSeries(null) }] : []),
+    ...(availabilityFilter ? [{ key: 'availability', label: AVAILABILITY_OPTIONS.find(o => o.value === availabilityFilter)?.label ?? availabilityFilter, remove: () => setAvailabilityFilter('') }] : []),
+    ...(account && owned !== 'all' ? [{ key: 'owned', label: owned === 'owned' ? 'Owned' : 'Not owned', remove: () => setOwned('all') }] : []),
+    ...(wishlistOn ? [{ key: 'wishlist', label: 'Wishlist', remove: () => { if (selectedSeries === 'WISHLIST') setSelectedSeries(null); setWishlistOnly(''); } }] : []),
+  ];
+  /** Every filter but the search (the sheet's Reset; Reset filters clears the search too). */
+  function resetFilters() {
+    setSelectedSeries(null);
+    setAvailabilityFilter('');
+    setWishlistOnly('');
+    setOwned('all');
+  }
+
   const wishlistOriginitePrimeTotal = useMemo(() => {
     let total = 0;
     for (const skin of skins) {
@@ -312,8 +332,9 @@ export default function SkinsGallery({ skins, events: globalEvents, now, availab
 
       <PageHeader eyebrow="Rhodes Island // Wardrobe" title="Skins" sub={`${skins.length} outfits · Global availability`}
         actions={<div className="skins-controls">
-          <div className="skins-toolbar">
-            <SearchInput label="Search skins" name="skin-search" placeholder="Operator or outfit…" value={search} onChange={setSearch} />
+            <SearchInput className="skins-search" label="Search skins" name="skin-search" placeholder="Operator or outfit…" value={search} onChange={setSearch} />
+            {/* On a phone everything but the search folds into the Filters sheet. */}
+            <FilterSheet controlsClassName="skins-controls" active={activeFilters} onReset={resetFilters} hold={hold} controls={<>
             <StyledSelect label="Skin series" placeholder="All series"
               value={selectedSeries === 'WISHLIST' ? '' : seriesOptions.find(series => seriesKey(series) === seriesKey(selectedSeries)) ?? selectedSeries ?? ''}
               options={[{ value: '', label: 'All series' }, ...seriesOptions.map(series => ({ value: series, label: series }))]}
@@ -321,7 +342,6 @@ export default function SkinsGallery({ skins, events: globalEvents, now, availab
             <StyledSelect label="Sort skins" value={availabilityFilter === 'upcoming' ? 'upcoming' : sortByAvailableDate ? 'available' : ''}
               options={availabilityFilter === 'upcoming' ? [{value: 'upcoming', label: 'Availability date'}] : SORT_OPTIONS} disabled={availabilityFilter === 'upcoming'}
               onChange={value => setSortByAvailableDate(value === 'available')} />
-          </div>
           {/* The filters, then the wishlist at the far end: the roster's and the Skin Planner's
               row, with the owned filter in the same place. */}
           <div className="skins-filter-row">
@@ -335,11 +355,13 @@ export default function SkinsGallery({ skins, events: globalEvents, now, availab
               }}>☆ Wishlist <span className="filter-chip-count">{wishCount}</span></button>
           </div>
           {(wishlistOnly === '1' || selectedSeries === 'WISHLIST') && <p className="skins-wishlist-total">{wishCount} wishlisted · {wishlistOriginitePrimeTotal} OP catalogue total · planned in the <Link prefetch={false} href="/skin-planner">Skin Planner</Link></p>}
+            </>} />
         </div>} />
 
       <main className="skins-results" id="skin-results" tabIndex={-1} aria-label="Skin gallery">
+        <div ref={hold.ref} style={hold.style}>
         <div className="skins-result-summary"><span className="hint" role="status">{filteredSkins.length} of {skins.length} outfits</span>
-          <button type="button" className="ghost btn-sm" disabled={!search && !selectedSeries && !availabilityFilter && !wishlistOnly && !(account && owned !== 'all')} onClick={() => { setSearch(''); setSelectedSeries(null); setAvailabilityFilter(''); setWishlistOnly(''); setOwned('all'); }}>Reset filters</button>
+          <button type="button" className="ghost btn-sm" disabled={!search && !selectedSeries && !availabilityFilter && !wishlistOnly && !(account && owned !== 'all')} onClick={() => { hold.capture(); setSearch(''); resetFilters(); }}>Reset filters</button>
         </div>
         {availabilityFilter === 'fashion' && <p className="skins-acquisition-note">Outfits included in Fashion Review. Availability depends on the announced shop or draw pool.</p>}
         {availabilityFilter === 'upcoming' && <p className="skins-acquisition-note">Estimated dates follow the current event schedule and may change.</p>}
@@ -359,6 +381,7 @@ export default function SkinsGallery({ skins, events: globalEvents, now, availab
               onMore={() => setVisibleSkinCount(count => Math.min(count + SKIN_PAGE_SIZE, filteredSkins.length))} />
           </>
         )}
+        </div>
       </main>
 
       {active && (

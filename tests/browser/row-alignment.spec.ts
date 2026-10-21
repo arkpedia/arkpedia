@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { playAllSongs, stubYouTube } from './youtube-stub';
 import { rowCensus } from './row-census';
-import { CENSUS_STATES, fontsSettled, openCensus, readOnly } from './census-routes';
+import { CENSUS_STATES, fontsSettled, openCensus, openFilters, readOnly } from './census-routes';
 import { census, censusWidth, expectOnlyAllowed, TOLERANCE } from './layout-checks';
 
 /*
@@ -110,6 +110,8 @@ test('the pull planner panels are on one line', async ({ page }) => {
 test('every row primitive is one control height, and follows the token', async ({ page }) => {
   const width = await censusWidth(page);
   await openCensus(page, '/operators');
+  // On a phone the roster's StyledSelect is in its Filters sheet (components/ui/FilterSheet).
+  await openFilters(page);
   const heights = () => page.evaluate(() => {
     let bench = document.getElementById('control-bench');
     if (!bench) {

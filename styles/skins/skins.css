@@ -3,16 +3,18 @@
    .btn-bare button (the base button voice made skin names uppercase faux bold). */
 
 /* --- header controls ------------------------------------------------------------ */
-.skins-controls { display: grid; gap: 10px; }
-.skins-toolbar {
+/* Search, series and sort on the first line; the filters (and the wishlist's total) are
+   the lines below. One grid rather than a row inside a stack, so that on a phone the
+   series, sort and filter rows can move into the Filters sheet (components/ui/FilterSheet)
+   as one block, and lay out there as they do here. */
+.skins-controls {
   display: grid;
-  /* Search, series and sort; the filters are the row below. */
   grid-template-columns: minmax(180px, 1fr) minmax(150px, 220px) minmax(150px, 200px);
   align-items: center;
-  gap: 8px;
+  gap: 10px 8px;
 }
-.skins-filter-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.skins-wishlist-total { margin: 0; color: var(--text-dim); font: 11px var(--font-mono); }
+.skins-filter-row { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.skins-wishlist-total { grid-column: 1 / -1; margin: 0; color: var(--text-dim); font: 11px var(--font-mono); }
 
 /* --- results ------------------------------------------------------------------------ */
 .skins-results:focus { outline: none; }
@@ -106,8 +108,8 @@
   .skin-grid { grid-template-columns: repeat(4, 1fr); }
 }
 @media (max-width: 720px) {
-  .skins-toolbar { grid-template-columns: 1fr 1fr; }
-  .skins-toolbar > :first-child { grid-column: 1 / -1; }
+  .skins-controls { grid-template-columns: 1fr 1fr; width: 100%; }
+  .skins-search { grid-column: 1 / -1; }
   .skin-grid { grid-template-columns: repeat(3, 1fr); }
 }
 @media (max-width: 480px) {

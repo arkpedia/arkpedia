@@ -10,6 +10,7 @@ import StyledSelect from '@/components/ui/StyledSelect';
 import OperatorGameIcon from '@/components/operators/OperatorGameIcon';
 import { rarityLevel } from '@/components/ui/Rarity';
 import { useSwitchHold } from '@/components/ui/useSwitchHold';
+import FilterSheet, { INLINE_RESET, type ActiveFilter } from '@/components/ui/FilterSheet';
 import { operatorHref } from '@/lib/operators/operatorHref';
 import { getClassIconPath } from '@/lib/operators/classBranchIcons';
 import { sortClasses } from '@/lib/operators/classOrder';
@@ -142,6 +143,20 @@ export default function CreditDatabase({ people, uncredited, operators, now, kin
   const reset = () => change({ q: '', lang: 'all', credit: 'all', rarity: 'all', class: 'all', faction: 'all', server: 'all', letter: 'all' });
   const allShown = limit >= list.length;
 
+  // The phone's Filters sheet (components/ui/FilterSheet): one chip per filter that is on.
+  // The search keeps its own ×, and the order is not a filter.
+  const activeFilters: ActiveFilter[] = [
+    ...(lang !== 'all' ? [{ key: 'lang', label: lang, remove: () => change({ lang: 'all' }) }] : []),
+    ...(credit !== 'all' ? [{ key: 'credit', label: ART_CREDITS.find(c => c.value === credit)!.label, remove: () => change({ credit: 'all' }) }] : []),
+    ...(query.faction !== 'all' ? [{ key: 'faction', label: query.faction, remove: () => change({ faction: 'all' }) }] : []),
+    ...(query.rarity !== 'all' ? [{ key: 'rarity', label: `${query.rarity}★`, remove: () => change({ rarity: 'all' }) }] : []),
+    ...(query.class !== 'all' ? [{ key: 'class', label: query.class, remove: () => change({ class: 'all' }) }] : []),
+    ...(query.server === 'global' || query.server === 'cn' ? [{ key: 'server', label: query.server === 'cn' ? 'CN only' : 'On Global', remove: () => change({ server: 'all' }) }] : []),
+    ...(letter !== 'all' ? [{ key: 'letter', label: `Letter ${letterGroupLabel(letters.find(l => l.group === letter)!.group)}`, remove: () => change({ letter: 'all' }) }] : []),
+  ];
+  /** The sheet's Reset: every filter a chip shows, in one write. */
+  const resetSheet = () => change({ lang: 'all', credit: 'all', rarity: 'all', class: 'all', faction: 'all', server: 'all', letter: 'all' });
+
   const tile = (entry: CreditEntry) => {
     const op = byName.get(entry.name);
     const tier = op?.rarity ? ` tier-${rarityLevel(op.rarity)}` : '';
@@ -175,6 +190,8 @@ export default function CreditDatabase({ people, uncredited, operators, now, kin
             <Link prefetch={false} className="tab" href="/voice-actors" aria-current={voices ? 'page' : undefined}>Voice actors</Link>
           </nav>
           <SearchInput className="roster-search" label={`Search ${title.toLowerCase()}`} placeholder={`${voices ? 'Actor' : 'Artist'} or operator`} value={query.q} onChange={q => change({ q })} />
+          {/* On a phone everything but the page switch and the search folds into the sheet. */}
+          <FilterSheet controlsClassName="roster-controls credit-controls" active={activeFilters} onReset={resetSheet} hold={hold} controls={<>
           {voices
             ? <StyledSelect className="roster-faction" label="Filter by language" value={lang} onChange={value => change({ lang: value })}
                 options={[{ value: 'all', label: 'All languages' }, ...languages.map(([value, n]) => ({ value, label: `${value} (${n})` }))]} />
@@ -204,7 +221,7 @@ export default function CreditDatabase({ people, uncredited, operators, now, kin
             <span className="toolbar-spacer" aria-hidden="true" />
             <SegmentedControl label="Sort by" value={sort} onChange={value => change({ sort: value })}
               options={[{ value: 'name', label: 'Name' }, { value: 'count', label: 'Most operators' }]} />
-            <button type="button" className="ghost" onClick={reset} disabled={!filtered} title={filtered ? undefined : 'No filter to reset'}>Reset</button>
+            <button type="button" className={`ghost ${INLINE_RESET}`} onClick={reset} disabled={!filtered} title={filtered ? undefined : 'No filter to reset'}>Reset</button>
           </div>
           <div className="credit-letters sidescroll">
             <SegmentedControl className="credit-letter-row" label="First letter" value={letter} onChange={value => change({ letter: value })}
@@ -213,6 +230,7 @@ export default function CreditDatabase({ people, uncredited, operators, now, kin
                 title: n ? `${plural(n, noun)} under ${letterGroupLabel(group)}` : `No ${noun}s under ${letterGroupLabel(group)} with these filters`,
               }))]} />
           </div>
+          </>} />
         </div>}
       />
       <main>

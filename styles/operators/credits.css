@@ -18,6 +18,10 @@
   .credit-letter-row { flex-wrap: nowrap; }
   .credit-letter-row > * { flex: none; }
 }
+/* In the phone's Filters sheet (components/ui/FilterSheet), which scrolls down, the letters
+   wrap again rather than run off its side. */
+.filter-sheet .credit-letters { overflow: visible; padding-bottom: 0; }
+.filter-sheet .credit-letter-row { flex-wrap: wrap; }
 
 .credit-summary { margin: 0 0 var(--heading-gap); }
 

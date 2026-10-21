@@ -471,6 +471,31 @@ const choose = (next) => { hold.capture(); setView(next); };  // capture BEFORE 
 
 Used by `/events/[slug]` (sections and reward stores), `/schedule` (Events / Calendar: the calendar is shorter, and the switch clamped the reader 51px up at 1440) /recruitment's Calculator / Guarantee cheat sheet (the calculator is half the cheat sheet's height: 143px at 1440; the page's own copy only, since the pop-out window scrolls on its own), the planner's Simple / Experimental (98px at 1440, 88 at 390) and the planner's per-operator tabs (an operator's dossier is taller than All materials; a 249px clamp on a phone was seen in one run and did not reproduce, so the hold there is the pattern rather than a measured fix). `capture()` counts the margins that collapse through the container's top and bottom edges as part of what the switch takes away: the page counts them and the container's box does not. The planner's Experimental panel opened with a 16px margin that Simple did not have (its first `.plan-panel`'s, removed since, so that Experimental starts 24px under the header as Simple does: rule 15), and the hold for Experimental -> Simple came out 16px short on a phone (`tabs.spec.ts`); no panel on the site opens with such a margin now, and the count stays for the next one that does. A panel that scrolls inside a dialog cannot use it (it measures the document); the `/gacha` preview's module panel holds its tallest height per operator instead.
 
+### FilterSheet
+
+A list page's filters on a phone (`components/ui/FilterSheet.tsx`, its paint in `arkpedia-theme.css`). The owner's review, 2026-10-22: "On mobile, filters consume the entire first screen" -- at 390 the roster's first card started at 549px (785 with an account and a class picked), under rows of rarity, class, faction, Show CN, owned and sort controls, and /artists and /voice-actors at 721 under 420px of theirs.
+
+```tsx
+import FilterSheet, { INLINE_RESET, type ActiveFilter } from '@/components/ui/FilterSheet';
+
+const hold = useSwitchHold('operators');                      // the logical page
+const active: ActiveFilter[] = rarity !== 'all' ? [{ key: 'rarity', label: `${rarity}★`, remove: () => setRarity('all') }] : [];
+<div className="roster-controls">
+  <SearchInput … />                                           {/* stays on the phone toolbar */}
+  <FilterSheet controlsClassName="roster-controls" active={active} onReset={resetAll} hold={hold} controls={<>
+    {/* every other control, exactly as the toolbar draws it; its own Reset takes INLINE_RESET */}
+  </>} />
+</div>
+<main><div ref={hold.ref} style={hold.style}>{list}</div></main>
+```
+
+- **Over 720px nothing changes.** `controls` render inside a `display: contents` wrapper, so they lay out in the page's toolbar as if it were not there, and the bar is not drawn.
+- **At 720px and under** the toolbar keeps what the page puts beside the sheet (its search, its tab strip) and one line that never changes height: a Filters button (`.ghost`, the count of filters on in `.filter-chip-count`) and a chip per filter (`.filter-tag`, the chip's on look, with a dense `<XButton label="Remove filter: …">`), scrolling sideways when they run long. A chip added or removed never moves the list. The inline copy is hidden by CSS from the first paint, so nothing moves at hydration; only one copy of `controls` is mounted at a time.
+- **The sheet** is the shared modal frame (`.account-dialog`, `showModal`): the box takes focus (rule 21), Tab wraps inside it, Escape and the × close it, focus goes back to the Filters button, the page under it does not scroll, and StyledSelect's menu portals into it. The controls are the same components on the same state, applied as they are pressed; it ends in Reset (every filter a chip shows) and Done. A toolbar's own Reset takes `INLINE_RESET`, so the sheet does not draw two. It rises in with the site search's motion, in motion.css only.
+- **`hold` is required**: the page's `useSwitchHold` over its list. Every press inside the sheet and every chip's × captures it first, so a filter that shortens the list cannot clamp the reader, and the page is where it was when the sheet closes.
+- **The chips are the page's to name** (`active`): one per filter that narrows the list. The search keeps its own ×, and an order is not a filter.
+- Used by `/operators`, `/artists`, `/voice-actors` and `/skins`. Not by `/enemies` or `/techniques` (their first item is under 300px down), `/obtain-method` (its chips are the section switch), `/skin-planner` (its plan panel, not its controls, is what sits above the list), `/music/discover` or `/gacha`. `tests/browser/filter-sheet.spec.ts` holds each page at 390 and 1440 in both themes: the first item on the first screen, the sheet by keyboard and Escape, a filter adding a chip, its × removing it, and nothing moving; on a desktop, no bar and the controls inline. In other specs, `openFilters(page)` and `closeFilters(page)` (`census-routes.ts`) reach the controls at either width.
+
 ### Error pages
 
 `pages/404.tsx` and `pages/500.tsx` use `PageHeader` in the site frame on `--bg` in both themes. They are static on purpose.

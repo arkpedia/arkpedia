@@ -1,5 +1,6 @@
 import { devices, expect, test, type Page, type Route } from '@playwright/test';
 import { ASSET_RETRY_ATTEMPTS, alternateAssetUrl, nextAssetUrl } from '../../lib/assets/assetRetry';
+import { openFilters } from './census-routes';
 
 /*
  * GitHub's raw origin sometimes answers 404 (text/plain) for a published file that exists, and its
@@ -93,6 +94,8 @@ test('a false 404 on every published picture leaves none broken on /operators', 
   // CSS art has no error event: the class chips' masks are looked at once shown, and move to
   // an address that answered.
   await page.evaluate(() => window.scrollTo(0, 0));
+  // On a phone the class chips are in the Filters sheet.
+  await openFilters(page);
   const chip = page.getByRole('group', { name: 'Class' }).getByRole('img').first();
   await expect.poll(() => chip.evaluate((el) => (el as HTMLElement).style.webkitMask || (el as HTMLElement).style.mask), { timeout: 15000 }).toMatch(ENCODED_LETTER);
 });

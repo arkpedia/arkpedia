@@ -207,8 +207,8 @@ export const CENSUS_STATES: CensusState[] = [
   // The Skin Planner (components/skins/SkinPlanner) with an outfit planned: its card lit and
   // the summary's shop deadline filled in.
   { id: 'skin planner with a plan', route: '/skin-planner', act: async (page) => { await page.locator('.skin-plan-card-foot').first().click(); await page.locator('.skin-plan-deadlines').waitFor(); } },
-  { id: 'roster owned', route: '/operators', act: async (page) => { await seedAccount(page); await page.getByRole('group', { name: 'Operators you own' }).getByRole('button', { name: /^Owned\s*\d+$/ }).click(); } },
-  { id: 'skins not owned', route: '/skins', act: async (page) => { await seedAccount(page); await page.getByRole('group', { name: 'Outfits you own' }).getByRole('button', { name: /^Not owned\s*\d+$/ }).click(); } },
+  { id: 'roster owned', route: '/operators', act: async (page) => { await seedAccount(page); await openFilters(page); await page.getByRole('group', { name: 'Operators you own' }).getByRole('button', { name: /^Owned\s*\d+$/ }).click(); await closeFilters(page); } },
+  { id: 'skins not owned', route: '/skins', act: async (page) => { await seedAccount(page); await openFilters(page); await page.getByRole('group', { name: 'Outfits you own' }).getByRole('button', { name: /^Not owned\s*\d+$/ }).click(); await closeFilters(page); } },
   { id: 'planner goal dialog', route: '/planner', act: async (page) => { await tabIn(page, '.page-header-actions', 'Experimental'); await page.getByRole('button', { name: /Add a goal/ }).first().click(); await page.locator('.wizard-head:visible').first().waitFor(); } },
   // The account page with an import (lib/account/accountStore): the profile and counts filled
   // in, and Import / export open.
@@ -251,6 +251,25 @@ export async function fontsSettled(page: Page, ms = 8000): Promise<boolean> {
     document.fonts.ready.then(() => true),
     new Promise<boolean>((resolve) => { setTimeout(() => resolve(false), limit); }),
   ]), ms);
+}
+
+/** On a phone a list page's filters are in its Filters sheet (components/ui/FilterSheet):
+ *  open it, if the page draws the button at this width. Over 720px this does nothing and the
+ *  controls are in the toolbar as before. */
+export async function openFilters(page: Page) {
+  const button = page.locator('.filter-bar-open');
+  await button.first().waitFor({ state: 'attached', timeout: 5000 }).catch(() => {});
+  if (!(await button.first().isVisible().catch(() => false))) return;
+  await button.first().click();
+  await page.locator('dialog.filter-sheet[open]').waitFor();
+}
+
+/** Closes the Filters sheet with Done, if one is open. */
+export async function closeFilters(page: Page) {
+  const sheet = page.locator('dialog.filter-sheet[open]');
+  if (!(await sheet.count())) return;
+  await sheet.getByRole('button', { name: 'Done', exact: true }).click();
+  await sheet.waitFor({ state: 'detached' });
 }
 
 /** Only reads go to other hosts: a YouTube embed's POSTs are dropped. */
