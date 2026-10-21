@@ -1,6 +1,6 @@
 import { toRomaji } from 'wanakana';
 import { pinyin } from 'pinyin-pro';
-import { creditDatabase } from '../../lib/operators/creditDatabase';
+import { creditPeople } from '../../lib/operators/creditDatabase';
 
 /*
  * The romanized names an artist or voice actor answers to in the site search
@@ -31,7 +31,7 @@ export const JAPANESE_HAN_ARTISTS: readonly string[] = ['黒星紅白', '釜飯�
 
 /** Characters only Japanese writes this way (simplified Chinese 黑 盐 龙..., or no Chinese use
  *  at all, 々): a Han artist name using one is Japanese, and must be in the list above. */
-export const JAPANESE_ONLY_HAN = /[々〆ヶ黒塩竜沢浜桜恵広斎辺渋県駅鉄売円図]/;
+export const JAPANESE_ONLY_HAN = /[々〆ヶ黒塩竜沢桜恵広斎辺渋県駅鉄売円図]/;
 
 // Katakana's middle dot (・) is punctuation, not kana: M・A・O is a Latin name.
 const KANA = /[぀-ゟ゠-ヺー-ヿㇰ-ㇿｦ-ﾟ]/;
@@ -146,7 +146,7 @@ interface SearchPerson {
  *  page shows, a count of operators (never the list: the index is downloaded whole), a voice
  *  actor's languages by how many operators they voice in each, and the romanized names. */
 export function siteSearchPeople(): SearchPerson[] {
-  return (['artists', 'voice-actors'] as const).flatMap((page) => creditDatabase(page).people.map((person) => {
+  return (['artists', 'voice-actors'] as const).flatMap((page) => creditPeople(page).map((person) => {
     const kind = page === 'artists' ? 'artist' as const : 'voice-actor' as const;
     const counts = new Map<string, number>();
     if (kind === 'voice-actor') for (const op of person.operators) for (const language of op.credits) counts.set(language, (counts.get(language) ?? 0) + 1);

@@ -20,7 +20,10 @@ import { foldForSearch, lookalikeForSearch, normalizeForSearch, withinEdits } fr
  */
 
 export const SITE_SEARCH_KINDS = [
-  'page', 'operator', 'artist', 'voice-actor', 'event', 'content', 'stage', 'enemy', 'album', 'song',
+  'page', 'operator', 'event', 'content', 'stage', 'enemy', 'album', 'song',
+  // People after the game's own rows: a thousand voice actors must not push an enemy or a
+  // stage at the same tier out of the pop-up's ten rows.
+  'artist', 'voice-actor',
   'creator', 'video', 'streamer', 'stream',
 ] as const;
 export type SiteSearchKind = typeof SITE_SEARCH_KINDS[number];

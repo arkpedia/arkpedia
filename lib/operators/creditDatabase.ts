@@ -147,6 +147,16 @@ export function creditNameVariants(kind: CreditKind): Map<string, string[]> {
   return new Map(mergePeople(people, uncredited).merged.filter(p => p.spellings.length > 1).map(p => [p.name, p.spellings]));
 }
 
+/** The people alone, merged as the page merges them, for the site search's index
+ *  (scripts/lib/credit-romanization.ts). No class-glyph guard: the index is written at
+ *  prebuild too, before a deploy build has the page's art, and draws no glyph. */
+export function creditPeople(kind: CreditKind): CreditPerson[] {
+  const { people, uncredited } = collect(kind);
+  const { merged } = mergePeople(people, uncredited);
+  if (!merged.length) throw new Error(`Cannot index ${kind}: no operator credits in the source data`);
+  return merged.map(({ name, operators }) => ({ name, operators }));
+}
+
 export function creditDatabase(kind: CreditKind): CreditDatabaseData {
   const collected = collect(kind);
   const { merged, uncredited } = mergePeople(collected.people, collected.uncredited);
