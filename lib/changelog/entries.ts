@@ -34,7 +34,7 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    at: '2026-10-21T13:00:00Z',
+    at: '2026-10-21T16:00:00Z',
     added: [
       { title: 'Search YouTube and Twitch', detail: 'The site search also finds Arknights creators, their latest videos and live Twitch streams.', href: '/search' },
       { title: "Leave out stages you can't clear", detail: 'The reward tracker can leave out Challenge Mode, H stages, Adverse Environment and S stages, each on its own.', href: '/free-op' },
@@ -49,6 +49,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       { title: 'Lighter event pages', detail: 'Event pages load much less data.' },
       { title: 'Character icons in music', detail: "Characters credited under a different spelling, such as Kal'tsit Esperanta, show their icon.", href: '/music/discover' },
       { title: 'Many chibis at once', detail: 'More than 15 chibis on a page no longer turn into blank boxes, and a tapped chibi keeps its size.' },
+      { title: 'Chibi glows drawn right', detail: "Soft glows and edges, such as behind Kal'tsit the Esperanta, no longer show as bright blocks on about 120 operators' chibis." },
       { title: 'Home page holds still', detail: 'The Community panel keeps its height as it turns, and stops turning under the pointer.', href: '/' },
     ],
     changed: [
