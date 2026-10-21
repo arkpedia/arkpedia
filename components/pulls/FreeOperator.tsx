@@ -26,14 +26,17 @@ export function FreeOperatorButton({ item, icon, onPreview }: { item: FreeReward
  *  card (the icon edged in its rarity, as the site's operator tiles are; the name; where it
  *  comes from, on a quieter line) that opens the operator's preview, and its event's page as
  *  a small link of its own beside it (a link inside the button would be invalid). */
-export function WelfareCard({ item, icon, source, until, href, onPreview }: {
-  item: FreeReward['rewards'][number]; icon: string | undefined; source: string; until: string | undefined; href: string | undefined; onPreview: (item: OperatorPreviewItem) => void;
+export function WelfareCard({ item, icon, source, task, until, href, onPreview }: {
+  item: FreeReward['rewards'][number]; icon: string | undefined; source: string;
+  /** What to do for it, as the row names it: "Clear 17-13", "12 stars". */
+  task?: string; until: string | undefined; href: string | undefined; onPreview: (item: OperatorPreviewItem) => void;
 }) {
   const preview = freeOperatorPreview(item, icon);
   return <li className="free-op-welfare-card lift">
     <button type="button" className="btn-bare free-op-welfare-open" aria-haspopup="dialog" aria-label={`${item.name}: operator preview`} onClick={() => onPreview(preview)}>
       {icon ? <Image src={icon} width={52} height={52} alt="" className={`tier-${preview.rarity}`} /> : <span className={`free-op-welfare-blank tier-${preview.rarity}`} />}
       <span className="free-op-welfare-name">{item.name}</span>
+      {task && <span className="free-op-welfare-task">{task}</span>}
       <span className="free-op-welfare-source">{source}{until && <> · <span className="free-op-welfare-until">until {until}</span></>}</span>
     </button>
     {href && <Link prefetch={false} href={href} className="free-op-welfare-link">Event page</Link>}

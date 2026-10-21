@@ -256,6 +256,10 @@ export function remainingBacklog(
  */
 export function backlogFromAccount(backlog: BacklogSources, cleared: ReadonlySet<string>, annihilation: ReadonlySet<string> | null): {
   sources: BacklogSources; doneEvents: Set<string>; doneKeys: Set<string>;
+  /** What the import can judge at all (an item it knows the stage ids of, every resource and
+   *  paradox stage, annihilation when the save carries it): there its word is the account's,
+   *  both ways (mergeImportedProgress). The rest it cannot say anything about. */
+  knownKeys: Set<string>; knownEvents: Set<string>;
 } {
   /* An item whose stage ids neither the release nor the deployment has counts in full: an
      import cannot say what of it is cleared, and the page answers the minimum left only
@@ -269,7 +273,14 @@ export function backlogFromAccount(backlog: BacklogSources, cleared: ReadonlySet
     ...(backlog.paradox ?? []).filter(stage => cleared.has(stage.id.replace(/^paradox:/, ''))).map(stage => stage.id),
     ...(annihilation ? backlog.annihilation.filter((map) => annihilation.has(map.id.replace(/^annihilation:/, ''))).map((map) => map.id) : []),
   ]);
-  return { sources: { ...backlog, chapters, playable }, doneEvents: new Set(playable.filter((event) => !event.op).map((event) => event.id)), doneKeys };
+  const knownKeys = new Set([
+    ...backlog.chapters.filter((chapter) => chapter.stages).map((chapter) => chapter.id),
+    ...backlog.resources.map((stage) => stage.id),
+    ...(backlog.paradox ?? []).map((stage) => stage.id),
+    ...(annihilation ? backlog.annihilation.map((map) => map.id) : []),
+  ]);
+  const knownEvents = new Set(backlog.playable.filter((event) => event.stages).map((event) => event.id));
+  return { sources: { ...backlog, chapters, playable }, doneEvents: new Set(playable.filter((event) => !event.op).map((event) => event.id)), doneKeys, knownKeys, knownEvents };
 }
 
 /**

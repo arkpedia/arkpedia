@@ -52,8 +52,10 @@ export const isOperatorReward = (item: FreeReward['rewards'][number]) => !!item.
  * A welfare operator a reader can actually still get, today: the Reward Tracker's overview
  * lists only these (the Free rewards tab keeps every row, for ticking).
  *   - Record Restoration ('trail'): the Archives keep an archived story's trail for good.
- *   - An event's own operator ('event', 'extra', 'retro'): only while that event is open to
- *     play, to its endAt (a 'retro' row's eventEndAt). After it, the operator is gone until
+ *   - A main-story event's permanent missions ('retro', Viy's "Clear 17-13"): for good, as the
+ *     game keeps them after the event closes (owner, 2026-10-21).
+ *   - An event's own operator ('event', 'extra'): only while that event is open to
+ *     play, to its endAt. After it, the operator is gone until
  *     the story reaches the Archives (then as a trail row). A collab event never reaches
  *     the Archives, so its operator (Senshi, Delicious On Terra) goes when the event does:
  *     the event window is what decides, as no game table marks an event a collab.
@@ -63,13 +65,13 @@ export const isOperatorReward = (item: FreeReward['rewards'][number]) => !!item.
  */
 export function obtainableWelfare(reward: FreeReward, now: number): boolean {
   if (reward.group !== 'Welfare operators' || !freeRewardAvailable(reward, now)) return false;
-  if (reward.source === 'trail' || (!reward.source && reward.id.startsWith('free:trail:'))) return true;
-  const end = reward.source === 'retro' ? reward.eventEndAt : reward.endAt;
+  if (reward.source === 'trail' || reward.source === 'retro' || (!reward.source && reward.id.startsWith('free:trail:'))) return true;
+  const end = reward.endAt;
   return end === undefined ? !reward.source : now < end;
 }
 
 /** When a welfare row stops being obtainable (obtainableWelfare), Infinity for never. */
-const closesAt = (reward: FreeReward) => (reward.source === 'retro' ? reward.eventEndAt : reward.endAt) ?? Infinity;
+const closesAt = (reward: FreeReward) => (reward.source === 'retro' ? undefined : reward.endAt) ?? Infinity;
 
 /** The welfare operators still to claim right now: every obtainable (obtainableWelfare),
  *  unclaimed row's operator, soonest to close first; of the permanent ones (Record

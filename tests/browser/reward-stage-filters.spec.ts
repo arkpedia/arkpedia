@@ -38,9 +38,10 @@ const welfareRows = (now: number, opened: number) => [
   // A collab's operator, its event over: not obtainable (the server's projection drops it; the list must too).
   { id: 'free:36sideActivity_4', group: 'Welfare operators', name: 'Senshi · Event missions: Clear DT-4', rewards: [{ id: 'char_4144_senshi', rarity: 5, name: 'Senshi', count: 1 }],
     startAt: now - 400 * DAY, endAt: now - 380 * DAY, event: 'Delicious On Terra', source: 'event', forecast: false },
-  // Viy's permanent mission kind for an event that has closed, and a sign-in day's operator.
+  // Viy's permanent mission kind for an event that has closed (still claimable: listed), and a
+  // sign-in day's operator. It opens with the others, after the first paint (serve).
   { id: 'free:actXmainssPermanent_5', group: 'Welfare operators', name: 'Past · Event missions (permanent)', rewards: [{ id: 'char_x_past', rarity: 5, name: 'Pastoperator', count: 1 }],
-    startAt: now - 30 * DAY, eventEndAt: now - 16 * DAY, event: 'A closed event', source: 'retro', forecast: false },
+    startAt: opened, eventEndAt: now - 16 * DAY, event: 'A closed event', source: 'retro', forecast: false },
   { id: 'free:act59sign:2', group: 'Event sign-in and gifts', name: 'Celebration Login Event · Day 2', rewards: [{ id: 'char_4227_gallus', rarity: 1, name: 'GALLUS²', count: 1 }],
     startAt: opened, endAt: now + 7 * DAY, forecast: false },
 ];
@@ -153,18 +154,21 @@ test('the welfare list holds only what is obtainable now, as cards, and an impor
   await page.addInitScript((value) => { localStorage.setItem('arkpediaAccount', JSON.stringify(value)); }, roster);
   await page.goto('/free-op');
   const list = page.getByRole('list', { name: 'Welfare operators to claim' });
-  await expect(list.getByRole('listitem')).toHaveCount(3);
-  // Soonest to close first, Record Restoration (permanent) last.
+  await expect(list.getByRole('listitem')).toHaveCount(4);
+  // Soonest to close first, then the permanent ones (a main-story event's missions, Record Restoration).
   await expect(list.getByRole('listitem').nth(0)).toContainText('Botani');
-  await expect(list.getByRole('listitem').nth(1)).toContainText('Critical Phase Transition · until');
-  await expect(list.getByRole('listitem').nth(2)).toContainText('Record Restoration · Twilight of Wolumonde');
-  for (const gone of ['Senshi', 'Pastoperator', 'GALLUS²', 'Wanqing']) await expect(list).not.toContainText(gone);
+  await expect(list.getByRole('listitem').filter({ hasText: 'Viy' })).toContainText('Critical Phase Transition · permanent');
+  await expect(list.getByRole('listitem').filter({ hasText: 'Folinic' })).toContainText('Record Restoration · Twilight of Wolumonde');
+  await expect(list.getByRole('listitem').filter({ hasText: 'Pastoperator' })).toContainText('A closed event · permanent');
+  for (const gone of ['Senshi', 'GALLUS²', 'Wanqing']) await expect(list).not.toContainText(gone);
+  // A main-story event's permanent missions stay claimable after it, with the stage to clear.
+  await expect(list.getByRole('listitem').filter({ hasText: 'Viy' })).toContainText('Clear 17-13');
   // Equal cards: every card the same width.
   const widths = await list.getByRole('listitem').evaluateAll((items) => items.map((item) => Math.round(item.getBoundingClientRect().width)));
   expect(new Set(widths).size).toBe(1);
   expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
   // The card opens the preview; the event page is its own link.
-  await expect(list.getByRole('listitem').nth(2).getByRole('link', { name: 'Event page' })).toHaveAttribute('href', /Twilight/);
+  await expect(list.getByRole('listitem').filter({ hasText: 'Folinic' }).getByRole('link', { name: 'Event page' })).toHaveAttribute('href', /Twilight/);
   // Wanqing, in the roster: claimed in Free rewards, and not for unticking.
   await page.getByRole('tab', { name: 'Free rewards', exact: true }).click();
   await page.getByRole('button', { name: 'All', exact: true }).click();
@@ -183,7 +187,7 @@ for (const theme of ['dark', 'light'] as const) for (const width of [390, 1440])
     await page.addInitScript((value) => { localStorage.setItem('theme', value); }, theme);
     await page.goto('/free-op');
     const welfare = page.locator('.free-op-welfare');
-    await expect(welfare.getByRole('listitem')).toHaveCount(4);
+    await expect(welfare.getByRole('listitem')).toHaveCount(5);
     await page.evaluate(() => document.fonts.ready.then(() => undefined));
     await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {});
     expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
