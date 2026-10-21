@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CommunityEvent } from '@/lib/schedule/eventTypes';
+import { CommunityEvent, CommunityEventKind } from '@/lib/schedule/eventTypes';
 import { getEventStatus, formatCountdown } from '@/lib/maps/mapProjection';
+
+/** The micro-label each kind of event carries in the list; an official presence carries none. */
+const KIND_LABELS: Record<CommunityEventKind, string> = { collab: 'Collab', guest: 'Guest', fan: 'Fan' };
 
 const STATUS_PRIORITY: Record<'live' | 'upcoming' | 'ended', number> = { live: 0, upcoming: 1, ended: 2 };
 
@@ -67,7 +70,7 @@ export default function EventListPanel({ events, now: renderedAt }: { events: Co
             <span>{ev.name}</span>
           </span>
           <span className="hint">{ev.country}</span>
-          {ev.kind === 'collab' && <span className="label-tag">Collab</span>}
+          {ev.kind && <span className="label-tag">{KIND_LABELS[ev.kind]}</span>}
           <span className="hint">
             {ev.status === 'live' && 'Live now'}
             {ev.status === 'upcoming' && `In ${formatCountdown(ev.startTime, now)}`}

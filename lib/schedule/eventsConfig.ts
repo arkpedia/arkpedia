@@ -2,8 +2,9 @@ import { CommunityEvent } from './eventTypes';
 
 // ---------------------------------------------------------------------
 // Add real events here. lat/lng place the pin on the map; startTime
-// drives the countdown / "LIVE NOW" status. endTime is optional -- if
-// omitted, an event is considered "live" for 24h after it starts.
+// drives the countdown / "LIVE NOW" status. The type lets endTime go (an
+// event is then "live" for 24h after it starts), but every record here
+// gives one, with its zone: scripts/tests/test-community-offline-events.ts.
 // ---------------------------------------------------------------------
 export const EVENTS: CommunityEvent[] = [
   // Official Arknights collaborations in Korea, from the KR official Naver Cafe notices
@@ -178,5 +179,141 @@ export const EVENTS: CommunityEvent[] = [
     startTime: '2027-01-10T00:00:00+09:00',
     endTime: '2027-01-11T23:59:00+09:00',
     url: 'https://x.com/AKEndfieldJP/status/2107449958416953597',
+  },
+  // Global fan gatherings: community-run, each with a public event page. Records carry the
+  // public title, place and dates only, never an organiser's or attendee's name.
+  //
+  // Four fan-run meets in MCM London Comic Con's official Fan Meets schedule at ExCeL
+  // London, all at the foot of the stairs by the Dockers statue on Royal Victoria Square:
+  // Sat 24 Oct 13:00-14:00, 14:00-15:00 and 16:00-17:00, Sun 25 Oct 16:00-17:00 (schedule
+  // ids 950494, 950495, 951721, 951722). UK clocks go back overnight, so Saturday is BST and
+  // Sunday GMT. MCM notes that a listed meet is not one it runs.
+  {
+    name: 'Arknights & Endfield fan meets at MCM London Comic Con',
+    country: 'United Kingdom',
+    lat: 51.5085,
+    lng: 0.0295,
+    startTime: '2026-10-24T13:00:00+01:00',
+    endTime: '2026-10-25T17:00:00+00:00',
+    url: 'https://www.mcmcomiccon.com/london/en-us/things-to-do/fans-meet.html',
+    kind: 'fan',
+  },
+  // Fan-run "Only" event in the Great Hall, King's College London Strand Campus:
+  // 15:00-22:00 GMT, last entry 19:00, ticketed.
+  {
+    name: '2026 Arknights and Endfield Only UK',
+    country: 'United Kingdom',
+    lat: 51.5115,
+    lng: -0.1160,
+    startTime: '2026-11-14T15:00:00+00:00',
+    endTime: '2026-11-14T22:00:00+00:00',
+    url: 'https://events.humanitix.com/2026-arknights-and-endfield-only-uk',
+    kind: 'fan',
+  },
+  // Taiwan's first fan-run Arknights Only doujin event, 5F of the Taipei Hakka Culture
+  // Center (Tingzhou Rd. Sec. 3, Zhongzheng). The announcement gives the day, no hours.
+  {
+    name: 'Arknights Only (Taipei)',
+    country: 'Taiwan',
+    lat: 25.0120,
+    lng: 121.5310,
+    startTime: '2026-11-14T00:00:00+08:00',
+    endTime: '2026-11-14T23:59:00+08:00',
+    url: 'https://home.gamer.com.tw/artwork.php?sn=6321677',
+    kind: 'fan',
+  },
+  // Conventions with a credited Arknights illustrator or voice actor as an announced guest,
+  // from each convention's own guest page. The name says who; credits are as /artists and
+  // /voice-actors have them. Where a convention publishes no hours, the record spans
+  // whole days in the venue's zone.
+  //
+  // Youmacon, Huntington Place, Detroit: Marina Inoue (Pallas, JP), Hikaru Midorikawa
+  // (Gnosis, THRM-EX, JP), Anne Yatco (Ho'olheyak, EN). US clocks go back on Nov 1.
+  {
+    name: 'Youmacon 2026: Marina Inoue, Hikaru Midorikawa, Anne Yatco',
+    country: 'USA',
+    lat: 42.3289,
+    lng: -83.0496,
+    startTime: '2026-10-29T00:00:00-04:00',
+    endTime: '2026-11-01T23:59:00-05:00',
+    url: 'https://youmacon.com/guests/',
+    kind: 'guest',
+  },
+  // Anime Weekend Atlanta, Georgia World Congress Center Building C, all English voices:
+  // Allegra Clark (Proviso, Dorothy, Penance), AmaLee (Ceylon), Anjali Kunapaneni
+  // (Cardigan, Mayer, Scene), Crystal Lee (Kichisei), Xanthe Huynh (Provence, Cuora).
+  // Exhibit hall Thu 12:00 to Sun 17:00.
+  {
+    name: 'Anime Weekend Atlanta 2026: Allegra Clark, AmaLee, Anjali Kunapaneni, Crystal Lee, Xanthe Huynh',
+    country: 'USA',
+    lat: 33.7590,
+    lng: -84.3990,
+    startTime: '2026-11-19T12:00:00-05:00',
+    endTime: '2026-11-22T17:00:00-05:00',
+    url: 'https://awa-con.com/guests/',
+    kind: 'guest',
+  },
+  // Anime Revolution Toronto, Metro Toronto Convention Centre North Building:
+  // Shin-Ichiro Miki (Lee, JP) and Xanthe Huynh (Provence, Cuora, EN). The convention
+  // publishes weekday hours (Fri 10:00-22:00 to Sun 10:00-20:00, Thursday is badge pickup
+  // only); the dates are the venue's listing, Nov 12-15 with that Thursday pickup.
+  {
+    name: 'Anime Revolution Toronto 2026: Shin-ichiro Miki, Xanthe Huynh',
+    country: 'Canada',
+    lat: 43.6440,
+    lng: -79.3870,
+    startTime: '2026-11-13T10:00:00-05:00',
+    endTime: '2026-11-15T20:00:00-05:00',
+    url: 'https://toronto.animerevolution.ca/guests/',
+    kind: 'guest',
+  },
+  // Anime Festival Asia Singapore, Suntec Halls 401-406, exhibition 10:00-20:00: Namie
+  // (Mizuki, Goldenglow, Pepe) as a featured exhibition guest; on the day stage Satomi Arai
+  // (新井里美: Gallus², JP), and on Sat 28 Nov Shin-ichiro Miki (Lee, JP) and Tarusuke
+  // Shingaki (Nowell, JP). The guests page names Namie and Satomi Arai, the festival's
+  // front page the Saturday stage.
+  {
+    name: 'AFA Singapore 2026: Namie, Satomi Arai, Shin-ichiro Miki, Tarusuke Shingaki',
+    country: 'Singapore',
+    lat: 1.2935,
+    lng: 103.8573,
+    startTime: '2026-11-27T10:00:00+08:00',
+    endTime: '2026-11-29T20:00:00+08:00',
+    url: 'https://animefestival.asia/afasg26/guests/',
+    kind: 'guest',
+  },
+  // Holiday Matsuri, Orange County Convention Center West Concourse, Orlando:
+  // Suzie Yeung (Shu, EN).
+  {
+    name: 'Holiday Matsuri 2026: Suzie Yeung',
+    country: 'USA',
+    lat: 28.4248,
+    lng: -81.4690,
+    startTime: '2026-12-18T00:00:00-05:00',
+    endTime: '2026-12-20T23:59:00-05:00',
+    url: 'https://holidaymatsuri.com/guests/',
+    kind: 'guest',
+  },
+  // Anime Milwaukee, Baird Center & Hilton Milwaukee: Monica Rial (Absinthe, EN).
+  {
+    name: 'Anime Milwaukee 2027: Monica Rial',
+    country: 'USA',
+    lat: 43.0389,
+    lng: -87.9170,
+    startTime: '2027-03-05T00:00:00-06:00',
+    endTime: '2027-03-07T23:59:00-06:00',
+    url: 'https://animemilwaukee.org/guests-of-honor',
+    kind: 'guest',
+  },
+  // Sakura-Con, Seattle: Monica Rial (Absinthe, EN). US clocks go forward on Mar 14.
+  {
+    name: 'Sakura-Con 2027: Monica Rial',
+    country: 'USA',
+    lat: 47.6114,
+    lng: -122.3321,
+    startTime: '2027-03-26T00:00:00-07:00',
+    endTime: '2027-03-28T23:59:00-07:00',
+    url: 'https://sakuracon.org/guests/',
+    kind: 'guest',
   },
 ];
