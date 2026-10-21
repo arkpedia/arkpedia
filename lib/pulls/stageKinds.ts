@@ -11,11 +11,13 @@
  *              (NONE, NORMAL, TOUGH) and the record marks only the TOUGH ones.
  *   adverse    a main-story Adverse Environment stage (tough_11-01): diffGroup TOUGH, which
  *              the record carries as variant 'adverse_environment'. H stages excepted.
+ *              And, since Episode 15, the main story's harder variant in its place: the
+ *              six-star stage (main_17-09#s, shown "17-10 6★"), stage_table difficulty
+ *              SIX_STAR (diffGroup NONE), which the record carries as difficulty.tier
+ *              'six_star'. Episodes 15 to 17 have 45 of them on Global (2026-10).
  *   s          an event's S stage (NL-S-1, CW-S-1-A): an activity stage coded <EVENT>-S-<n>.
  *              stage_table has no field for these (NORMAL, diffGroup NONE), so by the code.
  *              Its Challenge Mode is both 's' and 'challenge'.
- *
- * Episode 15 and 16's six-star stages (difficulty SIX_STAR) are none of these and always count.
  */
 export const STAGE_KINDS = ['challenge', 'h', 'adverse', 's'] as const;
 export type StageKind = typeof STAGE_KINDS[number];
@@ -34,7 +36,7 @@ export function stageKindsOf(rec: StageKindRecord): StageKind[] {
   const kinds: StageKind[] = [];
   if (rec.difficulty?.tier === 'four_star') kinds.push('challenge');
   if (h) kinds.push('h');
-  if (!h && rec.variant?.kind === 'adverse_environment') kinds.push('adverse');
+  if (!h && (rec.variant?.kind === 'adverse_environment' || rec.difficulty?.tier === 'six_star')) kinds.push('adverse');
   if (rec.stage_type === 'activity' && /-S-\d/.test(code)) kinds.push('s');
   return kinds;
 }
@@ -55,6 +57,12 @@ interface Staged { id: string; op: number; stages?: string[]; stageCodes?: strin
  * and the reader unticked it, when it counts in full (unclaimedBacklog) and loses them all.
  * An item whose stages or kinds the release does not name stays whole.
  */
+/* A release compiled before six-star stages were Adverse Environment (stageKindsOf) gave them
+   no kind; its stage label still says what they are ("17-10 6★", build-pull-sources.ts). */
+const SIX_STAR_LABEL = / 6★$/;
+const kindsAt = (kinds: StageKind[], code: string | undefined): StageKind[] =>
+  code && SIX_STAR_LABEL.test(code) && !kinds.includes('adverse') ? [...kinds, 'adverse'] : kinds;
+
 export function excludeStageKinds<T extends { chapters: Staged[]; playable: Staged[] }>(
   backlog: T, excluded: ReadonlySet<StageKind>, cleared: ReadonlySet<string> | null,
 ): { backlog: T; dropped: Record<string, number> } {
@@ -63,7 +71,8 @@ export function excludeStageKinds<T extends { chapters: Staged[]; playable: Stag
   const without = <I extends Staged>(item: I): I => {
     const { stages, stageCodes, stageKinds } = item;
     if (!stages || stageKinds?.length !== stages.length) return item;
-    const out = stages.map((_, index) => stageKinds[index].some((kind) => excluded.has(kind)));
+    const codes = stageCodes?.length === stages.length ? stageCodes : undefined;
+    const out = stages.map((_, index) => kindsAt(stageKinds[index], codes?.[index]).some((kind) => excluded.has(kind)));
     if (!out.some(Boolean)) return item;
     const counted = cleared && stages.some((id) => !cleared.has(id))
       ? (index: number) => !cleared.has(stages[index]) : () => true;
