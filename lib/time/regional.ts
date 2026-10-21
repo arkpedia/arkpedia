@@ -1,4 +1,5 @@
 import { serverDay, type GameServer } from './servers.mjs';
+import { REGIONAL_MATERIAL } from '@/lib/i18n/regionalMaterial';
 import type { GameWindowTimes } from '@/lib/schedule/gameWindow';
 import type { ScheduleEvent } from '@/lib/schedule/scheduleTypes';
 import type { HeadhuntingBanner } from '@/lib/gacha/headhuntingBanners';
@@ -57,7 +58,8 @@ export const regionalRange = (window: RegionalWindow, server: GameServer) => `${
  *  in-game board, else Global's (`global`, the image repository's). Every picture the regional
  *  helpers below hand out is this one, so a list and the event's own page cannot disagree. */
 export function regionalArt(window: RegionalWindow | undefined, global: string | null, server: GameServer): string | null {
-  if (server === 'en') return global;
+  // Global's art on every server until the site has JP/KR languages (lib/i18n/regionalMaterial.ts).
+  if (server === 'en' || !REGIONAL_MATERIAL) return global;
   return window?.art?.url ?? global;
 }
 

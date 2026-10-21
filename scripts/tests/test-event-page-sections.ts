@@ -1,4 +1,5 @@
 import { regionalFixture } from './regional-fixture';
+import { REGIONAL_MATERIAL } from '../../lib/i18n/regionalMaterial';
 import './css-modules';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -140,6 +141,13 @@ test("JP's and KR's board items are in the markup beside Global's, in English, f
     { server: 'jp' as const, name: '[Celebration] Critical Phase Transition', title: '10月14日 新章公開！', source: null, shown: '2026-10-09', image: null },
   ];
   const html = column(page({ extras: extras({ board }) }));
+  if (!REGIONAL_MATERIAL) {
+    // Off until the site has JP/KR languages (lib/i18n/regionalMaterial.ts): Global's news for every server.
+    assert.doesNotMatch(html, /data-server="jp"|data-server="kr"|data-own-/);
+    assert.match(html, /class="event-news-server" data-server="en"/);
+    assert.doesNotMatch(html, /スカウト|新章/);
+    return;
+  }
   // Every server's block is rendered, whatever the reader picked: CSS shows one (events.css).
   assert.match(html, /class="event-news-server" data-server="jp"/);
   assert.match(html, /class="event-news-server" data-server="kr"/);

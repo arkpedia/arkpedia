@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import { test, expect, type Page } from '@playwright/test';
 import type { EventExtras } from '../../lib/events/tableRewards';
+import { REGIONAL_MATERIAL } from '../../lib/i18n/regionalMaterial';
 // @ts-expect-error Node scripts are plain JavaScript.
 import { withBoardArt } from '../../scripts/sync/regional-board.mjs';
 
@@ -67,6 +68,7 @@ async function serve(page: Page, server: 'jp' | 'kr' | 'en', { withKrArt = false
 const tab = (page: Page, name: string) => page.getByRole('tab', { name, exact: true }).or(page.getByRole('button', { name, exact: true })).first();
 
 test("in JP mode an event's News, key art and banner art are JP's own", async ({ page }, info) => {
+  test.skip(!REGIONAL_MATERIAL, 'JP/KR material is off until the site has those languages (lib/i18n/regionalMaterial.ts)');
   await serve(page, 'jp');
   await page.goto(`/events/${encodeURIComponent(CPT)}`);
   await expect(page.locator('html')).toHaveAttribute('data-site-server', 'jp');
@@ -101,6 +103,7 @@ test("in JP mode an event's News, key art and banner art are JP's own", async ({
 });
 
 test('in KR mode with nothing on the KR board, the News tab says so and keeps Global\'s', async ({ page }) => {
+  test.skip(!REGIONAL_MATERIAL, 'JP/KR material is off until the site has those languages (lib/i18n/regionalMaterial.ts)');
   await serve(page, 'en');
   await page.addInitScript(() => { try { localStorage.setItem('arkpedia-site-server', 'kr'); } catch { /* none */ } });
   await page.goto(`/events/${encodeURIComponent(CPT)}#news`);
@@ -113,6 +116,7 @@ test('in KR mode with nothing on the KR board, the News tab says so and keeps Gl
 });
 
 test("in KR mode an event's key art is KR's official site headline, and its banner's KR's board picture", async ({ page }, info) => {
+  test.skip(!REGIONAL_MATERIAL, 'JP/KR material is off until the site has those languages (lib/i18n/regionalMaterial.ts)');
   expect(KR_EVENT.url).toBe(KR_EVENT_ART);
   expect(KR_BANNER.url).toBe(KR_BANNER_ART);
   await serve(page, 'kr', { withKrArt: true });
@@ -129,4 +133,18 @@ test("in KR mode an event's key art is KR's official site headline, and its bann
   await page.evaluate(() => { localStorage.setItem('arkpedia-site-server', 'jp'); window.dispatchEvent(new Event('arkpediaSiteServerChanged')); });
   await expect(page.locator('html')).toHaveAttribute('data-site-server', 'jp');
   await expect(page.locator('.event-detail-banner-art-wrap img')).toHaveAttribute('src', JP_BANNER_ART);
+});
+
+test('with JP/KR material off, JP mode keeps Global\'s key art, banner art and news', async ({ page }) => {
+  test.skip(REGIONAL_MATERIAL, 'only while the setting is off');
+  await serve(page, 'jp');
+  await page.goto(`/events/${encodeURIComponent(CPT)}`);
+  await expect(page.locator('html')).toHaveAttribute('data-site-server', 'jp');
+  await expect(page.locator('.event-detail-image-wrap img')).not.toHaveAttribute('src', JP_EVENT_ART);
+  await tab(page, 'Banner').click();
+  await expect(page.locator('.event-detail-banner-art-wrap img')).not.toHaveAttribute('src', JP_BANNER_ART);
+  await tab(page, 'News').click();
+  await expect(page.locator('.event-news-server[data-server="jp"]')).toHaveCount(0);
+  await expect(page.locator('.event-news-server[data-server="en"]')).toBeVisible();
+  await expect(page.locator('.event-news')).not.toContainText('スカウト');
 });

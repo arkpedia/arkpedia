@@ -1,4 +1,5 @@
 import { test } from 'node:test';
+import { REGIONAL_MATERIAL } from '../../lib/i18n/regionalMaterial';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 // @ts-expect-error Node scripts are plain JavaScript.
@@ -145,6 +146,12 @@ test("the pages' lists show the site server's art, falling back to Global's", ()
   const schedule = withBoardArt(fixture.schedules.jp, fixture.boards.jp) as RegionalSchedule;
   const jpArt = schedule.banners![SWT].art!.url;
   assert.equal(regionalArt(schedule.banners![SWT], '/banners/swt.webp', 'en'), '/banners/swt.webp', 'Global keeps its own');
+  if (!REGIONAL_MATERIAL) {
+    // Off until the site has JP/KR languages (lib/i18n/regionalMaterial.ts): Global's art on every server.
+    assert.equal(regionalArt(schedule.banners![SWT], '/banners/swt.webp', 'jp'), '/banners/swt.webp');
+    assert.equal(regionalArt(schedule.banners![SWT], '/banners/swt.webp', 'kr'), '/banners/swt.webp');
+    return;
+  }
   assert.equal(regionalArt(schedule.banners![SWT], '/banners/swt.webp', 'jp'), jpArt);
   assert.equal(regionalArt(schedule.banners!['Kernel #63 (Global)'], null, 'jp'), schedule.banners!['Kernel #63 (Global)'].art!.url);
   assert.equal(regionalArt(undefined, '/banners/x.webp', 'jp'), '/banners/x.webp');
