@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { buildFreeRewards } from '../build/build-free-rewards.mjs';
 import { accountFromGame } from '../../lib/account/accountStore';
-import { allFreeRewards, freeRewardsForAccount, importClaimedBeginner, rosterOperatorIds, type FreeReward } from '../../lib/pulls/freeRewards';
+import { allFreeRewards, freeRewardsForAccount, importClaimedBeginner, type FreeReward } from '../../lib/pulls/freeRewards';
 
 /*
  * The Reward Tracker's Beginner rewards, ticked from an import. The tables are an excerpt of the
@@ -45,7 +45,7 @@ const olderMap = { version: 1 as const, chars: {}, beginnerPrograms: openServer.
 function settled(user: Record<string, unknown>, accountMap: typeof map | typeof olderMap = map) {
   const account = accountFromGame(user, accountMap, 'en');
   const shown = freeRewardsForAccount(catalogue, account).filter((row: FreeReward) => row.group === 'Beginner rewards');
-  return { account, shown: shown.map(row => row.id), locked: Object.fromEntries(importClaimedBeginner(shown, account.rewardClaims, rosterOperatorIds(account))) };
+  return { account, shown: shown.map(row => row.id), locked: Object.fromEntries(importClaimedBeginner(shown, account.rewardClaims)) };
 }
 
 // A Global account registered 2020-02-03, under the older programme, years after it closed:
@@ -57,22 +57,22 @@ const veteran = {
   troop: { chars: { 1: { charId: 'char_173_slchan', skin: 'char_173_slchan#1' } } },
 };
 
-test('an older account ticks the beginner missions from their mission group and Cliffheart from its roster', () => {
+test('an older account ticks the beginner missions from their mission group, and nothing from its roster', () => {
   const { shown, locked } = settled(veteran);
   assert.ok(shown.includes('free:openserver_1') && !shown.includes('free:openserver_1_1'), 'the programme it registered under');
   assert.deepEqual(locked, {
     'free:openserver_1': 'game', 'free:openserver_2': 'game', 'free:openserver_3': 'game', 'free:openserver_4': 'game',
-    'free:openseverTaskGroup1:chainLoginData:7': 'roster',
   });
-  // What the save cannot speak to stays the reader's: the welcome mail, and every item sign-in day.
-  for (const id of ['free:welcome-mail', 'free:openseverTaskGroup1:checkInData:1', 'free:openseverTaskGroup1:checkInData:14', 'free:openseverTaskGroup1:chainLoginData:1']) {
+  // What the save cannot speak to stays the reader's: the welcome mail, and every sign-in day,
+  // the 7th too: Cliffheart is in the roster, but she is also in the headhunting pool.
+  for (const id of ['free:welcome-mail', 'free:openseverTaskGroup1:checkInData:1', 'free:openseverTaskGroup1:checkInData:14', 'free:openseverTaskGroup1:chainLoginData:1', 'free:openseverTaskGroup1:chainLoginData:7']) {
     assert.ok(shown.includes(id), id);
     assert.ok(!(id in locked), `${id} stays manual`);
   }
 });
 
 test('a save that does not show the beginner rewards received leaves them manual', () => {
-  // The group not complete, no OPENSERVER record, Cliffheart not in the roster.
+  // The group not complete, no OPENSERVER record.
   const { account, locked } = settled({ ...veteran, mission: { missions: {}, missionGroups: { openseverTaskGroup1: 0 } }, troop: { chars: {} } });
   assert.deepEqual(locked, {});
   assert.ok(!account.rewardClaims!.known.some(id => /^free:openserver_/.test(id)), 'an uncomplete group marks nothing unclaimed');
@@ -98,12 +98,11 @@ test('a newer account ticks only the days and missions its save records as recei
   }
 });
 
-test('a sign-in day the save knows unclaimed is not ticked by the roster', () => {
+test('only a received beginner row locks, whatever the roster holds', () => {
   const rows: FreeReward[] = [{ id: 'free:p:chainLoginData:7', group: 'Beginner rewards', name: 'Day 7', rewards: [{ id: 'char_173_slchan', name: 'Cliffheart', count: 1, rarity: 5 }], forecast: true }];
-  const roster = new Set(['char_173_slchan']);
-  assert.deepEqual([...importClaimedBeginner(rows, { known: ['free:p:chainLoginData:7'], claimed: [] }, roster)], []);
-  assert.deepEqual([...importClaimedBeginner(rows, undefined, roster)], [['free:p:chainLoginData:7', 'roster']]);
-  assert.deepEqual([...importClaimedBeginner(rows, undefined, new Set())], []);
+  assert.deepEqual([...importClaimedBeginner(rows, { claimed: [] })], []);
+  assert.deepEqual([...importClaimedBeginner(rows, undefined)], []);
+  assert.deepEqual([...importClaimedBeginner(rows, { claimed: [rows[0].id] })], [[rows[0].id, 'game']]);
   // Only the beginner group: a welfare row has its own rule (rosterClaimedWelfare).
-  assert.deepEqual([...importClaimedBeginner([{ ...rows[0], group: 'Welfare operators' }], { known: [], claimed: [rows[0].id] }, roster)], []);
+  assert.deepEqual([...importClaimedBeginner([{ ...rows[0], group: 'Welfare operators' }], { claimed: [rows[0].id] })], []);
 });

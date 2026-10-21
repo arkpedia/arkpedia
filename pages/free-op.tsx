@@ -35,7 +35,7 @@ import Tabs, { tabPanelProps } from '@/components/ui/Tabs';
  * still obtainable now (lib/pulls/freeRewards.ts obtainableWelfare): Record Restoration's, and
  * an open event's own. An imported roster ticks every welfare row of an operator it holds
  * (rosterClaimedWelfare), while it holds it; and every beginner row its save records as
- * received, or whose operator it holds (importClaimedBeginner). Those rows show locked.
+ * received (importClaimedBeginner). Those rows show locked.
  */
 
 const STAGE_FILTERS: { kind: StageKind; label: string }[] = [
@@ -77,7 +77,7 @@ export default function FreeOpPage({ backlogSources, freeRewards: globalFreeRewa
   const eligible = freeRewardsForAccount(freeRewards, past.account);
   const roster = useMemo(() => rosterOperatorIds(past.account), [past.account]);
   const locked = useMemo(() => new Map<string, LockedReason>([...[...rosterClaimedWelfare(eligible, roster)].map(id => [id, 'roster'] as const),
-    ...importClaimedBeginner(eligible, past.account?.rewardClaims, roster)]), [eligible, roster, past.account]);
+    ...importClaimedBeginner(eligible, past.account?.rewardClaims)]), [eligible, roster, past.account]);
   const keys = useMemo(() => presentation ? demoKeys : locked.size ? new Set([...past.doneKeys, ...locked.keys()]) : past.doneKeys, [presentation, demoKeys, locked, past.doneKeys]);
   /* A locked tick is the import's, not a mark to store: a change elsewhere keeps it out of the saved keys. */
   const onFreeKeys = presentation ? setDemoKeys : (next: Set<string>) => past.onKeys(new Set([...next].filter(key => !locked.has(key) || past.doneKeys.has(key))));
