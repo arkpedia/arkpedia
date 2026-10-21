@@ -11,8 +11,9 @@ import { SERVER_TIME, serverWeekday } from './servers.mjs';
 export interface RegionalWindow extends GameWindowTimes {
   startAt: string; endAt: string; timingSource: string;
   activityId?: string; poolId?: string; releaseDate?: string; modeId?: string; localName?: string; status?: string;
-  /** The server's own key art for the event or banner, from its in-game board: the address on the
-   *  board's host and the hash the poller recorded (scripts/sync/regional-board.mjs). JP and KR only. */
+  /** The server's own key art for the event or banner, from its in-game board (or KR's official site
+   *  headline): the address on the official host and the hash the poller recorded
+   *  (scripts/sync/regional-board.mjs). JP and KR only. */
   art?: { url: string; sha1: string };
 }
 export interface RegionalSchedule {
@@ -32,6 +33,23 @@ export interface RegionalSchedule {
   releases?: Record<string, number>;
 }
 export interface RegionalSchedules { version: 1; servers: Partial<Record<GameServer, RegionalSchedule>> }
+
+/**
+ * The regional table cut down to one page's own events and banners, for a page about one event.
+ * The route's table (regionalServer.ts) holds every server's every event and banner window, about
+ * 600 kB with the boards' art (#598): shipped on each of the hundreds of event pages, it ran the
+ * dev build out of memory on the NAS runner (2026-10-21) and made each event page that much
+ * heavier to load. A page about one event reads only its own window and its banner's.
+ */
+export function regionalScheduleSlice(table: RegionalSchedules, keep: { events: readonly string[]; banners: readonly string[] }): RegionalSchedules {
+  const pick = <T,>(rows: Record<string, T> | undefined, names: readonly string[]) =>
+    rows ? Object.fromEntries(names.filter(name => Object.hasOwn(rows, name)).map(name => [name, rows[name]])) : rows;
+  return { ...table, servers: Object.fromEntries(Object.entries(table.servers ?? {}).map(([server, schedule]) => [server, schedule && {
+    ...schedule,
+    ...(schedule.events ? { events: pick(schedule.events, keep.events) } : {}),
+    ...(schedule.banners ? { banners: pick(schedule.banners, keep.banners) } : {}),
+  }])) as RegionalSchedules['servers'] };
+}
 export const regionalDate = (instant: string, server: GameServer) => serverDay(Date.parse(instant) / 1000, SERVER_TIME[server].offset).replaceAll('/', '-');
 export const regionalRange = (window: RegionalWindow, server: GameServer) => `${regionalDate(window.startAt, server).replaceAll('-', '/')}–${regionalDate(window.endAt, server).replaceAll('-', '/')}`;
 

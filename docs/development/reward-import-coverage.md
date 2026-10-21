@@ -4,7 +4,10 @@ The tracker imports received rewards, not merely eligibility. No raw account res
 
 | Source | Evidence used | Tracker identity |
 |---|---|---|
-| Mission records | Collected state 3 | `free:<mission id>` |
+| Mission records (GUIDE, MAIN, SUB, OPENSERVER, ACTIVITY, RETRO) | Collected state 3 | `free:<mission id>` |
+| Welfare operator from event missions | ACTIVITY mission collected (3), e.g. `51sideActivity_4` | `free:<mission id>` |
+| Welfare operator from a main-story event's permanent missions | RETRO mission collected (3), e.g. Viy's `act4mainssPermanent_5` | `free:<mission id>` |
+| Welfare operator from Record Restoration | `retro.trail[<retro id>][<trail reward id>]` = 1 | `free:trail:<retro id>:<trail reward id>` |
 | Guide groups and long-term sign-in | Explicit received flag | `free:<group id>` |
 | Monthly sign-in | Group ID plus binary received history | `free:<group id>:<day>` |
 | Basic/all-player event sign-in | Activity ID plus binary received history | `free:<activity id>:<day>` |
@@ -16,7 +19,9 @@ The tracker imports received rewards, not merely eligibility. No raw account res
 
 Paradox stage records live in the operator handbook, separately from `dungeon.stages`. Unlock timestamps, attempts, clear counters and Operator Record story entries do not establish a completed Paradox reward. Reimport once to populate this field in accounts saved before this mapping was supported. Manual tracker marks survive.
 
-`canCheckIn`, `nowIndex`, level thresholds, available-pack lists, elapsed time, and mission state 2 do not establish receipt. Missing, ambiguous, malformed or unsupported fields remain unknown. Announcement-only gifts, welcome mail, voting/community bonuses and beginner programmes without a matching regional schedule stay manually tracked. A Global programme schedule is never guessed for JP/KR.
+`canCheckIn`, `nowIndex`, level thresholds, available-pack lists, elapsed time, and mission state 2 do not establish receipt. Missing, ambiguous, malformed or unsupported fields remain unknown. Announcement-only gifts, welcome mail, voting/community bonuses (`CHECKIN_VS`, `pubBhvs`), welfare operators from an event's own data (milestones, exploration, investments: `free:welfare:<activity>:<operator>`) and beginner programmes without a matching regional schedule stay manually tracked. An official post that announces a client sign-in under its own title (same day-by-day item counts, opening within a day) is that sign-in, so it has no second, unimportable set of rows. A Global programme schedule is never guessed for JP/KR.
+
+Welfare operators are derived from the Global tables (scripts/build/build-free-rewards.mjs): `activity_table.missionData` CHAR rewards (open from the event's start to its stages' end), `mission_table` RETRO missions linked to their event by `retro_table.retroActList` (open from the event's start, no end), and `retro_table.retroTrailList` (from `trailStartTime`, no end). Every operator an event mission page features (`activityTemplateMissionStyles` ILLUST_CHAR_REWARD) must have a row or the build fails. Stage first-clear operators are the tutorial's and the first chapters', and Global event stores sell only tokens, so neither is a welfare row.
 
 The catalogue carries historical beginner missions and sign-ins separately from its current default collection. Global accounts see the programme selected by registration date in both Reward Tracker and Pull Planner totals. Unknown or JP/KR registration schedules retain the default manual view. Historical receipts are never relabelled as the newer selector reward.
 

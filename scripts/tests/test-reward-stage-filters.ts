@@ -98,12 +98,16 @@ test('the stored toggles parse strictly and keep only known kinds', () => {
 
 test('welfare operators come from an event\'s missions, Global only, open while its stages are', () => {
   const start = Date.parse('2026-09-16T08:00:00Z') / 1000; const end = Date.parse('2026-09-30T03:59:59Z') / 1000;
+  // The Global tables: act51side's missions give Botani. A CN-only event's operator is in no Global
+  // table, so an event-rewards entry naming one adds nothing.
   const result = buildFreeRewards({
     handbook: { handbookStageData: {} }, missions: { missions: {}, missionGroups: {} }, checkin: { groups: {} },
     openServer: { schedule: [{ id: 'starter', startTs: 0 }], dataMap: {}, constant: { firstDiamondShardMailCount: 1 } },
     items: { items: {} }, shops: { shopGPDataDict: {} },
     characters: { char_4223_botany: { name: 'Botani', rarity: 'TIER_5' }, char_4215_buddy: { name: 'Buddy', rarity: 3 } },
-    activity: { activity: {}, basicInfo: { act51side: { name: 'People, A People', startTime: start, endTime: end, rewardEndTime: end + 7 * 86400 } } },
+    activity: { activity: {}, basicInfo: { act51side: { name: 'People, A People', startTime: start, endTime: end, rewardEndTime: end + 7 * 86400 } },
+      missionData: [{ id: '51sideActivity_4', type: 'ACTIVITY', missionGroup: 'act51side', description: 'Clear PA-4', rewards: [{ type: 'CHAR', id: 'char_4223_botany', count: 1 }] },
+        { id: '51sideActivity_5', type: 'ACTIVITY', missionGroup: 'act51side', description: 'Clear PA-5', rewards: [{ type: 'GOLD', id: '4001', count: 1000 }] }] },
     eventRewards: { events: {
       '[Side Story] People, A People': { activity: 'act51side', groups: [{ kind: 'missions', title: 'Event missions', items: [
         { name: 'Botani', count: 1, kind: 'operator', id: 'char_4223_botany' }, { name: 'LMD', count: 1000, kind: 'currency', id: '4001' }] }] },
@@ -111,7 +115,7 @@ test('welfare operators come from an event\'s missions, Global only, open while 
     } },
   });
   const welfare = result.rewards.filter((reward) => reward.group === 'Welfare operators');
-  assert.deepEqual(welfare, [{ id: 'free:welfare:act51side:char_4223_botany', group: 'Welfare operators', name: 'Botani',
+  assert.deepEqual(welfare, [{ id: 'free:51sideActivity_4', group: 'Welfare operators', name: 'Botani · Event missions: Clear PA-4',
     rewards: [{ id: 'char_4223_botany', rarity: 5, name: 'Botani', count: 1 }], startAt: start * 1000, endAt: (end + 1) * 1000,
     event: 'People, A People', href: '/events/%5BSide%20Story%5D%20People%2C%20A%20People', forecast: false }]);
 

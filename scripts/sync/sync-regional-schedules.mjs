@@ -257,9 +257,10 @@ export function buildRegionalSchedule({ server, tables, english, events, banners
     }
   }
   const skinWindows = [...noticeSkinWindows(notices, tables, skins, server), ...shopOverrides.filter(row => row.server === server).map(({ server: _server, ...row }) => row)];
-  // JP's and KR's own key art for their events and banners, from their in-game boards
-  // (regional-board.mjs): an address and a hash on the window, which the page shows in place of
-  // Global's when the site is in that server's mode. Global's comes from the image repository.
+  // JP's and KR's own key art for their events and banners, from their in-game boards and KR's
+  // official site headline (regional-board.mjs): an address and a hash on the window, which the
+  // page shows in place of Global's when the site is in that server's mode. Global's comes from
+  // the image repository.
   const art = board ? withBoardArt({ events: eventWindows, banners: bannerWindows }, board) : { events: eventWindows, banners: bannerWindows };
   return { farming, rewardWindows, skinWindows, sources: Object.fromEntries(TABLES.map(table => [table, source(table)])), activities, events: art.events, banners: art.banners, contents: contentWindows, weekly, forceOpen, annihilation, sss, skinReleases, releases };
 }

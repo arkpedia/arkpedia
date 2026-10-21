@@ -53,19 +53,50 @@ test("a board's template picture, a picture filed long before, and an oversize o
   const templates = templatePictures(fixture.boards.kr);
   // KR's one 2024 picture under every "신규 이벤트 안내".
   assert.ok(templates.has('400be245c1e6266cfc46f7b5e2c4049c2f75342f'));
+  const boardOnly = withBoardArt(fixture.schedules.kr, { ...fixture.boards.kr, headlines: [] });
+  assert.equal(boardOnly.events[CPT].art, undefined, 'the template is not the event art');
+  assert.equal(boardOnly.events[DUEL].art, undefined);
   const kr = withBoardArt(fixture.schedules.kr, fixture.boards.kr);
-  assert.equal(kr.events[CPT].art, undefined, 'the template is not the event art');
-  assert.equal(kr.events[DUEL].art, undefined);
+  assert.equal(kr.events[DUEL].art, undefined, 'no headline of its own: Global\'s stays');
   // KR's Standard banner art of 2026-10-09 is 18.6 MB: a page would hotlink it as its hero.
   const standard = fixture.boards.kr.bulletins.find((item: { poolId?: string }) => item.poolId === 'DOUBLE_KR_41_0_9');
   assert.ok(standard.image.bytes > MAX_ART_BYTES);
-  assert.equal(kr.banners['Standard Pool #177 (Global)'].art, undefined);
+  const { small: _small, ...withoutSmall } = standard.image;
+  const noCopy = { ...fixture.boards.kr, bulletins: fixture.boards.kr.bulletins.map((item: { id: string }) => (item.id === standard.id ? { ...standard, image: withoutSmall } : item)) };
+  assert.equal(withBoardArt(fixture.schedules.kr, noCopy).banners['Standard Pool #177 (Global)'].art, undefined, 'oversize, and no smaller copy');
+  const tooBig = { ...noCopy, bulletins: noCopy.bulletins.map((item: { id: string }) => (item.id === standard.id ? { ...standard, image: { ...standard.image, small: { ...standard.image.small, bytes: MAX_ART_BYTES + 1 } } } : item)) };
+  assert.equal(withBoardArt(fixture.schedules.kr, tooBig).banners['Standard Pool #177 (Global)'].art, undefined, 'a smaller copy still over the size');
   assert.deepEqual(kr.banners[SWT].art, { url: 'https://ark-kr-static-online-1300509597.yo-star.com/announce/images/20261013/2503c5194d4999c585e78056d5223d60.jpg', sha1: '92ce5499c5d0678c51038e30a54ae408ca60ab25' });
   // One subject with two different pictures is no answer; a picture filed a year before the item is a reuse.
   const one = fixture.boards.jp.bulletins.find((item: { id: string }) => item.id === '1159');
   assert.equal(boardArt([one, { ...one, id: 'x', image: { ...one.image, sha1: 'b'.repeat(40), url: one.image.url.replace('962d', 'aaaa') } }], new Set()), null);
   assert.equal(boardArt([{ ...one, image: { ...one.image, url: one.image.url.replace('/20260923/', '/20250901/') } }], new Set()), null);
   assert.deepEqual(boardArt([one], new Set()), { url: one.image.url, sha1: one.image.sha1 });
+});
+
+test("KR's own art: the official site's headline for its event, and the host's smaller copy of an oversize banner", () => {
+  const kr = withBoardArt(fixture.schedules.kr, fixture.boards.kr);
+  // The site's headline names the event in its own words ("'임계 상전이' 메인 트레일러(PV)"), seen in the window's days.
+  assert.deepEqual(kr.events[CPT].art, { url: 'https://webusstatic.yo-star.com/web-cms-test/upload/content/2026/10/12/n74WatYI.png', sha1: '003845daa5887386505683d9c5968b1e0691b0a6' });
+  // Standard #177: the same picture as WebP from the board's host, with that copy's hash.
+  assert.deepEqual(kr.banners['Standard Pool #177 (Global)'].art, {
+    url: 'https://ark-kr-static-online-1300509597.yo-star.com/announce/images/20261008/24f0e4b3a9988d7a01a7bbaf4576aeea.jpg?imageMogr2/format/webp',
+    sha1: 'cfc1e870cf79aa9112f41f01c0db730bb18e8bcb' });
+  // The other banners keep their pool ids' pictures.
+  assert.equal(kr.banners[SWT].art?.sha1, '92ce5499c5d0678c51038e30a54ae408ca60ab25');
+  assert.equal(kr.banners['Kernel #63 (Global)'].art?.url, 'https://ark-kr-static-online-1300509597.yo-star.com/announce/images/20260929/257b6d84000000c425effab36618eea2.jpg');
+  const [headline] = fixture.boards.kr.headlines;
+  const withHeadline = (changes: object) => withBoardArt(fixture.schedules.kr, { ...fixture.boards.kr, headlines: [{ ...headline, ...changes }] }).events[CPT].art;
+  // Seen long after the event closed, or naming no event: nothing.
+  assert.equal(withHeadline({ firstSeen: '2027-03-01' }), undefined);
+  assert.equal(withHeadline({ title: '명일방주 메인 트레일러(PV)' }), undefined);
+  // A picture filed months before it was seen is a reused one.
+  assert.equal(withHeadline({ image: { ...headline.image, url: headline.image.url.replace('/2026/10/12/', '/2026/01/12/') } }), undefined);
+  // The same picture as a board item of another title is a template, here as on the board.
+  const template = fixture.boards.kr.bulletins.find((item: { id: string }) => item.id === '6889').image;
+  assert.equal(withHeadline({ image: template }), undefined);
+  // Headlines are art only: the News tab is the board's.
+  assert.ok(!regionalBoardGroups(events, banners, fixture.schedules.kr, fixture.boards.kr, 'kr')[CPT].some((group: { id: string }) => group.id.startsWith('site:')));
 });
 
 test("the regional schedule's windows carry JP's own art, and lose one the board no longer gives", () => {
@@ -94,8 +125,11 @@ test("each event's News gets JP's and KR's own items, tagged with the server and
   const extras = eventExtras(kr[CPT] as TableRewardGroup[], () => null).board;
   assert.deepEqual(extras.map(item => [item.server, item.name]), [['kr', CPT], ['kr', SWT]]);
   const huge = regionalBoardGroups([{ name: 'Std' }], [{ name: 'Standard Pool #177 (Global)', linked_event: 'Std' }], fixture.schedules.kr, fixture.boards.kr, 'kr');
-  assert.equal(huge.Std[0].image, undefined, 'an oversize picture is left out');
-  assert.equal(eventExtras(huge.Std as TableRewardGroup[], () => null).board[0].image, null, 'and the notice still listed');
+  assert.match(huge.Std[0].image, /\?imageMogr2\/format\/webp$/, "an oversize picture is its host's smaller copy");
+  const noCopy = { ...fixture.boards.kr, bulletins: fixture.boards.kr.bulletins.map((item: { image?: { small?: unknown } }) => (item.image?.small ? { ...item, image: { ...item.image, small: null } } : item)) };
+  const left = regionalBoardGroups([{ name: 'Std' }], [{ name: 'Standard Pool #177 (Global)', linked_event: 'Std' }], fixture.schedules.kr, noCopy, 'kr');
+  assert.equal(left.Std[0].image, undefined, 'an oversize picture with no smaller copy is left out');
+  assert.equal(eventExtras(left.Std as TableRewardGroup[], () => null).board[0].image, null, 'and the notice still listed');
   assert.throws(() => regionalBoardGroups(events, banners, fixture.schedules.jp, fixture.boards.jp, 'en'), /not a regional board/);
   assert.deepEqual(regionalBoardGroups(events, banners, undefined, undefined, 'jp'), {});
 });

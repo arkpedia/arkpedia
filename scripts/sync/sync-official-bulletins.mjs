@@ -17,6 +17,16 @@
  *     notice of a MAINTENANCE_REGIONS region also gets `maintenance`, the window its page
  *     announces ({ startAt, endAt }, or null for none), which the home page and its ticker show.
  *
+ *   - the official site's headline (SITE_HEADLINES, KR only): the key visual the site shows for its
+ *     current event and its name for it (`versionName`), kept as `headlines`, { title, image,
+ *     firstSeen }, one per picture. The site shows only its current one, so every one ever seen
+ *     stays, like the board's items. regional-board.mjs joins them to events for KR's own art.
+ *
+ * A picture over the size a page may load (MAX_ART_BYTES) is asked of its host once more, smaller
+ * (SMALLER_COPIES: Tencent COS's image processing, which KR's host answers and JP's and Global's
+ * ignore): the first answer that is a picture, within the size and smaller than the original, is
+ * kept beside it as `image.small` ({ url, sha1, bytes }), or `small: null` for a host that has none.
+ *
  * Kept per item: id, kind, title, date, link, pool id, image address and hash, and the day
  * this reader first saw it. Never the notice's text or picture. The boards hold about a dozen
  * items each, so every item ever seen stays in the file: the history cannot be read back later.
@@ -36,7 +46,8 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { beginStage, defaultNow } from '../lib/quarantine.mjs';
 import { serverInstant } from '../../lib/time/servers.mjs';
-import { DEAD_ANNOUNCEMENT_LISTS, getBytes, getJson, REGIONS, regionNetwork } from '../lib/official-endpoints.mjs';
+import { DEAD_ANNOUNCEMENT_LISTS, getBytes, getJson, REGIONS, regionNetwork, SITE_HEADLINES } from '../lib/official-endpoints.mjs';
+import { MAX_ART_BYTES } from './regional-board.mjs';
 
 export const OFFICIAL_BULLETINS = 'data/official-bulletins.json';
 /** The newest item of a live board is days old; one older than this is a board that moved. */
@@ -186,6 +197,29 @@ export function bulletinRecord(item, detail, firstSeen) {
   };
 }
 
+/** The queries a picture's host is asked for the same picture smaller, in order: the same size as
+ *  WebP, then 1600 pixels wide. A host without image processing answers with the original. */
+export const SMALLER_COPIES = ['imageMogr2/format/webp', 'imageMogr2/thumbnail/1600x/format/webp'];
+
+/** Whether bytes are a picture a page can show: JPEG, PNG, WebP or GIF, by their first bytes. */
+export function isPicture(bytes) {
+  const b = Buffer.from(bytes ?? []);
+  if (b.length < 12) return false;
+  return (b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff)
+    || b.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))
+    || (b.toString('latin1', 0, 4) === 'RIFF' && b.toString('latin1', 8, 12) === 'WEBP')
+    || /^GIF8[79]a$/.test(b.toString('latin1', 0, 6));
+}
+
+/** The site's headline from its answer: { title, url }. The 16:9 still of its trailer (videoImage)
+ *  is the key visual alone; `image`, the page's hero, has the site's side strip drawn in. */
+export function siteHeadline(data) {
+  const title = cleanTitle(data?.versionName);
+  const url = String(data?.videoImage || data?.image || '').trim();
+  if (!title || !/^https:\/\//.test(url)) throw new Error('the official site names no headline with a picture: its layout has probably changed');
+  return { title, url };
+}
+
 const byDateThenId = date => (a, b) => (date(b) ?? '').localeCompare(date(a) ?? '') || b.firstSeen.localeCompare(a.firstSeen) || a.id.localeCompare(b.id);
 
 function listedBulletins(response, region) {
@@ -202,6 +236,20 @@ function listedNotices(response, region) {
     throw new Error(`${region}'s announcement list names no notices: its layout has probably changed`);
   }
   return list;
+}
+
+const sha1 = bytes => crypto.createHash('sha1').update(bytes).digest('hex');
+
+/** The same picture smaller from its host (SMALLER_COPIES), { url, sha1, bytes }, or null when the
+ *  host serves none. A failed request throws, and the picture is asked again the next run. */
+async function smallerCopy(image, fetcher, pause) {
+  for (const query of SMALLER_COPIES) {
+    const url = `${image.url}${image.url.includes('?') ? '&' : '?'}${query}`;
+    const bytes = await getBytes(url, fetcher);
+    await pause();
+    if (isPicture(bytes) && bytes.length <= MAX_ART_BYTES && bytes.length < image.bytes) return { url, sha1: sha1(bytes), bytes: bytes.length };
+  }
+  return null;
 }
 
 export function readOfficialBulletins(root) {
@@ -264,15 +312,34 @@ export async function syncOfficialBulletins(root, { fetcher = globalThis.fetch, 
       problems.push({ key: `official-bulletins:${region}:board`, action: 'kept-previous', reason: `The ${region} in-game board could not be read; its notices stay as they were.` });
     }
 
-    // Art hashed once: a record with an address and no hash is new, or one whose image failed.
-    for (const record of bulletins.values()) {
-      if (!record.image?.url || record.image.sha1) continue;
+    const headlines = new Map((previous.headlines ?? []).map(record => [record.image?.url, record]));
+    if (SITE_HEADLINES[region]) {
       try {
-        const bytes = await getBytes(record.image.url, fetcher);
-        record.image = { url: record.image.url, sha1: crypto.createHash('sha1').update(bytes).digest('hex'), bytes: bytes.length };
+        const { title, url } = siteHeadline((await getJson(SITE_HEADLINES[region], fetcher))?.data);
+        if (!headlines.has(url)) {
+          headlines.set(url, { title, image: { url }, firstSeen: today });
+          added[region]++;
+        }
       } catch (error) {
-        console.warn(`${region} bulletin ${record.id}'s image could not be hashed (asked again next run): ${error.message}`);
+        console.warn(`${region} official site: ${error.message}`);
+        problems.push({ key: `official-bulletins:${region}:site`, action: 'kept-previous', reason: `The ${region} official site's headline could not be read; the headlines seen before stay.` });
       } finally {
+        await pause();
+      }
+    }
+
+    // Art hashed once: a record with an address and no hash is new, or one whose image failed.
+    for (const [label, record] of [...[...bulletins.values()].map(record => [`bulletin ${record.id}`, record]), ...[...headlines.values()].map(record => [`site headline "${record.title}"`, record])]) {
+      if (!record.image?.url) continue;
+      try {
+        if (!record.image.sha1) {
+          const bytes = await getBytes(record.image.url, fetcher);
+          record.image = { url: record.image.url, sha1: sha1(bytes), bytes: bytes.length };
+          await pause();
+        }
+        if (record.image.bytes > MAX_ART_BYTES && record.image.small === undefined) record.image.small = await smallerCopy(record.image, fetcher, pause);
+      } catch (error) {
+        console.warn(`${region} ${label}'s image could not be hashed (asked again next run): ${error.message}`);
         await pause();
       }
     }
@@ -316,6 +383,7 @@ export async function syncOfficialBulletins(root, { fetcher = globalThis.fetch, 
     next.regions[region] = {
       bulletins: [...bulletins.values()].sort(byDateThenId(record => record.displayDate)),
       notices: [...notices.values()].sort(byDateThenId(record => record.date)),
+      ...(headlines.size ? { headlines: [...headlines.values()].sort((a, b) => b.firstSeen.localeCompare(a.firstSeen) || a.image.url.localeCompare(b.image.url)) } : {}),
     };
   }
 

@@ -64,7 +64,7 @@ import { eventTitle, eventWindow, isRerun } from '../lib/event-records.mjs';
 import { cnTables } from '../content/pin-upstream.mjs';
 import { readOfficialNews } from '../sync/sync-official-news.mjs';
 import { readOfficialBulletins } from '../sync/sync-official-bulletins.mjs';
-import { boardBannerItems, boardEventItems, showablePicture } from '../sync/regional-board.mjs';
+import { boardBannerItems, boardEventItems, pagePicture } from '../sync/regional-board.mjs';
 
 const LOGIN_TYPES = new Set(['CHECKIN_ONLY', 'CHECKIN_ALL_PLAYER', 'CHECKIN_VS']);
 /* The side activities an event carries beside its own: its sign-ins (LOGIN_TYPES), its one-off
@@ -553,8 +553,8 @@ export const REGIONAL_BOARDS = ['jp', 'kr'];
  * which the regional-schedules stage writes before this one). Each group is tagged `server`, and
  * `name` is the site's own English name of what it is about (the event or the banner): the page
  * shows that and an English label, never the board's Japanese or Korean title, which is kept as a
- * derived fact like Global's. The picture is the board's own address, left out over the size a
- * page may load (showablePicture); no notice text is kept. { event name: [board groups] }.
+ * derived fact like Global's. The picture is the board's own address (or its host's smaller copy
+ * of it), left out over the size a page may load (pagePicture); no notice text is kept. { event name: [board groups] }.
  */
 export function regionalBoardGroups(events, banners, schedule, board, server) {
   if (!REGIONAL_BOARDS.includes(server)) throw new Error(`regionalBoardGroups: ${server} is not a regional board`);
@@ -566,8 +566,9 @@ export function regionalBoardGroups(events, banners, schedule, board, server) {
     const groups = (result[eventName] ??= []);
     if (groups.some(group => group.id === item.id)) return;
     const page = pages.filter(notice => notice.url && notice.title === item.title && notice.date === item.displayDate);
+    const picture = pagePicture(item);
     groups.push({ kind: 'board', server, id: item.id, subject, name, title: item.title, source: page.length === 1 ? page[0].url : '',
-      published: item.displayDate, ...(showablePicture(item) ? { image: item.image.url } : {}), items: [] });
+      published: item.displayDate, ...(picture ? { image: picture.url } : {}), items: [] });
   };
   for (const [eventName, items] of Object.entries(byEvent)) {
     if (!names.has(eventName)) continue;

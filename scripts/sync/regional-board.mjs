@@ -20,8 +20,17 @@
  *     안내" picture, one 2024 file on every event's item), or one filed months before the item
  *     (TEMPLATE_DAYS);
  *   - a picture over MAX_ART_BYTES, which a page would otherwise hotlink as its hero (KR's
- *     2026-10-09 Standard banner was 18.6 MB);
+ *     2026-10-09 Standard banner was 18.6 MB), unless its host serves the same picture smaller
+ *     (`image.small`, which the poller asks the host for: KR's COS host re-encodes that banner as
+ *     a 0.5 MB WebP of the same 1650x900). The template and filing checks stay on the original;
+ *     the address and hash handed out are the smaller one's;
  *   - anything but one picture: two different ones for one subject is no answer.
+ *
+ * KR's board gives no event a picture of its own: every "신규 이벤트 안내" shows the one template,
+ * and the notice behind it is the whole notice drawn as one tall strip. KR's own art for an event
+ * is the official site's headline (www.arknights.kr, `headlines` in the board's region: the key
+ * visual the site shows for its current event, named in `versionName`), which joins as one more
+ * event item for the art only (headlineItems): never in the News tab, which is the board's.
  */
 
 export const MIN_LOCAL_NAME = 3;
@@ -81,27 +90,52 @@ export function templatePictures(board) {
   return new Set([...titles].filter(([, set]) => set.size > 1).map(([sha1]) => sha1));
 }
 
-/** Whether an item's picture may be shown at all: an address on https, and not over MAX_ART_BYTES. */
-export function showablePicture(item) {
-  const url = String(item?.image?.url ?? '');
-  if (!/^https:\/\//.test(url)) return false;
-  return !(Number(item.image.bytes) > MAX_ART_BYTES);
+const https = picture => /^https:\/\//.test(String(picture?.url ?? ''));
+
+/**
+ * The picture a page may load for an item, { url, sha1 }, or null: the item's own, on https and
+ * not over MAX_ART_BYTES; else the smaller copy its host serves of it (image.small), when that one
+ * is on https, hashed, and within the size.
+ */
+export function pagePicture(item) {
+  const image = item?.image;
+  if (!https(image)) return null;
+  if (!(Number(image.bytes) > MAX_ART_BYTES)) return { url: image.url, sha1: image.sha1 };
+  const small = image.small;
+  if (!https(small) || !SHA1.test(small.sha1 ?? '') || !(Number(small.bytes) > 0) || Number(small.bytes) > MAX_ART_BYTES) return null;
+  return { url: small.url, sha1: small.sha1 };
+}
+
+/**
+ * The official site's headlines (a region's `headlines`, sync-official-bulletins.mjs) as event
+ * items: titled by the site's own name for its headline, on the day the poller first saw it.
+ */
+export function headlineItems(board) {
+  return (board?.headlines ?? []).filter(headline => headline?.image?.url).map(headline => ({
+    id: `site:${headline.image.url}`, kind: 'event', title: headline.title ?? '', displayDate: headline.firstSeen, firstSeen: headline.firstSeen, image: headline.image,
+  }));
 }
 
 function filedLongBefore(item) {
-  const filed = String(item.image?.url ?? '').match(/\/images\/(\d{4})(\d{2})(\d{2})\//);
+  // The board files a picture under /images/YYYYMMDD/, the official site's CMS under /YYYY/MM/DD/.
+  const filed = String(item.image?.url ?? '').match(/\/images\/(\d{4})(\d{2})(\d{2})\/|\/upload\/content\/(\d{4})\/(\d{2})\/(\d{2})\//);
   const at = dayOf(shownOn(item));
   if (!filed || !Number.isFinite(at)) return false;
-  return at - Date.parse(`${filed[1]}-${filed[2]}-${filed[3]}T00:00:00Z`) > TEMPLATE_DAYS * DAY;
+  const [year, month, day] = filed[1] ? filed.slice(1, 4) : filed.slice(4, 7);
+  return at - Date.parse(`${year}-${month}-${day}T00:00:00Z`) > TEMPLATE_DAYS * DAY;
 }
 
 /** One subject's key art from its board items, { url, sha1 }, or null (see the rules above). */
 export function boardArt(items, templates) {
+  // Keyed by the original's hash, so an original and its smaller copy are one picture.
   const pictures = new Map(items
-    .filter(item => SHA1.test(item.image?.sha1 ?? '') && showablePicture(item) && !templates.has(item.image.sha1) && !filedLongBefore(item))
-    .map(item => [item.image.sha1, item.image.url]));
+    .filter(item => SHA1.test(item.image?.sha1 ?? '') && !templates.has(item.image.sha1) && !filedLongBefore(item))
+    .flatMap(item => {
+      const picture = pagePicture(item);
+      return picture && SHA1.test(picture.sha1 ?? '') ? [[item.image.sha1, picture]] : [];
+    }));
   if (pictures.size !== 1) return null;
-  const [[sha1, url]] = [...pictures];
+  const [[, { url, sha1 }]] = [...pictures];
   return { url, sha1 };
 }
 
@@ -111,8 +145,10 @@ export function boardArt(items, templates) {
  * longer gives). { events, banners }, new objects; the windows handed in are not changed.
  */
 export function withBoardArt({ events, banners }, board) {
-  const templates = templatePictures(board);
-  const byEvent = boardEventItems(events, board);
+  // The official site's headlines join the board's items for the art (and its template check).
+  const withHeadlines = { bulletins: [...(board?.bulletins ?? []), ...headlineItems(board)] };
+  const templates = templatePictures(withHeadlines);
+  const byEvent = boardEventItems(events, withHeadlines);
   const attach = (window, items) => {
     const { art: _old, ...rest } = window;
     const art = boardArt(items, templates);

@@ -23,6 +23,12 @@ const NETWORK_CONFIG = {
   cn: 'https://ak-conf.hypergryph.com/config/prod/official/network_config',
 };
 
+/* The official websites' headline: the key visual a region's site shows for its current event and
+   the site's name for it. KR's site (a CMS behind www.arknights.kr) has no news of its own, and its
+   in-game board shows one template picture on every event, so this is KR's own event art. One GET
+   a run; the address and hash are kept (sync-official-bulletins.mjs), never the picture. */
+export const SITE_HEADLINES = { kr: 'https://www.arknights.kr/api/resource/version' };
+
 /* CN's network_config still names an announcement list (announce_meta) whose newest notice is
    from 2025-05: the board moved to the webview and the pointer stayed. Reading it would report
    a dead feed every night, so CN's notices come from its webview board alone. */

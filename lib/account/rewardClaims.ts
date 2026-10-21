@@ -10,8 +10,10 @@ export function rewardClaimsFromGame(user: Record<string, unknown>, programs: re
   const put = (id: string, claimed: boolean) => { if (validId(id)) states.set(`free:${id}`, claimed); };
   const mission = object(user.mission);
   const missions = object(mission.missions);
-  // Game mission states: 2 is available/in progress; 3 is collected.
-  for (const type of ['GUIDE', 'MAIN', 'SUB', 'OPENSERVER']) {
+  // Game mission states (MissionHoldingState): 2 is completed, not yet collected; 3 is collected.
+  // ACTIVITY and RETRO hold the welfare operators' missions (an event's, and a main-story
+  // event's permanent ones: Viy's act4mainssPermanent_5), keyed by mission id as the catalogue is.
+  for (const type of ['GUIDE', 'MAIN', 'SUB', 'OPENSERVER', 'ACTIVITY', 'RETRO']) {
     for (const [id, value] of Object.entries(object(missions[type]))) {
       const state = object(value).state;
       if (typeof state === 'number' && Number.isInteger(state) && state >= 0 && state <= 3) put(id, state === 3);
@@ -37,6 +39,11 @@ export function rewardClaimsFromGame(user: Record<string, unknown>, programs: re
   for (const [id, value] of Object.entries(object(activity.LOGIN_ONLY))) {
     const received = object(value).reward;
     if (received === 0 || received === 1) put(id, received === 1);
+  }
+  // Record Restoration: retro.trail[retro id][trail reward id], 1 once received. The reward ids
+  // repeat between stories, so the catalogue keys them by both (build-free-rewards.mjs).
+  for (const [retroId, rewards] of Object.entries(object(object(user.retro).trail)).slice(0, 200)) {
+    for (const [id, value] of Object.entries(object(rewards)).slice(0, 50)) if (value === 0 || value === 1) put(`trail:${retroId}:${id}`, value === 1);
   }
   const levelPacks = object(object(object(user.shop).GP).level).info;
   if (Array.isArray(levelPacks)) for (const value of levelPacks.slice(0, 1000)) {
