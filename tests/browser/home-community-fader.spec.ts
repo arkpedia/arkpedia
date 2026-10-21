@@ -11,6 +11,11 @@ test('the Community panel keeps its height as its slides turn, and holds still u
   const panel = page.locator('.front-community-panel');
   const dots = panel.locator('.front-community-dot');
   test.skip((await dots.count()) < 2, 'one slide to feature today: nothing turns');
+  // Measured once the page has settled: fonts and late pictures still move it for a moment
+  // after load, which is not a slide turning.
+  await page.waitForLoadState('networkidle');
+  await page.evaluate(() => document.fonts.ready);
+  await page.waitForTimeout(1000);
   const height = await panel.evaluate((e) => e.getBoundingClientRect().height);
   for (let i = 0; i < await dots.count(); i++) {
     await dots.nth(i).click();

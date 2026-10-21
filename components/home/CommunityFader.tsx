@@ -15,8 +15,8 @@ const FADE_INTERVAL_MS = 6000;
 /** "19 Aug 2026 – 2 Sep 2026", the same shape the community page's event list
  *  prints. A start date on its own says an event happened, not whether it is
  *  still happening, which is the question the front page is being asked. */
-function formatEventWindow(startTime: string, endTime?: string): string {
-  const fmt = (d: Date) => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+function formatEventWindow(startTime: string, endTime?: string, timeZone?: string): string {
+  const fmt = (d: Date) => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', ...(timeZone ? { timeZone } : {}) });
   const a = new Date(startTime);
   if (Number.isNaN(a.getTime())) return '';
   // Same default the schedule uses when an event carries no end: one day.
@@ -47,6 +47,10 @@ export default function CommunityFader({ stream, video, event }: Props) {
   // Held while the pointer or keyboard focus is on the panel: a slide the reader is about to
   // open never swaps out from under them.
   const [paused, setPaused] = useState(false);
+  // The event's days in UTC on the server and the first render, so hydration has nothing to
+  // correct, then in the reader's own zone (as components/ui/LocalTime.tsx does).
+  const [zone, setZone] = useState<string | undefined>('UTC');
+  useEffect(() => { setZone(undefined); }, []);
 
   useEffect(() => {
     if (slides.length <= 1 || paused) return;
@@ -112,7 +116,7 @@ export default function CommunityFader({ stream, video, event }: Props) {
           <span className="front-community-event-country">{active.data.country}</span>
         </div>
         <p className="front-community-title">{active.data.name}</p>
-        <p className="hint">{formatEventWindow(active.data.startTime, active.data.endTime)}</p>
+        <p className="hint">{formatEventWindow(active.data.startTime, active.data.endTime, zone)}</p>
       </Link>
     );
   };
