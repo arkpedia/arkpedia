@@ -67,6 +67,7 @@ export default function EventListPanel({ events, now: renderedAt }: { events: Co
             <span>{ev.name}</span>
           </span>
           <span className="hint">{ev.country}</span>
+          {ev.kind === 'collab' && <span className="label-tag">Collab</span>}
           <span className="hint">
             {ev.status === 'live' && 'Live now'}
             {ev.status === 'upcoming' && `In ${formatCountdown(ev.startTime, now)}`}

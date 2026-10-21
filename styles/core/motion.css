@@ -32,6 +32,9 @@
   /* Opacity alone: scaled, the frame reached past a phone's edge for a moment and widened the page. */
   @keyframes hud-frame-in { from { opacity: 0; } to { opacity: 1; } }
   @keyframes hud-band-in { from { opacity: 0; transform: translateX(18px); } to { opacity: 1; transform: none; } }
+  /* The home Community panel's slide fades in as it turns (components/home/CommunityFader.tsx). */
+  .front-community-slide[data-current] { animation: front-community-fade-in 0.4s ease; }
+  @keyframes front-community-fade-in { from { opacity: 0; } to { opacity: 1; } }
   /* The site search pop-up rises into place over a fading ground (components/layout/SiteSearch.tsx). */
   .site-search-overlay { animation: site-search-ground-in 0.16s ease; }
   .site-search-dialog { animation: site-search-in 0.18s var(--ease); }

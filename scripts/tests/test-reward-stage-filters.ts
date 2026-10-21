@@ -32,7 +32,7 @@ test('each kind of hard stage is classified from the stage records, the way stag
   assert.deepEqual(kinds('act25side_s01_a'), ['s'], 'CW-S-1-A');
   assert.deepEqual(kinds('tr_s_1'), [], 'TR-S-1 is a training stage, not an event S stage');
   // Since Episode 15 the main story's harder variant is the six-star stage (main_15-09#s, shown
-  // "15-10 6★"): stage_table difficulty SIX_STAR, diffGroup NONE. Adverse Environment.
+  // "15-10 Adverse Combat"): stage_table difficulty SIX_STAR, diffGroup NONE. Adverse Environment.
   assert.deepEqual(kinds('main_15-02#s'), ['adverse'], 'a six-star stage is Adverse Environment');
   assert.deepEqual(kinds('main_16-01#s'), ['adverse']);
   assert.deepEqual(kinds('main_15-02'), [], 'its normal stage is not');
@@ -90,7 +90,7 @@ test('with an import, a toggle takes out only the excluded stages still uncleare
 
 test('a release compiled before six-star stages were Adverse leaves them out by their label', () => {
   const episode = { id: 'act4mainss_zone1', label: 'Episode 17', name: 'Critical Phase Transition', op: 3,
-    stages: ['main_17-09', 'main_17-09#s', 'main_17-10'], stageCodes: ['17-10', '17-10 6★', '17-11'], stageKinds: [[], [], []] as StageKind[][] };
+    stages: ['main_17-09', 'main_17-09#s', 'main_17-10'], stageCodes: ['17-10', '17-10 Adverse Combat', '17-11'], stageKinds: [[], [], []] as StageKind[][] };
   const old: BacklogSources = { ...backlog, chapters: [episode], playable: [] };
   const { backlog: left, dropped } = excludeStageKinds(old, new Set<StageKind>(['adverse']), null);
   assert.deepEqual(dropped, { act4mainss_zone1: 1 });

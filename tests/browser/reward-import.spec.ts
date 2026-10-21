@@ -39,6 +39,30 @@ for (const theme of ['light', 'dark'] as const) test(`imported and manual reward
   await page.screenshot({ path: `test-results/reward-import-${info.project.name}-${theme}.png` });
 });
 
+test('a beginner reward the save records as received shows claimed and locked; the rest stay manual', async ({ page }) => {
+  await readOnly(page);
+  const account = accountFromGame({ status: { uid: 'beginner-fixture', level: 30 }, mission: { missions: { OPENSERVER: {
+    openserver_1_1: { state: 3, progress: [] }, openserver_2_1: { state: 2, progress: [] } } } } }, map, 'en', new Date('2026-10-16T00:00:00Z'));
+  await page.addInitScript(account => {
+    if (sessionStorage.getItem('beginner-fixture-seeded')) return;
+    sessionStorage.setItem('beginner-fixture-seeded', '1');
+    localStorage.setItem('arkpediaAccount', JSON.stringify(account));
+  }, account);
+  await page.goto('/free-op');
+  await page.getByRole('tab', { name: 'Free rewards', exact: true }).click();
+  await page.getByRole('button', { name: 'All', exact: true }).click();
+  await expect(page.locator('details[open] > summary')).toContainText('Beginner rewards');
+  const received = page.getByRole('checkbox', { name: 'Clear Main Storyline 0-1', exact: true });
+  const open = page.getByRole('checkbox', { name: 'Player reaches Lv.8', exact: true });
+  await expect(received).toBeChecked(); await expect(received).toBeDisabled();
+  await expect(page.locator('.free-reward-row').filter({ has: received })).toContainText('Claimed in game');
+  await expect(open).not.toBeChecked(); await expect(open).toBeEnabled();
+  await expect(page.locator('.free-reward-row').filter({ has: open })).not.toContainText('Claimed in game');
+  // "None claimed" leaves the save's row ticked.
+  await page.getByRole('button', { name: 'None claimed', exact: true }).click();
+  await expect(received).toBeChecked();
+});
+
 test('Paradox rewards import from operator handbook stages without changing manual marks', async ({ page }, info) => {
   await readOnly(page);
   const raw = (state: number) => accountFromGame({ status: { uid: 'paradox-fixture' }, troop: { addon: {

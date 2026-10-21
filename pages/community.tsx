@@ -5,8 +5,8 @@ import Tabs from '@/components/ui/Tabs';
 import SearchInput from '@/components/ui/SearchInput';
 import StyledSelect from '@/components/ui/StyledSelect';
 import { ContentImg } from '@/components/content/ContentImage';
-import { currentWebEvents, mergeWebEvents, webEventServer, WORLD_CATEGORIES, type WorldCategory, type WorldDirectory } from '@/lib/community/worldDirectory';
-import WEB_EVENTS from '@/config/community-web-events.json';
+import { currentWebEvents, mergeWebEvents, webEventServer, WORLD_CATEGORIES, type WorldCategory, type WorldDirectory, type WorldWebEvent } from '@/lib/community/worldDirectory';
+import SEED_WEB_EVENTS from '@/config/community-web-events.json';
 import { SERVER_IDS } from '@/lib/account-import/yostar';
 import { useReaderClock } from '@/lib/time/readerClock';
 import { GetStaticProps } from 'next';
@@ -25,6 +25,9 @@ import WorldMapEvents from '@/components/schedule/WorldMapEvents';
 import EventListPanel from '@/components/schedule/EventListPanel';
 import PageHeader from '@/components/ui/PageHeader';
 import { VideoCard, TwitchCard } from '@/components/community/StreamCards';
+
+/** JSON imports type `kind` as a plain string; test-community-web-events.ts holds every seed's kind to the type's values. */
+const WEB_EVENTS = SEED_WEB_EVENTS as WorldWebEvent[];
 
 
 interface Props {
@@ -65,7 +68,7 @@ export default function CommunityHub({
       {category === 'offline' ? <section className="op-section community-events" aria-label="Offline Events">
         <div className="live-section-heading-row"><h2>Offline Events</h2><StyledSelect label="Event country" value={country} options={[{ value: '', label: 'All countries' }, ...countries.map(value => ({ value, label: value }))]} onChange={value => { setCountry(value); try { localStorage.setItem('arkpedia.world.country', value); } catch { /* private mode */ } }} /></div>
         <div className="community-map-row"><div className="community-event-panel"><EventListPanel events={localEvents} now={now} /></div><div className="community-map-main"><WorldMapEvents events={localEvents} now={now} /></div></div>
-      </section> : category === 'web' ? <section className="op-section"><h2>Web Events</h2><div className="world-directory world-web-events">{webEvents.map(event => <a key={event.url} className="ghost world-web-event" data-server={REGIONAL_MATERIAL ? webEventServer(event) ?? undefined : undefined} href={event.url} target="_blank" rel="noopener noreferrer">{event.image && <ContentImg className="world-web-event-art" src={event.image} alt={`${event.name} event art`} width={1200} height={630} />}<span>{event.region}</span><b>{event.name} ↗</b><span>{event.start} – {event.end}</span>{event.closingTime && <span>Closes at {event.closingTime}</span>}</a>)}</div>{/* Every server's web events for every server until the site has JP/KR languages (lib/i18n/regionalMaterial.ts). */}{REGIONAL_MATERIAL ? SERVER_IDS.filter(server => !webEvents.some(event => [server, null].includes(webEventServer(event)))).map(server => <p key={server} className="hint world-web-events-none" data-server={server}>No web events listed right now.</p>) : !webEvents.length && <p className="hint world-web-events-none">No web events listed right now.</p>}</section>
+      </section> : category === 'web' ? <section className="op-section"><h2>Web Events</h2><div className="world-directory world-web-events">{webEvents.map(event => <a key={event.url} className="ghost world-web-event" data-server={REGIONAL_MATERIAL ? webEventServer(event) ?? undefined : undefined} href={event.url} target="_blank" rel="noopener noreferrer">{event.image && <ContentImg className="world-web-event-art" src={event.image} alt={`${event.name} event art`} width={1200} height={630} />}<span>{event.region}</span>{event.kind === 'social' && <span className="label-tag">Social</span>}<b>{event.name} ↗</b><span>{event.start} – {event.end}</span>{event.closingTime && <span>Closes at {event.closingTime}</span>}</a>)}</div>{/* Every server's web events for every server until the site has JP/KR languages (lib/i18n/regionalMaterial.ts). */}{REGIONAL_MATERIAL ? SERVER_IDS.filter(server => !webEvents.some(event => [server, null].includes(webEventServer(event)))).map(server => <p key={server} className="hint world-web-events-none" data-server={server}>No web events listed right now.</p>) : !webEvents.length && <p className="hint world-web-events-none">No web events listed right now.</p>}</section>
       : category === 'discord' ? <section className="op-section"><h2>Discord</h2><div className="world-directory">{directory.discord.map(server => <a className="ghost" key={server.url} href={server.url} target="_blank" rel="noreferrer">{server.name} ↗</a>)}</div></section>
       : category === 'youtube' ? <section className="op-section"><div className="live-section-heading-row"><h2>YouTube</h2><Link className="ghost btn-sm" href="/community/videos">All videos</Link></div>
         <SearchInput label="Search videos or creators" placeholder="Video or creator" value={query} onChange={value => { setQuery(value); setLimit(12); }} />

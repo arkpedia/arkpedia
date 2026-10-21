@@ -415,15 +415,11 @@ html[data-site-server="kr"] .maintenance-notice:not([data-server="kr"]) {
 /* Community fader panel (right column, under Featured Operators) */
 .front-community-fade-wrap {
   margin: -7px -7px 0;
-  animation: front-community-fade-in 0.4s ease;
+  display: grid;
 }
-@keyframes front-community-fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .front-community-fade-wrap { animation: none; }
-}
+/* All slides share one cell; the hidden ones still hold the panel to the tallest's height. */
+.front-community-slide { grid-area: 1 / 1; min-width: 0; visibility: hidden; }
+.front-community-slide[data-current] { visibility: visible; }
 .front-community-item {
   display: block;
   padding: 6px;

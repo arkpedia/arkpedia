@@ -20,8 +20,9 @@ import { isSafeKey, MAX_COUNT } from './untrusted';
 
 export interface GameAccountMap {
   version: 1;
-  /** Global beginner programme identity, resolved by registration date; absent in old releases. */
-  beginnerPrograms?: { id: string; startTs: number; endTs?: number }[];
+  /** Global beginner programme identity, resolved by registration date; absent in old releases.
+   *  missionIds: the programme's missions (absent from a map built before them). */
+  beginnerPrograms?: { id: string; startTs: number; endTs?: number; missionIds?: string[] }[];
   /** global: the EN client has the operator, so the account page counts it. rarity: for its
    *  icon on the profile card. Absent from a map built before either was added. */
   chars: Record<string, { name: string; rarity?: number; modules: Record<string, number>; global?: true; formOf?: string; nation?: string }>;

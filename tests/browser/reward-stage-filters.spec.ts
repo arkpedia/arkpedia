@@ -16,7 +16,7 @@ for (const file of fs.readdirSync(path.join(process.cwd(), 'data', 'stages'))) {
 
 type Item = { stages?: string[]; stageCodes?: string[]; stageKinds?: StageKind[][] };
 let challengeStages = 0;
-/* Adverse Environment stages, the six-star ones (EP15 on, "17-10 6★") among them: by kind, or
+/* Adverse Environment stages, the six-star ones (EP15 on, "17-10 Adverse Combat") among them: by kind, or
    for a stage the records here predate, by the label the build gives it (lib/pulls/stageKinds.ts). */
 let adverseStages = 0;
 let sixStarStages = 0;
@@ -55,7 +55,7 @@ async function serve(page: Page) {
       if (!item.stages) continue;
       item.stageKinds = item.stages.map((id) => kinds.get(id) ?? []);
       challengeStages += item.stageKinds.filter((list) => list.includes('challenge')).length;
-      const sixStar = item.stages.map((id, index) => id.endsWith('#s') || / 6★$/.test(item.stageCodes?.[index] ?? ''));
+      const sixStar = item.stages.map((id, index) => id.endsWith('#s') || / (?:Adverse Combat|6★)$/.test(item.stageCodes?.[index] ?? ''));
       sixStarStages += sixStar.filter(Boolean).length;
       adverseStages += item.stageKinds.filter((list, index) => list.includes('adverse') || sixStar[index]).length;
     }
@@ -76,7 +76,7 @@ const number = async (page: Page) => Number((await op(page).textContent())!.repl
 test('the stage toggles start off, leave their stages out of the totals when on, and are remembered', async ({ page }) => {
   await serve(page);
   await page.goto('/free-op');
-  for (const label of ['Exclude Challenge Mode', 'Exclude H stages', 'Exclude Adverse Environment and 6★', 'Exclude S stages']) {
+  for (const label of ['Exclude Challenge Mode', 'Exclude H stages', 'Exclude Adverse Environment', 'Exclude S stages']) {
     await expect(page.getByRole('checkbox', { name: label, exact: true })).not.toBeChecked();
   }
   await expect(page.locator('.free-op-excluded')).toHaveText(/Every stage counts/);
@@ -134,10 +134,10 @@ test('Adverse Environment takes the six-star stages out too', async ({ page }) =
   await expect(page.getByRole('button', { name: 'Botani: operator preview' })).toBeVisible();
   const before = await number(page);
   expect(sixStarStages).toBeGreaterThanOrEqual(31);
-  await page.getByRole('checkbox', { name: 'Exclude Adverse Environment and 6★', exact: true }).check();
+  await page.getByRole('checkbox', { name: 'Exclude Adverse Environment', exact: true }).check();
   await expect.poll(() => number(page)).toBe(before - adverseStages);
   await expect(page.locator('.free-op-excluded')).toContainText(`${adverseStages.toLocaleString('en-US')} stages left out`);
-  await page.getByRole('checkbox', { name: 'Exclude Adverse Environment and 6★', exact: true }).uncheck();
+  await page.getByRole('checkbox', { name: 'Exclude Adverse Environment', exact: true }).uncheck();
   await expect.poll(() => number(page)).toBe(before);
 });
 

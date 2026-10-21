@@ -34,34 +34,26 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    at: '2026-10-21T10:30:00Z',
+    at: '2026-10-21T13:00:00Z',
     added: [
-      { title: 'Welfare operator cards', detail: 'The reward tracker shows the welfare operators you can still get as picture cards, ticked once they are in your roster.', href: '/free-op' },
-    ],
-    changed: [
-      { title: "JP and KR show Global's art for now", detail: "In JP or KR time, dates follow that server; events, banners, news and web events stay Global's until the site is translated.", href: '/schedule' },
-      { title: "Classes in the game's order", detail: 'Operator lists sort classes as the game does: Vanguard, Guard, Defender, Sniper, Caster, Medic, Supporter, Specialist.', href: '/operators' },
-      { title: 'Only welfare operators you can still get', detail: 'The welfare list keeps Record Restoration and open events, and leaves out ones that have closed.', href: '/free-op' },
-      { title: '6★ stages count as Adverse Environment', detail: "Leaving out Adverse Environment in the reward tracker also leaves out 6★ stages.", href: '/free-op' },
-    ],
-  },
-  {
-    at: '2026-10-21T06:30:00Z',
-    added: [
-      { title: "KR event art", detail: "In KR time, the current event and its banners show Korea's own key art.", href: '/schedule' },
       { title: 'Search YouTube and Twitch', detail: 'The site search also finds Arknights creators, their latest videos and live Twitch streams.', href: '/search' },
       { title: "Leave out stages you can't clear", detail: 'The reward tracker can leave out Challenge Mode, H stages, Adverse Environment and S stages, each on its own.', href: '/free-op' },
-      { title: 'Welfare operators to claim', detail: 'Free operators from event missions show in what is still to claim, with the event and its end date.', href: '/free-op' },
-      { title: 'JP and KR art and news', detail: 'In JP or KR time, events, banners and event news use that server\'s own in-game art and notices.' },
+      { title: 'Welfare operator cards', detail: 'The welfare operators you can still get, from Record Restoration and open events, as picture cards.', href: '/free-op' },
+      { title: 'Endfield offline events', detail: 'Pop-ups, the gamescom asia booth, Round1 and the first-anniversary festivals in Japan and Korea.', href: '/community' },
+      { title: 'Korean collabs and fan contests', detail: 'Banolim Pizza, animate cafe and the official fan contests and social events in Korea.', href: '/community' },
     ],
     fixed: [
-      { title: "Every welfare operator", detail: "Operators from event missions, the Archives and Record Restoration, such as Viy, now show as free to claim.", href: '/free-op' },
-      { title: "Account import ticks more rewards", detail: "Event and Archive missions, Record Restoration and anniversary sign-ins are ticked after an import.", href: '/free-op' },
-      { title: "Lighter event pages", detail: "Event pages load much less data." },
+      { title: 'JP and KR list everything Global does', detail: 'Upcoming events, predicted banners and the same order as Global, on that server\'s own dates.', href: '/schedule' },
+      { title: 'Adverse Combat counts as Adverse Environment', detail: 'Leaving out Adverse Environment also leaves out the newer chapters\' Adverse Combat stages.', href: '/free-op' },
+      { title: 'Account import ticks more rewards', detail: 'Event and Archive missions, Record Restoration, sign-ins and welfare operators in your roster are ticked.', href: '/free-op' },
+      { title: 'Lighter event pages', detail: 'Event pages load much less data.' },
       { title: 'Character icons in music', detail: "Characters credited under a different spelling, such as Kal'tsit Esperanta, show their icon.", href: '/music/discover' },
       { title: 'Many chibis at once', detail: 'More than 15 chibis on a page no longer turn into blank boxes, and a tapped chibi keeps its size.' },
+      { title: 'Home page holds still', detail: 'The Community panel keeps its height as it turns, and stops turning under the pointer.', href: '/' },
     ],
     changed: [
+      { title: "JP and KR show Global's art for now", detail: "Dates follow that server; art, news and web events stay Global's until the site is translated.", href: '/schedule' },
+      { title: "Classes in the game's order", detail: 'Operator lists sort classes as the game does: Vanguard, Guard, Defender, Sniper, Caster, Medic, Supporter, Specialist.', href: '/operators' },
       { title: 'Sign-in not saved unless you ask', detail: 'Account import keeps your sign-in in this browser only when you tick Save this sign-in.', href: '/account' },
     ],
   },

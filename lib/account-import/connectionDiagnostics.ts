@@ -1,5 +1,9 @@
 /** Passive observations of libcurl.js 0.7.4's exported Wisp API. No HTTP payloads,
- * headers, error strings, URLs, identifiers or browser storage enter a report. */
+ * headers, error strings, URLs, identifiers or browser storage enter a report. After an
+ * import, the report also carries the save's beginner-reward field shapes
+ * (lib/account-import/beginnerDiagnostics.ts): values and lengths, never identity or dates. */
+import type { BeginnerDiagnostics } from './beginnerDiagnostics';
+
 interface Stream { hostname: string; port: number }
 interface Connection {
   wisp_url: string;
@@ -54,11 +58,12 @@ export function createConnectionDiagnostics() {
   const installed = new WeakSet<object>();
   const listeners = new Set<() => void>();
   let attempts: Attempt[] = [];
+  let beginner: BeginnerDiagnostics | null = null;
   let snapshot = '';
   let api: WispDiagnosticsAPI | undefined;
   let relay = '';
   const publish = () => {
-    snapshot = attempts.length ? JSON.stringify({ version: 1, transport: 'libcurl.js/0.7.4', attempts }, null, 2) : '';
+    snapshot = attempts.length || beginner ? JSON.stringify({ version: 1, transport: 'libcurl.js/0.7.4', attempts, ...(beginner ? { beginner } : {}) }, null, 2) : '';
     for (const listener of listeners) listener();
   };
   function install(wisp: WispDiagnosticsAPI, relayURL: string) {
@@ -151,6 +156,8 @@ export function createConnectionDiagnostics() {
     };
   }
   return { install, begin, snapshot: () => snapshot, subscribe: (listener: () => void) => { listeners.add(listener); return () => { listeners.delete(listener); }; },
-    clear: () => { attempts = []; publish(); } };
+    /** The last import's beginner summary, or null to drop it (a new import starting). */
+    setBeginner: (summary: BeginnerDiagnostics | null) => { beginner = summary; publish(); },
+    clear: () => { attempts = []; beginner = null; publish(); } };
 }
 export const connectionDiagnostics = createConnectionDiagnostics();

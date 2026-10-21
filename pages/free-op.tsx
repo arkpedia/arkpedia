@@ -14,7 +14,7 @@ import { formatNumber, formatOneDecimal } from '@/lib/pulls/format';
 import { fillFromDeployment, ORUNDUM_PER_ORIGINITE, ORUNDUM_PER_PULL, type BacklogSources } from '@/lib/pulls/pulls';
 import { usePastRewards } from '@/lib/pulls/usePastRewards';
 import FreeRewards from '@/components/pulls/FreeRewards';
-import { allFreeRewards, freeOperatorsToClaim, freeRewardsForAccount, freeRewardTotals, rosterClaimedWelfare, rosterOperatorIds, type FreeReward } from '@/lib/pulls/freeRewards';
+import { allFreeRewards, freeOperatorsToClaim, freeRewardsForAccount, freeRewardTotals, importClaimedBeginner, rosterClaimedWelfare, rosterOperatorIds, type FreeReward, type LockedReason } from '@/lib/pulls/freeRewards';
 import { excludeStageKinds, type StageKind } from '@/lib/pulls/stageKinds';
 import { useRewardFilters } from '@/lib/pulls/rewardTrackerFilters';
 import type { OperatorPreviewItem } from '@/components/operators/OperatorPreview';
@@ -34,17 +34,18 @@ import Tabs, { tabPanelProps } from '@/components/ui/Tabs';
  * kept in this browser (lib/pulls/rewardTrackerFilters.ts). The welfare operators are the ones
  * still obtainable now (lib/pulls/freeRewards.ts obtainableWelfare): Record Restoration's, and
  * an open event's own. An imported roster ticks every welfare row of an operator it holds
- * (rosterClaimedWelfare), while it holds it.
+ * (rosterClaimedWelfare), while it holds it; and every beginner row its save records as
+ * received (importClaimedBeginner). Those rows show locked.
  */
 
 const STAGE_FILTERS: { kind: StageKind; label: string }[] = [
   { kind: 'challenge', label: 'Exclude Challenge Mode' },
   { kind: 'h', label: 'Exclude H stages' },
-  { kind: 'adverse', label: 'Exclude Adverse Environment and 6★' },
+  { kind: 'adverse', label: 'Exclude Adverse Environment' },
   { kind: 's', label: 'Exclude S stages' },
 ];
 
-const NO_ROWS: ReadonlySet<string> = new Set();
+const NO_ROWS: ReadonlyMap<string, LockedReason> = new Map();
 
 interface Props {
   /** The release's back catalogue (lib/pulls/sources.ts), as /pulls carries it. */
@@ -75,10 +76,11 @@ export default function FreeOpPage({ backlogSources, freeRewards: globalFreeRewa
     : past.leftOut;
   const eligible = freeRewardsForAccount(freeRewards, past.account);
   const roster = useMemo(() => rosterOperatorIds(past.account), [past.account]);
-  const owned = useMemo(() => rosterClaimedWelfare(eligible, roster), [eligible, roster]);
-  const keys = useMemo(() => presentation ? demoKeys : owned.size ? new Set([...past.doneKeys, ...owned]) : past.doneKeys, [presentation, demoKeys, owned, past.doneKeys]);
-  /* A roster tick is the import's, not a mark to store: a change elsewhere keeps it out of the saved keys. */
-  const onFreeKeys = presentation ? setDemoKeys : (next: Set<string>) => past.onKeys(new Set([...next].filter(key => !owned.has(key) || past.doneKeys.has(key))));
+  const locked = useMemo(() => new Map<string, LockedReason>([...[...rosterClaimedWelfare(eligible, roster)].map(id => [id, 'roster'] as const),
+    ...importClaimedBeginner(eligible, past.account?.rewardClaims)]), [eligible, roster, past.account]);
+  const keys = useMemo(() => presentation ? demoKeys : locked.size ? new Set([...past.doneKeys, ...locked.keys()]) : past.doneKeys, [presentation, demoKeys, locked, past.doneKeys]);
+  /* A locked tick is the import's, not a mark to store: a change elsewhere keeps it out of the saved keys. */
+  const onFreeKeys = presentation ? setDemoKeys : (next: Set<string>) => past.onKeys(new Set([...next].filter(key => !locked.has(key) || past.doneKeys.has(key))));
   const timed = freeRewardTotals(eligible.filter(reward => !reward.forecast), keys, clock);
   const originitePrime = remaining.originitePrime + timed.op;
   const orundum = remaining.orundum - remaining.originitePrime * ORUNDUM_PER_ORIGINITE + timed.orundum;
@@ -143,7 +145,7 @@ export default function FreeOpPage({ backlogSources, freeRewards: globalFreeRewa
         <Tabs label="Reward type" id="free-reward-type" value={view} onChange={setView} options={[{ value: 'stages', label: 'Stage rewards' }, { value: 'free', label: 'Free rewards' }]} />
         {view === 'stages' ? <div {...tabPanelProps('free-reward-type', 'stages')}><PastRewards backlog={presentation ? demo.backlog : past.counting} dropped={presentation ? demo.dropped : past.dropped} doneKeys={presentation ? demoKeys : past.doneKeys} doneEvents={presentation ? demoEvents : past.doneEvents} annihilationDone={presentation ? demoAnnihilation : past.annihilationDone}
           onKeys={presentation ? setDemoKeys : past.onKeys} onEvents={presentation ? setDemoEvents : past.onEvents} onAnnihilation={presentation ? setDemoAnnihilation : past.onAnnihilation} imported={presentation ? null : past.imported} cleared={presentation ? null : past.cleared} layout="page" />
-        </div> : <div {...tabPanelProps('free-reward-type', 'free')}><FreeRewards icons={rewardIcons} rewards={eligible} done={keys} locked={presentation ? NO_ROWS : owned} onKeys={onFreeKeys} now={clock} server={server} /></div>}
+        </div> : <div {...tabPanelProps('free-reward-type', 'free')}><FreeRewards icons={rewardIcons} rewards={eligible} done={keys} locked={presentation ? NO_ROWS : locked} onKeys={onFreeKeys} now={clock} server={server} /></div>}
       </main>
       {preview && <FreeOperatorPreview key={preview.name} item={preview} onClose={closePreview} nativeModal />}
     </>

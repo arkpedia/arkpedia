@@ -99,3 +99,19 @@ export function rosterClaimedWelfare(rewards: readonly FreeReward[], roster: Rea
   return new Set(rewards.filter(reward => reward.group === 'Welfare operators' && reward.rewards.some(isOperatorReward)
     && reward.rewards.filter(isOperatorReward).every(item => roster.has(item.id))).map(reward => reward.id));
 }
+
+/** Why a row the import settles is shown claimed and locked (components/pulls/FreeRewards). */
+export type LockedReason = 'roster' | 'game';
+export const LOCKED_LABEL: Record<LockedReason, string> = { roster: 'In your roster', game: 'Claimed in game' };
+
+/** The beginner rows an import settles while it lasts (not stored: the next import decides
+ *  again): the ones the save records as received (lib/account/rewardClaims.ts: a collected
+ *  programme mission or its completed mission group, a received sign-in day). Never the roster:
+ *  an operator a sign-in gives (the older programme's 7-day sign-in, Cliffheart) is also in the
+ *  headhunting pool, so owning her proves nothing, and a wrong tick hides a reward. A row the
+ *  save knows unclaimed, or cannot speak to (the welcome mail, a sign-in day the save has no
+ *  history for), stays the reader's to tick. */
+export function importClaimedBeginner(rewards: readonly FreeReward[], claims: { claimed: readonly string[] } | undefined): ReadonlyMap<string, LockedReason> {
+  const claimed = new Set(claims?.claimed);
+  return new Map(rewards.filter(reward => reward.group === 'Beginner rewards' && claimed.has(reward.id)).map(reward => [reward.id, 'game' as const]));
+}
