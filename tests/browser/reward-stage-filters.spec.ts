@@ -246,7 +246,9 @@ test('the Free rewards tab shows its welfare operators as the overview\'s cards,
   await expect(card('Botani')).toHaveClass(/is-claimed/);
   await expect(page.locator('.free-op-welfare')).not.toContainText('Botani');
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('arkpedia.past-rewards.v1')!).doneKeys)).toContain(welfareId);
-  expect(await place()).toEqual(before);
+  // To the pixel's rounding: a phone's fractional layout can land a box 1px either way.
+  const after = await place();
+  after.forEach((value, i) => expect(Math.abs(value - before[i]), `box ${i}: ${before[i]} -> ${value}`).toBeLessThanOrEqual(1));
   await botani.uncheck();
   await expect(botani).not.toBeChecked();
   await expect(page.locator('.free-op-welfare')).toContainText('Botani');
