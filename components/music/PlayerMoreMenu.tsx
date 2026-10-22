@@ -61,8 +61,10 @@ export default function PlayerMoreMenu({ onFullPlayer, view }: { onFullPlayer?: 
           <Link href={view === 'queue' ? MUSIC_VIEW_HREF.player : MUSIC_VIEW_HREF.queue} shallow={onFullPlayer} scroll={false} prefetch={false} className="ghost music-player-more-link" onClick={() => close()}>
             <TransportIcon name={view === 'queue' ? 'note' : 'queue'} />{view === 'queue' ? 'Now playing' : 'Open queue'}
           </Link>
-          <DataSaverSetting />
-          <MusicGameSetting inMenu />
+          <div className="music-settings">
+            <DataSaverSetting />
+            <MusicGameSetting />
+          </div>
         </div>
       </>}
     </div>, document.body)}
