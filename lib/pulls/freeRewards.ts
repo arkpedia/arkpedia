@@ -65,9 +65,36 @@ export const isOperatorReward = (item: FreeReward['rewards'][number]) => !!item.
  */
 export function obtainableWelfare(reward: FreeReward, now: number): boolean {
   if (reward.group !== 'Welfare operators' || !freeRewardAvailable(reward, now)) return false;
-  if (reward.source === 'trail' || reward.source === 'retro' || (!reward.source && reward.id.startsWith('free:trail:'))) return true;
+  if (isTrail(reward) || reward.source === 'retro') return true;
   const end = reward.endAt;
   return end === undefined ? !reward.source : now < end;
+}
+
+/** A Record Restoration row, by its source or, for a release built before `source`, its id. */
+function isTrail(reward: FreeReward) { return reward.source === 'trail' || (!reward.source && reward.id.startsWith('free:trail:')); }
+
+/** A free reward row's name, as its tick is labelled ("Clear Main Storyline 0-1"). */
+export const freeRewardLabel = (reward: FreeReward) => reward.name.replace(/Storyline(?=\d)/g, 'Storyline ');
+
+export type WelfareStatus = { kind: 'upcoming' | 'until'; at: number } | { kind: 'closed' | 'open' };
+/**
+ * What a welfare operator's card says, in the overview and the Free rewards tab alike
+ * (components/pulls/FreeOperator.tsx WelfareCard):
+ *   - `task`: the row's own requirement, after its kind ("Viy · Event missions (permanent):
+ *     Clear 17-13" gives "Clear 17-13"); none when the name carries none;
+ *   - `source`: "Record Restoration · <story>", "<event> · permanent", or the event;
+ *   - `status`: 'upcoming' (opens `at`), 'closed' (no longer obtainable, obtainableWelfare),
+ *     'until' (an event's own operator, to `at`), or 'open' (permanent, no end).
+ */
+export function welfareCardFacts(reward: FreeReward, now: number): { task: string | undefined; source: string; status: WelfareStatus } {
+  const event = reward.event ?? reward.name;
+  const trail = isTrail(reward);
+  const task = reward.name.includes(': ') ? reward.name.slice(reward.name.lastIndexOf(': ') + 2) : undefined;
+  const source = trail ? `Record Restoration · ${event}` : reward.source === 'retro' ? `${event} · permanent` : event;
+  const status: WelfareStatus = reward.startAt && now < reward.startAt ? { kind: 'upcoming', at: reward.startAt }
+    : !obtainableWelfare(reward, now) ? { kind: 'closed' }
+    : !trail && reward.source !== 'retro' && reward.endAt ? { kind: 'until', at: reward.endAt } : { kind: 'open' };
+  return { task, source, status };
 }
 
 /** When a welfare row stops being obtainable (obtainableWelfare), Infinity for never. */

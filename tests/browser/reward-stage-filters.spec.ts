@@ -42,6 +42,10 @@ const welfareRows = (now: number, opened: number) => [
   // sign-in day's operator. It opens with the others, after the first paint (serve).
   { id: 'free:actXmainssPermanent_5', group: 'Welfare operators', name: 'Past · Event missions (permanent)', rewards: [{ id: 'char_x_past', rarity: 5, name: 'Pastoperator', count: 1 }],
     startAt: opened, eventEndAt: now - 16 * DAY, event: 'A closed event', source: 'retro', forecast: false },
+  // An event's own operator whose row has no end of its own: not obtainable (the overview leaves
+  // it out), and still in the Free rewards tab, for ticking, as no longer obtainable.
+  { id: 'free:actYside_4', group: 'Welfare operators', name: 'Gone · Event missions: Clear GO-4', rewards: [{ id: 'char_y_gone', rarity: 4, name: 'Goneoperator', count: 1 }],
+    startAt: opened, event: 'A finished event', source: 'event', forecast: false },
   { id: 'free:act59sign:2', group: 'Event sign-in and gifts', name: 'Celebration Login Event · Day 2', rewards: [{ id: 'char_4227_gallus', rarity: 1, name: 'GALLUS²', count: 1 }],
     startAt: opened, endAt: now + 7 * DAY, forecast: false },
 ];
@@ -123,10 +127,11 @@ test('a welfare operator open now is listed with its event and end, opens the op
   // Claimed in the Free rewards tab, it is no longer still to claim.
   await page.getByRole('tab', { name: 'Free rewards', exact: true }).click();
   await page.locator('summary', { hasText: 'Welfare operators' }).click();
-  await expect(page.locator('.free-reward-row').filter({ hasText: 'From People, A People' })).toHaveCount(1);
-  // The rows' "Details →" links, and every other link on the tab, have a colour of their own
+  const tab = page.getByRole('list', { name: 'Welfare operators: claimed' });
+  await expect(tab.getByRole('listitem').filter({ hasText: 'People, A People' })).toHaveCount(1);
+  // The cards' "Event page" links, and every other link on the tab, have a colour of their own
   // (layout-checks uncolouredLinks: the census's check, which its data has no such row for).
-  await expect(page.locator('.free-reward-meta a').first()).toBeVisible();
+  await expect(tab.getByRole('link', { name: 'Event page' }).first()).toBeVisible();
   expect(await uncolouredLinks(page)).toEqual([]);
   // Unclaimed is the filter: the ticked row leaves the list (so click, not check).
   await page.getByRole('checkbox', { name: 'Botani · Event missions: Clear PA-4', exact: true }).click();
@@ -147,6 +152,23 @@ test('Adverse Environment takes the six-star stages out too', async ({ page }) =
   await expect.poll(() => number(page)).toBe(before);
 });
 
+test('the welfare panel is as tall as its cards once an import trims the list: no leftover hold', async ({ page }) => {
+  await serve(page);
+  // Every welfare row ticked by an import except Viy's: the first paint listed them all.
+  const roster = { version: 1, server: 'en', importedAt: '2026-10-21T00:00:00.000Z', doctor: null, operators: ['Botani', 'Folinic', 'Wanqing', 'Pastoperator'],
+    operatorIds: ['char_4223_botany', 'char_345_folnic', 'char_4119_wanqin', 'char_x_past'], skins: [], cleared: [], rewardClaims: { known: [], claimed: [] } };
+  await page.addInitScript((value) => { localStorage.setItem('arkpediaAccount', JSON.stringify(value)); }, roster);
+  await page.goto('/free-op');
+  const list = page.getByRole('list', { name: 'Welfare operators to claim' });
+  await expect(list.getByRole('listitem')).toHaveCount(1);
+  const panel = page.locator('.free-op-welfare');
+  const { minHeight, height, content } = await panel.evaluate((el) => {
+    const last = el.lastElementChild as HTMLElement;
+    return { minHeight: (el as HTMLElement).style.minHeight, height: el.getBoundingClientRect().height, content: last.getBoundingClientRect().bottom - el.getBoundingClientRect().top };
+  });
+  expect(height, `held at ${minHeight || 'nothing'}: no taller than its cards`).toBeLessThanOrEqual(content + 2);
+});
+
 test('the welfare list holds only what is obtainable now, as cards, and an imported roster ticks its operators', async ({ page }) => {
   await serve(page);
   const roster = { version: 1, server: 'en', importedAt: '2026-10-21T00:00:00.000Z', doctor: null, operators: ['Wanqing'], operatorIds: ['char_4119_wanqin'],
@@ -160,7 +182,7 @@ test('the welfare list holds only what is obtainable now, as cards, and an impor
   await expect(list.getByRole('listitem').filter({ hasText: 'Viy' })).toContainText('Critical Phase Transition · permanent');
   await expect(list.getByRole('listitem').filter({ hasText: 'Folinic' })).toContainText('Record Restoration · Twilight of Wolumonde');
   await expect(list.getByRole('listitem').filter({ hasText: 'Pastoperator' })).toContainText('A closed event · permanent');
-  for (const gone of ['Senshi', 'GALLUS²', 'Wanqing']) await expect(list).not.toContainText(gone);
+  for (const gone of ['Senshi', 'GALLUS²', 'Wanqing', 'Goneoperator']) await expect(list).not.toContainText(gone);
   // A main-story event's permanent missions stay claimable after it, with the stage to clear.
   await expect(list.getByRole('listitem').filter({ hasText: 'Viy' })).toContainText('Clear 17-13');
   // Equal cards: every card the same width.
@@ -178,6 +200,115 @@ test('the welfare list holds only what is obtainable now, as cards, and an impor
   await expect(wanqing).toBeDisabled();
   await expect(page.getByRole('checkbox', { name: 'Folinic · Record Restoration: 12 stars', exact: true })).not.toBeChecked();
 });
+
+const ROSTER = { version: 1, server: 'en', importedAt: '2026-10-21T00:00:00.000Z', doctor: null, operators: ['Wanqing'], operatorIds: ['char_4119_wanqin'],
+  skins: [], cleared: [], rewardClaims: { known: [], claimed: [] } };
+async function openWelfareTab(page: Page, show: 'All' | 'Unclaimed') {
+  await page.getByRole('tab', { name: 'Free rewards', exact: true }).click();
+  await page.getByRole('button', { name: show, exact: true }).click();
+  await page.locator('summary', { hasText: 'Welfare operators' }).click();
+  return page.getByRole('list', { name: 'Welfare operators: claimed' });
+}
+
+test('the Free rewards tab shows its welfare operators as the overview\'s cards, each ticked by its own checkbox, the import\'s locked', async ({ page }) => {
+  await serve(page);
+  await page.addInitScript((value) => { localStorage.setItem('arkpediaAccount', JSON.stringify(value)); }, ROSTER);
+  await page.goto('/free-op');
+  await expect(page.getByRole('button', { name: 'Botani: operator preview' })).toBeVisible();
+  const cards = await openWelfareTab(page, 'All');
+  const card = (name: string) => cards.getByRole('listitem').filter({ hasText: name });
+  // Every row the tab lists, the one no longer obtainable too (Senshi's, its end passed, the tab never listed).
+  await expect(cards.getByRole('listitem')).toHaveCount(6);
+  await expect(page.locator('.free-reward-row').filter({ hasText: 'Viy' })).toHaveCount(0);
+  await expect(cards).not.toContainText('Senshi');
+  // The overview's text, from the same helper: the task, the source, the end.
+  await expect(card('Viy')).toContainText('Clear 17-13');
+  await expect(card('Viy')).toContainText('Critical Phase Transition · permanent');
+  await expect(card('Folinic')).toContainText('Record Restoration · Twilight of Wolumonde');
+  await expect(card('Botani')).toContainText('until');
+  await expect(card('Goneoperator')).toContainText('No longer obtainable');
+  await expect(card('Goneoperator')).not.toContainText('until');
+  await expect(card('Folinic').getByRole('link', { name: 'Event page' })).toHaveAttribute('href', /Twilight/);
+  // Wanqing, in the roster: ticked, disabled, and saying why.
+  const wanqing = page.getByRole('checkbox', { name: 'Wanqing · Record Restoration: 15 stars', exact: true });
+  await expect(wanqing).toBeChecked();
+  await expect(wanqing).toBeDisabled();
+  await expect(card('Wanqing')).toContainText('In your roster');
+  // A card's checkbox ticks and unticks its row, the overview following, and the card moves nothing.
+  const botani = page.getByRole('checkbox', { name: 'Botani · Event missions: Clear PA-4', exact: true });
+  await expect(botani).toBeEnabled();
+  // Where the card sits in the document (not the viewport, which check() scrolls), and its size.
+  const place = () => card('Botani').evaluate((el) => { const r = el.getBoundingClientRect(); return [r.left, r.top + scrollY, r.width, r.height].map(Math.round); });
+  const before = await place();
+  await botani.check();
+  await expect(botani).toBeChecked();
+  await expect(card('Botani')).toHaveClass(/is-claimed/);
+  await expect(page.locator('.free-op-welfare')).not.toContainText('Botani');
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('arkpedia.past-rewards.v1')!).doneKeys)).toContain(welfareId);
+  // To the pixel's rounding: a phone's fractional layout can land a box 1px either way.
+  const after = await place();
+  after.forEach((value, i) => expect(Math.abs(value - before[i]), `box ${i}: ${before[i]} -> ${value}`).toBeLessThanOrEqual(1));
+  await botani.uncheck();
+  await expect(botani).not.toBeChecked();
+  await expect(page.locator('.free-op-welfare')).toContainText('Botani');
+  // The card still opens the operator's preview.
+  await card('Viy').getByRole('button', { name: 'Viy: operator preview' }).click();
+  await expect(page.getByRole('dialog').getByRole('heading', { name: 'Viy' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).toBeHidden();
+  // All claimed ticks every card; None claimed leaves the import's tick.
+  const boxes = cards.getByRole('checkbox');
+  await page.getByRole('button', { name: 'All claimed', exact: true }).click();
+  for (const box of await boxes.all()) await expect(box).toBeChecked();
+  await page.getByRole('button', { name: 'None claimed', exact: true }).click();
+  await expect(wanqing).toBeChecked();
+  await expect(cards.getByRole('checkbox', { checked: true })).toHaveCount(1);
+  // Equal cards, in the overview's grid, inside the page.
+  const widths = await cards.getByRole('listitem').evaluateAll((items) => items.map((item) => Math.round(item.getBoundingClientRect().width)));
+  expect(new Set(widths).size).toBe(1);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
+});
+
+test('"All claimed" under the Unclaimed filter empties the welfare group without moving the page (the Anti-Page Jump rule)', async ({ page }) => {
+  await serve(page);
+  await page.goto('/free-op');
+  await expect(page.getByRole('button', { name: 'Botani: operator preview' })).toBeVisible();
+  const cards = await openWelfareTab(page, 'Unclaimed');
+  await expect(cards.getByRole('listitem')).toHaveCount(6);
+  await page.evaluate(() => document.fonts.ready.then(() => undefined));
+  // Read from as far down as still shows the button (the foot of the page at 1440; on a phone,
+  // the six cards stacked, the button at the top of the screen), where losing the cards would
+  // leave the document shorter than the reader's position needs, and the browser would clamp.
+  const button = page.getByRole('button', { name: 'All claimed', exact: true });
+  await button.evaluate((el) => window.scrollTo(0, Math.min(document.documentElement.scrollHeight, el.getBoundingClientRect().top + scrollY - 80)));
+  await page.waitForTimeout(300);
+  const at = () => page.evaluate(() => ({ y: Math.round(scrollY), top: Math.round(document.getElementById('free-rewards-title')!.getBoundingClientRect().top) }));
+  const start = await at();
+  expect(start.y).toBeGreaterThan(0);
+  expect(await cards.evaluate((list) => document.documentElement.scrollHeight - list.getBoundingClientRect().height < scrollY + innerHeight), 'the cards going would clamp the scroll').toBe(true);
+  await page.getByRole('button', { name: 'All claimed', exact: true }).click();
+  await expect(cards).toHaveCount(0);
+  await page.waitForTimeout(300);
+  expect(await at()).toEqual(start);
+});
+
+for (const theme of ['dark', 'light'] as const) for (const width of [390, 1440]) {
+  test(`the Free rewards tab's welfare cards at ${width}px, ${theme}`, async ({ page }, info) => {
+    test.skip(info.project.name !== 'desktop', 'one capture per width, from the desktop project');
+    await page.setViewportSize({ width, height: 900 });
+    await serve(page);
+    await page.addInitScript(({ theme, roster }) => { localStorage.setItem('theme', theme); localStorage.setItem('arkpediaAccount', JSON.stringify(roster)); }, { theme, roster: ROSTER });
+    await page.goto('/free-op');
+    await expect(page.getByRole('button', { name: 'Botani: operator preview' })).toBeVisible();
+    const cards = await openWelfareTab(page, 'All');
+    await expect(cards.getByRole('listitem')).toHaveCount(6);
+    await page.getByRole('checkbox', { name: 'Viy · Event missions (permanent): Clear 17-13', exact: true }).check();
+    await page.evaluate(() => document.fonts.ready.then(() => undefined));
+    await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {});
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
+    await page.locator('.free-rewards details[open]').screenshot({ path: `test-results/welfare-tab-${width}-${theme}.png` });
+  });
+}
 
 for (const theme of ['dark', 'light'] as const) for (const width of [390, 1440]) {
   test(`the welfare cards at ${width}px, ${theme}`, async ({ page }, info) => {

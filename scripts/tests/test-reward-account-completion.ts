@@ -14,8 +14,8 @@ const map = { version: 1 as const, chars: {}, beginnerPrograms: [{ id: 'old', st
 const fixture = {
   status: { registerTs: 250, level: 120, uid: 'fixture' },
   checkIn: { checkInGroupId: 'signin_test', checkInRewardIndex: 20, canCheckIn: 1, checkInHistory: [1, 0, 2, '1'], longTermRecvRecord: { milestone: 1 } },
-  openServer: { checkIn: { isAvailable: true, history: [1, 0] }, chainLogin: { nowIndex: 20, history: [0, 1] } },
-  activity: { CHECKIN_ONLY: { event_a: { history: [1, 0] } }, CHECKIN_ALL_PLAYER: { event_b: { history: [0, 1], personalRecord: { eligible: 99 } } },
+  openServer: { checkIn: { isAvailable: true, history: [0, 1] }, chainLogin: { nowIndex: 20, history: [1, 0] } },
+  activity: { CHECKIN_ONLY: { event_a: { history: [0, 1] } }, CHECKIN_ALL_PLAYER: { event_b: { history: [1, 0], personalRecord: { eligible: 99 } } },
     LOGIN_ONLY: { gift: { reward: 1 }, available_gift: { reward: 0 }, ambiguous: { reward: 2 } }, CHECKIN_VS: { voting: { signedCnt: 7, availSignCnt: 7 } } },
   shop: { GP: { level: { info: [{ id: 'GP_freeL_5', count: 1 }, { id: 'GP_freeL_10', count: 0 }, { id: 'GP_L_5', count: 1 }, { id: 'GP_freeL_15', count: '1' }], valid: ['GP_freeL_20'] } } },
 };
@@ -138,7 +138,7 @@ test('import adds verified claims, keeps manual marks it cannot judge, round-tri
 
 test('explicit negative claims replace only prior automatic marks; another account never inherits automatic progress', () => {
   const next = mergeImportedProgress(progress, account(), completed);
-  const unreceived = account({ ...fixture, activity: { ...fixture.activity, CHECKIN_ONLY: { event_a: { history: [0, 0] } } } }, '2026-10-17T00:00:00Z');
+  const unreceived = account({ ...fixture, activity: { ...fixture.activity, CHECKIN_ONLY: { event_a: { history: [1, 1] } } } }, '2026-10-17T00:00:00Z');
   const again = mergeImportedProgress(next, unreceived, completed);
   assert(!again.doneKeys.includes('free:event_a:1')); assert(!again.doneKeys.includes('free:event_a:2'));
   const other = account({ status: { uid: 'other' } } as typeof fixture, '2026-10-18T00:00:00Z');

@@ -10,7 +10,7 @@ test('an older account sees its received beginner reward, then switches programm
   const programs = [{ id: 'older_fixture', startTs: 100, endTs: 199 }, { id: currentId, startTs: 200, endTs: 999 }];
   const map = { version: 1 as const, chars: {}, beginnerPrograms: programs };
   const record = (registerTs: number, uid: string, at: string) => accountFromGame({ status: { registerTs, uid },
-    openServer: { chainLogin: { history: [1, 1, 1, 1, 1, 1, 1] } } }, map, 'en', new Date(at));
+    openServer: { chainLogin: { history: [0, 0, 0, 0, 0, 0, 0] } } }, map, 'en', new Date(at));
   const old = { ...current, id: 'free:older_fixture:chainLoginData:7',
     rewards: [{ id: 'char_173_slchan', name: 'Cliffheart', count: 1 }],
     beginner: { ...programs[0], current: false } };
