@@ -1,6 +1,7 @@
 import { operatorHref } from '../operators/operatorHref';
 import type { NavLink } from '../nav/navLinks';
 import { enemyIconFor, type SiteSearchEntry } from './siteSearch';
+import { ENDFIELD_SEARCH_NAMES } from '../music/songFilter';
 
 /*
  * Builds the site search's rows (lib/search/siteSearch.ts) from records the caller has
@@ -8,6 +9,9 @@ import { enemyIconFor, type SiteSearchEntry } from './siteSearch';
  * that, from data/ and the stage and enemy indexes -- so a test can hold every href this
  * writes to the URL shape the page it names actually reads.
  */
+
+/** How a row names Arknights: Endfield's music. */
+const ENDFIELD_LABEL = 'Endfield';
 
 export interface SiteSearchSources {
   pages: readonly NavLink[];
@@ -19,8 +23,9 @@ export interface SiteSearchSources {
   contents: readonly { id: string; name: string; label: string | null }[];
   stages: readonly { slug: string; code: string | null; name: string | null; variantOf: string | null; contentName: string | null }[];
   enemies: readonly { slug: string; name: string; index: string | null; icon?: string | null }[];
-  albums: readonly { albumId: string; albumName: string; albumAltName?: string | null }[];
-  songs: readonly { title: string; altTitle?: string | null; artist?: string | null }[];
+  /** `game` 'endfield' marks Arknights: Endfield's music, which the row names (lib/music/songFilter.ts). */
+  albums: readonly { albumId: string; albumName: string; albumAltName?: string | null; game?: string }[];
+  songs: readonly { title: string; altTitle?: string | null; artist?: string | null; game?: string }[];
   /** The curated YouTube channels the community page lists (lib/music/youtubeConfig.ts). */
   creators: readonly { id: string; label: string }[];
   /** Every artist and voice actor the credit pages list (lib/operators/creditDatabase.ts),
@@ -150,13 +155,24 @@ export function buildSiteSearchEntries(sources: SiteSearchSources): SiteSearchEn
     }));
   }
 
+  // Endfield's music as a whole: Discover searched for it, which lists its songs, or offers to
+  // include Endfield music while that is off (pages/music/discover.tsx). With the game's names
+  // below, "endfield" finds this row first and then the albums (a kind before the songs).
+  if (sources.albums.some((album) => album.game === 'endfield')) {
+    entries.push(row({ kind: 'page', title: 'Endfield music', href: '/music/discover?q=endfield', sub: 'Arknights: Endfield’s soundtrack', terms: [...ENDFIELD_SEARCH_NAMES] }));
+  }
+
   for (const album of sources.albums) {
     const title = album.albumAltName || album.albumName;
     entries.push(row({
       kind: 'album',
       title,
       href: `/music/discover?facet=${encodeURIComponent(`album:${album.albumId}`)}`,
-      terms: others(title, [album.albumName]),
+      // Discover offers to include Endfield music when it is off, so the row says whose it is.
+      sub: album.game === 'endfield' ? ENDFIELD_LABEL : undefined,
+      // The game's names too: another name ranks under a title, so an album or song whose own
+      // title holds the word still leads.
+      terms: others(title, [album.albumName, ...(album.game === 'endfield' ? ENDFIELD_SEARCH_NAMES : [])]),
     }));
   }
 
@@ -170,8 +186,8 @@ export function buildSiteSearchEntries(sources: SiteSearchSources): SiteSearchEn
       kind: 'song',
       title: song.title,
       href: `/music/discover?q=${encodeURIComponent(song.title)}`,
-      sub: song.artist ?? undefined,
-      terms: others(song.title, [song.altTitle]),
+      sub: (song.game === 'endfield' ? [ENDFIELD_LABEL, song.artist].filter(Boolean).join(' · ') : song.artist) ?? undefined,
+      terms: others(song.title, [song.altTitle, ...(song.game === 'endfield' ? ENDFIELD_SEARCH_NAMES : [])]),
     }));
   }
 

@@ -6,7 +6,11 @@
 // whole catalogue as a 421 kB chunk and froze the queue at the deploy's copy of the data.
 // next.config.js fails the build if data/albums.json reaches a client chunk again.
 import albumsData from '@/data/albums.json';
+// Arknights: Endfield's albums (scripts/sync/sync-endfield-albums.mjs), kept apart from Monster
+// Siren's: every album there says game "endfield". Guarded like albums.json (next.config.js).
+import endfieldAlbumsData from '@/data/endfield-albums.json';
 import { msrTrackId } from './trackId';
+import type { MusicGame } from './songFilter';
 
 export interface RawCredit {
   role: string;
@@ -31,6 +35,14 @@ export interface RawAlbum {
   albumId: string;
   albumName: string;
   albumAltName?: string;
+  /** The game the album is from: "endfield" in data/endfield-albums.json, absent (Arknights) in
+   *  data/albums.json. Read through albumGame. */
+  game?: string;
+  /** Where the album's cover is fetched from: Monster Siren's CDN, or for an Endfield album its
+   *  first song's YouTube thumbnail, which the site draws directly (albumCoverPath). */
+  coverUrl?: string;
+  /** An Endfield album's YouTube album playlist (OLAK5uy_...), which its sync reads. */
+  youtubePlaylistId?: string;
   coverFilename?: string;
   releaseDate?: string;
   origin?: string[]; // the in-game story event this album is tied to, e.g. ["Heart of Surging Flame"] -- absent for most operator EPs, which aren't tied to any specific event
@@ -46,8 +58,10 @@ export interface MonsterSirenSong {
   trackId: string;
   /** '' for a song with no YouTube upload (getMonsterSirenOnlySongs). */
   videoId: string;
-  /** Monster Siren's song id (cid). */
+  /** Monster Siren's song id (cid); `endfield-<videoId>` for an Endfield song, never digits. */
   songId: string;
+  /** The game the song's album is from (albumGame). */
+  game: MusicGame;
   title: string;
   altTitle: string | null; // songAltName -- a translation of `title`, used for the cross-fade title display
   artist: string | null; // "singer" -- the `artist` credit role specifically
@@ -95,18 +109,66 @@ function resolveLyricFilename(song: RawSong, albumSongs: RawSong[]): string | nu
   return vocalSibling?.lyricFilename || null;
 }
 
+/** The game an album is from. Only the two values: an unknown one is a data error, refused
+ * by catalogueAlbums at build rather than shown as Arknights music. */
+export function albumGame(album: Pick<RawAlbum, 'game'>): MusicGame {
+  return album.game === 'endfield' ? 'endfield' : 'arknights';
+}
+
+/** A YouTube thumbnail, the one cover address the site draws straight from its source. */
+export const YOUTUBE_COVER = /^https:\/\/i\.ytimg\.com\/vi\/[\w-]{11}\/(?:maxres|hq)default\.jpg$/;
+
 /** Where an album's cover is published, or null while it has none: the album sync fills
  * coverFilename only once arkpedia-image-assets has the file (scripts/sync/sync-albums.mjs),
- * so a new album arrives without one and shows the placeholder (components/music/AlbumCover). */
-export function albumCoverPath(album: Pick<RawAlbum, 'coverFilename'>): string | null {
-  return album.coverFilename ? `/album-covers/${album.coverFilename}` : null;
+ * so a new album arrives without one and shows the placeholder (components/music/AlbumCover).
+ * An Endfield album is drawn from its YouTube thumbnail (coverUrl) until it has a published
+ * cover: the album's square art on a plain frame, which every cover's square crop shows whole. */
+export function albumCoverPath(album: Pick<RawAlbum, 'coverFilename' | 'coverUrl' | 'game'>): string | null {
+  if (album.coverFilename) return `/album-covers/${album.coverFilename}`;
+  if (albumGame(album) === 'endfield' && YOUTUBE_COVER.test(album.coverUrl ?? '')) return album.coverUrl!;
+  return null;
+}
+
+/**
+ * Every album the music pages and the player's catalogue are built from: Monster Siren's, then
+ * Endfield's. Refuses a mix-up at build, where it can be fixed, rather than at a reader: an album
+ * in Endfield's file not marked "endfield" (the Endfield setting would not hide it), an album in
+ * Monster Siren's that names a game, or an album or song id the two files share.
+ */
+export function catalogueAlbums(arknights: readonly RawAlbum[], endfield: readonly RawAlbum[]): RawAlbum[] {
+  for (const album of arknights) {
+    if (album.game !== undefined && album.game !== 'arknights') throw new Error(`data/albums.json: album ${album.albumId} says game ${album.game}; Monster Siren's albums are Arknights`);
+  }
+  for (const album of endfield) {
+    if (album.game !== 'endfield') throw new Error(`data/endfield-albums.json: album ${album.albumId} says game ${album.game ?? '(none)'}, not endfield`);
+    for (const song of album.songs || []) {
+      if (!song.videoId || /^\d+$/.test(song.songId)) throw new Error(`data/endfield-albums.json: song ${song.songId} needs its YouTube upload and a non-numeric id`);
+    }
+  }
+  const albumIds = new Set<string>(), songIds = new Set<string>();
+  for (const album of [...arknights, ...endfield]) {
+    if (albumIds.has(album.albumId) && endfield.includes(album)) throw new Error(`Album id ${album.albumId} is in both data/albums.json and data/endfield-albums.json`);
+    albumIds.add(album.albumId);
+  }
+  for (const album of endfield) for (const song of album.songs || []) {
+    if (songIds.has(song.songId)) throw new Error(`data/endfield-albums.json lists song ${song.songId} twice`);
+    songIds.add(song.songId);
+  }
+  return [...arknights, ...endfield];
+}
+
+let cachedAlbums: RawAlbum[] | null = null;
+/** catalogueAlbums for this build's data files. */
+export function getAllAlbums(): RawAlbum[] {
+  if (!cachedAlbums) cachedAlbums = catalogueAlbums(albumsData as RawAlbum[], endfieldAlbumsData as RawAlbum[]);
+  return cachedAlbums;
 }
 
 /** Every song across every album that has a real YouTube videoId,
  * flattened with its parent album's cover/characters attached. */
 export function getAllSongsFull(): MonsterSirenSong[] {
   if (cachedSongs) return cachedSongs;
-  cachedSongs = songsFromAlbums(albumsData as RawAlbum[]);
+  cachedSongs = songsFromAlbums(getAllAlbums());
   return cachedSongs;
 }
 
@@ -116,7 +178,7 @@ export function getAllSongsFull(): MonsterSirenSong[] {
  * the YouTube video id. */
 export function getMonsterSirenOnlySongs(): MonsterSirenSong[] {
   if (cachedMonsterSirenOnly) return cachedMonsterSirenOnly;
-  cachedMonsterSirenOnly = monsterSirenOnlySongsFromAlbums(albumsData as RawAlbum[]);
+  cachedMonsterSirenOnly = monsterSirenOnlySongsFromAlbums(getAllAlbums());
   return cachedMonsterSirenOnly;
 }
 
@@ -139,6 +201,7 @@ function flattenSongs(albums: readonly RawAlbum[], include: (song: RawSong) => b
   const songs: MonsterSirenSong[] = [];
   for (const album of albums) {
     const coverPath = albumCoverPath(album);
+    const game = albumGame(album);
     const albumSongs = album.songs || [];
     for (const song of albumSongs) {
       if (!include(song)) continue;
@@ -147,6 +210,7 @@ function flattenSongs(albums: readonly RawAlbum[], include: (song: RawSong) => b
         trackId: song.videoId || msrTrackId(song.songId),
         videoId: song.videoId || '',
         songId: song.songId,
+        game,
         title: song.songName,
         altTitle: song.songAltName || null,
         artist: getCreditRole(song.credits, 'artist'),

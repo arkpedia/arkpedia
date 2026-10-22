@@ -7,6 +7,7 @@
 // client chunk, which is how the whole catalogue used to ship (chunk 9679, 421 kB).
 import type { MonsterSirenSong } from './albumsData';
 import { msrTrackId } from './trackId';
+import type { MusicGame } from './songFilter';
 
 export const MUSIC_CATALOGUE_PATH = '/music-catalogue.json';
 
@@ -30,10 +31,16 @@ export interface PublishedCatalogueSong {
    *  second line; albumOriginal is its own name when that differs, kept for search. */
   album?: string;
   albumOriginal?: string;
-  /** /album-covers/<file>, the song row's art: absent until the album's cover is published. */
+  /** /album-covers/<file>, the song row's art: absent until the album's cover is published. An
+   *  Endfield album's is its YouTube thumbnail until then (lib/music/albumsData.ts albumCoverPath). */
   cover?: string;
   /** Present, and true, only for the few copyrighted songs stream-safe mode leaves out. */
   copyright?: true;
+  /** Present only for a song from another game than Arknights: 'endfield', which the player
+   *  leaves out until the reader turns Endfield music on (lib/music/songFilter.ts). A player from
+   *  before the field reads only the rows it can draw: an Endfield row's YouTube cover fails its
+   *  isSong, so it never queued Endfield songs it could not tell apart. */
+  game?: Exclude<MusicGame, 'arknights'>;
 }
 
 /** A row as the player holds it: with its track id (lib/music/trackId.ts), the YouTube video id
@@ -45,6 +52,10 @@ export interface MusicCatalogueSong extends PublishedCatalogueSong {
 export interface MusicCatalogue {
   songs: PublishedCatalogueSong[];
 }
+
+/** lib/music/albumsData.ts's YOUTUBE_COVER, repeated: this module must not import that one, which
+ *  imports the catalogue files themselves. */
+const YOUTUBE_COVER = /^https:\/\/i\.ytimg\.com\/vi\/[\w-]{11}\/(?:maxres|hq)default\.jpg$/;
 
 /** A Monster Siren song id, the rule lib/music/trackId.ts and pages/api/music-guesser apply. */
 const MSR_CID = /^\d{1,12}$/;
@@ -63,6 +74,7 @@ export function projectMusicCatalogue(songs: readonly MonsterSirenSong[]): Music
       ...(song.albumOriginalName && song.albumOriginalName !== song.albumName ? { albumOriginal: song.albumOriginalName } : {}),
       ...(song.coverPath ? { cover: song.coverPath } : {}),
       ...(song.copyright ? { copyright: true as const } : {}),
+      ...(song.game === 'endfield' ? { game: 'endfield' as const } : {}),
     })),
   };
 }
@@ -81,7 +93,8 @@ function isSong(value: unknown): value is PublishedCatalogueSong {
     && (row!.artist === undefined || typeof row!.artist === 'string')
     && (row!.album === undefined || typeof row!.album === 'string')
     && (row!.albumOriginal === undefined || typeof row!.albumOriginal === 'string')
-    && (row!.cover === undefined || (typeof row!.cover === 'string' && row!.cover.startsWith('/album-covers/')));
+    && (row!.cover === undefined || (typeof row!.cover === 'string' && (row!.cover.startsWith('/album-covers/') || YOUTUBE_COVER.test(row!.cover))))
+    && (row!.game === undefined || row!.game === 'endfield');
 }
 
 type FetchCatalogue = (input: string, init?: RequestInit) => Promise<Pick<Response, 'ok' | 'status' | 'json'>>;

@@ -292,6 +292,9 @@ jobs:
             ARKPEDIA_EN_SUPPLEMENTAL_CHARWORDS="$supplemental_charwords" npm run voices:refresh
           # Monster Siren's new albums and songs, before the lyrics that key on them.
           stage albums -- npm run albums:refresh
+          # Arknights: Endfield's albums and songs, from its label's YouTube channel
+          # (data/endfield-albums.json, scripts/sync/sync-endfield-albums.mjs).
+          stage endfield-albums -- npm run endfield-albums:refresh
           stage lyrics -- npm run lyrics:refresh
           # The art the importers above staged under .cache/ instead of publishing -- a new
           # event's stage renders, drop and reward icons, crests, CC/IS/RA renders, album

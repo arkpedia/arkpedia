@@ -27,6 +27,10 @@ import { characterInitials } from '@/lib/music/characterPortraits.mjs';
 import { useYouTubeLikes } from '@/lib/music/useYouTubeLikes';
 import { byYouTubeLikes, mostLikedSongs } from '@/lib/music/youtubeLikes';
 import { songTitle } from '@/lib/music/musicPolish';
+import { discoverShown } from '@/lib/music/discoverFilter';
+import MusicGameSetting from '@/components/music/MusicGameSetting';
+import HiddenEndfieldHint from '@/components/music/HiddenEndfieldHint';
+import { gameSearchNames } from '@/lib/music/songFilter';
 
 interface Props {
   songs: DiscoverSong[];
@@ -42,7 +46,8 @@ interface Props {
  *  (Chinese) name comes from the player's catalogue, which carries it, rather than from these
  *  page props, so a release compiled before it was added still serves this page whole. */
 const searchFields = (originals: ReadonlyMap<string, string>) => (s: DiscoverSong | DiscoverPendingSong) => ({ title: s.title, altTitle: s.altTitle,
-  artist: s.artist, album: s.albumName, albumOriginal: 'videoId' in s ? originals.get(s.videoId) : undefined, extra: [...s.characters, ...s.origin] });
+  artist: s.artist, album: s.albumName, albumOriginal: 'videoId' in s ? originals.get(s.videoId) : undefined,
+  extra: [...s.characters, ...s.origin, ...gameSearchNames('game' in s ? s.game : undefined)] });
 
 /** The player's id for a Discover song (lib/music/trackId.ts): a song with no YouTube upload
  *  plays Monster Siren's own audio. */
@@ -111,12 +116,19 @@ function AlbumTile({ album, withCount, onOpen }: { album: Pick<DiscoverBrowseAlb
   );
 }
 
-export default function DiscoverPage({ songs, characters, origins, artists, recentAlbums, albums, pendingSongs }: Props) {
-  const { playNow, queueSong, videoId: playingId, queued, favorites, toggleFavorite, noAutoplay, toggleNoAutoplay, libraryTracks } = useMusicPlayer();
+export default function DiscoverPage({ songs: releaseSongs, characters, origins, artists: releaseArtists, recentAlbums: releaseRecentAlbums, albums: releaseAlbums, pendingSongs }: Props) {
+  const { playNow, queueSong, videoId: playingId, queued, favorites, toggleFavorite, noAutoplay, toggleNoAutoplay, libraryTracks, includeEndfield } = useMusicPlayer();
+  // What the reader's settings let in (lib/music/discoverFilter.ts): Endfield's songs and albums
+  // only once Endfield music is on, as in the queue and the Library.
+  const { songs, recentAlbums, albums, artists } = useMemo(() => discoverShown(
+    { songs: releaseSongs, recentAlbums: releaseRecentAlbums, albums: releaseAlbums, artists: releaseArtists },
+    { excludeCopyrighted: false, includeEndfield },
+  ), [releaseSongs, releaseRecentAlbums, releaseAlbums, releaseArtists, includeEndfield]);
   // The player bar's album art, as on /music: this page's songs carry their covers.
-  const coverByVideoId = useMemo(() => new Map([...songs, ...pendingSongs].map((s) => [trackIdOf(s), s.coverPath])), [songs, pendingSongs]);
+  const coverByVideoId = useMemo(() => new Map([...releaseSongs, ...pendingSongs].map((s) => [trackIdOf(s), s.coverPath])), [releaseSongs, pendingSongs]);
   // Every song in one list, those on YouTube and those only Monster Siren has: all of them play.
-  const allSongs = useMemo(() => [...songs, ...pendingSongs], [songs, pendingSongs]);
+  // Searched whole, Endfield's too, so a search can say how many hidden songs it matched.
+  const allSongs = useMemo(() => [...releaseSongs, ...pendingSongs], [releaseSongs, pendingSongs]);
   const router = useRouter();
 
   // Both the search text (?q=...) and the active facet are mirrored
@@ -184,11 +196,13 @@ export default function DiscoverPage({ songs, characters, origins, artists, rece
      the player plays them from Monster Siren. They used to be listed after every match, as
      links to Monster Siren, and before that left a new album's tile on "No songs match". */
   const songIndex = useMemo(() => createSongIndex(allSongs, searchFields(originals)), [allSongs, originals]);
+  const matchingSongs = useMemo(() => (isBrowsing ? [] : songIndex.search(query).filter(inFacets)), [songIndex, query, inFacets, isBrowsing]);
   const filteredSongs = useMemo(() => {
-    if (isBrowsing) return [];
-    const matching = songIndex.search(query).filter(inFacets);
+    const matching = matchingSongs.filter((s) => includeEndfield || !('game' in s && s.game === 'endfield'));
     return songOrder === 'likes' && youtubeLikes ? byYouTubeLikes(matching, youtubeLikes.likes, trackIdOf) : matching;
-  }, [songIndex, query, inFacets, isBrowsing, songOrder, youtubeLikes]);
+  }, [matchingSongs, includeEndfield, songOrder, youtubeLikes]);
+  // Endfield songs the search or facet found while Endfield music is off (a search result for one).
+  const hiddenEndfield = includeEndfield ? 0 : matchingSongs.length - filteredSongs.length;
 
   // Mirrors the queue panel's "Show more" pagination on /music (see
   // QUEUE_PAGE_SIZE in pages/music/index.tsx): a broad facet -- one
@@ -318,7 +332,7 @@ export default function DiscoverPage({ songs, characters, origins, artists, rece
 
       {/* The music section's one header and nav, in the same place as on /music, so moving
           between Discover and the player's views moves nothing. */}
-      <PageHeader slim compact eyebrow="Sound Archive" title="Music" actions={<MusicPlaylists songs={playlistSongs} />} />
+      <PageHeader slim compact eyebrow="Sound Archive" title="Music" actions={<div className="music-header-actions"><MusicGameSetting header /><MusicPlaylists songs={playlistSongs} /></div>} />
       <main className="music-discover-page">
         <MusicNav current="discover" />
         <div className="music-discover-search-row">
@@ -353,8 +367,9 @@ export default function DiscoverPage({ songs, characters, origins, artists, rece
               {songOrder === 'likes' && !rankedSongs.length && <p className="hint" role="status">
                 {likesLoading ? 'Loading YouTube likes…' : 'YouTube likes are temporarily unavailable. Showing default order.'}
               </p>}
+              <HiddenEndfieldHint count={hiddenEndfield} />
               {filteredSongs.length === 0 ? (
-                <p className="hint">No songs match. Try a different search or go back and pick something else.</p>
+                hiddenEndfield > 0 ? null : <p className="hint">No songs match. Try a different search or go back and pick something else.</p>
               ) : (
                 <div className="music-discover-song-list">
                   {visibleFilteredSongs.map((s) => {

@@ -182,8 +182,10 @@ try {
     // The Library's song count and search, and the player's queue, come from the release's
     // catalogue. Counted as the player reads it (lib/music/musicCatalogue.ts): one song per
     // track -- a YouTube video, or a Monster Siren song (cid) with no upload -- since the catalogue
-    // may list an upload twice; release B adds one new video.
+    // may list an upload twice; release B adds one new video. Endfield's songs are left out, as the
+    // Library leaves them out until the reader turns Endfield music on (lib/music/songFilter.ts).
     const songs = new Set(JSON.parse(fs.readFileSync(path.join(root, 'public/music-catalogue.json'))).songs
+      .filter(song => song.game !== 'endfield')
       .map(song => song.videoId || `msr:${song.cid}`)).size;
     const catalogueRequests = [];
     const noteCatalogue = request => { if (request.url().includes('/public/music-catalogue.json')) catalogueRequests.push(request.url()); };

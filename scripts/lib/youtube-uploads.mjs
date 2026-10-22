@@ -65,6 +65,17 @@ export function parseFeedEntries(xml) {
   return uploads;
 }
 
+/** Each upload's description by its videoId ('' for none): where a distributor's auto-generated
+ * upload names the song's album, artists and release day (scripts/sync/sync-endfield-albums.mjs). */
+export function parseFeedDescriptions(xml) {
+  const descriptions = new Map();
+  for (const [entry] of String(xml).matchAll(/<entry>[\s\S]*?<\/entry>/g)) {
+    const videoId = entry.match(/<yt:videoId>([\w-]{11})<\/yt:videoId>/)?.[1];
+    if (videoId) descriptions.set(videoId, decode(entry.match(/<media:description>([\s\S]*?)<\/media:description>/)?.[1] ?? '').trim());
+  }
+  return descriptions;
+}
+
 /** The feed's uploads, newest first: [{ videoId, title }]. */
 export function parseFeed(xml) {
   return parseFeedEntries(xml).map(({ videoId, title }) => ({ videoId, title }));

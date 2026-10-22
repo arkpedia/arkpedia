@@ -34,7 +34,11 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    at: '2026-10-22T10:00:00Z',
+    at: '2026-10-22T20:30:00Z',
+    added: [
+      { title: 'Arknights: Endfield music', detail: 'Tick Endfield music beside Playlists to add Endfield\'s soundtrack to the player, Library and Discover.', href: '/music/discover' },
+      { title: 'Search "endfield" for its music', detail: 'The site search, Discover and the Library find Endfield\'s albums and songs by the game\'s name.', href: '/search' },
+    ],
     fixed: [
       { title: 'Monthly Card and Look Back days tick', detail: 'Recommended Monthly Card and To Look Back on Terra days you claimed in game are ticked after an import.', href: '/free-op' },
     ],

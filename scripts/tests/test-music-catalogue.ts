@@ -14,7 +14,7 @@ const { ClientDataGuard, deniedClientModules } = require('../build/client-bundle
 const release = { release: 'a'.repeat(64), baseUrl: 'https://example.test/rev/release', assets: {} };
 
 function song(videoId: string, extra: Partial<MonsterSirenSong> = {}): MonsterSirenSong {
-  return { trackId: videoId || `msr:${extra.songId}`, videoId, songId: '100000', title: `Title ${videoId}`, altTitle: null, artist: null, composer: 'Composer', credits: [{ role: 'composer', names: ['Composer'] }],
+  return { trackId: videoId || `msr:${extra.songId}`, videoId, songId: '100000', game: 'arknights', title: `Title ${videoId}`, altTitle: null, artist: null, composer: 'Composer', credits: [{ role: 'composer', names: ['Composer'] }],
     genre: [], characters: ['Someone'], origin: [], albumId: '1', albumName: 'Album', albumOriginalName: 'Album', coverPath: null, copyright: false, length: '03:00',
     lyricFilename: 'x.lrc', hasLyrics: true, ...extra };
 }
