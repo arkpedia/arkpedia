@@ -14,6 +14,8 @@ import { SITE_ICON_PATH, artistLine, imageType, msrCoverPath, sessionArtwork, us
 import { musicAudioPreloader } from './audioPreload';
 import { musicAudioElement, primeMusicAudio, msrAudioAddress } from './audioElement';
 import AudioDebugPanel from '@/components/music/AudioDebugPanel';
+import EndfieldNoticeDialog from '@/components/music/EndfieldNoticeDialog';
+import { shouldShowEndfieldNotice } from './endfieldNotice';
 import { noAutoplaySongs, toggleNoAutoplay, useNoAutoplay } from './noAutoplay';
 import { readSongFilter, refilterQueue, songAllowed, writeSongFilter, type FilterableSong, type MusicGame, type SongFilter } from './songFilter';
 
@@ -265,6 +267,10 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   const excludeCopyrightedRef = useRef(false);
   const [includeEndfield, setIncludeEndfieldState] = useState(false);
   const includeEndfieldRef = useRef(false);
+  // The touch screen's pop-up about background play (components/music/EndfieldNoticeDialog.tsx),
+  // and what had the focus when it opened, which it gets back.
+  const [endfieldNotice, setEndfieldNotice] = useState(false);
+  const endfieldNoticeFromRef = useRef<HTMLElement | null>(null);
   /** The settings as they are this moment, for code that runs after an await or in a callback. */
   const songFilter = (): SongFilter => ({ excludeCopyrighted: excludeCopyrightedRef.current, includeEndfield: includeEndfieldRef.current });
   const allowed = (song: FilterableSong) => songAllowed(songFilter(), song);
@@ -478,8 +484,24 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   function setExcludeCopyrighted(v: boolean) {
     applySongFilter({ ...songFilter(), excludeCopyrighted: v });
   }
+  // Whatever turns Endfield music on -- either checkbox, or a list's "Include Endfield music" --
+  // tells a touch screen in a pop-up that those songs stop in the background there. Opened here,
+  // not by the control: the hint that turned it on is gone the moment it is on.
   function setIncludeEndfield(on: boolean) {
+    const turnedOn = on && !includeEndfieldRef.current;
     applySongFilter({ ...songFilter(), includeEndfield: on });
+    let storage: Storage | null = null;
+    try { storage = window.localStorage; } catch { /* refused: shown */ }
+    if (turnedOn && shouldShowEndfieldNotice(storage, window.matchMedia('(pointer: coarse)').matches)) {
+      endfieldNoticeFromRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      setEndfieldNotice(true);
+    }
+  }
+  function closeEndfieldNotice() {
+    setEndfieldNotice(false);
+    const from = endfieldNoticeFromRef.current;
+    endfieldNoticeFromRef.current = null;
+    if (from?.isConnected) from.focus({ preventScroll: true });
   }
 
   // A setting changed: stored, and applied to the queue as it stands. Rebuilding the queue from
@@ -1783,6 +1805,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   return (
     <MusicPlayerContext.Provider value={value}>
       {children}
+      {endfieldNotice && <EndfieldNoticeDialog onClose={closeEndfieldNotice} />}
       {/* Only with ?audio-debug=1 (or once set, localStorage arkpediaAudioDebug=1): what the
           <audio> element and the player believe, for a phone that cannot be inspected. */}
       <AudioDebugPanel engineKind={engineKind} isPlaying={isPlaying} buffering={buffering}

@@ -887,7 +887,7 @@
 .music-header-actions { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .music-setting-header > .music-setting-row { white-space: nowrap; }
 .music-setting-header > .music-setting-note { position: absolute; top: calc(100% + 6px); right: 0; z-index: 30; box-sizing: border-box; width: min(320px, calc(100vw - 2 * var(--page-gutter))); box-shadow: 0 18px 48px rgb(0 0 0 / .38); }
-.music-discover-hidden-hint { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.music-hidden-endfield-hint { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
 /* The pop-up a touch screen shows when Endfield music is turned on (components/music/MusicGameSetting.tsx). */
 .music-endfield-dialog { width: min(380px, calc(100vw - 24px)); }
 .music-endfield-dialog > p { margin: 12px 0; color: var(--text); font-size: 13px; line-height: 1.5; }

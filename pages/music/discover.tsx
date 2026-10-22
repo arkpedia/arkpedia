@@ -29,6 +29,8 @@ import { byYouTubeLikes, mostLikedSongs } from '@/lib/music/youtubeLikes';
 import { songTitle } from '@/lib/music/musicPolish';
 import { discoverShown } from '@/lib/music/discoverFilter';
 import MusicGameSetting from '@/components/music/MusicGameSetting';
+import HiddenEndfieldHint from '@/components/music/HiddenEndfieldHint';
+import { gameSearchNames } from '@/lib/music/songFilter';
 
 interface Props {
   songs: DiscoverSong[];
@@ -44,7 +46,8 @@ interface Props {
  *  (Chinese) name comes from the player's catalogue, which carries it, rather than from these
  *  page props, so a release compiled before it was added still serves this page whole. */
 const searchFields = (originals: ReadonlyMap<string, string>) => (s: DiscoverSong | DiscoverPendingSong) => ({ title: s.title, altTitle: s.altTitle,
-  artist: s.artist, album: s.albumName, albumOriginal: 'videoId' in s ? originals.get(s.videoId) : undefined, extra: [...s.characters, ...s.origin] });
+  artist: s.artist, album: s.albumName, albumOriginal: 'videoId' in s ? originals.get(s.videoId) : undefined,
+  extra: [...s.characters, ...s.origin, ...gameSearchNames('game' in s ? s.game : undefined)] });
 
 /** The player's id for a Discover song (lib/music/trackId.ts): a song with no YouTube upload
  *  plays Monster Siren's own audio. */
@@ -114,7 +117,7 @@ function AlbumTile({ album, withCount, onOpen }: { album: Pick<DiscoverBrowseAlb
 }
 
 export default function DiscoverPage({ songs: releaseSongs, characters, origins, artists: releaseArtists, recentAlbums: releaseRecentAlbums, albums: releaseAlbums, pendingSongs }: Props) {
-  const { playNow, queueSong, videoId: playingId, queued, favorites, toggleFavorite, noAutoplay, toggleNoAutoplay, libraryTracks, includeEndfield, setIncludeEndfield } = useMusicPlayer();
+  const { playNow, queueSong, videoId: playingId, queued, favorites, toggleFavorite, noAutoplay, toggleNoAutoplay, libraryTracks, includeEndfield } = useMusicPlayer();
   // What the reader's settings let in (lib/music/discoverFilter.ts): Endfield's songs and albums
   // only once Endfield music is on, as in the queue and the Library.
   const { songs, recentAlbums, albums, artists } = useMemo(() => discoverShown(
@@ -364,12 +367,7 @@ export default function DiscoverPage({ songs: releaseSongs, characters, origins,
               {songOrder === 'likes' && !rankedSongs.length && <p className="hint" role="status">
                 {likesLoading ? 'Loading YouTube likes…' : 'YouTube likes are temporarily unavailable. Showing default order.'}
               </p>}
-              {hiddenEndfield > 0 && (
-                <p className="hint music-discover-hidden-hint" role="status">
-                  {hiddenEndfield} Arknights: Endfield song{hiddenEndfield === 1 ? '' : 's'} {hiddenEndfield === 1 ? 'matches' : 'match'}, hidden while Endfield music is off.{' '}
-                  <button type="button" className="ghost btn-sm" onClick={() => setIncludeEndfield(true)}>Include Endfield music</button>
-                </p>
-              )}
+              <HiddenEndfieldHint count={hiddenEndfield} />
               {filteredSongs.length === 0 ? (
                 hiddenEndfield > 0 ? null : <p className="hint">No songs match. Try a different search or go back and pick something else.</p>
               ) : (

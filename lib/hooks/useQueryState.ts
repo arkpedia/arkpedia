@@ -16,6 +16,18 @@ export function leavesPage(currentPath: string, url: string): boolean {
   return pathOf(url) !== pathOf(currentPath);
 }
 
+/**
+ * The value of `key` in the address a full navigation landed on, when it landed on the page at
+ * `currentPath` (still mounted, so its state would otherwise keep the old value), or null for a
+ * navigation that is not one: a shallow write (each hook's own, below) or another page.
+ * `fallback` is what an address without the key means. Exported for its test.
+ */
+export function landedValue(currentPath: string, url: string, shallow: boolean, key: string, fallback: string): string | null {
+  if (shallow || leavesPage(currentPath, url)) return null;
+  const raw = new URL(url, 'http://localhost').searchParams.get(key);
+  return raw === null || raw === '' ? fallback : raw;
+}
+
 type Query = Record<string, string | string[] | undefined>;
 
 /**
@@ -95,6 +107,25 @@ export function useQueryState(key: string, defaultValue = ''): [string, (v: stri
     return () => events.off('routeChangeStart', onStart);
   }, [router.events]);
 
+  // A link to this same page with another query (the site search's "Endfield music" row, opened
+  // on Discover) lands on the page still mounted: the address is the reader's ask, so it wins,
+  // and a write still waiting for its delay is dropped. Read once at hydration alone, the page
+  // kept its old search under the new address (2026-10-22).
+  useEffect(() => {
+    const events = router.events;
+    if (!events) return;
+    const page = pathOf(routerRef.current.asPath);
+    const onComplete = (url: string, options?: { shallow?: boolean }) => {
+      const landed = landedValue(page, url, Boolean(options?.shallow), key, defaultValue);
+      if (landed === null) return;
+      if (writeTimerRef.current) { clearTimeout(writeTimerRef.current); writeTimerRef.current = null; }
+      asked.get(page)?.delete(key);
+      setValue(landed);
+    };
+    events.on('routeChangeComplete', onComplete);
+    return () => events.off('routeChangeComplete', onComplete);
+  }, [router.events, key, defaultValue]);
+
   const set = useCallback((v: string) => {
     setValue(v);
     if (writeTimerRef.current) clearTimeout(writeTimerRef.current);
@@ -170,6 +201,26 @@ export function useQueryRecord<K extends string>(defaults: Readonly<Record<K, st
     events.on('routeChangeStart', onStart);
     return () => events.off('routeChangeStart', onStart);
   }, [router.events]);
+
+  // A link to this same page with another query: the address wins (as in useQueryState).
+  useEffect(() => {
+    const events = router.events;
+    if (!events) return;
+    const page = pathOf(routerRef.current.asPath);
+    const onComplete = (url: string, options?: { shallow?: boolean }) => {
+      const read: Record<K, string> = { ...defaults };
+      for (const key of Object.keys(defaults) as K[]) {
+        const landed = landedValue(page, url, Boolean(options?.shallow), key, defaults[key]);
+        if (landed === null) return;
+        read[key] = landed;
+      }
+      if (writeTimerRef.current) { clearTimeout(writeTimerRef.current); writeTimerRef.current = null; }
+      valueRef.current = read;
+      setValue(read);
+    };
+    events.on('routeChangeComplete', onComplete);
+    return () => events.off('routeChangeComplete', onComplete);
+  }, [router.events, defaults]);
 
   const set = useCallback((patch: Partial<Record<K, string>>) => {
     const next = { ...valueRef.current, ...patch };
