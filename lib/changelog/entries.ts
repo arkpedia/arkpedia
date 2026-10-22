@@ -52,6 +52,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       { title: 'Character icons in music', detail: "Characters credited under a different spelling, such as Kal'tsit Esperanta, show their icon.", href: '/music/discover' },
       { title: 'Many chibis at once', detail: 'More than 15 chibis on a page no longer turn into blank boxes, and a tapped chibi keeps its size.' },
       { title: 'Imports tick beginner rewards', detail: 'Beginner missions and sign-in days the save records as claimed are ticked and locked.', href: '/free-op' },
+      { title: 'Event and beginner sign-ins tick on import', detail: 'Sign-in days you claimed in game, for events and the beginner programme, are ticked after an import.', href: '/free-op' },
       { title: 'Imports keep every claim', detail: 'A long-played account\'s imported claims are no longer dropped when the page reloads.', href: '/free-op' },
       { title: 'Imports untick what is not done', detail: 'A manual tick on something your save shows as not done is removed on the next import.', href: '/free-op' },
       { title: 'Chibi glows drawn right', detail: "Soft glows and edges, such as behind Kal'tsit the Esperanta, no longer show as bright blocks on about 120 operators' chibis." },
