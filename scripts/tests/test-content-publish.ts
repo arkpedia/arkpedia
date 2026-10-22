@@ -501,7 +501,7 @@ function validate(files: Record<string, string>, manifest: object = {}) {
   }
 }
 
-test('a correction branch that changes no release input publishes nothing', () => {
+test('a correction branch that changes no release input goes to main as it is, with no new release', () => {
   withDataRepository(repo => {
     repo.checkout('-b', 'fix');
     repo.commit('readme only', 'r2', 'r2', 'How to correct a record.\n');
@@ -509,9 +509,38 @@ test('a correction branch that changes no release input publishes nothing', () =
     repo.load('fix');
     repo.prepare('r2');
     const result = repo.publish();
-    assert.equal(result.status, 0);
-    assert.match(result.output, /Data main already serves this release/);
-    assert.deepEqual(repo.main(), ['main 2', 'main 1', 'main 0']);
+    assert.equal(result.status, 0, result.output);
+    assert.match(result.output, /Data main already serves this release: the branch's commits go to data main as they are/);
+    assert.deepEqual(repo.main(), ['readme only', 'main 2', 'main 1', 'main 0'], 'a fast-forward, no release commit');
+    assert.equal(repo.mainText('README.md'), 'How to correct a record.');
+    assert.equal(repo.outputs(), '', 'the release live serves is unchanged: no live check, no page-cache clear');
+  });
+});
+
+// 2026-10-22: an editorial edit that the guide-videos stage had just made on main too (the same
+// video in the same record) merged cleanly and compiled to the release main served. The run
+// published nothing, so the editorial branch never reached main, and the watcher compiled it
+// again every six minutes. Its commits now reach main, and the branch reads as published.
+test('with merge_main, an editorial edit main already made itself still reaches main, so it is not compiled again', () => {
+  withDataRepository(repo => {
+    repo.checkout('-b', 'editorial');
+    repo.commit('the same guide by hand', 'r2', 'with the guide');
+    repo.push('editorial');
+    repo.checkout('main');
+    repo.commit('main 3', 'r3', 'with the guide');
+    repo.push('main');
+    const loaded = repo.loadWith('editorial', { MERGE_MAIN: 'true' });
+    assert.equal(loaded.status, 0, loaded.output);
+    repo.prepare('r3', 'with the guide');
+    const result = repo.publish();
+    assert.equal(result.status, 0, result.output);
+    const published = repo.main();
+    for (const subject of ['Merge data main into editorial', 'the same guide by hand', 'main 3']) assert.ok(published.includes(subject), `${subject} in ${published}`);
+    assert.ok(!published.includes(regenerated), 'no release commit');
+    const contained = spawnSync('git', ['-C', path.join(repo.root, 'origin.git'), 'merge-base', '--is-ancestor', repo.head('editorial'), repo.head('main')]);
+    assert.equal(contained.status, 0, 'the editorial branch is in main: the watcher\'s compare reads it as behind');
+    assert.deepEqual(repo.mainFile('release/manifest.json'), { release: 'r3' });
+    assert.equal(repo.outputs(), '');
   });
 });
 
