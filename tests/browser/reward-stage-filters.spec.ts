@@ -237,10 +237,19 @@ test('the Free rewards tab shows its welfare operators as the overview\'s cards,
   // A card's checkbox ticks and unticks its row, the overview following, and the card moves nothing.
   const botani = page.getByRole('checkbox', { name: 'Botani · Event missions: Clear PA-4', exact: true });
   await expect(botani).toBeEnabled();
-  // Where the card sits in the document (not the viewport, which check() scrolls), and its size.
-  const place = () => card('Botani').evaluate((el) => { const r = el.getBoundingClientRect(); return [r.left, r.top + scrollY, r.width, r.height].map(Math.round); });
-  // Measured once the faces have settled: on a slow runner the webfonts swapped in between the
-  // two measurements and moved the card 3px with no tick involved (CI, 2026-10-22).
+  // Where the card is laid out in the document (not the viewport, which check() scrolls), and its
+  // size: its layout box, offsets summed up the offsetParent chain as motion.spec.ts's layoutOf
+  // does, not getBoundingClientRect. check() leaves the pointer on the card, and its picture-card
+  // lift (translate: 0 -3px on hover, styles/core/motion.css) paints it 3px higher once the
+  // transition runs: a slow runner measured after it had, a fast one before (CI, 2026-10-22,
+  // "box 1: 1064 -> 1061"; the welfare panel above held its height throughout). The lift moves
+  // no layout; a page jump does.
+  const place = () => card('Botani').evaluate((el) => {
+    const card = el as HTMLElement;
+    let [x, y] = [card.offsetLeft, card.offsetTop];
+    for (let parent = card.offsetParent; parent instanceof HTMLElement; parent = parent.offsetParent) { x += parent.offsetLeft + parent.clientLeft; y += parent.offsetTop + parent.clientTop; }
+    return [x, y, card.offsetWidth, card.offsetHeight];
+  });
   await page.evaluate(() => document.fonts.ready);
   const before = await place();
   await botani.check();
