@@ -11,11 +11,17 @@ import { stubYouTube, youtube } from './youtube-stub';
  * - An album opens its songs in place, as Recently added's do, in the shared song row.
  */
 
-interface BrowseAlbum { albumId: string; albumName: string; albumAltName: string; songCount: number }
-interface RecentAlbum { albumId: string }
+interface BrowseAlbum { albumId: string; albumName: string; albumAltName: string; songCount: number; game?: string }
+interface RecentAlbum { albumId: string; game?: string }
 
-const pageProps = (page: Page) => page.evaluate(() => (window as unknown as { __NEXT_DATA__: { props: { pageProps: { albums: BrowseAlbum[]; recentAlbums: RecentAlbum[]; songs: { albumId: string }[] } } } })
-  .__NEXT_DATA__.props.pageProps);
+/** The page's props as the page draws them with Endfield music off, the default: its albums and
+ *  songs are in the props, marked, and hidden (lib/music/discoverFilter.ts, music-endfield.spec). */
+const pageProps = (page: Page) => page.evaluate(() => {
+  const props = (window as unknown as { __NEXT_DATA__: { props: { pageProps: { albums: BrowseAlbum[]; recentAlbums: RecentAlbum[]; songs: { albumId: string; game?: string }[] } } } })
+    .__NEXT_DATA__.props.pageProps;
+  const arknights = <T extends { game?: string }>(list: T[]) => list.filter((item) => item.game !== 'endfield');
+  return { albums: arknights(props.albums), recentAlbums: arknights(props.recentAlbums).slice(0, 12), songs: arknights(props.songs) };
+});
 
 const tileNames = (page: Page, scope: string) => page.locator(`${scope} .music-discover-album-tile-name`).allTextContents();
 

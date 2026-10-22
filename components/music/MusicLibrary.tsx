@@ -3,6 +3,7 @@ import { useContentUrl } from '@/lib/content/context';
 import { loadMusicCatalogue, MUSIC_CATALOGUE_PATH, type MusicCatalogueSong } from '@/lib/music/musicCatalogue';
 import { useMusicPlayer } from '@/lib/music/musicPlayerContext';
 import { createSongIndex } from '@/lib/music/songSearch';
+import { songAllowed } from '@/lib/music/songFilter';
 import LoadOnScroll from '@/components/ui/LoadOnScroll';
 import SearchInput from '@/components/ui/SearchInput';
 import SegmentedControl from '@/components/ui/SegmentedControl';
@@ -35,7 +36,7 @@ function LibraryRow({ song }: { song: MusicCatalogueSong }) {
  */
 export default function MusicLibrary({ shown }: { shown: boolean }) {
   const contentUrl = useContentUrl();
-  const { excludeCopyrighted, favorites } = useMusicPlayer();
+  const { excludeCopyrighted, includeEndfield, favorites } = useMusicPlayer();
   const [songs, setSongs] = useState<MusicCatalogueSong[] | null>(null);
   const [error, setError] = useState(false);
   const [attempt, setAttempt] = useState(0);
@@ -57,10 +58,11 @@ export default function MusicLibrary({ shown }: { shown: boolean }) {
   // Title, album (English and its own name) and artist, typo-tolerant, best match first
   // (lib/music/songSearch.ts); built once per catalogue, not per keystroke.
   const index = useMemo(() => createSongIndex(songs ?? [], song => song), [songs]);
-  const matches = useMemo(() => index.search(search).filter(song => !(excludeCopyrighted && song.copyright)
-    && (scope === 'all' || favorites.has(song.id))), [index, search, excludeCopyrighted, scope, favorites]);
-  useEffect(() => { setVisible(50); }, [search, excludeCopyrighted, scope]);
-  const total = songs ? songs.filter(song => !(excludeCopyrighted && song.copyright)).length : null;
+  // The reader's settings hide the same songs here as in the queue (lib/music/songFilter.ts).
+  const matches = useMemo(() => index.search(search).filter(song => songAllowed({ excludeCopyrighted, includeEndfield }, song)
+    && (scope === 'all' || favorites.has(song.id))), [index, search, excludeCopyrighted, includeEndfield, scope, favorites]);
+  useEffect(() => { setVisible(50); }, [search, excludeCopyrighted, includeEndfield, scope]);
+  const total = songs ? songs.filter(song => songAllowed({ excludeCopyrighted, includeEndfield }, song)).length : null;
   return <section className="music-queue-panel music-library" aria-labelledby="music-library-heading">
     <div className="music-song-list-heading">
       <h2 className="section-title" id="music-library-heading">Library{total !== null && <span className="music-heading-count"> · {total} songs</span>}</h2>

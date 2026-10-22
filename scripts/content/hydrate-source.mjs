@@ -90,6 +90,9 @@ const SEEDED_SOURCE_FILES = new Set([
   'data/dynamic-art.json',
   // Commit-pinned chibi models, refreshed from the SD manifest on every content run.
   'data/chibi-art.json',
+  // Arknights: Endfield's albums and songs (scripts/sync/sync-endfield-albums.mjs, every run). The
+  // app's copy is the first night's catalogue; the stage then adds what the label publishes.
+  'data/endfield-albums.json',
 ]);
 const SEEDED_LEDGER = 'data/seeded-source-files.json';
 function walk(dir) { return fs.readdirSync(dir, { withFileTypes: true }).flatMap(entry => {

@@ -15,6 +15,7 @@ import { musicAudioPreloader } from './audioPreload';
 import { musicAudioElement, primeMusicAudio, msrAudioAddress } from './audioElement';
 import AudioDebugPanel from '@/components/music/AudioDebugPanel';
 import { noAutoplaySongs, toggleNoAutoplay, useNoAutoplay } from './noAutoplay';
+import { readSongFilter, refilterQueue, songAllowed, writeSongFilter, type FilterableSong, type MusicGame, type SongFilter } from './songFilter';
 
 /** YouTube's iframe player, which is a PlaybackEngine as it stands (lib/music/playbackEngine.ts). */
 export interface YTPlayer extends PlaybackEngine {
@@ -76,6 +77,8 @@ export interface QueueTrack {
   album?: string | null;
   albumOriginal?: string | null;
   cover?: string | null;
+  /** 'endfield' for an Arknights: Endfield song; absent for Arknights' own (lib/music/songFilter.ts). */
+  game?: MusicGame;
 }
 
 /** Where the queue came from, for the Queue view's "Playing from": every song (the default),
@@ -100,7 +103,8 @@ export type QueueSongResult = 'queued' | 'current' | 'unavailable';
 
 function toQueueTrack(song: MusicCatalogueSong): QueueTrack {
   return { id: song.id, title: song.title, altTitle: song.altTitle ?? null, artist: song.artist ?? null,
-    album: song.album ?? null, albumOriginal: song.albumOriginal ?? null, cover: song.cover ?? null };
+    album: song.album ?? null, albumOriginal: song.albumOriginal ?? null, cover: song.cover ?? null,
+    ...(song.game === 'endfield' ? { game: song.game } : {}) };
 }
 
 interface MusicPlayerContextValue {
@@ -143,6 +147,10 @@ interface MusicPlayerContextValue {
   notice: MusicNotice | null;
   dismissNotice: () => void;
   excludeCopyrighted: boolean; // "stream-safe mode" -- filters copyrighted songs out of the queue entirely, not just a display filter on one page
+  /** Arknights: Endfield's songs are in the queue, shuffle, autoplay, Library and Discover
+   *  (lib/music/songFilter.ts). Off until the reader turns it on. */
+  includeEndfield: boolean;
+  setIncludeEndfield: (on: boolean) => void;
   /** Data saver (MUSIC_DATA_SAVER_KEY): play songs from YouTube rather than Monster Siren's files. */
   dataSaver: boolean;
   setDataSaver: (on: boolean) => void;
@@ -255,6 +263,11 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   const [seeking, setSeeking] = useState(false);
   const [excludeCopyrighted, setExcludeCopyrightedState] = useState(false);
   const excludeCopyrightedRef = useRef(false);
+  const [includeEndfield, setIncludeEndfieldState] = useState(false);
+  const includeEndfieldRef = useRef(false);
+  /** The settings as they are this moment, for code that runs after an await or in a callback. */
+  const songFilter = (): SongFilter => ({ excludeCopyrighted: excludeCopyrightedRef.current, includeEndfield: includeEndfieldRef.current });
+  const allowed = (song: FilterableSong) => songAllowed(songFilter(), song);
   const [dataSaver, setDataSaverState] = useState(false);
   const dataSaverRef = useRef(false);
   const [engineKind, setEngineKind] = useState<EngineKind>('youtube');
@@ -362,6 +375,9 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     excludeCopyrightedRef.current = excludeCopyrighted;
   }, [excludeCopyrighted]);
+  useEffect(() => {
+    includeEndfieldRef.current = includeEndfield;
+  }, [includeEndfield]);
   // And what a record of the moment needs (saveResume, below).
   const isPlayingRef = useRef(false);
   const videoIdRef = useRef('');
@@ -388,17 +404,15 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     volumeRef.current = volume;
   }, [volume]);
 
-  // Loaded once on mount, same pattern as musicVolume.
+  // Loaded once on mount, same pattern as musicVolume (lib/music/songFilter.ts reads them).
   useEffect(() => {
-    try {
-      const saved = window.localStorage.getItem('musicExcludeCopyrighted');
-      if (saved === 'true') {
-        setExcludeCopyrightedState(true);
-        excludeCopyrightedRef.current = true;
-      }
-    } catch {
-      /* ignore */
-    }
+    let storage: Storage | null = null;
+    try { storage = window.localStorage; } catch { /* refused: the defaults */ }
+    const saved = readSongFilter(storage);
+    excludeCopyrightedRef.current = saved.excludeCopyrighted;
+    setExcludeCopyrightedState(saved.excludeCopyrighted);
+    includeEndfieldRef.current = saved.includeEndfield;
+    setIncludeEndfieldState(saved.includeEndfield);
   }, []);
 
   // Loaded on mount from a plain JSON array of videoIds, kept as a Set at
@@ -456,90 +470,49 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     setLibraryTracks(catalog.map(toQueueTrack));
     // Read the latest preference after loading: it may have changed
     // while the catalogue was downloading.
-    const songs = excludeCopyrightedRef.current ? catalog.filter((s) => !s.copyright) : catalog;
-    return songs.map(toQueueTrack);
+    // The refs written out, not allowed(): loadFullQueue's useCallback reads this function, and a
+    // closure over render-scope helpers would make it a dependency.
+    return catalog.filter((song) => songAllowed({ excludeCopyrighted: excludeCopyrightedRef.current, includeEndfield: includeEndfieldRef.current }, song)).map(toQueueTrack);
   }
 
   function setExcludeCopyrighted(v: boolean) {
-    setExcludeCopyrightedState(v);
-    excludeCopyrightedRef.current = v;
-    try {
-      window.localStorage.setItem('musicExcludeCopyrighted', String(v));
-    } catch {
-      /* ignore */
-    }
+    applySongFilter({ ...songFilter(), excludeCopyrighted: v });
+  }
+  function setIncludeEndfield(on: boolean) {
+    applySongFilter({ ...songFilter(), includeEndfield: on });
+  }
 
-    // Rebuilding from buildQueueFromCatalog() here was the actual bug
-    // -- it reconstructs the queue in raw catalog order every time,
-    // throwing away any manual reordering, and then always generated a
-    // fresh random shuffle order on top of that regardless. Instead:
-    // turning stream-safe ON filters copyrighted songs OUT of the
-    // CURRENT queue (preserving whatever order it's already in);
-    // turning it OFF appends the newly-available songs onto the END of
-    // the current queue. Either way, everything that was already there
-    // keeps its position.
-    const oldQueue = queueRef.current;
-    const currentId = oldQueue[queueIndexRef.current]?.id;
+  // A setting changed: stored, and applied to the queue as it stands. Rebuilding the queue from
+  // the catalogue here was the bug stream-safe once had -- it threw away the reader's own order
+  // and drew a new shuffle every time. refilterQueue (lib/music/songFilter.ts) instead takes out
+  // the songs now left out where they stand and puts the songs now let in on the end, so
+  // everything already there keeps its place, in the queue and in the shuffle order.
+  function applySongFilter(next: SongFilter) {
+    const before = songFilter();
+    excludeCopyrightedRef.current = next.excludeCopyrighted; setExcludeCopyrightedState(next.excludeCopyrighted);
+    includeEndfieldRef.current = next.includeEndfield; setIncludeEndfieldState(next.includeEndfield);
+    let storage: Storage | null = null;
+    try { storage = window.localStorage; } catch { /* refused: this visit only */ }
+    writeSongFilter(storage, next);
+
     const fullCatalog = catalogRef.current;
-    // Until loading finishes, the preference above is all we need:
-    // buildQueueFromCatalog will apply it to the initial queue.
+    // Until loading finishes, the settings above are all we need:
+    // buildQueueFromCatalog will apply them to the initial queue.
     if (!fullCatalog) return;
-    const catalogById = new Map(fullCatalog.map((s) => [s.id, s]));
+    const result = refilterQueue({
+      queue: queueRef.current, queueIndex: queueIndexRef.current,
+      shuffleOrder: shuffleRef.current ? shuffleOrderRef.current : null,
+      catalogue: fullCatalog, before, after: next, toTrack: toQueueTrack, playlistIds: playlistIdsRef.current,
+    });
+    queueRef.current = result.queue; setQueue(result.queue);
+    queueIndexRef.current = result.queueIndex; setQueueIndex(result.queueIndex);
 
-    let nextQueue: QueueTrack[];
-    // Maps each OLD queue index to its new index (or -1 if it got
-    // filtered out) -- used below to remap the shuffle order too,
-    // instead of regenerating it.
-    const oldIndexToNewIndex: number[] = [];
-
-    if (v) {
-      nextQueue = [];
-      oldQueue.forEach((track, oldIdx) => {
-        if (catalogById.get(track.id)?.copyright) {
-          oldIndexToNewIndex[oldIdx] = -1;
-        } else {
-          oldIndexToNewIndex[oldIdx] = nextQueue.length;
-          nextQueue.push(track);
-        }
-      });
-    } else {
-      oldQueue.forEach((_, oldIdx) => {
-        oldIndexToNewIndex[oldIdx] = oldIdx; // nothing already in the queue moves
-      });
-      const existingIds = new Set(oldQueue.map((t) => t.id));
-      const toAdd = fullCatalog
-        .filter((s) => !existingIds.has(s.id) && (!playlistIdsRef.current || playlistIdsRef.current.includes(s.id)))
-        .map(toQueueTrack);
-      nextQueue = [...oldQueue, ...toAdd];
-    }
-
-    queueRef.current = nextQueue;
-    setQueue(nextQueue);
-
-    const newIdx = currentId ? nextQueue.findIndex((t) => t.id === currentId) : -1;
-    const resolvedIdx = newIdx !== -1 ? newIdx : 0;
-    queueIndexRef.current = resolvedIdx;
-    setQueueIndex(resolvedIdx);
-
-    if (shuffleRef.current && nextQueue.length > 0) {
-      const existingOrder = shuffleOrderRef.current;
-      let finalOrder: number[];
-      if (existingOrder) {
-        if (v) {
-          finalOrder = existingOrder
-            .map((oldIdx) => oldIndexToNewIndex[oldIdx])
-            .filter((idx): idx is number => idx !== undefined && idx !== -1);
-        } else {
-          const addedCount = nextQueue.length - oldQueue.length;
-          const newIndices = Array.from({ length: addedCount }, (_, i) => oldQueue.length + i);
-          finalOrder = [...existingOrder, ...newIndices];
-        }
-      } else {
-        finalOrder = generateShuffleOrder(nextQueue.length, resolvedIdx); // no order to remap yet -- only path that still needs a fresh one
-      }
+    if (shuffleRef.current && result.queue.length > 0) {
+      // No order to carry yet: the only case that still draws a fresh one.
+      const finalOrder = result.shuffleOrder ?? generateShuffleOrder(result.queue.length, result.queueIndex);
       shuffleOrderRef.current = finalOrder;
       setShuffleOrder(finalOrder);
-      const pos = finalOrder.indexOf(resolvedIdx);
+      const pos = finalOrder.indexOf(result.queueIndex);
       shufflePositionRef.current = pos !== -1 ? pos : 0;
       setShufflePosition(shufflePositionRef.current);
     }
@@ -627,7 +600,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   }, []);
 
   function nextAutoplayTracks(): QueueTrack[] {
-    const byId = new Map((catalogRef.current ?? []).filter(song => !(excludeCopyrightedRef.current && song.copyright)).map(song => [song.id, toQueueTrack(song)]));
+    const byId = new Map((catalogRef.current ?? []).filter(allowed).map(song => [song.id, toQueueTrack(song)]));
     const chosen = new Set(queueRef.current.map(track => track.id));
     const ids = [...new Set([...autoplayOrderRef.current, ...byId.keys()])];
     const at = ids.indexOf(autoplayVideoIdRef.current || videoIdRef.current);
@@ -737,7 +710,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   // Helpers read current refs; preloading never chooses its own shuffle order.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isPlaying, seeking, currentTime, videoId, queue, queueIndex, queued, shuffle, shuffleOrder,
-    shufflePosition, repeatMode, autoplay, autoplayVideoId, dataSaver, excludeCopyrighted, libraryTracks]);
+    shufflePosition, repeatMode, autoplay, autoplayVideoId, dataSaver, excludeCopyrighted, includeEndfield, libraryTracks]);
   useEffect(() => () => musicAudioPreloader.select(null, false), []);
 
   const nextTrack = useCallback(async () => {
@@ -970,11 +943,10 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
 
             // The song carried over from the last document: cued at its moment, so a
             // refused start still leaves it there, one press of Play away; when it was
-            // playing, Play follows once YouTube says it is cued (onStateChange). Not a
-            // copyrighted song while stream-safe is on, which another tab may have
-            // turned on since.
-            const excluded = record && excludeCopyrightedRef.current
-              && catalogRef.current?.some((song) => song.id === record.videoId && song.copyright);
+            // playing, Play follows once YouTube says it is cued (onStateChange). Not a song
+            // the reader's settings leave out (a copyrighted song while stream-safe is on, an
+            // Endfield song while Endfield music is off), which another tab may have changed since.
+            const excluded = record && catalogRef.current?.some((song) => song.id === record.videoId && !allowed(song));
             if (record && excluded) {
               // The queue as it would start, stopped; not the record's song on show.
               pendingPlayRef.current = false;
@@ -1307,7 +1279,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     const previous = queueRef.current;
     const index = previous.findIndex(track => track.id === videoId);
     const song = catalogRef.current?.find(song => song.id === videoId);
-    const track = previous[index] ?? (song && !(excludeCopyrightedRef.current && song.copyright) ? toQueueTrack(song) : null);
+    const track = previous[index] ?? (song && allowed(song) ? toQueueTrack(song) : null);
     if (!track) return;
     const next = [track, ...previous.filter(track => track.id !== videoId)];
     autoplayVideoIdRef.current = ''; setAutoplayVideoId('');
@@ -1368,7 +1340,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     const byId = new Map((catalogRef.current ?? []).map(song => [song.id, song]));
     const tracks = [...new Set(videoIds ?? [...byId.keys()])].flatMap(id => {
       const song = byId.get(id);
-      return song && !(excludeCopyrightedRef.current && song.copyright) ? [toQueueTrack(song)] : [];
+      return song && allowed(song) ? [toQueueTrack(song)] : [];
     });
     if (!tracks.length) return 0;
     playlistIdsRef.current = videoIds ? [...videoIds] : tracks.map(track => track.id);
@@ -1613,10 +1585,10 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     }
     queuedRef.current = next.queued; setQueued(next.queued);
   }
-  /** The catalogue's song as a queue row, unless stream-safe leaves it out. */
+  /** The catalogue's song as a queue row, unless the reader's settings leave it out. */
   function playableTrack(id: string): QueueTrack | null {
     const song = catalogRef.current?.find(entry => entry.id === id);
-    return song && !(excludeCopyrightedRef.current && song.copyright) ? toQueueTrack(song) : null;
+    return song && allowed(song) ? toQueueTrack(song) : null;
   }
   const trackTitle = (id: string) => {
     const track = queueRef.current.find(track => track.id === id);
@@ -1637,7 +1609,10 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     const result = placeSong({ ...state, queueIndex: current, shufflePosition: current < 0 ? -1 : state.shufflePosition }, id, where, playableTrack(id));
     const title = trackTitle(id);
     if (!result.ok) {
-      announce(result.reason === 'current' ? `${title} is playing now.` : `${title} can’t be queued${excludeCopyrightedRef.current ? ' while stream-safe is on' : ''}.`);
+      const song = catalogRef.current?.find(entry => entry.id === id);
+      const why = song?.game === 'endfield' && !includeEndfieldRef.current ? ' while Endfield music is off'
+        : excludeCopyrightedRef.current && song?.copyright ? ' while stream-safe is on' : '';
+      announce(result.reason === 'current' ? `${title} is playing now.` : `${title} can’t be queued${why}.`);
       return result.reason;
     }
     applyQueueState(result.state);
@@ -1662,7 +1637,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     const current = state.queue[state.queueIndex]?.id === videoIdRef.current || (autoplayVideoIdRef.current && state.queue.length && !state.queued.has(state.queue[state.queueIndex]?.id)) ? state.queueIndex : -1;
     const result = placeSong({ ...state, queueIndex: current, shufflePosition: current < 0 ? -1 : state.shufflePosition }, id, 'next', playableTrack(id));
     if (!result.ok) {
-      // A song the queue cannot take (stream-safe): it plays on its own, as a discovery link did.
+      // A song the queue cannot take (stream-safe, Endfield off): it plays on its own, as a discovery link did.
       playTrackByVideoId(id);
       return;
     }
@@ -1680,7 +1655,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     setCanUndoClear(true);
     const cleared = clearUpcoming({ ...state, queueIndex: state.queue[state.queueIndex]?.id === videoIdRef.current ? state.queueIndex : -1 });
     applyQueueState(cleared);
-    // Stream-safe turned off must not refill a cleared queue with the whole catalogue.
+    // A setting turned back (stream-safe off, Endfield on) must not refill a cleared queue with the whole catalogue.
     playlistIdsRef.current = cleared.queue.map(track => track.id);
     playingPlaylistIdRef.current = null; setPlayingPlaylistId(null);
     setQueueSource('custom');
@@ -1771,6 +1746,8 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     notice,
     dismissNotice,
     excludeCopyrighted,
+    includeEndfield,
+    setIncludeEndfield,
     dataSaver,
     setDataSaver,
     engineKind,
