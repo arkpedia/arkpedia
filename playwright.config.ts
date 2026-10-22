@@ -20,6 +20,10 @@ export default defineConfig({
   workers: Number(process.env.PW_WORKERS) || Math.max(1, Math.min(3, Math.max(2, Math.floor(os.availableParallelism() / 2)), Math.floor(os.totalmem() / 2 ** 31))),
   retries: 0,
   reporter: 'list',
+  /* Chromium keeps its shared memory in /dev/shm, a 1 GB tmpfs of its own in the NAS runner.
+     --disable-dev-shm-usage was tried on 2026-10-22 and taken out: the suite's shared memory
+     peaked near 400 MB, while /tmp, where the flag moves it, already held 1.3 GB of other files
+     before the suite began (scripts/ci/sample-resources.sh, which check.yml runs alongside). */
   use: { baseURL: 'http://127.0.0.1:3192', trace: 'off', screenshot: 'off', video: 'off' },
   projects: [
     { name: 'desktop', testIgnore: AFTER_CENSUS, use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 1000 } } },

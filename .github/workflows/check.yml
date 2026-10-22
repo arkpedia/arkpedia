@@ -240,9 +240,19 @@ jobs:
           NEXT_DIST_DIR: .next-live
 
       # Runs unless the browser decision said no in so many words: a failed or missing answer runs it.
+      # What the browsers and the server share in the runner (/dev/shm, /tmp, the container's
+      # memory, load) is sampled every 5 s alongside, and its peaks are printed, the whole log
+      # with them when the suite fails (scripts/ci/sample-resources.sh says why).
       - name: Desktop and mobile browser regressions
         if: steps.browser.outputs.run != 'false'
-        run: npm run test:browser
+        run: |
+          bash scripts/ci/sample-resources.sh "$RUNNER_TEMP/resources.log" &
+          sampler=$!
+          status=0
+          npm run test:browser || status=$?
+          kill "$sampler" 2>/dev/null || true
+          bash scripts/ci/sample-resources.sh --report "$RUNNER_TEMP/resources.log" "$status"
+          exit "$status"
 
       # A red Check on main deploys nothing (deploy.yml follows only a green one), and the
       # content release is held while production runs other code than main
