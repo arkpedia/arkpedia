@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import { useContentUrl } from '@/lib/content/context';
 import { GAME_PATHS } from '@/lib/minigames/catalogue';
 import { MUSIC_CATALOGUE_PATH, loadMusicCatalogue, type MusicCatalogueSong } from './musicCatalogue';
+import { createCatalogueStore, type CatalogueStore } from './catalogueStore';
 import { MUSIC_FAVORITES_EVENT, MUSIC_FAVORITES_KEY, readMusicFavorites } from './musicFavorites';
 import { migrateChosenQueue, restoreQueue, sessionStore, takeMusicResume, writeMusicResume, type MusicResumeState } from './musicResume';
 import { songTitle } from './musicPolish';
@@ -211,7 +212,11 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   const playerCreatedRef = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const catalogRef = useRef<MusicCatalogueSong[] | null>(null);
-  const catalogPromiseRef = useRef<Promise<MusicCatalogueSong[]> | null>(null);
+  // The catalogue of the release the reader's page is on, reloaded when it moves on
+  // (lib/music/catalogueStore.ts); catalogRef mirrors the one loaded last, for the code below
+  // that reads it as it stands.
+  const catalogueStoreRef = useRef<CatalogueStore<MusicCatalogueSong> | null>(null);
+  catalogueStoreRef.current ??= createCatalogueStore((url: string) => loadMusicCatalogue(url));
   // The queue catalogue belongs to the content release, like every other game record: the
   // release of the page being read, or of the last page that had one (the community pages
   // have none). Mirrored into a ref like the settings below, because the queue loader is
@@ -463,17 +468,14 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  /** The queue the catalogue of the page's release gives (the one loaded already, or that
+   *  release's now), as the reader's settings let it. */
   async function buildQueueFromCatalog(): Promise<QueueTrack[]> {
-    // Concurrent requests share one download; a failed one is retried on the next request.
-    if (!catalogPromiseRef.current) {
-      catalogPromiseRef.current = loadMusicCatalogue(catalogueUrlRef.current).catch((error) => {
-        catalogPromiseRef.current = null;
-        throw error;
-      });
+    const catalog = await catalogueStoreRef.current!.get(catalogueUrlRef.current);
+    if (catalogRef.current !== catalog) {
+      catalogRef.current = catalog;
+      setLibraryTracks(catalog.map(toQueueTrack));
     }
-    const catalog = catalogRef.current ?? await catalogPromiseRef.current;
-    catalogRef.current = catalog;
-    setLibraryTracks(catalog.map(toQueueTrack));
     // Read the latest preference after loading: it may have changed
     // while the catalogue was downloading.
     // The refs written out, not allowed(): loadFullQueue's useCallback reads this function, and a
@@ -1623,9 +1625,9 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
       initializePlayer();
       await loadFullQueue();
     }
-    if (!catalogRef.current) {
-      try { await buildQueueFromCatalog(); } catch { /* Only songs already in the queue can be placed. */ }
-    }
+    // The page's release may be newer than the catalogue loaded when the visit began: its songs
+    // are queued from its own catalogue (a tab open across Endfield's release, 2026-10-22).
+    try { await buildQueueFromCatalog(); } catch { /* Only songs already in the queue can be placed. */ }
     const state = queueState();
     const current = state.queue[state.queueIndex]?.id === videoIdRef.current || (autoplayVideoIdRef.current && state.queue.length && !state.queued.has(state.queue[state.queueIndex]?.id)) ? state.queueIndex : -1;
     const result = placeSong({ ...state, queueIndex: current, shufflePosition: current < 0 ? -1 : state.shufflePosition }, id, where, playableTrack(id));
