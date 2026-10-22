@@ -103,6 +103,19 @@ test('next.config.js passes Next\'s own option schema: no ignored, moved or unkn
   assert.deepEqual(issues, []);
 });
 
+test('the Cloudflare Worker binds the page cache, the revalidation queue and itself by the names OpenNext reads', async () => {
+  // A wrong name here is no build error: the Worker would render every request (no cache), never
+  // refresh a page past its revalidate time, or fail the release refresh's res.revalidate.
+  const worker = JSON.parse(fs.readFileSync('wrangler.jsonc', 'utf8').replace(/^\s*\/\/.*$/gm, ''));
+  const { BINDING_NAME } = await import('@opennextjs/cloudflare/overrides/incremental-cache/r2-incremental-cache');
+  assert.ok(worker.r2_buckets?.some(bucket => bucket.binding === BINDING_NAME && bucket.bucket_name), `an R2 bucket bound as ${BINDING_NAME}`);
+  assert.ok(worker.services?.some(service => service.binding === 'WORKER_SELF_REFERENCE' && service.service === worker.name), 'the Worker bound to itself, by its own name');
+  assert.ok(worker.durable_objects?.bindings?.some(binding => binding.name === 'NEXT_CACHE_DO_QUEUE' && binding.class_name === 'DOQueueHandler'));
+  assert.ok(worker.migrations?.some(migration => migration.new_sqlite_classes?.includes('DOQueueHandler')), 'the queue class is created by a migration');
+  const config = fs.readFileSync('open-next.config.ts', 'utf8');
+  for (const override of ['incremental-cache/r2-incremental-cache', 'queue/do-queue']) assert.match(config, new RegExp(`overrides/${override}`));
+});
+
 test('both Check builds follow generated inputs and explicit validation, with output guards retained', () => {
   const index = name => steps.findIndex(step => step.name === name);
   for (const name of ['Prepare build inputs', 'Typecheck', 'Lint', 'Build', 'Pages render the live content release']) assert.ok(index(name) >= 0, name);

@@ -40,12 +40,26 @@ To give it the same settings as the Vercel deploy (content channel, API keys), s
 Worker variables or secrets, for example `npx wrangler secret put YOUTUBE_API_KEY`. Without
 them the pages still render; live feeds that need a key show their empty states.
 
-## Known limits of this first build
+## The page cache
 
-- **Incremental Static Regeneration has no shared cache yet.** `open-next.config.ts` uses the
-  defaults, so a page regenerated in one isolate is not shared with the next. For a real
-  deploy, configure an R2 incremental cache (and a queue for revalidation) as the OpenNext docs
-  describe.
+Pages are cached in R2, as Vercel's ISR cache holds them for the Vercel deploys
+(`open-next.config.ts`, `wrangler.jsonc`):
+
+- **Incremental cache:** the R2 bucket `arkpedia-opennext-cache`, bound as
+  `NEXT_INC_CACHE_R2_BUCKET`. Each deploy fills it with the build's prerendered pages.
+  Create the bucket once, before the first deploy:
+  `npx wrangler r2 bucket create arkpedia-opennext-cache`, or R2 > Create bucket in the dashboard.
+- **Revalidation queue:** the Durable Object `DOQueueHandler`, bound as `NEXT_CACHE_DO_QUEUE`. A
+  page past its revalidate time is re-rendered once, in the background.
+- **Cache interception:** a cached page is answered before the Next server loads.
+- **Release refresh:** `res.revalidate` (`pages/api/release-refresh.ts`) re-renders through the
+  `WORKER_SELF_REFERENCE` service binding.
+
+Workers Free allows 10 ms of CPU per request, and a page render takes far more (Error 1102,
+2026-10-22). The Worker needs Workers Paid, where the default is 30 s.
+
+## Known limits
+
 - **Images** go through Next's default loader; Cloudflare Images is not set up.
 - The site's content release, the asset repositories and the relay are on GitHub and the VPS
   as before; the Worker reads them the way the Vercel functions do.
