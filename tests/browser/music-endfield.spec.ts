@@ -88,3 +88,125 @@ test('a saved playlist plays its Endfield songs only once the setting is on, and
   await expect(queueRow(endfield.videoId!)).toBeVisible();
   await expect(page.locator('.music-queue-row')).toHaveCount(2);
 });
+
+// Endfield's songs play only from YouTube, which a phone pauses when the screen locks or another
+// app opens; Monster Siren's files play on. Each Endfield music checkbox says so in an ⓘ note,
+// drawn the way Data saver's is (components/music/MusicSetting.tsx).
+const BACKGROUND_NOTE = 'Endfield songs play from YouTube, so on phones they stop when the screen locks or you switch apps.';
+
+test('the header\'s Endfield music ⓘ says songs stop in the background on phones, and opening it moves nothing', async ({ page }) => {
+  await page.goto('/music/discover');
+  const header = page.locator('.page-header');
+  const info = header.getByRole('button', { name: 'About Endfield music', exact: true });
+  await expect(info).toHaveAttribute('aria-expanded', 'false');
+  const infoBox = (await info.boundingBox())!;
+  expect(Math.min(infoBox.width, infoBox.height), 'the ⓘ is a 24px target at least').toBeGreaterThanOrEqual(24);
+  const playlists = header.getByRole('button', { name: 'Playlists', exact: true });
+  const before = { title: await header.locator('h1').boundingBox(), playlists: await playlists.boundingBox(), setting: await setting(page).boundingBox() };
+
+  await info.click();
+  const note = page.getByRole('dialog', { name: 'About Endfield music', exact: true });
+  await expect(note).toHaveText(BACKGROUND_NOTE);
+  await expect(note.getByRole('button', { name: 'Close about Endfield music', exact: true })).toBeFocused();
+  expect({ title: await header.locator('h1').boundingBox(), playlists: await playlists.boundingBox(), setting: await setting(page).boundingBox() }).toEqual(before);
+  // All of it on screen, under the row.
+  const noteBox = (await note.boundingBox())!;
+  const viewport = page.viewportSize()!;
+  expect(noteBox.x).toBeGreaterThanOrEqual(0);
+  expect(noteBox.x + noteBox.width).toBeLessThanOrEqual(viewport.width);
+  expect(noteBox.y).toBeGreaterThan(infoBox.y + infoBox.height - 1);
+
+  // Escape closes it and gives focus back; the checkbox is untouched.
+  await page.keyboard.press('Escape');
+  await expect(note).toHaveCount(0);
+  await expect(info).toBeFocused();
+  await expect(setting(page)).not.toBeChecked();
+});
+
+test('the ⋯ menu\'s Endfield music ⓘ says the same, in the menu, under Data saver', async ({ page }) => {
+  await stubYouTube(page);
+  await page.goto('/music');
+  await page.getByRole('region', { name: 'Player', exact: true }).getByRole('button', { name: 'More player actions', exact: true }).click();
+  const menu = page.getByRole('dialog', { name: 'Player actions', exact: true });
+  const info = menu.getByRole('button', { name: 'About Endfield music', exact: true });
+  const saverBox = (await menu.getByRole('checkbox', { name: 'Data saver', exact: true }).boundingBox())!;
+  expect((await menu.getByRole('checkbox', { name: 'Endfield music', exact: true }).boundingBox())!.y).toBeGreaterThan(saverBox.y);
+  await info.click();
+  const note = page.getByRole('dialog', { name: 'About Endfield music', exact: true });
+  await expect(note).toHaveText(BACKGROUND_NOTE);
+  const menuBox = (await menu.boundingBox())!;
+  const noteBox = (await note.boundingBox())!;
+  expect(noteBox.x).toBeGreaterThanOrEqual(menuBox.x - 1);
+  expect(noteBox.x + noteBox.width).toBeLessThanOrEqual(menuBox.x + menuBox.width + 1);
+  // Escape closes the note only: the menu stays.
+  await page.keyboard.press('Escape');
+  await expect(note).toHaveCount(0);
+  await expect(menu).toBeVisible();
+  await expect(info).toBeFocused();
+});
+
+// On a touch screen (the site's `(pointer: coarse)` check), turning Endfield music on also says so
+// in a pop-up, with "Don't show again" kept in this browser (lib/music/endfieldNotice.ts). It only
+// informs: closing it any way leaves the setting on. A desktop's background tabs play on: none there.
+const popUp = (page: Page) => page.getByRole('dialog', { name: 'Endfield music on phones', exact: true });
+
+test('on a touch screen, turning Endfield music on says so in a pop-up, until Don\'t show again', async ({ page }, info) => {
+  test.skip(info.project.name !== 'mobile', 'only a touch screen shows it');
+  await page.goto('/music/discover');
+  expect(await page.evaluate(() => window.matchMedia('(pointer: coarse)').matches), 'the mobile project is a touch screen').toBe(true);
+  await setting(page).check();
+  await expect(popUp(page)).toBeVisible();
+  await expect(popUp(page)).toContainText('stop when the screen locks or you switch apps');
+  await expect(popUp(page)).toContainText('Arknights songs keep playing in the background');
+  await popUp(page).getByRole('button', { name: 'OK', exact: true }).click();
+  await expect(popUp(page)).toHaveCount(0);
+  await expect(setting(page)).toBeChecked();
+  await expect(setting(page)).toBeFocused();
+
+  // Off and on again: it shows again, and × closes it the same way.
+  await setting(page).uncheck();
+  await setting(page).check();
+  await expect(popUp(page)).toBeVisible();
+  await popUp(page).getByRole('checkbox', { name: 'Don’t show again', exact: true }).check();
+  await popUp(page).getByRole('button', { name: 'Close Endfield music on phones', exact: true }).click();
+  await expect(popUp(page)).toHaveCount(0);
+  await expect(setting(page)).toBeChecked();
+
+  // Not again: here, after a reload, or from the ⋯ menu.
+  await setting(page).uncheck();
+  await setting(page).check();
+  await expect(setting(page)).toBeChecked();
+  await expect(popUp(page)).toHaveCount(0);
+  await page.reload();
+  await setting(page).uncheck();
+  await setting(page).check();
+  await expect(popUp(page)).toHaveCount(0);
+  expect(await page.evaluate(() => localStorage.getItem('musicEndfieldNoticeDismissed'))).toBe('true');
+});
+
+test('the ⋯ menu\'s checkbox shows the same pop-up on a touch screen, and Escape leaves the setting on', async ({ page }, info) => {
+  test.skip(info.project.name !== 'mobile', 'only a touch screen shows it');
+  await stubYouTube(page);
+  await page.goto('/music');
+  await page.getByRole('region', { name: 'Player', exact: true }).getByRole('button', { name: 'More player actions', exact: true }).click();
+  const menu = page.getByRole('dialog', { name: 'Player actions', exact: true });
+  await menu.getByRole('checkbox', { name: 'Endfield music', exact: true }).check();
+  await expect(popUp(page)).toBeVisible();
+  // All of it on screen, over the menu.
+  const box = (await popUp(page).boundingBox())!;
+  const viewport = page.viewportSize()!;
+  expect(box.x).toBeGreaterThanOrEqual(0);
+  expect(box.x + box.width).toBeLessThanOrEqual(viewport.width);
+  await page.keyboard.press('Escape');
+  await expect(popUp(page)).toHaveCount(0);
+  await expect(setting(page)).toBeChecked();
+});
+
+test('on a desktop, turning Endfield music on shows no pop-up', async ({ page }, info) => {
+  test.skip(info.project.name !== 'desktop', 'a desktop\'s background tabs play on');
+  await page.goto('/music/discover');
+  await setting(page).check();
+  await expect(setting(page)).toBeChecked();
+  await page.waitForTimeout(300);
+  await expect(popUp(page)).toHaveCount(0);
+});

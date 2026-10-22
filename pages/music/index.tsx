@@ -252,7 +252,7 @@ export default function MusicPage({ songLookup }: Props) {
     <>
       <Head><title>{`${view === 'library' ? 'Library' : view === 'queue' ? 'Queue' : 'Now playing'} · Music — Arkpedia`}</title></Head>
 
-      <PageHeader slim compact eyebrow="Sound Archive" title="Music" actions={<><MusicGameSetting /><MusicPlaylists songs={songLookup} /></>} />
+      <PageHeader slim compact eyebrow="Sound Archive" title="Music" actions={<div className="music-header-actions"><MusicGameSetting header /><MusicPlaylists songs={songLookup} /></div>} />
       <main className="music-player-page">
         <MusicNav current={view} />
         <div className="visually-hidden" aria-live="polite">

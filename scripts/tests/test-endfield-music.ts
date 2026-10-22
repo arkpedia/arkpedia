@@ -15,6 +15,7 @@ import {
   DEFAULT_SONG_FILTER, MUSIC_EXCLUDE_COPYRIGHTED_KEY, MUSIC_INCLUDE_ENDFIELD_KEY, readSongFilter, refilterQueue, songAllowed, writeSongFilter,
 } from '../../lib/music/songFilter';
 import { getSongChoices } from '../../lib/music-guesser/catalogue';
+import { ENDFIELD_NOTICE_KEY, setEndfieldNoticeDismissed, shouldShowEndfieldNotice } from '../../lib/music/endfieldNotice';
 import { buildSiteSearchEntries, type SiteSearchSources } from '../../lib/search/siteSearchIndex';
 // @ts-expect-error Node import scripts are plain JavaScript.
 import { CHANNEL, FEED, LABEL_ARTIST, mergeEndfield, parseDescription, parsePlaylist, parseReleases, syncEndfieldAlbums } from '../sync/sync-endfield-albums.mjs';
@@ -376,4 +377,20 @@ test('the refresh probe watches the same Endfield feed the stage reads', async (
   // @ts-expect-error Node publication scripts are plain JavaScript.
   const { ENDFIELD_FEED } = await import('../content/refresh-fingerprint.mjs');
   assert.equal(ENDFIELD_FEED, FEED);
+});
+
+test('the touch-screen pop-up shows until the reader ticks Don\'t show again, and never on a desktop', () => {
+  const store = new Map<string, string>();
+  const storage = { getItem: (key: string) => store.get(key) ?? null, setItem: (key: string, value: string) => void store.set(key, value), removeItem: (key: string) => void store.delete(key) };
+  assert.equal(shouldShowEndfieldNotice(storage, false), false, 'a desktop plays on in the background');
+  assert.equal(shouldShowEndfieldNotice(storage, true), true);
+  setEndfieldNoticeDismissed(storage, true);
+  assert.equal(store.get(ENDFIELD_NOTICE_KEY), 'true');
+  assert.equal(shouldShowEndfieldNotice(storage, true), false);
+  setEndfieldNoticeDismissed(storage, false);
+  assert.equal(shouldShowEndfieldNotice(storage, true), true, 'unticked, it shows again');
+  // Storage that refuses: the warning shows, and remembering fails quietly.
+  const refusing = { getItem: () => { throw new Error('SecurityError'); }, setItem: () => { throw new Error('SecurityError'); }, removeItem: () => { throw new Error('SecurityError'); } };
+  assert.equal(shouldShowEndfieldNotice(refusing, true), true);
+  assert.doesNotThrow(() => setEndfieldNoticeDismissed(refusing, true));
 });
