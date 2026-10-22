@@ -3,7 +3,7 @@ import test from 'node:test';
 import { buildFreeRewards } from '../build/build-free-rewards.mjs';
 import { rewardClaimsFromGame } from '../../lib/account/rewardClaims';
 import { accountFromGame } from '../../lib/account/accountStore';
-import { allFreeRewards, freeOperatorsToClaim, freeRewardsForAccount, obtainableWelfare, rosterClaimedWelfare, rosterOperatorIds, type FreeReward } from '../../lib/pulls/freeRewards';
+import { allFreeRewards, freeOperatorsToClaim, freeRewardsForAccount, obtainableWelfare, rosterClaimedWelfare, rosterOperatorIds, welfareCardFacts, type FreeReward } from '../../lib/pulls/freeRewards';
 
 /*
  * Excerpts of the Global EN tables as the content run reads them (ArknightsAssets/ArknightsGamedata,
@@ -242,4 +242,21 @@ test('an imported roster ticks every welfare row of an operator it holds, and no
   // A record imported before operatorIds: its default outfits name the roster; a bought outfit does not.
   assert.deepEqual([...rosterOperatorIds({ skins: ['char_345_folnic#1', 'char_002_amiya#1+', 'char_4119_wanqin@winter#1'] })], ['char_345_folnic', 'char_002_amiya']);
   assert.equal(rosterOperatorIds(null).size, 0);
+});
+
+test('a welfare card says the same thing wherever it is shown: the task, the source, and when it closes or that it has', () => {
+  const named = (reward: FreeReward, name: string, event: string) => ({ ...reward, name, event });
+  assert.deepEqual(welfareCardFacts(named(rows.current, 'Viy · Event missions (permanent): Clear 17-13', 'Critical Phase Transition'), NOW),
+    { task: 'Clear 17-13', source: 'Critical Phase Transition · permanent', status: { kind: 'open' } });
+  assert.deepEqual(welfareCardFacts(named(rows.trail, 'Folinic · Record Restoration: 12 stars', 'Twilight of Wolumonde'), NOW),
+    { task: '12 stars', source: 'Record Restoration · Twilight of Wolumonde', status: { kind: 'open' } });
+  assert.deepEqual(welfareCardFacts(named(rows.currentEvent, 'Y · Event missions: Clear PA-4', 'People, A People'), NOW),
+    { task: 'Clear PA-4', source: 'People, A People', status: { kind: 'until', at: rows.currentEvent.endAt } });
+  // The tab lists an event's operator that has no end of its own too: not obtainable now.
+  const { endAt: _end, ...open } = rows.currentEvent;
+  assert.deepEqual(welfareCardFacts(open, NOW).status, { kind: 'closed' });
+  assert.deepEqual(welfareCardFacts(rows.currentEvent, at('2026-10-19T00:00:00Z')).status, { kind: 'upcoming', at: rows.currentEvent.startAt });
+  // A name without a requirement has no task; with no event, the source is the row's name.
+  const bare = row('free:trail:x', 'Welfare operators', 'char_z', {});
+  assert.deepEqual(welfareCardFacts(bare, NOW), { task: undefined, source: 'Record Restoration · free:trail:x', status: { kind: 'open' } });
 });
