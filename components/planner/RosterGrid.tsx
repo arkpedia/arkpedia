@@ -93,7 +93,7 @@ export function RosterGrid({
   /** The tile pressed, and every tile in the order the grid is showing them --
    *  so the editor's Previous / Next walk the grid as the reader filtered it. */
   onOpen: (name: string, order: string[]) => void;
-  searchRef?: React.RefObject<HTMLInputElement>;
+  searchRef?: React.RefObject<HTMLInputElement | null>;
 }) {
   const { query, className: classFilter, rarity: rarityFilter, owned: ownedFilter } = filters;
   const set = (patch: Partial<RosterFilters>) => onFilters({ ...filters, ...patch });

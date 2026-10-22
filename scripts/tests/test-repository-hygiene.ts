@@ -5,13 +5,18 @@ import { execFileSync } from 'node:child_process';
 
 test('root configuration is explicit and temporary artifacts stay out of Git', () => {
   const allowed = new Set([
-    '.env.example', '.eslintrc.json', '.gitignore', '.vercelignore', '.nvmrc',
-    'README.md', 'next-env.d.ts', 'next.config.js', 'package-lock.json', 'package.json',
-    'playwright.config.ts', 'tsconfig.json', 'vercel.json', 'knip.jsonc',
+    '.env.example', '.gitignore', '.vercelignore', '.nvmrc',
+    'README.md', 'eslint.config.mjs', 'next-env.d.ts', 'next.config.js', 'open-next.config.ts',
+    'package-lock.json', 'package.json', 'playwright.config.ts', 'tsconfig.json', 'vercel.json',
+    'wrangler.jsonc', 'knip.jsonc',
   ]);
   const tracked = execFileSync('git', ['ls-files', '-z'], { encoding: 'utf8' }).split('\0').filter(Boolean);
   assert.deepEqual(tracked.filter(file => !file.includes('/') && !allowed.has(file)), []);
-  assert.equal(JSON.parse(fs.readFileSync('.eslintrc.json', 'utf8')).root, true);
+  // One root lint config, in ESLint 9's flat form: `next lint` is gone in Next 16, so the
+  // eslintrc files it read are gone with it rather than left to be silently ignored.
+  assert.ok(fs.existsSync('eslint.config.mjs'), 'the flat lint config is the only root one');
+  assert.equal(fs.existsSync('.eslintrc.json'), false);
+  assert.equal(fs.existsSync('scripts/.eslintrc.json'), false);
   assert.equal(JSON.parse(fs.readFileSync('tsconfig.json', 'utf8')).compilerOptions.noUnusedLocals, true);
 });
 

@@ -30,7 +30,7 @@ function typing(target: EventTarget | null): boolean {
 
 export interface SiteSearchControl {
   open: boolean;
-  inputRef: RefObject<HTMLInputElement>;
+  inputRef: RefObject<HTMLInputElement | null>;
   /** Opens the pop-up from a tap or click; returns focus to `from` when it closes. */
   openFrom: (from: HTMLElement | null) => void;
   close: () => void;

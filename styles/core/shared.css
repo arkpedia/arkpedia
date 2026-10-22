@@ -731,6 +731,10 @@ h3.entity-title.entity-title-xs,
    edge. So the column widens by a digit at 10 items and again at 100. Zero specificity,
    as above. tests/browser/cards-and-headings.spec.ts puts a 12- and a 105-item list in a
    page and fails a marker that starts left of its list's box. */
+/* A short numbered list too needs more than a bullet's 1.1em: on Linux the self-hosted Inter is
+   hinted, its advances round to whole pixels, and "2. " came out 20px at 16px, past 1.1em's
+   17.6 (tests/browser/cards-and-headings.spec.ts, CI 2026-10-22). */
+:where(ol) { padding-inline-start: 1.3em; }
 :where(ol:has(> li:nth-child(10))) { padding-inline-start: 1.7em; }
 :where(ol:has(> li:nth-child(100))) { padding-inline-start: 2.3em; }
 /* --- end r9 section rhythm and heading roles --------------------------------------- */

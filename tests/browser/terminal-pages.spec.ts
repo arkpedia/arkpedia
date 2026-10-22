@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { fontsSettled } from './census-routes';
+import { fontsSettled, refuseWebfonts } from './census-routes';
 
 /*
  * The catalogue and terminal pages -- /stages/*, /gamemodes*, /enemies, /techniques,
@@ -321,12 +321,11 @@ test('the Terminal bar\'s tabs sit in the site frame', async ({ page }) => {
 });
 
 /*
- * The Terminal bar is one row from the first paint. The webfonts come from Google Fonts
- * with display=swap, so the first paint is in the fallback face, where the seven tabs
+ * The Terminal bar is one row from the first paint. The webfonts load with
+ * font-display: swap, so the first paint is in the fallback face, where the seven tabs
  * need 1141px of the frame's 992 (967 in Rajdhani). As a wrapping strip the bar was two
  * rows until Rajdhani arrived, then one, and every Terminal page jumped up 42px (CLS
- * 0.4-0.8). So this loads the bar with fonts.googleapis.com and fonts.gstatic.com
- * refused -- the first paint, held -- and asserts one row at the bar's own 40px, inside
+ * 0.4-0.8). So this loads the bar with the webfont files refused -- the first paint, held -- and asserts one row at the bar's own 40px, inside
  * the frame, at the narrowest window that shows the row and at 1440. Box edges only, no
  * text widths, so Linux fonts cannot move it. Under 1040px the bar is its menu button:
  * between 901 and 1039 the row was two rows even with Rajdhani.
@@ -341,8 +340,8 @@ test('the Terminal bar is one row from the first paint, or its menu where one ro
     const tabs = Array.from(row.children).map((tab) => tab.getBoundingClientRect());
     const toggle = document.querySelector('.terminal-bar-toggle')!;
     return {
-      // Not document.fonts.check(): with the stylesheet refused there is no Rajdhani
-      // face to wait for, and check() calls that loaded.
+      // A Rajdhani face loaded, not document.fonts.check(): that answers whether the
+      // faces settled, and a refused file settles too (as an error), not which face drew.
       rajdhani: Array.from(document.fonts).some((f) => f.family.replace(/["']/g, '') === 'Rajdhani' && f.status === 'loaded'),
       rowShown: getComputedStyle(row).display !== 'none',
       toggleShown: getComputedStyle(toggle).display !== 'none',
@@ -355,10 +354,8 @@ test('the Terminal bar is one row from the first paint, or its menu where one ro
   });
   for (const fonts of [false, true]) {
     const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
-    await context.route(/^https?:\/\/(?!127\.0\.0\.1|localhost)/, (route) => {
-      if (!fonts && /fonts\.(googleapis|gstatic)\.com/.test(route.request().url())) return route.abort();
-      return ['GET', 'HEAD'].includes(route.request().method()) ? route.continue() : route.abort();
-    });
+    await context.route(/^https?:\/\/(?!127\.0\.0\.1|localhost)/, (route) => (['GET', 'HEAD'].includes(route.request().method()) ? route.continue() : route.abort()));
+    if (!fonts) await refuseWebfonts(context);
     const page = await context.newPage();
     for (const route of ['/stages', '/stages/supplies', '/stages/all']) {
       for (const width of [1040, 1440]) {

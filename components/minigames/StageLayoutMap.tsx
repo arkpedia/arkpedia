@@ -1,4 +1,3 @@
-import React from 'react';
 import type { StageLayout } from '@/lib/minigames/stageGuesser';
 import { stageTileMark, tileStyle } from '@/lib/stages/stageTiles';
 

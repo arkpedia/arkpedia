@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type BrowserContext, type Page, type TestInfo } from '@playwright/test';
-import { fontsSettled, openFilters, plannerExperimental, PLANNER_PLAN, readOnly } from './census-routes';
+import { fontsSettled, openFilters, plannerExperimental, PLANNER_PLAN, readOnly, refuseWebfonts } from './census-routes';
 
 /*
  * Motion: option C, "Quiet polish" (maintainer, 2026-09-26), and the LIVE badge's
@@ -390,10 +390,10 @@ test.describe('motion never moves the layout', () => {
         const page = await context.newPage();
         await page.clock.setFixedTime(instant);
         await readOnly(page);
-        // Google Fonts refused in both: when the webfont lands against hydration decides
+        // The webfonts refused in both: when the webfont lands against hydration decides
         // whether two shifts share a frame, and one frame scores more than two (/gacha read
         // 0.071 and 0.094 on one build, either way round), which is not motion's doing.
-        await page.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.abort());
+        await refuseWebfonts(page);
         await page.goto(route);
         await settle(page);
         await imagesIn(page);

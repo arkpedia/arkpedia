@@ -1,4 +1,4 @@
-import React, { ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 const NUMBER_PATTERN = /(\+?\b\d+\b%?|\b\d+s\b)/g;
 

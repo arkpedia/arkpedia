@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import type { Page } from '@playwright/test';
+import type { BrowserContext, Page } from '@playwright/test';
 
 /*
  * The addresses and driven states the 2026-09-26 UI census visited, for the browser
@@ -239,7 +239,20 @@ export const CENSUS_STATES: CensusState[] = [
 ];
 
 /**
- * document.fonts.ready, bounded. One stalled Google Fonts fetch held two tests for their
+ * The webfont files (pages/_app.tsx imports them from @fontsource): the build emits each
+ * .woff2, and the .woff each @font-face names after it, under /_next/static/media. A test
+ * that measures the first paint, or a visitor whose fonts never arrive, refuses these.
+ * They are served from the site itself, so a route for other hosts alone does not catch them.
+ */
+export const WEBFONT_FILES = /\/_next\/static\/media\/[^/?#]+\.woff2?(?:[?#]|$)/;
+
+/** Refuses the webfont files, so the page draws in its fallback faces throughout. */
+export async function refuseWebfonts(target: Page | BrowserContext) {
+  await target.route(WEBFONT_FILES, (route) => route.abort());
+}
+
+/**
+ * document.fonts.ready, bounded. One stalled webfont fetch held two tests for their
  * whole 30s timeout in a Linux run of the suite (cards-and-headings, 2 of 1208, retries 0),
  * so a network stall turned the Check red. Every guard here is font-safe (box edges, and
  * ±2px where glyph metrics count), so after `ms` the test goes on in the face it has; a

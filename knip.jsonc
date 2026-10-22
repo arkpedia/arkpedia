@@ -9,7 +9,8 @@
     // Browser script loaded by the palette review tool's HTML.
     "scripts/palettes/palette-review/review.js",
     "scripts/stage-pipeline/{build,verify,settle-float-churn}.mjs",
-    "scripts/tests/fixtures/previous-release/refresh.mjs"
+    "scripts/tests/fixtures/previous-release/refresh.mjs",
+    "open-next.config.ts"
   ],
   "project": [
     "{components,lib,pages,scripts,tests}/**/*.{js,jsx,ts,tsx,mts,mjs,cjs}",
@@ -23,6 +24,6 @@
   "ignoreBinaries": ["jq", "shasum", "cwebp"],
   "exclude": ["enumMembers", "duplicates"],
   "next": true,
-  "eslint": [".eslintrc.json", "scripts/.eslintrc.json"],
+  "eslint": ["eslint.config.mjs"],
   "playwright": true
 }

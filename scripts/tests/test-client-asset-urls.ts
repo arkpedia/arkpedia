@@ -138,7 +138,8 @@ test('the scan recognises every way an image can bypass the content release pin'
     ['pinned favicon', component('<link rel="icon" href={logo} />', "const logo = path ? contentUrl(path, release) : null;")],
     ['pinned srcset', component('<source srcSet={skinArtworkSrcSet(sources.avif, url)} />')],
     ['helper-built source', component('<source src={url(icon)} />')],
-    ['external stylesheet', component('<link rel="preconnect" href="https://fonts.googleapis.com" />')],
+    ['external address', component('<link rel="preconnect" href="https://www.youtube-nocookie.com" />')],
+    ['search description', component('<link rel="search" type="application/opensearchdescription+xml" title="Arkpedia" href="/opensearch.xml" />')],
     ['plain meta', component('<meta name="viewport" content="width=device-width, initial-scale=1" />')],
     ['computed description', component('<meta name="description" content={icon ? `About ${icon}` : "Arkpedia"} />')],
   ]) assert.deepEqual(scan('ok.tsx', text).violations, [], label);

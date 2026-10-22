@@ -23,6 +23,8 @@ function externalAssetRedirects(folders, repository) {
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Spike: the OpenNext adapter reads .next/standalone.
+  output: 'standalone',
   // Only Check sets this after prebuild, typecheck and the warning-capped lint passed.
   // Avoid repeating those checks in both of its Next builds. Normal/local/Deploy
   // builds retain Next's validation, including manually dispatched deployments.

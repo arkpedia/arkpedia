@@ -99,7 +99,9 @@ test('both Check builds follow generated inputs and explicit validation, with ou
   }
   assert.equal(steps[index('Build')].run, 'npm run --ignore-scripts build && npm run postbuild');
   const scripts = JSON.parse(fs.readFileSync('package.json', 'utf8')).scripts;
-  assert.equal(scripts.build, 'next build');
+  // Next 16 builds with Turbopack, which refuses the `webpack` config ClientDataGuard lives in
+  // (it is what keeps a game record out of a browser chunk). The flag keeps webpack explicit.
+  assert.equal(scripts.build, 'next build --webpack');
   assert.equal(scripts.postbuild, 'npm run check:deployment-traces && npm run check:client-chunks');
   assert.match(steps[index('Pages render the live content release')].run, /grep -q '"__contentRelease"'/);
   assert.equal(steps.filter(step => String(step.run).includes('npm run check:deployment-traces')).length, 0, 'postbuild owns the trace audit');
