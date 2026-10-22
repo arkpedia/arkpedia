@@ -45,6 +45,12 @@ test('a reader takes its pointer from ARKPEDIA_CONTENT_CHANNEL, live by default,
   }
   assert.equal(contentPointer({}), 'live');
   assert.equal(contentPointer({ ARKPEDIA_CONTENT_CHANNEL: 'dev-live' }), 'dev-live');
+  // A Cloudflare Workers build reads its branch's channel, as a Vercel Deploy of that branch does.
+  assert.equal(contentPointer({ WORKERS_CI_BRANCH: 'dev' }), 'dev-live');
+  assert.equal(contentPointer({ WORKERS_CI_BRANCH: 'main' }), 'live');
+  assert.equal(contentPointer({ WORKERS_CI_BRANCH: 'cloudflare' }), 'dev-live', 'the Cloudflare test branch reads dev\'s release');
+  assert.equal(contentPointer({ WORKERS_CI_BRANCH: 'feat/anything' }), 'live');
+  assert.equal(contentPointer({ WORKERS_CI_BRANCH: 'dev', ARKPEDIA_CONTENT_CHANNEL: 'live' }), 'live', 'the explicit channel wins');
   // The site writes the rule out (importing the .cjs would pull config into its bundle), so both
   // refuse exactly the same names.
   for (const bad of ['../main', 'Dev', 'a/b', '-x', 'dev_live', 'live ', ' live', 'dev-live\n', '.']) {

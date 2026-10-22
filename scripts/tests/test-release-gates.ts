@@ -117,7 +117,8 @@ test('Check skips exactly the docs-only paths, on push and pull request, and Dep
   const ignored = [...check.matchAll(/^ {4}paths-ignore: (\[.*\])$/gm)].map(match => JSON.parse(match[1].replace(/'/g, '"')));
   assert.deepEqual(ignored, [DOCS_ONLY_PATHS, DOCS_ONLY_PATHS], 'push and pull_request each ignore exactly config/docs-only-paths.json');
   assert.doesNotMatch(check, /^\s+paths:/m, 'no paths allow-list, which would skip code changes');
-  assert.match(check, /^ {2}push:\n {4}branches: \[main, dev\]\n( {4}#.*\n)* {4}paths-ignore:/m);
+  // cloudflare (docs/development/cloudflare-workers.md) is checked too; Deploy below still follows only main and dev.
+  assert.match(check, /^ {2}push:\n {4}branches: \[main, dev, cloudflare\]\n( {4}#.*\n)* {4}paths-ignore:/m);
   const deploy = fs.readFileSync('.github/workflows/deploy.yml', 'utf8');
   assert.match(deploy, /^ {2}workflow_run:\n {4}workflows: \[Check\]\n {4}types: \[completed\]\n {4}branches: \[main, dev\]\n/m);
   assert.doesNotMatch(deploy, /paths(-ignore)?:/, 'Deploy runs after every Check on main, never filtered by path');

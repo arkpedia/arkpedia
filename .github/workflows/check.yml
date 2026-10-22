@@ -6,11 +6,13 @@ on:
   # which the content release gate's code fingerprint leaves out too
   # (scripts/content/code-fingerprint.mjs): keep the two the same, a test holds them to it.
   # A push or pull request that touches any other file still runs every step below.
+  # cloudflare: dev plus the Cloudflare-only work, while the Cloudflare path is set up
+  # (docs/development/cloudflare-workers.md). Deploy follows no deployment of it.
   push:
-    branches: [main, dev]
+    branches: [main, dev, cloudflare]
     paths-ignore: ['docs/**', '**/*.md']
   pull_request:
-    branches: [main, dev]
+    branches: [main, dev, cloudflare]
     paths-ignore: ['docs/**', '**/*.md']
   # So a branch can be checked before it has a pull request, and so this file can
   # be tried by hand once it lands.

@@ -1,0 +1,38 @@
+name: Sync cloudflare with dev
+
+# Temporary, while the Cloudflare path is set up (docs/development/cloudflare-workers.md). The
+# cloudflare branch is dev plus the Cloudflare-only work (accounts, D1, Worker settings), and the
+# Worker builds from it. Every push to dev is merged into it here, so it never falls behind dev.
+# A conflict fails this run and leaves cloudflare as it was: merge dev into cloudflare by hand,
+# resolve, push. Never through a pull request from dev: merging one deletes dev, because the
+# repository deletes a merged pull request's head branch.
+on:
+  push:
+    branches: [dev]
+  workflow_dispatch:
+
+concurrency:
+  group: sync-cloudflare
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ${{ vars.ARKPEDIA_LIGHT_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: cloudflare
+          fetch-depth: 0
+      - name: Merge dev into cloudflare
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch origin dev
+          if git merge-base --is-ancestor origin/dev HEAD; then echo 'cloudflare already contains dev.'; exit 0; fi
+          git merge --no-edit -m 'Merge dev into cloudflare' origin/dev
+          git push origin HEAD:cloudflare

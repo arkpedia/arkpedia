@@ -58,6 +58,25 @@ Pages are cached in R2, as Vercel's ISR cache holds them for the Vercel deploys
 Workers Free allows 10 ms of CPU per request, and a page render takes far more (Error 1102,
 2026-10-22). The Worker needs Workers Paid, where the default is 30 s.
 
+## Branches (while the Cloudflare path is set up)
+
+- `dev`: general features. They go to www through main as before, and to the Worker through
+  `cloudflare`.
+- `cloudflare`: `dev` plus the Cloudflare-only work (accounts, D1, Worker settings). The Worker's
+  production branch in Workers Builds is `cloudflare`, and its Check runs like dev's. Vercel
+  deploys nothing from it. Pull requests for Cloudflare-only work target `cloudflare`.
+- `.github/workflows/sync-cloudflare.yml` merges every push to `dev` into `cloudflare`. A conflict
+  fails that run and leaves `cloudflare` alone: merge `dev` in by hand and push. Never open a
+  pull request from `dev`: merging it deletes `dev`.
+
+## Which content it reads
+
+A Worker built from `dev` reads `dev-live`, the release arkpedia-dev reads, and one built from
+`main` reads `live`, www's; one built from `cloudflare` reads `dev-live` too.
+`scripts/content/content-channel.cjs` takes the branch from
+`WORKERS_CI_BRANCH`, which Workers Builds sets. `ARKPEDIA_CONTENT_CHANNEL` as a build variable
+overrides it. Until 2026-10-22 the Worker built from dev read www's release.
+
 ## Known limits
 
 - **Images** go through Next's default loader; Cloudflare Images is not set up.
