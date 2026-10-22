@@ -49,6 +49,11 @@ const nextConfig = {
     return config;
   },
   experimental: {
+    // Prerendering runs this many workers, each holding the page data. Left to Next it is the
+    // host's cores less one, not the container's: 7 on the 8-core NAS, whose runners are capped
+    // at 6 GB. On 2026-10-22 Next 16's Deploy build (which also type-checks) was killed there
+    // twice at 7 workers (exit 137).
+    cpus: 4,
     // These routes use local records only while Next prerenders the bundled
     // fallback. In production their ISR functions read the signed release from
     // arkpedia-data, while public/ is emitted separately as static output.

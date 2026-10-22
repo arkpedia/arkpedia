@@ -83,6 +83,15 @@ test('Next validation is enabled by default, locally, and in Deploy; only Check 
   }
 });
 
+test('Next prerenders with at most 4 workers, whatever the host\'s core count', () => {
+  // Next's default is os.cpus() less one: the host's cores, not the runner container's, so 7
+  // workers in a 6 GB NAS container, and the Deploy build was killed (2026-10-22).
+  const cpus = JSON.parse(execFileSync(process.execPath, ['-e', `
+    console.log(JSON.stringify(require('./next.config.js')('phase-production-build').experimental?.cpus ?? null));
+  `], { encoding: 'utf8' }));
+  assert.ok(Number.isInteger(cpus) && cpus >= 1 && cpus <= 4, `experimental.cpus is ${cpus}`);
+});
+
 test('both Check builds follow generated inputs and explicit validation, with output guards retained', () => {
   const index = name => steps.findIndex(step => step.name === name);
   for (const name of ['Prepare build inputs', 'Typecheck', 'Lint', 'Build', 'Pages render the live content release']) assert.ok(index(name) >= 0, name);
