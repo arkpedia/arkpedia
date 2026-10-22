@@ -12,8 +12,9 @@ test('public metadata coalesces concurrent reads, expires, and stays separate fo
   const calls: string[] = [];
   const read = createPublicNetworkReader(async (url, init) => {
     calls.push(String(url));
-    assert.equal(init?.credentials, 'omit');
-    assert.equal(init?.redirect, 'error');
+    // Options a Cloudflare Worker accepts (it throws on `credentials` and on redirect: 'error').
+    assert.equal(init?.credentials, undefined);
+    assert.equal(init?.redirect, 'manual');
     assert.deepEqual(init?.headers, { Accept: 'application/json' });
     assert.equal(init?.body, undefined);
     return Response.json({ ...answer, ignored: 'not cached' });
@@ -26,6 +27,11 @@ test('public metadata coalesces concurrent reads, expires, and stays separate fo
   now += 60_000;
   await read('en');
   assert.equal(calls.length, 4);
+});
+
+test('a redirect is a failure, never followed to another address', async () => {
+  const read = createPublicNetworkReader(async () => new Response(null, { status: 302, headers: { Location: 'https://elsewhere.example/config' } }));
+  await assert.rejects(read('en'), /Public server list unavailable/);
 });
 
 test('failed, malformed and unsafe metadata are never cached or served stale', async () => {

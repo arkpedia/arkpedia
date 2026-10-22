@@ -11,7 +11,9 @@ export function createPublicNetworkReader(fetcher: typeof fetch = fetch, now = D
     if (running) return running;
     const loading = (async () => {
       const response = await fetcher(SERVERS[server].networkConfig, {
-        headers: { Accept: 'application/json' }, credentials: 'omit', redirect: 'error',
+        // 'manual', not 'error', and no `credentials`: Cloudflare Workers reject both, and the fetch
+        // threw before it was sent (2026-10-22). A redirect still fails: a 3xx is not `ok`.
+        headers: { Accept: 'application/json' }, redirect: 'manual',
         cache: 'no-store', signal: AbortSignal.timeout(8000),
       });
       if (!response.ok) throw new Error('Public server list unavailable');

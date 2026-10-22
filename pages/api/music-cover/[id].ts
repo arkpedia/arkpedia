@@ -35,8 +35,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       res.setHeader('Cache-Control', 'public, max-age=600, s-maxage=3600');
       return res.status(404).json({ error: 'This song has no cover.' });
     }
-    // Never followed elsewhere: the address checked is the one fetched.
-    const image = await fetch(art.cover, { signal: AbortSignal.timeout(8000), redirect: 'error' });
+    // Never followed elsewhere: the address checked is the one fetched. 'manual' returns a redirect
+    // as a 3xx, which is not `ok` below; 'error' throws on Cloudflare Workers before any request.
+    const image = await fetch(art.cover, { signal: AbortSignal.timeout(8000), redirect: 'manual' });
     const type = (image.headers.get('content-type') ?? '').split(';')[0].trim().toLowerCase();
     if (!image.ok || !IMAGE_TYPES.has(type)) throw new Error('Cover unavailable');
     const body = Buffer.from(await image.arrayBuffer());
