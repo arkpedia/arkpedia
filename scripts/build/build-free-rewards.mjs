@@ -68,6 +68,25 @@ export function buildFreeRewards({ handbook, missions, openServer, checkin, acti
     }
     for (const bonus of Object.values(event.pubBhvs ?? {})) add(`${id}:${bonus.allBehaviorId}`, 'Event sign-in and gifts', `${info.name} · ${bonus.allBehaviorDesc}`, bonus.rewards, timing);
   }
+  /* Two sign-ins kept in activity_table's dynActs, not its activity blocks: CHECKIN_ACCESS (the
+     Recommended Monthly Card's daily bonus, for a monthly card's holder: dayCount days of
+     rewardItemPerDay; the save counts the days claimed, rewardsCount) and CHECKIN_VIDEO (a short
+     login event, its checkInList days; the save's history holds 0 for a claimed day). Built from
+     the table, their ids are the save's (lib/account/rewardClaims.ts), and an official post of
+     the same days is matched to them below rather than kept as a never-imported second copy. */
+  for (const [id, dyn] of Object.entries(activity.dynActs ?? {})) {
+    const info = activity.basicInfo[id];
+    if (!info || !['CHECKIN_ACCESS', 'CHECKIN_VIDEO'].includes(info.type)) continue;
+    const timing = { startAt: info.startTime * 1000, endAt: (info.rewardEndTime + 1) * 1000 };
+    const days = info.type === 'CHECKIN_ACCESS'
+      ? (Number.isInteger(dyn.dayCount) && dyn.dayCount > 0 && dyn.dayCount <= 62 && Array.isArray(dyn.rewardItemPerDay)
+        ? Array.from({ length: dyn.dayCount }, (_, index) => ({ order: index + 1, itemList: dyn.rewardItemPerDay })) : [])
+      : Object.values(dyn.checkInList ?? {}).filter(day => Number.isInteger(day.order)).sort((a, b) => a.order - b.order);
+    if (!days.length) continue;
+    const name = info.type === 'CHECKIN_ACCESS' ? 'Monthly Card check-in' : info.name;
+    clientSignIns.push({ startAt: timing.startAt, days: days.map(day => dayCounts(day.itemList)) });
+    for (const day of days) add(`${id}:${day.order}`, 'Event sign-in and gifts', `${name} · Day ${day.order}`, day.itemList, timing);
+  }
   // Official Global gifts may precede their client-table entries, including free selectors.
   const seen = new Set();
   for (const source of [eventRewards, announcements]) for (const [eventName, entry] of Object.entries(source.events)) for (const group of entry.groups ?? []) {
@@ -83,15 +102,19 @@ export function buildFreeRewards({ handbook, missions, openServer, checkin, acti
     const recorded = out.filter(reward => reward.group === 'Event sign-in and gifts' && reward.name.toLowerCase().includes(title)
       && reward.startAt === startAt && Math.abs(reward.endAt - endAt) <= 60_000);
     // When a later client patch carries the same announced gift, count its claims once.
-    if (recorded.length && totals(recorded.flatMap(reward => reward.rewards)) === totals(rewardItems(group.items))) continue;
+    if (recorded.length && totals(recorded.flatMap(reward => reward.rewards)) === totals(rewardItems(group.items.map(item => ({ ...item, id: item.id || `label:${item.name}` }))))) continue;
     const daily = group.kind === 'login' && group.days > 1 && group.items?.length && group.items.every(item => item.count % group.days === 0);
     const days = group.daily?.length ? group.daily : daily ? Array.from({ length: group.days }, () => group.items.map(item => ({ ...item, count: item.count / group.days }))) : [group.items];
     // The client's own sign-in, announced under the post's title (2026-10-14: '2026 CELEBRATION
     // SIGN-IN EVENT OPEN' was act59sign): opening within a day of it, day for day the same counts.
     // Kept, it was a second, never-imported copy of every day, counted twice in the totals.
     const announced = days.map(dayCounts);
-    if (group.kind === 'login' && clientSignIns.some(signIn => Math.abs(signIn.startAt - startAt) < 86_400_000 && signIn.days.length === announced.length
-      && signIn.days.every((counts, index) => counts === 'choice' || counts === announced[index]))) continue;
+    const allCounts = (list) => JSON.stringify(list.flatMap(counts => counts === 'choice' ? [] : JSON.parse(counts)).sort((a, b) => a - b));
+    if (group.kind === 'login' && clientSignIns.some(signIn => Math.abs(signIn.startAt - startAt) < 86_400_000 && (
+      (signIn.days.length === announced.length && signIn.days.every((counts, index) => counts === 'choice' || counts === announced[index]))
+      // One post listing every day's items as one gift (2026-10-08: "To Look Back on Terra", the
+      // three days of act3video in a single row): the same counts, all together.
+      || (announced.length === 1 && signIn.days.length > 1 && allCounts(signIn.days) === allCounts(announced))))) continue;
     days.forEach((items, index) => {
       if (!items?.length) return;
       const identity = `${eventName}:${group.title}:${index}`;

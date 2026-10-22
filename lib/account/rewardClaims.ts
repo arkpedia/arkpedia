@@ -56,8 +56,14 @@ export function rewardClaimsFromGame(user: Record<string, unknown>, programs: re
   };
   history(checkIn.checkInGroupId, checkIn.checkInHistory);
   const activity = object(user.activity);
-  for (const type of ['CHECKIN_ONLY', 'CHECKIN_ALL_PLAYER']) {
+  for (const type of ['CHECKIN_ONLY', 'CHECKIN_ALL_PLAYER', 'CHECKIN_VIDEO']) {
     for (const [id, value] of Object.entries(object(activity[type]))) waiting(id, object(value).history);
+  }
+  // The Monthly Card check-in counts the days claimed, from day 1: rewardsCount of them are
+  // (the owner's save, 2026-10-22: 13). The days after are not yet known either way.
+  for (const [id, value] of Object.entries(object(activity.CHECKIN_ACCESS))) {
+    const claimed = object(value).rewardsCount;
+    if (typeof claimed === 'number' && Number.isInteger(claimed) && claimed >= 0 && claimed <= 62) for (let day = 1; day <= claimed; day += 1) put(`${id}:${day}`, true);
   }
   for (const [id, value] of Object.entries(object(activity.LOGIN_ONLY))) {
     const received = object(value).reward;
