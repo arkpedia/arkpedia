@@ -36,7 +36,7 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     at: '2026-10-22T10:00:00Z',
     fixed: [
-      { title: 'Monthly Card check-in and To Look Back on Terra tick on import', detail: 'The days you claimed in game are ticked after an import, from the game\'s own data.', href: '/free-op' },
+      { title: 'Monthly Card and Look Back days tick', detail: 'Recommended Monthly Card and To Look Back on Terra days you claimed in game are ticked after an import.', href: '/free-op' },
     ],
   },
   {
