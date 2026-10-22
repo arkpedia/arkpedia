@@ -6,14 +6,14 @@
 // mounted client-side -- see albumsData.ts's own comment for why.
 import fs from 'fs';
 import path from 'path';
-import albumsRaw from '@/data/albums.json';
-import { albumCoverPath, getAllPlayerSongs, songsFromAlbums, MonsterSirenSong, RawAlbum, RawCredit } from './albumsData';
+import { albumCoverPath, albumGame, getAllAlbums, getAllPlayerSongs, songsFromAlbums, MonsterSirenSong, RawAlbum, RawCredit } from './albumsData';
 import { lyricsPath } from './trackId';
 import { getAllOperators } from '@/lib/operators/operators';
 import { getOperatorAppearances } from '@/lib/operators/operatorAppearances';
 import { normalizeReleaseDate, parseReleaseDate } from './releaseDate.mjs';
 import { characterPortrait } from './characterPortraits.mjs';
 import { artistFacets } from './artistCredits';
+import { RECENT_ALBUMS_LIMIT } from './discoverFilter';
 import { servedAssetExists } from '@/lib/assets/publicAssets';
 
 export interface CharacterArt {
@@ -35,6 +35,8 @@ export interface AlbumSummary {
   albumId: string;
   albumName: string;
   albumAltName: string;
+  /** Present only for an Endfield album (lib/music/songFilter.ts). */
+  game?: 'endfield';
   coverPath: string | null;
   releaseDate: string;
   albumCategory: string[];
@@ -180,6 +182,7 @@ export function albumSummaries(albums: readonly RawAlbum[]): AlbumSummary[] {
       albumId: a.albumId,
       albumName: a.albumName,
       albumAltName: a.albumAltName || a.albumName,
+      ...endfieldMark(albumGame(a)),
       coverPath: albumCoverPath(a),
       // Stored form (YYYY/MM/DD) or '' -- a date written any other way that still names a
       // day is read as that day; one that names none counts as unknown.
@@ -192,6 +195,10 @@ export function albumSummaries(albums: readonly RawAlbum[]): AlbumSummary[] {
     }))
     .filter((a) => a.songCount + a.pendingCount > 0);
 }
+
+/** The game field as the pages' props carry it: only on an Endfield record, so Arknights' many
+ *  records (and a release from before the field) read the same as before (lib/music/songFilter.ts). */
+const endfieldMark = (game: string | undefined): { game?: 'endfield' } => (game === 'endfield' ? { game: 'endfield' } : {});
 
 /** Every song, each with its character base-skin art and lyrics text
  * already resolved -- built once and reused, since resolving these for
@@ -290,6 +297,8 @@ export function writeLyricsFilesToPublic(): void {
 // artist browse lists.
 export interface DiscoverSong {
   videoId: string;
+  /** Present only for an Endfield song: the page hides it while Endfield music is off. */
+  game?: 'endfield';
   title: string;
   altTitle: string | null;
   albumId: string;
@@ -322,6 +331,7 @@ export interface DiscoverAlbum {
   albumId: string;
   albumName: string;
   albumAltName: string;
+  game?: 'endfield';
   coverPath: string | null;
   releaseDate: string;
   /** False while none of its songs has a YouTube videoId. Kept for releases that carry it; the
@@ -332,6 +342,7 @@ export interface DiscoverAlbum {
 /** An album as Browse by album lists it: every album with a song the player can play. */
 export interface DiscoverBrowseAlbum {
   albumId: string;
+  game?: 'endfield';
   /** Its own name, often Chinese. */
   albumName: string;
   /** Its English name, or its own where it has none: what the tile shows. */
@@ -368,7 +379,6 @@ export interface DiscoverPageData {
   pendingSongs: DiscoverPendingSong[];
 }
 
-const RECENT_ALBUMS_LIMIT = 12;
 
 /** The day as a number to sort by; an unknown date sorts after every known one. */
 function releaseDay(date: string): number {
@@ -411,7 +421,7 @@ function countBy(values: string[]): DiscoverFacet[] {
 let cachedDiscoverData: DiscoverPageData | null = null;
 export function getDiscoverPageData(): DiscoverPageData {
   if (cachedDiscoverData) return cachedDiscoverData;
-  cachedDiscoverData = discoverPageData(albumsRaw as RawAlbum[]);
+  cachedDiscoverData = discoverPageData(getAllAlbums());
   return cachedDiscoverData;
 }
 
@@ -420,6 +430,7 @@ export function discoverPageData(rawAlbums: readonly RawAlbum[]): DiscoverPageDa
   const fullSongs = songsFromAlbums(rawAlbums);
   const songs: DiscoverSong[] = fullSongs.map((s) => ({
     videoId: s.videoId,
+    ...endfieldMark(s.game),
     title: s.title,
     altTitle: s.altTitle,
     albumId: s.albumId,
@@ -475,12 +486,20 @@ export function discoverPageData(rawAlbums: readonly RawAlbum[]): DiscoverPageDa
     }))
     .sort((a, b) => releaseDay(b.mostRecentDate) - releaseDay(a.mostRecentDate));
 
+  // The newest of each game, newest first: the page shows the first RECENT_ALBUMS_LIMIT of
+  // those the reader's settings let in, so a reader without Endfield music still sees a full row.
+  const perGame = new Map<string, number>();
   const recentAlbums: DiscoverAlbum[] = newestFirst(albums)
-    .slice(0, RECENT_ALBUMS_LIMIT)
+    .filter((a) => {
+      const seen = perGame.get(a.game ?? 'arknights') ?? 0;
+      perGame.set(a.game ?? 'arknights', seen + 1);
+      return seen < RECENT_ALBUMS_LIMIT;
+    })
     .map((a) => ({
       albumId: a.albumId,
       albumName: a.albumName,
       albumAltName: a.albumAltName,
+      ...endfieldMark(a.game),
       coverPath: a.coverPath,
       releaseDate: a.releaseDate,
       playable: a.songCount > 0,
@@ -490,6 +509,7 @@ export function discoverPageData(rawAlbums: readonly RawAlbum[]): DiscoverPageDa
   // with no YouTube upload plays from Monster Siren, so no album is listed that opens on nothing.
   const browseAlbums: DiscoverBrowseAlbum[] = newestFirstKeepingUndated(albums).map((a) => ({
     albumId: a.albumId,
+    ...endfieldMark(a.game),
     albumName: a.albumName,
     albumAltName: a.albumAltName,
     coverPath: a.coverPath,

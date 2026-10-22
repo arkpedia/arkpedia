@@ -10,10 +10,12 @@ import TransportIcon from './TransportIcons';
 import { useCrossFadeTitle } from '@/lib/music/useCrossFadeTitle';
 import { MUSIC_VIEW_HREF, type MusicView } from './MusicNav';
 import DataSaverSetting from './DataSaverSetting';
+import MusicGameSetting from './MusicGameSetting';
 
 /**
  * The player bar's More (⋯): Add to playlist and Open queue as written items, the same anchored
- * dialog as a song row's More (SongActionsMenu), and the player's settings (Data saver), so every
+ * dialog as a song row's More (SongActionsMenu), and the player's settings (Data saver, Endfield
+ * music), so every
  * bar shows it at every width: the one place a phone and a desktop both reach them. Escape and
  * Close give focus back to the ⋯.
  *
@@ -60,6 +62,7 @@ export default function PlayerMoreMenu({ onFullPlayer, view }: { onFullPlayer?: 
             <TransportIcon name={view === 'queue' ? 'note' : 'queue'} />{view === 'queue' ? 'Now playing' : 'Open queue'}
           </Link>
           <DataSaverSetting />
+          <MusicGameSetting inMenu />
         </div>
       </>}
     </div>, document.body)}

@@ -33,8 +33,9 @@ export const ARTIST_ALIASES: Readonly<Record<string, string>> = {
   baouner: 'BaoUner',
 };
 
-/** Credits that name no artist: the placeholder, and the label itself in both languages. */
-const NOT_ARTISTS = new Set(['uncredited', 'monstersirenrecords', '塞壬唱片msr']);
+/** Credits that name no artist: the placeholder, and the labels themselves: Monster Siren in both
+ *  languages, and Arknights: Endfield's Metal Scar Radio (scripts/sync/sync-endfield-albums.mjs). */
+const NOT_ARTISTS = new Set(['uncredited', 'monstersirenrecords', '塞壬唱片msr', 'metalscarradio']);
 
 /** A version note after a name, "(Acoustic Ver.)": about the recording, not the artist. */
 const VERSION_NOTE = /\s*\([^()]*\b(?:ver|version|remix|mix|edit|instrumental|acoustic|live|cover)\b\.?[^()]*\)/gi;

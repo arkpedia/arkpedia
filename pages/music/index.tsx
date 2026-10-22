@@ -14,6 +14,7 @@ import { useCrossFadeTitle } from '@/lib/music/useCrossFadeTitle';
 import { lyricsPath, youtubeWatchUrl } from '@/lib/music/trackId';
 import MusicWaveVisualizer from '@/components/music/MusicWaveVisualizer';
 import MusicPlaylists from '@/components/music/MusicPlaylists';
+import MusicGameSetting from '@/components/music/MusicGameSetting';
 import MusicLibrary from '@/components/music/MusicLibrary';
 import MusicQueue from '@/components/music/MusicQueue';
 import MusicNav, { MUSIC_VIEW_HREF } from '@/components/music/MusicNav';
@@ -251,7 +252,7 @@ export default function MusicPage({ songLookup }: Props) {
     <>
       <Head><title>{`${view === 'library' ? 'Library' : view === 'queue' ? 'Queue' : 'Now playing'} · Music — Arkpedia`}</title></Head>
 
-      <PageHeader slim compact eyebrow="Sound Archive" title="Music" actions={<MusicPlaylists songs={songLookup} />} />
+      <PageHeader slim compact eyebrow="Sound Archive" title="Music" actions={<><MusicGameSetting /><MusicPlaylists songs={songLookup} /></>} />
       <main className="music-player-page">
         <MusicNav current={view} />
         <div className="visually-hidden" aria-live="polite">

@@ -4,6 +4,10 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 
+// Arknights: Endfield's label's YouTube feed (scripts/sync/sync-endfield-albums.mjs FEED, written out
+// here: this probe runs before npm ci, and that module imports a package).
+export const ENDFIELD_FEED = 'https://www.youtube.com/feeds/videos.xml?channel_id=UC_wSsatRjjuF1xPlN9mtAPw';
+
 // A cheap daily probe: install dependencies and compile only when inputs moved.
 // Include corrections and asset/transcript mirrors, not just game patch dates.
 export function watchedRepositories(root = process.cwd()) {
@@ -98,10 +102,23 @@ async function main() {
     console.warn(`Cannot check Monster Siren: ${error.message}`);
   }
 
+  // Arknights: Endfield's songs, the same way: its label's YouTube feed (newest 15 uploads)
+  // changes when a song is published (scripts/sync/sync-endfield-albums.mjs). Not fatal either.
+  let endfield = 'endfield:unavailable';
+  try {
+    const response = await fetch(ENDFIELD_FEED, { signal: AbortSignal.timeout(30000) });
+    const ids = response.ok ? [...(await response.text()).matchAll(/<yt:videoId>([\w-]{11})<\/yt:videoId>/g)].map(match => match[1]) : [];
+    if (ids.length) endfield = ids.sort().join(',');
+    else console.warn('The Endfield label\'s YouTube feed listed no uploads; excluding it from the fingerprint.');
+  } catch (error) {
+    console.warn(`Cannot check Endfield's YouTube feed: ${error.message}`);
+  }
+
   const generator = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
   // Wiki corrections and newly published art must be retried even between game patches.
   const discoveryDay = new Date().toISOString().slice(0, 10);
-  const fingerprint = createHash('sha256').update(JSON.stringify({ generator, revisions, discoveryDay, songs: createHash('sha256').update(songs).digest('hex') })).digest('hex');
+  const fingerprint = createHash('sha256').update(JSON.stringify({ generator, revisions, discoveryDay, songs: createHash('sha256').update(songs).digest('hex'),
+    endfield: createHash('sha256').update(endfield).digest('hex') })).digest('hex');
   if (process.env.GITHUB_OUTPUT) fs.appendFileSync(process.env.GITHUB_OUTPUT, `fingerprint=${fingerprint}\n`);
   console.log(`Checked ${revisions.length} public sources; refresh fingerprint ${fingerprint}`);
 }

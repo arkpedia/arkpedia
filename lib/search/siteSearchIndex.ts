@@ -9,6 +9,9 @@ import { enemyIconFor, type SiteSearchEntry } from './siteSearch';
  * writes to the URL shape the page it names actually reads.
  */
 
+/** How a row names Arknights: Endfield's music. */
+const ENDFIELD_LABEL = 'Endfield';
+
 export interface SiteSearchSources {
   pages: readonly NavLink[];
   operators: readonly { name: string; rarity: number | null; portraitPending?: true }[];
@@ -19,8 +22,9 @@ export interface SiteSearchSources {
   contents: readonly { id: string; name: string; label: string | null }[];
   stages: readonly { slug: string; code: string | null; name: string | null; variantOf: string | null; contentName: string | null }[];
   enemies: readonly { slug: string; name: string; index: string | null; icon?: string | null }[];
-  albums: readonly { albumId: string; albumName: string; albumAltName?: string | null }[];
-  songs: readonly { title: string; altTitle?: string | null; artist?: string | null }[];
+  /** `game` 'endfield' marks Arknights: Endfield's music, which the row names (lib/music/songFilter.ts). */
+  albums: readonly { albumId: string; albumName: string; albumAltName?: string | null; game?: string }[];
+  songs: readonly { title: string; altTitle?: string | null; artist?: string | null; game?: string }[];
   /** The curated YouTube channels the community page lists (lib/music/youtubeConfig.ts). */
   creators: readonly { id: string; label: string }[];
   /** Every artist and voice actor the credit pages list (lib/operators/creditDatabase.ts),
@@ -156,6 +160,8 @@ export function buildSiteSearchEntries(sources: SiteSearchSources): SiteSearchEn
       kind: 'album',
       title,
       href: `/music/discover?facet=${encodeURIComponent(`album:${album.albumId}`)}`,
+      // Discover offers to include Endfield music when it is off, so the row says whose it is.
+      sub: album.game === 'endfield' ? ENDFIELD_LABEL : undefined,
       terms: others(title, [album.albumName]),
     }));
   }
@@ -170,7 +176,7 @@ export function buildSiteSearchEntries(sources: SiteSearchSources): SiteSearchEn
       kind: 'song',
       title: song.title,
       href: `/music/discover?q=${encodeURIComponent(song.title)}`,
-      sub: song.artist ?? undefined,
+      sub: (song.game === 'endfield' ? [ENDFIELD_LABEL, song.artist].filter(Boolean).join(' · ') : song.artist) ?? undefined,
       terms: others(song.title, [song.altTitle]),
     }));
   }

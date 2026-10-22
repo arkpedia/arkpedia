@@ -87,7 +87,7 @@ export default function MusicPlaylists({ songs }: { songs: { videoId: string; ti
     setBusy(true);
     try {
       const count = await player.playPlaylist(all ? null : chosen.tracks, all ? undefined : chosen.id);
-      setNote(count ? `Playing ${all ? 'all songs' : chosen.name}.${!all && count < chosen.tracks.length ? ' Unavailable or stream-filtered songs were skipped.' : ''}` : 'No playable songs in this playlist with the current filters.');
+      setNote(count ? `Playing ${all ? 'all songs' : chosen.name}.${!all && count < chosen.tracks.length ? ' Songs that are unavailable, or hidden by Stream-safe or the Endfield music setting, were skipped.' : ''}` : 'No playable songs in this playlist with the current settings (Stream-safe, Endfield music).');
     } catch { setNote('The music catalogue could not be loaded. Try again.'); }
     finally { setBusy(false); }
   }
