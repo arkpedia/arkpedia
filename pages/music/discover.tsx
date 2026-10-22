@@ -20,6 +20,7 @@ import MusicNav from '@/components/music/MusicNav';
 import MusicPlaylists from '@/components/music/MusicPlaylists';
 import MusicTransportBar from '@/components/music/MusicTransportBar';
 import SongRow from '@/components/music/SongRow';
+import SongActionsMenu from '@/components/music/SongActionsMenu';
 import { createSongIndex, normalizeSearch } from '@/lib/music/songSearch';
 import { msrTrackId } from '@/lib/music/trackId';
 import { artistKey, creditedArtists, creditsArtist } from '@/lib/music/artistCredits';
@@ -468,14 +469,21 @@ export default function DiscoverPage({ songs: releaseSongs, characters, origins,
                     {visibleRankedSongs.map(song => {
                       const title = songTitle(song.title, song.altTitle);
                       const count = youtubeLikes!.likes[song.videoId].toLocaleString('en-US');
-                      return <button key={song.videoId} type="button" className="btn-bare music-discover-album-tile"
-                        data-song-id={song.videoId} aria-label={`Play ${title} now, ${count} YouTube likes`}
-                        title={`${title} · ${count} YouTube likes`} aria-current={playingId === song.videoId ? 'true' : undefined}
-                        onClick={() => playSong(song.videoId)}>
-                        <AlbumCover coverPath={song.coverPath} size={120} className="music-discover-album-tile-cover" />
-                        <span className="music-discover-album-tile-name">{title}</span>
-                        <span className="music-discover-album-tile-count">{count} likes</span>
-                      </button>;
+                      const id = song.videoId;
+                      // The tile plays the song; its ⋯ queues it, as a song row's does (it could only play, 2026-10-22).
+                      return <div key={id} className="music-discover-like-tile">
+                        <button type="button" className="btn-bare music-discover-album-tile" data-song-id={id}
+                          aria-label={`Play ${title} now, ${count} YouTube likes`}
+                          title={`${title} · ${count} YouTube likes`} aria-current={playingId === id ? 'true' : undefined}
+                          onClick={() => playSong(id)}>
+                          <AlbumCover coverPath={song.coverPath} size={120} className="music-discover-album-tile-cover" />
+                          <span className="music-discover-album-tile-name">{title}</span>
+                          <span className="music-discover-album-tile-count">{count} likes</span>
+                        </button>
+                        <SongActionsMenu song={{ id, title }} isActive={playingId === id}
+                          onPlayNow={() => playSong(id)} onQueueNext={() => void queueSong(id, 'next')} onQueueLast={() => void queueSong(id, 'last')}
+                          noAutoplay={{ on: noAutoplay.has(id), toggle: () => toggleNoAutoplay(id) }} />
+                      </div>;
                     })}
                   </Collection>
                   <p className="hint music-discover-likes-note">Likes on each linked upload · Updated <time dateTime={youtubeLikes!.updatedAt}>{youtubeLikes!.updatedAt.slice(0, 10)}</time></p>
