@@ -34,6 +34,12 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-10-22T10:00:00Z',
+    fixed: [
+      { title: 'Monthly Card and Look Back days tick', detail: 'Recommended Monthly Card and To Look Back on Terra days you claimed in game are ticked after an import.', href: '/free-op' },
+    ],
+  },
+  {
     at: '2026-10-21T19:30:00Z',
     added: [
       { title: 'Search YouTube and Twitch', detail: 'The site search also finds Arknights creators, their latest videos and live Twitch streams.', href: '/search' },
