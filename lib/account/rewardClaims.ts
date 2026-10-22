@@ -77,12 +77,16 @@ export function rewardClaimsFromGame(user: Record<string, unknown>, programs: re
   return { known: [...states.keys()].sort(), claimed: [...states].filter(([, claimed]) => claimed).map(([id]) => id).sort() };
 }
 
+/* Claims an import stored. A long-played account's save holds many thousands of mission and
+   sign-in records; an earlier cap of 10,000 ids, and one bad id, each threw the whole list away,
+   so nothing an import proved was ticked. Now the cap is generous and a bad id is dropped alone. */
+const MAX_CLAIM_IDS = 200000;
 export function parseRewardClaims(value: unknown): RewardClaims | undefined {
   const record = object(value);
-  const ids = (value: unknown): value is string[] => Array.isArray(value) && value.length <= 10000 && value.every(id => typeof id === 'string' && id.startsWith('free:') && validId(id));
-  if (!ids(record.known) || !ids(record.claimed)) return undefined;
-  const known = new Set(record.known);
-  return { known: [...known], claimed: [...new Set(record.claimed)].filter(id => known.has(id)) };
+  if (!Array.isArray(record.known) || !Array.isArray(record.claimed)) return undefined;
+  const ids = (list: unknown[]) => list.slice(0, MAX_CLAIM_IDS).filter((id): id is string => typeof id === 'string' && id.startsWith('free:') && validId(id));
+  const known = new Set(ids(record.known));
+  return { known: [...known], claimed: [...new Set(ids(record.claimed))].filter(id => known.has(id)) };
 }
 
 /** Update imported claims. The progress merger preserves manual marks separately. */
