@@ -12,7 +12,8 @@ const user = {
     missionGroups: { openseverTaskGroup1: 1, openseverTaskGroup2: 0, guide_g_1: 1, main_1: 1 },
   },
   openServer: { checkIn: { isAvailable: false, history: [] }, chainLogin: { isAvailable: false, nowIndex: 3, history: [1, 1, 0] } },
-  activity: { CHECKIN_ONLY: { act59sign: { history: [1, 1, 0, 0], extra: 'NAME-DO-NOT-EXPORT' } }, LOGIN_ONLY: { act1login: { reward: 1 } }, TYPE_ACT: {} },
+  activity: { CHECKIN_ONLY: { act59sign: { history: [1, 1, 0, 0], extra: 'NAME-DO-NOT-EXPORT' } }, LOGIN_ONLY: { act1login: { reward: 1 } }, TYPE_ACT: {},
+    CHECKIN_ACCESS: { act3access: { history: [0, 0, 1], lastTs: 1790000000, note: 'NAME-DO-NOT-EXPORT', flag: true } } },
   checkIn: { checkInGroupId: 'signin84', checkInHistory: [1, 1, 1, 0], longTermRecvRecord: { signin_1: 1 } },
   retro: { trail: { permanent_sidestory_1: { trailReward_1: 1, trailReward_2: 0 } } },
 };
@@ -26,10 +27,11 @@ test('the beginner summary keeps the four facts and nothing that identifies the 
     registered: 'before-2024-12-03',
     sources: {
       missions: { OPENSERVER: { count: 3, states: { 3: 2, 2: 1 } }, MAIN: { count: 1, states: { 3: 1 } } },
-      activityTypes: { CHECKIN_ONLY: 1, LOGIN_ONLY: 1, TYPE_ACT: 0 },
+      activityTypes: { CHECKIN_ONLY: 1, LOGIN_ONLY: 1, TYPE_ACT: 0, CHECKIN_ACCESS: 1 },
       eventSignIns: { act59sign: { days: 4, received: 2 } },
       loginOnly: { act1login: 1 },
       monthly: { days: 4, received: 3, longTermRecords: 1 },
+      activityShapes: { CHECKIN_ACCESS: { act3access: { history: 'list(3): 0×2 1×1', lastTs: 'number (large)', note: 'string', flag: 'boolean true' } } },
       retroTrail: { stories: 1, received: 1 },
     },
   });
@@ -39,9 +41,9 @@ test('the beginner summary keeps the four facts and nothing that identifies the 
 
 test('a save without the fields says so, and the changeover falls on the newer programme', () => {
   assert.deepEqual(beginnerDiagnostics({}), { programmeGroups: {}, openServerMissions: null, checkIn: null, chainLogin: null, registered: 'unknown',
-    sources: { missions: {}, activityTypes: {}, eventSignIns: {}, loginOnly: {}, monthly: null, retroTrail: { stories: 0, received: 0 } } });
+    sources: { missions: {}, activityTypes: {}, eventSignIns: {}, loginOnly: {}, monthly: null, activityShapes: {}, retroTrail: { stories: 0, received: 0 } } });
   assert.deepEqual(beginnerDiagnostics({ mission: [], openServer: 'bad', status: { registerTs: '1' } }), { programmeGroups: {}, openServerMissions: null, checkIn: null, chainLogin: null, registered: 'unknown',
-    sources: { missions: {}, activityTypes: {}, eventSignIns: {}, loginOnly: {}, monthly: null, retroTrail: { stories: 0, received: 0 } } });
+    sources: { missions: {}, activityTypes: {}, eventSignIns: {}, loginOnly: {}, monthly: null, activityShapes: {}, retroTrail: { stories: 0, received: 0 } } });
   assert.equal(beginnerDiagnostics({ status: { registerTs: 1733227199 } }).registered, 'before-2024-12-03');
   assert.equal(beginnerDiagnostics({ status: { registerTs: 1733227200 } }).registered, 'on-or-after-2024-12-03');
   assert.deepEqual(beginnerDiagnostics({ openServer: { checkIn: { history: 'x' } } }).checkIn, { isAvailable: null, historyLength: null });

@@ -7,6 +7,7 @@ import { forgetLogin, maskEmail, readSavedLogin, saveLogin, type SavedLogin } fr
 import ConnectionDiagnostics from './ConnectionDiagnostics';
 import { connectionDiagnostics } from '@/lib/account-import/connectionDiagnostics';
 import { beginnerDiagnostics } from '@/lib/account-import/beginnerDiagnostics';
+import { rawSave } from '@/lib/account-import/rawSaveExport';
 import { useCodeCooldown } from '@/lib/account-import/codeCooldown';
 
 /*
@@ -144,6 +145,7 @@ export default function GameSignIn({ server, onAccount, onForget, idPrefix = 'im
     connectionDiagnostics.setBeginner(null);
     const user = await readAccount({ transport: relayTransport, direct: directTransport, deviceId: device, network: await connect(from), onStep: setStep }, yostar);
     connectionDiagnostics.setBeginner(beginnerDiagnostics(user));
+    rawSave.set(user);
     setStep('pulls');
     let pulls: PullRead;
     try {

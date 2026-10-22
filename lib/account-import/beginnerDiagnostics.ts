@@ -38,6 +38,10 @@ interface ClaimSources {
   monthly: { days: number; received: number; longTermRecords: number } | null;
   /** Record Restoration: stories with a trail record, and rewards received across them. */
   retroTrail: { stories: number; received: number };
+  /** The activity kinds the Reward Tracker cannot read yet (an untyped object in the game's
+   *  own definitions): each activity's fields as shapes only, so one report shows how a kind
+   *  records a claim. Numbers in a list are counted by value, other values give their type. */
+  activityShapes: Record<string, Record<string, Record<string, string>>>;
 }
 interface SignIn { isAvailable: boolean | null; historyLength: number | null }
 
@@ -48,6 +52,24 @@ const small = (value: unknown) => typeof value === 'number' && Number.isInteger(
 
 const GAME_ID = /^[A-Za-z0-9_]{1,48}$/;
 const flags = (value: unknown) => Array.isArray(value) ? { days: Math.min(value.length, 999), received: value.filter((flag) => flag === 1).length } : null;
+
+/** A value's shape and nothing more: a list of small numbers by how many of each (e.g.
+ *  "list(7): 0×5 1×2"), a number as small or large, a boolean as itself, else its type. A
+ *  timestamp or an id is never repeated. */
+function shape(value: unknown): string {
+  if (Array.isArray(value)) {
+    if (value.every((v) => typeof v === 'number' && Number.isInteger(v) && v >= -1 && v <= 9)) {
+      const counts = new Map<number, number>();
+      for (const v of value as number[]) counts.set(v, (counts.get(v) ?? 0) + 1);
+      return `list(${value.length}): ${[...counts].sort((a, b) => a[0] - b[0]).map(([v, n]) => `${v}×${n}`).join(' ')}`.trim();
+    }
+    return `list(${value.length}) of ${[...new Set(value.map((v) => Array.isArray(v) ? 'list' : typeof v))].join('/')}`;
+  }
+  if (typeof value === 'number') return Number.isInteger(value) && value >= -1 && value <= 99 ? `number ${value}` : 'number (large)';
+  if (typeof value === 'boolean') return `boolean ${value}`;
+  if (value && typeof value === 'object') return `object{${Object.keys(value).length}}`;
+  return typeof value;
+}
 
 function claimSources(user: Record<string, unknown>): ClaimSources {
   const missions: ClaimSources['missions'] = {};
@@ -73,12 +95,21 @@ function claimSources(user: Record<string, unknown>): ClaimSources {
     const received = object(value)?.reward;
     if (GAME_ID.test(id)) loginOnly[id] = received === 0 || received === 1 ? received : null;
   }
+  const activityShapes: ClaimSources['activityShapes'] = {};
+  for (const type of ['CHECKIN_ACCESS', 'CHECKIN_VIDEO', 'PRAY_ONLY', 'CHECKIN_VS']) {
+    for (const [id, value] of Object.entries(object(activity[type]) ?? {}).slice(0, 20)) {
+      if (!GAME_ID.test(id)) continue;
+      (activityShapes[type] ??= {})[id] = Object.fromEntries(Object.entries(object(value) ?? {}).slice(0, 30)
+        .filter(([field]) => GAME_ID.test(field)).map(([field, v]) => [field, shape(v)]));
+    }
+  }
   const checkIn = object(user.checkIn);
   const history = flags(checkIn?.checkInHistory);
   const trail = Object.values(object(object(user.retro)?.trail) ?? {}).slice(0, 200);
   return {
     missions, activityTypes, eventSignIns, loginOnly,
     monthly: checkIn ? { days: history?.days ?? 0, received: history?.received ?? 0, longTermRecords: Object.keys(object(checkIn.longTermRecvRecord) ?? {}).length } : null,
+    activityShapes,
     retroTrail: { stories: trail.length, received: trail.reduce<number>((sum, rewards) => sum + Object.values(object(rewards) ?? {}).filter((flag) => flag === 1).length, 0) },
   };
 }
