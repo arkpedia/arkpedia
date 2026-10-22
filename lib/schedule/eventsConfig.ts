@@ -222,98 +222,21 @@ export const EVENTS: CommunityEvent[] = [
     url: 'https://home.gamer.com.tw/artwork.php?sn=6321677',
     kind: 'fan',
   },
-  // Conventions with a credited Arknights illustrator or voice actor as an announced guest,
-  // from each convention's own guest page. The name says who; credits are as /artists and
-  // /voice-actors have them. Where a convention publishes no hours, the record spans
-  // whole days in the venue's zone.
+  // Conventions with an Arknights guest: only a guest the convention itself presents through
+  // Arknights (owner, 2026-10-21). Voice actors and artists appear for their other work far
+  // more often than for Arknights, so a credit alone is not enough; Namie's AFA profile opens
+  // "the artist behind characters from Arknights, including Mizuki, Goldenglow, and Pepe".
   //
-  // Youmacon, Huntington Place, Detroit: Marina Inoue (Pallas, JP), Hikaru Midorikawa
-  // (Gnosis, THRM-EX, JP), Anne Yatco (Ho'olheyak, EN). US clocks go back on Nov 1.
+  // Anime Festival Asia Singapore, Suntec Halls 401-406, exhibition 10:00-20:00, Namie as a
+  // featured exhibition guest.
   {
-    name: 'Youmacon 2026: Marina Inoue, Hikaru Midorikawa, Anne Yatco',
-    country: 'USA',
-    lat: 42.3289,
-    lng: -83.0496,
-    startTime: '2026-10-29T00:00:00-04:00',
-    endTime: '2026-11-01T23:59:00-05:00',
-    url: 'https://youmacon.com/guests/',
-    kind: 'guest',
-  },
-  // Anime Weekend Atlanta, Georgia World Congress Center Building C, all English voices:
-  // Allegra Clark (Proviso, Dorothy, Penance), AmaLee (Ceylon), Anjali Kunapaneni
-  // (Cardigan, Mayer, Scene), Crystal Lee (Kichisei), Xanthe Huynh (Provence, Cuora).
-  // Exhibit hall Thu 12:00 to Sun 17:00.
-  {
-    name: 'Anime Weekend Atlanta 2026: Allegra Clark, AmaLee, Anjali Kunapaneni, Crystal Lee, Xanthe Huynh',
-    country: 'USA',
-    lat: 33.7590,
-    lng: -84.3990,
-    startTime: '2026-11-19T12:00:00-05:00',
-    endTime: '2026-11-22T17:00:00-05:00',
-    url: 'https://awa-con.com/guests/',
-    kind: 'guest',
-  },
-  // Anime Revolution Toronto, Metro Toronto Convention Centre North Building:
-  // Shin-Ichiro Miki (Lee, JP) and Xanthe Huynh (Provence, Cuora, EN). The convention
-  // publishes weekday hours (Fri 10:00-22:00 to Sun 10:00-20:00, Thursday is badge pickup
-  // only); the dates are the venue's listing, Nov 12-15 with that Thursday pickup.
-  {
-    name: 'Anime Revolution Toronto 2026: Shin-ichiro Miki, Xanthe Huynh',
-    country: 'Canada',
-    lat: 43.6440,
-    lng: -79.3870,
-    startTime: '2026-11-13T10:00:00-05:00',
-    endTime: '2026-11-15T20:00:00-05:00',
-    url: 'https://toronto.animerevolution.ca/guests/',
-    kind: 'guest',
-  },
-  // Anime Festival Asia Singapore, Suntec Halls 401-406, exhibition 10:00-20:00: Namie
-  // (Mizuki, Goldenglow, Pepe) as a featured exhibition guest; on the day stage Satomi Arai
-  // (新井里美: Gallus², JP), and on Sat 28 Nov Shin-ichiro Miki (Lee, JP) and Tarusuke
-  // Shingaki (Nowell, JP). The guests page names Namie and Satomi Arai, the festival's
-  // front page the Saturday stage.
-  {
-    name: 'AFA Singapore 2026: Namie, Satomi Arai, Shin-ichiro Miki, Tarusuke Shingaki',
+    name: 'AFA Singapore 2026: Namie',
     country: 'Singapore',
     lat: 1.2935,
     lng: 103.8573,
     startTime: '2026-11-27T10:00:00+08:00',
     endTime: '2026-11-29T20:00:00+08:00',
     url: 'https://animefestival.asia/afasg26/guests/',
-    kind: 'guest',
-  },
-  // Holiday Matsuri, Orange County Convention Center West Concourse, Orlando:
-  // Suzie Yeung (Shu, EN).
-  {
-    name: 'Holiday Matsuri 2026: Suzie Yeung',
-    country: 'USA',
-    lat: 28.4248,
-    lng: -81.4690,
-    startTime: '2026-12-18T00:00:00-05:00',
-    endTime: '2026-12-20T23:59:00-05:00',
-    url: 'https://holidaymatsuri.com/guests/',
-    kind: 'guest',
-  },
-  // Anime Milwaukee, Baird Center & Hilton Milwaukee: Monica Rial (Absinthe, EN).
-  {
-    name: 'Anime Milwaukee 2027: Monica Rial',
-    country: 'USA',
-    lat: 43.0389,
-    lng: -87.9170,
-    startTime: '2027-03-05T00:00:00-06:00',
-    endTime: '2027-03-07T23:59:00-06:00',
-    url: 'https://animemilwaukee.org/guests-of-honor',
-    kind: 'guest',
-  },
-  // Sakura-Con, Seattle: Monica Rial (Absinthe, EN). US clocks go forward on Mar 14.
-  {
-    name: 'Sakura-Con 2027: Monica Rial',
-    country: 'USA',
-    lat: 47.6114,
-    lng: -122.3321,
-    startTime: '2027-03-26T00:00:00-07:00',
-    endTime: '2027-03-28T23:59:00-07:00',
-    url: 'https://sakuracon.org/guests/',
     kind: 'guest',
   },
 ];

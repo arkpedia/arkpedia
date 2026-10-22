@@ -40,7 +40,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       { title: "Leave out stages you can't clear", detail: 'The reward tracker can leave out Challenge Mode, H stages, Adverse Environment and S stages, each on its own.', href: '/free-op' },
       { title: 'Welfare operator cards', detail: 'The welfare operators you can still get, from Record Restoration and open events, as picture cards.', href: '/free-op' },
       { title: 'Artists and voice actors, filterable', detail: 'Search, language, rarity, class, faction and Global or CN only, with A–Z groups; one card per person.', href: '/voice-actors' },
-      { title: 'Conventions with Arknights guests', detail: 'Global conventions where a credited Arknights artist or voice actor is a guest, and fan gatherings.', href: '/community' },
+      { title: 'Arknights at conventions', detail: 'Global conventions presenting an Arknights guest, such as Namie at AFA Singapore, and fan gatherings.', href: '/community' },
       { title: 'Endfield offline events', detail: 'Pop-ups, the gamescom asia booth, Round1 and the first-anniversary festivals in Japan and Korea.', href: '/community' },
       { title: 'Korean collabs and fan contests', detail: 'Banolim Pizza, animate cafe and the official fan contests and social events in Korea.', href: '/community' },
     ],
