@@ -401,7 +401,13 @@ jobs:
           current_release=$(git -C "$repo" show origin/main:release/manifest.json 2>/dev/null | node -p '(m => m.content ?? m.release)(JSON.parse(require("fs").readFileSync(0, "utf8")))' 2>/dev/null || true)
           if [ "$prepared_release" = "$current_release" ]; then
             if [ "$prepared_base" != "$current_base" ]; then
-              echo '::warning::Data main already serves this release, so nothing was published: the correction branch changes no record the release is built from.'
+              # The branch's commits still go to main, as a fast-forward with no release commit:
+              # left out, the branch never reads as published. On 2026-10-22 an editorial edit
+              # the guide-videos stage had just made on main too was compiled every six minutes,
+              # each run publishing nothing, until main was merged into editorial by hand. Nothing
+              # is named for the live check: the release is the one live serves already.
+              echo "::notice::Data main already serves this release: the branch's commits go to data main as they are, with no new release."
+              git -C "$repo" push origin "$prepared_base:refs/heads/main"
             else
               echo "Release inputs are unchanged; ignoring generatedAt-only output."
             fi
