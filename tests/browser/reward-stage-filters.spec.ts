@@ -152,6 +152,24 @@ test('Adverse Environment takes the six-star stages out too', async ({ page }) =
   await expect.poll(() => number(page)).toBe(before);
 });
 
+test('the welfare panel is as tall as its cards once an import trims the list: no leftover hold', async ({ page }) => {
+  await serve(page);
+  // Every welfare row ticked by an import except Viy's: the first paint listed them all.
+  const roster = { version: 1, server: 'en', importedAt: '2026-10-21T00:00:00.000Z', doctor: null, operators: ['Botani', 'Folinic', 'Wanqing', 'Pastoperator'],
+    operatorIds: ['char_4223_botany', 'char_345_folnic', 'char_4119_wanqin', 'char_x_past'], skins: [], cleared: [], rewardClaims: { known: [], claimed: [] } };
+  await page.addInitScript((value) => { localStorage.setItem('arkpediaAccount', JSON.stringify(value)); }, roster);
+  await page.goto('/free-op');
+  const list = page.getByRole('list', { name: 'Welfare operators to claim' });
+  await expect(list.getByRole('listitem')).toHaveCount(1);
+  const panel = page.locator('.free-op-welfare');
+  const { minHeight, height, content } = await panel.evaluate((el) => {
+    const last = el.lastElementChild as HTMLElement;
+    return { minHeight: (el as HTMLElement).style.minHeight, height: el.getBoundingClientRect().height, content: last.getBoundingClientRect().bottom - el.getBoundingClientRect().top };
+  });
+  expect(minHeight, 'no hold of its own').toBe('');
+  expect(height).toBeLessThanOrEqual(content + 2);
+});
+
 test('the welfare list holds only what is obtainable now, as cards, and an imported roster ticks its operators', async ({ page }) => {
   await serve(page);
   const roster = { version: 1, server: 'en', importedAt: '2026-10-21T00:00:00.000Z', doctor: null, operators: ['Wanqing'], operatorIds: ['char_4119_wanqin'],

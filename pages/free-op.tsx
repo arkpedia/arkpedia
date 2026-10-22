@@ -79,8 +79,20 @@ export default function FreeOpPage({ backlogSources, freeRewards: globalFreeRewa
   const locked = useMemo(() => new Map<string, LockedReason>([...[...rosterClaimedWelfare(eligible, roster)].map(id => [id, 'roster'] as const),
     ...importClaimedBeginner(eligible, past.account?.rewardClaims)]), [eligible, roster, past.account]);
   const keys = useMemo(() => presentation ? demoKeys : locked.size ? new Set([...past.doneKeys, ...locked.keys()]) : past.doneKeys, [presentation, demoKeys, locked, past.doneKeys]);
+  /* Ticking a welfare operator in Free rewards, below, takes its card out of this list. When
+     the list is above the reader's screen, it keeps the height it had at that tick, so nothing
+     moves under the reader (the Anti-Page Jump rule); once it is back in view, the hold goes.
+     It never holds on its own: the list once kept the tallest height it had ever had, which
+     was the first paint's, every welfare operator listed before an import trimmed it, and
+     the panel stayed that tall over one card (2026-10-21). */
+  const welfareRef = useRef<HTMLDivElement>(null);
+  const holdWelfare = useCallback(() => {
+    const list = welfareRef.current;
+    if (!list || list.getBoundingClientRect().bottom > 0) return;
+    list.style.minHeight = `${list.offsetHeight}px`;
+  }, []);
   /* A locked tick is the import's, not a mark to store: a change elsewhere keeps it out of the saved keys. */
-  const onFreeKeys = presentation ? setDemoKeys : (next: Set<string>) => past.onKeys(new Set([...next].filter(key => !locked.has(key) || past.doneKeys.has(key))));
+  const onFreeKeys = presentation ? setDemoKeys : (next: Set<string>) => { holdWelfare(); past.onKeys(new Set([...next].filter(key => !locked.has(key) || past.doneKeys.has(key)))); };
   const timed = freeRewardTotals(eligible.filter(reward => !reward.forecast), keys, clock);
   const originitePrime = remaining.originitePrime + timed.op;
   const orundum = remaining.orundum - remaining.originitePrime * ORUNDUM_PER_ORIGINITE + timed.orundum;
@@ -89,17 +101,13 @@ export default function FreeOpPage({ backlogSources, freeRewards: globalFreeRewa
   const operators = freeOperatorsToClaim(eligible, keys, clock);
   const [preview, setPreview] = useState<OperatorPreviewItem | null>(null);
   const closePreview = useCallback(() => setPreview(null), []);
-  /* Ticking a welfare operator in Free rewards, below, takes its row out of this list: the
-     list holds the tallest height it has had, so the page never shortens under the reader
-     (the Anti-Page Jump rule). */
-  const welfareRef = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
-    const list = welfareRef.current;
-    if (!list) return;
-    let floor = 0;
-    const observer = new ResizeObserver(() => { if (list.offsetHeight > floor) { floor = list.offsetHeight; list.style.minHeight = `${floor}px`; } });
-    observer.observe(list);
-    return () => observer.disconnect();
+    const release = () => {
+      const list = welfareRef.current;
+      if (list?.style.minHeight && list.getBoundingClientRect().bottom > 0) list.style.minHeight = '';
+    };
+    window.addEventListener('scroll', release, { passive: true });
+    return () => window.removeEventListener('scroll', release);
   }, []);
   return (
     <>
