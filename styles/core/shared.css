@@ -255,20 +255,6 @@
   --shadow-panel: inset 0 1px 0 rgb(255 255 255 / 0.03), 0 1px 2px rgb(0 0 0 / 0.22), 0 10px 24px -14px rgb(0 0 0 / 0.6);
   --shadow-lift: 0 8px 14px -6px rgb(0 0 0 / 0.75);
   --shadow-lift-tight: 0 3px 5px -4px rgb(0 0 0 / 0.85);
-  /* The HUD layer (styles/core/hud.css): the game's Stronghold Protocol readouts drawn in
-     the site's own ink. Line work and hatching are neutral -- teal stays "on" and "current"
-     (docs/development/ui-primitives.md rule 1) -- and the tag is the game's filled label. */
-  --hud-line: rgba(255, 255, 255, 0.18);
-  --hud-hatch: rgba(255, 255, 255, 0.07);
-  --hud-scan: rgba(255, 255, 255, 0.016);
-  --hud-grid: rgba(255, 255, 255, 0.028);
-  --hud-tag-bg: #c9d4db;
-  --hud-tag-ink: #0f151b;
-  /* The mode's promotional art: industrial orange on black (the act2autochess home theme),
-     a horizon haze, and the dark ridge the landship crosses. Decoration only. */
-  --hud-orange: #f39a25;
-  --hud-haze: rgba(243, 154, 37, 0.075);
-  --hud-ridge: rgba(0, 0, 0, 0.32);
 
 }
 :root[data-theme="light"] {
@@ -364,15 +350,6 @@
   --shadow-panel: 0 1px 2px rgb(16 28 38 / 0.05), 0 8px 22px -14px rgb(16 28 38 / 0.2);
   --shadow-lift: 0 8px 14px -6px rgb(16 28 38 / 0.28);
   --shadow-lift-tight: 0 3px 5px -4px rgb(16 28 38 / 0.4);
-  --hud-line: rgba(15, 25, 35, 0.24);
-  --hud-hatch: rgba(15, 25, 35, 0.07);
-  --hud-scan: rgba(15, 25, 35, 0.018);
-  --hud-grid: rgba(15, 25, 35, 0.04);
-  --hud-tag-bg: #26323c;
-  --hud-tag-ink: #f3f6f8;
-  --hud-orange: #c96f05;
-  --hud-haze: rgba(201, 111, 5, 0.06);
-  --hud-ridge: rgba(15, 25, 35, 0.055);
 
 }
 /* Phones: the control height plus 4px for the thumb, from the one base value above. */
@@ -535,55 +512,6 @@ header,
 .page-header.page-header-slim h1 { margin-bottom: 4px; }
 .page-header > .sub { margin: 0; }
 
-/* HUD marks (styles/core/hud.css says what the layer is and why; paint only, so no box moves). */
-/* A readout frame: L brackets at its four corners, the promotional art's brackets around the
-   title; a hatched band with an orange lead riding the hairline; the eyebrow's orange mark. */
-.page-header {
-  position: relative;
-}
-.page-header::before {
-  content: '';
-  position: absolute;
-  inset: 12px calc(var(--page-gutter) - 20px) 8px;
-  pointer-events: none;
-  background:
-    /* top left */
-    linear-gradient(var(--hud-line), var(--hud-line)) left top / 14px 1px no-repeat,
-    linear-gradient(var(--hud-line), var(--hud-line)) left top / 1px 14px no-repeat,
-    /* top right */
-    linear-gradient(var(--hud-line), var(--hud-line)) right top / 14px 1px no-repeat,
-    linear-gradient(var(--hud-line), var(--hud-line)) right top / 1px 14px no-repeat,
-    /* bottom left */
-    linear-gradient(var(--hud-line), var(--hud-line)) left bottom / 14px 1px no-repeat,
-    linear-gradient(var(--hud-line), var(--hud-line)) left bottom / 1px 14px no-repeat,
-    /* bottom right */
-    linear-gradient(var(--hud-line), var(--hud-line)) right bottom / 14px 1px no-repeat,
-    linear-gradient(var(--hud-line), var(--hud-line)) right bottom / 1px 14px no-repeat;
-}
-.page-header::after {
-  content: '';
-  position: absolute;
-  right: var(--page-gutter);
-  bottom: -4px;
-  width: min(280px, 42%);
-  height: 7px;
-  pointer-events: none;
-  background:
-    linear-gradient(var(--hud-orange), var(--hud-orange)) left 0 top 0 / 28px 7px no-repeat,
-    repeating-linear-gradient(-45deg, var(--hud-hatch) 0 2px, transparent 2px 6px) left 34px top 0 / calc(100% - 34px) 7px no-repeat;
-}
-.page-header > .eyebrow {
-  position: relative;
-}
-.page-header > .eyebrow::before {
-  content: '';
-  position: absolute;
-  left: -13px;
-  top: 4px;
-  width: 6px;
-  height: 6px;
-  background: var(--hud-orange);
-}
 
 /* Controls that belong to the page as a whole (search, filters, a primary action)
    sit under the title, inside the header's frame. */

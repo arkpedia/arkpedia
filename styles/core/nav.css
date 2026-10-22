@@ -586,23 +586,6 @@
   opacity: 1;
 }
 
-/* HUD mark (styles/core/hud.css says what the layer is and why). */
-/* A hatched edge under the bar's right end with an orange lead, the strip the game runs
-   along a readout. It ends where the framed bar's controls end. */
-.site-nav::after,
-.mobile-nav-bar::after {
-  content: '';
-  position: absolute;
-  right: max(var(--page-gutter), calc((100% - var(--frame-max)) / 2 + var(--page-gutter)));
-  bottom: -5px;
-  width: 196px;
-  height: 4px;
-  pointer-events: none;
-  background:
-    linear-gradient(var(--hud-orange), var(--hud-orange)) left 0 top 0 / 22px 4px no-repeat,
-    repeating-linear-gradient(-45deg, var(--hud-line) 0 1.5px, transparent 1.5px 5px) left 28px top 0 / calc(100% - 28px) 4px no-repeat;
-}
-
 /* --- Site search (components/layout/SiteSearch.tsx) -------------------------------- */
 
 /* The bar's control pair: search, then the theme toggle. The bar has about 1px of slack at

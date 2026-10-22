@@ -116,7 +116,7 @@ export function SiteSearchTrigger({ variant, control }: { variant: 'bar' | 'mobi
 
 /**
  * The site search as a pop-up over the page: the field, the best matches under it, and a key
- * legend, in a frame drawn like the game's Stronghold Protocol readouts (search.css). Every
+ * legend, in the site's own panel (search.css). Every
  * operator, event, episode, stage, enemy, album, song and nav page, and the community's YouTube
  * channels and videos and who is live on Twitch (lib/search/siteSearch.ts).
  *
@@ -156,11 +156,6 @@ export default function SiteSearchDialog({ control }: { control: SiteSearchContr
     <div className="site-search-overlay" onMouseDown={(event) => { if (event.target === event.currentTarget) control.close(); }}>
       <div className="site-search-dialog" role="dialog" aria-modal="true" aria-label="Search Arkpedia"
         onKeyDown={(event) => { if (event.key === 'Tab') event.preventDefault(); }}>
-        <div className="site-search-dialog-head" aria-hidden="true">
-          <span className="hud-tag">Search</span>
-          <span className="site-search-dialog-hatch" />
-          <span className="site-search-dialog-status">{failed ? 'Offline' : loading ? 'Loading index' : `${entries.length.toLocaleString('en-US')} records`}</span>
-        </div>
         {/* The field, and on a phone Cancel beside it: there the pop-up is the whole screen, with
             no Esc key and nothing outside it to tap, so this is its way out. Words, not a second
             ×: the field's own × beside it clears the text. */}
