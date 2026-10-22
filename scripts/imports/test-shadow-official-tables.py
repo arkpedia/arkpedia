@@ -7,6 +7,7 @@ BSON case, which skips without it).
 import base64
 import importlib.util
 import json
+import os
 import sys
 import tempfile
 import unittest
@@ -116,12 +117,31 @@ class StageTest(unittest.TestCase):
     def test_a_failed_decode_keeps_the_last_comparison(self):
         self.table('en', 'skill_table.json', {'s': 1}, {'s': 1})
         shadow.run(regions=('en',), decoder=self.decoder)
+        self.versions({'en': ('v2', 'v2')})
 
         def broken(region, out_dir):
             raise RuntimeError('flatc exploded')
         state, entries = shadow.run(regions=('en',), decoder=broken)
         self.assertEqual([(e['key'], e['action']) for e in entries], [('official-tables:en', 'kept-previous')])
         self.assertEqual(state['regions']['en']['identical'], 1)
+
+    def test_a_region_is_downloaded_once_per_client_version(self):
+        self.table('en', 'skill_table.json', {'s': 1}, {'s': 1})
+        shadow.run(regions=('en',), decoder=self.decoder)
+        before = shadow.STATE.read_text()
+        state, entries = shadow.run(regions=('en',), decoder=self.decoder)
+        self.assertEqual(self.decoded, ['en'], 'the same version is not downloaded again')
+        self.assertEqual((entries, shadow.STATE.read_text()), ([], before))
+        self.versions({'en': ('v2', 'v2')})
+        shadow.run(regions=('en',), decoder=self.decoder)
+        self.assertEqual(self.decoded, ['en', 'en'], 'a new client version is')
+
+    def test_differences_found_at_a_version_stay_reported_until_a_new_one(self):
+        self.table('cn', 'character_table.json', {'c': {'atk': 1}}, {'c': {'atk': 2}})
+        _, first = shadow.run(regions=('cn',), decoder=self.decoder)
+        _, again = shadow.run(regions=('cn',), decoder=self.decoder)
+        self.assertEqual(self.decoded, ['cn'])
+        self.assertEqual(again, first, 'the same quarantine entry, without a download')
 
     def test_all_four_regions_are_compared(self):
         for region in shadow.REGIONS:
@@ -162,6 +182,36 @@ class RegionalMirrorTest(unittest.TestCase):
         shadow.fetch_regional_mirror(('jp',))
         self.assertFalse(shadow.REGIONAL.exists())
 
+
+
+class DecodeTempTest(unittest.TestCase):
+    """arkprts's downloads go to a disk directory, never the runner's tmpfs /tmp (2026-10-22)."""
+
+    def test_arkprts_gets_a_disk_temp_dir_and_the_old_tmp_copy_is_removed(self):
+        with tempfile.TemporaryDirectory() as root:
+            root = Path(root)
+            fake_tmp, home_cache = root / 'tmpfs', root / 'home-cache'
+            leftover = fake_tmp / 'arkprts'
+            (leftover / 'bundles').mkdir(parents=True)
+            seen = {}
+            def run(args, **kw):
+                seen.update(kw['env'])
+                excel = Path(args[3]) / 'en' / 'gamedata' / 'excel'
+                excel.mkdir(parents=True)
+                (excel / 'character_table.json').write_text('{}')
+            saved = (shadow.subprocess.run, shadow.shutil.which, shadow.tempfile.gettempdir, os.environ.get('XDG_CACHE_HOME'))
+            shadow.subprocess.run, shadow.shutil.which = run, lambda name: '/usr/bin/flatc'
+            shadow.tempfile.gettempdir = lambda: str(fake_tmp)
+            os.environ['XDG_CACHE_HOME'] = str(home_cache)
+            try:
+                shadow.decode('en', root / 'out')
+            finally:
+                shadow.subprocess.run, shadow.shutil.which, shadow.tempfile.gettempdir = saved[:3]
+                if saved[3] is None: os.environ.pop('XDG_CACHE_HOME', None)
+                else: os.environ['XDG_CACHE_HOME'] = saved[3]
+            self.assertEqual(seen['TMPDIR'], str(home_cache / 'arkpedia-arkprts'))
+            self.assertTrue((home_cache / 'arkpedia-arkprts').is_dir())
+            self.assertFalse(leftover.exists(), 'what earlier runs left in /tmp is removed')
 
 if __name__ == '__main__':
     unittest.main()

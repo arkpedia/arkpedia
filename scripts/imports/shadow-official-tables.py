@@ -34,6 +34,7 @@ import os
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -105,11 +106,25 @@ def fetch_regional_mirror(regions):
         shutil.rmtree(REGIONAL, ignore_errors=True)
 
 
+def arkprts_tmp():
+    """arkprts's temp directory: the runner's home cache, on disk, not the tmpfs /tmp."""
+    return Path(os.environ.get('XDG_CACHE_HOME') or Path.home() / '.cache') / 'arkpedia-arkprts'
+
+
 def decode(region, out_dir):
     """Decode the region's tables from the official servers into out_dir/<region>/gamedata/excel."""
     if not shutil.which('flatc'):
         raise RuntimeError('no flatc on PATH')
-    env = {**os.environ, 'XDG_DATA_HOME': str(CACHE / 'arkprts-data')}
+    # arkprts downloads the client's bundles into tempfile.gettempdir()/arkprts (its TEMP_DIR). On
+    # the NAS runners /tmp is a tmpfs that outlives each job and is counted in the container's 6 GB,
+    # and those downloads held 1.2 GB of it under every later Check's browsers and server
+    # (2026-10-22, scripts/ci/sample-resources.sh). So arkprts gets a temp directory on disk, in the
+    # runner's home cache, where later runs still reuse the downloads; and what earlier runs left
+    # in /tmp is removed.
+    tmp = arkprts_tmp()
+    tmp.mkdir(parents=True, exist_ok=True)
+    shutil.rmtree(Path(tempfile.gettempdir()) / 'arkprts', ignore_errors=True)
+    env = {**os.environ, 'XDG_DATA_HOME': str(CACHE / 'arkprts-data'), 'TMPDIR': str(tmp)}
     # CRITICAL: arkprts logs a traceback for every non-table bundle it cannot decrypt (dozens a
     # region, harmless). A table that fails to decode still shows, as missing from the decode.
     subprocess.run([sys.executable, '-m', 'arkprts.assets', str(out_dir), '--server', region, '--log-level', 'CRITICAL'],
@@ -137,6 +152,12 @@ def compare_dirs(official, mirror):
     return out
 
 
+def differs_entry(region, differs, tables, name):
+    sample = ', '.join(sorted(differs)[:4])
+    return {'key': f'official-tables:{region}:differs', 'action': 'kept-previous',
+            'reason': f'{len(differs)} of {tables} {region} tables differ between our decode of the official client and {name} (for example {sample}); the site keeps the mirror\'s.'}
+
+
 def run(regions=REGIONS, decoder=decode):
     previous = json.loads(STATE.read_text()) if STATE.exists() else {}
     state = {'version': 1, 'regions': dict(previous.get('regions', {}))}
@@ -147,6 +168,15 @@ def run(regions=REGIONS, decoder=decode):
         name = mirror_name(region)
         if mirror_current is False:
             print(f'{region}: {name} is behind the live client ({live}); compared on a later run.')
+            continue
+        # Once per client version (the owner, 2026-10-22): a region already compared at the live
+        # version is not downloaded again until the next patch. Its differences, if any, are
+        # reported again, so they stay in the quarantine until a later version compares clean.
+        last = previous.get('regions', {}).get(region)
+        if live is not None and last and last.get('resVersion') == live:
+            print(f'{region}: already compared at {live}; the next decode is on the next client version.')
+            if last.get('differs'):
+                entries.append(differs_entry(region, last['differs'], last.get('tables', len(last['differs'])), name))
             continue
         if not mirror_dir.is_dir():
             entries.append({'key': f'official-tables:{region}', 'action': 'kept-previous',
@@ -169,9 +199,7 @@ def run(regions=REGIONS, decoder=decode):
             **({'differs': dict(sorted(differs.items()))} if differs else {}),
         }
         if differs:
-            sample = ', '.join(sorted(differs)[:4])
-            entries.append({'key': f'official-tables:{region}:differs', 'action': 'kept-previous',
-                            'reason': f'{len(differs)} of {len(result)} {region} tables differ between our decode of the official client and {name} (for example {sample}); the site keeps the mirror\'s.'})
+            entries.append(differs_entry(region, differs, len(result), name))
     state['regions'] = dict(sorted(state['regions'].items()))
     text = json.dumps(state, indent=1, ensure_ascii=False) + '\n'
     if not STATE.exists() or STATE.read_text() != text:
