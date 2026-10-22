@@ -8,6 +8,8 @@
   "observability": { "enabled": true },
   // The page cache (open-next.config.ts). The bucket must exist before a deploy:
   // `npx wrangler r2 bucket create arkpedia-opennext-cache`, or R2 > Create bucket in the dashboard.
+  // It also keeps each Monster Siren song's signed audio address, under music-audio/
+  // (lib/music/audioLinkMemo.ts): nothing in front of the Worker keeps the route's redirect.
   "r2_buckets": [{ "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "arkpedia-opennext-cache" }],
   // The Worker calling itself: res.revalidate (the release refresh) and the revalidation queue
   // re-render a page this way. The service must be this Worker's own name.

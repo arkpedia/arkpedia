@@ -712,7 +712,8 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
 
 
   // Prepare only the actual next song. Queue edits, shuffle, repeat and automatic tracks
-  // read the same decision as Next; paused players retain a completed file but stop fetching.
+  // read the same decision as Next; paused players retain a completed file but stop fetching
+  // (its signed address, headers only, is still asked for). Data saver prepares nothing.
   useEffect(() => {
     const saver = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData;
     const step = nextQueueStep();

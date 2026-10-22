@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { stubMonsterSiren, WAV_SECONDS } from './monster-siren-stub';
+import { signedHeads, stubMonsterSiren, WAV_SECONDS } from './monster-siren-stub';
 import { stubYouTube } from './youtube-stub';
 
 interface Song { videoId: string; cid: string; title: string; altTitle?: string }
@@ -107,13 +107,14 @@ test('the browser Data saver preference prevents speculative audio downloads', a
   await expect.poll(() => audio(page).evaluate(el => (el as HTMLAudioElement).currentTime)).toBeGreaterThan(4);
   expect(await prepared(page)).toHaveLength(0);
   expect([...new Set(siren.resolves)]).toEqual([first.cid]);
+  expect(siren.links, 'not even the next song\'s address is asked for ahead').toEqual([]);
 });
 
 test('a failed preload leaves playback alone and the next song uses ordinary streaming', async ({ page }) => {
   const { songs: [first, second] } = await setup(page);
   let attempts = 0;
   await page.route(`**/api/music-audio/${second.cid}`, route => {
-    if (route.request().resourceType() === 'fetch') { attempts++; return route.fulfill({ status: 503, body: '' }); }
+    if (route.request().resourceType() === 'fetch' && route.request().method() === 'GET') { attempts++; return route.fulfill({ status: 503, body: '' }); }
     return route.fallback();
   });
   await select(page, first, true); await select(page, second);
@@ -134,7 +135,7 @@ test('an unfinished direct download never delays Next, and old relay preferences
   const { siren, songs: [first, second, third] } = await setup(page);
   let waiting = false;
   await page.route(`**/api/music-audio/${second.cid}`, route => {
-    if (route.request().resourceType() === 'fetch') { waiting = true; return new Promise<void>(() => {}); }
+    if (route.request().resourceType() === 'fetch') { if (route.request().method() === 'GET') waiting = true; return new Promise<void>(() => {}); }
     return route.fallback();
   });
   await select(page, first, true); await select(page, second);
@@ -211,4 +212,42 @@ test('Autoplay prepares the same next library song that plays after the chosen q
   await expect(audio(page)).toHaveAttribute('src', (await prepared(page))[0]);
   await expect(bar(page)).toContainText(second.altTitle || second.title);
   expect(siren.resolves.filter(cid => cid === second.cid)).toHaveLength(1);
+});
+
+/*
+ * The next song's signed address, asked for ahead (lib/music/audioPreload.ts): a HEAD of its
+ * address follows the route's redirect to Monster Siren's CDN, which answers with headers only.
+ * Next then sets that address and plays it in the press, without asking the route first (0.8-3 s
+ * a song on the Cloudflare Worker, 2026-10-22) and without a downloaded file.
+ */
+test('the next song\'s signed address is asked for ahead, and Next plays it in the press without asking the route', async ({ page }) => {
+  await page.addInitScript(() => {
+    const plays: { src: string; inPress: boolean }[] = [];
+    (window as unknown as { __plays: typeof plays }).__plays = plays;
+    const { play } = HTMLMediaElement.prototype;
+    HTMLMediaElement.prototype.play = function (this: HTMLMediaElement) {
+      if (this.matches('audio[data-music-audio]')) plays.push({ src: this.getAttribute('src') ?? '', inPress: navigator.userActivation.isActive });
+      return play.call(this);
+    };
+  });
+  await signedHeads(page);
+  const { siren, songs: [first, second] } = await setup(page);
+  await select(page, first, true);
+  // The next song's file is held back, so at the press only its address can be ready.
+  siren.delayFilesMs = 60_000;
+  await select(page, second);
+  const file = `/siren/audio/${second.cid}.wav`;
+  await expect.poll(() => siren.links).toEqual([second.cid]);
+  await page.waitForFunction(cid => performance.getEntriesByType('resource').some(entry => entry.name.endsWith(`/api/music-audio/${cid}`)
+    && (entry as PerformanceResourceTiming).initiatorType === 'fetch' && (entry as PerformanceResourceTiming).responseEnd > 0), second.cid);
+  const asked = siren.resolves.length;
+  siren.delayFilesMs = 0;
+  await bar(page).getByRole('button', { name: 'Next track', exact: true }).click();
+  await expect(audio(page)).toHaveAttribute('src', new RegExp(`^https://res01\\.hycdn\\.cn/5{32}/[0-9A-F]{8}${file.replace(/\./g, '\\.')}$`));
+  await expect.poll(() => audio(page).evaluate(el => (el as HTMLAudioElement).currentTime)).toBeGreaterThan(0.1);
+  expect(siren.resolves.slice(asked).filter(cid => cid === second.cid), 'the route was not asked at the press').toEqual([]);
+  expect(siren.cdn.some(({ method, url }) => method === 'GET' && url.endsWith(file)), 'the file came from the CDN').toBe(true);
+  const plays = await page.evaluate(() => (window as unknown as { __plays: { src: string; inPress: boolean }[] }).__plays);
+  expect(plays.find(({ src }) => src.includes(file)), 'its play() ran inside the press').toMatchObject({ inPress: true });
+  expect(await prepared(page)).toHaveLength(0);
 });

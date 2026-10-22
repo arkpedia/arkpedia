@@ -90,6 +90,23 @@ them.
 the Cloudflare relay. On the Worker, `/import?relay=cloudflare` or `?relay=vps` picks one for that
 page. Addresses other than workers.dev (www, arkpedia-dev) always use the VPS relay.
 
+## Music audio addresses
+
+`/api/music-audio/<id>` redirects to Monster Siren's signed address for a song, which its API
+gives in about a second. Vercel's edge keeps that redirect for half an hour (its `s-maxage`).
+Nothing does in front of the Worker: Cloudflare's Cache API does nothing on a `*.workers.dev`
+address. So the route keeps the address itself (`lib/music/audioLinkMemo.ts`):
+
+- in the isolate's memory, and in the page-cache bucket under `music-audio/<id>`, which every
+  isolate reads;
+- for at most half an hour, and never into the address's last ninety minutes. The expiry is the
+  Unix time in the address's path, three hours after it was given;
+- `?retry=` (the player's retry after the CDN refused a file) asks Monster Siren again and replaces
+  the kept address.
+
+The response header `X-Arkpedia-Audio-Link` says which happened: `kept`, `asked` or `retry`. Vercel
+sends no such header and keeps nothing of its own.
+
 ## Known limits
 
 - **Images** go through Next's default loader; Cloudflare Images is not set up.
