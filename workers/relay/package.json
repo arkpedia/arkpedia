@@ -1,0 +1,16 @@
+{
+  "name": "arkpedia-relay-worker",
+  "private": true,
+  "type": "module",
+  "description": "The account-import relay as a Cloudflare Worker and container (README.md).",
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "check": "wrangler deploy --dry-run --containers-rollout=none --outdir build"
+  },
+  "dependencies": {
+    "@cloudflare/containers": "0.3.7"
+  },
+  "devDependencies": {
+    "wrangler": "4.151.3"
+  }
+}

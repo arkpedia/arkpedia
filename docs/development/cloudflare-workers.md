@@ -77,6 +77,19 @@ A Worker built from `dev` reads `dev-live`, the release arkpedia-dev reads, and 
 `WORKERS_CI_BRANCH`, which Workers Builds sets. `ARKPEDIA_CONTENT_CHANNEL` as a build variable
 overrides it. Until 2026-10-22 the Worker built from dev read www's release.
 
+## The account-import relay
+
+The Worker's account import can tunnel through a relay of its own on Cloudflare,
+`workers/relay` (its README covers how it works and how it deploys). It's a second Worker,
+`arkpedia-relay`, with one container that runs the same Wisp relay as the VPS. A plain Worker
+can't be the relay: its `connect()` sockets may not open connections to Cloudflare addresses, and
+the game's Global and JP servers are behind Cloudflare. A container's own internet access reaches
+them.
+
+`config/relay.json` `cloudflare` decides which relay the Worker's pages use. `use: true` makes it
+the Cloudflare relay. On the Worker, `/import?relay=cloudflare` or `?relay=vps` picks one for that
+page. Addresses other than workers.dev (www, arkpedia-dev) always use the VPS relay.
+
 ## Known limits
 
 - **Images** go through Next's default loader; Cloudflare Images is not set up.

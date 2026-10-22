@@ -240,6 +240,24 @@ test('the relay address is config/relay.json\'s, a wss:// Wisp endpoint', async 
   assert.match(RELAY_URL, /^wss:\/\/[a-z0-9.-]+\/wisp\/$/);
 });
 
+test('the Cloudflare relay is used only on the site\'s own Worker (www and dev keep the VPS), when switched on or asked for', async () => {
+  const { chooseRelayUrl } = await import('../../lib/account-import/relay');
+  const config = (await import('../../config/relay.json')).default;
+  assert.match(config.cloudflare.worker, /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/);
+  const worker = (search: string) => ({ hostname: 'arkpedia.account.workers.dev', search });
+  const cloudflare = `wss://${config.cloudflare.worker}.account.workers.dev/wisp/`;
+  const off = { ...config, cloudflare: { ...config.cloudflare, use: false } };
+  assert.equal(chooseRelayUrl(worker(''), off), config.url);
+  assert.equal(chooseRelayUrl(worker('?relay=cloudflare'), off), cloudflare);
+  assert.equal(chooseRelayUrl(worker('?relay=elsewhere'), off), config.url);
+  const on = { ...config, cloudflare: { ...config.cloudflare, use: true } };
+  assert.equal(chooseRelayUrl(worker(''), on), cloudflare);
+  assert.equal(chooseRelayUrl(worker('?relay=vps'), on), config.url);
+  for (const hostname of ['www.arkpedia.net', 'arkpedia-dev.vercel.app', 'workers.dev.example.com']) {
+    assert.equal(chooseRelayUrl({ hostname, search: '?relay=cloudflare' }, on), config.url, hostname);
+  }
+});
+
 test('the relay uses a bounded session instead of retaining more connections than Wisp permits', async () => {
   const { createRelaySession } = await import('../../lib/account-import/relay');
   const limits: number[][] = [];

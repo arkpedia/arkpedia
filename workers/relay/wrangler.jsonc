@@ -1,0 +1,22 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // config/relay.json cloudflare.worker.
+  "name": "arkpedia-relay",
+  "main": "worker.mjs",
+  "compatibility_date": "2026-10-19",
+  "workers_dev": true,
+  "preview_urls": false,
+  // No invocation logs or traces: the relay keeps no record of who connected or where to.
+  "observability": { "enabled": false },
+  // One small instance, asleep after ten idle minutes (worker.mjs).
+  "containers": [{
+    "class_name": "Relay",
+    "image": "./container/Dockerfile",
+    "max_instances": 1,
+    "instance_type": "lite"
+  }],
+  "durable_objects": { "bindings": [{ "name": "RELAY", "class_name": "Relay" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Relay"] }],
+  // 20 requests a minute per address, the VPS relay's nginx limit.
+  "ratelimits": [{ "name": "VISITORS", "namespace_id": "1001", "simple": { "limit": 20, "period": 60 } }]
+}
