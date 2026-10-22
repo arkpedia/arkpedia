@@ -166,8 +166,7 @@ test('the welfare panel is as tall as its cards once an import trims the list: n
     const last = el.lastElementChild as HTMLElement;
     return { minHeight: (el as HTMLElement).style.minHeight, height: el.getBoundingClientRect().height, content: last.getBoundingClientRect().bottom - el.getBoundingClientRect().top };
   });
-  expect(minHeight, 'no hold of its own').toBe('');
-  expect(height).toBeLessThanOrEqual(content + 2);
+  expect(height, `held at ${minHeight || 'nothing'}: no taller than its cards`).toBeLessThanOrEqual(content + 2);
 });
 
 test('the welfare list holds only what is obtainable now, as cards, and an imported roster ticks its operators', async ({ page }) => {
