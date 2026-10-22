@@ -54,21 +54,23 @@ const nextConfig = {
     // at 6 GB. On 2026-10-22 Next 16's Deploy build (which also type-checks) was killed there
     // twice at 7 workers (exit 137).
     cpus: 4,
-    // These routes use local records only while Next prerenders the bundled
-    // fallback. In production their ISR functions read the signed release from
-    // arkpedia-data, while public/ is emitted separately as static output.
-    // Without this exclusion @vercel/nft follows the broad data readers and
-    // copies every stage, operator, and generated public file into each function.
-    outputFileTracingExcludes: {
-      ...Object.fromEntries(contentPageRoutes.map((route) => [route === '/' ? '/index' : route, [
-        'data/**/*', 'public/**/*', '.env*',
-      ]])),
-      // These endpoints are hard-blocked outside `next dev`; local tool inputs
-      // and cached results must never be packaged into a deployed function.
-      '/api/dev/**': ['data/**/*', 'public/**/*', '.cache/**/*', '.env*'],
-      // Artwork voices read the published operator page; local catalogue readers are dev-only.
-      '/api/artwork-voices': ['data/**/*', 'public/**/*', '.env*'],
-    },
+  },
+  // Top-level since Next 15: under `experimental` Next 16 ignores it with a warning, which it did
+  // from #658 until 2026-10-22.
+  // These routes use local records only while Next prerenders the bundled
+  // fallback. In production their ISR functions read the signed release from
+  // arkpedia-data, while public/ is emitted separately as static output.
+  // Without this exclusion @vercel/nft follows the broad data readers and
+  // copies every stage, operator, and generated public file into each function.
+  outputFileTracingExcludes: {
+    ...Object.fromEntries(contentPageRoutes.map((route) => [route === '/' ? '/index' : route, [
+      'data/**/*', 'public/**/*', '.env*',
+    ]])),
+    // These endpoints are hard-blocked outside `next dev`; local tool inputs
+    // and cached results must never be packaged into a deployed function.
+    '/api/dev/**': ['data/**/*', 'public/**/*', '.cache/**/*', '.env*'],
+    // Artwork voices read the published operator page; local catalogue readers are dev-only.
+    '/api/artwork-voices': ['data/**/*', 'public/**/*', '.env*'],
   },
   async redirects() {
     // /enemies used to be a redirect to the first enemy's own page, because the

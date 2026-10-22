@@ -92,6 +92,17 @@ test('Next prerenders with at most 4 workers, whatever the host\'s core count', 
   assert.ok(Number.isInteger(cpus) && cpus >= 1 && cpus <= 4, `experimental.cpus is ${cpus}`);
 });
 
+test('next.config.js passes Next\'s own option schema: no ignored, moved or unknown option', () => {
+  // Next only warns about an option it does not know, and then ignores it: from #658 (Next 16)
+  // the function trace excludes sat under `experimental`, where Next 16 no longer reads them.
+  const issues = JSON.parse(execFileSync(process.execPath, ['-e', `
+    const { configSchema } = require('next/dist/server/config-schema');
+    const result = configSchema.safeParse(require('./next.config.js')('phase-production-build'));
+    console.log(JSON.stringify(result.success ? [] : result.error.issues.map(issue => issue.path.join('.') + ': ' + issue.message)));
+  `], { encoding: 'utf8' }));
+  assert.deepEqual(issues, []);
+});
+
 test('both Check builds follow generated inputs and explicit validation, with output guards retained', () => {
   const index = name => steps.findIndex(step => step.name === name);
   for (const name of ['Prepare build inputs', 'Typecheck', 'Lint', 'Build', 'Pages render the live content release']) assert.ok(index(name) >= 0, name);
