@@ -10,6 +10,10 @@ import type { Page, Route } from '@playwright/test';
  * Monster Siren says nothing more, so the player falls back as it would; `arts` lists those asked.
  * A check that wants art routes that address itself (its route, added later, is matched first).
  * `hangFiles` leaves every file request unanswered, a CDN that never sends a byte.
+ * `links` lists the songs whose address was asked for ahead, by HEAD (lib/music/audioPreload.ts):
+ * no file is loaded for those. Monster Siren's CDN (https://res01.hycdn.cn/...) serves the file
+ * here too, and `cdn` lists the requests that reached it; signedHeads makes those HEADs read as
+ * the real route's redirect to it.
  */
 
 /** A mono 8 kHz 8-bit WAV of silence: about a quarter of a megabyte for 30 seconds. */
@@ -35,11 +39,36 @@ export interface Siren {
   delayFilesMs: number;
   /** Requests to the retired music relay: no playback or preload should use it. */
   relays: string[];
+  links: string[];
+  cdn: { method: string; url: string }[];
+}
+
+/**
+ * The real route's redirect, as the upcoming song's HEAD meets it: a HEAD of /api/music-audio/<cid>
+ * reads as having reached the signed address on Monster Siren's CDN that the route redirects to
+ * (expiring three hours on). Playwright does not intercept the request a redirect it answered
+ * leads to (that one went to the real CDN, 2026-10-22), so the stub answers the HEAD and only its
+ * url is changed; a real browser follows the redirect and reads the same url (the CDN allows any
+ * origin). Add before the page loads.
+ */
+export async function signedHeads(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    const original = window.fetch;
+    window.fetch = async (input, init) => {
+      const response = await original(input, init);
+      const song = /\/api\/music-audio\/(\d+)$/.exec(String(input));
+      if (song && init?.method === 'HEAD') {
+        const expiry = Math.floor(Date.now() / 1000 + 3 * 3600).toString(16).toUpperCase();
+        Object.defineProperty(response, 'url', { value: `https://res01.hycdn.cn/${'5'.repeat(32)}/${expiry}/siren/audio/${song[1]}.wav` });
+      }
+      return response;
+    };
+  });
 }
 
 /** Monster Siren as the page meets it: the address route and the file it names. */
 export async function stubMonsterSiren(page: Page): Promise<Siren> {
-  const siren: Siren = { resolves: [], files: [], arts: [], refuseNextFile: false, hangFiles: false, delayFilesMs: 0, relays: [] };
+  const siren: Siren = { resolves: [], files: [], arts: [], refuseNextFile: false, hangFiles: false, delayFilesMs: 0, relays: [], links: [], cdn: [] };
   await page.route('**/api/music-art/**', (route) => {
     siren.arts.push(new URL(route.request().url()).pathname.split('/').pop()!);
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ cover: null, artists: [], albumName: null }) });
@@ -63,12 +92,23 @@ export async function stubMonsterSiren(page: Page): Promise<Siren> {
       headers: { 'Accept-Ranges': 'bytes', 'Content-Range': `bytes ${from}-${to}/${WAV.length}`, 'Access-Control-Allow-Origin': '*' } });
   };
   await page.route('**/__siren/**', serve);
+  // A HEAD is answered with headers only, at once, as Monster Siren's CDN answers one.
+  const headers = (route: Route) => route.fulfill({ status: 200, contentType: 'audio/wav',
+    headers: { 'Accept-Ranges': 'bytes', 'Content-Length': String(WAV.length), 'Access-Control-Allow-Origin': '*' } });
+  await page.route('https://res01.hycdn.cn/**', (route) => {
+    siren.cdn.push({ method: route.request().method(), url: route.request().url() });
+    return route.request().method() === 'HEAD' ? headers(route) : serve(route);
+  });
   // The player's own address (pages/api/music-audio, a redirect to the signed file): answered
-  // with the file itself. A load asks from the start; its later ranges are the same load's.
+  // with the file itself. A load asks from the start; its later ranges are the same load's. A HEAD
+  // is the upcoming song's address asked for ahead (signedHeads).
   await page.route('**/api/music-audio/**', (route) => {
+    const cid = new URL(route.request().url()).pathname.split('/').pop()!;
+    const head = route.request().method() === 'HEAD';
     const range = /bytes=(\d+)-/.exec(route.request().headers().range ?? '');
-    if (!range || range[1] === '0') siren.resolves.push(new URL(route.request().url()).pathname.split('/').pop()!);
-    return serve(route);
+    if (head) siren.links.push(cid);
+    else if (!range || range[1] === '0') siren.resolves.push(cid);
+    return head ? headers(route) : serve(route);
   });
   // Trap obsolete relay requests instead of letting a regression hit a live server.
   await page.route('https://relay.arkpedia.net/msr/**', (route) => {

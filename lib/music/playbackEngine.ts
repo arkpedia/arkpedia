@@ -104,8 +104,9 @@ export function createTrackEngine(youtube: PlaybackEngine, audio: PlaybackEngine
   };
 }
 
-/** Monster Siren's addresses are signed for a few hours (about five, 2026-10-12). One older than
- *  this is asked again before it plays, rather than waiting for the CDN to refuse it. */
+/** Monster Siren's addresses are signed for a few hours (three, 2026-10-22: the expiry is in the
+ *  address, monsterSirenAudio.ts audioLinkExpiry). One older than this is asked again before it
+ *  plays, rather than waiting for the CDN to refuse it. */
 const ADDRESS_MAX_AGE_MS = 60 * 60 * 1000;
 
 export interface MsrAudioEngine extends PlaybackEngine {
@@ -150,8 +151,9 @@ interface AudioEngineOptions {
  * audioElement.ts), kept for the whole visit; a press that came before the engine could play has
  * already set and played its song's file there (primeMusicAudio), and load() takes it over.
  *
- * Playback uses the same element throughout. One upcoming file may be prepared by
- * audioPreload.ts while this song plays; otherwise files load only when asked to play. Its
+ * Playback uses the same element throughout. One upcoming file, or failing that its signed
+ * address, may be prepared by audioPreload.ts while this song plays; otherwise files load only
+ * when asked to play. Its
  * address is ours (pages/api/music-audio), a redirect to
  * Monster Siren's signed one, so it is set and played in the same task as the press or the last
  * song's end, with no request between. A refused file (the CDN answers 403, which the element
