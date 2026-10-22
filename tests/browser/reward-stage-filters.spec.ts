@@ -239,6 +239,9 @@ test('the Free rewards tab shows its welfare operators as the overview\'s cards,
   await expect(botani).toBeEnabled();
   // Where the card sits in the document (not the viewport, which check() scrolls), and its size.
   const place = () => card('Botani').evaluate((el) => { const r = el.getBoundingClientRect(); return [r.left, r.top + scrollY, r.width, r.height].map(Math.round); });
+  // Measured once the faces have settled: on a slow runner the webfonts swapped in between the
+  // two measurements and moved the card 3px with no tick involved (CI, 2026-10-22).
+  await page.evaluate(() => document.fonts.ready);
   const before = await place();
   await botani.check();
   await expect(botani).toBeChecked();
