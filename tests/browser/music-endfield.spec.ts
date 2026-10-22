@@ -9,7 +9,7 @@ import { stubYouTube } from './youtube-stub';
  * pages' header and in the player bar's ⋯ menu.
  */
 
-interface Row { videoId?: string; cid?: string; title: string; altTitle?: string; game?: string }
+interface Row { videoId?: string; cid?: string; title: string; altTitle?: string; album?: string; game?: string }
 async function catalogue(page: Page): Promise<Row[]> {
   return (await (await page.request.get('/music-catalogue.json')).json()).songs;
 }
@@ -48,7 +48,7 @@ test('Discover hides Endfield\'s songs and albums while the setting is off, and 
   await stubYouTube(page);
   const song = (await catalogue(page)).find((row) => row.game === 'endfield')!;
   await page.goto(`/music/discover?q=${encodeURIComponent(song.title)}`);
-  const hint = page.locator('.music-discover-hidden-hint');
+  const hint = page.locator('.music-hidden-endfield-hint');
   await expect(hint).toContainText('hidden while Endfield music is off');
   const songRow = page.locator(`.music-discover-song-list [data-song-id="${idOf(song)}"]`);
   await expect(songRow).toHaveCount(0);
@@ -81,9 +81,12 @@ test('a saved playlist plays its Endfield songs only once the setting is on, and
   // The bar's ⋯ menu: the same setting, so the corner player on any page reaches it.
   await page.getByRole('region', { name: 'Player', exact: true }).getByRole('button', { name: 'More player actions', exact: true }).click();
   const menu = page.getByRole('dialog', { name: 'Player actions', exact: true });
-  await menu.getByRole('checkbox', { name: 'Endfield music', exact: true }).check();
+  // Clicked, not checked: on a touch screen the background-play pop-up opens and takes the focus,
+  // so the menu closes behind it.
+  await menu.getByRole('checkbox', { name: 'Endfield music', exact: true }).click();
   await expect(setting(page)).toBeChecked();
-  await page.keyboard.press('Escape');
+  if (await popUp(page).isVisible()) await popUp(page).getByRole('button', { name: 'OK', exact: true }).click();
+  else await page.keyboard.press('Escape');
   // Only the playlist's own Endfield song comes in, after what was there.
   await expect(queueRow(endfield.videoId!)).toBeVisible();
   await expect(page.locator('.music-queue-row')).toHaveCount(2);
@@ -190,9 +193,9 @@ test('the ⋯ menu\'s checkbox shows the same pop-up on a touch screen, and Esca
   await page.goto('/music');
   await page.getByRole('region', { name: 'Player', exact: true }).getByRole('button', { name: 'More player actions', exact: true }).click();
   const menu = page.getByRole('dialog', { name: 'Player actions', exact: true });
-  await menu.getByRole('checkbox', { name: 'Endfield music', exact: true }).check();
+  await menu.getByRole('checkbox', { name: 'Endfield music', exact: true }).click();
   await expect(popUp(page)).toBeVisible();
-  // All of it on screen, over the menu.
+  // All of it on screen; the menu closed behind it, as the focus went to it.
   const box = (await popUp(page).boundingBox())!;
   const viewport = page.viewportSize()!;
   expect(box.x).toBeGreaterThanOrEqual(0);
@@ -209,4 +212,76 @@ test('on a desktop, turning Endfield music on shows no pop-up', async ({ page },
   await expect(setting(page)).toBeChecked();
   await page.waitForTimeout(300);
   await expect(popUp(page)).toHaveCount(0);
+});
+
+// "endfield" finds the game's music: the site search's first row is Endfield music (Discover
+// searched for it), then the albums; the music pages' own boxes match the game too, and with the
+// setting off say how many matched and offer to include them.
+test('the site search: "endfield" leads with Endfield music and its albums, and the row opens Discover\'s search', async ({ page }) => {
+  await page.goto('/music/discover');
+  await page.getByRole('button', { name: 'Search Arkpedia' }).click();
+  await page.getByRole('combobox', { name: 'Search Arkpedia' }).fill('endfield');
+  const options = page.getByRole('option');
+  await expect(options.first()).toContainText('Endfield music');
+  await expect(options.nth(1)).toContainText('Album');
+  await expect(options.nth(1)).toContainText('Endfield');
+  await options.first().click();
+  await expect(page).toHaveURL(/\/music\/discover\?q=endfield$/);
+  await expect(page.locator('.music-hidden-endfield-hint')).toContainText('hidden while Endfield music is off');
+});
+
+test('Discover\'s and the Library\'s boxes find "endfield": hidden and offered while off, listed when on', async ({ page }) => {
+  await stubYouTube(page);
+  const endfield = (await catalogue(page)).filter((row) => row.game === 'endfield');
+  await page.goto('/music/discover?q=endfield');
+  const hint = page.locator('.music-hidden-endfield-hint');
+  await expect(hint).toContainText(`${endfield.length} Arknights: Endfield songs match`);
+  await expect(page.locator('.music-discover-song-list .music-song-row')).toHaveCount(0);
+  await hint.getByRole('button', { name: 'Include Endfield music', exact: true }).click();
+  // On a touch screen that opens the background-play pop-up; it leaves the setting on.
+  if (await popUp(page).isVisible()) await popUp(page).getByRole('button', { name: 'OK', exact: true }).click();
+  await expect(page.locator(`.music-discover-song-list [data-song-id="${idOf(endfield[0])}"]`).first()).toBeVisible();
+  await expect(hint).toHaveCount(0);
+
+  // The Library: the setting is on now, so its search lists them; off, it says they are hidden.
+  await page.goto('/music?view=library');
+  const box = page.getByRole('searchbox', { name: 'Search all songs' });
+  await box.fill('endfield');
+  await expect(page.locator(`.music-all-songs-list [data-song-id="${idOf(endfield[0])}"]`)).toBeVisible();
+  await setting(page).uncheck();
+  await expect(page.locator('.music-all-songs-list .music-song-row')).toHaveCount(0);
+  await expect(page.locator('.music-library .music-hidden-endfield-hint')).toContainText('hidden while Endfield music is off');
+  await expect(page.getByText('No songs match your search.')).toHaveCount(0);
+});
+
+// Reported on arkpedia-dev (2026-10-22): "Sanctuary of Ink" in Discover's box with Endfield music on
+// said "No songs match". The page there was a release without Endfield's records (the window
+// between the deploy and the first release with them); this holds the search itself to it.
+test('an Endfield album searched by name: listed when Endfield music is on, said hidden when off, in Discover and the Library', async ({ page }) => {
+  await stubYouTube(page);
+  const rows = (await catalogue(page)).filter((row) => row.game === 'endfield' && row.album);
+  const album = rows[0].album!;
+  // As a reader types it: "Sanctuary of Ink", not "... Original Soundtrack".
+  const query = album.replace(/\s+Original Soundtrack.*$/i, '');
+  const ids = rows.filter((row) => row.album === album).map(idOf);
+  const dismiss = async () => { if (await popUp(page).isVisible()) await popUp(page).getByRole('button', { name: 'OK', exact: true }).click(); };
+
+  await page.goto('/music/discover');
+  await page.getByRole('searchbox', { name: 'Search songs, characters, artists, albums', exact: true }).fill(query);
+  const discoverRow = (id: string) => page.locator(`.music-discover-song-list [data-song-id="${id}"]`);
+  await expect(page.locator('.music-hidden-endfield-hint')).toContainText('hidden while Endfield music is off');
+  await expect(discoverRow(ids[0])).toHaveCount(0);
+  await setting(page).check();
+  await dismiss();
+  for (const id of ids) await expect(discoverRow(id).first()).toBeVisible();
+  await expect(page.getByText('No songs match.', { exact: false })).toHaveCount(0);
+
+  await page.goto('/music?view=library');
+  await page.getByRole('searchbox', { name: 'Search all songs' }).fill(query);
+  const libraryRow = (id: string) => page.locator(`.music-all-songs-list [data-song-id="${id}"]`);
+  await expect(libraryRow(ids[0])).toBeVisible();
+  await expect(page.locator('.music-all-songs-list .music-song-row')).toHaveCount(ids.length);
+  await setting(page).uncheck();
+  await expect(libraryRow(ids[0])).toHaveCount(0);
+  await expect(page.locator('.music-library .music-hidden-endfield-hint')).toContainText(`${ids.length} Arknights: Endfield songs match`);
 });

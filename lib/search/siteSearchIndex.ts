@@ -1,6 +1,7 @@
 import { operatorHref } from '../operators/operatorHref';
 import type { NavLink } from '../nav/navLinks';
 import { enemyIconFor, type SiteSearchEntry } from './siteSearch';
+import { ENDFIELD_SEARCH_NAMES } from '../music/songFilter';
 
 /*
  * Builds the site search's rows (lib/search/siteSearch.ts) from records the caller has
@@ -154,6 +155,13 @@ export function buildSiteSearchEntries(sources: SiteSearchSources): SiteSearchEn
     }));
   }
 
+  // Endfield's music as a whole: Discover searched for it, which lists its songs, or offers to
+  // include Endfield music while that is off (pages/music/discover.tsx). With the game's names
+  // below, "endfield" finds this row first and then the albums (a kind before the songs).
+  if (sources.albums.some((album) => album.game === 'endfield')) {
+    entries.push(row({ kind: 'page', title: 'Endfield music', href: '/music/discover?q=endfield', sub: 'Arknights: Endfield’s soundtrack', terms: [...ENDFIELD_SEARCH_NAMES] }));
+  }
+
   for (const album of sources.albums) {
     const title = album.albumAltName || album.albumName;
     entries.push(row({
@@ -162,7 +170,9 @@ export function buildSiteSearchEntries(sources: SiteSearchSources): SiteSearchEn
       href: `/music/discover?facet=${encodeURIComponent(`album:${album.albumId}`)}`,
       // Discover offers to include Endfield music when it is off, so the row says whose it is.
       sub: album.game === 'endfield' ? ENDFIELD_LABEL : undefined,
-      terms: others(title, [album.albumName]),
+      // The game's names too: another name ranks under a title, so an album or song whose own
+      // title holds the word still leads.
+      terms: others(title, [album.albumName, ...(album.game === 'endfield' ? ENDFIELD_SEARCH_NAMES : [])]),
     }));
   }
 
@@ -177,7 +187,7 @@ export function buildSiteSearchEntries(sources: SiteSearchSources): SiteSearchEn
       title: song.title,
       href: `/music/discover?q=${encodeURIComponent(song.title)}`,
       sub: (song.game === 'endfield' ? [ENDFIELD_LABEL, song.artist].filter(Boolean).join(' · ') : song.artist) ?? undefined,
-      terms: others(song.title, [song.altTitle]),
+      terms: others(song.title, [song.altTitle, ...(song.game === 'endfield' ? ENDFIELD_SEARCH_NAMES : [])]),
     }));
   }
 

@@ -10,6 +10,7 @@ import TransportIcon from './TransportIcons';
 import { useSongQueueDrag } from './useSongQueueDrag';
 import { songTitle } from '@/lib/music/musicPolish';
 import { createSongIndex } from '@/lib/music/songSearch';
+import { gameSearchNames } from '@/lib/music/songFilter';
 import { MUSIC_VIEW_HREF } from './MusicNav';
 
 const PAGE_SIZE = 50;
@@ -70,7 +71,7 @@ export default function MusicQueue({ shown }: { shown: boolean }) {
   const [showHistory, setShowHistory] = useState(false);
   const q = search.trim();
   // The shared song search (lib/music/songSearch.ts), as a filter: the queue keeps its play order.
-  const searchIndex = useMemo(() => createSongIndex([...queue, ...autoplayTracks], track => track), [queue, autoplayTracks]);
+  const searchIndex = useMemo(() => createSongIndex([...queue, ...autoplayTracks], track => ({ ...track, extra: gameSearchNames(track.game) })), [queue, autoplayTracks]);
   const matches = useMemo(() => searchIndex.matches(search), [searchIndex, search]);
 
   let run = 0;

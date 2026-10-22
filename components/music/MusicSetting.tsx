@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type Ref } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import XButton from '@/components/ui/XButton';
 
 /**
@@ -12,7 +12,7 @@ import XButton from '@/components/ui/XButton';
  * neither the title nor Playlists beside it. Escape, a press outside the note and its × close it;
  * Escape and × give focus back to the ⓘ, and Escape goes no further (a menu around it stays open).
  */
-export default function MusicSetting({ label, topic, checked, onChange, about, header = false, inputRef }: {
+export default function MusicSetting({ label, topic, checked, onChange, about, header = false }: {
   label: string;
   /** What the ⓘ and its note are named after "About": "data saver", "Endfield music". */
   topic: string;
@@ -21,8 +21,6 @@ export default function MusicSetting({ label, topic, checked, onChange, about, h
   /** The note's text: what the setting changes, in the reader's words. */
   about: string;
   header?: boolean;
-  /** The checkbox, for a caller that gives focus back to it (MusicGameSetting's pop-up). */
-  inputRef?: Ref<HTMLInputElement>;
 }) {
   const [open, setOpen] = useState(false);
   const id = useId();
@@ -56,7 +54,7 @@ export default function MusicSetting({ label, topic, checked, onChange, about, h
       dismiss();
     }}>
       <div className="music-setting-row">
-        <label className="check"><input ref={inputRef} type="checkbox" checked={checked} onChange={event => onChange(event.target.checked)} />{label}</label>
+        <label className="check"><input type="checkbox" checked={checked} onChange={event => onChange(event.target.checked)} />{label}</label>
         <button ref={infoRef} type="button" className="btn-bare music-setting-info-btn" aria-label={name}
           aria-expanded={open} aria-controls={open ? id : undefined} onClick={() => setOpen(value => !value)}>
           <svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden="true" focusable="false">

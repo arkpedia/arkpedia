@@ -17,6 +17,9 @@ import {
 import { getSongChoices } from '../../lib/music-guesser/catalogue';
 import { ENDFIELD_NOTICE_KEY, setEndfieldNoticeDismissed, shouldShowEndfieldNotice } from '../../lib/music/endfieldNotice';
 import { buildSiteSearchEntries, type SiteSearchSources } from '../../lib/search/siteSearchIndex';
+import { searchSite, siteSearchJump } from '../../lib/search/siteSearch';
+import { createSongIndex } from '../../lib/music/songSearch';
+import { gameSearchNames } from '../../lib/music/songFilter';
 // @ts-expect-error Node import scripts are plain JavaScript.
 import { CHANNEL, FEED, LABEL_ARTIST, mergeEndfield, parseDescription, parsePlaylist, parseReleases, syncEndfieldAlbums } from '../sync/sync-endfield-albums.mjs';
 // @ts-expect-error Node publication scripts are plain JavaScript.
@@ -393,4 +396,54 @@ test('the touch-screen pop-up shows until the reader ticks Don\'t show again, an
   const refusing = { getItem: () => { throw new Error('SecurityError'); }, setItem: () => { throw new Error('SecurityError'); }, removeItem: () => { throw new Error('SecurityError'); } };
   assert.equal(shouldShowEndfieldNotice(refusing, true), true);
   assert.doesNotThrow(() => setEndfieldNoticeDismissed(refusing, true));
+});
+
+// "endfield" finds the game's music: the site search by its names (lib/search/siteSearchIndex.ts),
+// the music pages' boxes by an extra field (lib/music/songFilter.ts gameSearchNames).
+const SEARCH_SOURCES: SiteSearchSources = {
+  pages: [], operators: [], operatorAliases: {}, events: [{ name: 'Some Arknights Event' }], contents: [], stages: [], enemies: [], creators: [], people: [],
+  albums: [
+    { albumId: '4527', albumName: '明日方舟OST1', albumAltName: 'Arknights OST 1' },
+    { albumId: 'endfield-zeroth', albumName: 'Zeroth Directive Original Soundtrack, Vol. 1', game: 'endfield' },
+    { albumId: 'endfield-yi', albumName: 'Yi', game: 'endfield' },
+  ],
+  songs: [
+    { title: 'Synthetech', artist: 'BaoUner' },
+    { title: 'Protocol Flow', artist: 'Hybrid', game: 'endfield' },
+    // An Arknights song whose own title holds the word: it ranks on its title.
+    { title: 'Endfield Horizon', artist: 'Someone' },
+  ],
+};
+
+test('site search: "endfield" finds Endfield music first, its albums before its songs, and a title with the word on its title', () => {
+  const entries = buildSiteSearchEntries(SEARCH_SOURCES);
+  const ranked = searchSite(entries, 'endfield').map((r) => `${r.entry.kind}:${r.entry.title}${r.onTitle ? ' (title)' : ''}`);
+  assert.deepEqual(ranked, [
+    'page:Endfield music (title)',
+    'song:Endfield Horizon (title)',
+    'album:Yi',
+    'album:Zeroth Directive Original Soundtrack, Vol. 1',
+    'song:Protocol Flow',
+  ]);
+  assert.equal(entries.find((e) => e.title === 'Endfield music')!.href, '/music/discover?q=endfield');
+  // Enter on /search?s=endfield opens Discover's search for it, the one row named so on its title.
+  assert.equal(siteSearchJump(searchSite(entries, 'endfield'))?.title, 'Endfield music');
+  // "arknights endfield" too, and Arknights' own music is not among them.
+  const both = searchSite(entries, 'arknights endfield').map((r) => r.entry.title);
+  assert.deepEqual(both.slice(0, 4), ['Endfield music', 'Yi', 'Zeroth Directive Original Soundtrack, Vol. 1', 'Protocol Flow']);
+  assert.ok(!both.includes('Arknights OST 1') && !both.includes('Synthetech'));
+  // No Endfield record, no Endfield music row.
+  assert.ok(!buildSiteSearchEntries({ ...SEARCH_SOURCES, albums: SEARCH_SOURCES.albums.slice(0, 1) }).some((e) => e.title === 'Endfield music'));
+});
+
+test('the music boxes: "endfield" matches the game, under a title that holds the word', () => {
+  const songs = [
+    { title: 'Synthetech', album: 'Arknights OST 1' },
+    { title: 'Protocol Flow', album: 'Zeroth Directive Original Soundtrack, Vol. 1', game: 'endfield' },
+    { title: 'Endfield Horizon', album: 'Some EP' },
+  ];
+  const index = createSongIndex(songs, (song) => ({ ...song, extra: gameSearchNames(song.game) }));
+  assert.deepEqual(index.search('endfield').map((s) => s.title), ['Endfield Horizon', 'Protocol Flow']);
+  assert.deepEqual(index.search('arknights endfield').map((s) => s.title), ['Protocol Flow']);
+  assert.deepEqual(gameSearchNames(undefined), []);
 });

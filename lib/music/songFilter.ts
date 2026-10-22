@@ -15,6 +15,17 @@
 export type MusicGame = 'arknights' | 'endfield';
 
 export const MUSIC_INCLUDE_ENDFIELD_KEY = 'musicIncludeEndfield';
+
+/** The names an Endfield song or album answers to in a search, besides its own: "endfield" and
+ *  "arknights endfield" find the game's music in the site search (lib/search/siteSearchIndex.ts)
+ *  and in the music pages' own search boxes (gameSearchNames). */
+export const ENDFIELD_SEARCH_NAMES: readonly string[] = ['Endfield', 'Arknights: Endfield'];
+
+/** A song's extra search names for its game, for createSongIndex's `extra` (lib/music/songSearch.ts),
+ *  which ranks them under its title, album and artist. Arknights' own songs have none. */
+export function gameSearchNames(game: string | undefined): readonly string[] {
+  return game === 'endfield' ? ENDFIELD_SEARCH_NAMES : [];
+}
 export const MUSIC_EXCLUDE_COPYRIGHTED_KEY = 'musicExcludeCopyrighted';
 
 export interface SongFilter {

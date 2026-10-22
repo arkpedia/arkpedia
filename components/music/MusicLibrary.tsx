@@ -3,7 +3,8 @@ import { useContentUrl } from '@/lib/content/context';
 import { loadMusicCatalogue, MUSIC_CATALOGUE_PATH, type MusicCatalogueSong } from '@/lib/music/musicCatalogue';
 import { useMusicPlayer } from '@/lib/music/musicPlayerContext';
 import { createSongIndex } from '@/lib/music/songSearch';
-import { songAllowed } from '@/lib/music/songFilter';
+import { gameSearchNames, songAllowed } from '@/lib/music/songFilter';
+import HiddenEndfieldHint from './HiddenEndfieldHint';
 import LoadOnScroll from '@/components/ui/LoadOnScroll';
 import SearchInput from '@/components/ui/SearchInput';
 import SegmentedControl from '@/components/ui/SegmentedControl';
@@ -57,10 +58,14 @@ export default function MusicLibrary({ shown }: { shown: boolean }) {
   }, [requested, songs, url, attempt]);
   // Title, album (English and its own name) and artist, typo-tolerant, best match first
   // (lib/music/songSearch.ts); built once per catalogue, not per keystroke.
-  const index = useMemo(() => createSongIndex(songs ?? [], song => song), [songs]);
+  // An Endfield song answers to the game's name too ("endfield"), under its title, album and artist.
+  const index = useMemo(() => createSongIndex(songs ?? [], song => ({ ...song, extra: gameSearchNames(song.game) })), [songs]);
   // The reader's settings hide the same songs here as in the queue (lib/music/songFilter.ts).
-  const matches = useMemo(() => index.search(search).filter(song => songAllowed({ excludeCopyrighted, includeEndfield }, song)
-    && (scope === 'all' || favorites.has(song.id))), [index, search, excludeCopyrighted, includeEndfield, scope, favorites]);
+  const found = useMemo(() => index.search(search).filter(song => songAllowed({ excludeCopyrighted, includeEndfield: true }, song)
+    && (scope === 'all' || favorites.has(song.id))), [index, search, excludeCopyrighted, scope, favorites]);
+  const matches = useMemo(() => found.filter(song => songAllowed({ excludeCopyrighted, includeEndfield }, song)), [found, excludeCopyrighted, includeEndfield]);
+  // Endfield songs the search found while Endfield music is off: said, with a way to include them.
+  const hiddenEndfield = search.trim() ? found.length - matches.length : 0;
   useEffect(() => { setVisible(50); }, [search, excludeCopyrighted, includeEndfield, scope]);
   const total = songs ? songs.filter(song => songAllowed({ excludeCopyrighted, includeEndfield }, song)).length : null;
   return <section className="music-queue-panel music-library" aria-labelledby="music-library-heading">
@@ -71,9 +76,10 @@ export default function MusicLibrary({ shown }: { shown: boolean }) {
     </div>
     <SearchInput label="Search all songs" name="library-search" placeholder="Search songs, albums or artists…" value={search} onChange={setSearch} />
     <div className="music-song-list music-all-songs-list" aria-label={scope === 'all' ? 'All songs' : 'Favourite songs'} data-library-list>
+      {songs && !error && <HiddenEndfieldHint count={hiddenEndfield} />}
       {error ? <p className="hint" role="status">Could not load songs. <button type="button" className="ghost btn-sm" onClick={() => setAttempt(n => n + 1)}>Try again</button></p>
         : !songs ? <p className="hint" role="status">Loading all songs…</p>
-          : !matches.length ? <p className="hint">{scope === 'favorites' && !search.trim() ? 'No favourites yet: press ♥ on a song to keep it here.' : 'No songs match your search.'}</p> : null}
+          : !matches.length && !hiddenEndfield ? <p className="hint">{scope === 'favorites' && !search.trim() ? 'No favourites yet: press ♥ on a song to keep it here.' : 'No songs match your search.'}</p> : null}
       {matches.slice(0, visible).map(song => <LibraryRow key={song.id} song={song} />)}
       {shown && <LoadOnScroll shown={visible} total={matches.length} onMore={() => setVisible(n => n + 50)} />}
     </div>
