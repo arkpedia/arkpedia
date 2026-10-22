@@ -87,7 +87,7 @@ test('a newer account ticks only the days and missions its save records as recei
   const { account, shown, locked } = settled({
     status: { registerTs: 1740787200, uid: 'fixture-new', level: 30 },
     mission: { missions: { OPENSERVER: { openserver_1_1: { state: 3, progress: [] }, openserver_2_1: { state: 2, progress: [] } } }, missionGroups: { openseverTaskGroup2: 0 } },
-    openServer: { checkIn: { isAvailable: true, history: [1, 0] }, chainLogin: { isAvailable: true, nowIndex: 0, history: [0, 0, 0, 0, 0, 0, 0] } },
+    openServer: { checkIn: { isAvailable: true, history: [0, 1] }, chainLogin: { isAvailable: true, nowIndex: 0, history: [1, 1, 1, 1, 1, 1, 1] } },
     troop: { chars: {} },
   });
   assert.ok(shown.includes('free:openserver_1_1') && !shown.includes('free:openserver_1'));

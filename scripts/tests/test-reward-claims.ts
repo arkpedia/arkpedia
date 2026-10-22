@@ -13,7 +13,17 @@ test('imported claims distinguish collected from eligible, survive backup and re
   const account = accountFromGame(user, { chars: {}, items: {} } as any, 'en');
   assert.deepEqual(parseAccount(JSON.stringify(account))?.rewardClaims, claims);
   assert.deepEqual(mergeRewardClaims(['free:welcome-mail']), ['free:welcome-mail']);
-  assert.equal(parseRewardClaims({ known: ['invalid'], claimed: [] }), undefined);
+  // A bad id is dropped alone, not the whole list with it.
+  assert.deepEqual(parseRewardClaims({ known: ['invalid', 'free:a:1'], claimed: ['free:a:1', 'invalid'] }), { known: ['free:a:1'], claimed: ['free:a:1'] });
+  assert.equal(parseRewardClaims({ known: 'invalid', claimed: [] }), undefined);
+});
+
+test("a long-played account's claims survive the round trip: tens of thousands of ids", () => {
+  const known = Array.from({ length: 30000 }, (_, i) => `free:act${i}sign:${(i % 14) + 1}`);
+  const claimed = known.filter((_, i) => i % 2 === 0);
+  const parsed = parseRewardClaims({ known, claimed });
+  assert.equal(parsed?.known.length, 30000);
+  assert.equal(parsed?.claimed.length, 15000);
 });
 
 test('chibis fit small viewports at every supported size', () => {
@@ -22,4 +32,14 @@ test('chibis fit small viewports at every supported size', () => {
     assert.ok(box.width <= w - 16 && box.height <= h - 16);
     assert.ok(Math.abs(box.width / box.height - 8 / 9) < .001);
   }
+});
+
+test("an event's sign-in history counts a 0 as claimed and a 1 as still waiting (the owner's 7 days)", () => {
+  const all = rewardClaimsFromGame({ activity: { CHECKIN_ONLY: { act59sign: { history: [0, 0, 0, 0, 0, 0, 0] } } } });
+  assert.deepEqual(all.claimed.filter(id => id.startsWith('free:act59sign')).length, 7);
+  const today = rewardClaimsFromGame({ activity: { CHECKIN_ONLY: { act59sign: { history: [0, 0, 1] } } } });
+  assert.deepEqual(today.claimed, ['free:act59sign:1', 'free:act59sign:2']);
+  assert.ok(today.known.includes('free:act59sign:3') && !today.known.includes('free:act59sign:4'), 'day 3 waits, day 4 is not unlocked');
+  // The monthly sign-in keeps its own meaning: 1 is a day signed in.
+  assert.deepEqual(rewardClaimsFromGame({ checkIn: { checkInGroupId: 'signin84', checkInHistory: [1, 0] } }).claimed, ['free:signin84:1']);
 });

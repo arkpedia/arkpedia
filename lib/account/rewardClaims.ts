@@ -39,15 +39,25 @@ export function rewardClaimsFromGame(user: Record<string, unknown>, programs: re
   for (const [id, value] of Object.entries(object(checkIn.longTermRecvRecord))) {
     if (value === 0 || value === 1) put(id, value === 1);
   }
-  // These are received flags, not canCheckIn, nowIndex, level or elapsed days.
+  // The monthly sign-in's checkInHistory flags a day signed in with 1. Not canCheckIn,
+  // nowIndex, level or elapsed days.
   const history = (prefix: unknown, value: unknown) => {
     if (typeof prefix !== 'string' || !validId(prefix) || !Array.isArray(value) || value.length > 1000) return;
     value.forEach((flag, index) => { if (flag === 0 || flag === 1) put(`${prefix}:${index + 1}`, flag === 1); });
   };
+  /* An event's or a beginner programme's sign-in history is the other way round: an entry per
+     day unlocked so far, 1 while that day's reward is waiting to be claimed and 0 once it has
+     been. Read as received-when-1, an active player's save showed all 7 days of the
+     Celebration Login Event unclaimed (owner's import, 2026-10-22: 7 known, 0 claimed), and
+     the beginner days likewise. A day not yet unlocked has no entry, so it stays unknown. */
+  const waiting = (prefix: unknown, value: unknown) => {
+    if (typeof prefix !== 'string' || !validId(prefix) || !Array.isArray(value) || value.length > 1000) return;
+    value.forEach((flag, index) => { if (flag === 0 || flag === 1) put(`${prefix}:${index + 1}`, flag === 0); });
+  };
   history(checkIn.checkInGroupId, checkIn.checkInHistory);
   const activity = object(user.activity);
   for (const type of ['CHECKIN_ONLY', 'CHECKIN_ALL_PLAYER']) {
-    for (const [id, value] of Object.entries(object(activity[type]))) history(id, object(value).history);
+    for (const [id, value] of Object.entries(object(activity[type]))) waiting(id, object(value).history);
   }
   for (const [id, value] of Object.entries(object(activity.LOGIN_ONLY))) {
     const received = object(value).reward;
@@ -71,18 +81,22 @@ export function rewardClaimsFromGame(user: Record<string, unknown>, programs: re
     && (row.endTs === undefined || Number.isSafeInteger(row.endTs) && registered <= row.endTs)).sort((a, b) => b.startTs - a.startTs)[0] : undefined;
   if (program) {
     const starter = object(user.openServer);
-    history(`${program.id}:checkInData`, object(starter.checkIn).history);
-    history(`${program.id}:chainLoginData`, object(starter.chainLogin).history);
+    waiting(`${program.id}:checkInData`, object(starter.checkIn).history);
+    waiting(`${program.id}:chainLoginData`, object(starter.chainLogin).history);
   }
   return { known: [...states.keys()].sort(), claimed: [...states].filter(([, claimed]) => claimed).map(([id]) => id).sort() };
 }
 
+/* Claims an import stored. A long-played account's save holds many thousands of mission and
+   sign-in records; an earlier cap of 10,000 ids, and one bad id, each threw the whole list away,
+   so nothing an import proved was ticked. Now the cap is generous and a bad id is dropped alone. */
+const MAX_CLAIM_IDS = 200000;
 export function parseRewardClaims(value: unknown): RewardClaims | undefined {
   const record = object(value);
-  const ids = (value: unknown): value is string[] => Array.isArray(value) && value.length <= 10000 && value.every(id => typeof id === 'string' && id.startsWith('free:') && validId(id));
-  if (!ids(record.known) || !ids(record.claimed)) return undefined;
-  const known = new Set(record.known);
-  return { known: [...known], claimed: [...new Set(record.claimed)].filter(id => known.has(id)) };
+  if (!Array.isArray(record.known) || !Array.isArray(record.claimed)) return undefined;
+  const ids = (list: unknown[]) => list.slice(0, MAX_CLAIM_IDS).filter((id): id is string => typeof id === 'string' && id.startsWith('free:') && validId(id));
+  const known = new Set(ids(record.known));
+  return { known: [...known], claimed: [...new Set(ids(record.claimed))].filter(id => known.has(id)) };
 }
 
 /** Update imported claims. The progress merger preserves manual marks separately. */

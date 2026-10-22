@@ -1,5 +1,5 @@
 import { useRegionalTime } from '@/lib/time/useRegionalTime';
-import { currentRegionalFreeRewards, regionalDate, regionalFreeRewards, type RegionalSchedules } from '@/lib/time/regional';
+import { currentRegionalFreeRewards, regionalFreeRewards, type RegionalSchedules } from '@/lib/time/regional';
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { remainingBacklog } from '@/lib/pulls/pulls';
 import type { GetStaticProps } from 'next';
@@ -13,6 +13,7 @@ import { withContentPage } from '@/lib/content/server';
 import { formatNumber, formatOneDecimal } from '@/lib/pulls/format';
 import { fillFromDeployment, ORUNDUM_PER_ORIGINITE, ORUNDUM_PER_PULL, type BacklogSources } from '@/lib/pulls/pulls';
 import { usePastRewards } from '@/lib/pulls/usePastRewards';
+import { PAST_PROGRESS_UNREAD } from '@/lib/pulls/pastProgress';
 import FreeRewards from '@/components/pulls/FreeRewards';
 import { allFreeRewards, freeOperatorsToClaim, freeRewardsForAccount, freeRewardTotals, importClaimedBeginner, rosterClaimedWelfare, rosterOperatorIds, type FreeReward, type LockedReason } from '@/lib/pulls/freeRewards';
 import { excludeStageKinds, type StageKind } from '@/lib/pulls/stageKinds';
@@ -91,16 +92,21 @@ export default function FreeOpPage({ backlogSources, freeRewards: globalFreeRewa
   const closePreview = useCallback(() => setPreview(null), []);
   /* Ticking a welfare operator in Free rewards, below, takes its row out of this list: the
      list holds the tallest height it has had, so the page never shortens under the reader
-     (the Anti-Page Jump rule). */
+     (the Anti-Page Jump rule). The floor starts again whenever what the list is read from
+     settles: the saved progress loads, or an import's claims are applied. Kept from the first
+     paint, it was the height with every welfare operator listed, before those trimmed it, and
+     the panel stayed that tall over one card (2026-10-21). */
   const welfareRef = useRef<HTMLDivElement>(null);
+  const welfareBasis = `${past.progress === PAST_PROGRESS_UNREAD}|${past.account?.importedAt ?? ''}|${past.imported?.at ?? ''}`;
   useLayoutEffect(() => {
     const list = welfareRef.current;
     if (!list) return;
+    list.style.minHeight = '';
     let floor = 0;
     const observer = new ResizeObserver(() => { if (list.offsetHeight > floor) { floor = list.offsetHeight; list.style.minHeight = `${floor}px`; } });
     observer.observe(list);
     return () => observer.disconnect();
-  }, []);
+  }, [welfareBasis]);
   return (
     <>
       <Head><title>Reward Tracker — Arkpedia</title></Head>
@@ -132,17 +138,8 @@ export default function FreeOpPage({ backlogSources, freeRewards: globalFreeRewa
           <div ref={welfareRef} className="free-op-welfare">
             <h3>Welfare operators</h3>
             {operators.length
-              ? <ul className="free-op-welfare-list" aria-label="Welfare operators to claim">{operators.map(({ reward, operator }) => {
-                  const event = reward.event ?? reward.name;
-                  const closes = reward.endAt;
-                  const trail = reward.source === 'trail' || (!reward.source && reward.id.startsWith('free:trail:'));
-                  // The row's own requirement, after its kind: "Viy · Event missions (permanent): Clear 17-13".
-                  const task = reward.name.includes(': ') ? reward.name.slice(reward.name.lastIndexOf(': ') + 2) : undefined;
-                  const permanent = trail || reward.source === 'retro';
-                  return <WelfareCard key={`${reward.id}:${operator.id}`} item={operator} icon={rewardIcons[operator.id]} task={task}
-                    source={trail ? `Record Restoration · ${event}` : reward.source === 'retro' ? `${event} · permanent` : event}
-                    until={!permanent && closes ? regionalDate(new Date(closes).toISOString(), server) : undefined} href={reward.href} onPreview={setPreview} />;
-                })}</ul>
+              ? <ul className="free-op-welfare-list" aria-label="Welfare operators to claim">{operators.map(({ reward, operator }) =>
+                  <WelfareCard key={`${reward.id}:${operator.id}`} reward={reward} operator={operator} icon={rewardIcons[operator.id]} server={server} now={clock} onPreview={setPreview} />)}</ul>
               : <p className="hint free-op-welfare-empty">No welfare operator to claim right now.</p>}
           </div>
         </section>
