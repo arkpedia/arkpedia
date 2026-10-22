@@ -33,3 +33,13 @@ test('chibis fit small viewports at every supported size', () => {
     assert.ok(Math.abs(box.width / box.height - 8 / 9) < .001);
   }
 });
+
+test("an event's sign-in history counts a 0 as claimed and a 1 as still waiting (the owner's 7 days)", () => {
+  const all = rewardClaimsFromGame({ activity: { CHECKIN_ONLY: { act59sign: { history: [0, 0, 0, 0, 0, 0, 0] } } } });
+  assert.deepEqual(all.claimed.filter(id => id.startsWith('free:act59sign')).length, 7);
+  const today = rewardClaimsFromGame({ activity: { CHECKIN_ONLY: { act59sign: { history: [0, 0, 1] } } } });
+  assert.deepEqual(today.claimed, ['free:act59sign:1', 'free:act59sign:2']);
+  assert.ok(today.known.includes('free:act59sign:3') && !today.known.includes('free:act59sign:4'), 'day 3 waits, day 4 is not unlocked');
+  // The monthly sign-in keeps its own meaning: 1 is a day signed in.
+  assert.deepEqual(rewardClaimsFromGame({ checkIn: { checkInGroupId: 'signin84', checkInHistory: [1, 0] } }).claimed, ['free:signin84:1']);
+});

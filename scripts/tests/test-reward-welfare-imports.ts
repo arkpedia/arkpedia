@@ -152,8 +152,8 @@ const user = {
     missionGroups: { guide_g_1: 1 },
   },
   checkIn: { canCheckIn: 0, checkInGroupId: 'signin82', checkInRewardIndex: 2, checkInHistory: [1, 1, 0], longTermRecvRecord: { signin_1: 1 } },
-  openServer: { checkIn: { isAvailable: true, history: [1, 0] }, chainLogin: { isAvailable: true, nowIndex: 1, history: [1] } },
-  activity: { CHECKIN_ONLY: { act59sign: { history: [1, 1], extraHistory: [] } } },
+  openServer: { checkIn: { isAvailable: true, history: [0, 1] }, chainLogin: { isAvailable: true, nowIndex: 1, history: [0] } },
+  activity: { CHECKIN_ONLY: { act59sign: { history: [0, 0], extraHistory: [] } } },
   retro: { coin: 0, supplement: 0, block: {}, trail: { permanent_sub_1_Darknights_Memoir: { trailReward_sub_1_1: 1 }, permanent_sidestory_4_Twilight_Of_Wolumonde: {} }, lst: 0, nst: 0, rewardPerm: [] },
   shop: { GP: { level: { info: [{ id: 'GP_freeL_5', count: 1 }] } } },
 };
