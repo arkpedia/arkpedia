@@ -287,15 +287,21 @@ export interface AccountOptions {
   onStep?: (step: ImportStep) => void;
 }
 
-/** Steps 3 to 5: the account's game data, as syncData sends it (its `user`). */
-export async function readAccount({ transport, direct, deviceId, network, onStep = () => {} }: AccountOptions, account: YostarAccount): Promise<Record<string, any>> {
-  onStep('game-token');
+/** Step 3: a Yostar uid and token for a game token, at the game's token exchange (u8). Its
+ *  answer carries `result` (0 when accepted), the game `uid` and the game `token`. */
+export async function gameToken(transport: Transport, network: Network, account: Pick<YostarAccount, 'uid' | 'token'>, deviceId: string): Promise<Record<string, any>> {
   const fields: Record<string, string | number> = {
     appId: '1', platform: 1, channelId: YOSTAR_CHANNEL, subChannel: YOSTAR_CHANNEL, worldId: YOSTAR_CHANNEL,
     extension: JSON.stringify({ type: 1, uid: account.uid, token: account.token }),
     deviceId, deviceId2: '', deviceId3: '',
   };
-  const u8 = await post(transport, 'game-token', `${network.u8}/user/v1/getToken`, CLIENT_HEADERS, { ...fields, sign: await u8Sign(fields) });
+  return post(transport, 'game-token', `${network.u8}/user/v1/getToken`, CLIENT_HEADERS, { ...fields, sign: await u8Sign(fields) });
+}
+
+/** Steps 3 to 5: the account's game data, as syncData sends it (its `user`). */
+export async function readAccount({ transport, direct, deviceId, network, onStep = () => {} }: AccountOptions, account: YostarAccount): Promise<Record<string, any>> {
+  onStep('game-token');
+  const u8 = await gameToken(transport, network, account, deviceId);
   if (u8.result !== 0 || typeof u8.token !== 'string') throw new ImportError('game-token', `the game refused the Yostar sign-in (result ${u8.result ?? 'none'})`);
 
   onStep('game-login');

@@ -371,6 +371,8 @@ const NOT_PUBLISHED_FILES: Record<string, string> = {
   'lib/music-guesser/prepareClip.ts: url': "Monster Siren's own audio CDN (/api/music-guesser)",
   'lib/account-import/relay.ts: url: string': "the account-import transport's type (Yostar's servers)",
   'lib/account-import/relay.ts: url': "Yostar's servers, for the account import",
+  // TEST ONLY (2026-10-22): goes with pages/api/account-verify-test.ts.
+  'pages/api/account-verify-test.ts: url': "the game's token exchange, for the Worker-only verification test",
   'pages/api/music-art/[id].ts: url': "Monster Siren's song API",
   'pages/api/music-cover/[id].ts: url': "Monster Siren's song API",
   'pages/api/music-cover/[id].ts: art.cover': "Monster Siren's cover CDN",

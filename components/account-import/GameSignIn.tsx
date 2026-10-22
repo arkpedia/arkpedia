@@ -5,6 +5,8 @@ import type { PullRead } from '@/lib/account/pulls';
 import { directTransport, networkTransport, relayTransport } from '@/lib/account-import/relay';
 import { forgetLogin, maskEmail, readSavedLogin, saveLogin, type SavedLogin } from '@/lib/account-import/savedLogin';
 import ConnectionDiagnostics from './ConnectionDiagnostics';
+// TEST ONLY (2026-10-22): remove with VerifyTestPanel before the next release to main.
+import VerifyTestPanel, { verifyTestEnabled, type VerifyTestInput } from './VerifyTestPanel';
 import { connectionDiagnostics } from '@/lib/account-import/connectionDiagnostics';
 import { beginnerDiagnostics } from '@/lib/account-import/beginnerDiagnostics';
 import { rawSave } from '@/lib/account-import/rawSaveExport';
@@ -58,6 +60,7 @@ export default function GameSignIn({ server, onAccount, onForget, idPrefix = 'im
   const [step, setStep] = useState<ImportStep | null>(null);
   const [failed, setFailed] = useState<{ step: ImportStep | null; message: string } | null>(null);
   const [done, setDone] = useState(false);
+  const [verifyTest, setVerifyTest] = useState<VerifyTestInput | null>(null);
   // Why the pull history was not read, when the rest was: its step shows a cross, nothing else does.
   const [pullsFailed, setPullsFailed] = useState<string | null>(null);
   // DataDialog opens after hydration, so its first render can select the saved path without
@@ -146,6 +149,8 @@ export default function GameSignIn({ server, onAccount, onForget, idPrefix = 'im
     const user = await readAccount({ transport: relayTransport, direct: directTransport, deviceId: device, network: await connect(from), onStep: setStep }, yostar);
     connectionDiagnostics.setBeginner(beginnerDiagnostics(user));
     rawSave.set(user);
+    setVerifyTest(verifyTestEnabled() && user.status?.uid != null
+      ? { server: from, uid: yostar.uid, token: yostar.token, deviceId: device, saveUid: String(user.status.uid) } : null);
     setStep('pulls');
     let pulls: PullRead;
     try {
@@ -323,6 +328,7 @@ export default function GameSignIn({ server, onAccount, onForget, idPrefix = 'im
       <ConnectionDiagnostics />
       {failed?.step === 'network' && <button type="button" className="ghost btn-sm" disabled={busy || connection === 'opening'} onClick={() => { connect().catch(error => setFailed({ step: 'network', message: describe(error) })); }}>Retry connection</button>}
       {done && pullsFailed && <p className="hint import-note">The pull history could not be read ({pullsFailed}). Everything else was imported.</p>}
+      {done && verifyTest && <VerifyTestPanel input={verifyTest} />}
     </>
   );
 }
