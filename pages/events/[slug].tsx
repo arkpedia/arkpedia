@@ -45,6 +45,8 @@ import { announcedRewards } from '@/lib/events/announcements';
 import { RewardClick, RewardDetailsProvider, type ResolvedTicket } from '@/components/events/RewardDetails';
 import { EventFurniture, EventLoginDays, EventNews, EventNotices, EventPacks, type LoginDetails } from '@/components/events/EventExtras';
 import { RewardSummaryCard } from '@/components/events/RewardSummary';
+import { EventVideos } from '@/components/events/EventVideos';
+import type { EventVideo, EventVideosFile } from '@/lib/events/eventVideos';
 import { RewardTile } from '@/components/events/RewardTile';
 import { rewardSummary, type RewardSummary } from '@/lib/events/rewardSummary';
 import { getAllOperators } from '@/lib/operators/operators';
@@ -85,9 +87,11 @@ interface Props {
   /** The release's material catalogue order (data/material-catalogue.json), for the reward
    *  names this event lists: what the reward totals sort by. */
   materialOrder: string[];
+  /** The event's official videos (data/event-videos.json). Absent from a release compiled before them. */
+  videos?: EventVideo[];
 }
 
-type SectionKey = 'overview' | 'banner' | 'rewards' | 'skins' | 'news';
+type SectionKey = 'overview' | 'banner' | 'rewards' | 'skins' | 'news' | 'pvs';
 
 /* A section with nothing linked is left out. Packs and Miscellaneous were sections
    once, two tabs that only ever said "Coming soon", which pushed the row onto a second
@@ -101,6 +105,9 @@ const SECTIONS: { key: SectionKey; label: string }[] = [
   /* The rest of the event's official announcement: a Sanity limit raised, a recruitment pool, a
      store's redeemables, a Kernel Locating banner (build-event-rewards.mjs `news`). */
   { key: 'news', label: 'News' },
+  /* The event's PVs and the official videos made for it, from the official YouTube channels
+     (scripts/sync/sync-official-videos.mjs): a thumbnail each until the reader presses play. */
+  { key: 'pvs', label: 'PVs' },
 ];
 
 /** The page's address with this hash, without a scroll or a history entry. */
@@ -175,6 +182,7 @@ export default function EventDetailPage({
   tickets = {}, loginDetails = {},
   summary = null,
   rewardNote = null,
+  videos = [],
 }: Props) {
   const { server, schedule } = useRegionalTime();
   const regionalWindow = schedule?.events?.[name];
@@ -193,7 +201,7 @@ export default function EventDetailPage({
   const news = extras.news ?? [];
   const board = extras.board ?? [];
   const sections = SECTIONS.filter((section) => (
-    section.key === 'overview' ? !!mode : section.key === 'banner' ? !!bannerName : section.key === 'rewards' ? rewardStores.length > 0 || hasExtras : section.key === 'news' ? news.length + board.length > 0 : skins.length > 0
+    section.key === 'overview' ? !!mode : section.key === 'banner' ? !!bannerName : section.key === 'rewards' ? rewardStores.length > 0 || hasExtras : section.key === 'news' ? news.length + board.length > 0 : section.key === 'pvs' ? videos.length > 0 : skins.length > 0
   ));
   const [chosenSection, setActiveSection] = useState<SectionKey | null>(sections[0]?.key ?? null);
   /* The section on screen: the one chosen if this event has it, else the event's
@@ -450,6 +458,12 @@ export default function EventDetailPage({
             </section>
           )}
 
+          {activeSection === 'pvs' && (
+            <section className="op-section" {...tabPanelProps('event-section', 'pvs')}>
+              <EventVideos videos={videos} />
+            </section>
+          )}
+
         </div>
       </main>
 
@@ -566,6 +580,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
   const skinImageByName = new Map(allSkins.filter((s) => s.image).map((s) => [s.name, s.image as string]));
   const skinNameById = new Map(allSkins.filter((s) => s.skinId && s.name).map((s) => [s.skinId as string, s.name]));
   const eventRewards = (await import('@/data/event-rewards.json')).default as EventRewardsFile;
+  const videos = ((await import('@/data/event-videos.json')).default as EventVideosFile).events[event.name] ?? [];
   // The store's Chinese item names in English, where the Global tables have them.
   const storeNames = eventRewards.storeNames ?? {};
   const originalEntry = eventRewards.events[event.name];
@@ -686,6 +701,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
         kinds: new Map(tableRewards.flatMap((g) => g.items.map((i) => [i.name, i.kind] as [string, string]))),
       }, materialOrder),
       materialOrder,
+      videos,
     },
   };
 }, {

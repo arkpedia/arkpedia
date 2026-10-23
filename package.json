@@ -14,6 +14,7 @@
     "lyrics:refresh": "node scripts/sync/sync-lyrics.mjs",
     "albums:refresh": "node scripts/sync/sync-albums.mjs",
     "endfield-albums:refresh": "node scripts/sync/sync-endfield-albums.mjs",
+    "official-videos:refresh": "tsx scripts/sync/sync-official-videos.mjs",
     "test:operator-voices": "tsx --test scripts/tests/test-operator-voices.ts",
     "test:operator-guesser": "tsx --test scripts/tests/test-operator-guesser.ts",
     "lint": "eslint pages components lib",

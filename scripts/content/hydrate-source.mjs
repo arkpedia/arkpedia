@@ -93,6 +93,13 @@ const SEEDED_SOURCE_FILES = new Set([
   // Arknights: Endfield's albums and songs (scripts/sync/sync-endfield-albums.mjs, every run). The
   // app's copy is the first night's catalogue; the stage then adds what the label publishes.
   'data/endfield-albums.json',
+  // The official Arknights YouTube channels' uploads and each event's PVs from them
+  // (scripts/sync/sync-official-videos.mjs, every run): the app's copy is the first night's
+  // catalogue, backfilled by hand once. The channel list and the overrides are kept by hand.
+  'data/official-video-channels.json',
+  'data/official-videos.json',
+  'data/event-video-overrides.json',
+  'data/event-videos.json',
 ]);
 const SEEDED_LEDGER = 'data/seeded-source-files.json';
 function walk(dir) { return fs.readdirSync(dir, { withFileTypes: true }).flatMap(entry => {

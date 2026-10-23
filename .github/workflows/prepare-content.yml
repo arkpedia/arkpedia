@@ -295,6 +295,10 @@ jobs:
           # Arknights: Endfield's albums and songs, from its label's YouTube channel
           # (data/endfield-albums.json, scripts/sync/sync-endfield-albums.mjs).
           stage endfield-albums -- npm run endfield-albums:refresh
+          # Each event's PVs and official videos (data/event-videos.json), from the official YouTube
+          # channels' uploads (data/official-videos.json): after the albums, whose operator EPs it
+          # reads. Feeds on main's run only (scripts/sync/sync-official-videos.mjs).
+          stage official-videos -- npm run official-videos:refresh
           stage lyrics -- npm run lyrics:refresh
           # The art the importers above staged under .cache/ instead of publishing -- a new
           # event's stage renders, drop and reward icons, crests, CC/IS/RA renders, album
@@ -334,6 +338,12 @@ jobs:
       - name: Rebuild palettes whose review or recipe changed
         if: steps.refresh.outcome == 'skipped' && (github.event_name != 'schedule' || steps.prepared.outputs.cache-hit != 'true')
         run: python3 scripts/palettes/build-color-palettes.py --revisions data/assets/revisions.json --if-stale
+      # The same for the event pages' PVs: an override added on the editorial branch
+      # (data/event-video-overrides.json) is filed with the catalogue as it stands, reading nothing
+      # from YouTube (scripts/sync/sync-official-videos.mjs --offline).
+      - name: File the official videos into events
+        if: steps.refresh.outcome == 'skipped' && (github.event_name != 'schedule' || steps.prepared.outputs.cache-hit != 'true')
+        run: npx tsx scripts/sync/sync-official-videos.mjs --offline
 
       - name: Validate and compile data (no website build)
         if: github.event_name != 'schedule' || steps.prepared.outputs.cache-hit != 'true'
