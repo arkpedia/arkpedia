@@ -53,7 +53,6 @@ const CROSSFADE = 'a cross-fade between two contents (a title and its translatio
 const VIEW_TRANSITION = 'the Stronghold companion\'s view-transition timing; the helper that starts a view transition skips it under reduced motion';
 const GLIDE = 'the Stronghold companion\'s hint spotlight gliding to the button it points at next; instant under reduced motion';
 const ZOOM = 'the skin viewer\'s zoom following the pointer (50ms), so the image does not jitter; instant under reduced motion';
-const METER = 'a bar growing to its new value; instant under reduced motion';
 
 /** What predates motion.css, by `path: selector { property }` (or `path: @keyframes name`,
  *  `path: style.property`), with how many times it occurs and why it stays. */
@@ -176,7 +175,6 @@ export const MOTION_LEGACY = new Map([
   ['styles/ui/ticker.css: .ticker-bar { transition }', { count: 1, reason: DRAWER }],
   ['styles/ui/ticker.css: .ticker-track { animation }', { count: 1, reason: LOOP }],
   ['styles/ui/ticker.css: @keyframes ticker-scroll', { count: 1, reason: LOOP }],
-  ['pages/base.tsx: style.transition', { count: 1, reason: METER }],
   ['pages/obtain-method.tsx: style.animationDelay', { count: 1, reason: ENTRANCE }],
   ['pages/operators/index.tsx: style.animationDelay', { count: 1, reason: ENTRANCE }],
   ['pages/skins.tsx: style.animationDelay', { count: 1, reason: ENTRANCE }],

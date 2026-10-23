@@ -13,6 +13,7 @@ Both are listed in `config/production.json`. Vercel's own Git deployments are sw
 
 - [Repository map](docs/repository-map.md): where each feature lives and which public repository owns its data and media.
 - [Development guide](docs/development/setup.md): setup, validation and deployment.
+- [Design system](docs/development/design-system.md): the visual language and page patterns every UI change follows.
 - [Runtime content](docs/development/runtime-content.md): how game data reaches the site without a redeploy.
 - [Data pipelines](docs/development/data-pipelines.md) and [automation](docs/development/automation.md): the nightly refresh, asset syncs and CI.
 - [Data catalogue](data/README.md), [tooling guide](scripts/README.md), [documentation index](docs/README.md).

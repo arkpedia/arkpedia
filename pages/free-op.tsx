@@ -22,6 +22,9 @@ import type { OperatorPreviewItem } from '@/components/operators/OperatorPreview
 import { FreeOperatorPreview, WelfareCard } from '@/components/pulls/FreeOperator';
 import { useReaderClock } from '@/lib/time/readerClock';
 import Tabs, { tabPanelProps } from '@/components/ui/Tabs';
+import StickyControls from '@/components/ui/StickyControls';
+import { useSwitchHold } from '@/components/ui/useSwitchHold';
+import { useQueryState } from '@/lib/hooks/useQueryState';
 
 /*
  * The Reward Tracker (the Planner menu): every first-clear reward the game still owes the
@@ -62,7 +65,9 @@ export default function FreeOpPage({ backlogSources, freeRewards: globalFreeRewa
   const { server, schedule } = useRegionalTime();
   const freeRewards = regionalFreeRewards(globalFreeRewards, schedule, server);
   const clock = useReaderClock(now, { tickMs: 1000, onFocus: true });
-  const [view, setView] = useState('stages');
+  const [viewQuery, setView] = useQueryState('view', 'stages');
+  const view = viewQuery === 'free' ? 'free' : 'stages';
+  const viewHold = useSwitchHold('reward-tracker');
   const [excluded, setExcluded] = useRewardFilters();
   const past = usePastRewards(backlogSources, excluded);
   const [presentation, setPresentation] = useState(false);
@@ -143,10 +148,12 @@ export default function FreeOpPage({ backlogSources, freeRewards: globalFreeRewa
               : <p className="hint free-op-welfare-empty">No welfare operator to claim right now.</p>}
           </div>
         </section>
-        <Tabs label="Reward type" id="free-reward-type" value={view} onChange={setView} options={[{ value: 'stages', label: 'Stage rewards' }, { value: 'free', label: 'Free rewards' }]} />
+        <StickyControls><Tabs label="Reward type" id="free-reward-type" value={view} onChange={value => { viewHold.capture(); setView(value); }} options={[{ value: 'stages', label: 'Stage rewards' }, { value: 'free', label: 'Free rewards' }]} /></StickyControls>
+        <div ref={viewHold.ref} style={viewHold.style}>
         {view === 'stages' ? <div {...tabPanelProps('free-reward-type', 'stages')}><PastRewards backlog={presentation ? demo.backlog : past.counting} dropped={presentation ? demo.dropped : past.dropped} doneKeys={presentation ? demoKeys : past.doneKeys} doneEvents={presentation ? demoEvents : past.doneEvents} annihilationDone={presentation ? demoAnnihilation : past.annihilationDone}
           onKeys={presentation ? setDemoKeys : past.onKeys} onEvents={presentation ? setDemoEvents : past.onEvents} onAnnihilation={presentation ? setDemoAnnihilation : past.onAnnihilation} imported={presentation ? null : past.imported} cleared={presentation ? null : past.cleared} layout="page" />
         </div> : <div {...tabPanelProps('free-reward-type', 'free')}><FreeRewards icons={rewardIcons} rewards={eligible} done={keys} locked={presentation ? NO_ROWS : locked} onKeys={onFreeKeys} now={clock} server={server} /></div>}
+        </div>
       </main>
       {preview && <FreeOperatorPreview key={preview.name} item={preview} onClose={closePreview} nativeModal />}
     </>

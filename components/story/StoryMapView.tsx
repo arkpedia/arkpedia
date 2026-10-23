@@ -1,10 +1,8 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { ContentImg } from '@/components/content/ContentImage';
-import SegmentedControl from '@/components/ui/SegmentedControl';
 import { lineDrawing, withManga, type StoryElement, type StoryMap, type StoryText } from '@/lib/story/storyMap';
 import dynamic from 'next/dynamic';
 import type { StoryLibraryEntry } from '@/lib/story/storyLibrary';
-import { useQueryState } from '@/lib/hooks/useQueryState';
 import { useHeightFloor } from '@/components/ui/useHeightFloor';
 
 /*
@@ -108,11 +106,9 @@ function Picture({ element, chapters }: { element: Extract<StoryElement, { type:
   return <a className={`story-map-picture${read ? ' is-read' : ''}`} style={style} {...storyLinkProps(element.link, chapters)} title={title} aria-label={`${inPopup ? `${title}: its chapters` : `${title} (opens in a new tab)`}${read ? ', read' : ''}`} draggable={false}>{art}{read && <svg className="story-map-read-mark" width="72" height="72" viewBox="0 0 72 72" fill="none" stroke="currentColor" strokeWidth="8" aria-hidden="true"><path d="M16 38 29 51 56 20" /></svg>}</a>;
 }
 
-export default function StoryMapView({ map, chapters, library }: { map: StoryMap; chapters: ChapterOpener; library: StoryLibraryEntry[] }) {
+export default function StoryMapView({ map, chapters, library, view = 'map' }: { map: StoryMap; chapters: ChapterOpener; library: StoryLibraryEntry[]; view?: 'map' | 'list' }) {
   const board = useMemo(() => withManga(map), [map]);
   const { bounds } = board;
-  const [viewQuery, setView] = useQueryState('view', 'map');
-  const view = viewQuery === 'list' ? 'list' : 'map';
   const floor = useHeightFloor('story-view');
   const viewport = useRef<HTMLDivElement>(null);
   const [fit, setFit] = useState(0.15);
@@ -233,15 +229,11 @@ export default function StoryMapView({ map, chapters, library }: { map: StoryMap
     return () => { cancelAnimationFrame(frameId); document.body.style.overflow = overflow; document.removeEventListener('keydown', onKey); };
   }, [full, bounds.height]);
 
-  const count = library.length + (map.manga?.length ?? 0);
-
   const atFit = shown <= fit + 1e-6;
   return (
     <div ref={floor.ref} style={held ? { minHeight: held } : undefined}>
     <div ref={frame} className={`story-map-frame${full ? ' is-full' : ''}${full === 'window' ? ' is-window' : ''}`}>
-      <div className="story-map-toolbar">
-        <SegmentedControl label="Show the map as" value={view} onChange={setView}
-          options={[{ value: 'map', label: 'Map' }, { value: 'list', label: 'List', count }]} />
+      {view === 'map' && <div className="story-map-toolbar">
         {view === 'map' && (
           <div className="story-map-zoom" role="group" aria-label="Zoom">
             <button type="button" className="ghost btn-sm story-map-zoom-button" onClick={() => zoomTo(shown / STEP)} disabled={atFit} aria-label="Zoom out">−</button>
@@ -254,7 +246,7 @@ export default function StoryMapView({ map, chapters, library }: { map: StoryMap
             {full ? 'Exit full screen' : 'Full screen'}
           </button>
         )}
-      </div>
+      </div>}
       {view === 'map' ? (
         <div ref={viewport} className="story-map-viewport" style={full ? undefined : { aspectRatio: `${bounds.width} / ${bounds.height}` }} onPointerDown={onPointerDown} onPointerMove={onPointerMove}
           onPointerUp={endDrag} onPointerCancel={endDrag} onPointerLeave={endDrag}

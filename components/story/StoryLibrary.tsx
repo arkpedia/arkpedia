@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import LoadOnScroll from '@/components/ui/LoadOnScroll';
 import { ContentImg } from '@/components/content/ContentImage';
 import SearchInput from '@/components/ui/SearchInput';
+import StickyControls from '@/components/ui/StickyControls';
 import StyledSelect from '@/components/ui/StyledSelect';
 import { useQueryState } from '@/lib/hooks/useQueryState';
 import { STORY_CATEGORIES, type StoryLibraryEntry } from '@/lib/story/storyLibrary';
@@ -19,11 +20,11 @@ export default function StoryLibrary({ entries, map, chapters }: { entries: Stor
   const groups = STORY_CATEGORIES.filter(([id]) => !category || category === id).map(([id, title]) => ({ id, title, entries: all.filter(entry => entry.category === id && (!needle || `${entry.title} ${entry.id}`.toLocaleLowerCase().includes(needle))) }));
   const count = groups.reduce((sum, group) => sum + group.entries.length, 0);
   return <div className="story-library">
-    <div className="story-library-tools">
+    <StickyControls className="story-library-tools">
       <StyledSelect label="Story category" value={category} onChange={setCategory} options={options} />
       <SearchInput className="story-library-search" label="Search stories" value={query} onChange={setQuery} placeholder="Search stories…" />
       <span className="hint story-library-count" role="status">{count} {count === 1 ? 'story' : 'stories'}</span>
-    </div>
+    </StickyControls>
     {!count && <p className="hint" role="status">{all.length ? 'No stories match these filters.' : 'The story list is unavailable. Open Timo’s reader to browse the story.'} <button type="button" className="ghost btn-sm" onClick={() => { setQuery(''); setCategory(''); }}>Clear filters</button></p>}
     <StoryResults key={`${category}:${needle}`} groups={groups} count={count} images={images} chapters={chapters} />
   </div>;

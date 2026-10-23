@@ -428,7 +428,7 @@ code, kbd, samp { font-family: var(--font-mono); }
 
 /* In-page anchors land BELOW the fixed nav instead of under it. --nav-h is
    published by Sitenav's ResizeObserver; the fallback covers first paint. */
-[id] { scroll-margin-top: calc(var(--nav-h, 60px) + 12px); }
+[id] { scroll-margin-top: calc(var(--nav-h, 60px) + var(--sticky-controls-h, 0px) + 12px); }
 
 /* Screen-reader-only text: visually gone, still announced. */
 .visually-hidden {
@@ -520,6 +520,9 @@ header,
   gap: 8px;
   margin-top: 14px;
 }
+.page-header.page-header-with-sticky-actions { display: flow-root; padding-bottom: 0; border-bottom: 0; }
+div.page-header-sticky-actions { box-sizing: border-box; max-width: var(--frame-max); margin: 0 auto; padding: 14px var(--page-gutter) 20px; }
+.page-header-sticky-actions > .page-header-actions { margin-top: 0; }
 .header-top {
   display: flex;
   justify-content: space-between;
@@ -646,6 +649,8 @@ h3.entity-title.entity-title-sm,
 h2.entity-title.entity-title-xs,
 h3.entity-title.entity-title-xs,
 .entity-title.entity-title-xs { font-size: 15px; }
+/* Directory names preserve the spelling/case of a person or game term. */
+.entity-title.entity-title-name { min-width: 0; line-height: 1.2; text-transform: none; overflow-wrap: anywhere; }
 /* A list in running text keeps its markers inside the text column: the browser's
    40px indent put the operator page's promotion bullets 40px right of the heading
    above them. 1.1em is the marker column -- the bullet sits in it, at the column's

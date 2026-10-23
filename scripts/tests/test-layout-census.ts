@@ -23,13 +23,13 @@ import { boundsRoutes, EAGER_ALLOWED, HEADING_ROUTES, PICTURE_ROUTES } from '../
  */
 const DIR = path.join(__dirname, '../../tests/browser');
 const CENSUS = 'layout-census.spec.ts';
-const LISTS = /censusRoutes\(\)|CENSUS_STATES|boundsRoutes\(\)|\broutes\(\)|HEADING_ROUTES|PICTURE_ROUTES/;
+const LISTS = /censusRoutes\(\)|CENSUS_STATES|boundsRoutes\(\)|\broutes\(\)|HEADING_ROUTES|PICTURE_ROUTES|\bTARGETS\b/;
 const specs = fs.readdirSync(DIR).filter((file) => file.endsWith('.spec.ts'));
 
 /** Each `for (... of <list>)` and `<list>.forEach(` in a source, with its line. */
 function loopsOver(source: string): string[] {
   const out: string[] = [];
-  source.split('\n').forEach((line, i) => {
+  source.split(/\r?\n/).forEach((line, i) => {
     const loop = line.match(/for\s*\(\s*const\s+[^;]*?\bof\s+(.+)$/);
     const each = line.match(/([\w.[\]()]+)\s*\.forEach\(/);
     const list = loop?.[1] ?? each?.[1];
