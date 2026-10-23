@@ -34,9 +34,24 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    at: '2026-10-22T10:00:00Z',
+    at: '2026-10-23T08:30:00Z',
+    added: [
+      { title: 'Queue from Most liked on YouTube', detail: 'Each Most liked tile has a ⋯ menu to play its song next or add it to the queue.', href: '/music/discover' },
+    ],
+    changed: [
+      { title: 'Seek on Discover', detail: 'Drag the player head on Discover, as on the other music tabs.', href: '/music/discover' },
+      { title: 'Background play notes', detail: 'Songs played from YouTube may not keep playing properly in the background on phones; the notes no longer say they stop.', href: '/music' },
+      { title: 'Monster Siren songs start sooner', detail: 'Pressing Next, or reaching the end of a song, starts the next Monster Siren song sooner.', href: '/music' },
+    ],
+    fixed: [
+      { title: 'Queue new songs without reloading', detail: 'Songs added to the site while a page was open can now be queued without reloading it.', href: '/music' },
+    ],
+  },
+  {
+    at: '2026-10-22T20:30:00Z',
     added: [
       { title: 'Arknights: Endfield music', detail: 'Tick Endfield music beside Playlists to add Endfield\'s soundtrack to the player, Library and Discover.', href: '/music/discover' },
+      { title: 'Search "endfield" for its music', detail: 'The site search, Discover and the Library find Endfield\'s albums and songs by the game\'s name.', href: '/search' },
     ],
     fixed: [
       { title: 'Monthly Card and Look Back days tick', detail: 'Recommended Monthly Card and To Look Back on Terra days you claimed in game are ticked after an import.', href: '/reward-tracker'  },
@@ -101,26 +116,29 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
+    at: '2026-10-19T04:10:00Z',
+    added: [
+      { title: 'Search the whole site', detail: 'Press Ctrl+K (⌘K on a Mac), "/" or the magnifier to find operators, events, stages, enemies, songs and pages as you type.', href: '/search' },
+      { title: 'Search Arkpedia from your browser', detail: 'Add Arkpedia as a search engine, or open arkpedia.net/?s= followed by a name to jump straight there.' },
+    ],
+  },
+  {
     at: '2026-10-18T14:10:00Z',
     changed: [{ title: 'Direct music playback', detail: 'Songs play straight from Monster Siren while the player prepares the next track as you listen.', href: '/music' }],
   },
   {
-    at: '2026-10-18T06:12:08Z',
+    at: '2026-10-18T05:00:00Z',
     changed: [{ title: 'Smoother song transitions', detail: 'The player prepares the next audio track while you listen, following your queue and shuffle order.', href: '/music' }],
-  },
-  {
-    at: '2026-10-18T06:00:00Z',
-    added: [
-      { title: 'Search the whole site', detail: 'The magnifier in the top bar finds operators, events, stages, enemies, albums, songs and pages as you type.', href: '/search' },
-      { title: 'Search Arkpedia from your browser', detail: 'Add Arkpedia as a search engine, or open arkpedia.net/?s= followed by a name to jump straight there.' },
-      { title: 'Private connection diagnostics', detail: 'Copy a login-free report after an import connection fails to help identify where it broke.', href: '/account' },
-    ],
   },
   {
     at: '2026-10-18T04:41:29Z',
     fixed: [
       { title: 'Rerun event details', detail: 'Reruns use their own outfits and rewards; Relaunch Anchor has a full page, and expired banner estimates show as unannounced.', href: '/schedule' },
     ],
+  },
+  {
+    at: '2026-10-18T04:00:00Z',
+    added: [{ title: 'Private connection diagnostics', detail: 'Copy a login-free report after an import connection fails to help identify where it broke.', href: '/account' }],
   },
   {
     at: '2026-10-18T03:00:00Z',
