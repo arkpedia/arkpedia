@@ -85,13 +85,23 @@ isolate loads all of it before it answers. On 2026-10-23 it was 36.6 MB (6.5 MB 
   (`lib/operators/operatorVoices.ts`). Only code that has already read an operator's record from
   `data/` asks for it.
 
+- **`/operators/[name]`'s tables** (3.5 MB: chibi-art, skill-timings, operator-summons) are read
+  from `data/` in the Worker's build (`lib/content/dataTable.ts`). The builder starts from operator
+  records read from `data/`, so on the Worker it only runs while Next prerenders, and `finalize`
+  loads them only for a release that lacks chibis or summons, which no release the Worker reads
+  does. `scripts/tests/test-worker-data-tables.ts` runs the page both ways and expects the same
+  props.
+
 `npm run cf:build` ends with `scripts/audits/check-worker-bundle.mjs`. It fails over a size
 budget, or when a browser-only package is in the bundle, and lists the largest parts.
 
-What is left is mostly the page builders' tables. A builder runs while Next prerenders, and on the
-Worker also when the release can't be read, so a table it compiles in stays. Some, like
-`data/chibi-art.json` in `/operators/[name]`'s `finalize`, fill in what a release older than the
-code lacks.
+The bundle was 17.4 MB on 2026-10-23, and most of what is left is other page builders' tables. A builder runs
+while Next prerenders. On the Worker it also runs when a static route is missing from the release,
+or when the release can't be read, so a table such a builder uses stays compiled in. So does a
+table a backfill uses for a release older than the code, such as `data/regional-schedules.json` in
+`withContentPage`. Moving those would change what the Worker does when that fallback runs. They
+could reach the Worker as static files read from the `ASSETS` binding instead, for about 0.05 s
+less per cold start.
 
 ## Branches (while the Cloudflare path is set up)
 

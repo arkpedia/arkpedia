@@ -7,9 +7,9 @@ import path from 'node:path';
  * handler.mjs, and a fresh isolate loads all of it before it answers: 0.4-0.9 s of a slow first
  * byte on 2026-10-23, at 36.6 MB. 26.7 MB of that was data tables, 9 MB of those a second copy
  * the API routes' build held for dev-only fallbacks, and 2 MB was the browser-only account-import
- * transport. Without those and the voice lines it is 20.8 MB.
+ * transport. Without those, the voice lines and /operators/[name]'s tables it is 17.4 MB.
  */
-const BUDGET_BYTES = 23_000_000;
+const BUDGET_BYTES = 19_000_000;
 /** Browser-only packages: next.config.js keeps them out of the server build. */
 const BROWSER_ONLY = [/\/node_modules\/libcurl\.js\//];
 
