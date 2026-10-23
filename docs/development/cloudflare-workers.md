@@ -61,6 +61,13 @@ Pages are cached in R2, as Vercel's ISR cache holds them for the Vercel deploys
 - **Cache interception:** a cached page is answered before the Next server loads.
 - **Release refresh:** `res.revalidate` (`pages/api/release-refresh.ts`) re-renders through the
   `WORKER_SELF_REFERENCE` service binding.
+- **Front cache:** a second Worker, `arkpedia-edge` (`workers/edge/README.md`), sits on a route in
+  front of this one and answers pages from the data centre's cache. A cached page then costs no
+  start-up of this Worker's script. This Worker runs only on the front cache's misses and, in the
+  background, its refreshes; the `x-arkpedia-edge` response header says which. The regional
+  copies stay, and so does their refresh from R2 on every hit: a refresh reads them, and that is
+  what brings a re-render made in another data centre (by the queue or a release refresh) to this
+  one. Without it, a refresh could bring back a copy up to a day old.
 
 Workers Free allows 10 ms of CPU per request, and a page render takes far more (Error 1102,
 2026-10-22). The Worker needs Workers Paid, where the default is 30 s.
