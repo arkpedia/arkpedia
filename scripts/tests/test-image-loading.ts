@@ -65,7 +65,7 @@ const PRIORITY: Record<string, { count: number; why: string }> = {
   'components/skins/ResponsiveSkinArtwork.tsx': { count: 2, why: 'forwards its own `priority` prop to the <img>, in both of its branches' },
   'components/schedule/EventsPanel.tsx': { count: 1, why: 'the first event slide: the home page\'s LCP at 1440 (only while it is the slide shown)' },
   'components/home/GachaBannersPanel.tsx': { count: 1, why: 'the first banner: the home page\'s LCP at 390 (only while it is the banner shown)' },
-  'pages/gacha.tsx': { count: 1, why: 'the chosen banner\'s art: /gacha\'s LCP at 1440 and 390' },
+  'pages/gacha-simulator.tsx': { count: 1, why: 'the chosen banner\'s art: /gacha\'s LCP at 1440 and 390' },
   'pages/stages/index.tsx': { count: 1, why: 'the event the Terminal leads with: /stages\' LCP' },
 };
 

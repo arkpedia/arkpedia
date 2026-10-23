@@ -49,7 +49,7 @@ test('an operator who costs a material the planner\'s catalogue lacks is held ba
   op.skills.skillList[0].cost.m3.push({ name: 'Electrode Unit', quantity: 6 });
   const held = holds(emptyCatalogue({ operators: [op] }));
   assert.deepEqual(held.map(h => [h.key, h.action]), [['operator:char_9991_clstst', 'published-partial']]);
-  assert.match(held[0].reason, /^Closure Test: costs Concentrated Power Unit, Electrode Unit, which data\/material-catalogue\.json does not have, so \/planner cannot hold or craft them/);
+  assert.match(held[0].reason, /^Closure Test: costs Concentrated Power Unit, Electrode Unit, which data\/material-catalogue\.json does not have, so \/operator-planner cannot hold or craft them/);
   // Potential tokens are not planner costs, so a token alone never trips it.
   const tokenOnly = Object.assign(structuredClone(operatorFixture.operator), { potential: { totalCost: [{ name: 'Nobody\'s Token', quantity: 5 }] } });
   assert.deepEqual(holds(emptyCatalogue({ operators: [tokenOnly] })), []);

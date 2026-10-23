@@ -51,7 +51,7 @@ test('a moved calendar forecast changes the simulator order', () => {
 
 /* The request-time half of withContentPage. A finalize hook runs on every request
    against the release's props, so the only records it may read are those props: the
-   /gacha one re-estimated banner dates from the deployment's bundled banners and
+   /gacha-simulator one re-estimated banner dates from the deployment's bundled banners and
    calendar, which lagged the release it was finalizing (411 banners to its 412). The
    estimate belongs in getStaticProps, which the content export runs on the release. */
 const DEPLOYMENT_RECORDS = /\b(?:getAllHeadhuntingBanners|getBannersSortedByDate|resolveGachaSimulatorBanners|getAllEvents|getEventCalendar|loadGameEvents)\s*\(/;

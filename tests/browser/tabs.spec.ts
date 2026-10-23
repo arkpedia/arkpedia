@@ -51,7 +51,7 @@ function watchHydration(page: Page): string[] {
 
 test('a tab strip is a real tablist, and the keyboard moves along it', async ({ page }) => {
   const errors = watchHydration(page);
-  await page.goto('/gamemodes/stronghold-protocol');
+  await page.goto('/game-modes/stronghold-protocol');
   const list = page.getByRole('tablist', { name: 'Sections' });
   await expect(list).toBeVisible();
   const tabs = list.getByRole('tab');
@@ -97,7 +97,7 @@ test('a tab strip is a real tablist, and the keyboard moves along it', async ({ 
 });
 
 test('the server renders the tablist the browser hydrates', async ({ page }) => {
-  for (const route of ['/gamemodes/stronghold-protocol', '/schedule', '/recruitment', '/planner']) {
+  for (const route of ['/game-modes/stronghold-protocol', '/schedule', '/recruitment', '/operator-planner']) {
     const html = await (await page.request.get(route)).text();
     expect(html, `${route}: role="tablist" in the server HTML`).toMatch(/role="tablist"/);
     expect(html, `${route}: a selected tab in the server HTML`).toMatch(/role="tab"[^>]*aria-selected="true"|aria-selected="true"[^>]*role="tab"/);
@@ -106,7 +106,7 @@ test('the server renders the tablist the browser hydrates', async ({ page }) => 
 });
 
 test('the planner\'s operator tabs are removed with Delete or their ×', async ({ page }) => {
-  await page.goto('/planner');
+  await page.goto('/operator-planner');
   for (const name of ['Penance', 'Surtr']) {
     await page.getByPlaceholder('Search operators…').fill(name);
     await page.getByRole('option', { name: new RegExp(name) }).first().click();
@@ -148,7 +148,7 @@ test('every reader can remove the operator on show, not only a mouse or a keyboa
   // The tab's × is aria-hidden and Delete needs a keyboard, so a touch screen reader
   // or voice control had no way to remove an operator in Simple mode: base had a 36x44
   // "Remove … from plan" button beside each tab.
-  await page.goto('/planner');
+  await page.goto('/operator-planner');
   for (const name of ['Penance', 'Surtr']) {
     await page.getByPlaceholder('Search operators…').fill(name);
     await page.getByRole('option', { name: new RegExp(name) }).first().click();
@@ -185,20 +185,20 @@ const addOperator = async (page: Page) => {
   await expect(page.getByRole('tablist', { name: 'View materials for' })).toBeVisible();
 };
 const PLACES: Place[] = [
-  { name: 'Sections', route: '/gamemodes/stronghold-protocol' },
+  { name: 'Sections', route: '/game-modes/stronghold-protocol' },
   { name: 'Event sections', route: PEOPLE },
   { name: 'Reward store', route: PEOPLE, open: async (page) => { await page.getByRole('tablist', { name: 'Event sections' }).getByRole('tab', { name: 'Rewards' }).click(); } },
   { name: 'Show', route: '/enemies' },
   { name: 'Skill', route: '/operators/Amiya' },
   { name: 'Recruitment view', route: '/recruitment' },
-  { name: 'Planner mode', route: '/planner' },
-  { name: 'View materials for', route: '/planner', open: addOperator },
+  { name: 'Planner mode', route: '/operator-planner'  },
+  { name: 'View materials for', route: '/operator-planner', open: addOperator },
   { name: 'Schedule view', route: '/schedule' },
   // The view read from the address: the server and the browser must agree on it, or the
   // Calendar tab looks current and does nothing when pressed.
   { name: 'Schedule view', route: '/schedule?view=calendar' },
-  { name: 'Skill', route: '/gacha', open: openPreview },
-  { name: 'Module', route: '/gacha', open: openPreview },
+  { name: 'Skill', route: '/gacha-simulator', open: openPreview },
+  { name: 'Module', route: '/gacha-simulator', open: openPreview },
 ];
 
 for (const place of PLACES) {
@@ -233,7 +233,7 @@ for (const place of PLACES) {
     // panel showing decides how far down the strip can go, and placed once, on the short
     // panel, the strip stayed where the short panel allowed, so the press from the tall
     // panel back to the short one started with no scroll to lose -- /recruitment's Cheat
-    // sheet -> Calculator (143px at 1440) and /planner's Experimental -> Simple (98px)
+    // sheet -> Calculator (143px at 1440) and /operator-planner's Experimental -> Simple (98px)
     // clamped the reader and passed.
     const toTop = async () => {
       await list.evaluate((el) => {
@@ -295,9 +295,9 @@ const tab = (list: string, name: string | RegExp) => async (page: Page) => {
    operator in the plan, the cheat sheet and a stage map. */
 const STATES: State[] = [
   { name: 'event skins', route: PEOPLE, act: tab('Event sections', 'Skins') },
-  { name: 'gacha operator preview', route: '/gacha', act: openPreview },
+  { name: 'gacha operator preview', route: '/gacha-simulator', act: openPreview },
   { name: 'schedule calendar', route: '/schedule?view=calendar' },
-  { name: 'planner with an operator', route: '/planner', act: addOperator },
+  { name: 'planner with an operator', route: '/operator-planner', act: addOperator },
   { name: 'recruitment cheat sheet', route: '/recruitment', act: tab('Recruitment view', 'Guarantee cheat sheet') },
   // 1-7: its map renders in a build with the content release switched off (ta-1's did not).
   { name: 'a stage map', route: '/stages/browse?s=1-7', act: async (page) => { await expect(page.locator('.stage-map-tools')).toBeVisible({ timeout: 45_000 }); } },

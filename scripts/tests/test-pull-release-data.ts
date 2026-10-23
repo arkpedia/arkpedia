@@ -19,13 +19,13 @@ const pathToBundled = (entry: string, clientOnly = true) => pathToTarget(entry, 
 
 test('no page ships the bundled pull data to the browser', () => {
   const all = pages();
-  assert.ok(all.includes('pages/pulls.tsx'));
-  // The walk is not vacuous: the server half of /pulls does reach the bundled
+  assert.ok(all.includes('pages/pull-planner.tsx'));
+  // The walk is not vacuous: the server half of /pull-planner does reach the bundled
   // data, through getStaticProps, and the browser half reaches the planner code.
-  assert.deepEqual(pathToBundled('pages/pulls.tsx', false)?.at(-1)?.startsWith('data/pull-'), true);
-  assert.ok(browserImports('pages/pulls.tsx', true).includes('components/pulls/PastRewards.tsx'));
-  assert.ok(browserImports('pages/pulls.tsx', true).includes('lib/pulls/pulls.ts'));
-  assert.ok(!browserImports('pages/pulls.tsx', true).includes('lib/pulls/sources.ts'));
+  assert.deepEqual(pathToBundled('pages/pull-planner.tsx', false)?.at(-1)?.startsWith('data/pull-'), true);
+  assert.ok(browserImports('pages/pull-planner.tsx', true).includes('components/pulls/PastRewards.tsx'));
+  assert.ok(browserImports('pages/pull-planner.tsx', true).includes('lib/pulls/pulls.ts'));
+  assert.ok(!browserImports('pages/pull-planner.tsx', true).includes('lib/pulls/sources.ts'));
   const leaks = all.flatMap(page => { const chain = pathToBundled(page); return chain ? [chain.join(' -> ')] : []; });
   assert.deepEqual(leaks, [], 'Browser code must read the back catalogue from the page props (BacklogSources), which carry the content release, not from data/.');
 });

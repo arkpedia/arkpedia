@@ -16,6 +16,7 @@ import App from '../../pages/_app';
 import { getSeasonalChallenge, seasonalFromRelease } from '../../lib/stages/terminal';
 import { discoverFromRelease, getDiscoverPageData, type DiscoverPageData } from '../../lib/music/albumsDataServer';
 import CONTENT_ROUTES from '../content/pages.json';
+import renamedRoutes from '../../config/renamed-routes.json';
 
 /*
  * A deploy renders against the live content release, and right after one that release is
@@ -45,7 +46,7 @@ import CONTENT_ROUTES from '../content/pages.json';
  * component reads as undefined. Fill it in the page's withContentPage finalize, or, when
  * only the data differs (a field the old data never had anywhere), list it in DATA_ONLY
  * with the reason. This code's own props come from each page's builder on this checkout's
- * data, as `next dev` gets them, so /planner's writes public/planner-data (ignored) here
+ * data, as `next dev` gets them, so /operator-planner's writes public/planner-data (ignored) here
  * as it does there; none needs prebuild's generated files.
  *
  * A content route the release does not publish at all (release.json lists every route it
@@ -53,7 +54,7 @@ import CONTENT_ROUTES from '../content/pages.json';
  * Its ISR regeneration on Vercel is another matter: there the function has no data/
  * (Vercel's traces leave it out) and lib/content/server.ts throws "Published content is
  * missing <route>", so Next keeps the build's page until a release compiled by this code
- * goes live. The same branch made /community a content route, and on the live release its
+ * goes live. The same branch made /community-hub a content route, and on the live release its
  * feeds and LIVE badges froze at build time for up to a day (found 2026-09-26 by serving
  * the Deploy build with VERCEL=1 and a clock past the revalidate window). So each such
  * route runs here the way a stale regeneration on Vercel runs it, from a directory with no
@@ -95,8 +96,13 @@ function matchTemplate(template: string, route: string): Record<string, string> 
   return match ? Object.fromEntries(names.map((name, i) => [name, decodeURIComponent(match[i + 1])])) : null;
 }
 
+/** A renamed page's new address for the one the release published it at
+ *  (config/renamed-routes.json), which the page reads until a release has the new one. */
+const RENAMED = Object.fromEntries(Object.entries(renamedRoutes.routes).map(([now, before]) => [before, now])) as Record<string, string>;
+
 /** The route template (scripts/content/pages.json) a route is served by, and its params. */
-function templateOf(route: string): { template: string; params?: Record<string, string> } {
+function templateOf(published: string): { template: string; params?: Record<string, string> } {
+  const route = RENAMED[published] ?? published;
   if ((CONTENT_ROUTES as string[]).includes(route)) return { template: route };
   for (const template of CONTENT_ROUTES as string[]) {
     const params = matchTemplate(template, route);
@@ -105,8 +111,9 @@ function templateOf(route: string): { template: string; params?: Record<string, 
   throw new Error(`${route} is not a content route (scripts/content/pages.json)`);
 }
 
-/** This checkout's content routes that the previous release publishes no page of. */
-const UNPUBLISHED = (CONTENT_ROUTES as string[]).filter((template) => !PREVIOUS.routes.some((route) => matchTemplate(template, route)));
+/** This checkout's content routes that the previous release publishes no page of, under
+ *  their own address or, for a renamed page, the one it had. */
+const UNPUBLISHED = (CONTENT_ROUTES as string[]).filter((template) => !PREVIOUS.routes.some((route) => matchTemplate(template, RENAMED[route] ?? route)));
 
 type PageModule = { default: ComponentType<object>; getStaticProps: GetStaticProps<object> };
 async function pageModule(template: string): Promise<PageModule> {
@@ -153,7 +160,7 @@ async function withRelease<T>(routes: string[], run: (release: string) => Promis
 }
 
 // VERCEL makes lib/content/server.ts refuse this checkout's data on a regeneration; the
-// feed credentials make /community's finalize take every fetch it takes in production.
+// feed credentials make /community-hub's finalize take every fetch it takes in production.
 const ENV_KEYS = ['ARKPEDIA_CONTENT_URL', 'ARKPEDIA_CONTENT_TEST', 'ARKPEDIA_CONTENT_DISABLED', 'ARKPEDIA_EXPORT_CONTENT',
   'VERCEL', 'TWITCH_CLIENT_ID', 'TWITCH_CLIENT_SECRET', 'YOUTUBE_API_KEY'] as const;
 async function withEnv<T>(values: Partial<Record<typeof ENV_KEYS[number], string>>, run: () => Promise<T>): Promise<T> {
@@ -315,7 +322,7 @@ const DATA_ONLY: Record<string, Record<string, string>> = {
     '.availabilityWindows[].inventoryComplete': 'source metadata spread by confirmedWindow from the refreshed acquisition-window records; SkinWindow does not require it, and no skin component reads it, so the previous release can omit it',
     '.events[].global.shopEndAt': "the event store's close (sync-event-windows.mjs, from activity_table rewardEndTime), which the data first carried on 2026-09-30; GameWindowTimes has it optional, and eventShopEnd reads its absence as a store that closes with the stages, as the page did before; nothing on /skins reads it yet",
   },
-  '/gacha': {
+  '/gacha-simulator': {
     '.banners[].globalForecastWithdrawn': 'optional status for withdrawn estimates; older releases retain their existing provisional label until source publication',
     '.banners[].globalScheduleStatus': 'optional imported timing confidence; bannerTimingLabel compares it safely and retains the legacy label when absent',
     '.banners[].aliases': 'optional former banner names used by historical links; the deep-link resolver uses optional chaining when absent',
@@ -409,7 +416,7 @@ const REGENERATED: Record<string, (props: Record<string, unknown>, clock: { from
     const tables = props.__contentTables as Record<string, {chars?:Record<string,unknown>}>;
     assert.ok(Object.keys(tables['game-account-map'].chars ?? {}).length > 400, 'the profile id map is attached');
   },
-  '/community': (props, { from, to }) => {
+  '/community-hub': (props, { from, to }) => {
     const campaigns = (props.directory as { webEvents: { url: string; name: string; expiresAt: string }[] }).webEvents;
     assert.ok((require('../../config/community-web-events.json') as { url: string }[]).every(seed => campaigns.some(event => event.url === seed.url)), 'seeded campaigns survive an older published Community directory');
     assert.ok(campaigns.every(event => event.name && Number.isFinite(Date.parse(event.expiresAt))), 'discovered campaign records keep verified deadlines');
@@ -443,7 +450,7 @@ const REGENERATED: Record<string, (props: Record<string, unknown>, clock: { from
     assert.deepEqual(manga.map((comic) => comic.updated ?? ''), manga.map((comic) => comic.updated ?? '').sort().reverse(), 'the latest first');
   },
   // The back catalogue compiled into the bundle, filled by finalize.
-  '/free-op': (props) => {
+  '/reward-tracker': (props) => {
     const backlog = props.backlogSources as { chapters: { stages?: string[]; stageCodes?: string[] }[]; playable: { start?: string }[]; annihilation: { id: string }[] };
     assert.ok(backlog.chapters.length > 10 && backlog.chapters.every((chapter) => chapter.stages?.length === chapter.stageCodes?.length), 'every chapter with its stages and their codes');
     assert.ok(backlog.playable.length > 10 && backlog.playable.every((event) => event.start), 'every playable event with its start date');
@@ -499,7 +506,7 @@ for (const route of Object.keys(PREVIOUS.pages)) {
 
     const bundled = await withEnv({ ARKPEDIA_CONTENT_DISABLED: '1' }, () => propsOf(page.getStaticProps, params));
     assert.ok(!bundled.__contentRelease, `${route}: this code's own props, from its own data`);
-    const allowed = DATA_ONLY[route] ?? {};
+    const allowed = DATA_ONLY[RENAMED[route] ?? route] ?? {};
     const missing = missingFromRelease(shapeOf(bundled), shapeOf(props)).filter((at) => !(at in allowed));
     assert.deepEqual(missing, [], `${route}: the previous release's props lack ${missing.join(', ')} -- fill them in the page's withContentPage finalize (or list a field only the data lacks in DATA_ONLY)`);
   });

@@ -1,13 +1,13 @@
 /** Every number and date the Pull Planner renders goes through this file.
  *
- * /pulls is prerendered on the server and hydrated in the reader's browser. A
+ * /pull-planner is prerendered on the server and hydrated in the reader's browser. A
  * formatter that follows the reader's locale prints "49,700" on the server and
  * "49.700" for a German, French, Brazilian or Russian reader, and React then
  * throws away the server HTML (errors 418/423/425) and repaints the page. So the
  * locale is fixed here, never taken from the reader, and dates are read in UTC
  * because a reader's time zone can move a 12:00 UTC date across midnight.
  *
- * scripts/tests/test-pulls-format.ts fails when pages/pulls.tsx or a file under
+ * scripts/tests/test-pulls-format.ts fails when pages/pull-planner.tsx or a file under
  * components/pulls or lib/pulls formats a number or date anywhere but here. */
 
 const NUMBER_LOCALE = 'en-US';

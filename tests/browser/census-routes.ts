@@ -84,7 +84,7 @@ const goal = (elite: number, level: number, skillLevel: number, masteryTargets: 
   elite, level, skillLevel, masteryTargets, moduleStageTargets: {},
   startingElite: 0, startingLevel: 1, startingSkillLevel: 1, startingMasteryLevels: {}, startingModuleStages: {},
 });
-/** What a reader's planner keeps, by localStorage key (pages/planner.tsx, lib/planner/). */
+/** What a reader's planner keeps, by localStorage key (pages/operator-planner.tsx, lib/planner/). */
 export type PlannerStorage = Record<string, unknown>;
 export const PLANNER_PLAN: PlannerStorage = {
   plannerState: {
@@ -136,20 +136,20 @@ export async function plannerExperimental(page: Page, storage: PlannerStorage) {
 }
 const experimental = (page: Page) => plannerExperimental(page, PLANNER_PLAN);
 const PLANNER_STATES: CensusState[] = [
-  { id: 'planner simple with a plan', route: '/planner', act: (page) => seedPlanner(page, PLANNER_PLAN) },
-  { id: 'planner simple on an operator', route: '/planner', act: async (page) => { await seedPlanner(page, PLANNER_PLAN); await pick(page, 'main', 'Surtr'); await page.locator('.simple-dossier').waitFor(); await plannerPriced(page); } },
-  { id: 'planner experimental with a plan', route: '/planner', act: experimental },
-  { id: 'planner experimental, depot open', route: '/planner', act: async (page) => { await experimental(page); await page.getByRole('button', { name: 'Open depot', exact: true }).click(); await page.locator('.plan-panel').last().getByRole('button', { name: 'Done', exact: true }).waitFor(); } },
+  { id: 'planner simple with a plan', route: '/operator-planner', act: (page) => seedPlanner(page, PLANNER_PLAN) },
+  { id: 'planner simple on an operator', route: '/operator-planner', act: async (page) => { await seedPlanner(page, PLANNER_PLAN); await pick(page, 'main', 'Surtr'); await page.locator('.simple-dossier').waitFor(); await plannerPriced(page); } },
+  { id: 'planner experimental with a plan', route: '/operator-planner', act: experimental },
+  { id: 'planner experimental, depot open', route: '/operator-planner', act: async (page) => { await experimental(page); await page.getByRole('button', { name: 'Open depot', exact: true }).click(); await page.locator('.plan-panel').last().getByRole('button', { name: 'Done', exact: true }).waitFor(); } },
   // The two windows a plan row and a panel head open: where an operator is (the roster
   // window, with Owned and Forget), and where they are going (the goal window, with the
   // operator's bill against the plan).
-  { id: 'planner experimental, roster window', route: '/planner', act: async (page) => {
+  { id: 'planner experimental, roster window', route: '/operator-planner', act: async (page) => {
     await experimental(page);
     await page.getByRole('button', { name: 'Your roster', exact: true }).click();
     await page.locator('.modal-box').getByRole('button', { name: /Surtr/ }).first().click();
     await page.locator('.modal-box').getByRole('button', { name: /^Forget / }).waitFor();
   } },
-  { id: 'planner experimental, goal window', route: '/planner', act: async (page) => {
+  { id: 'planner experimental, goal window', route: '/operator-planner', act: async (page) => {
     await experimental(page);
     await page.locator('.plan-row').first().getByRole('button', { name: 'Edit', exact: true }).click();
     await page.locator('.modal-box .wizard-bill').waitFor();
@@ -157,7 +157,7 @@ const PLANNER_STATES: CensusState[] = [
   // The row's third window, Build: its steps and the × that closes it. The x-buttons round
   // could not hold it, because behind it Experimental's Craft toggles sat 8.5px off their
   // tags and the plan-row actions overflowed their column, which this round fixed.
-  { id: 'planner experimental, build window', route: '/planner', act: async (page) => {
+  { id: 'planner experimental, build window', route: '/operator-planner', act: async (page) => {
     await experimental(page);
     await page.locator('.plan-row').first().getByRole('button', { name: 'Build', exact: true }).click();
     await page.locator('.modal-box.build-box .build-body').waitFor();
@@ -165,14 +165,14 @@ const PLANNER_STATES: CensusState[] = [
 ];
 
 export const CENSUS_STATES: CensusState[] = [
-  { id: 'planner with Amiya (the level dialog)', route: '/planner', act: async (page) => { await page.locator('#planner-search').fill('Amiya'); await page.locator('#planner-search').press('Enter'); await page.locator('.simple-wizard').waitFor(); } },
+  { id: 'planner with Amiya (the level dialog)', route: '/operator-planner', act: async (page) => { await page.locator('#planner-search').fill('Amiya'); await page.locator('#planner-search').press('Enter'); await page.locator('.simple-wizard').waitFor(); } },
   // Experimental's own rows: "Your plan" (Clear, Your roster, Add a goal) and the depot's
   // (Clear, Open depot). The maintainer found Clear a size apart from its row on 2026-09-27
   // in both modes; Simple's search row is on the page load.
-  { id: 'planner experimental', route: '/planner', act: (page) => tabIn(page, '.page-header-actions', 'Experimental') },
+  { id: 'planner experimental', route: '/operator-planner', act: (page) => tabIn(page, '.page-header-actions', 'Experimental') },
   { id: 'event rewards tab', route: '/events/%5BSide%20Story%5D%20People%2C%20A%20People', act: (page) => tabIn(page, '.event-detail-tabs', 'Rewards') },
-  { id: 'gacha details', route: '/gacha', act: async (page) => { await page.getByRole('button', { name: 'Details', exact: true }).first().click(); await page.locator('.gacha-details-modal').waitFor(); } },
-  { id: 'gacha operator preview', route: '/gacha', act: async (page) => {
+  { id: 'gacha details', route: '/gacha-simulator', act: async (page) => { await page.getByRole('button', { name: 'Details', exact: true }).first().click(); await page.locator('.gacha-details-modal').waitFor(); } },
+  { id: 'gacha operator preview', route: '/gacha-simulator', act: async (page) => {
     await page.getByRole('button', { name: 'Details', exact: true }).first().click();
     await page.locator('.gacha-details-modal button.gacha-details-featured, .gacha-details-modal .gacha-details-name-list button').first().click();
     await page.locator('.gacha-pull-preview-header').waitFor();
@@ -181,7 +181,7 @@ export const CENSUS_STATES: CensusState[] = [
   // count and "Continue ›" (or "Done", for a banner with no pages of its own). The count
   // sat 5px above the buttons' centre, lifted by a margin-bottom left from when it stood
   // above the row; at 390 it holds one line with 11px either side.
-  { id: 'gacha guide', route: '/gacha', act: async (page) => {
+  { id: 'gacha guide', route: '/gacha-simulator', act: async (page) => {
     await page.getByRole('button', { name: 'How does this work?' }).first().click();
     const guide = page.locator('.gacha-guide-modal');
     await guide.waitFor();
@@ -192,12 +192,12 @@ export const CENSUS_STATES: CensusState[] = [
   } },
   { id: 'schedule calendar', route: '/schedule', act: (page) => tabIn(page, '.page-header-actions', 'Calendar') },
   { id: 'recruitment with two tags', route: '/recruitment', act: async (page) => { const tags = page.locator('.recruit-tag-picker .filter-chip'); await tags.nth(1).click(); await tags.nth(6).click(); } },
-  { id: 'stronghold alliances', route: '/gamemodes/stronghold-protocol', act: (page) => tabIn(page, '.gm-lookup', 'Alliances') },
-  { id: 'stronghold items', route: '/gamemodes/stronghold-protocol', act: (page) => tabIn(page, '.gm-lookup', 'Items') },
-  { id: 'stronghold enemies', route: '/gamemodes/stronghold-protocol', act: (page) => tabIn(page, '.gm-lookup', 'Enemies') },
+  { id: 'stronghold alliances', route: '/game-modes/stronghold-protocol', act: (page) => tabIn(page, '.gm-lookup', 'Alliances') },
+  { id: 'stronghold items', route: '/game-modes/stronghold-protocol', act: (page) => tabIn(page, '.gm-lookup', 'Items') },
+  { id: 'stronghold enemies', route: '/game-modes/stronghold-protocol', act: (page) => tabIn(page, '.gm-lookup', 'Enemies') },
   { id: 'stage guesser custom list', route: '/games/stage-guesser', act: (page) => clickIn(page, 'main', 'Custom') },
-  // The Income popup: the forecast banner and the condensed report (pages/pulls.tsx).
-  { id: 'pulls income', route: '/pulls', act: async (page) => { await page.locator('#tab-income').click(); await page.locator('dialog.pulls-income-dialog .pulls-report').waitFor(); } },
+  // The Income popup: the forecast banner and the condensed report (pages/pull-planner.tsx).
+  { id: 'pulls income', route: '/pull-planner', act: async (page) => { await page.locator('#tab-income').click(); await page.locator('dialog.pulls-income-dialog .pulls-report').waitFor(); } },
   { id: 'enemies stages tab', route: '/enemies', act: (page) => tabIn(page, '.enemy-tabs', 'Stages') },
   // r10 x-buttons: dialogs whose close became the borderless × (XButton). The planner's goal
   // dialog had a 44px-wide glyph box stretched to its head's height; as a square it sat 6px
@@ -209,12 +209,12 @@ export const CENSUS_STATES: CensusState[] = [
   { id: 'skin planner with a plan', route: '/skin-planner', act: async (page) => { await page.locator('.skin-plan-card-foot').first().click(); await page.locator('.skin-plan-deadlines').waitFor(); } },
   { id: 'roster owned', route: '/operators', act: async (page) => { await seedAccount(page); await openFilters(page); await page.getByRole('group', { name: 'Operators you own' }).getByRole('button', { name: /^Owned\s*\d+$/ }).click(); await closeFilters(page); } },
   { id: 'skins not owned', route: '/skins', act: async (page) => { await seedAccount(page); await openFilters(page); await page.getByRole('group', { name: 'Outfits you own' }).getByRole('button', { name: /^Not owned\s*\d+$/ }).click(); await closeFilters(page); } },
-  { id: 'planner goal dialog', route: '/planner', act: async (page) => { await tabIn(page, '.page-header-actions', 'Experimental'); await page.getByRole('button', { name: /Add a goal/ }).first().click(); await page.locator('.wizard-head:visible').first().waitFor(); } },
+  { id: 'planner goal dialog', route: '/operator-planner', act: async (page) => { await tabIn(page, '.page-header-actions', 'Experimental'); await page.getByRole('button', { name: /Add a goal/ }).first().click(); await page.locator('.wizard-head:visible').first().waitFor(); } },
   // The account page with an import (lib/account/accountStore): the profile and counts filled
   // in, and Import / export open.
   // The Pull Planner's Past events popup with an import (components/pulls/PastRewards): ticked
   // from the account's cleared stages, one chapter opened to the stages it has left.
-  { id: 'pulls past events from an import', route: '/pulls', act: async (page) => {
+  { id: 'pulls past events from an import', route: '/pull-planner', act: async (page) => {
     await seedAccount(page);
     await page.locator('#tab-past').click();
     await page.locator('dialog.pulls-past-dialog .pulls-past-row button.pulls-past-name').first().click();
@@ -222,7 +222,7 @@ export const CENSUS_STATES: CensusState[] = [
   } },
   // The OP Tracker with an import: ticked from the account, one chapter opened to the
   // stages it has left.
-  { id: 'op tracker from an import', route: '/free-op', act: async (page) => {
+  { id: 'op tracker from an import', route: '/reward-tracker', act: async (page) => {
     await seedAccount(page);
     await page.locator('.pulls-past-page .pulls-past-row button.pulls-past-name').first().click();
     await page.locator('.pulls-past-page .pulls-past-detail').first().waitFor();
@@ -233,7 +233,7 @@ export const CENSUS_STATES: CensusState[] = [
     await page.locator('.page-header').getByRole('button', { name: 'Import / export', exact: true }).click();
     await page.locator('dialog.data-dialog .import-forms').waitFor();
   } },
-  { id: 'stronghold record', route: '/gamemodes/stronghold-protocol', act: async (page) => { await tabIn(page, '.gm-lookup', 'Enemies'); await page.locator('.gm-row:visible').first().click(); await page.locator('.record-dialog').first().waitFor(); } },
+  { id: 'stronghold record', route: '/game-modes/stronghold-protocol', act: async (page) => { await tabIn(page, '.gm-lookup', 'Enemies'); await page.locator('.gm-row:visible').first().click(); await page.locator('.record-dialog').first().waitFor(); } },
   { id: 'stage enemy record', route: '/stages/browse?s=1-7', act: async (page) => { await page.locator('.stage-enemy-faces .enemy-face').first().click(); await page.locator('.record-dialog .enemy-hero').first().waitFor(); } },
   ...PLANNER_STATES,
 ];

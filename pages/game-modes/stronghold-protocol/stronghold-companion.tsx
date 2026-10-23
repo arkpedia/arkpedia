@@ -104,7 +104,7 @@ export default function CompanionPage({ data, picker }: Props) {
           on a phone. The eyebrow's crumb is the way back to the reference page. */}
       <header className="gm-co-head">
         <div className="eyebrow">
-          <Link prefetch={false} href="/gamemodes/stronghold-protocol">Stronghold Protocol</Link>{' // Run companion'}
+          <Link prefetch={false} href="/game-modes/stronghold-protocol">Stronghold Protocol</Link>{' // Run companion'}
         </div>
         <h1>Run Companion</h1>
         <p className="sub">
@@ -154,10 +154,10 @@ export default function CompanionPage({ data, picker }: Props) {
  * beyond the shape, and the nav needs to know nothing about this page at all.
  */
 CompanionPage.mobileNav = {
-  back: { href: '/gamemodes/stronghold-protocol', label: 'Stronghold' },
+  back: { href: '/game-modes/stronghold-protocol', label: 'Stronghold' },
 };
 
-export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/gamemodes/stronghold-protocol/stronghold-companion", async () => {
+export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/game-modes/stronghold-protocol/stronghold-companion", async () => {
   const data = strongholdData();
   /* Throws if the playbook names an operator, item, strategy or alliance the season
      does not have. Here rather than at runtime because the failure is silent

@@ -106,8 +106,8 @@ test('a declared craft adds what it is made of, and each row says what its count
 
 test('the planner picker is judged per request from release markers, not at export', () => {
   // The export carries no clock; every request gets its `now`, rounded to the minute.
-  assert.deepEqual(contentPageClock('/planner', { operators: [] }, { exporting: true }), { operators: [] });
-  assert.equal((contentPageClock('/planner', { operators: [] }, { now: Date.UTC(2026, 9, 14, 12, 0, 30) }) as { now?: number }).now, Date.UTC(2026, 9, 14, 12, 0));
+  assert.deepEqual(contentPageClock('/operator-planner', { operators: [] }, { exporting: true }), { operators: [] });
+  assert.equal((contentPageClock('/operator-planner', { operators: [] }, { now: Date.UTC(2026, 9, 14, 12, 0, 30) }) as { now?: number }).now, Date.UTC(2026, 9, 14, 12, 0));
   // Closure's record: Global date 2026/10/14 (UTC-7), so plannable from the day after, never before.
   const closure = releaseMarker({ characterInfo: { 'Release Date': '2026/10/14' } });
   assert.equal(isReleasedAt(closure, Date.UTC(2026, 8, 25)), false);

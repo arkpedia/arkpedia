@@ -1,6 +1,6 @@
 # Pull Planner
 
-`/pulls` estimates funds for one date and supports a saved sequence of banner budgets. The page uses Arkpedia's existing theme tokens and normal page width. `/schedule` links to a selected banner through `?banner=<name>` in both the event list and calendar detail panel.
+`/pull-planner` estimates funds for one date and supports a saved sequence of banner budgets. The page uses Arkpedia's existing theme tokens and normal page width. `/schedule` links to a selected banner through `?banner=<name>` in both the event list and calendar detail panel.
 
 ## Page flow
 
@@ -66,7 +66,7 @@ The existing monthly-card model assumes purchases covering the selected window, 
 
 - `npm run audit:pulls` — existing reward and income calculations.
 - `npm run test:pull-plan` — budgets, free-pull isolation, shortfalls, persistence validation, schedule corrections, skin pricing, and legacy-save compatibility.
-- `scripts/tests/test-pulls-format.ts` (in `npm test`) — fails a number or date formatted anywhere in `pages/pulls.tsx`, `components/pulls` or `lib/pulls` but `lib/pulls/format.ts`, and a formatter there without a fixed locale or, for dates, UTC.
+- `scripts/tests/test-pulls-format.ts` (in `npm test`) — fails a number or date formatted anywhere in `pages/pull-planner.tsx`, `components/pulls` or `lib/pulls` but `lib/pulls/format.ts`, and a formatter there without a fixed locale or, for dates, UTC.
 - `npm run typecheck`, `npm run lint -- --max-warnings 15`, strict rendered-class check, and production build.
 - Browser coverage: desktop/mobile layout, shared artwork, multi-banner selection, persistent picker behavior, direct schedule links, and horizontal overflow.
 
@@ -135,7 +135,7 @@ To add one:
   starting over each time it is obtained; a rate-up five-star as the next
   five-star if none came in the first 50 pulls; and, with two rate-up
   five-stars (Aegis and Yukari Takeba), the next five-star after the first of
-  them is the other, once. /gacha's simulator follows the same rules (it had
+  them is the other, once. /gacha-simulator's simulator follows the same rules (it had
   the 120 once, and only for a six-star rolled on or after it).
 - [Orienteering #7](https://ak.hypergryph.com/news/3046): choose three six-stars
   and three five-stars; chosen six-stars share 100%, chosen five-stars share 60%.

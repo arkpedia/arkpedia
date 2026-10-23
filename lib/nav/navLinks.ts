@@ -20,6 +20,10 @@ export const LINKS: NavLink[] = [
   { href: '/artists', label: 'Artists', icon: 'palette' },
   { href: '/voice-actors', label: 'Voice Actors', icon: 'microphone' },
   { href: '/skins', label: 'Skins', icon: 'skins' },
+  /* Reached from the Operators page's header before they had menu entries of their own. */
+  { href: '/synergies', label: 'Synergies', icon: 'synergies' },
+  { href: '/techniques', label: 'Techniques', icon: 'techniques' },
+  { href: '/obtain-method', label: 'Obtain Method', icon: 'obtain' },
   /* Not in the bar any more: the Events list is a view of the Schedule page. Kept in
      LINKS because the event detail pages still live under /events/, and isActiveLink
      reads this row to light the nav on them. */
@@ -33,25 +37,29 @@ export const LINKS: NavLink[] = [
      page that no redirect matches. */
   { href: '/enemies', label: 'Enemies', icon: 'enemies' },
   { href: '/story', label: 'Story', icon: 'story' },
-  { href: '/gamemodes', label: 'Game Modes', icon: 'grid' },
+  /* Reached from the Story page's card before it had a menu entry. */
+  { href: '/manga', label: 'Manga', icon: 'manga' },
+  { href: '/game-modes', label: 'Game Modes', icon: 'grid' },
   { href: '/base', label: 'Base', icon: 'base' },
-  /* Always "Import Account", import or not: a menu entry whose name changed once you had
+  /* Always "My Account", import or not: a menu entry whose name changed once you had
      imported read as a different page (2026-10-03). */
-  { href: '/account', label: 'Import Account', icon: 'roster' },
-  { href: '/free-op', label: 'Reward Tracker', icon: 'prime' },
-  { href: '/planner', label: 'Operator Planner', icon: 'planner' },
-  { href: '/pulls', label: 'Pull Planner', icon: 'calculator' },
+  { href: '/account', label: 'My Account', icon: 'roster' },
+  { href: '/reward-tracker', label: 'Reward Tracker', icon: 'prime' },
+  { href: '/operator-planner', label: 'Operator Planner', icon: 'planner' },
+  { href: '/pull-planner', label: 'Pull Planner', icon: 'calculator' },
   { href: '/skin-planner', label: 'Skin Planner', icon: 'skins' },
-  { href: '/community', label: 'World', icon: 'community' },
-  { href: '/friends', label: 'Import a Friend', icon: 'roster' },
-  { href: '/gacha', label: 'Gacha', icon: 'gacha' },
+  { href: '/community-hub', label: 'Community Hub', icon: 'community' },
+  { href: '/friends', label: 'Friends', icon: 'friends' },
+  { href: '/gacha-simulator', label: 'Gacha Simulator', icon: 'permit' },
   { href: '/recruitment', label: 'Recruitment', icon: 'recruitment' },
   { href: '/selector-tickets', label: 'Selector Tickets', icon: 'gacha' },
-  { href: '/results', label: 'Power Scale', icon: 'rate' },
+  /* The closed community poll. Its address is under /polls, where a Polls page will list it with
+     the polls to come. */
+  { href: '/polls/power-scale', label: 'Power Scale', icon: 'rate' },
   { href: '/games', label: 'Games', icon: 'grid' },
   { href: '/schedule', label: 'Schedule', icon: 'timeline' },
   { href: '/music', label: 'Music', icon: 'music' },
-  { href: '/changelog', label: "What's new", icon: 'changelog' },
+  { href: '/whats-new', label: "What's new", icon: 'changelog' },
   { href: '/credits', label: 'Credits', icon: 'credits' },
   { href: '/support', label: 'Support', icon: 'support' },
 ];
@@ -65,7 +73,7 @@ export const LINKS: NavLink[] = [
  * grouping, not a taxonomy invented here, and they are only an array: moving an entry
  * between menus is a line move.
  *
- * Support sits outside the menus because it is one destination and nothing groups with
+ * Schedule sits outside the menus because it is one destination and nothing groups with
  * it. Rules is what myrtle.moe does with Tier Lists, and it is right: a menu holding a
  * single item is a click in front of a link.
  */
@@ -74,6 +82,8 @@ export interface NavGroup {
   id: string;
   label: string;
   items: NavLink[];
+  /** The hrefs a thin rule follows in the open menu: a long menu read as a few groups. */
+  dividersAfter?: string[];
 }
 
 const at = (href: string): NavLink => {
@@ -83,19 +93,28 @@ const at = (href: string): NavLink => {
 };
 
 export const GROUPS: NavGroup[] = [
-  { id: 'database', label: 'Database', items: [at('/operators'), at('/skins'), at('/enemies'), at('/stages'), at('/story'), at('/artists'), at('/voice-actors')] },
-  { id: 'guides', label: 'Guides', items: [at('/farming'), at('/gamemodes'), at('/base'), at('/recruitment'), at('/gacha'), at('/selector-tickets')] },
-  /* The reader's own: their account, and the planners that read it (issue #94). */
-  { id: 'own', label: 'Planner', items: [at('/account'), at('/free-op'), at('/planner'), at('/skin-planner'), at('/pulls')] },
-  { id: 'community', label: 'Community', items: [at('/friends'), at('/results'), at('/games'), at('/community'), at('/music'), at('/changelog'), at('/credits')] },
+  /* Looking something up in the game. */
+  { id: 'database', label: 'Database', dividersAfter: ['/obtain-method', '/manga'], items: [
+    at('/operators'), at('/skins'), at('/synergies'), at('/techniques'), at('/obtain-method'),
+    at('/enemies'), at('/stages'), at('/story'), at('/manga'),
+    at('/artists'), at('/voice-actors'),
+  ] },
+  /* How to play it well, and the Gacha Simulator, where a banner can be tried before pulling. */
+  { id: 'guides', label: 'Guides', items: [at('/farming'), at('/base'), at('/recruitment'), at('/gacha-simulator'), at('/selector-tickets'), at('/game-modes')] },
+  /* The reader's own: their account, the planners that read it (issue #94), and the
+     friends' accounts imported beside it. */
+  { id: 'own', label: 'Planner', items: [at('/account'), at('/operator-planner'), at('/pull-planner'), at('/skin-planner'), at('/reward-tracker'), at('/friends')] },
+  /* What players share and play: events and creators, the Power Scale, music, games. */
+  { id: 'community', label: 'Community', items: [at('/community-hub'), at('/polls/power-scale'), at('/music'), at('/games')] },
+  /* The site itself, not the game. */
+  { id: 'about', label: 'About', items: [at('/whats-new'), at('/credits'), at('/support')] },
 ];
 
-/* Not in a menu: one destination each, and a menu of one is a click in front of a
-   link. Planner joined them when Base, Recruitment and Gacha moved to Guides and left
-   it alone in Planning. Schedule joined them when the Events list became a view of the
-   Schedule page rather than a page of its own, which left that menu holding one thing
-   too. */
-export const LOOSE: NavLink[] = [at('/schedule'), at('/support')];
+/* Not in a menu: one destination, and a menu of one is a click in front of a link.
+   Schedule is here since the Events list became a view of the Schedule page rather than a
+   page of its own, which left that menu holding one thing. Support was here too, as a
+   heart, until What's new and Credits left Community and it joined them in About. */
+export const LOOSE: NavLink[] = [at('/schedule')];
 
 /**
  * Every destination the bar shows, in the order it shows them: each menu's contents in

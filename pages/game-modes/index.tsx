@@ -72,7 +72,7 @@ export default function GamemodesPage({ modes }: { modes: Mode[] }) {
   );
 }
 
-export const getStaticProps: GetStaticProps<{ modes: Mode[] }> = withContentPage<{ modes: Mode[] }>("/gamemodes", async () => {
+export const getStaticProps: GetStaticProps<{ modes: Mode[] }> = withContentPage<{ modes: Mode[] }>("/game-modes", async () => {
   return {
     props: {
       modes: [
@@ -91,7 +91,7 @@ export const getStaticProps: GetStaticProps<{ modes: Mode[] }> = withContentPage
           holds: 'no page yet',
         },
         {
-          href: '/gamemodes/stronghold-protocol',
+          href: '/game-modes/stronghold-protocol',
           name: 'Stronghold Protocol',
           mark: 'stronghold-protocol.webp',
           blurb: 'Build alliances out of dispatched operators, then let the fight run itself.',

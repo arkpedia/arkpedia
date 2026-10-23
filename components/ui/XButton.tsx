@@ -6,7 +6,7 @@ import { forwardRef, type ButtonHTMLAttributes } from 'react';
  *
  * It has no border and no box at rest, so it reads as the glyph alone, and the whole
  * square around the glyph is the hit area: a press a few pixels off the × still lands
- * (the maintainer, 2026-09-27, on /pulls' goal rows: "so it just looks like an x but its
+ * (the maintainer, 2026-09-27, on /pull-planner's goal rows: "so it just looks like an x but its
  * clickable even when not perfectly on the x symbol"). Hover fills that square faintly,
  * which shows how far the target reaches; keyboard focus draws the site ring.
  *

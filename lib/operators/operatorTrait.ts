@@ -11,7 +11,7 @@ const STAGE_ORDER = (stage: string) => (stage === 'Base' ? 0 : Number(stage.matc
 
 /*
  * A record's trait as lines, for every place that shows one (the operator page's overview and
- * profile, the /gacha preview). A trait that reads the same at every promotion is one string and
+ * profile, the /gacha-simulator preview). A trait that reads the same at every promotion is one string and
  * one unlabelled line; one that changes is { Base, "Elite 1", "Elite 2" } (the refresh's
  * officialTrait writes only the phases the game has: Pudding's Base and Elite 2), and each phase
  * is a line labelled with its key, in promotion order. Those 12 records were shown as the fixed

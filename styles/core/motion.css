@@ -58,7 +58,7 @@
      arkpedia-theme.css, plus `scale`. Not a .btn-bare button (a card, a tile or a row,
      which draws its own look), except a tab; not the picture cards below, which lift
      instead; not a text link. `scale` is its own property, so it composes with any
-     transform a page gives a button (the /gacha pull buttons' hover rise). */
+     transform a page gives a button (the /gacha-simulator pull buttons' hover rise). */
   button:where(:not(.btn-bare)),
   a.ghost,
   a.primary,

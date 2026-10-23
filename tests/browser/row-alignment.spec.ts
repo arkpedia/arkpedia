@@ -25,7 +25,7 @@ import { census, censusWidth, expectOnlyAllowed, TOLERANCE } from './layout-chec
 
 /** A banner the plan can hold, from the page's own schedule. */
 async function plannedBanner(page: Page): Promise<string> {
-  await page.goto('/pulls');
+  await page.goto('/pull-planner');
   const name = await page.evaluate(() => {
     const odds = (window as unknown as { __NEXT_DATA__: { props: { pageProps: { bannerOdds: Record<string, { type: string }> } } } }).__NEXT_DATA__.props.pageProps.bannerOdds;
     const names = Object.keys(odds);
@@ -38,10 +38,10 @@ async function plannedBanner(page: Page): Promise<string> {
 test('the pull planner goal row and its footer are on one line', async ({ page }) => {
   const width = await censusWidth(page);
   const banner = await plannedBanner(page);
-  await page.goto(`/pulls?banner=${encodeURIComponent(banner)}`);
+  await page.goto(`/pull-planner?banner=${encodeURIComponent(banner)}`);
   const row = page.locator('article [class*="bannerRow"]').first();
   await expect(row).toBeVisible();
-  expectOnlyAllowed(expect, '', await census(page), '/pulls?banner', width);
+  expectOnlyAllowed(expect, '', await census(page), '/pull-planner?banner', width);
 
   // The row measured directly: every value on the Pulls input's centre line, and on a
   // phone, where each cell stacks a label over its value, every label on one top. The
@@ -86,16 +86,16 @@ test('the pull planner panels are on one line', async ({ page }) => {
   // shows the banner's portraits beside the date field, fitted to the control height.
   const width = await censusWidth(page);
   const banner = await plannedBanner(page);
-  await page.goto(`/pulls?banner=${encodeURIComponent(banner)}`);
+  await page.goto(`/pull-planner?banner=${encodeURIComponent(banner)}`);
   await expect(page.locator('article [class*="bannerRow"]').first()).toBeVisible();
   for (const name of [/^Income/, /Past events/, /Skin wishlist/]) {
     await page.getByRole('button', { name }).click();
-    expectOnlyAllowed(expect, '', await census(page), `/pulls?banner ${name.source}`, width);
+    expectOnlyAllowed(expect, '', await census(page), `/pull-planner?banner ${name.source}`, width);
     // Each is a popup now: closed before the next trigger.
     if (await page.getByRole('dialog').count()) await page.keyboard.press('Escape');
   }
   await page.getByRole('button', { name: '+ Add banner' }).click();
-  expectOnlyAllowed(expect, '', await census(page), '/pulls?banner + Add banner', width);
+  expectOnlyAllowed(expect, '', await census(page), '/pull-planner?banner + Add banner', width);
 });
 
 /*

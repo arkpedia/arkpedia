@@ -1,7 +1,7 @@
 import type { SelectOption } from '@/components/ui/StyledSelect';
 import { ContentImg } from '@/components/content/ContentImage';
 
-/** A /pulls dropdown row: a label, an optional caption line (banner name, dates) and,
+/** A /pull-planner dropdown row: a label, an optional caption line (banner name, dates) and,
  *  for a banner, the rate-up portraits. The row itself -- its height, hover, selection
  *  and check mark -- is StyledSelect's; this only fills it. */
 export type DetailOption = SelectOption & {

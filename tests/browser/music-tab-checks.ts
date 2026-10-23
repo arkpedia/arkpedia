@@ -5,7 +5,7 @@ import { expect, type Page } from '@playwright/test';
  *
  * "At 390 the floating ♫ music tile overlaps content": the 44px tile, fixed 8px off the
  * right edge, sat 20px over a page whose content runs to the 24px gutter -- the right
- * edge of /pulls' goal list, the planner's materials, the top of an operator page's
+ * edge of /pull-planner's goal list, the planner's materials, the top of an operator page's
  * section menu -- at every scroll position that brought them under it. At 900px and
  * under it is now a tab in that gutter (styles/music/music.css), and this holds it there:
  * on every census address and driven state, at 412, 390 and 360, the tab's box meets no
@@ -118,7 +118,7 @@ export async function scrollTo(page: Page, where: 'top' | 'middle' | 'end') {
 }
 
 /** The whole check on a page the caller has opened (and driven): the layout census on
- *  every census address and state on the phone project, music-tab.spec.ts on /pulls with
+ *  every census address and state on the phone project, music-tab.spec.ts on /pull-planner with
  *  a banner goal. It resizes the viewport, so it runs last on a load. */
 export async function musicTabCheck(page: Page, name: string, route: string) {
     const widget = page.locator('[data-music-widget]');

@@ -5,7 +5,7 @@ import path from 'node:path';
 
 /*
  * A long list grows as it is read (components/ui/LoadOnScroll.tsx), not behind a "Show
- * more" button. /skins grew that way while /community/videos, /operators, both stage
+ * more" button. /skins grew that way while /community-hub/videos, /operators, both stage
  * lists, the two music lists, /schedule's All Skins and the planner's outfit shop each
  * still had a button that added a page to a count. These hold every list to the one loader.
  */

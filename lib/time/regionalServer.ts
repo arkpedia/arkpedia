@@ -6,9 +6,9 @@ export function regionalTable(route: string): RegionalSchedules {
   const all = data as unknown as RegionalSchedules;
   const fields: Record<string, string[]> = {
     '/': ['events', 'banners', 'weekly', 'forceOpen', 'skinWindows', 'farming', 'sss'],
-    '/gacha': ['banners'], '/schedule': ['events', 'banners'], '/events/[slug]': ['events', 'banners'],
-    '/pulls': ['events', 'banners', 'skinWindows'], '/skin-planner': ['skinWindows'], '/skins': ['skinWindows', 'skinReleases'],
-    '/farming': ['events'], '/free-op': ['rewardWindows', 'releases'],
+    '/gacha-simulator': ['banners'], '/schedule': ['events', 'banners'], '/events/[slug]': ['events', 'banners'],
+    '/pull-planner': ['events', 'banners', 'skinWindows'], '/skin-planner': ['skinWindows'], '/skins': ['skinWindows', 'skinReleases'],
+    '/farming': ['events'], '/reward-tracker': ['rewardWindows', 'releases'],
     '/stages/supplies': ['weekly', 'forceOpen'], '/stages/regular': ['annihilation', 'sss'],
     '/stages': ['contents', 'releases'], '/stages/browse': ['contents', 'weekly', 'forceOpen'],
   };

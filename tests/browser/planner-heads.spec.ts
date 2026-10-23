@@ -96,7 +96,7 @@ function readHeads(): HeadReading[] {
 
 async function openExperimental(page: Page) {
   await readOnly(page);
-  await page.goto('/planner');
+  await page.goto('/operator-planner');
   await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {});
   await plannerExperimental(page, PLANNER_PLAN);
   await fontsSettled(page);

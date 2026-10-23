@@ -111,7 +111,7 @@ export default function CommunityFader({ stream, video, event }: Props) {
       </a>
     );
     return (
-      <Link prefetch={false} className="front-community-item" href="/community">
+      <Link prefetch={false} className="front-community-item" href="/community-hub">
         <div className="front-community-thumb-wrap front-community-event-thumb">
           <span className="front-community-event-country">{active.data.country}</span>
         </div>

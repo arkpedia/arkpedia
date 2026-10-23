@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 
 /*
  * The home page's Gacha Banners panel says which banner is live and which has not opened
- * (2026-10-15): the site's LIVE badge (.badge-live, as /gacha's sidebar shows LIVE NOW) on
+ * (2026-10-15): the site's LIVE badge (.badge-live, as /gacha-simulator's sidebar shows LIVE NOW) on
  * a live banner's poster and thumbnail, its amber twin (.badge-upcoming) "Starts in ..." on
  * one not yet open, and neither on one that is over. A banner without published art shows
  * the site's art placeholder, where its thumbnail used to be a bare initial ("K").

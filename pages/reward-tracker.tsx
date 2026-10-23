@@ -49,7 +49,7 @@ const STAGE_FILTERS: { kind: StageKind; label: string }[] = [
 const NO_ROWS: ReadonlyMap<string, LockedReason> = new Map();
 
 interface Props {
-  /** The release's back catalogue (lib/pulls/sources.ts), as /pulls carries it. */
+  /** The release's back catalogue (lib/pulls/sources.ts), as /pull-planner carries it. */
   backlogSources: BacklogSources;
   freeRewards?: FreeReward[];
   rewardIcons?: Record<string, string>;
@@ -111,7 +111,7 @@ export default function FreeOpPage({ backlogSources, freeRewards: globalFreeRewa
     <>
       <Head><title>Reward Tracker — Arkpedia</title></Head>
       <PageHeader eyebrow="Rhodes Island // Reward Tracker" title="Reward Tracker"
-        sub={<>First clears and free rewards still to claim. The <Link prefetch={false} href="/pulls">Pull Planner</Link> shares your first-clear and permanent reward completion.</>}
+        sub={<>First clears and free rewards still to claim. The <Link prefetch={false} href="/pull-planner">Pull Planner</Link> shares your first-clear and permanent reward completion.</>}
         actions={<DataLink />} />
       <main className="free-op-page">
         <section className="op-section free-op-overview" aria-labelledby="free-op-left">
@@ -153,10 +153,10 @@ export default function FreeOpPage({ backlogSources, freeRewards: globalFreeRewa
   );
 }
 
-/* bundledWhenUnpublished: no release before this has /free-op, and on Vercel there is no data/
+/* bundledWhenUnpublished: no release before this has /reward-tracker, and on Vercel there is no data/
    to build it from. The builder reads only the back catalogue compiled into the bundle (JSON
-   imports). finalize fills what an older release lacks, as /pulls does. */
-export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>('/free-op', async () => {
+   imports). finalize fills what an older release lacks, as /pull-planner does. */
+export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>('/reward-tracker', async () => {
   const { bundledBacklogSources } = await import('@/lib/pulls/sources');
   const { default: free } = await import('@/data/free-rewards.json');
   const { freeRewardIcons } = await import('@/lib/pulls/rewardIcons');

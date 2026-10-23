@@ -74,7 +74,7 @@ test('a banner without published art keeps its frame on the front page, with the
   }));
   const main = html.slice(html.indexOf('front-gacha-poster-wrap'), html.indexOf('front-gacha-info'));
   assert.ok(main.length > 0 && !main.includes('<img'), main);
-  // /gacha's placeholder (.art-placeholder), not a bare initial ("K" for Kernel Locating #13).
+  // /gacha-simulator's placeholder (.art-placeholder), not a bare initial ("K" for Kernel Locating #13).
   assert.match(main, /class="art-placeholder[^"]*">No art yet</);
   assert.match(html, /class="art-placeholder" aria-hidden="true">No art</);
   assert.doesNotMatch(html, />T</);
@@ -87,7 +87,7 @@ test('the front page\'s banners say LIVE, "Starts in" or nothing, at the request
   const next = banner({ name: 'Next Pool', global_date: '2026/10/09–2026/10/23', start: new Date('2026-10-09T11:00:00Z'), end: new Date('2026-10-23T11:00:00Z') });
   const open = start.getTime() + 3_600_000;
   const html = at(open, [banner({}), next]);
-  // Live is /gacha's own test (isBannerLive), on the poster and its thumbnail.
+  // Live is /gacha-simulator's own test (isBannerLive), on the poster and its thumbnail.
   assert.equal((html.match(/front-gacha-poster-wrap"[^>]*>(?:(?!<\/a>).)*class="badge-live">LIVE</g) ?? []).length, 1, html);
   assert.equal((html.match(/<button[^>]*class="front-gacha-thumb[ "][^>]*>(?:(?!<\/button>).)*class="badge-live">LIVE</g) ?? []).length, 1, html);
   // Not open yet: the amber twin with the time to its start, the largest unit on a thumbnail.

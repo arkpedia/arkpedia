@@ -61,8 +61,8 @@ export default function CommunityHub({
   const creators = directory.creators.filter(creator => creator.category === category && (!needle || `${creator.name} ${creator.works.map(work => work.character).join(' ')}`.toLocaleLowerCase().includes(needle)));
   const shownVideos = [...videos].filter(video => !needle || `${video.title} ${video.channelLabel}`.toLocaleLowerCase().includes(needle)).sort((a, b) => b.publishedAt.localeCompare(a.publishedAt));
   return <>
-    <Head><title>World — Arkpedia</title></Head>
-    <PageHeader eyebrow="Rhodes Island // Around the world" title="World" sub="Events, creators and communities." />
+    <Head><title>Community Hub — Arkpedia</title></Head>
+    <PageHeader eyebrow="Rhodes Island // Around the world" title="Community Hub" sub="Events, creators and communities." />
     <main>
       <Tabs label="World sections" id="world-sections" value={category} options={WORLD_CATEGORIES} onChange={value => { setCategory(value); setQuery(''); setLimit(12); }} />
       {category === 'offline' ? <section className="op-section community-events" aria-label="Offline Events">
@@ -71,11 +71,11 @@ export default function CommunityHub({
       </section> : category === 'web' ? <section className="op-section"><h2>Web Events</h2>{/* One column per server (Global, JP, KR), each its own stack, so a server's art-less
           campaigns sit under its other events rather than wherever the grid's flow put them. */}<div className="world-web-columns">{SERVER_IDS.map(server => ({ server, events: webEvents.filter(event => (webEventServer(event) ?? 'en') === server) })).filter(column => column.events.length).map(column => <div key={column.server} className="world-web-column" data-server={REGIONAL_MATERIAL ? column.server : undefined}><div className="world-directory world-web-events">{column.events.map(event => <a key={event.url} className="ghost world-web-event" data-server={REGIONAL_MATERIAL ? webEventServer(event) ?? undefined : undefined} href={event.url} target="_blank" rel="noopener noreferrer">{event.image && <ContentImg className="world-web-event-art" src={event.image} alt={`${event.name} event art`} width={1200} height={630} />}<span>{event.region}</span>{event.kind === 'social' && <span className="label-tag">Social</span>}<b>{event.name} ↗</b><span>{event.start} – {event.end}</span>{event.closingTime && <span>Closes at {event.closingTime}</span>}</a>)}</div></div>)}</div>{/* Every server's web events for every server until the site has JP/KR languages (lib/i18n/regionalMaterial.ts). */}{REGIONAL_MATERIAL ? SERVER_IDS.filter(server => !webEvents.some(event => [server, null].includes(webEventServer(event)))).map(server => <p key={server} className="hint world-web-events-none" data-server={server}>No web events listed right now.</p>) : !webEvents.length && <p className="hint world-web-events-none">No web events listed right now.</p>}</section>
       : category === 'discord' ? <section className="op-section"><h2>Discord</h2><div className="world-directory">{directory.discord.map(server => <a className="ghost" key={server.url} href={server.url} target="_blank" rel="noreferrer">{server.name} ↗</a>)}</div></section>
-      : category === 'youtube' ? <section className="op-section"><div className="live-section-heading-row"><h2>YouTube</h2><Link className="ghost btn-sm" href="/community/videos">All videos</Link></div>
+      : category === 'youtube' ? <section className="op-section"><div className="live-section-heading-row"><h2>YouTube</h2><Link className="ghost btn-sm" href="/community-hub/videos">All videos</Link></div>
         <SearchInput label="Search videos or creators" placeholder="Video or creator" value={query} onChange={value => { setQuery(value); setLimit(12); }} />
         <details className="pulls-disclosure"><summary>Content creators</summary><div className="world-directory">{YOUTUBE_CHANNELS.filter(channel => !needle || channel.label.toLocaleLowerCase().includes(needle)).map(channel => <a className="ghost" key={channel.id} href={`https://www.youtube.com/channel/${channel.id}`} target="_blank" rel="noreferrer">{channel.label} ↗</a>)}</div></details>
         <div className="world-gallery">{shownVideos.slice(0, limit).map(v => <VideoCard key={v.videoId} v={v} />)}</div>{!shownVideos.length && <p className="hint">No matching videos available.</p>}<LoadOnScroll shown={Math.min(limit, shownVideos.length)} total={shownVideos.length} onMore={() => setLimit(value => value + 12)} />
-      </section> : category === 'twitch' ? <section className="op-section"><div className="live-section-heading-row"><h2>Twitch</h2><Link className="ghost btn-sm" href="/community/twitch">All streams</Link></div><div className="world-gallery">{twitchStreams.map(stream => <TwitchCard key={stream.userLogin} s={stream} />)}</div>{!twitchStreams.length && <p className="hint">No one’s live on Twitch right now.</p>}</section>
+      </section> : category === 'twitch' ? <section className="op-section"><div className="live-section-heading-row"><h2>Twitch</h2><Link className="ghost btn-sm" href="/community-hub/twitch">All streams</Link></div><div className="world-gallery">{twitchStreams.map(stream => <TwitchCard key={stream.userLogin} s={stream} />)}</div>{!twitchStreams.length && <p className="hint">No one’s live on Twitch right now.</p>}</section>
       : <section className="op-section"><h2>{WORLD_CATEGORIES.find(value => value.value === category)?.label}</h2><SearchInput label="Search creators or characters" placeholder="Creator or character" value={query} onChange={setQuery} />
         <div className="world-gallery">{creators.map(creator => <article key={creator.url}><h3><a href={creator.url} target="_blank" rel="noreferrer">{creator.name} ↗</a></h3>{creator.works.filter(work => !needle || `${creator.name} ${work.character}`.toLocaleLowerCase().includes(needle)).map(work => <a key={work.source} href={work.source} target="_blank" rel="noreferrer"><ContentImg src={work.image} alt={work.title} width={480} height={480} /><span>{work.character} · {work.title}</span></a>)}</article>)}</div>
         {!creators.length && <p className="hint">No {needle ? 'matching ' : ''}creators listed yet.</p>}
@@ -85,7 +85,7 @@ export default function CommunityHub({
 
 }
 
-/* A page of the content release like /results: the site nav's art and the event list resolve
+/* A page of the content release like /polls/power-scale: the site nav's art and the event list resolve
    against the release's asset pin, not the one this deploy's revisions.json carried. The
    feeds are live, not game data, so they are fetched on every revalidation (finalize) and
    never exported into the release; the builder holds only what the release should carry. */
@@ -123,11 +123,11 @@ async function withLiveFeeds(props: Props): Promise<Props> {
   };
 }
 
-/* bundledWhenUnpublished: a release compiled before /community became a content route
+/* bundledWhenUnpublished: a release compiled before /community-hub became a content route
    (7f8a8a8d, live when this went in) has no such page, and without it every regeneration
-   on Vercel threw "Published content is missing /community", so the feeds and LIVE badges
+   on Vercel threw "Published content is missing /community-hub", so the feeds and LIVE badges
    stayed as the deploy built them until the next release. The builder reads only the
    compiled-in EVENTS, so it can run at runtime, and finalize fetches the feeds either way. */
-export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>('/community', async () => ({
+export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>('/community-hub', async () => ({
   props: { directory: { ...(await import('@/data/world-directory.json')).default as WorldDirectory, webEvents: mergeWebEvents(WEB_EVENTS, (await import('@/data/community-web-events.json')).default) }, events: EVENTS, videos: [], twitchStreams: [], hasYouTubeApiKey: false, hasTwitchCreds: false },
 }), { finalize: withLiveFeeds, revalidate: 1500, bundledWhenUnpublished: true });

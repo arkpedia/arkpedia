@@ -4,7 +4,7 @@ import { PLANNER_PLAN, plannerExperimental, readOnly } from './census-routes';
 /*
  * Booleans and options are checkboxes (docs/development/ui-primitives.md rule 3).
  *
- * #64 turned eleven of them into highlighted buttons -- the /pulls income sources, the
+ * #64 turned eleven of them into highlighted buttons -- the /pull-planner income sources, the
  * past-rewards and sparking settings, /recruitment's 4★+ filter, the music guesser's
  * Include CN -- and the maintainer asked for the checkboxes back (2026-09-26). This
  * holds each known option group to a real checkbox in the .check primitive: found by
@@ -40,7 +40,7 @@ async function expectLabelToggles(page: Page, box: Locator) {
 }
 
 test('the pull planner settings are checkboxes', async ({ page }) => {
-  await page.goto('/pulls');
+  await page.goto('/pull-planner');
   await expect(page.getByRole('heading', { name: 'Pull Planner' })).toBeVisible();
   const income = page.getByRole('group', { name: 'Recurring income' });
   for (const name of ['Daily missions', 'Weekly missions', 'Annihilation', 'Yellow cert shop', 'Green cert shop', 'Monthly card']) {
@@ -82,7 +82,7 @@ test('the pull planner settings are checkboxes', async ({ page }) => {
     return Object.keys(odds).find((name) => odds[name].type === 'limited') ?? null;
   });
   test.skip(!limited, 'no limited banner is scheduled in this build');
-  await page.goto(`/pulls?banner=${encodeURIComponent(limited!)}`);
+  await page.goto(`/pull-planner?banner=${encodeURIComponent(limited!)}`);
   const edit = page.getByRole('button', { name: `Edit ${limited}`, exact: true });
   await expect(edit).toBeVisible();
   if ((await edit.getAttribute('aria-expanded')) !== 'true') await edit.click();
@@ -149,7 +149,7 @@ test('a disabled checkbox keeps a visible box', async ({ page }) => {
  */
 test('the planner\'s Craft and Owned are checkboxes', async ({ page }) => {
   await readOnly(page);
-  await page.goto('/planner');
+  await page.goto('/operator-planner');
   await plannerExperimental(page, PLANNER_PLAN);
   const cards = page.locator('.need-card');
   await expect(cards.first()).toBeVisible();

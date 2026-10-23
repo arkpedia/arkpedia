@@ -77,6 +77,54 @@ export const ICONS: Record<string, JSX.Element> = {
       <path d="M14.5 4.5 L16.5 6.5 L14.5 8.5 M17 6.5 H12.5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   ),
+  /* The Headhunting Permit: the card with its banded top, tilted as the item art holds it. */
+  permit: (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
+      <g transform="rotate(-14 10 10)">
+        <rect x="2.5" y="5" width="15" height="10.5" rx="1.3" />
+        <path d="M2.5 6.3 a1.3 1.3 0 0 1 1.3 -1.3 h11.4 a1.3 1.3 0 0 1 1.3 1.3 v2.4 h-14 Z" fill="currentColor" stroke="none" />
+        <path d="M5.2 12.9 L7.6 10.9 L8.4 12.9" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M11.5 12.9 H14.8" strokeLinecap="round" />
+      </g>
+    </svg>
+  ),
+  /* Two linked rings: Synergies, the buffs operators give one another. */
+  synergies: (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
+      <circle cx="7.5" cy="10" r="4.5" />
+      <circle cx="12.5" cy="10" r="4.5" />
+    </svg>
+  ),
+  /* A bolt: Techniques, what skills do. */
+  techniques: (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
+      <path d="M11 2.5 L4.5 11 H9.5 L8.5 17.5 L15.5 8.5 H10.5 Z" strokeLinejoin="round" />
+    </svg>
+  ),
+  /* An open box: Obtain Method, where each operator comes from. */
+  obtain: (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
+      <path d="M3 8 L10 11 L17 8 V15 L10 18 L3 15 Z" strokeLinejoin="round" />
+      <path d="M10 11 V18 M3 8 L5.5 5 L12 7.8 M17 8 L14.5 5 L8 7.8" strokeLinejoin="round" />
+      <path d="M10 1.8 V5.2 M8.6 3.9 L10 5.3 L11.4 3.9" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  ),
+  /* An open book of panels: Manga. */
+  manga: (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
+      <path d="M10 5 C8 3.8 5.5 3.6 2.5 4 V16 C5.5 15.6 8 15.8 10 17 C12 15.8 14.5 15.6 17.5 16 V4 C14.5 3.6 12 3.8 10 5 Z" strokeLinejoin="round" />
+      <path d="M10 5 V17 M4.8 7.5 H7.8 M4.8 10.5 H7.8 M12.2 7.5 H15.2 V12 H12.2 Z" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  ),
+  /* Two people: Friends, which had the Operators glyph beside My Account's identical one. */
+  friends: (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
+      <circle cx="7" cy="7" r="2.75" />
+      <path d="M2 16.5 C2 12.8 4.2 11.2 7 11.2 C9.8 11.2 12 12.8 12 16.5" strokeLinecap="round" />
+      <circle cx="13.5" cy="6.5" r="2.25" />
+      <path d="M13.5 10.6 C16.2 10.6 18 12.1 18 15.5" strokeLinecap="round" />
+    </svg>
+  ),
   guesser: (
     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
       <circle cx="10" cy="10" r="7" />
@@ -263,19 +311,16 @@ export default function SiteNav({ mobileNav }: { mobileNav?: MobileNavOverride }
   // A dot on What's new, and on the menu holding it, until the latest entry has been read.
   const changelogUnseen = useChangelogUnseen();
   const search = useSiteSearchControl();
-  /* Support is its heart alone in the bar, named by a tooltip and for screen readers: the bar
-     has about 1px to spare at its 1040px cap, and the search button needed the room. */
-  const renderLink = (link: NavLink, className: string, iconOnly = false) => (
+  const renderLink = (link: NavLink, className: string) => (
     <Link
       prefetch={false}
       key={link.href}
       href={link.href}
-      title={iconOnly ? link.label : undefined}
-      className={`${className}${iconOnly ? ' site-nav-link-icon-only' : ''}${isActiveLink(link, router.pathname) ? ' active' : ''}`}
+      className={`${className}${isActiveLink(link, router.pathname) ? ' active' : ''}`}
     >
       <span className="site-nav-icon" aria-hidden="true">{ICONS[link.icon]}</span>
-      <span className={iconOnly ? 'visually-hidden' : undefined}>{link.label}</span>
-      {link.href === '/changelog' && changelogUnseen && <span className="nav-new-dot" aria-label="New" />}
+      <span>{link.label}</span>
+      {link.href === '/whats-new' && changelogUnseen && <span className="nav-new-dot" aria-label="New" />}
     </Link>
   );
 
@@ -310,7 +355,7 @@ export default function SiteNav({ mobileNav }: { mobileNav?: MobileNavOverride }
                     onClick={() => setOpenMenu(open ? null : group.id)}
                   >
                     {label}
-                    {changelogUnseen && group.items.some((l) => l.href === '/changelog') && <span className="nav-new-dot" aria-hidden="true" />}
+                    {changelogUnseen && group.items.some((l) => l.href === '/whats-new') && <span className="nav-new-dot" aria-hidden="true" />}
                     <svg className="site-nav-chev" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" width="11" height="11" aria-hidden="true">
                       <path d="M5 8 L10 13 L15 8" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
@@ -319,14 +364,17 @@ export default function SiteNav({ mobileNav }: { mobileNav?: MobileNavOverride }
                       down would be the layout shift this rework exists to remove. */}
                   {open && (
                     <div className="site-nav-pop" role="menu" aria-label={label}>
-                      {group.items.map((l) => renderLink(l, 'site-nav-popitem'))}
+                      {group.items.map((l) => [
+                        renderLink(l, 'site-nav-popitem'),
+                        group.dividersAfter?.includes(l.href) && <hr key={`${l.href}-rule`} className="site-nav-pop-rule" />,
+                      ])}
                     </div>
                   )}
                 </div>
               );
             })}
 
-            {LOOSE.map((l) => renderLink(l, 'site-nav-link', l.href === '/support'))}
+            {LOOSE.map((l) => renderLink(l, 'site-nav-link'))}
           </div>
 
           {/* Carries the margin-left:auto that used to sit on the theme wrap. Only one

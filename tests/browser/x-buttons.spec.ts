@@ -5,11 +5,11 @@ import { readOnly } from './census-routes';
 /*
  * Every × that closes or removes something is components/ui/XButton (ui-primitives rule
  * 21): no border and no box at rest, just the glyph, in a square hit area -- the
- * maintainer, 2026-09-27, on /pulls' goal rows: "remove the border around the x and make
+ * maintainer, 2026-09-27, on /pull-planner's goal rows: "remove the border around the x and make
  * it square, this should be default for 'X' buttons, so it just looks like an x but its
  * clickable even when not perfectly on the x symbol". On main before it (the dev site,
  * 2026-09-27) the site drew twenty-one of them in seventeen sizes: bordered 30x44, 50x40,
- * 40x40, 37x33, 36x36 and 32x32 boxes (/pulls' goal rows, the /gacha dialogs, the planner's
+ * 40x40, 37x33, 36x36 and 32x32 boxes (/pull-planner's goal rows, the /gacha-simulator dialogs, the planner's
  * import dialog and the mini player, the stage guesser, the /schedule drawer, the /music
  * queue), 44px-wide glyph boxes as tall as their dialog heads, a 30x30 plan-row glyph (8x30
  * on a phone), 61x46, 22x22 and 22x24 glyphs, a 28x28 search clear, a separate 36x44 remove
@@ -25,7 +25,7 @@ import { readOnly } from './census-routes';
  * pressed 8px right of its glyph, and what it closes or removes must be gone. Box edges
  * only: the glyph is drawn, so its centre is the same in every font.
  *
- * The /community world map's fullscreen × shows only while a community event runs, and the
+ * The /community-hub world map's fullscreen × shows only while a community event runs, and the
  * page's clock is the build's, so the Check's data may have none: that place is reached by a
  * client navigation whose page data has its clock moved to the day before the first event
  * (every event upcoming), so it is measured in every run. Its × must also sit inside the map
@@ -82,11 +82,11 @@ interface Place {
   inside?: (page: Page) => Locator;
 }
 
-/** /community with a community event on: its page data fetched on a client navigation,
+/** /community-hub with a community event on: its page data fetched on a client navigation,
  *  with `now` set to the day before the first event, so every event is upcoming and the
  *  map shows, whatever the build's clock says. */
 const communityWithEvents = async (page: Page) => {
-  await page.route(/\/_next\/data\/[^/]+\/community\.json/, async (route) => {
+  await page.route(/\/_next\/data\/[^/]+\/community-hub\.json/, async (route) => {
     // Next sends a HEAD for the same URL alongside the GET.
     if (route.request().method() !== 'GET') { await route.continue(); return; }
     const response = await route.fetch();
@@ -96,42 +96,42 @@ const communityWithEvents = async (page: Page) => {
     await route.fulfill({ response, json });
   });
   await page.goto('/');
-  await page.evaluate(() => (window as unknown as { next: { router: { push: (url: string) => Promise<boolean> } } }).next.router.push('/community'));
-  await page.waitForURL('**/community');
+  await page.evaluate(() => (window as unknown as { next: { router: { push: (url: string) => Promise<boolean> } } }).next.router.push('/community-hub'));
+  await page.waitForURL('**/community-hub');
   // Fails by name, not on a timeout, if the build ever has no community event to move to.
   await expect(page.getByRole('button', { name: 'View fullscreen' }), 'the map shows once the page clock is before the first community event').toBeVisible();
 };
 
 const PLACES: Place[] = [
   {
-    id: '/pulls goal row', route: '/pulls',
-    open: async (page) => { const banner = await firstLimited(page); expect(banner).toBeTruthy(); await page.goto(`/pulls?banner=${encodeURIComponent(banner!)}`); await expect(page.locator('article').first()).toBeVisible(); },
+    id: '/pull-planner goal row', route: '/pull-planner',
+    open: async (page) => { const banner = await firstLimited(page); expect(banner).toBeTruthy(); await page.goto(`/pull-planner?banner=${encodeURIComponent(banner!)}`); await expect(page.locator('article').first()).toBeVisible(); },
     x: (page) => page.getByRole('button', { name: /^Remove / }).first(),
     gone: async (page) => { await expect(page.getByRole('heading', { name: /Your banners 0/ })).toBeVisible(); },
   },
   {
-    id: 'planner operator dialog', route: '/planner', open: (page) => addOperator(page),
+    id: 'planner operator dialog', route: '/operator-planner', open: (page) => addOperator(page),
     x: (page) => page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }),
     gone: async (page) => { await expect(page.getByRole('dialog')).toHaveCount(0); },
   },
   {
-    id: 'planner operator tab', route: '/planner', open: plannedOperator,
+    id: 'planner operator tab', route: '/operator-planner', open: plannedOperator,
     x: (page) => page.getByRole('tablist', { name: 'View materials for' }).locator('.tab-remove').first(),
     gone: async (page) => { await expect(page.getByRole('tablist', { name: 'View materials for' })).toHaveCount(0); },
   },
   {
-    id: 'planner plan row', route: '/planner', open: async (page) => { await plannedOperator(page); await experimental(page); },
+    id: 'planner plan row', route: '/operator-planner', open: async (page) => { await plannedOperator(page); await experimental(page); },
     x: (page) => page.getByRole('button', { name: /^Drop .* from the plan$/ }).first(),
     gone: async (page) => { await expect(page.getByRole('button', { name: /^Drop .* from the plan$/ })).toHaveCount(0); },
   },
   {
-    id: 'planner build dialog', route: '/planner',
+    id: 'planner build dialog', route: '/operator-planner',
     open: async (page) => { await plannedOperator(page); await experimental(page); await page.getByRole('button', { name: 'Build', exact: true }).first().click(); await expect(page.getByRole('dialog')).toBeVisible(); },
     x: (page) => page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }),
     gone: async (page) => { await expect(page.getByRole('dialog')).toHaveCount(0); },
   },
   {
-    id: 'planner goal dialog', route: '/planner',
+    id: 'planner goal dialog', route: '/operator-planner',
     open: async (page) => { await experimental(page); await page.getByRole('button', { name: /Add a goal/ }).first().click(); await expect(page.getByRole('dialog')).toBeVisible(); },
     x: (page) => page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }),
     gone: async (page) => { await expect(page.getByRole('dialog')).toHaveCount(0); },
@@ -145,31 +145,31 @@ const PLACES: Place[] = [
   },
   // The Pull Planner's popups.
   {
-    id: 'pulls income', route: '/pulls',
+    id: 'pulls income', route: '/pull-planner',
     open: async (page) => { await page.locator('#tab-income').click(); await expect(page.getByRole('dialog')).toBeVisible(); },
     x: (page) => page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }),
     gone: async (page) => { await expect(page.getByRole('dialog')).toHaveCount(0); },
   },
   {
-    id: 'pulls skin wishlist', route: '/pulls',
+    id: 'pulls skin wishlist', route: '/pull-planner',
     open: async (page) => { await page.locator('#tab-skins').click(); await expect(page.getByRole('dialog')).toBeVisible(); },
     x: (page) => page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }),
     gone: async (page) => { await expect(page.getByRole('dialog')).toHaveCount(0); },
   },
   {
-    id: 'pulls past events', route: '/pulls',
+    id: 'pulls past events', route: '/pull-planner',
     open: async (page) => { await page.locator('#tab-past').click(); await expect(page.getByRole('dialog')).toBeVisible(); },
     x: (page) => page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }),
     gone: async (page) => { await expect(page.getByRole('dialog')).toHaveCount(0); },
   },
   {
-    id: '/gacha banner details', route: '/gacha',
+    id: '/gacha-simulator banner details', route: '/gacha-simulator',
     open: async (page) => { await page.getByRole('button', { name: 'Details', exact: true }).first().click(); await expect(page.locator('.gacha-details-modal')).toBeVisible(); },
     x: (page) => page.getByRole('button', { name: 'Close banner details' }),
     gone: async (page) => { await expect(page.locator('.gacha-details-modal')).toHaveCount(0); },
   },
   {
-    id: '/gacha operator preview', route: '/gacha',
+    id: '/gacha-simulator operator preview', route: '/gacha-simulator',
     open: async (page) => {
       await page.getByRole('button', { name: 'Details', exact: true }).first().click();
       await page.locator('.gacha-details-modal button.gacha-details-featured, .gacha-details-modal .gacha-details-name-list button').first().click();
@@ -185,13 +185,13 @@ const PLACES: Place[] = [
     gone: async (page) => { await expect(page.locator('.schedule-fullscreen-panel.open')).toHaveCount(0); },
   },
   {
-    id: 'Stronghold enemy sheet', route: '/gamemodes/stronghold-protocol',
+    id: 'Stronghold enemy sheet', route: '/game-modes/stronghold-protocol',
     open: async (page) => { await page.getByRole('tab', { name: 'Enemies', exact: true }).first().click(); await page.locator('.gm-pool:visible').first().click(); await expect(page.locator('.gm-sheet')).toBeVisible(); },
     x: (page) => page.locator('.gm-sheet').getByRole('button', { name: 'Close', exact: true }),
     gone: async (page) => { await expect(page.locator('.gm-sheet')).toHaveCount(0); },
   },
   {
-    id: 'Stronghold record', route: '/gamemodes/stronghold-protocol',
+    id: 'Stronghold record', route: '/game-modes/stronghold-protocol',
     open: async (page) => { await page.getByRole('tab', { name: 'Enemies', exact: true }).first().click(); await page.locator('.gm-row:visible').first().click(); await expect(page.locator('.record-dialog')).toBeVisible(); },
     x: (page) => page.locator('.record-dialog').getByRole('button', { name: /^Close/ }),
     gone: async (page) => { await expect(page.locator('.record-dialog')).toHaveCount(0); },
@@ -204,7 +204,7 @@ const PLACES: Place[] = [
     gone: async (page) => { await expect(page.locator('.record-dialog')).toHaveCount(0); },
   },
   {
-    id: 'Stronghold Isomorph pairings', route: '/gamemodes/stronghold-protocol',
+    id: 'Stronghold Isomorph pairings', route: '/game-modes/stronghold-protocol',
     open: async (page) => { await page.getByRole('tab', { name: 'Items', exact: true }).first().click(); await page.locator('.gm-isoopen').first().click(); await expect(page.locator('.gm-isorecord')).toBeVisible(); },
     x: (page) => page.locator('.gm-isorecord').getByRole('button', { name: /^Close/ }),
     gone: async (page) => { await expect(page.locator('.gm-isorecord')).toHaveCount(0); },
@@ -279,7 +279,7 @@ const PLACES: Place[] = [
     gone: async (page) => { await expect(page.getByRole('dialog', { name: 'Filters' })).toHaveCount(0); },
   },
   {
-    id: '/community world map', route: '/community', visit: communityWithEvents,
+    id: '/community-hub world map', route: '/community-hub', visit: communityWithEvents,
     desktopOnly: 'the fullscreen toggle is not shown at 700px and under (shared.css)',
     open: async (page) => { await page.getByRole('button', { name: 'View fullscreen' }).click(); },
     x: (page) => page.getByRole('button', { name: 'Exit fullscreen' }),
@@ -408,7 +408,7 @@ for (const place of PLACES) {
  */
 test("the planner's operator dialog opens on itself, and Tab still reaches its × and stays inside", async ({ page }) => {
   await readOnly(page);
-  await page.goto('/planner');
+  await page.goto('/operator-planner');
   const search = page.getByPlaceholder('Search operators…');
   await search.fill('Penance');
   await expect(page.getByRole('option', { name: /Penance/ }).first()).toBeVisible();

@@ -188,12 +188,12 @@ export function reviewCompleteness({ inventory, operators, skins, banners, event
     // Every material an operator's upgrades cost has to be one the planner can hold: a cost
     // the catalogue lacks is a bill row no depot tile can ever cover. Liquified Ether
     // Absorber, Concentrated Power Unit, Electrode Unit and Liquified High-Energy Gas sat in
-    // three records that way with nothing to say so. /planner leaves the operator out of its
+    // three records that way with nothing to say so. /operator-planner leaves the operator out of its
     // picker until the catalogue has them (build-material-catalogue.mjs says why it lacks
     // one: no item id, which data/material-names.json supplies, or no published icon).
     const uncatalogued = uncataloguedCosts(op, materials);
     if (uncatalogued.length) {
-      hold(`operator:${op.internalName || op.name}`, 'published-partial', `${op.name}: costs ${uncatalogued.join(', ')}, which data/material-catalogue.json does not have, so /planner cannot hold or craft ${uncatalogued.length === 1 ? 'it' : 'them'} and leaves ${op.name} out of its picker`);
+      hold(`operator:${op.internalName || op.name}`, 'published-partial', `${op.name}: costs ${uncatalogued.join(', ')}, which data/material-catalogue.json does not have, so /operator-planner cannot hold or craft ${uncatalogued.length === 1 ? 'it' : 'them'} and leaves ${op.name} out of its picker`);
     }
   }
   // A released operator's skill and base-skill icons are scripts/audits/check-icon-coverage.ts's

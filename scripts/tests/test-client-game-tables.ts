@@ -56,7 +56,7 @@ test('no page compiles a data/ table it is not allowed into its browser bundle',
   // Not vacuous: the server half of these pages does read the tables.
   assert.equal(pathToTarget('pages/obtain-method.tsx', ['data/headhunting_banners.json'], { clientOnly: false })?.at(-1), 'data/headhunting_banners.json');
   assert.equal(pathToTarget('pages/stages/browse.tsx', ['data/story-groups.json'], { clientOnly: false })?.at(-1), 'data/story-groups.json');
-  for (const [page, table] of [['pages/base.tsx', 'data/base-skill-slots.json'], ['pages/farming.tsx', 'data/farming-tiers.json'], ['pages/planner.tsx', 'data/material-catalogue.json'], ['pages/schedule.tsx', 'data/headhunting_banners.json'], ['pages/skins.tsx', 'data/skin-shop-rotations.json']]) {
+  for (const [page, table] of [['pages/base.tsx', 'data/base-skill-slots.json'], ['pages/farming.tsx', 'data/farming-tiers.json'], ['pages/operator-planner.tsx', 'data/material-catalogue.json'], ['pages/schedule.tsx', 'data/headhunting_banners.json'], ['pages/skins.tsx', 'data/skin-shop-rotations.json']]) {
     assert.equal(pathToTarget(page, [table], { clientOnly: false })?.at(-1), table, `${page} should read ${table} on the server`);
   }
   // The browser half of these pages does live work beside that data.

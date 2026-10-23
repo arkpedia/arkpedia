@@ -35,8 +35,8 @@ function writePlannerState(state: StoredPlannerState) {
 }
 
 /**
- * A planner file's goals, written from another page (the Import / export dialog off /planner).
- * Stored as they came: /planner clamps every goal to its operator's rules when it reads them
+ * A planner file's goals, written from another page (the Import / export dialog off /operator-planner).
+ * Stored as they came: /operator-planner clamps every goal to its operator's rules when it reads them
  * (clampBuilderStates), the same gate a hand-edited localStorage goes through.
  */
 export function replacePlannerGoals(selectedNames: string[], builderStates: Record<string, unknown>): void {

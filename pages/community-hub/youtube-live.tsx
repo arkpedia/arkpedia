@@ -26,7 +26,7 @@ export default function YouTubeLivePage({ liveNow, hasYouTubeApiKey }: Props) {
           <div className="waiting-box">
             <h2>{hasYouTubeApiKey ? 'No channels live right now' : 'Live feed unavailable'}</h2>
             {!hasYouTubeApiKey && <p className="hint">We can’t check who is live at the moment.</p>}
-            <Link href="/community/videos" className="ghost">Browse community videos</Link>
+            <Link href="/community-hub/videos" className="ghost">Browse community videos</Link>
           </div>
         ) : (
           <div className="video-grid">

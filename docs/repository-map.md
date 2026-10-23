@@ -22,7 +22,7 @@ Pages remain in `pages/` because their paths define public URLs. Their component
 | Feature | Pages | Components | Logic | Global styles |
 | --- | --- | --- | --- | --- |
 | Operators | `pages/operators/` | `components/operators/` | `lib/operators/` | `styles/operators/` |
-| Planner | `pages/planner.tsx` | `components/planner/` | `lib/planner/` | `styles/planner/` |
+| Planner | `pages/operator-planner.tsx` | `components/planner/` | `lib/planner/` | `styles/planner/` |
 | Stages | `pages/stages/` | `components/stages/` | `lib/stages/` | `styles/stages/` |
 | Enemies | `pages/enemies/` | `components/enemies/` | `lib/enemies/` | `styles/enemies/` |
 | Music | `pages/music/` | `components/music/` | `lib/music/` | `styles/music/` |
@@ -31,7 +31,7 @@ Pages remain in `pages/` because their paths define public URLs. Their component
 | Skins | `pages/skins.tsx` | `components/skins/` | `lib/skins/` | `styles/skins/` |
 | Recruitment | `pages/recruitment.tsx`, `pages/recruitment/` | `components/recruitment/` | `lib/gacha/recruitment*.ts` | `styles/recruitment/` |
 | Base | `pages/base.tsx`, `pages/bases/` | Page-local UI | `lib/base/` | `styles/base/` |
-| Survey | `pages/results.tsx` | `components/survey/` | `lib/results/` | `styles/survey/` |
+| Survey | `pages/polls/power-scale.tsx` | `components/survey/` | `lib/results/` | `styles/survey/` |
 
 ## Public repository ownership
 

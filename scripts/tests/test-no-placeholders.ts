@@ -6,13 +6,13 @@ import { test } from 'node:test';
 /*
  * "Coming soon" placeholders stay hidden until they have content (the 2026-09-25
  * decision). The home page's Packs panel, an event page's Packs and Miscellaneous tabs
- * and /gacha's tutorial fallback each said only that, and each was found by reading
+ * and /gacha-simulator's tutorial fallback each said only that, and each was found by reading
  * the rendered page, not by any check. This fails when one comes back.
  *
  * It reads the code the reader can be shown: every .tsx under pages/ and components/,
  * with comments removed, so a comment that explains why a placeholder went is fine.
  *
- * The last panels (/community's Art and Cosplayer panels and /music's playlists note) went
+ * The last panels (/community-hub's Art and Cosplayer panels and /music's playlists note) went
  * with the media and community migration. Hide a panel until it has content instead of
  * adding a line here. The one exception is not a panel: the selector guide's beginner and
  * gifted tickets, whose How to Use videos Kukki is recording, say "Coming soon" on the line

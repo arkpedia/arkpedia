@@ -242,5 +242,5 @@ test('the planner offers every operator, the ones not on Global yet marked CN', 
     if (record.sourceRegion === 'CN' && offered[i].releasedAt === null) assert.equal(offered[i].cnOnly, true, `${record.name} is a CN record with no Global date, so it is marked CN`);
   });
   assert.ok(offered.some((op) => op.cnOnly), 'some operator is not on Global yet');
-  assert.match(fs.readFileSync('pages/planner.tsx', 'utf8'), /useMemo\(\(\) => plannerOperators\(exportedOperators, now\)/);
+  assert.match(fs.readFileSync('pages/operator-planner.tsx', 'utf8'), /useMemo\(\(\) => plannerOperators\(exportedOperators, now\)/);
 });

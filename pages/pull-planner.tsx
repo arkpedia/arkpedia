@@ -555,7 +555,7 @@ export default function PullsPage({ scheduledEvents: globalEvents, scheduledBann
   </>;
 }
 
-export const getStaticProps: GetStaticProps<PullsProps> = withContentPage<PullsProps>('/pulls', async () => {
+export const getStaticProps: GetStaticProps<PullsProps> = withContentPage<PullsProps>('/pull-planner', async () => {
   /* Every banner and outfit shop, over or not: what is still ahead is a question for
      the request (currentPullPlan in the finalize below), never for the export. */
   const scheduledBanners = getPullSchedule();
@@ -573,7 +573,7 @@ export const getStaticProps: GetStaticProps<PullsProps> = withContentPage<PullsP
   const current = await withPullPlannerDynamicArt(currentPullPlan(props, Date.now()));
   if (current.backlogSources) return { ...current, backlogSources: fillFromDeployment(current.backlogSources, bundledBacklogSources()) };
   // A release exported before backlogSources joined the props. The first content
-  // run after this deploy re-exports /pulls (the generator commit changes the
+  // run after this deploy re-exports /pull-planner (the generator commit changes the
   // release fingerprint), and scripts/content/validate-release.mjs refuses a
   // release without it, so only an older published release can land here.
   console.warn('[pulls] Content release predates backlogSources; using the bundled back catalogue.');

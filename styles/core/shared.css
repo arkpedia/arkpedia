@@ -189,7 +189,7 @@
      heading (0-30px) and 11 between stacked sections (0-44px).
        --heading-gap  a section h2 (or the heading row it leads) to the first content
        --section-gap  one stacked section to the next (.op-section, and the operator
-                      page and /pulls stacks, which used a grid gap of 16px)
+                      page and /pull-planner stacks, which used a grid gap of 16px)
        --card-inset   a picture card's text from its flush art: the card's teal hover
                       edge boxes it, so the text keeps one inset (video, roster,
                       stage-mode, skin and supply cards used 10, 11, 12 and 14px)
@@ -485,7 +485,7 @@ html { scrollbar-gutter: stable; }
 /* r11 quiet polish: reduced motion means no motion (maintainer, 2026-09-26). Every
    transition the site adds is in styles/core/motion.css and only under no-preference,
    but the ones written before it (the hover fades on the cards, a drawer's slide, the
-   /community carousel's cross-fade) each needed their own override here, and most had
+   /community-hub carousel's cross-fade) each needed their own override here, and most had
    none: tests/browser/motion.spec.ts hovered, pressed and clicked through the census
    routes with reduced motion and found them running. So all of them stop here: a state
    change is instant. Transitions only -- an animation can be a state as well as a
@@ -770,7 +770,7 @@ main {
    nothing but Confirm/Cancel-style pairs where the size difference IS the emphasis.
    .submit-row-actions is NOT excluded even though it holds such pairs, because it
    also wraps three real toggle groups -- /guesser hint order, /guesser vasebreaker,
-   /planner total-vs-separate -- and excluding it left the very bug this fixes in
+   /operator-planner total-vs-separate -- and excluding it left the very bug this fixes in
    place on two shipped pages. The cost is that planner's Confirm/Cancel matches
    sizes; the benefit is that three toggle groups stop jumping.
 

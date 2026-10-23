@@ -1,5 +1,5 @@
 /* The operator detail page's global rules (pages/operators/[name].tsx), plus a few
-   classes other pages borrow (cost chips, optimizer groups; the /results tier rows
+   classes other pages borrow (cost chips, optimizer groups; the /polls/power-scale tier rows
    moved to styles/survey/boxplot.css). Layout and
    paint for the page itself live in components/operators/OperatorPage.module.css. */
 

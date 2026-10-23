@@ -20,8 +20,8 @@ const path = require('path');
 const CLIENT_ALLOWED = {
   // The deploy's asset pins: contentUrl's fallback for a page rendered without a release.
   'data/assets/revisions.json': 'asset pins for pages without a content release (lib/content/urls.ts)',
-  // A closed survey's aggregate, never refreshed, and /results' whole content.
-  'data/final-poll-results.json': 'the closed survey /results draws (lib/results/finalPollResults.ts)',
+  // A closed survey's aggregate, never refreshed, and /polls/power-scale's whole content.
+  'data/final-poll-results.json': 'the closed survey /polls/power-scale draws (lib/results/finalPollResults.ts)',
 };
 
 /**

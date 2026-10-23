@@ -36,12 +36,12 @@ import { tabAlign } from './tab-align';
  * The look runs in both themes, the gaps once (dark), and the light theme on the desktop
  * project only (colour does not change with the width). */
 export const HEADING_ROUTES: Record<string, number> = {
-  '/': 2, '/artists': 1, '/base': 0, '/community': 1, '/community/twitch': 0, '/credits': 5, '/community/videos': 0,
-  '/community/youtube-live': 0, '/enemies': 0, '/events/Duel%20Channel%3A%20Ivy%20Vine': 0, '/farming': 3,
-  '/gacha': 1, '/gamemodes': 0, '/gamemodes/stronghold-protocol': 1, '/games': 0, '/games/color-palette': 1,
+  '/': 2, '/artists': 1, '/base': 0, '/community-hub': 1, '/community-hub/twitch': 0, '/credits': 5, '/community-hub/videos': 0,
+  '/community-hub/youtube-live': 0, '/enemies': 0, '/events/Duel%20Channel%3A%20Ivy%20Vine': 0, '/farming': 3,
+  '/gacha-simulator': 1, '/game-modes': 0, '/game-modes/stronghold-protocol': 1, '/games': 0, '/games/color-palette': 1,
   '/games/music-guesser': 0, '/games/operator-guesser': 1, '/games/recruitment-guesser': 1,
   '/games/stage-guesser': 1, '/music': 1, '/music/discover': 1, '/obtain-method': 0, '/operators': 0,
-  '/operators/Amiya': 10, '/planner': 1, '/pulls': 3, '/recruitment': 2, '/results': 0, '/schedule': 0,
+  '/operators/Amiya': 10, '/operator-planner': 1, '/pull-planner': 3, '/recruitment': 2, '/polls/power-scale': 0, '/schedule': 0,
   '/skins': 0, '/stages': 1, '/stages/all': 0, '/stages/browse?s=ta-1': 2, '/stages/content/act49side': 1,
   '/stages/exploration': 2, '/stages/regular': 2, '/stages/score': 2, '/stages/seasonal': 2,
   '/stages/supplies': 0, '/support': 0, '/synergies': 10, '/techniques': 10, '/voice-actors': 1,
@@ -73,7 +73,7 @@ export const HOME_CARDS = ['.front-events-main', '.front-gacha-poster-wrap', '.f
  * census loads them for this check alone.
  */
 export const PICTURE_ROUTES: Record<string, number> = {
-  '/': 1, '/skins': 1, '/gacha': 1, '/enemies': 1, '/community': 1, '/community/videos': 1, '/results': 1,
+  '/': 1, '/skins': 1, '/gacha-simulator': 1, '/enemies': 1, '/community-hub': 1, '/community-hub/videos': 1, '/polls/power-scale': 1,
   '/music/discover': 1, '/games': 0, '/stages': 1, '/stages/content/act51side': 1, '/stages/regular': 1, '/stages/supplies': 0,
   // Its Skins section by link: since the event pages list sign-ins, missions and first clears,
   // this event opens on Rewards, whose totals are tiles, not picture cards.
@@ -94,20 +94,20 @@ export const CONTENT_CARDS: Record<string, string[]> = {
  *  full-bleed artwork button -- has no edge to turn teal, and shows focus by the site's
  *  outline instead. */
 /* --- picture-card states and rings (PR #69, 2026-09-28) --------------------------------
- * The maintainer, 2026-09-28: the /pulls skin wishlist's outfit tiles and /gacha's banner
+ * The maintainer, 2026-09-28: the /pull-planner skin wishlist's outfit tiles and /gacha-simulator's banner
  * list kept a resting border; no resting border, the teal edge on hover and focus, like
  * every other picture card. Two gaps let them through:
  *
  * - The wishlist's tiles show only once its tab opens, so no route above ever drew them.
  *   PICTURE_STATES are addresses the census drives after the load (PICTURE_DRIVES) for the
  *   picture check alone; the value is how many picture cards it shows at least.
- * - /gacha's banner cards had a transparent border and still drew a frame: their --panel-2
+ * - /gacha-simulator's banner cards had a transparent border and still drew a frame: their --panel-2
  *   background, painted under the border (background-clip: border-box), showed as a 1px
  *   ring round art that fills the padding box. ring() in pictureCards finds that on the
  *   card or on any box round its art. Box geometry and computed colours only. */
-export const PICTURE_STATES: Record<string, number> = { '/pulls#skin-wishlist': 1 };
+export const PICTURE_STATES: Record<string, number> = { '/pull-planner#skin-wishlist': 1 };
 export const PICTURE_DRIVES: Record<string, (page: Page) => Promise<void>> = {
-  '/pulls#skin-wishlist': async (page) => {
+  '/pull-planner#skin-wishlist': async (page) => {
     await page.getByRole('button', { name: /Skin wishlist/ }).click();
     // The shops on offer are the data's, dropped once they close (lib/pulls/currentPlan.ts),
     // as pulls.spec.ts's caption test has it: with none listed there are no tiles to measure.
@@ -253,7 +253,7 @@ export async function tokenColour(page: Page, token: string) {
  * takes .btn-bare, which skips the base button rule; without it the card inherits the
  * rule's uppercase and tracking onto its own font. The 2026-09-26 census found the
  * Stronghold enemy rows (.gm-row) and the Isomorph row (.gm-opwho) in Inter 16,
- * uppercase at 0.09em, and the /gacha featured-operator chips in Inter 11 at 0.09em
+ * uppercase at 0.09em, and the /gacha-simulator featured-operator chips in Inter 11 at 0.09em
  * (they reset the case, not the tracking). The signature is the base rule's 0.09em
  * tracking computed on Inter or JetBrains Mono, with or without its uppercase: no
  * page sets 0.09em on those faces on purpose. Every address and driven state the
@@ -362,7 +362,7 @@ export const BOUNDS_SAMPLES: Record<string, string> = {
 /** Page files that are not measured, and why. */
 export const BOUNDS_EXCLUDED: Record<string, string> = {
   '_app': 'the app shell', '_document': 'the document shell',
-  'gamemodes/stronghold-protocol/stronghold-companion': 'full-bleed by design: a play-beside-the-game tool',
+  'game-modes/stronghold-protocol/stronghold-companion': 'full-bleed by design: a play-beside-the-game tool',
   'recruitment/popout': 'full-bleed by design: hides the site chrome for a pop-out window',
   'home': 'redirects to /', 'events/index': 'redirects to /schedule', 'music/[albumId]': 'redirects to /music',
   'dev/index': 'development only (404 in production: measured through /404 below)',
@@ -550,7 +550,7 @@ export async function tabAlignBothThemes(page: Page): Promise<string[]> {
 /* --- r9 first-gap and stack-align (headings-spacing) --------------------------------
  * first-gap: every page starts its content 24px under the header hairline (main's
  * padding-top; docs/development/ui-primitives.md rule 15). The census measured 24px on
- * 43 views and 12-44px on 13: a section h2's inherited 18px top margin (/community 42),
+ * 43 views and 12-44px on 13: a section h2's inherited 18px top margin (/community-hub 42),
  * a first paragraph's own margin (/support 40, /base 35), an empty state's 20px margin
  * (Twitch, YouTube live 44), /farming's own 12px. Two documented others:
  *   - a Terminal scene (main.terminal-scene) at 700px and under is 14px: the slim
@@ -599,7 +599,7 @@ export async function settled(page: Page): Promise<Measurement> {
  * "can you implement lazy loading for all, like operators don't have lazy loading"
  * (maintainer, 2026-09-29). On 2026-09-29 /operators/Amiya fetched eight icons at load
  * from one to five screens down its panel (ContentImg was eager unless each caller said
- * otherwise), /pulls four more, and the pages' heroes -- /gacha's banner, the home
+ * otherwise), /pull-planner four more, and the pages' heroes -- /gacha-simulator's banner, the home
  * page's posters -- were lazy like any icon. ContentImg and ContentImage are lazy now,
  * and eager only through `priority` (components/content/ContentImage.tsx).
  *
@@ -624,7 +624,7 @@ export const EAGER_ALLOWED: Record<string, EagerAllowed[]> = {
     { selector: '.front-events-poster-wrap img', why: 'the first event\'s poster: the home page\'s LCP at 1440', optional: true },
     { selector: '.front-gacha-poster-wrap img', why: 'the first banner\'s art: the home page\'s LCP at 390', optional: true },
   ],
-  '/gacha': [{ selector: 'img.gacha-banner-main-image', why: 'the chosen banner\'s art: the page\'s LCP at 1440 and 390 (none until the art is published)', optional: true }],
+  '/gacha-simulator': [{ selector: 'img.gacha-banner-main-image', why: 'the chosen banner\'s art: the page\'s LCP at 1440 and 390 (none until the art is published)', optional: true }],
   '/stages': [{ selector: '.terminal-lead-art img', why: 'the event the Terminal leads with: the page\'s LCP (none between events)', optional: true }],
 };
 
@@ -666,19 +666,19 @@ export function imageLoading({ allowed, fold }: { allowed: EagerAllowed[]; fold:
  * select and the text beside it share one vertical centre, and the controls in it
  * share one height, --control-h.
  *
- * The census (row-census.ts) went over 41 routes and seven driven states (the /pulls
+ * The census (row-census.ts) went over 41 routes and seven driven states (the /pull-planner
  * panels, /recruitment with tags and its cheat sheet, the stage guesser's own list) at
- * 1440 and 390 on 2026-09-26 and found five: the /pulls goal row (Until, Available,
+ * 1440 and 390 on 2026-09-26 and found five: the /pull-planner goal row (Until, Available,
  * All goals and Left 9px above the Pulls input and the remove button, lifted by the
- * space reserved for an empty caption), the /pulls forecast date (9px above the picked
+ * space reserved for an empty caption), the /pull-planner forecast date (9px above the picked
  * banner's taller dropdown, both top-aligned), the /skins result count (9px above
  * Reset filters, lifted by .hint's bottom margin), the operator page credits (the
  * language label 4px above the voice actor's button, both top-aligned at different
- * heights) and the /planner search row (Clear 5px below the search field's centre).
+ * heights) and the /operator-planner search row (Clear 5px below the search field's centre).
  * The r9 census (2026-09-26, 45 addresses and twelve driven states) added the control
  * heights: six primitive heights side by side (tgl 32, ghost 33, chip 32/36, select 38,
  * search 38/40, button 44) and the rows pages had patched by hand, and three more rows
- * off their centre (the /operators/Amiya name row 15px, the /gacha dialogs' close 18px
+ * off their centre (the /operators/Amiya name row 15px, the /gacha-simulator dialogs' close 18px
  * and 7px, the planner level dialog's title 5.7px). One token, --control-h, fixed the
  * heights; each row is fixed at its source.
  *

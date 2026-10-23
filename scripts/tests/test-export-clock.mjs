@@ -59,10 +59,10 @@ test('the export verdict fails a new clock read and a stale exception, and passe
   assert.equal(exportClockVerdict('/farming', []), null);
   assert.match(exportClockVerdict('/farming', ['at getFarmingWindows (lib/schedule/materialCountdown.ts:48:14)']) ?? '', /\/farming read the clock 1 time\(s\).*\n.*materialCountdown\.ts:48/);
   // Every route that used to decide release state at export now exports markers and decides per
-  // request (the /planner picker) or no longer carries the value at all (the operator page's
+  // request (the /operator-planner picker) or no longer carries the value at all (the operator page's
   // related cards), so no route is an exception any more, and a read on any route fails.
   assert.deepEqual(Object.keys(KNOWN_EXPORT_CLOCK_READS), []);
-  assert.match(exportClockVerdict('/planner', ['at getStaticProps (pages/planner.tsx:1)']) ?? '', /\/planner read the clock 1 time/);
+  assert.match(exportClockVerdict('/operator-planner', ['at getStaticProps (pages/operator-planner.tsx:1)']) ?? '', /\/operator-planner read the clock 1 time/);
   assert.match(exportClockVerdict('/operators/[name]', ['at getStaticProps (pages/operators/[name].tsx:1)']) ?? '', /read the clock 1 time/);
 });
 

@@ -6,7 +6,7 @@ import { supplyStages, readStageRecords } from '../build/build-supply-stages.mjs
 
 /*
  * The planner's supply-stages table (data/supply-stages.json, released through
- * lib/content/tables.mjs '/planner') used to be derived from data/stages.json, a scrape of
+ * lib/content/tables.mjs '/operator-planner') used to be derived from data/stages.json, a scrape of
  * arknights.wiki.gg nothing had rewritten since it was committed, so supply drops could
  * never follow the game. It is derived from the stage records the stage pipeline builds
  * from gamedata now, and must say exactly what it said before.

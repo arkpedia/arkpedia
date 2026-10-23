@@ -71,9 +71,9 @@ export default function Results({ iconMap }: Props) {
 
   return (
     <>
-      <Head><title>Community Results — Arkpedia</title></Head>
+      <Head><title>Power Scale — Arkpedia</title></Head>
 
-      <PageHeader eyebrow="Rhodes Island // Community Survey" title="Community results" />
+      <PageHeader eyebrow="Rhodes Island // Community Survey" title="Power Scale" />
 
       <main className="results-page">
         <div className="results-toolbar">
@@ -218,7 +218,7 @@ export default function Results({ iconMap }: Props) {
 /* From the content release like every other page with game data: the operator icons resolve
    against the release's asset pin, not the one this deploy's revisions.json carried. The poll
    results themselves are a closed survey, bundled on purpose (lib/results/finalPollResults.ts). */
-export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>('/results', async () => {
+export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>('/polls/power-scale', async () => {
   const iconMap: Record<string, string> = {};
   for (const op of getAllOperators()) {
     iconMap[op.name] = getOperatorIconPath(op);

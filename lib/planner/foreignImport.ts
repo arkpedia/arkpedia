@@ -62,7 +62,7 @@ const KNOWN_NOT_HELD = new Set(['EXP']);
 /* The maps and the material catalogue (data/material-catalogue.json) have to be
    talking about the same materials, and nothing at runtime can notice that they
    stopped: a material the catalogue gained without re-running the builder is one an
-   import quietly drops, with the file looking like it loaded. /planner's table loader
+   import quietly drops, with the file looking like it loaded. /operator-planner's table loader
    asserts it wherever the tables are read from data/ -- the build's prerender and the
    content export -- so a release that disagrees fails its export rather than reaching
    anybody. */

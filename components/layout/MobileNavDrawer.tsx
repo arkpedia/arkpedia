@@ -297,7 +297,7 @@ export default function MobileNavDrawer({ mobileNav, search }: { mobileNav?: Mob
                   aria-controls={`mobile-nav-group-${group.id}`}
                   onClick={(event) => toggleGroup(group.id, event.currentTarget)}
                 >
-                  <span>{group.label}{changelogUnseen && group.items.some((link) => link.href === '/changelog') && <span className="nav-new-dot" aria-hidden="true" />}</span>
+                  <span>{group.label}{changelogUnseen && group.items.some((link) => link.href === '/whats-new') && <span className="nav-new-dot" aria-hidden="true" />}</span>
                   <svg viewBox="0 0 20 20" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true" className="mobile-nav-group-chev">
                     <path d={isOpen ? 'M5 12.5 10 7.5 15 12.5' : 'M5 7.5 10 12.5 15 7.5'} strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
@@ -305,7 +305,10 @@ export default function MobileNavDrawer({ mobileNav, search }: { mobileNav?: Mob
                 {/* Folded, not removed: the links stay in the page (hidden), for crawlers and
                     for the nav's release-pinned art, which the content runtime test reads. */}
                 <div id={`mobile-nav-group-${group.id}`} className="mobile-nav-group-links" hidden={!isOpen}>
-                  {group.items.map((link) => <DrawerLink key={link.href} link={link} active={isActiveLink(link, router.pathname)} isNew={link.href === '/changelog' && changelogUnseen} onPick={() => setOpen(false)} />)}
+                  {group.items.map((link) => [
+                    <DrawerLink key={link.href} link={link} active={isActiveLink(link, router.pathname)} isNew={link.href === '/whats-new' && changelogUnseen} onPick={() => setOpen(false)} />,
+                    group.dividersAfter?.includes(link.href) && <hr key={`${link.href}-rule`} className="site-nav-pop-rule" />,
+                  ])}
                 </div>
               </div>
             );

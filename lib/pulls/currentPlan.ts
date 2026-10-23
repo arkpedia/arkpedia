@@ -4,7 +4,7 @@ import type { BannerOdds } from './probability';
 import type { UpcomingBanner } from './pulls';
 import type { SkinCollection } from './skinCollections';
 
-/** The /pulls props that change with the moment of reading. */
+/** The /pull-planner props that change with the moment of reading. */
 export interface PullPlanWindows {
   scheduledBanners: UpcomingBanner[];
   bannerOdds: Record<string, BannerOdds>;

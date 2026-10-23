@@ -363,7 +363,7 @@ export default function SchedulePage({ events: globalEvents, operators: exported
                     </div>
                   </ScheduleRowLink>
                   {e.pullBannerName && (
-                    <Link prefetch={false} className="ghost btn-sm events-row-plan" href={{ pathname: '/pulls', query: { banner: e.pullBannerName } }}>
+                    <Link prefetch={false} className="ghost btn-sm events-row-plan" href={{ pathname: '/pull-planner', query: { banner: e.pullBannerName } }}>
                       Plan pulls
                     </Link>
                   )}
@@ -613,7 +613,7 @@ export default function SchedulePage({ events: globalEvents, operators: exported
                 ) : (
                   <>
                     <p className="hint">{displayEvent.bannerName && displayEvent.global.note && displayEvent.global.dateRange ? 'Estimated Global: ' : ''}{displayEvent.global.dateRange ?? displayEvent.global.note}</p>
-                    <Link prefetch={false} href={displayEvent.bannerName ? { pathname: '/gacha', query: { banner: displayEvent.bannerName } } : `/events/${encodeURIComponent(displayEvent.name)}`} className="ghost btn-sm schedule-panel-event-link">{displayEvent.bannerName ? 'Banner page' : 'Event page'}</Link>
+                    <Link prefetch={false} href={displayEvent.bannerName ? { pathname: '/gacha-simulator', query: { banner: displayEvent.bannerName } } : `/events/${encodeURIComponent(displayEvent.name)}`} className="ghost btn-sm schedule-panel-event-link">{displayEvent.bannerName ? 'Banner page' : 'Event page'}</Link>
                   </>
                 )}
 
@@ -628,7 +628,7 @@ export default function SchedulePage({ events: globalEvents, operators: exported
                     <h3 className="schedule-panel-subheading">Pullable Operators</h3>
                     {pullBannerLinks[panelBanner.name.toLowerCase()] && (
                       <p className="hint">
-                        <Link prefetch={false} href={{ pathname: '/pulls', query: { banner: pullBannerLinks[panelBanner.name.toLowerCase()] } }}>
+                        <Link prefetch={false} href={{ pathname: '/pull-planner', query: { banner: pullBannerLinks[panelBanner.name.toLowerCase()] } }}>
                           Add to Pull Planner
                         </Link>
                       </p>
@@ -861,7 +861,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/sc
      arrive late. Every calendar event goes out with its window; "ongoing or upcoming"
      is a claim about now, so the page decides it at render (currentEventRows), and a
      release can no longer keep an ended event LIVE. A pull-planner banner leaves the
-     planner at the end of its last day, the same instant /pulls drops it. */
+     planner at the end of its last day, the same instant /pull-planner drops it. */
   const pullBanners: PullBannerWindows = Object.fromEntries(
     getPullSchedule().map((banner) => [banner.name.toLowerCase(), { name: banner.name, end: Date.parse(`${banner.end}T23:59:59Z`) }]),
   );

@@ -223,7 +223,7 @@
 .skillMetrics > div { min-width: 0; padding: 7px 8px; border: 1px solid var(--line-soft); border-radius: var(--radius); background: var(--panel-2); }
 .skillMetrics dt { margin-bottom: 4px; color: var(--text-dim); font-size: 11px; }
 .skillMetrics dd { margin: 0; font: 600 13px/1.35 var(--font-body); }
-/* The skill facts' colours, the same on /gacha's operator preview (.gacha-preview-skill-fact):
+/* The skill facts' colours, the same on /gacha-simulator's operator preview (.gacha-preview-skill-fact):
    automatic is teal, manual activation and offensive/defensive recovery are amber, SP is blue. */
 .skillMetrics > .skillMetricAuto { border-color: color-mix(in srgb, var(--teal) 55%, transparent); background: var(--teal-dim); color: var(--teal); }
 .skillMetrics > .skillMetricAmber { border-color: color-mix(in srgb, var(--amber) 60%, transparent); background: color-mix(in srgb, var(--amber) 15%, transparent); color: var(--amber); }

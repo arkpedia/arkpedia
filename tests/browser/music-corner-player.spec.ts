@@ -8,7 +8,7 @@ import { stubYouTube } from './youtube-stub';
  */
 test('the corner player keeps every control inside its card', async ({ page }) => {
   await stubYouTube(page);
-  await page.goto('/pulls');
+  await page.goto('/pull-planner');
   const shell = page.locator('.music-player');
   await shell.getByRole('button', { name: 'Expand player' }).click();
   await expect(shell.locator('.music-play-btn')).toBeVisible();

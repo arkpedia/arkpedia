@@ -17,7 +17,7 @@ const SHOW = [
 interface Item { id: string; name: string; amount: number; stages?: string[]; stageCodes?: string[]; certs?: number }
 
 /**
- * The Past events popup's contents (pages/pulls.tsx): what is left of the back catalogue,
+ * The Past events popup's contents (pages/pull-planner.tsx): what is left of the back catalogue,
  * group by group, each item a tick the reader can always change. An import ticks them once
  * (the page's ticksFrom); after that they are the reader's, for an import that has aged or a
  * what-if. `backlog` is what each unticked item still pays (unclaimedBacklog: what the import

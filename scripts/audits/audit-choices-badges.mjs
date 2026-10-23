@@ -72,7 +72,7 @@ export const PRIMITIVE_KEEP = new Map([
 
 /** Selectors whose subject matches the live-badge pattern but are not a badge. */
 export const LIVE_ALLOWED = new Map([
-  ['event-status-live', 'the status DOT before an event name on /community (live, upcoming, ended), not a text badge; next round\'s blinking dot is for .badge-live'],
+  ['event-status-live', 'the status DOT before an event name on /community-hub (live, upcoming, ended), not a text badge; next round\'s blinking dot is for .badge-live'],
 ]);
 
 const stripComments = (css) => css.replace(/\/\*[\s\S]*?\*\//g, '');

@@ -90,7 +90,7 @@
 /* The shared dialog body scrolls under its fixed header. */
 .pulls-past-body { display: grid; gap: 12px; }
 .pulls-past-body .pulls-disclosure { margin-top: 0; }
-/* The Income and Skin wishlist popups (pages/pulls.tsx), in the same frame as Past events. */
+/* The Income and Skin wishlist popups (pages/pull-planner.tsx), in the same frame as Past events. */
 .pulls-income-dialog { --dialog-w: 760px; }
 .pulls-skins-dialog { --dialog-w: 1080px; }
 .pulls-income-body, .pulls-skins-body { display: grid; gap: 14px; }
@@ -112,7 +112,7 @@
 .pulls-report .pulls-wish-option b { font-size: 12px; white-space: nowrap; }
 @media (max-width: 640px) { .pulls-report th, .pulls-report td { padding: 6px 4px; } .pulls-report .pulls-wish-options { flex-wrap: wrap; } }
 
-/* The Reward Tracker (pages/free-op.tsx): the same lists, each group a section of the page. */
+/* The Reward Tracker (pages/reward-tracker.tsx): the same lists, each group a section of the page. */
 .pulls-past-page { display: grid; gap: 12px; align-content: start; }
 .pulls-past-section h2 .pulls-note { margin-left: 10px; font-weight: 400; }
 .free-op-page { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; }
@@ -368,7 +368,7 @@ button.pulls-past-name:hover, button.pulls-past-name[aria-expanded="true"] { col
 .pulls-past-page .pulls-past-amount .pulls-reward-amount { gap: 4px; }
 @media (max-width: 640px) { .free-reward-row { grid-template-columns: minmax(0, 1fr) minmax(44px, 38%); gap: 8px; } }
 
-/* Reward Tracker: the stage toggles and the welfare operators still to claim (pages/free-op.tsx). */
+/* Reward Tracker: the stage toggles and the welfare operators still to claim (pages/reward-tracker.tsx). */
 .free-op-filters { display: flex; flex-wrap: wrap; gap: 8px 20px; margin: 16px 0 0; padding: 0; border: 0; }
 .free-op-filters legend { width: 100%; margin-bottom: 4px; padding: 0; color: var(--text-dim); font-size: 12px; }
 .free-op-excluded { margin: 8px 0 0; }

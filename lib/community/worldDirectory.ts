@@ -10,7 +10,7 @@ export function currentWebEvents(events: WorldWebEvent[], now: number): WorldWeb
 }
 /** The server a web event is for, by the region its record names ("Japan (JP)": sync-community-web-events.mjs
  *  REGIONS), or null for one that names none, which every server shows. The site shows the site
- *  server's own campaigns (pages/community.tsx). */
+ *  server's own campaigns (pages/community-hub.tsx). */
 export function webEventServer(event: Pick<WorldWebEvent, 'region'>): 'en' | 'jp' | 'kr' | null {
   const code = event.region?.match(/\((EN|JP|KR)\)\s*$/)?.[1];
   return code ? (code.toLowerCase() as 'en' | 'jp' | 'kr') : null;

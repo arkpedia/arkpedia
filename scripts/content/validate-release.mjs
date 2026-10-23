@@ -170,22 +170,22 @@ check(releaseInput({ generator: m.generator, sourceHashes: sources }) === m.rele
 // What the publish step compares (release-input.mjs): the sources without the run's own
 // records, and the pages and public files, whose checksums are verified above.
 check(m.content === contentInput({ sourceHashes: sources, pages: m.pages, files: m.files }), 'Release content fingerprint mismatch');
-for (const route of ['/', '/operators', '/planner', '/pulls', '/gacha', '/schedule', '/skins', '/stages', '/enemies']) check(m.pages[route], `Missing required page: ${route}`);
+for (const route of ['/', '/operators', '/operator-planner', '/pull-planner', '/gacha-simulator', '/schedule', '/skins', '/stages', '/enemies']) check(m.pages[route], `Missing required page: ${route}`);
 // The pull planner counts the back catalogue in the browser from these props.
 // Without them the page falls back to the deploy's bundled copy, which lags
 // every Global event until a redeploy, so they must be this release's own list.
 const playableIds = events => JSON.stringify(events.map(event => event.id).sort());
-const pullsProps = JSON.parse(fs.readFileSync(path.join(root, 'release', m.pages['/pulls'].path))).props;
+const pullsProps = JSON.parse(fs.readFileSync(path.join(root, 'release', m.pages['/pull-planner'].path))).props;
 const pullSources = JSON.parse(fs.readFileSync(path.join(root, 'source/data/pull-sources.json')));
 check(Array.isArray(pullsProps.backlogSources?.playable) && pullsProps.backlogSources.playable.length > 0
   && playableIds(pullsProps.backlogSources.playable) === playableIds(pullSources.events.list.filter(event => event.playable)),
-'The /pulls page does not carry this release\'s playable events (backlogSources)');
+'The /pull-planner page does not carry this release\'s playable events (backlogSources)');
 // An import counts what is left of each chapter and event against its stage ids
 // (backlogFromAccount); a release without them leaves the page the deployment's.
 // and names the ones left by their codes (stageCodes, one per id).
 check([...(pullsProps.backlogSources?.chapters ?? []), ...(pullsProps.backlogSources?.playable ?? [])].every(item => Array.isArray(item.stages) && item.stages.length > 0
   && Array.isArray(item.stageCodes) && item.stageCodes.length === item.stages.length),
-'A /pulls chapter or event carries no stage ids, or no code for each (backlogSources stages, stageCodes)');
+'A /pull-planner chapter or event carries no stage ids, or no code for each (backlogSources stages, stageCodes)');
 // A game table a page's browser code reads travels in that page's props
 // (lib/content/tables.mjs). Without it the page serves the deployment's copy, which
 // lags every release until a redeploy.

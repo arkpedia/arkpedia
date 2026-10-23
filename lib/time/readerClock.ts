@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from 'react';
  * A page is HTML rendered on the server at the request's moment and hydrated in the
  * reader's browser later, in whatever timezone they are in. Anything the first render
  * works out from `new Date()` can differ between the two, and when it does React
- * throws the server markup away (errors #418/#423/#425). /gacha did that for every
+ * throws the server markup away (errors #418/#423/#425). /gacha-simulator did that for every
  * reader once Rage of The Many ended, and the home page's Events panel did it once an
  * event closed.
  *

@@ -251,7 +251,7 @@
 
 /* r11: wherever the phone bar shows (900px and under) the page's content runs to the
    24px gutter, and the collapsed 44px tile, 8-16px off the edge, sat 20-36px over it: the
-   right edge of /pulls' goal list, the planner's materials, the top of an operator page's
+   right edge of /pull-planner's goal list, the planner's materials, the top of an operator page's
    section menu (maintainer, 2026-09-28). So collapsed, the ♪ is a tab IN the right
    gutter, flush with the screen's edge: exactly --page-gutter wide, so it ends where the
    page frame begins (page-bounds.spec.ts holds every page's content inside that frame),

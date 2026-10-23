@@ -1,9 +1,9 @@
 /**
- * A planner file read on a page other than /planner (the Import / export dialog): written
- * straight to the planner's stores, which /planner reads and checks when it next loads. On
- * /planner itself the page applies the file to its own state instead (applyParsed), where it
+ * A planner file read on a page other than /operator-planner (the Import / export dialog): written
+ * straight to the planner's stores, which /operator-planner reads and checks when it next loads. On
+ * /operator-planner itself the page applies the file to its own state instead (applyParsed), where it
  * also knows which operators exist. Materials and crafting are kept to the depot's own
- * vocabulary here too; the rest of what /planner drops, it drops on load.
+ * vocabulary here too; the rest of what /operator-planner drops, it drops on load.
  */
 import { writeCrafting } from './crafting';
 import { writeDepot, type Depot } from './depot';

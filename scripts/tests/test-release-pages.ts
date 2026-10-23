@@ -8,14 +8,14 @@ import { test } from 'node:test';
  *
  * A page outside scripts/content/pages.json renders from the deploy's own data/ and resolves
  * its art against the deploy's data/assets/revisions.json pin, so it drifts from the rest of the
- * site until the next redeploy. /results was such a page, with nothing saying so. The pages
+ * site until the next redeploy. /polls/power-scale was such a page, with nothing saying so. The pages
  * that stay outside are listed here, each with why, so a new one is a decision rather than a
  * default.
  */
 const OUTSIDE_THE_RELEASE: Record<string, string> = {
-  'pages/community/twitch.tsx': 'Twitch listings fetched at ISR, no game data',
-  'pages/community/videos.tsx': 'YouTube listings fetched at ISR, no game data',
-  'pages/community/youtube-live.tsx': 'YouTube listings fetched at ISR, no game data',
+  'pages/community-hub/twitch.tsx': 'Twitch listings fetched at ISR, no game data',
+  'pages/community-hub/videos.tsx': 'YouTube listings fetched at ISR, no game data',
+  'pages/community-hub/youtube-live.tsx': 'YouTube listings fetched at ISR, no game data',
   'pages/events/index.tsx': 'a permanent redirect to /schedule',
   'pages/bases/whole-base-optimizer.tsx': 'development only (devOnlyStaticProps)',
   'pages/optimizer.tsx': 'development only (devOnlyStaticProps)',
@@ -48,7 +48,7 @@ test('a page with a data function is in the content release, or listed here with
   }
   for (const file of Object.keys(OUTSIDE_THE_RELEASE)) if (!fs.existsSync(file)) problems.push(`${file} is listed as outside the release but no longer exists`);
   assert.deepEqual(problems, []);
-  assert.ok(released.includes('/results'));
+  assert.ok(released.includes('/polls/power-scale'));
   // Its nav art pinned to the deploy's revisions.json and its event list froze with the build.
-  assert.ok(released.includes('/community'));
+  assert.ok(released.includes('/community-hub'));
 });

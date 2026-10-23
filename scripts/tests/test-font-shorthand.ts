@@ -5,7 +5,7 @@ import { fontShorthandPx } from '../audits/font-shorthand.mjs';
 
 /*
  * audit-styles.mjs's fontSizes key reads the size in `font:` shorthands too: eight
- * off-scale sizes on /pulls hid in `font: 600 23px/1.2 var(--font-display)` and the like,
+ * off-scale sizes on /pull-planner hid in `font: 600 23px/1.2 var(--font-display)` and the like,
  * where a `font-size:` scan never looked.
  */
 test('the size is read from a font shorthand, with or without a line height', () => {

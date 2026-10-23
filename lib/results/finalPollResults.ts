@@ -14,7 +14,7 @@
 // dataset here; this file is what gives it names and types.
 //
 // Still imported by the page rather than read in getStaticProps, deliberately: it
-// is ~31 kB either way, and as a module it sits in /results' own chunk, immutable
+// is ~31 kB either way, and as a module it sits in /polls/power-scale's own chunk, immutable
 // and cached, instead of being re-fetched as page data every time the route is
 // entered. Moving it to props would have traded the same bytes for a worse cache.
 import pollData from '@/data/final-poll-results.json';
