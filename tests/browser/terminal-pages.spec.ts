@@ -459,37 +459,29 @@ test('each terminal page has one h1, in a page header that lines up with its con
 });
 
 test.describe('state changes near the foot of a page do not move what was pressed', () => {
-  test('techniques: the last group\'s table toggle', async ({ page }) => {
-    // 166px at 1440 and up to 806px at 390 before the height floor on each group.
-    await page.goto('/techniques');
-    const toggle = page.locator('.technique-table-toggle').last();
-    // Open the table, read down into it (the toggle near the top of the screen), then
-    // close it: the page loses the table's height under the reader.
-    await toggle.click();
-    await expect(toggle).toHaveText(/show icons/i);
-    const moved = await anchorMoved(page, toggle, [() => toggle.click()], 120);
-    await expect(toggle).toHaveText(/show table/i);
-    expect(moved).toBeLessThan(4);
-  });
-
-  test('synergies: "Show less" on a group in the middle of the page', async ({ page }, testInfo) => {
-    // The toggle sat under the group's list, so "Show less" took the rows above it out
-    // and went up the screen with them: 264px at 1440 and 824px at 390, off the top
-    // of a phone's screen (production measured 270 and 872). It sits in the group's
-    // heading row now, above everything it folds.
-    if (testInfo.project.name === 'mobile') await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto('/synergies');
-    const groups = page.locator('.technique-group').filter({ has: page.locator('.technique-more') });
-    const n = await groups.count();
-    expect(n, 'groups long enough to fold').toBeGreaterThan(2);
-    const toggle = groups.nth(Math.floor(n / 2)).locator('.technique-more');
-    await toggle.click();
-    await expect(toggle).toHaveText(/show less/i);
-    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
-    const moved = await anchorMoved(page, toggle, [() => toggle.click()], 300);
-    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
-    expect(moved).toBeLessThan(4);
-  });
+  for (const route of ['/techniques', '/synergies']) {
+    test(`${route}: opening and closing a card's record near the foot of the list`, async ({ page }, testInfo) => {
+      // The groups used to fold in place ("Show table", "Show less") and shortened the
+      // page under the reader: 166px and 264px at 1440, up to 824px at 390. Since the
+      // 2026-10-23 redesign a card opens its record over the page (RecordDialog) and
+      // writes it to the address (?t=, ?s=); neither the dialog nor the address may move
+      // the card the reader pressed, opened or closed, by the x or by Escape.
+      if (testInfo.project.name === 'mobile') await page.setViewportSize({ width: 390, height: 844 });
+      await page.goto(route);
+      const cards = page.locator('main .technique-card');
+      await expect(cards.first()).toBeVisible();
+      const card = cards.nth(Math.min(8, (await cards.count()) - 1));
+      const dialog = page.getByRole('dialog').and(page.locator('.record-dialog'));
+      const key = route === '/techniques' ? 't' : 's';
+      const moved = await anchorMoved(page, card, [
+        async () => { await card.click(); await expect(dialog).toBeVisible(); await expect.poll(() => new URL(page.url()).searchParams.get(key)).not.toBeNull(); },
+        async () => { await page.keyboard.press('Escape'); await expect(dialog).toHaveCount(0); await expect.poll(() => new URL(page.url()).searchParams.get(key)).toBeNull(); },
+        async () => { await card.click(); await expect(dialog).toBeVisible(); },
+        async () => { await dialog.locator('.record-dialog-shut').click(); await expect(dialog).toHaveCount(0); },
+      ], 300);
+      expect(moved).toBeLessThan(4);
+    });
+  }
 
   test('enemies: switching the detail tab', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'mobile', 'Above 900px the handbook is locked to the viewport and the pane scrolls inside itself.');

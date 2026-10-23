@@ -34,6 +34,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-10-23T15:30:00Z',
+    changed: [
+      { title: 'Synergies as cards', detail: 'Each faction or class is a card with its emblem, the buffs it grants and who it reaches; a card opens its record.', href: '/synergies' },
+      { title: 'Techniques as cards', detail: 'Each technique is a card with its definition and operators; filter by kind, rarity, class, source or sort.', href: '/techniques' },
+    ],
+    fixed: [
+      { title: 'A name is not a buff', detail: 'Vina Victoria no longer grants a Victoria synergy just by being named; an operator\'s name is not a mention of the faction.', href: '/synergies' },
+    ],
+  },
+  {
     at: '2026-10-23T08:30:00Z',
     added: [
       { title: 'Queue from Most liked on YouTube', detail: 'Each Most liked tile has a ⋯ menu to play its song next or add it to the queue.', href: '/music/discover' },

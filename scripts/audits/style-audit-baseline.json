@@ -13,8 +13,6 @@
     "stage-mode-art: stages-terminal.css, stages.css",
     "stage-mode-name: stages-terminal.css, stages.css",
     "sub: shared.css, stages.css",
-    "technique-entry-badge-row: operator-detail.css, techniques.css",
-    "technique-entry-badge-talent: operator-detail.css, techniques.css",
     "terminal-panel: gamemodes.css, stages-terminal.css",
     "terminal-pill: gamemodes.css, stages-terminal.css",
     "terminal-scene: gamemodes.css, stages-terminal.css"

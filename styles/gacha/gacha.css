@@ -654,6 +654,9 @@
 }
 
 .gacha-spark-store-btn {
+  /* The row's other two are .ghost .btn-sm: share their --control-h, or the census
+     reads this one 2px short beside them. */
+  min-height: var(--control-h);
   padding: 8px 16px;
   border-radius: var(--radius-control);
   border: 1px solid var(--amber);

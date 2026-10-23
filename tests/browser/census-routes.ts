@@ -235,6 +235,10 @@ export const CENSUS_STATES: CensusState[] = [
   } },
   { id: 'stronghold record', route: '/gamemodes/stronghold-protocol', act: async (page) => { await tabIn(page, '.gm-lookup', 'Enemies'); await page.locator('.gm-row:visible').first().click(); await page.locator('.record-dialog').first().waitFor(); } },
   { id: 'stage enemy record', route: '/stages/browse?s=1-7', act: async (page) => { await page.locator('.stage-enemy-faces .enemy-face').first().click(); await page.locator('.record-dialog .enemy-hero').first().waitFor(); } },
+  // The 2026-10-23 redesign: a card opens its record. Self-Sustain has branch-wide entries
+  // and operator rows; Kjerag has givers with buff tags and other members.
+  { id: 'technique record', route: '/techniques?t=Self-Sustain', act: async (page) => { await page.locator('.record-dialog .technique-row').first().waitFor(); } },
+  { id: 'synergy record', route: '/synergies', act: async (page) => { await page.locator('main .technique-card', { hasText: 'Kjerag' }).click(); await page.locator('.record-dialog .synergy-members').waitFor(); } },
   ...PLANNER_STATES,
 ];
 

@@ -173,8 +173,6 @@ export const MOTION_LEGACY = new Map([
   ['styles/stages/stages.css: .stage-route-line { animation }', { count: 1, reason: LOOP }],
   ['styles/stages/stages.css: .stage-route-line.flying { animation }', { count: 1, reason: LOOP }],
   ['styles/stages/stages.css: .stage-legend-overlay { transition }', { count: 1, reason: DRAWER }],
-  ['styles/techniques/techniques.css: .technique-fragility-umbrella { transition }', { count: 1, reason: HOVER_FADE }],
-  ['styles/techniques/techniques.css: .technique-entry-operator-icon { transition }', { count: 1, reason: HOVER_FADE }],
   ['styles/ui/ticker.css: .ticker-bar { transition }', { count: 1, reason: DRAWER }],
   ['styles/ui/ticker.css: .ticker-track { animation }', { count: 1, reason: LOOP }],
   ['styles/ui/ticker.css: @keyframes ticker-scroll', { count: 1, reason: LOOP }],
