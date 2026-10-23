@@ -199,6 +199,26 @@
     box-shadow: var(--shadow-lift-tight);
   }
 
+  /* --- the event page's PVs (components/events/EventVideos.tsx) ----------------------
+     A video's picture is its play button, so it is a card of rule 23: its frame rises
+     under the pointer and on keyboard focus while it holds the picture, its edge turns
+     teal and the play mark's plate darkens. A frame with the player in it stays still. */
+  .event-video-frame {
+    transition: translate var(--dur-1) var(--ease), box-shadow var(--dur-1) var(--ease);
+  }
+  .event-video-play::after { transition: border-color var(--dur-1) ease; }
+  .event-video-play-icon { transition: background-color var(--dur-1) ease; }
+  .event-video-frame:has(> .event-video-play:focus-visible) {
+    translate: 0 -3px;
+    box-shadow: var(--shadow-lift);
+  }
+  @media (hover: hover) {
+    .event-video-frame:has(> .event-video-play:hover) {
+      translate: 0 -3px;
+      box-shadow: var(--shadow-lift);
+    }
+  }
+
   /* --- tabs: the underline slides -------------------------------------------------
      Tabs.tsx places the bar with transform and sets data-slide only once it sits
      under the current tab, so this never animates the first placement; a relayout
