@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import BackLink from './BackLink';
+import StickyControls from './StickyControls';
 
 interface PageHeaderProps {
   /** The mono teal line above the title: "Rhodes Island // Personnel Archive".
@@ -11,8 +12,11 @@ interface PageHeaderProps {
   /** A short lede under the title, in the site's .sub voice. */
   sub?: ReactNode;
   /** Page-wide controls -- search, filters, a primary action -- drawn under the
-   *  title, inside the header's frame. */
+   *  title in the header's frame. Sticky actions follow the header so its short
+   *  height cannot constrain their sticky range. */
   actions?: ReactNode;
+  /** Long catalogues: keep compact search/filter controls reachable while scrolling. */
+  stickyActions?: boolean;
   /** Less vertical air, for a tool whose first screen should be the tool. The
    *  title stays the same size: slim is spacing, not hierarchy. */
   slim?: boolean;
@@ -38,14 +42,17 @@ interface PageHeaderProps {
  * header nested in it starts 24px to the right of the content below
  * (tests/browser/page-bounds.spec.ts measures that edge on every route).
  */
-export default function PageHeader({ eyebrow, title, sub, actions, slim = false, compact = false, titleId, back }: PageHeaderProps) {
+export default function PageHeader({ eyebrow, title, sub, actions, stickyActions = false, slim = false, compact = false, titleId, back }: PageHeaderProps) {
   return (
-    <header className={`page-header${slim ? ' page-header-slim' : ''}${compact ? ' page-header-compact' : ''}`}>
+    <>
+    <header className={`page-header${slim ? ' page-header-slim' : ''}${compact ? ' page-header-compact' : ''}${actions && stickyActions ? ' page-header-with-sticky-actions' : ''}`}>
       {back ? <BackLink href={back.href} label={back.label} /> : null}
       <div className="eyebrow">{eyebrow}</div>
       <h1 id={titleId}>{title}</h1>
       {sub ? <p className="sub">{sub}</p> : null}
-      {actions ? <div className="page-header-actions">{actions}</div> : null}
+      {actions && !stickyActions ? <div className="page-header-actions">{actions}</div> : null}
     </header>
+    {actions && stickyActions ? <StickyControls className="page-header-sticky-actions"><div className="page-header-actions">{actions}</div></StickyControls> : null}
+    </>
   );
 }

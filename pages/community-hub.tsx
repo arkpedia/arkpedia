@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react';
 import { REGIONAL_MATERIAL } from '@/lib/i18n/regionalMaterial';
 import LoadOnScroll from '@/components/ui/LoadOnScroll';
-import Tabs from '@/components/ui/Tabs';
+import Tabs, { tabPanelProps } from '@/components/ui/Tabs';
 import SearchInput from '@/components/ui/SearchInput';
+import StickyControls from '@/components/ui/StickyControls';
+import { useQueryState } from '@/lib/hooks/useQueryState';
+import { useSwitchHold } from '@/components/ui/useSwitchHold';
 import StyledSelect from '@/components/ui/StyledSelect';
 import { ContentImg } from '@/components/content/ContentImage';
 import { currentWebEvents, mergeWebEvents, webEventServer, WORLD_CATEGORIES, type WorldCategory, type WorldDirectory, type WorldWebEvent } from '@/lib/community/worldDirectory';
@@ -50,10 +53,13 @@ export default function CommunityHub({
   hasYouTubeApiKey,
   hasTwitchCreds,
 }: Props) {
-  const [category, setCategory] = useState<WorldCategory>('offline');
+  const [categoryQuery, setCategory] = useQueryState('section', 'offline');
+  const category: WorldCategory = WORLD_CATEGORIES.find(option => option.value === categoryQuery)?.value ?? 'offline';
+  const [query, setQuery] = useQueryState('q');
+  const hold = useSwitchHold('community-hub');
   const readerNow = useReaderClock(now, { tickMs: 60_000, onFocus: true });
   const webEvents = currentWebEvents(directory.webEvents, readerNow);
-  const [country, setCountry] = useState(''), [query, setQuery] = useState(''), [limit, setLimit] = useState(12);
+  const [country, setCountry] = useState(''), [limit, setLimit] = useState(12);
   useEffect(() => { try { setCountry(localStorage.getItem('arkpedia.world.country') ?? ''); } catch { /* private mode */ } }, []);
   const countries = [...new Set(events.map(event => event.country))].sort();
   const localEvents = country ? events.filter(event => event.country === country) : events;
@@ -64,7 +70,8 @@ export default function CommunityHub({
     <Head><title>Community Hub — Arkpedia</title></Head>
     <PageHeader eyebrow="Rhodes Island // Around the world" title="Community Hub" sub="Events, creators and communities." />
     <main>
-      <Tabs label="World sections" id="world-sections" value={category} options={WORLD_CATEGORIES} onChange={value => { setCategory(value); setQuery(''); setLimit(12); }} />
+      <StickyControls><Tabs label="World sections" id="world-sections" value={category} options={WORLD_CATEGORIES} onChange={value => { hold.capture(); setCategory(value); setQuery(''); setLimit(12); }} /></StickyControls>
+      <div {...tabPanelProps('world-sections', category)} ref={hold.ref} style={hold.style}>
       {category === 'offline' ? <section className="op-section community-events" aria-label="Offline Events">
         <div className="live-section-heading-row"><h2>Offline Events</h2><StyledSelect label="Event country" value={country} options={[{ value: '', label: 'All countries' }, ...countries.map(value => ({ value, label: value }))]} onChange={value => { setCountry(value); try { localStorage.setItem('arkpedia.world.country', value); } catch { /* private mode */ } }} /></div>
         <div className="community-map-row"><div className="community-event-panel"><EventListPanel events={localEvents} now={now} /></div><div className="community-map-main"><WorldMapEvents events={localEvents} now={now} /></div></div>
@@ -80,6 +87,7 @@ export default function CommunityHub({
         <div className="world-gallery">{creators.map(creator => <article key={creator.url}><h3><a href={creator.url} target="_blank" rel="noreferrer">{creator.name} ↗</a></h3>{creator.works.filter(work => !needle || `${creator.name} ${work.character}`.toLocaleLowerCase().includes(needle)).map(work => <a key={work.source} href={work.source} target="_blank" rel="noreferrer"><ContentImg src={work.image} alt={work.title} width={480} height={480} /><span>{work.character} · {work.title}</span></a>)}</article>)}</div>
         {!creators.length && <p className="hint">No {needle ? 'matching ' : ''}creators listed yet.</p>}
       </section>}
+      </div>
     </main>
   </>;
 

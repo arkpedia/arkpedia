@@ -1,6 +1,7 @@
 import type { MouseEvent } from 'react';
 import Router from 'next/router';
 import { previousPage } from '@/lib/nav/pageTrail';
+import { restoreScrollOnReturn } from '@/lib/nav/scrollRestoration';
 
 /**
  * A detail page's Back: to the page this tab showed before it (lib/nav/pageTrail.ts),
@@ -18,7 +19,9 @@ export default function BackLink({ href, label }: { href: string; label: string 
   function goBack(event: MouseEvent<HTMLAnchorElement>) {
     if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
     event.preventDefault();
-    void Router.push(previousPage() ?? href);
+    const destination = previousPage() ?? href;
+    restoreScrollOnReturn(destination);
+    void Router.push(destination);
   }
   return (
     <a className="back-btn" href={href} onClick={goBack} title={`Back (or to ${label})`}>

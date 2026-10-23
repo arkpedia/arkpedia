@@ -330,7 +330,7 @@ export default function SkinsGallery({ skins, events: globalEvents, now, availab
     <>
       <Head><title>Skins Gallery — Arkpedia</title></Head>
 
-      <PageHeader eyebrow="Rhodes Island // Wardrobe" title="Skins" sub={`${skins.length} outfits · Global availability`}
+      <PageHeader stickyActions eyebrow="Rhodes Island // Wardrobe" title="Skins" sub={`${skins.length} outfits · Global availability`}
         actions={<div className="skins-controls">
             <SearchInput className="skins-search" label="Search skins" name="skin-search" placeholder="Operator or outfit…" value={search} onChange={setSearch} />
             {/* On a phone everything but the search folds into the Filters sheet. */}

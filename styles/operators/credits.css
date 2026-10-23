@@ -1,7 +1,7 @@
 /* /artists and /voice-actors (components/operators/CreditDatabase.tsx).
    The toolbar is /operators' (.roster-controls and its rows, roster.css); what is here
-   is the page switch, the letter row and the list: one row per person, their name on
-   the left and their operators as borderless picture tiles on the right. */
+   is the page switch, the letter row and each person's content inside the shared
+   directory cards, with operator links immediately available below their name. */
 
 .credit-controls { flex: 1 1 100%; min-width: 0; }
 .credit-controls .credit-switch { width: 100%; }
@@ -29,29 +29,22 @@
 .credit-group-head { display: flex; align-items: center; gap: 12px; margin-bottom: var(--heading-gap); }
 .credit-group-head h2 { margin: 0; }
 
-.credit-people { list-style: none; margin: 0; padding: 0; }
 .credit-person {
-  display: grid;
-  grid-template-columns: minmax(0, 200px) minmax(0, 1fr);
-  gap: 8px 20px;
-  padding: 14px 0;
-  border-top: 1px solid var(--line-soft);
+  flex-direction: column;
+  gap: 12px;
 }
-.credit-person:first-child { padding-top: 0; border-top: 0; }
-.credit-person > .credit-ops { margin-top: -5px; }
-.credit-person-head { min-width: 0; padding-top: 3px; }
+.credit-person-head { min-width: 0; }
 .credit-person-head h3 { margin: 0 0 4px; overflow-wrap: anywhere; }
-.credit-person-meta { display: block; overflow-wrap: anywhere; }
+.credit-person-head .credit-person-meta { display: block; margin: 0; overflow-wrap: anywhere; }
 
-/* The tiles' art starts on the column's edge (a tile has no left padding, only its 1px
-   transparent border), so the list stays inside the page frame; beside a name it rises
-   by its top padding and border, so a tile's art sits on the row's top line. */
+/* Two compact operator tiles fit inside a directory card. Names and credits wrap
+   within their column, without making the page wider. */
 .credit-ops {
   list-style: none;
   margin: 0;
   padding: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 130px), 1fr));
   gap: 2px 8px;
 }
 .credit-uncredited-note { margin: 0 0 12px; }
@@ -92,8 +85,5 @@
 .credit-op-cn { color: var(--amber); }
 
 @media (max-width: 720px) {
-  .credit-person { grid-template-columns: minmax(0, 1fr); }
-  .credit-person-head { padding-top: 0; }
   .credit-ops { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-  .credit-person > .credit-ops { margin-top: 0; }
 }

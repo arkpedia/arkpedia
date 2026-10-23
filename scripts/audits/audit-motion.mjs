@@ -176,7 +176,6 @@ export const MOTION_LEGACY = new Map([
   ['styles/ui/ticker.css: .ticker-bar { transition }', { count: 1, reason: DRAWER }],
   ['styles/ui/ticker.css: .ticker-track { animation }', { count: 1, reason: LOOP }],
   ['styles/ui/ticker.css: @keyframes ticker-scroll', { count: 1, reason: LOOP }],
-  ['pages/base.tsx: style.transition', { count: 1, reason: METER }],
   ['pages/obtain-method.tsx: style.animationDelay', { count: 1, reason: ENTRANCE }],
   ['pages/operators/index.tsx: style.animationDelay', { count: 1, reason: ENTRANCE }],
   ['pages/skins.tsx: style.animationDelay', { count: 1, reason: ENTRANCE }],

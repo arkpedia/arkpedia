@@ -12,10 +12,23 @@ async function seedAccount(page: Page, snapshot = true) {
 async function begin(page: Page) {
   await page.goto('/base');
   await page.locator('.base-setup-preset-card').first().click();
-  await page.getByRole('button', { name: 'Begin Simulation' }).click();
+  await page.getByRole('button', { name: 'View base', exact: true }).click();
 }
 const room = (page: Page, prefix = 'B101') => page.getByRole('button', { name: new RegExp(`^${prefix} `), includeHidden: true });
 const source = (page: Page, name: string) => page.getByRole('button', { name, exact: true });
+
+test('base actions and source choices share one toolbar without widening the page', async ({ page }) => {
+  await begin(page);
+  const toolbar = page.locator('.base-view-controls');
+  const centres = [];
+  for (const name of ['Save image', 'Edit layout', 'Your plan', 'Imported account']) {
+    const control = toolbar.getByRole('button', { name, exact: true });
+    await expect(control).toBeAttached();
+    centres.push(await control.evaluate(element => { const box = element.getBoundingClientRect(); return box.y + box.height / 2; }));
+  }
+  expect(Math.max(...centres) - Math.min(...centres)).toBeLessThanOrEqual(1);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
 
 async function saveAs(page: Page, name: string) {
   await source(page, 'Save as').click();

@@ -228,7 +228,8 @@ export function sectionCensus(options: { stacks: boolean }): SectionCensus {
   const header = Array.from(root.querySelectorAll('header')).find((x) => visible(x) && x.querySelector('h1') && !x.closest('main')) ?? null;
   let firstGap: FirstGapReport = { gap: null, first: '', terminalScene: main.matches('.terminal-scene') };
   if (header && main !== root) {
-    const hb = header.getBoundingClientRect().bottom;
+    const extension = header.nextElementSibling?.matches('.page-header-sticky-actions') ? header.nextElementSibling : null;
+    const hb = (extension ?? header).getBoundingClientRect().bottom;
     let top = Infinity;
     let first: Element | null = null;
     const walk = (el: Element) => {

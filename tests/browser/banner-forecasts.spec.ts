@@ -23,7 +23,7 @@ test('Schedule keeps withdrawn special banners undated with their empty Global l
 test('a withdrawn estimate has no calendar bar and remains reachable from Events', async ({ page }) => {
   await page.goto('/schedule?view=calendar');
   await expect(page.getByRole('button', { name: 'Orienteering #7 · Estimated', exact: true })).toHaveCount(0);
-  await page.getByRole('tab', { name: /Events, .*ongoing or upcoming/ }).click();
+  await page.getByRole('tab', { name: 'Events', exact: true }).click();
   const row = page.locator('.events-row', { hasText: 'Orienteering #7' });
   await expect(row).toContainText('Global date unannounced');
   await expect(row).not.toContainText('2026/10/18');

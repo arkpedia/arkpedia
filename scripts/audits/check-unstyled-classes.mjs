@@ -32,8 +32,9 @@
  */
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, extname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const ROOT = new URL('../..', import.meta.url).pathname;
+const ROOT = fileURLToPath(new URL('../..', import.meta.url));
 const SRC_DIRS = ['pages', 'components'];
 const CSS_DIR = 'styles';
 
@@ -114,7 +115,7 @@ const jsxCss = [];
 for (const dir of SRC_DIRS) {
   for (const file of walk(join(ROOT, dir))) {
     const text = readFileSync(file, 'utf8');
-    const rel = relative(ROOT, file);
+    const rel = relative(ROOT, file).split('\\').join('/');
     for (const m of text.matchAll(/<style jsx[^>]*>\{`([\s\S]*?)`\}<\/style>/g)) {
       jsxCss.push([`${rel} (styled-jsx)`, m[1]]);
     }

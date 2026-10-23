@@ -131,7 +131,7 @@ export default function TechniquesPage({ groups, branchClasses }: Props) {
   return (
     <>
       <Head><title>Techniques — Arkpedia</title></Head>
-      <PageHeader
+      <PageHeader stickyActions
         eyebrow={<><Link prefetch={false} href="/operators">Operators</Link>{' // Skill effects'}</>}
         title="Techniques"
         sub={<>
@@ -200,13 +200,13 @@ export default function TechniquesPage({ groups, branchClasses }: Props) {
                 {views.length === groups.length ? `All ${groups.length} techniques` : `${views.length} of ${groups.length} techniques`}
                 {operatorFilters.length > 0 && <> · operators: {operatorFilters.join(' · ')}</>}
               </p>
-              <ul className="technique-grid">
+              <ul className="directory-grid">
                 {views.slice(0, visible).map(({ group, kind, shown: ops }) => (
                   <li key={group.name}>
-                    <button type="button" className="btn-bare technique-card lift" aria-haspopup="dialog" onClick={() => setOpenName(group.name)}>
+                    <button type="button" className="btn-bare directory-card technique-card lift" aria-haspopup="dialog" onClick={() => setOpenName(group.name)}>
                       <span className="technique-card-eyebrow">{[kind, ...group.umbrellaNames].join(' · ')}</span>
                       <span className="technique-card-head">
-                        <span className="technique-card-name">{group.name}</span>
+                        <span className="entity-title entity-title-sm entity-title-name">{group.name}</span>
                         <span className="technique-card-count">
                           {ops.length}{ops.length < group.entries.length && <span className="technique-card-of">/{group.entries.length}</span>}
                           <span className="visually-hidden"> operators</span>

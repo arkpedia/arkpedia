@@ -1,10 +1,13 @@
 # UI primitives and tokens
 
+Start with the [design system](design-system.md) for page patterns, cards versus rows,
+and the site-wide inventory. This document specifies their implementation.
+
 This is the reference for building or migrating any Arkpedia page. It covers the design tokens, the shared components in `components/ui`, the global rules, and the style audit and page-bounds checks that hold every page to them. Follow it literally. When a page needs something this page does not cover, add it here and to the primitives. Do not solve it inside the page.
 
 The canonical style is the `/operators` list page plus `/gacha-simulator`, as decided on 2026-09-25:
 
-- Section headings are `.op-section h2` in `--heading`, a teal-ish colour kept apart from the `--teal` that marks on/current states (maintainer, 2026-09-26; amber was tried and rejected).
+- Section headings are `.op-section h2` in `--heading`; the current theme aliases it to `--teal`. Keep using the heading token so its role stays separate from interactive state color. Amber headings were rejected.
 - Picture and content cards (posters, banner art and thumbnails, operator and skin tiles, enemy tiles, album covers, portraits, video cards, the Terminal's stage, mode, supply and Regular Tasks cards, the /games and /community-hub cards) carry **no resting border**, and no frame round the art inside them either: the art says they can be clicked. They keep a transparent 1px border so nothing shifts, and draw the teal edge on hover and keyboard focus (`border: 1px solid transparent`, `border-color: var(--teal)` on `:hover` and `:focus-visible`), and nothing shows through that border at rest: a card (or a box round its art) whose art fills its padding box clips its own background to it (`background-clip: padding-box`), or its fill draws a 1px ring round the art -- /gacha-simulator's banner cards had a grey one on the light sidebar (231 on 251), and twelve other picture cards the same (maintainer, 2026-09-28). A card in an on state keeps its teal edge, and a rarity ring is data, not a frame. Only real controls (buttons, chips, checkboxes, inputs, tabs, dropdowns) carry `--control-border` at rest, and large pressable surfaces (a selectable `.pick-card`, a row card like the pull planner's banner cell) carry the quieter `--card-border`; a control with only a small picture in it (a featured-operator chip, an appearance thumbnail, a banner in /pull-planner's Add banner list) is one of them. A `.pick-card` whose main content is a picture is a picture card, not one of them: it takes `.pick-card-picture` (the /pull-planner skin wishlist's outfits, 2026-09-28). `tests/browser/cards-and-headings.spec.ts` finds every link or button whose main content is a picture (40x40 or more, half its box or more) on twenty routes and the opened skin wishlist, and fails on a framed one, a ring included.
 - Buttons are Rajdhani, uppercase, with 0.09em tracking.
 - Controls in a row are one height, `--control-h` (36px, 40px at ≤720), and share one centre line.
@@ -238,6 +241,7 @@ import Tabs, { tabPanelProps } from '@/components/ui/Tabs';
 <h3>Talents</h3>                                                       {/* a sub-section */}
 <h2 className="entity-title">{enemy.name}</h2>                         {/* a name: 22px */}
 <h3 className="entity-title entity-title-sm">{skill.name}</h3>         {/* under an 18px h2 */}
+<h3 className="entity-title entity-title-sm entity-title-name">{person.name}</h3> {/* directory name: original case */}
 <h3 className="label-tag">Cookie supporters</h3>                       {/* a micro-label heading a group */}
 ```
 
@@ -494,7 +498,22 @@ const active: ActiveFilter[] = rarity !== 'all' ? [{ key: 'rarity', label: `${ra
 - **The sheet** is the shared modal frame (`.account-dialog`, `showModal`): the box takes focus (rule 21), Tab wraps inside it, Escape and the × close it, focus goes back to the Filters button, the page under it does not scroll, and StyledSelect's menu portals into it. The controls are the same components on the same state, applied as they are pressed; it ends in Reset (every filter a chip shows) and Done. A toolbar's own Reset takes `INLINE_RESET`, so the sheet does not draw two. It rises in with the site search's motion, in motion.css only.
 - **`hold` is required**: the page's `useSwitchHold` over its list. Every press inside the sheet and every chip's × captures it first, so a filter that shortens the list cannot clamp the reader, and the page is where it was when the sheet closes.
 - **The chips are the page's to name** (`active`): one per filter that narrows the list. The search keeps its own ×, and an order is not a filter.
-- Used by `/operators`, `/artists`, `/voice-actors` and `/skins`. Not by `/enemies` or `/techniques` (their first item is under 300px down), `/obtain-method` (its chips are the section switch), `/skin-planner` (its plan panel, not its controls, is what sits above the list), `/music/discover` or `/gacha-simulator`. `tests/browser/filter-sheet.spec.ts` holds each page at 390 and 1440 in both themes: the first item on the first screen, the sheet by keyboard and Escape, a filter adding a chip, its × removing it, and nothing moving; on a desktop, no bar and the controls inline. In other specs, `openFilters(page)` and `closeFilters(page)` (`census-routes.ts`) reach the controls at either width.
+- Used by `/operators`, `/artists`, `/voice-actors`, `/skins`, `/techniques` and `/synergies`. Not by `/enemies` (its handbook owns a viewport-bounded browser), `/obtain-method` (its chips are the section switch), `/skin-planner` (its plan panel, not its controls, is what sits above the list), `/music/discover` or `/gacha-simulator`. `tests/browser/filter-sheet.spec.ts` holds each page at 390 and 1440 in both themes: the first item on the first screen, the sheet by keyboard and Escape, a filter adding a chip, its × removing it, and nothing moving; on a desktop, no bar and the controls inline. In other specs, `openFilters(page)` and `closeFilters(page)` (`census-routes.ts`) reach the controls at either width.
+
+### Sticky browsing controls
+
+`StickyControls` is the shared wrapper for compact list controls. `PageHeader stickyActions`
+places its actions in that wrapper immediately after the header, at the same frame width
+and gutters. It uses the measured `--nav-h` offset and the normal theme background. Its
+stacking level stays below site navigation, menus and dialogs. Native sticky positioning
+preserves the toolbar's original space, so entering its pinned state causes no layout jump.
+
+Bars whose controls exceed 176px, whose total height exceeds 25% of the viewport, or
+in viewports shorter than 480px remain in
+normal flow. Anchor clearance includes the measured compact toolbar height through
+`--sticky-controls-h`. Use one sticky bar per browsing context; retain the existing Enemy
+handbook, Music section, stage browser and game workspace arrangements rather than layering
+another toolbar over them. See `sticky-controls.spec.ts` for scrolled and short-screen checks.
 
 ### Error pages
 

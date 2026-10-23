@@ -1,5 +1,17 @@
 import { isReleasedAt, type ReleaseMarker } from '@/lib/operators/operatorAvailability';
 import type { TimelineOperator } from '@/lib/operators/operatorTypes';
+import type { ScheduleEvent } from './scheduleTypes';
+import { parseGameWindow } from './gameWindow';
+
+/** Confirmed, finished events from the complete calendar data, newest first.
+ * Current rows are deliberately pruned from page props; the archive must not use them. */
+export function pastScheduleEvents(events: readonly ScheduleEvent[], now: number) {
+  return events.flatMap(event => {
+    if (event.bannerName || event.modeId || /estimated|predicted|unannounced/i.test(event.global.note ?? '')) return [];
+    const range = parseGameWindow(event.global.dateRange, event.global);
+    return range && +range.end <= now ? [{ name: event.name, poster: event.poster, dateRange: event.global.dateRange ?? `${range.start.toISOString()} – ${range.end.toISOString()}`, start: +range.start, end: +range.end }] : [];
+  }).sort((a, b) => b.start - a.start || a.name.localeCompare(b.name));
+}
 
 /**
  * The Schedule page's Events list, split into what the content export may decide

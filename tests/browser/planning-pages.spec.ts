@@ -369,7 +369,7 @@ test.describe('home', () => {
 async function simulateBase(page: Page) {
   await page.goto('/base');
   await page.locator('.base-setup-preset-card').first().click();
-  await page.getByRole('button', { name: 'Begin Simulation' }).click();
+  await page.getByRole('button', { name: 'View base', exact: true }).click();
   await expect(page.locator('.base-overview-room-name').first()).toBeVisible();
 }
 
@@ -662,7 +662,7 @@ test('with an import, the base room picker offers the owned operators at their o
   });
   await page.reload();
   await page.locator('.base-setup-preset-card').first().click();
-  await page.getByRole('button', { name: 'Begin Simulation' }).click();
+  await page.getByRole('button', { name: 'View base', exact: true }).click();
   await page.locator('.base-overview-room').nth(2).click();
   await expect(page.getByRole('button', { name: 'Your elite', exact: true })).toHaveAttribute('aria-pressed', 'true');
   const names = await page.locator('.base-room-card .base-room-card-name').allTextContents();
