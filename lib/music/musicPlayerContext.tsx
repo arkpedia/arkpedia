@@ -487,7 +487,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     applySongFilter({ ...songFilter(), excludeCopyrighted: v });
   }
   // Whatever turns Endfield music on -- either checkbox, or a list's "Include Endfield music" --
-  // tells a touch screen in a pop-up that those songs stop in the background there. Opened here,
+  // tells a touch screen in a pop-up that background play may not work properly with them. Opened here,
   // not by the control: the hint that turned it on is gone the moment it is on.
   function setIncludeEndfield(on: boolean) {
     const turnedOn = on && !includeEndfieldRef.current;
