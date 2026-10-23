@@ -92,12 +92,12 @@ test('a saved playlist plays its Endfield songs only once the setting is on, and
   await expect(page.locator('.music-queue-row')).toHaveCount(2);
 });
 
-// Endfield's songs play only from YouTube, which a phone pauses when the screen locks or another
-// app opens; Monster Siren's files play on. Each Endfield music checkbox says so in an ⓘ note,
+// Endfield's songs play only from YouTube, whose player a phone may not keep going reliably in the
+// background; Monster Siren's files play on. Each Endfield music checkbox says so in an ⓘ note,
 // drawn the way Data saver's is (components/music/MusicSetting.tsx).
-const BACKGROUND_NOTE = 'Endfield songs play from YouTube, so on phones they stop when the screen locks or you switch apps.';
+const BACKGROUND_NOTE = 'Endfield songs play from YouTube, so background play on phones may not work properly with them.';
 
-test('the header\'s Endfield music ⓘ says songs stop in the background on phones, and opening it moves nothing', async ({ page }) => {
+test('the header\'s Endfield music ⓘ says background play on phones may not work properly, and opening it moves nothing', async ({ page }) => {
   await page.goto('/music/discover');
   const header = page.locator('.page-header');
   const info = header.getByRole('button', { name: 'About Endfield music', exact: true });
@@ -159,7 +159,7 @@ test('on a touch screen, turning Endfield music on says so in a pop-up, until Do
   expect(await page.evaluate(() => window.matchMedia('(pointer: coarse)').matches), 'the mobile project is a touch screen').toBe(true);
   await setting(page).check();
   await expect(popUp(page)).toBeVisible();
-  await expect(popUp(page)).toContainText('stop when the screen locks or you switch apps');
+  await expect(popUp(page)).toContainText('background play on phones may not work properly with them');
   await expect(popUp(page)).toContainText('Arknights songs keep playing in the background');
   await popUp(page).getByRole('button', { name: 'OK', exact: true }).click();
   await expect(popUp(page)).toHaveCount(0);

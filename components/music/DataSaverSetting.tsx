@@ -2,7 +2,7 @@ import { useMusicPlayer } from '@/lib/music/musicPlayerContext';
 import MusicSetting from './MusicSetting';
 
 /** What Data saver changes, in the words the ⓘ shows. */
-export const DATA_SAVER_ABOUT = 'Songs play from the official Arknights music player, which allows background play, but the files are large. Data saver plays songs from YouTube instead, but background play becomes unavailable.';
+export const DATA_SAVER_ABOUT = 'Songs play from the official Arknights music player, which allows background play, but the files are large. Data saver plays songs from YouTube instead, where background play may not work properly.';
 
 /** The player's Data saver setting (lib/music/musicPlayerContext.tsx, setDataSaver), in the ⋯ menu:
  *  a checkbox and an ⓘ with what it changes (components/music/MusicSetting.tsx). */

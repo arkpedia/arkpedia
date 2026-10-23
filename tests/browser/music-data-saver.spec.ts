@@ -296,7 +296,7 @@ test('the ⋯ menu holds Data saver, and its ⓘ explains it in a note that Esca
   await expect(note).toBeVisible();
   await expect(info).toHaveAttribute('aria-expanded', 'true');
   await expect(note).toContainText('official Arknights music player, which allows background play');
-  await expect(note).toContainText('background play becomes unavailable');
+  await expect(note).toContainText('Data saver plays songs from YouTube instead, where background play may not work properly');
   await expect(note).toContainText('Data saver plays songs from YouTube instead');
   await expect(note.getByRole('button', { name: 'Close about data saver', exact: true })).toBeFocused();
   // Its text sits inside the menu, all of it in view.

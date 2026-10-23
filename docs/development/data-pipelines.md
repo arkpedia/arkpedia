@@ -239,8 +239,9 @@ there). Each stages what `arkpedia-image-assets` does not publish yet under
 `.cache/<kind>/`, as the source serves it, and lists it in `.cache/<kind>/staged.json`
 with its destination and where it came from (`scripts/imports/staged_art.py`,
 `scripts/lib/staged-art.mjs`); `config/staged-art.json` names the kinds: stage renders,
-IS, CCB and RA renders, nation crests, drop and reward icons, album covers. Inside the
-daily release the `staged-art` stage (`publish-catalogue-assets.sh --staged`) publishes
+IS, CCB and RA renders, nation crests, drop and reward icons, Monster Siren's album covers,
+and Endfield's (the square art cut from each album's YouTube thumbnail frame,
+`scripts/imports/square_album_cover.py`). Inside the daily release the `staged-art` stage (`publish-catalogue-assets.sh --staged`) publishes
 what each kind's stage staged in that run, if the stage ran to the end, with the
 catalogue's deploy key and publisher: one size and encoding per destination folder
 (material and item icons keep the game's 183px circled art), a source-map row for a

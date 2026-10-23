@@ -2,9 +2,10 @@ import { useMusicPlayer } from '@/lib/music/musicPlayerContext';
 import MusicSetting from './MusicSetting';
 
 /** What a reader who turns Endfield music on should know, in the words the ⓘ shows. Endfield's
- *  songs have only YouTube uploads (scripts/sync/sync-endfield-albums.mjs), and a phone pauses
- *  YouTube's player when the page is hidden, where Monster Siren's files play on. */
-export const ENDFIELD_SETTING_ABOUT = 'Endfield songs play from YouTube, so on phones they stop when the screen locks or you switch apps.';
+ *  songs have only YouTube uploads (scripts/sync/sync-endfield-albums.mjs), and a phone may not
+ *  keep YouTube's player going reliably when the page is hidden, where Monster Siren's files play
+ *  on (lib/music/endfieldNotice.ts says why it is "may not"). */
+export const ENDFIELD_SETTING_ABOUT = 'Endfield songs play from YouTube, so background play on phones may not work properly with them.';
 
 /**
  * The player's Endfield music setting (lib/music/musicPlayerContext.tsx, setIncludeEndfield): a
