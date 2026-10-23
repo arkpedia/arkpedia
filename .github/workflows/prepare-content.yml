@@ -454,7 +454,7 @@ jobs:
       # (nothing there listens to these branches). Data main and live are never written here.
       # A release with the content dev-live serves already is not published again, as main's
       # step skips one: pushed anyway, dev-live would name a new commit of the same release id,
-      # which a warm server keeps reading from the old commit (lib/content/server.ts keeps a
+      # which a warm server keeps reading from the old commit (lib/content/release.ts keeps a
       # release whose id has not changed), by then on no branch.
       - name: Publish the dev channel's release
         id: publish_dev

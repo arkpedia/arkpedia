@@ -65,6 +65,34 @@ Pages are cached in R2, as Vercel's ISR cache holds them for the Vercel deploys
 Workers Free allows 10 ms of CPU per request, and a page render takes far more (Error 1102,
 2026-10-22). The Worker needs Workers Paid, where the default is 30 s.
 
+## The bundle a cold start loads
+
+OpenNext compiles every page, API route and the tables they import into one file,
+`.open-next/server-functions/default/handler.mjs`, and wrangler uploads it as one script. A new
+isolate loads all of it before it answers. On 2026-10-23 it was 36.6 MB (6.5 MB gzipped), and
+26.7 MB of that was data tables compiled into the server code:
+
+- **API routes.** Next builds them in a layer of their own, so a table they reach is in the bundle
+  twice. Three routes reached 9 MB of tables only through their local-development fallbacks.
+  Those fallbacks now sit behind `process.env.ARKPEDIA_WORKER`, which `next.config.js` inlines as
+  `'1'` in the Worker's build: `open-next.config.ts` runs the Next build with `ARKPEDIA_WORKER=1`,
+  and a build on Workers Builds (`WORKERS_CI_BRANCH`) counts too. Webpack drops code behind a
+  constant that is false, and the imports in it. The routes read the release through
+  `lib/content/release.ts`, not `lib/content/server.ts`, whose `withContentPage` loads tables.
+- **libcurl.js**, the account import's 2 MB WebAssembly transport. Only the browser runs it, and the
+  server build ignores it (`next.config.js`).
+- **data/operator-voice-lines.json** (4.2 MB) is read from `data/` when first asked for
+  (`lib/operators/operatorVoices.ts`). Only code that has already read an operator's record from
+  `data/` asks for it.
+
+`npm run cf:build` ends with `scripts/audits/check-worker-bundle.mjs`. It fails over a size
+budget, or when a browser-only package is in the bundle, and lists the largest parts.
+
+What is left is mostly the page builders' tables. A builder runs while Next prerenders, and on the
+Worker also when the release can't be read, so a table it compiles in stays. Some, like
+`data/chibi-art.json` in `/operators/[name]`'s `finalize`, fill in what a release older than the
+code lacks.
+
 ## Branches (while the Cloudflare path is set up)
 
 - `dev`: general features. They go to www through main as before, and to the Worker through

@@ -4,6 +4,10 @@ const assetUrl = (repository, path) => assetCdn.template.replace('{repository}',
 const contentPageRoutes = require('./scripts/content/pages.json');
 const { ClientDataGuard } = require('./scripts/build/client-bundle-guard.cjs');
 const { contentPointer } = require('./scripts/content/content-channel.cjs');
+// Whether this is the Cloudflare Worker's build: open-next.config.ts runs the Next build with
+// ARKPEDIA_WORKER=1, and Workers Builds sets WORKERS_CI_BRANCH. Inlined below, so the code the
+// Worker never runs is left out of its one bundle, which each cold start loads.
+const workerBuild = process.env.ARKPEDIA_WORKER === '1' || Boolean(process.env.WORKERS_CI_BRANCH);
 for (const [repository, revision] of Object.entries(assetRevisions)) {
   if (!/^[a-f0-9]{40}$/.test(revision)) throw new Error(`Invalid asset revision: ${repository}`);
 }
@@ -40,14 +44,19 @@ const nextConfig = {
   // Builds sets WORKERS_CI_BRANCH; its builds of other branches are off), and only once
   // config/web-analytics.json has the site's token. Vercel's is gone from this branch
   // (owner, 2026-10-23): it never loaded on the Worker, whose build is not VERCEL.
-  // ARKPEDIA_CONTENT_CHANNEL: the content pointer this build reads (lib/content/server.ts): the
+  // ARKPEDIA_CONTENT_CHANNEL: the content pointer this build reads (lib/content/release.ts): the
   // channel of the project Deploy builds for (scripts/content/content-channel.cjs). Inlined
   // because the prebuilt functions carry no Vercel project env.
-  env: { ARKPEDIA_WEB_ANALYTICS: process.env.WORKERS_CI_BRANCH === 'cloudflare' && require('./config/web-analytics.json').cloudflareToken ? '1' : '', ARKPEDIA_CONTENT_CHANNEL: contentPointer() },
+  // ARKPEDIA_WORKER: '1' in the Worker's build (workerBuild above), '' everywhere else.
+  env: { ARKPEDIA_WEB_ANALYTICS: process.env.WORKERS_CI_BRANCH === 'cloudflare' && require('./config/web-analytics.json').cloudflareToken ? '1' : '', ARKPEDIA_CONTENT_CHANNEL: contentPointer(), ARKPEDIA_WORKER: workerBuild ? '1' : '' },
   // The browser bundle may not carry a game record the content release publishes (such as
   // data/albums.json): the build fails, naming the import chain. See the guard's header.
-  webpack(config, { isServer }) {
+  webpack(config, { isServer, webpack }) {
     if (!isServer) config.plugins.push(new ClientDataGuard(__dirname));
+    // libcurl.js is the account import's transport, and only the browser runs it
+    // (lib/account-import/relay.ts loads it when an import starts). The server build kept its
+    // 2 MB of WebAssembly all the same, which the Worker loads on every cold start.
+    if (isServer) config.plugins.push(new webpack.IgnorePlugin({ resourceRegExp: /^libcurl\.js(\/|$)/ }));
     return config;
   },
   experimental: {

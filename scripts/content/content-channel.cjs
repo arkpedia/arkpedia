@@ -6,7 +6,7 @@
  * so arkpedia-dev builds against dev-live whichever revision of deploy.yml runs; in a Cloudflare
  * Workers build, the channel of the branch it builds (WORKERS_CI_BRANCH, which Workers Builds
  * sets): the Worker built from dev read live, www's release, until 2026-10-22; else live.
- * lib/content/server.ts's contentChannel() writes the same rule out for the site's bundle.
+ * lib/content/release.ts's contentChannel() writes the same rule out for the site's bundle.
  */
 const path = require('node:path');
 const root = path.resolve(__dirname, '../..');

@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import type { Operator } from '@/lib/operators/operatorTypes';
 import { contentRoute } from '@/lib/content/types';
-import { readPublishedContentPageProps } from '@/lib/content/server';
+import { readPublishedContentPageProps } from '@/lib/content/release';
 import { buildGachaOperatorPreview } from '@/lib/gacha/operatorPreviewData';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -20,14 +20,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const published = await readPublishedContentPageProps<{ operator?: Operator }>(route);
     operator = published?.operator;
   } catch (error) {
-    if (process.env.VERCEL === '1') {
+    if (process.env.VERCEL === '1' || process.env.ARKPEDIA_WORKER === '1') {
       console.error('[gacha operator preview] Published content unavailable:', error);
       return res.status(503).json({ error: 'Operator details temporarily unavailable' });
     }
   }
 
-  // Local development and tests still have the source catalogue on disk.
-  if (!operator && process.env.VERCEL !== '1') {
+  // Local development and tests still have the source catalogue on disk. Vercel and the Worker
+  // don't, and the Worker's build leaves this out (ARKPEDIA_WORKER, next.config.js): it is the
+  // whole operator catalogue, which the Worker would load on every cold start.
+  if (process.env.ARKPEDIA_WORKER !== '1' && !operator && process.env.VERCEL !== '1') {
     const { getOperatorByName } = await import('@/lib/operators/operators');
     operator = getOperatorByName(name);
   }

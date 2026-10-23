@@ -319,7 +319,7 @@ test("a channel with no pointer still falls back to live's when a retry of its 4
     if (asked.filter((each) => decodeURIComponent(each).includes('/dev-live/')).length === 1) return new Response('404: Not Found', { status: 404 });
     throw new TypeError('fetch failed');
   };
-  // lib/content/server.ts's read(): the status rides on the error.
+  // lib/content/release.ts's read(): the status rides on the error.
   const read = async (url: string) => {
     const response = await fetchAsset(url, {}, { fetcher });
     if (!response.ok) throw Object.assign(new Error(`Content HTTP ${response.status}: ${url}`), { status: response.status });
@@ -455,7 +455,7 @@ test('every fetch of a published file goes through fetchAsset', () => {
 });
 
 test('the content release is read through fetchAsset on the server too', () => {
-  const server = fs.readFileSync(path.join(ROOT, 'lib/content/server.ts'), 'utf8');
+  const server = fs.readFileSync(path.join(ROOT, 'lib/content/release.ts'), 'utf8');
   assert.match(server, /await fetchAsset\(url, \{ signal: AbortSignal\.timeout\(10_000\), cache: 'no-store' \}\)/);
 });
 

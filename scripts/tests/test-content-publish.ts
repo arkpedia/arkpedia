@@ -444,7 +444,7 @@ test('two runs with the same inputs give the same content id, whatever app commi
   assert.equal(contentInput({ sourceHashes: hashes(reversed), pages: pagesOf(Object.fromEntries(Object.entries(PAGES).reverse())), files: filesOf(FILES) }),
     run('c'.repeat(40)).content);
   // What the code produces is content: a merge that changes a page, or where the site finds
-  // it (lib/content/server.ts refuses a path its pageFilePath would not give), publishes.
+  // it (lib/content/release.ts refuses a path its pageFilePath would not give), publishes.
   const base = run('c'.repeat(40)).content;
   assert.notEqual(ids({ generator: 'd'.repeat(40), sources: records, pages: { ...PAGES, '/gacha-simulator': '{"props":{"banners":[2]}}' } }).content, base);
   assert.notEqual(ids({ sources: records, files: { 'stages-index.json': '[1]' } }).content, base);
@@ -650,7 +650,7 @@ test('every successful run leaves one heartbeat commit on a branch of its own', 
 
 /* The dev channel (scripts/content/channel.mjs): data main's records compiled with dev's code,
    published to data dev, rebuilt from data main every run (so force-pushed), and named by its
-   own pointer, dev-live, which arkpedia-dev reads (lib/content/server.ts). Data main and live
+   own pointer, dev-live, which arkpedia-dev reads (lib/content/release.ts). Data main and live
    are never written. Nothing ran this step before it shipped; these cases run it as the runner
    does, against a local data repository. */
 test("the dev channel publishes data main plus its release to data dev, and points dev-live at it", () => {
@@ -658,7 +658,7 @@ test("the dev channel publishes data main plus its release to data dev, and poin
     repo.pointTo('live', repo.head('main'));
     const main = repo.head('main'), live = repo.head('live');
     const SHA = /^[a-f0-9]{64}$/, GIT_SHA = /^[a-f0-9]{40}$/;
-    // What lib/content/server.ts checks before it reads a release through a pointer.
+    // What lib/content/release.ts checks before it reads a release through a pointer.
     const served = (manifest: { release: string }) => {
       const pointer = repo.file('dev-live', 'current.json');
       assert.ok(pointer.schema === CONTENT_SCHEMA && SHA.test(pointer.release) && GIT_SHA.test(pointer.revision) && SHA.test(pointer.manifestSha256), JSON.stringify(pointer));
@@ -701,7 +701,7 @@ test("the dev channel publishes data main plus its release to data dev, and poin
     // A run whose release has the content dev-live serves -- the same records, compiled by a dev
     // commit that changed no output -- moves neither, as main's step skips one. Pushed anyway, the
     // pointer would name a new commit of the same release id, and a warm server would go on
-    // reading the old one (lib/content/server.ts), by then on no branch.
+    // reading the old one (lib/content/release.ts), by then on no branch.
     const head = repo.head('dev'), pointer = repo.head('dev-live');
     repo.nextRun();
     repo.prepareRelease({ release: 'e'.repeat(64), content: second.content });

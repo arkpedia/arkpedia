@@ -28,7 +28,7 @@ const own = (record: object, key: string) => Object.prototype.hasOwnProperty.cal
 
 const MODEL_URL = /^https:\/\/raw\.githubusercontent\.com\/arkpedia\/arkpedia-l2d-assets\/([a-f0-9]{40})\/models\/[A-Za-z0-9_]+\/[a-f0-9]{12}\/model\.json$/;
 /** A model served from this machine, which only a local check may point at (ARKPEDIA_CONTENT_TEST=1,
- *  as lib/content/server.ts lets such a check read a local content origin). */
+ *  as lib/content/release.ts lets such a check read a local content origin). */
 const LOCAL_MODEL_URL = /^http:\/\/(?:127\.0\.0\.1|localhost):\d+\/(?:[\w.-]+\/)*model\.json$/;
 
 /**

@@ -48,7 +48,7 @@ const HEX64 = /^[a-f0-9]{64}$/;
 const GIT_SHA = /^[a-f0-9]{40}$/;
 const short = value => String(value).slice(0, 8);
 
-/** Where the release is published: lib/content/server.ts's origin(), with the same rule. */
+/** Where the release is published: lib/content/release.ts's origin(), with the same rule. */
 export function contentOrigin(env = process.env) {
   const value = env.ARKPEDIA_CONTENT_URL || DEFAULT_ORIGIN;
   const parsed = new URL(value);

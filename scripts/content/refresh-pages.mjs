@@ -9,7 +9,7 @@
  *   ARKPEDIA_RELEASE_REFRESH_SECRET=... node scripts/content/refresh-pages.mjs --revision <data commit the pointer names> --pointer <live | dev-live>
  *
  * Why it waits: a deployment finds the release through its channel's pointer,
- * <origin>/<pointer>/current.json on raw.githubusercontent (lib/content/server.ts), which that CDN
+ * <origin>/<pointer>/current.json on raw.githubusercontent (lib/content/release.ts), which that CDN
  * keeps for five minutes, and each server instance asks again at most once a minute (REFRESH_MS
  * there). Asked the moment the pointer moved, the pages regenerated with the previous release and
  * kept it for their whole interval, the 25 minutes this is meant to cut. So it waits until the
@@ -30,7 +30,7 @@ import { contentOrigin } from '../build/adopt-release-asset-pins.mjs';
 
 /** How long raw.githubusercontent keeps a pointer (Cache-Control: max-age=300). */
 export const POINTER_CACHE_MS = 300_000;
-/** How often a server instance reads the pointer again: lib/content/server.ts's REFRESH_MS. */
+/** How often a server instance reads the pointer again: lib/content/release.ts's REFRESH_MS. */
 export const SERVER_REFRESH_MS = 60_000;
 const GIT_SHA = /^[a-f0-9]{40}$/;
 const POINTER = /^[a-z0-9][a-z0-9-]*$/;

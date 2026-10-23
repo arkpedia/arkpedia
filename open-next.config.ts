@@ -16,8 +16,14 @@ import { regionalPageCache } from "./lib/cloudflare/regionalPageCache";
 //   cache hit costs a few milliseconds of CPU, not a render.
 // No tag cache: the pages router's res.revalidate (pages/api/release-refresh.ts) re-renders a
 // path through WORKER_SELF_REFERENCE and writes the result to the cache; tags are for the app router.
-export default defineCloudflareConfig({
-  incrementalCache: regionalPageCache(r2IncrementalCache),
-  queue: doQueue,
-  enableCacheInterception: true,
-});
+// buildCommand: the Next build OpenNext wraps, marked as the Worker's. next.config.js inlines
+// ARKPEDIA_WORKER, and code the Worker never runs (the source-data fallbacks of local
+// development) drops out of its bundle, which every cold start loads.
+export default {
+  ...defineCloudflareConfig({
+    incrementalCache: regionalPageCache(r2IncrementalCache),
+    queue: doQueue,
+    enableCacheInterception: true,
+  }),
+  buildCommand: "ARKPEDIA_WORKER=1 npm run build",
+};

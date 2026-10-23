@@ -53,7 +53,7 @@ const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 const sorted = entries => entries.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
 // Where each output is as well as what it holds: the site finds a page by the path the manifest
 // gives and refuses a manifest whose paths its own pageFilePath() would not give
-// (lib/content/server.ts), so a move with the same bytes is still something to publish.
+// (lib/content/release.ts), so a move with the same bytes is still something to publish.
 const outputsOf = (outputs, kind) => {
   if (!outputs || typeof outputs !== 'object') throw new TypeError(`The content id needs the release's ${kind}, as the manifest lists them`);
   return Object.fromEntries(sorted(Object.entries(outputs).map(([name, file]) => {

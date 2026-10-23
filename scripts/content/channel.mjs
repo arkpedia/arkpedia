@@ -2,7 +2,7 @@
 /**
  * The content channels: per branch of this repository that Prepare content release runs on, the
  * arkpedia-data branch its release is published to and the pointer branch whose current.json
- * names it. A site reads the pointer of its channel (lib/content/server.ts, through
+ * names it. A site reads the pointer of its channel (lib/content/release.ts, through
  * ARKPEDIA_CONTENT_CHANNEL, which Deploy sets from the deployment's branch).
  *
  *   node scripts/content/channel.mjs --branch <branch>   the channel's settings, as lines for $GITHUB_ENV

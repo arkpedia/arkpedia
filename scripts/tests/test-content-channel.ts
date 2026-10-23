@@ -12,7 +12,7 @@ import { CHANNELS, channelFor, contentPointer, pointerForBranch } from '../conte
 import { deployTargets, readDeployments } from '../deploy/deploy-targets.mjs';
 // @ts-expect-error Node scripts are plain JavaScript.
 import { deploymentUrls } from '../content/deploy-gate.mjs';
-import { contentChannel } from '../../lib/content/server';
+import { contentChannel } from '../../lib/content/release';
 import { refreshScripts } from './fixtures/refresh-stages';
 // @ts-expect-error Node scripts are plain JavaScript.
 import { REFRESH_PATHS, decide, needsRefresh, refreshes } from '../content/dev-refresh.mjs';

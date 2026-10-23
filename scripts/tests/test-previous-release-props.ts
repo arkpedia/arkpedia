@@ -126,7 +126,7 @@ async function pageModule(template: string): Promise<PageModule> {
 }
 
 /** A release per call, each with its own id: the loader keeps the release it read last
- *  (lib/content/server.ts) and answers from it again under the same id, at the old
+ *  (lib/content/release.ts) and answers from it again under the same id, at the old
  *  server's address. */
 let releases = 0;
 async function withRelease<T>(routes: string[], run: (release: string) => Promise<T>, env: Partial<Record<typeof ENV_KEYS[number], string>> = {}): Promise<T> {
