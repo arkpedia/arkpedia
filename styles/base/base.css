@@ -1447,7 +1447,11 @@
    selection, not just colour -- the text jumps a size and the box grows.
    Every toggle group below therefore states its own metrics so both states
    share them. Any new primary/ghost pair needs the same treatment. */
-.base-view-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.base-view-controls { display: flex; flex-wrap: nowrap; align-items: center; gap: 8px; max-width: 100%; overflow-x: auto; }
+.base-view-controls > * { flex: none; }
+.base-view-controls .base-source-bar { flex-wrap: nowrap; margin-bottom: 0; min-height: var(--control-h); }
+.base-view-controls .base-source-bar > * { flex-shrink: 0; }
+.base-view-controls :focus-visible { outline-offset: -2px; }
 .base-view-controls .ghost[aria-expanded="true"] { color: var(--teal); border-color: var(--teal); background: var(--teal-dim); }
 .base-view-mode { display: flex; gap: 6px; }
 /* Equal-width digits, so "Elite 1" lines up with "Elite 0" and "Elite 2". */

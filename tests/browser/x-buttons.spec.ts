@@ -58,7 +58,7 @@ const experimental = async (page: Page) => {
 };
 const beginBase = async (page: Page) => {
   await page.locator('.base-setup-preset-card').first().click();
-  await page.getByRole('button', { name: 'Begin Simulation' }).click();
+  await page.getByRole('button', { name: 'View base', exact: true }).click();
   await expect(page.locator('.base-overview-room').first()).toBeVisible();
 };
 const builtFacility = (page: Page) => page.locator('.base-overview-room').nth(2);

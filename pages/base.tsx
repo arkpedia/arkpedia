@@ -723,7 +723,7 @@ export default function BasePage({ operators }: Props) {
     return <div className="base-source-bar"><div role="group" aria-label="Base source">
       <button type="button" className="filter-chip" aria-pressed={baseSource === 'planner'} onClick={showPlanner}>Your plan</button>
       <button type="button" className="filter-chip" aria-pressed={baseSource === 'account'} onClick={showImportedBase}>Imported account</button>
-    </div>{baseSource === 'account' && account?.base && <><span className="hint">{account.doctor ?? 'Account'} · {account.server.toUpperCase()} · {new Date(account.importedAt).toLocaleString()}</span><button type="button" className="ghost" disabled={rotationPlan.shifts.length >= 24} onClick={addImportedShift}>Add to rotation</button><button type="button" className="primary" onClick={editImportedCopy}>Edit a copy</button></>}</div>;
+    </div>{baseSource === 'account' && account?.base && <><span className="hint">{account.doctor ?? 'Account'} · {account.server.toUpperCase()} · {new Date(account.importedAt).toLocaleString()}</span><button type="button" className="ghost" disabled={rotationPlan.shifts.length >= 24} onClick={addImportedShift}>Add to rotation</button><button type="button" className="primary btn-sm" onClick={editImportedCopy}>Edit a copy</button></>}</div>;
   }
   async function exportSnapshot() {
     try {
@@ -1206,7 +1206,7 @@ export default function BasePage({ operators }: Props) {
             title={editingExistingLayout ? 'Edit Base Layout' : 'Base Formation'}
             sub={editingExistingLayout
               ? 'Change what stands in each production spot and how far each facility is built. Operators stay where they are, except in a spot whose facility type changes.'
-              : 'Build your base before starting the simulation. Start from a familiar split, then change anything you like.'}
+              : 'Build your base from a familiar split, then adjust its rooms and facility levels.'}
           />
           <main>
             {renderBaseSources()}
@@ -1365,7 +1365,7 @@ export default function BasePage({ operators }: Props) {
                         disabled={problems.length > 0 || (chosenPreset === null && !showCustomControls)}
                         onClick={handleBeginSimulation}
                       >
-                        {editingExistingLayout ? 'Apply Layout' : 'Begin Simulation'}
+                        {editingExistingLayout ? 'Apply Layout' : 'View base'}
                       </button>
                       {editingExistingLayout && (
                         <button
@@ -1419,7 +1419,7 @@ export default function BasePage({ operators }: Props) {
         eyebrow="Rhodes Island // Base Layout"
         title="Base"
         sub="Staff your rooms, compare setups and plan the next shift."
-        actions={<div className="base-view-controls">
+        actions={<div className="base-view-controls sidescroll">
           <button type="button" className="ghost" disabled={baseSource === 'account' && !account?.base} onClick={exportSnapshot}>Save image</button>
           {/* Outside the development-only guard below: the layout editor is a
               player-facing feature, not a debugging aid. It stays alongside
@@ -1427,6 +1427,7 @@ export default function BasePage({ operators }: Props) {
           <button ref={editLayoutButtonRef} type="button" className="ghost" disabled={baseSource === 'account'} onClick={openLayoutEditor}>
             Edit layout
           </button>
+          {renderBaseSources()}
           {ROTATION_EXPERIMENT_ENABLED && (
             <button type="button" className="ghost" onClick={() => (showRotationPanel ? setShowRotationPanel(false) : openRotationPanel())}>
               Rotation Experiment (Elite 0)
@@ -1436,7 +1437,6 @@ export default function BasePage({ operators }: Props) {
       />
 
       <main>
-        {renderBaseSources()}
         {baseSource === 'account' && account?.base && <details className="base-import-notes"><summary>Snapshot and calculation limits{account.base.warnings.length ? ` (${account.base.warnings.length})` : ''}</summary><p>Rooms, staffing, levels and Morale are from the last import. Output uses known snapshot Morale, the current collection interval and manual skill conditions. Training mastery and factory recipe tiers are not imported; output is a planning estimate.</p><ul>{account.base.warnings.map(w => <li key={w}>{w}</li>)}</ul></details>}
         {(baseSource === 'planner' || account?.base) && <div className="base-production-strip" aria-label="Daily production estimates">{calculationSource === 'rotation' ? <span className="hint">Rotation estimate</span> : baseSource === 'account' && <span className="hint">Estimated output</span>}<span><strong>{summaryUnavailable ? '—' : Math.round(dailyGoldWorthGreen).toLocaleString()}</strong> LMD / day</span><span><strong>{summaryUnavailable ? '—' : Math.round(dailyExpGreen).toLocaleString()}</strong> EXP / day</span><span><strong>{summaryUnavailable ? '—' : dailyGoldMadeGreen.toFixed(1)}</strong> Gold / day</span><span className={basePower.ok ? undefined : 'prod-danger'}>Power <strong>{basePower.drawn} / {basePower.supplied}</strong>{!basePower.ok && ` · ${Math.abs(basePower.spare)} short`}</span></div>}
         {showRotationPlan && <ImportDialog title="Rotation" className="base-rotation-dialog" onClose={() => setShowRotationPlan(false)}><BaseRotationPanel plan={rotationPlan} onChange={updateRotationPlan} presets={savedPresets} onLoad={viewRotationShift} initialMorale={account?.base?.morale ?? {}} owned={ownedOperators ?? undefined} imported={!!account?.base} stages={rotationCalculation?.stages} /></ImportDialog>}

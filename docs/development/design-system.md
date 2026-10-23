@@ -85,11 +85,20 @@ Put the content/view choice above the tool it selects, separate from zoom, Fit, 
 and other tool controls. Keep search and filters visible in a list view. A view choice should
 have a clear label and readable hit targets without becoming the page's largest content block.
 
-On Story, List sits beside the compact Timo's reader and Manga links. The page opens on
-the section titled "Story map", with no Map button. List toggles the searchable catalogue
+On Story, the compact reading controls are ordered Full List, Manga, then Timo's reader.
+The page opens on the section titled "Story map", with no Map button. Full List toggles the searchable catalogue
 in place ("Story list"); pressing it again returns to the map. The map toolbar operates
 only the map. The list keeps all story categories, search, reading progress and chapter
 links. The `view` query parameter remains shareable.
+
+Schedule offers "See past events" beside its Events/Calendar navigation. The archive
+shows confirmed, finished events from newest to oldest, linking to each event page;
+predicted dates and headhunting-only entries are not historical stage events. Its
+`?past=1` address is shareable, and "See current events" restores the normal list.
+
+The Base planner keeps Save image, Edit layout and the Your plan/Imported account
+choice in one toolbar. On narrow screens this row scrolls within the page. The
+formation action is "View base"; editing an existing formation uses "Apply Layout".
 
 Workspace panels may have passive outlines and depth; a card inside a panel does not need
 another panel frame. Keep toolbars stable when filters, tabs or selections reduce content.

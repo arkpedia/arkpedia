@@ -63,14 +63,14 @@ export default function StoryPage({ map, chapters = {}, library = [] }: Props) {
           <h2 id="story-read">Read the story</h2>
           <div className="story-link-grid">
             <button type="button" className="filter-chip" aria-pressed={view === 'list'} aria-controls="story-content" onClick={() => setView(view === 'list' ? 'map' : 'list')}>
-              List <span className="filter-chip-count">{library.length + (map.manga?.length ?? 0)}</span>
+              Full List <span className="filter-chip-count">{library.length + (map.manga?.length ?? 0)}</span>
             </button>
+            <Link prefetch={false} className="ghost" href="/manga">
+              Manga
+            </Link>
             <a className="ghost" href={READER} target="_blank" rel="noopener noreferrer">
               Timo&apos;s Story Reader <span aria-hidden="true">↗</span>
             </a>
-            <Link prefetch={false} className="ghost" href="/manga">
-              Arknights Manga
-            </Link>
           </div>
         </section>
         <section className="op-section" id="story-content" aria-labelledby="story-map">

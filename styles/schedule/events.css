@@ -3,6 +3,7 @@
    and the pull-planner link inside the row. The row is not itself a link (the art and
    title are), so the plan link can sit in it; it carries the passive frame, and the
    link's hover lights it. Two columns once the frame is wide enough to read them. */
+.schedule-view-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
 .events-list {
   display: grid;
   grid-template-columns: minmax(0, 1fr);

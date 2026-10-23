@@ -29,7 +29,7 @@ import { resolveGachaSimulatorBanners } from '@/lib/gacha/gachaBannerWindows';
 import { getAllHeadhuntingBanners } from '@/lib/gacha/headhuntingBannerData';
 import { portraitStatus } from '@/lib/operators/operatorPortrait';
 import { getEventCalendar } from '@/lib/home/frontPageContent';
-import { currentEventRows, currentPullBannerLinks, pruneScheduleProps, timelineOperatorsAt, type EventRow, type EventRowView, type ExportedTimelineOperator, type PullBannerWindows } from '@/lib/schedule/eventRows';
+import { currentEventRows, currentPullBannerLinks, pastScheduleEvents, pruneScheduleProps, timelineOperatorsAt, type EventRow, type EventRowView, type ExportedTimelineOperator, type PullBannerWindows } from '@/lib/schedule/eventRows';
 import { toServerTime } from '@/lib/time/servers.mjs';
 import { getDisplayFeaturedSixStars } from '@/lib/gacha/realGachaBanners';
 import { isLineupPending, lineupPendingNote } from '@/lib/gacha/bannerLineup';
@@ -145,6 +145,9 @@ export default function SchedulePage({ events: globalEvents, operators: exported
    * mirrored into state, so there is no second render and no way for the two to drift.
    */
   const view: ViewKey = router.query.view === 'calendar' ? 'calendar' : 'events';
+  const showPast = view === 'events' && router.query.past === '1';
+  const pastEvents = useMemo(() => pastScheduleEvents(events, now), [events, now]);
+  const [pastVisible, setPastVisible] = useState(24);
   const viewHold = useSwitchHold('schedule');
   const showView = (next: ViewKey) => {
     viewHold.capture();
@@ -298,7 +301,7 @@ export default function SchedulePage({ events: globalEvents, operators: exported
       <PageHeader
         eyebrow="Rhodes Island // Operations Calendar"
         title="Schedule"
-        actions={<Tabs<ViewKey>
+        actions={<div className="schedule-view-actions"><Tabs<ViewKey>
           label="Schedule view"
           id="schedule-view"
           value={view}
@@ -307,7 +310,13 @@ export default function SchedulePage({ events: globalEvents, operators: exported
             { value: 'events', label: 'Events', count: eventRows.length, ariaLabel: `Events, ${eventRows.length} ongoing or upcoming` },
             { value: 'calendar', label: 'Calendar' },
           ]}
-        />}
+        />
+          <button type="button" className="filter-chip" aria-pressed={showPast} onClick={() => {
+            viewHold.capture();
+            setPastVisible(24);
+            void router.replace({ pathname: '/schedule', query: showPast ? {} : { past: '1' } }, undefined, { shallow: true, scroll: false });
+          }}>{showPast ? 'See current events' : 'See past events'}</button>
+        </div>}
       />
 
       <main>
@@ -322,7 +331,21 @@ export default function SchedulePage({ events: globalEvents, operators: exported
             from the tab row clamped the page 51px up at 1440. */}
         <div ref={viewHold.ref} style={viewHold.style}>
         <div {...tabPanelProps('schedule-view', 'events')} hidden={view !== 'events'}>
-          {eventRows.length === 0 ? (
+          {showPast ? <section className="op-section" aria-labelledby="past-events-title">
+            <h2 id="past-events-title">Past events</h2>
+            <p className="hint">{pastEvents.length} events · newest first</p>
+            {pastEvents.length ? <>
+              <div className="events-list">
+                {pastEvents.slice(0, pastVisible).map(event => <div className="events-row" key={event.name}>
+                  <Link prefetch={false} className="events-row-main" href={`/events/${encodeURIComponent(event.name)}`}>
+                    <div className="events-row-poster-wrap">{event.poster && <Image src={event.poster} alt="" fill sizes="200px" style={{ objectFit: 'cover' }} />}</div>
+                    <div className="events-row-info"><span className="events-row-name">{event.name}</span><time className="events-row-date" dateTime={new Date(event.start).toISOString()}>{event.dateRange}</time></div>
+                  </Link>
+                </div>)}
+              </div>
+              <LoadOnScroll shown={Math.min(pastVisible, pastEvents.length)} total={pastEvents.length} onMore={() => setPastVisible(count => count + 24)} />
+            </> : <p className="hint">No past events with confirmed dates are available for this server.</p>}
+          </section> : eventRows.length === 0 ? (
             <div className="waiting-box">
               <h2>No ongoing or upcoming events right now</h2>
             </div>

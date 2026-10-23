@@ -13,7 +13,7 @@ test('Story list reports progress and continuation survives reload', async ({ pa
   await expect(dialog.getByRole('status')).toContainText('50% read');
   await page.screenshot({ path: `${captures}/story-${info.project.name}.png` });
   await dialog.getByRole('button', { name: 'Close', exact: true }).click();
-  await page.getByRole('button', { name: /^List/ }).click();
+  await page.getByRole('button', { name: /^Full List/ }).click();
   const chapter = page.locator('.story-list-card[href="/story?chapter=main_0"]');
   await expect(chapter).toContainText('50% read');
   await expect(page.locator('.story-list-card[href="/story?chapter=main_1"]')).toContainText('Unread');
