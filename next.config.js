@@ -219,6 +219,11 @@ const nextConfig = {
           { key: 'X-Content-Type-Options', value: 'nosniff' },
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
           { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+          // Only www is the site search engines should list. arkpedia-dev and the site's
+          // Worker read another content channel and were indexable copies of it (2026-10-23).
+          // A header rather than a closed robots.txt: a crawler that may not fetch a page
+          // never sees its noindex, so a copy it already listed would stay listed.
+          ...(contentPointer() === 'live' ? [] : [{ key: 'X-Robots-Tag', value: 'noindex' }]),
         ],
       },
       {
