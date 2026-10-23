@@ -25,8 +25,8 @@ cards. Choose the pattern below first, then use its established primitives.
   destination normally. Do not reset a returning reader to the top of a catalogue.
 - Keep controls beside the heading or content they affect. Controls for a hidden view
   must disappear from both the screen and keyboard navigation.
-- Name each view explicitly. Schedule uses Upcoming events and Past events; its date
-  switch belongs with that heading, while Events/Calendar selects the presentation.
+- Name each view explicitly. Schedule uses a fixed Upcoming/Past selector above the
+  event count and list, while Events/Calendar selects the presentation.
 - Verify the complete browse → detail → Back journey on desktop and mobile, including
   a record beyond the initial list batch. Check browser Back as well as the page link.
 
@@ -103,13 +103,14 @@ in place ("Story list"); pressing it again returns to the map. The map toolbar o
 only the map. The list keeps all story categories, search, reading progress and chapter
 links. The `view` query parameter remains shareable.
 
-Schedule puts a compact "See past events" button below its Upcoming events heading
-and count (soonest first); Past events uses the same layout with a newest-first count.
+Schedule uses the shared Upcoming/Past segmented selector, with both labels always
+visible in fixed positions. Place the event count and ordering beneath it (soonest first
+for Upcoming, newest first for Past). Do not duplicate the selected option in another
+heading or changing navigation button. Calendar hides the period selector.
 The Events/Calendar tabs select presentation separately. The archive
 shows confirmed, finished events from newest to oldest, linking to each event page;
 predicted dates and headhunting-only entries are not historical stage events. Its
-`?past=1` address is shareable, and "See upcoming events" restores the normal list.
-Reserve space for both heading and switch labels so switching views keeps the control still.
+`?past=1` address is shareable, and Upcoming restores the normal list.
 
 The Base planner keeps Save image, Edit layout and the Your plan/Imported account
 choice in one toolbar. On narrow screens this row scrolls within the page. The

@@ -2,23 +2,27 @@ import { expect, test } from '@playwright/test';
 
 test('past events are newest first, shareable, and link to their event pages', async ({ page }) => {
   await page.goto('/schedule');
-  await expect(page.getByRole('heading', { name: 'Upcoming events', exact: true })).toBeVisible();
-  await expect(page.locator('.schedule-events-heading .hint')).toHaveText(/\d+ events · soonest first/);
+  await expect(page.getByRole('button', { name: 'Upcoming', exact: true, pressed: true })).toBeVisible();
+  await expect(page.locator('.schedule-events-controls .hint')).toHaveText(/\d+ events · soonest first/);
   await expect(page.getByRole('tab', { name: 'Events', exact: true })).toBeVisible();
   await page.getByRole('tab', { name: 'Calendar', exact: true }).click();
-  await expect(page.getByRole('button', { name: /See (past|upcoming) events/ })).toHaveCount(0);
+  await expect(page.getByRole('group', { name: 'Event period' })).toHaveCount(0);
   await page.getByRole('tab', { name: 'Events', exact: true }).click();
-  const upcomingSwitch = page.getByRole('button', { name: 'See past events', exact: true });
+  const upcomingSwitch = page.getByRole('button', { name: 'Past', exact: true });
   await page.evaluate(() => document.fonts.ready);
-  const switchPosition = await upcomingSwitch.boundingBox();
-  const headingPosition = await page.locator('#schedule-events-title').boundingBox();
-  expect(switchPosition!.y).toBeGreaterThan(headingPosition!.y + headingPosition!.height);
+  const period = page.getByRole('group', { name: 'Event period' });
+  const switchPositions = await period.getByRole('button').evaluateAll(buttons => buttons.map(button => {
+    const { x, y, width, height } = button.getBoundingClientRect();
+    return { x, y, width, height };
+  }));
   await upcomingSwitch.click();
   await expect(page).toHaveURL(/past=1/);
-  await expect(page.getByRole('heading', { name: 'Past events', exact: true })).toBeVisible();
-  await expect(page.locator('.schedule-events-heading .hint')).toHaveText(/\d+ events · newest first/);
-  const pastSwitch = page.getByRole('button', { name: 'See upcoming events', exact: true });
-  expect(await pastSwitch.boundingBox()).toEqual(switchPosition);
+  await expect(page.getByRole('button', { name: 'Past', exact: true, pressed: true })).toBeVisible();
+  await expect(page.locator('.schedule-events-controls .hint')).toHaveText(/\d+ events · newest first/);
+  expect(await period.getByRole('button').evaluateAll(buttons => buttons.map(button => {
+    const { x, y, width, height } = button.getBoundingClientRect();
+    return { x, y, width, height };
+  }))).toEqual(switchPositions);
   const rows = page.locator('#schedule-view-panel-events .events-row');
   await expect(rows.first()).toBeVisible();
   const dates = await rows.locator('time').evaluateAll(nodes => nodes.map(node => Date.parse(node.getAttribute('datetime')!)));
@@ -32,18 +36,18 @@ test('past events are newest first, shareable, and link to their event pages', a
   await expect(page).toHaveURL(new URL(href!, 'http://127.0.0.1:3192').href);
   await expect(page.locator('h1')).toHaveText(name);
   await page.goto('/schedule?past=1');
-  await expect(page.getByRole('heading', { name: 'Past events', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Past', exact: true, pressed: true })).toBeVisible();
   await expect(rows.first().locator('a.events-row-main')).toHaveAttribute('href', href!);
-  await page.getByRole('button', { name: 'See upcoming events', exact: true }).click();
+  await page.getByRole('button', { name: 'Upcoming', exact: true }).click();
   await expect(page).not.toHaveURL(/past=1/);
-  await expect(page.getByRole('heading', { name: 'Past events', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Past', exact: true, pressed: true })).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
 test('page Back and browser Back restore a deep archive position and loaded batches', async ({ page }) => {
   test.setTimeout(90000);
   await page.goto('/schedule?past=1');
-  await expect(page.getByRole('heading', { name: 'Past events', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Past', exact: true, pressed: true })).toBeVisible();
   const grani = page.locator('.events-row-main').filter({ hasText: "Grani and the Knights' Treasure" }).filter({ hasNotText: 'Rerun' }).first();
   for (let batch = 0; batch < 10 && await grani.count() === 0; batch++) {
     const count = await page.locator('#schedule-view-panel-events .events-row').count();

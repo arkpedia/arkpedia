@@ -32,7 +32,7 @@ or every-game-state certification.
 | List looked like another small map tool beside zoom/Fit | Moved List beside Timo's reader and Manga; removed the Map button and named the default section Story map. List toggles the searchable catalogue, with the state kept in the URL |
 | Follow-up Story navigation wording/order | Reading destinations now appear as Full List, Manga, then Timo's Story Reader |
 | Base actions and source choices occupied separate rows | Combined Save image, Edit layout, Your plan and Imported account into one toolbar; it scrolls within the page on a narrow screen. Renamed the formation action View base |
-| Schedule's normal list hid historical events | Added See past events and a shareable `?past=1` archive: confirmed finished events, newest first, linked to their event pages. See upcoming events returns to the regular list; the archive is also a driven layout-census state |
+| Schedule's normal list hid historical events | Added a fixed Upcoming/Past selector and a shareable `?past=1` archive: confirmed finished events, newest first, linked to their event pages. Counts and ordering sit beneath the selector, which disappears in Calendar; the archive is also a driven layout-census state |
 | Artist and voice-actor directories used full-width rows, unlike mechanics directories | Migrated to the same responsive directory grid/surface as techniques and synergies; retained alphabetic grouping, all visible operator credits, queries and filters |
 | Repeated card-grid/surface rules had separate feature owners | Added shared `.directory-grid`, `.directory-card` and a wide composition modifier; feature styles own inner layout only |
 | Credit names used the smaller sheet-title size | Aligned them with the 18px directory-card title hierarchy |
@@ -109,16 +109,14 @@ behavior solely to make the number smaller.
   application checks passed; typechecking, changed-file lint and style audits pass.
 - Navigation follow-up: page Back and browser Back restore scroll through progressively
   loaded Schedule history; the artist-to-operator journey also retains its position.
-  Schedule's date switch sits beside its explicit view heading and disappears in Calendar.
+  Schedule's period selector stays above the count and disappears in Calendar.
   The rebuilt application passed 19 desktop/mobile browser checks (one intentional skip),
   including both themes in the Schedule layout census. Four page-trail/archive application
   checks, changed-file lint, TypeScript and style audits pass.
-- The Schedule switch now says See upcoming events and reserves both label widths.
-  Four archive/navigation browser checks pass, including identical switch bounds before
-  and after changing views on desktop and mobile. Both themes were visually checked.
-- Both event lists now show their count and ordering under the heading, followed by a
-  smaller standalone switch. The four archive/navigation browser checks and 22 UI-token
-  checks pass; desktop/mobile captures in both themes, lint, style audits and build pass.
+- The final Schedule layout uses a fixed Upcoming/Past selector with the count and
+  ordering underneath. Thirteen browser checks pass (one intentional skip), including
+  identical bounds for both options when switching, archive Back navigation and dark/light
+  layouts on desktop/mobile. The production build, changed-file lint and style audits pass.
 
 Local packaging limitation: the Windows production build's separate deployment-trace audit
 reports local `data/` files in server traces despite the existing exclusions in

@@ -38,6 +38,7 @@ import { ReleaseDateLookup } from '@/lib/operators/operatorReleaseDates';
 import SkinZoomOverlay from '@/components/skins/SkinZoomOverlay';
 import PageHeader from '@/components/ui/PageHeader';
 import Tabs, { tabPanelProps } from '@/components/ui/Tabs';
+import SegmentedControl from '@/components/ui/SegmentedControl';
 import { useSwitchHold } from '@/components/ui/useSwitchHold';
 import StyledSelect from '@/components/ui/StyledSelect';
 import { renderMonthValue, steadyValue } from '@/components/schedule/CalendarMonthValue';
@@ -325,21 +326,19 @@ export default function SchedulePage({ events: globalEvents, operators: exported
             from the tab row clamped the page 51px up at 1440. */}
         <div ref={viewHold.ref} style={viewHold.style}>
         <div {...tabPanelProps('schedule-view', 'events')} hidden={view !== 'events'}>
-          <section className="op-section" aria-labelledby="schedule-events-title">
-            <div className="schedule-events-heading">
-              <h2 id="schedule-events-title">
-                <span aria-hidden={showPast}>Upcoming events</span>
-                <span aria-hidden={!showPast}>Past events</span>
-              </h2>
+          <section className="op-section" aria-label="Event listings">
+            <div className="schedule-events-controls">
+              <SegmentedControl<'upcoming' | 'past'>
+                label="Event period"
+                options={[{ value: 'upcoming', label: 'Upcoming' }, { value: 'past', label: 'Past' }]}
+                value={showPast ? 'past' : 'upcoming'}
+                onChange={period => {
+                  viewHold.capture();
+                  setPastVisible(24);
+                  void router.replace({ pathname: '/schedule', query: period === 'past' ? { past: '1' } : {} }, undefined, { shallow: true, scroll: false });
+                }}
+              />
               <p className="hint">{showPast ? `${pastEvents.length} events · newest first` : `${eventRows.length} events · soonest first`}</p>
-              <button type="button" className="ghost btn-compact" onClick={() => {
-                viewHold.capture();
-                setPastVisible(24);
-                void router.replace({ pathname: '/schedule', query: showPast ? {} : { past: '1' } }, undefined, { shallow: true, scroll: false });
-              }}>
-                <span aria-hidden={!showPast}>See upcoming events</span>
-                <span aria-hidden={showPast}>See past events</span>
-              </button>
             </div>
           {showPast ? <>
             {pastEvents.length ? <>
