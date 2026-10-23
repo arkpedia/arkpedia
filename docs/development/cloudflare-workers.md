@@ -49,6 +49,13 @@ Pages are cached in R2, as Vercel's ISR cache holds them for the Vercel deploys
   `NEXT_INC_CACHE_R2_BUCKET`. Each deploy fills it with the build's prerendered pages.
   Create the bucket once, before the first deploy:
   `npx wrangler r2 bucket create arkpedia-opennext-cache`, or R2 > Create bucket in the dashboard.
+- **Regional copies:** the bucket is in western North America (`WNAM`), so a page read from
+  Europe crossed the Atlantic on every hit (0.3-1.7 s to the first byte, against www's
+  0.06-0.25 s). Each Cloudflare data centre now keeps its own copy of a page for a day
+  (`lib/cloudflare/regionalPageCache.ts`, OpenNext's regional cache). Only the first reader there
+  waits for R2, and every hit refreshes the copy from R2 in the background. Cloudflare's cache
+  works only on a custom domain (`arkpedia-cf.mocchibird.com`); on workers.dev every hit still
+  reads R2.
 - **Revalidation queue:** the Durable Object `DOQueueHandler`, bound as `NEXT_CACHE_DO_QUEUE`. A
   page past its revalidate time is re-rendered once, in the background.
 - **Cache interception:** a cached page is answered before the Next server loads.
