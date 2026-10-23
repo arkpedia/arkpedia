@@ -1,10 +1,25 @@
+import { audioLinkExpiry } from './monsterSirenAudio';
+
 /** One upcoming complete audio file, held only for this tab. The playing element stays
- * the same (including on iOS); handing it a Blob URL avoids another network round trip. */
+ * the same (including on iOS); handing it a Blob URL avoids another network round trip.
+ *
+ * Before that, and without it (a file not finished, or too large), the upcoming song's signed
+ * address: a HEAD of its address (pages/api/music-audio) follows the redirect to Monster Siren's
+ * CDN, which answers with headers only, and the response's url is the signed address. Played from
+ * there, the song starts without asking the route, so without waiting on Monster Siren's API
+ * (0.8-3 s on the Cloudflare Worker, 2026-10-22); the HEAD also has the CDN fetch the file's start
+ * from its origin. No audio is downloaded for it, and the element is never touched: the press sets
+ * the address and plays, as before (iOS). */
 const MAX_BYTES = 80 * 1024 * 1024;
 const MAX_AGE_MS = 15 * 60 * 1000;
 const LOAD_MS = 90000;
+const LINK_MS = 20000;
+/** A signed address is handed to playback only while it has this long left: playback keeps an
+ *  address for up to an hour before asking again (playbackEngine.ts ADDRESS_MAX_AGE_MS). */
+const LINK_MIN_LIFE_MS = 70 * 60 * 1000;
 interface Target { cid: string; address: string }
 interface Prepared extends Target { url: string; at: number }
+interface Link extends Target { href: string; expires: number }
 interface PreloadOptions {
   fetch?: typeof fetch;
   createURL?: (blob: Blob) => string;
@@ -46,19 +61,48 @@ export function createAudioPreloader({ fetch: request = fetch, createURL = blob 
   let prepared: Prepared | null = null;
   let pending: { controller: AbortController; timer: ReturnType<typeof setTimeout> } | null = null;
   let failed = false;
+  let link: Link | null = null;
+  let linking: { controller: AbortController; timer: ReturnType<typeof setTimeout> } | null = null;
+  let linkFailed = false;
   const cids = new Map<string, string>();
   const matches = (a: Target | null, b: Target | null) => a?.cid === b?.cid && a?.address === b?.address;
   const revoke = (url: string) => { cids.delete(url); revokeURL(url); };
   const cancel = () => { if (pending) { clearTimeout(pending.timer); pending.controller.abort(); pending = null; } };
+  const cancelLink = () => { if (linking) { clearTimeout(linking.timer); linking.controller.abort(); linking = null; } };
+  const lasts = (held: Link | null): held is Link => Boolean(held && held.expires - now() >= LINK_MIN_LIFE_MS);
+  /** The upcoming song's signed address, asked for once per song (see the top of this file). */
+  function resolveLink(next: Target) {
+    if (link && !lasts(link)) link = null;
+    if (link || linking || linkFailed) return;
+    const controller = new AbortController();
+    const task = { controller, timer: setTimeout(() => controller.abort(), LINK_MS) };
+    linking = task;
+    void request(next.address, { method: 'HEAD', signal: controller.signal, credentials: 'omit', priority: 'low' }).then(response => {
+      if (linking !== task || !matches(target, next)) return;
+      const expires = response.ok ? audioLinkExpiry(response.url, now()) : null;
+      const held = expires === null ? null : { ...next, href: response.url, expires };
+      if (lasts(held)) link = held; else linkFailed = true;
+    }).catch(() => {
+      if (linking === task) linkFailed = true;
+    }).finally(() => {
+      clearTimeout(task.timer);
+      if (linking === task) linking = null;
+    });
+  }
   function select(next: Target | null, load: boolean) {
     if (!matches(target, next)) {
       cancel();
+      cancelLink();
       if (prepared) revoke(prepared.url);
       prepared = null;
       failed = false;
+      link = null;
+      linkFailed = false;
       target = next;
     }
     if (prepared && now() - prepared.at > MAX_AGE_MS) { revoke(prepared.url); prepared = null; }
+    // The address is asked for even while this song is paused or still loading: it is headers only.
+    if (next) resolveLink(next);
     if (!next || !load) { cancel(); return; }
     if (prepared || pending || failed) return;
     const controller = new AbortController();
@@ -82,13 +126,20 @@ export function createAudioPreloader({ fetch: request = fetch, createURL = blob 
     take(cid: string, address: string): { url: string; release: () => void } | null {
       if (!matches(target, { cid, address })) return null;
       cancel();
+      cancelLink();
       const ready = prepared;
+      const held = link;
       prepared = null;
+      link = null;
       target = null;
       failed = false;
-      if (!ready) return null;
-      if (now() - ready.at > MAX_AGE_MS) { revoke(ready.url); return null; }
-      return { url: ready.url, release: () => revoke(ready.url) };
+      linkFailed = false;
+      if (ready && now() - ready.at <= MAX_AGE_MS) return { url: ready.url, release: () => revoke(ready.url) };
+      if (ready) revoke(ready.url);
+      // No complete file: the signed address, if it still lasts, so the route is not asked again.
+      if (!lasts(held)) return null;
+      cids.set(held.href, cid);
+      return { url: held.href, release: () => { cids.delete(held.href); } };
     },
     cid: (url: string) => cids.get(url.split('#')[0]) ?? null,
   };

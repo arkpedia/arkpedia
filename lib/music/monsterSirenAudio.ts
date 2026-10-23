@@ -17,3 +17,21 @@ export async function monsterSirenAudioUrl(id: string): Promise<URL> {
   if (data.code !== 0 || String(data.data?.cid) !== id || url.protocol !== 'https:' || !url.hostname.endsWith('.hycdn.cn')) throw new Error('Invalid audio source');
   return url;
 }
+
+/** A signed address names when it stops working: `https://res01.hycdn.cn/<token>/<expiry>/siren/
+ *  audio/...`, the expiry a Unix time in eight hex digits, three hours after the address was given
+ *  (2026-10-22: 6ADA815C, 21:34:20 UTC, for an address given at 18:34:20). */
+const SIGNED_PATH = /^\/[0-9a-f]{32}\/([0-9a-f]{8})\//i;
+const LONGEST_LIFE_MS = 24 * 60 * 60 * 1000;
+
+/** When a signed address (monsterSirenAudioUrl) expires, in milliseconds, or null for anything
+ *  else: not https on Monster Siren's CDN, no expiry in its path, or an expiry already past or more
+ *  than a day away (so a changed format is never trusted, and kept, for longer than it should). */
+export function audioLinkExpiry(href: string, now: number): number | null {
+  let url: URL;
+  try { url = new URL(href); } catch { return null; }
+  const match = SIGNED_PATH.exec(url.pathname);
+  if (url.protocol !== 'https:' || !url.hostname.endsWith('.hycdn.cn') || !match) return null;
+  const expires = parseInt(match[1], 16) * 1000;
+  return expires > now && expires - now <= LONGEST_LIFE_MS ? expires : null;
+}
