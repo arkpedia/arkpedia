@@ -1,9 +1,0 @@
-{
-  "name": "arkpedia-relay-container",
-  "private": true,
-  "type": "module",
-  "description": "The account-import relay inside its Cloudflare container (../README.md).",
-  "dependencies": {
-    "@mercuryworkshop/wisp-js": "0.5.0"
-  }
-}
