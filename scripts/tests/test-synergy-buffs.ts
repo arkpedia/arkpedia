@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { SYNERGY_BUFFS, synergyBuffs } from '../../lib/techniques/synergyBuffs';
+import { SYNERGY_BUFFS, synergyBuffs, synergyForSelf } from '../../lib/techniques/synergyBuffs';
 
 /*
  * /synergies' Buff filter reads what a talent, skill or module grants the faction or class
@@ -50,4 +50,19 @@ test('every text gets at least one kind, in the filter\'s order', () => {
     const tags = synergyBuffs(text, keyword);
     assert.deepEqual(tags, [...tags].sort((a, b) => SYNERGY_BUFFS.indexOf(a) - SYNERGY_BUFFS.indexOf(b)), text);
   }
+});
+
+test('a text that only makes the operator stronger with the group grants the group nothing', () => {
+  // Stronger with them (the sweep, 2026-10-23).
+  assert.ok(synergyForSelf('When deployed, allies that have a Defensive Recovery skill also gain 1 SP when attacking. When other [Kazimierz] Operators are deployed, Blemishine gains 3 SP', 'Kazimierz', 'Blemishine'));
+  assert.ok(synergyForSelf('When deploying, deals 80% of ATK as True Damage to enemies in the four adjacent tiles and Stuns them for 3 seconds. If the previously deployed Operator is from Kazimierz, deals an additional hit', 'Kazimierz', 'Nearl the Radiant Knight'));
+  assert.ok(synergyForSelf('Has a 30% chance of increasing ATK to 150% when attacking. When deployed, this multiplier increases by +5% for every enemy defeated within the 4 adjacent tiles of a [Glasgow Gang] Operator (max 240%)', 'Glasgow', 'Dagda'));
+  assert.ok(synergyForSelf('For every Laterano Operator deployed, increases the ammo capacity of this unit\'s ammo-based skills by +1 (stacks up to 4 times)', 'Laterano', 'Executor the Ex Foedere'));
+  assert.ok(synergyForSelf('ATK +9% (+3%) when there is an allied unit within the range of self or the Seaborn; If the allied unit is an Abyssal Hunter Operator, gain ATK +18% (+3%) instead', 'Abyssal Hunters', 'Skadi the Corrupting Heart'));
+  // Grants the group something.
+  assert.ok(!synergyForSelf('When this unit is in the squad, all [Abyssal Hunter] Operators gain +16% (+2%) ATK', 'Abyssal Hunters', 'Skadi'));
+  assert.ok(!synergyForSelf('ASPD +12 (+2) ; the same buff is given to a random [Kazimierz] Operator when deployed', 'Kazimierz', 'Proviso'));
+  assert.ok(!synergyForSelf('When in the squad, all [Rhine Lab] Operators have DP cost -2; when Flowing Shape duplicates a [Rhine Lab] Operator, Muelsyse gains 10 SP and the duplicated [Rhine Lab] Operator gains 10 SP when deployed', 'Rhine Lab', 'Muelsyse'));
+  assert.ok(!synergyForSelf('When an enemy within range is attacked by a Kazimierz Operator, deal an extra 12% of Młynar\'s ATK as True damage.', 'Kazimierz', 'Młynar'));
+  assert.ok(!synergyForSelf('When deployed, increases the SP recovery rate of all Casters by +0.4/second', 'Caster', 'Mostima'));
 });

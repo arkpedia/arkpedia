@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { findKeywordSpan } from '@/lib/techniques/synergyDetection';
+import { matchSpan } from '@/lib/techniques/clauses';
 
 /* The words a technique or synergy was found by, picked out in the operator's own text.
    Moved here unchanged from pages/techniques.tsx and pages/synergies.tsx, whose table
@@ -29,21 +30,11 @@ export function markSynergyKeyword(text: string | null, keyword: string | null):
 function markKeyword(text: string | null, keyword: string | null, keywordEnd: string | null): ReactNode {
   if (!text) return null;
   if (!keyword) return text;
-  const lowerText = text.toLowerCase();
-  const idx = lowerText.indexOf(keyword.toLowerCase());
-  if (idx === -1) return text;
-  let start = idx;
-  let end = idx + keyword.length;
-  if (keywordEnd) {
-    const idxEnd = lowerText.indexOf(keywordEnd.toLowerCase());
-    if (idxEnd !== -1) {
-      // Take whichever match comes first as the span start, in case the
-      // "hp" word actually appears before the verb in the sentence
-      // (e.g. "Max HP recovers over time").
-      start = Math.min(idx, idxEnd);
-      end = Math.max(idx + keyword.length, idxEnd + keywordEnd.length);
-    }
-  }
+  // The pair the rule matched, in one clause (lib/techniques/clauses.ts matchSpan): the
+  // first "recover" in a text can be "recovery effects" two clauses before the real one.
+  const span = matchSpan(text, keyword, keywordEnd);
+  if (!span) return text;
+  let [start, end] = span;
   // Expand outward to the full word boundaries around the span, so a
   // keyword that's a substring of a longer word (e.g. "restore" inside
   // "restores") highlights the whole word, not just the matched part.

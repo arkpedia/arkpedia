@@ -3,6 +3,7 @@ import test from 'node:test';
 import fs from 'node:fs';
 import { UMBRELLA_MEMBERS } from '../../lib/techniques/autoTechniques';
 import { UMBRELLA_KIND, techniqueKind } from '../../lib/techniques/techniqueKinds';
+import { DIRECTED_TECHNIQUE_NAMES } from '../../lib/techniques/techniqueDirection';
 
 /*
  * /techniques' Kind filter (lib/techniques/techniqueKinds.ts) has one answer per technique.
@@ -26,7 +27,8 @@ test('every umbrella has a kind', () => {
 test('every technique a rule makes, and every umbrella member, has a kind other than Other', () => {
   const memberOf = new Map<string, string[]>();
   for (const [umbrella, members] of Object.entries(UMBRELLA_MEMBERS)) for (const m of members) memberOf.set(m, [...(memberOf.get(m) ?? []), umbrella]);
-  for (const name of new Set([...RULE_NAMES, ...memberOf.keys()])) {
+  // And every technique the direction step can move a match to (techniqueDirection.ts).
+  for (const name of new Set([...RULE_NAMES, ...memberOf.keys(), ...DIRECTED_TECHNIQUE_NAMES])) {
     assert.notEqual(techniqueKind(name, memberOf.get(name) ?? []), 'Other', name);
   }
 });
