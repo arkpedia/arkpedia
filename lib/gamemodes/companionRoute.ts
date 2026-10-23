@@ -7,7 +7,7 @@
  * StrongholdCompanion.tsx for a constant would drag the whole companion -- data,
  * playbook and all -- into the document bundle on every page of the site.
  */
-export const COMPANION_PAGE = '/gamemodes/stronghold-protocol/stronghold-companion';
+export const COMPANION_PAGE = '/game-modes/stronghold-protocol/stronghold-companion';
 
 /**
  * The flag on that address that says: draw the companion, and none of the website

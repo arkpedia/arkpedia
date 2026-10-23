@@ -71,11 +71,11 @@ export default function AccountPage({ skins, operators }: Props) {
   return (
     <>
       <Head>
-        <title>Account — Arkpedia</title>
+        <title>My Account — Arkpedia</title>
         <meta name="robots" content="noindex" />
       </Head>
 
-      <PageHeader eyebrow={`${storyAI(account)} // Account`} title="Account"
+      <PageHeader eyebrow={`${storyAI(account)} // Account`} title="My Account"
         sub="Your Arknights account (Global, Japan or Korea): what you own, for the planners and the lists."
         actions={<button type="button" className="primary btn-sm" aria-haspopup="dialog" onClick={() => setImporting(true)}>Import / export</button>} />
 

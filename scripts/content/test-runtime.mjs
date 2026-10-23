@@ -21,7 +21,7 @@ const ended = banner => {
   const match = String(banner.global_date ?? '').match(/\d{4}\/\d{1,2}\/\d{1,2}\D+(\d{4})\/(\d{1,2})\/(\d{1,2})/);
   return Boolean(match) && Date.UTC(+match[1], match[2] - 1, +match[3]) < Date.now() - 86_400_000;
 };
-const [shownBanner, pendingBanner] = JSON.parse(fs.readFileSync(path.join(root, initial.pages['/gacha'].path))).props.banners
+const [shownBanner, pendingBanner] = JSON.parse(fs.readFileSync(path.join(root, initial.pages['/gacha-simulator'].path))).props.banners
   .filter((banner, index) => index > 0 && banner.pull_type === 'standard' && banner.six_stars?.length && ended(banner)).map(banner => banner.name);
 assert.ok(shownBanner && pendingBanner, 'two past Standard banners to switch between');
 function make(label) {
@@ -44,11 +44,11 @@ function make(label) {
     const added = structuredClone(operator); added.operator.name = 'New Runtime Operator';
     setPage('/operators/New%20Runtime%20Operator', added);
   }
-  const gacha = readPage('/gacha').props;
+  const gacha = readPage('/gacha-simulator').props;
   gacha.banners[0].name = `Runtime Banner ${label.toUpperCase()}`;
   Object.assign(gacha.banners.find(banner => banner.name === pendingBanner), { lineupSource: 'pending', six_stars: [], five_stars: [], four_stars: [], rate_up_six_stars: [] });
   gacha.pools.six[0].name = `Runtime Pool Operator ${label.toUpperCase()}`;
-  setPage('/gacha', gacha);
+  setPage('/gacha-simulator', gacha);
   if (label === 'b') {
     const detail = JSON.parse(fs.readFileSync(path.join(root, 'public/stage-detail/1-7.json')));
     detail.stage.slug = 'runtime-stage'; detail.stage.name = 'Runtime Stage B'; detail.stage.code = 'RT-1';
@@ -102,7 +102,7 @@ async function refreshPublishedPages() {
   });
   const result = await response.json();
   assert.equal(response.status, 200, JSON.stringify(result));
-  for (const route of ['/gacha', '/stages/browse', '/schedule']) assert.equal(result.refreshed[route], 'regenerated', route);
+  for (const route of ['/gacha-simulator', '/stages/browse', '/schedule']) assert.equal(result.refreshed[route], 'regenerated', route);
   assert.ok(Object.values(result.refreshed).every(value => value === 'regenerated'), JSON.stringify(result));
 }
 

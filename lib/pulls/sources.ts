@@ -11,7 +11,7 @@ import { ORUNDUM_PER_ORIGINITE, type BacklogSources, type Chapter, type PastEven
  * with every content release, so the copy compiled into the app is only as fresh
  * as the last deploy. The planner once read it in the browser, and a Global event
  * the release already listed as playable went missing from both totals until the
- * next redeploy. So the browser never imports this module: `/pulls` passes
+ * next redeploy. So the browser never imports this module: `/pull-planner` passes
  * `bundledBacklogSources()` through getStaticProps, which the content export runs
  * against the release's own data, and the page reads it from its props.
  * scripts/tests/test-pull-release-data.ts fails if a page's client code reaches it.

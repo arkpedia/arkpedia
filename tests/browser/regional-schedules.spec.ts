@@ -9,7 +9,7 @@ async function account(page: import('@playwright/test').Page, server: string) {
 test('regional banner closes before Global and same-page account changes update live status', async ({ page }) => {
   const closing = new Date(regional.servers.jp.banners[NAME].endAt);
   await page.clock.setFixedTime(new Date(closing.getTime() - 60_000));
-  await page.goto('/gacha');await account(page, 'jp');
+  await page.goto('/gacha-simulator');await account(page, 'jp');
   // Use the real record's stable name, independently of translated visible lineup text.
   const sidebar = page.locator('.gacha-banner-sidebar');
   await expect(sidebar).toContainText('LIVE NOW');
@@ -42,7 +42,7 @@ test('JP and KR list the same events and banners as Global, in the same order', 
     await expect.poll(() => names('.events-row-name')).toEqual(global);
     await expect(page.locator('.events-row').filter({ has: page.locator('.events-row-name', { hasText: predictedName }) }).first()).toContainText('Predicted');
   }
-  await page.goto('/gacha');await account(page, 'en');
+  await page.goto('/gacha-simulator');await account(page, 'en');
   const sidebar = '.gacha-banner-sidebar-item';
   await expect(page.locator(sidebar).first()).toBeVisible();
   const banners = await names(sidebar, 'title');
@@ -88,7 +88,7 @@ test('a saved Global deadline cannot keep a JP/KR goal reserved after its region
   const plan = { version: 1, orundum: '12345', originite: '60', permits: '10', reservedOP: '42', until: '2026-10-28', manualEventDate: '', bannerName: '', monthlyCard: true, includeBacklog: false, annihilationDone: false, doneEvents: [], doneKeys: [], clearedReruns: [], future: {}, goals: [{ banner: NAME, spendOn: '2026-10-28', bannerEndAt: '2026-10-28T11:00:00.000Z', pulls: 80, ticketUsed: true, targets: [{ name: 'Amiya', copies: 2 }] }] };
   await page.addInitScript(plan => localStorage.setItem('arkpedia.pull-plan.v1', JSON.stringify(plan)), plan);
   await page.clock.setFixedTime(new Date(close.getTime() - 60_000));
-  await page.goto('/pulls');await account(page,'jp');
+  await page.goto('/pull-planner');await account(page,'jp');
   await expect(page.getByRole('heading',{name:/Your banners 1/})).toBeVisible();
   await expect(page.locator('.site-nav-clock:visible').first()).toContainText('03:59');
   const before = await page.evaluate(()=>JSON.parse(localStorage.getItem('arkpedia.pull-plan.v1')!));
@@ -106,7 +106,7 @@ test('regional reward labels use the server calendar and manual claims survive c
   // The server retires expired monthly rewards. Inject this isolated catalogue
   // through real client navigation, so the regression survives October ending
   // without changing SSR markup or depending on the current upstream month.
-  const response = await page.request.get('/free-op');
+  const response = await page.request.get('/reward-tracker');
   expect(response.ok()).toBeTruthy();
   const html = await response.text();
   const data = JSON.parse(html.match(/<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/)![1]).props;
@@ -119,7 +119,7 @@ test('regional reward labels use the server calendar and manual claims survive c
   for (const server of ['jp', 'kr']) props.__contentTables['regional-schedules'].servers[server].rewardWindows[id] = {
     startAt: '2030-09-30T19:00:00Z', endAt: close.toISOString(), timingSource: 'https://example.test/regional-monthly-fixture',
   };
-  await page.route('**/_next/data/**/free-op.json*', route => route.fulfill({ json: data }));
+  await page.route('**/_next/data/**/reward-tracker.json*', route => route.fulfill({ json: data }));
   const progress = { doneKeys: [id, 'manual:regional-qa'], doneEvents: ['manual:event'], annihilationDone: true, ticksFrom: '2026-10-16T00:00:00Z', importedDoneKeys: [] };
   await page.addInitScript(progress => localStorage.setItem('arkpedia.past-rewards.v1', JSON.stringify(progress)), progress);
   await page.clock.setFixedTime(new Date(close.getTime() - 60_000));
@@ -128,7 +128,7 @@ test('regional reward labels use the server calendar and manual claims survive c
   if (await mobileMenu.isVisible()) await mobileMenu.click();
   const planner = page.getByRole('button', { name: 'Planner', exact: true });
   if (await planner.getAttribute('aria-expanded') !== 'true') await planner.click();
-  await page.locator('a[href="/free-op"]:visible').click();
+  await page.locator('a[href="/reward-tracker"]:visible').click();
   await expect(page.locator('.site-nav-clock:visible').first()).toContainText('03:59');
   await page.getByRole('tab', { name: 'Free rewards', exact: true }).click();
   await page.getByRole('group', { name: 'Free rewards status' }).getByRole('button', { name: 'Claimed', exact: true }).click();

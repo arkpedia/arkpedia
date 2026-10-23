@@ -85,9 +85,9 @@
   font-weight: 700;
   color: var(--text-bright);
 }
-/* --- /results (the community power survey's results page) ---
+/* --- /polls/power-scale (the community power survey's results page) ---
    Moved here from shared.css and operator-detail.css, which held them although
-   /results is their only user. */
+   /polls/power-scale is their only user. */
 .results-toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -188,7 +188,7 @@ th[aria-sort="descending"] .stats-table-sort { border-color: var(--teal); color:
 .stats-table-boxplot-btn:hover .power-boxplot-svg { opacity: 0.8; }
 /* The distribution curve. Sized by its own width/height attributes, but an inline
    svg sits on the text baseline and leaves the descender gap under itself -- 4px of
-   it, under every chart on /results. */
+   it, under every chart on /polls/power-scale. */
 .power-distribution-svg { display: block; }
 .stats-table img {
   width: 28px;

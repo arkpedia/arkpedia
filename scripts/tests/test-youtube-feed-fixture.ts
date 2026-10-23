@@ -12,7 +12,7 @@ import { filterArknightsVideos } from '../../lib/music/contentFilter';
  * The Check's browser run reads the community pages' videos from a checked-in feed, not the
  * channels' live ones: every channel feed returned 404 for hours on 2026-09-27, the pages
  * built with "No videos found", and the picture-card census (at least one video card on
- * /community and /community/videos) failed 8 tests on main. This holds the three parts
+ * /community-hub and /community-hub/videos) failed 8 tests on main. This holds the three parts
  * that make that so, and the one that keeps production as it was:
  * - with ARKPEDIA_YOUTUBE_FEED_FIXTURE set, the reader never reaches the network and the
  *   pages get more than a page of cards;
@@ -59,7 +59,7 @@ test('with the fixture named, the videos come from it and nothing is fetched', a
   ));
   assert.deepEqual(urls, []);
   const shown = filterArknightsVideos(videos);
-  // More than /community/videos' first 24-card batch, so it grows as it is read too.
+  // More than /community-hub/videos' first 24-card batch, so it grows as it is read too.
   assert.ok(shown.length > 24, `the fixture gives ${shown.length} cards after the feed filter`);
   assert.ok(shown.length < videos.length, 'the fixture holds a title the feed filter drops');
   const labels = new Set(YOUTUBE_CHANNELS.map((c) => c.label));

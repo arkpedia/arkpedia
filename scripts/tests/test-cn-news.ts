@@ -464,7 +464,7 @@ test('an announced banner has only the fields HeadhuntingBanner declares: the ho
   // A field the published props lack fails the content release (test-previous-release-props.ts),
   // as the announced events' did on 2026-10-04. The names are keyof HeadhuntingBanner, so tsc
   // holds each to a declared field: a new one is declared there, and listed in DATA_ONLY for /'s
-  // ongoingBanners, which getHomeGachaBanners spreads from whole records. /gacha lists the fields
+  // ongoingBanners, which getHomeGachaBanners spreads from whole records. /gacha-simulator lists the fields
   // it hands over one by one, so a new field reaches its props only once gacha.tsx names it.
   const known = new Set<keyof HeadhuntingBanner>(['name', 'aliases', 'category', 'year', 'global_date', 'banner_image', 'cn_date', 'cn_window', 'cnPoolId',
     'pull_type', 'six_stars', 'five_stars', 'four_stars', 'rate_up_six_stars', 'lineupSource', 'nameStatus', 'announcedName', 'announcedLineup', 'linked_event']);

@@ -27,7 +27,7 @@ test('Story list reports progress and continuation survives reload', async ({ pa
 });
 
 test('Planner includes each operator before its portrait and mutes excluded rows without moving them', async ({ page }, info) => {
-  await page.goto('/planner'); await plannerExperimental(page, PLANNER_PLAN);
+  await page.goto('/operator-planner'); await plannerExperimental(page, PLANNER_PLAN);
   const row = page.locator('.plan-row').first();
   const check = row.getByRole('checkbox');
   const before = await row.boundingBox();
@@ -42,7 +42,7 @@ test('Planner includes each operator before its portrait and mutes excluded rows
 });
 
 test('Reward Tracker lists Paradox, pinboard, beginner selector and sign-in claims with persistent ticks', async ({ page }, info) => {
-  await page.goto('/free-op');
+  await page.goto('/reward-tracker');
   await page.getByRole('tab', { name: 'Paradox Simulations', exact: true }).click();
   await expect(page.getByRole('heading', { name: /Paradox Simulations/ })).toBeVisible();
   const summary = page.locator('.free-op-summary');

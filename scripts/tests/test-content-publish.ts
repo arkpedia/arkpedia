@@ -388,7 +388,7 @@ const outputs = (texts: Record<string, string>, pathOf: (name: string) => string
   .map(([name, text]) => [name, { path: pathOf(name), bytes: Buffer.byteLength(text), sha256: createHash('sha256').update(text).digest('hex') }]));
 const pagesOf = (texts: Record<string, string>) => outputs(texts, route => (route === '/' ? 'pages/index.json' : `pages${route}.json`));
 const filesOf = (texts: Record<string, string>) => outputs(texts, name => `public/${name}`);
-const PAGES = { '/': '{"props":{"banners":[]}}', '/gacha': '{"props":{"banners":[1]}}' };
+const PAGES = { '/': '{"props":{"banners":[]}}', '/gacha-simulator': '{"props":{"banners":[1]}}' };
 const FILES = { 'stages-index.json': '[]' };
 type Release = { generator?: string; sources: Record<string, string>; pages?: Record<string, string>; files?: Record<string, string> };
 const ids = ({ generator = 'c'.repeat(40), sources, pages = PAGES, files = FILES }: Release) => ({
@@ -446,9 +446,9 @@ test('two runs with the same inputs give the same content id, whatever app commi
   // What the code produces is content: a merge that changes a page, or where the site finds
   // it (lib/content/server.ts refuses a path its pageFilePath would not give), publishes.
   const base = run('c'.repeat(40)).content;
-  assert.notEqual(ids({ generator: 'd'.repeat(40), sources: records, pages: { ...PAGES, '/gacha': '{"props":{"banners":[2]}}' } }).content, base);
+  assert.notEqual(ids({ generator: 'd'.repeat(40), sources: records, pages: { ...PAGES, '/gacha-simulator': '{"props":{"banners":[2]}}' } }).content, base);
   assert.notEqual(ids({ sources: records, files: { 'stages-index.json': '[1]' } }).content, base);
-  assert.notEqual(contentInput({ sourceHashes: hashes(records), pages: { ...pagesOf(PAGES), '/gacha': { ...pagesOf(PAGES)['/gacha'], path: 'pages/gacha/index.json' } }, files: filesOf(FILES) }), base);
+  assert.notEqual(contentInput({ sourceHashes: hashes(records), pages: { ...pagesOf(PAGES), '/gacha-simulator': { ...pagesOf(PAGES)['/gacha-simulator'], path: 'pages/gacha/index.json' } }, files: filesOf(FILES) }), base);
   // A reader gets these, or the next run reads them back from data main, so each is content
   // though no page file changes (release-input.mjs): the asset commit every art URL is pinned
   // to; when a held record was first seen, which the three-day overdue mark counts from; a wiki

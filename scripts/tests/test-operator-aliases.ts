@@ -6,7 +6,7 @@ import { getAllOperators } from '../../lib/operators/operators';
 import { renameAlternates } from '../sync/catalogue-model.mjs';
 
 /*
- * /planner's export builds the alias map from every record and throws on an `alternate` that
+ * /operator-planner's export builds the alias map from every record and throws on an `alternate` that
  * names no operator (lib/operators/operatorAliases.ts). On 2026-10-14 Global renamed
  * Kal'tsit - Esperanta to Kal'tsit Esperanta, Kal'tsit's alternate kept the old name, and the
  * content run failed on the planner's props. Nothing tested the map on its own data before.

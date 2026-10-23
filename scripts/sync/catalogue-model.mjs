@@ -532,7 +532,7 @@ const withPool = (name, poolId) => (name.includes(poolId) ? name : `${name} (${p
    post states (cn-news.mjs), in CLIENT_BANNERS' terms so the client's pool links to it. Every
    post names a Joint Operation and an Orienteering the same (联合行动, 定向甄选), so those are
    named by their first day, as CLIENT_BANNERS names them by their pool: two records under one
-   name leave /gacha unable to pick the second, and a rename of either would rewrite both
+   name leave /gacha-simulator unable to pick the second, and a rename of either would rewrite both
    (renameReferences). */
 const ANNOUNCED_BANNERS = {
   featured: { pull_type: 'featured', category: 'special', label: 'Headhunting' },
@@ -980,7 +980,7 @@ export function renameReferences(value, renames) {
  * are, never through renameReferences, and the field is not a whole name anyway -- "[CN] Kal'tsit
  * - Esperanta", "Ch'en the Holungday , Ch'en the Dawnstreak" -- so on 2026-10-14, when Global
  * renamed Kal'tsit - Esperanta to Kal'tsit Esperanta, Kal'tsit's alternate kept the old name and
- * /planner's alias map threw on it. Each part is renamed -- by this run's renames, or, for a name
+ * /operator-planner's alias map threw on it. Each part is renamed -- by this run's renames, or, for a name
  * no record has any more, by the record that keeps it among its former names (`aliases`), so a
  * rename an earlier run missed heals too -- and keeps its `[CN]` marker only while Global has not
  * shipped the alter it names: a CN record, or a Global one still to be released (isFuture).

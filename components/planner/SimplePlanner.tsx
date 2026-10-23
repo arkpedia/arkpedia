@@ -127,7 +127,7 @@ export function SimplePlanner({
   selected: string | null;
   onSelect: (name: string | null) => void;
   onEdit: (name: string, step?: "current" | "goal") => void;
-  /** The starting levels' lock (pages/planner.tsx): "Set current" reads "Locked". */
+  /** The starting levels' lock (pages/operator-planner.tsx): "Set current" reads "Locked". */
   levelsLocked: boolean;
   onRemove: (name: string) => void;
   onRetry: (name: string) => void;

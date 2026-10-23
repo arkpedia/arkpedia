@@ -53,7 +53,7 @@ export function OperatorStateForm({
   moduleDescription,
 }: {
   mode: 'current' | 'target';
-  /** The starting levels' lock (pages/planner.tsx, lib/ui/useLock.ts): every control shown and
+  /** The starting levels' lock (pages/operator-planner.tsx, lib/ui/useLock.ts): every control shown and
    *  none usable. Required, so each use says whether it is locked. */
   locked: boolean;
   rarity: number;

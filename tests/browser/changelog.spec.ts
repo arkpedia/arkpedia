@@ -6,7 +6,7 @@ test.use({ timezoneId: 'Asia/Seoul' });
 
 test('What’s new groups local dates and categories and marks later same-day releases seen', async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('arkpedia.changelog.seen', '2026-10-09T09:56:52Z'));
-  await page.goto('/changelog');
+  await page.goto('/whats-new');
   const expected = groupChangelogDays(CHANGELOG, 'Asia/Seoul');
   const entries = page.locator('main .changelog-entry');
   await expect(entries).toHaveCount(expected.length);

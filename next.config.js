@@ -93,7 +93,7 @@ const nextConfig = {
         destination: assetUrl('arkpedia-skin-assets', 'variants/:format/:width/:path*'),
         permanent: false,
       },
-      { source: '/community/livestreams', destination: '/community/videos', permanent: true },
+      { source: '/community/livestreams', destination: '/community-hub/videos', permanent: true },
       // arkpedia.net/?s=<query> is the site search too (pages/search.tsx), for anyone who
       // sets the site up as a search engine by hand. Only on the home page: /stages/browse
       // already reads ?s= as its selected stage. The query string is carried across.
@@ -131,6 +131,14 @@ const nextConfig = {
       },
       { source: '/guesser/palette', destination: '/games/color-palette', permanent: true },
       { source: '/guesser/recruitment', destination: '/games/recruitment-guesser', permanent: true },
+      // Renamed pages (config/renamed-routes.json): the old addresses are bookmarked and
+      // linked from outside. The query carries across, so /pulls?banner=... from a shared
+      // link still opens that banner.
+      ...Object.entries(require('./config/renamed-routes.json').routes).map(([destination, source]) => ({ source, destination, permanent: true })),
+      // Polls will list every poll once accounts can vote. Until then its one poll is the
+      // Power Scale, so the bare address goes there rather than to a 404. Not permanent: the
+      // Polls page takes this address back.
+      { source: '/polls', destination: '/polls/power-scale', permanent: false },
     ];
   },
   images: {

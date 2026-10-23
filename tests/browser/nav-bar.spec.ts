@@ -1,8 +1,8 @@
 import { expect, test } from '@playwright/test';
 
 /*
- * The framed bar (styles/core/nav.css): capped at the page's 1040px, with about 1px of slack at
- * that cap, so search is a magnifier and Support its heart. The clock goes below 1055px and
+ * The framed bar (styles/core/nav.css): capped at the page's 1040px, with about 30px of slack at
+ * that cap once the clock shows, so search is a magnifier and Support lives in About. The clock goes below 1055px and
  * the phone bar takes over below 901px. At every width it shows, nothing in it overlaps and no
  * link's label is clipped: the links clip their own labels instead of overflowing, so this is
  * the check that would see them squeezed.
@@ -49,10 +49,12 @@ test('the clock goes below 1055px and the phone bar takes over below 901px', asy
   await expect(page.locator('.mobile-nav-bar')).toBeVisible();
 });
 
-test('Support is its heart in the bar, still named for screen readers', async ({ page }, info) => {
+test('What\'s new, Credits and Support are in the About menu, not loose in the bar', async ({ page }, info) => {
   test.skip(info.project.name !== 'desktop', 'the desktop bar');
   await page.goto('/schedule');
-  const support = page.locator('.site-nav').getByRole('link', { name: 'Support', exact: true });
-  await expect(support).toHaveAttribute('title', 'Support');
-  await expect(support.locator('.visually-hidden')).toHaveText('Support');
+  const bar = page.locator('.site-nav');
+  await expect(bar.getByRole('link', { name: 'Support', exact: true })).toHaveCount(0);
+  await bar.getByRole('button', { name: 'About', exact: true }).click();
+  const menu = bar.getByRole('menu', { name: 'About' });
+  await expect(menu.getByRole('link')).toHaveText(["What's new", 'Credits', 'Support']);
 });

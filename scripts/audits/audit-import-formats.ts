@@ -4,7 +4,7 @@
  *
  * WHY THIS EXISTS. data/import-aliases.json drifting away from the material
  * catalogue (data/material-catalogue.json) already fails the build and the content export --
- * /planner's table loader runs checkImportAliases in lib/planner/foreignImport.ts. What nothing catches is the PARSERS going wrong:
+ * /operator-planner's table loader runs checkImportAliases in lib/planner/foreignImport.ts. What nothing catches is the PARSERS going wrong:
  * Krooster's CSV finds its columns by header name, ark-nights' crafting list is
  * the one field beyond the inventory that maps to anything here, and an absent
  * crafting section has to stay distinguishable from an empty one. Break any of

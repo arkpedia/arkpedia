@@ -3,11 +3,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createElement } from 'react';
 import './css-modules';
-import GachaSimulator from '../../pages/gacha';
+import GachaSimulator from '../../pages/gacha-simulator';
 import type { HeadhuntingBanner } from '../../lib/gacha/headhuntingBanners';
 import { renderOnHost } from './host-clock';
 
-// /gacha is rendered on the server at the request's moment and hydrated in the reader's
+// /gacha-simulator is rendered on the server at the request's moment and hydrated in the reader's
 // browser later. Its Upcoming tab and LIVE NOW badge used to read the host's clock during
 // render, so a reader who arrived after a banner closed got React #425/#418/#423 and the
 // server markup thrown away (arkpedia-dev, clock set to 2026-09-30T11:05Z, just after Rage
@@ -29,7 +29,7 @@ const at = (iso: string) => Date.parse(iso);
 const render = (zone: string, hostClock: string, now: number) => renderOnHost(zone, at(hostClock), regionalFixture(createElement(GachaSimulator, props(now))));
 const liveBadges = (html: string) => html.match(/LIVE NOW/g)?.length ?? 0;
 
-test('/gacha renders the same HTML on the server and in a browser on either side of a banner closing', () => {
+test('/gacha-simulator renders the same HTML on the server and in a browser on either side of a banner closing', () => {
   // The server rendered a minute before Rage closed (contentPageClock rounds to the minute).
   const now = at('2026-09-30T10:59:00Z');
   const server = render('UTC', '2026-09-30T10:59:30Z', now);

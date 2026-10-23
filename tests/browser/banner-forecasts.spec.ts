@@ -14,7 +14,7 @@ test('Schedule keeps withdrawn special banners undated with their empty Global l
   await expect(panel.getByRole('heading', { name: 'Skins', exact: true })).toHaveCount(0);
   await expect(panel.getByRole('img')).toHaveCount(0);
   await panel.getByRole('link', { name: 'Banner page', exact: true }).click();
-  await expect(page).toHaveURL(/gacha\?banner=Orienteering/);
+  await expect(page).toHaveURL(/gacha-simulator\?banner=Orienteering/);
   await expect(page.getByText('Awaiting Global lineup confirmation.', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Pull one operator', exact: true })).toBeDisabled();
   await expect(page.getByRole('heading', { name: /Choose 3 six/ })).toHaveCount(0);

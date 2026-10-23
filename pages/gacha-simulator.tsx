@@ -2420,7 +2420,7 @@ export default function GachaSimulator({ pools, banners: globalBanners, kernelLo
   );
 }
 
-export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/gacha", async () => {
+export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/gacha-simulator", async () => {
   const pools = getGachaIconPools();
   const banners = resolveGachaSimulatorBanners(getBannersSortedByDate());
   const derivedReleaseDates = deriveReleaseDatesFromBanners(banners);

@@ -8,6 +8,10 @@ import { createHash } from 'node:crypto';
 import { fetchAsset } from '../assets/githubRetry.mjs';
 import type { GetStaticProps, GetStaticPropsContext, GetStaticPropsResult, Redirect } from 'next';
 import { CONTENT_SCHEMA, contentRoute, type ContentFile, type ContentManifest, type ContentPointer, type ContentRelease } from './types';
+import renamedRoutes from '../../config/renamed-routes.json';
+
+/** Each renamed page's address, with the one it had (config/renamed-routes.json). */
+const RENAMED_ROUTES: Record<string, string> = renamedRoutes.routes;
 
 const DEFAULT_ORIGIN = 'https://raw.githubusercontent.com/arkpedia/arkpedia-data';
 const REFRESH_MS = 60_000;
@@ -178,7 +182,7 @@ export interface ContentPageOptions<P> {
    * release does not publish the route. Without it such a regeneration throws
    * "Published content is missing <route>", and Next keeps serving the page the deploy
    * prerendered until a release compiled by this code goes live: up to a day for a route
-   * a deploy has just made a content route (/community, 2026-09-26). Only for a static
+   * a deploy has just made a content route (/community-hub, 2026-09-26). Only for a static
    * route whose builder reads nothing but compiled-in modules: Vercel's function traces
    * leave data/ and public/ out of a content route (next.config.js), so a builder that
    * reads a data file fails there. scripts/tests/test-previous-release-props.ts runs each
@@ -217,7 +221,11 @@ export function withContentPage<P extends object>(template: string, builder: Con
       || process.env.ARKPEDIA_CONTENT_DISABLED === '1';
     const loaded = await loadRelease();
     if (loaded) {
-      const route = contentRoute(template, context.params);
+      const named = contentRoute(template, context.params);
+      // A renamed page reads its old address until the live release has the new one
+      // (config/renamed-routes.json).
+      const formerly = RENAMED_ROUTES[named];
+      const route = !loaded.manifest.pages[named] && formerly && loaded.manifest.pages[formerly] ? formerly : named;
       const resolved = operatorPageRoute(loaded.manifest.pages, route) ?? route;
       const file = loaded.manifest.pages[resolved];
       if (!file) {

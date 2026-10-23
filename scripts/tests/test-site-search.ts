@@ -184,7 +184,7 @@ test('the feeds are the deployment\'s route, read from the pages\' own feeds and
   const route = fs.readFileSync('pages/api/search-feeds.ts', 'utf8');
   assert.match(route, /filterArknightsVideos\(enriched\.filter\(\(v\) => !v\.isLivestream\)\)/, 'the community pages\' filter, so the search finds no video they hide');
   assert.match(route, /s-maxage=1500/, 'as old as the pages\' revalidate: 1500, and no older');
-  const community = fs.readFileSync('pages/community.tsx', 'utf8');
+  const community = fs.readFileSync('pages/community-hub.tsx', 'utf8');
   assert.match(community, /revalidate: 1500/);
   assert.match(community, /filterArknightsVideos\(enriched\.filter\(\(v\) => !v\.isLivestream\)\)/);
 });

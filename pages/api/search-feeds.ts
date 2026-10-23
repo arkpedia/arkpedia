@@ -13,8 +13,8 @@ import type { SiteSearchIndex } from '@/lib/search/siteSearch';
 const CACHE = 'public, max-age=300, s-maxage=1500, stale-while-revalidate=1500';
 
 /**
- * The site search's live rows (lib/search/siteSearch.ts): the videos /community and
- * /community/videos list, and who is live in the Twitch category, as search rows.
+ * The site search's live rows (lib/search/siteSearch.ts): the videos /community-hub and
+ * /community-hub/videos list, and who is live in the Twitch category, as search rows.
  *
  * The same feeds, read the same way: every curated channel's latest uploads, livestreams
  * dropped and the Arknights filter applied as those pages apply them, so the search finds

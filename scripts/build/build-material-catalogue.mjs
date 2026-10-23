@@ -22,10 +22,10 @@
  * WHAT IS KNOWN ABOUT EACH comes from the game's item tables (EN, then CN for what Global has not
  * shipped yet, with data/material-names.json for those items' English names;
  * scripts/lib/material-items.mjs). It must have a published material icon, or its tile could
- * not draw, and a place in the depot's in-game order (data/item-sort-ids.json, which /planner's
+ * not draw, and a place in the depot's in-game order (data/item-sort-ids.json, which /operator-planner's
  * table loader otherwise refuses at export). One that fails any of these is left out and named
  * here; check-completeness then holds back the operators that cost it (published-partial), and
- * /planner leaves them out of its picker until it resolves.
+ * /operator-planner leaves them out of its picker until it resolves.
  *
  * ORDER AND GROUPS follow from the item: its tier is its rarity, its kind its id. Highest tier
  * first, which the crafting resolver relies on (lib/planner/craft.ts: a Tier 3 and a Tier 4

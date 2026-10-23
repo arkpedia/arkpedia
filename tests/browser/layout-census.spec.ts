@@ -90,7 +90,7 @@ const TARGETS: Target[] = [
   ...CENSUS_STATES.map((state) => ({ key: `${state.route} (${state.id})`, route: state.route, state, rows: true, bounds: false, home: false })),
   // The picture-card addresses that are not census routes, for that check alone.
   ...Object.keys(PICTURE_ROUTES).filter((route) => !ROUTES.includes(route)).map((route) => ({ key: route, route, rows: false, bounds: false, pictures: PICTURE_ROUTES[route], home: false })),
-  // Picture cards that show only once the page is driven (the /pulls skin wishlist).
+  // Picture cards that show only once the page is driven (the /pull-planner skin wishlist).
   ...Object.keys(PICTURE_STATES).map((route) => ({ key: route, route, drive: PICTURE_DRIVES[route], rows: false, bounds: false, pictures: PICTURE_STATES[route], home: false })),
 ];
 // A table naming an address the census does not load would measure nothing and pass.
@@ -346,7 +346,7 @@ async function run(page: Page, info: TestInfo, t: Target, theme: 'dark' | 'light
     if (t.drive) await test.step('drive', () => t.drive!(page));
     if (dark && t.state) await part(p('first-gap'), () => stateFirstGap(page, t, width, p('first-gap')));
   }
-  if (t.route === '/community' && t.pictures !== undefined) await test.step('open the World video gallery', () => page.getByRole('tab', { name: 'YouTube', exact: true }).click());
+  if (t.route === '/community-hub' && t.pictures !== undefined) await test.step('open the World video gallery', () => page.getByRole('tab', { name: 'YouTube', exact: true }).click());
   if (reduced) await test.step('motion back on, animations ended', () => motionOn(page));
 
   if (dark && t.state) {

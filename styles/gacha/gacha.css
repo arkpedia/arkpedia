@@ -217,7 +217,7 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .gacha-pull-grid .gacha-pull-tile { animation: none; }
-  /* The tutorial's pull cards take the same slides (pages/gacha.tsx TutorialPullCard).
+  /* The tutorial's pull cards take the same slides (pages/gacha-simulator.tsx TutorialPullCard).
      Their stop was in shared.css, which loads first, so they slid in anyway (r11 quiet
      polish; audit:styles motionScope). */
   .gacha-pull-slide-bottom,

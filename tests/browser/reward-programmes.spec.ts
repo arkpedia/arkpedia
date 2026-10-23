@@ -16,7 +16,7 @@ test('an older account sees its received beginner reward, then switches programm
     beginner: { ...programs[0], current: false } };
   // Keep the real page's initial currency totals and SSR markup; add a synthetic
   // historical programme and annotate the current sign-in rows in its payload.
-  await page.route('**/free-op', async route => {
+  await page.route('**/reward-tracker', async route => {
     const response = await route.fetch(); const html = await response.text();
     const match = /<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/.exec(html)!;
     const data = JSON.parse(match[1]); const props = data.props.pageProps;
@@ -40,7 +40,7 @@ test('an older account sees its received beginner reward, then switches programm
     await page.getByRole('searchbox', { name: 'Search free rewards', exact: true }).fill('Consecutive sign-in');
     await expect(page.locator('details[open] > summary')).toContainText('Beginner rewards');
   };
-  await page.goto('/free-op'); await open();
+  await page.goto('/reward-tracker'); await open();
   const day = page.getByRole('checkbox', { name: current.name, exact: true });
   await expect(day).toHaveCount(1); await expect(day).toBeChecked();
   await expect(page.locator('.free-reward-row').filter({ has: day })).toContainText('Cliffheart');

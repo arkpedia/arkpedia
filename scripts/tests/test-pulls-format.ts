@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import { formatDayMonth, formatDayMonthYear, formatNumber, formatOneDecimal } from '../../lib/pulls/format';
 
 /*
- * /pulls is prerendered, then hydrated in the reader's browser. Formatting with the
+ * /pull-planner is prerendered, then hydrated in the reader's browser. Formatting with the
  * reader's locale during render prints "49.700" in de-DE (fr-FR, pt-BR, ru-RU) where the
  * server printed "49,700", and React discards the server HTML (errors 418/423/425). Every
  * number and date in the planner therefore goes through lib/pulls/format.ts, whose locale
@@ -13,7 +13,7 @@ import { formatDayMonth, formatDayMonthYear, formatNumber, formatOneDecimal } fr
  * kukkikaze/Arkpedia's pull-planner branch, scripts/test-pull-plan.ts).
  */
 const ROOT = join(__dirname, '../..');
-const PLANNER_SOURCES = ['pages/pulls.tsx', 'components/pulls', 'lib/pulls'];
+const PLANNER_SOURCES = ['pages/pull-planner.tsx', 'components/pulls', 'lib/pulls'];
 const PLANNER_FORMATTER = 'lib/pulls/format.ts';
 const LOCALE_CALL = /\.toLocale(?:String|DateString|TimeString)\s*\(|\bIntl\.(?:NumberFormat|DateTimeFormat|RelativeTimeFormat|PluralRules|ListFormat|DisplayNames|Collator)\s*\(/g;
 
@@ -53,7 +53,7 @@ test('the planner renders every number and date with a fixed locale, through lib
     return statSync(full).isDirectory() ? readdirSync(full).flatMap(name => walk(join(path, name))) : /\.tsx?$/.test(path) ? [relative(ROOT, full).split(sep).join('/')] : [];
   };
   const files = PLANNER_SOURCES.flatMap(walk);
-  for (const file of ['pages/pulls.tsx', 'components/pulls/PullBannerRow.tsx', 'components/pulls/BannerPicker.tsx', 'lib/pulls/plan.ts', PLANNER_FORMATTER]) assert.ok(files.includes(file), `scanned ${file}`);
+  for (const file of ['pages/pull-planner.tsx', 'components/pulls/PullBannerRow.tsx', 'components/pulls/BannerPicker.tsx', 'lib/pulls/plan.ts', PLANNER_FORMATTER]) assert.ok(files.includes(file), `scanned ${file}`);
   assert.deepEqual(files.flatMap(file => localeViolations(file, readFileSync(join(ROOT, file), 'utf8'))), []);
   assert.equal(formatNumber(49700), '49,700');
   assert.equal(formatNumber(-1205.5), '-1,205.5');
@@ -64,7 +64,7 @@ test('the planner renders every number and date with a fixed locale, through lib
 });
 
 test('the readers whose pages failed to hydrate: their locale groups digits unlike the server', () => {
-  // What a reader in each of these locales got from the bare toLocaleString() /pulls used
+  // What a reader in each of these locales got from the bare toLocaleString() /pull-planner used
   // to call, against what the server printed: the hydration errors, as data.
   for (const locale of ['de-DE', 'fr-FR', 'pt-BR', 'ru-RU']) {
     assert.notEqual((49700).toLocaleString(locale), (49700).toLocaleString('en-US'), locale);

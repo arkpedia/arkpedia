@@ -26,7 +26,7 @@
  *     lifted after a tap);
  *   - a rule outside motion.css that starts an animation with no reduced-motion stop
  *     that wins the cascade over it (reducedMotionStops, below: the site nav's menus, the
- *     drawer's overlay, the invalid card's shake and the /gacha tutorial's pull cards all
+ *     drawer's overlay, the invalid card's shake and the /gacha-simulator tutorial's pull cards all
  *     had a stop that lost), and the site-wide transition stop in shared.css gone.
  *
  * The browser half is tests/browser/motion.spec.ts: with reduced motion nothing runs,
@@ -47,7 +47,7 @@ const DRAWER = 'a drawer, overlay or menu sliding or fading in and out as it ope
 const DISCLOSURE = 'a disclosure opening (a row growing, an arrow turning); instant under reduced motion';
 const ENTRANCE = 'a list or card entrance animation, switched off by its own prefers-reduced-motion: reduce override';
 const LOOP = 'a looping indicator (a pulse, a marquee, a map route, a visualiser), switched off by its own prefers-reduced-motion: reduce override';
-const TUTORIAL = 'a step of the /gacha tutorial\'s animated explainer; the step still happens under reduced motion, still';
+const TUTORIAL = 'a step of the /gacha-simulator tutorial\'s animated explainer; the step still happens under reduced motion, still';
 const FEEDBACK = 'a one-off feedback animation (a shake, a flash, a halo on a pull), switched off by its own prefers-reduced-motion: reduce override';
 const CROSSFADE = 'a cross-fade between two contents (a title and its translation, the operator artwork, a carousel page); instant under reduced motion';
 const VIEW_TRANSITION = 'the Stronghold companion\'s view-transition timing; the helper that starts a view transition skips it under reduced motion';
@@ -257,7 +257,7 @@ const HOVER_MEDIA = /\(\s*hover\s*:\s*hover\s*\)/;
 
 /* --- the reduced-motion stops for what predates motion.css ---------------------------
    A MOTION_LEGACY animation keeps its own `prefers-reduced-motion: reduce` override, and
-   the label saying so is not enough: /gacha's tutorial pull cards slid in under reduced
+   the label saying so is not enough: /gacha-simulator's tutorial pull cards slid in under reduced
    motion because their stop sat in shared.css, which loads before gacha.css, so at equal
    specificity the animation won. So every legacy rule that starts an animation (the
    `animation` shorthand or `animation-name`) must be stopped, selector by selector, by a

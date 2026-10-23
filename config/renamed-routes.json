@@ -1,0 +1,18 @@
+{
+  "about": "Pages whose address changed, each new address with the one it replaced (2026-10-23: every page's address took the name its menu entry has). next.config.js redirects each old address to the new one, permanently: they are bookmarked and linked from outside. lib/content/server.ts reads a renamed page's old address from a live release that does not publish the new one yet, which is the case right after the deploy that renames it: the release gate holds the next release until production runs the new code. That half can go once the live release carries the new names; the redirects stay.",
+  "routes": {
+    "/pull-planner": "/pulls",
+    "/operator-planner": "/planner",
+    "/reward-tracker": "/free-op",
+    "/polls/power-scale": "/results",
+    "/game-modes": "/gamemodes",
+    "/game-modes/stronghold-protocol": "/gamemodes/stronghold-protocol",
+    "/game-modes/stronghold-protocol/stronghold-companion": "/gamemodes/stronghold-protocol/stronghold-companion",
+    "/gacha-simulator": "/gacha",
+    "/whats-new": "/changelog",
+    "/community-hub": "/community",
+    "/community-hub/videos": "/community/videos",
+    "/community-hub/twitch": "/community/twitch",
+    "/community-hub/youtube-live": "/community/youtube-live"
+  }
+}

@@ -34,7 +34,7 @@ function cleanAlterName(raw: string): string {
  *
  * A name a record had before a rename (its `aliases`, which the catalogue adds on every
  * rename) resolves to that record: on 2026-10-14 Global renamed Kal'tsit - Esperanta to
- * Kal'tsit Esperanta, Kal'tsit's `alternate` still named the old one, and /planner's
+ * Kal'tsit Esperanta, Kal'tsit's `alternate` still named the old one, and /operator-planner's
  * export threw. The catalogue now renames the field with the record
  * (scripts/sync/catalogue-model.mjs renameAlternates); this keeps a rename it missed
  * from taking the page down.

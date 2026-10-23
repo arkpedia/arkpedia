@@ -43,7 +43,7 @@ export default function SkinPlannerPage({ catalogue, collections: globalCollecti
     <>
       <Head><title>Skin Planner — Arkpedia</title></Head>
       <PageHeader eyebrow="Rhodes Island // Skin Planner" title="Skin planner"
-        sub={<>The outfits you want, by the event shop that sells them and when. The <Link prefetch={false} href="/pulls">Pull Planner</Link> sets your OP against the same plan.</>} />
+        sub={<>The outfits you want, by the event shop that sells them and when. The <Link prefetch={false} href="/pull-planner">Pull Planner</Link> sets your OP against the same plan.</>} />
       <main>
         <section className="op-section">
           <SkinPlanner catalogue={catalogue} collections={collections} today={today} now={clock} ids={ids} onChange={setIds} owned={owned} />

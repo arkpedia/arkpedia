@@ -35,7 +35,7 @@ export function inGameOrder(catalogue: Pick<MaterialCatalogue, 'order'>, sortIds
 
 /* Every holdable material has a place in that order. A name with no sortId sorts to the
    end, which is a tile in the wrong place rather than a missing one -- silent either way,
-   so it fails here instead. /planner's table loader runs this wherever the tables are read
+   so it fails here instead. /operator-planner's table loader runs this wherever the tables are read
    from data/ -- the build's prerender and the content export. The browser sorts a missing
    one last. */
 export function checkItemSortIds(sortIds: Record<string, number>, catalogue: Pick<MaterialCatalogue, 'order'>): Record<string, number> {

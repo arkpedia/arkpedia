@@ -65,8 +65,8 @@ export default function FriendsPage({ operators, skins }: Props) {
   }
 
   return <>
-    <Head><title>Import a Friend — Arkpedia</title><meta name="robots" content="noindex" /></Head>
-    <PageHeader eyebrow="Rhodes Island // Community" title="Import a Friend" sub="Trade account files. Meet the Doctor, browse their operators and admire their skins."
+    <Head><title>Friends — Arkpedia</title><meta name="robots" content="noindex" /></Head>
+    <PageHeader eyebrow="Rhodes Island // Community" title="Friends" sub="Trade account files. Meet the Doctor, browse their operators and admire their skins."
       actions={<div className={styles.actions}>
         <button type="button" className="primary btn-sm" onClick={() => input.current?.click()}>Import a friend</button>
         {account ? <button type="button" className="btn-sm" onClick={exportAccount}>Export my account</button>

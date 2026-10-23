@@ -368,7 +368,7 @@ export function buildRealBannerConfig(
 
 /**
  * The banner the simulator pulls from, before a reader's own choices (an Orienteering or Kernel
- * Locating pick, a Celebration's owned operators, which pages/gacha.tsx applies on top):
+ * Locating pick, a Celebration's owned operators, which pages/gacha-simulator.tsx applies on top):
  * buildRealBannerConfig's lineup and pools, with each "everyone else" pool of all four rarities
  * recomputed from the operators' own pool fields, release and kernel-addition dates
  * (buildEligiblePool), which catches newer 6-star through 3-star operators the older series

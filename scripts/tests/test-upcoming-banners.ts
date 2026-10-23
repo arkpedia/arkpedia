@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import type { HeadhuntingBanner } from '../../lib/gacha/headhuntingBanners';
 import { isBannerLive, upcomingBanners } from '../../lib/gacha/upcomingBanners';
 
-// Ported from kukkikaze/Arkpedia PR #75 (14459217). The /gacha Upcoming tab and its LIVE
+// Ported from kukkikaze/Arkpedia PR #75 (14459217). The /gacha-simulator Upcoming tab and its LIVE
 // NOW badge used to read `new Date()` during render, so once a banner opened or closed
 // after the server rendered the page, the reader's browser disagreed with the markup
 // (React #425/#418/#423, reproduced on arkpedia-dev with the clock set just after Rage of

@@ -43,7 +43,7 @@ button.events-row-main.btn-bare { border: 0; background: transparent; padding: 0
   overflow: hidden;
   background: var(--panel-2);
 }
-/* .badge-live (arkpedia-theme.css) draws it -- it was Inter here and mono on /gacha;
+/* .badge-live (arkpedia-theme.css) draws it -- it was Inter here and mono on /gacha-simulator;
    this only places it. */
 .events-row-live-badge {
   position: absolute;

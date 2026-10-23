@@ -5,7 +5,7 @@ import { TwitchStream } from '@/lib/community/twitch';
 
 /** The community pages' eyebrow: the section, with a crumb back to the hub. */
 export function CommunityEyebrow() {
-  return <>Rhodes Island // <Link href="/community" prefetch={false}>World</Link></>;
+  return <>Rhodes Island // <Link href="/community-hub" prefetch={false}>Community Hub</Link></>;
 }
 
 export function VideoCard({ v, live }: { v: YouTubeVideo; live?: boolean }) {

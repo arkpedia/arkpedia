@@ -7,7 +7,7 @@ import banners from '../../data/headhunting_banners.json';
  *
  * Check's browser specs read the bundled data/ (ARKPEDIA_CONTENT_DISABLED=1) at the real
  * clock, and the daily release never refreshes it. On 2026-10-06 the snapshot's last Global
- * Kernel closed at 11:00Z with nothing after it: /gacha's first banner changed under the
+ * Kernel closed at 11:00Z with nothing after it: /gacha-simulator's first banner changed under the
  * layout census, the home page lost a kind of picture card, and every open PR failed with
  * errors that pointed nowhere near the cause. This fails first, three days ahead, and says
  * what to run.

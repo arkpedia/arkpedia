@@ -238,7 +238,7 @@ html[data-site-server="kr"] .maintenance-notice:not([data-server="kr"]) {
 /* No art yet: .art-placeholder (arkpedia-theme.css) over the whole poster box. */
 .front-gacha-art-placeholder { position: absolute; inset: 0; }
 /* The banner's state: .badge-live and .badge-upcoming (arkpedia-theme.css) draw it; this
-   only places it, over the art's top left corner, as /gacha's sidebar places its LIVE NOW.
+   only places it, over the art's top left corner, as /gacha-simulator's sidebar places its LIVE NOW.
    Out of flow, so the poster is the same box with a badge, without one, and as it changes. */
 .front-gacha-poster-wrap > :is(.badge-live, .badge-upcoming) {
   position: absolute;

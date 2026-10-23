@@ -1550,7 +1550,7 @@ function trimModule(mod: OperatorModule) {
   };
 }
 
-export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/planner", async () => {
+export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/operator-planner", async () => {
   // Every operator, with a release marker: the page filters by its request's `now`
   // (contentPageClock), so a release day between two content releases is not missed.
   const allOps = getAllOperators();

@@ -9,7 +9,7 @@ type Linter = { lintText(code: string, options: { filePath: string }): Promise<L
 const { ESLint } = require('eslint') as { ESLint: new (options: { cwd: string }) => Linter };
 
 // Pages rendered on the server at the request's moment and hydrated in the reader's
-// browser later must not read the clock while rendering: /gacha (its Upcoming tab and
+// browser later must not read the clock while rendering: /gacha-simulator (its Upcoming tab and
 // LIVE NOW) and the home page's Events panel both did, and both failed hydration once a
 // banner or event closed in between. The .eslintrc.json override bans argument-less
 // `new Date()`, `Date.now()`, `serverWeekday()` and `toServerTime()` in every such file;
@@ -29,18 +29,18 @@ function pageFile(route: string): string {
 }
 
 // Every page contentPageClock gives a clock, and the components that render from it.
-const GUARDED = [...new Set([...CLOCK_ROUTES.map(pageFile), 'pages/gacha.tsx', 'components/schedule/EventsPanel.tsx', 'components/home/GachaBannersPanel.tsx'])];
+const GUARDED = [...new Set([...CLOCK_ROUTES.map(pageFile), 'pages/gacha-simulator.tsx', 'components/schedule/EventsPanel.tsx', 'components/home/GachaBannersPanel.tsx'])];
 
 test('debug globals cannot retain page data after navigation; internal reads remain allowed', async () => {
   const code = 'window.__operators = []; const x = window.__operators; window.__assetRetry = true;';
-  for (const filePath of ['pages/base.tsx', 'pages/gacha.tsx', 'lib/assets/assetRetry.ts']) {
+  for (const filePath of ['pages/base.tsx', 'pages/gacha-simulator.tsx', 'lib/assets/assetRetry.ts']) {
     const messages = (await eslint.lintText(code, { filePath }))[0].messages.filter(m => m.ruleId === 'no-restricted-syntax');
     assert.equal(messages.length, 1, filePath);
   }
 });
 
-test('the clock ban covers every page with a request clock, /gacha, the Events panel and the home page\'s banners', async () => {
-  assert.ok(CLOCK_ROUTES.includes('/gacha') && CLOCK_ROUTES.includes('/'), 'the two pages this guard was written for have a clock');
+test('the clock ban covers every page with a request clock, /gacha-simulator, the Events panel and the home page\'s banners', async () => {
+  assert.ok(CLOCK_ROUTES.includes('/gacha-simulator') && CLOCK_ROUTES.includes('/'), 'the two pages this guard was written for have a clock');
   for (const file of GUARDED) assert.ok(await guarded(file), `${file} renders from a request clock but .eslintrc.json does not ban clock reads in it`);
   // The helper that reads the clock after mount is not under the ban, nor is a page without a clock.
   assert.equal(await guarded('lib/time/readerClock.ts'), false);

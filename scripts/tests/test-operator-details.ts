@@ -220,7 +220,7 @@ test('a trait that changes with promotion is shown per phase, labelled, wherever
   const pudding = op('Pudding');
   assert.deepEqual(traitPhases(pudding.trait).map(line => line.stage), ['Base', 'Elite 2']);
   assert.match(traitPhases(pudding.trait)[1].text, /jump between 4 enemies/);
-  assert.deepEqual(buildGachaOperatorPreview(pudding).traitPhases, traitPhases(pudding.trait), 'the /gacha preview sends every phase, not the last');
+  assert.deepEqual(buildGachaOperatorPreview(pudding).traitPhases, traitPhases(pudding.trait), 'the /gacha-simulator preview sends every phase, not the last');
   assert.deepEqual(traitPhases(op('Ceylon').trait).map(line => line.stage), [null]);
   // Every record: a per-phase trait is keyed by the stages the page labels, so none renders unlabelled or empty.
   for (const operator of operators) {

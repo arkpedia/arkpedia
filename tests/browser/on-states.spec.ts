@@ -7,13 +7,13 @@ import { expect, test, type Page } from '@playwright/test';
  *
  * Found by the 2026-09-26 verification: 121 selected controls used the chip state and
  * 8 used the primary fill -- button.tgl.is-on for Daily missions, Weekly missions and
- * Annihilation on /pulls and "Prioritize 4★+ and robots" on /recruitment, where a
+ * Annihilation on /pull-planner and "Prioritize 4★+ and robots" on /recruitment, where a
  * switched-on toggle looked exactly like "+ Add banner" beside it. The /stages/browse
  * map toggles swapped ghost/primary with no aria-pressed at all; they are aria-pressed
  * chips now, and audit:styles (primaryToggle) rejects the swap in source, which this
  * census cannot see.
  *
- * A checked checkbox is an on state too (2026-09-26: the /pulls and /recruitment
+ * A checked checkbox is an on state too (2026-09-26: the /pull-planner and /recruitment
  * settings above went back from .tgl buttons to checkboxes at the maintainer's
  * request). It is the .check box: a teal border and tick over --teal-dim, so it must
  * compute that border and that fill -- a native box, or one painted in the primary
@@ -21,9 +21,9 @@ import { expect, test, type Page } from '@playwright/test';
  */
 
 const ROUTES = [
-  '/pulls', '/recruitment', '/operators', '/operators/Amiya', '/gacha', '/enemies', '/planner', '/base',
-  '/schedule', '/skins', '/techniques', '/synergies', '/farming', '/results', '/obtain-method',
-  '/games/operator-guesser', '/games/recruitment-guesser', '/music/discover', '/gamemodes/stronghold-protocol',
+  '/pull-planner', '/recruitment', '/operators', '/operators/Amiya', '/gacha-simulator', '/enemies', '/operator-planner', '/base',
+  '/schedule', '/skins', '/techniques', '/synergies', '/farming', '/polls/power-scale', '/obtain-method',
+  '/games/operator-guesser', '/games/recruitment-guesser', '/music/discover', '/game-modes/stronghold-protocol',
 ];
 
 /** Every visible on-state element whose background is the primary action's fill. */
@@ -93,7 +93,7 @@ for (const theme of ['dark', 'light'] as const) {
       offenders.push(...found.offenders.map((o) => `/stages/browse (${name.source} on): ${o}`));
     }
     expect(states, 'on-state controls were found, or this proves nothing').toBeGreaterThan(40);
-    // /pulls starts with Daily, Weekly and Annihilation checked.
+    // /pull-planner starts with Daily, Weekly and Annihilation checked.
     expect(checked, 'checked checkboxes were found, or the checkbox rule proves nothing').toBeGreaterThanOrEqual(3);
     expect([...new Set(offenders)]).toEqual([]);
   });

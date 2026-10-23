@@ -63,7 +63,7 @@ export function parseFriendFile(raw: string): FriendFile {
   if (raw.length > MAX_IMPORT_BYTES) throw new Error('Choose a friend file smaller than 4 MB.');
   let value: Partial<FriendFile>;
   try { value = JSON.parse(raw); } catch { throw new Error('That file is not valid JSON.'); }
-  if (!value || value.kind !== FRIEND_KIND || value.version !== 1) throw new Error('Choose an account exported from Import a Friend.');
+  if (!value || value.kind !== FRIEND_KIND || value.version !== 1) throw new Error('Choose an account exported from the Friends page.');
   const account = parseAccount(JSON.stringify(value.account));
   const roster = parseRosterExport(JSON.stringify(value.roster));
   if (!account || !date(account.importedAt) || !date(value.exportedAt) || !roster) throw new Error('That friend file is incomplete or damaged.');

@@ -9,7 +9,7 @@ import { expect, test } from '@playwright/test';
  */
 test("the wallet's fields keep their boxes on one line when a label wraps", async ({ page }, info) => {
   test.skip(info.project.name !== 'mobile', 'the two-column phone layout');
-  await page.goto('/pulls');
+  await page.goto('/pull-planner');
   for (const width of [320, 360, 390]) {
     await page.setViewportSize({ width, height: 844 });
     await page.waitForTimeout(150);
@@ -31,7 +31,7 @@ test("the wallet's fields keep their boxes on one line when a label wraps", asyn
  */
 test('the resources lock sits after Yellow certs, level with the boxes', async ({ page }, info) => {
   test.skip(info.project.name !== 'desktop', 'the one-row desktop layout');
-  await page.goto('/pulls');
+  await page.goto('/pull-planner');
   const certs = page.locator('[class*="wallet"] .pulls-field').filter({ hasText: 'Yellow certs' }).locator('.pulls-field-box');
   const lock = page.locator('[class*="wallet"] .lock-toggle');
   await expect(lock).toBeVisible();

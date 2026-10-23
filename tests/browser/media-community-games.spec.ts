@@ -49,14 +49,14 @@ test('GM-02: Discover tiles are laid out as tiles, not as uppercase buttons', as
   await inBounds(page);
 });
 
-test('UI-16: /community shows no developer setup notes', async ({ page }) => {
-  await page.goto('/community');
-  await expect(page.getByRole('heading', { level: 1, name: 'World' })).toBeVisible();
+test('UI-16: /community-hub shows no developer setup notes', async ({ page }) => {
+  await page.goto('/community-hub');
+  await expect(page.getByRole('heading', { level: 1, name: 'Community Hub' })).toBeVisible();
   const text = await page.locator('main').innerText();
   expect(text).not.toMatch(/YOUTUBE_API_KEY|TWITCH_CLIENT_ID|TWITCH_CLIENT_SECRET|twitchConfig\.ts/);
 });
 
-/* The world map is /community's feature: it was hidden whenever no community event was
+/* The world map is /community-hub's feature: it was hidden whenever no community event was
    upcoming (2026-09-25), and with none upcoming the whole map was gone. It is drawn with
    the list whatever the page's clock says: here the page data is fetched on a client
    navigation with its clock moved past the last event, so every event has ended. */
@@ -65,8 +65,8 @@ test('UI-16: /community shows no developer setup notes', async ({ page }) => {
    against the sea (WCAG 1.4.11) and the land fill visibly apart from it, and no stroke runs
    across the map: a ring crossing the date line (Chukotka, Fiji) used to be drawn as one
    line spanning the whole width. */
-test('the /community map draws land that reads against the sea, in both themes', async ({ page }) => {
-  await page.goto('/community');
+test('the /community-hub map draws land that reads against the sea, in both themes', async ({ page }) => {
+  await page.goto('/community-hub');
   const map = page.locator('.community-map-row .world-map-svg');
   await expect(map).toBeVisible();
   for (const theme of ['dark', 'light'] as const) {
@@ -106,10 +106,10 @@ test('the /community map draws land that reads against the sea, in both themes',
   expect(spans, 'no coastline segment crosses the map (the date line splits a ring)').toBeLessThan(500);
 });
 
-test('/community always shows the world map and the event list, even when every event has ended', async ({ page }) => {
-  await page.goto('/community');
+test('/community-hub always shows the world map and the event list, even when every event has ended', async ({ page }) => {
+  await page.goto('/community-hub');
   await expect(page.locator('.community-map-row .world-map-svg'), 'the map, at the build\'s clock').toBeVisible();
-  await page.route(/\/_next\/data\/[^/]+\/community\.json/, async (route) => {
+  await page.route(/\/_next\/data\/[^/]+\/community-hub\.json/, async (route) => {
     if (route.request().method() !== 'GET') { await route.continue(); return; }
     const response = await route.fetch();
     const json = await response.json();
@@ -118,15 +118,15 @@ test('/community always shows the world map and the event list, even when every 
     await route.fulfill({ response, json });
   });
   await page.goto('/');
-  await page.evaluate(() => (window as unknown as { next: { router: { push: (url: string) => Promise<boolean> } } }).next.router.push('/community'));
-  await page.waitForURL('**/community');
+  await page.evaluate(() => (window as unknown as { next: { router: { push: (url: string) => Promise<boolean> } } }).next.router.push('/community-hub'));
+  await page.waitForURL('**/community-hub');
   await expect(page.locator('.community-map-row .world-map-svg'), 'the map, with every event ended').toBeVisible();
   await expect(page.locator('.community-map-row .community-event-panel'), 'the event list beside it').toBeVisible();
 });
 
 test('GE-10/GM-04: the music widget never covers the last row, and stays off /music', async ({ page }, info) => {
   test.skip(info.project.name !== 'mobile', 'the reserve is a phone rule (<=640px)');
-  await page.goto('/community/videos');
+  await page.goto('/community-hub/videos');
   const toggle = page.locator('[data-music-widget] .music-collapse-toggle');
   await expect(toggle).toBeVisible();
   // To the very end: the list grows as it is read, so the bottom moves until every card is in.
@@ -145,10 +145,10 @@ test('GE-10/GM-04: the music widget never covers the last row, and stays off /mu
   await expect(page.locator('[data-music-widget]')).toHaveCount(0);
 });
 
-test('/community/videos grows as it is read, with no "Show more" button and no jump', async ({ page }) => {
+test('/community-hub/videos grows as it is read, with no "Show more" button and no jump', async ({ page }) => {
   // A short window, so the first batch's end starts out of reach (600px past the fold).
   await page.setViewportSize({ width: page.viewportSize()!.width, height: 480 });
-  await page.goto('/community/videos');
+  await page.goto('/community-hub/videos');
   const cards = page.locator('.video-card');
   await expect(cards).toHaveCount(24);
   await expect(page.getByRole('button', { name: /more/i })).toHaveCount(0);

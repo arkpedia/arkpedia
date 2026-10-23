@@ -16,7 +16,7 @@ test('regional campaign links and deadlines match the official event rules', () 
     assert.ok(Number.isFinite(Date.parse(event.expiresAt ?? '')), `${event.name} has an exact deadline`);
     assert.ok(Date.parse(event.expiresAt!) > Date.parse(event.opensAt ?? event.start), `${event.name} closes after it opens`);
     assert.equal(new URL(event.url).protocol, 'https:');
-    // pages/community.tsx casts the JSON to WorldWebEvent, so the type cannot check this.
+    // pages/community-hub.tsx casts the JSON to WorldWebEvent, so the type cannot check this.
     assert.ok([undefined, 'social'].includes(event.kind), `${event.name}: kind is "social" or absent`);
   }
   for (const event of WEB_EVENTS) {

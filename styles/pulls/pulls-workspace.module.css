@@ -1,4 +1,4 @@
-/* /pulls layout. The header is the site's PageHeader, the section headings are
+/* /pull-planner layout. The header is the site's PageHeader, the section headings are
    .op-section h2 and the buttons, chips, switches and dropdowns are the primitives,
    so this module places things and does not paint them. */
 .page { padding-bottom: 64px; display: grid; gap: 20px; }
@@ -98,7 +98,7 @@
 .planFooter>span:last-child { display: flex; align-items: baseline; gap: 16px; font-size: 13px; color: var(--text-dim); }
 .planFooter strong { color: var(--text-bright); font: 600 26px var(--font-display); font-variant-numeric: tabular-nums; }
 .planFooter strong small { font: 12px var(--font-body); }
-/* Whether the Skin wishlist's OP is held back from the budgets above (pages/pulls.tsx). */
+/* Whether the Skin wishlist's OP is held back from the budgets above (pages/pull-planner.tsx). */
 .planNote { margin: 0; padding: 10px 20px 14px; background: var(--panel-2); }
 .negative,.planFooter .negative { color: var(--danger); }
 .empty { padding: 28px 20px; color: var(--text-dim); }

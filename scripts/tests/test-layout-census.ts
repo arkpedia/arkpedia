@@ -4,7 +4,7 @@ import path from 'node:path';
 import { test } from 'node:test';
 import type { PlaywrightTestConfig } from '@playwright/test';
 import { CENSUS_STATES, censusRoutes } from '../../tests/browser/census-routes';
-import { boundsRoutes, EAGER_ALLOWED, HEADING_ROUTES, PICTURE_ROUTES } from '../../tests/browser/layout-checks';
+import { boundsRoutes, BOUNDS_EXCLUDED, BOUNDS_SAMPLES, EAGER_ALLOWED, HEADING_ROUTES, PICTURE_ROUTES } from '../../tests/browser/layout-checks';
 
 /*
  * The browser suite loads each census page once per theme per project (r11). Until then
@@ -78,6 +78,15 @@ test('every address a census table names is a census address', () => {
  * (a stale stack-align entry) cannot run at the end of either project's pages: it is its own
  * project, after both, or it would skip itself in every run and nothing would say so.
  */
+test('every page file a bounds table names exists', () => {
+  // A page that moved left its exemption behind under the old name: the Stronghold
+  // companion's full-bleed exemption still said gamemodes/ after /game-modes, and the census
+  // measured it as a framed page (2026-10-23). The page itself was unchanged.
+  const missing = [...Object.keys(BOUNDS_EXCLUDED), ...Object.keys(BOUNDS_SAMPLES)]
+    .filter((page) => !['tsx', 'ts'].some((ext) => fs.existsSync(path.join('pages', `${page}.${ext}`))));
+  assert.deepEqual(missing, [], 'name each page by its file under pages/');
+});
+
 test('the browser suite uses the runner\'s CPUs, and the census\'s whole-suite check runs after both widths', async () => {
   const os = await import('node:os');
   const real = { cpus: os.default.availableParallelism, memory: os.default.totalmem };

@@ -268,7 +268,7 @@ a.ghost, a.primary, a.danger, a.btn { text-decoration: none; }
   border-color: var(--teal);
   background: var(--teal-dim);
 }
-/* A pick-card whose main content is a picture (the /pulls skin wishlist's outfits) is
+/* A pick-card whose main content is a picture (the /pull-planner skin wishlist's outfits) is
    a picture card: no resting border (maintainer, 2026-09-28), the teal edge on hover and
    keyboard focus, and picked stays the teal edge over --teal-dim. The border stays 1px
    and transparent, so nothing moves, and the card's fill is clipped inside it so the
@@ -562,7 +562,7 @@ a.ghost, a.primary, a.danger, a.btn { text-decoration: none; }
 
 /* Where art goes before the image repository publishes it (publishedArt is null): the
    frame the art will fill, on --panel-2, saying so quietly. It fills its box and sizes
-   nothing, so a record with art and one without lay out the same. /gacha's banner (which
+   nothing, so a record with art and one without lay out the same. /gacha-simulator's banner (which
    gives it the art's proportions), and the home page's banner poster and thumbnails, where
    a bare initial ("K") stood in for Kernel Locating #13. */
 .art-placeholder {
@@ -819,7 +819,7 @@ a.ghost, a.primary, a.danger, a.btn { text-decoration: none; }
 }
 .tgl:hover { border-color: var(--teal); color: var(--teal); }
 /* On is the same state as a picked .filter-chip: --teal-dim fill, teal border and
-   text. It was the solid --teal-fill, which is .primary's -- so on /pulls a
+   text. It was the solid --teal-fill, which is .primary's -- so on /pull-planner a
    switched-on "Daily missions" looked exactly like "+ Add banner" beside it, and the
    site had two looks for "on". --teal-fill is for primary actions only
    (tests/browser/on-states.spec.ts). */

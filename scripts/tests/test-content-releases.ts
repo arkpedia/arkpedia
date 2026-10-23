@@ -100,8 +100,8 @@ test('a static route the release lacks regenerates on Vercel only when its page 
     type Props = { value: string; now?: number };
     const finalize = async (props: Props) => ({ ...props, value: `${props.value}+finalized` });
     const builder = async () => ({ props: { value: 'bundled' } as Props });
-    await assert.rejects(async () => withContentPage('/community', builder, { finalize })({ revalidateReason: 'stale' }), /Published content is missing \/community/);
-    const result = await withContentPage('/community', builder, { finalize, bundledWhenUnpublished: true })({ revalidateReason: 'stale' });
+    await assert.rejects(async () => withContentPage('/community-hub', builder, { finalize })({ revalidateReason: 'stale' }), /Published content is missing \/community/);
+    const result = await withContentPage('/community-hub', builder, { finalize, bundledWhenUnpublished: true })({ revalidateReason: 'stale' });
     assert.ok('props' in result);
     const props = await result.props;
     assert.equal(props.value, 'bundled+finalized');
@@ -122,13 +122,13 @@ const gzip = async (text: string) => Buffer.from(await new Response(new Blob([te
 
 test('a gzipped page smaller than its own gzip still loads, and the decoded size is still capped', async () => {
   const revision = 'f'.repeat(40), release = 'f'.repeat(64);
-  const pages: Record<string, string> = { '/search': JSON.stringify({ props: {} }), '/community': JSON.stringify({ props: { value: 'x'.repeat(5000) } }) };
+  const pages: Record<string, string> = { '/search': JSON.stringify({ props: {} }), '/community-hub': JSON.stringify({ props: { value: 'x'.repeat(5000) } }) };
   const manifest: ContentManifest = { schema: CONTENT_SCHEMA, release, generatedAt: '2026-10-18T00:00:00Z', generator: revision,
     assets: { 'arkpedia-image-assets': revision, 'arkpedia-skin-assets': revision }, pages: {}, files: {} };
   const gzipped = Object.fromEntries(await Promise.all(Object.entries(pages).map(async ([route, body]) => [route, await gzip(body)] as const)));
   for (const [route, body] of Object.entries(pages)) manifest.pages[route] = { path: pageFilePath(route), bytes: Buffer.byteLength(body), sha256: sha(body) };
   // Understated, so the decoded body runs past the limit the manifest sets.
-  manifest.pages['/community'].bytes = 100;
+  manifest.pages['/community-hub'].bytes = 100;
   const body = JSON.stringify(manifest);
   const pointer: ContentPointer = { schema: CONTENT_SCHEMA, release, revision, manifestSha256: sha(body) };
   const server = createServer((request, response) => {
@@ -150,7 +150,7 @@ test('a gzipped page smaller than its own gzip still loads, and the decoded size
     const result = await withContentPage('/search', async () => ({ props: {} }), { bundledWhenUnpublished: true })({ revalidateReason: 'stale' });
     assert.ok('props' in result);
     assert.ok((await result.props as { __contentRelease?: unknown }).__contentRelease, 'the release page, not the builder');
-    await assert.rejects(async () => withContentPage('/community', async () => ({ props: {} }), { bundledWhenUnpublished: true })({ revalidateReason: 'stale' }), /too large/);
+    await assert.rejects(async () => withContentPage('/community-hub', async () => ({ props: {} }), { bundledWhenUnpublished: true })({ revalidateReason: 'stale' }), /too large/);
   } finally {
     for (const key of keys) { if (before[key] === undefined) delete process.env[key]; else process.env[key] = before[key]; }
     await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));

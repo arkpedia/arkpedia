@@ -54,7 +54,7 @@ const GLYPH_PLACES: { name: string; route: string; glyph: string; act?: (page: P
     await toggle.click();
     await expect(page.locator('.technique-table-branch-header').first()).toBeVisible();
   } },
-  { name: "the planner's roster", route: '/planner', glyph: '.wizard-class-chip [role="img"]', act: async (page) => {
+  { name: "the planner's roster", route: '/operator-planner', glyph: '.wizard-class-chip [role="img"]', act: async (page) => {
     await page.getByRole('tablist', { name: 'Planner mode' }).getByRole('tab', { name: 'Experimental' }).click();
     await page.getByRole('button', { name: 'Your roster', exact: true }).first().click();
     await expect(page.getByRole('group', { name: 'Class' }).first()).toBeVisible();

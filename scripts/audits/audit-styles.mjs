@@ -286,10 +286,10 @@ const CONTROL_ELEMENT = /^(?:button|select|textarea|input(?![^\s]*\[type=["']?(?
 const CONTROL_HEIGHT_EXEMPT = [
   // Not controls in a row.
   [/^styles\/gamemodes\/gamemodes\.css: [^{]*\.gm-co-/, 'the Stronghold companion: a dense play-beside-the-game window with its own compact scale (full-bleed by design; page-bounds excludes it too)'],
-  [/^styles\/gacha\/gacha\.css: \.gacha-action \{/, 'the /gacha X1/X10 pull row: the reference page keeps its 42px action row (docs/development/ui-primitives.md)'],
-  [/^styles\/gacha\/gacha\.css: \.gacha-(?:banner-sidebar-item|details-featured) \{/, 'the /gacha banner list and featured-operator cards: picture cards on the reference page, sized by their art'],
+  [/^styles\/gacha\/gacha\.css: \.gacha-action \{/, 'the /gacha-simulator X1/X10 pull row: the reference page keeps its 42px action row (docs/development/ui-primitives.md)'],
+  [/^styles\/gacha\/gacha\.css: \.gacha-(?:banner-sidebar-item|details-featured) \{/, 'the /gacha-simulator banner list and featured-operator cards: picture cards on the reference page, sized by their art'],
   [/^styles\/home\/front\.css: \.front-gacha-thumb \{/, 'the home banner thumbnails: pictures that switch the banner, sized by the art'],
-  [/^styles\/survey\/boxplot\.css: \.results-page \.results-chip \{/, 'the /results operator portraits: draggable picture tiles'],
+  [/^styles\/survey\/boxplot\.css: \.results-page \.results-chip \{/, 'the /polls/power-scale operator portraits: draggable picture tiles'],
   [/^styles\/recruitment\/recruitment\.css: \.recruit-selection button \{/, 'the five recruitment tag slots: a fixed grid of equal slots (an empty one is the same box) sized for a two-line tag name'],
   [/^styles\/games\/song-guesser\.module\.css: \.play \{/, "the music guesser's one big play button: the round's hero control, alone on its line"],
   [/^styles\/enemies\/enemies\.css: \.enemy-appear-option \{/, "a row in the enemy picker's menu: 40px like StyledSelect's own options, a menu row rather than a row control"],
@@ -299,7 +299,7 @@ const CONTROL_HEIGHT_EXEMPT = [
   // Boxed bare buttons (boxedClasses) that are not row controls.
   [/^styles\/farming\/farming\.css: \.farming-accordion-header \{/, "a /farming tier's disclosure header: a full-width row heading its tier, as a <summary> would be (left out above), not a control in a row"],
   [/^styles\/games\/guesser\.module\.css: \.clueTile \{/, "the operator guesser's hint tiles: a grid of tiles whose clue can run to two lines, not a row control"],
-  [/^styles\/survey\/boxplot\.css: \.stats-table-sort \{/, "the /results table's column sort buttons: sized with the table's header row, in cells beside header text, not a row of controls"],
+  [/^styles\/survey\/boxplot\.css: \.stats-table-sort \{/, "the /polls/power-scale table's column sort buttons: sized with the table's header row, in cells beside header text, not a row of controls"],
 ];
 /** A radius of 50% draws a circle, which is right only for an avatar, a dot, an image or
  *  a slider thumb; every control and surface takes a radius token (ui-primitives rule 10). */
@@ -514,8 +514,8 @@ function primitiveLayouts(cssFiles) {
 /* === r10 x-buttons: xButton =====================================================
    A close or remove × is components/ui/XButton (.btn-x): no border and no box at rest,
    a square hit area, a label it cannot be rendered without. Before it, main drew
-   twenty-one of them in seventeen sizes: bordered boxes of 30x44 (/pulls' goal rows),
-   50x40 (the /gacha dialogs) and 40x40 (the planner's import dialog), 44px-wide glyph
+   twenty-one of them in seventeen sizes: bordered boxes of 30x44 (/pull-planner's goal rows),
+   50x40 (the /gacha-simulator dialogs) and 40x40 (the planner's import dialog), 44px-wide glyph
    boxes as tall as their dialog heads, a 30x30 plan-row glyph squeezed to 8px wide on a
    phone, a 61x46 one, a literal "x" in a mono 12px, a popover close with no accessible
    name. The component is how a new one is written; this is how a hand-written one is
@@ -525,7 +525,7 @@ function primitiveLayouts(cssFiles) {
 const X_GLYPH = /^(?:[×✕✖✗xX]|&times;|&#(?:215|10005|10006|x[dD]7|x2715|x2716);|\{[^{}]*(['"`])(?:[×✕✖]|\\u00[dD]7|\\u271[56]|\\xd7)\1[^{}]*\})$/;
 /** A drawn ×: the player's close icon (components/music/TransportIcons), the ×
  *  buttons' own glyph (XGlyph, exported for the removable tab's span and for the two
- *  buttons that are a × in one state only: the mini player's collapse and the /community
+ *  buttons that are a × in one state only: the mini player's collapse and the /community-hub
  *  map's fullscreen toggle), or that glyph's path copied into a hand-written <svg> (the
  *  search field's clear was one). A button drawing one must carry .btn-x in its class
  *  list, in the state that shows it: the map's toggle shows only while a community event
@@ -622,7 +622,7 @@ function collect() {
       if (!SCALE.has(px)) out.fontSizes.push(`${file}: ${px}px`);
     }
     // The `font:` shorthand carries a size too (`font: 700 20px/1.1 var(--font-display)`):
-    // eight off-scale sizes on /pulls hid in it. The size is the first length before the
+    // eight off-scale sizes on /pull-planner hid in it. The size is the first length before the
     // family, optionally followed by /line-height; `font: inherit` and the like have none.
     for (const m of raw.matchAll(/(?<![-\w])font:\s*([^;}]+)/g)) {
       const size = fontShorthandPx(m[1]);

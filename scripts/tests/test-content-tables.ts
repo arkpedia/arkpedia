@@ -14,7 +14,7 @@ import { CONTENT_SCHEMA, type ContentManifest, type ContentPointer } from '../..
  * older release, no release -- with made-up tables, so nothing here moves with the data.
  */
 const sha = (value: string) => createHash('sha256').update(value).digest('hex');
-const ROUTE = '/planner';
+const ROUTE = '/operator-planner';
 const NAMES = pageTables(ROUTE);
 const bundledCopy = (name: string) => ({ from: 'deployment', name });
 function loaders(calls: string[]) {
@@ -58,7 +58,7 @@ async function withRelease(run: (publish: (props: Record<string, unknown>) => vo
 
 test('a page and lib/content/tables.mjs must name the same tables, or the page fails to load', () => {
   assert.ok(NAMES.length > 0);
-  assert.throws(() => withContentPage(ROUTE, async () => ({ props: {} })), /\/planner must pass a table loader for exactly/);
+  assert.throws(() => withContentPage(ROUTE, async () => ({ props: {} })), /\/operator-planner must pass a table loader for exactly/);
   assert.throws(() => withContentPage(ROUTE, async () => ({ props: {} }), { tables: { ...loaders([]), extra: async () => ({}) } }), /exactly/);
   assert.throws(() => withContentPage('/operators', async () => ({ props: {} }), { tables: { stray: async () => ({}) } }), /\(none\)/);
   assert.doesNotThrow(() => withContentPage(ROUTE, async () => ({ props: {} }), { tables: loaders([]) }));

@@ -43,7 +43,7 @@ test('artist and actor searches expand matching operator credits', async ({ page
   }
 });
 test('simple materials can show only shortages and select a subset without editing saved goals', async ({ page }) => {
-  await page.goto('/planner'); await seedPlanner(page, PLANNER_PLAN);
+  await page.goto('/operator-planner'); await seedPlanner(page, PLANNER_PLAN);
   await expect(page.getByRole('group', {name:'Which materials to show'})).toBeVisible();
   const before = await page.evaluate(() => localStorage.getItem('plannerState'));
   await page.getByText('View materials for selected goals', {exact:true}).click();
@@ -83,7 +83,7 @@ test('operator EP cold-starts playback and becomes first in the queue', async ({
   await expect.poll(async () => (await youtube(page))?.videoId).toBe(id);
 });
 test('World exposes all reference sections and source-linked community links', async ({page}) => {
-  await page.goto('/community');
+  await page.goto('/community-hub');
   for(const name of ['Offline Events','Web Events','YouTube','Twitch','Discord','Cosplayers','Fan-artists','Fan Musicians']) await expect(page.getByRole('tab',{name,exact:true})).toBeAttached();
   await page.getByRole('tab',{name:'Discord',exact:true}).click();
   await expect(page.getByRole('link',{name:/Cookie Squad/})).toHaveAttribute('href','https://discord.gg/kukkikaze');
@@ -92,7 +92,7 @@ test('World exposes all reference sections and source-linked community links', a
 });
 test('yellow cert budgets persist per month and show skipped months without spending them', async ({page}) => {
   await page.clock.setFixedTime(new Date('2026-10-08T12:00Z'));
-  await page.goto('/pulls');
+  await page.goto('/pull-planner');
   await page.getByRole('textbox',{name:'Yellow certs',exact:true}).fill('300');
   await page.getByRole('textbox',{name:'Until',exact:true}).fill('2027-01-15');
   await page.getByRole('checkbox',{name:'Yellow cert shop',exact:true}).check();
@@ -106,7 +106,7 @@ test('yellow cert budgets persist per month and show skipped months without spen
   await expect(page.getByRole('spinbutton',{name:'Yellow cert spending 2026-12'})).toHaveValue('68');
 });
 test('fully uncompleted OP presentation uses temporary completion and restores saved progress',async({page})=>{
-  await page.goto('/free-op');
+  await page.goto('/reward-tracker');
   const saved=await page.evaluate(()=>Object.fromEntries(Object.entries(localStorage)));
   await page.getByRole('checkbox',{name:'Fully uncompleted view',exact:true}).click();
   await expect(page.getByText('Presentation view. Your saved completion stays unchanged.')).toBeVisible();

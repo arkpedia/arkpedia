@@ -278,7 +278,7 @@ test('operator search and planner entry are usable', async ({ page }) => {
   await page.getByRole('searchbox', { name: 'Search operators' }).fill('Penance');
   await expect(page.getByRole('link', { name: /Penance/ }).first()).toBeVisible();
   await withinBounds(page);
-  await page.goto('/planner');
+  await page.goto('/operator-planner');
   await expect(page.getByRole('heading', { name: 'Operator Planner' })).toBeVisible();
   await page.getByPlaceholder('Search operators…').fill('Penance');
   await expect(page.getByRole('option', { name: /Penance/ }).first()).toBeVisible();
@@ -376,7 +376,7 @@ test('Stronghold Companion switches to a tab after Document PiP is refused', asy
       },
     });
   });
-  await page.goto('/gamemodes/stronghold-protocol');
+  await page.goto('/game-modes/stronghold-protocol');
   await page.getByRole('button', { name: 'On top' }).click();
   await expect(page.getByText('Always-on-top is unavailable in this browser.')).toBeVisible();
   await expect(page.getByRole('button', { name: 'New tab' })).toBeVisible();
