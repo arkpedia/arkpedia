@@ -1,342 +1,299 @@
-/* /techniques and /synergies. Both sit in the site's 1040px frame under a PageHeader
-   (they had a 1320px body of their own under a 1040px search row), use the primitive
-   .filter-chip for their filter rows and the global headings for their section names.
-   The 999px pills (.technique-filter-btn) went with the move to .filter-chip;
-   /obtain-method, which borrowed them, now has SegmentedControl rows of its own. */
+/* /techniques and /synergies (2026-10-23 redesign). Both are a grid of picture cards under
+   the /operators toolbar (its .roster-* rows, FilterSheet on a phone), each card opening its
+   record in a RecordDialog (components/techniques/*Record.tsx). The card says what the
+   technique or synergy is and shows who has it; the record holds every operator with the
+   text that earned the entry. The old pages were one long column of icon walls with a
+   table view per group. */
 
-/* The search field in the PageHeader's actions row. */
-.technique-search { flex: 1 1 320px; max-width: 480px; }
+/* --- the toolbar ------------------------------------------------------------------ */
 
-/* A row of .filter-chip buttons. Wraps on a desktop; on a phone it is one line that
-   scrolls sideways under the drawn .sidescroll bar -- 4,615px of chips in 342px was
-   cut mid-word with nothing to say the row went on. */
-.technique-chip-row { margin-bottom: 20px; }
-@media (max-width: 720px) {
-  .technique-chip-row {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    overscroll-behavior-x: contain;
-    padding-bottom: 6px;
-  }
-  .technique-chip-row > button { flex: none; }
-}
-.technique-umbrella-section > .technique-chip-row { margin-bottom: 0; }
+/* The source menu takes a fixed share of the filter row, as the roster's faction menu. */
+.technique-source-select { flex: 0 1 240px; min-width: 180px; }
+/* The Kind and Buff chips are words, not glyphs: their row takes the toolbar's width and
+   wraps, inline and in the phone's Filters sheet alike. */
+.technique-chip-row { width: 100%; }
 
-.technique-group-list {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-}
-.technique-umbrella-section {
-  --umbrella-gap: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: var(--umbrella-gap);
-  padding: 16px;
-  border: 1px solid var(--line-soft);
-  border-radius: var(--radius-frame);
-  background: var(--panel-2);
-  /* r11 quiet polish: a boxed panel's soft depth (docs/development/ui-primitives.md rule 23). */
-  box-shadow: var(--shadow-panel);
-}
-/* The canonical section heading (.op-section h2, --heading): the size and colour come
-   from shared.css. It was 20px teal, and teal means "on". The column's flex gap is part
-   of the --heading-gap under it (it measured 30px, and 22 to the description). */
-.technique-umbrella-section > .technique-umbrella-heading { margin: 0 0 calc(var(--heading-gap) - var(--umbrella-gap)); }
-.technique-umbrella-description {
-  font-size: 12px;
-  color: var(--text-dim);
+/* "12 of 64 techniques · operators: Caster" over the grid: what the filters left. */
+.technique-tally { margin: 0 0 12px; }
+
+/* --- the cards -------------------------------------------------------------------- */
+
+/* Three to a row in the 1040px frame, two at a tablet, one on a phone. */
+.technique-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 12px;
   margin: 0;
-  line-height: 1.4;
+  padding: 0;
+  list-style: none;
 }
-.technique-fragility-umbrella {
-  display: block;
-  text-decoration: none;
-  border: 1px solid var(--control-border);
-  border-radius: var(--radius);
-  padding: 14px 16px;
-  transition: border-color 0.15s, background 0.15s;
-}
-.technique-fragility-umbrella:hover {
-  border-color: var(--teal);
-  background: color-mix(in srgb, var(--teal) 5%, transparent);
-}
-.technique-group {
-  border-bottom: 1px solid var(--line-soft);
-  padding-bottom: 20px;
-}
-/* An h2 for a technique that stands alone (the canonical section heading) and
-   an h3 inside an umbrella (the global h3). Only the spacing is this page's: the
-   16px teal name it used to be was a heading style of its own, in the "on" colour.
-   The name sits in a heading row, which keeps --heading-gap under it (it was 4px). */
-.technique-group-name { margin: 0; }
-.technique-group-header-row {
+.technique-grid > li { display: flex; min-width: 0; }
+
+/* A picture card (ui-primitives rule 2): no resting border, the teal edge on hover and
+   keyboard focus, the .lift hover from motion.css. The portraits sit at the foot, so the
+   rows line up whatever the definition's length. */
+.technique-card {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  padding: 14px var(--card-inset) var(--card-inset);
+  border: 1px solid transparent;
+  border-radius: var(--radius-frame);
+  background: var(--panel-grad);
+  background-clip: padding-box;
+  color: var(--text);
+}
+.technique-card:hover,
+.technique-card:focus-visible { border-color: var(--teal); }
+.technique-card-eyebrow {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 14px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.technique-card-head {
+  display: flex;
+  align-items: baseline;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: var(--heading-gap);
+  margin-top: -4px;
 }
-.technique-group-header-row .technique-group-name {
-  margin-bottom: 0;
+/* The name of a thing on a card: the .op-name voice at the card's size. */
+.technique-card-name {
+  min-width: 0;
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+  color: var(--text-bright);
 }
-/* .ghost.btn-sm: the primitive's 32px, where the 24px override was under the
-   reference's tap target. */
-.technique-table-toggle { flex-shrink: 0; }
-/* /synergies: "Show all" / "Show less" beside the table toggle, above the list it
-   folds, so pressing it never moves it (the Anti-Page Jump rule). On a phone the pair
-   drops under the name rather than squeezing it. */
-.technique-group-actions {
+.technique-card-count {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text);
+}
+/* The unfiltered total beside what the filters left: "12/64". */
+.technique-card-of { font-size: 11px; color: var(--text-faint); }
+/* Two lines at most; the record has the rest. */
+.technique-card-definition {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-dim);
+}
+.technique-card > .technique-faces { margin-top: auto; padding-top: 4px; }
+
+/* --- operator portraits ----------------------------------------------------------- */
+
+.technique-faces {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-left: auto;
-}
-.technique-more { flex-shrink: 0; }
-@media (max-width: 560px) {
-  .technique-group-header-row:has(.technique-more) { flex-wrap: wrap; }
-}
-.technique-table-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 8px;
-}
-.technique-table-branch-section {
-  grid-column: 1 / -1;
-  border: 1px solid var(--line-soft);
-  border-radius: var(--radius);
+  flex-wrap: nowrap;
+  gap: 4px;
   overflow: hidden;
 }
-.technique-table-branch-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  background: var(--panel-2);
-  border-bottom: 1px solid var(--line-soft);
-  font-family: var(--font-display);
-  font-size: 13px;
-  color: var(--text);
-  font-weight: 600;
+/* The portrait over its rarity's bottom edge (.tier-N, arkpedia-theme.css). */
+.technique-face {
+  position: relative;
+  display: inline-block;
+  flex: none;
+  overflow: hidden;
+  border-radius: var(--radius-control);
+  background: var(--row-grad);
 }
-.technique-table-branch-operators {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  padding: 10px 12px;
-}
-.technique-table-row {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 8px;
-  border: 1px solid var(--line-soft);
-  border-radius: var(--radius);
-  background: var(--panel-2);
-}
-.technique-table-row-wrap {
-  grid-template-columns: 1fr;
-  grid-template-areas:
-    'operator'
-    'desc';
-  row-gap: 4px;
-}
-.technique-table-row-wrap .technique-table-operator {
-  grid-area: operator;
-}
-.technique-table-row-wrap .technique-table-desc-col {
-  grid-area: desc;
-}
-.technique-table-operator {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  text-decoration: none;
-  color: var(--text);
-  font-size: 12px;
-  white-space: nowrap;
-}
-.technique-table-operator img {
-  border-radius: var(--radius);
-}
-.technique-table-operator:hover { color: var(--teal); }
-.technique-table-icon-col {
-  display: flex;
+.technique-face > img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.technique-faces-more {
+  display: inline-flex;
+  flex: none;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  flex-shrink: 0;
-}
-.technique-table-desc-col {
+  padding: 0 4px;
+  border-radius: var(--radius-control);
+  background: var(--well);
+  font-family: var(--font-mono);
   font-size: 11px;
   color: var(--text-dim);
-  line-height: 1.4;
 }
-/* The matched words, in emphasis rather than in teal (teal is "on / current"). */
-.technique-table-highlight {
-  color: var(--text-bright);
-  font-weight: 700;
+
+/* --- /synergies' cards ------------------------------------------------------------- */
+
+/* A synergy's card carries its buff tags as well: a little more air between the lines. */
+.synergy-card { gap: 10px; }
+.synergy-card-head { display: flex; align-items: center; gap: 12px; }
+.synergy-card-title { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.synergy-card-reach { font-size: 11px; color: var(--text-faint); }
+/* The faction's emblem or the class glyph: white art as a mask in --text, on a well. */
+.synergy-emblem {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-control);
+  background: var(--well);
+  color: var(--text);
 }
-.technique-group-definition {
+.synergy-emblem-art {
+  display: block;
+  width: 78%;
+  height: 78%;
+  background-color: currentColor;
+  mask-position: center;
+  mask-size: contain;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  -webkit-mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+}
+.synergy-emblem-initial { font-family: var(--font-display); font-size: 22px; font-weight: 700; }
+/* What a synergy gives: data labels, not controls (no border, no teal). */
+.synergy-buffs { display: flex; flex-wrap: wrap; gap: 4px; }
+.synergy-buff {
+  padding: 1px 6px;
+  border-radius: var(--radius);
+  background: var(--well);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 16px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+/* --- the records (components/techniques/*Record.tsx in a RecordDialog) ------------ */
+
+.record-dialog.technique-record { width: min(880px, calc(100vw - 32px)); }
+@media (max-width: 700px) {
+  .record-dialog.technique-record { width: calc(100vw - 12px); }
+}
+.technique-record-eyebrow {
+  margin: 0 40px 4px 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 14px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--teal);
+}
+/* An .entity-title: the paint is core's, the place is the record's (clear of the ×). */
+.technique-record-title { margin: 0 40px 8px 0; }
+.technique-record-definition { margin: 0 0 10px; max-width: 680px; font-size: 13px; line-height: 1.55; color: var(--text-dim); }
+/* An umbrella's stacking rule, under the definition. */
+.technique-record-note {
+  margin: 0 0 10px;
+  padding: 8px 12px;
+  border-left: 2px solid var(--line);
+  background: var(--panel-dim);
   font-size: 12px;
+  line-height: 1.5;
   color: var(--text-dim);
-  margin: 0 0 12px;
-  max-width: 640px;
 }
-/* 64px tiles on an 8px gap: 13 to a row at the frame's 992px, where the 1320px body
-   fitted 14 at 72px on a 14px gap. */
-.technique-group-entries {
+.technique-record-note > b { color: var(--text); font-weight: 600; margin-right: 4px; }
+.technique-record-bar {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-}
-.technique-entry {
-  display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 4px;
-  width: 64px;
+  gap: 8px 20px;
+  margin: 14px 0 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.technique-record-count { font-family: var(--font-mono); font-size: 12px; color: var(--text); }
+/* The global h3 (a sub-section): only its place is the record's. */
+.technique-record-section { margin: 18px 0 8px; }
+
+/* Operators credited for their whole branch, by branch. */
+.technique-record-branches { display: flex; flex-direction: column; gap: 10px; margin: 4px 0 12px; }
+.technique-record-branch { padding: 10px 12px; border-radius: var(--radius-frame); background: var(--panel-dim); }
+.technique-record-branch-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px;
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+}
+.technique-record-branch-ops,
+.synergy-members {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 6px 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.technique-record-branch-op {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: var(--text);
+  font-size: 12px;
   text-decoration: none;
 }
-.technique-entry-icons {
-  position: relative;
-  width: 56px;
-  height: 56px;
+.technique-record-branch-op > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.technique-record-branch-op:hover { color: var(--teal); }
+
+/* One operator: who on the left, every source with its words on the right. */
+.technique-rows { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
+.technique-row {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line-soft);
 }
-.technique-entry-priority-badge {
-  position: absolute;
-  top: -6px;
-  right: -6px;
-  z-index: 1;
-  display: flex;
+.technique-row:last-child { border-bottom: 0; }
+.technique-row-op { display: flex; align-items: flex-start; gap: 10px; min-width: 0; color: var(--text); text-decoration: none; }
+.technique-row-op:hover .technique-row-name { color: var(--teal); }
+.technique-row-who { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.technique-row-name { font-family: var(--font-display); font-size: 15px; font-weight: 600; line-height: 1.2; color: var(--text-bright); }
+.technique-row-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; font-size: 11px; color: var(--text-dim); }
+/* The skill the operator's M3 recommendation names as its main one. */
+.technique-row-pick { align-self: flex-start; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--amber); }
+.technique-row-sources { display: flex; flex-direction: column; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.technique-source { min-width: 0; }
+.technique-source-tag { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.technique-source-icon { flex: none; border-radius: var(--radius); background: var(--well); }
+/* A talent's, the trait's or a module's short label where a skill shows its icon. */
+.technique-source-chip {
+  display: inline-flex;
+  flex: none;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  border: 2px solid var(--panel);
-  background: var(--panel-2);
-  font-size: 10px;
-  line-height: 1;
-}
-/* The operator's portrait is the link: no resting frame (maintainer, 2026-09-26), teal
-   on hover and keyboard focus. */
-.technique-entry-operator-icon {
-  border-radius: var(--radius-control);
-  border: 1px solid transparent;
-  transition: border-color 0.15s;
-}
-.technique-entry:hover .technique-entry-operator-icon,
-.technique-entry:focus-visible .technique-entry-operator-icon {
-  border-color: var(--teal);
-}
-.technique-entry-skill-icon {
-  position: absolute;
-  bottom: -4px;
-  right: -4px;
-  border-radius: 50%;
-  border: 2px solid var(--panel);
-  background: var(--panel-2);
-}
-.technique-entry-talent-label {
-  position: absolute;
-  bottom: -4px;
-  right: -4px;
-  min-width: 20px;
-  height: 20px;
+  min-width: 22px;
+  height: 22px;
   padding: 0 4px;
   border-radius: var(--radius);
-  border: 2px solid var(--panel);
-  background: var(--panel-2);
-  color: var(--text);
+  background: var(--well);
+  font-family: var(--font-mono);
   font-size: 10px;
   font-weight: 700;
-  font-family: var(--font-mono);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-/* Anchored at the icon's bottom-right and never wider than the tile: three or four
-   badges used to run left past the icon, and in the first column past the frame. More
-   than fit wrap upward instead. */
-.technique-entry-badge-row {
-  position: absolute;
-  bottom: -4px;
-  right: -4px;
-  max-width: calc(100% + 4px);
-  display: flex;
-  flex-direction: row-reverse;
-  flex-wrap: wrap-reverse;
-  align-items: center;
-  gap: 2px;
-}
-.technique-entry-badge-icon {
-  border-radius: 50%;
-  border: 1px solid var(--line-soft);
-  background: var(--panel-2);
-}
-/* A branch's badge: the disc of a skill's badge, holding the branch glyph as a mask in
-   --text (OperatorGameIcon), the 22px the <img> was. */
-.technique-entry-badge-branch {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
   color: var(--text);
 }
-/* 10px, the site's floor for micro type: these were 8px (798 characters on the page). */
-.technique-entry-badge-talent {
-  min-width: 18px;
-  height: 18px;
-  padding: 0 3px;
-  border-radius: var(--radius);
-  border: 1px solid var(--control-border);
-  background: var(--panel-2);
-  color: var(--text);
-  font-size: 10px;
-  font-weight: 700;
-  font-family: var(--font-mono);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.technique-entry-badge-overflow {
-  min-width: 18px;
-  height: 18px;
-  padding: 0 3px;
-  border-radius: var(--radius);
-  border: 1px solid var(--control-border);
-  background: var(--panel-2);
-  color: var(--text-bright);
-  font-size: 10px;
-  font-weight: 700;
-  font-family: var(--font-mono);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-/* Inside its 64px tile: names wrap, and a single long word ("Degenbrecher") is
-   hyphenated or broken rather than run past both edges -- in the first column it ran
-   past the frame. The full name is also the tooltip and in the link's label. */
-.technique-entry-name {
-  max-width: 100%;
-  overflow-wrap: break-word;
-  hyphens: auto;
-  font-size: 10px;
-  color: var(--text-dim);
-  text-align: center;
-  line-height: 1.2;
-}
-@media (min-width: 720px) {
-  .technique-table-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-@media (min-width: 1100px) {
-  .technique-table-grid {
-    grid-template-columns: repeat(3, 1fr);
-  }
+.technique-source-name { font-size: 12px; font-weight: 600; color: var(--text); }
+.technique-source-text { margin: 4px 0 0; font-size: 12px; line-height: 1.55; color: var(--text-dim); }
+/* The words the technique or synergy was found by, in emphasis rather than teal (teal is
+   "on / current"). */
+.technique-mark { color: var(--text-bright); font-weight: 700; }
+.synergy-source-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.synergy-record-head { display: flex; align-items: center; gap: 14px; margin-bottom: 8px; }
+.synergy-record-head .technique-record-title { margin-bottom: 0; }
+
+@media (max-width: 640px) {
+  .technique-row { grid-template-columns: minmax(0, 1fr); gap: 10px; }
 }

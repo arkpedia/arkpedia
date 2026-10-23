@@ -23,7 +23,8 @@ import { themeOf } from './layout-checks';
  * transparent ground. Drawn as an <img> they were white on the light theme's near-white:
  * /operators' class and branch chips and the class line under every card were blank
  * squares, and so were the operator page's synergy and technique glyphs and /techniques'
- * branch badges and branch tables; the planner's roster chips had an invert() filter of
+ * branch badges and branch tables (since 2026-10-23 its class chips and records, and
+ * /synergies' emblems); the planner's roster chips had an invert() filter of
  * their own. Every one is an OperatorGameIcon now,
  * a mask in the ink of the line it sits in (teal on a pressed chip). This visits every
  * place that draws one, in both themes, with each place's glyphs on screen (a class
@@ -46,14 +47,15 @@ const GLYPH_PLACES: { name: string; route: string; glyph: string; act?: (page: P
   { name: 'an operator whose technique names a branch', route: '/operators/Entelechia', glyph: '.op-skill-technique-icons-row [role="img"]', act: async (page) => {
     await page.getByRole('tablist', { name: 'Skill' }).first().getByRole('tab').nth(1).click();
   } },
-  { name: '/techniques (the branch badges)', route: '/techniques', glyph: '.technique-entry-badge-branch [role="img"]' },
-  { name: "/techniques with a branch's table shown", route: '/techniques', glyph: '.technique-table-branch-header [role="img"]', act: async (page) => {
-    // The first technique that lists operators by branch: its table heads each branch
-    // with the branch's glyph.
-    const toggle = page.locator('.technique-group', { has: page.locator('.technique-entry-badge-branch') }).first().locator('.technique-table-toggle');
-    await toggle.click();
-    await expect(page.locator('.technique-table-branch-header').first()).toBeVisible();
+  { name: '/techniques (the class chips)', route: '/techniques', glyph: '.roster-icon-chip [role="img"]' },
+  // Self-Sustain credits whole branches: its record heads each with the branch's glyph,
+  // and every operator's row carries its class and branch glyphs.
+  { name: "/techniques with a technique's record open", route: '/techniques?t=Self-Sustain', glyph: '.technique-record-branch-name [role="img"], .technique-row-meta [role="img"]', act: async (page) => {
+    await expect(page.locator('.technique-record-branch-name').first()).toBeVisible();
   } },
+  // A class card draws its class glyph (an icon), a faction card its emblem (a url() mask).
+  { name: '/synergies (the class glyphs)', route: '/synergies?type=class', glyph: '.synergy-emblem [role="img"]' },
+  { name: '/synergies (the faction emblems)', route: '/synergies?type=faction', glyph: '.synergy-emblem-art' },
   { name: "the planner's roster", route: '/operator-planner', glyph: '.wizard-class-chip [role="img"]', act: async (page) => {
     await page.getByRole('tablist', { name: 'Planner mode' }).getByRole('tab', { name: 'Experimental' }).click();
     await page.getByRole('button', { name: 'Your roster', exact: true }).first().click();

@@ -1,97 +1,83 @@
 import { withContentPage } from '@/lib/content/server';
 import { GetStaticProps } from 'next';
 import Head from 'next/head';
-import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
-import { useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useState } from 'react';
 import PageHeader from '@/components/ui/PageHeader';
 import SearchInput from '@/components/ui/SearchInput';
-import { useHeightFloor } from '@/components/ui/useHeightFloor';
-import { getAllOperators } from '@/lib/operators/operators';
-import { getSkillList } from '@/lib/operators/operatorTypes';
-import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
-import { getSkillIconPath } from '@/lib/operators/operatorIconPaths';
-import { SYNERGY_CLASS_NAMES, findSynergyMatches, isSynergyExcluded, findKeywordSpan } from '@/lib/techniques/synergyDetection';
-import { operatorBelongsToFaction } from '@/lib/operators/factionAliases';
-import { operatorHref } from '@/lib/operators/operatorHref';
-
-const PAGE_SIZE = 10;
-
-/** Wraps the genuine, word-boundary match of `keyword` within `text`
- * in a highlight span -- e.g. searching for "Guard" correctly skips
- * over "Vanguard" and finds the real, separate "Guard" mention
- * elsewhere in the text, rather than a plain substring search locking
- * onto "guard" embedded inside "Vanguard". */
-function highlightKeyword(text: string | null, keyword: string | null) {
-  if (!text) return null;
-  if (!keyword) return text;
-  const span = findKeywordSpan(text, keyword);
-  if (!span) return text;
-  const { start, end } = span;
-  return (
-    <>
-      {text.slice(0, start)}
-      <span className="technique-table-highlight">{text.slice(start, end)}</span>
-      {text.slice(end)}
-    </>
-  );
-}
-
-interface SynergyBadge {
-  label: string; // skill name, or "T1"/"T2" for talents
-  skillIconPath: string | null;
-  talentLabel: string | null;
-  sourceText: string | null;
-  matchedKeyword: string | null; // the faction/class name itself, for highlighting in the table view
-}
-
-interface SynergyOperatorEntry {
-  operatorName: string;
-  operatorIconPath: string;
-  rarity: number | null;
-  isContributor: boolean; // true if this operator's OWN skill/talent grants the buff to this faction/class
-  badges: SynergyBadge[]; // one per skill/talent that mentions the faction/class -- empty for non-contributor members
-}
-
-interface SynergyGroup {
-  name: string;
-  type: 'faction' | 'class';
-  entries: SynergyOperatorEntry[]; // contributors (rarity desc) first, then remaining members (rarity desc)
-}
+import SegmentedControl from '@/components/ui/SegmentedControl';
+import LoadOnScroll from '@/components/ui/LoadOnScroll';
+import FilterSheet, { INLINE_RESET, type ActiveFilter } from '@/components/ui/FilterSheet';
+import { useSwitchHold } from '@/components/ui/useSwitchHold';
+import OperatorFaces from '@/components/techniques/OperatorFaces';
+import SynergyEmblem from '@/components/techniques/SynergyEmblem';
+import SynergyRecord from '@/components/techniques/SynergyRecord';
+import { useQueryState } from '@/lib/hooks/useQueryState';
+import { matchesSearch } from '@/lib/search/searchNormalize';
+import { buildSynergyGroups, type SynergyGroup } from '@/lib/techniques/buildSynergyGroups';
+import { SYNERGY_BUFFS, synergyBuffs, type SynergyBuff } from '@/lib/techniques/synergyBuffs';
 
 interface Props {
   groups: SynergyGroup[];
+  /** Each faction's emblem where one is on file (a class draws its glyph). Releases
+   *  compiled before this have none; finalize fills them from the asset index. */
+  emblems: Record<string, string | null>;
 }
 
-export default function SynergiesPage({ groups }: Props) {
-  const [search, setSearch] = useState('');
-  const [showTableGroups, setShowTableGroups] = useState<Set<string>>(new Set());
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+const PAGE = 12;
 
-  function toggleTable(key: string) {
-    setShowTableGroups((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
+/** The buff kinds each of a group's contributors grants it, worked out from their texts
+ *  (lib/techniques/synergyBuffs.ts), so a release of any age can be filtered. */
+function giverBuffs(group: SynergyGroup): Map<string, Set<SynergyBuff>> {
+  return new Map(group.entries.filter((e) => e.isContributor).map((e) => [
+    e.operatorName,
+    new Set(e.badges.flatMap((b) => synergyBuffs(b.sourceText, b.matchedKeyword))),
+  ]));
+}
+
+export default function SynergiesPage({ groups, emblems }: Props) {
+  const [search, setSearch] = useQueryState('q');
+  const [typeRaw, setType] = useQueryState('type', 'all');
+  const [buffRaw, setBuff] = useQueryState('buff', 'all');
+  const [openName, setOpenName] = useQueryState('s');
+  const type = typeRaw === 'faction' || typeRaw === 'class' ? typeRaw : 'all';
+  const buff = (SYNERGY_BUFFS as readonly string[]).includes(buffRaw) ? buffRaw as SynergyBuff : 'all';
+
+  const buffsByGroup = useMemo(() => new Map(groups.map((g) => [g.name, giverBuffs(g)])), [groups]);
+  const buffs = useMemo(() => {
+    const present = new Set([...buffsByGroup.values()].flatMap((m) => [...m.values()].flatMap((s) => [...s])));
+    return SYNERGY_BUFFS.filter((b) => present.has(b));
+  }, [buffsByGroup]);
+
+  const query = search.trim();
+  /** Each faction or class left, with the contributors that grant the picked buff. */
+  const views = useMemo(() => groups.map((group) => {
+    const buffsOf = buffsByGroup.get(group.name)!;
+    const givers = group.entries.filter((e) => e.isContributor && (buff === 'all' || buffsOf.get(e.operatorName)!.has(buff)));
+    const tags = SYNERGY_BUFFS.filter((b) => givers.some((e) => buffsOf.get(e.operatorName)!.has(b)));
+    const hit = !query || matchesSearch(group.name, query) || group.entries.some((e) => matchesSearch(e.operatorName, query));
+    return { group, givers, tags, members: group.entries.length - group.entries.filter((e) => e.isContributor).length, hit };
+  }).filter((v) => v.hit && v.givers.length > 0 && (type === 'all' || v.group.type === type)), [groups, buffsByGroup, query, buff, type]);
+
+  const listKey = [query, type, buff].join('|');
+  const [shown, setShown] = useState({ key: listKey, count: PAGE });
+  const visible = shown.key === listKey ? shown.count : PAGE;
+
+  const hold = useSwitchHold('synergies');
+  const activeFilters: ActiveFilter[] = [
+    ...(type !== 'all' ? [{ key: 'type', label: type === 'class' ? 'Classes' : 'Factions', remove: () => setType('all') }] : []),
+    ...(buff !== 'all' ? [{ key: 'buff', label: buff, remove: () => setBuff('all') }] : []),
+  ];
+  function resetSheet() {
+    for (const filter of activeFilters) filter.remove();
   }
-  function toggleExpanded(key: string) {
-    setExpandedGroups((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
+  function resetFilters() {
+    setSearch('');
+    resetSheet();
   }
 
-  const filtered = useMemo(() => {
-    if (!search.trim()) return groups;
-    const q = search.trim().toLowerCase();
-    return groups.filter(
-      (g) => g.name.toLowerCase().includes(q) || g.entries.some((e) => e.operatorName.toLowerCase().includes(q))
-    );
-  }, [groups, search]);
+  const open = openName ? groups.find((g) => g.name === openName) ?? null : null;
+  const factions = groups.filter((g) => g.type === 'faction').length;
 
   return (
     <>
@@ -100,277 +86,95 @@ export default function SynergiesPage({ groups }: Props) {
         eyebrow={<><Link prefetch={false} href="/operators">Operators</Link>{' // Faction and class buffs'}</>}
         title="Synergies"
         sub={<>
-          Factions and classes that at least one operator&apos;s skill or talent grants a buff to. {groups.length} synergy
-          {groups.length === 1 ? '' : 'ies'} total.
+          {factions} factions and {groups.length - factions} classes that an operator&apos;s skill, talent or module buffs. Pick
+          one to see who grants what, and who it reaches.
         </>}
-        actions={
-          <SearchInput
-            className="technique-search"
-            label="Search synergies or operators"
-            placeholder="Search synergies or operators..."
-            value={search}
-            onChange={setSearch}
-          />
-        }
+        actions={<div className="roster-controls technique-controls">
+          <SearchInput className="roster-search" label="Search synergies or operators" name="synergy-search"
+            placeholder="Faction, class or operator…" value={search} onChange={setSearch} />
+          <FilterSheet controlsClassName="roster-controls technique-controls" active={activeFilters} onReset={resetSheet} hold={hold} controls={<>
+            <div className="roster-filter-row">
+              <SegmentedControl label="Show" value={type}
+                options={[{ value: 'all', label: 'All' }, { value: 'faction', label: 'Factions' }, { value: 'class', label: 'Classes' }]}
+                onChange={setType} />
+              <span className="toolbar-spacer" aria-hidden="true" />
+              <button type="button" className={`ghost ${INLINE_RESET}`} onClick={resetFilters}>Reset</button>
+            </div>
+            {/* Pick-one chips, as on /operators: pressing the lit one clears it. */}
+            <div className="roster-button-group technique-chip-row" role="group" aria-label="Buff">
+              {buffs.map((b) => (
+                <button type="button" key={b} className="filter-chip" aria-pressed={buff === b} onClick={() => setBuff(buff === b ? 'all' : b)}>
+                  {b}
+                </button>
+              ))}
+            </div>
+          </>} />
+        </div>}
       />
+
       <main>
-      <section className="op-section">
-        {filtered.length === 0 && <p className="hint">No synergy matches your search.</p>}
-
-        <div className="technique-group-list">
-          {filtered.map((group, index) => {
-            const key = `${group.type}-${group.name}`;
-            const listId = `synergy-group-${index}`;
-            const showTable = showTableGroups.has(key);
-            const contributors = group.entries.filter((e) => e.isContributor);
-            const expanded = expandedGroups.has(key);
-            const visibleEntries = expanded ? group.entries : group.entries.slice(0, PAGE_SIZE);
-            const hasMore = group.entries.length > PAGE_SIZE;
-
-            return (
-              <SynergyGroupFrame key={key} floorKey={key}>
-                <div className="technique-group-header-row">
-                  <h2 className="technique-group-name">
-                    {group.name} <span className="hint">({group.type})</span>
-                  </h2>
-                  <div className="technique-group-actions">
-                    {/* Up here beside the table toggle, not under the list: pressed
-                        there as "Show less", it took the rows above it out and moved
-                        up the screen with them, 264px at 1440 and 824px at 390 --
-                        off the top on a phone. Above the list, nothing it changes
-                        is above it (tests/browser/terminal-pages.spec.ts). */}
-                    {hasMore && !showTable && (
-                      <button type="button" className="ghost btn-sm technique-more" aria-expanded={expanded} aria-controls={listId} onClick={() => toggleExpanded(key)}>
-                        {expanded ? 'Show less' : `Show all (${group.entries.length})`}
-                      </button>
-                    )}
-                    <button type="button" className="ghost btn-sm technique-table-toggle" aria-pressed={showTable} onClick={() => toggleTable(key)}>
-                      {showTable ? 'Show icons' : 'Show table'}
+        <div ref={hold.ref} style={hold.style}>
+          {views.length === 0 ? (
+            <div className="waiting-box">
+              <h2>No synergy matches</h2>
+              <p className="hint">Try another search, or reset the filters.</p>
+            </div>
+          ) : (
+            <>
+              <p className="hint technique-tally">
+                {views.length === groups.length ? `All ${groups.length} synergies` : `${views.length} of ${groups.length} synergies`}
+                {buff !== 'all' && <> · granting {buff}</>}
+              </p>
+              <ul className="technique-grid">
+                {views.slice(0, visible).map(({ group, givers, tags, members }) => (
+                  <li key={`${group.type}-${group.name}`}>
+                    <button type="button" className="btn-bare technique-card synergy-card lift" aria-haspopup="dialog" onClick={() => setOpenName(group.name)}>
+                      <span className="synergy-card-head">
+                        <SynergyEmblem group={group} emblem={emblems[group.name] ?? null} size={40} />
+                        <span className="synergy-card-title">
+                          <span className="technique-card-eyebrow">{group.type === 'class' ? 'Class' : 'Faction'}</span>
+                          <span className="technique-card-name">{group.name}</span>
+                        </span>
+                      </span>
+                      <span className="synergy-buffs">
+                        {tags.map((t) => <span key={t} className="synergy-buff">{t}</span>)}
+                      </span>
+                      <span className="technique-card-definition">
+                        Granted by {givers.map((e) => e.operatorName).join(', ')}
+                      </span>
+                      <OperatorFaces faces={givers} max={7} />
+                      <span className="synergy-card-reach">
+                        {members > 0 ? `Reaches ${members} more ${group.type === 'class' ? group.name : 'member'}${members === 1 ? '' : 's'}` : 'Every member grants one'}
+                      </span>
                     </button>
-                  </div>
-                </div>
-
-                {showTable ? (
-                  <div className="technique-table-grid">
-                    {contributors.flatMap((e) =>
-                      e.badges.map((b, bi) => {
-                        const isLong = (b.sourceText?.length || 0) > 70;
-                        return (
-                          <div key={`${e.operatorName}-${bi}`} className={`technique-table-row${isLong ? ' technique-table-row-wrap' : ''}`}>
-                            <Link prefetch={false} href={operatorHref(e.operatorName, null)} className="technique-table-operator">
-                              <Image src={e.operatorIconPath} alt={e.operatorName} width={32} height={32} />
-                              <span>{e.operatorName}</span>
-                              {b.skillIconPath ? (
-                                <Image src={b.skillIconPath} alt={b.label} width={20} height={20} />
-                              ) : (
-                                <span className="technique-entry-badge-talent">{b.talentLabel}</span>
-                              )}
-                            </Link>
-                            <span className="technique-table-desc-col">{highlightKeyword(b.sourceText, b.matchedKeyword)}</span>
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
-                ) : (
-                  <>
-                    <div className="technique-group-entries" id={listId}>
-                      {visibleEntries.map((e) => {
-                        const MAX_VISIBLE_BADGES = 3;
-                        const overflow = e.badges.length > MAX_VISIBLE_BADGES;
-                        const visibleBadges = overflow ? e.badges.slice(0, MAX_VISIBLE_BADGES - 1) : e.badges;
-                        const overflowCount = e.badges.length - visibleBadges.length;
-                        return (
-                          <Link prefetch={false}
-                            key={e.operatorName}
-                            href={operatorHref(e.operatorName, null)}
-                            className="technique-entry"
-                            aria-label={e.isContributor ? `${e.operatorName} — ${e.badges.map((b) => b.label).join(', ')}` : e.operatorName}
-                          >
-                            <div className="technique-entry-icons">
-                              <Image
-                                src={e.operatorIconPath}
-                                alt={e.operatorName}
-                                width={56}
-                                height={56}
-                                className="technique-entry-operator-icon"
-                              />
-                              {e.badges.length > 0 && (
-                                <div className="technique-entry-badge-row">
-                                  {visibleBadges.map((b, bi) =>
-                                    b.skillIconPath ? (
-                                      <Image key={bi} src={b.skillIconPath} alt={b.label} width={22} height={22} className="technique-entry-badge-icon" />
-                                    ) : (
-                                      <span key={bi} className="technique-entry-badge-talent">
-                                        {b.talentLabel}
-                                      </span>
-                                    )
-                                  )}
-                                  {overflow && <span className="technique-entry-badge-overflow">+{overflowCount}</span>}
-                                </div>
-                              )}
-                            </div>
-                            <span className="technique-entry-name" title={e.operatorName}>{e.operatorName}</span>
-                          </Link>
-                        );
-                      })}
-                    </div>
-                  </>
-                )}
-              </SynergyGroupFrame>
-            );
-          })}
+                  </li>
+                ))}
+              </ul>
+              <LoadOnScroll shown={visible} total={views.length} onMore={() => setShown({ key: listKey, count: visible + PAGE })} />
+            </>
+          )}
         </div>
-      </section>
       </main>
+
+      {open && <SynergyRecord key={open.name} group={open} emblem={emblems[open.name] ?? null} onClose={() => setOpenName('')} />}
     </>
   );
 }
 
-/**
- * One synergy's block. A component of its own for the height floor: "Show table" and
- * "Show less" both shorten the block, and near the foot of the page that leaves the
- * document too short for the reader's scroll position -- the browser clamps it and
- * the button just pressed jumps down the screen. The floor holds what the position
- * needs and gives it back as the reader scrolls up (components/ui/useHeightFloor).
- */
-function SynergyGroupFrame({ floorKey, children }: { floorKey: string; children: ReactNode }) {
-  const floor = useHeightFloor(floorKey);
-  return (
-    <div className="technique-group" ref={floor.ref}>
-      {children}
-      {floor.spacer}
-    </div>
-  );
+/** A faction's emblem, where the asset index lists one; a class draws its glyph instead. */
+async function readEmblems(groups: SynergyGroup[]): Promise<Record<string, string | null>> {
+  const { getFactionIconPath } = await import('@/lib/operators/classBranchIcons');
+  const { servedAssetExists } = await import('@/lib/assets/publicAssets');
+  return Object.fromEntries(groups.filter((g) => g.type === 'faction').map((g) => {
+    const path = getFactionIconPath(g.name);
+    return [g.name, path && servedAssetExists(path) ? path : null];
+  }));
 }
 
-export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/synergies", async () => {
-  const operators = getAllOperators();
-
-  const factionNames = new Set<string>();
-  for (const op of operators) {
-    if (op.faction) factionNames.add(op.faction);
-    (op.umbrellaFactions || []).forEach((f) => factionNames.add(f));
-    (op.connectedFactions || []).forEach((f) => factionNames.add(f));
-  }
-  const allSearchNames: { name: string; type: 'faction' | 'class' }[] = [
-    ...Array.from(factionNames).map((name) => ({ name, type: 'faction' as const })),
-    ...SYNERGY_CLASS_NAMES.map((name) => ({ name, type: 'class' as const })),
-  ];
-
-  // groupKey -> operatorName -> entry
-  const groupMap = new Map<string, Map<string, SynergyOperatorEntry>>();
-
-  function addBadge(groupKey: string, op: { name: string }, operatorIconPath: string, rarity: number | null, badge: SynergyBadge) {
-    if (!groupMap.has(groupKey)) groupMap.set(groupKey, new Map());
-    const opMap = groupMap.get(groupKey)!;
-    if (!opMap.has(op.name)) opMap.set(op.name, { operatorName: op.name, operatorIconPath, rarity, isContributor: true, badges: [] });
-    opMap.get(op.name)!.badges.push(badge);
-  }
-
-  for (const op of operators) {
-    const operatorIconPath = getOperatorIconPath(op);
-
-    for (const skill of getSkillList(op)) {
-      const highestLevelText = skill.levels.length > 0 ? skill.levels[skill.levels.length - 1].description : null;
-      if (!highestLevelText) continue;
-      for (const { name, type, matchedTerm } of findSynergyMatches(highestLevelText, allSearchNames)) {
-        const groupKey = `${type}-${name}`;
-        if (isSynergyExcluded(groupKey, op.name)) continue;
-        addBadge(groupKey, op, operatorIconPath, op.rarity, {
-          label: skill.name || '',
-          skillIconPath: getSkillIconPath(op.name, skill.name),
-          talentLabel: null,
-          sourceText: highestLevelText,
-          matchedKeyword: matchedTerm,
-        });
-      }
-    }
-    (op.talents || []).forEach((talent, ti) => {
-      const lastRowText = talent.rows.length > 0 ? talent.rows[talent.rows.length - 1].description : null;
-      if (!lastRowText) return;
-      for (const { name, type, matchedTerm } of findSynergyMatches(lastRowText, allSearchNames)) {
-        const groupKey = `${type}-${name}`;
-        if (isSynergyExcluded(groupKey, op.name)) continue;
-        addBadge(groupKey, op, operatorIconPath, op.rarity, {
-          label: `T${ti + 1}`,
-          skillIconPath: null,
-          talentLabel: `T${ti + 1}`,
-          sourceText: lastRowText,
-          matchedKeyword: matchedTerm,
-        });
-      }
-    });
-
-    // Modules also get scanned, same as techniques.tsx does -- only
-    // Stage 1 ("New trait") and Stage 3 ("[Talent] improved"), Stage 2
-    // is skipped entirely. Greek letter inferred from the Upgrade-type
-    // module's own order (first = alpha, second = beta, ...), matching
-    // the same convention used there. Stage 3 checked before Stage 1
-    // so a technique matching both stages of the same module only
-    // badges once, against the higher stage.
-    const GREEK_LETTERS = ['α', 'β', 'γ', 'δ', 'ε'];
-    let upgradeModuleIndex = 0;
-    for (const mod of op.modules || []) {
-      if (mod.type !== 'Upgrade') continue;
-      const greekLetter = GREEK_LETTERS[upgradeModuleIndex] || `#${upgradeModuleIndex + 1}`;
-      upgradeModuleIndex++;
-      const orderedStages = [...mod.stages].sort((a, b) => (a.stage === 'Stage 3' ? -1 : 1) - (b.stage === 'Stage 3' ? -1 : 1));
-      const seenModuleGroupKeys = new Set<string>();
-      for (const s of orderedStages) {
-        if (s.stage !== 'Stage 1' && s.stage !== 'Stage 3') continue;
-        if (!s.effectText) continue;
-        for (const { name, type, matchedTerm } of findSynergyMatches(s.effectText, allSearchNames)) {
-          const groupKey = `${type}-${name}`;
-          if (isSynergyExcluded(groupKey, op.name)) continue;
-          if (seenModuleGroupKeys.has(groupKey)) continue; // already badged from this module's higher stage
-          seenModuleGroupKeys.add(groupKey);
-          addBadge(groupKey, op, operatorIconPath, op.rarity, {
-            label: `Module ${greekLetter} (${s.stage})`,
-            skillIconPath: null,
-            talentLabel: greekLetter,
-            sourceText: s.effectText,
-            matchedKeyword: matchedTerm,
-          });
-        }
-      }
-    }
-  }
-
-  // Add every remaining faction/class member who isn't already a
-  // contributor, so the group shows the full roster that benefits,
-  // not just the operator(s) granting the buff.
-  for (const { name, type } of allSearchNames) {
-    const groupKey = `${type}-${name}`;
-    if (!groupMap.has(groupKey)) continue; // no contributor found -- skip entirely, per "if there's a hit"
-    const opMap = groupMap.get(groupKey)!;
-    for (const op of operators) {
-      if (opMap.has(op.name)) continue;
-      if (isSynergyExcluded(groupKey, op.name)) continue;
-      // "Rhodes Island Recon" is itself an operator's name, whose own
-      // faction field is literally "Rhodes Island" -- but they aren't
-      // meant to be a synergy member of that faction.
-      if (op.name === 'Rhodes Island Recon' && groupKey === 'faction-Rhodes Island') continue;
-      const belongs = type === 'class' ? op.class === name : operatorBelongsToFaction(op, name);
-      if (!belongs) continue;
-      opMap.set(op.name, { operatorName: op.name, operatorIconPath: getOperatorIconPath(op), rarity: op.rarity, isContributor: false, badges: [] });
-    }
-  }
-
-  const groups: SynergyGroup[] = Array.from(groupMap.entries())
-    .map(([groupKey, opMap]) => {
-      const [type, ...nameParts] = groupKey.split('-');
-      const name = nameParts.join('-');
-      const entries = Array.from(opMap.values()).sort((a, b) => {
-        if (a.isContributor !== b.isContributor) return a.isContributor ? -1 : 1;
-        return (b.rarity ?? 0) - (a.rarity ?? 0);
-      });
-      return { name, type: type as 'faction' | 'class', entries };
-    })
-    .sort((a, b) => {
-      if (a.type !== b.type) return a.type === 'faction' ? -1 : 1;
-      return a.name.localeCompare(b.name);
-    });
-
-  return { props: { groups } };
+export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>('/synergies', async () => {
+  const groups = buildSynergyGroups();
+  return { props: { groups, emblems: await readEmblems(groups) } };
+}, {
+  // The asset index is compiled into the page, so a release of any age gets its emblems.
+  finalize: async (props) => (props.emblems ? props : { ...props, emblems: await readEmblems(props.groups) }),
 });

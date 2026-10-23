@@ -1,495 +1,258 @@
 import { withContentPage } from '@/lib/content/server';
 import { GetStaticProps } from 'next';
 import Head from 'next/head';
-import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useEffect, useMemo, useState } from 'react';
 import PageHeader from '@/components/ui/PageHeader';
-import OperatorGameIcon from '@/components/operators/OperatorGameIcon';
 import SearchInput from '@/components/ui/SearchInput';
-import { useHeightFloor } from '@/components/ui/useHeightFloor';
-import { UMBRELLA_MEMBERS, UMBRELLA_DESCRIPTIONS } from '@/lib/techniques/autoTechniques';
+import SegmentedControl from '@/components/ui/SegmentedControl';
+import StyledSelect from '@/components/ui/StyledSelect';
+import LoadOnScroll from '@/components/ui/LoadOnScroll';
+import FilterSheet, { INLINE_RESET, type ActiveFilter } from '@/components/ui/FilterSheet';
+import { useSwitchHold } from '@/components/ui/useSwitchHold';
+import OperatorGameIcon from '@/components/operators/OperatorGameIcon';
+import OperatorFaces from '@/components/techniques/OperatorFaces';
+import TechniqueRecord from '@/components/techniques/TechniqueRecord';
+import { sourceKind, type SourceKind } from '@/components/techniques/SourceTag';
+import { useQueryState } from '@/lib/hooks/useQueryState';
+import { matchesSearch } from '@/lib/search/searchNormalize';
+import { sortClasses } from '@/lib/operators/classOrder';
+import { getClassIconPath } from '@/lib/operators/classBranchIcons';
 import { buildTechniqueGroups, TechniqueGroup, TechniqueEntry } from '@/lib/techniques/buildTechniqueGroups';
-import { operatorHref } from '@/lib/operators/operatorHref';
-
-/** Wraps every case-insensitive occurrence of `keyword` within `text` in 
- * a highlight span, for the table view's "highlight the word that was
- * searched" requirement. Returns the plain text unchanged if there's no
- * keyword to highlight (manually-authored techniques, or branch-matched
- * entries where a keyword was never the reason for the match). */
-function highlightKeyword(text: string | null, keyword: string | null, keywordEnd: string | null) {
-  if (!text) return null;
-  if (!keyword) return text;
-  const lowerText = text.toLowerCase();
-  const idx = lowerText.indexOf(keyword.toLowerCase());
-  if (idx === -1) return text;
-  let start = idx;
-  let end = idx + keyword.length;
-  if (keywordEnd) {
-    const idxEnd = lowerText.indexOf(keywordEnd.toLowerCase());
-    if (idxEnd !== -1) {
-      // Take whichever match comes first as the span start, in case the
-      // "hp" word actually appears before the verb in the sentence
-      // (e.g. "Max HP recovers over time").
-      start = Math.min(idx, idxEnd);
-      end = Math.max(idx + keyword.length, idxEnd + keywordEnd.length);
-    }
-  }
-  // Expand outward to the full word boundaries around the span, so a
-  // keyword that's a substring of a longer word (e.g. "restore" inside
-  // "restores") highlights the whole word, not just the matched part.
-  while (start > 0 && /\w/.test(text[start - 1])) start--;
-  while (end < text.length && /\w/.test(text[end])) end++;
-  return (
-    <>
-      {text.slice(0, start)}
-      <span className="technique-table-highlight">{text.slice(start, end)}</span>
-      {text.slice(end)}
-    </>
-  );
-}
-
-/** For statPattern matches (DEF/RES/ATK/ASPD/Movement Speed/Hit Rate
- * Down): highlights matchedKeyword and matchedKeywordEnd as two
- * INDEPENDENT spans, not one continuous range -- the words between
- * them (e.g. "of enemies around the Curse Doll by") are never meant
- * to highlight, unlike Self-Sustain's full-span mode.
- *
- * Finds every occurrence of both keyword and keywordEnd, then picks
- * the CLOSEST pair -- not just the first occurrence of each
- * independently, which would wrongly grab an unrelated earlier
- * occurrence when the stat word appears multiple times in the same
- * text (e.g. Thumpy has "DEF +135%" early and the genuine "DEF...-30"
- * much later; naive indexOf finds the first "DEF", which isn't the
- * one detection actually matched). Also naturally handles the
- * reversed "-30% RES" order, since it doesn't assume keyword always
- * comes before keywordEnd. */
-function highlightTwoSeparately(text: string | null, keyword: string | null, keywordEnd: string | null) {
-  if (!text) return null;
-  if (!keyword) return text;
-  // Case-sensitive on purpose: keyword/keywordEnd are exact-case
-  // extracts from this very same text (guaranteed by per-level
-  // detection), so searching case-sensitively finds the genuine match
-  // instead of an earlier unrelated lowercase substring -- e.g. "def"
-  // inside "defined" would otherwise be found first and wrongly
-  // highlighted ahead of the real "DEF -35%" later in the sentence.
-  function allIndices(needle: string): number[] {
-    const out: number[] = [];
-    let i = -1;
-    while ((i = text!.indexOf(needle, i + 1)) !== -1) out.push(i);
-    return out;
-  }
-
-  const kwPositions = allIndices(keyword);
-  if (kwPositions.length === 0) return text;
-
-  function expandWord(start: number, length: number): [number, number] {
-    let s = start;
-    let e = start + length;
-    while (s > 0 && /\w/.test(text![s - 1])) s--;
-    while (e < text!.length && /\w/.test(text![e])) e++;
-    return [s, e];
-  }
-
-  if (!keywordEnd) {
-    const [s, e] = expandWord(kwPositions[0], keyword.length);
-    return (
-      <>
-        {text.slice(0, s)}
-        <span className="technique-table-highlight">{text.slice(s, e)}</span>
-        {text.slice(e)}
-      </>
-    );
-  }
-
-  const endPositions = allIndices(keywordEnd);
-  let best: { kp: number; ep: number; gap: number } | null = null;
-  for (const kp of kwPositions) {
-    for (const ep of endPositions) {
-      const gap = Math.abs(ep - kp);
-      if (!best || gap < best.gap) best = { kp, ep, gap };
-    }
-  }
-  if (!best) {
-    const [s, e] = expandWord(kwPositions[0], keyword.length);
-    return (
-      <>
-        {text.slice(0, s)}
-        <span className="technique-table-highlight">{text.slice(s, e)}</span>
-        {text.slice(e)}
-      </>
-    );
-  }
-
-  const [kwStart, kwEnd] = expandWord(best.kp, keyword.length);
-  const numStart = best.ep;
-  const numEnd = best.ep + keywordEnd.length; // numbers already have a natural boundary at the leading "-", no word-expansion needed
-
-  if (kwStart < numStart) {
-    return (
-      <>
-        {text.slice(0, kwStart)}
-        <span className="technique-table-highlight">{text.slice(kwStart, kwEnd)}</span>
-        {text.slice(kwEnd, numStart)}
-        <span className="technique-table-highlight">{text.slice(numStart, numEnd)}</span>
-        {text.slice(numEnd)}
-      </>
-    );
-  }
-  return (
-    <>
-      {text.slice(0, numStart)}
-      <span className="technique-table-highlight">{text.slice(numStart, numEnd)}</span>
-      {text.slice(numEnd, kwStart)}
-      <span className="technique-table-highlight">{text.slice(kwStart, kwEnd)}</span>
-      {text.slice(kwEnd)}
-    </>
-  );
-}
+import { TECHNIQUE_KINDS, techniqueKind } from '@/lib/techniques/techniqueKinds';
 
 interface Props {
   groups: TechniqueGroup[];
+  /** Each branch's class, for the Class filter: an entry names its branch, not its class.
+   *  Releases compiled before this have none; finalize fills it where the operators can be
+   *  read, and the filter hides where they cannot (an empty map). */
+  branchClasses: Record<string, string>;
 }
 
-/** Renders one technique group's content -- the group name/definition
- * header, the Show Table toggle, and either the icon-grid view or the
- * table view. Shared between standalone (non-umbrella) groups and
- * umbrella member groups, since both need identical rendering. */
-function TechniqueGroupCard({
-  group,
-  showTable,
-  onToggleTable,
-  level,
-}: {
-  group: TechniqueGroup;
-  showTable: boolean;
-  onToggleTable: () => void;
-  /** 2 for a technique that stands on its own in the list, 3 for one inside an
-   *  umbrella (whose own heading is the h2). Required: a standalone group drawn as
-   *  an h3 skips a level of the outline, and an umbrella member drawn as an h2 reads
-   *  as a sibling of its own umbrella. */
-  level: 2 | 3;
-}) {
-  /* Swapping the icon grid for the table (or back) can shorten this group by
-     hundreds of pixels; near the foot of the page that left the document too short
-     for the reader's scroll position, so the browser clamped it and the toggle just
-     pressed jumped 166px down the screen (806px on a phone). The floor holds what
-     the reader's position needs and hands it back as they scroll up. */
-  const floor = useHeightFloor(group.name);
-  const Heading = level === 2 ? 'h2' : 'h3';
-  return (
-    <div className="technique-group" ref={floor.ref}>
-      <div className="technique-group-header-row">
-        <Heading className="technique-group-name">{group.name}</Heading>
-        <button type="button" className="ghost btn-sm technique-table-toggle" aria-pressed={showTable} onClick={onToggleTable}>
-          {showTable ? 'Show icons' : 'Show table'}
-        </button>
-      </div>
-      {group.definition && <p className="technique-group-definition">{group.definition}</p>}
-      {showTable ? (
-        <div className="technique-table-grid">
-          {(() => {
-            const branchEntries = group.entries.filter((e) => e.viaBranch);
-            const normalEntries = group.entries.filter((e) => !e.viaBranch);
-            const branchGroups = new Map<string, TechniqueEntry[]>();
-            for (const e of branchEntries) {
-              const key = e.branchName || 'Unknown';
-              if (!branchGroups.has(key)) branchGroups.set(key, []);
-              branchGroups.get(key)!.push(e);
-            }
-            return (
-              <>
-                {Array.from(branchGroups.entries()).map(([branchName, entries]) => (
-                  <div key={branchName} className="technique-table-branch-section">
-                    <div className="technique-table-branch-header">
-                      {/* White art: a mask in the header's ink (OperatorGameIcon), or white
-                          on the light theme's panel. */}
-                      {entries[0].branchIconPath && <OperatorGameIcon src={entries[0].branchIconPath} label={branchName} size={20} />}
-                      <span>{branchName}</span>
-                    </div>
-                    <div className="technique-table-branch-operators">
-                      {entries.map((e) => (
-                        <Link prefetch={false} key={e.operatorName} href={operatorHref(e.operatorName, null)} className="technique-table-operator">
-                          <Image src={e.operatorIconPath} alt={e.operatorName} width={32} height={32} />
-                          <span>{e.operatorName}</span>
-                        </Link>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-                {normalEntries.flatMap((e) =>
-                  e.badges.map((b, bi) => {
-                    const isLong = (b.sourceText?.length || 0) > 70;
-                    return (
-                      <div key={`${e.operatorName}-${bi}`} className={`technique-table-row${isLong ? ' technique-table-row-wrap' : ''}`}>
-                        <Link prefetch={false} href={operatorHref(e.operatorName, null)} className="technique-table-operator">
-                          <Image src={e.operatorIconPath} alt={e.operatorName} width={32} height={32} />
-                          <span>{e.operatorName}</span>
-                          {b.skillIconPath ? (
-                            <Image src={b.skillIconPath} alt={b.label} width={20} height={20} />
-                          ) : (
-                            <span className="technique-entry-badge-talent">{b.talentLabel}</span>
-                          )}
-                        </Link>
-                        <span className="technique-table-desc-col">
-                          {b.highlightSeparately
-                            ? highlightTwoSeparately(b.sourceText, b.matchedKeyword, b.matchedKeywordEnd)
-                            : highlightKeyword(b.sourceText, b.matchedKeyword, b.matchedKeywordEnd)}
-                        </span>
-                      </div>
-                    );
-                  })
-                )}
-              </>
-            );
-          })()}
-        </div>
-      ) : (
-        <div className="technique-group-entries">
-          {group.entries.map((e, i) => {
-            const MAX_VISIBLE_BADGES = 3;
-            const overflow = e.badges.length > MAX_VISIBLE_BADGES;
-            const visibleBadges = overflow ? e.badges.slice(0, MAX_VISIBLE_BADGES - 1) : e.badges;
-            const overflowCount = e.badges.length - visibleBadges.length;
-            return (
-              <Link prefetch={false}
-                key={`${e.operatorName}-${i}`}
-                href={operatorHref(e.operatorName, null)}
-                className="technique-entry"
-                aria-label={`${e.operatorName} — ${e.badges.map((b) => b.label).join(', ')}`}
-              >
-                <div className="technique-entry-icons">
-                  <Image src={e.operatorIconPath} alt={e.operatorName} width={56} height={56} className="technique-entry-operator-icon" />
-                  {e.hasM3MainPriority && (
-                    <span className="technique-entry-priority-badge" aria-label="M3 main priority">
-                      👍
-                    </span>
-                  )}
-                  {e.viaBranch ? (
-                    e.branchIconPath && (
-                      <div className="technique-entry-badge-row">
-                        {/* The branch glyph is white art: a mask in the disc's ink, where an
-                            <img> was white on the light theme's disc. */}
-                        <span className="technique-entry-badge-icon technique-entry-badge-branch">
-                          <OperatorGameIcon src={e.branchIconPath} label={e.branchName ?? 'Branch'} size={20} />
-                        </span>
-                      </div>
-                    )
-                  ) : (
-                    e.badges.length > 0 && (
-                      <div className="technique-entry-badge-row">
-                        {visibleBadges.map((b, bi) =>
-                          b.skillIconPath ? (
-                            <Image key={bi} src={b.skillIconPath} alt={b.label} width={22} height={22} className="technique-entry-badge-icon" />
-                          ) : (
-                            <span key={bi} className="technique-entry-badge-talent">
-                              {b.talentLabel}
-                            </span>
-                          )
-                        )}
-                        {overflow && <span className="technique-entry-badge-overflow">+{overflowCount}</span>}
-                      </div>
-                    )
-                  )}
-                </div>
-                <span className="technique-entry-name" title={e.operatorName}>{e.operatorName}</span>
-              </Link>
-            );
-          })}
-        </div>
-      )}
-      {floor.spacer}
-    </div>
-  );
-}
+/** How many cards render before the list grows on scroll (components/ui/LoadOnScroll). */
+const PAGE = 12;
 
-export default function TechniquesPage({ groups }: Props) {
+const SOURCES: { value: 'all' | SourceKind; label: string }[] = [
+  { value: 'all', label: 'Any source' },
+  { value: 'skill', label: 'From a skill' },
+  { value: 'talent', label: 'From a talent' },
+  { value: 'trait', label: 'From the trait or branch' },
+  { value: 'module', label: 'From a module' },
+];
+
+type Sort = 'kind' | 'count' | 'name';
+
+export default function TechniquesPage({ groups, branchClasses }: Props) {
   const router = useRouter();
-  const [search, setSearch] = useState('');
-  const [showTableGroups, setShowTableGroups] = useState<Set<string>>(new Set());
-  const [activeFilter, setActiveFilter] = useState<string>('all');
-  // Per-umbrella sub-filter -- e.g. within Statuses, further narrow
-  // down to just "Bind" or "Slow" etc. Keyed by umbrella name; missing
-  // entries default to 'all'.
-  const [umbrellaSubFilters, setUmbrellaSubFilters] = useState<Record<string, string>>({});
+  const [search, setSearch] = useQueryState('q');
+  const [kindFilter, setKindFilter] = useQueryState('kind', 'all');
+  const [rarityFilter, setRarityFilter] = useQueryState('rarity', 'all');
+  const [classFilter, setClassFilter] = useQueryState('class', 'all');
+  const [sourceRaw, setSource] = useQueryState('from', 'all');
+  const [sortRaw, setSort] = useQueryState('sort', 'kind');
+  const [openName, setOpenName] = useQueryState('t');
+  const source = SOURCES.some((s) => s.value === sourceRaw) ? sourceRaw as 'all' | SourceKind : 'all';
+  const sort: Sort = sortRaw === 'count' || sortRaw === 'name' ? sortRaw : 'kind';
 
-  // Deep-link support -- a link like /techniques?q=Burn (e.g. from the
-  // "See more" box on an operator's own page) lands already filtered
-  // to that specific technique, via the same search box a normal user
-  // would type into. router.isReady guards against reading query
-  // params before Next.js has actually parsed them on first render.
+  // A link like /techniques?q=Burn (the "See more" on an operator's page, an enemy's status
+  // popover) names one technique: open its record, with the list searched to it behind.
   useEffect(() => {
-    if (!router.isReady) return;
-    const q = router.query.q;
-    if (typeof q === 'string' && q) setSearch(q);
-  }, [router.isReady, router.query.q]);
+    if (!router.isReady || typeof router.query.t === 'string') return;
+    const q = typeof router.query.q === 'string' ? router.query.q.trim().toLowerCase() : '';
+    const named = q && groups.find((g) => g.name.toLowerCase() === q);
+    if (named) setOpenName(named.name);
+    // Once, when the address is first read; the setter is stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router.isReady]);
 
-  function setUmbrellaSubFilter(umbrellaName: string, value: string) {
-    setUmbrellaSubFilters((prev) => ({ ...prev, [umbrellaName]: value }));
-  }
-
-  function toggleTable(name: string) {
-    setShowTableGroups((prev) => {
-      const next = new Set(prev);
-      if (next.has(name)) next.delete(name);
-      else next.add(name);
-      return next;
-    });
-  }
-
-  const searched = useMemo(() => {
-    if (!search.trim()) return groups;
-    const q = search.trim().toLowerCase();
-    return groups.filter(
-      (g) => g.name.toLowerCase().includes(q) || g.entries.some((e) => e.operatorName.toLowerCase().includes(q))
-    );
-  }, [groups, search]);
-
-  // Filter buttons: one per umbrella (that has data) + one per
-  // standalone (non-umbrella-member) technique -- not one per umbrella
-  // MEMBER, since clicking the umbrella button reveals all its members
-  // at once rather than needing a button per sub-category.
-  const filterButtonNames = useMemo(() => {
-    const umbrellasWithData = new Set(groups.filter((g) => g.umbrellaNames.length > 0).flatMap((g) => g.umbrellaNames));
-    const standaloneNames = groups.filter((g) => g.umbrellaNames.length === 0).map((g) => g.name);
-    return [...Array.from(umbrellasWithData), ...standaloneNames].sort((a, b) => a.localeCompare(b));
+  const classes = useMemo(() => sortClasses(Object.values(branchClasses)), [branchClasses]);
+  const rarities = useMemo(
+    () => Array.from(new Set(groups.flatMap((g) => g.entries.map((e) => e.rarity)).filter((r): r is number => r != null))).sort((a, b) => b - a),
+    [groups],
+  );
+  const kinds = useMemo(() => {
+    const present = new Set(groups.map((g) => techniqueKind(g.name, g.umbrellaNames)));
+    return TECHNIQUE_KINDS.filter((k) => present.has(k));
   }, [groups]);
 
-  // Groups the (already search-filtered) list into display blocks: an
-  // umbrella block bundles its member groups together under one
-  // heading (in the umbrella's canonical member order), a standalone
-  // block is just the one group. Sorted by block name so umbrella
-  // blocks interleave alphabetically with standalone technique names,
-  // same as before.
-  interface DisplayBlock {
-    blockName: string;
-    isUmbrella: boolean;
-    memberGroups: TechniqueGroup[];
+  const query = search.trim();
+  /** Every technique with the operators the filters leave on it; one that keeps none drops. */
+  const views = useMemo(() => {
+    const keeps = (e: TechniqueEntry) =>
+      (rarityFilter === 'all' || String(e.rarity) === rarityFilter)
+      && (classFilter === 'all' || branchClasses[e.branchName ?? ''] === classFilter)
+      && (source === 'all' || (e.viaBranch ? source === 'trait' : e.badges.some((b) => sourceKind(b) === source)));
+    const out = groups.map((group) => {
+      const kind = techniqueKind(group.name, group.umbrellaNames);
+      const nameHit = !query || matchesSearch(group.name, query);
+      const shown = group.entries.filter((e) => keeps(e) && (nameHit || matchesSearch(e.operatorName, query)));
+      return { group, kind, shown, nameHit };
+    }).filter((v) => v.shown.length > 0 && (kindFilter === 'all' || v.kind === kindFilter));
+    const byName = (a: typeof out[number], b: typeof out[number]) => a.group.name.localeCompare(b.group.name);
+    const byCount = (a: typeof out[number], b: typeof out[number]) => b.shown.length - a.shown.length || byName(a, b);
+    return out.sort(sort === 'name' ? byName : sort === 'count' ? byCount
+      : (a, b) => TECHNIQUE_KINDS.indexOf(a.kind) - TECHNIQUE_KINDS.indexOf(b.kind) || byCount(a, b));
+  }, [groups, branchClasses, query, kindFilter, rarityFilter, classFilter, source, sort]);
+
+  // The list grows as it is read, from its first batch again whenever the filters change.
+  const listKey = [query, kindFilter, rarityFilter, classFilter, source, sort].join('|');
+  const [shown, setShown] = useState({ key: listKey, count: PAGE });
+  const visible = shown.key === listKey ? shown.count : PAGE;
+
+  const totalOperators = useMemo(() => new Set(groups.flatMap((g) => g.entries.map((e) => e.operatorName))).size, [groups]);
+  const operatorFilters = [
+    rarityFilter !== 'all' ? `${rarityFilter}★` : null,
+    classFilter !== 'all' ? classFilter : null,
+    source !== 'all' ? SOURCES.find((s) => s.value === source)!.label.replace(/^From (a |the )?/, '') : null,
+  ].filter(Boolean) as string[];
+
+  // The phone's Filters sheet: a chip per filter that is on, and a hold over the list so a
+  // filter pressed in the sheet cannot clamp the reader (the Anti-Page Jump rule).
+  const hold = useSwitchHold('techniques');
+  const activeFilters: ActiveFilter[] = [
+    ...(kindFilter !== 'all' ? [{ key: 'kind', label: kindFilter, remove: () => setKindFilter('all') }] : []),
+    ...(rarityFilter !== 'all' ? [{ key: 'rarity', label: `${rarityFilter}★`, remove: () => setRarityFilter('all') }] : []),
+    ...(classFilter !== 'all' ? [{ key: 'class', label: classFilter, remove: () => setClassFilter('all') }] : []),
+    ...(source !== 'all' ? [{ key: 'from', label: SOURCES.find((s) => s.value === source)!.label, remove: () => setSource('all') }] : []),
+  ];
+  function resetSheet() {
+    for (const filter of activeFilters) filter.remove();
+  }
+  function resetFilters() {
+    setSearch('');
+    resetSheet();
   }
 
-  const blocks: DisplayBlock[] = useMemo(() => {
-    const byName = new Map<string, TechniqueGroup>(searched.map((g) => [g.name, g]));
-    const umbrellaBlocks: DisplayBlock[] = Object.entries(UMBRELLA_MEMBERS)
-      .map(([umbrella, members]) => ({
-        blockName: umbrella,
-        isUmbrella: true,
-        memberGroups: members.map((m) => byName.get(m)).filter((g): g is TechniqueGroup => !!g && g.entries.length > 0),
-      }))
-      .filter((b) => b.memberGroups.length > 0);
-    const standaloneBlocks: DisplayBlock[] = searched
-      .filter((g) => g.umbrellaNames.length === 0)
-      .map((g) => ({ blockName: g.name, isUmbrella: false, memberGroups: [g] }));
-    return [...umbrellaBlocks, ...standaloneBlocks].sort((a, b) => a.blockName.localeCompare(b.blockName));
-  }, [searched]);
-
-  const displayBlocks = activeFilter === 'all' ? blocks : blocks.filter((b) => b.blockName === activeFilter);
-
-  const chip = (on: boolean) => ({ type: 'button' as const, className: 'filter-chip', 'aria-pressed': on });
+  const open = openName ? views.find((v) => v.group.name === openName) ?? null : null;
+  const openGroup = open?.group ?? (openName ? groups.find((g) => g.name === openName) ?? null : null);
 
   return (
     <>
       <Head><title>Techniques — Arkpedia</title></Head>
       <PageHeader
-        /* The crumb is the way back to the roster (it was a separate back button
-           beside the search, in a second 1040px frame over a 1320px body). */
         eyebrow={<><Link prefetch={false} href="/operators">Operators</Link>{' // Skill effects'}</>}
         title="Techniques"
         sub={<>
-          Every named technique across every operator&apos;s skills, grouped by name. {groups.length} technique
-          {groups.length === 1 ? '' : 's'} total.
+          {groups.length} techniques across {totalOperators} operators&apos; skills, talents, traits and modules. Pick one
+          to see who has it, and where.
         </>}
-        actions={
-          <SearchInput
-            className="technique-search"
-            label="Search techniques or operators"
-            placeholder="Search techniques or operators..."
-            value={search}
-            onChange={setSearch}
-          />
-        }
-      />
-      <main>
-      <section className="op-section">
-        {/* Independent of the search, so chips rather than a SegmentedControl: "Show
-            all" also clears the search, which a pick-one control would ignore when it
-            is already the current option. On a phone the row scrolls sideways under
-            the drawn bar, which is what says it scrolls. */}
-        <div className="seg-control technique-chip-row sidescroll" role="group" aria-label="Technique">
-          <button
-            {...chip(activeFilter === 'all')}
-            onClick={() => {
-              setActiveFilter('all');
-              setSearch('');
-            }}
-          >
-            Show all
-          </button>
-          {filterButtonNames.map((name) => (
-            <button key={name} {...chip(activeFilter === name)} onClick={() => setActiveFilter(name)}>
-              {name}
-            </button>
-          ))}
-        </div>
-
-        {displayBlocks.length === 0 && <p className="hint">No technique matches your search.</p>}
-
-        <div className="technique-group-list">
-          {displayBlocks.map((block) =>
-            block.isUmbrella ? (
-              <div key={block.blockName} className="technique-umbrella-section">
-                <h2 className="technique-umbrella-heading">{block.blockName}</h2>
-                {UMBRELLA_DESCRIPTIONS[block.blockName] && (
-                  <p className="technique-umbrella-description">{UMBRELLA_DESCRIPTIONS[block.blockName]}</p>
-                )}
-                <div className="seg-control technique-chip-row sidescroll" role="group" aria-label={`${block.blockName}: show`}>
-                  <button
-                    {...chip((umbrellaSubFilters[block.blockName] || 'all') === 'all')}
-                    onClick={() => setUmbrellaSubFilter(block.blockName, 'all')}
-                  >
-                    All
+        actions={<div className="roster-controls technique-controls">
+          <SearchInput className="roster-search" label="Search techniques or operators" name="technique-search"
+            placeholder="Technique or operator…" value={search} onChange={setSearch} />
+          <FilterSheet controlsClassName="roster-controls technique-controls" active={activeFilters} onReset={resetSheet} hold={hold} controls={<>
+            {/* Independent pick-one chips, as on /operators: pressing the lit one clears it. */}
+            <div className="roster-button-group technique-chip-row" role="group" aria-label="Kind">
+              {kinds.map((k) => (
+                <button type="button" key={k} className="filter-chip" aria-pressed={kindFilter === k}
+                  onClick={() => setKindFilter(kindFilter === k ? 'all' : k)}>
+                  {k}
+                </button>
+              ))}
+            </div>
+            <div className="roster-rarity-class-row">
+              <div className="roster-button-group" role="group" aria-label="Rarity">
+                {rarities.map((r) => (
+                  <button type="button" key={r} className="filter-chip" aria-label={`${r}-star`} aria-pressed={rarityFilter === String(r)}
+                    onClick={() => setRarityFilter(rarityFilter === String(r) ? 'all' : String(r))}>
+                    {r}★
                   </button>
-                  {block.memberGroups.map((group) => (
-                    <button
-                      key={group.name}
-                      {...chip(umbrellaSubFilters[block.blockName] === group.name)}
-                      onClick={() => setUmbrellaSubFilter(block.blockName, group.name)}
-                    >
-                      {group.name}
-                    </button>
-                  ))}
-                </div>
-                {block.memberGroups
-                  .filter((group) => (umbrellaSubFilters[block.blockName] || 'all') === 'all' || umbrellaSubFilters[block.blockName] === group.name)
-                  .map((group) => (
-                    <TechniqueGroupCard
-                      key={group.name}
-                      group={group}
-                      level={3}
-                      showTable={showTableGroups.has(group.name)}
-                      onToggleTable={() => toggleTable(group.name)}
-                    />
-                  ))}
+                ))}
               </div>
-            ) : (
-              <TechniqueGroupCard
-                key={block.blockName}
-                group={block.memberGroups[0]}
-                level={2}
-                showTable={showTableGroups.has(block.blockName)}
-                onToggleTable={() => toggleTable(block.blockName)}
-              />
-            )
+              {classes.length > 0 && (
+                <div className="roster-button-group" role="group" aria-label="Class">
+                  {classes.map((c) => {
+                    const icon = getClassIconPath(c);
+                    return (
+                      <button type="button" key={c} className="filter-chip roster-icon-chip" aria-label={c} aria-pressed={classFilter === c}
+                        onClick={() => setClassFilter(classFilter === c ? 'all' : c)}>
+                        {icon && <OperatorGameIcon src={icon} label={c} size={24} />}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+            <div className="roster-filter-row">
+              <StyledSelect className="technique-source-select" label="Where the operator has it" value={source}
+                options={SOURCES} onChange={(v) => setSource(v)} />
+              <span className="toolbar-spacer" aria-hidden="true" />
+              <SegmentedControl label="Sort by" value={sort}
+                options={[{ value: 'kind', label: 'Kind' }, { value: 'count', label: 'Most operators' }, { value: 'name', label: 'A–Z' }]}
+                onChange={setSort} />
+              <button type="button" className={`ghost ${INLINE_RESET}`} onClick={resetFilters}>Reset</button>
+            </div>
+          </>} />
+        </div>}
+      />
+
+      <main>
+        <div ref={hold.ref} style={hold.style}>
+          {views.length === 0 ? (
+            <div className="waiting-box">
+              <h2>No technique matches</h2>
+              <p className="hint">Try another search, or reset the filters.</p>
+            </div>
+          ) : (
+            <>
+              <p className="hint technique-tally">
+                {views.length === groups.length ? `All ${groups.length} techniques` : `${views.length} of ${groups.length} techniques`}
+                {operatorFilters.length > 0 && <> · operators: {operatorFilters.join(' · ')}</>}
+              </p>
+              <ul className="technique-grid">
+                {views.slice(0, visible).map(({ group, kind, shown: ops }) => (
+                  <li key={group.name}>
+                    <button type="button" className="btn-bare technique-card lift" aria-haspopup="dialog" onClick={() => setOpenName(group.name)}>
+                      <span className="technique-card-eyebrow">{[kind, ...group.umbrellaNames].join(' · ')}</span>
+                      <span className="technique-card-head">
+                        <span className="technique-card-name">{group.name}</span>
+                        <span className="technique-card-count">
+                          {ops.length}{ops.length < group.entries.length && <span className="technique-card-of">/{group.entries.length}</span>}
+                          <span className="visually-hidden"> operators</span>
+                        </span>
+                      </span>
+                      {group.definition && <span className="technique-card-definition">{group.definition}</span>}
+                      <OperatorFaces faces={ops} max={7} />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              <LoadOnScroll shown={visible} total={views.length} onMore={() => setShown({ key: listKey, count: visible + PAGE })} />
+            </>
           )}
         </div>
-      </section>
       </main>
+
+      {openGroup && (
+        <TechniqueRecord
+          key={openGroup.name}
+          group={openGroup}
+          kind={techniqueKind(openGroup.name, openGroup.umbrellaNames)}
+          shown={open?.shown ?? []}
+          filterSummary={(() => {
+            const parts = [...operatorFilters, ...(query && open && !open.nameHit ? [`“${query}”`] : [])];
+            return parts.length && open ? parts.join(' · ') : null;
+          })()}
+          branchClasses={branchClasses}
+          onClose={() => setOpenName('')}
+        />
+      )}
     </>
   );
 }
 
+/** Each branch's class, from the roster. */
+async function readBranchClasses(): Promise<Record<string, string>> {
+  const { getAllOperators } = await import('@/lib/operators/operators');
+  const out: Record<string, string> = {};
+  for (const op of getAllOperators()) if (op.branch && op.class) out[op.branch] = op.class;
+  return out;
+}
 
-export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/techniques", async () => {
-  const groups = buildTechniqueGroups();
-  return { props: { groups } };
+export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>('/techniques', async () => {
+  return { props: { groups: buildTechniqueGroups(), branchClasses: await readBranchClasses() } };
+}, {
+  // A release compiled before the Class filter has no branchClasses: read them where the
+  // roster is on disk, else leave the map empty and the filter hidden.
+  finalize: async (props) => (props.branchClasses ? props : { ...props, branchClasses: await readBranchClasses().catch(() => ({})) }),
 });
