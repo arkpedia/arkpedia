@@ -53,6 +53,18 @@ To act on a suggestion, first merge data main into the editorial branch (`git fe
 
 yt-dlp is pinned in `scripts/content/requirements.txt`, with UnityPy and lz4, and Dependabot proposes a bump weekly. When YouTube changes its pages, an old yt-dlp lists nothing: the stage logs the version it ran with (`yt-dlp 2026.08.19`) and holds every channel whose feed failed too. Take the bump, or raise the pin by hand to the latest release on PyPI.
 
+## Event PVs
+
+An event page's PVs tab (`components/events/EventVideos.tsx`) shows the event's official videos from `data/event-videos.json`. The `official-videos` stage (`scripts/sync/sync-official-videos.mjs`) writes it on every refreshing content run; `scripts/sync/event-videos.mjs` holds the rules. Three files in arkpedia-data `source/data/` feed it:
+
+- `official-video-channels.json`, kept by hand: the official YouTube channels, in the order they are preferred. Global's (Arknights Official - Yostar) is read; Japan's and Korea's are listed with `"use": false` until their titles have a rule (they would match on the regional `localName` in `regional-schedules.json`). Only an official channel goes in: never a fan's re-upload.
+- `official-videos.json`, written by the stage: every upload of the channels in use, with its day. Main's run adds the newest 15 from each channel's Atom feed; a channel it cannot read is held in the quarantine until a run reads it.
+- `event-video-overrides.json`, kept by hand on the `editorial` branch: `{ "events": { "<event name>": { "add": [videoId], "remove": [videoId] } } }`. `add` takes only an upload already in `official-videos.json`, so nothing but an official upload can reach a page. Any other id, or an event name no page has, is left out and listed in the `Content quarantined` issue; the release goes out without it.
+
+An upload goes to an event when its title names the event as whole words, within 30 days before to 14 after the event's Global window (the longest name wins, so "#1", "Rerun" and "Alliance" pick their own event), or when it is a preview or an EP of an operator the event's banner features. Everything else (lore videos, livestreams, most EPs) goes nowhere until an override adds it. An editorial run, which refreshes nothing, files the catalogue again with `--offline`, so an override is live with that run.
+
+A new channel's history is read once, by a person: `npx tsx scripts/sync/sync-official-videos.mjs --backfill --channel <id>` (it needs `yt-dlp` on `PATH`). It lists the channel's Videos tab and asks YouTube's player for each upload's day, about a second each. Push the resulting `official-videos.json` to the editorial branch. Don't run the backfill on the runner: YouTube refuses the player from it more often than not.
+
 ## audit-base-skills.mjs
 
 Checks the base-skill model against the game's own `building_data.json`.
