@@ -21,7 +21,7 @@ import { searchSite, siteSearchJump } from '../../lib/search/siteSearch';
 import { createSongIndex } from '../../lib/music/songSearch';
 import { gameSearchNames } from '../../lib/music/songFilter';
 // @ts-expect-error Node import scripts are plain JavaScript.
-import { CHANNEL, FEED, LABEL_ARTIST, mergeEndfield, parseDescription, parsePlaylist, parseReleases, syncEndfieldAlbums } from '../sync/sync-endfield-albums.mjs';
+import { CHANNEL, coverFilenameFor, FEED, LABEL_ARTIST, mergeEndfield, parseDescription, parsePlaylist, parseReleases, syncEndfieldAlbums } from '../sync/sync-endfield-albums.mjs';
 // @ts-expect-error Node publication scripts are plain JavaScript.
 import { readQuarantine } from '../lib/quarantine.mjs';
 
@@ -205,12 +205,14 @@ test('a night\'s run writes the file, reports what it could not read, and a seco
   assert.equal(albums.length, 1);
   assert.equal(albums[0].songs[0].videoId, 'ccccccccccc');
   assert.match(albums[0].coverUrl, YOUTUBE_COVER);
-  // The album list was refused (429): reported, and the feed's song still went in.
-  assert.deepEqual(readQuarantine(root).entries.map((entry: { key: string; action: string }) => [entry.key, entry.action]), [['endfield:albums', 'kept-previous']]);
+  // The album list was refused (429): reported, and the feed's song still went in. Its cover is
+  // drawn from YouTube until one is published (test-endfield-covers.ts).
+  assert.deepEqual(readQuarantine(root).entries.map((entry: { key: string; action: string }) => [entry.key, entry.action]),
+    [['cover:endfield-test-album-original-soundtrack', 'published-partial'], ['endfield:albums', 'kept-previous']]);
 
   await syncEndfieldAlbums({ root, fetcher: fakeYouTube({ feed: null }), now, log });
   assert.equal(fs.readFileSync(path.join(root, 'data/endfield-albums.json'), 'utf8'), file, 'nothing read, nothing lost');
-  assert.deepEqual(readQuarantine(root).entries.map((entry: { key: string }) => entry.key), ['endfield:albums', 'endfield:feed']);
+  assert.deepEqual(readQuarantine(root).entries.map((entry: { key: string }) => entry.key), ['cover:endfield-test-album-original-soundtrack', 'endfield:albums', 'endfield:feed']);
   fs.rmSync(root, { recursive: true, force: true });
 });
 
@@ -262,6 +264,8 @@ test('the bundled Endfield catalogue holds together (any day\'s copy)', () => {
     assert.equal(album.game, 'endfield', album.albumId);
     assert.match(album.albumId, /^endfield-[a-z0-9-]+$/);
     assert.ok(album.coverFilename || YOUTUBE_COVER.test(album.coverUrl ?? ''), `${album.albumId} has a cover`);
+    // Only the stage's adoption sets a filename, named by the album's id (album-covers/).
+    if (album.coverFilename) assert.equal(album.coverFilename, coverFilenameFor(album.albumId));
     for (const song of album.songs ?? []) {
       assert.match(song.videoId, /^[\w-]{11}$/);
       assert.equal(song.songId, `endfield-${song.videoId}`);

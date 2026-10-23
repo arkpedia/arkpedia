@@ -55,6 +55,11 @@
       "stage": "albums",
       "folders": ["album-covers"],
       "adopt": ["node", "scripts/sync/sync-albums.mjs", "--adopt-covers"]
+    },
+    "endfield-album-covers": {
+      "stage": "endfield-albums",
+      "folders": ["album-covers"],
+      "adopt": ["node", "scripts/sync/sync-endfield-albums.mjs", "--adopt-covers"]
     }
   }
 }
