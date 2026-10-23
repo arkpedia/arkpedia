@@ -39,7 +39,8 @@ export interface RawAlbum {
    *  data/albums.json. Read through albumGame. */
   game?: string;
   /** Where the album's cover is fetched from: Monster Siren's CDN, or for an Endfield album its
-   *  first song's YouTube thumbnail, which the site draws directly (albumCoverPath). */
+   *  first song's YouTube thumbnail, which the site draws directly until the cover cut from it is
+   *  published (albumCoverPath). */
   coverUrl?: string;
   /** An Endfield album's YouTube album playlist (OLAK5uy_...), which its sync reads. */
   youtubePlaylistId?: string;
@@ -122,7 +123,8 @@ export const YOUTUBE_COVER = /^https:\/\/i\.ytimg\.com\/vi\/[\w-]{11}\/(?:maxres
  * coverFilename only once arkpedia-image-assets has the file (scripts/sync/sync-albums.mjs),
  * so a new album arrives without one and shows the placeholder (components/music/AlbumCover).
  * An Endfield album is drawn from its YouTube thumbnail (coverUrl) until it has a published
- * cover: the album's square art on a plain frame, which every cover's square crop shows whole. */
+ * cover: the album's square art on a plain frame, which every cover's square crop shows whole.
+ * Its stage publishes that square and fills coverFilename (scripts/sync/sync-endfield-albums.mjs). */
 export function albumCoverPath(album: Pick<RawAlbum, 'coverFilename' | 'coverUrl' | 'game'>): string | null {
   if (album.coverFilename) return `/album-covers/${album.coverFilename}`;
   if (albumGame(album) === 'endfield' && YOUTUBE_COVER.test(album.coverUrl ?? '')) return album.coverUrl!;

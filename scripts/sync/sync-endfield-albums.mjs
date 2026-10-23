@@ -33,10 +33,17 @@
  * What it writes:
  *
  * - A new album: albumId `endfield-<its name as a slug>`, its name, game, the album playlist's
- *   id (youtubePlaylistId), its release day (YYYY/MM/DD), and its cover: the first song's
- *   YouTube thumbnail, which for an auto-generated upload is the album's square art centred on
- *   a plain 16:9 frame, and every cover on the site is drawn square and cropped to fill
- *   (object-fit: cover). Characters, categories and genres are editorial and start empty.
+ *   id (youtubePlaylistId), its release day (YYYY/MM/DD), and its cover address (coverUrl): the
+ *   first song's YouTube thumbnail, which for an auto-generated upload is the album's square art
+ *   centred on a plain 16:9 frame. Characters, categories and genres are editorial and start empty.
+ * - A cover filename, for an album without one, once arkpedia-image-assets publishes its cover
+ *   (album-covers/<albumId>_cover.webp, named by the id so no Monster Siren album's name can take
+ *   it). Until then the site draws the thumbnail itself, which every cover's square crop
+ *   (object-fit: cover) shows as the art (lib/music/albumsData.ts albumCoverPath). The cover is
+ *   that square cut from the largest thumbnail (scripts/imports/square_album_cover.py) and staged
+ *   in .cache/endfield-album-covers/ (scripts/lib/staged-art.mjs); the release's staged-art stage
+ *   publishes it and runs `--adopt-covers`, which fills in the filename without asking YouTube
+ *   again, as the Monster Siren stage does with its covers.
  * - A new song: songId `endfield-<videoId>` (never a Monster Siren id, which is digits, so no
  *   Monster Siren gate takes it for one), its title, its length where the playlist gives it,
  *   and its credits: every artist the description names as `artist`, then the roles it lists.
@@ -52,14 +59,20 @@
  * - endfield:feed / endfield:albums, kept-previous: that source could not be read tonight.
  * - album:<albumId>, published-partial: its playlist lists more songs than the file has.
  * - song:<videoId>, published-partial: added without credits (its description was not read).
+ * - cover:<albumId>, published-partial: no cover in arkpedia-image-assets yet, so the album is
+ *   drawn from YouTube. Cleared by `--adopt-covers` once the staged cover is published; a frame
+ *   the crop refuses stays here, and the log says why.
  *
- * Usage: node scripts/sync/sync-endfield-albums.mjs [--dry-run] [--full]
+ * Usage: node scripts/sync/sync-endfield-albums.mjs [--dry-run] [--full] [--adopt-covers]
  *   --full reads every album's playlist, not only the albums that look incomplete.
+ *   --adopt-covers only fills in the covers the image repository now publishes (no requests).
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
-import { beginStage, defaultNow } from '../lib/quarantine.mjs';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { beginStage, defaultNow, readQuarantine } from '../lib/quarantine.mjs';
+import { beginStaging } from '../lib/staged-art.mjs';
 import { parseFeedDescriptions, parseFeedEntries } from '../lib/youtube-uploads.mjs';
 import { normalizeReleaseDate } from '../../lib/music/releaseDate.mjs';
 
@@ -420,6 +433,114 @@ export function readAlbums(root) {
 
 export const formatAlbums = albums => `${JSON.stringify(albums, null, 2)}\n`;
 
+// ---------------------------------------------------------------------------------------
+// Covers.
+
+const SQUARE = fileURLToPath(new URL('../imports/square_album_cover.py', import.meta.url));
+const THUMBNAIL = /^https:\/\/i\.ytimg\.com\/vi\/([\w-]{11})\/(?:maxres|hq)default\.jpg$/;
+
+/** Where an album's cover is published in album-covers/: by its id, unique to the album. */
+export const coverFilenameFor = albumId => `${albumId}_cover.webp`;
+
+/** The thumbnail a cover is cut from: the largest of the video the record's cover names. An album
+ * whose largest was missing the night it came in names the standard one (480x360, the frame
+ * letterboxed), which is too small to publish; the largest may be there by now. Null for an
+ * address that is not a YouTube thumbnail, which is never fetched. */
+export function coverSource(coverUrl) {
+  const videoId = String(coverUrl ?? '').match(THUMBNAIL)?.[1];
+  return videoId ? coverFor(videoId) : null;
+}
+
+/** The album's square art cut from a thumbnail frame (scripts/imports/square_album_cover.py), as
+ * PNG bytes. Throws, saying why, for a frame the cut refuses. */
+export function squareCover(data, { python = 'python3' } = {}) {
+  // A 720px square is about 1 MB of PNG, the whole of spawnSync's default buffer.
+  const result = spawnSync(python, [SQUARE], { input: data, maxBuffer: 64 * 1024 * 1024 });
+  if (result.error) throw new Error(`${python} did not run (${result.error.message})`);
+  if (result.status !== 0) throw new Error(String(result.stderr ?? '').trim() || `${python} exited ${result.status ?? result.signal}`);
+  return result.stdout;
+}
+
+/** The image repository's paths at the adopted pins (`npm run assets:update`). */
+export function readAssets(root) {
+  const file = path.join(root, 'data/assets/external-asset-index.json');
+  return new Set(fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')).files ?? [] : []);
+}
+
+/** Fills in the cover filename of every album still without one whose cover the image repository
+ * publishes, in place. Returns those albums' ids. A filename already set is never changed. */
+export function adoptPublishedCovers(albums, assets) {
+  const adopted = [];
+  for (const album of albums) {
+    if (album.coverFilename || typeof album.albumId !== 'string') continue;
+    const file = coverFilenameFor(album.albumId);
+    if (!assets.has(`album-covers/${file}`)) continue;
+    album.coverFilename = file;
+    adopted.push(album.albumId);
+  }
+  return adopted;
+}
+
+/** The stage's entry for every album still drawn from YouTube, as the Monster Siren stage
+ * reports an album without a cover. */
+export function coverEntries(albums) {
+  return albums.filter(album => !album.coverFilename).map(album => ({
+    key: `cover:${album.albumId}`,
+    action: 'published-partial',
+    ...(album.coverUrl ? { sourceRef: album.coverUrl } : {}),
+    reason: `${album.albumAltName || album.albumName}: no cover in arkpedia-image-assets yet (album-covers/${coverFilenameFor(album.albumId)}), so the site draws its YouTube thumbnail`,
+  }));
+}
+
+/**
+ * Stages the cover of every album without a published one, cut square from its largest
+ * thumbnail, for the staged-art stage to publish. One that cannot be fetched or cut is logged
+ * and waits for the next night; its album keeps its YouTube thumbnail and its entry either way.
+ */
+export async function stageCovers({ root, albums, fetcher, log = () => {}, square = squareCover }) {
+  const staging = beginStaging('endfield-album-covers', root);
+  let staged = 0;
+  for (const album of albums) {
+    if (album.coverFilename || typeof album.albumId !== 'string') continue;
+    const source = coverSource(album.coverUrl);
+    if (!source) {
+      if (album.coverUrl) log(`  ! ${album.albumName}: its cover ${album.coverUrl} is not a YouTube thumbnail; not fetched`);
+      continue;
+    }
+    try {
+      const response = await fetcher(source, { signal: AbortSignal.timeout(TIMEOUT) });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      staging.stage(`album-covers/${coverFilenameFor(album.albumId)}`, square(Buffer.from(await response.arrayBuffer())), { source });
+      staged++;
+    } catch (error) {
+      log(`  ! ${album.albumName}: no cover staged from ${source} (${error.message})`);
+    }
+  }
+  staging.commit();
+  if (staged) log(`${staged} album cover(s) staged in .cache/endfield-album-covers/ for arkpedia-image-assets`);
+  return staged;
+}
+
+/**
+ * After the staged-art stage published covers: the cover filename of every album whose cover the
+ * image repository now has, and the stage's entries for those covers dropped -- the rest of the
+ * stage's entries as they were, and no request to YouTube.
+ */
+export function adoptCovers({ root = process.cwd(), now = defaultNow(), log = console.log } = {}) {
+  const albums = readAlbums(root);
+  const adopted = adoptPublishedCovers(albums, readAssets(root));
+  if (!adopted.length) { log('No Endfield album gained a published cover.'); return []; }
+  fs.writeFileSync(path.join(root, FILE), formatAlbums(albums));
+  const cleared = new Set(adopted.map(albumId => `cover:${albumId}`));
+  const stage = beginStage(root, STAGE, now);
+  for (const entry of readQuarantine(root).entries) {
+    if (entry.stage === STAGE && !cleared.has(entry.key)) stage.add(entry);
+  }
+  stage.commit();
+  for (const albumId of adopted) log(`  ~ album ${albumId} coverFilename: "" -> ${JSON.stringify(coverFilenameFor(albumId))}`);
+  return adopted;
+}
+
 /** One night's run: reads, merges, writes the file and the stage's quarantine entries. */
 export async function syncEndfieldAlbums({ root = process.cwd(), fetcher = fetch, now = defaultNow(), log = console.log, dryRun = false, full = false } = {}) {
   const albums = readAlbums(root);
@@ -478,8 +599,11 @@ export async function syncEndfieldAlbums({ root = process.cwd(), fetcher = fetch
   for (const album of merged.albums) {
     if (!album.coverUrl && album.songs[0]) album.coverUrl = await pickCover(fetcher, album.songs[0].videoId);
   }
+  // A cover published on a night its adoption did not run (the staged-art stage failed after the push).
+  const adopted = adoptPublishedCovers(merged.albums, readAssets(root));
   const songCount = merged.albums.reduce((total, album) => total + album.songs.length, 0);
   log(`Endfield: ${merged.albums.length} albums, ${songCount} songs (${merged.added.albums} albums and ${merged.added.songs} songs new tonight)`);
+  for (const albumId of adopted) log(`  ~ album ${albumId} coverFilename: "" -> ${JSON.stringify(coverFilenameFor(albumId))}`);
   if (dryRun) return { ...merged, failures };
 
   const text = formatAlbums(merged.albums);
@@ -488,15 +612,25 @@ export async function syncEndfieldAlbums({ root = process.cwd(), fetcher = fetch
     fs.mkdirSync(path.dirname(file), { recursive: true });
     fs.writeFileSync(file, text);
   }
+  // Staging is best effort: a cover not staged tonight keeps the album on its thumbnail.
+  try {
+    await stageCovers({ root, albums: merged.albums, fetcher, log });
+  } catch (error) {
+    log(`  ! No cover was staged (${error.message})`);
+  }
   const stage = beginStage(root, STAGE, now);
   for (const failure of failures) stage.add({ ...failure, action: 'kept-previous' });
   for (const entry of merged.partial) stage.add({ ...entry, action: 'published-partial' });
+  for (const entry of coverEntries(merged.albums)) stage.add(entry);
   const written = stage.commit();
   if (written.length) log(`${written.length} record(s) flagged:\n${written.map(entry => `  ! ${entry.key} (${entry.action}): ${entry.reason}`).join('\n')}`);
   return { ...merged, failures };
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  syncEndfieldAlbums({ dryRun: process.argv.includes('--dry-run'), full: process.argv.includes('--full') })
-    .catch(error => { console.error(error); process.exitCode = 1; });
+  if (process.argv.includes('--adopt-covers')) adoptCovers();
+  else {
+    syncEndfieldAlbums({ dryRun: process.argv.includes('--dry-run'), full: process.argv.includes('--full') })
+      .catch(error => { console.error(error); process.exitCode = 1; });
+  }
 }
