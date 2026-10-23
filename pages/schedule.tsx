@@ -39,6 +39,7 @@ import SkinZoomOverlay from '@/components/skins/SkinZoomOverlay';
 import PageHeader from '@/components/ui/PageHeader';
 import Tabs, { tabPanelProps } from '@/components/ui/Tabs';
 import SegmentedControl from '@/components/ui/SegmentedControl';
+import StickyControls from '@/components/ui/StickyControls';
 import { useSwitchHold } from '@/components/ui/useSwitchHold';
 import StyledSelect from '@/components/ui/StyledSelect';
 import { renderMonthValue, steadyValue } from '@/components/schedule/CalendarMonthValue';
@@ -327,7 +328,7 @@ export default function SchedulePage({ events: globalEvents, operators: exported
         <div ref={viewHold.ref} style={viewHold.style}>
         <div {...tabPanelProps('schedule-view', 'events')} hidden={view !== 'events'}>
           <section className="op-section" aria-label="Event listings">
-            <div className="schedule-events-controls">
+            <StickyControls className="schedule-events-controls">
               <SegmentedControl<'upcoming' | 'past'>
                 label="Event period"
                 options={[{ value: 'upcoming', label: 'Upcoming' }, { value: 'past', label: 'Past' }]}
@@ -339,7 +340,7 @@ export default function SchedulePage({ events: globalEvents, operators: exported
                 }}
               />
               <p className="hint">{showPast ? `${pastEvents.length} events · newest first` : `${eventRows.length} events · soonest first`}</p>
-            </div>
+            </StickyControls>
           {showPast ? <>
             {pastEvents.length ? <>
               <div className="events-list">

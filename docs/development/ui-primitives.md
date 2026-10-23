@@ -498,7 +498,22 @@ const active: ActiveFilter[] = rarity !== 'all' ? [{ key: 'rarity', label: `${ra
 - **The sheet** is the shared modal frame (`.account-dialog`, `showModal`): the box takes focus (rule 21), Tab wraps inside it, Escape and the × close it, focus goes back to the Filters button, the page under it does not scroll, and StyledSelect's menu portals into it. The controls are the same components on the same state, applied as they are pressed; it ends in Reset (every filter a chip shows) and Done. A toolbar's own Reset takes `INLINE_RESET`, so the sheet does not draw two. It rises in with the site search's motion, in motion.css only.
 - **`hold` is required**: the page's `useSwitchHold` over its list. Every press inside the sheet and every chip's × captures it first, so a filter that shortens the list cannot clamp the reader, and the page is where it was when the sheet closes.
 - **The chips are the page's to name** (`active`): one per filter that narrows the list. The search keeps its own ×, and an order is not a filter.
-- Used by `/operators`, `/artists`, `/voice-actors` and `/skins`. Not by `/enemies` or `/techniques` (their first item is under 300px down), `/obtain-method` (its chips are the section switch), `/skin-planner` (its plan panel, not its controls, is what sits above the list), `/music/discover` or `/gacha`. `tests/browser/filter-sheet.spec.ts` holds each page at 390 and 1440 in both themes: the first item on the first screen, the sheet by keyboard and Escape, a filter adding a chip, its × removing it, and nothing moving; on a desktop, no bar and the controls inline. In other specs, `openFilters(page)` and `closeFilters(page)` (`census-routes.ts`) reach the controls at either width.
+- Used by `/operators`, `/artists`, `/voice-actors`, `/skins`, `/techniques` and `/synergies`. Not by `/enemies` (its handbook owns a viewport-bounded browser), `/obtain-method` (its chips are the section switch), `/skin-planner` (its plan panel, not its controls, is what sits above the list), `/music/discover` or `/gacha`. `tests/browser/filter-sheet.spec.ts` holds each page at 390 and 1440 in both themes: the first item on the first screen, the sheet by keyboard and Escape, a filter adding a chip, its × removing it, and nothing moving; on a desktop, no bar and the controls inline. In other specs, `openFilters(page)` and `closeFilters(page)` (`census-routes.ts`) reach the controls at either width.
+
+### Sticky browsing controls
+
+`StickyControls` is the shared wrapper for compact list controls. `PageHeader stickyActions`
+places its actions in that wrapper immediately after the header, at the same frame width
+and gutters. It uses the measured `--nav-h` offset and the normal theme background. Its
+stacking level stays below site navigation, menus and dialogs. Native sticky positioning
+preserves the toolbar's original space, so entering its pinned state causes no layout jump.
+
+Bars whose controls exceed 176px, whose total height exceeds 25% of the viewport, or
+in viewports shorter than 480px remain in
+normal flow. Anchor clearance includes the measured compact toolbar height through
+`--sticky-controls-h`. Use one sticky bar per browsing context; retain the existing Enemy
+handbook, Music section, stage browser and game workspace arrangements rather than layering
+another toolbar over them. See `sticky-controls.spec.ts` for scrolled and short-screen checks.
 
 ### Error pages
 

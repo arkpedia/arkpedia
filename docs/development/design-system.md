@@ -30,6 +30,27 @@ cards. Choose the pattern below first, then use its established primitives.
 - Verify the complete browse → detail → Back journey on desktop and mobile, including
   a record beyond the initial list batch. Check browser Back as well as the page link.
 
+### Persistent browsing controls
+
+Use `StickyControls` for compact search/filter bars and local view choices on long lists.
+For catalogue controls in `PageHeader`, opt into `stickyActions`; it keeps the controls
+in the page frame, following the title, so the header does not limit their sticky range.
+The shared component follows the measured site navigation height, draws an opaque theme
+background and stays below menus and dialogs. It also reserves anchor scroll clearance.
+
+- Keep one sticky toolbar per browsing context. Do not pin the page title or stack another
+  bar over an existing sticky workspace/section header.
+- Pin only compact bars: controls at most 176px, and the whole bar including padding at
+  most one quarter of the viewport height. Below a
+  480px viewport height, or when controls grow beyond that limit, use normal document flow.
+  Mobile catalogue filters remain in the shared Filters sheet.
+- Keep both options mounted when switching views. Changing results, counts or active
+  filters must not move the toolbar, clamp the page upward or reset its query.
+- Preserve selected browsing sections/searches in the URL. Community Hub uses `section`
+  and `q`; Reward Tracker uses `view`. Session-only simulation/game state is separate.
+- Test scrolled controls, short viewports, keyboard/menu interaction, dark/light themes,
+  and Back navigation. A clean first screen alone does not verify this behavior.
+
 ## Foundation
 
 | Element | Rule | Implementation owner |

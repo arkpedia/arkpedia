@@ -69,6 +69,28 @@ The site already had broad primitive coverage. Replacing all of these compositio
 one card template would lose useful hierarchy and data relationships; this review instead
 aligns equivalent tasks and makes the reasons for differences explicit.
 
+## Interaction review: long lists and return navigation
+
+This follow-up checks the route families for disappearing controls, moving view choices,
+lost browsing state and competing sticky layers. The layout census covers the full route
+inventory; driven checks exercise the changed browsing journeys rather than treating a
+first-screen screenshot as proof of their interactions.
+
+| Family | Finding and resolution |
+| --- | --- |
+| Operators, skins, artists, voice actors, techniques, synergies | Search/filter controls lived inside a short header and disappeared while reading long results. `PageHeader stickyActions` places compact bars after the title at the same frame width. Phone filters retain the existing sheet. Oversized desktop filters stay in document flow. |
+| Schedule | The fixed Upcoming/Past selector and count now follow the reader through the list. Calendar hides them. Both options remain mounted with stable dimensions. |
+| Story | Full List search/category controls now remain reachable while browsing. Category anchors reserve space below the toolbar. Map zoom/full-screen controls retain their own context. |
+| Community | Section and search previously reset when leaving the page. `section`/`q` now preserve them in the URL; compact section navigation follows the list, and the selected tab names its actual panel. A height hold prevents shorter sections clamping the reader upward. |
+| Reward Tracker | Reward type previously reset after leaving/reloading. `view` now preserves the selection; its local tabs are sticky and switching preserves the list's height. |
+| Enemy handbook, stages, Music, operator/game workspaces | Existing sticky panes/section headers already serve their browsing contexts. Preserve those arrangements rather than stack a second toolbar over them. |
+| Base, account, planners, games, editorial and informational pages | Keep primary actions and page introductions in their existing context. Do not pin an entire title, setup form, account summary or simulation panel merely for visual uniformity. |
+
+Sticky bars use the measured site-nav offset, opaque theme background and a stacking level
+below menus/dialogs. They stay in normal flow if the controls exceed 176px, the complete
+bar exceeds one quarter of the viewport, or the viewport is shorter than 480px. Native sticky retains the original space;
+the component also contributes its measured height to anchor clearance.
+
 ## Existing style debt
 
 The style baseline retains 16 cross-file selector collisions, 13 off-scale font entries
@@ -117,6 +139,15 @@ behavior solely to make the number smaller.
   ordering underneath. Thirteen browser checks pass (one intentional skip), including
   identical bounds for both options when switching, archive Back navigation and dark/light
   layouts on desktop/mobile. The production build, changed-file lint and style audits pass.
+- The broader interaction/sticky-controls review passed the complete layout census:
+  261 checks, 23 intentional skips. All 91 targeted catalogue/filter/Story/Schedule/
+  continuity checks passed (five intentional skips), alongside 32 populated Community/
+  Reward Tracker checks (eight intentional skips) and 30 application/token/census checks.
+  Scrolled captures cover eight route families at both widths in both themes. TypeScript,
+  production build, lint and style audits pass without expanding baselines. Every accepted
+  stack inset remains present in the complete two-width census. The census now recognizes
+  the header's sticky extension while still measuring its actual controls and content edges;
+  the reward action check leaves room below the sticky navigation before pressing it.
 
 Local packaging limitation: the Windows production build's separate deployment-trace audit
 reports local `data/` files in server traces despite the existing exclusions in

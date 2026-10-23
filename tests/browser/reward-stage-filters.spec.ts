@@ -283,7 +283,12 @@ test('"All claimed" under the Unclaimed filter empties the welfare group without
   // the six cards stacked, the button at the top of the screen), where losing the cards would
   // leave the document shorter than the reader's position needs, and the browser would clamp.
   const button = page.getByRole('button', { name: 'All claimed', exact: true });
-  await button.evaluate((el) => window.scrollTo(0, Math.min(document.documentElement.scrollHeight, el.getBoundingClientRect().top + scrollY - 80)));
+  await button.evaluate((el) => {
+    const nav = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--nav-h')) || 60;
+    const toolbar = document.querySelector('.sticky-controls[data-sticky="true"]')?.getBoundingClientRect().height ?? 0;
+    // Read with the action below both navigation layers, where a person can press it.
+    window.scrollTo(0, Math.min(document.documentElement.scrollHeight, el.getBoundingClientRect().top + scrollY - Math.max(80, nav + toolbar + 12)));
+  });
   await page.waitForTimeout(300);
   const at = () => page.evaluate(() => ({ y: Math.round(scrollY), top: Math.round(document.getElementById('free-rewards-title')!.getBoundingClientRect().top) }));
   const start = await at();

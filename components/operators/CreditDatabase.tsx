@@ -180,7 +180,7 @@ export default function CreditDatabase({ people, uncredited, operators, now, kin
   return (
     <>
       <Head><title>{`${title} — Arkpedia`}</title></Head>
-      <PageHeader
+      <PageHeader stickyActions
         eyebrow={voices ? 'Rhodes Island // Voice credits' : 'Rhodes Island // Art credits'}
         title={title}
         sub={voices ? 'Everyone credited with an operator’s voice, in every language the game ships.' : 'Everyone credited with an operator’s artwork, its promotions and its outfits.'}

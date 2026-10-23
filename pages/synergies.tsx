@@ -82,7 +82,7 @@ export default function SynergiesPage({ groups, emblems }: Props) {
   return (
     <>
       <Head><title>Synergies — Arkpedia</title></Head>
-      <PageHeader
+      <PageHeader stickyActions
         eyebrow={<><Link prefetch={false} href="/operators">Operators</Link>{' // Faction and class buffs'}</>}
         title="Synergies"
         sub={<>

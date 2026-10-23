@@ -130,7 +130,7 @@ export default function TechniquesPage({ groups, branchClasses }: Props) {
   return (
     <>
       <Head><title>Techniques — Arkpedia</title></Head>
-      <PageHeader
+      <PageHeader stickyActions
         eyebrow={<><Link prefetch={false} href="/operators">Operators</Link>{' // Skill effects'}</>}
         title="Techniques"
         sub={<>
