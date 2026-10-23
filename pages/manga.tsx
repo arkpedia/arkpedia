@@ -32,9 +32,9 @@ export default function MangaPage({ manga }: Props) {
       <main>
         <section className="op-section" aria-labelledby="manga-list">
           <h2 id="manga-list">Official comics <span className="hint">{manga.length}</span></h2>
-          <ul className="manga-grid">
+          <ul className="directory-grid directory-grid-wide manga-grid">
             {manga.map((comic) => (
-              <li key={comic.id} className="manga-card">
+              <li key={comic.id} className="directory-card manga-card">
                 <a className="manga-cover" href={comic.url} target="_blank" rel="noopener noreferrer" aria-label={`${comic.title}: all chapters (opens in a new tab)`}>
                   {comic.image ? <ContentImg src={`/${comic.image}`} alt="" /> : <span className="manga-cover-missing">{comic.title}</span>}
                 </a>
@@ -44,7 +44,7 @@ export default function MangaPage({ manga }: Props) {
                     {comic.updated && comic.chapters ? ' · ' : ''}
                     {comic.chapters ? `${comic.chapters} chapter${comic.chapters === 1 ? '' : 's'}` : ''}
                   </p>
-                  <h3>{comic.title}</h3>
+                  <h3 className="entity-title entity-title-sm entity-title-name">{comic.title}</h3>
                   {comic.description && <p className="manga-description">{comic.description}</p>}
                   <p className="manga-place hint">On the story map: {comic.section ?? UNPLACED}</p>
                   <div className="manga-actions">

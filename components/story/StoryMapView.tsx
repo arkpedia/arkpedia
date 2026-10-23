@@ -239,9 +239,12 @@ export default function StoryMapView({ map, chapters, library }: { map: StoryMap
   return (
     <div ref={floor.ref} style={held ? { minHeight: held } : undefined}>
     <div ref={frame} className={`story-map-frame${full ? ' is-full' : ''}${full === 'window' ? ' is-window' : ''}`}>
-      <div className="story-map-toolbar">
-        <SegmentedControl label="Show the map as" value={view} onChange={setView}
+      <div className="story-view-nav">
+        <SegmentedControl className="story-view-switch" label="Story library view" value={view} onChange={setView}
           options={[{ value: 'map', label: 'Map' }, { value: 'list', label: 'List', count }]} />
+        <p className="hint">{view === 'map' ? 'Explore connections and suggested reading order.' : 'Browse every story, or search by title and category.'}</p>
+      </div>
+      {view === 'map' && <div className="story-map-toolbar">
         {view === 'map' && (
           <div className="story-map-zoom" role="group" aria-label="Zoom">
             <button type="button" className="ghost btn-sm story-map-zoom-button" onClick={() => zoomTo(shown / STEP)} disabled={atFit} aria-label="Zoom out">−</button>
@@ -254,7 +257,7 @@ export default function StoryMapView({ map, chapters, library }: { map: StoryMap
             {full ? 'Exit full screen' : 'Full screen'}
           </button>
         )}
-      </div>
+      </div>}
       {view === 'map' ? (
         <div ref={viewport} className="story-map-viewport" style={full ? undefined : { aspectRatio: `${bounds.width} / ${bounds.height}` }} onPointerDown={onPointerDown} onPointerMove={onPointerMove}
           onPointerUp={endDrag} onPointerCancel={endDrag} onPointerLeave={endDrag}

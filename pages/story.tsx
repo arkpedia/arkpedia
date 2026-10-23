@@ -60,13 +60,11 @@ export default function StoryPage({ map, chapters = {}, library = [] }: Props) {
         <section className="op-section story-links" aria-labelledby="story-read">
           <h2 id="story-read">Read the story</h2>
           <div className="story-link-grid">
-            <a className="story-link-card" href={READER} target="_blank" rel="noopener noreferrer">
-              <strong>Timo&apos;s Arknights Story Reader <span aria-hidden="true">↗</span></strong>
-              <span className="hint">Every main story, side story, vignette and operator record, read the way the game plays it.</span>
+            <a className="ghost" href={READER} target="_blank" rel="noopener noreferrer">
+              Timo&apos;s Story Reader <span aria-hidden="true">↗</span>
             </a>
-            <Link prefetch={false} className="story-link-card" href="/manga">
-              <strong>Arknights Manga</strong>
-              <span className="hint">Every official comic from the Global site, each a link to read it there.</span>
+            <Link prefetch={false} className="ghost" href="/manga">
+              Arknights Manga
             </Link>
           </div>
         </section>

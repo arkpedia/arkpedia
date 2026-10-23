@@ -1468,22 +1468,15 @@ export default function BasePage({ operators }: Props) {
               directly rather than the full targeting system.
             </p>
             {rotationLoading && (
-              <div className="base-room-panel-hint" style={{ marginBottom: 14, padding: 10, border: '1px solid var(--line)', borderRadius: 6 }}>
+              <div className="notice base-rotation-notice">
                 <div style={{ marginBottom: 6 }}>Computing rotation plan\u2026 {Math.round(rotationProgress)}%</div>
-                <div style={{ width: '100%', height: 8, background: 'var(--line-soft)', borderRadius: 4, overflow: 'hidden' }}>
-                  <div
-                    style={{
-                      width: `${rotationProgress}%`,
-                      height: '100%',
-                      background: 'var(--accent)',
-                      transition: 'width 0.2s ease-out',
-                    }}
-                  />
+                <div className="meter" role="progressbar" aria-label="Computing rotation plan" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(rotationProgress)}>
+                  <span className="meter-fill" style={{ width: `${rotationProgress}%` }} />
                 </div>
               </div>
             )}
             {rotationError && !rotationLoading && (
-              <div className="base-room-panel-hint" style={{ marginBottom: 14, padding: 10, border: '1px solid var(--prod-danger, #c0392b)', borderRadius: 6 }}>
+              <div className="notice notice-danger base-rotation-notice" role="alert">
                 Failed to compute the rotation experiment: {rotationError}{' '}
                 <button type="button" className="ghost" onClick={() => fetchRotationExperiment(rotationMode)}>
                   Retry
@@ -1492,7 +1485,7 @@ export default function BasePage({ operators }: Props) {
             )}
             {rotationExperiment && !rotationLoading && (
               <>
-                <div className="base-room-panel-hint" style={{ marginBottom: 14, padding: 10, border: '1px solid var(--accent)', borderRadius: 6 }}>
+                <div className="notice base-rotation-notice">
                   <strong>Winning scenario:</strong> {rotationExperiment.chosenScenario}
                   <br />
                   <span className="hint">
@@ -1502,7 +1495,7 @@ export default function BasePage({ operators }: Props) {
                     whichever scenario produced the highest total production value.
                   </span>
                 </div>
-                <div className="base-room-panel-hint" style={{ marginBottom: 14, padding: 10, border: '1px solid var(--line)', borderRadius: 6 }}>
+                <div className="notice base-rotation-notice">
                   <strong>Dormitory:</strong> {rotationExperiment.dormitorySlotsTotal} slots total across all 4 rooms · recovery rate{' '}
                   {rotationExperiment.dormitoryRecoveryRate.toFixed(2)}/hr · raw rest time to full: {rotationExperiment.dormitoryRestHoursNeeded.toFixed(1)}h · snapped to
                   your login cadence: {rotationExperiment.loginSnappedRestHoursNeeded}h.

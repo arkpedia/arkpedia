@@ -646,6 +646,8 @@ h3.entity-title.entity-title-sm,
 h2.entity-title.entity-title-xs,
 h3.entity-title.entity-title-xs,
 .entity-title.entity-title-xs { font-size: 15px; }
+/* Directory names preserve the spelling/case of a person or game term. */
+.entity-title.entity-title-name { min-width: 0; line-height: 1.2; text-transform: none; overflow-wrap: anywhere; }
 /* A list in running text keeps its markers inside the text column: the browser's
    40px indent put the operator page's promotion bullets 40px right of the heading
    above them. 1.1em is the marker column -- the bullet sits in it, at the column's

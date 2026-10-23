@@ -847,6 +847,36 @@ a.ghost, a.primary, a.danger, a.btn { text-decoration: none; }
 .account-dialog header h2 { margin: 0; }
 .account-dialog-body { flex: 1 1 auto; min-height: 0; padding: 18px; overflow-y: auto; overscroll-behavior: contain; }
 
+/* Reference directories: one surface and responsive rhythm for credits, techniques
+   and synergies. Features own their contents; controls retain their own primitives. */
+.directory-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 290px), 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.directory-grid > li { display: flex; min-width: 0; }
+.directory-grid-wide { grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr)); }
+.directory-card {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  padding: 14px var(--card-inset) var(--card-inset);
+  border: 1px solid transparent;
+  border-radius: var(--radius-frame);
+  background: var(--panel-grad);
+  background-clip: padding-box;
+  color: var(--text);
+}
+:is(a, button).directory-card:hover,
+:is(a, button).directory-card:focus-visible { border-color: var(--teal); }
+
+/* Non-interactive information inside a tool; never styled like a selected control. */
+.notice { padding: var(--card-inset); border: 1px solid var(--line-soft); border-radius: var(--radius-frame); background: var(--panel); color: var(--text); }
+.notice-danger { border-color: var(--danger); }
+
 /* --- FilterSheet (components/ui/FilterSheet.tsx) ------------------------------------
    A list page's filters on a phone. Over 720px the bar is not drawn and the controls'
    wrapper lays its children out in the page's toolbar as if it were not there. At 720px

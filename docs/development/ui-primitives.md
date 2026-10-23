@@ -1,5 +1,8 @@
 # UI primitives and tokens
 
+Start with the [design system](design-system.md) for page patterns, cards versus rows,
+and the site-wide inventory. This document specifies their implementation.
+
 This is the reference for building or migrating any Arkpedia page. It covers the design tokens, the shared components in `components/ui`, the global rules, and the style audit and page-bounds checks that hold every page to them. Follow it literally. When a page needs something this page does not cover, add it here and to the primitives. Do not solve it inside the page.
 
 The canonical style is the `/operators` list page plus `/gacha`, as decided on 2026-09-25:
@@ -238,6 +241,7 @@ import Tabs, { tabPanelProps } from '@/components/ui/Tabs';
 <h3>Talents</h3>                                                       {/* a sub-section */}
 <h2 className="entity-title">{enemy.name}</h2>                         {/* a name: 22px */}
 <h3 className="entity-title entity-title-sm">{skill.name}</h3>         {/* under an 18px h2 */}
+<h3 className="entity-title entity-title-sm entity-title-name">{person.name}</h3> {/* directory name: original case */}
 <h3 className="label-tag">Cookie supporters</h3>                       {/* a micro-label heading a group */}
 ```
 

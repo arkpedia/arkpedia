@@ -2,7 +2,8 @@
 
 - [Repository map](repository-map.md): ownership, feature locations, and placement rules.
 - [Development setup](development/setup.md): local development, checks, and deployment.
-- [UI primitives and tokens](development/ui-primitives.md): the design tokens, the shared components, and the migration ratchets every page change follows.
+- [Design system](development/design-system.md): page patterns, cards versus lists, responsive behavior, and the site-wide route inventory. Start here for UI work.
+- [UI primitives and tokens](development/ui-primitives.md): exact tokens, shared component APIs, and the migration ratchets every page change follows.
 - [Runtime content](development/runtime-content.md): reviewed game updates without a website rebuild.
 - [Data pipelines](development/data-pipelines.md): refresh stages, upstream caches, and base-skill audits.
 - [Data sources](development/data-sources.md): source repositories and provenance.

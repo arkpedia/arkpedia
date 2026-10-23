@@ -81,7 +81,7 @@ const norm = (s) => s.replace(/\s+/g, ' ').trim();
 function walk(root, dir, ext) {
   return readdirSync(join(root, dir), { recursive: true })
     .filter((f) => ext.some((e) => f.endsWith(e)))
-    .map((f) => join(dir, f))
+    .map((f) => join(dir, f).split('\\').join('/'))
     .sort();
 }
 
@@ -200,7 +200,7 @@ export function collectChoicesAndBadges(root) {
   const rows = choiceRows(root);
   const isRow = (compound) => classesOf(compound).some((c) => ROW_NAME.test(c) || rows.has(c)) || /\[role=["']?tablist["']?\]/.test(compound);
   const cssFiles = [...walk(root, 'styles', ['.css']), ...walk(root, 'components', ['.css'])];
-  const theme = join('styles', 'core', 'arkpedia-theme.css');
+  const theme = 'styles/core/arkpedia-theme.css';
 
   for (const path of cssFiles) {
     const raw = stripComments(readFileSync(join(root, path), 'utf8'));
@@ -262,11 +262,17 @@ export function collectChoicesAndBadges(root) {
   // called `rail` or `band` is not the .rail class. A template literal's `${...}` ends
   // a stem (`tier-${n}` uses every .tier-N).
   const sources = ['pages', 'components', 'lib'].flatMap((dir) => walk(root, dir, ['.tsx', '.ts', '.jsx', '.js']))
-    .filter((p) => !p.startsWith(join('pages', 'dev') + '/'));
+    .filter((p) => !p.startsWith('pages/dev/'));
   const words = new Set();
   const stems = new Set();
   for (const p of sources) {
-    for (const m of code(readFileSync(join(root, p), 'utf8')).matchAll(/(['"`])((?:\\.|(?!\1)[^\\])*)\1/g)) {
+    const source = code(readFileSync(join(root, p), 'utf8'));
+    // JSX prose can contain apostrophes, which the general string scan mistakes
+    // for quotes. Read literal className attributes independently as well.
+    for (const m of source.matchAll(/\bclassName=(["'])([^"']*)\1/g)) {
+      for (const word of m[2].split(/\s+/)) if (word) words.add(word);
+    }
+    for (const m of source.matchAll(/(['"`])((?:\\.|(?!\1)[^\\])*)\1/g)) {
       // `${` ends the word before it, closed or not (a nested template literal cuts
       // this match short at its own backtick): `tabs${cls}` names .tabs, and
       // `tier-${n}` names every .tier-N.

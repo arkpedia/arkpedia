@@ -379,6 +379,7 @@
 .base-room-panel-hint {
   margin: 0;
 }
+.base-rotation-notice { margin-bottom: var(--heading-gap); }
 
 .base-room-elite-label {
   font-family: var(--font-mono);
