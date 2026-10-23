@@ -452,7 +452,8 @@ export async function measure(page: Page): Promise<Measurement> {
     const shown = h1s.find(h => visible(h) && h.getBoundingClientRect().width > 2 && cs(h).clip === 'auto'
       && !h.classList.contains('visually-hidden'));
     const header = shown?.closest('header') ?? null;
-    const skip = (el: Element) => !!(shown && (header ? header.contains(el) : shown.contains(el)));
+    const headerActions = header?.nextElementSibling?.matches('.page-header-sticky-actions') ? header.nextElementSibling : null;
+    const skip = (el: Element) => !!(shown && (header ? header.contains(el) || headerActions?.contains(el) : shown.contains(el)));
 
     let left = Infinity;
     let right = -Infinity;
@@ -488,6 +489,9 @@ export async function measure(page: Page): Promise<Measurement> {
     /* Media, controls and drawn boxes (a background or a side border); a band as wide
        as the viewport is full-bleed decoration, not content. */
     for (const el of Array.from(root.querySelectorAll('*'))) {
+      // The header's sticky extension owns the same outer frame/gutters as the header.
+      // Measure all its actual text and controls, not its full-frame background band.
+      if (el === headerActions) continue;
       if (fixed(el) || !visible(el)) continue;
       const s = cs(el);
       const media = /^(IMG|SVG|CANVAS|VIDEO|INPUT|SELECT|BUTTON|TEXTAREA)$/i.test(el.tagName);

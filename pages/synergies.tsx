@@ -87,7 +87,7 @@ export default function SynergiesPage({ groups, emblems }: Props) {
   return (
     <>
       <Head><title>Synergies — Arkpedia</title></Head>
-      <PageHeader
+      <PageHeader stickyActions
         eyebrow={<><Link prefetch={false} href="/operators">Operators</Link>{' // Faction and class buffs'}</>}
         title="Synergies"
         sub={<>
@@ -130,15 +130,15 @@ export default function SynergiesPage({ groups, emblems }: Props) {
                 {views.length === groups.length ? `All ${groups.length} synergies` : `${views.length} of ${groups.length} synergies`}
                 {buff !== 'all' && <> · granting {buff}</>}
               </p>
-              <ul className="technique-grid">
+              <ul className="directory-grid">
                 {views.slice(0, visible).map(({ group, givers, withers, tags, members }) => (
                   <li key={`${group.type}-${group.name}`}>
-                    <button type="button" className="btn-bare technique-card synergy-card lift" aria-haspopup="dialog" onClick={() => setOpenName(group.name)}>
+                    <button type="button" className="btn-bare directory-card technique-card synergy-card lift" aria-haspopup="dialog" onClick={() => setOpenName(group.name)}>
                       <span className="synergy-card-head">
                         <SynergyEmblem group={group} emblem={emblems[group.name] ?? null} size={40} />
                         <span className="synergy-card-title">
                           <span className="technique-card-eyebrow">{group.type === 'class' ? 'Class' : 'Faction'}</span>
-                          <span className="technique-card-name">{group.name}</span>
+                          <span className="entity-title entity-title-sm entity-title-name">{group.name}</span>
                         </span>
                       </span>
                       <span className="synergy-buffs">

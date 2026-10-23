@@ -190,6 +190,22 @@ export default function UiPrimitivesPage() {
           <p className="hint">36px above this section is --section-gap.</p>
         </section>
 
+        <section className="op-section" id="directories">
+          <h2>Reference directories</h2>
+          <p className="hint">Shared directory grid and card surfaces. These groups contain individual links; the group itself is not clickable. See docs/development/design-system.md for when to use cards or rows.</p>
+          <ul className="directory-grid">
+            {[
+              { title: 'People', text: 'Named credits with their operators.', href: '/artists', label: 'Browse artists' },
+              { title: 'Mechanics', text: 'A name, a brief definition and the operators it affects.', href: '/techniques', label: 'Browse techniques' },
+              { title: 'Stories', text: 'Searchable records alongside a reading-order map.', href: '/story?view=list', label: 'Browse stories' },
+            ].map(item => <li key={item.title} className="directory-card"><div>
+              <h3 className="entity-title entity-title-sm entity-title-name">{item.title}</h3>
+              <p>{item.text}</p>
+              <a href={item.href}>{item.label}</a>
+            </div></li>)}
+          </ul>
+        </section>
+
         <section className="op-section" id="rarity">
           <h2>Rarity</h2>
           <div style={row}>

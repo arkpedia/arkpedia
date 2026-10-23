@@ -35,6 +35,8 @@ interface Props {
 
 export default function StoryPage({ map, chapters = {}, library = [] }: Props) {
   const [chapter, setChapter] = useQueryState('chapter', '');
+  const [viewQuery, setView] = useQueryState('view', 'map');
+  const view = viewQuery === 'list' ? 'list' : 'map';
   const progress = useStoryProgress();
   const [transfer, setTransfer] = useState(false);
   // The map's picture for a chapter: its link (title, the reader's address) and its art.
@@ -60,24 +62,25 @@ export default function StoryPage({ map, chapters = {}, library = [] }: Props) {
         <section className="op-section story-links" aria-labelledby="story-read">
           <h2 id="story-read">Read the story</h2>
           <div className="story-link-grid">
-            <a className="story-link-card" href={READER} target="_blank" rel="noopener noreferrer">
-              <strong>Timo&apos;s Arknights Story Reader <span aria-hidden="true">↗</span></strong>
-              <span className="hint">Every main story, side story, vignette and operator record, read the way the game plays it.</span>
-            </a>
-            <Link prefetch={false} className="story-link-card" href="/manga">
-              <strong>Arknights Manga</strong>
-              <span className="hint">Every official comic from the Global site, each a link to read it there.</span>
+            <button type="button" className="filter-chip" aria-pressed={view === 'list'} aria-controls="story-content" onClick={() => setView(view === 'list' ? 'map' : 'list')}>
+              Full List <span className="filter-chip-count">{library.length + (map.manga?.length ?? 0)}</span>
+            </button>
+            <Link prefetch={false} className="ghost" href="/manga">
+              Manga
             </Link>
+            <a className="ghost" href={READER} target="_blank" rel="noopener noreferrer">
+              Timo&apos;s Story Reader <span aria-hidden="true">↗</span>
+            </a>
           </div>
         </section>
-        <section className="op-section" aria-labelledby="story-map">
-          <h2 id="story-map">Story library</h2>
-          <p className="hint story-map-credit">
+        <section className="op-section" id="story-content" aria-labelledby="story-map">
+          <h2 id="story-map">{view === 'list' ? 'Story list' : 'Story map'}</h2>
+          {view === 'map' && <p className="hint story-map-credit">
             <a href={map.source} target="_blank" rel="noopener noreferrer">{map.title}</a>, kept up to date from the original. Click
             a story to choose where to start reading it in Timo&apos;s reader.
-          </p>
+          </p>}
           {chapter && !shown && <p className="hint" role="status">This chapter is not available in the current catalogue. <a href={entry?.url ?? READER} target="_blank" rel="noopener noreferrer">Open Timo&apos;s reader ↗</a></p>}
-          <StoryMapView map={map} chapters={opener} library={library} />
+          <StoryMapView map={map} chapters={opener} library={library} view={view} />
         </section>
       </main>
       {shown && <ChapterDialog link={shown.link} image={shown.image} sections={chapters[chapter]} onClose={() => setChapter('')} />}

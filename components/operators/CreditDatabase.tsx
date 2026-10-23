@@ -180,7 +180,7 @@ export default function CreditDatabase({ people, uncredited, operators, now, kin
   return (
     <>
       <Head><title>{`${title} — Arkpedia`}</title></Head>
-      <PageHeader
+      <PageHeader stickyActions
         eyebrow={voices ? 'Rhodes Island // Voice credits' : 'Rhodes Island // Art credits'}
         title={title}
         sub={voices ? 'Everyone credited with an operator’s voice, in every language the game ships.' : 'Everyone credited with an operator’s artwork, its promotions and its outfits.'}
@@ -246,11 +246,11 @@ export default function CreditDatabase({ people, uncredited, operators, now, kin
                 <h2 id={`credits-${group.key}-h`}>{group.heading}</h2>
                 <span className="hint">{plural(group.size, noun)}</span>
               </div>
-              <ul className="credit-people">
+              <ul className="directory-grid credit-people">
                 {group.people.map(person => (
-                  <li key={person.name} className="credit-person">
+                  <li key={person.name} className="directory-card credit-person">
                     <div className="credit-person-head">
-                      <h3 className="entity-title entity-title-xs">{person.name}</h3>
+                      <h3 className="entity-title entity-title-sm entity-title-name">{person.name}</h3>
                       <p className="hint credit-person-meta">
                         {person.entries.length === person.total ? plural(person.total, 'operator') : `${person.entries.length} of ${plural(person.total, 'operator')}`}
                         {voices ? ` · ${[...new Set(person.entries.flatMap(e => e.credits))].join(', ')}` : ''}

@@ -149,7 +149,7 @@ const norm = (s) => s.replace(/\s+/g, ' ').trim();
 function walk(dir, ext) {
   return readdirSync(join(root, dir), { recursive: true })
     .filter((f) => ext.some((e) => f.endsWith(e)))
-    .map((f) => join(dir, f))
+    .map((f) => join(dir, f).split('\\').join('/'))
     .sort();
 }
 
@@ -252,7 +252,7 @@ const COLOUR_LITERAL = /#[0-9a-fA-F]{3,8}\b|\b(?:rgba?|hsla?)\([^)]*\)/g;
 const OLD_TEAL = /#4de8d1\b|rgba?\(\s*77[\s,]+232[\s,]+209\b/gi;
 /** Where tealDecoration applies: page families whose stylesheets paint teal for a state
  *  only. Add a family's folder once it is clean; the rule is strict. */
-const TEAL_DECORATION_SCOPE = [join('styles', 'stages') + '/'];
+const TEAL_DECORATION_SCOPE = ['styles/stages/'];
 const TEAL = /var\(\s*--teal(?:-dim|-fill(?:-hi)?)?\s*\)/;
 /** The files whose toolbars may use .tgl (a dense row of mode switches). None do today;
  *  add a file here only for a real toolbar, never for a setting or an option. */
@@ -440,7 +440,7 @@ function headingClasses(files) {
 function controlHeights(cssFiles, controls, boxedBare, textareas) {
   const found = [];
   for (const path of cssFiles) {
-    const core = path.startsWith(join('styles', 'core') + '/');
+    const core = path.startsWith('styles/core/');
     for (const { selector, body } of rules(stripComments(readFileSync(join(root, path), 'utf8')))) {
       const decls = declarations(body).filter((d) => /^(?:min-)?(?:height|block-size)$/.test(d.prop) && /(?:^|[\s(,])\d*\.?\d+(?:px|rem|em)\b/.test(d.value) && !/var\(\s*--control-h\b/.test(d.value));
       if (!decls.length) continue;
@@ -483,7 +483,7 @@ const ROW_PRIMITIVES = [...CONTROL_PRIMITIVES].filter((c) => c !== 'primary' && 
 /** Outer layout: what places a box among its siblings rather than drawing it. */
 const OUTER_LAYOUT = /^(?:margin(?:-[a-z-]+)?|align-self|justify-self|place-self)$/;
 function primitiveLayouts(cssFiles) {
-  const core = cssFiles.filter((path) => path.startsWith(join('styles', 'core') + '/'));
+  const core = cssFiles.filter((path) => path.startsWith('styles/core/'));
   const sized = new Set();
   const found = [];
   for (const path of core) {
@@ -548,7 +548,7 @@ const X_BUTTON_COMPONENTS = ['XButton'];
 function xButtons(tsxFiles) {
   const out = [];
   for (const path of tsxFiles) {
-    if (path === join('components', 'ui', 'XButton.tsx')) continue;
+    if (path === 'components/ui/XButton.tsx') continue;
     const code = readFileSync(join(root, path), 'utf8').replace(/\{\s*\/\*[\s\S]*?\*\/\s*\}/g, '').replace(/\/\*[\s\S]*?\*\//g, '');
     for (const m of code.matchAll(/<([a-z][\w]*)\b((?:=>|[^>])*?)>/g)) {
       const [open, tag, attrs] = m;
@@ -667,7 +667,7 @@ function collect() {
           : /::-webkit-scrollbar-thumb/.test(selector) && (d.prop === 'background' || d.prop === 'background-color') ? d.value : null;
         if (thumb && /var\(\s*--line(?:-soft)?\s*[,)]/.test(thumb)) out.scrollbarThumb.push(`${path}: ${selector} { ${d.prop}: ${d.value} }`);
       }
-      if (path !== join('styles', 'core', 'shared.css') && selector.split(',').some(h1Subject)) {
+      if (path !== 'styles/core/shared.css' && selector.split(',').some(h1Subject)) {
         for (const d of decls) {
           if (d.prop === 'font-size' || d.prop === 'text-transform' || (d.prop === 'font' && /\d/.test(d.value))) {
             out.h1Rules.push(`${path}: ${selector} { ${d.prop} }`);
@@ -675,7 +675,7 @@ function collect() {
         }
       }
       // r9 headingRules: heading paint lives in styles/core/shared.css.
-      if (path !== join('styles', 'core', 'shared.css')) {
+      if (path !== 'styles/core/shared.css') {
         for (const part of selector.split(',')) {
           const subject = subjectOf(part);
           const cls = classesOf(subject);
@@ -732,10 +732,10 @@ function collect() {
         if (/(?:^|\s)tgl(?=\s|$|\$)/.test(m[2])) out.tglOutsideToolbar.push(`${path}: ${m[0].slice(0, 80)}`);
       }
     }
-    if (path.startsWith(join('components', 'ui') + '/')) continue;
+    if (path.startsWith('components/ui/')) continue;
     for (const _ of code.matchAll(/<select[\s>]/g)) out.nativeControls.push(`${path}: <select>`);
     for (const _ of code.matchAll(/role(?:=|:\s*)["']listbox["']/g)) out.nativeControls.push(`${path}: role="listbox"`);
-    if (!path.startsWith(join('pages', 'dev') + '/')) {
+    if (!path.startsWith('pages/dev/')) {
       // Any two quoted class lists chosen by a condition where exactly one side has
       // "primary": 'primary btn-sm' vs 'ghost' is the same toggle as 'primary' vs 'ghost'.
       for (const m of code.matchAll(/\?\s*(['"`])([^'"`]*)\1\s*:\s*(['"`])([^'"`]*)\3/g)) {
