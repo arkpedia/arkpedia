@@ -2,7 +2,7 @@ import { getAllOperators } from '@/lib/operators/operators';
 import { getSkillList } from '@/lib/operators/operatorTypes';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
 import { getSkillIconPath } from '@/lib/operators/operatorIconPaths';
-import { SYNERGY_CLASS_NAMES, findSynergyMatches, isSynergyExcluded } from '@/lib/techniques/synergyDetection';
+import { SYNERGY_CLASS_NAMES, findSynergyMatches, isSynergyExcluded, namesContainingSynergyTerms } from '@/lib/techniques/synergyDetection';
 import { operatorBelongsToFaction } from '@/lib/operators/factionAliases';
 
 /* /synergies' records, moved out of the page (pages/synergies.tsx) unchanged so its parts
@@ -46,6 +46,9 @@ export function buildSynergyGroups(): SynergyGroup[] {
     ...Array.from(factionNames).map((name) => ({ name, type: 'faction' as const })),
     ...SYNERGY_CLASS_NAMES.map((name) => ({ name, type: 'class' as const })),
   ];
+  // Roster names that contain a faction/class name ("Vina Victoria", "Rhodes
+  // Island Recon"): the name is the operator, not a mention of the faction.
+  const ignoredNames = namesContainingSynergyTerms(operators.map((op) => op.name), allSearchNames);
 
   // groupKey -> operatorName -> entry
   const groupMap = new Map<string, Map<string, SynergyOperatorEntry>>();
@@ -63,7 +66,7 @@ export function buildSynergyGroups(): SynergyGroup[] {
     for (const skill of getSkillList(op)) {
       const highestLevelText = skill.levels.length > 0 ? skill.levels[skill.levels.length - 1].description : null;
       if (!highestLevelText) continue;
-      for (const { name, type, matchedTerm } of findSynergyMatches(highestLevelText, allSearchNames)) {
+      for (const { name, type, matchedTerm } of findSynergyMatches(highestLevelText, allSearchNames, { ignoredNames })) {
         const groupKey = `${type}-${name}`;
         if (isSynergyExcluded(groupKey, op.name)) continue;
         addBadge(groupKey, op, operatorIconPath, op.rarity, {
@@ -78,7 +81,7 @@ export function buildSynergyGroups(): SynergyGroup[] {
     (op.talents || []).forEach((talent, ti) => {
       const lastRowText = talent.rows.length > 0 ? talent.rows[talent.rows.length - 1].description : null;
       if (!lastRowText) return;
-      for (const { name, type, matchedTerm } of findSynergyMatches(lastRowText, allSearchNames)) {
+      for (const { name, type, matchedTerm } of findSynergyMatches(lastRowText, allSearchNames, { ignoredNames })) {
         const groupKey = `${type}-${name}`;
         if (isSynergyExcluded(groupKey, op.name)) continue;
         addBadge(groupKey, op, operatorIconPath, op.rarity, {
@@ -109,7 +112,7 @@ export function buildSynergyGroups(): SynergyGroup[] {
       for (const s of orderedStages) {
         if (s.stage !== 'Stage 1' && s.stage !== 'Stage 3') continue;
         if (!s.effectText) continue;
-        for (const { name, type, matchedTerm } of findSynergyMatches(s.effectText, allSearchNames)) {
+        for (const { name, type, matchedTerm } of findSynergyMatches(s.effectText, allSearchNames, { ignoredNames })) {
           const groupKey = `${type}-${name}`;
           if (isSynergyExcluded(groupKey, op.name)) continue;
           if (seenModuleGroupKeys.has(groupKey)) continue; // already badged from this module's higher stage
