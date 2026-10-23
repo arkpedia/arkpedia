@@ -34,6 +34,12 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-10-23T23:30:00Z',
+    added: [
+      { title: 'PVs on event pages', detail: "Each event has a PVs tab with its official trailer, PVs and EPs from YouTube, and a rerun lists its launch's too.", href: '/schedule' },
+    ],
+  },
+  {
     at: '2026-10-23T15:30:00Z',
     changed: [
       { title: 'Synergies as cards', detail: 'Each faction or class is a card with its emblem, the buffs it grants and who it reaches; a card opens its record.', href: '/synergies' },
