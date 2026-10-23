@@ -49,7 +49,8 @@ Builds builds it, Dockerfile included. Set it up once in the dashboard:
    container anyway.
 
 Each push to `cloudflare` that touches those paths then builds the image, pushes it and rolls out
-the container. The first start after a deploy takes about 20 s while the container is placed.
+the container. A newly connected Worker has no build button until it has built once, so its first
+build also comes from such a push. The first start after a deploy takes about 20 s while the container is placed.
 
 **Check it after a deploy:**
 
