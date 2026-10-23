@@ -90,6 +90,10 @@ the Cloudflare relay. On the Worker, `/account?relay=vps` (or `?relay=cloudflare
 import started from that page. Addresses other than workers.dev (www, arkpedia-dev) always use the
 VPS relay.
 
+## Analytics
+
+The Worker counts visits with Cloudflare Web Analytics (`components/layout/SiteAnalytics.tsx`): visits, page views, pages, referrers, countries and devices, with no cookie and no visitor id. It is free, so nothing is sampled. The beacon loads only in the Worker's own build of `cloudflare` (`WORKERS_CI_BRANCH`), and only once `config/web-analytics.json` holds the site's token from the dashboard (Analytics & Logs > Web Analytics). The numbers are in the same place. Vercel's analytics is gone from this branch; www keeps it until it moves.
+
 ## Known limits
 
 - **Images** go through Next's default loader; Cloudflare Images is not set up.

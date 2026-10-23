@@ -1,0 +1,4 @@
+{
+  "about": "Cloudflare Web Analytics on the site's Worker (components/layout/SiteAnalytics.tsx): the token of the site's entry in the Cloudflare dashboard, Analytics & Logs > Web Analytics. Public by design: the beacon carries it in every page. While it is empty nothing loads (next.config.js).",
+  "cloudflareToken": "a660cad9524d4a6183d1b788d0944411"
+}

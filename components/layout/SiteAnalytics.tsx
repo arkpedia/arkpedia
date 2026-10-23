@@ -1,15 +1,20 @@
-import { Analytics } from '@vercel/analytics/react';
-import { useRouter } from 'next/router';
-import { useEffect, useState } from 'react';
-import { analyticsPath, createSessionSampler } from '@/lib/analytics/session';
+import Script from 'next/script';
+import webAnalytics from '@/config/web-analytics.json';
 
-const sampleSession = createSessionSampler();
-
-/** Load the SDK only for sampled production sessions; unselected sessions send nothing. */
+/**
+ * Cloudflare Web Analytics on the site's Worker: visits, page views, pages, referrers and
+ * countries, with no cookie and no visitor id. It is free, so every visit counts: nothing is
+ * sampled, as Vercel's had to be. `spa` counts the client router's page changes, which never
+ * reload the document. Mounted only in the Worker's production build (next.config.js).
+ */
 export default function SiteAnalytics() {
-  const router = useRouter();
-  const [sampled, setSampled] = useState(false);
-  useEffect(() => setSampled(sampleSession(() => window.sessionStorage)), []);
-  if (!sampled || !router.isReady) return null;
-  return <Analytics route={router.pathname} path={analyticsPath(router.asPath)} />;
+  return (
+    <Script
+      // As Cloudflare's own snippet loads it.
+      type="module"
+      src="https://static.cloudflareinsights.com/beacon.min.js"
+      strategy="afterInteractive"
+      data-cf-beacon={JSON.stringify({ token: webAnalytics.cloudflareToken, spa: true })}
+    />
+  );
 }

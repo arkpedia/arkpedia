@@ -36,12 +36,14 @@ const nextConfig = {
   // own so the first build's output stays for the browser suites (check.yml, "Pages render
   // the live content release"). Unset everywhere else.
   ...(process.env.NEXT_DIST_DIR ? { distDir: process.env.NEXT_DIST_DIR } : {}),
-  // Count only live production traffic; dev is itself a Vercel production deployment,
-  // so check its content channel too. Other builds never load a missing insights script.
+  // Analytics: Cloudflare Web Analytics, in the Worker's own build of this branch only (Workers
+  // Builds sets WORKERS_CI_BRANCH; its builds of other branches are off), and only once
+  // config/web-analytics.json has the site's token. Vercel's is gone from this branch
+  // (owner, 2026-10-23): it never loaded on the Worker, whose build is not VERCEL.
   // ARKPEDIA_CONTENT_CHANNEL: the content pointer this build reads (lib/content/server.ts): the
   // channel of the project Deploy builds for (scripts/content/content-channel.cjs). Inlined
   // because the prebuilt functions carry no Vercel project env.
-  env: { ARKPEDIA_WEB_ANALYTICS: process.env.VERCEL === '1' && process.env.VERCEL_ENV === 'production' && contentPointer() === 'live' ? '1' : '', ARKPEDIA_CONTENT_CHANNEL: contentPointer() },
+  env: { ARKPEDIA_WEB_ANALYTICS: process.env.WORKERS_CI_BRANCH === 'cloudflare' && require('./config/web-analytics.json').cloudflareToken ? '1' : '', ARKPEDIA_CONTENT_CHANNEL: contentPointer() },
   // The browser bundle may not carry a game record the content release publishes (such as
   // data/albums.json): the build fails, naming the import chain. See the guard's header.
   webpack(config, { isServer }) {
