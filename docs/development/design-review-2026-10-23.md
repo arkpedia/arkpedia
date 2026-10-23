@@ -29,7 +29,7 @@ or every-game-state certification.
 | Finding | Resolution |
 | --- | --- |
 | Story's two destination panels competed with its actual library | Replaced them with compact shared ghost links; retained the external-reader destination and Manga route |
-| List looked like another small map tool beside zoom/Fit | Gave Map/List its own row, wider targets and a short explanation; map tools now sit separately below it |
+| List looked like another small map tool beside zoom/Fit | Moved List beside Timo's reader and Manga; removed the Map button and named the default section Story map. List toggles the searchable catalogue, with the state kept in the URL |
 | Artist and voice-actor directories used full-width rows, unlike mechanics directories | Migrated to the same responsive directory grid/surface as techniques and synergies; retained alphabetic grouping, all visible operator credits, queries and filters |
 | Repeated card-grid/surface rules had separate feature owners | Added shared `.directory-grid`, `.directory-card` and a wide composition modifier; feature styles own inner layout only |
 | Credit names used the smaller sheet-title size | Aligned them with the 18px directory-card title hierarchy |
@@ -96,6 +96,9 @@ behavior solely to make the number smaller.
   entries; every non-optional accepted inset is still present.
 - Application lint completed with no errors and nine existing warnings (under the
   repository's limit of 15); changed application and audit files lint cleanly.
+- The follow-up Story navigation change (List beside the reader links, no Map button)
+  passed 27 Story application tests and 26 desktop/mobile browser checks, with two
+  intentional skips. The production build and style/type/lint checks also pass.
 
 Local packaging limitation: the Windows production build's separate deployment-trace audit
 reports local `data/` files in server traces despite the existing exclusions in

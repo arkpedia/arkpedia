@@ -1,8 +1,5 @@
 /* Reading destinations are compact actions; the library remains the main content. */
 .story-link-grid { display: flex; flex-wrap: wrap; gap: 8px; }
-.story-view-nav { display: grid; gap: 8px; margin-bottom: var(--heading-gap); }
-.story-view-switch > button { min-width: 128px; justify-content: center; }
-.story-view-nav p.hint { margin: 0; }
 
 /* The story map (components/story/StoryMapView.tsx): the board in its own units, scaled as one. */
 .story-map-credit { margin: 0 0 12px; }

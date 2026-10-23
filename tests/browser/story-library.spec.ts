@@ -105,10 +105,16 @@ test('search, keyboard navigation, missing chapters and map/list transitions sta
   await expect(library.getByText('No stories match these filters.')).toBeVisible();
   await library.getByRole('button', { name: 'Clear filters' }).click();
   await expect(library.getByRole('heading', { name: /^Main Story \d+$/ })).toBeVisible();
-  await page.getByRole('button', { name: 'Map', exact: true }).click();
+  const listButton = page.getByRole('button', { name: /^List/ });
+  await expect(listButton).toHaveAttribute('aria-pressed', 'true');
+  await listButton.click();
   await expect(page.locator('.story-map-viewport')).toBeVisible();
-  await page.getByRole('button', { name: /^List/ }).click();
+  await expect(page.getByRole('heading', { name: 'Story map', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Map', exact: true })).toHaveCount(0);
+  await expect(page.locator('.story-link-grid').getByRole('button', { name: /^List/ })).toBeVisible();
+  await listButton.click();
   await expect(library).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Story list', exact: true })).toBeVisible();
   await page.goto('/story?view=list&chapter=missing-chapter');
   await expect(page.getByText('This chapter is not available in the current catalogue.')).toBeVisible();
   await expect(page.getByText('This chapter is not available in the current catalogue.')).toBeInViewport();

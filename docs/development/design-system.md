@@ -85,9 +85,11 @@ Put the content/view choice above the tool it selects, separate from zoom, Fit, 
 and other tool controls. Keep search and filters visible in a list view. A view choice should
 have a clear label and readable hit targets without becoming the page's largest content block.
 
-On Story, Timo's reader and Manga are compact destination links. Map/List is a separate,
-prominent choice. The map toolbar operates only the map. The list keeps all story categories,
-search, reading progress and chapter links. The `view` query parameter remains shareable.
+On Story, List sits beside the compact Timo's reader and Manga links. The page opens on
+the section titled "Story map", with no Map button. List toggles the searchable catalogue
+in place ("Story list"); pressing it again returns to the map. The map toolbar operates
+only the map. The list keeps all story categories, search, reading progress and chapter
+links. The `view` query parameter remains shareable.
 
 Workspace panels may have passive outlines and depth; a card inside a panel does not need
 another panel frame. Keep toolbars stable when filters, tabs or selections reduce content.
@@ -111,8 +113,8 @@ normal sentence case. A label's accessible name must include its visible text. E
 destinations show ↗; a link opening a new tab uses `rel="noopener noreferrer"`.
 
 Pick-one groups and tabs begin on the section's left edge, at content width. Do not stretch
-every filter to fill its row. A deliberate fixed-width view choice, such as Story's Map/List,
-may give both options enough width to be easy to find while keeping the shared height.
+every filter to fill its row. Give important navigation its own position in the page
+hierarchy rather than increasing every control's size.
 
 ## Page anatomy
 
