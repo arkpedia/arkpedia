@@ -196,11 +196,11 @@ const NO_LIFT: Record<string, string> = {
 const LIFT_ROUTES: Record<string, number> = {
   '/': 3, '/skins': 1, '/gacha': 1, '/enemies': 1, '/community': 1, '/results': 1, '/music/discover': 2, '/stages': 1,
   '/stages/content/act51side': 1, '/stages/regular': 1, '/stages/all': 1, '/stages/exploration': 1, '/operators': 1,
-  '/operators/Amiya': 1, '/synergies': 1, [`/events/${encodeURIComponent('[Rerun] Under Tides Rerun')}#skins`]: 1,
+  '/operators/Amiya': 1, [`/events/${encodeURIComponent('[Rerun] Under Tides Rerun')}#skins`]: 1,
 };
 /* Content cards whose art is under half the card: they lift too. */
 const LIFT_CONTENT_CARDS: Record<string, string[]> = {
-  '/games': ['a.lift'], '/stages': ['a.terminal-mode'], '/stages/supplies': ['.supply-card'], '/stages/regular': ['a.regular-now', '.regular-tower'],
+  '/games': ['a.lift'], '/synergies': ['button.technique-card'], '/techniques': ['button.technique-card'], '/stages': ['a.terminal-mode'], '/stages/supplies': ['.supply-card'], '/stages/regular': ['a.regular-now', '.regular-tower'],
 };
 
 const HOVER_LIFT = '0px -3px';
@@ -568,7 +568,7 @@ const FLAT_BOXES: Record<string, string> = {
 };
 test.describe('boxed panels sit on a soft shadow', () => {
   test.skip(({ isMobile }) => !!isMobile, 'the same stylesheet at every width; measured at 1440');
-  for (const route of ['/', '/gacha', '/operators/Amiya', '/pulls', '/recruitment', '/stages', '/stages/browse', '/support', '/techniques', '/gamemodes/stronghold-protocol', '/planner']) {
+  for (const route of ['/', '/gacha', '/operators/Amiya', '/pulls', '/recruitment', '/stages', '/stages/browse', '/support', '/gamemodes/stronghold-protocol', '/planner']) {
     test(`${route}: every boxed panel on the page ground carries --shadow-panel`, async ({ page }) => {
       await readOnly(page);
       await page.goto(route);

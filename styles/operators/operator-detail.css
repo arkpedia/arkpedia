@@ -46,6 +46,39 @@
 .op-synergy-icons img:first-child {
   border-radius: var(--radius-control);
 }
+/* The skill and talent badges pinned to a synergy portrait. They were /techniques' icon
+   wall's, which the 2026-10-23 redesign replaced; this section is their only user now. */
+.technique-entry-badge-row {
+  position: absolute;
+  bottom: -4px;
+  right: -4px;
+  max-width: calc(100% + 4px);
+  display: flex;
+  flex-direction: row-reverse;
+  flex-wrap: wrap-reverse;
+  align-items: center;
+  gap: 2px;
+}
+.technique-entry-badge-icon {
+  border-radius: 50%;
+  border: 1px solid var(--line-soft);
+  background: var(--panel-2);
+}
+.technique-entry-badge-talent {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 3px;
+  border-radius: var(--radius);
+  border: 1px solid var(--control-border);
+  background: var(--panel-2);
+  color: var(--text);
+  font-size: 10px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 .op-synergy-icons .technique-entry-badge-row {
   bottom: -3px;
   right: -3px;

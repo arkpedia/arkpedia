@@ -44,7 +44,7 @@ export const HEADING_ROUTES: Record<string, number> = {
   '/operators/Amiya': 10, '/planner': 1, '/pulls': 3, '/recruitment': 2, '/results': 0, '/schedule': 0,
   '/skins': 0, '/stages': 1, '/stages/all': 0, '/stages/browse?s=ta-1': 2, '/stages/content/act49side': 1,
   '/stages/exploration': 2, '/stages/regular': 2, '/stages/score': 2, '/stages/seasonal': 2,
-  '/stages/supplies': 0, '/support': 0, '/synergies': 10, '/techniques': 10, '/voice-actors': 1,
+  '/stages/supplies': 0, '/support': 0, '/synergies': 0, '/techniques': 0, '/voice-actors': 1,
 };
 export const HEADING_GAP = 14;
 export const SECTION_GAP = 36;
@@ -78,7 +78,9 @@ export const PICTURE_ROUTES: Record<string, number> = {
   // Its Skins section by link: since the event pages list sign-ins, missions and first clears,
   // this event opens on Rewards, whose totals are tiles, not picture cards.
   [`/events/${encodeURIComponent('[Rerun] Under Tides Rerun')}#skins`]: 1,
-  '/operators': 1, '/operators/Amiya': 1, '/operators/Exusiai': 1, '/artists': 0, '/voice-actors': 0, '/stages/all': 1, '/stages/score': 1, '/stages/exploration': 1, '/synergies': 1,
+  '/operators': 1, '/operators/Amiya': 1, '/operators/Exusiai': 1, '/artists': 0, '/voice-actors': 0, '/stages/all': 1, '/stages/score': 1, '/stages/exploration': 1,
+  // Content cards since 2026-10-23 (CONTENT_CARDS below): their portraits are a strip, not half the card.
+  '/synergies': 0, '/techniques': 0,
 };
 /* Content cards whose art is under half the card, so the census above does not count
    them; they are cards, not controls, and carry no resting frame either. Only the top,
@@ -87,6 +89,8 @@ export const PICTURE_ROUTES: Record<string, number> = {
 export const CONTENT_CARDS: Record<string, string[]> = {
   '/stages/supplies': ['.supply-card'],
   '/stages/regular': ['a.regular-now', '.regular-tower'],
+  '/synergies': ['.technique-card'],
+  '/techniques': ['.technique-card'],
 };
 
 /** `edged`: the card or a box round its art has a border to paint (main's pattern, a

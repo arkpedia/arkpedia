@@ -24,7 +24,7 @@ import type { SearchableOperatorRecord as SearchableOperator } from '@/lib/opera
 import { Operator, GuideEntry, SkillRecommendationEntry, SkillTechnique, getSkillList, getSkillCost, CostGroup, getWelfareInfo } from '@/lib/operators/operatorTypes';
 import { MEMBER_TO_UMBRELLA, UMBRELLA_DESCRIPTIONS, skillTechniques, talentTechniques } from '@/lib/techniques/autoTechniques';
 import { buildTechniqueGroups } from '@/lib/techniques/buildTechniqueGroups';
-import { SYNERGY_CLASS_NAMES, findSynergyMatches, isSynergyExcluded } from '@/lib/techniques/synergyDetection';
+import { SYNERGY_CLASS_NAMES, findSynergyMatches, isSynergyExcluded, namesContainingSynergyTerms } from '@/lib/techniques/synergyDetection';
 import { getClassIconPath, getBranchIconPath, getFactionIconPath } from '@/lib/operators/classBranchIcons';
 import { operatorReleaseLabel } from '@/lib/operators/operatorAvailability';
 import { publicFileExists } from '@/lib/assets/publicAssets';
@@ -1774,6 +1774,9 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/op
     ...Array.from(allFactionNames).map((name) => ({ name, type: 'faction' as const })),
     ...SYNERGY_CLASS_NAMES.map((name) => ({ name, type: 'class' as const })),
   ];
+  // Roster names that contain a faction/class name ("Vina Victoria"): the name
+  // is the operator, not a mention of the faction.
+  const ignoredNames = namesContainingSynergyTerms(allOperators.map((op) => op.name), allCandidateNames);
   const AUTO_SYNERGY_PAGE_SIZE = 10;
   const ownGroupTargets: { name: string; type: 'faction' | 'class' }[] = [];
   const seenOwnTargets = new Set<string>();
@@ -1798,14 +1801,14 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/op
         const badges: AutoSynergyBadge[] = [];
         for (const skill of getSkillList(op)) {
           const highestLevelText = skill.levels.length > 0 ? skill.levels[skill.levels.length - 1].description : null;
-          const found = highestLevelText ? findSynergyMatches(highestLevelText, allCandidateNames).find((m) => m.name === name && m.type === type) : null;
+          const found = highestLevelText ? findSynergyMatches(highestLevelText, allCandidateNames, { ignoredNames }).find((m) => m.name === name && m.type === type) : null;
           if (found) {
             badges.push({ label: skill.name || '', skillIconPath: getSkillIconPath(op.name, skill.name), talentLabel: null, sourceText: highestLevelText, matchedKeyword: found.matchedTerm });
           }
         }
         (op.talents || []).forEach((talent, ti) => {
           const lastRowText = talent.rows.length > 0 ? talent.rows[talent.rows.length - 1].description : null;
-          const found = lastRowText ? findSynergyMatches(lastRowText, allCandidateNames).find((m) => m.name === name && m.type === type) : null;
+          const found = lastRowText ? findSynergyMatches(lastRowText, allCandidateNames, { ignoredNames }).find((m) => m.name === name && m.type === type) : null;
           if (found) {
             badges.push({ label: `T${ti + 1}`, skillIconPath: null, talentLabel: `T${ti + 1}`, sourceText: lastRowText, matchedKeyword: found.matchedTerm });
           }

@@ -22,13 +22,17 @@ interface Place {
   press: (scope: Page | ReturnType<Page['getByRole']>) => ReturnType<Page['getByRole']>;
   chip: string;
   key: string;
+  /** What the press writes to `key`. */
+  value: string;
 }
 
 const PLACES: Place[] = [
-  { route: '/operators', item: 'main .roster-card', press: (s) => s.getByRole('button', { name: '6-star', exact: true }), chip: '6★', key: 'rarity' },
-  { route: '/artists', item: 'main .credit-person', press: (s) => s.getByRole('button', { name: '6-star', exact: true }), chip: '6★', key: 'rarity' },
-  { route: '/voice-actors', item: 'main .credit-person', press: (s) => s.getByRole('button', { name: '6-star', exact: true }), chip: '6★', key: 'rarity' },
-  { route: '/skins', item: 'main .skin-card', press: (s) => s.getByRole('group', { name: 'Skin availability' }).getByRole('button', { name: 'Shop', exact: true }), chip: 'Shop', key: 'availability' },
+  { route: '/operators', item: 'main .roster-card', press: (s) => s.getByRole('button', { name: '6-star', exact: true }), chip: '6★', key: 'rarity', value: '6' },
+  { route: '/artists', item: 'main .credit-person', press: (s) => s.getByRole('button', { name: '6-star', exact: true }), chip: '6★', key: 'rarity', value: '6' },
+  { route: '/voice-actors', item: 'main .credit-person', press: (s) => s.getByRole('button', { name: '6-star', exact: true }), chip: '6★', key: 'rarity', value: '6' },
+  { route: '/skins', item: 'main .skin-card', press: (s) => s.getByRole('group', { name: 'Skin availability' }).getByRole('button', { name: 'Shop', exact: true }), chip: 'Shop', key: 'availability', value: 'shop' },
+  { route: '/techniques', item: 'main .technique-card', press: (s) => s.getByRole('button', { name: '6-star', exact: true }), chip: '6★', key: 'rarity', value: '6' },
+  { route: '/synergies', item: 'main .technique-card', press: (s) => s.getByRole('group', { name: 'Buff' }).getByRole('button', { name: 'Ammo', exact: true }), chip: 'Ammo', key: 'buff', value: 'Ammo' },
 ];
 
 /** Where the list starts, the bar's top and the reader's scroll: what may not move. */
@@ -58,7 +62,7 @@ for (const theme of ['dark', 'light'] as const) {
         await expect(page.locator('.filter-bar')).toBeHidden();
         await expect(place.press(page)).toBeVisible();
         await place.press(page).click();
-        await query(page, place.key, place.route === '/skins' ? 'shop' : '6');
+        await query(page, place.key, place.value);
         await expect(page.locator('.filter-tag')).toBeHidden();
         return;
       }
@@ -94,7 +98,7 @@ for (const theme of ['dark', 'light'] as const) {
       await filters.click();
       await expect(sheet).toBeVisible();
       await place.press(sheet).click();
-      await query(page, place.key, place.route === '/skins' ? 'shop' : '6');
+      await query(page, place.key, place.value);
       await expect(filters).toHaveText(/^Filters\s*1$/);
       const chip = page.locator('.filter-tag', { hasText: place.chip });
       await expect(chip).toHaveCount(1);

@@ -97,6 +97,31 @@ export function buildSynergyPattern(term: string, allowPlural: boolean): RegExp 
   return new RegExp(`\\b${escaped}${suffix}\\b(?!'s)`, 'i');
 }
 
+/** Operator names that themselves contain a faction or class name -- "Vina
+ * Victoria", "Rhodes Island Recon". Callers mask these occurrences, so a name
+ * is not read as a faction mention: Vina Victoria's module reads "Vina Victoria
+ * and her summons deal 15% more damage to Frightened targets", which names her,
+ * not the Victoria faction. */
+export function namesContainingSynergyTerms(
+  names: string[],
+  candidates: { name: string; type: 'faction' | 'class' }[],
+): string[] {
+  return names.filter((name) =>
+    candidates.some((c) => buildSynergyPattern(c.name, c.type === 'class').test(name)),
+  );
+}
+
+/** Blanks each ignored name with spaces, keeping every other index in place so
+ *  brackets and their spans still line up with the caller's source text. */
+function maskIgnoredNames(text: string, ignoredNames: string[]): string {
+  if (!ignoredNames.length) return text;
+  const alternation = [...ignoredNames]
+    .sort((a, b) => b.length - a.length)
+    .map((name) => name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+    .join('|');
+  return text.replace(new RegExp(`\\b(?:${alternation})\\b`, 'gi'), (m) => ' '.repeat(m.length));
+}
+
 /** Given one piece of text and a list of candidate faction/class
  * names, returns the ones that genuinely match -- checking each
  * faction's demonym form as an additional term, and with
@@ -105,6 +130,9 @@ export function buildSynergyPattern(term: string, allowPlural: boolean): RegExp 
  * more specific name is kept, since the shorter one is just a prefix
  * of it within that mention, not an independent reference.
  *
+ * `ignoredNames` (roster names from namesContainingSynergyTerms) are blanked
+ * first, so a faction spelt inside an operator's name does not count.
+ *
  * matchedTerm is the exact word that appears in the text -- the
  * faction/class's own name, OR its demonym if that's what matched
  * (e.g. name: "Iberia" but matchedTerm: "Iberian") -- callers need
@@ -112,16 +140,18 @@ export function buildSynergyPattern(term: string, allowPlural: boolean): RegExp 
  * would never find "Iberian" in the actual source text. */
 export function findSynergyMatches(
   text: string,
-  candidates: { name: string; type: 'faction' | 'class' }[]
+  candidates: { name: string; type: 'faction' | 'class' }[],
+  options: { ignoredNames?: string[] } = {},
 ): { name: string; type: 'faction' | 'class'; matchedTerm: string }[] {
+  const searchable = maskIgnoredNames(text, options.ignoredNames ?? []);
   const raw: { name: string; type: 'faction' | 'class'; matchedTerm: string }[] = [];
   for (const c of candidates) {
-    if (buildSynergyPattern(c.name, c.type === 'class').test(text)) {
+    if (buildSynergyPattern(c.name, c.type === 'class').test(searchable)) {
       raw.push({ ...c, matchedTerm: c.name });
       continue;
     }
     const demonym = c.type === 'faction' ? FACTION_DEMONYMS[c.name] : null;
-    if (demonym && buildSynergyPattern(demonym, true).test(text)) {
+    if (demonym && buildSynergyPattern(demonym, true).test(searchable)) {
       raw.push({ ...c, matchedTerm: demonym });
     }
   }
@@ -157,7 +187,7 @@ export function findSynergyMatches(
      every occurrence. Checked one bracket at a time it survived them all. */
   const resolvedSpans: { start: number; end: number; name: string }[] = [];
   const out = [...byCandidate];
-  for (const [start, end, inner] of bracketsOf(text)) {
+  for (const [start, end, inner] of bracketsOf(searchable)) {
     const resolved = resolveBracket(inner, candidates);
     if (!resolved) continue;
     resolvedSpans.push({ start, end, name: resolved.name });
@@ -168,7 +198,7 @@ export function findSynergyMatches(
   if (!resolvedSpans.length) return out;
   return out.filter(
     (c) => resolvedSpans.some((s) => s.name === c.name)
-      || !matchesOnlyInsideResolved(text, c.matchedTerm, resolvedSpans),
+      || !matchesOnlyInsideResolved(searchable, c.matchedTerm, resolvedSpans),
   );
 }
 

@@ -293,7 +293,7 @@ const CONTROL_HEIGHT_EXEMPT = [
 const ROUND_OK = /(?:^|[-_.\s])(?:dots?|avatar|portrait|icon|img|image|photo)(?=$|[-_\s:.[\]>)])|(?:^|[\s>])img(?=$|[.:[\s])|::?-(?:webkit-slider|moz-range)-thumb/;
 /** A control is never round, whatever else its name says: a <button>, a class naming a
  *  button (btn, button: .btn-icon, .close-btn, .pulls-help-button) or a control primitive.
- *  ROUND_OK's `icon` is for a picture (.technique-entry-skill-icon), and `.btn-icon` -- the
+ *  ROUND_OK's `icon` is for a picture (.technique-entry-badge-icon), and `.btn-icon` -- the
  *  square icon button that replaced the calendar's and the help and close buttons' circles --
  *  would otherwise pass as one. ROUND_EXEMPT still names a round control on purpose. */
 const roundControl = (subject) => /^button(?=$|[.:#[])/.test(subject)
@@ -304,7 +304,6 @@ const ROUND_EXEMPT = {
   '.theme-toggle': 'the nav theme toggle is an operator avatar (a round portrait)',
   '.status-ok i': 'a status tick drawn as a dot',
   '.wizard-step b': 'a numbered step marker, a dot with a digit in it',
-  '.technique-entry-priority-badge': 'a numbered dot pinned to a skill icon',
   /* r11 quiet polish */
   '.badge-live::before': 'the LIVE badge\'s blinking dot (option A, maintainer 2026-09-26)',
 };
