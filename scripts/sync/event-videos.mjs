@@ -30,6 +30,13 @@
  *
  * Channels are read in the registry's order, Global's first: an event shows the videos of the
  * first channel that has any for it, not the same PV again in another language.
+ *
+ * A rerun and its first run share their videos, each marked with the run it was released for
+ * (`run`: 'launch' or 'rerun'): a rerun's page shows the launch's trailer, PVs and EPs as well as
+ * its own PV, and the first run's page its rerun's PV, each page's own run first. A rerun has
+ * them before its Global date is confirmed (an upcoming rerun's own PV goes up on its first day),
+ * so this is by name, not window: data/event-rewards.json's inheritsFrom where the rerun has one,
+ * else the first run whose name is the rerun's without " Rerun" (firstRun).
  */
 import { eventTitle, isRerun } from '../../lib/events/eventName.mjs';
 
@@ -108,6 +115,25 @@ function near(published, event, { before, after }) {
   return time >= event.start - before * DAY_MS && time <= event.end + after * DAY_MS;
 }
 
+/**
+ * A rerun's first run among `pages` (every event page's name), or null: `inherits` (rerun name →
+ * first run, data/event-rewards.json inheritsFrom) where it has the rerun, else the first run named
+ * as the rerun without its marks ("[Rerun] Under Tides Rerun" → "[Intermezzo – Celebration] Under
+ * Tides"), else the one first run whose name begins with that ("[Rerun] So Long, Adele Rerun" →
+ * "So Long, Adele: Home Away From Home").
+ */
+export function firstRun(name, pages, inherits) {
+  if (!isRerun(name)) return null;
+  const known = inherits.get(name);
+  if (known && pages.includes(known)) return known;
+  const title = words(eventTitle(name)).replace(/ rerun$/, '');
+  const firsts = pages.filter((page) => !isRerun(page));
+  const exact = firsts.filter((page) => words(eventTitle(page)) === title);
+  if (exact.length === 1) return exact[0];
+  const longer = firsts.filter((page) => words(eventTitle(page)).startsWith(`${title} `));
+  return exact.length === 0 && longer.length === 1 ? longer[0] : null;
+}
+
 /** The nearest event's start to the upload: the tie-break when a rule fits two events. */
 const distance = (published, event) => Math.abs(Date.parse(published) - event.start);
 
@@ -160,16 +186,18 @@ export function eventByOperator(operators, published, kind, events, featured, ti
 }
 
 /**
- * Every event's official videos, `events`: { [event name]: [{ videoId, title, kind, published }] },
- * each list in KINDS order, then oldest first, events with none left out; and `rejected`: the
- * overrides' adds that name no upload of the catalogue, [{ event, videoId }].
+ * Every event's official videos, `events`: { [event name]: [{ videoId, title, kind, published, run }] },
+ * the page's own run first (its rerun's or first run's after), each run in KINDS order, then oldest
+ * first, events with none left out; and `rejected`: the overrides' adds that name no upload of the
+ * catalogue, [{ event, videoId }].
  *
  * `channels`: the registry's channels in order, each { id, uploads: [{ videoId, title, published }] }.
- * `events`: Global's confirmed windows, [{ name, start, end }]. `featured`: Map of event name to its
- * banner's operators. `albums`: data/albums.json. `overrides`: data/event-video-overrides.json's
+ * `events`: Global's confirmed windows, [{ name, start, end }]. `pages`: every event page's name,
+ * confirmed or not. `inherits`: Map of rerun to first run (firstRun). `featured`: Map of event name
+ * to its banner's operators. `albums`: data/albums.json. `overrides`: data/event-video-overrides.json's
  * `events`, { [event name]: { add?: [videoId], remove?: [videoId] } }.
  */
-export function resolveEventVideos({ channels, events, featured, albums, overrides = {} }) {
+export function resolveEventVideos({ channels, events, pages, inherits, featured, albums, overrides }) {
   const byEvent = new Map();
   const official = new Map();
   for (const channel of channels) {
@@ -203,8 +231,25 @@ export function resolveEventVideos({ channels, events, featured, albums, overrid
     }
     if (list.length) byEvent.set(name, list); else byEvent.delete(name);
   }
-  const ordered = [...byEvent].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)).map(([name, uploads]) => [name, uploads
-    .map((upload) => ({ videoId: upload.videoId, title: upload.title, kind: videoKind(upload.title), published: upload.published }))
-    .sort((a, b) => KINDS.indexOf(a.kind) - KINDS.indexOf(b.kind) || Date.parse(a.published) - Date.parse(b.published))]);
+  // Each run's own videos, marked with the run they were released for.
+  const own = new Map([...byEvent].map(([name, uploads]) => [name, uploads
+    .map((upload) => ({ videoId: upload.videoId, title: upload.title, kind: videoKind(upload.title), published: upload.published, run: isRerun(name) ? 'rerun' : 'launch' }))
+    .sort((a, b) => KINDS.indexOf(a.kind) - KINDS.indexOf(b.kind) || Date.parse(a.published) - Date.parse(b.published))]));
+  // Then a rerun and its first run share theirs: the page's own run first, the other's after.
+  const reruns = new Map();
+  for (const name of pages) {
+    const first = firstRun(name, pages, inherits);
+    if (first) reruns.set(first, [...(reruns.get(first) ?? []), name]);
+  }
+  const shown = new Map();
+  for (const name of pages) {
+    const first = firstRun(name, pages, inherits);
+    const family = first ? [first] : (reruns.get(name) ?? []);
+    const mine = own.get(name) ?? [];
+    const seen = new Set(mine.map((video) => video.videoId));
+    const theirs = family.flatMap((other) => own.get(other) ?? []).filter((video) => !seen.has(video.videoId) && seen.add(video.videoId));
+    if (mine.length + theirs.length) shown.set(name, [...mine, ...theirs]);
+  }
+  const ordered = [...shown].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
   return { events: Object.fromEntries(ordered), rejected };
 }

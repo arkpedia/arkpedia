@@ -14,7 +14,15 @@ export interface EventVideo {
   kind: EventVideoKind;
   /** When the channel published it, an ISO instant. */
   published: string;
+  /** The run it was released for: a rerun's page lists its first run's videos too, and the first
+   *  run's its rerun's. Absent from a release compiled before reruns shared them. */
+  run?: EventVideoRun;
 }
+
+export type EventVideoRun = 'launch' | 'rerun';
+
+/** Each run as the tab names it, shown only on a page that lists another run's videos. */
+export const VIDEO_RUN_LABELS: Record<EventVideoRun, string> = { launch: 'Launch', rerun: 'Rerun' };
 
 export interface EventVideosFile {
   events: Record<string, EventVideo[]>;

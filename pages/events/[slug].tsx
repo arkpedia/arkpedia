@@ -460,7 +460,7 @@ export default function EventDetailPage({
 
           {activeSection === 'pvs' && (
             <section className="op-section" {...tabPanelProps('event-section', 'pvs')}>
-              <EventVideos videos={videos} />
+              <EventVideos videos={videos} run={isRerun(name) ? 'rerun' : 'launch'} />
             </section>
           )}
 
