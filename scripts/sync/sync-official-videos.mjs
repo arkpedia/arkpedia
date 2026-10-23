@@ -158,6 +158,9 @@ async function readEvents(root) {
   ]);
   const folder = path.join(root, 'data/events');
   const records = fs.readdirSync(folder).filter((file) => /^events_\d{4}\.json$/.test(file)).sort().flatMap((file) => JSON.parse(fs.readFileSync(path.join(folder, file), 'utf8')));
+  // Every event page's name, confirmed or not (pages/events/[slug].tsx getStaticPaths): a timed
+  // event with a date on either server, a mode with a launch on either.
+  const pages = records.filter((record) => (record.modeId ? record.global?.releaseDate ?? record.cn?.releaseDate : record.global?.dateRange ?? record.cn?.dateRange)).map((record) => record.name);
   const events = records.flatMap((record) => {
     const global = record.global ?? {};
     if (record.modeId) {
@@ -175,7 +178,7 @@ async function readEvents(root) {
     const banner = getBannerForEvent(event.name, event.dateRange, banners);
     return [event.name, banner ? getFeaturedOperatorRates(banner).map((operator) => operator.name) : []];
   }));
-  return { events, featured };
+  return { events, pages, featured };
 }
 
 /**
@@ -203,18 +206,19 @@ export async function syncOfficialVideos(root, { fetcher = globalThis.fetch, rea
     }
   }
   writeJson(root, CATALOGUE_FILE, { channels: Object.fromEntries(Object.entries(catalogue.channels).sort(([a], [b]) => (a < b ? -1 : 1))) });
-  const { events, featured } = given ?? await readEvents(root);
+  const { events, pages, featured } = given ?? await readEvents(root);
   const overrides = readJson(root, OVERRIDES_FILE)?.events ?? {};
   const albums = readJson(root, 'data/albums.json') ?? [];
+  // A rerun's first run, where the reward tables say (build-event-rewards.mjs inheritsFrom).
+  const inherits = new Map(Object.entries(readJson(root, 'data/event-rewards.json')?.events ?? {}).flatMap(([name, entry]) => (typeof entry?.inheritsFrom === 'string' ? [[name, entry.inheritsFrom]] : [])));
   const { events: resolved, rejected } = resolveEventVideos({
     channels: registry.filter((entry) => entry.use).map((entry) => ({ id: entry.id, uploads: catalogue.channels[entry.id]?.uploads ?? [] })),
-    events, featured, albums, overrides,
+    events, pages, inherits, featured, albums, overrides,
   });
-  // An override under a name no event page has (a typo, a renamed event) would file videos nowhere.
-  const names = new Set(events.map((event) => event.name));
-  for (const name of Object.keys(overrides).filter((key) => !names.has(key))) {
-    log(`${OVERRIDES_FILE} names "${name}", which is no event with a confirmed Global window: nothing is filed under it`);
-    stage.add({ key: `override:${name}`, reason: `${OVERRIDES_FILE} names this event, but no event with a confirmed Global window has that name, so its videos are filed nowhere. Use the event's name as its page has it.`, action: 'omitted-new' });
+  // An override under a name no event page has (a typo, a renamed event) would show nowhere.
+  for (const name of Object.keys(overrides).filter((key) => !pages.includes(key))) {
+    log(`${OVERRIDES_FILE} names "${name}", which is no event page: nothing is filed under it`);
+    stage.add({ key: `override:${name}`, reason: `${OVERRIDES_FILE} names this event, but no event page has that name, so its videos are shown nowhere. Use the event's name as its page has it.`, action: 'omitted-new' });
   }
   for (const { event, videoId } of rejected) {
     log(`${OVERRIDES_FILE} adds ${videoId} to ${event}, which no official channel in the catalogue uploaded: left out`);

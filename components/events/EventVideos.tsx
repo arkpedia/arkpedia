@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import Image from '@/components/content/ContentImage';
 import { useMusicPlayer } from '@/lib/music/musicPlayerContext';
 import { packDay } from '@/lib/events/packDay';
-import { VIDEO_KIND_LABELS, type EventVideo } from '@/lib/events/eventVideos';
+import { VIDEO_KIND_LABELS, VIDEO_RUN_LABELS, type EventVideo, type EventVideoRun } from '@/lib/events/eventVideos';
 
 /*
  * The event page's PVs tab: the event's official videos (data/event-videos.json), each a
@@ -23,7 +23,10 @@ function embedUrl(videoId: string): string {
   return `${EMBED_ORIGIN}/embed/${videoId}?${params}`;
 }
 
-export function EventVideos({ videos }: { videos: EventVideo[] }) {
+/** `run`: the page's own run. Where the list holds another run's videos too (a rerun's page lists
+ *  its launch's trailer, PVs and EPs), each video says which run it was released for. */
+export function EventVideos({ videos, run }: { videos: EventVideo[]; run: EventVideoRun }) {
+  const mixed = videos.some((video) => video.run && video.run !== run);
   const music = useMusicPlayer();
   const [playing, setPlaying] = useState<string | null>(null);
   const frameRef = useRef<HTMLIFrameElement | null>(null);
@@ -67,7 +70,7 @@ export function EventVideos({ videos }: { videos: EventVideo[] }) {
               )}
             </div>
             <figcaption className="event-video-copy">
-              <span className="event-video-meta">{label} · {packDay(video.published)}</span>
+              <span className="event-video-meta">{label}{mixed ? ` · ${VIDEO_RUN_LABELS[video.run ?? run]}` : ''} · {packDay(video.published)}</span>
               <a className="event-video-title" href={`https://www.youtube.com/watch?v=${video.videoId}`} target="_blank" rel="noopener noreferrer">{video.title}</a>
             </figcaption>
           </figure>

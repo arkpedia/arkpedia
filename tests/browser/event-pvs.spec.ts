@@ -16,14 +16,14 @@ const VIDEOS: EventVideo[] = [
   { videoId: 'gUAcO0qvaQc', title: "Arknights - Kal'tsit Esperanta Preview", kind: 'operator', published: '2026-10-13T09:00:10Z' },
 ];
 
-async function withVideos(page: Page, videos: EventVideo[]) {
+async function withVideos(page: Page, videos: EventVideo[], event = CPT) {
   // The page data given below is not what the server rendered, so a development server lays its
   // error overlay over the page, which takes the clicks; a production build has none.
   await page.addInitScript(() => {
     const hide = () => document.head?.append(Object.assign(document.createElement('style'), { textContent: 'nextjs-portal { display: none !important; }' }));
     if (document.head) hide(); else document.addEventListener('DOMContentLoaded', hide, { once: true });
   });
-  await page.route((url) => decodeURIComponent(url.pathname) === `/events/${CPT}`, async (route) => {
+  await page.route((url) => decodeURIComponent(url.pathname) === `/events/${event}`, async (route) => {
     const html = await (await route.fetch()).text();
     const body = html.replace(/(<script id="__NEXT_DATA__" type="application\/json"[^>]*>)([\s\S]*?)(<\/script>)/, (_, open: string, json: string, close: string) => {
       const data = JSON.parse(json);
@@ -117,4 +117,21 @@ test('pressing a video pauses the song, and playing the song again pauses the vi
   await play.click();
   await expect.poll(async () => (await youtube(page))?.state).toBe(1);
   await expect.poll(async () => (await embedMessages(page)).map((text) => JSON.parse(text).func)).toContain('pauseVideo');
+});
+
+test('a rerun\'s page lists its launch\'s videos too, each marked with the run it was released for', async ({ page }) => {
+  const RERUN = '[Rerun] Under Tides Rerun';
+  await withVideos(page, [
+    { videoId: 'aaaaaaaaaaa', title: 'Arknights Animation PV - Under Tides Rerun', kind: 'animation', published: '2023-02-14T08:00:00Z', run: 'rerun' },
+    { videoId: 'bbbbbbbbbbb', title: 'Arknights Official Trailer - Under Tides', kind: 'trailer', published: '2021-10-20T08:00:00Z', run: 'launch' },
+  ], RERUN);
+  await page.goto(`/events/${encodeURIComponent(RERUN)}#pvs`);
+  const meta = page.locator('.event-videos .event-video-meta');
+  await expect(meta).toHaveText([/^Animation PV · Rerun · /, /^Official trailer · Launch · /]);
+});
+
+test('a page that lists only its own run\'s videos marks no run', async ({ page }) => {
+  await withVideos(page, VIDEOS.map((video) => ({ ...video, run: 'launch' as const })));
+  await page.goto(`/events/${encodeURIComponent(CPT)}#pvs`);
+  await expect(page.locator('.event-videos .event-video-meta').first()).toHaveText('Official trailer · 12 Oct 2026');
 });
