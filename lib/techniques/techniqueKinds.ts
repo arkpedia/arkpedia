@@ -41,6 +41,12 @@ const NAME_KIND: Record<string, TechniqueKind> = {
   Scaler: 'Damage',
   'Pure Lock-on': 'Damage',
   'Self-Sustain': 'Defense',
+  // The allies' versions and the reductions split out of mixed techniques on 2026-10-23
+  // (techniqueDirection.ts): who gets the effect, not what the effect is, set them apart.
+  'Ally Healing': 'Defense',
+  'Ally Barrier': 'Defense',
+  'Ally Status Resistance': 'Defense',
+  'Damage Reduction': 'Defense',
   'Barrier Generation': 'Defense',
   'Damage-Instance Shields': 'Defense',
   'Status Resistance': 'Defense',

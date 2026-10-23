@@ -61,3 +61,46 @@ export function synergyBuffs(text: string | null | undefined, keyword: string | 
   const tags = fromClause.length ? fromClause : !named.length || REFERS_BACK.test(clause) ? tagsIn(text) : [];
   return tags.length ? tags : ['Other'];
 }
+
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/**
+ * Whether a text only makes the operator itself stronger with the faction or class around,
+ * rather than giving them anything: "When other [Kazimierz] Operators are deployed,
+ * Blemishine gains 3 SP", "If the previously deployed Operator is from Kazimierz, deals an
+ * additional hit" (Nearl the Radiant Knight), "within the 4 adjacent tiles of a [Glasgow]
+ * Operator" (Dagda), "For every Laterano Operator deployed, increases the ammo capacity of
+ * this unit's" (Executor the Ex Foedere). /synergies lists those as working with the faction,
+ * and their buffs are the operator's, not the faction's (sweep, 2026-10-23).
+ *
+ * Read clause by clause, as the buffs are: any clause that hands the faction something ("all
+ * [Kjerag] Operators gain", "to a random [Kazimierz] Operator", "of all Casters", "effect is
+ * doubled for") makes it the faction's. scripts/tests/test-synergy-buffs.ts holds both kinds.
+ */
+export function synergyForSelf(text: string | null | undefined, keyword: string | null | undefined, operatorName: string): boolean {
+  if (!text || !keyword) return false;
+  const word = keyword.toLowerCase().replace(/s$/, '');
+  const named = clauses(text).filter((c) => c.toLowerCase().includes(word));
+  if (!named.length) return false;
+  const KW = String.raw`["\[\s]*${escapeRe(word)}s?["\]\s]*`;
+  const own = escapeRe(operatorName.toLowerCase());
+  const members = new RegExp(
+    String.raw`${KW}(?:and\s+["\[]?[\w' ]+?["\]]?\s+)?(?:operators?|members?)?['’]?\s*[^,;]{0,30}\b(?:gain|gains|have|has|get|gets|receive|receives|recover|recovers|obtain|obtains|deal|deals|ignore|ignores|cannot)\b`
+    + String.raw`|\b(?:to|for)\s+(?:all\s+|other\s+|another\s+|a random\s+|the\s+|nearby\s+|deployed\s+)*${KW}`
+    + String.raw`|${KW}operators?['’]?\s*(?:atk|aspd|def|max hp|dp)\b`
+    + String.raw`|\bof\s+(?:all\s+)?${KW}|\beffect (?:is )?doubl|\bdouble the effect\b|\ball-out-attack\b|\bby (?:all |any |a )?${KW}`,
+    'i',
+  );
+  const self = new RegExp(
+    String.raw`\bis from\s+${KW}`
+    + String.raw`|\bwithin the \d+ adjacent tiles of an?\s+${KW}`
+    + String.raw`|\bfor (?:every|each)\s+${KW}(?:operators?)?\s+deployed\b[^;]{0,40}\bthis unit`
+    + String.raw`|\b(?:if|when|whenever)\b[^;]{0,80}${KW}[^;]{0,80},\s*(?:(?:${own}|this unit|she|he|it)\s+(?:also\s+)?)?(?:gains?|gain|recovers?|obtains?)\b`
+    + String.raw`|\b(?:if|when|whenever)\b[^;]{0,80}${KW}[^;]{0,80}\breleases this skill\b`
+    + String.raw`|\b(?:if|when|whenever)\b[^;]{0,80}${KW}[^;]{0,80}<substitute>`
+    + String.raw`|\b(?:if|when|whenever)\b[^;]{0,80}${KW}[^;]{0,120}\b(?:her|his|its) own\b`,
+    'i',
+  );
+  if (named.some((c) => members.test(c))) return false;
+  return named.some((c) => self.test(c));
+}

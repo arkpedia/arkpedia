@@ -9,6 +9,7 @@ import { operatorHref } from '@/lib/operators/operatorHref';
 import { UMBRELLA_DESCRIPTIONS } from '@/lib/techniques/autoTechniques';
 import type { TechniqueEntry, TechniqueGroup } from '@/lib/techniques/buildTechniqueGroups';
 import type { TechniqueKind } from '@/lib/techniques/techniqueKinds';
+import { useSetting } from '@/lib/settings/siteSettings';
 import { OperatorFace } from './OperatorFaces';
 import SourceTag from './SourceTag';
 import { markTechnique } from './MatchText';
@@ -35,6 +36,8 @@ export default function TechniqueRecord({ group, kind, shown, filterSummary, bra
   onClose: () => void;
 }) {
   const [onlyMatching, setOnlyMatching] = useState(true);
+  // One setting for every record, remembered (lib/settings/siteSettings.ts).
+  const [detailed, setDetailed] = useSetting('techniqueDetail');
   const [rows, setRows] = useState(ROWS);
   const narrowed = filterSummary !== null && onlyMatching;
   const entries = narrowed ? shown : group.entries;
@@ -62,6 +65,10 @@ export default function TechniqueRecord({ group, kind, shown, filterSummary, bra
             Only {filterSummary}
           </label>
         )}
+        <label className="check technique-record-detail">
+          <input type="checkbox" checked={detailed} onChange={(e) => setDetailed(e.target.checked)} />
+          Detailed Skill Description
+        </label>
       </div>
 
       {byBranch.size > 0 && (
@@ -108,12 +115,19 @@ export default function TechniqueRecord({ group, kind, shown, filterSummary, bra
                 </span>
               </Link>
               <ul className="technique-row-sources">
-                {e.badges.map((b, i) => (
-                  <li key={i} className="technique-source">
-                    <SourceTag badge={b} />
-                    {b.sourceText && <p className="technique-source-text">{markTechnique(b)}</p>}
-                  </li>
-                ))}
+                {e.badges.map((b, i) => {
+                  // The clause that holds the technique, or the whole text: never a summary
+                  // in its place (lib/techniques/techniqueExcerpt.ts). Older releases' badges
+                  // have no excerpt or note until finalize fills them.
+                  const text = detailed ? b.sourceText : (b.excerpt ?? b.sourceText);
+                  return (
+                    <li key={i} className="technique-source">
+                      <SourceTag badge={b} />
+                      {text && <p className="technique-source-text">{markTechnique({ ...b, sourceText: text })}</p>}
+                      {b.note && <p className="technique-source-note">{b.note}</p>}
+                    </li>
+                  );
+                })}
               </ul>
             </li>
           );

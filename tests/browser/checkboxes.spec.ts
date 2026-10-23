@@ -174,3 +174,25 @@ test('the planner\'s Craft and Owned are checkboxes', async ({ page }) => {
   await expect(page.locator('.modal-box [aria-pressed]').filter({ hasText: /^Owned$/ })).toHaveCount(0);
   await expectLabelToggles(page, owned);
 });
+
+test('the Techniques records\' Detailed Skill Description is one checkbox setting for every record, remembered', async ({ page }) => {
+  // The owner, 2026-10-23: a toggle in the record "shared across all the other techniques
+  // pop-ups". Short form by default; the full text when checked (lib/settings/siteSettings.ts).
+  await page.goto('/techniques?t=Slow');
+  const dialog = page.locator('.record-dialog');
+  const detail = dialog.getByRole('checkbox', { name: 'Detailed Skill Description' });
+  await expectCheckPrimitive(detail);
+  await expect(detail).not.toBeChecked();
+  const text = dialog.locator('.technique-source-text').nth(1);
+  const short = (await text.textContent())!.length;
+  await expectLabelToggles(page, detail);
+  await detail.check();
+  await expect.poll(async () => (await text.textContent())!.length, { message: 'the full text is longer than the short form' }).toBeGreaterThan(short);
+  // Another record shows it on, and so does the page after a reload.
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+  await page.locator('main .technique-card', { hasText: 'Stun' }).first().click();
+  await expect(dialog.getByRole('checkbox', { name: 'Detailed Skill Description' })).toBeChecked();
+  await page.goto('/techniques?t=Bind');
+  await expect(page.locator('.record-dialog').getByRole('checkbox', { name: 'Detailed Skill Description' })).toBeChecked();
+});

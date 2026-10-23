@@ -15,7 +15,7 @@ import SynergyRecord from '@/components/techniques/SynergyRecord';
 import { useQueryState } from '@/lib/hooks/useQueryState';
 import { matchesSearch } from '@/lib/search/searchNormalize';
 import { buildSynergyGroups, type SynergyGroup } from '@/lib/techniques/buildSynergyGroups';
-import { SYNERGY_BUFFS, synergyBuffs, type SynergyBuff } from '@/lib/techniques/synergyBuffs';
+import { SYNERGY_BUFFS, synergyBuffs, synergyForSelf, type SynergyBuff } from '@/lib/techniques/synergyBuffs';
 
 interface Props {
   groups: SynergyGroup[];
@@ -27,11 +27,13 @@ interface Props {
 const PAGE = 12;
 
 /** The buff kinds each of a group's contributors grants it, worked out from their texts
- *  (lib/techniques/synergyBuffs.ts), so a release of any age can be filtered. */
+ *  (lib/techniques/synergyBuffs.ts), so a release of any age can be filtered. A text that only
+ *  makes the contributor stronger with the group around (synergyForSelf) grants it nothing:
+ *  that contributor "works with" the group instead, and has no buffs here. */
 function giverBuffs(group: SynergyGroup): Map<string, Set<SynergyBuff>> {
   return new Map(group.entries.filter((e) => e.isContributor).map((e) => [
     e.operatorName,
-    new Set(e.badges.flatMap((b) => synergyBuffs(b.sourceText, b.matchedKeyword))),
+    new Set(e.badges.filter((b) => !synergyForSelf(b.sourceText, b.matchedKeyword, e.operatorName)).flatMap((b) => synergyBuffs(b.sourceText, b.matchedKeyword))),
   ]));
 }
 
@@ -53,11 +55,14 @@ export default function SynergiesPage({ groups, emblems }: Props) {
   /** Each faction or class left, with the contributors that grant the picked buff. */
   const views = useMemo(() => groups.map((group) => {
     const buffsOf = buffsByGroup.get(group.name)!;
-    const givers = group.entries.filter((e) => e.isContributor && (buff === 'all' || buffsOf.get(e.operatorName)!.has(buff)));
+    const contributors = group.entries.filter((e) => e.isContributor);
+    const givers = contributors.filter((e) => buffsOf.get(e.operatorName)!.size > 0 && (buff === 'all' || buffsOf.get(e.operatorName)!.has(buff)));
+    // Stronger with the group, granting it nothing: shown only while no buff is picked.
+    const withers = buff === 'all' ? contributors.filter((e) => buffsOf.get(e.operatorName)!.size === 0) : [];
     const tags = SYNERGY_BUFFS.filter((b) => givers.some((e) => buffsOf.get(e.operatorName)!.has(b)));
     const hit = !query || matchesSearch(group.name, query) || group.entries.some((e) => matchesSearch(e.operatorName, query));
-    return { group, givers, tags, members: group.entries.length - group.entries.filter((e) => e.isContributor).length, hit };
-  }).filter((v) => v.hit && v.givers.length > 0 && (type === 'all' || v.group.type === type)), [groups, buffsByGroup, query, buff, type]);
+    return { group, givers, withers, tags, members: group.entries.length - contributors.length, hit };
+  }).filter((v) => v.hit && v.givers.length + v.withers.length > 0 && (type === 'all' || v.group.type === type)), [groups, buffsByGroup, query, buff, type]);
 
   const listKey = [query, type, buff].join('|');
   const [shown, setShown] = useState({ key: listKey, count: PAGE });
@@ -126,7 +131,7 @@ export default function SynergiesPage({ groups, emblems }: Props) {
                 {buff !== 'all' && <> · granting {buff}</>}
               </p>
               <ul className="technique-grid">
-                {views.slice(0, visible).map(({ group, givers, tags, members }) => (
+                {views.slice(0, visible).map(({ group, givers, withers, tags, members }) => (
                   <li key={`${group.type}-${group.name}`}>
                     <button type="button" className="btn-bare technique-card synergy-card lift" aria-haspopup="dialog" onClick={() => setOpenName(group.name)}>
                       <span className="synergy-card-head">
@@ -140,11 +145,14 @@ export default function SynergiesPage({ groups, emblems }: Props) {
                         {tags.map((t) => <span key={t} className="synergy-buff">{t}</span>)}
                       </span>
                       <span className="technique-card-definition">
-                        Granted by {givers.map((e) => e.operatorName).join(', ')}
+                        {givers.length > 0 && <>Granted by {givers.map((e) => e.operatorName).join(', ')}</>}
+                        {givers.length > 0 && withers.length > 0 && '. '}
+                        {withers.length > 0 && <>Stronger with them: {withers.map((e) => e.operatorName).join(', ')}</>}
                       </span>
-                      <OperatorFaces faces={givers} max={7} />
+                      <OperatorFaces faces={[...givers, ...withers]} max={7} />
                       <span className="synergy-card-reach">
-                        {members > 0 ? `Reaches ${members} more ${group.type === 'class' ? group.name : 'member'}${members === 1 ? '' : 's'}` : 'Every member grants one'}
+                        {members === 0 ? 'Every member grants one'
+                          : `${givers.length > 0 ? 'Reaches' : 'With'} ${members} more ${group.type === 'class' ? group.name : 'member'}${members === 1 ? '' : 's'}`}
                       </span>
                     </button>
                   </li>

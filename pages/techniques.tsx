@@ -21,6 +21,7 @@ import { sortClasses } from '@/lib/operators/classOrder';
 import { getClassIconPath } from '@/lib/operators/classBranchIcons';
 import { buildTechniqueGroups, TechniqueGroup, TechniqueEntry } from '@/lib/techniques/buildTechniqueGroups';
 import { TECHNIQUE_KINDS, techniqueKind } from '@/lib/techniques/techniqueKinds';
+import { techniqueExcerpt } from '@/lib/techniques/techniqueExcerpt';
 
 interface Props {
   groups: TechniqueGroup[];
@@ -254,5 +255,17 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>('/te
 }, {
   // A release compiled before the Class filter has no branchClasses: read them where the
   // roster is on disk, else leave the map empty and the filter hidden.
-  finalize: async (props) => (props.branchClasses ? props : { ...props, branchClasses: await readBranchClasses().catch(() => ({})) }),
+  finalize: async (props) => ({
+    ...props,
+    branchClasses: props.branchClasses ?? await readBranchClasses().catch(() => ({})),
+    // Releases compiled before the records' short form have no excerpt or note on a badge:
+    // cut the same clause here, so both modes of the record read alike.
+    groups: props.groups.map((group) => ({
+      ...group,
+      entries: group.entries.map((entry) => ({
+        ...entry,
+        badges: entry.badges.map((badge) => ({ ...badge, excerpt: badge.excerpt !== undefined ? badge.excerpt : techniqueExcerpt(badge), note: badge.note ?? null })),
+      })),
+    })),
+  }),
 });

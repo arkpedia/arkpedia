@@ -1,4 +1,6 @@
 import type { Operator, Skill, SkillTechnique, Talent } from '../operators/operatorTypes';
+import { CLAUSE_BREAK } from './clauses';
+import { directTechniqueMatches } from './techniqueDirection';
 
 /** Each rule scans skill/talent description text for any of its
  * keywords, and if found (within the given rarity range), generates a
@@ -89,13 +91,7 @@ function wordMatches(lowerText: string, keyword: string): boolean {
  * related "recovers" occurring before the real "restores...HP" pair
  * later in the same sentence). Returns null if no valid ordering
  * exists at all (e.g. every "hp" mention comes before every verb). */
-/* A clause break is ';' or a full stop that is not a decimal point. The digit guard is
-   not optional: Gladiia's talent reads "recover 2.5% of Max HP per second", and without
-   it the '.' in 2.5 ends the clause between "recover" and "Max HP", taking her
-   Self-Sustain with it -- along with Thorns's "restores 4% (+0.5%) max HP", SilverAsh
-   the Reignfrost's and Yu's. Four real matches for five false ones is not a fix. The
-   same care the stat patterns already take with a minus sign attached to a digit. */
-const CLAUSE_BREAK = /[;]|(?<![0-9])\.(?![0-9])/;
+/* A pair must sit in one clause: CLAUSE_BREAK, in clauses.ts. */
 
 function findClosestOrderedPair(
   lowerText: string,
@@ -439,7 +435,8 @@ const AUTO_TECHNIQUE_RULES: AutoTechniqueRule[] = [
   {
     requireAllOf: [['sp', 'skill point', 'skill points']],
     name: 'SP Charging',
-    description: 'Provides more SP to self or others.',
+    // Its own SP: SP handed to others is SP Recovery Booster (techniqueDirection.ts).
+    description: 'Gains more SP for itself.',
     minRarity: 1,
     maxRarity: 6,
   },
@@ -563,9 +560,14 @@ const AUTO_TECHNIQUE_RULES: AutoTechniqueRule[] = [
     minRarity: 1,
     maxRarity: 6,
   },
+  /* "Arts Damage Taken" and "Physical Damage Taken" find every way the text says an enemy
+     takes that damage; techniqueDirection.ts then keeps only enemies taking MORE of it, and
+     sends taking less to Damage Reduction and damage per second to Damage Over Time. The
+     words alone also caught the operator's own hits ("enemies take 450% of Necrass's ATK
+     as Arts damage") and its own resistance ("take 35% less Physical and Arts damage"). A
+     reduction ("reduces the Arts damage taken") was cut out here before; it is read now. */
   {
     keywords: ['arts damage taken'],
-    excludePatterns: [/reduces[^.;]*?arts damage taken/gi],
     name: 'Arts Damage Taken',
     description: 'Increase the arts damage taken by enemies.',
     minRarity: 1,
@@ -582,6 +584,27 @@ const AUTO_TECHNIQUE_RULES: AutoTechniqueRule[] = [
     maxGap: 30,
     name: 'Arts Damage Taken',
     description: 'Increase the arts damage taken by enemies.',
+    minRarity: 1,
+    maxRarity: 6,
+  },
+  /* The same for Physical damage, which only W's and Sesa's records named by hand: "Enemies
+     in range take +21% (+3%) Physical damage when Stunned". */
+  {
+    keywords: ['physical damage taken'],
+    name: 'Physical Damage Taken',
+    description: 'Increase the physical damage taken by enemies.',
+    minRarity: 1,
+    maxRarity: 6,
+  },
+  {
+    requireAllOf: [
+      ['take', 'takes'],
+      ['physical damage'],
+    ],
+    requireOrdered: true,
+    maxGap: 30,
+    name: 'Physical Damage Taken',
+    description: 'Increase the physical damage taken by enemies.',
     minRarity: 1,
     maxRarity: 6,
   },
@@ -816,7 +839,8 @@ export function detectAutoTechniqueMatches(
       }
     }
   }
-  return matches;
+  // Who each effect lands on decides which technique it is (techniqueDirection.ts).
+  return directTechniqueMatches(matches, combinedOriginal, ownName);
 }
 
 /** Thin wrapper around detectAutoTechniqueMatches for every call site

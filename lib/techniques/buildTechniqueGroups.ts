@@ -4,6 +4,7 @@ import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
 import { getSkillIconPath } from '@/lib/operators/operatorIconPaths';
 import { detectAutoTechniqueMatches, mergeTechniques, MEMBER_TO_UMBRELLA, AutoTechniqueMatch } from '@/lib/techniques/autoTechniques';
 import { getBranchIconPath } from '@/lib/operators/classBranchIcons';
+import { techniqueExcerpt } from '@/lib/techniques/techniqueExcerpt';
 import techniqueDefinitionsData from '@/data/techniques_definitions.json';
 
 const techniqueDefinitions = techniqueDefinitionsData as Record<string, string>;
@@ -17,6 +18,16 @@ export interface TechniqueBadge {
   matchedKeyword: string | null; // the specific word highlighted within sourceText -- null for manually-authored techniques (nothing to highlight) or branch-matched entries
   matchedKeywordEnd: string | null; // for a two-group requireAllOf match (e.g. Self-Sustain's verb + "hp"), the second word -- highlights the full span from matchedKeyword through matchedKeywordEnd instead of just the one word
   highlightSeparately: boolean; // true for statPattern matches (DEF/RES/ATK/ASPD/Movement Speed Down) -- matchedKeyword and matchedKeywordEnd render as two independent highlights instead of one continuous span
+  /** The short form /techniques' records show unless "Detailed Skill Description" is on:
+   *  the clause of sourceText that holds the match, with its number and condition
+   *  (lib/techniques/techniqueExcerpt.ts), or a skill's SP line for its recovery type.
+   *  Null where no reliable short form exists (no match to find, or the clause is the
+   *  whole text): the full text shows in both modes. */
+  excerpt: string | null;
+  /** What the operator's record itself says about this technique, where that is its own
+   *  remark rather than the technique's definition ("This skill has the widest range to
+   *  cause bleed..."). A hand-written technique's description, which is not the source. */
+  note: string | null;
 }
 
 export interface TechniqueEntry {
@@ -53,7 +64,7 @@ let cachedGroups: TechniqueGroup[] | null = null;
    Bard's trait heals ALLIES ("restore the HP of allies"), not itself, and a Duelist's "Only
    restores SP when blocking enemies" is a restriction, not a source of SP. Exported for
    scripts/audits/audit-techniques-vs-gamedata.ts, which reads traits the same way. */
-export const NOT_FROM_TRAITS = new Set(['Self-Sustain', 'SP Charging']);
+export const NOT_FROM_TRAITS = new Set(['Self-Sustain', 'SP Charging', 'Ally Healing', 'SP Recovery Booster']);
 
 /** The trait text the technique rules read: a record keeps one trait, or one per promotion
  *  ({ Base, "Elite 2" }: an operator whose trait changes), read together. */
@@ -72,7 +83,7 @@ export function buildTechniqueGroups(): TechniqueGroup[] {
   // techniques that repeat identical text across operators), that
   // shared description can be shown under the group heading even
   // without a separate entry in techniques_definitions.json.
-  const descriptionsSeen = new Map<string, Set<string>>();
+  const descriptionsSeen = new Map<string, Map<string, number>>();
 
   function addBadge(techName: string, techDescription: string | null, viaBranch: boolean, op: { name: string }, operatorIconPath: string, branchIconPath: string | null, branchName: string | null, rarity: number | null, badge: TechniqueBadge, isTalentTier: boolean, isM3Main: boolean = false) {
     if (!groupMap.has(techName)) groupMap.set(techName, new Map());
@@ -89,8 +100,9 @@ export function buildTechniqueGroups(): TechniqueGroup[] {
     if (viaBranch) entry.viaBranch = true; // sticky -- once true (matched via branch on any occurrence), stays true for this operator's whole entry
     if (isM3Main) entry.hasM3MainPriority = true; // sticky -- same idea, one qualifying skill is enough
     if (techDescription) {
-      if (!descriptionsSeen.has(techName)) descriptionsSeen.set(techName, new Set());
-      descriptionsSeen.get(techName)!.add(techDescription);
+      if (!descriptionsSeen.has(techName)) descriptionsSeen.set(techName, new Map());
+      const counts = descriptionsSeen.get(techName)!;
+      counts.set(techDescription, (counts.get(techDescription) ?? 0) + 1);
     }
   }
 
@@ -124,7 +136,13 @@ export function buildTechniqueGroups(): TechniqueGroup[] {
     // takes precedence when the same technique appears in both.
     const talentDetectedNames = new Set<string>();
     (op.talents || []).forEach((talent, ti) => {
-      const manualTechs = (talent.technique || []).map((t) => ({ ...t, viaBranch: false, matchedKeyword: null as string | null, matchedKeywordEnd: null as string | null, highlightSeparately: false, sourceText: t.description }));
+      /* A hand-written technique shows the talent's own text (its last row, as the rules
+         read it), never the technique's description in its place: W's and Sesa's
+         Physical Damage Taken read "Increase the physical damage taken by enemies." and
+         lost the condition and the number (owner, 2026-10-23). The description stays as
+         the entry's note where it is the operator's own remark. */
+      const talentText = talent.rows.length > 0 ? talent.rows[talent.rows.length - 1].description : null;
+      const manualTechs = (talent.technique || []).map((t) => ({ ...t, viaBranch: false, matchedKeyword: null as string | null, matchedKeywordEnd: null as string | null, highlightSeparately: false, sourceText: talentText, note: t.description }));
       // Same per-level fix as skills above, using talent rows instead.
       const seenTalentNames = new Set<string>();
       const autoTechs: (AutoTechniqueMatch & { sourceText: string | null })[] = [];
@@ -150,6 +168,8 @@ export function buildTechniqueGroups(): TechniqueGroup[] {
           matchedKeyword: tech.matchedKeyword,
           matchedKeywordEnd: tech.matchedKeywordEnd,
           highlightSeparately: tech.highlightSeparately,
+          excerpt: null,
+          note: (tech as { note?: string | null }).note ?? null,
         }, true);
       }
     });
@@ -171,12 +191,17 @@ export function buildTechniqueGroups(): TechniqueGroup[] {
           matchedKeyword: m.matchedKeyword,
           matchedKeywordEnd: m.matchedKeywordEnd,
           highlightSeparately: m.highlightSeparately,
+          excerpt: null,
+          note: null,
         }, true);
       }
     }
 
     for (const [skillIndex, skill] of getSkillList(op).entries()) {
-      const manualTechs = (skill.techniques || []).map((t) => ({ ...t, viaBranch: false, matchedKeyword: null as string | null, matchedKeywordEnd: null as string | null, highlightSeparately: false, sourceText: t.description }));
+      // The skill's own text at its highest level, as for a talent above.
+      const topLevel = skill.levels.length > 0 ? skill.levels[skill.levels.length - 1] : null;
+      const skillText = topLevel?.description ?? null;
+      const manualTechs = (skill.techniques || []).map((t) => ({ ...t, viaBranch: false, matchedKeyword: null as string | null, matchedKeywordEnd: null as string | null, highlightSeparately: false, sourceText: skillText, note: t.description }));
       // Sub priority doesn't count -- only an M3 recommendation
       // explicitly marked "main" priority qualifies a skill's badges
       // for the thumbs-up / sort-priority treatment.
@@ -191,7 +216,7 @@ export function buildTechniqueGroups(): TechniqueGroup[] {
       // against text that didn't contain it at all, breaking
       // highlighting or wrongly attributing the technique entirely.
       const seenSkillNames = new Set<string>();
-      const autoTechs: (AutoTechniqueMatch & { sourceText: string | null })[] = [];
+      const autoTechs: (AutoTechniqueMatch & { sourceText: string | null; excerpt?: string | null })[] = [];
       let referencedTalentText: string | null = null;
       for (let li = skill.levels.length - 1; li >= 0; li--) {
         const levelText = skill.levels[li].description;
@@ -205,14 +230,19 @@ export function buildTechniqueGroups(): TechniqueGroup[] {
         // "Talent 1") in the highest level's own text where it's
         // found -- used below to cross-adopt that talent's matched
         // techniques.
-        if (!referencedTalentText && levelText && resolveTalentReference(levelText) !== null) {
+        // "within Talent 1's range" (Vina Victoria; "Talent 1 's" at lower levels) borrows the
+        // talent's area, not its effect; "Talent 1's range expands" (Crownslayer) grows it.
+        if (!referencedTalentText && levelText && resolveTalentReference(levelText) !== null && !/\bwithin\s+(?:talent\s+\d|(?:the\s+)?(?:first|second|third)\s+talent)\s*['’]s\s+range\b/i.test(levelText)) {
           referencedTalentText = levelText;
         }
       }
       // A technique the record already names on this skill by hand is not listed again: the
       // record's entry wins, as on the operator page (mergeTechniques).
       if (skill.recoveryType === 'Offensive Recovery' || skill.recoveryType === 'Defensive Recovery') {
-        autoTechs.push({ name: skill.recoveryType, description: skill.recoveryType === 'Offensive Recovery' ? 'Gains SP when attacking.' : 'Gains SP when taking a hit.', viaBranch: false, matchedKeyword: null, matchedKeywordEnd: null, highlightSeparately: false, sourceText: skill.recoveryType });
+        // The skill's text, and its SP line as the short form: the recovery type is a field
+        // of the skill, so no clause of its text says it.
+        const sp = [topLevel?.initialSp != null ? `Initial SP ${topLevel.initialSp}` : null, topLevel?.spCost != null ? `SP cost ${topLevel.spCost}` : null].filter(Boolean).join(' · ');
+        autoTechs.push({ name: skill.recoveryType, description: skill.recoveryType === 'Offensive Recovery' ? 'Gains SP when attacking.' : 'Gains SP when taking a hit.', viaBranch: false, matchedKeyword: null, matchedKeywordEnd: null, highlightSeparately: false, sourceText: skillText ?? skill.recoveryType, excerpt: sp ? `${skill.recoveryType} · ${sp}` : null });
       }
       const skillTechs = mergeTechniques(manualTechs, autoTechs);
       const listedSkillNames = new Set(skillTechs.map((t) => t.name));
@@ -227,6 +257,8 @@ export function buildTechniqueGroups(): TechniqueGroup[] {
           matchedKeyword: tech.matchedKeyword,
           matchedKeywordEnd: tech.matchedKeywordEnd,
           highlightSeparately: tech.highlightSeparately,
+          excerpt: 'excerpt' in tech ? tech.excerpt ?? null : null,
+          note: 'note' in tech ? tech.note ?? null : null,
         }, false, isM3Main);
       }
       // Cross-reference: this skill mentions "Nth Talent" by name --
@@ -239,7 +271,13 @@ export function buildTechniqueGroups(): TechniqueGroup[] {
         const talentIdx = resolveTalentReference(referencedTalentText);
         const referencedNames = talentIdx !== null && talentIdx >= 0 ? talentTechniquesByIndex.get(talentIdx) : null;
         if (referencedNames) {
-          for (const techName of referencedNames) {
+          /* A skill that hands the talent to others ("all allies within attack range gain
+             Talent 1 effect", Lin; "grants effects of Talent 2 to all Operators", Yu) gives
+             them what the talent gives its holder: the allies' version of each. */
+          const toOthers = /\b(?:allies|allied|operators?)\b.{0,40}\bgain\w*\s+(?:the\s+)?talent\s*\d\s+effects?\b|\bgrants?\s+(?:the\s+)?effects?\s+of\s+talent\s*\d\s+to\b/i.test(referencedTalentText);
+          const ALLY_VERSION: Record<string, string> = { 'Self-Sustain': 'Ally Healing', 'Barrier Generation': 'Ally Barrier', 'Status Resistance': 'Ally Status Resistance', 'SP Charging': 'SP Recovery Booster' };
+          for (const talentTechName of referencedNames) {
+            const techName = toOthers ? ALLY_VERSION[talentTechName] ?? talentTechName : talentTechName;
             if (listedSkillNames.has(techName)) continue; // already added directly above -- don't duplicate
             const techDescription = techniqueDefinitions[techName] || null;
             addBadge(techName, techDescription, false, op, operatorIconPath, branchIconPath, op.branch, op.rarity, {
@@ -251,6 +289,8 @@ export function buildTechniqueGroups(): TechniqueGroup[] {
               matchedKeyword: null,
               matchedKeywordEnd: null,
               highlightSeparately: false,
+              excerpt: null,
+              note: null,
             }, false);
           }
         }
@@ -290,6 +330,8 @@ export function buildTechniqueGroups(): TechniqueGroup[] {
             matchedKeyword: m.matchedKeyword,
             matchedKeywordEnd: m.matchedKeywordEnd,
             highlightSeparately: m.highlightSeparately,
+            excerpt: null,
+            note: null,
           }, false);
         }
       }
@@ -303,7 +345,23 @@ export function buildTechniqueGroups(): TechniqueGroup[] {
     // page) -- for regular auto-detected techniques a rule-level
     // definition already exists in techniqueDefinitions, so this only
     // matters for manually-authored ones.
-    const sharedDescription = seen && seen.size === 1 ? Array.from(seen)[0] : null;
+    const sharedDescription = seen && seen.size === 1 ? Array.from(seen.keys())[0] : null;
+    /* A hand-written technique's records do not always agree word for word (Reflection
+       Damage: "reflect damage" on most, "reflect statuses" on Lee's), and the card then had
+       no definition at all. The most common description is the definition when at least
+       half the descriptions say it; the others stay as those entries' notes. */
+    const counted = seen ? [...seen.entries()].sort((a, b) => b[1] - a[1]) : [];
+    const total = counted.reduce((n, [, c]) => n + c, 0);
+    const commonDescription = counted.length && counted[0][1] * 2 >= total ? counted[0][0] : null;
+    const definition = techniqueDefinitions[name] || sharedDescription || commonDescription || null;
+    const same = (a: string | null, b: string | null) => !!a && !!b && a.trim().toLowerCase() === b.trim().toLowerCase();
+    for (const entry of opMap.values()) {
+      for (const badge of entry.badges) {
+        // A note that only repeats the definition, or the text itself, says nothing more.
+        if (same(badge.note, definition) || same(badge.note, badge.sourceText)) badge.note = null;
+        if (badge.excerpt === null) badge.excerpt = techniqueExcerpt(badge);
+      }
+    }
     // Talents show before skills, then higher rarity shows before
     // lower within each group -- an operator counts as "has a talent
     // match" if ANY of their badges came from a talent tier.
@@ -316,7 +374,7 @@ export function buildTechniqueGroups(): TechniqueGroup[] {
     });
     return {
       name,
-      definition: techniqueDefinitions[name] || sharedDescription || null,
+      definition,
       entries,
       umbrellaNames: MEMBER_TO_UMBRELLA[name] || [],
     };

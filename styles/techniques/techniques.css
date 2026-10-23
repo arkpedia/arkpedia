@@ -178,6 +178,8 @@
   text-transform: uppercase;
   color: var(--text);
 }
+/* "For Blemishine": the source makes its own operator stronger, not the group. */
+.synergy-buff.synergy-buff-self { background: none; border: 1px solid var(--line); color: var(--text-dim); text-transform: none; }
 
 /* --- the records (components/techniques/*Record.tsx in a RecordDialog) ------------ */
 
@@ -294,6 +296,11 @@
 }
 .technique-source-name { font-size: 12px; font-weight: 600; color: var(--text); }
 .technique-source-text { margin: 4px 0 0; font-size: 12px; line-height: 1.55; color: var(--text-dim); }
+/* The record's own remark on this operator's technique (a hand-written description that is not
+   the definition), under the operator's text. */
+.technique-source-note { margin: 4px 0 0; padding-left: 8px; border-left: 2px solid var(--line); font-size: 12px; line-height: 1.5; font-style: italic; color: var(--text-faint); }
+/* The detail toggle sits at the bar's far end, wherever the bar wraps. */
+.technique-record-detail { margin-left: auto; }
 /* The words the technique or synergy was found by, in emphasis rather than teal (teal is
    "on / current"). */
 .technique-mark { color: var(--text-bright); font-weight: 700; }
