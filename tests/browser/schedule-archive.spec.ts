@@ -11,6 +11,8 @@ test('past events are newest first, shareable, and link to their event pages', a
   const upcomingSwitch = page.getByRole('button', { name: 'Past', exact: true });
   await page.evaluate(() => document.fonts.ready);
   const period = page.getByRole('group', { name: 'Event period' });
+  await expect(period).toBeVisible();
+  await expect(period.getByRole('button')).toHaveCount(2);
   const switchPositions = await period.getByRole('button').evaluateAll(buttons => buttons.map(button => {
     const { x, y, width, height } = button.getBoundingClientRect();
     return { x, y, width, height };
