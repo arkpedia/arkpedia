@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-const routes = ['/operators', '/skins', '/artists', '/voice-actors', '/techniques', '/synergies', '/story?view=list', '/schedule?past=1', '/community-hub?section=youtube', '/reward-tracker?view=free'];
+const routes = ['/operators', '/skins', '/artists', '/voice-actors', '/techniques', '/synergies', '/story?view=list', '/schedule?past=1', '/community?section=youtube', '/free-op?view=free'];
 
 for (const route of routes) test(`${route}: compact controls stay below navigation while browsing`, async ({ page }) => {
   await page.goto(route);
@@ -19,7 +19,7 @@ for (const route of routes) test(`${route}: compact controls stay below navigati
       await expect(bar).toHaveAttribute('data-sticky', 'true');
       expect(metrics.position).toBe('sticky');
       expect(metrics.height).toBeLessThanOrEqual(metrics.viewport / 4);
-      if (metrics.y > initial!.y && route !== '/community-hub?section=youtube') expect(metrics.top).toBeGreaterThanOrEqual(metrics.nav - 1);
+      if (metrics.y > initial!.y && route !== '/community?section=youtube') expect(metrics.top).toBeGreaterThanOrEqual(metrics.nav - 1);
     } else {
       await expect(bar).toHaveAttribute('data-sticky', 'false');
       expect(metrics.position).not.toBe('sticky');
@@ -59,18 +59,18 @@ test('Story category anchors clear the sticky search controls', async ({ page })
 });
 
 test('Community section and search survive leaving and browser Back', async ({ page }) => {
-  await page.goto('/community-hub?section=youtube&q=arknights');
+  await page.goto('/community?section=youtube&q=arknights');
   await expect(page.getByRole('tab', { name: 'YouTube', exact: true })).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByRole('searchbox', { name: 'Search videos or creators' })).toHaveValue('arknights');
   await page.getByRole('link', { name: 'All videos', exact: true }).click();
-  await expect(page).toHaveURL(/community-hub\/videos/);
+  await expect(page).toHaveURL(/community\/videos/);
   await page.goBack();
   await expect(page.getByRole('tab', { name: 'YouTube', exact: true })).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByRole('searchbox', { name: 'Search videos or creators' })).toHaveValue('arknights');
 });
 
 test('Reward type has a shareable view and retains it on reload', async ({ page }) => {
-  await page.goto('/reward-tracker');
+  await page.goto('/free-op');
   await page.getByRole('tab', { name: 'Free rewards', exact: true }).click();
   await expect(page).toHaveURL(/view=free/);
   await page.reload();

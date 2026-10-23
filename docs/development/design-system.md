@@ -203,15 +203,15 @@ a real representative record; empty tools need a populated state as well as the 
 | Operator reference | `/operators`, `/operators/[name]`, `/skins`, `/enemies` | Shared search/filter shell; artwork cards and detailed records |
 | Reference directories | `/artists`, `/voice-actors`, `/synergies`, `/techniques` | Shared directory surfaces, titles, metadata and operator imagery |
 | Story | `/story`, list/query/chapter states, `/manga` | Compact links, separate view choice, map tools, searchable story rows and comic cards |
-| Planning | `/operator-planner`, `/pull-planner`, `/skin-planner`, `/selector-tickets`, `/reward-tracker` | Shared tool shell, labeled panels, selections, tables and material tiles |
+| Planning | `/planner`, `/pulls`, `/skin-planner`, `/selector-tickets`, `/free-op` | Shared tool shell, labeled panels, selections, tables and material tiles |
 | Recruitment | `/recruitment`, `/recruitment/popout` | Same RecruitmentTool; popout intentionally omits site chrome |
 | Base | `/base`, room/rotation states, `/bases/whole-base-optimizer`, `/optimizer` | Spatial facility board and calculation panels; last two tools are development-only |
 | Schedule/events | `/schedule`, `/events` redirect, `/events/[slug]` | Time-based rows/calendar and sectioned event records |
 | Terminal/stages | `/stages`, `/stages/all`, `/stages/browse`, `/stages/content/[id]`, `/stages/regular`, `/stages/seasonal`, `/stages/score`, `/stages/exploration`, `/stages/supplies` | Shared Terminal navigation and panels; map, stage cards and aligned reward data |
-| Game modes | `/game-modes`, `/game-modes/stronghold-protocol`, `/game-modes/stronghold-protocol/stronghold-companion` | Standard page shell; companion is intentionally a dense full-bleed play aid |
+| Game modes | `/gamemodes`, `/gamemodes/stronghold-protocol`, `/gamemodes/stronghold-protocol/stronghold-companion` | Standard page shell; companion is intentionally a dense full-bleed play aid |
 | Logistics | `/farming`, `/obtain-method` | Material references and search/filter results, not decorative directory cards |
 | Music | `/music`, `/music/discover`, `/music/[albumId]` redirect | Album artwork for discovery; aligned song rows, shared player and queue controls |
-| Community | `/community-hub`, `/community-hub/videos`, `/community-hub/youtube-live`, `/community-hub/twitch` | Shared subnavigation; media cards and live/status labels |
+| Community | `/community`, `/community/videos`, `/community/youtube-live`, `/community/twitch` | Shared subnavigation; media cards and live/status labels |
 | Account/social | `/account`, `/friends` | Profile panels, account tabs, history rows, operator/skin previews |
 | Games | `/games`, `/games/operator-guesser`, `/games/stage-guesser`, `/games/recruitment-guesser`, `/games/music-guesser`, `/games/color-palette` | Shared game navigation and controls, task-specific play areas |
 | Statistics | `/polls/power-scale` | Charts and sortable tables; data colors retain meaning |
