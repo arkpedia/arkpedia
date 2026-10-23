@@ -301,22 +301,16 @@ export default function SchedulePage({ events: globalEvents, operators: exported
       <PageHeader
         eyebrow="Rhodes Island // Operations Calendar"
         title="Schedule"
-        actions={<div className="schedule-view-actions"><Tabs<ViewKey>
+        actions={<Tabs<ViewKey>
           label="Schedule view"
           id="schedule-view"
           value={view}
           onChange={showView}
           options={[
-            { value: 'events', label: 'Events', count: eventRows.length, ariaLabel: `Events, ${eventRows.length} ongoing or upcoming` },
+            { value: 'events', label: 'Events' },
             { value: 'calendar', label: 'Calendar' },
           ]}
-        />
-          <button type="button" className="filter-chip" aria-pressed={showPast} onClick={() => {
-            viewHold.capture();
-            setPastVisible(24);
-            void router.replace({ pathname: '/schedule', query: showPast ? {} : { past: '1' } }, undefined, { shallow: true, scroll: false });
-          }}>{showPast ? 'See current events' : 'See past events'}</button>
-        </div>}
+        />}
       />
 
       <main>
@@ -331,8 +325,16 @@ export default function SchedulePage({ events: globalEvents, operators: exported
             from the tab row clamped the page 51px up at 1440. */}
         <div ref={viewHold.ref} style={viewHold.style}>
         <div {...tabPanelProps('schedule-view', 'events')} hidden={view !== 'events'}>
-          {showPast ? <section className="op-section" aria-labelledby="past-events-title">
-            <h2 id="past-events-title">Past events</h2>
+          <section className="op-section" aria-labelledby="schedule-events-title">
+            <div className="schedule-events-heading">
+              <h2 id="schedule-events-title">{showPast ? 'Past events' : 'Upcoming events'}</h2>
+              <button type="button" className="ghost btn-sm" onClick={() => {
+                viewHold.capture();
+                setPastVisible(24);
+                void router.replace({ pathname: '/schedule', query: showPast ? {} : { past: '1' } }, undefined, { shallow: true, scroll: false });
+              }}>{showPast ? 'See current events' : 'See past events'}</button>
+            </div>
+          {showPast ? <>
             <p className="hint">{pastEvents.length} events · newest first</p>
             {pastEvents.length ? <>
               <div className="events-list">
@@ -345,7 +347,7 @@ export default function SchedulePage({ events: globalEvents, operators: exported
               </div>
               <LoadOnScroll shown={Math.min(pastVisible, pastEvents.length)} total={pastEvents.length} onMore={() => setPastVisible(count => count + 24)} />
             </> : <p className="hint">No past events with confirmed dates are available for this server.</p>}
-          </section> : eventRows.length === 0 ? (
+          </> : eventRows.length === 0 ? (
             <div className="waiting-box">
               <h2>No ongoing or upcoming events right now</h2>
             </div>
@@ -394,6 +396,7 @@ export default function SchedulePage({ events: globalEvents, operators: exported
               ))}
             </div>
           )}
+          </section>
         </div>
 
         <div {...tabPanelProps('schedule-view', 'calendar')} hidden={view !== 'calendar'}>

@@ -18,6 +18,18 @@ Consistency means that the same task has the same presentation and interaction. 
 not mean turning a chronological schedule, a stage map and a music queue into identical
 cards. Choose the pattern below first, then use its established primitives.
 
+## Navigation and continuity
+
+- Browser Back/Forward and a page's Back link return readers to their previous scroll
+  position, including content revealed by progressive lists. Ordinary links open the
+  destination normally. Do not reset a returning reader to the top of a catalogue.
+- Keep controls beside the heading or content they affect. Controls for a hidden view
+  must disappear from both the screen and keyboard navigation.
+- Name each view explicitly. Schedule uses Upcoming events and Past events; its date
+  switch belongs beside that heading, while Events/Calendar selects the presentation.
+- Verify the complete browse → detail → Back journey on desktop and mobile, including
+  a record beyond the initial list batch. Check browser Back as well as the page link.
+
 ## Foundation
 
 | Element | Rule | Implementation owner |

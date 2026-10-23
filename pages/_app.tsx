@@ -57,6 +57,7 @@ import { flushSync } from 'react-dom';
 import { watchBrowserDataReset } from '@/lib/account/resetData';
 import { useRouter } from 'next/router';
 import { recordPage } from '@/lib/nav/pageTrail';
+import { watchScrollRestoration } from '@/lib/nav/scrollRestoration';
 import SiteAnalytics from '@/components/layout/SiteAnalytics';
 
 export default function App({ Component, pageProps }: AppProps) {
@@ -75,6 +76,9 @@ export default function App({ Component, pageProps }: AppProps) {
   useEffect(() => watchImageArrivals(document), []);
   // The pages this tab has shown, for a detail page's Back (lib/nav/pageTrail.ts).
   const router = useRouter();
+  // Keep the watcher across page transitions; it tracks its current URL internally.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => watchScrollRestoration(router), [router.events]);
   useEffect(() => {
     recordPage(router.asPath);
     router.events.on('routeChangeComplete', recordPage);

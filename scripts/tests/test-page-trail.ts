@@ -52,7 +52,7 @@ test('BackLink is imported by PageHeader alone, so every page Back sits in a .pa
       const path = join(root, dir, rel);
       // An import or a dynamic import of the module, by any path; a comment naming it is not one.
       if (/\bfrom\s+['"][^'"]*\/BackLink['"]|\bimport\(\s*['"][^'"]*\/BackLink['"]/.test(readFileSync(path, 'utf8'))) {
-        importers.push(relative(root, path));
+        importers.push(relative(root, path).replaceAll('\\', '/'));
       }
     }
   }

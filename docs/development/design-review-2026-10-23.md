@@ -107,6 +107,12 @@ behavior solely to make the number smaller.
   browser checks (six intentional skips), including past-event links, chronological
   ordering, shared archive URLs and the archive's layout-census state. All 21 focused
   application checks passed; typechecking, changed-file lint and style audits pass.
+- Navigation follow-up: page Back and browser Back restore scroll through progressively
+  loaded Schedule history; the artist-to-operator journey also retains its position.
+  Schedule's date switch sits beside its explicit view heading and disappears in Calendar.
+  The rebuilt application passed 19 desktop/mobile browser checks (one intentional skip),
+  including both themes in the Schedule layout census. Four page-trail/archive application
+  checks, changed-file lint, TypeScript and style audits pass.
 
 Local packaging limitation: the Windows production build's separate deployment-trace audit
 reports local `data/` files in server traces despite the existing exclusions in
