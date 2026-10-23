@@ -150,6 +150,13 @@
   width: 78%;
   height: 78%;
   background-color: currentColor;
+  /* The faction files are white stamps with the art drawn black inside them (Rhodes
+     Island's triangle and its rook); an alpha mask kept only the stamp's outline, so
+     every faction read as a plain shape. Luminance reads the art too: the stamp is
+     the ink and its black detail the holes, in both themes. White-on-transparent art
+     (the class glyphs, Ave Mujica's emblem) is unaffected. */
+  mask-mode: luminance;
+  -webkit-mask-source-type: luminance;
   mask-position: center;
   mask-size: contain;
   mask-repeat: no-repeat;
