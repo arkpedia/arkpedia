@@ -33,7 +33,7 @@ test('past events are newest first, shareable, and link to their event pages', a
   const href = await first.getAttribute('href');
   const name = await rows.first().locator('.events-row-name').innerText();
   await first.click();
-  await expect(page).toHaveURL(new URL(href!, 'http://127.0.0.1:3192').href);
+  await expect(page).toHaveURL(new URL(href!, page.url()).href);
   await expect(page.locator('h1')).toHaveText(name);
   await page.goto('/schedule?past=1');
   await expect(page.getByRole('button', { name: 'Past', exact: true, pressed: true })).toBeVisible();
