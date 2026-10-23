@@ -240,21 +240,27 @@ test('the relay address is config/relay.json\'s, a wss:// Wisp endpoint', async 
   assert.match(RELAY_URL, /^wss:\/\/[a-z0-9.-]+\/wisp\/$/);
 });
 
-test('the Cloudflare relay is used only on the site\'s own Worker (www and dev keep the VPS), when switched on or asked for', async () => {
+test('the Cloudflare relay is used only on the site\'s own Worker and its domains (www and dev keep the VPS), when switched on or asked for', async () => {
   const { chooseRelayUrl } = await import('../../lib/account-import/relay');
   const config = (await import('../../config/relay.json')).default;
-  assert.match(config.cloudflare.worker, /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/);
-  const worker = (search: string) => ({ hostname: 'arkpedia.account.workers.dev', search });
-  const cloudflare = `wss://${config.cloudflare.worker}.account.workers.dev/wisp/`;
+  // libcurl.js needs the trailing slash, and only an encrypted WebSocket is acceptable.
+  assert.match(config.cloudflare.url, /^wss:\/\/[a-z0-9.-]+\/wisp\/$/);
+  assert.ok(config.cloudflare.hosts.includes('arkpedia-cf.mocchibird.com'));
+  for (const vercel of ['www.arkpedia.net', 'arkpedia.net', 'arkpedia-dev.vercel.app', 'arkpedia.vercel.app']) {
+    assert.ok(!config.cloudflare.hosts.includes(vercel), `${vercel} is a Vercel deploy and keeps the VPS relay`);
+  }
+  const page = (hostname: string, search = '') => ({ hostname, search });
   const off = { ...config, cloudflare: { ...config.cloudflare, use: false } };
-  assert.equal(chooseRelayUrl(worker(''), off), config.url);
-  assert.equal(chooseRelayUrl(worker('?relay=cloudflare'), off), cloudflare);
-  assert.equal(chooseRelayUrl(worker('?relay=elsewhere'), off), config.url);
   const on = { ...config, cloudflare: { ...config.cloudflare, use: true } };
-  assert.equal(chooseRelayUrl(worker(''), on), cloudflare);
-  assert.equal(chooseRelayUrl(worker('?relay=vps'), on), config.url);
-  for (const hostname of ['www.arkpedia.net', 'arkpedia-dev.vercel.app', 'workers.dev.example.com']) {
-    assert.equal(chooseRelayUrl({ hostname, search: '?relay=cloudflare' }, on), config.url, hostname);
+  for (const hostname of ['arkpedia.account.workers.dev', 'arkpedia-cf.mocchibird.com']) {
+    assert.equal(chooseRelayUrl(page(hostname), off), config.url, hostname);
+    assert.equal(chooseRelayUrl(page(hostname, '?relay=cloudflare'), off), config.cloudflare.url, hostname);
+    assert.equal(chooseRelayUrl(page(hostname, '?relay=elsewhere'), off), config.url, hostname);
+    assert.equal(chooseRelayUrl(page(hostname), on), config.cloudflare.url, hostname);
+    assert.equal(chooseRelayUrl(page(hostname, '?relay=vps'), on), config.url, hostname);
+  }
+  for (const hostname of ['www.arkpedia.net', 'arkpedia-dev.vercel.app', 'workers.dev.example.com', 'arkpedia-cf.mocchibird.com.example.com']) {
+    assert.equal(chooseRelayUrl(page(hostname, '?relay=cloudflare'), on), config.url, hostname);
   }
 });
 

@@ -85,10 +85,11 @@ code, settings and deploy setup are in arkpedia/arkpedia-relay (`cloudflare/`), 
 relay's. A plain Worker can't be the relay: its `connect()` sockets may not open connections to
 Cloudflare addresses, and the game's Global and JP servers are behind Cloudflare.
 
-`config/relay.json` `cloudflare` decides which relay the Worker's pages use. `use: true` makes it
-the Cloudflare relay. On the Worker, `/account?relay=vps` (or `?relay=cloudflare`) picks one for an
-import started from that page. Addresses other than workers.dev (www, arkpedia-dev) always use the
-VPS relay.
+`config/relay.json` `cloudflare` decides which relay the Worker's pages use: its workers.dev page
+and the domains in `hosts` (which the relay's `cloudflare.siteOrigins` must list too). `use: true`
+makes it the Cloudflare relay at `url`. On those pages, `/account?relay=vps` (or
+`?relay=cloudflare`) picks one for an import started from that page. www and arkpedia-dev always
+use the VPS relay.
 
 ## Analytics
 

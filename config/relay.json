@@ -2,9 +2,10 @@
   "about": "The account-import relay the site's pages tunnel through (lib/account-import/relay.ts). It is its own repository, arkpedia/arkpedia-relay, where relay.config.json lists this site's origins and the game servers it may reach. To move the relay to a new server, set it up from that repository; if its domain changes, change url here and add this site's domains to its origins there. allowedHosts is the list of hosts the import reaches through it, which relay.config.json there must allow, pattern for pattern: scripts/tests/test-account-import.ts holds every server's hosts (lib/account-import/yostar.ts SERVERS) to it.",
   "url": "wss://relay.arkpedia.net/wisp/",
   "cloudflare": {
-    "about": "On the site's own Worker (*.workers.dev) the import can use the relay on Cloudflare instead: the Worker named in worker, on the same workers.dev account, so the account's subdomain is never written here. Its code and settings (the hosts it reaches, the one page it serves) are in arkpedia/arkpedia-relay, cloudflare/. use: true makes the site's Worker tunnel through it; on the Worker, ?relay=cloudflare or ?relay=vps picks one for that page. Every other address always uses url.",
+    "about": "The relay on Cloudflare, for the site's own Worker: its workers.dev page and the domains in hosts. Its code and settings (the hosts it reaches, the pages it serves: arkpedia/arkpedia-relay relay.config.json cloudflare.siteOrigins, which must list every host here) are in arkpedia/arkpedia-relay, cloudflare/. use: true makes those pages tunnel through url; on them, ?relay=cloudflare or ?relay=vps picks one for that page. Every other address (www, arkpedia-dev) always uses the top-level url.",
     "use": true,
-    "worker": "arkpedia-relay"
+    "url": "wss://arkpedia-relay.cloudflare-1ff.workers.dev/wisp/",
+    "hosts": ["arkpedia-cf.mocchibird.com"]
   },
   "allowedHosts": [
     "^(en|jp)-sdk-api\\.yostarplat\\.com$",
