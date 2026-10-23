@@ -194,6 +194,85 @@ button.events-row-main.btn-bare { border: 0; background: transparent; padding: 0
 .event-detail-skin-item:hover { border-color: var(--teal); color: var(--teal); }
 .event-detail-skin-item img { border-radius: var(--radius); }
 
+/* PVs: the event's official videos (components/events/EventVideos.tsx), a thumbnail each until
+   the reader presses it. The frame is 16:9 for the picture and for the player that replaces it,
+   so pressing play changes no height. One column at 390, three or four across at 1440. */
+.event-videos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+}
+.event-video { margin: 0; min-width: 0; }
+.event-video-frame {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--panel-2);
+}
+.event-video-frame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+/* The picture is the play button: no resting frame, teal on hover and keyboard focus, as a
+   video card's. The edge is drawn over the art, not round it: a border on the button inset the
+   picture 1px and the frame's ground showed round it as a grey line. */
+.event-video-play {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+.event-video-play::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 1px solid transparent;
+  border-radius: inherit;
+}
+.event-video-play:hover::after, .event-video-play:focus-visible::after { border-color: var(--teal); }
+/* A round play mark on a fixed dark plate over the art, so it reads in both themes. */
+.event-video-play-icon {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 52px;
+  height: 52px;
+  translate: -50% -50%;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.72);
+}
+.event-video-play-icon::after {
+  content: "";
+  position: absolute;
+  left: 20px;
+  top: 16px;
+  border-style: solid;
+  border-width: 10px 0 10px 16px;
+  border-color: transparent transparent transparent var(--scrim-ink);
+}
+.event-video-play:hover .event-video-play-icon, .event-video-play:focus-visible .event-video-play-icon { background: rgba(0, 0, 0, 0.86); }
+.event-video-play:hover .event-video-play-icon::after, .event-video-play:focus-visible .event-video-play-icon::after { border-left-color: var(--scrim-teal); }
+.event-video-copy { display: flex; flex-direction: column; gap: 3px; padding-top: 8px; }
+.event-video-meta {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-faint);
+}
+.event-video-title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 15px;
+  line-height: 1.3;
+  color: var(--text);
+  text-decoration: none;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.event-video-title:hover, .event-video-title:focus-visible { color: var(--teal); }
+
 
 /* Rewards: the tab picker is components/ui/Tabs. All is the reward card
    (components/events/RewardSummary.tsx, .reward-summary). The wrapping row of tiles
