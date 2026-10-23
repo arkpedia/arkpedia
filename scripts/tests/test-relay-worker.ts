@@ -51,7 +51,7 @@ test('the names line up: the relay Worker is config/relay.json\'s, and siteWorke
 test('the relay keeps no logs, runs one small instance and limits each address as nginx does', () => {
   assert.equal(wrangler.observability.enabled, false);
   assert.equal(wrangler.preview_urls, false);
-  assert.deepEqual(wrangler.containers.map((c: Record<string, unknown>) => [c.class_name, c.image, c.instance_type, c.max_instances]), [['Relay', './container/Dockerfile', 'lite', 1]]);
+  assert.deepEqual(wrangler.containers.map((c: Record<string, unknown>) => [c.name, c.class_name, c.image, c.instance_type, c.max_instances]), [[relay.cloudflare.worker, 'Relay', './container/Dockerfile', 'lite', 1]]);
   assert.deepEqual(wrangler.ratelimits.map((r: { name: string; simple: unknown }) => [r.name, r.simple]), [['VISITORS', { limit: 20, period: 60 }]]);
   assert.match(worker, /env\.VISITORS\.limit\(/);
   assert.match(code(server), /logging\.set_level\(logging\.NONE\)/);

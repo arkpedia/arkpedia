@@ -19,7 +19,7 @@ Cloudflare. A container's own internet access reaches them; that was tested from
 | `gate.mjs` | Those decisions, and the settings the container gets (tested in `scripts/tests/test-relay-worker.ts`). |
 | `container/server.mjs` | The VPS relay's Wisp server: the hosts and ports from `config/relay.json`, no raw, private or loopback addresses, no UDP, a stream limit per visitor, nothing logged. Without its settings it doesn't start. |
 | `container/probe.mjs` | Checks a running relay from outside. |
-| `wrangler.jsonc` | The Worker `arkpedia-relay`: observability off, one `lite` container that sleeps after ten idle minutes, 20 requests a minute per address. |
+| `wrangler.jsonc` | The Worker `arkpedia-relay` and its container application, also `arkpedia-relay`: observability off, one `lite` instance that sleeps after ten idle minutes, 20 requests a minute per address. |
 
 **Settings:** all of them come from `config/relay.json`:
 - `allowedHosts` (the same list the VPS relay allows);
@@ -65,4 +65,9 @@ imports a month fit in Workers Paid's included usage. Kept awake around the cloc
 about $1.70 a month.
 
 **Removing it:** delete the Worker `arkpedia-relay` in the dashboard (or `npx wrangler delete`
-here), then check `npx wrangler containers list` for its container application.
+here), then check `npx wrangler containers list` for its container application, `arkpedia-relay`.
+
+**Renaming the container application:** wrangler finds the application by its `name` and can't
+rename one. A new `name` means a new application on the same Durable Object, so delete the old
+application first (`npx wrangler containers delete <id>`), then deploy. Imports through this relay
+fail in between.

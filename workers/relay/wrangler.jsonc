@@ -10,6 +10,9 @@
   "observability": { "enabled": false },
   // One small instance, asleep after ten idle minutes (worker.mjs).
   "containers": [{
+    // The application's name in the dashboard's Containers list (wrangler's default would be
+    // "arkpedia-relay-relay", the Worker's name and the class's).
+    "name": "arkpedia-relay",
     "class_name": "Relay",
     "image": "./container/Dockerfile",
     "max_instances": 1,
