@@ -331,7 +331,8 @@ export default function SchedulePage({ events: globalEvents, operators: exported
                 <span aria-hidden={showPast}>Upcoming events</span>
                 <span aria-hidden={!showPast}>Past events</span>
               </h2>
-              <button type="button" className="ghost btn-sm" onClick={() => {
+              <p className="hint">{showPast ? `${pastEvents.length} events · newest first` : `${eventRows.length} events · soonest first`}</p>
+              <button type="button" className="ghost btn-compact" onClick={() => {
                 viewHold.capture();
                 setPastVisible(24);
                 void router.replace({ pathname: '/schedule', query: showPast ? {} : { past: '1' } }, undefined, { shallow: true, scroll: false });
@@ -341,7 +342,6 @@ export default function SchedulePage({ events: globalEvents, operators: exported
               </button>
             </div>
           {showPast ? <>
-            <p className="hint">{pastEvents.length} events · newest first</p>
             {pastEvents.length ? <>
               <div className="events-list">
                 {pastEvents.slice(0, pastVisible).map(event => <div className="events-row" key={event.name}>

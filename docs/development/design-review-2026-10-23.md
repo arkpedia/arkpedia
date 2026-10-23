@@ -116,6 +116,9 @@ behavior solely to make the number smaller.
 - The Schedule switch now says See upcoming events and reserves both label widths.
   Four archive/navigation browser checks pass, including identical switch bounds before
   and after changing views on desktop and mobile. Both themes were visually checked.
+- Both event lists now show their count and ordering under the heading, followed by a
+  smaller standalone switch. The four archive/navigation browser checks and 22 UI-token
+  checks pass; desktop/mobile captures in both themes, lint, style audits and build pass.
 
 Local packaging limitation: the Windows production build's separate deployment-trace audit
 reports local `data/` files in server traces despite the existing exclusions in

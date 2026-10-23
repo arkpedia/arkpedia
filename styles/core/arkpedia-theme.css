@@ -152,6 +152,10 @@ button:where(:not(.btn-bare)):disabled:hover,
 .btn:disabled:hover { border-color: var(--line-soft); color: var(--text-faint); }
 
 .btn-sm { min-height: var(--control-h); font-size: 12px; padding: 4px 14px; white-space: nowrap; }
+/* Standalone secondary navigation below a heading, outside a row of full-size controls. */
+button.btn-compact,
+a.btn-compact,
+.btn.btn-compact { min-height: calc(var(--control-h) - 4px); font-size: 11px; padding: 4px 10px; white-space: nowrap; }
 .btn-lg { font-size: 17px; padding: 13px 24px; font-weight: 700; }
 /* A square icon button (a month step, a play, a help "?"): var(--control-h) both ways,
    the glyph centred at 18px (an svg sizes itself). Element-qualified so it beats .ghost's

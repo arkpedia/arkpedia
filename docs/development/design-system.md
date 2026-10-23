@@ -26,7 +26,7 @@ cards. Choose the pattern below first, then use its established primitives.
 - Keep controls beside the heading or content they affect. Controls for a hidden view
   must disappear from both the screen and keyboard navigation.
 - Name each view explicitly. Schedule uses Upcoming events and Past events; its date
-  switch belongs beside that heading, while Events/Calendar selects the presentation.
+  switch belongs with that heading, while Events/Calendar selects the presentation.
 - Verify the complete browse → detail → Back journey on desktop and mobile, including
   a record beyond the initial list batch. Check browser Back as well as the page link.
 
@@ -103,7 +103,9 @@ in place ("Story list"); pressing it again returns to the map. The map toolbar o
 only the map. The list keeps all story categories, search, reading progress and chapter
 links. The `view` query parameter remains shareable.
 
-Schedule offers "See past events" beside its Events/Calendar navigation. The archive
+Schedule puts a compact "See past events" button below its Upcoming events heading
+and count (soonest first); Past events uses the same layout with a newest-first count.
+The Events/Calendar tabs select presentation separately. The archive
 shows confirmed, finished events from newest to oldest, linking to each event page;
 predicted dates and headhunting-only entries are not historical stage events. Its
 `?past=1` address is shareable, and "See upcoming events" restores the normal list.

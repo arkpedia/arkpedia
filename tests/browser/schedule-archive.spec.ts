@@ -3,6 +3,7 @@ import { expect, test } from '@playwright/test';
 test('past events are newest first, shareable, and link to their event pages', async ({ page }) => {
   await page.goto('/schedule');
   await expect(page.getByRole('heading', { name: 'Upcoming events', exact: true })).toBeVisible();
+  await expect(page.locator('.schedule-events-heading .hint')).toHaveText(/\d+ events · soonest first/);
   await expect(page.getByRole('tab', { name: 'Events', exact: true })).toBeVisible();
   await page.getByRole('tab', { name: 'Calendar', exact: true }).click();
   await expect(page.getByRole('button', { name: /See (past|upcoming) events/ })).toHaveCount(0);
@@ -10,9 +11,12 @@ test('past events are newest first, shareable, and link to their event pages', a
   const upcomingSwitch = page.getByRole('button', { name: 'See past events', exact: true });
   await page.evaluate(() => document.fonts.ready);
   const switchPosition = await upcomingSwitch.boundingBox();
+  const headingPosition = await page.locator('#schedule-events-title').boundingBox();
+  expect(switchPosition!.y).toBeGreaterThan(headingPosition!.y + headingPosition!.height);
   await upcomingSwitch.click();
   await expect(page).toHaveURL(/past=1/);
   await expect(page.getByRole('heading', { name: 'Past events', exact: true })).toBeVisible();
+  await expect(page.locator('.schedule-events-heading .hint')).toHaveText(/\d+ events · newest first/);
   const pastSwitch = page.getByRole('button', { name: 'See upcoming events', exact: true });
   expect(await pastSwitch.boundingBox()).toEqual(switchPosition);
   const rows = page.locator('#schedule-view-panel-events .events-row');
