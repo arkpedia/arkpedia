@@ -34,12 +34,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    at: '2026-10-23T05:15:00Z',
+    at: '2026-10-23T07:45:00Z',
     added: [
       { title: 'Queue from Most liked on YouTube', detail: 'Each Most liked tile has a ⋯ menu to play its song next or add it to the queue.', href: '/music/discover' },
     ],
     changed: [
       { title: 'Seek on Discover', detail: 'Drag the player head on Discover, as on the other music tabs.', href: '/music/discover' },
+      { title: 'Background play notes', detail: 'Songs played from YouTube may not keep playing properly in the background on phones; the notes no longer say they stop.', href: '/music' },
     ],
     fixed: [
       { title: 'Queue new songs without reloading', detail: 'Songs added to the site while a page was open can now be queued without reloading it.', href: '/music' },
