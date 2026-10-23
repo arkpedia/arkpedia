@@ -23,7 +23,6 @@ const FACTION_ICON_FILES: Record<string, string> = {
   "Chiave's Gang": "Chiave's Gang.webp",
   // The game uses the Rhodes Island emblem for these two collaboration teams.
   "Laios's Party": 'Rhodes Island.webp',
-  'Ave Mujica': 'Rhodes Island.webp',
   'S.E.E.S': 'Rhodes Island.webp',
 };
 
