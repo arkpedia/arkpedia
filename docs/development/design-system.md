@@ -106,7 +106,8 @@ links. The `view` query parameter remains shareable.
 Schedule offers "See past events" beside its Events/Calendar navigation. The archive
 shows confirmed, finished events from newest to oldest, linking to each event page;
 predicted dates and headhunting-only entries are not historical stage events. Its
-`?past=1` address is shareable, and "See current events" restores the normal list.
+`?past=1` address is shareable, and "See upcoming events" restores the normal list.
+Reserve space for both heading and switch labels so switching views keeps the control still.
 
 The Base planner keeps Save image, Edit layout and the Your plan/Imported account
 choice in one toolbar. On narrow screens this row scrolls within the page. The

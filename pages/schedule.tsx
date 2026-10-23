@@ -327,12 +327,18 @@ export default function SchedulePage({ events: globalEvents, operators: exported
         <div {...tabPanelProps('schedule-view', 'events')} hidden={view !== 'events'}>
           <section className="op-section" aria-labelledby="schedule-events-title">
             <div className="schedule-events-heading">
-              <h2 id="schedule-events-title">{showPast ? 'Past events' : 'Upcoming events'}</h2>
+              <h2 id="schedule-events-title">
+                <span aria-hidden={showPast}>Upcoming events</span>
+                <span aria-hidden={!showPast}>Past events</span>
+              </h2>
               <button type="button" className="ghost btn-sm" onClick={() => {
                 viewHold.capture();
                 setPastVisible(24);
                 void router.replace({ pathname: '/schedule', query: showPast ? {} : { past: '1' } }, undefined, { shallow: true, scroll: false });
-              }}>{showPast ? 'See current events' : 'See past events'}</button>
+              }}>
+                <span aria-hidden={!showPast}>See upcoming events</span>
+                <span aria-hidden={showPast}>See past events</span>
+              </button>
             </div>
           {showPast ? <>
             <p className="hint">{pastEvents.length} events · newest first</p>

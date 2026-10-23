@@ -5,11 +5,16 @@ test('past events are newest first, shareable, and link to their event pages', a
   await expect(page.getByRole('heading', { name: 'Upcoming events', exact: true })).toBeVisible();
   await expect(page.getByRole('tab', { name: 'Events', exact: true })).toBeVisible();
   await page.getByRole('tab', { name: 'Calendar', exact: true }).click();
-  await expect(page.getByRole('button', { name: /See (past|current) events/ })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /See (past|upcoming) events/ })).toHaveCount(0);
   await page.getByRole('tab', { name: 'Events', exact: true }).click();
-  await page.getByRole('button', { name: 'See past events', exact: true }).click();
+  const upcomingSwitch = page.getByRole('button', { name: 'See past events', exact: true });
+  await page.evaluate(() => document.fonts.ready);
+  const switchPosition = await upcomingSwitch.boundingBox();
+  await upcomingSwitch.click();
   await expect(page).toHaveURL(/past=1/);
   await expect(page.getByRole('heading', { name: 'Past events', exact: true })).toBeVisible();
+  const pastSwitch = page.getByRole('button', { name: 'See upcoming events', exact: true });
+  expect(await pastSwitch.boundingBox()).toEqual(switchPosition);
   const rows = page.locator('#schedule-view-panel-events .events-row');
   await expect(rows.first()).toBeVisible();
   const dates = await rows.locator('time').evaluateAll(nodes => nodes.map(node => Date.parse(node.getAttribute('datetime')!)));
@@ -25,7 +30,7 @@ test('past events are newest first, shareable, and link to their event pages', a
   await page.goto('/schedule?past=1');
   await expect(page.getByRole('heading', { name: 'Past events', exact: true })).toBeVisible();
   await expect(rows.first().locator('a.events-row-main')).toHaveAttribute('href', href!);
-  await page.getByRole('button', { name: 'See current events', exact: true }).click();
+  await page.getByRole('button', { name: 'See upcoming events', exact: true }).click();
   await expect(page).not.toHaveURL(/past=1/);
   await expect(page.getByRole('heading', { name: 'Past events', exact: true })).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);

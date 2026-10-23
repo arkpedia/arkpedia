@@ -5,6 +5,10 @@
    link's hover lights it. Two columns once the frame is wide enough to read them. */
 .schedule-events-heading { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-bottom: var(--heading-gap); }
 .schedule-events-heading h2 { margin: 0; }
+/* Both labels reserve their natural width, keeping the switch still in either view. */
+.schedule-events-heading > h2, .schedule-events-heading > button { display: grid; }
+.schedule-events-heading > h2 > span, .schedule-events-heading > button > span { grid-area: 1 / 1; }
+.schedule-events-heading [aria-hidden="true"] { visibility: hidden; }
 .events-list {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
