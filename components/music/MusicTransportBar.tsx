@@ -25,8 +25,9 @@ const UNDO_NOTICE_MS = 9000;
  * The music section's player bar, held at the bottom of the window (sticky) on /music and on
  * Discover, so the song playing and the way back to it are always in reach -- the mini player's
  * job on a music app's every screen. Its song names the track and opens Now playing; its Queue
- * button opens the queue. The full bar (/music) also seeks and sets the volume; the compact one
- * (Discover) has a progress line instead of the seek bar. Every form, at every width, has
+ * button opens the queue. Every form seeks: the head drags on Discover as in the other tabs (it
+ * was a progress line there until 2026-10-22). The full bar (/music) also sets the volume. Every
+ * form, at every width, has
  * Favourite, Previous, Play, Next, Shuffle and Repeat as buttons: on a phone the row under the
  * song is More, Previous, Play, Next, Shuffle, Repeat, and the heart sits beside the song, before
  * Queue. A queue action's result (Play next, Add to queue, Clear) shows above the controls for a
@@ -79,7 +80,6 @@ export default function MusicTransportBar({ view, compact = false, coverPath, on
   // The page's cover for the song where it has one, else the player's fallback (lib/music/songArt.ts).
   const cover = videoId ? coverPath || nowPlayingCover || null : coverPath;
   const artist = nowPlayingArtist ?? currentTrack?.artist ?? null;
-  const progress = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
 
   useEffect(() => {
     // A song that would not start says so until the next Play (musicPlayerContext's STUCK_NOTICE).
@@ -145,7 +145,7 @@ export default function MusicTransportBar({ view, compact = false, coverPath, on
         </>}
       </div>
       <div className="music-transport-song-row">{song}{favorite('music-transport-fav-phone')}{queueLink}</div>
-      {compact ? <div className="music-transport-progress" aria-hidden="true"><span style={{ width: `${progress}%` }} /></div> : <div className="music-player-bottombar-seek">
+      <div className="music-player-bottombar-seek">
         <span className="music-time">{formatTime(currentTime)}</span>
         <input type="range" min={0} max={duration || 0} step={1} value={currentTime}
           onChange={event => handleSeekChange(Number(event.target.value))}
@@ -155,7 +155,7 @@ export default function MusicTransportBar({ view, compact = false, coverPath, on
           onKeyUp={event => { if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown'].includes(event.key)) handleSeekCommit(Number(event.currentTarget.value)); }}
           className="music-seek" aria-label="Seek" aria-valuetext={`${formatTime(currentTime)} of ${formatTime(duration)}`} />
         <span className="music-time">{formatTime(duration)}</span>
-      </div>}
+      </div>
       <div className="music-player-bottombar-controls">
         <div className="music-transport-left music-transport-buttons">
           {favorite('music-transport-fav-wide')}

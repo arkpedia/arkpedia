@@ -34,6 +34,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-10-23T05:15:00Z',
+    added: [
+      { title: 'Queue from Most liked on YouTube', detail: 'Each Most liked tile has a ⋯ menu to play its song next or add it to the queue.', href: '/music/discover' },
+    ],
+    changed: [
+      { title: 'Seek on Discover', detail: 'Drag the player head on Discover, as on the other music tabs.', href: '/music/discover' },
+    ],
+    fixed: [
+      { title: 'Queue new songs without reloading', detail: 'Songs added to the site while a page was open can now be queued without reloading it.', href: '/music' },
+    ],
+  },
+  {
     at: '2026-10-22T20:30:00Z',
     added: [
       { title: 'Arknights: Endfield music', detail: 'Tick Endfield music beside Playlists to add Endfield\'s soundtrack to the player, Library and Discover.', href: '/music/discover' },
