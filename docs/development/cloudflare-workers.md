@@ -86,9 +86,10 @@ can't be the relay: its `connect()` sockets may not open connections to Cloudfla
 the game's Global and JP servers are behind Cloudflare. A container's own internet access reaches
 them.
 
-`config/relay.json` `cloudflare` decides which relay the Worker's pages use. `use: true` makes it
-the Cloudflare relay. On the Worker, `/import?relay=cloudflare` or `?relay=vps` picks one for that
-page. Addresses other than workers.dev (www, arkpedia-dev) always use the VPS relay.
+`config/relay.json` `cloudflare` decides which relay the Worker's pages use. `use: true` (on since
+2026-10-23) makes it the Cloudflare relay. On the Worker, `/account?relay=vps` (or
+`?relay=cloudflare`) picks one for an import started from that page. Addresses other than
+workers.dev (www, arkpedia-dev) always use the VPS relay.
 
 ## Music audio addresses
 

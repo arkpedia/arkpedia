@@ -3,7 +3,7 @@
   "url": "wss://relay.arkpedia.net/wisp/",
   "cloudflare": {
     "about": "The same relay on Cloudflare (workers/relay): a Worker, named in worker, in front of one container that runs the Wisp relay. It serves only the site's own Worker, siteWorker (wrangler.jsonc's name), on the same workers.dev account, so the account's subdomain is never written here; it reaches allowedHosts below on ports, with streamsPerVisitor streams per page. use: true makes the site's Worker tunnel through it. On the Worker, ?relay=cloudflare or ?relay=vps picks one for that page. Every other address always uses url.",
-    "use": false,
+    "use": true,
     "worker": "arkpedia-relay",
     "siteWorker": "arkpedia",
     "ports": [443, 8443],
