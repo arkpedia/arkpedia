@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { test } from 'node:test';
+import yaml from 'js-yaml';
 import { eligible, finish, prepare, resume, runtime } from '../ci/sync-main-to-dev.mjs';
 
 function fixture(t, conflict = false) {
@@ -57,7 +58,9 @@ test('a real integration merge is checked before dev moves, then the exact green
   const candidate = await prepare(f.d);
   assert.equal(candidate.status, 'checking');
   assert.equal(f.readRef('dev'), f.dev);
-  assert.ok(f.calls.some(call => call.endpoint.includes('check.yml/dispatches') && call.body.ref === candidate.branch));
+  const dispatched = f.calls.find(call => call.endpoint.includes('check.yml/dispatches'));
+  assert.equal(dispatched.body.ref, candidate.branch);
+  assert.deepEqual(dispatched.body.inputs, { reuse_pr_check: 'true' });
   const result = await finish(f.d, f.run(candidate));
   assert.equal(result.status, 'synced');
   assert.equal(f.readRef('dev'), candidate.head);
@@ -171,6 +174,10 @@ test('workflow orchestration uses trusted main, explicit downstream dispatch and
   assert.match(cf, /actions\/setup-node@v7/);
   assert.match(cf, /git merge --abort/);
   const check = fs.readFileSync('.github/workflows/check.yml', 'utf8');
+  const parsedCheck = yaml.load(check);
+  assert.equal(parsedCheck.on.workflow_dispatch.inputs.reuse_pr_check.type, 'boolean');
+  assert.equal(parsedCheck.on.workflow_dispatch.inputs.reuse_pr_check.default, false, 'manual checks remain full by default');
+  assert.match(parsedCheck.jobs.seen.if, /github\.event_name == 'workflow_dispatch' && inputs\.reuse_pr_check && startsWith\(github\.ref, 'refs\/heads\/sync\/main-to-dev-'\)/, 'reuse opt-in is restricted to disposable integration branches');
   assert.match(check, /notify-sync:\s+needs: check/);
   assert.match(check, /github\.event_name == 'workflow_dispatch' && startsWith\(github\.ref, 'refs\/heads\/sync\/main-to-dev-'/);
   assert.match(check, /-f checked_run="\$CHECKED_RUN"/);
