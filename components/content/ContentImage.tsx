@@ -3,6 +3,7 @@ import { forwardRef, useRef, version as reactVersion, type HTMLAttributes, type 
 import { useContentUrl } from '@/lib/content/context';
 import { cssUrl } from '@/lib/content/urls';
 import { useAssetUrl } from '@/lib/assets/assetRetry';
+import { assetUrl, encodeAssetPath } from '@/lib/assets/assetUrl';
 
 /*
  * Every picture on the site is one of these two, and both wait for the reader
@@ -25,6 +26,19 @@ const ContentImage = forwardRef<HTMLImageElement, Omit<ImageProps, 'loading'>>(f
   return <NextImage {...props} {...eager} src={typeof src === 'string' ? url(src) : src} ref={ref} />;
 });
 export default ContentImage;
+
+export type ApplicationAsset = {
+  repository: 'arkpedia-image-assets' | 'arkpedia-skin-assets';
+  revision: string;
+  path: string;
+};
+
+/** Code-owned UI artwork, pinned independently of a page's content release. */
+export const ApplicationImage = forwardRef<HTMLImageElement, Omit<ImageProps, 'src' | 'loading'> & { asset: ApplicationAsset }>(function ApplicationImage({ asset, priority, ...props }, ref) {
+  if (!/^[a-f0-9]{40}$/.test(asset.revision)) throw new Error('Application artwork requires an immutable commit');
+  const eager = priority ? { preload: true, fetchPriority: 'high' as const } : {};
+  return <NextImage {...props} {...eager} src={assetUrl(asset.repository, asset.revision, encodeAssetPath(asset.path))} ref={ref} />;
+});
 
 /* React 19 knows `fetchPriority`; React 18 warns on a camelCase prop it does not know,
    so there the attribute is written as its lowercase HTML name, as next/image does (its
