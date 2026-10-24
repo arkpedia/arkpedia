@@ -307,6 +307,22 @@ test('forgetting Yostar login keeps imported accounts, favourites and the docume
   expect(await sameDocument(page)).toBe(true);
 });
 
+test('a refused Yostar-login removal keeps the saved identity visible and reports failure', async ({ page }) => {
+  await stubServers(page, 120); await seedSavedLogin(page);
+  const dialog = await openImport(page);
+  await page.evaluate(() => {
+    const remove = Storage.prototype.removeItem;
+    Storage.prototype.removeItem = function (key: string) {
+      if (key === 'arkpediaYostarLogin') throw new DOMException('Blocked', 'SecurityError');
+      return remove.call(this, key);
+    };
+  });
+  await dialog.getByRole('button', { name: 'Forget Yostar login', exact: true }).click();
+  await expect(dialog.getByRole('alert')).toContainText('could not forget the saved Yostar login');
+  await expect(dialog.locator('.import-saved')).toBeVisible();
+  expect(await page.evaluate(() => localStorage.getItem('arkpediaYostarLogin'))).not.toBeNull();
+});
+
 test('browser clearing has a separate scoped confirmation and cancelling keeps data', async ({ page }) => {
   await stubServers(page, 120);
   await seedSavedLogin(page);

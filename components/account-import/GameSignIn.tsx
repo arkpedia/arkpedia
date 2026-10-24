@@ -3,7 +3,7 @@ import { ImportError, readAccount, readNetwork, readPulls, sendCode, SERVERS, si
 import { isResettingBrowserData } from '@/lib/account/resetData';
 import type { PullRead } from '@/lib/account/pulls';
 import { directTransport, networkTransport, relayTransport } from '@/lib/account-import/relay';
-import { forgetLogin, maskEmail, readSavedLogin, saveLogin, type SavedLogin } from '@/lib/account-import/savedLogin';
+import { forgetLogin, maskEmail, readSavedLogin, saveLogin, SAVED_LOGIN_KEY, type SavedLogin } from '@/lib/account-import/savedLogin';
 import ConnectionDiagnostics from './ConnectionDiagnostics';
 import { connectionDiagnostics } from '@/lib/account-import/connectionDiagnostics';
 import { beginnerDiagnostics } from '@/lib/account-import/beginnerDiagnostics';
@@ -232,7 +232,10 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
   };
 
   const forgetButton = <button type="button" className="ghost btn-sm" disabled={busy} onClick={() => {
-    forgetLogin(); setSaved(null); setEmail(''); setCode(''); setCodeSent(false); setDone(false); setStep(null); setFailed(null);
+    // Explicit removal reports failure; automatic expired-login cleanup is best effort.
+    try { window.localStorage.removeItem(SAVED_LOGIN_KEY); }
+    catch { setFailed({ step: null, message: 'This browser could not forget the saved Yostar login. Check its site-data settings and try again.' }); return; }
+    setSaved(null); setEmail(''); setCode(''); setCodeSent(false); setDone(false); setStep(null); setFailed(null);
   }}>Forget Yostar login</button>;
   return (
     <>
