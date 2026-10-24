@@ -4,6 +4,7 @@ import { getModuleStageEffects } from '@/lib/operators/moduleEffects';
 import { useContentUrl } from '@/lib/content/context';
 import { cssUrl } from '@/lib/content/urls';
 import { withContentPage } from '@/lib/content/server';
+import { readDataTable } from '@/lib/content/dataTable';
 import { GetStaticPaths, GetStaticProps } from 'next';
 import Image from '@/components/content/ContentImage';
 import ResponsiveSkinArtwork from '@/components/skins/ResponsiveSkinArtwork';
@@ -34,7 +35,6 @@ import {
   Appearance,
 } from '@/lib/operators/operatorAppearances';
 import SKILL_RANGES from '@/data/skill-ranges.json';
-import SKILL_TIMINGS from '@/data/skill-timings.json';
 import OPERATOR_DEPLOY from '@/public/operator-deploy.json';
 import { getSkillTiming, SkillTiming } from '@/lib/operators/skillTiming';
 import { getSkillIconPath, getBaseSkillIconPath, baseSkillDisplayName, talentDisplayName, getEssentialIconPath, getMaterialIconPath } from '@/lib/operators/operatorIconPaths';
@@ -1913,7 +1913,8 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/op
   // Resolve on the server: only this operator's compact grids reach the page.
   const overviewRanges = getOperatorAttackRanges(operator, OPERATOR_DEPLOY.ranges);
 
-  const skillTimings = (SKILL_TIMINGS.operators as unknown as Record<string, (SkillTiming | null)[][]>)[operator.internalName ?? ''] ?? [];
+  const skillTimingTable = process.env.ARKPEDIA_WORKER === '1' ? readDataTable<{ operators: Record<string, (SkillTiming | null)[][]> }>('skill-timings.json') : (await import('@/data/skill-timings.json')).default as unknown as { operators: Record<string, (SkillTiming | null)[][]> };
+  const skillTimings = skillTimingTable.operators[operator.internalName ?? ''] ?? [];
   const factionPath = getFactionIconPath(operator.faction);
   const factionEmblem = factionPath && publicFileExists(factionPath) ? factionPath : null;
   // The cost rows sort by the release's catalogue, not by a list compiled into the page.
@@ -1921,8 +1922,8 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/op
   // Only the pointer of each artwork that has an animated version: the model loads in the browser, when asked for.
   const dynamicArt = operatorDynamicArt(await loadDynamicArtIndex(), operator, appearances, skins);
   const { operatorEP } = await import('@/lib/operators/operatorEP');
-  const summonTable = (await import('@/data/operator-summons.json')).default as unknown as Record<string, Summon[]>;
-  const chibiIndex = (await import('@/data/chibi-art.json')).default as unknown as Record<string, ChibiFacings>;
+  const summonTable = process.env.ARKPEDIA_WORKER === '1' ? readDataTable<Record<string, Summon[]>>('operator-summons.json') : (await import('@/data/operator-summons.json')).default as unknown as Record<string, Summon[]>;
+  const chibiIndex = process.env.ARKPEDIA_WORKER === '1' ? readDataTable<Record<string, ChibiFacings>>('chibi-art.json') : (await import('@/data/chibi-art.json')).default as unknown as Record<string, ChibiFacings>;
   const chibis = Object.fromEntries(appearances.flatMap(appearance => { const id = appearanceSkinId(operator, appearance, skins); return id && chibiIndex[id] ? [[appearance.label, chibiIndex[id]]] : []; }));
   return { props: { chibis, summons: summonTable[operator.internalName ?? ''] ?? [], epTrack: operatorEP(operator), artworkCredits, factionEmblem, skillTimings, operator, appearances, skinObtainByLabel, synergyMatches, autoSynergyGroups, techniqueUnitIcons, techniqueBranchOperators, techniqueGroupOperators, techniqueRelatedOperators, forms, skillRanges, overviewRanges, voiceData, branchRelatedOperators, relatedByArtist, relatedByVoiceActor, materialOrder, dynamicArt } };
 }, {
@@ -1930,8 +1931,8 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/op
   // And one exported before animated art: this deployment's data/dynamic-art.json fills the pointers in.
   finalize: (props) => withMaterialOrder(props, (page) => plannerCostNames(page.operator)).then(withOperatorDynamicArt).then(async page => {
     const { operatorEP } = await import('@/lib/operators/operatorEP');
-    const summonTable = (await import('@/data/operator-summons.json')).default as unknown as Record<string, Summon[]>;
-    const chibiIndex = (await import('@/data/chibi-art.json')).default as unknown as Record<string, ChibiFacings>;
+    const summonTable = process.env.ARKPEDIA_WORKER === '1' ? readDataTable<Record<string, Summon[]>>('operator-summons.json') : (await import('@/data/operator-summons.json')).default as unknown as Record<string, Summon[]>;
+    const chibiIndex = process.env.ARKPEDIA_WORKER === '1' ? readDataTable<Record<string, ChibiFacings>>('chibi-art.json') : (await import('@/data/chibi-art.json')).default as unknown as Record<string, ChibiFacings>;
     const skins = (await import('@/data/skins.json')).default as import('@/lib/skins/skinTypes').Skin[];
     const chibis = Object.fromEntries(page.appearances.flatMap(appearance => { const id = appearanceSkinId(page.operator, appearance, skins); return id && chibiIndex[id] ? [[appearance.label, chibiIndex[id]]] : []; }));
     return { ...page, chibis: page.chibis ?? chibis, summons: page.summons ?? summonTable[page.operator.internalName ?? ''] ?? [], epTrack: page.epTrack === undefined ? operatorEP(page.operator) : page.epTrack };
