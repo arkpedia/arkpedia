@@ -11,6 +11,9 @@ on:
       - open-next.staging.config.ts
       - scripts/deploy/cloudflare-staging.mjs
       - scripts/tests/test-cloudflare-staging.mjs
+      - config/relay.json
+      - lib/account-import/relay.ts
+      - scripts/tests/test-main-relay-choice.ts
 
 permissions:
   contents: read

@@ -44,6 +44,11 @@ and local Worker proof when removing these overrides after upstream fixes.
 Account import needs its exact staging origin added to the relay's reviewed origin
 list. A functioning page or public server-list API does not prove authenticated
 imports work. Do not broaden relay origins to arbitrary workers.dev hosts.
+The main-based browser now selects the existing Cloudflare relay only on the two
+reviewed hosts in `config/relay.json`: the pilot custom domain and this staging
+Worker. www/dev/unknown hosts keep the VPS path; only those explicit hosts honor
+the `?relay=cloudflare`/`?relay=vps` diagnostic choice. The existing relay already
+allows the staging origin; no relay deployment or new container is required.
 
 Proof acceptance: static assets, representative rendered pages, noindex, expected
 build identity/channel, ISR and revalidation confined to staging, content-only updates,
