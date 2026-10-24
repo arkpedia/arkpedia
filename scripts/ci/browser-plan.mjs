@@ -36,11 +36,17 @@ export function dependencyIndex(files, read) {
   if (configSource != null) {
     const config = ts.parseConfigFileTextToJson('tsconfig.json', configSource);
     if (config.error) unreadable.push('tsconfig.json: unreadable path aliases');
-    else aliases = Object.keys(config.config?.compilerOptions?.paths ?? {}).map(pattern =>
-      new RegExp(`^${pattern.split('*').map(part => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('.*')}$`));
+    else {
+      const options = config.config?.compilerOptions ?? {};
+      if (config.config?.extends || options.baseUrl && !['.', './'].includes(options.baseUrl)) unreadable.push('tsconfig.json: unsupported inherited/base-directory resolution');
+      aliases = Object.entries(options.paths ?? {}).map(([pattern, targets]) => ({
+        expression: new RegExp(`^${pattern.split('*').map(part => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('.*')}$`),
+        supported: pattern === '@/*' && Array.isArray(targets) && targets.length === 1 && ['*', './*'].includes(targets[0]),
+      }));
+    }
   }
   const external = (reference, typeOnly) => {
-    if (aliases.some(pattern => pattern.test(reference))) return false;
+    if (aliases.some(alias => alias.expression.test(reference))) return false;
     if (BUILTINS.has(reference)) return true;
     if (/^(?:[./#]|@\/|~)/.test(reference)) return false;
     const name = reference.startsWith('@') ? reference.split('/').slice(0, 2).join('/') : reference.split('/')[0];
@@ -67,6 +73,10 @@ export function dependencyIndex(files, read) {
         return;
       }
       const reference = expression.text;
+      if (aliases.some(alias => !alias.supported && alias.expression.test(reference))) {
+        unreadable.push(`${file}: unsupported configured alias ${reference}`);
+        return;
+      }
       const targets = resolve(reference, file, files);
       if (targets.length) targets.forEach(target => edge(target, file));
       else if (!external(reference, typeOnly)) unreadable.push(`${file}: unresolved module ${reference}`);

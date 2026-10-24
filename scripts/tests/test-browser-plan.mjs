@@ -147,8 +147,31 @@ test('unsupported configured aliases never become external packages with the sam
     ['pages/account.tsx', 'import "react/progress";'],
   ]);
   const dependencies = dependencyIndex(new Set(sources.keys()), file => sources.get(file));
-  assert.ok(dependencies.unreadable.some(file => file.includes('unresolved module react/progress')));
+  assert.ok(dependencies.unreadable.some(file => file.includes('unsupported configured alias react/progress')));
   assert.equal(plan(['lib/story/progress.ts'], { dependencies }).lane, 'full');
+});
+
+test('redirected root aliases and inherited/base-directory resolution cannot create false consumer edges', () => {
+  const sources = new Map([
+    ['lib/story/progress.ts', 'export const x = 1;'],
+    ['pages/account.tsx', 'import "@/lib/story/progress";'],
+  ]);
+  const read = file => sources.get(file);
+  for (const config of [
+    { compilerOptions: { paths: { '@/*': ['other/*'] } } },
+    { compilerOptions: { paths: { '@/*': ['./*', 'other/*'] } } },
+    { extends: './other-config.json' },
+    { compilerOptions: { baseUrl: 'other' } },
+  ]) {
+    sources.set('tsconfig.json', JSON.stringify(config));
+    const dependencies = dependencyIndex(new Set(sources.keys()), read);
+    assert.ok(dependencies.unreadable.length > 0);
+    assert.equal(plan(['lib/story/progress.ts'], { dependencies }).lane, 'full');
+  }
+  sources.set('tsconfig.json', JSON.stringify({ compilerOptions: { baseUrl: '.', paths: { '@/*': ['./*'] } } }));
+  const dependencies = dependencyIndex(new Set(sources.keys()), read);
+  assert.deepEqual(dependencies.unreadable, []);
+  assert.ok(dependencies.consumers.get('lib/story/progress.ts').has('pages/account.tsx'));
 });
 
 test('declared DefinitelyTyped modules only satisfy erased type imports, never runtime imports', () => {
