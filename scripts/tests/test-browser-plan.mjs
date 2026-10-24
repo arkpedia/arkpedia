@@ -73,3 +73,94 @@ test('storage, emitted events, filesystem reads and computed imports keep broad 
   }
   assert.equal(plan(['lib/story/records.md']).lane, 'full', 'runtime-folder markdown is not documentation proof');
 });
+
+test('interpolated or computed consumers anywhere cannot hide a reverse dependency', () => {
+  for (const expression of ['import(`./${name}`)', 'require(`./${name}`)', 'module.require(`./${name}`)', 'import("./" + name)', 'require.resolve(name)', 'import(name)']) {
+    const sources = new Map([
+      ['lib/story/progress.ts', 'export const progress = 1;'],
+      ['pages/account.tsx', `const load = () => ${expression};`],
+    ]);
+    const dependencies = dependencyIndex(new Set(sources.keys()), file => sources.get(file));
+    assert.ok(dependencies.unreadable.some(file => file.includes('pages/account.tsx')), expression);
+    assert.equal(plan(['lib/story/progress.ts'], { dependencies }).lane, 'full', expression);
+  }
+});
+
+test('literal templates, multiline imports, exports and require preserve reverse consumer edges', () => {
+  for (const statement of [
+    'const load = () => import(`@/lib/story/progress`);',
+    'const load = () => require(`@/lib/story/progress`);',
+    'import {\n progress\n} from\n "@/lib/story/progress";',
+    'export { progress } from "@/lib/story/progress";',
+    'import progress = require("@/lib/story/progress");',
+  ]) {
+    const sources = new Map([['lib/story/progress.ts', 'export const progress = 1;'], ['pages/account.tsx', statement]]);
+    const dependencies = dependencyIndex(new Set(sources.keys()), file => sources.get(file));
+    assert.deepEqual(dependencies.unreadable, [], statement);
+    assert.ok(dependencies.consumers.get('lib/story/progress.ts').has('pages/account.tsx'), statement);
+    assert.equal(plan(['lib/story/progress.ts'], { dependencies }).lane, 'full', statement);
+  }
+});
+
+test('unresolved aliases, internal paths and undeclared packages fail closed across consumers', () => {
+  for (const reference of ['@story/progress', '~/story/progress', '#story', '@/lib/story/missing', './missing', 'unknown-package']) {
+    const sources = new Map([
+      ['package.json', JSON.stringify({ dependencies: { react: '19', '@scope/known': '1' } })],
+      ['lib/story/progress.ts', 'export const progress = 1;'],
+      ['pages/account.tsx', `import data from '${reference}';`],
+    ]);
+    const dependencies = dependencyIndex(new Set(sources.keys()), file => sources.get(file));
+    assert.ok(dependencies.unreadable.some(file => file.includes(reference)), reference);
+    assert.equal(plan(['lib/story/progress.ts'], { dependencies }).lane, 'full', reference);
+  }
+});
+
+test('declared package subpaths and Node builtins are external without masking internal imports', () => {
+  const sources = new Map([
+    ['package.json', JSON.stringify({ dependencies: { react: '19', '@scope/known': '1' }, devDependencies: { typescript: '5' }, optionalDependencies: { optional: '1' } })],
+    ['lib/story/progress.ts', 'export const progress = 1;'],
+    ['pages/account.tsx', 'import "react/jsx-runtime"; import "@scope/known/entry"; import "typescript"; import "optional"; import "node:fs"; import "path";'],
+  ]);
+  const dependencies = dependencyIndex(new Set(sources.keys()), file => sources.get(file));
+  assert.deepEqual(dependencies.unreadable, []);
+  assert.equal(plan(['lib/story/progress.ts'], { dependencies }).lane, 'targeted');
+  sources.set('pages/account.tsx', 'import "react/nonexistent"; import "@/lib/story/missing";');
+  assert.equal(plan(['lib/story/progress.ts'], { dependencies: dependencyIndex(new Set(sources.keys()), file => sources.get(file)) }).lane, 'full');
+});
+
+test('comments and strings do not become module syntax, and malformed syntax fails closed', () => {
+  const file = 'lib/story/progress.ts';
+  for (const source of ['// import(name)\nexport const x = 1;', 'const text = "import(name)";']) {
+    assert.deepEqual(dependencyIndex(new Set([file]), key => key === file ? source : undefined).unreadable, []);
+  }
+  const sources = new Map([[file, 'export const x = 1;'], ['pages/account.tsx', 'import { from "oops";']]);
+  assert.equal(plan([file], { dependencies: dependencyIndex(new Set(sources.keys()), key => sources.get(key)) }).lane, 'full');
+  sources.set('package.json', 'not json');
+  assert.ok(dependencyIndex(new Set(sources.keys()), key => sources.get(key)).unreadable.some(file => file.includes('package.json')));
+});
+
+test('unsupported configured aliases never become external packages with the same name', () => {
+  const sources = new Map([
+    ['package.json', JSON.stringify({ dependencies: { react: '19' } })],
+    ['tsconfig.json', JSON.stringify({ compilerOptions: { paths: { 'react/*': ['lib/story/*'] } } })],
+    ['lib/story/progress.ts', 'export const progress = 1;'],
+    ['pages/account.tsx', 'import "react/progress";'],
+  ]);
+  const dependencies = dependencyIndex(new Set(sources.keys()), file => sources.get(file));
+  assert.ok(dependencies.unreadable.some(file => file.includes('unresolved module react/progress')));
+  assert.equal(plan(['lib/story/progress.ts'], { dependencies }).lane, 'full');
+});
+
+test('declared DefinitelyTyped modules only satisfy erased type imports, never runtime imports', () => {
+  const sources = new Map([
+    ['package.json', JSON.stringify({ devDependencies: { '@types/geojson': '1', '@types/scope__types': '1' } })],
+    ['lib/story/progress.ts', 'export const x = 1;'],
+    ['pages/account.tsx', 'import type { Feature } from "geojson"; import { type Shape } from "@scope/types"; type Shape = import("geojson").Feature;'],
+  ]);
+  const read = file => sources.get(file);
+  assert.deepEqual(dependencyIndex(new Set(sources.keys()), read).unreadable, []);
+  sources.set('pages/account.tsx', 'import "geojson";');
+  const dependencies = dependencyIndex(new Set(sources.keys()), read);
+  assert.ok(dependencies.unreadable.some(file => file.includes('unresolved module geojson')));
+  assert.equal(plan(['lib/story/progress.ts'], { dependencies }).lane, 'full');
+});

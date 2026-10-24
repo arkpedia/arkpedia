@@ -3,6 +3,8 @@
 import fs from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
+import { builtinModules } from 'node:module';
+import ts from 'typescript';
 import { relevantFiles, references, resolve } from './browser-relevant.mjs';
 import { coveragePlan } from './browser-coverage.mjs';
 
@@ -16,22 +18,83 @@ const FAMILIES = [
 const normalize = value => value.replace(/\\/g, '/');
 const basename = value => normalize(value).split('/').at(-1);
 
-// Conservative observation using the existing reference scanner. Comments may add
-// edges; that costs coverage but cannot justify omitting a consumer.
+const BUILTINS = new Set(builtinModules.flatMap(name => name.startsWith('node:') ? [name] : [name, `node:${name}`]));
+
+// Parse module syntax rather than guessing whether a quoted expression is static.
+// An unresolved consumer anywhere can hide an edge back to the changed feature.
 export function dependencyIndex(files, read) {
   const consumers = new Map();
   const unreadable = [];
   const effects = new Set();
+  let packages = new Set();
+  let aliases = [];
+  try {
+    const manifest = JSON.parse(read('package.json') ?? '{}');
+    packages = new Set([...Object.keys(manifest.dependencies ?? {}), ...Object.keys(manifest.devDependencies ?? {}), ...Object.keys(manifest.optionalDependencies ?? {})]);
+  } catch { unreadable.push('package.json: unreadable dependency declarations'); }
+  const configSource = read('tsconfig.json');
+  if (configSource != null) {
+    const config = ts.parseConfigFileTextToJson('tsconfig.json', configSource);
+    if (config.error) unreadable.push('tsconfig.json: unreadable path aliases');
+    else aliases = Object.keys(config.config?.compilerOptions?.paths ?? {}).map(pattern =>
+      new RegExp(`^${pattern.split('*').map(part => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('.*')}$`));
+  }
+  const external = (reference, typeOnly) => {
+    if (aliases.some(pattern => pattern.test(reference))) return false;
+    if (BUILTINS.has(reference)) return true;
+    if (/^(?:[./#]|@\/|~)/.test(reference)) return false;
+    const name = reference.startsWith('@') ? reference.split('/').slice(0, 2).join('/') : reference.split('/')[0];
+    const types = `@types/${name.startsWith('@') ? name.slice(1).replace('/', '__') : name}`;
+    return packages.has(name) || typeOnly && packages.has(types);
+  };
+  const edge = (target, file) => {
+    if (!consumers.has(target)) consumers.set(target, new Set());
+    consumers.get(target).add(file);
+  };
   for (const file of files) {
     if (!/^(?:pages|components|lib|styles)\//.test(file) || !/\.[cm]?[jt]sx?$/.test(file)) continue;
     const source = read(file);
     if (source == null) { unreadable.push(file); continue; }
-    // Import edges do not describe global storage/events, filesystem reads or
-    // computed module names. These need broad coverage even inside a feature.
-    if (/\b(?:localStorage|sessionStorage|BroadcastChannel)\b|\bdispatchEvent\s*\(|\b(?:readFileSync|readFile|readdirSync|readdir)\s*\(|\b(?:import|require)\s*\(\s*[^\s'"`]/.test(source)) effects.add(file);
+    // Shared mutable state and filesystem reads still need broad coverage.
+    if (/\b(?:localStorage|sessionStorage|BroadcastChannel)\b|\bdispatchEvent\s*\(|\b(?:readFileSync|readFile|readdirSync|readdir)\s*\(/.test(source)) effects.add(file);
+    const kind = file.endsWith('.tsx') ? ts.ScriptKind.TSX : file.endsWith('.jsx') ? ts.ScriptKind.JSX : /\.[cm]?js$/.test(file) ? ts.ScriptKind.JS : ts.ScriptKind.TS;
+    const ast = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, kind);
+    if (ast.parseDiagnostics.length) unreadable.push(`${file}: invalid module syntax`);
+    const moduleReference = (expression, typeOnly = false) => {
+      if (!expression || !(ts.isStringLiteral(expression) || ts.isNoSubstitutionTemplateLiteral(expression))) {
+        unreadable.push(`${file}: computed module reference`);
+        effects.add(file);
+        return;
+      }
+      const reference = expression.text;
+      const targets = resolve(reference, file, files);
+      if (targets.length) targets.forEach(target => edge(target, file));
+      else if (!external(reference, typeOnly)) unreadable.push(`${file}: unresolved module ${reference}`);
+    };
+    const visit = node => {
+      if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) {
+        const clause = node.importClause;
+        const bindings = clause?.namedBindings;
+        const typeOnly = node.isTypeOnly || clause?.isTypeOnly || !clause?.name && bindings && ts.isNamedImports(bindings)
+          && bindings.elements.length > 0 && bindings.elements.every(item => item.isTypeOnly);
+        if (node.moduleSpecifier) moduleReference(node.moduleSpecifier, !!typeOnly);
+      } else if (ts.isImportEqualsDeclaration(node) && ts.isExternalModuleReference(node.moduleReference)) {
+        moduleReference(node.moduleReference.expression);
+      } else if (ts.isImportTypeNode(node) && ts.isLiteralTypeNode(node.argument)) {
+        moduleReference(node.argument.literal, true);
+      } else if (ts.isCallExpression(node) && (node.expression.kind === ts.SyntaxKind.ImportKeyword
+        || ts.isIdentifier(node.expression) && node.expression.text === 'require'
+        || ts.isPropertyAccessExpression(node.expression) && ts.isIdentifier(node.expression.expression)
+          && (node.expression.expression.text === 'require' && node.expression.name.text === 'resolve'
+            || node.expression.expression.text === 'module' && node.expression.name.text === 'require'))) {
+        moduleReference(node.arguments[0]);
+      }
+      ts.forEachChild(node, visit);
+    };
+    visit(ast);
+    // Keep conservative filesystem/path-string edges from the existing scanner.
     for (const reference of references(source)) for (const target of resolve(reference, file, files)) {
-      if (!consumers.has(target)) consumers.set(target, new Set());
-      consumers.get(target).add(file);
+      edge(target, file);
     }
   }
   return { consumers, unreadable, effects };
