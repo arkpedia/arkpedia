@@ -17,6 +17,7 @@ concurrency:
 
 permissions:
   contents: write
+  issues: write
 
 jobs:
   sync:
@@ -27,6 +28,9 @@ jobs:
         with:
           ref: cloudflare
           fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
       - name: Merge dev into cloudflare
         run: |
           set -euo pipefail
@@ -34,5 +38,22 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git fetch origin dev
           if git merge-base --is-ancestor origin/dev HEAD; then echo 'cloudflare already contains dev.'; exit 0; fi
-          git merge --no-edit -m 'Merge dev into cloudflare' origin/dev
+          if ! git merge --no-edit -m 'Merge dev into cloudflare' origin/dev; then
+            git merge --abort
+            exit 1
+          fi
           git push origin HEAD:cloudflare
+      - name: Report a blocked Cloudflare sync
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          body="$RUNNER_TEMP/cloudflare-sync.md"
+          echo "Dev could not merge into cloudflare. Its existing code was preserved. Resolve the conflict on a temporary branch, pass Check, and merge it; then rerun this workflow. Run: $RUN_URL" > "$body"
+          node scripts/content/alert-issue.mjs open --alert cloudflare-sync --title 'Dev could not sync into cloudflare' --body-file "$body" --rewrite
+      - name: Close the Cloudflare sync report
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/content/alert-issue.mjs close --alert cloudflare-sync --title 'Dev could not sync into cloudflare' --comment 'Cloudflare contains dev again.'
