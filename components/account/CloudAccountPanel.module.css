@@ -4,3 +4,24 @@
   gap: 12px;
   margin-block: 14px;
 }
+.heading, .identity, .suggestion, .provider {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.heading h2 { margin-bottom: 0; }
+.heading { margin-bottom: var(--heading-gap); }
+.identity { justify-content: flex-start; }
+.form { display: grid; gap: 12px; max-width: 560px; }
+.form > p, .form h3, .form .actions, .welcome > p { margin: 0; }
+.form details > .form { padding-top: 12px; }
+.form input:not([type="checkbox"]) { width: 100%; min-width: 0; box-sizing: border-box; }
+.settings { padding-top: 18px; }
+.copies { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+.copies > div { display: grid; align-content: start; gap: 12px; }
+.provider > span { display: grid; gap: 4px; }
+@media (max-width: 600px) {
+  .copies { grid-template-columns: minmax(0, 1fr); }
+}
