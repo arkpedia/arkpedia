@@ -5,7 +5,7 @@ import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { builtinModules } from 'node:module';
 import ts from 'typescript';
-import { relevantFiles, references, resolve } from './browser-relevant.mjs';
+import { relevantFiles, references, resolve, decide } from './browser-relevant.mjs';
 import { coveragePlan } from './browser-coverage.mjs';
 
 const CORE = ['nav-bar.spec.ts', 'mobile-touch-nav.spec.ts', 'navigation-continuity.spec.ts'];
@@ -159,7 +159,7 @@ export function browserPlan({ changes, specs, relevant, dependencies, baselineVe
       continue;
     }
     // Existing build dependency closure proves which tooling inputs are not read by browsers.
-    if (file.startsWith('scripts/') && !file.startsWith('scripts/ci/') && relevant instanceof Set && !relevant.has(file)) continue;
+    if (!file.startsWith('scripts/ci/') && relevant instanceof Set && !decide([change], relevant).run) continue;
     return full(`Shared or unclassified input: ${file}`);
   }
   if (!relevantChanges) return { policy: 'shadow-v1', lane: 'none', reason: 'Only documentation or tooling outside the browser/build dependency closure', baselineVerified, selected: [], omitted: inventory, domains: [], reusableCheckProof: false };

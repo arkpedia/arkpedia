@@ -27,6 +27,8 @@ test('shared shell, style, build and CI policy changes require the whole suite',
 });
 test('only proved-unread tooling and documentation may omit browser work', () => {
   assert.equal(plan(['scripts/imports/example.py']).lane, 'none');
+  assert.equal(plan(['.github/workflows/unrelated.yml']).lane, 'none');
+  assert.equal(plan(['infra/runners/compose.yaml']).lane, 'none');
   assert.equal(plan(['docs/guide.md']).lane, 'none');
   assert.equal(plan(['scripts/imports/example.py'], { relevant: undefined }).lane, 'full');
 });

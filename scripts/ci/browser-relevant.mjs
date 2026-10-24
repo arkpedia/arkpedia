@@ -29,8 +29,8 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { ARTIFACT_PREFIX } from './already-checked.mjs';
-import { fullBrowserBaseline } from './full-browser-baseline.mjs';
+import { baselineForCommit } from './browser-baseline.mjs';
+export { baselineForCommit } from './browser-baseline.mjs';
 
 /** Read whole: their files are read by path at build and test time, not only imported. */
 export const WHOLE = ['pages/', 'components/', 'lib/', 'styles/', 'public/', 'data/', 'config/', 'tests/'];
@@ -120,7 +120,6 @@ export function decide(changes, relevant) {
 }
 
 const git = (...args) => execFileSync('git', args, { encoding: 'utf8' }).trim();
-const api = route => JSON.parse(execFileSync('gh', ['api', route], { encoding: 'utf8' }));
 
 /** The commit this checkout's changes are measured from, or null. */
 function baseCommit(event) {
@@ -132,46 +131,6 @@ function baseCommit(event) {
   if (event === 'push') {
     const before = process.env.BEFORE ?? '';
     return /^[0-9a-f]{40}$/.test(before) && !/^0+$/.test(before) ? before : null;
-  }
-  return null;
-}
-
-/** A green draft/targeted workflow is insufficient: require actual full browser execution. */
-export function baselineForCommit(base, repository, baseRef, { query = api, treeOf = commit => git('rev-parse', `${commit}^{tree}`) } = {}) {
-  if (!baseRef) return null;
-  const tree = treeOf(base);
-  const jobCache = new Map();
-  function full(run, artifact) {
-    if (!run?.id || run.event === 'pull_request' && !artifact) return null;
-    let record = run;
-    // GitHub can remove pull_requests[] after merge/head deletion. Recover only
-    // through matching, merged same-repository PR metadata and its actual merge tree.
-    if (run.event === 'pull_request' && Array.isArray(run.pull_requests) && !run.pull_requests.length) {
-      if (!/^[a-f0-9]{40}$/.test(run.head_sha ?? '')) return null;
-      const associated = query(`repos/${repository}/commits/${run.head_sha}/pulls?per_page=100`);
-      if (!Array.isArray(associated) || associated.length >= 100) return null;
-      const matches = associated.filter(pr => pr.head?.repo?.full_name === repository && pr.head.sha === run.head_sha
-        && pr.base?.repo?.full_name === repository && pr.base.ref === baseRef && pr.merged_at
-        && /^[a-f0-9]{40}$/.test(pr.merge_commit_sha ?? ''));
-      if (matches.length !== 1) return null;
-      const merged = query(`repos/${repository}/git/commits/${matches[0].merge_commit_sha}`);
-      if (merged.tree?.sha !== tree) return null;
-      record = { ...run, pull_requests: matches };
-    }
-    if (!jobCache.has(run.id)) {
-      const response = query(`repos/${repository}/actions/runs/${run.id}/jobs?filter=latest&per_page=100`);
-      jobCache.set(run.id, Array.isArray(response.jobs) && response.total_count === response.jobs.length ? response.jobs : []);
-    }
-    return fullBrowserBaseline({ run: record, jobs: jobCache.get(run.id), repository, baseRef, commit: base, tree, artifact });
-  }
-  const runs = query(`repos/${repository}/actions/workflows/check.yml/runs?head_sha=${base}&status=success&per_page=10`).workflow_runs ?? [];
-  for (const run of runs) { const proof = full(run); if (proof) return proof; }
-  const { artifacts = [] } = query(`repos/${repository}/actions/artifacts?name=${ARTIFACT_PREFIX}${tree}&per_page=20`);
-  for (const artifact of artifacts) {
-    if (artifact.expired) continue;
-    const run = query(`repos/${repository}/actions/runs/${artifact.workflow_run?.id}`);
-    const proof = full(run, artifact);
-    if (proof) return proof;
   }
   return null;
 }

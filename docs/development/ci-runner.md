@@ -159,13 +159,16 @@ ten-minute poll. `npm run check:local` is the non-build/non-browser local entryp
 Same-repository draft PRs run application/Python regressions, generated inputs,
 types, lint, style and code-graph checks. They do not build the website, run browsers
 or create a reusable full-tree Check artifact. Marking the PR ready for review
-triggers the unchanged full gate; forks and manual checks also retain full coverage.
+triggers the readiness profile with proportional browser coverage; forks and
+manual checks retain full coverage.
 GitHub prevents merging a draft. A passing draft job is development feedback only.
 
 The quick job uses the existing heavy runner pool and dependency-isolation rules;
 it does not occupy the dedicated deployment runner or move unit work onto the light
 metadata pool. Queue time is still subject to active full jobs. Measure the actual
-profile before claiming a speedup. The affected-browser planner remains separate
-shadow work; this profile does not activate partial browser proof or alter release
-requirements. Ordinary manual checks still default to full, and automatic sync's
-explicit exact-tree reuse requires its previously completed full PR proof.
+profile before claiming a speedup. The [browser coverage policy](ci-impact-planning.md)
+selects existing core/family/census cases for narrow changes and records actual
+selected/omitted coverage. Shared or unknown inputs retain full coverage. Partial
+evidence has its own artifact and cannot masquerade as a full baseline. Normal
+manual checks remain full; exact-tree sync reuse must validate completed PR proof
+and any recorded full baseline.

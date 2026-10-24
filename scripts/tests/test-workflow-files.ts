@@ -210,9 +210,14 @@ test("pushes and same-repository PRs reuse only a successful exact-tree Check", 
   const steps = (check.steps ?? []) as (Step & { with?: Record<string, unknown> })[];
   const record = steps.find(step => step.name === 'Record the code this Check passed');
   assert.ok(record, 'a green pull request Check records its tree');
-  assert.equal(String(record!.if), "success() && github.event_name == 'pull_request'");
+  assert.equal(String(record!.if), "success() && github.event_name == 'pull_request' && steps.browser.outputs.lane == 'full'");
   assert.equal(String(record!.with?.name), 'checked-tree-${{ steps.tree.outputs.tree }}');
-  // Recorded last, so an upload means every step before it passed.
+  const scoped = steps.find(step => step.name === 'Record selected browser coverage');
+  assert.ok(scoped, 'partial coverage has an independently named artifact');
+  assert.equal(String(scoped!.with?.name), 'checked-policy-tree-${{ steps.tree.outputs.tree }}-${{ steps.tree.outputs.policy }}');
+  assert.equal(String(scoped!.if), "success() && github.event_name == 'pull_request' && (steps.browser.outputs.lane == 'targeted' || steps.browser.outputs.lane == 'none')");
+  assert.ok(steps.findIndex(step => step.name === 'Validate browser execution evidence') < steps.indexOf(record!));
+  // Both artifacts are recorded last and only after actual execution validation.
   const last = steps.map(step => step.name).filter(name => name && !['Report a red Check on main', 'Close the red-Check report'].includes(name));
-  assert.equal(last[last.length - 1], 'Record the code this Check passed');
+  assert.deepEqual(last.slice(-2), ['Record the code this Check passed', 'Record selected browser coverage']);
 });

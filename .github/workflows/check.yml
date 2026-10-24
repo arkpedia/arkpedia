@@ -48,6 +48,7 @@ jobs:
       actions: read
       contents: read
       issues: write
+      pull-requests: read
     outputs:
       checked: ${{ steps.seen.outputs.checked }}
     steps:
@@ -273,18 +274,17 @@ jobs:
         # --with-deps installs system libraries with sudo; a self-hosted runner has them already.
         run: npx playwright install ${{ runner.environment == 'github-hosted' && '--with-deps' || '' }} chromium
 
-      # The browser step is 14 of this job's 23 minutes on the NAS (846s, 2026-10-13), and a
-      # change only to importers, sync scripts, unit tests or other workflows cannot change what
-      # it tests. The script derives what the build and the specs read and skips the step only
-      # when no changed file is among it AND the base commit has a green Check; a manual run and
-      # any doubt run it. Its log lists the files either way.
+      # Compare cumulatively with a trusted full-browser ancestor. Shared/unknown
+      # changes and manual/push/fork checks retain full coverage; narrow PRs select
+      # existing core/family/census cases and record exactly what executed.
       - name: Which browser regressions this change needs
         id: browser
         env:
           GH_TOKEN: ${{ github.token }}
           EVENT: ${{ github.event_name }}
           BEFORE: ${{ github.event.before }}
-        run: node scripts/ci/browser-relevant.mjs >> "$GITHUB_OUTPUT"
+          BROWSER_HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+        run: node scripts/ci/browser-lane.mjs plan >> "$GITHUB_OUTPUT"
 
       # Fail on broken publication before the long browser suite. Its own build directory
       # keeps fixture releases out of the bundled pages the browser suite reads.
@@ -293,10 +293,21 @@ jobs:
         env:
           NEXT_DIST_DIR: .next-live
 
-      # Runs unless the browser decision said no in so many words: a failed or missing answer runs it.
+      # Keep this name exclusive to actual full execution: baseline verification checks it.
       - name: Desktop and mobile browser regressions
-        if: steps.browser.outputs.run != 'false'
-        run: npm run test:browser
+        if: steps.browser.outputs.lane != 'targeted' && steps.browser.outputs.lane != 'none'
+        run: npm run test:browser -- --reporter=list,json
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_FILE: .cache/browser-results.json
+
+      - name: Selected browser regressions
+        if: steps.browser.outputs.lane == 'targeted'
+        run: npm run test:browser -- --test-list .cache/browser-test-list.txt --reporter=list,json
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_FILE: .cache/browser-results.json
+
+      - name: Validate browser execution evidence
+        run: node scripts/ci/browser-lane.mjs complete
 
       # A red Check on main deploys nothing (deploy.yml follows only a green one), and the
       # content release is held while production runs other code than main
@@ -324,14 +335,25 @@ jobs:
       - name: Name the code this Check passed
         id: tree
         if: success() && github.event_name == 'pull_request'
-        run: echo "tree=$(git rev-parse 'HEAD^{tree}')" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "tree=$(git rev-parse 'HEAD^{tree}')" >> "$GITHUB_OUTPUT"
+          node -e 'console.log("policy=" + require("./.cache/browser-evidence.json").policySha256)' >> "$GITHUB_OUTPUT"
 
       - name: Record the code this Check passed
-        if: success() && github.event_name == 'pull_request'
+        if: success() && github.event_name == 'pull_request' && steps.browser.outputs.lane == 'full'
         uses: actions/upload-artifact@v7
         with:
           name: checked-tree-${{ steps.tree.outputs.tree }}
           path: package.json
+          retention-days: 7
+
+      # Partial evidence has a separate name and explicit selected/omitted coverage.
+      - name: Record selected browser coverage
+        if: success() && github.event_name == 'pull_request' && (steps.browser.outputs.lane == 'targeted' || steps.browser.outputs.lane == 'none')
+        uses: actions/upload-artifact@v7
+        with:
+          name: checked-policy-tree-${{ steps.tree.outputs.tree }}-${{ steps.tree.outputs.policy }}
+          path: .cache/browser-evidence.json
           retention-days: 7
 
       - name: Close the red-Check report
