@@ -206,7 +206,7 @@ test("pushes and same-repository PRs reuse only a successful exact-tree Check", 
   assert.ok(seen.steps!.some(step => step.run === 'node scripts/ci/already-checked.mjs >> "$GITHUB_OUTPUT"'));
   assert.equal(check.needs, 'seen');
   // A failed or skipped lookup still runs everything; only an explicit true skips.
-  assert.equal(String(check.if).replace(/\s+/g, ' '), "${{ !cancelled() && needs.seen.outputs.checked != 'true' }}");
+  assert.match(String(check.if), /!cancelled\(\) && needs\.seen\.outputs\.checked != 'true'/);
   const steps = (check.steps ?? []) as (Step & { with?: Record<string, unknown> })[];
   const record = steps.find(step => step.name === 'Record the code this Check passed');
   assert.ok(record, 'a green pull request Check records its tree');

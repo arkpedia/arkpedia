@@ -153,3 +153,19 @@ existing typecheck rather than adding another compiler pass. Shared .mjs declara
 twins have export/parameter-count checks, and a test inventory covers every suite.
 The editorial watcher's deterministic regressions run in npm test instead of on every
 ten-minute poll. `npm run check:local` is the non-build/non-browser local entrypoint.
+
+## Draft feedback and release checks
+
+Same-repository draft PRs run application/Python regressions, generated inputs,
+types, lint, style and code-graph checks. They do not build the website, run browsers
+or create a reusable full-tree Check artifact. Marking the PR ready for review
+triggers the unchanged full gate; forks and manual checks also retain full coverage.
+GitHub prevents merging a draft. A passing draft job is development feedback only.
+
+The quick job uses the existing heavy runner pool and dependency-isolation rules;
+it does not occupy the dedicated deployment runner or move unit work onto the light
+metadata pool. Queue time is still subject to active full jobs. Measure the actual
+profile before claiming a speedup. The affected-browser planner remains separate
+shadow work; this profile does not activate partial browser proof or alter release
+requirements. Ordinary manual checks still default to full, and automatic sync's
+explicit exact-tree reuse requires its previously completed full PR proof.

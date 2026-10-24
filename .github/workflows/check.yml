@@ -5,12 +5,13 @@ on:
   # with it Deploy, which follows a green Check). The list is config/docs-only-paths.json,
   # which the content release gate's code fingerprint leaves out too
   # (scripts/content/code-fingerprint.mjs): keep the two the same, a test holds them to it.
-  # A push or pull request that touches any other file still runs every step below.
+  # Other changes run draft feedback or the full ready/main/manual profile below.
   push:
     branches: [main, dev]
     paths-ignore: ['docs/**', '**/*.md']
   pull_request:
     branches: [main, dev]
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
     paths-ignore: ['docs/**', '**/*.md']
   # So a branch can be checked before it has a pull request, and so this file can
   # be tried by hand once it lands.
@@ -72,11 +73,57 @@ jobs:
         run: |
           node scripts/content/alert-issue.mjs close --alert check-failing-main --title 'Check failing on main' --comment "Green again at ${GITHUB_SHA:0:12} (its pull request's Check): $RUN_URL"
 
+  # Draft iterations give fast feedback without a website build or browser suite.
+  # GitHub prevents merging drafts; ready_for_review always starts the full path below.
+  draft:
+    if: github.event_name == 'pull_request' && github.event.pull_request.draft == true && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ${{ (github.actor == 'dependabot[bot]' || startsWith(github.head_ref, 'dependabot/')) && 'ubuntu-latest' || vars.ARKPEDIA_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: ${{ runner.environment == 'github-hosted' && 'npm' || '' }}
+          package-manager-cache: ${{ runner.environment == 'github-hosted' }}
+      - run: npm ci
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r scripts/requirements.txt
+      - name: Application and Python regression tests
+        run: |
+          npm run test:py > "$RUNNER_TEMP/python-tests.log" 2>&1 &
+          python_pid=$!
+          regression_status=0
+          npm test || regression_status=$?
+          wait "$python_pid" || regression_status=$?
+          cat "$RUNNER_TEMP/python-tests.log"
+          exit "$regression_status"
+      - name: Prepare build inputs
+        run: npm run prebuild
+        env:
+          NODE_ENV: production
+          ARKPEDIA_CONTENT_DISABLED: '1'
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Lint
+        run: npm run lint -- --max-warnings 15
+      - name: Lint pipeline scripts
+        run: npm run lint:scripts
+      - name: Style and code graph checks
+        run: npm run check:styles && npm run audit:styles && npm run audit:unused
+      - name: Report draft coverage
+        run: |
+          echo 'Draft feedback passed: application/Python tests, generated inputs, types, lint, style and code graph. No website build, browser coverage or reusable Check proof. Mark ready for review to run the full release gate.' >> "$GITHUB_STEP_SUMMARY"
+
   check:
     needs: seen
     # A cache miss, failed lookup or skipped lookup runs the full Check.
-    # Only an explicit exact-tree proof skips it.
-    if: ${{ !cancelled() && needs.seen.outputs.checked != 'true' }}
+    # Draft feedback never creates that proof. Forks/manual checks retain the full path.
+    if: ${{ !cancelled() && needs.seen.outputs.checked != 'true' && !(github.event_name == 'pull_request' && github.event.pull_request.draft == true && github.event.pull_request.head.repo.full_name == github.repository) }}
     # ARKPEDIA_RUNNER (a repository variable) names the self-hosted runner's label, e.g.
     # arkpedia-vps; unset, jobs run on GitHub's hosted runners. See docs/development/ci-runner.md.
     # Dependabot pull requests install dependency versions nobody has reviewed yet. They run
