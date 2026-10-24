@@ -300,8 +300,9 @@ test('one Forget everything action confirms its full scope and cancelling keeps 
   await expect(dialog.getByRole('button', { name: /^Forget/ })).toHaveCount(1);
   const before = await page.evaluate(() => localStorage.getItem('arkpediaYostarLogin'));
   page.once('dialog', async confirmation => {
-    expect(confirmation.message()).toContain('every account and sign-in');
+    expect(confirmation.message()).toContain('every imported game account and saved Yostar sign-in');
     expect(confirmation.message()).toContain('planner edits, story progress, music playlists and preferences');
+    expect(confirmation.message()).toContain('Your Arkpedia login and cloud saves remain.');
     await confirmation.dismiss();
   });
   await dialog.getByRole('button', { name: 'Forget everything', exact: true }).click();
