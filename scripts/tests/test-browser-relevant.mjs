@@ -102,6 +102,7 @@ test('check.yml asks before the browser step, runs it unless told no, and may re
   assert.equal(ask.env.EVENT, '${{ github.event_name }}');
   assert.equal(browser.if, "steps.browser.outputs.run != 'false'");
   assert.equal(job.permissions.actions, 'read');
+  assert.equal(job.permissions['pull-requests'], 'read', 'merged full proofs require associated PR metadata');
   // The content runtime test launches Chromium too, so its install is never skipped.
   assert.equal(job.steps[index('Install Chromium only')].if, undefined);
 });

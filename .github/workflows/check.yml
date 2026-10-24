@@ -134,8 +134,9 @@ jobs:
     permissions:
       contents: read
       issues: write
-      # Only to ask whether the base commit passed Check (scripts/ci/browser-relevant.mjs).
+      # Validate actual full-browser baseline runs and merged PR provenance.
       actions: read
+      pull-requests: read
     steps:
       - uses: actions/checkout@v7
 

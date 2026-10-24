@@ -16,9 +16,10 @@
  * test:browser, and everything any of those imports, transitively, or names by path in a string.
  *
  * The skip is truthful only on top of a base that passed: the tree checked is the base plus
- * changes nothing in the step reads. So the base commit must itself have a green Check (any
- * event; a push the `seen` job vouched for counts, as its pull request ran the step or skipped
- * it on these same terms). 2026-10-13 is why: main had been red behind cancelled Checks for a
+ * changes nothing in the step reads. The base must have trusted evidence of actual full
+ * browser execution; a green draft-only, targeted-only or skipped workflow is insufficient.
+ * An exact-tree merged PR proof may supply it with verified repository/branch provenance.
+ * 2026-10-13 is why: main had been red behind cancelled Checks for a
  * day, and an importer-only pull request on top of it must still run the browser specs and
  * fail. A manual run (workflow_dispatch) is a full re-check and always runs them. So does any
  * doubt: no base, an unreachable API, an unreadable diff. Prints `run=true|false` for
@@ -27,7 +28,9 @@
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { ARTIFACT_PREFIX } from './already-checked.mjs';
+import { fullBrowserBaseline } from './full-browser-baseline.mjs';
 
 /** Read whole: their files are read by path at build and test time, not only imported. */
 export const WHOLE = ['pages/', 'components/', 'lib/', 'styles/', 'public/', 'data/', 'config/', 'tests/'];
@@ -133,19 +136,47 @@ function baseCommit(event) {
   return null;
 }
 
-/** Whether `base` passed Check: a green run of it, or a green pull request Check of its tree. */
-function passed(base, repository) {
-  const runs = api(`repos/${repository}/actions/workflows/check.yml/runs?head_sha=${base}&status=success&per_page=10`).workflow_runs ?? [];
-  if (runs.some(run => run.conclusion === 'success' && run.repository?.full_name === repository)) return true;
-  const tree = git('rev-parse', `${base}^{tree}`);
-  const { artifacts = [] } = api(`repos/${repository}/actions/artifacts?name=${ARTIFACT_PREFIX}${tree}&per_page=20`);
+/** A green draft/targeted workflow is insufficient: require actual full browser execution. */
+export function baselineForCommit(base, repository, baseRef, { query = api, treeOf = commit => git('rev-parse', `${commit}^{tree}`) } = {}) {
+  if (!baseRef) return null;
+  const tree = treeOf(base);
+  const jobCache = new Map();
+  function full(run, artifact) {
+    if (!run?.id || run.event === 'pull_request' && !artifact) return null;
+    let record = run;
+    // GitHub can remove pull_requests[] after merge/head deletion. Recover only
+    // through matching, merged same-repository PR metadata and its actual merge tree.
+    if (run.event === 'pull_request' && Array.isArray(run.pull_requests) && !run.pull_requests.length) {
+      if (!/^[a-f0-9]{40}$/.test(run.head_sha ?? '')) return null;
+      const associated = query(`repos/${repository}/commits/${run.head_sha}/pulls?per_page=100`);
+      if (!Array.isArray(associated) || associated.length >= 100) return null;
+      const matches = associated.filter(pr => pr.head?.repo?.full_name === repository && pr.head.sha === run.head_sha
+        && pr.base?.repo?.full_name === repository && pr.base.ref === baseRef && pr.merged_at
+        && /^[a-f0-9]{40}$/.test(pr.merge_commit_sha ?? ''));
+      if (matches.length !== 1) return null;
+      const merged = query(`repos/${repository}/git/commits/${matches[0].merge_commit_sha}`);
+      if (merged.tree?.sha !== tree) return null;
+      record = { ...run, pull_requests: matches };
+    }
+    if (!jobCache.has(run.id)) {
+      const response = query(`repos/${repository}/actions/runs/${run.id}/jobs?filter=latest&per_page=100`);
+      jobCache.set(run.id, Array.isArray(response.jobs) && response.total_count === response.jobs.length ? response.jobs : []);
+    }
+    return fullBrowserBaseline({ run: record, jobs: jobCache.get(run.id), repository, baseRef, commit: base, tree, artifact });
+  }
+  const runs = query(`repos/${repository}/actions/workflows/check.yml/runs?head_sha=${base}&status=success&per_page=10`).workflow_runs ?? [];
+  for (const run of runs) { const proof = full(run); if (proof) return proof; }
+  const { artifacts = [] } = query(`repos/${repository}/actions/artifacts?name=${ARTIFACT_PREFIX}${tree}&per_page=20`);
   for (const artifact of artifacts) {
     if (artifact.expired) continue;
-    const run = api(`repos/${repository}/actions/runs/${artifact.workflow_run?.id}`);
-    if (run.conclusion === 'success' && run.path === '.github/workflows/check.yml' && run.repository?.full_name === repository) return true;
+    const run = query(`repos/${repository}/actions/runs/${artifact.workflow_run?.id}`);
+    const proof = full(run, artifact);
+    if (proof) return proof;
   }
-  return false;
+  return null;
 }
+
+export const passed = (...args) => !!baselineForCommit(...args);
 
 function main() {
   const say = message => console.error(message);
@@ -156,7 +187,8 @@ function main() {
     const base = baseCommit(event);
     if (!base) { say(`No base commit for this ${event || 'unknown'} event: running the browser regressions.`); return 'true'; }
     git('fetch', '--no-tags', '--quiet', '--depth=1', 'origin', base);
-    if (!passed(base, repository)) {
+    const baseRef = event === 'pull_request' ? process.env.GITHUB_BASE_REF : process.env.GITHUB_REF_NAME;
+    if (!passed(base, repository, baseRef)) {
       say(`The base ${base.slice(0, 12)} has no green Check, so nothing vouches for the rest of the tree: running the browser regressions.`);
       return 'true';
     }
@@ -182,4 +214,4 @@ function main() {
   }
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) console.log(`run=${main()}`);
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) console.log(`run=${main()}`);
