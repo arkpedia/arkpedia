@@ -1,5 +1,6 @@
 # Documentation
 
+- [System simplification plan](development/system-simplification-plan.md) and [progress](development/system-simplification-progress.md): agreed migration milestones, completed evidence and remaining acceptance gates.
 - [System architecture](architecture.md): diagrams of website delivery, edge caching, relay imports, assets, data publication and releases.
 - [UX review](development/ux-review.md): complete journeys, state coverage and evidence required for UI changes.
 - [Release status](development/release-status.md): one read-only report for www, dev and Cloudflare.
