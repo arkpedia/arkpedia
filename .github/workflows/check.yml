@@ -15,6 +15,11 @@ on:
   # So a branch can be checked before it has a pull request, and so this file can
   # be tried by hand once it lands.
   workflow_dispatch:
+    inputs:
+      reuse_pr_check:
+        description: Automatic integration sync may reuse a green exact-tree PR Check
+        type: boolean
+        default: false
 
 # A second push to the same branch makes the first run pointless.
 concurrency:
@@ -29,9 +34,10 @@ permissions:
 jobs:
   # Reuse a successful PR Check of this exact merge tree on pushes and same-repository PRs.
   # This also covers a rebase that changes only ancestry. Any changed file, missing proof or
-  # API failure runs the full Check; forks and manual checks always run it.
+  # API failure runs the full Check. Manual rechecks default to full; automatic
+  # integration sync explicitly opts in on its disposable branch only.
   seen:
-    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) || (github.event_name == 'workflow_dispatch' && inputs.reuse_pr_check == true && startsWith(github.ref, 'refs/heads/sync/main-to-dev-'))
     # A few seconds of API calls: on the light runner (ARKPEDIA_LIGHT_RUNNER, the VPS), so a
     # merge's push is not queued behind another pull request's whole Check on the NAS before
     # it can vouch and let Deploy start. Falls back to ARKPEDIA_RUNNER when unset.

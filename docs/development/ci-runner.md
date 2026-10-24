@@ -111,7 +111,9 @@ a changed file or changed integration result requires its own Check. The proof m
 come from this repository's Check workflow, with a matching unexpired artifact and
 a successful completed run from this repository. PR reuse also requires the same
 target branch; unknown base metadata runs the full Check. Missing or unreadable evidence
-runs the full Check. Forks and explicit manual rechecks always run it. Only full
+runs the full Check. Forks and normal manual rechecks always run it. Automatic branch
+integration explicitly opts in to the same exact-tree lookup on its disposable
+`sync/main-to-dev-*` branch; other branches cannot enable that manual opt-in. Only full
 checks record artifacts; a reused result cannot create a new proof chain.
 
 Check runs application regressions and `npm run test:py` concurrently in one step;
@@ -129,8 +131,9 @@ retain their lifecycle scripts and Next validation, including manual deployments
 
 The bundled-data build and the live-content build prove different contracts; keep
 both. The browser suite still runs desktop and mobile unless the existing
-input-graph/green-base guard proves the change irrelevant. A manual Check always
-runs it. Content preparation's data tests and publication checks are also separate
+input-graph/green-base guard proves the change irrelevant. A normal manual Check always
+runs it; an automatic integration may instead reuse a completed exact-tree PR Check.
+Content preparation's data tests and publication checks are also separate
 from code checks: new source records can fail even when the app code is unchanged.
 
 Check, Deploy and Prepare content release restore the remote npm cache only on
