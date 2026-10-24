@@ -1,6 +1,7 @@
 ALTER TABLE cloud_save ADD COLUMN personalSync INTEGER NOT NULL DEFAULT 1 CHECK(personalSync IN (0, 1));
 ALTER TABLE cloud_save ADD COLUMN historySync INTEGER NOT NULL DEFAULT 0 CHECK(historySync IN (0, 1));
 ALTER TABLE cloud_save ADD COLUMN mutationId TEXT;
+ALTER TABLE cloud_save ADD COLUMN archiveRevision INTEGER NOT NULL DEFAULT 0;
 -- Preserve the permission already granted for full imported game data.
 UPDATE cloud_save SET historySync = gameSync;
 CREATE TABLE pull_archive_account (
@@ -52,6 +53,6 @@ DROP VIEW legacy_pull_sources;
 CREATE TRIGGER legacy_cloud_game_consent AFTER UPDATE OF gameSync, payload ON cloud_save
 WHEN NEW.mutationId IS OLD.mutationId
 BEGIN
-  UPDATE cloud_save SET historySync = NEW.gameSync WHERE userId = NEW.userId;
+  UPDATE cloud_save SET historySync = NEW.gameSync, archiveRevision = archiveRevision + 1 WHERE userId = NEW.userId;
   DELETE FROM pull_archive_account WHERE userId = NEW.userId AND NEW.gameSync = 0;
 END;

@@ -239,10 +239,10 @@ test('pull archive API preserves both devices through races, snapshot replacemen
   const cookie = `${context.authCookies.sessionToken.name}=${session.token}.${await makeSignature(session.token, context.secret)}`;
   sqlite.prepare('INSERT INTO arkpedia_profile (userId, username, usernameKey, updatedAt) VALUES (?, ?, ?, ?)').run(user.id, 'Archive#1234', 'archive#1234', new Date().toISOString());
   const handler = createCloudAccountHandler(() => env);
-  async function call(method: string, body: Record<string, unknown> = {}) {
+  async function call(method: string, body: Record<string, unknown> = {}, extraHeaders: Record<string, string> = {}) {
     let status = 200, result: any;
     const res = { setHeader: () => {}, status: (code: number) => { status = code; return res; }, json: (value: unknown) => { result = value; }, end: () => {} };
-    await handler({ method, headers: { cookie, origin: env.ARKPEDIA_AUTH_URL, 'content-type': 'application/json' }, body: { owner: user.id, ...body } } as NextApiRequest, res as unknown as NextApiResponse);
+    await handler({ method, headers: { cookie, origin: env.ARKPEDIA_AUTH_URL, 'content-type': 'application/json', ...extraHeaders }, body: { owner: user.id, ...body } } as NextApiRequest, res as unknown as NextApiResponse);
     return { status, result };
   }
   await call('GET');
@@ -254,10 +254,16 @@ test('pull archive API preserves both devices through races, snapshot replacemen
   assert.deepEqual(race.map(r => r.status).sort(), [200, 409]);
   const retry = await call('POST', { revision: 2, archives: [newer, older] });
   assert.equal(retry.status, 200); assert.equal(retry.result.archives[0].history.rows.length, 3);
-  assert.equal((await call('PUT', { revision: 3, data: { musicFavorites: ['other-device'] } })).status, 200);
+  const cacheHeaders = { 'x-arkpedia-archive-owner': user.id, 'x-arkpedia-archive-revision': String(retry.result.archiveRevision) };
+  const unchanged = await call('GET', {}, cacheHeaders);
+  assert.equal(unchanged.result.archivesUnchanged, true); assert.equal(unchanged.result.archives, undefined);
+  assert.equal((await call('GET', {}, { ...cacheHeaders, 'x-arkpedia-archive-owner': 'another-user' })).result.archives[0].history.rows.length, 3);
+  const otherSettings = await call('PUT', { revision: 3, data: { musicFavorites: ['other-device'] } });
+  assert.equal(otherSettings.status, 200); assert.equal(otherSettings.result.archiveRevision, retry.result.archiveRevision, 'settings writes do not invalidate the archive');
   assert.equal((await call('GET')).result.archives[0].history.rows.length, 3, 'snapshot choice cannot clear the archive');
   const partial = await call('POST', { revision: 4, archives: [archive()] });
   assert.equal(partial.result.archives[0].history.rows.length, 3, 'partial overlap cannot shrink a ten-pull');
+  assert.equal((await call('GET', {}, cacheHeaders)).result.archives[0].history.rows.length, 3, 'archive changes invalidate the browser copy');
   assert.equal((await call('POST', { revision: 5, archives: [{ ...archive(), history: { ...archive().history, token: 'PRIVATE' } }] })).status, 400);
   assert.equal((await call('POST', { owner: 'other-user', revision: 5, archives: [archive()] })).status, 409);
   const personalOff = await call('PATCH', { revision: 5, personalSync: false });

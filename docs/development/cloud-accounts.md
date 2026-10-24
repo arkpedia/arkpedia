@@ -31,6 +31,10 @@ oversized import explicitly instead of truncating older rows.
 roster data. A D1 transaction combines the revision CAS with archive upserts; a
 unique mutation ID guards every statement so a losing writer cannot mutate an
 archive or resurrect a consent deletion. Concurrent clients refetch and retry.
+An independent archive revision lets polls omit unchanged archive bodies. The
+browser supplies both its known owner and revision; responses can reuse a cached
+archive only when both match the authenticated account. Settings-only writes do
+not invalidate history, while archive writes and consent deletion always do.
 Archives are merged before snapshot choices and restored by union, so selecting
 cloud settings preserves older browser pulls. Browser ownership markers prevent
 silently uploading another Arkpedia account's history after switching logins.

@@ -9,7 +9,7 @@ import { archivesForOwner, claimArchives, collectPullArchives, restorePullArchiv
 interface Remote {
   user: { id: string; name: string }; profile: AccountProfile | null; linkedProviders: string[];
   linkedAccounts: { id: string; providerId: string }[];
-  revision: number; gameSync: boolean; personalSync?: boolean; historySync?: boolean; archives?: PullArchive[]; paused: boolean; data: CloudData; providers: string[]; updatedAt?: string;
+  revision: number; archiveRevision?: number; gameSync: boolean; personalSync?: boolean; historySync?: boolean; archives?: PullArchive[]; paused: boolean; data: CloudData; providers: string[]; updatedAt?: string;
 }
 const MARKER = 'arkpedia:cloud-sync-v1';
 type Status = 'loading' | 'unavailable' | 'signed-out' | 'setup' | 'choice' | 'ready' | 'paused' | 'error';
@@ -26,10 +26,16 @@ function readMarker(): SyncMarker | null {
 function mark(remote: Remote, data: CloudData) {
   localStorage.setItem(MARKER, JSON.stringify({ userId: remote.user.id, revision: remote.revision, fingerprint: fingerprint(data) }));
 }
-async function request(method = 'GET', body?: unknown) {
+async function request(method = 'GET', body?: unknown, known?: Remote | null) {
+  const archiveHeaders: Record<string, string> = known?.archiveRevision === undefined ? {} : { 'X-Arkpedia-Archive-Owner': known.user.id, 'X-Arkpedia-Archive-Revision': String(known.archiveRevision) };
   const response = await fetch('/api/cloud-account', { method, credentials: 'same-origin', cache: 'no-store',
-    ...(body === undefined ? {} : { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }) });
-  return { response, data: await response.json() };
+    headers: { ...archiveHeaders, ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
+  const data = await response.json();
+  if (data.archivesUnchanged) {
+    if (!known || data.user?.id !== known.user.id || data.archiveRevision !== known.archiveRevision) throw new Error('Archive identity changed. Refresh your account.');
+    data.archives = known.archives ?? [];
+  }
+  return { response, data };
 }
 
 export function CloudSyncProvider({ children, onRestore }: { children: ReactNode; onRestore: () => void }) {
@@ -63,7 +69,7 @@ export function CloudSyncProvider({ children, onRestore }: { children: ReactNode
         if (!remote.historySync || remote.paused) return remote;
         const result = await request('POST', { owner: remote.user.id, revision: remote.revision, archives });
         if (result.response.status === 409) {
-          const latest = await request();
+          const latest = await request('GET', undefined, remote);
           if (!latest.response.ok || latest.data.user.id !== initial.user.id) throw new Error('Your signed-in account changed. Reopen your account.');
           remote = latest.data; continue;
         }
@@ -85,7 +91,7 @@ export function CloudSyncProvider({ children, onRestore }: { children: ReactNode
     if (busy.current || paused.current || isResettingBrowserData()) return;
     busy.current = true;
     try {
-      const { response, data } = await request();
+      const { response, data } = await request('GET', undefined, stateRef.current.remote);
       if (paused.current || isResettingBrowserData()) return;
       if (response.status === 401) { setState({ status: 'signed-out', remote: null, providers: data.providers ?? [], message: '' }); return; }
       if (response.status === 503) { setState(s => ({ ...s, status: s.remote ? 'error' : 'unavailable', message: data.error })); return; }
@@ -121,7 +127,7 @@ export function CloudSyncProvider({ children, onRestore }: { children: ReactNode
     if (busy.current || paused.current) return;
     busy.current = true;
     try {
-      const { response, data } = await request();
+      const { response, data } = await request('GET', undefined, stateRef.current.remote);
       if (!response.ok) throw new Error(data.error);
       let remote = data as Remote;
       if (remote.user.id !== stateRef.current.remote?.user.id || remote.revision !== stateRef.current.remote?.revision) {

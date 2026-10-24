@@ -9,24 +9,31 @@ async function mockAccount(page: Page, firstTime = false, data: Record<string, u
   const state = {
     remote: { user: { id: 'test-user', name: 'PRIVATE REAL GOOGLE NAME' }, profile: firstTime ? null : { ...profile },
       linkedProviders: ['google'], linkedAccounts: [{ id: 'google-id', providerId: 'google' }],
-      revision: 0, gameSync: false, personalSync: true, historySync: false, archives: [] as PullArchive[], paused: false, data, providers: ['google', 'discord'] },
-    signedIn: true, uploads: [] as string[], archiveWrites: [] as string[], profileWrites: [] as Record<string, unknown>[], deletes: 0,
+      revision: 0, archiveRevision: 0, gameSync: false, personalSync: true, historySync: false, archives: [] as PullArchive[], paused: false, data, providers: ['google', 'discord'] },
+    signedIn: true, uploads: [] as string[], archiveWrites: [] as string[], cachedArchiveReads: 0, profileWrites: [] as Record<string, unknown>[], deletes: 0,
   };
   await page.route('**/api/cloud-account', async route => {
     if (!state.signedIn) return route.fulfill({ status: 401, json: { providers: ['google', 'discord'] } });
     const request = route.request(), remote = state.remote;
-    if (request.method() === 'GET') return route.fulfill({ json: remote });
+    if (request.method() === 'GET') {
+      const headers = request.headers();
+      if (headers['x-arkpedia-archive-owner'] === remote.user.id && headers['x-arkpedia-archive-revision'] === String(remote.archiveRevision)) {
+        state.cachedArchiveReads++; return route.fulfill({ json: { ...remote, archives: undefined, archivesUnchanged: true } });
+      }
+      return route.fulfill({ json: remote });
+    }
     const input = request.postDataJSON();
     if (input.owner !== remote.user.id || input.revision !== remote.revision) return route.fulfill({ status: 409, json: { error: 'Cloud save changed.' } });
     if (request.method() === 'PUT') { state.uploads.push(request.postData()!); remote.data = input.data; remote.paused = false; }
-    if (request.method() === 'POST') { state.archiveWrites.push(request.postData()!); remote.archives = mergePullArchives(remote.archives, input.archives).map(archive => ({ ...archive, savedAt: '2026-10-24T12:01:00Z' })); }
+    if (request.method() === 'POST') { state.archiveWrites.push(request.postData()!); remote.archives = mergePullArchives(remote.archives, input.archives).map(archive => ({ ...archive, savedAt: '2026-10-24T12:01:00Z' })); remote.archiveRevision++; }
     if (request.method() === 'PATCH') {
+      if (input.historySync !== undefined && input.historySync !== remote.historySync) remote.archiveRevision++;
       for (const key of ['gameSync', 'historySync', 'personalSync'] as const) if (input[key] !== undefined) remote[key] = input[key];
       if (!remote.gameSync) delete remote.data.arkpediaAccount;
       if (!remote.historySync) remote.archives = [];
       if (!remote.personalSync) for (const key of Object.keys(remote.data)) if (key !== 'arkpediaAccount') delete remote.data[key];
     }
-    if (request.method() === 'DELETE') { state.deletes++; remote.data = {}; remote.gameSync = false; remote.historySync = false; remote.archives = []; remote.paused = true; }
+    if (request.method() === 'DELETE') { state.deletes++; remote.data = {}; remote.gameSync = false; remote.historySync = false; remote.archives = []; remote.archiveRevision++; remote.paused = true; }
     remote.revision++;
     await route.fulfill({ json: remote });
   });
@@ -76,6 +83,7 @@ for (const theme of ['dark', 'light']) {
     await expect(page.getByText('2 pulls archived', { exact: false })).toBeVisible();
     await expect(page.getByText('2 pulls saved to cloud', { exact: false })).toBeVisible();
     await expect(page.getByText('Last saved to cloud', { exact: false })).toBeVisible();
+    expect(state.cachedArchiveReads).toBeGreaterThan(0);
     expect(await page.evaluate(() => JSON.parse(localStorage.getItem('arkpediaPullArchives')!)[0].history.rows.length)).toBe(2);
     expect(await page.evaluate(() => localStorage.getItem('musicFavorites'))).toBe('["msr:cloud"]');
     await capture(page, `archive-${theme}`, info);
