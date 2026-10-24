@@ -16,6 +16,7 @@ function fixtures({ workflow = run(), jobs = [job()], artifacts = [], associated
     if (path.endsWith('/actions/runs/10')) return workflow;
     if (path.includes('/pulls?')) return associated;
     if (path.includes('/git/commits/')) return { tree: { sha: mergeTree } };
+    if (path.includes('/compare/')) return { status: 'diverged', merge_base_commit: { sha: head } };
     assert.fail(`Unexpected API call: ${path}`);
   };
   return { query, treeOf: () => tree };
@@ -73,4 +74,16 @@ test('recorded baseline is revalidated against its own source and actual tree', 
   assert.deepEqual(revalidateFullBaseline(proof, { query }), proof);
   assert.equal(revalidateFullBaseline({ ...proof, jobId: 999 }, { query }), null);
   assert.equal(revalidateFullBaseline(proof, { query: path => path.includes('/git/commits/') ? { tree: { sha: 'f'.repeat(40) } } : original(path) }), null);
+});
+
+test('history-only PR head updates retain proof only with old-head ancestry and the tested merge tree', () => {
+  const newer = 'd'.repeat(40);
+  const workflow = { ...run(), event: 'pull_request', head_sha: head, pull_requests: [] };
+  const artifact = { id: 30, expired: false, name: `checked-tree-${tree}`, workflow_run: { id: 10 } };
+  const associated = [{ head: { sha: newer, repo: { full_name: repository } }, base: { ref: 'main', repo: { full_name: repository } },
+    merged_at: '2026-10-24T22:00:00Z', merge_commit_sha: commit }];
+  const original = fixtures({ workflow, artifacts: [artifact], associated });
+  const query = path => path.includes('/compare/') ? { status: 'ahead', merge_base_commit: { sha: head } } : original.query(path);
+  assert.equal(baselineForCommit(commit, repository, 'main', { ...original, query }).runId, 10);
+  assert.equal(passed(commit, repository, 'main', original), false);
 });

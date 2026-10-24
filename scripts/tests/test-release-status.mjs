@@ -55,6 +55,13 @@ test('wrong channel and dirty builds fail even if pages respond', async () => {
   }
 });
 
+test('dirty identity does not fabricate a schema mismatch when public schema actually matches', async () => {
+  const result = await inspectTarget(target, fixture({ build: { dirty: true } }));
+  assert.equal(result.status, 'needs attention');
+  assert.ok(result.issues.some(issue => /dirty working tree/.test(issue)));
+  assert.ok(!result.issues.some(issue => /schema/.test(issue)));
+});
+
 test('corrupted manifest and schema mismatch cannot appear verified', async () => {
   for (const options of [{ corrupt: true }, { manifest: { schema: 3 } }]) {
     const result = await inspectTarget(target, fixture(options));
