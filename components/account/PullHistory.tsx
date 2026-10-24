@@ -36,6 +36,7 @@ export default function PullHistory({ account, map }: { account: AccountRecord |
   const current = account ? `${account.server}:${account.profile?.uid || 'unknown'}` : '';
   const archive = archives.find(entry => archiveKey(entry) === (selected || current)) ?? (!account ? archives[0] : undefined);
   const remote = sync.remote?.archives?.find(entry => archive && archiveKey(entry) === archiveKey(archive));
+  const cloudCount = remote?.history.rows.length ?? 0;
   const status = archive ? archiveStatus(archive) : null;
   const history = archive ? (account?.pulls && archiveKey(archive) === current ? unionPullHistory(archive.history, account.pulls) : archive.history) : account?.pulls;
   const shown: AccountRecord | null = archive ? { version: 1, server: archive.server, doctor: archive.doctor, importedAt: archive.history.readAt ?? '', operators: [], skins: [], cleared: [], pulls: history } : account;
@@ -44,9 +45,9 @@ export default function PullHistory({ account, map }: { account: AccountRecord |
       {archives.length > 1 && <StyledSelect label="Pull archive account" value={archive ? archiveKey(archive) : ''} onChange={setSelected}
         options={archives.map(entry => ({ value: archiveKey(entry), label: `${entry.doctor ?? 'Doctor'} · ${entry.server.toUpperCase()} · ${entry.uid === 'unknown' ? 'legacy import (UID unavailable)' : `UID ${entry.uid}`}` }))} />}
       {archive && status && <>
-        <p role="status">{status.count.toLocaleString('en-US')} pulls archived{status.oldest ? ` · oldest ${day(status.oldest)}` : ''}.</p>
+        <p role="status">{status.count.toLocaleString('en-US')} {status.count === 1 ? 'pull' : 'pulls'} archived{status.oldest ? ` · oldest ${day(status.oldest)}` : ''}.</p>
         <p className="hint">{status.readAt ? `Last imported ${DAY.format(new Date(status.readAt))}.` : 'History has not been imported yet.'} {sync.remote?.historySync
-          ? `${remote?.history.rows.length.toLocaleString('en-US') ?? '0'} pulls saved to cloud${sync.remote.paused ? ' · cloud saving paused' : ''}.`
+          ? `${cloudCount.toLocaleString('en-US')} ${cloudCount === 1 ? 'pull' : 'pulls'} saved to cloud${sync.remote.paused ? ' · cloud saving paused' : ''}.`
           : 'Cloud pull-history saving is off. This archive is stored in this browser.'}</p>
         {remote?.savedAt && <p className="hint">Last saved to cloud <LocalTime iso={remote.savedAt} precision="minute" />.</p>}
       </>}

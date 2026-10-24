@@ -125,6 +125,28 @@ for (const theme of ['dark', 'light']) {
     await expect(page.getByRole('button', { name: 'Import / export' })).toBeFocused();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   });
+
+  test(`cloud archives are readable without a game snapshot and switch accounts by keyboard (${theme})`, async ({ page }, info) => {
+    const state = await mockAccount(page, false, { theme });
+    state.remote.revision = 7; state.remote.historySync = true;
+    const history = { rows: [{ at: 1750000000, pool: 'pool1', char: 'char_002_amiya', star: 5 }], pools: { pool1: 'Archive fixture' }, names: {}, readAt: '2026-10-24T12:00:00Z', error: null };
+    state.remote.archives = [
+      { server: 'en', uid: '111', doctor: 'Doctor Alpha', history },
+      { server: 'jp', uid: '222', doctor: 'Doctor Beta with a longer imported display name', history: { ...history, rows: [...history.rows, { ...history.rows[0], at: 1792800000 }] } },
+    ];
+    await page.goto('/account');
+    await expect(page.getByText('1 pull archived', { exact: false })).toBeVisible();
+    await page.getByRole('button', { name: 'Every pull', exact: true }).click();
+    const selector = page.getByRole('combobox', { name: 'Pull archive account', exact: true });
+    await selector.focus(); await selector.press('ArrowDown'); await selector.press('End'); await selector.press('Enter');
+    await expect(page.getByText('2 pulls archived', { exact: false })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Every pull', exact: true })).toHaveAttribute('aria-expanded', 'false');
+    await expect(selector).toBeFocused();
+    expect(state.remote.gameSync).toBe(false);
+    expect(await page.evaluate(() => localStorage.getItem('arkpediaAccount'))).toBeNull();
+    await capture(page, `archive-without-snapshot-${theme}`, info);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  });
   test(`first-time setup chooses a unique name and preserves private local imports (${theme})`, async ({ page }, info) => {
     const state = await mockAccount(page, true); await seed(page, theme);
     await page.goto('/account');
