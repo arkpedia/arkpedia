@@ -140,11 +140,15 @@ test('publication checks fail before browser regressions and use their separate 
 test('only fresh hosted runners restore npm archives; all three workflows retain clean installs', () => {
   for (const name of ['check', 'deploy', 'prepare-content']) {
     const jobs = Object.values(workflow(name).jobs);
+    const installers = jobs.filter(job => job.steps?.some(step => step.run === 'npm ci'));
     const cached = jobs.flatMap(job => job.steps ?? []).filter(step => step.uses === 'actions/setup-node@v7' && step.with?.cache);
-    assert.equal(cached.length, 1, name);
-    assert.equal(cached[0].with.cache, "${{ runner.environment == 'github-hosted' && 'npm' || '' }}");
-    assert.equal(cached[0].with['package-manager-cache'], "${{ runner.environment == 'github-hosted' }}");
-    const job = jobs.find(job => job.steps?.includes(cached[0]));
-    assert.ok(job.steps.some(step => step.run === 'npm ci'), name);
+    assert.equal(installers.length, name === 'check' ? 2 : 1, name);
+    assert.equal(cached.length, installers.length, 'only clean-install jobs configure the npm cache');
+    for (const job of installers) {
+      const setups = job.steps.filter(step => step.uses === 'actions/setup-node@v7' && step.with?.cache);
+      assert.equal(setups.length, 1, 'each selected profile installs once with its own cache policy');
+      assert.equal(setups[0].with.cache, "${{ runner.environment == 'github-hosted' && 'npm' || '' }}");
+      assert.equal(setups[0].with['package-manager-cache'], "${{ runner.environment == 'github-hosted' }}");
+    }
   }
 });
