@@ -31,8 +31,8 @@
  *                  the 2-4px token family
  *   h1Rules        an h1 font-size or text-transform outside styles/core/shared.css;
  *                  the page title has one size and one case, set there
- *   fontWeights    a rule that asks a webfont for a weight pages/_document.tsx does
- *                  not load, which the browser then fakes (faux bold)
+ *   fontWeights    a rule that asks a webfont for a weight pages/_app.tsx does
+ *                  not import, which the browser then fakes (faux bold)
  *   nativeControls a native <select> or a role="listbox" outside components/ui --
  *                  components/ui/StyledSelect (and SuggestMenu) are the only ones
  *   scrollbarThumb a scrollbar thumb in --line or --line-soft (scrollbar-color's
@@ -164,15 +164,28 @@ function tokenHexes() {
   return out;
 }
 
-/** The weights pages/_document.tsx loads, per family, from its Google Fonts URL. */
+/** The weights pages/_app.tsx loads, per family, from its @fontsource/<id>/<weight>.css imports;
+ *  the family's name is the package's own (metadata.json). A <subset>-<weight>.css import fails:
+ *  fontsource writes those without a unicode-range, so two subsets of one weight would each
+ *  claim every character. And no page goes back to linking Google Fonts at runtime. */
 function loadedWeights() {
   const doc = readFileSync(join(root, 'pages/_document.tsx'), 'utf8');
-  const url = doc.match(/fonts\.googleapis\.com\/css2\?([^"']+)/);
-  if (!url) throw new Error('No Google Fonts URL in pages/_document.tsx');
-  const out = new Map();
-  for (const m of url[1].matchAll(/family=([^:&]+):wght@([\d;]+)/g)) {
-    out.set(decodeURIComponent(m[1]).replace(/\+/g, ' '), new Set(m[2].split(';').map(Number)));
+  if (/fonts\.(googleapis|gstatic)\.com/.test(doc)) {
+    throw new Error('pages/_document.tsx links Google Fonts: the webfonts are self-hosted, imported in pages/_app.tsx');
   }
+  const app = stripComments(readFileSync(join(root, 'pages/_app.tsx'), 'utf8'));
+  const out = new Map();
+  for (const m of app.matchAll(/^import\s+['"]@fontsource\/([a-z0-9-]+)\/([^'"]+)['"]/gm)) {
+    const [, id, file] = m;
+    const weight = file.match(/^(\d{3})\.css$/);
+    if (!weight) {
+      throw new Error(`pages/_app.tsx imports @fontsource/${id}/${file}: import @fontsource/${id}/<weight>.css, whose subsets carry their unicode-range`);
+    }
+    const { family } = JSON.parse(readFileSync(join(root, 'node_modules/@fontsource', id, 'metadata.json'), 'utf8'));
+    if (!out.has(family)) out.set(family, new Set());
+    out.get(family).add(Number(weight[1]));
+  }
+  if (!out.size) throw new Error('No @fontsource/<id>/<weight>.css imports in pages/_app.tsx');
   return out;
 }
 
@@ -755,7 +768,7 @@ const LABELS = {
   oldTeal: 'the pre-token teal literal -- use var(--teal) or color-mix(in srgb, var(--teal) N%, transparent)',
   pills: 'a 999px pill radius, or a 50% one on a control or surface (only avatars, dots, images and slider thumbs are round, and a control -- a button, a .btn-icon -- never is) -- use var(--radius), var(--radius-frame) or var(--radius-control)',
   h1Rules: 'an h1 size or case outside styles/core/shared.css -- render components/ui/PageHeader',
-  fontWeights: 'a webfont weight pages/_document.tsx does not load, so the browser fakes it',
+  fontWeights: 'a webfont weight pages/_app.tsx does not import from @fontsource, so the browser fakes it',
   nativeControls: 'a native <select> or role="listbox" outside components/ui -- use components/ui/StyledSelect or SearchInput',
   scrollbarThumb: 'a scrollbar thumb in --line or --line-soft (1.31:1, invisible) -- drop the override and inherit :root\'s --text-faint',
   primaryToggle: "a class swapped between 'primary' and 'ghost' -- a toggle is a .filter-chip with aria-pressed; --teal-fill is for primary actions only",

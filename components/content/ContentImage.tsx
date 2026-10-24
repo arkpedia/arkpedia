@@ -16,9 +16,13 @@ import { useAssetUrl } from '@/lib/assets/assetRetry';
  */
 
 /** next/image, pinned to the page's content release. Lazy unless `priority`. */
-const ContentImage = forwardRef<HTMLImageElement, Omit<ImageProps, 'loading'>>(function ContentImage({ src, ...props }, ref) {
+const ContentImage = forwardRef<HTMLImageElement, Omit<ImageProps, 'loading'>>(function ContentImage({ src, priority, ...props }, ref) {
   const url = useContentUrl();
-  return <NextImage {...props} src={typeof src === 'string' ? url(src) : src} ref={ref} />;
+  // Next 16 deprecated `priority` for `preload`, and only the newer prop preloads the file;
+  // `fetchPriority` stays explicit so the tag still asks for it first, which is what
+  // test-image-loading.ts checks and what a browser acts on once the preload is in the head.
+  const eager = priority ? { preload: true, fetchPriority: 'high' as const } : {};
+  return <NextImage {...props} {...eager} src={typeof src === 'string' ? url(src) : src} ref={ref} />;
 });
 export default ContentImage;
 
@@ -42,7 +46,7 @@ export const ContentImg = forwardRef<HTMLImageElement, ContentImgProps>(function
   const url = useContentUrl();
   const loading = priority ? { loading: 'eager' as const, ...HIGH_PRIORITY } : { loading: 'lazy' as const, decoding: 'async' as const };
   // eslint-disable-next-line @next/next/no-img-element
-  return <img {...props} {...loading} alt={alt ?? ''} src={src ? url(src) : src} ref={ref} />;
+  return <img {...props} {...loading} alt={alt ?? ''} src={typeof src === 'string' ? url(src) : src} ref={ref} />;
 });
 
 /** CSS artwork needs the same release pin as ordinary images, and, having no error event,

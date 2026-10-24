@@ -1,6 +1,6 @@
 /* The game switcher on a phone or a small tablet: rows that do not depend on the face
-   drawing them. The webfonts load with display=swap (and never where Google Fonts is
-   blocked), and the fallback is wider than Rajdhani, so a plain wrapping .tabs strip broke
+   drawing them. The webfonts load with font-display: swap (and never where their files
+   are blocked), and the fallback is wider than Rajdhani, so a plain wrapping .tabs strip broke
    where the labels ran out of room in whichever face was drawing: at 390px three games fit
    the first row in the fallback and four in Rajdhani, and the "Stage" tab jumped 260px
    sideways when Rajdhani arrived; between 480 and 560px the strip was two rows and then
@@ -14,7 +14,7 @@
      height it had.
    The five fit one row in either face above 560px, and the labels stay packed from the
    start at content width, so nothing here stretches a tab (ui-primitives rule 13).
-   tests/browser/row-alignment.spec.ts loads every game with Google Fonts refused and fails
+   tests/browser/row-alignment.spec.ts loads every game with the webfont files refused and fails
    a tab on another row, or a header of another height, than with the webfonts. */
 @media (max-width: 720px) {
   .links { flex-basis: 100%; }

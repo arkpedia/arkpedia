@@ -1,3 +1,4 @@
+import type { JSX } from 'react';
 import type { EventExtras } from '@/lib/events/tableRewards';
 import { REGIONAL_MATERIAL } from '@/lib/i18n/regionalMaterial';
 import Image, { ContentImg } from '@/components/content/ContentImage';

@@ -1,3 +1,4 @@
+import type { JSX } from 'react';
 import { useRegionalTime } from '@/lib/time/useRegionalTime';
 import { regionalBanners } from '@/lib/time/regional';
 import { isLineupPending, lineupPendingNote, RETURNING_LIMITED_NOTE } from '@/lib/gacha/bannerLineup';

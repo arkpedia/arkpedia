@@ -113,6 +113,33 @@ test('the rule runs as written in every browser: ES5, from one source', () => {
   new vm.Script(assetRetryScript());
 });
 
+/*
+ * nextAssetUrl used to be compiled from NEXT_ASSET_URL_SOURCE with `new Function`, which a
+ * Workers isolate refuses; it is written out instead (lib/assets/githubRetry.mjs). This is the
+ * check that keeps the two from drifting now that the compilation is gone: the inline script's
+ * own text, compiled, must answer exactly as the function does on every address a chain reaches.
+ */
+test('the written-out rule agrees with the inline script source on every address', () => {
+  const COMMIT = 'a'.repeat(40);
+  const reference = new vm.Script(`(${NEXT_ASSET_URL_SOURCE})`).runInNewContext() as (url: string) => string | null;
+  const seeds = [
+    `https://raw.githubusercontent.com/arkpedia/arkpedia-image-assets/${COMMIT}/event-poster/Ato%20Rerun.webp`,
+    `https://raw.githubusercontent.com/arkpedia/arkpedia-image-assets/${COMMIT}/x/Kal'tsit%20-%20Base.webp`,
+    `https://raw.githubusercontent.com/arkpedia/arkpedia-image-assets/${COMMIT}/x/%4bal%25tsit.webp`,
+    `https://raw.githubusercontent.com/arkpedia/arkpedia-image-assets/${COMMIT}/x/%E6%98%8E%E6%97%A5.webp?x=1#y`,
+    'https://raw.githubusercontent.com/arkpedia/arkpedia-data/live/current.json',
+    'https://raw.githubusercontent.com/ArknightsAssets/ArknightsAssets2/main/a.png',
+    '/six-star-icons/Amiya.webp',
+  ];
+  const corpus = seeds.flatMap((seed) => {
+    const chain = [seed];
+    for (let next = nextAssetUrl(seed); next; next = nextAssetUrl(next)) chain.push(next);
+    return chain;
+  });
+  assert.ok(corpus.length > seeds.length + 8, 'not vacuous: the chains were walked');
+  for (const url of corpus) assert.equal(nextAssetUrl(url), reference(url), url);
+});
+
 class FakeElement {
   nodeName: string;
   parentNode: FakeElement | null = null;

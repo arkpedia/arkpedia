@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { CREDIT_GROUPS, CREDITED_ELSEWHERE, OWN_REPOSITORIES, githubRepository, linkLabel } from '../../lib/credits/sources';
 import { LINKS } from '../../lib/nav/navLinks';
+import { SIL_OPEN_FONT_LICENSE, WEBFONTS } from '../../lib/credits/fonts';
 
 /*
  * The Credits page (pages/credits.tsx) names every GitHub repository the site's code takes data
@@ -61,7 +62,7 @@ test('the Credits page names no repository the code no longer uses', () => {
 });
 
 test('every credited link is https, written short, and the nav links the page', () => {
-  for (const href of [...LINKS_CREDITED, ...OWN_REPOSITORIES]) {
+  for (const href of [...LINKS_CREDITED, ...OWN_REPOSITORIES, ...WEBFONTS.map((font) => font.link)]) {
     assert.match(href, /^https:\/\/[^\s]+$/, href);
     // A GitHub link is the repository itself, so the scan above can count it.
     if (new URL(href).hostname === 'github.com') assert.ok(githubRepository(href), `${href}: a repository link`);
@@ -77,4 +78,28 @@ test("Arkpedia's own credited repositories are its public ones", () => {
   for (const href of OWN_REPOSITORIES) assert.match(href, /^https:\/\/github\.com\/arkpedia\/arkpedia-[a-z0-9-]+$/, href);
   // The site's own repository and the relay are private: a link to them is a 404 for a reader.
   assert.ok(!OWN_REPOSITORIES.some((href) => /\/arkpedia\/(arkpedia|arkpedia-relay)$/.test(href)));
+});
+
+/*
+ * The webfonts ship from the site itself, so their SIL Open Font License travels with them: every
+ * @fontsource package pages/_app.tsx imports is credited in lib/credits/fonts.ts (and nothing
+ * else is), under the copyright notice its own LICENSE opens with, and the licence text there is
+ * that LICENSE's word for word.
+ */
+test('every webfont the site serves is credited with its copyright and the OFL', () => {
+  const app = fs.readFileSync(path.join('pages', '_app.tsx'), 'utf8');
+  const imported = [...new Set([...app.matchAll(/^import\s+['"]@fontsource\/([a-z0-9-]+)\//gm)].map((m) => m[1]))].sort();
+  assert.ok(imported.length >= 3, `pages/_app.tsx imports ${imported.length} @fontsource packages`);
+  assert.deepEqual(WEBFONTS.map((font) => font.fontsource).sort(), imported);
+  for (const font of WEBFONTS) {
+    const dir = path.join('node_modules', '@fontsource', font.fontsource);
+    const pkg = JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8'));
+    const meta = JSON.parse(fs.readFileSync(path.join(dir, 'metadata.json'), 'utf8'));
+    assert.equal(pkg.license, 'OFL-1.1', `${font.family}: its package's licence`);
+    assert.equal(meta.family, font.family, `@fontsource/${font.fontsource} is ${meta.family}`);
+    const licence = fs.readFileSync(path.join(dir, 'LICENSE'), 'utf8');
+    assert.ok(licence.startsWith(font.copyright), `${font.family}: its LICENSE opens with ${licence.slice(0, 80)}`);
+    const body = licence.slice(licence.indexOf('SIL OPEN FONT LICENSE Version 1.1')).trim();
+    assert.equal(SIL_OPEN_FONT_LICENSE, body, `${font.family}: the OFL text in lib/credits/fonts.ts`);
+  }
 });

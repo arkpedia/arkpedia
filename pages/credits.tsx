@@ -2,10 +2,11 @@ import Head from 'next/head';
 import PageHeader from '@/components/ui/PageHeader';
 import { CREDIT_GROUPS, OWN_REPOSITORIES, linkLabel } from '@/lib/credits/sources';
 import { SPINE_RUNTIMES_LICENSE } from '@/lib/credits/spineLicense';
+import { SIL_OPEN_FONT_LICENSE, WEBFONTS } from '@/lib/credits/fonts';
 
 /* The sources the site is built on (lib/credits/sources.ts), each with its links, and the licences
-   it is used under. The Spine Runtimes License has to ship with the site word for word; it waits
-   behind its disclosure at the foot of the page. */
+   it is used under. The Spine Runtimes License and the fonts' SIL Open Font License have to ship
+   with the site word for word; each waits behind its disclosure at the foot of the page. */
 
 function Links({ links }: { links: string[] }) {
   return (
@@ -65,6 +66,25 @@ export default function CreditsPage() {
             <summary>Spine Runtimes License</summary>
             <pre className="credits-licence">{SPINE_RUNTIMES_LICENSE}</pre>
           </details>
+          <div className="credits-fonts">
+            <p className="credits-copy">
+              The site&apos;s typefaces are {WEBFONTS.map((font) => font.family).join(', ').replace(/, ([^,]*)$/, ' and $1')},
+              served by Arkpedia itself under the SIL Open Font License 1.1.
+            </p>
+            <ul className="credits-list">
+              {WEBFONTS.map((font) => (
+                <li key={font.family}>
+                  <span className="credits-name">{font.family}</span>
+                  <span className="credits-notice">{font.copyright}</span>
+                  <Links links={[font.link]} />
+                </li>
+              ))}
+            </ul>
+            <details className="credits-disclosure">
+              <summary>SIL Open Font License 1.1</summary>
+              <pre className="credits-licence">{SIL_OPEN_FONT_LICENSE}</pre>
+            </details>
+          </div>
         </section>
       </main>
     </>

@@ -90,3 +90,8 @@ __pycache__/
 /data/optimizer-results.json.bak
 /data/whole-base-optimizer-results.json
 /data/whole-base-optimizer-results.json.bak
+
+# Cloudflare Workers build output (OpenNext) and local wrangler state.
+.open-next/
+.wrangler/
+.dev.vars

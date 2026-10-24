@@ -102,7 +102,7 @@ function Sheet({ children, onClose, onReset, resetDisabled, hold, returnTo }: {
   onReset: () => void;
   resetDisabled: boolean;
   hold: { capture: () => void };
-  returnTo: React.RefObject<HTMLButtonElement>;
+  returnTo: React.RefObject<HTMLButtonElement | null>;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {

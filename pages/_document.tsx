@@ -9,24 +9,7 @@ export default function Document() {
   return (
     <Html lang="en">
       <Head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          /* JetBrains Mono carries 600 and 700 because the stylesheets ask for them:
-             39 rules across styles/ set a mono font-weight of 600 or 700, and with
-             only 400 and 500 loaded every one of those was being SYNTHESISED -- the
-             browser smearing the 400 sideways. At the sizes this site uses mono, 9px
-             to 15px, that is not a heavier letter, it is a blurred one: the m of
-             "37m" in the nav's reset countdown merged into a solid block and read as
-             a missing-glyph box. Rajdhani already loads every weight it is asked for.
-             Inter carries 600 and 700 for the same reason: the operator pages, /skins,
-             /schedule, /farming and the games ask for them (1,100+ characters on one
-             operator page), and with only 400/500 loaded every one was faux bold.
-             npm run audit:styles reads this URL and fails a rule that asks any of the
-             three families for a weight it does not list. */
-          href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap"
-          rel="stylesheet"
-        />
+        {/* The webfonts are not linked here: pages/_app.tsx imports them, self-hosted. */}
         {/* Matches --bg, the page's own ground: browser chrome (mobile URL bar, PWA
             title bar) continues the page instead of drawing a band of a colour no
             token names. THEME_COLOR in lib/nav/themeColor.ts is the one source;

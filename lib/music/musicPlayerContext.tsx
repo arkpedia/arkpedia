@@ -193,7 +193,7 @@ interface MusicPlayerContextValue {
   undoClearQueue: () => void;
   canUndoClear: boolean;
   setExcludeCopyrighted: (v: boolean) => void;
-  containerRef: React.RefObject<HTMLDivElement>;
+  containerRef: React.RefObject<HTMLDivElement | null>;
 }
 
 const MusicPlayerContext = createContext<MusicPlayerContextValue | null>(null);

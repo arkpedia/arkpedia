@@ -1,3 +1,4 @@
+import type { JSX } from 'react';
 import { ContentArt } from '@/components/content/ContentImage';
 import Link from 'next/link';
 import Image from '@/components/content/ContentImage';
