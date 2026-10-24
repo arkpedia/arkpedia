@@ -65,9 +65,10 @@ export const OWN_REPOSITORIES = [
   'arkpedia-voice-regional', 'arkpedia-color-palette',
 ].map((name) => `https://github.com/arkpedia/${name}`);
 
-/** Repositories the scan (test-credits.ts) finds that need no entry: Arkpedia's own and the Spine
- *  Runtimes, credited in their own sections. */
-export const CREDITED_ELSEWHERE = [/^arkpedia\//, /^EsotericSoftware\/spine-runtimes$/];
+/** Repositories the scan (test-credits.ts) finds that need no entry: Arkpedia's own, the Spine
+ *  Runtimes, and the webfonts' projects (named in their copyright lines, lib/credits/fonts.ts),
+ *  credited in their own sections. */
+export const CREDITED_ELSEWHERE = [/^arkpedia\//, /^EsotericSoftware\/spine-runtimes$/, /^rsms\/inter$/, /^JetBrains\/JetBrainsMono$/];
 
 /** The owner/name a GitHub repository link points at, or null for any other link. */
 export function githubRepository(href: string): string | null {

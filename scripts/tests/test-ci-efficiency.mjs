@@ -68,19 +68,40 @@ exit "$APP_EXIT"
   }
 });
 
-test('Next validation is enabled by default, locally, and in Deploy; only Check can opt out', () => {
+test('Next type validation stays enabled outside Check; lint remains an explicit CI gate', () => {
   const config = env => JSON.parse(execFileSync(process.execPath, ['-e', `
     const c = require('./next.config.js')('phase-production-server');
-    console.log(JSON.stringify({ types: c.typescript?.ignoreBuildErrors === true, lint: c.eslint?.ignoreDuringBuilds === true }));
+    console.log(JSON.stringify({ types: c.typescript?.ignoreBuildErrors === true, lintOption: Object.hasOwn(c, 'eslint') }));
   `], { encoding: 'utf8', env: { ...process.env, CI: '', ARKPEDIA_BUILD_CHECKS_PASSED: '', ...env } }));
   for (const env of [{}, { CI: 'true' }, { ARKPEDIA_BUILD_CHECKS_PASSED: '1' }, { CI: 'true', ARKPEDIA_BUILD_CHECKS_PASSED: 'false' }]) {
-    assert.deepEqual(config(env), { types: false, lint: false });
+    assert.deepEqual(config(env), { types: false, lintOption: false });
   }
-  assert.deepEqual(config({ CI: 'true', ARKPEDIA_BUILD_CHECKS_PASSED: '1' }), { types: true, lint: true });
+  assert.deepEqual(config({ CI: 'true', ARKPEDIA_BUILD_CHECKS_PASSED: '1' }), { types: true, lintOption: false });
+  assert.equal(steps.find(step => step.name === 'Lint').run, 'npm run lint -- --max-warnings 15');
   for (const job of Object.values(workflow('deploy').jobs)) {
     for (const step of job.steps ?? []) assert.equal(step.env?.ARKPEDIA_BUILD_CHECKS_PASSED, undefined);
     assert.equal(job.env?.ARKPEDIA_BUILD_CHECKS_PASSED, undefined);
   }
+});
+
+test('Next prerenders with at most 4 workers, whatever the host\'s core count', () => {
+  // Next's default is os.cpus() less one: the host's cores, not the runner container's, so 7
+  // workers in a 6 GB NAS container, and the Deploy build was killed (2026-10-22).
+  const cpus = JSON.parse(execFileSync(process.execPath, ['-e', `
+    console.log(JSON.stringify(require('./next.config.js')('phase-production-build').experimental?.cpus ?? null));
+  `], { encoding: 'utf8' }));
+  assert.ok(Number.isInteger(cpus) && cpus >= 1 && cpus <= 4, `experimental.cpus is ${cpus}`);
+});
+
+test('next.config.js passes Next\'s own option schema: no ignored, moved or unknown option', () => {
+  // Next only warns about an option it does not know, and then ignores it: from #658 (Next 16)
+  // the function trace excludes sat under `experimental`, where Next 16 no longer reads them.
+  const issues = JSON.parse(execFileSync(process.execPath, ['-e', `
+    const { configSchema } = require('next/dist/server/config-schema');
+    const result = configSchema.safeParse(require('./next.config.js')('phase-production-build'));
+    console.log(JSON.stringify(result.success ? [] : result.error.issues.map(issue => issue.path.join('.') + ': ' + issue.message)));
+  `], { encoding: 'utf8' }));
+  assert.deepEqual(issues, []);
 });
 
 test('both Check builds follow generated inputs and explicit validation, with output guards retained', () => {
@@ -99,7 +120,9 @@ test('both Check builds follow generated inputs and explicit validation, with ou
   }
   assert.equal(steps[index('Build')].run, 'npm run --ignore-scripts build && npm run postbuild');
   const scripts = JSON.parse(fs.readFileSync('package.json', 'utf8')).scripts;
-  assert.equal(scripts.build, 'next build');
+  // Next 16 builds with Turbopack, which refuses the `webpack` config ClientDataGuard lives in
+  // (it is what keeps a game record out of a browser chunk). The flag keeps webpack explicit.
+  assert.equal(scripts.build, 'next build --webpack');
   assert.equal(scripts.postbuild, 'npm run check:deployment-traces && npm run check:client-chunks');
   assert.match(steps[index('Pages render the live content release')].run, /grep -q '"__contentRelease"'/);
   assert.equal(steps.filter(step => String(step.run).includes('npm run check:deployment-traces')).length, 0, 'postbuild owns the trace audit');

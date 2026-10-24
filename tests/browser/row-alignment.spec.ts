@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { playAllSongs, stubYouTube } from './youtube-stub';
 import { rowCensus } from './row-census';
-import { CENSUS_STATES, fontsSettled, openCensus, openFilters, readOnly } from './census-routes';
+import { CENSUS_STATES, fontsSettled, openCensus, openFilters, readOnly, refuseWebfonts } from './census-routes';
 import { census, censusWidth, expectOnlyAllowed, TOLERANCE } from './layout-checks';
 
 /*
@@ -163,7 +163,7 @@ test('every row primitive is one control height, and follows the token', async (
  * The site nav, once: it is the same fixed bar on every page, so the per-page census
  * leaves it out (row-census.ts, `scope`) and this measures it at both widths, at the same
  * tolerances. Its brand row reads 1.8px today with the webfonts (2.3 on fallback fonts),
- * so if fonts.googleapis.com is unreachable this one test says so, not 59 page tests.
+ * so if the webfont files do not arrive this one test says so, not 59 page tests.
  */
 test('the site nav is on one line', async ({ page }) => {
   const width = await censusWidth(page);
@@ -290,11 +290,11 @@ test("the calendar's month and year menus show their whole value", async ({ page
  * (OperatorPage.module.css). Box heights from min-heights, within 2px of the ceiling,
  * so CI's fonts do not change the verdict.
  *
- * And the same with Google Fonts refused, where each star row must be the meta's one
- * 20px line. The Inter that Google Fonts' stylesheet gives the browser draws no ★, so a
- * system face does, 23px tall at line-height normal on a Mac: a Check whose build could
- * not fetch that stylesheet to inline it (Next then leaves the <link>) measured Amiya's
- * header at 124px, 3px over, on 2026-09-27.
+ * And the same with the webfonts refused, where each star row must be the meta's one
+ * 20px line. The Inter subsets the site loads draw no ★, so a system face does, 23px
+ * tall at line-height normal on a Mac: a Check whose build could not fetch the Google
+ * Fonts stylesheet to inline it (Next then left the <link>; the fonts are self-hosted
+ * now) measured Amiya's header at 124px, 3px over, on 2026-09-27.
  */
 test("the operator page's panel header is no taller than before", async ({ page }) => {
   const width = await censusWidth(page);
@@ -303,7 +303,8 @@ test("the operator page's panel header is no taller than before", async ({ page 
     if (!fonts) {
       // openCensus' readOnly would let the fonts through: one route that refuses them too.
       await page.unrouteAll({ behavior: 'ignoreErrors' });
-      await page.route(/^https?:\/\/(?!127\.0\.0\.1|localhost)/, (route) => (/fonts\.(googleapis|gstatic)\.com/.test(route.request().url()) || !['GET', 'HEAD'].includes(route.request().method()) ? route.abort() : route.continue()));
+      await page.route(/^https?:\/\/(?!127\.0\.0\.1|localhost)/, (route) => (!['GET', 'HEAD'].includes(route.request().method()) ? route.abort() : route.continue()));
+      await refuseWebfonts(page);
     }
     for (const [name, ceiling] of Object.entries(ceilings)) {
       if (fonts) await openCensus(page, `/operators/${name}`);
@@ -361,14 +362,14 @@ test("the /music queue's titles keep their room at the one row height", async ({
 
 /*
  * The page header and the game switcher do not move when the webfonts arrive. They load
- * from Google Fonts with display=swap, so the first paint is in the fallback face (and
- * every paint, where Google Fonts is blocked). The eyebrow and the h1 were "normal" line
+ * with font-display: swap, so the first paint is in the fallback face (and every paint,
+ * where the font files never arrive). The eyebrow and the h1 were "normal" line
  * height, as tall as the face drawing them, so everything under the header moved down 4px
  * (3 on a phone) on every page when Rajdhani and JetBrains Mono came in; and the switcher
  * wrapped where its labels ran out of room, which the face decides: at 390px its "Stage"
  * tab jumped 260px from the second row to the first, and from 480 to 720px rows and the
  * music guesser's library link came and went (GameLinks.module.css). This loads every game
- * (every page that renders the switcher) with the webfonts and with Google Fonts refused,
+ * (every page that renders the switcher) with the webfonts and with the webfont files refused,
  * and compares: the eyebrow's and the h1's height per line, and where each thing in the
  * header's actions sits, the switcher's tabs by row. Box edges and line counts only, no
  * text widths, so it is the same test on CI's Linux fonts.
@@ -400,10 +401,8 @@ test('the page header and the game switcher keep their rows when the webfonts ar
   const seen: Record<string, Awaited<ReturnType<typeof measure>>> = {};
   for (const fonts of [true, false]) {
     const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
-    await context.route(/^https?:\/\/(?!127\.0\.0\.1|localhost)/, (route) => {
-      if (!fonts && /fonts\.(googleapis|gstatic)\.com/.test(route.request().url())) return route.abort();
-      return ['GET', 'HEAD'].includes(route.request().method()) ? route.continue() : route.abort();
-    });
+    await context.route(/^https?:\/\/(?!127\.0\.0\.1|localhost)/, (route) => (['GET', 'HEAD'].includes(route.request().method()) ? route.continue() : route.abort()));
+    if (!fonts) await refuseWebfonts(context);
     const page = await context.newPage();
     for (const route of ['/games/operator-guesser', '/games/music-guesser', '/games/color-palette', '/games/stage-guesser', '/games/recruitment-guesser']) {
       await page.goto(route);

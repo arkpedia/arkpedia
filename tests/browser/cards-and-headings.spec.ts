@@ -137,6 +137,9 @@ for (const theme of ['dark', 'light'] as const) {
  * the verdict. */
 test("a numbered list's markers stay inside the list", async ({ page }) => {
   await openCensus(page, '/operators/Amiya');
+  // The face the lists are set in, loaded before measuring: openCensus waits for fonts only so
+  // long, and a slow runner measured the fallback face, wider than Inter (CI, 2026-10-22).
+  await page.evaluate(async () => { await document.fonts.load('400 16px Inter', '0123456789.'); await document.fonts.ready; });
   const over = await page.evaluate(() => {
     const host = document.querySelector('main .op-section p')?.parentElement ?? document.querySelector('main')!;
     const out: string[] = [];

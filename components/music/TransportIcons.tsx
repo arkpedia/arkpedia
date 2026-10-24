@@ -1,3 +1,5 @@
+import type { JSX } from 'react';
+
 /**
  * The music transport's icons, drawn rather than typed: the glyphs they replace
  * (⏮ ⏸ ▶ ⏭ ⤨ ↻ ☰ ♥) came from whatever font the platform had, at whatever size and

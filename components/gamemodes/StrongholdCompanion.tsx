@@ -669,8 +669,8 @@ function faceOf(group: StrongholdEnemyGroup) {
  * at it rather than approximate where it usually sits.
  */
 function OnboardingHint({ targetRef, containerRef, text, onDismiss, zoom, language }: {
-  targetRef: React.RefObject<HTMLElement>;
-  containerRef: React.RefObject<HTMLElement>;
+  targetRef: React.RefObject<HTMLElement | null>;
+  containerRef: React.RefObject<HTMLElement | null>;
   text: string;
   onDismiss: () => void;
   zoom: number;

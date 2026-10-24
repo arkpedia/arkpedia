@@ -16,6 +16,6 @@ test('script lint accepts Node modules, CommonJS and JSON import attributes', as
 });
 
 test('script lint rejects undefined references and unused bindings without a framework lint pass', async () => {
-  const [result] = await lint.lintText('const unused = 1; export const run = () => missingReference;', { filePath: 'scripts/fixture.mjs' });
+  const [result] = await lint.lintText('const unused = 1; export const run = () => missingReference;', { filePath: 'scripts/fixture.js' });
   assert.deepEqual(result.messages.map(message => message.ruleId).sort(), ['no-undef', 'no-unused-vars']);
 });

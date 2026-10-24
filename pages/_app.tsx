@@ -2,6 +2,37 @@ import { ContentContext, ContentTablesContext } from '@/lib/content/context';
 import { contentUrl } from '@/lib/content/urls';
 import type { AppProps } from 'next/app';
 import Head from 'next/head';
+/* The three webfonts, served from the site itself (fontsource, SIL OFL: credited on /credits,
+   lib/credits/fonts.ts). Until Next 15 the build inlined a Google Fonts stylesheet; since then a
+   <link> to it loaded at runtime, so a page whose visitor (or CI runner) could not reach Google
+   drew in fallback faces. Each import is one weight, every subset of it an @font-face with its
+   unicode-range and font-display: swap, so a browser fetches only the subsets a page's text
+   uses: latin, plus latin-ext, cyrillic, greek or vietnamese where album titles, lyrics, voice
+   lines and stage text set them. Not the <subset>-<weight>.css files: those carry no
+   unicode-range, so two subsets of one weight would both claim every character.
+   JetBrains Mono carries 600 and 700 because the stylesheets ask for them:
+   39 rules across styles/ set a mono font-weight of 600 or 700, and with
+   only 400 and 500 loaded every one of those was being SYNTHESISED -- the
+   browser smearing the 400 sideways. At the sizes this site uses mono, 9px
+   to 15px, that is not a heavier letter, it is a blurred one: the m of
+   "37m" in the nav's reset countdown merged into a solid block and read as
+   a missing-glyph box. Rajdhani already loads every weight it is asked for.
+   Inter carries 600 and 700 for the same reason: the operator pages, /skins,
+   /schedule, /farming and the games ask for them (1,100+ characters on one
+   operator page), and with only 400/500 loaded every one was faux bold.
+   npm run audit:styles reads these imports and fails a rule that asks any of the
+   three families for a weight not imported here, and a <subset>-<weight>.css import. */
+import '@fontsource/inter/400.css';
+import '@fontsource/inter/500.css';
+import '@fontsource/inter/600.css';
+import '@fontsource/inter/700.css';
+import '@fontsource/jetbrains-mono/400.css';
+import '@fontsource/jetbrains-mono/500.css';
+import '@fontsource/jetbrains-mono/600.css';
+import '@fontsource/jetbrains-mono/700.css';
+import '@fontsource/rajdhani/500.css';
+import '@fontsource/rajdhani/600.css';
+import '@fontsource/rajdhani/700.css';
 import '@/styles/core/shared.css';
 /* Straight after shared.css, which owns the tokens it reads, and before the 29
    feature stylesheets, so a page not yet migrated can still override a primitive
