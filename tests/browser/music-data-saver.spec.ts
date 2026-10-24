@@ -142,6 +142,9 @@ test('Data saver mid-song moves the song to YouTube at the same moment, and back
   // Back: Monster Siren again, from where YouTube was; YouTube paused, never two at once.
   await expect.poll(async () => (await youtube(page))!.time).toBeGreaterThan(load.startSeconds + 1);
   const youtubeAt = (await youtube(page))!.time;
+  // A slow file must keep the same playback position too. play() can clear paused
+  // before metadata arrives and the engine applies its pending seek.
+  siren.delayFilesMs = 1800;
   const uncheckedAt = Date.now();
   await saver.uncheck();
   await expect.poll(async () => (await audio(page))?.paused).toBe(false);
@@ -149,6 +152,12 @@ test('Data saver mid-song moves the song to YouTube at the same moment, and back
   await expect.poll(() => siren.resolves).toEqual([song.cid, song.cid]);
   // Read after the waits above, while the audio plays on: no further on than the time they
   // took (the NAS runner is slower; 2026-10-14 it read 5.8s on), and not from the start.
+  // Wait for decoded data at the seek target, not for time to pass a numeric bound:
+  // waiting for the latter could let a broken restart at zero play into the range.
+  await expect.poll(() => page.evaluate(() => {
+    const el = document.querySelector<HTMLAudioElement>('audio[data-music-audio]');
+    return Boolean(el && el.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA && !el.seeking);
+  })).toBe(true);
   const audioAt = (await audio(page))!.time;
   expect(audioAt).toBeGreaterThan(youtubeAt - 2.5);
   expect(audioAt).toBeLessThan(youtubeAt + 2.5 + (Date.now() - uncheckedAt) / 1000);

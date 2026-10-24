@@ -73,6 +73,11 @@ aliases the heading color to teal; their semantic roles remain separate. Do not 
 frames to neutral information to make it feel important. Use `--amber` for warnings/costs,
 `--danger` for errors/destructive meaning, and rarity/category tokens for game data.
 
+Server-rendered numbers use an explicit locale, matching the English operator stats'
+`en-US` formatting. A reader's browser locale must not change the initial text during
+hydration. Reader-local formatting needs a stable first render and an intentional
+client-side update; it must not depend on the server machine's default locale.
+
 ## Choose a content pattern
 
 | Reader's task | Pattern | Examples |
