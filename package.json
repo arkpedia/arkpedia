@@ -7,6 +7,7 @@
     "build": "next build --webpack",
     "postbuild": "npm run check:deployment-traces && npm run check:client-chunks",
     "deploy:vercel": "bash scripts/deploy/vercel-production.sh",
+    "release:status": "node scripts/deploy/release-status.mjs",
     "typecheck": "tsc --noEmit",
     "test:operators": "tsx --test scripts/tests/test-operator-details.ts",
     "test:skin-artwork": "tsx --test scripts/tests/test-skin-artwork.ts",
