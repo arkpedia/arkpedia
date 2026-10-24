@@ -202,6 +202,8 @@ staging decision, measured timings and remaining acceptance coverage.
   Annotated `migration-preserved/2026-10-24/dev` retains `994952e7`; companion main/
   Cloudflare tags and a verified complete-history bundle preserve the migration baseline.
   Preservation is complete; individual feature review and promotion are still pending.
+  The [net-difference inventory](deferred-feature-review.md) separates hosting,
+  route migration, optimizer, techniques, preferences, diagnostics, music and CI work.
 - [ ] Make main deploy to Vercel and the CF production-candidate hostname from the same
   reviewed code. Review parity and provider-specific behavior explicitly.
 - [ ] Switch feature PRs/previews to main. Stop Vercel dev deploys and obsolete dev
