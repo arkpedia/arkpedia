@@ -55,9 +55,15 @@ runs-on: ${{ vars.ARKPEDIA_RUNNER || 'ubuntu-latest' }}
 Three jobs take seconds and only call GitHub's API: Check's `seen` (does a pull request's
 green Check already vouch for this push?), Deploy's `targets`, and Prepare content release's
 `start-dev` (one `gh workflow run` that starts the dev channel's run after the scheduled one).
-They run on the label `ARKPEDIA_LIGHT_RUNNER` names (`arkpedia-vps`), falling back to
+They run on the label `ARKPEDIA_LIGHT_RUNNER` names (`arkpedia-self` since 2026-10-24), falling back to
 `ARKPEDIA_RUNNER` when it is unset. Otherwise a merge's push waited in line behind another
 pull request's whole Check on the NAS (15 minutes on 2026-10-02) before Deploy could start.
+
+The light pool includes the VPS and the NAS runner already carrying `arkpedia-self`.
+This avoids serializing every metadata lookup behind a busy VPS when the NAS is idle.
+It does not change `ARKPEDIA_RUNNER=arkpedia-nas` for heavy checks or the NAS-only
+`arkpedia-nas-build` deployment pool. To restore the former light-only placement:
+`gh variable set ARKPEDIA_LIGHT_RUNNER --repo arkpedia/arkpedia --body arkpedia-vps`.
 
 Switching Check/content runners is a settings change, not a commit (Deploy stays NAS-only): **Settings → Secrets and variables →
 Actions → Variables**, or `gh variable set ARKPEDIA_RUNNER --body <label>` /

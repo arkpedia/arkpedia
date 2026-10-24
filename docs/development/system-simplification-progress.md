@@ -9,6 +9,30 @@ is not reset, included or deployed here.
 - Full staging PR Check [40106791726](https://github.com/arkpedia/arkpedia/actions/runs/40106791726)
   passed at `326d1707`, including desktop/mobile browser regressions and content
   update/rollback checks. This supersedes the earlier hygiene/Knip failures.
+- After the verified accounts pilot, staging rebased onto `0f319194` and rebuilt
+  clean candidate `6026245a` in Linux run `40109963907`. Deployed staging Worker
+  version `2cebc414-6eb4-468e-a9d9-1d1c4d4616a2` from a fresh extraction of that
+  exact artifact (no old output mixed in). Four isolation tests pass. Provider API
+  confirms no staging D1, OAuth variables or secrets, and separate R2/queue/self
+  bindings. Pilot and edge deployment timestamps were unchanged by this deployment.
+- Fresh Chromium checks passed 20 route/theme/viewport combinations, now including
+  `/account`: browser-local import/export stays available, account-unavailable text
+  appears, and Google/Discord buttons are absent. The real account API and both
+  OAuth starts return private/no-store 503 without redirects or auth cookies.
+  Desktop/mobile schedule navigation and Back still restore scroll. Combined full
+  PR Check `40109967991` passed, and PR #739 merged as `11d175fb`. Its normal
+  Cloudflare pilot build also passed and now reports that exact clean commit.
+  Anonymous pilot account requests still return private/no-store 401; staging
+  returns private/no-store 503. Public www remains on `0a6da170`.
+- An old browser tab was held across the staging update. Account navigation and
+  Back recovered without an uncaught page error, but three old chunk/data URLs
+  returned 404 and Next reloaded from build `N79GscF-MSLAPapZ4Airx` to
+  `ScM_rTOpc3hcoqc7bKUCj`. This proves recovery, not seamless old-asset compatibility
+  or uninterrupted playback. Retain that distinction in the cutover gate. OpenNext's
+  current [experimental skew protection](https://opennext.js.org/cloudflare/howtos/skew)
+  relies on version preview URLs, conflicts with the current in-Worker Durable
+  Object, and adds billed Worker requests for assets; assess the tradeoff before
+  changing architecture or declaring the old-tab requirement complete.
 - Published annotated `migration-preserved/2026-10-24/{main,dev,cloudflare}` tags
   for `0a6da170`, `994952e7` and `8520b03a`. A separate 31,681,227-byte app bundle
   passed `git bundle verify` with complete history and 36 refs, including current
@@ -88,24 +112,49 @@ triage it while adapting its useful checklist/report to the new release targets.
   still needs maintainer interaction. PR #739 has now rebased onto this pilot code;
   root pilot D1/origin and additive hygiene/Knip entries are preserved. Staging keeps
   its separate cache/queue and no account bindings or OAuth settings; its build also
-  removes inherited account environment variables. Combined checks and the rebuilt
-  staging deployment still need validation before merging. CI gate activation is
-  deferred during pilot integration.
+  removes inherited account environment variables. Combined checks, deployment and
+  no-bindings validation passed; PR #739 is merged. The real user sign-in roundtrip
+  remains with the accounts owner, separate from staging's intentional unavailable state.
 - [Framework PR #742](https://github.com/arkpedia/arkpedia/pull/742), draft at
   `86873650`, starts from preserved main and isolates Next 16/React 19, ESLint 9,
   self-hosted fonts and the existing trace/resource corrections. It does not include
   route renames, base optimization, account UI or Cloudflare deployment configuration.
   Typecheck, capped application lint (nine warnings), pipeline lint and Knip passed
   locally. Focused framework/config tests passed; two Linux-specific CI-harness checks
-  fail on Windows and must pass in Linux. Full Check `40109416312` is running. The
-  candidate lockfile audit reports zero vulnerabilities. A Vercel preview and complete
-  UI/live-content proof remain required before releasing it.
-- A shadow browser planner in local branch `codex/ci-impact-plan` (`822a7284`)
-  passes ten tests and follows reverse references transitively. Real examples keep
+  fail on Windows but passed in full Linux Check `40109416312`. The candidate lockfile
+  audit reports zero vulnerabilities. A protected Vercel preview built and deployed;
+  its HTTP/browser verification passed in temporary helper branch
+  `codex/framework-vercel-preview` (run `40113997645`): 36 route/theme/viewport cases,
+  populated music/favourite controls, and four inspected screenshots. Verification uses
+  the pinned CLI's token environment; its argument parser otherwise forwards the token
+  option to native curl. The same preview was reused, with no rebuild or production alias
+  change. Framework #742 is now ready for review, held for dev reconciliation #743.
+- [Dev reconciliation PR #743](https://github.com/arkpedia/arkpedia/pull/743) is draft
+  at `d8a8d30e`, with full Check `40113183215` in progress. It preserves dev routes,
+  optimization work, adapter configuration and extra tests. Its net four-file change
+  updates the Node minimum and compatible brace-expansion pin, removes the unsupported
+  Next lint option and keeps the explicit lint gate. It depends on framework #742
+  landing with commit `86873650` retained in merge history; no shared dev branch moved.
+- A shadow browser planner in local branch `codex/ci-impact-plan` (`85546656`)
+  passes eleven tests and follows reverse references transitively. Real examples keep
   full coverage for story progress consumed by account backups, YouTube utilities
   consumed by community cards, and scheduling consumed by homepage banners. The
-  StoryMapView-only simulation selects seven of 93 spec files. These are plans,
-  not browser results, timing estimates or reusable Check proof. No CI lane changed.
+  StoryMapView-only simulation selects seven of the current 94 spec files. From the
+  older successful full run, those files contain 28 passed cases and 33 seconds of
+  summed case work, against 2,975 seconds across the whole parallel suite. This is not
+  wall time, a fresh execution or reusable Check proof. Storage/events, computed imports,
+  filesystem reads and unknown formats retain broad coverage. No CI lane changed.
+- Read-only runner inspection found metadata jobs pinned to a busy VPS while the
+  three NAS runners were idle. `ARKPEDIA_LIGHT_RUNNER` now uses the existing
+  `arkpedia-self` VPS/NAS label pool. Heavy Check and deployment labels, tests and
+  release gates are unchanged. This improves scheduling capacity; measured feedback
+  percentiles still need collection. [Runner details and rollback](ci-runner.md).
+
+Targeted browser activation must retain the existing layout census for affected
+routes and driven states, using supported Playwright test selection rather than
+duplicating its bounds/card/row checks. A seven-file feature-only plan does not by
+itself cover that UI contract. Record partial census coverage explicitly in reusable
+evidence and keep the full census for shared changes.
 - Local branch `codex/r2-content-pilot` (`38cc26ab`) prototypes immutable generated
   data objects, verified snapshot indexes and conditional staging-pointer promotion.
   Five Node cases pass. Local Miniflare/workerd R2 also passed publication races,

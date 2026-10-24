@@ -19,14 +19,27 @@ flowchart TB
     site["arkpedia · site Worker<br/>Next.js through OpenNext"]
     cache[(Regional page cache + R2)]
     queue[Durable Object revalidation queue]
+    stage["arkpedia-staging<br/>Explicit feature candidate"]
+    stageCache[(Separate staging R2 cache)]
+    stageQueue[Separate staging revalidation queue]
     edge -->|SITE binding: miss, refresh or bypass| site
     site <--> cache
     site --> queue
     queue -->|background regeneration| site
+    stage <--> stageCache
+    stage --> stageQueue
+    stageQueue --> stage
   end
   reader --> prod
   reader --> dev
   reader --> edge
+  reader --> stage
+
+  pilotDb[("D1: arkpedia-accounts-dev<br/>Identity, sessions and validated cloud saves")]
+  providers[Google / Discord]
+  site <--> pilotDb
+  reader <-->|Arkpedia sign-in redirect| providers
+  site <-->|OAuth identity exchange| providers
 
   subgraph content[Public content and media]
     data["arkpedia-data<br/>source records + generated releases"]
@@ -35,6 +48,7 @@ flowchart TB
   prod -->|live pointer and verified release| data
   dev -->|dev-live pointer and verified release| data
   site -->|dev-live pointer and verified release| data
+  stage -->|dev-live pointer and verified release| data
   reader -->|commit-pinned media URLs| assets
 
   subgraph imports[Account import: encrypted tunnel]
@@ -205,9 +219,32 @@ plain Worker's TCP API cannot reach. On the CF site, `?relay=vps` selects the VP
 and `?relay=cloudflare` selects the CF relay. The Vercel sites keep the VPS path.
 
 Storage belongs to the browser origin: www, dev and Cloudflare do not automatically
-share imported accounts or plans. The inspected deployment has no user-account
-database binding. Public network metadata caching is separate from authenticated
-account traffic.
+share imported accounts or plans. Public network metadata caching is separate from
+authenticated account traffic. The game-import tunnel and Arkpedia sign-in are
+different systems: Google/Discord sign-in does not pass through the game relay.
+
+### Arkpedia account pilot and staging
+
+The Cloudflare pilot now binds the EU D1 database `arkpedia-accounts-dev` to the
+`arkpedia` Worker. Better Auth handles Google/Discord identity and sessions under
+`/api/auth/*`; `/api/cloud-account` validates and stores supported personal data.
+These endpoints return private/no-store responses and bypass the front page cache.
+R2 remains a rendered-page/audio cache; it is not the account database.
+
+Cloud saves use a closed list of supported stores and preferences. Imported game
+records require explicit permission, and saved Yostar sign-in credentials are
+excluded. Owner checks and revision comparisons prevent one user's writes from
+replacing another user's save or silently overwriting a newer revision. Restoring
+data updates the current document while retaining its music engine. See
+[account implementation and acceptance](development/cloud-accounts.md).
+
+The www/dev deployments remain browser-only. The separate staging Worker includes
+the account code but has no D1 or OAuth bindings: its account APIs return 503,
+sign-in controls are unavailable, and browser-local import/export continues to work.
+The deployed pilot's anonymous API privacy and OAuth starts have been verified;
+the maintainer's complete provider login, explicit provider linking and save roundtrip
+remain acceptance work. A production account database and public-origin settings
+must be chosen before promoting that feature or moving the public domain.
 
 ## 5. Code release and branch synchronization
 
@@ -262,10 +299,11 @@ hosting endpoint. The organization `.github` repository owns profile/community f
 ## Source map and verification limits
 
 This is a source/configuration map, not a fresh audit of private provider dashboard
-settings or VPS installation state. Cloudflare edge routes and bindings below were
-read from branch `cloudflare` at `8520b03abe6175e7069c7c06b881faa492cc22b2`;
-relay source/config was read at `9e33bade7e945b76552df0748c040a7498baa410`.
-No dashboard-only database, analytics, DNS or secret configuration is inferred.
+settings or VPS installation state. Base edge routing came from `8520b03a`; the
+pilot source/bindings now match cloudflare `11d175fb`, and the isolated staging
+artifact is `6026245a`. Provider API reads confirmed their separate writable
+resources and the absence of account bindings/secrets in staging. Relay source/config
+matches `f2e2c3fb`. No billing, DNS cutover or unobserved dashboard integration is inferred.
 
 | Area | Authoritative references |
 | --- | --- |
@@ -274,7 +312,9 @@ No dashboard-only database, analytics, DNS or secret configuration is inferred.
 | Site Worker, R2 and queue | [Cloudflare guide](development/cloudflare-workers.md), `cloudflare` branch root `wrangler.jsonc`, `open-next.config.ts`, `lib/cloudflare/regionalPageCache.ts` |
 | Data release and recovery | [Runtime content](development/runtime-content.md), [pipelines](development/data-pipelines.md), `lib/content/server.ts`, `config/content-channels.json` |
 | Asset URLs and pins | `config/asset-delivery.json`, `data/assets/revisions.json`, [data sources](development/data-sources.md), asset repository manifests |
-| Account transport | `lib/account-import/relay.ts`, branch-specific `config/relay.json`, [relay repository](https://github.com/arkpedia/arkpedia-relay/tree/9e33bade7e945b76552df0748c040a7498baa410) |
+| Account transport | `lib/account-import/relay.ts`, branch-specific `config/relay.json`, [relay repository](https://github.com/arkpedia/arkpedia-relay/tree/f2e2c3fb2228e93af469011a2e790b5b6070099f) |
+| Arkpedia account pilot | `lib/cloud-account/`, `pages/api/auth/`, `pages/api/cloud-account.ts`, `migrations/accounts/`, [setup and acceptance](development/cloud-accounts.md) |
+| Isolated feature staging | `wrangler.staging.jsonc`, `open-next.staging.config.ts`, [verified staging guide](development/cloudflare-staging.md) |
 | Release orchestration | [Branch sync](development/branch-sync.md), [automation](development/automation.md), `.github/workflows/` |
 | Separate applications | Organization simulator, simulator-data, desktop-chibis and SD asset repository READMEs |
 
