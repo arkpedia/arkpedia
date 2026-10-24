@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { policyVouching, policyProofStillValid } from '../ci/already-checked.mjs';
+import { policyVouching, policyProofStillValid, legacyProof } from '../ci/already-checked.mjs';
 import { BROWSER_POLICY, POLICY_ARTIFACT_PREFIX } from '../ci/browser-evidence.mjs';
 
 function fixture(lane = 'targeted') {
@@ -76,4 +76,19 @@ test('reuse revalidates the exact full source and requires that ancestor on the 
     ? { status: 'ahead', merge_base_commit: { sha: '0'.repeat(40) } } : query(path) }), false);
   job.steps[0].name = 'Selected browser regressions';
   assert.equal(policyProofStillValid(record, 'f'.repeat(40), { query }), false);
+});
+
+test('legacy full-tree PR reuse recovers deleted-head metadata without dropping target provenance', () => {
+  const input = fixture(), head = 'f'.repeat(40), merged = 'e'.repeat(40);
+  const run = { ...input.run, head_sha: head, pull_requests: [] };
+  const artifact = { ...input.artifact, name: `checked-tree-${input.tree}` };
+  const query = path => {
+    if (path.includes('/pulls?')) return [{ head: { sha: head, repo: { full_name: input.repository } },
+      base: { ref: 'main', repo: { full_name: input.repository } }, merged_at: '2026-10-24', merge_commit_sha: merged }];
+    if (path.includes('/git/commits/')) return { tree: { sha: input.tree } };
+    assert.fail(path);
+  };
+  const recovered = legacyProof(input.tree, [artifact], { [run.id]: run }, input.repository, 'main', { query });
+  assert.equal(recovered.id, run.id);
+  assert.equal(legacyProof(input.tree, [artifact], { [run.id]: run }, input.repository, 'dev', { query }), null);
 });

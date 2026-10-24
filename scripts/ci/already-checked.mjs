@@ -44,6 +44,18 @@ export function vouching(tree, artifacts, runs, repository, baseRef) {
   return null;
 }
 
+export function legacyProof(tree, artifacts, runs, repository, baseRef, { query = api } = {}) {
+  const recovered = { ...runs };
+  if (baseRef) for (const artifact of artifacts) {
+    const run = runs[artifact.workflow_run?.id];
+    if (artifact.name !== `${ARTIFACT_PREFIX}${tree}` || artifact.expired !== false || !run
+      || run.status !== 'completed' || run.conclusion !== 'success' || run.event !== 'pull_request'
+      || run.path !== '.github/workflows/check.yml' || run.repository?.full_name !== repository || run.head_repository?.full_name !== repository) continue;
+    recovered[run.id] = hydrateProofPullRequest(run, { repository, baseRef, tree, query });
+  }
+  return vouching(tree, artifacts, recovered, repository, baseRef);
+}
+
 function api(path) {
   return JSON.parse(execFileSync('gh', ['api', path], { encoding: 'utf8', maxBuffer: 16_000_000 }));
 }
@@ -54,7 +66,7 @@ export function policyVouching({ tree, policySha256, artifact, run, jobs, record
     || !Number.isSafeInteger(artifact.id) || artifact.id < 1 || artifact.workflow_run?.id !== run?.id) return null;
   if (!run || run.status !== 'completed' || run.conclusion !== 'success' || run.event !== 'pull_request'
     || run.path !== '.github/workflows/check.yml' || run.repository?.full_name !== repository || run.head_repository?.full_name !== repository
-    || !Array.isArray(run.pull_requests) || run.pull_requests.length !== 1 || run.pull_requests[0].base?.ref !== baseRef) return null;
+    || !Array.isArray(run.pull_requests) || run.pull_requests.length !== 1 || run.pull_requests[0]?.base?.ref !== baseRef) return null;
   try { validateBrowserEvidence(record, { tree, policySha256, repository, baseRef, runId: run.id }); }
   catch { return null; }
   if (!['targeted', 'none'].includes(record.coverage.lane) || !Array.isArray(jobs)) return null;
@@ -112,7 +124,7 @@ async function main() {
     // A PR proof belongs to its target branch as well as its exact merge tree.
     // Unknown PR metadata fails closed; push reuse keeps its established policy.
     const baseRef = process.env.GITHUB_EVENT_NAME === 'pull_request' ? process.env.GITHUB_BASE_REF ?? '' : undefined;
-    const run = vouching(tree, artifacts, runs, repository, baseRef);
+    const run = legacyProof(tree, artifacts, runs, repository, baseRef);
     if (run) {
       console.error(`Tree ${tree.slice(0, 12)} passed Check in pull request run ${run.html_url}; not checking it again.`);
       console.log('checked=true');

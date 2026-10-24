@@ -11,11 +11,20 @@ export function hydrateProofPullRequest(run, { repository, baseRef, tree, query 
     if (!/^[a-f0-9]{40}$/.test(run.head_sha ?? '')) return null;
     const associated = query(`repos/${repository}/commits/${run.head_sha}/pulls?per_page=100`);
     if (!Array.isArray(associated) || associated.length >= 100) return null;
-    const matches = associated.filter(pr => pr.head?.repo?.full_name === repository && pr.head.sha === run.head_sha
-      && pr.base?.repo?.full_name === repository && pr.base.ref === baseRef && pr.merged_at
-      && /^[a-f0-9]{40}$/.test(pr.merge_commit_sha ?? ''));
+    const matches = [];
+    for (const pr of associated) {
+      if (pr.head?.repo?.full_name !== repository || !/^[a-f0-9]{40}$/.test(pr.head.sha ?? '')
+        || pr.base?.repo?.full_name !== repository || pr.base.ref !== baseRef || !pr.merged_at
+        || !/^[a-f0-9]{40}$/.test(pr.merge_commit_sha ?? '')) continue;
+      if (pr.head.sha !== run.head_sha) {
+        // A history-only update can change the head SHA while preserving the tested
+        // tree. Require the old head in that history, plus the actual merged tree.
+        const comparison = query(`repos/${repository}/compare/${run.head_sha}...${pr.head.sha}`);
+        if (!['ahead', 'identical'].includes(comparison.status) || comparison.merge_base_commit?.sha !== run.head_sha) continue;
+      }
+      if (query(`repos/${repository}/git/commits/${pr.merge_commit_sha}`).tree?.sha === tree) matches.push(pr);
+    }
     if (matches.length !== 1) return null;
-    if (query(`repos/${repository}/git/commits/${matches[0].merge_commit_sha}`).tree?.sha !== tree) return null;
     return { ...run, pull_requests: matches };
   }
   return run;

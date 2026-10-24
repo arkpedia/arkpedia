@@ -167,14 +167,18 @@ test('publication checks fail before browser regressions and use their separate 
   assert.equal(steps[runtime].if, undefined, 'publication must pass even when browser coverage is not needed');
 });
 
-test('only fresh hosted runners restore npm archives; all three workflows retain clean installs', () => {
+test('only fresh hosted runners restore npm archives; every profile has one locked install owner', () => {
+  assert.equal(JSON.parse(fs.readFileSync('vercel.json', 'utf8')).installCommand, 'npm ci --include=dev');
   for (const name of ['check', 'deploy', 'prepare-content']) {
     const jobs = Object.values(workflow(name).jobs);
-    const installers = jobs.filter(job => job.steps?.some(step => step.run === 'npm ci'));
+    const ownsInstall = step => name === 'deploy' ? step.name === 'Build' && step.run?.includes('vercel@') && step.run.includes(' build ') : step.run === 'npm ci';
+    const installers = jobs.filter(job => job.steps?.some(ownsInstall));
     const cached = jobs.flatMap(job => job.steps ?? []).filter(step => step.uses === 'actions/setup-node@v7' && step.with?.cache);
     assert.equal(installers.length, name === 'check' ? 2 : 1, name);
     assert.equal(cached.length, installers.length, 'only clean-install jobs configure the npm cache');
     for (const job of installers) {
+      assert.equal(job.steps.filter(ownsInstall).length, 1, 'one dependency install owner per selected job');
+      if (name === 'deploy') assert.equal(job.steps.filter(step => step.run === 'npm ci').length, 0, 'Vercel must not repeat an outer install');
       const setups = job.steps.filter(step => step.uses === 'actions/setup-node@v7' && step.with?.cache);
       assert.equal(setups.length, 1, 'each selected profile installs once with its own cache policy');
       assert.equal(setups[0].with.cache, "${{ runner.environment == 'github-hosted' && 'npm' || '' }}");

@@ -47,8 +47,12 @@ export function validateBuild(build, channel) {
 export async function inspectTarget(target, { read = httpRead, github = githubRead } = {}) {
   const result = { ...target, status: 'healthy', issues: [], smoke: [], ci: [] };
   const fail = error => { result.status = 'needs attention'; result.issues.push(message(error)); };
+  let observedSchema;
   try {
     const build = JSON.parse(await read(`${target.url}/build-info.json`));
+    // Dirty/untrusted identity must fail, but its independently readable schema
+    // should not turn that one issue into a fabricated schema mismatch too.
+    if (Number.isInteger(build?.contentSchema) && build.contentSchema > 0) observedSchema = build.contentSchema;
     validateBuild(build, target.contentChannel);
     result.build = build;
   } catch (error) { fail(error); }
@@ -61,7 +65,7 @@ export async function inspectTarget(target, { read = httpRead, github = githubRe
     if (hash(bytes) !== pointer.manifestSha256) throw new Error('Content manifest checksum mismatch');
     const manifest = JSON.parse(bytes);
     if (manifest.release !== pointer.release || manifest.schema !== pointer.schema) throw new Error('Content pointer and manifest disagree');
-    if (!result.build || manifest.schema !== result.build.contentSchema) throw new Error('Content schema does not match deployment');
+    if (manifest.schema !== observedSchema) throw new Error('Content schema does not match deployment');
     result.content = { revision: pointer.revision, release: pointer.release, schema: manifest.schema };
   } catch (error) { fail(error); }
 
