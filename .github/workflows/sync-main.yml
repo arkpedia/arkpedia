@@ -4,10 +4,11 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
-  workflow_run:
-    workflows: [Check]
-    types: [completed]
-    branches: ['sync/main-to-dev-*']
+    inputs:
+      checked_run:
+        description: Completed integration Check run to resume (empty prepares a new sync)
+        type: string
+        required: false
 
 # Serialize candidate creation and completion. A newer release is reconciled against
 # the current branch tips, including when it arrives while an integration Check runs.
@@ -22,11 +23,10 @@ permissions:
 
 jobs:
   sync:
-    if: github.event_name != 'workflow_run' || (github.event.workflow_run.event == 'workflow_dispatch' && github.event.workflow_run.head_repository.full_name == github.repository)
     runs-on: ${{ vars.ARKPEDIA_LIGHT_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 5
     steps:
-      # Privileged workflow_run always executes trusted main's orchestration code,
+      # Completion dispatch always executes trusted main's orchestration code,
       # never scripts from the integration branch which completed Check.
       - uses: actions/checkout@v7
         with:
