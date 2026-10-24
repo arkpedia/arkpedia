@@ -144,6 +144,14 @@ packages and verifies lockfile integrity. No node_modules directory is reused.
 The observed remote archive was 484 MB and cost 44 seconds in Check and 84 seconds
 in Deploy (2026-10-16). See [setup-node's cache inputs](https://github.com/actions/setup-node/blob/v7/action.yml).
 
+Deploy has one install owner: Vercel runs `npm ci --include=dev` from `vercel.json`,
+without a redundant outer install. Its former automatic `npm install` changed the
+lockfile after checkout and produced dirty public build metadata despite a green
+upload. The built output must now match the clean checked commit/fingerprint,
+schema, channel and production role before upload. The public alias must verify
+that same identity before the deploy report closes or held content resumes.
+This uses Vercel's [per-deployment install command](https://vercel.com/docs/project-configuration).
+
 ## Keep the code graph clean
 
 Check runs `audit:unused` once, alongside the existing style and type gates. Knip's

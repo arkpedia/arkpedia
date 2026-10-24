@@ -115,7 +115,21 @@ test("Deploy checks that production's asset links reach the live release's art, 
   // A failed asset check leaves production on the new build, so a held release still goes out:
   // after the last of main's deployments (the ones the gate asks), once every earlier one has
   // had its turn.
-  assert.equal(String(steps[index('Release again if one was held for this deploy')].if).replace(/\s+/g, ' '), "${{ !cancelled() && steps.deploy.outcome == 'success' && matrix.target.releaseGate && matrix.target.last }}");
+  const releaseCondition = String(steps[index('Release again if one was held for this deploy')].if).replace(/^\$\{\{\s*|\s*\}\}$/g, '');
+  const mayResume = (identity: string | undefined, deploy = 'success', gate = true, last = true, cancelled = false) => {
+    const values: Record<string, string> = { 'cancelled()': String(cancelled), 'success()': 'false',
+      'steps.deploy.outcome': JSON.stringify(deploy), 'steps.build-identity.outcome': JSON.stringify(identity) ?? 'undefined',
+      'matrix.target.releaseGate': String(gate), 'matrix.target.last': String(last) };
+    let expression = releaseCondition;
+    for (const [name, value] of Object.entries(values)) expression = expression.replaceAll(name, value);
+    return Function(`"use strict"; return (${expression});`)() as boolean;
+  };
+  assert.equal(mayResume('success'), true, 'verified public identity may resume content despite an independent asset-check failure');
+  for (const identity of ['failure', 'skipped', undefined]) assert.equal(mayResume(identity), false, 'upload alone must never resume content');
+  assert.equal(mayResume('success', 'failure'), false);
+  assert.equal(mayResume('success', 'success', false), false);
+  assert.equal(mayResume('success', 'success', true, false), false);
+  assert.equal(mayResume('success', 'success', true, true, true), false);
   // Each deployment's own site, not every one config/production.json lists.
   assert.equal(check.env?.ARKPEDIA_DEPLOYMENTS, '${{ matrix.target.url }}');
   // prebuild adopts the release's pins through one GitHub compare per differing repository.
