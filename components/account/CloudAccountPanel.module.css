@@ -22,7 +22,9 @@
 .archiveSummary { margin-bottom: var(--heading-gap); }
 .copies { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
 .copies > div { display: grid; align-content: start; gap: 12px; }
-.provider > span { display: grid; gap: 4px; }
+.providerIdentity { display: flex; align-items: center; gap: 10px; }
+.providerIdentity > span { display: grid; gap: 4px; }
+.providerIdentity img, .actions button img { flex-shrink: 0; object-fit: contain; }
 @media (max-width: 600px) {
   .copies { grid-template-columns: minmax(0, 1fr); }
 }

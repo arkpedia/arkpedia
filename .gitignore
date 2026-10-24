@@ -76,6 +76,10 @@ public/**/*.svg
 public/**/*.avif
 public/**/*.ico
 
+# Small app-owned login UI marks; game/media assets stay externalized above.
+!public/icons/auth/google.png
+!public/icons/auth/discord.svg
+
 # Python importer caches
 __pycache__/
 *.py[cod]
