@@ -68,7 +68,10 @@
     "lint:scripts": "eslint scripts",
     "cf:build": "opennextjs-cloudflare build",
     "cf:preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
-    "cf:deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy"
+    "cf:deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
+    "cf:staging:check": "node scripts/deploy/cloudflare-staging.mjs check",
+    "cf:staging:build": "node scripts/deploy/cloudflare-staging.mjs build",
+    "cf:staging:deploy": "node scripts/deploy/cloudflare-staging.mjs deploy"
   },
   "dependencies": {
     "@fontsource/inter": "5.3.0",
@@ -84,8 +87,9 @@
     "world-atlas": "^2.0.2"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "5.20261024.1",
     "@eslint/js": "9.39.5",
-    "@opennextjs/cloudflare": "^1.20.12",
+    "@opennextjs/cloudflare": "1.20.12",
     "@playwright/test": "^1.63.0",
     "@tesseract.js-data/eng": "1.0.0",
     "@types/geojson": "^7946.0.14",
@@ -108,9 +112,17 @@
     "typescript": "^5.4.0",
     "typescript-eslint": "8.72.0",
     "wanakana": "5.3.1",
-    "wrangler": "^4.151.3"
+    "wrangler": "4.151.3"
   },
   "engines": {
     "node": ">=20.9.0"
+  },
+  "overrides": {
+    "@node-minify/core": {
+      "glob": "10.5.0"
+    },
+    "miniflare@5.20261019.1-beta": {
+      "undici": "7.30.1"
+    }
   }
 }

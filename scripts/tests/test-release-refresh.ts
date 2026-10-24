@@ -135,7 +135,7 @@ function pointerHost(answers: (string | number)[]) {
 
 test('the refresh waits until a server reading the pointer gets the pushed release', async () => {
   // The server's own refresh interval is the one this waits out.
-  assert.match(fs.readFileSync('lib/content/server.ts', 'utf8'), new RegExp(`const REFRESH_MS = ${SERVER_REFRESH_MS.toLocaleString('en').replace(/,/g, '_')};`));
+  assert.match(fs.readFileSync('lib/content/release.ts', 'utf8'), new RegExp(`const REFRESH_MS = ${SERVER_REFRESH_MS.toLocaleString('en').replace(/,/g, '_')};`));
   const url = 'https://raw.githubusercontent.com/arkpedia/arkpedia-data/dev-live/current.json';
   // The CDN still serves the old pointer twice (and fails once), then the new one.
   const time = clock();
