@@ -1,5 +1,8 @@
 # Documentation
 
+- [System architecture](architecture.md): current delivery, relay, data and asset diagrams.
+- [System simplification plan](development/system-simplification-plan.md) and [progress](development/system-simplification-progress.md): migration milestones and verified evidence.
+- [Cloudflare staging](development/cloudflare-staging.md): isolated feature-preview proof and commands.
 - [Repository map](repository-map.md): ownership, feature locations, and placement rules.
 - [Development setup](development/setup.md): local development, checks, and deployment.
 - [Design system](development/design-system.md): page patterns, cards versus lists, responsive behavior, and the site-wide route inventory. Start here for UI work.

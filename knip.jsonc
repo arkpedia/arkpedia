@@ -10,7 +10,9 @@
     "scripts/palettes/palette-review/review.js",
     "scripts/stage-pipeline/{build,verify,settle-float-churn}.mjs",
     "scripts/tests/fixtures/previous-release/refresh.mjs",
-    "open-next.config.ts"
+    "open-next.config.ts",
+    // Passed explicitly to OpenNext by scripts/deploy/cloudflare-staging.mjs.
+    "open-next.staging.config.ts"
   ],
   "project": [
     "{components,lib,pages,scripts,tests}/**/*.{js,jsx,ts,tsx,mts,mjs,cjs}",

@@ -8,7 +8,7 @@ test('root configuration is explicit and temporary artifacts stay out of Git', (
     '.env.example', '.dev.vars.example', '.gitignore', '.vercelignore', '.nvmrc',
     'README.md', 'AGENTS.md', 'eslint.config.mjs', 'next-env.d.ts', 'next.config.js', 'open-next.config.ts',
     'package-lock.json', 'package.json', 'playwright.config.ts', 'tsconfig.json', 'vercel.json',
-    'wrangler.jsonc', 'knip.jsonc',
+    'wrangler.jsonc', 'wrangler.staging.jsonc', 'open-next.staging.config.ts', 'knip.jsonc',
   ]);
   const tracked = execFileSync('git', ['ls-files', '-z'], { encoding: 'utf8' }).split('\0').filter(Boolean);
   assert.deepEqual(tracked.filter(file => !file.includes('/') && !allowed.has(file)), []);
