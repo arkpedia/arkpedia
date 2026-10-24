@@ -16,8 +16,9 @@ The shadow planner now follows reverse references transitively across runtime
 pages, components and libraries. A consumer outside the changed family, missing
 dependency evidence or an unreadable runtime source keeps full coverage. It reuses
 the existing conservative reference scanner; comments can add edges and widen a
-plan. This is an additional blocker, not a complete proof of effects through storage,
-events, filesystem reads or generated data.
+plan. Storage, emitted events, filesystem reads, computed imports and unknown
+feature input formats now also force broad coverage. This is a conservative blocker,
+not a complete proof of every possible runtime side effect.
 
 Observed against the 93-spec Cloudflare checkout on 2026-10-24:
 
@@ -28,9 +29,23 @@ Observed against the 93-spec Cloudflare checkout on 2026-10-24:
 | `lib/music/youtube.ts` | Full | Community stream cards consume music utilities |
 | `lib/schedule/gameWindow.ts` | Full | Homepage banners consume scheduling utilities |
 
-These are simulations, not executed browser results or runtime estimates. Ten
+These are simulations, not executed browser results or runtime estimates. Eleven
 planner unit tests pass, including a transitive story-to-account consumer and
-missing/unreadable dependency evidence.
+missing/unreadable dependency evidence, global effects and computed imports.
+
+An observation pass parsed the successful [full Check 40106791726](https://github.com/arkpedia/arkpedia/actions/runs/40106791726):
+93 specs, 1,454 passing cases and 217 intentional skips. Summed case execution was
+2,975 seconds across parallel workers; this is **not wall time**. The largest sums
+were layout census (634 seconds), chibis (405) and motion (244). Do not remove these
+checks from shared UI, asset or framework changes.
+
+On the rebased 94-spec accounts tree, a StoryMapView-only simulation still selects
+seven existing specs: 28 previously measured passing cases, with 33 seconds summed
+case execution in that recorded run. That suggests useful scope reduction, but it is
+neither a new execution nor a promised feedback time. The new cloud-account spec
+has no timing in that older run; plans containing it report missing timing rather
+than treating its cost as zero. CI behavior remains unchanged pending coverage-proof
+integration and real candidate runs.
 
 The existing build/browser dependency closure can identify tooling changes that
 browsers do not read. A caller without that proof falls back to full work. Changed

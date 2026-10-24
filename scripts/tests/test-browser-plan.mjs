@@ -4,7 +4,7 @@ import { browserPlan, dependencyIndex } from '../ci/browser-plan.mjs';
 
 const names = ['nav-bar', 'mobile-touch-nav', 'navigation-continuity', 'story-library', 'story-progress', 'music-data-saver', 'music-resume', 'cloud-accounts', 'account-import', 'schedule-archive', 'page-bounds', 'layout-census'];
 const specs = names.map(name => `tests/browser/${name}.spec.ts`);
-const plan = (paths, extra = {}) => browserPlan({ specs, changes: paths.map(path => ({ path, status: 'M' })), relevant: new Set(['scripts/build/site.mjs']), dependencies: { consumers: new Map(), unreadable: [] }, baselineVerified: true, ...extra });
+const plan = (paths, extra = {}) => browserPlan({ specs, changes: paths.map(path => ({ path, status: 'M' })), relevant: new Set(['scripts/build/site.mjs']), dependencies: { consumers: new Map(), unreadable: [], effects: new Set() }, baselineVerified: true, ...extra });
 
 test('unknown, missing-baseline and explicit-regression requests keep full coverage', () => {
   for (const result of [plan(['lib/unclassified.ts']), plan(['lib/story/progress.ts'], { baselineVerified: false }), plan(['lib/story/progress.ts'], { forceFull: true }), plan([])]) {
@@ -63,4 +63,13 @@ test('missing or unreadable runtime dependency evidence fails closed', () => {
   assert.equal(plan(['lib/story/progress.ts'], { dependencies: undefined }).lane, 'full');
   const dependencies = dependencyIndex(new Set(['pages/_app.tsx']), () => null);
   assert.equal(plan(['lib/story/progress.ts'], { dependencies }).lane, 'full');
+});
+
+test('storage, emitted events, filesystem reads and computed imports keep broad coverage', () => {
+  for (const source of ['localStorage.setItem(key, value)', 'window.dispatchEvent(event)', 'readFile(file)', 'import(moduleName)']) {
+    const file = 'lib/story/progress.ts';
+    const dependencies = dependencyIndex(new Set([file]), () => source);
+    assert.equal(plan([file], { dependencies }).lane, 'full', source);
+  }
+  assert.equal(plan(['lib/story/records.md']).lane, 'full', 'runtime-folder markdown is not documentation proof');
 });

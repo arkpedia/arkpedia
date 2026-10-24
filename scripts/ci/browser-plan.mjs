@@ -20,16 +20,20 @@ const basename = value => normalize(value).split('/').at(-1);
 export function dependencyIndex(files, read) {
   const consumers = new Map();
   const unreadable = [];
+  const effects = new Set();
   for (const file of files) {
     if (!/^(?:pages|components|lib|styles)\//.test(file) || !/\.[cm]?[jt]sx?$/.test(file)) continue;
     const source = read(file);
     if (source == null) { unreadable.push(file); continue; }
+    // Import edges do not describe global storage/events, filesystem reads or
+    // computed module names. These need broad coverage even inside a feature.
+    if (/\b(?:localStorage|sessionStorage|BroadcastChannel)\b|\bdispatchEvent\s*\(|\b(?:readFileSync|readFile|readdirSync|readdir)\s*\(|\b(?:import|require)\s*\(\s*[^\s'"`]/.test(source)) effects.add(file);
     for (const reference of references(source)) for (const target of resolve(reference, file, files)) {
       if (!consumers.has(target)) consumers.set(target, new Set());
       consumers.get(target).add(file);
     }
   }
-  return { consumers, unreadable };
+  return { consumers, unreadable, effects };
 }
 
 export function browserPlan({ changes, specs, relevant, dependencies, baselineVerified = false, forceFull = false }) {
@@ -44,7 +48,7 @@ export function browserPlan({ changes, specs, relevant, dependencies, baselineVe
   let relevantChanges = 0;
   for (const change of changes) {
     const file = normalize(change.path);
-    if (file.startsWith('docs/') || file.endsWith('.md')) continue;
+    if (file.startsWith('docs/') || (!file.includes('/') && file.endsWith('.md'))) continue;
     if (file.startsWith('tests/browser/')) {
       // Shared fixtures can affect every browser scenario. Deleted/unknown specs fail closed.
       if (!file.endsWith('.spec.ts') || !inventory.includes(file) || change.status?.startsWith('D')) return full(`Shared or removed browser input: ${file}`);
@@ -55,11 +59,13 @@ export function browserPlan({ changes, specs, relevant, dependencies, baselineVe
     }
     const family = FAMILIES.find(item => item.code.test(file));
     if (family) {
-      if (!(dependencies?.consumers instanceof Map) || dependencies.unreadable?.length) return full('Runtime dependency inventory is unavailable or incomplete');
+      if (!/\.(?:[cm]?[jt]sx?|css)$/.test(file)) return full(`Unclassified feature input format: ${file}`);
+      if (!(dependencies?.consumers instanceof Map) || !(dependencies.effects instanceof Set) || dependencies.unreadable?.length) return full('Runtime dependency inventory is unavailable or incomplete');
       const visited = new Set([file]);
       const queue = [file];
       while (queue.length) {
         const target = queue.shift();
+        if (dependencies.effects.has(target)) return full(`Global or dynamically read input: ${target}`);
         for (const consumer of dependencies.consumers.get(target) ?? []) {
           if (visited.has(consumer)) continue;
           if (!family.code.test(consumer)) return full(`Cross-feature consumer of ${file}: ${consumer}`);
