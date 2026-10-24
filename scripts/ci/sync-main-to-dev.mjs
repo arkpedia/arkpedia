@@ -53,7 +53,7 @@ export async function finish(d, run) {
   if (!eligible(run, d.repo, await d.checkWorkflowId())) return { status: 'ignored' };
   const { head_branch: branch, head_sha: head } = run;
   if (await d.ref(branch) !== head) return { status: 'obsolete' };
-  if (run.conclusion !== 'success') throw new Error(`Integration Check ${run.html_url} ended with ${run.conclusion}. Dev was not updated. Fix the integration branch and rerun Check, or dispatch the sync again after resolving the conflict.`);
+  if (run.conclusion !== 'success') throw new Error(`Integration Check ${run.html_url} ended with ${run.conclusion}. Dev was not updated. Retry this Check for a transient failure; resolve a regression through a reviewed branch, then dispatch the sync again to check a fresh merge.`);
   d.fetch();
   d.fetchBranch(branch);
   const [, mainPrefix, devPrefix] = BRANCH.exec(branch);
@@ -79,6 +79,18 @@ export async function finish(d, run) {
   await d.remove(branch);
   await d.clear();
   return { status: 'synced', main, dev: head };
+}
+
+/** Check's notifier explicitly dispatches this workflow before its own job finalizes.
+ * Read the authoritative run record, allowing only that short finalization delay. */
+export async function resume(d, id, { pause = () => new Promise(resolve => setTimeout(resolve, 5000)), attempts = 24 } = {}) {
+  if (!/^[1-9][0-9]{0,15}$/.test(String(id))) throw new Error('Expected a numeric Check run ID.');
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    const run = await d.run(id);
+    if (run.status === 'completed') return finish(d, run);
+    if (attempt < attempts - 1) await pause();
+  }
+  throw new Error(`Check run ${id} has not finalized; dev was not updated. Rerun the sync with checked_run=${id} once it finishes.`);
 }
 
 export function runtime(repo, { cwd = process.cwd(), request } = {}) {
@@ -125,6 +137,7 @@ export function runtime(repo, { cwd = process.cwd(), request } = {}) {
     publish: (branch, head) => git('push', 'origin', `${head}:refs/heads/${branch}`),
     check: branch => dispatch('check.yml', branch),
     checkWorkflowId: () => api('actions/workflows/check.yml').id,
+    run: id => api(`actions/runs/${id}`),
     advanceDev: head => api('git/refs/heads/dev', 'PATCH', { sha: head, force: false }),
     deploy: head => dispatch('deploy.yml', 'dev', { preview: 'false', commit: head }),
     syncCloudflare: () => dispatch('sync-cloudflare.yml', 'dev'),
@@ -139,7 +152,7 @@ async function main() {
   const event = JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'));
   const d = runtime(repo);
   try {
-    const result = process.env.GITHUB_EVENT_NAME === 'workflow_run' ? await finish(d, event.workflow_run) : await prepare(d);
+    const result = event.inputs?.checked_run ? await resume(d, event.inputs.checked_run) : await prepare(d);
     console.log(JSON.stringify(result));
     if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `\nProduction branch sync: **${result.status}**\n\n\`\`\`json\n${JSON.stringify(result, null, 2)}\n\`\`\`\n`);
   } catch (error) {

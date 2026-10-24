@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { test } from 'node:test';
-import { eligible, finish, prepare, runtime } from '../ci/sync-main-to-dev.mjs';
+import { eligible, finish, prepare, resume, runtime } from '../ci/sync-main-to-dev.mjs';
 
 function fixture(t, conflict = false) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'arkpedia-sync-test-'));
@@ -157,8 +157,8 @@ test('a dev push racing the final update cannot be overwritten or deployed', asy
 test('workflow orchestration uses trusted main, explicit downstream dispatch and a pinned deploy', () => {
   const workflow = fs.readFileSync('.github/workflows/sync-main.yml', 'utf8');
   assert.match(workflow, /push:\s+branches: \[main\]/);
-  assert.match(workflow, /workflow_run:\s+workflows: \[Check\]/);
-  assert.match(workflow, /branches: \['sync\/main-to-dev-\*'\]/);
+  assert.match(workflow, /workflow_dispatch:\s+inputs:\s+checked_run:/);
+  assert.doesNotMatch(workflow, /^ {2}workflow_run:/m);
   assert.match(workflow, /ref: main\s+fetch-depth: 0/);
   assert.match(workflow, /timeout-minutes: 5/);
   const deploy = fs.readFileSync('.github/workflows/deploy.yml', 'utf8');
@@ -170,4 +170,27 @@ test('workflow orchestration uses trusted main, explicit downstream dispatch and
   assert.match(cf, /--alert cloudflare-sync/);
   assert.match(cf, /actions\/setup-node@v7/);
   assert.match(cf, /git merge --abort/);
+  const check = fs.readFileSync('.github/workflows/check.yml', 'utf8');
+  assert.match(check, /notify-sync:\s+needs: check/);
+  assert.match(check, /github\.event_name == 'workflow_dispatch' && startsWith\(github\.ref, 'refs\/heads\/sync\/main-to-dev-'/);
+  assert.match(check, /-f checked_run="\$CHECKED_RUN"/);
+});
+
+test('explicit completion waits for finalization and validates the authoritative green run', async t => {
+  const f = fixture(t), candidate = await prepare(f.d);
+  let reads = 0, pauses = 0;
+  f.d.run = async id => { assert.equal(id, '123'); return { ...f.run(candidate), status: ++reads === 1 ? 'in_progress' : 'completed' }; };
+  const result = await resume(f.d, '123', { pause: async () => { pauses++; } });
+  assert.equal(result.status, 'synced');
+  assert.equal(pauses, 1);
+  assert.equal(f.readRef('dev'), candidate.head);
+});
+
+test('completion accepts neither arbitrary IDs nor a run that never finalized', async () => {
+  let reads = 0;
+  const d = { run: async () => { reads++; return { status: 'in_progress' }; } };
+  for (const id of ['../1', '0', '-1', '1;command', '1'.repeat(20)]) await assert.rejects(resume(d, id), /numeric/);
+  assert.equal(reads, 0);
+  await assert.rejects(resume(d, '123', { pause: async () => {}, attempts: 2 }), /not finalized/);
+  assert.equal(reads, 2);
 });
