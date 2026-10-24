@@ -1,0 +1,11 @@
+{
+  "smokePaths": ["/", "/schedule", "/story", "/base"],
+  "additionalTargets": [
+    {
+      "name": "arkpedia-cloudflare",
+      "url": "https://arkpedia-cf.mocchibird.com",
+      "branch": "cloudflare",
+      "contentChannel": "dev-live"
+    }
+  ]
+}

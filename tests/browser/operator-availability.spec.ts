@@ -25,3 +25,32 @@ for (const timezoneId of ['UTC', 'Europe/Zurich', 'America/Los_Angeles', 'Americ
     });
   });
 }
+
+for (const locale of ['de-DE', 'fr-FR']) {
+  test.describe(`summon numbers in ${locale}`, () => {
+    test.use({ locale });
+    for (const theme of ['dark', 'light']) {
+      test(`server stats hydrate and remain interactive in ${theme}`, async ({ page }) => {
+        await page.addInitScript(theme => localStorage.setItem('theme', theme), theme);
+        const errors: string[] = [];
+        page.on('pageerror', error => errors.push(error.message));
+        const response = await page.goto('/operators/Closure');
+        expect(response?.status()).toBe(200);
+        const html = await response!.text();
+        const serverStats = await page.evaluate(html => Array.from(new DOMParser().parseFromString(html, 'text/html').querySelectorAll('.operator-summons dd'), node => node.textContent ?? ''), html);
+        expect(serverStats.length).toBeGreaterThan(0);
+        expect(serverStats.some(value => /\d,\d{3}/.test(value))).toBe(true);
+        const summons = page.locator('.operator-summons');
+        const level = summons.getByRole('slider', { name: 'Summon level' });
+        const initial = Number(await level.inputValue());
+        expect(initial).toBeGreaterThan(1);
+        await level.press('ArrowLeft');
+        await expect(level).toHaveValue(String(initial - 1));
+        await level.press('ArrowRight');
+        await expect(level).toHaveValue(String(initial));
+        await expect(summons.locator('dd')).toHaveText(serverStats);
+        expect(errors).toEqual([]);
+      });
+    }
+  });
+}
