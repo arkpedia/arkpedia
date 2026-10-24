@@ -3,7 +3,7 @@
 import fs from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
-import { relevantFiles } from './browser-relevant.mjs';
+import { relevantFiles, references, resolve } from './browser-relevant.mjs';
 
 const CORE = ['nav-bar.spec.ts', 'mobile-touch-nav.spec.ts', 'navigation-continuity.spec.ts'];
 const FAMILIES = [
@@ -15,7 +15,24 @@ const FAMILIES = [
 const normalize = value => value.replace(/\\/g, '/');
 const basename = value => normalize(value).split('/').at(-1);
 
-export function browserPlan({ changes, specs, relevant, baselineVerified = false, forceFull = false }) {
+// Conservative observation using the existing reference scanner. Comments may add
+// edges; that costs coverage but cannot justify omitting a consumer.
+export function dependencyIndex(files, read) {
+  const consumers = new Map();
+  const unreadable = [];
+  for (const file of files) {
+    if (!/^(?:pages|components|lib|styles)\//.test(file) || !/\.[cm]?[jt]sx?$/.test(file)) continue;
+    const source = read(file);
+    if (source == null) { unreadable.push(file); continue; }
+    for (const reference of references(source)) for (const target of resolve(reference, file, files)) {
+      if (!consumers.has(target)) consumers.set(target, new Set());
+      consumers.get(target).add(file);
+    }
+  }
+  return { consumers, unreadable };
+}
+
+export function browserPlan({ changes, specs, relevant, dependencies, baselineVerified = false, forceFull = false }) {
   const inventory = [...new Set(specs.map(normalize))].sort();
   const full = reason => ({ policy: 'shadow-v1', lane: 'full', reason, baselineVerified, selected: inventory, omitted: [], domains: [], reusableCheckProof: false });
   if (forceFull) return full('Explicit full/regression request');
@@ -38,6 +55,18 @@ export function browserPlan({ changes, specs, relevant, baselineVerified = false
     }
     const family = FAMILIES.find(item => item.code.test(file));
     if (family) {
+      if (!(dependencies?.consumers instanceof Map) || dependencies.unreadable?.length) return full('Runtime dependency inventory is unavailable or incomplete');
+      const visited = new Set([file]);
+      const queue = [file];
+      while (queue.length) {
+        const target = queue.shift();
+        for (const consumer of dependencies.consumers.get(target) ?? []) {
+          if (visited.has(consumer)) continue;
+          if (!family.code.test(consumer)) return full(`Cross-feature consumer of ${file}: ${consumer}`);
+          visited.add(consumer);
+          queue.push(consumer);
+        }
+      }
       if (/cloud-account|CloudAccountPanel|pages\/api\/auth\//.test(file) && !inventory.includes('tests/browser/cloud-accounts.spec.ts')) return full('Cloud account browser contract is missing');
       const matching = inventory.filter(spec => family.specs.test(basename(spec)));
       if (!matching.length) return full(`No registered browser specs for ${family.name}`);
@@ -65,8 +94,10 @@ function main() {
     const [status, ...paths] = line.split('\t');
     return paths.map(file => ({ status, path: file }));
   });
-  const relevant = relevantFiles(files, file => { try { return fs.readFileSync(file, 'utf8'); } catch { return null; } });
-  const plan = browserPlan({ changes, specs: [...files].filter(file => /^tests\/browser\/.*\.spec\.ts$/.test(file)), relevant, baselineVerified: argv.includes('--assume-green-base'), forceFull: argv.includes('--full') });
+  const read = file => { try { return fs.readFileSync(file, 'utf8'); } catch { return null; } };
+  const relevant = relevantFiles(files, read);
+  const dependencies = dependencyIndex(files, read);
+  const plan = browserPlan({ changes, specs: [...files].filter(file => /^tests\/browser\/.*\.spec\.ts$/.test(file)), relevant, dependencies, baselineVerified: argv.includes('--assume-green-base'), forceFull: argv.includes('--full') });
   console.log(JSON.stringify({ mode: 'shadow-only', base: git(['rev-parse', base]), ...plan }, null, 2));
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

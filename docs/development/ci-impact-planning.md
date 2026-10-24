@@ -12,6 +12,26 @@ fixtures also require full coverage. Account-related plans retain import, cloud-
 and music-continuity scenarios; server owner/CAS/consent/credential-exclusion unit
 checks remain in the unchanged application suite.
 
+The shadow planner now follows reverse references transitively across runtime
+pages, components and libraries. A consumer outside the changed family, missing
+dependency evidence or an unreadable runtime source keeps full coverage. It reuses
+the existing conservative reference scanner; comments can add edges and widen a
+plan. This is an additional blocker, not a complete proof of effects through storage,
+events, filesystem reads or generated data.
+
+Observed against the 93-spec Cloudflare checkout on 2026-10-24:
+
+| Changed file | Observed plan | Reason |
+| --- | --- | --- |
+| `components/story/StoryMapView.tsx` | 7 specs | Story family and core navigation |
+| `lib/story/storyProgress.ts` | Full | Account backup consumes progress |
+| `lib/music/youtube.ts` | Full | Community stream cards consume music utilities |
+| `lib/schedule/gameWindow.ts` | Full | Homepage banners consume scheduling utilities |
+
+These are simulations, not executed browser results or runtime estimates. Ten
+planner unit tests pass, including a transitive story-to-account consumer and
+missing/unreadable dependency evidence.
+
 The existing build/browser dependency closure can identify tooling changes that
 browsers do not read. A caller without that proof falls back to full work. Changed
 specs are included by name. Rename callers supply both old and new paths. No new

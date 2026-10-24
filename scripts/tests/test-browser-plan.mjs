@@ -1,10 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { browserPlan } from '../ci/browser-plan.mjs';
+import { browserPlan, dependencyIndex } from '../ci/browser-plan.mjs';
 
 const names = ['nav-bar', 'mobile-touch-nav', 'navigation-continuity', 'story-library', 'story-progress', 'music-data-saver', 'music-resume', 'cloud-accounts', 'account-import', 'schedule-archive', 'page-bounds', 'layout-census'];
 const specs = names.map(name => `tests/browser/${name}.spec.ts`);
-const plan = (paths, extra = {}) => browserPlan({ specs, changes: paths.map(path => ({ path, status: 'M' })), relevant: new Set(['scripts/build/site.mjs']), baselineVerified: true, ...extra });
+const plan = (paths, extra = {}) => browserPlan({ specs, changes: paths.map(path => ({ path, status: 'M' })), relevant: new Set(['scripts/build/site.mjs']), dependencies: { consumers: new Map(), unreadable: [] }, baselineVerified: true, ...extra });
 
 test('unknown, missing-baseline and explicit-regression requests keep full coverage', () => {
   for (const result of [plan(['lib/unclassified.ts']), plan(['lib/story/progress.ts'], { baselineVerified: false }), plan(['lib/story/progress.ts'], { forceFull: true }), plan([])]) {
@@ -43,4 +43,24 @@ test('missing core/family inventory fails closed and shadow output never vouches
   assert.equal(plan(['lib/story/progress.ts'], { specs: specs.filter(file => !file.includes('nav-bar')) }).lane, 'full');
   assert.equal(plan(['lib/story/progress.ts'], { specs: specs.filter(file => !file.includes('story-')) }).lane, 'full');
   for (const result of [plan(['lib/story/progress.ts']), plan(['lib/unknown.ts']), plan(['docs/file.md'])]) assert.equal(result.reusableCheckProof, false);
+});
+
+test('transitive consumers outside a feature force full coverage', () => {
+  const sources = new Map([
+    ['lib/story/progress.ts', 'export const progress = 1;'],
+    ['lib/story/bridge.ts', "export { progress } from './progress';"],
+    ['lib/account/backup.ts', "import { progress } from '@/lib/story/bridge';"],
+  ]);
+  const dependencies = dependencyIndex(new Set(sources.keys()), file => sources.get(file));
+  const result = plan(['lib/story/progress.ts'], { dependencies });
+  assert.equal(result.lane, 'full');
+  assert.match(result.reason, /lib\/account\/backup.ts/);
+  sources.delete('lib/account/backup.ts');
+  assert.equal(plan(['lib/story/progress.ts'], { dependencies: dependencyIndex(new Set(sources.keys()), file => sources.get(file)) }).lane, 'targeted');
+});
+
+test('missing or unreadable runtime dependency evidence fails closed', () => {
+  assert.equal(plan(['lib/story/progress.ts'], { dependencies: undefined }).lane, 'full');
+  const dependencies = dependencyIndex(new Set(['pages/_app.tsx']), () => null);
+  assert.equal(plan(['lib/story/progress.ts'], { dependencies }).lane, 'full');
 });
