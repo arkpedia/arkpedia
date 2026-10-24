@@ -60,7 +60,7 @@ export default function DataDialog({ onClose }: { onClose: () => void }) {
   }
 
   function forget() {
-    if (!window.confirm('Forget all Arkpedia data saved in this browser? This removes every account and sign-in, planner edits, story progress, music playlists and preferences. Export everything first if you want a backup.')) return;
+    if (!window.confirm('Forget all Arkpedia data saved in this browser? This removes every imported game account and saved Yostar sign-in, planner edits, story progress, music playlists and preferences. Your Arkpedia login and cloud saves remain. Export everything first if you want a backup.')) return;
     try { resetBrowserData(); }
     catch { setNote('This browser could not clear all saved data. Check its site-data settings.'); }
   }
@@ -118,7 +118,8 @@ export default function DataDialog({ onClose }: { onClose: () => void }) {
         <p className="import-copy">
           Import data directly from your Arknights account (Global, Japan or Korea). Your login is sent encrypted and is never
           read by Arkpedia itself; Arkpedia only receives your raw account data. No login related information is
-          kept on our servers. Everything that is persistent on your browser is saved to your browser locally.
+          kept on our servers. Your game sign-in is saved only in this browser if you choose to remember it.
+          Imported game data stays local unless you enable its cloud storage in your Arkpedia account.
         </p>
         <p className="hint import-note">
           Importing replaces your operators, depot and account, and kicks you out of the game if you are logged in.

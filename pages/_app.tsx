@@ -90,6 +90,7 @@ import { useRouter } from 'next/router';
 import { recordPage } from '@/lib/nav/pageTrail';
 import { watchScrollRestoration } from '@/lib/nav/scrollRestoration';
 import SiteAnalytics from '@/components/layout/SiteAnalytics';
+import { CloudSyncProvider } from '@/lib/cloud-account/SyncProvider';
 
 export default function App({ Component, pageProps }: AppProps) {
   const [resetting, setResetting] = useState(false);
@@ -121,6 +122,7 @@ export default function App({ Component, pageProps }: AppProps) {
   return (
     <ContentContext.Provider value={pageProps.__contentRelease ?? null}>
     <ContentTablesContext.Provider value={pageProps.__contentTables ?? {}}>
+    <CloudSyncProvider>
     <MusicPlayerProvider>
     <RoamingChibiProvider>
       {/* Next injects a bare `width=device-width` on its own, with no
@@ -189,6 +191,7 @@ export default function App({ Component, pageProps }: AppProps) {
       {process.env.ARKPEDIA_WEB_ANALYTICS === '1' && <SiteAnalytics />}
     </RoamingChibiProvider>
     </MusicPlayerProvider>
+    </CloudSyncProvider>
     </ContentTablesContext.Provider>
     </ContentContext.Provider>
   );

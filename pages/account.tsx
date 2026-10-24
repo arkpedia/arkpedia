@@ -6,6 +6,7 @@ import PageHeader from '@/components/ui/PageHeader';
 import DataDialog from '@/components/account/DataDialog';
 import ProfileCard from '@/components/account/ProfileCard';
 import PullHistory from '@/components/account/PullHistory';
+import CloudAccountPanel from '@/components/account/CloudAccountPanel';
 const FriendCollection = dynamic(() => import('@/components/friends/FriendCollection'), { ssr: false });
 import { makeFriendFile, shareableRoster } from '@/lib/account/friendFile';
 import { readRoster } from '@/lib/planner/roster';
@@ -80,6 +81,7 @@ export default function AccountPage({ skins, operators }: Props) {
         actions={<button type="button" className="primary btn-sm" aria-haspopup="dialog" onClick={() => setImporting(true)}>Import / export</button>} />
 
       <main>
+        <CloudAccountPanel />
         {/* Drawn the same with or without an account, so the record arriving after
             hydration fills it in rather than moving everything below. */}
         {/* Drawn the same with or without an account until it arrives: the profile then
