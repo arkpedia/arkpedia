@@ -1,9 +1,11 @@
 import { expect, test } from '@playwright/test';
 import { readOnly } from './census-routes';
+import { markDocument, sameDocument, startMusic, stubYouTube, youtube } from './youtube-stub';
 
 for (const theme of ['dark', 'light']) {
   test(`cloud saves preserve credential boundaries and resolve conflicts (${theme})`, async ({ page }) => {
     await readOnly(page);
+    await stubYouTube(page);
     await page.addInitScript(theme => {
       if (localStorage.getItem('cloud-test-seeded')) return;
       localStorage.setItem('cloud-test-seeded', '1');
@@ -57,10 +59,17 @@ for (const theme of ['dark', 'light']) {
     await panel.getByText('Account options', { exact: true }).click();
     await expect(panel.getByRole('button', { name: 'Link Discord' })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    const playback = await startMusic(page);
+    await markDocument(page);
     await panel.getByRole('button', { name: 'Use cloud data' }).click();
     await expect.poll(() => page.evaluate(() => localStorage.getItem('musicFavorites'))).toBe('["msr:other-device"]');
     await expect(panel.getByRole('button', { name: 'Save now' })).toBeVisible();
     expect(await page.evaluate(() => localStorage.getItem('arkpediaYostarLogin'))).toContain('PRIVATE-YOSTAR-TOKEN');
+    expect(await sameDocument(page)).toBe(true);
+    const after = await youtube(page);
+    expect(after?.players).toBe(playback.players);
+    expect(after?.videoId).toBe(playback.videoId);
+    expect(after?.state).toBe(1);
   });
 }
 

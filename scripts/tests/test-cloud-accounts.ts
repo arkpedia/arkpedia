@@ -53,6 +53,11 @@ test('withdrawing game-data permission keeps personal saves and removes game sto
   assert.deepEqual(personalData({ arkpediaAccount: account, musicFavorites: ['msr:1'], plannerRoster: {} }), { musicFavorites: ['msr:1'] });
 });
 
+test('music volume uses the existing player percentage scale', () => {
+  assert.deepEqual(collectCloudData(storage({ musicVolume: '50' }), false), { musicVolume: 50 });
+  assert.throws(() => validateCloudData({ musicVolume: 101 }, false));
+});
+
 test('restore propagates deletions, preserves local-only game data and never replaces credentials', () => {
   const local = storage({ musicFavorites: '["old"]', arkpediaSkinPlan: '["old"]', arkpediaAccount: JSON.stringify(account), arkpediaYostarLogin: 'private' });
   restoreCloudData({ musicFavorites: ['new'] }, false, local);

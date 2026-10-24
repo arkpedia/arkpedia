@@ -5,6 +5,8 @@ import { DEPOT_STORAGE_KEY } from '@/lib/planner/depot';
 import { PULL_PLAN_KEY, parsePullPlan } from '@/lib/pulls/plan';
 import { PAST_PROGRESS_KEY, parsePastProgress } from '@/lib/pulls/pastProgress';
 import { SETTINGS_KEY, parseSettings } from '@/lib/settings/siteSettings';
+import { CLOUD_RESTORED_EVENT } from './events';
+import { THEME_COLOR } from '@/lib/nav/themeColor';
 
 export type CloudData = Record<string, unknown>;
 export const MAX_CLOUD_BYTES = 900_000;
@@ -15,7 +17,7 @@ const preferences: Record<string, (v: unknown) => boolean> = {
   theme: v => v === 'light' || v === 'dark',
   'arkpedia-site-server': v => ['en', 'jp', 'kr'].includes(v as string),
   arkpediaMusicAutoplay: v => typeof v === 'boolean',
-  musicVolume: v => typeof v === 'number' && v >= 0 && v <= 1,
+  musicVolume: v => typeof v === 'number' && v >= 0 && v <= 100,
   arkpediaMusicDataSaver: v => typeof v === 'boolean',
   musicIncludeEndfield: v => typeof v === 'boolean',
   musicExcludeCopyrighted: v => typeof v === 'boolean',
@@ -113,7 +115,7 @@ export function fingerprint(data: CloudData): string {
 }
 
 /** Explicit restore replaces supported sections, including deleted sections. It never
- * touches Yostar credentials. The caller reloads to retire mounted planner/player state. */
+ * touches Yostar credentials. The caller remounts the page, keeping the player alive. */
 export function restoreCloudData(data: CloudData, gameSync: boolean, storage: Storage = window.localStorage): void {
   const valid = validateCloudData(data, gameSync);
   const keys = CLOUD_KEYS.filter(key => gameSync || !GAME_KEYS.has(key));
@@ -130,5 +132,15 @@ export function restoreCloudData(data: CloudData, gameSync: boolean, storage: St
   } catch (error) {
     for (const [key, raw] of previous) { if (raw === null) storage.removeItem(key); else storage.setItem(key, raw); }
     throw error;
+  }
+  if (typeof window !== 'undefined' && storage === window.localStorage) {
+    // Include deleted sections: consumers must read the new empty/default value too.
+    for (const key of keys) window.dispatchEvent(new StorageEvent('storage', { key, storageArea: window.localStorage }));
+    for (const event of new Set(BACKUP_STORES.filter(s => keys.includes(s.key)).map(s => s.event).filter(Boolean))) window.dispatchEvent(new Event(event!));
+    const theme = storage.getItem('theme') === 'light' ? 'light' : 'dark';
+    if (theme === 'light') document.documentElement.setAttribute('data-theme', theme);
+    else document.documentElement.removeAttribute('data-theme');
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', THEME_COLOR[theme]);
+    window.dispatchEvent(new Event(CLOUD_RESTORED_EVENT));
   }
 }

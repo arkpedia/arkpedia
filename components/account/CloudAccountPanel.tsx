@@ -45,7 +45,7 @@ export default function CloudAccountPanel() {
         Save imported game data to my Arkpedia account</label>
       <p className="hint">Includes the supported imported profile, operators and builds, skins, wallet, depot, stage clears, medals, base snapshot and pull history. Yostar email, codes and login tokens are never uploaded. Saving a Yostar sign-in remains a separate browser-only option.</p>
       {sync.status === 'choice' && <div>
-        <p>Use this browser to replace the cloud save, or use the cloud save to replace the synced data in this browser. Loading the cloud copy reloads the page. Export first to keep a backup.</p>
+        <p>Use this browser to replace the cloud save, or use the cloud save to replace the synced data in this browser. Music keeps playing during restore. Export first to keep a backup.</p>
         <div className={styles.actions}>
           <button type="button" disabled={working} onClick={() => void act(() => sync.choose('browser'))}>Use this browser’s data</button>
           <button type="button" disabled={working} onClick={() => void act(() => sync.choose('cloud'))}>Use cloud data</button>
@@ -59,15 +59,15 @@ export default function CloudAccountPanel() {
           <button type="button" disabled={working} onClick={() => void act(async () => {
             sync.pause();
             const result = await accountClient.signOut();
-            if (result.error) { window.location.reload(); return; }
-            window.location.reload();
+            await sync.resume();
+            if (result.error) setMessage('Sign-out could not finish. Please try again.');
           })}>Sign out</button>
           <button type="button" disabled={working} onClick={() => { if (window.confirm('Delete all saved cloud data? This keeps your Arkpedia login and this browser’s local data.')) void act(sync.erase); }}>Delete cloud saves</button>
           <button type="button" disabled={working} onClick={() => { if (window.confirm('Permanently delete your Arkpedia account, linked logins and cloud saves? Browser-local data stays here. You may need to sign in again first.')) void act(async () => {
             sync.pause();
             const result = await accountClient.deleteUser({ callbackURL: '/account' });
-            if (result.error) { setMessage('Please sign in again to confirm account deletion.'); return; }
-            window.location.reload();
+            await sync.resume();
+            if (result.error) setMessage('Please sign in again to confirm account deletion.');
           }); }}>Delete Arkpedia account</button>
         </div>
         <p className="hint">Signing out leaves browser data on this device. “Forget everything” under Import / export clears local data. Deleted cloud data can remain in recovery backups until their retention expires.</p>

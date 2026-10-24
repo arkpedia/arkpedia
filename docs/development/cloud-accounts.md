@@ -161,8 +161,8 @@ data and never sign into Yostar, Google or Discord as a real user.
   not a background Yostar import. Closing before a save finishes can leave recent
   changes only in that browser; export remains available.
 - Initial sign-in/new devices, changed remote revisions, and consent changes ask
-  which copy to use. There is no automatic destructive merge. A cloud restore reloads
-  the page to prevent mounted music/planner state from overwriting restored data.
+  which copy to use. There is no automatic destructive merge. A cloud restore refreshes
+  page state in place, notifies data/settings readers and keeps the music player alive.
 - Logout preserves browser data. “Forget everything” clears browser data, not the
   cloud account. **Delete cloud saves** clears remote saves and pauses automatic
   re-upload; **Delete Arkpedia account** removes the user and cascades through linked

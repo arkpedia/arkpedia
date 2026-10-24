@@ -141,7 +141,7 @@ test('only the full-data reset may deliberately reload the site', () => {
       const file = path.join(dir, rel);
       const text = fs.readFileSync(file, 'utf8').replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, '');
       for (const m of text.matchAll(/\blocation\s*\.\s*(reload|assign|replace)\s*\(|\blocation(\s*\.\s*href)?\s*=(?!=)|\blocation\s*\.\s*href\s*\+=/g)) {
-        found.push(`${file}: ${m[0]}`);
+        found.push(`${file.replace(/\\/g, '/')}: ${m[0]}`);
       }
     }
   }

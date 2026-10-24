@@ -13,6 +13,7 @@ interface SyncContext extends SyncState {
   consent: (enabled: boolean) => Promise<void>;
   erase: () => Promise<void>;
   pause: () => void;
+  resume: () => Promise<void>;
 }
 const Context = createContext<SyncContext | null>(null);
 
@@ -29,7 +30,7 @@ async function request(method = 'GET', body?: unknown) {
   return { response, data };
 }
 
-export function CloudSyncProvider({ children }: { children: ReactNode }) {
+export function CloudSyncProvider({ children, onRestore }: { children: ReactNode; onRestore: () => void }) {
   const [state, setState] = useState<SyncState>({ status: 'loading', remote: null, providers: [], message: '' });
   const busy = useRef(false), paused = useRef(false);
   const stateRef = useRef(state);
@@ -89,7 +90,8 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
       if (source === 'cloud') {
         restoreCloudData(remote.data, remote.gameSync);
         mark(remote, collectCloudData(localStorage, remote.gameSync));
-        window.location.reload();
+        setState({ status: 'ready', remote, providers: remote.providers, message: 'Cloud data restored. Music playback continues.' });
+        onRestore();
       } else {
         const local = collectCloudData(localStorage, remote.gameSync);
         const sent = await request('PUT', { owner: remote.user.id, revision: remote.revision, data: local });
@@ -119,7 +121,8 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
     finally { busy.current = false; }
   }
   function pause() { paused.current = true; localStorage.removeItem(MARKER); }
-  return <Context.Provider value={{ ...state, refresh, choose, consent: enabled => mutate('PATCH', enabled), erase: () => mutate('DELETE'), pause }}>{children}</Context.Provider>;
+  async function resume() { paused.current = false; await refresh(); }
+  return <Context.Provider value={{ ...state, refresh, choose, consent: enabled => mutate('PATCH', enabled), erase: () => mutate('DELETE'), pause, resume }}>{children}</Context.Provider>;
 }
 
 export function useCloudSync() {
