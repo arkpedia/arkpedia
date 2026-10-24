@@ -104,9 +104,9 @@ export default function EventsPanel({ ongoing, upcoming, farmableMaterials, now 
             <button
               type="button"
               key={s.event.name}
-              className={`front-events-dot${i === activeIndex ? ' active' : ''}${s.isUpcoming ? ' upcoming' : ''}${clock >= s.event.end.getTime() ? ' closed' : ''}`}
+              className={`front-events-dot${i === activeIndex ? ' active' : ''}`}
               onClick={() => selectSlide(i)}
-              /* Keep stage availability in the accessible name as well as the pip colour. */
+              /* Stage availability remains in the name; colour marks only the selected slide. */
               title={s.isUpcoming ? `${s.event.name} — not started yet` : clock >= s.event.end.getTime() ? `${s.event.name} — stages closed` : `${s.event.name} — stages open`}
               aria-label={s.isUpcoming ? `${s.event.name}, upcoming` : clock >= s.event.end.getTime() ? `${s.event.name}, stages closed` : `${s.event.name}, stages open`}
               aria-current={i === activeIndex}

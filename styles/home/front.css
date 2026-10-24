@@ -182,8 +182,8 @@ html[data-site-server="kr"] .maintenance-notice:not([data-server="kr"]) {
   justify-content: center;
   cursor: pointer;
 }
-/* A hollow pip marks upcoming stages; filled green marks open stages and red closed.
-   Selection changes the size, independently of stage availability. */
+/* Like the Community carousel: neutral until selected. Event availability belongs to the
+   countdown and accessible name, so it cannot make an unselected dot look selected. */
 .front-events-dot::before {
   content: '';
   box-sizing: border-box;
@@ -191,14 +191,12 @@ html[data-site-server="kr"] .maintenance-notice:not([data-server="kr"]) {
   height: 14px;
   border-radius: 50%;
   border: 2px solid transparent;
-  background: var(--status-positive);
+  background: var(--text-dim);
   transition: transform 120ms ease, background-color 120ms ease, border-color 120ms ease;
 }
 .front-events-dot:hover::before,
 .front-events-dot.active::before { transform: scale(1.15); }
-.front-events-dot.upcoming::before { border-color: var(--status-positive); background: var(--panel); }
-.front-events-dot.upcoming.active::before { background: var(--status-positive); }
-.front-events-dot.closed::before { background: var(--danger); }
+.front-events-dot[aria-current="true"]::before { background: var(--teal); }
 .front-events-dot:focus-visible { outline: 2px solid var(--teal); outline-offset: 1px; border-radius: 50%; }
 @media (prefers-reduced-motion: reduce) {
   .front-events-dot::before { transition: none; }
