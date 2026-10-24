@@ -119,7 +119,7 @@ test('a channel with no pointer yet reads live\'s release, as the site does; any
     console.warn = warn;
   }
   // Every reader goes through it: none matches the message text any more.
-  for (const file of ['lib/content/server.ts', 'scripts/build/adopt-release-asset-pins.mjs']) {
+  for (const file of ['lib/content/release.ts', 'scripts/build/adopt-release-asset-pins.mjs']) {
     const text = fs.readFileSync(file, 'utf8');
     assert.match(text, /readChannelPointer\(\{/, file);
     assert.doesNotMatch(text, /HTTP 404'/, file);
