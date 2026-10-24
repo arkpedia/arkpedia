@@ -34,7 +34,6 @@ const nextConfig = {
   // builds retain Next's validation, including manually dispatched deployments.
   ...(process.env.CI === 'true' && process.env.ARKPEDIA_BUILD_CHECKS_PASSED === '1' ? {
     typescript: { ignoreBuildErrors: true },
-    eslint: { ignoreDuringBuilds: true },
   } : {}),
   // Check builds a second time against the live content release, into a directory of its
   // own so the first build's output stays for the browser suites (check.yml, "Pages render

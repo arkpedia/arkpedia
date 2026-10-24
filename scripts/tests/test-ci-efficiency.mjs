@@ -68,15 +68,16 @@ exit "$APP_EXIT"
   }
 });
 
-test('Next validation is enabled by default, locally, and in Deploy; only Check can opt out', () => {
+test('Next type validation stays enabled outside Check; lint remains an explicit CI gate', () => {
   const config = env => JSON.parse(execFileSync(process.execPath, ['-e', `
     const c = require('./next.config.js')('phase-production-server');
-    console.log(JSON.stringify({ types: c.typescript?.ignoreBuildErrors === true, lint: c.eslint?.ignoreDuringBuilds === true }));
+    console.log(JSON.stringify({ types: c.typescript?.ignoreBuildErrors === true, lintOption: Object.hasOwn(c, 'eslint') }));
   `], { encoding: 'utf8', env: { ...process.env, CI: '', ARKPEDIA_BUILD_CHECKS_PASSED: '', ...env } }));
   for (const env of [{}, { CI: 'true' }, { ARKPEDIA_BUILD_CHECKS_PASSED: '1' }, { CI: 'true', ARKPEDIA_BUILD_CHECKS_PASSED: 'false' }]) {
-    assert.deepEqual(config(env), { types: false, lint: false });
+    assert.deepEqual(config(env), { types: false, lintOption: false });
   }
-  assert.deepEqual(config({ CI: 'true', ARKPEDIA_BUILD_CHECKS_PASSED: '1' }), { types: true, lint: true });
+  assert.deepEqual(config({ CI: 'true', ARKPEDIA_BUILD_CHECKS_PASSED: '1' }), { types: true, lintOption: false });
+  assert.equal(steps.find(step => step.name === 'Lint').run, 'npm run lint -- --max-warnings 15');
   for (const job of Object.values(workflow('deploy').jobs)) {
     for (const step of job.steps ?? []) assert.equal(step.env?.ARKPEDIA_BUILD_CHECKS_PASSED, undefined);
     assert.equal(job.env?.ARKPEDIA_BUILD_CHECKS_PASSED, undefined);
