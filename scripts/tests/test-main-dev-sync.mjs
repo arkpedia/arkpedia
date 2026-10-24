@@ -168,4 +168,6 @@ test('workflow orchestration uses trusted main, explicit downstream dispatch and
   const cf = fs.readFileSync('.github/workflows/sync-cloudflare.yml', 'utf8');
   assert.match(cf, /if: failure\(\)/);
   assert.match(cf, /--alert cloudflare-sync/);
+  assert.match(cf, /actions\/setup-node@v7/);
+  assert.match(cf, /git merge --abort/);
 });
