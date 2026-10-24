@@ -73,6 +73,12 @@ const nextConfig = {
   // arkpedia-data, while public/ is emitted separately as static output.
   // Without this exclusion @vercel/nft follows the broad data readers and
   // copies every stage, operator, and generated public file into each function.
+  // Next traces the Node export, while OpenNext later selects Better Auth's
+  // workerd instrumentation export. Keep that small runtime variant in standalone.
+  outputFileTracingIncludes: {
+    '/api/auth/*': ['node_modules/@better-auth/core/dist/instrumentation/*.mjs'],
+    '/api/cloud-account': ['node_modules/@better-auth/core/dist/instrumentation/*.mjs'],
+  },
   outputFileTracingExcludes: {
     ...Object.fromEntries(contentPageRoutes.map((route) => [route === '/' ? '/index' : route, [
       'data/**/*', 'public/**/*', '.env*',

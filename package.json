@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
+    "accounts:configure": "node scripts/accounts/configure.mjs",
     "dev": "next dev",
     "build": "next build --webpack",
     "postbuild": "npm run check:deployment-traces && npm run check:client-chunks",
@@ -73,6 +74,7 @@
     "@fontsource/inter": "5.3.0",
     "@fontsource/jetbrains-mono": "5.3.0",
     "@fontsource/rajdhani": "5.3.0",
+    "better-auth": "1.7.12",
     "fflate": "^0.8.3",
     "libcurl.js": "0.7.4",
     "next": "^16.4.2",
@@ -82,6 +84,7 @@
     "world-atlas": "^2.0.2"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "5.20261024.1",
     "@eslint/js": "9.39.5",
     "@opennextjs/cloudflare": "^1.20.12",
     "@playwright/test": "^1.63.0",

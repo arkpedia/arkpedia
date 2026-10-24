@@ -19,7 +19,7 @@ const ROOT = process.cwd();
 
 function files(dir: string): string[] {
   return fs.readdirSync(path.join(ROOT, dir), { withFileTypes: true }).flatMap(entry => {
-    const file = path.join(dir, entry.name);
+    const file = path.join(dir, entry.name).replace(/\\/g, '/');
     if (entry.isDirectory()) return files(file);
     return /\.tsx?$/.test(entry.name) ? [file] : [];
   });
@@ -53,7 +53,7 @@ export function routeFor(address: string, routes: string[]): string | null {
 }
 
 const routes = files(path.join('pages', 'api')).map(file => file.split(path.sep).join('/'));
-const client = ['pages', 'components', 'lib'].flatMap(dir => files(dir)).filter(file => !file.startsWith(path.join('pages', 'api')));
+const client = ['pages', 'components', 'lib'].flatMap(dir => files(dir)).filter(file => !file.startsWith('pages/api/'));
 const fetches = client.flatMap(file => apiFetches(file, fs.readFileSync(path.join(ROOT, file), 'utf8')).map(address => ({ file, address })));
 
 test('the scan reads fetch addresses the way the route table matches them', () => {
@@ -74,14 +74,14 @@ test('every address client code fetches under /api/ is a route that exists', () 
 test('a page that calls a local-only route is itself local-only', () => {
   const problems: string[] = [];
   for (const { file, address } of fetches.filter(({ address }) => address.startsWith('/api/dev/'))) {
-    if (!file.startsWith(`pages${path.sep}`)) { problems.push(`${file} calls ${address} from a shared module; call it from the dev page itself`); continue; }
+    if (!file.startsWith('pages/')) { problems.push(`${file} calls ${address} from a shared module; call it from the dev page itself`); continue; }
     if (!/export const getStaticProps = devOnlyStaticProps;/.test(fs.readFileSync(path.join(ROOT, file), 'utf8'))) {
       problems.push(`${file} calls ${address} but is served in production; export const getStaticProps = devOnlyStaticProps`);
     }
   }
   assert.deepEqual([...new Set(problems)], []);
   // Not vacuous: the inspection tool and both optimizer pages are covered.
-  assert.ok(fetches.some(({ file }) => file === path.join('pages', 'bases', 'whole-base-optimizer.tsx')));
+  assert.ok(fetches.some(({ file }) => file === 'pages/bases/whole-base-optimizer.tsx'));
 });
 
 /** API routes no page calls because a workflow does, each with the script that calls it. The
@@ -95,6 +95,8 @@ const CALLED_BY_WORKFLOWS: Record<string, string> = {
  *  module that builds the address: it must name the route's fixed part (up to its first [param]),
  *  so a renamed or dropped caller fails here. */
 const NAMED_AS_ADDRESSES: Record<string, string> = {
+  // Better Auth's client builds sign-in, callback, session and linking addresses.
+  'pages/api/auth/[...all].ts': 'lib/cloud-account/client.ts',
   // Public game settings are fetched by the import's dedicated transport wrapper.
   'pages/api/account-import/network.ts': 'lib/account-import/relay.ts',
   // Monster Siren's album cover, served from this site: the lock screen's artwork and the

@@ -1,5 +1,8 @@
 # Trying Arkpedia on Cloudflare Workers
 
+Account login, D1 provisioning, Google/Discord registration and testing:
+[Cloud accounts setup](cloud-accounts.md).
+
 The site builds for Cloudflare Workers through [OpenNext](https://opennext.js.org/cloudflare)
 (`@opennextjs/cloudflare`), next to the Vercel deploy that serves www and arkpedia-dev today.
 Nothing here changes those deploys: Vercel still gets its prebuilt output from `deploy.yml`.

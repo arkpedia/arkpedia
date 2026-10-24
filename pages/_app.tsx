@@ -90,8 +90,10 @@ import { useRouter } from 'next/router';
 import { recordPage } from '@/lib/nav/pageTrail';
 import { watchScrollRestoration } from '@/lib/nav/scrollRestoration';
 import SiteAnalytics from '@/components/layout/SiteAnalytics';
+import { CloudSyncProvider } from '@/lib/cloud-account/SyncProvider';
 
 export default function App({ Component, pageProps }: AppProps) {
+  const [cloudRestoreVersion, setCloudRestoreVersion] = useState(0);
   const [resetting, setResetting] = useState(false);
   useEffect(() => watchBrowserDataReset(() => flushSync(() => setResetting(true))), []);
   // Dedicated compact tools declare their layout before the server's first paint.
@@ -121,6 +123,7 @@ export default function App({ Component, pageProps }: AppProps) {
   return (
     <ContentContext.Provider value={pageProps.__contentRelease ?? null}>
     <ContentTablesContext.Provider value={pageProps.__contentTables ?? {}}>
+    <CloudSyncProvider onRestore={() => setCloudRestoreVersion(version => version + 1)}>
     <MusicPlayerProvider>
     <RoamingChibiProvider>
       {/* Next injects a bare `width=device-width` on its own, with no
@@ -183,12 +186,13 @@ export default function App({ Component, pageProps }: AppProps) {
           Pages that set nothing get undefined and the bar they always had. */}
       {!hideSiteChrome && <SiteNav mobileNav={(Component as PageWithMobileNav).mobileNav} />}
       <div id="page-content" tabIndex={-1} style={{ outline: 'none' }}>
-        <Component {...pageProps} />
+        <Component key={cloudRestoreVersion} {...pageProps} />
       </div>
       {!hideSiteChrome && <MusicPlayer />}
       {process.env.ARKPEDIA_WEB_ANALYTICS === '1' && <SiteAnalytics />}
     </RoamingChibiProvider>
     </MusicPlayerProvider>
+    </CloudSyncProvider>
     </ContentTablesContext.Provider>
     </ContentContext.Provider>
   );
