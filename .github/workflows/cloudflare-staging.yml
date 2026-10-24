@@ -14,6 +14,7 @@ on:
       - config/relay.json
       - lib/account-import/relay.ts
       - scripts/tests/test-main-relay-choice.ts
+      - tests/browser/navigation-continuity.spec.ts
 
 permissions:
   contents: read
