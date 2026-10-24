@@ -1,0 +1,51 @@
+name: Build Cloudflare staging
+
+on:
+  workflow_dispatch:
+  # Bootstrap the reviewed main-based build without deploying or merging it first.
+  push:
+    branches: [codex/main-cloudflare-staging]
+    paths:
+      - .github/workflows/cloudflare-staging.yml
+      - wrangler.staging.jsonc
+      - open-next.staging.config.ts
+      - scripts/deploy/cloudflare-staging.mjs
+      - scripts/tests/test-cloudflare-staging.mjs
+      - config/relay.json
+      - lib/account-import/relay.ts
+      - scripts/tests/test-main-relay-choice.ts
+      - tests/browser/navigation-continuity.spec.ts
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cloudflare-main-staging-build
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: [self-hosted, Linux, X64, arkpedia-nas-build]
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+      - run: npm ci
+      - name: Verify staging isolation and indexing role
+        run: node --test scripts/tests/test-cloudflare-staging.mjs scripts/tests/test-main-staging-role.mjs
+      - name: Build once on Linux and check Worker budget
+        run: node scripts/deploy/cloudflare-staging.mjs build
+      - name: Package staging artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          tar -czf "$RUNNER_TEMP/arkpedia-staging.tgz" .open-next wrangler.staging.jsonc public/build-info.json
+      - uses: actions/upload-artifact@v7
+        with:
+          name: arkpedia-staging-${{ github.sha }}
+          path: ${{ runner.temp }}/arkpedia-staging.tgz
+          retention-days: 1
+
+      # No provider credentials or remote deployment. Review and deploy explicitly.

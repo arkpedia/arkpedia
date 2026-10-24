@@ -36,7 +36,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(404).json({ error: 'This song has no cover.' });
     }
     // Never followed elsewhere: the address checked is the one fetched.
-    const image = await fetch(art.cover, { signal: AbortSignal.timeout(8000), redirect: 'error' });
+    const image = await fetch(art.cover, { signal: AbortSignal.timeout(8000), redirect: 'manual' });
     const type = (image.headers.get('content-type') ?? '').split(';')[0].trim().toLowerCase();
     if (!image.ok || !IMAGE_TYPES.has(type)) throw new Error('Cover unavailable');
     const body = Buffer.from(await image.arrayBuffer());

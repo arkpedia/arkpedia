@@ -1,4 +1,5 @@
-import VOICE_DATA from '@/data/operator-voice-lines.json';
+import fs from 'fs';
+import path from 'path';
 
 export type OperatorVoiceCategory = 'profile' | 'combat' | 'special' | 'unused';
 export type OperatorVoiceStatus = 'current' | 'legacy' | 'unused';
@@ -50,10 +51,21 @@ export interface OperatorVoiceData extends OperatorVoiceSet {
 
 // Keep templates independent of asset revisions. Playback resolves them against
 // the page's content release, so an asset refresh does not rewrite every operator.
-const OPERATORS = VOICE_DATA.operators as Record<string, OperatorVoiceData>;
+let operators: Record<string, OperatorVoiceData> | undefined;
+
+/**
+ * Read from data/ the first time it is asked for, not compiled in. Only code that has read an
+ * operator's record from data/ (lib/operators/operators.ts) asks, so it is there whenever this
+ * runs. Compiled in, its 4 MB was in the server code of every page that reached getAllOperators,
+ * and so in the Worker's one bundle, which each cold start loads (docs/development/cloudflare-workers.md).
+ */
+function voiceTable(): Record<string, OperatorVoiceData> {
+  operators ??= (JSON.parse(fs.readFileSync(path.join(process.cwd(), 'data', 'operator-voice-lines.json'), 'utf8')) as { operators: Record<string, OperatorVoiceData> }).operators;
+  return operators;
+}
 
 export function getOperatorVoiceData(internalName: string | null | undefined): OperatorVoiceData | null {
-  return internalName ? OPERATORS[internalName] ?? null : null;
+  return internalName ? voiceTable()[internalName] ?? null : null;
 }
 
 /** Current credits are generated with the voice-line catalogue. The copy in an

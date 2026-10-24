@@ -1,13 +1,12 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { readPublishedContentPageProps } from '@/lib/content/server';
-import { getDiscoverPageData } from '@/lib/music/albumsDataServer';
+import { readPublishedContentPageProps } from '@/lib/content/release';
 import { createYouTubeLikesLoader } from '@/lib/music/youtubeLikesServer';
 
 const loadLikes = createYouTubeLikesLoader({
   apiKey: () => process.env.YOUTUBE_API_KEY,
   videoIds: async () => {
     const published = await readPublishedContentPageProps<{ songs: { videoId: string }[] }>('/music/discover');
-    return (published?.songs ?? getDiscoverPageData().songs).map(song => song.videoId);
+    return (published?.songs ?? (process.env.ARKPEDIA_WORKER === '1' ? [] : (await import('@/lib/music/albumsDataServer')).getDiscoverPageData().songs)).map(song => song.videoId);
   },
 });
 
