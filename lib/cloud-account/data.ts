@@ -7,6 +7,7 @@ import { PAST_PROGRESS_KEY, parsePastProgress } from '@/lib/pulls/pastProgress';
 import { SETTINGS_KEY, parseSettings } from '@/lib/settings/siteSettings';
 import { CLOUD_RESTORED_EVENT } from './events';
 import { THEME_COLOR } from '@/lib/nav/themeColor';
+import { PULL_ARCHIVE_KEY } from '@/lib/account/pullArchive';
 
 export type CloudData = Record<string, unknown>;
 export const MAX_CLOUD_BYTES = 900_000;
@@ -22,7 +23,7 @@ const preferences: Record<string, (v: unknown) => boolean> = {
   musicIncludeEndfield: v => typeof v === 'boolean',
   musicExcludeCopyrighted: v => typeof v === 'boolean',
 };
-export const CLOUD_KEYS = [...new Set([...BACKUP_STORES.map(s => s.key), ...Object.keys(preferences)])];
+export const CLOUD_KEYS = [...new Set([...BACKUP_STORES.map(s => s.key).filter(key => key !== PULL_ARCHIVE_KEY), ...Object.keys(preferences)])];
 const starting = ['startingElite', 'startingLevel', 'startingSkillLevel', 'startingMasteryLevels', 'startingModuleStages'];
 
 function object(value: unknown): value is Record<string, unknown> {
@@ -31,7 +32,7 @@ function object(value: unknown): value is Record<string, unknown> {
 
 // Defense in depth for unexpected credential fields in a supported data object.
 // Provider identity/session records use a different API and database schema.
-function assertNoCredentials(value: unknown, depth = 0): void {
+export function assertNoCredentials(value: unknown, depth = 0): void {
   if (depth > 35) throw new Error('Saved data is nested too deeply.');
   if (!value || typeof value !== 'object') return;
   for (const [key, item] of Object.entries(value)) {
@@ -66,7 +67,7 @@ function personalProjection(key: string, value: unknown): unknown {
 }
 
 /** Validate everything before accepting any write. Unknown stores fail closed. */
-export function validateCloudData(input: unknown, gameSync: boolean): CloudData {
+export function validateCloudData(input: unknown, gameSync: boolean, personalSync = true): CloudData {
   if (!object(input)) throw new Error('Invalid cloud save.');
   if (new TextEncoder().encode(JSON.stringify(input)).length > MAX_CLOUD_BYTES) throw new Error('Cloud saves currently support up to 900 KB. Export a backup before reducing your saved data.');
   assertNoCredentials(input);
@@ -74,6 +75,7 @@ export function validateCloudData(input: unknown, gameSync: boolean): CloudData 
   for (const [key, value] of Object.entries(input)) {
     if (!CLOUD_KEYS.includes(key)) throw new Error('Unsupported cloud-save field.');
     if (GAME_KEYS.has(key) && !gameSync) throw new Error('Saving imported game data requires your permission.');
+    if (!GAME_KEYS.has(key) && !personalSync) throw new Error('Saving personal data requires your permission.');
     const store = BACKUP_STORES.find(s => s.key === key);
     if (store ? !store.valid(JSON.stringify(value), value) : !preferences[key]?.(value)) throw new Error('A saved section is invalid. Export your browser data and check it before syncing.');
     let clean = value;
@@ -82,6 +84,11 @@ export function validateCloudData(input: unknown, gameSync: boolean): CloudData 
     else if (key === ROSTER_STORAGE_KEY) clean = parseRosterExport(JSON.stringify(value));
     else if (key === PULL_PLAN_KEY) clean = parsePullPlan(JSON.stringify(value));
     else if (key === SETTINGS_KEY) clean = parseSettings(value);
+    // History has its own consent and append-only archive, never a replaceable snapshot.
+    if (key === ACCOUNT_STORAGE_KEY && object(clean)) { const { pulls: _pulls, ...snapshot } = clean; clean = snapshot; }
+    if (key === OTHER_ACCOUNTS_KEY && object(clean)) clean = Object.fromEntries(Object.entries(clean).map(([server, account]) => {
+      const { pulls: _pulls, ...snapshot } = account as Record<string, unknown>; return [server, snapshot];
+    }));
     output[key] = gameSync ? clean : personalProjection(key, clean);
   }
   return output;
@@ -92,20 +99,26 @@ export function personalData(data: CloudData): CloudData {
   return validateCloudData(Object.fromEntries(Object.entries(data).filter(([key]) => !GAME_KEYS.has(key))), false);
 }
 
-export function collectCloudData(storage: Pick<Storage, 'getItem'>, gameSync: boolean): CloudData {
+export function collectCloudData(storage: Pick<Storage, 'getItem'>, gameSync: boolean, personalSync = true): CloudData {
   const data: CloudData = {};
   for (const key of CLOUD_KEYS) {
     if (!gameSync && GAME_KEYS.has(key)) continue;
+    if (!personalSync && !GAME_KEYS.has(key)) continue;
     const raw = storage.getItem(key);
     if (raw === null) continue;
-    try { data[key] = JSON.parse(raw); }
+    try {
+      data[key] = JSON.parse(raw);
+      // Exclude the separate archive before enforcing the snapshot's byte budget.
+      if (key === ACCOUNT_STORAGE_KEY && object(data[key])) delete (data[key] as Record<string, unknown>).pulls;
+      if (key === OTHER_ACCOUNTS_KEY && object(data[key])) for (const account of Object.values(data[key] as Record<string, unknown>)) if (object(account)) delete account.pulls;
+    }
     catch {
       // Several existing preferences use plain localStorage strings.
       if (key === 'theme' || key === 'arkpedia-site-server') data[key] = raw;
       else throw new Error('A browser save could not be read. Export your data before syncing.');
     }
   }
-  return validateCloudData(data, gameSync);
+  return validateCloudData(data, gameSync, personalSync);
 }
 
 export function fingerprint(data: CloudData): string {
@@ -116,9 +129,9 @@ export function fingerprint(data: CloudData): string {
 
 /** Explicit restore replaces supported sections, including deleted sections. It never
  * touches Yostar credentials. The caller remounts the page, keeping the player alive. */
-export function restoreCloudData(data: CloudData, gameSync: boolean, storage: Storage = window.localStorage): void {
-  const valid = validateCloudData(data, gameSync);
-  const keys = CLOUD_KEYS.filter(key => gameSync || !GAME_KEYS.has(key));
+export function restoreCloudData(data: CloudData, gameSync: boolean, storage: Storage = window.localStorage, personalSync = true): void {
+  const valid = validateCloudData(data, gameSync, personalSync);
+  const keys = CLOUD_KEYS.filter(key => GAME_KEYS.has(key) ? gameSync : personalSync);
   const previous = keys.map(key => [key, storage.getItem(key)] as const);
   const backup: ParsedBackup = { savedAt: null, stores: [] };
   for (const key of keys) {

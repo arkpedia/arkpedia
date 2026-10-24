@@ -14,11 +14,57 @@ import { createCloudAccountHandler } from '../../lib/cloud-account/api';
 import { createAccountProfileHandler } from '../../lib/cloud-account/profile-api';
 import { normalizeUsername, validateProfile } from '../../lib/cloud-account/profile';
 import { syncDecision } from '../../lib/cloud-account/sync-policy';
+import { archiveUploadChunks, mergePullArchives, parsePullArchives, type PullArchive } from '../../lib/account/pullArchive';
+import { collectPullArchives, restorePullArchives } from '../../lib/account/pullArchiveStore';
 
 const account = { version: 1, server: 'en', importedAt: '2026-10-24T12:00:00Z', doctor: 'Doctor', operators: ['Amiya'], skins: [], cleared: [] };
+const archive = (uid = '123', rows = [{ at: 1000, pool: 'pool1', char: 'char_002_amiya', star: 5 }]): PullArchive =>
+  ({ server: 'en', uid, doctor: 'Doctor#1234', history: { rows, pools: { pool1: 'Banner' }, names: { char_002_amiya: 'Amiya' }, readAt: '2026-10-24T12:00:00Z', error: null } });
 function storage(entries: Record<string, string> = {}) {
   return { entries, getItem: (k: string) => entries[k] ?? null, setItem: (k: string, v: string) => { entries[k] = v; }, removeItem: (k: string) => { delete entries[k]; } } as Storage & { entries: Record<string, string> };
 }
+
+test('archive union keeps old draws, repeated operators and isolated game accounts without duplicating overlap', () => {
+  const first = archive(); first.history.rows.push({ ...first.history.rows[0] });
+  const partial = archive(); partial.history.rows.push({ at: 2000, pool: 'pool1', char: 'char_1', star: 6 });
+  const merged = mergePullArchives([first], [partial]);
+  assert.equal(merged[0].history.rows.length, 3);
+  assert.deepEqual(mergePullArchives(merged, [partial]), merged);
+  assert.equal(mergePullArchives(merged, [archive('456')]).length, 2);
+  assert.equal(mergePullArchives(merged, [{ ...archive(), server: 'jp' }]).length, 2);
+  const chunks = archiveUploadChunks(merged, [partial]);
+  assert.equal(chunks[0][0].history.rows.length, 2, 'send full known multiplicity, not just one missing duplicate');
+  assert.deepEqual(archiveUploadChunks(merged, merged), []);
+  assert.throws(() => parsePullArchives([{ ...archive(), uid: 'email@example.invalid' }]));
+});
+
+test('archive restore unions both devices before a snapshot restore and never changes Yostar credentials', () => {
+  const old = archive(), newer = archive(); newer.history.rows[0].at = 2000;
+  const local = storage({ arkpediaAccount: JSON.stringify({ ...account, profile: { uid: '123' }, pulls: old.history }), arkpediaYostarLogin: 'PRIVATE' });
+  restorePullArchives([newer], local);
+  restoreCloudData({ musicFavorites: ['other-device'] }, false, local);
+  assert.equal(collectPullArchives(local)[0].history.rows.length, 2);
+  assert.equal(local.getItem('arkpediaYostarLogin'), 'PRIVATE');
+  assert.equal(collectCloudData(local, false, false).arkpediaPullArchives, undefined);
+  assert.deepEqual(collectCloudData(local, false, false), {});
+  const snapshot = validateCloudData({ arkpediaAccount: { ...account, pulls: old.history } }, true, false);
+  assert.equal((snapshot.arkpediaAccount as Record<string, unknown>).pulls, undefined);
+});
+
+test('large histories are independent of the snapshot budget and upload in bounded batches without trimming old pulls', () => {
+  const large = archive();
+  large.history.rows = Array.from({ length: 20_000 }, (_, index) => ({ at: 1750000000 + index, pool: 'pool1', char: 'char_002_amiya', star: 5 }));
+  const raw = JSON.stringify({ ...account, profile: { uid: '123' }, pulls: large.history });
+  assert.ok(new TextEncoder().encode(raw).length > 900_000);
+  const local = storage({ arkpediaAccount: raw });
+  const snapshot = collectCloudData(local, true);
+  assert.equal((snapshot.arkpediaAccount as Record<string, unknown>).pulls, undefined);
+  const archives = collectPullArchives(local), chunks = archiveUploadChunks(archives, []);
+  assert.equal(archives[0].history.rows.length, 20_000);
+  assert.equal(chunks.flatMap(chunk => chunk.flatMap(a => a.history.rows)).length, 20_000);
+  assert.ok(chunks.every(chunk => new TextEncoder().encode(JSON.stringify(chunk)).length < 900_000));
+  assert.equal(local.getItem('arkpediaAccount'), raw);
+});
 
 test('collector never reads Yostar credentials, even with game-data permission', () => {
   for (const optedIn of [false, true]) {
@@ -108,6 +154,24 @@ test('migration matches the installed Better Auth tables', () => {
   sqlite.close();
 });
 
+test('archive migration preserves opted-in legacy histories and duplicates, including UID-less imports', () => {
+  const sqlite = new DatabaseSync(':memory:'); sqlite.exec('PRAGMA foreign_keys = ON');
+  for (const name of ['0001_accounts.sql', '0002_account_profiles.sql']) sqlite.exec(fs.readFileSync(`migrations/accounts/${name}`, 'utf8'));
+  sqlite.exec(`INSERT INTO "user" (id, name, email, createdAt, updatedAt) VALUES ('u','User','u@example.invalid','2026-01-01','2026-01-01'),('private','User','p@example.invalid','2026-01-01','2026-01-01');`);
+  const old = archive(); old.history.rows.push({ ...old.history.rows[0] });
+  const legacy = { ...account, pulls: old.history };
+  const payload = JSON.stringify({ arkpediaAccount: { ...legacy, profile: { uid: '123' } }, arkpediaOtherAccounts: { jp: { ...legacy, server: 'jp' } }, musicFavorites: ['keep'] });
+  sqlite.prepare('INSERT INTO cloud_save (userId, revision, gameSync, payload, updatedAt) VALUES (?, 9, ?, ?, ?)').run('u', 1, payload, '2026-01-01');
+  sqlite.prepare('INSERT INTO cloud_save (userId, revision, gameSync, payload, updatedAt) VALUES (?, 9, ?, ?, ?)').run('private', 0, payload, '2026-01-01');
+  sqlite.exec(fs.readFileSync('migrations/accounts/0003_pull_archives.sql', 'utf8'));
+  assert.equal(sqlite.prepare('SELECT sum(count) AS n FROM pull_archive_row WHERE userId = ?').get('u')?.n, 4);
+  assert.equal(sqlite.prepare('SELECT count(*) AS n FROM pull_archive_account WHERE uid = ?').get('unknown')?.n, 1);
+  assert.equal(sqlite.prepare('SELECT count(*) AS n FROM pull_archive_row WHERE userId = ?').get('private')?.n, 0);
+  assert.match(sqlite.prepare('SELECT updatedAt FROM pull_archive_account LIMIT 1').get()?.updatedAt, /Z$/);
+  assert.deepEqual({ ...sqlite.prepare('SELECT revision, personalSync, historySync, gameSync, payload FROM cloud_save WHERE userId = ?').get('u') }, { revision: 9, personalSync: 1, historySync: 1, gameSync: 1, payload });
+  sqlite.close();
+});
+
 test('profile migration keeps existing identities, provider links and saves without adopting real names', () => {
   const sqlite = new DatabaseSync(':memory:');
   sqlite.exec('PRAGMA foreign_keys = ON');
@@ -165,6 +229,69 @@ test('authenticated API enforces isolation, origin, consent, revisions and casca
   sqlite.prepare('DELETE FROM "user" WHERE id = ?').run(user.id);
   assert.equal(sqlite.prepare('SELECT count(*) AS n FROM cloud_save').get()?.n, 0);
   assert.equal((await call('GET')).status, 401);
+  sqlite.close();
+});
+
+test('pull archive API preserves both devices through races, snapshot replacement, consent changes and deletion', async () => {
+  const { sqlite, db } = database(), env = envFor(db), auth = accountAuth(env), context = await auth.$context;
+  const user = await context.internalAdapter.createUser({ name: 'Test', email: 'archive@example.invalid', emailVerified: true }, { method: 'oauth' });
+  const session = await context.internalAdapter.createSession(user.id, false);
+  const cookie = `${context.authCookies.sessionToken.name}=${session.token}.${await makeSignature(session.token, context.secret)}`;
+  sqlite.prepare('INSERT INTO arkpedia_profile (userId, username, usernameKey, updatedAt) VALUES (?, ?, ?, ?)').run(user.id, 'Archive#1234', 'archive#1234', new Date().toISOString());
+  const handler = createCloudAccountHandler(() => env);
+  async function call(method: string, body: Record<string, unknown> = {}) {
+    let status = 200, result: any;
+    const res = { setHeader: () => {}, status: (code: number) => { status = code; return res; }, json: (value: unknown) => { result = value; }, end: () => {} };
+    await handler({ method, headers: { cookie, origin: env.ARKPEDIA_AUTH_URL, 'content-type': 'application/json' }, body: { owner: user.id, ...body } } as NextApiRequest, res as unknown as NextApiResponse);
+    return { status, result };
+  }
+  await call('GET');
+  assert.equal((await call('POST', { revision: 0, archives: [archive()] })).status, 403);
+  assert.equal((await call('PATCH', { revision: 0, historySync: true })).status, 200);
+  const older = archive(); older.history.rows.push({ ...older.history.rows[0] });
+  const newer = archive(); newer.history.rows[0].at = 2000;
+  const race = await Promise.all([call('POST', { revision: 1, archives: [older] }), call('POST', { revision: 1, archives: [newer] })]);
+  assert.deepEqual(race.map(r => r.status).sort(), [200, 409]);
+  const retry = await call('POST', { revision: 2, archives: [newer, older] });
+  assert.equal(retry.status, 200); assert.equal(retry.result.archives[0].history.rows.length, 3);
+  assert.equal((await call('PUT', { revision: 3, data: { musicFavorites: ['other-device'] } })).status, 200);
+  assert.equal((await call('GET')).result.archives[0].history.rows.length, 3, 'snapshot choice cannot clear the archive');
+  const partial = await call('POST', { revision: 4, archives: [archive()] });
+  assert.equal(partial.result.archives[0].history.rows.length, 3, 'partial overlap cannot shrink a ten-pull');
+  assert.equal((await call('POST', { revision: 5, archives: [{ ...archive(), history: { ...archive().history, token: 'PRIVATE' } }] })).status, 400);
+  assert.equal((await call('POST', { owner: 'other-user', revision: 5, archives: [archive()] })).status, 409);
+  const personalOff = await call('PATCH', { revision: 5, personalSync: false });
+  assert.deepEqual(personalOff.result.data, {}); assert.equal(personalOff.result.archives[0].history.rows.length, 3);
+  assert.equal((await call('PUT', { revision: 6, data: { musicFavorites: ['forbidden'] } })).status, 400);
+  const revoked = await call('PATCH', { revision: 6, historySync: false });
+  assert.deepEqual(revoked.result.archives, []);
+  assert.equal(sqlite.prepare('SELECT count(*) AS n FROM pull_archive_row').get()?.n, 0);
+  assert.equal((await call('POST', { revision: 6, archives: [older] })).status, 409, 'stale device cannot resurrect a deletion');
+  assert.equal((await call('POST', { revision: 7, archives: [older] })).status, 403);
+  const oldTab = await call('PATCH', { revision: 7, gameSync: true });
+  assert.equal(oldTab.result.historySync, true, 'old combined choice included history');
+  const oldUpload = await call('PUT', { revision: 8, data: { arkpediaAccount: { ...account, profile: { uid: '123' }, pulls: older.history } } });
+  assert.equal(oldUpload.status, 200); assert.equal(oldUpload.result.archives[0].history.rows.length, 2);
+  assert.equal(oldUpload.result.data.arkpediaAccount.pulls, undefined, 'history is never left in a replaceable snapshot');
+  const newTab = await call('PATCH', { revision: 9, savingVersion: 2, gameSync: false });
+  assert.equal(newTab.result.historySync, true); assert.equal(newTab.result.archives[0].history.rows.length, 2);
+  const oldRevoke = await call('PATCH', { revision: 10, gameSync: false });
+  assert.equal(oldRevoke.result.historySync, false); assert.deepEqual(oldRevoke.result.archives, []);
+  await call('PATCH', { revision: 11, historySync: true });
+  await call('POST', { revision: 12, archives: [older] });
+  assert.equal((await call('DELETE', { revision: 13 })).status, 200);
+  assert.equal(sqlite.prepare('SELECT count(*) AS n FROM pull_archive_account').get()?.n, 0);
+  assert.equal((await call('GET')).result.paused, true);
+  // Simulate the old Worker serving an import during the migration/deployment window.
+  const rolloutPayload = JSON.stringify({ arkpediaAccount: { ...account, profile: { uid: '123' }, pulls: older.history } });
+  sqlite.prepare('UPDATE cloud_save SET payload = ?, gameSync = 1, paused = 0, revision = revision + 1 WHERE userId = ?').run(rolloutPayload, user.id);
+  const bridged = await call('GET');
+  assert.equal(bridged.status, 200); assert.equal(bridged.result.historySync, true);
+  assert.equal(bridged.result.archives[0].history.rows.length, 2);
+  assert.equal(bridged.result.data.arkpediaAccount.pulls, undefined);
+  sqlite.prepare('UPDATE cloud_save SET payload = ?, gameSync = 0, revision = revision + 1 WHERE userId = ?').run('{}', user.id);
+  assert.equal(sqlite.prepare('SELECT count(*) AS n FROM pull_archive_account').get()?.n, 0, 'old Worker consent withdrawal removes its combined history too');
+  assert.equal((await call('GET')).result.historySync, false);
   sqlite.close();
 });
 

@@ -1,6 +1,7 @@
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
 import { readOnly } from './census-routes';
 import { markDocument, sameDocument, startMusic, stubYouTube, youtube } from './youtube-stub';
+import { mergePullArchives, type PullArchive } from '@/lib/account/pullArchive';
 
 const profile = { username: 'Doctor#1234', friendTag: null as string | null, friendServer: null as string | null };
 async function mockAccount(page: Page, firstTime = false, data: Record<string, unknown> = {}) {
@@ -8,8 +9,8 @@ async function mockAccount(page: Page, firstTime = false, data: Record<string, u
   const state = {
     remote: { user: { id: 'test-user', name: 'PRIVATE REAL GOOGLE NAME' }, profile: firstTime ? null : { ...profile },
       linkedProviders: ['google'], linkedAccounts: [{ id: 'google-id', providerId: 'google' }],
-      revision: 0, gameSync: false, paused: false, data, providers: ['google', 'discord'] },
-    signedIn: true, uploads: [] as string[], profileWrites: [] as Record<string, unknown>[], deletes: 0,
+      revision: 0, gameSync: false, personalSync: true, historySync: false, archives: [] as PullArchive[], paused: false, data, providers: ['google', 'discord'] },
+    signedIn: true, uploads: [] as string[], archiveWrites: [] as string[], profileWrites: [] as Record<string, unknown>[], deletes: 0,
   };
   await page.route('**/api/cloud-account', async route => {
     if (!state.signedIn) return route.fulfill({ status: 401, json: { providers: ['google', 'discord'] } });
@@ -18,8 +19,14 @@ async function mockAccount(page: Page, firstTime = false, data: Record<string, u
     const input = request.postDataJSON();
     if (input.owner !== remote.user.id || input.revision !== remote.revision) return route.fulfill({ status: 409, json: { error: 'Cloud save changed.' } });
     if (request.method() === 'PUT') { state.uploads.push(request.postData()!); remote.data = input.data; remote.paused = false; }
-    if (request.method() === 'PATCH') { remote.gameSync = input.gameSync; if (!remote.gameSync) delete remote.data.arkpediaAccount; }
-    if (request.method() === 'DELETE') { state.deletes++; remote.data = {}; remote.gameSync = false; remote.paused = true; }
+    if (request.method() === 'POST') { state.archiveWrites.push(request.postData()!); remote.archives = mergePullArchives(remote.archives, input.archives).map(archive => ({ ...archive, savedAt: '2026-10-24T12:01:00Z' })); }
+    if (request.method() === 'PATCH') {
+      for (const key of ['gameSync', 'historySync', 'personalSync'] as const) if (input[key] !== undefined) remote[key] = input[key];
+      if (!remote.gameSync) delete remote.data.arkpediaAccount;
+      if (!remote.historySync) remote.archives = [];
+      if (!remote.personalSync) for (const key of Object.keys(remote.data)) if (key !== 'arkpediaAccount') delete remote.data[key];
+    }
+    if (request.method() === 'DELETE') { state.deletes++; remote.data = {}; remote.gameSync = false; remote.historySync = false; remote.archives = []; remote.paused = true; }
     remote.revision++;
     await route.fulfill({ json: remote });
   });
@@ -49,6 +56,51 @@ async function capture(page: Page, name: string, info: TestInfo) {
 }
 
 for (const theme of ['dark', 'light']) {
+  test(`pull archive saves independently and survives choosing another device's snapshot (${theme})`, async ({ page }, info) => {
+    const state = await mockAccount(page, false, { musicFavorites: ['msr:cloud'] }); await seed(page, theme);
+    const history = { rows: [{ at: 1750000000, pool: 'pool1', char: 'char_002_amiya', star: 5 }], pools: { pool1: 'Archive fixture' }, names: {}, readAt: '2026-10-24T12:00:00Z', error: null };
+    await page.addInitScript(history => {
+      const record = JSON.parse(localStorage.getItem('arkpediaAccount')!); record.profile = { uid: '123' }; record.pulls = history;
+      localStorage.setItem('arkpediaAccount', JSON.stringify(record));
+    }, history);
+    state.remote.revision = 8; state.remote.historySync = true; state.remote.data.theme = theme;
+    state.remote.archives = [{ server: 'en', uid: '123', doctor: 'Doctor#1234', history: { ...history, rows: [{ ...history.rows[0], at: 1792800000 }] } }];
+    await page.goto('/account');
+    await expect(page.getByRole('button', { name: 'Use cloud data' })).toBeVisible();
+    await expect.poll(() => state.remote.archives[0].history.rows.length).toBe(2);
+    expect(state.remote.gameSync).toBe(false); expect(state.remote.data).not.toHaveProperty('arkpediaAccount');
+    expect(state.archiveWrites.join('')).not.toContain('PRIVATE-YOSTAR-TOKEN');
+    expect(state.archiveWrites.join('')).not.toContain('operators');
+    await page.getByRole('button', { name: 'Use cloud data' }).click();
+    await expect(page.getByRole('button', { name: 'Save now' })).toBeVisible();
+    await expect(page.getByText('2 pulls archived', { exact: false })).toBeVisible();
+    await expect(page.getByText('2 pulls saved to cloud', { exact: false })).toBeVisible();
+    await expect(page.getByText('Last saved to cloud', { exact: false })).toBeVisible();
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem('arkpediaPullArchives')!)[0].history.rows.length)).toBe(2);
+    expect(await page.evaluate(() => localStorage.getItem('musicFavorites'))).toBe('["msr:cloud"]');
+    await capture(page, `archive-${theme}`, info);
+    await page.getByRole('button', { name: 'Account settings' }).click();
+    const settings = page.getByRole('dialog', { name: 'Account settings' });
+    await settings.getByRole('tab', { name: 'Saving', exact: true }).click();
+    await expect(settings.getByRole('checkbox', { name: 'Save personal settings and plans' })).toBeChecked();
+    await expect(settings.getByRole('checkbox', { name: 'Save imported game data to my Arkpedia account' })).not.toBeChecked();
+    const historyToggle = settings.getByRole('checkbox', { name: 'Save pull history archive' });
+    await expect(historyToggle).toBeChecked(); await capture(page, `archive-saving-${theme}`, info);
+    await historyToggle.click();
+    await page.getByRole('dialog', { name: 'Delete cloud pull archive?', exact: true }).getByRole('button', { name: 'Delete cloud pull archive', exact: true }).click();
+    await expect(historyToggle).not.toBeChecked();
+    expect(state.remote.archives).toHaveLength(0);
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem('arkpediaPullArchives')!)[0].history.rows.length)).toBe(2);
+    expect(state.remote.data.musicFavorites).toEqual(['msr:cloud']);
+    await settings.getByRole('checkbox', { name: 'Save personal settings and plans' }).click();
+    await page.getByRole('dialog', { name: 'Stop saving personal data?', exact: true }).getByRole('button', { name: 'Stop saving personal data', exact: true }).click();
+    await expect(settings.getByRole('checkbox', { name: 'Save personal settings and plans' })).not.toBeChecked();
+    expect(state.remote.data).toEqual({});
+    await historyToggle.check();
+    await expect.poll(() => state.remote.archives[0]?.history.rows.length).toBe(2);
+    expect(state.remote.gameSync).toBe(false); expect(state.remote.personalSync).toBe(false);
+  });
+
   test(`data menus separate imports, backups and browser clearing (${theme})`, async ({ page }, info) => {
     await mockAccount(page); await seed(page, theme);
     await page.goto('/account'); await expect(page.getByRole('button', { name: 'Save now' })).toBeVisible();
@@ -148,6 +200,26 @@ for (const theme of ['dark', 'light']) {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   });
 }
+
+test('choosing cloud after switching Arkpedia accounts keeps foreign browser history private on later syncs', async ({ page }) => {
+  const state = await mockAccount(page); await seed(page, 'dark');
+  state.remote.historySync = true; state.remote.revision = 8;
+  await page.addInitScript(() => {
+    const account = JSON.parse(localStorage.getItem('arkpediaAccount')!);
+    account.profile = { uid: '123' }; account.pulls = { rows: [{ at: 1750000000, pool: 'p', char: 'char_002_amiya', star: 5 }], pools: {}, names: {}, readAt: null, error: null };
+    localStorage.setItem('arkpediaAccount', JSON.stringify(account));
+    localStorage.setItem('arkpedia:cloud-sync-v1', JSON.stringify({ userId: 'previous-user', revision: 3, fingerprint: '{}' }));
+  });
+  await page.goto('/account');
+  await expect(page.getByRole('button', { name: 'Use cloud data' })).toBeVisible();
+  expect(state.archiveWrites).toHaveLength(0);
+  await page.getByRole('button', { name: 'Use cloud data' }).click();
+  await expect(page.getByRole('button', { name: 'Save now' })).toBeVisible();
+  await page.getByRole('button', { name: 'Save now' }).click();
+  await expect(page.getByRole('button', { name: 'Save now' })).toBeVisible();
+  expect(state.archiveWrites).toHaveLength(0); expect(state.remote.archives).toHaveLength(0);
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('arkpediaPullArchives')!)[0].history.rows.length)).toBe(1);
+});
 
 test('a new device restores existing saves without a redundant copy choice', async ({ page }) => {
   const state = await mockAccount(page, false, { musicFavorites: ['msr:cloud'] }); state.remote.revision = 7;

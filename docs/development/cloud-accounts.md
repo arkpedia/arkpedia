@@ -5,6 +5,45 @@ This implementation is for the Cloudflare deployment only. It uses Better Auth
 that binding show accounts as unavailable and keep browser-only features working.
 The existing R2 bucket remains a page/audio cache, never an account database.
 
+## Independent saving and the pull archive
+
+Saving has three independent categories: personal settings/plans (on by default),
+pull history (opt-in), and imported game snapshots (opt-in). Disabling a category
+requires confirmation and removes that category's active cloud data; browser data
+stays. Disabling game snapshots does not revoke history, or vice versa. Deleting
+all cloud saves also deletes the archive and pauses saving on every device.
+
+Migration `0003_pull_archives.sql` preserves existing consent: accounts that had
+enabled full game saving retain history saving. It copies their existing pulls
+into `pull_archive_account` / `pull_archive_row` before snapshots can be replaced.
+Old records without a UID remain in a separate legacy archive for their server.
+Known UIDs and servers are isolated; Arkpedia's user ID owns every cloud row.
+
+Pull archives are separate from the 900 KB replaceable snapshot. Uploads send
+small batches and only unknown draw multiplicities. The server keeps the maximum
+known number of each operator at each timestamp/banner, so duplicate operators
+inside a ten-pull survive but overlapping imports do not grow it. A partial batch
+cannot shrink a previously archived one. Original order within a timestamp may
+be unavailable. The browser's history parser permits 500,000 rows and refuses an
+oversized import explicitly instead of truncating older rows.
+
+`POST /api/cloud-account` merges archive batches without replacing settings or
+roster data. A D1 transaction combines the revision CAS with archive upserts; a
+unique mutation ID guards every statement so a losing writer cannot mutate an
+archive or resurrect a consent deletion. Concurrent clients refetch and retry.
+Archives are merged before snapshot choices and restored by union, so selecting
+cloud settings preserves older browser pulls. Browser ownership markers prevent
+silently uploading another Arkpedia account's history after switching logins.
+New clients send `savingVersion: 2` for independent consent controls. Existing open
+tabs keep their original combined game/history consent behavior, and histories
+inside their snapshot uploads are extracted into the archive before projection.
+
+The account page shows archive count, oldest retained pull, last import and last
+cloud save, and can display history without a synced game snapshot. Reimport
+before Yostar's rolling 90-day window expires: Arkpedia does not recover already
+expired pulls or fetch them on the server. CSV and full backups include retained
+history. No Yostar email, code, token, device ID or import-error text is uploaded.
+
 ## Usernames and first-time setup
 
 After Google/Discord authentication, accounts without an `arkpedia_profile` choose
