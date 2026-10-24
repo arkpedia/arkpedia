@@ -3,7 +3,6 @@ import { defaultContentRevalidate } from './revalidation';
 import { REGIONAL_ROUTES, missingPageTables, pageTables } from './tables.mjs';
 import { operatorPageRoute } from '../operators/operatorPagePaths';
 import { loadRelease, readPageProps } from './release';
-export { contentChannel } from './release';
 import type { GetStaticProps, GetStaticPropsContext, GetStaticPropsResult, Redirect } from 'next';
 import { contentRoute } from './types';
 import renamedRoutes from '../../config/renamed-routes.json';
