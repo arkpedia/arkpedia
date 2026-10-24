@@ -23,7 +23,7 @@ test('account changes keep authentication and music-continuity browser evidence'
   assert.equal(plan(['lib/cloud-account/client.ts'], { specs: specs.filter(file => !file.includes('cloud-accounts')) }).lane, 'full');
 });
 test('shared shell, style, build and CI policy changes require the whole suite', () => {
-  for (const file of ['pages/_app.tsx', 'styles/core/shared.css', 'components/ui/Button.tsx', 'components/layout/Sitenav.tsx', 'package-lock.json', 'scripts/build/site.mjs', 'scripts/ci/browser-plan.mjs']) assert.equal(plan([file]).lane, 'full', file);
+  for (const file of ['pages/_app.tsx', 'styles/core/shared.css', 'styles/story/map.css', 'components/ui/Button.tsx', 'components/layout/Sitenav.tsx', 'package-lock.json', 'scripts/build/site.mjs', 'scripts/ci/browser-plan.mjs']) assert.equal(plan([file]).lane, 'full', file);
 });
 test('only proved-unread tooling and documentation may omit browser work', () => {
   assert.equal(plan(['scripts/imports/example.py']).lane, 'none');

@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { relevantFiles, references, resolve } from './browser-relevant.mjs';
+import { coveragePlan } from './browser-coverage.mjs';
 
 const CORE = ['nav-bar.spec.ts', 'mobile-touch-nav.spec.ts', 'navigation-continuity.spec.ts'];
 const FAMILIES = [
@@ -59,6 +60,9 @@ export function browserPlan({ changes, specs, relevant, dependencies, baselineVe
     }
     const family = FAMILIES.find(item => item.code.test(file));
     if (family) {
+      // Feature styles enter one global cascade; the JS reference graph cannot
+      // prove selectors, variables or @imports stay inside this feature.
+      if (file.endsWith('.css')) return full(`Global CSS cascade: ${file}`);
       if (!/\.(?:[cm]?[jt]sx?|css)$/.test(file)) return full(`Unclassified feature input format: ${file}`);
       if (!(dependencies?.consumers instanceof Map) || !(dependencies.effects instanceof Set) || dependencies.unreadable?.length) return full('Runtime dependency inventory is unavailable or incomplete');
       const visited = new Set([file]);
@@ -104,7 +108,9 @@ function main() {
   const relevant = relevantFiles(files, read);
   const dependencies = dependencyIndex(files, read);
   const plan = browserPlan({ changes, specs: [...files].filter(file => /^tests\/browser\/.*\.spec\.ts$/.test(file)), relevant, dependencies, baselineVerified: argv.includes('--assume-green-base'), forceFull: argv.includes('--full') });
-  console.log(JSON.stringify({ mode: 'shadow-only', base: git(['rev-parse', base]), ...plan }, null, 2));
+  const inventoryIndex = argv.indexOf('--inventory');
+  const coverage = inventoryIndex < 0 ? undefined : coveragePlan(plan, JSON.parse(fs.readFileSync(argv[inventoryIndex + 1], 'utf8').replace(/^\uFEFF/, '')));
+  console.log(JSON.stringify({ mode: 'shadow-only', base: git(['rev-parse', base]), tree: git(['rev-parse', 'HEAD^{tree}']), ...plan, coverage }, null, 2));
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   try { main(); } catch (error) { console.error(error.message); process.exitCode = 1; }

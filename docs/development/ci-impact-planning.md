@@ -84,3 +84,40 @@ This work is isolated in `E:/Projects/arkpedia-ci-migration`. The accounts owner
 continues in `E:/Projects/arkpedia`, and staging PR #739 is maintained separately in
 `E:/Projects/arkpedia-release-ux`. Accounts pilot deploys before staging rebases;
 new CI gate behavior will not be activated during that deployment.
+
+## Existing census selection
+
+`browser-coverage.mjs` consumes Playwright's actual `--list --reporter=json`
+inventory. For a targeted runtime family it adds that family's existing layout
+census routes and every registered query/state/theme/project case. It preserves
+the census's current assertions and tolerances. A spec-only plan with no runtime
+family includes the complete page census. Unknown census naming, missing route or
+project coverage, or a changed file inventory falls back to full. Collection errors
+and ambiguous test identities fail before emitting a usable list. Global CSS
+changes always retain full coverage: the JS import graph does not prove where a
+global selector or variable takes effect.
+
+The inventory and selected/omitted case identities have a SHA-256 fingerprint;
+`outcome: planned-only` and `reusableCheckProof: false` remain explicit. This is
+planned coverage, not evidence the cases executed. The full-census stale-entry
+audit is omitted from partial runs because it requires every page measurement;
+full runs retain it. Existing census cases that deliberately measure only one
+theme keep that scope; selecting them does not claim additional theme coverage.
+
+On the 94-spec shadow checkout, a StoryMapView simulation selected 38 of 1,679
+listed cases, including desktop/mobile story census cases. A second real
+Playwright collection using its supported `--test-list` returned exactly those
+38 identities, with no extra project dependency or completion-audit tests. This
+proves list selection, not browser execution or timing. Seventeen planner/coverage
+unit cases pass. Current main/PR/release CI remains unchanged.
+
+```sh
+npx playwright test --list --reporter=json > .cache/browser-inventory.json
+node scripts/ci/browser-plan.mjs --base origin/main --assume-green-base --inventory .cache/browser-inventory.json
+node --test scripts/tests/test-browser-plan.mjs scripts/tests/test-browser-coverage.mjs
+```
+
+The emitted `coverage.testList` uses Playwright's project/file/title format,
+relative to its configured test directory. Before activation, validate completed
+results against this exact list and trusted baseline; do not reuse the old
+full-tree Check artifact name for this partial evidence.
