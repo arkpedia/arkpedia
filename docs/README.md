@@ -1,8 +1,10 @@
 # Documentation
 
-- [System architecture](architecture.md): current delivery, relay, data and asset diagrams.
+- [System architecture](architecture.md): diagrams of website delivery, edge caching, relay imports, assets, data publication and releases.
 - [System simplification plan](development/system-simplification-plan.md) and [progress](development/system-simplification-progress.md): migration milestones and verified evidence.
 - [Cloudflare staging](development/cloudflare-staging.md): isolated feature-preview proof and commands.
+- [UX review](development/ux-review.md): complete journeys, state coverage and evidence required for UI changes.
+- [Release status](development/release-status.md): one read-only report for www, dev and Cloudflare.
 - [Repository map](repository-map.md): ownership, feature locations, and placement rules.
 - [Development setup](development/setup.md): local development, checks, and deployment.
 - [Design system](development/design-system.md): page patterns, cards versus lists, responsive behavior, and the site-wide route inventory. Start here for UI work.
@@ -13,6 +15,10 @@
 - [Data sources](development/data-sources.md): source repositories and provenance.
 - [Data catalogue](../data/README.md): game datasets and generated payloads.
 - [Scripts](../scripts/README.md): tooling directory map and commands.
+
+For the current Cloudflare pilot, run Worker-specific setup and staging commands
+from `cloudflare`. Those configurations have not yet been consolidated onto `main`;
+the architecture diagrams distinguish this from Vercel production.
 
 ## Feature references
 

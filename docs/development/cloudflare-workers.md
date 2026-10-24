@@ -132,6 +132,22 @@ A Worker built from `dev` reads `dev-live`, the release arkpedia-dev reads, and 
 `WORKERS_CI_BRANCH`, which Workers Builds sets. `ARKPEDIA_CONTENT_CHANNEL` as a build variable
 overrides it. Until 2026-10-22 the Worker built from dev read www's release.
 
+## Music audio addresses
+
+`/api/music-audio/<id>` redirects to Monster Siren's signed address for a song, which its API
+gives in about a second. Vercel's edge keeps that redirect for half an hour (its `s-maxage`).
+The Cloudflare front cache bypasses API routes, and Cloudflare's Cache API is unavailable
+on `*.workers.dev`. The route therefore keeps the address itself (`lib/music/audioLinkMemo.ts`):
+
+- in the isolate's memory, and in the page-cache bucket under `music-audio/<id>`, which every
+  isolate reads;
+- for at most half an hour, and never into the address's last ninety minutes. The expiry is the
+  Unix time in the address's path, three hours after it was given;
+- `?retry=` (the player's retry after the CDN refused a file) asks Monster Siren again and replaces
+  the kept address.
+
+The response header `X-Arkpedia-Audio-Link` says which happened: `kept`, `asked` or `retry`. Vercel
+sends no such header and keeps nothing of its own.
 ## The account-import relay
 
 The Worker's account import tunnels through a relay of its own on Cloudflare: the Worker

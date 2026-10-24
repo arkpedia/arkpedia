@@ -4,6 +4,10 @@ For any UI change, read `docs/development/design-system.md` and the relevant sec
 of `docs/development/ui-primitives.md`. Reuse shared primitives; put reusable paint in
 `styles/core/`, and keep feature styles focused on layout. Verify desktop/mobile and
 dark/light themes, including the populated/interactive states affected by the change.
+Follow `docs/development/ux-review.md` for the complete affected journey and report
+checks actually run in the PR. Before declaring a release live, use
+`npm run release:status` and verify the affected deployed browser journey; a merged
+PR or passing HTTP check alone does not prove the new behavior shipped.
 
 Normal feature pull requests target `dev`; Cloudflare-only work targets `cloudflare`.
 Production is `main`. Never use `dev` itself as the head of a release PR: merged head
