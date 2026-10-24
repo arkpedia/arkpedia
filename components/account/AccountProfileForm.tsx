@@ -72,8 +72,8 @@ export default function AccountProfileForm({ owner, profile, onSaved, onCancel, 
       </div>
     </details>
     {!profile && <p className="hint">{paused ? 'Cloud saving is paused. Choosing a username will not resume it.' : gameSync
-      ? 'Music, plans and preferences will save automatically. Imported game data also syncs because you previously enabled it.'
-      : 'Music, plans and preferences will save automatically. Imported game data stays in this browser until you opt in.'}</p>}
+      ? 'Your existing saving choices are kept. Control personal data, pull history and imported game snapshots separately in Account settings → Saving.'
+      : 'Personal settings and plans save by default. Pull history and imported game snapshots each need a separate opt-in under Account settings → Saving.'}</p>}
     {error && <p role="alert" className="notice notice-danger">{error}</p>}
     <div className={styles.actions}><button type="submit" className="primary btn-sm" disabled={saving || availability !== 'available'}>
       {saving ? 'Saving…' : profile ? 'Save profile' : 'Finish setup'}</button>
