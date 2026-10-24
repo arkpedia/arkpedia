@@ -86,11 +86,17 @@ test('Next type validation stays enabled outside Check; lint remains an explicit
 
 test('the browser suite samples the runner meanwhile, and still fails when it fails', () => {
   // All three workers stalled together on the NAS (2026-10-22): scripts/ci/sample-resources.sh.
-  const step = workflow('check').jobs.check.steps.find(entry => entry.name === 'Desktop and mobile browser regressions');
-  assert.match(step.run, /bash scripts\/ci\/sample-resources\.sh "\$RUNNER_TEMP\/resources\.log" &/);
-  assert.match(step.run, /npm run test:browser \|\| status=\$\?/);
-  assert.match(step.run, /--report "\$RUNNER_TEMP\/resources\.log" "\$status"/);
-  assert.match(step.run.trim(), /exit "\$status"$/, 'the suite\'s own result is the step\'s');
+  for (const [name, command] of [
+    ['Desktop and mobile browser regressions', 'npm run test:browser -- --reporter=list,json'],
+    ['Selected browser regressions', 'npm run test:browser -- --test-list .cache/browser-test-list.txt --reporter=list,json'],
+  ]) {
+    const step = workflow('check').jobs.check.steps.find(entry => entry.name === name);
+    assert.match(step.run, /bash scripts\/ci\/sample-resources\.sh "\$RUNNER_TEMP\/resources\.log" &/);
+    assert.ok(step.run.includes(`${command} || status=$?`), `${name} preserves its own failure status`);
+    assert.match(step.run, /--report "\$RUNNER_TEMP\/resources\.log" "\$status"/);
+    assert.match(step.run.trim(), /exit "\$status"$/, 'the suite\'s own result is the step\'s');
+    assert.equal(step.env.PLAYWRIGHT_JSON_OUTPUT_FILE, '.cache/browser-results.json');
+  }
   const report = spawnSync('bash', ['scripts/ci/sample-resources.sh', '--report', '/nonexistent/resources.log', '1'], { encoding: 'utf8' });
   assert.equal(report.status, 0, 'a missing log never fails the step by itself');
 });
