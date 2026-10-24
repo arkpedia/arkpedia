@@ -177,7 +177,7 @@ test('workflow orchestration uses trusted main, explicit downstream dispatch and
   const parsedCheck = yaml.load(check);
   assert.equal(parsedCheck.on.workflow_dispatch.inputs.reuse_pr_check.type, 'boolean');
   assert.equal(parsedCheck.on.workflow_dispatch.inputs.reuse_pr_check.default, false, 'manual checks remain full by default');
-  assert.match(parsedCheck.jobs.seen.if, /github\.event_name == 'workflow_dispatch' && inputs\.reuse_pr_check && startsWith\(github\.ref, 'refs\/heads\/sync\/main-to-dev-'\)/, 'reuse opt-in is restricted to disposable integration branches');
+  assert.match(parsedCheck.jobs.seen.if, /github\.event_name == 'workflow_dispatch' && inputs\.reuse_pr_check == true && startsWith\(github\.ref, 'refs\/heads\/sync\/main-to-dev-'\)/, 'reuse opt-in is restricted to disposable integration branches');
   assert.match(check, /notify-sync:\s+needs: check/);
   assert.match(check, /github\.event_name == 'workflow_dispatch' && startsWith\(github\.ref, 'refs\/heads\/sync\/main-to-dev-'/);
   assert.match(check, /-f checked_run="\$CHECKED_RUN"/);

@@ -37,7 +37,7 @@ jobs:
   # API failure runs the full Check. Manual rechecks default to full; automatic
   # integration sync explicitly opts in on its disposable branch only.
   seen:
-    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) || (github.event_name == 'workflow_dispatch' && inputs.reuse_pr_check && startsWith(github.ref, 'refs/heads/sync/main-to-dev-'))
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) || (github.event_name == 'workflow_dispatch' && inputs.reuse_pr_check == true && startsWith(github.ref, 'refs/heads/sync/main-to-dev-'))
     # A few seconds of API calls: on the light runner (ARKPEDIA_LIGHT_RUNNER, the VPS), so a
     # merge's push is not queued behind another pull request's whole Check on the NAS before
     # it can vouch and let Deploy start. Falls back to ARKPEDIA_RUNNER when unset.
