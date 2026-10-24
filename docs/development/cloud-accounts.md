@@ -5,6 +5,31 @@ This implementation is for the Cloudflare deployment only. It uses Better Auth
 that binding show accounts as unavailable and keep browser-only features working.
 The existing R2 bucket remains a page/audio cache, never an account database.
 
+## Usernames and first-time setup
+
+After Google/Discord authentication, accounts without an `arkpedia_profile` choose
+their own username once. Existing identities, linked providers and saves retain
+their user IDs. Migration `0002_account_profiles.sql` removes provider names/photos
+from the identity display fields without removing accounts or saves; new OAuth
+users also start with a neutral identity name. Only the chosen profile name is
+returned by the cloud-save API.
+
+Usernames support 3–40 normalized Unicode characters, optional numeric #tags, and
+case-insensitive uniqueness enforced by D1. Availability checks require login;
+concurrent claims are settled by the unique index, not the browser's last check.
+An imported Doctor name is a suggestion that the user must explicitly choose.
+The optional Arknights friend tag and server are stored separately, privately,
+only when submitted. They do not prove ownership or create a public profile and
+are independent of consent to sync an imported game snapshot.
+
+Account settings separates Profile, Saving, Logins and Delete data. Import / export
+separates Game import, Backups and Browser data. Forget Yostar login removes only
+the local remembered login. Clearing browser data first signs out of Arkpedia,
+then clears and reloads, so cloud data cannot immediately refill the reset browser.
+Deleting cloud saves persists a paused flag across devices/reloads; only an explicit
+resume uploads again. Account deletion checks the displayed owner, exact username
+confirmation and a recent provider login.
+
 Pilot provisioning on 2026-10-24: `arkpedia-accounts-dev`
 (`f7daff77-8e8f-4ec2-998b-97fb6e4b948f`, EU jurisdiction) is already configured in
 Wrangler, and `0001_accounts.sql` has been applied to the remote database. The
@@ -117,16 +142,18 @@ No deployment to `main` or Vercel is required.
 On the pilot's `/account` page:
 
 1. Export current browser data through Import / export.
-2. Sign in with Google. Choose **Use this browser’s data** to seed the cloud save.
+2. Sign in with Google and choose a username. Accept the imported Doctor-name
+   suggestion or enter another available name. Existing saves and login links stay.
 3. Change a music like or skin wishlist. Leave the tab open for at least 15 seconds,
    or use **Save now** on the account page. Check another browser, sign in, and
-   choose **Use cloud data**. This is an explicit replacement, not an automatic merge.
-4. While signed in, link Discord. Sign out, then sign in with Discord: the same
+   check that the cloud copy restores automatically on an empty device. If both
+   locations already have different saved work, choose which copy to keep explicitly.
+4. Under **Account settings → Logins**, link Discord. Sign out, then sign in with Discord: the same
    Arkpedia account and saves should appear. Same-email sign-ins are never implicitly
    linked; a new provider must be linked from the existing account.
 5. Import from Yostar with game-data storage off. In D1's `cloud_save` table, the
    payload must not contain the account snapshot, roster, depot or credentials.
-6. Enable **Save imported game data**, then choose this browser. Check the supported
+6. Under **Account settings → Saving**, enable **Save imported game data**. Check the supported
    snapshot appears on another device. Disable it; the active database snapshot
    loses optional game data and imported starting values.
 7. Edit on two devices. The second stale write must ask which copy to keep rather
@@ -160,11 +187,13 @@ data and never sign into Yostar, Google or Discord as a real user.
 - Sync runs every 15 seconds in a visible tab, on focus, or on **Save now**. It is
   not a background Yostar import. Closing before a save finishes can leave recent
   changes only in that browser; export remains available.
-- Initial sign-in/new devices, changed remote revisions, and consent changes ask
-  which copy to use. There is no automatic destructive merge. A cloud restore refreshes
+- New empty accounts save their browser's personal data after username setup. Fresh
+  devices restore cloud data automatically. Matching copies and remote-only changes
+  need no prompt; divergent saved work or changing browser owners requires a choice.
+  There is no automatic destructive merge. A cloud restore refreshes
   page state in place, notifies data/settings readers and keeps the music player alive.
-- Logout preserves browser data. “Forget everything” clears browser data, not the
-  cloud account. **Delete cloud saves** clears remote saves and pauses automatic
+- Logout preserves browser data and its owner marker. **Clear browser data** signs out
+  and clears browser data, keeping the cloud account. **Delete cloud saves** clears remote saves and pauses automatic
   re-upload; **Delete Arkpedia account** removes the user and cascades through linked
   identities, sessions and saves. Account deletion requires a recent provider login.
 - Database recovery backups may retain deleted records until their retention ends.

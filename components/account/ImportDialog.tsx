@@ -17,7 +17,7 @@ export default function ImportDialog({ title, children, onClose, className }: { 
     return () => { document.body.style.overflow = overflow; previous?.focus(); };
   }, []);
   return (
-    <dialog ref={ref} className={`account-dialog${className ? ` ${className}` : ''}`} aria-labelledby="account-dialog-title" onCancel={onClose} onClick={(event) => {
+    <dialog ref={ref} className={`account-dialog${className ? ` ${className}` : ''}`} aria-labelledby="account-dialog-title" onCancel={event => { event.preventDefault(); onClose(); }} onClick={(event) => {
       if (event.target !== event.currentTarget) return;
       const box = event.currentTarget.getBoundingClientRect();
       if (event.clientX < box.left || event.clientX > box.right || event.clientY < box.top || event.clientY > box.bottom) onClose();

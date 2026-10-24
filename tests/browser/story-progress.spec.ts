@@ -100,6 +100,7 @@ test('Export everything downloads exactly three files and the ZIP restores them 
     localStorage.setItem('musicFavorites', '["abcdefghijk"]');
   });
   await page.getByRole('button', { name: 'Import / export', exact: true }).click();
+  await page.getByRole('tab', { name: 'Backups', exact: true }).click();
   const download = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Export everything', exact: true }).click();
   const saved = await download;
