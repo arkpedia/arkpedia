@@ -306,3 +306,21 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           node scripts/content/alert-issue.mjs close --alert check-failing-main --title 'Check failing on main' --comment "Green again at ${GITHUB_SHA:0:12}: $RUN_URL"
+
+  # Runs started with GITHUB_TOKEN do not reliably emit another workflow_run event.
+  # Explicit dispatch is supported by that token. Keep write access out of the test job:
+  # this small notifier only sends its run ID; trusted main fetches and validates the result.
+  notify-sync:
+    needs: check
+    if: ${{ always() && github.event_name == 'workflow_dispatch' && startsWith(github.ref, 'refs/heads/sync/main-to-dev-') }}
+    runs-on: ${{ vars.ARKPEDIA_LIGHT_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 5
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - name: Resume the production sync with this Check result
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CHECKED_RUN: ${{ github.run_id }}
+        run: gh workflow run sync-main.yml --repo "$GITHUB_REPOSITORY" --ref main -f checked_run="$CHECKED_RUN"
