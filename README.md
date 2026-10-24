@@ -24,6 +24,8 @@ Both are listed in `config/production.json`. Vercel's own Git deployments are sw
 2. **Merge into `dev`** once Check is green. The dev site deploys that commit.
 3. **Release to `main`** from a throwaway `release/*` branch cut from `dev`, in a pull request into `main`. Never open a pull request from `dev` itself: the repository deletes merged head branches, and that would delete `dev`. A green Check on `main` deploys www.arkpedia.net.
 
+After a selective production release (cherry-picked onto `main` to leave unreleased framework or URL changes on `dev`), reconcile `main` back into `dev` through a temporary sync branch. Audit the tree differences, bring across any missing production fixes and release notes, and preserve deliberate dev-only changes. Merge that sync PR with a **merge commit**, not squash or rebase: its ancestry is what records that dev contains the production release. The existing sync workflow then merges dev into `cloudflare`, preserving its Worker-specific work. Do not use `main` or `dev` itself as the sync PR's head.
+
 Branch protection is not available on this plan, so the rule is a convention: merge only after Check passes. A change to nothing but `docs/**` or Markdown skips Check and deploys nothing (`config/docs-only-paths.json`).
 
 ## Game data and media: no redeploy
