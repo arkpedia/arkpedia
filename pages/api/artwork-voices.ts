@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import type { OperatorVoiceData } from '@/lib/operators/operatorVoices';
 import { contentRoute } from '@/lib/content/types';
-import { readPublishedContentPageProps } from '@/lib/content/server';
+import { readPublishedContentPageProps } from '@/lib/content/release';
 import { clipUrl, hasRecording } from '@/lib/operators/voiceRecording.mjs';
 
 /** Only the outfit's CN recordings: its controller's choreography is timed to those lines. */
@@ -13,7 +13,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   let data: OperatorVoiceData | null | undefined;
   try { data = (await readPublishedContentPageProps<{ voiceData?: OperatorVoiceData }>(contentRoute('/operators/[name]', { name: operator })))?.voiceData; }
   catch { if (process.env.NODE_ENV !== 'development') return res.status(503).end(); }
-  if (!data && process.env.NODE_ENV === 'development') {
+  if (process.env.NODE_ENV === 'development' && !data) {
     const { getOperatorByName } = await import('@/lib/operators/operators');
     const { getOperatorVoiceData } = await import('@/lib/operators/operatorVoices');
     data = getOperatorVoiceData(getOperatorByName(operator)?.internalName);

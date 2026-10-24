@@ -11,7 +11,8 @@ export function createPublicNetworkReader(fetcher: typeof fetch = fetch, now = D
     if (running) return running;
     const loading = (async () => {
       const response = await fetcher(SERVERS[server].networkConfig, {
-        headers: { Accept: 'application/json' }, credentials: 'omit', redirect: 'error',
+        // Workers reject credentials and redirect:error; a manual 3xx still fails !ok.
+        headers: { Accept: 'application/json' }, redirect: 'manual',
         cache: 'no-store', signal: AbortSignal.timeout(8000),
       });
       if (!response.ok) throw new Error('Public server list unavailable');
