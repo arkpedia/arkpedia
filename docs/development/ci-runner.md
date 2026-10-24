@@ -117,7 +117,9 @@ a changed file or changed integration result requires its own Check. The proof m
 come from this repository's Check workflow, with a matching unexpired artifact and
 a successful completed run from this repository. PR reuse also requires the same
 target branch; unknown base metadata runs the full Check. Missing or unreadable evidence
-runs the full Check. Forks and explicit manual rechecks always run it. Only full
+runs the full Check. Forks and normal manual rechecks always run it. Automatic branch
+integration explicitly opts in to the same exact-tree lookup on its disposable
+`sync/main-to-dev-*` branch; other branches cannot enable that manual opt-in. Only full
 checks record artifacts; a reused result cannot create a new proof chain.
 
 Check runs application regressions and `npm run test:py` concurrently in one step;
@@ -135,8 +137,9 @@ retain their lifecycle scripts and Next validation, including manual deployments
 
 The bundled-data build and the live-content build prove different contracts; keep
 both. The browser suite still runs desktop and mobile unless the existing
-input-graph/green-base guard proves the change irrelevant. A manual Check always
-runs it. Content preparation's data tests and publication checks are also separate
+input-graph/green-base guard proves the change irrelevant. A normal manual Check always
+runs it; an automatic integration may instead reuse a completed exact-tree PR Check.
+Content preparation's data tests and publication checks are also separate
 from code checks: new source records can fail even when the app code is unchanged.
 
 Check, Deploy and Prepare content release restore the remote npm cache only on
@@ -156,3 +159,22 @@ existing typecheck rather than adding another compiler pass. Shared .mjs declara
 twins have export/parameter-count checks, and a test inventory covers every suite.
 The editorial watcher's deterministic regressions run in npm test instead of on every
 ten-minute poll. `npm run check:local` is the non-build/non-browser local entrypoint.
+
+## Draft feedback and release checks
+
+Same-repository draft PRs run application/Python regressions, generated inputs,
+types, lint, style and code-graph checks. They do not build the website, run browsers
+or create a reusable full-tree Check artifact. Marking the PR ready for review
+triggers the readiness profile with proportional browser coverage; forks and
+manual checks retain full coverage.
+GitHub prevents merging a draft. A passing draft job is development feedback only.
+
+The quick job uses the existing heavy runner pool and dependency-isolation rules;
+it does not occupy the dedicated deployment runner or move unit work onto the light
+metadata pool. Queue time is still subject to active full jobs. Measure the actual
+profile before claiming a speedup. The [browser coverage policy](ci-impact-planning.md)
+selects existing core/family/census cases for narrow changes and records actual
+selected/omitted coverage. Shared or unknown inputs retain full coverage. Partial
+evidence has its own artifact and cannot masquerade as a full baseline. Normal
+manual checks remain full; exact-tree sync reuse must validate completed PR proof
+and any recorded full baseline.

@@ -17,8 +17,14 @@
  * Prints `checked=true|false` for $GITHUB_OUTPUT; the reason goes to stderr.
  */
 import { execFileSync } from 'node:child_process';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { ARTIFACT_PREFIX, POLICY_ARTIFACT_PREFIX, POLICY_FILES, policyFingerprint, validateBrowserEvidence } from './browser-evidence.mjs';
+import { hydrateProofPullRequest, revalidateFullBaseline } from './browser-baseline.mjs';
 
-export const ARTIFACT_PREFIX = 'checked-tree-';
+export { ARTIFACT_PREFIX } from './browser-evidence.mjs';
 
 /** The run among `runs` that vouches for `tree`, or null. `artifacts` are those named for
  *  it; `runs` maps a run id to that run's API record. */
@@ -39,7 +45,58 @@ export function vouching(tree, artifacts, runs, repository, baseRef) {
 }
 
 function api(path) {
-  return JSON.parse(execFileSync('gh', ['api', path], { encoding: 'utf8' }));
+  return JSON.parse(execFileSync('gh', ['api', path], { encoding: 'utf8', maxBuffer: 16_000_000 }));
+}
+
+/** A policy artifact is partial coverage, never a legacy full-tree marker. */
+export function policyVouching({ tree, policySha256, artifact, run, jobs, record, repository, baseRef }) {
+  if (!artifact || artifact.expired !== false || artifact.name !== `${POLICY_ARTIFACT_PREFIX}${tree}-${policySha256}`
+    || !Number.isSafeInteger(artifact.id) || artifact.id < 1 || artifact.workflow_run?.id !== run?.id) return null;
+  if (!run || run.status !== 'completed' || run.conclusion !== 'success' || run.event !== 'pull_request'
+    || run.path !== '.github/workflows/check.yml' || run.repository?.full_name !== repository || run.head_repository?.full_name !== repository
+    || !Array.isArray(run.pull_requests) || run.pull_requests.length !== 1 || run.pull_requests[0].base?.ref !== baseRef) return null;
+  try { validateBrowserEvidence(record, { tree, policySha256, repository, baseRef, runId: run.id }); }
+  catch { return null; }
+  if (!['targeted', 'none'].includes(record.coverage.lane) || !Array.isArray(jobs)) return null;
+  const checks = jobs.filter(job => job.name === 'check');
+  if (checks.length !== 1) return null;
+  const job = checks[0];
+  if (job.status !== 'completed' || job.conclusion !== 'success' || job.run_id !== run.id
+    || !Number.isSafeInteger(job.id) || job.id < 1 || !Array.isArray(job.steps)) return null;
+  const step = name => { const matches = job.steps.filter(item => item.name === name); return matches.length === 1 ? matches[0] : null; };
+  const success = item => item?.status === 'completed' && item.conclusion === 'success';
+  const skipped = item => item?.status === 'completed' && item.conclusion === 'skipped';
+  if (!success(step('Validate browser execution evidence')) || !success(step('Record selected browser coverage'))) return null;
+  if (!skipped(step('Desktop and mobile browser regressions'))) return null;
+  const selected = step('Selected browser regressions');
+  if (record.coverage.lane === 'targeted' ? !success(selected) : !skipped(selected)) return null;
+  return record;
+}
+
+function downloadEvidence(run, artifact) {
+  const root = path.resolve(os.tmpdir());
+  const directory = fs.mkdtempSync(path.join(root, 'arkpedia-policy-proof-'));
+  try {
+    execFileSync('gh', ['run', 'download', String(run.id), '--repo', process.env.GITHUB_REPOSITORY,
+      '--name', artifact.name, '--dir', directory], { stdio: ['ignore', 'pipe', 'pipe'] });
+    const names = fs.readdirSync(directory);
+    if (names.length !== 1 || names[0] !== 'browser-evidence.json') throw new Error('Unexpected policy artifact contents');
+    const file = path.join(directory, names[0]);
+    const info = fs.lstatSync(file);
+    if (!info.isFile() || info.size > 5_000_000) throw new Error('Invalid policy evidence file');
+    return JSON.parse(fs.readFileSync(file, 'utf8'));
+  } finally {
+    const target = path.resolve(directory);
+    if (path.dirname(target) !== root || !path.basename(target).startsWith('arkpedia-policy-proof-')) throw new Error('Unsafe temporary proof path');
+    fs.rmSync(target, { recursive: true, force: true });
+  }
+}
+
+export function policyProofStillValid(record, head, { query = api } = {}) {
+  const baseline = revalidateFullBaseline(record.baseline, { query });
+  if (!baseline) return false;
+  const comparison = query(`repos/${record.repository}/compare/${baseline.commit}...${head}`);
+  return ['ahead', 'identical'].includes(comparison.status) && comparison.merge_base_commit?.sha === baseline.commit;
 }
 
 async function main() {
@@ -61,6 +118,29 @@ async function main() {
       console.log('checked=true');
       return;
     }
+    // Only current-policy, exact-tree, successful completed coverage may substitute.
+    const policySha256 = policyFingerprint(Object.fromEntries(POLICY_FILES.map(file => [file,
+      execFileSync('git', ['rev-parse', `HEAD:${file}`], { encoding: 'utf8' }).trim()])));
+    const target = process.env.GITHUB_BASE_REF || (process.env.GITHUB_EVENT_NAME === 'workflow_dispatch'
+      && process.env.GITHUB_REF_NAME?.startsWith('sync/main-to-dev-') ? 'dev' : process.env.GITHUB_REF_NAME);
+    const partial = api(`repos/${repository}/actions/artifacts?name=${POLICY_ARTIFACT_PREFIX}${tree}-${policySha256}&per_page=20`).artifacts ?? [];
+    for (const artifact of partial) {
+      if (artifact.expired !== false || !artifact.workflow_run?.id) continue;
+      const source = api(`repos/${repository}/actions/runs/${artifact.workflow_run.id}`);
+      if (source.status !== 'completed' || source.conclusion !== 'success' || source.event !== 'pull_request'
+        || source.repository?.full_name !== repository || source.head_repository?.full_name !== repository) continue;
+      const hydrated = hydrateProofPullRequest(source, { repository, baseRef: target, tree, query: api });
+      if (!hydrated) continue;
+      const response = api(`repos/${repository}/actions/runs/${source.id}/jobs?filter=latest&per_page=100`);
+      if (!Array.isArray(response.jobs) || response.total_count !== response.jobs.length) continue;
+      const record = downloadEvidence(source, artifact);
+      if (!policyVouching({ tree, policySha256, artifact, run: hydrated, jobs: response.jobs, record, repository, baseRef: target })) continue;
+      const head = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+      if (!policyProofStillValid(record, head)) continue;
+      console.error(`Tree ${tree.slice(0, 12)} passed ${record.coverage.lane} browser policy in run ${source.id}; full baseline ${record.baseline.runId}.`);
+      console.log('checked=true');
+      return;
+    }
     console.error(`No green pull request Check of tree ${tree.slice(0, 12)}; running the full Check.`);
   } catch (error) {
     console.error(`Could not look for an earlier Check (${String(error.message).split('\n')[0]}); running the full Check.`);
@@ -68,4 +148,4 @@ async function main() {
   console.log('checked=false');
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) main();
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main();

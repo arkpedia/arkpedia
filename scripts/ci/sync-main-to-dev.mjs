@@ -135,7 +135,7 @@ export function runtime(repo, { cwd = process.cwd(), request } = {}) {
       return { sha: git('rev-parse', 'HEAD') };
     },
     publish: (branch, head) => git('push', 'origin', `${head}:refs/heads/${branch}`),
-    check: branch => dispatch('check.yml', branch),
+    check: branch => dispatch('check.yml', branch, { reuse_pr_check: 'true' }),
     checkWorkflowId: () => api('actions/workflows/check.yml').id,
     run: id => api(`actions/runs/${id}`),
     advanceDev: head => api('git/refs/heads/dev', 'PATCH', { sha: head, force: false }),

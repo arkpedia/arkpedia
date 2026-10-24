@@ -180,15 +180,23 @@ test("pushes and same-repository PRs reuse only a successful exact-tree Check", 
   const workflow = load('check.yml') as unknown as { jobs: Record<string, Job & { needs?: unknown; outputs?: Record<string, string>; permissions?: Record<string, string> }> };
   const seen = workflow.jobs.seen;
   const check = workflow.jobs.check;
-  // Exercise the actual workflow condition: forks and explicit manual rechecks
-  // must never take the cache path. A matching tree is still required by the script.
-  const eligible = new Function('github', `return (${String(seen.if)});`) as (github: unknown) => boolean;
+  // Exercise the actual condition, including automatic integration's explicit
+  // opt-in. Ordinary manual checks and forks never take the cache path.
+  const evaluate = new Function('github', 'inputs', 'startsWith', `return (${String(seen.if)});`) as (github: unknown, inputs: unknown, startsWith: (value: string, prefix: string) => boolean) => boolean;
+  const eligible = (context: unknown, inputs = {}) => evaluate(context, inputs, (value, prefix) => typeof value === 'string' && value.startsWith(prefix));
   const github = (event_name: string, head = 'arkpedia/arkpedia') => ({ event_name, repository: 'arkpedia/arkpedia', event: { pull_request: { head: { repo: { full_name: head } } } } });
   assert.equal(eligible(github('push')), true);
   assert.equal(eligible(github('pull_request')), true);
   assert.equal(eligible(github('pull_request', 'someone/fork')), false);
   assert.equal(eligible(github('pull_request', '')), false);
   assert.equal(eligible(github('workflow_dispatch')), false);
+  const integration = { ...github('workflow_dispatch'), ref: 'refs/heads/sync/main-to-dev-example' };
+  assert.equal(eligible(integration), false, 'an integration can still be manually forced through the full suite');
+  assert.equal(eligible(integration, { reuse_pr_check: false }), false);
+  assert.equal(eligible(integration, { reuse_pr_check: true }), true);
+  assert.equal(eligible({ ...integration, ref: 'refs/heads/main' }, { reuse_pr_check: true }), false);
+  assert.equal(eligible({ ...integration, ref: 'refs/heads/feature' }, { reuse_pr_check: true }), false);
+  assert.equal(eligible({ ...github('pull_request', 'someone/fork'), ref: integration.ref }, { reuse_pr_check: true }), false);
   // Self-hosted like Check, never a hosted runner for our pushes: the light runner first (a few
   // seconds of API calls, so a merge does not queue behind a whole Check), then Check's own.
   assert.equal(String(seen['runs-on']), String(check['runs-on']).replace('vars.ARKPEDIA_RUNNER ||', 'vars.ARKPEDIA_LIGHT_RUNNER || vars.ARKPEDIA_RUNNER ||'),
@@ -198,13 +206,18 @@ test("pushes and same-repository PRs reuse only a successful exact-tree Check", 
   assert.ok(seen.steps!.some(step => step.run === 'node scripts/ci/already-checked.mjs >> "$GITHUB_OUTPUT"'));
   assert.equal(check.needs, 'seen');
   // A failed or skipped lookup still runs everything; only an explicit true skips.
-  assert.equal(String(check.if).replace(/\s+/g, ' '), "${{ !cancelled() && needs.seen.outputs.checked != 'true' }}");
+  assert.match(String(check.if), /!cancelled\(\) && needs\.seen\.outputs\.checked != 'true'/);
   const steps = (check.steps ?? []) as (Step & { with?: Record<string, unknown> })[];
   const record = steps.find(step => step.name === 'Record the code this Check passed');
   assert.ok(record, 'a green pull request Check records its tree');
-  assert.equal(String(record!.if), "success() && github.event_name == 'pull_request'");
+  assert.equal(String(record!.if), "success() && github.event_name == 'pull_request' && steps.browser.outputs.lane == 'full'");
   assert.equal(String(record!.with?.name), 'checked-tree-${{ steps.tree.outputs.tree }}');
-  // Recorded last, so an upload means every step before it passed.
+  const scoped = steps.find(step => step.name === 'Record selected browser coverage');
+  assert.ok(scoped, 'partial coverage has an independently named artifact');
+  assert.equal(String(scoped!.with?.name), 'checked-policy-tree-${{ steps.tree.outputs.tree }}-${{ steps.tree.outputs.policy }}');
+  assert.equal(String(scoped!.if), "success() && github.event_name == 'pull_request' && (steps.browser.outputs.lane == 'targeted' || steps.browser.outputs.lane == 'none')");
+  assert.ok(steps.findIndex(step => step.name === 'Validate browser execution evidence') < steps.indexOf(record!));
+  // Both artifacts are recorded last and only after actual execution validation.
   const last = steps.map(step => step.name).filter(name => name && !['Report a red Check on main', 'Close the red-Check report'].includes(name));
-  assert.equal(last[last.length - 1], 'Record the code this Check passed');
+  assert.deepEqual(last.slice(-2), ['Record the code this Check passed', 'Record selected browser coverage']);
 });

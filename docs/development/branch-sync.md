@@ -10,7 +10,10 @@ Every push to main, including a documentation-only release, starts `sync-main.ym
 1. If main is already an ancestor of dev, dev is left alone and the downstream Cloudflare
    sync is dispatched again. Otherwise, merge current main into current dev on a temporary
    `sync/main-to-dev-<main>-<dev>` branch. Merge conflicts stop here and open a tracked issue.
-2. Explicitly dispatch the existing Check workflow on that integration branch. The branch
+2. Explicitly dispatch the existing Check workflow on that integration branch, opting in
+   to reuse of a completed same-repository PR Check of the exact tree. Missing, expired,
+   failed or unreadable evidence runs the full suite. Normal manual checks default to full;
+   the opt-in only applies to `sync/main-to-dev-*` branches. The integration branch
    is immutable; retries reuse it. A failed Check opens the tracked issue and changes no
    shared branch. Check's final notifier job explicitly dispatches the sync with its run ID.
    No runner waits for the full suite; the completion handler allows up to two minutes for
