@@ -13,7 +13,7 @@ const ROOT = { story: '/story', schedule: '/schedule', music: '/music', accounts
 const normalize = value => value.replace(/\\/g, '/');
 
 /** Consume Playwright's real --list --reporter=json output, including describe paths. */
-export function listedCases(report) {
+export function listedCases(report, includeExecution = false) {
   if (!Array.isArray(report?.suites) || !Array.isArray(report.errors) || report.errors.length) throw new Error('Browser inventory is missing or has collection errors');
   const cases = [];
   function walk(suite, parents = []) {
@@ -25,7 +25,9 @@ export function listedCases(report) {
         const project = test.projectName;
         if (!file.endsWith('.spec.ts') || file.startsWith('/') || file.includes('..') || !['desktop', 'mobile', 'after-census'].includes(project)
           || titlePath.some(title => typeof title !== 'string' || /[\r\n›]/.test(title))) throw new Error('Unrepresentable browser inventory entry');
-        cases.push({ project, file, titlePath, line: `[${project}] › ${file} › ${titlePath.join(' › ')}` });
+        cases.push({ project, file, titlePath, line: `[${project}] › ${file} › ${titlePath.join(' › ')}`,
+          ...(includeExecution ? { execution: { expectedStatus: test.expectedStatus, status: test.status, results: test.results } } : {}),
+        });
       }
     }
     for (const child of suite.suites ?? []) walk(child, titles);
@@ -33,6 +35,31 @@ export function listedCases(report) {
   report.suites.forEach(suite => walk(suite));
   if (!cases.length || new Set(cases.map(item => item.line)).size !== cases.length) throw new Error('Empty or ambiguous browser inventory');
   return cases.sort((a, b) => a.line.localeCompare(b.line, 'en'));
+}
+
+/** Validate completed reporter evidence separately from collection/planning. Still not a trusted Check artifact. */
+export function executionEvidence(coverage, report) {
+  if (coverage?.policy !== 'shadow-coverage-v1' || coverage.reusableCheckProof !== false || !Array.isArray(coverage.selected) || !coverage.selected.length) throw new Error('No executable shadow coverage plan');
+  const actual = listedCases(report, true);
+  const selected = new Set(coverage.selected.map(item => item.line));
+  if (selected.size !== coverage.selected.length || actual.length !== selected.size || actual.some(item => !selected.has(item.line))) throw new Error('Executed browser identities differ from the selected coverage');
+  const counts = { passed: 0, skipped: 0, expectedFailed: 0 };
+  let caseMilliseconds = 0;
+  for (const item of actual) {
+    const { expectedStatus, status, results } = item.execution;
+    if (!Array.isArray(results) || results.length !== 1) throw new Error(`Missing execution or unexpected retry: ${item.line}`);
+    const result = results[0];
+    if (!Number.isFinite(result.duration) || result.duration < 0) throw new Error(`Invalid browser result: ${item.line}`);
+    if (status === 'skipped' && expectedStatus === 'skipped' && result.status === 'skipped' && !result.errors?.length) counts.skipped++;
+    else if (status === 'expected' && expectedStatus === 'passed' && result.status === 'passed' && !result.errors?.length) counts.passed++;
+    else if (status === 'expected' && expectedStatus === 'failed' && result.status === 'failed') counts.expectedFailed++;
+    else throw new Error(`Browser outcome does not satisfy its contract: ${item.line}`);
+    caseMilliseconds += result.duration;
+  }
+  return { policy: coverage.policy, inventorySha256: coverage.inventorySha256, lane: coverage.lane,
+    outcome: 'executed-contracts-satisfied', counts, caseMilliseconds, reusableCheckProof: false,
+    selected: coverage.selected, omitted: coverage.omitted, completionAudit: coverage.completionAudit,
+  };
 }
 
 /** Preserve the census implementation and every registered state/theme/project for affected routes. */
@@ -74,7 +101,7 @@ export function coveragePlan(plan, report) {
     policy: 'shadow-coverage-v1', lane, reason, inventorySha256: digest,
     reusableCheckProof: false, outcome: 'planned-only',
     census: lane === 'full' ? 'full-with-completion-audit' : lane === 'targeted' ? 'affected-routes-and-all-registered-states' : 'not-run',
-    completionAudit: lane === 'full' ? 'included' : 'omitted-requires-full-census',
+    completionAudit: lane === 'full' ? inventory.some(item => item.file === AFTER) ? 'included' : 'not-in-inventory' : 'omitted-requires-full-census',
     selected, omitted, testList: selected.map(item => item.line).join('\n') + (selected.length ? '\n' : ''),
   };
 }

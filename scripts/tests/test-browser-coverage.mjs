@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { listedCases, coveragePlan } from '../ci/browser-coverage.mjs';
+import { listedCases, coveragePlan, executionEvidence } from '../ci/browser-coverage.mjs';
 
 const spec = (title, projectName = 'desktop') => ({ title, file: 'layout-census.spec.ts', tests: [{ projectName }] });
 function report() {
@@ -73,4 +73,35 @@ test('collection failures and ambiguous or unrepresentable entries cannot yield 
 test('nested describe paths survive Playwright test-list serialization', () => {
   const inventory = { errors: [], suites: [{ title: 'sample.spec.ts', column: 0, suites: [{ title: 'journey > summary', column: 1, specs: [{ title: 'opens', file: 'sample.spec.ts', tests: [{ projectName: 'desktop' }] }] }] }] };
   assert.equal(listedCases(inventory)[0].line, '[desktop] › sample.spec.ts › journey > summary › opens');
+});
+
+function completed() {
+  const inventory = report();
+  for (const suite of inventory.suites) for (const spec of suite.specs) {
+    Object.assign(spec.tests[0], { expectedStatus: 'passed', status: 'expected', results: [{ status: 'passed', duration: 10, errors: [] }] });
+  }
+  return inventory;
+}
+
+test('execution evidence rejects collection-only, missing/extra tests, failures and hidden retries', () => {
+  const coverage = coveragePlan({ ...plan, lane: 'full' }, report());
+  const missing = completed(); missing.suites.pop();
+  const failed = completed(); failed.suites[0].specs[0].tests[0].results[0].status = 'failed';
+  const retried = completed(); retried.suites[0].specs[0].tests[0].results.push({ status: 'passed', duration: 1 });
+  for (const result of [report(), missing, failed, retried]) assert.throws(() => executionEvidence(coverage, result));
+  assert.throws(() => executionEvidence({ ...coverage, selected: coverage.selected.slice(1) }, completed()), /identities/);
+  const result = executionEvidence(coverage, completed());
+  assert.deepEqual(result.counts, { passed: 11, skipped: 0, expectedFailed: 0 });
+  assert.equal(result.caseMilliseconds, 110);
+  assert.equal(result.reusableCheckProof, false);
+});
+
+test('intentional runtime skips are recorded explicitly while interrupted skips fail', () => {
+  const coverage = coveragePlan({ ...plan, lane: 'full' }, report());
+  const result = completed();
+  const first = result.suites[0].specs[0].tests[0];
+  Object.assign(first, { expectedStatus: 'skipped', status: 'skipped', results: [{ status: 'skipped', duration: 0, errors: [] }] });
+  assert.deepEqual(executionEvidence(coverage, result).counts, { passed: 10, skipped: 1, expectedFailed: 0 });
+  first.expectedStatus = 'passed';
+  assert.throws(() => executionEvidence(coverage, result), /does not satisfy/);
 });

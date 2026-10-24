@@ -108,7 +108,7 @@ On the 94-spec shadow checkout, a StoryMapView simulation selected 38 of 1,679
 listed cases, including desktop/mobile story census cases. A second real
 Playwright collection using its supported `--test-list` returned exactly those
 38 identities, with no extra project dependency or completion-audit tests. This
-proves list selection, not browser execution or timing. Seventeen planner/coverage
+proves list selection, not browser execution or timing. Nineteen planner/coverage
 unit cases pass. Current main/PR/release CI remains unchanged.
 
 ```sh
@@ -121,3 +121,11 @@ The emitted `coverage.testList` uses Playwright's project/file/title format,
 relative to its configured test directory. Before activation, validate completed
 results against this exact list and trusted baseline; do not reuse the old
 full-tree Check artifact name for this partial evidence.
+
+`executionEvidence` separately rejects a collection-only report, missing/extra
+identities, interrupted outcomes and retries. Intentional skips and expected
+failures are counted separately from passes; summed case durations are not wall
+time. An actual small Playwright contract fixture verified reporter handling of
+one pass, one runtime skip and one declared expected failure. It did not run the
+website suite. The resulting ledger still cannot vouch for Check: trusted baseline,
+policy/configuration identity and artifact consumers remain to be integrated.
