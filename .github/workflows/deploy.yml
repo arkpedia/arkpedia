@@ -34,6 +34,10 @@ on:
         description: Upload a preview to each deployment that is not live yet (config/production.json), instead of deploying production
         type: boolean
         default: false
+      commit:
+        description: Exact checked commit to deploy (defaults to the selected branch)
+        type: string
+        required: false
 
 # One queue per branch: a group holds one waiting run, and a dev deploy queued behind a main
 # one would otherwise cancel it.
@@ -68,11 +72,16 @@ jobs:
     outputs:
       targets: ${{ steps.list.outputs.targets }}
     steps:
+      - name: Validate an explicitly pinned deploy commit
+        if: github.event_name == 'workflow_dispatch' && inputs.commit != ''
+        env:
+          PINNED_COMMIT: ${{ inputs.commit }}
+        run: '[[ "$PINNED_COMMIT" =~ ^[0-9a-f]{40}$ ]] || { echo "Expected a full checked commit SHA" >&2; exit 1; }'
       # The commit Deploy builds decides where it goes, so a flip to live deploys with the gate
       # that reads it.
       - uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          ref: ${{ inputs.commit || github.event.workflow_run.head_sha || github.sha }}
       - uses: actions/setup-node@v7
         with:
           node-version: '24'
@@ -113,7 +122,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           # Deploy the commit Check actually verified, not whatever main is by now.
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          ref: ${{ inputs.commit || github.event.workflow_run.head_sha || github.sha }}
           # And its parent, for what the commit changed (the dev channel's run, last step).
           fetch-depth: 2
       - uses: actions/setup-node@v7
@@ -202,7 +211,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           JOB_STATUS: ${{ job.status }}
-          DEPLOYING: ${{ github.event.workflow_run.head_sha || github.sha }}
+          DEPLOYING: ${{ inputs.commit || github.event.workflow_run.head_sha || github.sha }}
           ASSET_LINKS: ${{ steps.asset-links.outcome }}
           ALERT: ${{ matrix.target.alert }}
           SITE: ${{ matrix.target.url }}
@@ -221,7 +230,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          DEPLOYING: ${{ github.event.workflow_run.head_sha || github.sha }}
+          DEPLOYING: ${{ inputs.commit || github.event.workflow_run.head_sha || github.sha }}
           ALERT: ${{ matrix.target.alert }}
           SITE: ${{ matrix.target.url }}
         run: |
