@@ -29,6 +29,9 @@ cards. Choose the pattern below first, then use its established primitives.
   event count and list, while Events/Calendar selects the presentation.
 - Verify the complete browse → detail → Back journey on desktop and mobile, including
   a record beyond the initial list batch. Check browser Back as well as the page link.
+- Carousel dots are grey (`--text-dim`) when unselected and coloured (`--teal`) only for
+  `aria-current="true"`, matching the homepage Community section. Status such as an upcoming
+  or closed event belongs in its label and countdown, not an unselected navigation dot.
 
 ### Persistent browsing controls
 

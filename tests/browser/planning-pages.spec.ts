@@ -323,6 +323,18 @@ test.describe('home', () => {
       for (let i = 0; i < slides; i++) {
         if (slides > 1) await dots.nth(i).click();
         await page.waitForTimeout(150);
+        if (slides > 1) {
+          await expect(page.locator('.front-events-dot[aria-current="true"]')).toHaveCount(1);
+          const colours = await dots.evaluateAll((buttons) => buttons.map((button) => {
+            const swatch = document.createElement('span');
+            swatch.style.color = button.getAttribute('aria-current') === 'true' ? 'var(--teal)' : 'var(--text-dim)';
+            button.appendChild(swatch);
+            const expected = getComputedStyle(swatch).color;
+            swatch.remove();
+            return { actual: getComputedStyle(button, '::before').backgroundColor, expected };
+          }));
+          for (const colour of colours) expect(colour.actual).toBe(colour.expected);
+        }
         shapes.push(await page.locator('.front-events-info').evaluate((el) => {
           const name = el.querySelector('.front-events-name')!, timer = el.querySelector('.countdown-timer')!;
           return { name: name.textContent ?? '', height: el.getBoundingClientRect().height, below: timer.getBoundingClientRect().top >= name.getBoundingClientRect().bottom - 0.5 };
