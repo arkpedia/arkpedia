@@ -17,13 +17,9 @@ import { connectionDiagnostics, type WispDiagnosticsAPI } from './connectionDiag
 /** Where the relay is: config/relay.json (the relay itself is arkpedia/arkpedia-relay). */
 export const RELAY_URL = relayConfig.url;
 
-/** The relay a page at this address uses. That's RELAY_URL, except on the site's own Worker (its
- *  *.workers.dev page and its domains, config/relay.json cloudflare.hosts), where it's the relay on
- *  Cloudflare when `use` is on or the page's ?relay=cloudflare asks for it. ?relay=vps asks for
- *  RELAY_URL. */
+/** The existing Cloudflare relay serves only explicitly reviewed website origins. */
 export function chooseRelayUrl(location: { hostname: string; search: string }, config: { url: string; cloudflare: { use: boolean; url: string; hosts: string[] } } = relayConfig): string {
-  const onCloudflare = location.hostname.endsWith('.workers.dev') || config.cloudflare.hosts.includes(location.hostname);
-  if (!onCloudflare) return config.url;
+  if (!config.cloudflare.hosts.includes(location.hostname)) return config.url;
   const asked = new URLSearchParams(location.search).get('relay');
   const useCloudflare = asked === 'cloudflare' ? true : asked === 'vps' ? false : config.cloudflare.use;
   return useCloudflare ? config.cloudflare.url : config.url;

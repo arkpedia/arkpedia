@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { readStagingConfig, stagingEnvironment } from '../deploy/cloudflare-staging.mjs';
+import { readStagingConfig, readStagingBuild, stagingEnvironment } from '../deploy/cloudflare-staging.mjs';
 
 test('staging cache and self-reference are separate from production', () => {
   const config = readStagingConfig();
@@ -23,6 +23,7 @@ test('refuse production routes, cache, service and extra writable resources', ()
       { services: [{ binding: 'WORKER_SELF_REFERENCE', service: 'arkpedia' }] },
       { d1_databases: [{ binding: 'DB', database_id: 'production' }] },
       { vars: { ARKPEDIA_CONTENT_CHANNEL: 'live' } },
+      { vars: { ARKPEDIA_CONTENT_CHANNEL: 'dev-live', ARKPEDIA_DEPLOYMENT_ROLE: 'staging' } },
       { vars: { ARKPEDIA_CONTENT_CHANNEL: 'dev-live', ARKPEDIA_AUTH_URL: 'https://arkpedia-cf.mocchibird.com' } },
       { vars: { ARKPEDIA_CONTENT_CHANNEL: 'dev-live', BETTER_AUTH_SECRET: 'test-only-account-secret' } },
       { durable_objects: { bindings: [{ name: 'NEXT_CACHE_DO_QUEUE', class_name: 'DOQueueHandler', script_name: 'arkpedia' }] } },
@@ -31,12 +32,20 @@ test('refuse production routes, cache, service and extra writable resources', ()
       writeFileSync(file, JSON.stringify({ ...readStagingConfig(), ...change }));
       assert.throws(() => readStagingConfig(file));
     }
+    const commit = 'a'.repeat(40);
+    const staged = { commit, codeFingerprint: 'b'.repeat(64), contentChannel: 'live', deploymentRole: 'staging', dirty: false };
+    writeFileSync(file, JSON.stringify(staged));
+    assert.equal(readStagingBuild(commit, file).commit, commit);
+    for (const change of [{ commit: 'c'.repeat(40) }, { dirty: true }, { contentChannel: 'dev-live' }, { deploymentRole: 'production' }, { deploymentRole: undefined }]) {
+      writeFileSync(file, JSON.stringify({ ...staged, ...change }));
+      assert.throws(() => readStagingBuild(commit, file));
+    }
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
-test('build explicitly overrides inherited production channel and Worker flags', () => {
-  assert.deepEqual(stagingEnvironment({ ARKPEDIA_CONTENT_CHANNEL: 'live', ARKPEDIA_WORKER: '0', OTHER: 'kept' }), {
-    ARKPEDIA_CONTENT_CHANNEL: 'dev-live', ARKPEDIA_WORKER: '1', OTHER: 'kept',
+test('main staging uses compatible live data and independently overrides deployment role', () => {
+  assert.deepEqual(stagingEnvironment({ ARKPEDIA_CONTENT_CHANNEL: 'dev-live', ARKPEDIA_WORKER: '0', ARKPEDIA_DEPLOYMENT_ROLE: 'production', OTHER: 'kept' }), {
+    ARKPEDIA_CONTENT_CHANNEL: 'live', ARKPEDIA_WORKER: '1', ARKPEDIA_DEPLOYMENT_ROLE: 'staging', OTHER: 'kept',
   });
 });
 

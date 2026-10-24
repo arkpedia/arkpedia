@@ -19,7 +19,7 @@ import { regionalPageCache } from "./lib/cloudflare/regionalPageCache";
 // buildCommand: the Next build OpenNext wraps, marked as the Worker's. next.config.js inlines
 // ARKPEDIA_WORKER, and code the Worker never runs (the source-data fallbacks of local
 // development) drops out of its bundle, which every cold start loads.
-export default {
+const config = {
   ...defineCloudflareConfig({
     incrementalCache: regionalPageCache(r2IncrementalCache),
     queue: doQueue,
@@ -27,3 +27,4 @@ export default {
   }),
   buildCommand: "ARKPEDIA_WORKER=1 npm run build",
 };
+export default config;

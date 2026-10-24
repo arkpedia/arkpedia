@@ -8,6 +8,7 @@ const { contentPointer } = require('./scripts/content/content-channel.cjs');
 // ARKPEDIA_WORKER=1, and Workers Builds sets WORKERS_CI_BRANCH. Inlined below, so the code the
 // Worker never runs is left out of its one bundle, which each cold start loads.
 const workerBuild = process.env.ARKPEDIA_WORKER === '1' || Boolean(process.env.WORKERS_CI_BRANCH);
+const stagingBuild = require('./scripts/deploy/deployment-role.cjs').deploymentRole() === 'staging';
 for (const [repository, revision] of Object.entries(assetRevisions)) {
   if (!/^[a-f0-9]{40}$/.test(revision)) throw new Error(`Invalid asset revision: ${repository}`);
 }
@@ -27,8 +28,7 @@ function externalAssetRedirects(folders, repository) {
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Spike: the OpenNext adapter reads .next/standalone.
-  output: 'standalone',
+  ...(workerBuild ? { output: 'standalone' } : {}),
   // Only Check sets this after prebuild, typecheck and the warning-capped lint passed.
   // Avoid repeating those checks in both of its Next builds. Normal/local/Deploy
   // builds retain Next's validation, including manually dispatched deployments.
@@ -47,7 +47,7 @@ const nextConfig = {
   // channel of the project Deploy builds for (scripts/content/content-channel.cjs). Inlined
   // because the prebuilt functions carry no Vercel project env.
   // ARKPEDIA_WORKER: '1' in the Worker's build (workerBuild above), '' everywhere else.
-  env: { ARKPEDIA_WEB_ANALYTICS: process.env.WORKERS_CI_BRANCH === 'cloudflare' && require('./config/web-analytics.json').cloudflareToken ? '1' : '', ARKPEDIA_CONTENT_CHANNEL: contentPointer(), ARKPEDIA_WORKER: workerBuild ? '1' : '' },
+  env: { ARKPEDIA_WEB_ANALYTICS: !stagingBuild && process.env.WORKERS_CI_BRANCH === 'cloudflare' && require('./config/web-analytics.json').cloudflareToken ? '1' : '', ARKPEDIA_CONTENT_CHANNEL: contentPointer(), ARKPEDIA_WORKER: workerBuild ? '1' : '' },
   // The browser bundle may not carry a game record the content release publishes (such as
   // data/albums.json): the build fails, naming the import chain. See the guard's header.
   webpack(config, { isServer, webpack }) {
@@ -234,11 +234,8 @@ const nextConfig = {
           { key: 'X-Content-Type-Options', value: 'nosniff' },
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
           { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
-          // Only www is the site search engines should list. arkpedia-dev and the site's
-          // Worker read another content channel and were indexable copies of it (2026-10-23).
-          // A header rather than a closed robots.txt: a crawler that may not fetch a page
-          // never sees its noindex, so a copy it already listed would stay listed.
-          ...(contentPointer() === 'live' ? [] : [{ key: 'X-Robots-Tag', value: 'noindex' }]),
+          // A main-code preview reads live-compatible data but must remain unindexed.
+          ...(stagingBuild || contentPointer() !== 'live' ? [{ key: 'X-Robots-Tag', value: 'noindex' }] : []),
         ],
       },
       {

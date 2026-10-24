@@ -240,7 +240,7 @@ test('the relay address is config/relay.json\'s, a wss:// Wisp endpoint', async 
   assert.match(RELAY_URL, /^wss:\/\/[a-z0-9.-]+\/wisp\/$/);
 });
 
-test('the Cloudflare relay is used only on the site\'s own Worker and its domains (www and dev keep the VPS), when switched on or asked for', async () => {
+test('the Cloudflare relay is used only on reviewed origins (www and dev keep the VPS), when switched on or asked for', async () => {
   const { chooseRelayUrl } = await import('../../lib/account-import/relay');
   const config = (await import('../../config/relay.json')).default;
   // libcurl.js needs the trailing slash, and only an encrypted WebSocket is acceptable.
@@ -252,14 +252,14 @@ test('the Cloudflare relay is used only on the site\'s own Worker and its domain
   const page = (hostname: string, search = '') => ({ hostname, search });
   const off = { ...config, cloudflare: { ...config.cloudflare, use: false } };
   const on = { ...config, cloudflare: { ...config.cloudflare, use: true } };
-  for (const hostname of ['arkpedia.account.workers.dev', 'arkpedia-cf.mocchibird.com']) {
+  for (const hostname of ['arkpedia-staging.cloudflare-1ff.workers.dev', 'arkpedia-cf.mocchibird.com']) {
     assert.equal(chooseRelayUrl(page(hostname), off), config.url, hostname);
     assert.equal(chooseRelayUrl(page(hostname, '?relay=cloudflare'), off), config.cloudflare.url, hostname);
     assert.equal(chooseRelayUrl(page(hostname, '?relay=elsewhere'), off), config.url, hostname);
     assert.equal(chooseRelayUrl(page(hostname), on), config.cloudflare.url, hostname);
     assert.equal(chooseRelayUrl(page(hostname, '?relay=vps'), on), config.url, hostname);
   }
-  for (const hostname of ['www.arkpedia.net', 'arkpedia-dev.vercel.app', 'workers.dev.example.com', 'arkpedia-cf.mocchibird.com.example.com']) {
+  for (const hostname of ['www.arkpedia.net', 'arkpedia-dev.vercel.app', 'arkpedia.account.workers.dev', 'workers.dev.example.com', 'arkpedia-cf.mocchibird.com.example.com']) {
     assert.equal(chooseRelayUrl(page(hostname, '?relay=cloudflare'), on), config.url, hostname);
   }
 });
