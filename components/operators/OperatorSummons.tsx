@@ -12,7 +12,7 @@ export default function OperatorSummons({ summons }: { summons: Summon[] }) {
     <SegmentedControl label="Summon" options={summons.map(value => ({ value: value.id, label: value.name }))} value={summon.id} onChange={setSelected} />
     <SegmentedControl label="Summon promotion" options={summon.phases.map((_, index) => ({ value: index, label: `Elite ${index}` }))} value={stage} onChange={setElite} />
     <label>Level {shownLevel}<input aria-label="Summon level" type="range" min="1" max={phase.maxLevel} value={shownLevel} onChange={e => setLevel(Number(e.target.value))} /></label>
-    <dl className="free-op-summary">{Object.entries(stats).map(([key, value]) => <div key={key}><dt>{LABELS[key]}</dt><dd>{key === 'baseAttackTime' || key === 'respawnTime' ? `${Number(value.toFixed(2))}s` : Math.round(value).toLocaleString()}</dd></div>)}</dl>
+    <dl className="free-op-summary">{Object.entries(stats).map(([key, value]) => <div key={key}><dt>{LABELS[key]}</dt><dd>{key === 'baseAttackTime' || key === 'respawnTime' ? `${Number(value.toFixed(2))}s` : Math.round(value).toLocaleString('en-US')}</dd></div>)}</dl>
     <p className="hint">Base summon stats before skills, talents and modules. Some summons inherit additional stats from their operator.</p>
   </div>;
 }
