@@ -19,6 +19,7 @@ Run commands from the repository root. npm scripts are the stable entry points.
 
 ```sh
 npm run check:local
+npm run release:status
 npm test
 npm run test:py
 npm run audit:unused

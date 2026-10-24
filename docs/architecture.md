@@ -1,0 +1,322 @@
+# How Arkpedia works
+
+Architecture reference, checked 2026-10-24. Arrows show the direction of a request,
+read, publication or deployment; responses return along the same connection.
+The diagrams distinguish the production Vercel site from the Cloudflare migration.
+
+## 1. Whole system
+
+```mermaid
+flowchart TB
+  reader[Reader's browser]
+  local[(Browser storage: account, plans, preferences)]
+  reader <--> local
+
+  subgraph web[Website delivery]
+    prod["Vercel production · main<br/>www.arkpedia.net"]
+    dev["Vercel development · dev<br/>arkpedia-dev.vercel.app"]
+    edge["arkpedia-edge · front cache<br/>arkpedia-cf.mocchibird.com"]
+    site["arkpedia · site Worker<br/>Next.js through OpenNext"]
+    cache[(Regional page cache + R2)]
+    queue[Durable Object revalidation queue]
+    stage["arkpedia-staging<br/>Explicit feature candidate"]
+    stageCache[(Separate staging R2 cache)]
+    stageQueue[Separate staging revalidation queue]
+    edge -->|SITE binding: miss, refresh or bypass| site
+    site <--> cache
+    site --> queue
+    queue -->|background regeneration| site
+    stage <--> stageCache
+    stage --> stageQueue
+    stageQueue --> stage
+  end
+  reader --> prod
+  reader --> dev
+  reader --> edge
+  reader --> stage
+
+  pilotDb[("D1: arkpedia-accounts-dev<br/>Identity, sessions and validated cloud saves")]
+  providers[Google / Discord]
+  site <--> pilotDb
+  reader <-->|Arkpedia sign-in redirect| providers
+  site <-->|OAuth identity exchange| providers
+
+  subgraph content[Public content and media]
+    data["arkpedia-data<br/>source records + generated releases"]
+    assets["Public asset repositories<br/>images, skins, voices, L2D, SD"]
+  end
+  prod -->|live pointer and verified release| data
+  dev -->|dev-live pointer and verified release| data
+  site -->|dev-live pointer and verified release| data
+  stage -->|dev-live pointer and verified release| data
+  reader -->|commit-pinned media URLs| assets
+
+  subgraph imports[Account import: encrypted tunnel]
+    vps["VPS relay + nginx<br/>relay.arkpedia.net/wisp/"]
+    door["arkpedia-relay Worker<br/>origin and rate gate"]
+    container[Relay container: Wisp TCP forwarding]
+    game[Yostar login, game and Account Center servers]
+    door --> container
+    vps --> game
+    container --> game
+  end
+  reader -->|www and dev: WSS| vps
+  reader -->|Cloudflare site: WSS| door
+
+  upstream[Game tables, official announcements, art mirrors, wikis]
+  jobs[GitHub Actions: import, validate, compile and publish]
+  upstream --> jobs
+  jobs --> data
+  jobs --> assets
+  app["Private arkpedia repository<br/>pages, components, logic and workflows"]
+  app -->|Check then prebuilt Deploy| prod
+  app -->|Check then prebuilt Deploy| dev
+  app -->|cloudflare branch: Workers Builds| site
+  app -->|workers/edge watch path: Workers Builds| edge
+  reader -->|direct audio or embedded player| music[Monster Siren CDN / YouTube]
+```
+
+The browser runs the interactive planners, games and account-import client.
+The website renders pages and supplies public API responses. Game content and
+media can change independently of application deployments.
+
+## 2. Cloudflare request and cache path
+
+```mermaid
+flowchart TD
+  request[Request to arkpedia-cf.mocchibird.com]
+  front[arkpedia-edge: small front Worker]
+  eligible{Cacheable page GET or HEAD?}
+  edgecache[(Cloudflare Cache API: local data centre)]
+  state{Live build and fresh copy?}
+  hit[Return HIT]
+  stale[Return STALE and refresh in background]
+  site["SITE binding → arkpedia Worker"]
+  static[ASSETS: JS, CSS and other build files]
+  regional[(OpenNext regional incremental cache)]
+  r2[(arkpedia-opennext-cache: shared R2)]
+  render[Next.js page generation / API handler]
+  data[Verified content release]
+  queue[DOQueueHandler]
+  request --> front --> eligible
+  eligible -->|yes| edgecache --> state
+  state -->|fresh| hit
+  state -->|stale but usable| stale
+  state -->|missing or old build| site
+  stale -.->|background refresh| site
+  eligible -->|no: pass through| site
+  site -->|static file| static
+  site -->|page cache lookup| regional
+  regional -->|miss| r2
+  r2 -->|missing page| render
+  regional -->|expired page| queue
+  queue -->|WORKER_SELF_REFERENCE| render
+  site -->|API / uncached render| render
+  render --> data
+  render -->|new page and props| r2
+  site -.->|eligible response fills front cache| edgecache
+```
+
+- **Front cache:** caches suitable 200 page HTML and `/_next/data/...` responses.
+  Freshness follows the site's cache headers; stale retention is capped at one day.
+  Build-manifest checks prevent cached HTML referencing removed deployment files.
+- **Bypass:** `/api/*`, `/account`, static files, image optimization, non-GET/HEAD
+  methods, authenticated/range/upgrade requests and preview-mode cookies. Responses
+  with cookies, private/no-store/no-cache directives or an unknown build are not kept.
+- **Regional incremental cache:** a separate layer inside the site Worker. It keeps
+  a local copy for at least one day and refreshes from R2 in the background on hits;
+  page freshness and regeneration still follow ISR rules.
+- **R2:** shared generated-page/data cache; also holds cached signed Monster Siren
+  audio addresses. It is not the canonical game dataset or a user-account database.
+- **Durable Object:** coordinates background revalidation. The configured
+  `new_sqlite_classes` migration creates Durable Object storage; it is not a D1 binding.
+- **Vercel:** provides its own page/CDN/ISR delivery instead of this Worker chain.
+  `arkpedia-edge` does not front the Vercel production site.
+
+## 3. Data and asset publication
+
+```mermaid
+flowchart TD
+  tables[EN and CN extracted client tables]
+  editorial["arkpedia-data/editorial<br/>reviewed source corrections"]
+  sources[Official announcements, wikis and media mirrors]
+  sync[Public asset sync/import workflows]
+  media[Image / skin / voice / L2D / SD repositories]
+  prep["Private app: Prepare content release<br/>hydrate canonical source, refresh and compile"]
+  gate["Tests, schema, checksums, completeness<br/>and deployed-code compatibility gate"]
+  main["arkpedia-data/main<br/>source/ + release/"]
+  dev["arkpedia-data/dev<br/>shared source compiled with dev app code"]
+  validate[Public Content release validation]
+  live["live/current.json → immutable release commit"]
+  devlive["dev-live/current.json → immutable dev release"]
+  www[Production page regeneration]
+  previews[Dev and Cloudflare page regeneration]
+  browser[Browser: one release and its media pins]
+  tables --> prep
+  sources --> prep
+  sources --> sync --> media
+  editorial -->|Editorial watcher dispatches compilation| prep
+  media -->|validated manifests and immutable revision pins| prep
+  prep --> gate
+  gate -->|main channel| main
+  gate -->|dev channel| dev
+  main --> validate --> live
+  dev -->|separate channel validation| devlive
+  live --> www
+  devlive --> previews
+  www --> browser
+  previews --> browser
+  browser -->|raw.githubusercontent.com at pinned commits| media
+```
+
+`source/` is canonical; `release/` is compiled delivery output. The app repository's
+bundled `data/` is a fallback/development snapshot. The loader verifies the pointer,
+manifest and page hashes and retains the last valid release on a failed refresh.
+Most content pages revalidate after 60 or 300 seconds; pointer polling, GitHub
+caching and request-driven regeneration also affect visibility. An already-open
+page retains its release to avoid mixing records and media versions.
+
+Static art comes from `arkpedia-image-assets` and `arkpedia-skin-assets`; voice clips
+come from the five `arkpedia-voice-*` repositories. `arkpedia-l2d-assets` supplies
+animated outfit models, textures and effects; `arkpedia-sd-assets` supplies chibi
+models and scenery. `arkpedia-color-palette` supplies community corrections applied
+when the palette catalogue is built. L2D/SD catalogues also carry their own pinned
+model references; do not assume every media type uses the same manifest schema.
+
+The normal media path is direct GitHub raw delivery. Compatible root-relative image
+paths redirect to pinned assets. Image optimization, when invoked, is a separate
+site route; it is not the bulk media publication pipeline.
+
+## 4. Account import and privacy boundary
+
+```mermaid
+sequenceDiagram
+  participant B as Browser: libcurl.js + TLS/WASM
+  participant W as Website API
+  participant R as Selected Wisp relay
+  participant Y as Yostar / game / Account Center
+  participant L as Browser storage
+  B->>W: Public server-list metadata only
+  W-->>B: Cached public network configuration
+  Note over B,R: www/dev use VPS nginx and relay. CF uses doorman Worker and container
+  B->>R: WSS /wisp/ with permitted site Origin
+  R->>Y: TCP to allowlisted host and port
+  Note over B,Y: Inner TLS terminates in browser and actual game host
+  B->>Y: Login, token exchange and account reads through encrypted tunnel
+  Y-->>B: Account response through encrypted tunnel
+  B->>L: Imported roster, plans and optionally saved sign-in state
+```
+
+The relay can observe connection metadata and forwards encrypted bytes. It does not
+terminate the inner game-server TLS or read the email, login code, game tokens or
+account response. The nginx/doorman endpoint terminates the outer WSS connection.
+Origins, destinations, ports and connection limits constrain relay access.
+
+The Cloudflare relay is `arkpedia-relay.cloudflare-1ff.workers.dev/wisp/`, selected
+by `config/relay.json` on the Cloudflare branch (`use: true`). The relay container
+runs the same server as the VPS; a container is needed for the game hosts that the
+plain Worker's TCP API cannot reach. On the CF site, `?relay=vps` selects the VPS
+and `?relay=cloudflare` selects the CF relay. The Vercel sites keep the VPS path.
+
+Storage belongs to the browser origin: www, dev and Cloudflare do not automatically
+share imported accounts or plans. Public network metadata caching is separate from
+authenticated account traffic. The game-import tunnel and Arkpedia sign-in are
+different systems: Google/Discord sign-in does not pass through the game relay.
+
+### Arkpedia account pilot and staging
+
+The Cloudflare pilot now binds the EU D1 database `arkpedia-accounts-dev` to the
+`arkpedia` Worker. Better Auth handles Google/Discord identity and sessions under
+`/api/auth/*`; `/api/cloud-account` validates and stores supported personal data.
+These endpoints return private/no-store responses and bypass the front page cache.
+R2 remains a rendered-page/audio cache; it is not the account database.
+
+Cloud saves use a closed list of supported stores and preferences. Imported game
+records require explicit permission, and saved Yostar sign-in credentials are
+excluded. Owner checks and revision comparisons prevent one user's writes from
+replacing another user's save or silently overwriting a newer revision. Restoring
+data updates the current document while retaining its music engine. See
+[account implementation and acceptance](development/cloud-accounts.md).
+
+The www/dev deployments remain browser-only. The separate staging Worker includes
+the account code but has no D1 or OAuth bindings: its account APIs return 503,
+sign-in controls are unavailable, and browser-local import/export continues to work.
+The deployed pilot's anonymous API privacy and OAuth starts have been verified;
+the maintainer's complete provider login, explicit provider linking and save roundtrip
+remain acceptance work. A production account database and public-origin settings
+must be chosen before promoting that feature or moving the public domain.
+
+## 5. Code release and branch synchronization
+
+```mermaid
+flowchart TD
+  feature[Feature branch / pull request] --> check[Check: tests, audits, build, browser tests]
+  check -->|green and merged| dev[dev]
+  dev --> deploydev[Commit-pinned Vercel dev Deploy]
+  dev --> release[Disposable release branch / PR]
+  release --> main[main]
+  main --> checkmain[Check then Vercel production Deploy]
+  main --> integration[Temporary main-into-dev integration branch]
+  integration --> verify[Check exact merge commit]
+  verify -->|explicit completion dispatch; green and still current| fast[Non-forced advance of dev]
+  fast --> deploydev
+  fast --> sync[Explicit dev-into-cloudflare sync]
+  dev -->|ordinary push| sync
+  sync --> cf[cloudflare: dev plus Worker-specific changes]
+  cf --> build[Workers Builds: site Worker]
+  cf -->|workers/edge files changed| edge[Workers Builds: arkpedia-edge]
+  relay[arkpedia-relay/main] -->|relay build watch paths changed| relaybuild[Workers Builds: relay Worker + container]
+  integration -->|conflict| issue[Tracked GitHub issue; shared branch unchanged]
+  verify -->|failed| issue
+  sync -->|conflict| issue
+```
+
+Application and content releases are separate. A new supported record/media version
+can ship through data publication; changed UI, calculations, mechanics or an
+incompatible schema require an app deployment. Docs-only app changes skip app
+Check/Deploy. The sync workflow still reconciles main's ancestry. Successful data
+publication and heartbeat checks close tracked alerts; failed checks, publication,
+stale heartbeats and quarantined records have separate issues.
+
+## 6. Related projects
+
+```mermaid
+flowchart LR
+  data[arkpedia-data] -->|stage/source records| sim[arkpedia-stage-simulator-standalone]
+  extra[arkpedia-stage-simulator-data] -->|simulator-only generated records| sim
+  sd[arkpedia-sd-assets] -->|pinned models and scenery| sim
+  sd --> desktop[arkpedia-desktop-chibis]
+  sd --> website[Arkpedia website chibis]
+  fork[arkpedia-stage-simulator: original fork / prototype] -.->|project lineage| sim
+```
+
+These are related applications and data consumers, not a dependency through which
+all website requests pass. The desktop companion is a separate app with its own
+settings. Its README explicitly separates it from website account import/storage.
+This diagram records repository relationships, not an asserted live simulator
+hosting endpoint. The organization `.github` repository owns profile/community files.
+
+## Source map and verification limits
+
+This is a source/configuration map, not a fresh audit of private provider dashboard
+settings or VPS installation state. Base edge routing came from `8520b03a`; the
+pilot source/bindings now match cloudflare `11d175fb`, and the isolated staging
+artifact is `6026245a`. Provider API reads confirmed their separate writable
+resources and the absence of account bindings/secrets in staging. Relay source/config
+matches `f2e2c3fb`. No billing, DNS cutover or unobserved dashboard integration is inferred.
+
+| Area | Authoritative references |
+| --- | --- |
+| App routes and feature ownership | [Repository map](repository-map.md), `pages/`, `lib/` |
+| Edge routing and bypass rules | [Edge Worker README](https://github.com/arkpedia/arkpedia/blob/8520b03abe6175e7069c7c06b881faa492cc22b2/workers/edge/README.md), adjacent `wrangler.jsonc` and `edge.mjs` |
+| Site Worker, R2 and queue | [Cloudflare guide](development/cloudflare-workers.md), `cloudflare` branch root `wrangler.jsonc`, `open-next.config.ts`, `lib/cloudflare/regionalPageCache.ts` |
+| Data release and recovery | [Runtime content](development/runtime-content.md), [pipelines](development/data-pipelines.md), `lib/content/server.ts`, `config/content-channels.json` |
+| Asset URLs and pins | `config/asset-delivery.json`, `data/assets/revisions.json`, [data sources](development/data-sources.md), asset repository manifests |
+| Account transport | `lib/account-import/relay.ts`, branch-specific `config/relay.json`, [relay repository](https://github.com/arkpedia/arkpedia-relay/tree/f2e2c3fb2228e93af469011a2e790b5b6070099f) |
+| Arkpedia account pilot | `lib/cloud-account/`, `pages/api/auth/`, `pages/api/cloud-account.ts`, `migrations/accounts/`, [setup and acceptance](development/cloud-accounts.md) |
+| Isolated feature staging | `wrangler.staging.jsonc`, `open-next.staging.config.ts`, [verified staging guide](development/cloudflare-staging.md) |
+| Release orchestration | [Branch sync](development/branch-sync.md), [automation](development/automation.md), `.github/workflows/` |
+| Separate applications | Organization simulator, simulator-data, desktop-chibis and SD asset repository READMEs |
+
+Update this reference when changing domains, content channels, Worker names/bindings,
+cache responsibilities, relay selection, storage ownership or repository consumers.

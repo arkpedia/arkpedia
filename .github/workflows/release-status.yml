@@ -1,0 +1,39 @@
+name: Release status
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: [Deploy]
+    types: [completed]
+
+permissions:
+  contents: read
+  actions: read
+  checks: read
+
+concurrency:
+  group: release-status
+  cancel-in-progress: true
+
+jobs:
+  report:
+    runs-on: ${{ vars.ARKPEDIA_LIGHT_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 5
+    steps:
+      # Read-only and always trusted main, never the workflow_run's head checkout.
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+      - name: Inspect all live sites
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          mkdir -p .cache
+          status=0
+          node scripts/deploy/release-status.mjs > .cache/release-status.md || status=$?
+          cat .cache/release-status.md >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
