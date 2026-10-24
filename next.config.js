@@ -77,6 +77,7 @@ const nextConfig = {
   outputFileTracingIncludes: {
     '/api/auth/*': ['node_modules/@better-auth/core/dist/instrumentation/*.mjs'],
     '/api/cloud-account': ['node_modules/@better-auth/core/dist/instrumentation/*.mjs'],
+    '/api/account-profile': ['node_modules/@better-auth/core/dist/instrumentation/*.mjs'],
   },
   outputFileTracingExcludes: {
     ...Object.fromEntries(contentPageRoutes.map((route) => [route === '/' ? '/index' : route, [

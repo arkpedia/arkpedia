@@ -176,6 +176,7 @@ test('restoring a backup keeps the page and the song, and the player has the res
 
   await page.locator('.page-header').getByRole('button', { name: 'Import / export', exact: true }).click();
   const dialog = page.getByRole('dialog');
+  await dialog.getByRole('tab', { name: 'Backups', exact: true }).click();
   await dialog.locator('summary', { hasText: 'Paste / copy as text' }).click();
   await dialog.getByRole('button', { name: 'Get backup text', exact: true }).click();
   const box = dialog.getByRole('textbox', { name: 'Arkpedia data' });

@@ -31,6 +31,7 @@ export function accountAuth(env: AccountsEnv) {
     database: env.ARKPEDIA_ACCOUNTS_DB,
     trustedOrigins: [env.ARKPEDIA_AUTH_URL],
     emailAndPassword: { enabled: false },
+    databaseHooks: { user: { create: { before: async user => ({ data: { ...user, name: 'Arkpedia user', image: null } }) } } },
     socialProviders: {
       ...(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET ? { google: {
         clientId: env.GOOGLE_CLIENT_ID, clientSecret: env.GOOGLE_CLIENT_SECRET,
@@ -41,7 +42,7 @@ export function accountAuth(env: AccountsEnv) {
       } } : {}),
     },
     account: {
-      accountLinking: { enabled: true, disableImplicitLinking: true, allowDifferentEmails: true, allowUnlinkingAll: false },
+      accountLinking: { enabled: true, disableImplicitLinking: true, allowDifferentEmails: true, allowUnlinkingAll: false, updateUserInfoOnLink: false },
       encryptOAuthTokens: true,
     },
     session: { expiresIn: 60 * 60 * 24 * 14, updateAge: 60 * 60 * 24, freshAge: 60 * 5 },

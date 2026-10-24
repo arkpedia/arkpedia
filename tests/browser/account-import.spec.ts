@@ -69,7 +69,7 @@ test('a failed email connection retries once even when game settings are unavail
   await expect(dialog.getByRole('status')).toContainText('Retrying once');
   await expect(dialog.locator('.import-sent')).toBeVisible();
   await expect(dialog.getByRole('alert')).toHaveCount(0);
-  await expect(dialog.locator('.import-step').first()).toHaveClass(/import-step-waiting/);
+  await expect(dialog.locator('.import-steps')).toHaveCount(0);
   await expect(dialog.getByRole('button', { name: 'Send again', exact: true })).toBeDisabled();
   await expect(dialog.getByPlaceholder('Code from the email')).toBeFocused();
   const asked = await page.evaluate(() => (window as unknown as { __asked: string[] }).__asked);
@@ -160,7 +160,8 @@ test('background settings recover independently of sending a code', async ({ pag
   await dialog.getByRole('button', { name: 'Send code', exact: true }).click();
   await expect(dialog.locator('.import-sent')).toBeVisible();
   await expect(dialog.getByRole('alert')).toHaveCount(0);
-  await expect(dialog.locator('.import-step').first()).toHaveClass(/import-step-done/);
+  await expect(dialog.locator('.import-steps')).toHaveCount(0);
+  await expect.poll(() => page.evaluate(() => (window as unknown as { __asked: string[] }).__asked.filter(url => url.endsWith('/network_config')).length)).toBe(3);
   const asked = await page.evaluate(() => (window as unknown as { __asked: string[] }).__asked);
   expect(asked.filter(url => url.endsWith('/network_config'))).toHaveLength(3);
   expect(asked.filter((url) => url.endsWith('/yostar/send-code'))).toHaveLength(1);
@@ -293,19 +294,33 @@ test('by default nothing is saved, and the email login stays for the next import
   await expect(dialog.locator('.import-saved')).toHaveCount(0);
 });
 
-test('one Forget everything action confirms its full scope and cancelling keeps data', async ({ page }) => {
+test('forgetting Yostar login keeps imported accounts, favourites and the document', async ({ page }) => {
+  await stubServers(page, 120); await seedSavedLogin(page);
+  const dialog = await openImport(page);
+  await page.evaluate(() => { localStorage.setItem('musicFavorites', '["keep"]'); localStorage.setItem('private-import-data', 'keep'); });
+  await markDocument(page);
+  await dialog.getByRole('button', { name: 'Forget Yostar login', exact: true }).click();
+  await expect(dialog.getByPlaceholder('Yostar email')).toBeVisible();
+  expect(await page.evaluate(() => localStorage.getItem('arkpediaYostarLogin'))).toBeNull();
+  expect(await page.evaluate(() => localStorage.getItem('musicFavorites'))).toBe('["keep"]');
+  expect(await page.evaluate(() => localStorage.getItem('private-import-data'))).toBe('keep');
+  expect(await sameDocument(page)).toBe(true);
+});
+
+test('browser clearing has a separate scoped confirmation and cancelling keeps data', async ({ page }) => {
   await stubServers(page, 120);
   await seedSavedLogin(page);
   const dialog = await openImport(page);
   await expect(dialog.getByRole('button', { name: /^Forget/ })).toHaveCount(1);
   const before = await page.evaluate(() => localStorage.getItem('arkpediaYostarLogin'));
-  page.once('dialog', async confirmation => {
-    expect(confirmation.message()).toContain('every imported game account and saved Yostar sign-in');
-    expect(confirmation.message()).toContain('planner edits, story progress, music playlists and preferences');
-    expect(confirmation.message()).toContain('Your Arkpedia login and cloud saves remain.');
-    await confirmation.dismiss();
-  });
-  await dialog.getByRole('button', { name: 'Forget everything', exact: true }).click();
+  await dialog.getByRole('tab', { name: 'Browser data', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Clear browser data', exact: true }).click();
+  const confirmation = page.getByRole('dialog', { name: 'Clear this browser?', exact: true });
+  await expect(confirmation).toContainText('every imported game account and saved Yostar sign-in');
+  await expect(confirmation).toContainText('planner edits, story progress, music playlists and preferences');
+  await expect(confirmation).toContainText('Your Arkpedia account and cloud saves are kept.');
+  await confirmation.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await dialog.getByRole('tab', { name: 'Game import', exact: true }).click();
   await expect(dialog.locator('.import-saved')).toBeVisible();
   expect(await page.evaluate(() => localStorage.getItem('arkpediaYostarLogin'))).toBe(before);
 });
@@ -347,7 +362,7 @@ for (const server of ['jp', 'kr'] as const) {
   });
 }
 
-test('Forget everything removes all stored categories and returns to email login', async ({ page }) => {
+test('clearing browser data removes all stored categories and returns to email login', async ({ page }) => {
   await stubServers(page, 120);
   let dialog = await openImport(page);
   await dialog.getByLabel('Save this sign-in on this browser').check();
@@ -359,19 +374,20 @@ test('Forget everything removes all stored categories and returns to email login
     for (const key of keys) if (localStorage.getItem(key) === null) localStorage.setItem(key, JSON.stringify({ private: true }));
     sessionStorage.setItem('private-session-data', 'private');
   }, keys);
-  page.once('dialog', confirmation => confirmation.accept());
+  await dialog.getByRole('tab', { name: 'Browser data', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Clear browser data', exact: true }).click();
   await Promise.all([
     page.waitForNavigation({ waitUntil: 'domcontentloaded' }),
-    dialog.getByRole('button', { name: 'Forget everything', exact: true }).click(),
+    page.getByRole('dialog', { name: 'Clear this browser?', exact: true }).getByRole('button', { name: 'Clear browser data', exact: true }).click(),
   ]);
   expect(await page.evaluate(keys => keys.filter(key => localStorage.getItem(key) !== null), keys)).toEqual([]);
   expect(await page.evaluate(() => sessionStorage.getItem('private-session-data'))).toBeNull();
   dialog = await openImport(page);
   await expect(dialog.locator('.import-forms')).toBeVisible();
-  await expect(dialog.getByRole('button', { name: /^Forget/ })).toHaveCount(1);
+  await expect(dialog.getByRole('button', { name: 'Forget Yostar login', exact: true })).toHaveCount(0);
 });
 
-test('Forget everything is available without a saved sign-in and reports refused storage', async ({ page }) => {
+test('browser clearing is available without a saved sign-in and reports refused storage', async ({ page }) => {
   await stubServers(page, 120);
   await page.addInitScript(() => {
     const clear = Storage.prototype.clear;
@@ -382,14 +398,18 @@ test('Forget everything is available without a saved sign-in and reports refused
   });
   const dialog = await openImport(page);
   await page.evaluate(() => localStorage.setItem('private-planner-data', 'keep until clearing succeeds'));
-  page.once('dialog', confirmation => confirmation.accept());
-  await dialog.getByRole('button', { name: 'Forget everything', exact: true }).click();
-  await expect(dialog.locator('.data-dialog-note')).toContainText('could not clear all saved data');
+  await dialog.getByRole('tab', { name: 'Browser data', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Clear browser data', exact: true }).click();
+  const confirmation = page.getByRole('dialog', { name: 'Clear this browser?', exact: true });
+  await confirmation.getByRole('button', { name: 'Clear browser data', exact: true }).click();
+  await expect(confirmation.getByRole('alert')).toContainText('could not clear all saved data');
   expect(await page.evaluate(() => localStorage.getItem('private-planner-data'))).toBe('keep until clearing succeeds');
+  await confirmation.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await dialog.getByRole('tab', { name: 'Game import', exact: true }).click();
   await expect(dialog.locator('.import-forms')).toBeVisible();
 });
 
-test('Forget everything clears other open tabs and does not restore their playing music', async ({ page, context }, testInfo) => {
+test('browser clearing resets other open tabs and does not restore their playing music', async ({ page, context }, testInfo) => {
   test.skip(!testInfo.project.name.startsWith('desktop'), 'the cross-tab reset is independent of viewport');
   await stubServers(page, 120);
   await seedSavedLogin(page);
@@ -403,11 +423,12 @@ test('Forget everything clears other open tabs and does not restore their playin
   await markDocument(other);
   await other.evaluate(() => sessionStorage.setItem('private-other-tab', 'private'));
   const dialog = await openImport(page);
-  page.once('dialog', confirmation => confirmation.accept());
+  await dialog.getByRole('tab', { name: 'Browser data', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Clear browser data', exact: true }).click();
   await Promise.all([
     page.waitForNavigation({ waitUntil: 'domcontentloaded' }),
     other.waitForNavigation({ waitUntil: 'domcontentloaded' }),
-    dialog.getByRole('button', { name: 'Forget everything', exact: true }).click(),
+    page.getByRole('dialog', { name: 'Clear this browser?', exact: true }).getByRole('button', { name: 'Clear browser data', exact: true }).click(),
   ]);
   expect(await sameDocument(other)).toBe(false);
   for (const tab of [page, other]) {

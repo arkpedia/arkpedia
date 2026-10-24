@@ -20,6 +20,9 @@ import type { PullRead } from '@/lib/account/pulls';
 import { isResettingBrowserData, resetBrowserData } from '@/lib/account/resetData';
 import { applyBackup, formatBackup, type ParsedBackup } from '@/lib/account/backup';
 import { readImportFile } from '@/lib/account/importFile';
+import Tabs, { tabPanelProps } from '@/components/ui/Tabs';
+import { accountClient } from '@/lib/cloud-account/client';
+import { useCloudSync } from '@/lib/cloud-account/SyncProvider';
 
 /** "412 operators, 375 skins, 77 materials, 1,840 stages cleared and your profile". */
 function importedSummary(result: ImportResult): string {
@@ -42,7 +45,7 @@ function pullsSummary(read: PullRead): string {
  * A file is written to storage, which its page reads when it next loads. The page must carry
  * the three tables it reads (lib/content/tables.mjs).
  */
-export default function DataDialog({ onClose }: { onClose: () => void }) {
+export default function DataDialog({ onClose, initialView = 'game' }: { onClose: () => void; initialView?: 'game' | 'backups' | 'browser' }) {
   const map = useReleaseTable<GameAccountMap>('game-account-map');
   const aliases = useReleaseTable<ImportAliases>('import-aliases');
   const catalogue = useReleaseTable<MaterialCatalogue>('material-catalogue');
@@ -50,6 +53,9 @@ export default function DataDialog({ onClose }: { onClose: () => void }) {
   const [note, setNote] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
   const [text, setText] = useState('');
+  const [view, setView] = useState(initialView);
+  const [confirmClear, setConfirmClear] = useState(false), [clearing, setClearing] = useState(false);
+  const sync = useCloudSync();
   // The dialog opens on a click, after hydration, so storage can be read for its first render:
   // the remembered sign-in's server, else the site's (the nav's choice, else the account's).
   const [server, setServer] = useState<ServerId>(() => readSavedLogin()?.server ?? siteServerNow());
@@ -59,10 +65,21 @@ export default function DataDialog({ onClose }: { onClose: () => void }) {
     setResult({ imported: importGameAccount(user, { map, aliases, depotNames: depotNames(catalogue) }, pulls, from), pulls });
   }
 
-  function forget() {
-    if (!window.confirm('Forget all Arkpedia data saved in this browser? This removes every imported game account and saved Yostar sign-in, planner edits, story progress, music playlists and preferences. Your Arkpedia login and cloud saves remain. Export everything first if you want a backup.')) return;
-    try { resetBrowserData(); }
-    catch { setNote('This browser could not clear all saved data. Check its site-data settings.'); }
+  async function forget() {
+    if (clearing) return;
+    setClearing(true); setNote(null);
+    try {
+      // Sign out before resetting so a fresh page cannot immediately restore the cloud.
+      sync.pause();
+      if (sync.remote || !['signed-out', 'unavailable'].includes(sync.status)) {
+        const result = await accountClient.signOut();
+        if (result.error) throw new Error('Sign-out could not finish, so browser data was not cleared. Try again.');
+      }
+      resetBrowserData();
+    } catch (error) {
+      await sync.resume();
+      setNote(error instanceof DOMException ? 'This browser could not clear all saved data. Check its site-data settings.' : error instanceof Error ? error.message : 'This browser could not clear all saved data.'); setClearing(false);
+    }
   }
 
   function restore(backup: ParsedBackup) {
@@ -111,15 +128,21 @@ export default function DataDialog({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <ImportDialog title="Import / export" className="data-dialog" onClose={onClose}>
+    <ImportDialog title={confirmClear ? 'Clear this browser?' : 'Import / export'} className="data-dialog" onClose={() => { if (!clearing) onClose(); }}>
+      {confirmClear ? <div className="data-dialog-part">
+        <p>This removes every imported game account and saved Yostar sign-in, planner edits, story progress, music playlists and preferences from this browser. It signs you out of Arkpedia and reloads the page, stopping playback.</p>
+        <p>Your Arkpedia account and cloud saves are kept. Export a backup first if you want a local copy.</p>
+        <div className="data-dialog-acts"><button type="button" className="ghost btn-sm" disabled={clearing} onClick={() => setConfirmClear(false)}>Cancel</button>
+          <button type="button" className="danger" disabled={clearing} onClick={() => void forget()}>{clearing ? 'Clearing…' : 'Clear browser data'}</button></div>
+        {note && <p role="alert">{note}</p>}
+      </div> : <>
+      <Tabs label="Data management" id="data-management" value={view} onChange={setView} options={[
+        { value: 'game', label: 'Game import' }, { value: 'backups', label: 'Backups' }, { value: 'browser', label: 'Browser data' },
+      ]} />
       <div className="data-dialog-body">
-      <section className="data-dialog-part" aria-labelledby="data-game">
-        <h3 id="data-game">From the game</h3>
+      <section {...tabPanelProps('data-management', 'game')} hidden={view !== 'game'} className="data-dialog-part">
         <p className="import-copy">
-          Import data directly from your Arknights account (Global, Japan or Korea). Your login is sent encrypted and is never
-          read by Arkpedia itself; Arkpedia only receives your raw account data. No login related information is
-          kept on our servers. Your game sign-in is saved only in this browser if you choose to remember it.
-          Imported game data stays local unless you enable its cloud storage in your Arkpedia account.
+          Your browser signs in directly to Yostar over an encrypted connection. Arkpedia never receives your Yostar email, codes or tokens.
         </p>
         <p className="hint import-note">
           Importing replaces your operators, depot and account, and kicks you out of the game if you are logged in.
@@ -128,7 +151,8 @@ export default function DataDialog({ onClose }: { onClose: () => void }) {
             server's sign-in is its own (key). */}
         <SegmentedControl label="Server" className="import-server" value={server} onChange={setServer}
           options={SERVER_IDS.map((id) => ({ value: id, label: SERVERS[id].label }))} />
-        <GameSignIn key={server} server={server} idPrefix="data" onAccount={onAccount} onForget={forget} />
+        <GameSignIn key={server} server={server} idPrefix="data" onAccount={onAccount} />
+        <p className="hint">Your import stays in this browser unless you enable game-data storage in Account settings → Saving.</p>
         {result && (
           <p className="hint import-note" role="status">
             Imported: {importedSummary(result.imported)}.{pullsSummary(result.pulls)}{unheldSummary(result.imported.unknown)}
@@ -136,6 +160,7 @@ export default function DataDialog({ onClose }: { onClose: () => void }) {
         )}
       </section>
 
+      <div {...tabPanelProps('data-management', 'backups')} hidden={view !== 'backups'}>
       <section className="data-dialog-part" aria-labelledby="data-file">
         <h3 id="data-file">From a file</h3>
         <div className="data-dialog-acts">
@@ -163,7 +188,6 @@ export default function DataDialog({ onClose }: { onClose: () => void }) {
           </div>
         </details>
       </section>
-
       <section className="data-dialog-part" aria-labelledby="data-export">
         <h3 id="data-export">Export</h3>
         <div className="data-dialog-acts">
@@ -174,10 +198,20 @@ export default function DataDialog({ onClose }: { onClose: () => void }) {
           and story progress. These are your copies of the data saved in this browser.
         </p>
       </section>
+      </div>
+
+      <section {...tabPanelProps('data-management', 'browser')} hidden={view !== 'browser'} className="data-dialog-part">
+        <h3>Data on this device</h3>
+        <p>Imported game accounts, plans, music and preferences are stored in this browser. Backups gives you a copy to keep.</p>
+        <p className="hint">To forget only a remembered Yostar login, use Forget Yostar login under Game import. That keeps your imported data and Arkpedia sign-in.</p>
+        <div className="data-dialog-acts"><button type="button" className="danger" onClick={() => setConfirmClear(true)}>Clear browser data</button></div>
+        <p className="hint">Cloud saves and Arkpedia account deletion are managed separately in Account settings → Delete data.</p>
+      </section>
 
       {note && <p className="hint data-dialog-note" role="status">{note}</p>}
 
       </div>
+      </>}
     </ImportDialog>
   );
 }
