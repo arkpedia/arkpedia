@@ -433,3 +433,40 @@ This is local website integration proof, not remote storage, a production adapte
 build, a latency/cost comparison or whole-site migration acceptance. A separately
 reviewed reader binding/route, scoped remote publication, default/fallback failure
 proof and retention/reachability policy are still required before activation.
+
+### First remote run: bounded publication and retention
+
+The first remote experiment publishes only the two already verified real snapshots
+to one dedicated private pilot bucket. Do not enable a daily publisher, mirror every
+preview's data, copy the media corpus or move a production pointer for this experiment.
+The measured retained union is 9,057 objects / 382,474,086 bytes; 207 new objects account
+for 121,201,650 bytes in the second snapshot. These are logical object bytes, not a
+provider invoice or a guarantee that the account's free allowances have headroom.
+Inspect existing account storage and operation usage before the first remote write.
+
+Keep both manifests and every object reachable from either manifest. Also retain
+any candidate referenced by an in-flight operation, the current pointer and the
+explicit rollback receipt. During the pilot, keep unreferenced objects too: no
+automatic expiry, garbage collector or lifecycle deletion is enabled. A failed or
+uncertain upload requires inspection before retry; it does not authorize removing
+objects that another candidate, held tab or rollback might still need. Immutable
+object age alone cannot establish that an object is unused.
+
+Before application opt-in, retain the source revisions, original manifest hashes,
+candidate receipts, observed pointer/ETag preconditions, serving Worker identity and
+previous application/data references. Verify remote CAS rejection, exact immutable
+reads, cache hits, uncached errors and rollback on the isolated resources. Exercise
+old and new application tabs across publication and rollback, including a browser
+file whose bytes actually differ between snapshots; the two real snapshots share
+their public-file bytes, so that distinction needs its own bounded synthetic fixture.
+Failure fixtures must use separate disposable candidate objects, never damage a
+retained real snapshot. Report any reload or old-chunk failure explicitly.
+
+Compare the same route/payload samples through GitHub and R2, recording cold/warm
+latency, errors, Worker CPU/memory, R2 reads/writes and the measured stored union.
+Separate this immutable-data bucket from the existing build-scoped OpenNext cache
+in both telemetry and cost estimates. Stop before routine publication until the
+comparison, fallback behavior, supported old-client retention window and expected
+monthly account-level cost have been reviewed. The initial USD 0–5 planning estimate
+is not a spend cap or permission to buy additional capacity. Production retention,
+cleanup and any media migration require their own accepted policy and evidence.

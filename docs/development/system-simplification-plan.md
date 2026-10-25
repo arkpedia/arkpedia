@@ -151,7 +151,7 @@ endpoint. A private Worker binding is appropriate for server-only reads.
 
 ## Ordered milestones and acceptance
 
-Reviewed 2026-10-25, 12:42 UTC. **30 of 52 acceptance items are complete and checked.**
+Reviewed 2026-10-25. **34 of 52 acceptance items are complete and checked.**
 The items differ substantially in size; this is not a percentage of time remaining.
 Completed controller implementation and real lifecycle proof are now separate from
 the remaining CI credential/activation gate. Exact evidence and limitations are in
@@ -162,23 +162,31 @@ the [progress log](system-simplification-progress.md).
 | 0. Preserve and measure | 4/6 | Source inventory and backups complete | Provider dashboards and actual usage/bills |
 | 1. Cloudflare development loop | 9/9 | Automatic checked-artifact publication and owned-close retirement verified | Maintain these checks on subsequent previews |
 | 2. Proportional CI | 8/9 | Main/CF prerequisites released; selected/reuse proof verified | Representative timing/reliability measurements |
-| 3. One codebase | 3/8 | Main-based pilot build released; checked release owner775 prepared | Controlled pilot activation/parity, feature reconciliation, branch retirement |
+| 3. One codebase | 4/8 | Same checked main code released to Vercel/pilot; account continuity accepted | Feature reconciliation, branch retirement and remaining cutover gates |
 | 4. R2 delivery | 3/7 | App reader merged; local app/two-snapshot proof | Isolated remote CAS/cache/fallback/rollback, cost and activation proof |
 | 5. Production cutover | 0/6 | Preliminary checks recorded | Complete parity, old-tab, rollback and measured soak |
-| 6. Simulator naming | 3/7 | Branches/unique work preserved; source links audited | External consumers, rename/archive and reference verification |
+| 6. Simulator naming | 6/7 | Rename/archive, historical links and canonical references verified; PR19 merged after full matrix | Final documentation and measured comparison |
 
-Latest verified main release is PR774 atb9ffe6df. Its full Check40189357580,
-exact native producer40191452625, automatic publication40191632872 and owned-close
-retirement40192165739 passed. The deployed preview passed21 HTTP/privacy/alias
-cases and12 browser journeys. Independent provider inspection confirms baseline
-591c/19b and unchanged pilot066ea33d. Actual www clean identity,36 route/theme/width
-cases,13 aliases and both analytics sampling states passed; production release
-status is healthy. Accounts/D1/OAuth/DNS configuration is unchanged.
+Latest main release is PR775 at8ee3f3dc. Its Check40208662540, Vercel
+Deploy40208778256 and pilot release40208777886 passed. Both main deployments are
+healthy with the same clean fingerprint/live/schema2 identity. Actual pilot21 HTTP
+and12 browser cases pass; www's four-state account/local-controls check passes.
+Private server/browser comparison confirms exact archived-draw multiplicities,
+identity/providers/consents and nondecreasing revisions. Independent fresh-profile
+provider restoration and automatic visible/focus sync passed. Previously unloaded old-client navigation
+upgraded/reloaded the document; seamless retention is not claimed. Analytics host
+alignment is saved and actual post-change ingestion passed. D1/OAuth/DNS configuration
+is unchanged. Independent Google ZIP comparison preserves every draw/multiplicity;
+Discord restored the same account. The reversible favourite test was restored, while
+legitimate concurrent planner reward initialization was retained and documented.
 
 PR775 separately prepares the disabled exact-main release owner, resource checks
 and ownership-aware recovery, together with the necessary two-reader content gate.
-It is not deployed or enabled. Its own full CI/preview, explicit scoped credential
-approval and disabling/draining the old native build owner precede merge/activation.
+Its exact full CI/preview passed. Under explicit maintainer approval, the90-day
+single-Worker credential was stored, the old native owner disabled/drained and the
+checked-main workflow enabled. The first release retained its exact previous-version
+receipt; private recovery metadata and held-client baselines were captured beforehand.
+First-release configured-account acceptance is complete; public cutover remains separate.
 Preserved dev/Cloudflare branches and feature work remain; do not force the legacy
 sync over its reviewed conflicts. R2 app code is merged but remote R2 publication,
 measured comparison and retention/activation remain open.
@@ -311,8 +319,12 @@ The existing local `cf:preview` command is not the remote feature-preview workfl
 - [ ] Finish reviewed branch reconciliation. #759 at d6026597 passed full Check
   40138347385. The #764 CI/deployed proof hold is now released; reconcile the
   current main/CF tips and revalidate the changed integration tree before merging.
-- [ ] Make main deploy to Vercel and the CF production-candidate hostname from the same
+- [x] Make main deploy to Vercel and the CF production-candidate hostname from the same
   reviewed code. Verify account/provider differences and content compatibility explicitly.
+  PR775 main8ee3f3dc passed Check40208662540 and both release workflows. Actual build,
+  live-content, HTTP/browser and configured-account continuity checks passed; independent
+  Google archive restoration and Discord identity matched. Automatic favourite sync and
+  restoration passed. Old-route document upgrade/reload remains a separate cutover limit.
 - [ ] Switch feature PRs/previews to main. Stop Vercel dev deploys and obsolete dev
   content compiles only once all consumers are moved or accounted for.
 - [ ] Retire main-to-dev/cloudflare synchronization and alerts after dependants move.
@@ -380,12 +392,21 @@ progress log. They do not establish whole-site parity on a single production can
 - [x] Verify simulator GitHub repository identity, Pages and deployment metadata;
   both have no GitHub Pages or deployment records. Read-only Cloudflare Pages
   inventory is empty. This does not establish absence of Workers/Vercel Git apps.
-- [ ] Confirm external/dashboard consumers and final incoming-link migration before
-  reusing the legacy name. Source audit is complete; this external gate remains open.
-- [ ] Rename the old repo to legacy and archive it, then rename standalone to the desired
+- [x] Confirm external/dashboard consumers and final incoming-link migration before
+  reusing the legacy name. The maintainer confirmed no other known consumers;
+  refreshed organization source, provider, GitHub hooks/deployment checks and the
+  four exact historical source files were verified. SD PR60 published explicit
+  legacy links before name reuse.
+- [x] Rename the old repo to legacy and archive it, then rename standalone to the desired
   name, retaining licences, attribution, issues/releases and access to branch history.
-- [ ] Update and verify all references. Reusing the old name can resolve old URLs to
+  Repository IDs1406934390/1431287392 are unchanged. Fresh complete-history bundles
+  preserve21/34 branches, including concurrent standalone work and the metadata PR.
+- [x] Update and verify all references. Reusing the old name can resolve old URLs to
   the new project; never rely on implicit redirects for old raw paths/commit pins.
+  SD PR60 preserves explicit legacy pins and hashes. Canonical active metadata and
+  visible source links merged in simulator PR19 as9ba5016b after all eight final-source
+  CI jobs40207142743 passed; the discovered Windows runner bug and long catalogue
+  files were repaired without reducing stage/assertion/timeout/matrix coverage.
 - [ ] Reconcile final architecture/docs/scripts after migration and publish the measured
   cost/latency/CI comparison. Keep historical proof in the progress log.
 
@@ -435,23 +456,25 @@ another permanent branch, database, queue or service by default.
 
 ### Current execution checkpoint
 
-Latest verified main release is #770 at9796b663 (exact tested tree482042e6).
-Full Check40170783235 passed1500/217 browser cases; push40173692769 reused its
-proof and Deploy40173713827 passed. Actual www clean identity, healthy main release
-report,36 global browser cases and the accounts owner's34+4/API acceptance pass.
-Accounts remain enabled only on the existing Cloudflare migration pilot; no
-canonical D1/OAuth/DNS configuration changed.
+Latest main is PR775 at8ee3f3dc. Its first checked-main pilot and normal Vercel
+release passed; both actual deployments are healthy. See the current progress
+checkpoint for exact HTTP/browser/account evidence and remaining manual acceptance.
+PR771's R2 app-reader foundation is merged; PR777's optional existing-edge integration
+is draft and remote R2 publication remains inactive.
 
-Scoped CI publication40172881817 and retirement40173445887 passed for the single
-trusted-main PR770 artifact, restoring the verified591c/19b baseline. Preview
-handlers are enabled; PR773 subsequently proved the automatic callback/close lifecycle (runs40187870567/40188151181).
-PR771 contains the inactive R2 app-reader foundation, with local native/app browser
-proof and88 composed focused tests. Its corrected full Check40175573617 is running after a bounded declaration-lint fix.
-Remote R2 publication, measured comparison and retention/activation remain open.
+PR775's final sourcef0577500 passed full Check40198085718 and real isolated preview
+acceptance before merge. Native builds are now disabled, the reviewed scoped token
+is stored, and the checked-main owner published version56bdbefb. Independent browser
+provider restoration, independent archive comparison and automatic sync have passed;
+analytics hostname alignment is saved with successful post-change actual ingestion;
+old-client navigation upgraded/reloaded and is not seamless cutover proof. Canonical
+D1/OAuth/DNS configuration remains unchanged.
 
 Both provider dashboard/billing baselines are recorded privately. Different billing
 periods and pilot-versus-production traffic prevent a measured net-savings claim.
-Standalone simulator preservation was refreshed to31 branches/29 with unique work,
-with a new verified bundle retaining the earlier force-updated tip as well. External
-incoming consumers and ordered rename/reference migration remain open. No branch
-deletion, repository rename/archive, DNS cutover or Vercel retirement has occurred.
+The simulator rename/archive is complete with unchanged repository identities,
+verified21/34-branch backups and SD PR60's historical links published before name
+reuse. Canonical active source links are composed with the simulator CI execution
+repair in PR19, now merged after its full eight-job matrix passed. Final measured
+comparison/documentation reconciliation remains open.
+No permanent branch deletion, DNS cutover or Vercel retirement has occurred.

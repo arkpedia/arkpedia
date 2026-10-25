@@ -1,6 +1,6 @@
 # How Arkpedia works
 
-Architecture reference, checked 2026-10-24. Arrows show the direction of a request,
+Architecture reference, updated 2026-10-25. Arrows show the direction of a request,
 read, publication or deployment; responses return along the same connection.
 The diagrams distinguish the production Vercel site from the Cloudflare migration.
 
@@ -47,8 +47,8 @@ flowchart TB
   end
   prod -->|live pointer and verified release| data
   dev -->|dev-live pointer and verified release| data
-  site -->|dev-live pointer and verified release| data
-  stage -->|dev-live pointer and verified release| data
+  site -->|live pointer and verified release| data
+  stage -->|checked candidate channel; main-based previews use live| data
   reader -->|commit-pinned media URLs| assets
 
   subgraph imports[Account import: encrypted tunnel]
@@ -71,8 +71,8 @@ flowchart TB
   app["Private arkpedia repository<br/>pages, components, logic and workflows"]
   app -->|Check then prebuilt Deploy| prod
   app -->|Check then prebuilt Deploy| dev
-  app -->|cloudflare branch: Workers Builds| site
-  app -->|workers/edge watch path: Workers Builds| edge
+  app -->|successful main Check: scoped pilot release| site
+  app -.->|separate existing front Worker publication| edge
   reader -->|direct audio or embedded player| music[Monster Siren CDN / YouTube]
 ```
 
@@ -246,48 +246,44 @@ the maintainer's complete provider login, explicit provider linking and save rou
 remain acceptance work. A production account database and public-origin settings
 must be chosen before promoting that feature or moving the public domain.
 
-## 5. Code release and branch synchronization
+## 5. Code release and preserved legacy branches
 
 ```mermaid
 flowchart TD
-  feature[Feature branch / pull request] --> check[Check: tests, audits, build, browser tests]
-  check -->|green and merged| dev[dev]
-  dev --> deploydev[Commit-pinned Vercel dev Deploy]
-  dev --> release[Disposable release branch / PR]
-  release --> main[main]
-  main --> checkmain[Check then Vercel production Deploy]
-  main --> integration[Temporary main-into-dev integration branch]
-  integration --> verify[Check exact merge commit]
-  verify -->|explicit completion dispatch; green and still current| fast[Non-forced advance of dev]
-  fast --> deploydev
-  fast --> sync[Explicit dev-into-cloudflare sync]
-  dev -->|ordinary push| sync
-  sync --> cf[cloudflare: dev plus Worker-specific changes]
-  cf --> build[Workers Builds: site Worker]
-  cf -->|workers/edge files changed| edge[Workers Builds: arkpedia-edge]
-  relay[arkpedia-relay/main] -->|relay build watch paths changed| relaybuild[Workers Builds: relay Worker + container]
-  integration -->|conflict| issue[Tracked GitHub issue; shared branch unchanged]
-  verify -->|failed| issue
-  sync -->|conflict| issue
+  main[main] --> feature[Short feature branch: local development]
+  feature --> check[Ready PR Check: impact-selected validation]
+  check -->|explicit checked-source request| preview[Isolated Cloudflare preview and actual journey checks]
+  preview -->|accepted reviewed PR| merge[Merge into main]
+  merge --> checkmain[Current-main Check: execution or exact-tree proof]
+  checkmain --> vercel[Vercel production: prebuilt Deploy]
+  checkmain --> pilot[Existing arkpedia Worker: scoped pilot release]
+  vercel --> readers{Both main readers match fingerprint/channel/schema}
+  pilot --> readers
+  readers --> content[Main content publication may proceed]
+  merge -.-> legacy[Legacy main-to-dev/cloudflare sync remains configured]
+  legacy -->|conflict: no force| issue[Tracked alert; preserved branches unchanged]
+  dev[Preserved dev work] -.-> deploydev[Legacy Vercel dev deployment]
+  cf[Preserved cloudflare work] -.-> disabled[Native pilot builds disabled]
+  relay[arkpedia-relay/main] -->|relay build watch paths changed| relaybuild[Workers Builds: relay Worker and container]
 ```
 
-Application and content releases are separate. A new supported record/media version
-can ship through data publication; changed UI, calculations, mechanics or an
-incompatible schema require an app deployment. Docs-only app changes skip app
-Check/Deploy. The sync workflow still reconciles main's ancestry. Successful data
-publication and heartbeat checks close tracked alerts; failed checks, publication,
-stale heartbeats and quarantined records have separate issues.
+Application and content releases are separate. Supported records/media can ship
+through data publication; changed UI, calculations, mechanics or incompatible
+schemas require an app release. Docs-only changes skip app Check/Deploy. Legacy
+sync remains configured while consumers/features are preserved; it is not the
+destination for new feature work. Conflicts leave shared branches unchanged.
+No permanent branch retirement or public-domain cutover is implied.
 
 ## 6. Related projects
 
 ```mermaid
 flowchart LR
-  data[arkpedia-data] -->|stage/source records| sim[arkpedia-stage-simulator-standalone]
+  data[arkpedia-data] -->|stage/source records| sim[arkpedia-stage-simulator]
   extra[arkpedia-stage-simulator-data] -->|simulator-only generated records| sim
   sd[arkpedia-sd-assets] -->|pinned models and scenery| sim
   sd --> desktop[arkpedia-desktop-chibis]
   sd --> website[Arkpedia website chibis]
-  fork[arkpedia-stage-simulator: original fork / prototype] -.->|project lineage| sim
+  fork[arkpedia-stage-simulator-legacy: archived prototype] -.->|project lineage| sim
 ```
 
 These are related applications and data consumers, not a dependency through which
@@ -298,18 +294,25 @@ hosting endpoint. The organization `.github` repository owns profile/community f
 
 ## Source map and verification limits
 
-This is a source/configuration map, not a fresh audit of private provider dashboard
-settings or VPS installation state. Base edge routing came from `8520b03a`; the
-pilot source/bindings now match cloudflare `11d175fb`, and the isolated staging
-artifact is `6026245a`. Provider API reads confirmed their separate writable
-resources and the absence of account bindings/secrets in staging. Relay source/config
-matches `f2e2c3fb`. No billing, DNS cutover or unobserved dashboard integration is inferred.
+The first checked-main pilot release is main8ee3f3dc/version56bdbefb, with the same
+clean live/schema2 fingerprint as www. Native pilot builds were disabled and drained;
+the release owner preserves existing D1/cache/queue/self bindings and auth secrets.
+Actual public/browser/account/provider/archive/sync checks passed. Previously unloaded
+old-client navigation upgraded/reloaded the document; seamless continuity is not claimed.
+The existing analytics hostname is nowarkpedia-cf.mocchibird.com with post-change
+actual beacon ingestion verified. Isolated staging remains separate and unbound to
+accounts; automatic preview retirement40208662442 passed. Front edge/relay
+installation and DNS were not changed by this release. Base edge routing came from
+8520b03a and relay source/config fromf2e2c3fb; no fresh VPS installation audit is implied.
+Draft PR777 prepares optional public R2 delivery inside the existing edge Worker,
+but no remote bucket/binding/pointer is active. Final cost/soak, old-client retention,
+rollback rehearsal and public-domain cutover remain open; see the dated progress log.
 
 | Area | Authoritative references |
 | --- | --- |
 | App routes and feature ownership | [Repository map](repository-map.md), `pages/`, `lib/` |
 | Edge routing and bypass rules | [Edge Worker README](https://github.com/arkpedia/arkpedia/blob/8520b03abe6175e7069c7c06b881faa492cc22b2/workers/edge/README.md), adjacent `wrangler.jsonc` and `edge.mjs` |
-| Site Worker, R2 and queue | [Cloudflare guide](development/cloudflare-workers.md), `cloudflare` branch root `wrangler.jsonc`, `open-next.config.ts`, `lib/cloudflare/regionalPageCache.ts` |
+| Site Worker, R2 and queue | [Pilot release and recovery](development/cloudflare-pilot-release.md), main root `wrangler.jsonc`, `open-next.config.ts`, `lib/cloudflare/regionalPageCache.ts` |
 | Data release and recovery | [Runtime content](development/runtime-content.md), [pipelines](development/data-pipelines.md), `lib/content/server.ts`, `config/content-channels.json` |
 | Asset URLs and pins | `config/asset-delivery.json`, `data/assets/revisions.json`, [data sources](development/data-sources.md), asset repository manifests |
 | Account transport | `lib/account-import/relay.ts`, branch-specific `config/relay.json`, [relay repository](https://github.com/arkpedia/arkpedia-relay/tree/f2e2c3fb2228e93af469011a2e790b5b6070099f) |

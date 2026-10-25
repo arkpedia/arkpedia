@@ -1,6 +1,68 @@
 # Arkpedia system simplification progress
 
-## Current checkpoint — 2026-10-25, after main hosting preparation
+## Current checkpoint — 2026-10-25, first checked-main pilot release
+
+PR775 merged as8ee3f3dc under explicit maintainer approval. Main Check40208662540
+accepted the existing exact-tree execution proof; Vercel Deploy40208778256 and
+Cloudflare release40208777886 both succeeded. Pilot version56bdbefb replaces066ea33d
+and serves the same clean main code as www: fingerprint ec5ff11e, live/schema2,
+production role. The old native build owner was explicitly approved, disabled and
+observed drained before activation. The90-day single-Worker credential is stored,
+andARKPEDIA_PILOT_RELEASES_ENABLED is true. No D1 migration, secret-value change,
+database restore, DNS change or public-hosting cutover occurred.
+
+Actual pilot acceptance passed21 HTTP build/content/alias/privacy cases and12
+browser journeys across desktop/mobile dark/light. www also passed its four-state
+account-notice/local-import-export verification. Release-status reports both main
+deployments healthy; preserved dev remains95 commits behind. Legacy sync failed
+closed without overwriting unreleased work. Automatic preview retirement is tracked
+separately; a successful production release is not preview-cleanup proof.
+
+Private recovery metadata, a browser ZIP and a server baseline were retained locally
+before release. The authenticated old account document survived publication. The
+offline after-state comparison passes identity/profile/provider-row/consent/paused
+continuity, nondecreasing revisions and exact per-server/UID draw multiplicities,
+including repeated draws. A new-build account UI also resolves the same existing
+profile, ready state and session without first-time setup. No private backups,
+identifiers or auth data belong in repository/CI evidence. Independent fresh-profile
+provider restoration and automatic sync have now passed owner-assisted acceptance.
+The independent private/guest Google export matches every server-backed draw and
+multiplicity; the maintainer also confirmed Discord restores the same account/history.
+A temporary music favourite uploaded without Sync now, advanced save revision while
+archiveRevision stayed unchanged, and appeared after focusing the independent browser.
+Its original membership was restored and verified on the server. The full personal
+snapshot is not byte-identical: the maintainer concurrently opened a planner/tracker,
+initializing its previously empty reward-progress record through existing unchanged
+code. Timestamp/account identity and every added mark match imported provenance;
+no baseline marks were lost. That legitimate progress is preserved, not cleared to
+force the whole-snapshot comparator true. Account/archive/provider/consent checks pass.
+
+Opening a previously unopened Techniques route changed the document build ID; this
+is an observed client upgrade/reload, not seamless old-document navigation or a
+proven missing-chunk root cause. Back restored the original account document and
+its signed-in ready state after hydration. The old-client retention/transient-state
+gate remains open before public cutover; code/config recovery preserves all D1 writes.
+
+An actual anonymous analytics beacon used the expected public token and pilot
+hostname and received a successful ingestion response. Under explicit maintainer
+approval, the existing analytics site's configured hostname was changed from
+arkpedia.cloudflare-1ff.workers.dev toarkpedia-cf.mocchibird.com. The dashboard confirms
+the save and unchanged public beacon token; a post-change actual beacon/ingestion
+check passed. Dashboard reporting delay is separate from successful ingestion.
+The first-release configured-account freeze is cleared. Public cutover still requires
+the separately recorded old-client/rollback/cost/soak gates. PR776 remains draft and
+PR777 remains inactive. No new broad validation run is needed
+unless their source changes or a concrete failure requires it.
+
+Simulator PR19 merged as9ba5016b after final-source1ed1b3d4 passed all eight hosted
+matrix jobs in40207142743 (Linux/Windows, Node22/24, both shards). The CLI genuinely
+executes Windows tests; both596-stage suites retain every case/assertion and their
+original simulation durations/timeouts. Canonical metadata links are included in
+that tested tree. Superseded draft PR18 was closed without deleting preserved work.
+This completes the naming/reference unit; measured cost/latency/CI comparison and
+final architecture reconciliation remain open. The checklist is now34/52.
+
+## Previous checkpoint — hosting preparation and simulator rename
 
 Main is `b9ffe6df` after PR774. Its source `3d1adbec` passed full
 Check40189357580:1,500 browser passes/217 intentional skips, with full proof
@@ -23,11 +85,11 @@ The main-based hosting build is prepared; the pilot still runs its existing bran
 and dev-live content. PR775 prepares the disabled checked-main release owner and
 registers it as an additional main data reader. Publication must wait for both
 Vercel and Cloudflare's fingerprints, not merely their schema numbers. Its release
-step alone receives a future scoped provider token; the API-only completion job
+step alone receives the scoped provider token; the API-only completion job
 resumes held data after both readers match. The pilot's refresh:false prevents
 sending it Vercel's refresh secret; actual data propagation/refresh remains a gate.
-No new credential or build-owner setting is enabled. Merge775 only after its own
-exact CI/preview, explicit credential approval, and disabling/draining the old
+The approved credential is stored; the release flag and native build-owner setting
+remain unchanged. Merge775 only after disabling/draining the old
 native production build owner, since main data will then wait for the first pilot
 release. Actual signed-in/old-tab accounts and analytics acceptance remain required.
 
@@ -37,12 +99,85 @@ at sourcefb4a8390 passed2,597 tests with five intentional skips; all ten declare
 Python suites and changed-script ESLint passed. Workspace-local Node22.23.3 matches
 CI; an isolated Python environment supplies the declared dependencies. The earlier
 Windows/LF, missing-Pillow and old-runtime failures remain separate observations;
-no assertion was relaxed to make them pass. Current source adds documentation only
-to that fully tested code and is returning to full CI. The checklist remains30/52;
-prepared code is not activation.
-R2 delivery is not activated remotely. DNS, permanent branch retirement, simulator
-rename/archive and Vercel retirement remain behind their recorded gates. Detailed
-entries below retain dated evidence rather than claiming earlier sources are current.
+no assertion was relaxed to make them pass. Source093d7b84 subsequently passed full
+Check40195749108. Final sourcef0577500 removes same-source deployment reuse because
+prebuild can adopt newer artwork pins without changing code identity. All68 focused
+release tests and changed-script lint pass. Its exact full Check40198085718 passed:
+2,604 application/script passes with three intentional skips, ten Python suites,
+and1,500 browser passes/217 intentional skips. Trusted full proof artifact12601102842
+names treef90c88f2. Request40200093362, native producer40200117453 and automatic
+publication40200317783 passed from trusted mainb9ffe6df. Actual isolated version
+494eb533 serves exact clean sourcef0577500/fingerprintec5ff11e from archive7bc89e50.
+All21 HTTP identity/live-content/alias/privacy cases and12 actual browser journeys
+across desktop/mobile dark/light pass. Unconfigured account APIs remain503/private/
+no-store with no cookies. This does not prove configured OAuth/D1 or old-client
+acceptance. Under explicit maintainer approval, the90-day arkpedia-pilot-ci token
+was created with Individual Workers Editor access only to existing Workerarkpedia.
+It expires2027-01-23 and was stored asARKPEDIA_PILOT_API_TOKEN at15:26:22 UTC.
+A scoped read-only deployments request succeeded; GitHub confirms the secret name
+and timestamp. Encrypted local transfer kept the value out of chat/logs; temporary
+bridge keys/ciphertext were removed. This proves credential storage/read access,
+not deployment permissions or account acceptance. Prepared code is not activation;
+the pilot version, native build owner, release flag, D1 and DNS remain unchanged.
+The accounts owner is preparing the private baseline/held-old-client milestone.
+
+The maintainer confirmed no other known simulator consumers. A fresh18-repository
+source audit found no additional integration; both simulator hook/deployment lists
+remain empty. Complete-history bundles and fsck preserve all21 legacy and34 active
+branches, including the concurrent Windows continuation and metadata review branch.
+The old repository is now archived asarkpedia-stage-simulator-legacy, retaining
+ID1406934390. The active standalone is nowarkpedia-stage-simulator, retaining
+ID1431287392. All four historical source files resolve from the archived repository
+with their original SHA-256 values. SD PR60 merged as6f3cfd43 after Check40198928433;
+its explicit historical links were published before name reuse. Local Linux checks
+passed89 tests and validated3,239 models, stage geometry and two effect packages.
+Canonical metadata PR18's Linux Node22 job timed out one monolithic stage-smoke file
+at the existing180-second limit:9,503 passes, zero failed assertions, one cancellation.
+The other jobs reported success, but investigation confirmed that the Windows test
+wrapper compared incompatible file URLs and exited without executing its unit suite.
+Those Windows results must not be counted as full test coverage.
+
+PR19 fixes the CLI entrypoint, rejects empty selections and verifies actual child
+test execution/failure propagation. It partitions the identical596 stage cases into
+four files, with a regression proving every stage is included once. Timeouts,
+assertions and matrix coverage remain unchanged. All601 focused cases pass on local
+Windows Node24 and Linux Node22.23.3; the existing five version/licence/attribution
+tests pass too. Its final combined sourcee23c78b2 also includes PR18's canonical
+links. Matrix40202641007 passed seven jobs, but Windows Node22 shard0 timed out the
+separate monolithic file-backed-stage test after9,691 passes, zero failed assertions
+and one cancellation. Source1ed1b3d4 partitions all596 file-backed stages into four
+groups of149, preserving every assertion and ten-second battle simulation. Its exact
+partition and affected groups pass on Windows Node24 and Linux Node22.23.3:10 tests,
+zero failures/cancellations/skips. The changed source requires fresh hosted CI. The intermediate
+sourcec79e47f7 run was superseded by that source change; PR18 is held as a draft.
+No gameplay, dependency, licence or attribution changed. Full hosted proof is pending.
+
+Draft PR777/source2746b9e4 prepares an optional public-content namespace inside the
+existing front edge Worker. Its committed config still binds onlySITE: no new
+Worker, bucket, credential, binding, route or app setting is activated. All32 local
+edge/reader/integration tests, typecheck and Linux Wrangler dry-run pass. Draft
+Check40204948692 passed2,539 application/script cases, three intentional skips and
+ten Python suites; it is not full preview/build acceptance. The accounts owner's
+independent source review found no account/privacy blocker: bound private requests
+retain their request bodies/cookies/headers and do no R2 work. Remote activation
+still requires approved public-only snapshots, CAS/cache/failure/old-client/rollback
+proof and measured cost/latency. Keep777 draft until the pilot release is accepted.
+
+The checklist is32/52. R2 delivery is not activated remotely. DNS, permanent branch
+retirement and Vercel retirement remain behind their recorded gates. Detailed entries
+below retain dated evidence rather than claiming earlier sources are current.
+
+## Ordinary UI timing sample recorded 2026-10-25
+
+PR773's bounded account-notice UI change passed Check40186842441 in10m20s
+wall time (10m04s for the Check job,16s before it started). Selected browser work
+took1m45s; the separate full-browser step was intentionally skipped. Application/
+Python tests took1m45s, typecheck35s and the application build1m06s. The selected
+execution evidence passed; this is an actual successful selected profile, not a
+green setup with no browser work. Source job timestamps are retained in
+`.cache/proportional-ui-ci-773.json`. This is one bounded UI sample, not a p50/p95
+or representative reliability distribution, and it exceeds the initial eight-minute
+target. Keep the remaining proportional-CI measurement/optimization item open.
 
 ## Historical first staging proof
 

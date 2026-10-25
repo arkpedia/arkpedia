@@ -1,14 +1,14 @@
 # Deferred feature review during consolidation
 
-## Current checkpoint after the accounts release, 2026-10-25
+## Current checkpoint after main hosting preparation, 2026-10-25
 
-Fetched remote tips are main `9796b6636efd2d6d4018baca2a77c2359f5595da`,
+Fetched remote tips are main `b9ffe6dfa8163bf6bd7f8cf002788415433e3784`,
 dev `5b0e72a8cd0c77d2711978905522c2f875bc8750` and Cloudflare
 `de829d1eac0e1dc0efc17866e680b447650434df`. The complete main-to-dev net comparison
-now contains 348 entries (17 additions, 82 deletions, 236 modifications and 13
-renames); main-to-Cloudflare contains 283 (26 additions, 23 deletions, 221
-modifications and 13 renames). Exact paths/statuses are retained in
-`.cache/deferred-feature-current-20261025.json`. Counts describe file differences,
+now contains 378 entries (15 additions, 109 deletions, 240 modifications and 14
+renames); main-to-Cloudflare contains 299 (15 additions, 41 deletions, 229
+modifications and 14 renames). Exact paths/statuses are retained in
+`.cache/deferred-feature-main774-20261025.json`. Counts describe file differences,
 not outstanding features or an approved merge.
 
 Main now contains the accepted accounts implementation. The current Cloudflare
@@ -22,6 +22,10 @@ Central versioned site preferences already exist on main. The remaining dev
 change in `lib/settings/siteSettings.ts` adds a React `useSetting` hook; review
 its consumers and any remaining technique preference behavior as the new unit,
 rather than reintroducing the whole historical preferences implementation.
+The sole current dev consumer is `components/techniques/TechniqueRecord.tsx`:
+review its detailed-description checkbox together with optional excerpt/note fields,
+finalization helpers and older-release/source-text fallback. An unused hook alone
+does not migrate the intended feature.
 Base simulation/optimizer files, technique clause/direction/excerpt helpers and
 the route-name migration remain separate review units. Preserve the released
 account/archive/restore contracts while extracting their dependency-complete
@@ -47,7 +51,7 @@ after each promotion; do not cherry-pick an old batch solely from its title.
 | Base simulation and optimization | `lib/base/baseSimulation.ts`, `baseOptimizer.ts`, `calculateBase.ts` and special skill keys; two new test suites | Review chronological simulation, team/rotation assumptions and imported-roster constraints against the design in `base-optimizer.md`. The new library files alone do not establish an exposed, complete planner UI. |
 | Techniques and synergies | Clause/excerpt/direction helpers, classification and buff matching, record components and filters | Review representative operator text and effect targets, faction-name false positives, empty/filter states and mobile/light/dark records. Keep source text/provenance visible. |
 | Central site preferences | `lib/settings/siteSettings.ts`, technique-detail preference and settings documentation | Versioned import/export validation, blocked-storage fallback and default behavior pass. Coordinate its payload contract with cloud-account backups; do not infer an account migration from the presence of an export helper. |
-| Import diagnostics | Redacted raw-save download, extra source-shape diagnostics and `gameToken()` extraction | Confirm downloads remain off the public domain, identity redaction is adequate and no Yostar credentials or raw save reach server logs/cloud storage. The accounts owner reviews interactions with consent, saves and OAuth identity. |
+| Import diagnostics | Separate hardened structured activity-shape diagnostics from deferred raw-save export; `gameToken()` has no external caller | Migrate the shape unit only after identifier/output bounds and adversarial privacy fixtures pass. Raw export is not approved as-is; see the bounded review below. Preserve consent, specific Yostar-login removal, cloud reset and archive contracts. |
 | Music recovery and covers | Retry an already-refused primed Monster Siren file, API cover handling and updated playback regressions | Exercise refused media, retry limits, paused versus playing state, navigation and resume. Retain original playback-position assertions. This is separate from the test-readiness correction in PR #738. |
 | Smaller product adjustments | Gacha control placement, regional banner/window references, stream/community links, planner/checkbox/close controls and associated styles | Review the actual hunks and affected journeys. Many references belong to the route-rename unit; separate only behavior that works without that migration. Do not treat all small diffs as cosmetic. |
 | CI and import resource handling | Runner sampling/temporary-download cleanup, official-table disk downloads and per-version reuse, lint/audit updates | Preserve exact-tree proof, unknown-impact fallback and existing source/asset coverage. Measure actual queue/build/browser time. Do not activate a partial browser lane as full-suite proof. |
@@ -56,6 +60,30 @@ Several units share files. Extract dependency-complete changes into separate PRs
 against main after the framework candidate lands; recreate the intended final diff
 rather than blindly cherry-picking whole historical batches. Each PR records its
 source candidate, dependent units, focused tests and remaining release checks.
+
+## Bounded import-diagnostics source review
+
+The accounts owner reviewed exact main `b9ffe6df` / dev `5b0e72a8` source and exercised
+synthetic inputs only. Main already wires `beginnerDiagnostics.ts` into the existing
+report; `connectionDiagnostics.ts` is identical across these snapshots. A hardened
+activity-shape addition and its existing diagnostic fixtures form the first separate
+unit. Reject arbitrary numeric/identifying activity or field keys and bound list
+traversal/output before promotion. No UI, cloud schema, relay or raw-save dependency
+is required for that unit.
+
+The dev raw export retains synthetic `accessToken`, `authorization`, free-text email,
+numeric identity and timestamps. Its host gate also permits the real pilot, staging
+and arbitrary hosts. It must not be called anonymous, date-free or dev-only. Keep it
+deferred until redaction, strict host policy, explicit download/capture lifecycle,
+reset races, output bounds and exclusion from cloud storage are separately accepted.
+The public `gameToken()` extraction has no external dev consumer and is not a
+diagnostics dependency; defer the unused export.
+
+Do not port the dev `DataDialog`, `ImportDialog` or `GameSignIn` wholesale. Their
+unrelated deltas undo released tabs, sign-out/pause-before-clear, controlled cancel,
+specific Forget Yostar login behavior and accurate cloud consent wording. Preserve
+main's cloud components, account page, SSRF/network restrictions and archive/CAS/
+nonce/ownership protections. The source review is not an implementation or release.
 
 ## Hosting and account work outside this comparison
 
