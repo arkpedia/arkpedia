@@ -83,3 +83,22 @@ test('workflow gives the provider token only to the validated release step, neve
   assert.equal(job.steps.find(s => s.uses?.startsWith('actions/checkout@')).with['persist-credentials'], false);
   assert.ok(!job.steps.some(s => /migrations apply|secret put|r2 bucket create|wrangler deploy/.test(s.run ?? '')));
 });
+
+test('actual workflow expression refuses disabled, foreign, failed and non-main events', () => {
+  const expression = yaml.load(readFileSync('.github/workflows/cloudflare-pilot-release.yml', 'utf8')).jobs.release.if;
+  const allowed = (patch = {}, runPatch = {}, enabled = 'true') => {
+    const github = { event_name: 'workflow_run', ref: 'refs/heads/main', repository: 'arkpedia/arkpedia', ...patch,
+      event: { workflow_run: { conclusion: 'success', event: 'push', head_branch: 'main',
+        head_repository: { full_name: 'arkpedia/arkpedia' }, ...runPatch } } };
+    return new Function('github', 'vars', `return (${expression})`)(github, { ARKPEDIA_PILOT_RELEASES_ENABLED: enabled });
+  };
+  assert.equal(allowed(), true);
+  assert.equal(allowed({ event_name: 'workflow_dispatch' }), true);
+  assert.equal(allowed({}, {}, ''), false);
+  assert.equal(allowed({}, {}, 'false'), false);
+  assert.equal(allowed({ ref: 'refs/heads/feature' }), false);
+  assert.equal(allowed({ event_name: 'pull_request' }, { event: 'pull_request' }), false);
+  assert.equal(allowed({}, { conclusion: 'failure' }), false);
+  assert.equal(allowed({}, { head_branch: 'dev' }), false);
+  assert.equal(allowed({}, { head_repository: { full_name: 'fork/arkpedia' } }), false);
+});

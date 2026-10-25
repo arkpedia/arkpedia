@@ -71,9 +71,13 @@ require `private`. Unbound staging tests do not prove real OAuth/D1 acceptance.
    Vercel, DNS, branch retirement, cost/traffic soak and final public-domain rollback
    behind the simplification plan's separate gates.
 
-For an explicit retry, run `gh workflow run cloudflare-pilot-release.yml --ref main
--f check_run=CHECK_RUN_ID` as one shell command. It still requires the exact current
-main source and a complete successful push Check; an old green run is not approval
+For an explicit retry:
+
+```sh
+gh workflow run cloudflare-pilot-release.yml --ref main -f check_run=CHECK_RUN_ID
+```
+
+It still requires the exact current main source and a complete successful push Check; an old green run is not approval
 for newer code. If main advanced, validate the new current source before retrying.
 
 ## Failures and rollback
