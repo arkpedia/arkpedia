@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { lanePlan, completeLane } from '../ci/browser-lane.mjs';
+import { lanePlan, completeLane, canonicalNextTypeRewrite, unexpectedBrowserInputs } from '../ci/browser-lane.mjs';
 import { coveragePlan } from '../ci/browser-coverage.mjs';
 
 const metadata = { commit: 'a'.repeat(40), tree: 'b'.repeat(40), repository: 'arkpedia/arkpedia', baseRef: 'main',
@@ -9,6 +9,21 @@ const baseline = { coverage: 'full', commit: 'd'.repeat(40), tree: 'e'.repeat(40
   baseRef: 'main', runId: 10, jobId: 20, artifactId: 30, event: 'pull_request', sourceCommit: 'f'.repeat(40) };
 const specs = ['nav-bar.spec.ts', 'mobile-touch-nav.spec.ts', 'navigation-continuity.spec.ts', 'story-library.spec.ts',
   'layout-census.spec.ts', 'layout-census-after.spec.ts', 'other-feature.spec.ts'];
+
+test('only complete canonical Next live type rewrites are accepted; other dirty inputs remain guarded', () => {
+  const head = '/// <reference types="next" />\nimport "./.next/types/routes.d.ts";\nimport "./.next/types/root-params.d.ts";\n';
+  const live = head.replaceAll('./.next/types/', './.next-live/types/');
+  assert.equal(canonicalNextTypeRewrite(head, live), true);
+  assert.equal(canonicalNextTypeRewrite(head, live.replaceAll('\n', '\r\n')), true);
+  for (const current of [head, live.replace('.next-live/types/routes', '.next/types/routes'),
+    `${live}import "./unexpected-types";\n`, live.replace('types/root-params', 'types/other'), `${live} `, null]) {
+    assert.equal(canonicalNextTypeRewrite(head, current), false);
+  }
+  assert.equal(canonicalNextTypeRewrite(`${head}import "./.next/types/routes.d.ts";\n`, live), false);
+  const paths = ['next-env.d.ts', 'data/quarantine.json', 'components/story/StoryMapView.tsx'];
+  assert.deepEqual(unexpectedBrowserInputs(paths, () => head, () => live), paths.slice(1));
+  assert.deepEqual(unexpectedBrowserInputs(paths, () => head, () => `${live}// unexpected\n`), paths);
+});
 function inventory(executed = false) {
   const suites = [];
   for (const file of specs) {

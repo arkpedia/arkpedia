@@ -42,7 +42,22 @@ test('drafts retain regression verdicts/types/lint and cannot publish or create 
     assert.ok(!/upload-artifact|deploy|checked-tree|test:browser|content:export/.test(item.uses ?? item.run ?? ''), item.name);
     assert.equal(item['continue-on-error'], undefined);
   }
-  assert.equal(check.steps.find(item => item.uses?.startsWith('actions/upload-artifact')).with.name, 'checked-tree-${{ steps.tree.outputs.tree }}');
+  const proof = step(check, 'Record the code this Check passed');
+  assert.ok(proof.uses?.startsWith('actions/upload-artifact'));
+  assert.equal(proof.with.name, 'checked-tree-${{ steps.tree.outputs.tree }}');
+  assert.ok(proof.if.includes('success()'));
+});
+
+test('browser failure evidence is distinct from approval artifacts and runs only after a failed browser lane', () => {
+  const failure = check.steps.find(item => item.name === 'Preserve browser failure evidence');
+  assert.ok(failure.if.includes('failure()'));
+  assert.ok(failure.if.includes("steps.full_browser.outcome == 'failure'"));
+  assert.ok(failure.if.includes("steps.selected_browser.outcome == 'failure'"));
+  assert.ok(failure.if.includes("steps.validate_browser.outcome == 'failure'"));
+  assert.ok(failure.with.name.startsWith('browser-failure-'));
+  assert.equal(failure.with['retention-days'], 3);
+  for (const step of check.steps.filter(item => item.uses?.startsWith('actions/upload-artifact')
+    && item.with.name.startsWith('checked-'))) assert.ok(step.if.includes('success()'));
 });
 
 test('draft feedback retains the established dependency-isolation runner rule', () => {

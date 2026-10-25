@@ -6,25 +6,32 @@ import { execFileSync, spawn } from 'node:child_process';
 import { contentInput, releaseInput, SCHEMA } from './release-input.mjs';
 import { codeFingerprint } from './code-fingerprint.mjs';
 
-assertCompleteness();
+const args = process.argv.slice(2);
+// CI validates the checked-in snapshot; publication still records the latest holds by default.
+const checkOnly = args.includes('--check');
+const { quarantineSnapshot } = assertCompleteness(process.cwd(), { persistQuarantine: !checkOnly });
+const privateQuarantine = checkOnly ? quarantineSnapshot : null;
 
-const destination = path.resolve(process.argv[2] || '.cache/content-export');
+const destination = path.resolve(args.find(arg => !arg.startsWith('--')) || '.cache/content-export');
 const release = path.join(destination, 'release');
 const source = path.join(destination, 'source');
 const routes = JSON.parse(fs.readFileSync('scripts/content/pages.json', 'utf8'));
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 const tracked = execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard', '-z', 'data', 'public'], { encoding: 'utf8' }).split('\0').filter(Boolean);
+const quarantineFile = 'data/quarantine.json';
+if (privateQuarantine !== null && !tracked.includes(quarantineFile)) tracked.push(quarantineFile);
 // Publish game records only. No application source, environment files, or raw user responses.
 // Lyrics are authored by hand in LRC and are the one non-JSON record published.
 const isLyric = file => /^data\/lyrics\/[^/]+\.lrc$/.test(file);
-const sourceFiles = tracked.filter(file => fs.existsSync(file) && !file.includes('final-poll-results')
+const sourceFiles = tracked.filter(file => (fs.existsSync(file) || file === quarantineFile && privateQuarantine !== null) && !file.includes('final-poll-results')
   && file !== 'public/operator-search.json'
   && file !== 'data/selector-catalogue.json' // derived deploy fallback; page export builds from hydrated source records
   && (isLyric(file) || (file.endsWith('.json') && (file.startsWith('data/') || /^public\/[^/]+\.json$/.test(file)))));
 const sourceHashes = {};
 fs.rmSync(source, { recursive: true, force: true });
 for (const file of sourceFiles.sort()) {
-  const bytes = fs.readFileSync(file);
+  // Capture the same current holds publication would record, only inside the private export in Check mode.
+  const bytes = file === quarantineFile && privateQuarantine !== null ? Buffer.from(privateQuarantine) : fs.readFileSync(file);
   if (!isLyric(file)) JSON.parse(bytes);
   if (/-----BEGIN (?:RSA |OPENSSH |EC )?PRIVATE KEY-----|ghp_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}/.test(bytes.toString())) throw new Error(`Credential-like content in ${file}`);
   const out = path.join(source, file);

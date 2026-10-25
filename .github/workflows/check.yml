@@ -206,7 +206,7 @@ jobs:
         run: npm run check:styles
 
       - name: Compile and validate runtime content
-        run: npm run content:export && npm run content:validate
+        run: npm run content:export -- --check && npm run content:validate
         env:
           NODE_ENV: production
           ARKPEDIA_CONTENT_DISABLED: '1'
@@ -295,19 +295,34 @@ jobs:
 
       # Keep this name exclusive to actual full execution: baseline verification checks it.
       - name: Desktop and mobile browser regressions
+        id: full_browser
         if: steps.browser.outputs.lane != 'targeted' && steps.browser.outputs.lane != 'none'
         run: npm run test:browser -- --reporter=list,json
         env:
           PLAYWRIGHT_JSON_OUTPUT_FILE: .cache/browser-results.json
 
       - name: Selected browser regressions
+        id: selected_browser
         if: steps.browser.outputs.lane == 'targeted'
         run: npm run test:browser -- --test-list .cache/browser-test-list.txt --reporter=list,json
         env:
           PLAYWRIGHT_JSON_OUTPUT_FILE: .cache/browser-results.json
 
       - name: Validate browser execution evidence
+        id: validate_browser
         run: node scripts/ci/browser-lane.mjs complete
+
+      - name: Preserve browser failure evidence
+        if: failure() && (steps.full_browser.outcome == 'failure' || steps.selected_browser.outcome == 'failure' || steps.validate_browser.outcome == 'failure')
+        uses: actions/upload-artifact@v7
+        with:
+          name: browser-failure-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            test-results/
+            .cache/browser-results.json
+            .cache/browser-plan.json
+          if-no-files-found: ignore
+          retention-days: 3
 
       # A red Check on main deploys nothing (deploy.yml follows only a green one), and the
       # content release is held while production runs other code than main
