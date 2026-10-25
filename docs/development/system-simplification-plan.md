@@ -151,7 +151,7 @@ endpoint. A private Worker binding is appropriate for server-only reads.
 
 ## Ordered milestones and acceptance
 
-Reviewed 2026-10-25, 05:43 UTC. **29 of 52 acceptance items are complete and checked.**
+Reviewed 2026-10-25, 11:20 UTC. **30 of 52 acceptance items are complete and checked.**
 The items differ substantially in size; this is not a percentage of time remaining.
 Completed controller implementation and real lifecycle proof are now separate from
 the remaining CI credential/activation gate. Exact evidence and limitations are in
@@ -160,26 +160,26 @@ the [progress log](system-simplification-progress.md).
 | Milestone | Checked | Current state | Main remaining gate |
 | --- | --- | --- | --- |
 | 0. Preserve and measure | 4/6 | Source inventory and backups complete | Provider dashboards and actual usage/bills |
-| 1. Cloudflare development loop | 8/9 | Scoped CI publication/retirement verified; handlers enabled | Actual automatic callback and owned-close proof |
+| 1. Cloudflare development loop | 9/9 | Automatic checked-artifact publication and owned-close retirement verified | Maintain these checks on subsequent previews |
 | 2. Proportional CI | 8/9 | Main/CF prerequisites released; selected/reuse proof verified | Representative timing/reliability measurements |
 | 3. One codebase | 3/8 | Framework, hosting foundation and reviewed account port released | Reviewed integration, unified production target, branch retirement |
 | 4. R2 delivery | 3/7 | Actual local app/two-snapshot proof; inactive foundation PR771 | Current CI, isolated remote/cost and activation proof |
 | 5. Production cutover | 0/6 | Preliminary checks recorded | Complete parity, old-tab, rollback and measured soak |
 | 6. Simulator naming | 3/7 | Branches/unique work preserved; source links audited | External consumers, rename/archive and reference verification |
 
-Latest verified main release is #770 at9796b663 (exact tested tree482042e6).
-Full Check40170783235 passed1500/217 browser cases; push40173692769 reused its
-proof and Deploy40173713827 passed. Actual www clean identity, healthy main release
-report,36 global browser cases and the accounts owner's34+4/API acceptance pass.
-Accounts remain enabled only on the existing Cloudflare migration pilot; no
-canonical D1/OAuth/DNS configuration changed.
+Latest verified main release is PR773 at616f4cbf, after the R2 foundation PR771
+and explicit preview notifier PR772. Check40188150120 and Deploy40188174941 passed.
+Actual www clean production identity, four desktop/mobile dark/light account
+journeys and release-status production health passed. The unavailable cloud-account
+section is removed; local import/export remains available. Configured accounts
+remain enabled only on the existing migration pilot; no D1/OAuth/DNS configuration
+changed. Full R2-foundation public acceptance remains recorded in the progress log.
 
-Scoped CI publication40172881817 and retirement40173445887 passed for the single
-trusted-main PR770 artifact, restoring the verified591c/19b baseline. Preview
-handlers are enabled; a real automatic callback/close lifecycle is still pending.
-PR771 contains the inactive R2 app-reader foundation, with local native/app browser
-proof and88 composed focused tests. Its corrected full Check40175573617 is running after a bounded declaration-lint fix.
-Remote R2 publication, measured comparison and retention/activation remain open.
+PR773 also completed the real automatic preview cycle: producer40187663125,
+publication40187870567 and owned-close retirement40188151181. Independent provider
+inspection verified baseline591c/19b and unchanged pilot066ea33d. The repeatable
+Cloudflare development-loop milestone is now9/9. R2 app code is merged but remote
+R2 publication, measured comparison and retention/activation remain open.
 
 ### 0. Preserve and measure
 
@@ -227,18 +227,15 @@ Remote R2 publication, measured comparison and retention/activation remain open.
   baseline. Source/config/artifact identity checks and non-cancelling shared workflow
   serialization are implemented. This completes controller implementation and its
   real provider lifecycle proof; it does not activate CI publication.
-- [ ] Complete actual automatic callback/owned-close acceptance after the successful
-  trusted-main/scoped-credential checks. PR770's exact checked artifact was published
-  by CI40172881817 and retired by CI40173445887 to verified baseline591c/19b.
-  Independent bindings/ownership/noindex health and deployed account journeys pass.
-  ARKPEDIA_PREVIEWS_ENABLED is now true, verified07:45:06 UTC; the next legitimate
-  PR771 then passed scoped retained-artifact publication 40184205783 and twelve
-  deployed browser journeys. Its actual automatic closed-PR run 40184536617 retired
-  the owned preview to verified baseline591c/19b, leaving pilot066ea33d unchanged.
-  Automatic build-completion publication did not start; separate repair PR772
-  replaces that implicit handoff with an API-only explicit notifier. Its CI and
-  an actual subsequent automatic publication remain required, so this composite
-  item stays open.
+- [x] Complete actual automatic callback/owned-close acceptance after successful
+  trusted-main/scoped-credential checks. PR772 released the explicit API-only
+  completion notifier. PR773 source03d6b03a passed Check40186842441; one request
+  40187638673 built its native artifact in40187663125. Automatic completion
+  publication40187870567 deployed that exact source/fingerprint. Four actual
+  desktop/mobile, dark/light account journeys passed. After merge616f4cbf,
+  automatic owned-close40188151181 retired it. Independent provider inspection
+  at11:19:42 UTC confirmed baseline591c/19b and unchanged pilot066ea33d.
+  No manual recovery or expanded credential was needed for this cycle.
 
 [Preview behavior](https://developers.cloudflare.com/workers/previews/),
 [resource/service isolation limitations](https://developers.cloudflare.com/workers/previews/resources/),
@@ -445,7 +442,7 @@ canonical D1/OAuth/DNS configuration changed.
 
 Scoped CI publication40172881817 and retirement40173445887 passed for the single
 trusted-main PR770 artifact, restoring the verified591c/19b baseline. Preview
-handlers are enabled; a real automatic callback/close lifecycle is still pending.
+handlers are enabled; PR773 subsequently proved the automatic callback/close lifecycle (runs40187870567/40188151181).
 PR771 contains the inactive R2 app-reader foundation, with local native/app browser
 proof and88 composed focused tests. Its corrected full Check40175573617 is running after a bounded declaration-lint fix.
 Remote R2 publication, measured comparison and retention/activation remain open.

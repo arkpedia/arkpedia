@@ -11,15 +11,22 @@ staging baseline591c/19b and unchanged pilot066ea33d/de829d1e. Public deployment
 passed. Release-status reported production healthy with no issues; its nonzero
 exit reflected only preserved dev/Cloudflare ancestry alerts.
 
-Main is now `229e438c` after repair PR772 passed its own full Check and exact proof
-verification. Public deployment 40186009197 passed. Actual automatic completion
-publication still needs proof: the original bot-dispatched producer emitted no
-callback, and the explicit notifier must be exercised by a subsequent feature.
-The user's requested unavailable-account notice removal is PR773, now source
-`03d6b03a`, with eight local UI cases and 19 integrated account tests passing.
-Its first CI failed a pre-existing race-winner assumption; the accounts owner's
-test-only repair is reviewed and included. Fresh Check40186842441 has passed
-regressions and is continuing; the notice is not yet declared removed from www.
+Main is now `616f4cbf` after PR773. Its source `03d6b03a` passed
+Check40186842441 (225 browser passes,23 intentional skips;248 selected identities,
+1469 explicitly omitted), eight local UI cases and19 integrated account tests.
+The first CI exposed a race-winner assumption; the accounts owner's reviewed
+test-only repair retained the genuine race and follows its actual winner.
+Automatic completion publication40187870567 passed using producer40187663125;
+four actual deployed UI cases confirmed the unavailable section absent and local
+import/export available. Automatic owned-close40188151181 passed; independent
+provider inspection at11:19:42 UTC confirms baseline591c/19b and unchanged
+pilot066ea33d. The automatic lifecycle acceptance item is now checked,30/52 total.
+Main Check40188150120 and public deployment40188174941 passed. Actual www
+serves clean production source616f4cbf/fingerprintcf418d69; four desktop/mobile
+dark/light journeys confirm the whole unavailable-account section is absent and
+import/export enabled. Release-status reports production healthy with no issues.
+Its nonzero exit reflects only the intentionally preserved legacy dev77/CF49
+ancestry alerts. The requested removal is verified live.
 R2 delivery is not activated remotely. DNS,
 permanent branch retirement, simulator rename/archive and Vercel retirement remain
 behind their documented gates. The detailed entries below retain dated evidence;
