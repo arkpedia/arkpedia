@@ -84,6 +84,7 @@
     "world-atlas": "^2.0.2"
   },
   "devDependencies": {
+    "@aws-sdk/client-s3": "3.984.0",
     "@cloudflare/workers-types": "5.20261024.1",
     "@eslint/js": "9.39.5",
     "@opennextjs/cloudflare": "1.20.12",
