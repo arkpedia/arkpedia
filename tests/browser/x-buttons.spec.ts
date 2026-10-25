@@ -355,7 +355,12 @@ for (const place of PLACES) {
     await target.click({ trial: true });
     // The actionability check scrolls and hovers the target. Measure its resting state.
     await page.mouse.move(0, 0);
-    await page.waitForTimeout(250);
+    // Input delivery and transition frames are asynchronous. Wait for the pointer
+    // to leave and for the control to settle before measuring its resting paint.
+    await expect.poll(() => target.evaluate(el => ({
+      hovered: el.matches(':hover'),
+      animating: el.getAnimations().some(animation => animation.pending || animation.playState === 'running'),
+    })), { message: `${place.id}: the × settles after the pointer leaves` }).toEqual({ hovered: false, animating: false });
 
     // Opened by pointer, nothing draws the site's focus ring but a text field, which shows
     // it on any focus (the goal dialog focuses its search). The ring is :focus-visible's
