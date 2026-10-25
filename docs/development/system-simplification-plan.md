@@ -159,7 +159,7 @@ commits, run IDs and limitations are in the [progress log](system-simplification
 | --- | --- | --- |
 | 0. Preserve and measure | Source inventory and backups complete | Provider dashboard inventory and actual usage/bills |
 | 1. Cloudflare development loop | Isolated staging created, updated and verified | Repeatable preview update/cleanup workflow |
-| 2. Proportional CI | Main clean release and actual CF selected/reuse/live proof verified | Main prerequisite #767 and representative timing/reliability measurements |
+| 2. Proportional CI | Main and CF policy prerequisites released; actual CF selected/reuse proof verified | Representative timing/reliability measurements |
 | 3. One codebase | Framework and main-based hosting foundation released | Review remaining features, unify production target, retire branches |
 | 4. R2 delivery | Complete local two-snapshot publisher/reader proof | Actual app integration and isolated remote/cost proof |
 | 5. Production cutover | Preliminary route/account/Back checks recorded | Complete parity, old-tab, rollback and measured soak |
@@ -209,6 +209,11 @@ commits, run IDs and limitations are in the [progress log](system-simplification
   A raw Wrangler staging experiment without prerender-cache seeding passed remote
   core/browser/revalidation checks and exact-version rollback; controller/ownership/
   retirement automation and an actual Worker-scoped CI credential test remain open.
+  Controller candidate #768 now takes a PR number, resolves the latest successful
+  exact-source Check, and requests/reuses a secret-free main-produced build. Its
+  completion handler binds the PR/source/Check/producer receipt before publication;
+  queued mutation and retirement requests are retained. Local validation is not
+  the remaining real lifecycle/scoped-credential acceptance proof.
 
 [Preview behavior](https://developers.cloudflare.com/workers/previews/),
 [resource/service isolation limitations](https://developers.cloudflare.com/workers/previews/resources/),
@@ -254,9 +259,13 @@ The existing local `cf:preview` command is not the remote feature-preview workfl
   that partial proof in push Check 40155507469; the heavy check was skipped.
   Worker 8568743d-4f88-4440-bf7b-937b0c764497 deployed that exact clean source.
   The owner verified the live hint, provider icons, autosync privacy and OAuth starts.
-  Main's equivalent generated-input prerequisite #767 remains open: its first full
-  run failed eight mobile browser cases. Focused local repeats pass; diagnostic
-  instrumentation is being validated with assertions/timeouts/retries unchanged.
+  Main's equivalent prerequisite #767 then passed full Check 40157028703:
+  1,462 passes/217 intentional skips, all 1,679 identities validated, 17.2 minutes
+  of browsers. Merge f9a7bcb3 retained exact tree f33eb864; push 40159151439 reused
+  artifact 12584763953. Deploy 40159295667 succeeded; actual www identity/fingerprint,
+  healthy main release report and all 36 public browser cases passed. The earlier
+  eight mobile failures remain a recorded observation with cause unproven; no
+  assertion, timeout or retry was loosened to make the later run pass.
 - [ ] Measure several real PRs and queue/build/browser times; remove further duplicate
   crawls/builds only when their protected behavior is retained. No p50/p95 or below-eight-
   minute ready-PR claim is established by the local probe or quick draft alone.
@@ -395,7 +404,8 @@ See the milestone table above and [progress log](system-simplification-progress.
 Main hosting #755, CI #756 and accounts #757 are merged; the accounts pilot
 applied migration 003 and passed deployment/privacy/OAuth checks. Main6b and CFde829
 are verified clean deployments. CF #766/#764 prove real selected execution, partial
-reuse and the deployed hint; main #767 still requires full validation. Draft #765
+reuse and the deployed hint; main #767 is now released and publicly verified at
+f9a7bcb3. Draft #765
 has actual Linux artifact proof. The raw staging cold-cache/revalidation/rollback
 experiment supports the remaining preview controller/retirement work.
 Provider logos were published and hash-verified through image-assets #55 at

@@ -755,3 +755,71 @@ An actual Worker-scoped CI token/deployment test is still required; the above
 experiment used existing local OAuth. Serialization, ownership/retirement and the
 repeatable publisher remain incomplete. Production's cache strategy is unchanged.
 CLI OAuth refreshed successfully; separate dashboard sign-in for invoices is pending.
+
+### Main CI prerequisite released; preview controller candidate
+
+Main #767 passed exact-source full Check40157028703 at a8d5e583:1,462 passes/
+217 intentional skips,1,679 executed identities/zero omissions,17.2minutes of
+browser execution. Full artifact12584763953 names tree
+f33eb8642bfcf5e7786cdcf04fbbcf580de9faed. The read-only preview preflight independently
+accepted the actual API proof after refusing it while the same run was unfinished.
+Merge f9a7bcb3293a06a589cbb28f3810da26cf0fb898 retains that exact tree. Push
+Check40159151439 reused it; Deploy40159295667 succeeded. Actual www serves clean
+f9a7bcb3/live/schema2 with independently computed fingerprint
+d405613d18f7d9f0019ffd43157cea93ad0ecbdfa8ef3a869d88766e26bf02d0.
+The main release report is healthy and all36 public route/theme/viewport cases pass,
+including populated music favourites, with no page errors/overflow. Dev/CF report
+only their still-unreconciled ancestry (49/21 behind main); no branch was reset.
+The earlier eight mobile failures remain cause-unproven; assertions/timeouts/
+zero retries are unchanged. Logs and public proof are retained in ci-migration/.cache/
+generated-main-40157028703-success.log, main767-ci-release-browser.json and
+release-status-main767.json. Main sync40159151520 failed existing conflicts safely.
+
+The root preview-controller branch now includes fixed-target Wrangler observation,
+binding/namespace and public identity/route checks; version annotations retain
+publication intent and original baseline without adding a database/ledger/R2 object.
+The provider's message is bounded to1,000bytes and independently verified against
+the actual serving version; intent is not a durable health assertion. The read-only
+adapter passed actual staging baseline591c identity/bindings/four-route noindex proof.
+Its controller rechecks source/version, recovers a matching interrupted upload or
+failed health probe to the baseline, refuses unrelated replacements, and shares a
+non-cancelling trusted-main workflow lock for publish/update/retire. Automatic close
+handling remains disabled until real acceptance and a scoped token test pass.
+
+Local validation:63 related Node cases plus nine tar-artifact/five ZIP-reader Python
+cases pass, with explicit Node ESLint/Knip/diff checks. Sandbox-default Python temp
+access was denied before fixtures ran; rerunning with owned TEMP/TMP passed. The new
+cold extractor verified the COMPLETE actual c496 archive/receipt, then omitted only
+the prerender-cache subtree:10,503 original entries/323,471,130bytes;9,537 extracted
+entries,966 omitted entries including directories/165,723,696 omitted bytes. Original
+archive SHA remains00fddadc435e293e1d6fc882ee9aa318ffd553fec425325fb31ddbf3dc8de57e.
+This is extraction/read-only proof, not a new controller deployment. Real fresh
+publish/update/retirement, scoped CI permissions and workflow activation remain open;
+the acceptance checklist count remains28/51.
+
+### PR-number preview entry point implemented in #768
+
+The controller candidate now exposes action+PR only. Its secret-free resolver
+validates the latest current-source Check and existing full/selected proof, reuses
+a matching active/completed retained build, or dispatches exactly one new main
+staging build with immutable source/PR/Check inputs. The dispatch API is explicitly
+pinned to2026-03-10 and returns the exact run ID; an unknown outcome is reported,
+never blindly retried. No runner waits for another runner to build. Successful
+completion resumes a separately authenticated trusted-main publication job only
+after activation. All provider mutations and retirements use the shared lock with
+queue:max/cancellation disabled; staging builds have a separate retained queue.
+
+The build checks out producer and app source separately, installs/builds the app
+once without a provider token, compares its isolation config, and uses the main
+producer receipt writer. A small additional JSON envelope avoids downloading the
+whole app merely to resolve the completed request. The receiver checks actual
+producer Git blobs, receipt PR/source/Check/controller bindings, current PR and
+latest Check, exact same-run artifact, and existing CI proof. Publication rechecks
+the latest Check after download/upload and recovers a matching failed upload to
+baseline. Legacy proof receipts remain explicit-only; they cannot auto-publish.
+
+Local evidence:73 related Node cases and11 tar/six ZIP Python cases, explicit Node
+ESLint/Knip/diff checks. The prior draft Check40160076966 passed on f05f94ca; it
+does not approve these newer changes. Fresh final-source validation, actual remote
+publish/update/retire/failure proof, Worker-scoped token and activation remain open.
+No new provider resources, credentials, production or account settings changed.
