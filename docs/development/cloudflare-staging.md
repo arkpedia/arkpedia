@@ -28,6 +28,42 @@ nothing. It needs no provider credentials. Review the build commit and config be
 using local Wrangler OAuth to deploy the downloaded `.open-next` output. Do not run
 plain `wrangler deploy`; use the explicit helper and review its expected target.
 
+Each new build artifact includes `arkpedia-staging-receipt.json`: the exact source
+commit/run, clean Worker/public build identity, schema/channel/role, archive SHA256,
+reviewed staging-config hash and expanded size. The receipt is generated only after
+the real Linux build. It records provenance and integrity; it is not a signature,
+proof of browser acceptance or permission to execute an unreviewed artifact.
+
+Download both files from the same successful `Build Cloudflare staging` run in
+`arkpedia/arkpedia`. Independently confirm that run's source commit and the feature's
+required Check/review. Use the verifier from the trusted checkout and its separately
+reviewed `wrangler.staging.jsonc`, with the exact expected commit/run (never infer
+the expected identity from the downloaded receipt):
+
+```sh
+python scripts/deploy/staging-artifact.py verify \
+  --archive /path/to/arkpedia-staging.tgz \
+  --receipt /path/to/arkpedia-staging-receipt.json \
+  --commit FULL_REVIEWED_COMMIT_SHA --run REVIEWED_GITHUB_RUN_ID \
+  --trusted-config wrangler.staging.jsonc
+```
+
+The `extract` action accepts the same arguments plus `--destination /new/directory`.
+It validates the complete archive before writing and refuses an existing destination,
+links/special files, duplicate/unexpected paths, path escapes and oversized entries.
+It never executes the uploaded code or changes a current checkout/build. Use Linux
+to extract and deploy real OpenNext output: some cache filenames contain colons and
+cannot be represented faithfully as Windows files. Verification itself is portable.
+The script normalizes only CRLF/LF for comparing the reviewed configuration.
+
+Retain a separately reviewed staging config when adopting extracted output. OpenNext's
+deploy command imports compiled configuration from `.open-next/.build` and can run
+it with the deploy process's credentials. Review the source/config/dependency changes
+before that step; archive verification is not a sandbox. Do not grant a feature build
+production credentials or broaden the staging bindings. The current workflow still
+builds only: serialized deployment, preview ownership/retirement and cleanup remain
+separate migration work, and no remote deployment is triggered by this receipt step.
+
 ```sh
 npm run cf:staging:check
 npm run cf:staging:build

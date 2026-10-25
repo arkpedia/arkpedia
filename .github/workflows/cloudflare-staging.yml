@@ -32,6 +32,9 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: '24'
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
       - run: npm ci
       - name: Verify staging isolation and indexing role
         run: node --test scripts/tests/test-cloudflare-staging.mjs scripts/tests/test-main-staging-role.mjs
@@ -39,13 +42,23 @@ jobs:
         run: node scripts/deploy/cloudflare-staging.mjs build
       - name: Package staging artifact
         shell: bash
+        env:
+          STAGING_COMMIT: ${{ github.sha }}
+          STAGING_RUN: ${{ github.run_id }}
         run: |
           set -euo pipefail
+          python scripts/tests/test-staging-artifact.py
           tar -czf "$RUNNER_TEMP/arkpedia-staging.tgz" .open-next wrangler.staging.jsonc public/build-info.json
+          python scripts/deploy/staging-artifact.py receipt \
+            --archive "$RUNNER_TEMP/arkpedia-staging.tgz" \
+            --commit "$STAGING_COMMIT" --run "$STAGING_RUN" \
+            --receipt "$RUNNER_TEMP/arkpedia-staging-receipt.json"
       - uses: actions/upload-artifact@v7
         with:
           name: arkpedia-staging-${{ github.sha }}
-          path: ${{ runner.temp }}/arkpedia-staging.tgz
+          path: |
+            ${{ runner.temp }}/arkpedia-staging.tgz
+            ${{ runner.temp }}/arkpedia-staging-receipt.json
           retention-days: 1
 
       # No provider credentials or remote deployment. Review and deploy explicitly.
