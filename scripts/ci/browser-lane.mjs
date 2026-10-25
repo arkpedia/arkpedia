@@ -14,6 +14,24 @@ const api = path => JSON.parse(execFileSync('gh', ['api', path], { encoding: 'ut
 const read = path => { try { return fs.readFileSync(path, 'utf8'); } catch { return null; } };
 const PLAN = '.cache/browser-plan.json', REPORT = '.cache/browser-results.json', EVIDENCE = '.cache/browser-evidence.json';
 
+/** The live-content build only redirects these generated type references. Any other edit stays dirty. */
+export function canonicalNextTypeRewrite(head, working) {
+  if (typeof head !== 'string' || typeof working !== 'string') return false;
+  let expected = head.replaceAll('\r\n', '\n');
+  const actual = working.replaceAll('\r\n', '\n');
+  if (expected.includes('\r') || actual.includes('\r')) return false;
+  for (const name of ['routes', 'root-params']) {
+    const from = `import "./.next/types/${name}.d.ts";`;
+    if (expected.split(from).length !== 2) return false;
+    expected = expected.replace(from, `import "./.next-live/types/${name}.d.ts";`);
+  }
+  return actual === expected;
+}
+
+export function unexpectedBrowserInputs(paths, readHead, readWorking) {
+  return paths.filter(path => path !== 'next-env.d.ts' || !canonicalNextTypeRewrite(readHead(path), readWorking(path)));
+}
+
 export function currentPolicy() {
   return policyFingerprint(Object.fromEntries(POLICY_FILES.map(path => [path, git('rev-parse', `HEAD:${path}`)])));
 }
@@ -57,8 +75,11 @@ function plan() {
       changes = git('diff', '--name-status', '-M', baseline.commit, 'HEAD').split('\n').filter(Boolean).flatMap(line => {
         const [status, ...paths] = line.split('\t'); return paths.map(path => ({ status, path }));
       });
-      const dirty = git('diff', '--name-only', 'HEAD');
-      if (dirty) throw new Error(`Uncommitted generated inputs require full coverage: ${dirty.split('\n').slice(0, 5).join(', ')}`);
+      const dirty = git('diff', '--name-only', 'HEAD').split('\n').filter(Boolean);
+      const unexpected = unexpectedBrowserInputs(dirty,
+        path => execFileSync('git', ['show', `HEAD:${path}`], { encoding: 'utf8' }), read);
+      if (unexpected.length) throw new Error(`Uncommitted generated inputs require full coverage: ${unexpected.slice(0, 5).join(', ')}`);
+      if (dirty.length) console.error('Verified canonical Next live-build type references; no other generated input changed.');
       forceFull = false;
     } catch (error) { fallbackReason = error.message; }
   } else fallbackReason = 'Manual, main/push, fork or unknown context requires full coverage';
