@@ -676,3 +676,82 @@ filename. Draft quick Check40151544851 passed. Fresh Linux build-only workflow
 40152014598 is live on that exact source and cannot deploy; it will prove the new
 CI-produced receipt instead of relying on the locally backfilled historical one.
 No preview deployment credentials or remote provider settings were added.
+
+
+### Real scoped approval reuse and live CF verification — 02:45 UTC
+
+CF prerequisite #766 full40151562631 passed1,502 cases/217 skips in20.5minutes.
+The actual planner verified canonical Next live references with no other generated
+dirt; full execution was required for the shared workflow change. Artifact12583816427
+names tree775c13414ba7def5402dd360377eef99e9bc890a. Merge2ba67f6f reused that proof.
+
+Genuine #764 hint source c4e8d2d375e10051af7639f439785c85354e4f3e then passed actual
+targeted Check40154214389:248 selected/1,471 omitted from1,719,225 passes/23 intentional
+skips in1.9minutes. The owner independently validated execution and omissions,
+artifact12583703976, tree6d9186e4e3b1f478bc29d5ac3db3a66701f3caa5 and policy
+2d481e873b6df9b9803591547bba500f2c1e9952833d1e1eacee75f64f9d6a90 against full baseline
+40151562631. The artifact is checked-policy-tree, never a new full baseline.
+Merge de829d1eac0e1dc0efc17866e680b447650434df reused that partial proof in actual
+push Check40155507469 with the heavy check skipped. Worker
+8568743d-4f88-4440-bf7b-937b0c764497 serves the exact clean revision. Four live hint
+focus/theme/viewport states, eight provider-icon states, dummy autosync privacy,
+real anonymous APIs and both OAuth starts passed. The owner explicitly released
+the #759/#762 hold only after that final deployed proof.
+
+Main #767 at3f879e8f first full40151760302 instead failed8mobile cases, with1,453
+passes/217 skips/one dependent not run in23minutes. Two chibi, one stage and five
+event cases failed; six stalled at page.goto/load, one retained a viewer trigger
+after the URL changed, and one waited for an enemy image href. Exact CI cause is
+unproven. Specs/chibi implementation are byte-identical to green CF, but asset pins
+differ; this is not equivalence of environments. No old-source rerun or main merge.
+The pipeline retained no failure artifacts, so bounded diagnostics are being added:
+request timing without bodies/headers/query/fragment/credentials, failure-only CI
+screenshots, and a distinct three-day artifact that cannot approve code. Assertions,
+timeouts and zero retries remain unchanged. A real blocked-image negative control
+produced the expected failure and redacted pending-request attachment. Twenty-five
+focused policy/privacy cases,22 workflow cases, TS/Knip and24 Linux repeats of all
+eight affected cases passed (46seconds). The cached local build is functional
+diagnostic output, not a new release or proof of the CI cause. Owned Linux3310
+server was stopped after PID/cwd/socket verification; the user's3192was untouched.
+
+### Staging artifact and raw deployment proof, then exact rollback
+
+Draft #765 sourcec49600f5f0d5a9ff4aa3a796ca644fefa5e9a053 passed actual Linux build-only
+40152014598 and produced artifact12583770382 with a genuine CI receipt. Archive SHA256
+00fddadc435e293e1d6fc882ee9aa318ffd553fec425325fb31ddbf3dc8de57e,10,503 entries,
+323,471,130 expanded bytes, clean staging/live/schema2 identity and reviewed config
+hash all verified. Seven safety cases pass on Windows/Linux, and the standard
+Python runner discovers the new suite.
+
+To test a smaller preview deployment permission footprint, a diagnostic extraction
+omitted all836 prerender-cache files/165,723,696bytes while retaining9,118 files/
+157,747,434bytes. Every retained file hash and exact7,482-asset set matched the CI
+archive after local testing. Fresh local-only R2/DO/self bindings rendered four
+core routes and passed20 browser/theme/viewport/real client-navigation checks.
+No compiled cache file or source data mutation was used to make that run pass.
+
+With the current staging version and bindings recorded first, raw Wrangler4.151.3
+deployed only arkpedia-staging using OPEN_NEXT_DEPLOY=true. This bypassed OpenNext's
+compiled-config execution/cache population. Four assets uploaded;7,478 already
+existed. Upload20.51seconds, trigger deployment1.89seconds, startup28ms; these are
+one observed run, not performance guarantees. Version9b362944-5094-4e31-af5f-ae236c79da40
+served exactc496. Remote core routes200/noindex and20 browser checks passed. A
+temporary staging-only in-memory refresh secret allowed all21 clock routes to
+regenerate; it was deleted and both absence and unauthenticated401 verified.
+
+Rollback restored exact original version591c4728-48b9-4058-b035-9b95cea0e9c4 and
+clean19b identity. Homepage200, unchanged self/cache/queue, noD1/secrets and refresh401
+were independently verified. No cache cleanup was attempted; reachability/retention gates remain open.
+No bucket, canonical data pointer, www/CF pilot/DNS/relay configuration changed.
+Both local3311servers were stopped. Evidence is preview-lifecycle/.cache/
+staging-c496-ci, c496-raw-deploy-integrity.json, c496-remote-raw-local-probe.json,
+c496-remote-raw-browser-proof.json, c496-remote-revalidation.json and
+c496-staging-rollback-proof.json. Local scratch CLI setup errors were corrected
+before the actual24-case test and are not application failures.
+
+Cloudflare documents Editor scoped to an existing Worker, including its Durable
+Objects and deployment bindings: [authorization](https://developers.cloudflare.com/workers/authorization/).
+An actual Worker-scoped CI token/deployment test is still required; the above
+experiment used existing local OAuth. Serialization, ownership/retirement and the
+repeatable publisher remain incomplete. Production's cache strategy is unchanged.
+CLI OAuth refreshed successfully; separate dashboard sign-in for invoices is pending.

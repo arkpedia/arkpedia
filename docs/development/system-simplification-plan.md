@@ -151,7 +151,7 @@ endpoint. A private Worker binding is appropriate for server-only reads.
 
 ## Ordered milestones and acceptance
 
-Updated 2026-10-25, 01:49 UTC. Checked items have recorded evidence; implementation
+Updated 2026-10-25, 03:03 UTC. Checked items have recorded evidence; implementation
 and local proof are distinguished from deployment and production acceptance. Exact
 commits, run IDs and limitations are in the [progress log](system-simplification-progress.md).
 
@@ -159,7 +159,7 @@ commits, run IDs and limitations are in the [progress log](system-simplification
 | --- | --- | --- |
 | 0. Preserve and measure | Source inventory and backups complete | Provider dashboard inventory and actual usage/bills |
 | 1. Cloudflare development loop | Isolated staging created, updated and verified | Repeatable preview update/cleanup workflow |
-| 2. Proportional CI | Main and CF full checks and clean deployments verified | Generated-input prerequisite and real selected run/reuse |
+| 2. Proportional CI | Main clean release and actual CF selected/reuse/live proof verified | Main prerequisite #767 and representative timing/reliability measurements |
 | 3. One codebase | Framework and main-based hosting foundation released | Review remaining features, unify production target, retire branches |
 | 4. R2 delivery | Complete local two-snapshot publisher/reader proof | Actual app integration and isolated remote/cost proof |
 | 5. Production cutover | Preliminary route/account/Back checks recorded | Complete parity, old-tab, rollback and measured soak |
@@ -205,8 +205,10 @@ commits, run IDs and limitations are in the [progress log](system-simplification
   bindings/routes; verify isolated self-calls, noindex and unavailable cloud accounts.
 - [ ] Finish the repeatable feature-preview creation/update/cleanup and serialization
   workflow. Successful manual staging updates do not yet complete this gate.
-  Draft #765 adds verified artifact receipts/extraction; quick Check 40151544851
-  passed, and fresh Linux build-only proof 40152014598 is running without deployment.
+  Draft #765 has a verified CI-produced receipt from Linux build 40152014598.
+  A raw Wrangler staging experiment without prerender-cache seeding passed remote
+  core/browser/revalidation checks and exact-version rollback; controller/ownership/
+  retirement automation and an actual Worker-scoped CI credential test remain open.
 
 [Preview behavior](https://developers.cloudflare.com/workers/previews/),
 [resource/service isolation limitations](https://developers.cloudflare.com/workers/previews/resources/),
@@ -244,13 +246,17 @@ The existing local `cf:preview` command is not the remote feature-preview workfl
   The accounts owner verified OAuth starts/private APIs, provider images across
   eight theme/viewport states, and a healthy release report. This is the CF pilot,
   not unified main production or the public-domain cutover.
-- [ ] Prove an actual narrow PR's selected lane and partial artifact reuse in Actions.
-  Real optional Sync now explanation follow-up #764 at 32e756de fell back to full
-  in Check 40149320709 and was cancelled after logs identified generated changes
-  in data/quarantine.json and next-env.d.ts. The dirty-tree guard is retained;
-  read-only Check validation and a narrowly verified Next type-reference handling
-  prerequisite is now #766 for CF and #767 for main (Check 40151760302 live).
-  Selected execution/ledger/partial reuse remain unproven.
+- [x] Prove an actual narrow PR's selected lane and partial artifact reuse in Actions.
+  Genuine tooltip-only CF #764 at c4e8d2d passed Check 40154214389: 248 selected/
+  1,471 omitted of 1,719, with 225 passes/23 intentional skips in 1.9 minutes.
+  Validated partial artifact 12583703976 names the exact tree/current policy and
+  full baseline 40151562631; no full marker was uploaded. Merge de829d1e reused
+  that partial proof in push Check 40155507469; the heavy check was skipped.
+  Worker 8568743d-4f88-4440-bf7b-937b0c764497 deployed that exact clean source.
+  The owner verified the live hint, provider icons, autosync privacy and OAuth starts.
+  Main's equivalent generated-input prerequisite #767 remains open: its first full
+  run failed eight mobile browser cases. Focused local repeats pass; diagnostic
+  instrumentation is being validated with assertions/timeouts/retries unchanged.
 - [ ] Measure several real PRs and queue/build/browser times; remove further duplicate
   crawls/builds only when their protected behavior is retained. No p50/p95 or below-eight-
   minute ready-PR claim is established by the local probe or quick draft alone.
@@ -269,8 +275,8 @@ The existing local `cf:preview` command is not the remote feature-preview workfl
 - [ ] Review and promote the remaining product features individually; preserve the
   accounts owner's D1/OAuth/consent/archive implementation and migration contracts.
 - [ ] Finish reviewed branch reconciliation. #759 at d6026597 passed full Check
-  40138347385; its merge is held through #764 selected/reuse proof to avoid moving
-  the CF baseline. Revalidate any changed integration tree.
+  40138347385. The #764 CI/deployed proof hold is now released; reconcile the
+  current main/CF tips and revalidate the changed integration tree before merging.
 - [ ] Make main deploy to Vercel and the CF production-candidate hostname from the same
   reviewed code. Verify account/provider differences and content compatibility explicitly.
 - [ ] Switch feature PRs/previews to main. Stop Vercel dev deploys and obsolete dev
@@ -387,10 +393,11 @@ another permanent branch, database, queue or service by default.
 
 See the milestone table above and [progress log](system-simplification-progress.md).
 Main hosting #755, CI #756 and accounts #757 are merged; the accounts pilot
-applied migration 003 and passed deployment/privacy/OAuth checks. Main6b and CF6ed
-are verified clean deployments. Active CI work is the generated-input prerequisite
-(#766/#767), followed by real selected execution/reuse through #764. Draft #765
-is proving artifact adoption for the remaining preview lifecycle work.
+applied migration 003 and passed deployment/privacy/OAuth checks. Main6b and CFde829
+are verified clean deployments. CF #766/#764 prove real selected execution, partial
+reuse and the deployed hint; main #767 still requires full validation. Draft #765
+has actual Linux artifact proof. The raw staging cold-cache/revalidation/rollback
+experiment supports the remaining preview controller/retirement work.
 Provider logos were published and hash-verified through image-assets #55 at
 75bca3430542ff200f79b60621999a6c18c16b1d and are verified on the CF pilot.
 Main adoption remains part of the individually reviewed account promotion.
