@@ -1,6 +1,47 @@
 # Arkpedia system simplification progress
 
-## Current checkpoint — 2026-10-25, hosting preparation and simulator rename
+## Current checkpoint — 2026-10-25, first checked-main pilot release
+
+PR775 merged as8ee3f3dc under explicit maintainer approval. Main Check40208662540
+accepted the existing exact-tree execution proof; Vercel Deploy40208778256 and
+Cloudflare release40208777886 both succeeded. Pilot version56bdbefb replaces066ea33d
+and serves the same clean main code as www: fingerprint ec5ff11e, live/schema2,
+production role. The old native build owner was explicitly approved, disabled and
+observed drained before activation. The90-day single-Worker credential is stored,
+andARKPEDIA_PILOT_RELEASES_ENABLED is true. No D1 migration, secret-value change,
+database restore, DNS change or public-hosting cutover occurred.
+
+Actual pilot acceptance passed21 HTTP build/content/alias/privacy cases and12
+browser journeys across desktop/mobile dark/light. www also passed its four-state
+account-notice/local-import-export verification. Release-status reports both main
+deployments healthy; preserved dev remains95 commits behind. Legacy sync failed
+closed without overwriting unreleased work. Automatic preview retirement is tracked
+separately; a successful production release is not preview-cleanup proof.
+
+Private recovery metadata, a browser ZIP and a server baseline were retained locally
+before release. The authenticated old account document survived publication. The
+offline after-state comparison passes identity/profile/provider-row/consent/paused
+continuity, nondecreasing revisions and exact per-server/UID draw multiplicities,
+including repeated draws. A new-build account UI also resolves the same existing
+profile, ready state and session without first-time setup. No private backups,
+identifiers or auth data belong in repository/CI evidence. Independent fresh-profile
+provider restoration and timer/focus sync remain pending owner-assisted acceptance.
+
+Opening a previously unopened Techniques route changed the document build ID; this
+is an observed client upgrade/reload, not seamless old-document navigation or a
+proven missing-chunk root cause. Back restored the original account document and
+its signed-in ready state after hydration. The old-client retention/transient-state
+gate remains open before public cutover; code/config recovery preserves all D1 writes.
+
+An actual anonymous analytics beacon used the expected public token and pilot
+hostname and received a successful ingestion response. Dashboard inspection found
+the configured hostname stillarkpedia.cloudflare-1ff.workers.dev. Hostname alignment
+approval is pending; endpoint success alone is not dashboard attribution acceptance.
+Keep main stable while the remaining configured-account acceptance is in progress.
+PR776 remains draft and PR777 remains inactive. No new broad validation run is needed
+unless their source changes or a concrete failure requires it.
+
+## Previous checkpoint — hosting preparation and simulator rename
 
 Main is `b9ffe6df` after PR774. Its source `3d1adbec` passed full
 Check40189357580:1,500 browser passes/217 intentional skips, with full proof

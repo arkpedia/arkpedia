@@ -162,25 +162,28 @@ the [progress log](system-simplification-progress.md).
 | 0. Preserve and measure | 4/6 | Source inventory and backups complete | Provider dashboards and actual usage/bills |
 | 1. Cloudflare development loop | 9/9 | Automatic checked-artifact publication and owned-close retirement verified | Maintain these checks on subsequent previews |
 | 2. Proportional CI | 8/9 | Main/CF prerequisites released; selected/reuse proof verified | Representative timing/reliability measurements |
-| 3. One codebase | 3/8 | Main-based pilot build released; checked release owner775 prepared | Controlled pilot activation/parity, feature reconciliation, branch retirement |
+| 3. One codebase | 3/8 | PR775 checked-main owner published its first pilot release | Independent account acceptance/parity, feature reconciliation, branch retirement |
 | 4. R2 delivery | 3/7 | App reader merged; local app/two-snapshot proof | Isolated remote CAS/cache/fallback/rollback, cost and activation proof |
 | 5. Production cutover | 0/6 | Preliminary checks recorded | Complete parity, old-tab, rollback and measured soak |
 | 6. Simulator naming | 5/7 | Legacy archived, active repository renamed; historical SD links verified | Canonical links/CI repair PR19, final documentation and measured comparison |
 
-Latest verified main release is PR774 atb9ffe6df. Its full Check40189357580,
-exact native producer40191452625, automatic publication40191632872 and owned-close
-retirement40192165739 passed. The deployed preview passed21 HTTP/privacy/alias
-cases and12 browser journeys. Independent provider inspection confirms baseline
-591c/19b and unchanged pilot066ea33d. Actual www clean identity,36 route/theme/width
-cases,13 aliases and both analytics sampling states passed; production release
-status is healthy. Accounts/D1/OAuth/DNS configuration is unchanged.
+Latest main release is PR775 at8ee3f3dc. Its Check40208662540, Vercel
+Deploy40208778256 and pilot release40208777886 passed. Both main deployments are
+healthy with the same clean fingerprint/live/schema2 identity. Actual pilot21 HTTP
+and12 browser cases pass; www's four-state account/local-controls check passes.
+Private server/browser comparison confirms exact archived-draw multiplicities,
+identity/providers/consents and nondecreasing revisions. Independent fresh-profile
+provider/sync acceptance remains pending. Previously unloaded old-client navigation
+upgraded/reloaded the document; seamless retention is not claimed. Analytics host
+alignment is awaiting approval. D1/OAuth/DNS configuration is unchanged.
 
 PR775 separately prepares the disabled exact-main release owner, resource checks
 and ownership-aware recovery, together with the necessary two-reader content gate.
-It is not deployed or enabled. Its exact full CI/preview passed. The approved90-day
-single-Worker credential is stored inARKPEDIA_PILOT_API_TOKEN; scoped read access
-was verified. Private account baseline/held-client preparation and disabling/draining
-the old native build owner still precede merge/activation.
+Its exact full CI/preview passed. Under explicit maintainer approval, the90-day
+single-Worker credential was stored, the old native owner disabled/drained and the
+checked-main workflow enabled. The first release retained its exact previous-version
+receipt; private recovery metadata and held-client baselines were captured beforehand.
+Keep main stable until the remaining configured-account acceptance is resolved.
 Preserved dev/Cloudflare branches and feature work remain; do not force the legacy
 sync over its reviewed conflicts. R2 app code is merged but remote R2 publication,
 measured comparison and retention/activation remain open.
@@ -442,19 +445,18 @@ another permanent branch, database, queue or service by default.
 
 ### Current execution checkpoint
 
-Latest verified main is PR774 atb9ffe6df. Exact CI, native preview publication,
-owned-close retirement, public browser/alias/analytics checks and production release
-status passed; see the current progress checkpoint for run IDs and scope. PR771's
-R2 app-reader foundation is merged but remote R2 publication remains inactive.
+Latest main is PR775 at8ee3f3dc. Its first checked-main pilot and normal Vercel
+release passed; both actual deployments are healthy. See the current progress
+checkpoint for exact HTTP/browser/account evidence and remaining manual acceptance.
+PR771's R2 app-reader foundation is merged; PR777's optional existing-edge integration
+is draft and remote R2 publication remains inactive.
 
-PR775's checked-main pilot owner is not merged or activated. Preceding source093d7b84
-passed full CI; final sourcef0577500 corrects same-source artwork rebuild publication
-and passed full Check40198085718. Native producer40200117453 and automatic preview
-publication40200317783 passed, followed by21 HTTP cases and12 actual browser journeys.
-The approved scoped credential is stored. Native build-owner retirement, private
-account baseline and actual authenticated old-client
-acceptance remain mandatory before controlled first release. Canonical D1/OAuth/DNS
-configuration remains unchanged.
+PR775's final sourcef0577500 passed full Check40198085718 and real isolated preview
+acceptance before merge. Native builds are now disabled, the reviewed scoped token
+is stored, and the checked-main owner published version56bdbefb. Independent browser
+provider restoration, timer/focus sync and analytics hostname alignment remain open;
+old-client navigation upgraded/reloaded and is not seamless cutover proof. Canonical
+D1/OAuth/DNS configuration remains unchanged.
 
 Both provider dashboard/billing baselines are recorded privately. Different billing
 periods and pilot-versus-production traffic prevent a measured net-savings claim.
