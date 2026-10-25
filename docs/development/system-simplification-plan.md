@@ -165,7 +165,7 @@ the [progress log](system-simplification-progress.md).
 | 3. One codebase | 3/8 | Main-based pilot build released; checked release owner775 prepared | Controlled pilot activation/parity, feature reconciliation, branch retirement |
 | 4. R2 delivery | 3/7 | App reader merged; local app/two-snapshot proof | Isolated remote CAS/cache/fallback/rollback, cost and activation proof |
 | 5. Production cutover | 0/6 | Preliminary checks recorded | Complete parity, old-tab, rollback and measured soak |
-| 6. Simulator naming | 5/7 | Legacy archived, active repository renamed; historical SD links verified | Canonical source-link PR18, final documentation and measured comparison |
+| 6. Simulator naming | 5/7 | Legacy archived, active repository renamed; historical SD links verified | Canonical links/CI repair PR19, final documentation and measured comparison |
 
 Latest verified main release is PR774 atb9ffe6df. Its full Check40189357580,
 exact native producer40191452625, automatic publication40191632872 and owned-close
@@ -458,5 +458,6 @@ Both provider dashboard/billing baselines are recorded privately. Different bill
 periods and pilot-versus-production traffic prevent a measured net-savings claim.
 The simulator rename/archive is complete with unchanged repository identities,
 verified21/34-branch backups and SD PR60's historical links published before name
-reuse. Canonical active source-link PR18 and final documentation remain open.
+reuse. Canonical active source links are composed with the simulator CI execution
+repair in PR19; its full matrix and final documentation remain open.
 No permanent branch deletion, DNS cutover or Vercel retirement has occurred.

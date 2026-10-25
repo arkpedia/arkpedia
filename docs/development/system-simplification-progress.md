@@ -62,8 +62,21 @@ ID1431287392. All four historical source files resolve from the archived reposit
 with their original SHA-256 values. SD PR60 merged as6f3cfd43 after Check40198928433;
 its explicit historical links were published before name reuse. Local Linux checks
 passed89 tests and validated3,239 models, stage geometry and two effect packages.
-The active simulator's canonical metadata/source-link PR18 is pending CI; its five
-existing version/licence/attribution tests pass locally. No gameplay or licence changed.
+Canonical metadata PR18's Linux Node22 job timed out one monolithic stage-smoke file
+at the existing180-second limit:9,503 passes, zero failed assertions, one cancellation.
+The other jobs reported success, but investigation confirmed that the Windows test
+wrapper compared incompatible file URLs and exited without executing its unit suite.
+Those Windows results must not be counted as full test coverage.
+
+PR19 fixes the CLI entrypoint, rejects empty selections and verifies actual child
+test execution/failure propagation. It partitions the identical596 stage cases into
+four files, with a regression proving every stage is included once. Timeouts,
+assertions and matrix coverage remain unchanged. All601 focused cases pass on local
+Windows Node24 and Linux Node22.23.3; the existing five version/licence/attribution
+tests pass too. Its final combined sourcee23c78b2 also includes PR18's canonical
+links, so one full matrix40202641007 can verify the final tree. The intermediate
+sourcec79e47f7 run was superseded by that source change; PR18 is held as a draft.
+No gameplay, dependency, licence or attribution changed. Full hosted proof is pending.
 
 The checklist is32/52. R2 delivery is not activated remotely. DNS, permanent branch
 retirement and Vercel retirement remain behind their recorded gates. Detailed entries
