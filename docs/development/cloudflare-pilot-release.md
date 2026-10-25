@@ -53,7 +53,11 @@ require `private`. Unbound staging tests do not prove real OAuth/D1 acceptance.
 
 1. Finish the main-based hosting PR's exact CI and isolated preview acceptance.
    Preserve the original pilot version/build identity and the accounts owner's
-   applied migrations001–003 and archive/CAS/nonce/ownership contracts.
+   applied migrations001–003 and archive/CAS/nonce/ownership contracts. The accounts
+   owner must retain a recoverable private D1 baseline/restore point immediately
+   before the controlled release. Do not put dumps, auth rows or restore credentials
+   in Git, CI artifacts or logs. A code rollback must retain subsequent writes;
+   automatically restoring an older database is not part of this procedure.
 2. Finish this workflow's own reviewed Check and isolated preview. Confirm the
    current public Vercel release remains healthy. Keep main stable during the first
    pilot release and configured-account acceptance.
@@ -73,6 +77,32 @@ require `private`. Unbound staging tests do not prove real OAuth/D1 acceptance.
 6. After acceptance, normal checked main releases may flow automatically. Keep
    Vercel, DNS, branch retirement, cost/traffic soak and final public-domain rollback
    behind the simplification plan's separate gates.
+
+## Account and old-client acceptance
+
+The accounts owner reviews and conducts these checks using their private procedure.
+No destructive check belongs on a real durable user account.
+
+- Open and authenticate the held old client before deployment. Record its original
+  document build ID, loaded script identity and content-release/channel metadata;
+  a later fetch of build-info cannot prove which client code the tab already holds.
+- Use independent browser profiles for device tests. Same-origin tabs share
+  localStorage and cannot independently prove server restoration or convergence.
+- Verify the existing session and both already-linked providers, unchanged consent,
+  timer/focus auto-sync using reversible favourites, and local-only Yostar privacy.
+  Unlink/delete/consent reset and both snapshot-choice flows use only an approved
+  disposable account. Never inject synthetic pulls into a real durable archive.
+- Compare per-server/UID `(at, pool, char)` multisets and each tuple's multiplicity
+  from a fresh server-restored profile. Counts, hashes alone, or the original
+  browser's retained local union do not prove the server archive survived.
+  Exercise stale/offline convergence and owner-qualified cache invalidation.
+- In the held old client, load navigation/chunks it had not previously loaded.
+  Verify the immutable dev-live resources remain reachable during the switch to
+  live. Record a hard reload, missing chunk or failed journey honestly; existing
+  new-client and unbound staging tests do not cover this transition by themselves.
+- Preserve new writes and archive revisions through any code/config recovery and
+  repeat the independent restored-client comparison afterward. Private account
+  evidence stays with the owner; retain only sanitized pass/fail provenance here.
 
 For an explicit retry:
 
@@ -97,6 +127,24 @@ nor deleted, and recovery is not an account-data migration rollback. Cloudflare 
 no atomic cross-client compare-and-swap here: the workflow lock plus disabled native
 owner prevents routine competing releases, while actual owner checks guard known
 manual changes. Avoid manual deployments during a release.
+
+If manual signed-in acceptance fails after HTTP health passed, freeze main, disable
+`ARKPEDIA_PILOT_RELEASES_ENABLED`, and let in-flight release/native builds stop or
+finish before reconciliation. Record the actual current version and its release
+receipt. From that exact clean checked-release checkout, an explicitly authorized
+operator with the existing Cloudflare CLI login can run:
+
+```sh
+node scripts/deploy/pilot-recover.mjs FULL_FAILED_SOURCE_SHA FAILED_WORKER_VERSION_UUID --local-oauth
+```
+
+The command checks the receipt source/version against current live canonical
+ownership, rechecks that version immediately before rollback, then verifies the
+restored version/health. The explicit local option permits only recovery; ordinary
+publication still requires its scoped CI credential. A foreign/manual change
+refuses recovery and requires review. Do not retry blindly, re-enable releases or
+restore D1 over later writes. The accounts owner must verify retained writes and
+archive state after recovery before the pilot is accepted again.
 
 `config/production.json` registers the pilot as an additional main content reader,
 not a Vercel upload target. Publication waits for both Vercel and this reader to

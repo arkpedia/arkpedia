@@ -70,9 +70,9 @@ test('identity reader refuses dirty, invalid-role, redirect and oversized respon
   await assert.rejects(() => readPilotIdentity(async () => new Response(' '.repeat(70_000))), /oversized pilot identity/);
 });
 
-function harness({ token = true, badRoute = null, lostDeployResponse = false, sessionCache = 'no-store', savedDataCache = 'private, no-store' } = {}) {
-  let current = PILOT.legacyVersion;
-  const versions = new Map([[current, version()], [nextVersion, version(nextVersion)]]);
+function harness({ token = true, badRoute = null, lostDeployResponse = false, sessionCache = 'no-store', savedDataCache = 'private, no-store', allowLocalRecovery = false, initialVersion = PILOT.legacyVersion } = {}) {
+  let current = initialVersion;
+  const versions = new Map([[PILOT.legacyVersion, version()], [nextVersion, version(nextVersion)]]);
   const commands = [];
   const run = (_executable, args, options) => {
     assert.equal(args[args.indexOf('--name') + 1], 'arkpedia');
@@ -102,7 +102,7 @@ function harness({ token = true, badRoute = null, lostDeployResponse = false, se
       headers: { 'cache-control': path === '/api/auth/get-session' ? sessionCache : savedDataCache } });
     return new Response('page', { headers: { 'x-robots-tag': 'noindex' } });
   };
-  const provider = createPilotProvider({ run, request,
+  const provider = createPilotProvider({ run, request, allowLocalRecovery,
     environment: { ...(token ? { CLOUDFLARE_API_TOKEN: 'fixture-not-a-real-token' } : {}),
       BETTER_AUTH_SECRET: 'must-not-reach-provider', GH_TOKEN: 'must-not-reach-provider' } });
   return { provider, commands, current: () => current, replace: () => {
@@ -127,6 +127,20 @@ test('no explicit token means no deployment; local OAuth is read-only here', () 
   h.provider.observe();
   assert.throws(() => h.provider.deploy(owner), /explicit Worker-scoped/);
   assert.ok(!h.commands.includes('deploy'));
+});
+test('explicit local recovery permits only rollback and still refuses ordinary deployment', async () => {
+  const h = harness({ token: false, allowLocalRecovery: true, initialVersion: nextVersion });
+  assert.deepEqual(h.provider.owner(h.provider.observe()), owner);
+  assert.throws(() => h.provider.deploy(owner), /explicit Worker-scoped/);
+  assert.equal((await h.provider.recover(owner, nextVersion)).action, 'rolled-back');
+  assert.ok(!h.commands.includes('deploy'));
+});
+test('manual recovery refuses changed version and default local OAuth cannot write', async () => {
+  const h = harness({ token: false, allowLocalRecovery: true, initialVersion: nextVersion });
+  await assert.rejects(() => h.provider.recover(owner, foreignVersion), /changed before manual recovery/);
+  const readOnly = harness({ token: false, initialVersion: nextVersion });
+  await assert.rejects(() => readOnly.provider.recover(owner, nextVersion), /explicit recovery credential/);
+  assert.ok(!h.commands.includes('rollback') && !readOnly.commands.includes('rollback'));
 });
 test('health refuses an unconfigured or failing account backend', async () => {
   const h = harness({ badRoute: '/api/cloud-account' });

@@ -96,7 +96,7 @@ export function assertPilotIdentity(build, version) {
   return build;
 }
 
-export function createPilotProvider({ run = execFileSync, request = fetch, environment = process.env } = {}) {
+export function createPilotProvider({ run = execFileSync, request = fetch, environment = process.env, allowLocalRecovery = false } = {}) {
   const invoke = (args, { json = false, timeout = 120_000 } = {}) => {
     const output = run(process.execPath, [wrangler, ...args, '--name', PILOT.worker, '--config', config,
       ...(json ? ['--json'] : [])], { encoding: 'utf8', env: providerEnvironment(environment), timeout, maxBuffer: 16_000_000 });
@@ -142,11 +142,13 @@ export function createPilotProvider({ run = execFileSync, request = fetch, envir
   };
   // Recover even when upload succeeded but the deploy response was lost. Read raw
   // identity first: never roll back somebody else's change or guess its version.
-  const recover = async owner => {
+  const recover = async (owner, expectedVersion) => {
     const message = pilotReleaseMessage(owner);
+    requireValue(expectedVersion === undefined || UUID.test(expectedVersion), 'invalid expected recovery version');
     const current = rawObserve();
+    requireValue(expectedVersion === undefined || current.id === expectedVersion, 'pilot changed before manual recovery');
     if (current.id === owner.previousVersion) return { action: 'unchanged' };
-    requireValue(environment.CLOUDFLARE_API_TOKEN, 'explicit recovery credential required');
+    requireValue(environment.CLOUDFLARE_API_TOKEN || allowLocalRecovery === true, 'explicit recovery credential required');
     requireValue(current.annotations?.['workers/message'] === message, 'pilot changed; automatic recovery would overwrite another owner');
     invoke(['rollback', owner.previousVersion, '--yes', '--message', 'Restore previous Arkpedia pilot after failed owned release']);
     const restored = observe();
@@ -154,5 +156,9 @@ export function createPilotProvider({ run = execFileSync, request = fetch, envir
     await health(restored);
     return { action: 'rolled-back', version: restored.id };
   };
-  return { observe, identity, health, deploy, recover };
+  const owner = version => {
+    assertPilotBindings(version);
+    return version.id === PILOT.legacyVersion ? null : JSON.parse(version.annotations['workers/message'].slice(PREFIX.length));
+  };
+  return { observe, identity, health, deploy, recover, owner };
 }
