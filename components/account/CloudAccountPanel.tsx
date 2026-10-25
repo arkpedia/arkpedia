@@ -13,6 +13,7 @@ type Setting = 'profile' | 'saving' | 'logins' | 'data';
 type Confirmation = 'cloud' | 'account' | 'revoke' | 'history' | 'personal' | null;
 type Category = 'gameSync' | 'historySync' | 'personalSync';
 const label = (provider: string) => provider === 'google' ? 'Google' : 'Discord';
+const SYNC_NOW_HINT = 'Optional: check for changes now. Selected data syncs automatically while Arkpedia is open.';
 function SaveSummary({ data }: { data: Record<string, unknown> }) {
   const labels = BACKUP_STORES.filter(store => data[store.key] !== undefined).map(store => store.label);
   return <p className="hint">{labels.length ? labels.join(', ') : 'Preferences only, or no saved data yet'}</p>;
@@ -74,7 +75,7 @@ export default function CloudAccountPanel({ onOpenData }: { onOpenData?: () => v
     {remote?.profile && <>
       <div className={styles.identity}><strong>{remote.profile.username}</strong><span className="hint" role="status">{sync.status === 'ready' ? 'Up to date · selected data saves automatically' : sync.status === 'paused' ? 'Cloud saving paused' : sync.status === 'choice' ? 'Choose a save to continue' : 'Sync needs attention'}</span></div>
       {sync.status === 'ready' && <div className={styles.actions}>
-        <button type="button" className="ghost btn-sm" disabled={working} onClick={() => void act(sync.refresh)}>Sync now</button>
+        <button type="button" className="ghost btn-sm" disabled={working} title={SYNC_NOW_HINT} onClick={() => void act(sync.refresh)}>Sync now</button>
         <span className="hint">Imported game data: {remote.gameSync ? 'saved to your account' : 'browser only'}</span>
       </div>}
       {sync.status === 'paused' && <div className={styles.form}>
