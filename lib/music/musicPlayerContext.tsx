@@ -5,6 +5,7 @@ import { GAME_PATHS } from '@/lib/minigames/catalogue';
 import { MUSIC_CATALOGUE_PATH, loadMusicCatalogue, type MusicCatalogueSong } from './musicCatalogue';
 import { createCatalogueStore, type CatalogueStore } from './catalogueStore';
 import { MUSIC_FAVORITES_EVENT, MUSIC_FAVORITES_KEY, readMusicFavorites } from './musicFavorites';
+import { CLOUD_RESTORED_EVENT } from '@/lib/cloud-account/events';
 import { migrateChosenQueue, restoreQueue, sessionStore, takeMusicResume, writeMusicResume, type MusicResumeState } from './musicResume';
 import { songTitle } from './musicPolish';
 import { clearUpcoming, placeSong, restoreAround, type Placement, type QueueState } from './queueOps';
@@ -424,6 +425,26 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     setExcludeCopyrightedState(saved.excludeCopyrighted);
     includeEndfieldRef.current = saved.includeEndfield;
     setIncludeEndfieldState(saved.includeEndfield);
+  }, []);
+
+  // Apply restored preferences without replacing the engine or interrupting playback.
+  useEffect(() => {
+    const read = () => {
+      const storage = window.localStorage;
+      const nextVolume = Number(storage.getItem('musicVolume') ?? 50);
+      if (Number.isFinite(nextVolume) && nextVolume >= 0 && nextVolume <= 100) {
+        volumeRef.current = nextVolume; setVolume(nextVolume); playerRef.current?.setVolume(nextVolume);
+      }
+      dataSaverRef.current = storage.getItem(MUSIC_DATA_SAVER_KEY) === 'true';
+      setDataSaverState(dataSaverRef.current);
+      autoplayRef.current = storage.getItem('arkpediaMusicAutoplay') !== 'false';
+      setAutoplayState(autoplayRef.current);
+      const filter = readSongFilter(storage);
+      excludeCopyrightedRef.current = filter.excludeCopyrighted; setExcludeCopyrightedState(filter.excludeCopyrighted);
+      includeEndfieldRef.current = filter.includeEndfield; setIncludeEndfieldState(filter.includeEndfield);
+    };
+    window.addEventListener(CLOUD_RESTORED_EVENT, read);
+    return () => window.removeEventListener(CLOUD_RESTORED_EVENT, read);
   }, []);
 
   // Loaded on mount from a plain JSON array of videoIds, kept as a Set at

@@ -3,7 +3,7 @@ import { ImportError, readAccount, readNetwork, readPulls, sendCode, SERVERS, si
 import { isResettingBrowserData } from '@/lib/account/resetData';
 import type { PullRead } from '@/lib/account/pulls';
 import { directTransport, networkTransport, relayTransport } from '@/lib/account-import/relay';
-import { forgetLogin, maskEmail, readSavedLogin, saveLogin, type SavedLogin } from '@/lib/account-import/savedLogin';
+import { forgetLogin, maskEmail, readSavedLogin, saveLogin, SAVED_LOGIN_KEY, type SavedLogin } from '@/lib/account-import/savedLogin';
 import ConnectionDiagnostics from './ConnectionDiagnostics';
 import { connectionDiagnostics } from '@/lib/account-import/connectionDiagnostics';
 import { beginnerDiagnostics } from '@/lib/account-import/beginnerDiagnostics';
@@ -15,7 +15,7 @@ import { useCodeCooldown } from '@/lib/account-import/codeCooldown';
  * export dialog, for the server it is given. `onAccount` gets the account as the game server sent
  * it, what the Account Center gave of the pull history (a history it could not read is said in the
  * last step and stops nothing), and the server both came from. A successful sign-in is remembered
- * locally unless the reader chooses not to save it (lib/account-import/savedLogin.ts). Its own
+ * locally only when the reader asks to save it (lib/account-import/savedLogin.ts). Its own
  * server shows Import and Request code until the game stops accepting it; other
  * servers show their own email login.
  */
@@ -37,15 +37,13 @@ const describe = (error: unknown) => (error instanceof Error ? error.message : S
 
 const ACCOUNT_SETTINGS = 'Settings → Account';
 
-export default function GameSignIn({ server, onAccount, onForget, idPrefix = 'import' }: {
+export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
   server: ServerId;
   /** The account, the pull history and their server, once read. A throw is shown as the last
    *  step's failure. */
   onAccount: (user: Record<string, any>, pulls: PullRead, server: ServerId) => void;
   /** Field ids, distinct per use on one page. */
   idPrefix?: string;
-  /** Clears all saved site data after the dialog confirms the scope. */
-  onForget: () => void;
 }) {
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
@@ -231,7 +229,12 @@ export default function GameSignIn({ server, onAccount, onForget, idPrefix = 'im
     return busy && index === stepIndex ? 'running' : 'waiting';
   };
 
-  const forgetButton = <button type="button" className="ghost btn-sm" onClick={onForget} disabled={busy}>Forget everything</button>;
+  const forgetButton = <button type="button" className="ghost btn-sm" disabled={busy} onClick={() => {
+    // Explicit removal reports failure; automatic expired-login cleanup is best effort.
+    try { window.localStorage.removeItem(SAVED_LOGIN_KEY); }
+    catch { setFailed({ step: null, message: 'This browser could not forget the saved Yostar login. Check its site-data settings and try again.' }); return; }
+    setSaved(null); setEmail(''); setCode(''); setCodeSent(false); setDone(false); setStep(null); setFailed(null);
+  }}>Forget Yostar login</button>;
   return (
     <>
       {savedForServer ? (
@@ -246,14 +249,16 @@ export default function GameSignIn({ server, onAccount, onForget, idPrefix = 'im
         <>
           <div className="import-yostar">
             <p>
-              <b>Use the email that is already the Yostar login of your Arknights account.</b> Any other email, such as the Gmail
-              you play with through Google, makes Yostar create a separate, empty account for it. Undoing
-              that takes several steps in the game.
+              <b>Use the email that is already the Yostar login of your Arknights account.</b> Any other email
+              makes Yostar create a separate, empty account for it.
             </p>
+            <details><summary>Using Google, Apple or Facebook in the game?</summary>
             <p>
+              Your Google email is not automatically a Yostar login. Undoing that takes several steps in the game.
               So check in the game which login you use first ({ACCOUNT_SETTINGS}). If you play with Google, Apple or Facebook only,
               link an email there as its Yostar login (the option that emails you a code), then use that email here.
             </p>
+            </details>
           </div>
           <div className="import-forms">
             <form className="import-row" onSubmit={onSendCode}>
@@ -297,14 +302,13 @@ export default function GameSignIn({ server, onAccount, onForget, idPrefix = 'im
               Save this sign-in on this browser
             </label>
           </div>
-          <div className="data-dialog-acts">{forgetButton}</div>
         </>
       )}
 
       {retryingCode && <p className="hint import-note" role="status">Connection failed. Retrying once…</p>}
       {!busy && secondsLeft > 0 && <p className="hint import-note" aria-live="off">Request another code in {secondsLeft}s.</p>}
 
-      {(!savedForServer || (step !== 'send-code' && (busy || done || failed))) && (
+      {step !== 'send-code' && (busy || done || !!failed?.step || step !== null) && (
         <ol className="import-steps" aria-live="polite">
           {steps.map((entry, index) => {
             const state = stateOf(index);

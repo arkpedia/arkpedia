@@ -16,6 +16,8 @@ import type { ServerId } from '@/lib/account-import/yostar';
 import { accountFromGame, storedAccount, storedOtherAccounts, writeAccount, writeOtherAccounts, type AccountRecord } from './accountStore';
 import { mergePulls, type PullRead } from './pulls';
 import { rememberSiteServer } from '@/lib/time/siteServer';
+import { restorePullArchives } from './pullArchiveStore';
+import { archiveFromAccount } from './pullArchive';
 
 /**
  * Whether an import is the stored account's player: the same server, and the same game uid when
@@ -53,6 +55,8 @@ export function importGameAccount(user: Record<string, any>, tables: ImportTable
   const history = mergePulls(samePlayer(earlier, imported) ? earlier?.pulls : undefined, pulls, now);
   const { roster, depot, unknown } = readGameAccount(user, tables.map, tables.aliases, tables.depotNames);
   const record: AccountRecord = { ...imported, operatorBuilds: roster, ...(history ? { pulls: history } : {}) };
+  // Persist the accumulated archive before replacing an imported account snapshot.
+  restorePullArchives([...archiveFromAccount(earlier), ...archiveFromAccount(record)]);
   // The import is shown; the record it takes the place of, if another server's, waits.
   delete others[server];
   if (shown && shown.server !== server) others[shown.server] = shown;

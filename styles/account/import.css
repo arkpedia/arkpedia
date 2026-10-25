@@ -34,10 +34,10 @@
 .import-summary dt { font-family: var(--font-mono); font-size: 11px; color: var(--text-faint); text-transform: uppercase; }
 .import-summary dd { margin: 2px 0 0; font-family: var(--font-display); font-size: 18px; font-weight: 700; color: var(--text); }
 
-/* components/account/DataDialog: Import / export, the same on every page with your data. Three
-   parts -- from the game, from a file, export -- and Forget at the foot, each on a hairline. */
+/* DataDialog separates game import, backups and browser clearing into task tabs. */
 .data-dialog { width: min(600px, calc(100vw - 32px)); }
-.data-dialog-body { display: grid; }
+.data-dialog-body { display: grid; padding-top: 16px; }
+.data-dialog [hidden] { display: none; }
 .data-dialog-part { display: grid; gap: 10px; padding: 16px 0; border-top: 1px solid var(--line-soft); }
 .data-dialog-part:first-child { padding-top: 0; border-top: 0; }
 .data-dialog-part h3 { margin: 0; }
@@ -47,8 +47,7 @@
 .data-dialog-paste > summary:hover { color: var(--teal); }
 .data-dialog-paste textarea { width: 100%; margin: 10px 0; box-sizing: border-box; }
 .data-dialog-note { margin: 0 0 12px; }
-/* A saved sign-in replaces the email form with its identity, Import, Request code and Forget everything.
-   The email form's opt-out spans its grid. */
+/* A saved sign-in has Import, Request code and Forget Yostar login. The opt-in spans the form. */
 .import-saved { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
 .import-saved-identity { flex-basis: 100%; min-width: 0; overflow-wrap: anywhere; }
 .import-remember { grid-column: 1 / -1; }
@@ -58,6 +57,7 @@
 .import-yostar { max-width: 70ch; margin: 0 0 12px; padding: 8px 12px; border-left: 2px solid var(--teal); font-size: 13px; line-height: 1.6; color: var(--text-dim); }
 .import-yostar p { margin: 0; }
 .import-yostar p + p { margin-top: 6px; }
+.import-yostar details { margin-top: 6px; }
 .import-yostar b { color: var(--text); font-weight: 600; }
 
 /* Optional connection support report: normal sign-in controls stay anchored above it. */

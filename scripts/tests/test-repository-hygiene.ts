@@ -5,7 +5,7 @@ import { execFileSync } from 'node:child_process';
 
 test('root configuration is explicit and temporary artifacts stay out of Git', () => {
   const allowed = new Set([
-    '.env.example', '.gitignore', '.vercelignore', '.nvmrc',
+    '.env.example', '.dev.vars.example', '.gitignore', '.vercelignore', '.nvmrc',
     'README.md', 'AGENTS.md', 'eslint.config.mjs', 'next-env.d.ts', 'next.config.js',
     'package-lock.json', 'package.json', 'playwright.config.ts', 'tsconfig.json', 'vercel.json',
     'knip.jsonc', 'open-next.config.ts', 'open-next.staging.config.ts', 'wrangler.staging.jsonc',

@@ -95,6 +95,8 @@ const CALLED_BY_WORKFLOWS: Record<string, string> = {
  *  module that builds the address: it must name the route's fixed part (up to its first [param]),
  *  so a renamed or dropped caller fails here. */
 const NAMED_AS_ADDRESSES: Record<string, string> = {
+  // Better Auth's SDK builds sign-in, callback, session and linking addresses.
+  'pages/api/auth/[...all].ts': 'lib/cloud-account/client.ts',
   // Public game settings are fetched by the import's dedicated transport wrapper.
   'pages/api/account-import/network.ts': 'lib/account-import/relay.ts',
   // Monster Siren's album cover, served from this site: the lock screen's artwork and the
