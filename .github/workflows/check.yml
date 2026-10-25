@@ -206,7 +206,7 @@ jobs:
         run: npm run check:styles
 
       - name: Compile and validate runtime content
-        run: npm run content:export && npm run content:validate
+        run: npm run content:export -- --check && npm run content:validate
         env:
           NODE_ENV: production
           ARKPEDIA_CONTENT_DISABLED: '1'
