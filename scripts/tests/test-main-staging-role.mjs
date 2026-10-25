@@ -30,7 +30,7 @@ test('ordinary Vercel production remains indexable with its analytics and output
 test('future production Worker does not inherit staging noindex', () => {
   const result = config({ ARKPEDIA_WORKER: '1', ARKPEDIA_DEPLOYMENT_ROLE: 'production' });
   assert.equal(noindex(result), false);
-  assert.equal(result.env.ARKPEDIA_WEB_ANALYTICS, '');
+  assert.equal(result.env.ARKPEDIA_WEB_ANALYTICS, '1');
 });
 
 test('dev data stays unindexed and an unknown deployment role fails closed', () => {

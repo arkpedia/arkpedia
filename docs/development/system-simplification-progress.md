@@ -2,16 +2,25 @@
 
 ## Current checkpoint — 2026-10-25
 
-Main is `9b528897` after accepted PR771. Its exact full Check and native producer
+PR771 released as `9b528897`. Its exact full Check and native producer
 passed, as did scoped retained-artifact publication, eight deployed HTTP checks and
 twelve desktop/mobile, dark/light browser journeys. Automatic owned-close run
 40184536617 passed; independent provider inspection confirms the original free
 staging baseline591c/19b and unchanged pilot066ea33d/de829d1e. Public deployment
-40184554642 is still running and is not yet declared live.
+40184554642 passed; all 36 public browser cases and exact clean production identity
+passed. Release-status reported production healthy with no issues; its nonzero
+exit reflected only preserved dev/Cloudflare ancestry alerts.
 
-Automatic completion publication remains incomplete: the bot-dispatched producer
-did not emit the expected callback. Repair PR772 has42 passing focused tests and
-lint; its own full CI is running. R2 delivery is not activated remotely. DNS,
+Main is now `229e438c` after repair PR772 passed its own full Check and exact proof
+verification. Public deployment 40186009197 passed. Actual automatic completion
+publication still needs proof: the original bot-dispatched producer emitted no
+callback, and the explicit notifier must be exercised by a subsequent feature.
+The user's requested unavailable-account notice removal is PR773, now source
+`03d6b03a`, with eight local UI cases and 19 integrated account tests passing.
+Its first CI failed a pre-existing race-winner assumption; the accounts owner's
+test-only repair is reviewed and included. Fresh Check40186842441 has passed
+regressions and is continuing; the notice is not yet declared removed from www.
+R2 delivery is not activated remotely. DNS,
 permanent branch retirement, simulator rename/archive and Vercel retirement remain
 behind their documented gates. The detailed entries below retain dated evidence;
 older source/version/branch references describe their own historical checkpoint.

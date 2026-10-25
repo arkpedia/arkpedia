@@ -7,6 +7,10 @@ const { contentPointer } = require('./scripts/content/content-channel.cjs');
 const { routes: pilotRouteAliases } = require('./config/pilot-route-aliases.json');
 const workerBuild = process.env.ARKPEDIA_WORKER === '1';
 const stagingBuild = require('./scripts/deploy/deployment-role.cjs').deploymentRole() === 'staging';
+const cloudflareAnalytics = require('./config/web-analytics.json');
+const productionAnalytics = workerBuild
+  ? /^[a-f0-9]{32}$/.test(cloudflareAnalytics.cloudflareToken)
+  : process.env.VERCEL === '1' && process.env.VERCEL_ENV === 'production';
 for (const [repository, revision] of Object.entries(assetRevisions)) {
   if (!/^[a-f0-9]{40}$/.test(revision)) throw new Error(`Invalid asset revision: ${repository}`);
 }
@@ -42,7 +46,7 @@ const nextConfig = {
   // ARKPEDIA_CONTENT_CHANNEL: the content pointer this build reads (lib/content/server.ts): the
   // channel of the project Deploy builds for (scripts/content/content-channel.cjs). Inlined
   // because the prebuilt functions carry no Vercel project env.
-  env: { ARKPEDIA_WEB_ANALYTICS: !stagingBuild && process.env.VERCEL === '1' && process.env.VERCEL_ENV === 'production' && contentPointer() === 'live' ? '1' : '', ARKPEDIA_CONTENT_CHANNEL: contentPointer(), ARKPEDIA_WORKER: workerBuild ? '1' : '' },
+  env: { ARKPEDIA_WEB_ANALYTICS: !stagingBuild && productionAnalytics && contentPointer() === 'live' ? '1' : '', ARKPEDIA_CONTENT_CHANNEL: contentPointer(), ARKPEDIA_WORKER: workerBuild ? '1' : '' },
   // The browser bundle may not carry a game record the content release publishes (such as
   // data/albums.json): the build fails, naming the import chain. See the guard's header.
   webpack(config, { isServer, webpack }) {

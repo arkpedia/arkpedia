@@ -5,7 +5,7 @@ import { ANALYTICS_SAMPLE_KEY, analyticsPath, createSessionSampler } from '../..
 
 const require = createRequire(import.meta.url);
 const configFor = (env: Record<string, string | undefined>) => {
-  const keys = ['VERCEL', 'VERCEL_ENV', 'VERCEL_PROJECT_ID', 'ARKPEDIA_CONTENT_CHANNEL'];
+  const keys = ['VERCEL', 'VERCEL_ENV', 'VERCEL_PROJECT_ID', 'ARKPEDIA_CONTENT_CHANNEL', 'ARKPEDIA_WORKER', 'ARKPEDIA_DEPLOYMENT_ROLE', 'WORKERS_CI_BRANCH'];
   const before = Object.fromEntries(keys.map(key => [key, process.env[key]]));
   try {
     for (const key of keys) { if (env[key] === undefined) delete process.env[key]; else process.env[key] = env[key]; }
@@ -23,6 +23,15 @@ test('only the live production deployment counts analytics, excluding preview, d
   for (const env of [{}, { ...production, VERCEL: '0' }, { ...production, VERCEL_ENV: 'preview' }, { ...production, ARKPEDIA_CONTENT_CHANNEL: 'dev-live' }]) {
     assert.equal(configFor(env).env?.ARKPEDIA_WEB_ANALYTICS, '');
   }
+});
+
+test('production Workers retain their beacon independently of branch names; staging never counts', () => {
+  const production = { ARKPEDIA_WORKER:'1', ARKPEDIA_DEPLOYMENT_ROLE:'production', ARKPEDIA_CONTENT_CHANNEL:'live', WORKERS_CI_BRANCH:'main' };
+  assert.equal(configFor(production).env?.ARKPEDIA_WEB_ANALYTICS,'1');
+  assert.equal(configFor({...production,WORKERS_CI_BRANCH:'feature/host-check'}).env?.ARKPEDIA_WEB_ANALYTICS,'1');
+  assert.equal(configFor({...production,ARKPEDIA_DEPLOYMENT_ROLE:'staging'}).env?.ARKPEDIA_WEB_ANALYTICS,'');
+  assert.equal(configFor({...production,ARKPEDIA_CONTENT_CHANNEL:'dev-live'}).env?.ARKPEDIA_WEB_ANALYTICS,'');
+  assert.equal(configFor({WORKERS_CI_BRANCH:'cloudflare'}).env?.ARKPEDIA_WEB_ANALYTICS,'');
 });
 
 test('a whole session keeps its sample across navigation and reload without a visitor id', () => {
