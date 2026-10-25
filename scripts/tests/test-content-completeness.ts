@@ -207,6 +207,23 @@ test('quarantine entries follow the shared file format and keep their first day'
     assert.equal(fs.readFileSync(file, 'utf8'), text);
     writeQuarantine(root, 'completeness', [], new Date('2026-09-24T00:00:00Z'));
     assert.deepEqual(JSON.parse(fs.readFileSync(file, 'utf8')).entries, [catalogue]);
+    const beforePreview = fs.readFileSync(file, 'utf8');
+    let captured = '';
+    const preview = writeQuarantine(root, 'completeness', [
+      { key: 'operator:new', action: 'omitted-new', reason: 'still reported during a read-only check' },
+    ], new Date('2026-09-25T00:00:00Z'), { persist: false, onSnapshot: (snapshot: string) => { captured = snapshot; } });
+    assert.equal(preview[0].key, 'operator:new', 'a check still reports current quarantined records');
+    assert.deepEqual(JSON.parse(captured).entries.map((entry: { key: string }) => entry.key), [catalogue.key, 'operator:new'],
+      'the private export can capture the complete current report, including other stages');
+    assert.equal(fs.readFileSync(file, 'utf8'), beforePreview, 'a check preserves exact source bytes and other stages');
+    writeQuarantine(root, 'completeness', [{ key: 'operator:new', action: 'omitted-new', reason: 'still reported during a read-only check' }],
+      new Date('2026-09-25T00:00:00Z'));
+    assert.equal(fs.readFileSync(file, 'utf8'), captured, 'normal publication still persists that same current report by default');
+    const missing = path.join(root, 'read-only-tree');
+    fs.mkdirSync(missing);
+    assert.equal(writeQuarantine(missing, 'completeness', [{ key: 'operator:new', action: 'omitted-new', reason: 'missing' }],
+      new Date('2026-09-25T00:00:00Z'), { persist: false }).length, 1);
+    assert.equal(fs.existsSync(path.join(missing, 'data/quarantine.json')), false, 'read-only mode never creates a report');
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }

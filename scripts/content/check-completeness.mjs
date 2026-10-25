@@ -549,7 +549,7 @@ export function recordBaseline(root = process.cwd()) {
  */
 export const QUARANTINE = 'data/quarantine.json';
 const byCodeUnit = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
-export function writeQuarantine(root, stage, found, now = new Date()) {
+export function writeQuarantine(root, stage, found, now = new Date(), { persist = true, onSnapshot } = {}) {
   const file = path.join(root, QUARANTINE);
   const today = now.toISOString().slice(0, 10);
   if (!fs.existsSync(file) && !found.length) return [];
@@ -563,17 +563,21 @@ export function writeQuarantine(root, stage, found, now = new Date()) {
   }
   const entries = [...previous.filter(entry => entry.stage !== stage).map(({ lastSeen: _, ...entry }) => entry), ...mine.values()]
     .sort((a, b) => byCodeUnit(a.stage, b.stage) || byCodeUnit(a.key, b.key));
-  fs.writeFileSync(file, `${JSON.stringify({ version: 1, entries }, null, 2)}\n`);
+  const snapshot = `${JSON.stringify({ version: 1, entries }, null, 2)}\n`;
+  onSnapshot?.(snapshot);
+  if (persist) fs.writeFileSync(file, snapshot);
   return [...mine.values()];
 }
 
-export function assertCompleteness(root = process.cwd(), { now = new Date(), allowShrink = parseAllowShrink(process.env.ARKPEDIA_ALLOW_SHRINK) } = {}) {
+export function assertCompleteness(root = process.cwd(), { now = new Date(), allowShrink = parseAllowShrink(process.env.ARKPEDIA_ALLOW_SHRINK), persistQuarantine = true } = {}) {
   const input = readCompletenessInputs(root);
   const { errors, quarantine, allowed } = reviewCompleteness({ ...input, allowShrink, now });
   // Written before any throw: the day's holds are true whether or not an invariant stops it.
   // The refresh runs this as a stage with --keep data/quarantine.json, so the runner's
   // restore after that throw leaves them for the day's issue and the failure evidence.
-  const held = writeQuarantine(root, 'completeness', quarantine, now);
+  let quarantineSnapshot = null;
+  const held = writeQuarantine(root, 'completeness', quarantine, now, { persist: persistQuarantine,
+    onSnapshot: snapshot => { quarantineSnapshot = snapshot; } });
   if (held.length) {
     const lines = held.map(entry => `  ${entry.key} (${entry.action}): ${entry.reason}`);
     console.warn(`${held.length} record(s) quarantined, published without them or without the piece named (${QUARANTINE}):\n${lines.slice(0, 60).join('\n')}${lines.length > 60 ? `\n  ...and ${lines.length - 60} more` : ''}`);
@@ -585,6 +589,7 @@ export function assertCompleteness(root = process.cwd(), { now = new Date(), all
     + (input.baseline ? `; no collection shrank by more than ${MAX_DROP * 100}%${allowed.length ? ' but the ones allow_shrink names' : ''} (${COLLECTIONS.filter(name => Number.isFinite(input.baseline[name])).map(name => `${name} ${input.baseline[name]}\u2192${input.counts[name]}`).join(', ')})` : ''));
   const icons = missingEnemyIcons(input);
   if (icons.length) console.warn(`${icons.length} enemy icon(s) not published yet -- the image sync must add them:\n${icons.map(file => `  ${file}`).join('\n')}`);
+  return { quarantineSnapshot };
 }
 
 function main(argv) {
