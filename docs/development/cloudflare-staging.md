@@ -1,5 +1,49 @@
 # Isolated Cloudflare staging proof
 
+## Preview controller implementation status
+
+The root-owned `codex/preview-controller` branch adds an inactive lifecycle policy
+in `scripts/deploy/preview-lifecycle.mjs`. It does not deploy, read credentials or
+create provider resources. Its tests cover stale requests, foreign/expired build
+inputs, exact public identity, ownership changes and old-PR retirement races.
+The existing #765 artifact/remote proof remains tied to c49600f5; it is not proof
+that this newer controller source has been built or deployed.
+
+One shared staging slot is the initial target. Publication and retirement must use
+the same non-cancelling workflow concurrency group. A persisted ownership record
+must identify the PR, full source/tree, build run/artifact/checksum, public identity,
+actual provider version and original baseline version. Preserve that original
+baseline when another PR replaces the slot; retirement must never resurrect a
+previous PR. Read the current PR and provider version again inside the lock before
+any mutation. A close event for a different owner does nothing. Manual provider
+changes require reconciliation rather than blind rollback.
+
+The policy validates provenance observations, not their authenticity. Before any
+deployment, the trusted main controller still has to fetch those observations
+itself, use the existing exact-tree full/selected Check verifier and baseline
+revalidation, verify/extract the archive with the separately reviewed configuration,
+and test the actual Worker-scoped credential. A successful build/receipt alone does
+not approve application code. Never execute a feature checkout's deployment helper
+with the provider token. Persist ownership only after exact deployed identity and
+health verification; handle failures by checking version ownership before rollback.
+Retirement rolls back only the matching owned version. It never deletes R2 objects,
+the shared Worker or its Durable Object namespace.
+
+The GitHub/provider adapter, shared workflow lock, durable ownership storage,
+failure recovery and end-to-end publish/update/retire proof remain to implement.
+The plan's preview-workflow acceptance checkbox remains open.
+
+`scripts/deploy/preview-check.mjs` connects that policy to the existing full-browser
+and selected-proof validators. It requires a successful Check for the exact source
+and PR, an exact-tree artifact, actual successful job steps, and complete API
+inventories. Selected/no-impact proof additionally hashes the source policy blobs,
+validates its execution ledger and revalidates its recorded full baseline/ancestry.
+It performs no deployment and takes an API reader and bounded JSON artifact reader
+from the future trusted adapter. Failed, draft-only, stale-policy and orphaned
+baseline evidence is refused. It does not replace the standard CI impact planner.
+
+## Existing explicit staging helper
+
 Migration work uses `wrangler.staging.jsonc` and the explicit helper
 `node scripts/deploy/cloudflare-staging.mjs check|build|deploy`.
 
