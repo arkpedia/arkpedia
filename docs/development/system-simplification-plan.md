@@ -150,7 +150,7 @@ endpoint. A private Worker binding is appropriate for server-only reads.
 
 ## Ordered milestones and acceptance
 
-Updated 2026-10-25, 00:13 UTC. Checked items have recorded evidence; implementation
+Updated 2026-10-25, 00:26 UTC. Checked items have recorded evidence; implementation
 and local proof are distinguished from deployment and production acceptance. Exact
 commits, run IDs and limitations are in the [progress log](system-simplification-progress.md).
 
@@ -227,8 +227,9 @@ The existing local `cf:preview` command is not the remote feature-preview workfl
   stress runs and four desktop/mobile cases; new full Check 40145743982 is running.
   www main74 still reports dirty=true. A successful workflow alone is insufficient.
 - [ ] Complete the coordinated Cloudflare #761 policy adoption and deployed verification.
-  Its stale sampler fixture was repaired; provider-logo delivery is being moved to
-  the existing artwork repository before the next frozen candidate.
+  Sampler and external-logo gates passed at frozen 9cd820f1, whose full browser
+  run exposed the known navigation measurement race and a chibi timing assertion.
+  The owner is validating bounded fixture repairs before publishing a new candidate.
 - [ ] Prove an actual narrow PR's selected lane and partial artifact reuse in Actions.
   The accounts owner has a real optional Sync now explanation follow-up for this.
 - [ ] Measure several real PRs and queue/build/browser times; remove further duplicate
