@@ -151,7 +151,7 @@ endpoint. A private Worker binding is appropriate for server-only reads.
 
 ## Ordered milestones and acceptance
 
-Reviewed 2026-10-25. **32 of 52 acceptance items are complete and checked.**
+Reviewed 2026-10-25. **33 of 52 acceptance items are complete and checked.**
 The items differ substantially in size; this is not a percentage of time remaining.
 Completed controller implementation and real lifecycle proof are now separate from
 the remaining CI credential/activation gate. Exact evidence and limitations are in
@@ -165,7 +165,7 @@ the [progress log](system-simplification-progress.md).
 | 3. One codebase | 3/8 | PR775 checked-main owner published its first pilot release | Independent account acceptance/parity, feature reconciliation, branch retirement |
 | 4. R2 delivery | 3/7 | App reader merged; local app/two-snapshot proof | Isolated remote CAS/cache/fallback/rollback, cost and activation proof |
 | 5. Production cutover | 0/6 | Preliminary checks recorded | Complete parity, old-tab, rollback and measured soak |
-| 6. Simulator naming | 5/7 | Legacy archived, active repository renamed; historical SD links verified | Canonical links/CI repair PR19, final documentation and measured comparison |
+| 6. Simulator naming | 6/7 | Rename/archive, historical links and canonical references verified; PR19 merged after full matrix | Final documentation and measured comparison |
 
 Latest main release is PR775 at8ee3f3dc. Its Check40208662540, Vercel
 Deploy40208778256 and pilot release40208777886 passed. Both main deployments are
@@ -175,7 +175,9 @@ Private server/browser comparison confirms exact archived-draw multiplicities,
 identity/providers/consents and nondecreasing revisions. Independent fresh-profile
 provider/sync acceptance remains pending. Previously unloaded old-client navigation
 upgraded/reloaded the document; seamless retention is not claimed. Analytics host
-alignment is awaiting approval. D1/OAuth/DNS configuration is unchanged.
+alignment is saved and actual post-change ingestion passed. D1/OAuth/DNS configuration
+is unchanged. The maintainer confirms independent Google restoration; exact fresh
+ZIP comparison and timer/focus/provider acceptance remain pending.
 
 PR775 separately prepares the disabled exact-main release owner, resource checks
 and ownership-aware recovery, together with the necessary two-reader content gate.
@@ -394,8 +396,12 @@ progress log. They do not establish whole-site parity on a single production can
   name, retaining licences, attribution, issues/releases and access to branch history.
   Repository IDs1406934390/1431287392 are unchanged. Fresh complete-history bundles
   preserve21/34 branches, including concurrent standalone work and the metadata PR.
-- [ ] Update and verify all references. Reusing the old name can resolve old URLs to
+- [x] Update and verify all references. Reusing the old name can resolve old URLs to
   the new project; never rely on implicit redirects for old raw paths/commit pins.
+  SD PR60 preserves explicit legacy pins and hashes. Canonical active metadata and
+  visible source links merged in simulator PR19 as9ba5016b after all eight final-source
+  CI jobs40207142743 passed; the discovered Windows runner bug and long catalogue
+  files were repaired without reducing stage/assertion/timeout/matrix coverage.
 - [ ] Reconcile final architecture/docs/scripts after migration and publish the measured
   cost/latency/CI comparison. Keep historical proof in the progress log.
 
@@ -454,7 +460,9 @@ is draft and remote R2 publication remains inactive.
 PR775's final sourcef0577500 passed full Check40198085718 and real isolated preview
 acceptance before merge. Native builds are now disabled, the reviewed scoped token
 is stored, and the checked-main owner published version56bdbefb. Independent browser
-provider restoration, timer/focus sync and analytics hostname alignment remain open;
+provider restoration and timer/focus sync remain open; analytics hostname alignment
+is saved with successful post-change actual ingestion. Independent Google restoration
+is owner-confirmed but the fresh ZIP comparison remains pending;
 old-client navigation upgraded/reloaded and is not seamless cutover proof. Canonical
 D1/OAuth/DNS configuration remains unchanged.
 
@@ -463,5 +471,6 @@ periods and pilot-versus-production traffic prevent a measured net-savings claim
 The simulator rename/archive is complete with unchanged repository identities,
 verified21/34-branch backups and SD PR60's historical links published before name
 reuse. Canonical active source links are composed with the simulator CI execution
-repair in PR19; its full matrix and final documentation remain open.
+repair in PR19, now merged after its full eight-job matrix passed. Final measured
+comparison/documentation reconciliation remains open.
 No permanent branch deletion, DNS cutover or Vercel retirement has occurred.

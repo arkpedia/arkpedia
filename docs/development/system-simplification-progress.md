@@ -26,6 +26,9 @@ including repeated draws. A new-build account UI also resolves the same existing
 profile, ready state and session without first-time setup. No private backups,
 identifiers or auth data belong in repository/CI evidence. Independent fresh-profile
 provider restoration and timer/focus sync remain pending owner-assisted acceptance.
+The maintainer subsequently confirmed an independent private/guest Google sign-in
+restored the existing profile/history and exported a backup. Its local ZIP path is
+pending; exact fresh-profile multiset comparison is not yet claimed.
 
 Opening a previously unopened Techniques route changed the document build ID; this
 is an observed client upgrade/reload, not seamless old-document navigation or a
@@ -34,12 +37,22 @@ its signed-in ready state after hydration. The old-client retention/transient-st
 gate remains open before public cutover; code/config recovery preserves all D1 writes.
 
 An actual anonymous analytics beacon used the expected public token and pilot
-hostname and received a successful ingestion response. Dashboard inspection found
-the configured hostname stillarkpedia.cloudflare-1ff.workers.dev. Hostname alignment
-approval is pending; endpoint success alone is not dashboard attribution acceptance.
+hostname and received a successful ingestion response. Under explicit maintainer
+approval, the existing analytics site's configured hostname was changed from
+arkpedia.cloudflare-1ff.workers.dev toarkpedia-cf.mocchibird.com. The dashboard confirms
+the save and unchanged public beacon token; a post-change actual beacon/ingestion
+check passed. Dashboard reporting delay is separate from successful ingestion.
 Keep main stable while the remaining configured-account acceptance is in progress.
 PR776 remains draft and PR777 remains inactive. No new broad validation run is needed
 unless their source changes or a concrete failure requires it.
+
+Simulator PR19 merged as9ba5016b after final-source1ed1b3d4 passed all eight hosted
+matrix jobs in40207142743 (Linux/Windows, Node22/24, both shards). The CLI genuinely
+executes Windows tests; both596-stage suites retain every case/assertion and their
+original simulation durations/timeouts. Canonical metadata links are included in
+that tested tree. Superseded draft PR18 was closed without deleting preserved work.
+This completes the naming/reference unit; measured cost/latency/CI comparison and
+final architecture reconciliation remain open. The checklist is now33/52.
 
 ## Previous checkpoint — hosting preparation and simulator rename
 
