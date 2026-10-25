@@ -5,7 +5,7 @@ Arknights reference pages, operator, skin and pull planners, a Global account im
 | Site | Branch | Deployed by |
 | --- | --- | --- |
 | [www.arkpedia.net](https://www.arkpedia.net) | `main` | `.github/workflows/deploy.yml`, after a green Check |
-| [arkpedia-dev.vercel.app](https://arkpedia-dev.vercel.app) | `dev` | the same workflow, after a green Check |
+| [arkpedia-dev.vercel.app](https://arkpedia-dev.vercel.app) | preserved legacy `dev` | the same workflow, after a green Check; not the default for new work |
 
 Both are listed in `config/production.json`. Vercel's own Git deployments are switched off (`vercel.json`): every deployment is built in CI from a commit that passed Check.
 
@@ -20,13 +20,23 @@ Both are listed in `config/production.json`. Vercel's own Git deployments are sw
 
 ## How a change ships
 
-1. **Branch from `dev`** and open a pull request into `dev`. Check (`.github/workflows/check.yml`) runs the tests, the style and asset audits, a production build and the browser tests.
-2. **Merge into `dev`** once Check is green. The dev site deploys that commit.
-3. **Release to `main`** from a throwaway `release/*` branch cut from `dev`, in a pull request into `main`. Never open a pull request from `dev` itself: the repository deletes merged head branches, and that would delete `dev`. A green Check on `main` deploys www.arkpedia.net.
+1. **Branch from `main` and work locally.** Use focused checks during iteration. Open a short-lived feature PR into `main`; draft feedback does not build or establish browser proof.
+2. **Mark ready and verify Check.** The current impact policy selects relevant browser journeys and falls back to broader coverage for unknown/shared changes. A selected run is not full-suite proof. Follow the design/UX guidance for affected desktop/mobile and dark/light journeys.
+3. **Request one explicit Cloudflare preview when ready.** The trusted-main preview controller accepts a successful exact-source Check, builds the isolated configuration and publishes its verified artifact. Verify the actual deployed journey. See [Cloudflare staging](docs/development/cloudflare-staging.md).
+4. **Merge the accepted PR into `main`.** A successful main Check releases public Vercel production. The checked-main Cloudflare pilot owner is prepared but remains behind its credential, single-owner and configured-account/old-client activation gates; see [the checked-main pilot release](https://github.com/arkpedia/arkpedia/pull/775). Do not assume the current pilot already follows main.
 
-Every push to `main` starts **Sync main into dev** (`.github/workflows/sync-main.yml`). It makes a normal merge on a temporary integration branch and runs Check there before fast-forwarding dev to that exact green commit. The merge retains main's ancestry, including selectively cherry-picked releases, while keeping dev-only features. It then explicitly starts the pinned dev deployment and **Sync cloudflare with dev**; GitHub's workflow token does not generate further push-workflow runs by itself. Cloudflare keeps its Worker-specific work.
+The agreed target is one application codebase, not permanent `dev` and `cloudflare`
+mirrors. Those branches currently preserve unreleased features and the existing
+pilot's native build source. Review their net changes individually; do not merge
+them wholesale or delete them before the [simplification plan](docs/development/system-simplification-plan.md)
+gates pass. Keep Vercel serving www until Cloudflare parity, costs, soak and rollback
+are accepted, then handle public-domain cutover separately.
 
-Conflicts and failed integration checks leave dev unchanged and open a tracked GitHub issue with the run and conflicting files. Resolve on a temporary branch, pass Check, and merge with a **merge commit**, not squash or rebase, to retain the production ancestry. Rerun **Sync main into dev** from the Actions page to recover; the workflows also support manual dispatch when a downstream sync needs retrying. Neither `main` nor `dev` is ever used as a disposable PR head. See [branch synchronization](docs/development/branch-sync.md) for the checks and recovery path.
+Legacy synchronization workflows are still configured during preservation. Their
+conflicts fail closed and leave the branch unchanged; do not force a sync over
+unreleased work merely to remove a behind count. [Branch synchronization](docs/development/branch-sync.md)
+documents that legacy recovery path, not the default feature release workflow.
+Never use a permanent integration branch as a disposable PR head.
 
 Branch protection is not available on this plan, so the rule is a convention: merge only after Check passes. A change to nothing but `docs/**` or Markdown skips Check and deploys nothing (`config/docs-only-paths.json`).
 

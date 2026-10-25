@@ -9,9 +9,13 @@ checks actually run in the PR. Before declaring a release live, use
 `npm run release:status` and verify the affected deployed browser journey; a merged
 PR or passing HTTP check alone does not prove the new behavior shipped.
 
-Normal feature pull requests target `dev`; Cloudflare-only work targets `cloudflare`.
-Production is `main`. Never use `dev` itself as the head of a release PR: merged head
-branches are deleted. See the README for release and deployment rules.
+New work branches from `main` and uses short-lived feature pull requests into `main`.
+Develop locally, then request an explicit checked-source isolated Cloudflare preview
+when ready. Preserve unreleased `dev`/`cloudflare` work for individual review; do not
+merge or retire those legacy branches wholesale. Never use a permanent branch as a
+disposable PR head. Vercel still serves public production; the checked-main pilot
+owner has a separate controlled activation gate. See the README and simplification
+plan for current deployment state and release rules.
 
 <!-- BEGIN:nextjs-agent-rules -->
 
