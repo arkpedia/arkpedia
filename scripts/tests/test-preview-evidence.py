@@ -54,6 +54,14 @@ class PreviewEvidenceTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             READER.read_evidence(output.getvalue())
 
+    def test_receipt_envelope_requires_its_exact_allowed_filename(self):
+        receipt = bundle(name='arkpedia-staging-receipt.json', body=b'{"format":1}')
+        self.assertEqual(READER.read_evidence(receipt, 'arkpedia-staging-receipt.json'), {'format': 1})
+        with self.assertRaises(ValueError):
+            READER.read_evidence(receipt)
+        with self.assertRaises(ValueError):
+            READER.read_evidence(receipt, '../arkpedia-staging-receipt.json')
+
 
 if __name__ == '__main__':
     unittest.main()

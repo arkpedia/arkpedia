@@ -100,3 +100,30 @@ test('closed-PR retirement and explicit open-PR retirement share ownership check
   closed.pr.state = 'closed';
   assert.equal((await retirePreview({ number: 10 }, closed.dependencies)).action, 'retired');
 });
+
+test('latest Check is revalidated after download and upload; a newly failed run cannot publish', async () => {
+  for (const phase of ['download', 'upload']) {
+    const f = fixture();
+    const producer = 'd'.repeat(40);
+    f.request.controllerCommit = producer;
+    f.verified.build.head_sha = producer;
+    f.verified.build.head_branch = 'main';
+    f.verified.receipt.previewRequest = { pr: 10, source, checkRun: 20, controllerCommit: producer };
+    const check = { id: 20, status: 'completed', conclusion: 'success', created_at: '2026-10-25T01:00:00Z',
+      head_sha: source, repository: { full_name: f.request.repository }, head_repository: { full_name: f.request.repository },
+      pull_requests: [{ number: 10, base: { ref: 'main' } }] };
+    f.dependencies.query = path => path.includes('/workflows/check.yml/runs?')
+      ? { total_count: 1, workflow_runs: [check] } : structuredClone(f.pr);
+    if (phase === 'download') {
+      const obtain = f.dependencies.obtain;
+      f.dependencies.obtain = (...args) => { const result = obtain(...args); check.conclusion = 'failure'; return result; };
+    } else {
+      const deploy = f.provider.deploy;
+      f.provider.deploy = (...args) => { const result = deploy(...args); check.conclusion = 'failure'; return result; };
+    }
+    await assert.rejects(publishPreview(f.request, f.dependencies), /latest current-source Check/);
+    assert.equal(f.current.version.id, STAGING.baselineVersion);
+    assert.equal(f.calls.includes('deploy'), phase === 'upload');
+    assert.equal(f.calls.at(-1), 'cleanup');
+  }
+});

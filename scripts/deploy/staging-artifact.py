@@ -158,16 +158,30 @@ def main():
     parser.add_argument('--trusted-config')
     parser.add_argument('--destination')
     parser.add_argument('--without-prerender-cache', action='store_true')
+    parser.add_argument('--preview-pr')
+    parser.add_argument('--preview-check-run')
+    parser.add_argument('--preview-controller')
     args = parser.parse_args()
     require(not args.without_prerender_cache or args.action == 'extract',
             '--without-prerender-cache is only valid for extraction')
     if args.action == 'receipt':
         record = receipt(args.archive, args.commit, args.run)
+        preview = (args.preview_pr, args.preview_check_run, args.preview_controller)
+        if any(preview):
+            require(all(preview) and all(re.fullmatch(r'[1-9][0-9]*', value)
+                    and int(value) <= 9_007_199_254_740_991 for value in preview[:2])
+                    and re.fullmatch(r'[a-f0-9]{40}', args.preview_controller),
+                    'Expected complete preview PR/Check/controller identities')
+            record['previewRequest'] = {'pr': int(args.preview_pr), 'source': args.commit,
+                                        'checkRun': int(args.preview_check_run),
+                                        'controllerCommit': args.preview_controller}
         with Path(args.receipt).open('x', encoding='utf-8') as output:
             json.dump(record, output, indent=2)
             output.write('\n')
         print('Recorded isolated staging artifact receipt')
     else:
+        require(not any((args.preview_pr, args.preview_check_run, args.preview_controller)),
+                'Preview identities are only valid for receipt production')
         require(args.trusted_config, '--trusted-config is required')
         require(args.action != 'extract' or args.destination, '--destination is required')
         print(json.dumps(verify_extract(args.archive, args.receipt, args.commit, args.run,

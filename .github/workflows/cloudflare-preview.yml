@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       action:
-        description: Publish the exact checked build, or retire this PR's owned preview
+        description: Request the PR's checked preview, or retire its owned preview
         type: choice
         options: [publish, retire]
         default: publish
@@ -12,19 +12,10 @@ on:
         description: Same-repository pull request targeting main
         required: true
         type: string
-      source:
-        description: Full source SHA (publish only)
-        type: string
-      check_run:
-        description: Successful Check run for that exact source (publish only)
-        type: string
-      build_run:
-        description: Successful Build Cloudflare staging run (publish only)
-        type: string
-      artifact:
-        description: Exact staging artifact ID from that build (publish only)
-        type: string
-  # Runs the trusted base workflow only; never checks out a PR head with secrets.
+  workflow_run:
+    workflows: [Build Cloudflare staging]
+    types: [completed]
+    branches: [main]
   pull_request_target:
     branches: [main]
     types: [closed]
@@ -34,15 +25,43 @@ permissions:
   actions: read
   pull-requests: read
 
-# One existing staging slot. Every publish/update/retirement uses this lock.
-# A newer request must not cancel a provider mutation or its failure recovery.
 concurrency:
   group: arkpedia-staging-slot
   cancel-in-progress: false
+  queue: max
 
 jobs:
+  prepare:
+    if: (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') || (github.event_name == 'pull_request_target' && vars.ARKPEDIA_PREVIEWS_ENABLED == 'true' && github.event.pull_request.head.repo.full_name == github.repository) || (github.event_name == 'workflow_run' && vars.ARKPEDIA_PREVIEWS_ENABLED == 'true' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.head_repository.full_name == github.repository)
+    runs-on: ${{ vars.ARKPEDIA_LIGHT_RUNNER || vars.ARKPEDIA_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: write
+      pull-requests: read
+    outputs:
+      mode: ${{ steps.request.outputs.mode }}
+      pr: ${{ steps.request.outputs.pr }}
+      request: ${{ steps.request.outputs.request }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+      - name: Resolve checked PR and request or reuse its build
+        id: request
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/deploy/preview-request.mjs prepare
   preview:
-    if: (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') || (github.event_name == 'pull_request_target' && vars.ARKPEDIA_PREVIEWS_ENABLED == 'true' && github.event.pull_request.head.repo.full_name == github.repository)
+    needs: prepare
+    if: needs.prepare.outputs.mode == 'publish' || needs.prepare.outputs.mode == 'retire' || needs.prepare.outputs.mode == 'closed'
     runs-on: ${{ vars.ARKPEDIA_LIGHT_RUNNER || vars.ARKPEDIA_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 15
     steps:
@@ -63,16 +82,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.ARKPEDIA_STAGING_API_TOKEN }}
-          PREVIEW_ACTION: ${{ github.event_name == 'pull_request_target' && 'closed' || inputs.action }}
-          PREVIEW_PR: ${{ github.event.pull_request.number || inputs.pr }}
-          PREVIEW_SOURCE: ${{ inputs.source }}
-          PREVIEW_CHECK: ${{ inputs.check_run }}
-          PREVIEW_BUILD: ${{ inputs.build_run }}
-          PREVIEW_ARTIFACT: ${{ inputs.artifact }}
+          PREVIEW_ACTION: ${{ needs.prepare.outputs.mode }}
+          PREVIEW_PR: ${{ needs.prepare.outputs.pr }}
+          PREVIEW_REQUEST_JSON: ${{ needs.prepare.outputs.request }}
         run: |
           set -euo pipefail
           if [ "$PREVIEW_ACTION" = publish ]; then
-            node scripts/deploy/preview-controller.mjs publish "$PREVIEW_PR" "$PREVIEW_SOURCE" "$PREVIEW_CHECK" "$PREVIEW_BUILD" "$PREVIEW_ARTIFACT"
+            node scripts/deploy/preview-controller.mjs publish-request
           else
             node scripts/deploy/preview-controller.mjs "$PREVIEW_ACTION" "$PREVIEW_PR"
           fi

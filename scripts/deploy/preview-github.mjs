@@ -14,17 +14,20 @@ export function githubQuery(path) {
   return JSON.parse(execFileSync('gh', ['api', path], { encoding: 'utf8', maxBuffer: 16_000_000 }));
 }
 
-export function readPolicyArtifact(run, artifact) {
+function readJsonArtifact(run, artifact, name) {
   requireValue(positive(run?.id) && positive(artifact?.id) && artifact.workflow_run?.id === run.id
     && artifact.expired === false && Number.isSafeInteger(artifact.size_in_bytes)
     && artifact.size_in_bytes > 0 && artifact.size_in_bytes <= 5_000_000, 'invalid policy artifact download');
   const bytes = execFileSync('gh', ['api', `repos/${REPOSITORY}/actions/artifacts/${artifact.id}/zip`],
     { maxBuffer: 5_000_001 });
   const reader = fileURLToPath(new URL('./read-preview-evidence.py', import.meta.url));
-  return JSON.parse(execFileSync('python', [reader], {
+  return JSON.parse(execFileSync('python', [reader, '--name', name], {
     input: bytes, encoding: 'utf8', maxBuffer: 6_000_000,
   }));
 }
+
+export const readPolicyArtifact = (run, artifact) => readJsonArtifact(run, artifact, 'browser-evidence.json');
+export const readStagingReceiptArtifact = (run, artifact) => readJsonArtifact(run, artifact, 'arkpedia-staging-receipt.json');
 
 export function inspectPreviewCheck({ number, source, runId }, { query = githubQuery, readEvidence = readPolicyArtifact } = {}) {
   requireValue(positive(number) && positive(runId) && /^[a-f0-9]{40}$/.test(source ?? ''), 'expected PR number, full SHA and Check run ID');

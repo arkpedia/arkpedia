@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 import tarfile
 import tempfile
+import sys
 import unittest
 from unittest.mock import patch
 
@@ -158,6 +159,29 @@ class StagingArtifactTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 self.make_receipt()
         self.assertFalse((self.root / 'escape').exists())
+
+    def test_trusted_receipt_binds_preview_source_pr_check_and_controller(self):
+        self.write_archive()
+        argv = ['staging-artifact.py', 'receipt', '--archive', str(self.archive),
+                '--receipt', str(self.record), '--commit', self.commit, '--run', '123',
+                '--preview-pr', '10', '--preview-check-run', '20', '--preview-controller', 'c' * 40]
+        with patch.object(sys, 'argv', argv), patch('sys.stdout', new_callable=io.StringIO):
+            artifact.main()
+        record = json.loads(self.record.read_text())
+        self.assertEqual(record['previewRequest'], {'pr': 10, 'source': self.commit,
+                                                   'checkRun': 20, 'controllerCommit': 'c' * 40})
+        self.verify()
+
+    def test_partial_or_malformed_preview_identity_cannot_produce_receipt(self):
+        self.write_archive()
+        for flags in [('--preview-pr', '10'),
+                      ('--preview-pr', '10;bad', '--preview-check-run', '20', '--preview-controller', 'c' * 40),
+                      ('--preview-pr', '10', '--preview-check-run', '20', '--preview-controller', 'short')]:
+            argv = ['staging-artifact.py', 'receipt', '--archive', str(self.archive),
+                    '--receipt', str(self.record), '--commit', self.commit, '--run', '123', *flags]
+            with patch.object(sys, 'argv', argv), self.assertRaises(ValueError):
+                artifact.main()
+            self.assertFalse(self.record.exists())
 
 
 if __name__ == '__main__':

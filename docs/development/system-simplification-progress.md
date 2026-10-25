@@ -796,3 +796,30 @@ archive SHA remains00fddadc435e293e1d6fc882ee9aa318ffd553fec425325fb31ddbf3dc8de
 This is extraction/read-only proof, not a new controller deployment. Real fresh
 publish/update/retirement, scoped CI permissions and workflow activation remain open;
 the acceptance checklist count remains28/51.
+
+### PR-number preview entry point implemented in #768
+
+The controller candidate now exposes action+PR only. Its secret-free resolver
+validates the latest current-source Check and existing full/selected proof, reuses
+a matching active/completed retained build, or dispatches exactly one new main
+staging build with immutable source/PR/Check inputs. The dispatch API is explicitly
+pinned to2026-03-10 and returns the exact run ID; an unknown outcome is reported,
+never blindly retried. No runner waits for another runner to build. Successful
+completion resumes a separately authenticated trusted-main publication job only
+after activation. All provider mutations and retirements use the shared lock with
+queue:max/cancellation disabled; staging builds have a separate retained queue.
+
+The build checks out producer and app source separately, installs/builds the app
+once without a provider token, compares its isolation config, and uses the main
+producer receipt writer. A small additional JSON envelope avoids downloading the
+whole app merely to resolve the completed request. The receiver checks actual
+producer Git blobs, receipt PR/source/Check/controller bindings, current PR and
+latest Check, exact same-run artifact, and existing CI proof. Publication rechecks
+the latest Check after download/upload and recovers a matching failed upload to
+baseline. Legacy proof receipts remain explicit-only; they cannot auto-publish.
+
+Local evidence:73 related Node cases and11 tar/six ZIP Python cases, explicit Node
+ESLint/Knip/diff checks. The prior draft Check40160076966 passed on f05f94ca; it
+does not approve these newer changes. Fresh final-source validation, actual remote
+publish/update/retire/failure proof, Worker-scoped token and activation remain open.
+No new provider resources, credentials, production or account settings changed.

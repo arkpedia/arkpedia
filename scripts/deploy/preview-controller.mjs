@@ -10,6 +10,8 @@ import { githubQuery, inspectPreviewCheck } from './preview-github.mjs';
 import { planPreviewUpdate, recheckPreviewUpdate, recordPreviewOwner, planPreviewRetirement } from './preview-lifecycle.mjs';
 import { createStagingProvider, previewAnnotations } from './preview-provider.mjs';
 import { readStagingConfig } from './cloudflare-staging.mjs';
+import { assertStagingRun, assertBuildRequest, verifyBuildProducer } from './preview-build.mjs';
+import { assertLatestPreviewCheck } from './preview-request.mjs';
 
 const REPOSITORY = 'arkpedia/arkpedia';
 const root = fileURLToPath(new URL('../../', import.meta.url));
@@ -21,10 +23,8 @@ export function fetchVerifiedPreviewArtifact(request, { query = githubQuery, run
     'missing explicit source/build/artifact');
   const build = query(`repos/${REPOSITORY}/actions/runs/${request.buildRun}`);
   const artifact = query(`repos/${REPOSITORY}/actions/artifacts/${request.artifact}`);
-  requireValue(build.id === request.buildRun && build.status === 'completed' && build.conclusion === 'success'
-    && build.event === 'workflow_dispatch' && build.path === '.github/workflows/cloudflare-staging.yml'
-    && build.head_sha === request.source && build.repository?.full_name === REPOSITORY
-    && build.head_repository?.full_name === REPOSITORY, 'build provenance differs');
+  assertStagingRun(build, request);
+  if (request.controllerCommit) verifyBuildProducer(build, { query });
   requireValue(artifact.id === request.artifact && artifact.expired === false
     && artifact.workflow_run?.id === build.id && artifact.name === `arkpedia-staging-${request.source}`
     && Number.isSafeInteger(artifact.size_in_bytes) && artifact.size_in_bytes > 0
@@ -47,6 +47,7 @@ export function fetchVerifiedPreviewArtifact(request, { query = githubQuery, run
     requireValue(lstatSync(receiptFile).isFile() && lstatSync(receiptFile).size <= 65536
       && lstatSync(archive).isFile() && lstatSync(archive).size <= 1024 ** 3, 'invalid downloaded archive/receipt');
     const receipt = JSON.parse(readFileSync(receiptFile, 'utf8'));
+    assertBuildRequest(build, receipt, request);
     const directory = join(temporary, 'extracted');
     run('python', [join(root, 'scripts/deploy/staging-artifact.py'), 'extract', '--archive', archive,
       '--receipt', receiptFile, '--commit', request.source, '--run', String(build.id),
@@ -61,6 +62,7 @@ export async function publishPreview(request, {
   provider = createStagingProvider(),
 } = {}) {
   requireValue(request.repository === REPOSITORY, 'wrong repository');
+  if (request.controllerCommit) assertLatestPreviewCheck(request.pr, request.source, request.checkRun, { query });
   const proof = inspect({ number: request.pr, source: request.source, runId: request.checkRun });
   const verified = obtain(request);
   try {
@@ -70,9 +72,11 @@ export async function publishPreview(request, {
     const plan = planPreviewUpdate({ request, pr, build: verified.build, artifact: verified.artifact,
       receipt: verified.receipt, sourceTree: proof.tree, liveVersion: before.version.id, owner: before.intent });
     const annotations = previewAnnotations(plan, request.checkRun);
+    if (request.controllerCommit) assertLatestPreviewCheck(request.pr, request.source, request.checkRun, { query });
     recheckPreviewUpdate(plan, { pr: query(`repos/${REPOSITORY}/pulls/${request.pr}`), liveVersion: provider.observe().version.id });
     try {
       const after = provider.deploy(plan, request.checkRun, verified.directory);
+      if (request.controllerCommit) assertLatestPreviewCheck(request.pr, request.source, request.checkRun, { query });
       // A source push during upload invalidates this publication, even if healthy.
       recheckPreviewUpdate({ ...plan, expectedVersion: after.version.id }, {
         pr: query(`repos/${REPOSITORY}/pulls/${request.pr}`), liveVersion: provider.observe().version.id });
@@ -112,12 +116,17 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     const localOAuth = args.at(-1) === '--local-oauth';
     if (localOAuth) args.pop();
     const [action, pr, source, checkRun, buildRun, artifact] = args;
-    requireValue(['publish', 'retire', 'closed'].includes(action) && /^[1-9][0-9]*$/.test(pr ?? ''), 'invalid action/PR');
-    requireValue(args.length === (action === 'publish' ? 6 : 2), 'unexpected controller arguments');
+    requireValue(['publish', 'publish-request', 'retire', 'closed'].includes(action), 'invalid action');
+    requireValue(args.length === (action === 'publish' ? 6 : action === 'publish-request' ? 1 : 2), 'unexpected controller arguments');
+    if (action !== 'publish-request') requireValue(/^[1-9][0-9]*$/.test(pr ?? ''), 'invalid PR');
     requireValue(process.env.CLOUDFLARE_API_TOKEN || localOAuth, 'configure the Worker-scoped staging token; local proof requires --local-oauth');
     readStagingConfig(join(root, 'wrangler.staging.jsonc'));
     let result;
-    if (action === 'publish') {
+    if (action === 'publish-request') {
+      requireValue(typeof process.env.PREVIEW_REQUEST_JSON === 'string'
+        && Buffer.byteLength(process.env.PREVIEW_REQUEST_JSON) <= 65536, 'missing bounded resolved request');
+      result = await publishPreview(JSON.parse(process.env.PREVIEW_REQUEST_JSON));
+    } else if (action === 'publish') {
       requireValue([checkRun, buildRun, artifact].every(value => /^[1-9][0-9]*$/.test(value ?? '')), 'expected explicit Check/build/artifact IDs');
       result = await publishPreview({ repository: REPOSITORY, pr: Number(pr), source,
         checkRun: Number(checkRun), buildRun: Number(buildRun), artifact: Number(artifact) });

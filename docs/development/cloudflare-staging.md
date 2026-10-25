@@ -76,9 +76,35 @@ open PR's preview. Both operations leave another PR's preview alone. Local OAuth
 proof requires the explicit `--local-oauth` argument; CI requires the staging token.
 
 These explicit IDs are the controller's internal contract. The maintainer-facing
-entry point still needs to resolve a PR's checked source/build automatically, so
-routine preview requests do not require copying run IDs. This remains part of the
-workflow acceptance gate alongside real remote and scoped-credential proof.
+workflow takes only an action and PR number. Choose **Cloudflare feature preview**
+on main, leave **publish** selected, and enter the PR number. The secret-free
+resolver checks the latest Check for the current ready PR source. It refuses a
+running/failed latest Check even if an older run was green, and verifies its exact
+full/selected proof before spending a build.
+
+A matching active build is reused. Otherwise the explicit request dispatches one
+**Build Cloudflare staging** run on main with the immutable source/PR/Check inputs
+and returns its actual run ID. No runner or staging lock waits for that build.
+Once enabled, successful build completion resumes the trusted publication workflow.
+A completed, retained matching build can be published again without rebuilding.
+Local pushes do not trigger remote staging builds; the obsolete bootstrap push
+trigger is removed. The build makes no provider calls and has no provider token.
+
+The build checks out the producer and immutable app source separately, installs
+the app once, compares its staging config to the reviewed producer config, and
+uses the producer's receipt writer. The receipt binds the app source, PR, Check and
+producer commit. A small JSON-only envelope lets the completion handler resolve
+the request without downloading the app archive. Before publication, both copies
+of the receipt and the complete archive are verified again. Source moves, PR
+closure, a newer Check, expired proof and a different producer are refused.
+
+The receiver verifies the actual main producer commit and the Git blob IDs of the
+workflow/receipt/input helpers against its trusted checkout. A workflow title is
+only a lookup key; it cannot approve code. Legacy build-only receipts remain usable
+for explicit historical proof but never auto-publish. The dispatch API is pinned
+to `2026-03-10`, whose response identifies the exact newly created run; an uncertain
+dispatch outcome is reported rather than retried blindly.
+[Dispatch API](https://docs.github.com/en/rest/actions/workflows?apiVersion=2026-03-10).
 
 Cloudflare's existing version annotations store publication intent, including the
 original baseline and Check/build/artifact identities. No additional database,
@@ -99,10 +125,16 @@ verifies the complete original archive/receipt/config before omitting only
 omitted members. Assets and Worker files are retained. Cold rendering/revalidation
 and rollback were independently proved with the earlier c496 staging artifact.
 
-The workflow checks out its own trusted workflow SHA, installs only that checkout's
+The publication workflow checks out its own trusted workflow SHA, installs only that checkout's
 locked dependencies before exposing the token, and never checks out a feature head.
 It downloads and verifies the existing explicit build; it does not rebuild the app.
-All automation shares `arkpedia-staging-slot` with cancellation disabled. Provider
+All provider mutations share `arkpedia-staging-slot` with cancellation disabled
+and `queue: max`, retaining up to 100 pending requests. The build has its own queue,
+so it can finish while publication slots are idle. The resolver alone has Actions
+write permission to dispatch that build; the provider job has read-only GitHub
+permissions. No provider token reaches resolution, source installation or build.
+[GitHub concurrency queues](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency).
+Provider
 version checks surround mutations and health verification; they are not an atomic
 compare-and-swap against concurrent manual provider writes. Once enabled, use this
 controller for staging updates and retirements.
@@ -112,7 +144,10 @@ with Editor access only to the existing staging Worker, then prove its deploy/re
 rollback permissions. Do not grant production Worker or R2 object-write privileges
 to fix a failed permission test. Enable repository variable
 `ARKPEDIA_PREVIEWS_ENABLED=true` only after the real end-to-end proof. Until then,
-automatic closed-PR handling is skipped; manual dispatch requires main and a token.
+automatic build-completion and closed-PR handling are skipped. A manual request
+must use main; actual publication/retirement requires the staging token. During
+acceptance with automatic handling disabled, explicitly request publication again
+after the build completes to exercise the retained-artifact path.
 No enablement or token creation is performed by this branch.
 
 ## Existing explicit staging helper

@@ -209,6 +209,11 @@ commits, run IDs and limitations are in the [progress log](system-simplification
   A raw Wrangler staging experiment without prerender-cache seeding passed remote
   core/browser/revalidation checks and exact-version rollback; controller/ownership/
   retirement automation and an actual Worker-scoped CI credential test remain open.
+  Controller candidate #768 now takes a PR number, resolves the latest successful
+  exact-source Check, and requests/reuses a secret-free main-produced build. Its
+  completion handler binds the PR/source/Check/producer receipt before publication;
+  queued mutation and retirement requests are retained. Local validation is not
+  the remaining real lifecycle/scoped-credential acceptance proof.
 
 [Preview behavior](https://developers.cloudflare.com/workers/previews/),
 [resource/service isolation limitations](https://developers.cloudflare.com/workers/previews/resources/),

@@ -1,6 +1,7 @@
 // Trusted-controller policy for the single existing staging slot. No provider I/O,
 // artifact execution, credential access or deployment is performed by this module.
 // Callers must fetch fresh API observations inside one non-cancelling workflow lock.
+import { assertBuildRequest } from './preview-build.mjs';
 const REPOSITORY = 'arkpedia/arkpedia';
 const WORKER = 'arkpedia-staging';
 const SHA = /^[a-f0-9]{40}$/;
@@ -29,11 +30,7 @@ export function planPreviewUpdate({ request, pr, build, artifact, receipt, sourc
   requireValue(pr.state === 'open' && pr.draft === false && pr.head.sha === request.source,
     'pull request is closed, draft or has moved');
   requireValue(matches(SHA, sourceTree), 'missing source tree');
-  requireValue(build?.id === request.buildRun && id(build.id) && build.status === 'completed'
-    && build.conclusion === 'success' && build.event === 'workflow_dispatch'
-    && build.path === '.github/workflows/cloudflare-staging.yml'
-    && build.repository?.full_name === REPOSITORY && build.head_repository?.full_name === REPOSITORY
-    && build.head_sha === request.source, 'build run provenance differs');
+  assertBuildRequest(build, receipt, request);
   requireValue(artifact?.id === request.artifact && id(artifact.id) && artifact.expired === false
     && artifact.workflow_run?.id === build.id && artifact.name === `arkpedia-staging-${request.source}`,
     'artifact is missing, expired or from another run');
