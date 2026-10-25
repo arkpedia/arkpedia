@@ -36,8 +36,9 @@ the current deployment already works this way. Read alongside [current architect
 - Current R2 is OpenNext's generated-page cache, not canonical game data storage.
 - The existing app content pipeline aggregates multiple sources already. The main
   simplification opportunity is delivery, compatibility and publication orchestration.
-- Provider dashboards, actual billing, storage volume and traffic have not been audited
-  in this planning pass. No cost saving or preview compatibility is assumed verified.
+- Initial planning did not audit provider dashboards, billing, storage or traffic.
+  Subsequent read-only R2 storage/operation and GitHub consumer inventories are recorded
+  below; invoices and complete provider configuration remain open.
 
 ## Target release path
 
@@ -150,7 +151,7 @@ endpoint. A private Worker binding is appropriate for server-only reads.
 
 ## Ordered milestones and acceptance
 
-Updated 2026-10-25, 00:45 UTC. Checked items have recorded evidence; implementation
+Updated 2026-10-25, 01:20 UTC. Checked items have recorded evidence; implementation
 and local proof are distinguished from deployment and production acceptance. Exact
 commits, run IDs and limitations are in the [progress log](system-simplification-progress.md).
 
@@ -158,7 +159,7 @@ commits, run IDs and limitations are in the [progress log](system-simplification
 | --- | --- | --- |
 | 0. Preserve and measure | Source inventory and backups complete | Provider dashboard inventory and actual usage/bills |
 | 1. Cloudflare development loop | Isolated staging created, updated and verified | Repeatable preview update/cleanup workflow |
-| 2. Proportional CI | Implemented; quick/local proofs pass | Full Linux activation, real selected run/reuse, clean deploy |
+| 2. Proportional CI | Cloudflare full check and deployment verified; main check running | Main activation/clean deploy and real selected run/reuse |
 | 3. One codebase | Framework and main-based hosting foundation released | Review remaining features, unify production target, retire branches |
 | 4. R2 delivery | Complete local two-snapshot publisher/reader proof | Actual app integration and isolated remote/cost proof |
 | 5. Production cutover | Preliminary route/account/Back checks recorded | Complete parity, old-tab, rollback and measured soak |
@@ -177,7 +178,9 @@ commits, run IDs and limitations are in the [progress log](system-simplification
 - [ ] Complete provider-dashboard deploy hooks, external incoming links and resource/
   cron inventory; source inspection alone cannot prove external configuration.
   GitHub API confirms no repository webhooks on the app, data and both simulators;
-  provider-side Git integrations and other external consumers remain to be audited.
+  both simulators also have no GitHub Pages or deployment records, and the account
+  has no Cloudflare Pages projects. Workers/Vercel integrations and incoming consumers
+  still need independent verification.
 - [x] Read current R2 bucket/storage and calendar-month operation metrics through the
   provider API. Preserve raw account telemetry in local cache evidence; sampled
   stored bytes are not billed GB-months and calendar month need not match invoice cycle.
@@ -213,11 +216,11 @@ The existing local `cf:preview` command is not the remote feature-preview workfl
 - [x] Record baseline suite timings and protected behavior; identify relevant core,
   feature and affected layout-census journeys while retaining shared/unknown fallback.
 - [x] Implement and run quick draft checks without a website build/browser run or
-  reusable proof. Frozen policy-head quick Check 40142927680 passed; the later browser-only
-  measurement repair is undergoing full validation.
+  reusable proof. Frozen policy-head quick Check 40142927680 passed; later browser-only
+  fixture repairs are undergoing the required full validation.
 - [x] Implement cumulative impact selection, full fallback and actual execution-ledger
   validation, retaining exact-tree reuse/resource limits and account-integrity checks.
-  At #756 head 93195f54, 119 focused cases pass; a real bundled selected run has
+  The policy has 119 passing focused cases; a real bundled selected run has
   32 passes/eight intentional skips across 40 identities in 27.4 seconds.
 - [x] Verify existing automatic-integration exact-tree reuse with real Git fixtures
   and Actions smoke; recover and revalidate main's actual full-browser evidence after
@@ -225,17 +228,25 @@ The existing local `cf:preview` command is not the remote feature-preview workfl
 - [x] Implement one locked Vercel install plus exact built/public clean-identity gates,
   replacing the duplicate install that dirtied production's lockfile. Local tests pass.
 - [ ] Pass and merge the final full Linux first-policy validation for #756, and deploy
-  a publicly verified clean main identity. First full Check 40143210893 exposed a proven pre-click measurement race,
-  reproduced locally on Linux. The single-file repair at 0f5f4b27 passed 30 Linux
-  stress runs and four desktop/mobile cases; new full Check 40145743982 is running.
-  www main74 still reports dirty=true. A successful workflow alone is insufficient.
-- [ ] Complete the coordinated Cloudflare #761 policy adoption and deployed verification.
-  Sampler and external-logo gates passed at frozen 9cd820f1, whose full browser
-  run exposed the known navigation measurement race and a chibi timing assertion.
-  Bounded fixture repairs are frozen at 1add3b11 with new full Check 40147078074 live;
-  assertions, timeouts, zero retries and runtime navigation/animation code are retained.
+  a publicly verified clean main identity. First full Check 40143210893 exposed a
+  proven pre-click measurement race; its repair passed 30 Linux stress runs. Second
+  full Check 40145743982 failed a strict close-button paint assertion. Fixture-only
+  hardening retains all assertions and passed 51 affected cases/three intentional
+  skips; a persistent-fill negative control still fails the original assertion.
+  Current #756 head ddc6e89a has full Check 40148916171 running. The source also
+  includes the bounded chibi clock fixture repair. www main74 still reports
+  dirty=true; a successful workflow alone is insufficient.
+- [x] Complete the coordinated Cloudflare #761 policy adoption and deployed verification.
+  Full Check 40147078074 passed with 1,502 passes/217 intentional skips. #761 merged
+  as 6ed9cfa4; the push reused verified full-tree evidence. Native Worker build
+  fb36b36c-479c-4f1e-968b-6f6ad6981a75 succeeded and the exact clean revision is live.
+  The accounts owner verified OAuth starts/private APIs, provider images across
+  eight theme/viewport states, and a healthy release report. This is the CF pilot,
+  not unified main production or the public-domain cutover.
 - [ ] Prove an actual narrow PR's selected lane and partial artifact reuse in Actions.
-  The accounts owner has a real optional Sync now explanation follow-up for this.
+  Real optional Sync now explanation follow-up #764 at 32e756de has Check
+  40149320709 running. Selected execution, its ledger and merge-push reuse remain
+  unproven; the shadow selection alone does not satisfy this gate.
 - [ ] Measure several real PRs and queue/build/browser times; remove further duplicate
   crawls/builds only when their protected behavior is retained. No p50/p95 or below-eight-
   minute ready-PR claim is established by the local probe or quick draft alone.
@@ -254,7 +265,8 @@ The existing local `cf:preview` command is not the remote feature-preview workfl
 - [ ] Review and promote the remaining product features individually; preserve the
   accounts owner's D1/OAuth/consent/archive implementation and migration contracts.
 - [ ] Finish reviewed branch reconciliation. #759 at d6026597 passed full Check
-  40138347385; its merge is held for #761. Revalidate any changed integration tree.
+  40138347385; its merge is held through #764 selected/reuse proof to avoid moving
+  the CF baseline. Revalidate any changed integration tree.
 - [ ] Make main deploy to Vercel and the CF production-candidate hostname from the same
   reviewed code. Verify account/provider differences and content compatibility explicitly.
 - [ ] Switch feature PRs/previews to main. Stop Vercel dev deploys and obsolete dev
@@ -311,6 +323,9 @@ progress log. They do not establish whole-site parity on a single production can
   Legacy has 21 branches/20 with unique commits; standalone has 29/27. No deletion.
 - [x] Audit pinned repository source consumers, workflows and raw/CDN references; repair
   the four invalid SD foundation pins through SD #59 while preserving exact source bytes.
+- [x] Verify simulator GitHub repository identity, Pages and deployment metadata;
+  both have no GitHub Pages or deployment records. Read-only Cloudflare Pages
+  inventory is empty. This does not establish absence of Workers/Vercel Git apps.
 - [ ] Confirm external/dashboard consumers and final incoming-link migration before
   reusing the legacy name. Source audit is complete; this external gate remains open.
 - [ ] Rename the old repo to legacy and archive it, then rename standalone to the desired
@@ -369,8 +384,10 @@ another permanent branch, database, queue or service by default.
 See the milestone table above and [progress log](system-simplification-progress.md).
 Main hosting #755 and accounts #757 are merged; the latter applied migration 003
 and passed its owner's deployment/privacy/OAuth verification. The active gates are
-full/selected CI activation, clean Vercel identity and coordinated CF #761 adoption.
+main full/selected CI activation and clean Vercel identity. CF #761 is merged and
+its exact clean pilot deployment is verified; #764 is exercising selected coverage.
 Provider logos were published and hash-verified through image-assets #55 at
-75bca3430542ff200f79b60621999a6c18c16b1d; website adoption is owned by the accounts session.
+75bca3430542ff200f79b60621999a6c18c16b1d and are verified on the CF pilot.
+Main adoption remains part of the individually reviewed account promotion.
 R2 remains inactive. Production cutover, branch retirement and simulator renames
 remain unchecked until their own acceptance evidence exists.

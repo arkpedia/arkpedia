@@ -586,3 +586,37 @@ active/rollback/old-tab cache data or switching production delivery.
 Real GitHub artifact API also confirms zero artifacts from failed root40143210893,
 failedCF40144480430 and successful draft40142927680. None uploaded reusable coverage
 markers. Main’s repaired-source full40145743982 remains live at0f5f4b27.
+
+
+### Verified checkpoint and checklist refresh — 2026-10-25 01:20 UTC
+
+The milestone checklist now distinguishes implementation, live pilot verification
+and final production acceptance. CF #761 is complete: full Check 40147078074 at
+1add3b11 passed 1,502 cases/217 intentional skips in 16.2 browser minutes. Merge
+6ed9cfa4 reused full artifact 12581870902 in push Check 40149121837. Native build
+fb36b36c-479c-4f1e-968b-6f6ad6981a75 deployed clean version
+e5517c8d-92da-4d93-94d8-90d2643307f0. The accounts owner verified actual pilot
+OAuth starts/private APIs, eight provider-logo states, autosync timer/focus behavior
+and healthy release status. This completes CF adoption, not main consolidation.
+
+Main's second full Check 40145743982 failed with 1,460 passes, 217 skips, one
+close-button paint failure and one dependent case not run. Exact CI cause remains
+unproven; local normal/CPU-throttled probes did not establish a runtime defect.
+Fixture-only ddc6e89a waits for actual unhovered/settled state before retaining every
+strict paint/size/hit/keyboard assertion. Affected tests passed 51 cases/three
+intentional skips; eight throttled focused cases passed. A persistent red-fill
+negative control still failed the unchanged no-fill assertion. Chibi-only clock
+repair was separately adopted as 28fa9c7a. Current exact #756 head ddc6e89a has full
+Check 40148916171 in progress; main74 remains dirty and no new main release is claimed.
+
+Actual narrow follow-up #764 at 32e756de has Check 40149320709 in progress. Its
+execution ledger, partial artifact and actual merge-push reuse still need proof.
+Keep #759 and docs #762 held until that proof finishes; do not move the CF baseline.
+
+Read-only simulator GitHub metadata confirms both repository identities, no Pages,
+and complete empty deployment lists. Cloudflare Pages project inventory is empty.
+Evidence is migration-backups/simulator-live-github-metadata.json and
+ci-migration/.cache/cloudflare-pages-projects.json. These APIs do not prove absence
+of provider-managed Workers/Vercel integrations or external incoming consumers.
+No simulator name/archive, DNS, branch retirement, R2 publication or billing change.
+Actual invoice/CPU/build comparison still awaits the separate dashboard sign-in.
