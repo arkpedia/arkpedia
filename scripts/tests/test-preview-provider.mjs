@@ -94,6 +94,23 @@ test('health requires exact public build and noindex on every core route', async
   await assert.rejects(oversized.health(), /oversized/);
 });
 
+test('operator runtime failure or missing noindex prevents a healthy staging claim', async () => {
+  for (const failure of ['render', 'indexing']) {
+    const visited = [];
+    const provider = createStagingProvider({ request: async url => {
+      const path = new URL(url).pathname;
+      visited.push(path);
+      if (path === '/build-info.json') return new Response(JSON.stringify(build));
+      if (path === '/operators/Amiya') return failure === 'render'
+        ? new Response('operator render failed', { status: 500, headers: { 'x-robots-tag': 'noindex' } })
+        : new Response('operator page');
+      return new Response('page', { headers: { 'x-robots-tag': 'noindex' } });
+    } });
+    await assert.rejects(provider.health(), /unhealthy or indexable staging route \/operators\/Amiya/);
+    assert.equal(visited.filter(path => path === '/operators/Amiya').length, 1);
+  }
+});
+
 test('provider rollback rechecks ownership and never invokes production or storage deletion', () => {
   const calls = [];
   let current = owned();

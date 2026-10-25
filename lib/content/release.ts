@@ -4,6 +4,7 @@ import { operatorPageAcceptsName, operatorPageRoute } from '../operators/operato
 import { createHash } from 'node:crypto';
 import { fetchAsset } from '../assets/githubRetry.mjs';
 import { CONTENT_SCHEMA, type ContentFile, type ContentManifest, type ContentPointer, type ContentRelease } from './types';
+import { deliveryBaseUrl, DELIVERY_PREFIX } from './r2Delivery.mjs';
 
 /*
  * The site's published content release: the channel's pointer, the manifest it names and each
@@ -71,6 +72,19 @@ function origin(): string {
   return value.replace(/\/$/, '');
 }
 
+/** Server-only, explicit staging pilot. Canonical deployments keep GitHub delivery. */
+function pilotOrigin(): string | undefined {
+  const value = process.env.ARKPEDIA_CONTENT_PILOT_ORIGIN;
+  if (!value) return undefined;
+  if (process.env.ARKPEDIA_DEPLOYMENT_ROLE !== 'staging') throw new Error('R2 delivery pilot requires the staging deployment role');
+  const parsed = new URL(value);
+  const localTest = process.env.ARKPEDIA_CONTENT_TEST === '1' && parsed.protocol === 'http:' && ['127.0.0.1', 'localhost'].includes(parsed.hostname);
+  if (parsed.protocol !== 'https:' && !localTest || parsed.username || parsed.password || parsed.pathname !== '/' || parsed.search || parsed.hash) {
+    throw new Error('R2 delivery pilot requires a bare HTTPS origin');
+  }
+  return parsed.origin;
+}
+
 async function read(url: string, maxBytes: number): Promise<Buffer> {
   // GitHub's raw origin sometimes answers 404 for a file it has, and its CDN keeps that answer
   // for minutes: fetchAsset asks again at other encodings of the address (lib/assets/
@@ -108,11 +122,14 @@ export async function loadRelease(): Promise<Loaded | undefined> {
   if (pending) return pending;
   pending = (async () => {
     try {
-      const root = origin();
-      const pointer = JSON.parse((await readPointer(root)).toString()) as ContentPointer;
+      const pilot = pilotOrigin();
+      const root = pilot ?? origin();
+      // No channel-to-live fallback for a candidate pilot: its own pointer must exist.
+      const pointerBytes = pilot ? await read(`${pilot}${DELIVERY_PREFIX}current.json`, 2048) : await readPointer(root);
+      const pointer = JSON.parse(pointerBytes.toString()) as ContentPointer;
       if (pointer.schema !== CONTENT_SCHEMA || !SHA.test(pointer.release) || !GIT_SHA.test(pointer.revision) || !SHA.test(pointer.manifestSha256)) throw new Error('Unsupported content pointer');
-      if (cached?.context.release === pointer.release) return cached;
-      const baseUrl = `${root}/${pointer.revision}/release`;
+      const baseUrl = pilot ? deliveryBaseUrl(pilot, pointer, { allowLocalHttp: process.env.ARKPEDIA_CONTENT_TEST === '1' }) : `${root}/${pointer.revision}/release`;
+      if (cached?.context.release === pointer.release && cached.context.baseUrl === baseUrl) return cached;
       const bytes = await read(`${baseUrl}/manifest.json`, 5_000_000);
       if (digest(bytes) !== pointer.manifestSha256) throw new Error('Content manifest checksum mismatch');
       const manifest = JSON.parse(bytes.toString()) as ContentManifest;

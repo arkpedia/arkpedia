@@ -5,6 +5,7 @@ import { useContentUrl } from '@/lib/content/context';
 import { cssUrl } from '@/lib/content/urls';
 import { withContentPage } from '@/lib/content/server';
 import { readDataTable } from '@/lib/content/dataTable';
+import { completeOperatorExtras } from '@/lib/operators/operatorExtras';
 import { GetStaticPaths, GetStaticProps } from 'next';
 import Image from '@/components/content/ContentImage';
 import ResponsiveSkinArtwork from '@/components/skins/ResponsiveSkinArtwork';
@@ -1929,12 +1930,19 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/op
 }, {
   // A release exported before cost rows carried their order: this deployment's catalogue fills it in.
   // And one exported before animated art: this deployment's data/dynamic-art.json fills the pointers in.
-  finalize: (props) => withMaterialOrder(props, (page) => plannerCostNames(page.operator)).then(withOperatorDynamicArt).then(async page => {
-    const { operatorEP } = await import('@/lib/operators/operatorEP');
-    const summonTable = process.env.ARKPEDIA_WORKER === '1' ? readDataTable<Record<string, Summon[]>>('operator-summons.json') : (await import('@/data/operator-summons.json')).default as unknown as Record<string, Summon[]>;
-    const chibiIndex = process.env.ARKPEDIA_WORKER === '1' ? readDataTable<Record<string, ChibiFacings>>('chibi-art.json') : (await import('@/data/chibi-art.json')).default as unknown as Record<string, ChibiFacings>;
-    const skins = (await import('@/data/skins.json')).default as import('@/lib/skins/skinTypes').Skin[];
-    const chibis = Object.fromEntries(page.appearances.flatMap(appearance => { const id = appearanceSkinId(page.operator, appearance, skins); return id && chibiIndex[id] ? [[appearance.label, chibiIndex[id]]] : []; }));
-    return { ...page, chibis: page.chibis ?? chibis, summons: page.summons ?? summonTable[page.operator.internalName ?? ''] ?? [], epTrack: page.epTrack === undefined ? operatorEP(page.operator) : page.epTrack };
-  }),
+  finalize: (props) => withMaterialOrder(props, (page) => plannerCostNames(page.operator)).then(withOperatorDynamicArt).then(page => completeOperatorExtras(page, {
+    chibis: async () => {
+      const chibiIndex = process.env.ARKPEDIA_WORKER === '1' ? readDataTable<Record<string, ChibiFacings>>('chibi-art.json') : (await import('@/data/chibi-art.json')).default as unknown as Record<string, ChibiFacings>;
+      const skins = (await import('@/data/skins.json')).default as import('@/lib/skins/skinTypes').Skin[];
+      return Object.fromEntries(page.appearances.flatMap(appearance => { const id = appearanceSkinId(page.operator, appearance, skins); return id && chibiIndex[id] ? [[appearance.label, chibiIndex[id]]] : []; }));
+    },
+    summons: async () => {
+      const summonTable = process.env.ARKPEDIA_WORKER === '1' ? readDataTable<Record<string, Summon[]>>('operator-summons.json') : (await import('@/data/operator-summons.json')).default as unknown as Record<string, Summon[]>;
+      return summonTable[page.operator.internalName ?? ''] ?? [];
+    },
+    epTrack: async () => {
+      const { operatorEP } = await import('@/lib/operators/operatorEP');
+      return operatorEP(page.operator);
+    },
+  })),
 });

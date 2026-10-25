@@ -189,3 +189,247 @@ Palette edits: a recipe in `color-palette-features.json` or a review in `color-p
 Failures stay visible until the edit is published. "Content release failing" records each failing source commit and closes only when a successful run compiled all of them, never on an unrelated run of data main. The watcher opens **Editorial edits unpublished** when editorial has source commits data main has not taken for over two hours, and closes it once they are in. GitHub runs the ten-minute schedule irregularly (twice on 2026-10-13), so every successful main preparation also asks the watcher to look again at once; a failed one does not, so a failing commit is not recompiled in a loop.
 
 After public main publication, the data workflow fast-forwards editorial to current main only if its commits have already been incorporated. Concurrent unpublished edits are kept, and no force push is used. Pull editorial before each new editing session. If data main advanced while editorial holds unpublished work (every daily refresh does), the preparation merges current data main into it for that run (`merge_main`) and publishes the merge, so nobody has to merge by hand; only a conflict fails, and then you merge main into editorial yourself, resolve it, and push again. A manually dispatched correction branch still has to contain main unless you set `merge_main`. No-op or documentation-only pushes start no compilation.
+
+## R2 delivery pilot (not activated)
+
+`scripts/content/r2-snapshot.mjs` prototypes delivery of already validated schema 2
+releases. It does not replace source records, change application readers, bind a
+production bucket or publish `live`. Pass the original manifest bytes, a pinned
+40-character data revision and a reader for each manifest path to `stageSnapshot`.
+Run the existing release validator before using this transport; the transport checks
+paths, pins, lengths and digests, not the editorial or game-data semantics.
+
+The pilot writes only below `pilot-v1/`: generated payloads and the byte-identical
+original manifest are immutable SHA-256 objects. That existing manifest is the
+snapshot index; its logical paths, payload digests and media pins need no second
+format. The small staging pointer records its digest/length, original revision/release
+and publication generation. Identical objects are verified and reused;
+damaged existing objects cause an error instead of an overwrite. A failed upload can
+leave unreferenced objects, but cannot change the current snapshot. No garbage
+collection exists yet; retain all objects until deployment reachability is tracked.
+
+Read `readStagingPointer(bucket)` before publication and pass that exact result as
+`expected` to `promoteStagingSnapshot`. Already stale callers fail before scanning
+the snapshot. Promotion rechecks every referenced object
+and conditionally writes only `pilot-v1/channels/staging.json`. A losing concurrent
+publisher still fails the final conditional write if it races after preflight.
+Rollback uses the same operation with a retained candidate; its
+generation increases, so a writer from before the rollback cannot overwrite it.
+The caller must use a dedicated pilot bucket with write access restricted to its
+publisher. Preview readers will need read-only access and a snapshot pinned per visit.
+
+Nine Node cases cover publication, rollback, concurrent writers past preflight,
+missing/corrupt payloads and manifests, invalid source paths/metadata, deduplication,
+immutable conflicts, original manifest preservation and bounded pointer bodies:
+
+```sh
+node --test scripts/tests/test-r2-snapshot.mjs
+```
+
+The manifest-only implementation passed a complete two-release mirror against
+Miniflare 5.20261019.1-beta's workerd R2 binding on 2026-10-24. Source revisions
+`7706f71936930d419774754ee7333dc40ebc29c5` and
+`4f7906318e4545586ec165d619efd1784dd2b929` each contain 8,963 delivery paths
+(about 259 MB each). Every original payload was checked against its source digest;
+the previous manifest was also checked against its pinned Git tree.
+
+- Current snapshot: 8,850 writes, including its original manifest, before publication.
+- Repeating that exact snapshot: zero writes.
+- Adding the other real snapshot: 207 writes (206 different payloads and its manifest).
+- Publish, switch and rollback: one pointer write each; final generation 3.
+- Both snapshots together: 9,058 stored objects, including two manifests and the pointer.
+- An already stale publisher: one pointer read and zero writes; no payload scan.
+- Missing/corrupt-object injection: promotion fails and the pointer stays unchanged.
+  The injected object was restored and verified after the local failure checks.
+
+These are observed local R2 API calls, not remote latency or billed-operation figures.
+The obsolete index-based proposal needed a separate 2,028,717-byte index per snapshot;
+the original manifest now serves that role. No remote bucket or deployment changed.
+Remote staging, app/public-file delivery, cache refresh, retained old deployments,
+latency and costs still need proof before activation.
+
+R2 conditional `put` returns `null` when its precondition fails; successful writes
+are strongly consistent. See the [Workers R2 API reference](https://developers.cloudflare.com/r2/api/workers/workers-api-reference/).
+
+### S3 publisher transport (inactive)
+
+`scripts/content/r2-s3.mjs` implements the same small bucket interface through the
+official AWS S3 client. It requires explicit R2 credentials, accepts only pilot
+object keys and the fixed staging pointer, bounds uploaded and streamed bytes,
+and permits no unconditional overwrite. Immutable objects are create-only;
+pointer replacement sends a quoted `If-Match`. HTTP 412 becomes the native
+precondition-failed result; a missing bucket or an authorization failure is an
+error rather than an absent object. Requests have a deadline and one attempt so
+an uncertain conditional-write response is not silently replayed.
+
+Seventeen snapshot/adapter cases pass. A loopback HTTP fixture using the actual SDK
+verifies the wire headers, initial publication, subsequent pointer updates and
+stale-write rejection. This is not a remote S3/R2 proof. The pinned SDK adds no
+changes to previously locked package versions, and its lockfile audit reports zero
+known vulnerabilities. Bulk staging uses four tasks per call (configurable from one
+to eight), verifies every source path and coalesces identical destination hashes.
+Errors drain in-flight work before returning; promotion verifies unique payloads
+before its final conditional pointer write. The app reader and remote delivery
+proof remain to be implemented before asking for bucket-scoped S3 credentials. No bucket,
+remote object, app binding or production pointer has changed.
+
+See [Cloudflare's AWS SDK v3 example](https://developers.cloudflare.com/r2/examples/aws/aws-sdk-js-v3/)
+and [conditional S3 extensions](https://developers.cloudflare.com/r2/api/s3/extensions/).
+
+The complete local workerd proof was repeated for bounded implementation `29620404`
+using the same two real releases. Initial staging still writes 8,850 objects; an
+unchanged repeat writes none; the other snapshot adds 207. Publish/switch/rollback
+each write one pointer, ending at generation 3 with exactly 9,058 stored objects.
+Stale publication after rollback is rejected after its pointer preflight; missing
+and corrupt payloads leave the pointer unchanged and the injected object is restored.
+Unique-payload verification removes 114 redundant reads from each complete scan:
+8,851 GET calls for promotion including its manifest and pointer. Initial staging
+took 152.08 seconds locally, with 17,702 observed GET calls including two harness
+pointer checks. These remain local API observations, not remote latency or billing.
+
+### Explicit pilot command (inactive)
+
+`node scripts/content/r2-pilot.mjs --help` describes three separate operations:
+`inspect` reads the staging pointer, `stage` uploads immutable objects without
+moving it, and `promote` publishes or rolls back with a saved explicit precondition.
+The CLI cannot create/list/delete buckets or use production object keys. It has no
+default bucket, source revision or implicit AWS identity. Credentials are read only
+from `ARKPEDIA_R2_ACCOUNT_ID`, `ARKPEDIA_R2_ACCESS_KEY_ID` and
+`ARKPEDIA_R2_SECRET_ACCESS_KEY`; use a separate private pilot bucket with a
+bucket-scoped Object Read & Write key when the remote gate is ready.
+
+Source acquisition fetches the original manifest from public `arkpedia-data` at the
+given full commit. It does not trust a cached manifest or accept a moving branch.
+Payloads use a local hash cache and are checked for length and SHA-256 on every
+read. `--source DIRECTORY` can seed misses from an existing compiled `release/`
+directory, verified against that pinned manifest. This lets the data publication
+job hand off its existing output without thousands of individual payload requests.
+Missing payloads fail by default; `--fetch-missing` explicitly permits acquiring
+them from that same pinned revision. Duplicate in-flight hashes share a download,
+and cache files are published atomically without overwriting existing files.
+Corrupt cache entries fail rather than being silently repaired. The CLI performs no
+source editing or publication back to GitHub.
+
+For example, with scoped credentials supplied by the caller, the following is Bash
+syntax (Git Bash on Windows). Replace `PILOT_BUCKET` with the isolated bucket name.
+Use unique output filenames and preserve each successful result:
+
+```sh
+node scripts/content/r2-pilot.mjs inspect --bucket PILOT_BUCKET > .cache/pointer-before.json
+node scripts/content/r2-pilot.mjs stage --bucket PILOT_BUCKET \
+  --revision 7706f71936930d419774754ee7333dc40ebc29c5 \
+  --cache .cache/r2-objects --source /path/to/data-checkout/release > .cache/candidate.json
+# Review staging evidence before this separate promotion:
+node scripts/content/r2-pilot.mjs promote --bucket PILOT_BUCKET \
+  --candidate .cache/candidate.json --expected .cache/pointer-before.json > .cache/promotion.json
+```
+
+Run commands individually and require exit code zero before continuing; failed
+commands may leave empty output files. An uncertain write/timeout requires another
+`inspect` and comparison, rather than a blind retry. Another publisher invalidates
+the saved precondition. Rollback uses a preserved earlier candidate and a fresh,
+reviewed pointer precondition; it creates a new generation, never restores an old
+generation number. No automatic schedule or workflow invokes these commands.
+
+Twenty-five focused source/CLI/snapshot/S3 cases pass, including real SDK wire
+conditions, corrupt inputs, missing downloads and stale promotion. The actual new
+source loader also fetched both pinned public manifests and reverified all 8,963
+cached paths per snapshot (258,553,041 and 258,462,721 bytes); original manifest
+bytes match. This involved no remote storage operation. An initial empty-cache
+acquisition with `--fetch-missing` still uses individual public-file requests. Prefer
+the existing compiled output through `--source` for bulk CI handoff. Application
+integration and remote delivery proof remain open; no remote pilot is active.
+
+### Immutable delivery adapter (inactive)
+
+`lib/content/r2Delivery.mjs` is a portable handler intended for the existing front
+Worker, with no Node compatibility requirement. No route, binding, service or app
+environment setting enables it yet. It returns `null` outside `/__content/pilot/`,
+so an eventual caller can leave the front Worker's existing behavior intact.
+Publisher and reader share `deliveryManifest.mjs`; the original manifest remains
+the only index. This does not add a second snapshot format or browser-side index.
+
+`deliveryBaseUrl(origin, reference)` encodes the full manifest hash and Git revision
+in each snapshot's base URL. Pages and generated public files remain under their
+original `pages/` and `public/` paths. Reads never consult a channel pointer, so
+an old page continues to request its original snapshot through publication or rollback.
+The handler verifies manifest and payload lengths/digests before serving bytes.
+Missing/invalid objects return uncached errors; unknown paths cannot become a proxy.
+The only methods are GET and HEAD. Successful immutable responses carry SHA ETags,
+public CORS and nosniff; pilot data is noindex. Browser file requests receive that
+file alone, while the manifest is resolved/cached on the server.
+
+An optional Cache API adapter stores verified immutable successes. Warm hits need
+no R2 reads; errors are not cached, and cache failures fall back to verified origin
+delivery. Conditional GET and HEAD work on both paths. Cache keys omit query strings
+and reader credentials. Two manifest entries and two active origin reads are the
+defaults; a bounded sixteen-request queue accommodates normal bursts and removes
+disconnected waiters. Production limits, memory and latency still need measurement.
+
+GitHub fallback is off by default, keeping an R2-only proof honest. An explicit
+fallback may read only the same public repository/revision/path, with redirects
+rejected and credentials omitted. The fallback is hash-checked and identified in
+`x-arkpedia-content`; another or current snapshot cannot substitute for the pin.
+Do not activate application delivery until server props and all generated browser
+file paths use the same immutable reference and that fallback policy is verified.
+
+Thirty-six focused publisher/source/reader/S3 cases pass. A local native workerd
+proof bundled the adapter to 12,161 bytes with no Node compatibility flag, loaded
+both real manifests, and verified homepage, schedule, story, operator-search and
+site-search payloads from each snapshot (ten HTTP checks). A Cache API hit made no
+R2 read. Headless Chromium retained an old snapshot through pointer changes and
+rollback, verified the selected current snapshot, and completed twelve-request
+bursts at each step with no page errors. HEAD and conditional responses passed too.
+This is a local transport harness, not the integrated Arkpedia website, a remote
+latency/billing measurement or an application old-tab cutover proof.
+
+### App reader integration (local, opt-in only)
+
+The app reader can now opt into the isolated pointer with the server-only
+`ARKPEDIA_CONTENT_PILOT_ORIGIN=https://<pilot-data-origin>` setting and
+`ARKPEDIA_DEPLOYMENT_ROLE=staging`. The origin must be bare HTTPS, with no userinfo,
+path, query or fragment. The existing local test flag allows HTTP only for localhost
+or 127.0.0.1. The production role refuses this setting before making a request.
+No deployment currently sets it; www and the Cloudflare migration pilot retain
+their existing GitHub delivery. This data pilot is distinct from the migration
+site at arkpedia-cf.mocchibird.com and the temporary feature-preview site.
+
+The delivery adapter exposes `/__content/pilot/current.json` only when its caller
+explicitly enables `serveStagingPointer`. It validates the stored pointer and its
+hashed manifest before returning the existing schema-2 app pointer shape. The
+response is no-store and noindex; publisher generation/ETag and storage keys are
+not returned. Both pointer and uncached payload work share bounded reader admission.
+This adds no write endpoint or production pointer fallback.
+
+`loadRelease` resolves that pointer into the manifest-hash/revision URL. The page's
+existing `__contentRelease` then carries the same immutable base into `contentUrl`
+and real lazy file consumers. New pages may adopt a newly published snapshot;
+already-open pages keep their original URLs. A bad pointer retains the last
+verified release through the existing loader behavior. Default GitHub delivery,
+schema checks and page digest checks remain in place.
+
+Local acceptance on current-main code includes 37 publisher/transport cases plus
+the real app-loader publication/held-file/rollback/production-refusal regression,
+existing GitHub release/channel checks and declaration consistency. Typecheck,
+explicit changed-file lint and Knip pass. Two unchanged channel tests initially
+failed because the Windows checkout gave Linux shell/YAML fixtures CRLF; normalizing
+those fixtures to their Git LF bytes made all 12 channel cases pass without changing
+their logic or assertions.
+
+An integrated Next development server was tested against native local workerd/R2,
+using two complete real 8,963-path snapshots and conditional publisher promotion.
+Twenty homepage/schedule/story/operator/base cases passed across both themes and
+desktop/mobile widths. Real nav search on a held page fetched its original
+immutable URL after publication; a fresh page fetched the new snapshot URL, and
+rollback restored the original release. Both responses matched the original
+manifest digests. These particular real snapshots deduplicate all public-file
+bytes; the focused app-loader regression separately covers differing file bodies.
+All final browser cases had zero page errors and no root overflow. Initial browser
+evidence is retained: the test's theme initializer first tried localStorage on
+about:blank; restricting that initializer to the app origin fixed the harness,
+while keeping every snapshot/error assertion and adding hydrated story readiness.
+
+This is local website integration proof, not remote storage, a production adapter
+build, a latency/cost comparison or whole-site migration acceptance. A separately
+reviewed reader binding/route, scoped remote publication, default/fallback failure
+proof and retention/reachability policy are still required before activation.
