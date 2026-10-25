@@ -513,3 +513,33 @@ historical progress branch. Thirty relative file links resolve. It remains local
 until the new CI policy lands, when it can verify the real docs/no-browser path.
 GitHub API webhook inventory returned zero repository hooks for app, data and both
 simulators; this does not audit provider-managed Git integrations or external links.
+
+### Read-only account promotion review and second CF result
+
+The coordinated dependency review is preserved in account-main-promotion-review.md,
+linked from the deferred-feature inventory. Main0f versus frozen CF9cd has293total
+entries including infrastructure, tests and route renames; the account graph reaches
+186files/52differences/zero unresolved local imports. It is not a batch copy list.
+The versioned settings contract, archive-before-replacement hooks and global restore
+listeners are genuine prerequisites. Keep player/provider identities mounted and
+remount only page content. Vercel/unbound account503 behavior, pilot database/identity
+preservation, callback/cookie origins, noindex-with-auth and provider-specific analytics
+remain separate acceptance gates. No account code/resource changed for this review.
+Repo and Production environment secret names show no CFdeploycredential; no values
+were read. Local WranglerOAuth is not CI authentication. GitHub webhook metadata
+shows zero repo hooks on app/data/bothsimulators, not absence of provider Git apps.
+
+CFfull40144480430 finished with1499passes/217skips/2failures/1dependent not run in
+18minutes of browser execution. One is the same proven788px navigation fixture race;
+the owner cherry-picked0f locally as36dd98e9 but has not pushed another source yet.
+The other is a desktop/light chibi transient-animation assertion (Special versus
+Sleep); its app/test source is identical between main and CF, and the owner is
+instrumenting the actual start/queue/timing before choosing any repair. No OOM was
+reported and no bounds/retries were widened. The root’s released bundled local
+.next and isolated diagnostic ports3309/3310 are temporarily owned by that session
+for this focused reproduction; do not rebuild or mutate the output until released.
+The user's3192browser/server stays untouched. Mainfull40145743982 remains live.
+
+Docs-only draft #762 now contains five documentation files,32relative links checked
+with none missing, and no runtime or workflow diff. Keep its main merge held during
+current release/selected-proof sequencing; existing docs paths-ignore builds nothing.
