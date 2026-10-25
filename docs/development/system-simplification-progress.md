@@ -1033,3 +1033,74 @@ This is preparation, not a native production-candidate build or deployment proof
 PR771's exact449dcad8 full Check40175573617 is still running its browser suite.
 Its real automatic staging callback/close lifecycle remains the next gate; no
 second remote candidate build was launched while that source proof is pending.
+
+### PR771 full regression result
+
+Corrected full Check40175573617 finished with a browser failure:1498 passed,
+217 intentionally skipped,1 failed and1 dependent case not run. The failing
+desktop light-theme chibi independence case stops in openTapChibi before its
+animation assertions: the viewer dialog is present, but no canvas or animation
+catalogue appears within the existing10-second expectation. The preserved
+screenshot was inspected; no model error is displayed. This does not yet prove
+whether loading, clock setup or app behavior caused it. No timeout, retry or
+assertion was relaxed, no run restarted, and no staging preview was requested.
+Failure artifact12592252734 and the bounded failure log are retained in
+r2-app/.cache/r2-ci-browser-failure and r2-corrected-ci-failure.log. Diagnose and
+verify the cause before rerunning the required full gate.
+
+The local Cloudflare preparation is saved as bd856f5242208cd84f6a30b9f3ae883c87bb26ef;
+it has not been pushed or deployed. All17 local HTTP cases passed and its temporary
+server has stopped. Native production-candidate acceptance remains open.
+
+### PR771 diagnostic follow-up
+
+Six unchanged local chibi independence cases (three repetitions in each theme)
+passed on an isolated Next development server. The original CI mounting failure
+did not reproduce, so its cause remains unproven. No chibi runtime, clock setup,
+expectation, timeout or retry was changed.
+
+Commit2249a983cef9f25d0376cc23b1c9315971646534 fixes the evidence gap only: sanitized
+request timing JSON now persists in the uploaded test-results directory. A dummy
+intentional failure verifies on-disk persistence and removal of query secrets;
+the existing privacy regression and TypeScript pass. Full Check40178029240 is
+running on that exact source. It must pass before any preview request. The old
+failed gate remains recorded; a green rerun will not prove a chibi root-cause fix.
+
+The main-based production-role candidate bd856f52 is undergoing a local native
+OpenNext build; this is distinct from PR771's staging producer. No remote candidate
+build, provider branch change, account/D1/OAuth change or production deployment
+has been made. The local chibi server3331 completed and stopped; user3192 remains
+untouched.
+
+### Simulator reference transition prepared, 2026-10-25
+
+A fresh bounded audit of all158 current SD-assets source/config/docs text files at
+1ee39d42962611413991990a8b02d83a5c56f260 finds the same five legacy references:
+README plus the four original foundation reviews. No standalone-name reference
+was found in this scope. A local-only minimal patch preserves the active simulator's
+short public URL in README, explains the archive and preserved unmerged branch,
+and makes all four historical foundation repositories explicitly `-legacy`.
+Every pinned foundation file still matches its recorded SHA256 in the preserved
+legacy mirror. Candidate files and a unified patch are retained under
+release-ux/.cache/simulator-rename-reference-candidate; no remote edits occurred.
+
+The maintainer was asked about any additional external deployments/importers.
+That factual consumer gate is still pending; no absence of all external consumers
+is inferred from source search. Fresh refs/preservation checks and ordered rename,
+reference publication and post-rename identity/URL verification remain required.
+
+### Native production candidate runtime failure and correction
+
+Candidate bd856f52 passed the actual OpenNext build, trace/client-data guards and
+unchanged19 MB budget at18,754,310 bytes, with245,690 bytes remaining. Its exact
+clean production/live/schema2 build identity and handler hash are retained.
+Local workerd then rendered home, schedule/past and story/list with noindex, but
+operator/Amiya returned500: its finalizer eagerly read build-only summon/chibi
+tables even when the release already supplied those properties. The runtime and
+first artifact are preserved; that candidate is not accepted for deployment.
+
+The source correction makes each historical backfill lazy and preserves explicit
+empty fields/no-EP values.42 operator/client-data boundary regressions, typecheck
+and changed-file lint pass. A fresh native build/runtime/browser gate is required;
+no assertion or Worker budget was relaxed. No production/account/DNS setting
+changed. The failed local runtime stopped before browser acceptance began.

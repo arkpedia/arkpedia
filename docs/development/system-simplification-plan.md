@@ -359,7 +359,9 @@ progress log. They do not establish whole-site parity on a single production can
 ### 6. Simplify simulator naming and close out
 
 - [x] Capture and verify all legacy/standalone branches, tags, PR refs and unique work.
-  Legacy has 21 branches/20 with unique commits; standalone has 29/27. No deletion.
+  Initial capture: legacy21 branches/20 with unique commits, standalone29/27.
+  The 2026-10-25 refresh preserves standalone31/29 and its rewritten earlier tip.
+  Refresh again immediately before rename; no deletion has occurred.
 - [x] Audit pinned repository source consumers, workflows and raw/CDN references; repair
   the four invalid SD foundation pins through SD #59 while preserving exact source bytes.
 - [x] Verify simulator GitHub repository identity, Pages and deployment metadata;
