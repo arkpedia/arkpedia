@@ -244,9 +244,11 @@ The existing local `cf:preview` command is not the remote feature-preview workfl
   eight theme/viewport states, and a healthy release report. This is the CF pilot,
   not unified main production or the public-domain cutover.
 - [ ] Prove an actual narrow PR's selected lane and partial artifact reuse in Actions.
-  Real optional Sync now explanation follow-up #764 at 32e756de has Check
-  40149320709 running. Selected execution, its ledger and merge-push reuse remain
-  unproven; the shadow selection alone does not satisfy this gate.
+  Real optional Sync now explanation follow-up #764 at 32e756de fell back to full
+  in Check 40149320709 and was cancelled after logs identified generated changes
+  in data/quarantine.json and next-env.d.ts. The dirty-tree guard is retained;
+  read-only Check validation and a narrowly verified Next type-reference handling
+  prerequisite are under review. Selected execution/ledger/partial reuse remain unproven.
 - [ ] Measure several real PRs and queue/build/browser times; remove further duplicate
   crawls/builds only when their protected behavior is retained. No p50/p95 or below-eight-
   minute ready-PR claim is established by the local probe or quick draft alone.

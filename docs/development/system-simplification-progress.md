@@ -620,3 +620,24 @@ ci-migration/.cache/cloudflare-pages-projects.json. These APIs do not prove abse
 of provider-managed Workers/Vercel integrations or external incoming consumers.
 No simulator name/archive, DNS, branch retirement, R2 publication or billing change.
 Actual invoice/CPU/build comparison still awaits the separate dashboard sign-in.
+
+
+### Preview artifact prerequisite and actual narrow-run fallback
+
+The actual #764 run40149320709 selected full coverage because tracked generated
+data/quarantine.json and next-env.d.ts changed during build validation. The owner
+confirmed valid baseline provenance via actual API replay, then cancelled this
+unintended full run to inspect its logs. No selected lane/partial reuse is claimed.
+An explicit read-only Check quarantine path and bounded canonical Next type-reference
+handling are being prepared independently; blanket dirty-file exclusions/reset are
+not the repair. Main full40148916171 remains live and untouched.
+
+Independent main74-based preview prerequisite a20df575 is committed locally in
+E:/Projects/arkpedia-preview-lifecycle, not pushed or deployed. It records archive
+identity/config/checksum in the staging artifact and provides a non-executing,
+bounded verifier/extractor. Seven safety tests pass on Windows and Linux; workflow
+YAML parses. The existing real19b artifact from successful run40129816201 validates
+10,503 entries/323,467,864 expanded bytes and its exact clean identity. The receipt
+for this historical archive is a local backfill test, not a CI-produced attestation.
+Actual Linux extraction session60951 is still live; full extraction is not claimed.
+No credentials, provider settings, runtime sources or production resources changed.
