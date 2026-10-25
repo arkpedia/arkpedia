@@ -1,6 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "ignoreCommand": "bash scripts/deploy/vercel-ignore-build.sh",
+  "installCommand": "npm ci --include=dev",
   "git": {
     "deploymentEnabled": false
   }

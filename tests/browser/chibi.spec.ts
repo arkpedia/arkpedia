@@ -413,6 +413,7 @@ async function chooseAnimation(page: import('@playwright/test').Page, label: str
 for (const theme of ['dark', 'light']) {
   test(`viewer animations stay independent of roaming movement (${theme})`, async ({ page }, testInfo) => {
     await page.addInitScript(value => localStorage.setItem('theme', value), theme);
+    await page.clock.install();
     const pet = await openTapChibi(page), viewer = page.locator('.chibi-window');
     const position = await pet.boundingBox();
     await revealControls(page);
@@ -437,8 +438,12 @@ for (const theme of ['dark', 'light']) {
     const glyph = (await movement.locator('svg').boundingBox())!;
     expect(glyph.x + glyph.width / 2).toBeCloseTo(movementBox.x + movementBox.width / 2, 0);
     expect(glyph.y + glyph.height / 2).toBeCloseTo(movementBox.y + movementBox.height / 2, 0);
+    // Keep protocol/CI delays from consuming the short native pose before its assertion.
+    await page.clock.pauseAt(new Date(Date.now() + 1000));
     await chooseAnimation(page, 'Trust tap');
     await viewer.getByRole('button', { name: 'Play', exact: true }).click();
+    await expect(viewer.locator('[role="status"]')).toHaveCount(0);
+    await page.clock.runFor(100);
     await expect(viewer.locator('canvas')).toHaveAttribute('data-animation', 'Special');
     await expect(viewer.locator('canvas')).toHaveAttribute('data-framed', 'true');
     await expect(pet.locator('canvas')).toHaveAttribute('data-animation', 'Relax');
@@ -446,9 +451,11 @@ for (const theme of ['dark', 'light']) {
     const pause = await viewer.getByRole('button', { name: 'Pause', exact: true }).boundingBox();
     // Queuing another pose cannot cut this 6.77-second native reaction short.
     await chooseAnimation(page, 'Sleeping');
-    await page.waitForTimeout(2000);
+    await page.clock.runFor(2000);
     await expect(viewer.locator('canvas')).toHaveAttribute('data-animation', 'Special');
+    await page.clock.runFor(7000);
     await expect(viewer.locator('canvas')).toHaveAttribute('data-animation', 'Sleep', { timeout: 10000 });
+    await page.clock.resume();
     expect(await viewer.getByRole('button', { name: 'Close chibi viewer', exact: true }).boundingBox()).toEqual(close);
     expect(await viewer.getByRole('button', { name: 'Pause', exact: true }).boundingBox()).toEqual(pause);
     expect(await pet.boundingBox()).toEqual(position);

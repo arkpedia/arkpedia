@@ -27,9 +27,15 @@ test('a lazily loaded event archive restores its later batches and scroll positi
   }
   const event = rows.nth(50);
   await event.scrollIntoViewIfNeeded();
-  const position = await page.evaluate(() => scrollY);
+  // A queued wheel update can make click() scroll the row again. Compare Back
+  // with the position at the actual click, which is where the reader left it.
+  const [position] = await Promise.all([
+    page.evaluate(() => new Promise<number>(resolve => {
+      window.addEventListener('click', () => resolve(scrollY), { capture: true, once: true });
+    })),
+    event.click(),
+  ]);
   expect(position).toBeGreaterThan(500);
-  await event.click();
   await expect(page).toHaveURL(/\/events\//);
   await expect(page.locator('.event-detail-layout')).toBeVisible();
   await expect.poll(() => page.evaluate(() => scrollY)).toBeLessThan(100);
