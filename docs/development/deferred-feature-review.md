@@ -79,3 +79,9 @@ Provider-managed Git integrations, Workers Builds/dashboard configuration and ex
 consumers still need their own inventory. No source or provider setting changed in
 this read-only review. Coordinate the main account port after CF's real selected-run/
 partial-proof reuse gate, keeping the current full-check sources frozen.
+
+The accounts owner completed the [dependency and migration review](account-main-promotion-review.md):
+186 transitive files, 52 current differences and zero unresolved local imports.
+This is a reviewed dependency graph, not a batch copy list. The versioned settings
+contract, archive-before-replacement hooks and playback-safe global restore listeners
+are real prerequisites; unrelated diagnostics, route renames and UI features remain separate.
