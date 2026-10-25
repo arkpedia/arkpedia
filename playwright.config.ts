@@ -20,7 +20,7 @@ export default defineConfig({
   workers: Number(process.env.PW_WORKERS) || Math.max(1, Math.min(3, Math.max(2, Math.floor(os.availableParallelism() / 2)), Math.floor(os.totalmem() / 2 ** 31))),
   retries: 0,
   reporter: 'list',
-  use: { baseURL: 'http://127.0.0.1:3192', trace: 'off', screenshot: 'off', video: 'off' },
+  use: { baseURL: 'http://127.0.0.1:3192', trace: 'off', screenshot: process.env.CI ? 'only-on-failure' : 'off', video: 'off' },
   projects: [
     { name: 'desktop', testIgnore: AFTER_CENSUS, use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 1000 } } },
     { name: 'mobile', testIgnore: AFTER_CENSUS, use: { ...devices['Pixel 7'], defaultBrowserType: 'chromium' } },

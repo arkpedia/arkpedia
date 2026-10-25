@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page } from './request-diagnostics';
 import type { EventVideo } from '../../lib/events/eventVideos';
 import { startMusic, stubYouTube, youtube } from './youtube-stub';
 

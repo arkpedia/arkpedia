@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './request-diagnostics';
 
 test('selector operator preview closes back to the same ticket and pack', async ({ page }) => {
   const route = `/events/${encodeURIComponent('[Celebration] Critical Phase Transition')}#rewards/packs`;

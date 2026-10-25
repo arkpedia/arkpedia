@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './request-diagnostics';
 
 /* These run against the app's BUNDLED data/ (the web server sets
    ARKPEDIA_CONTENT_DISABLED=1), not the published release. The daily release updates
