@@ -2,13 +2,13 @@
 // Trusted main controller. Feature code is downloaded only as a checked archive;
 // it is never checked out, installed or used to supply deployment helpers.
 import { execFileSync } from 'node:child_process';
-import { readFileSync, readdirSync, lstatSync, mkdtempSync, rmSync } from 'node:fs';
+import { readFileSync, readdirSync, lstatSync, mkdtempSync, rmSync, appendFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve, dirname, basename } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { githubQuery, inspectPreviewCheck } from './preview-github.mjs';
 import { planPreviewUpdate, recheckPreviewUpdate, recordPreviewOwner, planPreviewRetirement } from './preview-lifecycle.mjs';
-import { createStagingProvider, previewAnnotations } from './preview-provider.mjs';
+import { createStagingProvider, previewAnnotations, STAGING } from './preview-provider.mjs';
 import { readStagingConfig } from './cloudflare-staging.mjs';
 import { assertStagingRun, assertBuildRequest, verifyBuildProducer } from './preview-build.mjs';
 import { assertLatestPreviewCheck } from './preview-request.mjs';
@@ -132,6 +132,14 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
         checkRun: Number(checkRun), buildRun: Number(buildRun), artifact: Number(artifact) });
     } else {
       result = await retirePreview({ number: Number(pr), explicitlyRequested: action === 'retire' });
+    }
+    if (process.env.GITHUB_STEP_SUMMARY) {
+      if (result.action === 'published') appendFileSync(process.env.GITHUB_STEP_SUMMARY,
+        `## Preview ready\n\n[Open preview](${STAGING.origin}) · [Check served build](${STAGING.origin}/build-info.json)\n\nPR #${result.owner.pr} · source \`${result.owner.source}\`\n`);
+      else if (result.action === 'retired') appendFileSync(process.env.GITHUB_STEP_SUMMARY,
+        `## Preview retired\n\nPR #${result.pr}'s preview was retired and the staging baseline restored.\n`);
+      else if (result.action === 'none') appendFileSync(process.env.GITHUB_STEP_SUMMARY,
+        `## Preview unchanged\n\n${result.reason}.\n`);
     }
     console.log(JSON.stringify(result, null, 2));
   } catch (error) { console.error(error.message); process.exitCode = 1; }
