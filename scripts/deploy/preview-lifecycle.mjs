@@ -104,13 +104,13 @@ export function recheckPreviewUpdate(plan, { pr, liveVersion }) {
  * or data objects. Retirement is exact-version rollback to the recorded baseline.
  * Read pr from the API, not just the webhook payload.
  */
-export function planPreviewRetirement({ number, pr, owner, liveVersion }) {
+export function planPreviewRetirement({ number, pr, owner, liveVersion, explicitlyRequested = false }) {
   requireValue(id(number), 'invalid pull request number');
   if (owner === null) return { action: 'none', reason: 'no recorded preview' };
   validatePreviewOwner(owner);
   if (owner.pr !== number) return { action: 'none', reason: 'another pull request owns staging' };
   validatePullRequest(pr, number);
-  requireValue(pr.state === 'closed', 'pull request is still open');
+  requireValue(pr.state === 'closed' || explicitlyRequested === true && pr.state === 'open', 'pull request is still open');
   requireValue(liveVersion === owner.version, 'provider version no longer belongs to this preview');
   return {
     action: 'rollback', worker: WORKER, pr: number, source: owner.source,

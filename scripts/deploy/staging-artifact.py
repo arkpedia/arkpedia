@@ -94,7 +94,8 @@ def receipt(archive_path, commit, run):
             'runId': run, **details}
 
 
-def verify_extract(archive_path, receipt_path, commit, run, trusted_config, destination=None):
+def verify_extract(archive_path, receipt_path, commit, run, trusted_config, destination=None,
+                   without_prerender_cache=False):
     require(Path(receipt_path).stat().st_size <= 65536, 'Oversized artifact receipt')
     record = json.loads(Path(receipt_path).read_text(encoding='utf-8'))
     require(isinstance(record, dict), 'Expected artifact receipt object')
@@ -108,18 +109,24 @@ def verify_extract(archive_path, receipt_path, commit, run, trusted_config, dest
             require(all(record.get(k) == v for k, v in details.items()), 'Artifact receipt mismatch')
             require(hashlib.sha256(Path(trusted_config).read_bytes().replace(b'\r\n', b'\n')).hexdigest() == details['configSha256'],
                     'Artifact config differs from the separately reviewed staging config')
+            # Inspect and verify the COMPLETE archive first. The raw Wrangler path
+            # does not populate OpenNext's prerender cache; omit only that verified
+            # subtree from extraction, never from provenance/budget/path checks.
+            selected = [member for member in members if not without_prerender_cache
+                        or not (member.name == '.open-next/cache'
+                                or member.name.startswith('.open-next/cache/'))]
             if destination is not None:
                 if os.name == 'nt':
                     require(all(not re.search(r'[<>:"|?*\x00-\x1f]', part)
                                 and not part.endswith(('.', ' '))
                                 and not re.fullmatch(r'(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\..*)?', part, re.I)
-                                for member in members for part in PurePosixPath(member.name).parts),
+                                for member in selected for part in PurePosixPath(member.name).parts),
                             'Use Linux extraction for platform-specific cache filenames')
                 target = Path(destination).resolve()
                 require(not target.exists(), 'Extraction destination must not already exist')
                 # Validate everything before writing; never replace a checkout/build.
                 target.mkdir(parents=False)
-                for member in members:
+                for member in selected:
                     path = target.joinpath(*PurePosixPath(member.name).parts)
                     require(path.resolve().is_relative_to(target), 'Extraction escaped its destination')
                     if member.isdir():
@@ -129,6 +136,13 @@ def verify_extract(archive_path, receipt_path, commit, run, trusted_config, dest
                         with archive.extractfile(member) as source, path.open('xb') as output:
                             while chunk := source.read(1024 * 1024):
                                 output.write(chunk)
+            if without_prerender_cache:
+                return {**details, 'extraction': {
+                    'withoutPrerenderCache': True, 'entries': len(selected),
+                    'excludedEntries': len(members) - len(selected),
+                    'excludedBytes': sum(member.size for member in members)
+                    - sum(member.size for member in selected),
+                }}
             return details
         finally:
             archive.close()
@@ -143,7 +157,10 @@ def main():
     parser.add_argument('--receipt', required=True)
     parser.add_argument('--trusted-config')
     parser.add_argument('--destination')
+    parser.add_argument('--without-prerender-cache', action='store_true')
     args = parser.parse_args()
+    require(not args.without_prerender_cache or args.action == 'extract',
+            '--without-prerender-cache is only valid for extraction')
     if args.action == 'receipt':
         record = receipt(args.archive, args.commit, args.run)
         with Path(args.receipt).open('x', encoding='utf-8') as output:
@@ -154,7 +171,8 @@ def main():
         require(args.trusted_config, '--trusted-config is required')
         require(args.action != 'extract' or args.destination, '--destination is required')
         print(json.dumps(verify_extract(args.archive, args.receipt, args.commit, args.run,
-                                       args.trusted_config, args.destination if args.action == 'extract' else None)))
+                                       args.trusted_config, args.destination if args.action == 'extract' else None,
+                                       args.without_prerender_cache)))
 
 
 if __name__ == '__main__':

@@ -44,7 +44,8 @@ class StagingArtifactTests(unittest.TestCase):
     def verify(self, **kwargs):
         return artifact.verify_extract(self.archive, self.record,
                                        kwargs.get('commit', self.commit), kwargs.get('run', '123'),
-                                       self.config, kwargs.get('destination'))
+                                       self.config, kwargs.get('destination'),
+                                       kwargs.get('without_prerender_cache', False))
 
     def test_receipt_and_fresh_extraction_preserve_bytes(self):
         self.write_archive()
@@ -125,6 +126,38 @@ class StagingArtifactTests(unittest.TestCase):
         self.config.write_bytes(b'{\n  "name": "arkpedia"\n}\n')
         with self.assertRaisesRegex(ValueError, 'separately reviewed'):
             self.verify()
+
+    def test_cold_cache_extraction_verifies_original_archive_and_omits_only_cache(self):
+        cache = tarfile.TarInfo('.open-next/cache/entry:1')
+        cache.size = 1
+        asset = tarfile.TarInfo('.open-next/assets/cache-label.txt')
+        asset.size = 1
+        self.write_archive(extra=[cache, asset])
+        self.make_receipt()
+        original = json.loads(self.record.read_text())
+        output = self.root / 'cold'
+        result = self.verify(destination=output, without_prerender_cache=True)
+        self.assertEqual(result['sha256'], original['sha256'])
+        self.assertEqual(result['expandedBytes'], original['expandedBytes'])
+        self.assertEqual(result['extraction']['excludedEntries'], 1)
+        self.assertEqual(result['extraction']['excludedBytes'], 1)
+        self.assertFalse((output / '.open-next/cache').exists())
+        self.assertEqual((output / '.open-next/assets/cache-label.txt').read_bytes(), b'x')
+        self.assertEqual((output / '.open-next/worker.js').read_bytes(), b'not executed')
+        with self.assertRaisesRegex(ValueError, 'receipt mismatch'):
+            self.write_archive(extra=[asset])
+            self.verify(destination=self.root / 'other', without_prerender_cache=True)
+
+    def test_omitted_cache_still_rejects_unsafe_paths_and_links_before_any_write(self):
+        for name, kind in [('.open-next/cache/../escape', tarfile.REGTYPE),
+                           ('.open-next/cache/link', tarfile.SYMTYPE)]:
+            member = tarfile.TarInfo(name)
+            member.type = kind
+            member.linkname = '../../escape'
+            self.write_archive(extra=[member])
+            with self.assertRaises(ValueError):
+                self.make_receipt()
+        self.assertFalse((self.root / 'escape').exists())
 
 
 if __name__ == '__main__':

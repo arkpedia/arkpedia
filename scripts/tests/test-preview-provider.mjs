@@ -114,3 +114,26 @@ test('provider rollback rechecks ownership and never invokes production or stora
   assert.throws(() => provider.rollback(versionId), /changed/);
   assert.equal(calls.filter(args => args.includes('rollback')).length, 1);
 });
+
+test('raw deployment uses trusted Wrangler, explicit annotations and isolated environment', () => {
+  let current = version();
+  const calls = [];
+  const run = (_binary, args, options) => {
+    calls.push(args);
+    assert.equal(options.env.OPEN_NEXT_DEPLOY, 'true');
+    assert.equal(options.env.GITHUB_TOKEN, undefined);
+    if (args.includes('list')) return JSON.stringify([deployment(versionId, '2026-10-25T02:00:00Z', [{ version_id: current.id, percentage: 100 }])]);
+    if (args.includes('view')) return JSON.stringify(current);
+    assert.equal(args[1], 'deploy');
+    assert.equal(options.cwd, '/verified/extraction');
+    assert.equal(args[args.indexOf('--config') + 1], '/verified/extraction/wrangler.staging.jsonc');
+    current = owned();
+    assert.equal(args[args.indexOf('--message') + 1], current.annotations['workers/message']);
+    return `Uploaded arkpedia-staging\nCurrent Version ID: ${versionId}\n`;
+  };
+  const provider = createStagingProvider({ run });
+  assert.equal(provider.deploy(plan, 44, '/verified/extraction').version.id, versionId);
+  assert.equal(calls.filter(args => args[1] === 'deploy').length, 1);
+  assert.throws(() => provider.deploy(plan, 44, '/verified/extraction'), /changed before upload/);
+  assert.equal(calls.filter(args => args[1] === 'deploy').length, 1);
+});
