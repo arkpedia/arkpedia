@@ -150,7 +150,7 @@ endpoint. A private Worker binding is appropriate for server-only reads.
 
 ## Ordered milestones and acceptance
 
-Updated 2026-10-25, 00:26 UTC. Checked items have recorded evidence; implementation
+Updated 2026-10-25, 00:45 UTC. Checked items have recorded evidence; implementation
 and local proof are distinguished from deployment and production acceptance. Exact
 commits, run IDs and limitations are in the [progress log](system-simplification-progress.md).
 
@@ -178,9 +178,12 @@ commits, run IDs and limitations are in the [progress log](system-simplification
   cron inventory; source inspection alone cannot prove external configuration.
   GitHub API confirms no repository webhooks on the app, data and both simulators;
   provider-side Git integrations and other external consumers remain to be audited.
-- [ ] Record actual traffic, CPU, build minutes, object storage and current invoices.
-  Initial CI timings and the 8,963-file/258,553,041-byte data inventory are recorded;
-  account-wide cost and usage measurements remain open.
+- [x] Read current R2 bucket/storage and calendar-month operation metrics through the
+  provider API. Preserve raw account telemetry in local cache evidence; sampled
+  stored bytes are not billed GB-months and calendar month need not match invoice cycle.
+- [ ] Complete actual traffic, CPU, build-minute and invoice comparison. Initial CI
+  timings and data sizes are recorded; Cloudflare browser sign-in for actual invoices
+  is pending, while CLI deployment access remains valid.
 
 ### 1. Prove the Cloudflare development loop
 
@@ -229,7 +232,8 @@ The existing local `cf:preview` command is not the remote feature-preview workfl
 - [ ] Complete the coordinated Cloudflare #761 policy adoption and deployed verification.
   Sampler and external-logo gates passed at frozen 9cd820f1, whose full browser
   run exposed the known navigation measurement race and a chibi timing assertion.
-  The owner is validating bounded fixture repairs before publishing a new candidate.
+  Bounded fixture repairs are frozen at 1add3b11 with new full Check 40147078074 live;
+  assertions, timeouts, zero retries and runtime navigation/animation code are retained.
 - [ ] Prove an actual narrow PR's selected lane and partial artifact reuse in Actions.
   The accounts owner has a real optional Sync now explanation follow-up for this.
 - [ ] Measure several real PRs and queue/build/browser times; remove further duplicate
@@ -275,6 +279,8 @@ The existing local `cf:preview` command is not the remote feature-preview workfl
   binding, app setting or content pointer has enabled this pilot.
 - [ ] Compare real latency, CPU, memory, cache hit rate and monthly operations/storage
   costs against GitHub delivery; define safe retention/reachability before cleanup.
+  Include the existing build-scoped OpenNext ISR cache separately from immutable
+  data objects, preserving active, rollback and old-tab references.
 - [ ] Promote only if the app, compatibility, reliability and budget gates pass; retire
   duplicate compiled channels/pointers only after consumers move.
 - [ ] Decide any media-storage migration family by family. Current provider logos are
@@ -318,9 +324,12 @@ progress log. They do not establish whole-site parity on a single production can
 
 ### Initial cost estimate
 
-Measured the production release manifest on 2026-10-24: 8,963 unique generated
-delivery objects totalling 258,553,041 bytes (about 259 MB), including 838 page
-records. This excludes the image/voice/animation corpus, source records, current
+Measured the production release manifest on 2026-10-24: 8,963 logical delivery
+files totalling 258,553,041 bytes (about 259 MB), including 838 page records.
+The first snapshot deduplicates to 8,849 payloads/258,176,640 bytes, plus its
+3,095,796-byte original manifest. The two-real-snapshot union is 9,055 payloads:
+376,282,909 bytes plus 6,191,177 manifest bytes (about 382.5 MB before pointer and
+R2 metadata). These figures were recomputed from the original hash-verified manifests. This excludes the image/voice/animation corpus, source records, current
 OpenNext cache and request overhead. Thirty fully separate snapshots of this size
 would use about 7.76 GB before those other objects; deduplication should reduce it,
 but existing R2 usage consumes the same account allowances. One full daily upload

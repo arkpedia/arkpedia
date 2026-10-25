@@ -543,3 +543,46 @@ The user's3192browser/server stays untouched. Mainfull40145743982 remains live.
 Docs-only draft #762 now contains five documentation files,32relative links checked
 with none missing, and no runtime or workflow diff. Keep its main merge held during
 current release/selected-proof sequencing; existing docs paths-ignore builds nothing.
+
+
+### Repaired CF source and measured storage baseline
+
+CF #761 is frozen at1add3b11220d00d43af936ca4af8d83bbba01dd4 with full Check
+40147078074 live. It includes exact navigation repair36dd98e9 and a bounded chibi
+fixture correction: controllable browser time measures the same two-second Special
+window and eventual Sleep assertion without wall-clock/protocol overhead. Original
+fixtures passed six normal and six CPU4x probes; the exact previous CI stall cause
+remains unproven, and no runtime animation defect was observed. Corrected actual
+source passed12Linux desktop/mobile/theme/repeated cases in1.3minutes, plus six
+CPU4x clock probes; TypeScript/diff pass. Production code, assertions, timeouts and
+zero retries are preserved. The owner confirmed lingering Linux next-server PID542
+had the root CI cwd, terminated that exact diagnostic process, and verified3310free.
+3309had no listener. The local .next artifact is released again;3192was untouched.
+
+The account promotion review now correctly lists ten cloud-account modules and
+explicitly retains encrypted OAuth-row/auth-secret compatibility across a reviewed
+D1 migration. Copying rows alone is not an approved identity migration.
+
+Wrangler/GraphQL read-only queries supplied actual sampled R2 storage and calendar-
+month operation baselines, without object contents or names and without any provider
+configuration/write. Raw account telemetry stays in local cache evidence rather than
+this repository: arkpedia-ci-migration/.cache/r2-current-storage-metrics.json and
+r2-month-operations-metrics.json. Latest sampled bytes are not billed GB-month usage,
+and calendar month need not match the account invoice cycle. Actual CF/Vercel bills,
+CPU/build usage and forecast remain open; a separate Cloudflare dashboard browser
+sign-in is pending. CLI login/deploy access remains valid. No pilot bucket was created.
+
+Recomputed the original two pinned manifests, checking their preserved SHA256 first:
+8,963logical paths each; first8,849unique payloads total258,176,640bytes plus original
+manifest3,095,796bytes. Snapshot two adds206unique payloads/118,106,269bytes and its
+3,095,381-byte manifest. Union9,055payloads/376,282,909bytes plus6,191,177manifestbytes
+is382,474,086bytes before pointer/R2metadata. This supersedes treating path count as
+unique object count; transferred/compressed download bytes are not stored bytes.
+Evidence: release-ux/.cache/r2-two-snapshot-size-audit.json. No remote data write.
+Installed OpenNext R2 cache code keys entries by build ID; prefix usage/retention
+still needs review before any cleanup. Local pilot proof does not authorize deleting
+active/rollback/old-tab cache data or switching production delivery.
+
+Real GitHub artifact API also confirms zero artifacts from failed root40143210893,
+failedCF40144480430 and successful draft40142927680. None uploaded reusable coverage
+markers. Main’s repaired-source full40145743982 remains live at0f5f4b27.
