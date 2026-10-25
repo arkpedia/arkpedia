@@ -1,0 +1,9 @@
+# Local native Cloudflare account testing only. Never commit real secrets.
+# Isolated wrangler.staging.jsonc deliberately has no accounts binding.
+# A separate reviewed local account config and provider localhost callbacks are required.
+ARKPEDIA_AUTH_URL=http://localhost:8787
+BETTER_AUTH_SECRET=replace-with-a-random-secret-at-least-32-characters-long
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+DISCORD_CLIENT_ID=
+DISCORD_CLIENT_SECRET=

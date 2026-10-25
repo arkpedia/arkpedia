@@ -10,6 +10,11 @@ import { downloadBlob } from '@/lib/ui/downloadBlob';
 import type { GameAccountMap } from '@/lib/planner/gameAccount';
 import { getOperatorIconPath, OPERATOR_PORTRAIT_PLACEHOLDER } from '@/lib/operators/operatorIcon';
 import { operatorHref } from '@/lib/operators/operatorHref';
+import { archiveFromAccount, archiveKey, archiveStatus, mergePullArchives, unionPullHistory } from '@/lib/account/pullArchive';
+import { usePullArchives } from '@/lib/account/pullArchiveStore';
+import { useCloudSync } from '@/lib/cloud-account/SyncProvider';
+import StyledSelect from '@/components/ui/StyledSelect';
+import styles from './CloudAccountPanel.module.css';
 
 /*
  * The Account page's Pull History: what the imports have kept of the reader's headhunting
@@ -25,6 +30,34 @@ const percent = (part: number, total: number) => (total ? `${((part / total) * 1
 const SESSIONS_PAGE = 20;
 
 export default function PullHistory({ account, map }: { account: AccountRecord | null; map: GameAccountMap }) {
+  const saved = usePullArchives(), sync = useCloudSync();
+  const archives = mergePullArchives(saved, archiveFromAccount(account));
+  const [selected, setSelected] = useState('');
+  const current = account ? `${account.server}:${account.profile?.uid || 'unknown'}` : '';
+  const archive = archives.find(entry => archiveKey(entry) === (selected || current)) ?? (!account ? archives[0] : undefined);
+  const remote = sync.remote?.archives?.find(entry => archive && archiveKey(entry) === archiveKey(archive));
+  const cloudCount = remote?.history.rows.length ?? 0;
+  const status = archive ? archiveStatus(archive) : null;
+  const history = archive ? (account?.pulls && archiveKey(archive) === current ? unionPullHistory(archive.history, account.pulls) : archive.history) : account?.pulls;
+  const shown: AccountRecord | null = archive ? { version: 1, server: archive.server, doctor: archive.doctor, importedAt: archive.history.readAt ?? '', operators: [], skins: [], cleared: [], pulls: history } : account;
+  return <>
+    <div className={`${styles.form} ${styles.archiveSummary}`}>
+      {archives.length > 1 && <StyledSelect label="Pull archive account" value={archive ? archiveKey(archive) : ''} onChange={setSelected}
+        options={archives.map(entry => ({ value: archiveKey(entry), label: `${entry.doctor ?? 'Doctor'} · ${entry.server.toUpperCase()} · ${entry.uid === 'unknown' ? 'legacy import (UID unavailable)' : `UID ${entry.uid}`}` }))} />}
+      {archive && status && <>
+        <p role="status">{status.count.toLocaleString('en-US')} {status.count === 1 ? 'pull' : 'pulls'} archived{status.oldest ? ` · oldest ${day(status.oldest)}` : ''}.</p>
+        <p className="hint">{status.readAt ? `Last imported ${DAY.format(new Date(status.readAt))}.` : 'History has not been imported yet.'} {sync.remote?.historySync
+          ? `${cloudCount.toLocaleString('en-US')} ${cloudCount === 1 ? 'pull' : 'pulls'} saved to cloud${sync.remote.paused ? ' · cloud saving paused' : ''}.`
+          : 'Cloud pull-history saving is off. This archive is stored in this browser.'}</p>
+        {remote?.savedAt && <p className="hint">Last saved to cloud <LocalTime iso={remote.savedAt} precision="minute" />.</p>}
+      </>}
+      <p className="hint">Import regularly before Yostar’s 90-day window expires. Arkpedia keeps older archived pulls; it cannot recover pulls that expired before they were imported.</p>
+    </div>
+    <PullHistoryDetails key={archive ? archiveKey(archive) : account?.server ?? 'empty'} account={shown} map={map} />
+  </>;
+}
+
+function PullHistoryDetails({ account, map }: { account: AccountRecord | null; map: GameAccountMap }) {
   const history = account?.pulls;
   const [open, setOpen] = useState(false);
   const listId = useId();
@@ -95,8 +128,7 @@ export default function PullHistory({ account, map }: { account: AccountRecord |
         {open && <PullSessions rows={history.rows} bannerName={bannerName} icon={icon} />}
       </div>
       <p className="hint">
-        Yostar keeps 90 days of pulls{account.server === 'en' ? ', none before 11 Dec 2025' : ''}. Each import adds what is new to what this browser has kept,
-        {history.readAt ? ` last on ${DAY.format(new Date(history.readAt))}` : ''}, so the history here grows past that.
+        Pulls sharing a timestamp are grouped as one batch. Their original order within that batch may be unavailable.
       </p>
     </>
   );

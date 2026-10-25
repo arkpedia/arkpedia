@@ -33,6 +33,7 @@ import { MUSIC_FAVORITES_EVENT, MUSIC_FAVORITES_KEY } from '@/lib/music/musicFav
 
 import { MUSIC_PLAYLISTS_KEY, MUSIC_PLAYLISTS_EVENT, validatePlaylists } from '@/lib/music/musicPlaylists';
 import { STORY_PROGRESS_EVENT, STORY_PROGRESS_KEY, parseStoryProgress } from '@/lib/story/storyProgress';
+import { PULL_ARCHIVE_KEY, PULL_ARCHIVE_EVENT, parsePullArchives } from './pullArchive';
 
 export const BACKUP_KIND = 'arkpedia-backup';
 export const BACKUP_VERSION = 1;
@@ -60,6 +61,7 @@ interface Store {
 }
 
 export const BACKUP_STORES: readonly Store[] = [
+  { key: PULL_ARCHIVE_KEY, label: 'pull history archive', valid: (_, value) => { try { parsePullArchives(value); return true; } catch { return false; } }, event: PULL_ARCHIVE_EVENT },
   { key: ACCOUNT_STORAGE_KEY, label: 'your account', valid: (raw) => parseAccount(raw) !== null, event: ACCOUNT_EVENT },
   // Every key a record of its own server's (parseOtherAccounts keeps only those).
   { key: OTHER_ACCOUNTS_KEY, label: 'your other servers\' accounts', valid: (raw, value) => !!value && typeof value === 'object' && Object.keys(parseOtherAccounts(raw)).length === Object.keys(value as object).length, event: ACCOUNT_EVENT },

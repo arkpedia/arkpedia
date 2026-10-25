@@ -1,13 +1,16 @@
 import { useEffect, useState } from 'react';
 import Image from '@/components/content/ContentImage';
 import { THEME_COLOR } from '@/lib/nav/themeColor';
+import { CLOUD_RESTORED_EVENT } from '@/lib/cloud-account/events';
 
 export default function ThemeToggle() {
   const [theme, setTheme] = useState<'dark' | 'light' | null>(null);
 
   useEffect(() => {
-    const current = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
-    setTheme(current);
+    const read = () => setTheme(document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark');
+    read();
+    window.addEventListener(CLOUD_RESTORED_EVENT, read);
+    return () => window.removeEventListener(CLOUD_RESTORED_EVENT, read);
   }, []);
 
   function toggle() {

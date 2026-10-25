@@ -6,6 +6,8 @@ import PageHeader from '@/components/ui/PageHeader';
 import DataDialog from '@/components/account/DataDialog';
 import ProfileCard from '@/components/account/ProfileCard';
 import PullHistory from '@/components/account/PullHistory';
+import CloudAccountPanel from '@/components/account/CloudAccountPanel';
+import { useCloudSync } from '@/lib/cloud-account/SyncProvider';
 const FriendCollection = dynamic(() => import('@/components/friends/FriendCollection'), { ssr: false });
 import { makeFriendFile, shareableRoster } from '@/lib/account/friendFile';
 import { readRoster } from '@/lib/planner/roster';
@@ -50,6 +52,8 @@ function age(iso: string, now: number): string {
 
 export default function AccountPage({ skins, operators }: Props) {
   const account = useAccount();
+  const { remote } = useCloudSync();
+  const settingUp = !!remote && !remote.profile;
   // The other servers imported on this browser: a switch between them, once there is one.
   const others = useOtherAccounts();
   const servers = account ? SERVER_IDS.filter((id) => id === account.server || others[id]) : [];
@@ -57,6 +61,7 @@ export default function AccountPage({ skins, operators }: Props) {
   const latest = account ? [account, ...Object.values(others)].reduce((a, b) => (b.importedAt > a.importedAt ? b : a)) : null;
   const map = useReleaseTable<GameAccountMap>('game-account-map');
   const [importing, setImporting] = useState(false);
+  const [dataView, setDataView] = useState<'game' | 'backups' | 'browser'>('game');
   const [view, setView] = useState<'operators' | 'skins' | null>(null);
   const collectionOperators = useMemo(() => operators ?? friendOperators(map, []), [operators, map]);
   const collectionSkins = useMemo(() => skins.map(skin => ({ ...skin, model: skin.model ?? null, series: skin.series ?? '' })), [skins]);
@@ -71,21 +76,23 @@ export default function AccountPage({ skins, operators }: Props) {
   return (
     <>
       <Head>
-        <title>Account — Arkpedia</title>
+        <title>My Account — Arkpedia</title>
         <meta name="robots" content="noindex" />
       </Head>
 
-      <PageHeader eyebrow={`${storyAI(account)} // Account`} title="Account"
-        sub="Your Arknights account (Global, Japan or Korea): what you own, for the planners and the lists."
-        actions={<button type="button" className="primary btn-sm" aria-haspopup="dialog" onClick={() => setImporting(true)}>Import / export</button>} />
+      <PageHeader eyebrow={`${storyAI(account)} // Account`} title="My Account"
+        sub="Your Arkpedia profile, cloud saves and imported Arknights accounts."
+        actions={<button type="button" className="ghost btn-sm" aria-haspopup="dialog" onClick={() => { setDataView('game'); setImporting(true); }}>Import / export</button>} />
 
       <main>
+        <CloudAccountPanel onOpenData={() => { setDataView('browser'); setImporting(true); }} />
+        {!settingUp && <>
         {/* Drawn the same with or without an account, so the record arriving after
             hydration fills it in rather than moving everything below. */}
         {/* Drawn the same with or without an account until it arrives: the profile then
             replaces the placeholder of the same height (the Anti-Page Jump rule). */}
         <section className="op-section">
-          <h2>Profile</h2>
+          <h2>Imported Arknights account</h2>
           {account && servers.length > 1 && (
             <SegmentedControl label="Server" className="account-server" value={account.server} onChange={showAccount}
               options={servers.map((id) => ({ value: id, label: SERVERS[id].label }))} />
@@ -109,10 +116,11 @@ export default function AccountPage({ skins, operators }: Props) {
           <h2>Pull History</h2>
           <PullHistory key={account ? `${account.server}:${account.importedAt}` : 'empty'} account={account} map={map} />
         </section>
+        </>}
       </main>
 
       {account && view && <FriendCollection own friend={makeFriendFile(account, shareableRoster(account, Object.values(others), readRoster()))} operators={collectionOperators} skins={collectionSkins} view={view} onClose={() => setView(null)} />}
-      {importing && <DataDialog onClose={() => setImporting(false)} />}
+      {importing && <DataDialog initialView={dataView} onClose={() => setImporting(false)} />}
     </>
   );
 }
