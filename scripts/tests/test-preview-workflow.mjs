@@ -20,7 +20,8 @@ test('all preview mutations share a non-cancelling lock and restricted token per
   assert.deepEqual(workflow.on.pull_request_target.types, ['closed']);
   assert.deepEqual(workflow.on.pull_request_target.branches, ['main']);
   assert.equal(workflow.on.push, undefined);
-  assert.deepEqual(Object.keys(workflow.on.workflow_dispatch.inputs), ['action', 'pr']);
+  assert.deepEqual(Object.keys(workflow.on.workflow_dispatch.inputs), ['action', 'pr', 'completed_build']);
+  assert.equal(workflow.on.workflow_run, undefined, 'one explicit completion owner avoids duplicate callback publication');
   assert.equal(prepare.permissions.actions, 'write', 'only the secret-free resolver dispatches a build');
   assert.equal(job.permissions, undefined, 'provider job inherits read-only GitHub permissions');
 });
@@ -32,7 +33,7 @@ test('only main dispatch and explicitly enabled same-repository close events can
   assert.equal(allowed('pull_request_target', 'refs/heads/main', ''), false);
   assert.equal(allowed('pull_request_target', 'refs/heads/main', 'true', 'fork/arkpedia'), false);
   assert.equal(allowed('push'), false);
-  assert.equal(allowed('workflow_run'), true);
+  assert.equal(allowed('workflow_run'), false);
   assert.equal(allowed('workflow_run', 'refs/heads/main', ''), false);
   assert.equal(allowed('workflow_run', 'refs/heads/feature'), false);
 });
@@ -67,4 +68,29 @@ test('staging builder uses separate immutable source/controller checkouts and on
   assert.equal(steps.filter(step => step.run?.includes('cloudflare-staging.mjs build')).length, 1);
   assert.ok(steps.every(step => !step.env?.CLOUDFLARE_API_TOKEN));
   assert.ok(steps.find(step => step.name === 'Package staging artifact with trusted producer').run.includes('../controller/scripts/deploy/staging-artifact.py'));
+});
+
+test('only a successful enabled main preview build dispatches its ID from a separate API-only job', () => {
+  const build = yaml.load(readFileSync('.github/workflows/cloudflare-staging.yml', 'utf8'));
+  const notify = build.jobs['notify-preview'];
+  assert.deepEqual(build.permissions,{contents:'read'});
+  assert.equal(build.jobs.build.permissions,undefined,'feature build inherits read-only permissions');
+  assert.equal(notify.needs,'build');
+  assert.deepEqual(notify.permissions,{contents:'read',actions:'write'});
+  assert.equal(notify.steps.length,1);
+  const step=notify.steps[0];
+  assert.equal(step.env.COMPLETED_BUILD,'${{ github.run_id }}');
+  assert.equal(step.env.PREVIEW_PR,'${{ inputs.pr }}');
+  assert.match(step.run,/--ref main/);
+  assert.match(step.run,/-f completed_build="\$COMPLETED_BUILD"/);
+  assert.equal(step.run.includes('${{'),false,'IDs enter shell only through environment');
+  assert.equal(step.uses,undefined,'no feature checkout or install in notifier');
+  assert.equal(step.env.CLOUDFLARE_API_TOKEN,undefined);
+  const permits=(success=true,ref='refs/heads/main',pr='10',flag='true') =>
+    new Function('success','github','inputs','vars',`return (${notify.if})`)(()=>success,{ref},{pr},{ARKPEDIA_PREVIEWS_ENABLED:flag});
+  assert.equal(permits(),true);
+  assert.equal(permits(false),false);
+  assert.equal(permits(true,'refs/heads/feature'),false);
+  assert.equal(permits(true,'refs/heads/main',''),false);
+  assert.equal(permits(true,'refs/heads/main','10',''),false);
 });

@@ -12,10 +12,9 @@ on:
         description: Same-repository pull request targeting main
         required: true
         type: string
-  workflow_run:
-    workflows: [Build Cloudflare staging]
-    types: [completed]
-    branches: [main]
+      completed_build:
+        description: Internal completed producer run ID; leave blank for a new request
+        type: string
   pull_request_target:
     branches: [main]
     types: [closed]
@@ -32,7 +31,7 @@ concurrency:
 
 jobs:
   prepare:
-    if: (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') || (github.event_name == 'pull_request_target' && vars.ARKPEDIA_PREVIEWS_ENABLED == 'true' && github.event.pull_request.head.repo.full_name == github.repository) || (github.event_name == 'workflow_run' && vars.ARKPEDIA_PREVIEWS_ENABLED == 'true' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.head_repository.full_name == github.repository)
+    if: (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') || (github.event_name == 'pull_request_target' && vars.ARKPEDIA_PREVIEWS_ENABLED == 'true' && github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ${{ vars.ARKPEDIA_LIGHT_RUNNER || vars.ARKPEDIA_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 5
     permissions:
