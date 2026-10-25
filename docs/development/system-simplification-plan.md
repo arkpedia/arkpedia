@@ -160,28 +160,26 @@ the [progress log](system-simplification-progress.md).
 | Milestone | Checked | Current state | Main remaining gate |
 | --- | --- | --- | --- |
 | 0. Preserve and measure | 4/6 | Source inventory and backups complete | Provider dashboards and actual usage/bills |
-| 1. Cloudflare development loop | 8/9 | Controller released; real lifecycle and recovery verified | Scoped CI credential, end-to-end acceptance and activation |
+| 1. Cloudflare development loop | 8/9 | Scoped CI publication/retirement verified; handlers enabled | Actual automatic callback and owned-close proof |
 | 2. Proportional CI | 8/9 | Main/CF prerequisites released; selected/reuse proof verified | Representative timing/reliability measurements |
-| 3. One codebase | 3/8 | Framework and hosting foundation released; account port started | Reviewed integration, unified production target, branch retirement |
-| 4. R2 delivery | 3/7 | Complete local two-snapshot publisher/reader proof | Actual app integration and isolated remote/cost proof |
+| 3. One codebase | 3/8 | Framework, hosting foundation and reviewed account port released | Reviewed integration, unified production target, branch retirement |
+| 4. R2 delivery | 3/7 | Actual local app/two-snapshot proof; inactive foundation PR771 | Current CI, isolated remote/cost and activation proof |
 | 5. Production cutover | 0/6 | Preliminary checks recorded | Complete parity, old-tab, rollback and measured soak |
 | 6. Simulator naming | 3/7 | Branches/unique work preserved; source links audited | External consumers, rename/archive and reference verification |
 
-Latest verified release: #767 passed full Linux Check 40157028703 and was
-released; #768 then merged as 5010762b, reused valid exact-tree proof and passed
-deployment plus 36 public browser cases. The preview controller passed real
-publish/update, stale-close protection, retirement and controlled failure recovery,
-with 20 staging browser cases and the original baseline restored. These controller
-checks used local OAuth, not the still-missing scoped CI credential.
+Latest verified main release is #770 at9796b663 (exact tested tree482042e6).
+Full Check40170783235 passed1500/217 browser cases; push40173692769 reused its
+proof and Deploy40173713827 passed. Actual www clean identity, healthy main release
+report,36 global browser cases and the accounts owner's34+4/API acceptance pass.
+Accounts remain enabled only on the existing Cloudflare migration pilot; no
+canonical D1/OAuth/DNS configuration changed.
 
-Main request workflow 40166092583 succeeded and dispatched build 40166126620 for
-#769. The completed build was accepted by the trusted main receiver and published
-to staging using local OAuth, then retired to the original verified baseline. This
-does not establish scoped-token CI publication or automatic cleanup. Automation
-remains disabled. The selective main account port now includes core/API/migrations,
-UI/restore/archive hooks and pinned dependencies. Typecheck, lint and the first 61
-regressions pass; browser/build validation and release remain incomplete. The Cloudflare account
-pilot is already implemented and independently verified.
+Scoped CI publication40172881817 and retirement40173445887 passed for the single
+trusted-main PR770 artifact, restoring the verified591c/19b baseline. Preview
+handlers are enabled; a real automatic callback/close lifecycle is still pending.
+PR771 contains the inactive R2 app-reader foundation, with local native/app browser
+proof and88 composed focused tests. Its corrected full Check40175573617 is running after a bounded declaration-lint fix.
+Remote R2 publication, measured comparison and retention/activation remain open.
 
 ### 0. Preserve and measure
 
@@ -203,8 +201,9 @@ pilot is already implemented and independently verified.
   provider API. Preserve raw account telemetry in local cache evidence; sampled
   stored bytes are not billed GB-months and calendar month need not match invoice cycle.
 - [ ] Complete actual traffic, CPU, build-minute and invoice comparison. Initial CI
-  timings and data sizes are recorded; Cloudflare browser sign-in for actual invoices
-  is pending, while CLI deployment access remains valid.
+  timings and data sizes are recorded. Cloudflare and Vercel billing/dashboard
+  baselines have now been inspected and retained privately; different billing periods
+  and pilot-versus-production traffic still prevent a production-scale cost comparison.
 
 ### 1. Prove the Cloudflare development loop
 
@@ -228,12 +227,12 @@ pilot is already implemented and independently verified.
   baseline. Source/config/artifact identity checks and non-cancelling shared workflow
   serialization are implemented. This completes controller implementation and its
   real provider lifecycle proof; it does not activate CI publication.
-- [ ] Finish end-to-end trusted-main workflow and Worker-scoped CI credential
-  acceptance, then enable automatic publication/retirement. Main request run
-  40166092583 dispatched successful build 40166126620. Trusted main resolved its
-  exact provenance; actual local-OAuth publication c69b9efc and retirement passed.
-  This is not scoped-token CI proof. The enable flag and deployment secret remain absent
-  at the last recorded inspection. No new credential or automation was enabled.
+- [ ] Complete actual automatic callback/owned-close acceptance after the successful
+  trusted-main/scoped-credential checks. PR770's exact checked artifact was published
+  by CI40172881817 and retired by CI40173445887 to verified baseline591c/19b.
+  Independent bindings/ownership/noindex health and deployed account journeys pass.
+  ARKPEDIA_PREVIEWS_ENABLED is now true, verified07:45:06 UTC; the next legitimate
+  feature lifecycle must still prove automatic completion and cleanup events.
 
 [Preview behavior](https://developers.cloudflare.com/workers/previews/),
 [resource/service isolation limitations](https://developers.cloudflare.com/workers/previews/resources/),
@@ -277,7 +276,8 @@ The existing local `cf:preview` command is not the remote feature-preview workfl
   Validated partial artifact 12583703976 names the exact tree/current policy and
   full baseline 40151562631; no full marker was uploaded. Merge de829d1e reused
   that partial proof in push Check 40155507469; the heavy check was skipped.
-  Worker 8568743d-4f88-4440-bf7b-937b0c764497 deployed that exact clean source.
+  Workers Build 8568743d-4f88-4440-bf7b-937b0c764497 deployed that exact clean source;
+  the actual serving Worker version is 066ea33d-f48e-4fd3-b4dd-278957420bb4.
   The owner verified the live hint, provider icons, autosync privacy and OAuth starts.
   Main's equivalent prerequisite #767 then passed full Check 40157028703:
   1,462 passes/217 intentional skips, all 1,679 identities validated, 17.2 minutes
@@ -420,18 +420,23 @@ another permanent branch, database, queue or service by default.
 
 ### Current execution checkpoint
 
-See the milestone table above and [progress log](system-simplification-progress.md).
-Main hosting #755 and proportional CI #756/#767 are released. Main #768 is released
-as 5010762b with healthy public identity and 36 browser cases. CF #764/#766 prove
-actual selected execution, partial reuse and the deployed hint. Account migration
-003 and pilot deployment/privacy/OAuth checks are complete on Cloudflare; selective
-main integration has started but is not ready for release.
+Latest verified main release is #770 at9796b663 (exact tested tree482042e6).
+Full Check40170783235 passed1500/217 browser cases; push40173692769 reused its
+proof and Deploy40173713827 passed. Actual www clean identity, healthy main release
+report,36 global browser cases and the accounts owner's34+4/API acceptance pass.
+Accounts remain enabled only on the existing Cloudflare migration pilot; no
+canonical D1/OAuth/DNS configuration changed.
 
-Preview controller implementation and real local-OAuth lifecycle proof are complete.
-Trusted-main dispatch works; scoped-token publication, automatic retirement and
-activation remain open. #769 is an open operator-summary improvement, not a release.
-Provider logos are published and hash-verified through image-assets #55 at
-75bca3430542ff200f79b60621999a6c18c16b1d and verified on the CF pilot; main adoption
-is included in the account port. R2 delivery remains inactive. Production cutover,
-branch retirement and simulator renames remain unchecked until their own evidence
-gates pass. Dashboard/billing access and measured cost comparison remain outstanding.
+Scoped CI publication40172881817 and retirement40173445887 passed for the single
+trusted-main PR770 artifact, restoring the verified591c/19b baseline. Preview
+handlers are enabled; a real automatic callback/close lifecycle is still pending.
+PR771 contains the inactive R2 app-reader foundation, with local native/app browser
+proof and88 composed focused tests. Its corrected full Check40175573617 is running after a bounded declaration-lint fix.
+Remote R2 publication, measured comparison and retention/activation remain open.
+
+Both provider dashboard/billing baselines are recorded privately. Different billing
+periods and pilot-versus-production traffic prevent a measured net-savings claim.
+Standalone simulator preservation was refreshed to31 branches/29 with unique work,
+with a new verified bundle retaining the earlier force-updated tip as well. External
+incoming consumers and ordered rename/reference migration remain open. No branch
+deletion, repository rename/archive, DNS cutover or Vercel retirement has occurred.

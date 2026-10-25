@@ -882,3 +882,154 @@ configuration helper's refusal/retention test pass. Knip initially identified th
 deferred Techniques-only React hook; it was removed without changing the stored
 settings schema. Browser and dual-host build acceptance remain open. No live D1,
 OAuth configuration or primary application code was changed by the port.
+
+### Provider inventory, scoped credential and CI phase measurements (2026-10-25)
+
+This checkpoint supersedes earlier missing-credential, dashboard-sign-in and open
+#769 wording. The checklist remains **29/52**: no compound acceptance gate has been
+checked merely from credential setup or a partial cost sample.
+
+- #769 merged as 9b6472b8. Check 40167241455, main push 40168090314 and Vercel
+  deployment 40168195014 succeeded. Exact clean public identity, healthy release
+  reporting and all 36 route/theme/viewport browser cases passed.
+- Under explicit maintainer approval, the 90-day account-owned token
+  arkpedia-staging-ci was created with only Individual Workers Editor on
+  arkpedia-staging and saved as the repository Actions secret
+  ARKPEDIA_STAGING_API_TOKEN. Expiry is 2027-01-23. No plaintext credential was
+  logged or retained in a file; the protected temporary transfer was removed.
+  Metadata was verified independently. Automation remains off pending actual CI
+  publication and retirement; the credential is not itself deployment proof.
+- Rendered Cloudflare settings confirm four Workers: app builds from cloudflare,
+  relay from its own repository main, both with provider preview builds disabled;
+  edge and staging have no connected Git Builds. No cron, queue-consumer or email
+  trigger is configured on these four Workers. App and relay have no deploy hooks.
+  The edge route serves the pilot through the app service binding; staging has no
+  custom domain/route. No setting was changed during this inventory.
+- Rendered Vercel settings confirm Arkpedia has no connected Git repository, deploy
+  hook or project webhook. Cron shows setup instructions and no configured job.
+  Team project inventory shows Arkpedia and one unrelated project; this is bounded
+  evidence for that team, not proof about every external account or incoming link.
+  Provider usage/subscription/invoice metadata is retained only in private cache.
+  The different billing windows and substantially different served traffic do not
+  establish production-scale savings. No subscription or billing setting changed.
+- Six successful historical Check runs were measured from actual run/job/step
+  timestamps. The selected tooltip Check took 1,036 seconds end to end, including
+  116 seconds of selected browsers. The two controller none-lane runs took 623 and
+  741 seconds despite omitting all browser identities: application/Python tests,
+  compilation, builds, types, lint and content rollback still run. Full baseline
+  browser phases remain about 17–18 minutes. This purposive mixed-policy sample
+  is not a representative p50/p95 and does not meet the below-eight-minute target.
+  Raw phase evidence: release-ux/.cache/ci-phase-samples-20261025.json.
+- The accounts chat owns PR #770 and E:/Projects/arkpedia-preview-lifecycle,
+  including final CI, source reconciliation and deployed account acceptance. Root
+  holds main9b stable for its single trusted staging build/publication test and
+  owns the scoped CI publication/retirement check. No duplicate build is started.
+
+Private metadata evidence: release-ux/.cache/cloudflare-provider-inventory-20261025.json,
+cloudflare-billing-baseline-20261025.json, vercel-provider-billing-baseline-20261025.json
+and staging-credential-setup-proof.json. These contain no credential or payment details.
+
+### Follow-up preservation and CI gate observation
+
+The standalone simulator advanced during the migration review. Its current default
+branch is d2b6372822d5cf0803659ff6ce93315546a7eb08, with 31 branches, 29 containing
+commits outside current master. A new complete-history bundle was created separately
+and passed bundle verification plus full fsck. The earlier bundle remains unchanged
+and explicitly preserves the previous dossoles branch tip 5bda8a44, which was
+force-updated upstream. New bundle SHA-256 is
+6f4f7789d6651c35d83b527401c279e7147c454f1f59a8521b6716632e890892,
+30,146,337 bytes. No repository was renamed or archived.
+
+Both accessible Vercel teams were inspected: the Pro team has Arkpedia and an
+unrelated project; the Hobby team has arkpedia-dev. The dev project also has no
+connected Git repository or deploy hook and displays no configured cron job.
+These observations do not establish absence of all external incoming links.
+
+PR770 Check 40168684417 completed with failure in the desktop/mobile browser
+regressions at 06:48:34 UTC. The accounts owner retains source/failure repair
+ownership. No preview build or publication is started from this failed evidence;
+main9b remains stable and preview automation remains off.
+
+### Main account release, scoped preview acceptance and local R2 app integration
+
+PR770 merged as 9796b6636efd2d6d4018baca2a77c2359f5595da. Its tree482042e6
+exactly matches checked sourcec00cb80b. Full Check40170783235 passed1,500 browser
+cases with217 intentional skips,1717 selected/0 omitted. Main push40173692769
+reused that exact-tree proof and Deploy40173713827 succeeded. Actual www reports
+clean9796/production/live/schema2/fingerprint17230dcc58439c2f76e5b6d127ead2d20dc5de02935fae4491d198e87927f8f0.
+Root's36 public route/theme/viewport cases pass, including populated music
+favourites. The accounts owner independently passed34 dummy account journeys,
+four actual unconfigured theme/viewport states and three real private/no-store
+503 API responses. Canonical accounts remain deliberately unconfigured; existing
+Cloudflare pilot accounts/D1/OAuth remain unchanged by the maintainer's choice.
+
+Trusted main9b producer40172547699 built the exact checked source once; scoped
+CI publication40172881817 deployed version50ecf72e with owner770. Independent
+source/ownership/bindings/four noindex-route checks passed, as did the accounts
+owner's34 deployed journeys, four actual unconfigured states and eight provider
+icon states. Scoped CI retirement40173445887 restored exact baseline591c4728 /
+source19b51e89, ownernull, bindings and health. The pilot remains actual Worker
+version066ea33d / sourcede829. Both CI jobs used the approved staging-only secret;
+no local OAuth is being substituted for this credential acceptance.
+
+After those checks, ARKPEDIA_PREVIEWS_ENABLED was set to true and read back from
+GitHub at07:45:06 UTC. Automatic completion/owned-close handlers are enabled;
+the next legitimate feature lifecycle still needs to prove their actual callback
+and close events. The checklist remains29/52 until that compound gate is proven.
+
+The R2 foundation is now integrated with the actual app reader in PR771, head
+bcbd6695244ccc9a93d36fb933993eed3087ebfe, based on released main9796. It is
+explicit staging opt-in and inactive on deployed sites. No bucket, binding, route,
+pointer, storage credential or data publication was changed remotely. Direct S3
+dependency declaration changes zero package nodes/versions relative to main.
+After integrating main,88 focused R2/content/account/settings/image cases and
+typecheck pass. Existing GitHub delivery/defaults remain covered.
+
+Before that integration, clean sourceed138ab3 passed the real local OpenNext build,
+trace/client-data guards and unchanged19,000,000-byte budget: handler17,394,415
+bytes. Two complete real8,963-path snapshots were staged and conditionally published
+in native local R2. Actual Next website acceptance passed20 route/theme/viewport
+cases, real held/current lazy nav search and rollback, with zero page errors and
+no root overflow. Public bytes are unchanged between these real snapshots; distinct
+file-body changes are covered separately by the focused app-loader regression.
+The initial theme-harness about:blank storage error was retained and corrected at
+its source without relaxing page-error assertions. Both local acceptance servers
+were verified/stopped; the user's3192 server was untouched.
+
+PR771's fresh full Check40174680925 is running on current head; the old local
+build/browser evidence is not claimed as its post-integration artifact. Remote
+R2 resource/app proof, latency/CPU/cost, retention and activation remain open.
+The main release report is healthy; its overall nonzero status comes solely from
+preserved dev66/CF38 ancestry alerts. Those branches were neither force-synced nor
+retired to hide their still-open consumer/feature reconciliation gates.
+
+Evidence: ci-migration/.cache/{pr770-scoped-publish-proof,pr770-scoped-published-state,
+release-status-main770,main770-ci-release-browser}.json and scoped job logs;
+accounts worktree's pr770 host/browser verification reports; r2-app/.cache/
+{r2-app-native-proof,r2-app-browser-result}.json and r2-main-composed-tests.log.
+
+PR771 follow-up: first full Check40174680925 stopped at lint before build/browser execution. The new ambient constant needed an explicit declare for the repository Babel parser. One declaration-line fix committed as449dcad8 passes exact repository lint over all new library/runtime/declaration files and both declaration-consistency regressions. Runtime code/assertions/retries/limits are unchanged. Corrected full Check40175573617 is live; no preview has been requested from failed or unfinished proof.
+
+## Main-based Cloudflare candidate: local preparation, 2026-10-25
+
+Local branch `codex/main-cloudflare-candidate` starts from released main9796b663.
+The accepted pilot/edge source is being reconciled individually rather than merging
+all unreleased cloudflare features. Its build helper preserves the existing pilot
+account database, ISR cache, self-reference and Durable Object migration history;
+it enforces live/schema2/production identity and the exact source fingerprint.
+No provider branch, resource, account credential or deployment changed.
+
+Local checks pass:15 pilot configuration/build-identity tests,16 preserved edge-cache
+regressions,4 existing deployment-role tests, Knip, and17 actual HTTP cases covering
+all13 temporary compatibility redirects with query preservation and4 host-indexing
+states. Alternate hosts receive noindex on served responses; www/apex remain
+indexable. The initial HTTP harness incorrectly expected Next's local redirects to
+apply response-header rules; diagnostic responses established that served-response
+headers work, and redirect behavior is now tested separately. Changed-source lint
+has zero errors, with the existing edge default-export warning and ignored TS test
+reported explicitly. The temporary3322 server stopped; user3192 was untouched.
+
+This is preparation, not a native production-candidate build or deployment proof.
+PR771's exact449dcad8 full Check40175573617 is still running its browser suite.
+Its real automatic staging callback/close lifecycle remains the next gate; no
+second remote candidate build was launched while that source proof is pending.

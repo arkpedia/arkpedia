@@ -4,6 +4,7 @@ const assetUrl = (repository, path) => assetCdn.template.replace('{repository}',
 const contentPageRoutes = require('./scripts/content/pages.json');
 const { ClientDataGuard } = require('./scripts/build/client-bundle-guard.cjs');
 const { contentPointer } = require('./scripts/content/content-channel.cjs');
+const { routes: pilotRouteAliases } = require('./config/pilot-route-aliases.json');
 const workerBuild = process.env.ARKPEDIA_WORKER === '1';
 const stagingBuild = require('./scripts/deploy/deployment-role.cjs').deploymentRole() === 'staging';
 for (const [repository, revision] of Object.entries(assetRevisions)) {
@@ -90,6 +91,9 @@ const nextConfig = {
     // result; the :slug is captured and handed straight to the query the page
     // reads.
     return [
+      // Keep bookmarks from the migration pilot while main retains its current
+      // canonical route names. Query strings follow Next's normal redirect rules.
+      ...Object.entries(pilotRouteAliases).map(([source, destination]) => ({ source, destination, permanent: false })),
       ...externalAssetRedirects(SKIN_ASSET_FOLDERS, 'arkpedia-skin-assets'),
       ...externalAssetRedirects(IMAGE_ASSET_FOLDERS, 'arkpedia-image-assets'),
       {
@@ -186,6 +190,13 @@ const nextConfig = {
     // redirects themselves, so a folder added there is covered here too.
     const assetRedirects = (await nextConfig.redirects()).filter(({ destination }) => /^https:\/\//.test(destination));
     return [
+      // Alternate hosts stay unindexed without using staging's account-free role.
+      // Canonical www remains indexable after the eventual provider cutover.
+      {
+        source: '/:path*',
+        has: [{ type: 'host', value: '(?:arkpedia-cf\\.mocchibird\\.com|.*\\.workers\\.dev)' }],
+        headers: [{ key: 'X-Robots-Tag', value: 'noindex' }],
+      },
       {
         /* Security headers on every response.
            The site had none, which is the default and not a deliberate choice.

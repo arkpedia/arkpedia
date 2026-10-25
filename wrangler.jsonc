@@ -1,0 +1,32 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "arkpedia",
+  "account_id": "1ff51c10571eaa9934bc451e1bfdb361",
+  "preview_urls": false,
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-10-19",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": { "directory": ".open-next/assets", "binding": "ASSETS" },
+  "observability": { "enabled": true },
+  // Pilot account data, isolated from any future production database.
+  "d1_databases": [
+    {
+      "binding": "ARKPEDIA_ACCOUNTS_DB",
+      "database_name": "arkpedia-accounts-dev",
+      "database_id": "f7daff77-8e8f-4ec2-998b-97fb6e4b948f",
+      "migrations_dir": "migrations/accounts"
+    }
+  ],
+  "vars": { "ARKPEDIA_AUTH_URL": "https://arkpedia-cf.mocchibird.com", "ARKPEDIA_CONTENT_CHANNEL": "live", "ARKPEDIA_DEPLOYMENT_ROLE": "production" },
+  // The page cache (open-next.config.ts). The bucket must exist before a deploy:
+  // `npx wrangler r2 bucket create arkpedia-opennext-cache`, or R2 > Create bucket in the dashboard.
+  // It also keeps each Monster Siren song's signed audio address, under music-audio/
+  // (lib/music/audioLinkMemo.ts): nothing in front of the Worker keeps the route's redirect.
+  "r2_buckets": [{ "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "arkpedia-opennext-cache" }],
+  // The Worker calling itself: res.revalidate (the release refresh) and the revalidation queue
+  // re-render a page this way. The service must be this Worker's own name.
+  "services": [{ "binding": "WORKER_SELF_REFERENCE", "service": "arkpedia" }],
+  // The revalidation queue, a Durable Object class the OpenNext worker exports.
+  "durable_objects": { "bindings": [{ "name": "NEXT_CACHE_DO_QUEUE", "class_name": "DOQueueHandler" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["DOQueueHandler"] }]
+}
