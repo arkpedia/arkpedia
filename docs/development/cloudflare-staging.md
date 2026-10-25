@@ -3,7 +3,7 @@
 ## Preview controller implementation status
 
 The controller foundation is released on main at 5010762b; automatic operation is
-still disabled pending scoped-credential and main-workflow acceptance. The pure lifecycle policy in
+still disabled pending scoped-credential CI publication/retirement acceptance. The pure lifecycle policy in
 `scripts/deploy/preview-lifecycle.mjs` has no provider I/O. The separate controller
 and fixed-target provider adapter can publish or retire only `arkpedia-staging`.
 Tests cover stale requests, foreign/expired build inputs, exact public identity,
@@ -33,9 +33,12 @@ health verification; handle failures by checking version ownership before rollba
 Retirement rolls back only the matching owned version. It never deletes R2 objects,
 the shared Worker or its Durable Object namespace.
 
-The candidate includes the GitHub/provider adapter, non-cancelling workflow lock
-and failure recovery. Real end-to-end publish/update/retire and Worker-scoped CI
-credential proof remain open, so the plan's workflow checkbox remains unchecked.
+The released implementation includes the GitHub/provider adapter, non-cancelling
++workflow lock and failure recovery. Main request 40166092583 dispatched successful
++build 40166126620 for #769; the trusted-main receiver accepted its exact receipt
++and artifact12588447522. Actual local-OAuth publication c69b9efc and retirement to
++baseline591c passed. Controller implementation/lifecycle proof is checked in the
++plan; scoped-token CI publication/automatic-retirement acceptance remains open.
 
 `scripts/deploy/preview-check.mjs` connects that policy to the existing full-browser
 and selected-proof validators. It requires a successful Check for the exact source
@@ -220,8 +223,9 @@ deploy command imports compiled configuration from `.open-next/.build` and can r
 it with the deploy process's credentials. Review the source/config/dependency changes
 before that step; archive verification is not a sandbox. Do not grant a feature build
 production credentials or broaden the staging bindings. The current workflow still
-builds only: serialized deployment, preview ownership/retirement and cleanup remain
-separate migration work, and no remote deployment is triggered by this receipt step.
+builds only: its receipt step triggers no provider mutation. The separate trusted
++controller implements serialized publication/retirement; automatic operation stays
++disabled until scoped-credential CI acceptance passes.
 
 ```sh
 npm run cf:staging:check

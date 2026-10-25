@@ -823,3 +823,62 @@ ESLint/Knip/diff checks. The prior draft Check40160076966 passed on f05f94ca; it
 does not approve these newer changes. Fresh final-source validation, actual remote
 publish/update/retire/failure proof, Worker-scoped token and activation remain open.
 No new provider resources, credentials, production or account settings changed.
+
+### Checklist reconciliation (2026-10-25, 05:43 UTC)
+
+This entry supersedes earlier candidate/pending wording above; historical proof is
+retained. The plan now has **29 of 52 acceptance items checked**. The previous
+combined preview item was split into completed implementation/provider lifecycle
+proof and still-open CI credential/activation acceptance. This is a scope split,
+not an estimate of percentage or time remaining.
+
+- #768 is merged as 5010762b with the tested tree. Check 40161529014 used the
+  valid none lane (0 executed/1,679 omitted), backed by the full #767 baseline
+  40157028703; it is not a new full-browser baseline. Build 40161672669 produced
+  the verified staging artifact. Push 40163958388 and deploy 40163986898 passed;
+  the public release passed clean identity/healthy reporting and 36 browser cases.
+- Actual staging publish 8a93106e and update 5b9b279c passed 20 browser cases,
+  stale-close protection, original-baseline retention, retirement and controlled
+  post-deploy probe-failure recovery. Final restored version is
+  591c4728-48b9-4058-b035-9b95cea0e9c4 at source 19b51e89. This used local OAuth;
+  it does not prove Worker-scoped CI credentials. No production routing or account
+  data was changed. Evidence: release-ux/.cache/controller-56-lifecycle-proof.json
+  and its individual proof files.
+- GitHub API confirms main request 40166092583 succeeded; its actual log dispatches
+  build 40166126620 for open #769. This is dispatch proof only. Automatic publication
+  and cleanup remain disabled pending scoped credential/end-to-end acceptance.
+- The main account port is partially implemented in the isolated
+  E:/Projects/arkpedia-preview-lifecycle worktree, branch codex/main-account-integration,
+  based on 5010762b with accepted CF source de829d1e. Nineteen new core/API/migration
+  files and better-auth 1.7.12's 20 exact dependency nodes are staged as working-tree
+  edits, with no existing dependency version changes. They are uncommitted and not
+  a validated or deployed account integration. No live D1/OAuth configuration changed.
+- Remaining gates: account/UI and one-main hosting integration; representative CI
+  timing/reliability; actual remote R2/app/cost proof; dashboard inventory/invoices;
+  production parity, old-tab compatibility, soak/rollback and DNS; branch retirement;
+  simulator external consumers and rename/archive. No further compound item meets
+  its acceptance criteria yet.
+
+### Trusted-main producer lifecycle and account port implementation
+
+Main request 40166092583 passed and dispatched staging build 40166126620, which
+completed successfully from controller main501 for PR769 source cf8d6026, checked
+by 40165255844. Artifact12588447522 was accepted by the receiver running from an
+exact trusted-main501 checkout, including the producer blobs and immutable receipt.
+That main controller published version c69b9efc-8b26-4649-94f0-7933fb48220f to
+isolated staging and verified exact source/ownership/bindings plus four healthy
+noindex routes. Explicit retirement restored exact baseline591c/19b and health.
+Evidence: ci-migration/.cache/main-driver-769-{resolved,lifecycle}.json. This used
+existing local OAuth, not a scoped CI token; automatic publication/cleanup remains
+disabled. No production, canonical data or account configuration changed.
+
+The selective main account implementation now includes accepted UI, archive/backup/
+import hooks, page-only restore remount and music/theme restore listeners. Main
+routes, Vercel analytics and global artwork pins are preserved; unrelated raw-save
+capture is excluded. The accounts owner confirms no newer source than de829d1e.
+Locked install succeeds with zero reported vulnerabilities; typecheck, focused lint,
+61 account/archive/privacy/migration/settings/image regressions and the non-secret
+configuration helper's refusal/retention test pass. Knip initially identified the
+deferred Techniques-only React hook; it was removed without changing the stored
+settings schema. Browser and dual-host build acceptance remain open. No live D1,
+OAuth configuration or primary application code was changed by the port.
