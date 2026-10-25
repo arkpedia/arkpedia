@@ -69,7 +69,9 @@ require `private`. Unbound staging tests do not prove real OAuth/D1 acceptance.
    successful current-main push Check starts the controlled pilot release. If the
    automatic handoff does not start, inspect it before explicitly retrying on main
    with that Check ID. This is not public-domain cutover. Retain the receipt and
-   actual deployed proof. Retrying an already healthy exact release reuses it.
+   actual deployed proof. An explicit retry publishes the freshly built artifact,
+   even for the same source: prebuild may have adopted newer artwork pins that
+   are not represented by the code fingerprint.
 5. Verify real signed-in state, auto-sync, provider linking and old/new-tab archive
    union/revisions with the accounts owner. Verify actual analytics hostname and
    ingestion, content/old-tab compatibility and the affected browser journeys.

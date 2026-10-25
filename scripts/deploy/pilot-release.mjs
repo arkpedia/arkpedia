@@ -18,14 +18,13 @@ export async function publishPilotRelease({ source, checkRun, build, approve, pr
     && build.contentChannel === 'live' && build.deploymentRole === 'production', 'build differs from release contract');
   await approve();
   const previous = provider.observe();
-  const previousHealth = await provider.health(previous);
+  await provider.health(previous);
   // Revalidate after preflight network reads, directly before the provider's own
   // resource/version check. The workflow holds its production lock throughout.
   await approve();
-  if (previousHealth?.build?.commit === source && previousHealth.build.codeFingerprint === build.codeFingerprint) {
-    requireValue(provider.observe().id === previous.id, 'pilot changed during reuse health checks');
-    return { action: 'reused', source, fingerprint: build.codeFingerprint, checkRun, version: previous.id, healthy: true };
-  }
+  // Source identity does not identify the uploaded artifact: prebuild can adopt
+  // newer asset pins without changing the code fingerprint. Publish deliberate
+  // retries too, so a same-source rebuild can repair stale artwork redirects.
   const owner = { source, fingerprint: build.codeFingerprint, checkRun, previousVersion: previous.id };
   try {
     const current = provider.deploy(owner);

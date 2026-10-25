@@ -36,10 +36,10 @@ test('failed initial or final approval and failed preflight never deploy or roll
   await assert.rejects(() => publish(unhealthy), /unhealthy baseline/);
   assert.ok(!unhealthy.calls.includes('deploy') && !unhealthy.calls.includes('recover'));
 });
-test('an already healthy exact release is reused without uploading another Worker version', async () => {
+test('a same-source rebuild still publishes because asset pins can change independently of code identity', async () => {
   const f = fixture(); f.provider.health = async () => ({ build });
-  assert.equal((await publish(f)).action, 'reused');
-  assert.deepEqual(f.calls, ['approve', 'observe', 'approve', 'observe']);
+  assert.equal((await publish(f)).action, 'published');
+  assert.deepEqual(f.calls, ['approve', 'observe', 'approve', 'deploy', 'observe']);
 });
 test('post-activation failure attempts ownership-aware recovery but still fails the release', async () => {
   const f = fixture(); let health = 0;
