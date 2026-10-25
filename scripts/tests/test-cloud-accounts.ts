@@ -327,26 +327,42 @@ test('profile claims are authenticated, unique under races, owner-bound and pres
     await handler({ method, headers: { cookie, origin, 'content-type': 'application/json' }, query: { username: body.username }, body: { owner, ...body } } as unknown as NextApiRequest, res as unknown as NextApiResponse);
     return { status, result };
   }
-  sqlite.prepare('INSERT INTO cloud_save (userId, revision, payload, updatedAt) VALUES (?, 4, ?, ?)').run(userA.id, '{"musicFavorites":["kept"]}', new Date().toISOString());
+  for (const user of [userA, userB]) {
+    sqlite.prepare('INSERT INTO cloud_save (userId, revision, payload, updatedAt) VALUES (?, 4, ?, ?)').run(user.id, '{"musicFavorites":["kept"]}', new Date().toISOString());
+  }
   assert.equal((await call(userA.id, '', 'GET', { username: 'Doctor#1234' })).status, 401);
   assert.equal((await call(userA.id, cookieA, 'PUT', { username: 'Doctor#1234' }, 'https://evil.invalid')).status, 403);
   assert.equal((await call(userB.id, cookieA, 'PUT', { username: 'Doctor#1234' })).status, 409);
-  const race = await Promise.all([call(userA.id, cookieA, 'PUT', { username: 'Doctor#1234' }), call(userB.id, cookieB, 'PUT', { username: 'ＤＯＣＴＯＲ#1234' })]);
+  const contenders = [
+    { user: userA, cookie: cookieA, session: sessionA, username: 'Doctor#1234' },
+    { user: userB, cookie: cookieB, session: sessionB, username: 'ＤＯＣＴＯＲ#1234' },
+  ];
+  const race = await Promise.all(contenders.map(({ user, cookie, username }) => call(user.id, cookie, 'PUT', { username })));
   assert.deepEqual(race.map(r => r.status).sort(), [200, 409]);
-  assert.equal((await call(userB.id, cookieB, 'GET', { username: 'doctor#1234' })).result.available, false);
-  assert.equal((await call(userA.id, cookieA, 'GET', { username: 'doctor#1234' })).result.available, true);
-  assert.equal(sqlite.prepare('SELECT payload FROM cloud_save WHERE userId = ?').get(userA.id)?.payload, '{"musicFavorites":["kept"]}');
-  assert.equal(sqlite.prepare('SELECT revision FROM cloud_save WHERE userId = ?').get(userA.id)?.revision, 4);
-  assert.equal((await call(userB.id, cookieA, 'DELETE', { confirmation: 'Doctor#1234' })).status, 409);
-  assert.equal((await call(userA.id, cookieA, 'DELETE', { confirmation: 'wrong' })).status, 400);
-  sqlite.prepare('UPDATE session SET createdAt = ? WHERE id = ?').run(new Date(Date.now() - 600_000).toISOString(), sessionA.id);
-  assert.equal((await call(userA.id, cookieA, 'DELETE', { confirmation: 'Doctor#1234' })).status, 403);
-  assert.equal(sqlite.prepare('SELECT count(*) AS n FROM "user" WHERE id = ?').get(userA.id)?.n, 1);
-  sqlite.prepare('UPDATE session SET createdAt = ? WHERE id = ?').run(new Date().toISOString(), sessionA.id);
-  assert.equal((await call(userA.id, cookieA, 'DELETE', { confirmation: 'Doctor#1234' })).status, 200);
-  assert.equal(sqlite.prepare('SELECT count(*) AS n FROM cloud_save').get()?.n, 0);
+  // Either authenticated request may win; all later checks follow that actual owner.
+  const winner = contenders[race[0].status === 200 ? 0 : 1], loser = contenders[race[0].status === 200 ? 1 : 0];
+  const confirmation = normalizeUsername(winner.username).username;
+  assert.equal(sqlite.prepare('SELECT userId FROM arkpedia_profile WHERE usernameKey = ?').get('doctor#1234')?.userId, winner.user.id);
+  assert.equal((await call(loser.user.id, loser.cookie, 'GET', { username: 'doctor#1234' })).result.available, false);
+  assert.equal((await call(winner.user.id, winner.cookie, 'GET', { username: 'doctor#1234' })).result.available, true);
+  for (const { user } of contenders) {
+    assert.equal(sqlite.prepare('SELECT payload FROM cloud_save WHERE userId = ?').get(user.id)?.payload, '{"musicFavorites":["kept"]}');
+    assert.equal(sqlite.prepare('SELECT revision FROM cloud_save WHERE userId = ?').get(user.id)?.revision, 4);
+  }
+  assert.equal((await call(loser.user.id, winner.cookie, 'DELETE', { confirmation })).status, 409);
+  assert.equal((await call(winner.user.id, winner.cookie, 'DELETE', { confirmation: 'wrong' })).status, 400);
+  sqlite.prepare('UPDATE session SET createdAt = ? WHERE id = ?').run(new Date(Date.now() - 600_000).toISOString(), winner.session.id);
+  assert.equal((await call(winner.user.id, winner.cookie, 'DELETE', { confirmation })).status, 403);
+  assert.equal(sqlite.prepare('SELECT count(*) AS n FROM "user" WHERE id = ?').get(winner.user.id)?.n, 1);
+  sqlite.prepare('UPDATE session SET createdAt = ? WHERE id = ?').run(new Date().toISOString(), winner.session.id);
+  assert.equal((await call(winner.user.id, winner.cookie, 'DELETE', { confirmation })).status, 200);
+  assert.equal(sqlite.prepare('SELECT count(*) AS n FROM "user" WHERE id = ?').get(winner.user.id)?.n, 0);
+  assert.equal(sqlite.prepare('SELECT count(*) AS n FROM cloud_save WHERE userId = ?').get(winner.user.id)?.n, 0);
+  assert.equal(sqlite.prepare('SELECT count(*) AS n FROM cloud_save').get()?.n, 1);
+  assert.equal(sqlite.prepare('SELECT payload FROM cloud_save WHERE userId = ?').get(loser.user.id)?.payload, '{"musicFavorites":["kept"]}');
+  assert.equal(sqlite.prepare('SELECT revision FROM cloud_save WHERE userId = ?').get(loser.user.id)?.revision, 4);
   assert.equal(sqlite.prepare('SELECT count(*) AS n FROM arkpedia_profile').get()?.n, 0);
-  assert.equal(sqlite.prepare('SELECT count(*) AS n FROM "user" WHERE id = ?').get(userB.id)?.n, 1);
+  assert.equal(sqlite.prepare('SELECT count(*) AS n FROM "user" WHERE id = ?').get(loser.user.id)?.n, 1);
   sqlite.close();
 });
 

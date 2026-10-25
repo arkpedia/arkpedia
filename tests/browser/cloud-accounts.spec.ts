@@ -329,7 +329,7 @@ test('account deletion requires typed confirmation and keeps game data in this b
 test('unconfigured deployment keeps import and browser data available', async ({ page }) => {
   await readOnly(page); await page.route('**/api/cloud-account', route => route.fulfill({ status: 503, json: { error: 'Accounts unavailable' } }));
   await page.goto('/account');
-  await expect(page.getByText('Cloud accounts are not available on this deployment.', { exact: false })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Arkpedia account', exact: true })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Import / export', exact: true })).toBeVisible();
 });
 test('signed-out account offers only configured providers', async ({ page }) => {

@@ -54,6 +54,7 @@ export default function CloudAccountPanel({ onOpenData }: { onOpenData?: () => v
     setSettings(null);
   }
   function closeSettings() { if (!working) { setSettings(null); setConfirm(null); setMessage(''); } }
+  if (sync.status === 'unavailable') return null;
   const confirmationTitle = confirm === 'cloud' ? 'Delete cloud saves?' : confirm === 'revoke' ? 'Stop saving imported game data?' : confirm === 'history' ? 'Delete cloud pull archive?' : confirm === 'personal' ? 'Stop saving personal data?' : 'Delete Arkpedia account?';
   return <section className="op-section" aria-labelledby="cloud-account-title" aria-busy={working}>
     <div className={styles.heading}>
@@ -62,7 +63,6 @@ export default function CloudAccountPanel({ onOpenData }: { onOpenData?: () => v
     </div>
     {router.query.signin === 'failed' && <p role="alert" className="notice notice-danger">Sign-in could not finish. Try your existing provider, then link another login in Account settings.</p>}
     {sync.status === 'loading' && <p role="status">Checking sign-in…</p>}
-    {sync.status === 'unavailable' && <p>Cloud accounts are not available on this deployment. You can still import your game account and use browser saves.</p>}
     {!remote && sync.status === 'signed-out' && <div className={styles.welcome}>
       <p>Keep your music, plans and preferences across devices.</p>
       <div className={styles.actions}>{(['google', 'discord'] as const).map(provider => sync.providers.includes(provider) &&
