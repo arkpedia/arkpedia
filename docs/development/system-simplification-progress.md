@@ -1319,3 +1319,34 @@ and release-status checks remain required before calling this release live.
 Automatic completion publication remains unproven and belongs to repair PR772,
 whose own Check 40183952914 is in its full browser phase. No DNS or pilot deployment
 change, branch retirement, repository rename or remote R2 activation was made.
+
+
+### Main-based pilot integration after PR773
+
+The candidate rebased cleanly onto verified main616f4cbf; sourceb4245a4c passed
+74 focused hosting/role, edge, analytics and operator checks. Its native OpenNext
+production build is running locally; no new deployment is claimed from that build.
+The accounts owner confirms no newer runtime/schema changes: the reviewed account
+core and applied migrations001–003 remain the contract. Preserve the exact existing
+D1, auth secret (encrypted provider rows depend on it), pilot origin/cookie prefix,
+callbacks, identity/profile/consent rows, archive revisions and append-only/CAS/nonce
+ownership guards. Do not reset the database or rerun ALTER statements. Actual
+signed-in pilot/auto-sync and old/new-tab archive acceptance remain required.
+
+A read-only GitHub protection/rules API inspection returned403, explicitly requiring
+an upgraded plan or public repository. Do not assume a protected-main gate exists.
+The current native Cloudflare integration remains on cloudflare with previews off.
+Before moving its production source, prepare one explicit checked-main release
+owner rather than allowing an unchecked main push to activate a deployment. The
+preferred next implementation is a main Check-success workflow with provider
+credentials only at the validated deployment step; disable the old native production
+build owner when enabling that path. A narrowly scoped pilot deployment credential
+must be reviewed before creating persistent access. No production token, build-owner
+setting, branch, route, DNS, D1 or OAuth setting has changed at this checkpoint.
+
+Actual recent Actions observations were retained separately from the earlier window:
+PR773's selected check job604s; broad PR771/772 jobs1578s/1593s; main616's exact-tree
+reuse17s. Each observed job queued2s. These descriptive runs preserve complete job
+and phase metadata in local evidence; they do not establish an ordinary-feature
+p95 or an under-eight-minute guarantee. Additional broad-check removal requires
+proof of retained coverage, not an arbitrary test-count target.
