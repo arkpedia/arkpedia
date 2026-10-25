@@ -22,7 +22,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { pointerForBranch } from '../content/channel.mjs';
+import { pointerForBranch, channelFor } from '../content/channel.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const NAME = /^[a-z0-9][a-z0-9-]*$/;
@@ -68,7 +68,7 @@ export function readContentReaders(config = JSON.parse(fs.readFileSync(path.join
     const url = new URL(entry.url);
     if (url.protocol !== 'https:' || url.pathname !== '/' || url.search || url.hash || url.username || url.password) throw new Error(`${where}: reader needs a bare https origin`);
     if (!BRANCH.test(entry.branch ?? '')) throw new Error(`${where}: reader needs a branch`);
-    pointerForBranch(entry.branch);
+    channelFor(entry.branch);
     if (typeof entry.live !== 'boolean' || typeof entry.refresh !== 'boolean') throw new Error(`${where}: live and refresh must be booleans`);
     if (Object.keys(entry).some(key => !['name', 'url', 'branch', 'live', 'refresh'].includes(key))) throw new Error(`${where}: unexpected content reader field`);
     return { name: entry.name, url: url.origin, branch: entry.branch, live: entry.live, refresh: entry.refresh };

@@ -1,36 +1,45 @@
 # Arkpedia system simplification progress
 
-## Current checkpoint — 2026-10-25
+## Current checkpoint — 2026-10-25, after main hosting preparation
 
-PR771 released as `9b528897`. Its exact full Check and native producer
-passed, as did scoped retained-artifact publication, eight deployed HTTP checks and
-twelve desktop/mobile, dark/light browser journeys. Automatic owned-close run
-40184536617 passed; independent provider inspection confirms the original free
-staging baseline591c/19b and unchanged pilot066ea33d/de829d1e. Public deployment
-40184554642 passed; all 36 public browser cases and exact clean production identity
-passed. Release-status reported production healthy with no issues; its nonzero
-exit reflected only preserved dev/Cloudflare ancestry alerts.
+Main is `b9ffe6df` after PR774. Its source `3d1adbec` passed full
+Check40189357580:1,500 browser passes/217 intentional skips, with full proof
+artifact12598585810 and exact tree7382fcf4. Native producer40191452625 and automatic
+publication40191632872 passed. The actual isolated preview68078f6b served that
+exact clean source/fingerprint;21 HTTP/privacy/alias cases and12 actual
+navigation/archive/story-progress journeys across desktop/mobile dark/light passed.
+Automatic owned-close40192165739 retired it; independent provider inspection at
+12:20 UTC confirmed baseline591c/19b and unchanged migration pilot066ea33d/de829d1e.
 
-Main is now `616f4cbf` after PR773. Its source `03d6b03a` passed
-Check40186842441 (225 browser passes,23 intentional skips;248 selected identities,
-1469 explicitly omitted), eight local UI cases and19 integrated account tests.
-The first CI exposed a race-winner assumption; the accounts owner's reviewed
-test-only repair retained the genuine race and follows its actual winner.
-Automatic completion publication40187870567 passed using producer40187663125;
-four actual deployed UI cases confirmed the unavailable section absent and local
-import/export available. Automatic owned-close40188151181 passed; independent
-provider inspection at11:19:42 UTC confirms baseline591c/19b and unchanged
-pilot066ea33d. The automatic lifecycle acceptance item is now checked,30/52 total.
-Main Check40188150120 and public deployment40188174941 passed. Actual www
-serves clean production source616f4cbf/fingerprintcf418d69; four desktop/mobile
-dark/light journeys confirm the whole unavailable-account section is absent and
-import/export enabled. Release-status reports production healthy with no issues.
-Its nonzero exit reflects only the intentionally preserved legacy dev77/CF49
-ancestry alerts. The requested removal is verified live.
-R2 delivery is not activated remotely. DNS,
-permanent branch retirement, simulator rename/archive and Vercel retirement remain
-behind their documented gates. The detailed entries below retain dated evidence;
-older source/version/branch references describe their own historical checkpoint.
+Main Check40192165603 and Vercel Deploy40192184069 passed. Actual www serves clean
+production b9ffe6df/fingerprint04e889ee/live/schema2. All36 public route/theme/width
+cases,13 query-preserving aliases and two actual analytics sampling cases passed.
+The unavailable account section stays absent and local import/export remains.
+Release-status production is healthy with no issues; preserved legacy ancestry
+alerts are dev85/CF57. The legacy sync failed on15 reviewed merge conflicts and
+changed no branch. Do not force that merge over unreleased features.
+
+The main-based hosting build is prepared; the pilot still runs its existing branch
+and dev-live content. PR775 prepares the disabled checked-main release owner and
+registers it as an additional main data reader. Publication must wait for both
+Vercel and Cloudflare's fingerprints, not merely their schema numbers. Its release
+step alone receives a future scoped provider token; the API-only completion job
+resumes held data after both readers match. The pilot's refresh:false prevents
+sending it Vercel's refresh secret; actual data propagation/refresh remains a gate.
+No new credential or build-owner setting is enabled. Merge775 only after its own
+exact CI/preview, explicit credential approval, and disabling/draining the old
+native production build owner, since main data will then wait for the first pilot
+release. Actual signed-in/old-tab accounts and analytics acceptance remain required.
+
+The first PR775 CI failed a remaining single-reader test expectation; that assertion
+is corrected without reducing the dual-reader gate.96 composed Linux cases passed
+at the prior checkpoint. Broader local tests exposed missing Python/Pillow and a
+local runtime mismatch; workspace-local dependencies and the exact CI Node version
+are being aligned before the corrected full run. These setup failures are not
+passing CI evidence. The checklist remains30/52; prepared code is not activation.
+R2 delivery is not activated remotely. DNS, permanent branch retirement, simulator
+rename/archive and Vercel retirement remain behind their recorded gates. Detailed
+entries below retain dated evidence rather than claiming earlier sources are current.
 
 ## Historical first staging proof
 

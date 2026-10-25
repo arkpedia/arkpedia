@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { readContentReaders, releaseDeployments, deployTargets } from '../deploy/deploy-targets.mjs';
 import { deploymentUrls } from '../content/deploy-gate.mjs';
 import { resumePilotContent } from '../deploy/resume-pilot-content.mjs';
+import { collectReport } from '../deploy/release-status.mjs';
+import { createHash } from 'node:crypto';
 
 const reader = { name: 'pilot', url: 'https://pilot.example', branch: 'main', live: true, refresh: false };
 test('the pilot gates main content but is never a Vercel upload or dev-content target', () => {
@@ -18,10 +20,36 @@ test('reader inventory refuses ambiguous names, non-origins, unknown fields and 
   assert.deepEqual(readContentReaders({ contentReaders: [reader] }), [reader]);
   for (const patch of [{ url: 'http://pilot.example' }, { url: 'https://pilot.example/path' },
     { url: 'https://user:password@pilot.example' }, { url: 'https://pilot.example/#fragment' },
-    { live: 'true' }, { refresh: undefined }, { tokenSecret: 'UNEXPECTED' }]) {
+    { live: 'true' }, { refresh: undefined }, { tokenSecret: 'UNEXPECTED' }, { branch: 'feature/no-channel' }]) {
     assert.throws(() => readContentReaders({ contentReaders: [{ ...reader, ...patch }] }));
   }
   assert.throws(() => readContentReaders({ deployments: [{ name: 'pilot' }], contentReaders: [reader] }), /duplicate reader/);
+});
+
+test('release reporting monitors the pilot once under main/live rather than its old branch', async () => {
+  const bytes = Buffer.from(JSON.stringify({ schema: 2, release: 'd'.repeat(64) }));
+  const report = await collectReport({
+    read: async url => {
+      if (url.endsWith('/build-info.json')) return Buffer.from(JSON.stringify({ version: 1, commit: 'a'.repeat(40),
+        codeFingerprint: 'b'.repeat(64), contentSchema: 2, dirty: false,
+        contentChannel: url.startsWith('https://arkpedia-dev.') ? 'dev-live' : 'live' }));
+      if (url.endsWith('/current.json')) return Buffer.from(JSON.stringify({ revision: 'c'.repeat(40),
+        release: 'd'.repeat(64), schema: 2, manifestSha256: createHash('sha256').update(bytes).digest('hex') }));
+      if (url.endsWith('/manifest.json')) return bytes;
+      return Buffer.from(`<script id="__NEXT_DATA__">${JSON.stringify({ page: new URL(url).pathname, props: {} })}</script>`);
+    },
+    github: async path => {
+      if (path.includes('/branches/')) return { commit: { sha: 'a'.repeat(40) } };
+      if (path.includes('/compare/')) return { behind_by: 0 };
+      if (path.includes('/actions/runs')) return { workflow_runs: [{ id: 1, name: 'Check', conclusion: 'success' }] };
+      return { check_runs: [] };
+    },
+  });
+  const pilots = report.targets.filter(t => t.name === 'arkpedia-cloudflare');
+  assert.equal(pilots.length, 1);
+  assert.equal(pilots[0].branch, 'main');
+  assert.equal(pilots[0].contentChannel, 'live');
+  assert.equal(pilots[0].status, 'healthy');
 });
 
 const source = 'a'.repeat(40);
