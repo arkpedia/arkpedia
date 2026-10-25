@@ -10,6 +10,11 @@ The existing pilot is on `arkpedia-cf.mocchibird.com`. Its D1 migrations 001–0
 have already been applied. Do not reset that database or rerun its ALTER statements.
 R2 page/audio caches never store account records or credentials.
 
+For PR #770, accounts stay on that pilot. Main integration does not enable accounts
+on `www.arkpedia.net` or move pilot users. No new D1 database, OAuth application,
+callback registration, secret or DNS change is required for this integration.
+Production hostname and database migration remain separate decisions.
+
 ## Saving and privacy
 
 Saving has three independent categories: personal settings/plans, pull history,
