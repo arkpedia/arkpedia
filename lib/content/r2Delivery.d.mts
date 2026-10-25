@@ -1,4 +1,4 @@
-export const DELIVERY_PREFIX: string;
+export declare const DELIVERY_PREFIX: string;
 export function deliveryBaseUrl(origin: string, reference: { manifestSha256: string; revision: string }, options?: { allowLocalHttp?: boolean }): string;
 interface DeliveryObject {
   size: number;
