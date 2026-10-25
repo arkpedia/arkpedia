@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { verifyPreviewCheck } from '../deploy/preview-check.mjs';
+import { inspectPreviewCheck } from '../deploy/preview-github.mjs';
 import { POLICY_FILES, policyFingerprint } from '../ci/browser-evidence.mjs';
 
 const source = 'a'.repeat(40), tree = 'b'.repeat(40), base = 'c'.repeat(40), baseTree = 'd'.repeat(40);
@@ -36,6 +37,8 @@ function fixture(lane = 'full') {
       selected, omitted: lane === 'none' ? inventory : [completion, mobile], counts: { passed: selected.length, skipped: 0, expectedFailed: 0 },
       caseMilliseconds: lane === 'none' ? 0 : 10, completionAudit: 'omitted-requires-full-census' } };
   const routes = {
+    [`repos/${repo}/pulls/10`]: { number: 10, state: 'open', draft: false,
+      base: { ref: 'main', repo: { full_name: repo } }, head: { sha: source, repo: { full_name: repo } } },
     [`repos/${repo}/git/commits/${source}`]: { tree: { sha: tree } },
     [`repos/${repo}/actions/runs/20`]: run,
     [`repos/${repo}/actions/runs/20/artifacts?per_page=100`]: { artifacts: [artifact], total_count: 1 },
@@ -49,7 +52,7 @@ function fixture(lane = 'full') {
     [`repos/${repo}/compare/${base}...${source}`]: { status: 'ahead', merge_base_commit: { sha: base } },
   };
   const query = path => { assert.ok(Object.hasOwn(routes, path), `unexpected API path: ${path}`); return routes[path]; };
-  return { request, routes, record, artifact, run, jobs, verify: () => verifyPreviewCheck(request, { query, readEvidence: () => record }) };
+  return { request, routes, record, artifact, run, jobs, query, verify: () => verifyPreviewCheck(request, { query, readEvidence: () => record }) };
 }
 
 test('full, selected and no-browser-impact previews use the existing proof validators', () => {
@@ -89,4 +92,33 @@ test('selected previews reject stale policy, partial inventories, bad ledger and
   ]) {
     const f = fixture('targeted'); mutate(f); assert.throws(f.verify, undefined, mutate.toString());
   }
+});
+
+test('read-only preflight re-reads the PR after proof validation and refuses a concurrent push', () => {
+  const f = fixture('targeted');
+  const request = { number: 10, source, runId: 20 };
+  const result = inspectPreviewCheck(request, { query: f.query, readEvidence: () => f.record });
+  assert.equal(result.lane, 'targeted');
+  let reads = 0;
+  const query = path => {
+    const result = structuredClone(f.query(path));
+    if (path.endsWith('/pulls/10') && ++reads === 2) result.head.sha = base;
+    return result;
+  };
+  assert.throws(() => inspectPreviewCheck(request, { query, readEvidence: () => f.record }), /moved/);
+  assert.equal(reads, 2);
+});
+
+test('read-only preflight refuses draft/foreign PRs and invalid IDs before touching artifacts', () => {
+  for (const change of [{ draft: true }, { state: 'closed' }, { base: { ref: 'dev' } },
+    { head: { sha: source, repo: { full_name: 'fork/arkpedia' } } }]) {
+    const f = fixture();
+    Object.assign(f.routes[`repos/${repo}/pulls/10`], change);
+    assert.throws(() => inspectPreviewCheck({ number: 10, source, runId: 20 }, {
+      query: f.query, readEvidence: () => { assert.fail('must not download'); },
+    }), /PR is draft/);
+  }
+  assert.throws(() => inspectPreviewCheck({ number: 10, source: 'main', runId: 20 }, {
+    query: () => assert.fail('must not call API'),
+  }), /expected PR number/);
 });

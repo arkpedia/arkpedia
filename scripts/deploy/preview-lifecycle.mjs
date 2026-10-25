@@ -79,6 +79,7 @@ export function validatePreviewOwner(owner) {
 export function recordPreviewOwner(plan, { version, publicBuild, healthy }) {
   requireValue(plan?.format === 1 && plan.repository === REPOSITORY && plan.worker === WORKER,
     'invalid publication plan');
+  requireValue(version !== plan.expectedVersion, 'provider did not produce a new preview version');
   requireValue(healthy === true && publicBuild?.version === 1 && publicBuild.commit === plan.source
     && publicBuild.dirty === false && publicBuild.contentChannel === 'live'
     && publicBuild.deploymentRole === 'staging' && publicBuild.contentSchema === plan.contentSchema

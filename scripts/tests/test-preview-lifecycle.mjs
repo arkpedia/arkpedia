@@ -35,6 +35,8 @@ test('A -> B -> B update retains the original rollback baseline; closing A canno
   assert.equal(retirement.targetVersion, baseline, 'never resurrect the previous PR');
   assert.equal(retirement.expectedVersion, second);
   assert.equal(retirement.worker, 'arkpedia-staging');
+  assert.throws(() => recordPreviewOwner(updated, { version: second, publicBuild: b.receipt.build, healthy: true }),
+    /new preview version/, 'an unchanged provider version must not masquerade as a new publication');
 });
 
 test('queued update refuses a source push, draft conversion, close or external deployment', () => {

@@ -42,6 +42,21 @@ It performs no deployment and takes an API reader and bounded JSON artifact read
 from the future trusted adapter. Failed, draft-only, stale-policy and orphaned
 baseline evidence is refused. It does not replace the standard CI impact planner.
 
+A read-only GitHub adapter is available from the trusted controller checkout:
+
+```sh
+node scripts/deploy/preview-github.mjs PR_NUMBER FULL_SOURCE_SHA CHECK_RUN_ID
+```
+
+This needs GitHub CLI authentication, Node and Python; no Cloudflare token. It reads
+the current ready main-targeted PR before and after verification, so a concurrent
+push is refused. Policy artifacts are downloaded directly into bounded memory and
+parsed as a single `browser-evidence.json` ZIP member without extracting files.
+Links, additional/duplicate files, unsafe names and oversized compressed/expanded
+payloads are rejected. Actual CF artifact 12583703976 was read successfully with
+248 selected/1,471 omitted cases; that proves the reader, not main authorization.
+An actual preflight of unfinished main run 40157028703 correctly refused approval.
+
 ## Existing explicit staging helper
 
 Migration work uses `wrangler.staging.jsonc` and the explicit helper
