@@ -2,14 +2,16 @@
 
 ## Preview controller implementation status
 
-The root-owned `codex/preview-controller` branch implements a controller candidate;
-its workflow is not yet released or enabled. The pure lifecycle policy in
+The controller foundation is released on main at 5010762b; automatic operation is
+still disabled pending scoped-credential and main-workflow acceptance. The pure lifecycle policy in
 `scripts/deploy/preview-lifecycle.mjs` has no provider I/O. The separate controller
 and fixed-target provider adapter can publish or retire only `arkpedia-staging`.
 Tests cover stale requests, foreign/expired build inputs, exact public identity,
 ownership changes, interrupted upload recovery and old-PR retirement races.
-The existing #765 artifact/remote proof remains tied to c49600f5; it is not proof
-that this newer controller source has been built or deployed.
+The original #765 proof remains tied to c49600f5. #768 subsequently proved source
+56ea1dc7 with a fresh Linux artifact, actual controller publication/update/retirement,
+20 browser cases and controlled actual failure recovery, then restored the original
+baseline. That used existing local OAuth, not the pending scoped CI token.
 
 One shared staging slot is the initial target. Publication and retirement must use
 the same non-cancelling workflow concurrency group. A persisted ownership record
@@ -81,6 +83,11 @@ on main, leave **publish** selected, and enter the PR number. The secret-free
 resolver checks the latest Check for the current ready PR source. It refuses a
 running/failed latest Check even if an older run was green, and verifies its exact
 full/selected proof before spending a build.
+
+Successful publication writes an **Open preview** link and the expected source to
+the run summary, alongside a link to check the build actually being served. The
+shared slot can later serve another PR; use the latest successful run for review.
+Retirement and unrelated-owner no-ops also report their outcome in the summary.
 
 A matching active build is reused. Otherwise the explicit request dispatches one
 **Build Cloudflare staging** run on main with the immutable source/PR/Check inputs
