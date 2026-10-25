@@ -150,7 +150,7 @@ endpoint. A private Worker binding is appropriate for server-only reads.
 
 ## Ordered milestones and acceptance
 
-Updated 2026-10-24, 23:50 UTC. Checked items have recorded evidence; implementation
+Updated 2026-10-25, 00:13 UTC. Checked items have recorded evidence; implementation
 and local proof are distinguished from deployment and production acceptance. Exact
 commits, run IDs and limitations are in the [progress log](system-simplification-progress.md).
 
@@ -176,6 +176,8 @@ commits, run IDs and limitations are in the [progress log](system-simplification
   production-domain rollback rehearsal.
 - [ ] Complete provider-dashboard deploy hooks, external incoming links and resource/
   cron inventory; source inspection alone cannot prove external configuration.
+  GitHub API confirms no repository webhooks on the app, data and both simulators;
+  provider-side Git integrations and other external consumers remain to be audited.
 - [ ] Record actual traffic, CPU, build minutes, object storage and current invoices.
   Initial CI timings and the 8,963-file/258,553,041-byte data inventory are recorded;
   account-wide cost and usage measurements remain open.
@@ -208,7 +210,8 @@ The existing local `cf:preview` command is not the remote feature-preview workfl
 - [x] Record baseline suite timings and protected behavior; identify relevant core,
   feature and affected layout-census journeys while retaining shared/unknown fallback.
 - [x] Implement and run quick draft checks without a website build/browser run or
-  reusable proof. Exact final-head quick Check 40142927680 passed.
+  reusable proof. Frozen policy-head quick Check 40142927680 passed; the later browser-only
+  measurement repair is undergoing full validation.
 - [x] Implement cumulative impact selection, full fallback and actual execution-ledger
   validation, retaining exact-tree reuse/resource limits and account-integrity checks.
   At #756 head 93195f54, 119 focused cases pass; a real bundled selected run has
@@ -219,7 +222,9 @@ The existing local `cf:preview` command is not the remote feature-preview workfl
 - [x] Implement one locked Vercel install plus exact built/public clean-identity gates,
   replacing the duplicate install that dirtied production's lockfile. Local tests pass.
 - [ ] Pass and merge the final full Linux first-policy validation for #756, and deploy
-  a publicly verified clean main identity. Current full Check 40143210893 is running;
+  a publicly verified clean main identity. First full Check 40143210893 exposed a proven pre-click measurement race,
+  reproduced locally on Linux. The single-file repair at 0f5f4b27 passed 30 Linux
+  stress runs and four desktop/mobile cases; new full Check 40145743982 is running.
   www main74 still reports dirty=true. A successful workflow alone is insufficient.
 - [ ] Complete the coordinated Cloudflare #761 policy adoption and deployed verification.
   Its stale sampler fixture was repaired; provider-logo delivery is being moved to

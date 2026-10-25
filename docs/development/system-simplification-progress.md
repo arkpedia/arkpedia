@@ -473,3 +473,43 @@ runtime content release to rewrite them to an image revision that predates the f
 CF #761's previous external-media failure occurred before browsers and its source
 remains held for this requested delivery change. No audit exception or fake external
 manifest entry is needed; no production data pointer has been advanced here.
+
+
+### Full-check diagnosis and bounded repair
+
+The first ready-state full Check 40143210893 finished with 1,460 passes, 217 skips,
+one failure and one dependent case not run. Its sole mobile archive Back failure
+reported an exact 788px mismatch. No code was merged. An isolated local Linux
+Chromium reproduction against bundled output reproduced it in two of 30 unchanged
+runs (28 passed, 40.9s). Instrumented concurrent runs reproduced three failures:
+the fixture sampled 3,728px before the action, Playwright scrolled the row to 2,940px
+before clicking, and the app correctly saved and restored 2,940px with 72 rows.
+The test compared the wrong departure point; no runtime restoration bug was shown.
+
+Commit 0f5f4b27c8c9d35c24538ef6ee5095b13c19e64c changes only the existing archive
+fixture to capture actual click-time departure. It retains the greater-than-500px
+depth, at-most-eight-pixel restoration, visible-event assertion, timeout and zero
+retries. Corrected Linux stress passed 30/30 across three workers in 37.8s; all four
+desktop/mobile navigation cases passed in 4.7s, with TypeScript/diff checks passing.
+The local build remains functional diagnostic output, not a deployable Windows
+artifact or Actions reuse proof. Native Linux browser dependencies were extracted
+inside E:/Projects/.tools; system packages were not changed. Both isolated servers
+(Windows 3309 and Linux 3310) were stopped. The user's 3192 browser/server was untouched.
+Evidence: arkpedia-ci-migration/.cache/scroll-repro-evidence.json and
+.cache/scroll-diagnostic/result-{0,2,4}.json. New-source full Check 40145743982 is live;
+the failed previous handle is retained and was not blindly rerun.
+
+The accounts owner froze CF #761 at 9cd820f1 with published provider image delivery,
+no global data-pin changes, data URIs or external-media audit exceptions. Its full
+Check 40144480430 is running. Local published-image eight-state checks, all 34 account
+cases and 12 representative shared-image/navigation journeys passed. If this source
+passes, its real Sync now explanation follow-up will also carry the exact fixture
+repair and exercise selected browser coverage/reuse. #759 stays held through that
+proof, avoiding an automatic CF baseline movement.
+
+A main-based documentation-only candidate aa4ab2c7 copies just plan/progress/deferred
+inventory and adds their docs index link, excluding all unreleased dev source in the
+historical progress branch. Thirty relative file links resolve. It remains local
+until the new CI policy lands, when it can verify the real docs/no-browser path.
+GitHub API webhook inventory returned zero repository hooks for app, data and both
+simulators; this does not audit provider-managed Git integrations or external links.
