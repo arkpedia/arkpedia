@@ -151,7 +151,7 @@ endpoint. A private Worker binding is appropriate for server-only reads.
 
 ## Ordered milestones and acceptance
 
-Reviewed 2026-10-25, 12:42 UTC. **30 of 52 acceptance items are complete and checked.**
+Reviewed 2026-10-25. **32 of 52 acceptance items are complete and checked.**
 The items differ substantially in size; this is not a percentage of time remaining.
 Completed controller implementation and real lifecycle proof are now separate from
 the remaining CI credential/activation gate. Exact evidence and limitations are in
@@ -177,8 +177,10 @@ status is healthy. Accounts/D1/OAuth/DNS configuration is unchanged.
 
 PR775 separately prepares the disabled exact-main release owner, resource checks
 and ownership-aware recovery, together with the necessary two-reader content gate.
-It is not deployed or enabled. Its own full CI/preview, explicit scoped credential
-approval and disabling/draining the old native build owner precede merge/activation.
+It is not deployed or enabled. Its exact full CI/preview passed. The approved90-day
+single-Worker credential is stored inARKPEDIA_PILOT_API_TOKEN; scoped read access
+was verified. Private account baseline/held-client preparation and disabling/draining
+the old native build owner still precede merge/activation.
 Preserved dev/Cloudflare branches and feature work remain; do not force the legacy
 sync over its reviewed conflicts. R2 app code is merged but remote R2 publication,
 measured comparison and retention/activation remain open.
@@ -449,8 +451,8 @@ PR775's checked-main pilot owner is not merged or activated. Preceding source093
 passed full CI; final sourcef0577500 corrects same-source artwork rebuild publication
 and passed full Check40198085718. Native producer40200117453 and automatic preview
 publication40200317783 passed, followed by21 HTTP cases and12 actual browser journeys.
-Credential approval, native
-build-owner retirement, private account baseline and actual authenticated old-client
+The approved scoped credential is stored. Native build-owner retirement, private
+account baseline and actual authenticated old-client
 acceptance remain mandatory before controlled first release. Canonical D1/OAuth/DNS
 configuration remains unchanged.
 

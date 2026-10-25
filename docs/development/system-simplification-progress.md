@@ -23,11 +23,11 @@ The main-based hosting build is prepared; the pilot still runs its existing bran
 and dev-live content. PR775 prepares the disabled checked-main release owner and
 registers it as an additional main data reader. Publication must wait for both
 Vercel and Cloudflare's fingerprints, not merely their schema numbers. Its release
-step alone receives a future scoped provider token; the API-only completion job
+step alone receives the scoped provider token; the API-only completion job
 resumes held data after both readers match. The pilot's refresh:false prevents
 sending it Vercel's refresh secret; actual data propagation/refresh remains a gate.
-No new credential or build-owner setting is enabled. Merge775 only after its own
-exact CI/preview, explicit credential approval, and disabling/draining the old
+The approved credential is stored; the release flag and native build-owner setting
+remain unchanged. Merge775 only after disabling/draining the old
 native production build owner, since main data will then wait for the first pilot
 release. Actual signed-in/old-tab accounts and analytics acceptance remain required.
 
@@ -49,8 +49,15 @@ publication40200317783 passed from trusted mainb9ffe6df. Actual isolated version
 All21 HTTP identity/live-content/alias/privacy cases and12 actual browser journeys
 across desktop/mobile dark/light pass. Unconfigured account APIs remain503/private/
 no-store with no cookies. This does not prove configured OAuth/D1 or old-client
-acceptance. The expiring single-Worker token proposal remains unsubmitted.
-Prepared code is not activation; no new credential or production build owner changed.
+acceptance. Under explicit maintainer approval, the90-day arkpedia-pilot-ci token
+was created with Individual Workers Editor access only to existing Workerarkpedia.
+It expires2027-01-23 and was stored asARKPEDIA_PILOT_API_TOKEN at15:26:22 UTC.
+A scoped read-only deployments request succeeded; GitHub confirms the secret name
+and timestamp. Encrypted local transfer kept the value out of chat/logs; temporary
+bridge keys/ciphertext were removed. This proves credential storage/read access,
+not deployment permissions or account acceptance. Prepared code is not activation;
+the pilot version, native build owner, release flag, D1 and DNS remain unchanged.
+The accounts owner is preparing the private baseline/held-old-client milestone.
 
 The maintainer confirmed no other known simulator consumers. A fresh18-repository
 source audit found no additional integration; both simulator hook/deployment lists
@@ -74,9 +81,25 @@ four files, with a regression proving every stage is included once. Timeouts,
 assertions and matrix coverage remain unchanged. All601 focused cases pass on local
 Windows Node24 and Linux Node22.23.3; the existing five version/licence/attribution
 tests pass too. Its final combined sourcee23c78b2 also includes PR18's canonical
-links, so one full matrix40202641007 can verify the final tree. The intermediate
+links. Matrix40202641007 passed seven jobs, but Windows Node22 shard0 timed out the
+separate monolithic file-backed-stage test after9,691 passes, zero failed assertions
+and one cancellation. Source1ed1b3d4 partitions all596 file-backed stages into four
+groups of149, preserving every assertion and ten-second battle simulation. Its exact
+partition and affected groups pass on Windows Node24 and Linux Node22.23.3:10 tests,
+zero failures/cancellations/skips. The changed source requires fresh hosted CI. The intermediate
 sourcec79e47f7 run was superseded by that source change; PR18 is held as a draft.
 No gameplay, dependency, licence or attribution changed. Full hosted proof is pending.
+
+Draft PR777/source2746b9e4 prepares an optional public-content namespace inside the
+existing front edge Worker. Its committed config still binds onlySITE: no new
+Worker, bucket, credential, binding, route or app setting is activated. All32 local
+edge/reader/integration tests, typecheck and Linux Wrangler dry-run pass. Draft
+Check40204948692 passed2,539 application/script cases, three intentional skips and
+ten Python suites; it is not full preview/build acceptance. The accounts owner's
+independent source review found no account/privacy blocker: bound private requests
+retain their request bodies/cookies/headers and do no R2 work. Remote activation
+still requires approved public-only snapshots, CAS/cache/failure/old-client/rollback
+proof and measured cost/latency. Keep777 draft until the pilot release is accepted.
 
 The checklist is32/52. R2 delivery is not activated remotely. DNS, permanent branch
 retirement and Vercel retirement remain behind their recorded gates. Detailed entries
