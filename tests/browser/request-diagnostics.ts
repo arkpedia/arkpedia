@@ -1,4 +1,5 @@
 import { test as base, type Request } from '@playwright/test';
+import { writeFile } from 'node:fs/promises';
 
 export { expect } from '@playwright/test';
 export type { Page } from '@playwright/test';
@@ -49,11 +50,16 @@ export const test = base.extend<{ requestDiagnostics: void }>({
             new Promise(resolve => { timer = setTimeout(() => resolve({ timedOut: true }), 1000); }),
           ]);
         } finally { clearTimeout(timer); }
-        await info.attach('request-diagnostics', { contentType: 'application/json', body: Buffer.from(JSON.stringify({
+        const diagnostics = JSON.stringify({
           elapsedMs: Date.now() - began, page: diagnosticUrl(page.url()), domContentLoaded, loaded, documentState,
           pending: [...pending.values()].map(({ started, ...request }) => ({ ...request, ageMs: Date.now() - started })),
           failed, httpErrors,
-        }, null, 2)) });
+        }, null, 2);
+        // CI uploads test-results, not a report containing in-memory attachments.
+        // Keep the sanitized timing evidence inside that uploaded directory too.
+        const file = info.outputPath('request-diagnostics.json');
+        await writeFile(file, diagnostics);
+        await info.attach('request-diagnostics', { contentType: 'application/json', path: file });
       }
       page.off('request', onRequest); page.off('requestfinished', onFinished); page.off('requestfailed', onFailed);
       page.off('response', onResponse); page.off('domcontentloaded', onDom); page.off('load', onLoad);
