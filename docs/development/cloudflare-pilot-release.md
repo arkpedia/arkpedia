@@ -54,15 +54,18 @@ require `private`. Unbound staging tests do not prove real OAuth/D1 acceptance.
 1. Finish the main-based hosting PR's exact CI and isolated preview acceptance.
    Preserve the original pilot version/build identity and the accounts owner's
    applied migrations001–003 and archive/CAS/nonce/ownership contracts.
-2. Merge the disabled release workflow through its own reviewed Check. Confirm the
+2. Finish this workflow's own reviewed Check and isolated preview. Confirm the
    current public Vercel release remains healthy. Keep main stable during the first
    pilot release and configured-account acceptance.
-3. With explicit approval, create the Worker-scoped expiring credential and GitHub
+3. Before merging, with explicit approval, create the Worker-scoped expiring credential and GitHub
    secret. Verify the old native production build owner is disabled; record that
-   provider observation. Leave relay and staging settings unchanged.
-4. Enable `ARKPEDIA_PILOT_RELEASES_ENABLED` and explicitly dispatch this workflow on
-   main with the successful current-main push Check ID. This is a controlled pilot
-   release, not public-domain cutover. Retain its receipt and actual deployed proof.
+   provider observation, let any in-flight native builds finish, then recheck the
+   actual version. Leave relay and staging settings unchanged.
+4. Enable `ARKPEDIA_PILOT_RELEASES_ENABLED` and merge the reviewed workflow. Its
+   successful current-main push Check starts the controlled pilot release. If the
+   automatic handoff does not start, inspect it before explicitly retrying on main
+   with that Check ID. This is not public-domain cutover. Retain the receipt and
+   actual deployed proof. Retrying an already healthy exact release reuses it.
 5. Verify real signed-in state, auto-sync, provider linking and old/new-tab archive
    union/revisions with the accounts owner. Verify actual analytics hostname and
    ingestion, content/old-tab compatibility and the affected browser journeys.
@@ -94,6 +97,22 @@ nor deleted, and recovery is not an account-data migration rollback. Cloudflare 
 no atomic cross-client compare-and-swap here: the workflow lock plus disabled native
 owner prevents routine competing releases, while actual owner checks guard known
 manual changes. Avoid manual deployments during a release.
+
+`config/production.json` registers the pilot as an additional main content reader,
+not a Vercel upload target. Publication waits for both Vercel and this reader to
+serve the generator's exact fingerprint/channel/schema. Consequently, merging
+this change holds new main data publication until the first pilot release succeeds;
+prepare the approved credential and disable/drain the old build owner before that
+merge. Readers continue serving the previously published data while it is held.
+The separate API-only completion job resumes a held release only after all readers
+match and main remains unchanged. If Vercel finishes later, its existing held-release
+retry remains responsible; the content workflow always rechecks before publication.
+
+The pilot currently has no release-refresh credential. Its reader explicitly has
+`refresh: false`, so the publisher never sends the Vercel refresh secret to it.
+The pilot uses its normal ISR intervals for data freshness. Evaluate authenticated
+refresh and actual propagation latency before final production migration; this
+change does not silently create or share another credential.
 
 The small success/failure receipt is retained for seven days. It contains public
 build/version provenance and recovery outcome, not secret values or account data.

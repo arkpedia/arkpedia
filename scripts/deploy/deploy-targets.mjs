@@ -56,6 +56,25 @@ export function readDeployments(config = JSON.parse(fs.readFileSync(path.join(ro
   });
 }
 
+/** Additional consumers of published content, never Vercel upload targets. */
+export function readContentReaders(config = JSON.parse(fs.readFileSync(path.join(root, 'config/production.json'), 'utf8'))) {
+  const readers = config.contentReaders ?? [];
+  if (!Array.isArray(readers)) throw new Error('config/production.json contentReaders must be a list');
+  const seen = new Set((config.deployments ?? []).map(entry => entry.name));
+  return readers.map((entry, index) => {
+    const where = `config/production.json contentReaders[${index}]`;
+    if (!NAME.test(entry?.name ?? '') || seen.has(entry.name)) throw new Error(`${where}: invalid or duplicate reader name`);
+    seen.add(entry.name);
+    const url = new URL(entry.url);
+    if (url.protocol !== 'https:' || url.pathname !== '/' || url.search || url.hash || url.username || url.password) throw new Error(`${where}: reader needs a bare https origin`);
+    if (!BRANCH.test(entry.branch ?? '')) throw new Error(`${where}: reader needs a branch`);
+    pointerForBranch(entry.branch);
+    if (typeof entry.live !== 'boolean' || typeof entry.refresh !== 'boolean') throw new Error(`${where}: live and refresh must be booleans`);
+    if (Object.keys(entry).some(key => !['name', 'url', 'branch', 'live', 'refresh'].includes(key))) throw new Error(`${where}: unexpected content reader field`);
+    return { name: entry.name, url: url.origin, branch: entry.branch, live: entry.live, refresh: entry.refresh };
+  });
+}
+
 /** The live deployments of the branch whose release a content run publishes:
  *  ARKPEDIA_RELEASE_BRANCH, which Prepare content release's channel step sets
  *  (scripts/content/channel.mjs), else main. The release gate asks them what they run
@@ -63,7 +82,7 @@ export function readDeployments(config = JSON.parse(fs.readFileSync(path.join(ro
  *  refresh-pages.mjs). One not switched on yet, or following another branch, runs other code
  *  and reads another channel's release by design: main's release asks www.arkpedia.net, the dev
  *  channel's arkpedia-dev.vercel.app. */
-export function releaseDeployments(env = process.env, deployments = readDeployments()) {
+export function releaseDeployments(env = process.env, deployments = [...readDeployments(), ...readContentReaders()]) {
   const branch = env.ARKPEDIA_RELEASE_BRANCH || RELEASE_BRANCH;
   return deployments.filter(deployment => deployment.live && deployment.branch === branch);
 }

@@ -69,3 +69,27 @@ jobs:
           include-hidden-files: true
           if-no-files-found: ignore
           retention-days: 7
+
+  resume-content:
+    needs: release
+    if: success()
+    runs-on: ${{ vars.ARKPEDIA_LIGHT_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: write
+      issues: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Resume held content only when every main reader matches
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SOURCE: ${{ github.event.workflow_run.head_sha || github.sha }}
+        run: node scripts/deploy/resume-pilot-content.mjs "$RELEASE_SOURCE"

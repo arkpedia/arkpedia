@@ -36,6 +36,11 @@ test('failed initial or final approval and failed preflight never deploy or roll
   await assert.rejects(() => publish(unhealthy), /unhealthy baseline/);
   assert.ok(!unhealthy.calls.includes('deploy') && !unhealthy.calls.includes('recover'));
 });
+test('an already healthy exact release is reused without uploading another Worker version', async () => {
+  const f = fixture(); f.provider.health = async () => ({ build });
+  assert.equal((await publish(f)).action, 'reused');
+  assert.deepEqual(f.calls, ['approve', 'observe', 'approve', 'observe']);
+});
 test('post-activation failure attempts ownership-aware recovery but still fails the release', async () => {
   const f = fixture(); let health = 0;
   f.provider.health = async () => { if (++health === 2) throw new Error('new version unhealthy'); };
@@ -101,4 +106,11 @@ test('actual workflow expression refuses disabled, foreign, failed and non-main 
   assert.equal(allowed({}, { conclusion: 'failure' }), false);
   assert.equal(allowed({}, { head_branch: 'dev' }), false);
   assert.equal(allowed({}, { head_repository: { full_name: 'fork/arkpedia' } }), false);
+});
+test('content completion has API-only permission and no provider credential, install or rebuild', () => {
+  const job = yaml.load(readFileSync('.github/workflows/cloudflare-pilot-release.yml', 'utf8')).jobs['resume-content'];
+  assert.equal(job.needs, 'release');
+  assert.equal(job.if, 'success()');
+  assert.deepEqual(job.permissions, { contents: 'read', actions: 'write', issues: 'read' });
+  assert.ok(job.steps.every(s => !s.env?.CLOUDFLARE_API_TOKEN && !/npm|cf:build|wrangler/.test(s.run ?? '')));
 });

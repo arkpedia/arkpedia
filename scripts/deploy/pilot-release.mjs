@@ -3,7 +3,8 @@ import { execFileSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { approvePilotRelease } from './pilot-release-gate.mjs';
-import { createPilotProvider } from './pilot-release-provider.mjs';
+import { createPilotProvider, PILOT } from './pilot-release-provider.mjs';
+import { readContentReaders } from './deploy-targets.mjs';
 import { readPilotConfig, readPilotBuild } from './cloudflare-pilot.mjs';
 import { codeFingerprint } from '../content/code-fingerprint.mjs';
 
@@ -17,11 +18,15 @@ export async function publishPilotRelease({ source, checkRun, build, approve, pr
     && build.contentChannel === 'live' && build.deploymentRole === 'production', 'build differs from release contract');
   await approve();
   const previous = provider.observe();
-  await provider.health(previous);
-  const owner = { source, fingerprint: build.codeFingerprint, checkRun, previousVersion: previous.id };
+  const previousHealth = await provider.health(previous);
   // Revalidate after preflight network reads, directly before the provider's own
   // resource/version check. The workflow holds its production lock throughout.
   await approve();
+  if (previousHealth?.build?.commit === source && previousHealth.build.codeFingerprint === build.codeFingerprint) {
+    requireValue(provider.observe().id === previous.id, 'pilot changed during reuse health checks');
+    return { action: 'reused', source, fingerprint: build.codeFingerprint, checkRun, version: previous.id, healthy: true };
+  }
+  const owner = { source, fingerprint: build.codeFingerprint, checkRun, previousVersion: previous.id };
   try {
     const current = provider.deploy(owner);
     await provider.health(current);
@@ -47,6 +52,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     requireValue(/^[a-f0-9]{40}$/.test(source), 'invalid source');
     requireValue(execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim() === source, 'checkout differs from checked source');
     readPilotConfig();
+    requireValue(readContentReaders().some(reader => reader.url === PILOT.origin && reader.branch === 'main' && reader.live),
+      'pilot must be registered in the main content publication gate');
     const build = readPilotBuild(source, codeFingerprint(source));
     const github = path => JSON.parse(execFileSync('gh', ['api', path], {
       encoding: 'utf8', timeout: 30_000, maxBuffer: 4_000_000, stdio: ['ignore', 'pipe', 'pipe'],
