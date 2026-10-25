@@ -232,7 +232,13 @@ Remote R2 publication, measured comparison and retention/activation remain open.
   by CI40172881817 and retired by CI40173445887 to verified baseline591c/19b.
   Independent bindings/ownership/noindex health and deployed account journeys pass.
   ARKPEDIA_PREVIEWS_ENABLED is now true, verified07:45:06 UTC; the next legitimate
-  feature lifecycle must still prove automatic completion and cleanup events.
+  PR771 then passed scoped retained-artifact publication 40184205783 and twelve
+  deployed browser journeys. Its actual automatic closed-PR run 40184536617 retired
+  the owned preview to verified baseline591c/19b, leaving pilot066ea33d unchanged.
+  Automatic build-completion publication did not start; separate repair PR772
+  replaces that implicit handoff with an API-only explicit notifier. Its CI and
+  an actual subsequent automatic publication remain required, so this composite
+  item stays open.
 
 [Preview behavior](https://developers.cloudflare.com/workers/previews/),
 [resource/service isolation limitations](https://developers.cloudflare.com/workers/previews/resources/),
@@ -332,6 +338,14 @@ The existing local `cf:preview` command is not the remote feature-preview workfl
   costs against GitHub delivery; define safe retention/reachability before cleanup.
   Include the existing build-scoped OpenNext ISR cache separately from immutable
   data objects, preserving active, rollback and old-tab references.
+  A local two-release measurement on 2026-10-25 found 382,474,086 bytes in the
+  retained union and 121,201,650 incremental bytes for 207 objects. All 206 changed
+  page bodies changed only `videos`, yet repeated one unchanged 559,765-byte
+  `__contentTables` block (115,311,590 serialized bytes across those pages).
+  Evaluate a shared immutable table representation as a separately versioned
+  compatibility change after the current delivery baseline is proven. Retain
+  schema-2 readers/releases and verify old-tab hydration, checksum validation,
+  fallback and rollback; these measurements do not authorize deleting old objects.
 - [ ] Promote only if the app, compatibility, reliability and budget gates pass; retire
   duplicate compiled channels/pointers only after consumers move.
 - [ ] Decide any media-storage migration family by family. Current provider logos are

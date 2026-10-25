@@ -1,4 +1,22 @@
-# Migration progress: first staging proof
+# Arkpedia system simplification progress
+
+## Current checkpoint — 2026-10-25
+
+Main is `9b528897` after accepted PR771. Its exact full Check and native producer
+passed, as did scoped retained-artifact publication, eight deployed HTTP checks and
+twelve desktop/mobile, dark/light browser journeys. Automatic owned-close run
+40184536617 passed; independent provider inspection confirms the original free
+staging baseline591c/19b and unchanged pilot066ea33d/de829d1e. Public deployment
+40184554642 is still running and is not yet declared live.
+
+Automatic completion publication remains incomplete: the bot-dispatched producer
+did not emit the expected callback. Repair PR772 has42 passing focused tests and
+lint; its own full CI is running. R2 delivery is not activated remotely. DNS,
+permanent branch retirement, simulator rename/archive and Vercel retirement remain
+behind their documented gates. The detailed entries below retain dated evidence;
+older source/version/branch references describe their own historical checkpoint.
+
+## Historical first staging proof
 
 Observed 2026-10-24. Work is isolated in `E:/Projects/arkpedia-release-ux`, branch
 `codex/system-simplification`, so the separate cloud-account work in the main checkout
@@ -1104,3 +1122,184 @@ empty fields/no-EP values.42 operator/client-data boundary regressions, typechec
 and changed-file lint pass. A fresh native build/runtime/browser gate is required;
 no assertion or Worker budget was relaxed. No production/account/DNS setting
 changed. The failed local runtime stopped before browser acceptance began.
+
+### Required staging prerequisite discovered by native acceptance
+
+PR771 head2249a983 still contains the eager operator finalizer. Even if its Node
+full Check40178029240 passes, it is not sufficient to accept a native Worker
+preview. Verify the corrected a93437e9 native runtime first, then carry only its
+required operator helper/page/regression into the R2 source and test the final
+composition. Add operator detail to provider health coverage: the current trusted
+controller checks home/story/schedule/base and would miss this cold operator500.
+No preview may be accepted from superseded green proof. This is a required hosting
+compatibility correction, not promotion of an unrelated unreleased product feature.
+
+### Second full CI result and scoped trace follow-up
+
+Check40178029240 on2249a983 finished with1498 browser passes,217 intentional
+skips,one failure andone dependent case not run. This time the desktop light
+first-tap journey timed out focusing the roaming pet after returning home.
+The newly persisted sanitized request JSON is present in artifact12593512175:
+homepage page-data and two local JavaScript requests remain pending for about
+107 seconds, the home document is complete, and the pet is absent. No failed
+chibi-model request is recorded. This evidence does not establish a root cause.
+
+R2 source has a local, unpushed trace change limited to the two affected public
+chibi lifecycles (eight theme/viewport cases). A dummy intentional failure proves
+both sanitized JSON and trace ZIP persist, without changing assertions/timeouts/
+retries; the privacy regression passes. Two-theme focused repetitions of both
+original journeys are running locally in session42624. No new remote full run
+or preview was started. Final composition still requires the native operator fix
+and operator health check before its fresh full gate.
+
+The operator health candidate passes9 provider regressions, including500 and
+missing-noindex rejection. It is retained under.cache/operator-health-candidate;
+tracked controller files were restored to the native build source while that
+build finishes. Accounts owner was informed; no new account work was requested.
+
+### Corrected native acceptance and final PR771 composition
+
+Actual production-role native source a93437e9952652da4e5d18514b1f84712a726496
+passes21 workerd HTTP checks and20 desktop/mobile, dark/light render/hydration/
+layout browser cases, with zero page errors. Operator/Amiya now renders200 without
+the source filesystem read.13 aliases preserve query parameters; three account
+APIs without secrets return private/no-store503 without cookies. Handler18,754,470
+bytes remains below the unchanged19 MB budget. Two representative screenshots
+were inspected; general media completeness and real production account acceptance
+remain separate gates. The initial browser harness expected an explicit dark
+attribute; it was corrected to the documented absent-attribute dark tokens. Both
+native acceptance servers completed/stopped; user3192 was untouched.
+
+The retained live staging baseline19b independently returns200/noindex for Amiya.
+This public endpoint check does not establish cold-cache behavior. Native proof
+and the five required operator/runtime-health files were composed into PR771 with
+the scoped trace improvement.110 focused composition tests and typecheck pass;
+the exact operator files have passing changed-file lint. Local chibi investigation
+remains7/8, with a retained trace showing a cold development-server Spine chunk
+pending at the unchanged expectation; the CI navigation cause is still unproven.
+
+Final source5fc921481a3d61b5a79f06267a562d61df36af5d is pushed, with a rewritten
+PR title/body covering the actual final scope and failed evidence. Its single
+fresh full Check40181345162 is running. No older green result or separate local
+artifact may substitute for that source's own full gate and isolated producer.
+No preview, main merge, provider change, resource change or production deployment
+has been performed for this final composition.
+
+
+### CI observational window, 2026-10-25
+
+Read-only inventory captured all 28 pull-request Check runs created since midnight
+UTC in `.cache/ci-window-20261025.json`, with job/step timestamps and source policy
+fingerprints. Cancelled, pending, early failures and unknown policy objects remain
+separate. This migration/repair-heavy window is not an ordinary-feature benchmark;
+the plan's representative feature timing gate remains open.
+
+Within the current policy, two successful full runs took 26m19s and 28m45s
+(median 27m32s); the browser phase median was 17m22s. Three successful runs with
+browser regressions omitted took 9m55s–12m03s (median 10m17s). Their median unit
+tests and content compilation each took 1m49s, app build 1m29s, live-content checks
+42s and content rollback 1m05s. These are observed phases, not independent additive
+savings estimates. A targeted run exists under an older policy and is excluded
+from this same-policy comparison.
+
+Next refinement should classify changes before expensive content/build setup and
+retain compatibility/rollback checks for changes that affect those systems.
+The current R2 integration does affect them and retains its full gate. No workflow
+or gate was changed by this measurement. Check40181345162 for source5fc92148 remains
+running after passing unit tests, content validation, types, lint and app build;
+no preview or release has been claimed.
+
+### Loaded media on the retained native candidate
+
+The existing a93437e9 native artifact was reused without rebuilding or deploying.
+Six browser cases (home, story list and Amiya at 1440/390 widths, default dark)
+completed with every viewport-intersecting image loaded, zero broken visible
+images and zero page errors. The loaded desktop Amiya screenshot was inspected.
+Evidence is `.cache/pilot-native-media-result.json` and its six screenshots.
+This covers the initial viewport, not every slide, scroll position, theme, audio,
+video or all-site media parity. An initial harness counted horizontally offscreen
+lazy slides and timed out on desktop home; that observation is retained separately
+as `pilot-native-media-initial-visibility-result.json`. The harness was corrected
+to intersect both viewport axes and to use Playwright's timeout argument correctly;
+no product source or limits changed. Local native server3332 was stopped; user3192
+was untouched. PR771's own exact-source full browser run remains pending.
+
+### Measured data retention and repeated content tables
+
+Using the two already verified local source snapshots, manifest-only reachability
+counts 9,057 unique objects / 382,474,086 bytes for their retained union. The second
+snapshot adds207 objects /121,201,650 bytes; retaining the first as rollback adds
+207 objects /121,292,385 bytes beyond the second. Counts include the original
+manifest objects. No remote list, read, write or delete was performed.
+
+All206 changed page bodies were independently length/hash verified and compared.
+Only their `videos` props differ. Each embeds the same unchanged `__contentTables`
+value, whose compact serialized size is559,765 bytes, repeated115,311,590 bytes
+across those pages. This identifies a concrete shared-table format opportunity,
+not an implemented optimization or a representative daily growth forecast.
+Evidence: `.cache/r2-retention-measurement.json`,
+`.cache/r2-update-shape-analysis.json` and their reproducible local scripts.
+Any future format change needs a separate compatibility preview; the current
+schema-2 transport proof stays intact. Active, rollback, in-flight and supported
+old-tab manifests remain protected. No expiry policy or cleanup is activated.
+
+### PR771 exact full gate and automatic preview request
+
+Full Check40181345162 passed for source5fc921481a3d61b5a79f06267a562d61df36af5d,
+tree6d18fc61c2db5ad08fce3a41bbcbba8ca6a91078:1500 browser passes,217 intentional
+skips,1717 selected identities,0 omitted. The existing read-only preview verifier
+accepted full-proof artifact12595455114. No rerun or substituted artifact was used.
+
+One trusted-main preview request40183242211 succeeded and dispatched secret-free
+producer40183261984 on controller main9796b663, for that exact source/Check.
+The producer is running; its completion must invoke the automatic publication
+path. No second manual publication is requested. Fresh read-only provider checks
+confirmed free baseline591c4728/source19b51e89 and unchanged pilot066ea33d/source
+de829d1e before publication. Deployed acceptance and automatic close retirement
+remain pending. Main and remote R2 activation are unchanged.
+
+### Missing completion callback and separate repair
+
+Producer40183261984 passed with archive artifact12595465491 and receipt12594733390.
+Its archive SHA256 is867833941ae11e2706ba62fe76589869d459753c03302946e0008daf0294ba68;
+the staging code fingerprint is12c7c886a22fffea9d525581473e6f4a4535db023acb4e77a98bb4d93e10a47b.
+Actual workflow inventories after completion contain no callback. The producer
+actor is github-actions[bot], the enable flag remains true and workflow name/branch
+match. The automatic event path has not passed. GitHub's GITHUB_TOKEN follow-on
+event restriction and the existing sync notifier support explicit dispatch.
+
+Separate PR772/source2206d791 adds one API-only notifier after the build and a
+completed-run input that reuses trusted producer/receipt/current PR/Check/artifact
+verification. It preserves the read-only build and provider isolation.42 focused
+tests and changed-script lint pass; Check40183952914 is running. Initial broader
+local tests could not load missing dependencies; after reusing the existing local
+installation through a junction, all six suites passed. No new credential was
+needed. The repair is stacked on green PR771 and must follow its acceptance.
+
+Explicit retained-artifact recovery40183920211 failed at Cloudflare's
+arkpedia-staging/assets-upload-session endpoint with unknown error10013.
+Read-only provider observation afterwards confirms original staging baseline591c
+and unchanged pilot066ea33d. One controlled same-artifact retry was requested after
+that observation; no native rebuild, credential expansion or automatic-success
+claim was made. Deployed browser acceptance remains pending.
+
+### PR771 deployed acceptance and main integration
+
+Controlled retained-artifact retry 40184205783 passed, publishing provider version
+`db9369de-43f8-43b3-928c-5bf3d9975dcb` with owner PR771 and exact source `5fc92148`.
+The archive independently passed the trusted checksum/config/source verifier.
+Eight deployed HTTP checks passed: five noindex app pages reading pinned published
+GitHub content and three private/no-store account APIs returning 503 without
+cookies. All twelve actual browser journeys passed: directory and late event
+archive Back/scroll restoration, plus story progress persistence, at both themes
+and widths. The existing test assertions were reused. Pilot version `066ea33d`
+and its source remained unchanged. This proves default app delivery on the isolated
+preview, not activation or remote publication of canonical data on R2.
+
+PR771 merged as `9b52889750ae9fe5aeab247e89321c818a928ad8`. Main Check 40184536414
+passed by exact-tree reuse; public deployment 40184554642 and automatic closed-PR
+retirement 40184536617 are running. Production identity, deployed browser journeys
+and release-status checks remain required before calling this release live.
+Automatic completion publication remains unproven and belongs to repair PR772,
+whose own Check 40183952914 is in its full browser phase. No DNS or pilot deployment
+change, branch retirement, repository rename or remote R2 activation was made.
