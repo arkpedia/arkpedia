@@ -71,6 +71,7 @@ test('the release asks each live deployment, and a failure only warns', async ()
     { name: 'up', url: 'https://up.example', live: true },
     { name: 'down', url: 'https://down.example', live: true },
     { name: 'waiting', url: 'https://waiting.example', live: false },
+    { name: 'reader-only', url: 'https://pilot.example', live: true, refresh: false },
   ];
   const fetch = async (url: string, init: { method: string; headers: Record<string, string> }) => {
     calls.push(`${init.method} ${url} ${init.headers.authorization}`);

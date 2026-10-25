@@ -137,7 +137,7 @@ export function renderReport(report) {
 export async function collectReport(dependencies = {}) {
   const [production, channels, config] = await Promise.all(['config/production.json', 'config/content-channels.json', 'config/release-status.json'].map(readConfig));
   const targets = [
-    ...production.deployments.filter(target => target.live).map(({ name, url, branch }) => ({ name, url, branch, contentChannel: channels.channels[branch].pointer })),
+    ...[...production.deployments, ...(production.contentReaders ?? [])].filter(target => target.live).map(({ name, url, branch }) => ({ name, url, branch, contentChannel: channels.channels[branch].pointer })),
     ...config.additionalTargets,
   ].map(target => ({ ...target, smokePaths: config.smokePaths }));
   return { observedAt: new Date().toISOString(), targets: await Promise.all(targets.map(target => inspectTarget(target, dependencies))) };

@@ -1,0 +1,95 @@
+name: Release Cloudflare pilot
+
+on:
+  workflow_run:
+    workflows: [Check]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      check_run:
+        description: Successful push Check for the exact current main source
+        required: true
+        type: string
+
+# Disabled until the candidate is accepted, the existing native production build
+# integration is disabled, and the Worker-scoped credential is explicitly approved.
+concurrency:
+  group: arkpedia-pilot-production
+  cancel-in-progress: false
+  queue: max
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  release:
+    if: >-
+      vars.ARKPEDIA_PILOT_RELEASES_ENABLED == 'true' && github.ref == 'refs/heads/main' &&
+      (github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.head_repository.full_name == github.repository))
+    runs-on: [self-hosted, Linux, X64, arkpedia-nas-build]
+    timeout-minutes: 45
+    env:
+      NEXT_TELEMETRY_DISABLED: '1'
+      WRANGLER_SEND_METRICS: 'false'
+      ARKPEDIA_PILOT_RELEASES_ENABLED: ${{ vars.ARKPEDIA_PILOT_RELEASES_ENABLED }}
+      RELEASE_SOURCE: ${{ github.event.workflow_run.head_sha || github.sha }}
+      RELEASE_CHECK: ${{ github.event.workflow_run.id || inputs.check_run }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Authorize the exact successful current-main Check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/deploy/pilot-release-gate.mjs "$RELEASE_CHECK" "$RELEASE_SOURCE"
+      - name: Install pinned dependencies without deployment credentials
+        run: npm ci
+      - name: Build once for the existing pilot without deployment credentials
+        run: npm run cf:build
+      - name: Revalidate and publish only the existing pilot
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.ARKPEDIA_PILOT_API_TOKEN }}
+        run: node scripts/deploy/pilot-release.mjs "$RELEASE_CHECK" "$RELEASE_SOURCE"
+      - uses: actions/upload-artifact@v7
+        if: always() && steps.release.outcome != 'skipped'
+        with:
+          name: pilot-release-${{ github.run_id }}
+          path: .cache/pilot-release-receipt.json
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 7
+
+  resume-content:
+    needs: release
+    if: success()
+    runs-on: ${{ vars.ARKPEDIA_LIGHT_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: write
+      issues: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Resume held content only when every main reader matches
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SOURCE: ${{ github.event.workflow_run.head_sha || github.sha }}
+        run: node scripts/deploy/resume-pilot-content.mjs "$RELEASE_SOURCE"
