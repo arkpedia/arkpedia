@@ -282,12 +282,12 @@ stale heartbeats and quarantined records have separate issues.
 
 ```mermaid
 flowchart LR
-  data[arkpedia-data] -->|stage/source records| sim[arkpedia-stage-simulator-standalone]
+  data[arkpedia-data] -->|stage/source records| sim[arkpedia-stage-simulator]
   extra[arkpedia-stage-simulator-data] -->|simulator-only generated records| sim
   sd[arkpedia-sd-assets] -->|pinned models and scenery| sim
   sd --> desktop[arkpedia-desktop-chibis]
   sd --> website[Arkpedia website chibis]
-  fork[arkpedia-stage-simulator: original fork / prototype] -.->|project lineage| sim
+  fork[arkpedia-stage-simulator-legacy: archived prototype] -.->|project lineage| sim
 ```
 
 These are related applications and data consumers, not a dependency through which
