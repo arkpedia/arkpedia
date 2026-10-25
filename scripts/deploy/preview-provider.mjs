@@ -133,7 +133,7 @@ export function createStagingProvider({ run = execFileSync, request = fetch } = 
     } finally { await reader.cancel(); }
     const publicBuild = JSON.parse(Buffer.concat(chunks).toString('utf8'));
     requireValue(matchesStagingBuild(publicBuild, owner), 'public build differs from provider ownership');
-    for (const path of ['/', '/story', '/schedule', '/base']) {
+    for (const path of ['/', '/story', '/schedule', '/operators/Amiya', '/base']) {
       const response = await request(`${STAGING.origin}${path}`, { cache: 'no-store', redirect: 'error', signal: AbortSignal.timeout(30_000) });
       await response.body?.cancel();
       requireValue(response.status === 200 && /\bnoindex\b/i.test(response.headers.get('x-robots-tag') ?? ''),

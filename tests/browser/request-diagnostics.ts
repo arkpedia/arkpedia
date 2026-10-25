@@ -14,6 +14,12 @@ export function diagnosticUrl(value: string): string {
 
 export const test = base.extend<{ requestDiagnostics: void }>({
   requestDiagnostics: [async ({ page }, use, info) => {
+    // Diagnose the two public chibi lifecycles that exposed stalled local chunks
+    // and navigation. Eight theme/viewport cases, not the entire browser suite.
+    // Respect an explicitly enabled Playwright trace rather than starting twice.
+    const traceChibi = info.project.use.trace === 'off'
+      && /^(viewer animations stay independent of roaming movement|chibi first tap is trust, later taps choose either reaction, and repeated taps restart) \(/.test(info.title);
+    if (traceChibi) await page.context().tracing.start({ screenshots: true, snapshots: true, sources: true });
     const pending = new Map<Request, { url: string; method: string; type: string; started: number }>();
     const failed: object[] = [];
     const httpErrors: object[] = [];
@@ -63,6 +69,11 @@ export const test = base.extend<{ requestDiagnostics: void }>({
       }
       page.off('request', onRequest); page.off('requestfinished', onFinished); page.off('requestfailed', onFailed);
       page.off('response', onResponse); page.off('domcontentloaded', onDom); page.off('load', onLoad);
+      if (traceChibi) {
+        const file = info.status !== info.expectedStatus ? info.outputPath('chibi-lifecycle-trace.zip') : undefined;
+        await page.context().tracing.stop(file ? { path: file } : {});
+        if (file) await info.attach('chibi-lifecycle-trace', { contentType: 'application/zip', path: file });
+      }
     }
   }, { auto: true }],
 });
