@@ -40,7 +40,16 @@ Windows/LF, missing-Pillow and old-runtime failures remain separate observations
 no assertion was relaxed to make them pass. Source093d7b84 subsequently passed full
 Check40195749108. Final sourcef0577500 removes same-source deployment reuse because
 prebuild can adopt newer artwork pins without changing code identity. All68 focused
-release tests and changed-script lint pass; its own full Check40198085718 is running.
+release tests and changed-script lint pass. Its exact full Check40198085718 passed:
+2,604 application/script passes with three intentional skips, ten Python suites,
+and1,500 browser passes/217 intentional skips. Trusted full proof artifact12601102842
+names treef90c88f2. Request40200093362, native producer40200117453 and automatic
+publication40200317783 passed from trusted mainb9ffe6df. Actual isolated version
+494eb533 serves exact clean sourcef0577500/fingerprintec5ff11e from archive7bc89e50.
+All21 HTTP identity/live-content/alias/privacy cases and12 actual browser journeys
+across desktop/mobile dark/light pass. Unconfigured account APIs remain503/private/
+no-store with no cookies. This does not prove configured OAuth/D1 or old-client
+acceptance. The expiring single-Worker token proposal remains unsubmitted.
 Prepared code is not activation; no new credential or production build owner changed.
 
 The maintainer confirmed no other known simulator consumers. A fresh18-repository

@@ -447,7 +447,9 @@ R2 app-reader foundation is merged but remote R2 publication remains inactive.
 
 PR775's checked-main pilot owner is not merged or activated. Preceding source093d7b84
 passed full CI; final sourcef0577500 corrects same-source artwork rebuild publication
-and is running its own full CI before isolated preview. Credential approval, native
+and passed full Check40198085718. Native producer40200117453 and automatic preview
+publication40200317783 passed, followed by21 HTTP cases and12 actual browser journeys.
+Credential approval, native
 build-owner retirement, private account baseline and actual authenticated old-client
 acceptance remain mandatory before controlled first release. Canonical D1/OAuth/DNS
 configuration remains unchanged.
