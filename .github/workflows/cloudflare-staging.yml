@@ -98,3 +98,22 @@ jobs:
           retention-days: 1
 
       # No provider credentials or remote deployment. Completion resumes the controller.
+
+  # GITHUB_TOKEN-dispatched builds do not reliably emit workflow_run callbacks.
+  # A separate API-only job dispatches the trusted receiver with this run's ID.
+  # The build job retains read-only permissions and never receives a provider token.
+  notify-preview:
+    needs: build
+    if: success() && github.ref == 'refs/heads/main' && inputs.pr != '' && vars.ARKPEDIA_PREVIEWS_ENABLED == 'true'
+    runs-on: ${{ vars.ARKPEDIA_LIGHT_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - name: Resume trusted preview publication with this completed build
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PREVIEW_PR: ${{ inputs.pr }}
+          COMPLETED_BUILD: ${{ github.run_id }}
+        run: gh workflow run cloudflare-preview.yml --repo "$GITHUB_REPOSITORY" --ref main -f action=publish -f pr="$PREVIEW_PR" -f completed_build="$COMPLETED_BUILD"

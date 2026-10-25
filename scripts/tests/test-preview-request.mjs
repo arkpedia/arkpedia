@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { requestPreview, resolveCompletedPreview, buildInputs, previewBuildTitle, assertLatestPreviewCheck } from '../deploy/preview-request.mjs';
+import { requestPreview, resolveCompletedPreview, resolveDispatchedPreview, buildInputs, previewBuildTitle, assertLatestPreviewCheck } from '../deploy/preview-request.mjs';
 import { PRODUCER_FILES, assertBuildRequest, verifyBuildProducer } from '../deploy/preview-build.mjs';
 
 const repo = 'arkpedia/arkpedia', prefix = `repos/${repo}`;
@@ -128,4 +128,33 @@ test('build inputs reject partial IDs, branch producers, short SHAs and shell sy
     { STAGING_PR: '10;echo bad' }, { STAGING_SOURCE: 'main' }, { STAGING_SOURCE: '' }, { GITHUB_SHA: 'short' }]) {
     assert.throws(() => buildInputs({ ...env, ...change }));
   }
+});
+
+test('explicit completion resolves the existing build without requesting another producer', () => {
+  const f = fixture();
+  const result = resolveDispatchedPreview({action:'publish',pr:'10',completed_build:'30'}, {
+    request: () => assert.fail('completion must not request a build'),
+    complete: run => resolveCompletedPreview(run, f.dependencies),
+  });
+  assert.equal(result.request.buildRun,30);
+  assert.equal(f.calls.some(([name])=>name==='dispatch'),false);
+});
+
+test('completion rejects mismatched PRs, failed/expired/moved producers and invalid input', () => {
+  const valid = {action:'publish',pr:'10',completed_build:'30'};
+  for(const inputs of [{...valid,pr:'11'},{...valid,action:'retire'},{...valid,completed_build:'30;bad'},
+    {...valid,completed_build:'0'},{...valid,completed_build:'9007199254740992'},{...valid,pr:'bad'}, {...valid,action:'unknown'}]) {
+    const f=fixture();
+    assert.throws(()=>resolveDispatchedPreview(inputs,{complete:run=>resolveCompletedPreview(run,f.dependencies)}));
+  }
+  for(const mutate of [f=>{f.build.conclusion='failure';}, f=>{f.archive.expired=true;}, f=>{f.pr.head.sha=controller;},
+    f=>{f.check.status='in_progress';}, f=>{f.pr.state='closed';}]) {
+    const f=fixture(); mutate(f);
+    assert.throws(()=>resolveDispatchedPreview(valid,{complete:run=>resolveCompletedPreview(run,f.dependencies)}));
+  }
+});
+
+test('ordinary explicit publication and retirement retain their existing request behavior', () => {
+  assert.deepEqual(resolveDispatchedPreview({action:'publish',pr:'10',completed_build:''},{request:pr=>({mode:'waiting',pr})}),{mode:'waiting',pr:10});
+  assert.deepEqual(resolveDispatchedPreview({action:'retire',pr:'10'}),{mode:'retire',pr:10});
 });

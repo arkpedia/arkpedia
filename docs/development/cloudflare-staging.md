@@ -2,8 +2,11 @@
 
 ## Preview controller implementation status
 
-The controller foundation is released on main at 5010762b; automatic operation is
-still disabled pending scoped-credential CI publication/retirement acceptance. The pure lifecycle policy in
+The controller foundation is released on main at 5010762b. As of 2026-10-25,
+Worker-scoped CI publication and retirement have passed, the deployment secret is
+configured and `ARKPEDIA_PREVIEWS_ENABLED=true`. Automatic build-completion
+publication and matching closed-PR retirement still require their own end-to-end
+acceptance; flag activation alone does not prove those event paths. The pure lifecycle policy in
 `scripts/deploy/preview-lifecycle.mjs` has no provider I/O. The separate controller
 and fixed-target provider adapter can publish or retire only `arkpedia-staging`.
 Tests cover stale requests, foreign/expired build inputs, exact public identity,
@@ -34,11 +37,14 @@ Retirement rolls back only the matching owned version. It never deletes R2 objec
 the shared Worker or its Durable Object namespace.
 
 The released implementation includes the GitHub/provider adapter, non-cancelling
-+workflow lock and failure recovery. Main request 40166092583 dispatched successful
-+build 40166126620 for #769; the trusted-main receiver accepted its exact receipt
-+and artifact12588447522. Actual local-OAuth publication c69b9efc and retirement to
-+baseline591c passed. Controller implementation/lifecycle proof is checked in the
-+plan; scoped-token CI publication/automatic-retirement acceptance remains open.
+workflow lock and failure recovery. Main request 40166092583 dispatched successful
+build 40166126620 for #769; the trusted-main receiver accepted its exact receipt
+and artifact12588447522. Actual local-OAuth publication c69b9efc and retirement to
+baseline591c passed. Subsequently, scoped-token publication run 40172881817 and
+retirement run 40173445887 passed for #770's checked source c00cb80b, using producer
+40172547699 and artifact12590513709. The active staging baseline was restored and
+the production-candidate Worker was unchanged. Those manually requested operations
+prove the credential's actual provider permissions, not the automatic event paths.
 
 `scripts/deploy/preview-check.mjs` connects that policy to the existing full-browser
 and selected-proof validators. It requires a successful Check for the exact source
@@ -95,7 +101,14 @@ Retirement and unrelated-owner no-ops also report their outcome in the summary.
 A matching active build is reused. Otherwise the explicit request dispatches one
 **Build Cloudflare staging** run on main with the immutable source/PR/Check inputs
 and returns its actual run ID. No runner or staging lock waits for that build.
-Once enabled, successful build completion resumes the trusted publication workflow.
+Once enabled, a separate API-only `notify-preview` job after the successful build
+explicitly dispatches the trusted main publication workflow with the PR and completed
+producer run ID. The build job remains read-only; only the notifier gets Actions
+write permission, with no feature checkout, package install or provider credential.
+The receiver's optional internal `completed_build` input selects receipt-based
+completion verification, never a new build request. It rejects another PR, an
+unfinished/failed producer, moved source, changed Check and expired artifacts.
+There is one completion owner; a `workflow_run` callback is not also configured.
 A completed, retained matching build can be published again without rebuilding.
 Local pushes do not trigger remote staging builds; the obsolete bootstrap push
 trigger is removed. The build makes no provider calls and has no provider token.
@@ -149,15 +162,21 @@ version checks surround mutations and health verification; they are not an atomi
 compare-and-swap against concurrent manual provider writes. Once enabled, use this
 controller for staging updates and retirements.
 
-Setup after acceptance: configure repository secret `ARKPEDIA_STAGING_API_TOKEN`
-with Editor access only to the existing staging Worker, then prove its deploy/read/
-rollback permissions. Do not grant production Worker or R2 object-write privileges
-to fix a failed permission test. Enable repository variable
-`ARKPEDIA_PREVIEWS_ENABLED=true` only after the real end-to-end proof. Until then,
-automatic build-completion and closed-PR handling are skipped. A manual request
-must use main; actual publication/retirement requires the staging token. During
-acceptance with automatic handling disabled, explicitly request publication again
-after the build completes to exercise the retained-artifact path.
+Repository secret `ARKPEDIA_STAGING_API_TOKEN` is configured with Editor access
+only to the existing staging Worker. Its deploy/read/rollback permissions were
+proved by the CI operations above. The approved token expires on 2027-01-23;
+renew its existing scope before expiry rather than broadening access. It provides
+no production Worker or R2 object-write permission.
+
+Repository variable `ARKPEDIA_PREVIEWS_ENABLED=true` enables build-completion and
+closed-PR handling. A maintainer requests a preview once on main; let the matching
+successful producer completion invoke publication, rather than sending a second
+manual publish merely because the first request has returned. Verify the callback
+run's exact source, archive identity, provider ownership and deployed journeys.
+After that PR closes, verify automatic retirement restores the original baseline
+and leaves the production candidate unchanged. Record actual event-run evidence
+before checking off automatic lifecycle acceptance. No additional login or token
+setup is needed for the current preview proof.
 No enablement or token creation is performed by this branch.
 
 ## Existing explicit staging helper
@@ -224,8 +243,9 @@ it with the deploy process's credentials. Review the source/config/dependency ch
 before that step; archive verification is not a sandbox. Do not grant a feature build
 production credentials or broaden the staging bindings. The current workflow still
 builds only: its receipt step triggers no provider mutation. The separate trusted
-+controller implements serialized publication/retirement; automatic operation stays
-+disabled until scoped-credential CI acceptance passes.
+controller implements serialized publication/retirement. Scoped-token manual CI
+acceptance has passed; automatic event-path acceptance remains open as described
+above.
 
 ```sh
 npm run cf:staging:check

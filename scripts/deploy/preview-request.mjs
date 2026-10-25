@@ -143,6 +143,23 @@ export function buildInputs(environment) {
   return result;
 }
 
+export function resolveDispatchedPreview(inputs, { request = requestPreview, complete = resolveCompletedPreview } = {}) {
+  const number = Number(inputs?.pr);
+  requireValue(/^[1-9][0-9]*$/.test(inputs?.pr ?? '') && positive(number), 'invalid PR input');
+  requireValue(['publish', 'retire'].includes(inputs?.action), 'unexpected requested action');
+  if (inputs.completed_build) {
+    const runId = Number(inputs.completed_build);
+    requireValue(inputs.action === 'publish' && /^[1-9][0-9]*$/.test(inputs.completed_build) && positive(runId),
+      'completion requires a publish action and a numeric producer run');
+    // Fetch and verify the producer, receipt, current PR/Check and artifact again.
+    // Caller-provided PR/run IDs never stand in for those trusted observations.
+    const result = complete(runId);
+    requireValue(result.mode === 'publish' && result.pr === number, 'completed build belongs to another PR or is not publishable');
+    return result;
+  }
+  return inputs.action === 'retire' ? {mode:'retire', pr:number} : request(number);
+}
+
 function output(values) {
   if (process.env.GITHUB_OUTPUT) for (const [key, value] of Object.entries(values)) {
     const text = typeof value === 'object' ? JSON.stringify(value) : String(value);
@@ -159,17 +176,13 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       requireValue(statSync(process.env.GITHUB_EVENT_PATH).size <= 2_000_000, 'oversized workflow event');
       const event = JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'));
       let result;
-      if (process.env.GITHUB_EVENT_NAME === 'workflow_run') result = resolveCompletedPreview(event.workflow_run?.id);
-      else if (process.env.GITHUB_EVENT_NAME === 'pull_request_target') {
+      if (process.env.GITHUB_EVENT_NAME === 'pull_request_target') {
         requireValue(event.action === 'closed' && positive(event.pull_request?.number), 'unexpected PR event');
         result = { mode: 'closed', pr: event.pull_request.number };
       } else {
         requireValue(process.env.GITHUB_EVENT_NAME === 'workflow_dispatch'
           && process.env.GITHUB_REF === 'refs/heads/main', 'manual requests must use main');
-        const number = Number(event.inputs?.pr);
-        requireValue(/^[1-9][0-9]*$/.test(event.inputs?.pr ?? '') && positive(number), 'invalid PR input');
-        if (event.inputs.action === 'retire') result = { mode: 'retire', pr: number };
-        else { requireValue(event.inputs.action === 'publish', 'unexpected requested action'); result = requestPreview(number); }
+        result = resolveDispatchedPreview(event.inputs);
       }
       output(result);
       if (result.buildRun && process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY,
