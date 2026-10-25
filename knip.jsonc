@@ -3,6 +3,7 @@
   // Next and Playwright supply framework entrypoints. Scripts also have supported
   // manual CLI entrypoints; library code is analysed transitively from all of them.
   "entry": [
+    "workers/edge/worker.mjs",
     "open-next{,.staging}.config.ts",
     "scripts/{audits,build,content,deploy,imports,palettes,particles,sync}/**/*.{ts,mjs,cjs}",
     "scripts/tests/test-*.{ts,mjs}",
@@ -13,6 +14,7 @@
     "scripts/tests/fixtures/previous-release/refresh.mjs"
   ],
   "project": [
+    "workers/edge/*.{mjs,mts}",
     "{components,lib,pages,scripts,tests}/**/*.{js,jsx,ts,tsx,mts,mjs,cjs}",
     "*.{js,ts,mjs}"
   ],

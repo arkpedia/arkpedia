@@ -1,4 +1,38 @@
-# Migration progress: first staging proof
+# Arkpedia system simplification progress
+
+## Current checkpoint — 2026-10-25
+
+PR771 released as `9b528897`. Its exact full Check and native producer
+passed, as did scoped retained-artifact publication, eight deployed HTTP checks and
+twelve desktop/mobile, dark/light browser journeys. Automatic owned-close run
+40184536617 passed; independent provider inspection confirms the original free
+staging baseline591c/19b and unchanged pilot066ea33d/de829d1e. Public deployment
+40184554642 passed; all 36 public browser cases and exact clean production identity
+passed. Release-status reported production healthy with no issues; its nonzero
+exit reflected only preserved dev/Cloudflare ancestry alerts.
+
+Main is now `616f4cbf` after PR773. Its source `03d6b03a` passed
+Check40186842441 (225 browser passes,23 intentional skips;248 selected identities,
+1469 explicitly omitted), eight local UI cases and19 integrated account tests.
+The first CI exposed a race-winner assumption; the accounts owner's reviewed
+test-only repair retained the genuine race and follows its actual winner.
+Automatic completion publication40187870567 passed using producer40187663125;
+four actual deployed UI cases confirmed the unavailable section absent and local
+import/export available. Automatic owned-close40188151181 passed; independent
+provider inspection at11:19:42 UTC confirms baseline591c/19b and unchanged
+pilot066ea33d. The automatic lifecycle acceptance item is now checked,30/52 total.
+Main Check40188150120 and public deployment40188174941 passed. Actual www
+serves clean production source616f4cbf/fingerprintcf418d69; four desktop/mobile
+dark/light journeys confirm the whole unavailable-account section is absent and
+import/export enabled. Release-status reports production healthy with no issues.
+Its nonzero exit reflects only the intentionally preserved legacy dev77/CF49
+ancestry alerts. The requested removal is verified live.
+R2 delivery is not activated remotely. DNS,
+permanent branch retirement, simulator rename/archive and Vercel retirement remain
+behind their documented gates. The detailed entries below retain dated evidence;
+older source/version/branch references describe their own historical checkpoint.
+
+## Historical first staging proof
 
 Observed 2026-10-24. Work is isolated in `E:/Projects/arkpedia-release-ux`, branch
 `codex/system-simplification`, so the separate cloud-account work in the main checkout
@@ -882,3 +916,437 @@ configuration helper's refusal/retention test pass. Knip initially identified th
 deferred Techniques-only React hook; it was removed without changing the stored
 settings schema. Browser and dual-host build acceptance remain open. No live D1,
 OAuth configuration or primary application code was changed by the port.
+
+### Provider inventory, scoped credential and CI phase measurements (2026-10-25)
+
+This checkpoint supersedes earlier missing-credential, dashboard-sign-in and open
+#769 wording. The checklist remains **29/52**: no compound acceptance gate has been
+checked merely from credential setup or a partial cost sample.
+
+- #769 merged as 9b6472b8. Check 40167241455, main push 40168090314 and Vercel
+  deployment 40168195014 succeeded. Exact clean public identity, healthy release
+  reporting and all 36 route/theme/viewport browser cases passed.
+- Under explicit maintainer approval, the 90-day account-owned token
+  arkpedia-staging-ci was created with only Individual Workers Editor on
+  arkpedia-staging and saved as the repository Actions secret
+  ARKPEDIA_STAGING_API_TOKEN. Expiry is 2027-01-23. No plaintext credential was
+  logged or retained in a file; the protected temporary transfer was removed.
+  Metadata was verified independently. Automation remains off pending actual CI
+  publication and retirement; the credential is not itself deployment proof.
+- Rendered Cloudflare settings confirm four Workers: app builds from cloudflare,
+  relay from its own repository main, both with provider preview builds disabled;
+  edge and staging have no connected Git Builds. No cron, queue-consumer or email
+  trigger is configured on these four Workers. App and relay have no deploy hooks.
+  The edge route serves the pilot through the app service binding; staging has no
+  custom domain/route. No setting was changed during this inventory.
+- Rendered Vercel settings confirm Arkpedia has no connected Git repository, deploy
+  hook or project webhook. Cron shows setup instructions and no configured job.
+  Team project inventory shows Arkpedia and one unrelated project; this is bounded
+  evidence for that team, not proof about every external account or incoming link.
+  Provider usage/subscription/invoice metadata is retained only in private cache.
+  The different billing windows and substantially different served traffic do not
+  establish production-scale savings. No subscription or billing setting changed.
+- Six successful historical Check runs were measured from actual run/job/step
+  timestamps. The selected tooltip Check took 1,036 seconds end to end, including
+  116 seconds of selected browsers. The two controller none-lane runs took 623 and
+  741 seconds despite omitting all browser identities: application/Python tests,
+  compilation, builds, types, lint and content rollback still run. Full baseline
+  browser phases remain about 17–18 minutes. This purposive mixed-policy sample
+  is not a representative p50/p95 and does not meet the below-eight-minute target.
+  Raw phase evidence: release-ux/.cache/ci-phase-samples-20261025.json.
+- The accounts chat owns PR #770 and E:/Projects/arkpedia-preview-lifecycle,
+  including final CI, source reconciliation and deployed account acceptance. Root
+  holds main9b stable for its single trusted staging build/publication test and
+  owns the scoped CI publication/retirement check. No duplicate build is started.
+
+Private metadata evidence: release-ux/.cache/cloudflare-provider-inventory-20261025.json,
+cloudflare-billing-baseline-20261025.json, vercel-provider-billing-baseline-20261025.json
+and staging-credential-setup-proof.json. These contain no credential or payment details.
+
+### Follow-up preservation and CI gate observation
+
+The standalone simulator advanced during the migration review. Its current default
+branch is d2b6372822d5cf0803659ff6ce93315546a7eb08, with 31 branches, 29 containing
+commits outside current master. A new complete-history bundle was created separately
+and passed bundle verification plus full fsck. The earlier bundle remains unchanged
+and explicitly preserves the previous dossoles branch tip 5bda8a44, which was
+force-updated upstream. New bundle SHA-256 is
+6f4f7789d6651c35d83b527401c279e7147c454f1f59a8521b6716632e890892,
+30,146,337 bytes. No repository was renamed or archived.
+
+Both accessible Vercel teams were inspected: the Pro team has Arkpedia and an
+unrelated project; the Hobby team has arkpedia-dev. The dev project also has no
+connected Git repository or deploy hook and displays no configured cron job.
+These observations do not establish absence of all external incoming links.
+
+PR770 Check 40168684417 completed with failure in the desktop/mobile browser
+regressions at 06:48:34 UTC. The accounts owner retains source/failure repair
+ownership. No preview build or publication is started from this failed evidence;
+main9b remains stable and preview automation remains off.
+
+### Main account release, scoped preview acceptance and local R2 app integration
+
+PR770 merged as 9796b6636efd2d6d4018baca2a77c2359f5595da. Its tree482042e6
+exactly matches checked sourcec00cb80b. Full Check40170783235 passed1,500 browser
+cases with217 intentional skips,1717 selected/0 omitted. Main push40173692769
+reused that exact-tree proof and Deploy40173713827 succeeded. Actual www reports
+clean9796/production/live/schema2/fingerprint17230dcc58439c2f76e5b6d127ead2d20dc5de02935fae4491d198e87927f8f0.
+Root's36 public route/theme/viewport cases pass, including populated music
+favourites. The accounts owner independently passed34 dummy account journeys,
+four actual unconfigured theme/viewport states and three real private/no-store
+503 API responses. Canonical accounts remain deliberately unconfigured; existing
+Cloudflare pilot accounts/D1/OAuth remain unchanged by the maintainer's choice.
+
+Trusted main9b producer40172547699 built the exact checked source once; scoped
+CI publication40172881817 deployed version50ecf72e with owner770. Independent
+source/ownership/bindings/four noindex-route checks passed, as did the accounts
+owner's34 deployed journeys, four actual unconfigured states and eight provider
+icon states. Scoped CI retirement40173445887 restored exact baseline591c4728 /
+source19b51e89, ownernull, bindings and health. The pilot remains actual Worker
+version066ea33d / sourcede829. Both CI jobs used the approved staging-only secret;
+no local OAuth is being substituted for this credential acceptance.
+
+After those checks, ARKPEDIA_PREVIEWS_ENABLED was set to true and read back from
+GitHub at07:45:06 UTC. Automatic completion/owned-close handlers are enabled;
+the next legitimate feature lifecycle still needs to prove their actual callback
+and close events. The checklist remains29/52 until that compound gate is proven.
+
+The R2 foundation is now integrated with the actual app reader in PR771, head
+bcbd6695244ccc9a93d36fb933993eed3087ebfe, based on released main9796. It is
+explicit staging opt-in and inactive on deployed sites. No bucket, binding, route,
+pointer, storage credential or data publication was changed remotely. Direct S3
+dependency declaration changes zero package nodes/versions relative to main.
+After integrating main,88 focused R2/content/account/settings/image cases and
+typecheck pass. Existing GitHub delivery/defaults remain covered.
+
+Before that integration, clean sourceed138ab3 passed the real local OpenNext build,
+trace/client-data guards and unchanged19,000,000-byte budget: handler17,394,415
+bytes. Two complete real8,963-path snapshots were staged and conditionally published
+in native local R2. Actual Next website acceptance passed20 route/theme/viewport
+cases, real held/current lazy nav search and rollback, with zero page errors and
+no root overflow. Public bytes are unchanged between these real snapshots; distinct
+file-body changes are covered separately by the focused app-loader regression.
+The initial theme-harness about:blank storage error was retained and corrected at
+its source without relaxing page-error assertions. Both local acceptance servers
+were verified/stopped; the user's3192 server was untouched.
+
+PR771's fresh full Check40174680925 is running on current head; the old local
+build/browser evidence is not claimed as its post-integration artifact. Remote
+R2 resource/app proof, latency/CPU/cost, retention and activation remain open.
+The main release report is healthy; its overall nonzero status comes solely from
+preserved dev66/CF38 ancestry alerts. Those branches were neither force-synced nor
+retired to hide their still-open consumer/feature reconciliation gates.
+
+Evidence: ci-migration/.cache/{pr770-scoped-publish-proof,pr770-scoped-published-state,
+release-status-main770,main770-ci-release-browser}.json and scoped job logs;
+accounts worktree's pr770 host/browser verification reports; r2-app/.cache/
+{r2-app-native-proof,r2-app-browser-result}.json and r2-main-composed-tests.log.
+
+PR771 follow-up: first full Check40174680925 stopped at lint before build/browser execution. The new ambient constant needed an explicit declare for the repository Babel parser. One declaration-line fix committed as449dcad8 passes exact repository lint over all new library/runtime/declaration files and both declaration-consistency regressions. Runtime code/assertions/retries/limits are unchanged. Corrected full Check40175573617 is live; no preview has been requested from failed or unfinished proof.
+
+## Main-based Cloudflare candidate: local preparation, 2026-10-25
+
+Local branch `codex/main-cloudflare-candidate` starts from released main9796b663.
+The accepted pilot/edge source is being reconciled individually rather than merging
+all unreleased cloudflare features. Its build helper preserves the existing pilot
+account database, ISR cache, self-reference and Durable Object migration history;
+it enforces live/schema2/production identity and the exact source fingerprint.
+No provider branch, resource, account credential or deployment changed.
+
+Local checks pass:15 pilot configuration/build-identity tests,16 preserved edge-cache
+regressions,4 existing deployment-role tests, Knip, and17 actual HTTP cases covering
+all13 temporary compatibility redirects with query preservation and4 host-indexing
+states. Alternate hosts receive noindex on served responses; www/apex remain
+indexable. The initial HTTP harness incorrectly expected Next's local redirects to
+apply response-header rules; diagnostic responses established that served-response
+headers work, and redirect behavior is now tested separately. Changed-source lint
+has zero errors, with the existing edge default-export warning and ignored TS test
+reported explicitly. The temporary3322 server stopped; user3192 was untouched.
+
+This is preparation, not a native production-candidate build or deployment proof.
+PR771's exact449dcad8 full Check40175573617 is still running its browser suite.
+Its real automatic staging callback/close lifecycle remains the next gate; no
+second remote candidate build was launched while that source proof is pending.
+
+### PR771 full regression result
+
+Corrected full Check40175573617 finished with a browser failure:1498 passed,
+217 intentionally skipped,1 failed and1 dependent case not run. The failing
+desktop light-theme chibi independence case stops in openTapChibi before its
+animation assertions: the viewer dialog is present, but no canvas or animation
+catalogue appears within the existing10-second expectation. The preserved
+screenshot was inspected; no model error is displayed. This does not yet prove
+whether loading, clock setup or app behavior caused it. No timeout, retry or
+assertion was relaxed, no run restarted, and no staging preview was requested.
+Failure artifact12592252734 and the bounded failure log are retained in
+r2-app/.cache/r2-ci-browser-failure and r2-corrected-ci-failure.log. Diagnose and
+verify the cause before rerunning the required full gate.
+
+The local Cloudflare preparation is saved as bd856f5242208cd84f6a30b9f3ae883c87bb26ef;
+it has not been pushed or deployed. All17 local HTTP cases passed and its temporary
+server has stopped. Native production-candidate acceptance remains open.
+
+### PR771 diagnostic follow-up
+
+Six unchanged local chibi independence cases (three repetitions in each theme)
+passed on an isolated Next development server. The original CI mounting failure
+did not reproduce, so its cause remains unproven. No chibi runtime, clock setup,
+expectation, timeout or retry was changed.
+
+Commit2249a983cef9f25d0376cc23b1c9315971646534 fixes the evidence gap only: sanitized
+request timing JSON now persists in the uploaded test-results directory. A dummy
+intentional failure verifies on-disk persistence and removal of query secrets;
+the existing privacy regression and TypeScript pass. Full Check40178029240 is
+running on that exact source. It must pass before any preview request. The old
+failed gate remains recorded; a green rerun will not prove a chibi root-cause fix.
+
+The main-based production-role candidate bd856f52 is undergoing a local native
+OpenNext build; this is distinct from PR771's staging producer. No remote candidate
+build, provider branch change, account/D1/OAuth change or production deployment
+has been made. The local chibi server3331 completed and stopped; user3192 remains
+untouched.
+
+### Simulator reference transition prepared, 2026-10-25
+
+A fresh bounded audit of all158 current SD-assets source/config/docs text files at
+1ee39d42962611413991990a8b02d83a5c56f260 finds the same five legacy references:
+README plus the four original foundation reviews. No standalone-name reference
+was found in this scope. A local-only minimal patch preserves the active simulator's
+short public URL in README, explains the archive and preserved unmerged branch,
+and makes all four historical foundation repositories explicitly `-legacy`.
+Every pinned foundation file still matches its recorded SHA256 in the preserved
+legacy mirror. Candidate files and a unified patch are retained under
+release-ux/.cache/simulator-rename-reference-candidate; no remote edits occurred.
+
+The maintainer was asked about any additional external deployments/importers.
+That factual consumer gate is still pending; no absence of all external consumers
+is inferred from source search. Fresh refs/preservation checks and ordered rename,
+reference publication and post-rename identity/URL verification remain required.
+
+### Native production candidate runtime failure and correction
+
+Candidate bd856f52 passed the actual OpenNext build, trace/client-data guards and
+unchanged19 MB budget at18,754,310 bytes, with245,690 bytes remaining. Its exact
+clean production/live/schema2 build identity and handler hash are retained.
+Local workerd then rendered home, schedule/past and story/list with noindex, but
+operator/Amiya returned500: its finalizer eagerly read build-only summon/chibi
+tables even when the release already supplied those properties. The runtime and
+first artifact are preserved; that candidate is not accepted for deployment.
+
+The source correction makes each historical backfill lazy and preserves explicit
+empty fields/no-EP values.42 operator/client-data boundary regressions, typecheck
+and changed-file lint pass. A fresh native build/runtime/browser gate is required;
+no assertion or Worker budget was relaxed. No production/account/DNS setting
+changed. The failed local runtime stopped before browser acceptance began.
+
+### Required staging prerequisite discovered by native acceptance
+
+PR771 head2249a983 still contains the eager operator finalizer. Even if its Node
+full Check40178029240 passes, it is not sufficient to accept a native Worker
+preview. Verify the corrected a93437e9 native runtime first, then carry only its
+required operator helper/page/regression into the R2 source and test the final
+composition. Add operator detail to provider health coverage: the current trusted
+controller checks home/story/schedule/base and would miss this cold operator500.
+No preview may be accepted from superseded green proof. This is a required hosting
+compatibility correction, not promotion of an unrelated unreleased product feature.
+
+### Second full CI result and scoped trace follow-up
+
+Check40178029240 on2249a983 finished with1498 browser passes,217 intentional
+skips,one failure andone dependent case not run. This time the desktop light
+first-tap journey timed out focusing the roaming pet after returning home.
+The newly persisted sanitized request JSON is present in artifact12593512175:
+homepage page-data and two local JavaScript requests remain pending for about
+107 seconds, the home document is complete, and the pet is absent. No failed
+chibi-model request is recorded. This evidence does not establish a root cause.
+
+R2 source has a local, unpushed trace change limited to the two affected public
+chibi lifecycles (eight theme/viewport cases). A dummy intentional failure proves
+both sanitized JSON and trace ZIP persist, without changing assertions/timeouts/
+retries; the privacy regression passes. Two-theme focused repetitions of both
+original journeys are running locally in session42624. No new remote full run
+or preview was started. Final composition still requires the native operator fix
+and operator health check before its fresh full gate.
+
+The operator health candidate passes9 provider regressions, including500 and
+missing-noindex rejection. It is retained under.cache/operator-health-candidate;
+tracked controller files were restored to the native build source while that
+build finishes. Accounts owner was informed; no new account work was requested.
+
+### Corrected native acceptance and final PR771 composition
+
+Actual production-role native source a93437e9952652da4e5d18514b1f84712a726496
+passes21 workerd HTTP checks and20 desktop/mobile, dark/light render/hydration/
+layout browser cases, with zero page errors. Operator/Amiya now renders200 without
+the source filesystem read.13 aliases preserve query parameters; three account
+APIs without secrets return private/no-store503 without cookies. Handler18,754,470
+bytes remains below the unchanged19 MB budget. Two representative screenshots
+were inspected; general media completeness and real production account acceptance
+remain separate gates. The initial browser harness expected an explicit dark
+attribute; it was corrected to the documented absent-attribute dark tokens. Both
+native acceptance servers completed/stopped; user3192 was untouched.
+
+The retained live staging baseline19b independently returns200/noindex for Amiya.
+This public endpoint check does not establish cold-cache behavior. Native proof
+and the five required operator/runtime-health files were composed into PR771 with
+the scoped trace improvement.110 focused composition tests and typecheck pass;
+the exact operator files have passing changed-file lint. Local chibi investigation
+remains7/8, with a retained trace showing a cold development-server Spine chunk
+pending at the unchanged expectation; the CI navigation cause is still unproven.
+
+Final source5fc921481a3d61b5a79f06267a562d61df36af5d is pushed, with a rewritten
+PR title/body covering the actual final scope and failed evidence. Its single
+fresh full Check40181345162 is running. No older green result or separate local
+artifact may substitute for that source's own full gate and isolated producer.
+No preview, main merge, provider change, resource change or production deployment
+has been performed for this final composition.
+
+
+### CI observational window, 2026-10-25
+
+Read-only inventory captured all 28 pull-request Check runs created since midnight
+UTC in `.cache/ci-window-20261025.json`, with job/step timestamps and source policy
+fingerprints. Cancelled, pending, early failures and unknown policy objects remain
+separate. This migration/repair-heavy window is not an ordinary-feature benchmark;
+the plan's representative feature timing gate remains open.
+
+Within the current policy, two successful full runs took 26m19s and 28m45s
+(median 27m32s); the browser phase median was 17m22s. Three successful runs with
+browser regressions omitted took 9m55s–12m03s (median 10m17s). Their median unit
+tests and content compilation each took 1m49s, app build 1m29s, live-content checks
+42s and content rollback 1m05s. These are observed phases, not independent additive
+savings estimates. A targeted run exists under an older policy and is excluded
+from this same-policy comparison.
+
+Next refinement should classify changes before expensive content/build setup and
+retain compatibility/rollback checks for changes that affect those systems.
+The current R2 integration does affect them and retains its full gate. No workflow
+or gate was changed by this measurement. Check40181345162 for source5fc92148 remains
+running after passing unit tests, content validation, types, lint and app build;
+no preview or release has been claimed.
+
+### Loaded media on the retained native candidate
+
+The existing a93437e9 native artifact was reused without rebuilding or deploying.
+Six browser cases (home, story list and Amiya at 1440/390 widths, default dark)
+completed with every viewport-intersecting image loaded, zero broken visible
+images and zero page errors. The loaded desktop Amiya screenshot was inspected.
+Evidence is `.cache/pilot-native-media-result.json` and its six screenshots.
+This covers the initial viewport, not every slide, scroll position, theme, audio,
+video or all-site media parity. An initial harness counted horizontally offscreen
+lazy slides and timed out on desktop home; that observation is retained separately
+as `pilot-native-media-initial-visibility-result.json`. The harness was corrected
+to intersect both viewport axes and to use Playwright's timeout argument correctly;
+no product source or limits changed. Local native server3332 was stopped; user3192
+was untouched. PR771's own exact-source full browser run remains pending.
+
+### Measured data retention and repeated content tables
+
+Using the two already verified local source snapshots, manifest-only reachability
+counts 9,057 unique objects / 382,474,086 bytes for their retained union. The second
+snapshot adds207 objects /121,201,650 bytes; retaining the first as rollback adds
+207 objects /121,292,385 bytes beyond the second. Counts include the original
+manifest objects. No remote list, read, write or delete was performed.
+
+All206 changed page bodies were independently length/hash verified and compared.
+Only their `videos` props differ. Each embeds the same unchanged `__contentTables`
+value, whose compact serialized size is559,765 bytes, repeated115,311,590 bytes
+across those pages. This identifies a concrete shared-table format opportunity,
+not an implemented optimization or a representative daily growth forecast.
+Evidence: `.cache/r2-retention-measurement.json`,
+`.cache/r2-update-shape-analysis.json` and their reproducible local scripts.
+Any future format change needs a separate compatibility preview; the current
+schema-2 transport proof stays intact. Active, rollback, in-flight and supported
+old-tab manifests remain protected. No expiry policy or cleanup is activated.
+
+### PR771 exact full gate and automatic preview request
+
+Full Check40181345162 passed for source5fc921481a3d61b5a79f06267a562d61df36af5d,
+tree6d18fc61c2db5ad08fce3a41bbcbba8ca6a91078:1500 browser passes,217 intentional
+skips,1717 selected identities,0 omitted. The existing read-only preview verifier
+accepted full-proof artifact12595455114. No rerun or substituted artifact was used.
+
+One trusted-main preview request40183242211 succeeded and dispatched secret-free
+producer40183261984 on controller main9796b663, for that exact source/Check.
+The producer is running; its completion must invoke the automatic publication
+path. No second manual publication is requested. Fresh read-only provider checks
+confirmed free baseline591c4728/source19b51e89 and unchanged pilot066ea33d/source
+de829d1e before publication. Deployed acceptance and automatic close retirement
+remain pending. Main and remote R2 activation are unchanged.
+
+### Missing completion callback and separate repair
+
+Producer40183261984 passed with archive artifact12595465491 and receipt12594733390.
+Its archive SHA256 is867833941ae11e2706ba62fe76589869d459753c03302946e0008daf0294ba68;
+the staging code fingerprint is12c7c886a22fffea9d525581473e6f4a4535db023acb4e77a98bb4d93e10a47b.
+Actual workflow inventories after completion contain no callback. The producer
+actor is github-actions[bot], the enable flag remains true and workflow name/branch
+match. The automatic event path has not passed. GitHub's GITHUB_TOKEN follow-on
+event restriction and the existing sync notifier support explicit dispatch.
+
+Separate PR772/source2206d791 adds one API-only notifier after the build and a
+completed-run input that reuses trusted producer/receipt/current PR/Check/artifact
+verification. It preserves the read-only build and provider isolation.42 focused
+tests and changed-script lint pass; Check40183952914 is running. Initial broader
+local tests could not load missing dependencies; after reusing the existing local
+installation through a junction, all six suites passed. No new credential was
+needed. The repair is stacked on green PR771 and must follow its acceptance.
+
+Explicit retained-artifact recovery40183920211 failed at Cloudflare's
+arkpedia-staging/assets-upload-session endpoint with unknown error10013.
+Read-only provider observation afterwards confirms original staging baseline591c
+and unchanged pilot066ea33d. One controlled same-artifact retry was requested after
+that observation; no native rebuild, credential expansion or automatic-success
+claim was made. Deployed browser acceptance remains pending.
+
+### PR771 deployed acceptance and main integration
+
+Controlled retained-artifact retry 40184205783 passed, publishing provider version
+`db9369de-43f8-43b3-928c-5bf3d9975dcb` with owner PR771 and exact source `5fc92148`.
+The archive independently passed the trusted checksum/config/source verifier.
+Eight deployed HTTP checks passed: five noindex app pages reading pinned published
+GitHub content and three private/no-store account APIs returning 503 without
+cookies. All twelve actual browser journeys passed: directory and late event
+archive Back/scroll restoration, plus story progress persistence, at both themes
+and widths. The existing test assertions were reused. Pilot version `066ea33d`
+and its source remained unchanged. This proves default app delivery on the isolated
+preview, not activation or remote publication of canonical data on R2.
+
+PR771 merged as `9b52889750ae9fe5aeab247e89321c818a928ad8`. Main Check 40184536414
+passed by exact-tree reuse; public deployment 40184554642 and automatic closed-PR
+retirement 40184536617 are running. Production identity, deployed browser journeys
+and release-status checks remain required before calling this release live.
+Automatic completion publication remains unproven and belongs to repair PR772,
+whose own Check 40183952914 is in its full browser phase. No DNS or pilot deployment
+change, branch retirement, repository rename or remote R2 activation was made.
+
+
+### Main-based pilot integration after PR773
+
+The candidate rebased cleanly onto verified main616f4cbf; sourceb4245a4c passed
+74 focused hosting/role, edge, analytics and operator checks. Its native OpenNext
+production build is running locally; no new deployment is claimed from that build.
+The accounts owner confirms no newer runtime/schema changes: the reviewed account
+core and applied migrations001–003 remain the contract. Preserve the exact existing
+D1, auth secret (encrypted provider rows depend on it), pilot origin/cookie prefix,
+callbacks, identity/profile/consent rows, archive revisions and append-only/CAS/nonce
+ownership guards. Do not reset the database or rerun ALTER statements. Actual
+signed-in pilot/auto-sync and old/new-tab archive acceptance remain required.
+
+A read-only GitHub protection/rules API inspection returned403, explicitly requiring
+an upgraded plan or public repository. Do not assume a protected-main gate exists.
+The current native Cloudflare integration remains on cloudflare with previews off.
+Before moving its production source, prepare one explicit checked-main release
+owner rather than allowing an unchecked main push to activate a deployment. The
+preferred next implementation is a main Check-success workflow with provider
+credentials only at the validated deployment step; disable the old native production
+build owner when enabling that path. A narrowly scoped pilot deployment credential
+must be reviewed before creating persistent access. No production token, build-owner
+setting, branch, route, DNS, D1 or OAuth setting has changed at this checkpoint.
+
+Actual recent Actions observations were retained separately from the earlier window:
+PR773's selected check job604s; broad PR771/772 jobs1578s/1593s; main616's exact-tree
+reuse17s. Each observed job queued2s. These descriptive runs preserve complete job
+and phase metadata in local evidence; they do not establish an ordinary-feature
+p95 or an under-eight-minute guarantee. Additional broad-check removal requires
+proof of retained coverage, not an arbitrary test-count target.

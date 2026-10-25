@@ -1,0 +1,4 @@
+{
+  "about": "Existing Cloudflare pilot Web Analytics site token. Public beacon identifier, not a credential. Verify the analytics site's allowed hostname before public-domain migration.",
+  "cloudflareToken": "a660cad9524d4a6183d1b788d0944411"
+}

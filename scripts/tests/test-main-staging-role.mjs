@@ -5,7 +5,7 @@ import { execFileSync } from 'node:child_process';
 function config(values = {}) {
   const env = { ...process.env };
   for (const key of ['ARKPEDIA_WORKER', 'ARKPEDIA_DEPLOYMENT_ROLE', 'ARKPEDIA_CONTENT_CHANNEL', 'VERCEL', 'VERCEL_ENV', 'VERCEL_PROJECT_ID', 'NEXT_DIST_DIR']) delete env[key];
-  const source = `const c=require('./next.config.js')('phase-production-server');c.headers().then(h=>console.log(JSON.stringify({output:c.output??null,env:c.env,headers:h.find(x=>x.source==='/:path*').headers})))`;
+  const source = `const c=require('./next.config.js')('phase-production-server');c.headers().then(h=>console.log(JSON.stringify({output:c.output??null,env:c.env,headers:h.find(x=>x.source==='/:path*'&&!x.has).headers})))`;
   return JSON.parse(execFileSync(process.execPath, ['-e', source], { env: { ...env, ...values }, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }));
 }
 const noindex = result => result.headers.some(header => header.key === 'X-Robots-Tag' && header.value === 'noindex');
@@ -30,7 +30,7 @@ test('ordinary Vercel production remains indexable with its analytics and output
 test('future production Worker does not inherit staging noindex', () => {
   const result = config({ ARKPEDIA_WORKER: '1', ARKPEDIA_DEPLOYMENT_ROLE: 'production' });
   assert.equal(noindex(result), false);
-  assert.equal(result.env.ARKPEDIA_WEB_ANALYTICS, '');
+  assert.equal(result.env.ARKPEDIA_WEB_ANALYTICS, '1');
 });
 
 test('dev data stays unindexed and an unknown deployment role fails closed', () => {

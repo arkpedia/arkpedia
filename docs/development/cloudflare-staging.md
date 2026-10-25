@@ -4,9 +4,12 @@
 
 The controller foundation is released on main at 5010762b. As of 2026-10-25,
 Worker-scoped CI publication and retirement have passed, the deployment secret is
-configured and `ARKPEDIA_PREVIEWS_ENABLED=true`. Automatic build-completion
-publication and matching closed-PR retirement still require their own end-to-end
-acceptance; flag activation alone does not prove those event paths. The pure lifecycle policy in
+configured and `ARKPEDIA_PREVIEWS_ENABLED=true`. The explicit completion notifier
+released in PR772 has now passed a real automatic cycle for PR773: checked producer
+40187663125, automatic publication40187870567 and owned-close retirement40188151181.
+Four actual deployed UI cases passed before merge; independent provider inspection
+confirmed baseline591c/19b and unchanged pilot066ea33d after retirement. These are
+observed event-path results, beyond flag activation. The pure lifecycle policy in
 `scripts/deploy/preview-lifecycle.mjs` has no provider I/O. The separate controller
 and fixed-target provider adapter can publish or retire only `arkpedia-staging`.
 Tests cover stale requests, foreign/expired build inputs, exact public identity,

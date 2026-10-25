@@ -1,0 +1,13 @@
+{
+  "name": "arkpedia-edge-worker",
+  "private": true,
+  "type": "module",
+  "description": "The site's front Worker: pages from Cloudflare's cache, in front of the site Worker (README.md).",
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "check": "wrangler deploy --dry-run --outdir .wrangler/dry-run"
+  },
+  "devDependencies": {
+    "wrangler": "4.151.3"
+  }
+}

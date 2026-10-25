@@ -3,8 +3,10 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --webpack",
     "build": "next build --webpack",
+    "cf:build": "node scripts/deploy/cloudflare-pilot.mjs build",
+    "cf:check": "node scripts/deploy/cloudflare-pilot.mjs check",
     "postbuild": "npm run check:deployment-traces && npm run check:client-chunks",
     "deploy:vercel": "bash scripts/deploy/vercel-production.sh",
     "release:status": "node scripts/deploy/release-status.mjs",

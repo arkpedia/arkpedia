@@ -1,0 +1,18 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // The site's front Worker (README.md).
+  "name": "arkpedia-edge",
+  "main": "worker.mjs",
+  "compatibility_date": "2026-10-19",
+  // One front door: the site Worker keeps its own workers.dev address for tests.
+  "workers_dev": false,
+  "preview_urls": false,
+  // In front of the site Worker, which keeps arkpedia-cf.mocchibird.com as its custom domain: a
+  // Worker on a route runs before the custom domain's Worker. Without this route, readers reach
+  // the site Worker directly again.
+  "routes": [{ "pattern": "arkpedia-cf.mocchibird.com/*", "zone_name": "mocchibird.com" }],
+  // The site Worker (the repository's wrangler.jsonc name). Calls through a service binding
+  // aren't billed as requests of their own.
+  "services": [{ "binding": "SITE", "service": "arkpedia" }],
+  "observability": { "enabled": true }
+}

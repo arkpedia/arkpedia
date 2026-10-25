@@ -1,5 +1,33 @@
 # Deferred feature review during consolidation
 
+## Current checkpoint after the accounts release, 2026-10-25
+
+Fetched remote tips are main `9796b6636efd2d6d4018baca2a77c2359f5595da`,
+dev `5b0e72a8cd0c77d2711978905522c2f875bc8750` and Cloudflare
+`de829d1eac0e1dc0efc17866e680b447650434df`. The complete main-to-dev net comparison
+now contains 348 entries (17 additions, 82 deletions, 236 modifications and 13
+renames); main-to-Cloudflare contains 283 (26 additions, 23 deletions, 221
+modifications and 13 renames). Exact paths/statuses are retained in
+`.cache/deferred-feature-current-20261025.json`. Counts describe file differences,
+not outstanding features or an approved merge.
+
+Main now contains the accepted accounts implementation. The current Cloudflare
+tip has no net differences under `lib/cloud-account/` or `pages/api/auth/`;
+that bounded comparison does not establish parity of every account consumer,
+deployment binding, database or OAuth origin. Conversely, the dev comparison
+would delete released account and preview-controller files. Those deletions are
+evidence of divergence and must not be carried into a product promotion.
+
+Central versioned site preferences already exist on main. The remaining dev
+change in `lib/settings/siteSettings.ts` adds a React `useSetting` hook; review
+its consumers and any remaining technique preference behavior as the new unit,
+rather than reintroducing the whole historical preferences implementation.
+Base simulation/optimizer files, technique clause/direction/excerpt helpers and
+the route-name migration remain separate review units. Preserve the released
+account/archive/restore contracts while extracting their dependency-complete
+changes. The historical checkpoints below remain useful provenance and are not
+the current file counts.
+
 Inventory checked 2026-10-24 against framework candidate `868736506d1e72c71a61e7e702bafc35024e2eba`
 and reconciled dev candidate `d8a8d30e`. Their net difference is 225 files, including
 tests, documentation and lockfiles. This is a review inventory, not approval to

@@ -4,8 +4,13 @@ const assetUrl = (repository, path) => assetCdn.template.replace('{repository}',
 const contentPageRoutes = require('./scripts/content/pages.json');
 const { ClientDataGuard } = require('./scripts/build/client-bundle-guard.cjs');
 const { contentPointer } = require('./scripts/content/content-channel.cjs');
+const { routes: pilotRouteAliases } = require('./config/pilot-route-aliases.json');
 const workerBuild = process.env.ARKPEDIA_WORKER === '1';
 const stagingBuild = require('./scripts/deploy/deployment-role.cjs').deploymentRole() === 'staging';
+const cloudflareAnalytics = require('./config/web-analytics.json');
+const productionAnalytics = workerBuild
+  ? /^[a-f0-9]{32}$/.test(cloudflareAnalytics.cloudflareToken)
+  : process.env.VERCEL === '1' && process.env.VERCEL_ENV === 'production';
 for (const [repository, revision] of Object.entries(assetRevisions)) {
   if (!/^[a-f0-9]{40}$/.test(revision)) throw new Error(`Invalid asset revision: ${repository}`);
 }
@@ -41,7 +46,7 @@ const nextConfig = {
   // ARKPEDIA_CONTENT_CHANNEL: the content pointer this build reads (lib/content/server.ts): the
   // channel of the project Deploy builds for (scripts/content/content-channel.cjs). Inlined
   // because the prebuilt functions carry no Vercel project env.
-  env: { ARKPEDIA_WEB_ANALYTICS: !stagingBuild && process.env.VERCEL === '1' && process.env.VERCEL_ENV === 'production' && contentPointer() === 'live' ? '1' : '', ARKPEDIA_CONTENT_CHANNEL: contentPointer(), ARKPEDIA_WORKER: workerBuild ? '1' : '' },
+  env: { ARKPEDIA_WEB_ANALYTICS: !stagingBuild && productionAnalytics && contentPointer() === 'live' ? '1' : '', ARKPEDIA_CONTENT_CHANNEL: contentPointer(), ARKPEDIA_WORKER: workerBuild ? '1' : '' },
   // The browser bundle may not carry a game record the content release publishes (such as
   // data/albums.json): the build fails, naming the import chain. See the guard's header.
   webpack(config, { isServer, webpack }) {
@@ -90,6 +95,9 @@ const nextConfig = {
     // result; the :slug is captured and handed straight to the query the page
     // reads.
     return [
+      // Keep bookmarks from the migration pilot while main retains its current
+      // canonical route names. Query strings follow Next's normal redirect rules.
+      ...Object.entries(pilotRouteAliases).map(([source, destination]) => ({ source, destination, permanent: false })),
       ...externalAssetRedirects(SKIN_ASSET_FOLDERS, 'arkpedia-skin-assets'),
       ...externalAssetRedirects(IMAGE_ASSET_FOLDERS, 'arkpedia-image-assets'),
       {
@@ -186,6 +194,13 @@ const nextConfig = {
     // redirects themselves, so a folder added there is covered here too.
     const assetRedirects = (await nextConfig.redirects()).filter(({ destination }) => /^https:\/\//.test(destination));
     return [
+      // Alternate hosts stay unindexed without using staging's account-free role.
+      // Canonical www remains indexable after the eventual provider cutover.
+      {
+        source: '/:path*',
+        has: [{ type: 'host', value: '(?:arkpedia-cf\\.mocchibird\\.com|.*\\.workers\\.dev)' }],
+        headers: [{ key: 'X-Robots-Tag', value: 'noindex' }],
+      },
       {
         /* Security headers on every response.
            The site had none, which is the default and not a deliberate choice.
