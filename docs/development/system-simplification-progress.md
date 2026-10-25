@@ -32,11 +32,14 @@ native production build owner, since main data will then wait for the first pilo
 release. Actual signed-in/old-tab accounts and analytics acceptance remain required.
 
 The first PR775 CI failed a remaining single-reader test expectation; that assertion
-is corrected without reducing the dual-reader gate.96 composed Linux cases passed
-at the prior checkpoint. Broader local tests exposed missing Python/Pillow and a
-local runtime mismatch; workspace-local dependencies and the exact CI Node version
-are being aligned before the corrected full run. These setup failures are not
-passing CI evidence. The checklist remains30/52; prepared code is not activation.
+is corrected without reducing the dual-reader gate. The aligned complete local run
+at sourcefb4a8390 passed2,597 tests with five intentional skips; all ten declared
+Python suites and changed-script ESLint passed. Workspace-local Node22.23.3 matches
+CI; an isolated Python environment supplies the declared dependencies. The earlier
+Windows/LF, missing-Pillow and old-runtime failures remain separate observations;
+no assertion was relaxed to make them pass. Current source adds documentation only
+to that fully tested code and is returning to full CI. The checklist remains30/52;
+prepared code is not activation.
 R2 delivery is not activated remotely. DNS, permanent branch retirement, simulator
 rename/archive and Vercel retirement remain behind their recorded gates. Detailed
 entries below retain dated evidence rather than claiming earlier sources are current.

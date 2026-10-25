@@ -151,7 +151,7 @@ endpoint. A private Worker binding is appropriate for server-only reads.
 
 ## Ordered milestones and acceptance
 
-Reviewed 2026-10-25, 12:25 UTC. **30 of 52 acceptance items are complete and checked.**
+Reviewed 2026-10-25, 12:42 UTC. **30 of 52 acceptance items are complete and checked.**
 The items differ substantially in size; this is not a percentage of time remaining.
 Completed controller implementation and real lifecycle proof are now separate from
 the remaining CI credential/activation gate. Exact evidence and limitations are in
@@ -162,8 +162,8 @@ the [progress log](system-simplification-progress.md).
 | 0. Preserve and measure | 4/6 | Source inventory and backups complete | Provider dashboards and actual usage/bills |
 | 1. Cloudflare development loop | 9/9 | Automatic checked-artifact publication and owned-close retirement verified | Maintain these checks on subsequent previews |
 | 2. Proportional CI | 8/9 | Main/CF prerequisites released; selected/reuse proof verified | Representative timing/reliability measurements |
-| 3. One codebase | 3/8 | Framework, hosting foundation and reviewed account port released | Reviewed integration, unified production target, branch retirement |
-| 4. R2 delivery | 3/7 | Actual local app/two-snapshot proof; inactive foundation PR771 | Current CI, isolated remote/cost and activation proof |
+| 3. One codebase | 3/8 | Main-based pilot build released; checked release owner775 prepared | Controlled pilot activation/parity, feature reconciliation, branch retirement |
+| 4. R2 delivery | 3/7 | App reader merged; local app/two-snapshot proof | Isolated remote CAS/cache/fallback/rollback, cost and activation proof |
 | 5. Production cutover | 0/6 | Preliminary checks recorded | Complete parity, old-tab, rollback and measured soak |
 | 6. Simulator naming | 3/7 | Branches/unique work preserved; source links audited | External consumers, rename/archive and reference verification |
 
