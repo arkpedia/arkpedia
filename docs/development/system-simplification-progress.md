@@ -639,5 +639,8 @@ bounded verifier/extractor. Seven safety tests pass on Windows and Linux; workfl
 YAML parses. The existing real19b artifact from successful run40129816201 validates
 10,503 entries/323,467,864 expanded bytes and its exact clean identity. The receipt
 for this historical archive is a local backfill test, not a CI-produced attestation.
-Actual Linux extraction session60951 is still live; full extraction is not claimed.
+Actual Linux extraction60951 completed successfully. Independent verification1407
+confirmed the exact 9,954-file set and byte-identical hashes for the Worker, both
+build identities, reviewed config and a cache filename containing a colon. Evidence:
+preview-lifecycle/.cache/historical-extraction-proof.json. No diagnostic server remains.
 No credentials, provider settings, runtime sources or production resources changed.
