@@ -151,7 +151,7 @@ endpoint. A private Worker binding is appropriate for server-only reads.
 
 ## Ordered milestones and acceptance
 
-Reviewed 2026-10-25. **33 of 52 acceptance items are complete and checked.**
+Reviewed 2026-10-25. **34 of 52 acceptance items are complete and checked.**
 The items differ substantially in size; this is not a percentage of time remaining.
 Completed controller implementation and real lifecycle proof are now separate from
 the remaining CI credential/activation gate. Exact evidence and limitations are in
@@ -162,7 +162,7 @@ the [progress log](system-simplification-progress.md).
 | 0. Preserve and measure | 4/6 | Source inventory and backups complete | Provider dashboards and actual usage/bills |
 | 1. Cloudflare development loop | 9/9 | Automatic checked-artifact publication and owned-close retirement verified | Maintain these checks on subsequent previews |
 | 2. Proportional CI | 8/9 | Main/CF prerequisites released; selected/reuse proof verified | Representative timing/reliability measurements |
-| 3. One codebase | 3/8 | PR775 checked-main owner published its first pilot release | Independent account acceptance/parity, feature reconciliation, branch retirement |
+| 3. One codebase | 4/8 | Same checked main code released to Vercel/pilot; account continuity accepted | Feature reconciliation, branch retirement and remaining cutover gates |
 | 4. R2 delivery | 3/7 | App reader merged; local app/two-snapshot proof | Isolated remote CAS/cache/fallback/rollback, cost and activation proof |
 | 5. Production cutover | 0/6 | Preliminary checks recorded | Complete parity, old-tab, rollback and measured soak |
 | 6. Simulator naming | 6/7 | Rename/archive, historical links and canonical references verified; PR19 merged after full matrix | Final documentation and measured comparison |
@@ -173,11 +173,12 @@ healthy with the same clean fingerprint/live/schema2 identity. Actual pilot21 HT
 and12 browser cases pass; www's four-state account/local-controls check passes.
 Private server/browser comparison confirms exact archived-draw multiplicities,
 identity/providers/consents and nondecreasing revisions. Independent fresh-profile
-provider/sync acceptance remains pending. Previously unloaded old-client navigation
+provider restoration and automatic visible/focus sync passed. Previously unloaded old-client navigation
 upgraded/reloaded the document; seamless retention is not claimed. Analytics host
 alignment is saved and actual post-change ingestion passed. D1/OAuth/DNS configuration
-is unchanged. The maintainer confirms independent Google restoration; exact fresh
-ZIP comparison and timer/focus/provider acceptance remain pending.
+is unchanged. Independent Google ZIP comparison preserves every draw/multiplicity;
+Discord restored the same account. The reversible favourite test was restored, while
+legitimate concurrent planner reward initialization was retained and documented.
 
 PR775 separately prepares the disabled exact-main release owner, resource checks
 and ownership-aware recovery, together with the necessary two-reader content gate.
@@ -185,7 +186,7 @@ Its exact full CI/preview passed. Under explicit maintainer approval, the90-day
 single-Worker credential was stored, the old native owner disabled/drained and the
 checked-main workflow enabled. The first release retained its exact previous-version
 receipt; private recovery metadata and held-client baselines were captured beforehand.
-Keep main stable until the remaining configured-account acceptance is resolved.
+First-release configured-account acceptance is complete; public cutover remains separate.
 Preserved dev/Cloudflare branches and feature work remain; do not force the legacy
 sync over its reviewed conflicts. R2 app code is merged but remote R2 publication,
 measured comparison and retention/activation remain open.
@@ -318,8 +319,12 @@ The existing local `cf:preview` command is not the remote feature-preview workfl
 - [ ] Finish reviewed branch reconciliation. #759 at d6026597 passed full Check
   40138347385. The #764 CI/deployed proof hold is now released; reconcile the
   current main/CF tips and revalidate the changed integration tree before merging.
-- [ ] Make main deploy to Vercel and the CF production-candidate hostname from the same
+- [x] Make main deploy to Vercel and the CF production-candidate hostname from the same
   reviewed code. Verify account/provider differences and content compatibility explicitly.
+  PR775 main8ee3f3dc passed Check40208662540 and both release workflows. Actual build,
+  live-content, HTTP/browser and configured-account continuity checks passed; independent
+  Google archive restoration and Discord identity matched. Automatic favourite sync and
+  restoration passed. Old-route document upgrade/reload remains a separate cutover limit.
 - [ ] Switch feature PRs/previews to main. Stop Vercel dev deploys and obsolete dev
   content compiles only once all consumers are moved or accounted for.
 - [ ] Retire main-to-dev/cloudflare synchronization and alerts after dependants move.
@@ -460,9 +465,8 @@ is draft and remote R2 publication remains inactive.
 PR775's final sourcef0577500 passed full Check40198085718 and real isolated preview
 acceptance before merge. Native builds are now disabled, the reviewed scoped token
 is stored, and the checked-main owner published version56bdbefb. Independent browser
-provider restoration and timer/focus sync remain open; analytics hostname alignment
-is saved with successful post-change actual ingestion. Independent Google restoration
-is owner-confirmed but the fresh ZIP comparison remains pending;
+provider restoration, independent archive comparison and automatic sync have passed;
+analytics hostname alignment is saved with successful post-change actual ingestion;
 old-client navigation upgraded/reloaded and is not seamless cutover proof. Canonical
 D1/OAuth/DNS configuration remains unchanged.
 

@@ -46,10 +46,13 @@ controls remain available for recovery while their retirement gates are open;
 they are not the normal destination for new feature work.
 
 Content publication waits for the configured main readers. The checked-main
-Cloudflare release owner registers the pilot in that gate when activated; it must
+Cloudflare release owner registers the pilot in that gate; it must
 not receive newer data while serving older code merely because both use schema2.
-The current pilot still needs the controlled single-owner, credential and account/
-old-client activation steps in [PR775](https://github.com/arkpedia/arkpedia/pull/775).
+The checked-main owner is active after PR775's first controlled release and account
+continuity acceptance. Native pilot builds are disabled; its scoped token targets
+only the existing Worker. Follow [pilot release and recovery](cloudflare-pilot-release.md).
+Old-client navigation currently upgrades/reloads the document; seamless continuity
+and public cutover remain separate gates.
 The isolated feature preview controller is already active and is a separate path.
 
 For the legacy Vercel workflow, a target with `"live": false` is not updated

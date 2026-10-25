@@ -23,11 +23,11 @@ Both are listed in `config/production.json`. Vercel's own Git deployments are sw
 1. **Branch from `main` and work locally.** Use focused checks during iteration. Open a short-lived feature PR into `main`; draft feedback does not build or establish browser proof.
 2. **Mark ready and verify Check.** The current impact policy selects relevant browser journeys and falls back to broader coverage for unknown/shared changes. A selected run is not full-suite proof. Follow the design/UX guidance for affected desktop/mobile and dark/light journeys.
 3. **Request one explicit Cloudflare preview when ready.** The trusted-main preview controller accepts a successful exact-source Check, builds the isolated configuration and publishes its verified artifact. Verify the actual deployed journey. See [Cloudflare staging](docs/development/cloudflare-staging.md).
-4. **Merge the accepted PR into `main`.** A successful main Check releases public Vercel production. The checked-main Cloudflare pilot owner is prepared but remains behind its credential, single-owner and configured-account/old-client activation gates; see [the checked-main pilot release](https://github.com/arkpedia/arkpedia/pull/775). Do not assume the current pilot already follows main.
+4. **Merge the accepted PR into `main`.** A successful main Check releases public Vercel production and the existing Cloudflare pilot through its checked-main owner. Native pilot Git builds are disabled. See [the checked-main pilot release](docs/development/cloudflare-pilot-release.md) for fixed resources, scoped credentials, ownership and recovery. Public-domain cutover remains separate.
 
 The agreed target is one application codebase, not permanent `dev` and `cloudflare`
-mirrors. Those branches currently preserve unreleased features and the existing
-pilot's native build source. Review their net changes individually; do not merge
+mirrors. Those branches currently preserve unreleased features and historical pilot
+source. Review their net changes individually; do not merge
 them wholesale or delete them before the [simplification plan](docs/development/system-simplification-plan.md)
 gates pass. Keep Vercel serving www until Cloudflare parity, costs, soak and rollback
 are accepted, then handle public-domain cutover separately.

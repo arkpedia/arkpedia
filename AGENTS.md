@@ -14,7 +14,7 @@ Develop locally, then request an explicit checked-source isolated Cloudflare pre
 when ready. Preserve unreleased `dev`/`cloudflare` work for individual review; do not
 merge or retire those legacy branches wholesale. Never use a permanent branch as a
 disposable PR head. Vercel still serves public production; the checked-main pilot
-owner has a separate controlled activation gate. See the README and simplification
+owner is active, while public-domain cutover has separate acceptance gates. See the README and simplification
 plan for current deployment state and release rules.
 
 <!-- BEGIN:nextjs-agent-rules -->
