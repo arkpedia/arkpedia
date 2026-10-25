@@ -62,6 +62,18 @@ below retain dated evidence rather than claiming earlier sources are current.
 
 ## Historical first staging proof
 
+### Ordinary UI timing sample recorded 2026-10-25
+
+PR773's bounded account-notice UI change passed Check40186842441 in10m20s
+wall time (10m04s for the Check job,16s before it started). Selected browser work
+took1m45s; the separate full-browser step was intentionally skipped. Application/
+Python tests took1m45s, typecheck35s and the application build1m06s. The selected
+execution evidence passed; this is an actual successful selected profile, not a
+green setup with no browser work. Source job timestamps are retained in
+`.cache/proportional-ui-ci-773.json`. This is one bounded UI sample, not a p50/p95
+or representative reliability distribution, and it exceeds the initial eight-minute
+target. Keep the remaining proportional-CI measurement/optimization item open.
+
 Observed 2026-10-24. Work is isolated in `E:/Projects/arkpedia-release-ux`, branch
 `codex/system-simplification`, so the separate cloud-account work in the main checkout
 is not reset, included or deployed here.
