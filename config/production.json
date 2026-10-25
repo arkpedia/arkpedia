@@ -17,5 +17,14 @@
       "tokenSecret": "VERCEL_TOKEN",
       "live": true
     }
+  ],
+  "contentReaders": [
+    {
+      "name": "arkpedia-cloudflare",
+      "url": "https://arkpedia-cf.mocchibird.com",
+      "branch": "main",
+      "live": true,
+      "refresh": false
+    }
   ]
 }

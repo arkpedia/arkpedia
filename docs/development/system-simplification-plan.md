@@ -151,7 +151,7 @@ endpoint. A private Worker binding is appropriate for server-only reads.
 
 ## Ordered milestones and acceptance
 
-Reviewed 2026-10-25, 11:20 UTC. **30 of 52 acceptance items are complete and checked.**
+Reviewed 2026-10-25, 12:42 UTC. **30 of 52 acceptance items are complete and checked.**
 The items differ substantially in size; this is not a percentage of time remaining.
 Completed controller implementation and real lifecycle proof are now separate from
 the remaining CI credential/activation gate. Exact evidence and limitations are in
@@ -162,24 +162,26 @@ the [progress log](system-simplification-progress.md).
 | 0. Preserve and measure | 4/6 | Source inventory and backups complete | Provider dashboards and actual usage/bills |
 | 1. Cloudflare development loop | 9/9 | Automatic checked-artifact publication and owned-close retirement verified | Maintain these checks on subsequent previews |
 | 2. Proportional CI | 8/9 | Main/CF prerequisites released; selected/reuse proof verified | Representative timing/reliability measurements |
-| 3. One codebase | 3/8 | Framework, hosting foundation and reviewed account port released | Reviewed integration, unified production target, branch retirement |
-| 4. R2 delivery | 3/7 | Actual local app/two-snapshot proof; inactive foundation PR771 | Current CI, isolated remote/cost and activation proof |
+| 3. One codebase | 3/8 | Main-based pilot build released; checked release owner775 prepared | Controlled pilot activation/parity, feature reconciliation, branch retirement |
+| 4. R2 delivery | 3/7 | App reader merged; local app/two-snapshot proof | Isolated remote CAS/cache/fallback/rollback, cost and activation proof |
 | 5. Production cutover | 0/6 | Preliminary checks recorded | Complete parity, old-tab, rollback and measured soak |
 | 6. Simulator naming | 3/7 | Branches/unique work preserved; source links audited | External consumers, rename/archive and reference verification |
 
-Latest verified main release is PR773 at616f4cbf, after the R2 foundation PR771
-and explicit preview notifier PR772. Check40188150120 and Deploy40188174941 passed.
-Actual www clean production identity, four desktop/mobile dark/light account
-journeys and release-status production health passed. The unavailable cloud-account
-section is removed; local import/export remains available. Configured accounts
-remain enabled only on the existing migration pilot; no D1/OAuth/DNS configuration
-changed. Full R2-foundation public acceptance remains recorded in the progress log.
+Latest verified main release is PR774 atb9ffe6df. Its full Check40189357580,
+exact native producer40191452625, automatic publication40191632872 and owned-close
+retirement40192165739 passed. The deployed preview passed21 HTTP/privacy/alias
+cases and12 browser journeys. Independent provider inspection confirms baseline
+591c/19b and unchanged pilot066ea33d. Actual www clean identity,36 route/theme/width
+cases,13 aliases and both analytics sampling states passed; production release
+status is healthy. Accounts/D1/OAuth/DNS configuration is unchanged.
 
-PR773 also completed the real automatic preview cycle: producer40187663125,
-publication40187870567 and owned-close retirement40188151181. Independent provider
-inspection verified baseline591c/19b and unchanged pilot066ea33d. The repeatable
-Cloudflare development-loop milestone is now9/9. R2 app code is merged but remote
-R2 publication, measured comparison and retention/activation remain open.
+PR775 separately prepares the disabled exact-main release owner, resource checks
+and ownership-aware recovery, together with the necessary two-reader content gate.
+It is not deployed or enabled. Its own full CI/preview, explicit scoped credential
+approval and disabling/draining the old native build owner precede merge/activation.
+Preserved dev/Cloudflare branches and feature work remain; do not force the legacy
+sync over its reviewed conflicts. R2 app code is merged but remote R2 publication,
+measured comparison and retention/activation remain open.
 
 ### 0. Preserve and measure
 

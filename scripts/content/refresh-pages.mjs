@@ -81,8 +81,8 @@ export async function refreshPages({ secret, env = process.env, deployments = re
     return [];
   }
   const results = [];
-  for (const { name, url, live } of deployments) {
-    if (!live) continue;
+  for (const { name, url, live, refresh } of deployments) {
+    if (!live || refresh === false) continue;
     try {
       const response = await fetch(`${url}/api/release-refresh`, { method: 'POST', headers: { authorization: `Bearer ${secret}` } });
       const body = await response.text();
