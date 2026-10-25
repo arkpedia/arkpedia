@@ -1,232 +1,92 @@
-# Arkpedia accounts on the Cloudflare branch
+# Arkpedia accounts
 
-This implementation is for the Cloudflare deployment only. It uses Better Auth
-1.7.12, Google/Discord login and a native D1 binding. Vercel deployments without
-that binding show accounts as unavailable and keep browser-only features working.
-The existing R2 bucket remains a page/audio cache, never an account database.
+The accepted account implementation uses Better Auth 1.7.12, Google/Discord and a
+native Cloudflare D1 binding. It is being integrated selectively into main from
+Cloudflare source `de829d1e`; this document does not claim a completed main release.
+Vercel and isolated staging have no account binding: APIs return private/no-store
+503 and browser-only imports, plans, backups and music remain available.
 
-Pilot provisioning on 2026-10-24: `arkpedia-accounts-dev`
-(`f7daff77-8e8f-4ec2-998b-97fb6e4b948f`, EU jurisdiction) is already configured in
-Wrangler, and `0001_accounts.sql` has been applied to the remote database. The
-login origin is `https://arkpedia-cf.mocchibird.com`. Steps 1 and the initial
-migration are complete for this pilot; the remaining setup starts with Google.
+The existing pilot is on `arkpedia-cf.mocchibird.com`. Its D1 migrations 001–003
+have already been applied. Do not reset that database or rerun its ALTER statements.
+R2 page/audio caches never store account records or credentials.
 
-## 1. Cloudflare: create the pilot database
+For PR #770, accounts stay on that pilot. Main integration does not enable accounts
+on `www.arkpedia.net` or move pilot users. No new D1 database, OAuth application,
+callback registration, secret or DNS change is required for this integration.
+Production hostname and database migration remain separate decisions.
 
-Keep the pilot separate from production. In Cloudflare, open **Storage & databases →
-D1 SQL Database → Create database**. Name it `arkpedia-accounts-dev`. Choose a
-jurisdiction deliberately at creation; `EU` is available if you want the database
-stored in the EU. A location hint alone does not impose a jurisdiction restriction.
-Copy the database UUID from its overview.
+## Saving and privacy
 
-Alternatively, with Wrangler signed into the correct Cloudflare account:
+Saving has three independent categories: personal settings/plans, pull history,
+and imported game snapshots. History and game snapshots require their own opt-in;
+disabling either must not revoke the other. Confirm category removal. Deleting all
+cloud saves also removes the archive and pauses saving on every device.
 
-```sh
-npx wrangler login
-npx wrangler d1 create arkpedia-accounts-dev --jurisdiction=eu
-```
+Yostar email, codes, tokens and device identity stay browser-local. A closed upload
+key list and recursive credential rejection protect the API. Provider login/session
+storage is separate; OAuth tokens are encrypted and requests must not be logged.
+Never include account data in public content releases, static payloads or analytics.
 
-Use the existing pilot Worker's stable HTTPS address (the `arkpedia` Worker, on
-`workers.dev` or your chosen custom domain). Do not use a temporary preview URL.
-From this checkout, configure the binding and explicit login origin:
+New users explicitly choose a unique username. Google/Discord names and pictures
+are not their public profile. An imported Doctor name is only an explicit suggestion;
+optional friend tag/server data is private and does not prove game-account ownership.
+Provider linking requires an existing account and cannot remove the last login.
+Deletion requires typed confirmation and a fresh provider session.
 
-```sh
-node scripts/accounts/configure.mjs --database-id YOUR_DATABASE_UUID --database-name arkpedia-accounts-dev --origin https://arkpedia-cf.mocchibird.com
-```
+Pull archives use account/server/game UID namespaces, retaining an unknown-UID
+legacy namespace. Union preserves maximum known draw multiplicity rather than
+deduplicating repeated operators. Bounded chunk uploads, revision/nonce CAS and
+owner-qualified archive revision checks protect concurrent devices and account
+switches. An import archives earlier history before replacing its game snapshot.
 
-This edits `wrangler.jsonc`: `ARKPEDIA_ACCOUNTS_DB` points to D1 and
-`ARKPEDIA_AUTH_URL` names the exact origin, with no trailing slash. Review and commit
-those non-secret values. The script refuses to replace an existing binding.
+Visible/focused clients automatically sync selected locally held data at 15-second
+intervals. This never fetches Yostar history. Import regularly inside its 90-day
+window. Restore remounts only page content; theme and player preferences update via
+the restore event while the music engine stays mounted.
 
-Apply the schema before enabling login:
+## Configuration and deployment boundaries
 
-```sh
-npx wrangler d1 migrations apply ARKPEDIA_ACCOUNTS_DB --remote
-```
+The Worker needs `ARKPEDIA_ACCOUNTS_DB`, the exact `ARKPEDIA_AUTH_URL` origin,
+`BETTER_AUTH_SECRET` (at least 32 characters), and configured provider client IDs
+and secrets. Keep secrets in Worker runtime configuration, never public build vars
+or committed files. `.dev.vars.example` lists local names without real credentials.
+Register each exact `/api/auth/callback/google` and `/api/auth/callback/discord`
+URL with its provider. A different hostname's cookies do not transfer sessions.
 
-There is one application database, shared by users with ownership enforced by the
-server's session. Do not create a database for each user, expose a D1 API token to
-the browser, or reuse production data for development. To promote later, create
-`arkpedia-accounts-prod`, apply its migrations and deliberately switch the binding
-and OAuth registrations. Promotion does not automatically copy pilot accounts.
+The main production Worker config and production D1 choice are separate reviewed
+hosting work. Do not add accounts to `wrangler.staging.jsonc`: it deliberately
+isolates writable resources and disables login. An authenticated alternate host
+needs its own reviewed role and noindex policy.
 
-## 2. Google: register a web application
-
-Open [Google Cloud Console](https://console.cloud.google.com/), create/select an
-Arkpedia-owned project, then open **Google Auth Platform**.
-
-1. Under **Branding**, use `Arkpedia`, a support email you control, and the app's
-   real homepage/privacy-policy links. Do not reuse a Yostar email from an import.
-2. Set **Audience** to External. Keep the pilot in Testing and add your Google
-   account and other pilot testers as test users.
-3. Under **Clients**, create a **Web application** client.
-4. Register the exact callback:
-   `https://arkpedia-cf.mocchibird.com/api/auth/callback/google`.
-5. If an Authorized JavaScript origin is requested, use the app origin:
-   `https://arkpedia-cf.mocchibird.com`.
-6. Copy the client ID and secret into Cloudflare as described below. Login needs
-   basic `openid`, `email`, `profile` identity scopes, not Gmail or Drive access.
-
-Before public signup, complete Google's publishing requirements and switch the
-audience out of Testing. Basic login and sensitive Google API access have different
-verification requirements; follow the console's actual checks for this app.
-
-## 3. Discord: register an application
-
-Open [Discord Developer Portal](https://discord.com/developers/applications),
-create `Arkpedia`, and open its **OAuth2** settings.
-
-1. Add redirect `https://arkpedia-cf.mocchibird.com/api/auth/callback/discord`.
-2. Copy the OAuth client ID and client secret. A bot token is not needed.
-3. This login uses `identify` and `email`, not messages, servers, or a bot invite.
-
-The provider identity email belongs to Arkpedia authentication. It is separate
-from the Yostar email, which our importer never sends to the account API.
-
-## 4. Cloudflare: configure runtime secrets and deploy
-
-Open **Workers & Pages → arkpedia → Settings → Variables and Secrets**. Add these
-as secrets (not build-time public variables), or use the commands below:
+For a reviewed account-enabled configuration with an empty D1 array, the helper
+prepares only its non-secret binding and origin:
 
 ```sh
-npx wrangler secret put BETTER_AUTH_SECRET
-npx wrangler secret put GOOGLE_CLIENT_ID
-npx wrangler secret put GOOGLE_CLIENT_SECRET
-npx wrangler secret put DISCORD_CLIENT_ID
-npx wrangler secret put DISCORD_CLIENT_SECRET
+node scripts/accounts/configure.mjs --config <reviewed-config.jsonc> --database-id <uuid> --database-name <reviewed-name> --origin https://<exact-host>
 ```
 
-Generate `BETTER_AUTH_SECRET` with a password manager or `openssl rand -base64 48`.
-Keep it stable, private and backed up: changing it invalidates sessions and can
-prevent decryption of stored Google/Discord OAuth tokens. Never paste secrets into
-Git, a PR, this guide, or chat. The OAuth client IDs are public identifiers, but
-keeping all five values together as Worker secrets simplifies configuration.
+All options are explicit; the file must be inside this checkout. Existing bindings
+and isolated staging are refused. Review the resulting diff before any deployment.
+The helper creates no remote resource and never migrates data or copies secrets.
 
-Confirm `ARKPEDIA_AUTH_URL` is a normal Worker variable and the D1 binding is
-`ARKPEDIA_ACCOUNTS_DB`. The checked-in Wrangler config should be the source of truth
-for these non-secret settings so deployments preserve them.
+For a fresh approved database apply 001 → 002 → 003 once; for the pilot inspect its
+migration ledger. Decide explicitly whether production retains the pilot database
+or uses a validated copy/new database. Before a copy, preserve identities, provider
+links, profiles, consent, revisions, complete archive and encrypted-token secret
+compatibility; validate row counts, ownership, multiplicity and cascades on a copy.
+Never silently create replacement user identities during canonical-host migration.
 
-Deploy the feature branch through the usual Cloudflare build process for review,
-then merge its PR into `cloudflare` when checks pass. The pilot's Workers Builds
-production branch remains `cloudflare`. For a deliberately manual deployment from
-the feature checkout, run `npm run cf:deploy` only when ready to update the pilot.
-No deployment to `main` or Vercel is required.
+## Verification
 
-## 5. Test the complete journey
+`scripts/tests/test-cloud-accounts.ts` exercises real local SQLite through the D1
+adapter: migrations/backfill, auth schema, origin and owner isolation, consent/CAS
+races, profile uniqueness, archive retention and deletion. Browser tests cover
+onboarding, independent saving, account switches, reauthentication, unavailable
+deployments and playback-safe restore. Mocked browser auth is not provider acceptance.
 
-On the pilot's `/account` page:
-
-1. Export current browser data through Import / export.
-2. Sign in with Google. Choose **Use this browser’s data** to seed the cloud save.
-3. Change a music like or skin wishlist. Leave the tab open for at least 15 seconds,
-   or use **Save now** on the account page. Check another browser, sign in, and
-   choose **Use cloud data**. This is an explicit replacement, not an automatic merge.
-4. While signed in, link Discord. Sign out, then sign in with Discord: the same
-   Arkpedia account and saves should appear. Same-email sign-ins are never implicitly
-   linked; a new provider must be linked from the existing account.
-5. Import from Yostar with game-data storage off. In D1's `cloud_save` table, the
-   payload must not contain the account snapshot, roster, depot or credentials.
-6. Enable **Save imported game data**, then choose this browser. Check the supported
-   snapshot appears on another device. Disable it; the active database snapshot
-   loses optional game data and imported starting values.
-7. Edit on two devices. The second stale write must ask which copy to keep rather
-   than silently replacing the first. Export both copies before resolving if needed.
-8. Test logout, expired sessions, deletion, both themes and a phone-width viewport.
-
-Google/Discord live login cannot be verified until their applications, secrets,
-registered redirects, database and deployment exist. Local tests use synthetic
-data and never sign into Yostar, Google or Discord as a real user.
-
-## Data and security behavior
-
-- The browser reads a closed list of supported stores, never the Yostar saved-login
-  key. The API independently validates it and rejects credential fields/unknown stores.
-- Personal sync includes music likes/playlists, skin/pull/operator goals, base plans,
-  manual reward/story progress and selected preferences. Imported starting build values
-  and imported reward provenance are omitted without consent. A pull wallet tagged
-  as imported is omitted too; manually supplied resource estimates are part of a plan.
-- Optional game sync saves what the current importer normalizes: account profiles,
-  operators, skills/masteries/modules through the planner roster, inventory, skins,
-  wallet, clears, medals, base snapshots and pull history. It does **not** upload raw
-  Yostar responses or add extraction for game fields the importer currently discards.
-- Existing per-server records are preserved. The existing planner still uses the
-  latest imported roster/depot; independent planner workspaces for multiple game UIDs
-  on one server are future work, not provided by this change.
-- Settings not yet included in the centralized store or the explicit preference
-  list remain browser-only. Friends files, player playback queues and diagnostics do
-  not sync. Imported data is private; this adds no public profiles.
-- Accounts start with game-data storage off. Consent changes and saves use one
-  revision-checked database update, so a stale in-flight upload cannot undo revocation.
-- Sync runs every 15 seconds in a visible tab, on focus, or on **Save now**. It is
-  not a background Yostar import. Closing before a save finishes can leave recent
-  changes only in that browser; export remains available.
-- Initial sign-in/new devices, changed remote revisions, and consent changes ask
-  which copy to use. There is no automatic destructive merge. A cloud restore refreshes
-  page state in place, notifies data/settings readers and keeps the music player alive.
-- Logout preserves browser data. “Forget everything” clears browser data, not the
-  cloud account. **Delete cloud saves** clears remote saves and pauses automatic
-  re-upload; **Delete Arkpedia account** removes the user and cascades through linked
-  identities, sessions and saves. Account deletion requires a recent provider login.
-- Database recovery backups may retain deleted records until their retention ends.
-  Explain this in the site's privacy notice before public signup. Cloudflare Paid
-  D1 Time Travel currently retains 30 days; do not promise immediate backup erasure.
-- The authentication database contains an Arkpedia identity email, provider identity
-  IDs, encrypted Google/Discord tokens, session records, and rate-limit records. It
-  never intentionally receives a Yostar login email/token/code. Request bodies,
-  cookies and callback query strings must not be added to application logs.
-- Authenticated APIs are private/no-store, use same-origin mutation checks and derive
-  ownership from the session. Keep them out of shared page/CDN caches.
-- The first version caps a cloud save at 900 KB to stay within D1 row/request limits.
-  Oversized or invalid saves fail visibly without replacing browser data.
-
-## Local preview and checks
-
-Copy `.dev.vars.example` to ignored `.dev.vars` and use development-only provider
-credentials. Register `http://localhost:8787/api/auth/callback/google` and
-`http://localhost:8787/api/auth/callback/discord` in development clients. Apply
-`npx wrangler d1 migrations apply ARKPEDIA_ACCOUNTS_DB --local`, then run
-`npm run cf:preview`. Use localhost consistently, not a mixture of localhost and
-127.0.0.1. Ordinary `next dev` has no Worker D1 context and shows accounts unavailable.
-
-```sh
-npm run typecheck
-npx tsx --test scripts/tests/test-cloud-accounts.ts
-npm run lint -- --max-warnings 15
-npm run lint:scripts
-npm run check:styles
-npm run audit:styles
-npm run build
-npx playwright test tests/browser/cloud-accounts.spec.ts
-npm run cf:build
-```
-
-Provider requirements: [Google OAuth web apps](https://developers.google.com/identity/protocols/oauth2/web-server),
-[Discord OAuth](https://docs.discord.com/developers/topics/oauth2).
-Cloudflare: [D1 setup](https://developers.cloudflare.com/d1/get-started/),
-[jurisdictions](https://developers.cloudflare.com/d1/configuration/data-location/),
-[secrets](https://developers.cloudflare.com/workers/configuration/secrets/),
-[Time Travel](https://developers.cloudflare.com/d1/reference/time-travel/).
-
-## Implementation validation (2026-10-24)
-
-- 50 focused account/import/backup/settings tests passed, including the new D1 API
-  isolation, consent, stale-write, identity-switch and OAuth-state checks.
-- Eight browser checks passed on desktop/mobile, in dark/light themes: first-save
-  choice, opt-in/revocation, concurrent revision handling, restore, preservation of
-  local Yostar credentials, unconfigured deployments and provider buttons. The four
-  populated theme/viewport states were also captured and visually inspected.
-- Type checking, ESLint (nine existing warnings), script lint, style checks, unused
-  code audit and client chunk audit passed.
-- The Next production build and Cloudflare Worker packaging passed. A missing
-  Better Auth `workerd` instrumentation export was fixed with explicit deployment
-  trace includes. Wrangler dry run passed: approximately 3.51 MiB gzip.
-- Local workerd with real local D1 and synthetic provider settings returned 401 for
-  anonymous cloud saves, generated the Google authorization redirect successfully,
-  and rejected an invalid OAuth callback state. No real provider login was performed.
-- The complete repository suite on this Windows host was **not green**: 2,168
-  passed, 176 failed, six skipped. Failures include Windows ESM paths, unavailable
-  subprocesses, sandbox permissions and source/path assertions. The deployment trace
-  audit also still reports local data paths across many routes on this host. These
-  results are not replaced by the focused checks: Linux CI must pass before merging.
-- Real Google/Discord login and cross-device sync on the public pilot still require
-  the provider registrations, five Worker secrets and a reviewed deployment.
+Package and validate both Vercel and native Worker roles. Preserve the main route
+taxonomy, Vercel analytics until cutover, and independently pinned provider artwork.
+Real OAuth/login/link/restore/delete acceptance on the exact candidate hostname,
+old/new clients and rollback safety remain required before production promotion.
+See [the promotion review](account-main-promotion-review.md) and
+[the migration plan](system-simplification-plan.md) for the remaining gates.

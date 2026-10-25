@@ -5,7 +5,9 @@ import { test } from 'node:test';
 import React, { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import ts from 'typescript';
-import ContentImage, { ContentImg } from '../../components/content/ContentImage';
+import ContentImage, { ApplicationImage, ContentImg } from '../../components/content/ContentImage';
+import { ContentContext } from '../../lib/content/context';
+import { assetUrl, encodeAssetPath } from '../../lib/assets/assetUrl';
 import ResponsiveSkinArtwork from '../../components/skins/ResponsiveSkinArtwork';
 
 /*
@@ -59,6 +61,24 @@ test('ContentImage (next/image) is lazy unless priority', () => {
   assert.equal(attr(hero, 'fetchpriority'), 'high');
 });
 
+test('application artwork keeps its immutable code pin when page artwork uses an older release', () => {
+  const revision = '75bca3430542ff200f79b60621999a6c18c16b1d';
+  const oldRevision = '1'.repeat(40);
+  const asset = { repository: 'arkpedia-image-assets' as const, revision, path: 'essential-icons/google.png' };
+  const props = { alt: '', width: 28, height: 28, unoptimized: true };
+  const release = { release: 'older', baseUrl: '', assets: { 'arkpedia-image-assets': oldRevision } };
+  const html = renderToStaticMarkup(createElement(ContentContext.Provider, { value: release },
+    createElement(ApplicationImage, { ...props, asset }),
+    createElement(ContentImage, { ...props, src: '/essential-icons/google.png' })));
+  const images = html.match(/<img[^>]*>/g) ?? [];
+  assert.equal(images.length, 2);
+  assert.equal(attr(images[0], 'src'), assetUrl(asset.repository, revision, encodeAssetPath(asset.path)));
+  assert.equal(attr(images[0], 'loading'), 'lazy');
+  assert.equal(attr(images[1], 'src'), assetUrl(asset.repository, oldRevision, encodeAssetPath(asset.path)));
+  assert.equal(attr(render(ApplicationImage, { ...props, asset, priority: true }), 'fetchpriority'), 'high');
+  assert.throws(() => render(ApplicationImage, { ...props, asset: { ...asset, revision: 'main' } }), /immutable commit/);
+});
+
 /** Every `priority` on an image in the source, by file: each a page's hero, and why. */
 const PRIORITY: Record<string, { count: number; why: string }> = {
   'pages/operators/[name].tsx': { count: 1, why: 'the outfit on screen: the operator page\'s LCP' },
@@ -91,7 +111,7 @@ function scan(file: string, text: string): { priority: number; violations: strin
       const clause = node.importClause;
       if (clause?.name) images.add(clause.name.text);
       if (clause?.namedBindings && ts.isNamedImports(clause.namedBindings)) {
-        for (const element of clause.namedBindings.elements) if ((element.propertyName ?? element.name).text === 'ContentImg') images.add(element.name.text);
+        for (const element of clause.namedBindings.elements) if (['ContentImg', 'ApplicationImage'].includes((element.propertyName ?? element.name).text)) images.add(element.name.text);
       }
     }
     if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) {
@@ -119,6 +139,7 @@ test('the scan finds a native <img> that does not say how it loads, and every pr
   assert.deepEqual(scan('components/content/x.tsx', fixture('<img src="/a.webp" alt="" />')).violations, [], 'the helper renders the one native img');
   assert.equal(scan('components/x.tsx', fixture('<ContentImg src="/a.webp" loading="eager" />')).violations.length, 1, 'a loading on ContentImg');
   assert.equal(scan('components/x.tsx', fixture('<Image src="/a.webp" {...rest} />')).violations.length, 1, 'a spread into an image');
+  assert.equal(scan('components/x.tsx', fixture('<App asset={asset} loading="eager" />', "import { ApplicationImage as App } from '@/components/content/ContentImage';")).violations.length, 1, 'application artwork follows the same loading contract');
   assert.equal(scan('components/x.tsx', fixture('<Image src="/a.webp" priority /><ContentImg src="/b.webp" priority={first} /><Art src="/c.webp" priority />', "import Image, { ContentImg as Img } from '@/components/content/ContentImage';\nimport Art from '@/components/skins/ResponsiveSkinArtwork';")).priority, 2, 'renamed and wrapped imports are followed; an unrelated ContentImg name is not');
 });
 

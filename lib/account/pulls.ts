@@ -44,7 +44,7 @@ export interface PullRead {
 /** A batch's key: one ten-pull (or one single pull) on one pool. */
 const batch = (row: { at: number; pool: string }) => `${row.at}|${row.pool}`;
 
-const MAX_ROWS = 50_000;
+const MAX_ROWS = 500_000;
 
 /**
  * The history after an import. `read` is null for an import that did not ask (a file), which
@@ -58,7 +58,8 @@ export function mergePulls(previous: PullHistory | undefined, read: PullRead | n
   const replaced = new Set(fresh.map(batch));
   const kept = base.rows.filter((row) => !replaced.has(batch(row)));
   // Newest first; a batch keeps its read's order (sort is stable).
-  const rows = [...fresh, ...kept].sort((a, b) => b.at - a.at).slice(0, MAX_ROWS);
+  const rows = [...fresh, ...kept].sort((a, b) => b.at - a.at);
+  if (rows.length > MAX_ROWS) throw new Error('Pull history is too large for this browser import. Export a backup; the existing archive has not been replaced.');
   const pools = { ...base.pools }, names = { ...base.names };
   for (const row of read.rows) {
     if (row.poolName) pools[row.poolId] = row.poolName;
@@ -79,7 +80,7 @@ export function parsePullHistory(value: unknown): PullHistory | undefined {
   const history = value as Record<string, unknown>;
   if (!Array.isArray(history.rows) || history.rows.length > MAX_ROWS) return undefined;
   const rows = (history.rows as Record<string, unknown>[]).flatMap((row) => {
-    if (!row || !Number.isInteger(row.at) || (row.at as number) <= 0 || typeof row.pool !== 'string' || !ID.test(row.pool) || typeof row.char !== 'string' || !ID.test(row.char)) return [];
+    if (!row || !Number.isInteger(row.at) || (row.at as number) <= 0 || unixSeconds(row.at as number) > 253402300799 || typeof row.pool !== 'string' || !ID.test(row.pool) || typeof row.char !== 'string' || !ID.test(row.char)) return [];
     const star = Number.isInteger(row.star) && (row.star as number) >= 1 && (row.star as number) <= 6 ? row.star as number : null;
     // A history the first build kept in milliseconds (unixSeconds) is read in seconds.
     return [{ at: unixSeconds(row.at as number), pool: row.pool, char: row.char, star }];
