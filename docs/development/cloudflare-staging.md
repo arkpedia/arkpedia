@@ -63,7 +63,7 @@ and tree f33eb8642bfcf5e7786cdcf04fbbcf580de9faed; #767 then merged as f9a7bcb3.
 
 ### Publication, ownership and retirement
 
-From the trusted checkout, the controller accepts these explicit operations:
+From the trusted checkout, the controller accepts these low-level operations:
 
 ```sh
 node scripts/deploy/preview-controller.mjs publish PR_NUMBER FULL_SOURCE_SHA CHECK_RUN_ID BUILD_RUN_ID ARTIFACT_ID
@@ -74,6 +74,11 @@ The `closed` operation is reserved for automatic closed-PR handling and requires
 the actual current PR to be closed. An explicitly requested `retire` may remove an
 open PR's preview. Both operations leave another PR's preview alone. Local OAuth
 proof requires the explicit `--local-oauth` argument; CI requires the staging token.
+
+These explicit IDs are the controller's internal contract. The maintainer-facing
+entry point still needs to resolve a PR's checked source/build automatically, so
+routine preview requests do not require copying run IDs. This remains part of the
+workflow acceptance gate alongside real remote and scoped-credential proof.
 
 Cloudflare's existing version annotations store publication intent, including the
 original baseline and Check/build/artifact identities. No additional database,
