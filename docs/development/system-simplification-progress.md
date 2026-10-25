@@ -644,3 +644,35 @@ confirmed the exact 9,954-file set and byte-identical hashes for the Worker, bot
 build identities, reviewed config and a cache filename containing a colon. Evidence:
 preview-lifecycle/.cache/historical-extraction-proof.json. No diagnostic server remains.
 No credentials, provider settings, runtime sources or production resources changed.
+
+
+### Main CI activation and clean production release verified — 01:49 UTC
+
+Full #756 Check40148916171 at ddc6e89a passed1,462 browser cases/217 intentional
+skips in17.7minutes; all1,679 executed identities/zero omissions validated. Actual
+full artifact12582735814 names tree a4cba4dfb0bd25f1d3d04bde6e1433a9712f3ec6.
+Exact-head merge produced main6b5ff40387a86b6e0eb0e6cd4f3eb0ba629f5efd with that
+same tree and fingerprint ae885ed9bf7d845c37d198be6fc8c813710bde215996523fc04a787dda77f189.
+Main push Check40151346338 succeeded via exact-tree evidence reuse; heavy checks
+were skipped. Actual Deploy40151435570 succeeded, including built/public identity
+gates and gated held-content resumption. The actual public www identity is clean,
+production/live/schema2 at6b. Read-only release status is healthy and all36 deployed
+route/theme/viewport cases passed, including populated music/favourite controls,
+without page errors/overflow. The old dirty main74 deployment is superseded.
+Evidence: ci-migration/.cache/full-40148916171.log, expected-ci-release-identity.json,
+release-status-main6b.json, ci-release-browser.json and four theme/viewport screenshots.
+This completes the compound main CI/deployment checkbox, not the final CF cutover.
+
+Automatic main-to-dev reconciliation40151346350 failed on existing conflicts and
+preserved dev/CF. #759 and docs #762 remain held through the narrow-CI proof. The
+reviewed six-file generated-input prerequisite is CF #766 atf0f1caf and main #767
+at3f879e8f (selective port only); main full Check40151760302 is live. Root independent
+lane/baseline/evidence24 cases plus quarantine default/read-only fixture pass, with
+JS ESLint, TypeScript, Knip and diff checks passing. No broad dirty-file exception.
+
+Preview artifact work is now draft #765 atc49600f5, rebased to main6b. Seven portable
+safety cases pass; the standard Python runner discovers the new hyphenated test
+filename. Draft quick Check40151544851 passed. Fresh Linux build-only workflow
+40152014598 is live on that exact source and cannot deploy; it will prove the new
+CI-produced receipt instead of relying on the locally backfilled historical one.
+No preview deployment credentials or remote provider settings were added.
