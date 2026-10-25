@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { createServer } from 'node:http';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { test } from 'node:test';
 import './css-modules';
 import type { GetStaticProps } from 'next';
@@ -28,7 +29,7 @@ async function withEnv<T>(values: Env, run: () => Promise<T>): Promise<T> {
 type Props = Record<string, unknown> & { chibis?: Record<string, unknown>; summons?: unknown[]; skillTimings?: unknown[] };
 async function operatorProps(): Promise<GetStaticProps<Props>> {
   // Loaded as CommonJS, the module's exports can arrive as the namespace's default.
-  const loaded = await import(path.join(process.cwd(), 'pages/operators/[name].tsx')) as { getStaticProps?: GetStaticProps<Props>; default: { getStaticProps: GetStaticProps<Props> } };
+  const loaded = await import(pathToFileURL(path.join(process.cwd(), 'pages/operators/[name].tsx')).href) as { getStaticProps?: GetStaticProps<Props>; default: { getStaticProps: GetStaticProps<Props> } };
   return loaded.getStaticProps ?? loaded.default.getStaticProps;
 }
 async function render(getStaticProps: GetStaticProps<Props>, name: string): Promise<Props> {

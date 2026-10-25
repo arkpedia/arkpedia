@@ -91,17 +91,24 @@ test('in this repository every script the build and browser step run is read, an
   }
 });
 
-test('check.yml asks before the browser step, runs it unless told no, and may read Actions runs', () => {
+test('Check plans scoped execution, defaults to full, and validates actual reporter evidence', () => {
   const job = yaml.load(fs.readFileSync(path.join(REPO, '.github/workflows/check.yml'), 'utf8')).jobs.check;
   const index = name => job.steps.findIndex(step => step.name === name);
   const ask = job.steps[index('Which browser regressions this change needs')];
   const browser = job.steps[index('Desktop and mobile browser regressions')];
   assert.ok(index('Which browser regressions this change needs') < index('Desktop and mobile browser regressions'));
   assert.equal(ask.id, 'browser');
-  assert.match(ask.run, /scripts\/ci\/browser-relevant\.mjs >> "\$GITHUB_OUTPUT"/);
+  assert.match(ask.run, /scripts\/ci\/browser-lane\.mjs plan >> "\$GITHUB_OUTPUT"/);
   assert.equal(ask.env.EVENT, '${{ github.event_name }}');
-  assert.equal(browser.if, "steps.browser.outputs.run != 'false'");
+  assert.equal(browser.if, "steps.browser.outputs.lane != 'targeted' && steps.browser.outputs.lane != 'none'");
+  const selected = job.steps[index('Selected browser regressions')];
+  assert.equal(selected.if, "steps.browser.outputs.lane == 'targeted'");
+  assert.match(selected.run, /--test-list \.cache\/browser-test-list\.txt --reporter=list,json/);
+  assert.equal(browser.env.PLAYWRIGHT_JSON_OUTPUT_FILE, '.cache/browser-results.json');
+  assert.equal(selected.env.PLAYWRIGHT_JSON_OUTPUT_FILE, '.cache/browser-results.json');
+  assert.ok(index('Validate browser execution evidence') > index('Selected browser regressions'));
   assert.equal(job.permissions.actions, 'read');
+  assert.equal(job.permissions['pull-requests'], 'read', 'merged full proofs require associated PR metadata');
   // The content runtime test launches Chromium too, so its install is never skipped.
   assert.equal(job.steps[index('Install Chromium only')].if, undefined);
 });

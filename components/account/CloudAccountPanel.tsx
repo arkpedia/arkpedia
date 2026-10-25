@@ -5,6 +5,7 @@ import { useCloudSync } from '@/lib/cloud-account/SyncProvider';
 import { BACKUP_STORES } from '@/lib/account/backup';
 import ImportDialog from './ImportDialog';
 import AccountProfileForm from './AccountProfileForm';
+import ProviderIcon from './ProviderIcon';
 import Tabs, { tabPanelProps } from '@/components/ui/Tabs';
 import styles from './CloudAccountPanel.module.css';
 
@@ -64,7 +65,7 @@ export default function CloudAccountPanel({ onOpenData }: { onOpenData?: () => v
     {!remote && sync.status === 'signed-out' && <div className={styles.welcome}>
       <p>Keep your music, plans and preferences across devices.</p>
       <div className={styles.actions}>{(['google', 'discord'] as const).map(provider => sync.providers.includes(provider) &&
-        <button type="button" key={provider} disabled={working} onClick={() => void act(() => login(provider))}>{working ? 'Connecting…' : `Continue with ${label(provider)}`}</button>)}</div>
+        <button type="button" key={provider} disabled={working} onClick={() => void act(() => login(provider))}><ProviderIcon provider={provider} />{working ? 'Connecting…' : `Continue with ${label(provider)}`}</button>)}</div>
       <p className="hint">New here? You’ll choose a username next. Your Arknights import is separate, and using Arkpedia without signing in is always fine.</p>
     </div>}
     {remote && !remote.profile && <>
@@ -73,7 +74,7 @@ export default function CloudAccountPanel({ onOpenData }: { onOpenData?: () => v
     {remote?.profile && <>
       <div className={styles.identity}><strong>{remote.profile.username}</strong><span className="hint" role="status">{sync.status === 'ready' ? 'Up to date · selected data saves automatically' : sync.status === 'paused' ? 'Cloud saving paused' : sync.status === 'choice' ? 'Choose a save to continue' : 'Sync needs attention'}</span></div>
       {sync.status === 'ready' && <div className={styles.actions}>
-        <button type="button" className="ghost btn-sm" disabled={working} onClick={() => void act(sync.refresh)}>Save now</button>
+        <button type="button" className="ghost btn-sm" disabled={working} onClick={() => void act(sync.refresh)}>Sync now</button>
         <span className="hint">Imported game data: {remote.gameSync ? 'saved to your account' : 'browser only'}</span>
       </div>}
       {sync.status === 'paused' && <div className={styles.form}>
@@ -104,7 +105,7 @@ export default function CloudAccountPanel({ onOpenData }: { onOpenData?: () => v
           <input type="text" id="confirm-account-deletion" value={typed} autoComplete="off" onChange={event => setTyped(event.target.value)} />
           <p className="hint">A recent sign-in is required. If needed, confirm with {remote.linkedProviders?.map(label).join(' or ') || 'your provider'}, then return here.</p>
           <div className={styles.actions}>{(['google', 'discord'] as const).filter(p => remote.linkedProviders?.includes(p)).map(provider =>
-            <button type="button" className="ghost btn-sm" key={provider} disabled={working} onClick={() => void act(() => login(provider, 'delete'))}>Confirm with {label(provider)}</button>)}</div>
+            <button type="button" className="ghost btn-sm" key={provider} disabled={working} onClick={() => void act(() => login(provider, 'delete'))}><ProviderIcon provider={provider} />Confirm with {label(provider)}</button>)}</div>
         </>}
         <p className="hint">Deleted cloud records may remain in recovery backups until their retention expires.</p>
         <div className={styles.actions}>
@@ -147,7 +148,7 @@ export default function CloudAccountPanel({ onOpenData }: { onOpenData?: () => v
           {settings === 'logins' && <div className={styles.form}>
             <h3>Linked logins</h3><p>Use either linked provider to reach this account and its saves.</p>
             {(['google', 'discord'] as const).filter(p => sync.providers.includes(p)).map(provider => <div className={styles.provider} key={provider}>
-              <span><strong>{label(provider)}</strong><span className="hint">{remote.linkedProviders?.includes(provider) ? 'Connected' : 'Not linked'}</span></span>
+              <span className={styles.providerIdentity}><ProviderIcon provider={provider} /><span><strong>{label(provider)}</strong><span className="hint">{remote.linkedProviders?.includes(provider) ? 'Connected' : 'Not linked'}</span></span></span>
               {remote.linkedProviders?.includes(provider) ? <button type="button" className="ghost btn-sm" disabled={working || remote.linkedProviders.length < 2} onClick={() => void act(async () => {
                 const account = remote.linkedAccounts.find(a => a.providerId === provider);
                 if (!account) throw new Error('Refresh your account before changing linked logins.');
@@ -157,7 +158,7 @@ export default function CloudAccountPanel({ onOpenData }: { onOpenData?: () => v
               })}>Unlink {label(provider)}</button> : <button type="button" className="ghost btn-sm" disabled={working} onClick={() => void act(() => login(provider, 'link'))}>Link {label(provider)}</button>}
             </div>)}
             {reauth && <div className={styles.actions}>{(['google', 'discord'] as const).filter(p => remote.linkedProviders?.includes(p)).map(provider =>
-              <button type="button" className="ghost btn-sm" key={provider} disabled={working} onClick={() => void act(() => login(provider, 'confirm'))}>Confirm with {label(provider)}</button>)}</div>}
+              <button type="button" className="ghost btn-sm" key={provider} disabled={working} onClick={() => void act(() => login(provider, 'confirm'))}><ProviderIcon provider={provider} />Confirm with {label(provider)}</button>)}</div>}
             <p className="hint">Keep at least one login connected. Signing out keeps this browser’s data.</p>
             <div className={styles.actions}><button type="button" className="ghost btn-sm" disabled={working} onClick={() => void act(signOut)}>Sign out</button></div>
           </div>}

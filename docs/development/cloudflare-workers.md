@@ -1,5 +1,11 @@
 # Trying Arkpedia on Cloudflare Workers
 
+Main's isolated hosting candidate uses `cf:staging:check`, `cf:staging:build` and
+`cf:staging:deploy`, with [explicit staging isolation](cloudflare-staging.md). It reads
+main-compatible live data, sets a separate staging/noindex role and includes no pilot
+database or OAuth bindings. The existing pilot deployment and the branch-specific
+commands below remain on `cloudflare` until hosting consolidation is verified.
+
 Account login, D1 provisioning, Google/Discord registration and testing:
 [Cloud accounts setup](cloud-accounts.md).
 

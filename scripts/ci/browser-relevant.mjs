@@ -16,9 +16,10 @@
  * test:browser, and everything any of those imports, transitively, or names by path in a string.
  *
  * The skip is truthful only on top of a base that passed: the tree checked is the base plus
- * changes nothing in the step reads. So the base commit must itself have a green Check (any
- * event; a push the `seen` job vouched for counts, as its pull request ran the step or skipped
- * it on these same terms). 2026-10-13 is why: main had been red behind cancelled Checks for a
+ * changes nothing in the step reads. The base must have trusted evidence of actual full
+ * browser execution; a green draft-only, targeted-only or skipped workflow is insufficient.
+ * An exact-tree merged PR proof may supply it with verified repository/branch provenance.
+ * 2026-10-13 is why: main had been red behind cancelled Checks for a
  * day, and an importer-only pull request on top of it must still run the browser specs and
  * fail. A manual run (workflow_dispatch) is a full re-check and always runs them. So does any
  * doubt: no base, an unreachable API, an unreadable diff. Prints `run=true|false` for
@@ -27,7 +28,9 @@
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
-import { ARTIFACT_PREFIX } from './already-checked.mjs';
+import { pathToFileURL } from 'node:url';
+import { baselineForCommit } from './browser-baseline.mjs';
+export { baselineForCommit } from './browser-baseline.mjs';
 
 /** Read whole: their files are read by path at build and test time, not only imported. */
 export const WHOLE = ['pages/', 'components/', 'lib/', 'styles/', 'public/', 'data/', 'config/', 'tests/'];
@@ -117,7 +120,6 @@ export function decide(changes, relevant) {
 }
 
 const git = (...args) => execFileSync('git', args, { encoding: 'utf8' }).trim();
-const api = route => JSON.parse(execFileSync('gh', ['api', route], { encoding: 'utf8' }));
 
 /** The commit this checkout's changes are measured from, or null. */
 function baseCommit(event) {
@@ -133,19 +135,7 @@ function baseCommit(event) {
   return null;
 }
 
-/** Whether `base` passed Check: a green run of it, or a green pull request Check of its tree. */
-function passed(base, repository) {
-  const runs = api(`repos/${repository}/actions/workflows/check.yml/runs?head_sha=${base}&status=success&per_page=10`).workflow_runs ?? [];
-  if (runs.some(run => run.conclusion === 'success' && run.repository?.full_name === repository)) return true;
-  const tree = git('rev-parse', `${base}^{tree}`);
-  const { artifacts = [] } = api(`repos/${repository}/actions/artifacts?name=${ARTIFACT_PREFIX}${tree}&per_page=20`);
-  for (const artifact of artifacts) {
-    if (artifact.expired) continue;
-    const run = api(`repos/${repository}/actions/runs/${artifact.workflow_run?.id}`);
-    if (run.conclusion === 'success' && run.path === '.github/workflows/check.yml' && run.repository?.full_name === repository) return true;
-  }
-  return false;
-}
+export const passed = (...args) => !!baselineForCommit(...args);
 
 function main() {
   const say = message => console.error(message);
@@ -156,7 +146,8 @@ function main() {
     const base = baseCommit(event);
     if (!base) { say(`No base commit for this ${event || 'unknown'} event: running the browser regressions.`); return 'true'; }
     git('fetch', '--no-tags', '--quiet', '--depth=1', 'origin', base);
-    if (!passed(base, repository)) {
+    const baseRef = event === 'pull_request' ? process.env.GITHUB_BASE_REF : process.env.GITHUB_REF_NAME;
+    if (!passed(base, repository, baseRef)) {
       say(`The base ${base.slice(0, 12)} has no green Check, so nothing vouches for the rest of the tree: running the browser regressions.`);
       return 'true';
     }
@@ -182,4 +173,4 @@ function main() {
   }
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) console.log(`run=${main()}`);
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) console.log(`run=${main()}`);

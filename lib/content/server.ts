@@ -1,13 +1,13 @@
 import { contentPageClock, type PageClockField, type PageClockMoment } from './pageClock';
 import { defaultContentRevalidate } from './revalidation';
 import { REGIONAL_ROUTES, missingPageTables, pageTables } from './tables.mjs';
-import { loadRelease, readPageProps } from './release';
 import { operatorPageRoute } from '../operators/operatorPagePaths';
+import { loadRelease, readPageProps } from './release';
 import type { GetStaticProps, GetStaticPropsContext, GetStaticPropsResult, Redirect } from 'next';
 import { contentRoute } from './types';
 import renamedRoutes from '../../config/renamed-routes.json';
 
-/** Each renamed page's address, with the one it had (config/renamed-routes.json). */
+/** Preserve dev's renamed-route compatibility until its content release catches up. */
 const RENAMED_ROUTES: Record<string, string> = renamedRoutes.routes;
 
 /** One loader per table a route declares in lib/content/tables.mjs, each importing its

@@ -11,7 +11,7 @@ const workflow = name => yaml.load(fs.readFileSync(`.github/workflows/${name}.ym
 const steps = workflow('check').jobs.check.steps;
 
 test('Python discovery includes every current suite and nested new suites, without helpers', t => {
-  const files = pythonTests('scripts');
+  const files = pythonTests('scripts').map(file => file.replaceAll('\\', '/'));
   for (const file of [
     'scripts/imports/test-degrading-importers.py',
     'scripts/imports/test-namecard-styles.py',
@@ -24,7 +24,7 @@ test('Python discovery includes every current suite and nested new suites, witho
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   fs.mkdirSync(path.join(root, 'nested'));
   for (const file of ['test-a.py', 'helper.py', 'test-b.ts', 'nested/test-c.py']) fs.writeFileSync(path.join(root, file), '');
-  assert.deepEqual(pythonTests(root).map(file => path.relative(root, file)), ['nested/test-c.py', 'test-a.py']);
+  assert.deepEqual(pythonTests(root).map(file => path.relative(root, file).replaceAll('\\', '/')), ['nested/test-c.py', 'test-a.py']);
 });
 
 test('Python runner reports failures/signals/spawn errors and still runs later suites', () => {
@@ -86,11 +86,17 @@ test('Next type validation stays enabled outside Check; lint remains an explicit
 
 test('the browser suite samples the runner meanwhile, and still fails when it fails', () => {
   // All three workers stalled together on the NAS (2026-10-22): scripts/ci/sample-resources.sh.
-  const step = workflow('check').jobs.check.steps.find(entry => entry.name === 'Desktop and mobile browser regressions');
-  assert.match(step.run, /bash scripts\/ci\/sample-resources\.sh "\$RUNNER_TEMP\/resources\.log" &/);
-  assert.match(step.run, /npm run test:browser \|\| status=\$\?/);
-  assert.match(step.run, /--report "\$RUNNER_TEMP\/resources\.log" "\$status"/);
-  assert.match(step.run.trim(), /exit "\$status"$/, 'the suite\'s own result is the step\'s');
+  for (const [name, command] of [
+    ['Desktop and mobile browser regressions', 'npm run test:browser -- --reporter=list,json'],
+    ['Selected browser regressions', 'npm run test:browser -- --test-list .cache/browser-test-list.txt --reporter=list,json'],
+  ]) {
+    const step = workflow('check').jobs.check.steps.find(entry => entry.name === name);
+    assert.match(step.run, /bash scripts\/ci\/sample-resources\.sh "\$RUNNER_TEMP\/resources\.log" &/);
+    assert.ok(step.run.includes(`${command} || status=$?`), `${name} preserves its own failure status`);
+    assert.match(step.run, /--report "\$RUNNER_TEMP\/resources\.log" "\$status"/);
+    assert.match(step.run.trim(), /exit "\$status"$/, 'the suite\'s own result is the step\'s');
+    assert.equal(step.env.PLAYWRIGHT_JSON_OUTPUT_FILE, '.cache/browser-results.json');
+  }
   const report = spawnSync('bash', ['scripts/ci/sample-resources.sh', '--report', '/nonexistent/resources.log', '1'], { encoding: 'utf8' });
   assert.equal(report.status, 0, 'a missing log never fails the step by itself');
 });
@@ -161,14 +167,22 @@ test('publication checks fail before browser regressions and use their separate 
   assert.equal(steps[runtime].if, undefined, 'publication must pass even when browser coverage is not needed');
 });
 
-test('only fresh hosted runners restore npm archives; all three workflows retain clean installs', () => {
+test('only fresh hosted runners restore npm archives; every profile has one locked install owner', () => {
+  assert.equal(JSON.parse(fs.readFileSync('vercel.json', 'utf8')).installCommand, 'npm ci --include=dev');
   for (const name of ['check', 'deploy', 'prepare-content']) {
     const jobs = Object.values(workflow(name).jobs);
+    const ownsInstall = step => name === 'deploy' ? step.name === 'Build' && step.run?.includes('vercel@') && step.run.includes(' build ') : step.run === 'npm ci';
+    const installers = jobs.filter(job => job.steps?.some(ownsInstall));
     const cached = jobs.flatMap(job => job.steps ?? []).filter(step => step.uses === 'actions/setup-node@v7' && step.with?.cache);
-    assert.equal(cached.length, 1, name);
-    assert.equal(cached[0].with.cache, "${{ runner.environment == 'github-hosted' && 'npm' || '' }}");
-    assert.equal(cached[0].with['package-manager-cache'], "${{ runner.environment == 'github-hosted' }}");
-    const job = jobs.find(job => job.steps?.includes(cached[0]));
-    assert.ok(job.steps.some(step => step.run === 'npm ci'), name);
+    assert.equal(installers.length, name === 'check' ? 2 : 1, name);
+    assert.equal(cached.length, installers.length, 'only clean-install jobs configure the npm cache');
+    for (const job of installers) {
+      assert.equal(job.steps.filter(ownsInstall).length, 1, 'one dependency install owner per selected job');
+      if (name === 'deploy') assert.equal(job.steps.filter(step => step.run === 'npm ci').length, 0, 'Vercel must not repeat an outer install');
+      const setups = job.steps.filter(step => step.uses === 'actions/setup-node@v7' && step.with?.cache);
+      assert.equal(setups.length, 1, 'each selected profile installs once with its own cache policy');
+      assert.equal(setups[0].with.cache, "${{ runner.environment == 'github-hosted' && 'npm' || '' }}");
+      assert.equal(setups[0].with['package-manager-cache'], "${{ runner.environment == 'github-hosted' }}");
+    }
   }
 });

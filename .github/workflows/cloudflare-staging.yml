@@ -2,21 +2,25 @@ name: Build Cloudflare staging
 
 on:
   workflow_dispatch:
-  # Bootstrap this proof without merging a new workflow into production first.
+  # Bootstrap the reviewed main-based build without deploying or merging it first.
   push:
-    branches: [codex/system-simplification]
+    branches: [codex/main-cloudflare-staging]
     paths:
       - .github/workflows/cloudflare-staging.yml
       - wrangler.staging.jsonc
       - open-next.staging.config.ts
       - scripts/deploy/cloudflare-staging.mjs
       - scripts/tests/test-cloudflare-staging.mjs
+      - config/relay.json
+      - lib/account-import/relay.ts
+      - scripts/tests/test-main-relay-choice.ts
+      - tests/browser/navigation-continuity.spec.ts
 
 permissions:
   contents: read
 
 concurrency:
-  group: cloudflare-staging-build
+  group: cloudflare-main-staging-build
   cancel-in-progress: true
 
 jobs:
@@ -29,12 +33,10 @@ jobs:
         with:
           node-version: '24'
       - run: npm ci
-      - name: Verify staging isolation
-        run: node --test scripts/tests/test-cloudflare-staging.mjs
-      - name: Build once on Linux
+      - name: Verify staging isolation and indexing role
+        run: node --test scripts/tests/test-cloudflare-staging.mjs scripts/tests/test-main-staging-role.mjs
+      - name: Build once on Linux and check Worker budget
         run: node scripts/deploy/cloudflare-staging.mjs build
-      - name: Check Worker output budget
-        run: node scripts/audits/check-worker-bundle.mjs
       - name: Package staging artifact
         shell: bash
         run: |
@@ -46,5 +48,4 @@ jobs:
           path: ${{ runner.temp }}/arkpedia-staging.tgz
           retention-days: 1
 
-      # No Cloudflare token here and no remote deployment: the first proof is
-      # deployed locally with Wrangler OAuth after reviewing the artifact.
+      # No provider credentials or remote deployment. Review and deploy explicitly.

@@ -5,18 +5,23 @@ on:
   # with it Deploy, which follows a green Check). The list is config/docs-only-paths.json,
   # which the content release gate's code fingerprint leaves out too
   # (scripts/content/code-fingerprint.mjs): keep the two the same, a test holds them to it.
-  # A push or pull request that touches any other file still runs every step below.
-  # cloudflare: dev plus the Cloudflare-only work, while the Cloudflare path is set up
-  # (docs/development/cloudflare-workers.md). Deploy follows no deployment of it.
+  # Other changes run draft feedback or the scoped ready/main/manual profile.
+  # Cloudflare retains its own account/Worker checks during the hosting transition.
   push:
     branches: [main, dev, cloudflare]
     paths-ignore: ['docs/**', '**/*.md']
   pull_request:
     branches: [main, dev, cloudflare]
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
     paths-ignore: ['docs/**', '**/*.md']
   # So a branch can be checked before it has a pull request, and so this file can
   # be tried by hand once it lands.
   workflow_dispatch:
+    inputs:
+      reuse_pr_check:
+        description: Automatic integration sync may reuse a green exact-tree PR Check
+        type: boolean
+        default: false
 
 # A second push to the same branch makes the first run pointless.
 concurrency:
@@ -31,9 +36,10 @@ permissions:
 jobs:
   # Reuse a successful PR Check of this exact merge tree on pushes and same-repository PRs.
   # This also covers a rebase that changes only ancestry. Any changed file, missing proof or
-  # API failure runs the full Check; forks and manual checks always run it.
+  # API failure runs the full Check. Manual rechecks default to full; automatic
+  # integration sync explicitly opts in on its disposable branch only.
   seen:
-    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) || (github.event_name == 'workflow_dispatch' && inputs.reuse_pr_check == true && startsWith(github.ref, 'refs/heads/sync/main-to-dev-'))
     # A few seconds of API calls: on the light runner (ARKPEDIA_LIGHT_RUNNER, the VPS), so a
     # merge's push is not queued behind another pull request's whole Check on the NAS before
     # it can vouch and let Deploy start. Falls back to ARKPEDIA_RUNNER when unset.
@@ -43,6 +49,7 @@ jobs:
       actions: read
       contents: read
       issues: write
+      pull-requests: read
     outputs:
       checked: ${{ steps.seen.outputs.checked }}
     steps:
@@ -68,11 +75,57 @@ jobs:
         run: |
           node scripts/content/alert-issue.mjs close --alert check-failing-main --title 'Check failing on main' --comment "Green again at ${GITHUB_SHA:0:12} (its pull request's Check): $RUN_URL"
 
+  # Draft iterations give fast feedback without a website build or browser suite.
+  # GitHub prevents merging drafts; ready_for_review always starts the full path below.
+  draft:
+    if: github.event_name == 'pull_request' && github.event.pull_request.draft == true && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ${{ (github.actor == 'dependabot[bot]' || startsWith(github.head_ref, 'dependabot/')) && 'ubuntu-latest' || vars.ARKPEDIA_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: ${{ runner.environment == 'github-hosted' && 'npm' || '' }}
+          package-manager-cache: ${{ runner.environment == 'github-hosted' }}
+      - run: npm ci
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r scripts/requirements.txt
+      - name: Application and Python regression tests
+        run: |
+          npm run test:py > "$RUNNER_TEMP/python-tests.log" 2>&1 &
+          python_pid=$!
+          regression_status=0
+          npm test || regression_status=$?
+          wait "$python_pid" || regression_status=$?
+          cat "$RUNNER_TEMP/python-tests.log"
+          exit "$regression_status"
+      - name: Prepare build inputs
+        run: npm run prebuild
+        env:
+          NODE_ENV: production
+          ARKPEDIA_CONTENT_DISABLED: '1'
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Lint
+        run: npm run lint -- --max-warnings 15
+      - name: Lint pipeline scripts
+        run: npm run lint:scripts
+      - name: Style and code graph checks
+        run: npm run check:styles && npm run audit:styles && npm run audit:unused
+      - name: Report draft coverage
+        run: |
+          echo 'Draft feedback passed: application/Python tests, generated inputs, types, lint, style and code graph. No website build, browser coverage or reusable Check proof. Mark ready for review to run the full release gate.' >> "$GITHUB_STEP_SUMMARY"
+
   check:
     needs: seen
     # A cache miss, failed lookup or skipped lookup runs the full Check.
-    # Only an explicit exact-tree proof skips it.
-    if: ${{ !cancelled() && needs.seen.outputs.checked != 'true' }}
+    # Draft feedback never creates that proof. Forks/manual checks retain the full path.
+    if: ${{ !cancelled() && needs.seen.outputs.checked != 'true' && !(github.event_name == 'pull_request' && github.event.pull_request.draft == true && github.event.pull_request.head.repo.full_name == github.repository) }}
     # ARKPEDIA_RUNNER (a repository variable) names the self-hosted runner's label, e.g.
     # arkpedia-vps; unset, jobs run on GitHub's hosted runners. See docs/development/ci-runner.md.
     # Dependabot pull requests install dependency versions nobody has reviewed yet. They run
@@ -83,8 +136,9 @@ jobs:
     permissions:
       contents: read
       issues: write
-      # Only to ask whether the base commit passed Check (scripts/ci/browser-relevant.mjs).
+      # Validate actual full-browser baseline runs and merged PR provenance.
       actions: read
+      pull-requests: read
     steps:
       # /tmp on the NAS runners is a tmpfs: it is memory, counted in the container's 6 GB, and it
       # outlives each job. The content run's arkprts downloads left 1.2 GB there (/tmp/arkprts) under
@@ -227,18 +281,17 @@ jobs:
         # --with-deps installs system libraries with sudo; a self-hosted runner has them already.
         run: npx playwright install ${{ runner.environment == 'github-hosted' && '--with-deps' || '' }} chromium
 
-      # The browser step is 14 of this job's 23 minutes on the NAS (846s, 2026-10-13), and a
-      # change only to importers, sync scripts, unit tests or other workflows cannot change what
-      # it tests. The script derives what the build and the specs read and skips the step only
-      # when no changed file is among it AND the base commit has a green Check; a manual run and
-      # any doubt run it. Its log lists the files either way.
+      # Compare cumulatively with a trusted full-browser ancestor. Shared/unknown
+      # changes and manual/push/fork checks retain full coverage; narrow PRs select
+      # existing core/family/census cases and record exactly what executed.
       - name: Which browser regressions this change needs
         id: browser
         env:
           GH_TOKEN: ${{ github.token }}
           EVENT: ${{ github.event_name }}
           BEFORE: ${{ github.event.before }}
-        run: node scripts/ci/browser-relevant.mjs >> "$GITHUB_OUTPUT"
+          BROWSER_HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+        run: node scripts/ci/browser-lane.mjs plan >> "$GITHUB_OUTPUT"
 
       # Fail on broken publication before the long browser suite. Its own build directory
       # keeps fixture releases out of the bundled pages the browser suite reads.
@@ -247,20 +300,35 @@ jobs:
         env:
           NEXT_DIST_DIR: .next-live
 
-      # Runs unless the browser decision said no in so many words: a failed or missing answer runs it.
-      # What the browsers and the server share in the runner (/dev/shm, /tmp, the container's
-      # memory, load) is sampled every 5 s alongside, and its peaks are printed, the whole log
-      # with them when the suite fails (scripts/ci/sample-resources.sh says why).
+      # Keep this name exclusive to actual full execution: baseline verification checks it.
       - name: Desktop and mobile browser regressions
-        if: steps.browser.outputs.run != 'false'
+        if: steps.browser.outputs.lane != 'targeted' && steps.browser.outputs.lane != 'none'
         run: |
           bash scripts/ci/sample-resources.sh "$RUNNER_TEMP/resources.log" &
           sampler=$!
           status=0
-          npm run test:browser || status=$?
+          npm run test:browser -- --reporter=list,json || status=$?
           kill "$sampler" 2>/dev/null || true
           bash scripts/ci/sample-resources.sh --report "$RUNNER_TEMP/resources.log" "$status"
           exit "$status"
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_FILE: .cache/browser-results.json
+
+      - name: Selected browser regressions
+        if: steps.browser.outputs.lane == 'targeted'
+        run: |
+          bash scripts/ci/sample-resources.sh "$RUNNER_TEMP/resources.log" &
+          sampler=$!
+          status=0
+          npm run test:browser -- --test-list .cache/browser-test-list.txt --reporter=list,json || status=$?
+          kill "$sampler" 2>/dev/null || true
+          bash scripts/ci/sample-resources.sh --report "$RUNNER_TEMP/resources.log" "$status"
+          exit "$status"
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_FILE: .cache/browser-results.json
+
+      - name: Validate browser execution evidence
+        run: node scripts/ci/browser-lane.mjs complete
 
       # A red Check on main deploys nothing (deploy.yml follows only a green one), and the
       # content release is held while production runs other code than main
@@ -288,14 +356,25 @@ jobs:
       - name: Name the code this Check passed
         id: tree
         if: success() && github.event_name == 'pull_request'
-        run: echo "tree=$(git rev-parse 'HEAD^{tree}')" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "tree=$(git rev-parse 'HEAD^{tree}')" >> "$GITHUB_OUTPUT"
+          node -e 'console.log("policy=" + require("./.cache/browser-evidence.json").policySha256)' >> "$GITHUB_OUTPUT"
 
       - name: Record the code this Check passed
-        if: success() && github.event_name == 'pull_request'
+        if: success() && github.event_name == 'pull_request' && steps.browser.outputs.lane == 'full'
         uses: actions/upload-artifact@v7
         with:
           name: checked-tree-${{ steps.tree.outputs.tree }}
           path: package.json
+          retention-days: 7
+
+      # Partial evidence has a separate name and explicit selected/omitted coverage.
+      - name: Record selected browser coverage
+        if: success() && github.event_name == 'pull_request' && (steps.browser.outputs.lane == 'targeted' || steps.browser.outputs.lane == 'none')
+        uses: actions/upload-artifact@v7
+        with:
+          name: checked-policy-tree-${{ steps.tree.outputs.tree }}-${{ steps.tree.outputs.policy }}
+          path: .cache/browser-evidence.json
           retention-days: 7
 
       - name: Close the red-Check report
