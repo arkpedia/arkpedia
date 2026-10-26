@@ -3,10 +3,12 @@ export interface EventColor {
   text: string;
 }
 
-/** Returns the extracted dominant color for an event, or null if it
- * hasn't been extracted yet (falls back to the existing fixed color
- * scheme in that case). `colors` is the release's data/event_colors.json from the page's
+/** Prefer the extracted poster color. New events get a stable identity tint until
+ * extraction catches up. `colors` is the release's data/event_colors.json from the page's
  * props: required, so no caller answers from a copy compiled into the bundle. */
-export function getEventColor(eventName: string, colors: Record<string, EventColor>): EventColor | null {
-  return colors[eventName] || null;
+export function getEventColor(eventName: string, colors: Record<string, EventColor>): EventColor {
+  if (colors[eventName]) return colors[eventName];
+  let hash = 0;
+  for (const char of eventName) hash = (Math.imul(hash, 31) + char.codePointAt(0)!) | 0;
+  return { background: `hsl(${(hash >>> 0) % 360} 52% 56%)`, text: '#18212a' };
 }

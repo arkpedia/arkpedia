@@ -1,5 +1,35 @@
 import { expect, test } from '@playwright/test';
 
+for (const theme of ['dark', 'light']) test(`calendar keeps its frame and page scroll across dense and sparse months in ${theme}`, async ({ page }) => {
+  await page.goto('/schedule');
+  await page.evaluate(theme => { document.documentElement.dataset.theme = theme; }, theme);
+  await page.getByRole('tab', { name: 'Calendar', exact: true }).click();
+  const pick = async (label: string, value: string) => {
+    await page.getByRole('combobox', { name: label, exact: true }).click();
+    await page.getByRole('option', { name: value, exact: true }).click();
+  };
+  await pick('Year', '2027');
+  await pick('Month', 'January');
+  const frame = page.locator('.timeline-month-large');
+  const height = await frame.evaluate(el => el.getBoundingClientRect().height);
+  expect(await page.locator('.schedule-bar').count()).toBeGreaterThan(5);
+  await expect(page.locator('.schedule-bar').filter({ hasText: 'Integrated Strategies #7' })).toBeVisible();
+  await page.evaluate(() => document.fonts.ready);
+  // Activate the month step without Playwright scrolling the toolbar into view:
+  // the regression is browser scroll clamping when the document shrinks underneath it.
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  const position = await page.evaluate(() => scrollY);
+  expect(position).toBeGreaterThan(0);
+  for (const month of ['February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']) {
+    await page.getByRole('button', { name: 'Next month', exact: true }).dispatchEvent('click');
+    await expect(page.getByRole('region', { name: `${month} 2027 calendar weeks` })).toBeVisible();
+  }
+  expect(await frame.evaluate(el => el.getBoundingClientRect().height)).toBe(height);
+  expect(await page.evaluate(() => scrollY)).toBeCloseTo(position, 0);
+  await expect(page.locator('.schedule-bar')).toHaveCount(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
 test('past events are newest first, shareable, and link to their event pages', async ({ page }) => {
   await page.goto('/schedule');
   await expect(page.getByRole('button', { name: 'Upcoming', exact: true, pressed: true })).toBeVisible();

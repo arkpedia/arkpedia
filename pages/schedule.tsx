@@ -527,7 +527,7 @@ export default function SchedulePage({ events: globalEvents, operators: exported
                 ))}
               </div>
 
-              <div className="timeline-week-stack">
+              <div className="timeline-week-stack" tabIndex={0} role="region" aria-label={`${monthGrid.label} calendar weeks`}>
                 {monthGrid.weeks.map((week, wi) => {
                   const bars = computeWeekBars(week, barSources);
                   const laneCount = Math.max(1, bars.reduce((max, b) => Math.max(max, b.lane + 1), 0));
@@ -537,7 +537,7 @@ export default function SchedulePage({ events: globalEvents, operators: exported
                     <div
                       key={wi}
                       className="timeline-week-grid"
-                      style={{ gridTemplateRows: `minmax(${showBirthdays ? 46 : 30}px, auto) repeat(${laneCount}, 42px)` }}
+                      style={{ gridTemplateRows: `minmax(${showBirthdays ? 46 : 30}px, max-content) repeat(${laneCount}, 42px) minmax(12px, 1fr)` }}
                     >
                       {week.map((cell, ci) => (
                         <div key={cell.dateKey} style={{ display: 'contents' }}>
@@ -575,7 +575,7 @@ export default function SchedulePage({ events: globalEvents, operators: exported
                               className={`timeline-daybox-lanes${cell.inMonth ? '' : ' out-of-month'}${
                                 cell.dateKey === todayKey ? ' is-today' : ''
                               }`}
-                              style={{ gridColumn: ci + 1, gridRow: `2 / span ${laneCount}` }}
+                              style={{ gridColumn: ci + 1, gridRow: `2 / span ${laneCount + 1}` }}
                             />
                           )}
                         </div>

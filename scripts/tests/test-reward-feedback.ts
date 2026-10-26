@@ -3,7 +3,8 @@ import { mergeMissingModeLaunches, scheduleModeRelease } from '../../lib/schedul
 import type { ScheduleEvent } from '../../lib/schedule/scheduleTypes';
 import fs from 'node:fs';
 import path from 'node:path';
-import { WELFARE_PRIORITIES, welfarePriority } from '../../lib/pulls/welfarePriority';
+import { WELFARE_PRIORITIES, welfarePriority, welfareRecommendationOrder } from '../../lib/pulls/welfarePriority';
+import { getEventColor } from '../../lib/schedule/eventColors';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { paradoxAvailability, remainingSanity } from '../../lib/pulls/rewardOverview';
@@ -61,7 +62,17 @@ test('the supplied welfare guide uses existing catalogue names and keeps unliste
   assert.equal(welfarePriority('Robin'), 2);
   assert.equal(welfarePriority('Absinthe'), 3);
   assert.equal(welfarePriority('Grani'), 4);
+  assert.equal(welfarePriority('Bryophyta'), 4);
+  assert.ok(welfareRecommendationOrder('Jieyun') < welfareRecommendationOrder('Bryophyta'));
+  assert.ok(welfareRecommendationOrder('Bryophyta') < welfareRecommendationOrder('Odda'));
   assert.equal(welfarePriority('Unlisted operator'), undefined);
+});
+
+test('new calendar events get stable identity colours while release-owned poster colours win', () => {
+  const poster = { background: '#123456', text: '#ffffff' };
+  assert.equal(getEventColor('Known', { Known: poster }), poster);
+  assert.deepEqual(getEventColor('New event', {}), getEventColor('New event', {}));
+  assert.notEqual(getEventColor('New event', {}).background, getEventColor('Another new event', {}).background);
 });
 
 test('mode compatibility adds only absent permanent launches and preserves release-owned event windows', () => {

@@ -1,5 +1,5 @@
 import SegmentedControl from '@/components/ui/SegmentedControl';
-import { welfarePriority, WELFARE_GUIDE } from '@/lib/pulls/welfarePriority';
+import { welfarePriority, welfareRecommendationOrder, WELFARE_GUIDE } from '@/lib/pulls/welfarePriority';
 import { useRegionalTime } from '@/lib/time/useRegionalTime';
 import { currentRegionalFreeRewards, regionalFreeRewards, type RegionalSchedules } from '@/lib/time/regional';
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -101,7 +101,7 @@ export default function FreeOpPage({ backlogSources, freeRewards: globalFreeRewa
   const pulls = (originitePrime * ORUNDUM_PER_ORIGINITE + orundum) / ORUNDUM_PER_PULL + permits;
   const [welfareOrder, setWelfareOrder] = useState<'recommended' | 'availability'>('recommended');
   const operators = freeOperatorsToClaim(eligible, keys, clock);
-  if (welfareOrder === 'recommended') operators.sort((a, b) => (welfarePriority(a.operator.name) ?? 5) - (welfarePriority(b.operator.name) ?? 5));
+  if (welfareOrder === 'recommended') operators.sort((a, b) => welfareRecommendationOrder(a.operator.name) - welfareRecommendationOrder(b.operator.name));
   const [preview, setPreview] = useState<OperatorPreviewItem | null>(null);
   const closePreview = useCallback(() => setPreview(null), []);
   /* Ticking a welfare operator in Free rewards, below, takes its row out of this list: the
