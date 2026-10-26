@@ -189,9 +189,11 @@
    its place is this file's. It wraps rather than scrolling sideways. */
 .simple-operator-tabs { margin-bottom:12px; }
 .simple-dossier { display:grid; grid-template-columns:minmax(200px,30%) minmax(0,1fr); background:var(--panel); border:1px solid var(--line); border-radius:var(--radius-frame); overflow:hidden; }
-.simple-portrait { position:relative; min-height:420px; background:var(--bg); }
-.simple-portrait > img { object-fit:contain; object-position:center; }
-.simple-portrait-caption { position:absolute; bottom:0; left:0; right:0; padding:40px 20px 18px; background:linear-gradient(transparent,var(--bg) 50%); }
+.simple-portrait { align-self:start; min-width:0; background:var(--bg); }
+/* A dedicated canvas keeps the full art independent of material-list height. */
+.simple-portrait-art { position:relative; height:420px; }
+.simple-portrait-art > img { object-fit:contain; object-position:center; }
+.simple-portrait-caption { padding:12px 20px 18px; }
 /* The operator's name heads the dossier: an .entity-title (shared.css), 22px. */
 .simple-portrait-caption h2 { line-height:1.05; margin:6px 0 0; }
 .simple-portrait-caption > span { color:var(--text-dim); font-size:13px; }
@@ -237,9 +239,9 @@
 
 @media(max-width:640px) {
   .simple-dossier { grid-template-columns:1fr; }
-  .simple-portrait { min-height:170px; }
-  .simple-portrait > img { width:160px !important; right:auto !important; object-position:left center; }
-  .simple-portrait-caption { left:145px; bottom:24px; padding:0 14px 0 0; background:none; }
+  .simple-portrait { display:grid; grid-template-columns:150px minmax(0,1fr); align-items:center; }
+  .simple-portrait-art { height:200px; }
+  .simple-portrait-caption { padding:0 0 0 12px; }
   /* Stacked, the portrait band takes the content's inset too, so the art, the name
      and the build below it start on one edge (the content was 16px in from the
      full-bleed band above it). */
@@ -259,17 +261,6 @@
 @media(max-width:640px) {
  .simple-wizard .state-blocks { grid-template-columns:minmax(0,1fr); }
  .simple-wizard .wizard-body { padding:12px; }
-}
-
-.simple-portrait { overflow:hidden; }
-/* Enlarged from the top edge, against the top: from the centre it cut the head off tall art
-   (Executor, 2026-10-01), and the caption's gradient covers the bottom it crops instead. */
-.simple-portrait > img { transform:scale(1.3); transform-origin:50% 0; object-position:center top; }
-@media(max-width:640px) { .simple-portrait > img { transform:scale(1.15); } }
-
-@media(max-width:640px) {
-  .simple-portrait > img { width:150px !important; transform:none; }
-  .simple-portrait-caption { left:155px; }
 }
 
 .planner-promotion-icon { object-fit:contain; vertical-align:middle; flex-shrink:0; }

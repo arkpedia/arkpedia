@@ -229,12 +229,14 @@ export function SimplePlanner({
           {name && summary && state ? (
             <article className="simple-dossier" {...tabPanelProps("planner-operator", name)}>
               <div className="simple-portrait">
-                <Image
-                  src={summary.art || getOperatorIconPath(summary)}
-                  alt={name}
-                  fill
-                  sizes="(max-width: 640px) 160px, 300px"
-                />
+                <div className="simple-portrait-art">
+                  <Image
+                    src={summary.art || getOperatorIconPath(summary)}
+                    alt={name}
+                    fill
+                    sizes="(max-width: 640px) 150px, 300px"
+                  />
+                </div>
                 <div className="simple-portrait-caption">
                   <span>
                     {summary.rarity ? <Rarity n={rarityLevel(summary.rarity)} /> : null} {summary.className}
