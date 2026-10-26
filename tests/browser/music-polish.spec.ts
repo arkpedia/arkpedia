@@ -51,6 +51,7 @@ test('1: fresh queue is empty; only chosen tracks enter it, optional autoplay pe
   await nav(page).getByRole('link', { name: /^Queue/ }).click();
   await expect(queueRows(page)).toHaveCount(2);
   expect(await queueRows(page).evaluateAll(rows => rows.map(row => (row as HTMLElement).dataset.songId))).toEqual([songs[1].videoId, songs[2].videoId]);
+  expect(await page.evaluate(() => innerWidth)).toBe(page.viewportSize()!.width);
   await bar(page).getByRole('button', { name: 'Play', exact: true }).click();
   await expect.poll(async () => (await youtube(page))?.videoId).toBe(songs[1].videoId);
   await bar(page).getByRole('button', { name: 'Next track' }).click();
@@ -79,7 +80,7 @@ test('2: playback is independently centered, with Shuffle beside Repeat on the r
   const widths = test.info().project.name === 'mobile' ? [320, 375, 390, 430] : [768, 1024, 1440];
   for (const width of widths) {
     await page.setViewportSize({ width, height: 844 });
-    const controls = await bar(page).locator('.music-player-bottombar-controls').boundingBox();
+    const controls = await (width >= 1000 ? bar(page) : bar(page).locator('.music-player-bottombar-controls')).boundingBox();
     const playback = await bar(page).locator('.music-transport-playback').boundingBox();
     expect(Math.abs(playback!.x + playback!.width / 2 - controls!.x - controls!.width / 2)).toBeLessThan(2);
     const shuffle = await bar(page).getByRole('button', { name: 'Shuffle', exact: true }).boundingBox();
@@ -102,18 +103,41 @@ test('3: bottom Queue toggles to Now playing and back, including browser history
   expect((await youtube(page))!.calls.filter(([name]) => name === 'loadVideoById').length).toBe(before.calls.filter(([name]) => name === 'loadVideoById').length);
 });
 
-test('4: collapsed lyrics show three lines and expand/collapse preserves the active song', async ({ page }) => {
+test('4: desktop lyrics stay expanded and timed lines seek without moving the player', async ({ page }, info) => {
   await setup(page); await start(page);
   await nav(page).getByRole('link', { name: 'Now playing', exact: true }).click();
-  await expect(page.locator('#music-lyrics .music-lyric-line')).toHaveCount(3);
-  await expect(page.locator('#music-lyrics .music-lyric-line').first()).toBeVisible();
-  await page.getByRole('button', { name: 'Expand lyrics', exact: true }).click();
-  await expect(page.locator('#music-lyrics .music-lyric-line')).toHaveCount(5);
-  await page.getByRole('button', { name: 'Collapse lyrics', exact: true }).click();
-  await expect(page.locator('#music-lyrics .music-lyric-line')).toHaveCount(3);
-  expect((await youtube(page))!.videoId).toBe(letter.videoId);
+  const lines = page.locator('#music-lyrics .music-lyric-line:visible');
+  if (info.project.name === 'mobile') {
+    await expect(lines).toHaveCount(3);
+    await page.getByRole('button', { name: 'Expand lyrics', exact: true }).click();
+  } else {
+    await expect(page.getByRole('button', { name: /(?:Expand|Collapse) lyrics/ })).toBeHidden();
+    await expect.poll(async () => {
+      const panel = (await page.locator('#music-lyrics').boundingBox())!;
+      const art = (await page.locator('.music-now-playing-cover').boundingBox())!;
+      const details = (await page.locator('.music-now-playing-song-info').boundingBox())!;
+      return Math.max(Math.abs(panel.y - art.y), Math.abs(panel.y + panel.height - details.y - details.height));
+    }).toBeLessThan(2);
+  }
+  await expect(lines).toHaveCount(5);
+  const before = (await page.locator('.music-up-next').boundingBox())!;
+  const loadCount = (await youtube(page))!.calls.filter(([call]) => call === 'loadVideoById').length;
+  await page.getByRole('button', { name: 'Seek to 0:20: Lyric at 20', exact: true }).click();
+  await expect.poll(async () => (await youtube(page))!.calls.filter(([call]) => call === 'seekTo').at(-1)?.[1]).toBe(20);
+  await expect.poll(async () => (await youtube(page))!.time).toBeGreaterThanOrEqual(20);
+  await page.getByRole('button', { name: 'Seek to 0:10: Lyric at 10', exact: true }).focus();
+  await page.keyboard.press('Enter');
+  await expect.poll(async () => (await youtube(page))!.calls.filter(([call]) => call === 'seekTo').at(-1)?.[1]).toBe(10);
+  expect((await youtube(page))!.calls.filter(([call]) => call === 'loadVideoById')).toHaveLength(loadCount);
+  expect(Math.abs((await page.locator('.music-up-next').boundingBox())!.y - before.y)).toBeLessThan(2);
+  if (info.project.name === 'mobile') {
+    await page.getByRole('button', { name: 'Collapse lyrics', exact: true }).click();
+    await expect(lines).toHaveCount(3);
+    await bar(page).getByRole('link', { name: 'Lyrics', exact: true }).click();
+    await expect(lines).toHaveCount(5);
+  }
   fs.mkdirSync('.cache/music-polish-qa', { recursive: true });
-  await page.screenshot({ path: `.cache/music-polish-qa/lyrics-${test.info().project.name}.png` });
+  await page.screenshot({ path: `.cache/music-polish-qa/lyrics-${info.project.name}.png` });
 });
 
 test('5: compact header and queue gutters prioritize phone titles', async ({ page }) => {

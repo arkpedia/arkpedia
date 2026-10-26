@@ -23,6 +23,8 @@ import SongRow from '@/components/music/SongRow';
 import PageHeader from '@/components/ui/PageHeader';
 import { hiddenUnless } from '@/lib/ui/inert';
 import { isDirectImage } from '@/lib/music/songArt';
+import { findSongVersion } from '@/lib/music/songVersions';
+import { songAllowed } from '@/lib/music/songFilter';
 import { fetchAsset } from '@/lib/assets/assetRetry';
 
 interface Props {
@@ -82,8 +84,10 @@ export default function MusicPage({ songLookup }: Props) {
     shuffle,
     repeatMode,
     currentTime,
+    handleSeekChange,
+    handleSeekCommit,
     queue,
-    currentTrack, autoplay, autoplayTracks, autoplayVideoId, queued, playNow,
+    currentTrack, libraryTracks, excludeCopyrighted, includeEndfield, autoplay, autoplayTracks, autoplayVideoId, queued, playNow,
     queueIndex,
     shuffleOrder,
     shufflePosition,
@@ -104,7 +108,7 @@ export default function MusicPage({ songLookup }: Props) {
   // of intent to start it proactively instead of leaving "Now Playing"
   // stuck on "Loading..." until something else triggers it.
   useEffect(() => {
-    initializePlayer();
+    initializePlayer(false);
   }, [initializePlayer]);
 
   // The view is the address (?view=library|player|queue), and the nav and the transport link
@@ -124,6 +128,7 @@ export default function MusicPage({ songLookup }: Props) {
 
   const detailByVideoId = useMemo(() => new Map(songLookup.map((s) => [s.videoId, s])), [songLookup]);
   const currentDetail = detailByVideoId.get(videoId);
+  const alternateVersion = currentTrack ? findSongVersion(currentTrack, libraryTracks.filter(song => songAllowed({ excludeCopyrighted, includeEndfield }, song))) : null;
   // The album's cover: from this page's release props, else from the player's catalogue (a song
   // a release compiled before Monster Siren songs were listed here has its cover only there),
   // else the player's fallback: Monster Siren's own cover or the YouTube thumbnail (lib/music/songArt.ts).
@@ -133,6 +138,9 @@ export default function MusicPage({ songLookup }: Props) {
   // the songs whose lyrics parse, which is what this flag says, so the Lyrics button never
   // offers a file the release does not have.
   const hasLyrics = Boolean(currentDetail?.hasLyrics);
+  useEffect(() => {
+    if (router.query.lyrics === '1' && hasLyrics) setMobileShowLyrics(true);
+  }, [router.query.lyrics, hasLyrics]);
 
   // If the currently-playing song has no lyrics, force back to the
   // album art view. Without this, a listener viewing lyrics for one
@@ -191,7 +199,7 @@ export default function MusicPage({ songLookup }: Props) {
   useEffect(() => {
     // Not while the song list is shown: the player behind it is hidden, and centring its line
     // would scroll the page instead.
-    if (suppressAutoScrollRef.current || view !== 'player' || !mobileShowLyrics) return;
+    if (suppressAutoScrollRef.current || view !== 'player' || (!mobileShowLyrics && !window.matchMedia('(min-width: 1000px)').matches)) return;
     // Honors the reduced-motion preference: the active line still gets
     // centered (that's function, not decoration), just without
     // animating the travel there.
@@ -247,14 +255,17 @@ export default function MusicPage({ songLookup }: Props) {
   const nextChosen = upcomingIndices(order, nextPosition, repeatMode).map(index => ({ song: queue[index], index })).filter(e => e.song);
   const upNext = repeatMode === 'one' ? [] : [...nextChosen, ...(autoplay && (repeatMode !== 'all' || !queue.length) ? autoplayTracks.slice(0, 3 - nextChosen.length).map(song => ({ song, index: -1 })) : [])];
   const preview = lyricPreview(lyrics, currentTime);
+  const timedLyrics = lyrics.some(line => line.time > 0);
 
   return (
     <>
       <Head><title>{`${view === 'library' ? 'Library' : view === 'queue' ? 'Queue' : 'Now playing'} · Music — Arkpedia`}</title></Head>
 
-      <PageHeader slim compact eyebrow="Sound Archive" title="Music" actions={<div className="music-header-actions"><MusicGameSetting header /><MusicPlaylists songs={songLookup} /></div>} />
+      <PageHeader slim compact eyebrow="Rhodes Island // Sound Archive" title="Music" actions={<MusicGameSetting header />} />
       <main className="music-player-page">
-        <MusicNav current={view} />
+        <MusicNav current={view}><MusicPlaylists songs={songLookup} /></MusicNav>
+        <div className="music-workspace-content">
+        {view === 'player' && <h2 className="section-title music-workspace-title">Now playing</h2>}
         <div className="visually-hidden" aria-live="polite">
           {nowPlayingAnnouncement}
         </div>
@@ -278,6 +289,7 @@ export default function MusicPage({ songLookup }: Props) {
                   <span className="music-now-playing-cover-fallback">♪</span>
                 )}
               </div>
+
             </div>
 
             <div className="music-now-playing-song-info">
@@ -305,6 +317,10 @@ export default function MusicPage({ songLookup }: Props) {
                   </span>
                 )}
               </div>
+              {alternateVersion && <button type="button" className="ghost btn-sm music-version-switch" onClick={() => playNow(alternateVersion.song.id)}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="M4 7h15m-4-4 4 4-4 4M20 17H5m4-4-4 4 4 4" /></svg>
+                {alternateVersion.label}
+              </button>}
             </div>
 
             {/* Fixed row -- always visible regardless of the mobile
@@ -327,13 +343,19 @@ export default function MusicPage({ songLookup }: Props) {
                 lyricsLoading ? (
                   <p className="hint">Loading lyrics…</p>
                 ) : lyrics.length > 0 ? (
-                  (mobileShowLyrics ? lyrics.map((line, i) => ({ line, active: i === activeLineIndex })) : preview).map(({ line, active }, i) => (
+                  lyrics.map((line, i) => (
                     <p
                       key={i}
-                      ref={active && mobileShowLyrics ? activeLineRef : undefined}
-                      className={active ? 'music-lyric-line active' : 'music-lyric-line'}
+                      ref={i === activeLineIndex ? activeLineRef : undefined}
+                      data-preview={preview.some(entry => entry.line === line) ? 'true' : undefined}
+                      className={i === activeLineIndex ? 'music-lyric-line active' : 'music-lyric-line'}
                     >
-                      {line.text}
+                      {timedLyrics ? <button type="button" className="btn-bare music-lyric-seek"
+                        aria-label={`Seek to ${Math.floor(line.time / 60)}:${String(Math.floor(line.time % 60)).padStart(2, '0')}: ${line.text}`}
+                        aria-current={i === activeLineIndex ? 'true' : undefined}
+                        onClick={() => { handleSeekChange(line.time); handleSeekCommit(line.time); }}>
+                        {line.text}
+                      </button> : line.text}
                     </p>
                   ))
                 ) : (
@@ -392,7 +414,8 @@ export default function MusicPage({ songLookup }: Props) {
           </div>
         </div>
 
-        <MusicTransportBar view={view} onFullPlayer coverPath={currentDetail || currentTrack ? nowPlayingCover : undefined} />
+        </div>
+        <MusicTransportBar view={view} onFullPlayer onOpenLyrics={() => setMobileShowLyrics(hasLyrics)} coverPath={currentDetail || currentTrack ? nowPlayingCover : undefined} />
       </main>
     </>
   );

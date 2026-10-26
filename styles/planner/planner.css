@@ -1853,4 +1853,15 @@
 .recipe-row .have > span:last-child { min-width: 4.5ch; text-align: left; }
 
 /* The goal filter is the first content below the page header, whose own gap supplies the air. */
-.planner-goal-filter:first-child { margin-top: 0; }
+.simple-all-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: var(--heading-gap); }
+.simple-all-heading > h2 { margin: 0; }
+.action-popover-trigger.planner-goal-trigger { display: inline-flex; align-items: center; gap: 8px; width: auto; padding-inline: 12px; white-space: nowrap; }
+.planner-goal-trigger > b { color: var(--teal); font: inherit; }
+.planner-goal-menu { display: grid; gap: 12px; padding: 8px; }
+.planner-goal-menu-head, .planner-goal-menu-head > div { display: flex; align-items: center; gap: 6px; }
+.planner-goal-menu-head { justify-content: space-between; }
+.planner-goal-menu-head > h3 { margin: 0; }
+.planner-goal-options { display: grid; gap: 4px; max-height: min(360px, 50dvh); overflow-y: auto; }
+.planner-goal-option { display: flex; gap: 10px; padding: 6px; min-width: 0; }
+.planner-goal-option > span { overflow-wrap: anywhere; }
+.planner-goal-option:hover { background: var(--panel-2); }

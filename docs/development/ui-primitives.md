@@ -631,3 +631,21 @@ Every address and driven state the UI census visits (`tests/browser/census-route
 10. Density changes must obey the Anti-Page Jump rule. Measure them with `apj()`.
 11. Run `npm run audit:styles` and the layout census (`npx playwright test layout-census.spec`; the stale stack-align check runs with the whole suite, after both projects). If a remaining ratchet list shrank, tighten it with `npm run audit:styles -- --update` and commit the smaller baseline with the change.
 12. Verify the rendered result at 1440 and 390, dark and light (the rig, or screenshots). A green build is not verification.
+
+
+## Header disclosures and account identity
+
+Use `ActionPopover` for header settings/profile disclosures and `InfoPopover` for
+secondary help. Their contents keep native link/button Tab behavior. Escape closes
+the disclosure and restores trigger focus; when used inside a native dialog, help
+stays in that dialog's top layer and closes before the dialog itself. Do not hide
+validation, save conflicts, consent descriptions or destructive consequences in help.
+
+Use `ApplicationImage` / `ApplicationArt` for code-owned profile icons and other
+application artwork that must keep its immutable deploy pin while content releases
+change. Use `ContentImage` / `ContentArt` for page data artwork. Profile icons are
+catalogue IDs, never URLs or uploads; the account icon preference is browser-only.
+
+Use `.rarity-frame` with `data-rarity="1"` through `"6"` for fully bordered
+headhunting portraits, in both simulator and imported history. `.tier-N` is the
+compact bottom-stripe treatment and should not be mixed into these frames.

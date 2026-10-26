@@ -37,7 +37,7 @@ export default function SeasonalPage({ ccb, challenges }: Props) {
       <TerminalNav current="seasonal" />
       <PageHeader
         slim
-        eyebrow={<><ModeMark name="contingency-contract.svg" className="head-mark" />Terminal // Challenge modes</>}
+        eyebrow={<><ModeMark name="contingency-contract.svg" className="head-mark" />Rhodes Island // Challenge modes</>}
         title="Seasonal Challenge"
         sub={<>The challenge modes: {listed(modes)}, with every season each of them has run.</>}
       />

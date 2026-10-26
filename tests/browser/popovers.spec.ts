@@ -30,7 +30,9 @@ test('operator relation menus anchor to their trigger and close on navigation', 
   await anchored(page, voice, menu);
   await page.mouse.click(2, 100);
   await expect(menu).toHaveCount(0);
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
   await page.getByRole('button', { name: 'Switch to light mode' }).click();
+  await page.keyboard.press('Escape');
   const artist = page.getByRole('button', { name: 'Yukuso: show related operators' });
   await artist.click();
   await anchored(page, artist, menu);

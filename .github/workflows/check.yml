@@ -274,9 +274,10 @@ jobs:
         # --with-deps installs system libraries with sudo; a self-hosted runner has them already.
         run: npx playwright install ${{ runner.environment == 'github-hosted' && '--with-deps' || '' }} chromium
 
-      # Compare cumulatively with a trusted full-browser ancestor. Shared/unknown
-      # changes and manual/push/fork checks retain full coverage; narrow PRs select
-      # existing core/family/census cases and record exactly what executed.
+      # PRs compare with a trusted full-browser ancestor, then run core and affected
+      # release journeys. Shared chrome uses representative populated features;
+      # exhaustive visual contracts run in the independent Browser audit workflow.
+      # Unknown/toolchain inputs and manual/push/fork checks retain full coverage.
       - name: Which browser regressions this change needs
         id: browser
         env:

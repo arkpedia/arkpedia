@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useId, useRef, type ReactNode } from 'react';
 import XButton from '@/components/ui/XButton';
 
 /*
@@ -9,6 +9,7 @@ import XButton from '@/components/ui/XButton';
  */
 export default function ImportDialog({ title, children, onClose, className }: { title: string; children: ReactNode; onClose: () => void; className?: string }) {
   const ref = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
     const overflow = document.body.style.overflow;
@@ -17,12 +18,12 @@ export default function ImportDialog({ title, children, onClose, className }: { 
     return () => { document.body.style.overflow = overflow; previous?.focus(); };
   }, []);
   return (
-    <dialog ref={ref} className={`account-dialog${className ? ` ${className}` : ''}`} aria-labelledby="account-dialog-title" onCancel={event => { event.preventDefault(); onClose(); }} onClick={(event) => {
+    <dialog ref={ref} className={`account-dialog${className ? ` ${className}` : ''}`} aria-labelledby={titleId} onCancel={event => { event.preventDefault(); event.stopPropagation(); onClose(); }} onClick={(event) => {
       if (event.target !== event.currentTarget) return;
       const box = event.currentTarget.getBoundingClientRect();
       if (event.clientX < box.left || event.clientX > box.right || event.clientY < box.top || event.clientY > box.bottom) onClose();
     }}>
-      <header><h2 id="account-dialog-title" className="entity-title">{title}</h2><XButton label="Close" onClick={onClose} /></header>
+      <header><h2 id={titleId} className="entity-title">{title}</h2><XButton label="Close" onClick={onClose} /></header>
       <div className="account-dialog-body">{children}</div>
     </dialog>
   );

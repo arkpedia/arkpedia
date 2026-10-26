@@ -49,10 +49,34 @@ test('the clock goes below 1055px and the phone bar takes over below 901px', asy
   await expect(page.locator('.mobile-nav-bar')).toBeVisible();
 });
 
-test('Support is its heart in the bar, still named for screen readers', async ({ page }, info) => {
+test('About groups site information and Support', async ({ page }, info) => {
   test.skip(info.project.name !== 'desktop', 'the desktop bar');
   await page.goto('/schedule');
-  const support = page.locator('.site-nav').getByRole('link', { name: 'Support', exact: true });
-  await expect(support).toHaveAttribute('title', 'Support');
-  await expect(support.locator('.visually-hidden')).toHaveText('Support');
+  await page.locator('.site-nav').getByRole('button', { name: 'About', exact: true }).click();
+  await expect(page.locator('.site-nav-pop').getByRole('link', { name: 'Support', exact: true })).toHaveAttribute('href', '/support');
+  await expect(page.locator('.site-nav-pop').getByRole('link', { name: /^What's new/ })).toHaveAttribute('href', '/changelog');
+});
+
+test('long menus stay reachable in a short window and close before header utilities open', async ({ page }, info) => {
+  test.skip(info.project.name !== 'desktop', 'sets desktop and phone viewports itself');
+  await page.setViewportSize({ width: 1055, height: 320 });
+  await page.goto('/schedule');
+  await page.locator('.site-nav').getByRole('button', { name: 'Database', exact: true }).click();
+  const last = page.locator('.site-nav-pop').getByRole('link', { name: 'Voice Actors', exact: true });
+  await last.scrollIntoViewIfNeeded();
+  const box = await last.boundingBox();
+  expect(box!.y + box!.height).toBeLessThanOrEqual(320);
+  await page.locator('.site-nav').getByRole('button', { name: 'Settings', exact: true }).click();
+  await expect(page.locator('.site-nav-menu .site-nav-pop')).toHaveCount(0);
+  await expect(page.getByRole('region', { name: 'Settings', exact: true })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Settings', exact: true }).getByRole('button', { name: 'Import / export', exact: true })).toBeFocused();
+  await page.getByRole('button', { name: 'Switch to light mode' }).focus();
+  await page.keyboard.press('Tab');
+  await expect(page.locator('.site-nav .site-nav-clock button')).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(page.locator('.site-nav .profile-avatar-trigger')).toBeFocused();
+  await expect(page.getByRole('region', { name: 'Settings', exact: true })).toHaveCount(0);
+  await page.locator('.site-nav').getByRole('button', { name: 'Settings', exact: true }).click();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.getByRole('region', { name: 'Settings', exact: true })).toHaveCount(0);
 });

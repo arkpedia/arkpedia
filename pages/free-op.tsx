@@ -8,6 +8,8 @@ import Head from 'next/head';
 import Link from 'next/link';
 import PageHeader from '@/components/ui/PageHeader';
 import DataLink from '@/components/account/DataLink';
+import Image from '@/components/content/ContentImage';
+import InfoPopover from '@/components/ui/InfoPopover';
 import { PastRewards } from '@/components/pulls/PastRewards';
 import { withContentPage } from '@/lib/content/server';
 import { formatNumber, formatOneDecimal } from '@/lib/pulls/format';
@@ -116,8 +118,8 @@ export default function FreeOpPage({ backlogSources, freeRewards: globalFreeRewa
     <>
       <Head><title>Reward Tracker — Arkpedia</title></Head>
       <PageHeader eyebrow="Rhodes Island // Reward Tracker" title="Reward Tracker"
-        sub={<>First clears and free rewards still to claim. The <Link prefetch={false} href="/pulls">Pull Planner</Link> shares your first-clear and permanent reward completion.</>}
-        actions={<DataLink />} />
+        sub="Track first clears, free rewards and the pulls still waiting for you."
+        actions={<><DataLink /><Link prefetch={false} href="/pulls" className="ghost btn-sm">Pull Planner</Link><InfoPopover label="About Reward Tracker"><p>Your first-clear and permanent reward completion is shared with the Pull Planner. Mark rewards as claimed below, or use Import / export to fill completion from your account.</p></InfoPopover></>} />
       <main className="free-op-page">
         <section className="op-section free-op-overview" aria-labelledby="free-op-left">
           <div className="free-op-heading">
@@ -126,16 +128,16 @@ export default function FreeOpPage({ backlogSources, freeRewards: globalFreeRewa
           </div>
           {presentation && <p className="hint free-op-demo-note">Presentation view. Your saved completion stays unchanged.</p>}
           <dl className="free-op-summary">
-            <div><dt>Originite Prime</dt><dd>{formatNumber(originitePrime)}</dd></div>
-            <div><dt>Orundum</dt><dd>{formatNumber(orundum)}</dd></div>
-            <div><dt>Headhunting permits</dt><dd>{formatNumber(permits)}</dd></div>
-            <div><dt>Worth, in pulls</dt><dd>{formatOneDecimal(pulls)}</dd></div>
+            <div><Image src="/material-icons/Originite%20Prime.webp" alt="" width={48} height={48} /><dt>Originite Prime</dt><dd>{formatNumber(originitePrime)}</dd></div>
+            <div><Image src="/material-icons/Orundum.webp" alt="" width={48} height={48} /><dt>Orundum</dt><dd>{formatNumber(orundum)}</dd></div>
+            <div><Image src="/material-icons/Headhunting%20Permit.webp" alt="" width={48} height={48} /><dt>Headhunting permits</dt><dd>{formatNumber(permits)}</dd></div>
+            <div className="free-op-pull-total"><Image src="/material-icons/Headhunting%20Permit.webp" alt="" width={48} height={48} /><dt>Worth, in pulls</dt><dd>{formatOneDecimal(pulls)}</dd></div>
           </dl>
           {/* Always the same lines, whatever is on, each short enough for one line on a phone: a
               toggle changes numbers, never the height. */}
           <fieldset className="free-op-filters">
-            <legend>Stages you cannot clear yet</legend>
-            {STAGE_FILTERS.map(({ kind, label }) => <label key={kind} className="check"><input type="checkbox" checked={excluded.has(kind)} onChange={event => setExcluded(kind, event.target.checked)} />{label}</label>)}
+            <legend>Stage exclusions <InfoPopover label="About stage exclusions"><p>Leave out stage types you cannot clear yet. The totals and unclaimed stage lists update together; your completion marks stay saved.</p></InfoPopover></legend>
+            <div className="free-op-stage-choices">{STAGE_FILTERS.map(({ kind, label }) => <label key={kind} className="check free-op-stage-choice"><input type="checkbox" checked={excluded.has(kind)} onChange={event => setExcluded(kind, event.target.checked)} />{label}</label>)}</div>
           </fieldset>
           <p className="hint free-op-excluded" aria-live="polite">{excluded.size
             ? `${formatNumber(leftOut)} ${leftOut === 1 ? 'stage' : 'stages'} left out, ${formatNumber(leftOut)} OP.`

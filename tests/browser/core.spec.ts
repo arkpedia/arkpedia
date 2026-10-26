@@ -125,13 +125,15 @@ async function pickVoice(page: Page, outfit: string, code: string) {
   await pickVoiceOption(page, 'Voice language', code);
   return before;
 }
-/** The first line the reader sees under the sticky player, the space reserved under the
+/** The first complete line under the sticky player (or a partial one when none fits), the space reserved under the
  *  list, and the scroller. */
-async function voicePlace(page: Page) {
+async function voicePlace(page: Page, anchorId?: string) {
   return page.evaluate(`(() => {
     const s = ${voiceScroller};
     const player = document.querySelector('#operator-voiceLines [aria-label="Voice line player"]').getBoundingClientRect().bottom;
-    const row = [...document.querySelectorAll('#operator-voiceLines li[data-line-id]')].find(li => li.getBoundingClientRect().bottom > player + 1);
+    const visible = [...document.querySelectorAll('#operator-voiceLines li[data-line-id]')].filter(li => li.getBoundingClientRect().bottom > player + 1);
+    const wanted = ${JSON.stringify(anchorId ?? null)};
+    const row = wanted ? visible.find(li => li.dataset.lineId === wanted) : visible.find(li => li.getBoundingClientRect().top >= player - 1) ?? visible[0];
     const list = document.querySelector('#operator-voiceLines ol');
     return { row: row ? { id: row.dataset.lineId, top: row.getBoundingClientRect().top } : null, rows: list.children.length,
       reserve: list.parentElement.getBoundingClientRect().bottom - list.getBoundingClientRect().bottom,
@@ -208,7 +210,9 @@ test('a voice-set switch partway down the list keeps the line on screen in place
     expect(before.row, 'not vacuous: a line under the player').not.toBeNull();
     await expect(voice.getByText(status, { exact: true })).toBeVisible();
     await page.waitForTimeout(300);
-    const now = await voicePlace(page);
+    // A shorter sticky player can expose an earlier line too. Track the chosen
+    // readable anchor itself, rather than requiring it to remain first in view.
+    const now = await voicePlace(page, before.row!.id);
     expect(now.row?.id, `${group}: the same line under the player`).toBe(before.row!.id);
     expect(Math.abs(now.row!.top - before.row!.top), `${group}: it stays where it was`).toBeLessThanOrEqual(2);
     expect(now.reserve, `${group}: nothing reserved partway down`).toBeLessThanOrEqual(1);
@@ -306,9 +310,9 @@ test('Opera GX without Document PiP opens a regular recruitment window and says 
     });
   });
   await page.goto('/recruitment');
-  await expect(page.getByRole('button', { name: 'Open window', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Pop-out', exact: true })).toBeVisible();
   const popupPromise = page.waitForEvent('popup');
-  await page.getByRole('button', { name: 'Open window', exact: true }).click();
+  await page.getByRole('button', { name: 'Pop-out', exact: true }).click();
   const popup = await popupPromise;
   await popup.waitForLoadState('domcontentloaded');
   await expect(popup).toHaveURL(/\/recruitment\/popout/);
@@ -333,11 +337,11 @@ test('Opera GX with Document PiP is offered the regular window, not On top', asy
     });
   });
   await page.goto('/recruitment');
-  await expect(page.getByRole('button', { name: 'Open window', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Pop-out', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'On top', exact: true })).toHaveCount(0);
   await expect(page.getByText(OPERA_NOTICE)).toHaveCount(0);
   const popupPromise = page.waitForEvent('popup');
-  await page.getByRole('button', { name: 'Open window', exact: true }).click();
+  await page.getByRole('button', { name: 'Pop-out', exact: true }).click();
   const popup = await popupPromise;
   await expect(popup).toHaveURL(/\/recruitment\/popout/);
   await expect(page.getByText(OPERA_NOTICE)).toBeVisible();
@@ -356,7 +360,7 @@ test('a browser whose Document PiP is refused offers a regular window', async ({
     });
   });
   await page.goto('/recruitment');
-  await page.getByRole('button', { name: 'On top', exact: true }).click();
+  await page.getByRole('button', { name: 'Pop-out', exact: true }).click();
   await expect(page.getByText('Could not open the pop-out: Document PiP rejected')).toBeVisible();
   const popupPromise = page.waitForEvent('popup');
   await page.getByRole('button', { name: 'Open a regular window' }).click();

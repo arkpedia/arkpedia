@@ -175,8 +175,14 @@ The quick job uses the existing heavy runner pool and dependency-isolation rules
 it does not occupy the dedicated deployment runner or move unit work onto the light
 metadata pool. Queue time is still subject to active full jobs. Measure the actual
 profile before claiming a speedup. The [browser coverage policy](ci-impact-planning.md)
-selects existing core/family/census cases for narrow changes and records actual
-selected/omitted coverage. Shared or unknown inputs retain full coverage. Partial
+selects core navigation/consent and affected functional journeys for classified PR
+changes, including feature CSS. Shared chrome runs representative populated account,
+music, story, base, reward, planner and game journeys. Exhaustive layout, motion,
+tab-geometry and close-button contracts run in the independent **Browser audit**
+workflow after pushes to main, or manually. That workflow cannot gate Deploy or
+produce reusable Check evidence. Unknown inputs, toolchain changes, forks, manual
+Checks and a missing trusted baseline retain full coverage. Actual selected/omitted
+identities stay in the evidence. Partial
 evidence has its own artifact and cannot masquerade as a full baseline. Normal
 manual checks remain full; exact-tree sync reuse must validate completed PR proof
 and any recorded full baseline.

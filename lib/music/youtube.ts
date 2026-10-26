@@ -94,8 +94,8 @@ export async function enrichWithLiveStatus(
     try {
       const url = `https://www.googleapis.com/youtube/v3/videos?part=snippet,liveStreamingDetails&id=${batch.join(
         ','
-      )}&key=${apiKey}`;
-      const res = await fetch(url);
+      )}`;
+      const res = await fetch(url, { headers: { 'X-Goog-Api-Key': apiKey } });
       if (!res.ok) continue;
       const data = await res.json();
       for (const item of data.items || []) {

@@ -20,7 +20,7 @@ export default function GamesPage() {
             <div>
               <h2 id={`game-${game.icon}`} className="entity-title">{game.name}</h2>
               <p>{game.description}</p>
-              <span className={styles.play}>Play</span>
+              <span className={styles.play}>Play <span aria-hidden="true">→</span></span>
             </div>
           </Link>
         </li>)}

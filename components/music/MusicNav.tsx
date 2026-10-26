@@ -1,5 +1,8 @@
 import Link from 'next/link';
+import { useRouter } from 'next/router';
+import type { ReactNode } from 'react';
 import { useMusicPlayer } from '@/lib/music/musicPlayerContext';
+import TransportIcon from './TransportIcons';
 
 export type MusicView = 'discover' | 'library' | 'player' | 'queue';
 
@@ -13,14 +16,16 @@ export const MUSIC_VIEW_HREF: Record<MusicView, string> = {
 };
 
 /**
- * One strip across the music section, in the same place on both pages: Discover (browse by
+ * Shared music rail (a scrolling link strip on phones): Discover (browse by
  * album, character, artist), Library (every song, searchable, which never changes the queue by
- * itself), Now playing (the song, its credits and lyrics) and Queue (what plays next). A link
- * strip in the site's tab look (.tabs, like the games' GameLinks), not a tablist: each is an
+ * itself), Now playing (the song, its credits and lyrics) and Queue (what plays next). The
+ * navigation uses ordinary links, not a tablist: each is an
  * address. Shallow links within /music, so the player and its audio carry on untouched.
  */
-export default function MusicNav({ current }: { current: MusicView }) {
-  const { queue, videoId, shuffle, shuffleOrder } = useMusicPlayer();
+export default function MusicNav({ current, children }: { current: MusicView; children?: ReactNode }) {
+  const router = useRouter();
+  const { queue, videoId, shuffle, shuffleOrder, favorites } = useMusicPlayer();
+  const favouritesSelected = current === 'library' && router.query.scope === 'favorites';
   const order = shuffle && shuffleOrder ? shuffleOrder : queue.map((_, index) => index);
   const currentPosition = order.findIndex(index => queue[index]?.id === videoId);
   const upcoming = order.length - currentPosition - 1;
@@ -32,14 +37,24 @@ export default function MusicNav({ current }: { current: MusicView }) {
     { view: 'queue', label: 'Queue', count: upcoming || undefined },
   ];
   return (
-    <nav className="tabs music-nav" aria-label="Music">
-      {items.map(({ view, label, count }) => (
-        <Link key={view} href={MUSIC_VIEW_HREF[view]} prefetch={false} shallow={view !== 'discover' && current !== 'discover'} scroll={false}
-          className="tab" aria-current={view === current ? 'page' : undefined}>
-          {label}
-          {count !== undefined && <span className="tab-count"><span className="visually-hidden">, </span>{count}<span className="visually-hidden"> chosen songs next</span></span>}
+    <aside className="music-workspace-rail">
+      <span className="music-workspace-label">Sound archive</span>
+      <nav className="music-nav" aria-label="Music">
+        {items.map(({ view, label, count }) => (
+          <Link key={view} href={MUSIC_VIEW_HREF[view]} prefetch={false} shallow={view !== 'discover' && current !== 'discover'} scroll={false}
+            className="music-workspace-link" aria-current={view === current && !favouritesSelected ? 'page' : undefined}>
+            <TransportIcon name={view === 'discover' ? 'note' : view === 'library' ? 'library' : view === 'queue' ? 'queue' : 'nowPlaying'} />
+            <span>{label}</span>
+            {count !== undefined && <span className="music-workspace-count"><span className="visually-hidden">, </span>{count}<span className="visually-hidden"> chosen songs next</span></span>}
+          </Link>
+        ))}
+        <Link href="/music?view=library&scope=favorites" prefetch={false} shallow={current !== 'discover'} scroll={false}
+          className="music-workspace-link" aria-current={favouritesSelected ? 'page' : undefined}>
+          <TransportIcon name="heart" /><span>Favourites</span>
+          <span className="music-workspace-count" aria-hidden="true">{favorites.size || ''}</span>
         </Link>
-      ))}
-    </nav>
+      </nav>
+      <div className="music-workspace-collection"><span className="music-workspace-label">Your collection</span>{children}</div>
+    </aside>
   );
 }

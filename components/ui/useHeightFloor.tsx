@@ -181,7 +181,12 @@ export function useHeightFloor(resetKey: unknown) {
          pass adds exactly the shortfall, so it settles in one or two. */
       const short = Math.ceil(want + window.innerHeight - document.documentElement.scrollHeight);
       if (short > 0) {
-        reserveRef.current += short;
+        // A short panel can sit inside the document's 100vh minimum. Adding
+        // only the few clamped pixels repeatedly never reaches the slack before
+        // React's update limit. Cover that slack in this pass; settle() releases
+        // any excess when later content also contributes to the document height.
+        const viewportSlack = Math.max(0, window.innerHeight - (el.getBoundingClientRect().bottom + window.scrollY));
+        reserveRef.current += short + Math.ceil(viewportSlack);
         setReserve(reserveRef.current);
         return;
       }

@@ -90,6 +90,7 @@ export function coveragePlan(plan, report) {
   }
   const affected = item => {
     // A changed specification with no classified runtime domain retains the whole page census.
+    if (plan.releaseOnly) return false;
     if (!plan.domains.length) return true;
     const route = item.titlePath[0].replace(/, (?:dark|light) theme$/, '').split(' (')[0];
     return plan.domains.some(domain => ROUTES[domain]?.test(route));

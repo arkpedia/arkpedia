@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import XButton from '@/components/ui/XButton';
+import InfoIcon from '@/components/ui/InfoIcon';
 
 /**
  * One of the player's settings: a checkbox, and an ⓘ that opens a short note on what it changes.
@@ -57,11 +58,7 @@ export default function MusicSetting({ label, topic, checked, onChange, about, h
         <label className="check"><input type="checkbox" checked={checked} onChange={event => onChange(event.target.checked)} />{label}</label>
         <button ref={infoRef} type="button" className="btn-bare music-setting-info-btn" aria-label={name}
           aria-expanded={open} aria-controls={open ? id : undefined} onClick={() => setOpen(value => !value)}>
-          <svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden="true" focusable="false">
-            <circle cx="10" cy="10" r="7.2" />
-            <path d="M10 9v4.6" />
-            <circle cx="10" cy="6.4" r="0.9" fill="currentColor" stroke="none" />
-          </svg>
+          <InfoIcon />
         </button>
       </div>
       {open && (

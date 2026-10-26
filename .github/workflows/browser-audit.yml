@@ -1,0 +1,53 @@
+name: Browser audit
+
+# Independent from Check and deployment. Keep the exhaustive suite visible after
+# integration, and available manually, without delaying a PR preview or release.
+on:
+  push:
+    branches: [main]
+    paths-ignore: ['docs/**', '**/*.md']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: browser-audit-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - run: npm ci
+      - run: python -m pip install -r scripts/requirements.txt
+      - name: Build audit site
+        run: npm run build
+        env:
+          ARKPEDIA_CONTENT_DISABLED: '1'
+          ARKPEDIA_YOUTUBE_FEED_FIXTURE: tests/fixtures/youtube-feeds.xml
+          NEXT_TELEMETRY_DISABLED: '1'
+      - run: npx playwright install --with-deps chromium
+      - name: Exhaustive desktop and mobile audit
+        run: npm run test:browser -- --reporter=list,json
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_FILE: .cache/browser-audit-results.json
+      - name: Preserve audit report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: browser-audit-${{ github.run_id }}
+          path: |
+            .cache/browser-audit-results.json
+            test-results/
+          if-no-files-found: ignore
+          retention-days: 7

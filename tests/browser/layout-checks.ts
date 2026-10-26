@@ -411,8 +411,9 @@ export async function measure(page: Page): Promise<Measurement> {
     // scrollbar is drawn (Linux and Windows Chromium) the frame centres in 1425 of 1440px,
     // nav and content alike; on macOS the scrollbar overlays and the width is the full 1440.
     const cw = Math.min(de.clientWidth, document.body.getBoundingClientRect().width);
-    const frameLeft = cw >= 1040 ? (cw - 1040) / 2 + 24 : 24;
-    const frameRight = cw >= 1040 ? (cw - 1040) / 2 + 1040 - 24 : cw - 24;
+    const frameMax = parseFloat(getComputedStyle(de).getPropertyValue('--frame-max'));
+    const frameLeft = cw >= frameMax ? (cw - frameMax) / 2 + 24 : 24;
+    const frameRight = cw >= frameMax ? (cw - frameMax) / 2 + frameMax - 24 : cw - 24;
     const root = document.getElementById('page-content') || document.body;
     const styles = new Map<Element, CSSStyleDeclaration>();
     const cs = (el: Element) => { let s = styles.get(el); if (!s) { s = getComputedStyle(el); styles.set(el, s); } return s; };

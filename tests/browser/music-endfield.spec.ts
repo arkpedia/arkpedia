@@ -104,7 +104,7 @@ test('the header\'s Endfield music ⓘ says background play on phones may not wo
   await expect(info).toHaveAttribute('aria-expanded', 'false');
   const infoBox = (await info.boundingBox())!;
   expect(Math.min(infoBox.width, infoBox.height), 'the ⓘ is a 24px target at least').toBeGreaterThanOrEqual(24);
-  const playlists = header.getByRole('button', { name: 'Playlists', exact: true });
+  const playlists = page.getByRole('button', { name: 'Playlists', exact: true });
   const before = { title: await header.locator('h1').boundingBox(), playlists: await playlists.boundingBox(), setting: await setting(page).boundingBox() };
 
   await info.click();

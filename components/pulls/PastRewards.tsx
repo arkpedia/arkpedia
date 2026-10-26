@@ -1,4 +1,5 @@
-import Link from 'next/link';
+import DataLink from '@/components/account/DataLink';
+import InfoPopover from '@/components/ui/InfoPopover';
 import { RewardAmount } from './RewardAmount';
 import { useLayoutEffect, useRef, useState } from 'react';
 import SegmentedControl from '@/components/ui/SegmentedControl';
@@ -124,10 +125,10 @@ export function PastRewards({ backlog, dropped, doneKeys, doneEvents, annihilati
     </>;
   };
   return <div ref={rootRef} className={layout === 'page' ? 'pulls-past-page' : 'pulls-past-body'}>
-    {imported
-      ? <p className="hint">Ticked from your account, imported {formatDayMonthYear(imported.at.slice(0, 10))}. Change any tick to adjust it; <Link href="/account">import again</Link> to tick them afresh.</p>
-      : <p className="hint">Tick what you have done, or <Link href="/account">import your account</Link> to tick it for you.</p>}
+    <div className="pulls-past-tools">
     <SegmentedControl label="Show" value={show} options={SHOW} onChange={setPicked} />
+    <InfoPopover label="About reward completion"><p>{imported ? `Ticked from your account, imported ${formatDayMonthYear(imported.at.slice(0, 10))}. Adjust any tick, or import again to refresh completion.` : 'Mark completed stages yourself, or import your account to fill in completion.'}</p><DataLink /></InfoPopover>
+    </div>
     {layout === 'page' && <Tabs label="First-clear category" id="first-clear-category" value={category} onChange={setCategory} options={groups.map(group => ({ value: group.id, label: group.name }))} />}
     {groups.filter(group => layout !== 'page' || group.id === category).map((group) => layout === 'page'
       ? <section key={group.id} className="op-section pulls-past-section" {...tabPanelProps('first-clear-category', group.id)}>

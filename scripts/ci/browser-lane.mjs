@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { browserPlan, dependencyIndex } from './browser-plan.mjs';
+import { releaseBrowserPlan } from './release-browser-plan.mjs';
 import { coveragePlan, executionEvidence } from './browser-coverage.mjs';
 import { relevantFiles } from './browser-relevant.mjs';
 import { fullBaselineAncestor } from './browser-baseline.mjs';
@@ -36,8 +37,9 @@ export function currentPolicy() {
   return policyFingerprint(Object.fromEntries(POLICY_FILES.map(path => [path, git('rev-parse', `HEAD:${path}`)])));
 }
 
-export function lanePlan({ metadata, baseline, changes, specs, relevant, dependencies, inventory, forceFull = false }) {
-  const plan = browserPlan({ changes, specs, relevant, dependencies, baselineVerified: !!baseline, forceFull });
+export function lanePlan({ metadata, baseline, changes, specs, relevant, dependencies, inventory, forceFull = false, releaseProfile = false }) {
+  let plan = browserPlan({ changes, specs, relevant, dependencies, baselineVerified: !!baseline, forceFull });
+  if (releaseProfile && !forceFull) plan = releaseBrowserPlan(plan, { changes, specs, baselineVerified: !!baseline });
   const coverage = coveragePlan(plan, inventory);
   return { schema: 1, policy: BROWSER_POLICY, ...metadata, baseline, comparisonBase: baseline?.commit ?? null,
     analysisReason: coverage.reason, coverage };
@@ -87,7 +89,8 @@ function plan() {
     { encoding: 'utf8', maxBuffer: 16_000_000 }));
   const files = new Set(git('ls-files').split('\n').filter(Boolean));
   const result = lanePlan({ metadata, baseline, changes, specs: [...files].filter(path => /^tests\/browser\/.*\.spec\.ts$/.test(path)),
-    relevant: relevantFiles(files, read), dependencies: dependencyIndex(files, read), inventory, forceFull });
+    relevant: relevantFiles(files, read), dependencies: dependencyIndex(files, read), inventory, forceFull,
+    releaseProfile: event === 'pull_request' && process.env.BROWSER_HEAD_REPOSITORY === repository });
   if (fallbackReason) result.analysisReason = fallbackReason;
   fs.mkdirSync('.cache', { recursive: true });
   fs.writeFileSync(PLAN, JSON.stringify(result, null, 2));

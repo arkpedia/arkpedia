@@ -53,7 +53,7 @@ export default function SuppliesPage({ cards: globalCards, buildDay, now = 0 }: 
       <TerminalNav current="supplies" />
       <PageHeader
         slim
-        eyebrow={<><ModeMark name="supplies.svg" className="head-mark" />Terminal // Daily rotation</>}
+        eyebrow={<><ModeMark name="supplies.svg" className="head-mark" />Rhodes Island // Daily rotation</>}
         title="Supplies"
         sub={<>
           The rotating operations. Pick a day to see what it opens -- it starts on{' '}

@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import DataLink from '@/components/account/DataLink';
 import { useCallback, useEffect, useState } from 'react';
 import SegmentedControl from '@/components/ui/SegmentedControl';
 import { DEFAULT_SELECTOR_PREFERENCES, pointLabel, ratingPoints, selectorCoverage, type SelectorCandidate, type SelectorPreferences } from '@/lib/selectors/scoring';
@@ -80,7 +80,7 @@ export default function SelectorPersonalization({ candidates, ownedNames, prefer
     </div>)}
     <div className="selector-personalization-footer">
       <button type="button" className="ghost btn-sm" onClick={() => onChange({ ...DEFAULT_SELECTOR_PREFERENCES })}>{ownedNames === null ? 'Reset defaults' : 'Use account defaults'}</button>
-      {ownedNames === null && <Link href="/account" className="btn btn-sm">Import account</Link>}
+      {ownedNames === null && <DataLink />}
     </div>
   </div>;
 }

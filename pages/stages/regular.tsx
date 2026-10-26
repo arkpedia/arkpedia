@@ -75,7 +75,7 @@ export default function RegularTasksPage({ rotations: globalRotations, zones, se
       <TerminalNav current="regular" />
       <PageHeader
         slim
-        eyebrow={<><ModeMark name="regular-tasks.svg" className="head-mark" />Terminal // Always open</>}
+        eyebrow={<><ModeMark name="regular-tasks.svg" className="head-mark" />Rhodes Island // Always open</>}
         title="Regular Tasks"
         sub={<>
           The two modes that never close and never stay the same: Annihilation rotates its

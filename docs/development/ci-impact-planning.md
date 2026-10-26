@@ -56,6 +56,21 @@ expected failures are counted separately. Summed case time is not wall time.
 
 ## Truthful reuse
 
+PR release selection now includes classified feature CSS and shared chrome.
+`release-browser-plan.mjs` keeps core navigation and consent blocking, adds all
+functional specs in the affected family, and uses populated representative journeys
+for shared UI. Changed functional specs remain selected. Exhaustive visual specs
+are reported by the separate Browser audit workflow after main integration or a
+manual dispatch. They remain in the inventory as explicit omissions, not passes.
+Unknown runtime paths, build/toolchain/policy changes, deleted/shared fixtures and
+missing baseline proof retain the conservative plan. This release selector is part
+of the policy fingerprint; older evidence cannot vouch for a changed selector.
+
+Collection against the current 1,813-case inventory selects 282 cases for music CSS,
+220 for shared chrome and 60 for Story code. These are selection counts, not measured
+CI timings. The first policy migration still requires a complete run; narrower
+future PRs use the new profile once the policy lands.
+
 Only actual full execution creates `checked-tree-<tree>`. Targeted/no-impact results
 use `checked-policy-tree-<tree>-<policy-hash>` and `browser-evidence.json`. Drafts
 upload neither. Uploads follow all gates and execution validation; cancelled or

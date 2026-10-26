@@ -113,7 +113,7 @@ export default function StoryMapView({ map, chapters, library, view = 'map' }: {
   const viewport = useRef<HTMLDivElement>(null);
   const [fit, setFit] = useState(0.15);
   const [scale, setScale] = useState<number | null>(null);
-  const shown = scale ?? fit;
+  const shown = scale === null ? fit : Math.max(fit, Math.min(MAX_SCALE, scale));
   // Where to keep in view across a zoom: a board point and where it sits in the viewport.
   const anchor = useRef<{ bx: number; by: number; vx: number; vy: number } | null>(null);
 
@@ -123,7 +123,8 @@ export default function StoryMapView({ map, chapters, library, view = 'map' }: {
   useLayoutEffect(() => {
     const element = viewport.current;
     if (!element) return;
-    const measure = () => setFit(Math.min(element.clientWidth / bounds.width, element.clientHeight / bounds.height));
+    // Leave one CSS pixel clear so rounding cannot repeatedly add/remove a scrollbar.
+    const measure = () => setFit(Math.min(MAX_SCALE, (element.clientWidth - 1) / bounds.width, (element.clientHeight - 1) / bounds.height));
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(element);

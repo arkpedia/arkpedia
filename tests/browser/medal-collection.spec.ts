@@ -30,6 +30,7 @@ for (const scenario of ['empty display', 'missing display', 'omitted panel', 'fr
       await expect(page.getByRole('button', { name: 'Export my account', exact: true })).toBeEnabled();
       await page.getByLabel('Friend account file').setInputFiles({ name: 'friend-medals.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(makeFriendFile(account, {}))) });
       await expect(page.getByRole('status')).toContainText('Imported Medal Doctor');
+      await page.getByRole('button', { name: 'View Medal Doctor profile', exact: true }).click();
     } else await page.goto('/account');
     const button = page.getByRole('button', { name: 'View medals' });
     await expect(button).toBeVisible();
@@ -96,6 +97,7 @@ test('friend collection is separate from own account and persists across reloads
   await expect(page.getByRole('button', { name: 'Export my account', exact: true })).toBeEnabled();
   await page.getByLabel('Friend account file').setInputFiles({ name: 'friend-medals.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(friend)) });
   await expect(page.getByRole('status')).toContainText('Imported Friend Doctor');
+  await page.getByRole('button', { name: 'View Friend Doctor profile', exact: true }).click();
   await page.getByRole('button', { name: 'Show medal collection', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Friend Doctor · Medals' });
   await expect(dialog.getByRole('article').filter({ hasText: wolumonde.name })).toContainText('✓ Completed');
@@ -103,6 +105,7 @@ test('friend collection is separate from own account and persists across reloads
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('arkpediaAccount')!))).toEqual(own);
   await page.keyboard.press('Escape');
   await page.reload();
+  await page.getByRole('button', { name: 'View Friend Doctor profile', exact: true }).click();
   await page.getByRole('button', { name: 'Show medal collection', exact: true }).click();
   await expect(dialog.getByRole('article').filter({ hasText: wolumonde.name })).toContainText('✓ Completed');
 });

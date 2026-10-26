@@ -24,7 +24,18 @@ test('Discover matches the album shelves, expands its ranked grid, and plays in 
   const tiles = section.locator('.music-discover-album-tile');
   await expect(tiles).toHaveCount(24);
   await expect.poll(() => tiles.evaluateAll(rows => rows.map(r => r.getAttribute('data-song-id')))).toEqual(chartIds.slice(0, 24));
-  await expect(tiles.first()).toContainText(`${likes[chartIds[0]].toLocaleString('en-US')} likes`);
+  await expect(section.locator('.music-discover-like-tile').first()).toContainText(`${likes[chartIds[0]].toLocaleString('en-US')} likes`);
+  const cards = section.locator('.music-discover-like-tile');
+  for (let index = 0; index < 3; index++) {
+    const card = (await cards.nth(index).boundingBox())!;
+    const cover = (await cards.nth(index).locator('.music-discover-album-tile-cover').boundingBox())!;
+    const title = (await cards.nth(index).locator('.music-discover-album-tile-name').boundingBox())!;
+    const more = (await cards.nth(index).getByRole('button', { name: /^More actions/ }).boundingBox())!;
+    expect(cover.width).toBeLessThanOrEqual(card.width + 1);
+    expect(title.x + title.width).toBeLessThanOrEqual(card.x + card.width + 1);
+    expect(more.y).toBeGreaterThanOrEqual(cover.y + cover.height);
+    if (index < 2) expect((await cards.nth(index + 1).boundingBox())!.x).toBeGreaterThanOrEqual(card.x + card.width + 10);
+  }
   const coverSize = (selector: string) => page.locator(selector).first().evaluate(el => {
     const box = el.getBoundingClientRect(); return [Math.round(box.width), Math.round(box.height)];
   });
@@ -52,7 +63,9 @@ test('Discover matches the album shelves, expands its ranked grid, and plays in 
   await section.getByRole('button', { name: 'Show less', exact: true }).click();
   await expect(tiles).toHaveCount(24);
   await page.screenshot({ path: `.cache/qa/music-likes/${info.project.name}-shelf.png`, fullPage: true });
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
   await page.getByRole('button', { name: 'Switch to light mode' }).click();
+  await page.keyboard.press('Escape');
   await section.scrollIntoViewIfNeeded();
   await page.screenshot({ path: `.cache/qa/music-likes/${info.project.name}-light-viewport.png` });
 });

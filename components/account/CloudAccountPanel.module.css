@@ -19,7 +19,7 @@
 .form details > .form { padding-top: 12px; }
 .form input:not([type="checkbox"]) { width: 100%; min-width: 0; box-sizing: border-box; }
 .settings { padding-top: 18px; }
-.archiveSummary { margin-bottom: var(--heading-gap); }
+.archiveSummary { display: grid; gap: 12px; margin-bottom: var(--heading-gap); }
 .copies { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
 .copies > div { display: grid; align-content: start; gap: 12px; }
 .providerIdentity { display: flex; align-items: center; gap: 10px; }
@@ -28,3 +28,5 @@
 @media (max-width: 600px) {
   .copies { grid-template-columns: minmax(0, 1fr); }
 }
+
+.archiveSummary > p { margin: 0; }

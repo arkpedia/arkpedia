@@ -20,9 +20,13 @@ test('friend import, nested preview, skin collection and reload leave the own ac
   await page.goto('/friends');
   // Wait for the imported own account to hydrate before firing the SSR file input.
   await expect(page.getByRole('button',{name:'Export my account',exact:true})).toBeEnabled();
+  await expect(page.getByText('Shared files contain your profile, operators and skins.', {exact:false})).not.toBeVisible();
+  await page.getByRole('button', {name:'Friend sharing details', exact:true}).click();
+  await expect(page.getByText('Shared files contain your profile, operators and skins.', {exact:false})).toBeVisible();
+  await page.keyboard.press('Escape');
   await page.getByLabel('Friend account file').setInputFiles(file);
   await expect(page.getByRole('status')).toContainText('Imported Friend Doctor#2222');
-  await page.getByRole('button',{name:"Show friend's operators",exact:true}).click();
+  await page.getByRole('button',{name:"Show Friend Doctor#2222's operators",exact:true}).click();
   const collection=page.getByRole('dialog',{name:'Friend Doctor#2222 · Operators',exact:true});
   await collection.getByRole('combobox',{name:'Operator rarity',exact:true}).click();
   await collection.getByRole('option',{name:'6★',exact:true}).click();
@@ -45,8 +49,8 @@ test('friend import, nested preview, skin collection and reload leave the own ac
   await expect(tile).toBeFocused();
   await page.keyboard.press('Escape');
   await expect(collection).toHaveCount(0);
-  await expect(page.getByRole('button',{name:"Show friend's operators",exact:true})).toBeFocused();
-  await page.getByRole('button',{name:"Show friend's skins",exact:true}).click();
+  await expect(page.getByRole('button',{name:"Show Friend Doctor#2222's operators",exact:true})).toBeFocused();
+  await page.getByRole('button',{name:"Show Friend Doctor#2222's skins",exact:true}).click();
   const skins=page.getByRole('dialog',{name:'Friend Doctor#2222 · Skins',exact:true});
   await expect(skins).toBeVisible();
   const outfit=skins.getByRole('button',{name:'Angelina Summer Flower FA017',exact:true});
@@ -92,7 +96,7 @@ test('own profile opens shared operator and outfit dialogs with own server build
   await page.goto('/account');
   const operatorButton = page.getByRole('button', {name:'Show your operators', exact:true}).first();
   await operatorButton.press('Enter');
-  const collection = page.getByRole('dialog', {name:'My Doctor#1111 · Operators', exact:true});
+  const collection = page.getByRole('tabpanel', {name:'Operators', exact:true});
   const tile = collection.getByRole('button', {name:/^Angelina: E2 Level 90/});
   await expect(tile).toBeVisible();
   await expect(collection.getByRole('button', {name:/^Kroos:/})).toHaveCount(0);
@@ -100,18 +104,62 @@ test('own profile opens shared operator and outfit dialogs with own server build
   await expect(page.getByRole('dialog', {name:'Angelina', exact:true})).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(tile).toBeFocused();
-  await page.keyboard.press('Escape');
-  await expect(operatorButton).toBeFocused();
-  await page.getByRole('button', {name:'Show your skins', exact:true}).click();
-  const skins = page.getByRole('dialog', {name:'My Doctor#1111 · Skins', exact:true});
+  await page.getByRole('tab', {name:'Skins', exact:true}).click();
+  const skins = page.getByRole('tabpanel', {name:'Skins', exact:true});
   const outfit = skins.getByRole('button', {name:'Angelina Summer Flower FA017', exact:true});
   await outfit.click();
   await expect(skins.getByRole('img', {name:'Angelina — Summer Flower FA017', exact:true})).toBeVisible();
-  await page.keyboard.press('Escape');
+  await skins.getByRole('button', {name:'← Skins', exact:true}).click();
   await expect(outfit).toBeFocused();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await page.keyboard.press('Escape');
-  await expect(page).toHaveURL(/\/account$/);
+  await page.getByRole('tab', {name:'Profile', exact:true}).click();
+  await expect(page.getByRole('tab', {name:'Profile', exact:true})).toHaveAttribute('aria-selected', 'true');
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('arkpediaAccount')!))).toEqual(account);
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('arkpediaFriend')!))).toEqual(friend);
 });
+
+
+for (const theme of ['dark', 'light']) {
+test(`friend sharing help uses themed links without an imported account (${theme})`, async ({page}, info) => {
+  await page.addInitScript(theme => { localStorage.removeItem('arkpediaAccount'); localStorage.setItem('theme', theme); }, theme);
+  await page.goto('/account');
+  await page.goto('/friends');
+  await expect(page.getByRole('button', {name:'Export my account', exact:true})).toBeDisabled();
+  const help = page.getByRole('button', {name:'Friend sharing details', exact:true});
+  await expect(help).toHaveCSS('border-top-width', '0px');
+  await expect(help.locator('svg circle')).toHaveCount(2);
+  await help.click();
+  const importTools = page.getByRole('button', {name:'Import / export', exact:true});
+  await expect(importTools).toBeVisible();
+  await expect(importTools).toHaveAttribute('aria-haspopup', 'dialog');
+  if (process.env.ARKPEDIA_QA_CAPTURE) await page.screenshot({path:`${process.env.ARKPEDIA_QA_CAPTURE}/friend-help-${theme}-${info.project.name}.png`});
+  const url = page.url();
+  await importTools.click();
+  await expect(page.getByRole('dialog', {name:'Import / export', exact:true})).toBeVisible();
+  expect(page.url()).toBe(url);
+});
+
+test(`multiple imported friends stay visible, update in place and open separate profile dialogs (${theme})`, async ({ page }, info) => {
+  await page.addInitScript(theme => localStorage.setItem('theme', theme), theme);
+  await page.goto('/friends');
+  await expect(page.getByRole('button', {name:'Export my account', exact:true})).toBeEnabled();
+  await page.getByLabel('Friend account file').setInputFiles(file);
+  const second = makeFriendFile({...own, doctor:'Another Doctor#3333', profile:{...own.profile!, nameCard:'nc_as2024_throne', supports:[{name:'Angelina', rarity:6, elite:2, level:90, potential:6, skill:1}, {name:'Kroos', rarity:3, elite:1, level:55, potential:6, skill:1}, {name:'Amiya', rarity:5, elite:2, level:80, potential:6, skill:1}]}}, roster);
+  await page.getByLabel('Friend account file').setInputFiles({name:'second.json', mimeType:'application/json', buffer:Buffer.from(JSON.stringify(second))});
+  await expect(page.getByRole('article')).toHaveCount(2);
+  await page.getByLabel('Friend account file').setInputFiles(file);
+  await expect(page.getByRole('article')).toHaveCount(2);
+  const row = page.getByRole('article').filter({hasText:'Friend Doctor#2222'});
+  await row.getByRole('button', {name:'View Friend Doctor#2222 profile', exact:true}).click();
+  await expect(page.getByRole('dialog', {name:'Friend Doctor#2222 · Profile', exact:true})).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(row.getByRole('button', {name:'View Friend Doctor#2222 profile', exact:true})).toBeFocused();
+  await page.reload(); await expect(page.getByRole('article')).toHaveCount(2);
+  const themed = page.getByRole('article').filter({hasText:'Another Doctor#3333'}).locator('img.profile-strip-background');
+  await expect(themed).toHaveAttribute('src', /nc_as2024_throne-strip-0\.webp/);
+  await expect(row.locator('img.profile-strip-background')).toHaveAttribute('src', /nc_rhodes_default-strip\.webp/);
+  await expect.poll(() => themed.evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth > 0)).toBe(true);
+  if (process.env.ARKPEDIA_QA_CAPTURE) await page.screenshot({path:`${process.env.ARKPEDIA_QA_CAPTURE}/friend-list-${theme}-${info.project.name}.png`});
+});
+
+}

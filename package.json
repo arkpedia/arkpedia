@@ -13,6 +13,7 @@
     "typecheck": "tsc --noEmit",
     "test:operators": "tsx --test scripts/tests/test-operator-details.ts",
     "test:skin-artwork": "tsx --test scripts/tests/test-skin-artwork.ts",
+    "avatars:refresh": "node scripts/build/build-profile-avatar-catalogue.mjs",
     "voices:refresh": "node scripts/build/build-operator-voices.mjs",
     "lyrics:refresh": "node scripts/sync/sync-lyrics.mjs",
     "albums:refresh": "node scripts/sync/sync-albums.mjs",

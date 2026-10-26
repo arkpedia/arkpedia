@@ -1,10 +1,16 @@
 import { expect, test } from '@playwright/test';
 
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('arkpedia:privacy:v1', JSON.stringify({ version: 1, analytics: false, externalMedia: false, savedAt: Date.now() })));
+});
+
 for (const route of ['/recruitment', '/recruitment/popout']) {
   test(`recruitment operator previews preserve tags, focus and route on ${route}`, async ({ page }) => {
     const requests: string[] = [];
     page.on('request', request => { if (request.url().includes('/api/gacha-operator/')) requests.push(request.url()); });
     await page.goto(route);
+    const statistics = page.getByRole('button', { name: 'No thanks', exact: true });
+    if (await statistics.isVisible()) await statistics.click();
     await page.getByRole('button', { name: 'Robot', exact: true }).click();
     const opener = page.getByRole('button', { name: 'View Lancet-2 details', exact: true });
     await expect(opener).toBeVisible();
@@ -48,7 +54,7 @@ test('the operator preview belongs to the recruitment always-on-top document', a
   });
   await page.goto('/recruitment');
   const popupPromise = page.waitForEvent('popup');
-  await page.getByRole('button', { name: 'On top', exact: true }).click();
+  await page.getByRole('button', { name: 'Pop-out', exact: true }).click();
   const popup = await popupPromise;
   await popup.getByRole('button', { name: 'Robot', exact: true }).click();
   const opener = popup.getByRole('button', { name: 'View Lancet-2 details', exact: true });

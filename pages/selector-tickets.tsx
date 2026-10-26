@@ -1,4 +1,5 @@
 import Head from 'next/head';
+import DataLink from '@/components/account/DataLink';
 import Link from 'next/link';
 import { useMemo } from 'react';
 import { withContentPage } from '@/lib/content/server';
@@ -24,7 +25,7 @@ export default function SelectorTickets({ cards, tickets, candidates }: Props) {
     <main>
       <div className="selector-account">
         <p>{account ? <>Using <strong>{account.doctor ?? 'your imported account'}</strong> · {account.server.toUpperCase()}</> : 'Import your account for personalized recommendations.'}</p>
-        <Link href="/account" className="btn btn-sm">{account ? 'Manage account' : 'Import account'}</Link>
+        {account ? <Link href="/account" className="btn btn-sm">Manage account</Link> : <DataLink />}
       </div>
       {missingRatings && <p className="hint" role="status">Some operators have no available enabled rating. Those operators show available subtotals.</p>}
       <RewardDetailsProvider tickets={tickets} recommendations={scores} recommendationNote={note} recommendationSettings={<SelectorPersonalization candidates={candidates} ownedNames={account?.operators ?? null} preferences={preferences} onChange={setPreferences} />}>

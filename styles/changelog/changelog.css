@@ -16,3 +16,5 @@ a.changelog-item-title:hover { color: var(--teal); }
 .changelog-item-detail { grid-column: 2; margin-top: 2px; color: var(--text-dim); font-size: 13px; line-height: 1.5; }
 /* The dot on the nav's What's new, and on the menu that holds it, until the latest entry is read. */
 .nav-new-dot { display: inline-block; flex: none; width: 7px; height: 7px; margin-left: 6px; border-radius: 50%; background: var(--teal); vertical-align: middle; }
+
+.nav-menu-indicator .nav-new-dot { margin-left: 0; }

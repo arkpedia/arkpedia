@@ -33,13 +33,14 @@ const UNDO_NOTICE_MS = 9000;
  * Queue. A queue action's result (Play next, Add to queue, Clear) shows above the controls for a
  * moment, Clear's with Undo.
  */
-export default function MusicTransportBar({ view, compact = false, coverPath, onFullPlayer }: {
+export default function MusicTransportBar({ view, compact = false, coverPath, onFullPlayer, onOpenLyrics }: {
   view: MusicView;
   compact?: boolean;
   /** The playing song's album cover, where the page has the release's song details. */
   coverPath?: string | null;
   /** On /music: the transport is part of the player page, and its song name still opens Now playing. */
   onFullPlayer?: boolean;
+  onOpenLyrics?: () => void;
 }) {
   const {
     ready, starting, buffering, isPlaying, title, videoId, volume, shuffle, repeatMode, currentTime, duration, favorites,
@@ -144,7 +145,10 @@ export default function MusicTransportBar({ view, compact = false, coverPath, on
             : view !== 'queue' && <Link href={MUSIC_VIEW_HREF.queue} shallow={onFullPlayer} scroll={false} prefetch={false} className="ghost btn-sm" onClick={dismissNotice}>View queue</Link>}
         </>}
       </div>
-      <div className="music-transport-song-row">{song}{favorite('music-transport-fav-phone')}{queueLink}</div>
+      <div className="music-transport-song-row">{song}{favorite('music-transport-fav-phone')}
+        <Link href="/music?view=player&lyrics=1" shallow={onFullPlayer} scroll={false} prefetch={false}
+          onClick={onOpenLyrics} className="ghost filter-chip music-list-btn music-lyrics-link" aria-label="Lyrics" title="Lyrics"><TransportIcon name="lyrics" /></Link>
+        {queueLink}</div>
       <div className="music-player-bottombar-seek">
         <span className="music-time">{formatTime(currentTime)}</span>
         <input type="range" min={0} max={duration || 0} step={1} value={currentTime}

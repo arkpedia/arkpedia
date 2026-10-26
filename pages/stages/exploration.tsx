@@ -28,7 +28,7 @@ export default function ExplorationPage({ is, ra }: Props) {
       <TerminalNav current="exploration" />
       <PageHeader
         slim
-        eyebrow={<><ModeMark name="integrated-strategies.svg" className="head-mark" />Terminal // Permanent modes</>}
+        eyebrow={<><ModeMark name="integrated-strategies.svg" className="head-mark" />Rhodes Island // Permanent modes</>}
         title="Long-Term Exploration"
         sub={<>
           The two modes that are always open: every Integrated Strategies theme, and every

@@ -2,6 +2,10 @@ import { expect, test, type Page } from '@playwright/test';
 import account from '../fixtures/base-account.json';
 import { fontsSettled } from './census-routes';
 
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('arkpedia:privacy:v1', JSON.stringify({ version: 1, analytics: false, externalMedia: false, savedAt: Date.now() })));
+});
+
 async function seedAccount(page: Page, snapshot = true) {
   await page.addInitScript(({ account, snapshot }) => {
     const record = { ...account, ...(snapshot ? {} : { base: undefined }) };
@@ -385,9 +389,10 @@ test('changing staffing preserves a panned map while room summaries grow', async
   await page.setViewportSize({ width: 1440, height: 800 });
   const view = page.getByLabel('Zoomable base map', { exact: true });
   await source(page, 'Fit base').click();
-  await view.evaluate(element => { element.scrollTop = 40; });
+  await page.getByLabel('Base zoom', { exact: true }).press('End');
+  await view.evaluate(element => { element.scrollTop = 300; });
   const before = await view.evaluate(element => element.scrollTop);
-  expect(before).toBe(40);
+  expect(before).toBe(300);
   await room(page).click();
   await page.getByPlaceholder('Search operators...').fill('SilverAsh');
   const height = await page.locator('.base-overview').evaluate(element => (element as HTMLElement).offsetHeight);

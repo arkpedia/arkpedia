@@ -341,7 +341,7 @@ export default function OperatorsIndex({ operators, now }: Props) {
       <Head><title>Operator Roster — Arkpedia</title></Head>
 
       <PageHeader stickyActions eyebrow="Rhodes Island // Personnel Archive" title="Operator roster"
-        sub={<span className="roster-reference"><Link className="ghost" prefetch={false} href="/techniques">Techniques</Link><Link className="ghost" prefetch={false} href="/synergies">Synergies</Link><Link className="ghost" prefetch={false} href="/obtain-method">Obtain method</Link></span>}
+
         actions={<div className="roster-controls">
           <SearchInput className="roster-search" label="Search operators" name="operator-search" placeholder="Search by name…" value={search} onChange={setSearch} />
 

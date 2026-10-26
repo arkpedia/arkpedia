@@ -22,7 +22,7 @@ export default function AllOperationsPage({ cards, counts, now }: Props) {
       <TerminalNav current="all" />
       <PageHeader
         slim
-        eyebrow="Terminal // Every chapter and event"
+        eyebrow="Rhodes Island // Every chapter and event"
         title="All Operations"
         sub={<>
           Every chapter, event and mode the game has run --

@@ -11,6 +11,7 @@ import { useCrossFadeTitle } from '@/lib/music/useCrossFadeTitle';
 import { MUSIC_VIEW_HREF, type MusicView } from './MusicNav';
 import DataSaverSetting from './DataSaverSetting';
 import MusicGameSetting from './MusicGameSetting';
+import MusicSetting from './MusicSetting';
 
 /**
  * The player bar's More (⋯): Add to playlist and Open queue as written items, the same anchored
@@ -25,7 +26,7 @@ import MusicGameSetting from './MusicGameSetting';
  * "we don't need the shuffle and repeat option in that menu when it's in the player").
  */
 export default function PlayerMoreMenu({ onFullPlayer, view }: { onFullPlayer?: boolean; view?: MusicView }) {
-  const { videoId, title, currentTrack, noAutoplay, toggleNoAutoplay } = useMusicPlayer();
+  const { videoId, title, currentTrack, noAutoplay, toggleNoAutoplay, excludeCopyrighted, setExcludeCopyrighted } = useMusicPlayer();
   const { open, setOpen, close, buttonRef, menuRef, menuStyle } = useAnchoredPopover(300);
   const [section, setSection] = useState<'player' | 'playlists'>('player');
   const id = useId();
@@ -63,6 +64,7 @@ export default function PlayerMoreMenu({ onFullPlayer, view }: { onFullPlayer?: 
           </Link>
           <div className="music-settings">
             <DataSaverSetting />
+            <MusicSetting label="Stream-safe" topic="stream-safe" checked={excludeCopyrighted} onChange={setExcludeCopyrighted} about="Excludes songs marked as copyrighted in the catalogue. Unmarked songs are not a guarantee of permission to use them in a stream." />
             <MusicGameSetting />
           </div>
         </div>

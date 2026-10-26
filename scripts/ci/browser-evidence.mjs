@@ -8,7 +8,7 @@ export const POLICY_ARTIFACT_PREFIX = 'checked-policy-tree-';
 export const POLICY_FILES = [
   '.github/workflows/check.yml', 'playwright.config.ts',
   ...['already-checked', 'browser-relevant', 'full-browser-baseline', 'browser-baseline',
-    'browser-plan', 'browser-coverage', 'browser-lane', 'browser-evidence'].map(name => `scripts/ci/${name}.mjs`),
+    'browser-plan', 'release-browser-plan', 'browser-coverage', 'browser-lane', 'browser-evidence'].map(name => `scripts/ci/${name}.mjs`),
 ];
 const SHA = /^[a-f0-9]{40}$/;
 const SHA256 = /^[a-f0-9]{64}$/;

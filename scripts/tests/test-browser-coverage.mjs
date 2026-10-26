@@ -52,6 +52,17 @@ test('spec-only plans retain the complete page census without claiming its compl
   assert.equal(result.omitted[0].file, 'layout-census-after.spec.ts');
 });
 
+test('release journeys explicitly omit visual census and cannot claim full execution', () => {
+  const result = coveragePlan({ ...plan, domains: [], releaseOnly: true }, report());
+  assert.equal(result.lane, 'targeted');
+  assert.equal(result.selected.length, 2);
+  assert.ok(result.selected.every(item => item.file === 'story-library.spec.ts'));
+  assert.equal(result.omitted.length, 9);
+  assert.equal(result.completionAudit, 'omitted-requires-full-census');
+  assert.equal(result.selected.length + result.omitted.length, listedCases(report()).length);
+  assert.throws(() => executionEvidence(result, completed()), /identities/);
+});
+
 test('full includes completion audit and documentation-only plan selects nothing', () => {
   const full = coveragePlan({ ...plan, lane: 'full' }, report());
   assert.equal(full.selected.length, 11);
