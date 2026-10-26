@@ -1,15 +1,19 @@
-# Checked-main releases to the migration pilot
+# Checked-main releases to the Cloudflare application
 
 Status, 2026-10-26: this workflow is enabled and owns checked-main pilot releases.
 The activation instructions below are the original controlled-release procedure,
-not a request to create another credential or build owner. The last attempted
-release was blocked by the approved media-secret update replacing its ownership
-annotation; the exact-version reconciliation is described below.
+not a request to create another credential or build owner. Canonical release
+`20798fa1f5cc` succeeded in run `40377947617`, serving Worker version
+`503aaa88-1790-409a-a952-fb6942d81da3`. The earlier media-secret ownership
+annotation was reconciled with the exact-version exceptions described below.
 
 It targets only the existing `arkpedia`
 Worker at `https://arkpedia-cf.mocchibird.com`. It does not move `arkpedia.net`,
 change DNS, create resources, apply D1 migrations, write secrets or publish data.
-Vercel remains the public production host during the migration.
+The existing edge routes public www to this Worker. Its auth origin is
+`https://www.arkpedia.net`; the physical pilot remains a noindex health endpoint.
+Vercel remains deployed as the rollback target pending acceptance and soak.
+See [the cutover record](cloudflare-cutover.md).
 
 ## Release owner and authorization
 
@@ -39,7 +43,8 @@ If deployment needs additional permissions, stop and review the exact denied cal
 The strict root configuration validator and live provider checks preserve:
 
 - Existing account D1 `f7daff77-8e8f-4ec2-998b-97fb6e4b948f`; no SQL is executed.
-- Exact pilot auth origin, five existing auth secret bindings, the approved Twitch
+- Canonical www auth origin (with exact immutable pre-cutover recovery exceptions),
+  five existing auth secret bindings, the approved Twitch
   client ID/secret and YouTube API key, and provider callbacks.
   `BETTER_AUTH_SECRET` must keep its value because existing provider rows use it.
 - The authorized media-secret version `9bfe3b14-1b5c-47b4-b75b-da94ddc99593`

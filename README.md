@@ -4,10 +4,10 @@ Arknights reference pages, operator, skin and pull planners, a Global account im
 
 | Site | Branch | Deployed by |
 | --- | --- | --- |
-| [www.arkpedia.net](https://www.arkpedia.net) | `main` | `.github/workflows/deploy.yml`, after a green Check |
-| [Arkpedia Preview](https://arkpedia-gins.preview.mocchibird.com) | explicit reviewed feature source | isolated native Worker Preview |
+| [www.arkpedia.net](https://www.arkpedia.net) | `main` | checked-main Cloudflare application release |
+| [Arkpedia Preview](https://preview.arkpedia.net) | explicit reviewed feature source | isolated native Worker Preview |
 
-Production is listed in `config/production.json`; native Preview has its own isolated publication workflow. Vercel's own Git deployments are switched off (`vercel.json`): every deployment is built in CI from a commit that passed Check.
+Cloudflare serves www; the apex redirects to www. Vercel remains deployed as a rollback target pending acceptance and soak. Production readers are listed in `config/production.json`; native Preview has its own isolated publication workflow. Vercel's own Git deployments are switched off (`vercel.json`): every deployment is built in CI from a commit that passed Check.
 
 ## Start here
 
@@ -23,7 +23,7 @@ Production is listed in `config/production.json`; native Preview has its own iso
 1. **Branch from `main` and work locally.** Use focused checks during iteration. Open a short-lived feature PR into `main`; draft feedback does not build or establish browser proof.
 2. **Mark ready and verify Check.** The current impact policy selects relevant browser journeys and falls back to broader coverage for unknown/shared changes. A selected run is not full-suite proof. Follow the design/UX guidance for affected desktop/mobile and dark/light journeys.
 3. **Publish an explicit native Cloudflare Preview when ready.** The Preview workflow builds an immutable redesign source and publishes only the isolated native Preview. Verify the actual deployed journey. See [Native Preview](docs/development/native-preview.md).
-4. **Merge the accepted PR into `main`.** A successful main Check releases public Vercel production and the existing Cloudflare pilot through its checked-main owner. Native pilot Git builds are disabled. See [the checked-main pilot release](docs/development/cloudflare-pilot-release.md) for fixed resources, scoped credentials, ownership and recovery. Public-domain cutover remains separate.
+4. **Merge the accepted PR into `main`.** A successful main Check releases the public Cloudflare application through its checked-main owner and keeps the Vercel rollback deployment current. Native pilot Git builds are disabled. See [the checked-main pilot release](docs/development/cloudflare-pilot-release.md) for fixed resources, scoped credentials, ownership and recovery. See [the cutover record](docs/development/cloudflare-cutover.md) for routing and acceptance.
 
 The dev branch, Vercel dev deployment and dev content publisher are retired. All
 unreleased work, including the base simulator/optimizer, remains in the pushed
@@ -32,8 +32,8 @@ main-based PRs; native Worker Previews replace the old dev site. See
 [the retirement record](docs/development/branch-sync.md) for preserved refs.
 
 The cloudflare branch still preserves historical unreleased work; do not merge or
-retire it wholesale. Keep Vercel serving www until the separate Cloudflare
-public-domain cutover is accepted. Never use a permanent branch as a disposable PR head.
+retire it wholesale. Keep the Vercel rollback deployment until Cloudflare
+acceptance and soak finish. Never use a permanent branch as a disposable PR head.
 
 Branch protection is not available on this plan, so the rule is a convention: merge only after Check passes. A change to nothing but `docs/**` or Markdown skips Check and deploys nothing (`config/docs-only-paths.json`).
 

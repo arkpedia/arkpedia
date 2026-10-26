@@ -1,5 +1,47 @@
 # Cloudflare public-domain cutover
 
+## Live cutover receipt, 2026-10-26
+
+Cloudflare now serves https://www.arkpedia.net through `arkpedia-edge` and the
+existing `arkpedia` application Worker. Verified clean source `20798fa1f5cc3c02c276557970b52ed6279c9b78`
+matched the physical pilot and retained Vercel origin before the www proxy flip.
+Main Check `40377894963` and application release `40377947617` succeeded; the
+serving application version is `503aaa88-1790-409a-a952-fb6942d81da3` and edge
+version is `80c6869a-ac82-466a-8985-61cfe61f1990`.
+The apex redirects to www with path/query preservation;
+https://preview.arkpedia.net serves the isolated redesign at source
+`779b02645982048509fb7c912cb014860cc843f5`, with noindex and separate storage.
+
+- Apex, www and Preview are proxied; wildcard, relay and mail records are unchanged.
+  The underlying Vercel CNAME targets and production deployment remain available.
+- SSL is Full (strict), Universal SSL is active, and Always Use HTTPS redirects
+  plain HTTP to HTTPS. No certificate checks were bypassed.
+- Keep the no-Worker route `www.arkpedia.net/.well-known/*` for Vercel domain
+  verification while it remains the rollback host. Do not remove it on edge deploys.
+- The single checked-main application owner is enabled; native application Git
+  builds remain disabled. Public www uses the canonical auth origin and unchanged
+  account D1, cache, queue, provider credentials and auth secret.
+- Both public domains use only the Cloudflare relay. Exact-origin socket probes
+  and all 14 supported TLS endpoint probes passed; forbidden destinations and
+  lookalike origins were refused. No VPS relay is used by the application.
+  Relay version `bc13fda0-c6a6-4cbd-9444-25251f0bf04c` contains merged relay PR10.
+- Canonical pages, session/private saved-data cache controls, and Google/Discord
+  sign-in initiation callbacks passed. The existing analytics site now names www;
+  the beacon token is unchanged and Preview remains excluded.
+- A private D1 Time Travel bookmark was captured without exporting account rows.
+  Never commit it or restore it over later writes during a code rollback.
+
+Real user Google/Discord login, restored archives, independent-profile sync,
+old-tab/content compatibility, analytics ingestion and measured soak still need
+acceptance. Vercel must remain online until those checks finish and retirement
+is separately authorized. To roll public traffic back, remove only the www
+application edge route; the retained proxied CNAME reaches Vercel. Leave the apex
+redirect, Preview, mail and relay alone. The direct-origin TLS check uses canonical
+www SNI against `cname.vercel-dns-016.com`, without disabling validation.
+
+The preparation sections below are historical evidence, not current hosting
+instructions. This receipt supersedes their unchecked tasks and old host state.
+
 ## Approved cutover, 2026-10-26
 
 The maintainer authorized routing apex/www to the existing Cloudflare application
@@ -130,9 +172,9 @@ Before that release:
   needs verification after the separately authorized application cutover.
 - Align the existing Cloudflare analytics site's hostname with www and verify
   ingestion after cutover; do not create a second beacon. Preview stays excluded.
-- Keep www's existing VPS import relay. No relay migration or credential copy is
-  required: the hostname remains www. The Cloudflare relay continues serving its
-  already configured pilot/Preview origins.
+- Use only `wss://arkpedia-relay.cloudflare-1ff.workers.dev/wisp/` on www and
+  Preview. The approved relay origins include both exact public domains. There is
+  no hostname/query fallback to the VPS; server retirement remains separate.
 - Capture the actual Vercel deployment URL/ID, complete DNS values, serving Worker
   and edge versions, successful Check and release receipt. Take a fresh D1 Time
   Travel bookmark privately immediately before cutover; never put it or a database
