@@ -1,3 +1,4 @@
+import type { EventRow } from '../../lib/schedule/eventRows';
 import { mergeMissingModeLaunches, scheduleModeRelease } from '../../lib/schedule/modeReleases';
 import type { ScheduleEvent } from '../../lib/schedule/scheduleTypes';
 import fs from 'node:fs';
@@ -67,7 +68,7 @@ test('mode compatibility adds only absent permanent launches and preserves relea
   const mode = { name: 'IS7', modeId: 'rogue_6', year: 2026, poster: null, cn: { dateRange: null, releaseDate: '2026/07/17', note: null }, global: { dateRange: null, note: null }, tw: { dateRange: null, note: null } } as ScheduleEvent;
   const dated = scheduleModeRelease(mode, 175);
   const timed = { ...mode, name: 'Timed event', modeId: undefined };
-  const original = { events: [timed], eventRows: [] };
+  const original = { events: [timed], eventRows: [] as EventRow[] };
   const filled = mergeMissingModeLaunches(original, [dated, { ...timed, name: 'Unpublished timed event' }]);
   assert.equal(filled.events.length, 2);
   assert.equal(filled.eventRows.length, 1);
