@@ -70,7 +70,7 @@ test('Community section and search survive leaving and browser Back', async ({ p
 });
 
 test('Reward type has a shareable view and retains it on reload', async ({ page }) => {
-  await page.goto('/free-op');
+  await page.goto("/reward-tracker");
   await page.getByRole('tab', { name: 'Free rewards', exact: true }).click();
   await expect(page).toHaveURL(/view=free/);
   await page.reload();

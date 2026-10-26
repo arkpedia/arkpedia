@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { test } from 'node:test';
-import { browserImports, pages, pathToTarget } from './browser-graph';
+import { browserImports, pageBrowserModules, pages, pathToTarget } from './browser-graph';
 // @ts-expect-error Plain Node audit script.
 import { dataTables, findTablesInChunks, fingerprints } from '../audits/check-client-chunks.mjs';
 
@@ -32,19 +32,28 @@ const { CLIENT_ALLOWED, CLIENT_ALLOWED_EDGES } = require('../build/client-bundle
 
 /** Every data/ JSON a page's browser half reaches, with the module that imports it. */
 function dataReached(page: string): { file: string; from: string }[] {
+  const clientPages = pageBrowserModules(page);
   const seen = new Set([page]);
   const queue = [page];
   const reached: { file: string; from: string }[] = [];
   while (queue.length) {
     const file = queue.shift()!;
     if (!/\.(tsx?|mjs|js)$/.test(file)) continue;
-    for (const next of browserImports(file, file === page)) {
+    for (const next of browserImports(file, clientPages.has(file))) {
       if (/^data\/.+\.json$/.test(next)) reached.push({ file: next, from: file });
       if (!seen.has(next)) { seen.add(next); queue.push(next); }
     }
   }
   return reached;
 }
+
+test('a renamed page forwards browser code while keeping its data functions server-only', () => {
+  const route = 'pages/reward-tracker.tsx';
+  assert.ok(pageBrowserModules(route).has('pages/free-op.tsx'));
+  assert.equal(pathToTarget(route, ['data/pull-first-clears.json']), null);
+  assert.equal(pathToTarget(route, ['data/pull-first-clears.json'], { clientOnly: false })?.at(-1), 'data/pull-first-clears.json');
+  assert.equal(pathToTarget(route, ['components/pulls/PastRewards.tsx'])?.at(-1), 'components/pulls/PastRewards.tsx');
+});
 
 test('the allowed tables exist, and SL-4b\'s is allowed through its one importer only', () => {
   for (const file of [...Object.keys(CLIENT_ALLOWED), ...Object.keys(CLIENT_ALLOWED_EDGES)]) assert.ok(fs.existsSync(file), `${file} is missing`);

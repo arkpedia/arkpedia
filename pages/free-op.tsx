@@ -153,7 +153,7 @@ export default function FreeOpPage({ backlogSources, freeRewards: globalFreeRewa
             ? `${formatNumber(leftOut)} ${leftOut === 1 ? 'stage' : 'stages'} left out, ${formatNumber(leftOut)} OP.`
             : 'Every stage counts.'}</p>
           <div ref={welfareRef} className="free-op-welfare">
-            <div className="free-op-heading"><div><h3>Welfare operators</h3><a className="free-op-welfare-guide" href={WELFARE_GUIDE} target="_blank" rel="noopener noreferrer">kukkikaze’s welfare recommendations · P1 first, P4 last</a></div>
+            <div className="free-op-heading"><div><h3>Welfare operators</h3><a className="free-op-welfare-guide" href={WELFARE_GUIDE} target="_blank" rel="noopener noreferrer">kukkikaze’s welfare recommendations · +3 highest, +0 lowest</a></div>
               <SegmentedControl label="Welfare order" value={welfareOrder} onChange={setWelfareOrder} options={[{ value: 'recommended', label: 'Recommended' }, { value: 'availability', label: 'Availability' }]} /></div>
             {operators.length
               ? <ul className="free-op-welfare-list" aria-label="Welfare operators to claim">{operators.map(({ reward, operator }) =>
@@ -189,7 +189,9 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>('/fr
     const { bundledBacklogSources } = await import('@/lib/pulls/sources');
     const { default: free } = await import('@/data/free-rewards.json');
     const { rewardTrackerArt } = await import('@/lib/pulls/rewardIcons');
-    const freeRewards = currentRegionalFreeRewards(props.freeRewards ?? allFreeRewards(free), props.__contentTables?.['regional-schedules'], props.now);
+    const { withWelfareEventLinks } = await import('@/lib/pulls/freeRewards');
+    const { loadAllEventYears } = await import('@/lib/events/loadEventsData');
+    const freeRewards = withWelfareEventLinks(currentRegionalFreeRewards(props.freeRewards ?? allFreeRewards(free), props.__contentTables?.['regional-schedules'], props.now), loadAllEventYears() as { name: string }[]);
     return { ...props, freeRewards, ...rewardTrackerArt(freeRewards, props.rewardIcons, props.__contentRelease), backlogSources: fillFromDeployment(props.backlogSources, bundledBacklogSources()) };
   },
 });

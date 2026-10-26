@@ -904,3 +904,12 @@ a.ghost, a.primary, a.danger, a.btn { text-decoration: none; }
 /* The toolbar's own Reset: the sheet ends in one. */
 .filter-sheet .filter-reset-inline { display: none; }
 .filter-sheet-foot { flex: none; display: flex; justify-content: flex-end; gap: 8px; padding: 12px 18px; border-top: 1px solid var(--line); }
+
+/* Shared rarity data frame, used by welfare recommendation portraits. */
+.rarity-frame { display: block; padding: 3px; border: 2px solid var(--line); border-radius: var(--radius-control); background: var(--panel); }
+.rarity-frame[data-rarity="1"] { border-color: var(--rarity-1); }
+.rarity-frame[data-rarity="2"] { border-color: var(--rarity-2); }
+.rarity-frame[data-rarity="3"] { border-color: var(--rarity-3); }
+.rarity-frame[data-rarity="4"] { border-color: var(--rarity-4); }
+.rarity-frame[data-rarity="5"] { border-color: var(--rarity-5); }
+.rarity-frame[data-rarity="6"] { border-color: var(--rarity-6); }

@@ -77,7 +77,7 @@ const nextConfig = {
     '/api/account-profile': ['node_modules/@better-auth/core/dist/instrumentation/*.mjs'],
   },
   outputFileTracingExcludes: {
-    ...Object.fromEntries(contentPageRoutes.map((route) => [route === '/' ? '/index' : route, [
+    ...Object.fromEntries([...contentPageRoutes, '/reward-tracker'].map((route) => [route === '/' ? '/index' : route, [
       'data/**/*', 'public/**/*', '.env*',
     ]])),
     // These endpoints are hard-blocked outside `next dev`; local tool inputs
@@ -97,7 +97,7 @@ const nextConfig = {
     return [
       // Keep bookmarks from the migration pilot while main retains its current
       // canonical route names. Query strings follow Next's normal redirect rules.
-      ...Object.entries(pilotRouteAliases).map(([source, destination]) => ({ source, destination, permanent: false })),
+      ...Object.entries(pilotRouteAliases).map(([source, destination]) => ({ source, destination, permanent: source === '/free-op' })),
       ...externalAssetRedirects(SKIN_ASSET_FOLDERS, 'arkpedia-skin-assets'),
       ...externalAssetRedirects(IMAGE_ASSET_FOLDERS, 'arkpedia-image-assets'),
       {

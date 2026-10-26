@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import SegmentedControl from '@/components/ui/SegmentedControl';
+import { welfarePriority } from '@/lib/pulls/welfarePriority';
 import LoadOnScroll from '@/components/ui/LoadOnScroll';
 import { freeRewardAvailable, freeRewardLabel, isOperatorReward, LOCKED_LABEL, type FreeReward, type LockedReason } from '@/lib/pulls/freeRewards';
 import type { OperatorPreviewItem } from '@/components/operators/OperatorPreview';
@@ -64,7 +65,7 @@ export default function FreeRewards({ rewards, icons, done, locked, onKeys, now,
         {open === group && <>
           <div className="pulls-eventlist-acts"><button type="button" className="ghost btn-sm" onClick={() => claim(list.map(item => item.id), true)}>All claimed</button><button type="button" className="ghost btn-sm" onClick={() => claim(list.map(item => item.id).filter(id => !locked.has(id)), false)}>None claimed</button></div>
           {cards.length > 0 && <ul className="free-op-welfare-list" aria-label={`${group}: claimed`}>{cards.map(({ reward, operator }) =>
-            <WelfareCard key={reward.id} reward={reward} operator={operator} icon={icons[operator.id]} server={server} now={now} onPreview={setPreview}
+            <WelfareCard key={reward.id} reward={reward} operator={operator} icon={icons[operator.id]} priority={welfarePriority(operator.name)} server={server} now={now} onPreview={setPreview}
               claim={{ checked: done.has(reward.id), lock: locked.get(reward.id), onChange: claimed => claim([reward.id], claimed) }} />)}</ul>}
           {plain.length > 0 && <ul className="pulls-past-list free-reward-list" aria-label={`${group}: claimed`}>{plain.map(reward => { const lock = locked.get(reward.id); return <li className={`free-reward-row${done.has(reward.id) ? ' is-claimed' : ''}`} key={reward.id}>
             <label className="check" title={lock ? `${LOCKED_LABEL[lock]} (from your import)` : undefined}><input type="checkbox" checked={done.has(reward.id)} disabled={!!lock} onChange={event => claim([reward.id], event.target.checked)} /><span>{freeRewardLabel(reward)}{reward.claimUnknown && !done.has(reward.id) && <small> · Needs confirmation: mail history is absent from the import. Not included in totals.</small>}</span></label>

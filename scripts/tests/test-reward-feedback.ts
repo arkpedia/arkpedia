@@ -7,10 +7,28 @@ import { WELFARE_PRIORITIES, welfarePriority, welfareRecommendationOrder } from 
 import { getEventColor } from '../../lib/schedule/eventColors';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { paradoxAvailability, remainingSanity } from '../../lib/pulls/rewardOverview';
-import { freeRewardsForAccount, freeRewardTotals } from '../../lib/pulls/freeRewards';
+import { paradoxAvailability, remainingSanity, stageRewardSanity } from '../../lib/pulls/rewardOverview';
+import { freeRewardsForAccount, freeRewardTotals, withWelfareEventLinks } from '../../lib/pulls/freeRewards';
 import { scheduleBarSources } from '../../lib/schedule/scheduleDates';
 import type { BacklogSources } from '../../lib/pulls/pulls';
+
+test('stage row sanity respects partial clears, duplicate IDs, zero costs and manual unclaims', () => {
+  const costs = { a: 6, b: 12, zero: 0 };
+  assert.equal(stageRewardSanity(['a','a','b','zero'], costs, null), 18);
+  assert.equal(stageRewardSanity(['a','b'], costs, new Set(['a'])), 12);
+  assert.equal(stageRewardSanity(['a','b'], costs, new Set(['a','b'])), 18);
+  assert.equal(stageRewardSanity(['zero'], costs, null), 0);
+  assert.equal(stageRewardSanity(['missing'], costs, null), null);
+  assert.equal(stageRewardSanity(undefined, costs, null), null);
+});
+
+test('legacy Ceylon welfare link resolves to the original event while existing links are preserved', () => {
+  const reward = { id:'ceylon',group:'Welfare operators',name:'Ceylon',event:'Heart of Surging Flame',rewards:[],forecast:false };
+  const events = [{name:'[Rerun] Heart of Surging Flame Rerun'},{name:'[Side Story] Heart of Surging Flame'}];
+  assert.equal(withWelfareEventLinks([reward],events)[0].href,'/events/%5BSide%20Story%5D%20Heart%20of%20Surging%20Flame');
+  assert.equal(withWelfareEventLinks([{...reward,href:'/preserved'}],events)[0].href,'/preserved');
+  assert.equal(withWelfareEventLinks([{...reward,event:'Unknown'}],events)[0].href,undefined);
+});
 
 test('Paradox unlocks use the actual promotion and level, including low-rarity exceptions', () => {
   const stage = { id: 'paradox:a', name: 'A', amount: 200, operatorId: 'a', unlock: { elite: 1, level: 55 } };

@@ -47,6 +47,35 @@ test('post-activation failure attempts ownership-aware recovery but still fails 
   await assert.rejects(() => publish(f), error => error.message === 'new version unhealthy' && error.recovery.action === 'rolled-back');
   assert.ok(f.calls.includes('recover'));
 });
+
+test('activation waits for public identity propagation while retaining exact ownership checks', async () => {
+  const f = fixture(); let reads = 0; const waits = [];
+  f.provider.health = async () => {
+    if (++reads > 1 && reads < 4) throw Object.assign(new Error('identity pending'), { code: 'PILOT_IDENTITY_MISMATCH' });
+  };
+  const result = await publish(f, { sleep: async ms => waits.push(ms) });
+  assert.equal(result.action, 'published');
+  assert.deepEqual(waits, [5000, 5000]);
+  assert.ok(!f.calls.includes('recover'));
+});
+
+test('an identity that never propagates still rolls back after a bounded wait', async () => {
+  const f = fixture(); let reads = 0; let waits = 0;
+  f.provider.health = async () => {
+    if (++reads > 1) throw Object.assign(new Error('identity pending'), { code: 'PILOT_IDENTITY_MISMATCH' });
+  };
+  await assert.rejects(() => publish(f, { sleep: async () => waits++ }), error => error.recovery.action === 'rolled-back');
+  assert.equal(waits, 12);
+});
+
+test('a changed owner during identity propagation is never accepted', async () => {
+  const f = fixture(); let reads = 0; let observes = 0;
+  f.provider.health = async () => {
+    if (++reads > 1) throw Object.assign(new Error('identity pending'), { code: 'PILOT_IDENTITY_MISMATCH' });
+  };
+  f.provider.observe = () => ({ id: ++observes === 1 ? 'previous' : 'foreign' });
+  await assert.rejects(() => publish(f, { sleep: async () => assert.fail('must not wait on a foreign version') }), /pilot changed/);
+});
 test('upload uncertainty is reconciled through the provider instead of blindly redeploying', async () => {
   const f = fixture(); f.provider.deploy = () => { throw new Error('response lost'); };
   await assert.rejects(() => publish(f), error => error.message === 'response lost' && error.recovery.action === 'rolled-back');

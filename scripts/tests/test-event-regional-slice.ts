@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import ts from 'typescript';
 import { regionalScheduleSlice, type RegionalSchedules } from '../../lib/time/regional';
 
 const window = (startAt: string) => ({ startAt, endAt: '2026-11-01T00:00:00Z', timingSource: 'test' });
@@ -22,5 +23,16 @@ test('an event page keeps only its own event and banner windows, on every server
 // Every event page carried every server's every window (~600 kB): the dev build ran out of memory.
 test('the event page slices its regional table in finalize', () => {
   const page = fs.readFileSync('pages/events/[slug].tsx', 'utf8');
-  assert.match(page, /finalize: async \(props\) => withRegionalSlice\(/);
+  const source = ts.createSourceFile('event.tsx', page, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  let slicedReturn = false;
+  const visit = (node: ts.Node) => {
+    if (ts.isPropertyAssignment(node) && node.name.getText(source) === 'finalize' && ts.isArrowFunction(node.initializer)) {
+      const isSlice = (value: ts.Node | undefined) => !!value && ts.isCallExpression(value) && value.expression.getText(source) === 'withRegionalSlice';
+      const body = node.initializer.body;
+      slicedReturn ||= isSlice(body) || ts.isBlock(body) && body.statements.some(statement => ts.isReturnStatement(statement) && isSlice(statement.expression));
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(source);
+  assert.ok(slicedReturn, 'event finalization must return its regional slice');
 });

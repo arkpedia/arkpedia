@@ -3,7 +3,7 @@
   "routes": {
     "/pull-planner": "/pulls",
     "/operator-planner": "/planner",
-    "/reward-tracker": "/free-op",
+    "/free-op": "/reward-tracker",
     "/polls/power-scale": "/results",
     "/game-modes": "/gamemodes",
     "/game-modes/stronghold-protocol": "/gamemodes/stronghold-protocol",

@@ -42,7 +42,7 @@ test('Planner includes each operator before its portrait and mutes excluded rows
 });
 
 test('Reward Tracker lists Paradox, pinboard, beginner selector and sign-in claims with persistent ticks', async ({ page }, info) => {
-  await page.goto('/free-op');
+  await page.goto("/reward-tracker");
   await page.getByRole('tab', { name: 'Paradox Simulations', exact: true }).click();
   await expect(page.getByRole('heading', { name: /Paradox Simulations/ })).toBeVisible();
   const summary = page.locator('.free-op-summary');

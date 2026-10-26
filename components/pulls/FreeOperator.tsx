@@ -43,8 +43,11 @@ export function WelfareCard({ reward, operator, icon, server, now, onPreview, cl
   const lock = claim?.lock;
   return <li className={`free-op-welfare-card lift${claim ? ' has-claim' : ''}${claim?.checked ? ' is-claimed' : ''}`}>
     <button type="button" className="btn-bare free-op-welfare-open" aria-haspopup="dialog" aria-label={`${operator.name}: operator preview`} onClick={() => onPreview(preview)}>
-      {icon ? <Image src={icon} width={52} height={52} alt="" className={`tier-${preview.rarity}`} /> : <span className={`free-op-welfare-blank tier-${preview.rarity}`} />}
-      <span className="free-op-welfare-name">{priority && <span className="badge free-op-priority" aria-label={`kukkikaze priority ${priority}`}>P{priority}</span>}{operator.name}</span>
+      <span className="selector-portrait free-op-welfare-portrait">
+        {icon ? <Image src={icon} width={64} height={64} alt="" className="rarity-frame" data-rarity={preview.rarity} /> : <span className="free-op-welfare-blank rarity-frame" data-rarity={preview.rarity} />}
+        {priority && <span className={`selector-score ${priority === 1 ? 'selector-score-great' : 'selector-score-middle'}`} aria-label={`kukkikaze recommendation +${4 - priority}`}>+{4 - priority}</span>}
+      </span>
+      <span className="free-op-welfare-name">{operator.name}</span>
       {task && <span className="free-op-welfare-task">{task}</span>}
       <span className="free-op-welfare-source">{source}
         {status.kind === 'until' && <> · <span className="free-op-welfare-until">until {date(status.at)}</span></>}
@@ -56,6 +59,6 @@ export function WelfareCard({ reward, operator, icon, server, now, onPreview, cl
     {claim && <label className="check free-op-welfare-claim" title={lock ? `${LOCKED_LABEL[lock]} (from your import)` : 'Claimed'}>
       <input type="checkbox" aria-label={freeRewardLabel(reward)} checked={claim.checked} disabled={!!lock} onChange={event => claim.onChange(event.target.checked)} />
     </label>}
-    {reward.href && <Link prefetch={false} href={reward.href} className="free-op-welfare-link">Event page</Link>}
+    {reward.href && <Link prefetch={false} href={reward.href} className="selector-howto free-op-welfare-link">Event page <span aria-hidden="true">▶</span></Link>}
   </li>;
 }

@@ -106,7 +106,7 @@ test('yellow cert budgets persist per month and show skipped months without spen
   await expect(page.getByRole('spinbutton',{name:'Yellow cert spending 2026-12'})).toHaveValue('68');
 });
 test('fully uncompleted OP presentation uses temporary completion and restores saved progress',async({page})=>{
-  await page.goto('/free-op');
+  await page.goto("/reward-tracker");
   const saved=await page.evaluate(()=>Object.fromEntries(Object.entries(localStorage)));
   await page.getByRole('checkbox',{name:'Fully uncompleted view',exact:true}).click();
   await expect(page.getByText('Presentation view. Your saved completion stays unchanged.')).toBeVisible();

@@ -1,4 +1,4 @@
-import { paradoxAvailability } from '@/lib/pulls/rewardOverview';
+import { paradoxAvailability, stageRewardSanity } from '@/lib/pulls/rewardOverview';
 import type { Roster } from '@/lib/planner/roster';
 import Link from 'next/link';
 import { RewardAmount } from './RewardAmount';
@@ -114,13 +114,17 @@ export function PastRewards({ backlog, dropped, doneKeys, doneEvents, annihilati
       <ul className="pulls-past-list" aria-label={`${group.name}: claimed`}>{items.slice(0, limits[group.id] ?? 30).map((item) => {
         const key = `${group.id}:${item.id}`;
         const done = complete(group.id, item.id);
+        const sanity = group.unit === 'OP' ? stageRewardSanity(item.stages ?? (group.id === 'resources' ? [item.id.slice(item.id.indexOf(':') + 1)] : undefined), backlog.stageSanity, cleared) : null;
         const availability = group.id === 'paradox' ? paradoxAvailability(item, operatorBuilds) : null;
         return <li key={item.id} className={`pulls-past-row${done ? ' on' : ''}${availability?.ready === false && !done ? ' is-locked' : ''}`}>
           <label className="check pulls-past-check"><input type="checkbox" checked={done} onChange={(event) => setCompleted(group, [item.id], event.target.checked)} /><span className="visually-hidden">{item.name}: claimed</span></label>
           {staged
             ? <button type="button" className="btn-bare pulls-past-name" aria-expanded={detail === key} onClick={() => setDetail(detail === key ? null : key)}>{item.name}</button>
             : <span className="pulls-past-name">{item.name}{availability && <small className="pulls-paradox-requirement">{availability.ready === true ? 'Ready to play · ' : ''}{availability.label}</small>}</span>}
-          <span className="pulls-past-amount">{done ? '✓' : item.certs && !item.amount ? `${item.certs} yellow certs` : layout === 'page' ? <RewardAmount iconOnly resource={group.unit === 'OP' ? 'op' : 'orundum'} amount={item.amount} /> : `${formatNumber(item.amount)} ${group.unit}`}</span>
+          <span className="pulls-past-amount">{done ? '✓' : item.certs && !item.amount ? `${item.certs} yellow certs` : <>
+            {layout === 'page' ? <RewardAmount iconOnly resource={group.unit === 'OP' ? 'op' : 'orundum'} amount={item.amount} /> : `${formatNumber(item.amount)} ${group.unit}`}
+            {layout === 'page' && group.unit === 'OP' && (sanity === null ? <small title="Some stage costs are missing">Sanity unknown</small> : <RewardAmount iconOnly resource="sanity" amount={sanity} />)}
+          </>}</span>
           {staged && detail === key && stagesLeft(group.id, item)}
         </li>;
       })}</ul>

@@ -80,6 +80,14 @@ client-side update; it must not depend on the server machine's default locale.
 
 ## Choose a content pattern
 
+Welfare recommendations use individual cards with a quiet resting border and a rarity
+frame around each portrait. Put priority badges in the portrait corner, using the
+Selector Tickets treatment and +3, +2, +1, +0 recommendation labels (highest to
+lowest, preserving kukkikaze's ordering). Zero is not a negative score. Use its full-width action-link treatment for event
+links. This is an explicit exception to borderless catalogue cards. Stage-reward rows
+pair OP with successful-clear sanity costs and the actual sanity icon. Missing costs
+remain unknown; zero-cost stages remain zero.
+
 | Reader's task | Pattern | Examples |
 | --- | --- | --- |
 | Find an operator, outfit, enemy, album or video by its appearance | Image-led catalogue; imagery determines tile proportions | Operators, skins, enemies, music discovery, community videos |
@@ -112,6 +120,25 @@ covers with their chapter links do. Features own the content layout inside each 
   on hover and keyboard focus. Static cards do not advertise a click.
 - Display only genuinely brief descriptions on browse cards; detailed mechanics belong in
   the record. Preserve real names, numerical conditions and accessible full detail.
+
+### Official material and source links
+
+Content updates are UI work: consult this document and the relevant UI primitives
+before updating an existing page as well as before building a new one. If official
+announcements supply useful posters, screenshots or illustrated mechanics, use those
+images as the primary explanation. Pair them with short, accessible captions and a
+concise summary; do not turn an illustrated guide into a wall of plain text.
+
+Preserve each image's full aspect ratio and reserve its dimensions before loading.
+Dense guide panels must open in the existing full-size artwork viewer, including
+keyboard dismissal, zoom/pan and return of focus. Use shared image/card primitives
+and lazy loading. Identify the official source beside the corresponding material.
+
+Standalone source destinations are actions: group real anchors styled with the
+shared `.ghost` primitive, concise labels and ↗ for external destinations. Do not
+leave them as unstyled lines of text or recreate button paint in a feature stylesheet.
+Ordinary citations within prose retain the shared inline-link style. Check source
+actions, image loading and the full-size viewer in both themes and narrow layouts.
 
 ### Dense rows and tables
 

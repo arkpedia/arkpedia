@@ -571,6 +571,19 @@ button.events-row-main.btn-bare { border: 0; background: transparent; padding: 0
 /* The News tab: the rest of an event's official announcement, section by section. */
 .event-news-post { display: grid; gap: 12px; }
 .event-news-from { margin: 0; }
+.event-mode-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--card-inset); margin: var(--heading-gap) 0; }
+.event-mode-facts dt { font-size: 12px; }
+.event-mode-facts dd { margin: 4px 0 0; font-weight: 600; }
+.event-mode-links { display: flex; flex-wrap: wrap; gap: 8px; margin: var(--heading-gap) 0 var(--section-gap); }
+.event-mode-gallery { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--section-gap) var(--card-inset); align-items: start; }
+.event-mode-panel { min-width: 0; margin: 0; }
+.event-mode-image { display: block; padding: 0; cursor: zoom-in; overflow: hidden; }
+.event-mode-image img { display: block; width: 100%; height: auto; }
+.event-mode-panel figcaption h3 { margin: var(--heading-gap) 0 6px; }
+.event-mode-panel figcaption p { margin: 0; }
+@media (max-width: 720px) {
+  .event-mode-facts, .event-mode-gallery { grid-template-columns: minmax(0, 1fr); }
+}
 .event-news-section ul { margin: 0 0 6px; padding-left: 18px; font-size: 12px; line-height: 1.5; }
 .event-news-section li { overflow-wrap: anywhere; }
 .event-news-key { color: var(--text-dim); font-weight: 600; }

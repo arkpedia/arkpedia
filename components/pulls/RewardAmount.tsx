@@ -2,6 +2,7 @@ import Image from '@/components/content/ContentImage';
 import { formatNumber } from '@/lib/pulls/format';
 
 const resources = {
+  sanity: { name: 'Sanity', unit: 'Sanity', path: '/stat-icons/sanity.webp' },
   op: { name: 'Originite Prime', unit: 'OP', path: '/material-icons/Originite%20Prime.webp' },
   permits: { name: 'Headhunting Permit', unit: 'permits', path: '/material-icons/Headhunting%20Permit.webp' },
   orundum: { name: 'Orundum', unit: 'Orundum', path: '/material-icons/Orundum.webp' },

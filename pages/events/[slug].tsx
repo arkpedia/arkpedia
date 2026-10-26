@@ -46,6 +46,7 @@ import { RewardClick, RewardDetailsProvider, type ResolvedTicket } from '@/compo
 import { EventFurniture, EventLoginDays, EventNews, EventNotices, EventPacks, type LoginDetails } from '@/components/events/EventExtras';
 import { RewardSummaryCard } from '@/components/events/RewardSummary';
 import { EventVideos } from '@/components/events/EventVideos';
+import EventModeOverview from '@/components/events/EventModeOverview';
 import type { EventVideo, EventVideosFile } from '@/lib/events/eventVideos';
 import { RewardTile } from '@/components/events/RewardTile';
 import { rewardSummary, type RewardSummary } from '@/lib/events/rewardSummary';
@@ -194,7 +195,8 @@ export default function EventDetailPage({
   /* JP's and KR's own key art, from their in-game boards (regionalArt), else Global's. Read after
      hydration like the dates: both sit in boxes of a fixed shape, so the swap moves nothing. A CG
      set stays: the board's art stands in for the poster only. */
-  const shownImages = artAspect === POSTER_ASPECT && server !== 'en' ? [regionalArt(regionalWindow, images[0] ?? null, server)].filter((src): src is string => !!src) : images;
+  const modeImages = mode?.poster ? [mode.poster] : images;
+  const shownImages = artAspect === POSTER_ASPECT && server !== 'en' ? [regionalArt(regionalWindow, modeImages[0] ?? null, server)].filter((src): src is string => !!src) : modeImages;
   const shownBannerImage = bannerName ? regionalArt(schedule?.banners?.[bannerName], bannerImage, server) : bannerImage;
   const hasExtras = extras.packs.length + extras.furniture.length + extras.notices.length > 0;
   // A page compiled by a release from before the News tab has no `news` at all.
@@ -319,7 +321,7 @@ export default function EventDetailPage({
             a 16:9 CG set does not fill the screen; a poster is full width well under that. */}
         <div className="event-detail-carousel" style={{ maxWidth: `calc(420px * ${artAspect})` }}>
           <div className="event-detail-image-wrap" style={{ aspectRatio: artAspect }}>
-            {activeImage && <Image src={activeImage} alt={name} fill sizes="(max-width: 1240px) 100vw, 1200px" style={{ objectFit: 'cover' }} />}
+            {activeImage && <Image src={activeImage} alt={name} fill sizes="(max-width: 1240px) 100vw, 1200px" style={{ objectFit: mode?.poster ? 'contain' : 'cover' }} />}
           </div>
           {shownImages.length > 1 && (
             <div className="event-detail-carousel-dots">
@@ -349,12 +351,7 @@ export default function EventDetailPage({
           )}
           {activeSection === 'overview' && mode && (
             <section className="op-section" {...tabPanelProps('event-section', 'overview')}>
-              {mode.description.map(line => <p key={line}>{line}</p>)}
-              <h3>Unlock</h3><p>{mode.unlock}</p>
-              <h3>Rewards (CN)</h3>
-              <p>{mode.rewards}</p>
-              <p className="hint">CN launch: {mode.cnLaunch}. Global timing and rewards await confirmation.</p>
-              <a href={mode.source} target="_blank" rel="noopener noreferrer">Official CN announcement</a>
+              <EventModeOverview mode={mode} />
             </section>
           )}
           {sections.length === 0 && <p className="hint">No banner, reward store or skins are linked to this event yet.</p>}
@@ -708,5 +705,8 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
   // A release exported before reward totals carried their order: this deployment's catalogue fills it in.
   // One exported before the News tab's official art has none: no board items, no pictures.
   // Each page keeps only its own event's and banner's regional windows (regionalScheduleSlice).
-  finalize: async (props) => withRegionalSlice(withNewsArt(await withMaterialOrder(props, (page) => page.rewardStores.flatMap((store) => store.items.map((item) => item.name))))),
+  finalize: async (props) => {
+    const ordered = await withMaterialOrder(props, (page) => page.rewardStores.flatMap((store) => store.items.map((item) => item.name)));
+    return withRegionalSlice(withNewsArt({ ...ordered, mode: modeDetails(props.name) ?? props.mode ?? null }));
+  },
 });

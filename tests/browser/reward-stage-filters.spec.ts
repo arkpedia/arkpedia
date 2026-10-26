@@ -52,7 +52,7 @@ const welfareRows = (now: number, opened: number) => [
 
 async function serve(page: Page) {
   await readOnly(page);
-  await page.route('**/free-op', async (route) => {
+  await page.route("**/reward-tracker", async (route) => {
     const response = await route.fetch(); const html = await response.text();
     const match = /<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/.exec(html)!;
     const data = JSON.parse(match[1]); const props = data.props.pageProps;
@@ -81,7 +81,7 @@ const number = async (page: Page) => Number((await op(page).textContent())!.repl
 
 test('the stage toggles start off, leave their stages out of the totals when on, and are remembered', async ({ page }) => {
   await serve(page);
-  await page.goto('/free-op');
+  await page.goto("/reward-tracker");
   for (const label of ['Exclude Challenge Mode', 'Exclude H stages', 'Exclude Adverse Environment', 'Exclude S stages']) {
     await expect(page.getByRole('checkbox', { name: label, exact: true })).not.toBeChecked();
   }
@@ -112,7 +112,7 @@ test('the stage toggles start off, leave their stages out of the totals when on,
 
 test('a welfare operator open now is listed with its event and end, opens the operator preview, and leaves once claimed', async ({ page }) => {
   await serve(page);
-  await page.goto('/free-op');
+  await page.goto("/reward-tracker");
   const list = page.getByRole('list', { name: 'Welfare operators to claim' });
   const row = list.getByRole('listitem').filter({ hasText: 'Botani' });
   await expect(row).toContainText('People, A People');
@@ -141,7 +141,7 @@ test('a welfare operator open now is listed with its event and end, opens the op
 
 test('Adverse Environment takes the six-star stages out too', async ({ page }) => {
   await serve(page);
-  await page.goto('/free-op');
+  await page.goto("/reward-tracker");
   await expect(page.getByRole('button', { name: 'Botani: operator preview' })).toBeVisible();
   const before = await number(page);
   expect(sixStarStages).toBeGreaterThanOrEqual(31);
@@ -158,7 +158,7 @@ test('the welfare panel is as tall as its cards once an import trims the list: n
   const roster = { version: 1, server: 'en', importedAt: '2026-10-21T00:00:00.000Z', doctor: null, operators: ['Botani', 'Folinic', 'Wanqing', 'Pastoperator'],
     operatorIds: ['char_4223_botany', 'char_345_folnic', 'char_4119_wanqin', 'char_x_past'], skins: [], cleared: [], rewardClaims: { known: [], claimed: [] } };
   await page.addInitScript((value) => { localStorage.setItem('arkpediaAccount', JSON.stringify(value)); }, roster);
-  await page.goto('/free-op');
+  await page.goto("/reward-tracker");
   const list = page.getByRole('list', { name: 'Welfare operators to claim' });
   await expect(list.getByRole('listitem')).toHaveCount(1);
   const panel = page.locator('.free-op-welfare');
@@ -174,7 +174,7 @@ test('the welfare list holds only what is obtainable now, as cards, and an impor
   const roster = { version: 1, server: 'en', importedAt: '2026-10-21T00:00:00.000Z', doctor: null, operators: ['Wanqing'], operatorIds: ['char_4119_wanqin'],
     skins: [], cleared: [], rewardClaims: { known: [], claimed: [] } };
   await page.addInitScript((value) => { localStorage.setItem('arkpediaAccount', JSON.stringify(value)); }, roster);
-  await page.goto('/free-op');
+  await page.goto("/reward-tracker");
   const list = page.getByRole('list', { name: 'Welfare operators to claim' });
   await expect(list.getByRole('listitem')).toHaveCount(4);
   await page.getByRole('button', { name: 'Availability', exact: true }).click();
@@ -214,7 +214,7 @@ async function openWelfareTab(page: Page, show: 'All' | 'Unclaimed') {
 test('the Free rewards tab shows its welfare operators as the overview\'s cards, each ticked by its own checkbox, the import\'s locked', async ({ page }) => {
   await serve(page);
   await page.addInitScript((value) => { localStorage.setItem('arkpediaAccount', JSON.stringify(value)); }, ROSTER);
-  await page.goto('/free-op');
+  await page.goto("/reward-tracker");
   await expect(page.getByRole('button', { name: 'Botani: operator preview' })).toBeVisible();
   const cards = await openWelfareTab(page, 'All');
   const card = (name: string) => cards.getByRole('listitem').filter({ hasText: name });
@@ -276,7 +276,7 @@ test('the Free rewards tab shows its welfare operators as the overview\'s cards,
 
 test('"All claimed" under the Unclaimed filter empties the welfare group without moving the page (the Anti-Page Jump rule)', async ({ page }) => {
   await serve(page);
-  await page.goto('/free-op');
+  await page.goto("/reward-tracker");
   await expect(page.getByRole('button', { name: 'Botani: operator preview' })).toBeVisible();
   const cards = await openWelfareTab(page, 'Unclaimed');
   await expect(cards.getByRole('listitem')).toHaveCount(6);
@@ -308,7 +308,7 @@ for (const theme of ['dark', 'light'] as const) for (const width of [390, 1440])
     await page.setViewportSize({ width, height: 900 });
     await serve(page);
     await page.addInitScript(({ theme, roster }) => { localStorage.setItem('theme', theme); localStorage.setItem('arkpediaAccount', JSON.stringify(roster)); }, { theme, roster: ROSTER });
-    await page.goto('/free-op');
+    await page.goto("/reward-tracker");
     await expect(page.getByRole('button', { name: 'Botani: operator preview' })).toBeVisible();
     const cards = await openWelfareTab(page, 'All');
     await expect(cards.getByRole('listitem')).toHaveCount(6);
@@ -326,7 +326,7 @@ for (const theme of ['dark', 'light'] as const) for (const width of [390, 1440])
     await page.setViewportSize({ width, height: 900 });
     await serve(page);
     await page.addInitScript((value) => { localStorage.setItem('theme', value); }, theme);
-    await page.goto('/free-op');
+    await page.goto("/reward-tracker");
     const welfare = page.locator('.free-op-welfare');
     await expect(welfare.getByRole('listitem')).toHaveCount(5);
     await page.evaluate(() => document.fonts.ready.then(() => undefined));
@@ -342,7 +342,7 @@ test('leaving Fully uncompleted view releases the expanded welfare height', asyn
     version: 1, server: 'en', importedAt: '2026-10-26T00:00:00Z', doctor: null,
     operators: ['Wanqing', 'Folinic', 'Botani', 'Viy'], operatorIds: ['char_4119_wanqin', 'char_345_folnic', 'char_4223_botany', 'char_4226_veen'], skins: [], cleared: [],
   })));
-  await page.goto('/free-op');
+  await page.goto("/reward-tracker");
   const welfare = page.locator('.free-op-welfare');
   await expect(welfare.getByRole('listitem')).toHaveCount(1);
   const height = () => welfare.evaluate(element => element.getBoundingClientRect().height);

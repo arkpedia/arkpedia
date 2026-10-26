@@ -19,7 +19,7 @@ function resolve(from: string, spec: string): string | null {
   if (!base) return null;
   const found = [base, `${base}.ts`, `${base}.tsx`, `${base}.mjs`, `${base}.js`, path.join(base, 'index.ts'), path.join(base, 'index.tsx')]
     .find(file => fs.existsSync(file) && fs.statSync(file).isFile());
-  return found ? path.relative(ROOT, found) : null;
+  return found ? path.relative(ROOT, found).split(path.sep).join('/') : null;
 }
 
 /** Identifiers a statement refers to as values. Property names are not references,
@@ -68,6 +68,28 @@ function browserStatements(statements: ts.Statement[]): ts.Statement[] {
  *  import('…') and new URL('…', import.meta.url) workers. With `lazy: false`, only what loads
  *  with the module itself: no import('…'), which loads when the code runs it (next/dynamic too). */
 const importCache = new Map<string, string[]>();
+
+/** Next also strips data exports when a route forwards a page's default and
+ * data functions. Only follow that exact forwarding shape: ordinary imports
+ * and re-exports of other values must retain their complete module graph. */
+export function pageBrowserModules(entry: string): Set<string> {
+  const modules = new Set([entry]);
+  for (const file of modules) {
+    const source = ts.createSourceFile(file, fs.readFileSync(path.join(ROOT, file), 'utf8'), ts.ScriptTarget.Latest, true);
+    for (const statement of source.statements) {
+      if (!ts.isExportDeclaration(statement) || statement.isTypeOnly
+        || !statement.moduleSpecifier || !ts.isStringLiteral(statement.moduleSpecifier)
+        || !statement.exportClause || !ts.isNamedExports(statement.exportClause)) continue;
+      const names = statement.exportClause.elements.filter(element => !element.isTypeOnly)
+        .map(element => (element.propertyName ?? element.name).text);
+      if (!names.includes('default') || !names.every(name => name === 'default' || SERVER_EXPORTS.has(name))) continue;
+      const target = resolve(file, statement.moduleSpecifier.text);
+      if (target && /^pages[\\/].+\.tsx?$/.test(target)) modules.add(target);
+    }
+  }
+  return modules;
+}
+
 export function browserImports(file: string, isPage: boolean, { lazy = true } = {}): string[] {
   const key = `${isPage}:${lazy}:${file}`;
   if (!importCache.has(key)) importCache.set(key, readBrowserImports(file, isPage, lazy));
@@ -113,6 +135,7 @@ function readBrowserImports(file: string, isPage: boolean, lazy: boolean): strin
  * no-release fallback, so the walk still catches the same file arriving any other way.
  */
 export function pathToTarget(entry: string, targets: readonly string[], { clientOnly = true, allowed = [] as readonly string[], lazy = true } = {}): string[] | null {
+  const clientPages = clientOnly ? pageBrowserModules(entry) : new Set<string>();
   const parent = new Map<string, string | null>([[entry, null]]);
   const queue = [entry];
   while (queue.length) {
@@ -123,7 +146,7 @@ export function pathToTarget(entry: string, targets: readonly string[], { client
       return chain;
     }
     if (!/\.(tsx?|mjs|js)$/.test(file)) continue;
-    for (const next of browserImports(file, file === entry && clientOnly, { lazy })) {
+    for (const next of browserImports(file, clientPages.has(file), { lazy })) {
       if (allowed.includes(`${file} -> ${next}`)) continue;
       if (!parent.has(next)) { parent.set(next, file); queue.push(next); }
     }
@@ -133,8 +156,8 @@ export function pathToTarget(entry: string, targets: readonly string[], { client
 
 export function pages(dir = 'pages'): string[] {
   return fs.readdirSync(path.join(ROOT, dir), { withFileTypes: true }).flatMap(entry => {
-    const file = path.join(dir, entry.name);
-    if (entry.isDirectory()) return file === path.join('pages', 'api') ? [] : pages(file);
+    const file = path.posix.join(dir, entry.name);
+    if (entry.isDirectory()) return file === 'pages/api' ? [] : pages(file);
     return /\.tsx?$/.test(entry.name) && entry.name !== '_document.tsx' ? [file] : [];
   });
 }

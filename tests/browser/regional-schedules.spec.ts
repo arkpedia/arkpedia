@@ -106,7 +106,7 @@ test('regional reward labels use the server calendar and manual claims survive c
   // The server retires expired monthly rewards. Inject this isolated catalogue
   // through real client navigation, so the regression survives October ending
   // without changing SSR markup or depending on the current upstream month.
-  const response = await page.request.get('/free-op');
+  const response = await page.request.get("/reward-tracker");
   expect(response.ok()).toBeTruthy();
   const html = await response.text();
   const data = JSON.parse(html.match(/<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/)![1]).props;

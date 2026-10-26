@@ -1,3 +1,15 @@
+import { eventTitle, isRerun } from '@/lib/events/eventName.mjs';
+
+/** Backfill legacy welfare rows against the same event catalogue used by Schedule. */
+export function withWelfareEventLinks(rewards: FreeReward[], events: readonly { name: string }[]): FreeReward[] {
+  return rewards.map(reward => {
+    if (reward.href || !reward.event || reward.group !== 'Welfare operators') return reward;
+    const title = eventTitle(reward.event);
+    const match = events.find(event => !isRerun(event.name) && eventTitle(event.name) === title);
+    return match ? { ...reward, href: `/events/${encodeURIComponent(match.name)}` } : reward;
+  });
+}
+
 export interface FreeReward {
   id: string;
   group: string;

@@ -4,6 +4,11 @@ For any UI change, read `docs/development/design-system.md` and the relevant sec
 of `docs/development/ui-primitives.md`. Reuse shared primitives; put reusable paint in
 `styles/core/`, and keep feature styles focused on layout. Verify desktop/mobile and
 dark/light themes, including the populated/interactive states affected by the change.
+Content updates count as UI changes too. When official posts provide useful images,
+use them in an image-led layout with concise accessible summaries and full-size viewing;
+do not replace them with a wall of prose. Style standalone source/action links with
+the shared link/button primitives and an external-link indicator. Consult the design
+documents for every new or updated page/feature, then inspect the actual result.
 Follow `docs/development/ux-review.md` for the complete affected journey and report
 checks actually run in the PR. Before declaring a release live, use
 `npm run release:status` and verify the affected deployed browser journey; a merged

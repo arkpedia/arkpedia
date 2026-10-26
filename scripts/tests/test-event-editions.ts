@@ -33,7 +33,7 @@ test('a permanent launch has an accessible detail listing without a fictitious c
   const result = permanentEventListing(event)!;
   assert.equal(+result.start, +result.end);
   assert.equal(result.dateRange, '2026/10/28');
-  assert(modeDetails(event.name)?.source.startsWith('https://ak.hypergryph.com/'));
+  assert.equal(modeDetails(event.name)?.source, 'https://www.arknights.global/news/4980');
 });
 
 test('a complete Global inventory supersedes CN rotations for the same run', () => {

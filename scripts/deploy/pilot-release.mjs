@@ -10,7 +10,7 @@ import { codeFingerprint } from '../content/code-fingerprint.mjs';
 
 const requireValue = (value, message) => { if (!value) throw new Error(`Pilot release refused: ${message}`); };
 
-export async function publishPilotRelease({ source, checkRun, build, approve, provider }) {
+export async function publishPilotRelease({ source, checkRun, build, approve, provider, sleep = ms => new Promise(resolve => setTimeout(resolve, ms)) }) {
   requireValue(/^[a-f0-9]{40}$/.test(source ?? '') && Number.isSafeInteger(checkRun) && checkRun > 0,
     'invalid release source or Check');
   requireValue(build?.version === 1 && build.commit === source && build.dirty === false
@@ -28,7 +28,17 @@ export async function publishPilotRelease({ source, checkRun, build, approve, pr
   const owner = { source, fingerprint: build.codeFingerprint, checkRun, previousVersion: previous.id };
   try {
     const current = provider.deploy(owner);
-    await provider.health(current);
+    // Activation can reach the service binding before every public edge serves
+    // its assets. Retry only this identity mismatch, with the same owned version;
+    // an exposed account route or any other health failure still fails at once.
+    for (let attempt = 0; ; attempt++) {
+      try { await provider.health(current); break; }
+      catch (error) {
+        if (error.code !== 'PILOT_IDENTITY_MISMATCH' || attempt >= 12) throw error;
+        requireValue(provider.observe().id === current.id, 'pilot changed while waiting for public identity');
+        await sleep(5_000);
+      }
+    }
     requireValue(provider.observe().id === current.id, 'pilot changed during deployed health checks');
     return { action: 'published', ...owner, version: current.id, healthy: true };
   } catch (error) {

@@ -23,7 +23,7 @@ for (const theme of ['light', 'dark'] as const) test(`an import's claim records 
     await page.getByRole('button', { name: 'All', exact: true }).click();
     await page.locator('summary').filter({ hasText: 'Free level-up packs' }).click();
   };
-  await page.goto('/free-op'); await open();
+  await page.goto("/reward-tracker"); await open();
   const pack = (level: number) => page.getByRole('checkbox', { name: `Lv.${level} Enhancement Pack`, exact: true });
   // Lv.10 was ticked by hand, but the save records it as not received: the import unticks it.
   await expect(pack(5)).toBeChecked(); await expect(pack(10)).not.toBeChecked();
@@ -50,7 +50,7 @@ test('a beginner reward the save records as received shows claimed and locked; t
     sessionStorage.setItem('beginner-fixture-seeded', '1');
     localStorage.setItem('arkpediaAccount', JSON.stringify(account));
   }, account);
-  await page.goto('/free-op');
+  await page.goto("/reward-tracker");
   await page.getByRole('tab', { name: 'Free rewards', exact: true }).click();
   await page.getByRole('button', { name: 'All', exact: true }).click();
   await expect(page.locator('details[open] > summary')).toContainText('Beginner rewards');
@@ -83,7 +83,7 @@ test('Paradox rewards import from operator handbook stages, and a hand tick on o
     await page.getByRole('button', { name: 'All', exact: true }).click();
   };
   const reward = (name: string) => page.getByRole('checkbox', { name: new RegExp(`^${name} ·`) });
-  await page.goto('/free-op'); await open();
+  await page.goto("/reward-tracker"); await open();
   // Aak was ticked by hand, but the save has her simulation unplayed (state 0): the import unticks it.
   await expect(reward('12F')).toBeChecked(); await expect(reward('Aak')).not.toBeChecked(); await expect(reward('Absinthe')).not.toBeChecked();
   await page.evaluate(value => {

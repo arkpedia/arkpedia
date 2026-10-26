@@ -123,8 +123,10 @@ export function assertPilotIdentity(build, version) {
   const legacy = version.id === PILOT.legacyVersion;
   const owner = legacy ? { source: PILOT.legacySource, fingerprint: PILOT.legacyFingerprint }
     : releaseOwner(version);
-  requireValue(build.commit === owner.source && build.codeFingerprint === owner.fingerprint
-    && build.contentChannel === (legacy ? 'dev-live' : 'live'), 'public identity differs from provider owner');
+  if (build.commit !== owner.source || build.codeFingerprint !== owner.fingerprint
+    || build.contentChannel !== (legacy ? 'dev-live' : 'live')) {
+    throw Object.assign(new Error('Pilot provider refused: public identity differs from provider owner'), { code: 'PILOT_IDENTITY_MISMATCH' });
+  }
   return build;
 }
 
