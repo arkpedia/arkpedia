@@ -16,7 +16,7 @@ export function readPilotConfig(file = 'wrangler.jsonc') {
   const config = parsed.config;
   const fields = new Set(['$schema', 'name', 'account_id', 'preview_urls', 'main', 'compatibility_date', 'compatibility_flags', 'assets', 'observability', 'd1_databases', 'vars', 'r2_buckets', 'services', 'durable_objects', 'migrations']);
   if (Object.keys(config).some(key => !fields.has(key))) throw new Error('Unexpected pilot configuration field; routes and environment overrides require separate review');
-  if (config.name !== 'arkpedia' || config.account_id !== ACCOUNT || config.preview_urls !== false || config.main !== '.open-next/worker.js') throw new Error('Not the existing migration pilot');
+  if (config.name !== 'arkpedia' || config.account_id !== ACCOUNT || config.preview_urls !== true || config.main !== '.open-next/worker.js') throw new Error('Not the existing migration pilot');
   if (!exact(config.assets, { directory: '.open-next/assets', binding: 'ASSETS' })) throw new Error('Pilot static assets differ');
   if (!exact(config.d1_databases, [{ binding: 'ARKPEDIA_ACCOUNTS_DB', database_name: 'arkpedia-accounts-dev', database_id: 'f7daff77-8e8f-4ec2-998b-97fb6e4b948f', migrations_dir: 'migrations/accounts' }])) throw new Error('Pilot account binding must be preserved');
   if (!exact(config.r2_buckets, [{ binding: 'NEXT_INC_CACHE_R2_BUCKET', bucket_name: 'arkpedia-opennext-cache' }])) throw new Error('Pilot must retain its existing ISR cache');

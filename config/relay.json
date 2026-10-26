@@ -5,7 +5,7 @@
     "about": "Only these reviewed origins use the existing Cloudflare relay. Keep hosts aligned with arkpedia-relay relay.config.json cloudflare.siteOrigins. Every other host keeps the VPS relay.",
     "use": true,
     "url": "wss://arkpedia-relay.cloudflare-1ff.workers.dev/wisp/",
-    "hosts": ["arkpedia-cf.mocchibird.com", "arkpedia-staging.cloudflare-1ff.workers.dev"]
+    "hosts": ["arkpedia-cf.mocchibird.com", "arkpedia-gins.preview.mocchibird.com", "arkpedia-gins-arkpedia.cloudflare-1ff.workers.dev"]
   },
   "allowedHosts": [
     "^(en|jp)-sdk-api\\.yostarplat\\.com$",

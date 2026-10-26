@@ -2,7 +2,7 @@
 // secret writes, resource creation, edge/relay or content-pointer operations.
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { latestStagingVersion, providerEnvironment } from './preview-provider.mjs';
+import { latestWorkerVersion, providerEnvironment } from './worker-provider-utils.mjs';
 
 export const PILOT = Object.freeze({
   worker: 'arkpedia', origin: 'https://arkpedia-cf.mocchibird.com',
@@ -103,7 +103,7 @@ export function createPilotProvider({ run = execFileSync, request = fetch, envir
     return json ? JSON.parse(output) : output;
   };
   const rawObserve = () => {
-    const id = latestStagingVersion(invoke(['deployments', 'list'], { json: true }));
+    const id = latestWorkerVersion(invoke(['deployments', 'list'], { json: true }));
     const version = invoke(['versions', 'view', id], { json: true });
     requireValue(version.id === id, 'provider returned another pilot version');
     return version;

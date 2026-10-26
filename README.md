@@ -22,7 +22,7 @@ Both are listed in `config/production.json`. Vercel's own Git deployments are sw
 
 1. **Branch from `main` and work locally.** Use focused checks during iteration. Open a short-lived feature PR into `main`; draft feedback does not build or establish browser proof.
 2. **Mark ready and verify Check.** The current impact policy selects relevant browser journeys and falls back to broader coverage for unknown/shared changes. A selected run is not full-suite proof. Follow the design/UX guidance for affected desktop/mobile and dark/light journeys.
-3. **Request one explicit Cloudflare preview when ready.** The trusted-main preview controller accepts a successful exact-source Check, builds the isolated configuration and publishes its verified artifact. Verify the actual deployed journey. See [Cloudflare staging](docs/development/cloudflare-staging.md).
+3. **Publish an explicit native Cloudflare Preview when ready.** The Preview workflow builds an immutable redesign source and publishes only the isolated native Preview. Verify the actual deployed journey. See [Native Preview](docs/development/native-preview.md).
 4. **Merge the accepted PR into `main`.** A successful main Check releases public Vercel production and the existing Cloudflare pilot through its checked-main owner. Native pilot Git builds are disabled. See [the checked-main pilot release](docs/development/cloudflare-pilot-release.md) for fixed resources, scoped credentials, ownership and recovery. Public-domain cutover remains separate.
 
 The agreed target is one application codebase, not permanent `dev` and `cloudflare`

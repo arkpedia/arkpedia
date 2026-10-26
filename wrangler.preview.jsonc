@@ -1,0 +1,48 @@
+// Native Worker Previews only. Never use this file with wrangler deploy.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "arkpedia",
+  "account_id": "1ff51c10571eaa9934bc451e1bfdb361",
+  "main": "scripts/deploy/preview-worker.mjs",
+  "compatibility_date": "2026-10-19",
+  "compatibility_flags": [
+    "nodejs_compat",
+    "global_fetch_strictly_public"
+  ],
+  "preview_urls": true,
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": [
+        "DOQueueHandler"
+      ]
+    }
+  ],
+  "previews": {
+    "vars": {
+      "ARKPEDIA_CONTENT_CHANNEL": "live",
+      "ARKPEDIA_DEPLOYMENT_ROLE": "staging"
+    },
+    "r2_buckets": [
+      {
+        "binding": "NEXT_INC_CACHE_R2_BUCKET",
+        "bucket_name": "arkpedia-preview-cache"
+      }
+    ],
+    "durable_objects": {
+      "bindings": [
+        {
+          "name": "NEXT_CACHE_DO_QUEUE",
+          "class_name": "DOQueueHandler"
+        }
+      ]
+    },
+    "observability": {
+      "enabled": true
+    }
+  }
+}

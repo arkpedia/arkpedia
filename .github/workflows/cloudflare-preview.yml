@@ -1,93 +1,92 @@
-name: Cloudflare feature preview
+name: Build and publish Cloudflare Preview
+run-name: Native Preview ${{ inputs.source || github.sha }}
 
 on:
   workflow_dispatch:
     inputs:
-      action:
-        description: Request the PR's checked preview, or retire its owned preview
-        type: choice
-        options: [publish, retire]
-        default: publish
-      pr:
-        description: Same-repository pull request targeting main
+      source:
+        description: Full source SHA to publish to the isolated redesign Preview
+        type: string
         required: true
-        type: string
-      completed_build:
-        description: Internal completed producer run ID; leave blank for a new request
-        type: string
-  pull_request_target:
-    branches: [main]
-    types: [closed]
 
 permissions:
   contents: read
-  actions: read
-  pull-requests: read
 
 concurrency:
-  group: arkpedia-staging-slot
+  group: arkpedia-native-preview
   cancel-in-progress: false
-  queue: max
 
 jobs:
-  prepare:
-    if: (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') || (github.event_name == 'pull_request_target' && vars.ARKPEDIA_PREVIEWS_ENABLED == 'true' && github.event.pull_request.head.repo.full_name == github.repository)
-    runs-on: ${{ vars.ARKPEDIA_LIGHT_RUNNER || vars.ARKPEDIA_RUNNER || 'ubuntu-latest' }}
-    timeout-minutes: 5
-    permissions:
-      contents: read
-      actions: write
-      pull-requests: read
-    outputs:
-      mode: ${{ steps.request.outputs.mode }}
-      pr: ${{ steps.request.outputs.pr }}
-      request: ${{ steps.request.outputs.request }}
+  build:
+    runs-on: [self-hosted, Linux, X64, arkpedia-nas-build]
+    timeout-minutes: 25
     steps:
+      - name: Validate immutable source
+        env:
+          SOURCE: ${{ inputs.source }}
+        run: '[[ "$SOURCE" =~ ^[a-f0-9]{40}$ ]]'
       - uses: actions/checkout@v7
         with:
-          ref: ${{ github.workflow_sha }}
+          ref: ${{ inputs.source }}
           persist-credentials: false
       - uses: actions/setup-node@v7
         with:
           node-version: '24'
-      - uses: actions/setup-python@v7
-        with:
-          python-version: '3.13'
-      - name: Resolve checked PR and request or reuse its build
-        id: request
+      - run: npm ci
+      - name: Check Preview isolation and internal self-calls
+        run: node --test scripts/tests/test-native-preview.mjs
+      - name: Build Preview without deployment credentials
         env:
-          GH_TOKEN: ${{ github.token }}
-        run: node scripts/deploy/preview-request.mjs prepare
-  preview:
-    needs: prepare
-    if: needs.prepare.outputs.mode == 'publish' || needs.prepare.outputs.mode == 'retire' || needs.prepare.outputs.mode == 'closed'
-    runs-on: ${{ vars.ARKPEDIA_LIGHT_RUNNER || vars.ARKPEDIA_RUNNER || 'ubuntu-latest' }}
+          ARKPEDIA_WORKER: '1'
+          ARKPEDIA_CONTENT_CHANNEL: live
+          ARKPEDIA_DEPLOYMENT_ROLE: staging
+        run: node node_modules/@opennextjs/cloudflare/dist/cli/index.js build --config wrangler.preview.jsonc --openNextConfigPath open-next.preview.config.ts
+      - name: Package immutable Preview
+        run: |
+          node -e 'const b=require("./public/build-info.json");if(b.commit!==process.env.SOURCE||b.dirty||b.deploymentRole!=="staging")throw Error("Unexpected Preview build")'
+          tar --exclude=.open-next/cache -czf "$RUNNER_TEMP/arkpedia-preview.tgz" .open-next wrangler.preview.jsonc scripts/deploy/preview-worker.mjs public/build-info.json
+          cd "$RUNNER_TEMP"
+          sha256sum arkpedia-preview.tgz > arkpedia-preview.sha256
+        env:
+          SOURCE: ${{ inputs.source }}
+      - uses: actions/upload-artifact@v7
+        with:
+          name: arkpedia-preview-${{ inputs.source }}
+          path: |
+            ${{ runner.temp }}/arkpedia-preview.tgz
+            ${{ runner.temp }}/arkpedia-preview.sha256
+          retention-days: 3
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ github.workflow_sha }}
+          ref: ${{ inputs.source }}
           persist-credentials: false
       - uses: actions/setup-node@v7
         with:
           node-version: '24'
-      - uses: actions/setup-python@v7
+      - run: npm ci
+      - uses: actions/download-artifact@v8
         with:
-          python-version: '3.13'
-      - name: Install trusted controller dependencies
-        run: npm ci
-      - name: Publish or retire the owned staging preview
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          CLOUDFLARE_API_TOKEN: ${{ secrets.ARKPEDIA_STAGING_API_TOKEN }}
-          PREVIEW_ACTION: ${{ needs.prepare.outputs.mode }}
-          PREVIEW_PR: ${{ needs.prepare.outputs.pr }}
-          PREVIEW_REQUEST_JSON: ${{ needs.prepare.outputs.request }}
+          name: arkpedia-preview-${{ inputs.source }}
+          path: preview-artifact
+      - name: Verify build and extract
         run: |
-          set -euo pipefail
-          if [ "$PREVIEW_ACTION" = publish ]; then
-            node scripts/deploy/preview-controller.mjs publish-request
-          else
-            node scripts/deploy/preview-controller.mjs "$PREVIEW_ACTION" "$PREVIEW_PR"
-          fi
+          cd preview-artifact
+          sha256sum -c arkpedia-preview.sha256
+          cd ..
+          tar -xzf preview-artifact/arkpedia-preview.tgz
+          node --test scripts/tests/test-native-preview.mjs
+          node -e 'const b=require("./public/build-info.json");if(b.commit!==process.env.SOURCE||b.dirty||b.deploymentRole!=="staging")throw Error("Unexpected Preview build")'
+        env:
+          SOURCE: ${{ inputs.source }}
+      - name: Publish the native Preview only
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.ARKPEDIA_PILOT_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: 1ff51c10571eaa9934bc451e1bfdb361
+          WRANGLER_SEND_METRICS: 'false'
+          OPEN_NEXT_DEPLOY: 'true'
+        run: node node_modules/wrangler/bin/wrangler.js preview --config wrangler.preview.jsonc --worker-name arkpedia --name arkpedia --message "Redesign Preview ${{ inputs.source }}"
