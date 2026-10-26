@@ -39,11 +39,11 @@ function pullsSummary(read: PullRead): string {
 
 /*
  * Import / export: the one dialog for everything the site keeps of the reader, on the Account
- * page and the shared on-demand AccountActions overlay. From the game
+ * page only (the planners link there: components/account/DataLink). From the game
  * (components/account-import/GameSignIn); from a file or pasted text, whatever
  * lib/account/importFile reads; an export of all of it (lib/account/backup); and Forget everything.
  * A file is written to storage, which its page reads when it next loads. The page must carry
- * the three tables it reads (lib/content/tables.mjs), supplied by the account props.
+ * the three tables it reads (lib/content/tables.mjs).
  */
 export default function DataDialog({ onClose, initialView = 'game' }: { onClose: () => void; initialView?: 'game' | 'backups' | 'browser' }) {
   const map = useReleaseTable<GameAccountMap>('game-account-map');

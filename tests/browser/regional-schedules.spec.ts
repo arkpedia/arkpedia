@@ -2,17 +2,6 @@ import { test, expect } from '@playwright/test';
 import regional from '../../data/regional-schedules.json';
 const NAME = '[Celebration] Sealed With Time';
 const EVENT = '[Celebration] Critical Phase Transition';
-test.beforeEach(async ({ page }) => {
-  // These scenarios deliberately move the reader clock, including into 2030.
-  await page.addInitScript(() => localStorage.setItem('arkpedia:privacy:v1', JSON.stringify({ version: 1, analytics: false, externalMedia: false, savedAt: Date.now() })));
-});
-async function expectClock(page: import('@playwright/test').Page, text: string) {
-  const clock = page.locator('.site-nav-clock:visible').first();
-  const inDrawer = !await clock.isVisible();
-  if (inDrawer) await page.getByRole('button', { name: 'Open navigation menu', exact: true }).click();
-  await expect(clock).toContainText(text);
-  if (inDrawer) await page.keyboard.press('Escape');
-}
 async function account(page: import('@playwright/test').Page, server: string) {
   await page.evaluate(server => { localStorage.setItem('arkpediaAccount', JSON.stringify({ version: 1, server, importedAt: '2026-10-16T00:00:00Z', doctor: 'Regional QA', operators: [], skins: [], cleared: [] }));window.dispatchEvent(new Event('arkpediaAccountChanged')); }, server);
 }
@@ -56,8 +45,6 @@ test('JP and KR list the same events and banners as Global, in the same order', 
   await page.goto('/gacha');await account(page, 'en');
   const sidebar = '.gacha-banner-sidebar-item';
   await expect(page.locator(sidebar).first()).toBeVisible();
-  // Compare the measured virtual window, rather than its initial SSR batch.
-  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve(null)))));
   const banners = await names(sidebar, 'title');
   expect(banners.length).toBeGreaterThan(3);
   for (const server of ['jp', 'kr']) {
@@ -103,7 +90,7 @@ test('a saved Global deadline cannot keep a JP/KR goal reserved after its region
   await page.clock.setFixedTime(new Date(close.getTime() - 60_000));
   await page.goto('/pulls');await account(page,'jp');
   await expect(page.getByRole('heading',{name:/Your banners 1/})).toBeVisible();
-  await expectClock(page, '03:59');
+  await expect(page.locator('.site-nav-clock:visible').first()).toContainText('03:59');
   const before = await page.evaluate(()=>JSON.parse(localStorage.getItem('arkpedia.pull-plan.v1')!));
   await page.clock.setFixedTime(close);await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
   await expect(page.getByText('Closed',{exact:true})).toBeVisible();
@@ -136,15 +123,13 @@ test('regional reward labels use the server calendar and manual claims survive c
   const progress = { doneKeys: [id, 'manual:regional-qa'], doneEvents: ['manual:event'], annihilationDone: true, ticksFrom: '2026-10-16T00:00:00Z', importedDoneKeys: [] };
   await page.addInitScript(progress => localStorage.setItem('arkpedia.past-rewards.v1', JSON.stringify(progress)), progress);
   await page.clock.setFixedTime(new Date(close.getTime() - 60_000));
-  await page.addInitScript(savedAt => localStorage.setItem('arkpedia:privacy:v1', JSON.stringify({ version: 1, analytics: false, externalMedia: false, savedAt })), close.getTime() - 60_000);
   await page.goto('/stages/supplies');await account(page, 'jp');
-  await expect(page.locator('html')).toHaveAttribute('data-site-server', 'jp');
   const mobileMenu = page.getByRole('button', { name: 'Open navigation menu', exact: true });
   if (await mobileMenu.isVisible()) await mobileMenu.click();
   const planner = page.getByRole('button', { name: 'Planner', exact: true });
   if (await planner.getAttribute('aria-expanded') !== 'true') await planner.click();
   await page.locator('a[href="/free-op"]:visible').click();
-  await expectClock(page, '03:59');
+  await expect(page.locator('.site-nav-clock:visible').first()).toContainText('03:59');
   await page.getByRole('tab', { name: 'Free rewards', exact: true }).click();
   await page.getByRole('group', { name: 'Free rewards status' }).getByRole('button', { name: 'Claimed', exact: true }).click();
   await page.getByRole('searchbox', { name: 'Search free rewards' }).fill('Regional monthly claim');

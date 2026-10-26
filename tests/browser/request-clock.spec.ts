@@ -1,9 +1,5 @@
 import { expect, test } from '@playwright/test';
 
-test.beforeEach(async ({ page }) => {
-  await page.addInitScript(() => localStorage.setItem('arkpedia:privacy:v1', JSON.stringify({ version: 1, analytics: false, externalMedia: false, savedAt: Date.now() })));
-});
-
 // Pages whose content depends on the day render it from the request's clock (`now`,
 // lib/content/pageClock.ts), which the server HTML and the browser's first render
 // share. /obtain-method used to do its day math on the host's clock, so every reader
@@ -27,11 +23,8 @@ test('switching imported accounts keeps the header clock and supply rotation on 
       localStorage.setItem('arkpediaAccount', JSON.stringify({ ...account, server }));
       window.dispatchEvent(new Event('arkpediaAccountChanged'));
     }, server);
-    const inDrawer = !await clock.isVisible();
-    if (inDrawer) await page.getByRole('button', { name: 'Open navigation menu', exact: true }).click();
     await expect(clock).toContainText(server.toUpperCase());
     await expect(clock).toContainText(server === 'en' ? '12:00' : '04:00');
-    if (inDrawer) await page.keyboard.press('Escape');
     await expect(page.getByRole('button', { name: server === 'en' ? 'Sunday, today' : 'Monday, today', exact: true })).toHaveAttribute('aria-pressed', 'true');
   }
   expect(errors).toEqual([]);

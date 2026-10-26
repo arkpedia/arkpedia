@@ -1,4 +1,3 @@
-import { requestExternalMedia } from '@/lib/privacy/preferences';
 import { useEffect, useRef, useState } from 'react';
 import Image from '@/components/content/ContentImage';
 import { useMusicPlayer } from '@/lib/music/musicPlayerContext';
@@ -42,10 +41,8 @@ export function EventVideos({ videos, run }: { videos: EventVideo[]; run: EventV
   }, [songOn, playing]);
 
   function play(videoId: string) {
-    requestExternalMedia(() => {
-      if (music.isPlaying || music.buffering) music.pausePlayback();
-      setPlaying(videoId);
-    });
+    if (music.isPlaying || music.buffering) music.pausePlayback();
+    setPlaying(videoId);
   }
 
   return (

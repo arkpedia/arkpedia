@@ -151,7 +151,7 @@ button:where(:not(.btn-bare)):disabled,
 button:where(:not(.btn-bare)):disabled:hover,
 .btn:disabled:hover { border-color: var(--line-soft); color: var(--text-faint); }
 
-button.btn-sm, a.btn-sm, .btn.btn-sm { min-height: var(--control-h); font-size: 12px; padding: 4px 14px; white-space: nowrap; }
+.btn-sm { min-height: var(--control-h); font-size: 12px; padding: 4px 14px; white-space: nowrap; }
 .btn-lg { font-size: 17px; padding: 13px 24px; font-weight: 700; }
 /* A square icon button (a month step, a play, a help "?"): var(--control-h) both ways,
    the glyph centred at 18px (an svg sizes itself). Element-qualified so it beats .ghost's
@@ -904,12 +904,3 @@ a.ghost, a.primary, a.danger, a.btn { text-decoration: none; }
 /* The toolbar's own Reset: the sheet ends in one. */
 .filter-sheet .filter-reset-inline { display: none; }
 .filter-sheet-foot { flex: none; display: flex; justify-content: flex-end; gap: 8px; padding: 12px 18px; border-top: 1px solid var(--line); }
-
-/* Shared portrait frame for simulated and imported headhunting results. */
-.rarity-frame { display: block; padding: 3px; border: 2px solid var(--line); border-radius: var(--radius-control); background: var(--panel); }
-.rarity-frame[data-rarity="1"] { border-color: var(--rarity-1); }
-.rarity-frame[data-rarity="2"] { border-color: var(--rarity-2); }
-.rarity-frame[data-rarity="3"] { border-color: var(--rarity-3); }
-.rarity-frame[data-rarity="4"] { border-color: var(--rarity-4); }
-.rarity-frame[data-rarity="5"] { border-color: var(--rarity-5); }
-.rarity-frame[data-rarity="6"] { border-color: var(--rarity-6); }

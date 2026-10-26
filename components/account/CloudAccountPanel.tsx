@@ -1,11 +1,9 @@
-import { useEffect, useRef, useState, useId, Fragment, type ReactNode } from 'react';
-import Link from 'next/link';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
 import { accountClient } from '@/lib/cloud-account/client';
 import { useCloudSync } from '@/lib/cloud-account/SyncProvider';
 import { BACKUP_STORES } from '@/lib/account/backup';
 import ImportDialog from './ImportDialog';
-import InfoPopover from '@/components/ui/InfoPopover';
 import AccountProfileForm from './AccountProfileForm';
 import ProviderIcon from './ProviderIcon';
 import Tabs, { tabPanelProps } from '@/components/ui/Tabs';
@@ -21,13 +19,12 @@ function SaveSummary({ data }: { data: Record<string, unknown> }) {
   return <p className="hint">{labels.length ? labels.join(', ') : 'Preferences only, or no saved data yet'}</p>;
 }
 
-export default function CloudAccountPanel({ onOpenData, hideSettingsButton = false, onOpenSettings, profileContent, initialSettings, settingsOnly = false, onSettingsClose }: { onOpenData?: () => void; hideSettingsButton?: boolean; onOpenSettings?: () => void; profileContent?: ReactNode; initialSettings?: Setting; settingsOnly?: boolean; onSettingsClose?: () => void }) {
+export default function CloudAccountPanel({ onOpenData }: { onOpenData?: () => void }) {
   const sync = useCloudSync(), router = useRouter();
-  const headingId = useId();
   const [working, setWorking] = useState(false), [message, setMessage] = useState('');
   const [pendingConsent, setPendingConsent] = useState<Category | null>(null);
   const [reauth, setReauth] = useState(false);
-  const [settings, setSettings] = useState<Setting | null>(initialSettings ?? null), [confirm, setConfirm] = useState<Confirmation>(null);
+  const [settings, setSettings] = useState<Setting | null>(null), [confirm, setConfirm] = useState<Confirmation>(null);
   const [typed, setTyped] = useState('');
   const cancel = useRef<HTMLButtonElement>(null);
   const remote = sync.remote;
@@ -35,7 +32,7 @@ export default function CloudAccountPanel({ onOpenData, hideSettingsButton = fal
   const userId = remote?.user.id;
   useEffect(() => {
     if (router.query.confirm === 'delete' && userId) { setSettings('data'); setConfirm('account'); }
-    else if (userId && ['profile', 'saving', 'logins'].includes(String(router.query.settings))) setSettings(router.query.settings as Setting);
+    else if (router.query.settings === 'logins' && userId) setSettings('logins');
   }, [router.query.confirm, router.query.settings, userId]); // A provider return never submits deletion.
   async function act(action: () => Promise<unknown>) {
     if (working) return;
@@ -54,17 +51,15 @@ export default function CloudAccountPanel({ onOpenData, hideSettingsButton = fal
     let result;
     try { result = await accountClient.signOut(); } finally { await sync.resume(); }
     if (result.error) throw new Error('Sign-out could not finish. Please try again.');
-    setSettings(null); onSettingsClose?.();
+    setSettings(null);
   }
-  function closeSettings() { if (!working) { setSettings(null); setConfirm(null); setMessage(''); onSettingsClose?.(); if (router.query.settings) { const query = { ...router.query }; delete query.settings; void router.replace({ pathname: router.pathname, query }, undefined, { shallow: true, scroll: false }); } } }
+  function closeSettings() { if (!working) { setSettings(null); setConfirm(null); setMessage(''); } }
   if (sync.status === 'unavailable') return null;
   const confirmationTitle = confirm === 'cloud' ? 'Delete cloud saves?' : confirm === 'revoke' ? 'Stop saving imported game data?' : confirm === 'history' ? 'Delete cloud pull archive?' : confirm === 'personal' ? 'Stop saving personal data?' : 'Delete Arkpedia account?';
-  const Container = settingsOnly ? Fragment : 'section';
-  return <Container {...(settingsOnly ? {} : { className: 'op-section', 'aria-labelledby': headingId, 'aria-busy': working })}>
-    {!settingsOnly && <>
+  return <section className="op-section" aria-labelledby="cloud-account-title" aria-busy={working}>
     <div className={styles.heading}>
-      <h2 id={headingId}>Arkpedia account</h2>
-      {remote && !hideSettingsButton && <button type="button" className="ghost btn-sm" aria-haspopup="dialog" onClick={() => onOpenSettings ? onOpenSettings() : setSettings(remote.profile ? 'profile' : 'logins')}>Account settings</button>}
+      <h2 id="cloud-account-title">Arkpedia account</h2>
+      {remote && <button type="button" className="ghost btn-sm" aria-haspopup="dialog" onClick={() => setSettings(remote.profile ? 'profile' : 'logins')}>Account settings</button>}
     </div>
     {router.query.signin === 'failed' && <p role="alert" className="notice notice-danger">Sign-in could not finish. Try your existing provider, then link another login in Account settings.</p>}
     {sync.status === 'loading' && <p role="status">Checking sign-in…</p>}
@@ -72,15 +67,17 @@ export default function CloudAccountPanel({ onOpenData, hideSettingsButton = fal
       <p>Keep your music, plans and preferences across devices.</p>
       <div className={styles.actions}>{(['google', 'discord'] as const).map(provider => sync.providers.includes(provider) &&
         <button type="button" key={provider} disabled={working} onClick={() => void act(() => login(provider))}><ProviderIcon provider={provider} />{working ? 'Connecting…' : `Continue with ${label(provider)}`}</button>)}</div>
-      <p className="hint">New here? You’ll choose a username next. Your Arknights import is separate, and using Arkpedia without signing in is always fine. <Link href="/privacy">Privacy notice</Link>.</p>
+      <p className="hint">New here? You’ll choose a username next. Your Arknights import is separate, and using Arkpedia without signing in is always fine.</p>
     </div>}
     {remote && !remote.profile && <>
       <AccountProfileForm owner={remote.user.id} profile={null} gameSync={remote.gameSync} paused={remote.paused} onSaved={sync.refresh} onCancel={() => void act(signOut)} />
     </>}
     {remote?.profile && <>
-      <div className={styles.identity}><strong>{remote.profile.username}</strong><span className="hint" role="status">{sync.status === 'ready' ? 'Auto-save on' : sync.status === 'paused' ? 'Cloud saving paused' : sync.status === 'choice' ? 'Choose a save to continue' : 'Sync needs attention'}</span>
-      {sync.status === 'ready' && <InfoPopover label="Cloud saving details"><p>Selected data saves automatically while Arkpedia is open.</p><p>Imported game data: {remote.gameSync ? 'saved to your account' : 'browser only'}.</p><button type="button" className="ghost btn-sm" disabled={working} title={SYNC_NOW_HINT} onClick={() => void act(sync.refresh)}>Check for updates</button></InfoPopover>}
-      </div>
+      <div className={styles.identity}><strong>{remote.profile.username}</strong><span className="hint" role="status">{sync.status === 'ready' ? 'Up to date · selected data saves automatically' : sync.status === 'paused' ? 'Cloud saving paused' : sync.status === 'choice' ? 'Choose a save to continue' : 'Sync needs attention'}</span></div>
+      {sync.status === 'ready' && <div className={styles.actions}>
+        <button type="button" className="ghost btn-sm" disabled={working} title={SYNC_NOW_HINT} onClick={() => void act(sync.refresh)}>Sync now</button>
+        <span className="hint">Imported game data: {remote.gameSync ? 'saved to your account' : 'browser only'}</span>
+      </div>}
       {sync.status === 'paused' && <div className={styles.form}>
         <p>{sync.message}</p><div className={styles.actions}><button type="button" className="primary btn-sm" disabled={working} onClick={() => void act(() => sync.choose('browser'))}>Resume cloud saving</button></div>
       </div>}
@@ -98,7 +95,6 @@ export default function CloudAccountPanel({ onOpenData, hideSettingsButton = fal
     {sync.status === 'error' && <div className={styles.form}><p role="alert">{sync.message}</p><button type="button" className="ghost btn-sm" disabled={working} onClick={() => void act(sync.refresh)}>Retry sync</button></div>}
     {message && !settings && <p role="alert" className="notice notice-danger">{message}</p>}
 
-    </>}
     {settings && remote && <ImportDialog title={confirm ? confirmationTitle : 'Account settings'} onClose={closeSettings}>
       {confirm ? <div className={styles.form}>
         <p>{confirm === 'cloud' ? 'Remove your saved music, plans, preferences, pull archive and imported game data from the cloud. Your username, linked logins and browser data stay. Cloud saving pauses on every device until you resume it.'
@@ -124,7 +120,7 @@ export default function CloudAccountPanel({ onOpenData, hideSettingsButton = fal
               try { response = await fetch('/api/account-profile', { method: 'DELETE', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ owner: remote.user.id, confirmation: typed }) }); } finally { await sync.resume(); }
               if (!response.ok) { const result = await response.json(); throw new Error(result.error ?? 'Account deletion could not finish. Try again.'); }
-              setSettings(null); setConfirm(null); onSettingsClose?.();
+              setSettings(null); setConfirm(null);
             }
           })}>{working ? 'Working…' : confirm === 'cloud' ? 'Delete cloud saves' : confirm === 'revoke' ? 'Stop saving game data' : confirm === 'history' ? 'Delete cloud pull archive' : confirm === 'personal' ? 'Stop saving personal data' : 'Delete Arkpedia account'}</button>
         </div>
@@ -133,7 +129,7 @@ export default function CloudAccountPanel({ onOpenData, hideSettingsButton = fal
           { value: 'profile', label: 'Profile' }, { value: 'saving', label: 'Saving' }, { value: 'logins', label: 'Logins' }, { value: 'data', label: 'Delete data' },
         ]} />
         <div {...tabPanelProps('account-settings', settings)} className={styles.settings}>
-          {settings === 'profile' && <><AccountProfileForm id="edit" owner={remote.user.id} profile={remote.profile} onSaved={async () => { await sync.refresh(); setMessage('Profile saved.'); }} />{profileContent}</>}
+          {settings === 'profile' && <AccountProfileForm id="edit" owner={remote.user.id} profile={remote.profile} onSaved={async () => { await sync.refresh(); setMessage('Profile saved.'); }} />}
           {settings === 'saving' && <div className={styles.form}>
             <h3>What saves to your account</h3><p>Choose independently. Selected data saves while Arkpedia is open; game imports still happen in your browser.</p>
             {([
@@ -176,5 +172,5 @@ export default function CloudAccountPanel({ onOpenData, hideSettingsButton = fal
       </>}
       {message && <p role={message === 'Profile saved.' ? 'status' : 'alert'} className="notice">{message}</p>}
     </ImportDialog>}
-  </Container>;
+  </section>;
 }

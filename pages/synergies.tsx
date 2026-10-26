@@ -1,6 +1,7 @@
 import { withContentPage } from '@/lib/content/server';
 import { GetStaticProps } from 'next';
 import Head from 'next/head';
+import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import PageHeader from '@/components/ui/PageHeader';
 import SearchInput from '@/components/ui/SearchInput';
@@ -82,7 +83,7 @@ export default function SynergiesPage({ groups, emblems }: Props) {
     <>
       <Head><title>Synergies — Arkpedia</title></Head>
       <PageHeader stickyActions
-        eyebrow="Rhodes Island // Faction and class buffs"
+        eyebrow={<><Link prefetch={false} href="/operators">Operators</Link>{' // Faction and class buffs'}</>}
         title="Synergies"
         sub={<>
           {factions} factions and {groups.length - factions} classes that an operator&apos;s skill, talent or module buffs. Pick

@@ -2,7 +2,6 @@ import { usePlannerContent } from '@/lib/content/planner';
 import { useContentUrl } from '@/lib/content/context';
 import { withContentPage } from '@/lib/content/server';
 import DataLink from "@/components/account/DataLink";
-import ActionPopover from '@/components/ui/ActionPopover';
 import { PlannerStateLabel } from '@/components/planner/PromotionIcon';
 import { withMasteryPrerequisites, withModulePrerequisites, withSkillRankPrerequisites } from '@/lib/planner/goalPrerequisites';
 import { SimplePlanner } from '@/components/planner/SimplePlanner';
@@ -1064,15 +1063,12 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
                would be the page reporting the network as an empty plan. */
             loading={selectedNames.some((n) => !detailCache[n])}
           />;
-  const goalFilter = selectedNames.length > 0 && <ActionPopover label="Choose goals for material totals" width={320} align="end" className="ghost btn-sm planner-goal-trigger"
-    trigger={<><svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="M3 5h14M5 10h10M8 15h4" /></svg><span>Goals</span><b>{selectedNames.filter(name => !excludedGoals.has(name)).length}/{selectedNames.length}</b></>}>
-    <div className="planner-goal-menu">
-    <div className="planner-goal-menu-head"><h3>Included goals</h3><div><button type="button" className="ghost btn-sm" onClick={() => setExcludedGoals(new Set())}>All</button><button type="button" className="ghost btn-sm" onClick={() => setExcludedGoals(new Set(selectedNames))}>None</button></div></div>
-    <div className="planner-goal-options">
-      {selectedNames.map(name => { const operator = operators.find(op => op.name === name); return <label key={name} className="check planner-goal-option"><input type="checkbox" checked={!excludedGoals.has(name)} onChange={e => setExcludedGoals(values => { const next = new Set(values); if (e.target.checked) next.delete(name); else next.add(name); return next; })} />{operator && <Image src={getOperatorIconPath(operator)} alt="" width={32} height={32} />}<span>{name}</span></label>; })}
+  const goalFilter = selectedNames.length > 0 && <details className="pulls-disclosure planner-goal-filter">
+    <summary>View materials for selected goals</summary>
+    <div className="skin-plan-filter-row"><button type="button" className="ghost btn-sm" onClick={() => setExcludedGoals(new Set())}>All</button><button type="button" className="ghost btn-sm" onClick={() => setExcludedGoals(new Set(selectedNames))}>None</button>
+      {selectedNames.map(name => <label key={name} className="check"><input type="checkbox" checked={!excludedGoals.has(name)} onChange={e => setExcludedGoals(values => { const next = new Set(values); if (e.target.checked) next.delete(name); else next.add(name); return next; })} />{name}</label>)}
     </div>
-    </div>
-  </ActionPopover>;
+  </details>;
   return (
     <>
       <Head><title>Operator Planner — Arkpedia</title></Head>
@@ -1096,6 +1092,7 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
       />
 
       <main>
+        {plannerMode === 'simple' && goalFilter}
         {/* Not a nicety. This browser's storage is the only copy there is, so
             clearing site data or moving machine loses the depot and the roster
             both -- which is why the way out lives in the page header rather
@@ -1103,7 +1100,7 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
 
         <div {...tabPanelProps('planner-mode', plannerMode)} ref={modeHold.ref} style={modeHold.style}>
         {plannerMode === 'simple' ? (
-          <SimplePlanner missingShares={simpleShares} materialsPanel={materialsPanel} materialsControls={goalFilter} levelsLocked={levelsLocked} clearControl={clearControl('simple')} operators={operators} selectedNames={selectedNames} states={builderStates} details={detailCache} bills={bills} combinedBill={combinedBill} selected={summaryName} onSelect={setSummaryName}
+          <SimplePlanner missingShares={simpleShares} materialsPanel={materialsPanel} levelsLocked={levelsLocked} clearControl={clearControl('simple')} operators={operators} selectedNames={selectedNames} states={builderStates} details={detailCache} bills={bills} combinedBill={combinedBill} selected={summaryName} onSelect={setSummaryName}
             onEdit={(name, step) => { setSimpleNewOperator(!selectedNames.includes(name)); addOperator(name); setSummaryName(name); setSimpleStep(step ?? (selectedNames.includes(name) || levelsLocked ? 'goal' : 'current')); setWizard({ flow: 'goal', step: 'one', queue: [name], index: 0, fromPick: false }); }}
             onRemove={removeOperator} onRetry={fetchOperatorDetail} failedNames={failedNames} />
         ) : (<>

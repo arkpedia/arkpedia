@@ -115,30 +115,6 @@
 .world-web-event-art { display: block; width: 100%; height: auto; aspect-ratio: 1200 / 630; object-fit: contain; background: var(--panel); margin-bottom: 6px; }
 .world-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); gap: 16px; margin-top: 16px; }
 .world-gallery img { max-width: 100%; height: auto; object-fit: contain; }
-
-.community-projects-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; align-items: stretch; }
-.community-project { display: flex; flex-direction: column; min-width: 0; padding: var(--card-inset); background: var(--panel); border-radius: var(--radius-frame); overflow: hidden; }
-.community-project-art { display: block; aspect-ratio: 16 / 10; overflow: hidden; border: 1px solid transparent; background-clip: padding-box; border-radius: var(--radius-frame); }
-.community-project-art:hover, .community-project-art:focus-visible { border-color: var(--teal); }
-.community-project-art > img { display: block; width: 100%; height: 100%; object-fit: cover; }
-.community-project-art-timo > img { padding: 16px; box-sizing: border-box; object-fit: contain; background: var(--panel-2); }
-.community-project-art-stronghold { display: grid; place-items: center; background: linear-gradient(135deg, var(--well), var(--panel-2)); }
-.community-project-game { display: flex; align-items: center; justify-content: center; gap: 16px; padding: 20px; color: var(--text-bright); font: 600 26px/1.2 var(--font-display); text-transform: uppercase; }
-.community-project-game-mark { flex: none; width: 48px; height: 48px; background: var(--text-bright); mask-size: contain; mask-repeat: no-repeat; mask-position: center; }
-.community-project-copy { display: flex; flex: 1; flex-direction: column; align-items: flex-start; gap: 12px; padding-top: 16px; }
-.community-project-copy > h2, .community-project-copy > p { margin: 0; }
-.community-project-copy > p { color: var(--text-dim); line-height: 1.6; }
-.community-project-platform { margin-top: auto; color: var(--text-dim); font: 12px var(--font-mono); overflow-wrap: anywhere; }
-.community-project-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-.community-project-actions > a { white-space: normal; text-align: center; }
-.community-project-desktop { position: relative; display: grid; place-items: center; width: 100%; height: 100%; background: linear-gradient(135deg, var(--panel-2), var(--teal-dim)); }
-.community-project-window { position: absolute; top: 12%; left: 12%; right: 12%; bottom: 18%; display: flex; align-items: flex-start; gap: 6px; padding: 12px; border: 1px solid var(--control-border); border-radius: var(--radius-frame); background: var(--well); }
-.community-project-window > span { width: 6px; height: 6px; border-radius: var(--radius); background: var(--text-faint); }
-.community-project-mark { position: relative; display: block; width: 36%; height: 48%; color: var(--teal); background: currentColor; mask-size: contain; mask-repeat: no-repeat; mask-position: center; }
-.community-project-dock { position: absolute; bottom: 8%; display: flex; gap: 8px; padding: 6px 12px; background: var(--panel); border-radius: var(--radius-frame); }
-.community-project-dock > span { width: 14px; height: 14px; background: var(--teal-dim); border: 1px solid var(--teal); border-radius: var(--radius); }
-@media (max-width: 1100px) { .community-projects-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 720px) { .community-projects-grid { grid-template-columns: minmax(0, 1fr); gap: 20px; } }
 /* Web Events: the site's server's campaigns (webEventServer), all in the markup and picked by the
    <html data-site-server> the boot script in _document sets before the first paint, Global when
    unset (as the home maintenance notice, front.css): the server is the reader's choice, which the

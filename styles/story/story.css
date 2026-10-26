@@ -2,12 +2,11 @@
 .story-link-grid { display: flex; flex-wrap: wrap; gap: 8px; }
 
 /* The story map (components/story/StoryMapView.tsx): the board in its own units, scaled as one. */
+.story-map-credit { margin: 0 0 12px; }
 .story-map-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-bottom: 12px; }
 .story-map-zoom { display: flex; gap: 6px; }
 .story-map-zoom-button { min-width: 36px; }
-.story-map-viewport { position: relative; contain: size; width: 100%; min-height: 320px; max-height: min(78vh, 900px); overflow: auto; scrollbar-gutter: stable; border: 1px solid var(--line-soft); border-radius: var(--radius-frame); background: var(--panel-dim); cursor: grab; overscroll-behavior: contain; }
-.story-section-heading { display: flex; align-items: center; gap: 8px; margin-bottom: var(--heading-gap); }
-.story-section-heading > h2 { margin: 0; }
+.story-map-viewport { position: relative; width: 100%; min-height: 320px; max-height: min(78vh, 900px); overflow: auto; border: 1px solid var(--line-soft); border-radius: var(--radius-frame); background: var(--panel-dim); cursor: grab; overscroll-behavior: contain; }
 .story-map-viewport.is-dragging { cursor: grabbing; user-select: none; }
 .story-map-sizer { position: relative; overflow: hidden; }
 .story-map-board { position: absolute; left: 0; top: 0; transform-origin: 0 0; font-family: var(--font-body); line-height: 1.25; }

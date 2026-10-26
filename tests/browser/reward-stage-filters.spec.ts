@@ -249,10 +249,6 @@ test('the Free rewards tab shows its welfare operators as the overview\'s cards,
   await expect(page.locator('.free-op-welfare')).not.toContainText('Botani');
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('arkpedia.past-rewards.v1')!).doneKeys)).toContain(welfareId);
   // To the pixel's rounding: a phone's fractional layout can land a box 1px either way.
-  // check() leaves the pointer over the card's 2px hover lift. Compare
-  // resting geometry on both sides of the claim, after that transition ends.
-  await page.mouse.move(0, 0);
-  await expect.poll(async () => (await place()).every((value, i) => Math.abs(value - before[i]) <= 1)).toBe(true);
   const after = await place();
   after.forEach((value, i) => expect(Math.abs(value - before[i]), `box ${i}: ${before[i]} -> ${value}`).toBeLessThanOrEqual(1));
   await botani.uncheck();
@@ -301,10 +297,7 @@ test('"All claimed" under the Unclaimed filter empties the welfare group without
   await page.getByRole('button', { name: 'All claimed', exact: true }).click();
   await expect(cards).toHaveCount(0);
   await page.waitForTimeout(300);
-  const after = await at();
-  expect(after.y).toBe(start.y);
-  // Rounded fractional positions can differ by one pixel while the document stays put.
-  expect(Math.abs(after.top - start.top)).toBeLessThanOrEqual(1);
+  expect(await at()).toEqual(start);
 });
 
 for (const theme of ['dark', 'light'] as const) for (const width of [390, 1440]) {

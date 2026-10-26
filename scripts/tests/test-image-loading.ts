@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import React, { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import ts from 'typescript';
-import ContentImage, { ApplicationImage, ApplicationArt, ContentImg } from '../../components/content/ContentImage';
+import ContentImage, { ApplicationImage, ContentImg } from '../../components/content/ContentImage';
 import { ContentContext } from '../../lib/content/context';
 import { assetUrl, encodeAssetPath } from '../../lib/assets/assetUrl';
 import ResponsiveSkinArtwork from '../../components/skins/ResponsiveSkinArtwork';
@@ -77,10 +77,6 @@ test('application artwork keeps its immutable code pin when page artwork uses an
   assert.equal(attr(images[1], 'src'), assetUrl(asset.repository, oldRevision, encodeAssetPath(asset.path)));
   assert.equal(attr(render(ApplicationImage, { ...props, asset, priority: true }), 'fetchpriority'), 'high');
   assert.throws(() => render(ApplicationImage, { ...props, asset: { ...asset, revision: 'main' } }), /immutable commit/);
-  const emblem = renderToStaticMarkup(createElement(ContentContext.Provider, { value: release }, createElement(ApplicationArt, { asset })));
-  assert.ok(emblem.includes(revision));
-  assert.ok(!emblem.includes(oldRevision));
-  assert.throws(() => render(ApplicationArt, { asset: { ...asset, revision: 'main' } }), /immutable commit/);
 });
 
 /** Every `priority` on an image in the source, by file: each a page's hero, and why. */

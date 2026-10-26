@@ -1,15 +1,12 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import type { GetStaticProps } from 'next';
 import Head from 'next/head';
 import dynamic from 'next/dynamic';
-import { useRouter } from 'next/router';
 import PageHeader from '@/components/ui/PageHeader';
+import DataDialog from '@/components/account/DataDialog';
 import ProfileCard from '@/components/account/ProfileCard';
 import PullHistory from '@/components/account/PullHistory';
 import CloudAccountPanel from '@/components/account/CloudAccountPanel';
-import Tabs, { tabPanelProps } from '@/components/ui/Tabs';
-import { useHeightFloor } from '@/components/ui/useHeightFloor';
-import { useAccountActions } from '@/components/account/AccountActions';
 import { useCloudSync } from '@/lib/cloud-account/SyncProvider';
 const FriendCollection = dynamic(() => import('@/components/friends/FriendCollection'), { ssr: false });
 import { makeFriendFile, shareableRoster } from '@/lib/account/friendFile';
@@ -24,6 +21,7 @@ import { assistantCatalogue, type CardOutfit } from '@/lib/account/portraits';
 import { SERVER_IDS, SERVERS } from '@/lib/account-import/yostar';
 import SegmentedControl from '@/components/ui/SegmentedControl';
 // The eyebrow names Rhodes Island's AI as the reader's story has it: PRTS, ZOOT after Episode 15.
+import { storyAI } from '@/lib/account/prts';
 
 /*
  * The reader's Arknights account (issue #94): what it holds, and Import / export
@@ -53,10 +51,7 @@ function age(iso: string, now: number): string {
 }
 
 export default function AccountPage({ skins, operators }: Props) {
-  const router = useRouter();
-  const actions = useAccountActions();
   const account = useAccount();
-  const floor = useHeightFloor(account?.server);
   const { remote } = useCloudSync();
   const settingUp = !!remote && !remote.profile;
   // The other servers imported on this browser: a switch between them, once there is one.
@@ -65,15 +60,9 @@ export default function AccountPage({ skins, operators }: Props) {
   // The planners hold the operators and depot of the latest import, whichever server is shown.
   const latest = account ? [account, ...Object.values(others)].reduce((a, b) => (b.importedAt > a.importedAt ? b : a)) : null;
   const map = useReleaseTable<GameAccountMap>('game-account-map');
-  const panel = !router.query.settings && !router.query.confirm && typeof router.query.panel === 'string' ? router.query.panel : '';
-  const openPanel = (value: string) => {
-    const query: typeof router.query = { ...router.query, panel: value };
-    delete query.settings; delete query.confirm;
-    void router.push({ pathname: '/account', query }, undefined, { shallow: true, scroll: false });
-  };
-  const closePanel = () => { const query = { ...router.query }; delete query.panel; void router.replace({ pathname: '/account', query }, undefined, { shallow: true, scroll: false }); };
-  const tab = panel === 'pulls' || panel === 'operators' || panel === 'skins' ? panel : 'profile';
-  const view = panel === 'operators' || panel === 'skins' ? panel : null;
+  const [importing, setImporting] = useState(false);
+  const [dataView, setDataView] = useState<'game' | 'backups' | 'browser'>('game');
+  const [view, setView] = useState<'operators' | 'skins' | null>(null);
   const collectionOperators = useMemo(() => operators ?? friendOperators(map, []), [operators, map]);
   const collectionSkins = useMemo(() => skins.map(skin => ({ ...skin, model: skin.model ?? null, series: skin.series ?? '' })), [skins]);
 
@@ -91,24 +80,19 @@ export default function AccountPage({ skins, operators }: Props) {
         <meta name="robots" content="noindex" />
       </Head>
 
-      <PageHeader eyebrow="Rhodes Island // Account" title="My Account"
+      <PageHeader eyebrow={`${storyAI(account)} // Account`} title="My Account"
         sub="Your Arkpedia profile, cloud saves and imported Arknights accounts."
-        actions={<><button type="button" className="ghost btn-sm" aria-haspopup="dialog" onClick={() => actions.open('import')}>Import / export</button><button type="button" className="ghost btn-sm" aria-haspopup="dialog" onClick={() => actions.open('settings')}>Account settings</button></>} />
+        actions={<button type="button" className="ghost btn-sm" aria-haspopup="dialog" onClick={() => { setDataView('game'); setImporting(true); }}>Import / export</button>} />
 
       <main>
-        <CloudAccountPanel hideSettingsButton onOpenSettings={() => actions.open('settings')} onOpenData={() => actions.open('import')} />
-        <Tabs id="account-content" label="Account content" value={tab} onChange={openPanel} options={[
-          { value: 'profile', label: 'Profile' }, { value: 'pulls', label: 'Pull history' }, { value: 'operators', label: 'Operators' }, { value: 'skins', label: 'Skins' },
-        ]} />
-        <div ref={floor.ref} {...tabPanelProps('account-content', tab)} className="account-tab-content">
-        {tab === 'pulls' && <PullHistory key={account ? `${account.server}:${account.importedAt}` : 'empty'} account={account} map={map} />}
-        {view && (account ? <FriendCollection key={view} inline own friend={makeFriendFile(account, shareableRoster(account, Object.values(others), readRoster()))} operators={collectionOperators} skins={collectionSkins} view={view} onClose={closePanel} /> : <p className="hint">Import your Arknights account to see your {view}.</p>)}
-        {tab === 'profile' && !settingUp && <>
+        <CloudAccountPanel onOpenData={() => { setDataView('browser'); setImporting(true); }} />
+        {!settingUp && <>
         {/* Drawn the same with or without an account, so the record arriving after
             hydration fills it in rather than moving everything below. */}
         {/* Drawn the same with or without an account until it arrives: the profile then
             replaces the placeholder of the same height (the Anti-Page Jump rule). */}
         <section className="op-section">
+          <h2>Imported Arknights account</h2>
           {account && servers.length > 1 && (
             <SegmentedControl label="Server" className="account-server" value={account.server} onChange={showAccount}
               options={servers.map((id) => ({ value: id, label: SERVERS[id].label }))} />
@@ -116,7 +100,7 @@ export default function AccountPage({ skins, operators }: Props) {
           {account && latest && latest.server !== account.server && (
             <p className="hint">The Operator Planner keeps the operators and depot of your latest import, the {SERVERS[latest.server].label} account.</p>
           )}
-          {account ? <ProfileCard account={account} map={map} outfits={ownedSkins ?? account.skins.length} outfitArt={outfitArt} outfitNames={outfitNames} collectionOwner="self" onOperators={() => openPanel('operators')} onSkins={() => openPanel('skins')} /> : (
+          {account ? <ProfileCard account={account} map={map} outfits={ownedSkins ?? account.skins.length} outfitArt={outfitArt} outfitNames={outfitNames} collectionOwner="self" onOperators={() => setView('operators')} onSkins={() => setView('skins')} /> : (
             <div className="account-card account-card-empty">
               <p className="hint">No account imported yet: use Import / export above.</p>
             </div>
@@ -128,10 +112,15 @@ export default function AccountPage({ skins, operators }: Props) {
           )}
         </section>
 
+        <section className="op-section">
+          <h2>Pull History</h2>
+          <PullHistory key={account ? `${account.server}:${account.importedAt}` : 'empty'} account={account} map={map} />
+        </section>
         </>}
-        {floor.spacer}</div>
       </main>
 
+      {account && view && <FriendCollection own friend={makeFriendFile(account, shareableRoster(account, Object.values(others), readRoster()))} operators={collectionOperators} skins={collectionSkins} view={view} onClose={() => setView(null)} />}
+      {importing && <DataDialog initialView={dataView} onClose={() => setImporting(false)} />}
     </>
   );
 }

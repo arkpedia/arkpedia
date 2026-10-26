@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/router';
 import { useContentUrl } from '@/lib/content/context';
 import { loadMusicCatalogue, MUSIC_CATALOGUE_PATH, type MusicCatalogueSong } from '@/lib/music/musicCatalogue';
 import { useMusicPlayer } from '@/lib/music/musicPlayerContext';
@@ -37,7 +36,6 @@ function LibraryRow({ song }: { song: MusicCatalogueSong }) {
  * stays mounted, hidden, so its search and scroll survive a trip to the queue and back).
  */
 export default function MusicLibrary({ shown }: { shown: boolean }) {
-  const router = useRouter();
   const contentUrl = useContentUrl();
   const { excludeCopyrighted, includeEndfield, favorites } = useMusicPlayer();
   const [songs, setSongs] = useState<MusicCatalogueSong[] | null>(null);
@@ -45,11 +43,7 @@ export default function MusicLibrary({ shown }: { shown: boolean }) {
   const [attempt, setAttempt] = useState(0);
   const [visible, setVisible] = useState(50);
   const [search, setSearch] = useState('');
-  const scope = router.query.scope === 'favorites' ? 'favorites' : 'all';
-  function setScope(value: 'all' | 'favorites') {
-    const query = { ...router.query, view: 'library', scope: value === 'favorites' ? 'favorites' : undefined };
-    void router.push({ pathname: '/music', query }, undefined, { shallow: true, scroll: false });
-  }
+  const [scope, setScope] = useState<'all' | 'favorites'>('all');
   const url = contentUrl(MUSIC_CATALOGUE_PATH);
   const [requested, setRequested] = useState(false);
   useEffect(() => { if (shown) setRequested(true); }, [shown]);
@@ -73,11 +67,10 @@ export default function MusicLibrary({ shown }: { shown: boolean }) {
   // Endfield songs the search found while Endfield music is off: said, with a way to include them.
   const hiddenEndfield = search.trim() ? found.length - matches.length : 0;
   useEffect(() => { setVisible(50); }, [search, excludeCopyrighted, includeEndfield, scope]);
-  const total = songs ? songs.filter(song => songAllowed({ excludeCopyrighted, includeEndfield }, song)
-    && (scope === 'all' || favorites.has(song.id))).length : null;
+  const total = songs ? songs.filter(song => songAllowed({ excludeCopyrighted, includeEndfield }, song)).length : null;
   return <section className="music-queue-panel music-library" aria-labelledby="music-library-heading">
     <div className="music-song-list-heading">
-      <h2 className="section-title" id="music-library-heading">{scope === 'favorites' ? 'Favourites' : 'Library'}{total !== null && <span className="music-heading-count"> · {total} {total === 1 ? 'song' : 'songs'}</span>}</h2>
+      <h2 className="section-title" id="music-library-heading">Library{total !== null && <span className="music-heading-count"> · {total} songs</span>}</h2>
       <SegmentedControl label="Library songs" value={scope} onChange={setScope}
         options={[{ value: 'all', label: 'All songs' }, { value: 'favorites', label: 'Favourites' }]} />
     </div>

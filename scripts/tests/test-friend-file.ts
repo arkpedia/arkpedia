@@ -54,13 +54,3 @@ test('per-server snapshots and optional potential survive account and roster sto
   assert.deepEqual(parseAccount(JSON.stringify({...account,operatorBuilds:roster}))?.operatorBuilds,roster);
   assert.equal(parseRosterExport(JSON.stringify(roster))?.Angelina.potential,6);
 });
-
-
-test('friend export keeps only the Main Theme milestone and excludes unrelated private data', () => {
-  const source = { ...account, cleared: ['main_01-01', 'main_14-01', 'act99_01'], annihilation: ['camp_1'], pulls: { rows: [], pools: {}, names: {}, readAt: null, error: null } };
-  const shared = makeFriendFile(source, roster);
-  assert.deepEqual(shared.account.cleared, ['main_14-01']);
-  assert.equal(shared.account.annihilation, undefined);
-  assert.equal(shared.account.pulls, undefined);
-  assert.equal(shared.account.wallet, undefined);
-});

@@ -3,11 +3,6 @@
 Planning date: 2026-10-24. This is the target and migration backlog, not a claim that
 the current deployment already works this way. Read alongside [current architecture](../architecture.md).
 
-The maintainer's next product-design work is tracked in the
-[navigation and account redesign plan](navigation-account-redesign-plan.md).
-This infrastructure backlog and its completed evidence remain preserved; redesign
-work does not implicitly activate R2, retire branches or move the public domain.
-
 ## Decisions agreed with the maintainer
 
 - One application codebase on `main`, with short-lived feature branches and Cloudflare

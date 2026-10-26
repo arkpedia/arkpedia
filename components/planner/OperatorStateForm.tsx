@@ -1,5 +1,4 @@
 import { PromotionIcon } from "./PromotionIcon";
-import OperatorGameIcon from '@/components/operators/OperatorGameIcon';
 import Image from '@/components/content/ContentImage';
 import { useState } from 'react';
 import { LEVEL_CAPS, maxEliteForRarity, maxLevelForElite, maxSkillRankForElite, moduleUnlock } from '@/lib/planner/plannerLogic';
@@ -234,13 +233,11 @@ export function OperatorStateForm({
                       type="button"
                       key={m}
                       className="filter-chip state-pip"
-                      aria-label={`M${m}`}
-                      title={`${label}: Mastery ${m}`}
                       aria-pressed={current === m}
                       disabled={!masteryOpen || m < floor}
                       onClick={() => onMastery(i, current === m ? floor : m)}
                     >
-                      <OperatorGameIcon label={`M${m}`} size={24} color />
+                      M{m}
                     </button>
                   ))}
                 </span>

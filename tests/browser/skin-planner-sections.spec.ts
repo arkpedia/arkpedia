@@ -12,14 +12,7 @@ for (const fashion of [false, true]) {
     await expect.poll(() => cards.count()).toBeGreaterThan(12);
     // Pick a card well beyond the observer's preload distance. Its frame and text
     // exist, while neither the image element nor its download has started.
-    await cards.evaluateAll(nodes => {
-      const distant = nodes.find(node => node.getBoundingClientRect().top > innerHeight + 1000 && !node.querySelector('.skin-plan-art img'));
-      if (!distant) throw new Error('No card beyond the viewport and preload distance');
-      // Previously visible artwork stays loaded when switching shop filters.
-      // Keep an unvisited node stable when earlier sections append another batch.
-      distant.setAttribute('data-lazy-artwork-probe', 'true');
-    });
-    const distant = page.locator('[data-lazy-artwork-probe]');
+    const distant = cards.nth(11);
     await expect(distant.locator('.skin-plan-art img')).toHaveCount(0);
     await page.evaluate(() => document.fonts.ready);
     await expect.poll(() => cards.first().locator('.skin-plan-art img').evaluate(image => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);

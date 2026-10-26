@@ -98,7 +98,7 @@ function PullIcon({ item }: { item: PulledItem }) {
 function PullTile({ item, onSelect, className = '', label }: { item: PulledItem; onSelect: (item: PulledItem) => void; className?: string; label?: string }) {
   const accessibleName = `${label ? `${label}: ` : ''}${item.name}, ${item.rarity} stars${item.isBonus ? ', bonus guarantee' : ''}`;
   return (
-    <button type="button" data-rarity={item.rarity} className={`gacha-pull-tile rarity-frame ${rarityClass(item.rarity)} ${className}`} onClick={() => onSelect(item)} aria-label={accessibleName} title={accessibleName}>
+    <button type="button" className={`gacha-pull-tile ${rarityClass(item.rarity)} ${className}`} onClick={() => onSelect(item)} aria-label={accessibleName} title={accessibleName}>
       <PullIcon item={item} />
     </button>
   );
@@ -2133,7 +2133,7 @@ export default function GachaSimulator({ pools, banners: globalBanners, kernelLo
                         const slideDirection = lastPulls.length === 1 || i % 2 === 0 ? 'gacha-pull-slide-bottom' : 'gacha-pull-slide-top';
                         return <PullTile key={`${state.pullCount}-${i}`} item={item} onSelect={setPreviewedPull} className={slideDirection} />;
                       })
-                      : Array.from({ length: 10 }, (_, i) => <span key={i} className="gacha-pull-tile rarity-frame gacha-pull-tile-empty" aria-hidden="true" />)}
+                      : Array.from({ length: 10 }, (_, i) => <span key={i} className="gacha-pull-tile gacha-pull-tile-empty" aria-hidden="true" />)}
                   </div>
                   {lastPulls.length === 0 && <p className="visually-hidden">No pulls yet.</p>}
                 </section>

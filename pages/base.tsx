@@ -70,7 +70,7 @@ import { BaseOperator, BaseSkill } from '@/lib/operators/operatorTypes';
 import { readRoster, ROSTER_EVENT } from '@/lib/planner/roster';
 import { GetStaticProps } from 'next';
 import Head from 'next/head';
-import DataLink from '@/components/account/DataLink';
+import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 
@@ -1201,6 +1201,7 @@ export default function BasePage({ operators }: Props) {
       <>
         <div>
           <PageHeader
+            slim
             eyebrow="Rhodes Island // Base Layout"
             title={editingExistingLayout ? 'Edit Base Layout' : 'Base Formation'}
             sub={editingExistingLayout
@@ -1414,6 +1415,7 @@ export default function BasePage({ operators }: Props) {
 
       <div>
       <PageHeader
+        slim
         eyebrow="Rhodes Island // Base Layout"
         title="Base"
         sub="Staff your rooms, compare setups and plan the next shift."
@@ -1543,7 +1545,7 @@ export default function BasePage({ operators }: Props) {
           <section className="base-empty-message" aria-label="Imported base unavailable">
             <h2>{account ? 'Import your base snapshot' : 'Import an account to view your base'}</h2>
             <p>{account ? 'This account was imported before base rooms were saved, or its export did not include building data. Import it again to include rooms, staffing and Morale.' : 'Import your game account to see its rooms, staffing and Morale here.'}</p>
-            <DataLink />
+            <Link className="primary" href="/account">Open account import</Link>
           </section>
         ) : <div className={`base-command-workspace${roomPanelFacilityId || snapshotRoom ? ' has-room' : ''}${baseSource === 'planner' && roomPanelFacilityId ? ' is-staffing' : ''}`}>
           <BaseOverview loginInterval={loginInterval} facilities={FACILITIES} assignments={assignments} operators={operators} summaries={roomSummaries} selected={baseSource === 'account' ? snapshotRoom : roomPanelFacilityId} readOnly={baseSource === 'account'} onSelect={id => { if (baseSource === 'account') setSnapshotRoom(id); else { setBreakdownFacilityId(null); setSearch(''); openRoomPanel(id); } }} />

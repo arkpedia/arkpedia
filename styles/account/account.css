@@ -2,10 +2,6 @@
    style's art in both themes, so its plates are dark and its text is the scrim ink. */
 .account-card { position: relative; display: grid; grid-template-columns: minmax(200px, 1.13fr) minmax(0, 1fr); gap: 20px; min-height: 420px; padding: 20px; overflow: hidden; border: 1px solid var(--line-soft); border-radius: var(--radius-frame); background: var(--panel); color: var(--scrim-ink); }
 .account-card-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; }
-/* Compact friend cards keep the imported name-card art in both site themes. */
-.profile-strip { --text-dim: var(--scrim-ink); --text-faint: var(--scrim-ink); --control-border: var(--scrim-control-border); --teal: var(--scrim-teal); position: relative; isolation: isolate; overflow: hidden; color: var(--scrim-ink); }
-.profile-strip-background { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center; z-index: -2; }
-.profile-strip::before { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; background: linear-gradient(90deg, rgba(0, 0, 0, .3), rgba(0, 0, 0, .05) 60%, rgba(0, 0, 0, .4)); }
 /* The game's 16:9, as a floor rather than the card's own aspect-ratio: with overflow hidden that
    fixes the height and cuts off whatever the columns hold below it. This empty item spans the
    row, so the row is 16:9 or as tall as its columns, whichever is more. */
@@ -230,26 +226,22 @@
 .account-pulls-stats dd { margin: 0; font-family: var(--font-display); font-size: 22px; font-weight: 700; line-height: 1.1; white-space: nowrap; }
 .account-pulls-stats small { color: var(--text-dim); font-family: var(--font-mono); font-size: 12px; font-weight: 500; }
 .account-pulls-banners,
-.account-pulls-sessions { display: flex; flex-direction: column; gap: 12px; margin: 0; padding: 0; list-style: none; }
+.account-pulls-sessions { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
 .account-pulls-banner,
-.account-pulls-session { display: flex; flex-direction: column; gap: 12px; padding: 16px; }
+.account-pulls-session { display: flex; flex-direction: column; gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--line-soft); }
 .account-pulls-banner-head,
-.account-pulls-session-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 16px; }
-.account-pulls-banner-name { flex: 1 1 240px; font-weight: 600; }
-.account-pulls-banner-meta { flex: 1 1 240px; }
+.account-pulls-session-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; }
+.account-pulls-banner-name { font-weight: 600; }
 .account-pulls-banner-meta { color: var(--text-dim); font-size: 13px; }
 .account-pulls-session-head time { font-family: var(--font-mono); font-size: 13px; }
-.account-pulls-ops { display: flex; flex-wrap: wrap; gap: 8px; }
+.account-pulls-ops { display: flex; flex-wrap: wrap; gap: 4px; }
 /* "Every pull" with Export CSV beside it: the heading keeps its own top margin, on the row. */
 .account-pulls-list-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; margin: 14px 0 6px; }
 .account-pulls-list-head h3 { margin: 0; }
-.account-pulls-op { flex: none; line-height: 0; }
+.account-pulls-op { display: block; line-height: 0; }
 .account-pulls-op img { display: block; border-radius: var(--radius); background: var(--panel-2); }
 @media (max-width: 720px) {
   .account-pulls-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .account-pulls-op img { width: 48px; height: 48px; }
-  .account-pulls-banner, .account-pulls-session { padding: 12px; }
+  /* A ten-pull on one line at 390: ten 30px icons and their gaps. */
+  .account-pulls-session .account-pulls-op img { width: 30px; height: 30px; }
 }
-
-.account-pulls-storage { display: inline-flex; align-items: center; gap: 4px; vertical-align: middle; white-space: nowrap; }
-.account-pulls-storage > button { width: var(--control-h); min-height: var(--control-h); padding: 0; border: 0; background: transparent; }

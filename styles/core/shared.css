@@ -167,7 +167,7 @@
      spans --frame-max less two gutters, so 224-1216 at 1440 and 24-366 at 390.
      One gutter at every width -- per-feature gutters (16, 12, 10px) are what made
      pages stop lining up with the nav on phones. */
-  --frame-max: 1320px;
+  --frame-max: 1040px;
   --page-gutter: 24px;
 
   /* ONE CONTROL HEIGHT (ui-primitives rule 4). Every control in a row -- a chip, a
@@ -566,31 +566,19 @@ div.page-header-sticky-actions { box-sizing: border-box; max-width: var(--frame-
    invisible. Teal both ways: on a wiki a link you have followed is not less of a link.
    .eyebrow a below says the same thing for the breadcrumb. */
 .sub a,
-.hint a,
-.info-popover-copy a,
-.reading-copy a,
-.account-dialog-body p a {
+.hint a {
   color: var(--teal);
 }
 .sub a:visited,
-.hint a:visited,
-.info-popover-copy a:visited,
-.reading-copy a:visited,
-.account-dialog-body p a:visited {
+.hint a:visited {
   color: var(--teal);
 }
 .sub a:hover,
-.hint a:hover,
-.info-popover-copy a:hover,
-.reading-copy a:hover,
-.account-dialog-body p a:hover {
+.hint a:hover {
   color: #6FF0DC;
 }
 :root[data-theme="light"] .sub a:hover,
-:root[data-theme="light"] .hint a:hover,
-:root[data-theme="light"] .info-popover-copy a:hover,
-:root[data-theme="light"] .reading-copy a:hover,
-:root[data-theme="light"] .account-dialog-body p a:hover {
+:root[data-theme="light"] .hint a:hover {
   color: #0A7D6B;
 }
 

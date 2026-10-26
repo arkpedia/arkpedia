@@ -63,25 +63,3 @@
   .skinGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
   .skin > span:first-child { height: 190px; }
 }
-
-.inline .collection { max-height: none; overflow: visible; padding-inline: 0; }
-.inline .filters { padding-inline: 0; }
-
-.friendList { display: grid; gap: 14px; }
-.friendRow { display: flex; align-items: center; gap: 20px; padding: 16px; }
-.friendSummary { display: flex; align-items: center; gap: 18px; flex: 1; min-width: 0; text-align: left; color: inherit; }
-.friendAvatar { width: 76px; height: 76px; object-fit: contain; flex: none; }
-.friendIdentity { display: grid; gap: 6px; flex: 1; min-width: 0; overflow-wrap: anywhere; }
-.friendSupports { display: flex; gap: 8px; width: 240px; flex: none; }
-.friendSupports :global(.account-card-support) { flex-basis: 74px; }
-.friendRow .actions button { display: inline-flex; align-items: center; gap: 8px; }
-.profileDialog { --dialog-w: 1100px; }
-@media (max-width: 900px) {
-  .friendRow { flex-wrap: wrap; gap: 14px; }
-  .friendSummary { flex-basis: 100%; flex-wrap: wrap; }
-  .friendSupports { width: 210px; }
-}
-@media (max-width: 480px) {
-  .friendAvatar { width: 60px; height: 60px; }
-  .friendSupports { width: min(210px, calc(100% - 78px)); margin-left: 78px; }
-}

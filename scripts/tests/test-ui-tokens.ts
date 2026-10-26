@@ -251,7 +251,7 @@ test('the theme-color meta matches --bg in each theme', () => {
 
 test('the page frame tokens exist, and the nav, header and main all use them', () => {
   assert.equal(dark.tokens.get('--page-gutter'), '24px');
-  assert.equal(dark.tokens.get('--frame-max'), '1320px');
+  assert.equal(dark.tokens.get('--frame-max'), '1040px');
   assert.ok(!lightOnly.tokens.has('--page-gutter') && !lightOnly.tokens.has('--frame-max'), 'the frame is not a theme property');
   const nav = fs.readFileSync(path.join(process.cwd(), 'styles/core/nav.css'), 'utf8');
   assert.match(nav, /\.site-nav-inner \{[^}]*max-width: var\(--frame-max\);[^}]*padding: 10px var\(--page-gutter\);/);

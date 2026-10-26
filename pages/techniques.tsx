@@ -1,6 +1,7 @@
 import { withContentPage } from '@/lib/content/server';
 import { GetStaticProps } from 'next';
 import Head from 'next/head';
+import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useEffect, useMemo, useState } from 'react';
 import PageHeader from '@/components/ui/PageHeader';
@@ -130,7 +131,7 @@ export default function TechniquesPage({ groups, branchClasses }: Props) {
     <>
       <Head><title>Techniques — Arkpedia</title></Head>
       <PageHeader stickyActions
-        eyebrow="Rhodes Island // Skill effects"
+        eyebrow={<><Link prefetch={false} href="/operators">Operators</Link>{' // Skill effects'}</>}
         title="Techniques"
         sub={<>
           {groups.length} techniques across {totalOperators} operators&apos; skills, talents, traits and modules. Pick one

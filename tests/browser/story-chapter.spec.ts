@@ -1,9 +1,5 @@
 import { expect, test } from '@playwright/test';
 
-test.beforeEach(async ({ page }) => {
-  await page.addInitScript(() => localStorage.setItem('arkpedia:privacy:v1', JSON.stringify({ version: 1, analytics: false, externalMedia: false, savedAt: Date.now() })));
-});
-
 /*
  * The story map's chapter pop-up (components/story/ChapterDialog.tsx): the chapter's cover whole,
  * at its own shape, centred on a line of its own, with the chapter's line under it (2026-10-06:

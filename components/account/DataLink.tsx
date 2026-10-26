@@ -1,11 +1,13 @@
-import { useAccountActions } from './AccountActions';
+import Link from 'next/link';
 
 /*
- * The shared account import/export dialog opens over its caller, preserving its view and scroll.
+ * Where the reader's data comes in and goes out: Import / export lives on the Account page
+ * only (components/account/DataDialog), and the pages that read it point there. Every page
+ * reads the same browser storage, so a file or game import there shows up here on the next
+ * visit.
  */
 export default function DataLink() {
-  const actions = useAccountActions();
   return (
-    <button type="button" className="ghost btn-sm data-link" aria-haspopup="dialog" onClick={() => actions.open('import')}>Import / export</button>
+    <Link prefetch={false} href="/account" className="btn btn-sm ghost data-link">Import or back up your data →</Link>
   );
 }

@@ -39,9 +39,6 @@ import '@/styles/core/shared.css';
    with its own bespoke rule. */
 import '@/styles/core/arkpedia-theme.css';
 import '@/styles/core/nav.css';
-import '@/styles/core/account-navigation.css';
-import '@/styles/core/information.css';
-import '@/styles/core/music-workspace.css';
 import '@/styles/search/search.css';
 import '@/styles/ui/ticker.css';
 import '@/styles/base/base.css';
@@ -80,7 +77,6 @@ import '@/styles/account/account.css';
    the primitives and cards above already declare, which it restates with its own. */
 import '@/styles/core/motion.css';
 import SiteNav from '@/components/layout/Sitenav';
-import AccountActions from '@/components/account/AccountActions';
 import MusicPlayer from '@/components/music/MusicPlayer';
 import RoamingChibiProvider from '@/components/operators/RoamingChibiProvider';
 import { MusicPlayerProvider } from '@/lib/music/musicPlayerContext';
@@ -93,14 +89,10 @@ import { watchBrowserDataReset } from '@/lib/account/resetData';
 import { useRouter } from 'next/router';
 import { recordPage } from '@/lib/nav/pageTrail';
 import { watchScrollRestoration } from '@/lib/nav/scrollRestoration';
-import { watchPrivacyWithdrawal } from '@/lib/privacy/preferences';
-import ExternalMediaPrompt from '@/components/privacy/ExternalMediaPrompt';
-import StatisticsPrompt from '@/components/privacy/StatisticsPrompt';
 import SiteAnalytics from '@/components/layout/SiteAnalytics';
 import { CloudSyncProvider } from '@/lib/cloud-account/SyncProvider';
 
 export default function App({ Component, pageProps }: AppProps) {
-  useEffect(() => watchPrivacyWithdrawal(), []);
   const [cloudRestoreVersion, setCloudRestoreVersion] = useState(0);
   const [resetting, setResetting] = useState(false);
   useEffect(() => watchBrowserDataReset(() => flushSync(() => setResetting(true))), []);
@@ -134,7 +126,6 @@ export default function App({ Component, pageProps }: AppProps) {
     <CloudSyncProvider onRestore={() => setCloudRestoreVersion(version => version + 1)}>
     <MusicPlayerProvider>
     <RoamingChibiProvider>
-    <AccountActions>
       {/* Next injects a bare `width=device-width` on its own, with no
           initial-scale. That is the pair iOS Safari reads together when it
           decides the scale to restore after a rotation, and without the second
@@ -198,10 +189,7 @@ export default function App({ Component, pageProps }: AppProps) {
         <Component key={cloudRestoreVersion} {...pageProps} />
       </div>
       {!hideSiteChrome && <MusicPlayer />}
-      <ExternalMediaPrompt />
-      <StatisticsPrompt />
       {process.env.ARKPEDIA_WEB_ANALYTICS === '1' && <SiteAnalytics />}
-    </AccountActions>
     </RoamingChibiProvider>
     </MusicPlayerProvider>
     </CloudSyncProvider>

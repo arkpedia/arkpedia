@@ -3,7 +3,7 @@ import Image from '@/components/content/ContentImage';
 import { THEME_COLOR } from '@/lib/nav/themeColor';
 import { CLOUD_RESTORED_EVENT } from '@/lib/cloud-account/events';
 
-export default function ThemeToggle({ menu = false }: { menu?: boolean }) {
+export default function ThemeToggle() {
   const [theme, setTheme] = useState<'dark' | 'light' | null>(null);
 
   useEffect(() => {
@@ -36,12 +36,12 @@ export default function ThemeToggle({ menu = false }: { menu?: boolean }) {
   // Avoid a server/client mismatch -- render nothing until mounted,
   // since the real theme can only be known client-side. Disabled so the
   // placeholder isn't a dead control in the tab order for that moment.
-  if (!theme) return <button type="button" className={menu ? 'theme-toggle theme-toggle-menu btn-bare site-nav-popitem' : 'theme-toggle'} aria-label="Toggle theme" disabled />;
+  if (!theme) return <button type="button" className="theme-toggle" aria-label="Toggle theme" disabled />;
 
   return (
     <button
       type="button"
-      className={menu ? 'theme-toggle theme-toggle-menu btn-bare site-nav-popitem' : 'theme-toggle'}
+      className="theme-toggle"
       onClick={toggle}
       aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
       title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
@@ -49,7 +49,6 @@ export default function ThemeToggle({ menu = false }: { menu?: boolean }) {
       {/* Decorative -- the button's aria-label already names the action, and a
           second name from alt made screen readers announce it twice. */}
       <Image src="/six-star-icons/Suzuran - Base.webp" alt="" width={22} height={22} />
-      {menu && <span>{theme === 'light' ? 'Light mode' : 'Dark mode'}</span>}
     </button>
   );
 }

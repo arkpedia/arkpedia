@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import LoadOnScroll from '@/components/ui/LoadOnScroll';
 import RecordDialog from '@/components/ui/RecordDialog';
 import StyledSelect from '@/components/ui/StyledSelect';
@@ -9,8 +8,6 @@ import { MUSIC_FAVORITES_EVENT, MUSIC_FAVORITES_KEY } from '@/lib/music/musicFav
 import { formatPlaylistFile, MAX_PLAYLIST_BYTES, mergePlaylists, MUSIC_PLAYLISTS_EVENT, MUSIC_PLAYLISTS_KEY, readPlaylists, validatePlaylists, writePlaylists, initializeFavoritesPlaylist, FAVORITES_PLAYLIST_ID, isFavoritesPlaylistName, type MusicPlaylist } from '@/lib/music/musicPlaylists';
 import { parseMusicData } from '@/lib/music/musicData';
 import SongRow from './SongRow';
-import TransportIcon from './TransportIcons';
-import InfoPopover from '@/components/ui/InfoPopover';
 
 export default function MusicPlaylists({ songs }: { songs: { videoId: string; title: string }[] }) {
   const player = useMusicPlayer();
@@ -101,25 +98,17 @@ export default function MusicPlaylists({ songs }: { songs: { videoId: string; ti
     setNote(all ? 'Exported all playlists.' : `Exported ${chosen?.name}.`);
   }
   return <>
-    <button ref={trigger} type="button" className="music-workspace-link" onClick={() => setOpen(true)}><TransportIcon name="list" />Playlists</button>
-    <div className="music-playlist-shortcuts">
-      {playlists.filter(playlist => playlist.id !== FAVORITES_PLAYLIST_ID).slice(0, 6).map(playlist => (
-        <button key={playlist.id} type="button" className="music-workspace-link" title={playlist.name}
-          onClick={() => { setSelected(playlist.id); setVisible(50); setOpen(true); }}>
-          <TransportIcon name="note" /><span>{playlist.name}</span>
-        </button>
-      ))}
-    </div>
-    {open && createPortal(<RecordDialog label="Music playlists" onClose={close} className="music-playlists-dialog">
+    <button ref={trigger} type="button" className="ghost btn-sm" onClick={() => setOpen(true)}>Playlists</button>
+    {open && <RecordDialog label="Music playlists" onClose={close} className="music-playlists-dialog">
       <h2 className="section-title">Playlists</h2>
       <div className="music-playlists-toolbar">
         <button type="button" className="ghost btn-sm" disabled={busy} onClick={() => file.current?.click()}>Import playlists</button>
-        <InfoPopover label="About playlist imports"><p>Import Arkpedia playlist files; existing playlists are kept.</p></InfoPopover>
         <button type="button" className="ghost btn-sm" disabled={!playlists.length || busy} onClick={() => exportFile(true)}>Export all</button>
         <button type="button" className="ghost btn-sm" disabled={!player.ready || busy} onClick={() => void play(true)}>Play all songs</button>
         {undo && <button type="button" className="ghost btn-sm" disabled={busy} onClick={() => { const previous = undo; if (store(previous, 'Undid the last playlist change.')) setUndo(null); }}>Undo</button>}
         <input ref={file} type="file" accept=".json,application/json" hidden onChange={e => void importFile(e.target.files?.[0])} />
       </div>
+      <p className="hint">Import Arkpedia playlist files; existing playlists are kept.</p>
       <div className="music-playlists-toolbar">
         <input type="text" aria-label="New playlist name" placeholder="Playlist name…" maxLength={100} value={name} onChange={e => setName(e.target.value)} />
         <button type="button" className="ghost btn-sm" disabled={!order.length || busy} onClick={() => create(false)}>Save queue</button>
@@ -153,6 +142,6 @@ export default function MusicPlaylists({ songs }: { songs: { videoId: string; ti
         <LoadOnScroll shown={visible} total={chosen.tracks.length} onMore={() => setVisible(n => n + 50)} /></div>
       </> : <p className="hint">Save your queue or favorites to create a playlist.</p>}
       <p className="music-playlist-status hint" role="status">{note || '\u00a0'}</p>
-    </RecordDialog>, document.body)}
+    </RecordDialog>}
   </>;
 }

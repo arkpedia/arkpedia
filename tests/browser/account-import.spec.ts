@@ -441,16 +441,11 @@ test('browser clearing resets other open tabs and does not restore their playing
   const dialog = await openImport(page);
   await dialog.getByRole('tab', { name: 'Browser data', exact: true }).click();
   await dialog.getByRole('button', { name: 'Clear browser data', exact: true }).click();
-  await markDocument(page);
-  await page.getByRole('dialog', { name: 'Clear this browser?', exact: true }).getByRole('button', { name: 'Clear browser data', exact: true }).click();
-  // Observe the resulting documents instead of the first provisional navigation:
-  // cross-tab storage resets can supersede an in-flight navigation.
-  for (const tab of [page, other]) {
-    await expect.poll(async () => {
-      try { return !(await sameDocument(tab)) && await tab.evaluate(() => document.readyState !== 'loading'); }
-      catch { return false; } // The old execution context is being retired.
-    }).toBe(true);
-  }
+  await Promise.all([
+    page.waitForNavigation({ waitUntil: 'domcontentloaded' }),
+    other.waitForNavigation({ waitUntil: 'domcontentloaded' }),
+    page.getByRole('dialog', { name: 'Clear this browser?', exact: true }).getByRole('button', { name: 'Clear browser data', exact: true }).click(),
+  ]);
   expect(await sameDocument(other)).toBe(false);
   for (const tab of [page, other]) {
     expect(await tab.evaluate(() => ({ login: localStorage.getItem('arkpediaYostarLogin'), resume: sessionStorage.getItem('arkpediaMusicResume'), other: sessionStorage.getItem('private-other-tab') }))).toEqual({ login: null, resume: null, other: null });

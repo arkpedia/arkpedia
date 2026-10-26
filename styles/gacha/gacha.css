@@ -139,6 +139,10 @@
   min-width: 0;
   width: 100%;
   aspect-ratio: 1;
+  background: var(--panel);
+  border: 2px solid var(--line);
+  border-radius: var(--radius-control);
+  padding: 3px;
   cursor: pointer;
   overflow: hidden;
   transition: filter 0.15s ease, transform 0.15s ease;
@@ -147,7 +151,10 @@
 .gacha-pull-tile:focus-visible { outline: 2px solid var(--teal); outline-offset: 3px; }
 /* Rarity from the --rarity-N tokens, which carry their own light values: this was a
    palette of its own (amber, #F5D547, #8A7EF8, white) with light overrides. */
-.gacha-pull-tile.pull-six { box-shadow: 0 0 10px color-mix(in srgb, var(--rarity-6) 18%, transparent); }
+.gacha-pull-tile.pull-six { border-color: var(--rarity-6); box-shadow: 0 0 10px color-mix(in srgb, var(--rarity-6) 18%, transparent); }
+.gacha-pull-tile.pull-five { border-color: var(--rarity-5); }
+.gacha-pull-tile.pull-four { border-color: var(--rarity-4); }
+.gacha-pull-tile.pull-three { border-color: var(--rarity-3); }
 /* Before the first pull, Latest pull holds ten empty frames of the same size, so a
    Reset never takes the section away from under the reader. */
 .gacha-pull-tile.gacha-pull-tile-empty { border-style: dashed; border-color: var(--line); background: transparent; cursor: default; }

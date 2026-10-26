@@ -60,13 +60,6 @@ test('the PVs tab lists the event\'s official videos and puts a player in only f
   const frame = figures.first().locator('.event-video-frame');
   const before = await frame.boundingBox();
   await figures.first().getByRole('button', { name: `Play ${VIDEOS[0].title}` }).click();
-  const consent = page.getByRole('dialog', { name: 'Allow external media?', exact: true });
-  await expect(consent).toBeVisible();
-  await expect(players).toHaveCount(0);
-  await consent.getByRole('button', { name: 'Keep disabled', exact: true }).click();
-  await expect(players).toHaveCount(0);
-  await figures.first().getByRole('button', { name: `Play ${VIDEOS[0].title}` }).click();
-  await consent.getByRole('button', { name: 'Allow external media', exact: true }).click();
   await expect(players).toHaveCount(1);
   const src = new URL(await players.first().getAttribute('src') ?? '');
   expect(src.pathname).toBe('/embed/1pQ8W0LftHU');

@@ -42,7 +42,7 @@ export default function ScorePage({ lines }: Props) {
       <TerminalNav current="score" />
       <PageHeader
         slim
-        eyebrow={<><ModeMark name="score.svg" className="head-mark" />Rhodes Island // Story lines</>}
+        eyebrow={<><ModeMark name="score.svg" className="head-mark" />Terminal // Story lines</>}
         title="Score"
         sub={<>
           Every storyline the game has run, in its own order. The main story&apos;s four acts

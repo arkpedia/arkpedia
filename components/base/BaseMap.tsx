@@ -4,7 +4,6 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 export default function BaseMap({ children }: { children: ReactNode }) {
   const viewport = useRef<HTMLDivElement>(null);
   const content = useRef<HTMLDivElement>(null);
-  const canvas = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ width: 974, height: 774 });
   const [zoom, setZoom] = useState(1);
   const zoomRef = useRef(1);
@@ -17,12 +16,7 @@ export default function BaseMap({ children }: { children: ReactNode }) {
   const fittedZoom = useCallback(() => {
     if (!viewport.current || !content.current) return 1;
     // Whole percentage steps match the slider and stay inside the viewport.
-    const available = viewport.current;
-    const grid = content.current;
-    return Math.min(1, Math.max(0.01, Math.floor(Math.min(
-      (available.clientWidth - 16) / grid.offsetWidth,
-      (available.clientHeight - 16) / grid.offsetHeight,
-    ) * 100) / 100));
+    return Math.min(1, Math.max(0.01, Math.floor((viewport.current.clientWidth - 16) / content.current.offsetWidth * 100) / 100));
   }, []);
 
   const fit = useCallback(() => {
@@ -41,25 +35,28 @@ export default function BaseMap({ children }: { children: ReactNode }) {
     const next = Math.min(2.5, value <= minimumZoomRef.current + 1e-9 ? minimumZoomRef.current : value);
     if (next === zoomRef.current) return;
     const anchorX = x ?? view.clientWidth / 2, anchorY = y ?? view.clientHeight / 2;
-    const left = (view.scrollLeft + anchorX - (canvas.current?.offsetLeft ?? 0) - 8) / zoomRef.current;
+    const left = (view.scrollLeft + anchorX - 8) / zoomRef.current;
     const top = (view.scrollTop + anchorY - 8) / zoomRef.current;
     userZoomed.current = true;
     zoomRef.current = next;
     setZoom(next);
-    requestAnimationFrame(() => view.scrollTo(left * next + (canvas.current?.offsetLeft ?? 0) + 8 - anchorX, top * next + 8 - anchorY));
+    requestAnimationFrame(() => view.scrollTo(left * next + 8 - anchorX, top * next + 8 - anchorY));
   }, []);
 
   useEffect(() => {
     const view = viewport.current, grid = content.current;
     if (!view || !grid) return;
+    let previousWidth = 0;
     const observer = new ResizeObserver(() => {
+      const widthChanged = view.clientWidth !== previousWidth;
+      previousWidth = view.clientWidth;
       setSize({ width: grid.offsetWidth, height: grid.offsetHeight });
       const minimum = fittedZoom();
       minimumZoomRef.current = minimum;
       setMinimumZoom(minimum);
       // Staffing can change a row's height. Resize its scrollable canvas without
       // resetting a view the reader has already panned to that room.
-      if (!userZoomed.current || zoomRef.current < minimum) fit();
+      if (widthChanged && (!userZoomed.current || zoomRef.current < minimum)) fit();
     });
     observer.observe(view);
     observer.observe(grid);
@@ -134,7 +131,7 @@ export default function BaseMap({ children }: { children: ReactNode }) {
         if (moved.current && event.detail !== 0) { event.preventDefault(); event.stopPropagation(); }
         moved.current = false;
       }}>
-      <div ref={canvas} className="base-map-canvas" style={{ width: size.width * zoom + 16, height: size.height * zoom + 16 }}>
+      <div className="base-map-canvas" style={{ width: size.width * zoom + 16, height: size.height * zoom + 16 }}>
         <div ref={content} className="base-map-content" style={{ transform: `scale(${zoom})` }}>{children}</div>
       </div>
     </div>

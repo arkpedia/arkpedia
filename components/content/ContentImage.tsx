@@ -40,13 +40,6 @@ export const ApplicationImage = forwardRef<HTMLImageElement, Omit<ImageProps, 's
   return <NextImage {...props} {...eager} src={assetUrl(asset.repository, asset.revision, encodeAssetPath(asset.path))} ref={ref} />;
 });
 
-/** Code-owned monochrome UI art follows ink without adopting a page's content pin. */
-export function ApplicationArt({ asset, style, ...props }: HTMLAttributes<HTMLSpanElement> & { asset: ApplicationAsset }) {
-  if (!/^[a-f0-9]{40}$/.test(asset.revision)) throw new Error('Application artwork requires an immutable commit');
-  const image = cssUrl(assetUrl(asset.repository, asset.revision, encodeAssetPath(asset.path)));
-  return <span {...props} style={{ ...style, maskImage: image, WebkitMaskImage: image }} />;
-}
-
 /* React 19 knows `fetchPriority`; React 18 warns on a camelCase prop it does not know,
    so there the attribute is written as its lowercase HTML name, as next/image does (its
    getDynamicProps). */

@@ -193,6 +193,10 @@ export default function RecruitmentTool({ operators, guaranteedCombos4, guarante
             eyebrow="Rhodes Island // Recruitment Office"
             title="Recruitment"
             sub="Find the best combination in your five tags."
+            actions={<button type="button" className="ghost recruit-popout-button" onClick={openPopout}
+              title={supportsPinnedWindow ? 'Open an always-on-top window' : 'Open a regular window; it will not stay on top'}>
+              <PopoutIcon /> {pip.isOpen ? 'Focus pop-out' : supportsPinnedWindow ? 'On top' : 'Open window'}
+            </button>}
           />
         )}
 
@@ -225,10 +229,6 @@ export default function RecruitmentTool({ operators, guaranteedCombos4, guarante
           <div className="recruit-preferences">
             <SegmentedControl label="Tag language" value={view.language ?? 'en'} options={['en', 'jp', 'kr', 'cn'].map(value => ({ value: value as 'en' | 'jp' | 'kr' | 'cn', label: value.toUpperCase() }))} onChange={language => updateView({ language })} />
             <label>Text size <input type="range" aria-label="Recruitment text size" min="12" max="22" step="1" value={view.textSize ?? 14} onChange={e => updateView({ textSize: Number(e.target.value) })} />{view.textSize ?? 14}px</label>
-            {!isCompact && <button type="button" className="ghost btn-sm recruit-popout-button" onClick={openPopout}
-              title={pip.isOpen ? 'Focus pop-out' : supportsPinnedWindow ? 'Open an always-on-top window' : 'Open a regular window; it will not stay on top'}>
-              <PopoutIcon /> Pop-out
-            </button>}
           </div>
           <div className="recruit-toolbar">
             <Tabs

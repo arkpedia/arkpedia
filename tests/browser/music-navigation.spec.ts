@@ -279,7 +279,7 @@ test("the player bar's heart, Shuffle and Repeat are buttons; its More holds onl
   if (mobile) expect(Math.min(box.width, box.height)).toBeGreaterThanOrEqual(44);
   // Still one row on a phone: More, Shuffle and Repeat sit level with Play.
   const play = (await bar(page).getByRole('button', { name: 'Pause', exact: true }).boundingBox())!;
-  if (mobile) expect(Math.abs(box.y - play.y)).toBeLessThan(4);
+  expect(Math.abs(box.y - play.y)).toBeLessThan(4);
   const shuffle = bar(page).getByRole('button', { name: 'Shuffle', exact: true });
   const repeat = bar(page).getByRole('button', { name: /^Repeat: / });
   for (const button of [shuffle, repeat]) expect(Math.abs((await button.boundingBox())!.y - play.y)).toBeLessThan(4);

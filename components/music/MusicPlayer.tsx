@@ -158,7 +158,7 @@ export default function MusicPlayer() {
         onClick={() =>
           setCollapsed((c) => {
             const expanding = c;
-            if (expanding && !ready) initializePlayer(false);
+            if (expanding) initializePlayer();
             return !c;
           })
         }

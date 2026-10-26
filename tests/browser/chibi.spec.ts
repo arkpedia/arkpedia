@@ -135,7 +135,7 @@ test('roaming chibi survives viewer close, page navigation and browser back with
   await pet.focus(); await page.keyboard.press('ArrowLeft');
   const stopped = await pet.boundingBox();
   // A real Next link changes pages without reloading the app and its detached canvas.
-  await page.getByRole('link', { name: /^Arkpedia(?: home| ARKPEDIA(?: Beta)?)$/ }).click();
+  await page.getByRole('link', { name: /^Arkpedia ARKPEDIA(?: Beta)?$/ }).click();
   await expect(page).toHaveURL(/\/$/);
   await expect(pet).toHaveAccessibleName(petLabel!);
   expect(await canvas!.evaluate(element => element.isConnected)).toBe(true);
@@ -179,7 +179,7 @@ test('dragging outside the viewer drops a walking chibi at that point', async ({
   expect(bounds!.y).toBeCloseTo(drop.y - 90, 0);
   await page.getByRole('button', { name: 'Close chibi viewer', exact: true }).click();
   await expect(pet).toBeVisible();
-  await page.getByRole('link', { name: /^Arkpedia(?: home| ARKPEDIA(?: Beta)?)$/ }).click();
+  await page.getByRole('link', { name: /^Arkpedia ARKPEDIA(?: Beta)?$/ }).click();
   // The pet outlives both pages, so its visibility does not mean navigation finished.
   // Dismiss on Home, once the old viewer trigger really has unmounted.
   await expect(page).toHaveURL(/\/$/);
@@ -341,7 +341,7 @@ for (const theme of ['dark', 'light']) {
     expect(await pet.boundingBox()).toEqual(position);
     // Viewer close/navigation do not reset the first-tap guarantee on this pet.
     await page.getByRole('button', { name: 'Close chibi viewer', exact: true }).click();
-    await page.getByRole('link', { name: /^Arkpedia(?: home| ARKPEDIA(?: Beta)?)$/ }).click();
+    await page.getByRole('link', { name: /^Arkpedia ARKPEDIA(?: Beta)?$/ }).click();
     // Home's first ISR response may be cold on the shared runner; wait for the
     // client navigation before checking that this same roaming pet survives it.
     await expect(page).toHaveURL(/\/$/, { timeout: 30000 });

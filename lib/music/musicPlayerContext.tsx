@@ -1,5 +1,4 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, ReactNode } from 'react';
-import { readPrivacy, requestExternalMedia } from '@/lib/privacy/preferences';
 import { useRouter } from 'next/router';
 import { useContentUrl } from '@/lib/content/context';
 import { GAME_PATHS } from '@/lib/minigames/catalogue';
@@ -84,7 +83,6 @@ export interface QueueTrack {
   cover?: string | null;
   /** 'endfield' for an Arknights: Endfield song; absent for Arknights' own (lib/music/songFilter.ts). */
   game?: MusicGame;
-  copyright?: boolean;
 }
 
 /** Where the queue came from, for the Queue view's "Playing from": every song (the default),
@@ -109,7 +107,7 @@ export type QueueSongResult = 'queued' | 'current' | 'unavailable';
 
 function toQueueTrack(song: MusicCatalogueSong): QueueTrack {
   return { id: song.id, title: song.title, altTitle: song.altTitle ?? null, artist: song.artist ?? null,
-    album: song.album ?? null, albumOriginal: song.albumOriginal ?? null, cover: song.cover ?? null, copyright: song.copyright,
+    album: song.album ?? null, albumOriginal: song.albumOriginal ?? null, cover: song.cover ?? null,
     ...(song.game === 'endfield' ? { game: song.game } : {}) };
 }
 
@@ -162,7 +160,7 @@ interface MusicPlayerContextValue {
   setDataSaver: (on: boolean) => void;
   /** The engine playing the song loaded now: Monster Siren's audio or YouTube's player. */
   engineKind: EngineKind;
-  initializePlayer: (prompt?: boolean) => void;
+  initializePlayer: () => void;
   togglePlay: () => void;
   pausePlayback: () => void;
   nextTrack: () => void;
@@ -335,7 +333,6 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
    *  <audio> has never had a file -- the song's own file is set and played here
    *  (lib/music/audioElement.ts primeMusicAudio), and the engine takes it over. */
   const primeAudio = (id?: string | null, seconds = 0) => {
-    if (!readPrivacy().externalMedia) return;
     clearPlaybackNotice();
     const source = id ? routeTrack(id) : null;
     if (source?.kind !== 'msr') return;
@@ -547,11 +544,6 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     // Until loading finishes, the settings above are all we need:
     // buildQueueFromCatalog will apply them to the initial queue.
     if (!fullCatalog) return;
-    const playingSong = fullCatalog.find(song => song.id === videoIdRef.current);
-    if (playingSong && !songAllowed(next, playingSong)) {
-      pausePlayback();
-      announce('Paused this song because it is excluded by your music filters.');
-    }
     const result = refilterQueue({
       queue: queueRef.current, queueIndex: queueIndexRef.current,
       shuffleOrder: shuffleRef.current ? shuffleOrderRef.current : null,
@@ -1115,14 +1107,8 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     return () => clearInterval(interval);
   }, [isPlaying, seeking]);
 
-  const initializePlayer = useCallback((prompt = true) => {
-    if (!prompt && !readPrivacy().externalMedia) return;
-    requestExternalMedia(() => {
-      primeAudio(pendingVideoIdRef.current ?? videoIdRef.current);
-      setInitialized(true);
-    }, () => { pendingPlayRef.current = false; setStarting(false); setBuffering(false); });
-  // The permission callback uses current playback refs.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const initializePlayer = useCallback(() => {
+    setInitialized(true);
   }, []);
 
   const pausePlayback = useCallback(() => {
@@ -1291,8 +1277,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     setCurrentTime(record.seconds);
     setDuration(record.duration);
     if (play) setStarting(true);
-    if (readPrivacy().externalMedia) setInitialized(true);
-    else { pendingPlayRef.current = false; setStarting(false); }
+    setInitialized(true);
   // Once: a record is for the document's first page.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -1325,7 +1310,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     endResumeWatch();
     // Loading counts as playing here: the button shows it, and a press stops it.
     if (isPlayingRef.current || bufferingRef.current) pausePlayback();
-    else if (videoIdRef.current && !catalogRef.current?.some(song => song.id === videoIdRef.current && !allowed(song))) player.playVideo();
+    else if (videoIdRef.current) player.playVideo();
     else if (queueRef.current.length) loadTrackAt(shuffleOrderRef.current?.[0] ?? 0);
     else if (!playAutoplayTrack()) { announce('Pick a song in Library or Discover.'); void router.push('/music?view=library'); }
   }

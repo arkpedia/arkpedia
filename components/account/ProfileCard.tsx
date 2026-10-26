@@ -58,7 +58,7 @@ const unit = (count: number) => `calc(var(--medal-unit) * ${count})`;
 /** A support unit as the game's card shows it: its portrait in the outfit it wears, or its
  *  roster icon on a record from before outfits were kept, or until a new outfit's portrait
  *  is published. */
-export function SupportTile({ unit, full, map }: { unit: SupportUnit; full: boolean; map: GameAccountMap }) {
+function SupportTile({ unit, full, map }: { unit: SupportUnit; full: boolean; map: GameAccountMap }) {
   const [portrait, setPortrait] = useState(true);
   const [skillArt, setSkillArt] = useState(true);
   const src = unit.skin && portrait ? portraitPath(unit.skin) : unit.rarity != null ? getOperatorIconPath({ name: unit.name, rarity: unit.rarity }) : null;

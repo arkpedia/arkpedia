@@ -2,8 +2,8 @@ import Link from 'next/link';
 import Image from '@/components/content/ContentImage';
 import { useRouter } from 'next/router';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import HeaderUtilities from './HeaderUtilities';
-import { type SiteSearchControl } from './SiteSearch';
+import ThemeToggle from './ThemeToggle';
+import { SiteSearchTrigger, type SiteSearchControl } from './SiteSearch';
 import { GROUPS, LOOSE, ICONS, isActiveLink, type NavLink } from './Sitenav';
 import ServerClock from './ServerClock';
 import { getEssentialIconPath } from '@/lib/operators/operatorIconPaths';
@@ -232,7 +232,7 @@ export default function MobileNavDrawer({ mobileNav, search }: { mobileNav?: Mob
             {mobileNav.back.label}
           </Link>
         ) : (
-          <Link prefetch={false} href="/" className="site-brand" aria-label="Arkpedia home">
+          <Link prefetch={false} href="/" className="site-brand">
             {logoPath ? (
               <Image src={logoPath} alt="Arkpedia" width={24} height={24} className="site-brand-mark-img" />
             ) : (
@@ -245,7 +245,13 @@ export default function MobileNavDrawer({ mobileNav, search }: { mobileNav?: Mob
             for a while, on the grounds that a reader mid-run wants the time left and
             not the time -- true, and not worth having one page's clock be a different
             clock. It fits: the back label ellipsises long before the strip has to. */}
-        <HeaderUtilities search={search} mobile />
+        <ServerClock variant="mobile" />
+        <div className="mobile-nav-bar-side">
+          <SiteSearchTrigger variant="mobile" control={search} />
+          <div className="site-nav-theme-wrap">
+            <ThemeToggle />
+          </div>
+        </div>
       </div>
       {/* Holds the fixed bar's place. Its height is --nav-h, measured off the bar by
           the effect above rather than the 52 it used to hardcode on the grounds that
@@ -291,17 +297,15 @@ export default function MobileNavDrawer({ mobileNav, search }: { mobileNav?: Mob
                   aria-controls={`mobile-nav-group-${group.id}`}
                   onClick={(event) => toggleGroup(group.id, event.currentTarget)}
                 >
-                  <span>{group.label}</span>
-                  <span className="nav-menu-indicator" aria-hidden="true">
-                  {changelogUnseen && group.items.some((link) => link.href === '/changelog') ? <span className="nav-new-dot" /> : <svg viewBox="0 0 20 20" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true" className="mobile-nav-group-chev">
+                  <span>{group.label}{changelogUnseen && group.items.some((link) => link.href === '/changelog') && <span className="nav-new-dot" aria-hidden="true" />}</span>
+                  <svg viewBox="0 0 20 20" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true" className="mobile-nav-group-chev">
                     <path d={isOpen ? 'M5 12.5 10 7.5 15 12.5' : 'M5 7.5 10 12.5 15 7.5'} strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>}
-                  </span>
+                  </svg>
                 </button>
                 {/* Folded, not removed: the links stay in the page (hidden), for crawlers and
                     for the nav's release-pinned art, which the content runtime test reads. */}
                 <div id={`mobile-nav-group-${group.id}`} className="mobile-nav-group-links" hidden={!isOpen}>
-                  {group.items.map((link) => <DrawerLink key={link.href} link={link} active={isActiveLink(link, router.pathname)} divider={group.dividersAfter?.includes(link.href)} isNew={link.href === '/changelog' && changelogUnseen} onPick={() => setOpen(false)} />)}
+                  {group.items.map((link) => <DrawerLink key={link.href} link={link} active={isActiveLink(link, router.pathname)} isNew={link.href === '/changelog' && changelogUnseen} onPick={() => setOpen(false)} />)}
                 </div>
               </div>
             );
@@ -315,9 +319,9 @@ export default function MobileNavDrawer({ mobileNav, search }: { mobileNav?: Mob
   );
 }
 /** One destination in the drawer: its icon and its name, lit when it is the page on screen. */
-function DrawerLink({ link, active, isNew = false, divider = false, onPick }: { link: NavLink; active: boolean; isNew?: boolean; divider?: boolean; onPick: () => void }) {
+function DrawerLink({ link, active, isNew = false, onPick }: { link: NavLink; active: boolean; isNew?: boolean; onPick: () => void }) {
   return (
-    <Link prefetch={false} href={link.href} className={`mobile-nav-drawer-link${active ? ' active' : ''}${divider ? ' nav-group-end' : ''}`} onClick={onPick}>
+    <Link prefetch={false} href={link.href} className={active ? 'mobile-nav-drawer-link active' : 'mobile-nav-drawer-link'} onClick={onPick}>
       <span className="site-nav-icon" aria-hidden="true">{ICONS[link.icon]}</span>
       <span>{link.label}</span>
       {isNew && <span className="nav-new-dot" aria-label="New" />}

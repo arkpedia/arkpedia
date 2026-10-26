@@ -4,8 +4,6 @@ import { MAX_IMPORT_BYTES, isSafeKey } from '@/lib/planner/untrusted';
 import { parseMedalCollection } from './medals';
 
 export const FRIEND_STORAGE_KEY = 'arkpediaFriend';
-export const FRIENDS_STORAGE_KEY = 'arkpediaFriends:v1';
-export const friendKey = (friend: FriendFile) => `${friend.account.server}:${friend.account.profile?.uid || friend.account.doctor || 'unknown'}`;
 export const FRIEND_KIND = 'arkpedia-friend';
 export interface FriendFile { kind: typeof FRIEND_KIND; version: 1; exportedAt: string; account: AccountRecord; roster: Roster }
 const text = (value: unknown, limit = 500): string | null => typeof value === 'string' && value.length <= limit ? value : null;
@@ -40,14 +38,12 @@ function publicProfile(profile: AccountProfile | undefined): AccountProfile | un
 
 function publicAccount(account: AccountRecord): AccountRecord {
   const profile = publicProfile(account.profile);
-  // The full profile shows only the highest Main Theme episode, not stage records.
-  const mainStage = account.cleared.filter(stage => /^main_\d+-/.test(stage) && id(stage))
-    .sort((a, b) => Number(/^main_(\d+)/.exec(b)?.[1]) - Number(/^main_(\d+)/.exec(a)?.[1]))[0];
   return {
     version: 1, server: account.server, importedAt: account.importedAt, doctor: text(account.doctor, 200),
     operators: [...new Set(account.operators)].filter(name => name.length <= 200 && isSafeKey(name)),
     skins: [...new Set(account.skins)].filter(skin => id(skin)),
-    cleared: mainStage ? [mainStage] : [],
+    cleared: account.cleared.filter(stage => id(stage)),
+    ...(account.annihilation ? { annihilation: account.annihilation.filter(stage => id(stage)) } : {}),
     ...(account.outfits ? { outfits: Object.fromEntries(Object.entries(account.outfits).filter(([name, skin]) => name.length <= 200 && isSafeKey(name) && id(skin))) } : {}),
     ...(profile ? { profile } : {}),
   };

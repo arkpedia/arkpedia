@@ -4,10 +4,6 @@ import libraryData from '../../data/story-library.json';
 import mapData from '../../data/story-map.json';
 import { STORY_CATEGORIES } from '../../lib/story/storyLibrary';
 
-test.beforeEach(async ({ page }) => {
-  await page.addInitScript(() => localStorage.setItem('arkpedia:privacy:v1', JSON.stringify({ version: 1, analytics: false, externalMedia: false, savedAt: Date.now() })));
-});
-
 test('list content mounts in batches; full search, category counts and portraits stay available', async ({ page }) => {
   // Hold intersections to verify that off-screen content is absent from the DOM.
   await page.addInitScript(() => {

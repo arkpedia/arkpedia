@@ -6,10 +6,9 @@ import type { JSX } from 'react';
  * baseline it chose -- iOS drew ⏸ as a colour emoji. One 20px grid, currentColor, so
  * each takes the colour of the button it sits in (teal when that button is on).
  */
-type IconName = 'prev' | 'play' | 'pause' | 'next' | 'shuffle' | 'repeat' | 'list' | 'heart' | 'plus' | 'streamSafe' | 'close' | 'note' | 'loading' | 'more' | 'back' | 'up' | 'down' | 'reorder' | 'trash' | 'playNext' | 'addToQueue' | 'queue' | 'library' | 'nowPlaying' | 'noAutoplay' | 'youtube' | 'lyrics';
+type IconName = 'prev' | 'play' | 'pause' | 'next' | 'shuffle' | 'repeat' | 'list' | 'heart' | 'plus' | 'streamSafe' | 'close' | 'note' | 'loading' | 'more' | 'back' | 'up' | 'down' | 'reorder' | 'trash' | 'playNext' | 'addToQueue' | 'queue' | 'library' | 'nowPlaying' | 'noAutoplay' | 'youtube';
 
 const PATHS: Record<IconName, JSX.Element> = {
-  lyrics: <><path d="M3 3.5h14v11H8l-4 3v-3H3z" /><path d="M6 7h8M6 10.5h5" /></>,
   // Play next: a song lifted to the top of a list. Add to queue: a song added at its end.
   playNext: <><path d="M3.5 5.5h8M3.5 10h8M3.5 14.5h13" /><path d="M14.5 9V3.5M12.2 5.7l2.3-2.2 2.3 2.2" /></>,
   addToQueue: <><path d="M3.5 5.5h13M3.5 10h8M3.5 14.5h8" /><path d="M14.5 9.5v6M11.5 12.5h6" /></>,

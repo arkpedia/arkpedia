@@ -5,8 +5,6 @@ import { useMusicPlayer, type QueueTrack } from '@/lib/music/musicPlayerContext'
 import { MUSIC_PLAYLISTS_EVENT, readPlaylists } from '@/lib/music/musicPlaylists';
 import LoadOnScroll from '@/components/ui/LoadOnScroll';
 import SearchInput from '@/components/ui/SearchInput';
-import InfoPopover from '@/components/ui/InfoPopover';
-import AlbumCover from './AlbumCover';
 import SongRow from './SongRow';
 import TransportIcon from './TransportIcons';
 import { useSongQueueDrag } from './useSongQueueDrag';
@@ -134,15 +132,11 @@ export default function MusicQueue({ shown }: { shown: boolean }) {
         </div>
       </div>
       {queueSource === 'playlist' && <p className="hint music-view-hint">Playing from <b>{source}</b>.</p>}
-      {autoplayVideoId && currentTrack && <Link href={MUSIC_VIEW_HREF.player} shallow scroll={false} className="music-queue-now">
-        <span className="music-queue-now-art"><AlbumCover coverPath={currentTrack.cover ?? null} size={48} className="music-queue-now-cover" /></span>
-        <span className="music-queue-now-copy"><span className="label-tag">Autoplay now</span><b>{songTitle(currentTrack.title, currentTrack.altTitle)}</b><span>{currentTrack.artist || currentTrack.album}</span></span>
-        <TransportIcon name="nowPlaying" size={22} />
-      </Link>}
+      {autoplayVideoId && currentTrack && <p className="hint music-view-hint">Autoplay now: <Link href={MUSIC_VIEW_HREF.player} shallow scroll={false}>{songTitle(currentTrack.title, currentTrack.altTitle)}</Link></p>}
       <SearchInput label="Search the queue" name="queue-search" placeholder="Search the queue…" value={search} onChange={setSearch} />
       <div className={`music-queue-list${drag.nativeDragging ? ' music-queue-native-drag' : ''}`} data-song-list>
         {queueLoading && !displayList.length && <p className="hint" role="status">Loading the queue…</p>}
-        {!queueLoading && !displayList.length && !autoplayVideoId && <div className="music-queue-empty-state"><TransportIcon name="queue" size={32} /><h3>Your queue is empty</h3><div className="music-queue-tools"><Link href={MUSIC_VIEW_HREF.library} shallow scroll={false} prefetch={false} className="ghost btn-sm">Browse Library</Link><Link href={MUSIC_VIEW_HREF.discover} scroll={false} prefetch={false} className="ghost btn-sm">Discover music</Link></div></div>}
+        {!queueLoading && !displayList.length && <p className="hint">Your queue is empty. Pick songs from the <Link href={MUSIC_VIEW_HREF.library} shallow scroll={false} prefetch={false}>Library</Link> or Discover.</p>}
         {sections.map(section => section.rows.length > 0 && (
           <Fragment key={section.key}>
             <h3 className="music-queue-section-title">{section.title}{section.key === 'queued' && <span className="music-heading-count"> · {nextInQueue.length}</span>}</h3>
@@ -161,8 +155,7 @@ export default function MusicQueue({ shown }: { shown: boolean }) {
         )}
         {historyRows.length > 0 && (visible >= sections[2].rows.length || q) && <>
           <h3 className="music-queue-section-title">
-            <button type="button" className="ghost btn-sm music-queue-history-toggle" aria-expanded={showHistory || Boolean(q)} onClick={() => setShowHistory(v => !v)}>
-              <TransportIcon name="back" />
+            <button type="button" className="btn-bare music-queue-history-toggle" aria-expanded={showHistory || Boolean(q)} onClick={() => setShowHistory(v => !v)}>
               Played earlier <span className="music-heading-count">· {history.length}</span>
               <TransportIcon name={showHistory || q ? 'up' : 'down'} size={14} />
             </button>
@@ -172,13 +165,13 @@ export default function MusicQueue({ shown }: { shown: boolean }) {
         {q && sections.every(s => !s.rows.length) && !historyRows.length && <p className="hint">No songs in the queue match your search.</p>}
         <section className="music-autoplay" aria-label="Autoplay from library">
           <div className="music-autoplay-heading">
-            <button type="button" className="btn-bare music-autoplay-disclosure" aria-label="Autoplay from library" aria-expanded={showAutoplay} onClick={() => setShowAutoplay(value => !value)}>
-              <span className="music-autoplay-glyph"><TransportIcon name="shuffle" size={22} /></span>
-              <span><b>Autoplay from library</b><span className="label-tag">{autoplayTracks.length} songs</span></span><TransportIcon name={showAutoplay ? 'up' : 'down'} size={14} />
+            <button type="button" className="btn-bare music-queue-history-toggle" aria-expanded={showAutoplay} onClick={() => setShowAutoplay(value => !value)}>
+              Autoplay from library <TransportIcon name={showAutoplay ? 'up' : 'down'} size={14} />
             </button>
-            <div className="music-autoplay-controls"><InfoPopover label="About autoplay"><p>{autoplay ? 'Plays after your queue ends. Repeat all keeps repeating your chosen queue.' : 'Off. Only your chosen songs will play.'}</p></InfoPopover><label className="check"><input type="checkbox" checked={autoplay} onChange={event => setAutoplay(event.target.checked)} />On</label></div>
+            <label className="check"><input type="checkbox" checked={autoplay} onChange={event => setAutoplay(event.target.checked)} />On</label>
           </div>
           {showAutoplay && <>
+            <p className="hint">{autoplay ? 'Plays after your queue ends. Repeat all keeps repeating your chosen queue.' : 'Off. Only your chosen songs will play.'}</p>
             {noAutoplay.size > 0 && <p className="hint music-autoplay-kept-out">
               {noAutoplay.size === 1 ? '1 song is' : `${noAutoplay.size} songs are`} kept out of autoplay.{' '}
               <button type="button" className="ghost btn-sm" onClick={() => clearNoAutoplay()}>Let {noAutoplay.size === 1 ? 'it' : 'them all'} back</button>

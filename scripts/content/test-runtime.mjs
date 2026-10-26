@@ -111,10 +111,6 @@ try {
   browser = await chromium.launch({ headless: true });
   for (const [name, settings] of [['desktop', { viewport: { width: 1440, height: 1000 } }], ['mobile', devices['Pixel 7']]]) {
     const context = await browser.newContext(settings);
-    // This suite verifies release replacement and voice URLs, not the separate
-    // consent flow. Give its fixture browser an explicit media choice so a voice
-    // playback request cannot leave a modal over later catalogue/queue checks.
-    await context.addInitScript(() => localStorage.setItem('arkpedia:privacy:v1', JSON.stringify({ version: 1, analytics: false, externalMedia: true, savedAt: Date.now() })));
     const page = await context.newPage();
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));

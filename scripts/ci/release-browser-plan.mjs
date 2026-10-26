@@ -1,8 +1,9 @@
 // PR release checks protect reader journeys. Exhaustive visual contracts run in
 // Browser audit; omitted identities remain explicit in the existing evidence.
-const CORE = ['nav-bar', 'mobile-touch-nav', 'navigation-continuity', 'privacy', 'statistics-prompt'];
-const SHARED = ['core', 'navigation-account-redesign', 'credits-games-review', 'music-workspace', 'music-navigation',
-  'story-progress', 'base-account', 'reward-import', 'planning-pages'];
+const CORE = ['nav-bar', 'mobile-touch-nav', 'navigation-continuity', 'account-import', 'music-navigation'];
+const OPTIONAL_CORE = ['privacy', 'statistics-prompt'];
+const SHARED = ['core', 'music-navigation', 'story-progress', 'base-account', 'reward-import', 'planning-pages', 'media-community-games'];
+const OPTIONAL_SHARED = ['navigation-account-redesign', 'credits-games-review', 'music-workspace'];
 const AUDIT = /^(?:layout-census(?:-after)?|motion|tabs|x-buttons|cards-and-headings|row-alignment|on-states|artwork-zoom-contrast|operator-caption-motion)\.spec\.ts$/;
 const FAMILIES = [
   [/^(?:music|song)(?:\/|[-.])/, /^(?:music|song)-/],
@@ -27,6 +28,7 @@ export function releaseBrowserPlan(plan, { changes, specs, baselineVerified }) {
     return !!file;
   });
   if (!addNames(CORE)) return plan;
+  for (const name of OPTIONAL_CORE) if (inventory.some(file => base(file) === `${name}.spec.ts`)) addNames([name]);
   const addFamily = pattern => {
     const matching = inventory.filter(file => pattern.test(base(file)) && !AUDIT.test(base(file)));
     matching.forEach(file => selected.add(file));
@@ -46,6 +48,7 @@ export function releaseBrowserPlan(plan, { changes, specs, baselineVerified }) {
     const relative = path.replace(/^(?:pages|components|lib|styles)\//, '');
     if (/^(?:core|layout|ui|nav|time|content|assets|privacy)\/|^_(?:app|document)\./.test(relative)) {
       if (!addNames(SHARED)) return plan;
+      for (const name of OPTIONAL_SHARED) if (inventory.some(file => base(file) === `${name}.spec.ts`)) addNames([name]);
       continue;
     }
     const family = FAMILIES.find(([code]) => code.test(relative));

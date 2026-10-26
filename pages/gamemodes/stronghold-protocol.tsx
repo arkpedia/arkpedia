@@ -716,7 +716,7 @@ export default function StrongholdProtocolPage({ data, picker }: Props) {
           second page spent the gesture on navigating and then wanted another one. */}
       <PageHeader
         slim
-        eyebrow={<>Rhodes Island // <Link prefetch={false} href="/gamemodes">Game Modes</Link>{' // Mode reference'}</>}
+        eyebrow={<><Link prefetch={false} href="/gamemodes">Game Modes</Link>{' // Mode reference'}</>}
         title="Stronghold Protocol"
         actions={<StrongholdCompanion data={data} picker={buildableAlliances(picker)} />}
       />
