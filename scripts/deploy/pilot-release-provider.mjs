@@ -5,7 +5,8 @@ import { fileURLToPath } from 'node:url';
 import { latestWorkerVersion, providerEnvironment } from './worker-provider-utils.mjs';
 
 export const PILOT = Object.freeze({
-  worker: 'arkpedia', origin: 'https://arkpedia-cf.mocchibird.com',
+  worker: 'arkpedia', origin: 'https://www.arkpedia.net',
+  legacyAuthOrigin: 'https://arkpedia-cf.mocchibird.com',
   database: 'f7daff77-8e8f-4ec2-998b-97fb6e4b948f', queue: 'e4eebd64c01f4b36be846adc609deeed',
   legacyVersion: '066ea33d-f48e-4fd3-b4dd-278957420bb4',
   legacySource: 'de829d1eac0e1dc0efc17866e680b447650434df',
@@ -74,7 +75,7 @@ export function assertPilotBindings(version) {
   };
   requireValue(binding('ARKPEDIA_ACCOUNTS_DB', 'd1').database_id === PILOT.database, 'account database changed');
   const previousOrigin = [PILOT.legacyVersion, MEDIA_SECRET_UPDATE.baseline, MEDIA_SECRET_UPDATE.version, PRE_CUTOVER_VERSION].includes(version.id);
-  requireValue(binding('ARKPEDIA_AUTH_URL', 'plain_text').text === (previousOrigin ? PILOT.origin : 'https://www.arkpedia.net'), 'auth origin changed');
+  requireValue(binding('ARKPEDIA_AUTH_URL', 'plain_text').text === (previousOrigin ? PILOT.legacyAuthOrigin : PILOT.origin), 'auth origin changed');
   for (const name of ['BETTER_AUTH_SECRET', 'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'DISCORD_CLIENT_ID', 'DISCORD_CLIENT_SECRET']) {
     binding(name, 'secret_text');
   }
@@ -147,16 +148,14 @@ export function createPilotProvider({ run = execFileSync, request = fetch, envir
     for (const path of ['/', '/story', '/schedule', '/operators/Amiya', '/base']) {
       const response = await request(`${PILOT.origin}${path}`, { cache: 'no-store', redirect: 'error', signal: AbortSignal.timeout(30_000) });
       await response.body?.cancel();
-      requireValue(response.status === 200 && /\bnoindex\b/i.test(response.headers.get('x-robots-tag') ?? ''), `unhealthy or indexable pilot route ${path}`);
+      requireValue(response.status === 200 && !/\bnoindex\b/i.test(response.headers.get('x-robots-tag') ?? ''), `unhealthy or noncanonical live route ${path}`);
     }
-    for (const [path, status] of [['/api/auth/get-session', 200], ['/api/cloud-account', 401], ['/api/account-profile', 401]]) {
+    for (const path of ['/api/auth/get-session', '/api/cloud-account', '/api/account-profile']) {
       const response = await request(`${PILOT.origin}${path}`, { cache: 'no-store', redirect: 'error', signal: AbortSignal.timeout(30_000) });
-      await response.body?.cancel();
+      const body = await response.json().catch(() => null);
       const cache = response.headers.get('cache-control') ?? '';
-      // Better Auth owns its response and uses no-store. Arkpedia's saved-data
-      // endpoints additionally declare private; keep their stronger contract.
-      requireValue(response.status === status && /\bno-store\b/i.test(cache)
-        && (path === '/api/auth/get-session' || /\bprivate\b/i.test(cache)), `unhealthy or cacheable configured account route ${path}`);
+      requireValue(response.status === 503 && body?.error === 'Arkpedia accounts are available on Preview only.'
+        && /\bno-store\b/i.test(cache) && /\bprivate\b/i.test(cache), `exposed or cacheable live account route ${path}`);
     }
     return { healthy: true, build };
   };

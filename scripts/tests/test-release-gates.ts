@@ -341,7 +341,7 @@ test("the gate reads main's live deployments config/production.json lists, and o
   assert.deepEqual(config.deployments.map((entry: { url: string; branch: string; live: boolean }) => [entry.url, entry.branch, entry.live]), [
     ['https://www.arkpedia.net', 'main', true],
   ]);
-  assert.deepEqual(deploymentUrls({}), ['https://www.arkpedia.net', 'https://arkpedia-cf.mocchibird.com']);
+  assert.deepEqual(deploymentUrls({}), ['https://www.arkpedia.net', 'https://www.arkpedia.net']);
   assert.deepEqual(deploymentUrls({ ARKPEDIA_DEPLOYMENTS: 'https://a.example https://b.example/' }), ['https://a.example', 'https://b.example']);
   const urls: string[] = [];
   const fetch = async (url: string) => { urls.push(url.replace(/\?.*$/, '')); return new Response('nope', { status: 404 }); };
@@ -352,7 +352,7 @@ test("the gate reads main's live deployments config/production.json lists, and o
   } finally {
     console.log = log;
   }
-  assert.deepEqual(urls, ['https://www.arkpedia.net/build-info.json', 'https://arkpedia-cf.mocchibird.com/build-info.json']);
+  assert.deepEqual(urls, ['https://www.arkpedia.net/build-info.json', 'https://www.arkpedia.net/build-info.json']);
 });
 
 // arkpedia-data's Content release moves the live pointer only after its own validator passes;

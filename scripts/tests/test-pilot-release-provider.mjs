@@ -10,7 +10,7 @@ function version(id = PILOT.legacyVersion) {
   return { id, annotations: id === PILOT.legacyVersion ? {} : { 'workers/message': pilotReleaseMessage(owner) },
     resources: { script_runtime: { migration_tag: 'v1' }, bindings: [
       { name: 'ARKPEDIA_ACCOUNTS_DB', type: 'd1', database_id: PILOT.database },
-      { name: 'ARKPEDIA_AUTH_URL', type: 'plain_text', text: id === PILOT.legacyVersion ? PILOT.origin : 'https://www.arkpedia.net' },
+      { name: 'ARKPEDIA_AUTH_URL', type: 'plain_text', text: id === PILOT.legacyVersion ? PILOT.legacyAuthOrigin : PILOT.origin },
       { name: 'ASSETS', type: 'assets' },
       ...['BETTER_AUTH_SECRET', 'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'DISCORD_CLIENT_ID', 'DISCORD_CLIENT_SECRET'].map(name => ({ name, type: 'secret_text' })),
       { name: 'NEXT_CACHE_DO_QUEUE', type: 'durable_object_namespace', class_name: 'DOQueueHandler', namespace_id: PILOT.queue },
@@ -32,7 +32,7 @@ const binding = (v, name) => v.resources.bindings.find(b => b.name === name);
 
 test('only the exact observed pre-cutover version retains the pilot auth origin', () => {
   const previous = version(PRE_CUTOVER_VERSION);
-  binding(previous, 'ARKPEDIA_AUTH_URL').text = PILOT.origin;
+  binding(previous, 'ARKPEDIA_AUTH_URL').text = PILOT.legacyAuthOrigin;
   assert.equal(assertPilotBindings(previous), previous);
   previous.id = foreignVersion;
   assert.throws(() => assertPilotBindings(previous), /auth origin changed/);
@@ -50,7 +50,7 @@ test('only the recorded authorized media-secret update retains its proven checke
   v.id = MEDIA_SECRET_UPDATE.version;
   v.annotations = { 'workers/triggered_by': 'secret' };
   v.resources.script = { etag: MEDIA_SECRET_UPDATE.etag };
-  binding(v, 'ARKPEDIA_AUTH_URL').text = PILOT.origin;
+  binding(v, 'ARKPEDIA_AUTH_URL').text = PILOT.legacyAuthOrigin;
   assert.equal(assertPilotBindings(v), v);
   assertPilotIdentity({ ...identity(nextVersion), commit: MEDIA_SECRET_UPDATE.source, codeFingerprint: MEDIA_SECRET_UPDATE.fingerprint }, v);
   const changedCode = structuredClone(v); changedCode.resources.script.etag = 'unreviewed';
@@ -98,7 +98,7 @@ test('identity reader refuses dirty, invalid-role, redirect and oversized respon
   await assert.rejects(() => readPilotIdentity(async () => new Response(' '.repeat(70_000))), /oversized pilot identity/);
 });
 
-function harness({ token = true, badRoute = null, lostDeployResponse = false, sessionCache = 'no-store', savedDataCache = 'private, no-store', allowLocalRecovery = false, initialVersion = PILOT.legacyVersion } = {}) {
+function harness({ token = true, badRoute = null, lostDeployResponse = false, sessionCache = 'private, no-store', savedDataCache = 'private, no-store', allowLocalRecovery = false, initialVersion = PILOT.legacyVersion } = {}) {
   let current = initialVersion;
   const versions = new Map([[PILOT.legacyVersion, version()], [nextVersion, version(nextVersion)]]);
   const commands = [];
@@ -126,9 +126,9 @@ function harness({ token = true, badRoute = null, lostDeployResponse = false, se
     const path = new URL(url).pathname;
     if (path === '/build-info.json') return new Response(JSON.stringify(identity(current)));
     if (path === badRoute) return new Response('unavailable', { status: 503 });
-    if (path.startsWith('/api/')) return new Response('', { status: path === '/api/auth/get-session' ? 200 : 401,
+    if (path.startsWith('/api/')) return Response.json({ error: 'Arkpedia accounts are available on Preview only.' }, { status: 503,
       headers: { 'cache-control': path === '/api/auth/get-session' ? sessionCache : savedDataCache } });
-    return new Response('page', { headers: { 'x-robots-tag': 'noindex' } });
+    return new Response('page');
   };
   const provider = createPilotProvider({ run, request, allowLocalRecovery,
     environment: { ...(token ? { CLOUDFLARE_API_TOKEN: 'fixture-not-a-real-token' } : {}),
@@ -170,15 +170,15 @@ test('manual recovery refuses changed version and default local OAuth cannot wri
   await assert.rejects(() => readOnly.provider.recover(owner, nextVersion), /explicit recovery credential/);
   assert.ok(!h.commands.includes('rollback') && !readOnly.commands.includes('rollback'));
 });
-test('health refuses an unconfigured or failing account backend', async () => {
+test('health refuses an unexpected account response on the live hostname', async () => {
   const h = harness({ badRoute: '/api/cloud-account' });
-  await assert.rejects(() => h.provider.health(h.provider.observe()), /configured account route/);
+  await assert.rejects(() => h.provider.health(h.provider.observe()), /live account route/);
 });
 test('health requires no-store on every account API and private on saved-data endpoints', async () => {
   const session = harness({ sessionCache: 'public, max-age=60' });
-  await assert.rejects(() => session.provider.health(session.provider.observe()), /configured account route/);
+  await assert.rejects(() => session.provider.health(session.provider.observe()), /live account route/);
   const savedData = harness({ savedDataCache: 'no-store' });
-  await assert.rejects(() => savedData.provider.health(savedData.provider.observe()), /configured account route/);
+  await assert.rejects(() => savedData.provider.health(savedData.provider.observe()), /live account route/);
 });
 test('a changed pilot blocks deployment and recovery does not overwrite a foreign owner', async () => {
   const h = harness(); h.replace();

@@ -10,7 +10,7 @@ const reader = { name: 'pilot', url: 'https://pilot.example', branch: 'main', li
 test('the pilot gates main content but is never a Vercel upload or dev-content target', () => {
   const main = releaseDeployments({ ARKPEDIA_RELEASE_BRANCH: 'main' });
   assert.deepEqual(main.map(d => d.name), ['arkpedia-net', 'arkpedia-cloudflare']);
-  assert.deepEqual(deploymentUrls({ ARKPEDIA_RELEASE_BRANCH: 'main' }), ['https://www.arkpedia.net', 'https://arkpedia-cf.mocchibird.com']);
+  assert.deepEqual(deploymentUrls({ ARKPEDIA_RELEASE_BRANCH: 'main' }), ['https://www.arkpedia.net', 'https://www.arkpedia.net']);
   assert.deepEqual(deployTargets({ branch: 'main' }).map(d => d.name), ['arkpedia-net']);
   assert.deepEqual(releaseDeployments({ ARKPEDIA_RELEASE_BRANCH: 'dev' }).map(d => d.name), []);
   assert.equal(main.find(d => d.name === 'arkpedia-cloudflare').refresh, false);

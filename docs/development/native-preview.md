@@ -18,6 +18,11 @@ it is retained for build compatibility. The user-facing environment is Preview.
 Twitch/YouTube credentials are Preview secrets, maintained separately from live.
 Other authentication/provider credentials are not copied.
 
+Google/Discord accounts, profiles and cloud saves are Preview-only features.
+The native Preview currently has no account database or auth credentials, so login
+remains unavailable until isolated Preview account storage and provider settings
+are configured. Do not proxy its account APIs into the live Worker/database.
+
 The workflow builds on Linux without provider credentials, packages the exact
 source, verifies its checksum and clean build identity, and publishes from a
 separate job using the fixed native Preview command. Only focused isolation

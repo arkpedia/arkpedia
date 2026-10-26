@@ -10,7 +10,7 @@ import { BUILD_CHECK_SECONDS, KEEP_SECONDS, STATE_HEADER, buildOf, createEdge, f
 const ROOT = process.cwd();
 const jsonc = (file: string) => JSON.parse(fs.readFileSync(path.join(ROOT, file), 'utf8').replace(/^\s*\/\/.*$/gm, ''));
 
-const SITE = 'https://arkpedia-cf.mocchibird.com';
+const SITE = 'https://www.arkpedia.net';
 const BUILD = 'Bld_one-1';
 const html = (build = BUILD, text = 'page') => `<html><head><script src="/_next/static/${build}/_buildManifest.js" defer></script></head><body>${text}</body></html>`;
 const PAGE_HEADERS = {
@@ -331,7 +331,6 @@ test('the front Worker is set up as the README says: in front of the site Worker
   assert.equal(edge.main, 'worker.mjs');
   assert.deepEqual(edge.services, [{ binding: 'SITE', service: jsonc('wrangler.jsonc').name }]);
   assert.deepEqual(edge.routes, [
-    { pattern: 'arkpedia-cf.mocchibird.com/*', zone_name: 'mocchibird.com' },
     { pattern: 'www.arkpedia.net/*', zone_name: 'arkpedia.net' },
     { pattern: 'arkpedia.net/*', zone_name: 'arkpedia.net' },
     { pattern: 'preview.arkpedia.net/*', zone_name: 'arkpedia.net' },

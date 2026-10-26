@@ -1,5 +1,19 @@
 # Cloudflare public-domain cutover
 
+## Follow-up scope correction
+
+Google/Discord accounts, profiles and cloud saves are Preview-only. Live account
+APIs are blocked at the edge and by the production-role server guard. Retain the
+existing database and secrets without exposing them through Preview. Preview
+requires its own isolated account storage/provider configuration before enabling
+login. The earlier successful www OAuth initiation below is historical evidence,
+not authorization to expose accounts on live.
+
+The obsolete `arkpedia-cf.mocchibird.com` hostname is retired from edge routes,
+provider custom domains, DNS and active release/reader targets. Canonical www now
+provides release health. Keep the existing `arkpedia` application Worker, which
+serves www, and keep Vercel available for rollback.
+
 ## Live cutover receipt, 2026-10-26
 
 Cloudflare now serves https://www.arkpedia.net through `arkpedia-edge` and the

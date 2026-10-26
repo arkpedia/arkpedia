@@ -9,6 +9,10 @@ Arknights reference pages, operator, skin and pull planners, a Global account im
 
 Cloudflare serves www; the apex redirects to www. Vercel remains deployed as a rollback target pending acceptance and soak. Production readers are listed in `config/production.json`; native Preview has its own isolated publication workflow. Vercel's own Git deployments are switched off (`vercel.json`): every deployment is built in CI from a commit that passed Check.
 
+Google/Discord accounts and cloud saves are Preview-only. Live keeps local imports
+and local planner data; it does not expose Arkpedia sign-in. The obsolete
+`arkpedia-cf.mocchibird.com` alias is retired; release health uses canonical www.
+
 ## Start here
 
 - [Repository map](docs/repository-map.md): where each feature lives and which public repository owns its data and media.

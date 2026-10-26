@@ -8,10 +8,13 @@ not a request to create another credential or build owner. Canonical release
 annotation was reconciled with the exact-version exceptions described below.
 
 It targets only the existing `arkpedia`
-Worker at `https://arkpedia-cf.mocchibird.com`. It does not move `arkpedia.net`,
+Worker behind `https://www.arkpedia.net`. It does not move `arkpedia.net`,
 change DNS, create resources, apply D1 migrations, write secrets or publish data.
 The existing edge routes public www to this Worker. Its auth origin is
-`https://www.arkpedia.net`; the physical pilot remains a noindex health endpoint.
+`https://www.arkpedia.net` remains historical account-binding metadata, but the
+production-role guard disables accounts entirely. The obsolete physical-pilot
+hostname is retired; health checks use indexable canonical www and require live
+account APIs to remain disabled with private, no-store responses.
 Vercel remains deployed as the rollback target pending acceptance and soak.
 See [the cutover record](cloudflare-cutover.md).
 

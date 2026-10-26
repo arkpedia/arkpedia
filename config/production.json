@@ -17,7 +17,7 @@
   "contentReaders": [
     {
       "name": "arkpedia-cloudflare",
-      "url": "https://arkpedia-cf.mocchibird.com",
+      "url": "https://www.arkpedia.net",
       "branch": "main",
       "live": true,
       "refresh": false

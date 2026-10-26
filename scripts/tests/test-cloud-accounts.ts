@@ -9,7 +9,7 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { makeSignature } from 'better-auth/crypto';
 import { getAuthTables } from 'better-auth/db';
 import { collectCloudData, fingerprint, personalData, restoreCloudData, validateCloudData } from '../../lib/cloud-account/data';
-import { accountAuth, type AccountsEnv } from '../../lib/cloud-account/server';
+import { accountAuth, accountsEnv, type AccountsEnv } from '../../lib/cloud-account/server';
 import { createCloudAccountHandler } from '../../lib/cloud-account/api';
 import { createAccountProfileHandler } from '../../lib/cloud-account/profile-api';
 import { normalizeUsername, validateProfile } from '../../lib/cloud-account/profile';
@@ -144,6 +144,25 @@ function database() {
 }
 const envFor = (db: D1Database): AccountsEnv => ({ ARKPEDIA_ACCOUNTS_DB: db, ARKPEDIA_AUTH_URL: 'https://accounts.example.invalid',
   BETTER_AUTH_SECRET: 'test-only-a-long-random-secret-0123456789', GOOGLE_CLIENT_ID: 'google-test', GOOGLE_CLIENT_SECRET: 'test', DISCORD_CLIENT_ID: 'discord-test', DISCORD_CLIENT_SECRET: 'test' });
+
+test('live and unknown deployment roles cannot enable accounts even with all bindings present', () => {
+  const key = Symbol.for('__cloudflare-context__');
+  const runtime = globalThis as unknown as Record<symbol, unknown>;
+  const previous = runtime[key];
+  const env = envFor({} as D1Database);
+  try {
+    for (const role of ['production', undefined, 'dev']) {
+      runtime[key] = { env: { ...env, ARKPEDIA_DEPLOYMENT_ROLE: role } };
+      assert.equal(accountsEnv(), null);
+    }
+    const preview = { ...env, ARKPEDIA_DEPLOYMENT_ROLE: 'staging' };
+    runtime[key] = { env: preview };
+    assert.equal(accountsEnv(), preview);
+  } finally {
+    if (previous === undefined) delete runtime[key];
+    else runtime[key] = previous;
+  }
+});
 
 test('migration matches the installed Better Auth tables', () => {
   const { sqlite } = database();

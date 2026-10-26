@@ -58,8 +58,8 @@ test('each deployment builds against its branch\'s channel, and the gate asks th
   const deployments = readDeployments();
   assert.equal(deployTargets({ branch: 'main', deployments })[0].contentChannel, 'live');
   assert.deepEqual(deployTargets({ branch: 'dev', deployments }), []);
-  assert.deepEqual(deploymentUrls({}), ['https://www.arkpedia.net', 'https://arkpedia-cf.mocchibird.com']);
-  assert.deepEqual(deploymentUrls({ ARKPEDIA_RELEASE_BRANCH: 'main' }), ['https://www.arkpedia.net', 'https://arkpedia-cf.mocchibird.com']);
+  assert.deepEqual(deploymentUrls({}), ['https://www.arkpedia.net', 'https://www.arkpedia.net']);
+  assert.deepEqual(deploymentUrls({ ARKPEDIA_RELEASE_BRANCH: 'main' }), ['https://www.arkpedia.net', 'https://www.arkpedia.net']);
   assert.deepEqual(deploymentUrls({ ARKPEDIA_RELEASE_BRANCH: 'dev' }), []);
 });
 

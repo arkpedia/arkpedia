@@ -18,6 +18,12 @@ disposable PR head. Cloudflare serves public production through the checked-main
 Vercel remains an active rollback target until user acceptance and soak finish. See the README and simplification
 plan for current deployment state and release rules.
 
+Google/Discord sign-in, Arkpedia profiles and cloud saves are Preview-only.
+Keep them disabled on live, including direct production Worker URLs. Preview must
+use isolated account storage; never route it through the live account backend.
+The retired `arkpedia-cf.mocchibird.com` hostname is not a release or reader target;
+use canonical www. Preserve the application Worker and retained account data.
+
 <!-- BEGIN:nextjs-agent-rules -->
 
 ## This is NOT the Next.js you know
