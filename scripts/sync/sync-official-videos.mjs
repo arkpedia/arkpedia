@@ -149,7 +149,7 @@ export async function readUpload(fetcher, videoId) {
  * Read from the event records as lib/home/frontPageContent.ts getEventCalendar and
  * lib/events/modeDetails.ts permanentEventListing list them, Global's confirmed windows only (a
  * predicted one is CN's moved by a guess), without importing those: a stage's imports are what a
- * dev deploy refreshes upstream for (scripts/content/dev-refresh.mjs REFRESH_PATHS), and the home
+ * production refresh reads, and the home
  * page's module changes with every home page edit.
  */
 async function readEvents(root) {

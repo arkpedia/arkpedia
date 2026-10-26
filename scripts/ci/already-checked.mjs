@@ -133,8 +133,7 @@ async function main() {
     // Only current-policy, exact-tree, successful completed coverage may substitute.
     const policySha256 = policyFingerprint(Object.fromEntries(POLICY_FILES.map(file => [file,
       execFileSync('git', ['rev-parse', `HEAD:${file}`], { encoding: 'utf8' }).trim()])));
-    const target = process.env.GITHUB_BASE_REF || (process.env.GITHUB_EVENT_NAME === 'workflow_dispatch'
-      && process.env.GITHUB_REF_NAME?.startsWith('sync/main-to-dev-') ? 'dev' : process.env.GITHUB_REF_NAME);
+    const target = process.env.GITHUB_BASE_REF || process.env.GITHUB_REF_NAME;
     const partial = api(`repos/${repository}/actions/artifacts?name=${POLICY_ARTIFACT_PREFIX}${tree}-${policySha256}&per_page=20`).artifacts ?? [];
     for (const artifact of partial) {
       if (artifact.expired !== false || !artifact.workflow_run?.id) continue;

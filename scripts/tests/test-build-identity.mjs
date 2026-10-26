@@ -89,7 +89,7 @@ test('deployment has one locked install and checks local then public identity be
   assert.ok(index('Verify the built output identity')<index('Deploy'));
   assert.ok(index('Deploy')<index('Verify the public deployed identity'));
   assert.ok(index('Verify the public deployed identity')<index('Close the failed-deploy report'));
-  for(const name of ['Close the failed-deploy report','Release again if one was held for this deploy',"Prepare dev's own content release"]){
+  for(const name of ['Close the failed-deploy report','Release again if one was held for this deploy']){
     assert.match(steps[index(name)].if,/steps\.build-identity\.outcome == 'success'/,name);
   }
   for(const name of ['Verify the built output identity','Verify the public deployed identity']){

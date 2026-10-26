@@ -260,19 +260,17 @@ flowchart TD
   vercel --> readers{Both main readers match fingerprint/channel/schema}
   pilot --> readers
   readers --> content[Main content publication may proceed]
-  merge -.-> legacy[Legacy main-to-dev/cloudflare sync remains configured]
-  legacy -->|conflict: no force| issue[Tracked alert; preserved branches unchanged]
-  dev[Preserved dev work] -.-> deploydev[Legacy Vercel dev deployment]
+  archive[Archived dev history] -.-> extract[Focused main-based feature PRs]
   cf[Preserved cloudflare work] -.-> disabled[Native pilot builds disabled]
   relay[arkpedia-relay/main] -->|relay build watch paths changed| relaybuild[Workers Builds: relay Worker and container]
 ```
 
 Application and content releases are separate. Supported records/media can ship
 through data publication; changed UI, calculations, mechanics or incompatible
-schemas require an app release. Docs-only changes skip app Check/Deploy. Legacy
-sync remains configured while consumers/features are preserved; it is not the
-destination for new feature work. Conflicts leave shared branches unchanged.
-No permanent branch retirement or public-domain cutover is implied.
+schemas require an app release. Docs-only changes skip app Check/Deploy. Dev synchronization and deployment are retired; unreleased work is retained in
+archive tags for individual extraction. See the retirement record in
+[branch-sync.md](development/branch-sync.md). Cloudflare branch preservation and
+public-domain cutover remain separate.
 
 ## 6. Related projects
 

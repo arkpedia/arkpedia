@@ -29,8 +29,7 @@ const NAME = /^[a-z0-9][a-z0-9-]*$/;
 const BRANCH = /^[A-Za-z0-9][A-Za-z0-9._/-]*$/;
 const SECRET = /^[A-Z][A-Z0-9_]*$/;
 /** The branch whose release production serves (prepare-content.yml's scheduled run): the gate's
- *  default, and the one whose deploy re-runs a held release. The dev channel's run sets
- *  ARKPEDIA_RELEASE_BRANCH=dev instead (scripts/content/channel.mjs). */
+ *  default, and the one whose deploy re-runs a held release. Only main is registered as a publishing channel. */
 export const RELEASE_BRANCH = 'main';
 
 /** The deployments config/production.json lists, each checked, or an error naming what is wrong. */
@@ -80,8 +79,7 @@ export function readContentReaders(config = JSON.parse(fs.readFileSync(path.join
  *  (scripts/content/channel.mjs), else main. The release gate asks them what they run
  *  (scripts/content/deploy-gate.mjs) and the page refresh calls them (scripts/content/
  *  refresh-pages.mjs). One not switched on yet, or following another branch, runs other code
- *  and reads another channel's release by design: main's release asks www.arkpedia.net, the dev
- *  channel's arkpedia-dev.vercel.app. */
+ *  and is not a production release gate. */
 export function releaseDeployments(env = process.env, deployments = [...readDeployments(), ...readContentReaders()]) {
   const branch = env.ARKPEDIA_RELEASE_BRANCH || RELEASE_BRANCH;
   return deployments.filter(deployment => deployment.live && deployment.branch === branch);

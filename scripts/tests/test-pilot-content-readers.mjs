@@ -12,7 +12,7 @@ test('the pilot gates main content but is never a Vercel upload or dev-content t
   assert.deepEqual(main.map(d => d.name), ['arkpedia-net', 'arkpedia-cloudflare']);
   assert.deepEqual(deploymentUrls({ ARKPEDIA_RELEASE_BRANCH: 'main' }), ['https://www.arkpedia.net', 'https://arkpedia-cf.mocchibird.com']);
   assert.deepEqual(deployTargets({ branch: 'main' }).map(d => d.name), ['arkpedia-net']);
-  assert.deepEqual(releaseDeployments({ ARKPEDIA_RELEASE_BRANCH: 'dev' }).map(d => d.name), ['arkpedia-dev']);
+  assert.deepEqual(releaseDeployments({ ARKPEDIA_RELEASE_BRANCH: 'dev' }).map(d => d.name), []);
   assert.equal(main.find(d => d.name === 'arkpedia-cloudflare').refresh, false);
 });
 test('reader inventory refuses ambiguous names, non-origins, unknown fields and implicit flags', () => {
@@ -32,7 +32,7 @@ test('release reporting monitors the pilot once under main/live rather than its 
     read: async url => {
       if (url.endsWith('/build-info.json')) return Buffer.from(JSON.stringify({ version: 1, commit: 'a'.repeat(40),
         codeFingerprint: 'b'.repeat(64), contentSchema: 2, dirty: false,
-        contentChannel: url.startsWith('https://arkpedia-dev.') ? 'dev-live' : 'live' }));
+        contentChannel: 'live' }));
       if (url.endsWith('/current.json')) return Buffer.from(JSON.stringify({ revision: 'c'.repeat(40),
         release: 'd'.repeat(64), schema: 2, manifestSha256: createHash('sha256').update(bytes).digest('hex') }));
       if (url.endsWith('/manifest.json')) return bytes;

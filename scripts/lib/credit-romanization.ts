@@ -133,7 +133,7 @@ export function romanizationCoverage(people: readonly (CreditNameSource & { alia
 
 /** A person as the site search's rows take them (lib/search/siteSearchIndex.ts
  *  SiteSearchPerson, which this matches by shape: the payload-budgets refresh stage imports
- *  this file, and lib/search/ is not among what a refresh runs, scripts/content/dev-refresh.mjs). */
+ *  this file, and lib/search/ is not among what a refresh runs, the production refresh pipeline). */
 interface SearchPerson {
   kind: 'artist' | 'voice-actor';
   name: string;

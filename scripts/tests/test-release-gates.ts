@@ -117,9 +117,9 @@ test('Check skips exactly the docs-only paths, on push and pull request, and Dep
   const ignored = [...check.matchAll(/^ {4}paths-ignore: (\[.*\])$/gm)].map(match => JSON.parse(match[1].replace(/'/g, '"')));
   assert.deepEqual(ignored, [DOCS_ONLY_PATHS, DOCS_ONLY_PATHS], 'push and pull_request each ignore exactly config/docs-only-paths.json');
   assert.doesNotMatch(check, /^\s+paths:/m, 'no paths allow-list, which would skip code changes');
-  assert.match(check, /^ {2}push:\n {4}branches: \[main, dev\]\n( {4}#.*\n)* {4}paths-ignore:/m);
+  assert.match(check, /^ {2}push:\n {4}branches: \[main\]\n( {4}#.*\n)* {4}paths-ignore:/m);
   const deploy = fs.readFileSync('.github/workflows/deploy.yml', 'utf8');
-  assert.match(deploy, /^ {2}workflow_run:\n {4}workflows: \[Check\]\n {4}types: \[completed\]\n {4}branches: \[main, dev\]\n/m);
+  assert.match(deploy, /^ {2}workflow_run:\n {4}workflows: \[Check\]\n {4}types: \[completed\]\n {4}branches: \[main\]\n/m);
   assert.doesNotMatch(deploy, /paths(-ignore)?:/, 'Deploy runs after every Check on main, never filtered by path');
 });
 
@@ -340,7 +340,6 @@ test("the gate reads main's live deployments config/production.json lists, and o
   const config = JSON.parse(fs.readFileSync('config/production.json', 'utf8'));
   assert.deepEqual(config.deployments.map((entry: { url: string; branch: string; live: boolean }) => [entry.url, entry.branch, entry.live]), [
     ['https://www.arkpedia.net', 'main', true],
-    ['https://arkpedia-dev.vercel.app', 'dev', true],
   ]);
   assert.deepEqual(deploymentUrls({}), ['https://www.arkpedia.net', 'https://arkpedia-cf.mocchibird.com']);
   assert.deepEqual(deploymentUrls({ ARKPEDIA_DEPLOYMENTS: 'https://a.example https://b.example/' }), ['https://a.example', 'https://b.example']);

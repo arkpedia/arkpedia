@@ -1,56 +1,42 @@
-# Production, development and Cloudflare synchronization
+# Retired dev branch and preserved work
 
-`main` owns production releases. `dev` may intentionally have a newer framework, renamed
-routes or features not released to production yet. `cloudflare` contains dev plus its
-Worker-specific code. Synchronization merges history; it does not replace one branch's
-tree with another or resolve conflicts by always choosing a side.
+The maintainer authorized retirement on 2026-10-26. Native Cloudflare Worker
+Previews replace the old Vercel dev site. New work branches from main and uses
+focused PRs and explicit isolated Previews.
 
-Every push to main, including a documentation-only release, starts `sync-main.yml`:
+## Recovery refs
 
-1. If main is already an ancestor of dev, dev is left alone and the downstream Cloudflare
-   sync is dispatched again. Otherwise, merge current main into current dev on a temporary
-   `sync/main-to-dev-<main>-<dev>` branch. Merge conflicts stop here and open a tracked issue.
-2. Explicitly dispatch the existing Check workflow on that integration branch, opting in
-   to reuse of a completed same-repository PR Check of the exact tree. Missing, expired,
-   failed or unreadable evidence runs the full suite. Normal manual checks default to full;
-   the opt-in only applies to `sync/main-to-dev-*` branches. The integration branch
-   is immutable; retries reuse it. A failed Check opens the tracked issue and changes no
-   shared branch. Check's final notifier job explicitly dispatches the sync with its run ID.
-   No runner waits for the full suite; the completion handler allows up to two minutes for
-   that notifier job's run record to finalize before reading its authoritative conclusion.
-3. Accept only a successful Check workflow-dispatch run from this repository, for the exact
-   integration branch head and the expected main/dev merge parents. Privileged orchestration
-   always executes the script checked out from main, never code from a completed Check.
-4. If either branch advanced while Check ran, prepare and check a fresh merge. Otherwise,
-   fast-forward dev to the exact green commit. The GitHub API uses `force: false`; a racing
-   dev push cannot be overwritten and is automatically included in a newly checked integration.
-5. Dispatch Deploy with that checked commit pinned, and dispatch the existing dev-to-Cloudflare
-   sync. This is explicit because writes with GITHUB_TOKEN do not start push workflows.
-   Delete only the disposable integration branch after these dispatches succeed.
+| Repository | Archive tag | Preserved commit |
+| --- | --- | --- |
+| arkpedia/arkpedia | archive/legacy-dev-2026-10-26 | 5b0e72a8cd0c77d2711978905522c2f875bc8750 |
+| arkpedia/arkpedia | archive/stage-producer-763-2026-10-26 | 7c94fb8516030728586005b01e75620bfc9b4c3b |
+| arkpedia/arkpedia-data | archive/legacy-dev-2026-10-26 | e3c6952ab7147ec8fb27d2face9361fd948a11b9 |
+| arkpedia/arkpedia-data | archive/legacy-dev-live-2026-10-26 | 1fb3d08d3f9b9d3d07e71102c7daf7cce55ca8e9 |
 
-The existing Cloudflare workflow merges normally and reports conflicts in a separate tracked
-issue. The external Workers Builds integration handles its deployment. Edge Worker build watch
-paths remain unchanged, so unrelated releases do not rebuild `arkpedia-edge` unnecessarily.
+The app archive retains the entire dev history and all unreleased base simulator
+and optimizer code, including lib/base/baseSimulation.ts, baseOptimizer.ts,
+calculateBase.ts and specialSkillKeys.ts. Extract dependency-complete features
+individually into current-main branches. Do not merge the archive wholesale.
 
-The workflows use the repository workflow token and the existing light runner. They require
-no personal access token, new account login or new scheduled job. Each orchestration job is
-limited to five minutes; full application verification belongs to Check on the build runner.
+PR763's canonical stage producer has its own preserved ref. The separate stage
+simulator's immutable data snapshots and source receipts remain valid; no
+simulator data or implementation is removed by this retirement. Its old PR base
+must be retired with dev; future producer updates should be ported as a focused
+main-based PR. The producer head branch remains available for that extraction.
 
-Both handoffs use explicit `workflow_dispatch`, one of GitHub's documented
-[workflow-token trigger exceptions](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow).
-During the initial 2026-10-24 rollout, the bot-dispatched integration Check passed but its
-`workflow_run` callback never started. Completion therefore does not depend on that event.
+## Retirement boundaries
 
-## Recovery
+- Remove dev from Vercel deploy targets and publishing channels.
+- Remove main-to-dev and dev-to-cloudflare synchronization and its Check callback.
+- Remove nightly/post-deploy dev publication while preserving the successful-main
+  editorial notification and checked production release gates.
+- Pause the old arkpedia-dev Vercel project; retain deployments/settings for
+  recovery. Disconnect its Git integration and remove its unused CI credential.
+- After this change lands, remove the app dev and data dev/dev-live branch refs
+  only after confirming each archived commit still matches its branch tip.
+- Keep main/live, the active pilot, native Preview, cloudflare's preserved work,
+  base simulation work and the canonical stage-simulator producer checkpoints.
 
-Read the tracked issue and failed run first. Resolve a genuine conflict through a temporary
-branch and a green Check. Preserve both main ancestry and intentional dev/Cloudflare changes;
-do not squash or rebase a reconciliation merge. Then run **Sync main into dev** manually from
-Actions. A rejected fast-forward indicates another dev update raced the sync: rerunning builds
-a new candidate from the current tips. A dispatch failure after dev advanced can be retried by
-rerunning the failed sync completion job; the candidate remains until dispatches succeed.
-To retry a completed integration Check directly, dispatch **Sync main into dev** with its
-numeric Actions run ID in `checked_run`; leave it empty to prepare from the current tips.
-
-After recovery, GitHub's `main...dev` and `main...cloudflare` comparisons should both show zero
-behind. Ahead commits are expected: the branches retain unreleased and hosting-specific work.
+Historical synchronization runbooks and scripts are superseded. Restoring the old
+deployment or publishing channel requires an explicit reviewed change; creating
+a branch named dev alone must not reactivate deployment or content publication.

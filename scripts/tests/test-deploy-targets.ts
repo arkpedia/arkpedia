@@ -10,7 +10,7 @@ import { RELEASE_BRANCH, deployTargets, readDeployments } from '../deploy/deploy
  * On 2026-09-30 kukki's Vercel project, which serves www.arkpedia.net, was Git-linked to this
  * repository with its domains assigned automatically: the first push to main that built would
  * have replaced the public site without a Check. Now Deploy uploads it from CI after a green
- * Check of main, and arkpedia-dev.vercel.app follows dev.
+ * Check of main. The former dev project is retired.
  */
 const entry = (name: string, branch: string, live: boolean, extra: object = {}) => ({
   name,
@@ -23,11 +23,10 @@ const entry = (name: string, branch: string, live: boolean, extra: object = {}) 
 });
 type Target = { name: string; environment: string; production: boolean; releaseGate: boolean; last: boolean; alert: string };
 
-test('the checked-in list: main is www.arkpedia.net, dev is arkpedia-dev.vercel.app', () => {
+test('the checked-in list deploys only www.arkpedia.net from main', () => {
   const deployments = readDeployments();
   assert.deepEqual(deployments.map(({ name, url, branch, scope, tokenSecret, live }: Record<string, unknown>) => ({ name, url, branch, scope, tokenSecret, live })), [
     { name: 'arkpedia-net', url: 'https://www.arkpedia.net', branch: 'main', scope: 'kukkikazes-projects', tokenSecret: 'VERCEL_TOKEN_ARKPEDIA_NET', live: true },
-    { name: 'arkpedia-dev', url: 'https://arkpedia-dev.vercel.app', branch: 'dev', scope: 'mocchibirds', tokenSecret: 'VERCEL_TOKEN', live: true },
   ]);
   // kukki's project, as `vercel project inspect arkpedia --scope kukkikazes-projects` names it.
   assert.equal(deployments[0].orgId, 'team_HnaZMOxh1kZqA9fCWV9FNjTd');
@@ -72,7 +71,7 @@ test('the script prints the matrix for $GITHUB_OUTPUT', () => {
     return JSON.parse(result.stdout.slice('targets='.length)).map((target: Target) => target.name);
   };
   assert.deepEqual(names(['--branch', 'main']), ['arkpedia-net']);
-  assert.deepEqual(names(['--branch', 'dev']), ['arkpedia-dev']);
+  assert.deepEqual(names(['--branch', 'dev']), []);
   assert.deepEqual(names(['--branch', 'feat/x']), []);
   assert.deepEqual(names(['--branch', 'main', '--preview']), []);
 });

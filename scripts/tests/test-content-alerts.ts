@@ -713,7 +713,6 @@ test('a failed deploy opens one issue per deployment that its next deploy closes
   // The report needs the checkout; the token check used to run first and fail without one.
   const names = [...fs.readFileSync('.github/workflows/deploy.yml', 'utf8').matchAll(/^ {6}- (?:name: (.*)|uses: (actions\/checkout)@)/gm)].map(match => match[1] ?? match[2]);
   assert.ok(names.indexOf('actions/checkout') < names.indexOf('Refuse to run without the deploy token'), names.join(' | '));
-  // The reports follow every deploy step; starting a release comes last, after a success: a held
-  // one of main, or the dev channel's (scripts/content/channel.mjs).
-  assert.deepEqual(names.slice(-4), ['Report the failed deploy', 'Close the failed-deploy report', 'Release again if one was held for this deploy', "Prepare dev's own content release"]);
+  // The reports follow every deploy step; resuming a held main release comes last, after success.
+  assert.deepEqual(names.slice(-3), ['Report the failed deploy', 'Close the failed-deploy report', 'Release again if one was held for this deploy']);
 });

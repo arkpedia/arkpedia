@@ -100,9 +100,9 @@ test('prepare-content refreshes them right after the release is confirmed live, 
   // On main it waits for what the live check found live serving (await-live.mjs's `revision`
   // output), not the pushed commit, which the pointer never names once a later push superseded it.
   assert.deepEqual([step.if, step.run, step['continue-on-error'], step.env?.ARKPEDIA_RELEASE_REFRESH_SECRET, step.env?.REVISION], [
-    "steps.live.outcome == 'success' || steps.publish_dev.outputs.pushed != ''",
+    "steps.live.outcome == 'success'",
     'node scripts/content/refresh-pages.mjs --revision "$REVISION" --pointer "$ARKPEDIA_CONTENT_POINTER"', true,
-    '${{ secrets.ARKPEDIA_RELEASE_REFRESH_SECRET }}', '${{ steps.live.outputs.revision || steps.publish_dev.outputs.pushed }}',
+    '${{ secrets.ARKPEDIA_RELEASE_REFRESH_SECRET }}', '${{ steps.live.outputs.revision }}',
   ]);
   assert.ok(!Object.keys(step.env ?? {}).includes('PUSHED'), 'nothing hands it the pushed commit any more');
   // Long enough for the wait (below) and the requests after it, and the job's budget has room
@@ -162,7 +162,7 @@ test('the refresh waits until a server reading the pointer gets the pushed relea
 });
 
 test('the refresh command needs the pushed revision and the channel\'s pointer, and reads that pointer', async () => {
-  const env = { ARKPEDIA_RELEASE_REFRESH_SECRET: 's3cret', ARKPEDIA_RELEASE_BRANCH: 'dev' };
+  const env = { ARKPEDIA_RELEASE_REFRESH_SECRET: 's3cret', ARKPEDIA_RELEASE_BRANCH: 'main' };
   for (const argv of [[], ['--revision', REVISION], ['--pointer', 'dev-live'], ['--revision', 'main', '--pointer', 'dev-live'], ['--revision', REVISION, '--pointer', '../live']]) {
     await assert.rejects(refreshMain(argv, { env, fetch: async () => { throw new Error('nothing is asked'); } }), /usage: refresh-pages\.mjs --revision/, argv.join(' '));
   }
@@ -173,10 +173,10 @@ test('the refresh command needs the pushed revision and the channel\'s pointer, 
     return url.endsWith('/current.json') ? new Response(JSON.stringify({ revision: REVISION })) : new Response('{"refreshed":{}}');
   };
   await refreshMain(['--revision', REVISION, '--pointer', 'dev-live'], { env, fetch, now: time.now, sleep: time.sleep, log: () => {} });
-  assert.deepEqual(calls, ['GET https://raw.githubusercontent.com/arkpedia/arkpedia-data/dev-live/current.json', 'POST https://arkpedia-dev.vercel.app/api/release-refresh']);
+  assert.deepEqual(calls, ['GET https://raw.githubusercontent.com/arkpedia/arkpedia-data/dev-live/current.json', 'POST https://www.arkpedia.net/api/release-refresh']);
   // Without the secret nothing would be refreshed, so nothing is waited for either.
   const none = clock();
   calls.length = 0;
-  await refreshMain(['--revision', REVISION, '--pointer', 'dev-live'], { env: { ARKPEDIA_RELEASE_BRANCH: 'dev' }, fetch, now: none.now, sleep: none.sleep, log: () => {} });
+  await refreshMain(['--revision', REVISION, '--pointer', 'dev-live'], { env: { ARKPEDIA_RELEASE_BRANCH: 'main' }, fetch, now: none.now, sleep: none.sleep, log: () => {} });
   assert.deepEqual([calls, none.slept], [[], []]);
 });

@@ -7,24 +7,15 @@
  *
  *   node scripts/content/channel.mjs --branch <branch>   the channel's settings, as lines for $GITHUB_ENV
  *
- * Why a dev channel: the release was compiled only by main's code, so arkpedia-dev rendered
- * main's data and a pipeline change merged to dev showed nothing until it reached main (the
- * full rebuild of operator records from the game's tables, 2026-10-04). Dev's run compiles data
- * main's records with dev's code into data `dev`, rebuilt from main every run (so force-pushed),
- * and points `dev-live` at it. Data main and `live` are never written by it, and nothing in
- * arkpedia-data listens to either dev branch.
- *
- * Any other branch has no channel and the run fails at once: a feature branch never publishes.
- *
- * The run puts the channel in every later step's environment, so `npm test` unsets these
- * variables (package.json): dev's first run failed when the publish-step and staged-art tests,
- * which run scripts with the inherited environment, took the dev channel's path.
+ * Only main publishes production content. Retired dev snapshots are preserved under
+ * archive tags; native Worker Previews consume live content without a dev publisher.
+ * Other branches fail closed instead of creating another release channel.
  */
 import { pathToFileURL } from 'node:url';
 import path from 'node:path';
 import channelConfig from './content-channel.cjs';
 
-/** config/content-channels.json: { main: { dataBranch, pointer }, dev: { ... } }. */
+/** config/content-channels.json: { main: { dataBranch, pointer } }. */
 export const CHANNELS = channelConfig.CHANNELS;
 
 /** The channel `branch` publishes to, or an error: no other branch has one. */

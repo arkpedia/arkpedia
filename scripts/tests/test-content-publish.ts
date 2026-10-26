@@ -25,7 +25,6 @@ function stepScript(name: string) {
 }
 const loadStep = stepScript('Load public source records');
 const publishStep = stepScript('Publish the validated public release');
-const devPublishStep = stepScript("Publish the dev channel's release");
 const heartbeatStep = stepScript('Record the heartbeat');
 
 // A local bare repository stands in for arkpedia-data. The steps run unchanged: its
@@ -105,9 +104,6 @@ function dataRepository(root: string) {
       fs.writeFileSync(path.join(out, 'release/manifest.json'), JSON.stringify({ release, ...(content ? { content } : {}) }));
     },
     publish: (extra: Record<string, string> = {}) => step(publishStep, { CONTENT_DATA_DEPLOY_KEY: 'test-key', GITHUB_OUTPUT: path.join(runner, 'github-output'), ...extra }),
-    // The dev channel's step, with what the channel step puts in every later step's environment.
-    publishDev: (extra: Record<string, string> = {}) => step(devPublishStep, { CONTENT_DATA_DEPLOY_KEY: 'test-key', GITHUB_OUTPUT: path.join(runner, 'github-output'),
-      ARKPEDIA_RELEASE_BRANCH: 'dev', ARKPEDIA_DATA_BRANCH: 'dev', ARKPEDIA_CONTENT_POINTER: 'dev-live', GITHUB_SHA: 'f'.repeat(40), ...extra }),
     // A prepared release as export.mjs writes it, with the fields a site's pointer checks need.
     prepareRelease(manifest: { release: string; content: string }, value = manifest.release) {
       repo.prepare(manifest.release, value);
@@ -161,7 +157,7 @@ function dataRepository(root: string) {
 const regenerated = 'Refresh game content and prepared page data';
 
 test('main and dev publication commit the new casing of a replaced operator page', () => {
-  for (const channel of ['main', 'dev']) withDataRepository(repo => {
+  for (const channel of ['main']) withDataRepository(repo => {
     const oldPath = 'release/pages/operators/Gallus².json';
     const newPath = 'release/pages/operators/GALLUS².json';
     fs.mkdirSync(path.dirname(path.join(repo.root, 'seed', oldPath)), { recursive: true });
@@ -178,7 +174,7 @@ test('main and dev publication commit the new casing of a replaced operator page
     const prepared = path.join(repo.root, 'runner/prepared-content', newPath);
     fs.mkdirSync(path.dirname(prepared), { recursive: true });
     fs.writeFileSync(prepared, '{"canonical":"GALLUS²"}');
-    const result = channel === 'main' ? repo.publish() : repo.publishDev();
+    const result = repo.publish();
     assert.equal(result.status, 0, result.output);
     assert.deepEqual(JSON.parse(repo.bytes(channel, newPath).toString()), { canonical: 'GALLUS²' });
     assert.equal(repo.bytes(channel, oldPath).length, 0, 'the old path must not remain in the Git tree');
@@ -646,91 +642,4 @@ test('every successful run leaves one heartbeat commit on a branch of its own', 
   const settings = steps().find(step => step.name === 'Record the heartbeat')!.block.map(line => line.trim());
   // Main's channel only: the heartbeat is production's signal (scripts/content/channel.mjs).
   assert.ok(settings.includes("if: success() && github.ref_name == 'main'") && settings.includes('continue-on-error: true'), 'only after a good run, and it never fails one');
-});
-
-/* The dev channel (scripts/content/channel.mjs): data main's records compiled with dev's code,
-   published to data dev, rebuilt from data main every run (so force-pushed), and named by its
-   own pointer, dev-live, which arkpedia-dev reads (lib/content/server.ts). Data main and live
-   are never written. Nothing ran this step before it shipped; these cases run it as the runner
-   does, against a local data repository. */
-test("the dev channel publishes data main plus its release to data dev, and points dev-live at it", () => {
-  withDataRepository(repo => {
-    repo.pointTo('live', repo.head('main'));
-    const main = repo.head('main'), live = repo.head('live');
-    const SHA = /^[a-f0-9]{64}$/, GIT_SHA = /^[a-f0-9]{40}$/;
-    // What lib/content/server.ts checks before it reads a release through a pointer.
-    const served = (manifest: { release: string }) => {
-      const pointer = repo.file('dev-live', 'current.json');
-      assert.ok(pointer.schema === CONTENT_SCHEMA && SHA.test(pointer.release) && GIT_SHA.test(pointer.revision) && SHA.test(pointer.manifestSha256), JSON.stringify(pointer));
-      assert.equal(pointer.revision, repo.head('dev'), 'dev-live names data dev\'s head');
-      assert.equal(pointer.release, manifest.release);
-      assert.equal(pointer.manifestSha256, createHash('sha256').update(repo.bytes(pointer.revision, 'release/manifest.json')).digest('hex'), 'the digest of the manifest at that revision');
-      assert.deepEqual(repo.file(pointer.revision, 'release/manifest.json'), { schema: CONTENT_SCHEMA, ...manifest });
-    };
-    const untouched = () => {
-      assert.equal(repo.head('main'), main, 'data main is never written');
-      assert.equal(repo.head('live'), live, 'live is never written');
-    };
-    repo.load('main');
-    const first = { release: 'a'.repeat(64), content: 'b'.repeat(64) };
-    repo.prepareRelease(first);
-    const published = repo.publishDev();
-    assert.equal(published.status, 0, published.output);
-    untouched();
-    assert.deepEqual(repo.log('dev'), [`Dev channel: data main compiled with arkpedia ${'f'.repeat(40)}`, 'main 2', 'main 1', 'main 0'], 'data main plus one commit');
-    assert.equal(repo.head('dev~1'), main);
-    assert.deepEqual(repo.file('dev', 'source/a.json'), { value: first.release });
-    served(first);
-    assert.equal(repo.outputs(), `pushed=${repo.head('dev')}\n`);
-    assert.ok(repo.scripts().includes('data validate-release'), 'the data repository\'s validator ran on the commit');
-    const [gate] = repo.scripts().filter(line => line.startsWith('deploy-gate'));
-    assert.match(gate, /^deploy-gate --manifest \S+\/prepared-content\/release\/manifest\.json --held-file \S+\/release-held\.md$/);
-    // The next run's release: data dev is rebuilt from data main again (one commit on top, not
-    // two), and dev-live moves to it.
-    repo.nextRun();
-    const second = { release: 'c'.repeat(64), content: 'd'.repeat(64) };
-    repo.prepareRelease(second);
-    const again = repo.publishDev();
-    assert.equal(again.status, 0, again.output);
-    untouched();
-    assert.equal(repo.log('dev').length, 4, 'force-pushed: still data main plus one commit');
-    assert.equal(repo.head('dev~1'), main);
-    served(second);
-    assert.equal(repo.log('dev-live').length, 2, 'the pointer moved with a commit of its own');
-    assert.equal(repo.outputs(), `pushed=${repo.head('dev')}\n`);
-    // A run whose release has the content dev-live serves -- the same records, compiled by a dev
-    // commit that changed no output -- moves neither, as main's step skips one. Pushed anyway, the
-    // pointer would name a new commit of the same release id, and a warm server would go on
-    // reading the old one (lib/content/server.ts), by then on no branch.
-    const head = repo.head('dev'), pointer = repo.head('dev-live');
-    repo.nextRun();
-    repo.prepareRelease({ release: 'e'.repeat(64), content: second.content });
-    const unchanged = repo.publishDev();
-    assert.equal(unchanged.status, 0, unchanged.output);
-    assert.match(unchanged.output, /dev-live already serves this content/);
-    assert.deepEqual([repo.head('dev'), repo.head('dev-live'), repo.outputs()], [head, pointer, ''], 'nothing pushed, so nothing to refresh');
-    untouched();
-    // But a dev-live that names some other commit than data dev's head (its last push failed
-    // after data dev moved) is published again, so the two agree.
-    repo.nextRun();
-    repo.prepareRelease(second);
-    repo.pointTo('dev-live', main);
-    const repaired = repo.publishDev();
-    assert.equal(repaired.status, 0, repaired.output);
-    served(second);
-    // Published again, as its output says. Not told by the SHA: data dev's new commit has the
-    // parent, tree and message of the one before, so made within the same second it is that commit.
-    assert.equal(repo.outputs(), `pushed=${repo.head('dev')}\n`, 'published again');
-    assert.deepEqual(repo.scripts().filter(line => line === 'data validate-release').length, 3);
-  });
-  // A hold pushes nothing: the dev deployment does not run the code that compiled it.
-  withDataRepository(repo => {
-    repo.load('main');
-    repo.prepareRelease({ release: 'a'.repeat(64), content: 'b'.repeat(64) });
-    const held = repo.publishDev({ FAKE_GATE: 'hold' });
-    assert.notEqual(held.status, 0);
-    assert.equal(repo.exists('dev'), false);
-    assert.equal(repo.exists('dev-live'), false);
-    assert.equal(repo.outputs(), '');
-  });
 });

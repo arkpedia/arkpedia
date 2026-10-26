@@ -14,7 +14,10 @@ Content and bundled-page builders use compiled-in imports so they also work in d
 
 ## A channel's deployments must run the release's code first
 
-Each branch the job runs on has a content channel (`scripts/content/channel.mjs`, `config/content-channels.json`). Main's release goes to data `main` and the `live` pointer, which production (www.arkpedia.net) reads. Dev's run compiles data main's records with dev's code into data `dev` and its own pointer, `dev-live`, which arkpedia-dev reads, so a pipeline change merged to dev shows there before it reaches main; data `main` and `live` are never written by it. Deploy starts dev's run after each dev deploy, and the scheduled run starts it once more every night. Any other branch has no channel, and the run fails at the step that chooses one.
+Only main publishes the production content channel: data main and the live pointer.
+Native Worker Previews consume live content without a separate dev publisher.
+The former dev/dev-live snapshots are retained under the archive tags in
+[the retirement record](branch-sync.md).
 
 A release is compiled by the app commit the job checks out (main's, or dev's for the dev channel), and that code decides what each page's props look like. The deployments of that branch may still run older code that reads a different shape: on 2026-09-25 main dropped `countdowns`, `pullBannerLinks` and `isOngoing` while the deployed `/farming` and `/schedule` still dereferenced them, and both said `CONTENT_SCHEMA` 2. So the job publishes a release only while the deployments of its branch run the same code (`scripts/content/deploy-gate.mjs`): production for main's release, arkpedia-dev for dev's.
 
@@ -182,7 +185,8 @@ require no website rebuild.
 
 Kukki edits `source/` on `arkpedia-data/editorial` and pushes there. Do not edit generated `dev`, `dev-live`, `live`, or `release/` output. The app's **Editorial content** workflow checks every ten minutes (GitHub can delay scheduled runs), compares the editorial branch with shared data main, and dispatches **Prepare content release** on app main with the immutable source commit as `data_ref`, `refresh_upstream=false` and `merge_main=true`. No cross-repository credential is stored: the watcher uses the app repository's own Actions token to dispatch its own workflow. `ARKPEDIA_EDITORIAL_BRANCH`, an app repository variable, can select another source branch. The matching data repository variable controls source-branch fast-forwards.
 
-The standard compiler, tests, source ancestry checks, and deployment compatibility gate still apply. Its successful manual main preparation triggers a dev preparation from the resulting shared data main, with upstream refresh off, so the same edits reach both channels without promoting dev app features to main. Failed compilation retains the old release and uses the existing failure reports; pending main preparations suppress duplicate dispatches. Scheduled main refreshes retain their existing nightly dev handoff.
+The standard compiler, tests, source ancestry checks, and deployment compatibility gate still apply. Successful main preparation rechecks the editorial watcher immediately. No nightly
+or post-deploy dev handoff remains.
 
 Palette edits: a recipe in `color-palette-features.json` or a review in `color-palette-reviews.json` changes the palette it applies to, which only the refresh's palettes stage used to rebuild, so an editorial compile (no refresh) failed the palette test and held every later edit with it (2026-10-13). Such a run now rebuilds exactly the palettes made from another recipe or review (`build-color-palettes.py --if-stale`, which downloads nothing when none is stale).
 

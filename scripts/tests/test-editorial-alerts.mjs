@@ -76,6 +76,7 @@ test('the workflow rebuilds stale palettes without the refresh, recovers by sour
   assert.match(steps[at('Report the failed release')].run, /release-failure\.mjs record .*--source "\$\{SOURCE_HEAD:-none\}"/);
   assert.match(steps[at('Close the failed-release report')].run, /release-failure\.mjs recover .*--source "\$\{SOURCE_HEAD:-none\}"/);
   assert.doesNotMatch(steps[at('Close the failed-release report')].run, /alert-issue\.mjs close --alert "content-release-failing/);
-  const handoff = workflow.jobs['start-dev'].steps.map(step => step.run).join('\n');
-  assert.match(handoff, /if \[ "\$GITHUB_REF_NAME" = main \] && \[ "\$PREPARE_RESULT" = success \]; then\s+gh workflow run editorial-content\.yml/);
+  const handoff = workflow.jobs['notify-editorial'];
+  assert.equal(handoff.if, "${{ !cancelled() && github.ref_name == 'main' && needs.prepare.result == 'success' }}");
+  assert.match(handoff.steps[0].run, /gh workflow run editorial-content\.yml/);
 });

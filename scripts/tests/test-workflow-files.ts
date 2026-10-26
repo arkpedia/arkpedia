@@ -136,7 +136,7 @@ test("Deploy checks that production's asset links reach the live release's art, 
   assert.equal(steps[index('Build')].env?.GH_TOKEN, '${{ github.token }}');
 });
 
-test("only a green Check of a push to this repository's main or dev deploys", () => {
+test("only a green Check of a push to this repository's main deploys", () => {
   // The targets job decides; every deployment waits on it and adds no condition that could
   // run it anyway (always(), a bare !cancelled()).
   const workflow = load('deploy.yml') as unknown as { concurrency?: { group?: string }; jobs: Record<string, Job & { needs?: unknown }> };
@@ -148,7 +148,7 @@ test("only a green Check of a push to this repository's main or dev deploys", ()
   const condition = String(jobs.targets.if).replace(/\s+/g, ' ');
   for (const part of [
     "github.event.workflow_run.conclusion == 'success'",
-    "(github.event.workflow_run.head_branch == 'main' || github.event.workflow_run.head_branch == 'dev')",
+    "github.event.workflow_run.head_branch == 'main'",
     "github.event.workflow_run.event == 'push'",
     'github.event.workflow_run.head_repository.full_name == github.repository',
   ]) assert.ok(condition.includes(part), `deploy.yml's if requires ${part}: ${condition}`);
@@ -207,7 +207,7 @@ test("pushes and same-repository PRs reuse only a successful exact-tree Check", 
   const integration = { ...github('workflow_dispatch'), ref: 'refs/heads/sync/main-to-dev-example' };
   assert.equal(eligible(integration), false, 'an integration can still be manually forced through the full suite');
   assert.equal(eligible(integration, { reuse_pr_check: false }), false);
-  assert.equal(eligible(integration, { reuse_pr_check: true }), true);
+  assert.equal(eligible(integration, { reuse_pr_check: true }), false, 'retired dev integration cannot opt into reuse');
   assert.equal(eligible({ ...integration, ref: 'refs/heads/main' }, { reuse_pr_check: true }), false);
   assert.equal(eligible({ ...integration, ref: 'refs/heads/feature' }, { reuse_pr_check: true }), false);
   assert.equal(eligible({ ...github('pull_request', 'someone/fork'), ref: integration.ref }, { reuse_pr_check: true }), false);

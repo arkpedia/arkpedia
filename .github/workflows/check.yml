@@ -7,20 +7,15 @@ on:
   # (scripts/content/code-fingerprint.mjs): keep the two the same, a test holds them to it.
   # Other changes run draft feedback or the full ready/main/manual profile below.
   push:
-    branches: [main, dev]
+    branches: [main]
     paths-ignore: ['docs/**', '**/*.md']
   pull_request:
-    branches: [main, dev]
+    branches: [main]
     types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
     paths-ignore: ['docs/**', '**/*.md']
   # So a branch can be checked before it has a pull request, and so this file can
   # be tried by hand once it lands.
   workflow_dispatch:
-    inputs:
-      reuse_pr_check:
-        description: Automatic integration sync may reuse a green exact-tree PR Check
-        type: boolean
-        default: false
 
 # A second push to the same branch makes the first run pointless.
 concurrency:
@@ -35,10 +30,9 @@ permissions:
 jobs:
   # Reuse a successful PR Check of this exact merge tree on pushes and same-repository PRs.
   # This also covers a rebase that changes only ancestry. Any changed file, missing proof or
-  # API failure runs the full Check. Manual rechecks default to full; automatic
-  # integration sync explicitly opts in on its disposable branch only.
+  # API failure runs the full Check. Manual rechecks always run the full Check.
   seen:
-    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) || (github.event_name == 'workflow_dispatch' && inputs.reuse_pr_check == true && startsWith(github.ref, 'refs/heads/sync/main-to-dev-'))
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
     # A few seconds of API calls: on the light runner (ARKPEDIA_LIGHT_RUNNER, the VPS), so a
     # merge's push is not queued behind another pull request's whole Check on the NAS before
     # it can vouch and let Deploy start. Falls back to ARKPEDIA_RUNNER when unset.
@@ -380,21 +374,3 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           node scripts/content/alert-issue.mjs close --alert check-failing-main --title 'Check failing on main' --comment "Green again at ${GITHUB_SHA:0:12}: $RUN_URL"
-
-  # Runs started with GITHUB_TOKEN do not reliably emit another workflow_run event.
-  # Explicit dispatch is supported by that token. Keep write access out of the test job:
-  # this small notifier only sends its run ID; trusted main fetches and validates the result.
-  notify-sync:
-    needs: check
-    if: ${{ always() && github.event_name == 'workflow_dispatch' && startsWith(github.ref, 'refs/heads/sync/main-to-dev-') }}
-    runs-on: ${{ vars.ARKPEDIA_LIGHT_RUNNER || 'ubuntu-latest' }}
-    timeout-minutes: 5
-    permissions:
-      actions: write
-      contents: read
-    steps:
-      - name: Resume the production sync with this Check result
-        env:
-          GH_TOKEN: ${{ github.token }}
-          CHECKED_RUN: ${{ github.run_id }}
-        run: gh workflow run sync-main.yml --repo "$GITHUB_REPOSITORY" --ref main -f checked_run="$CHECKED_RUN"

@@ -1,4 +1,4 @@
-# Deploy to Vercel from CI, after the Check workflow has passed on main or dev.
+# Deploy to Vercel from CI, after the Check workflow has passed on main.
 #
 # The only way this repository reaches Vercel: vercel.json turns Vercel's own Git deployments
 # off for every project linked to it, since they build without the Check and cannot say which
@@ -11,15 +11,12 @@
 #
 # Where it goes is config/production.json (scripts/deploy/deploy-targets.mjs): every live
 # deployment that follows the branch Check passed, one after another, each built with its own
-# project's settings and environment. Since 2026-09-30 main is www.arkpedia.net (kukki's
-# project, which had been Git-linked to this repository with its domains assigned
-# automatically) and dev is arkpedia-dev.vercel.app. A deployment listed as not live gets
+# project's settings and environment. A deployment listed as not live gets
 # nothing automatically; a manual run with "preview" ticked uploads a preview there, which
 # moves none of its domains.
 #
 # Each deployment names the secret holding its Vercel token (Vercel → Account Settings →
-# Tokens, scoped to that team): VERCEL_TOKEN for Mocchibirds, VERCEL_TOKEN_ARKPEDIA_NET for
-# kukki's team. The org and project ids are not secrets; they are what `.vercel/project.json`
+# Tokens, scoped to that team): VERCEL_TOKEN_ARKPEDIA_NET for kukki's team. The org and project ids are not secrets; they are what `.vercel/project.json`
 # holds locally.
 name: Deploy
 
@@ -27,7 +24,7 @@ on:
   workflow_run:
     workflows: [Check]
     types: [completed]
-    branches: [main, dev]
+    branches: [main]
   workflow_dispatch:
     inputs:
       preview:
@@ -39,8 +36,7 @@ on:
         type: string
         required: false
 
-# One queue per branch: a group holds one waiting run, and a dev deploy queued behind a main
-# one would otherwise cancel it.
+# Serialize deployments without cancelling an earlier production publication.
 concurrency:
   group: deploy-${{ github.event.workflow_run.head_branch || github.ref_name }}
   cancel-in-progress: false
@@ -49,18 +45,17 @@ permissions:
   contents: read
   # Only for the failed-deploy report at the end of the job.
   issues: write
-  # Only to start a content release: one held for this deploy, or the dev channel's after a dev
-  # deploy (the last two steps).
+  # Only to restart content publication held for this deployment.
   actions: write
 
 jobs:
   targets:
-    # Only a green Check on main or dev deploys; a manual run trusts the operator.
-    # Only a green Check of a push to this repository's main or dev: a pull request whose
+    # Only a green Check on main deploys; a manual run trusts the operator.
+    # Only a green Check of a push to this repository's main: a pull request whose
     # branch is also called main (a fork's) must never deploy with the production token.
     if: >-
       github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success'
-      && (github.event.workflow_run.head_branch == 'main' || github.event.workflow_run.head_branch == 'dev')
+      && github.event.workflow_run.head_branch == 'main'
       && github.event.workflow_run.event == 'push'
       && github.event.workflow_run.head_repository.full_name == github.repository)
     # ARKPEDIA_RUNNER (a repository variable) names the self-hosted runner's label, e.g.
@@ -123,7 +118,7 @@ jobs:
         with:
           # Deploy the commit Check actually verified, not whatever main is by now.
           ref: ${{ inputs.commit || github.event.workflow_run.head_sha || github.sha }}
-          # And its parent, for what the commit changed (the dev channel's run, last step).
+          # Retain the parent for source identity checks.
           fetch-depth: 2
       - uses: actions/setup-node@v7
         with:
@@ -161,7 +156,7 @@ jobs:
           VERCEL_TOKEN: ${{ secrets[matrix.target.tokenSecret] }}
           GH_TOKEN: ${{ github.token }}
           PROD: ${{ matrix.target.production && '--prod' || '' }}
-          # The content pointer this deployment reads: live, or dev-live for dev's own releases
+          # The configured production content pointer.
           # (scripts/content/channel.mjs); inlined into the build by next.config.js. Only this
           # step sets it: the asset-link check after the deploy finds the same pointer from the
           # job's VERCEL_PROJECT_ID (scripts/content/content-channel.cjs looks the project up).
@@ -216,7 +211,7 @@ jobs:
       # alert-issue.mjs): the 09-18..09-22 outage was nine red runs that only the Actions tab
       # showed. Production keeps its last build meanwhile, and its channel's content releases
       # stay held while it runs other code than its branch's (scripts/content/deploy-gate.mjs:
-      # main's release asks main's deployments, the dev channel's dev's). The next successful
+      # main's release asks main's deployments). The next successful
       # deploy there closes it.
       - name: Report the failed deploy
         if: matrix.target.production && (failure() || cancelled())
@@ -270,23 +265,3 @@ jobs:
           if [ "$held" = none ]; then echo "No content release is held."; exit 0; fi
           echo "Content release held (issue #$held): production runs this deploy now, so Prepare content release starts again."
           gh workflow run prepare-content.yml --repo "$GITHUB_REPOSITORY" --ref main -f refresh_upstream=true
-      # The dev channel (scripts/content/channel.mjs): once arkpedia-dev runs a new build of dev,
-      # compile data main's records with that code and publish them to dev-live, so the build's
-      # effect on the data shows on arkpedia-dev without waiting for main. A newer dev deploy's
-      # run supersedes this one (prepare-content.yml cancels dev runs in progress). Never for
-      # main: its release is the scheduled one. The upstream refresh only when the commit changes
-      # what the refresh runs (scripts/content/dev-refresh.mjs): a page or style change compiles
-      # data main's records with it and leaves the sources alone; dev's nightly run refreshes.
-      - name: Prepare dev's own content release
-        if: ${{ !cancelled() && steps.deploy.outcome == 'success' && steps.build-identity.outcome == 'success' && matrix.target.production && matrix.target.branch == 'dev' && matrix.target.last }}
-        continue-on-error: true
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          # Anything but a plain false from a script that succeeded refreshes: one that failed,
-          # whatever it printed, or printed nothing or something else. Under the step's `bash -e`, a
-          # crash in the assignment ended the step and started no dev run at all, and anything but
-          # true or false is a value gh refuses for a boolean input.
-          refresh=$(node scripts/content/dev-refresh.mjs) || refresh=true
-          [ "$refresh" = false ] || refresh=true
-          gh workflow run prepare-content.yml --repo "$GITHUB_REPOSITORY" --ref dev -f refresh_upstream="$refresh"

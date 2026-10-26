@@ -5,9 +5,9 @@ Arknights reference pages, operator, skin and pull planners, a Global account im
 | Site | Branch | Deployed by |
 | --- | --- | --- |
 | [www.arkpedia.net](https://www.arkpedia.net) | `main` | `.github/workflows/deploy.yml`, after a green Check |
-| [arkpedia-dev.vercel.app](https://arkpedia-dev.vercel.app) | preserved legacy `dev` | the same workflow, after a green Check; not the default for new work |
+| [Arkpedia Preview](https://arkpedia-gins.preview.mocchibird.com) | explicit reviewed feature source | isolated native Worker Preview |
 
-Both are listed in `config/production.json`. Vercel's own Git deployments are switched off (`vercel.json`): every deployment is built in CI from a commit that passed Check.
+Production is listed in `config/production.json`; native Preview has its own isolated publication workflow. Vercel's own Git deployments are switched off (`vercel.json`): every deployment is built in CI from a commit that passed Check.
 
 ## Start here
 
@@ -25,18 +25,15 @@ Both are listed in `config/production.json`. Vercel's own Git deployments are sw
 3. **Publish an explicit native Cloudflare Preview when ready.** The Preview workflow builds an immutable redesign source and publishes only the isolated native Preview. Verify the actual deployed journey. See [Native Preview](docs/development/native-preview.md).
 4. **Merge the accepted PR into `main`.** A successful main Check releases public Vercel production and the existing Cloudflare pilot through its checked-main owner. Native pilot Git builds are disabled. See [the checked-main pilot release](docs/development/cloudflare-pilot-release.md) for fixed resources, scoped credentials, ownership and recovery. Public-domain cutover remains separate.
 
-The agreed target is one application codebase, not permanent `dev` and `cloudflare`
-mirrors. Those branches currently preserve unreleased features and historical pilot
-source. Review their net changes individually; do not merge
-them wholesale or delete them before the [simplification plan](docs/development/system-simplification-plan.md)
-gates pass. Keep Vercel serving www until Cloudflare parity, costs, soak and rollback
-are accepted, then handle public-domain cutover separately.
+The dev branch, Vercel dev deployment and dev content publisher are retired. All
+unreleased work, including the base simulator/optimizer, remains in the pushed
+`archive/legacy-dev-2026-10-26` tag. Extract those features individually into
+main-based PRs; native Worker Previews replace the old dev site. See
+[the retirement record](docs/development/branch-sync.md) for preserved refs.
 
-Legacy synchronization workflows are still configured during preservation. Their
-conflicts fail closed and leave the branch unchanged; do not force a sync over
-unreleased work merely to remove a behind count. [Branch synchronization](docs/development/branch-sync.md)
-documents that legacy recovery path, not the default feature release workflow.
-Never use a permanent integration branch as a disposable PR head.
+The cloudflare branch still preserves historical unreleased work; do not merge or
+retire it wholesale. Keep Vercel serving www until the separate Cloudflare
+public-domain cutover is accepted. Never use a permanent branch as a disposable PR head.
 
 Branch protection is not available on this plan, so the rule is a convention: merge only after Check passes. A change to nothing but `docs/**` or Markdown skips Check and deploys nothing (`config/docs-only-paths.json`).
 

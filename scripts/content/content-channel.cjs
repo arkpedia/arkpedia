@@ -3,7 +3,7 @@
  * (scripts/content/channel.mjs re-exports it). ARKPEDIA_CONTENT_CHANNEL when set; else, in a
  * Deploy build, the channel of the branch the Vercel project being built follows
  * (VERCEL_PROJECT_ID, which Deploy sets for every build, looked up in config/production.json),
- * so arkpedia-dev builds against dev-live whichever revision of deploy.yml runs; else live.
+ * so production builds use the configured live pointer; else live.
  * lib/content/server.ts's contentChannel() writes the same rule out for the site's bundle.
  */
 const path = require('node:path');
