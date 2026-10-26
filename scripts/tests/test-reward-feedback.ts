@@ -77,3 +77,9 @@ test('mode compatibility adds only absent permanent launches and preserves relea
   assert.equal(unchanged, filled);
   assert.equal(filled.eventRows[0].dateRange, '2027/01/08');
 });
+
+test('compiled sanity costs cover Episode 17 when the published chapter precedes the site-stage projection', () => {
+  const { stageSanity } = JSON.parse(fs.readFileSync('data/pull-first-clears.json', 'utf8'));
+  const backlog = { chapters: [{ id: 'ep17', op: 3, stages: ['main_17-01', 'main_17-01#s', 'tr_28'] }], playable: [], resources: [], annihilation: [], stageSanity } as unknown as BacklogSources;
+  assert.equal(remainingSanity(backlog, new Set(), new Set(), false, null), 42);
+});
