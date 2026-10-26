@@ -109,8 +109,7 @@
 .timeline-week-grid {
   flex: 1 0 auto;
   min-height: 132px;
-  border: 1px solid var(--control-border);
-  border-top-width: 2px;
+  border: 1px solid var(--line);
   border-radius: var(--radius-frame);
   display: grid;
   grid-template-columns: repeat(7, 1fr);
@@ -119,10 +118,10 @@
 .timeline-daybox {
   min-width: 0;
   padding: 5px 6px;
-  border-radius: var(--radius-frame) var(--radius-frame) 0 0;
-  border-bottom: none;
+  border-radius: 0;
   background: var(--panel-2);
-  border: 1px solid var(--card-border);
+  border: 0;
+  border-right: 1px solid var(--line);
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -135,16 +134,18 @@
 }
 .timeline-daybox-lanes {
   min-width: 0;
-  border-radius: 0 0 4px 4px;
+  border-radius: 0;
   background: var(--panel-2);
-  border: 1px solid var(--card-border);
-  border-top: none;
+  border: 0;
+  border-right: 1px solid var(--line);
 }
 .timeline-daybox-lanes.out-of-month { opacity: 0.35; }
 .timeline-daybox-lanes.is-today {
   border-color: var(--teal);
   box-shadow: inset 0 0 0 1px var(--teal);
 }
+.timeline-week-grid > div:nth-child(7) > .timeline-daybox,
+.timeline-week-grid > div:nth-child(7) > .timeline-daybox-lanes { border-right: 0; }
 .timeline-daynum-large {
   font-family: var(--font-mono);
   font-size: 12px;
