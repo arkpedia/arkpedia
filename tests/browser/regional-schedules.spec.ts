@@ -119,7 +119,7 @@ test('regional reward labels use the server calendar and manual claims survive c
   for (const server of ['jp', 'kr']) props.__contentTables['regional-schedules'].servers[server].rewardWindows[id] = {
     startAt: '2030-09-30T19:00:00Z', endAt: close.toISOString(), timingSource: 'https://example.test/regional-monthly-fixture',
   };
-  await page.route('**/_next/data/**/free-op.json*', route => route.fulfill({ json: data }));
+  await page.route('**/_next/data/**/reward-tracker.json*', route => route.fulfill({ json: data }));
   const progress = { doneKeys: [id, 'manual:regional-qa'], doneEvents: ['manual:event'], annihilationDone: true, ticksFrom: '2026-10-16T00:00:00Z', importedDoneKeys: [] };
   await page.addInitScript(progress => localStorage.setItem('arkpedia.past-rewards.v1', JSON.stringify(progress)), progress);
   await page.clock.setFixedTime(new Date(close.getTime() - 60_000));
@@ -128,7 +128,7 @@ test('regional reward labels use the server calendar and manual claims survive c
   if (await mobileMenu.isVisible()) await mobileMenu.click();
   const planner = page.getByRole('button', { name: 'Planner', exact: true });
   if (await planner.getAttribute('aria-expanded') !== 'true') await planner.click();
-  await page.locator('a[href="/free-op"]:visible').click();
+  await page.locator('a[href="/reward-tracker"]:visible').click();
   await expect(page.locator('.site-nav-clock:visible').first()).toContainText('03:59');
   await page.getByRole('tab', { name: 'Free rewards', exact: true }).click();
   await page.getByRole('group', { name: 'Free rewards status' }).getByRole('button', { name: 'Claimed', exact: true }).click();

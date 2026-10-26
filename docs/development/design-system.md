@@ -84,7 +84,9 @@ Welfare recommendations use individual cards with a quiet resting border and a r
 frame around each portrait. Put priority badges in the portrait corner, using the
 Selector Tickets treatment and +3, +2, +1, +0 recommendation labels (highest to
 lowest, preserving kukkikaze's ordering). Zero is not a negative score. Use its full-width action-link treatment for event
-links. This is an explicit exception to borderless catalogue cards. Stage-reward rows
+links. Write unlock requirements as actions, such as "Earn 12 stars from event stages",
+so star totals cannot be mistaken for operator rarity or recommendation scores.
+This is an explicit exception to borderless catalogue cards. Stage-reward rows
 pair OP with successful-clear sanity costs and the actual sanity icon. Missing costs
 remain unknown; zero-cost stages remain zero.
 

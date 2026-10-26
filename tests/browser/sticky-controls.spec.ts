@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-const routes = ['/operators', '/skins', '/artists', '/voice-actors', '/techniques', '/synergies', '/story?view=list', '/schedule?past=1', '/community?section=youtube', '/free-op?view=free'];
+const routes = ['/operators', '/skins', '/artists', '/voice-actors', '/techniques', '/synergies', '/story?view=list', '/schedule?past=1', '/community?section=youtube', '/reward-tracker?view=free'];
 
 for (const route of routes) test(`${route}: compact controls stay below navigation while browsing`, async ({ page }) => {
   await page.goto(route);

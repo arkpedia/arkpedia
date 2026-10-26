@@ -249,7 +249,7 @@ test('a welfare card says the same thing wherever it is shown: the task, the sou
   assert.deepEqual(welfareCardFacts(named(rows.current, 'Viy · Event missions (permanent): Clear 17-13', 'Critical Phase Transition'), NOW),
     { task: 'Clear 17-13', source: 'Critical Phase Transition · permanent', status: { kind: 'open' } });
   assert.deepEqual(welfareCardFacts(named(rows.trail, 'Folinic · Record Restoration: 12 stars', 'Twilight of Wolumonde'), NOW),
-    { task: '12 stars', source: 'Record Restoration · Twilight of Wolumonde', status: { kind: 'open' } });
+    { task: 'Earn 12 stars from event stages', source: 'Record Restoration · Twilight of Wolumonde', status: { kind: 'open' } });
   assert.deepEqual(welfareCardFacts(named(rows.currentEvent, 'Y · Event missions: Clear PA-4', 'People, A People'), NOW),
     { task: 'Clear PA-4', source: 'People, A People', status: { kind: 'until', at: rows.currentEvent.endAt } });
   // The tab lists an event's operator that has no end of its own too: not obtainable now.

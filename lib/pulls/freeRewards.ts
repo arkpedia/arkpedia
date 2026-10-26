@@ -103,7 +103,9 @@ export type WelfareStatus = { kind: 'upcoming' | 'until'; at: number } | { kind:
 export function welfareCardFacts(reward: FreeReward, now: number): { task: string | undefined; source: string; status: WelfareStatus } {
   const event = reward.event ?? reward.name;
   const trail = isTrail(reward);
-  const task = reward.name.includes(': ') ? reward.name.slice(reward.name.lastIndexOf(': ') + 2) : undefined;
+  const requirement = reward.name.includes(': ') ? reward.name.slice(reward.name.lastIndexOf(': ') + 2) : undefined;
+  const task = trail && requirement && /^\d+ stars?$/.test(requirement)
+    ? `Earn ${requirement} from event stages` : requirement;
   const source = trail ? `Record Restoration · ${event}` : reward.source === 'retro' ? `${event} · permanent` : event;
   const status: WelfareStatus = reward.startAt && now < reward.startAt ? { kind: 'upcoming', at: reward.startAt }
     : !obtainableWelfare(reward, now) ? { kind: 'closed' }
