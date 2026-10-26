@@ -4,7 +4,7 @@
   // manual CLI entrypoints; library code is analysed transitively from all of them.
   "entry": [
     "workers/edge/worker.mjs",
-    "open-next{,.staging}.config.ts",
+    "open-next{,.preview}.config.ts",
     "scripts/{audits,build,content,deploy,imports,palettes,particles,sync}/**/*.{ts,mjs,cjs}",
     "scripts/tests/test-*.{ts,mjs}",
     "tests/browser/**/*.spec.ts",
@@ -24,6 +24,8 @@
   "ignoreFiles": ["**/*.d.mts"],
   // System tools used by offline fixtures and manual WebP importers.
   "ignoreBinaries": ["jq", "shasum", "cwebp"],
+  // Cloudflare provides this Worker runtime built-in; it is not an npm dependency.
+  "ignoreDependencies": ["cloudflare"],
   "exclude": ["enumMembers", "duplicates"],
   "next": true,
   "eslint": ["eslint.config.mjs"],
