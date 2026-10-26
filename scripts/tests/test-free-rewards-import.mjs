@@ -17,7 +17,7 @@ test('free claims use Global gifts, split daily totals, retain selectors and exc
     ] } } },
   };
   const result = buildFreeRewards(tables);
-  assert.deepEqual(result.paradox, [{ id: 'paradox:mem_a', name: 'A · Trial', amount: 200 }]);
+  assert.deepEqual(result.paradox, [{ id: 'paradox:mem_a', name: 'A · Trial', amount: 200, operatorId: 'char_a' }]);
   const daily = result.rewards.filter(reward => reward.name.includes('Daily gift'));
   assert.equal(daily.length, 30);
   assert.ok(daily.every(reward => reward.rewards[0].orundum === 200 && !reward.forecast));

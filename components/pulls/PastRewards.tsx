@@ -1,3 +1,5 @@
+import { paradoxAvailability } from '@/lib/pulls/rewardOverview';
+import type { Roster } from '@/lib/planner/roster';
 import Link from 'next/link';
 import { RewardAmount } from './RewardAmount';
 import { useLayoutEffect, useRef, useState } from 'react';
@@ -14,7 +16,7 @@ const SHOW = [
   { value: 'claimed', label: 'Claimed' },
 ] as const;
 
-interface Item { id: string; name: string; amount: number; stages?: string[]; stageCodes?: string[]; certs?: number }
+interface Item { id: string; name: string; amount: number; stages?: string[]; stageCodes?: string[]; certs?: number; operatorId?: string; unlock?: { elite: number; level: number } }
 
 /**
  * The Past events popup's contents (pages/pulls.tsx): what is left of the back catalogue,
@@ -27,7 +29,7 @@ interface Item { id: string; name: string; amount: number; stages?: string[]; st
  * Reward Tracker's toggles left out (excludeStageKinds), already gone from `backlog`: an item
  * they leave nothing of is no longer still to claim, so Unclaimed does not list it.
  */
-export function PastRewards({ backlog, dropped, doneKeys, doneEvents, annihilationDone, onKeys, onEvents, onAnnihilation, imported, cleared, layout }: {
+export function PastRewards({ backlog, dropped, doneKeys, doneEvents, annihilationDone, onKeys, onEvents, onAnnihilation, imported, cleared, operatorBuilds, layout }: {
   backlog: BacklogSources;
   dropped: Readonly<Record<string, number>>;
   doneKeys: Set<string>; doneEvents: Set<string>; annihilationDone: boolean;
@@ -37,6 +39,7 @@ export function PastRewards({ backlog, dropped, doneKeys, doneEvents, annihilati
   /** 'popup': the Pull Planner's dialog, one group open at a time in a scrolling body. 'page':
    *  the Reward Tracker, every group a section of the page. */
   layout: 'popup' | 'page';
+  operatorBuilds?: Roster;
 }) {
   const [open, setOpen] = useState('story');
   const [category, setCategory] = useState('story');
@@ -54,7 +57,7 @@ export function PastRewards({ backlog, dropped, doneKeys, doneEvents, annihilati
       .map((e) => ({ id: e.id, name: e.name, amount: e.op, stages: e.stages, stageCodes: e.stageCodes })) },
     { id: 'annihilation', name: 'Annihilation', unit: 'Orundum', items: backlog.annihilation },
     { id: 'resources', name: 'Resource stages', unit: 'OP', items: backlog.resources },
-    { id: 'paradox', name: 'Paradox Simulations', unit: 'Orundum', items: backlog.paradox ?? [] },
+    { id: 'paradox', name: 'Paradox Simulations', unit: 'Orundum', items: [...(backlog.paradox ?? [])].sort((a, b) => Number(paradoxAvailability(b, operatorBuilds).ready === true) - Number(paradoxAvailability(a, operatorBuilds).ready === true) || a.name.localeCompare(b.name)) },
   ];
   const complete = (group: string, id: string) => group === 'events' ? doneEvents.has(id) : group === 'annihilation' && annihilationDone || group === 'resources' && doneKeys.has('daily') || doneKeys.has(id);
   const setCompleted = (group: typeof groups[number], ids: string[], done: boolean) => {
@@ -111,11 +114,12 @@ export function PastRewards({ backlog, dropped, doneKeys, doneEvents, annihilati
       <ul className="pulls-past-list" aria-label={`${group.name}: claimed`}>{items.slice(0, limits[group.id] ?? 30).map((item) => {
         const key = `${group.id}:${item.id}`;
         const done = complete(group.id, item.id);
-        return <li key={item.id} className={`pulls-past-row${done ? ' on' : ''}`}>
+        const availability = group.id === 'paradox' ? paradoxAvailability(item, operatorBuilds) : null;
+        return <li key={item.id} className={`pulls-past-row${done ? ' on' : ''}${availability?.ready === false && !done ? ' is-locked' : ''}`}>
           <label className="check pulls-past-check"><input type="checkbox" checked={done} onChange={(event) => setCompleted(group, [item.id], event.target.checked)} /><span className="visually-hidden">{item.name}: claimed</span></label>
           {staged
             ? <button type="button" className="btn-bare pulls-past-name" aria-expanded={detail === key} onClick={() => setDetail(detail === key ? null : key)}>{item.name}</button>
-            : <span className="pulls-past-name">{item.name}</span>}
+            : <span className="pulls-past-name">{item.name}{availability && <small className="pulls-paradox-requirement">{availability.ready === true ? 'Ready to play · ' : ''}{availability.label}</small>}</span>}
           <span className="pulls-past-amount">{done ? '✓' : item.certs && !item.amount ? `${item.certs} yellow certs` : layout === 'page' ? <RewardAmount iconOnly resource={group.unit === 'OP' ? 'op' : 'orundum'} amount={item.amount} /> : `${formatNumber(item.amount)} ${group.unit}`}</span>
           {staged && detail === key && stagesLeft(group.id, item)}
         </li>;

@@ -222,6 +222,8 @@ export function buildFreeRewards({ handbook, missions, openServer, checkin, acti
     add(id, 'Free level-up packs', pack.displayName, [{ id, name: pack.displayName, count: 1 }]);
   }
   const paradox = Object.values(handbook.handbookStageData).map(stage => ({
+    operatorId: stage.charId,
+    ...(stage.unlockParam?.length === 1 && stage.unlockParam[0].unlockType === 'AWAKE' ? { unlock: { elite: Number(stage.unlockParam[0].unlockParam1), level: Number(stage.unlockParam[0].unlockParam2) } } : {}),
     id: `paradox:${stage.stageId}`, name: clean(`${characters[stage.charId]?.name ?? stage.charId} · ${stage.name}`),
     amount: stage.rewardItem.filter(item => item.id === '4003').reduce((sum, item) => sum + item.count, 0),
   })).filter(stage => stage.amount > 0).sort((a, b) => a.name.localeCompare(b.name));

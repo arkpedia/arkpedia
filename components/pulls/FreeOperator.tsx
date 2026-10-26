@@ -31,7 +31,8 @@ export function FreeOperatorButton({ item, icon, onPreview }: { item: FreeReward
  *  it is shown: the Reward Tracker's overview, and the Free rewards tab's Welfare operators,
  *  which passes `claim` for the row's tick (a real checkbox in the card's corner, named as
  *  the row; locked rows, the import's, checked and disabled, saying why). */
-export function WelfareCard({ reward, operator, icon, server, now, onPreview, claim }: {
+export function WelfareCard({ reward, operator, icon, server, now, onPreview, claim, priority }: {
+  priority?: number;
   reward: FreeReward; operator: FreeReward['rewards'][number]; icon: string | undefined;
   server: GameServer; now: number; onPreview: (item: OperatorPreviewItem) => void;
   claim?: { checked: boolean; lock: LockedReason | undefined; onChange: (claimed: boolean) => void };
@@ -43,7 +44,7 @@ export function WelfareCard({ reward, operator, icon, server, now, onPreview, cl
   return <li className={`free-op-welfare-card lift${claim ? ' has-claim' : ''}${claim?.checked ? ' is-claimed' : ''}`}>
     <button type="button" className="btn-bare free-op-welfare-open" aria-haspopup="dialog" aria-label={`${operator.name}: operator preview`} onClick={() => onPreview(preview)}>
       {icon ? <Image src={icon} width={52} height={52} alt="" className={`tier-${preview.rarity}`} /> : <span className={`free-op-welfare-blank tier-${preview.rarity}`} />}
-      <span className="free-op-welfare-name">{operator.name}</span>
+      <span className="free-op-welfare-name">{priority && <span className="badge free-op-priority" aria-label={`kukkikaze priority ${priority}`}>P{priority}</span>}{operator.name}</span>
       {task && <span className="free-op-welfare-task">{task}</span>}
       <span className="free-op-welfare-source">{source}
         {status.kind === 'until' && <> · <span className="free-op-welfare-until">until {date(status.at)}</span></>}

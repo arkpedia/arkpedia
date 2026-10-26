@@ -12,7 +12,7 @@ import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState, CSSProperties, type ReactNode } from 'react';
 import { generateMonths, computeWeekBars, WeekEventSource } from '@/lib/schedule/timelineUtils';
-import { getAllEvents } from '@/lib/schedule/schedule';
+import { getAllEvents, fillMissingModeLaunches } from '@/lib/schedule/schedule';
 import { modeReleaseRow } from '@/lib/schedule/modeReleases';
 import { getOperatorBirthdays, scheduleBarSources, type OperatorBirthday } from '@/lib/schedule/scheduleDates';
 import { getAllOperators } from '@/lib/operators/operators';
@@ -149,6 +149,13 @@ export default function SchedulePage({ events: globalEvents, operators: exported
   const view: ViewKey = router.query.view === 'calendar' ? 'calendar' : 'events';
   const showPast = view === 'events' && router.query.past === '1';
   const pastEvents = useMemo(() => pastScheduleEvents(events, now), [events, now]);
+  // Both presentations use the exact same Upcoming and Past entries. The catalogue
+  // supplies detail content, never a second independent set of calendar bars.
+  const timelineRows = useMemo(() => {
+    const currentNames = new Set(eventRows.map(row => row.name));
+    return [...pastEvents.map(row => ({ ...row, isPredicted: false, pullBanner: null, featuredOperators: [] })),
+      ...regionalRows.filter(row => currentNames.has(row.name))];
+  }, [eventRows, pastEvents, regionalRows]);
   const [pastVisible, setPastVisible] = useState(24);
   const viewHold = useSwitchHold('schedule');
   const showView = (next: ViewKey) => {
@@ -203,9 +210,12 @@ export default function SchedulePage({ events: globalEvents, operators: exported
 
   const monthGrid = useMemo(() => generateMonths(new Date(year, month, 1), 1)[0], [year, month]);
 
-  const barSources: WeekEventSource[] = useMemo(() => (showOfficialEvents ? scheduleBarSources(events) : []), [events, showOfficialEvents]);
+  const barSources: WeekEventSource[] = useMemo(() => (showOfficialEvents ? scheduleBarSources([], timelineRows, server, now) : []), [timelineRows, server, now, showOfficialEvents]);
 
-  const eventByName = useMemo(() => new Map(events.map((e) => [e.name, e])), [events]);
+  const eventByName = useMemo(() => new Map(events.map(e => {
+    const row = timelineRows.find(row => row.name === e.name);
+    return [e.name, row ? { ...e, global: { ...e.global, dateRange: row.dateRange, ...('start' in row && row.start < 8.64e15 ? { startAt: new Date(row.start).toISOString(), endAt: new Date(row.end).toISOString() } : {}), note: row.isPredicted ? 'Estimated; not officially confirmed' : e.global.note } } : e];
+  })), [events, timelineRows]);
   const skinByName = useMemo(() => new Map(skins.map((s) => [s.name, s])), [skins]);
   const [showNewestOnly, setShowNewestOnly] = useState(false);
 
@@ -365,7 +375,7 @@ export default function SchedulePage({ events: globalEvents, operators: exported
             <div className="events-list">
               {eventRows.map((e) => (
                 <div key={e.name} className="events-row">
-                  <ScheduleRowLink name={e.name} modeId={e.modeId} bannerName={e.bannerName} onOpen={() => { const event = events.find(event => event.name === e.name); if (event) openEvent(event); }}>
+                  <ScheduleRowLink name={e.name} modeId={e.modeId} bannerName={e.bannerName} onOpen={() => { const event = eventByName.get(e.name); if (event) openEvent(event); }}>
                     <div className="events-row-poster-wrap">
                       {e.poster && <Image src={e.poster} alt="" fill sizes="200px" style={{ objectFit: e.modeId ? 'contain' : 'cover' }} />}
                       {e.isOngoing && <span className="badge-live events-row-live-badge">{e.modeId ? 'LAUNCH' : 'LIVE'}</span>}
@@ -598,7 +608,7 @@ export default function SchedulePage({ events: globalEvents, operators: exported
                             }}
                             onClick={() => openEvent(eventByName.get(bar.key)!)}
                           >
-                            {bar.name}{eventByName.get(bar.key)?.bannerName && /estimated/i.test(eventByName.get(bar.key)?.global.note ?? '') ? ' · Estimated' : ''}
+                            {bar.name}{/estimated|predicted/i.test(eventByName.get(bar.key)?.global.note ?? '') ? ' · Estimated' : ''}
                           </button>
                         );
                       })}
@@ -940,7 +950,8 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/sc
     props: { events, operators: trimmedOperators, skins: getAllSkins(), releaseLookup, eventRows, pullBanners },
   };
 }, {
-  finalize: async (props) => pruneScheduleProps(props),
+  finalize: async (props) => pruneScheduleProps(fillMissingModeLaunches(props)),
+
   tables: {
     event_colors: async () => (await import('@/data/event_colors.json')).default,
     event_materials: async () => (await import('@/data/event_materials.json')).default,

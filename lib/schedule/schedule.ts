@@ -1,3 +1,6 @@
+import { mergeMissingModeLaunches } from './modeReleases';
+import type { EventRow, EventRowView } from './eventRows';
+import { publishedArt } from '@/lib/art/publishedArt';
 import { eventSkins } from '../events/eventSkins';
 import { getAllSkins } from '../skins/skins';
 import confirmed from '@/data/skin-availability-windows.json';
@@ -14,3 +17,10 @@ export function getAllEvents(): ScheduleEvent[] {
 }
 
 /* The pure helpers live in ./scheduleDates, so browser code can use them without this module. */
+
+/** Compatibility for a release exported before a new permanent-mode launch existed.
+ * Only absent mode IDs can be added; existing release windows and timed events win. */
+export function fillMissingModeLaunches<P extends { events: ScheduleEvent[]; eventRows: (EventRow | EventRowView)[] }>(props: P): P {
+  const launches = getAllEvents().filter(event => event.modeId).map(event => ({ ...event, poster: publishedArt(event.poster) }));
+  return mergeMissingModeLaunches(props, launches);
+}

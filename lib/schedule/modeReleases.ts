@@ -1,6 +1,6 @@
 import { serverDayBoundary } from '@/lib/time/servers.mjs';
 import type { ScheduleEvent } from './scheduleTypes';
-import type { EventRow } from './eventRows';
+import type { EventRow, EventRowView } from './eventRows';
 
 const DAY = 86_400_000;
 /** A launch occupies one calendar day; the permanent mode has no invented close. */
@@ -25,4 +25,16 @@ export function modeReleaseRow(event: ScheduleEvent): EventRow | null {
   const start = event.global.startAt ? Date.parse(event.global.startAt) : serverDayBoundary(Date.parse(`${date.replaceAll('/', '-')}T00:00:00Z`), 'en', 'event');
   if (!Number.isFinite(start)) return null;
   return { name: event.name, poster: event.poster, dateRange: date, isPredicted: /estimated|predicted/i.test(event.global.note ?? ''), start, end: start + DAY, modeId: event.modeId, pullBanner: null, featuredOperators: [] };
+}
+
+/** Add only new permanent-mode identities. Never override a published window. */
+export function mergeMissingModeLaunches<P extends { events: ScheduleEvent[]; eventRows: (EventRow | EventRowView)[] }>(props: P, launches: readonly ScheduleEvent[]): P {
+  const ids = new Set(props.events.map(event => event.modeId));
+  const names = new Set(props.events.map(event => event.name));
+  const missing = launches.filter(event => event.modeId && !ids.has(event.modeId) && !names.has(event.name));
+  if (!missing.length) return props;
+  const rowIds = new Set(props.eventRows.map(row => row.modeId));
+  const rowNames = new Set(props.eventRows.map(row => row.name));
+  const rows = missing.flatMap(event => { const row = modeReleaseRow(event); return row && !rowIds.has(row.modeId) && !rowNames.has(row.name) ? [row] : []; });
+  return { ...props, events: [...props.events, ...missing], eventRows: [...props.eventRows, ...rows].sort((a, b) => ('start' in a ? a.start : 0) - ('start' in b ? b.start : 0)) };
 }

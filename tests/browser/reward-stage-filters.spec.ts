@@ -177,6 +177,7 @@ test('the welfare list holds only what is obtainable now, as cards, and an impor
   await page.goto('/free-op');
   const list = page.getByRole('list', { name: 'Welfare operators to claim' });
   await expect(list.getByRole('listitem')).toHaveCount(4);
+  await page.getByRole('button', { name: 'Availability', exact: true }).click();
   // Soonest to close first, then the permanent ones (a main-story event's missions, Record Restoration).
   await expect(list.getByRole('listitem').nth(0)).toContainText('Botani');
   await expect(list.getByRole('listitem').filter({ hasText: 'Viy' })).toContainText('Critical Phase Transition · permanent');
@@ -333,3 +334,23 @@ for (const theme of ['dark', 'light'] as const) for (const width of [390, 1440])
     await page.locator('.free-op-overview').screenshot({ path: `test-results/welfare-cards-${width}-${theme}.png` });
   });
 }
+
+test('leaving Fully uncompleted view releases the expanded welfare height', async ({ page }) => {
+  await serve(page);
+  await page.addInitScript(() => localStorage.setItem('arkpediaAccount', JSON.stringify({
+    version: 1, server: 'en', importedAt: '2026-10-26T00:00:00Z', doctor: null,
+    operators: ['Wanqing', 'Folinic', 'Botani', 'Viy'], operatorIds: ['char_4119_wanqin', 'char_345_folnic', 'char_4223_botany', 'char_4226_veen'], skins: [], cleared: [],
+  })));
+  await page.goto('/free-op');
+  const welfare = page.locator('.free-op-welfare');
+  await expect(welfare.getByRole('listitem')).toHaveCount(1);
+  const height = () => welfare.evaluate(element => element.getBoundingClientRect().height);
+  const before = await height();
+  const demo = page.getByRole('checkbox', { name: 'Fully uncompleted view' });
+  await demo.check();
+  await expect(welfare.getByRole('listitem')).toHaveCount(5);
+  expect(await height()).toBeGreaterThan(before);
+  await demo.uncheck();
+  await expect(welfare.getByRole('listitem')).toHaveCount(1);
+  await expect.poll(height).toBeLessThanOrEqual(before + 2);
+});

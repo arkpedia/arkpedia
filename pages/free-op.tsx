@@ -1,6 +1,9 @@
+import SegmentedControl from '@/components/ui/SegmentedControl';
+import { welfarePriority, WELFARE_GUIDE } from '@/lib/pulls/welfarePriority';
 import { useRegionalTime } from '@/lib/time/useRegionalTime';
 import { currentRegionalFreeRewards, regionalFreeRewards, type RegionalSchedules } from '@/lib/time/regional';
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { remainingSanity } from '@/lib/pulls/rewardOverview';
 import { remainingBacklog } from '@/lib/pulls/pulls';
 import type { GetStaticProps } from 'next';
 import type { ContentRelease } from '@/lib/content/types';
@@ -75,12 +78,12 @@ export default function FreeOpPage({ backlogSources, freeRewards: globalFreeRewa
   const [demoEvents, setDemoEvents] = useState(new Set<string>());
   const [demoAnnihilation, setDemoAnnihilation] = useState(false);
   /* The presentation view counts everything uncleared, its stage filters still applied. */
-  const demo = useMemo(() => excludeStageKinds(past.backlog, excluded, null), [past.backlog, excluded]);
+  const demo = useMemo(() => excludeStageKinds({ ...past.backlog, freeRewards: past.backlog.freeRewards?.map(reward => ({ ...reward, claimUnknown: false })) }, excluded, null), [past.backlog, excluded]);
   const remaining = presentation ? remainingBacklog(demo.backlog, demoEvents, demoKeys, demoAnnihilation) : past.remaining;
   const leftOut = presentation
     ? [...demo.backlog.chapters.filter(c => !demoKeys.has(c.id)), ...demo.backlog.playable.filter(e => !demoEvents.has(e.id))].reduce((sum, item) => sum + (demo.dropped[item.id] ?? 0), 0)
     : past.leftOut;
-  const eligible = freeRewardsForAccount(freeRewards, past.account);
+  const eligible = freeRewardsForAccount(freeRewards, presentation ? null : past.account);
   const roster = useMemo(() => rosterOperatorIds(past.account), [past.account]);
   const locked = useMemo(() => new Map<string, LockedReason>([...[...rosterClaimedWelfare(eligible, roster)].map(id => [id, 'roster'] as const),
     ...importClaimedBeginner(eligible, past.account?.rewardClaims)]), [eligible, roster, past.account]);
@@ -91,8 +94,14 @@ export default function FreeOpPage({ backlogSources, freeRewards: globalFreeRewa
   const originitePrime = remaining.originitePrime + timed.op;
   const orundum = remaining.orundum - remaining.originitePrime * ORUNDUM_PER_ORIGINITE + timed.orundum;
   const permits = remaining.permits + timed.permits;
+  const orundumConverted = originitePrime * ORUNDUM_PER_ORIGINITE + orundum;
+  const pullsUnconverted = orundum / ORUNDUM_PER_PULL + permits;
+  const sanity = remainingSanity(presentation ? demo.backlog : past.counting, presentation ? demoKeys : past.doneKeys, presentation ? demoEvents : past.doneEvents, presentation ? demoAnnihilation : past.annihilationDone, presentation ? null : past.cleared);
+
   const pulls = (originitePrime * ORUNDUM_PER_ORIGINITE + orundum) / ORUNDUM_PER_PULL + permits;
+  const [welfareOrder, setWelfareOrder] = useState<'recommended' | 'availability'>('recommended');
   const operators = freeOperatorsToClaim(eligible, keys, clock);
+  if (welfareOrder === 'recommended') operators.sort((a, b) => (welfarePriority(a.operator.name) ?? 5) - (welfarePriority(b.operator.name) ?? 5));
   const [preview, setPreview] = useState<OperatorPreviewItem | null>(null);
   const closePreview = useCallback(() => setPreview(null), []);
   /* Ticking a welfare operator in Free rewards, below, takes its row out of this list: the
@@ -102,7 +111,7 @@ export default function FreeOpPage({ backlogSources, freeRewards: globalFreeRewa
      paint, it was the height with every welfare operator listed, before those trimmed it, and
      the panel stayed that tall over one card (2026-10-21). */
   const welfareRef = useRef<HTMLDivElement>(null);
-  const welfareBasis = `${past.progress === PAST_PROGRESS_UNREAD}|${past.account?.importedAt ?? ''}|${past.imported?.at ?? ''}`;
+  const welfareBasis = `${presentation}|${past.progress === PAST_PROGRESS_UNREAD}|${past.account?.importedAt ?? ''}|${past.imported?.at ?? ''}`;
   useLayoutEffect(() => {
     const list = welfareRef.current;
     if (!list) return;
@@ -127,10 +136,13 @@ export default function FreeOpPage({ backlogSources, freeRewards: globalFreeRewa
           {presentation && <p className="hint free-op-demo-note">Presentation view. Your saved completion stays unchanged.</p>}
           <dl className="free-op-summary">
             <div><dt>Originite Prime</dt><dd>{formatNumber(originitePrime)}</dd></div>
-            <div><dt>Orundum</dt><dd>{formatNumber(orundum)}</dd></div>
+            <div><dt>Orundum (OP unconverted)</dt><dd>{formatNumber(orundum)}</dd></div>
+            <div><dt>Orundum (OP converted)</dt><dd>{formatNumber(orundumConverted)}</dd></div>
             <div><dt>Headhunting permits</dt><dd>{formatNumber(permits)}</dd></div>
-            <div><dt>Worth, in pulls</dt><dd>{formatOneDecimal(pulls)}</dd></div>
+            <div><dt>Pulls (OP unconverted)</dt><dd>{formatOneDecimal(pullsUnconverted)}</dd></div>
+            <div><dt>Pulls (OP converted)</dt><dd>{formatOneDecimal(pulls)}</dd></div>
           </dl>
+          <p className="hint">Remaining sanity: <strong>{sanity === null ? 'Unavailable for some stages' : formatNumber(sanity)}</strong> · One successful clear per unfinished stage; excludes retries, farming and unlock costs. Pull totals include headhunting permits.</p>
           {/* Always the same lines, whatever is on, each short enough for one line on a phone: a
               toggle changes numbers, never the height. */}
           <fieldset className="free-op-filters">
@@ -141,17 +153,19 @@ export default function FreeOpPage({ backlogSources, freeRewards: globalFreeRewa
             ? `${formatNumber(leftOut)} ${leftOut === 1 ? 'stage' : 'stages'} left out, ${formatNumber(leftOut)} OP.`
             : 'Every stage counts.'}</p>
           <div ref={welfareRef} className="free-op-welfare">
-            <h3>Welfare operators</h3>
+            <div className="free-op-heading"><div><h3>Welfare operators</h3><a className="free-op-welfare-guide" href={WELFARE_GUIDE} target="_blank" rel="noopener noreferrer">kukkikaze’s welfare recommendations · P1 first, P4 last</a></div>
+              <SegmentedControl label="Welfare order" value={welfareOrder} onChange={setWelfareOrder} options={[{ value: 'recommended', label: 'Recommended' }, { value: 'availability', label: 'Availability' }]} /></div>
             {operators.length
               ? <ul className="free-op-welfare-list" aria-label="Welfare operators to claim">{operators.map(({ reward, operator }) =>
-                  <WelfareCard key={`${reward.id}:${operator.id}`} reward={reward} operator={operator} icon={rewardIcons[operator.id]} server={server} now={clock} onPreview={setPreview} />)}</ul>
+                  <WelfareCard key={`${reward.id}:${operator.id}`} reward={reward} operator={operator} icon={rewardIcons[operator.id]} priority={welfarePriority(operator.name)} server={server} now={clock} onPreview={setPreview} />)}</ul>
               : <p className="hint free-op-welfare-empty">No welfare operator to claim right now.</p>}
+
           </div>
         </section>
         <StickyControls><Tabs label="Reward type" id="free-reward-type" value={view} onChange={value => { viewHold.capture(); setView(value); }} options={[{ value: 'stages', label: 'Stage rewards' }, { value: 'free', label: 'Free rewards' }]} /></StickyControls>
         <div ref={viewHold.ref} style={viewHold.style}>
         {view === 'stages' ? <div {...tabPanelProps('free-reward-type', 'stages')}><PastRewards backlog={presentation ? demo.backlog : past.counting} dropped={presentation ? demo.dropped : past.dropped} doneKeys={presentation ? demoKeys : past.doneKeys} doneEvents={presentation ? demoEvents : past.doneEvents} annihilationDone={presentation ? demoAnnihilation : past.annihilationDone}
-          onKeys={presentation ? setDemoKeys : past.onKeys} onEvents={presentation ? setDemoEvents : past.onEvents} onAnnihilation={presentation ? setDemoAnnihilation : past.onAnnihilation} imported={presentation ? null : past.imported} cleared={presentation ? null : past.cleared} layout="page" />
+          onKeys={presentation ? setDemoKeys : past.onKeys} onEvents={presentation ? setDemoEvents : past.onEvents} onAnnihilation={presentation ? setDemoAnnihilation : past.onAnnihilation} imported={presentation ? null : past.imported} cleared={presentation ? null : past.cleared} operatorBuilds={presentation ? undefined : past.account?.operatorBuilds} layout="page" />
         </div> : <div {...tabPanelProps('free-reward-type', 'free')}><FreeRewards icons={rewardIcons} rewards={eligible} done={keys} locked={presentation ? NO_ROWS : locked} onKeys={onFreeKeys} now={clock} server={server} /></div>}
         </div>
       </main>

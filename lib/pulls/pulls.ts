@@ -143,7 +143,7 @@ export interface PastEvent {
 
 /** One first clear the reader can tick off: a resource stage or an Annihilation map. A
  *  permanent Annihilation pays no Orundum (amount 0) but Distinction Certificates (`certs`). */
-export interface FirstClear { id: string; name: string; amount: number; certs?: number }
+export interface FirstClear { id: string; name: string; amount: number; certs?: number; operatorId?: string; unlock?: { elite: number; level: number } }
 
 /**
  * The back catalogue, as the page's content release has it.
@@ -163,6 +163,8 @@ export interface BacklogSources {
   resources: FirstClear[];
   annihilation: FirstClear[];
   paradox?: FirstClear[];
+  /** Successful-clear sanity costs keyed by game stage ID; omitted costs stay unknown. */
+  stageSanity?: Record<string, number>;
   freeRewards?: FreeReward[];
   beginnerRewards?: FreeReward[];
 }
@@ -197,7 +199,7 @@ export function fillFromDeployment(release: BacklogSources, deployment: BacklogS
   };
   const listed = new Set(release.annihilation.map((map) => map.id));
   const annihilation = [...release.annihilation, ...deployment.annihilation.filter((map) => !listed.has(map.id))].sort((a, b) => a.id.localeCompare(b.id));
-  return { ...release, chapters: release.chapters.map(fill), playable: release.playable.map(fill), annihilation, paradox: release.paradox ?? deployment.paradox ?? [], freeRewards: release.freeRewards ?? deployment.freeRewards ?? [],
+  return { ...release, chapters: release.chapters.map(fill), playable: release.playable.map(fill), annihilation, stageSanity: { ...deployment.stageSanity, ...release.stageSanity }, paradox: (release.paradox ?? deployment.paradox ?? []).map(item => ({ ...deployment.paradox?.find(row => row.id === item.id), ...item })), freeRewards: release.freeRewards ?? deployment.freeRewards ?? [],
     ...(!release.freeRewards && !release.beginnerRewards && deployment.beginnerRewards ? { beginnerRewards: deployment.beginnerRewards } : {}) };
 }
 

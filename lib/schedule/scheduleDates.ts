@@ -4,6 +4,8 @@
 import { parseGameRangeDays, type GameDay } from './gameWindow';
 import type { ScheduleEvent } from './scheduleTypes';
 import type { WeekEventSource } from './timelineUtils';
+import type { EventRow, EventRowView } from './eventRows';
+import { serverCalendarTime, type GameServer } from '@/lib/time/servers.mjs';
 
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -58,9 +60,23 @@ export function parseDateRange(rangeStr: string | null): { start: Date; end: Dat
 }
 
 /** The /schedule calendar's event bars: one per event with a Global range on record. */
-export function scheduleBarSources(events: readonly Pick<ScheduleEvent, 'name' | 'global'>[]): WeekEventSource[] {
-  return events.flatMap((e): WeekEventSource[] => {
+export function scheduleBarSources(events: readonly Pick<ScheduleEvent, 'name' | 'global'>[], rows: readonly (EventRow | EventRowView)[] = [], server: GameServer = 'en', now = 0): WeekEventSource[] {
+  const sources = new Map(events.flatMap((e): [string, WeekEventSource][] => {
     const range = parseDateRange(e.global.dateRange);
-    return range ? [{ key: e.name, name: e.name, start: range.start, end: range.end, colorClass: 'timeline-pill-ingame' }] : [];
-  });
+    return range ? [[e.name, { key: e.name, name: e.name, start: range.start, end: range.end, colorClass: 'timeline-pill-ingame' }]] : [];
+  }));
+  // The Events list owns forecasts and permanent-mode launches too. Calendar bars
+  // must use those same windows rather than silently dropping CN-derived estimates.
+  const day = (instant: number) => {
+    const date = serverCalendarTime(new Date(instant), server);
+    return new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+  };
+  for (const row of rows) {
+    if ('start' in row && row.bannerName && row.isPredicted && row.start <= now) { sources.delete(row.name); continue; }
+    const range = parseDateRange(row.dateRange) ?? ('start' in row && Number.isFinite(row.start) && row.start < 8.64e15
+      ? { start: day(row.start), end: day(row.modeId ? row.start : row.end - 1) } : null);
+    if (!range) { sources.delete(row.name); continue; }
+    sources.set(row.name, { key: row.name, name: row.name, ...range, colorClass: 'timeline-pill-ingame' });
+  }
+  return [...sources.values()];
 }

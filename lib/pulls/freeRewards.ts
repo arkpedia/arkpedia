@@ -17,6 +17,8 @@ export interface FreeReward {
   eventEndAt?: number;
   /** Permanent currencies that are not already forecast as scheduled event rewards. */
   forecast: boolean;
+  /** Imported saves do not contain this reward's mail claim history. */
+  claimUnknown?: boolean;
   /** Registration window of a replacement Global beginner sign-in programme. */
   beginner?: { id: string; startTs: number; endTs?: number; current: boolean };
 }
@@ -32,13 +34,13 @@ export function freeRewardsForAccount(rewards: FreeReward[], account: { server: 
   const programme = rewards.flatMap(reward => reward.beginner ? [reward.beginner] : [])
     .filter(programme => programme.startTs <= registered && (programme.endTs === undefined || registered <= programme.endTs))
     .sort((a, b) => b.startTs - a.startTs)[0];
-  return rewards.filter(reward => !reward.beginner || (programme ? reward.beginner.id === programme.id : reward.beginner.current));
+  return rewards.filter(reward => !reward.beginner || (programme ? reward.beginner.id === programme.id : reward.beginner.current)).map(reward => reward.id === 'free:welcome-mail' && account ? { ...reward, claimUnknown: true } : reward);
 }
 export function freeRewardAvailable(reward: FreeReward, now: number): boolean {
   return (!reward.startAt || reward.startAt <= now) && (!reward.endAt || now < reward.endAt);
 }
 export function freeRewardTotals(rewards: FreeReward[], done: ReadonlySet<string>, now: number) {
-  return rewards.filter(reward => !done.has(reward.id) && freeRewardAvailable(reward, now)).reduce((total, reward) => {
+  return rewards.filter(reward => !reward.claimUnknown && !done.has(reward.id) && freeRewardAvailable(reward, now)).reduce((total, reward) => {
     for (const item of reward.rewards) { total.op += item.op ?? 0; total.orundum += item.orundum ?? 0; total.permits += item.permits ?? 0; }
     return total;
   }, { op: 0, orundum: 0, permits: 0 });

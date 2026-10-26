@@ -17,7 +17,7 @@ const GROUP_ORDER = ['Welfare operators', 'Beginner rewards', 'Event sign-in and
  *  records as received, importClaimedBeginner), shown claimed and not for unticking. */
 export default function FreeRewards({ rewards, icons, done, locked, onKeys, now, server }: { rewards: FreeReward[]; icons: Record<string, string>; done: ReadonlySet<string>; locked: ReadonlyMap<string, LockedReason>; onKeys: (keys: Set<string>) => void; now: number; server: GameServer }) {
   const [query, setQuery] = useState('');
-  const [show, setShow] = useState<'all' | 'unclaimed' | 'claimed'>('unclaimed');
+  const [show, setShow] = useState<'all' | 'unclaimed' | 'claimed' | 'unknown'>('unclaimed');
   const [upcoming, setUpcoming] = useState(false);
   const [open, setOpen] = useState('Beginner rewards');
   const [limits, setLimits] = useState<Record<string, number>>({});
@@ -26,13 +26,14 @@ export default function FreeRewards({ rewards, icons, done, locked, onKeys, now,
   /* "All claimed", or a tick, under the Unclaimed filter takes rows out of the open group: the
      groups hold the reader's place (the Anti-Page Jump rule). A new search or filter is a new
      list and lets the space go. */
-  const floor = useHeightFloor(`${query}|${show}|${upcoming}`);
+  const floor = useHeightFloor(`${query}|${show}|${upcoming}|${open}`);
   const groups = useMemo(() => {
     const groups = new Map<string, FreeReward[]>();
     for (const reward of rewards) {
       if (reward.endAt && now >= reward.endAt) continue;
       if (!upcoming && !freeRewardAvailable(reward, now)) continue;
-      if (show !== 'all' && (show === 'claimed') !== done.has(reward.id)) continue;
+      const unknown = reward.claimUnknown && !done.has(reward.id);
+      if (show === 'unknown' ? !unknown : show !== 'all' && (unknown || (show === 'claimed') !== done.has(reward.id))) continue;
       if (query && !`${reward.name} ${reward.event ?? ''} ${reward.rewards.map(item => item.name).join(' ')}`.toLowerCase().includes(query.toLowerCase())) continue;
       const list = groups.get(reward.group) ?? []; list.push(reward); groups.set(reward.group, list);
     }
@@ -47,9 +48,10 @@ export default function FreeRewards({ rewards, icons, done, locked, onKeys, now,
     <p className="hint">Imports check recorded mission, sign-in and free level-up pack claims. Rewards without a claim record stay manually tracked, and your manual marks are kept; beginner rewards your import settles are locked. Hover or tap items for names.</p>
     <div className="free-rewards-filters">
       <input type="search" aria-label="Search free rewards" placeholder="Search rewards or tickets" value={query} onChange={event => { setQuery(event.target.value); setLimits({}); }} />
-      <SegmentedControl label="Free rewards status" value={show} onChange={value => { setShow(value); setLimits({}); }} options={[{ value: 'all', label: 'All' }, { value: 'unclaimed', label: 'Unclaimed' }, { value: 'claimed', label: 'Claimed' }]} />
+      <SegmentedControl label="Free rewards status" value={show} onChange={value => { setShow(value); setLimits({}); }} options={[{ value: 'all', label: 'All' }, { value: 'unclaimed', label: 'Unclaimed' }, { value: 'claimed', label: 'Claimed' }, { value: 'unknown', label: 'Needs confirmation' }]} />
       <label className="check"><input type="checkbox" checked={upcoming} onChange={event => { setUpcoming(event.target.checked); setLimits({}); }} />Include upcoming rewards</label>
     </div>
+    {rewards.some(reward => reward.claimUnknown && !done.has(reward.id)) && <p className="hint">Welcome-mail status needs confirmation. <button type="button" className="btn-bare" onClick={() => setShow('unknown')}>Review unknown claims</button></p>}
     {!groups.size && <p className="hint">No matching rewards.</p>}
     <div ref={floor.ref}>{[...groups].sort(([a], [b]) => (GROUP_ORDER.indexOf(a) < 0 ? 99 : GROUP_ORDER.indexOf(a)) - (GROUP_ORDER.indexOf(b) < 0 ? 99 : GROUP_ORDER.indexOf(b))).map(([group, list]) => {
       const limit = limits[group] ?? 30;
@@ -65,7 +67,7 @@ export default function FreeRewards({ rewards, icons, done, locked, onKeys, now,
             <WelfareCard key={reward.id} reward={reward} operator={operator} icon={icons[operator.id]} server={server} now={now} onPreview={setPreview}
               claim={{ checked: done.has(reward.id), lock: locked.get(reward.id), onChange: claimed => claim([reward.id], claimed) }} />)}</ul>}
           {plain.length > 0 && <ul className="pulls-past-list free-reward-list" aria-label={`${group}: claimed`}>{plain.map(reward => { const lock = locked.get(reward.id); return <li className={`free-reward-row${done.has(reward.id) ? ' is-claimed' : ''}`} key={reward.id}>
-            <label className="check" title={lock ? `${LOCKED_LABEL[lock]} (from your import)` : undefined}><input type="checkbox" checked={done.has(reward.id)} disabled={!!lock} onChange={event => claim([reward.id], event.target.checked)} /><span>{freeRewardLabel(reward)}</span></label>
+            <label className="check" title={lock ? `${LOCKED_LABEL[lock]} (from your import)` : undefined}><input type="checkbox" checked={done.has(reward.id)} disabled={!!lock} onChange={event => claim([reward.id], event.target.checked)} /><span>{freeRewardLabel(reward)}{reward.claimUnknown && !done.has(reward.id) && <small> · Needs confirmation: mail history is absent from the import. Not included in totals.</small>}</span></label>
             <div className="free-reward-content"><div className="free-reward-items">{reward.rewards.map(item => isOperatorReward(item) ? <FreeOperatorButton key={item.id} item={item} icon={icons[item.id]} onPreview={setPreview} /> : <FreeRewardItem key={item.id} item={item} icon={icons[item.id]} />)}{!reward.rewards.length && <small>Free pack</small>}</div>{(reward.startAt || reward.href || lock) && <div className="free-reward-meta">{reward.event && <small>From {reward.event}</small>}{reward.startAt && <small>{now < reward.startAt ? 'Upcoming' : reward.endAt ? `Until ${regionalDate(new Date(reward.endAt).toISOString(), server)}` : 'Available'}</small>}{lock && <small>{LOCKED_LABEL[lock]}</small>}{reward.href && <a href={reward.href}>Details →</a>}</div>}</div>
           </li>; })}</ul>}
           <LoadOnScroll shown={Math.min(limit, list.length)} total={list.length} onMore={() => setLimits(value => ({ ...value, [group]: limit + 30 }))} />

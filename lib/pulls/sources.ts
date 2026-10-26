@@ -85,6 +85,7 @@ export function futureEventOrundum(planned: FutureEvents): { op: number; orundum
 export function bundledBacklogSources(): BacklogSources {
   const beginnerRewards = allFreeRewards(freeRewards).filter(reward => reward.beginner && !reward.beginner.current);
   return {
+    stageSanity: firstClears.stageSanity,
     chapters: ONE_TIME.chapters,
     originiteByStageType: ONE_TIME.originiteByStageType,
     annihilationOrundum: ONE_TIME.annihilationOrundum,

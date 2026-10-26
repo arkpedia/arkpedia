@@ -1902,5 +1902,27 @@
       "dateRange": null,
       "note": null
     }
+  },
+  {
+    "name": "[Integrated Strategies #7] The Black Flow of the Drowning Seekers",
+    "modeId": "rogue_6",
+    "year": 2026,
+    "poster": null,
+    "cn": {
+      "dateRange": null,
+      "note": null,
+      "releaseDate": "2026/07/17",
+      "startAt": "2026-07-17T08:00:00.000Z",
+      "timingSource": "https://raw.githubusercontent.com/Kengxxiao/ArknightsGameData/master/zh_CN/gamedata/excel/roguelike_topic_table.json"
+    },
+    "global": {
+      "dateRange": null,
+      "note": "Global release unannounced"
+    },
+    "tw": {
+      "dateRange": null,
+      "note": null
+    },
+    "hasFashionReview": false
   }
 ]
