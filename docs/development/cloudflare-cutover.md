@@ -1,5 +1,33 @@
 # Cloudflare public-domain cutover
 
+## Approved cutover, 2026-10-26
+
+The maintainer authorized routing apex/www to the existing Cloudflare application
+after verifying parity, adding `preview.arkpedia.net` for the isolated redesign,
+and keeping Vercel available until acceptance and soak finish. Before changing
+routes, www and the physical pilot both served clean source `0bb2699268ec`,
+fingerprint `a84ebfea98d8e12622a1eae41b06f0c684498d20fbd423ce56776f03b1d779b8`,
+and live content `5aa0a20ff0d1`. The exact pre-cutover Worker version is
+`d2514887-c0c3-4575-997a-45a8eaa8483b`. Automatic pilot releases are temporarily
+frozen during preparation; re-enable the single checked-main owner for the
+canonical-origin release.
+
+The edge configuration adds only apex, www and Preview routes, leaving relay,
+mail and other subdomains alone. Explicit proxied Vercel DNS targets retain the
+www rollback path; remove only the www Worker route to return traffic to Vercel.
+The edge redirects apex to www with the existing 308/path/query behavior.
+Preview is a fixed upstream alias to the existing public native Preview at
+`arkpedia-gins-arkpedia.cloudflare-1ff.workers.dev`; it remains noindex, uses its own cache,
+and cannot receive forwarded account cookies or authorization headers. Native
+Preview custom-domain bases otherwise add a preview-name label, so an edge alias
+provides the exact requested short hostname without another application Worker.
+The native custom-domain endpoint rejects Worker subrequests (Cloudflare 1053),
+so this alias must use the verified native workers.dev endpoint instead.
+
+The historical preparation and acceptance details below remain useful evidence;
+they do not imply the route has already switched. Record final provider and
+browser observations after the release and route changes.
+
 Updated 2026-10-26. The owner-approved DNS handoff is complete; the application
 cutover remains a reviewed candidate. Kukkikaze owns arkpedia.net. Public
 nameservers are `ollie.ns.cloudflare.com` and `robert.ns.cloudflare.com`; www

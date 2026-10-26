@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { readOnly } from './census-routes';
+import relay from '../../config/relay.json';
 
 test('a blocked real relay socket produces a login-free copyable report', async ({ page, context }) => {
   await readOnly(page);
@@ -8,7 +9,7 @@ test('a blocked real relay socket produces a login-free copyable report', async 
     u8: 'https://as.arknights.global', gs: 'https://gs.arknights.global:8443', hv: 'https://hv.example.invalid/{0}/version',
   } } } }) }) }));
   let sockets = 0;
-  await page.routeWebSocket(/relay\.arkpedia\.net/, socket => {
+  await page.routeWebSocket(relay.url, socket => {
     sockets++;
     socket.close({ code: 1008, reason: 'Private fixture relay blocked' });
   });
@@ -28,7 +29,9 @@ test('a blocked real relay socket produces a login-free copyable report', async 
   for (const secret of ['sensitive-address', '999999', 'Authorization', 'DeviceID', 'https://', 'wss://', 'Private fixture']) expect(raw).not.toContain(secret);
   await dialog.getByRole('button', { name: 'Copy diagnostics', exact: true }).click();
   await expect(dialog.getByRole('status')).toHaveText('Copied');
-  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(raw);
+  // The Windows clipboard normalizes line endings; the copied report must retain
+  // the complete structured payload on every platform.
+  expect(JSON.parse(await page.evaluate(() => navigator.clipboard.readText()))).toEqual(report);
   await expect(dialog.getByRole('button', { name: 'Import', exact: true })).toBeEnabled();
   await expect(dialog.getByRole('button', { name: 'Send code', exact: true })).toBeDisabled();
   expect(await page.evaluate(() => Object.keys(localStorage).some(k => /diagnostic/i.test(k)))).toBe(false);
@@ -43,7 +46,7 @@ test('a real Wisp upstream refusal is distinguished from browser-to-relay loss',
   await readOnly(page);
   await page.route('**/api/account-import/network?server=*', route => route.fulfill({ status: 503, body: '{}' }));
   // A protocol fixture terminates every tunnel before any TLS or login data can pass.
-  await page.routeWebSocket(/relay\.arkpedia\.net/, socket => {
+  await page.routeWebSocket(relay.url, socket => {
     socket.send(Buffer.from([3, 0, 0, 0, 0, 8, 0, 0, 0]));
     socket.onMessage(data => {
       const packet = Buffer.from(data as Buffer);

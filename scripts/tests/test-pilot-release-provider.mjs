@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { PILOT, MEDIA_SECRET_UPDATE, assertPilotBindings, assertPilotIdentity, pilotReleaseMessage, readPilotIdentity,
+import { PILOT, MEDIA_SECRET_UPDATE, PRE_CUTOVER_VERSION, assertPilotBindings, assertPilotIdentity, pilotReleaseMessage, readPilotIdentity,
   createPilotProvider } from '../deploy/pilot-release-provider.mjs';
 
 const nextVersion = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
@@ -10,7 +10,7 @@ function version(id = PILOT.legacyVersion) {
   return { id, annotations: id === PILOT.legacyVersion ? {} : { 'workers/message': pilotReleaseMessage(owner) },
     resources: { script_runtime: { migration_tag: 'v1' }, bindings: [
       { name: 'ARKPEDIA_ACCOUNTS_DB', type: 'd1', database_id: PILOT.database },
-      { name: 'ARKPEDIA_AUTH_URL', type: 'plain_text', text: PILOT.origin },
+      { name: 'ARKPEDIA_AUTH_URL', type: 'plain_text', text: id === PILOT.legacyVersion ? PILOT.origin : 'https://www.arkpedia.net' },
       { name: 'ASSETS', type: 'assets' },
       ...['BETTER_AUTH_SECRET', 'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'DISCORD_CLIENT_ID', 'DISCORD_CLIENT_SECRET'].map(name => ({ name, type: 'secret_text' })),
       { name: 'NEXT_CACHE_DO_QUEUE', type: 'durable_object_namespace', class_name: 'DOQueueHandler', namespace_id: PILOT.queue },
@@ -30,6 +30,14 @@ function identity(id = PILOT.legacyVersion) {
 }
 const binding = (v, name) => v.resources.bindings.find(b => b.name === name);
 
+test('only the exact observed pre-cutover version retains the pilot auth origin', () => {
+  const previous = version(PRE_CUTOVER_VERSION);
+  binding(previous, 'ARKPEDIA_AUTH_URL').text = PILOT.origin;
+  assert.equal(assertPilotBindings(previous), previous);
+  previous.id = foreignVersion;
+  assert.throws(() => assertPilotBindings(previous), /auth origin changed/);
+});
+
 test('only the exact observed legacy version may omit explicit main channel and release ownership', () => {
   assert.equal(assertPilotBindings(version()).id, PILOT.legacyVersion);
   assert.equal(assertPilotBindings(version(nextVersion)).id, nextVersion);
@@ -42,11 +50,13 @@ test('only the recorded authorized media-secret update retains its proven checke
   v.id = MEDIA_SECRET_UPDATE.version;
   v.annotations = { 'workers/triggered_by': 'secret' };
   v.resources.script = { etag: MEDIA_SECRET_UPDATE.etag };
+  binding(v, 'ARKPEDIA_AUTH_URL').text = PILOT.origin;
   assert.equal(assertPilotBindings(v), v);
   assertPilotIdentity({ ...identity(nextVersion), commit: MEDIA_SECRET_UPDATE.source, codeFingerprint: MEDIA_SECRET_UPDATE.fingerprint }, v);
   const changedCode = structuredClone(v); changedCode.resources.script.etag = 'unreviewed';
   assert.throws(() => assertPilotBindings(changedCode), /code\/provenance changed/);
   const unknown = structuredClone(v); unknown.id = foreignVersion;
+  binding(unknown, 'ARKPEDIA_AUTH_URL').text = 'https://www.arkpedia.net';
   assert.throws(() => assertPilotBindings(unknown), /unrecognized pilot release owner/);
   const exposedSecret = structuredClone(v); binding(exposedSecret, 'YOUTUBE_API_KEY').type = 'plain_text';
   assert.throws(() => assertPilotBindings(exposedSecret), /YOUTUBE_API_KEY/);
@@ -55,7 +65,7 @@ test('only the recorded authorized media-secret update retains its proven checke
 });
 for (const [name, mutate] of [
   ['database', v => { binding(v, 'ARKPEDIA_ACCOUNTS_DB').database_id = foreignVersion; }],
-  ['auth origin', v => { binding(v, 'ARKPEDIA_AUTH_URL').text = 'https://www.arkpedia.net'; }],
+  ['auth origin', v => { binding(v, 'ARKPEDIA_AUTH_URL').text = 'https://untrusted.example'; }],
   ['auth secret type', v => { binding(v, 'BETTER_AUTH_SECRET').type = 'plain_text'; }],
   ['provider secret type', v => { binding(v, 'GOOGLE_CLIENT_SECRET').type = 'plain_text'; }],
   ['queue namespace', v => { binding(v, 'NEXT_CACHE_DO_QUEUE').namespace_id = 'bad'; }],

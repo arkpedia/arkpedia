@@ -330,7 +330,12 @@ test('the front Worker is set up as the README says: in front of the site Worker
   const edge = jsonc('workers/edge/wrangler.jsonc');
   assert.equal(edge.main, 'worker.mjs');
   assert.deepEqual(edge.services, [{ binding: 'SITE', service: jsonc('wrangler.jsonc').name }]);
-  assert.deepEqual(edge.routes, [{ pattern: 'arkpedia-cf.mocchibird.com/*', zone_name: 'mocchibird.com' }]);
+  assert.deepEqual(edge.routes, [
+    { pattern: 'arkpedia-cf.mocchibird.com/*', zone_name: 'mocchibird.com' },
+    { pattern: 'www.arkpedia.net/*', zone_name: 'arkpedia.net' },
+    { pattern: 'arkpedia.net/*', zone_name: 'arkpedia.net' },
+    { pattern: 'preview.arkpedia.net/*', zone_name: 'arkpedia.net' },
+  ]);
   assert.equal(edge.workers_dev, false);
   assert.equal(edge.compatibility_date, jsonc('wrangler.jsonc').compatibility_date);
   // Dependabot bumps only the site's wrangler, so the front Worker's own pin may lag behind it,

@@ -238,8 +238,9 @@ test('the Free rewards tab shows its welfare operators as the overview\'s cards,
   // A card's checkbox ticks and unticks its row, the overview following, and the card moves nothing.
   const botani = page.getByRole('checkbox', { name: 'Botani · Event missions: Clear PA-4', exact: true });
   await expect(botani).toBeEnabled();
-  // Where the card sits in the document (not the viewport, which check() scrolls), and its size.
-  const place = () => card('Botani').evaluate((el) => { const r = el.getBoundingClientRect(); return [r.left, r.top + scrollY, r.width, r.height].map(Math.round); });
+  // Keep the card's position within its list and its size. Claiming also updates the
+  // separate overview above this list, whose reflow is not movement within the card grid.
+  const place = () => card('Botani').evaluate((el) => { const r = el.getBoundingClientRect(); const list = el.closest('ul')!.getBoundingClientRect(); return [r.left - list.left, r.top - list.top, r.width, r.height].map(Math.round); });
   // Measured once the faces have settled: on a slow runner the webfonts swapped in between the
   // two measurements and moved the card 3px with no tick involved (CI, 2026-10-22).
   await page.evaluate(() => document.fonts.ready);

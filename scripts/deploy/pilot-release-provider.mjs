@@ -23,6 +23,8 @@ export const MEDIA_SECRET_UPDATE = Object.freeze({
   fingerprint: 'ec5ff11e156fc580c52c60c0c623ee8ab2ee0b71294a091334a0a925fc4baf02',
 });
 const MEDIA_SECRETS = ['TWITCH_CLIENT_ID', 'TWITCH_CLIENT_SECRET', 'YOUTUBE_API_KEY'];
+// Exact serving version observed before the approved public-domain cutover.
+export const PRE_CUTOVER_VERSION = 'd2514887-c0c3-4575-997a-45a8eaa8483b';
 const UUID = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
 const SHA = /^[a-f0-9]{40}$/;
 const HASH = /^[a-f0-9]{64}$/;
@@ -71,7 +73,8 @@ export function assertPilotBindings(version) {
     return found;
   };
   requireValue(binding('ARKPEDIA_ACCOUNTS_DB', 'd1').database_id === PILOT.database, 'account database changed');
-  requireValue(binding('ARKPEDIA_AUTH_URL', 'plain_text').text === PILOT.origin, 'auth origin changed');
+  const previousOrigin = [PILOT.legacyVersion, MEDIA_SECRET_UPDATE.baseline, MEDIA_SECRET_UPDATE.version, PRE_CUTOVER_VERSION].includes(version.id);
+  requireValue(binding('ARKPEDIA_AUTH_URL', 'plain_text').text === (previousOrigin ? PILOT.origin : 'https://www.arkpedia.net'), 'auth origin changed');
   for (const name of ['BETTER_AUTH_SECRET', 'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'DISCORD_CLIENT_ID', 'DISCORD_CLIENT_SECRET']) {
     binding(name, 'secret_text');
   }

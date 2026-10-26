@@ -17,14 +17,6 @@ import { connectionDiagnostics, type WispDiagnosticsAPI } from './connectionDiag
 /** Where the relay is: config/relay.json (the relay itself is arkpedia/arkpedia-relay). */
 export const RELAY_URL = relayConfig.url;
 
-/** The existing Cloudflare relay serves only explicitly reviewed website origins. */
-export function chooseRelayUrl(location: { hostname: string; search: string }, config: { url: string; cloudflare: { use: boolean; url: string; hosts: string[] } } = relayConfig): string {
-  if (!config.cloudflare.hosts.includes(location.hostname)) return config.url;
-  const asked = new URLSearchParams(location.search).get('relay');
-  const useCloudflare = asked === 'cloudflare' ? true : asked === 'vps' ? false : config.cloudflare.use;
-  return useCloudflare ? config.cloudflare.url : config.url;
-}
-
 interface CurlSession {
   set_connections(total: number, cached: number, perHost: number): void;
   /** raw_headers: every header line as sent. A Headers object folds two Set-Cookie lines into
@@ -52,7 +44,7 @@ function libcurl(): Promise<CurlSession> {
   loading ??= import('libcurl.js/bundled').then(async (module) => {
     const curl = module.libcurl as Libcurl;
     await curl.load_wasm();
-    const relayUrl = chooseRelayUrl(window.location);
+    const relayUrl = RELAY_URL;
     connectionDiagnostics.install(curl.wisp, relayUrl);
     curl.set_websocket(relayUrl);
     return createRelaySession(curl);

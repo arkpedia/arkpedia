@@ -7,7 +7,7 @@ import ts from 'typescript';
 import { codeFingerprint } from '../content/code-fingerprint.mjs';
 
 const ACCOUNT = '1ff51c10571eaa9934bc451e1bfdb361';
-const AUTH_ORIGIN = 'https://arkpedia-cf.mocchibird.com';
+const AUTH_ORIGIN = 'https://www.arkpedia.net';
 const exact = (actual, expected) => JSON.stringify(actual) === JSON.stringify(expected);
 
 export function readPilotConfig(file = 'wrangler.jsonc') {

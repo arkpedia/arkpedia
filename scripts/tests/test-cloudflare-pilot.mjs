@@ -30,7 +30,7 @@ for (const [name, change] of Object.entries({
   'wrong self reference': config => { config.services[0].service = 'arkpedia-staging'; },
   'changed queue migration': config => { config.migrations[0].tag = 'v2'; },
   'account-free staging role': config => { config.vars.ARKPEDIA_DEPLOYMENT_ROLE = 'staging'; },
-  'different account origin': config => { config.vars.ARKPEDIA_AUTH_URL = 'https://www.arkpedia.net'; },
+  'different account origin': config => { config.vars.ARKPEDIA_AUTH_URL = 'https://untrusted.example'; },
   'development content': config => { config.vars.ARKPEDIA_CONTENT_CHANNEL = 'dev-live'; },
 })) {
   test(`pilot check refuses ${name}`, t => {

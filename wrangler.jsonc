@@ -17,7 +17,7 @@
       "migrations_dir": "migrations/accounts"
     }
   ],
-  "vars": { "ARKPEDIA_AUTH_URL": "https://arkpedia-cf.mocchibird.com", "ARKPEDIA_CONTENT_CHANNEL": "live", "ARKPEDIA_DEPLOYMENT_ROLE": "production" },
+  "vars": { "ARKPEDIA_AUTH_URL": "https://www.arkpedia.net", "ARKPEDIA_CONTENT_CHANNEL": "live", "ARKPEDIA_DEPLOYMENT_ROLE": "production" },
   // The page cache (open-next.config.ts). The bucket must exist before a deploy:
   // `npx wrangler r2 bucket create arkpedia-opennext-cache`, or R2 > Create bucket in the dashboard.
   // It also keeps each Monster Siren song's signed audio address, under music-audio/
