@@ -67,6 +67,14 @@ The site Worker's own requests from here carry `x-arkpedia-edge: miss` or `refre
 
 ## Deployment ownership and migration
 
+Current status, 2026-10-26: the application Worker is owned by the enabled
+checked-main GitHub release workflow; its old native build owner is disabled.
+The edge Worker still requires an explicit owner/publication. Public-domain
+preparation and the route-only rollback are in
+[the cutover handoff](../../docs/development/cloudflare-cutover.md).
+The following provider inventory describes the earlier observation, not current
+application release ownership.
+
 The provider inventory on 2026-10-25 found the existing `arkpedia-edge` Worker **without a
 Git-connected Workers Builds project**. The site Worker `arkpedia` still builds from the
 preserved `cloudflare` branch. Files in this directory do not establish automatic deployment.

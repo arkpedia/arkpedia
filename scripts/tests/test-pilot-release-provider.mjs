@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { PILOT, assertPilotBindings, assertPilotIdentity, pilotReleaseMessage, readPilotIdentity,
+import { PILOT, MEDIA_SECRET_UPDATE, assertPilotBindings, assertPilotIdentity, pilotReleaseMessage, readPilotIdentity,
   createPilotProvider } from '../deploy/pilot-release-provider.mjs';
 
 const nextVersion = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
@@ -17,6 +17,7 @@ function version(id = PILOT.legacyVersion) {
       { name: 'NEXT_INC_CACHE_R2_BUCKET', type: 'r2_bucket', bucket_name: 'arkpedia-opennext-cache' },
       { name: 'WORKER_SELF_REFERENCE', type: 'service', service: PILOT.worker, environment: 'production' },
       ...(id === PILOT.legacyVersion ? [] : [
+        ...['TWITCH_CLIENT_ID', 'TWITCH_CLIENT_SECRET', 'YOUTUBE_API_KEY'].map(name => ({ name, type: 'secret_text' })),
         { name: 'ARKPEDIA_CONTENT_CHANNEL', type: 'plain_text', text: 'live' },
         { name: 'ARKPEDIA_DEPLOYMENT_ROLE', type: 'plain_text', text: 'production' },
       ]),
@@ -34,6 +35,23 @@ test('only the exact observed legacy version may omit explicit main channel and 
   assert.equal(assertPilotBindings(version(nextVersion)).id, nextVersion);
   const unknown = version(); unknown.id = foreignVersion;
   assert.throws(() => assertPilotBindings(unknown), /unexpected pilot bindings/);
+});
+
+test('only the recorded authorized media-secret update retains its proven checked-code identity', () => {
+  const v = version(nextVersion);
+  v.id = MEDIA_SECRET_UPDATE.version;
+  v.annotations = { 'workers/triggered_by': 'secret' };
+  v.resources.script = { etag: MEDIA_SECRET_UPDATE.etag };
+  assert.equal(assertPilotBindings(v), v);
+  assertPilotIdentity({ ...identity(nextVersion), commit: MEDIA_SECRET_UPDATE.source, codeFingerprint: MEDIA_SECRET_UPDATE.fingerprint }, v);
+  const changedCode = structuredClone(v); changedCode.resources.script.etag = 'unreviewed';
+  assert.throws(() => assertPilotBindings(changedCode), /code\/provenance changed/);
+  const unknown = structuredClone(v); unknown.id = foreignVersion;
+  assert.throws(() => assertPilotBindings(unknown), /unrecognized pilot release owner/);
+  const exposedSecret = structuredClone(v); binding(exposedSecret, 'YOUTUBE_API_KEY').type = 'plain_text';
+  assert.throws(() => assertPilotBindings(exposedSecret), /YOUTUBE_API_KEY/);
+  const missingMedia = structuredClone(v); missingMedia.resources.bindings = missingMedia.resources.bindings.filter(b => b.name !== 'TWITCH_CLIENT_ID');
+  assert.throws(() => assertPilotBindings(missingMedia), /unexpected pilot bindings/);
 });
 for (const [name, mutate] of [
   ['database', v => { binding(v, 'ARKPEDIA_ACCOUNTS_DB').database_id = foreignVersion; }],

@@ -36,12 +36,10 @@ the local address, usually http://localhost:8787). Check a few routes: `/`, `/op
 
 ## A real Worker on your Cloudflare account
 
-```bash
-npx wrangler login
-npm run cf:deploy
-```
-
-It deploys to `arkpedia.<your-subdomain>.workers.dev`. Nothing points arkpedia.net at it.
+The existing `arkpedia` Worker is published by the enabled checked-main workflow.
+Use [its release/recovery procedure](cloudflare-pilot-release.md); do not introduce
+a second native or manual deployment owner for the same Worker. Public-domain
+routing is a separate reviewed operation, not a local `cf:deploy` command.
 
 To give it the same settings as the Vercel deploy (content channel, API keys), set them as
 Worker variables or secrets, for example `npx wrangler secret put YOUTUBE_API_KEY`. Without
@@ -119,14 +117,17 @@ less per cold start.
 
 ## Branches (while the Cloudflare path is set up)
 
-- `dev`: general features. They go to www through main as before, and to the Worker through
-  `cloudflare`.
-- `cloudflare`: `dev` plus the Cloudflare-only work (accounts, D1, Worker settings). The Worker's
-  production branch in Workers Builds is `cloudflare`, and its Check runs like dev's. Vercel
-  deploys nothing from it. Pull requests for Cloudflare-only work target `cloudflare`.
-- `.github/workflows/sync-cloudflare.yml` merges every push to `dev` into `cloudflare`. A conflict
-  fails that run and leaves `cloudflare` alone: merge `dev` in by hand and push. Never open a
-  pull request from `dev`: merging it deletes `dev`.
+- `main` owns both www's Vercel release and the checked-main Cloudflare pilot.
+  `cloudflare-pilot-release.yml` is enabled; the old native production build owner
+  was disabled. Do not enable a second owner. See [pilot releases](cloudflare-pilot-release.md).
+- `dev` and the historical Cloudflare work are preserved for individual feature
+  reconciliation, not bulk promotion or DNS cutover. New work uses short-lived
+  feature branches from main.
+- The separate redesign is published explicitly as a native Worker Preview, with
+  its own cache/queue and no account database. It is not the public cutover candidate.
+
+The pending public-zone handoff and unapplied canonical-host/edge-route candidates
+are in [Cloudflare cutover](cloudflare-cutover.md).
 
 ## Which content it reads
 
@@ -152,7 +153,11 @@ use the VPS relay.
 
 ## Analytics
 
-The Worker counts visits with Cloudflare Web Analytics (`components/layout/SiteAnalytics.tsx`): visits, page views, pages, referrers, countries and devices, with no cookie and no visitor id. It is free, so nothing is sampled. The beacon loads only in the Worker's own build of `cloudflare` (`WORKERS_CI_BRANCH`), and only once `config/web-analytics.json` holds the site's token from the dashboard (Analytics & Logs > Web Analytics). The numbers are in the same place. Vercel's analytics is gone from this branch; www keeps it until it moves.
+The production Worker counts visits with Cloudflare Web Analytics
+(`components/layout/SiteAnalytics.tsx`). The Worker build flag selects the provider;
+Preview builds disable analytics. The existing public beacon identifier is in
+`config/web-analytics.json`. Verify its allowed hostname and actual ingestion when
+moving www. Vercel builds keep their current analytics until the hosting cutover.
 
 ## Known limits
 

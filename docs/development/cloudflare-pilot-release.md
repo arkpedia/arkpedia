@@ -1,6 +1,12 @@
 # Checked-main releases to the migration pilot
 
-This workflow is prepared but disabled. It targets only the existing `arkpedia`
+Status, 2026-10-26: this workflow is enabled and owns checked-main pilot releases.
+The activation instructions below are the original controlled-release procedure,
+not a request to create another credential or build owner. The last attempted
+release was blocked by the approved media-secret update replacing its ownership
+annotation; the exact-version reconciliation is described below.
+
+It targets only the existing `arkpedia`
 Worker at `https://arkpedia-cf.mocchibird.com`. It does not move `arkpedia.net`,
 change DNS, create resources, apply D1 migrations, write secrets or publish data.
 Vercel remains the public production host during the migration.
@@ -33,8 +39,15 @@ If deployment needs additional permissions, stop and review the exact denied cal
 The strict root configuration validator and live provider checks preserve:
 
 - Existing account D1 `f7daff77-8e8f-4ec2-998b-97fb6e4b948f`; no SQL is executed.
-- Exact pilot auth origin, five existing secret bindings, and provider callbacks.
+- Exact pilot auth origin, five existing auth secret bindings, the approved Twitch
+  client ID/secret and YouTube API key, and provider callbacks.
   `BETTER_AUTH_SECRET` must keep its value because existing provider rows use it.
+- The authorized media-secret version `9bfe3b14-1b5c-47b4-b75b-da94ddc99593`
+  has the same script etag as checked version `56bdbefb-505a-40bb-89e0-5bd01e4e8c3a`
+  (source `8ee3f3dc`, Check `40208662540`). Secret updates replaced the release
+  message. Only that exact version plus etag, secret trigger and full resource
+  contract may inherit this recorded identity. Other manual/secret-only versions
+  still fail closed. New checked releases must preserve all three media secrets.
 - Existing `arkpedia-opennext-cache`, queue namespace/class/migration tag and self
   service reference. No staging, edge or relay resource is a release target.
 - Schema2 and production role. The exact old version066ea33d/source de829d1e uses
@@ -163,6 +176,9 @@ The pilot currently has no release-refresh credential. Its reader explicitly has
 The pilot uses its normal ISR intervals for data freshness. Evaluate authenticated
 refresh and actual propagation latency before final production migration; this
 change does not silently create or share another credential.
+
+Public-domain preparation and the owner handoff are in
+[Cloudflare cutover](cloudflare-cutover.md). Preparing the handoff does not move DNS.
 
 The small success/failure receipt is retained for seven days. It contains public
 build/version provenance and recovery outcome, not secret values or account data.

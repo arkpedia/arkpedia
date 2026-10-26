@@ -43,6 +43,8 @@ for (const [name, change] of Object.entries({
 test('build environment removes credentials and content/test overrides without changing the parent', () => {
   const parent = { PATH: '/bin', CLOUDFLARE_API_TOKEN: 'dummy-only', BETTER_AUTH_SECRET: 'dummy-only', VERCEL_PROJECT_ID: 'dummy', ARKPEDIA_CONTENT_PILOT_ORIGIN: 'http://localhost:9999', ARKPEDIA_CONTENT_TEST: '1', ARKPEDIA_CONTENT_CHANNEL: 'dev-live', ARKPEDIA_DEPLOYMENT_ROLE: 'staging' };
   const before = { ...parent };
+  Object.assign(parent, { TWITCH_CLIENT_ID: 'dummy', TWITCH_CLIENT_SECRET: 'dummy', YOUTUBE_API_KEY: 'dummy' });
+  Object.assign(before, { TWITCH_CLIENT_ID: 'dummy', TWITCH_CLIENT_SECRET: 'dummy', YOUTUBE_API_KEY: 'dummy' });
   const child = pilotBuildEnvironment(parent);
   assert.deepEqual(parent, before);
   assert.deepEqual(child, { PATH: '/bin', ARKPEDIA_WORKER: '1', ARKPEDIA_CONTENT_CHANNEL: 'live', ARKPEDIA_DEPLOYMENT_ROLE: 'production' });

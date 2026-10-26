@@ -11,6 +11,18 @@ export const PILOT = Object.freeze({
   legacySource: 'de829d1eac0e1dc0efc17866e680b447650434df',
   legacyFingerprint: '9706f8b5408400b7a956445c70129773f73aeabe9fd9f8ba3049452100df5f2a',
 });
+// Observed authorized media-secret transfer, 2026-10-26. Cloudflare's secret-only
+// versions replace the release message; its script etag matches checked version
+// 56bdbefb-505a-40bb-89e0-5bd01e4e8c3a exactly. This is one immutable exception,
+// not permission to accept arbitrary manual/secret-only deployments.
+export const MEDIA_SECRET_UPDATE = Object.freeze({
+  version: '9bfe3b14-1b5c-47b4-b75b-da94ddc99593',
+  baseline: '56bdbefb-505a-40bb-89e0-5bd01e4e8c3a',
+  etag: 'bc144f82252d84149fb4373f329c372b0b12e1a654f7806b34c65d3e8a943cfd',
+  source: '8ee3f3dc7852991791bec6f3a2717d98d69f0594',
+  fingerprint: 'ec5ff11e156fc580c52c60c0c623ee8ab2ee0b71294a091334a0a925fc4baf02',
+});
+const MEDIA_SECRETS = ['TWITCH_CLIENT_ID', 'TWITCH_CLIENT_SECRET', 'YOUTUBE_API_KEY'];
 const UUID = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
 const SHA = /^[a-f0-9]{40}$/;
 const HASH = /^[a-f0-9]{64}$/;
@@ -27,6 +39,21 @@ export function pilotReleaseMessage(owner) {
     checkRun: owner.checkRun, previousVersion: owner.previousVersion });
 }
 
+function releaseOwner(version) {
+  if (version.id === MEDIA_SECRET_UPDATE.version) {
+    requireValue(version.resources.script?.etag === MEDIA_SECRET_UPDATE.etag
+      && version.annotations?.['workers/triggered_by'] === 'secret'
+      && !version.annotations?.['workers/message'], 'media-secret update code/provenance changed');
+    return { source: MEDIA_SECRET_UPDATE.source, fingerprint: MEDIA_SECRET_UPDATE.fingerprint,
+      checkRun: 40208662540, previousVersion: MEDIA_SECRET_UPDATE.baseline };
+  }
+  const message = version.annotations?.['workers/message'];
+  requireValue(typeof message === 'string' && message.startsWith(PREFIX), 'unrecognized pilot release owner');
+  const owner = JSON.parse(message.slice(PREFIX.length));
+  requireValue(pilotReleaseMessage(owner) === message, 'noncanonical pilot release owner');
+  return owner;
+}
+
 export function assertPilotBindings(version) {
   requireValue(UUID.test(version?.id ?? '') && Array.isArray(version?.resources?.bindings), 'invalid version metadata');
   const bindings = version.resources.bindings;
@@ -34,6 +61,7 @@ export function assertPilotBindings(version) {
   const names = ['ARKPEDIA_ACCOUNTS_DB', 'ARKPEDIA_AUTH_URL', 'ASSETS', 'BETTER_AUTH_SECRET',
     'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'DISCORD_CLIENT_ID', 'DISCORD_CLIENT_SECRET',
     'NEXT_CACHE_DO_QUEUE', 'NEXT_INC_CACHE_R2_BUCKET', 'WORKER_SELF_REFERENCE',
+    ...(legacy || version.id === MEDIA_SECRET_UPDATE.baseline ? [] : MEDIA_SECRETS),
     ...(legacy ? [] : ['ARKPEDIA_CONTENT_CHANNEL', 'ARKPEDIA_DEPLOYMENT_ROLE'])];
   requireValue(bindings.length === names.length && new Set(bindings.map(b => b.name)).size === names.length
     && bindings.every(b => names.includes(b.name)), 'unexpected pilot bindings');
@@ -47,6 +75,9 @@ export function assertPilotBindings(version) {
   for (const name of ['BETTER_AUTH_SECRET', 'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'DISCORD_CLIENT_ID', 'DISCORD_CLIENT_SECRET']) {
     binding(name, 'secret_text');
   }
+  if (!legacy && version.id !== MEDIA_SECRET_UPDATE.baseline) {
+    for (const name of MEDIA_SECRETS) binding(name, 'secret_text');
+  }
   binding('ASSETS', 'assets');
   const queue = binding('NEXT_CACHE_DO_QUEUE', 'durable_object_namespace');
   requireValue(queue.namespace_id === PILOT.queue && queue.class_name === 'DOQueueHandler', 'queue changed');
@@ -57,10 +88,7 @@ export function assertPilotBindings(version) {
   if (!legacy) {
     requireValue(binding('ARKPEDIA_CONTENT_CHANNEL', 'plain_text').text === 'live'
       && binding('ARKPEDIA_DEPLOYMENT_ROLE', 'plain_text').text === 'production', 'main content/role changed');
-    const message = version.annotations?.['workers/message'];
-    requireValue(typeof message === 'string' && message.startsWith(PREFIX), 'unrecognized pilot release owner');
-    const owner = JSON.parse(message.slice(PREFIX.length));
-    requireValue(pilotReleaseMessage(owner) === message, 'noncanonical pilot release owner');
+    releaseOwner(version);
   }
   return version;
 }
@@ -90,7 +118,7 @@ export async function readPilotIdentity(request = fetch) {
 export function assertPilotIdentity(build, version) {
   const legacy = version.id === PILOT.legacyVersion;
   const owner = legacy ? { source: PILOT.legacySource, fingerprint: PILOT.legacyFingerprint }
-    : JSON.parse(version.annotations['workers/message'].slice(PREFIX.length));
+    : releaseOwner(version);
   requireValue(build.commit === owner.source && build.codeFingerprint === owner.fingerprint
     && build.contentChannel === (legacy ? 'dev-live' : 'live'), 'public identity differs from provider owner');
   return build;
@@ -158,7 +186,7 @@ export function createPilotProvider({ run = execFileSync, request = fetch, envir
   };
   const owner = version => {
     assertPilotBindings(version);
-    return version.id === PILOT.legacyVersion ? null : JSON.parse(version.annotations['workers/message'].slice(PREFIX.length));
+    return version.id === PILOT.legacyVersion ? null : releaseOwner(version);
   };
   return { observe, identity, health, deploy, recover, owner };
 }

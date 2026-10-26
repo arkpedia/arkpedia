@@ -54,7 +54,7 @@ Register each exact `/api/auth/callback/google` and `/api/auth/callback/discord`
 URL with its provider. A different hostname's cookies do not transfer sessions.
 
 The main production Worker config and production D1 choice are separate reviewed
-hosting work. Do not add accounts to `wrangler.staging.jsonc`: it deliberately
+hosting work. Do not add accounts to `wrangler.preview.jsonc`: it deliberately
 isolates writable resources and disables login. An authenticated alternate host
 needs its own reviewed role and noindex policy.
 

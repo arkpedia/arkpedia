@@ -1,0 +1,11 @@
+--- a/workers/edge/wrangler.jsonc
++++ b/workers/edge/wrangler.jsonc
+@@ -10,7 +10,7 @@
+   // In front of the site Worker, which keeps arkpedia-cf.mocchibird.com as its custom domain: a
+   // Worker on a route runs before the custom domain's Worker. Without this route, readers reach
+   // the site Worker directly again.
+-  "routes": [{ "pattern": "arkpedia-cf.mocchibird.com/*", "zone_name": "mocchibird.com" }],
++  "routes": [{ "pattern": "arkpedia-cf.mocchibird.com/*", "zone_name": "mocchibird.com" }, { "pattern": "www.arkpedia.net/*", "zone_name": "arkpedia.net" }],
+   // The site Worker (the repository's wrangler.jsonc name). Calls through a service binding
+   // aren't billed as requests of their own.
+   "services": [{ "binding": "SITE", "service": "arkpedia" }],
