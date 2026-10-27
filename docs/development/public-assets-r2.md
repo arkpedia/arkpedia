@@ -3,6 +3,9 @@
 Source remains upstream game repositories → reviewed Arkpedia GitHub repositories.
 Delivery is GitHub commit → verified R2 objects and indexes → `assets.arkpedia.net`.
 GitHub remains the release authority and rollback source, not the normal media origin.
+Import/source audits still read GitHub before publication. They cannot depend on R2
+already containing the newly imported commit; the later mirror and deployment gates
+verify reader availability separately.
 The application cutover is separate from introducing this infrastructure.
 
 ## Storage and serving

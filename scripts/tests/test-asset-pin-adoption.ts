@@ -213,7 +213,7 @@ test('the deploy probe asks for a file only the live pin has, in a folder the si
 
 test('the deploy check fails when production redirects new art to an older commit, and passes when it reaches it', async () => {
   const site = 'https://site.example';
-  const raw = (repo: string, rev: string, file: string) => `https://raw.githubusercontent.com/arkpedia/${repo}/${rev}/${file}`;
+  const raw = (repo: string, rev: string, file: string) => `https://assets.arkpedia.net/arkpedia/${repo}/${rev}/${file}`;
   const manifests = (images: object, skins: object) => ({
     [raw('arkpedia-image-assets', A('a'), 'asset-manifest.json')]: { body: JSON.stringify({ files: images }) },
     [raw('arkpedia-image-assets', A('1'), 'asset-manifest.json')]: { body: JSON.stringify({ files: { 'essential-icons/Arkpedia.webp': { sha256: '1' } } }) },
@@ -238,7 +238,7 @@ test('the deploy check fails when production redirects new art to an older commi
   };
   const lagging = await run(A('1'));
   assert.equal(lagging.problems.length, 1);
-  assert.match(lagging.problems[0], /^https:\/\/site\.example\/material-icons\/New\.webp \(a file arkpedia-image-assets@aaaaaaaa has and the committed 11111111 does not\) redirects to https:\/\/raw\.githubusercontent\.com\/arkpedia\/arkpedia-image-assets\/1{40}\/material-icons\/New\.webp, which answers 404/);
+  assert.match(lagging.problems[0], /^https:\/\/site\.example\/material-icons\/New\.webp \(a file arkpedia-image-assets@aaaaaaaa has and the committed 11111111 does not\) redirects to https:\/\/assets\.arkpedia\.net\/arkpedia\/arkpedia-image-assets\/1{40}\/material-icons\/New\.webp, which answers 404/);
   assert.ok(lagging.calls.every(call => ['GET', 'HEAD'].includes(call.method)), 'GET and HEAD only');
   assert.equal(lagging.calls.filter(call => call.url === `${site}/material-icons/New.webp`).length, 2, 'retried before failing');
   assert.deepEqual((await run(A('a'))).problems, []);
@@ -254,7 +254,7 @@ test('the deploy check fails when production redirects new art to an older commi
  */
 test('a release that went live during the build is a warning, and a 404 for a file of the pin the build used still fails', async () => {
   const site = 'https://site.example';
-  const raw = (repo: string, rev: string, file: string) => `https://raw.githubusercontent.com/arkpedia/${repo}/${rev}/${file}`;
+  const raw = (repo: string, rev: string, file: string) => `https://assets.arkpedia.net/arkpedia/${repo}/${rev}/${file}`;
   const [committed, adopted, newer] = [A('1'), A('a'), A('f')];
   const icons = (...names: string[]) => ({ body: JSON.stringify({ files: Object.fromEntries(['Arkpedia', ...names].map((name, i) => [`material-icons/${name}.webp`, { sha256: String(i) }])) }) });
   const run = async ({ redirectTo, baked = adopted, order = 'ahead' }: { redirectTo: string; baked?: string; order?: string | Error }) => {

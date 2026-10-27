@@ -12,6 +12,8 @@ const fake = (context, index = bytes) => async url => new Response(url.endsWith(
 test('served stages match the prepared release and its exact index bytes', async () => {
   const result = await checkServedStages({ origin: 'https://dev.example', manifest, fetch: fake(context) });
   assert.equal(result.stages, 1);
+  const r2 = { ...context, baseUrl: context.baseUrl.replace('raw.githubusercontent.com', 'assets.arkpedia.net') };
+  assert.equal((await checkServedStages({ origin: 'https://dev.example', manifest, fetch: fake(r2) })).stages, 1);
 });
 test('stale page, bundled fallback, corrupt index, missing file and HTTP errors fail explicitly', async () => {
   for (const value of [undefined, { ...context, release: 'old' }]) await assert.rejects(checkServedStages({ origin: 'https://dev.example', manifest, fetch: fake(value) }), /stale stage page/);

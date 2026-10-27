@@ -136,9 +136,9 @@ export async function probeClip(address, { fetcher = fetch, attempts = 3, sleep 
 /** Runs the check on the tree under `root`; returns what it prints and how it exits. */
 export async function checkVoiceClips({ root, quarantine = false, fetcher = fetch, token = process.env.GH_TOKEN, now = defaultNow(), sleep = pause, attempts = 3, batch = 8 }) {
   const revisions = read(root, 'data/assets/revisions.json');
-  const cdn = read(root, 'config/asset-delivery.json');
-  // Fetch through the same template the site emits, so this verifies what readers load.
-  const url = (repo, file) => cdn.template.replace('{repository}', repo).replace('{revision}', revisions[repo]).replace('{path}', file.split('/').map(encodeURIComponent).join('/'));
+  // Import validation runs before the R2 publication gate. Check the immutable
+  // GitHub source here; the verified mirror/readiness checks cover delivery.
+  const url = (repo, file) => `https://raw.githubusercontent.com/arkpedia/${repo}/${revisions[repo]}/${file.split('/').map(encodeURIComponent).join('/')}`;
   const voices = read(root, VOICE_LINES);
   const clips = offeredLegacyClips(voices, revisions);
   const absent = [], unchecked = [];

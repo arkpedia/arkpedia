@@ -21,9 +21,9 @@ const mode = folderMode(process.argv.slice(2));
 const read = async file => JSON.parse(await fs.readFile(new URL(`../../${file}`, import.meta.url), 'utf8'));
 const revisions = await read('data/assets/revisions.json');
 const index = await read('data/assets/external-asset-index.json');
-const cdn = await read('config/asset-delivery.json');
-// Fetch through the same template the site emits, so this verifies what readers load.
-const url = (repo, path) => cdn.template.replace('{repository}', repo).replace('{revision}', revisions[repo]).replace('{path}', path.split('/').map(encodeURIComponent).join('/'));
+// Source validation precedes publication: a newly imported pin is not in R2 yet.
+// The publisher and deployment readiness gate verify the later delivery stage.
+const url = (repo, path) => `https://raw.githubusercontent.com/arkpedia/${repo}/${revisions[repo]}/${path.split('/').map(encodeURIComponent).join('/')}`;
 async function download(address) {
   // A 404 counts only once GitHub has said it at every encoding (lib/assets/githubRetry.mjs).
   const response = await fetchAsset(address, { signal: AbortSignal.timeout(30000) });
