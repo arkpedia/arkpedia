@@ -58,6 +58,10 @@ restricted to object read/write in this bucket. The separate deploy credential e
 only `arkpedia-assets`. Secrets are supplied only to publishing/deployment steps,
 never PR tests or dependency installation. Data-repository publication needs the
 same bucket-scoped object credentials in its own main-only environment.
+Reader automation uploads and deploys Worker versions at 100% traffic, preserving
+the existing `assets.arkpedia.net` route. It intentionally does not reconcile custom
+domains or DNS with the Worker-only token. A post-deploy HEAD check verifies the
+public domain still serves R2, and the workflow retains the version receipt.
 
 ## Retention, costs and acceptance
 

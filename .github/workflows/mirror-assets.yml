@@ -48,8 +48,14 @@ jobs:
           node-version: '24'
       - run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Deploy only the public-assets reader
-        run: node node_modules/wrangler/bin/wrangler.js deploy --config workers/assets/wrangler.jsonc
+        run: node scripts/deploy/public-assets-worker.mjs
         env:
           CLOUDFLARE_ACCOUNT_ID: '1ff51c10571eaa9934bc451e1bfdb361'
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_ASSETS_DEPLOY_TOKEN }}
           WRANGLER_SEND_METRICS: 'false'
+      - uses: actions/upload-artifact@v7
+        with:
+          name: public-assets-deployment-${{ github.run_id }}
+          path: .cache/public-assets-deployment.json
+          include-hidden-files: true
+          if-no-files-found: error
