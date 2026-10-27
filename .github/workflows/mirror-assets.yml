@@ -17,7 +17,8 @@ concurrency:
 jobs:
   mirror:
     if: github.ref == 'refs/heads/main'
-    runs-on: ${{ vars.ARKPEDIA_RUNNER || 'ubuntu-latest' }}
+    # Small manual asset preparation should not queue behind NAS application builds.
+    runs-on: ${{ inputs.image_revision != '' && 'ubuntu-latest' || vars.ARKPEDIA_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 90
     environment: public-assets
     steps:
