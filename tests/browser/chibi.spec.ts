@@ -6,7 +6,7 @@ test('default and skin battle/base animations load exclusively from pinned SD as
   const requested = new Set<string>();
   const failed: string[] = [];
   const isModel = (url: string) => /\.(?:skel|atlas)(?:\?|$)/.test(url)
-    || /raw\.githubusercontent\.com\/.*\/(?:models\/operator|spine)\/.*\.png(?:\?|$)/.test(url);
+    || /assets\.arkpedia\.net\/arkpedia\/.*\/(?:models\/operator|spine)\/.*\.png(?:\?|$)/.test(url);
   page.on('request', request => { if (isModel(request.url())) requested.add(request.url()); });
   page.on('response', response => { if (isModel(response.url()) && !response.ok()) failed.push(`${response.status()} ${response.url()}`); });
   for (const outfit of ['Base', 'Blade-cleaved Tides']) {
@@ -18,7 +18,8 @@ test('default and skin battle/base animations load exclusively from pinned SD as
     await expect(select).toContainText('Idle');
     await expect(page.locator('.chibi-window [role="status"]')).toHaveCount(0);
     const payload = JSON.parse((await page.locator('#__NEXT_DATA__').textContent())!);
-    const backTextures = Object.values(payload.props.pageProps.chibis[outfit].back.textures) as string[];
+    const backTextures = (Object.values(payload.props.pageProps.chibis[outfit].back.textures) as string[])
+      .map(url => url.replace('https://raw.githubusercontent.com/arkpedia/', 'https://assets.arkpedia.net/arkpedia/'));
     await Promise.all([
       ...backTextures.map(url => page.waitForResponse(response => response.url() === url && response.ok())),
       page.getByRole('button', { name: 'Back', exact: true }).click(),
@@ -33,7 +34,7 @@ test('default and skin battle/base animations load exclusively from pinned SD as
   }
   expect(requested.size).toBeGreaterThanOrEqual(18);
   expect(failed).toEqual([]);
-  for (const url of requested) expect(url).toMatch(/^https:\/\/raw\.githubusercontent\.com\/arkpedia\/arkpedia-sd-assets\/[a-f0-9]{40}\/models\//);
+  for (const url of requested) expect(url).toMatch(/^https:\/\/assets\.arkpedia\.net\/arkpedia\/arkpedia-sd-assets\/[a-f0-9]{40}\/models\//);
 });
 
 /** How many pixels of a chibi canvas hold part of the chibi. Each chibi is a 2D canvas the page's
