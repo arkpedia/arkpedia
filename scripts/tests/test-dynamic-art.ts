@@ -150,10 +150,11 @@ test('the pages accept only model.json pointers at the file\'s own commit', () =
   }
 });
 
-test('the site\'s URL rewriting leaves a model pointer as it is', () => {
+test('animated models use R2 while preserving their independently pinned source commit', () => {
   const release = { release: 'f'.repeat(64), baseUrl: 'https://example.invalid/release', assets: { 'arkpedia-image-assets': 'c'.repeat(40), 'arkpedia-skin-assets': 'd'.repeat(40) } };
-  assert.equal(contentUrl(raw(HOSHIGUMA_E2)), raw(HOSHIGUMA_E2));
-  assert.equal(contentUrl(raw(HOSHIGUMA_E2), release), raw(HOSHIGUMA_E2));
+  const expected = raw(HOSHIGUMA_E2).replace('https://raw.githubusercontent.com', 'https://assets.arkpedia.net');
+  assert.equal(contentUrl(raw(HOSHIGUMA_E2)), expected);
+  assert.equal(contentUrl(raw(HOSHIGUMA_E2), release), expected);
 });
 
 /* --- the pointers the pages attach ------------------------------------------------------ */

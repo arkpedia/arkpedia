@@ -2,6 +2,7 @@ import bundledRevisions from '@/data/assets/revisions.json';
 import assetFolders from '@/config/asset-folders.json';
 import type { ContentRelease } from './types';
 import { assetUrl, encodeAssetPath, PINNED_ART } from '@/lib/assets/assetUrl';
+import { pinAssetUrl } from '@/lib/assets/revisions';
 
 /* Which repository serves each top-level art folder. One list, config/asset-folders.json,
    which next.config.js's redirects read too; check-published-assets fails when the pinned
@@ -24,7 +25,7 @@ function artRevision(repository: string, release?: ContentRelease | null): strin
 export function contentUrl(src: string, release?: ContentRelease | null): string {
   // Accept both stable templates and older page payloads with embedded pins.
   // The suffix also preserves archived actor recordings, not just current audio.
-  const voice = src.match(/^https:\/\/raw\.githubusercontent\.com\/arkpedia\/(arkpedia-voice-(?:japanese|english|mandarin|korean|regional))\/(?:main|[a-f0-9]{40})\/(.+)$/);
+  const voice = src.match(/^https:\/\/(?:raw\.githubusercontent\.com|assets\.arkpedia\.net)\/arkpedia\/(arkpedia-voice-(?:japanese|english|mandarin|korean|regional))\/(?:main|[a-f0-9]{40})\/(.+)$/);
   if (voice) {
     const [, repository, relative] = voice;
     const revision = release ? release.assets[repository] : bundledRevisions[repository as keyof typeof bundledRevisions];
@@ -40,7 +41,9 @@ export function contentUrl(src: string, release?: ContentRelease | null): string
     const [, repository, relative] = art;
     return assetUrl(repository, artRevision(repository, release), encodeAssetPath(relative));
   }
-  if (!src.startsWith('/') || src.startsWith('//')) return src;
+  if (!src.startsWith('/') || src.startsWith('//')) {
+    return /^https:\/\/raw\.githubusercontent\.com\/arkpedia\/arkpedia-(?:sd-assets|l2d-assets|color-palette)\//.test(src) ? pinAssetUrl(src) : src;
+  }
   const folder = src.slice(1).split('/')[0];
   let repository = SKINS.has(folder) ? 'arkpedia-skin-assets' : IMAGES.has(folder) ? 'arkpedia-image-assets' : '';
   let relative = src.slice(1);

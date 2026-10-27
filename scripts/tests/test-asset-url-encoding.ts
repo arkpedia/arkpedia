@@ -36,7 +36,7 @@ function fileOf(path: string): string {
 function assertOneFile(label: string, out: string, file: string) {
   assert.doesNotMatch(out, /[\s#,]/, `${label}: ${out} carries a raw space, '#' or ','`);
   const url = new URL(out);
-  assert.equal(url.origin, 'https://raw.githubusercontent.com', label);
+  assert.equal(url.origin, 'https://assets.arkpedia.net', label);
   assert.equal(url.hash, '', `${label}: part of the filename became a fragment`);
   assert.match(url.search, /^(?:\?v=[A-Za-z0-9]+)?$/, `${label}: part of the filename became a query`);
   const [, , repository, revision, ...rest] = url.pathname.split('/');
@@ -88,12 +88,12 @@ test('art addressed in full is re-pinned to the page release, like a root-relati
   const stale = 'https://raw.githubusercontent.com/arkpedia/arkpedia-image-assets/1b2907e18ab44837eaac4cbf4e9c865a741d50b6/six-star-icons/Makoto%20Yuki%20-%20Base.webp';
   assert.equal(contentUrl(stale, release), contentUrl('/six-star-icons/Makoto Yuki - Base.webp', release));
   const main = 'https://raw.githubusercontent.com/arkpedia/arkpedia-skin-assets/main/six-star-skins/Makoto Yuki - In Witness of Glory.webp';
-  assert.equal(contentUrl(main, release), `https://raw.githubusercontent.com/arkpedia/arkpedia-skin-assets/${'c'.repeat(40)}/six-star-skins/Makoto%20Yuki%20-%20In%20Witness%20of%20Glory.webp`);
+  assert.equal(contentUrl(main, release), `https://assets.arkpedia.net/arkpedia/arkpedia-skin-assets/${'c'.repeat(40)}/six-star-skins/Makoto%20Yuki%20-%20In%20Witness%20of%20Glory.webp`);
   // A page with no release (a bundled fallback) uses the deploy's own pin.
   assert.ok(contentUrl(stale).includes(`/${bundledRevisions['arkpedia-image-assets']}/`));
   // Other hosts and repositories are not Arkpedia art.
   for (const other of ['https://raw.githubusercontent.com/someone/arkpedia-image-assets/main/x.webp',
-    'https://raw.githubusercontent.com/arkpedia/arkpedia-color-palette/main/x.webp', 'https://arknights.wiki.gg/images/x.png']) {
+    'https://raw.githubusercontent.com/arkpedia/unrelated-repo/main/x.webp', 'https://arknights.wiki.gg/images/x.png']) {
     assert.equal(contentUrl(other, release), other);
   }
 });

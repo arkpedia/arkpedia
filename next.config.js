@@ -173,6 +173,7 @@ const nextConfig = {
     // not an in-place overwrite).
     minimumCacheTTL: 31536000,
     remotePatterns: [
+      { protocol: 'https', hostname: 'assets.arkpedia.net', pathname: '/arkpedia/**' },
       { protocol: 'https', hostname: 'raw.githubusercontent.com', pathname: '/arkpedia/**' },
       {
         protocol: 'https',

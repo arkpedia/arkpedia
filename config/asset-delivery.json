@@ -1,4 +1,4 @@
 {
-  "template": "https://raw.githubusercontent.com/arkpedia/{repository}/{revision}/{path}",
-  "note": "Where readers load commit-pinned published art and audio. Media bypasses Vercel without depending on a package CDN whose size and media-hosting policies do not fit these repositories. The content release pointer also uses GitHub directly so updates remain promptly visible."
+  "template": "https://assets.arkpedia.net/arkpedia/{repository}/{revision}/{path}",
+  "note": "Verified public media and generated JSON are served from private R2 through the asset Worker. GitHub remains the source and tiny release-pointer authority; new releases publish only after their R2 mirror completes."
 }

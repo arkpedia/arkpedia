@@ -203,6 +203,7 @@ async function loadLayers(file: string, url: (name: string) => string, signal: A
 /** The model's files, fetched side by side from the folder its model.json is in: the
  *  illustration, its mesh layers, and its entrance and soundtrack when it has one. */
 async function loadModel(url: string, signal: AbortSignal, operator: string | undefined, resolveUrl: (url: string) => string, poster: string) {
+  url = resolveUrl(url);
   const model = parseDynamicModel(await (await fetchOk(url, signal)).json());
   const file = (name: string) => new URL(name, url).href;
   const voices: ArtworkVoice[] = operator && model.playback?.voiceActions.length ? await fetchOk(`/api/artwork-voices?operator=${encodeURIComponent(operator)}&skinId=${encodeURIComponent(model.skinId.replace(/\^sp_dyn$/, ''))}`, signal)

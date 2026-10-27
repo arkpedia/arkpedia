@@ -5,6 +5,7 @@ import { createHash } from 'node:crypto';
 import { fetchAsset } from '../assets/githubRetry.mjs';
 import { CONTENT_SCHEMA, type ContentFile, type ContentManifest, type ContentPointer, type ContentRelease } from './types';
 import { deliveryBaseUrl, DELIVERY_PREFIX } from './r2Delivery.mjs';
+import { assetUrl } from '../assets/assetUrl';
 
 /*
  * The site's published content release: the channel's pointer, the manifest it names and each
@@ -72,7 +73,7 @@ function origin(): string {
   return value.replace(/\/$/, '');
 }
 
-/** Server-only, explicit staging pilot. Canonical deployments keep GitHub delivery. */
+/** Retained server-only pilot override; canonical deployments use the public asset reader. */
 function pilotOrigin(): string | undefined {
   const value = process.env.ARKPEDIA_CONTENT_PILOT_ORIGIN;
   if (!value) return undefined;
@@ -128,7 +129,8 @@ export async function loadRelease(): Promise<Loaded | undefined> {
       const pointerBytes = pilot ? await read(`${pilot}${DELIVERY_PREFIX}current.json`, 2048) : await readPointer(root);
       const pointer = JSON.parse(pointerBytes.toString()) as ContentPointer;
       if (pointer.schema !== CONTENT_SCHEMA || !SHA.test(pointer.release) || !GIT_SHA.test(pointer.revision) || !SHA.test(pointer.manifestSha256)) throw new Error('Unsupported content pointer');
-      const baseUrl = pilot ? deliveryBaseUrl(pilot, pointer, { allowLocalHttp: process.env.ARKPEDIA_CONTENT_TEST === '1' }) : `${root}/${pointer.revision}/release`;
+      const baseUrl = pilot ? deliveryBaseUrl(pilot, pointer, { allowLocalHttp: process.env.ARKPEDIA_CONTENT_TEST === '1' })
+        : root === DEFAULT_ORIGIN ? assetUrl('arkpedia-data', pointer.revision, 'release') : `${root}/${pointer.revision}/release`;
       if (cached?.context.release === pointer.release && cached.context.baseUrl === baseUrl) return cached;
       const bytes = await read(`${baseUrl}/manifest.json`, 5_000_000);
       if (digest(bytes) !== pointer.manifestSha256) throw new Error('Content manifest checksum mismatch');

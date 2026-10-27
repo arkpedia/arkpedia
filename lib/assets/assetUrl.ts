@@ -13,7 +13,7 @@ export function assetUrl(repository: string, revision: string, path: string): st
 }
 
 /** An image or skin asset addressed in full, at a commit or at `main`. */
-export const PINNED_ART = /^https:\/\/raw\.githubusercontent\.com\/arkpedia\/(arkpedia-(?:image|skin)-assets)\/(?:main|[a-f0-9]{40})\/(.+)$/;
+export const PINNED_ART = /^https:\/\/(?:raw\.githubusercontent\.com|assets\.arkpedia\.net)\/arkpedia\/(arkpedia-(?:image|skin)-assets)\/(?:main|[a-f0-9]{40})\/(.+)$/;
 
 /** A trailing cache-buster, as lib/gamemodes/stronghold.ts stamps a re-drawn badge
  * (`?v=`), and as banner art and posters carry it in page payloads published before
