@@ -41,6 +41,8 @@ every six hours thereafter. It covers the verified live manifest and the deploym
 bundled pins. Existing ready revisions cost one receipt read and need no Git fetch,
 object listing or writes. New revisions reuse a bounded Git cache and upload only
 new blobs, with eight concurrent operations and a 64 MB per-file limit.
+The plan also includes explicit pins in bundled animation and medal-layout metadata,
+so catalogue fallbacks retain their original files even when they use another commit.
 
 Before client cutover, the data repository's Content release workflow must invoke
 the same audited publisher after validation and **before** updating `live/current.json`.
