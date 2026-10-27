@@ -1,0 +1,55 @@
+name: Mirror public GitHub assets to R2
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 */6 * * *'
+permissions:
+  contents: read
+concurrency:
+  group: public-assets-mirror
+  cancel-in-progress: false
+jobs:
+  mirror:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ${{ vars.ARKPEDIA_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 90
+    environment: public-assets
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Resolve immutable live and bundled sources
+        run: |
+          mkdir -p .cache
+          node scripts/content/asset-mirror-plan.mjs > .cache/asset-mirror-plan.json
+      - name: Verify and mirror public files
+        run: node scripts/content/mirror-github-assets.mjs --pins=.cache/asset-mirror-plan.json --cache="$RUNNER_TOOL_CACHE/arkpedia-public-git" --report=.cache/r2-mirror-receipts.json
+        env:
+          ARKPEDIA_R2_ACCOUNT_ID: '1ff51c10571eaa9934bc451e1bfdb361'
+          ARKPEDIA_R2_ACCESS_KEY_ID: ${{ secrets.ARKPEDIA_R2_ACCESS_KEY_ID }}
+          ARKPEDIA_R2_SECRET_ACCESS_KEY: ${{ secrets.ARKPEDIA_R2_SECRET_ACCESS_KEY }}
+      - uses: actions/upload-artifact@v7
+        with:
+          name: public-assets-mirror-${{ github.run_id }}
+          path: .cache/r2-mirror-receipts.json
+          if-no-files-found: error
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    needs: mirror
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: public-assets
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Deploy only the public-assets reader
+        run: node node_modules/wrangler/bin/wrangler.js deploy --config workers/assets/wrangler.jsonc
+        env:
+          CLOUDFLARE_ACCOUNT_ID: '1ff51c10571eaa9934bc451e1bfdb361'
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_ASSETS_DEPLOY_TOKEN }}
+          WRANGLER_SEND_METRICS: 'false'
