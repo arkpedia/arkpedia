@@ -288,6 +288,15 @@ jobs:
         env:
           NEXT_DIST_DIR: .next-live
 
+      - name: Browser runner resources
+        if: steps.browser.outputs.lane != 'none'
+        env:
+          TMPDIR: ${{ runner.temp }}
+          PW_WORKERS: '2'
+        run: |
+          node -e 'const os=require("node:os");console.log({temporaryDirectory:os.tmpdir(),memoryLimitBytes:process.constrainedMemory(),availableMemoryBytes:process.availableMemory(),workers:process.env.PW_WORKERS})'
+          df -h "$TMPDIR" /tmp /dev/shm
+
       # Keep this name exclusive to actual full execution: baseline verification checks it.
       - name: Desktop and mobile browser regressions
         id: full_browser
@@ -295,6 +304,10 @@ jobs:
         run: npm run test:browser -- --reporter=list,json
         env:
           PLAYWRIGHT_JSON_OUTPUT_FILE: .cache/browser-results.json
+          # The NAS /tmp is a 2 GB tmpfs; Chromium's profiles and IPC fallback
+          # must use the disk-backed job directory instead of filling it.
+          TMPDIR: ${{ runner.temp }}
+          PW_WORKERS: '2'
 
       - name: Selected browser regressions
         id: selected_browser
@@ -302,6 +315,8 @@ jobs:
         run: npm run test:browser -- --test-list .cache/browser-test-list.txt --reporter=list,json
         env:
           PLAYWRIGHT_JSON_OUTPUT_FILE: .cache/browser-results.json
+          TMPDIR: ${{ runner.temp }}
+          PW_WORKERS: '2'
 
       - name: Validate browser execution evidence
         id: validate_browser

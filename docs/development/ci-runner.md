@@ -102,6 +102,13 @@ How each runner is built, and how to change or remove it: [infra/runners/](../..
 Workflows must not assume a fresh machine: write temporary files under
 `$RUNNER_TEMP` (cleared after every job), never `/tmp`.
 
+Check's full and selected browser steps set `TMPDIR` to `${{ runner.temp }}` and
+`PW_WORKERS=2`, overriding the runner container's older three-worker default.
+Chromium's profiles and its `--disable-dev-shm-usage` IPC fallback otherwise use
+the NAS's 2 GB RAM-backed `/tmp`, sharing the container's 6 GB memory allowance.
+Keep that browser scratch space on the job's disk-backed directory. The full
+and selected suites keep their existing coverage, assertions and zero retries.
+
 ## Avoid repeated checks
 
 Pushes and same-repository pull requests first ask whether a completed, successful

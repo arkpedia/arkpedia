@@ -124,8 +124,12 @@ test('regional reward labels use the server calendar and manual claims survive c
   await page.addInitScript(progress => localStorage.setItem('arkpedia.past-rewards.v1', JSON.stringify(progress)), progress);
   await page.clock.setFixedTime(new Date(close.getTime() - 60_000));
   await page.goto('/stages/supplies');await account(page, 'jp');
+  await expect(page.locator('html')).toHaveAttribute('data-site-server', 'jp');
   const mobileMenu = page.getByRole('button', { name: 'Open navigation menu', exact: true });
-  if (await mobileMenu.isVisible()) await mobileMenu.click();
+  if (await mobileMenu.isVisible()) await expect(async () => {
+    if (await mobileMenu.getAttribute('aria-expanded') !== 'true') await mobileMenu.click();
+    await expect(mobileMenu).toHaveAttribute('aria-expanded', 'true', { timeout: 500 });
+  }).toPass();
   const planner = page.getByRole('button', { name: 'Planner', exact: true });
   if (await planner.getAttribute('aria-expanded') !== 'true') await planner.click();
   await page.locator('a[href="/reward-tracker"]:visible').click();
