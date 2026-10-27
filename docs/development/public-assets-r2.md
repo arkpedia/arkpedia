@@ -40,7 +40,10 @@ object listing or writes. New revisions reuse a bounded Git cache and upload onl
 new blobs, with eight concurrent operations and a 64 MB per-file limit.
 
 Before client cutover, the data repository's Content release workflow must invoke
-the same pinned publisher after validation and **before** updating `live/current.json`.
+the same audited publisher after validation and **before** updating `live/current.json`.
+The public data repository keeps a self-contained copy in `tools/asset-publisher`,
+with its own pinned dependency lock and source provenance. It needs no access to the
+private application repository. Keep the two publisher/contract copies synchronized.
 It mirrors that release's media pins and compiled JSON revision; a mirror failure
 keeps the existing live pointer. Rollbacks use the same check and retained bytes.
 Application deployments run `scripts/deploy/check-public-assets-ready.mjs` after the
