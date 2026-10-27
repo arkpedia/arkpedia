@@ -10,8 +10,8 @@ export interface TwitchStream {
 }
 
 // In-memory cache for the app access token within a single server
-// instance -- avoids requesting a new token on every single ISR
-// revalidation. Tokens are valid for ~60 days, so a simple module-level
+// instance -- avoids requesting a new token on every live-feed refresh.
+// Tokens are valid for ~60 days, so a simple module-level
 // cache is more than enough here.
 let cachedToken: { token: string; expiresAt: number } | null = null;
 
@@ -28,6 +28,8 @@ async function getAppAccessToken(clientId: string, clientSecret: string): Promis
         client_secret: clientSecret,
         grant_type: 'client_credentials',
       }),
+      cache: 'no-store',
+      signal: AbortSignal.timeout(5000),
     });
     if (!res.ok) return null;
     const data = await res.json();
@@ -62,9 +64,12 @@ export async function getLiveTwitchStreams(
   try {
     const gameRes = await fetch(
       `https://api.twitch.tv/helix/games?name=${encodeURIComponent(categoryName)}`,
-      { headers }
+      { headers, cache: 'no-store', signal: AbortSignal.timeout(5000) }
     );
-    if (!gameRes.ok) return [];
+    if (!gameRes.ok) {
+      if (gameRes.status === 401) cachedToken = null;
+      return [];
+    }
     const gameData = await gameRes.json();
     gameId = gameData.data?.[0]?.id || null;
   } catch {
@@ -76,11 +81,16 @@ export async function getLiveTwitchStreams(
   try {
     const res = await fetch(
       `https://api.twitch.tv/helix/streams?game_id=${gameId}&first=${Math.min(limit, 100)}`,
-      { headers }
+      { headers, cache: 'no-store', signal: AbortSignal.timeout(5000) }
     );
-    if (!res.ok) return [];
+    if (!res.ok) {
+      if (res.status === 401) cachedToken = null;
+      return [];
+    }
     const data = await res.json();
     for (const item of data.data || []) {
+      // Never label a different category or a non-live entry as an Arknights stream.
+      if (item.type !== 'live' || item.game_id !== gameId) continue;
       streams.push({
         userLogin: item.user_login,
         displayName: item.user_name,

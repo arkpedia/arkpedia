@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { TwitchStream } from '@/lib/community/twitch';
 import { YouTubeVideo } from '@/lib/music/youtube';
 import { CommunityEvent } from '@/lib/schedule/eventTypes';
+import { useLiveTwitchStreams } from '@/lib/community/useLiveTwitchStreams';
 
 type Slide =
   | { kind: 'stream'; data: TwitchStream }
@@ -27,12 +28,13 @@ function formatEventWindow(startTime: string, endTime?: string, timeZone?: strin
 }
 
 interface Props {
-  stream: TwitchStream | null;
   video: YouTubeVideo | null;
   event: CommunityEvent | null;
 }
 
-export default function CommunityFader({ stream, video, event }: Props) {
+export default function CommunityFader({ video, event }: Props) {
+  const { streams } = useLiveTwitchStreams();
+  const stream = streams[0] ?? null;
   const slides: Slide[] = [
     ...(stream ? [{ kind: 'stream', data: stream } as Slide] : []),
     ...(video ? [{ kind: 'video', data: video } as Slide] : []),

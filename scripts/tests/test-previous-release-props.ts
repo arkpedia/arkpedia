@@ -349,7 +349,7 @@ const FEEDS: { host: string; answer: (url: URL) => unknown }[] = [
   { host: 'id.twitch.tv', answer: () => ({ access_token: 'stub-token', expires_in: 3600 }) },
   { host: 'api.twitch.tv', answer: (url) => url.pathname === '/helix/games'
     ? { data: [{ id: '1', name: 'Arknights' }] }
-    : { data: [{ user_login: 'stub_streamer', user_name: 'Stub Streamer', title: 'Arknights stub stream', game_name: 'Arknights', viewer_count: 42, thumbnail_url: 'https://static-cdn.jtvnw.net/previews-ttv/live_user_stub_streamer-{width}x{height}.jpg', started_at: '2026-09-26T09:00:00Z' }] } },
+    : { data: [{ user_login: 'stub_streamer', user_name: 'Stub Streamer', title: 'Arknights stub stream', type: 'live', game_id: '1', game_name: 'Arknights', viewer_count: 42, thumbnail_url: 'https://static-cdn.jtvnw.net/previews-ttv/live_user_stub_streamer-{width}x{height}.jpg', started_at: '2026-09-26T09:00:00Z' }] } },
 ];
 
 async function withStubbedFeeds<T>(run: () => Promise<T>): Promise<{ result: T; unexpected: string[] }> {

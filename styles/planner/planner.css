@@ -188,8 +188,9 @@
 /* The per-operator view is components/ui/Tabs (.tabs / .tab, arkpedia-theme.css): only
    its place is this file's. It wraps rather than scrolling sideways. */
 .simple-operator-tabs { margin-bottom:12px; }
-.simple-dossier { display:grid; grid-template-columns:minmax(200px,30%) minmax(0,1fr); background:var(--panel); border:1px solid var(--line); border-radius:var(--radius-frame); overflow:hidden; }
-.simple-portrait { align-self:start; min-width:0; background:var(--bg); }
+.simple-dossier { display:grid; grid-template-columns:minmax(200px,30%) minmax(0,1fr); background:var(--panel); border-radius:var(--radius-frame); overflow:hidden; }
+/* Fill the column when costs grow taller; only the art canvas has a fixed height. */
+.simple-portrait { min-width:0; background:var(--bg); }
 /* A dedicated canvas keeps the full art independent of material-list height. */
 .simple-portrait-art { position:relative; height:420px; }
 .simple-portrait-art > img { object-fit:contain; object-position:center; }

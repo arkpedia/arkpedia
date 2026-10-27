@@ -9,6 +9,8 @@ import Tabs, { tabPanelProps } from '@/components/ui/Tabs';
 import SegmentedControl from '@/components/ui/SegmentedControl';
 import XButton from '@/components/ui/XButton';
 import { operatorHref } from '@/lib/operators/operatorHref';
+import SkillRank from './SkillRank';
+import PreviewArtwork from './PreviewArtwork';
 
 export type OperatorPreviewItem = Pick<PulledItem, 'name' | 'icon'> & { rarity: number };
 
@@ -90,7 +92,7 @@ export function OperatorPreview({ item, onClose, nativeModal = false }: { item: 
         </div>
         <div className="gacha-preview-body">
           <div className="gacha-preview-portrait">
-            <ContentImg className="gacha-pull-preview-art" src={art} alt={`${item.name} base artwork`} />
+            <PreviewArtwork src={art} alt={`${item.name} base artwork`} />
             <Link className="gacha-preview-link" href={operatorHref(item.name, null)}>View operator page ↗</Link>
           </div>
           <div className="gacha-preview-data" role="region" aria-label={`${item.name} operator details`} tabIndex={0}>
@@ -144,7 +146,7 @@ export function OperatorPreview({ item, onClose, nativeModal = false }: { item: 
                   icon: entry.icon ? <ContentImg src={entry.icon} alt="" width={28} height={28} /> : undefined,
                 }))} />
               {skill && <div ref={skillPanel.ref} className="gacha-preview-entry" {...tabPanelProps('gacha-preview-skill', selectedSkill)} style={skillPanel.style}>
-                <div className="gacha-preview-entry-title"><strong>{skill.name}</strong><span>{skill.rank}</span></div>
+                <div className="gacha-preview-entry-title"><strong>{skill.name}</strong><SkillRank rank={skill.rank} /></div>
                 <div className="gacha-preview-skill-facts">
                   {skill.recovery && <span className={`gacha-preview-skill-fact${/^auto/i.test(skill.recovery) ? ' auto' : /^(?:offensive|defensive)/i.test(skill.recovery) ? ' amber' : ''}`}>{skill.recovery}</span>}
                   {skill.activation && <span className={`gacha-preview-skill-fact${/^auto/i.test(skill.activation) ? ' auto' : /^manual/i.test(skill.activation) ? ' amber' : ''}`}>{skill.activation}</span>}
