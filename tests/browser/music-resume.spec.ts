@@ -66,7 +66,7 @@ async function resumedCue(page: Page) {
 
 test('a reload carries the song on: the same song at the same moment, the same queue, still playing', async ({ page }) => {
   await stubYouTube(page);
-  await page.goto('/pulls');
+  await page.goto("/pull-planner");
   const { at, upNext } = await playing(page);
   await markDocument(page);
   await page.reload();
@@ -88,7 +88,7 @@ test('a reload carries the song on: the same song at the same moment, the same q
 
 test('after a deploy, a page the tab had not opened loads as a new document, and the song carries on', async ({ page }) => {
   await stubYouTube(page);
-  await page.goto('/planner');
+  await page.goto("/operator-planner");
   const { at, upNext } = await playing(page);
   // The deployment that served this tab is gone: its build's page data is a 404 now.
   await page.route('**/_next/data/**', (route) => route.fulfill(OTHER_BUILD));
@@ -139,7 +139,7 @@ for (const policy of ['refuse', 'refuse-silently'] as AutoplayPolicy[]) {
 
 test('a player opened but never played carries nothing: YouTube stays unloaded until it is used', async ({ page }) => {
   await stubYouTube(page);
-  await page.goto('/pulls');
+  await page.goto("/pull-planner");
   await player(page).getByRole('button', { name: 'Expand player' }).click();
   await expect(player(page).getByRole('button', { name: 'Play', exact: true })).toBeEnabled({ timeout: 20000 });
   await collapse(page);
@@ -150,7 +150,7 @@ test('a player opened but never played carries nothing: YouTube stays unloaded u
 
 test('the music guesser takes the song paused: a new document there does not play it over the clips', async ({ page }) => {
   await stubYouTube(page);
-  await page.goto('/pulls');
+  await page.goto("/pull-planner");
   const { at } = await playing(page);
   // A new document of the guesser, as an address opened in the tab.
   await page.goto('/games/music-guesser');

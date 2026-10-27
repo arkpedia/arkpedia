@@ -1,3 +1,4 @@
+import { chooseMusicView } from './music-navigation-helpers';
 import { expect, test, type Page } from '@playwright/test';
 import { stubMonsterSiren } from './monster-siren-stub';
 import { stubYouTube, youtube } from './youtube-stub';
@@ -59,7 +60,7 @@ test('a song with no YouTube upload is listed, plays from Monster Siren through 
   await expect(row).toHaveClass(/\bactive\b/);
 
   // Now playing names it, and offers no YouTube link for it.
-  await page.getByRole('navigation', { name: 'Music' }).getByRole('link', { name: /^Now playing/ }).click();
+  await chooseMusicView(page, /^Now playing/);
   await expect(page.locator('.music-now-playing-song-info h2')).not.toHaveText('Loading…');
   await expect(page.getByRole('link', { name: /Watch on YouTube/ })).toHaveCount(0);
   // The lock screen's view of it (YouTube's iframe would say this itself for a YouTube song).

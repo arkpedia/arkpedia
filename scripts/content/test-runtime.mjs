@@ -88,11 +88,12 @@ const server = spawn(process.execPath, ['node_modules/next/dist/bin/next', 'star
 let browser;
 async function waitFor(check, description, timeout = 15_000) {
   const start = Date.now();
+  let lastError;
   while (Date.now() - start < timeout) {
-    try { if (await check()) return; } catch { /* The server may still be starting; retry until the deadline. */ }
+    try { if (await check()) return; } catch (error) { lastError = error; /* The server may still be starting. */ }
     await new Promise(resolve => setTimeout(resolve, 1000));
   }
-  throw new Error(`Timed out: ${description}`);
+  throw new Error(`Timed out: ${description}`, { cause: lastError });
 }
 // Model publication, rather than waiting for a production cache interval to expire.
 // This also exercises Next's actual res.revalidate implementation for the fixed list.
@@ -111,6 +112,10 @@ try {
   browser = await chromium.launch({ headless: true });
   for (const [name, settings] of [['desktop', { viewport: { width: 1440, height: 1000 } }], ['mobile', devices['Pixel 7']]]) {
     const context = await browser.newContext(settings);
+    // This suite verifies release replacement and voice URLs, not the separate
+    // consent flow. Give its fixture browser an explicit media choice so a voice
+    // playback request cannot leave a modal over later catalogue/queue checks.
+    await context.addInitScript(() => localStorage.setItem('arkpedia:privacy:v1', JSON.stringify({ version: 1, analytics: false, externalMedia: true, savedAt: Date.now() })));
     const page = await context.newPage();
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
@@ -203,7 +208,8 @@ try {
     }, `${name} music page from release B`, 75_000);
     await waitFor(async () => {
       await page.goto('http://localhost:3193/music?view=library');
-      await page.locator('#music-library-heading', { hasText: `${songs + 1} songs` }).waitFor({ timeout: 10_000 });
+      assert.ok((await page.locator('#music-library-heading').innerText({ timeout: 10_000 })).includes(`${songs + 1} songs`),
+        `Expected ${songs + 1} songs, got ${await page.locator('#music-library-heading').innerText()}`);
       return true;
     }, `${name} music library from release B`, 75_000);
     // By role and name, not class: the Library's and the queue's searches are the shared SearchInput.
@@ -215,6 +221,7 @@ try {
       await newSong.getByRole('button', { name: /^More actions for / }).click();
       await page.getByRole('dialog', { name: 'Song actions', exact: true }).getByRole('button', { name: 'Add to queue', exact: true }).click();
     } else await newSong.getByRole('button', { name: /^Add to queue:/ }).click();
+    if (name === 'mobile') await page.getByRole('button', { name: 'Music menu', exact: true }).click();
     await page.getByRole('navigation', { name: 'Music' }).getByRole('link', { name: /^Queue/ }).click();
     await page.getByRole('searchbox', { name: 'Search the queue' }).fill('Runtime Song B');
     await page.locator('[data-song-list] .music-queue-row', { hasText: 'Runtime Song B' }).first().waitFor({ timeout: 10_000 });

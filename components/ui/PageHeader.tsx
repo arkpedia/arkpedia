@@ -32,7 +32,7 @@ interface PageHeaderProps {
 /**
  * The page header every page opens with: a mono teal eyebrow, the h1 in Rajdhani
  * 700 uppercase (30px, 24px at <=720), an optional lede and actions, and a --line-soft
- * hairline, all inside the 1040px frame with the --page-gutter.
+ * hairline, all inside the 1320px frame with the --page-gutter.
  *
  * It emits exactly the markup the reference pages (/operators, /gacha) were written
  * with -- a bare <header>, a .eyebrow, an <h1> -- so the global rules in

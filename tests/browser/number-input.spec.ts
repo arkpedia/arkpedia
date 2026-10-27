@@ -16,7 +16,7 @@ test('numeric game settings remain empty while typing, then accept and clamp the
 });
 
 test('pull budgets allow clearing without resetting the saved goal before a replacement is entered', async ({ page }) => {
-  await page.goto('/pulls');
+  await page.goto("/pull-planner");
   await page.getByRole('button', { name: '+ Add banner' }).click();
   await page.getByRole('button', { name: /^Add / }).first().click();
   await page.getByRole('button', { name: 'Close', exact: true }).click();

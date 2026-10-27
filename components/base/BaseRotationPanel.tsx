@@ -15,7 +15,7 @@ function groupWarnings(warnings: string[]) {
   }
   return [...other, ...Array.from(groups.values(), g => `${g.prefix}${g.names.join(', ')} ${g.names.length > 1 ? 'reach' : 'reaches'} 0 Morale after ${g.hours}.`)];
 }
-export default function BaseRotationPanel({ plan, onChange, presets, onLoad, initialMorale, owned, imported, stages: calculatedStages }: {
+export default function BaseRotationPanel({ plan, onChange, presets, onLoad, initialMorale, owned, stages: calculatedStages }: {
   plan: BaseRotationPlan; onChange: (plan: BaseRotationPlan) => void; presets: SavedBasePreset[];
   onLoad: (id: string) => void; initialMorale: Record<string, number>; owned?: ReadonlySet<string>; imported: boolean;
   stages?: RotationStage[];
@@ -23,7 +23,7 @@ export default function BaseRotationPanel({ plan, onChange, presets, onLoad, ini
   const stages = calculatedStages ?? analyzeRotation(plan, presets, initialMorale, owned), duration = plan.shifts.reduce((n, s) => n + s.hours, 0);
   return <section className="base-rotation-plan" aria-label="Rotation timetable">
     <div className="base-rotation-heading"><label>Starts at <StyledSelect label="Rotation start time" value={String(plan.startHour)} onChange={v => onChange({ ...plan, startHour: Number(v) })} options={Array.from({ length: 24 }, (_, h) => ({ value: String(h), label: `${String(h).padStart(2, '0')}:00` }))} /></label><span className="hint">Repeats every {duration || '—'}h</span></div>
-    <p className="hint">{imported ? 'Starts from imported Morale where available; other operators start at their saved Morale or 24.' : 'Starts from saved Morale, or 24 when unspecified.'} Two cycles are checked using each saved setup. Threshold changes within a shift and one-off skills are not simulated.</p>
+    <p className="hint">Repeating rotation after morale settles. Collect at every login and shift change.</p>
     {!presets.length && <p className="base-empty-message">Save your working team and resting team as presets, then add them as shifts.</p>}
     {plan.shifts.map((shift, index) => {
       const stage = stages[index], repeat = stages[index + plan.shifts.length];

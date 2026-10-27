@@ -2,6 +2,7 @@ import type { GetStaticProps } from 'next';
 import Head from 'next/head';
 import Link from 'next/link';
 import PageHeader from '@/components/ui/PageHeader';
+import InfoPopover from '@/components/ui/InfoPopover';
 import { useMemo, useState } from 'react';
 import StoryDataDialog from '@/components/story/StoryDataDialog';
 import { chapterProgress, chapterRead, useStoryProgress } from '@/lib/story/storyProgress';
@@ -54,7 +55,7 @@ export default function StoryPage({ map, chapters = {}, library = [] }: Props) {
   return (
     <>
       <Head><title>Story — Arkpedia</title></Head>
-      <PageHeader slim compact eyebrow="Rhodes Island // Story" title="Story" actions={
+      <PageHeader eyebrow="Rhodes Island // Story" title="Story" actions={
           <button type="button" className="ghost btn-sm" onClick={() => setTransfer(true)}>Import / export</button>
         }
         />
@@ -74,11 +75,11 @@ export default function StoryPage({ map, chapters = {}, library = [] }: Props) {
           </div>
         </section>
         <section className="op-section" id="story-content" aria-labelledby="story-map">
-          <h2 id="story-map">{view === 'list' ? 'Story list' : 'Story map'}</h2>
-          {view === 'map' && <p className="hint story-map-credit">
+          <div className="story-section-heading"><h2 id="story-map">{view === 'list' ? 'Story list' : 'Story map'}</h2>
+          {view === 'map' && <InfoPopover label="About the story map"><p>
             <a href={map.source} target="_blank" rel="noopener noreferrer">{map.title}</a>, kept up to date from the original. Click
             a story to choose where to start reading it in Timo&apos;s reader.
-          </p>}
+          </p><p>Drag to pan. Use the zoom buttons or Ctrl/⌘ + wheel to zoom around your pointer. Fit returns to the complete map.</p></InfoPopover>}</div>
           {chapter && !shown && <p className="hint" role="status">This chapter is not available in the current catalogue. <a href={entry?.url ?? READER} target="_blank" rel="noopener noreferrer">Open Timo&apos;s reader ↗</a></p>}
           <StoryMapView map={map} chapters={opener} library={library} view={view} />
         </section>

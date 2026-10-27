@@ -1,9 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { GetStaticProps } from 'next';
 import Head from 'next/head';
-import Link from 'next/link';
+import DataLink from '@/components/account/DataLink';
 import PageHeader from '@/components/ui/PageHeader';
-import ProfileCard from '@/components/account/ProfileCard';
+import ProfileCard, { SupportTile } from '@/components/account/ProfileCard';
+import ImportDialog from '@/components/account/ImportDialog';
+import InfoPopover from '@/components/ui/InfoPopover';
+import { ContentImg } from '@/components/content/ContentImage';
+import { ICONS } from '@/components/layout/NavIcons';
 import FriendCollection from '@/components/friends/FriendCollection';
 import { withContentPage } from '@/lib/content/server';
 import { useReleaseTable } from '@/lib/content/context';
@@ -11,8 +15,8 @@ import { DATA_DIALOG_TABLES, fillAccountMap } from '@/lib/content/dataDialogTabl
 import { useAccount, useOtherAccounts } from '@/lib/account/accountStore';
 import { readRoster } from '@/lib/planner/roster';
 import type { GameAccountMap } from '@/lib/planner/gameAccount';
-import { assistantCatalogue } from '@/lib/account/portraits';
-import { FRIEND_STORAGE_KEY, friendFilename, makeFriendFile, parseFriendFile, shareableRoster, type FriendFile } from '@/lib/account/friendFile';
+import { assistantCatalogue, avatarSources, profileArtPath } from '@/lib/account/portraits';
+import { FRIEND_STORAGE_KEY, FRIENDS_STORAGE_KEY, friendKey, friendFilename, makeFriendFile, parseFriendFile, shareableRoster, type FriendFile } from '@/lib/account/friendFile';
 import type { FriendOperator, FriendSkin } from '@/lib/account/friendCatalogue';
 import { MAX_IMPORT_BYTES } from '@/lib/planner/untrusted';
 import { SERVERS } from '@/lib/account-import/yostar';
@@ -26,13 +30,27 @@ export default function FriendsPage({ operators, skins }: Props) {
   const map = useReleaseTable<GameAccountMap>('game-account-map');
   const input = useRef<HTMLInputElement>(null);
   const importGeneration = useRef(0);
+  const [friends, setFriends] = useState<FriendFile[]>([]);
   const [friend, setFriend] = useState<FriendFile | null>(null);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const opener = useRef<HTMLElement | null>(null);
   const [view, setView] = useState<'operators' | 'skins' | null>(null);
-  const closeCollection = useCallback(() => setView(null), []);
+  const closeCollection = useCallback(() => { setView(null); setProfileOpen(false); requestAnimationFrame(() => opener.current?.focus({ preventScroll: true })); }, []);
   const [message, setMessage] = useState('');
   const [error, setError] = useState(false);
   useEffect(() => {
-    try { const raw = localStorage.getItem(FRIEND_STORAGE_KEY); if (raw) setFriend(parseFriendFile(raw)); } catch { /* A damaged or newer file can be replaced by importing again. */ }
+    try {
+      const raw = localStorage.getItem(FRIENDS_STORAGE_KEY);
+      const parsed = raw ? JSON.parse(raw) : null;
+      if (parsed?.version === 1 && Array.isArray(parsed.friends)) {
+        const loaded: FriendFile[] = [];
+        for (const entry of parsed.friends.slice(0, 50)) { try { loaded.push(parseFriendFile(JSON.stringify(entry))); } catch { /* Keep other valid friends. */ } }
+        setFriends(loaded);
+      } else {
+        const legacy = localStorage.getItem(FRIEND_STORAGE_KEY);
+        if (legacy) setFriends([parseFriendFile(legacy)]);
+      }
+    } catch { /* Damaged records can be replaced by importing again. */ }
   }, []);
   const { outfitArt, outfitNames } = useMemo(() => assistantCatalogue(map, skins), [map, skins]);
 
@@ -40,7 +58,7 @@ export default function FriendsPage({ operators, skins }: Props) {
     if (!account) return;
     try {
       const shared = makeFriendFile(account, shareableRoster(account, Object.values(others), readRoster()));
-      const url = URL.createObjectURL(new Blob([JSON.stringify(shared, null, 2)], {type:'application/json'}));
+      const url = URL.createObjectURL(new Blob([JSON.stringify(shared)], {type:'application/json'}));
       const link = document.createElement('a'); link.href = url; link.download = friendFilename(account); link.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
       setError(false); setMessage('Your profile and collection are ready to share.');
@@ -55,9 +73,14 @@ export default function FriendsPage({ operators, skins }: Props) {
       if (file.size > MAX_IMPORT_BYTES) throw new Error('Choose a friend file smaller than 4 MB.');
       const shared = parseFriendFile(await file.text());
       if (generation !== importGeneration.current) return;
-      setFriend(shared); setView(null);
-      try { localStorage.setItem(FRIEND_STORAGE_KEY, JSON.stringify(shared)); } catch { /* Still viewable when browser storage is full. */ }
-      setMessage(`Imported ${shared.account.doctor ?? 'your friend'}.`);
+      const next = [...friends.filter(entry => friendKey(entry) !== friendKey(shared)), shared];
+      if (next.length > 50) throw new Error('Remove a friend before importing more than 50 profiles.');
+      const saved = JSON.stringify({ version: 1, friends: next });
+      if (saved.length > MAX_IMPORT_BYTES) throw new Error('The saved friend list is too large. Remove a profile first.');
+      setFriends(next); setFriend(null); setView(null); setProfileOpen(false);
+      let persisted = true;
+      try { localStorage.setItem(FRIENDS_STORAGE_KEY, saved); localStorage.setItem(FRIEND_STORAGE_KEY, JSON.stringify(shared)); } catch { persisted = false; }
+      setMessage(`Imported ${shared.account.doctor ?? 'your friend'}.${persisted ? '' : ' This tab only: browser storage could not save the profile.'}`);
     } catch (reason) {
       if (generation !== importGeneration.current) return;
       setError(true); setMessage(reason instanceof Error ? reason.message : 'The friend file could not be read.');
@@ -65,28 +88,52 @@ export default function FriendsPage({ operators, skins }: Props) {
   }
 
   return <>
-    <Head><title>Import a Friend — Arkpedia</title><meta name="robots" content="noindex" /></Head>
-    <PageHeader eyebrow="Rhodes Island // Community" title="Import a Friend" sub="Trade account files. Meet the Doctor, browse their operators and admire their skins."
+    <Head><title>Friends — Arkpedia</title><meta name="robots" content="noindex" /></Head>
+    <PageHeader eyebrow="Rhodes Island // Account" title="Friends" sub="Trade account files. Meet the Doctor, browse their operators and admire their skins."
       actions={<div className={styles.actions}>
         <button type="button" className="primary btn-sm" onClick={() => input.current?.click()}>Import a friend</button>
-        {account ? <button type="button" className="btn-sm" onClick={exportAccount}>Export my account</button>
-          : <Link className="btn btn-sm" href="/account">Import my account</Link>}
+        <button type="button" className="ghost btn-sm" disabled={!account} onClick={exportAccount} title={!account ? 'Import your own Arknights account on My account first' : undefined}>Export my account</button>
+        <InfoPopover label="Friend sharing details">
+          <p>Shared files contain your profile, operators and skins. Your friend stays separate from your account and planners.</p>
+          <p>Pull history, resources, credentials and unrelated planner saves are excluded.</p>
+          {!account && <><p>Import your own Arknights account to enable Export my account.</p><DataLink /></>}
+        </InfoPopover>
       </div>} />
     <main>
       <input ref={input} className={styles.file} type="file" accept=".json,application/json" aria-label="Friend account file" onChange={event => {
         void importFriend(event.currentTarget.files?.[0]); event.currentTarget.value = '';
       }} />
-      <p className={`hint ${styles.status}`} role={error ? 'alert' : 'status'}>{message || 'Shared files contain your profile, operators and skins. Your friend stays separate from your account and planners.'}</p>
-      {friend ? <section className="op-section">
-        <div className={styles.meta}><h2>Friend profile</h2><span className="hint">{SERVERS[friend.account.server].label} · Account imported {new Date(friend.account.importedAt).toLocaleDateString('en-GB')}</span></div>
-        <div className={styles.profile}><ProfileCard key={`${friend.exportedAt}-${friend.account.doctor}`} account={friend.account} map={map} outfits={friend.account.skins.length}
-          outfitArt={outfitArt} outfitNames={outfitNames} onOperators={() => setView('operators')} onSkins={() => setView('skins')} /></div>
-        <div className={styles.actions}>
-          <button type="button" className="btn-sm" aria-haspopup="dialog" onClick={() => setView('operators')}>Operators</button>
-          <button type="button" className="btn-sm" aria-haspopup="dialog" onClick={() => setView('skins')}>Skins</button>
-        </div>
+      <p className={styles.status} role={error ? 'alert' : 'status'} hidden={!message}>{message}</p>
+      {friends.length ? <section className={`op-section ${styles.friendList}`} aria-label="Imported friends">
+        {friends.map(entry => {
+          const show = (kind: 'profile' | 'operators' | 'skins', trigger: HTMLElement) => { opener.current = trigger; setFriend(entry); setProfileOpen(kind === 'profile'); setView(kind === 'profile' ? null : kind); };
+          const name = entry.account.doctor ?? 'Friend';
+          const card = entry.account.profile?.nameCard ?? 'nc_rhodes_default';
+          const variants = map.nameCardVariants?.[card];
+          const strip = `${card}-strip${variants ? `-${Math.min(entry.account.profile?.nameCardVariant ?? 0, variants - 1)}` : ''}`;
+          return <article className={`panel profile-strip ${styles.friendRow}`} key={friendKey(entry)}>
+            <ContentImg className="profile-strip-background" src={profileArtPath('profile-namecards', strip)} alt="" aria-hidden="true" />
+            <button type="button" className={`btn-bare ${styles.friendSummary}`} aria-label={`View ${name} profile`} aria-haspopup="dialog" onClick={event => show('profile', event.currentTarget)}>
+              <ContentImg className={styles.friendAvatar} src={avatarSources(entry.account.profile ?? {}, map.chars, outfitNames)[0] ?? '/essential-icons/Arkpedia.webp'} alt="" />
+              <span className={styles.friendIdentity}><strong>{name}</strong><span className="hint">{SERVERS[entry.account.server].label}{entry.account.profile?.level != null ? ` · Level ${entry.account.profile.level}` : ''}</span><span className="hint">{entry.account.operators.length} operators · {entry.account.skins.length} skins</span></span>
+              <span className={styles.friendSupports}>{entry.account.profile?.supports?.map((unit, index) => <SupportTile key={index} unit={unit} full={false} map={map} />)}</span>
+            </button>
+            <div className={styles.actions}>
+              <button type="button" className="ghost btn-sm" aria-label={`Show ${name}'s operators`} aria-haspopup="dialog" onClick={event => show('operators', event.currentTarget)}><span className="site-nav-icon" aria-hidden="true">{ICONS.roster}</span>Operators</button>
+              <button type="button" className="ghost btn-sm" aria-label={`Show ${name}'s skins`} aria-haspopup="dialog" onClick={event => show('skins', event.currentTarget)}><span className="site-nav-icon" aria-hidden="true">{ICONS.skins}</span>Skins</button>
+            </div>
+          </article>;
+        })}
       </section> : <section className={styles.empty}><h2>No friend imported yet</h2><p className="hint">Ask a friend to export their account here, then open their JSON file.</p></section>}
     </main>
+    {friend && profileOpen && <ImportDialog title={`${friend.account.doctor ?? 'Friend'} · Profile`} className={styles.profileDialog} onClose={closeCollection}>
+      <div className={styles.profile}><ProfileCard account={friend.account} map={map} outfits={friend.account.skins.length} outfitArt={outfitArt} outfitNames={outfitNames} onOperators={() => { setProfileOpen(false); setView('operators'); }} onSkins={() => { setProfileOpen(false); setView('skins'); }} /></div>
+      <button type="button" className="ghost btn-sm" onClick={() => {
+        const next = friends.filter(entry => friendKey(entry) !== friendKey(friend));
+        try { localStorage.setItem(FRIENDS_STORAGE_KEY, JSON.stringify({ version: 1, friends: next })); setFriends(next); closeCollection(); }
+        catch { setError(true); setMessage('This browser could not save the updated friend list.'); }
+      }}>Remove imported friend</button>
+    </ImportDialog>}
     {friend && view && <FriendCollection key={view} friend={friend} operators={operators} skins={skins} view={view} onClose={closeCollection} />}
   </>;
 }

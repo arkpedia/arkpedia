@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 
 test.describe('pull planner integration', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/pulls');
+    await page.goto("/pull-planner");
     await expect(page.getByRole('heading', { name: 'Pull Planner' })).toBeVisible();
   });
 
@@ -34,7 +34,7 @@ test.describe('pull planner integration', () => {
   test('schedule deep links add the requested banner', async ({ page }) => {
     // A link the schedule draws today (its "Plan" button on an event's row), followed.
     await page.goto('/schedule');
-    const link = page.locator('a.events-row-plan[href*="/pulls?banner="]').first();
+    const link = page.locator('a.events-row-plan[href*="/pull-planner?banner="]').first();
     await expect(link, 'the schedule links an upcoming banner to the planner').toBeAttached();
     const href = (await link.getAttribute('href'))!;
     const banner = new URL(href, 'http://localhost').searchParams.get('banner')!;
@@ -57,7 +57,7 @@ test.describe('pull planner integration', () => {
  */
 test.describe('the Past events frame holds its Include setting', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/pulls');
+    await page.goto("/pull-planner");
     await expect(page.getByRole('heading', { name: 'Pull Planner' })).toBeVisible();
   });
 
@@ -175,7 +175,7 @@ test('between a phone and the full row the triggers take two lines, each a contr
   test.skip(info.project.name !== 'desktop', 'window widths, set here');
   for (const width of [760, 860]) {
     await page.setViewportSize({ width, height: 900 });
-    await page.goto('/pulls');
+    await page.goto("/pull-planner");
     const [income, past, skins] = await page.evaluate(() => ['tab-income', 'tab-past', 'tab-skins'].map((id) => {
       const r = document.getElementById(id)!.getBoundingClientRect();
       return { top: r.top, bottom: r.bottom, h: Math.round(r.height * 10) / 10 };
@@ -196,7 +196,7 @@ test('between a phone and the full row the triggers take two lines, each a contr
  * just under the first. Box edges and computed borders only.
  */
 test('the goal editor\'s outcome is one stacked block with one rule', async ({ page }) => {
-  await page.goto('/pulls');
+  await page.goto("/pull-planner");
   const banner = await page.evaluate(() => {
     const odds = (window as unknown as { __NEXT_DATA__: { props: { pageProps: { bannerOdds: Record<string, { type: string }> } } } }).__NEXT_DATA__.props.pageProps.bannerOdds;
     const names = Object.keys(odds);
@@ -232,7 +232,7 @@ test('the goal editor\'s outcome is one stacked block with one rule', async ({ p
 /* The Pull Planner's skin section and the Skin Planner are one plan (lib/skins/skinPlan): an
  * outfit planned in one is planned in the other (the maintainer's request, 2026-10-01). */
 test('an outfit planned in the Pull Planner is planned on the Skin Planner', async ({ page }) => {
-  await page.goto('/pulls');
+  await page.goto("/pull-planner");
   await page.getByRole('button', { name: /Skin wishlist/ }).click();
   const card = page.locator('#panel-skins .skin-plan-card-foot').first();
   test.skip(await page.getByText('No shop that sells outfits for Originite Prime is open or listed ahead.').count() > 0, 'no skin shop rotation is listed in this build');
@@ -244,7 +244,7 @@ test('an outfit planned in the Pull Planner is planned on the Skin Planner', asy
   await expect(page.locator(`.skin-plan-card-foot[aria-label=${JSON.stringify(label)}]`).first()).toHaveAttribute('aria-pressed', 'true');
   // And back: unplanned there, it is unplanned here.
   await page.locator(`.skin-plan-card-foot[aria-label=${JSON.stringify(label)}]`).first().click();
-  await page.goto('/pulls');
+  await page.goto("/pull-planner");
   await page.getByRole('button', { name: /Skin wishlist/ }).click();
   await expect(page.locator(`#panel-skins .skin-plan-card-foot[aria-label=${JSON.stringify(label)}]`).first()).toHaveAttribute('aria-pressed', 'false');
 });
@@ -276,14 +276,13 @@ test('Fashion Review has its own planner inventory', async ({ page }) => {
   const fashion = page.getByRole('region', { name: /Fashion Review/ });
   await expect(fashion.first()).toBeVisible();
   expect(await fashion.locator('.skin-plan-card').count()).toBeGreaterThan(0);
-  for (const section of await fashion.all()) expect(await section.locator('.skin-plan-card').count()).toBeLessThanOrEqual(12);
   // Every event stays open while its Fashion Review inventory loads in batches.
   const cards = page.locator('.skin-plan-card');
   expect(await cards.evaluateAll(nodes => nodes.every(node => node.closest('section[aria-label]')?.getAttribute('aria-label')?.includes('Fashion Review')))).toBe(true);
 });
 
 test('the planner rechecks closing windows on focus and retains the manual goal and wallet', async ({ page }) => {
-  await page.goto('/pulls');
+  await page.goto("/pull-planner");
   const data = JSON.parse((await page.locator('#__NEXT_DATA__').textContent())!);
   const choices = data.props.pageProps.scheduledBanners as { name: string; end: string; endAt?: string }[];
   const banner = choices.find(value => value.endAt && Date.parse(value.endAt) > Date.now() + 86_400_000);

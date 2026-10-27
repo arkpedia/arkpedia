@@ -1,6 +1,8 @@
 import NumberInput from '@/components/ui/NumberInput';
 import BaseSkillText from '@/components/operators/BaseSkillText';
 import ImportDialog from '@/components/account/ImportDialog';
+import dynamic from 'next/dynamic';
+import type { LayoutRecommendation } from '@/lib/base/accountOptimizer';
 import BaseOverview, { type BaseRoomSummary } from '@/components/base/BaseOverview';
 import BaseRotationPanel from '@/components/base/BaseRotationPanel';
 import BasePresetToolbar from '@/components/base/BasePresetToolbar';
@@ -8,6 +10,9 @@ import Image from '@/components/content/ContentImage';
 import PageHeader from '@/components/ui/PageHeader';
 import StyledSelect from '@/components/ui/StyledSelect';
 import XButton from '@/components/ui/XButton';
+import InfoPopover from '@/components/ui/InfoPopover';
+
+const BaseAccountOptimizer = dynamic(() => import('@/components/base/BaseAccountOptimizer'), { ssr: false });
 import { useAccount } from '@/lib/account/accountStore';
 import { activeBaseSkills } from '@/lib/base/activeBaseSkills';
 import {
@@ -70,7 +75,7 @@ import { BaseOperator, BaseSkill } from '@/lib/operators/operatorTypes';
 import { readRoster, ROSTER_EVENT } from '@/lib/planner/roster';
 import { GetStaticProps } from 'next';
 import Head from 'next/head';
-import Link from 'next/link';
+import DataLink from '@/components/account/DataLink';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 
@@ -91,7 +96,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 // used the number, but confusing, since it looked like it should matter.
 const MANUAL_VALUE_SKILLS = new Set<string>([]);
 
-const LOGIN_INTERVAL_OPTIONS = [12, 16, 20, 24];
+const LOGIN_INTERVAL_OPTIONS = [6, 8, 12, 16, 20, 24];
 
 // When the player takes tired operators out. This is the only thing that bounds
 // a ramping skill's window, and the two answers differ a lot: a ramping skill
@@ -116,6 +121,7 @@ const STORAGE_KEY = 'baseAssignments_v2';
 const PRODUCT_STORAGE_KEY = 'baseFactoryProducts_v1';
 const AMBIENCE_STORAGE_KEY = 'baseDormitoryAmbience_v1';
 const SETTINGS_STORAGE_KEY = 'baseResourceSettings_v1';
+const CALCULATION_SETTINGS_KEY = 'baseCalculationSettings_v1';
 const MODEL_SETTINGS_KEY = 'baseModelSettings_v1';
 // Hides the Rotation Experiment button/panel entirely -- set to true to
 // bring it back. Deliberately not tied to process.env.NODE_ENV: this is
@@ -212,6 +218,7 @@ export default function BasePage({ operators }: Props) {
   const account = useAccount();
   const [baseSource, setBaseSource] = useState<'planner' | 'account'>('planner');
   const [showRotationPlan, setShowRotationPlan] = useState(false);
+  const [showOptimizer, setShowOptimizer] = useState(false);
   const [calculationSource, setCalculationSource] = useState<'current' | 'rotation'>('current');
   const editLayoutButtonRef = useRef<HTMLButtonElement>(null);
   const layoutEditorScroll = useRef<number | null>(null);
@@ -219,7 +226,12 @@ export default function BasePage({ operators }: Props) {
   const plannerBeforeImport = useRef<{ preset: SavedBasePreset; complete: boolean } | null>(null);
   const [snapshotRoom, setSnapshotRoom] = useState<string | null>(null);
   useEffect(() => {
-    try { setRotationPlan(readRotationPlan(JSON.parse(window.localStorage.getItem(BASE_ROTATION_PLAN_KEY) ?? 'null'))); } catch { /* An invalid saved plan starts empty. */ }
+    try {
+      setRotationPlan(readRotationPlan(JSON.parse(window.localStorage.getItem(BASE_ROTATION_PLAN_KEY) ?? 'null')));
+      const settings = JSON.parse(window.localStorage.getItem(CALCULATION_SETTINGS_KEY) ?? 'null');
+      if (settings?.source === 'rotation') setCalculationSource('rotation');
+      if (LOGIN_INTERVAL_OPTIONS.includes(settings?.loginInterval)) setLoginInterval(settings.loginInterval);
+    } catch { /* Invalid saved settings use the defaults. */ }
   }, []);
   const ownedOperators = useMemo(() => (account ? new Set(account.operators.map(name => /^Amiya \(/.test(name) ? 'Amiya' : name)) : null), [account]);
   const [includeUnowned, setIncludeUnowned] = useState(false);
@@ -298,9 +310,12 @@ export default function BasePage({ operators }: Props) {
       if (activeFacility && !target.closest('.base-popover') && !target.closest('.base-facility')) {
         setActiveFacility(null);
       }
-      if (showResourceSettings && !target.closest('.base-resource-settings')) {
-        setShowResourceSettings(false);
-      }
+    }
+    // Close after the clicked control handles the event. Closing on pointerdown
+    // moves the calculator up on phones and prevents the intended click.
+    function handleSettingsClick(e: MouseEvent) {
+      const target = e.target as HTMLElement | null;
+      if (showResourceSettings && target?.closest && !target.closest('.base-resource-settings, .action-popover-trigger, .action-popover')) setShowResourceSettings(false);
     }
     function handleEscape(e: KeyboardEvent) {
       if (e.key !== 'Escape') return;
@@ -308,9 +323,11 @@ export default function BasePage({ operators }: Props) {
       setShowResourceSettings(false);
     }
     document.addEventListener('pointerdown', handlePointerDown, true);
+    document.addEventListener('click', handleSettingsClick);
     document.addEventListener('keydown', handleEscape);
     return () => {
       document.removeEventListener('pointerdown', handlePointerDown, true);
+      document.removeEventListener('click', handleSettingsClick);
       document.removeEventListener('keydown', handleEscape);
     };
   }, [activeFacility, showResourceSettings]);
@@ -532,6 +549,11 @@ export default function BasePage({ operators }: Props) {
     }
   }
 
+  function setCalculationSettings(source: 'current' | 'rotation', interval = loginInterval) {
+    setCalculationSource(source); setLoginInterval(interval);
+    try { window.localStorage.setItem(CALCULATION_SETTINGS_KEY, JSON.stringify({ source, loginInterval: interval })); } catch { /* Session remains usable. */ }
+  }
+
   function persistSettings(next: { clueExchangeActive: boolean; moraleAbove12: boolean; swapPolicy: SwapPolicy }) {
     if (baseSource === 'account') return;
     setClueExchangeActive(next.clueExchangeActive);
@@ -674,6 +696,40 @@ export default function BasePage({ operators }: Props) {
       window.localStorage.setItem(AMBIENCE_STORAGE_KEY, JSON.stringify(p.dormitoryAmbience));
       window.localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({ clueExchangeActive: p.clueExchangeActive, moraleAbove12: p.moraleAbove12, swapPolicy: p.swapPolicy }));
     } catch { setPresetStatus('Setup loaded for this session; browser storage is unavailable.'); }
+  }
+  function saveOptimizerRotation(recommendation: LayoutRecommendation, startHour: number, externalGold: number): boolean {
+    const template = captureSetup('', '');
+    const presets: SavedBasePreset[] = recommendation.plan.shifts.map((shift, index) => ({
+      ...template, id: crypto.randomUUID(), name: `${recommendation.label} · optimized shift ${index + 1}`,
+      productionSpots: recommendation.spots, facilityLevels: recommendation.levels,
+      assignments: shift.assignments, factoryProducts: shift.factoryProducts,
+      dormitoryAmbience: recommendation.id === 'mine' ? account?.base?.dormitoryAmbience ?? {} : {},
+      loginInterval, swapPolicy: 'onLogin', rotationRates: undefined,
+    }));
+    const nextPresets = [...savedPresets, ...presets];
+    const nextPlan: BaseRotationPlan = { version: 1, startHour, externalGold, shifts: presets.map(p => ({ id: crypto.randomUUID(), presetId: p.id, hours: recommendation.plan.stepHours })) };
+    let previousPresets: string | null, previousPlan: string | null;
+    try {
+      previousPresets = window.localStorage.getItem(SAVED_BASE_PRESETS_KEY);
+      previousPlan = window.localStorage.getItem(BASE_ROTATION_PLAN_KEY);
+    } catch { return false; }
+    try {
+      window.localStorage.setItem(SAVED_BASE_PRESETS_KEY, JSON.stringify(nextPresets));
+      window.localStorage.setItem(BASE_ROTATION_PLAN_KEY, JSON.stringify(nextPlan));
+    } catch {
+      try {
+        if (previousPresets === null) window.localStorage.removeItem(SAVED_BASE_PRESETS_KEY); else window.localStorage.setItem(SAVED_BASE_PRESETS_KEY, previousPresets);
+        if (previousPlan === null) window.localStorage.removeItem(BASE_ROTATION_PLAN_KEY); else window.localStorage.setItem(BASE_ROTATION_PLAN_KEY, previousPlan);
+      } catch { /* Keep the in-memory plan intact if browser storage is unavailable. */ }
+      return false;
+    }
+    setSavedPresets(nextPresets); setRotationPlan(nextPlan);
+    // Load a copy of the first team, leaving the imported account untouched.
+    setBaseSource('planner'); plannerBeforeImport.current = null;
+    applySetupSnapshot(presets[0], true, true); setSelectedPreset(presets[0].id);
+    setCalculationSettings('rotation'); setShowOptimizer(false);
+    setPresetStatus('Recommended rotation active. Existing saved setups are kept.');
+    return true;
   }
   function showImportedBase() {
     if (baseSource === 'account') return;
@@ -925,7 +981,7 @@ export default function BasePage({ operators }: Props) {
     return normalized.length !== 2 || basePresetConfiguration(normalized[0]) !== basePresetConfiguration(normalized[1]);
   }, [savedPresets, selectedPreset, baseSource, productionSpots, facilityLevels, assignments, factoryProducts, dormitoryAmbience, clueExchangeActive, moraleAbove12, swapPolicy, loginInterval, resolvedTrainingTarget, workshopSettings, operators]);
   const rotationDuration = rotationPlan.shifts.reduce((hours, shift) => hours + shift.hours, 0);
-  const rotationWarnings = [...new Set(rotationCalculation?.stages.flatMap(stage => stage.warnings) ?? [])];
+  const rotationWarnings = [...new Set([...(rotationCalculation?.warnings ?? []), ...(rotationCalculation?.stages.flatMap(stage => stage.warnings) ?? [])])];
   const summaryUnavailable = calculationSource === 'rotation' && !rotationCalculation?.totals;
   const {
     dailyExpGreen, dailyExpRed, dailyGoldMadeGreen, dailyGoldMadeRed,
@@ -1196,19 +1252,23 @@ export default function BasePage({ operators }: Props) {
     return { id: f.id, metric: workers.length || f.kind === 'dormitory' ? metric : f.level ? 'Empty room' : '', detail: f.level ? detail : '', workers, deadline };
   });
 
+  const optimizerDialog = showOptimizer && <ImportDialog title="Base optimizer" className="base-rotation-dialog" onClose={() => setShowOptimizer(false)}><BaseAccountOptimizer account={account} base={{ operators, rosters, skillSlots, workshopRecipes, clueExchangeActive, moraleAbove12 }} loginInterval={loginInterval} onInterval={setLoginInterval} onApply={saveOptimizerRotation} /></ImportDialog>;
+  const rotationDialog = showRotationPlan && <ImportDialog title="Rotation" className="base-rotation-dialog" onClose={() => setShowRotationPlan(false)}><BaseRotationPanel plan={rotationPlan} onChange={updateRotationPlan} presets={savedPresets} onLoad={viewRotationShift} initialMorale={account?.base?.morale ?? {}} owned={ownedOperators ?? undefined} imported={!!account?.base} stages={rotationCalculation?.stages} /></ImportDialog>;
   if (!setupComplete) {
     return (
       <>
         <div>
           <PageHeader
-            slim
             eyebrow="Rhodes Island // Base Layout"
             title={editingExistingLayout ? 'Edit Base Layout' : 'Base Formation'}
+            actions={<div className="base-view-controls"><button type="button" className="ghost" onClick={() => setShowOptimizer(true)}>Optimize base</button>{rotationPlan.shifts.length > 0 && <button type="button" className="ghost" onClick={() => setShowRotationPlan(true)}>Rotation</button>}</div>}
             sub={editingExistingLayout
               ? 'Change what stands in each production spot and how far each facility is built. Operators stay where they are, except in a spot whose facility type changes.'
               : 'Build your base from a familiar split, then adjust its rooms and facility levels.'}
           />
           <main>
+            {optimizerDialog}
+            {rotationDialog}
             {renderBaseSources()}
             <section className="op-section base-setup-screen">
               <p className="hint base-setup-intro">
@@ -1415,11 +1475,11 @@ export default function BasePage({ operators }: Props) {
 
       <div>
       <PageHeader
-        slim
         eyebrow="Rhodes Island // Base Layout"
         title="Base"
         sub="Staff your rooms, compare setups and plan the next shift."
         actions={<div className="base-view-controls sidescroll">
+          <button type="button" className="ghost" onClick={() => setShowOptimizer(true)}>Optimize base</button>
           <button type="button" className="ghost" disabled={baseSource === 'account' && !account?.base} onClick={exportSnapshot}>Save image</button>
           {/* Outside the development-only guard below: the layout editor is a
               player-facing feature, not a debugging aid. It stays alongside
@@ -1437,9 +1497,10 @@ export default function BasePage({ operators }: Props) {
       />
 
       <main>
+        {optimizerDialog}
         {baseSource === 'account' && account?.base && <details className="base-import-notes"><summary>Snapshot and calculation limits{account.base.warnings.length ? ` (${account.base.warnings.length})` : ''}</summary><p>Rooms, staffing, levels and Morale are from the last import. Output uses known snapshot Morale, the current collection interval and manual skill conditions. Training mastery and factory recipe tiers are not imported; output is a planning estimate.</p><ul>{account.base.warnings.map(w => <li key={w}>{w}</li>)}</ul></details>}
         {(baseSource === 'planner' || account?.base) && <div className="base-production-strip" aria-label="Daily production estimates">{calculationSource === 'rotation' ? <span className="hint">Rotation estimate</span> : baseSource === 'account' && <span className="hint">Estimated output</span>}<span><strong>{summaryUnavailable ? '—' : Math.round(dailyGoldWorthGreen).toLocaleString()}</strong> LMD / day</span><span><strong>{summaryUnavailable ? '—' : Math.round(dailyExpGreen).toLocaleString()}</strong> EXP / day</span><span><strong>{summaryUnavailable ? '—' : dailyGoldMadeGreen.toFixed(1)}</strong> Gold / day</span><span className={basePower.ok ? undefined : 'prod-danger'}>Power <strong>{basePower.drawn} / {basePower.supplied}</strong>{!basePower.ok && ` · ${Math.abs(basePower.spare)} short`}</span></div>}
-        {showRotationPlan && <ImportDialog title="Rotation" className="base-rotation-dialog" onClose={() => setShowRotationPlan(false)}><BaseRotationPanel plan={rotationPlan} onChange={updateRotationPlan} presets={savedPresets} onLoad={viewRotationShift} initialMorale={account?.base?.morale ?? {}} owned={ownedOperators ?? undefined} imported={!!account?.base} stages={rotationCalculation?.stages} /></ImportDialog>}
+        {rotationDialog}
         {ROTATION_EXPERIMENT_ENABLED && showRotationPanel && (
           <section className="op-section" style={{ marginBottom: 20 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
@@ -1545,7 +1606,7 @@ export default function BasePage({ operators }: Props) {
           <section className="base-empty-message" aria-label="Imported base unavailable">
             <h2>{account ? 'Import your base snapshot' : 'Import an account to view your base'}</h2>
             <p>{account ? 'This account was imported before base rooms were saved, or its export did not include building data. Import it again to include rooms, staffing and Morale.' : 'Import your game account to see its rooms, staffing and Morale here.'}</p>
-            <Link className="primary" href="/account">Open account import</Link>
+            <DataLink />
           </section>
         ) : <div className={`base-command-workspace${roomPanelFacilityId || snapshotRoom ? ' has-room' : ''}${baseSource === 'planner' && roomPanelFacilityId ? ' is-staffing' : ''}`}>
           <BaseOverview loginInterval={loginInterval} facilities={FACILITIES} assignments={assignments} operators={operators} summaries={roomSummaries} selected={baseSource === 'account' ? snapshotRoom : roomPanelFacilityId} readOnly={baseSource === 'account'} onSelect={id => { if (baseSource === 'account') setSnapshotRoom(id); else { setBreakdownFacilityId(null); setSearch(''); openRoomPanel(id); } }} />
@@ -1902,12 +1963,12 @@ export default function BasePage({ operators }: Props) {
                       className="ghost base-resource-settings-btn" disabled={baseSource === 'account'}
                       onClick={() => setShowResourceSettings((s) => !s)}
                     >
-                      Settings
+                      {calculationSource === 'rotation' ? 'Current base settings' : 'Settings'}
                     </button>
                     {showResourceSettings && (
                       <div className="base-resource-settings-popup">
                         <div className="base-resource-settings-row">
-                          <span className="base-resource-settings-label">Clue Exchange</span>
+                          <span className="base-resource-settings-label">Clue Exchange<InfoPopover label="Clue exchange help"><p>Affects Caper and Cairn’s Reception Room skills.</p></InfoPopover></span>
                           <button
                             type="button"
                             className="filter-chip" aria-pressed={clueExchangeActive}
@@ -1916,10 +1977,10 @@ export default function BasePage({ operators }: Props) {
                             {clueExchangeActive ? 'On' : 'Off'}
                           </button>
                         </div>
-                        <p className="hint base-resource-settings-hint">Affects Caper and Cairn&apos;s Reception Room skills.</p>
+
 
                         <div className="base-resource-settings-row">
-                          <span className="base-resource-settings-label">Morale</span>
+                          <span className="base-resource-settings-label">Morale<InfoPopover label="Morale help"><p>Morale assumption for Ling and Dusk in current-base estimates. Rotation carries morale between saved shifts.</p></InfoPopover></span>
                           <button
                             type="button"
                             className="filter-chip" aria-pressed={moraleAbove12}
@@ -1928,10 +1989,10 @@ export default function BasePage({ operators }: Props) {
                             {moraleAbove12 ? 'Above 12' : 'Below 12'}
                           </button>
                         </div>
-                        <p className="hint base-resource-settings-hint">Affects Ling and Dusk&apos;s Control Center skills, and anything that depends on the resources they produce.</p>
+
 
                         <div className="base-resource-settings-row">
-                          <span className="base-resource-settings-label">Swap operators</span>
+                          <span className="base-resource-settings-label">Swap timing<InfoPopover label="Swap operators help"><p>Sets the averaging window for ramping skills in current-base estimates. Rotation swaps at its scheduled shift changes.</p></InfoPopover></span>
                           <button
                             type="button"
                             className="filter-chip" aria-pressed={swapPolicy === 'onLogin'}
@@ -1946,57 +2007,49 @@ export default function BasePage({ operators }: Props) {
                             {swapPolicy === 'onLogin' ? 'Every login' : 'At 0 Morale'}
                           </button>
                         </div>
-                        <p className="hint base-resource-settings-hint">
-                          When tired operators get taken out, which is the only thing bounding a ramping skill&apos;s
-                          window. Ramping skills climb over time, so a longer window averages higher.{' '}
-                          {swapPolicy === 'onLogin'
-                            ? `Swapping every login caps that window at your ${loginInterval}h interval.`
-                            : 'Leaving them until 0 Morale lets the window run as long as their Morale lasts, up to 24h.'}{' '}
-                          Affects Fang, Kroos, Scene, Ceobe and Aroma in Factories, Spuria in a Power Plant, and Ines in the Reception Room.
-                        </p>
+
                       </div>
                     )}
                   </div>
                 </div>
 
-            <div className="base-summary-panel" aria-label="Base production summary">
+            <div className="base-summary-panel" role="region" aria-label="Base production summary">
               <div className="base-summary-row">
                 <span className="base-summary-label">Calculate</span>
                 <div className="base-calculation-controls"><div className="base-chip-row" role="radiogroup" aria-label="Calculation source" onKeyDown={event => {
                   if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return;
                   event.preventDefault();
                   const next = event.key === 'Home' ? 'current' : event.key === 'End' ? 'rotation' : calculationSource === 'current' ? 'rotation' : 'current';
-                  setCalculationSource(next);
+                  setCalculationSettings(next);
                   event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="radio"]')[next === 'current' ? 0 : 1]?.focus({ preventScroll: true });
                 }}>
-                  <button type="button" className="filter-chip" role="radio" tabIndex={calculationSource === 'current' ? 0 : -1} aria-checked={calculationSource === 'current'} onClick={() => setCalculationSource('current')}>Current Base</button>
-                  <button type="button" className="filter-chip" role="radio" tabIndex={calculationSource === 'rotation' ? 0 : -1} aria-checked={calculationSource === 'rotation'} onClick={() => setCalculationSource('rotation')}>Rotation</button>
+                  <button type="button" className="filter-chip" role="radio" tabIndex={calculationSource === 'current' ? 0 : -1} aria-checked={calculationSource === 'current'} onClick={() => setCalculationSettings('current')}>Current Base</button>
+                  <button type="button" className="filter-chip" role="radio" tabIndex={calculationSource === 'rotation' ? 0 : -1} aria-checked={calculationSource === 'rotation'} onClick={() => setCalculationSettings('rotation')}>Rotation</button>
                 </div>
                   <button type="button" className="ghost" aria-haspopup="dialog" onClick={() => setShowRotationPlan(true)}>Edit rotation</button>
                 </div>
               </div>
               {calculationSource === 'rotation' && <div className="base-rotation-summary" aria-label="Rotation calculation details">
-                <p className="hint" role="status">{rotationCalculation?.problem ?? `${rotationDuration}h cycle · Second-cycle average, weighted by shift hours. Collections also happen at shift changes.`}</p>
+                <p className="hint" role="status">{rotationCalculation?.problem ?? `${rotationDuration}h repeating cycle`}</p>
                 {rotationWarnings.length > 0 && <details className="base-rotation-warning-summary"><summary>Rotation warnings</summary><ul>{rotationWarnings.map(warning => <li key={warning}>{warning}</li>)}</ul></details>}
               </div>}
               <div className="base-summary-row">
-                <span className="base-summary-label">Login interval</span>
+                <span className="base-summary-label">Login interval<InfoPopover label="Login interval help"><p>Collect every {loginInterval}h. Earlier Full or Dead times are highlighted in red. Rotation also collects at shift changes.</p></InfoPopover></span>
                 <div className="base-chip-row" role="group" aria-label="Login interval">
                   {LOGIN_INTERVAL_OPTIONS.map((h) => (
                     <button
                       key={h}
                       type="button"
                       className="filter-chip" aria-pressed={loginInterval === h}
-                      onClick={() => setLoginInterval(h)}
+                      onClick={() => setCalculationSettings(calculationSource, h)}
                     >
                       {h}h
                     </button>
                   ))}
                 </div>
               </div>
-              <p className="hint" style={{ margin: '6px 0 4px' }}>
-                Any room&apos;s Full or Dead time below your chosen interval is highlighted in red.
-              </p>
+
+              {calculationSource === 'rotation' && <div className="base-summary-row"><label className="base-summary-label" htmlFor="rotation-outside-gold">Outside gold / day</label><NumberInput className="number-input" id="rotation-outside-gold" aria-label="Rotation outside gold per day" min={0} max={1000} step="0.1" value={rotationPlan.externalGold ?? 0} onChange={event => updateRotationPlan({ ...rotationPlan, externalGold: Math.min(1000, Math.max(0, Number(event.target.value) || 0)) })} /></div>}
               <div className="base-summary-row">
                 <span className="base-summary-label">Period</span>
                 <div className="base-chip-row" role="group" aria-label="Period">
@@ -2091,9 +2144,7 @@ export default function BasePage({ operators }: Props) {
                   </>
                 );
               })()}
-              <p className="hint" style={{ marginTop: 8 }}>
-                Estimates allow for storage and Morale between collections. Rotation carries Morale through two cycles; threshold changes within a shift and one-off skills are not simulated.
-              </p>
+<div><span className="base-summary-label">Estimate details</span><InfoPopover label="Production estimate limits"><p>Rotation uses the optimizer’s repeating simulation, including morale thresholds, storage and gold-funded LMD. Ramping skills are approximate. Excludes drones, crafting and training.</p></InfoPopover></div>
             </div>
             </div>
 

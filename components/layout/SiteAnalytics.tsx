@@ -1,3 +1,4 @@
+import { usePrivacyChoice } from '@/lib/privacy/preferences';
 import { Analytics } from '@vercel/analytics/react';
 import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
@@ -18,6 +19,8 @@ function SampledVercelAnalytics() {
 
 /** The build target selects its provider; staging is disabled by next.config.js. */
 export default function SiteAnalytics() {
+  const allowed = usePrivacyChoice('analytics');
+  if (!allowed) return null;
   if (process.env.ARKPEDIA_WORKER === '1') return <Script
     id="arkpedia-cloudflare-analytics"
     type="module"

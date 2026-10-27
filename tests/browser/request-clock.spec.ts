@@ -1,5 +1,9 @@
 import { expect, test } from '@playwright/test';
 
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('arkpedia:privacy:v1', JSON.stringify({ version: 1, analytics: false, externalMedia: false, savedAt: Date.now() })));
+});
+
 // Pages whose content depends on the day render it from the request's clock (`now`,
 // lib/content/pageClock.ts), which the server HTML and the browser's first render
 // share. /obtain-method used to do its day math on the host's clock, so every reader
@@ -23,8 +27,11 @@ test('switching imported accounts keeps the header clock and supply rotation on 
       localStorage.setItem('arkpediaAccount', JSON.stringify({ ...account, server }));
       window.dispatchEvent(new Event('arkpediaAccountChanged'));
     }, server);
+    const inDrawer = !await clock.isVisible();
+    if (inDrawer) await page.getByRole('button', { name: 'Open navigation menu', exact: true }).click();
     await expect(clock).toContainText(server.toUpperCase());
     await expect(clock).toContainText(server === 'en' ? '12:00' : '04:00');
+    if (inDrawer) await page.keyboard.press('Escape');
     await expect(page.getByRole('button', { name: server === 'en' ? 'Sunday, today' : 'Monday, today', exact: true })).toHaveAttribute('aria-pressed', 'true');
   }
   expect(errors).toEqual([]);
@@ -36,7 +43,7 @@ for (const timezoneId of ['Europe/Berlin', 'America/Los_Angeles', 'Pacific/Auckl
     // /gacha and / read their banner and event windows from the request clock too; a bare
     // /stages/browse hydrated a different first render from the server's (the router is
     // ready at once without a query), which is the same failure with no clock involved.
-    for (const route of ['/obtain-method', '/schedule', '/schedule?view=calendar', '/farming', '/community', '/gacha', '/', '/stages', '/stages/browse', '/stages/browse?s=pa-1']) {
+    for (const route of ['/obtain-method', '/schedule', '/schedule?view=calendar', '/farming', "/world", "/gacha-simulator", '/', '/stages', '/stages/browse', '/stages/browse?s=pa-1']) {
       test(`${route} hydrates without a mismatch on any reader clock`, async ({ page }) => {
         const errors: string[] = [];
         page.on('pageerror', (error) => errors.push(error.message));
@@ -45,7 +52,7 @@ for (const timezoneId of ['Europe/Berlin', 'America/Los_Angeles', 'Pacific/Auckl
         await page.goto(route);
         await page.waitForLoadState('networkidle');
         if (route === '/obtain-method') await expect(page.locator('.roster-class-branch', { hasText: /days until/ }).first()).toBeVisible();
-        if (route === '/community') {
+        if (route === "/world") {
           // The event list and the map are always drawn (an ended event says Ended), and
           // the list's dates are formatted on the request's clock.
           await expect(page.locator('.world-map-svg')).toBeVisible();

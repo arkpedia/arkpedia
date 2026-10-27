@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { chooseMusicView } from './music-navigation-helpers';
 import { playAllSongs, stubYouTube, youtube } from './youtube-stub';
 
 const rows = (page: Page) => page.locator('.music-queue-list .music-queue-row[data-song-id]');
@@ -88,9 +89,11 @@ for (const shuffled of [false, true]) {
     await page.goto('/music?view=queue');
   await playAllSongs(page);
     await expect(rows(page).nth(3)).toBeVisible();
-    // Shuffle: the bar's button, at every width.
+    // The phone's compact bar opens the full controls in Now playing.
+    await chooseMusicView(page, 'Now playing');
     const shuffle = page.locator('.music-player-bottombar').getByRole('button', { name: 'Shuffle', exact: true });
     if ((await shuffle.getAttribute('aria-pressed') === 'true') !== shuffled) await shuffle.click();
+    await chooseMusicView(page, /^Queue/);
     await rows(page).first().locator('.music-song-row-main').click();
     await expect.poll(async () => (await youtube(page))?.state).toBe(1);
     const playing = await youtube(page);

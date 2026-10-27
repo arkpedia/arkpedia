@@ -1,3 +1,4 @@
+import { chooseMusicView, musicViewLink, openMusicMenu, clickMusicControl } from './music-navigation-helpers';
 import fs from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 import { stubYouTube, youtube } from './youtube-stub';
@@ -30,11 +31,11 @@ async function start(page: Page) {
   await expect.poll(async () => (await youtube(page))?.state).toBe(1);
 }
 
-test('1: fresh queue is empty; only chosen tracks enter it, optional autoplay persists separately', async ({ page }) => {
+test('1: queue count excludes played history during autoplay and shuffle', async ({ page }) => {
   await setup(page);
-  await nav(page).getByRole('link', { name: /^Queue/ }).click();
+  await chooseMusicView(page, /^Queue/);
   await expect(queueRows(page)).toHaveCount(0);
-  await expect(page.getByRole('heading', { name: 'Your queue', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: test.info().project.name === 'mobile' ? 'Queue' : 'Your queue', exact: true })).toBeVisible();
   const automatic = page.getByRole('region', { name: 'Autoplay from library', exact: true });
   await expect(automatic.getByRole('checkbox')).toBeChecked();
   await automatic.getByRole('button', { name: 'Autoplay from library', exact: true }).click();
@@ -46,27 +47,35 @@ test('1: fresh queue is empty; only chosen tracks enter it, optional autoplay pe
   await page.reload();
   await expect(automatic.getByRole('checkbox')).toBeChecked();
   await expect(queueRows(page)).toHaveCount(0);
-  await nav(page).getByRole('link', { name: 'Library', exact: true }).click();
+  await chooseMusicView(page, 'Library');
   await add(page, 1); await add(page, 2);
-  await nav(page).getByRole('link', { name: /^Queue/ }).click();
+  await chooseMusicView(page, /^Queue/);
   await expect(queueRows(page)).toHaveCount(2);
+  const badge = musicViewLink(page, /^Queue/).locator('.music-workspace-count');
+  await expect(badge).toContainText('2');
   expect(await queueRows(page).evaluateAll(rows => rows.map(row => (row as HTMLElement).dataset.songId))).toEqual([songs[1].videoId, songs[2].videoId]);
-  await bar(page).getByRole('button', { name: 'Play', exact: true }).click();
+  expect(await page.evaluate(() => innerWidth)).toBe(page.viewportSize()!.width);
+  await clickMusicControl(page, 'Play');
   await expect.poll(async () => (await youtube(page))?.videoId).toBe(songs[1].videoId);
-  await bar(page).getByRole('button', { name: 'Next track' }).click();
+  await expect(badge).toContainText('1');
+  await clickMusicControl(page, 'Next track');
   await expect.poll(async () => (await youtube(page))?.videoId).toBe(songs[2].videoId);
-  await bar(page).getByRole('button', { name: 'Next track' }).click();
+  await expect(badge).toHaveCount(0);
+  await clickMusicControl(page, 'Next track');
   await expect.poll(async () => (await youtube(page))?.videoId).toBe(songs[3].videoId);
-  await bar(page).getByRole('button', { name: 'Shuffle', exact: true }).click();
+  await expect(badge).toHaveCount(0);
+  await clickMusicControl(page, 'Shuffle');
   await page.getByRole('button', { name: /^Played earlier/ }).click();
   await expect(queueRows(page)).toHaveCount(2);
-  await nav(page).getByRole('link', { name: 'Library', exact: true }).click();
+  await expect(badge).toHaveCount(0);
+  await chooseMusicView(page, 'Library');
   await add(page, 0, 'Play next');
-  await bar(page).getByRole('button', { name: 'Next track' }).click();
+  await expect(badge).toContainText('1');
+  await clickMusicControl(page, 'Next track');
   await expect.poll(async () => (await youtube(page))?.videoId).toBe(letter.videoId);
-  await bar(page).getByRole('button', { name: 'Next track' }).click();
+  await clickMusicControl(page, 'Next track');
   await expect.poll(async () => (await youtube(page))?.videoId).toBe(songs[3].videoId);
-  await bar(page).getByRole('button', { name: 'Repeat: off', exact: true }).click();
+  await clickMusicControl(page, 'Repeat: off');
   const loads = (await youtube(page))!.calls.filter(([name]) => name === 'loadVideoById').length;
   await page.evaluate(() => (window as unknown as { __yt: { finish: () => void } }).__yt.finish());
   await expect.poll(async () => (await youtube(page))!.calls.filter(([name]) => name === 'loadVideoById').length).toBe(loads + 1);
@@ -75,11 +84,12 @@ test('1: fresh queue is empty; only chosen tracks enter it, optional autoplay pe
 
 test('2: playback is independently centered, with Shuffle beside Repeat on the right', async ({ page }) => {
   await setup(page); await start(page);
-  await nav(page).getByRole('link', { name: 'Now playing', exact: true }).click();
+  await chooseMusicView(page, 'Now playing');
   const widths = test.info().project.name === 'mobile' ? [320, 375, 390, 430] : [768, 1024, 1440];
   for (const width of widths) {
     await page.setViewportSize({ width, height: 844 });
-    const controls = await bar(page).locator('.music-player-bottombar-controls').boundingBox();
+    await expect(bar(page).locator('.music-player-bottombar-controls')).toHaveCSS('display', width >= 1000 ? 'contents' : 'grid');
+    const controls = await (width >= 1000 ? bar(page) : bar(page).locator('.music-player-bottombar-controls')).boundingBox();
     const playback = await bar(page).locator('.music-transport-playback').boundingBox();
     expect(Math.abs(playback!.x + playback!.width / 2 - controls!.x - controls!.width / 2)).toBeLessThan(2);
     const shuffle = await bar(page).getByRole('button', { name: 'Shuffle', exact: true }).boundingBox();
@@ -102,23 +112,54 @@ test('3: bottom Queue toggles to Now playing and back, including browser history
   expect((await youtube(page))!.calls.filter(([name]) => name === 'loadVideoById').length).toBe(before.calls.filter(([name]) => name === 'loadVideoById').length);
 });
 
-test('4: collapsed lyrics show three lines and expand/collapse preserves the active song', async ({ page }) => {
+test('4: desktop lyrics stay expanded and timed lines seek without moving the player', async ({ page }, info) => {
   await setup(page); await start(page);
-  await nav(page).getByRole('link', { name: 'Now playing', exact: true }).click();
-  await expect(page.locator('#music-lyrics .music-lyric-line')).toHaveCount(3);
-  await expect(page.locator('#music-lyrics .music-lyric-line').first()).toBeVisible();
-  await page.getByRole('button', { name: 'Expand lyrics', exact: true }).click();
-  await expect(page.locator('#music-lyrics .music-lyric-line')).toHaveCount(5);
-  await page.getByRole('button', { name: 'Collapse lyrics', exact: true }).click();
-  await expect(page.locator('#music-lyrics .music-lyric-line')).toHaveCount(3);
-  expect((await youtube(page))!.videoId).toBe(letter.videoId);
+  await chooseMusicView(page, 'Now playing');
+  const lines = page.locator('#music-lyrics .music-lyric-line:visible');
+  if (info.project.name === 'mobile') {
+    await expect(lines).toHaveCount(3);
+    await page.getByRole('button', { name: 'Expand lyrics', exact: true }).click();
+  } else {
+    await expect(page.getByRole('button', { name: /(?:Expand|Collapse) lyrics/ })).toBeHidden();
+    await expect.poll(async () => {
+      const panel = (await page.locator('#music-lyrics').boundingBox())!;
+      const art = (await page.locator('.music-now-playing-cover').boundingBox())!;
+      const next = (await page.locator('.music-up-next').boundingBox())!;
+      const wave = (await page.locator('.music-wave-visualizer').boundingBox())!;
+      const nextHeading = (await page.locator('.music-up-next-heading').boundingBox())!;
+      return Math.max(Math.abs(panel.y - art.y), Math.abs(next.x + next.width - art.x - art.width), Math.abs(wave.y + wave.height / 2 - nextHeading.y - nextHeading.height / 2));
+    }).toBeLessThan(2);
+    expect((await page.locator('#music-lyrics').boundingBox())!.height, 'short lyrics fit their content').toBeLessThan(330);
+    const spacing = await lines.first().evaluate(el => ({ margin: parseFloat(getComputedStyle(el).marginBottom), height: el.getBoundingClientRect().height }));
+    expect(spacing.margin).toBeLessThanOrEqual(8);
+    expect(spacing.height + spacing.margin).toBeLessThan(56);
+  }
+  await expect(lines).toHaveCount(5);
+  const before = (await page.locator('.music-up-next').boundingBox())!.y + await page.evaluate(() => scrollY);
+  const loadCount = (await youtube(page))!.calls.filter(([call]) => call === 'loadVideoById').length;
+  await page.getByRole('button', { name: 'Seek to 0:20: Lyric at 20', exact: true }).click();
+  await expect.poll(async () => (await youtube(page))!.calls.filter(([call]) => call === 'seekTo').at(-1)?.[1]).toBe(20);
+  await expect.poll(async () => (await youtube(page))!.time).toBeGreaterThanOrEqual(20);
+  await page.getByRole('button', { name: 'Seek to 0:10: Lyric at 10', exact: true }).focus();
+  await page.keyboard.press('Enter');
+  await expect.poll(async () => (await youtube(page))!.calls.filter(([call]) => call === 'seekTo').at(-1)?.[1]).toBe(10);
+  expect((await youtube(page))!.calls.filter(([call]) => call === 'loadVideoById')).toHaveLength(loadCount);
+  expect(Math.abs((await page.locator('.music-up-next').boundingBox())!.y + await page.evaluate(() => scrollY) - before)).toBeLessThan(2);
+  if (info.project.name === 'mobile') {
+    await page.getByRole('button', { name: 'Collapse lyrics', exact: true }).click();
+    await expect(lines).toHaveCount(3);
+    await bar(page).getByRole('link', { name: 'Lyrics', exact: true }).click();
+    await expect(lines).toHaveCount(5);
+  }
+  await expect(page.locator('.music-up-next-list > li')).toHaveCount(1);
+  expect(await page.locator('#music-lyrics').evaluate(el => { const s = getComputedStyle(el); return [s.scrollbarWidth, s.backgroundColor, s.borderTopWidth]; })).toEqual(['none', 'rgba(0, 0, 0, 0)', '0px']);
   fs.mkdirSync('.cache/music-polish-qa', { recursive: true });
-  await page.screenshot({ path: `.cache/music-polish-qa/lyrics-${test.info().project.name}.png` });
+  await page.screenshot({ path: `.cache/music-polish-qa/lyrics-${info.project.name}.png` });
 });
 
 test('5: compact header and queue gutters prioritize phone titles', async ({ page }) => {
   await setup(page); await start(page); await add(page, 1);
-  await nav(page).getByRole('link', { name: /^Queue/ }).click();
+  await chooseMusicView(page, /^Queue/);
   if (test.info().project.name === 'mobile') {
     const header = await page.locator('.page-header').boundingBox();
     expect(header!.height).toBeLessThan(100);
@@ -134,15 +175,15 @@ test('5: compact header and queue gutters prioritize phone titles', async ({ pag
 
 test('6: Repeat all preview and next wrap to the same first chosen song', async ({ page }) => {
   await setup(page); await start(page); await add(page, 1); await add(page, 2);
-  await bar(page).getByRole('button', { name: 'Next track' }).click();
+  await clickMusicControl(page, 'Next track');
   await expect.poll(async () => (await youtube(page))?.videoId).toBe(songs[1].videoId);
-  await bar(page).getByRole('button', { name: 'Next track' }).click();
+  await clickMusicControl(page, 'Next track');
   await expect.poll(async () => (await youtube(page))?.videoId).toBe(songs[2].videoId);
-  await bar(page).getByRole('button', { name: 'Repeat: off', exact: true }).click();
-  await bar(page).getByRole('button', { name: 'Repeat: one', exact: true }).click();
-  await nav(page).getByRole('link', { name: 'Now playing', exact: true }).click();
+  await clickMusicControl(page, 'Repeat: off');
+  await clickMusicControl(page, 'Repeat: one');
+  await chooseMusicView(page, 'Now playing');
   await expect(page.locator('.music-up-next-row .music-song-row-title').first()).toHaveText(letter.altTitle || letter.title);
-  await bar(page).getByRole('button', { name: 'Next track' }).click();
+  await clickMusicControl(page, 'Next track');
   await expect.poll(async () => (await youtube(page))?.videoId).toBe(letter.videoId);
 });
 
@@ -161,8 +202,8 @@ test('7: volume is horizontal and contained on desktop, hidden on phones', async
 test('8: all music views reserve measured safe clearance above the fixed bar', async ({ page }) => {
   await setup(page); await start(page);
   for (const name of ['Now playing', 'Library', 'Queue', 'Discover']) {
-    await nav(page).getByRole('link', { name: new RegExp(`^${name}`) }).click();
-    await expect(nav(page).getByRole('link', { name: new RegExp(`^${name}`) })).toHaveAttribute('aria-current', 'page');
+    await chooseMusicView(page, new RegExp(`^${name}`));
+    await expect(musicViewLink(page, new RegExp(`^${name}`))).toHaveAttribute('aria-current', 'page');
     await expect(bar(page)).toBeVisible();
     await expect.poll(() => page.locator('main').evaluate(el => parseFloat(getComputedStyle(el).paddingBottom))).toBeGreaterThan((await bar(page).boundingBox())!.height);
     if (name === 'Queue' || name === 'Library') {
@@ -194,13 +235,13 @@ test('8: all music views reserve measured safe clearance above the fixed bar', a
 test('9: localized title stays identical across Now playing, Queue and both bars after time and navigation', async ({ page }) => {
   await setup(page); await start(page);
   const title = letter.altTitle || letter.title;
-  await nav(page).getByRole('link', { name: 'Now playing', exact: true }).click();
+  await chooseMusicView(page, 'Now playing');
   await expect(page.locator('.music-now-playing-song-info h2')).toHaveText(title);
   await expect(bar(page).locator('.music-transport-song-title')).toHaveText(title);
-  await nav(page).getByRole('link', { name: /^Queue/ }).click();
+  await chooseMusicView(page, /^Queue/);
   await expect(queueRows(page).first().locator('.music-song-row-main')).toContainText(title);
   await expect(bar(page).locator('.music-transport-song-title')).toHaveText(title);
-  await nav(page).getByRole('link', { name: 'Discover', exact: true }).click();
+  await chooseMusicView(page, 'Discover');
   await expect(bar(page).locator('.music-transport-song-title')).toHaveText(title);
   await page.waitForTimeout(8500);
   await expect(bar(page).locator('.music-transport-song-title')).toHaveText(title);
@@ -209,7 +250,7 @@ test('9: localized title stays identical across Now playing, Queue and both bars
 test('a song kept out of autoplay leaves the autoplay list, is never picked, and can be let back', async ({ page }) => {
   await setup(page);
   const mobile = test.info().project.name === 'mobile';
-  await nav(page).getByRole('link', { name: /^Queue/ }).click();
+  await chooseMusicView(page, /^Queue/);
   const automatic = page.getByRole('region', { name: 'Autoplay from library', exact: true });
   await expect(automatic.getByRole('checkbox'), 'autoplay is on by default').toBeChecked();
   await automatic.getByRole('button', { name: 'Autoplay from library', exact: true }).click();
@@ -227,12 +268,69 @@ test('a song kept out of autoplay leaves the autoplay list, is never picked, and
   await automatic.getByRole('button', { name: 'Autoplay from library', exact: true }).click();
   await expect(rows, 'kept out across a reload').toHaveCount(3);
   // Still the reader's to play: the library row shows it kept out, and plays it when chosen.
-  await nav(page).getByRole('link', { name: 'Library', exact: true }).click();
+  await chooseMusicView(page, 'Library');
   const libraryOut = page.locator(`.music-library-row[data-song-id="${out}"]`);
   if (!mobile) await expect(libraryOut.getByRole('button', { name: /^Don't autoplay:/ })).toHaveAttribute('aria-pressed', 'true');
   await libraryOut.locator('.music-song-row-main').click();
   await expect.poll(async () => (await youtube(page))?.videoId).toBe(out);
-  await nav(page).getByRole('link', { name: /^Queue/ }).click();
+  await chooseMusicView(page, /^Queue/);
   await automatic.getByRole('button', { name: 'Let it back', exact: true }).click();
   await expect(automatic.getByText(/kept out of autoplay/)).toHaveCount(0);
+});
+
+
+test('lyrics follow successive lines; mobile navigation fits without a horizontal drag', async ({ page }) => {
+  await setup(page);
+  await page.route(new RegExp(`/lyrics/${letter.videoId}\\.json`), route => route.fulfill({ json: Array.from({ length: 30 }, (_, i) => ({ time: i * 10, text: `Sung line ${i}` })) }));
+  await start(page);
+  await chooseMusicView(page, 'Now playing');
+  const mobile = test.info().project.name === 'mobile';
+  if (mobile) await page.getByRole('button', { name: 'Expand lyrics', exact: true }).click();
+  const panel = page.locator('#music-lyrics');
+  for (const time of [100, 150]) {
+    await page.evaluate(time => {
+      const player = (window as unknown as { __yt: { start: number; startedAt: number } }).__yt;
+      player.start = time; player.startedAt = Date.now();
+    }, time);
+    await expect(panel.locator('.active')).toHaveText(`Sung line ${time / 10}`);
+    await expect.poll(() => panel.evaluate(el => {
+      const line = el.querySelector('.active')!.getBoundingClientRect();
+      const box = el.getBoundingClientRect();
+      return Math.abs((line.top + line.bottom) / 2 - (box.top + box.bottom) / 2);
+    })).toBeLessThan(8);
+  }
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await expect.poll(() => panel.locator('.active').evaluate(el => getComputedStyle(el).transitionDuration)).toBe('0s');
+  for (const theme of ['dark', 'light']) {
+    await page.evaluate(theme => document.documentElement.dataset.theme = theme, theme);
+    for (const width of mobile ? [360, 412] : [1000, 1440]) {
+      await page.setViewportSize({ width, height: 1000 });
+      await page.evaluate(() => window.scrollTo(0, 0));
+      if (mobile) {
+        expect((await page.locator('.page-header').boundingBox())!.height).toBeLessThanOrEqual(80);
+        await openMusicMenu(page);
+      }
+      const bounds = await nav(page).evaluate(el => {
+        const box = el.getBoundingClientRect();
+        return { width: el.clientWidth, scroll: el.scrollWidth, links: Array.from(el.querySelectorAll('a')).map(link => {
+          const r = link.getBoundingClientRect();
+          return { fits: r.left >= box.left && r.right <= box.right, height: r.height };
+        }) };
+      });
+      expect(bounds.scroll).toBeLessThanOrEqual(bounds.width);
+      expect(bounds.links.every(link => link.fits && link.height >= (mobile ? 40 : 32))).toBe(true);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      await page.screenshot({ path: `.cache/music-polish-qa/player-${width}-${theme}.png` });
+      if (mobile) {
+        await page.keyboard.press('Escape');
+        await expect(page.getByRole('button', { name: 'Music menu', exact: true })).toBeFocused();
+        await expect(page.getByRole('dialog', { name: 'Music', exact: true })).not.toBeVisible();
+        await page.screenshot({ path: `.cache/music-polish-qa/player-${width}-${theme}-closed.png` });
+      }
+    }
+  }
+  await chooseMusicView(page, /^Queue/);
+  await page.goBack();
+  await expect(page).toHaveURL(/view=player/);
+  expect((await youtube(page))!.videoId).toBe(letter.videoId);
 });

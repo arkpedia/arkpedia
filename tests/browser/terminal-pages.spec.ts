@@ -42,7 +42,7 @@ test('Stronghold section tabs stay clickable once the lookup bar pins under the 
   // UC-01: .gm-lookup was sticky at top:0, under the fixed site nav, so once pinned
   // elementFromPoint at every tab answered with the nav -- 0 of 7 clickable at 1440,
   // the first row hidden at 390.
-  await page.goto('/gamemodes/stronghold-protocol');
+  await page.goto("/game-modes/stronghold-protocol");
   const tabs = page.locator('.gm-lookup [role="tab"]');
   await expect(tabs.first()).toBeVisible();
   await page.evaluate(() => window.scrollTo({ top: 3000, behavior: 'instant' }));
@@ -440,7 +440,7 @@ test('a stage\'s forms are tab-look links and its Emergency Ops switch is the si
 });
 
 test('each terminal page has one h1, in a page header that lines up with its content', async ({ page }) => {
-  for (const route of ['/stages', '/stages/score', '/stages/all', '/gamemodes', '/enemies', '/techniques', '/synergies']) {
+  for (const route of ['/stages', '/stages/score', '/stages/all', "/game-modes", '/enemies', '/techniques', '/synergies']) {
     await page.goto(route);
     await expect(page.locator('h1'), `${route}: one h1`).toHaveCount(1);
     const edges = await page.evaluate(() => {
@@ -553,7 +553,7 @@ test.describe('state changes near the foot of a page do not move what was presse
   });
 
   test('Stronghold: narrowing the list keeps the pinned lookup bar where it is', async ({ page }) => {
-    await page.goto('/gamemodes/stronghold-protocol');
+    await page.goto("/game-modes/stronghold-protocol");
     await page.evaluate(() => window.scrollTo({ top: 4000, behavior: 'instant' }));
     await page.waitForTimeout(900);
     const bar = page.locator('.gm-lookup');

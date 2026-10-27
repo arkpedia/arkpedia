@@ -17,7 +17,32 @@ import OPERATOR_DEPLOY from '../../public/operator-deploy.json';
 import { getFactionIconPath } from '../../lib/operators/classBranchIcons';
 import { getAllOperators } from '../../lib/operators/operators';
 import { traitPhases } from '../../lib/operators/operatorTrait';
-import { buildGachaOperatorPreview } from '../../lib/gacha/operatorPreviewData';
+import { buildGachaOperatorPreview, operatorPreviewSource } from '../../lib/gacha/operatorPreviewData';
+
+test('account preview uses Nian E2 level 70, all M3 skills and both stage-three modules', () => {
+  const nian = JSON.parse(fs.readFileSync('data/operators-6star/Nian.json', 'utf8')) as Operator;
+  const source = operatorPreviewSource(nian);
+  const preview = buildGachaOperatorPreview(source, {elite:2,level:70,skillLevel:7,masteries:{0:3,1:3,2:3},modules:{0:2,1:2}});
+  assert.equal(preview.stats?.level, 70);
+  assert.deepEqual(preview.stats?.values, getBaseStats(nian.stats!.phases.find(phase => phase.elite === 2)!, 70));
+  assert.deepEqual(preview.skills.map(skill => skill.rank), ['M3','M3','M3']);
+  assert.deepEqual(preview.modules.filter(module => module.type === 'Upgrade').map(module => module.stages.length), [3,3]);
+  assert.equal(buildGachaOperatorPreview(nian).stats?.level, 90, 'reference previews retain maximum progression');
+});
+
+test('friend progression is independent and preserves partial mastery and stage-one module ownership', () => {
+  const nian = JSON.parse(fs.readFileSync('data/operators-6star/Nian.json', 'utf8')) as Operator;
+  const preview = buildGachaOperatorPreview(operatorPreviewSource(nian), {elite:2,level:40,skillLevel:7,masteries:{1:1},modules:{1:0}});
+  assert.equal(preview.stats?.level, 40);
+  assert.deepEqual(preview.skills.map(skill => skill.rank), ['Lv 7','M1','Lv 7']);
+  assert.deepEqual(preview.modules.filter(module => module.type === 'Upgrade').map(module => [module.name,module.stages.length]), [[nian.modules![2].name,1]]);
+  const unbuilt = buildGachaOperatorPreview(nian, {elite:0,level:1,skillLevel:1,masteries:{}});
+  assert.equal(unbuilt.stats?.elite, 0);
+  assert.equal(unbuilt.skills.length, 1);
+  assert.equal(unbuilt.skills[0].rank, 'Lv 1');
+  assert.equal(unbuilt.talents.length, 0);
+  assert.equal(unbuilt.modules.filter(module => module.type === 'Upgrade').length, 0);
+});
 
 const operators: Operator[] = [1, 2, 3, 4, 5, 6].flatMap(star => {
   const dir = `data/operators-${star}star`;

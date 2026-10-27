@@ -300,6 +300,9 @@ export default function OperatorVoiceLines({ data }: { data: OperatorVoiceData }
       return box.bottom > seenFrom + 1 && box.top < viewBottom - 1;
     });
     const row = onScreen.find(item => item.dataset.lineId === selected?.id && kept.has(item.dataset.lineId))
+      // A sliver above the first readable line can become entirely hidden when
+      // the replacement text is shorter. Anchor the first complete line instead.
+      ?? onScreen.find(item => item.getBoundingClientRect().top >= seenFrom - 1 && kept.has(item.dataset.lineId ?? ''))
       ?? onScreen.find(item => kept.has(item.dataset.lineId ?? ''));
     const place: HeldPlace = { scroller, scrollTop: scroller.scrollTop };
     const box = list.getBoundingClientRect();

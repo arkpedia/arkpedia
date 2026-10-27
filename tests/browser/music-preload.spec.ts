@@ -1,3 +1,4 @@
+import { chooseMusicView, clickMusicControl, openPlayerActions } from './music-navigation-helpers';
 import { expect, test, type Page } from '@playwright/test';
 import { signedHeads, stubMonsterSiren, WAV_SECONDS } from './monster-siren-stub';
 import { stubYouTube } from './youtube-stub';
@@ -93,7 +94,7 @@ test('pause retains a prepared file, and Clear queue releases it without interru
   const ready = (await prepared(page))[0];
   await bar(page).getByRole('button', { name: 'Pause', exact: true }).click();
   expect(await released(page)).not.toContain(ready);
-  await page.getByRole('navigation', { name: 'Music' }).getByRole('link', { name: /^Queue/ }).click();
+  await chooseMusicView(page, /^Queue/);
   await page.getByRole('button', { name: 'Clear queue', exact: true }).click();
   await expect.poll(() => released(page)).toContain(ready);
   await expect(audio(page)).toHaveAttribute('src', `/api/music-audio/${first.cid}`);
@@ -140,7 +141,7 @@ test('an unfinished direct download never delays Next, and old relay preferences
   });
   await select(page, first, true); await select(page, second);
   await expect.poll(() => waiting).toBe(true);
-  await bar(page).getByRole('button', { name: 'Next track', exact: true }).click();
+  await clickMusicControl(page, 'Next track');
   await expect(audio(page)).toHaveAttribute('src', `/api/music-audio/${second.cid}`);
   await expect.poll(() => audio(page).evaluate(el => (el as HTMLAudioElement).currentTime)).toBeGreaterThan(0.1);
   await select(page, third);
@@ -156,8 +157,8 @@ test('an unfinished direct download never delays Next, and old relay preferences
 test('shuffle prepares its actual next row; Repeat one discards it and Repeat all wraps to the first song', async ({ page }) => {
   const { songs: [first, second, third] } = await setup(page);
   await select(page, first, true); await select(page, second); await select(page, third);
-  await bar(page).getByRole('button', { name: 'Shuffle', exact: true }).click();
-  await page.getByRole('navigation', { name: 'Music' }).getByRole('link', { name: /^Queue/ }).click();
+  await clickMusicControl(page, 'Shuffle');
+  await chooseMusicView(page, /^Queue/);
   const nextId = await page.locator('.music-queue-row').nth(1).getAttribute('data-song-id');
   await expect.poll(() => prepared(page)).not.toHaveLength(0);
   // Whichever shuffle chose, automatic playback must consume a prepared file for that row.
@@ -166,7 +167,7 @@ test('shuffle prepares its actual next row; Repeat one discards it and Repeat al
   await expect(audio(page)).toHaveAttribute('src', /^blob:/);
   await expect.poll(() => upcoming(page)).toHaveLength(1);
   const discarded = (await upcoming(page))[0];
-  await bar(page).getByRole('button', { name: 'Repeat: off', exact: true }).click();
+  await clickMusicControl(page, 'Repeat: off');
   await expect.poll(() => released(page)).toContain(discarded);
   const before = (await prepared(page)).length;
   await finish(page);
@@ -174,8 +175,8 @@ test('shuffle prepares its actual next row; Repeat one discards it and Repeat al
   await expect(page.locator(`.music-queue-row[data-song-id="${nextId}"]`)).toHaveClass(/\bcurrent\b/);
   expect(await prepared(page)).toHaveLength(before);
   // Leave one queued successor and verify Repeat all prepares the first after reaching the end.
-  await bar(page).getByRole('button', { name: 'Shuffle', exact: true }).click();
-  await bar(page).getByRole('button', { name: 'Repeat: one', exact: true }).click();
+  await clickMusicControl(page, 'Shuffle');
+  await clickMusicControl(page, 'Repeat: one');
   // Play next inserted third before second, so second is the end of the unshuffled queue.
   await page.getByRole('searchbox', { name: 'Search the queue' }).fill(second.altTitle || second.title);
   await page.locator(`.music-queue-row[data-song-id="${second.videoId}"] .music-song-row-main`).click();
@@ -193,7 +194,7 @@ test('enabling Data saver releases the upcoming file and leaves only the chosen 
   await select(page, first, true); await select(page, second);
   await expect.poll(() => prepared(page)).toHaveLength(1);
   const ready = (await prepared(page))[0];
-  await bar(page).getByRole('button', { name: 'More player actions', exact: true }).click();
+  await openPlayerActions(page);
   await page.getByRole('dialog', { name: 'Player actions', exact: true }).getByRole('checkbox', { name: 'Data saver', exact: true }).check();
   await expect.poll(() => released(page)).toContain(ready);
   await expect(audio(page)).not.toHaveAttribute('src');
@@ -204,7 +205,7 @@ test('Autoplay prepares the same next library song that plays after the chosen q
   await page.addInitScript(() => { Math.random = () => 0.999999; });
   const { siren, songs: [first, second] } = await setup(page);
   await select(page, first, true);
-  await page.getByRole('navigation', { name: 'Music' }).getByRole('link', { name: /^Queue/ }).click();
+  await chooseMusicView(page, /^Queue/);
   await page.getByRole('region', { name: 'Autoplay from library' }).getByRole('checkbox', { name: 'On', exact: true }).check();
   await expect.poll(() => prepared(page)).toHaveLength(1);
   expect([...new Set(siren.resolves)]).toEqual([first.cid, second.cid]);
@@ -242,7 +243,7 @@ test('the next song\'s signed address is asked for ahead, and Next plays it in t
     && (entry as PerformanceResourceTiming).initiatorType === 'fetch' && (entry as PerformanceResourceTiming).responseEnd > 0), second.cid);
   const asked = siren.resolves.length;
   siren.delayFilesMs = 0;
-  await bar(page).getByRole('button', { name: 'Next track', exact: true }).click();
+  await clickMusicControl(page, 'Next track');
   await expect(audio(page)).toHaveAttribute('src', new RegExp(`^https://res01\\.hycdn\\.cn/5{32}/[0-9A-F]{8}${file.replace(/\./g, '\\.')}$`));
   await expect.poll(() => audio(page).evaluate(el => (el as HTMLAudioElement).currentTime)).toBeGreaterThan(0.1);
   expect(siren.resolves.slice(asked).filter(cid => cid === second.cid), 'the route was not asked at the press').toEqual([]);

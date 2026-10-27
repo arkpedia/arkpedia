@@ -10,7 +10,7 @@ import { musicTabCheck } from './music-tab-checks';
 /** The goal list the maintainer named: /pulls with a banner planned (row-alignment.spec.ts
  *  plans one the same way, by address). */
 const PULLS_GOAL: CensusState = {
-  id: 'pulls with a banner goal', route: '/pulls',
+  id: 'pulls with a banner goal', route: "/pull-planner",
   act: async (page) => {
     const name = await page.evaluate(() => {
       const odds = (window as unknown as { __NEXT_DATA__: { props: { pageProps: { bannerOdds: Record<string, { type: string }> } } } }).__NEXT_DATA__.props.pageProps.bannerOdds;
@@ -26,5 +26,5 @@ const PULLS_GOAL: CensusState = {
 test('the collapsed music tab on /pulls with a banner goal meets no text or control', async ({ page }, info) => {
   test.skip(info.project.name !== 'mobile', 'the tab is the phone layout (900px and under); over it the tile is unchanged');
   await openCensus(page, PULLS_GOAL);
-  await musicTabCheck(page, '/pulls (pulls with a banner goal)', '/pulls');
+  await musicTabCheck(page, '/pulls (pulls with a banner goal)', "/pull-planner");
 });

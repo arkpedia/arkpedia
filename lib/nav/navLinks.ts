@@ -16,6 +16,13 @@ export interface NavLink {
 }
 
 export const LINKS: NavLink[] = [
+  { href: '/about', label: 'About Arkpedia', icon: 'about' },
+  { href: '/privacy', label: 'Privacy notice', icon: 'privacy' },
+  { href: '/cookies', label: 'Cookies & privacy choices', icon: 'cookies' },
+  { href: '/techniques', label: 'Techniques', icon: 'techniques' },
+  { href: '/synergies', label: 'Synergies', icon: 'synergies' },
+  { href: '/obtain-method', label: 'Obtain method', icon: 'obtain' },
+  { href: '/community/projects', label: 'Community projects', icon: 'projects' },
   { href: '/operators', label: 'Operators', icon: 'roster' },
   { href: '/artists', label: 'Artists', icon: 'palette' },
   { href: '/voice-actors', label: 'Voice Actors', icon: 'microphone' },
@@ -33,25 +40,24 @@ export const LINKS: NavLink[] = [
      page that no redirect matches. */
   { href: '/enemies', label: 'Enemies', icon: 'enemies' },
   { href: '/story', label: 'Story', icon: 'story' },
-  { href: '/gamemodes', label: 'Game Modes', icon: 'grid' },
+  { href: '/manga', label: 'Manga', icon: 'story' },
+  { href: "/game-modes", label: 'Game Modes', icon: 'grid' },
   { href: '/base', label: 'Base', icon: 'base' },
-  /* Always "Import Account", import or not: a menu entry whose name changed once you had
-     imported read as a different page (2026-10-03). */
-  { href: '/account', label: 'Import Account', icon: 'roster' },
+  { href: '/account', label: 'My account', icon: 'roster' },
   { href: "/reward-tracker", label: 'Reward Tracker', icon: 'prime' },
-  { href: '/planner', label: 'Operator Planner', icon: 'planner' },
-  { href: '/pulls', label: 'Pull Planner', icon: 'calculator' },
+  { href: "/operator-planner", label: 'Operator Planner', icon: 'planner' },
+  { href: "/pull-planner", label: 'Pull Planner', icon: 'calculator' },
   { href: '/skin-planner', label: 'Skin Planner', icon: 'skins' },
-  { href: '/community', label: 'World', icon: 'community' },
-  { href: '/friends', label: 'Import a Friend', icon: 'roster' },
-  { href: '/gacha', label: 'Gacha', icon: 'gacha' },
+  { href: "/world", label: 'World', icon: 'world' },
+  { href: '/friends', label: 'Friends', icon: 'roster' },
+  { href: "/gacha-simulator", label: 'Gacha Simulator', icon: 'gacha' },
   { href: '/recruitment', label: 'Recruitment', icon: 'recruitment' },
-  { href: '/selector-tickets', label: 'Selector Tickets', icon: 'gacha' },
-  { href: '/results', label: 'Power Scale', icon: 'rate' },
+  { href: '/selector-tickets', label: 'Selector Tickets', icon: 'selector' },
+  { href: "/polls/power-scale", label: 'Power Scale', icon: 'rate' },
   { href: '/games', label: 'Games', icon: 'grid' },
   { href: '/schedule', label: 'Schedule', icon: 'timeline' },
   { href: '/music', label: 'Music', icon: 'music' },
-  { href: '/changelog', label: "What's new", icon: 'changelog' },
+  { href: "/whats-new", label: "What's new", icon: 'changelog' },
   { href: '/credits', label: 'Credits', icon: 'credits' },
   { href: '/support', label: 'Support', icon: 'support' },
 ];
@@ -74,6 +80,7 @@ export interface NavGroup {
   id: string;
   label: string;
   items: NavLink[];
+  dividersAfter?: string[];
 }
 
 const at = (href: string): NavLink => {
@@ -83,11 +90,14 @@ const at = (href: string): NavLink => {
 };
 
 export const GROUPS: NavGroup[] = [
-  { id: 'database', label: 'Database', items: [at('/operators'), at('/skins'), at('/enemies'), at('/stages'), at('/story'), at('/artists'), at('/voice-actors')] },
-  { id: 'guides', label: 'Guides', items: [at('/farming'), at('/gamemodes'), at('/base'), at('/recruitment'), at('/gacha'), at('/selector-tickets')] },
-  /* The reader's own: their account, and the planners that read it (issue #94). */
-  { id: 'own', label: 'Planner', items: [at('/account'), at("/reward-tracker"), at('/planner'), at('/skin-planner'), at('/pulls')] },
-  { id: 'community', label: 'Community', items: [at('/friends'), at('/results'), at('/games'), at('/community'), at('/music'), at('/changelog'), at('/credits')] },
+  { id: 'database', label: 'Database', dividersAfter: ['/obtain-method', '/manga'], items: [
+    at('/operators'), at('/skins'), at('/synergies'), at('/techniques'), at('/obtain-method'),
+    at('/enemies'), at('/stages'), at('/story'), at('/manga'), at('/artists'), at('/voice-actors'),
+  ] },
+  { id: 'guides', label: 'Guides', items: [at('/farming'), at('/base'), at('/recruitment'), at("/gacha-simulator"), at('/selector-tickets'), at("/game-modes")] },
+  { id: 'own', label: 'Planner', items: [at("/operator-planner"), at("/pull-planner"), at('/skin-planner'), at("/reward-tracker")] },
+  { id: 'community', label: 'Community', items: [at('/community/projects'), at("/world"), at("/polls/power-scale"), at('/music'), at('/games')] },
+  { id: 'about', label: 'About', items: [at('/about'), at("/whats-new"), at('/credits'), at('/support')] },
 ];
 
 /* Not in a menu: one destination each, and a menu of one is a click in front of a
@@ -95,11 +105,12 @@ export const GROUPS: NavGroup[] = [
    it alone in Planning. Schedule joined them when the Events list became a view of the
    Schedule page rather than a page of its own, which left that menu holding one thing
    too. */
-export const LOOSE: NavLink[] = [at('/schedule'), at('/support')];
+export const LOOSE: NavLink[] = [at('/schedule')];
 
 /**
  * Every destination the bar shows, in the order it shows them: each menu's contents in
- * menu order, then the loose links. The mobile drawer renders this rather than LINKS,
+ * menu order, then loose and profile utility links. Search uses this complete list.
+ * Both navigation layouts derive their menus from GROUPS rather than LINKS,
  * which is a registry in no particular order -- the drawer used to list Operators,
  * Skins, Events, Farming, Stages... while the bar read Operators, Skins, Enemies,
  * Stages, so the two navs disagreed about where everything was.
@@ -107,12 +118,14 @@ export const LOOSE: NavLink[] = [at('/schedule'), at('/support')];
  * Derived, not written out again. A second hand-maintained list is a second thing to
  * forget when an entry moves between menus.
  */
-export const NAV_ORDER: NavLink[] = [...GROUPS.flatMap((g) => g.items), ...LOOSE];
+export const PROFILE_LINKS = [at('/account'), at('/friends')];
+export const NAV_ORDER: NavLink[] = [...GROUPS.flatMap((g) => g.items), ...LOOSE, ...PROFILE_LINKS];
 
 /* Rows that are in LINKS on purpose while appearing in neither nav. Events is the only
    one: the events LIST is a view of the Schedule page now, and this row survives so
    isActiveLink can light Schedule on the /events/<slug> detail pages that still exist. */
-const NOT_IN_NAV = new Set<string>(['/events']);
+// Privacy documents remain reachable from privacy settings and existing bookmarks.
+const NOT_IN_NAV = new Set<string>(['/events', '/privacy', '/cookies']);
 
 /* A row that is in no menu, no loose slot and not named above renders nowhere at all,
    in either nav, and nothing else would say so. Same reasoning as at() above: fail the
@@ -135,6 +148,7 @@ if (orphanLinks.length > 0) {
  * disagreed with the desktop nav about which entry was lit.
  */
 export function isActiveLink(link: NavLink, pathname: string): boolean {
+  if (link.href === "/world") return pathname === "/world";
   if (link.href === '/games') return isGamePath(pathname);
   const section = link.href;
   return pathname === section || (section !== '/' && pathname.startsWith(`${section}/`));

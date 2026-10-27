@@ -303,3 +303,11 @@
     50% { opacity: 0.2; }
   }
 }
+
+@media (prefers-reduced-motion: no-preference) {
+  .music-lyric-line { transition: color 0.5s ease, transform 0.5s ease; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .music-view:not(.music-player-pulling) > .music-now-playing { transition: transform 0.25s ease-out; }
+}

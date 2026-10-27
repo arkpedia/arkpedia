@@ -1,3 +1,4 @@
+import { chooseMusicView, openMusicMenu, openPlayerActions } from './music-navigation-helpers';
 import { expect, test, type Page } from '@playwright/test';
 import { stubYouTube } from './youtube-stub';
 
@@ -14,7 +15,8 @@ async function catalogue(page: Page): Promise<Row[]> {
   return (await (await page.request.get('/music-catalogue.json')).json()).songs;
 }
 const idOf = (row: Row) => row.videoId || `msr:${row.cid}`;
-const setting = (page: Page) => page.locator('.page-header').getByRole('checkbox', { name: 'Endfield music', exact: true });
+const setting = (page: Page) => page.locator(test.info().project.name === 'mobile' ? '.music-phone-settings input[type=checkbox]' : '.page-header input[type=checkbox]');
+async function changeSetting(page: Page, checked: boolean) { await openMusicMenu(page); await setting(page).setChecked(checked); }
 
 test('Endfield music is off until ticked, then joins the Library, and the choice is kept', async ({ page }) => {
   await stubYouTube(page);
@@ -33,13 +35,13 @@ test('Endfield music is off until ticked, then joins the Library, and the choice
   const row = page.locator(`.music-all-songs-list [data-song-id="${idOf(song)}"]`);
   await expect(row).toHaveCount(0);
 
-  await setting(page).check();
+  await changeSetting(page, true);
   await expect(heading).toContainText(`${all.size} songs`);
   await expect(row).toBeVisible();
 
   await page.reload();
   await expect(setting(page)).toBeChecked();
-  await setting(page).uncheck();
+  await changeSetting(page, false);
   await expect(heading).toContainText(`${arknights.size} songs`);
   expect(await page.locator('body').evaluate((el) => el.scrollWidth <= window.innerWidth)).toBe(true);
 });
@@ -64,6 +66,7 @@ test('a saved playlist plays its Endfield songs only once the setting is on, and
   const endfield = rows.find((row) => row.game === 'endfield')!;
   const arknights = rows.find((row) => row.game !== 'endfield' && row.videoId)!;
   await page.goto('/music?view=queue');
+  await openMusicMenu(page);
   await page.getByRole('button', { name: 'Playlists', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Music playlists' });
   const file = { kind: 'arkpedia-music-playlists', version: 1, playlists: [{ id: 'mixed', name: 'Both games', tracks: [arknights.videoId, endfield.videoId] }] };
@@ -74,12 +77,13 @@ test('a saved playlist plays its Endfield songs only once the setting is on, and
   await dialog.getByRole('button', { name: 'Play playlist', exact: true }).click();
   await expect(dialog.getByRole('status')).toContainText('hidden by Stream-safe or the Endfield music setting');
   await dialog.getByRole('button', { name: 'Close Music playlists', exact: true }).click();
+  await chooseMusicView(page, /^Queue/);
   const queueRow = (id: string) => page.locator(`.music-queue-row[data-song-id="${id}"]`);
   await expect(queueRow(arknights.videoId!)).toBeVisible();
   await expect(queueRow(endfield.videoId!)).toHaveCount(0);
 
   // The bar's ⋯ menu: the same setting, so the corner player on any page reaches it.
-  await page.getByRole('region', { name: 'Player', exact: true }).getByRole('button', { name: 'More player actions', exact: true }).click();
+  await openPlayerActions(page);
   const menu = page.getByRole('dialog', { name: 'Player actions', exact: true });
   // Clicked, not checked: on a touch screen the background-play pop-up opens and takes the focus,
   // so the menu closes behind it.
@@ -87,6 +91,7 @@ test('a saved playlist plays its Endfield songs only once the setting is on, and
   await expect(setting(page)).toBeChecked();
   if (await popUp(page).isVisible()) await popUp(page).getByRole('button', { name: 'OK', exact: true }).click();
   else await page.keyboard.press('Escape');
+  await chooseMusicView(page, /^Queue/);
   // Only the playlist's own Endfield song comes in, after what was there.
   await expect(queueRow(endfield.videoId!)).toBeVisible();
   await expect(page.locator('.music-queue-row')).toHaveCount(2);
@@ -99,19 +104,21 @@ const BACKGROUND_NOTE = 'Endfield songs play from YouTube, so background play on
 
 test('the header\'s Endfield music ⓘ says background play on phones may not work properly, and opening it moves nothing', async ({ page }) => {
   await page.goto('/music/discover');
-  const header = page.locator('.page-header');
+  await page.evaluate(() => document.fonts.ready);
+  await openMusicMenu(page);
+  const header = page.locator(test.info().project.name === 'mobile' ? '.music-nav-dropdown' : '.page-header');
   const info = header.getByRole('button', { name: 'About Endfield music', exact: true });
   await expect(info).toHaveAttribute('aria-expanded', 'false');
   const infoBox = (await info.boundingBox())!;
   expect(Math.min(infoBox.width, infoBox.height), 'the ⓘ is a 24px target at least').toBeGreaterThanOrEqual(24);
-  const playlists = header.getByRole('button', { name: 'Playlists', exact: true });
-  const before = { title: await header.locator('h1').boundingBox(), playlists: await playlists.boundingBox(), setting: await setting(page).boundingBox() };
+  const playlists = page.getByRole('button', { name: 'Playlists', exact: true });
+  const before = { title: await page.locator('.page-header h1').boundingBox(), playlists: await playlists.boundingBox(), setting: await setting(page).boundingBox() };
 
   await info.click();
   const note = page.getByRole('dialog', { name: 'About Endfield music', exact: true });
   await expect(note).toHaveText(BACKGROUND_NOTE);
   await expect(note.getByRole('button', { name: 'Close about Endfield music', exact: true })).toBeFocused();
-  expect({ title: await header.locator('h1').boundingBox(), playlists: await playlists.boundingBox(), setting: await setting(page).boundingBox() }).toEqual(before);
+  expect({ title: await page.locator('.page-header h1').boundingBox(), playlists: await playlists.boundingBox(), setting: await setting(page).boundingBox() }).toEqual(before);
   // All of it on screen, under the row.
   const noteBox = (await note.boundingBox())!;
   const viewport = page.viewportSize()!;
@@ -129,7 +136,7 @@ test('the header\'s Endfield music ⓘ says background play on phones may not wo
 test('the ⋯ menu\'s Endfield music ⓘ says the same, in the menu, under Data saver', async ({ page }) => {
   await stubYouTube(page);
   await page.goto('/music');
-  await page.getByRole('region', { name: 'Player', exact: true }).getByRole('button', { name: 'More player actions', exact: true }).click();
+  await openPlayerActions(page);
   const menu = page.getByRole('dialog', { name: 'Player actions', exact: true });
   const info = menu.getByRole('button', { name: 'About Endfield music', exact: true });
   const saverBox = (await menu.getByRole('checkbox', { name: 'Data saver', exact: true }).boundingBox())!;
@@ -157,18 +164,18 @@ test('on a touch screen, turning Endfield music on says so in a pop-up, until Do
   test.skip(info.project.name !== 'mobile', 'only a touch screen shows it');
   await page.goto('/music/discover');
   expect(await page.evaluate(() => window.matchMedia('(pointer: coarse)').matches), 'the mobile project is a touch screen').toBe(true);
-  await setting(page).check();
+  await changeSetting(page, true);
   await expect(popUp(page)).toBeVisible();
   await expect(popUp(page)).toContainText('background play on phones may not work properly with them');
   await expect(popUp(page)).toContainText('Arknights songs keep playing in the background');
   await popUp(page).getByRole('button', { name: 'OK', exact: true }).click();
   await expect(popUp(page)).toHaveCount(0);
   await expect(setting(page)).toBeChecked();
-  await expect(setting(page)).toBeFocused();
+  await expect(test.info().project.name === 'mobile' ? page.getByRole('button', { name: 'Music menu', exact: true }) : setting(page)).toBeFocused();
 
   // Off and on again: it shows again, and × closes it the same way.
-  await setting(page).uncheck();
-  await setting(page).check();
+  await changeSetting(page, false);
+  await changeSetting(page, true);
   await expect(popUp(page)).toBeVisible();
   await popUp(page).getByRole('checkbox', { name: 'Don’t show again', exact: true }).check();
   await popUp(page).getByRole('button', { name: 'Close Endfield music on phones', exact: true }).click();
@@ -176,13 +183,13 @@ test('on a touch screen, turning Endfield music on says so in a pop-up, until Do
   await expect(setting(page)).toBeChecked();
 
   // Not again: here, after a reload, or from the ⋯ menu.
-  await setting(page).uncheck();
-  await setting(page).check();
+  await changeSetting(page, false);
+  await changeSetting(page, true);
   await expect(setting(page)).toBeChecked();
   await expect(popUp(page)).toHaveCount(0);
   await page.reload();
-  await setting(page).uncheck();
-  await setting(page).check();
+  await changeSetting(page, false);
+  await changeSetting(page, true);
   await expect(popUp(page)).toHaveCount(0);
   expect(await page.evaluate(() => localStorage.getItem('musicEndfieldNoticeDismissed'))).toBe('true');
 });
@@ -191,7 +198,7 @@ test('the ⋯ menu\'s checkbox shows the same pop-up on a touch screen, and Esca
   test.skip(info.project.name !== 'mobile', 'only a touch screen shows it');
   await stubYouTube(page);
   await page.goto('/music');
-  await page.getByRole('region', { name: 'Player', exact: true }).getByRole('button', { name: 'More player actions', exact: true }).click();
+  await openPlayerActions(page);
   const menu = page.getByRole('dialog', { name: 'Player actions', exact: true });
   await menu.getByRole('checkbox', { name: 'Endfield music', exact: true }).click();
   await expect(popUp(page)).toBeVisible();
@@ -208,7 +215,7 @@ test('the ⋯ menu\'s checkbox shows the same pop-up on a touch screen, and Esca
 test('on a desktop, turning Endfield music on shows no pop-up', async ({ page }, info) => {
   test.skip(info.project.name !== 'desktop', 'a desktop\'s background tabs play on');
   await page.goto('/music/discover');
-  await setting(page).check();
+  await changeSetting(page, true);
   await expect(setting(page)).toBeChecked();
   await page.waitForTimeout(300);
   await expect(popUp(page)).toHaveCount(0);
@@ -248,7 +255,7 @@ test('Discover\'s and the Library\'s boxes find "endfield": hidden and offered w
   const box = page.getByRole('searchbox', { name: 'Search all songs' });
   await box.fill('endfield');
   await expect(page.locator(`.music-all-songs-list [data-song-id="${idOf(endfield[0])}"]`)).toBeVisible();
-  await setting(page).uncheck();
+  await changeSetting(page, false);
   await expect(page.locator('.music-all-songs-list .music-song-row')).toHaveCount(0);
   await expect(page.locator('.music-library .music-hidden-endfield-hint')).toContainText('hidden while Endfield music is off');
   await expect(page.getByText('No songs match your search.')).toHaveCount(0);
@@ -271,7 +278,7 @@ test('an Endfield album searched by name: listed when Endfield music is on, said
   const discoverRow = (id: string) => page.locator(`.music-discover-song-list [data-song-id="${id}"]`);
   await expect(page.locator('.music-hidden-endfield-hint')).toContainText('hidden while Endfield music is off');
   await expect(discoverRow(ids[0])).toHaveCount(0);
-  await setting(page).check();
+  await changeSetting(page, true);
   await dismiss();
   for (const id of ids) await expect(discoverRow(id).first()).toBeVisible();
   await expect(page.getByText('No songs match.', { exact: false })).toHaveCount(0);
@@ -281,7 +288,7 @@ test('an Endfield album searched by name: listed when Endfield music is on, said
   const libraryRow = (id: string) => page.locator(`.music-all-songs-list [data-song-id="${id}"]`);
   await expect(libraryRow(ids[0])).toBeVisible();
   await expect(page.locator('.music-all-songs-list .music-song-row')).toHaveCount(ids.length);
-  await setting(page).uncheck();
+  await changeSetting(page, false);
   await expect(libraryRow(ids[0])).toHaveCount(0);
   await expect(page.locator('.music-library .music-hidden-endfield-hint')).toContainText(`${ids.length} Arknights: Endfield songs match`);
 });

@@ -3,6 +3,14 @@ import { readOnly } from './census-routes';
 import { markDocument, sameDocument, startMusic, stubYouTube, youtube } from './youtube-stub';
 import { mergePullArchives, type PullArchive } from '@/lib/account/pullArchive';
 
+// Account sign-in/cloud journeys belong to the isolated Preview build.
+test.beforeEach(async ({ request }, info) => {
+  if (info.title === 'unconfigured deployment keeps import and browser data available') return;
+  const response = await request.get('/build-info.json');
+  const build = response.ok() ? await response.json() : null;
+  test.skip(build?.deploymentRole !== 'staging', 'Cloud accounts are Preview-only; production exercises local profile/import controls.');
+});
+
 const profile = { username: 'Doctor#1234', friendTag: null as string | null, friendServer: null as string | null };
 async function mockAccount(page: Page, firstTime = false, data: Record<string, unknown> = {}) {
   await readOnly(page);
@@ -79,14 +87,18 @@ for (const theme of ['dark', 'light']) {
     expect(state.archiveWrites.join('')).not.toContain('PRIVATE-YOSTAR-TOKEN');
     expect(state.archiveWrites.join('')).not.toContain('operators');
     await page.getByRole('button', { name: 'Use cloud data' }).click();
-    await expect(page.getByRole('button', { name: 'Sync now' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Cloud saving details' })).toBeVisible();
+    await page.getByRole('tab', { name: 'Pull history', exact: true }).click();
     await expect(page.getByText('2 pulls archived', { exact: false })).toBeVisible();
+    await page.getByRole('button', { name: 'Pull archive details' }).click();
     await expect(page.getByText('2 pulls saved to cloud', { exact: false })).toBeVisible();
     await expect(page.getByText('Last saved to cloud', { exact: false })).toBeVisible();
     expect(state.cachedArchiveReads).toBeGreaterThan(0);
     expect(await page.evaluate(() => JSON.parse(localStorage.getItem('arkpediaPullArchives')!)[0].history.rows.length)).toBe(2);
     expect(await page.evaluate(() => localStorage.getItem('musicFavorites'))).toBe('["msr:cloud"]');
+    await page.keyboard.press('Escape');
     await capture(page, `archive-${theme}`, info);
+    await page.getByRole('tab', { name: 'Profile', exact: true }).click();
     await page.getByRole('button', { name: 'Account settings' }).click();
     const settings = page.getByRole('dialog', { name: 'Account settings' });
     await settings.getByRole('tab', { name: 'Saving', exact: true }).click();
@@ -111,7 +123,7 @@ for (const theme of ['dark', 'light']) {
 
   test(`data menus separate imports, backups and browser clearing (${theme})`, async ({ page }, info) => {
     await mockAccount(page); await seed(page, theme);
-    await page.goto('/account'); await expect(page.getByRole('button', { name: 'Sync now' })).toBeVisible();
+    await page.goto('/account'); await expect(page.getByRole('button', { name: 'Cloud saving details' })).toBeVisible();
     await page.getByRole('button', { name: 'Import / export' }).click();
     const dialog = page.getByRole('dialog', { name: 'Import / export', exact: true });
     await expect(dialog.getByRole('tab', { name: 'Game import', exact: true })).toHaveAttribute('aria-selected', 'true');
@@ -143,6 +155,7 @@ for (const theme of ['dark', 'light']) {
       { server: 'jp', uid: '222', doctor: 'Doctor Beta with a longer imported display name', history: { ...history, rows: [...history.rows, { ...history.rows[0], at: 1792800000 }] } },
     ];
     await page.goto('/account');
+    await page.getByRole('tab', { name: 'Pull history', exact: true }).click();
     await expect(page.getByText('1 pull archived', { exact: false })).toBeVisible();
     await page.getByRole('button', { name: 'Every pull', exact: true }).click();
     const selector = page.getByRole('combobox', { name: 'Pull archive account', exact: true });
@@ -168,13 +181,13 @@ for (const theme of ['dark', 'light']) {
     await expect(page.getByText('Username available', { exact: true })).toBeVisible();
     await capture(page, `setup-${theme}`, info);
     await page.getByRole('button', { name: 'Finish setup' }).click();
-    await expect(page.getByRole('button', { name: 'Sync now' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Cloud saving details' })).toBeVisible();
     expect(state.profileWrites[0]).toMatchObject({ owner: 'test-user', username: 'Doctor#1234', friendTag: '', friendServer: null });
     expect(state.uploads[0]).toContain('msr:local');
     for (const value of ['arkpediaAccount', 'PRIVATE-YOSTAR-TOKEN', 'private@example.invalid']) expect(state.uploads[0]).not.toContain(value);
     await expect(page.getByRole('button', { name: 'Use this browser’s data' })).toHaveCount(0);
     await page.reload();
-    await expect(page.getByRole('button', { name: 'Sync now' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Cloud saving details' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Choose your Arkpedia username' })).toHaveCount(0);
     await page.getByRole('button', { name: 'Account settings' }).click();
     const settings = page.getByRole('dialog', { name: 'Account settings' });
@@ -188,10 +201,50 @@ for (const theme of ['dark', 'light']) {
     expect(state.remote.gameSync).toBe(false);
   });
 
+  test(`profile tabs preserve drafts and icon categories keep search width (${theme})`, async ({ page }, info) => {
+    const state = await mockAccount(page); await seed(page, theme);
+    await page.goto('/account');
+    await page.getByRole('button', { name: 'Account settings', exact: true }).click();
+    const settings = page.getByRole('dialog', { name: 'Account settings', exact: true });
+    const username = settings.getByLabel('Arkpedia username', { exact: true });
+    await username.fill('Draft#1234');
+    await expect(settings.getByRole('searchbox', { name: 'Search profile icons' })).toHaveCount(0);
+    await settings.getByRole('tab', { name: 'Profile', exact: true }).focus(); await page.keyboard.press('ArrowRight');
+    await expect(settings.getByRole('tab', { name: 'Profile picture', exact: true })).toHaveAttribute('aria-selected', 'true');
+    await expect(username).not.toBeVisible();
+    const search = settings.getByRole('searchbox', { name: 'Search profile icons' });
+    await expect(settings.locator('.avatar-choice').first()).toBeVisible();
+    const before = await search.boundingBox();
+    for (const category of ['Enemies', 'Factions', 'Base Skill', 'Items', 'Others', 'All icons', 'Operators']) {
+      await settings.getByRole('combobox', { name: 'Icon category' }).click();
+      await page.getByRole('option', { name: category, exact: true }).click();
+      const after = await search.boundingBox(); expect(Math.abs(after!.width-before!.width)).toBeLessThan(1);
+      expect(await settings.evaluate(e => e.scrollWidth <= e.clientWidth)).toBe(true);
+      if (category === 'Base Skill') {
+        await expect(settings.getByRole('heading', { name: 'Factory', exact: true })).toBeVisible();
+        await search.fill('Aak');
+        await expect(settings.getByRole('region', { name: 'Control Center', exact: true }).getByRole('button', { name: 'Aak - Neuroticism', exact: true })).toBeVisible();
+        await expect(settings.getByRole('region', { name: 'Training Room', exact: true }).getByRole('button', { name: 'Aak - Surgical Precision', exact: true })).toBeVisible();
+        await capture(page, `base-skills-${theme}`, info);
+        await search.clear();
+      }
+    }
+    await search.fill('Suzuran - Base'); await settings.getByRole('button', { name: 'Suzuran - Base', exact: true }).click();
+    await expect(settings.getByRole('status')).toHaveText('Profile picture saved in this browser.');
+    await expect.poll(() => settings.locator('.avatar-choice img').evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0);
+    await capture(page, `picture-tabs-${theme}`, info);
+    await settings.getByRole('tab', { name: 'Profile', exact: true }).click();
+    await expect(username).toHaveValue('Draft#1234'); await expect(search).toHaveCount(0);
+    await settings.getByRole('button', { name: 'Save profile' }).click();
+    await expect(settings.getByText('Profile saved.', { exact: true })).toBeVisible();
+    expect(state.profileWrites.at(-1)).toMatchObject({ username: 'Draft#1234' });
+    await capture(page, `username-tabs-${theme}`, info);
+  });
+
   test(`saving settings, real conflicts and restore keep credentials and playback safe (${theme})`, async ({ page }, info) => {
     const state = await mockAccount(page); await seed(page, theme); await stubYouTube(page);
     await page.goto('/account');
-    await expect(page.getByRole('button', { name: 'Sync now' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Cloud saving details' })).toBeVisible();
     await page.getByRole('button', { name: 'Account settings' }).click();
     const settings = page.getByRole('dialog', { name: 'Account settings' });
     await settings.getByRole('tab', { name: 'Logins', exact: true }).click();
@@ -216,13 +269,15 @@ for (const theme of ['dark', 'light']) {
     await page.evaluate(() => localStorage.setItem('musicFavorites', '["msr:edited-here"]'));
     state.remote.revision++; state.remote.data.musicFavorites = ['msr:other-device'];
     const before = state.uploads.length;
-    await page.getByRole('button', { name: 'Sync now' }).click();
+    await page.getByRole('button', { name: 'Cloud saving details' }).click();
+    await page.getByRole('button', { name: 'Check for updates' }).click();
+    await page.keyboard.press('Escape');
     await expect(page.getByRole('button', { name: 'Use cloud data' })).toBeVisible();
     expect(state.uploads.length).toBe(before);
     const playback = await startMusic(page); await markDocument(page);
     await page.getByRole('button', { name: 'Use cloud data' }).click();
     await expect.poll(() => page.evaluate(() => localStorage.getItem('musicFavorites'))).toBe('["msr:other-device"]');
-    await expect(page.getByRole('button', { name: 'Sync now' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Cloud saving details' })).toBeVisible();
     expect(await sameDocument(page)).toBe(true);
     const after = await youtube(page);
     expect(after?.players).toBe(playback.players); expect(after?.videoId).toBe(playback.videoId); expect(after?.state).toBe(1);
@@ -244,9 +299,11 @@ test('choosing cloud after switching Arkpedia accounts keeps foreign browser his
   await expect(page.getByRole('button', { name: 'Use cloud data' })).toBeVisible();
   expect(state.archiveWrites).toHaveLength(0);
   await page.getByRole('button', { name: 'Use cloud data' }).click();
-  await expect(page.getByRole('button', { name: 'Sync now' })).toBeVisible();
-  await page.getByRole('button', { name: 'Sync now' }).click();
-  await expect(page.getByRole('button', { name: 'Sync now' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Cloud saving details' })).toBeVisible();
+  await page.getByRole('button', { name: 'Cloud saving details' }).click();
+    await page.getByRole('button', { name: 'Check for updates' }).click();
+    await page.keyboard.press('Escape');
+  await expect(page.getByRole('button', { name: 'Cloud saving details' })).toBeVisible();
   expect(state.archiveWrites).toHaveLength(0); expect(state.remote.archives).toHaveLength(0);
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('arkpediaPullArchives')!)[0].history.rows.length)).toBe(1);
 });
@@ -254,7 +311,7 @@ test('choosing cloud after switching Arkpedia accounts keeps foreign browser his
 test('a new device restores existing saves without a redundant copy choice', async ({ page }) => {
   const state = await mockAccount(page, false, { musicFavorites: ['msr:cloud'] }); state.remote.revision = 7;
   await page.goto('/account');
-  await expect(page.getByRole('button', { name: 'Sync now' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Cloud saving details' })).toBeVisible();
   expect(await page.evaluate(() => localStorage.getItem('musicFavorites'))).toBe('["msr:cloud"]');
   expect(state.uploads).toHaveLength(0);
   await expect(page.getByRole('button', { name: 'Use cloud data' })).toHaveCount(0);
@@ -289,7 +346,7 @@ test('linked-login confirmation returns to settings and cannot remove the last l
 
 test('deleting cloud saves pauses saving across reload and keeps browser data', async ({ page }, info) => {
   const state = await mockAccount(page); await seed(page, 'dark');
-  await page.goto('/account'); await expect(page.getByRole('button', { name: 'Sync now' })).toBeVisible();
+  await page.goto('/account'); await expect(page.getByRole('button', { name: 'Cloud saving details' })).toBeVisible();
   await page.getByRole('button', { name: 'Account settings' }).click();
   const settings = page.getByRole('dialog', { name: 'Account settings' });
   await settings.getByRole('tab', { name: 'Delete data', exact: true }).click();
@@ -307,12 +364,12 @@ test('deleting cloud saves pauses saving across reload and keeps browser data', 
   expect(state.uploads.length).toBe(count);
   expect(await page.evaluate(() => localStorage.getItem('musicFavorites'))).toBe('["msr:local"]');
   await page.getByRole('button', { name: 'Resume cloud saving' }).click();
-  await expect(page.getByRole('button', { name: 'Sync now' })).toBeVisible(); expect(state.remote.paused).toBe(false);
+  await expect(page.getByRole('button', { name: 'Cloud saving details' })).toBeVisible(); expect(state.remote.paused).toBe(false);
 });
 
 test('account deletion requires typed confirmation and keeps game data in this browser', async ({ page }) => {
   const state = await mockAccount(page); await seed(page, 'dark');
-  await page.goto('/account'); await expect(page.getByRole('button', { name: 'Sync now' })).toBeVisible();
+  await page.goto('/account'); await expect(page.getByRole('button', { name: 'Cloud saving details' })).toBeVisible();
   await page.getByRole('button', { name: 'Account settings' }).click();
   const settings = page.getByRole('dialog', { name: 'Account settings' });
   await settings.getByRole('tab', { name: 'Delete data', exact: true }).click();

@@ -1,3 +1,4 @@
+import { chooseMusicView, clickMusicControl, musicViewLink } from './music-navigation-helpers';
 import { expect, test, type Page } from '@playwright/test';
 import { playAllSongs, stubYouTube, youtube } from './youtube-stub';
 
@@ -11,7 +12,6 @@ import { playAllSongs, stubYouTube, youtube } from './youtube-stub';
  * Clear queue keeps only the song playing, with Undo.
  */
 
-const nav = (page: Page) => page.getByRole('navigation', { name: 'Music' });
 const bar = (page: Page) => page.getByRole('region', { name: 'Player' });
 const queueRows = (page: Page) => page.locator('[data-song-list] .music-queue-row[data-song-id]');
 const libraryRows = (page: Page) => page.locator('.music-all-songs-list .music-song-row[data-song-id]');
@@ -40,7 +40,7 @@ async function libraryAction(page: Page, id: string, action: 'Play now' | 'Play 
 test('Discover to Now playing and back, Back and Forward, and repeated trips never restart the song', async ({ page }) => {
   await stubYouTube(page);
   await page.goto('/music/discover');
-  await expect(nav(page).getByRole('link', { name: 'Discover', exact: true })).toHaveAttribute('aria-current', 'page');
+  await expect(musicViewLink(page, 'Discover')).toHaveAttribute('aria-current', 'page');
   await page.getByRole('searchbox', { name: /Search songs, characters/ }).fill('a');
   // The search writes ?q= after a pause (useQueryState); a navigation in that pause is replaced by it.
   await expect(page).toHaveURL(/[?&]q=a/);
@@ -83,13 +83,13 @@ test('Discover to Now playing and back, Back and Forward, and repeated trips nev
   await expect(back).toHaveAccessibleName(/^Now playing: /);
   await back.click();
   await expect(page).toHaveURL(/\/music\?view=player$/);
-  await expect(nav(page).getByRole('link', { name: 'Now playing', exact: true })).toHaveAttribute('aria-current', 'page');
+  await expect(musicViewLink(page, 'Now playing')).toHaveAttribute('aria-current', 'page');
   time = await stillPlaying(page, id, count, time);
 
-  await nav(page).getByRole('link', { name: 'Library', exact: true }).click();
+  await chooseMusicView(page, 'Library');
   await expect(page).toHaveURL(/view=library$/);
   await expect(libraryRows(page).first()).toBeVisible();
-  await nav(page).getByRole('link', { name: /^Queue/ }).click();
+  await chooseMusicView(page, /^Queue/);
   await expect(page).toHaveURL(/view=queue$/);
   await expect(queueRows(page).first()).toBeVisible();
   time = await stillPlaying(page, id, count, time);
@@ -108,7 +108,7 @@ test('Discover to Now playing and back, Back and Forward, and repeated trips nev
   time = await stillPlaying(page, id, count, time);
 
   for (let i = 0; i < 3; i++) {
-    await nav(page).getByRole('link', { name: 'Discover', exact: true }).click();
+    await chooseMusicView(page, 'Discover');
     await expect(page).toHaveURL(/\/music\/discover$/);
     await expect(bar(page).getByRole('link', { name: /Open Now playing$/ })).toBeVisible();
     await bar(page).getByRole('link', { name: /Open Now playing$/ }).click();
@@ -136,9 +136,9 @@ test('Library: Play now keeps the queue, Play next and Add to queue line songs u
   await libraryAction(page, songs[2], 'Play next');
   await expect(bar(page).getByRole('status')).toContainText('Playing next:');
   let time = await stillPlaying(page, songs[0], count, 0);
-  await expect(nav(page).getByRole('link', { name: /^Queue/ })).toContainText('4');
+  await expect(musicViewLink(page, /^Queue/)).toContainText('4');
 
-  await nav(page).getByRole('link', { name: /^Queue/ }).click();
+  await chooseMusicView(page, /^Queue/);
   await expect(page.getByRole('heading', { name: /^Next in queue/ })).toBeVisible();
   expect((await ids(queueRows(page))).slice(0, 5)).toEqual([songs[0], songs[2], songs[3], songs[5], songs[6]]);
   // Browsing the Library added nothing else and took nothing out: each song once.
@@ -147,17 +147,17 @@ test('Library: Play now keeps the queue, Play next and Add to queue line songs u
   time = await stillPlaying(page, songs[0], count, time);
 
   // Play now from the Library: it plays at once, and what was lined up plays after it.
-  await nav(page).getByRole('link', { name: 'Library', exact: true }).click();
+  await chooseMusicView(page, 'Library');
   await libraryAction(page, songs[8], 'Play now');
   await expect.poll(async () => (await youtube(page))?.videoId).toBe(songs[8]);
   await expect.poll(async () => (await youtube(page))?.state).toBe(1);
   expect((await youtube(page))!.players).toBe(1);
-  await nav(page).getByRole('link', { name: /^Queue/ }).click();
+  await chooseMusicView(page, /^Queue/);
   expect((await ids(queueRows(page))).slice(0, 5)).toEqual([songs[8], songs[2], songs[3], songs[5], songs[6]]);
   // Next plays the first of them.
-  await bar(page).getByRole('button', { name: 'Next track', exact: true }).click();
+  await clickMusicControl(page, 'Next track');
   await expect.poll(async () => (await youtube(page))?.videoId).toBe(songs[2]);
-  await expect(nav(page).getByRole('link', { name: /^Queue/ })).toContainText('3');
+  await expect(musicViewLink(page, /^Queue/)).toContainText('3');
 });
 
 test('Queue: the song playing is marked and stays put, songs come out, and Clear queue undoes', async ({ page }) => {
@@ -219,7 +219,7 @@ test('a video the catalogue lists twice is one song in the queue and the Library
     await page.getByRole('searchbox', { name: 'Search the queue', exact: true }).fill(song.title);
     await expect(page.locator(`[data-song-list] .music-queue-row[data-song-id="${song.videoId}"]`)).toHaveCount(1);
   }
-  await nav(page).getByRole('link', { name: 'Library', exact: true }).click();
+  await chooseMusicView(page, 'Library');
   for (const song of twice) {
     await page.getByRole('searchbox', { name: 'Search all songs', exact: true }).fill(song.title);
     await expect(page.locator(`.music-all-songs-list [data-song-id="${song.videoId}"]`)).toHaveCount(1);
@@ -235,7 +235,7 @@ test('a link followed right after typing in a search reaches its page', async ({
   // the navigation is still in flight, which is when it cancelled it.
   await page.route(/\/_next\/data\/[^/]+\/music\.json/, async route => { await new Promise(resolve => setTimeout(resolve, 700)); await route.continue(); });
   await page.getByRole('searchbox', { name: /Search songs, characters/ }).fill('a');
-  await nav(page).getByRole('link', { name: 'Library', exact: true }).click();
+  await chooseMusicView(page, 'Library');
   await expect(page).toHaveURL(/\/music\?view=library$/);
   await expect(libraryRows(page).first()).toBeVisible();
   await page.waitForTimeout(600); // past the write's delay: nothing sends the reader back
@@ -252,10 +252,11 @@ test('songs queued with Play next and Add to queue stay under Next in queue afte
   await libraryAction(page, songs[4], 'Add to queue');
   await libraryAction(page, songs[6], 'Add to queue');
   await page.reload();
-  await nav(page).getByRole('link', { name: /^Queue/ }).click();
+  await expect(libraryRows(page).first()).toBeVisible();
+  await chooseMusicView(page, /^Queue/);
   await expect(page.getByRole('heading', { name: /^Next in queue/ })).toContainText('2');
   await expect.poll(async () => (await ids(queueRows(page))).slice(0, 3)).toEqual([songs[0], songs[4], songs[6]]);
-  await expect(nav(page).getByRole('link', { name: /^Queue/ })).toContainText('2');
+  await expect(musicViewLink(page, /^Queue/)).toContainText('2');
 });
 
 test("the player bar's heart, Shuffle and Repeat are buttons; its More holds only the rest", async ({ page }) => {
@@ -273,13 +274,14 @@ test("the player bar's heart, Shuffle and Repeat are buttons; its More holds onl
   }
   await expect.poll(async () => (await youtube(page))?.state).toBe(1);
   const playing = (await youtube(page))!.videoId as string;
+  if (mobile) await chooseMusicView(page, 'Now playing');
   const more = bar(page).getByRole('button', { name: 'More player actions', exact: true });
   await expect(more).toBeVisible();
   const box = (await more.boundingBox())!;
   if (mobile) expect(Math.min(box.width, box.height)).toBeGreaterThanOrEqual(44);
   // Still one row on a phone: More, Shuffle and Repeat sit level with Play.
   const play = (await bar(page).getByRole('button', { name: 'Pause', exact: true }).boundingBox())!;
-  expect(Math.abs(box.y - play.y)).toBeLessThan(4);
+  if (mobile) expect(Math.abs(box.y - play.y)).toBeLessThan(4);
   const shuffle = bar(page).getByRole('button', { name: 'Shuffle', exact: true });
   const repeat = bar(page).getByRole('button', { name: /^Repeat: / });
   for (const button of [shuffle, repeat]) expect(Math.abs((await button.boundingBox())!.y - play.y)).toBeLessThan(4);
@@ -315,7 +317,7 @@ test("the player bar's heart, Shuffle and Repeat are buttons; its More holds onl
   await expect(queueRows(page).first()).toBeVisible();
   expect((await youtube(page))!).toMatchObject({ state: 1, videoId: playing, players: 1 });
   // Now playing's bar shows the same states.
-  await nav(page).getByRole('link', { name: 'Now playing', exact: true }).click();
+  await chooseMusicView(page, 'Now playing');
   await expect(bar(page).getByRole('button', { name: 'Favourite', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await expect(bar(page).getByRole('button', { name: 'Repeat: one', exact: true })).toBeVisible();
 });

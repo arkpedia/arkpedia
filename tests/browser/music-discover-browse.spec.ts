@@ -1,3 +1,4 @@
+import { chooseMusicView, musicViewLink } from './music-navigation-helpers';
 import { chromium, expect, test, type Page } from '@playwright/test';
 
 /*
@@ -83,8 +84,8 @@ test('switching the music tabs does not move the page sideways', async ({ baseUR
     const first = await place();
     expect(first.gutter, 'the page reserves the scrollbar\'s room').toBe('stable');
     for (const label of ['Library', 'Now playing', 'Queue', 'Discover']) {
-      await page.getByRole('navigation', { name: 'Music' }).getByRole('link', { name: label, exact: true }).click();
-      await expect(page.getByRole('navigation', { name: 'Music' }).getByRole('link', { name: label, exact: true })).toHaveAttribute('aria-current', 'page');
+      await chooseMusicView(page, label);
+      await expect(musicViewLink(page, label)).toHaveAttribute('aria-current', 'page');
       await expect.poll(place, `${label}: tabs, title and page width stay put`).toEqual(first);
     }
     if (bar === 0) testInfo.annotations.push({ type: 'note', description: 'overlay scrollbars here: positions compared, the gutter itself only on CI' });

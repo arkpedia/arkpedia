@@ -56,7 +56,7 @@ const GLYPH_PLACES: { name: string; route: string; glyph: string; act?: (page: P
   // A class card draws its class glyph (an icon), a faction card its emblem (a url() mask).
   { name: '/synergies (the class glyphs)', route: '/synergies?type=class', glyph: '.synergy-emblem [role="img"]' },
   { name: '/synergies (the faction emblems)', route: '/synergies?type=faction', glyph: '.synergy-emblem-art' },
-  { name: "the planner's roster", route: '/planner', glyph: '.wizard-class-chip [role="img"]', act: async (page) => {
+  { name: "the planner's roster", route: "/operator-planner", glyph: '.wizard-class-chip [role="img"]', act: async (page) => {
     await page.getByRole('tablist', { name: 'Planner mode' }).getByRole('tab', { name: 'Experimental' }).click();
     await page.getByRole('button', { name: 'Your roster', exact: true }).first().click();
     await expect(page.getByRole('group', { name: 'Class' }).first()).toBeVisible();

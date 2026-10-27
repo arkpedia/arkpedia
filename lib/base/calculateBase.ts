@@ -55,6 +55,10 @@ import { trainingResult, resolveTrainingTarget, type TrainingTarget } from '@/li
 import type { BaseRosters } from './baseGroupRosters';
 import type { FacilityDef } from './baseTypes';
 
+/** One room's output per day at its current rates, never idle: Battle Record EXP,
+ * Precious Metals made, gold sold by Trading Posts, and LMD beyond 500 per gold. */
+export interface RoomDailyOutput { exp: number; goldMade: number; goldSold: number; extraLmd: number; pepeLmd: number }
+
 const PRODUCTIVITY_KINDS = new Set(['factory', 'tradingPost']);
 
 export interface BaseCalculationInput {
@@ -479,7 +483,8 @@ export function calculateBase(input: BaseCalculationInput) {
       // produced, not re-derived separately, so it can't drift from what
       // actually happened.
       const product = factoryProducts[f.id] || null;
-      const greyProductivity = calcGreyProductivity(filled.length);
+      // Exhausted operators stay placed but no longer work, base 1% included.
+      const greyProductivity = calcGreyProductivity(workingCount(filled));
       const breakdownLines: FacilityBreakdownLine[] = [];
 
       for (const g of genericSkillsForMorale) {
@@ -596,7 +601,7 @@ export function calculateBase(input: BaseCalculationInput) {
       const capacityScalingBeforeJaye = deferredTP.filter(e => e.slot.operatorName === 'Degenbrecher');
       const remainingDeferred = deferredTP.filter((e) => e.skillName !== 'Basic Needs' && e.slot.operatorName !== 'Degenbrecher');
 
-      const prelimProd = calcProductivity('tradingPost', genericDescriptions, filled.length, null);
+      const prelimProd = calcProductivity('tradingPost', genericDescriptions, workingCount(filled), null);
       const prelimOrderLimit = calcOrderLimit(genericDescriptions, f.level);
       let othersEff = prelimProd.yellow + (perTradingPostBonus.get(f.id) || 0);
       // Raw (including negatives) order limit total -- used by
@@ -668,7 +673,7 @@ export function calculateBase(input: BaseCalculationInput) {
       // Step-by-step breakdown for the "explain this facility" panel --
       // same approach as Factory: built from the results already
       // computed above, not re-derived separately.
-      const tpGreyProductivity = calcGreyProductivity(filled.length);
+      const tpGreyProductivity = calcGreyProductivity(workingCount(filled));
       const tpBreakdownLines: FacilityBreakdownLine[] = [];
       const quality = goldOrderTier(filled.flatMap(slot => skillsFor(slot, f.label).map(sk => ({ operatorName: slot.operatorName, skillName: cleanSkillName(sk.name) ?? '' }))));
       if (quality !== 'base') tpBreakdownLines.push({ operatorName: '(Order quality)', skillName: null, rawValue: 0, included: false, reason: 'Quality-weighted output estimate.', note: 'Uses mature Lv3 observed order probabilities. Warm-up and lower-level quality distributions are not verified; their output is an approximation.' });
@@ -744,7 +749,7 @@ export function calculateBase(input: BaseCalculationInput) {
     ccMoraleRelief = ccBaseMoraleRelief + crossFacilityMoraleRelief(f.kind, bannerOfBabelBonus, chongyueSolitaryLightBonus, mlynarActive, ccActiveSkillNames);
     const morale = calcMorale(filled.length, genericSkillsForMorale);
     const productivity = PRODUCTIVITY_KINDS.has(f.kind)
-      ? calcProductivity(f.kind as 'factory' | 'tradingPost', descriptions, filled.length, factoryProducts[f.id] || null)
+      ? calcProductivity(f.kind as 'factory' | 'tradingPost', descriptions, workingCount(filled), factoryProducts[f.id] || null)
       : null;
     // Layer Control Center's highest-only global bonus on top of this
     // facility's own local skill contributions.
@@ -1904,11 +1909,17 @@ export function calculateBase(input: BaseCalculationInput) {
   let dailyLmdFromPepeGreen = 0; // Pepe's Special Exclusive Orders -- a completely separate mechanic, no gold bar at all, fixed 270min/order regardless of any efficiency modifier
   let dailyLmdFromPepeRed = 0;
 
+  // Each room's own share of the Red (never idle) totals above, per day, so a
+  // chronological simulation can apply its own storage and Morale cut-offs.
+  const roomDailyOutput: Record<string, RoomDailyOutput> = {};
   for (const f of FACILITIES) {
     if (f.capacity <= 0) continue;
-    // An unmanned room cannot turn a base-wide bonus into output on its own.
-    if (!(assignments[f.id] ?? []).some(Boolean)) continue;
+    // An unmanned room, or one whose every worker is exhausted, cannot turn a
+    // base-wide bonus into output on its own.
+    if (!workingCount((assignments[f.id] ?? []).filter((s): s is SlotAssignment => !!s))) continue;
     const { productivity, deadTime, fullTime } = rooms[f.id];
+    const roomOutput = { exp: 0, goldMade: 0, goldSold: 0, extraLmd: 0, pepeLmd: 0 };
+    roomDailyOutput[f.id] = roomOutput;
     // capHours: whichever comes first -- running out of storage
     // capacity (fullTime) or running out of operator energy (deadTime)
     // -- is when this room actually stops producing until someone
@@ -1930,10 +1941,12 @@ export function calculateBase(input: BaseCalculationInput) {
         const perDay = calcDailyProduction(effectiveProductivity, 'Battle Records') * 1000;
         dailyExpGreen += perDay * realisticFraction;
         dailyExpRed += perDay * idealFraction;
+        roomOutput.exp += perDay * idealFraction;
       } else if (product === 'Precious Metals') {
         const perDay = calcDailyProduction(effectiveProductivity, 'Precious Metals');
         dailyGoldMadeGreen += perDay * realisticFraction;
         dailyGoldMadeRed += perDay * idealFraction;
+        roomOutput.goldMade += perDay * idealFraction;
       }
     }
     if (f.kind === 'tradingPost' && productivity) {
@@ -1961,17 +1974,21 @@ export function calculateBase(input: BaseCalculationInput) {
       if (pepeInsightfulActive) {
         dailyLmdFromPepeGreen += (realisticHours * 60 / 270) * 1000;
         dailyLmdFromPepeRed += (idealHours * 60 / 270) * 1000;
+        roomOutput.pepeLmd += (idealHours * 60 / 270) * 1000;
       } else if (roomSlots.some(s => hasSkill(s, 'Trading Post', 'Closure|Special Orders'))) {
         // Fixed 2-gold/1200-LMD, 144-minute orders; not Defaulted.
         const tradesPerHour = effectiveProductivity / 2.4;
         dailyGoldSoldGreen += 2 * tradesPerHour * realisticHours;
         dailyGoldSoldRed += 2 * tradesPerHour * idealHours;
+        roomOutput.goldSold += 2 * tradesPerHour * idealHours;
         dailyExtraLmdFromOrdersGreen += 200 * tradesPerHour * realisticHours;
         dailyExtraLmdFromOrdersRed += 200 * tradesPerHour * idealHours;
+        roomOutput.extraLmd += 200 * tradesPerHour * idealHours;
       } else if (uOfficialHere) {
         const perHour = calcTradingPostGoldPerHourStandardized(effectiveProductivity, 2, f.level);
         dailyGoldSoldGreen += perHour * realisticHours;
         dailyGoldSoldRed += perHour * idealHours;
+        roomOutput.goldSold += perHour * idealHours;
       } else {
         // Always the same combined call -- Tailoring's distribution tier,
         // Proviso's gold bonus, and Tequila's LMD bonus all apply
@@ -1981,8 +1998,10 @@ export function calculateBase(input: BaseCalculationInput) {
         const { goldPerHour, extraLmdPerHour } = calcTradingPostGoldAndLmdPerHour(effectiveProductivity, provisoBonus, tequilaLmdBonus, goldTier, f.level);
         dailyGoldSoldGreen += goldPerHour * realisticHours;
         dailyGoldSoldRed += goldPerHour * idealHours;
+        roomOutput.goldSold += goldPerHour * idealHours;
         dailyExtraLmdFromOrdersGreen += extraLmdPerHour * realisticHours;
         dailyExtraLmdFromOrdersRed += extraLmdPerHour * idealHours;
+        roomOutput.extraLmd += extraLmdPerHour * idealHours;
         // Isolate Proviso's own slice for display -- same real call, her
         // bonus zeroed out, difference is exactly her own contribution.
         // Doesn't change any actual totals above, purely for the display
@@ -2002,5 +2021,5 @@ export function calculateBase(input: BaseCalculationInput) {
   const dailyGoldWorthRed = dailyGoldSoldRed * 500 + dailyExtraLmdFromOrdersRed + dailyLmdFromPepeRed;
 
 
-  return { rooms, productivityFor, operatorByName, totalMonsterMeal, resourcePools, ccEffects, ccMoraleRelief, totalFelvine, dormitoryOperatorNames, dormitoryRecoveryByFacility, dailyExpGreen, dailyExpRed, dailyGoldMadeGreen, dailyGoldMadeRed, dailyGoldSoldGreen, dailyGoldFromProvisoGreen, dailyGoldFromProvisoRed, dailyGoldSoldRed, dailyExtraLmdFromOrdersGreen, dailyExtraLmdFromOrdersRed, dailyGoldWorthGreen, dailyGoldWorthRed };
+  return { rooms, roomDailyOutput, productivityFor, operatorByName, totalMonsterMeal, resourcePools, ccEffects, ccMoraleRelief, totalFelvine, dormitoryOperatorNames, dormitoryRecoveryByFacility, dailyExpGreen, dailyExpRed, dailyGoldMadeGreen, dailyGoldMadeRed, dailyGoldSoldGreen, dailyGoldFromProvisoGreen, dailyGoldFromProvisoRed, dailyGoldSoldRed, dailyExtraLmdFromOrdersGreen, dailyExtraLmdFromOrdersRed, dailyGoldWorthGreen, dailyGoldWorthRed };
 }

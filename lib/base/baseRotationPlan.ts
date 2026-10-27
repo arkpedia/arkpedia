@@ -2,11 +2,11 @@ import type { SavedBasePreset } from './baseSavedPresets';
 import { getFacilities } from './baseConfig';
 export const BASE_ROTATION_PLAN_KEY = 'baseRotationPlan_v1';
 export interface BaseShift { id: string; presetId: string; hours: number }
-export interface BaseRotationPlan { version: 1; startHour: number; shifts: BaseShift[] }
+export interface BaseRotationPlan { version: 1; startHour: number; shifts: BaseShift[]; externalGold?: number }
 export function readRotationPlan(value: unknown): BaseRotationPlan {
   const raw = value as Partial<BaseRotationPlan> | null;
   const ids = new Set<string>();
-  return { version: 1, startHour: raw?.version === 1 && Number.isInteger(raw.startHour) && raw.startHour! >= 0 && raw.startHour! < 24 ? raw.startHour! : 8,
+  return { version: 1, ...(typeof raw?.externalGold === 'number' && Number.isFinite(raw.externalGold) ? { externalGold: Math.min(1000, Math.max(0, raw.externalGold)) } : {}), startHour: raw?.version === 1 && Number.isInteger(raw.startHour) && raw.startHour! >= 0 && raw.startHour! < 24 ? raw.startHour! : 8,
     shifts: raw?.version === 1 && Array.isArray(raw.shifts) ? raw.shifts.slice(0, 24).flatMap(s => s && typeof s.id === 'string' && s.id.length > 0 && s.id.length <= 100 && !ids.has(s.id) && typeof s.presetId === 'string' && s.presetId.length <= 100 && typeof s.hours === 'number' && Number.isFinite(s.hours) && s.hours >= 0.25 && s.hours <= 48 ? (ids.add(s.id), [{ id: s.id, presetId: s.presetId, hours: s.hours }]) : []) : [] };
 }
 export interface RotationStage {

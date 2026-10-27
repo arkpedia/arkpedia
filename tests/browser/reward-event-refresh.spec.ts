@@ -52,4 +52,13 @@ for (const theme of ['dark','light']) {
     if(process.env.ARKPEDIA_QA_CAPTURE)await page.screenshot({path:`${process.env.ARKPEDIA_QA_CAPTURE}/anchor-refresh-${theme}-${info.project.name}.png`});
   });
 
+  test(`Desktop Chibis project shows real companion models (${theme})`, async ({page},info) => {
+    await page.addInitScript(theme => localStorage.setItem('theme',theme), theme);
+    await page.goto('/community/projects');
+    const art=page.locator('.community-project-art-chibis');
+    await expect(art.locator('canvas[data-framed="true"]')).toHaveCount(2,{timeout:20000});
+    await expect(art.locator('.community-project-mark')).toHaveCount(0);
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+    if(process.env.ARKPEDIA_QA_CAPTURE)await page.screenshot({path:`${process.env.ARKPEDIA_QA_CAPTURE}/chibis-refresh-${theme}-${info.project.name}.png`});
+  });
 }

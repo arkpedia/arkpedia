@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import { expect, test } from '@playwright/test';
 
 test('gacha banners load and unload as their list scrolls', async ({ page }, testInfo) => {
-  await page.goto('/gacha');
+  await page.goto("/gacha-simulator");
   if (testInfo.project.name === 'mobile') {
     await page.getByRole('combobox', { name: 'Banner category' }).click();
     await page.getByRole('option', { name: 'Limited', exact: true }).click();
@@ -27,7 +27,7 @@ test('gacha banners load and unload as their list scrolls', async ({ page }, tes
 test('CN-only banners use estimated Global windows without a Joint Operation CN lineup', async ({ page }, testInfo) => {
   const records = JSON.parse(fs.readFileSync('data/headhunting_banners.json', 'utf8')) as Array<{ name: string; six_stars: string[] }>;
   const joint = records.find(row => row.name === '[jo] Joint Operation 23')!;
-  await page.goto('/gacha');
+  await page.goto("/gacha-simulator");
   if (testInfo.project.name === 'mobile') {
     await page.getByRole('combobox', { name: 'Banner category' }).click();
     await page.getByRole('option', { name: 'Joint Operation', exact: true }).click();

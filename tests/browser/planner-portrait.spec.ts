@@ -10,7 +10,7 @@ for (const theme of ['dark', 'light']) {
       localStorage.setItem('plannerState', JSON.stringify({ selectedNames: ['Surtr', 'Thorns', 'Executor'],
         builderStates: { Surtr: state, Thorns: state, Executor: state } }));
     }, theme);
-    await page.goto('/planner');
+    await page.goto("/operator-planner");
     let size: { width: number; height: number } | undefined;
     for (const name of ['Surtr', 'Thorns', 'Executor']) {
       await page.getByRole('tab', { name, exact: true }).click();

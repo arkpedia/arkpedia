@@ -155,18 +155,18 @@ test.describe('/obtain-method', () => {
   }
 });
 
-test.describe('/results', () => {
+test.describe("/polls/power-scale", () => {
   test.use(PHONE);
 
   test('Detailed keeps the page inside a phone (GE-02)', async ({ page }) => {
-    await page.goto('/results');
+    await page.goto("/polls/power-scale");
     await page.getByRole('button', { name: 'Detailed', exact: true }).click();
     await expect(page.locator('.stats-table')).toBeVisible();
     expect(await pageWidthOverflow(page), 'the table scrolls in its own box, not the page').toBeLessThanOrEqual(1);
   });
 
   test('Compact fits five operators per row on a phone', async ({ page }) => {
-    await page.goto('/results');
+    await page.goto("/polls/power-scale");
     // The most chips any one line holds, across every average's row (the first row
     // may simply have fewer than five operators in it).
     const perRow = await page.locator('.tier-drop').evaluateAll((rows) => Math.max(...rows.map((row) => {
@@ -181,7 +181,7 @@ test.describe('/results', () => {
   });
 
   test('the sortable headers are buttons with aria-sort (GE-11)', async ({ page }) => {
-    await page.goto('/results');
+    await page.goto("/polls/power-scale");
     await page.getByRole('button', { name: 'Detailed', exact: true }).click();
     const average = page.getByRole('button', { name: /^Average/ });
     await average.focus();
@@ -257,7 +257,7 @@ test.describe('/planner operators', () => {
   test('a CN record can be found, says CN, and is added to the plan', async ({ page }) => {
     // After the switch on 2026-09-30 the planner kept Global-released operators alone, and
     // nineteen CN operators could not be added (plannerOperators).
-    await page.goto('/planner');
+    await page.goto("/operator-planner");
     // Not on Global yet by the page's own release markers (plannerOperators).
     const cn = await page.evaluate(() => {
       const ops = (window as unknown as { __NEXT_DATA__: { props: { pageProps: { operators: { name: string; releasedAt?: number | null; isFuture?: true }[] } } } }).__NEXT_DATA__.props.pageProps.operators;
@@ -285,7 +285,7 @@ test.describe('/planner operators', () => {
         localStorage.setItem('plannerRoster', JSON.stringify({ Surtr: { elite: 2, level: 60, skillLevel: 7, masteries: {} } }));
       } catch { /* none */ }
     });
-    await page.goto('/planner');
+    await page.goto("/operator-planner");
     await page.getByRole('tab', { name: /Surtr/ }).first().click();
     const current = page.locator('.simple-state-link').first();
     await expect(current).toContainText('Lv. 60');
@@ -299,7 +299,7 @@ test.describe('/planner operators', () => {
   test("a planned operator's portrait starts at the top of its frame", async ({ page }) => {
     // Enlarged from its centre, tall art lost its head (Executor, 2026-10-01).
     await page.addInitScript((state) => { try { localStorage.setItem('plannerState', state); } catch {} }, JSON.stringify({ selectedNames: ['Executor'], builderStates: { Executor: STATE } }));
-    await page.goto('/planner');
+    await page.goto("/operator-planner");
     await page.getByRole('tab', { name: /Executor/ }).first().click();
     const portrait = page.locator('.simple-portrait').first();
     await expect(portrait.locator('img')).toBeVisible();
@@ -442,12 +442,12 @@ test.describe('/base', () => {
   });
 });
 
-test.describe('/gacha', () => {
+test.describe("/gacha-simulator", () => {
   for (const width of [{ key: '1440', use: { viewport: { width: 1440, height: 900 } } }, { key: '390', use: PHONE }]) {
     test.describe(`at ${width.key}`, () => {
       test.use(width.use);
       test('Reset at the bottom of the page does not move the reader (Anti-Page Jump)', async ({ page }) => {
-        await page.goto('/gacha');
+        await page.goto("/gacha-simulator");
         const ten = page.getByRole('button', { name: 'Pull ten operators' });
         for (let i = 0; i < 3; i += 1) { await ten.click(); await page.waitForTimeout(400); }
         await page.getByRole('button', { name: /Pull history/ }).click();
@@ -465,7 +465,7 @@ test.describe('/gacha', () => {
         // every second step, 1017 -> 717 -> 417 -> 1017 at 1440: useHeightFloor kept the press
         // reading from the close, and when the released spacer came out the container's
         // collapsed margin read as a shrink, which restored that reading.
-        await page.goto('/gacha');
+        await page.goto("/gacha-simulator");
         const ten = page.getByRole('button', { name: 'Pull ten operators' });
         for (let i = 0; i < 5; i += 1) { await ten.click(); await page.waitForTimeout(400); }
         const toggle = page.getByRole('button', { name: /Pull history/ });
@@ -492,7 +492,7 @@ test.describe('/gacha', () => {
   }
 
   test('pull tiles and featured rates take their colour from the rarity tokens (4.3 G)', async ({ page }) => {
-    await page.goto('/gacha');
+    await page.goto("/gacha-simulator");
     await page.getByRole('button', { name: 'Pull ten operators' }).click();
     const result = await page.evaluate(() => {
       const probe = document.createElement('span');
@@ -539,7 +539,7 @@ test.describe('/gacha', () => {
   // a "coming soon" page. Placeholders stay hidden until they have content, so its guide
   // is the Basics alone and ends on Done.
   test('a banner without its own tutorial opens its guide on the Basics, with no placeholder', async ({ page }) => {
-    await page.goto('/gacha');
+    await page.goto("/gacha-simulator");
     // "The Front That Was" banners are trio and the Crossover category is crossover
     // (getMechanicType in lib/gacha/realGachaBanners.ts): neither type has pages of its
     // own. Not a skip when one is missing -- a guard that can skip itself guards nothing.
@@ -605,7 +605,7 @@ test.describe('/planner shortfall (r10)', () => {
       .filter((b) => (b as HTMLButtonElement).disabled && !b.getAttribute('title'))
       .map((b) => (b.textContent ?? '').trim()));
     await readOnly(page);
-    await page.goto('/planner');
+    await page.goto("/operator-planner");
     await plannerExperimental(page, DUALCHIP_ONLY);
     const panel = page.locator('.plan-panel').filter({ has: page.getByRole('heading', { name: 'Still needed' }) });
     await expect(panel.locator('.need-card'), 'only the Dualchip is short').toHaveCount(1);
@@ -634,7 +634,7 @@ test.describe('/planner shortfall (r10)', () => {
      glyph boxes end before its stepper starts, on its line or the line under it. */
   test('a depot tile\'s name never runs into its stepper', async ({ page }) => {
     await readOnly(page);
-    await page.goto('/planner');
+    await page.goto("/operator-planner");
     await plannerExperimental(page, PLANNER_PLAN);
     await page.getByRole('button', { name: 'Open depot', exact: true }).click();
     await expect(page.locator('.depot-tile').first()).toBeVisible();

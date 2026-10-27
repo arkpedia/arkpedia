@@ -176,7 +176,7 @@ export default function ObtainMethodPage({ operators, limitedBannerInfo, celebra
           24px right of the grid it heads. The way back to the roster is the eyebrow's
           crumb rather than a separate button. */}
       <PageHeader
-        eyebrow={<>Rhodes Island // <Link prefetch={false} href="/operators">Roster</Link></>}
+        eyebrow="Rhodes Island // Obtain method"
         title="Obtain Method"
         sub="Every operator, grouped by how they're actually obtained."
       />

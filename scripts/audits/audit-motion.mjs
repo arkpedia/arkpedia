@@ -123,7 +123,6 @@ export const MOTION_LEGACY = new Map([
   ['styles/music/music.css: .music-crossfade-text { transition }', { count: 1, reason: CROSSFADE }],
   ['styles/music/music.css: .music-play-btn.loading { animation }', { count: 1, reason: LOOP }],
   ['styles/music/music.css: @keyframes music-play-loading-pulse', { count: 1, reason: LOOP }],
-  ['styles/music/music.css: .music-lyric-line { transition }', { count: 1, reason: HOVER_FADE }],
   ['styles/music/music.css: .music-wave-visualizer { animation }', { count: 1, reason: LOOP }],
   ['styles/music/music.css: .music-wave-1 { animation }', { count: 1, reason: LOOP }],
   ['styles/music/music.css: .music-wave-2 { animation }', { count: 1, reason: LOOP }],

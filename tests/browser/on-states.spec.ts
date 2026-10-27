@@ -21,9 +21,9 @@ import { expect, test, type Page } from '@playwright/test';
  */
 
 const ROUTES = [
-  '/pulls', '/recruitment', '/operators', '/operators/Amiya', '/gacha', '/enemies', '/planner', '/base',
-  '/schedule', '/skins', '/techniques', '/synergies', '/farming', '/results', '/obtain-method',
-  '/games/operator-guesser', '/games/recruitment-guesser', '/music/discover', '/gamemodes/stronghold-protocol',
+  "/pull-planner", '/recruitment', '/operators', '/operators/Amiya', "/gacha-simulator", '/enemies', "/operator-planner", '/base',
+  '/schedule', '/skins', '/techniques', '/synergies', '/farming', "/polls/power-scale", '/obtain-method',
+  '/games/operator-guesser', '/games/recruitment-guesser', '/music/discover', "/game-modes/stronghold-protocol",
 ];
 
 /** Every visible on-state element whose background is the primary action's fill. */

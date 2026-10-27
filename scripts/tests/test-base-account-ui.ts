@@ -122,3 +122,10 @@ test('preset dirty comparison ignores metadata and key order but retains all edi
     assert.notEqual(basePresetConfiguration(original), basePresetConfiguration(changed as SavedBasePreset));
   }
 });
+
+test('rotation outside gold is restored with bounded numeric values', () => {
+  assert.equal(readRotationPlan({ version: 1, shifts: [], externalGold: 35 }).externalGold, 35);
+  assert.equal(readRotationPlan({ version: 1, shifts: [], externalGold: 1001 }).externalGold, 1000);
+  assert.equal(readRotationPlan({ version: 1, shifts: [], externalGold: -1 }).externalGold, 0);
+  assert.equal(readRotationPlan({ version: 1, shifts: [], externalGold: '35' }).externalGold, undefined);
+});

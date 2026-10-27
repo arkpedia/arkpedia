@@ -13,6 +13,7 @@ import { operatorHref } from '@/lib/operators/operatorHref';
 import { archiveFromAccount, archiveKey, archiveStatus, mergePullArchives, unionPullHistory } from '@/lib/account/pullArchive';
 import { usePullArchives } from '@/lib/account/pullArchiveStore';
 import { useCloudSync } from '@/lib/cloud-account/SyncProvider';
+import InfoPopover from '@/components/ui/InfoPopover';
 import StyledSelect from '@/components/ui/StyledSelect';
 import styles from './CloudAccountPanel.module.css';
 
@@ -38,20 +39,23 @@ export default function PullHistory({ account, map }: { account: AccountRecord |
   const remote = sync.remote?.archives?.find(entry => archive && archiveKey(entry) === archiveKey(archive));
   const cloudCount = remote?.history.rows.length ?? 0;
   const status = archive ? archiveStatus(archive) : null;
+  const storageLabel = !sync.remote?.historySync ? 'Browser only'
+    : sync.status === 'error' ? 'Cloud saving needs attention'
+      : sync.remote.paused ? 'Cloud saving paused' : 'Cloud saving on';
   const history = archive ? (account?.pulls && archiveKey(archive) === current ? unionPullHistory(archive.history, account.pulls) : archive.history) : account?.pulls;
   const shown: AccountRecord | null = archive ? { version: 1, server: archive.server, doctor: archive.doctor, importedAt: archive.history.readAt ?? '', operators: [], skins: [], cleared: [], pulls: history } : account;
   return <>
-    <div className={`${styles.form} ${styles.archiveSummary}`}>
+    <div className={styles.archiveSummary}>
       {archives.length > 1 && <StyledSelect label="Pull archive account" value={archive ? archiveKey(archive) : ''} onChange={setSelected}
         options={archives.map(entry => ({ value: archiveKey(entry), label: `${entry.doctor ?? 'Doctor'} · ${entry.server.toUpperCase()} · ${entry.uid === 'unknown' ? 'legacy import (UID unavailable)' : `UID ${entry.uid}`}` }))} />}
       {archive && status && <>
-        <p role="status">{status.count.toLocaleString('en-US')} {status.count === 1 ? 'pull' : 'pulls'} archived{status.oldest ? ` · oldest ${day(status.oldest)}` : ''}.</p>
-        <p className="hint">{status.readAt ? `Last imported ${DAY.format(new Date(status.readAt))}.` : 'History has not been imported yet.'} {sync.remote?.historySync
+        <p role="status">{status.count.toLocaleString('en-US')} {status.count === 1 ? 'pull' : 'pulls'} archived{status.oldest ? ` · oldest ${day(status.oldest)}` : ''} · <span className="account-pulls-storage">{storageLabel}.
+        <InfoPopover label="Pull archive details"><p>{status.readAt ? `Last imported ${DAY.format(new Date(status.readAt))}.` : 'History has not been imported yet.'} {sync.remote?.historySync
           ? `${cloudCount.toLocaleString('en-US')} ${cloudCount === 1 ? 'pull' : 'pulls'} saved to cloud${sync.remote.paused ? ' · cloud saving paused' : ''}.`
           : 'Cloud pull-history saving is off. This archive is stored in this browser.'}</p>
-        {remote?.savedAt && <p className="hint">Last saved to cloud <LocalTime iso={remote.savedAt} precision="minute" />.</p>}
+        {remote?.savedAt && <p>Last saved to cloud <LocalTime iso={remote.savedAt} precision="minute" />.</p>}
+        <p>Import regularly before Yostar’s 90-day window expires. Arkpedia keeps older archived pulls; it cannot recover pulls that expired before they were imported.</p></InfoPopover></span></p>
       </>}
-      <p className="hint">Import regularly before Yostar’s 90-day window expires. Arkpedia keeps older archived pulls; it cannot recover pulls that expired before they were imported.</p>
     </div>
     <PullHistoryDetails key={archive ? archiveKey(archive) : account?.server ?? 'empty'} account={shown} map={map} />
   </>;
@@ -79,10 +83,10 @@ function PullHistoryDetails({ account, map }: { account: AccountRecord | null; m
   const exportCsv = () => downloadBlob(new Blob([pullHistoryCsv(history, map)], { type: 'text/csv;charset=utf-8' }), pullHistoryCsvFilename());
   const icon = (row: PullRecord, key: string | number, size: number) => {
     const op = operator(row);
-    const picture = <Image src={op.known ? getOperatorIconPath(op) : OPERATOR_PORTRAIT_PLACEHOLDER} alt={op.name} title={op.name} width={size} height={size} className={`tier-${op.rarity}`} />;
+    const picture = <Image src={op.known ? getOperatorIconPath(op) : OPERATOR_PORTRAIT_PLACEHOLDER} alt={op.name} title={op.name} width={size} height={size} />;
     return op.known
-      ? <Link key={key} prefetch={false} href={operatorHref(op.name, null)} className="account-pulls-op">{picture}</Link>
-      : <span key={key} className="account-pulls-op">{picture}</span>;
+      ? <Link key={key} prefetch={false} href={operatorHref(op.name, null)} className="account-pulls-op rarity-frame" data-rarity={op.rarity}>{picture}</Link>
+      : <span key={key} className="account-pulls-op rarity-frame" data-rarity={op.rarity}>{picture}</span>;
   };
   const { counts } = view;
   const oldest = history.rows[history.rows.length - 1].at;
@@ -100,7 +104,7 @@ function PullHistoryDetails({ account, map }: { account: AccountRecord | null; m
       <h3>By banner</h3>
       <ul className="account-pulls-banners">
         {view.banners.map((banner) => (
-          <li key={banner.pool} className="account-pulls-banner">
+          <li key={banner.pool} className="account-pulls-banner panel">
             <div className="account-pulls-banner-head">
               <span className="account-pulls-banner-name">{bannerName(banner.pool)}</span>
               <span className="account-pulls-banner-meta">
@@ -112,8 +116,8 @@ function PullHistoryDetails({ account, map }: { account: AccountRecord | null; m
             </div>
             {banner.six.length + banner.five.length > 0 && (
               <div className="account-pulls-ops">
-                {banner.six.map((row, index) => icon(row, `6-${index}`, 44))}
-                {banner.five.map((row, index) => icon(row, `5-${index}`, 44))}
+                {banner.six.map((row, index) => icon(row, `6-${index}`, 64))}
+                {banner.five.map((row, index) => icon(row, `5-${index}`, 64))}
               </div>
             )}
           </li>
@@ -145,13 +149,13 @@ function PullSessions({ rows, bannerName, icon }: {
   return <>
       <ol className="account-pulls-sessions">
         {sessions.slice(0, shown).map((session) => (
-          <li key={`${session.at}|${session.pool}`} className="account-pulls-session">
+          <li key={`${session.at}|${session.pool}`} className="account-pulls-session panel">
             <div className="account-pulls-session-head">
               <LocalTime iso={new Date(session.at * 1000).toISOString()} precision="minute" />
               <span className="account-pulls-banner-meta">{bannerName(session.pool)}{session.rows.length > 1 ? ` · ×${session.rows.length}` : ''}</span>
             </div>
             <div className="account-pulls-ops">
-              {session.rows.map((row, index) => icon(row, index, 36))}
+              {session.rows.map((row, index) => icon(row, index, 64))}
             </div>
           </li>
         ))}

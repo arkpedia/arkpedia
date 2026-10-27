@@ -40,7 +40,7 @@ async function expectLabelToggles(page: Page, box: Locator) {
 }
 
 test('the pull planner settings are checkboxes', async ({ page }) => {
-  await page.goto('/pulls');
+  await page.goto("/pull-planner");
   await expect(page.getByRole('heading', { name: 'Pull Planner' })).toBeVisible();
   const income = page.getByRole('group', { name: 'Recurring income' });
   for (const name of ['Daily missions', 'Weekly missions', 'Annihilation', 'Yellow cert shop', 'Green cert shop', 'Monthly card']) {
@@ -149,7 +149,7 @@ test('a disabled checkbox keeps a visible box', async ({ page }) => {
  */
 test('the planner\'s Craft and Owned are checkboxes', async ({ page }) => {
   await readOnly(page);
-  await page.goto('/planner');
+  await page.goto("/operator-planner");
   await plannerExperimental(page, PLANNER_PLAN);
   const cards = page.locator('.need-card');
   await expect(cards.first()).toBeVisible();

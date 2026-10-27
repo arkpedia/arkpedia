@@ -34,9 +34,41 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    at: '2026-10-27T14:10:00Z',
+    at: '2026-10-27T16:00:00Z',
+    title: 'Site and music UI update',
+    changed: [
+      { title: 'UI update for the site', detail: 'Clearer navigation, compact page controls, local profile settings and updated page addresses are now available.', href: '/' },
+      { title: 'Music player UI update', detail: 'Refined player controls, lyrics and queue navigation keep your listening tools together.', href: '/music' },
+      { title: 'Reward Tracker UI update', detail: 'Reward icons, clearer totals and stage exclusions make unclaimed rewards easier to track.', href: '/reward-tracker' },
+      { title: 'Base recommendations (beta)', detail: 'Calculations and simulations run on your PC, so processing time varies with your hardware.', href: '/base' },
+    ],
+    added: [
+      { title: 'Import without leaving the page', detail: 'Open Import / export in place and return to your filters, completion marks and scroll position.', href: '/reward-tracker' },
+      { title: 'More community projects', detail: 'Find fan-made tools, wikis, games and story readers, with official project artwork and direct links.', href: '/community/projects' },
+    ],
+  },
+  {
+    at: '2026-10-27T15:24:17Z',
     fixed: [
       { title: 'Collab free pulls count in your plan', detail: 'Banner-specific login and mailed tickets now count when they unlock, without carrying over to other banners.', href: '/pulls' },
+    ],
+  },
+  {
+    at: '2026-10-27T14:19:00Z',
+    changed: [
+      { title: 'Better staffing for smaller rosters', detail: 'The base optimizer considers ordinary workers, keeps a return crew and checks empty factories separately.', href: '/base' },
+    ],
+  },
+  {
+    at: '2026-10-27T13:57:00Z',
+    changed: [
+      { title: 'Base teams at a glance', detail: 'See operator portraits, colour-coded buildings and daily yields in a compact optimizer.', href: '/base' },
+    ],
+  },
+  {
+    at: '2026-10-27T13:30:00Z',
+    added: [
+      { title: 'Base recommendations from your account (beta)', detail: 'Compare owned teams and rotations; calculations run on your PC, so simulation time varies with your hardware.', href: '/base' },
     ],
   },
   {
@@ -49,14 +81,17 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    at: '2026-10-27T08:00:00Z',
+    at: '2026-10-26T21:37:03Z',
     changed: [
-      { title: 'A clearer What’s new', detail: 'Updates now follow one reading column, with clearer dates, larger descriptions and more space between entries.', href: '/changelog' },
+      { title: 'Profile settings in separate tabs', detail: 'Your username and friend tag now have their own tab, separate from the profile picture picker.', href: '/account' },
+      { title: 'More useful profile icon categories', detail: 'Base Skill and Items have their own categories, with base skills grouped by facility and remaining icons under Others.', href: '/account' },
+      { title: 'A clearer What’s new', detail: 'Updates now follow one reading column, with clearer dates, larger descriptions and more space between entries.', href: '/whats-new' },
     ],
     fixed: [
-      { title: 'Twitch live status refreshes sooner', detail: 'Home and the live directory refresh every 30 seconds and on tab return, removing streams that go offline or switch games.', href: '/community/twitch' },
-      { title: 'Consistent operator preview artwork', detail: 'Operator previews fit the visible artwork instead of its transparent padding, and mastered skills show mastery icons.', href: '/gacha' },
-      { title: 'Tall planner cards stay seamless', detail: 'The portrait background fills tall operator cards without an outer border or a strip below the artwork.', href: '/planner' },
+      { title: 'Twitch live status refreshes sooner', detail: 'Home and the live directory refresh every 30 seconds and on tab return, removing streams that go offline or switch games.', href: '/world/twitch' },
+      { title: 'Consistent operator preview artwork', detail: 'Operator previews fit the visible artwork instead of its transparent padding, and mastered skills show mastery icons.', href: '/account' },
+      { title: 'Steady icon search width', detail: 'Changing profile icon categories keeps the search field the same width.', href: '/account' },
+      { title: 'Tall planner cards stay seamless', detail: 'The portrait background fills tall operator cards without an outer border or a strip below the artwork.', href: '/operator-planner' },
     ],
   },
   {

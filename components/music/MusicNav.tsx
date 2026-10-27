@@ -1,5 +1,12 @@
 import Link from 'next/link';
+import { useRouter } from 'next/router';
+import { useEffect, useRef, type ReactNode } from 'react';
+import { useMediaQuery } from '@/lib/hooks/useMediaQuery';
+import { createPortal } from 'react-dom';
+import { useAnchoredPopover } from '@/components/ui/useAnchoredPopover';
 import { useMusicPlayer } from '@/lib/music/musicPlayerContext';
+import TransportIcon from './TransportIcons';
+import { queuePlaybackPositions } from '@/lib/music/musicPolish';
 
 export type MusicView = 'discover' | 'library' | 'player' | 'queue';
 
@@ -13,33 +20,65 @@ export const MUSIC_VIEW_HREF: Record<MusicView, string> = {
 };
 
 /**
- * One strip across the music section, in the same place on both pages: Discover (browse by
+ * Shared music navigation, opened beneath the hamburger button on phones: Discover (browse by
  * album, character, artist), Library (every song, searchable, which never changes the queue by
- * itself), Now playing (the song, its credits and lyrics) and Queue (what plays next). A link
- * strip in the site's tab look (.tabs, like the games' GameLinks), not a tablist: each is an
+ * itself), Now playing (the song, its credits and lyrics) and Queue (what plays next). The
+ * navigation uses ordinary links, not a tablist: each is an
  * address. Shallow links within /music, so the player and its audio carry on untouched.
  */
-export default function MusicNav({ current }: { current: MusicView }) {
-  const { queue, videoId, shuffle, shuffleOrder } = useMusicPlayer();
+export default function MusicNav({ current, children, open, onOpenChange }: { current: MusicView; children?: ReactNode | ((returnFocus: () => void) => ReactNode); open: boolean; onOpenChange: (open: boolean) => void }) {
+  const router = useRouter();
+  const mobile = useMediaQuery('(max-width: 999px)');
+  const trigger = useRef<HTMLButtonElement | null>(null);
+  useEffect(() => { trigger.current = document.querySelector<HTMLButtonElement>('[aria-label="Music menu"]'); });
+  useEffect(() => { if (!mobile) onOpenChange(false); }, [mobile, onOpenChange]);
+  const { queue, queueIndex, videoId, autoplayVideoId, queued, shuffle, shuffleOrder, shufflePosition, favorites } = useMusicPlayer();
+  const favouritesSelected = current === 'library' && router.query.scope === 'favorites';
+  useEffect(() => { onOpenChange(false); }, [current, favouritesSelected, onOpenChange]);
   const order = shuffle && shuffleOrder ? shuffleOrder : queue.map((_, index) => index);
-  const currentPosition = order.findIndex(index => queue[index]?.id === videoId);
-  const upcoming = order.length - currentPosition - 1;
-  // Only the songs the reader queued: a count of the whole queue would tick down with every song.
+  const { boundary } = queuePlaybackPositions({ queue, queueIndex, position: shuffle && shuffleOrder ? shufflePosition : queueIndex, videoId, autoplayVideoId, queued });
+  const upcoming = Math.max(0, order.length - boundary - 1);
+  // Count the upcoming sections only; Played earlier stays history during library autoplay.
   const items: { view: MusicView; label: string; count?: number }[] = [
     { view: 'discover', label: 'Discover' },
     { view: 'library', label: 'Library' },
     { view: 'player', label: 'Now playing' },
     { view: 'queue', label: 'Queue', count: upcoming || undefined },
   ];
-  return (
-    <nav className="tabs music-nav" aria-label="Music">
-      {items.map(({ view, label, count }) => (
-        <Link key={view} href={MUSIC_VIEW_HREF[view]} prefetch={false} shallow={view !== 'discover' && current !== 'discover'} scroll={false}
-          className="tab" aria-current={view === current ? 'page' : undefined}>
-          {label}
-          {count !== undefined && <span className="tab-count"><span className="visually-hidden">, </span>{count}<span className="visually-hidden"> chosen songs next</span></span>}
+  const sidebar = (
+    <aside className="music-workspace-rail">
+      <span className="music-workspace-label">Sound archive</span>
+      <nav className="music-nav" aria-label="Music" onClick={event => { if ((event.target as HTMLElement).closest('a')) onOpenChange(false); }}>
+        {items.map(({ view, label, count }) => (
+          <Link key={view} href={MUSIC_VIEW_HREF[view]} prefetch={false} shallow={view !== 'discover' && current !== 'discover'} scroll={false}
+            className="music-workspace-link" aria-current={view === current && !favouritesSelected ? 'page' : undefined}>
+            <TransportIcon name={view === 'discover' ? 'note' : view === 'library' ? 'library' : view === 'queue' ? 'queue' : 'nowPlaying'} />
+            <span>{label}</span>
+            {count !== undefined && <span className="music-workspace-count"><span className="visually-hidden">, </span>{count}<span className="visually-hidden"> chosen songs next</span></span>}
+          </Link>
+        ))}
+        <Link href="/music?view=library&scope=favorites" prefetch={false} shallow={current !== 'discover'} scroll={false}
+          className="music-workspace-link" aria-current={favouritesSelected ? 'page' : undefined}>
+          <TransportIcon name="heart" /><span>Favourites</span>
+          <span className="music-workspace-count" aria-hidden="true">{favorites.size || ''}</span>
         </Link>
-      ))}
-    </nav>
+      </nav>
+      <div className="music-workspace-collection" onClickCapture={event => { if ((event.target as HTMLElement).closest('button.music-workspace-link')) onOpenChange(false); }}><span className="music-workspace-label">Your collection</span>{typeof children === 'function' ? children(() => { if (mobile) trigger.current?.focus({ preventScroll: true }); }) : children}</div>
+    </aside>
   );
+  return <>
+    {mobile ? <MusicDropdown open={open} onOpenChange={onOpenChange} trigger={trigger}>{sidebar}</MusicDropdown> : sidebar}
+  </>;
+}
+
+function MusicDropdown({ open, onOpenChange, trigger, children }: {
+  open: boolean; onOpenChange: (open: boolean) => void; trigger: React.RefObject<HTMLButtonElement | null>; children: ReactNode;
+}) {
+  const { menuRef, menuStyle } = useAnchoredPopover(260, 'end', { open, onOpenChange, buttonRef: trigger, closeOnRouteChange: false });
+  useEffect(() => { if (open) menuRef.current?.focus({ preventScroll: true }); }, [open, menuRef]);
+  return createPortal(<div ref={menuRef} id="music-navigation-dropdown" className="music-song-playlists-popover music-nav-dropdown" style={menuStyle}
+    hidden={!open} role="dialog" aria-label="Music" tabIndex={-1}
+    onBlur={event => { const next = event.relatedTarget as Node | null; if (next && !event.currentTarget.contains(next) && !trigger.current?.contains(next)) onOpenChange(false); }}>
+    {children}
+  </div>, document.body);
 }

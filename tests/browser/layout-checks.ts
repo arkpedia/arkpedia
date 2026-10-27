@@ -36,12 +36,12 @@ import { tabAlign } from './tab-align';
  * The look runs in both themes, the gaps once (dark), and the light theme on the desktop
  * project only (colour does not change with the width). */
 export const HEADING_ROUTES: Record<string, number> = {
-  '/': 2, '/artists': 1, '/base': 0, '/community': 1, '/community/twitch': 0, '/credits': 5, '/community/videos': 0,
-  '/community/youtube-live': 0, '/enemies': 0, '/events/Duel%20Channel%3A%20Ivy%20Vine': 0, '/farming': 3,
-  '/gacha': 1, '/gamemodes': 0, '/gamemodes/stronghold-protocol': 1, '/games': 0, '/games/color-palette': 1,
+  '/': 2, '/artists': 1, '/base': 0, "/world": 1, "/world/twitch": 0, '/credits': 5, "/world/videos": 0,
+  "/world/youtube-live": 0, '/enemies': 0, '/events/Duel%20Channel%3A%20Ivy%20Vine': 0, '/farming': 3,
+  "/gacha-simulator": 1, "/game-modes": 0, "/game-modes/stronghold-protocol": 1, '/games': 0, '/games/color-palette': 1,
   '/games/music-guesser': 0, '/games/operator-guesser': 1, '/games/recruitment-guesser': 1,
   '/games/stage-guesser': 1, '/music': 1, '/music/discover': 1, '/obtain-method': 0, '/operators': 0,
-  '/operators/Amiya': 10, '/planner': 1, '/pulls': 3, '/recruitment': 2, '/results': 0, '/schedule': 0,
+  '/operators/Amiya': 10, "/operator-planner": 1, "/pull-planner": 3, '/recruitment': 2, "/polls/power-scale": 0, '/schedule': 0,
   '/skins': 0, '/stages': 1, '/stages/all': 0, '/stages/browse?s=ta-1': 2, '/stages/content/act49side': 1,
   '/stages/exploration': 2, '/stages/regular': 2, '/stages/score': 2, '/stages/seasonal': 2,
   '/stages/supplies': 0, '/support': 0, '/synergies': 0, '/techniques': 0, '/voice-actors': 1,
@@ -73,7 +73,7 @@ export const HOME_CARDS = ['.front-events-main', '.front-gacha-poster-wrap', '.f
  * census loads them for this check alone.
  */
 export const PICTURE_ROUTES: Record<string, number> = {
-  '/': 1, '/skins': 1, '/gacha': 1, '/enemies': 1, '/community': 1, '/community/videos': 1, '/results': 1,
+  '/': 1, '/skins': 1, "/gacha-simulator": 1, '/enemies': 1, "/world": 1, "/world/videos": 1, "/polls/power-scale": 1,
   '/music/discover': 1, '/games': 0, '/stages': 1, '/stages/content/act51side': 1, '/stages/regular': 1, '/stages/supplies': 0,
   // Its Skins section by link: since the event pages list sign-ins, missions and first clears,
   // this event opens on Rewards, whose totals are tiles, not picture cards.
@@ -109,9 +109,9 @@ export const CONTENT_CARDS: Record<string, string[]> = {
  *   background, painted under the border (background-clip: border-box), showed as a 1px
  *   ring round art that fills the padding box. ring() in pictureCards finds that on the
  *   card or on any box round its art. Box geometry and computed colours only. */
-export const PICTURE_STATES: Record<string, number> = { '/pulls#skin-wishlist': 1 };
+export const PICTURE_STATES: Record<string, number> = { "/pull-planner#skin-wishlist": 1 };
 export const PICTURE_DRIVES: Record<string, (page: Page) => Promise<void>> = {
-  '/pulls#skin-wishlist': async (page) => {
+  "/pull-planner#skin-wishlist": async (page) => {
     await page.getByRole('button', { name: /Skin wishlist/ }).click();
     // The shops on offer are the data's, dropped once they close (lib/pulls/currentPlan.ts),
     // as pulls.spec.ts's caption test has it: with none listed there are no tiles to measure.
@@ -367,6 +367,7 @@ export const BOUNDS_SAMPLES: Record<string, string> = {
 export const BOUNDS_EXCLUDED: Record<string, string> = {
   '_app': 'the app shell', '_document': 'the document shell',
   'gamemodes/stronghold-protocol/stronghold-companion': 'full-bleed by design: a play-beside-the-game tool',
+  'game-modes/stronghold-protocol/stronghold-companion': 'full-bleed by design: canonical address of the play-beside-the-game tool',
   'recruitment/popout': 'full-bleed by design: hides the site chrome for a pop-out window',
   'home': 'redirects to /', 'events/index': 'redirects to /schedule', 'music/[albumId]': 'redirects to /music',
   'dev/index': 'development only (404 in production: measured through /404 below)',
@@ -411,8 +412,9 @@ export async function measure(page: Page): Promise<Measurement> {
     // scrollbar is drawn (Linux and Windows Chromium) the frame centres in 1425 of 1440px,
     // nav and content alike; on macOS the scrollbar overlays and the width is the full 1440.
     const cw = Math.min(de.clientWidth, document.body.getBoundingClientRect().width);
-    const frameLeft = cw >= 1040 ? (cw - 1040) / 2 + 24 : 24;
-    const frameRight = cw >= 1040 ? (cw - 1040) / 2 + 1040 - 24 : cw - 24;
+    const frameMax = parseFloat(getComputedStyle(de).getPropertyValue('--frame-max'));
+    const frameLeft = cw >= frameMax ? (cw - frameMax) / 2 + 24 : 24;
+    const frameRight = cw >= frameMax ? (cw - frameMax) / 2 + frameMax - 24 : cw - 24;
     const root = document.getElementById('page-content') || document.body;
     const styles = new Map<Element, CSSStyleDeclaration>();
     const cs = (el: Element) => { let s = styles.get(el); if (!s) { s = getComputedStyle(el); styles.set(el, s); } return s; };
@@ -632,7 +634,7 @@ export const EAGER_ALLOWED: Record<string, EagerAllowed[]> = {
     { selector: '.front-events-poster-wrap img', why: 'the first event\'s poster: the home page\'s LCP at 1440', optional: true },
     { selector: '.front-gacha-poster-wrap img', why: 'the first banner\'s art: the home page\'s LCP at 390', optional: true },
   ],
-  '/gacha': [{ selector: 'img.gacha-banner-main-image', why: 'the chosen banner\'s art: the page\'s LCP at 1440 and 390 (none until the art is published)', optional: true }],
+  "/gacha-simulator": [{ selector: 'img.gacha-banner-main-image', why: 'the chosen banner\'s art: the page\'s LCP at 1440 and 390 (none until the art is published)', optional: true }],
   '/stages': [{ selector: '.terminal-lead-art img', why: 'the event the Terminal leads with: the page\'s LCP (none between events)', optional: true }],
 };
 

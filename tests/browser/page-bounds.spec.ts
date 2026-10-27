@@ -35,7 +35,7 @@ for (const width of WIDTHS) {
     test.skip(info.project.name !== 'desktop', 'sets its own viewports, so it runs in one project');
     const context = await browser.newContext({ ...width.use, baseURL: info.project.use.baseURL });
     const page = await context.newPage();
-    await page.goto('/planner', { waitUntil: 'load' });
+    await page.goto("/operator-planner", { waitUntil: 'load' });
     await page.locator('#planner-search').fill('Amiya');
     await page.locator('#planner-search').press('Enter');
     await page.keyboard.press('Escape');

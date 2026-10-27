@@ -59,9 +59,11 @@ test('pilot build proof requires exact clean source and the live production cont
   }
 });
 
-test('pilot aliases preserve existing bookmarks without shadowing main canonical pages', () => {
+test('legacy aliases lead directly to current public pages without chains', () => {
   const { routes } = JSON.parse(readFileSync('config/pilot-route-aliases.json', 'utf8'));
-  assert.equal(Object.keys(routes).length, 13);
+  assert.equal(routes['/free-op'], '/reward-tracker');
+  assert.equal(routes['/planner'], '/operator-planner');
+  assert.equal(routes['/community-hub'], '/world');
   for (const [source, destination] of Object.entries(routes)) {
     assert.notEqual(source, destination);
     assert.equal(routes[destination], undefined, `redirect cycle or chain at ${source}`);

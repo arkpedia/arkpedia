@@ -91,7 +91,7 @@ export const getStaticProps: GetStaticProps<{ modes: Mode[] }> = withContentPage
           holds: 'no page yet',
         },
         {
-          href: '/gamemodes/stronghold-protocol',
+          href: "/game-modes/stronghold-protocol",
           name: 'Stronghold Protocol',
           mark: 'stronghold-protocol.webp',
           blurb: 'Build alliances out of dispatched operators, then let the fight run itself.',

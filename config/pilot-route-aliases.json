@@ -1,18 +1,22 @@
 {
-  "about": "Compatibility aliases for URLs already exposed on the Cloudflare pilot. Main canonical routes stay unchanged; temporary redirects preserve existing pilot bookmarks without promoting the deferred route rename.",
+  "about": "Permanent compatibility redirects from former public names to current canonical routes. Internal content-release keys remain stable.",
   "routes": {
-    "/pull-planner": "/pulls",
-    "/operator-planner": "/planner",
+    "/pulls": "/pull-planner",
+    "/planner": "/operator-planner",
     "/free-op": "/reward-tracker",
-    "/polls/power-scale": "/results",
-    "/game-modes": "/gamemodes",
-    "/game-modes/stronghold-protocol": "/gamemodes/stronghold-protocol",
-    "/game-modes/stronghold-protocol/stronghold-companion": "/gamemodes/stronghold-protocol/stronghold-companion",
-    "/gacha-simulator": "/gacha",
-    "/whats-new": "/changelog",
-    "/community-hub": "/community",
-    "/community-hub/videos": "/community/videos",
-    "/community-hub/twitch": "/community/twitch",
-    "/community-hub/youtube-live": "/community/youtube-live"
+    "/results": "/polls/power-scale",
+    "/gamemodes": "/game-modes",
+    "/gamemodes/stronghold-protocol": "/game-modes/stronghold-protocol",
+    "/gamemodes/stronghold-protocol/stronghold-companion": "/game-modes/stronghold-protocol/stronghold-companion",
+    "/gacha": "/gacha-simulator",
+    "/changelog": "/whats-new",
+    "/community": "/world",
+    "/community/videos": "/world/videos",
+    "/community/twitch": "/world/twitch",
+    "/community/youtube-live": "/world/youtube-live",
+    "/community-hub": "/world",
+    "/community-hub/videos": "/world/videos",
+    "/community-hub/twitch": "/world/twitch",
+    "/community-hub/youtube-live": "/world/youtube-live"
   }
 }

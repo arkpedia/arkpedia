@@ -1,0 +1,38 @@
+.workspace { display: grid; gap: 12px; }
+.workspace p { margin: 0; }
+.controls, .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.controls { align-items: end; }
+.controls label, .controls > div { display: grid; gap: 6px; }
+.gold { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.gold input { width: 100px; }
+.tableScroll { overflow-x: auto; }
+.table { width: 100%; border-collapse: collapse; text-align: left; }
+.table th, .table td { padding: 8px 12px 8px 0; border-bottom: 1px solid var(--line-soft); }
+.table td { font-variant-numeric: tabular-nums; }
+.best { display: block; margin-top: 4px; color: var(--text-dim); font-size: 12px; font-weight: 400; }
+.resultHeader, .shiftToolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.resultHeader h3, .shiftToolbar h3 { margin: 0; }
+.yields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin: 0; padding-block: 12px; border-block: 1px solid var(--line-soft); }
+.yields dt { color: var(--text-dim); font-size: 12px; }
+.yields dd { margin: 0; font-family: var(--font-display); font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.planFacts { display: flex; flex-wrap: wrap; gap: 6px 20px; font-size: 12px; color: var(--text-dim); }
+.planFacts strong { color: var(--text); }
+.roomGrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 20px; }
+details > .roomGrid { margin-top: 12px; }
+.room { min-width: 0; padding: 8px; }
+.roomHeading { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 13px; }
+.roomHeading > span, .roomProduct, .operatorLevel { color: var(--text-dim); font-size: 11px; }
+.roomProduct { display: block; margin-block: 2px 8px; }
+.portraits { list-style: none; display: grid; gap: 6px; margin: 0; padding: 0; }
+.portraits li { display: grid; justify-items: start; gap: 2px; min-width: 0; }
+.portraits img { display: block; width: 44px; height: 44px; max-width: 100%; object-fit: contain; }
+.operatorName { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+.operatorLevel { font-size: 10px; }
+.localNote { display: block; color: var(--text-dim); font-size: 12px; }
+@media (max-width: 720px) {
+  .roomGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .wideRoom { grid-column: 1 / -1; }
+  .yields { gap: 8px; }
+  .yields dd { font-size: 22px; }
+  .table th, .table td { padding-right: 8px; }
+}

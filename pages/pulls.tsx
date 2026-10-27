@@ -375,8 +375,8 @@ export default function PullsPage({ scheduledEvents: globalEvents, scheduledBann
   return <>
     <Head><title>Pull Planner — Arkpedia</title></Head>
     {/* The site's page header, outside <main> like every page's: it was a 34px
-        sentence-case h1 inside main, 12px from the edge on a phone. Import / export lives on
-        the Account page; this points there (components/account/DataLink). */}
+        sentence-case h1 inside main, 12px from the edge on a phone. The shared Import / export
+        action opens over this page (components/account/DataLink). */}
     <PageHeader
       eyebrow="Rhodes Island // Headhunting Budget"
       title="Pull Planner"
@@ -396,8 +396,8 @@ export default function PullsPage({ scheduledEvents: globalEvents, scheduledBann
           <Field label="Yellow certs" unit="" icon="/material-icons/Distinction%20Certificate.webp" value={yellowCerts} onChange={setYellowCerts} readOnly={walletLocked} />
           <div className={workspace.walletLock}><LockToggle what="Resources" locked={walletLocked} onChange={setWalletLocked} /></div>
           {account?.wallet && walletFrom === account.importedAt
-            ? <p className={`hint ${workspace.walletNote}`}>Filled from your account, imported {formatDayMonthYear(account.importedAt.slice(0, 10))}. Edit them as you spend; <Link href="/account">import again</Link> to refresh them.</p>
-            : account && !account.wallet && <p className={`hint ${workspace.walletNote}`}><Link href="/account">Import your account again</Link> to fill these in from it.</p>}
+            ? <p className={`hint ${workspace.walletNote}`}>Filled from your account, imported {formatDayMonthYear(account.importedAt.slice(0, 10))}. Edit them as you spend; use Import / export to refresh them.</p>
+            : account && !account.wallet && <div className={workspace.walletNote}><DataLink /></div>}
         </div>
         {skinBudget.missing.length > 0 && <p className="pulls-plan-warning">Some selected skins have missing prices. Review your wishlist.</p>}
         <div className={workspace.incomeRow}>

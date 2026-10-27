@@ -1,0 +1,197 @@
+import { expect, test } from '@playwright/test';
+import account from '../fixtures/base-account.json';
+
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('arkpedia:privacy:v1', JSON.stringify({ version: 1, analytics: false, externalMedia: false, savedAt: Date.now() })));
+});
+
+test('optimizer handles missing account and keyboard dismissal', async ({ page }) => {
+  await page.goto('/base');
+  await page.getByRole('button', { name: 'Optimize base', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Base optimizer', exact: true });
+  await expect(dialog.getByRole('link', { name: 'Import your account', exact: true })).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'Recommend layout' })).toBeDisabled();
+  await page.keyboard.press('Escape');
+  await expect(dialog).not.toBeVisible();
+  await expect(page.getByRole('button', { name: 'Optimize base', exact: true })).toBeFocused();
+});
+
+test('help stays compact, styled and keyboard accessible in both themes', async ({ page }) => {
+  await page.goto('/base');
+  await page.getByRole('button', { name: 'Optimize base', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Base optimizer', exact: true });
+  const trigger = dialog.getByRole('button', { name: 'Yield assumptions', exact: true });
+  await expect(dialog.getByRole('spinbutton', { name: 'External gold per day' })).toBeVisible();
+  for (const theme of ['dark', 'light']) {
+    await page.evaluate(theme => document.documentElement.setAttribute('data-theme', theme), theme);
+    const imported = dialog.getByRole('link', { name: 'Import your account', exact: true });
+    expect(await imported.evaluate(el => (() => { const probe = document.createElement('span'); probe.style.color = 'var(--teal)'; el.append(probe); const expected = getComputedStyle(probe).color; probe.remove(); return getComputedStyle(el).color === expected; })())).toBe(true);
+    await trigger.focus();
+    await page.keyboard.press('Enter');
+    const help = dialog.getByRole('region', { name: 'Yield assumptions', exact: true });
+    await expect(help).toBeVisible();
+    const reference = help.getByRole('link', { name: 'Production reference' });
+    await expect(reference).toHaveAttribute('href', /docs.google.com\/spreadsheets/);
+    expect(await reference.evaluate(el => (() => { const probe = document.createElement('span'); probe.style.color = 'var(--teal)'; el.append(probe); const expected = getComputedStyle(probe).color; probe.remove(); return getComputedStyle(el).color === expected; })())).toBe(true);
+    expect((await help.innerText()).split(/\s+/).length).toBeLessThan(85);
+    expect(await help.evaluate(el => {
+      const box = el.getBoundingClientRect();
+      return el.scrollWidth <= el.clientWidth + 1 && box.left >= 0 && box.right <= innerWidth && box.bottom <= innerHeight;
+    })).toBe(true);
+    await reference.focus();
+    await expect(reference).toBeFocused();
+    await page.screenshot({ path: test.info().outputPath(`base-optimizer-help-${test.info().project.name}-${theme}.png`) });
+    await page.keyboard.press('Escape');
+    await expect(help).not.toBeVisible();
+    await expect(trigger).toBeFocused();
+    await expect(dialog).toBeVisible();
+  }
+});
+
+test('real worker recommends owned teams, invalidates stale input and saves without editing the imported account', async ({ page }) => {
+  test.setTimeout(180000);
+  page.setDefaultTimeout(10000);
+  await page.addInitScript(record => {
+    localStorage.setItem('arkpediaAccount', JSON.stringify(record));
+    localStorage.setItem('arkpedia:privacy:v1', JSON.stringify({ version: 1, analytics: false, externalMedia: false, savedAt: Date.now() }));
+  }, account);
+  await page.goto('/base');
+  const importedBefore = await page.evaluate(() => localStorage.getItem('arkpediaAccount'));
+  await page.getByRole('button', { name: 'Optimize base', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Base optimizer', exact: true });
+  await dialog.getByRole('checkbox', { name: 'Compare standard layouts' }).uncheck();
+  await dialog.getByRole('button', { name: '2 times a day, every 12 hours' }).click();
+  const workers: string[] = [], remoteSearches: string[] = [];
+  page.on('worker', worker => workers.push(worker.url()));
+  page.on('request', request => {
+    if (/\/api\/.*optimizer|api\.github\.com\/.*actions|github\.com\/.*\/actions\//.test(request.url())) remoteSearches.push(request.url());
+  });
+  await dialog.getByRole('button', { name: 'Recommend layout' }).click();
+  await expect(dialog.getByRole('definition').first()).toBeVisible({ timeout: 120000 });
+  await expect(dialog.getByRole('heading', { name: 'Your layout', exact: true })).toBeVisible();
+  for (let shift = 1; shift <= 2; shift++) {
+    await dialog.getByRole('button', { name: `Shift ${shift}`, exact: true }).click();
+    const factories = dialog.locator('[aria-label="Production teams"]').getByRole('region', { name: /^Factory/ });
+    await expect(factories).toHaveCount(4);
+    for (const factory of await factories.all()) await expect(factory.locator('img').first()).toBeAttached();
+  }
+  await dialog.getByRole('button', { name: 'Shift 1', exact: true }).click();
+  expect(workers).toHaveLength(1);
+  expect(remoteSearches).toEqual([]);
+  await dialog.getByRole('button', { name: 'Recommend layout' }).click();
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  expect(workers).toHaveLength(1); // identical input reuses its result, no second worker
+  await dialog.getByRole('button', { name: 'Close', exact: true }).click();
+  await page.getByRole('button', { name: 'Optimize base', exact: true }).click();
+  await dialog.getByRole('checkbox', { name: 'Compare standard layouts' }).uncheck();
+  await dialog.getByRole('button', { name: 'Recommend layout' }).click();
+  await expect(dialog.getByRole('heading', { name: 'Your layout', exact: true })).toBeVisible();
+  expect(workers).toHaveLength(1); // reopening the dialog retains the bounded page cache
+  await dialog.getByRole('button', { name: 'Shift 2', exact: true }).click();
+  await expect(dialog.getByRole('heading', { name: /20:00 →/ })).toBeVisible();
+  await dialog.getByRole('button', { name: 'Shift 1', exact: true }).click();
+  const portraits = dialog.getByRole('list').filter({ has: page.locator('img') });
+  await expect(portraits.first()).toBeVisible();
+  const firstPortrait = dialog.locator('img').first();
+  await firstPortrait.scrollIntoViewIfNeeded();
+  await expect.poll(() => firstPortrait.evaluate(image => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+  const production = dialog.locator('[aria-label="Production teams"]');
+  await expect(production.getByRole('region', { name: 'Factory 1, level 3', exact: true })).toBeVisible();
+  await expect(production.getByRole('region', { name: 'Factory 4, level 3', exact: true })).toBeAttached();
+  await expect(production.getByRole('region', { name: 'Trading Post 2, level 3', exact: true })).toBeAttached();
+  await expect(production.getByRole('region', { name: /Factory 7|Trading Post 4/ })).toHaveCount(0);
+  for (const theme of ['dark', 'light']) {
+    await page.evaluate(theme => document.documentElement.setAttribute('data-theme', theme), theme);
+    for (const label of ['Yield assumptions', 'Gold balance and saving']) {
+      const trigger = dialog.getByRole('button', { name: label, exact: true });
+      await trigger.click();
+      const help = dialog.getByRole('region', { name: label, exact: true });
+      await expect(help).toBeVisible();
+      expect(await help.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+      await page.keyboard.press('Escape');
+      await expect(help).not.toBeVisible();
+      await expect(trigger).toBeFocused();
+    }
+    for (const [kind, token] of [['factory', '--cat-yellow'], ['tradingPost', '--cat-blue'], ['powerPlant', '--cat-green']]) {
+      expect(await dialog.locator(`.base-room-surface.base-overview-${kind}`).first().evaluate((element, token) => {
+        const style = getComputedStyle(element);
+        return style.getPropertyValue('--base-room-color').trim() === style.getPropertyValue(token).trim() && style.backgroundColor !== 'rgba(0, 0, 0, 0)';
+      }, token)).toBe(true);
+    }
+    expect(await dialog.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+    await page.screenshot({ path: test.info().outputPath(`base-optimizer-${test.info().project.name}-${theme}.png`) });
+  }
+  await dialog.getByRole('button', { name: '1 times a day, every 24 hours' }).click();
+  await expect(dialog.getByRole('heading', { name: 'Your layout', exact: true })).not.toBeVisible();
+  await expect(dialog.getByText('Settings or account changed. Run the optimizer again.')).toBeVisible();
+  await dialog.getByRole('button', { name: 'Recommend layout' }).click();
+  await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await expect(dialog.getByRole('button', { name: 'Recommend layout' })).toBeEnabled();
+  await page.route(workers[0], route => route.fulfill({ contentType: 'application/javascript', body: 'self.onmessage = () => {};' }));
+  await page.clock.install();
+  await dialog.getByRole('button', { name: 'Recommend layout' }).click();
+  await page.clock.fastForward(10 * 60 * 1000 + 1);
+  await expect(dialog.getByRole('alert')).toContainText('10-minute limit');
+  await expect(dialog.getByRole('button', { name: 'Recommend layout' })).toBeEnabled();
+  await dialog.getByRole('button', { name: '2 times a day, every 12 hours' }).click();
+  await dialog.getByRole('button', { name: 'Recommend layout' }).click();
+  await expect(dialog.getByRole('heading', { name: 'Your layout', exact: true })).toBeVisible();
+  const expectedYields = await dialog.getByRole('definition').allTextContents();
+  await dialog.getByRole('button', { name: 'Use as rotation', exact: true }).click();
+  await expect(dialog).not.toBeVisible();
+  const summary = page.getByRole('region', { name: 'Base production summary', exact: true });
+  await expect(summary.getByRole('radio', { name: 'Rotation', exact: true })).toBeChecked();
+  await expect(summary.getByRole('button', { name: '12h', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(summary.getByText('Add saved shifts in Rotation to calculate their output.')).toHaveCount(0);
+  await expect(summary.locator('.base-summary-row').filter({ hasText: 'Average EXP' })).toContainText(expectedYields[1]);
+  await expect(summary.locator('.base-summary-row').filter({ hasText: 'LMD made' })).toContainText(expectedYields[0]);
+  expect(await page.evaluate(() => localStorage.getItem('arkpediaAccount'))).toBe(importedBefore);
+  const saved = await page.evaluate(() => ({ presets: JSON.parse(localStorage.getItem('baseSavedPresets_v1') ?? '[]'), rotation: JSON.parse(localStorage.getItem('baseRotationPlan_v1') ?? '{}') }));
+  expect(saved.presets.length).toBeGreaterThanOrEqual(2);
+  expect(saved.rotation.shifts.every((s: { hours: number }) => s.hours % 12 === 0)).toBe(true);
+  for (const preset of saved.presets) for (const slots of Object.values(preset.assignments) as any[][]) for (const slot of slots) if (slot) expect(account.operators).toContain(slot.operatorName);
+  await page.clock.resume();
+  await page.reload();
+  await expect(summary.getByRole('radio', { name: 'Rotation', exact: true })).toBeChecked();
+  await expect(summary.getByRole('button', { name: '12h', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('button', { name: 'Current base settings', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Every login', exact: true })).toBeVisible();
+  for (const theme of ['dark', 'light']) {
+    if (!await page.getByRole('button', { name: 'Every login', exact: true }).isVisible()) await page.getByRole('button', { name: 'Current base settings', exact: true }).click();
+    await page.evaluate(theme => document.documentElement.setAttribute('data-theme', theme), theme);
+    for (const label of ['Clue exchange help', 'Morale help', 'Swap operators help', 'Login interval help', 'Production estimate limits']) {
+      const trigger = page.getByRole('button', { name: label, exact: true });
+      await trigger.click();
+      const help = page.getByRole('region', { name: label, exact: true });
+      await expect(help).toBeVisible();
+      expect(await help.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+      await page.keyboard.press('Escape');
+      await expect(trigger).toBeFocused();
+    }
+    if (!await page.getByRole('button', { name: 'Every login', exact: true }).isVisible()) await page.getByRole('button', { name: 'Current base settings', exact: true }).click();
+    await page.getByRole('button', { name: 'Current base settings', exact: true }).scrollIntoViewIfNeeded();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+    await page.screenshot({ path: test.info().outputPath(`base-rotation-settings-${test.info().project.name}-${theme}.png`) });
+  }
+  await page.getByRole('button', { name: 'Edit rotation', exact: true }).click();
+  await expect(page.getByRole('dialog', { name: 'Rotation', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'View in base', exact: true }).first().click();
+  await expect(page.getByRole('region', { name: 'Base presets', exact: true })).toBeVisible();
+});
+
+test('layout alternatives stay compact and update the portrait board', async ({ page }) => {
+  const small = { ...account, operators: ['FEater', 'Gravel', 'Spot', 'Proviso', 'Texas', 'Myrtle', 'Lancet-2', 'Perfumer'] };
+  await page.addInitScript(record => localStorage.setItem('arkpediaAccount', JSON.stringify(record)), small);
+  await page.goto('/base');
+  await page.getByRole('button', { name: 'Optimize base', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Base optimizer', exact: true });
+  await dialog.getByRole('button', { name: 'Recommend layout' }).click();
+  await expect(dialog.getByRole('combobox', { name: 'Recommended layout' })).toBeVisible({ timeout: 20000 });
+  await expect(dialog.getByRole('table', { name: 'Recommended layouts' })).not.toBeVisible();
+  await dialog.getByRole('combobox', { name: 'Recommended layout' }).click();
+  await dialog.getByRole('option', { name: /^1-5-3/ }).click();
+  await expect(dialog.getByRole('heading', { name: '1-5-3', exact: true })).toBeVisible();
+  await expect(dialog.locator('[aria-label="Production teams"]').getByRole('region', { name: /Factory/ })).toHaveCount(5);
+  await dialog.getByText('Compare layouts', { exact: true }).click();
+  await expect(dialog.getByRole('table', { name: 'Recommended layouts' })).toBeVisible();
+});

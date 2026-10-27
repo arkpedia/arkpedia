@@ -1,4 +1,5 @@
 import { expect, type Page } from '@playwright/test';
+import { openMusicMenu } from './music-navigation-helpers';
 
 /*
  * A stand-in for YouTube's iframe API (https://www.youtube.com/iframe_api), so the music player's
@@ -83,8 +84,9 @@ export const DATA_SAVER_KEY = 'arkpediaMusicDataSaver';
  *  has not set it), and YouTube plays every song that has a video, as it did before Monster Siren
  *  playback. `dataSaver: false` leaves the setting alone: the default, checked by
  *  music-data-saver.spec.ts. */
-export async function stubYouTube(page: Page, policy: AutoplayPolicy = 'allow', { dataSaver = true }: { dataSaver?: boolean } = {}): Promise<YouTubeStub> {
+export async function stubYouTube(page: Page, policy: AutoplayPolicy = 'allow', { dataSaver = true, mediaConsent = true }: { dataSaver?: boolean; mediaConsent?: boolean } = {}): Promise<YouTubeStub> {
   const control: YouTubeStub = { policy };
+  if (mediaConsent) await page.addInitScript(() => localStorage.setItem('arkpedia:privacy:v1', JSON.stringify({ version: 1, analytics: false, externalMedia: true, savedAt: Date.now() })));
   if (dataSaver) {
     await page.addInitScript((key) => {
       try { if (localStorage.getItem(key) === null) localStorage.setItem(key, 'true'); } catch { /* an opaque origin */ }
@@ -140,6 +142,7 @@ export function sameDocument(page: Page): Promise<boolean> {
 /** Explicitly choose the whole catalogue for regressions that need a populated queue.
  * Fresh visits themselves now have an empty queue. This uses the real playlist action. */
 export async function playAllSongs(page: Page) {
+  await openMusicMenu(page);
   await page.getByRole('button', { name: 'Playlists', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Music playlists', exact: true });
   await expect(dialog.getByRole('button', { name: 'Play all songs', exact: true })).toBeEnabled();

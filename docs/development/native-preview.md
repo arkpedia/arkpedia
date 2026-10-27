@@ -3,11 +3,12 @@
 Current retirement decision: [Vercel retirement and Cloudflare recovery](vercel-retirement.md)
 supersedes the historical Vercel-retention instructions below.
 
-The redesign is reviewed independently of the live www / Cloudflare copy. Its
-native Cloudflare Worker Preview is named `arkpedia` under the existing `arkpedia`
-Worker. Publish with the manual Build and publish Cloudflare Preview workflow,
-using an immutable full source SHA on the redesign branch. This does not merge the
-redesign into main or change production traffic.
+The native Cloudflare Preview reviews UI changes before checked-main production
+releases. Google/Discord sign-in, Arkpedia profiles and cloud saves remain exclusive
+to Preview; production keeps local profile pictures, game imports and browser data.
+Its Worker Preview is named `arkpedia` under the existing `arkpedia` Worker. Publish
+with the manual Build and publish Cloudflare Preview workflow using an immutable
+full source SHA. This does not change production traffic.
 
 `wrangler.preview.jsonc` is exclusively for `wrangler preview`; never deploy it
 with `wrangler deploy`. It binds `arkpedia-preview-cache`, an automatically

@@ -38,7 +38,18 @@ async function request(method = 'GET', body?: unknown, known?: Remote | null) {
   return { response, data };
 }
 
+const DISABLED: SyncContext = {
+  status: 'unavailable', remote: null, providers: [], message: '',
+  refresh: async () => {}, choose: async () => {}, consent: async () => {},
+  erase: async () => {}, pause: () => {}, resume: async () => {},
+};
+
 export function CloudSyncProvider({ children, onRestore }: { children: ReactNode; onRestore: () => void }) {
+  if (process.env.ARKPEDIA_CLOUD_ACCOUNTS !== '1') return <Context.Provider value={DISABLED}>{children}</Context.Provider>;
+  return <EnabledCloudSyncProvider onRestore={onRestore}>{children}</EnabledCloudSyncProvider>;
+}
+
+function EnabledCloudSyncProvider({ children, onRestore }: { children: ReactNode; onRestore: () => void }) {
   const [state, setState] = useState<SyncState>({ status: 'loading', remote: null, providers: [], message: '' });
   const busy = useRef(false), paused = useRef(false), stateRef = useRef(state);
   stateRef.current = state;

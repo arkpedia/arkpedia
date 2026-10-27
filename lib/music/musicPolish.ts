@@ -18,3 +18,17 @@ export function lyricPreview<T extends { time: number; text: string }>(lines: re
   const start = Math.min(Math.max(0, active - 1), Math.max(0, lines.length - 3));
   return lines.slice(start, start + 3).map((line, i) => ({ line, active: start + i === active }));
 }
+
+/** Share the Played earlier boundary with navigation, including a song playing from autoplay. */
+export function queuePlaybackPositions({ queue, queueIndex, position, videoId, autoplayVideoId, queued }: {
+  queue: readonly { id: string }[];
+  queueIndex: number;
+  position: number;
+  videoId: string | null;
+  autoplayVideoId: string | null;
+  queued: ReadonlySet<string>;
+}): { current: number; boundary: number } {
+  const current = videoId && !autoplayVideoId && queue.some(track => track.id === videoId) ? position : -1;
+  const boundary = autoplayVideoId && queue.length && !queued.has(queue[queueIndex]?.id) ? position : current;
+  return { current, boundary };
+}

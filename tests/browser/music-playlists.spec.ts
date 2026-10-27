@@ -1,3 +1,4 @@
+import { chooseMusicView, clickMusicControl, openMusicMenu } from './music-navigation-helpers';
 import { expect, test } from '@playwright/test';
 import { playAllSongs, stubYouTube, youtube } from './youtube-stub';
 
@@ -13,7 +14,8 @@ for (const theme of ['dark', 'light']) {
     const before = (await youtube(page))!;
     // The bar's heart, at every width (beside the song on a phone).
     await page.locator('.music-player-bottombar').getByRole('button', { name: 'Favourite', exact: true }).click();
-    await page.getByRole('button', { name: 'Playlists', exact: true }).click();
+    await openMusicMenu(page);
+  await page.getByRole('button', { name: 'Playlists', exact: true }).click();
     const dialog = page.getByRole('dialog', { name: 'Music playlists' });
     await dialog.getByRole('textbox', { name: 'New playlist name' }).fill('Night music');
     await dialog.getByRole('button', { name: 'Save favorites', exact: true }).click();
@@ -37,7 +39,7 @@ for (const theme of ['dark', 'light']) {
     await dialog.getByRole('button', { name: 'Play playlist', exact: true }).click();
     await expect(dialog.getByRole('status')).toContainText('Playing Night music');
     await page.keyboard.press('Escape');
-    await expect(page.getByRole('button', { name: 'Playlists', exact: true })).toBeFocused();
+    await expect(page.getByRole('button', { name: test.info().project.name === 'mobile' ? 'Music menu' : 'Playlists', exact: true })).toBeFocused();
     await expect(page.locator('.music-queue-row')).toHaveCount(1);
     // YouTube reports a removed/blocked video: a one-song playlist must stop, not retry forever.
     const loads = (await youtube(page))!.calls.filter(([call]) => call === 'loadVideoById').length;
@@ -46,7 +48,8 @@ for (const theme of ['dark', 'light']) {
     await page.waitForTimeout(200);
     expect((await youtube(page))!.calls.filter(([call]) => call === 'loadVideoById')).toHaveLength(loads);
     await page.reload();
-    await page.getByRole('button', { name: 'Playlists', exact: true }).click();
+    await openMusicMenu(page);
+  await page.getByRole('button', { name: 'Playlists', exact: true }).click();
     await expect(page.getByRole('combobox', { name: 'Saved playlist' })).toHaveText('Favourites');
     await page.getByRole('combobox', { name: 'Saved playlist' }).click();
     await expect(page.getByRole('option', { name: 'Night music', exact: true })).toBeVisible();
@@ -60,6 +63,7 @@ test('an imported playlist plays in its saved order and stream-safe does not add
   await page.goto('/music?view=queue');
   await playAllSongs(page);
   await expect(page.locator('.music-queue-row').first()).toBeVisible();
+  await openMusicMenu(page);
   await page.getByRole('button', { name: 'Playlists', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Music playlists' });
   await dialog.getByRole('textbox', { name: 'New playlist name' }).fill('Whole queue');
@@ -76,8 +80,9 @@ test('an imported playlist plays in its saved order and stream-safe does not add
   await dialog.getByRole('button', { name: 'Play playlist', exact: true }).click();
   await expect.poll(async () => (await youtube(page))?.videoId).toBe(ids[0]);
   await page.keyboard.press('Escape');
+  await chooseMusicView(page, /^Queue/);
   await expect(page.locator('.music-queue-row')).toHaveCount(2);
-  await page.getByRole('button', { name: 'Next track', exact: true }).click();
+  await clickMusicControl(page, 'Next track');
   await expect.poll(async () => (await youtube(page))?.videoId).toBe(ids[1]);
   await page.reload();
   // The first song has played: the Queue keeps it under Played earlier, folded.
@@ -87,6 +92,7 @@ test('an imported playlist plays in its saved order and stream-safe does not add
   // The compact phone transport hides this optional control; exercise it where it is exposed.
   if (await safe.isVisible()) { await safe.click(); await safe.click(); }
   await expect(page.locator('.music-queue-row')).toHaveCount(2);
+  await openMusicMenu(page);
   await page.getByRole('button', { name: 'Playlists', exact: true }).click();
   await page.getByRole('dialog', { name: 'Music playlists' }).getByRole('button', { name: 'Play all songs', exact: true }).click();
   await page.keyboard.press('Escape');

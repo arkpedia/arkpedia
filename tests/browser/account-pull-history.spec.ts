@@ -21,10 +21,12 @@ async function seed(page: Page) {
     localStorage.setItem('arkpediaOtherAccounts', JSON.stringify({ kr: other }));
   }, { shown: account('en', 65), other: account('kr', 3) });
   await page.reload();
+  await page.getByRole('tab', { name: 'Pull history', exact: true }).click();
 }
 
 test('Every pull mounts on request, grows on scroll, and keeps summaries and full CSV available', async ({ page }) => {
   await seed(page);
+  await expect(page.getByRole('tabpanel', { name: 'Pull history', exact: true }).getByText('Browser only', { exact: false })).toBeVisible();
   const toggle = page.getByRole('button', { name: 'Every pull', exact: true });
   const sessions = page.locator('.account-pulls-session');
   await expect(toggle).toHaveAttribute('aria-expanded', 'false');
@@ -47,6 +49,10 @@ test('Every pull mounts on request, grows on scroll, and keeps summaries and ful
   await expect(toggle).toHaveAttribute('aria-expanded', 'true');
   await expect(toggle).toBeFocused();
   await expect(sessions).toHaveCount(20);
+  if (process.env.ARKPEDIA_QA_CAPTURE) {
+    await page.locator('.account-pulls-op img').first().evaluate(image => (image as HTMLImageElement).decode().catch(() => {}));
+    await page.screenshot({ path: `${process.env.ARKPEDIA_QA_CAPTURE}/structured-history-${test.info().project.name}.png`, fullPage: false, animations: 'disabled' });
+  }
   await expect(sessions.first().locator('.account-pulls-op')).toHaveCount(10);
   await expect(sessions.first()).toContainText('×10');
   await expect(sessions.first().getByRole('link').first()).toHaveAttribute('href', '/operators/Amiya');
@@ -73,7 +79,11 @@ test('switching imported servers closes individual history and shows only the se
   const toggle = page.getByRole('button', { name: 'Every pull', exact: true });
   await toggle.click();
   await expect(page.locator('.account-pulls-session')).toHaveCount(20);
+  await page.getByRole('tab', { name: 'Profile', exact: true }).click();
+  await expect(page.getByRole('tab', { name: 'Profile', exact: true })).toHaveAttribute('aria-selected', 'true');
   await page.getByRole('group', { name: 'Server', exact: true }).getByRole('button', { name: 'Korea', exact: true }).click();
+  await expect(page.getByRole('group', { name: 'Server', exact: true }).getByRole('button', { name: 'Korea', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('tab', { name: 'Pull history', exact: true }).click();
   await expect(toggle).toHaveAttribute('aria-expanded', 'false');
   await expect(page.locator('.account-pulls-session')).toHaveCount(0);
   await expect(page.locator('.account-pulls-banner-name')).toHaveText('KR fixture banner');

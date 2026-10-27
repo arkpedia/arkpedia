@@ -112,11 +112,13 @@ export function SimplePlanner({
   failedNames,
   clearControl,
   materialsPanel,
+  materialsControls,
   missingShares,
 }: {
   missingShares?: Map<string, number>;
   clearControl?: React.ReactNode;
   materialsPanel?: React.ReactNode;
+  materialsControls?: React.ReactNode;
   operators: PlannerOperatorSummary[];
   selectedNames: string[];
   states: Record<string, BuilderState>;
@@ -324,7 +326,7 @@ export function SimplePlanner({
             </article>
           ) : (
             <section className="simple-all" {...tabPanelProps("planner-operator", ALL_MATERIALS)}>
-              <h2 className="section-title">All materials</h2>
+              <div className="simple-all-heading"><h2 className="section-title">All materials</h2>{materialsControls}</div>
               {pending.length ? (
                 <p role="status">
                   {pending.some((n) => failedNames.has(n))

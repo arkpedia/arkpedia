@@ -6,6 +6,7 @@ import { CHANGELOG, type ChangeItem } from '@/lib/changelog/entries';
 import { markChangelogSeen } from '@/lib/changelog/seen';
 import { formatInstant } from '@/components/ui/LocalTime';
 import { groupChangelogDays } from '@/lib/changelog/group';
+import { canonicalPublicHref } from '@/lib/nav/publicRoutes';
 
 /* What's new on the site, newest first (lib/changelog/entries.ts): each day's Added /
    Changed / Fixed as short bold titles to skim, each with one quieter line, the title linking to
@@ -17,7 +18,7 @@ function Item({ item }: { item: ChangeItem }) {
   return (
     <li>
       {item.href
-        ? <Link prefetch={false} href={item.href} className="changelog-item-title">{item.title}<span className="changelog-go" aria-hidden="true"> →</span></Link>
+        ? <Link prefetch={false} href={canonicalPublicHref(item.href)} className="changelog-item-title">{item.title}<span className="changelog-go" aria-hidden="true"> →</span></Link>
         : <span className="changelog-item-title">{item.title}</span>}
       {item.detail && <span className="changelog-item-detail">{item.detail}</span>}
     </li>

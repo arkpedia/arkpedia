@@ -1,4 +1,5 @@
 import { foldForSearch, lookalikeForSearch, normalizeForSearch, withinEdits } from './searchNormalize';
+import { canonicalPublicHref } from '@/lib/nav/publicRoutes';
 
 /*
  * The site-wide search: the nav's search box and /search?s=<query>.
@@ -104,7 +105,7 @@ async function fetchSiteSearch(url: string, signal: AbortSignal | undefined, fet
   if (!response.ok) throw new Error(`Site search data returned ${response.status}`);
   const data = await response.json() as { entries?: unknown };
   if (!Array.isArray(data.entries)) throw new Error('Site search data is invalid');
-  return (data.entries as SiteSearchEntry[]).map(entry => ({ ...entry, href: entry.href.replace(/^\/free-op(?=$|[?#])/, '/reward-tracker') }));
+  return (data.entries as SiteSearchEntry[]).map(entry => ({ ...entry, href: canonicalPublicHref(entry.href) }));
 }
 
 /**

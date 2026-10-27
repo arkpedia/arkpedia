@@ -1,7 +1,9 @@
-import { calculateBase, type BaseCalculationInput } from './calculateBase';
+import type { BaseCalculationInput, calculateBase } from './calculateBase';
 import { getFacilities } from './baseConfig';
 import { analyzeRotation, type BaseRotationPlan } from './baseRotationPlan';
 import type { SavedBasePreset } from './baseSavedPresets';
+import { simulateBase } from './baseSimulation';
+import { sustainableOutput } from './baseOptimizer';
 
 const TOTAL_KEYS = [
   'dailyExpGreen', 'dailyExpRed', 'dailyGoldMadeGreen', 'dailyGoldMadeRed',
@@ -10,37 +12,34 @@ const TOTAL_KEYS = [
 ] as const;
 export type BaseProductionTotals = Pick<ReturnType<typeof calculateBase>, typeof TOTAL_KEYS[number]>;
 
-/** Recalculate every complete saved base, carrying Morale through two cycles.
- * Show the second cycle as a daily average, so the first shift's full Morale
- * cannot hide an exhausted return. Collection also happens at shift changes.
- * Uses the room calculator's conservative first-exhaustion cutoff; thresholds
- * within a shift and one-off skills are not a chronological game simulation. */
+/** Same repeating chronological model and gold funding as the account optimizer.
+ * Saved shift settings are recalculated; no cached recommendation totals are trusted. */
 export function calculateRotation(input: Pick<BaseCalculationInput, 'operators' | 'rosters' | 'skillSlots' | 'workshopRecipes'>,
   plan: BaseRotationPlan, presets: SavedBasePreset[], loginInterval: number,
   initialMorale: Record<string, number> = {}, owned?: ReadonlySet<string>) {
   const duration = plan.shifts.reduce((n, s) => n + s.hours, 0);
-  const totals = Object.fromEntries(TOTAL_KEYS.map(key => [key, 0])) as BaseProductionTotals;
-  const missing = plan.shifts.some(s => !presets.some(p => p.id === s.presetId));
-  let index = 0;
-  const stages = analyzeRotation(plan, presets, initialMorale, owned, (preset, morale, hours) => {
-    const facilities = getFacilities(preset.productionSpots, preset.facilityLevels);
-    const result = calculateBase({ ...input, facilities, assignments: preset.assignments,
-      factoryProducts: preset.factoryProducts, dormitoryAmbience: preset.dormitoryAmbience,
-      clueExchangeActive: preset.clueExchangeActive, moraleAbove12: preset.moraleAbove12,
-      trainingTarget: preset.trainingTarget, workshopSettings: preset.workshopSettings,
-      swapPolicy: 'onLogin', loginInterval: Math.min(loginInterval, hours), importedMorale: morale,
-    });
-    if (index >= plan.shifts.length) for (const key of TOTAL_KEYS) totals[key] += result[key] * hours / duration;
-    index++;
-    const rates: Record<string, number> = {};
-    for (const f of facilities) for (const slot of preset.assignments[f.id] ?? []) if (slot) {
-      const recovery = result.dormitoryRecoveryByFacility[f.id]?.find(r => r.name === slot.operatorName);
-      if (recovery) rates[slot.operatorName] = -(recovery.base + recovery.bonus);
-      else if (f.kind !== 'workshop') rates[slot.operatorName] = result.rooms[f.id].perOperatorMorale?.[slot.operatorName] ?? result.rooms[f.id].combinedMoraleRate;
-    }
-    return rates;
+  const saved = plan.shifts.map(s => presets.find(p => p.id === s.presetId));
+  const diagnosticStages = analyzeRotation(plan, presets, initialMorale, owned);
+  const incompatible = diagnosticStages.some(s => s.warnings.some(w => w.includes('same layout')));
+  const problem = !duration ? 'Add saved shifts in Rotation to calculate their output.' : saved.some(p => !p) ? 'Choose an existing preset for every rotation shift.' : incompatible ? 'Use the same room types and levels in every rotation shift.' : null;
+  if (problem) return { totals: null, stages: diagnosticStages, problem };
+  const first = saved[0]!;
+  const facilities = getFacilities(first.productionSpots, first.facilityLevels);
+  const simulation = simulateBase({
+    base: { ...input, facilities }, loginInterval, initialMorale,
+    shifts: saved.map((p, i) => ({ assignments: p!.assignments, factoryProducts: p!.factoryProducts, hours: plan.shifts[i].hours,
+      settings: { dormitoryAmbience: p!.dormitoryAmbience, clueExchangeActive: p!.clueExchangeActive, moraleAbove12: p!.moraleAbove12, trainingTarget: p!.trainingTarget, workshopSettings: p!.workshopSettings } })),
   });
-  const incompatible = stages.some(s => s.warnings.some(w => w.includes('same layout')));
-  return { totals: duration > 0 && !missing && !incompatible ? totals : null, stages,
-    problem: !duration ? 'Add saved shifts in Rotation to calculate their output.' : missing ? 'Choose an existing preset for every rotation shift.' : incompatible ? 'Use the same room types and levels in every rotation shift.' : null };
+  const output = sustainableOutput(simulation.perDay, plan.externalGold ?? 0);
+  const totals = Object.fromEntries(TOTAL_KEYS.map(key => [key, 0])) as BaseProductionTotals;
+  totals.dailyExpGreen = totals.dailyExpRed = output.exp;
+  totals.dailyGoldMadeGreen = totals.dailyGoldMadeRed = output.goldMade;
+  totals.dailyGoldSoldGreen = totals.dailyGoldSoldRed = output.goldSold;
+  totals.dailyGoldWorthGreen = totals.dailyGoldWorthRed = output.lmd;
+  const stages = diagnosticStages.slice(0, plan.shifts.length).map(stage => ({ ...stage,
+    warnings: [...stage.warnings.filter(w => !w.includes('rates are missing') && !w.includes('0 Morale after')),
+      ...simulation.events.filter(e => e.kind === 'exhausted' && e.time >= stage.start && e.time < stage.end).map(e => e.detail)],
+    moraleAfter: Object.fromEntries(Object.entries(simulation.moraleTrace).map(([name, trace]) => [name, [...trace].reverse().find(p => p.time <= stage.end + 1e-8)?.morale ?? 24])),
+  }));
+  return { totals, stages, problem: null, warnings: simulation.warnings, simulation };
 }

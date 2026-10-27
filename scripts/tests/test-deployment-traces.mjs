@@ -12,6 +12,8 @@ test('deployment trace audit rejects local records, caches and secrets in develo
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   fs.mkdirSync(path.join(root, 'scripts/content'), { recursive: true });
   fs.writeFileSync(path.join(root, 'scripts/content/pages.json'), '[]');
+  fs.mkdirSync(path.join(root, 'config'));
+  fs.writeFileSync(path.join(root, 'config/pilot-route-aliases.json'), JSON.stringify({ routes: {} }));
   const trace = path.join(root, '.next/server/pages/api/dev/optimizer-results.js.nft.json');
   fs.mkdirSync(path.dirname(trace), { recursive: true });
   const run = file => {

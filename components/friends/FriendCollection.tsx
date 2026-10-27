@@ -9,8 +9,8 @@ import type { FriendOperator, FriendSkin } from '@/lib/account/friendCatalogue';
 import { matchesSearch } from '@/lib/search/searchNormalize';
 import styles from './Friends.module.css';
 
-export default function FriendCollection({ friend, operators, skins, view, onClose, own = false }: {
-  friend: FriendFile; operators: FriendOperator[]; skins: FriendSkin[]; view: 'operators' | 'skins'; onClose: () => void; own?: boolean;
+export default function FriendCollection({ friend, operators, skins, view, onClose, own = false, inline = false }: {
+  friend: FriendFile; operators: FriendOperator[]; skins: FriendSkin[]; view: 'operators' | 'skins'; onClose: () => void; own?: boolean; inline?: boolean;
 }) {
   const modal = useRef<HTMLDialogElement>(null);
   const [query, setQuery] = useState('');
@@ -26,11 +26,12 @@ export default function FriendCollection({ friend, operators, skins, view, onClo
   useLayoutEffect(() => {
     if (skin) skinBack.current?.focus();
     else if (skinTrigger.current) {
-      if (collection.current) collection.current.scrollTop = skinScroll.current;
+      if (inline) window.scrollTo({ top: skinScroll.current });
+      else if (collection.current) collection.current.scrollTop = skinScroll.current;
       // The gallery was remounted: resolve the same skin by its stable game id.
       collection.current?.querySelector<HTMLButtonElement>(`[data-skin-id="${skinTrigger.current.dataset.skinId}"]`)?.focus({preventScroll:true});
     }
-  }, [skin]);
+  }, [skin, inline]);
   const known = useMemo(() => new Map(operators.map(op => [op.name, op])), [operators]);
   const owned = useMemo(() => [...new Set(friend.account.operators)].map(name => known.get(name) ?? {
     name, rarity: 0, icon: '/essential-icons/Arkpedia.webp', className: null, skills: 0, modules: [],
@@ -46,23 +47,17 @@ export default function FriendCollection({ friend, operators, skins, view, onClo
       .sort((a, b) => (a.model ?? '').localeCompare(b.model ?? '') || a.name.localeCompare(b.name));
   }, [friend.account.skins, skins, query]);
   useEffect(() => {
+    if (inline) return;
     const element = modal.current!;
     const focus = document.activeElement as HTMLElement | null;
     const overflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     element.showModal();
     return () => { element.close(); document.body.style.overflow = overflow; focus?.focus({ preventScroll: true }); };
-  }, []);
+  }, [inline]);
   const heading = `${friend.account.doctor ?? 'Friend'} · ${view === 'operators' ? 'Operators' : 'Skins'}`;
-  return <>
-    <dialog ref={modal} className={styles.dialog} aria-label={heading} onCancel={event => {
-      event.preventDefault(); if (skin) setSkin(null); else onClose();
-    }} onClick={event => {
-      if (event.target !== modal.current) return;
-      const rect = event.currentTarget.getBoundingClientRect();
-      if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) onClose();
-    }}>
-      <div className={styles.dialogHead}><h2 className="entity-title">{heading}</h2><XButton onClick={onClose} label={`Close ${own ? 'your' : "friend's"} ${view}`} /></div>
+  const content = <>
+      {!inline && <div className={styles.dialogHead}><h2 className="entity-title">{heading}</h2><XButton onClick={onClose} label={`Close ${own ? 'your' : "friend's"} ${view}`} /></div>}
       {skin ? <div className={styles.skinDetail}>
         <button ref={skinBack} type="button" className="btn" onClick={() => setSkin(null)}>← Skins</button>
         <h3>{skin.model} · {skin.name}</h3>
@@ -81,7 +76,7 @@ export default function FriendCollection({ friend, operators, skins, view, onClo
               const build = friend.roster[op.name];
               const summary = build ? `E${build.elite} Level ${build.level}, skill rank ${build.skillLevel}` : 'Build level not recorded';
               return <button key={op.name} type="button" className={`btn-bare ${styles.operator}`} disabled={op.rarity < 1 || op.rarity > 6} aria-haspopup="dialog" aria-label={`${op.name}: ${summary}. Open operator preview`}
-                onClick={() => setPreview({name:op.name,rarity:op.rarity,icon:op.icon})}>
+                onClick={() => setPreview({name:op.name,rarity:op.rarity,icon:op.icon,build,rosterContext:true})}>
                 <span className={styles.buildMarks}>
                   {build ? <><ContentImg src={`/profile-ui/elite_${build.elite}.webp`} alt={`Elite ${build.elite}`} /><span>LV <b>{build.level}</b></span>
                     {build.potential != null && <ContentImg src={`/profile-ui/potential_${build.potential - 1}_small.webp`} alt={`Potential ${build.potential}`} />}</> : <span>Build unknown</span>}
@@ -104,7 +99,7 @@ export default function FriendCollection({ friend, operators, skins, view, onClo
             {!owned.length && <p className="hint">No operators match.</p>}
           </div> : <div className={styles.skinGrid}>
             {outfits.map(outfit => <button type="button" key={outfit.id} data-skin-id={outfit.id} className={`btn-bare ${styles.skin}`} onClick={event => {
-              skinTrigger.current = event.currentTarget; skinScroll.current = collection.current?.scrollTop ?? 0; setSkin(outfit);
+              skinTrigger.current = event.currentTarget; skinScroll.current = inline ? window.scrollY : collection.current?.scrollTop ?? 0; setSkin(outfit);
             }} disabled={!outfit.image}>
               <span>{outfit.image ? <ContentImg src={outfit.image} alt="" /> : <small>Artwork unavailable</small>}</span>
               <b>{outfit.model ?? 'Unknown operator'}</b><span>{outfit.name}</span>
@@ -113,7 +108,17 @@ export default function FriendCollection({ friend, operators, skins, view, onClo
           </div>}
         </div>
       </>}
-    </dialog>
+  </>;
+  return <>
+    {inline ? <div className={styles.inline}>{content}</div> : <dialog ref={modal} className={styles.dialog} aria-label={heading} onCancel={event => {
+      event.preventDefault(); if (skin) setSkin(null); else onClose();
+    }} onClick={event => {
+      if (event.target !== modal.current) return;
+      const rect = event.currentTarget.getBoundingClientRect();
+      if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) onClose();
+    }}>
+      {content}
+    </dialog>}
     {preview && <OperatorPreview item={preview} onClose={closePreview} nativeModal />}
   </>;
 }

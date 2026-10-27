@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import DataLink from './DataLink';
 import SegmentedControl from '@/components/ui/SegmentedControl';
 import type { AccountRecord, OwnedFilter as Filter } from '@/lib/account/accountStore';
 
@@ -13,8 +13,8 @@ export function countOwned<T>(items: readonly T[], isOwned: (item: T) => boolean
 /*
  * All / Owned / Not owned, from the imported account (lib/account/accountStore): one
  * pick-one control, drawn in the same place on the roster, the skins gallery and the Skin
- * Planner. Without an import there is nothing to filter by, so it is a link to the Account
- * page that makes one, not a row of disabled buttons. Each option counts what it would show,
+ * Planner. Without an import, open the shared Import / export dialog rather than disabled
+ * filter choices. Each option counts what it would show,
  * under the list's other filters: what is left of a 6★ Guard search, not of the whole roster.
  */
 export default function OwnedFilter({ value, onChange, account, label, counts }: {
@@ -28,11 +28,7 @@ export default function OwnedFilter({ value, onChange, account, label, counts }:
   label: string;
 }) {
   if (!account) {
-    return (
-      <Link prefetch={false} href="/account" className="btn btn-sm ghost owned-filter-import" title="Import your Arknights account to filter by what you own.">
-        Owned? Import account
-      </Link>
-    );
+    return <DataLink />;
   }
   const options = [
     { value: 'all', label: 'All', count: counts.owned + counts.missing },

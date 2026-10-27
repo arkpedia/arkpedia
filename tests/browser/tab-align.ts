@@ -59,7 +59,8 @@ export function tabAlign({ tolerance }: TabAlignOptions): TabAlignOffence[] {
   ];
   const de = document.documentElement;
   const cw = Math.min(de.clientWidth, document.body.getBoundingClientRect().width);
-  const frameLeft = cw >= 1040 ? (cw - 1040) / 2 + 24 : 24;
+  const frameMax = parseFloat(getComputedStyle(de).getPropertyValue('--frame-max'));
+    const frameLeft = cw >= frameMax ? (cw - frameMax) / 2 + 24 : 24;
   const px = (v: string) => parseFloat(v) || 0;
   const round = (n: number) => Math.round(n * 10) / 10;
   const cs = (el: Element) => getComputedStyle(el);

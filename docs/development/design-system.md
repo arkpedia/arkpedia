@@ -7,6 +7,12 @@ Read this before designing a page. [UI primitives and tokens](ui-primitives.md) 
 implementation specification; it owns exact tokens, component APIs and regression rules.
 Do not invent a second palette or copy a feature's CSS as a new standard.
 
+The [navigation and account redesign plan](navigation-account-redesign-plan.md)
+records the maintainer's2026-10-25 target for a wider shell, clearer navigation,
+account shortcuts and quieter supporting information. It is the next product design
+plan; its proposed widths and new components are not yet implemented. The current
+token values below remain factual until the prototype is reviewed and updated.
+
 ## Product character
 
 Arkpedia is a readable Arknights reference and planning workspace. Its visual identity
@@ -19,6 +25,18 @@ not mean turning a chronological schedule, a stage map and a music queue into id
 cards. Choose the pattern below first, then use its established primitives.
 
 ## Navigation and continuity
+
+Public URLs use their current reader-facing names: `/reward-tracker`,
+`/operator-planner`, `/pull-planner`, `/game-modes`, `/gacha-simulator`,
+`/polls/power-scale`, `/whats-new` and `/world`. Old bookmarks redirect directly;
+in-app links and published-search results target the canonical page. Internal content
+release keys remain stable so renaming a URL never invalidates existing content.
+
+Operator previews opened from an account or friend roster use that selected roster's
+recorded promotion, level, skill ranks, masteries and unlocked module stages. Never
+substitute the viewer's planner build for a friend's build. Keep reference previews
+at their reference defaults, label missing build data, and identify stat assumptions
+such as estimated trust. Resolve private build values locally from public game data.
 
 The homepage Twitch feature and live directory verify streams independently of static
 page releases. Refresh visible pages every 30 seconds and on tab return/focus; remove
@@ -87,14 +105,20 @@ client-side update; it must not depend on the server machine's default locale.
 ## Choose a content pattern
 
 Welfare recommendations use individual cards with a quiet resting border and a rarity
-frame around each portrait. Put priority badges in the portrait corner, using the
-Selector Tickets treatment and +3, +2, +1, +0 recommendation labels (highest to
-lowest, preserving kukkikaze's ordering). Zero is not a negative score. Use its full-width action-link treatment for event
-links. Write unlock requirements as actions, such as "Earn 12 stars from event stages",
+frame around each portrait. This is an explicit exception to borderless catalogue art.
+Put the recommendation priority in the portrait corner, using the Selector Tickets
+badge treatment with +3, +2, +1, +0 labels (highest to lowest), preserving kukkikaze's
+ordering. Zero is not a negative score; keep names free of inline priority labels. Event links
+use the same full-width action treatment as Selector Tickets' How to use links.
+Write unlock requirements as actions, such as "Earn 12 stars from event stages",
 so star totals cannot be mistaken for operator rarity or recommendation scores.
-This is an explicit exception to borderless catalogue cards. Stage-reward rows
-pair OP with successful-clear sanity costs and the actual sanity icon. Missing costs
-remain unknown; zero-cost stages remain zero.
+Stage-reward rows pair remaining OP with successful-clear sanity cost and its actual
+sanity icon. Unknown costs stay labeled unknown; zero-cost stages remain zero.
+
+Official event guides use their original post images, preserve their full aspect ratio,
+and offer full-size viewing with concise accessible captions. Standalone source links
+use shared action styles and an external-link indicator. Project cards show the actual
+project or its game models rather than a generic site logo used as placeholder art.
 
 | Reader's task | Pattern | Examples |
 | --- | --- | --- |
@@ -129,26 +153,12 @@ covers with their chapter links do. Features own the content layout inside each 
 - Display only genuinely brief descriptions on browse cards; detailed mechanics belong in
   the record. Preserve real names, numerical conditions and accessible full detail.
 
-### Official material and source links
-
-Content updates are UI work: consult this document and the relevant UI primitives
-before updating an existing page as well as before building a new one. If official
-announcements supply useful posters, screenshots or illustrated mechanics, use those
-images as the primary explanation. Pair them with short, accessible captions and a
-concise summary; do not turn an illustrated guide into a wall of plain text.
-
-Preserve each image's full aspect ratio and reserve its dimensions before loading.
-Dense guide panels must open in the existing full-size artwork viewer, including
-keyboard dismissal, zoom/pan and return of focus. Use shared image/card primitives
-and lazy loading. Identify the official source beside the corresponding material.
-
-Standalone source destinations are actions: group real anchors styled with the
-shared `.ghost` primitive, concise labels and ↗ for external destinations. Do not
-leave them as unstyled lines of text or recreate button paint in a feature stylesheet.
-Ordinary citations within prose retain the shared inline-link style. Check source
-actions, image loading and the full-size viewer in both themes and narrow layouts.
-
 ### Dense rows and tables
+
+What's new uses a single reading column with readable body contrast and descriptions
+at 15px, separated by day and Added / Changed / Fixed headings. Dates sit alongside
+the updates on desktop and above them on phones; avoid spreading prose across a
+multi-column grid.
 
 Rows are appropriate when the reader compares repeated facts or works through a sequence.
 They are not a competing design language. Use the same heading, text, control and state
@@ -285,3 +295,77 @@ content pattern. Do not add a second test suite that reloads every census route.
 Record what was actually reviewed and any blocked coverage. The dated
 [2026-10-23 review](design-review-2026-10-23.md) separates design decisions, fixes and
 verification limits. Update these references when a new pattern is accepted.
+
+
+## Navigation and account surfaces
+
+The desktop header and mobile drawer use `lib/nav/navLinks.ts`. Keep Database,
+Guides, Planner, Community and About in the same order on both. Schedule is a direct
+link. Database dividers separate operators/reference, world/story, and creators.
+My account and Friends belong to the profile dropdown. Community projects belongs to Community. About owns site
+news, credits and support. Use current canonical routes; do not copy dev-only URL
+renames without their routing migration.
+
+Header utilities run Search → Settings → server clock → profile. Phones keep 44px
+utility targets; the narrow bar hides its clock and wordmark, with the full clock
+still available in the navigation drawer. Settings owns Import / export and the
+Suzuran appearance toggle. The profile disclosure owns Profile, Pull history,
+Operators, Skins and Friends. Profile opens `/account`. Login appears only when this deployment supports providers.
+
+`ActionPopover` is a non-modal disclosure of native links/buttons, with Tab,
+Escape, outside dismissal and route-change dismissal. It mounts inside a containing
+native dialog when needed, so help stays usable in the browser's modal top layer.
+Escape dismisses help before its parent dialog. Use `InfoPopover` for optional
+explanations; validation, consent, conflicts and destructive consequences stay visible.
+
+Account content uses URL-backed Profile, Pull history, Operators and Skins tabs.
+Import / export and Account settings open over the current page without navigation.
+Account settings owns the profile-picture picker and cloud account controls. Import
+loads the deployment’s account props on demand, keeping the release and tables together.
+History remains available without an imported game snapshot. Saved status replaces
+the large Sync now action; optional checking lives under Cloud saving details.
+
+Profile icons come from the generated catalogue (`npm run avatars:refresh`). It
+contains published icon paths, loads only when needed and renders at most 60 initial
+choices. Every stored ID is checked against the exact catalogue before rendering.
+The picture preference is **browser-only**, separate from imported game identity,
+provider identity and username. It is deliberately outside backup/cloud replacement
+payloads until a versioned sync contract supports old clients safely. Do not add it
+to BACKUP_STORES/CLOUD_KEYS as an incidental UI change. No uploads or arbitrary URLs.
+
+Pull-history banner summaries and batches use bordered panels, with full rarity
+frames around portraits. Keep storage help inline beside its status label. Header
+ticket icons are monochrome SVG symbols, consistent with the other navigation icons.
+
+Menu notification dots replace the chevron inside its reserved slot; reading updates
+must not change the About trigger width or shift neighbouring navigation.
+
+Header Settings and Profile reuse the main navigation's menu surface and item styles,
+including mono labels, 19px icons and active/hover states. They remain disclosures,
+not ARIA menus. Browser privacy choices live under About and Settings; optional
+analytics and external playback default to off. See privacy-review.md before release.
+
+Friends uses compact imported-profile rows with support units and explicit Profile,
+Operators and Skins actions. Shared friend files contain only the displayed profile,
+collections, owned builds and Main Theme milestone, with no wallet, pull archive,
+credentials or unrelated planner saves. Friend files and browser privacy choices do
+not silently expand the cloud-save contract.
+
+Compact friend rows reuse the imported name-card background (Rhodes Island by default),
+with the same art in both themes and scrim tokens for readable labels and controls.
+
+Friend rows use profile-namecards/<id>-strip[-variant].webp (the game's name_card_long
+asset), respecting nameCardVariant. The full profile's -bg artwork is not a row banner.
+
+Info popovers use the shared SVG circle-info icon with a borderless trigger. Prose
+links inside help and reading sections keep the shared themed color even when visited.
+
+About, Privacy notice and Privacy choices share InformationLayout: restrained section
+headings, a readable text column, desktop contents rail and wrapping mobile navigation.
+Privacy options use shared panels and native checkboxes; storage identifiers are bold.
+Public privacy copy targets Cloudflare hosting and analytics for this deployment.
+
+First-visit usage-statistics prompts are compact non-modal disclosures with equal-width,
+equally styled allow/refuse buttons. Closing means refusal, with no focus takeover or
+page reflow. Remember decisions across visits, preserve independent media permission,
+and do not duplicate the floating prompt on the privacy-choices page.

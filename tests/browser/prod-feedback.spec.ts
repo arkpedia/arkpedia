@@ -27,7 +27,7 @@ test('Story list reports progress and continuation survives reload', async ({ pa
 });
 
 test('Planner includes each operator before its portrait and mutes excluded rows without moving them', async ({ page }, info) => {
-  await page.goto('/planner'); await plannerExperimental(page, PLANNER_PLAN);
+  await page.goto("/operator-planner"); await plannerExperimental(page, PLANNER_PLAN);
   const row = page.locator('.plan-row').first();
   const check = row.getByRole('checkbox');
   const before = await row.boundingBox();

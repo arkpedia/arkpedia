@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { CHANGELOG, LATEST_CHANGE } from '../../lib/changelog/entries';
 import { groupChangelogDays } from '../../lib/changelog/group';
+import { canonicalPublicHref } from '../../lib/nav/publicRoutes';
 import fs from 'node:fs/promises';
 
 test.use({ timezoneId: 'Asia/Seoul' });
@@ -8,7 +9,7 @@ test.use({ timezoneId: 'Asia/Seoul' });
 for (const theme of ['dark', 'light']) test(`What’s new groups local dates and categories and marks later same-day releases seen (${theme})`, async ({ page }, info) => {
   await page.addInitScript(theme => localStorage.setItem('theme', theme), theme);
   await page.addInitScript(() => localStorage.setItem('arkpedia.changelog.seen', '2026-10-09T09:56:52Z'));
-  await page.goto('/changelog');
+  await page.goto("/whats-new");
   const expected = groupChangelogDays(CHANGELOG, 'Asia/Seoul');
   const entries = page.locator('main .changelog-entry');
   await expect(entries).toHaveCount(expected.length);
@@ -21,7 +22,7 @@ for (const theme of ['dark', 'light']) test(`What’s new groups local dates and
       await expect(entry.locator(`.is-${kind} h3`)).toHaveCount(1);
       await expect(entry.locator(`.is-${kind} li`)).toHaveCount(day[kind]!.length);
       for (const item of day[kind]!) {
-        if (item.href) await expect(entry.getByRole('link', { name: item.title, exact: true })).toHaveAttribute('href', item.href);
+        if (item.href) await expect(entry.getByRole('link', { name: item.title, exact: true })).toHaveAttribute('href', canonicalPublicHref(item.href));
         if (item.detail) await expect(entry).toContainText(item.detail);
       }
     }

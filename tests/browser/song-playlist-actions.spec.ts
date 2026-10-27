@@ -1,3 +1,4 @@
+import { openMusicMenu } from './music-navigation-helpers';
 import { expect, test, type Page, type Locator } from '@playwright/test';
 import { playAllSongs, stubYouTube, youtube } from './youtube-stub';
 
@@ -85,6 +86,7 @@ for (const theme of ['dark', 'light']) {
     expect((await youtube(page))!).toMatchObject({ state: 1, videoId: playing.videoId, players: 1 });
     await page.keyboard.press('Escape');
     await expect(plus).toBeFocused();
+    await openMusicMenu(page);
     await page.getByRole('button', { name: 'Playlists', exact: true }).click();
     await page.getByRole('combobox', { name: 'Saved playlist' }).click();
     await expect(page.getByRole('option', { name: 'Night music', exact: true })).toBeVisible();
@@ -201,7 +203,8 @@ test('Favourites exists by default and stays in sync with hearts and playlist im
   await openPicker(page, row);
   await expect(picker.getByRole('checkbox', { name: 'Favourites', exact: true })).not.toBeChecked();
   await page.keyboard.press('Escape');
-  await page.getByRole('button', { name: 'Playlists', exact: true }).click();
+  await openMusicMenu(page);
+    await page.getByRole('button', { name: 'Playlists', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Music playlists' });
   await expect(dialog.getByRole('combobox', { name: 'Saved playlist' })).toHaveText('Favourites');
   await expect(dialog.getByRole('button', { name: 'Delete playlist' })).toBeDisabled();
@@ -230,7 +233,8 @@ test('music backup imports keep existing hearts and the default Favourites playl
   await expect(row).toBeVisible();
   const existing = await row.getAttribute('data-song-id');
   await heart(row).click();
-  await page.getByRole('button', { name: 'Playlists', exact: true }).click();
+  await openMusicMenu(page);
+    await page.getByRole('button', { name: 'Playlists', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Music playlists', exact: true });
   const backup = { kind: 'arkpedia-music-playlists', version: 1,
     playlists: [{ id: 'backup', name: 'Backup', tracks: ['abcdefghijk'] }], favorites: ['lmnopqrstuv'] };

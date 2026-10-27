@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { lyricPreview, songTitle, upcomingIndices } from '../../lib/music/musicPolish';
+import { lyricPreview, songTitle, upcomingIndices, queuePlaybackPositions } from '../../lib/music/musicPolish';
 import { parseLrc } from '../../lib/music/albumsDataServer';
 import { migrateChosenQueue, parseMusicResume, type MusicResumeState } from '../../lib/music/musicResume';
 
@@ -58,4 +58,17 @@ test('legacy shortened and ambiguous queues retain every song and edited order',
     assert.deepEqual(result.playlistIds, ['a', 'b']);
     assert.equal(result.seconds, 10);
   }
+});
+
+
+test('queue navigation excludes current and played songs even when library autoplay is outside the queue', () => {
+  const queue = ['a', 'b', 'c'].map(id => ({ id }));
+  const state = { queue, queueIndex: 1, position: 1, videoId: 'b', autoplayVideoId: null, queued: new Set<string>() };
+  const remaining = (value: Parameters<typeof queuePlaybackPositions>[0], order = value.queue.map((_, index) => index)) => order.slice(queuePlaybackPositions(value).boundary + 1).map(index => value.queue[index].id);
+  assert.deepEqual(remaining(state), ['c']);
+  assert.deepEqual(remaining({ ...state, videoId: 'outside', autoplayVideoId: 'outside' }), ['c']);
+  assert.deepEqual(remaining({ ...state, queueIndex: 2, position: 2, videoId: 'outside', autoplayVideoId: 'outside' }), []);
+  assert.deepEqual(remaining({ ...state, queueIndex: 0, position: 1, videoId: 'outside', autoplayVideoId: 'outside' }, [2, 0, 1]), ['b']);
+  assert.deepEqual(remaining({ ...state, videoId: null }), ['a', 'b', 'c']);
+  assert.deepEqual(remaining({ ...state, queue: [], videoId: null }), []);
 });

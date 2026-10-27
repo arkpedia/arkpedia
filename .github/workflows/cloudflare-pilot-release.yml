@@ -55,6 +55,9 @@ jobs:
         run: npm ci
       - name: Build once for the existing pilot without deployment credentials
         run: npm run cf:build
+        env:
+          # Match Check's bounded heap for the full UI's TypeScript validation.
+          NODE_OPTIONS: --max-old-space-size=4096
       - name: Require the adopted public assets in R2
         run: node scripts/deploy/check-public-assets-ready.mjs
       - name: Revalidate and publish only the existing pilot

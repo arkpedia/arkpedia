@@ -6,6 +6,7 @@ import path from 'node:path';
 import yaml from 'js-yaml';
 import { defaultContentRevalidate } from '../../lib/content/revalidation';
 import { RELEASE_REFRESH_ROUTES } from '../../lib/content/releaseRefresh';
+import { canonicalPublicHref } from '../../lib/nav/publicRoutes';
 import handler, { authorized } from '../../pages/api/release-refresh';
 // @ts-expect-error Node import scripts are plain JavaScript.
 import { POINTER_CACHE_MS, SERVER_REFRESH_MS, awaitPointer, main as refreshMain, refreshPages } from '../content/refresh-pages.mjs';
@@ -61,7 +62,9 @@ test('the endpoint takes POST with the secret, and regenerates only its fixed li
   const refused = await call('POST', 'Bearer wrong');
   assert.deepEqual([refused.status, refused.revalidated], [401, []]);
   const ok = await call('POST', 'Bearer s3cret');
-  assert.deepEqual([ok.status, ok.revalidated], [200, [...RELEASE_REFRESH_ROUTES]]);
+  assert.deepEqual([ok.status, ok.revalidated], [200, RELEASE_REFRESH_ROUTES.map(canonicalPublicHref)]);
+  assert.ok(ok.revalidated.includes('/gacha-simulator'), 'refresh the canonical simulator rather than its redirect');
+  assert.ok(!ok.revalidated.includes('/gacha'), 'the legacy content key is not a reader page');
 });
 
 test('the release asks each live deployment, and a failure only warns', async () => {

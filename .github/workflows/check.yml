@@ -104,6 +104,9 @@ jobs:
           ARKPEDIA_CONTENT_DISABLED: '1'
       - name: Typecheck
         run: npm run typecheck
+        env:
+          # The full Preview UI exceeds Node's automatic 2 GB heap on the 6 GB runner.
+          NODE_OPTIONS: --max-old-space-size=4096
       - name: Lint
         run: npm run lint -- --max-warnings 15
       - name: Lint pipeline scripts
@@ -215,6 +218,8 @@ jobs:
 
       - name: Typecheck
         run: npm run typecheck
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
 
       # A ratchet, not a wall: 15 warnings exist today (react-hooks/exhaustive-deps
       # in the four big pages, plus two ARIA roles), every one of them a judgement

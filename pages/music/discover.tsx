@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { GAME_PATHS } from '@/lib/minigames/catalogue';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import PageHeader from '@/components/ui/PageHeader';
+import MusicHeader from '@/components/music/MusicHeader';
 import ScrollRow from '@/components/ui/ScrollRow';
 import SearchInput from '@/components/ui/SearchInput';
 import StyledSelect from '@/components/ui/StyledSelect';
@@ -131,6 +131,7 @@ export default function DiscoverPage({ songs: releaseSongs, characters, origins,
   // Searched whole, Endfield's too, so a search can say how many hidden songs it matched.
   const allSongs = useMemo(() => [...releaseSongs, ...pendingSongs], [releaseSongs, pendingSongs]);
   const router = useRouter();
+  const [musicMenuOpen, setMusicMenuOpen] = useState(false);
 
   // Both the search text (?q=...) and the active facet are mirrored
   // into the URL so a filtered view survives reload and can be shared.
@@ -312,7 +313,12 @@ export default function DiscoverPage({ songs: releaseSongs, characters, origins,
       ? [...matching].sort((a, b) => a.albumAltName.localeCompare(b.albumAltName, 'en', { numeric: true, sensitivity: 'base' }))
       : matching;
   }, [albums, albumsExpanded, albumFilter, albumOrder, recentAlbumIds, albumOriginals]);
-  const openAlbum = (albumId: string) => setFacets({ ...EMPTY_FACETS, albumId });
+  const openAlbum = (albumId: string) => {
+    const next: typeof router.query = { ...router.query, facet: `album:${albumId}` };
+    delete next.q;
+    delete next.sort;
+    void router.push({ pathname: router.pathname, query: next }, undefined, { scroll: false });
+  };
 
   const activeFacetLabel = facets.character || facets.origin || facets.artist || (facets.albumId && resultAlbums[0]?.albumName) || null;
   /* "Show less" folds a wrapped collection (hundreds of tiles) back to one row. Pressed
@@ -333,9 +339,11 @@ export default function DiscoverPage({ songs: releaseSongs, characters, origins,
 
       {/* The music section's one header and nav, in the same place as on /music, so moving
           between Discover and the player's views moves nothing. */}
-      <PageHeader slim compact eyebrow="Sound Archive" title="Music" actions={<div className="music-header-actions"><MusicGameSetting header /><MusicPlaylists songs={playlistSongs} /></div>} />
+      <MusicHeader current="discover" open={musicMenuOpen} onOpen={() => setMusicMenuOpen(value => !value)} />
       <main className="music-discover-page">
-        <MusicNav current="discover" />
+        <MusicNav current="discover" open={musicMenuOpen} onOpenChange={setMusicMenuOpen}>{returnFocus => <><MusicPlaylists songs={playlistSongs} onClose={returnFocus} /><div className="music-phone-settings" onChange={() => setMusicMenuOpen(false)}><MusicGameSetting /></div></>}</MusicNav>
+        <div className="music-workspace-content">
+        <h2 className="section-title music-workspace-title">Discover</h2>
         <div className="music-discover-search-row">
           {!isBrowsing && (
             <button type="button" className="back-btn music-discover-back-btn" onClick={backToBrowse}>
@@ -404,7 +412,7 @@ export default function DiscoverPage({ songs: releaseSongs, characters, origins,
                       key={a.albumId}
                       type="button"
                       className="btn-bare music-discover-album-tile"
-                      onClick={() => setFacets({ ...EMPTY_FACETS, albumId: a.albumId })}
+                      onClick={() => openAlbum(a.albumId)}
                       title={a.albumName}
                     >
                       <AlbumCover coverPath={a.coverPath} size={120} className="music-discover-album-tile-cover" />
@@ -478,15 +486,14 @@ export default function DiscoverPage({ songs: releaseSongs, characters, origins,
                           onClick={() => playSong(id)}>
                           <AlbumCover coverPath={song.coverPath} size={120} className="music-discover-album-tile-cover" />
                           <span className="music-discover-album-tile-name">{title}</span>
-                          <span className="music-discover-album-tile-count">{count} likes</span>
                         </button>
+                        <span className="music-discover-album-tile-count">{count} likes</span>
                         <SongActionsMenu song={{ id, title }} isActive={playingId === id}
                           onPlayNow={() => playSong(id)} onQueueNext={() => void queueSong(id, 'next')} onQueueLast={() => void queueSong(id, 'last')}
                           noAutoplay={{ on: noAutoplay.has(id), toggle: () => toggleNoAutoplay(id) }} />
                       </div>;
                     })}
                   </Collection>
-                  <p className="hint music-discover-likes-note">Likes on each linked upload · Updated <time dateTime={youtubeLikes!.updatedAt}>{youtubeLikes!.updatedAt.slice(0, 10)}</time></p>
                 </> : <p className="hint" role="status">{likesLoading ? 'Loading YouTube likes…' : 'YouTube likes are temporarily unavailable.'}</p>}
               </div>
             </section>
@@ -584,6 +591,7 @@ export default function DiscoverPage({ songs: releaseSongs, characters, origins,
           </>
         )}
         {browseFloor.spacer}
+        </div>
         </div>
         <MusicTransportBar view="discover" compact coverPath={playingId ? coverByVideoId.get(playingId) ?? null : undefined} />
       </main>

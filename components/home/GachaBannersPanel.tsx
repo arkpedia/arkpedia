@@ -66,7 +66,7 @@ export default function GachaBannersPanel({ banners, activeIndex, onSelect, now 
     <section className="front-panel front-home-panel front-gacha-panel">
       <h2 className="section-title">Gacha Banners</h2>
       <div className="front-gacha-main">
-        <Link prefetch={false} href={`/gacha?banner=${encodeURIComponent(active.name)}`} className="front-gacha-poster-wrap">
+        <Link prefetch={false} href={`/gacha-simulator?banner=${encodeURIComponent(active.name)}`} className="front-gacha-poster-wrap">
           {/* The home page's hero on a phone (its LCP at 390): the first banner is fetched
               at once and first, and a banner picked later comes in on screen. Without art
               yet (null until the image repository publishes it), /gacha's placeholder. */}

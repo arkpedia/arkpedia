@@ -133,7 +133,7 @@ test('the queue keeps to the songs the catalogue still offers, and its shuffled 
  * reloaded the page after a backup restore
  * (components/account/DataDialog.tsx); the stores now tell their readers (lib/account/backup.ts).
  */
-test('only the full-data reset may deliberately reload the site', () => {
+test('only data reset and privacy-service withdrawal may deliberately reload the site', () => {
   const found: string[] = [];
   for (const dir of ['pages', 'components', 'lib']) {
     for (const rel of fs.readdirSync(dir, { recursive: true }) as string[]) {
@@ -141,11 +141,18 @@ test('only the full-data reset may deliberately reload the site', () => {
       const file = path.join(dir, rel);
       const text = fs.readFileSync(file, 'utf8').replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, '');
       for (const m of text.matchAll(/\blocation\s*\.\s*(reload|assign|replace)\s*\(|\blocation(\s*\.\s*href)?\s*=(?!=)|\blocation\s*\.\s*href\s*\+=/g)) {
-        found.push(`${file}: ${m[0]}`);
+        found.push(`${file.replaceAll('\\', '/')}: ${m[0]}`);
       }
     }
   }
-  assert.deepEqual(found, ['lib/account/resetData.ts: location.reload('], 'only Forget everything may end playback; ordinary navigation and imports must keep the document');
+  // Revoking a previously loaded third-party service must unload its scripts and
+  // connections. These explicit privacy actions intentionally create a new document;
+  // navigation, imports and every other action still keep playback mounted.
+  assert.deepEqual(found.sort(), [
+    'lib/account/resetData.ts: location.reload(',
+    'lib/privacy/preferences.ts: location.reload(',
+    'pages/cookies.tsx: location.reload(',
+  ], 'only data reset and explicit privacy changes may reload; ordinary navigation and imports must keep the document');
 });
 
 test('"Next in queue" survives a reload, and a record from before it existed loads with none', () => {

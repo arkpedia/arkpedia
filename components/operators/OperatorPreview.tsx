@@ -2,7 +2,8 @@ import Link from 'next/link';
 import BaseSkillText from '@/components/operators/BaseSkillText';
 import { ContentImg } from '@/components/content/ContentImage';
 import { useEffect, useRef, useState } from 'react';
-import type { GachaOperatorPreview } from '@/lib/gacha/operatorPreviewData';
+import { buildGachaOperatorPreview, type GachaOperatorPreview, type OperatorPreviewSource } from '@/lib/gacha/operatorPreviewData';
+import type { Owned } from '@/lib/planner/roster';
 import type { PulledItem } from '@/lib/gacha/gachaTypes';
 import Rarity, { rarityLevel } from '@/components/ui/Rarity';
 import Tabs, { tabPanelProps } from '@/components/ui/Tabs';
@@ -12,7 +13,7 @@ import { operatorHref } from '@/lib/operators/operatorHref';
 import SkillRank from './SkillRank';
 import PreviewArtwork from './PreviewArtwork';
 
-export type OperatorPreviewItem = Pick<PulledItem, 'name' | 'icon'> & { rarity: number };
+export type OperatorPreviewItem = Pick<PulledItem, 'name' | 'icon'> & { rarity: number; build?: Owned; rosterContext?: boolean };
 
 /* A tab panel that keeps the tallest height it has had for this operator (the Anti-Page
    Jump rule's floor, reset per logical page): the preview scrolls inside itself, and a
@@ -67,9 +68,11 @@ export function OperatorPreview({ item, onClose, nativeModal = false }: { item: 
     const controller = new AbortController();
     setDetails(null);
     setLoadError(false);
-    fetch(`/api/gacha-operator/${encodeURIComponent(item.name)}`, { signal: controller.signal })
-      .then((response) => { if (!response.ok) throw new Error('Operator details unavailable'); return response.json() as Promise<GachaOperatorPreview>; })
-      .then((operator) => {
+    setSelectedSkill(0);
+    fetch(`/api/gacha-operator/${encodeURIComponent(item.name)}${item.build ? '?progression=1' : ''}`, { signal: controller.signal })
+      .then((response) => { if (!response.ok) throw new Error('Operator details unavailable'); return response.json() as Promise<GachaOperatorPreview | OperatorPreviewSource>; })
+      .then((data) => {
+        const operator = item.build ? buildGachaOperatorPreview(data as OperatorPreviewSource, item.build) : data as GachaOperatorPreview;
         setDetails(operator);
         const moduleIndex = operator.modules.findIndex((module) => module.type === 'Upgrade');
         const nextModule = moduleIndex < 0 ? 0 : moduleIndex;
@@ -78,7 +81,7 @@ export function OperatorPreview({ item, onClose, nativeModal = false }: { item: 
       })
       .catch((error: unknown) => { if (!(error instanceof Error && error.name === 'AbortError')) setLoadError(true); });
     return () => controller.abort();
-  }, [item.name]);
+  }, [item.name, item.build]);
   const artFolder = ({1:'one',2:'two',3:'three',4:'four',5:'five',6:'six'} as Record<number, string>)[item.rarity] ?? 'six';
   const art = `/${artFolder}-star-skins/${encodeURIComponent(`${item.name} - Base.webp`)}`;
   const selectedModuleData = details?.modules[selectedModule];
@@ -96,10 +99,11 @@ export function OperatorPreview({ item, onClose, nativeModal = false }: { item: 
             <Link className="gacha-preview-link" href={operatorHref(item.name, null)}>View operator page ↗</Link>
           </div>
           <div className="gacha-preview-data" role="region" aria-label={`${item.name} operator details`} tabIndex={0}>
+            {item.rosterContext && !item.build && <p className="hint">Build not recorded. Showing reference maximums.</p>}
             {!details && !loadError && <p className="gacha-preview-loading" role="status">Loading operator details…</p>}
             {loadError && <p className="gacha-preview-loading" role="status">Details are unavailable right now. The operator page is still linked beside the artwork.</p>}
             {details?.stats && <section className="gacha-preview-section">
-              <h3>Stats <span>E{details.stats.elite} Lv {details.stats.level} · max trust</span></h3>
+              <h3>Stats <span>E{details.stats.elite} Lv {details.stats.level} · max trust{item.build ? ' estimate' : ''}</span></h3>
               <div className="gacha-preview-stats">
                 {([
                   ['HP', details.stats.values.hp, details.stats.trust.hp],

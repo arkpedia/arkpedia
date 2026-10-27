@@ -46,7 +46,7 @@ const nextConfig = {
   // ARKPEDIA_CONTENT_CHANNEL: the content pointer this build reads (lib/content/server.ts): the
   // channel of the project Deploy builds for (scripts/content/content-channel.cjs). Inlined
   // because the prebuilt functions carry no Vercel project env.
-  env: { ARKPEDIA_WEB_ANALYTICS: !stagingBuild && productionAnalytics && contentPointer() === 'live' ? '1' : '', ARKPEDIA_CONTENT_CHANNEL: contentPointer(), ARKPEDIA_WORKER: workerBuild ? '1' : '' },
+  env: { ARKPEDIA_CLOUD_ACCOUNTS: stagingBuild ? '1' : '', ARKPEDIA_WEB_ANALYTICS: !stagingBuild && productionAnalytics && contentPointer() === 'live' ? '1' : '', ARKPEDIA_CONTENT_CHANNEL: contentPointer(), ARKPEDIA_WORKER: workerBuild ? '1' : '' },
   // The browser bundle may not carry a game record the content release publishes (such as
   // data/albums.json): the build fails, naming the import chain. See the guard's header.
   webpack(config, { isServer, webpack }) {
@@ -77,7 +77,7 @@ const nextConfig = {
     '/api/account-profile': ['node_modules/@better-auth/core/dist/instrumentation/*.mjs'],
   },
   outputFileTracingExcludes: {
-    ...Object.fromEntries([...contentPageRoutes, '/reward-tracker'].map((route) => [route === '/' ? '/index' : route, [
+    ...Object.fromEntries([...contentPageRoutes, ...Object.values(pilotRouteAliases)].map((route) => [route === '/' ? '/index' : route, [
       'data/**/*', 'public/**/*', '.env*',
     ]])),
     // These endpoints are hard-blocked outside `next dev`; local tool inputs
@@ -95,9 +95,8 @@ const nextConfig = {
     // result; the :slug is captured and handed straight to the query the page
     // reads.
     return [
-      // Keep bookmarks from the migration pilot while main retains its current
-      // canonical route names. Query strings follow Next's normal redirect rules.
-      ...Object.entries(pilotRouteAliases).map(([source, destination]) => ({ source, destination, permanent: source === '/free-op' })),
+      // Old public names remain valid bookmarks. Query strings follow Next's redirect rules.
+      ...Object.entries(pilotRouteAliases).map(([source, destination]) => ({ source, destination, permanent: true })),
       ...externalAssetRedirects(SKIN_ASSET_FOLDERS, 'arkpedia-skin-assets'),
       ...externalAssetRedirects(IMAGE_ASSET_FOLDERS, 'arkpedia-image-assets'),
       {
@@ -110,7 +109,7 @@ const nextConfig = {
         destination: assetUrl('arkpedia-skin-assets', 'variants/:format/:width/:path*'),
         permanent: false,
       },
-      { source: '/community/livestreams', destination: '/community/videos', permanent: true },
+      { source: '/community/livestreams', destination: '/world/videos', permanent: true },
       // arkpedia.net/?s=<query> is the site search too (pages/search.tsx), for anyone who
       // sets the site up as a search engine by hand. Only on the home page: /stages/browse
       // already reads ?s= as its selected stage. The query string is carried across.

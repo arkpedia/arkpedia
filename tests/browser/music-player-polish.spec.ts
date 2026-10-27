@@ -1,3 +1,4 @@
+import { chooseMusicView, openMusicMenu } from './music-navigation-helpers';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { stubMonsterSiren } from './monster-siren-stub';
 import { playAllSongs, stubYouTube, youtube } from './youtube-stub';
@@ -197,7 +198,6 @@ test('every song surface favourites in one press: the rows, the bar and the corn
   await stubYouTube(page);
   await page.goto('/music?view=queue');
   await playAllSongs(page);
-  const nav = page.getByRole('navigation', { name: 'Music' });
 
   // The Queue.
   const queueRow = page.locator('.music-queue-list .music-song-row').nth(1);
@@ -217,16 +217,17 @@ test('every song surface favourites in one press: the rows, the bar and the corn
   await oneClick(page, bar(page).getByRole('button', { name: 'Favourite', exact: true }), playing, 'player bar');
 
   // The Library.
-  await nav.getByRole('link', { name: /^Library/ }).click();
+  await chooseMusicView(page, /^Library/);
   const libraryRow = page.locator('.music-all-songs-list .music-song-row').nth(2);
   await oneClick(page, rowHeart(libraryRow), (await libraryRow.getAttribute('data-song-id'))!, 'library row');
 
   // Now playing's Up next.
-  await nav.getByRole('link', { name: 'Now playing', exact: true }).click();
+  await chooseMusicView(page, 'Now playing');
   const upNext = page.locator('.music-up-next-list .music-song-row').first();
   await oneClick(page, rowHeart(upNext), (await upNext.getAttribute('data-song-id'))!, 'up next row');
 
   // A saved playlist.
+  await openMusicMenu(page);
   await page.getByRole('button', { name: 'Playlists', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Music playlists', exact: true });
   await dialog.getByRole('textbox', { name: 'New playlist name' }).fill('Heart check');
@@ -303,6 +304,7 @@ test('the phone bar: the heart beside the song, and More, Previous, Play, Next, 
   await page.goto('/music?view=library');
   await page.locator('.music-all-songs-list .music-song-row-main').first().click();
   await expect.poll(async () => (await youtube(page))?.state).toBe(1);
+  await chooseMusicView(page, 'Now playing');
   await expect(bar(page).getByRole('button', { name: 'Pause', exact: true })).toBeVisible();
   for (const width of [360, 375, 390]) {
     await page.setViewportSize({ width, height: 844 });

@@ -8,7 +8,7 @@ const stream = {
 };
 
 for (const theme of ['dark', 'light']) {
-  for (const route of ['/', '/community/twitch']) {
+  for (const route of ['/', '/world/twitch']) {
     test(`Twitch refresh removes ended/category-switched streams on ${route} (${theme})`, async ({ page }) => {
       await page.addInitScript(theme => localStorage.setItem('theme', theme), theme);
       await page.emulateMedia({ reducedMotion: 'reduce' });

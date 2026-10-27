@@ -23,6 +23,7 @@
 .recruit-window-actions { display: flex; align-items: center; gap: 8px; flex: none; }
 .recruit-window-actions .ghost { white-space: nowrap; }
 .recruit-popout-button { gap: 8px; }
+.recruit-preferences > .recruit-popout-button { margin-left: auto; }
 
 .recruit-main { padding-bottom: 40px; }
 .recruit-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 0 0 20px; }

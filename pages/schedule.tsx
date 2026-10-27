@@ -404,7 +404,7 @@ export default function SchedulePage({ events: globalEvents, operators: exported
                     </div>
                   </ScheduleRowLink>
                   {e.pullBannerName && (
-                    <Link prefetch={false} className="ghost btn-sm events-row-plan" href={{ pathname: '/pulls', query: { banner: e.pullBannerName } }}>
+                    <Link prefetch={false} className="ghost btn-sm events-row-plan" href={{ pathname: "/pull-planner", query: { banner: e.pullBannerName } }}>
                       Plan pulls
                     </Link>
                   )}
@@ -655,7 +655,7 @@ export default function SchedulePage({ events: globalEvents, operators: exported
                 ) : (
                   <>
                     <p className="hint">{displayEvent.bannerName && displayEvent.global.note && displayEvent.global.dateRange ? 'Estimated Global: ' : ''}{displayEvent.global.dateRange ?? displayEvent.global.note}</p>
-                    <Link prefetch={false} href={displayEvent.bannerName ? { pathname: '/gacha', query: { banner: displayEvent.bannerName } } : `/events/${encodeURIComponent(displayEvent.name)}`} className="ghost btn-sm schedule-panel-event-link">{displayEvent.bannerName ? 'Banner page' : 'Event page'}</Link>
+                    <Link prefetch={false} href={displayEvent.bannerName ? { pathname: "/gacha-simulator", query: { banner: displayEvent.bannerName } } : `/events/${encodeURIComponent(displayEvent.name)}`} className="ghost btn-sm schedule-panel-event-link">{displayEvent.bannerName ? 'Banner page' : 'Event page'}</Link>
                   </>
                 )}
 
@@ -670,7 +670,7 @@ export default function SchedulePage({ events: globalEvents, operators: exported
                     <h3 className="schedule-panel-subheading">Pullable Operators</h3>
                     {pullBannerLinks[panelBanner.name.toLowerCase()] && (
                       <p className="hint">
-                        <Link prefetch={false} href={{ pathname: '/pulls', query: { banner: pullBannerLinks[panelBanner.name.toLowerCase()] } }}>
+                        <Link prefetch={false} href={{ pathname: "/pull-planner", query: { banner: pullBannerLinks[panelBanner.name.toLowerCase()] } }}>
                           Add to Pull Planner
                         </Link>
                       </p>

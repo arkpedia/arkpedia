@@ -151,7 +151,7 @@ button:where(:not(.btn-bare)):disabled,
 button:where(:not(.btn-bare)):disabled:hover,
 .btn:disabled:hover { border-color: var(--line-soft); color: var(--text-faint); }
 
-.btn-sm { min-height: var(--control-h); font-size: 12px; padding: 4px 14px; white-space: nowrap; }
+button.btn-sm, a.btn-sm, .btn.btn-sm { min-height: var(--control-h); font-size: 12px; padding: 4px 14px; white-space: nowrap; }
 .btn-lg { font-size: 17px; padding: 13px 24px; font-weight: 700; }
 /* A square icon button (a month step, a play, a help "?"): var(--control-h) both ways,
    the glyph centred at 18px (an svg sizes itself). Element-qualified so it beats .ghost's
@@ -605,6 +605,20 @@ a.ghost, a.primary, a.danger, a.btn { text-decoration: none; }
 }
 :where(input, select, textarea):focus { border-color: var(--teal); }
 
+/* Opt-in numeric field, shared with NumberInput without repainting legacy consumers. */
+.number-input {
+  min-height: var(--control-h);
+  box-sizing: border-box;
+  padding: 6px 10px;
+  background: var(--well);
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+.number-input:hover, .number-input:focus { border-color: var(--teal); }
+
 /* components/ui/SearchInput: the one search field. The magnifier and the clear
    button sit inside the field's padding, so the box is exactly the input's box. */
 .search-input-wrap {
@@ -905,7 +919,7 @@ a.ghost, a.primary, a.danger, a.btn { text-decoration: none; }
 .filter-sheet .filter-reset-inline { display: none; }
 .filter-sheet-foot { flex: none; display: flex; justify-content: flex-end; gap: 8px; padding: 12px 18px; border-top: 1px solid var(--line); }
 
-/* Shared rarity data frame, used by welfare recommendation portraits. */
+/* Shared portrait frame for simulated and imported headhunting results. */
 .rarity-frame { display: block; padding: 3px; border: 2px solid var(--line); border-radius: var(--radius-control); background: var(--panel); }
 .rarity-frame[data-rarity="1"] { border-color: var(--rarity-1); }
 .rarity-frame[data-rarity="2"] { border-color: var(--rarity-2); }

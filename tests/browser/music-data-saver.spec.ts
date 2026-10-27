@@ -1,3 +1,4 @@
+import { chooseMusicView } from './music-navigation-helpers';
 import { expect, test, type Page } from '@playwright/test';
 import { stubMonsterSiren, WAV_SECONDS } from './monster-siren-stub';
 import { DATA_SAVER_KEY, stubYouTube, youtube, type StubCall } from './youtube-stub';
@@ -85,8 +86,10 @@ test('a song on YouTube that has a Monster Siren id plays from Monster Siren by 
   // "playing" once its clock moves, not at play() (lib/music/playbackEngine.ts).
   await expect.poll(() => page.evaluate(() => navigator.mediaSession?.playbackState)).toBe('playing');
   // It still links to its YouTube page (Now playing), as every song on YouTube does.
-  await page.getByRole('navigation', { name: 'Music' }).getByRole('link', { name: /^Now playing/ }).click();
-  await expect(page.getByRole('link', { name: /Watch on YouTube/ })).toBeVisible();
+  await chooseMusicView(page, /^Now playing/);
+  const source = page.getByRole('link', { name: 'Open in YouTube', exact: true });
+  await expect(source).toBeVisible();
+  await expect(source).toHaveAttribute('href', `https://www.youtube.com/watch?v=${song.videoId}`);
 });
 
 test('a song with no Monster Siren id plays from YouTube, whatever the setting', async ({ page }) => {
@@ -289,6 +292,7 @@ test('hidden, a next song YouTube would not start waits, shown and paused, once 
 test('the ⋯ menu holds Data saver, and its ⓘ explains it in a note that Escape, a press outside and × close', async ({ page }) => {
   await stubYouTube(page, 'allow', { dataSaver: false });
   await page.goto('/music');
+  await chooseMusicView(page, 'Now playing');
   const more = bar(page).getByRole('button', { name: 'More player actions', exact: true });
   await expect(more).toBeVisible();
   const menu = await openMenu(page);

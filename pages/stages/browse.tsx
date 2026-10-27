@@ -2399,7 +2399,7 @@ export default function StagesBrowsePage({ typeCounts, now }: Props) {
              whose content the dataset does not name keeps the plain text. There used
              to be a separate "< chapter" link above this saying the same thing. */
           eyebrow={<>
-            <Link prefetch={false} href="/stages">Stages</Link>{' // '}
+            Rhodes Island // <Link prefetch={false} href="/stages">Stages</Link>{' // '}
             {detail.stage.content?.id ? (
               <Link prefetch={false} href={`/stages/content/${detail.stage.content.id}`}>{detail.stage.content.name}</Link>
             ) : (
@@ -2414,7 +2414,7 @@ export default function StagesBrowsePage({ typeCounts, now }: Props) {
           title={<StageTitle code={detail.stage.code} name={detail.stage.name} fallback={detail.stage.slug} lead="code" />}
         />
       ) : (
-        <PageHeader slim eyebrow={<Link prefetch={false} href="/stages">Stages</Link>} title="Stages" />
+        <PageHeader slim eyebrow={<>Rhodes Island // <Link prefetch={false} href="/stages">Stages</Link></>} title="Stages" />
       )}
 
       <main>

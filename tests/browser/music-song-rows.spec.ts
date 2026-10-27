@@ -1,3 +1,4 @@
+import { chooseMusicView, openMusicMenu } from './music-navigation-helpers';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { stubYouTube, youtube } from './youtube-stub';
 
@@ -87,7 +88,7 @@ test('every music list draws the same song row, and its actions are named', asyn
   await collect(library, 'favourites');
 
   // Queue: your queue (the song playing, then the two queued) and the autoplay section.
-  await page.getByRole('navigation', { name: 'Music' }).getByRole('link', { name: /^Queue/ }).click();
+  await chooseMusicView(page, /^Queue/);
   const queue = rowsIn(page, '.music-queue-list');
   await expect(page.locator(`.music-queue-list [data-song-id="${first}"]`).first()).toHaveClass(/\bcurrent\b/);
   await page.getByRole('button', { name: /^Autoplay from library/ }).click();
@@ -96,10 +97,11 @@ test('every music list draws the same song row, and its actions are named', asyn
   expect(all.some(row => row.view === 'queue' && row.variant.includes('draggable'))).toBe(true);
 
   // Now playing's Up next.
-  await page.getByRole('navigation', { name: 'Music' }).getByRole('link', { name: 'Now playing', exact: true }).click();
+  await chooseMusicView(page, 'Now playing');
   await collect(rowsIn(page, '.music-up-next-list'), 'up next');
 
   // A saved playlist: save the queue, and its songs list as the same rows.
+  await openMusicMenu(page);
   await page.getByRole('button', { name: 'Playlists', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Music playlists', exact: true });
   await dialog.getByRole('textbox', { name: 'New playlist name' }).fill('Row check');

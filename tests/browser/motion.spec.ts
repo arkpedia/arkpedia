@@ -194,7 +194,7 @@ const NO_LIFT: Record<string, string> = {
 /* The addresses whose picture cards are checked, with how many kinds each shows at least
    (the cards-and-headings list, and /games, whose cards are .lift, and /obtain-method). */
 const LIFT_ROUTES: Record<string, number> = {
-  '/': 3, '/skins': 1, '/gacha': 1, '/enemies': 1, '/community': 1, '/results': 1, '/music/discover': 2, '/stages': 1,
+  '/': 3, '/skins': 1, "/gacha-simulator": 1, '/enemies': 1, "/world": 1, "/polls/power-scale": 1, '/music/discover': 2, '/stages': 1,
   '/stages/content/act51side': 1, '/stages/regular': 1, '/stages/all': 1, '/stages/exploration': 1, '/operators': 1,
   '/operators/Amiya': 1, [`/events/${encodeURIComponent('[Rerun] Under Tides Rerun')}#skins`]: 1,
 };
@@ -268,7 +268,7 @@ async function forceActive(page: Page, selector: string, on: boolean) {
    prefers-reduced-motion: no-preference, held there by audit:styles' motionScope, and it
    moves only transform, opacity and shadow, so these pages stand for the rest: the census
    pages once cost 4 loads each here, 360 in all. */
-const MOTION_ROUTES = ['/', '/operators', '/operators/Amiya', '/gacha', '/schedule', '/community', '/skins', '/planner', '/stages'];
+const MOTION_ROUTES = ['/', '/operators', '/operators/Amiya', "/gacha-simulator", '/schedule', "/world", '/skins', "/operator-planner", '/stages'];
 
 test.describe('reduced motion: nothing moves', () => {
   for (const route of MOTION_ROUTES) {
@@ -338,7 +338,7 @@ test('reduced motion: the World video gallery stays drawn and keeps its cards', 
   const page = await context.newPage();
   await page.clock.install();
   await readOnly(page);
-  await page.goto('/community');
+  await page.goto("/world");
   await page.getByRole('tab', { name: 'YouTube', exact: true }).click();
   const gallery = page.locator('.world-gallery');
   await expect(gallery.locator('a[href]').first()).toBeVisible();
@@ -456,7 +456,7 @@ test.describe('cards lift, and only by paint', () => {
     test(`${route}: every picture card rises on hover and keyboard focus, moves no layout box, and does not shrink when pressed`, async ({ page }) => {
       await readOnly(page);
       await page.goto(route);
-      if (route === '/community') await page.getByRole('tab', { name: 'YouTube', exact: true }).click();
+      if (route === "/world") await page.getByRole('tab', { name: 'YouTube', exact: true }).click();
       // The first banner follows today's schedule and may have no published art yet.
       // Exercise the poster card using an illustrated banner, not its empty fallback.
       if (route === '/') {
@@ -546,7 +546,7 @@ test.describe('cards lift, and only by paint', () => {
     await page.goto('/events/%5BSide%20Story%5D%20People%2C%20A%20People');
     await settle(page);
     await press('a tab', () => page.getByRole('tab'), '0.97');
-    await page.goto('/gacha');
+    await page.goto("/gacha-simulator");
     await settle(page);
     await press('a base button (the pull buttons, which also rise on hover)', () => page.locator('button.gacha-action:visible'), '0.97');
     // /operators' only ghost button was its "Show more"; the roster grows on scroll now.
@@ -568,13 +568,13 @@ const FLAT_BOXES: Record<string, string> = {
 };
 test.describe('boxed panels sit on a soft shadow', () => {
   test.skip(({ isMobile }) => !!isMobile, 'the same stylesheet at every width; measured at 1440');
-  for (const route of ['/', '/gacha', '/operators/Amiya', '/pulls', '/recruitment', '/stages', '/stages/browse', '/support', '/gamemodes/stronghold-protocol', '/planner']) {
+  for (const route of ['/', "/gacha-simulator", '/operators/Amiya', "/pull-planner", '/recruitment', '/stages', '/stages/browse', '/support', "/game-modes/stronghold-protocol", "/operator-planner"]) {
     test(`${route}: every boxed panel on the page ground carries --shadow-panel`, async ({ page }) => {
       await readOnly(page);
       await page.goto(route);
       await settle(page);
       // The planner's panels show once there is a plan: Experimental, with the census's.
-      if (route === '/planner') await plannerExperimental(page, PLANNER_PLAN);
+      if (route === "/operator-planner") await plannerExperimental(page, PLANNER_PLAN);
       const report = await page.evaluate((flat) => {
         const probe = document.createElement('div');
         probe.style.boxShadow = 'var(--shadow-panel)';
@@ -645,7 +645,7 @@ const still = (page: Page, strip: string) => page.locator(strip).first().evaluat
 
 const STRIPS: { route: string; strip: string }[] = [
   { route: '/events/%5BSide%20Story%5D%20People%2C%20A%20People', strip: '.event-detail-tabs' },
-  { route: '/gamemodes/stronghold-protocol', strip: '.gm-lookup [role="tablist"]' },
+  { route: "/game-modes/stronghold-protocol", strip: '.gm-lookup [role="tablist"]' },
   { route: '/schedule', strip: '.page-header-actions [role="tablist"]' },
   { route: '/recruitment', strip: 'main [role="tablist"]' },
   { route: '/enemies', strip: '.enemy-tabs' },
@@ -779,7 +779,7 @@ test.describe('LIVE badges blink', () => {
       const all: Awaited<ReturnType<typeof dots>> = [];
       await scheduleWithLiveEvent(page);
       all.push(...await dots(page));
-      for (const route of ['/gacha', '/stages/all']) { await page.goto(route); await settle(page); all.push(...await dots(page)); }
+      for (const route of ["/gacha-simulator", '/stages/all']) { await page.goto(route); await settle(page); all.push(...await dots(page)); }
       expect(all.length, 'at least the moved /schedule row has a badge').toBeGreaterThan(0);
       for (const d of all) {
         expect(d.content, `${d.text} has a dot`).toBe('""');

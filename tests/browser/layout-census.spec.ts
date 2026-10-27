@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { canonicalPublicHref } from '../../lib/nav/publicRoutes';
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
 import { CENSUS_STATES, censusRoutes, fontsSettled, openCensus, readOnly, type CensusState } from './census-routes';
 import { sectionCensus, type StackOffence } from './section-census';
@@ -134,7 +135,10 @@ async function motionOn(page: Page) {
 /** cards-and-headings.spec.ts, "section headings on <route>". */
 async function headings(page: Page, t: Target, theme: 'dark' | 'light', p: string) {
   const route = t.route;
-  const least = t.headings!;
+  // The phone music workspace promotes the selected view title into its page h1.
+  const phoneMusic = route === '/music' && (page.viewportSize()?.width ?? 1440) < 1000;
+  const least = phoneMusic ? 0 : t.headings!;
+  if (phoneMusic) await expect(page.getByRole('heading', { level: 1, name: 'Library', exact: true })).toBeVisible();
   expect.soft(await themeOf(page), `${p}the page is in the ${theme} theme`).toBe(theme);
   const heading = await tokenColour(page, '--heading');
   const amber = await tokenColour(page, '--amber');
@@ -329,7 +333,7 @@ async function run(page: Page, info: TestInfo, t: Target, theme: 'dark' | 'light
     });
     // lazy-images: at the load, before anything scrolls or hovers (layout-checks.ts).
     await part(p('image-loading'), async () => {
-      expect.soft(await page.evaluate(imageLoading, { allowed: EAGER_ALLOWED[t.route] ?? [], fold: LAZY_FOLD }),
+      expect.soft(await page.evaluate(imageLoading, { allowed: EAGER_ALLOWED[canonicalPublicHref(t.route)] ?? [], fold: LAZY_FOLD }),
         `${p('image-loading')}images fetched at load that are not the page's hero, or a hero that is not fetched at once (EAGER_ALLOWED)`).toEqual([]);
     });
     let seen: string[] = [];
@@ -346,7 +350,7 @@ async function run(page: Page, info: TestInfo, t: Target, theme: 'dark' | 'light
     if (t.drive) await test.step('drive', () => t.drive!(page));
     if (dark && t.state) await part(p('first-gap'), () => stateFirstGap(page, t, width, p('first-gap')));
   }
-  if (t.route === '/community' && t.pictures !== undefined) await test.step('open the World video gallery', () => page.getByRole('tab', { name: 'YouTube', exact: true }).click());
+  if (t.route === "/world" && t.pictures !== undefined) await test.step('open the World video gallery', () => page.getByRole('tab', { name: 'YouTube', exact: true }).click());
   if (reduced) await test.step('motion back on, animations ended', () => motionOn(page));
 
   if (dark && t.state) {

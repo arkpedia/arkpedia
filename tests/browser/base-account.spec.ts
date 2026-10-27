@@ -2,6 +2,10 @@ import { expect, test, type Page } from '@playwright/test';
 import account from '../fixtures/base-account.json';
 import { fontsSettled } from './census-routes';
 
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('arkpedia:privacy:v1', JSON.stringify({ version: 1, analytics: false, externalMedia: false, savedAt: Date.now() })));
+});
+
 async function seedAccount(page: Page, snapshot = true) {
   await page.addInitScript(({ account, snapshot }) => {
     const record = { ...account, ...(snapshot ? {} : { base: undefined }) };
@@ -133,7 +137,7 @@ test('preset edits, renaming and deletion keep rotation references and the curre
   await source(page, 'Clear base').click();
   const draft = await page.evaluate(() => localStorage.getItem('baseAssignments_v2'));
   await page.getByRole('radio', { name: 'Rotation', exact: true }).click();
-  await expect(page.getByLabel('Rotation calculation details')).toContainText('12h cycle');
+  await expect(page.getByLabel('Rotation calculation details')).toContainText('12h repeating cycle');
   expect(await page.evaluate(() => localStorage.getItem('baseAssignments_v2'))).toBe(draft);
   await source(page, 'Edit rotation').click();
   await source(page, 'View in base').click();
@@ -178,10 +182,10 @@ test('an imported snapshot opens before formation setup and can become a repeati
   await source(page, 'Add to rotation').click();
   const timetable = page.getByLabel('Rotation timetable');
   await expect(timetable).toBeVisible();
-  await expect(timetable).toContainText('Starts from imported Morale');
-  await expect(timetable).toContainText('Dusk reaches 0 Morale');
+  await expect(timetable).toContainText('Repeating rotation after morale settles');
+  await expect(timetable).toContainText('Dusk is at 0 Morale and stops working');
   await page.getByLabel('Shift 1 hours').fill('24');
-  await expect(timetable).toContainText('Next cycle:');
+  await expect(timetable).toContainText('Repeats every 24h');
   await page.reload();
   await source(page, 'Imported account').click();
   await source(page, 'Edit rotation').click();
@@ -385,9 +389,12 @@ test('changing staffing preserves a panned map while room summaries grow', async
   await page.setViewportSize({ width: 1440, height: 800 });
   const view = page.getByLabel('Zoomable base map', { exact: true });
   await source(page, 'Fit base').click();
-  await view.evaluate(element => { element.scrollTop = 40; });
+  await page.getByLabel('Base zoom', { exact: true }).press('End');
+  // Zoom anchors the viewport on the next frame; pan after that transition completes.
+  await view.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  await view.evaluate(element => { element.scrollTop = 300; });
   const before = await view.evaluate(element => element.scrollTop);
-  expect(before).toBe(40);
+  expect(before).toBe(300);
   await room(page).click();
   await page.getByPlaceholder('Search operators...').fill('SilverAsh');
   const height = await page.locator('.base-overview').evaluate(element => (element as HTMLElement).offsetHeight);
@@ -535,8 +542,11 @@ test('rotation is a modal with real preset choices, editable empty hours and dis
   await expect(source(page, 'Edit rotation')).toBeFocused();
   await page.getByRole('radio', { name: 'Rotation', exact: true }).click();
   await expect(page.getByRole('radio', { name: 'Rotation', exact: true })).toBeChecked();
-  expect(Math.abs(await exp() - workingExp / 2)).toBeLessThanOrEqual(1);
-  await expect(page.getByLabel('Base production summary')).toContainText('Second-cycle average');
+  // Off removes FEater from the factory without assigning a dorm. Repeating forever
+  // exhausts her; the initial 24 Morale must not imply permanent half-time production.
+  expect(await exp()).toBe(0);
+  await expect(page.getByLabel('Base production summary')).toContainText('24h repeating cycle');
+  await expect(page.getByLabel('Rotation calculation details')).toContainText('FEater is at 0 Morale and stops working');
   await page.getByRole('radio', { name: 'Rotation', exact: true }).press('ArrowLeft');
   await expect(page.getByRole('radio', { name: 'Current Base', exact: true })).toBeChecked();
   expect(await exp()).toBe(0);

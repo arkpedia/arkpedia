@@ -25,7 +25,9 @@ test('skin events stay open with lazy artwork and a separate detail viewer', asy
   const grids = page.locator('.skin-plan-grid');
   for (const grid of await grids.all()) expect(await grid.locator('.skin-plan-card').count()).toBeLessThanOrEqual(12);
   await page.getByRole('button', { name: 'Fashion Review', exact: true }).click();
-  for (const grid of await grids.all()) expect(await grid.locator('.skin-plan-card').count()).toBeLessThanOrEqual(12);
+  // A newly visible shelf may immediately reveal another batch. Its images still
+  // stay lazy, and the event stays expanded when its detail viewer is closed.
+  for (const image of await page.locator('.skin-plan-card img').all()) await expect(image).toHaveAttribute('loading', 'lazy');
   await cards.first().getByRole('button', {name:/View/}).click();
   await expect(page.getByRole('dialog')).toBeVisible();
   await expect(page.getByText('Outfit details', {exact:true})).toBeVisible();
@@ -43,25 +45,28 @@ test('artist and actor searches expand matching operator credits', async ({ page
   }
 });
 test('simple materials can show only shortages and select a subset without editing saved goals', async ({ page }) => {
-  await page.goto('/planner'); await seedPlanner(page, PLANNER_PLAN);
+  await page.goto("/operator-planner"); await seedPlanner(page, PLANNER_PLAN);
   await expect(page.getByRole('group', {name:'Which materials to show'})).toBeVisible();
   const before = await page.evaluate(() => localStorage.getItem('plannerState'));
-  await page.getByText('View materials for selected goals', {exact:true}).click();
-  const filter = page.locator('details').filter({hasText:'View materials for selected goals'});
+  await page.getByRole('button', {name:'Choose goals for material totals', exact:true}).click();
+  const filter = page.locator('.planner-goal-menu');
   await filter.getByRole('button',{name:'None',exact:true}).click();
   await expect(page.getByText('No goals set yet.',{exact:false})).toBeVisible();
   expect(await page.evaluate(() => localStorage.getItem('plannerState'))).toBe(before);
   await filter.getByRole('button',{name:'All',exact:true}).click();
+  await page.keyboard.press('Escape');
   await plannerPriced(page);
   await page.getByRole('tab',{name:'Surtr',exact:true}).click();
   await expect(page.getByRole('group',{name:'Which operator materials to show'})).toBeVisible();
 });
-test('account server clocks follow imported JP and KR accounts, and banner CSV excludes other pools', async ({ page }) => {
+test('account server clocks follow imported JP and KR accounts, and banner CSV excludes other pools', async ({ page, isMobile }) => {
   await page.goto('/account');
   const account = { version:1,server:'jp',importedAt:'2026-10-08T12:00Z',doctor:'Local test',operators:[],skins:[],cleared:[],pulls:{rows:[{at:1791460800,pool:'fixture_a',char:'char_002_amiya',star:5},{at:1791460700,pool:'fixture_b',char:'char_003_kalts',star:6}],pools:{fixture_a:'Fixture A',fixture_b:'Fixture B'},names:{},readAt:'2026-10-08T12:00Z',error:null}};
   await page.evaluate(value => localStorage.setItem('arkpediaAccount',JSON.stringify(value)),account);
   await page.reload();
+  if (isMobile) await page.getByRole('button', { name: 'Open navigation menu', exact: true }).click();
   await expect(page.locator('[title*="JP daily reset"]:visible').first()).toBeVisible();
+  if (isMobile) await page.keyboard.press('Escape');
   const pulls = page.getByRole('tab',{name:/Pull history/});
   if(await pulls.count()) await pulls.click();
   const download = page.waitForEvent('download');
@@ -70,7 +75,9 @@ test('account server clocks follow imported JP and KR accounts, and banner CSV e
   const fs = await import('node:fs/promises'); const csv = await fs.readFile(path!, 'utf8');
   expect(csv).toContain('Fixture A'); expect(csv).not.toContain('Fixture B');
   await page.evaluate(() => {const value=JSON.parse(localStorage.getItem('arkpediaAccount')!);value.server='kr';localStorage.setItem('arkpediaAccount',JSON.stringify(value));});
-  await page.reload(); await expect(page.locator('[title*="KR daily reset"]:visible').first()).toBeVisible();
+  await page.reload();
+  if (isMobile) await page.getByRole('button', { name: 'Open navigation menu', exact: true }).click();
+  await expect(page.locator('[title*="KR daily reset"]:visible').first()).toBeVisible();
 });
 test('operator EP cold-starts playback and becomes first in the queue', async ({page}) => {
   await stubYouTube(page); await page.goto('/operators/Thorns');
@@ -83,7 +90,7 @@ test('operator EP cold-starts playback and becomes first in the queue', async ({
   await expect.poll(async () => (await youtube(page))?.videoId).toBe(id);
 });
 test('World exposes all reference sections and source-linked community links', async ({page}) => {
-  await page.goto('/community');
+  await page.goto("/world");
   for(const name of ['Offline Events','Web Events','YouTube','Twitch','Discord','Cosplayers','Fan-artists','Fan Musicians']) await expect(page.getByRole('tab',{name,exact:true})).toBeAttached();
   await page.getByRole('tab',{name:'Discord',exact:true}).click();
   await expect(page.getByRole('link',{name:/Cookie Squad/})).toHaveAttribute('href','https://discord.gg/kukkikaze');
@@ -92,7 +99,7 @@ test('World exposes all reference sections and source-linked community links', a
 });
 test('yellow cert budgets persist per month and show skipped months without spending them', async ({page}) => {
   await page.clock.setFixedTime(new Date('2026-10-08T12:00Z'));
-  await page.goto('/pulls');
+  await page.goto("/pull-planner");
   await page.getByRole('textbox',{name:'Yellow certs',exact:true}).fill('300');
   await page.getByRole('textbox',{name:'Until',exact:true}).fill('2027-01-15');
   await page.getByRole('checkbox',{name:'Yellow cert shop',exact:true}).check();

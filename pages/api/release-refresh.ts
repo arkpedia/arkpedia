@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { timingSafeEqual } from 'node:crypto';
 import { RELEASE_REFRESH_ROUTES } from '@/lib/content/releaseRefresh';
+import { canonicalPublicHref } from '@/lib/nav/publicRoutes';
 
 /**
  * Regenerates the pages that wait longest for a content release (lib/content/releaseRefresh.ts),
@@ -31,7 +32,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   for (let start = 0; start < RELEASE_REFRESH_ROUTES.length; start += 3) {
     await Promise.all(RELEASE_REFRESH_ROUTES.slice(start, start + 3).map(async (route) => {
       try {
-        await res.revalidate(route);
+        // Content keys stay stable; ISR must refresh the page readers actually visit.
+        await res.revalidate(canonicalPublicHref(route));
         refreshed[route] = 'regenerated';
       } catch (error) {
         refreshed[route] = `failed: ${error instanceof Error ? error.message : String(error)}`;
