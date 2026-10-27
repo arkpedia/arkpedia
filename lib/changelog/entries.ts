@@ -34,6 +34,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-10-27T08:00:00Z',
+    changed: [
+      { title: 'A clearer What’s new', detail: 'Updates now follow one reading column, with clearer dates, larger descriptions and more space between entries.', href: '/changelog' },
+    ],
+    fixed: [
+      { title: 'Twitch live status refreshes sooner', detail: 'Home and the live directory refresh every 30 seconds and on tab return, removing streams that go offline or switch games.', href: '/community/twitch' },
+      { title: 'Consistent operator preview artwork', detail: 'Operator previews fit the visible artwork instead of its transparent padding, and mastered skills show mastery icons.', href: '/gacha' },
+      { title: 'Tall planner cards stay seamless', detail: 'The portrait background fills tall operator cards without an outer border or a strip below the artwork.', href: '/planner' },
+    ],
+  },
+  {
     at: '2026-10-23T23:30:00Z',
     added: [
       { title: 'PVs on event pages', detail: "Each event has a PVs tab with its official trailer, PVs and EPs from YouTube, and a rerun lists its launch's too.", href: '/schedule' },

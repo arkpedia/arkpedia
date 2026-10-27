@@ -1,18 +1,23 @@
 /* What's new (pages/changelog.tsx): each day, its Added / Changed / Fixed. */
-.changelog-title { margin-left: 12px; font-family: var(--font-body); text-transform: none; letter-spacing: 0; }
-.changelog-group { margin-top: 18px; }
-.changelog-group h3 { margin: 0 0 8px; }
-/* Short items to skim: two columns where they fit, one on a phone. */
-.changelog-group ul { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap: 12px 32px; margin: 0; padding: 0; list-style: none; }
+.changelog-entry { display:grid; grid-template-columns:160px minmax(0, 72ch); column-gap:40px; padding-bottom:28px; border-bottom:1px solid var(--line-soft); }
+.changelog-entry > h2 { margin:0; }
+.changelog-title { display:block; margin-top:8px; font-family: var(--font-body); text-transform: none; letter-spacing: 0; }
+.changelog-groups { display:grid; gap:24px; min-width:0; }
+.changelog-group h3 { margin: 0 0 12px; }
+/* Read each update in order, with a comfortable line length on wide screens. */
+.changelog-group ul { display: grid; gap:18px; margin: 0; padding: 0; list-style: none; }
 /* The mark is drawn flush with the section's edge, as every first line on the site is (ui-primitives
    rule 17), the title and its line hanging beside it: + added, • changed, ✓ fixed. */
-.changelog-group li { display: grid; grid-template-columns: 16px minmax(0, 1fr); align-content: start; }
+.changelog-group li { display: grid; grid-template-columns: 20px minmax(0, 1fr); align-content: start; }
 .changelog-group li::before { grid-row: span 2; content: '+'; color: var(--teal); font-weight: 700; line-height: 1.4; }
 .changelog-group.is-changed li::before { content: '•'; color: var(--amber); }
 .changelog-group.is-fixed li::before { content: '✓'; }
-.changelog-item-title { grid-column: 2; color: var(--text); font-size: 15px; font-weight: 600; line-height: 1.4; text-decoration: none; }
+.changelog-item-title { grid-column: 2; color: var(--text-bright); font-size: 18px; font-weight: 600; line-height: 1.5; text-decoration: none; }
 a.changelog-item-title:hover { color: var(--teal); }
 .changelog-go { color: var(--teal); white-space: nowrap; }
-.changelog-item-detail { grid-column: 2; margin-top: 2px; color: var(--text-dim); font-size: 13px; line-height: 1.5; }
+.changelog-item-detail { grid-column: 2; margin-top: 4px; color: var(--text); font-size: 15px; line-height: 1.65; }
+@media(max-width:720px) {
+  .changelog-entry { grid-template-columns:minmax(0,1fr); row-gap:20px; }
+}
 /* The dot on the nav's What's new, and on the menu that holds it, until the latest entry is read. */
 .nav-new-dot { display: inline-block; flex: none; width: 7px; height: 7px; margin-left: 6px; border-radius: 50%; background: var(--teal); vertical-align: middle; }

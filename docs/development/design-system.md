@@ -20,6 +20,12 @@ cards. Choose the pattern below first, then use its established primitives.
 
 ## Navigation and continuity
 
+The homepage Twitch feature and live directory verify streams independently of static
+page releases. Refresh visible pages every 30 seconds and on tab return/focus; remove
+unconfirmed streams after errors or inactivity. Only live entries in the Arknights
+category qualify. The live endpoint shares results for 15 seconds within a server
+instance and disables browser/CDN caching, including stale-while-revalidate.
+
 - Browser Back/Forward and a page's Back link return readers to their previous scroll
   position, including content revealed by progressive lists. Ordinary links open the
   destination normally. Do not reset a returning reader to the top of a catalogue.

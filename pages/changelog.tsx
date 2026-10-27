@@ -42,12 +42,14 @@ export default function ChangelogPage() {
           <section key={entry.day} className="op-section changelog-entry" aria-labelledby={`changes-${entry.day}`}>
             {/* When it reached the site, in the reader's own time zone. */}
             <h2 id={`changes-${entry.day}`}><time dateTime={entry.at} title={formatInstant(entry.at, 'minute', timeZone)}>{formatInstant(entry.at, 'day', timeZone)}</time>{entry.title && <span className="hint changelog-title">{entry.title}</span>}</h2>
+            <div className="changelog-groups">
             {KINDS.map(([kind, label]) => entry[kind]?.length ? (
               <div key={kind} className={`changelog-group is-${kind}`}>
                 <h3>{label}</h3>
                 <ul>{entry[kind]!.map((item, index) => <Item key={`${item.title}-${index}`} item={item} />)}</ul>
               </div>
             ) : null)}
+            </div>
           </section>
         ))}
       </main>

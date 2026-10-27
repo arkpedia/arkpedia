@@ -39,8 +39,7 @@ import { enrichWithLiveStatus, YouTubeVideo } from '@/lib/music/youtube';
 import { getLatestVideos } from '@/lib/music/youtubeFeedsServer';
 import { YOUTUBE_CHANNELS, VIDEOS_PER_CHANNEL } from '@/lib/music/youtubeConfig';
 import { filterBannedByTitle } from '@/lib/music/contentFilter';
-import { getLiveTwitchStreams, TwitchStream } from '@/lib/community/twitch';
-import { TWITCH_CATEGORY, TWITCH_STREAM_LIMIT } from '@/lib/community/twitchConfig';
+import type { TwitchStream } from '@/lib/community/twitch';
 import { EVENTS } from '@/lib/schedule/eventsConfig';
 import { CommunityEvent } from '@/lib/schedule/eventTypes';
 
@@ -80,7 +79,6 @@ export default function HomePage({
   ongoingBanners: globalBanners,
   ongoingSkins: globalSkins,
   farmableMaterials: globalMaterials,
-  featuredStream,
   featuredVideo,
   earliestCommunityEvent,
   maintenance,
@@ -143,7 +141,7 @@ export default function HomePage({
         <div className="front-page-right">
           <GachaBannersPanel banners={deserializedBanners} activeIndex={activeBannerIndex} onSelect={setActiveBannerIndex} now={now} />
           <FeaturedOperatorsPanel banner={activeBanner} />
-          <CommunityFader stream={featuredStream} video={featuredVideo} event={earliestCommunityEvent} />
+          <CommunityFader video={featuredVideo} event={earliestCommunityEvent} />
         </div>
       </main>
     </>
@@ -167,7 +165,6 @@ async function finalizeHome(props: Props): Promise<Props> {
   const rawVideos = await getLatestVideos(YOUTUBE_CHANNELS, VIDEOS_PER_CHANNEL);
   const enrichedVideos = await enrichWithLiveStatus(rawVideos, process.env.YOUTUBE_API_KEY);
   const videos = filterBannedByTitle(enrichedVideos.filter(video => !video.isLivestream));
-  const streams = await getLiveTwitchStreams(TWITCH_CATEGORY, TWITCH_STREAM_LIMIT, process.env.TWITCH_CLIENT_ID, process.env.TWITCH_CLIENT_SECRET);
   const communityEvent = [...EVENTS].filter(event => {
     const end = event.endTime ? new Date(event.endTime) : new Date(new Date(event.startTime).getTime() + 86400000);
     return end.getTime() >= now.getTime();
@@ -183,7 +180,7 @@ async function finalizeHome(props: Props): Promise<Props> {
     ongoingSkins: __calendar?.skinWindows
       ? availableSkins(__calendar.skins, regionalSkinWindows(withLocalConfirmedSkinWindows(__calendar.skinWindows), regional?.servers?.en, 'en'), now)
       : getOngoingSkins(now, __calendar?.skins, events),
-    featuredVideo: videos[0] || null, featuredStream: streams[0] || null, earliestCommunityEvent: communityEvent,
+    featuredVideo: videos[0] || null, featuredStream: null, earliestCommunityEvent: communityEvent,
     // A release from before the regions, which held Global's list alone, counts as Global's.
     maintenance: currentRegionalMaintenance(Array.isArray(props.maintenance) ? { en: props.maintenance } : props.maintenance ?? {}, props.now),
   };

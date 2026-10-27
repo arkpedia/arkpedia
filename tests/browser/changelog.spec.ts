@@ -1,10 +1,12 @@
 import { expect, test } from '@playwright/test';
 import { CHANGELOG, LATEST_CHANGE } from '../../lib/changelog/entries';
 import { groupChangelogDays } from '../../lib/changelog/group';
+import fs from 'node:fs/promises';
 
 test.use({ timezoneId: 'Asia/Seoul' });
 
-test('What’s new groups local dates and categories and marks later same-day releases seen', async ({ page }) => {
+for (const theme of ['dark', 'light']) test(`What’s new groups local dates and categories and marks later same-day releases seen (${theme})`, async ({ page }, info) => {
+  await page.addInitScript(theme => localStorage.setItem('theme', theme), theme);
   await page.addInitScript(() => localStorage.setItem('arkpedia.changelog.seen', '2026-10-09T09:56:52Z'));
   await page.goto('/changelog');
   const expected = groupChangelogDays(CHANGELOG, 'Asia/Seoul');
@@ -31,4 +33,7 @@ test('What’s new groups local dates and categories and marks later same-day re
   await expect(today).toContainText('Fewer pauses in animated art');
   expect(await page.evaluate(() => localStorage.getItem('arkpedia.changelog.seen'))).toBe(LATEST_CHANGE);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await fs.mkdir('.cache/changelog-readability-qa', { recursive: true });
+  await page.screenshot({ path: `.cache/changelog-readability-qa/${info.project.name}-${theme}.png` });
 });
