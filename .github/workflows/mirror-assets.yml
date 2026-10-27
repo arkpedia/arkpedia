@@ -1,6 +1,12 @@
 name: Mirror public GitHub assets to R2
 on:
   workflow_dispatch:
+    inputs:
+      image_revision:
+        description: Optional full arkpedia-image-assets commit to mirror before Preview publication
+        type: string
+        required: false
+        default: ''
   schedule:
     - cron: '17 */6 * * *'
 permissions:
@@ -24,6 +30,11 @@ jobs:
         run: |
           mkdir -p .cache
           node scripts/content/asset-mirror-plan.mjs > .cache/asset-mirror-plan.json
+      - name: Include requested immutable image revision
+        if: inputs.image_revision != ''
+        env:
+          IMAGE_REVISION: ${{ inputs.image_revision }}
+        run: node scripts/content/add-image-mirror-pin.mjs .cache/asset-mirror-plan.json
       - name: Verify and mirror public files
         run: node scripts/content/mirror-github-assets.mjs --pins=.cache/asset-mirror-plan.json --cache="$RUNNER_TOOL_CACHE/arkpedia-public-git" --report=.cache/r2-mirror-receipts.json
         env:
@@ -36,7 +47,7 @@ jobs:
           path: .cache/r2-mirror-receipts.json
           if-no-files-found: error
   deploy:
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && inputs.image_revision == ''
     needs: mirror
     runs-on: ubuntu-latest
     timeout-minutes: 10
