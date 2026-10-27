@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { fetchAsset } from '../../lib/assets/githubRetry.mjs';
+import { assetReferences } from '../../workers/assets/contract.mjs';
 
 // GitHub remains the release authority. Only immutable, verified payloads move to R2.
 async function json(url, limit) {
@@ -17,4 +18,7 @@ const { value: manifest, bytes } = await json(`${root}/${pointer.revision}/relea
 if (createHash('sha256').update(bytes).digest('hex') !== pointer.manifestSha256 || manifest.release !== pointer.release) throw new Error('Live manifest integrity failure');
 const bundled = JSON.parse(await readFile('data/assets/revisions.json', 'utf8'));
 const entries = [...Object.entries(bundled), ...Object.entries(manifest.assets), ['arkpedia-data', pointer.revision]];
+for (const path of ['data/dynamic-art.json', 'data/chibi-art.json']) {
+  for (const ref of assetReferences(await readFile(path, 'utf8'))) entries.push([ref.repository, ref.revision]);
+}
 console.log(JSON.stringify([...new Map(entries.map(([repository, revision]) => [`${repository}/${revision}`, { repository, revision }])).values()], null, 2));

@@ -2,13 +2,20 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { test } from 'node:test';
 import { byteRange, createAssetDelivery } from '../../workers/assets/delivery.mjs';
-import { indexKey, objectKey, readyKey, shardFor, sha256 } from '../../workers/assets/contract.mjs';
+import { assetReferences, indexKey, objectKey, readyKey, shardFor, sha256 } from '../../workers/assets/contract.mjs';
 import { mirrorRevision, s3Store, treeFiles } from '../content/mirror-github-assets.mjs';
 
 const repository = 'arkpedia-image-assets', revision = 'a'.repeat(40), path = "six-star-icons/Kal'tsit - Base.webp";
 const body = Buffer.from('example-image-bytes');
 const sha = createHash('sha1').update(`blob ${body.length}\0`).update(body).digest('hex');
 const file = { path, sha, bytes: body.length };
+test('compiled animation references discover only approved immutable public repositories', () => {
+  const url = repo => `https://raw.githubusercontent.com/arkpedia/${repo}/${revision}/models/skin/model.json`;
+  assert.deepEqual(assetReferences(JSON.stringify([url('arkpedia-l2d-assets'), url('arkpedia-sd-assets'), url('private-repo'), url('arkpedia-l2d-assets'), url('arkpedia-data')])), [
+    { repository: 'arkpedia-l2d-assets', revision }, { repository: 'arkpedia-sd-assets', revision },
+  ]);
+  assert.deepEqual(assetReferences(url('arkpedia-l2d-assets').replace(revision, 'main')), []);
+});
 const request = (headers = {}, method = 'GET') => new Request(`https://assets.arkpedia.net/arkpedia/${repository}/${revision}/${path.split('/').map(encodeURIComponent).join('/')}`, { headers, method });
 async function fixture() {
   const data = new Map(), puts = [];

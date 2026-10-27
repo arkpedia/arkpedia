@@ -5,7 +5,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { S3Client, ListObjectsV2Command, GetObjectCommand, HeadObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
-import { COMMIT, MAX_BYTES, PREFIX, REPOSITORIES, indexKey, objectKey, publicFile, readyKey, shardFor } from '../../workers/assets/contract.mjs';
+import { COMMIT, MAX_BYTES, PREFIX, REPOSITORIES, assetReferences, indexKey, objectKey, publicFile, readyKey, shardFor } from '../../workers/assets/contract.mjs';
 
 const exec = promisify(execFile);
 const hash = (algorithm, bytes) => createHash(algorithm).update(bytes).digest('hex');
@@ -95,7 +95,7 @@ export function s3Store(client, bucket) {
   };
 }
 
-export async function mirrorRevision({ repository, revision, files, read, store, known, concurrency = 8, log = console.log }) {
+export async function mirrorRevision({ repository, revision, files, read, store, known, references = [], concurrency = 8, log = console.log }) {
   if (!REPOSITORIES.has(repository) || !COMMIT.test(revision)) throw new Error('A public repository and immutable commit are required');
   const unique = new Map(files.map(file => [file.sha, file]));
   let uploaded = 0, reused = 0;
@@ -127,7 +127,7 @@ export async function mirrorRevision({ repository, revision, files, read, store,
     shards[shard] = hash('sha256', bytes);
   });
   const receipt = { version: 1, repository, revision, files: files.length, bytes: files.reduce((total, file) => total + file.bytes, 0),
-    shards: Object.fromEntries(Object.entries(shards).sort(([a], [b]) => a < b ? -1 : 1)) };
+    shards: Object.fromEntries(Object.entries(shards).sort(([a], [b]) => a < b ? -1 : 1)), ...(references.length ? { references } : {}) };
   // Published last. A partial upload cannot make a new commit available to readers.
   await store.put(readyKey(repository, revision), Buffer.from(JSON.stringify(receipt)));
   log(JSON.stringify({ repository, revision, files: files.length, uploaded, reused, bytes: receipt.bytes }));
@@ -156,17 +156,31 @@ export async function main(args = process.argv.slice(2), env = process.env) {
   let known;
   const cache = resolve(options['--cache'] || '.cache/github-mirror');
   const receipts = [];
+  const visited = new Set();
   for (const { repository, revision } of sources) {
     if (!REPOSITORIES.has(repository) || !COMMIT.test(revision)) throw new Error('Invalid pinned mirror plan');
+    const identity = `${repository}/${revision}`;
+    if (visited.has(identity)) continue;
+    visited.add(identity);
     const ready = await store.ready(repository, revision);
     if (ready) {
+      sources.push(...(ready.references || []));
       receipts.push(ready);
       console.log(JSON.stringify({ repository, revision, alreadyMirrored: true, files: ready.files }));
       continue;
     }
     known ||= await store.objects();
     const input = await source(repository, revision, cache);
-    receipts.push(await mirrorRevision({ repository, revision, ...input, store, known }));
+    const references = new Map();
+    if (repository === 'arkpedia-data') {
+      await boundedMap(input.files, 8, async file => {
+        const bytes = await input.read(file);
+        verifyGitBlob(bytes, file);
+        for (const ref of assetReferences(bytes.toString('utf8'))) references.set(`${ref.repository}/${ref.revision}`, ref);
+      });
+    }
+    sources.push(...references.values());
+    receipts.push(await mirrorRevision({ repository, revision, ...input, references: [...references.values()], store, known }));
   }
   if (options['--report']) await writeFile(options['--report'], JSON.stringify(receipts, null, 2));
 }
