@@ -4,11 +4,19 @@ import { test } from 'node:test';
 import { byteRange, createAssetDelivery } from '../../workers/assets/delivery.mjs';
 import { assetReferences, indexKey, objectKey, readyKey, shardFor, sha256 } from '../../workers/assets/contract.mjs';
 import { mirrorRevision, s3Store, treeFiles } from '../content/mirror-github-assets.mjs';
+import { uploadedAssetVersion } from '../deploy/public-assets-worker.mjs';
 
 const repository = 'arkpedia-image-assets', revision = 'a'.repeat(40), path = "six-star-icons/Kal'tsit - Base.webp";
 const body = Buffer.from('example-image-bytes');
 const sha = createHash('sha1').update(`blob ${body.length}\0`).update(body).digest('hex');
 const file = { path, sha, bytes: body.length };
+test('reader deployment selects only the exact worker version from structured Wrangler output', () => {
+  const record = { type: 'version-upload', version: 1, worker_name: 'arkpedia-assets', version_id: '12345678-abcd-1234-abcd-123456789abc' };
+  assert.equal(uploadedAssetVersion(JSON.stringify({ type: 'diagnostic' }) + '\n' + JSON.stringify(record)), record.version_id);
+  for (const output of ['', JSON.stringify({ ...record, worker_name: 'arkpedia' }), JSON.stringify({ ...record, version_id: 'invalid' }), JSON.stringify(record) + '\n' + JSON.stringify(record)]) {
+    assert.throws(() => uploadedAssetVersion(output), /exactly one/);
+  }
+});
 test('compiled animation references discover only approved immutable public repositories', () => {
   const url = repo => `https://raw.githubusercontent.com/arkpedia/${repo}/${revision}/models/skin/model.json`;
   assert.deepEqual(assetReferences(JSON.stringify([url('arkpedia-l2d-assets'), url('arkpedia-sd-assets'), url('private-repo'), url('arkpedia-l2d-assets'), url('arkpedia-data')])), [
@@ -42,6 +50,15 @@ test('partial or corrupt uploads never publish readiness', async () => {
       store: { put: async key => { puts.push(key); throw new Error('upload failed'); } }, known: new Map(), log: () => {} }));
     assert.ok(!puts.includes(readyKey(repository, revision)));
   }
+});
+test('parallel reference discovery produces byte-identical immutable readiness receipts', async () => {
+  const references = ['arkpedia-sd-assets', 'arkpedia-l2d-assets'].map(repository => ({ repository, revision }));
+  const receipts = [];
+  for (const ordered of [references, [...references].reverse()]) {
+    await mirrorRevision({ repository, revision, files: [file], references: ordered, read: async () => body,
+      store: { put: async (key, bytes) => { if (key === readyKey(repository, revision)) receipts.push(bytes); } }, known: new Map(), log: () => {} });
+  }
+  assert.deepEqual(receipts[0], receipts[1]);
 });
 test('Git source selection keeps public media and excludes code, symlinks and traversal', () => {
   const row = (mode, name) => `${mode} blob ${sha} ${body.length}\t${name}\0`;

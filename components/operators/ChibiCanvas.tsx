@@ -7,6 +7,7 @@ import type { ChibiActivity } from '@/lib/operators/chibiRoutine';
 import { chibiIdleAnimation, isChibiTap } from '@/lib/operators/chibiRoutine';
 import { chibiAtlas } from '@/lib/operators/chibiAtlas';
 import { fetchAsset, loadAssetImage } from '@/lib/assets/assetRetry';
+import { pinAssetUrl } from '@/lib/assets/revisions';
 interface ChibiCanvasProps {
   model: ChibiModel; label: string; animation: string; onAnimationChange: (value: string) => void;
   onAnimationsChange: (values: string[], durations?: Record<string, number>) => void; paused: boolean; moving: boolean; flipped: boolean;
@@ -28,9 +29,9 @@ export default function ChibiCanvas({ model, label, animation, onAnimationChange
     (async () => {
       const [{ spine }, skeletonBytes, atlasText, images] = await Promise.all([
         import('@/lib/vendor/spine-3.8/spine-webgl'),
-        fetchAsset(model.skeleton, { signal: abort.signal }).then(res => { if (!res.ok) throw Error('Skeleton unavailable'); return res.arrayBuffer(); }),
-        fetchAsset(model.atlas, { signal: abort.signal }).then(res => { if (!res.ok) throw Error('Atlas unavailable'); return res.text(); }),
-        Promise.all(Object.entries(model.textures).map(([name, url]) => loadAssetImage(url, { crossOrigin: 'anonymous', signal: abort.signal })
+        fetchAsset(pinAssetUrl(model.skeleton), { signal: abort.signal }).then(res => { if (!res.ok) throw Error('Skeleton unavailable'); return res.arrayBuffer(); }),
+        fetchAsset(pinAssetUrl(model.atlas), { signal: abort.signal }).then(res => { if (!res.ok) throw Error('Atlas unavailable'); return res.text(); }),
+        Promise.all(Object.entries(model.textures).map(([name, url]) => loadAssetImage(pinAssetUrl(url), { crossOrigin: 'anonymous', signal: abort.signal })
           .then((image): [string, HTMLImageElement] => [name, image], () => { throw Error(abort.signal.aborted ? 'Aborted' : 'Texture unavailable'); }))),
       ]);
       if (stopped) return;

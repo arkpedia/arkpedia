@@ -24,7 +24,7 @@ import { createParticleRenderer, type ParticleRenderer } from './particleRendere
  * next/dynamic, and this file brings in the runtime (lib/vendor/spine-3.8) with import() once it
  * mounts, so neither is ever part of a page's bundle (scripts/tests/test-dynamic-art.ts). Then
  * the model: model.json, its skeleton, atlas and texture pages, from the folder model.json is in
- * (arkpedia-l2d-assets at a pinned commit; raw.githubusercontent.com answers with CORS, which a
+ * (arkpedia-l2d-assets at a pinned commit; the R2 reader answers with CORS, which a
  * WebGL texture needs). The textures are premultiplied at import, so they are drawn that way.
  *
  * An outfit with an entrance (model.json `entrance`) also loads that sequence: a second skeleton,
@@ -203,6 +203,7 @@ async function loadLayers(file: string, url: (name: string) => string, signal: A
 /** The model's files, fetched side by side from the folder its model.json is in: the
  *  illustration, its mesh layers, and its entrance and soundtrack when it has one. */
 async function loadModel(url: string, signal: AbortSignal, operator: string | undefined, resolveUrl: (url: string) => string, poster: string) {
+  url = resolveUrl(url);
   const model = parseDynamicModel(await (await fetchOk(url, signal)).json());
   const file = (name: string) => new URL(name, url).href;
   const voices: ArtworkVoice[] = operator && model.playback?.voiceActions.length ? await fetchOk(`/api/artwork-voices?operator=${encodeURIComponent(operator)}&skinId=${encodeURIComponent(model.skinId.replace(/\^sp_dyn$/, ''))}`, signal)

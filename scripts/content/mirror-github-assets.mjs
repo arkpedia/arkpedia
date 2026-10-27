@@ -127,7 +127,8 @@ export async function mirrorRevision({ repository, revision, files, read, store,
     shards[shard] = hash('sha256', bytes);
   });
   const receipt = { version: 1, repository, revision, files: files.length, bytes: files.reduce((total, file) => total + file.bytes, 0),
-    shards: Object.fromEntries(Object.entries(shards).sort(([a], [b]) => a < b ? -1 : 1)), ...(references.length ? { references } : {}) };
+    shards: Object.fromEntries(Object.entries(shards).sort(([a], [b]) => a < b ? -1 : 1)),
+    ...(references.length ? { references: [...references].sort((a, b) => `${a.repository}/${a.revision}` < `${b.repository}/${b.revision}` ? -1 : 1) } : {}) };
   // Published last. A partial upload cannot make a new commit available to readers.
   await store.put(readyKey(repository, revision), Buffer.from(JSON.stringify(receipt)));
   log(JSON.stringify({ repository, revision, files: files.length, uploaded, reused, bytes: receipt.bytes }));
@@ -139,8 +140,15 @@ async function source(repository, revision, cache) {
   const directory = join(cache, repository);
   await mkdir(directory, { recursive: true });
   await git(directory, ['init', '--bare', '--quiet']);
+  // Preserve earlier SHA-only fetches too: FETCH_HEAD is not a negotiation ref.
+  // Named tips let Git reuse existing objects when a later snapshot is fetched.
+  try {
+    const previous = (await git(directory, ['rev-parse', '--verify', 'FETCH_HEAD^{commit}'])).trim();
+    if (COMMIT.test(previous)) await git(directory, ['update-ref', `refs/mirrored/${previous}`, previous]);
+  } catch { /* A new cache has no FETCH_HEAD yet. */ }
   try { await git(directory, ['cat-file', '-e', `${revision}^{commit}`]); }
   catch { await git(directory, ['fetch', '--no-tags', '--depth=1', `https://github.com/arkpedia/${repository}.git`, revision]); }
+  await git(directory, ['update-ref', `refs/mirrored/${revision}`, revision]);
   const files = treeFiles(repository, await git(directory, ['ls-tree', '-r', '-z', '-l', revision]));
   if (!files.length) throw new Error(`No public files found in ${repository}`);
   return { files, read: file => git(directory, ['cat-file', 'blob', file.sha], true) };

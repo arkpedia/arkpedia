@@ -114,7 +114,7 @@ try {
     const page = await context.newPage();
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
-    await page.route('https://raw.githubusercontent.com/arkpedia/**', route => route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100" fill="#1b2c34"/></svg>' }));
+    await page.route(/^https:\/\/(?:raw\.githubusercontent\.com|assets\.arkpedia\.net)\/arkpedia\//, route => route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100" fill="#1b2c34"/></svg>' }));
     const checkVoice = async (label) => {
       await page.goto('http://localhost:3193/operators/Runtime%20Content%20Test#voiceLines');
       const voice = page.locator('#operator-voiceLines');

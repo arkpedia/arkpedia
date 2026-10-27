@@ -11,8 +11,8 @@ const delivered = (repository: string, revision: string, path: string) => cdn.te
   .replace('{revision}', revision)
   .replace('{path}', path);
 
-test('public Arkpedia media uses commit-pinned raw GitHub delivery', () => {
-  assert.equal(cdn.template, 'https://raw.githubusercontent.com/arkpedia/{repository}/{revision}/{path}');
+test('public Arkpedia media uses commit-pinned R2 delivery', () => {
+  assert.equal(cdn.template, 'https://assets.arkpedia.net/arkpedia/{repository}/{revision}/{path}');
 });
 
 // Explicit pins are also used by independently mergeable upstream content PRs.
@@ -55,5 +55,9 @@ test('pins public media while preserving encoded filenames and template placehol
   assert.equal(pinAssetUrl('https://raw.githubusercontent.com/arkpedia/arkpedia-voice-english/main/current/a%20b/{id}.mp3'),
     delivered('arkpedia-voice-english', revisions['arkpedia-voice-english'], 'current/a%20b/{id}.mp3'));
   assert.equal(pinAssetUrl('https://example.com/main/test.mp3'), 'https://example.com/main/test.mp3');
+  for (const repository of ['arkpedia-sd-assets', 'arkpedia-l2d-assets']) {
+    const revision = 'a'.repeat(40);
+    assert.equal(pinAssetUrl(`https://raw.githubusercontent.com/arkpedia/${repository}/${revision}/models/test/model.json`), delivered(repository, revision, 'models/test/model.json'));
+  }
   assert.throws(() => pinAssetUrl('https://raw.githubusercontent.com/arkpedia/unconfigured-assets/main/image.png'), /Missing asset revision/);
 });

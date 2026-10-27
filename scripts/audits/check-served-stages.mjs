@@ -31,7 +31,9 @@ export async function checkServedStages({ origin, manifest, examples = [], fetch
   const file = manifest.files['stages-index.json'];
   if (!file) throw new Error('Prepared release has no stages-index.json');
   const base = new URL(served.baseUrl);
-  if (base.protocol !== 'https:' || base.hostname !== 'raw.githubusercontent.com' || !base.pathname.startsWith('/arkpedia/arkpedia-data/')) throw new Error('Stage page has an unexpected content origin');
+  if (base.protocol !== 'https:' || !['raw.githubusercontent.com', 'assets.arkpedia.net'].includes(base.hostname)
+    || !/^\/arkpedia\/arkpedia-data\/[a-f0-9]{40}\/release$/.test(base.pathname)
+    || base.username || base.password || base.search || base.hash) throw new Error('Stage page has an unexpected content origin');
   const indexResponse = await fetch(`${served.baseUrl}/${file.path}`, { cache: 'no-store', signal: AbortSignal.timeout(20000) });
   if (!indexResponse.ok) throw new Error(`Served stage index: HTTP ${indexResponse.status}`);
   const bytes = Buffer.from(await indexResponse.arrayBuffer());

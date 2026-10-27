@@ -22,7 +22,7 @@ test('chapters outside the story canvas show their reader covers in the list and
   await page.goto('/story?view=list&category=main');
   for (const chapter of [16, 17]) {
     const card = page.locator('.story-list-card').filter({ hasText: `Chapter ${chapter}:` });
-    const cover = new RegExp(`^https://raw\\.githubusercontent\\.com/arkpedia/arkpedia-image-assets/[a-f0-9]{40}/story-map/timo-main_${chapter}-[a-f0-9]+\\.webp$`);
+    const cover = new RegExp(`^https://assets\\.arkpedia\\.net/arkpedia/arkpedia-image-assets/[a-f0-9]{40}/story-map/timo-main_${chapter}-[a-f0-9]+\\.webp$`);
     await expect(card.locator('img')).toHaveAttribute('src', cover);
     await card.click();
     const dialog = page.locator('.story-chapter-dialog');

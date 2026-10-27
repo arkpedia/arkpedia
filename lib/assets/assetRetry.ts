@@ -1,8 +1,9 @@
 /**
  * A second try for published files that GitHub falsely reports missing.
  *
- * Every published picture, sound and content file loads from raw.githubusercontent.com at a
- * pinned commit (config/asset-delivery.json, lib/assets/assetUrl.ts). Measured on 2026-10-15,
+ * Normal public media and generated JSON now load from R2 at a pinned commit
+ * (config/asset-delivery.json). These helpers remain for upstream reads and legacy tabs.
+ * Measured on 2026-10-15,
  * from Korea and from Germany: GitHub's raw origin sometimes answers "404: Not Found"
  * (text/plain) for a file that exists at that commit -- about 1 or 2 in 250 requests made one
  * at a time, 6 to 14 in 250 at a browser's 20 to 40 in parallel, a different random set each
