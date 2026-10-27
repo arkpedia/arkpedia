@@ -43,6 +43,15 @@ test('partial or corrupt uploads never publish readiness', async () => {
     assert.ok(!puts.includes(readyKey(repository, revision)));
   }
 });
+test('parallel reference discovery produces byte-identical immutable readiness receipts', async () => {
+  const references = ['arkpedia-sd-assets', 'arkpedia-l2d-assets'].map(repository => ({ repository, revision }));
+  const receipts = [];
+  for (const ordered of [references, [...references].reverse()]) {
+    await mirrorRevision({ repository, revision, files: [file], references: ordered, read: async () => body,
+      store: { put: async (key, bytes) => { if (key === readyKey(repository, revision)) receipts.push(bytes); } }, known: new Map(), log: () => {} });
+  }
+  assert.deepEqual(receipts[0], receipts[1]);
+});
 test('Git source selection keeps public media and excludes code, symlinks and traversal', () => {
   const row = (mode, name) => `${mode} blob ${sha} ${body.length}\t${name}\0`;
   assert.deepEqual(treeFiles(repository, row('100644', path) + row('100644', 'scripts/run.js')), [file]);
