@@ -1,5 +1,8 @@
 # Checked-main releases to the Cloudflare application
 
+Current retirement decision: [Vercel retirement and Cloudflare recovery](vercel-retirement.md)
+supersedes the historical Vercel-retention instructions below.
+
 Status, 2026-10-26: this workflow is enabled and owns checked-main pilot releases.
 The activation instructions below are the original controlled-release procedure,
 not a request to create another credential or build owner. Canonical release

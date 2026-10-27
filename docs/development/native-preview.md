@@ -1,5 +1,8 @@
 # Native redesign Preview
 
+Current retirement decision: [Vercel retirement and Cloudflare recovery](vercel-retirement.md)
+supersedes the historical Vercel-retention instructions below.
+
 The redesign is reviewed independently of the live www / Cloudflare copy. Its
 native Cloudflare Worker Preview is named `arkpedia` under the existing `arkpedia`
 Worker. Publish with the manual Build and publish Cloudflare Preview workflow,

@@ -1,5 +1,8 @@
 # Cloudflare public-domain cutover
 
+Current retirement decision: [Vercel retirement and Cloudflare recovery](vercel-retirement.md)
+supersedes the historical Vercel-retention instructions below.
+
 ## Follow-up scope correction
 
 Google/Discord accounts, profiles and cloud saves are Preview-only. Live account

@@ -56,10 +56,10 @@ test('a reader takes its pointer from ARKPEDIA_CONTENT_CHANNEL, live by default,
 
 test('each deployment builds against its branch\'s channel, and the gate asks the deployments of the branch that compiled', () => {
   const deployments = readDeployments();
-  assert.equal(deployTargets({ branch: 'main', deployments })[0].contentChannel, 'live');
+  assert.deepEqual(deployTargets({ branch: 'main', deployments }), []);
   assert.deepEqual(deployTargets({ branch: 'dev', deployments }), []);
-  assert.deepEqual(deploymentUrls({}), ['https://www.arkpedia.net', 'https://www.arkpedia.net']);
-  assert.deepEqual(deploymentUrls({ ARKPEDIA_RELEASE_BRANCH: 'main' }), ['https://www.arkpedia.net', 'https://www.arkpedia.net']);
+  assert.deepEqual(deploymentUrls({}), ['https://www.arkpedia.net']);
+  assert.deepEqual(deploymentUrls({ ARKPEDIA_RELEASE_BRANCH: 'main' }), ['https://www.arkpedia.net']);
   assert.deepEqual(deploymentUrls({ ARKPEDIA_RELEASE_BRANCH: 'dev' }), []);
 });
 
@@ -117,13 +117,13 @@ test('only the editorial notifier can start workflows; the scraper keeps least p
   assert.ok(publisher.indexOf('"$ARKPEDIA_RELEASE_BRANCH" != main') < publisher.indexOf('CATALOGUE_IMAGE_DEPLOY_KEY:?'));
 });
 
-test('after a release goes live, only the deployments of the branch that compiled it are refreshed', async () => {
+test('Vercel retirement does not send the old Vercel refresh credential to its reader', async () => {
   // @ts-expect-error Node scripts are plain JavaScript.
   const { refreshPages } = await import('../content/refresh-pages.mjs');
-  for (const [branch, site] of [['main', 'https://www.arkpedia.net']]) {
+  for (const branch of ['main', 'dev']) {
     const calls: string[] = [];
     await refreshPages({ secret: 's', env: { ARKPEDIA_RELEASE_BRANCH: branch }, fetch: async (url: string) => { calls.push(url); return new Response('{}'); }, log: () => {} });
-    assert.deepEqual(calls, [`${site}/api/release-refresh`]);
+    assert.deepEqual(calls, []);
   }
 });
 
@@ -172,14 +172,11 @@ test('a site on a channel reads that channel\'s release, and live\'s while the c
   }
 });
 
-test('a Deploy build reads the channel of the project it builds for, whichever revision of deploy.yml runs', () => {
-  // Deploy is started by the Check workflow, so GitHub runs main's deploy.yml even for a dev
-  // build: the project id it sets for every build is what names the channel.
-  const deployments = readDeployments() as { branch: string; projectId: string }[];
-  const net = deployments.find(deployment => deployment.branch === 'main')!;
-  assert.equal(contentPointer({ VERCEL_PROJECT_ID: net.projectId }), 'live');
+test('retired Vercel project IDs default to live and explicit channels still win', () => {
+  assert.deepEqual(readDeployments(), []);
+  assert.equal(contentPointer({ VERCEL_PROJECT_ID: 'prj_onqP9wnDB7c8qzYPIJAGNMcTyjLC' }), 'live');
   assert.equal(contentPointer({ VERCEL_PROJECT_ID: 'prj_unknown' }), 'live');
-  assert.equal(contentPointer({ VERCEL_PROJECT_ID: net.projectId, ARKPEDIA_CONTENT_CHANNEL: 'live' }), 'live', 'an explicit channel wins');
+  assert.equal(contentPointer({ VERCEL_PROJECT_ID: 'prj_unknown', ARKPEDIA_CONTENT_CHANNEL: 'test-channel' }), 'test-channel');
 });
 
 test('npm test runs without the channel the nightly put in the environment', () => {

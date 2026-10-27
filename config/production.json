@@ -1,19 +1,6 @@
 {
-  "about": "Every Vercel project this repository deploys to (.github/workflows/deploy.yml, through scripts/deploy/deploy-targets.mjs), and the branch each one follows. A deployment that is live gets every green Check of a push to its branch, built in CI and uploaded prebuilt. Each branch with a content channel (config/content-channels.json: main) compiles its own release with its own code, and publishes it only when each live deployment of that branch serves a /build-info.json naming the code the release was compiled from and that channel's pointer (scripts/content/deploy-gate.mjs); a deployment of another branch reads another channel's release and is not asked. A build finds its channel through the projectId listed here (scripts/content/content-channel.cjs), so each project reads its own branch's pointer. One that is not live yet gets nothing automatically: a manual Deploy run with preview ticked uploads a preview to its project, which moves none of its domains. tokenSecret names the GitHub secret holding a Vercel token for that team. vercel.json turns Vercel's own Git deployments off: they build without the Check, and cannot say which commit they are.",
-  "deployments": [
-    {
-      "name": "arkpedia-net",
-      "url": "https://www.arkpedia.net",
-      "branch": "main",
-      "vercel": {
-        "scope": "kukkikazes-projects",
-        "orgId": "team_HnaZMOxh1kZqA9fCWV9FNjTd",
-        "projectId": "prj_onqP9wnDB7c8qzYPIJAGNMcTyjLC"
-      },
-      "tokenSecret": "VERCEL_TOKEN_ARKPEDIA_NET",
-      "live": true
-    }
-  ],
+  "about": "Cloudflare serves production from checked main releases. Vercel hosting and its rollback role are retired by maintainer authorization on 2026-10-27. deployments is intentionally empty, so even a manually enabled legacy Deploy workflow has no upload targets. contentReaders lists the live consumers whose clean fingerprint, channel and schema must match before content publication. Domain registration and renewal are separate from hosting.",
+  "deployments": [],
   "contentReaders": [
     {
       "name": "arkpedia-cloudflare",

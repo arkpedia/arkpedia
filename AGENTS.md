@@ -20,8 +20,9 @@ when ready. The retired `dev` work is preserved in `archive/legacy-dev-2026-10-2
 extract its base simulator and other unreleased features individually. Preserve
 unreleased `cloudflare` work; do not merge or retire that branch wholesale. Never use a permanent branch as a
 disposable PR head. Cloudflare serves public production through the checked-main application owner.
-Vercel remains an active rollback target until user acceptance and soak finish. See the README and simplification
-plan for current deployment state and release rules.
+The maintainer authorized retiring Vercel hosting and its rollback role on 2026-10-27.
+Use Cloudflare version recovery, preserving stored data; see docs/development/vercel-retirement.md.
+Historical migration instructions requiring Vercel retention are superseded by that decision.
 
 Google/Discord sign-in, Arkpedia profiles and cloud saves are Preview-only.
 Keep them disabled on live, including direct production Worker URLs. Preview must

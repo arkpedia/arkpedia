@@ -9,9 +9,9 @@ import { createHash } from 'node:crypto';
 const reader = { name: 'pilot', url: 'https://pilot.example', branch: 'main', live: true, refresh: false };
 test('the pilot gates main content but is never a Vercel upload or dev-content target', () => {
   const main = releaseDeployments({ ARKPEDIA_RELEASE_BRANCH: 'main' });
-  assert.deepEqual(main.map(d => d.name), ['arkpedia-net', 'arkpedia-cloudflare']);
-  assert.deepEqual(deploymentUrls({ ARKPEDIA_RELEASE_BRANCH: 'main' }), ['https://www.arkpedia.net', 'https://www.arkpedia.net']);
-  assert.deepEqual(deployTargets({ branch: 'main' }).map(d => d.name), ['arkpedia-net']);
+  assert.deepEqual(main.map(d => d.name), ['arkpedia-cloudflare']);
+  assert.deepEqual(deploymentUrls({ ARKPEDIA_RELEASE_BRANCH: 'main' }), ['https://www.arkpedia.net']);
+  assert.deepEqual(deployTargets({ branch: 'main' }).map(d => d.name), []);
   assert.deepEqual(releaseDeployments({ ARKPEDIA_RELEASE_BRANCH: 'dev' }).map(d => d.name), []);
   assert.equal(main.find(d => d.name === 'arkpedia-cloudflare').refresh, false);
 });
@@ -47,6 +47,7 @@ test('release reporting monitors the pilot once under main/live rather than its 
   });
   const pilots = report.targets.filter(t => t.name === 'arkpedia-cloudflare');
   assert.equal(pilots.length, 1);
+  assert.equal(report.targets.length, 1, 'only Cloudflare is monitored');
   assert.equal(pilots[0].branch, 'main');
   assert.equal(pilots[0].contentChannel, 'live');
   assert.equal(pilots[0].status, 'healthy');

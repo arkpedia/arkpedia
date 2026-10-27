@@ -111,7 +111,7 @@ test('release report workflow uses trusted main and read-only permissions withou
   const text = readFileSync('.github/workflows/release-status.yml', 'utf8');
   const workflow = yaml.load(text);
   assert.deepEqual(workflow.permissions, { contents: 'read', actions: 'read', checks: 'read' });
-  assert.deepEqual(workflow.on.workflow_run.workflows, ['Deploy']);
+  assert.deepEqual(workflow.on.workflow_run.workflows, ['Release Cloudflare pilot']);
   assert.ok(Object.hasOwn(workflow.on, 'workflow_dispatch'));
   assert.ok(!Object.hasOwn(workflow.on, 'schedule'));
   const steps = workflow.jobs.report.steps;

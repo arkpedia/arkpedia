@@ -23,15 +23,10 @@ const entry = (name: string, branch: string, live: boolean, extra: object = {}) 
 });
 type Target = { name: string; environment: string; production: boolean; releaseGate: boolean; last: boolean; alert: string };
 
-test('the checked-in list deploys only www.arkpedia.net from main', () => {
-  const deployments = readDeployments();
-  assert.deepEqual(deployments.map(({ name, url, branch, scope, tokenSecret, live }: Record<string, unknown>) => ({ name, url, branch, scope, tokenSecret, live })), [
-    { name: 'arkpedia-net', url: 'https://www.arkpedia.net', branch: 'main', scope: 'kukkikazes-projects', tokenSecret: 'VERCEL_TOKEN_ARKPEDIA_NET', live: true },
-  ]);
-  // kukki's project, as `vercel project inspect arkpedia --scope kukkikazes-projects` names it.
-  assert.equal(deployments[0].orgId, 'team_HnaZMOxh1kZqA9fCWV9FNjTd');
-  assert.equal(deployments[0].projectId, 'prj_onqP9wnDB7c8qzYPIJAGNMcTyjLC');
-  assert.equal(RELEASE_BRANCH, 'main', 'prepare-content.yml compiles with main');
+test('Vercel retirement leaves no upload targets while main remains the publishing branch', () => {
+  assert.deepEqual(readDeployments(), []);
+  assert.deepEqual(deployTargets({ branch: 'main' }), []);
+  assert.equal(RELEASE_BRANCH, 'main');
 });
 
 test("a push deploys its branch's live deployments; a preview, its ones not live yet", () => {
@@ -51,7 +46,8 @@ test("a push deploys its branch's live deployments; a preview, its ones not live
 
 test('a malformed entry is refused, naming what is wrong', () => {
   const refuse = (deployments: unknown, pattern: RegExp) => assert.throws(() => readDeployments({ deployments }), pattern);
-  refuse([], /lists no deployments/);
+  refuse(undefined, /deployments must be a list/);
+  assert.deepEqual(readDeployments({ deployments: [] }), []);
   refuse([entry('one', 'main', true), entry('one', 'dev', false)], /listed twice/);
   refuse([entry('One', 'main', true)], /name must be/);
   refuse([entry('one', 'main', true, { url: 'http://one.example' })], /bare https origin/);
@@ -70,7 +66,7 @@ test('the script prints the matrix for $GITHUB_OUTPUT', () => {
     assert.match(result.stdout, /^targets=\[.*\]\n$/);
     return JSON.parse(result.stdout.slice('targets='.length)).map((target: Target) => target.name);
   };
-  assert.deepEqual(names(['--branch', 'main']), ['arkpedia-net']);
+  assert.deepEqual(names(['--branch', 'main']), []);
   assert.deepEqual(names(['--branch', 'dev']), []);
   assert.deepEqual(names(['--branch', 'feat/x']), []);
   assert.deepEqual(names(['--branch', 'main', '--preview']), []);

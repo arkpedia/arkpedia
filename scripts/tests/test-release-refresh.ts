@@ -173,7 +173,7 @@ test('the refresh command needs the pushed revision and the channel\'s pointer, 
     return url.endsWith('/current.json') ? new Response(JSON.stringify({ revision: REVISION })) : new Response('{"refreshed":{}}');
   };
   await refreshMain(['--revision', REVISION, '--pointer', 'dev-live'], { env, fetch, now: time.now, sleep: time.sleep, log: () => {} });
-  assert.deepEqual(calls, ['GET https://raw.githubusercontent.com/arkpedia/arkpedia-data/dev-live/current.json', 'POST https://www.arkpedia.net/api/release-refresh']);
+  assert.deepEqual(calls, ['GET https://raw.githubusercontent.com/arkpedia/arkpedia-data/dev-live/current.json'], 'the retired Vercel refresh credential is not sent to Cloudflare');
   // Without the secret nothing would be refreshed, so nothing is waited for either.
   const none = clock();
   calls.length = 0;

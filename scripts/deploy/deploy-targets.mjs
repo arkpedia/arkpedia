@@ -35,7 +35,7 @@ export const RELEASE_BRANCH = 'main';
 /** The deployments config/production.json lists, each checked, or an error naming what is wrong. */
 export function readDeployments(config = JSON.parse(fs.readFileSync(path.join(root, 'config/production.json'), 'utf8'))) {
   const list = config?.deployments;
-  if (!Array.isArray(list) || !list.length) throw new Error('config/production.json lists no deployments');
+  if (!Array.isArray(list)) throw new Error('config/production.json deployments must be a list');
   const seen = new Set();
   return list.map((entry, index) => {
     const where = `config/production.json deployments[${index}]`;
