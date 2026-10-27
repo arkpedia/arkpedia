@@ -34,6 +34,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-10-27T13:15:00Z',
+    changed: [
+      { title: 'Clearer farming countdowns', detail: 'Only current/next event timers appear: green before opening, yellow while running; chapter shops are included.', href: '/farming' },
+    ],
+    added: [
+      { title: 'Farming source previews', detail: 'Click a stage or Event Store tag to see its event or chapter name and artwork without leaving the guide.', href: '/farming' },
+    ],
+  },
+  {
     at: '2026-10-27T08:00:00Z',
     changed: [
       { title: 'A clearer What’s new', detail: 'Updates now follow one reading column, with clearer dates, larger descriptions and more space between entries.', href: '/changelog' },

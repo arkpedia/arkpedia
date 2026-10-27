@@ -631,3 +631,10 @@ Every address and driven state the UI census visits (`tests/browser/census-route
 10. Density changes must obey the Anti-Page Jump rule. Measure them with `apj()`.
 11. Run `npm run audit:styles` and the layout census (`npx playwright test layout-census.spec`; the stale stack-align check runs with the whole suite, after both projects). If a remaining ratchet list shrank, tighten it with `npm run audit:styles -- --update` and commit the smaller baseline with the change.
 12. Verify the rendered result at 1440 and 390, dark and light (the rig, or screenshots). A green build is not verification.
+
+### Compact record preview
+
+Use `RecordPopover` for a small name-and-art preview that stays beside its trigger.
+It reuses `useAnchoredPopover` and `XButton`, places focus in the popup, and restores
+focus on dismissal. The `.record-popover*` surface, heading and uncropped art rules
+live in `styles/core/arkpedia-theme.css`; feature CSS owns only the trigger layout.

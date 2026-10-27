@@ -913,3 +913,25 @@ a.ghost, a.primary, a.danger, a.btn { text-decoration: none; }
 .rarity-frame[data-rarity="4"] { border-color: var(--rarity-4); }
 .rarity-frame[data-rarity="5"] { border-color: var(--rarity-5); }
 .rarity-frame[data-rarity="6"] { border-color: var(--rarity-6); }
+
+/* Compact record previews share the site's popup surface and close control. */
+.record-popover {
+  position: fixed;
+  z-index: 100;
+  box-sizing: border-box;
+  padding: 12px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  box-shadow: var(--shadow-panel);
+}
+.record-popover-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.record-popover-heading strong { min-width: 0; color: var(--text); }
+.record-popover-art { display: block; width: 100%; height: auto; object-fit: contain; }

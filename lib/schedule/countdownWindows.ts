@@ -3,7 +3,8 @@
 
 export interface MaterialCountdown {
   status: 'now' | 'countdown';
-  text: string; // "NOW", or "X days" / "X hours" at the moment it was resolved
+  text: string; // "In X days" before opening, or "X days left" while active
+  event?: string; // owning schedule event, retained for links
   stageCode?: string; // the stage this material actually comes from, e.g. "AD-7"
 }
 
@@ -34,33 +35,39 @@ function formatCountdown(target: number, now: number): string {
   return `${days} day${days === 1 ? '' : 's'}`;
 }
 
-/** An active window wins immediately; otherwise the soonest upcoming one counts
- * down; windows already over are not relevant. */
+/** The most recently opened active event wins, even while an older shop remains
+ * open. Otherwise count down to the nearest upcoming event. */
 function resolve<W extends CountdownWindow>(windows: readonly W[], now: number): { window: W; status: 'now' | 'countdown' } | null {
+  let active: W | null = null;
   let best: W | null = null;
   for (const window of windows) {
-    if (window.start <= now && now < window.end) return { window, status: 'now' };
-    if (now < window.start && (!best || window.start < best.start)) best = window;
+    if (window.start <= now && now < window.end) {
+      if (!active || window.start > active.start) active = window;
+    } else if (now < window.start && (!best || window.start < best.start)) best = window;
   }
-  return best ? { window: best, status: 'countdown' } : null;
+  return active ? { window: active, status: 'now' } : best ? { window: best, status: 'countdown' } : null;
 }
 
 export function resolveEventStoreCountdown(windows: FarmingWindows, now: number): MaterialCountdown | null {
   const found = resolve(windows.eventStore, now);
   if (!found) return null;
-  return found.status === 'now' ? { status: 'now', text: 'NOW' } : { status: 'countdown', text: formatCountdown(found.window.start, now) };
+  const event = found.window.event ? { event: found.window.event } : {};
+  return found.status === 'now' ? { status: 'now', text: `${formatCountdown(found.window.end, now)} left`, ...event } : { status: 'countdown', text: `In ${formatCountdown(found.window.start, now)}`, ...event };
 }
 
-/** For every material in some event's 3-tier-3-material set: NOW while such an
- * event runs, else a countdown to the soonest one, with the stage it drops from
- * (shown as a regular stage chip, e.g. "AD-7"). */
+/** Only the current farming event, or the nearest upcoming farming event.
+ * Later events must not advertise a separate countdown for every material. */
 export function resolveMaterialCountdowns(windows: FarmingWindows, now: number): Record<string, MaterialCountdown> {
   const result: Record<string, MaterialCountdown> = {};
+  const selected = resolve(Object.values(windows.materials).flat(), now);
+  if (!selected) return result;
   for (const [material, list] of Object.entries(windows.materials)) {
-    const found = resolve(list, now);
+    const found = resolve(list.filter(window => window.event === selected.window.event
+      && window.start === selected.window.start && window.end === selected.window.end), now);
     if (!found) continue;
     const { stageCode, start } = found.window;
-    result[material] = found.status === 'now' ? { status: 'now', text: 'NOW', stageCode } : { status: 'countdown', text: formatCountdown(start, now), stageCode };
+    const event = found.window.event ? { event: found.window.event } : {};
+    result[material] = found.status === 'now' ? { status: 'now', text: `${formatCountdown(found.window.end, now)} left`, stageCode, ...event } : { status: 'countdown', text: `In ${formatCountdown(start, now)}`, stageCode, ...event };
   }
   return result;
 }

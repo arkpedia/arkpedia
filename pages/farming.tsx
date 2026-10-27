@@ -3,6 +3,8 @@ import { useReaderClock } from '@/lib/time/readerClock';
 import { withContentPage } from '@/lib/content/server';
 import { GetStaticProps } from 'next';
 import Head from 'next/head';
+import FarmingSourceChip from '@/components/farming/FarmingSourceChip';
+import type { FarmingSources } from '@/lib/farming/farmingSources';
 import Image from '@/components/content/ContentImage';
 import { useMemo, useState } from 'react';
 import PageHeader from '@/components/ui/PageHeader';
@@ -21,9 +23,10 @@ interface Props {
   eventStoreCountdown?: MaterialCountdown | null;
   /** The request's clock (contentPageClock), shared by the server render and hydration. */
   now: number;
+  sources?: FarmingSources;
 }
 
-export default function FarmingPage({ windows: globalWindows, countdowns: exportedCountdowns, eventStoreCountdown: exportedEventStoreCountdown, now: requestNow }: Props) {
+export default function FarmingPage({ windows: globalWindows, countdowns: exportedCountdowns, eventStoreCountdown: exportedEventStoreCountdown, now: requestNow, sources = {} }: Props) {
   const { server, schedule } = useRegionalTime();
   const now = useReaderClock(requestNow, { tickMs: 1000, onFocus: true });
   const windows = useMemo(() => {
@@ -71,12 +74,12 @@ export default function FarmingPage({ windows: globalWindows, countdowns: export
     if (isEventStore) {
       if (!eventStoreCountdown) return material.stages;
       return material.stages.map((s) =>
-        s.label === 'Event Store' ? { ...s, countdown: eventStoreCountdown.text } : s
+        s.label === 'Event Store' ? { ...s, countdown: eventStoreCountdown.text, active: eventStoreCountdown.status === 'now', event: eventStoreCountdown.event } : s
       );
     }
     const countdown = countdowns[material.name];
     if (countdown?.stageCode) {
-      const extraStage: FarmingStage = { label: countdown.stageCode, kind: 'eventActive', countdown: countdown.text };
+      const extraStage: FarmingStage = { label: countdown.stageCode, kind: 'eventActive', countdown: countdown.text, active: countdown.status === 'now', event: countdown.event };
       return [extraStage, ...material.stages];
     }
     return material.stages;
@@ -96,6 +99,7 @@ export default function FarmingPage({ windows: globalWindows, countdowns: export
               {item.rest}
             </p>
           ))}
+          <p className="hint">Drop reports: <a href="https://penguin-stats.io/" target="_blank" rel="noreferrer">Penguin Statistics</a> · CC BY-NC 4.0.</p>
         </div>
 
         <div className="farming-accordion farming-table-enter" ref={floor.ref}>
@@ -116,11 +120,11 @@ export default function FarmingPage({ windows: globalWindows, countdowns: export
                   </button>
                 </h2>
 
-                <div id={`farming-tier-${n}`} className={`farming-accordion-body-wrap${isOpen ? ' open' : ''}`}>
+                <div id={`farming-tier-${n}`} inert={!isOpen} className={`farming-accordion-body-wrap${isOpen ? ' open' : ''}`}>
                   <div className="farming-accordion-body">
                     <div className={`farming-tile-grid farming-tile-grid-open${n === 3 ? ' farming-tile-grid-t3' : ''}`}>
                       {tier.materials.map((m) => (
-                        <MaterialTile key={m.name} material={m} stages={displayStagesFor(m)} />
+                        <MaterialTile key={m.name} material={m} stages={displayStagesFor(m)} sources={sources} />
                       ))}
                     </div>
                     {n <= 2 && <div className="farming-footnote">{TIER_1_2_FOOTNOTE}</div>}
@@ -136,7 +140,7 @@ export default function FarmingPage({ windows: globalWindows, countdowns: export
   );
 }
 
-function MaterialTile({ material, stages }: { material: FarmingMaterial; stages: FarmingStage[] }) {
+function MaterialTile({ material, stages, sources }: { material: FarmingMaterial; stages: FarmingStage[]; sources: FarmingSources }) {
   return (
     <div className="farming-tile farming-tile-open" title={material.name}>
       <Image src={material.icon} alt={material.name} className="farming-material-icon farming-material-icon-open" width={96} height={96} quality={85} style={{ width: 44, height: 44 }} />
@@ -145,13 +149,11 @@ function MaterialTile({ material, stages }: { material: FarmingMaterial; stages:
         {stages.map((s, i) => (
           <span key={i} className="farming-stage-wrap">
             {s.countdown && (
-              <span className={s.countdown === 'NOW' ? 'farming-countdown farming-countdown-now' : 'farming-countdown'}>
+              <span className={s.active ? 'farming-countdown farming-countdown-now' : 'farming-countdown'}>
                 {s.countdown}
               </span>
             )}
-            <span className={`farming-stage-chip farming-kind-${s.kind}`} title={s.fullLabel || s.label}>
-              {s.label}
-            </span>
+            <FarmingSourceChip stage={s} source={sources[s.event || s.label]} />
           </span>
         ))}
       </div>
@@ -166,6 +168,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/fa
     },
   };
 }, {
+  finalize: async (props) => (await import('@/lib/farming/farmingSources')).finalizeFarmingSources(props),
   tables: {
     'farming-tiers': async () => (await import('@/data/farming-tiers.json')).default,
   },

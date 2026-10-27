@@ -151,6 +151,17 @@ h2.farming-accordion-title { margin: 0; }
   word-break: break-word;
   text-align: center;
 }
+button.farming-stage-chip {
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+button.farming-stage-chip:hover,
+button.farming-stage-chip:focus-visible,
+button.farming-stage-chip[aria-expanded="true"] {
+  color: var(--teal);
+  border-color: var(--teal);
+}
 .farming-kind-plain {
   background: var(--panel);
   color: var(--text-dim);
@@ -227,6 +238,6 @@ h2.farming-accordion-title { margin: 0; }
 }
 
 .farming-countdown.farming-countdown-now {
-  color: var(--cat-green);
+  color: var(--amber);
   font-weight: 700;
 }

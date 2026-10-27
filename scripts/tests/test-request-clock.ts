@@ -63,14 +63,32 @@ test('farming countdowns are text worked out from raw windows at render', () => 
   };
   const text = (now: number) => Object.fromEntries(Object.entries(resolveMaterialCountdowns(windows, now)).map(([k, v]) => [k, `${v.text} ${v.stageCode}`]));
   const exportDay = at('2026-09-24T14:05:00Z');
-  assert.deepEqual(text(exportDay), { Grindstone: '35 days MT-9', Aketon: 'NOW PA-7' });
-  assert.equal(resolveEventStoreCountdown(windows, exportDay)?.text, 'NOW');
+  assert.deepEqual(text(exportDay), { Aketon: '6 days left PA-7' });
+  assert.equal(resolveEventStoreCountdown(windows, exportDay)?.text, '6 days left');
   // Days later, with no new release: the page no longer says what the export said.
   const later = at('2026-10-28T03:00:00Z');
-  assert.deepEqual(text(later), { Grindstone: '12 hours MT-9', Aketon: '35 days XX-1' });
-  assert.equal(resolveEventStoreCountdown(windows, later)?.text, '12 hours');
+  assert.deepEqual(text(later), { Grindstone: 'In 12 hours MT-9' });
+  assert.equal(resolveEventStoreCountdown(windows, later)?.text, 'In 12 hours');
   assert.deepEqual(text(at('2026-12-16T00:00:00Z')), {});
   assert.equal(resolveEventStoreCountdown(windows, at('2026-12-16T00:00:00Z')), null);
+});
+
+test('farming previews retain the selected event through opening, closing and shop-only days', () => {
+  const first = { event: '[Side Story] First', start: 10, end: 20, stageCode: 'AA-7' };
+  const next = { event: '[Rerun] Next Rerun', start: 30, end: 40, stageCode: 'BB-8' };
+  const windows: FarmingWindows = { materials: { Aketon: [next, first] }, eventStore: [{ ...first, end: 25 }, next] };
+  for (const now of [0, 10, 19]) {
+    assert.equal(resolveMaterialCountdowns(windows, now).Aketon.event, first.event);
+    assert.equal(resolveEventStoreCountdown(windows, now)?.event, first.event);
+  }
+  assert.equal(resolveMaterialCountdowns(windows, 20).Aketon.event, next.event);
+  assert.equal(resolveEventStoreCountdown(windows, 20)?.event, first.event);
+  for (const now of [25, 30, 39]) {
+    assert.equal(resolveMaterialCountdowns(windows, now).Aketon.event, next.event);
+    assert.equal(resolveEventStoreCountdown(windows, now)?.event, next.event);
+  }
+  assert.deepEqual(resolveMaterialCountdowns(windows, 40), {});
+  assert.equal(resolveEventStoreCountdown(windows, 40), null);
 });
 
 test('obtain-method notes use the server day in UTC, whatever the host timezone', () => {
@@ -177,4 +195,34 @@ test('withContentPage takes revalidate as an option, and exports carry no clock 
     if (saved.disabled === undefined) delete process.env.ARKPEDIA_CONTENT_DISABLED; else process.env.ARKPEDIA_CONTENT_DISABLED = saved.disabled;
     if (saved.exporting === undefined) delete process.env.ARKPEDIA_EXPORT_CONTENT; else process.env.ARKPEDIA_EXPORT_CONTENT = saved.exporting;
   }
+});
+
+test('only the current or nearest upcoming farming event advertises stage countdowns', () => {
+  const span = (event: string, start: number, end: number, stageCode: string) => ({ event, start, end, stageCode });
+  const windows: FarmingWindows = { eventStore: [], materials: {
+    Orirock: [span('Later', 300, 400, 'AT-6')],
+    Aketon: [span('Next', 100, 200, 'MT-8')],
+    Fluid: [span('Next', 100, 200, 'MT-10')],
+    Device: [span('Middle', 220, 280, 'AD-6')],
+  } };
+  assert.deepEqual(Object.keys(resolveMaterialCountdowns(windows, 0)), ['Aketon', 'Fluid']);
+  assert.deepEqual(Object.keys(resolveMaterialCountdowns(windows, 150)), ['Aketon', 'Fluid']);
+  assert.deepEqual(Object.keys(resolveMaterialCountdowns(windows, 200)), ['Device']);
+  assert.deepEqual(Object.keys(resolveMaterialCountdowns(windows, 280)), ['Orirock']);
+  assert.deepEqual(resolveMaterialCountdowns(windows, 400), {});
+});
+
+test('the shop automatically switches at the next opening even while the previous shop stays open', () => {
+  const previous = { event: 'Previous shop', start: 10, end: 100 };
+  const next = { event: 'New event shop', start: 50, end: 150 };
+  const later = { event: 'Later shop', start: 200, end: 300 };
+  const windows: FarmingWindows = { materials: {}, eventStore: [previous, next, later] };
+  assert.equal(resolveEventStoreCountdown(windows, 49)?.event, previous.event);
+  assert.equal(resolveEventStoreCountdown(windows, 50)?.event, next.event);
+  assert.equal(resolveEventStoreCountdown(windows, 99)?.event, next.event);
+  assert.equal(resolveEventStoreCountdown(windows, 149)?.event, next.event);
+  assert.equal(resolveEventStoreCountdown(windows, 150)?.event, later.event);
+  assert.equal(resolveEventStoreCountdown(windows, 150)?.status, 'countdown');
+  assert.equal(resolveEventStoreCountdown(windows, 200)?.status, 'now');
+  assert.equal(resolveEventStoreCountdown({ ...windows, eventStore: [later, next, previous] }, 50)?.event, next.event, 'source ordering cannot keep the previous shop selected');
 });
