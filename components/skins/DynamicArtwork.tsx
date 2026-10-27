@@ -24,7 +24,7 @@ import { createParticleRenderer, type ParticleRenderer } from './particleRendere
  * next/dynamic, and this file brings in the runtime (lib/vendor/spine-3.8) with import() once it
  * mounts, so neither is ever part of a page's bundle (scripts/tests/test-dynamic-art.ts). Then
  * the model: model.json, its skeleton, atlas and texture pages, from the folder model.json is in
- * (arkpedia-l2d-assets at a pinned commit; raw.githubusercontent.com answers with CORS, which a
+ * (arkpedia-l2d-assets at a pinned commit; the R2 reader answers with CORS, which a
  * WebGL texture needs). The textures are premultiplied at import, so they are drawn that way.
  *
  * An outfit with an entrance (model.json `entrance`) also loads that sequence: a second skeleton,
