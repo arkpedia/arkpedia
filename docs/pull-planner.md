@@ -202,3 +202,24 @@ People, A People's later returning shop includes all 22 explicitly listed outfit
 ## Workspace implementation checks — September 11, 2026
 
 49 planner/probability tests, typecheck and production build pass. New coverage checks legacy and new save round trips, independently disabled income sources, certificate funding/monthly caps, and individual first-clear reconciliation with legacy flags. The style audit reports the same pre-existing findings as the branch baseline; this change adds none. Browser checks cover desktop and phone layouts, shared image delivery, schedule deep links, a picker that stays open for multiple additions, and horizontal overflow.
+
+### Crossover free permits
+
+Crossover (`LINKAGE`) pools use their own ticket items rather than regular limited
+banner daily rolls. The pull-source generator matches `linkageGachaItem` by pool ID
+and reads issued quantities from `LOGIN_ONLY` and `CHECKIN_ONLY` activity rewards.
+`freeTicketSchedule` records each grant's banner day; the forecast assumes daily
+login from opening. Retained tickets stay usable during their own banner, while
+past regular daily rolls are still excluded. The upcoming Monster Hunter banner
+gets 10 pulls on day 1 and 10 on day 8; its rerun gets no invented allowance.
+Persona additionally gets ten mailed singles over its first ten days, per section
+4 of https://ak.hypergryph.com/news/9681 (CN rewards applied to estimated Global dates).
+Mission-only ticket rewards outside the login tables are not inferred.
+
+Regression: `node --import tsx --test scripts/tests/test-collab-tickets.ts`.
+
+Older published page payloads receive missing crossover grant schedules from the
+deployment's source-backed banner records at request finalization. Matching uses
+exact pool IDs and preserves release dates, names, and any explicit release schedule,
+including an empty schedule. This bridge prevents an older live content snapshot
+from continuing to show zero after the application fix is deployed.

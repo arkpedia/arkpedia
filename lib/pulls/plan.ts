@@ -139,8 +139,11 @@ export function availableBannerFreePulls(banner: UpcomingBanner, when: Date, now
   const dayBeforeNow = banner.startAt === undefined
     ? new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) - 1)
     : new Date(getNextDailyReset(now, banner.server ?? 'en').getTime() - DAY_MS - 1);
-  const pastDaily = Math.max(0, bannerFreePulls(banner, dayBeforeNow) - banner.freeTicket);
-  return Math.max(0, bannerFreePulls(banner, when) - pastDaily - (ticketUsed ? banner.freeTicket : 0));
+  // Remove only expired daily rolls; login/mail permits can be retained.
+  const dailyOnly = { ...banner, freeTicket: 0, freeTicketSchedule: [] };
+  const pastDaily = bannerFreePulls(dailyOnly, dayBeforeNow);
+  const usedTickets = ticketUsed ? bannerFreePulls(banner, now) - bannerFreePulls(dailyOnly, now) : 0;
+  return Math.max(0, bannerFreePulls(banner, when) - pastDaily - usedTickets);
 }
 
 export interface BudgetRow {

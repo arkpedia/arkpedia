@@ -28,7 +28,7 @@ import Head from 'next/head';
 import Link from 'next/link';
 import type { GetStaticProps } from 'next';
 import { getPullEventSchedule, getPullSchedule } from '@/lib/pulls/schedule';
-import { bundledBacklogSources } from '@/lib/pulls/sources';
+import { bundledBacklogSources, fillCollabTicketsFromDeployment } from '@/lib/pulls/sources';
 import { useRouter } from 'next/router';
 import { getAllSkins } from '@/lib/skins/skins';
 import StyledSelect from '@/components/ui/StyledSelect';
@@ -570,7 +570,7 @@ export const getStaticProps: GetStaticProps<PullsProps> = withContentPage<PullsP
   const skinCollections = pullSkinCollections(events, skins, skinCatalogue, predicted);
   return { props: { scheduledEvents: getPullEventSchedule(backlogSources), backlogSources, skinCatalogue, skinCollections, scheduledBanners, bannerOdds: getBannerOdds(scheduledBanners) } };
 }, { finalize: async props => {
-  const current = await withPullPlannerDynamicArt(currentPullPlan(props, Date.now()));
+  const current = await withPullPlannerDynamicArt(currentPullPlan({ ...props, scheduledBanners: fillCollabTicketsFromDeployment(props.scheduledBanners) }, Date.now()));
   if (current.backlogSources) return { ...current, backlogSources: fillFromDeployment(current.backlogSources, bundledBacklogSources()) };
   // A release exported before backlogSources joined the props. The first content
   // run after this deploy re-exports /pulls (the generator commit changes the

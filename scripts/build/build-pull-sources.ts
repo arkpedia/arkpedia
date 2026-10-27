@@ -24,6 +24,7 @@
  * Run:  npx tsx scripts/build-pull-sources.ts
  */
 import fs from 'fs';
+import { collabTicketGrants, type TicketGrant } from '../../lib/pulls/collabTickets';
 import path from 'path';
 import { resolvePullBannerWindows } from '../../lib/pulls/bannerWindows';
 import type { HeadhuntingBanner } from '../../lib/gacha/headhuntingBanners';
@@ -463,8 +464,8 @@ function luckyWallsByStartDate(activity: {
  * Keyed off the pool's OWN rule type, never off our banner file's `category`.
  * The two spellings disagree: the Monster Hunter collabs are `category:
  * "limited"` in the banner file while the gacha table types them LINKAGE, and
- * LINKAGE pools get nothing. Trusting the category would have credited those two
- * banners 24 free pulls each that the game does not give.
+ * LINKAGE pools use separate login permits, derived by collabTicketGrants.
+ * They do not receive the regular limited banner daily rolls.
  */
 const FREE_TICKET_PULLS = 10;
 
@@ -496,12 +497,13 @@ function freePullsByPool(gacha: {
   gachaPoolClient?: { gachaPoolId?: string; gachaRuleType?: string | number; openTime?: number; endTime?: number }[];
   freeGacha?: { poolId?: string; openTime?: number; endTime?: number; freeCount?: number }[];
   limitTenGachaItem?: { itemId?: string; endTime?: number }[];
+  linkageGachaItem?: { itemId: string; gachaPoolId: string; isTen: boolean }[];
 }) {
   const pools = gacha.gachaPoolClient ?? [];
   const free = new Map((gacha.freeGacha ?? []).map((f) => [f.poolId ?? '', f]));
   const tenEnds = new Set((gacha.limitTenGachaItem ?? []).map((t) => t.endTime));
 
-  /* The invariant, asserted rather than assumed: free pulls attach to LIMITED
+  /* The invariant, asserted rather than assumed: freeGacha daily rolls attach to LIMITED
      pools and to nothing else. Measured both ways on both locales -- every
      LIMITED pool has a freeGacha entry, and no other rule type has one. If that
      ever stops being true the rule above is wrong, and this says so loudly
@@ -581,6 +583,7 @@ function upcomingBanners(
     ruleType: string | null;
     freeDaily: number;
     freeTicket: number;
+    freeTicketSchedule?: TicketGrant[];
     freePulls: number;
     /** The Wishing Wall running alongside, at its guaranteed floor. Unlike the
         free pulls this is ORUNDUM, so it carries forward like any other. */
@@ -594,6 +597,7 @@ function upcomingBanners(
   const cnOp = cnOriginiteByActivity();
   const cnGacha = JSON.parse(fs.readFileSync(CN_GACHA, 'utf8')) as Parameters<typeof freePullsByPool>[0];
   const freeByPool = freePullsByPool(cnGacha);
+  const collabGrants = collabTicketGrants(cnGacha, JSON.parse(fs.readFileSync(CN_ACTIVITY, 'utf8')));
   const cnPools = cnGacha.gachaPoolClient ?? [];
   const walls = luckyWallsByStartDate(
     JSON.parse(fs.readFileSync(CN_ACTIVITY, 'utf8')) as Parameters<typeof luckyWallsByStartDate>[0],
@@ -659,6 +663,8 @@ function upcomingBanners(
       }
     }
     const freebies = pool ? freeByPool[pool.gachaPoolId ?? ''] : undefined;
+    const ticketSchedule = pool ? collabGrants[pool.gachaPoolId ?? ''] : undefined;
+    const collabTotal = ticketSchedule?.reduce((sum, grant) => sum + grant.pulls, 0);
     const wall = pool?.openTime
       ? walls[new Date(pool.openTime * 1000).toISOString().slice(0, 10)]
       : undefined;
@@ -705,8 +711,9 @@ function upcomingBanners(
       poolId: pool?.gachaPoolId ?? null,
       ruleType: gachaRuleName(pool?.gachaRuleType),
       freeDaily: freebies?.daily ?? 0,
-      freeTicket: freebies?.ticket ?? 0,
-      freePulls: freebies?.total ?? 0,
+      freeTicket: collabTotal ?? freebies?.ticket ?? 0,
+      ...(ticketSchedule ? { freeTicketSchedule: ticketSchedule } : {}),
+      freePulls: collabTotal ?? freebies?.total ?? 0,
       wishActId: wall?.actId ?? null,
       wishDays: wall?.days ?? 0,
       wishOrundum: wall?.orundum ?? 0,

@@ -296,22 +296,22 @@ check('a fractional permit count is floored, not rounded up',
 
 /* ------------------------------------------------- free pulls, banner-locked */
 const withFree = ALL_BANNERS.filter((b) => b.freePulls > 0);
-check('free pulls attach ONLY to pools the gacha table types LIMITED',
-  withFree.every((b) => b.ruleType === 'LIMITED'),
-  withFree.filter((b) => b.ruleType !== 'LIMITED').map((b) => `${b.name}=${b.ruleType}`).join(', '));
+check('free pulls attach only to limited or source-backed crossover pools',
+  withFree.every((b) => b.ruleType === 'LIMITED' || (b.ruleType === 'LINKAGE' && !!b.freeTicketSchedule?.length)),
+  withFree.filter((b) => b.ruleType !== 'LIMITED' && b.ruleType !== 'LINKAGE').map((b) => `${b.name}=${b.ruleType}`).join(', '));
 check('and every LIMITED banner in range has them',
   ALL_BANNERS.filter((b) => b.ruleType === 'LIMITED' && b.freePulls === 0).length === 0
   || withFree.length > 0);
-check('a banner our file calls "limited" but the pool does not gets nothing',
-  ALL_BANNERS.filter((b) => b.category === 'limited' && b.ruleType !== 'LIMITED')
+check('other pool types receive no freebies just because their category is limited',
+  ALL_BANNERS.filter((b) => b.category === 'limited' && b.ruleType !== 'LIMITED' && b.ruleType !== 'LINKAGE')
     .every((b) => b.freePulls === 0),
-  ALL_BANNERS.filter((b) => b.category === 'limited' && b.ruleType !== 'LIMITED' && b.freePulls > 0)
+  ALL_BANNERS.filter((b) => b.category === 'limited' && b.ruleType !== 'LIMITED' && b.ruleType !== 'LINKAGE' && b.freePulls > 0)
     .map((b) => b.name).join(', '));
 check('free pulls are the ten-roll permit plus one a day',
   withFree.every((b) => b.freePulls === b.freeTicket + b.freeDaily));
 
 if (withFree.length > 0) {
-  const lim = withFree[0];
+  const lim = withFree.find(b => b.ruleType === 'LIMITED')!;
   check('nothing is free before the banner opens',
     bannerFreePulls(lim, new Date(`${lim.start}T00:00:00Z`).getTime() - 86400000 > 0
       ? new Date(new Date(`${lim.start}T00:00:00Z`).getTime() - 86400000) : new Date(0)) === 0);

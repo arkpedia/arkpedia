@@ -34,6 +34,12 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-10-27T14:10:00Z',
+    fixed: [
+      { title: 'Collab free pulls count in your plan', detail: 'Banner-specific login and mailed tickets now count when they unlock, without carrying over to other banners.', href: '/pulls' },
+    ],
+  },
+  {
     at: '2026-10-27T13:15:00Z',
     changed: [
       { title: 'Clearer farming countdowns', detail: 'Only current/next event timers appear: green before opening, yellow while running; chapter shops are included.', href: '/farming' },

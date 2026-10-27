@@ -364,6 +364,8 @@ export interface UpcomingBanner {
   ruleType: string | null;
   freeDaily: number;
   freeTicket: number;
+  /** Cumulative login/mail permit grants by banner day; absent for regular limited banners. */
+  freeTicketSchedule?: { day: number; pulls: number }[];
   freePulls: number;
   wishActId: string | null;
   wishDays: number;
@@ -397,7 +399,13 @@ export function bannerFreePulls(banner: UpcomingBanner, when: Date): number {
   const daysIn = banner.startAt === undefined ? Math.floor((when.getTime() - start) / 86400000) + 1
     : incomeBetween(new Date(start), new Date(through), banner.server ?? 'en').days + 1;
   const daily = Math.max(0, Math.min(banner.freeDaily, daysIn));
-  return banner.freeTicket + daily;
+  return bannerTicketPulls(banner, daysIn) + daily;
+}
+
+/** Login and mailed permits remain usable until the banner closes. */
+export function bannerTicketPulls(banner: UpcomingBanner, daysIn: number): number {
+  if (daysIn < 1) return 0;
+  return banner.freeTicketSchedule?.filter(grant => grant.day <= daysIn).reduce((sum, grant) => sum + grant.pulls, 0) ?? banner.freeTicket;
 }
 
 /** The reward schedule also contains events without a headhunting banner. */

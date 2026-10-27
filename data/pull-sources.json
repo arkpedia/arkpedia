@@ -8733,12 +8733,22 @@
       "poolId": "LINKAGE_17_0_1",
       "ruleType": "LINKAGE",
       "freeDaily": 0,
-      "freeTicket": 0,
-      "freePulls": 0,
+      "freeTicket": 20,
+      "freePulls": 20,
       "wishActId": null,
       "wishDays": 0,
       "wishOrundum": 0,
-      "hasShop": false
+      "hasShop": false,
+      "freeTicketSchedule": [
+        {
+          "day": 1,
+          "pulls": 10
+        },
+        {
+          "day": 7,
+          "pulls": 10
+        }
+      ]
     },
     {
       "name": "Standard Pool #43 (Global)",
@@ -11441,12 +11451,18 @@
       "poolId": "LINKAGE_36_0_1",
       "ruleType": "LINKAGE",
       "freeDaily": 0,
-      "freeTicket": 0,
-      "freePulls": 0,
+      "freeTicket": 10,
+      "freePulls": 10,
       "wishActId": null,
       "wishDays": 0,
       "wishOrundum": 0,
-      "hasShop": false
+      "hasShop": false,
+      "freeTicketSchedule": [
+        {
+          "day": 1,
+          "pulls": 10
+        }
+      ]
     },
     {
       "name": "Standard Pool #97 (Global)",
@@ -13555,12 +13571,22 @@
       "poolId": "LINKAGE_48_0_1",
       "ruleType": "LINKAGE",
       "freeDaily": 0,
-      "freeTicket": 0,
-      "freePulls": 0,
+      "freeTicket": 20,
+      "freePulls": 20,
       "wishActId": null,
       "wishDays": 0,
       "wishOrundum": 0,
-      "hasShop": false
+      "hasShop": false,
+      "freeTicketSchedule": [
+        {
+          "day": 1,
+          "pulls": 10
+        },
+        {
+          "day": 8,
+          "pulls": 10
+        }
+      ]
     },
     {
       "name": "Kernel Locating #4 (Global)",
@@ -14684,12 +14710,22 @@
       "poolId": "LINKAGE_54_0_1",
       "ruleType": "LINKAGE",
       "freeDaily": 0,
-      "freeTicket": 0,
-      "freePulls": 0,
+      "freeTicket": 20,
+      "freePulls": 20,
       "wishActId": null,
       "wishDays": 0,
       "wishOrundum": 0,
-      "hasShop": false
+      "hasShop": false,
+      "freeTicketSchedule": [
+        {
+          "day": 1,
+          "pulls": 10
+        },
+        {
+          "day": 8,
+          "pulls": 10
+        }
+      ]
     },
     {
       "name": "Kernel #30 (Global)",
@@ -16700,12 +16736,22 @@
       "poolId": "LINKAGE_65_0_1",
       "ruleType": "LINKAGE",
       "freeDaily": 0,
-      "freeTicket": 0,
-      "freePulls": 0,
+      "freeTicket": 20,
+      "freePulls": 20,
       "wishActId": null,
       "wishDays": 0,
       "wishOrundum": 0,
-      "hasShop": false
+      "hasShop": false,
+      "freeTicketSchedule": [
+        {
+          "day": 1,
+          "pulls": 10
+        },
+        {
+          "day": 8,
+          "pulls": 10
+        }
+      ]
     },
     {
       "name": "Kernel #49 (Global)",
@@ -18227,12 +18273,22 @@
       "poolId": "LINKAGE_74_0_1",
       "ruleType": "LINKAGE",
       "freeDaily": 0,
-      "freeTicket": 0,
-      "freePulls": 0,
+      "freeTicket": 20,
+      "freePulls": 20,
       "wishActId": null,
       "wishDays": 0,
       "wishOrundum": 0,
-      "hasShop": false
+      "hasShop": false,
+      "freeTicketSchedule": [
+        {
+          "day": 1,
+          "pulls": 10
+        },
+        {
+          "day": 8,
+          "pulls": 10
+        }
+      ]
     },
     {
       "name": "Sharpened by Flame Rerun",
@@ -18367,12 +18423,62 @@
       "poolId": "LINKAGE_77_0_1",
       "ruleType": "LINKAGE",
       "freeDaily": 0,
-      "freeTicket": 0,
-      "freePulls": 0,
+      "freeTicket": 30,
+      "freePulls": 30,
       "wishActId": null,
       "wishDays": 0,
       "wishOrundum": 0,
-      "hasShop": true
+      "hasShop": true,
+      "freeTicketSchedule": [
+        {
+          "day": 1,
+          "pulls": 10
+        },
+        {
+          "day": 1,
+          "pulls": 1
+        },
+        {
+          "day": 2,
+          "pulls": 1
+        },
+        {
+          "day": 3,
+          "pulls": 1
+        },
+        {
+          "day": 4,
+          "pulls": 1
+        },
+        {
+          "day": 5,
+          "pulls": 1
+        },
+        {
+          "day": 6,
+          "pulls": 1
+        },
+        {
+          "day": 7,
+          "pulls": 1
+        },
+        {
+          "day": 8,
+          "pulls": 10
+        },
+        {
+          "day": 8,
+          "pulls": 1
+        },
+        {
+          "day": 9,
+          "pulls": 1
+        },
+        {
+          "day": 10,
+          "pulls": 1
+        }
+      ]
     }
   ]
 }

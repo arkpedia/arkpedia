@@ -106,3 +106,17 @@ export const ALL_BANNERS: UpcomingBanner[] = (sources.banners ?? []) as Upcoming
 export function bannersAfter(now: Date): UpcomingBanner[] {
   return ALL_BANNERS.filter((b) => new Date(`${b.end}T23:59:59Z`).getTime() > now.getTime());
 }
+
+/** Older content releases predate crossover grant schedules. Fill only that
+ * missing field from this deployment's sourced records, keyed by exact pool ID.
+ * An explicit release schedule (including an empty one) remains authoritative. */
+export function fillCollabTicketsFromDeployment(banners: readonly UpcomingBanner[]): UpcomingBanner[] {
+  const known = new Map(ALL_BANNERS.filter(banner => banner.freeTicketSchedule !== undefined).map(banner => [banner.poolId, banner]));
+  return banners.map(banner => {
+    if (banner.ruleType !== 'LINKAGE' || banner.freeTicketSchedule !== undefined) return banner;
+    const schedule = known.get(banner.poolId)?.freeTicketSchedule;
+    if (!schedule) return banner;
+    const freeTicket = schedule.reduce((sum, grant) => sum + grant.pulls, 0);
+    return { ...banner, freeTicketSchedule: schedule, freeTicket, freePulls: freeTicket + banner.freeDaily };
+  });
+}

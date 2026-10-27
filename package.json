@@ -27,7 +27,7 @@
     "palettes:refresh": "python3 scripts/palettes/build-color-palettes.py --revisions data/assets/revisions.json",
     "palettes:review": "python3 scripts/palettes/review-color-palettes.py",
     "start": "next start",
-    "test:pull-plan": "tsx --test scripts/tests/test-pull-plan.ts scripts/tests/test-pull-probability.ts",
+    "test:pull-plan": "tsx --test scripts/tests/test-pull-plan.ts scripts/tests/test-pull-probability.ts scripts/tests/test-collab-tickets.ts",
     "audit:pulls": "tsx scripts/audits/audit-pulls.ts",
     "pulls:refresh": "tsx scripts/build/build-pull-sources.ts && node scripts/build/build-pull-first-clears.mjs && node scripts/build/build-free-rewards.mjs",
     "test:music-guesser": "tsx --test scripts/tests/test-music-guesser.ts",
