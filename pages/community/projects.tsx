@@ -4,7 +4,7 @@ import PROJECT_ART from '@/config/community-project-art.json';
 import Image, { ApplicationImage, ContentArt } from '@/components/content/ContentImage';
 import InfoPopover from '@/components/ui/InfoPopover';
 import dynamic from 'next/dynamic';
-import type { ChibiFacings, ChibiModel } from '@/lib/operators/chibi';
+import type { ChibiModel } from '@/lib/operators/chibi';
 const DesktopChibisArt = dynamic(() => import('@/components/community/DesktopChibisArt'), { ssr: false });
 
 const projects = [
@@ -92,8 +92,7 @@ export default function CommunityProjectsPage({ chibis }: { chibis: { name: stri
 }
 
 export async function getStaticProps() {
-  const catalogue = (await import('@/data/chibi-art.json')).default as Record<string, ChibiFacings>;
-  const chibis = [{ name: 'Amiya', id: 'char_002_amiya#1' }, { name: 'Nian', id: 'char_2014_nian#1' }]
-    .flatMap(({ name, id }) => catalogue[id]?.front ? [{ name, model: catalogue[id].front! }] : []);
-  return { props: { chibis } };
+  // Only these two pinned showcase models belong to the code-owned directory.
+  // Importing the full catalogue adds 3.16 MB to every Worker cold start.
+  return { props: { chibis: PROJECT_ART.companions } };
 }

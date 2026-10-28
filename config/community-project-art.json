@@ -9,5 +9,29 @@
     "krooster": "essential-icons/community-projects/krooster.webp",
     "amiya": "essential-icons/community-projects/amiya.png",
     "penguinStatistics": "essential-icons/community-projects/penguin-statistics.png"
-  }
+  },
+  "companions": [
+    {
+      "name": "Amiya",
+      "model": {
+        "skeleton": "https://raw.githubusercontent.com/arkpedia/arkpedia-sd-assets/456cb5aaa3888d8af92966a5b955657ee0d065a7/models/operator/char_002_amiya/default/front/d0b5af0b004b044d322397ce5ae79632b6d9fcdd/char_002_amiya.skel",
+        "atlas": "https://raw.githubusercontent.com/arkpedia/arkpedia-sd-assets/456cb5aaa3888d8af92966a5b955657ee0d065a7/models/operator/char_002_amiya/default/front/d0b5af0b004b044d322397ce5ae79632b6d9fcdd/char_002_amiya.atlas",
+        "textures": {
+          "char_002_amiya.png": "https://raw.githubusercontent.com/arkpedia/arkpedia-sd-assets/456cb5aaa3888d8af92966a5b955657ee0d065a7/models/operator/char_002_amiya/default/front/d0b5af0b004b044d322397ce5ae79632b6d9fcdd/char_002_amiya.png"
+        },
+        "premultipliedAlpha": false
+      }
+    },
+    {
+      "name": "Nian",
+      "model": {
+        "skeleton": "https://raw.githubusercontent.com/arkpedia/arkpedia-sd-assets/456cb5aaa3888d8af92966a5b955657ee0d065a7/models/operator/char_2014_nian/default/front/d0b5af0b004b044d322397ce5ae79632b6d9fcdd/char_2014_nian.skel",
+        "atlas": "https://raw.githubusercontent.com/arkpedia/arkpedia-sd-assets/456cb5aaa3888d8af92966a5b955657ee0d065a7/models/operator/char_2014_nian/default/front/d0b5af0b004b044d322397ce5ae79632b6d9fcdd/char_2014_nian.atlas",
+        "textures": {
+          "char_2014_nian.png": "https://raw.githubusercontent.com/arkpedia/arkpedia-sd-assets/456cb5aaa3888d8af92966a5b955657ee0d065a7/models/operator/char_2014_nian/default/front/d0b5af0b004b044d322397ce5ae79632b6d9fcdd/char_2014_nian.png"
+        },
+        "premultipliedAlpha": true
+      }
+    }
+  ]
 }

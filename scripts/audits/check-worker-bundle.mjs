@@ -9,7 +9,9 @@ import path from 'node:path';
  * the API routes' build held for dev-only fallbacks, and 2 MB was the browser-only account-import
  * transport. Without those, the voice lines and /operators/[name]'s tables it is 17.4 MB.
  */
-const BUDGET_BYTES = 19_000_000;
+// The promoted Preview features use 19.64 MB after removing the accidental full
+// chibi catalogue import. Keep a narrow ceiling around that measured baseline.
+const BUDGET_BYTES = 20_000_000;
 /** Browser-only packages: next.config.js keeps them out of the server build. */
 const BROWSER_ONLY = [/\/node_modules\/libcurl\.js\//];
 
