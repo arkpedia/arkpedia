@@ -141,6 +141,8 @@ export function buildFreeRewards({ handbook, missions, openServer, checkin, acti
          side story's operator again, for its stars, from trailStartTime with no end. Identity:
          trail:<retro id>:<trail reward id>, as the account keys it (retro.trail): the reward ids
          alone repeat (Twilight of Wolumonde's is Darknights Memoir's trailReward_sub_1_1).
+       - A story restored without a trail (retroActList haveTrail false): its event's operator
+         mission, reopened for good from the restore date. Identity: restore:<retro id>:<mission id>.
        - Anything else an event's own data gives (milestones, exploration, investments: a CHAR
          item in activity_table.activity), while its stages are open. Manual: the account has no
          per-reward record of these.
@@ -193,6 +195,38 @@ export function buildFreeRewards({ handbook, missions, openServer, checkin, acti
     const opens = trail.trailStartTime > 0 ? trail.trailStartTime : act?.startTime;
     if (!isOperator(step.rewardItem) || !act || !(opens > 0)) continue;
     welfare(`trail:${retroId}:${step.trailRewardId}`, step.rewardItem.id, `Record Restoration: ${step.starCount} stars`, retroActivity(retroId), { startAt: opens * 1000, event: act.name, retroId }, 'trail');
+  }
+  /* Record Restoration without a trail (retroActList haveTrail false, trailStartTime -1): every
+     story restored since Ending a Grand Overture (Global, 2025-04). It has no star track; the
+     restored story reopens its event's missions for good, the operator's with them (the owner's
+     save, 2026-10-28: Crownslayer's PV-5 and Papyrus' AS-5 missions held under both the event's
+     and its rerun's ids, the stories open in retro.block, no retro.trail). So the operator of the
+     event's missions is a permanent row from the restore date. One per operator and story: the
+     event's mission first (linkedActId lists the event, then its rerun). Identity:
+     restore:<retro id>:<mission id>; the import ticks it from the roster (rosterClaimedWelfare). */
+  for (const [retroId, act] of Object.entries(retro.retroActList ?? {})) {
+    if (act.haveTrail !== false || !(act.startTime > 0)) continue;
+    for (const actId of act.linkedActId ?? []) for (const mission of activity.missionData ?? []) {
+      if (mission.missionGroup !== actId) continue;
+      for (const reward of mission.rewards ?? []) {
+        if (!isOperator(reward) || operators.some(row => row.retroId === retroId && row.charId === reward.id)) continue;
+        welfare(`restore:${retroId}:${mission.id}`, reward.id, `Record Restoration: ${clean(mission.description)}`, retroActivity(retroId), { startAt: act.startTime * 1000, event: act.name, retroId }, 'trail');
+      }
+    }
+  }
+  /* Every restored story whose event's missions give an operator has a permanent row for it:
+     its trail, its trail-less restoration above, or a main-story event's permanent missions. A
+     story whose trail is still to come (haveTrail with a later trailStartTime: Path of Life's
+     opens 2026-12-11) gets its row when the table lists the trail. A format the game adds that
+     none of these reads fails the run, rather than hiding the operator as it did until
+     2026-10-28 (Catherine, Papyrus, Crownslayer, Rose Salt, Xingzhu, Brigid). */
+  for (const [retroId, act] of Object.entries(retro.retroActList ?? {})) {
+    const linked = new Set(act.linkedActId ?? []);
+    const gives = (activity.missionData ?? []).some(mission => linked.has(mission.missionGroup) && (mission.rewards ?? []).some(isOperator));
+    const trailToCome = act.haveTrail === true || (act.haveTrail === undefined && act.trailStartTime > 0);
+    if (gives && !trailToCome && !operators.some(row => row.retroId === retroId)) {
+      throw new Error(`Record Restoration without a welfare row: ${retroId} restores ${[...linked].join(', ')}, whose missions give an operator, and no rule here reads it`);
+    }
   }
   const checkIns = new Set(['CHECKIN_ONLY', 'CHECKIN_ALL_PLAYER', 'CHECKIN_VS', 'LOGIN_ONLY']);
   for (const [type, events] of Object.entries(activity.activity)) if (!checkIns.has(type)) for (const [activityId, data] of Object.entries(events ?? {})) {

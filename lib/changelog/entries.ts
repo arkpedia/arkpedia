@@ -34,11 +34,12 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    at: '2026-10-28T17:38:00Z',
+    at: '2026-10-28T19:28:00Z',
     added: [
       { title: 'Exclude Paradox Simulations', detail: 'The Reward Tracker can leave out every Paradox Simulation, those of operators you do not own, or those of operators below Elite 2.', href: '/free-op' },
     ],
     fixed: [
+      { title: 'Newer Record Restoration operators listed', detail: 'Catherine, Papyrus, Crownslayer, Rose Salt, Xingzhu and Brigid now show as obtainable from Record Restoration.', href: '/free-op' },
       { title: 'Cleared events count by their medals too', detail: 'The game forgets a closed event\'s clears; the event\'s all-stages medal in your import now ticks its rerun.', href: '/pulls' },
       { title: 'A Flurry to the Flame Rerun ticks for Rathalos', detail: 'The event has no all-stages medal, so owning Rathalos S Noir Corne now marks it cleared in the Pull Planner.', href: '/pulls' },
     ],

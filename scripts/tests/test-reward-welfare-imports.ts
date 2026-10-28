@@ -122,6 +122,55 @@ test('welfare operators come from the tables that give them: event missions, per
   assert.deepEqual(freeOperatorsToClaim(built.rewards, new Set(), at('2026-10-28T12:00:00Z')).map(({ operator }) => operator.name), ['Viy', 'Folinic', 'Sideroca']);
 });
 
+/* A story restored without a trail (retro_table haveTrail false), as Global has since Ending a
+   Grand Overture: the restored story reopens its event's missions, so the event's operator is
+   obtainable for good from the restore date (I Portatori dei Velluti, restored 2026-05-21). */
+function restoredTables(restore: { haveTrail?: boolean; startTime: number }) {
+  const base = tables();
+  return {
+    ...base,
+    characters: { ...base.characters, char_1502_crosly: { name: 'Crownslayer', rarity: 'TIER_6' } },
+    activity: {
+      ...base.activity,
+      basicInfo: { ...base.activity.basicInfo,
+        act38side: { id: 'act38side', name: 'I Portatori dei Velluti', startTime: 1746000000, endTime: 1747306799, rewardEndTime: 1747900000 },
+        act38sre: { id: 'act38sre', name: 'I Portatori dei Velluti - Rerun', startTime: 1777800000, endTime: 1779015599, rewardEndTime: 1779600000 } },
+      missionData: [...base.activity.missionData,
+        mission('38sideActivity_5', 'ACTIVITY', 'act38side', 'Clear PV-5', [item('char_1502_crosly', 1, 'CHAR')]),
+        mission('38sreActivity_5', 'ACTIVITY', 'act38sre', 'Clear PV-5', [item('char_1502_crosly', 1, 'CHAR')])],
+    },
+    retro: { ...base.retro, retroActList: { ...base.retro.retroActList,
+      permanent_sidestory_28_i_portatori_dei_velluti: { retroId: 'permanent_sidestory_28_i_portatori_dei_velluti', type: 'SIDESTORY', linkedActId: ['act38side', 'act38sre'],
+        trailStartTime: -1, name: 'I Portatori dei Velluti', customActId: null, ...restore } } },
+  };
+}
+
+test('a story restored without a trail lists its event\'s operator for good, from the restore date', () => {
+  const built = buildFreeRewards(restoredTables({ haveTrail: false, startTime: 1779361200 }));
+  const rows = built.rewards.filter(row => row.group === 'Welfare operators' && row.rewards.some(reward => reward.id === 'char_1502_crosly'));
+  const restored = rows.filter(row => row.id.startsWith('free:restore:'));
+  // One row for the story, from the event's own mission, not one per linked event.
+  assert.deepEqual(restored.map(row => row.id), ['free:restore:permanent_sidestory_28_i_portatori_dei_velluti:38sideActivity_5']);
+  assert.deepEqual([restored[0].name, restored[0].source, restored[0].startAt, restored[0].endAt, restored[0].event],
+    ['Crownslayer · Record Restoration: Clear PV-5', 'trail', 1779361200 * 1000, undefined, 'I Portatori dei Velluti']);
+  // The two event runs keep their own rows, closed.
+  assert.deepEqual(rows.filter(row => row.source === 'event').map(row => row.id).sort(), ['free:38sideActivity_5', 'free:38sreActivity_5']);
+  const names = (iso: string) => freeOperatorsToClaim(built.rewards, new Set(), at(iso)).map(({ operator }) => operator.name);
+  assert.ok(!names('2026-05-20T00:00:00Z').includes('Crownslayer'), 'not before the restore');
+  assert.ok(names('2026-10-28T12:00:00Z').includes('Crownslayer'), 'obtainable after it, with no end');
+  assert.equal(welfareCardFacts(restored[0], at('2026-10-28T12:00:00Z')).source, 'Record Restoration · I Portatori dei Velluti');
+  // An imported roster that holds her ticks the row, as it does every welfare row.
+  assert.ok(rosterClaimedWelfare(built.rewards, new Set(['char_1502_crosly'])).has(restored[0].id));
+});
+
+test('a restored story whose operator no rule reads stops the build', () => {
+  // A trail still to come (Path of Life's opens 2026-12-11) waits for the table to list it.
+  assert.doesNotThrow(() => buildFreeRewards(restoredTables({ haveTrail: true, startTime: 1779361200 })));
+  // Restored without a trail but with no restore date: no row could be made, so the run fails.
+  assert.throws(() => buildFreeRewards(restoredTables({ haveTrail: false, startTime: -1 })),
+    /Record Restoration without a welfare row: permanent_sidestory_28_i_portatori_dei_velluti restores act38side, act38sre/);
+});
+
 test('an operator the event mission page features without a row stops the build', () => {
   const { act4mainssPermanent_5: _viy, ...missions } = tables().missions.missions as Record<string, unknown>;
   assert.throws(() => buildFreeRewards(tables({ missions })), /Welfare operator without a row: char_4226_veen featured by act4mainss/);
