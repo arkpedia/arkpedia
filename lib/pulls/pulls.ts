@@ -417,6 +417,11 @@ export type PullEventReward = Pick<UpcomingBanner, 'name' | 'event' | 'start' | 
    *  the event it returns by the game's own convention (rerunStagePrefix). Absent in a release
    *  exported before it was kept; /pulls fills it from the deployment (fillRerunActivities). */
   cnAct?: string | null;
+  /** The medal that marks the event a rerun returns as cleared on an account (its set's
+   *  "complete all stages with 3-star ratings" medal, rerunClearMedal in schedule.ts): the
+   *  game's save forgets a closed event's stage clears, the medal stays. Null for an event
+   *  without one; absent in a release exported before it was kept (filled per request too). */
+  clearMedal?: string | null;
 };
 export function eventWasCleared(event: PullEventReward, cleared: ReadonlySet<string>): boolean {
   return event.rerun && [event.name, ...(event.legacyNames ?? [])].some(name => cleared.has(name));
@@ -445,14 +450,16 @@ export function rerunOriginalStages(event: Pick<PullEventReward, 'cnAct'>, stage
   return prefix && stageSanity ? Object.entries(stageSanity).filter(([id, sanity]) => id.startsWith(prefix) && !id.includes('#') && sanity > 0).map(([id]) => id) : [];
 }
 /** The reruns whose event the account already cleared, by name, which the planner ticks itself
- *  since a rerun of a cleared event pays its Originite no second time. Two readings, either
- *  enough: the Reward Tracker's ticks (`doneEvents`: the import's clears, the reader's own)
- *  hold the event, for one the back catalogue lists; or the import's cleared stage ids
- *  (`cleared`) cover every ordinary battle stage of the event the rerun returns, for one it
- *  does not list yet (an event's first rerun comes before its Record Restoration entry). */
+ *  since a rerun of a cleared event pays its Originite no second time. Three readings, any
+ *  one enough: the account holds the event's all-stages medal (`medals` against the event's
+ *  `clearMedal`: the game's save forgets a closed event's stage clears, the medal stays); the Reward Tracker's
+ *  ticks (`doneEvents`: the import's clears, the reader's own) hold the event, for one the
+ *  back catalogue lists; or the import's cleared stage ids (`cleared`) cover every ordinary
+ *  battle stage of the event the rerun returns, for one still in the client. */
 export function rerunsClearedByTicks(events: readonly PullEventReward[], playable: readonly { id: string; name: string }[], doneEvents: ReadonlySet<string>,
-  cleared: ReadonlySet<string> | null = null, stageSanity: Readonly<Record<string, number>> | undefined = undefined): Set<string> {
+  cleared: ReadonlySet<string> | null = null, stageSanity: Readonly<Record<string, number>> | undefined = undefined, medals: ReadonlySet<string> | null = null): Set<string> {
   return new Set(events.filter(event => event.rerun).flatMap(event => {
+    if (event.clearMedal && medals?.has(event.clearMedal)) return [event.name];
     const known = rerunBacklogEvent(event, playable);
     if (known && doneEvents.has(known.id)) return [event.name];
     const stages = cleared ? rerunOriginalStages(event, stageSanity) : [];

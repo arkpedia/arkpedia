@@ -1,5 +1,6 @@
 import { parseGameWindow } from '@/lib/schedule/gameWindow';
 import eventRewards from '@/data/pull-event-rewards.json';
+import clearMedals from '@/data/rerun-clear-medals.json';
 import { getAllEvents } from '@/lib/schedule/schedule';
 import { rerunBacklogEvent, type BacklogSources, type PullEventReward } from './pulls';
 import { estimateBannerFromCn, waitsForGlobal, globalBannerPreview } from '@/lib/gacha/bannerSchedule';
@@ -80,18 +81,35 @@ export function resolvePullEventSchedule(current: ReturnType<typeof getAllEvents
       hasShop: reward.shopPermits > 0, shopPermits: reward.shopPermits,
       wishActId: reward.wishActId, wishDays: reward.wishDays, wishOrundum: reward.wishOrundum,
       legacyNames: ALL_BANNERS.filter(b => b.event === reward.event).map(b => b.name),
-      ...(reward.cnAct ? { cnAct: reward.cnAct } : {}),
+      ...(reward.cnAct ? { cnAct: reward.cnAct, clearMedal: rerunClearMedal(reward.cnAct) } : {}),
     }];
   }).sort((a,b) => a.start.localeCompare(b.start));
 }
-/** The release's events with each one's game activity id (`cnAct`) filled from the deployment's
- *  own reward table where the release has none: a release exported before the id was kept, so
- *  the planner can tick a cleared event's rerun (rerunsClearedByTicks) from the first deploy. */
+/**
+ * The medal that marks the event a rerun returns as cleared on an account: its set's "complete
+ * all stages with 3-star ratings" medal (data/rerun-clear-medals.json, built from the published
+ * medal catalogue by scripts/build/build-rerun-clear-medals.mjs). An import cannot see a closed
+ * event's stage clears (the game's save keeps records only for stages still in the client), but
+ * it carries the account's medals (AccountProfile.medalCollection), and these stay. A rerun's
+ * game id names its event's set: "act42sre" runs act42side, whose set is
+ * medalGroupActivity42side. Older reruns (act5sre, of act11d0) name no set and get null.
+ * Server-side only: the table reaches the browser on each event (PullEventReward.clearMedal).
+ */
+export function rerunClearMedal(cnAct: string | null | undefined): string | null {
+  if (!cnAct || !/^act.+sre$/.test(cnAct)) return null;
+  return (clearMedals as Record<string, string>)[cnAct.replace(/^act/, '').replace(/sre$/, 'side')] ?? null;
+}
+/** The release's events with each one's game activity id (`cnAct`) and clear medal filled from
+ *  the deployment's own tables where the release has none: a release exported before they were
+ *  kept, so the planner can tick a cleared event's rerun (rerunsClearedByTicks) from the first
+ *  deploy. */
 export function fillRerunActivities(events: readonly PullEventReward[]): PullEventReward[] {
   const byEvent = new Map(eventRewards.map(reward => [pullBannerKey(reward.event), reward.cnAct]));
   return events.map(event => {
-    const cnAct = event.cnAct ?? byEvent.get(pullBannerKey(event.event ?? event.name));
-    return cnAct && !event.cnAct ? { ...event, cnAct } : event;
+    const cnAct = event.cnAct ?? byEvent.get(pullBannerKey(event.event ?? event.name)) ?? null;
+    if (!cnAct) return event;
+    const clearMedal = event.clearMedal === undefined ? rerunClearMedal(cnAct) : event.clearMedal;
+    return event.cnAct === cnAct && event.clearMedal === clearMedal ? event : { ...event, cnAct, clearMedal };
   });
 }
 export function getPullEventSchedule(backlog: BacklogSources): PullEventReward[] {

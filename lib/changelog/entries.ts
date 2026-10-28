@@ -34,6 +34,12 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-10-28T16:30:00Z',
+    fixed: [
+      { title: 'Cleared events count by their medals too', detail: 'The game forgets a closed event\'s clears; the event\'s all-stages medal in your import now ticks its rerun.', href: '/pulls' },
+    ],
+  },
+  {
     at: '2026-10-28T12:30:00Z',
     fixed: [
       { title: 'Reruns of cleared events no longer count twice', detail: 'The Pull Planner ticks a rerun as already cleared when your import or your Reward Tracker ticks say so.', href: '/pulls' },

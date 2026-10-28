@@ -179,7 +179,11 @@ export default function PullsPage({ scheduledEvents: globalEvents, scheduledBann
      says so. Before this the planner only knew the ticks a reader made in this dialog, and an
      imported account saw every rerun of its cleared events counted again (2026-10-28). The
      dialog's own ticks (clearedReruns, saved with the plan) stay for what the tracker cannot know. */
-  const tickedReruns = useMemo(() => rerunsClearedByTicks(scheduledEvents, backlogSources.playable, past.doneEvents, past.cleared, backlogSources.stageSanity), [scheduledEvents, backlogSources, past.doneEvents, past.cleared]);
+  /* The account's medals: an event's all-stages medal outlives the stage records the game's
+     save drops once the event closes (the owner's import, 2026-10-28: 2,391 clears, none of
+     four cleared events), so a rerun of a medalled event is ticked from it. */
+  const ownedMedals = useMemo(() => (account?.profile?.medalCollection ? new Set(account.profile.medalCollection.map(medal => medal.id)) : null), [account]);
+  const tickedReruns = useMemo(() => rerunsClearedByTicks(scheduledEvents, backlogSources.playable, past.doneEvents, past.cleared, backlogSources.stageSanity, ownedMedals), [scheduledEvents, backlogSources, past.doneEvents, past.cleared, ownedMedals]);
   const clearedAll = useMemo(() => new Set([...clearedReruns, ...tickedReruns]), [clearedReruns, tickedReruns]);
   const [walletFrom, setWalletFrom] = useState('');
   // Locked by default while the resources are the import's (useLock); the reader's choice stays.
@@ -521,7 +525,7 @@ export default function PullsPage({ scheduledEvents: globalEvents, scheduledBann
                 return (
                   <tr key={b.name} className={cleared ? 'muted' : undefined}>
                     <th scope="row">{name}</th>
-                    <td>ends {b.end}{b.opSource === 'median' ? ' · estimated' : ''}{b.rerun && b.op > 0 && <label className="check pulls-tick" title={fromTicks ? 'Cleared on your account: its stages are cleared in your import, or the event is ticked in the Reward Tracker' : undefined}>
+                    <td>ends {b.end}{b.opSource === 'median' ? ' · estimated' : ''}{b.rerun && b.op > 0 && <label className="check pulls-tick" title={fromTicks ? 'Cleared on your account: you hold the event\'s medal, its stages are cleared in your import, or it is ticked in the Reward Tracker' : undefined}>
                       <input type="checkbox" checked={cleared} disabled={fromTicks} aria-label={`Already cleared ${name}`}
                         onChange={() => setClearedReruns(previous => {
                           const next = new Set(previous);
