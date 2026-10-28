@@ -34,6 +34,12 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-10-28T10:00:00Z',
+    changed: [
+      { title: 'The Pull Planner loads lighter', detail: 'It now sends only the banners and outfit shops still ahead on some server, half the data it did.', href: '/pulls' },
+    ],
+  },
+  {
     at: '2026-10-27T21:30:00Z',
     changed: [
       { title: 'Pull history kept once', detail: 'Each import adds to one archive per game account; the account record and backups no longer carry a second copy of the rows.', href: '/account' },

@@ -6,7 +6,8 @@ import { daysUntil, estimateCelebrationRerun, limitedBannerSplit, limitedOperato
 import { playablePalettes, type PaletteOperator } from '../../lib/minigames/logic';
 import { selectEnemyStatusOperators, type EnemyStatusCandidates } from '../../lib/enemies/statusOperators';
 import { currentPullPlan } from '../../lib/pulls/currentPlan';
-import type { UpcomingBanner } from '../../lib/pulls/pulls';
+import type { RegionalSchedules } from '../../lib/time/regional';
+import type { PullEventReward, UpcomingBanner } from '../../lib/pulls/pulls';
 import type { SkinCollection } from '../../lib/pulls/skinCollections';
 import { isOperatorReleased, isReleasedAt, releaseMarker } from '../../lib/operators/operatorAvailability';
 import { serverDate } from '../../lib/time/servers.mjs';
@@ -163,6 +164,41 @@ test('the pull planner drops banners and shops per request, through the end of t
   assert.deepEqual(current.skinCollections.map(c => c.id), ['open']);
   assert.equal(current.backlogSources, null);
   assert.deepEqual(currentPullPlan(props, at('2026-09-26T07:00:00Z')).scheduledBanners.map(b => b.name), ['Next']);
+});
+
+test('with the regional table, the pull planner keeps what any server still has open and ships only the kept windows', () => {
+  const now = at('2026-09-25T12:00:00Z');
+  const window = (startAt: string, endAt: string) => ({ startAt, endAt, timingSource: 'https://example.test', status: 'announced' });
+  const sale = (startAt: string, endAt: string, skinIds: string[]) => ({ event: 'Shop', kind: 'shop' as const, label: 'Outfits', startAt, endAt, skinIds, newRelease: false });
+  const banner = (name: string, end: string) => ({ name, end }) as UpcomingBanner;
+  const shop = (id: string, start: string, end: string, skinIds: string[]) => ({ id, name: id, start, end, estimated: false, skinIds, featuredIds: [] }) as SkinCollection;
+  const table: RegionalSchedules = { version: 1, servers: {
+    en: { sources: {}, banners: { Over: window('2026-09-06T00:00:00Z', '2026-09-20T00:00:00Z'), Gone: window('2026-09-06T00:00:00Z', '2026-09-20T00:00:00Z') },
+      events: { 'Event A': window('2026-09-20T00:00:00Z', '2026-10-04T00:00:00Z'), 'Old event': window('2026-08-01T00:00:00Z', '2026-08-15T00:00:00Z') },
+      skinWindows: [sale('2026-09-01T00:00:00Z', '2026-09-10T00:00:00Z', ['A / Summer'])] },
+    // KR runs Global's banner and shop three weeks later: both are still open there.
+    kr: { sources: {}, banners: { Over: window('2026-09-20T00:00:00Z', '2026-10-05T00:00:00Z') },
+      skinWindows: [sale('2026-09-20T00:00:00Z', '2026-10-05T00:00:00Z', ['A / Summer'])] },
+  } };
+  const props = {
+    scheduledBanners: [banner('Over', '2026-09-20'), banner('Gone', '2026-09-20'), banner('Next', '2026-10-09')],
+    bannerOdds: { Over: {}, Gone: {}, Next: {} } as never,
+    skinCollections: [shop('kr-open', '2026-09-01', '2026-09-10', ['A / Summer']), shop('closed', '2026-09-01', '2026-09-10', ['B / Winter'])],
+    scheduledEvents: [{ name: 'Event A', event: 'Event A' } as PullEventReward],
+    __contentTables: { 'regional-schedules': table, 'import-aliases': {} },
+  };
+  const current = currentPullPlan(props, now);
+  assert.deepEqual(current.scheduledBanners.map(b => b.name), ['Over', 'Next'], 'KR still has Over open; Gone is over everywhere');
+  assert.deepEqual(Object.keys(current.bannerOdds), ['Over', 'Next']);
+  assert.deepEqual(current.skinCollections.map(c => c.id), ['kr-open']);
+  const sliced = current.__contentTables['regional-schedules'] as RegionalSchedules;
+  assert.deepEqual(Object.keys(sliced.servers.en!.banners!), ['Over']);
+  assert.deepEqual(Object.keys(sliced.servers.kr!.banners!), ['Over']);
+  assert.deepEqual(Object.keys(sliced.servers.en!.events!), ['Event A']);
+  assert.equal(sliced.servers.en!.skinWindows!.length, 1, 'sales stay whole: a shop is matched against them by date');
+  assert.deepEqual(current.__contentTables['import-aliases'], {}, 'the other tables pass through');
+  assert.deepEqual(Object.keys(table.servers.en!.banners!), ['Over', 'Gone'], 'request filtering never mutates the cached table');
+  assert.equal(props.scheduledBanners.length, 3);
 });
 
 test('withContentPage takes revalidate as an option, and exports carry no clock field', async () => {
