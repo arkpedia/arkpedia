@@ -41,6 +41,8 @@ for (const locale of ['de-DE', 'fr-FR']) {
         expect(serverStats.length).toBeGreaterThan(0);
         expect(serverStats.some(value => /\d,\d{3}/.test(value))).toBe(true);
         const summons = page.locator('.operator-summons');
+        // Folded by default (2026-10-28): the server still writes the numbers, the summary shows them.
+        await page.getByRole('region', { name: 'Summon stats', exact: true }).locator('summary').click();
         const level = summons.getByRole('slider', { name: 'Summon level' });
         const initial = Number(await level.inputValue());
         expect(initial).toBeGreaterThan(1);

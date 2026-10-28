@@ -34,6 +34,12 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-10-28T21:30:00Z',
+    changed: [
+      { title: 'Summon stats read like the operator\'s', detail: 'An operator page folds its summons under Stats, in the same stat block with the same icons and controls.', href: '/operators' },
+    ],
+  },
+  {
     at: '2026-10-28T19:28:00Z',
     added: [
       { title: 'Exclude Paradox Simulations', detail: 'The Reward Tracker can leave out every Paradox Simulation, those of operators you do not own, or those of operators below Elite 2.', href: '/free-op' },

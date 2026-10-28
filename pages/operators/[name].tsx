@@ -1250,7 +1250,16 @@ export default function OperatorDetailPage({ chibis = {}, summons = [], epTrack,
             {operator.stats?.phases.length ? (
               <div id="operator-stats" data-operator-section="stats" tabIndex={-1} className={`op-section ${pageStyles.section}`}>
                 <OperatorStatsPanel key={`stats-${operator.name}`} stats={operator.stats} modules={operator.modules} />
-                {summons.length > 0 && <section className="op-section" aria-label="Summon stats"><h2>Summon stats</h2><OperatorSummons key={operator.name} summons={summons} /></section>}
+                {summons.length > 0 && (
+                  /* Folded by default: the operator's own numbers are what the tab opens on; the
+                     summon's wait a click away, in the same stat block (OperatorSummons). */
+                  <section className="op-section" aria-label="Summon stats">
+                    <details className={pageStyles.mechanics}>
+                      <summary>Summon stats</summary>
+                      <OperatorSummons key={operator.name} summons={summons} />
+                    </details>
+                  </section>
+                )}
               </div>
             ) : null}
 

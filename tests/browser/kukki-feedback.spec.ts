@@ -127,6 +127,8 @@ test('summon stats follow promotion and level without mixing operator bonuses',a
   await page.goto('/operators/Kal%27tsit#stats');
   const panel=page.getByRole('region',{name:'Summon stats',exact:true});
   await expect(panel).toBeVisible();
+  // Folded by default (2026-10-28): the summary opens it.
+  await panel.locator('summary').click();
   await expect(panel.getByText('5,433',{exact:true})).toBeVisible();
   await panel.getByRole('slider',{name:'Summon level'}).fill('1');
   await expect(panel.getByText('4,292',{exact:true})).toBeVisible();
