@@ -1,6 +1,8 @@
 /**
- * Everything the site keeps for the reader, as one file: the account import, the Operator
- * Planner (its operators, depot, goals and crafting), the Pull Planner's plan and the claimed
+ * Everything the site keeps for the reader, as one file: the pull history archive and the
+ * account import (the record keeps only when its history was last read; a file an older build
+ * wrote carries the rows on the record too, and they move into the archive once restored), the
+ * Operator Planner (its operators, depot, goals and crafting), the Pull Planner's plan and the claimed
  * first-clear rewards (the OP Tracker's ticks), the skin
  * wishlist, the base setups and the music favourites. All of it lives only in this browser's
  * localStorage, so this file is the only way to take it to another browser or keep it past

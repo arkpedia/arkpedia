@@ -1,10 +1,5 @@
 /* Split from globals.css -- stages.css */
 /* --- Stages page --- */
-.stages-category-row {
-  display: flex;
-  gap: 8px;
-  margin-top: 14px;
-}
 /* --- Stage browser -------------------------------------------------------
    Ported from the arkpedia-web prototype, re-expressed in this site's tokens
    rather than the prototype's own palette. The map's tile colours are the one
@@ -72,10 +67,7 @@
 .stage-empty { padding: 16px 12px; }
 .stage-provenance { margin-top: 14px; line-height: 1.6; }
 
-.stage-variant-badge,
-.stage-boss-badge,
-.stage-kind-badge,
-.stage-override-badge {
+.stage-variant-badge, .stage-boss-badge, .stage-kind-badge {
   font-family: var(--font-mono);
   font-size: 10px;
   text-transform: uppercase;
@@ -197,14 +189,6 @@
   margin-right: 5px;
   vertical-align: -1px;
 }
-.stage-enemy-idx,
-.stage-enemy-head .num,
-.stage-enemy-row .num {
-  font-family: var(--font-mono);
-  font-size: 12px;
-}
-.stage-enemy-head .num,
-.stage-enemy-row .num { text-align: right; }
 .stage-drops {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(216px, 1fr));
@@ -355,12 +339,6 @@
 
 /* The list row: code with its name beneath, details to the right. */
 .stage-row-ident { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.stage-row-meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; text-align: right; }
-.stage-row-facts {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--text-faint);
-}
 
 /* Fitted inside the reserved .stage-map-area, so switching between the
    schematic and the render cannot change the section's height. */
@@ -432,7 +410,6 @@
   letter-spacing: 0.05em;
 }
 .stage-enemy-kv-value { font-family: var(--font-mono); font-size: 11px; }
-
 
 /* Battle timeline: play/pause, a scrubber, and the clock. */
 .stage-playback {
@@ -565,7 +542,6 @@
 /* The flex gap spaces the sections (--section-gap, as .op-section's margin does on a
    stacked page; it was 18px here). */
 .stage-detail-col .op-section { margin-bottom: 0; }
-.stage-empty-pane { display: flex; align-items: center; justify-content: center; min-height: 260px; }
 
 /* The stage's own identity, at the head of the pane beside the list. */
 .stage-brief { display: flex; flex-direction: column; gap: 10px; }
@@ -603,7 +579,6 @@
   .stage-rail .stage-rows { max-height: 34vh; }
   .stage-rail .stage-rows.loading { min-height: 34vh; }
 }
-
 
 /* --- Route lines ----------------------------------------------------------
    The dashes march from spawn toward the objective, so which way a route runs
@@ -1619,7 +1594,6 @@ button.stage-tile-pop-close:hover { color: white; }
    pointercancel instead of moves. Only during those two: the rest of the time a phone
    has to be able to scroll past a map that is most of the screen. */
 .stage-map-area.dragging { touch-action: none; }
-.stage-map-area.dragging .stage-map-frame,
 .stage-map-area.dragging svg { touch-action: none; }
 .stage-tile.takes-drag rect { stroke: var(--teal-dim); }
 .stage-tile.drag-over rect { stroke: var(--teal); stroke-width: 2; }

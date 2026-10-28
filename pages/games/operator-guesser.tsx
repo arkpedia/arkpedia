@@ -18,7 +18,7 @@ import { getAllSkins } from '@/lib/skins/skins';
 import { GuesserOperator } from '@/lib/operators/operatorTypes';
 import { toGuesserOperator } from '@/lib/guesser/guesserPageData';
 import { matchesSearch, searchRelevance } from '@/lib/search/searchNormalize';
-import { buildHintPool, pickRandomOperator, NOT_AVAILABLE, GuesserSkin } from '@/lib/guesser/guesserLogic';
+import { buildHintPool, pickRandomOperator, shuffle, NOT_AVAILABLE, GuesserSkin } from '@/lib/guesser/guesserLogic';
 import { Hint, ALL_HINT_TYPES, HINT_GROUPS, HintType, ThemedLevel, THEMED_MODES } from '@/lib/guesser/guesserTypes';
 
 import styles from '@/styles/games/guesser.module.css';
@@ -29,14 +29,6 @@ interface Props {
   skins: GuesserSkin[];
 }
 
-function shuffle<T>(arr: T[]): T[] {
-  const copy = [...arr];
-  for (let i = copy.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [copy[i], copy[j]] = [copy[j], copy[i]];
-  }
-  return copy;
-}
 
 type GameStatus = 'notStarted' | 'playing' | 'won' | 'lost' | 'gaveUp';
 

@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState, ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore, ReactNode } from 'react';
 import { readPrivacy, requestExternalMedia } from '@/lib/privacy/preferences';
 import { useRouter } from 'next/router';
 import { useContentUrl } from '@/lib/content/context';
@@ -21,6 +21,8 @@ import EndfieldNoticeDialog from '@/components/music/EndfieldNoticeDialog';
 import { shouldShowEndfieldNotice } from './endfieldNotice';
 import { noAutoplaySongs, toggleNoAutoplay, useNoAutoplay } from './noAutoplay';
 import { readSongFilter, refilterQueue, songAllowed, writeSongFilter, type FilterableSong, type MusicGame, type SongFilter } from './songFilter';
+import { createPlaybackPositionStore, type PlaybackPosition, type PlaybackPositionStore } from './playbackPosition';
+import { useLatestActions } from '@/lib/ui/useLatestActions';
 
 /** YouTube's iframe player, which is a PlaybackEngine as it stands (lib/music/playbackEngine.ts). */
 export interface YTPlayer extends PlaybackEngine {
@@ -113,6 +115,27 @@ function toQueueTrack(song: MusicCatalogueSong): QueueTrack {
     ...(song.game === 'endfield' ? { game: song.game } : {}) };
 }
 
+/** What autoplay plays once the queue is done, in its order from the song playing: every song the
+ *  reader's settings let in, less the queue's own songs, the ones kept out, and the song playing. */
+function computeAutoplayTracks({ catalog, filter, queue, autoplayOrder, autoplayVideoId, videoId, keptOut }: {
+  catalog: MusicCatalogueSong[] | null; filter: SongFilter; queue: QueueTrack[]; autoplayOrder: string[];
+  autoplayVideoId: string; videoId: string; keptOut: ReadonlySet<string>;
+}): QueueTrack[] {
+  const byId = new Map((catalog ?? []).filter(song => songAllowed(filter, song)).map(song => [song.id, toQueueTrack(song)]));
+  const chosen = new Set(queue.map(track => track.id));
+  const ids = [...new Set([...autoplayOrder, ...byId.keys()])];
+  const at = ids.indexOf(autoplayVideoId || videoId);
+  return [...ids.slice(at + 1), ...ids.slice(0, at + 1)].flatMap(id => {
+    const track = byId.get(id);
+    return track && !chosen.has(id) && !keptOut.has(id) && id !== videoId ? [track] : [];
+  });
+}
+
+/**
+ * What every reader of the player gets (useMusicPlayer). The value is memoised and its actions
+ * keep their identity, so a consumer renders again only when a field it could read has changed.
+ * The song's clock is not here: it moves every 500 ms, and lives in useMusicPlayback.
+ */
 interface MusicPlayerContextValue {
   ready: boolean;
   starting: boolean;
@@ -127,9 +150,6 @@ interface MusicPlayerContextValue {
   shuffle: boolean;
   repeatMode: RepeatMode;
   favorites: Set<string>;
-  currentTime: number;
-  duration: number;
-  seeking: boolean;
   queue: QueueTrack[];
   queueIndex: number;
   shuffleOrder: number[] | null; // full pre-computed shuffle permutation of queue indices -- null when shuffle is off
@@ -176,9 +196,6 @@ interface MusicPlayerContextValue {
   /** The songs kept out of autoplay. */
   noAutoplay: ReadonlySet<string>;
   setVolumeLevel: (v: number) => void;
-  handleSeekChange: (v: number) => void;
-  handleSeekCommit: (v: number) => void;
-  setSeeking: (v: boolean) => void;
   playQueueIndex: (index: number) => void;
   playTrackByVideoId: (videoId: string) => void;
   playFirst: (videoId: string) => void;
@@ -205,6 +222,31 @@ export function useMusicPlayer(): MusicPlayerContextValue {
   const ctx = useContext(MusicPlayerContext);
   if (!ctx) throw new Error('useMusicPlayer must be used within MusicPlayerProvider');
   return ctx;
+}
+
+/** The seek bars' side of the player: where the song is, and seeking (lib/music/playbackPosition.ts). */
+interface MusicPlaybackContextValue {
+  position: PlaybackPositionStore;
+  /** Moves the displayed time only, while the reader drags; handleSeekCommit seeks the engine. */
+  handleSeekChange: (v: number) => void;
+  handleSeekCommit: (v: number) => void;
+  setSeeking: (v: boolean) => void;
+}
+
+const MusicPlaybackContext = createContext<MusicPlaybackContextValue | null>(null);
+
+/**
+ * The song's clock, its length and the seek bars' handlers. Subscribes the component to the
+ * clock, which moves every 500 ms while a song plays: for a seek bar and the lyrics only
+ * (components/music/SeekBar.tsx, MusicLyrics.tsx). Everything else reads useMusicPlayer, which
+ * the clock never touches.
+ */
+export function useMusicPlayback(): PlaybackPosition & Omit<MusicPlaybackContextValue, 'position'> {
+  const ctx = useContext(MusicPlaybackContext);
+  if (!ctx) throw new Error('useMusicPlayback must be used within MusicPlayerProvider');
+  const { position, ...handlers } = ctx;
+  const snapshot = useSyncExternalStore(position.subscribe, position.get, position.get);
+  return { ...snapshot, ...handlers };
 }
 
 export function MusicPlayerProvider({ children }: { children: ReactNode }) {
@@ -268,9 +310,13 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   const [shuffle, setShuffle] = useState(false);
   const [repeatMode, setRepeatMode] = useState<RepeatMode>('off');
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const [seeking, setSeeking] = useState(false);
+  // The song's clock, its length and the seek bars' drag, outside React state
+  // (lib/music/playbackPosition.ts): a tick renders the seek bars and the lyrics, nothing else.
+  const positionRef = useRef<PlaybackPositionStore | null>(null);
+  positionRef.current ??= createPlaybackPositionStore();
+  const position = positionRef.current;
+  const setCurrentTime = (seconds: number) => position.set({ currentTime: seconds });
+  const setDuration = (seconds: number) => position.set({ duration: seconds });
   const [excludeCopyrighted, setExcludeCopyrightedState] = useState(false);
   const excludeCopyrightedRef = useRef(false);
   const [includeEndfield, setIncludeEndfieldState] = useState(false);
@@ -296,7 +342,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const [libraryTracks, setLibraryTracks] = useState<QueueTrack[]>([]);
-  // Read here so the provider renders again when it changes: autoplayTracks is worked out per render.
+  // Read here so the memoised autoplay list below follows it.
   const noAutoplay = useNoAutoplay();
   // On unless the reader turned it off (owner, 2026-10-20): only a click writes the stored choice.
   const [autoplay, setAutoplayState] = useState(true);
@@ -304,6 +350,8 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   const [autoplayVideoId, setAutoplayVideoId] = useState('');
   const autoplayVideoIdRef = useRef('');
   const autoplayOrderRef = useRef<string[]>([]);
+  // Its state twin, for the memoised autoplay list below: written wherever the ref is.
+  const [autoplayOrder, setAutoplayOrderState] = useState<string[]>([]);
   function setAutoplay(enabled: boolean) {
     autoplayRef.current = enabled; setAutoplayState(enabled);
     try { window.localStorage.setItem('arkpediaMusicAutoplay', String(enabled)); } catch { /* refused */ }
@@ -397,8 +445,6 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   const isPlayingRef = useRef(false);
   const videoIdRef = useRef('');
   const titleRef = useRef('');
-  const durationRef = useRef(0);
-  const currentTimeRef = useRef(0);
   const volumeRef = useRef(50);
   useEffect(() => {
     isPlayingRef.current = isPlaying;
@@ -409,12 +455,6 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     titleRef.current = title;
   }, [title]);
-  useEffect(() => {
-    durationRef.current = duration;
-  }, [duration]);
-  useEffect(() => {
-    currentTimeRef.current = currentTime;
-  }, [currentTime]);
   useEffect(() => {
     volumeRef.current = volume;
   }, [volume]);
@@ -635,7 +675,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
       if (record) {
         resumeRef.current = record;
         playlistIdsRef.current = record.playlistIds ?? record.queue;
-        autoplayOrderRef.current = record.autoplayOrder ?? [];
+        autoplayOrderRef.current = record.autoplayOrder ?? []; setAutoplayOrderState(autoplayOrderRef.current);
         // The saved queue's own `autoplay` is not read: every queue saved while it defaulted to
         // off carries false, which would keep it off for readers who never chose. Only the
         // reader's own click (arkpediaMusicAutoplay, read on mount above) decides.
@@ -653,17 +693,19 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     return queueRef.current;
   }, []);
 
+  /** Autoplay's list as it stands this moment, for the code that plays from it. */
   function nextAutoplayTracks(): QueueTrack[] {
-    const byId = new Map((catalogRef.current ?? []).filter(allowed).map(song => [song.id, toQueueTrack(song)]));
-    const chosen = new Set(queueRef.current.map(track => track.id));
-    const ids = [...new Set([...autoplayOrderRef.current, ...byId.keys()])];
-    const at = ids.indexOf(autoplayVideoIdRef.current || videoIdRef.current);
-    const keptOut = noAutoplaySongs();
-    return [...ids.slice(at + 1), ...ids.slice(0, at + 1)].flatMap(id => {
-      const track = byId.get(id);
-      return track && !chosen.has(id) && !keptOut.has(id) && id !== videoIdRef.current ? [track] : [];
-    });
+    return computeAutoplayTracks({ catalog: catalogRef.current, filter: songFilter(), queue: queueRef.current, autoplayOrder: autoplayOrderRef.current,
+      autoplayVideoId: autoplayVideoIdRef.current, videoId: videoIdRef.current, keptOut: noAutoplaySongs() });
   }
+  // The same list for the queue views, from the state these values render from, kept between
+  // renders: the same array until one of its inputs changes, so a Queue's search index over it
+  // is built once (components/music/MusicQueue.tsx).
+  const autoplayTracks = useMemo(() => computeAutoplayTracks({ catalog: catalogRef.current, filter: { excludeCopyrighted, includeEndfield }, queue, autoplayOrder,
+    autoplayVideoId, videoId, keptOut: noAutoplay }),
+  // The catalogue is written with libraryTracks (buildQueueFromCatalog).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  [libraryTracks, excludeCopyrighted, includeEndfield, queue, autoplayOrder, autoplayVideoId, videoId, noAutoplay]);
 
   function toggleSongNoAutoplay(id: string) {
     const out = toggleNoAutoplay(id);
@@ -744,14 +786,16 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   // Prepare only the actual next song. Queue edits, shuffle, repeat and automatic tracks
   // read the same decision as Next; paused players retain a completed file but stop fetching
   // (its signed address, headers only, is still asked for). Data saver prepares nothing.
-  useEffect(() => {
+  // Decided again at each change below, and at each tick of the clock while a song plays
+  // (the poll effect below), as the song's own buffering comes along.
+  function selectPreload() {
     const saver = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData;
     const step = nextQueueStep();
     const next = repeatModeRef.current === 'one' ? undefined : step ? queueRef.current[step.index]
       : autoplayRef.current ? nextAutoplayTracks()[0] : undefined;
     const source = next ? routeTrack(next.id) : null;
     const playing = videoIdRef.current ? routeTrack(videoIdRef.current) : null;
-    const target = playerRef.current?.loaded() === videoIdRef.current && !dataSaver && !saver && source?.kind === 'msr'
+    const target = playerRef.current?.loaded() === videoIdRef.current && !dataSaverRef.current && !saver && source?.kind === 'msr'
       && !(playing?.kind === 'msr' && playing.cid === source.cid)
       ? { cid: source.cid, address: msrAudioAddress(source.cid) } : null;
     let buffered = playing?.kind !== 'msr';
@@ -761,10 +805,14 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
         if (el.buffered.start(index) <= el.currentTime && el.buffered.end(index) - el.currentTime >= Math.min(15, el.duration - el.currentTime)) buffered = true;
       }
     }
-    musicAudioPreloader.select(target, Boolean(isPlaying && !seeking && currentTime >= 3 && buffered));
+    const { currentTime, seeking } = position.get();
+    musicAudioPreloader.select(target, Boolean(isPlayingRef.current && !seeking && currentTime >= 3 && buffered));
+  }
+  useEffect(() => {
+    selectPreload();
   // Helpers read current refs; preloading never chooses its own shuffle order.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isPlaying, seeking, currentTime, videoId, queue, queueIndex, queued, shuffle, shuffleOrder,
+  }, [isPlaying, videoId, queue, queueIndex, queued, shuffle, shuffleOrder,
     shufflePosition, repeatMode, autoplay, autoplayVideoId, dataSaver, excludeCopyrighted, includeEndfield, libraryTracks]);
   useEffect(() => () => musicAudioPreloader.select(null, false), []);
 
@@ -1107,14 +1155,17 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   // Poll playback position while playing, for the seek bar. Skipped while
   // the person is actively dragging the seek bar themselves.
   useEffect(() => {
-    if (!isPlaying || seeking) return;
+    if (!isPlaying) return;
     const interval = setInterval(() => {
       const player = playerRef.current;
-      if (!player) return;
+      if (!player || position.get().seeking) return;
       setCurrentTime(player.getCurrentTime());
+      selectPreload();
     }, 500);
     return () => clearInterval(interval);
-  }, [isPlaying, seeking]);
+  // The store and selectPreload read refs: the interval needs no fresh closure.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPlaying]);
 
   const initializePlayer = useCallback((prompt = true) => {
     if (!prompt && !readPrivacy().externalMedia) return;
@@ -1166,7 +1217,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     // A player opened but never played has nothing to carry: YouTube stays unloaded until used.
     if (!videoIdRef.current) return;
     let videoId = videoIdRef.current;
-    let seconds = currentTimeRef.current;
+    let seconds = position.get().currentTime;
     try {
       videoId = player.getVideoData()?.video_id || videoId;
       seconds = player.getCurrentTime();
@@ -1184,7 +1235,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
       videoId,
       title: titleRef.current.slice(0, 500),
       seconds: Number.isFinite(seconds) && seconds > 0 ? seconds : 0,
-      duration: Number.isFinite(durationRef.current) && durationRef.current > 0 ? durationRef.current : 0,
+      duration: Number.isFinite(position.get().duration) && position.get().duration > 0 ? position.get().duration : 0,
       // A play still loading is carried as playing: the next document asks for it again.
       playing: isPlayingRef.current || bufferingRef.current || pendingPlayRef.current || !!resumeWatchRef.current,
       queue: queue.map((track) => track.id),
@@ -1200,7 +1251,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
       queueMode: 'chosen', autoplay: autoplayRef.current, autoplayOrder: autoplayOrderRef.current,
       ...(autoplayVideoIdRef.current ? { autoplayVideoId: autoplayVideoIdRef.current } : {}),
     });
-  }, []);
+  }, [position]);
 
   useEffect(() => {
     const onPageHide = () => saveResume(true);
@@ -1271,7 +1322,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     const play = record.playing && router.pathname !== GAME_PATHS.music;
     resumeRef.current = { ...record, playing: play };
     playlistIdsRef.current = record.playlistIds ?? record.queue;
-    autoplayOrderRef.current = record.autoplayOrder ?? [];
+    autoplayOrderRef.current = record.autoplayOrder ?? []; setAutoplayOrderState(autoplayOrderRef.current);
     autoplayVideoIdRef.current = record.autoplayVideoId ?? ''; setAutoplayVideoId(autoplayVideoIdRef.current);
     if (record.autoplay !== undefined) {
       let preference = record.autoplay;
@@ -1438,6 +1489,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     const library = catalogRef.current ?? [];
     const at = Math.max(0, library.findIndex(song => song.id === videoIdRef.current));
     autoplayOrderRef.current = turningOn && library.length ? generateShuffleOrder(library.length, at).map(index => library[index].id) : [];
+    setAutoplayOrderState(autoplayOrderRef.current);
   }
 
   function cycleRepeat() {
@@ -1495,6 +1547,12 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     // A cued song not yet played starts from here now.
     if (cuedAtRef.current) cuedAtRef.current = { ...cuedAtRef.current, seconds: v };
     setSeeking(false);
+  }
+
+  function setSeeking(v: boolean) {
+    position.set({ seeking: v });
+    // Preloading the next song waits while the reader drags.
+    selectPreload();
   }
 
   function playQueueIndex(index: number) {
@@ -1739,7 +1797,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     announce('Restored the queue.');
   }
 
-  const currentTrack = libraryTracks.find(track => track.id === videoId) ?? queue.find(track => track.id === videoId);
+  const currentTrack = useMemo(() => libraryTracks.find(track => track.id === videoId) ?? queue.find(track => track.id === videoId), [libraryTracks, queue, videoId]);
   // The playing song's art and artist where the catalogue has none (lib/music/songArt.ts), and
   // Monster Siren's JPEG cover for the lock screen whenever its audio plays the song.
   const msrSession = Boolean(videoId) && engineKind === 'msr';
@@ -1774,82 +1832,42 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
       previous: prevTrack,
       seek: (seconds) => { setCurrentTime(seconds); handleSeekCommit(seconds); },
     },
-    position: () => ({ seconds: playerRef.current?.getCurrentTime() ?? currentTimeRef.current, duration: playerRef.current?.getDuration() ?? durationRef.current }),
+    position: () => ({ seconds: playerRef.current?.getCurrentTime() ?? position.get().currentTime, duration: playerRef.current?.getDuration() ?? position.get().duration }),
     element: msrSession ? audioRef.current?.element ?? null : null,
   });
 
-  const value: MusicPlayerContextValue = {
-    ready,
-    starting,
-    isPlaying,
-    buffering,
-    title,
-    videoId,
-    volume,
-    shuffle,
-    repeatMode,
-    favorites,
-    currentTime,
-    duration,
-    seeking,
-    queue,
-    queueIndex,
-    shuffleOrder,
-    shufflePosition,
-    queueLoading,
-    playingPlaylistId,
-    queued,
-    queueSource,
-    libraryTracks,
-    currentTrack,
-    nowPlayingCover,
-    nowPlayingArtist,
-    autoplay, autoplayVideoId, autoplayTracks: nextAutoplayTracks(), setAutoplay,
-    notice,
-    dismissNotice,
-    excludeCopyrighted,
-    includeEndfield,
-    setIncludeEndfield,
-    dataSaver,
-    setDataSaver,
-    engineKind,
-    initializePlayer,
-    togglePlay,
-    pausePlayback,
-    nextTrack,
-    prevTrack,
-    toggleShuffle,
-    cycleRepeat,
-    toggleFavorite,
-    toggleNoAutoplay: toggleSongNoAutoplay,
-    noAutoplay,
-    setVolumeLevel,
-    handleSeekChange,
-    handleSeekCommit,
-    setSeeking,
-    playQueueIndex,
-    playTrackByVideoId, playFirst, playPlaylist,
-    reorderQueue,
-    reorderShuffleOrder,
-    moveQueueItemToTop,
-    removeFromQueue,
-    playNow,
-    queueSong,
-    clearQueue,
-    undoClearQueue,
-    canUndoClear,
-    setExcludeCopyrighted,
-    containerRef,
-  };
+  // The actions keep their identity across renders (lib/ui/useLatestActions.ts), so the value
+  // below changes only with the state it carries.
+  const actions = useLatestActions({
+    setAutoplay, dismissNotice, setIncludeEndfield, setDataSaver, initializePlayer, togglePlay, pausePlayback, nextTrack, prevTrack,
+    toggleShuffle, cycleRepeat, toggleFavorite, toggleNoAutoplay: toggleSongNoAutoplay, setVolumeLevel, playQueueIndex, playTrackByVideoId,
+    playFirst, playPlaylist, reorderQueue, reorderShuffleOrder, moveQueueItemToTop, removeFromQueue, playNow, queueSong, clearQueue,
+    undoClearQueue, setExcludeCopyrighted,
+  });
+  const value = useMemo<MusicPlayerContextValue>(() => ({
+    ready, starting, isPlaying, buffering, title, videoId, volume, shuffle, repeatMode, favorites,
+    queue, queueIndex, shuffleOrder, shufflePosition, queueLoading, playingPlaylistId, queued, queueSource, libraryTracks, currentTrack,
+    nowPlayingCover, nowPlayingArtist, autoplay, autoplayVideoId, autoplayTracks, notice, excludeCopyrighted, includeEndfield, dataSaver,
+    engineKind, noAutoplay, canUndoClear, containerRef, ...actions,
+  }), [
+    ready, starting, isPlaying, buffering, title, videoId, volume, shuffle, repeatMode, favorites,
+    queue, queueIndex, shuffleOrder, shufflePosition, queueLoading, playingPlaylistId, queued, queueSource, libraryTracks, currentTrack,
+    nowPlayingCover, nowPlayingArtist, autoplay, autoplayVideoId, autoplayTracks, notice, excludeCopyrighted, includeEndfield, dataSaver,
+    engineKind, noAutoplay, canUndoClear, actions,
+  ]);
+  const playbackActions = useLatestActions({ handleSeekChange, handleSeekCommit, setSeeking });
+  const playback = useMemo<MusicPlaybackContextValue>(() => ({ position, ...playbackActions }), [position, playbackActions]);
 
   return (
     <MusicPlayerContext.Provider value={value}>
-      {children}
-      {endfieldNotice && <EndfieldNoticeDialog onClose={closeEndfieldNotice} />}
-      {/* Only with ?audio-debug=1 (or once set, localStorage arkpediaAudioDebug=1): what the
-          <audio> element and the player believe, for a phone that cannot be inspected. */}
-      <AudioDebugPanel engineKind={engineKind} isPlaying={isPlaying} buffering={buffering}
-        engineState={() => audioRef.current?.debug() ?? null} />
+      <MusicPlaybackContext.Provider value={playback}>
+        {children}
+        {endfieldNotice && <EndfieldNoticeDialog onClose={closeEndfieldNotice} />}
+        {/* Only with ?audio-debug=1 (or once set, localStorage arkpediaAudioDebug=1): what the
+            <audio> element and the player believe, for a phone that cannot be inspected. */}
+        <AudioDebugPanel engineKind={engineKind} isPlaying={isPlaying} buffering={buffering}
+          engineState={() => audioRef.current?.debug() ?? null} />
+      </MusicPlaybackContext.Provider>
     </MusicPlayerContext.Provider>
   );
 }

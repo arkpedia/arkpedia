@@ -6,7 +6,7 @@ import Head from 'next/head';
 import Link from 'next/link';
 import Image from '@/components/content/ContentImage';
 import { useRouter } from 'next/router';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { useReaderClock } from '@/lib/time/readerClock';
 import { getAllOperators } from '@/lib/operators/operators';
 import { portraitStatus } from '@/lib/operators/operatorPortrait';
@@ -243,6 +243,9 @@ export default function OperatorsIndex({ operators, now }: Props) {
       return a.name.localeCompare(b.name);
     });
   }, [matching, showUnreleased, factionFilter, search, sortDir, sortField, clock, account, owned, ownedNames]);
+  /* A filter chip's press paints before the roster is refiltered: the chips read the filters,
+     the grid this deferred copy (360 ms per press in the field, 2026-10-27). */
+  const shown = useDeferredValue(filtered);
 
   // The phone's Filters sheet (components/ui/FilterSheet): one chip per filter that is on,
   // and a hold over the list so a filter pressed in the sheet cannot clamp the reader.
@@ -450,7 +453,7 @@ export default function OperatorsIndex({ operators, now }: Props) {
 
       <main>
         <div ref={hold.ref} style={hold.style}>
-        {filtered.length === 0 ? (
+        {shown.length === 0 ? (
           <div className="waiting-box">
             <h2>No operators match</h2>
             <p className="hint">Try adjusting or resetting your filters.</p>
@@ -458,7 +461,7 @@ export default function OperatorsIndex({ operators, now }: Props) {
         ) : (
           <>
             <div className="grid roster-grid">
-              {filtered.slice(0, visibleCount).map((op, i) => (
+              {shown.slice(0, visibleCount).map((op, i) => (
                 <Link prefetch={false}
                   key={op.name}
                   href={operatorHref(op.name, null)}
@@ -520,7 +523,7 @@ export default function OperatorsIndex({ operators, now }: Props) {
                 </Link>
               ))}
             </div>
-            <LoadOnScroll shown={visibleCount} total={filtered.length} onMore={() => setVisibleCount((c) => c + PAGE_SIZE)} />
+            <LoadOnScroll shown={visibleCount} total={shown.length} onMore={() => setVisibleCount((c) => c + PAGE_SIZE)} />
           </>
         )}
         </div>

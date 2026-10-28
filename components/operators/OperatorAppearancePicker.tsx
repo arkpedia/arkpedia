@@ -1,12 +1,12 @@
 import Image from '@/components/content/ContentImage';
-import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import { useClientLayoutEffect } from '@/lib/ui/useClientLayoutEffect';
+import { useCallback, useId, useRef, useState } from 'react';
 import type { KeyboardEvent, PointerEvent } from 'react';
 import type { Appearance } from '@/lib/operators/operatorAppearances';
 import { getSkinArtworkSources } from '@/lib/assets/skinArtwork';
 import ResponsiveSkinArtwork from '@/components/skins/ResponsiveSkinArtwork';
 import styles from './OperatorAppearancePicker.module.css';
 
-const useClientLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 const GAP = 6;
 const DESKTOP_CARD_WIDTH = 116;
 

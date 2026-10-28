@@ -227,9 +227,6 @@
 .simple-all { padding:24px; border:1px solid var(--line); border-radius:var(--radius-frame); background:var(--panel); }
 .simple-empty { padding:60px 20px; text-align:center; border:1px dashed var(--line); border-radius:var(--radius-frame); }
 .simple-empty p { margin-top:0; color:var(--text-dim); } /* --heading-gap under the heading, not the paragraph's own 1em */
-
-.simple-wizard .state-block-rule { display:none; }
-.simple-wizard .wizard-foot { justify-content:space-between; }
 /* The starting levels' lock (OperatorStateForm `locked`): a fieldset only for the disabled state it
    gives every control inside, so none of its own box. */
 .state-form-lock { min-width: 0; margin: 0; padding: 0; border: 0; }
@@ -274,13 +271,11 @@
 .planner-state-label { display:inline-flex; align-items:center; gap:5px; }
 .simple-build-summary b { display:flex; align-items:center; gap:6px; }
 
-
 .simple-editor-title { margin:0; line-height:1.15; }
 .simple-wizard .wizard-foot { justify-content:flex-end; }
 
 .simple-editor-title { display:flex; align-items:center; gap:12px; }
 .simple-editor-title img { flex-shrink:0; object-fit:contain; }
-
 
 /* The search field and Clear share one centre line (ui-primitives rule 4). The 44px
    button sat 5px below the 38px field's centre (8px on a phone): the row was top-
@@ -288,9 +283,9 @@
    a centred row centres, so the space under the field belongs to the row. */
 .simple-search-row { display:flex; align-items:center; gap:10px; margin-bottom:16px; }
 .simple-search-row .simple-search { flex:1; min-width:0; margin-bottom:0; }
-.simple-search-row > button,.simple-search-row > .plan-clear-armed { flex-shrink:0; }
+.simple-search-row > button { flex-shrink:0; }
 .planner-roster-clear { display:flex; justify-content:flex-end; padding:10px 20px 0; }
-@media(max-width:640px) { .simple-search-row { flex-wrap:wrap; } .simple-search-row > .plan-clear-armed { margin-bottom:12px; } }
+@media(max-width:640px) { .simple-search-row { flex-wrap:wrap; } }
 
 .simple-wizard .wizard-head { align-items:center; padding:14px 20px; gap:16px; }
 /* margin 0 beats .modal-box h2's 6px/16px: a margin under the title is part of the box
@@ -304,7 +299,7 @@
 .planner-clear-button { width:84px; min-width:84px; flex-shrink:0; }
 .planner-clear-button[data-armed="true"] { background:var(--danger-solid); border-color:var(--danger-solid); color:#fff; }
 
-.state-level { gap:12px; margin-top:10px; }
+.state-level { margin-top:10px; }
 .state-level .state-level-number { width:58px; min-width:58px; flex:0 0 58px; height:var(--control-h); padding:0 6px; text-align:center; border:1px solid var(--control-border); border-radius:var(--radius); background:var(--bg); color:var(--text); font:600 22px var(--font-display); appearance:textfield; }
 .state-level-number::-webkit-inner-spin-button,.state-level-number::-webkit-outer-spin-button { -webkit-appearance:none; margin:0; }
 .state-block .state-level .state-level-range { display:block; width:0; flex:1 1 0; min-width:0; margin:0; }
@@ -397,7 +392,6 @@
   color: var(--text);
 }
 
-
 /* ===== 2. The four operator blocks ======================================
    One block per axis the game locks in sequence: elite & level, skill level,
    masteries, modules. Numbered, because they read as a sequence and the
@@ -426,18 +420,6 @@
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 10px;
-}
-.state-block-rule {
-  /* Shrinkable. As a flex item it defaulted to min-width:auto and took its
-     max-content width, so "5★ caps at E2 Lv80" set the block's width instead of
-     wrapping inside it. */
-  min-width: 0;
-  font-family: var(--font-mono);
-  font-weight: 400;
-  font-size: 11px;
-  line-height: 1.3;
-  text-align: right;
-  color: var(--text-faint);
 }
 
 /* A locked block keeps its full opacity -- only its controls die. The point of
@@ -502,11 +484,8 @@
    wrap rather than squash, because each chip keeps its 40px floor. */
 .skill-row .state-pips { flex: 0 1 auto; justify-content: flex-end; }
 
-
 /* ===== 3. Depot ==========================================================
    Order is IN_GAME_ORDER unless the reader picks another arrangement. */
-
-
 
 /* auto-fill against a real minimum, not a fixed count per breakpoint.
    A tile cannot be narrower than icon + name + stepper, about 206px, and the
@@ -635,7 +614,6 @@
   .depot-stepper button { width: 44px; }
   .depot-stepper input { width: 74px; font-size: 18px; }
 }
-
 
 /* ===== 4. Shortfall list + crafting =====================================
    Six columns: icon, material, where, have/need, short, craft. */
@@ -767,7 +745,6 @@
   color: var(--text-faint);
 }
 
-
 /* ===== 5. The expanded recipe ===========================================
    One level per node; the tree recurses through its own rows. */
 
@@ -885,19 +862,16 @@
   .recipe-row .have, .recipe-row .gap, .recipe-row .status-ok { flex: none; margin-left: auto; }
 }
 
-
 /* ===== 6. Motion ========================================================
    Nothing moves. Every state change is a colour or a border. */
 @media (prefers-reduced-motion: reduce) {
   .depot-tile { transition: none; }
 }
 
-
 /* ===== 7. Fitting the new parts to the page's existing furniture ========
    These four selectors reach classes that planner.css already owns. They are
    here rather than there because they exist only for the turn-15 markup; when
    the last of the old planner CSS goes, they go with it. */
-
 
 /* Both are SegmentedControls, which wrap on a narrow row rather than setting the
    page's width (`flex: none` once made the arrangement strip 360px of max-content
@@ -950,10 +924,6 @@
 /* LMD and EXP, once they are covered. Teal on the tick and a dimmer number,
    the same vocabulary the rows below use -- a covered line still has to be
    readable, because "0 LMD" without the word "covered" reads as a bug. */
-.planner-need-cur.met { border-color: color-mix(in srgb, var(--teal) 30%, var(--line-soft)); }
-.planner-need-cur.met b { color: var(--text-dim); }
-.planner-need-cur.met .planner-need-records { color: var(--teal); }
-
 
 /* ===== 8. The summary page ===============================================
    Three panels in the order the questions come: what to get next, who you
@@ -967,58 +937,10 @@
 /* The same 1040px column the page's <header> and <main> sit in. Wrapping the
    header in a div took it out of `header { max-width: 1040px; margin: 0 auto }`
    and the totals beside it ran off the right of the page. */
-.planner-top {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 24px;
-  flex-wrap: wrap;
-  max-width: 1040px;
-  margin: 0 auto;
-  border-bottom: 1px solid var(--line-soft);
-}
 /* Its own border is on the wrapper now, so the header inside drops its. */
-.planner-top > header {
-  flex: 1 1 320px;
-  min-width: 0;
-  max-width: none;
-  margin: 0;
-  border-bottom: 0;
-}
-.planner-top-side {
-  display: flex;
-  align-items: flex-start;
-  gap: 20px;
-  flex-wrap: wrap;
-  padding: 28px 24px 20px;
-}
 
-.plan-stats { display: flex; align-items: flex-start; gap: 20px; }
-.plan-stat { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
-.plan-stat b {
-  font-family: var(--font-mono);
-  font-weight: 700;
-  font-size: 26px;
-  line-height: 1;
-  color: var(--text-bright);
-  font-variant-numeric: tabular-nums;
-}
-.plan-stat i {
-  font-family: var(--font-mono);
-  font-weight: 500;
-  font-size: 10px;
-  font-style: normal;
-  line-height: 1.2;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--text-faint);
-  white-space: nowrap;
-}
 /* Amber only where there is something to do about it. A zero shortfall is not
    a warning, so it does not wear one. */
-.plan-stat.short b { color: var(--amber); }
-
-.plan-top-acts { display: flex; flex-direction: column; gap: 8px; }
 
 /* --- panel shell ------------------------------------------------------- */
 .plan-panel {
@@ -1342,7 +1264,6 @@
 /* The row's own actions, and the search that sits in the panel head. */
 .plan-row-acts { display: flex; align-items: center; gap: 4px; }
 
-
 /* The Craft checkbox (.check) shares the tags row, so it goes to the far end. */
 .need-card-craft { margin-left: auto; }
 
@@ -1354,8 +1275,6 @@
 .plan-panel-head .plan-hint,
 .plan-panel-head .plan-panel-tag,
 .plan-panel-foot .plan-hint { color: var(--text-dim); }
-
-
 
 /* ===== 9. The add-and-set-goals dialog ==================================
    Sits on the site's own .modal-overlay / .modal-box, so the backdrop, the
@@ -1825,8 +1744,6 @@
 }
 
 /* An armed clear: the confirm keeps the danger colour, the way out does not. */
-.plan-clear-armed { display: inline-flex; align-items: center; gap: 6px; }
-
 
 /* A card's whole head opens its recipe (ShortfallList NeedCard), not only the name: a reset
    .btn-bare laid out as the head it replaces, with the hover the name used to have. */

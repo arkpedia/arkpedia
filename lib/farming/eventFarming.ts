@@ -1,4 +1,5 @@
 import type { FarmingMaterial } from './farmingTypes';
+import { assetFileName } from '@/lib/assets/assetUrl';
 
 /** One row of data/event-farming.json's drops. */
 export interface EventFarmingDrop { material: string; stage: string; startAt: string; endAt: string }
@@ -10,7 +11,7 @@ export function getEventFarmingMaterials(drops: readonly EventFarmingDrop[]): Fa
   const materials = new Map<string, FarmingMaterial>();
   for (const drop of drops) {
     const material = materials.get(drop.material) ?? {
-      name: drop.material, icon: `/material-icons/${drop.material.replace(/[\\/*?:"<>|]/g, '').trim()}.webp`, stages: [],
+      name: drop.material, icon: `/material-icons/${assetFileName(drop.material)}.webp`, stages: [],
     };
     material.stages.push({ label: drop.stage, kind: 'eventActive', startAt: drop.startAt, endAt: drop.endAt });
     materials.set(drop.material, material);

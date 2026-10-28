@@ -1,5 +1,5 @@
 import { useRegionalTime } from '@/lib/time/useRegionalTime';
-import { regionalBanners, regionalGameEvents, regionalSkinWindows } from '@/lib/time/regional';
+import { regionalBanners, regionalGameEvents, regionalScheduleSlice, regionalSkinWindows, stripRegionalTimingSources } from '@/lib/time/regional';
 import { useReaderClock } from '@/lib/time/readerClock';
 import { parseBannerWindow } from '@/lib/gacha/realGachaBanners';
 import { getEventFarmingMaterials } from '@/lib/farming/eventFarming';
@@ -171,10 +171,26 @@ async function finalizeHome(props: Props): Promise<Props> {
   }).sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())[0] || null;
   const regional = (props as Props & { __contentTables?: { 'regional-schedules'?: import('@/lib/time/regional').RegionalSchedules } }).__contentTables?.['regional-schedules'];
   // JP and KR read these same panels with their own dates (HomePage), so no other calendar ships.
-  return { ...rest,
-    ongoingEvents: getOngoingEvents(now, events).map(serialize),
-    upcomingEvent: upcoming ? serialize(upcoming) : null,
-    ongoingBanners: getHomeGachaBanners(now, __calendar?.banners).map(banner => ({ ...banner, start: banner.start.toISOString(), end: banner.end.toISOString() })),
+  const ongoingEvents = getOngoingEvents(now, events).map(serialize);
+  const upcomingEvent = upcoming ? serialize(upcoming) : null;
+  const ongoingBanners = getHomeGachaBanners(now, __calendar?.banners).map(banner => ({ ...banner, start: banner.start.toISOString(), end: banner.end.toISOString() }));
+  /* The regional table arrives with every server's every event and banner window ever run,
+     720 kB in the HTML of every home visit (2026-10-27). The panels read only the windows of
+     the rows they show, by name, on each server (regionalGameEvents, regionalBanners); the
+     rest of the table (skin windows, farming, the weekly and SSS calendars) stays whole. */
+  const tables = (rest as Props & { __contentTables?: Record<string, unknown> }).__contentTables;
+  const sliced = regional && stripRegionalTimingSources(regionalScheduleSlice(regional, {
+    events: [...ongoingEvents.map(event => event.name), ...(upcomingEvent ? [upcomingEvent.name] : [])],
+    banners: ongoingBanners.map(banner => banner.name),
+  }));
+  /* The farming rows the same way: the Events panel lists a stage only while its window runs
+     (activeEventFarming), so a window that has closed is never shown. Those still to open
+     stay, for a page left open until one does. */
+  const lightTables = sliced && tables ? { ...tables, 'regional-schedules': { ...sliced, servers: Object.fromEntries(Object.entries(sliced.servers).map(([server, schedule]) => [server,
+    schedule?.farming ? { ...schedule, farming: schedule.farming.filter(drop => Date.parse(drop.endAt) > props.now) } : schedule])) } } : tables;
+  return { ...rest, ...(lightTables ? { __contentTables: lightTables } : {}),
+    ongoingEvents, upcomingEvent, ongoingBanners,
+    farmableMaterials: rest.farmableMaterials.map(material => ({ ...material, stages: material.stages.filter(stage => !stage.endAt || Date.parse(stage.endAt) > props.now) })).filter(material => material.stages.length),
     // What is on sale now, as /skins' Available now tab has it. A release from before the
     // windows were stored falls back to the old match against running events.
     ongoingSkins: __calendar?.skinWindows

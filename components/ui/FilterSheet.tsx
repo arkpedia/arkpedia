@@ -1,11 +1,11 @@
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useClientLayoutEffect } from '@/lib/ui/useClientLayoutEffect';
 import XButton from '@/components/ui/XButton';
 import { useMediaQuery } from '@/lib/hooks/useMediaQuery';
 
 /** The site's phone breakpoint: `--control-h` and `.search-input` change at it too. */
 const PHONE = '(max-width: 720px)';
 
-const useClientLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
 /** The class for a toolbar's own Reset: the sheet ends in a Reset of its own, so in the
  *  sheet this one is not drawn. */

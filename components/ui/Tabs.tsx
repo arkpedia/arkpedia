@@ -1,4 +1,5 @@
-import { useEffect, useLayoutEffect, useRef, type KeyboardEvent, type ReactNode } from 'react';
+import { useRef, type KeyboardEvent, type ReactNode } from 'react';
+import { useClientLayoutEffect } from '@/lib/ui/useClientLayoutEffect';
 import { XGlyph } from './XButton';
 
 export interface TabOption<V extends string | number> {
@@ -39,7 +40,6 @@ interface TabsProps<V extends string | number> {
 }
 
 /* Layout effects are the browser's; on the server React only warns about them. */
-const useClientLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
 /** Where the strip's sliding underline goes: under the current tab, in the strip's own
  *  coordinates, or null when no enabled tab is current (or the strip is not rendered).

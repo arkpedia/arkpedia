@@ -108,7 +108,8 @@ export default function DataDialog({ onClose, initialView = 'game' }: { onClose:
       const at = storedAccount()?.importedAt ?? '';
       const plan: SavedPullPlan = { ...file.plan, ...(at ? { walletFrom: at, ticksFrom: at } : {}) };
       window.localStorage.setItem(PULL_PLAN_KEY, JSON.stringify(plan));
-      writePastProgress({ doneKeys: plan.doneKeys, doneEvents: plan.doneEvents, annihilationDone: plan.annihilationDone, ticksFrom: plan.ticksFrom ?? '' });
+      // A plan this build saves carries no ticks; only a file that does replaces the store's.
+      if (plan.doneKeys.length || plan.doneEvents.length || plan.annihilationDone) writePastProgress({ doneKeys: plan.doneKeys, doneEvents: plan.doneEvents, annihilationDone: plan.annihilationDone, ticksFrom: plan.ticksFrom ?? '' });
       setNote(`Loaded the pull plan from ${source}. The Pull Planner opens with it.`);
       return;
     }

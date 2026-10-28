@@ -12,6 +12,7 @@ import ResponsiveSkinArtwork from '@/components/skins/ResponsiveSkinArtwork';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useReaderValue } from '@/lib/time/readerClock';
 import { getAllOperators, getOperatorByName } from '@/lib/operators/operators';
 import { operatorPageNames } from '@/lib/operators/operatorPagePaths';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
@@ -920,13 +921,9 @@ export default function OperatorDetailPage({ chibis = {}, summons = [], epTrack,
     return sumCostGroups(stagesUpToActive.map((s) => s.cost));
   }
 
-  const [releaseClock, setReleaseClock] = useState<number | null>(null);
-  useEffect(() => {
-    const tick = () => setReleaseClock(Date.now());
-    tick();
-    const timer = setInterval(tick, 1000);
-    return () => clearInterval(timer);
-  }, []);
+  /* The reader's clock to the minute (the label counts minutes at its finest): a second-by-
+     second tick re-rendered this whole page every second, for every operator. */
+  const releaseClock = useReaderValue<number | null>(null, (readerMs) => readerMs, { tickMs: 60_000, onFocus: true });
   const releaseLabel = releaseClock === null ? null : operatorReleaseLabel(operator, releaseClock);
 
   const welfareInfo = getWelfareInfo(operator.howToObtain);

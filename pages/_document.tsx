@@ -17,6 +17,9 @@ export default function Document() {
         <meta name="theme-color" content={THEME_COLOR.dark} />
         {/* "Add Arkpedia as a search engine": public/opensearch.xml points the browser at
             /search?s=, the site search's own query URL (pages/search.tsx). */}
+        {/* Every page's art comes from the asset host (config/asset-delivery.json); the hero
+            image's preload is the first request to it, so open the connection with the HTML. */}
+        <link rel="preconnect" href="https://assets.arkpedia.net" />
         <link rel="search" type="application/opensearchdescription+xml" title="Arkpedia" href="/opensearch.xml" />
         {/* A published picture that GitHub falsely answers 404 for is asked for again at
             another encoding of its address (lib/assets/assetRetry.ts). Here, before <body>,

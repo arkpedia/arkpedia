@@ -1,4 +1,5 @@
 import type { spine as Spine } from '@/lib/vendor/spine-3.8/spine-webgl';
+import { powerOfTwo } from './webglTextures';
 import {
   animatedShader, combine, dissolveK, followMatrix, layerPose, mapOffset, unityUvMap, wrapUnit,
   type CustomFeature, type DynamicLayer, type DynamicLayers, type LayerClock, type LayerShader, type LayerTexture, type NoiseShader, type ParticleShader, type ShaderMap,
@@ -226,7 +227,6 @@ interface Program {
   uniform: (name: string) => WebGLUniformLocation | null;
 }
 
-const powerOfTwo = (n: number) => (n & (n - 1)) === 0;
 
 /** The key of the program a shader layer needs (a tilted layer's own variant ends in 3). */
 export function programKey(shader: LayerShader, custom: CustomFeature, solid = false): string {

@@ -95,7 +95,7 @@ export function getSkinWindows(skins: Skin[], events: ScheduleEvent[], sources: 
   return windows;
 }
 
-export function computeSkinCountdowns(skins: Skin[], events: ScheduleEvent[], asOf: Date, windows: SkinWindow[]): Map<string, SkinCountdown> {
+export function computeSkinCountdowns(asOf: Date, windows: SkinWindow[]): Map<string, SkinCountdown> {
   const result = new Map<string, SkinCountdown>();
   for (const window of windows) {
     const start = Date.parse(window.startAt), end = Date.parse(window.endAt);
@@ -126,7 +126,7 @@ export const isAvailableNow = (window: SkinCountdown | undefined) => !!window?.l
  * name, so an outfit on sale in the shop outside a running event never reached it (2026-09-30).
  */
 export function availableSkins(skins: Skin[], windows: SkinWindow[], asOf: Date): Skin[] {
-  const availability = computeSkinCountdowns(skins, [], asOf, windows);
+  const availability = computeSkinCountdowns(asOf, windows);
   return skins.filter(skin => isAvailableNow(availability.get(skinKey(skin))))
     .sort((a, b) => compareCurrentSkins(a, b, availability));
 }

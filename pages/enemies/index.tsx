@@ -48,11 +48,21 @@ export default function EnemiesPage({ siblings, contents, firstSlug, statusCandi
   );
   const contentUrl = useContentUrl();
   const router = useRouter();
-  const slug = typeof router.query.e === 'string' && router.query.e ? router.query.e : firstSlug;
+  /* The enemy the address names, else the first: worked out once the router has read the
+     address. A static page's first render has no query, even at ?e=<slug>, so reading it
+     at once fetched the first enemy's record on every deep link, showed it, and then
+     fetched the named one (pages/stages/browse.tsx does the same for its stage). The
+     server prerenders with isReady false, and at a bare /enemies the browser's router is
+     ready on its first render, so the first fetch waits for mount either way. */
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+  const asked = typeof router.query.e === 'string' && router.query.e ? router.query.e : null;
+  const slug = mounted && router.isReady ? asked ?? firstSlug : null;
   const [detail, setDetail] = useState<EnemyDetailData | null>(null);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
+    if (!slug) return;
     let live = true;
     setFailed(false);
     fetchAsset(contentUrl(`/enemy-detail/${encodeURIComponent(slug)}.json`))
@@ -127,7 +137,7 @@ export default function EnemiesPage({ siblings, contents, firstSlug, statusCandi
           change height without this needing a new magic number. Below 900px the
           stylesheet lets the page scroll normally instead. */}
       <main className="enemy-page">
-        <EnemyBrowser seed={siblings} contents={contents} selectedSlug={slug}>
+        <EnemyBrowser seed={siblings} contents={contents} selectedSlug={slug ?? undefined}>
           {detail ? (
             /* Keyed on the slug so the panel's own state -- level, tab, content
                picker -- starts fresh for each enemy instead of carrying the last

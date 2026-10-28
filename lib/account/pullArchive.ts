@@ -1,3 +1,13 @@
+/**
+ * The pull archive: the one store of the reader's headhunting history, one entry per game
+ * account (server and uid) under arkpediaPullArchives, kept past Yostar's 90 days and with its
+ * own cloud consent. The account record keeps only when its history was last read
+ * (lib/account/accountStore pulls). An import adds its read to the entry (lib/account/importAccount);
+ * the Account page shows an entry (components/account/PullHistory). A record an older build
+ * wrote still carries its rows in `pulls.rows`: legacyArchives reads them off the stored text,
+ * for the one-time move into the archive (lib/account/pullArchiveStore).
+ */
+import { parseAccount, type AccountRecord } from './accountStore';
 import { parsePullHistory, type PullHistory, type PullRecord } from './pulls';
 import type { ServerId } from '@/lib/account-import/yostar';
 
@@ -5,6 +15,9 @@ export const PULL_ARCHIVE_KEY = 'arkpediaPullArchives';
 export const PULL_ARCHIVE_EVENT = 'arkpedia:pull-archives';
 export interface PullArchive { server: ServerId; uid: string; doctor: string | null; history: PullHistory; savedAt?: string }
 export const archiveKey = (archive: Pick<PullArchive, 'server' | 'uid'>) => `${archive.server}:${archive.uid}`;
+/** The archive entry an account record's history is kept under: a record from before the
+ *  profile kept the uid is 'unknown'. */
+export const accountArchiveKey = (account: Pick<AccountRecord, 'server' | 'profile'>) => archiveKey({ server: account.server, uid: account.profile?.uid || 'unknown' });
 const rowKey = (row: PullRecord) => `${row.at}|${row.pool}|${row.char}`;
 
 /** A multiset union: repeated operators within a batch survive, repeated imports don't grow it.
@@ -42,8 +55,31 @@ export function mergePullArchives(left: PullArchive[], right: PullArchive[]): Pu
   return [...merged.values()].sort((a, b) => archiveKey(a).localeCompare(archiveKey(b)));
 }
 
-export function archiveFromAccount(account: { server: ServerId; doctor: string | null; profile?: { uid?: string | null }; pulls?: PullHistory } | null): PullArchive[] {
-  return account?.pulls ? parsePullArchives([{ server: account.server, uid: account.profile?.uid || 'unknown', doctor: account.doctor, history: account.pulls }]) : [];
+/** An account's history as its archive entry. */
+export function archiveFromAccount(account: Pick<AccountRecord, 'server' | 'doctor' | 'profile'>, history: PullHistory): PullArchive {
+  return parsePullArchives([{ server: account.server, uid: account.profile?.uid || 'unknown', doctor: account.doctor, history }])[0];
+}
+
+/**
+ * The rows that account records written before the archive was the one store still carry
+ * (`pulls.rows`), as archive entries. Takes the stored values as parsed JSON (the shown record
+ * and the other servers' map), not AccountRecords: parseAccount keeps only the read status.
+ * Empty once the rows have moved (migrateLegacyPullRows), and for records with none.
+ */
+export function legacyArchives(account: unknown, others: unknown): PullArchive[] {
+  const values = [account, ...(others && typeof others === 'object' && !Array.isArray(others) ? Object.values(others as Record<string, unknown>) : [])];
+  return mergePullArchives([], values.flatMap((value) => {
+    if (!value || typeof value !== 'object') return [];
+    const history = parsePullHistory((value as Record<string, unknown>).pulls);
+    if (!history?.rows.length) return [];
+    const record = parseAccount(JSON.stringify(value));
+    return record ? [archiveFromAccount(record, history)] : [];
+  }));
+}
+
+/** Whether a stored record (or map of records) still carries pull rows. */
+export function carriesPullRows(value: unknown): boolean {
+  return !!value && typeof value === 'object' && Array.isArray(((value as Record<string, unknown>).pulls as Record<string, unknown> | undefined)?.rows);
 }
 
 export function archiveStatus(archive: PullArchive) {

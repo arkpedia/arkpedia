@@ -157,8 +157,10 @@ export default function SiteNav({ mobileNav }: { mobileNav?: MobileNavOverride }
         </div>
       </nav>
       {/* Holds the fixed nav's place in flow. One height now, so it never changes size
-          under the reader. Hidden on mobile, where MobileNavDrawer has its own. */}
-      <div className="site-nav-spacer" style={{ height: navHeight }} aria-hidden="true" />
+          under the reader. Hidden on mobile, where MobileNavDrawer has its own. Until the
+          bar is measured the stylesheet's height stands (an inline 0 moved every desktop
+          page down by the bar on hydration: a 0.037 layout shift on each, 2026-10-27). */}
+      <div className="site-nav-spacer" style={navHeight ? { height: navHeight } : undefined} aria-hidden="true" />
 
       <MobileNavDrawer mobileNav={mobileNav} search={search} />
       {/* One pop-up for both bars and the keyboard (Ctrl/Cmd+K, "/"). */}

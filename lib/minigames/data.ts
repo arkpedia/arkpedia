@@ -1,4 +1,5 @@
 import { publicFileExists } from '@/lib/assets/publicAssets';
+import { assetFileName } from '@/lib/assets/assetUrl';
 import { getAllOperators } from '@/lib/operators/operators';
 import { operatorRelease, releaseMarker } from '@/lib/operators/operatorAvailability';
 import { Operator } from '@/lib/operators/operatorTypes';
@@ -27,7 +28,7 @@ export function getPaletteCatalogue(): PaletteOperator[] {
   return datedOperators().map((operator) => {
     function art(label: 'Base' | 'Elite 2'): PaletteArtwork | null {
       if (!operator.rarity || (label === 'Elite 2' && operator.rarity < 4)) return null;
-      const safeName = operator.name.replace(/[\\/*?:"<>|]/g, '').trim();
+      const safeName = assetFileName(operator.name);
       const image = `/${WORDS[operator.rarity]}-star-skins/${safeName} - ${label}.webp`;
       const palette = artworks[image];
       if (!palette || !publicFileExists(image)) return null;

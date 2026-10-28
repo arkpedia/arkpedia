@@ -1,12 +1,17 @@
 /* Split from globals.css -- gacha.css */
 
-
 .gacha-banner-date { font-size: 13px; font-weight: 400; color: var(--text-dim); }
 .gacha-banner-main-image {
   display: block;
   width: 100%;
   max-width: 100%;
   height: auto;
+  /* The banners' own 1024x559 proportions, the same box the placeholder below takes: the
+     element's own 1600x900 attributes reserved 16:9, so the box shrank when the art arrived
+     and on every banner switch (a 0.25 layout shift on /gacha's section in the field,
+     2026-10-27). The few wider banners letterbox inside it. */
+  aspect-ratio: 1024 / 559;
+  object-fit: contain;
   border-radius: var(--radius-frame);
   margin: 0;
   border: 1px solid var(--line-soft);
@@ -351,7 +356,9 @@
 .gacha-details-name-list button { padding: 7px 10px; border: 1px solid var(--control-border); border-radius: var(--radius-control); background: var(--panel-2); color: var(--text); text-align: left; cursor: pointer; }
 .gacha-details-featured:focus-visible, .gacha-details-name-list button:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
 @media (max-width: 700px) {
-  .gacha-pull-preview { display: block; height: auto; overflow-y: auto; }
+  /* The same fixed height as the desktop dialog: this one is centred in its overlay, so a
+     dialog that grew when the operator's details arrived moved its header and art up. */
+  .gacha-pull-preview { display: block; height: min(90vh, 900px); overflow-y: auto; }
   .gacha-preview-body { display: block; }
   .gacha-preview-portrait { display: block; }
   .gacha-preview-data { overflow: visible; padding-right: 0; scrollbar-gutter: auto; }
@@ -359,12 +366,6 @@
   .gacha-preview-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 420px) { .gacha-details-rates { grid-template-columns: repeat(2, minmax(0, 1fr)); } .gacha-details-featured-list { grid-template-columns: repeat(2, minmax(0, 1fr)); } .gacha-details-featured { flex-direction: column; align-items: start; } }
-
-.gacha-banner-list {
-  flex-wrap: wrap;
-  max-height: 160px;
-  overflow-y: auto;
-}
 
 .gacha-main {
   overflow-anchor: none;
@@ -379,10 +380,6 @@
 @media (max-width: 720px) {
   .gacha-category-row { display: none; }
   .gacha-main .gacha-category-mobile { display: flex; width: 100%; margin-bottom: 12px; }
-}
-
-.gacha-mobile-view-toggle {
-  display: none;
 }
 .gacha-layout {
   display: flex;
@@ -614,10 +611,6 @@
   color: var(--danger);
 }
 
-.gacha-pull-rate-up {
-  color: var(--amber);
-}
-
 .gacha-other-toggle {
   margin-top: 10px;
   font-size: 12px;
@@ -629,22 +622,6 @@
 }
 .gacha-info-toggle-row .gacha-other-toggle {
   margin-top: 10px;
-}
-.gacha-other-list {
-  margin-top: 8px;
-  padding: 10px 12px;
-  background: var(--panel-2);
-  border: 1px solid var(--line-soft);
-  border-radius: var(--radius-frame);
-  font-size: 12px;
-  line-height: 1.6;
-  color: var(--text-dim);
-}
-.gacha-other-row { margin: 0 0 6px; }
-.gacha-other-row:last-child { margin-bottom: 0; }
-.gacha-other-row-label {
-  font-weight: 700;
-  color: var(--text);
 }
 
 .gacha-spark-store-btn {

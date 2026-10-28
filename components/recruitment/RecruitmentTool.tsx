@@ -4,7 +4,7 @@ import Head from 'next/head';
 import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import PipWindow, { isOperaBrowser, pipSupported, usePipWindow } from '@/components/ui/PipWindow';
 import ThemeToggle from '@/components/layout/ThemeToggle';
 import PageHeader from '@/components/ui/PageHeader';
@@ -97,7 +97,10 @@ export default function RecruitmentTool({ operators, guaranteedCombos4, guarante
 
   useEffect(() => () => { pipRef.current?.close(); }, []);
 
-  const combos = useMemo(() => computeTagCombos(selectedTags, operators), [selectedTags, operators]);
+  /* A chip's press paints before the combinations are recomputed from it: the chips read
+     selectedTags, the results the deferred copy (328 ms per press in the field, 2026-10-27). */
+  const shownTags = useDeferredValue(selectedTags);
+  const combos = useMemo(() => computeTagCombos(shownTags, operators), [shownTags, operators]);
   const visibleCombos = showAllPossibilities ? combos : combos.filter((combo) => !comboShouldBeHidden(combo.operators));
   const multiTagCombos = sortByRarityPriority(visibleCombos.filter((combo) => combo.tags.length > 1));
   const singleTagCombos = sortByRarityPriority(visibleCombos.filter((combo) => combo.tags.length === 1));

@@ -1,5 +1,6 @@
 import type { BaseRosters } from './baseGroupRosters';
 import { nonDefaultRecruitSlots } from './baseResources';
+import { averageRampValue } from './rampValue';
 
 export interface ReceptionRoomContext {
   /** The group rosters (lib/base/baseGroupRosters.ts), from the page's props. */
@@ -28,29 +29,7 @@ type Handler = (ctx: ReceptionRoomContext) => ClueSkillResult;
  * correctly already by the generic Clue Search Speed regex parser --
  * this only covers skills with a same-room condition, an "alone" bonus,
  * or a dependency on something this simulator can't track on its own. */
-/** Time-weighted average of a step-ramping skill (e.g. Ines: flat at
- * 0.20 for the first hour, then +0.02/hr each hour after, capped at
- * 0.30) over an arbitrary window length in hours -- same verified
- * step semantics already used for the Factory ramping skills (Fang,
- * Kroos, Scene, Ceobe, Aroma). */
-function stepValueAtHour(base: number, ratePerHour: number, cap: number, hourIndex: number): number {
-  if (hourIndex === 0) return base;
-  return Math.min(cap, base + ratePerHour * hourIndex);
-}
 
-function averageRampValue(base: number, ratePerHour: number, cap: number, windowHours: number): number {
-  if (windowHours <= 0) return base;
-  let total = 0;
-  const fullHours = Math.floor(windowHours);
-  for (let h = 0; h < fullHours; h++) {
-    total += stepValueAtHour(base, ratePerHour, cap, h);
-  }
-  const remainder = windowHours - fullHours;
-  if (remainder > 0) {
-    total += stepValueAtHour(base, ratePerHour, cap, fullHours) * remainder;
-  }
-  return total / windowHours;
-}
 
 export const RECEPTION_ROOM_SPECIAL_SKILLS: Record<string, Handler> = {
   'Rhodes Island Recon|Stealth Expert': (ctx) => ({ clueSpeed: ctx.violetOrchidInControlCenter ? 0.1 : 0, note: 'Also favours missing clues.' }),

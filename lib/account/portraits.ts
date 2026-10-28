@@ -1,3 +1,4 @@
+import { assetFileName } from '@/lib/assets/assetUrl';
 /**
  * An outfit's portrait: the game's own crop of an operator in that outfit, which its profile
  * card shows support units in. arkpedia-image-assets publishes them to profile-portraits/
@@ -21,7 +22,7 @@ export function profileArtPath(folder: 'profile-avatars' | 'profile-medals' | 'p
 
 const RARITY_WORDS: Record<number, string> = { 6: 'six', 5: 'five', 4: 'four', 3: 'three', 2: 'two', 1: 'one' };
 type Chars = Record<string, { name: string; rarity?: number }>;
-const fileName = (name: string) => name.replace(/[\\/*?:"<>|]/g, '').trim();
+const fileName = (name: string) => assetFileName(name);
 
 /** One outfit of the catalogue as pages/account.tsx's props carry it to the card. Every
  *  published release's /account page holds this shape, so it stays. */

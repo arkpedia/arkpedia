@@ -14,7 +14,7 @@ export interface GuesserSkin {
 
 export const NOT_AVAILABLE = 'Not available (might be a hint!)';
 
-function shuffle<T>(arr: T[]): T[] {
+export function shuffle<T>(arr: T[]): T[] {
   const copy = [...arr];
   for (let i = copy.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));

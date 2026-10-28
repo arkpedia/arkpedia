@@ -15,9 +15,10 @@ import { rewardClaimsFromGame, parseRewardClaims, type RewardClaims } from './re
  *              absent on a record from before it
  *   profile    what the account page shows: level, when it was registered, the assistant, the
  *              signature (absent on a record written before it had them)
- *   pulls      the headhunting history (lib/account/pulls.ts): the one part an import adds to
- *              rather than replaces, since Yostar keeps only 90 days; absent until an import
- *              has tried to read it
+ *   pulls      when an import last read the headhunting history and whether it failed
+ *              (lib/account/pulls.ts PullReadStatus); absent until an import has tried. The
+ *              rows themselves are the pull archive's (lib/account/pullArchive), one history
+ *              per game account that each import adds to, since Yostar keeps only 90 days
  *
  * The planner's import writes it (Export / import > From the game), where the id map it
  * needs is a release table; it lives only in this browser's localStorage. Nothing
@@ -28,11 +29,13 @@ import { rewardClaimsFromGame, parseRewardClaims, type RewardClaims } from './re
  * one is the record every page reads (ACCOUNT_STORAGE_KEY), and the latest import of each other
  * server waits under OTHER_ACCOUNTS_KEY, its pull history with it, until the Account page shows
  * it (showAccount). Each record is in one place only, so nothing has two copies to drift apart.
+ * A record an older build wrote still carries its pull rows: the archive store moves them into
+ * the archive once (pullArchiveStore migrateLegacyPullRows), and this parser keeps the status.
  */
 import { useSyncExternalStore } from 'react';
 import type { GameAccountMap } from '@/lib/planner/gameAccount';
 import { isServerId, type ServerId } from '@/lib/account-import/yostar';
-import { parsePullHistory, type PullHistory } from './pulls';
+import { parsePullStatus, type PullReadStatus } from './pulls';
 import { baseSnapshotFromGame, parseBaseSnapshot, type AccountBaseSnapshot } from './baseSnapshot';
 import { parseRosterExport, type Roster } from '@/lib/planner/roster';
 import { medalsFromGame, parseMedalCollection, type OwnedMedal } from './medals';
@@ -65,7 +68,7 @@ export interface AccountRecord {
   outfits?: Record<string, string>;
   wallet?: AccountWallet;
   profile?: AccountProfile;
-  pulls?: PullHistory;
+  pulls?: PullReadStatus;
   base?: AccountBaseSnapshot;
   /** Per-server build snapshot, kept with the account rather than another server's planner. */
   operatorBuilds?: Roster;
@@ -225,7 +228,7 @@ export function parseAccount(raw: string | null): AccountRecord | null {
       ...(medalCollection !== undefined ? { medalCollection } : {}),
     } } : {}),
     ...(() => {
-      const pulls = parsePullHistory(value.pulls);
+      const pulls = parsePullStatus(value.pulls);
       return pulls ? { pulls } : {};
     })(),
   };

@@ -34,6 +34,31 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-10-27T21:30:00Z',
+    changed: [
+      { title: 'Pull history kept once', detail: 'Each import adds to one archive per game account; the account record and backups no longer carry a second copy of the rows.', href: '/account' },
+    ],
+  },
+  {
+    at: '2026-10-27T20:35:00Z',
+    fixed: [
+      { title: 'Base skills read the same everywhere', detail: 'Operator previews opened from pulls and the home page now show base skill keywords and numbers with their formatting.', href: '/gacha-simulator' },
+    ],
+  },
+  {
+    at: '2026-10-27T19:59:00Z',
+    changed: [
+      { title: 'Pages load lighter and hold still', detail: 'The home page sends a tenth of the data it did, and the menu, filter chips and dialogs no longer shift as a page loads.', href: '/' },
+      { title: 'Filters respond at once', detail: 'Operator, recruitment and results filters show the press before the list follows.', href: '/operators' },
+    ],
+  },
+  {
+    at: '2026-10-27T19:25:00Z',
+    fixed: [
+      { title: 'Your pull plan loads again after a reload', detail: 'A plan saved after an account import with many claimed rewards no longer refuses to load on the next visit.', href: '/pulls' },
+    ],
+  },
+  {
     at: '2026-10-27T16:00:00Z',
     title: 'Site and music UI update',
     changed: [

@@ -1,7 +1,5 @@
 /* Split from globals.css -- nav.css */
 
-
-
 /* --- Site-wide top nav (desktop) --- */
 .site-nav {
   background: var(--panel);
@@ -411,6 +409,12 @@
 /* --nav-h is the bar as MobileNavDrawer's ResizeObserver measures it, so the spacer
    follows the bar wherever it goes. The fallback is only what the first paint uses,
    before the effect has run -- keep it equal to the bar's height above. */
+/* The desktop bar's place the same way (Sitenav measures it): 54px is the bar on a
+   desktop, 10px padding each side of its 33px row and the border, so the first paint
+   already leaves it room. */
+.site-nav-spacer {
+  height: var(--nav-h, 54px);
+}
 .mobile-nav-spacer {
   display: none;
   height: var(--nav-h, 52px);
@@ -491,11 +495,6 @@
 .mobile-nav-menu-btn:hover { border-color: transparent; color: var(--teal); }
 .mobile-nav-menu-btn:active { background: var(--panel-2); }
 
-.mobile-nav-bar-side {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
 /* What a page puts where the brand goes. The display face at the brand's own weight,
    so the bar still reads as the top of the site rather than as a toolbar that has
    appeared -- and ellipsised, because the label is the page's to choose and this is a
@@ -709,7 +708,6 @@
 }
 
 .site-nav-popitem.nav-group-end, .mobile-nav-drawer-link.nav-group-end { border-bottom: 1px solid var(--line-soft); margin-bottom: 6px; padding-bottom: 12px; }
-
 
 .header-utility-actions .site-search-trigger { background: transparent; border-color: transparent; line-height: 0; }
 .header-utility-actions .site-search-trigger:hover { color: var(--teal); background: var(--teal-dim); border-color: transparent; }

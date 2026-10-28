@@ -281,6 +281,31 @@ test('Fashion Review has its own planner inventory', async ({ page }) => {
   expect(await cards.evaluateAll(nodes => nodes.every(node => node.closest('section[aria-label]')?.getAttribute('aria-label')?.includes('Fashion Review')))).toBe(true);
 });
 
+test('a plan saved with an account\'s thousands of reward ticks loads again, and the ticks stay in their own store', async ({ page }) => {
+  /* 2026-10-27: an import claims thousands of sign-in and mission rewards, older builds mirrored
+     them into the saved plan, and the plan refused its own save on the next reload. */
+  await page.goto('/pull-planner');
+  await expect(page.getByRole('heading', { name: 'Pull Planner' })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('arkpedia.pull-plan.v1') !== null), 'the page saved a plan').toBe(true);
+  const doneKeys = Array.from({ length: 2500 }, (_, i) => `free:signin:${i}`);
+  await page.evaluate((doneKeys) => {
+    const progress = { doneKeys, doneEvents: ['act_old'], annihilationDone: false, ticksFrom: '2026-10-27T00:00:00.000Z' };
+    localStorage.setItem('arkpedia.past-rewards.v1', JSON.stringify(progress));
+    const plan = JSON.parse(localStorage.getItem('arkpedia.pull-plan.v1')!);
+    localStorage.setItem('arkpedia.pull-plan.v1', JSON.stringify({ ...plan, orundum: '4321', ...progress }));
+  }, doneKeys);
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'Pull Planner' })).toBeVisible();
+  await expect(page.getByRole('textbox', { name: 'Orundum' })).toHaveValue('4321');
+  await expect(page.getByText(/Could not load your saved plan/)).toHaveCount(0);
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('arkpedia.pull-plan.v1')!).doneKeys.length), 'the plan no longer carries the ticks').toBe(0);
+  const stored = await page.evaluate(() => ({ plan: JSON.parse(localStorage.getItem('arkpedia.pull-plan.v1')!), progress: JSON.parse(localStorage.getItem('arkpedia.past-rewards.v1')!) }));
+  expect(stored.plan.orundum).toBe('4321');
+  expect(stored.plan.doneEvents).toEqual([]);
+  expect(stored.progress.doneKeys).toEqual(doneKeys);
+  expect(stored.progress.doneEvents).toEqual(['act_old']);
+});
+
 test('the planner rechecks closing windows on focus and retains the manual goal and wallet', async ({ page }) => {
   await page.goto("/pull-planner");
   const data = JSON.parse((await page.locator('#__NEXT_DATA__').textContent())!);

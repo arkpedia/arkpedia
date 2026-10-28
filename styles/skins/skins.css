@@ -64,6 +64,10 @@
   align-items: center;
   justify-content: center;
   width: 100%;
+  /* The art is 16:9 (ResponsiveSkinArtwork 1600x900): the box takes that height before the
+     picture arrives, so the text under it does not drop when it does (a 0.22 layout shift
+     on a phone, 2026-10-27). */
+  aspect-ratio: 16 / 9;
   max-height: 60vh;
   margin-bottom: 16px;
   overflow: hidden;

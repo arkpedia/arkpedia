@@ -114,7 +114,6 @@
   text-transform: uppercase;
   color: var(--teal);
 }
-.gm-chips { display: flex; flex-wrap: wrap; gap: 3px; min-width: 0; }
 /* Only ever drawn in .gm-searchrow, beside the search box. The margin-top and
    align-self it used to carry were for a different home -- pinned to the top-left
    under a panel of chips -- and in a flex row they did exactly what they say: pushed
@@ -894,7 +893,6 @@ body.gm-popout .gm-co-topbar {
    comes with it or it sits in a 1040px box above a panel twice its width. */
 body.gm-companionpage main,
 body.gm-companionpage .gm-co-head { max-width: none; }
-
 
 /* On a phone this page IS the companion, so it gets the screen.
 
@@ -1983,7 +1981,6 @@ body.gm-companionpage:not(.gm-popout) .gm-co-topbar { background: var(--panel); 
 ::view-transition-group(gm-co-topbar) { z-index: 4; }
 ::view-transition-group(foot-gotbar) { z-index: 4; }
 
-
 /* Every operator in an alliance, packed. Ten or twelve portraits is a lot of row, so
    they wrap tight and lean on their marks rather than on spacing. */
 /* 44, not 34. The alliance glyphs are stamped over the top-right of the portrait,
@@ -2165,7 +2162,6 @@ body.gm-companionpage:not(.gm-popout) .gm-co-topbar { background: var(--panel); 
    alliance wears a "!". The exemption these used to carry from the not-got
    dimming is gone with the dimming itself. */
 .gm-co-corelink { outline: 1px solid var(--amber); outline-offset: -1px; }
-
 
 /* Every alliance the operator is in, stamped down the right edge from the top,
    Cores first. One corner used to hold one badge; a column holds all three of the

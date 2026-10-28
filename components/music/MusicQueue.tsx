@@ -74,6 +74,8 @@ export default function MusicQueue({ shown }: { shown: boolean }) {
   // The shared song search (lib/music/songSearch.ts), as a filter: the queue keeps its play order.
   const searchIndex = useMemo(() => createSongIndex([...queue, ...autoplayTracks], track => ({ ...track, extra: gameSearchNames(track.game) })), [queue, autoplayTracks]);
   const matches = useMemo(() => searchIndex.matches(search), [searchIndex, search]);
+  // Filtered once for the autoplay rows and their count.
+  const autoplayShown = useMemo(() => autoplayTracks.filter(matches), [autoplayTracks, matches]);
 
   let run = 0;
   while (boundary + 1 + run < displayList.length && queued.has(displayList[boundary + 1 + run].song.id)) run += 1;
@@ -183,7 +185,7 @@ export default function MusicQueue({ shown }: { shown: boolean }) {
               <button type="button" className="ghost btn-sm" onClick={() => clearNoAutoplay()}>Let {noAutoplay.size === 1 ? 'it' : 'them all'} back</button>
             </p>}
             <div className="music-autoplay-list">
-              {autoplayTracks.filter(matches).slice(0, autoplayVisible).map(track => <SongRow key={track.id} marker="music-autoplay-row" song={track}
+              {autoplayShown.slice(0, autoplayVisible).map(track => <SongRow key={track.id} marker="music-autoplay-row" song={track}
                 active={track.id === videoId} onPlay={() => playNow(track.id)}
                 actions={{
                   playNow: () => playNow(track.id),
@@ -193,7 +195,7 @@ export default function MusicQueue({ shown }: { shown: boolean }) {
                   noAutoplay: { on: false, toggle: () => toggleNoAutoplay(track.id) },
                   playlist: true,
                 }} />)}
-              <LoadOnScroll shown={autoplayVisible} total={autoplayTracks.filter(matches).length} onMore={() => setAutoplayVisible(value => value + 50)} />
+              <LoadOnScroll shown={autoplayVisible} total={autoplayShown.length} onMore={() => setAutoplayVisible(value => value + 50)} />
             </div>
           </>}
         </section>

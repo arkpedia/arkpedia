@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type Dispatch, type RefObject, type SetStateAction } from 'react';
+import { useCallback, useEffect, useRef, useState, type Dispatch, type RefObject, type SetStateAction } from 'react';
+import { useClientLayoutEffect } from '@/lib/ui/useClientLayoutEffect';
 import { useRouter } from 'next/router';
 
-const useClientLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
 interface PopoverController {
   open: boolean;

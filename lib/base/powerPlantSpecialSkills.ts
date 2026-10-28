@@ -1,3 +1,4 @@
+import { averageRampValue } from './rampValue';
 export interface PowerPlantSkillContext {
   makotoInFactory: boolean;
   otherRobotInPowerPlant: boolean;
@@ -59,19 +60,6 @@ export interface PowerPlantSkillResult {
 
 type Handler = (ctx: PowerPlantSkillContext) => PowerPlantSkillResult;
 
-function averageRampValue(base: number, ratePerHour: number, cap: number, windowHours: number): number {
-  if (windowHours <= 0) return base;
-  let total = 0;
-  const fullHours = Math.floor(windowHours);
-  for (let h = 0; h < fullHours; h++) {
-    total += h === 0 ? base : Math.min(cap, base + ratePerHour * h);
-  }
-  const remainder = windowHours - fullHours;
-  if (remainder > 0) {
-    total += Math.min(cap, base + ratePerHour * fullHours) * remainder;
-  }
-  return total / windowHours;
-}
 
 /** Keyed by "OperatorName|SkillName". Every simple flat drone-rate bonus
  * (the vast majority of Power Plant skills -- e.g. Castle-3's "Backup

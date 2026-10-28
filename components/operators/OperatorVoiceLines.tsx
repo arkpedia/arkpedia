@@ -1,4 +1,6 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useClientLayoutEffect } from '@/lib/ui/useClientLayoutEffect';
+import { formatSeconds } from '@/lib/ui/formatSeconds';
 import { useContentUrl } from '@/lib/content/context';
 import { assetAudioUrl, retryAssetAudioOnNextPress } from '@/lib/assets/assetRetry';
 import SearchInput from '../ui/SearchInput';
@@ -10,12 +12,6 @@ import type { OperatorVoiceData, OperatorVoiceLine, OperatorVoicePack, OperatorV
 import { clipUrl, hasRecording, preferredRecordingPack } from '@/lib/operators/voiceRecording.mjs';
 import styles from './OperatorVoiceLines.module.css';
 
-function formatTime(value: number) {
-  if (!Number.isFinite(value)) return '0:00';
-  const minutes = Math.floor(value / 60);
-  const seconds = Math.floor(value % 60).toString().padStart(2, '0');
-  return `${minutes}:${seconds}`;
-}
 
 function PlayIcon({ paused }: { paused: boolean }) {
   return paused ? (
@@ -58,7 +54,6 @@ function preferredPackOf(voice: OperatorVoiceSet) {
    packs keep their bare id. Word keys are game ids and never hold the separator. */
 const SET_SEPARATOR = '::';
 
-const useClientLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
 function visibleLines(lines: OperatorVoiceLine[], category: string, query: string) {
   const needle = query.trim().toLocaleLowerCase();
@@ -470,7 +465,7 @@ export default function OperatorVoiceLines({ data }: { data: OperatorVoiceData }
         <input className={styles.seek} type="range" min="0" max={duration || 0} step="0.01"
           value={Math.min(currentTime, duration || 0)} onChange={event => seek(Number(event.target.value))}
           aria-label="Audio position" disabled={!duration} />
-        <span className={styles.time}>{formatTime(currentTime)} / {formatTime(duration)}</span>
+        <span className={styles.time}>{formatSeconds(currentTime)} / {formatSeconds(duration)}</span>
         <audio ref={audioRef} preload="none" onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)}
           onTimeUpdate={event => setCurrentTime(event.currentTarget.currentTime)}
           onLoadedMetadata={event => setDuration(event.currentTarget.duration)}

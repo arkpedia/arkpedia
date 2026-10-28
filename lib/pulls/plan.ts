@@ -5,8 +5,15 @@ import type { WishingWallMode } from './wishingWall';
 import { bannerFreePulls, type UpcomingBanner } from './pulls';
 
 export const PULL_PLAN_KEY = 'arkpedia.pull-plan.v1';
-export const MAX_PLAN_FILE_SIZE = 250_000;
+/** Large enough for a plan saved by an older build, which carried every tick in it. */
+export const MAX_PLAN_FILE_SIZE = 4_000_000;
 export const MAX_GOALS = 40;
+/** The most ticks (doneKeys, doneEvents) the past-progress store, or a plan file from before
+ *  the ticks moved there, holds. An account import claims thousands of sign-in and mission
+ *  rewards, and the game adds events every month, so this is a guard against garbage, not a
+ *  budget: the store refused (and silently emptied) a real account's ticks at 5,000, and the
+ *  plan that mirrored them refused its own save at 2,000 (2026-10-27). */
+export const MAX_PROGRESS_ITEMS = 100_000;
 export interface BannerGoal { banner: string; pulls: number; spendOn: string; bannerEndAt?: string; ticketUsed?: boolean; targets?: { name: string; copies: number }[]; includeSpark?: boolean; rateUpRoster?: string[] }
 /** The planner forecasts through each banner's end; migrate former custom dates
  * when a saved/imported plan is opened. Keep missing banners available to remove. */
@@ -27,6 +34,8 @@ export interface SavedPullPlan {
   monthlyCard: boolean; includeBacklog: boolean; annihilationDone: boolean;
   /** Whether the Skin wishlist's OP is held back from the pulls; absent (older plans) means yes. */
   includeSkins?: boolean;
+  /** The Past events ticks, which live in their own store now (lib/pulls/pastProgress.ts): empty
+   *  in a plan this build saves, filled in one an older build saved or exported. */
   doneEvents: string[]; doneKeys: string[]; clearedReruns: string[];
   future: Record<string, number>;
   goals: BannerGoal[];
@@ -77,9 +86,9 @@ export function parsePullPlan(raw: string): SavedPullPlan {
     if (typeof data[key] !== 'boolean') throw new Error(`Invalid ${key} setting.`);
     return data[key] as boolean;
   };
-  const list = (key: string): string[] => {
+  const list = (key: string, max = 2000): string[] => {
     const value = data[key];
-    if (!Array.isArray(value) || value.length > 2000 || value.some(v => typeof v !== 'string' || v.length > 200)) throw new Error(`Invalid ${key} list.`);
+    if (!Array.isArray(value) || value.length > max || value.some(v => typeof v !== 'string' || v.length > 200)) throw new Error(`Invalid ${key} list.`);
     return [...new Set(value)];
   };
   if (!data.future || typeof data.future !== 'object' || Array.isArray(data.future)) throw new Error('Invalid future events.');
@@ -129,7 +138,7 @@ export function parsePullPlan(raw: string): SavedPullPlan {
       certificateSpending[month] = Number(amount);
     }
   }
-  return { ...(certificateSpending ? { certificateSpending } : {}), ...(incomeSettings ? { incomeSettings } : {}), ...(data.yellowCerts === undefined ? {} : { yellowCerts: amount('yellowCerts') }), ...(data.walletFrom === undefined ? {} : { walletFrom: text('walletFrom', 40) }), ...(data.ticksFrom === undefined ? {} : { ticksFrom: text('ticksFrom', 40) }), version: 1, orundum: amount('orundum'), originite: amount('originite'), permits: amount('permits'), reservedOP: amount('reservedOP'), until: date('until'), manualEventDate: date('manualEventDate'), bannerName: text('bannerName'), monthlyCard: flag('monthlyCard'), includeBacklog: flag('includeBacklog'), annihilationDone: flag('annihilationDone'), doneEvents: list('doneEvents'), doneKeys: list('doneKeys'), clearedReruns: list('clearedReruns'), future, goals, ...(data.skinIds === undefined ? {} : { skinIds: list('skinIds') }), ...(data.wishingWallMode === undefined ? {} : { wishingWallMode: data.wishingWallMode as WishingWallMode }), ...(data.includeSkins === undefined ? {} : { includeSkins: flag('includeSkins') }) };
+  return { ...(certificateSpending ? { certificateSpending } : {}), ...(incomeSettings ? { incomeSettings } : {}), ...(data.yellowCerts === undefined ? {} : { yellowCerts: amount('yellowCerts') }), ...(data.walletFrom === undefined ? {} : { walletFrom: text('walletFrom', 40) }), ...(data.ticksFrom === undefined ? {} : { ticksFrom: text('ticksFrom', 40) }), version: 1, orundum: amount('orundum'), originite: amount('originite'), permits: amount('permits'), reservedOP: amount('reservedOP'), until: date('until'), manualEventDate: date('manualEventDate'), bannerName: text('bannerName'), monthlyCard: flag('monthlyCard'), includeBacklog: flag('includeBacklog'), annihilationDone: flag('annihilationDone'), doneEvents: list('doneEvents', MAX_PROGRESS_ITEMS), doneKeys: list('doneKeys', MAX_PROGRESS_ITEMS), clearedReruns: list('clearedReruns'), future, goals, ...(data.skinIds === undefined ? {} : { skinIds: list('skinIds') }), ...(data.wishingWallMode === undefined ? {} : { wishingWallMode: data.wishingWallMode as WishingWallMode }), ...(data.includeSkins === undefined ? {} : { includeSkins: flag('includeSkins') }) };
 }
 
 /** Past daily freebies cannot be saved. An unused banner ticket can be kept

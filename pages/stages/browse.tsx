@@ -1,4 +1,5 @@
 import { useContentUrl, useReleaseTable } from '@/lib/content/context';
+import { useClientLayoutEffect } from '@/lib/ui/useClientLayoutEffect';
 import { cssUrl } from '@/lib/content/urls';
 import { ContentImg } from '@/components/content/ContentImage';
 import { withContentPage } from '@/lib/content/server';
@@ -12,7 +13,7 @@ import PageHeader from '@/components/ui/PageHeader';
 import SegmentedControl from '@/components/ui/SegmentedControl';
 import StageTitle from '@/components/stages/StageTitle';
 import StageDeployBar, { DeployData, DeployOperator, phaseAt } from '@/components/stages/StageDeployBar';
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getStageTypeCounts } from '@/lib/stages/stages';
 import { buildSchedule, stateAt, PlaybackPath } from '@/lib/stages/stagePlayback';
 import { Stage, StageDevice, StageDrop, StageGeometry, StageEnemyDetail, StageEnemyEntry, StageSummary, TileLegend, TYPE_LABELS, RARITY_ORDER, UNRANKED, baseFormLabel, rosterRank, variantLabel } from '@/lib/stages/stageTypes';
@@ -2228,7 +2229,6 @@ function StageEnemyIntro({ record: { code, count, detail } }: { record: StageEne
 }
 
 /** useLayoutEffect in the browser; the server renders no layout and warns about it. */
-const useClientLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
 /**
  * The detail column's height, held across a stage change while the reader is down the

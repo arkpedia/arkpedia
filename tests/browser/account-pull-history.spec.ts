@@ -1,8 +1,11 @@
 import { readFile } from 'node:fs/promises';
 import { expect, test, type Page } from '@playwright/test';
 import type { AccountRecord } from '@/lib/account/accountStore';
+import type { PullHistory } from '@/lib/account/pulls';
 
-function account(server: 'en' | 'kr', sessions: number): AccountRecord {
+/** A record as a build before the pull archive wrote it, its rows on the record: the page moves
+ *  them into the archive once and shows them from there. */
+function account(server: 'en' | 'kr', sessions: number): AccountRecord & { pulls: PullHistory } {
   return {
     version: 1, server, importedAt: '2026-10-17T01:00:00Z', doctor: 'History fixture', operators: [], skins: [], cleared: [],
     pulls: {
@@ -23,6 +26,22 @@ async function seed(page: Page) {
   await page.reload();
   await page.getByRole('tab', { name: 'Pull history', exact: true }).click();
 }
+
+test('rows an older build kept on the records move into the archive once, and the records keep their read status', async ({ page }) => {
+  await seed(page);
+  await expect(page.locator('.account-pulls-stats').getByText('74', { exact: true })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => {
+    const archives = JSON.parse(localStorage.getItem('arkpediaPullArchives') ?? '[]') as { server: string; uid: string; history: { rows: unknown[] } }[];
+    const shown = JSON.parse(localStorage.getItem('arkpediaAccount')!), others = JSON.parse(localStorage.getItem('arkpediaOtherAccounts')!);
+    return { archives: archives.map(entry => [`${entry.server}:${entry.uid}`, entry.history.rows.length]), shown: shown.pulls, other: others.kr.pulls };
+  })).toEqual({ archives: [['en:unknown', 74], ['kr:unknown', 12]], shown: { readAt: '2026-10-17T01:00:00Z', error: null }, other: { readAt: '2026-10-17T01:00:00Z', error: null } });
+  // A second visit finds nothing to move: the archive text is the same.
+  const before = await page.evaluate(() => localStorage.getItem('arkpediaPullArchives'));
+  await page.reload();
+  await page.getByRole('tab', { name: 'Pull history', exact: true }).click();
+  await expect(page.locator('.account-pulls-stats').getByText('74', { exact: true })).toBeVisible();
+  expect(await page.evaluate(() => localStorage.getItem('arkpediaPullArchives'))).toBe(before);
+});
 
 test('Every pull mounts on request, grows on scroll, and keeps summaries and full CSV available', async ({ page }) => {
   await seed(page);

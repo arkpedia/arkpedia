@@ -7,15 +7,10 @@ import SongPlaylistPicker from './SongPlaylistPicker';
 import TransportIcon from './TransportIcons';
 import { MUSIC_VIEW_HREF, type MusicView } from './MusicNav';
 import PlayerMoreMenu from './PlayerMoreMenu';
+import SeekBar from './SeekBar';
 import { MSR_LABEL } from '@/lib/music/songArt';
 import { youtubeWatchUrl } from '@/lib/music/trackId';
 
-function formatTime(seconds: number): string {
-  if (!isFinite(seconds) || seconds < 0) return '0:00';
-  const m = Math.floor(seconds / 60);
-  const s = Math.floor(seconds % 60);
-  return `${m}:${s.toString().padStart(2, '0')}`;
-}
 
 /** How long a queue action's notice stays up; Clear queue's, with its Undo, a little longer. */
 const NOTICE_MS = 5000;
@@ -43,9 +38,9 @@ export default function MusicTransportBar({ view, compact = false, coverPath, on
   onOpenLyrics?: () => void;
 }) {
   const {
-    ready, starting, buffering, isPlaying, title, videoId, volume, shuffle, repeatMode, currentTime, duration, favorites,
+    ready, starting, buffering, isPlaying, title, videoId, volume, shuffle, repeatMode, favorites,
     currentTrack, nowPlayingCover, nowPlayingArtist, excludeCopyrighted, notice, togglePlay, nextTrack, prevTrack, toggleShuffle, cycleRepeat, setVolumeLevel,
-    handleSeekChange, handleSeekCommit, setSeeking, toggleFavorite, setExcludeCopyrighted, dismissNotice, undoClearQueue,
+    toggleFavorite, setExcludeCopyrighted, dismissNotice, undoClearQueue,
   } = useMusicPlayer();
   const barRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -71,7 +66,7 @@ export default function MusicTransportBar({ view, compact = false, coverPath, on
     rootStyle.observe(document.documentElement, { attributes: true, attributeFilter: ['style'] });
     if (main.parentElement) rootStyle.observe(main.parentElement, { attributes: true, attributeFilter: ['style', 'class'] });
     window.addEventListener('resize', measure);
-    return () => { observer.disconnect(); rootStyle.disconnect(); window.removeEventListener('resize', measure); main.style.removeProperty('--music-bar-height'); };
+    return () => { observer.disconnect(); rootStyle.disconnect(); window.removeEventListener('resize', measure); main.style.removeProperty('--music-bar-height'); main.style.removeProperty('--music-view-top'); };
   }, []);
   const catalogTitle = currentTrack?.title || title || '';
   const { displayName, fading } = useCrossFadeTitle(catalogTitle, currentTrack?.altTitle);
@@ -149,17 +144,7 @@ export default function MusicTransportBar({ view, compact = false, coverPath, on
         <Link href="/music?view=player&lyrics=1" shallow={onFullPlayer} scroll={false} prefetch={false}
           onClick={onOpenLyrics} className="ghost filter-chip music-list-btn music-lyrics-link" aria-label="Lyrics" title="Lyrics"><TransportIcon name="lyrics" /></Link>
         {queueLink}</div>
-      <div className="music-player-bottombar-seek">
-        <span className="music-time">{formatTime(currentTime)}</span>
-        <input type="range" min={0} max={duration || 0} step={1} value={currentTime}
-          onChange={event => handleSeekChange(Number(event.target.value))}
-          onMouseDown={() => setSeeking(true)} onTouchStart={() => setSeeking(true)}
-          onMouseUp={event => handleSeekCommit(Number(event.currentTarget.value))}
-          onTouchEnd={event => handleSeekCommit(Number(event.currentTarget.value))}
-          onKeyUp={event => { if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown'].includes(event.key)) handleSeekCommit(Number(event.currentTarget.value)); }}
-          className="music-seek" aria-label="Seek" aria-valuetext={`${formatTime(currentTime)} of ${formatTime(duration)}`} />
-        <span className="music-time">{formatTime(duration)}</span>
-      </div>
+      <SeekBar className="music-player-bottombar-seek" />
       <div className="music-player-bottombar-controls">
         <div className="music-transport-left music-transport-buttons">
           {favorite('music-transport-fav-wide')}

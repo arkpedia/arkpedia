@@ -1,5 +1,6 @@
 import { useRegionalTime } from '@/lib/time/useRegionalTime';
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useClientLayoutEffect } from '@/lib/ui/useClientLayoutEffect';
+import { useEffect, useRef, useState } from 'react';
 import { getActiveReminders, Reminder } from '@/lib/schedule/opsSchedules';
 import type { SssCycle } from '@/lib/schedule/sssCycle';
 import { currentMaintenance, maintenanceText, type RegionalMaintenance } from '@/lib/home/maintenance';
@@ -8,7 +9,6 @@ import { currentMaintenance, maintenanceText, type RegionalMaintenance } from '@
 // and this component rides _app so that was every page. On the server the swap is
 // meaningless (neither runs), in the browser it IS useLayoutEffect -- the pre-paint
 // measurement the marquee needs is untouched.
-const useIsomorphicLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
 const FIRST_SHOW_DELAY_MS = 15000; // 15s after first entry
 const REPEAT_INTERVAL_MS = 120000; // comes back every 2 minutes
@@ -79,7 +79,7 @@ export default function AnnouncementTicker({ sssCycle, maintenance }: { sssCycle
   // useLayoutEffect, not useEffect, matters here too -- same
   // mid-animation-jump issue applies to duration changes between
   // cycles), then locks in the exact pixel travel distance and timing.
-  useIsomorphicLayoutEffect(() => {
+  useClientLayoutEffect(() => {
     if (!visible || !trackRef.current) return;
     const track = trackRef.current;
     const container = track.parentElement;

@@ -1,12 +1,15 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { bannerPulls, mergePulls, parsePullHistory, pullSessions, rarityCounts, type PullRecord } from '../../lib/account/pulls';
+import { bannerPulls, mergePulls, parsePullHistory, parsePullStatus, pullSessions, rarityCounts, type PullRecord } from '../../lib/account/pulls';
 import { parseAccount } from '../../lib/account/accountStore';
+import { PULL_ARCHIVE_KEY, archiveKey, legacyArchives } from '../../lib/account/pullArchive';
+import { collectPullArchives, migrateLegacyPullRows } from '../../lib/account/pullArchiveStore';
 import { bannerPoolNames } from '../../lib/gacha/bannerPools';
 import type { PullRow } from '../../lib/account-import/yostar';
 
-/* The pull history the account record keeps (lib/account/pulls.ts): Yostar lists only 90 days,
-   so an import adds to it, a ten-pull at a time. */
+/* The pull history the archive keeps (lib/account/pulls.ts, lib/account/pullArchive.ts): Yostar
+   lists only 90 days, so an import adds to it, a ten-pull at a time. The account record keeps only
+   when it was last read; the rows older builds left on it move into the archive once. */
 const row = (at: number, poolId: string, charId: string, star = 3): PullRow => ({ at, poolId, poolName: `Pool ${poolId}`, charId, charName: charId, star });
 const tenPull = (at: number, poolId: string, chars: string[]) => chars.map((char) => row(at, poolId, char));
 const NOW = new Date('2026-10-05T12:00:00Z');
@@ -56,7 +59,10 @@ test("the page's summaries: presses, each banner with what it gave and the pulls
 test('a stored history is read back, and anything malformed in it is dropped', () => {
   const history = mergePulls(undefined, { rows: [row(100, 'L', 'char_a', 6)], error: null }, NOW)!;
   const record = { version: 1, server: 'en', importedAt: NOW.toISOString(), doctor: null, operators: [], skins: [], cleared: [], pulls: history };
-  assert.deepEqual(parseAccount(JSON.stringify(record))?.pulls, history);
+  // The record keeps only the read status, whether or not an older build left the rows on it.
+  assert.deepEqual(parseAccount(JSON.stringify(record))?.pulls, { readAt: NOW.toISOString(), error: null });
+  assert.deepEqual(parseAccount(JSON.stringify({ ...record, pulls: { readAt: NOW.toISOString(), error: 'x' } }))?.pulls, { readAt: NOW.toISOString(), error: 'x' });
+  assert.deepEqual(parsePullStatus({ readAt: 'not a date', error: 7 }), { readAt: null, error: null });
   // A record from before the history has none; a broken one is not a history.
   assert.equal(parseAccount(JSON.stringify({ ...record, pulls: undefined }))?.pulls, undefined);
   assert.equal(parsePullHistory({ rows: 'no' }), undefined);
@@ -94,4 +100,43 @@ test('a stored account is any of the three servers\', and its pull history joins
   // A record from before the profile kept no uid: the same server is enough, as it always was.
   assert.equal(samePlayer(stored('en'), stored('en', '2')), true);
   assert.equal(samePlayer(stored('kr', null), stored('kr', '2')), true);
+});
+
+test('the rows an older build kept on the records move into the archive once, without doubling what it holds', () => {
+  const entries = new Map<string, string>();
+  const storage = { getItem: (key: string) => entries.get(key) ?? null, setItem: (key: string, value: string) => { entries.set(key, value); }, removeItem: (key: string) => { entries.delete(key); } } as unknown as Storage;
+  const profile = (uid: string) => ({ level: null, registeredAt: null, secretary: null, bio: null, uid, avatar: null, nameCard: null, supports: [] });
+  const base = { version: 1, importedAt: NOW.toISOString(), doctor: 'Doctor#1', operators: ['Amiya'], skins: [], cleared: [] };
+  const en = mergePulls(undefined, { rows: [row(300, 'S', 'char_a'), ...tenPull(200, 'L', ['char_b', 'char_b', 'char_c'])], error: null }, NOW)!;
+  const jp = mergePulls(undefined, { rows: [row(500, 'J', 'char_d')], error: null }, NOW)!;
+  entries.set('arkpediaAccount', JSON.stringify({ ...base, server: 'en', profile: profile('100'), pulls: en }));
+  entries.set('arkpediaOtherAccounts', JSON.stringify({ jp: { ...base, server: 'jp', pulls: jp } }));
+  // The archive already holds one of Global's batches (an import since the archive was added).
+  entries.set(PULL_ARCHIVE_KEY, JSON.stringify([{ server: 'en', uid: '100', doctor: 'Doctor#1', history: { ...en, rows: en.rows.filter((pull) => pull.at === 200) } }]));
+
+  // Before the move, the archive is read as the union of both places.
+  const legacy = legacyArchives(JSON.parse(entries.get('arkpediaAccount')!), JSON.parse(entries.get('arkpediaOtherAccounts')!));
+  assert.deepEqual(legacy.map(archiveKey), ['en:100', 'jp:unknown']);
+  assert.deepEqual(collectPullArchives(storage).map((entry) => [archiveKey(entry), entry.history.rows.length]), [['en:100', 4], ['jp:unknown', 1]]);
+
+  assert.equal(migrateLegacyPullRows(storage), true);
+  const archived = JSON.parse(entries.get(PULL_ARCHIVE_KEY)!);
+  assert.deepEqual(archived.map((entry: { server: string; uid: string; history: { rows: unknown[] } }) => [`${entry.server}:${entry.uid}`, entry.history.rows.length]), [['en:100', 4], ['jp:unknown', 1]]);
+  assert.equal(archived[0].history.rows.filter((pull: PullRecord) => pull.at === 200 && pull.char === 'char_b').length, 2, 'two of one operator in a ten-pull stay two');
+  // The records keep the read status and nothing else of the history.
+  assert.deepEqual(JSON.parse(entries.get('arkpediaAccount')!).pulls, { readAt: NOW.toISOString(), error: null });
+  assert.deepEqual(JSON.parse(entries.get('arkpediaOtherAccounts')!).jp.pulls, { readAt: NOW.toISOString(), error: null });
+  assert.equal(JSON.parse(entries.get('arkpediaAccount')!).operators[0], 'Amiya');
+  // Once moved, nothing is left to move, and nothing is touched.
+  const after = [...entries.entries()];
+  assert.equal(migrateLegacyPullRows(storage), false);
+  assert.deepEqual([...entries.entries()], after);
+  assert.deepEqual(collectPullArchives(storage).map((entry) => entry.history.rows.length), [4, 1]);
+
+  // A storage that refuses the archive keeps the rows where they are.
+  entries.set('arkpediaAccount', JSON.stringify({ ...base, server: 'en', profile: profile('100'), pulls: { ...en, rows: [{ at: 900, pool: 'S', char: 'char_z', star: 3 }] } }));
+  const full = { ...storage, setItem: () => { throw new Error('QuotaExceededError'); } } as unknown as Storage;
+  assert.equal(migrateLegacyPullRows(full), false);
+  assert.equal(JSON.parse(entries.get('arkpediaAccount')!).pulls.rows.length, 1);
+  assert.equal(collectPullArchives(storage).find((entry) => archiveKey(entry) === 'en:100')?.history.rows.length, 5, 'still read as a union');
 });

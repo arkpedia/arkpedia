@@ -2,6 +2,7 @@ import { categoriesFor } from './factorySkillCategories';
 import { FactoryProduct } from './baseTypes';
 import type { BaseRosters } from './baseGroupRosters';
 import { ResourcePools } from './baseResources';
+import { averageRampValue } from './rampValue';
 
 export interface FactorySkillContext {
   totalDormitoryLevels: number;
@@ -59,32 +60,7 @@ type Handler = (ctx: FactorySkillContext) => SkillResult;
  * contribution computed by its handler, and is excluded from the
  * generic regex parser to avoid double-counting the plain-percentage
  * parts alongside the special-cased parts. */
-/** Time-weighted average of a step-ramping skill (e.g. Fang: flat at
- * 0.20 for the first hour, then +0.01/hr each hour after, capped at
- * 0.25) over an arbitrary window length in hours -- used for ramping
- * Factory skills whose window is now the REAL time until the
- * facility's first operator runs out of Morale, not a fixed 24h
- * assumption or manual hour input. Same step semantics (hour 0 = flat
- * at base, not the start of a continuous ramp) as the gacha
- * simulator's ramping skills, confirmed correct earlier this session. */
-function stepValueAtHour(base: number, ratePerHour: number, cap: number, hourIndex: number): number {
-  if (hourIndex === 0) return base;
-  return Math.min(cap, base + ratePerHour * hourIndex);
-}
 
-function averageRampValue(base: number, ratePerHour: number, cap: number, windowHours: number): number {
-  if (windowHours <= 0) return base;
-  let total = 0;
-  const fullHours = Math.floor(windowHours);
-  for (let h = 0; h < fullHours; h++) {
-    total += stepValueAtHour(base, ratePerHour, cap, h);
-  }
-  const remainder = windowHours - fullHours;
-  if (remainder > 0) {
-    total += stepValueAtHour(base, ratePerHour, cap, fullHours) * remainder;
-  }
-  return total / windowHours;
-}
 
 /** Time-weighted average of Totter's morale-difference-dependent
  * productivity (own Morale decreasing linearly at his own rate,

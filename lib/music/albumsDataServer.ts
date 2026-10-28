@@ -240,7 +240,6 @@ export interface SongModalLookupEntry {
   albumName: string;
   coverPath: string | null;
   credits: RawCredit[];
-  characterArt: CharacterArt[];
   hasLyrics: boolean;
 }
 
@@ -253,7 +252,6 @@ export function getAllSongModalLookup(): SongModalLookupEntry[] {
     albumName: s.albumName,
     coverPath: s.coverPath,
     credits: s.credits,
-    characterArt: s.characterArt,
     hasLyrics: s.lyrics != null && s.lyrics.length > 0,
   }));
   return cachedModalLookup;

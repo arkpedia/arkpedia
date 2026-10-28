@@ -4,8 +4,7 @@ import { accountAuth, accountsEnv, type AccountsEnv } from './server';
 import { assertNoCredentials, GAME_KEYS, validateCloudData, type CloudData } from './data';
 import { archiveStatements, readArchives } from './archive';
 import type { AccountProfile } from './profile';
-import { archiveFromAccount, mergePullArchives, parsePullArchives } from '@/lib/account/pullArchive';
-import { parseAccount, parseOtherAccounts } from '@/lib/account/accountStore';
+import { legacyArchives, mergePullArchives, parsePullArchives } from '@/lib/account/pullArchive';
 
 export interface CloudSave { revision: number; archiveRevision: number; gameSync: number; historySync: number; personalSync: number; paused: number; payload: string; updatedAt: string }
 export function createCloudAccountHandler(resolveEnv: () => AccountsEnv | null = accountsEnv) {
@@ -27,7 +26,7 @@ return async function handler(req: NextApiRequest, res: NextApiResponse) {
     // A snapshot is projected only after its history is durably merged in the same transaction.
     if (req.method === 'GET' && row.historySync && row.gameSync) {
       const snapshot = JSON.parse(row.payload);
-      const legacy = [parseAccount(JSON.stringify(snapshot.arkpediaAccount) ?? null), ...Object.values(parseOtherAccounts(JSON.stringify(snapshot.arkpediaOtherAccounts) ?? null))].flatMap(archiveFromAccount);
+      const legacy = legacyArchives(snapshot.arkpediaAccount, snapshot.arkpediaOtherAccounts);
       if (legacy.length) {
         const mutationId = crypto.randomUUID(), updatedAt = new Date().toISOString();
         const projected = validateCloudData(snapshot, true, !!row.personalSync);
@@ -77,8 +76,7 @@ return async function handler(req: NextApiRequest, res: NextApiResponse) {
     try {
       if (archiveInput !== undefined) { assertNoCredentials(archiveInput); archiveInput = parsePullArchives(archiveInput); }
       if (req.method === 'PUT' && historySync && gameSync) {
-        const oldTabRecords = [parseAccount(JSON.stringify(req.body.data?.arkpediaAccount) ?? null), ...Object.values(parseOtherAccounts(JSON.stringify(req.body.data?.arkpediaOtherAccounts) ?? null))];
-        const legacy = oldTabRecords.flatMap(archiveFromAccount);
+        const legacy = legacyArchives(req.body.data?.arkpediaAccount, req.body.data?.arkpediaOtherAccounts);
         if (legacy.length) archiveInput = mergePullArchives(archiveInput ?? [], legacy);
       }
     } catch (error) { return res.status(400).json({ error: (error as Error).message }); }

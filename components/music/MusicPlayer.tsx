@@ -8,14 +8,9 @@ import { useCrossFadeTitle } from '@/lib/music/useCrossFadeTitle';
 import { MSR_LABEL } from '@/lib/music/songArt';
 import TransportIcon from './TransportIcons';
 import AlbumCover from './AlbumCover';
+import SeekBar from './SeekBar';
 import { XGlyph } from '@/components/ui/XButton';
 
-function formatTime(seconds: number): string {
-  if (!isFinite(seconds) || seconds < 0) return '0:00';
-  const m = Math.floor(seconds / 60);
-  const s = Math.floor(seconds % 60);
-  return `${m}:${s.toString().padStart(2, '0')}`;
-}
 
 // "Title" alone, or "Title — Artist" when an artist credit exists.
 function formatTrackLabel(title: string, artist?: string | null): string {
@@ -34,8 +29,6 @@ export default function MusicPlayer() {
     shuffle,
     repeatMode,
     favorites,
-    currentTime,
-    duration,
     volume,
     setVolumeLevel,
     queue,
@@ -50,9 +43,6 @@ export default function MusicPlayer() {
     nextTrack,
     prevTrack,
     toggleFavorite,
-    handleSeekChange,
-    handleSeekCommit,
-    setSeeking,
     containerRef,
   } = useMusicPlayer();
 
@@ -191,38 +181,7 @@ export default function MusicPlayer() {
             </span>
           </Link>
 
-          <div className="music-seek-row">
-            <span className="music-time">{formatTime(currentTime)}</span>
-            <input
-              type="range"
-              min={0}
-              max={duration || 0}
-              step={1}
-              value={currentTime}
-              onChange={(e) => handleSeekChange(parseFloat(e.target.value))}
-              onMouseDown={() => setSeeking(true)}
-              onTouchStart={() => setSeeking(true)}
-              onMouseUp={(e) => handleSeekCommit(parseFloat((e.target as HTMLInputElement).value))}
-              onTouchEnd={(e) => handleSeekCommit(parseFloat((e.target as HTMLInputElement).value))}
-              // Keyboard seeking: arrow keys fire onChange (which only
-              // updates the DISPLAYED time, see handleSeekChange) but
-              // never any mouse/touch event, so without this keyup
-              // the slider moved while the player itself never
-              // seeked at all. Guarded to the keys that actually move a
-              // range input, so merely tabbing through the slider
-              // doesn't trigger a pointless re-seek to the current
-              // position (an audible stutter).
-              onKeyUp={(e) => {
-                if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown'].includes(e.key)) {
-                  handleSeekCommit(parseFloat((e.target as HTMLInputElement).value));
-                }
-              }}
-              className="music-seek"
-              aria-label="Seek"
-              aria-valuetext={`${formatTime(currentTime)} of ${formatTime(duration)}`}
-            />
-            <span className="music-time">{formatTime(duration)}</span>
-          </div>
+          <SeekBar className="music-seek-row" />
 
           {/* A song that would not start says so here too, until the next Play. */}
           {notice?.playback && <p className="music-widget-notice" role="status">{notice.text}</p>}

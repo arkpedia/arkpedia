@@ -273,7 +273,6 @@ button.events-row-main.btn-bare { border: 0; background: transparent; padding: 0
 }
 .event-video-title:hover, .event-video-title:focus-visible { color: var(--teal); }
 
-
 /* Rewards: the tab picker is components/ui/Tabs. All is the reward card
    (components/events/RewardSummary.tsx, .reward-summary). The wrapping row of tiles
    below, each with its name under the icon (components/events/RewardTile.tsx), is All
@@ -403,7 +402,6 @@ button.events-row-main.btn-bare { border: 0; background: transparent; padding: 0
   padding: 12px;
 }
 .event-pack h3, .event-furniture-set h3, .event-notice h3 { margin: 0 0 8px; }
-.event-pack-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; }
 .event-pack-window { font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); }
 .event-notice p { margin: 0 0 6px; font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
 .event-furniture-pieces { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 6px 14px; }

@@ -1,9 +1,12 @@
 /**
- * The reader's headhunting history, as the account record keeps it (lib/account/accountStore).
+ * The reader's headhunting history, as the pull archive keeps it (lib/account/pullArchive, one
+ * history per game account under arkpediaPullArchives). The account record
+ * (lib/account/accountStore) keeps only when an import last read it and whether it failed
+ * (PullReadStatus): the rows live in one place.
  *
  * Yostar's Account Center lists only the last 90 days of pulls, and nothing before 2025-12-11
- * (Global). So this is the one part of the record an import adds to instead of replacing: each
- * read joins what the earlier ones kept, and the history grows past the 90 days in this browser.
+ * (Global). So the history is what an import adds to instead of replacing: each read joins what
+ * the earlier ones kept, and the history grows past the 90 days in this browser.
  *
  * Every pull of a ten-pull has the same time and pool, so a pull is told apart from its batch's
  * others only by its place in the list. A read replaces each batch it has as a whole, and keeps
@@ -22,17 +25,22 @@ export interface PullRecord {
   star: number | null;
 }
 
-export interface PullHistory {
+/** What the account record keeps of the history: when an import last read it, and whether
+ *  the last one failed. The rows are the archive's. */
+export interface PullReadStatus {
+  /** When an import last read the history, ISO; null if none has managed to. */
+  readAt: string | null;
+  /** Why the last import could not read it, or null when it could. */
+  error: string | null;
+}
+
+export interface PullHistory extends PullReadStatus {
   /** Newest first. */
   rows: PullRecord[];
   /** Each pool's name as the Account Center gave it, for a pool no banner record names. */
   pools: Record<string, string>;
   /** Each character's name as the Account Center gave it, for one the id map has no entry for. */
   names: Record<string, string>;
-  /** When an import last read the history, ISO; null if none has managed to. */
-  readAt: string | null;
-  /** Why the last import could not read it, or null when it could. */
-  error: string | null;
 }
 
 /** What one import found: the rows read, or null with why not. */
@@ -69,6 +77,16 @@ export function mergePulls(previous: PullHistory | undefined, read: PullRead | n
 }
 
 const ID = /^[\w-]{1,80}$/;
+const iso = (field: unknown) => (typeof field === 'string' && field.length <= 40 && Number.isFinite(Date.parse(field)) ? field : null);
+
+/** A stored read status (a record's `pulls`, with or without the rows an older build kept
+ *  there), or undefined for anything that is not one. */
+export function parsePullStatus(value: unknown): PullReadStatus | undefined {
+  if (!value || typeof value !== 'object') return undefined;
+  const status = value as Record<string, unknown>;
+  return { readAt: iso(status.readAt), error: typeof status.error === 'string' ? status.error.slice(0, 300) : null };
+}
+
 const textMap = (value: unknown, max: number): Record<string, string> => (value && typeof value === 'object'
   ? Object.fromEntries(Object.entries(value as Record<string, unknown>).slice(0, max)
     .filter(([key, name]) => ID.test(key) && typeof name === 'string' && name.length <= 200)) as Record<string, string>
@@ -85,9 +103,7 @@ export function parsePullHistory(value: unknown): PullHistory | undefined {
     // A history the first build kept in milliseconds (unixSeconds) is read in seconds.
     return [{ at: unixSeconds(row.at as number), pool: row.pool, char: row.char, star }];
   });
-  const iso = (field: unknown) => (typeof field === 'string' && field.length <= 40 && Number.isFinite(Date.parse(field)) ? field : null);
-  return { rows, pools: textMap(history.pools, 5000), names: textMap(history.names, 5000), readAt: iso(history.readAt),
-    error: typeof history.error === 'string' ? history.error.slice(0, 300) : null };
+  return { rows, pools: textMap(history.pools, 5000), names: textMap(history.names, 5000), ...parsePullStatus(history)! };
 }
 
 /** One press of a headhunting button: a ten-pull, or a single pull. */

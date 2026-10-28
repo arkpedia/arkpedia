@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type DragEvent, type PointerEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type DragEvent, type PointerEvent } from 'react';
+import { useClientLayoutEffect } from '@/lib/ui/useClientLayoutEffect';
 import { createPortal } from 'react-dom';
 
-const useClientLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
 type Session = {
   kind: 'pointer' | 'native'; from: number; x: number; y: number; startX: number; startY: number;

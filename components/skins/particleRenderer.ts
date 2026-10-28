@@ -1,4 +1,5 @@
 import type { spine as Spine } from '@/lib/vendor/spine-3.8/spine-webgl';
+import { powerOfTwo } from './webglTextures';
 import { animatedShader, dissolveK, mapOffset, type CustomFeature, type LayerShader, type LayerTexture, type ShaderMap } from '@/lib/skins/dynamicLayers';
 import type { ParticleDocument, ParticleMaterial, ParticleSystemData } from '@/lib/skins/particleData';
 import {
@@ -103,7 +104,6 @@ interface Batch {
   cull: 0 | 1 | 2;
 }
 
-const powerOfTwo = (n: number) => (n & (n - 1)) === 0;
 const SHADER_COLUMN = /^(main\.(st|offset)|dissolve\.|distort\.|ramp\.|edge\.|vertex\.)/;
 const IDENTITY_UV = [1, 0, 1, 0] as const;
 

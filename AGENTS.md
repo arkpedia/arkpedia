@@ -2,7 +2,10 @@
 
 For any UI change, read `docs/development/design-system.md` and the relevant sections
 of `docs/development/ui-primitives.md`. Reuse shared primitives; put reusable paint in
-`styles/core/`, and keep feature styles focused on layout. Verify desktop/mobile and
+`styles/core/`. Content updates count as UI work: use official post imagery with
+full-size viewing and style source links with shared primitives. Consult the design
+documents for every new or updated page and feature. Keep feature styles focused on layout.
+Verify desktop/mobile and
 dark/light themes, including the populated/interactive states affected by the change.
 Content updates count as UI changes too. When official posts provide useful images,
 use them in an image-led layout with concise accessible summaries and full-size viewing;
@@ -29,6 +32,11 @@ Keep them disabled on live, including direct production Worker URLs. Preview mus
 use isolated account storage; never route it through the live account backend.
 The retired `arkpedia-cf.mocchibird.com` hostname is not a release or reader target;
 use canonical www. Preserve the application Worker and retained account data.
+
+Current hosting: Cloudflare serves www; Vercel remains available for rollback.
+Google/Discord accounts, profiles and cloud saves are Preview-only. Only the new
+isolated `arkpedia-preview-accounts` database may be bound to the native Preview;
+never share the live account backend or its data. Preserve live data and secrets.
 
 <!-- BEGIN:nextjs-agent-rules -->
 

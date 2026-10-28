@@ -1,7 +1,8 @@
 import Link from 'next/link';
+import { useClientLayoutEffect } from '@/lib/ui/useClientLayoutEffect';
 import Image from '@/components/content/ContentImage';
 import { useRouter } from 'next/router';
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import HeaderUtilities from './HeaderUtilities';
 import { type SiteSearchControl } from './SiteSearch';
 import { GROUPS, LOOSE, ICONS, isActiveLink, type NavLink } from './Sitenav';
@@ -11,7 +12,6 @@ import type { MobileNavOverride } from '@/lib/nav/mobileNavOverride';
 import { useChangelogUnseen } from '@/lib/changelog/seen';
 
 // The drawer renders on the server with every page: there a layout effect only warns.
-const useClientLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
 // Only relevant near the left screen edge -- an edge-swipe is the
 // standard mobile-drawer "open" gesture, and restricting it to the
@@ -129,14 +129,12 @@ export default function MobileNavDrawer({ mobileNav, search }: { mobileNav?: Mob
   // drawer/modal behavior, so scrolling the page underneath isn't
   // possible while it's covered by the dimmed overlay.
   useEffect(() => {
-    if (open) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-    }
-    return () => {
-      document.body.style.overflow = '';
-    };
+    if (!open) return;
+    // Put back whatever was there: a page may hold its own lock (the stage guesser
+    // while typing), which clearing to '' used to lift.
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = previous; };
   }, [open]);
 
   // Closes automatically on navigation -- belt-and-suspenders on top

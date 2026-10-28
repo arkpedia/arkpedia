@@ -2,7 +2,7 @@ import { GetStaticProps } from 'next';
 import { withContentPage } from '@/lib/content/server';
 import Head from 'next/head';
 import Image from '@/components/content/ContentImage';
-import { useMemo, useState } from 'react';
+import { useDeferredValue, useMemo, useState } from 'react';
 import { getAllOperators } from '@/lib/operators/operators';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
 import { StatsRow, POWER_VALUES } from '@/lib/results/types';
@@ -37,6 +37,8 @@ export default function Results({ iconMap }: Props) {
   const histograms = FINAL_HISTOGRAMS;
   const submissionCount = FINAL_SUBMISSION_COUNT;
   const [mode, setMode] = useState<ViewMode>('compact');
+  /* The control shows the press at once; the rows follow (a 430 ms press at 4x CPU, 2026-10-27). */
+  const shownMode = useDeferredValue(mode);
   const [zoomedRow, setZoomedRow] = useState<StatsRow | null>(null);
   const [sortBy, setSortBy] = useState<SortKey | null>(null);
 
@@ -89,7 +91,7 @@ export default function Results({ iconMap }: Props) {
           />
         </div>
 
-        {mode === 'compact' && (
+        {shownMode === 'compact' && (
           <div>
             {POWER_VALUES.map((value) => {
               const group = compactGroups[value];
@@ -116,7 +118,7 @@ export default function Results({ iconMap }: Props) {
           </div>
         )}
 
-        {mode === 'detailed' && (
+        {shownMode === 'detailed' && (
           /* The table is wider than a phone (543px of columns in a 342px frame),
              so it scrolls inside its own box under the site's drawn bar instead of
              widening the whole page to 567px (GE-02). */

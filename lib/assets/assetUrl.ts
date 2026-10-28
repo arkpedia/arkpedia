@@ -47,3 +47,10 @@ export function encodeAssetPath(path: string): string {
   const encoded = file.split('/').map((segment) => encodeURIComponent(decodeSegment(segment))).join('/');
   return version ? `${encoded}?${version.slice(1)}` : encoded;
 }
+
+/** A game name as the asset repositories file it: the characters a filename cannot carry
+ *  dropped, the ends trimmed. Nine call sites each wrote this regex until 2026-10-27; a
+ *  tenth that spelled it differently would 404. */
+export function assetFileName(name: string): string {
+  return name.replace(/[\\/*?:"<>|]/g, '').trim();
+}

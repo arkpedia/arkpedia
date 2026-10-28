@@ -79,7 +79,8 @@ export default function FriendsPage({ operators, skins }: Props) {
       if (saved.length > MAX_IMPORT_BYTES) throw new Error('The saved friend list is too large. Remove a profile first.');
       setFriends(next); setFriend(null); setView(null); setProfileOpen(false);
       let persisted = true;
-      try { localStorage.setItem(FRIENDS_STORAGE_KEY, saved); localStorage.setItem(FRIEND_STORAGE_KEY, JSON.stringify(shared)); } catch { persisted = false; }
+      // The list is the one record; the single-friend key before it is read only to migrate.
+      try { localStorage.setItem(FRIENDS_STORAGE_KEY, saved); } catch { persisted = false; }
       setMessage(`Imported ${shared.account.doctor ?? 'your friend'}.${persisted ? '' : ' This tab only: browser storage could not save the profile.'}`);
     } catch (reason) {
       if (generation !== importGeneration.current) return;

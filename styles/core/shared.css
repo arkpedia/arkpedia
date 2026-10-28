@@ -10,6 +10,20 @@
    Design intent: no pure black, a narrow value range, gentle top-to-bottom
    gradients instead of flat fills, hairlines at low alpha, 2px radii, and one
    accent used as a solid fill behind dark ink. */
+/* Metric-matched stand-ins for the three webfonts (font-display: swap, pages/_app.tsx):
+   a local sans or mono scaled and shifted to the webfont's average advance width and
+   vertical metrics, so text set in the stand-in before the webfont arrives takes the
+   same room. Without them the nav links, every filter chip and the gacha sidebar
+   relaid themselves when Rajdhani loaded (a 0.03-0.3 layout shift per desktop page,
+   2026-10-27). Widths from the latin 500/600 files' letters and space, weighted by
+   English letter frequency, against Arial and Courier New. Rajdhani is matched on its
+   capitals: the chrome that moves on a first paint (nav links, chips, tabs, headings)
+   is set in caps, where Rajdhani is far narrower than its lowercase.
+   scripts/audits/font-fallback-metrics.py regenerates these. */
+@font-face { font-family: 'Rajdhani Fallback'; src: local('Arial'), local('Helvetica Neue'), local('Liberation Sans'); size-adjust: 78.06%; ascent-override: 119.13%; descent-override: 44.32%; line-gap-override: 0%; }
+@font-face { font-family: 'Inter Fallback'; src: local('Arial'), local('Helvetica Neue'), local('Liberation Sans'); size-adjust: 108.32%; ascent-override: 89.44%; descent-override: 22.27%; line-gap-override: 0%; }
+@font-face { font-family: 'JetBrains Mono Fallback'; src: local('Courier New'), local('Liberation Mono'); size-adjust: 99.98%; ascent-override: 102.02%; descent-override: 30.01%; line-gap-override: 0%; }
+
 :root {
   /* Tells the browser this is a dark page, so scrollbars, form controls, and
      other UA chrome render dark instead of glaring white. Flipped in the
@@ -199,9 +213,9 @@
   --section-gap: 36px;
   --card-inset: 12px;
 
-  --font-mono: 'JetBrains Mono', monospace;
-  --font-display: 'Rajdhani', sans-serif;
-  --font-body: 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', 'JetBrains Mono Fallback', monospace;
+  --font-display: 'Rajdhani', 'Rajdhani Fallback', sans-serif;
+  --font-body: 'Inter', 'Inter Fallback', sans-serif;
   /* One base grid row, reserved at its filled height so the layout holds
      still as operators go in -- see .base-grid for where 204px comes from. */
   --base-row-height: 204px;
@@ -523,14 +537,7 @@ header,
 .page-header.page-header-with-sticky-actions { display: flow-root; padding-bottom: 0; border-bottom: 0; }
 div.page-header-sticky-actions { box-sizing: border-box; max-width: var(--frame-max); margin: 0 auto; padding: 14px var(--page-gutter) 20px; }
 .page-header-sticky-actions > .page-header-actions { margin-top: 0; }
-.header-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 16px;
-}
 @media (max-width: 640px) {
-  .header-top { flex-direction: column; }
 }
 /* The page header's two lines carry a line height of their own, the one the webfont's
    "normal" gives (JetBrains Mono 11px: 14px; Rajdhani 30px: 38px, 24px: 30px). At
@@ -860,38 +867,8 @@ a.primary:where(:has(~ :is(button, a).ghost)),
 /* The first thing on the page starts 24px under the header hairline, like every page
    (a 20px margin put the Twitch and YouTube empty states at 44px). */
 .waiting-box:first-child { margin-top: 0; }
-.num-highlight {
-  color: var(--teal);
-  font-weight: 600;
-}
-
-.info-flip-card {
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  padding: 16px;
-  height: 100%;
-}
-.info-flip-tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 14px;
-}
-.info-flip-tabs button { font-size: 10px; padding: 6px 9px; }
-.info-flip-title {
-  font-family: var(--font-display);
-  font-size: 14px;
-  text-transform: uppercase;
-  color: var(--teal);
-  margin: 0 0 10px;
-}
-.info-flip-body .char-file-grid {
-  grid-template-columns: 1fr;
-}
 
 @media (max-width: 700px) {
-  .skills-info-row { flex-direction: column; }
 }
 
 @keyframes cardRiseIn {
@@ -1006,9 +983,6 @@ a.primary:where(:has(~ :is(button, a).ghost)),
     padding-bottom: 6px;
     scrollbar-width: thin;
   }
-  .series-logo-btn {
-    flex-shrink: 0;
-  }
 }
 
 /* Fills a fixed-ratio box by scaling each image to match the box height
@@ -1017,7 +991,6 @@ a.primary:where(:has(~ :is(button, a).ghost)),
    a consistent apparent scale across every card, since the crop adapts
    to each image's own proportions rather than cutting a flat percentage
    of whatever resolution that particular image happens to be. */
-
 
 .main-wide { max-width: 1320px; }
 .theme-toggle {
@@ -1062,33 +1035,8 @@ a.primary:where(:has(~ :is(button, a).ghost)),
 }
 
 /* --- Collectibles / Tongbaos theme page --- */
-.section-nav {
-  display: flex;
-  gap: 16px;
-  margin-top: 12px;
-}
-.section-nav a {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  color: var(--teal);
-  text-decoration: none;
-  border-bottom: 1px dotted var(--teal-dim);
-}
-.section-nav a:hover { border-bottom-color: var(--teal); }
 .badge-no-trade { color: var(--danger); border-color: #F0665A44; }
 
-.price-row {
-  display: flex;
-  gap: 10px;
-  margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px solid var(--line-soft);
-}
-.price-tag {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--text);
-}
 .price-currency { color: var(--text-faint); }
 /* Fullscreen isn't supported on mobile -- the button never appears
    there at all, rather than appearing and not working well. */
@@ -1125,12 +1073,6 @@ a.primary:where(:has(~ :is(button, a).ghost)),
 .modal-box h2 {
   margin: 6px 0 16px;
 }
-.modal-top-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-}
 .modal-box p {
   font-size: 14px;
   line-height: 1.65;
@@ -1147,37 +1089,11 @@ a.primary:where(:has(~ :is(button, a).ghost)),
 .modal-box li { margin-bottom: 10px; }
 .modal-box strong { color: var(--text); }
 .modal-box a { color: var(--teal); }
-.modal-box li.rule-red,
-.modal-box p.text-red {
-  color: var(--danger);
-}
-.mt-disclaimer {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--text-faint);
-  border-left: 2px solid var(--line);
-  padding-left: 10px;
-  margin-bottom: 16px;
-}
 .modal-actions {
   display: flex;
   justify-content: flex-end;
   margin-top: 8px;
 }
-
-.see-more-link {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--teal);
-  text-decoration: none;
-  white-space: nowrap;
-  /* 53x13 of link is not a finger. The padding is negative-margined back out
-     so the row it sits in keeps its old spacing. */
-  display: inline-block;
-  padding: 6px 4px;
-  margin: -6px -4px;
-}
-.see-more-link:hover { text-decoration: underline; }
 
 /* Every back on the site, one look (2026-10-05): a sheet's, a panel's and a page's
    (components/ui/BackLink.tsx) -- "‹ Back", or "‹ Back to <where>" where it names it.
@@ -1280,10 +1196,6 @@ a.primary:where(:has(~ :is(button, a).ghost)),
 /* The support links are .btn (the base button, a 44px call to action; teal only on
    hover): they were a one-off copy of it at 12px on a 4px radius. Only their icon is
    sized here (.support-option .support-social-link svg, below). */
-.support-social-column {
-  flex-direction: column;
-  align-items: flex-start;
-}
 .support-options-row {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1614,7 +1526,6 @@ a.primary:where(:has(~ :is(button, a).ghost)),
 .pulls-cert-months label { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .pulls-cert-months input { width: 80px; }
 
-
 .chibi-viewer { position: relative; width: min(100%, 420px); height: 260px; --chibi-stage-height: 260px; }
 .chibi-viewer > p { position: absolute; bottom: 8px; left: 0; right: 0; margin: 0; background: var(--panel); }
 .chibi-viewer canvas { position: absolute; width: 100%; height: 100%; display: block; }
@@ -1640,7 +1551,6 @@ a.primary:where(:has(~ :is(button, a).ghost)),
 .chibi-furniture { position: absolute; left: 0; width: 160px; height: 118px; pointer-events: none; mask-size: 100% 100%; mask-repeat: no-repeat; }
 .chibi-furniture-sit { top: 56px; mask-image: url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20226%20169%22%3E%3Cpath%20fill%3D%22white%22%20fill-rule%3D%22evenodd%22%20d%3D%22M158%20126L159%20126L159%20127L162%20127L162%20130L161%20130L161%20131L160%20131L160%20133L158%20133L158%20134L157%20134L157%20136L156%20136L156%20137L155%20137L155%20138L154%20138L154%20139L153%20139L153%20140L152%20140L152%20141L151%20141L151%20142L149%20142L149%20144L147%20144L147%20145L145%20145L145%20146L140%20146L140%20145L76%20145L76%20146L70%20146L70%20145L63%20145L63%20143L64%20143L64%20142L65%20142L65%20141L67%20141L67%2052L65%2052L65%2046L66%2046L66%2045L69%2045L69%2044L73%2044L73%2043L76%2043L76%2042L80%2042L80%2041L84%2041L84%2040L95%2040L95%2046L93%2046L93%2049L94%2049L94%2058L95%2058L95%2067L96%2067L96%2072L160%2072L160%2078L159%2078L159%2079L158%2079ZM104%20101L104%20102L101%20102L101%20103L99%20103L99%20104L98%20104L98%20105L97%20105L97%20106L96%20106L96%20108L95%20108L95%20109L94%20109L94%20110L95%20110L95%20112L94%20112L94%20124L93%20124L93%20127L136%20127L136%20119L135%20119L135%20117L136%20117L136%20115L135%20115L135%20110L134%20110L134%20108L133%20108L133%20106L132%20106L132%20104L130%20104L130%20103L128%20103L128%20102L125%20102L125%20101ZM74%20133L73%20133L73%20134L69%20134L69%20135L73%20135L73%20136L74%20136ZM140%20134L140%20133L139%20133L139%20136L140%20136L140%20135L144%20135L144%20134ZM145%2080L145%2081L147%2081L147%2080L149%2080L149%2079L150%2079L150%2078L152%2078L152%2077L154%2077L154%2076L155%2076L155%2075L154%2075L154%2076L152%2076L152%2077L150%2077L150%2078L149%2078L149%2079L147%2079L147%2080ZM155%20125L155%20123L151%20123L151%20125L152%20125L152%20124L154%20124L154%20125Z%22%2F%3E%3C%2Fsvg%3E'); }
 .chibi-furniture-sleep { top: 62px; mask-image: url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20226%20169%22%3E%3Cpath%20fill%3D%22white%22%20fill-rule%3D%22evenodd%22%20d%3D%22M13%2069L14%2069L14%2068L16%2068L16%2067L17%2067L17%2066L19%2066L19%2065L20%2065L20%2064L21%2064L21%2063L23%2063L23%2062L24%2062L24%2061L26%2061L26%2060L27%2060L27%2059L29%2059L29%2058L30%2058L30%2057L32%2057L32%2056L33%2056L33%2055L35%2055L35%2054L43%2054L43%2066L44%2066L44%2078L59%2078L59%2079L186%2079L186%2080L189%2080L189%2081L190%2081L190%2082L191%2082L191%2083L193%2083L193%2084L194%2084L194%2085L195%2085L195%2086L196%2086L196%2088L197%2088L197%2089L198%2089L198%2090L199%2090L199%2091L200%2091L200%2092L201%2092L201%2093L202%2093L202%2094L203%2094L203%2095L204%2095L204%2096L205%2096L205%2097L206%2097L206%2098L207%2098L207%2099L208%2099L208%20100L209%20100L209%20101L210%20101L210%20102L211%20102L211%20103L212%20103L212%20104L213%20104L213%20105L214%20105L214%20134L213%20134L213%20135L210%20135L210%20136L205%20136L205%20137L24%20137L24%20138L23%20138L23%20137L19%20137L19%20136L16%20136L16%20135L14%20135L14%20134L13%20134L13%20121L12%20121L12%20117L13%20117L13%20114L12%20114L12%20113L13%20113ZM36%2055L36%2056L35%2056L35%2057L33%2057L33%2058L32%2058L32%2059L30%2059L30%2060L29%2060L29%2061L27%2061L27%2062L26%2062L26%2063L24%2063L24%2064L23%2064L23%2065L21%2065L21%2066L20%2066L20%2067L18%2067L18%2068L17%2068L17%2069L16%2069L16%2070L22%2070L22%2069L23%2069L23%2068L24%2068L24%2067L26%2067L26%2066L27%2066L27%2065L28%2065L28%2064L30%2064L30%2063L31%2063L31%2062L32%2062L32%2061L34%2061L34%2060L35%2060L35%2059L37%2059L37%2058L38%2058L38%2057L39%2057L39%2056L41%2056L41%2055Z%22%2F%3E%3C%2Fsvg%3E'); }
-
 
 .chibi-window { position: fixed; display: flex; flex-direction: column; z-index: 91; width: min(380px, calc(100vw - 16px)); max-height: calc(100dvh - 16px); overflow: visible; padding: 8px; background: var(--panel); border: 1px solid var(--line-soft); border-radius: var(--radius-frame); }
 .chibi-window-header { flex-shrink: 0; display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }

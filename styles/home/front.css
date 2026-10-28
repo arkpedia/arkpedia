@@ -343,30 +343,11 @@ html[data-site-server="kr"] .maintenance-notice:not([data-server="kr"]) {
 
 /* Live content panel (generic pattern, reused by Community fader
    below via its own front-community-* classes) */
-.front-live-item {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  text-decoration: none;
-  color: inherit;
-}
-.front-live-thumb-wrap {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  border-radius: var(--radius);
-  overflow: hidden;
-  background: var(--panel-2);
-}
 /* .badge-live (arkpedia-theme.css) draws it; this only places it. */
 .front-live-badge {
   position: absolute;
   top: 6px;
   left: 6px;
-}
-.front-live-title {
-  font-weight: 600;
-  font-size: 13px;
 }
 
 /* Featured Operators panel -- single row, all rarities together */

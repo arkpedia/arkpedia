@@ -1,6 +1,6 @@
 import type { JSX } from 'react';
 import { useRegionalTime } from '@/lib/time/useRegionalTime';
-import { regionalBanners } from '@/lib/time/regional';
+import { regionalBanners, withLightRegionalTable } from '@/lib/time/regional';
 import { isLineupPending, lineupPendingNote, RETURNING_LIMITED_NOTE } from '@/lib/gacha/bannerLineup';
 import { bannerDisplayName } from '@/lib/gacha/bannerDisplayName';
 import { withContentPage } from '@/lib/content/server';
@@ -8,7 +8,7 @@ import { GetStaticProps } from 'next';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import Image from '@/components/content/ContentImage';
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { getGachaIconPools, GachaIconPools } from '@/lib/gacha/gachaIconPools';
 import type { HeadhuntingBanner } from '@/lib/gacha/headhuntingBanners';
 import { getBannersSortedByDate } from '@/lib/gacha/headhuntingBannerData';
@@ -1453,6 +1453,9 @@ export default function GachaSimulator({ pools, banners: globalBanners, kernelLo
     if (featuredRowRef.current) featuredRowHeight.current = featuredRowRef.current.offsetHeight;
   });
   const [previewedPull, setPreviewedPull] = useState<PreviewItem | null>(null);
+  /* One function for the dialog's life: its effect re-subscribes on a new onClose, and the page
+     re-renders every minute (the clock), which moved focus to Close while a pull was open. */
+  const closePreview = useCallback(() => setPreviewedPull(null), []);
 
   const [orienteeringSelected, setOrienteeringSelected] = useState<GachaItem[]>([]);
   const [orienteeringFiveSelected, setOrienteeringFiveSelected] = useState<GachaItem[]>([]);
@@ -1588,6 +1591,10 @@ export default function GachaSimulator({ pools, banners: globalBanners, kernelLo
     });
   }
 
+  /* Only this yes/no of the pulls so far reaches the banner's pools: keyed on every pull's
+     counts, the memo rebuilt every pool (four eligibility passes over every operator) on
+     each pull, which is most of what a ten-pull press cost (2026-10-27). */
+  const hasObtainedAnyCelebrationSix = isCelebration && !!selectedBanner && selectedBanner.six_stars.some((n) => (state.obtainedCounts[n] || 0) > 0);
   const banner: BannerConfig | null = useMemo(() => {
     if (!selectedBanner || category === 'other') return null;
     // Celebration's pool isn't static once pulling starts: the player's
@@ -1598,9 +1605,6 @@ export default function GachaSimulator({ pools, banners: globalBanners, kernelLo
     // one they just obtained, which is exactly why continuing to pull
     // risks landing a duplicate of what you just got. So once that
     // happens, nothing is excluded at all.
-    const hasObtainedAnyCelebrationSix = isCelebration && selectedBanner
-      ? selectedBanner.six_stars.some((n) => (state.obtainedCounts[n] || 0) > 0)
-      : false;
     const celebrationExcludeNames = isCelebration && selectedBanner
       ? hasObtainedAnyCelebrationSix
         ? []
@@ -1643,7 +1647,7 @@ export default function GachaSimulator({ pools, banners: globalBanners, kernelLo
     isCelebration,
     missingSixStars,
     celebrationConfirmed,
-    state.obtainedCounts,
+    hasObtainedAnyCelebrationSix,
     isOrienteering,
     orienteeringConfirmed,
     orienteeringSelected,
@@ -2254,7 +2258,7 @@ export default function GachaSimulator({ pools, banners: globalBanners, kernelLo
       </main>
 
       {showDetails && banner && <BannerDetails banner={banner} dateLabel={bannerDateLabel(selectedBanner)} onClose={() => setShowDetails(false)} onSelect={setPreviewedPull} previewOpen={!!previewedPull} />}
-      {previewedPull && <OperatorPreviewModal key={previewedPull.name} item={previewedPull} onClose={() => setPreviewedPull(null)} />}
+      {previewedPull && <OperatorPreviewModal key={previewedPull.name} item={previewedPull} onClose={closePreview} />}
 
       {showSparkStore && banner && (
         <div className="modal-overlay" onClick={() => setShowSparkStore(false)}>
@@ -2481,8 +2485,9 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ga
   }));
 
   return { props: { pools, banners: trimmedBanners, kernelLookup, releaseLookup, kernelExclusiveNames, howToObtainLookup, operatorSeriesMap } };
-  // No request-time finalize: the content export runs this against the release's own
+  // No request-time estimating: the content export runs this against the release's own
   // banners and calendar, so every estimate above arrives with the release. The old
   // hook re-estimated CN-only dates on each request from this deployment's bundled
-  // banners and events, which lag the release (411 banners against its 412).
-});
+  // banners and events, which lag the release (411 banners against its 412). The one
+  // request-time step is clock-free: the regional table without its provenance links.
+}, { finalize: async props => withLightRegionalTable(props) });

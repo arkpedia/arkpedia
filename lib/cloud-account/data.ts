@@ -84,7 +84,9 @@ export function validateCloudData(input: unknown, gameSync: boolean, personalSyn
     else if (key === ROSTER_STORAGE_KEY) clean = parseRosterExport(JSON.stringify(value));
     else if (key === PULL_PLAN_KEY) clean = parsePullPlan(JSON.stringify(value));
     else if (key === SETTINGS_KEY) clean = parseSettings(value);
-    // History has its own consent and append-only archive, never a replaceable snapshot.
+    // History has its own consent and append-only archive, never a replaceable snapshot. The
+    // record's own `pulls` is only its read status now; a snapshot an older build uploaded still
+    // carries rows there, and the API moves those into the archive (api.ts) before projecting.
     if (key === ACCOUNT_STORAGE_KEY && object(clean)) { const { pulls: _pulls, ...snapshot } = clean; clean = snapshot; }
     if (key === OTHER_ACCOUNTS_KEY && object(clean)) clean = Object.fromEntries(Object.entries(clean).map(([server, account]) => {
       const { pulls: _pulls, ...snapshot } = account as Record<string, unknown>; return [server, snapshot];
@@ -108,7 +110,8 @@ export function collectCloudData(storage: Pick<Storage, 'getItem'>, gameSync: bo
     if (raw === null) continue;
     try {
       data[key] = JSON.parse(raw);
-      // Exclude the separate archive before enforcing the snapshot's byte budget.
+      // Exclude the separate archive (and, on a record an older build wrote, the rows it still
+      // carries) before enforcing the snapshot's byte budget.
       if (key === ACCOUNT_STORAGE_KEY && object(data[key])) delete (data[key] as Record<string, unknown>).pulls;
       if (key === OTHER_ACCOUNTS_KEY && object(data[key])) for (const account of Object.values(data[key] as Record<string, unknown>)) if (object(account)) delete account.pulls;
     }

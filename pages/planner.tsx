@@ -1,4 +1,5 @@
 import { usePlannerContent } from '@/lib/content/planner';
+import { assetFileName } from '@/lib/assets/assetUrl';
 import { useContentUrl } from '@/lib/content/context';
 import { withContentPage } from '@/lib/content/server';
 import DataLink from "@/components/account/DataLink";
@@ -1605,7 +1606,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/pl
   const faceless = allOps.filter((op) => {
     const word = RARITY_WORDS[op.rarity || 0];
     if (!word) return true;
-    const safe = op.name.replace(/[\\/*?:"<>|]/g, '').trim();
+    const safe = assetFileName(op.name);
     return !publicFileExists(`/${word}-star-icons/${safe} - Base.webp`);
   });
   const unfaced = new Set(faceless.map((op) => op.name));
@@ -1682,7 +1683,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/pl
     publicFiles('material-icons')
       .map((f) => path.parse(f).name),
   );
-  const artless = depotNames(catalogue).filter((name) => !iconStems.has(name.replace(/[\\/*?:"<>|]/g, '').trim()));
+  const artless = depotNames(catalogue).filter((name) => !iconStems.has(assetFileName(name)));
   if (artless.length) {
     throw new Error(
       `planner: data/material-catalogue.json lists ${artless.length} material(s) with no icon in material-icons/: ` +

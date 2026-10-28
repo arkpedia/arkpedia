@@ -1,8 +1,8 @@
-import { CSSProperties, ReactNode, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { CSSProperties, ReactNode, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useClientLayoutEffect } from '@/lib/ui/useClientLayoutEffect';
 import { createPortal } from 'react-dom';
 import styles from './StyledSelect.module.css';
 
-const useClientLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
 export interface SelectOption {
   value: string;

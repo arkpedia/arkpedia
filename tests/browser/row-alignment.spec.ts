@@ -318,7 +318,9 @@ test("the operator page's panel header is no taller than before", async ({ page 
       const m = await header.evaluate((el) => ({
         h: Math.round(el.getBoundingClientRect().height * 10) / 10,
         stars: Math.round((el.querySelector('.op-sticky-meta > .rarity')?.getBoundingClientRect().height ?? 0) * 10) / 10,
-        webfont: Array.from(document.fonts).some((f) => f.status === 'loaded' && /Inter|Rajdhani/.test(f.family)),
+        // The metric-matched local stand-ins ("Inter Fallback", styles/core/shared.css) are faces
+        // too, loaded from the system: not webfonts.
+        webfont: Array.from(document.fonts).some((f) => f.status === 'loaded' && /Inter|Rajdhani/.test(f.family) && !/ Fallback$/.test(f.family)),
       }));
       const at = `${name}'s panel header at ${width}px${fonts ? '' : ', webfonts refused'}`;
       if (!fonts) expect(m.webfont, `${at}: no webfont loaded`).toBe(false);

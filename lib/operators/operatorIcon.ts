@@ -1,4 +1,5 @@
 import { Operator } from './operatorTypes';
+import { assetFileName } from '@/lib/assets/assetUrl';
 
 const RARITY_WORDS: Record<number, string> = {
   6: 'six', 5: 'five', 4: 'four', 3: 'three', 2: 'two', 1: 'one',
@@ -16,7 +17,7 @@ export const OPERATOR_PORTRAIT_PLACEHOLDER = '/essential-icons/Arkpedia.webp';
 /** The roster portrait an operator's record names, relative to the image repository. */
 export function operatorPortraitFile(op: Pick<Operator, 'name' | 'rarity'>): string {
   const word = (op.rarity && RARITY_WORDS[op.rarity]) || 'six';
-  return `${word}-star-icons/${op.name.replace(/[\\/*?:"<>|]/g, '').trim()} - Base.webp`;
+  return `${word}-star-icons/${assetFileName(op.name)} - Base.webp`;
 }
 
 /**

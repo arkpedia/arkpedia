@@ -1,5 +1,5 @@
 import { useRegionalTime } from '@/lib/time/useRegionalTime';
-import { regionalSkinWindows, regionalEvents } from '@/lib/time/regional';
+import { regionalSkinWindows } from '@/lib/time/regional';
 import { SERVER_TIME, serverOffsetLabel } from '@/lib/time/servers.mjs';
 import { withContentPage } from '@/lib/content/server';
 import { GetStaticProps } from 'next';
@@ -13,7 +13,7 @@ import { Skin } from '@/lib/skins/skinTypes';
 import { acquisitionLabel, compareUpcomingSkins, isUpcomingSkin, compareCurrentSkins, computeSkinCountdowns, getSkinWindows, isAvailableNow, skinKey, type SkinWindow } from '@/lib/skins/skinAvailability';
 import { withLocalConfirmedSkinWindows } from '@/lib/skins/localSkinWindows';
 import { assertSkinMatching } from '@/lib/schedule/scheduleSkinMatch';
-import { ALL_SERIES, seriesKey, skinSeriesOptions } from '@/lib/skins/skinSeriesConfig';
+import { seriesKey, skinSeriesOptions } from '@/lib/skins/skinSeriesConfig';
 import { parsePrices, formatPrices } from '@/lib/skins/skinPrice';
 import LoadOnScroll from '@/components/ui/LoadOnScroll';
 import PageHeader from '@/components/ui/PageHeader';
@@ -30,13 +30,10 @@ import { skinDynamicArt } from '@/lib/skins/dynamicArt';
 import { withSkinDynamicArt, loadDynamicArtIndex } from '@/lib/skins/dynamicArtFallback';
 import ResponsiveSkinArtwork from '@/components/skins/ResponsiveSkinArtwork';
 import { getAllEvents } from '@/lib/schedule/schedule';
-import { ScheduleEvent } from '@/lib/schedule/scheduleTypes';
 import { matchesSearch, searchRelevance } from '@/lib/search/searchNormalize';
 
 interface Props {
   skins: Skin[];
-  seriesLogos: Record<string, string | null>;
-  events: ScheduleEvent[];
   /** Every acquisition window, from the release's tables (getSkinWindows in getStaticProps).
    *  Required: the page used to rebuild them from bundled copies when a payload lacked them. */
   availabilityWindows: SkinWindow[];
@@ -61,9 +58,8 @@ const SORT_OPTIONS = [
   { value: 'available', label: 'Availability' },
 ];
 
-export default function SkinsGallery({ skins, events: globalEvents, now, availabilityWindows, dynamicArt = {} }: Props) {
+export default function SkinsGallery({ skins, now, availabilityWindows, dynamicArt = {} }: Props) {
   const { server, schedule, globalSchedule } = useRegionalTime();
-  const events = useMemo(() => regionalEvents(globalEvents, schedule, server), [globalEvents, schedule, server]);
   // The open skin lives in the URL, addressed by name (the same key the
   // wishlist already treats as a skin's identity) -- so a specific
   // skin's detail view can be shared as a link. Opening the dialog sets
@@ -95,7 +91,7 @@ export default function SkinsGallery({ skins, events: globalEvents, now, availab
     const global = regionalSkinWindows(withLocalConfirmedSkinWindows(availabilityWindows), globalSchedule, 'en');
     return server === 'en' ? global : regionalSkinWindows(global, schedule, server);
   }, [availabilityWindows, globalSchedule, schedule, server]);
-  const availability = useMemo(() => computeSkinCountdowns(skins, events, new Date(clock), windows), [skins, events, clock, windows]);
+  const availability = useMemo(() => computeSkinCountdowns(new Date(clock), windows), [clock, windows]);
   const availabilityFilter = query.availability === 'draw' ? '' : query.availability;
   const setAvailabilityFilter = (value: string) => setQuery('availability', value);
   useEffect(() => {
@@ -477,15 +473,6 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/sk
   assertSkinMatching(events.map((e) => e.name), rawSkins);
 
   const skins = rawSkins;
-  const seriesLogos: Record<string, string | null> = {};
-  for (const skin of skins) {
-    if (skin.seriesImage && !seriesLogos[skin.series]) {
-      seriesLogos[skin.series] = skin.seriesImage;
-    }
-  }
-  for (const series of ALL_SERIES) {
-    if (!(series in seriesLogos)) seriesLogos[series] = null;
-  }
 
   // `now`, the countdowns' first paint, is the request's clock from contentPageClock
   // (lib/content/pageClock.ts), rounded to the minute. The component re-picks the
@@ -495,7 +482,8 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/sk
     rotations: (await import('@/data/skin-shop-rotations.json')).default,
   });
   const dynamicArt = skinDynamicArt(await loadDynamicArtIndex(), skins);
-  return { props: { skins, seriesLogos, events, availabilityWindows, dynamicArt } };
+  // The events only size the windows above; the page reads the windows, so they stay here.
+  return { props: { skins, availabilityWindows, dynamicArt } };
 }, {
   // A release exported before animated art: this deployment's data/dynamic-art.json fills the pointers in.
   finalize: withSkinDynamicArt,

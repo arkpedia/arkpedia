@@ -250,6 +250,9 @@ test('the Free rewards tab shows its welfare operators as the overview\'s cards,
   await expect(card('Botani')).toHaveClass(/is-claimed/);
   await expect(page.locator('.free-op-welfare')).not.toContainText('Botani');
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('arkpedia.past-rewards.v1')!).doneKeys)).toContain(welfareId);
+  // The tick draws text the page had not shown, which can fetch another font subset on a slow
+  // runner (the 2px the card moved in CI, 2026-10-28): settled again before the second measure.
+  await page.evaluate(() => document.fonts.ready);
   // To the pixel's rounding: a phone's fractional layout can land a box 1px either way.
   const after = await place();
   after.forEach((value, i) => expect(Math.abs(value - before[i]), `box ${i}: ${before[i]} -> ${value}`).toBeLessThanOrEqual(1));

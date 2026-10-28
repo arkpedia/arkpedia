@@ -1,26 +1,29 @@
-import { useId, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useId, useMemo, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import Image from '@/components/content/ContentImage';
 import LoadOnScroll from '@/components/ui/LoadOnScroll';
 import LocalTime from '@/components/ui/LocalTime';
 import type { AccountRecord } from '@/lib/account/accountStore';
-import { bannerPulls, pullSessions, rarityCounts, type PullRecord } from '@/lib/account/pulls';
+import { bannerPulls, pullSessions, rarityCounts, type PullHistory as History, type PullReadStatus, type PullRecord } from '@/lib/account/pulls';
 import { pullHistoryCsv, pullHistoryCsvFilename, pullLabels } from '@/lib/account/pullHistoryCsv';
 import { downloadBlob } from '@/lib/ui/downloadBlob';
 import type { GameAccountMap } from '@/lib/planner/gameAccount';
 import { getOperatorIconPath, OPERATOR_PORTRAIT_PLACEHOLDER } from '@/lib/operators/operatorIcon';
 import { operatorHref } from '@/lib/operators/operatorHref';
-import { archiveFromAccount, archiveKey, archiveStatus, mergePullArchives, unionPullHistory } from '@/lib/account/pullArchive';
-import { usePullArchives } from '@/lib/account/pullArchiveStore';
+import { accountArchiveKey, archiveKey, archiveStatus } from '@/lib/account/pullArchive';
+import { migrateLegacyPullRows, usePullArchives } from '@/lib/account/pullArchiveStore';
 import { useCloudSync } from '@/lib/cloud-account/SyncProvider';
 import InfoPopover from '@/components/ui/InfoPopover';
 import StyledSelect from '@/components/ui/StyledSelect';
 import styles from './CloudAccountPanel.module.css';
 
 /*
- * The Account page's Pull History: what the imports have kept of the reader's headhunting
- * (lib/account/pulls.ts). The totals, each banner with the six- and five-stars it gave, and every
- * press newest first when Every pull is opened, growing as the reader scrolls, and Export CSV for the reader's own charts
+ * The Account page's Pull History: what the imports have kept of the reader's headhunting, read
+ * from the pull archive (lib/account/pullArchive), one entry per game account; the shown account's
+ * entry unless the reader picks another. The account record itself says only when the last import
+ * read the history and whether it failed (lib/account/pulls.ts PullReadStatus). The totals, each
+ * banner with the six- and five-stars it gave, and every press newest first when Every pull is
+ * opened, growing as the reader scrolls, and Export CSV for the reader's own charts
  * (lib/account/pullHistoryCsv.ts). Names and rarities come from pullLabels, which the CSV reads
  * too, so the two always agree.
  */
@@ -31,19 +34,25 @@ const percent = (part: number, total: number) => (total ? `${((part / total) * 1
 const SESSIONS_PAGE = 20;
 
 export default function PullHistory({ account, map }: { account: AccountRecord | null; map: GameAccountMap }) {
-  const saved = usePullArchives(), sync = useCloudSync();
-  const archives = mergePullArchives(saved, archiveFromAccount(account));
+  const archives = usePullArchives(), sync = useCloudSync();
   const [selected, setSelected] = useState('');
-  const current = account ? `${account.server}:${account.profile?.uid || 'unknown'}` : '';
-  const archive = archives.find(entry => archiveKey(entry) === (selected || current)) ?? (!account ? archives[0] : undefined);
+  // A record an older build wrote (or a backup of one, just restored) still carries its rows:
+  // they move into the archive once, and the record keeps its read status.
+  useEffect(() => { migrateLegacyPullRows(); }, [account]);
+  const current = account ? accountArchiveKey(account) : '';
+  const { archive, status, read } = useMemo(() => {
+    const archive = archives.find(entry => archiveKey(entry) === (selected || current)) ?? (!account ? archives[0] : undefined);
+    // The record says when the last import tried this account's history and whether it failed;
+    // another account's entry knows only its last successful read.
+    const read: PullReadStatus | null = archive && archiveKey(archive) === current && account?.pulls ? account.pulls
+      : archive ? { readAt: archive.history.readAt, error: null } : account?.pulls ?? null;
+    return { archive, status: archive ? archiveStatus(archive) : null, read };
+  }, [archives, account, selected, current]);
   const remote = sync.remote?.archives?.find(entry => archive && archiveKey(entry) === archiveKey(archive));
   const cloudCount = remote?.history.rows.length ?? 0;
-  const status = archive ? archiveStatus(archive) : null;
   const storageLabel = !sync.remote?.historySync ? 'Browser only'
     : sync.status === 'error' ? 'Cloud saving needs attention'
       : sync.remote.paused ? 'Cloud saving paused' : 'Cloud saving on';
-  const history = archive ? (account?.pulls && archiveKey(archive) === current ? unionPullHistory(archive.history, account.pulls) : archive.history) : account?.pulls;
-  const shown: AccountRecord | null = archive ? { version: 1, server: archive.server, doctor: archive.doctor, importedAt: archive.history.readAt ?? '', operators: [], skins: [], cleared: [], pulls: history } : account;
   return <>
     <div className={styles.archiveSummary}>
       {archives.length > 1 && <StyledSelect label="Pull archive account" value={archive ? archiveKey(archive) : ''} onChange={setSelected}
@@ -57,12 +66,14 @@ export default function PullHistory({ account, map }: { account: AccountRecord |
         <p>Import regularly before Yostar’s 90-day window expires. Arkpedia keeps older archived pulls; it cannot recover pulls that expired before they were imported.</p></InfoPopover></span></p>
       </>}
     </div>
-    <PullHistoryDetails key={archive ? archiveKey(archive) : account?.server ?? 'empty'} account={shown} map={map} />
+    <PullHistoryDetails key={archive ? archiveKey(archive) : account?.server ?? 'empty'} imported={!!account} history={archive?.history ?? null} read={read} map={map} />
   </>;
 }
 
-function PullHistoryDetails({ account, map }: { account: AccountRecord | null; map: GameAccountMap }) {
-  const history = account?.pulls;
+/** `history`: the archive entry shown, the same object while the archive is unchanged (the
+ *  summaries are memoised on it); `read`: what the last import said of it; `imported`: whether
+ *  any account is. */
+function PullHistoryDetails({ imported, history, read, map }: { imported: boolean; history: History | null; read: PullReadStatus | null; map: GameAccountMap }) {
   const [open, setOpen] = useState(false);
   const listId = useId();
   const view = useMemo(() => {
@@ -71,10 +82,10 @@ function PullHistoryDetails({ account, map }: { account: AccountRecord | null; m
     return { ...labels, counts: rarityCounts(history.rows, labels.rarity), banners: bannerPulls(history.rows, labels.rarity) };
   }, [history, map]);
 
-  if (!account) return <p className="hint">No account imported yet: use Import / export above, and the pulls Yostar keeps come with it.</p>;
-  if (!history) return <p className="hint">Import again to add your pull history: this account was imported before Arkpedia read it.</p>;
-  const note = history.error ? <p className="hint">The last import could not read your pull history ({history.error}).{history.rows.length ? ' What earlier imports kept is below.' : ''}</p> : null;
-  if (!view) return <>{note ?? <p className="hint">No pulls in the last 90 days.</p>}</>;
+  if (!imported && !history) return <p className="hint">No account imported yet: use Import / export above, and the pulls Yostar keeps come with it.</p>;
+  if (!history && !read) return <p className="hint">Import again to add your pull history: this account was imported before Arkpedia read it.</p>;
+  const note = read?.error ? <p className="hint">The last import could not read your pull history ({read.error}).{history?.rows.length ? ' What earlier imports kept is below.' : ''}</p> : null;
+  if (!view || !history) return <>{note ?? <p className="hint">No pulls in the last 90 days.</p>}</>;
 
   const { bannerName } = view;
   const operator = (row: PullRecord) => ({ name: view.operatorName(row), rarity: view.rarity(row), known: !!map.chars[row.char] });

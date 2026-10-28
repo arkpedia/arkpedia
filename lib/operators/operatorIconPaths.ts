@@ -1,4 +1,5 @@
 import type { BaseSkill } from './operatorTypes';
+import { assetFileName } from '@/lib/assets/assetUrl';
 
 /**
  * Skill icon path, built from the operator name + skill name -- the
@@ -24,13 +25,13 @@ export function getEssentialIconPath(label: string | null | undefined): string |
 
 export function getMaterialIconPath(materialName: string | null | undefined): string | null {
   if (!materialName) return null;
-  const safe = materialName.replace(/[\\/*?:"<>|]/g, '').trim();
+  const safe = assetFileName(materialName);
   return `/material-icons/${safe}.webp`;
 }
 
 export function getSkillIconPath(operatorName: string, skillName: string | null | undefined): string | null {
   if (!skillName) return null;
-  const safe = skillName.replace(/[\\/*?:"<>|]/g, '').trim();
+  const safe = assetFileName(skillName);
   return `/skill-icons/${encodeURIComponent(`${operatorName} - ${safe}.webp`)}`;
 }
 
@@ -68,6 +69,6 @@ function stripReplacesSuffix(name: string | null | undefined): string {
 export function getBaseSkillIconPath(operatorName: string, skill: Pick<BaseSkill, 'name' | 'rawName'>): string | null {
   const fileName = skill.rawName ?? skill.name;
   if (!fileName) return null;
-  const safe = fileName.replace(/[\\/*?:"<>|]/g, '').trim();
+  const safe = assetFileName(fileName);
   return `/base-skill-icons/${encodeURIComponent(`${operatorName} - ${safe}.webp`)}`;
 }

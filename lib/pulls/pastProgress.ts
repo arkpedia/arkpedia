@@ -15,7 +15,7 @@
  * builds; the first read here takes them from it.
  */
 import { useCallback, useSyncExternalStore } from 'react';
-import { PULL_PLAN_KEY } from './plan';
+import { MAX_PROGRESS_ITEMS, PULL_PLAN_KEY } from './plan';
 
 export const PAST_PROGRESS_KEY = 'arkpedia.past-rewards.v1';
 export const PAST_PROGRESS_EVENT = 'arkpediaPastRewardsChanged';
@@ -31,7 +31,7 @@ export interface PastProgress {
   importedAccount?: { server: string; uid: string | null };
 }
 
-const strings = (value: unknown) => Array.isArray(value) && value.length <= 5000 && value.every((item) => typeof item === 'string' && item.length <= 200);
+const strings = (value: unknown) => Array.isArray(value) && value.length <= MAX_PROGRESS_ITEMS && value.every((item) => typeof item === 'string' && item.length <= 200);
 
 /** A stored record, or null for anything that is not one. */
 export function parsePastProgress(raw: string | null): PastProgress | null {

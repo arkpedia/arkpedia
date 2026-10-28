@@ -98,6 +98,16 @@ test("a JP/KR outfit sale moves Global's window onto it, and a larger draw pool 
   assert.deepEqual([collection.name, collection.endAt, collection.estimated, collection.sourceRegion], ['G · Main shop', kr.skinWindows[0].endAt, false, 'kr']);
 });
 
+test("Global's own announced sale confirms the planner's CN-projected collection; one it does not list stays as it is", () => {
+  const en = { sources: {}, skinWindows: [{ event: 'MAIN THEME EPISODE 17', kind: 'shop' as const, label: 'Returning outfits', startAt: '2026-10-14T15:00:00.000Z', endAt: '2026-11-11T11:00:00.000Z', skinIds: ['a', 'b', 'c'], estimated: false, newRelease: false, source: 'https://www.arknights.global/news/4814' }] };
+  const projected = { id: 'C', name: 'C · Returning outfits', start: '2026-10-14', end: '2026-11-11', estimated: true, skinIds: ['a', 'b', 'c', 'd'], featuredIds: [], sourceRegion: 'cn', source: 'https://arknights.wiki.gg/wiki/C' };
+  const other = { ...projected, id: 'X', name: 'X · Returning outfits', start: '2027-03-01', end: '2027-03-29', skinIds: ['x', 'y'] };
+  const [confirmed, untouched] = regional.regionalSkinCollections([projected, other], en, 'en');
+  assert.deepEqual([confirmed.start, confirmed.end, confirmed.startAt, confirmed.endAt, confirmed.estimated, confirmed.sourceRegion, confirmed.source],
+    ['2026-10-14', '2026-11-11', en.skinWindows[0].startAt, en.skinWindows[0].endAt, false, 'global', en.skinWindows[0].source]);
+  assert.deepEqual(untouched, other, 'no Global post for it: the projection stands, still an estimate');
+});
+
 test('no page drops a Global item its JP/KR schedule has no window for', () => {
   const pages = path.join(__dirname, '../../pages');
   const files = fs.readdirSync(pages, { recursive: true }).map(String).filter(file => /\.tsx?$/.test(file));

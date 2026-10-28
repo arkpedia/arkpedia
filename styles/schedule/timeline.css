@@ -291,16 +291,6 @@
 .event-status-ended { background: var(--text-faint); }
 
 /* --- Schedule page: year select + poster hover preview --- */
-.schedule-year-select {
-  padding: 6px 8px;
-  background: var(--panel-2);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-control);
-  color: var(--text);
-  font-family: var(--font-mono);
-  font-size: 12px;
-  flex-shrink: 0;
-}
 
 /* The calendar fills the frame: seven fluid columns inside main (992px at 1440), not a
    fixed 950px column inside a 1320px main-wide. */

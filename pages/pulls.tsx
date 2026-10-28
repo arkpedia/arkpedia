@@ -1,5 +1,5 @@
 import { useRegionalTime } from '@/lib/time/useRegionalTime';
-import { regionalPullBanners, regionalPullEvents, regionalSkinCollections } from '@/lib/time/regional';
+import { regionalPullBanners, regionalPullEvents, regionalSkinCollections, withLightRegionalTable } from '@/lib/time/regional';
 import { planningWindowEnd, planningDayEnd } from '@/lib/pulls/planningWindows';
 import { useReaderValue } from '@/lib/time/readerClock';
 import { serverCalendarTime, serverOffsetLabel } from '@/lib/time/servers.mjs';
@@ -199,19 +199,22 @@ export default function PullsPage({ scheduledEvents: globalEvents, scheduledBann
     try {
       const saved = localStorage.getItem(PULL_PLAN_KEY);
       if (saved) applyPlan(parsePullPlan(saved), false);
-    } catch {
+    } catch (error) {
       setSaveBlocked(true);
-      setSaveStatus('Could not load your saved plan. It has not been overwritten.');
+      /* Name the field, so the next refusal says what the save held. */
+      const reason = error instanceof Error ? ` ${error.message}` : '';
+      setSaveStatus(`Could not load your saved plan. It has not been overwritten.${reason}`);
     }
     setHydrated(true);
   }, [applyPlan]);
 
   const savedPlan = useMemo((): SavedPullPlan => ({ version: 1, orundum, originite, permits, reservedOP, until, bannerName, yellowCerts, certificateSpending: certSpending, incomeSettings,
-    monthlyCard, includeBacklog, includeSkins, annihilationDone: past.annihilationDone, doneEvents: past.progress.doneEvents, doneKeys: past.progress.doneKeys, clearedReruns: [...clearedReruns], future: {}, manualEventDate: '', goals, skinIds, wishingWallMode,
-    /* The ticks live in their own store now (lib/pulls/pastProgress.ts); the plan mirrors them
-       for an older build reading this browser's storage. */
-    ...(walletFrom ? { walletFrom } : {}), ...(past.progress.ticksFrom ? { ticksFrom: past.progress.ticksFrom } : {}),
-  }), [orundum, originite, permits, reservedOP, until, bannerName, yellowCerts, certSpending, incomeSettings, monthlyCard, includeBacklog, includeSkins, past.progress, past.annihilationDone, clearedReruns, goals, skinIds, wishingWallMode, walletFrom]);
+    /* The Past events ticks live in their own store (lib/pulls/pastProgress.ts), once: an
+       account import claims thousands of rewards, more with every event the game adds, and
+       a copy of them here outgrew what a plan may hold, so the page refused its own save. */
+    monthlyCard, includeBacklog, includeSkins, annihilationDone: false, doneEvents: [], doneKeys: [], clearedReruns: [...clearedReruns], future: {}, manualEventDate: '', goals, skinIds, wishingWallMode,
+    ...(walletFrom ? { walletFrom } : {}),
+  }), [orundum, originite, permits, reservedOP, until, bannerName, yellowCerts, certSpending, incomeSettings, monthlyCard, includeBacklog, includeSkins, clearedReruns, goals, skinIds, wishingWallMode, walletFrom]);
 
   /* An account import fills the resources (and the Monthly Card, ticked while it runs), once
      per import: after that they are the reader's to edit, until the next import. Run after
@@ -569,7 +572,8 @@ export const getStaticProps: GetStaticProps<PullsProps> = withContentPage<PullsP
   const predicted = new Set(getEventCalendar().filter(event => event.isPredicted).map(event => event.name));
   const skinCollections = pullSkinCollections(events, skins, skinCatalogue, predicted);
   return { props: { scheduledEvents: getPullEventSchedule(backlogSources), backlogSources, skinCatalogue, skinCollections, scheduledBanners, bannerOdds: getBannerOdds(scheduledBanners) } };
-}, { finalize: async props => {
+}, { finalize: async released => {
+  const props = withLightRegionalTable(released);
   const current = await withPullPlannerDynamicArt(currentPullPlan({ ...props, scheduledBanners: fillCollabTicketsFromDeployment(props.scheduledBanners) }, Date.now()));
   if (current.backlogSources) return { ...current, backlogSources: fillFromDeployment(current.backlogSources, bundledBacklogSources()) };
   // A release exported before backlogSources joined the props. The first content

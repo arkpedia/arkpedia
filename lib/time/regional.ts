@@ -51,6 +51,31 @@ export function regionalScheduleSlice(table: RegionalSchedules, keep: { events: 
     ...(schedule.banners ? { banners: pick(schedule.banners, keep.banners) } : {}),
   }])) as RegionalSchedules['servers'] };
 }
+/** The table without each window's `timingSource`: the provenance link to the game's own table,
+ *  kept for the content run and the schedule's CN rows, which the browser never reads from this
+ *  table. On the home page it was 1,450 raw.githubusercontent.com links, 250 kB of the 720 kB
+ *  table (2026-10-27). Clock-free, so it can run per request on a release's table. Every
+ *  server's rows stay: JP and KR read their own windows from the same shape. */
+export function stripRegionalTimingSources(table: RegionalSchedules): RegionalSchedules {
+  const windows = <T extends { timingSource?: string }>(rows: Record<string, T> | undefined) =>
+    rows && Object.fromEntries(Object.entries(rows).map(([key, { timingSource: _source, ...rest }]) => [key, rest]));
+  return { ...table, servers: Object.fromEntries(Object.entries(table.servers ?? {}).map(([server, schedule]) => [server, schedule && {
+    ...schedule,
+    ...(schedule.events ? { events: windows(schedule.events) } : {}),
+    ...(schedule.banners ? { banners: windows(schedule.banners) } : {}),
+    ...(schedule.activities ? { activities: windows(schedule.activities) } : {}),
+    ...(schedule.rewardWindows ? { rewardWindows: windows(schedule.rewardWindows) } : {}),
+    ...(schedule.skinReleases ? { skinReleases: windows(schedule.skinReleases) } : {}),
+    ...(schedule.forceOpen ? { forceOpen: schedule.forceOpen.map(({ timingSource: _source, ...rest }) => rest) } : {}),
+  }])) as RegionalSchedules['servers'] } as RegionalSchedules;
+}
+/** A page's props with its regional table stripped (stripRegionalTimingSources), for a
+ *  withContentPage finalize; props without the table pass through. */
+export function withLightRegionalTable<P extends object>(props: P): P {
+  const tables = (props as P & { __contentTables?: Record<string, unknown> }).__contentTables;
+  const table = tables?.['regional-schedules'] as RegionalSchedules | undefined;
+  return table ? { ...props, __contentTables: { ...tables, 'regional-schedules': stripRegionalTimingSources(table) } } : props;
+}
 export const regionalDate = (instant: string, server: GameServer) => serverDay(Date.parse(instant) / 1000, SERVER_TIME[server].offset).replaceAll('/', '-');
 export const regionalRange = (window: RegionalWindow, server: GameServer) => `${regionalDate(window.startAt, server).replaceAll('-', '/')}–${regionalDate(window.endAt, server).replaceAll('-', '/')}`;
 
@@ -147,15 +172,18 @@ export function regionalSkinWindows(windows: readonly SkinWindow[], schedule: Re
   });
 }
 /** Global's shop collections, each on the server's own sale of its outfits where it has one, else
- *  on Global's dates marked estimated (the planner only labels them). */
+ *  on Global's dates marked estimated (the planner only labels them). Global itself included: its
+ *  collections come from the catalogue (CN's shops, projected), and its own official posts list
+ *  the same sales (englishNoticeSkinWindows), so a matched one takes the post's dates and is no
+ *  estimate. The anniversary store's returning outfits, 2026-10-14, were "CN-based estimate" in
+ *  the planner while Global's post and /skins had them confirmed through 2026-11-11. */
 export function regionalSkinCollections(collections: readonly SkinCollection[], schedule: RegionalSchedule | undefined, server: GameServer): SkinCollection[] {
-  if (server === 'en') return [...collections];
   return collections.map(collection => {
     // A CN-projected shop carries calendar days only; its opening day is near enough to match on.
     const sale = regionalSale({ kind: 'shop', startAt: collection.startAt ?? `${collection.start}T00:00:00.000Z`, endAt: collection.endAt ?? `${collection.end}T00:00:00.000Z`, skinIds: collection.skinIds }, schedule);
-    if (!sale) return { ...collection, estimated: true };
+    if (!sale) return server === 'en' ? { ...collection } : { ...collection, estimated: true };
     return { ...collection, start: regionalDate(sale.startAt, server), end: regionalDate(new Date(Date.parse(sale.endAt) - 1).toISOString(), server),
-      startAt: sale.startAt, endAt: sale.endAt, estimated: !!sale.estimated, source: sale.source, sourceRegion: server };
+      startAt: sale.startAt, endAt: sale.endAt, estimated: !!sale.estimated, source: sale.source, sourceRegion: server === 'en' ? 'global' : server };
   });
 }
 

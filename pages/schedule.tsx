@@ -1,5 +1,5 @@
 import { useRegionalTime } from '@/lib/time/useRegionalTime';
-import { regionalArt, regionalEvents, regionalBanners, regionalRange } from '@/lib/time/regional';
+import { regionalArt, regionalEvents, regionalBanners, regionalRange, withLightRegionalTable } from '@/lib/time/regional';
 import { useReaderClock } from '@/lib/time/readerClock';
 import { useReleaseTable } from '@/lib/content/context';
 import type { HeadhuntingBanner } from '@/lib/gacha/headhuntingBanners';
@@ -950,7 +950,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/sc
     props: { events, operators: trimmedOperators, skins: getAllSkins(), releaseLookup, eventRows, pullBanners },
   };
 }, {
-  finalize: async (props) => pruneScheduleProps(fillMissingModeLaunches(props)),
+  finalize: async (props) => withLightRegionalTable(pruneScheduleProps(fillMissingModeLaunches(props))),
 
   tables: {
     event_colors: async () => (await import('@/data/event_colors.json')).default,

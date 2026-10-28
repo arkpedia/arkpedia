@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { availableBannerFreePulls, goalsAtBannerEnd, parsePullPlan, planBudgets, planHorizon, savingsAfterPlanAt, validPlanDate, type SavedPullPlan } from '../../lib/pulls/plan';
+import { availableBannerFreePulls, goalsAtBannerEnd, MAX_PROGRESS_ITEMS, parsePullPlan, planBudgets, planHorizon, savingsAfterPlanAt, validPlanDate, type SavedPullPlan } from '../../lib/pulls/plan';
 import type { UpcomingBanner } from '../../lib/pulls/pulls';
 import type { Skin } from '../../lib/skins/skinTypes';
+import { parsePastProgress } from '../../lib/pulls/pastProgress';
 import { ALL_BANNERS, bundledBacklogSources } from '../../lib/pulls/sources';
 import { publicFileExists } from '../../lib/assets/publicAssets';
 import { openSkinCollections } from '../../lib/pulls/currentPlan';
@@ -22,6 +23,20 @@ test('every planner resource icon is published', () => {
 });
 test('saved plans round trip all resource, content, and goal settings', () => {
   assert.deepEqual(parsePullPlan(JSON.stringify(saved)), saved);
+});
+test('a plan an older build saved with an account\'s thousands of reward ticks still loads', () => {
+  /* A long-played account's import claims thousands of sign-in and mission rewards
+     (lib/account/rewardClaims.ts), more with every event, and older builds mirrored them all
+     into the saved plan. That plan is still in readers' browsers, so it has to load with as
+     many ticks as the past-progress store itself accepts. */
+  const doneKeys = Array.from({ length: MAX_PROGRESS_ITEMS }, (_, i) => `free:signin:${i}`);
+  const doneEvents = Array.from({ length: 2001 }, (_, i) => `event:${i}`);
+  const progress = { doneKeys, doneEvents, annihilationDone: false, ticksFrom: '2026-10-27T00:00:00.000Z' };
+  assert.ok(parsePastProgress(JSON.stringify(progress)), 'the past-progress store accepts this many ticks');
+  const restored = parsePullPlan(JSON.stringify({ ...saved, ...progress }));
+  assert.deepEqual(restored.doneKeys, doneKeys);
+  assert.deepEqual(restored.doneEvents, doneEvents);
+  assert.throws(() => parsePullPlan(JSON.stringify({ ...saved, doneKeys: [...doneKeys, 'one-too-many'] })), /doneKeys/);
 });
 test('saved closing instants round trip alongside manual goals, and refuse timestamps without a timezone', () => {
   const plan = { ...saved, goals: saved.goals.map(goal => ({ ...goal, bannerEndAt: '2026-09-15T11:00:00Z' })) };
