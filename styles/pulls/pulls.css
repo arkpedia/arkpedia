@@ -380,6 +380,9 @@ button.pulls-past-name:hover, button.pulls-past-name[aria-expanded="true"] { col
 .free-op-filters legend { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; padding: 0; color: var(--text); font-weight: 600; }
 .free-op-stage-choice { align-items: center; min-height: var(--control-h); margin: 0; padding: 8px 12px; background: var(--well); border-radius: var(--radius-control); }
 .free-op-stage-choice:has(:checked) { background: var(--teal-dim); color: var(--teal); }
+/* One tile: the box, and inside it which simulations it leaves out (always drawn, disabled while off). */
+.free-op-paradox-choice { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; margin-top: 8px; }
+.free-op-paradox-toggle { margin: 0; }
 .pulls-past-tools { display: flex; align-items: center; flex-wrap: wrap; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
 @media (max-width: 1000px) { .free-op-stage-choices { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 420px) { .free-op-summary > div { grid-template-columns: 1fr; padding: 12px; } .free-op-summary > div > img { grid-row: auto; } .free-op-summary dd { grid-column: 1; } .free-op-stage-choices { grid-template-columns: 1fr; } }

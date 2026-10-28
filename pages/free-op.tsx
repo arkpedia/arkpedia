@@ -22,6 +22,7 @@ import { PAST_PROGRESS_UNREAD } from '@/lib/pulls/pastProgress';
 import FreeRewards from '@/components/pulls/FreeRewards';
 import { allFreeRewards, freeOperatorsToClaim, freeRewardsForAccount, freeRewardTotals, importClaimedBeginner, rosterClaimedWelfare, rosterOperatorIds, type FreeReward, type LockedReason } from '@/lib/pulls/freeRewards';
 import { excludeStageKinds, type StageKind } from '@/lib/pulls/stageKinds';
+import { excludedParadox, type ParadoxExclusion } from '@/lib/pulls/paradoxExclusion';
 import { useRewardFilters } from '@/lib/pulls/rewardTrackerFilters';
 import type { OperatorPreviewItem } from '@/components/operators/OperatorPreview';
 import { FreeOperatorPreview, WelfareCard } from '@/components/pulls/FreeOperator';
@@ -54,6 +55,14 @@ const STAGE_FILTERS: { kind: StageKind; label: string }[] = [
   { kind: 's', label: 'Exclude S stages' },
 ];
 
+/* Short labels in the tile; full names for a screen reader, and so the tile's "All" is never
+   taken for the reward lists' own "All" status filter. */
+const PARADOX_CHOICES: { value: ParadoxExclusion; label: string; ariaLabel: string }[] = [
+  { value: 'all', label: 'All', ariaLabel: 'All Paradox Simulations' },
+  { value: 'unowned', label: 'Not owned', ariaLabel: 'Paradox Simulations of operators not owned' },
+  { value: 'below-e2', label: 'Below Elite 2', ariaLabel: 'Paradox Simulations of operators below Elite 2' },
+];
+
 const NO_ROWS: ReadonlyMap<string, LockedReason> = new Map();
 
 interface Props {
@@ -73,14 +82,18 @@ export default function FreeOpPage({ backlogSources, freeRewards: globalFreeRewa
   const [viewQuery, setView] = useQueryState('view', 'stages');
   const view = viewQuery === 'free' ? 'free' : 'stages';
   const viewHold = useSwitchHold('reward-tracker');
-  const [excluded, setExcluded] = useRewardFilters();
-  const past = usePastRewards(backlogSources, excluded);
+  const [excluded, setExcluded, paradox, setParadox] = useRewardFilters();
+  const past = usePastRewards(backlogSources, excluded, paradox);
   const [presentation, setPresentation] = useState(false);
   const [demoKeys, setDemoKeys] = useState(new Set<string>());
   const [demoEvents, setDemoEvents] = useState(new Set<string>());
   const [demoAnnihilation, setDemoAnnihilation] = useState(false);
   /* The presentation view counts everything uncleared, its stage filters still applied. */
-  const demo = useMemo(() => excludeStageKinds({ ...past.backlog, freeRewards: past.backlog.freeRewards?.map(reward => ({ ...reward, claimUnknown: false })) }, excluded, null), [past.backlog, excluded]);
+  const demo = useMemo(() => {
+    const staged = excludeStageKinds({ ...past.backlog, freeRewards: past.backlog.freeRewards?.map(reward => ({ ...reward, claimUnknown: false })) }, excluded, null);
+    const out = excludedParadox(staged.backlog.paradox, paradox, past.account?.operatorBuilds);
+    return out.size ? { ...staged, backlog: { ...staged.backlog, paradox: staged.backlog.paradox?.filter(stage => !out.has(stage.id)) } } : staged;
+  }, [past.backlog, excluded, paradox, past.account]);
   const remaining = presentation ? remainingBacklog(demo.backlog, demoEvents, demoKeys, demoAnnihilation) : past.remaining;
   const leftOut = presentation
     ? [...demo.backlog.chapters.filter(c => !demoKeys.has(c.id)), ...demo.backlog.playable.filter(e => !demoEvents.has(e.id))].reduce((sum, item) => sum + (demo.dropped[item.id] ?? 0), 0)
@@ -101,6 +114,18 @@ export default function FreeOpPage({ backlogSources, freeRewards: globalFreeRewa
   const sanity = remainingSanity(presentation ? demo.backlog : past.counting, presentation ? demoKeys : past.doneKeys, presentation ? demoEvents : past.doneEvents, presentation ? demoAnnihilation : past.annihilationDone, presentation ? null : past.cleared);
 
   const pulls = (originitePrime * ORUNDUM_PER_ORIGINITE + orundum) / ORUNDUM_PER_PULL + permits;
+  /* What the exclusions took out, in one line: the stages' Originite, then the Paradox Simulations'
+     Orundum, or why the roster choices cannot be judged yet. */
+  const paradoxOut = presentation ? (() => {
+    const kept = new Set(demo.backlog.paradox?.map(stage => stage.id));
+    const out = (past.backlog.paradox ?? []).filter(stage => !kept.has(stage.id));
+    return { count: out.length, orundum: out.reduce((sum, stage) => sum + stage.amount, 0), known: past.paradoxLeftOut.known };
+  })() : past.paradoxLeftOut;
+  const excludedSummary = [
+    excluded.size ? `${formatNumber(leftOut)} ${leftOut === 1 ? 'stage' : 'stages'} left out, ${formatNumber(leftOut)} OP.` : '',
+    paradox === null ? '' : !paradoxOut.known ? 'Import your account to leave out Paradox Simulations by operator.'
+      : `${formatNumber(paradoxOut.count)} Paradox ${paradoxOut.count === 1 ? 'Simulation' : 'Simulations'} left out, ${formatNumber(paradoxOut.orundum)} Orundum.`,
+  ].filter(Boolean).join(' ') || 'Every stage counts.';
   const [welfareOrder, setWelfareOrder] = useState<'recommended' | 'availability'>('recommended');
   const operators = freeOperatorsToClaim(eligible, keys, clock);
   if (welfareOrder === 'recommended') operators.sort((a, b) => welfareRecommendationOrder(a.operator.name) - welfareRecommendationOrder(b.operator.name));
@@ -150,10 +175,15 @@ export default function FreeOpPage({ backlogSources, freeRewards: globalFreeRewa
           <fieldset className="free-op-filters">
             <legend>Stage exclusions <InfoPopover label="About stage exclusions"><p>Leave out stage types you cannot clear yet. The totals and unclaimed stage lists update together; your completion marks stay saved.</p></InfoPopover></legend>
             <div className="free-op-stage-choices">{STAGE_FILTERS.map(({ kind, label }) => <label key={kind} className="check free-op-stage-choice"><input type="checkbox" checked={excluded.has(kind)} onChange={event => setExcluded(kind, event.target.checked)} />{label}</label>)}</div>
+            {/* Its narrowing choice is always drawn, only disabled while the box is off: turning
+                it on changes what is chosen, never the height. */}
+            <div className="free-op-stage-choice free-op-paradox-choice">
+              <label className="check free-op-paradox-toggle"><input type="checkbox" checked={paradox !== null} onChange={event => setParadox(event.target.checked ? 'all' : null)} />Exclude Paradox Simulations</label>
+              <SegmentedControl label="Which Paradox Simulations to exclude" value={paradox ?? 'all'} onChange={setParadox}
+                options={PARADOX_CHOICES.map(choice => ({ ...choice, disabled: paradox === null }))} />
+            </div>
           </fieldset>
-          <p className="hint free-op-excluded" aria-live="polite">{excluded.size
-            ? `${formatNumber(leftOut)} ${leftOut === 1 ? 'stage' : 'stages'} left out, ${formatNumber(leftOut)} OP.`
-            : 'Every stage counts.'}</p>
+          <p className="hint free-op-excluded" aria-live="polite">{excludedSummary}</p>
           <div ref={welfareRef} className="free-op-welfare">
             <div className="free-op-heading"><div><h3>Welfare operators</h3><a className="free-op-welfare-guide" href={WELFARE_GUIDE} target="_blank" rel="noopener noreferrer">kukkikaze’s welfare recommendations · +3 highest, +0 lowest</a></div>
               <SegmentedControl label="Welfare order" value={welfareOrder} onChange={setWelfareOrder} options={[{ value: 'recommended', label: 'Recommended' }, { value: 'availability', label: 'Availability' }]} /></div>

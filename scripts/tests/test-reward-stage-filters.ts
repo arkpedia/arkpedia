@@ -5,6 +5,7 @@ import { test } from 'node:test';
 import { excludeStageKinds, NO_STAGE_EXCLUSIONS, stageKindsOf, type StageKind, type StageKindRecord } from '../../lib/pulls/stageKinds';
 import { backlogFromAccount, fillFromDeployment, remainingBacklog, unclaimedBacklog, type BacklogSources } from '../../lib/pulls/pulls';
 import { parseRewardFilters } from '../../lib/pulls/rewardTrackerFilters';
+import { excludedParadox, paradoxExclusionKnown } from '../../lib/pulls/paradoxExclusion';
 import { freeOperatorsToClaim, type FreeReward } from '../../lib/pulls/freeRewards';
 import { buildFreeRewards } from '../build/build-free-rewards.mjs';
 
@@ -110,6 +111,25 @@ test('the stored toggles parse strictly and keep only known kinds', () => {
   assert.equal(parseRewardFilters(null), null);
   assert.equal(parseRewardFilters('{"exclude":"h"}'), null);
   assert.deepEqual(parseRewardFilters('{"exclude":["s","bogus","challenge"]}'), { exclude: ['challenge', 's'] });
+  assert.deepEqual(parseRewardFilters('{"exclude":[],"paradox":"below-e2"}'), { exclude: [], paradox: 'below-e2' });
+  assert.deepEqual(parseRewardFilters('{"exclude":["h"],"paradox":"bogus"}'), { exclude: ['h'] }, 'an unknown Paradox mode counts every simulation');
+});
+
+test('Paradox Simulations are left out all, by ownership, or below Elite 2, judged on the imported roster', () => {
+  const stages = [
+    { id: 'paradox:mem_haak_1', name: 'Aak · Just Take Your Medicine', amount: 200, operatorId: 'char_225_haak', unlock: { elite: 2, level: 1 } },
+    { id: 'paradox:mem_12fce_1', name: '12F · Survivor', amount: 200, operatorId: 'char_009_12fce', unlock: { elite: 0, level: 30 } },
+    { id: 'paradox:mem_ela_1', name: 'Ela · Mine', amount: 200, operatorId: 'char_4123_ela', unlock: { elite: 2, level: 1 } },
+  ];
+  const build = (elite: number) => ({ elite, level: 1, skillLevel: 1, masteries: {} });
+  const roster = { Aak: build(2), '12F': build(1) };
+  assert.deepEqual([...excludedParadox(stages, null, roster)], []);
+  assert.deepEqual([...excludedParadox(stages, 'all', undefined)], stages.map((stage) => stage.id), 'all needs no import');
+  assert.deepEqual([...excludedParadox(stages, 'unowned', roster)], ['paradox:mem_ela_1']);
+  assert.deepEqual([...excludedParadox(stages, 'below-e2', roster)], ['paradox:mem_12fce_1', 'paradox:mem_ela_1'], 'Elite 2 literally, whatever the unlock');
+  assert.deepEqual([...excludedParadox(stages, 'unowned', undefined)], [], 'no roster, nothing judged');
+  assert.equal(paradoxExclusionKnown('below-e2', undefined), false);
+  assert.equal(paradoxExclusionKnown('all', undefined), true);
 });
 
 test('welfare operators come from an event\'s missions, Global only, open while its stages are', () => {

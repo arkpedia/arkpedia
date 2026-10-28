@@ -1,6 +1,7 @@
 import { parseGameWindow } from '@/lib/schedule/gameWindow';
 import eventRewards from '@/data/pull-event-rewards.json';
 import clearMedals from '@/data/rerun-clear-medals.json';
+import clearOperators from '@/data/rerun-clear-operators.json';
 import { getAllEvents } from '@/lib/schedule/schedule';
 import { rerunBacklogEvent, type BacklogSources, type PullEventReward } from './pulls';
 import { estimateBannerFromCn, waitsForGlobal, globalBannerPreview } from '@/lib/gacha/bannerSchedule';
@@ -81,7 +82,7 @@ export function resolvePullEventSchedule(current: ReturnType<typeof getAllEvents
       hasShop: reward.shopPermits > 0, shopPermits: reward.shopPermits,
       wishActId: reward.wishActId, wishDays: reward.wishDays, wishOrundum: reward.wishOrundum,
       legacyNames: ALL_BANNERS.filter(b => b.event === reward.event).map(b => b.name),
-      ...(reward.cnAct ? { cnAct: reward.cnAct, clearMedal: rerunClearMedal(reward.cnAct) } : {}),
+      ...(reward.cnAct ? { cnAct: reward.cnAct, clearMedal: rerunClearMedal(reward.cnAct), clearOperator: rerunClearOperator(reward.cnAct) } : {}),
     }];
   }).sort((a,b) => a.start.localeCompare(b.start));
 }
@@ -99,7 +100,19 @@ export function rerunClearMedal(cnAct: string | null | undefined): string | null
   if (!cnAct || !/^act.+sre$/.test(cnAct)) return null;
   return (clearMedals as Record<string, string>)[cnAct.replace(/^act/, '').replace(/sre$/, 'side')] ?? null;
 }
-/** The release's events with each one's game activity id (`cnAct`) and clear medal filled from
+/**
+ * The operator whose ownership marks the event a rerun returns as cleared, for an event with no
+ * all-stages medal (data/rerun-clear-operators.json, kept by hand): A Flurry to the Flame has no
+ * medal set, and a reader who cleared it holds Rathalos S Noir Corne. Taking ownership for a clear
+ * can only understate the pulls ahead, never count a cleared rerun's Originite twice. Server-side
+ * only, like rerunClearMedal: it reaches the browser on each event (PullEventReward.clearOperator).
+ */
+export function rerunClearOperator(cnAct: string | null | undefined): string | null {
+  if (!cnAct || !/^act.+sre$/.test(cnAct)) return null;
+  const key = cnAct.replace(/^act/, '').replace(/sre$/, 'side');
+  return key === 'about' ? null : (clearOperators as Record<string, string>)[key] ?? null;
+}
+/** The release's events with each one's game activity id (`cnAct`), clear medal and clear operator filled from
  *  the deployment's own tables where the release has none: a release exported before they were
  *  kept, so the planner can tick a cleared event's rerun (rerunsClearedByTicks) from the first
  *  deploy. */
@@ -109,7 +122,8 @@ export function fillRerunActivities(events: readonly PullEventReward[]): PullEve
     const cnAct = event.cnAct ?? byEvent.get(pullBannerKey(event.event ?? event.name)) ?? null;
     if (!cnAct) return event;
     const clearMedal = event.clearMedal === undefined ? rerunClearMedal(cnAct) : event.clearMedal;
-    return event.cnAct === cnAct && event.clearMedal === clearMedal ? event : { ...event, cnAct, clearMedal };
+    const clearOperator = event.clearOperator === undefined ? rerunClearOperator(cnAct) : event.clearOperator;
+    return event.cnAct === cnAct && event.clearMedal === clearMedal && event.clearOperator === clearOperator ? event : { ...event, cnAct, clearMedal, clearOperator };
   });
 }
 export function getPullEventSchedule(backlog: BacklogSources): PullEventReward[] {

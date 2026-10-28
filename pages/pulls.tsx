@@ -41,6 +41,7 @@ import { useSkinPlan } from '@/lib/skins/skinPlan';
 import { useAccount } from '@/lib/account/accountStore';
 import { siteServerNow } from '@/lib/time/siteServer';
 import { usePastRewards } from '@/lib/pulls/usePastRewards';
+import { rosterOperatorIds } from '@/lib/pulls/freeRewards';
 import { NO_STAGE_EXCLUSIONS } from '@/lib/pulls/stageKinds';
 import { pullSkinCatalogue, skinReservation, type PlannedSkin } from '@/lib/pulls/skins';
 import { availableBannerFreePulls, MAX_GOALS, PULL_PLAN_KEY, parsePullPlan, planBudgets, planHorizon, planNumber, savingsAfterPlanAt, validPlanDate, type BannerGoal, type SavedPullPlan } from '@/lib/pulls/plan';
@@ -137,7 +138,7 @@ export default function PullsPage({ scheduledEvents: globalEvents, scheduledBann
   /* The Past events ticks, shared with the OP Tracker (lib/pulls/usePastRewards.ts): ticked
      once per import from its cleared stages, the reader's to change after that. */
   // The Reward Tracker's stage toggles are its own; the forecast counts every stage.
-  const past = usePastRewards(backlogSources, NO_STAGE_EXCLUSIONS);
+  const past = usePastRewards(backlogSources, NO_STAGE_EXCLUSIONS, null);
   const ownedSkins = useMemo(() => (account ? new Set(account.skins) : null), [account]);
   const ownedPlanKeys = useMemo(() => new Set(skinCatalogue.filter(skin => skin.skinId && ownedSkins?.has(skin.skinId)).flatMap(skin => [skin.id, skin.name])), [skinCatalogue, ownedSkins]);
   const [skinIds, setSkinIds] = useSkinPlan((name) => skinByName.get(name), ownedPlanKeys);
@@ -183,7 +184,10 @@ export default function PullsPage({ scheduledEvents: globalEvents, scheduledBann
      save drops once the event closes (the owner's import, 2026-10-28: 2,391 clears, none of
      four cleared events), so a rerun of a medalled event is ticked from it. */
   const ownedMedals = useMemo(() => (account?.profile?.medalCollection ? new Set(account.profile.medalCollection.map(medal => medal.id)) : null), [account]);
-  const tickedReruns = useMemo(() => rerunsClearedByTicks(scheduledEvents, backlogSources.playable, past.doneEvents, past.cleared, backlogSources.stageSanity, ownedMedals), [scheduledEvents, backlogSources, past.doneEvents, past.cleared, ownedMedals]);
+  /* For an event with no medal set (A Flurry to the Flame), owning its operator stands for the clear. */
+  const ownedOperators = useMemo(() => (account ? rosterOperatorIds(account) : null), [account]);
+  const tickedReruns = useMemo(() => rerunsClearedByTicks(scheduledEvents, backlogSources.playable, past.doneEvents, past.cleared, backlogSources.stageSanity, ownedMedals, ownedOperators),
+    [scheduledEvents, backlogSources, past.doneEvents, past.cleared, ownedMedals, ownedOperators]);
   const clearedAll = useMemo(() => new Set([...clearedReruns, ...tickedReruns]), [clearedReruns, tickedReruns]);
   const [walletFrom, setWalletFrom] = useState('');
   // Locked by default while the resources are the import's (useLock); the reader's choice stays.
@@ -525,7 +529,7 @@ export default function PullsPage({ scheduledEvents: globalEvents, scheduledBann
                 return (
                   <tr key={b.name} className={cleared ? 'muted' : undefined}>
                     <th scope="row">{name}</th>
-                    <td>ends {b.end}{b.opSource === 'median' ? ' · estimated' : ''}{b.rerun && b.op > 0 && <label className="check pulls-tick" title={fromTicks ? 'Cleared on your account: you hold the event\'s medal, its stages are cleared in your import, or it is ticked in the Reward Tracker' : undefined}>
+                    <td>ends {b.end}{b.opSource === 'median' ? ' · estimated' : ''}{b.rerun && b.op > 0 && <label className="check pulls-tick" title={fromTicks ? 'Cleared on your account: you hold the event\'s medal or its operator, its stages are cleared in your import, or it is ticked in the Reward Tracker' : undefined}>
                       <input type="checkbox" checked={cleared} disabled={fromTicks} aria-label={`Already cleared ${name}`}
                         onChange={() => setClearedReruns(previous => {
                           const next = new Set(previous);
