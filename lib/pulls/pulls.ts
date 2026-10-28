@@ -413,9 +413,51 @@ export type PullEventReward = Pick<UpcomingBanner, 'name' | 'event' | 'start' | 
   shopPermits?: number;
   /** Preserve saved rerun choices previously keyed by banner name. */
   legacyNames?: string[];
+  /** The game's activity id (data/pull-event-rewards.json cnAct, "act42sre"): a rerun's names
+   *  the event it returns by the game's own convention (rerunStagePrefix). Absent in a release
+   *  exported before it was kept; /pulls fills it from the deployment (fillRerunActivities). */
+  cnAct?: string | null;
 };
 export function eventWasCleared(event: PullEventReward, cleared: ReadonlySet<string>): boolean {
   return event.rerun && [event.name, ...(event.legacyNames ?? [])].some(name => cleared.has(name));
+}
+/** An event's plain name: no "[Side Story]" tag, no "Rerun", one case and one spacing, so a rerun
+ *  and the back catalogue's entry for the event it returns meet on it. */
+export const plainEventName = (name: string) => name.normalize('NFKC').toLowerCase().replace(/\s+/g, ' ').trim().replace(/^\[[^\]]*\]\s*/, '').replace(/\s+rerun$/i, '');
+/** The back catalogue's playable event a rerun returns, if the catalogue lists it. The export
+ *  marks `inBacklog` with it (resolvePullEventSchedule), and the page reads a rerun's clear from
+ *  it: the same match both ways, so what the backlog counts and what the rerun pays never both
+ *  claim one event's Originite. */
+export function rerunBacklogEvent<T extends { name: string }>(event: Pick<PullEventReward, 'name' | 'event'>, playable: readonly T[]): T | undefined {
+  const key = plainEventName(event.event ?? event.name);
+  return playable.find(known => plainEventName(known.name) === key);
+}
+/** The stage-id prefix of the event a rerun returns, by the game's own ids: "act42sre" (the
+ *  rerun) runs the stages of "act42side" ("act42side_01", …), as every Record Restoration entry
+ *  in data/pull-sources.json shows from act12 on. Older reruns (act5sre → act11d0) follow no
+ *  rule; they find no stages and stay for the reader to tick. */
+export const rerunStagePrefix = (cnAct: string | null | undefined) => cnAct && /sre$/.test(cnAct) ? `${cnAct.replace(/sre$/, 'side')}_` : null;
+/** The battle stages of the event a rerun returns, among the stages the back catalogue prices
+ *  (`stageSanity`, the game's stage ids): the ordinary ones, not the challenge-mode variants
+ *  ("…#f#") and not the story stages that cost no sanity. */
+export function rerunOriginalStages(event: Pick<PullEventReward, 'cnAct'>, stageSanity: Readonly<Record<string, number>> | undefined): string[] {
+  const prefix = rerunStagePrefix(event.cnAct);
+  return prefix && stageSanity ? Object.entries(stageSanity).filter(([id, sanity]) => id.startsWith(prefix) && !id.includes('#') && sanity > 0).map(([id]) => id) : [];
+}
+/** The reruns whose event the account already cleared, by name, which the planner ticks itself
+ *  since a rerun of a cleared event pays its Originite no second time. Two readings, either
+ *  enough: the Reward Tracker's ticks (`doneEvents`: the import's clears, the reader's own)
+ *  hold the event, for one the back catalogue lists; or the import's cleared stage ids
+ *  (`cleared`) cover every ordinary battle stage of the event the rerun returns, for one it
+ *  does not list yet (an event's first rerun comes before its Record Restoration entry). */
+export function rerunsClearedByTicks(events: readonly PullEventReward[], playable: readonly { id: string; name: string }[], doneEvents: ReadonlySet<string>,
+  cleared: ReadonlySet<string> | null = null, stageSanity: Readonly<Record<string, number>> | undefined = undefined): Set<string> {
+  return new Set(events.filter(event => event.rerun).flatMap(event => {
+    const known = rerunBacklogEvent(event, playable);
+    if (known && doneEvents.has(known.id)) return [event.name];
+    const stages = cleared ? rerunOriginalStages(event, stageSanity) : [];
+    return stages.length && stages.every(id => cleared!.has(id)) ? [event.name] : [];
+  }));
 }
 export function eventShopPermits(event: PullEventReward): number {
   return event.shopPermits ?? (event.hasShop ? EVENT_SHOP_PERMITS : 0);

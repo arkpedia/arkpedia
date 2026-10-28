@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { fontsSettled } from './census-routes';
+import { bannerWithDetails, fontsSettled } from './census-routes';
 import { tabAlign } from './tab-align';
 
 /*
@@ -174,7 +174,7 @@ test('every reader can remove the operator on show, not only a mouse or a keyboa
 
 interface Place { name: string; route: string; open?: (page: Page) => Promise<void> }
 const openPreview = async (page: Page) => {
-  await page.getByRole('button', { name: 'Details', exact: true }).first().click();
+  await (await bannerWithDetails(page)).click();
   await page.locator('.gacha-details-modal button.gacha-details-featured, .gacha-details-modal .gacha-details-name-list button').first().click();
   await expect(page.getByRole('tablist', { name: 'Skill' })).toBeVisible({ timeout: 15000 });
 };

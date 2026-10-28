@@ -27,7 +27,7 @@ import { WISHING_WALL_LABELS, type WishingWallMode } from '@/lib/pulls/wishingWa
 import Head from 'next/head';
 import Link from 'next/link';
 import type { GetStaticProps } from 'next';
-import { getPullEventSchedule, getPullSchedule } from '@/lib/pulls/schedule';
+import { fillRerunActivities, getPullEventSchedule, getPullSchedule } from '@/lib/pulls/schedule';
 import { bundledBacklogSources, fillCollabTicketsFromDeployment } from '@/lib/pulls/sources';
 import { useRouter } from 'next/router';
 import { getAllSkins } from '@/lib/skins/skins';
@@ -56,6 +56,7 @@ import {
   MONTHLY_CARD_ORIGINITE,
   WEEKLY_ORUNDUM,
   eventWasCleared,
+  rerunsClearedByTicks,
   eventShopPermits,
   bannerHaul,
   incomeBetween,
@@ -173,6 +174,13 @@ export default function PullsPage({ scheduledEvents: globalEvents, scheduledBann
      plain date instead, which is still a perfectly good question to ask. */
   const [bannerName, setBannerName] = useState('');
   const [clearedReruns, setClearedReruns] = useState<Set<string>>(new Set());
+  /* A rerun of an event the Reward Tracker's ticks hold as cleared (the import's clears, or the
+     reader's own) pays its Originite no second time: ticked here without asking, as the account
+     says so. Before this the planner only knew the ticks a reader made in this dialog, and an
+     imported account saw every rerun of its cleared events counted again (2026-10-28). The
+     dialog's own ticks (clearedReruns, saved with the plan) stay for what the tracker cannot know. */
+  const tickedReruns = useMemo(() => rerunsClearedByTicks(scheduledEvents, backlogSources.playable, past.doneEvents, past.cleared, backlogSources.stageSanity), [scheduledEvents, backlogSources, past.doneEvents, past.cleared]);
+  const clearedAll = useMemo(() => new Set([...clearedReruns, ...tickedReruns]), [clearedReruns, tickedReruns]);
   const [walletFrom, setWalletFrom] = useState('');
   // Locked by default while the resources are the import's (useLock); the reader's choice stays.
   const [walletLocked, setWalletLocked] = useLock('pulls-resources', !!account?.wallet && walletFrom === account.importedAt);
@@ -280,7 +288,7 @@ export default function PullsPage({ scheduledEvents: globalEvents, scheduledBann
     permits: held.permits + (includeBacklog ? backlog.permits : 0),
   };
 
-  const rerunOptions = useMemo(() => ({ cleared: clearedReruns, wishingWallMode }), [clearedReruns, wishingWallMode]);
+  const rerunOptions = useMemo(() => ({ cleared: clearedAll, wishingWallMode }), [clearedAll, wishingWallMode]);
 
   /*
    * The whole calculation at one moment in time.
@@ -496,13 +504,14 @@ export default function PullsPage({ scheduledEvents: globalEvents, scheduledBann
             <tbody>
               <tr className="pulls-report-group"><th scope="rowgroup" colSpan={3}>Event rewards <span className="hint">by {until || 'the date'}</span></th></tr>
               {haul.counted.map((b) => {
-                const cleared = eventWasCleared(b, clearedReruns);
+                const cleared = eventWasCleared(b, clearedAll);
+                const fromTicks = tickedReruns.has(b.name);
                 const name = (b.event ?? b.name).replace(/^\[[^\]]*\]\s*/, '');
                 return (
                   <tr key={b.name} className={cleared ? 'muted' : undefined}>
                     <th scope="row">{name}</th>
-                    <td>ends {b.end}{b.opSource === 'median' ? ' · estimated' : ''}{b.rerun && b.op > 0 && <label className="check pulls-tick">
-                      <input type="checkbox" checked={cleared} aria-label={`Already cleared ${name}`}
+                    <td>ends {b.end}{b.opSource === 'median' ? ' · estimated' : ''}{b.rerun && b.op > 0 && <label className="check pulls-tick" title={fromTicks ? 'Cleared on your account: its stages are cleared in your import, or the event is ticked in the Reward Tracker' : undefined}>
+                      <input type="checkbox" checked={cleared} disabled={fromTicks} aria-label={`Already cleared ${name}`}
                         onChange={() => setClearedReruns(previous => {
                           const next = new Set(previous);
                           if (eventWasCleared(b, next)) [b.name, ...(b.legacyNames ?? [])].forEach(n => next.delete(n));
@@ -574,7 +583,7 @@ export const getStaticProps: GetStaticProps<PullsProps> = withContentPage<PullsP
   return { props: { scheduledEvents: getPullEventSchedule(backlogSources), backlogSources, skinCatalogue, skinCollections, scheduledBanners, bannerOdds: getBannerOdds(scheduledBanners) } };
 }, { finalize: async released => {
   const props = withLightRegionalTable(released);
-  const current = await withPullPlannerDynamicArt(currentPullPlan({ ...props, scheduledBanners: fillCollabTicketsFromDeployment(props.scheduledBanners) }, Date.now()));
+  const current = await withPullPlannerDynamicArt(currentPullPlan({ ...props, scheduledBanners: fillCollabTicketsFromDeployment(props.scheduledBanners), scheduledEvents: fillRerunActivities(props.scheduledEvents) }, Date.now()));
   if (current.backlogSources) return { ...current, backlogSources: fillFromDeployment(current.backlogSources, bundledBacklogSources()) };
   // A release exported before backlogSources joined the props. The first content
   // run after this deploy re-exports /pulls (the generator commit changes the

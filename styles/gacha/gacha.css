@@ -615,13 +615,17 @@
   font-size: 12px;
 }
 /* The candidate pickers' heading with "How does this work?" beside it: the button sits on the
-   heading's centre line, not 10px below it as it did (2026-10-28). */
+   heading's centre line, not 10px below it as it did (2026-10-28), and no taller than the
+   heading, so the row is the heading's height and the first content sits the section's 14px
+   under it (the layout census's heading-gap rule) whatever the control height is. */
 .gacha-info-toggle-row {
   display: flex;
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
+  margin-bottom: 14px;
 }
+.gacha-info-toggle-row .gacha-other-toggle { min-height: 0; padding: 3px 10px; line-height: 1.2; }
 
 .gacha-spark-store-btn {
   /* The row's other two are .ghost .btn-sm: share their --control-h, or the census

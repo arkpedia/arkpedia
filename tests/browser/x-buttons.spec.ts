@@ -1,6 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { playAllSongs, stubYouTube } from './youtube-stub';
-import { readOnly } from './census-routes';
+import { bannerWithDetails, readOnly } from './census-routes';
 
 /*
  * Every × that closes or removes something is components/ui/XButton (ui-primitives rule
@@ -164,14 +164,14 @@ const PLACES: Place[] = [
   },
   {
     id: '/gacha banner details', route: "/gacha-simulator",
-    open: async (page) => { await page.getByRole('button', { name: 'Details', exact: true }).first().click(); await expect(page.locator('.gacha-details-modal')).toBeVisible(); },
+    open: async (page) => { await (await bannerWithDetails(page)).click(); await expect(page.locator('.gacha-details-modal')).toBeVisible(); },
     x: (page) => page.getByRole('button', { name: 'Close banner details' }),
     gone: async (page) => { await expect(page.locator('.gacha-details-modal')).toHaveCount(0); },
   },
   {
     id: '/gacha operator preview', route: "/gacha-simulator",
     open: async (page) => {
-      await page.getByRole('button', { name: 'Details', exact: true }).first().click();
+      await (await bannerWithDetails(page)).click();
       await page.locator('.gacha-details-modal button.gacha-details-featured, .gacha-details-modal .gacha-details-name-list button').first().click();
       await expect(page.locator('.gacha-pull-preview-header')).toBeVisible();
     },

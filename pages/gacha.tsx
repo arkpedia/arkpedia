@@ -1894,7 +1894,7 @@ export default function GachaSimulator({ pools, banners: globalBanners, kernelLo
                 {(isOrienteering && !orienteeringConfirmed && !isLineupPending(selectedBanner!)) || (isCelebration && !celebrationConfirmed) || (isKernelLocating && !kernelLocatingConfirmed) ? (
                   isOrienteering ? (
                   <section className="op-section">
-                    <div className="gacha-info-toggle-row" style={{ marginBottom: 10 }}>
+                    <div className="gacha-info-toggle-row">
                       <h2 style={{ margin: 0 }}>{banner.label} — Choose 3 six★s and 3 five★s</h2>
                       <button
                         type="button"
@@ -1968,7 +1968,7 @@ export default function GachaSimulator({ pools, banners: globalBanners, kernelLo
                   </section>
                 ) : isKernelLocating && !kernelLocatingConfirmed ? (
                   <section className="op-section">
-                    <div className="gacha-info-toggle-row" style={{ marginBottom: 10 }}>
+                    <div className="gacha-info-toggle-row">
                       <h2 style={{ margin: 0 }}>{banner.label} — Choose 2 six★s and 3 five★s</h2>
                       <button
                         type="button"

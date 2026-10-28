@@ -161,6 +161,16 @@ html[data-site-server="kr"] .maintenance-notice:not([data-server="kr"]) {
 .front-events-name {
   font-weight: 600;
   font-size: 13px;
+  line-height: 1.4;
+}
+/* On a phone a long name takes three lines ("[Celebration] Critical Phase Transition") where a
+   short one takes one, and a closed event's countdown ("Stages closed · Shop closes in: 6d 23h")
+   two where "Starts in 18d" takes one, so the panel changed height as the carousel turned again
+   (2026-10-28): every slide's name gets exactly two lines, a longer one cut with an ellipsis,
+   and the countdown keeps two lines' room, so the dots keep their place. */
+@media (max-width: 480px) {
+  .front-events-name { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; min-height: 2lh; }
+  .front-events-info .countdown-timer { min-height: 2lh; }
 }
 .front-events-dots {
   display: flex;

@@ -1,7 +1,7 @@
 import { parseGameWindow } from '@/lib/schedule/gameWindow';
 import eventRewards from '@/data/pull-event-rewards.json';
 import { getAllEvents } from '@/lib/schedule/schedule';
-import type { BacklogSources, PullEventReward } from './pulls';
+import { rerunBacklogEvent, type BacklogSources, type PullEventReward } from './pulls';
 import { estimateBannerFromCn, waitsForGlobal, globalBannerPreview } from '@/lib/gacha/bannerSchedule';
 import { getEventCalendar, PREDICTED_GAP_DAYS } from '@/lib/home/frontPageContent';
 import { getAllHeadhuntingBanners } from '@/lib/gacha/headhuntingBannerData';
@@ -66,7 +66,6 @@ export function getPullSchedule(): UpcomingBanner[] {
  * skipped here is always one `remainingBacklog` counts. */
 export function resolvePullEventSchedule(current: ReturnType<typeof getAllEvents>, backlog: BacklogSources): PullEventReward[] {
   const byName = new Map(current.map(event => [pullBannerKey(event.name), event]));
-  const plain = (name: string) => pullBannerKey(name.replace(/^\[[^\]]*\]\s*/, '').replace(/\s+rerun$/i, ''));
   return eventRewards.flatMap(reward => {
     const event = byName.get(pullBannerKey(reward.event));
     const dates = event?.global.dateRange?.split(/[–—]/).map(date => date.trim().replaceAll('/', '-'));
@@ -77,12 +76,23 @@ export function resolvePullEventSchedule(current: ReturnType<typeof getAllEvents
     return [{
       name: reward.event, event: reward.event, start: dates[0], end: dates[1], startAt: window.start.toISOString(), endAt: window.end.toISOString(),
       rerun: /rerun/i.test(reward.event), op: reward.op, opSource: 'cn' as const,
-      inBacklog: backlog.playable.some(known => plain(known.name) === plain(reward.event)),
+      inBacklog: rerunBacklogEvent({ name: reward.event, event: reward.event }, backlog.playable) !== undefined,
       hasShop: reward.shopPermits > 0, shopPermits: reward.shopPermits,
       wishActId: reward.wishActId, wishDays: reward.wishDays, wishOrundum: reward.wishOrundum,
       legacyNames: ALL_BANNERS.filter(b => b.event === reward.event).map(b => b.name),
+      ...(reward.cnAct ? { cnAct: reward.cnAct } : {}),
     }];
   }).sort((a,b) => a.start.localeCompare(b.start));
+}
+/** The release's events with each one's game activity id (`cnAct`) filled from the deployment's
+ *  own reward table where the release has none: a release exported before the id was kept, so
+ *  the planner can tick a cleared event's rerun (rerunsClearedByTicks) from the first deploy. */
+export function fillRerunActivities(events: readonly PullEventReward[]): PullEventReward[] {
+  const byEvent = new Map(eventRewards.map(reward => [pullBannerKey(reward.event), reward.cnAct]));
+  return events.map(event => {
+    const cnAct = event.cnAct ?? byEvent.get(pullBannerKey(event.event ?? event.name));
+    return cnAct && !event.cnAct ? { ...event, cnAct } : event;
+  });
 }
 export function getPullEventSchedule(backlog: BacklogSources): PullEventReward[] {
   return resolvePullEventSchedule(getAllEvents(), backlog);

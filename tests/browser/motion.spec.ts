@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type BrowserContext, type Page, type TestInfo } from '@playwright/test';
-import { fontsSettled, openFilters, plannerExperimental, PLANNER_PLAN, readOnly, refuseWebfonts } from './census-routes';
+import { fontsSettled, openFilters, openPullableSimulator, plannerExperimental, PLANNER_PLAN, readOnly, refuseWebfonts } from './census-routes';
 
 /*
  * Motion: option C, "Quiet polish" (maintainer, 2026-09-26), and the LIVE badge's
@@ -546,7 +546,7 @@ test.describe('cards lift, and only by paint', () => {
     await page.goto('/events/%5BSide%20Story%5D%20People%2C%20A%20People');
     await settle(page);
     await press('a tab', () => page.getByRole('tab'), '0.97');
-    await page.goto("/gacha-simulator");
+    await openPullableSimulator(page);
     await settle(page);
     await press('a base button (the pull buttons, which also rise on hover)', () => page.locator('button.gacha-action:visible'), '0.97');
     // /operators' only ghost button was its "Show more"; the roster grows on scroll now.
@@ -740,19 +740,21 @@ test.describe('the tab underline slides', () => {
 /** /schedule with an event on: its page data fetched on a client navigation, with `now`
  *  an hour into the first event's window, so the list has a LIVE row whatever the build's
  *  clock says (x-buttons.spec.ts moves /community's clock the same way). */
+/** /schedule with the reader's clock inside an event, so a row is LIVE whatever the day.
+ *  The page's `now` prop only draws the first render: useReaderClock swaps in the reader's
+ *  clock on mount (lib/time/readerClock.ts), so patching the prop lasted one frame and the
+ *  test passed only while an event really was live (2026-10-28, the day none was). The
+ *  reader's clock is Playwright's fixed one, set inside the first dated event the page lists. */
 async function scheduleWithLiveEvent(page: Page) {
-  await page.route(/\/_next\/data\/[^/]+\/schedule\.json/, async (route) => {
-    if (route.request().method() !== 'GET') { await route.continue(); return; }
-    const response = await route.fetch();
-    const json = await response.json();
-    const rows = (json.pageProps.eventRows as { start?: number; end?: number }[]).filter((r) => typeof r.start === 'number' && typeof r.end === 'number');
-    if (rows.length) json.pageProps.now = Math.min(rows[0].start! + 3_600_000, rows[0].end! - 1);
-    await route.fulfill({ response, json });
-  });
+  const html = await (await page.request.get('/schedule')).text();
+  const rows = (JSON.parse(html.match(/<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/)![1]).props.pageProps.eventRows as { start?: number; end?: number; isPredicted?: boolean }[])
+    .filter((r) => typeof r.start === 'number' && typeof r.end === 'number' && !r.isPredicted);
+  expect(rows.length, 'the schedule lists a dated event').toBeGreaterThan(0);
+  await page.clock.setFixedTime(new Date(Math.min(rows[0].start! + 3_600_000, rows[0].end! - 1)));
   await page.goto('/');
   await page.evaluate(() => (window as unknown as { next: { router: { push: (url: string) => Promise<boolean> } } }).next.router.push('/schedule'));
   await page.waitForURL('**/schedule');
-  await expect(page.locator('.badge-live').first(), 'the list has a LIVE row once the page clock is inside an event').toBeVisible();
+  await expect(page.locator('.badge-live').first(), 'the list has a LIVE row once the reader clock is inside an event').toBeVisible();
 }
 const dots = (page: Page) => page.evaluate(() => Array.from(document.querySelectorAll('.badge-live')).filter((b) => b.checkVisibility()).map((badge) => {
   const dot = getComputedStyle(badge, '::before');

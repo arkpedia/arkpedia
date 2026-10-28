@@ -197,10 +197,13 @@ test('between a phone and the full row the triggers take two lines, each a contr
  */
 test('the goal editor\'s outcome is one stacked block with one rule', async ({ page }) => {
   await page.goto("/pull-planner");
+  // A banner still open on Global: the odds table also keeps a banner JP or KR still runs
+  // (currentPullPlan), which the deep link adds nothing for once it has closed on Global
+  // (Sealed With Time at 11:00Z on 2026-10-28, with the next limited banner weeks off).
   const banner = await page.evaluate(() => {
-    const odds = (window as unknown as { __NEXT_DATA__: { props: { pageProps: { bannerOdds: Record<string, { type: string }> } } } }).__NEXT_DATA__.props.pageProps.bannerOdds;
-    const names = Object.keys(odds);
-    return names.find((n) => odds[n].type === 'limited') ?? names[0] ?? null;
+    const props = (window as unknown as { __NEXT_DATA__: { props: { pageProps: { bannerOdds: Record<string, { type: string }>; scheduledBanners: { name: string; end: string; endAt?: string }[] } } } }).__NEXT_DATA__.props.pageProps;
+    const open = props.scheduledBanners.filter((b) => Date.parse(b.endAt ?? `${b.end}T23:59:59Z`) > Date.now());
+    return (open.find((b) => props.bannerOdds[b.name]?.type === 'limited') ?? open.find((b) => props.bannerOdds[b.name]) ?? open[0])?.name ?? null;
   });
   expect(banner).toBeTruthy();
   await page.goto(`/pulls?banner=${encodeURIComponent(banner!)}`);

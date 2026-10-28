@@ -27,6 +27,38 @@ const EXCLUDED: Record<string, string> = {
 /** Addresses beyond one per page file: a stage open in the browser, a second event. */
 const EXTRA = ['/stages/browse?s=ta-1', '/events/%5BSide%20Story%5D%20People%2C%20A%20People'];
 
+/** The simulator's Details button, on a banner that has one. The page opens on the current
+ *  banner, and a choose-first banner (Kernel Locating #13 was current once Sealed With Time
+ *  closed, 2026-10-28) shows its operator choice in place of the art and its Details: these
+ *  states then go on to the first banner that has the button. */
+export async function bannerWithDetails(page: Page) {
+  const details = page.getByRole('button', { name: 'Details', exact: true }).first();
+  const present = async () => { await details.waitFor({ timeout: 3000 }).catch(() => undefined); return (await details.count()) > 0; };
+  if (await present()) return details;
+  const names = await page.evaluate(() => (window as unknown as { __NEXT_DATA__: { props: { pageProps: { banners: { name: string }[] } } } }).__NEXT_DATA__.props.pageProps.banners.map((b) => b.name));
+  for (const name of names) {
+    await page.goto(`/gacha-simulator?banner=${encodeURIComponent(name)}`);
+    if (await present()) return details;
+  }
+  throw new Error('no banner on the simulator has a Details button');
+}
+
+/** The simulator on a banner that pulls at once. It opens on the current banner, which can be a
+ *  choose-first one with no pull button until its operators are chosen: the pulling tests go on
+ *  to the first banner whose ten-pull is enabled. */
+export async function openPullableSimulator(page: Page) {
+  await page.goto('/gacha-simulator');
+  const ten = page.getByRole('button', { name: 'Pull ten operators' });
+  const pulls = async () => { await ten.waitFor({ timeout: 3000 }).catch(() => undefined); return (await ten.count()) > 0 && ten.isEnabled(); };
+  if (await pulls()) return;
+  const names = await page.evaluate(() => (window as unknown as { __NEXT_DATA__: { props: { pageProps: { banners: { name: string }[] } } } }).__NEXT_DATA__.props.pageProps.banners.map((b) => b.name));
+  for (const name of names) {
+    await page.goto(`/gacha-simulator?banner=${encodeURIComponent(name)}`);
+    if (await pulls()) return;
+  }
+  throw new Error('no banner on the simulator pulls at once');
+}
+
 /** Every address the census visited: one per page file, the 404 page at an address
  *  that does not exist, and EXTRA. */
 export function censusRoutes(): string[] {
@@ -171,9 +203,9 @@ export const CENSUS_STATES: CensusState[] = [
   // in both modes; Simple's search row is on the page load.
   { id: 'planner experimental', route: "/operator-planner", act: (page) => tabIn(page, '.page-header-actions', 'Experimental') },
   { id: 'event rewards tab', route: '/events/%5BSide%20Story%5D%20People%2C%20A%20People', act: (page) => tabIn(page, '.event-detail-tabs', 'Rewards') },
-  { id: 'gacha details', route: "/gacha-simulator", act: async (page) => { await page.getByRole('button', { name: 'Details', exact: true }).first().click(); await page.locator('.gacha-details-modal').waitFor(); } },
+  { id: 'gacha details', route: "/gacha-simulator", act: async (page) => { await (await bannerWithDetails(page)).click(); await page.locator('.gacha-details-modal').waitFor(); } },
   { id: 'gacha operator preview', route: "/gacha-simulator", act: async (page) => {
-    await page.getByRole('button', { name: 'Details', exact: true }).first().click();
+    await (await bannerWithDetails(page)).click();
     await page.locator('.gacha-details-modal button.gacha-details-featured, .gacha-details-modal .gacha-details-name-list button').first().click();
     await page.locator('.gacha-pull-preview-header').waitFor();
   } },

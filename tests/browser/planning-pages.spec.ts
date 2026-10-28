@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { fontsSettled, PLANNER_PLAN, plannerExperimental, readOnly, type PlannerStorage } from './census-routes';
+import { fontsSettled, openPullableSimulator, PLANNER_PLAN, plannerExperimental, readOnly, type PlannerStorage } from './census-routes';
 
 /*
  * The planning, events and home pages (the 2026-09-25 review's family B). One test per
@@ -27,6 +27,7 @@ import { fontsSettled, PLANNER_PLAN, plannerExperimental, readOnly, type Planner
  */
 
 const PHONE = { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 } as const;
+
 
 test.beforeEach(({}, info) => {
   test.skip(info.project.name !== 'desktop', 'sets its own viewports, so it runs in one project');
@@ -447,7 +448,7 @@ test.describe("/gacha-simulator", () => {
     test.describe(`at ${width.key}`, () => {
       test.use(width.use);
       test('Reset at the bottom of the page does not move the reader (Anti-Page Jump)', async ({ page }) => {
-        await page.goto("/gacha-simulator");
+        await openPullableSimulator(page);
         const ten = page.getByRole('button', { name: 'Pull ten operators' });
         for (let i = 0; i < 3; i += 1) { await ten.click(); await page.waitForTimeout(400); }
         await page.getByRole('button', { name: /Pull history/ }).click();
@@ -465,7 +466,7 @@ test.describe("/gacha-simulator", () => {
         // every second step, 1017 -> 717 -> 417 -> 1017 at 1440: useHeightFloor kept the press
         // reading from the close, and when the released spacer came out the container's
         // collapsed margin read as a shrink, which restored that reading.
-        await page.goto("/gacha-simulator");
+        await openPullableSimulator(page);
         const ten = page.getByRole('button', { name: 'Pull ten operators' });
         for (let i = 0; i < 5; i += 1) { await ten.click(); await page.waitForTimeout(400); }
         const toggle = page.getByRole('button', { name: /Pull history/ });
@@ -492,7 +493,7 @@ test.describe("/gacha-simulator", () => {
   }
 
   test('pull tiles and featured rates take their colour from the rarity tokens (4.3 G)', async ({ page }) => {
-    await page.goto("/gacha-simulator");
+    await openPullableSimulator(page);
     await page.getByRole('button', { name: 'Pull ten operators' }).click();
     const result = await page.evaluate(() => {
       const probe = document.createElement('span');

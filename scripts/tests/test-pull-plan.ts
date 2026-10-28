@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { availableBannerFreePulls, goalsAtBannerEnd, MAX_PROGRESS_ITEMS, parsePullPlan, planBudgets, planHorizon, savingsAfterPlanAt, validPlanDate, type SavedPullPlan } from '../../lib/pulls/plan';
-import type { UpcomingBanner } from '../../lib/pulls/pulls';
+import { plainEventName, rerunBacklogEvent, rerunOriginalStages, rerunsClearedByTicks, rerunStagePrefix, type PullEventReward, type UpcomingBanner } from '../../lib/pulls/pulls';
 import type { Skin } from '../../lib/skins/skinTypes';
 import { parsePastProgress } from '../../lib/pulls/pastProgress';
 import { ALL_BANNERS, bundledBacklogSources } from '../../lib/pulls/sources';
@@ -697,4 +697,32 @@ test('the skin wishlist setting survives a save and is absent from older plans',
   assert.equal(parsePullPlan(JSON.stringify({ ...saved, includeSkins: false }))!.includeSkins, false);
   assert.equal(parsePullPlan(JSON.stringify({ ...saved, includeSkins: true }))!.includeSkins, true);
   assert.throws(() => parsePullPlan(JSON.stringify({ ...saved, includeSkins: 'no' })));
+});
+
+test('a rerun of an event the Reward Tracker holds as cleared is ticked for the planner, by the plain name both sides share', () => {
+  const playable = [{ id: 'event:masses', name: "[Side Story] The Masses' Travels" }, { id: 'event:ato', name: '[Side Story] Ato' }, { id: 'event:azure', name: '[Side Story – Crossover] Thunder in the Azure Dream' }];
+  const rerun = (name: string) => ({ name, event: name, rerun: true, op: 40 }) as PullEventReward;
+  const events = [rerun("The Masses' Travels Rerun"), rerun('Ato Rerun'), rerun('[Rerun] Act or Die Rerun'), { ...rerun('Thunder in the Azure Dream'), rerun: false }];
+  assert.equal(plainEventName("[Rerun] The Masses'  Travels Rerun"), plainEventName("[Side Story] The Masses' Travels"));
+  assert.equal(rerunBacklogEvent(events[0], playable)?.id, 'event:masses');
+  assert.equal(rerunBacklogEvent(events[2], playable), undefined, 'an event the catalogue does not list matches nothing');
+  const ticked = rerunsClearedByTicks(events, playable, new Set(['event:masses', 'event:azure']));
+  assert.deepEqual([...ticked], ["The Masses' Travels Rerun"], 'Ato is not ticked, Act or Die is unknown, Azure is no rerun');
+  assert.deepEqual([...rerunsClearedByTicks(events, playable, new Set())], []);
+});
+
+test("a rerun of an event the back catalogue does not list yet is ticked from the import's cleared stages, by the game's activity ids", () => {
+  assert.equal(rerunStagePrefix('act42sre'), 'act42side_');
+  assert.equal(rerunStagePrefix('act42side'), null, 'not a rerun id');
+  assert.equal(rerunStagePrefix(undefined), null);
+  const stageSanity = { act42side_01: 12, act42side_02: 15, 'act42side_01#f#': 12, act42side_st01: 0, act43side_01: 12, act41side_01: 12 };
+  const masses = { name: "[Rerun] The Masses' Travels Rerun", event: "[Rerun] The Masses' Travels Rerun", rerun: true, op: 41, cnAct: 'act42sre' } as PullEventReward;
+  const actOrDie = { ...masses, name: '[Rerun] Act or Die Rerun', event: '[Rerun] Act or Die Rerun', cnAct: 'act43sre' } as PullEventReward;
+  const unknown = { ...masses, name: '[Rerun] Old Rerun', event: '[Rerun] Old Rerun', cnAct: 'act5sre' } as PullEventReward;
+  assert.deepEqual(rerunOriginalStages(masses, stageSanity), ['act42side_01', 'act42side_02'], 'ordinary battle stages only: no challenge mode, no story stage');
+  const events = [masses, actOrDie, unknown];
+  assert.deepEqual([...rerunsClearedByTicks(events, [], new Set(), new Set(['act42side_01', 'act42side_02', 'act43side_01']), stageSanity)], [masses.name, actOrDie.name]);
+  assert.deepEqual([...rerunsClearedByTicks(events, [], new Set(), new Set(['act42side_01']), stageSanity)], [], 'one stage short is not cleared');
+  assert.deepEqual([...rerunsClearedByTicks(events, [], new Set(), null, stageSanity)], [], 'no import, no stages to read');
+  assert.deepEqual([...rerunsClearedByTicks(events, [], new Set(), new Set(['act42side_01', 'act42side_02']), undefined)], [], 'a release without stage costs says nothing');
 });
