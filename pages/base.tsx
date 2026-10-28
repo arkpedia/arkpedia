@@ -219,6 +219,9 @@ export default function BasePage({ operators }: Props) {
   const [baseSource, setBaseSource] = useState<'planner' | 'account'>('planner');
   const [showRotationPlan, setShowRotationPlan] = useState(false);
   const [showOptimizer, setShowOptimizer] = useState(false);
+  /* The optimizer is a Preview feature for now (next.config.js ARKPEDIA_BASE_OPTIMIZER): a
+     production build draws neither its button nor its dialog. */
+  const optimizerAvailable = process.env.ARKPEDIA_BASE_OPTIMIZER === '1';
   const [calculationSource, setCalculationSource] = useState<'current' | 'rotation'>('current');
   const editLayoutButtonRef = useRef<HTMLButtonElement>(null);
   const layoutEditorScroll = useRef<number | null>(null);
@@ -1252,7 +1255,7 @@ export default function BasePage({ operators }: Props) {
     return { id: f.id, metric: workers.length || f.kind === 'dormitory' ? metric : f.level ? 'Empty room' : '', detail: f.level ? detail : '', workers, deadline };
   });
 
-  const optimizerDialog = showOptimizer && <ImportDialog title="Base optimizer" className="base-rotation-dialog" onClose={() => setShowOptimizer(false)}><BaseAccountOptimizer account={account} base={{ operators, rosters, skillSlots, workshopRecipes, clueExchangeActive, moraleAbove12 }} loginInterval={loginInterval} onInterval={setLoginInterval} onApply={saveOptimizerRotation} /></ImportDialog>;
+  const optimizerDialog = optimizerAvailable && showOptimizer && <ImportDialog title="Base optimizer" className="base-rotation-dialog" onClose={() => setShowOptimizer(false)}><BaseAccountOptimizer account={account} base={{ operators, rosters, skillSlots, workshopRecipes, clueExchangeActive, moraleAbove12 }} loginInterval={loginInterval} onInterval={setLoginInterval} onApply={saveOptimizerRotation} /></ImportDialog>;
   const rotationDialog = showRotationPlan && <ImportDialog title="Rotation" className="base-rotation-dialog" onClose={() => setShowRotationPlan(false)}><BaseRotationPanel plan={rotationPlan} onChange={updateRotationPlan} presets={savedPresets} onLoad={viewRotationShift} initialMorale={account?.base?.morale ?? {}} owned={ownedOperators ?? undefined} imported={!!account?.base} stages={rotationCalculation?.stages} /></ImportDialog>;
   if (!setupComplete) {
     return (
@@ -1261,7 +1264,7 @@ export default function BasePage({ operators }: Props) {
           <PageHeader
             eyebrow="Rhodes Island // Base Layout"
             title={editingExistingLayout ? 'Edit Base Layout' : 'Base Formation'}
-            actions={<div className="base-view-controls"><button type="button" className="ghost" onClick={() => setShowOptimizer(true)}>Optimize base</button>{rotationPlan.shifts.length > 0 && <button type="button" className="ghost" onClick={() => setShowRotationPlan(true)}>Rotation</button>}</div>}
+            actions={<div className="base-view-controls">{optimizerAvailable && <button type="button" className="ghost" onClick={() => setShowOptimizer(true)}>Optimize base</button>}{rotationPlan.shifts.length > 0 && <button type="button" className="ghost" onClick={() => setShowRotationPlan(true)}>Rotation</button>}</div>}
             sub={editingExistingLayout
               ? 'Change what stands in each production spot and how far each facility is built. Operators stay where they are, except in a spot whose facility type changes.'
               : 'Build your base from a familiar split, then adjust its rooms and facility levels.'}
@@ -1479,7 +1482,7 @@ export default function BasePage({ operators }: Props) {
         title="Base"
         sub="Staff your rooms, compare setups and plan the next shift."
         actions={<div className="base-view-controls sidescroll">
-          <button type="button" className="ghost" onClick={() => setShowOptimizer(true)}>Optimize base</button>
+          {optimizerAvailable && <button type="button" className="ghost" onClick={() => setShowOptimizer(true)}>Optimize base</button>}
           <button type="button" className="ghost" disabled={baseSource === 'account' && !account?.base} onClick={exportSnapshot}>Save image</button>
           {/* Outside the development-only guard below: the layout editor is a
               player-facing feature, not a debugging aid. It stays alongside

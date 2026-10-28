@@ -65,7 +65,6 @@ export const CHANGELOG: ChangelogEntry[] = [
       { title: 'UI update for the site', detail: 'Clearer navigation, compact page controls, local profile settings and updated page addresses are now available.', href: '/' },
       { title: 'Music player UI update', detail: 'Refined player controls, lyrics and queue navigation keep your listening tools together.', href: '/music' },
       { title: 'Reward Tracker UI update', detail: 'Reward icons, clearer totals and stage exclusions make unclaimed rewards easier to track.', href: '/reward-tracker' },
-      { title: 'Base recommendations (beta)', detail: 'Calculations and simulations run on your PC, so processing time varies with your hardware.', href: '/base' },
     ],
     added: [
       { title: 'Import without leaving the page', detail: 'Open Import / export in place and return to your filters, completion marks and scroll position.', href: '/reward-tracker' },
@@ -88,12 +87,6 @@ export const CHANGELOG: ChangelogEntry[] = [
     at: '2026-10-27T13:57:00Z',
     changed: [
       { title: 'Base teams at a glance', detail: 'See operator portraits, colour-coded buildings and daily yields in a compact optimizer.', href: '/base' },
-    ],
-  },
-  {
-    at: '2026-10-27T13:30:00Z',
-    added: [
-      { title: 'Base recommendations from your account (beta)', detail: 'Compare owned teams and rotations; calculations run on your PC, so simulation time varies with your hardware.', href: '/base' },
     ],
   },
   {

@@ -35,7 +35,7 @@ test('production uses the updated public URLs and keeps privacy controls accessi
   await page.goto('/changelog'); await expect(page).toHaveURL(/\/whats-new$/);
   await expect(page.getByRole('link', { name: 'UI update for the site', exact: true })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Music player UI update', exact: true })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Base recommendations (beta)', exact: true })).toBeVisible();
+  // The base optimizer stays on Preview for now (#852): its What's new entry leaves the list with it.
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
   const settings = page.getByRole('region', { name: 'Settings', exact: true });
   await settings.getByRole('link', { name: 'Privacy choices', exact: true }).click();

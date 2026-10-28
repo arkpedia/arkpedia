@@ -1,6 +1,12 @@
 import { expect, test } from '@playwright/test';
 import account from '../fixtures/base-account.json';
 
+// The optimizer is a Preview feature: a production build (Check's) draws no Optimize base button.
+test.beforeEach(async ({ request }) => {
+  const response = await request.get('/build-info.json');
+  const build = response.ok() ? await response.json() : null;
+  test.skip(build?.deploymentRole !== 'staging', 'The base optimizer is Preview-only; production builds leave it out.');
+});
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('arkpedia:privacy:v1', JSON.stringify({ version: 1, analytics: false, externalMedia: false, savedAt: Date.now() })));
 });
