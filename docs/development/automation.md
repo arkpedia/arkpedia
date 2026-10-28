@@ -19,6 +19,9 @@ CI can stop until the allowance resets; free does not mean unlimited private run
   A push or PR that changes only `docs/**` or Markdown files skips Check, and so
   Deploy (`config/docs-only-paths.json`; any other file runs every step).
 - Private daily content preparation: one job that pushes a validated release straight to the public data repository's `main` (no pull request); no website build.
+- Browser audit (the exhaustive browser suite on main): nightly at 03:17 UTC and on demand, on the
+  self-hosted runner like the content jobs. It ran on hosted runners for every push to main until
+  2026-10-28, about 85 minutes a run, more than the allowance could carry.
 - Public assets: standard Ubuntu runners only. Image/skin/voice syncs have explicit
   timeouts, avoid artifact uploads, and run several hours after Global reset.
 - Weekly grouped Dependabot PRs limit update churn. Updates still need review;

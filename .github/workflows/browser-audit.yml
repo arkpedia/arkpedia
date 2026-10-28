@@ -1,11 +1,15 @@
 name: Browser audit
 
-# Independent from Check and deployment. Keep the exhaustive suite visible after
-# integration, and available manually, without delaying a PR preview or release.
+# Independent from Check and deployment: the exhaustive suite on main, once a night and on
+# demand, without delaying a PR preview or release. It ran on every push to main on GitHub's
+# hosted runners until 2026-10-28: at about 85 hosted minutes a run (the suite alone took
+# over an hour there) that was more than the organization's 2,000 free minutes a month
+# could carry, and it had failed since 2026-10-26 anyway (the build's type check ran out
+# of Node's default 2 GB heap). It now runs where the content jobs do (ARKPEDIA_RUNNER, the
+# NAS), at a quiet hour, so it never shares the NAS with a day's Checks.
 on:
-  push:
-    branches: [main]
-    paths-ignore: ['docs/**', '**/*.md']
+  schedule:
+    - cron: '17 3 * * *'
   workflow_dispatch:
 
 permissions:
@@ -17,14 +21,16 @@ concurrency:
 
 jobs:
   audit:
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
+    runs-on: ${{ vars.ARKPEDIA_RUNNER || 'ubuntu-latest' }}
+    # The full suite takes 35 to 45 minutes alone on the NAS and over an hour on a hosted runner.
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
           node-version: '22'
-          cache: npm
+          cache: ${{ runner.environment == 'github-hosted' && 'npm' || '' }}
+          package-manager-cache: ${{ runner.environment == 'github-hosted' }}
       - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
@@ -36,11 +42,18 @@ jobs:
           ARKPEDIA_CONTENT_DISABLED: '1'
           ARKPEDIA_YOUTUBE_FEED_FIXTURE: tests/fixtures/youtube-feeds.xml
           NEXT_TELEMETRY_DISABLED: '1'
-      - run: npx playwright install --with-deps chromium
+          # The build's type check ran out of Node's default 2 GB heap (every run since
+          # 2026-10-26); Check gives its typecheck the same room.
+          NODE_OPTIONS: --max-old-space-size=4096
+      # --with-deps installs system libraries with sudo; a self-hosted runner has them already.
+      - run: npx playwright install ${{ runner.environment == 'github-hosted' && '--with-deps' || '' }} chromium
       - name: Exhaustive desktop and mobile audit
         run: npm run test:browser -- --reporter=list,json
         env:
           PLAYWRIGHT_JSON_OUTPUT_FILE: .cache/browser-audit-results.json
+          # The NAS /tmp is a 2 GB tmpfs; Chromium's profiles must use the job directory (as Check).
+          TMPDIR: ${{ runner.temp }}
+          PW_WORKERS: '2'
       - name: Preserve audit report
         if: always()
         uses: actions/upload-artifact@v7
