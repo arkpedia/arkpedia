@@ -52,16 +52,13 @@ flowchart TB
   reader -->|commit-pinned media URLs| assets
 
   subgraph imports[Account import: encrypted tunnel]
-    vps["VPS relay + nginx<br/>relay.arkpedia.net/wisp/"]
     door["arkpedia-relay Worker<br/>origin and rate gate"]
     container[Relay container: Wisp TCP forwarding]
     game[Yostar login, game and Account Center servers]
     door --> container
-    vps --> game
     container --> game
   end
-  reader -->|www and dev: WSS| vps
-  reader -->|Cloudflare site: WSS| door
+  reader -->|WSS| door
 
   upstream[Game tables, official announcements, art mirrors, wikis]
   jobs[GitHub Actions: import, validate, compile and publish]
@@ -193,12 +190,11 @@ site route; it is not the bulk media publication pipeline.
 sequenceDiagram
   participant B as Browser: libcurl.js + TLS/WASM
   participant W as Website API
-  participant R as Selected Wisp relay
+  participant R as Wisp relay: doorman Worker + container
   participant Y as Yostar / game / Account Center
   participant L as Browser storage
   B->>W: Public server-list metadata only
   W-->>B: Cached public network configuration
-  Note over B,R: www/dev use VPS nginx and relay. CF uses doorman Worker and container
   B->>R: WSS /wisp/ with permitted site Origin
   R->>Y: TCP to allowlisted host and port
   Note over B,Y: Inner TLS terminates in browser and actual game host
@@ -209,14 +205,12 @@ sequenceDiagram
 
 The relay can observe connection metadata and forwards encrypted bytes. It does not
 terminate the inner game-server TLS or read the email, login code, game tokens or
-account response. The nginx/doorman endpoint terminates the outer WSS connection.
+account response. The doorman Worker terminates the outer WSS connection.
 Origins, destinations, ports and connection limits constrain relay access.
 
-The Cloudflare relay is `arkpedia-relay.cloudflare-1ff.workers.dev/wisp/`, selected
-by `config/relay.json` on the Cloudflare branch (`use: true`). The relay container
-runs the same server as the VPS; a container is needed for the game hosts that the
-plain Worker's TCP API cannot reach. On the CF site, `?relay=vps` selects the VPS
-and `?relay=cloudflare` selects the CF relay. The Vercel sites keep the VPS path.
+The relay is `arkpedia-relay.cloudflare-1ff.workers.dev/wisp/` (`config/relay.json`),
+the only one: the VPS relay at `relay.arkpedia.net` was retired on 2026-10-28. A
+container is needed for the game hosts that the plain Worker's TCP API cannot reach.
 
 Storage belongs to the browser origin: www, dev and Cloudflare do not automatically
 share imported accounts or plans. Public network metadata caching is separate from
@@ -313,7 +307,7 @@ rollback rehearsal and public-domain cutover remain open; see the dated progress
 | Site Worker, R2 and queue | [Pilot release and recovery](development/cloudflare-pilot-release.md), main root `wrangler.jsonc`, `open-next.config.ts`, `lib/cloudflare/regionalPageCache.ts` |
 | Data release and recovery | [Runtime content](development/runtime-content.md), [pipelines](development/data-pipelines.md), `lib/content/server.ts`, `config/content-channels.json` |
 | Asset URLs and pins | `config/asset-delivery.json`, `data/assets/revisions.json`, [data sources](development/data-sources.md), asset repository manifests |
-| Account transport | `lib/account-import/relay.ts`, branch-specific `config/relay.json`, [relay repository](https://github.com/arkpedia/arkpedia-relay/tree/f2e2c3fb2228e93af469011a2e790b5b6070099f) |
+| Account transport | `lib/account-import/relay.ts`, branch-specific `config/relay.json`, [relay repository](https://github.com/arkpedia/arkpedia-relay) |
 | Arkpedia account pilot | `lib/cloud-account/`, `pages/api/auth/`, `pages/api/cloud-account.ts`, `migrations/accounts/`, [setup and acceptance](development/cloud-accounts.md) |
 | Isolated feature staging | `wrangler.staging.jsonc`, `open-next.staging.config.ts`, [verified staging guide](development/cloudflare-staging.md) |
 | Release orchestration | [Branch sync](development/branch-sync.md), [automation](development/automation.md), `.github/workflows/` |

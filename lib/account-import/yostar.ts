@@ -16,7 +16,7 @@
  *
  * The SDK advertises CORS preflight headers but rejects website Origins in its
  * application response (verified 2026-10-17). It, the game token exchange, the game
- * server and Account Center use relay.arkpedia.net (account-import/relay.ts), which carries TLS it cannot
+ * server and Account Center use the Wisp relay (account-import/relay.ts), which carries TLS it cannot
  * read: the TLS runs in the page. Nothing here keeps anything. The email, the code and
  * every token live in the caller's memory for the length of one import.
  *
