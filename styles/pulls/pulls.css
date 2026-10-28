@@ -391,7 +391,11 @@ button.pulls-past-name:hover, button.pulls-past-name[aria-expanded="true"] { col
    (the 1px stays, transparent, so it appearing moves nothing), and lifts on hover (.lift,
    styles/core/motion.css). The button is the picture,
    name and source; the event's page is a small link under it, inside the card. */
-.free-op-welfare-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 248px), 1fr)); gap: 8px; margin: 0; padding: 0; list-style: none; }
+/* 300px columns: the Free rewards tab's list is the page's full width and its cards carry a
+   32px tick column, so at 248px it packed five columns whose text wrapped word by word and
+   whose names truncated, while the overview's narrower panel gave the same cards four. The
+   two grids lay out the same now (2026-10-28). */
+.free-op-welfare-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 8px; margin: 0; padding: 0; list-style: none; }
 .free-op-welfare-card { position: relative; display: grid; grid-template-columns: 64px minmax(0, 1fr); column-gap: 18px; align-content: start; min-width: 0; padding: 16px 12px 12px; border: 1px solid var(--line-soft); border-radius: var(--radius); background: var(--panel); }
 .free-op-welfare-card:hover, .free-op-welfare-card:focus-within { border-color: var(--teal); }
 .btn-bare.free-op-welfare-open { display: grid; grid-column: 1 / -1; grid-template-columns: subgrid; grid-template-rows: auto auto auto; align-items: center; row-gap: 2px; min-width: 0; padding: 0; text-align: left; cursor: pointer; }
