@@ -93,6 +93,8 @@
 /* The Income and Skin wishlist popups (pages/pulls.tsx), in the same frame as Past events. */
 .pulls-income-dialog { --dialog-w: 760px; }
 .pulls-skins-dialog { --dialog-w: 1080px; }
+/* The Add banner popup: two columns of banner cards (components/pulls/BannerPicker). */
+.pulls-banner-dialog { --dialog-w: 960px; }
 .pulls-income-body, .pulls-skins-body { display: grid; gap: 14px; }
 /* The condensed income report: one line per source -- what, its working, its pulls -- and the
    two sums the forecast adds, ruled above. */

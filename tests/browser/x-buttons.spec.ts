@@ -157,6 +157,12 @@ const PLACES: Place[] = [
     gone: async (page) => { await expect(page.getByRole('dialog')).toHaveCount(0); },
   },
   {
+    id: 'pulls add banner', route: "/pull-planner",
+    open: async (page) => { await page.getByRole('button', { name: '+ Add banner' }).click(); await expect(page.getByRole('dialog')).toBeVisible(); },
+    x: (page) => page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }),
+    gone: async (page) => { await expect(page.getByRole('dialog')).toHaveCount(0); },
+  },
+  {
     id: 'pulls past events', route: "/pull-planner",
     open: async (page) => { await page.locator('#tab-past').click(); await expect(page.getByRole('dialog')).toBeVisible(); },
     x: (page) => page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }),

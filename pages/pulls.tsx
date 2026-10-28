@@ -324,14 +324,20 @@ export default function PullsPage({ scheduledEvents: globalEvents, scheduledBann
        reason permits are -- they are pulls, not currency. */
     const free = picked && now ? availableBannerFreePulls(picked, when, now, goals.find(g => g.banner === picked.name)?.ticketUsed) : 0;
     const p = pullsFrom(holdings, withExtras);
-    const recurringOnly = pullsFrom({
-      orundum: readNumber(orundum), permits: readNumber(permits) + certs + green.permits,
-      originitePrime: Math.max(0, readNumber(originite) + (monthlyCard ? mc.originitePrime : 0) - reserve),
-    }, { ...inc, orundum: inc.orundum + green.orundum + (monthlyCard ? mc.orundum : 0) });
+    const recurringHoldings = { orundum: readNumber(orundum), permits: readNumber(permits) + certs + green.permits };
+    const recurringOP = readNumber(originite) + (monthlyCard ? mc.originitePrime : 0);
+    const recurringIncome = { ...inc, orundum: inc.orundum + green.orundum + (monthlyCard ? mc.orundum : 0) };
+    const recurringOnly = pullsFrom({ ...recurringHoldings, originitePrime: Math.max(0, recurringOP - reserve) }, recurringIncome);
+    /* The same two sums with nothing held back for the Skin wishlist: the Pull calculation row
+       shows what you hold and gain in full, then takes the wishlist off as its own term. */
+    const unreserved = pullsFrom({ ...holdings, originitePrime: grossOP }, withExtras);
+    const recurringUnreserved = pullsFrom({ ...recurringHoldings, originitePrime: recurringOP }, recurringIncome);
     return {
       grossOP,
       recurringOnly: recurringOnly.pulls,
+      recurringOnlyUnreserved: recurringUnreserved.pulls,
       pulls: { ...p, pulls: p.pulls + free },
+      unreservedPulls: unreserved.pulls + free,
       free,
       income: inc,
       card: mc,
@@ -347,8 +353,13 @@ export default function PullsPage({ scheduledEvents: globalEvents, scheduledBann
 
   const today = pullsFrom({ ...held, originitePrime: Math.max(0, held.originitePrime - reserve) }, incomeBetween(new Date(0), new Date(0), server));
   const greenIncome = greenCertificateIncome(now ?? new Date(0), target ?? now ?? new Date(0), !!incomeSettings.greenCertificates, server);
-  const recurringGained = (at?.recurringOnly ?? today.pulls) - today.pulls;
-  const rewardGained = at ? total.pulls - at.free - at.recurringOnly : 0;
+  /* The Pull calculation row: what you hold, plus income, plus event rewards, all with nothing
+     held back, then minus the pulls the Skin wishlist's OP reservation removes -- so the row
+     adds up to Before spending, which (like the banner budgets) keeps the reservation. */
+  const availableNow = pullsFrom(held, incomeBetween(new Date(0), new Date(0), server)).pulls;
+  const recurringGained = (at?.recurringOnlyUnreserved ?? availableNow) - availableNow;
+  const rewardGained = at ? at.unreservedPulls - at.free - at.recurringOnlyUnreserved : 0;
+  const skinPlannerHeld = (at ? at.unreservedPulls : availableNow) - total.pulls;
 
 
   const budgetRows = useMemo(() => now ? planBudgets(goals, scheduledBanners, now, date => {
@@ -374,7 +385,7 @@ export default function PullsPage({ scheduledEvents: globalEvents, scheduledBann
     if (typeof name !== 'string' || handledLink.current === name) return;
     handledLink.current = name;
     const banner = banners.find(b => b.name === name);
-    if (!banner) { setNotice('This banner is not in the upcoming schedule. Choose another banner below.'); return; }
+    if (!banner) { setNotice('This banner is not in the upcoming schedule. Use + Add banner to choose another.'); return; }
     addGoal(banner); setEditingBanner(banner.name); setBannerName(banner.name); setUntil(banner.end);
   }, [hydrated, router.isReady, router.query.banner, now, banners, addGoal]);
 
@@ -443,16 +454,16 @@ export default function PullsPage({ scheduledEvents: globalEvents, scheduledBann
           <div className="pulls-cert-months">{certificateSpending(now, target, readNumber(yellowCerts), certSpending, server).rows.map(row => <label key={row.month}>{row.month}<NumberInput min="0" max="258" step="1" aria-label={`Yellow cert spending ${row.month}`} value={certSpending[row.month] ?? 0} onChange={e => setCertSpending(value => ({ ...value, [row.month]: Math.max(0, Math.min(258, Math.floor(Number(e.target.value) || 0))) }))} /><span>{row.spent} certs → {row.pulls} pulls{row.short ? ` · ${row.short} certs short` : ''}</span></label>)}</div>
         </details>}
 
-        <dl>
-          <div><dt>Available now</dt><dd>{today.pulls}</dd></div>
+        <dl className={skinPlannerHeld > 0 ? workspace.fiveTerms : undefined}>
+          <div><dt>Available now</dt><dd>{availableNow}</dd></div>
           <div><dt>Income</dt><dd><span aria-hidden="true">+</span>{recurringGained}</dd></div>
           <div><dt>Event rewards</dt><dd><span aria-hidden="true">+</span>{rewardGained}</dd></div>
+          {skinPlannerHeld > 0 && <div><dt>Skin planner</dt><dd><span aria-hidden="true">−</span>{skinPlannerHeld}</dd></div>}
           <div className={workspace.forecastTotal}><dt>Before spending</dt><dd><span aria-hidden="true">=</span>{forecastSavings}<small> pulls</small></dd></div>
         </dl>
       </section>
       <section className={`op-section ${workspace.plan}`} aria-label="Your banner plan">
-        <div className={workspace.planHeading}><h2>Your banners <span>{goals.length}</span></h2><button className={`primary btn-sm ${workspace.add}`} type="button" aria-expanded={choosingBanner} onClick={() => setChoosingBanner(!choosingBanner)}>{choosingBanner ? 'Close' : '+ Add banner'}</button></div>
-        {choosingBanner && <BannerPicker banners={banners} selected={goals.map(goal => goal.banner)} odds={bannerOdds} onAdd={addGoal} />}
+        <div className={workspace.planHeading}><h2>Your banners <span>{goals.length}</span></h2><button className={`primary btn-sm ${workspace.add}`} type="button" aria-haspopup="dialog" onClick={() => setChoosingBanner(true)}>+ Add banner</button></div>
         <div className={workspace.columns}><span>Operators / banner</span><span>Until</span><span>Pulls</span><span>Available</span><span>All goals</span><span>Left</span><span /></div>
         {budgetRows.map(row => <PullBannerRow key={row.goal.banner} row={row} rules={bannerOdds[row.goal.banner]} expanded={editingBanner===row.goal.banner} onExpand={() => setEditingBanner(editingBanner===row.goal.banner ? null : row.goal.banner)} onChange={goal=>setGoals(prev=>prev.map(g=>g.banner===goal.banner?goal:g))} onRemove={()=>setGoals(prev=>prev.filter(g=>g.banner!==row.goal.banner))} />)}
         {!goals.length && <div className={workspace.empty}>Add a banner to start planning.</div>}
@@ -545,6 +556,13 @@ export default function PullsPage({ scheduledEvents: globalEvents, scheduledBann
             </tbody>
           </table>
         </div>
+      </ImportDialog>
+    )}
+    {/* The banner picker opens over the page like Income and the Skin wishlist; adding a banner
+        leaves it open, so several can be added in one go. */}
+    {choosingBanner && (
+      <ImportDialog title="Add banner" className="pulls-banner-dialog" onClose={() => setChoosingBanner(false)}>
+        <BannerPicker banners={banners} selected={goals.map(goal => goal.banner)} odds={bannerOdds} onAdd={addGoal} />
       </ImportDialog>
     )}
     {skinsOpen && (

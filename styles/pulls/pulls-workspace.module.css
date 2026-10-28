@@ -53,7 +53,6 @@
 .planHeading { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; }
 .planHeading h2 span { font: 500 13px var(--font-mono); margin-left: 6px; color: var(--text-dim); }
 .add { min-width: 120px; }
-.chooser { padding: 0 18px 16px; }
 .columns,.bannerRow { display: grid; grid-template-columns: minmax(245px,1fr) 80px 85px 85px 90px 75px var(--control-h); align-items: center; gap: 12px; padding: 10px 18px; }
 .columns { font-size: 11px; color: var(--text-dim); border-block: 1px solid var(--line); background: var(--panel-2); }
 .columns span:not(:first-child) { text-align: center; }
@@ -144,14 +143,20 @@
 .calculationHeading { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:14px; }
 .calculationHeading .forecastDate { margin:0; }
 .forecast dl { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)) 1.2fr; gap:16px; }
+/* With the Skin wishlist's reservation as its own "− Skin planner" term (pages/pulls.tsx). A
+   phone's two columns already fit four terms. */
+@media(min-width:701px) { .forecast dl.fiveTerms { grid-template-columns:repeat(4,minmax(0,1fr)) 1.2fr; } }
 .forecast dl>div { min-width:0; }
 .forecast dd { display:flex; align-items:baseline; gap:8px; }
 .forecast dd>span { font:500 18px var(--font-body); color:var(--text-dim); }
 .forecast .forecastTotal { padding-left:16px; border-left:1px solid var(--line); }
 .forecastTotal dd { font-size:26px; }
-.bannerChoices { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; max-height:360px; min-height:120px; overflow-y:auto; scrollbar-gutter:stable; margin-top:10px; padding:4px; align-content:start; }
+.chooser { display:grid; gap:12px; }
+/* The Add banner popup's cards (components/pulls/BannerPicker): the dialog's own body scrolls,
+   so the list grows rather than scrolling in a box of its own. */
+.bannerChoices { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; align-content:start; }
 /* A .btn-bare .pick-card: frame and hover are the primitive's. */
-.page .bannerChoice { display:flex; align-items:center; gap:12px; padding:12px; min-height:110px; min-width:0; text-align:left; color:var(--text); }
+.chooser .bannerChoice { display:flex; align-items:center; gap:12px; padding:12px; min-height:110px; min-width:0; text-align:left; color:var(--text); }
 .pickerPortraits { display:flex; flex-shrink:0; max-width:108px; }
 .pickerPortraits:empty { display:none; }
 .pickerPortraits img { width:68px; height:68px; object-fit:contain; }
@@ -171,9 +176,8 @@
  .forecast .forecastTotal { grid-column:1/-1; padding:10px 0 0; border-left:0; border-top:1px solid var(--line); }
  .forecastTotal dt { max-width:none; }
  .forecastTotal dd { font-size:26px; }
- .bannerChoices { grid-template-columns:1fr; max-height:340px; }
- .chooser { padding-inline:8px; }
- .page .bannerChoice { gap:8px; padding:10px; }
+ .bannerChoices { grid-template-columns:1fr; }
+ .chooser .bannerChoice { gap:8px; padding:10px; }
  .pickerCopy strong { font-size:18px; }
  .pickerPortraits { max-width:88px; }
  .pickerPortraits img { width:58px; height:58px; }
@@ -189,7 +193,7 @@
 
 @media(max-width:700px) { .forecast dl { grid-template-columns:1fr; } .forecast dt { max-width:none; } }
 
-.page .bannerChoice[aria-disabled=true] { border-color:var(--teal); background:var(--teal-dim); cursor:default; }
+.chooser .bannerChoice[aria-disabled=true] { border-color:var(--teal); background:var(--teal-dim); cursor:default; }
 .pickerAdd { display:inline-block; width:24px; text-align:center; }
 
 /* The inputs, the working and the banner plan: three panels on the page ground,
@@ -241,6 +245,9 @@
 .detailPanel { padding: 16px; }
 .page .forecast { padding: 14px 16px; }
 .planHeading { padding: 14px 16px; gap: 12px; }
+/* The first content sits --heading-gap under the heading row (the layout census, rule 15):
+   the column labels' own 10px top padding plus 4px here. */
+.planHeading { padding-bottom: calc(var(--heading-gap) - 10px); }
 .page .columns { background: transparent; border-top: 0; }
 .planFooter { padding: 14px 16px; }
 .empty { padding: 18px 16px; font-size: 13px; }
@@ -261,6 +268,10 @@
   /* The empty plan's line starts where the heading above it does (it kept 16px). */
   .planHeading, .planFooter { padding: 12px; }
   .empty { padding-inline: 12px; }
+  /* No column labels on a phone: a goal row's own 14px top padding, or the empty line's,
+     is the --heading-gap under the heading row. */
+  .planHeading { padding-bottom: 0; }
+  .plan > .empty { padding-top: var(--heading-gap); }
   .planHeading { flex-wrap: wrap; }
   .planHeading .add { margin-left: auto; }
 }

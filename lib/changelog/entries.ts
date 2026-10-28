@@ -38,10 +38,8 @@ export const CHANGELOG: ChangelogEntry[] = [
     fixed: [
       { title: 'Reruns of cleared events no longer count twice', detail: 'The Pull Planner ticks a rerun as already cleared when your import or your Reward Tracker ticks say so.', href: '/pulls' },
     ],
-  },
-  {
-    at: '2026-10-28T10:00:00Z',
     changed: [
+      { title: 'Pull Planner: Add banner opens a pop-up', detail: 'The Pull calculation now shows the Skin wishlist\'s reserved OP as its own Skin planner term.', href: '/pulls' },
       { title: 'The Pull Planner loads lighter', detail: 'It now sends only the banners and outfit shops still ahead on some server, half the data it did.', href: '/pulls' },
     ],
   },

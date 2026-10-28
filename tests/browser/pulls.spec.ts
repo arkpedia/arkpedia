@@ -9,8 +9,13 @@ test.describe('pull planner integration', () => {
   // Whatever the planner offers today, never a banner by name: it leaves out banners that have
   // ended, and naming Rage of The Many failed every Check from the day it ended (2026-10-01).
   test('adds several banners without closing the picker and loads shared operator art', async ({ page }) => {
-    await page.getByRole('button', { name: '+ Add banner' }).click();
-    const choices = page.getByRole('button', { name: /^Add / });
+    const add = page.getByRole('button', { name: '+ Add banner' });
+    await expect(add).toHaveAttribute('aria-haspopup', 'dialog');
+    await add.click();
+    // The picker opens in the page's pop-up frame (components/account/ImportDialog), as Income does.
+    const dialog = page.getByRole('dialog', { name: 'Add banner' });
+    await expect(dialog).toBeVisible();
+    const choices = dialog.getByRole('button', { name: /^Add / });
     await expect(choices.first()).toBeVisible();
     expect(await choices.count(), 'more than one banner to add').toBeGreaterThan(1);
     const withArt = choices.filter({ has: page.locator('img') }).first();
@@ -19,9 +24,11 @@ test.describe('pull planner integration', () => {
     const label = (await first.getAttribute('aria-label'))!.replace(/^Add /, '');
     await first.click();
 
-    await expect(page.getByRole('button', { name: 'Close' })).toBeVisible();
-    await expect(page.getByRole('button', { name: `Added ${label}`, exact: true })).toBeDisabled();
+    await expect(dialog, 'adding a banner leaves the picker open').toBeVisible();
+    await expect(dialog.getByRole('button', { name: `Added ${label}`, exact: true })).toBeDisabled();
     await expect(choices.first(), 'the next banner can still be added').toBeEnabled();
+    await dialog.getByRole('button', { name: 'Close', exact: true }).click();
+    await expect(dialog).toHaveCount(0);
     await expect(page.getByRole('heading', { name: /Your banners 1/ })).toBeVisible();
   });
 
