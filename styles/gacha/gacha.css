@@ -612,16 +612,15 @@
 }
 
 .gacha-other-toggle {
-  margin-top: 10px;
   font-size: 12px;
 }
+/* The candidate pickers' heading with "How does this work?" beside it: the button sits on the
+   heading's centre line, not 10px below it as it did (2026-10-28). */
 .gacha-info-toggle-row {
   display: flex;
+  align-items: center;
   gap: 10px;
   flex-wrap: wrap;
-}
-.gacha-info-toggle-row .gacha-other-toggle {
-  margin-top: 10px;
 }
 
 .gacha-spark-store-btn {
