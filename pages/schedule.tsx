@@ -1,11 +1,11 @@
 import { useRegionalTime } from '@/lib/time/useRegionalTime';
+import PageMeta from '@/components/layout/PageMeta';
 import { regionalArt, regionalEvents, regionalBanners, regionalRange, withLightRegionalTable } from '@/lib/time/regional';
 import { useReaderClock } from '@/lib/time/readerClock';
 import { useReleaseTable } from '@/lib/content/context';
 import type { HeadhuntingBanner } from '@/lib/gacha/headhuntingBanners';
 import { withContentPage } from '@/lib/content/server';
 import { GetStaticProps } from 'next';
-import Head from 'next/head';
 import { getPullSchedule } from '@/lib/pulls/schedule';
 import { useRouter } from 'next/router';
 import Image from '@/components/content/ContentImage';
@@ -305,7 +305,7 @@ export default function SchedulePage({ events: globalEvents, operators: exported
 
   return (
     <>
-      <Head><title>Schedule — Arkpedia</title></Head>
+      <PageMeta title="Schedule" description="The Arknights Global schedule: current and upcoming events, headhunting banners, reruns and maintenance." path="/schedule" />
 
       {/* The site's page header; the view switch is the site's Tabs in its actions
           (it was a primary/ghost pair, then a SegmentedControl). Both views sit in the one 1040px frame: the

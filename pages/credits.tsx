@@ -1,5 +1,5 @@
-import Head from 'next/head';
 import PageHeader from '@/components/ui/PageHeader';
+import PageMeta from '@/components/layout/PageMeta';
 import { CREDIT_GROUPS, OWN_REPOSITORIES, linkLabel } from '@/lib/credits/sources';
 import { SPINE_RUNTIMES_LICENSE } from '@/lib/credits/spineLicense';
 import { SIL_OPEN_FONT_LICENSE, WEBFONTS } from '@/lib/credits/fonts';
@@ -19,7 +19,7 @@ function Links({ links }: { links: string[] }) {
 export default function CreditsPage() {
   return (
     <>
-      <Head><title>Credits — Arkpedia</title></Head>
+      <PageMeta title="Credits" description="Who makes Arkpedia, and the sources, fonts and projects it builds on." path="/credits" />
       <PageHeader eyebrow="Rhodes Island // Credits" title="Credits"
         sub="The projects and sites Arkpedia is built on, and the licences it uses." />
       <main>

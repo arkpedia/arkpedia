@@ -1,7 +1,7 @@
 import { withContentPage } from '@/lib/content/server';
+import PageMeta from '@/components/layout/PageMeta';
 import { pinAssetUrl } from '@/lib/assets/revisions';
 import type { GetStaticProps } from 'next';
-import Head from 'next/head';
 import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
 import { CSSProperties, useEffect, useMemo, useRef, useState } from 'react';
@@ -65,7 +65,7 @@ export default function PaletteGame({ operators: catalogue, now }: Props) {
     setTarget(null); setHintsUsed(0); setProgress(newProgress()); setNotice('');
   }
   return <>
-    <Head><title>Color Palette — Arkpedia</title><meta name="description" content="Guess Arknights operators from five colors in their Base or Elite 2 artwork. No purchasable outfits." /></Head>
+    <PageMeta title="Color Palette" description="Guess Arknights operators from five colors in their Base or Elite 2 artwork. No purchasable outfits." path="/games/color-palette" />
     <PageHeader eyebrow={<GamesEyebrow />} title="Color Palette" sub="Five colors. One operator." actions={<GameLinks />} />
     <main className={styles.page}>
       {!target ? <section className={`op-section ${styles.panel} ${styles.setup}`} aria-labelledby="palette-setup-title">

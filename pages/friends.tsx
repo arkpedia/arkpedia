@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import PageMeta from '@/components/layout/PageMeta';
 import type { GetStaticProps } from 'next';
-import Head from 'next/head';
 import DataLink from '@/components/account/DataLink';
 import PageHeader from '@/components/ui/PageHeader';
 import ProfileCard, { SupportTile } from '@/components/account/ProfileCard';
@@ -89,7 +89,7 @@ export default function FriendsPage({ operators, skins }: Props) {
   }
 
   return <>
-    <Head><title>Friends — Arkpedia</title><meta name="robots" content="noindex" /></Head>
+    <PageMeta title="Friends" description="Friend profiles you have imported: their operators, outfits and support units." path="/friends" noindex />
     <PageHeader eyebrow="Rhodes Island // Account" title="Friends" sub="Trade account files. Meet the Doctor, browse their operators and admire their skins."
       actions={<div className={styles.actions}>
         <button type="button" className="primary btn-sm" onClick={() => input.current?.click()}>Import a friend</button>

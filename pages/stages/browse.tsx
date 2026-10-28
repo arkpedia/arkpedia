@@ -728,7 +728,7 @@ function StageDetailPanel({ stage, geometry, borrowedGeometryFrom, enemyDetails,
       {
         title: 'Farmable',
         hint: highlightMain
-          ? (mainIds.size === 1 ? "The highlighted row is this stage's main drop" : 'The highlighted rows are this stage\u2019s main drops')
+          ? (mainIds.size === 1 ? "The highlighted row is this stage's main drop" : 'The highlighted rows are this stage’s main drops')
           : (null as string | null),
         mainIds: highlightMain ? mainIds : new Set<string>(),
         drops: farmable,
@@ -2139,7 +2139,7 @@ function StageDetailPanel({ stage, geometry, borrowedGeometryFrom, enemyDetails,
                             <span className="enemy-face-blank" aria-hidden="true" />
                           )}
                           <span className="enemy-face-count">{count}</span>
-                          <b>{e.index || '\u2014'}</b>
+                          <b>{e.index || '—'}</b>
                         </button>
                       );
                     })}

@@ -1,8 +1,8 @@
 import { useRegionalTime } from '@/lib/time/useRegionalTime';
+import PageMeta from '@/components/layout/PageMeta';
 import { useReaderClock } from '@/lib/time/readerClock';
 import { withContentPage } from '@/lib/content/server';
 import { GetStaticProps } from 'next';
-import Head from 'next/head';
 import FarmingSourceChip from '@/components/farming/FarmingSourceChip';
 import type { FarmingSources } from '@/lib/farming/farmingSources';
 import Image from '@/components/content/ContentImage';
@@ -87,7 +87,7 @@ export default function FarmingPage({ windows: globalWindows, countdowns: export
 
   return (
     <>
-      <Head><title>Farming Guide — Arkpedia</title></Head>
+      <PageMeta title="Farming Guide" description="Which Arknights stages drop each material right now, with event boosts and the best sanity rates." path="/farming" />
 
       <PageHeader eyebrow="Rhodes Island // Logistics Support" title="Farming Guide" />
 

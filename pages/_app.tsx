@@ -1,4 +1,5 @@
 import { ContentContext, ContentTablesContext } from '@/lib/content/context';
+import { SITE_DESCRIPTION, SITE_NAME } from '@/lib/seo/site';
 import { contentUrl } from '@/lib/content/urls';
 import type { AppProps } from 'next/app';
 import Head from 'next/head';
@@ -154,19 +155,16 @@ export default function App({ Component, pageProps }: AppProps) {
             og:image is the logo rather than a wide banner: there is no per-page art to
             point at, and a square mark reads better in a small preview card than a
             stretched screenshot would. */}
-        <title>Arkpedia</title>
-        <meta
-          name="description"
-          content="An Arknights reference: operators, skins, enemies, stages, base planning and the current event schedule."
-        />
-        <meta property="og:site_name" content="Arkpedia" />
+        {/* Keyed like PageMeta's (components/layout/PageMeta.tsx), so a page's own values
+            replace these rather than join them: next/head drops a repeated <title> and
+            <meta name>, but a repeated <meta property> only when both carry the same key. */}
+        <title key="title">{SITE_NAME}</title>
+        <meta key="description" name="description" content={SITE_DESCRIPTION} />
+        <meta property="og:site_name" content={SITE_NAME} />
         <meta property="og:type" content="website" />
-        <meta property="og:title" content="Arkpedia" />
-        <meta
-          property="og:description"
-          content="An Arknights reference: operators, skins, enemies, stages, base planning and the current event schedule."
-        />
-        <meta name="twitter:card" content="summary" />
+        <meta key="og:title" property="og:title" content={SITE_NAME} />
+        <meta key="og:description" property="og:description" content={SITE_DESCRIPTION} />
+        <meta key="twitter:card" name="twitter:card" content="summary" />
       </Head>
       {logoUrl && (
         <Head>
@@ -174,7 +172,7 @@ export default function App({ Component, pageProps }: AppProps) {
           {/* Absolute, because a preview card is fetched by someone else's server and a
               relative path means nothing to it. contentUrl gives the full address of the
               published file, the same one the favicon uses. */}
-          <meta property="og:image" content={logoUrl} />
+          <meta key="og:image" property="og:image" content={logoUrl} />
         </Head>
       )}
       {/* First tab stop on every page -- lets keyboard users jump the nav.

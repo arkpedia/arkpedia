@@ -1,4 +1,5 @@
 import { useRegionalTime } from '@/lib/time/useRegionalTime';
+import PageMeta from '@/components/layout/PageMeta';
 import { regionalPullBanners, regionalPullEvents, regionalSkinCollections, withLightRegionalTable } from '@/lib/time/regional';
 import { planningWindowEnd, planningDayEnd } from '@/lib/pulls/planningWindows';
 import { useReaderValue } from '@/lib/time/readerClock';
@@ -24,7 +25,6 @@ import { pullSkinCollections, skinReleaseDates, type SkinCollection } from '@/li
 import { getBannerOdds } from '@/lib/pulls/bannerOdds';
 import type { BannerOdds } from '@/lib/pulls/probability';
 import { WISHING_WALL_LABELS, type WishingWallMode } from '@/lib/pulls/wishingWall';
-import Head from 'next/head';
 import Link from 'next/link';
 import type { GetStaticProps } from 'next';
 import { fillRerunActivities, getPullEventSchedule, getPullSchedule } from '@/lib/pulls/schedule';
@@ -384,7 +384,7 @@ export default function PullsPage({ scheduledEvents: globalEvents, scheduledBann
   const monthlyGreen = greenCertificateIncome(now ?? monthlyEnd, monthlyEnd, !!incomeSettings.greenCertificates, server);
   const monthlyIncome = (monthlyBase.orundum + monthlyGreen.orundum + (monthlyCard ? monthlyBonus.orundum + monthlyBonus.originitePrime * ORUNDUM_PER_ORIGINITE : 0)) / ORUNDUM_PER_PULL + monthlyGreen.permits + certificatePulls(now ?? monthlyEnd, monthlyEnd, readNumber(yellowCerts), incomeSettings.certificates, certSpending, server);
   return <>
-    <Head><title>Pull Planner — Arkpedia</title></Head>
+    <PageMeta title="Pull Planner" description="Plan your Arknights pulls: Orundum, Originite Prime and permits over time, against the banners ahead." path="/pulls" />
     {/* The site's page header, outside <main> like every page's: it was a 34px
         sentence-case h1 inside main, 12px from the edge on a phone. The shared Import / export
         action opens over this page (components/account/DataLink). */}

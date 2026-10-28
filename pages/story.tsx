@@ -1,5 +1,5 @@
 import type { GetStaticProps } from 'next';
-import Head from 'next/head';
+import PageMeta from '@/components/layout/PageMeta';
 import Link from 'next/link';
 import PageHeader from '@/components/ui/PageHeader';
 import InfoPopover from '@/components/ui/InfoPopover';
@@ -54,7 +54,7 @@ export default function StoryPage({ map, chapters = {}, library = [] }: Props) {
     image: pictures.get(chapter)?.image ?? (entry?.image && entry.imageKind === 'art' ? { src: entry.image, ratio: 1 } : null) } : null;
   return (
     <>
-      <Head><title>Story — Arkpedia</title></Head>
+      <PageMeta title="Story" description="The Arknights main story and event stories in order, with where each chapter sits." path="/story" />
       <PageHeader eyebrow="Rhodes Island // Story" title="Story" actions={
           <button type="button" className="ghost btn-sm" onClick={() => setTransfer(true)}>Import / export</button>
         }

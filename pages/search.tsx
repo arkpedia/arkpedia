@@ -1,5 +1,5 @@
 import type { GetStaticProps } from 'next';
-import Head from 'next/head';
+import PageMeta from '@/components/layout/PageMeta';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -80,11 +80,8 @@ export default function SearchPage() {
   const q = query.trim();
   return (
     <>
-      <Head>
-        <title>{q ? `${q} — Search — Arkpedia` : 'Search — Arkpedia'}</title>
-        {/* A results page is not a page of its own to a search engine. */}
-        <meta name="robots" content="noindex" />
-      </Head>
+      {/* A results page is not a page of its own to a search engine. */}
+      <PageMeta title={q ? `${q} — Search` : 'Search'} description="Search Arkpedia: operators, artists and voice actors, events, stages, enemies, music and every page." path="/search" noindex />
       <PageHeader eyebrow="Rhodes Island // Search" title="Search" sub="Operators, artists and voice actors, events, stages, enemies, music, every page of the site, and the community's YouTube and Twitch." />
       <main className="site-search-page">
         <SearchInput

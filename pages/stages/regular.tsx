@@ -1,4 +1,5 @@
 import { serverCalendarTime, type GameServer } from '@/lib/time/servers.mjs';
+import PageMeta from '@/components/layout/PageMeta';
 import { useRegionalTime } from '@/lib/time/useRegionalTime';
 import { withContentPage } from '@/lib/content/server';
 import { GetStaticProps } from 'next';
@@ -72,6 +73,7 @@ export default function RegularTasksPage({ rotations: globalRotations, zones, se
 
   return (
     <>
+      <PageMeta title="Regular Tasks" description="The Arknights regular tasks: Annihilation, supply stages and the weekly and daily resets." path="/stages/regular" />
       <TerminalNav current="regular" />
       <PageHeader
         slim

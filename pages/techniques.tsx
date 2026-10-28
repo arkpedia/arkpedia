@@ -1,6 +1,6 @@
 import { withContentPage } from '@/lib/content/server';
+import PageMeta from '@/components/layout/PageMeta';
 import { GetStaticProps } from 'next';
-import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { useEffect, useMemo, useState } from 'react';
 import PageHeader from '@/components/ui/PageHeader';
@@ -128,7 +128,7 @@ export default function TechniquesPage({ groups, branchClasses }: Props) {
 
   return (
     <>
-      <Head><title>Techniques — Arkpedia</title></Head>
+      <PageMeta title="Techniques" description="Arknights techniques: the mechanics behind skills and talents, with the operators that use each one." path="/techniques" />
       <PageHeader stickyActions
         eyebrow="Rhodes Island // Skill effects"
         title="Techniques"

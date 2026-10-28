@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import PageMeta from '@/components/layout/PageMeta';
 import { REGIONAL_MATERIAL } from '@/lib/i18n/regionalMaterial';
 import LoadOnScroll from '@/components/ui/LoadOnScroll';
 import Tabs, { tabPanelProps } from '@/components/ui/Tabs';
@@ -14,7 +15,6 @@ import { SERVER_IDS } from '@/lib/account-import/yostar';
 import { useReaderClock } from '@/lib/time/readerClock';
 import { GetStaticProps } from 'next';
 import { withContentPage } from '@/lib/content/server';
-import Head from 'next/head';
 import Link from 'next/link';
 import { enrichWithLiveStatus, YouTubeVideo } from '@/lib/music/youtube';
 import { getLatestVideos } from '@/lib/music/youtubeFeedsServer';
@@ -67,7 +67,7 @@ export default function CommunityHub({
   const creators = directory.creators.filter(creator => creator.category === category && (!needle || `${creator.name} ${creator.works.map(work => work.character).join(' ')}`.toLocaleLowerCase().includes(needle)));
   const shownVideos = [...videos].filter(video => !needle || `${video.title} ${video.channelLabel}`.toLocaleLowerCase().includes(needle)).sort((a, b) => b.publishedAt.localeCompare(a.publishedAt));
   return <>
-    <Head><title>World — Arkpedia</title></Head>
+    <PageMeta title="World" description="Arknights community events, streams, videos and projects from around the world." path="/community" />
     <PageHeader eyebrow="Rhodes Island // Around the world" title="World" sub="Events, creators and communities." />
     <main>
       <StickyControls><Tabs label="World sections" id="world-sections" value={category} options={WORLD_CATEGORIES} onChange={value => { hold.capture(); setCategory(value); setQuery(''); setLimit(12); }} /></StickyControls>

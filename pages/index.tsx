@@ -1,4 +1,6 @@
 import { useRegionalTime } from '@/lib/time/useRegionalTime';
+import { SITE_DESCRIPTION } from '@/lib/seo/site';
+import PageMeta from '@/components/layout/PageMeta';
 import { regionalBanners, regionalGameEvents, regionalScheduleSlice, regionalSkinWindows, stripRegionalTimingSources } from '@/lib/time/regional';
 import { useReaderClock } from '@/lib/time/readerClock';
 import { parseBannerWindow } from '@/lib/gacha/realGachaBanners';
@@ -124,6 +126,7 @@ export default function HomePage({
 
   return (
     <>
+      <PageMeta fullTitle="Arkpedia — Arknights operators, planners and schedule" title="Arkpedia" description={SITE_DESCRIPTION} path="/" />
       {/* Home-page-only, not global -- see AnnouncementTicker.tsx. */}
       <AnnouncementTicker sssCycle={sssCycle} maintenance={maintenance} />
       <main className="front-page-layout">

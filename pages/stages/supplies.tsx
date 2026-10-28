@@ -1,4 +1,5 @@
 import { useRegionalTime } from '@/lib/time/useRegionalTime';
+import PageMeta from '@/components/layout/PageMeta';
 import { supplyDays, supplyOpen } from '@/lib/time/regional';
 import { withContentPage } from '@/lib/content/server';
 import { GetStaticProps } from 'next';
@@ -50,6 +51,7 @@ export default function SuppliesPage({ cards: globalCards, buildDay, now = 0 }: 
 
   return (
     <>
+      <PageMeta title="Supplies" description="The Arknights supply stages: which are open today and what each drops." path="/stages/supplies" />
       <TerminalNav current="supplies" />
       <PageHeader
         slim

@@ -1,5 +1,5 @@
 import type { GetStaticProps } from 'next';
-import Head from 'next/head';
+import PageMeta from '@/components/layout/PageMeta';
 import Link from 'next/link';
 import PageHeader from '@/components/ui/PageHeader';
 import { ContentImg } from '@/components/content/ContentImage';
@@ -23,7 +23,7 @@ interface Props {
 export default function MangaPage({ manga }: Props) {
   return (
     <>
-      <Head><title>Arknights Manga — Arkpedia</title></Head>
+      <PageMeta title="Arknights Manga" description="The official Arknights manga and comics, with where to read each." path="/manga" />
       {/* Reached from the Story page's card, so the way back is to it: a crumb in the eyebrow,
           as the community pages have. */}
       <PageHeader eyebrow={<>{'Rhodes Island // '}<Link prefetch={false} href="/story">Story</Link>{' // Manga'}</>} title="Arknights Manga"

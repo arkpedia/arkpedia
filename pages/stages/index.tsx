@@ -1,9 +1,9 @@
 import { serverCalendarTime, type GameServer } from '@/lib/time/servers.mjs';
+import PageMeta from '@/components/layout/PageMeta';
 import { useRegionalTime } from '@/lib/time/useRegionalTime';
 import { regionalCards } from '@/lib/time/regional';
 import { withContentPage } from '@/lib/content/server';
 import { GetStaticProps } from 'next';
-import Head from 'next/head';
 import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
 import { useMemo } from 'react';
@@ -72,7 +72,7 @@ export default function TerminalPage({ candidates: globalCandidates, latestIs, l
 
   return (
     <>
-      <Head><title>Terminal — Arkpedia</title></Head>
+      <PageMeta title="Terminal" description="The Arknights Terminal: the main story, events, permanent modes and what is open right now." path="/stages" />
 
       <TerminalNav current="terminal" />
       <PageHeader slim eyebrow="Rhodes Island // Operations board" title="Terminal" />

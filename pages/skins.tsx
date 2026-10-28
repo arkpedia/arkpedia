@@ -1,9 +1,9 @@
 import { useRegionalTime } from '@/lib/time/useRegionalTime';
+import PageMeta from '@/components/layout/PageMeta';
 import { regionalSkinWindows } from '@/lib/time/regional';
 import { SERVER_TIME, serverOffsetLabel } from '@/lib/time/servers.mjs';
 import { withContentPage } from '@/lib/content/server';
 import { GetStaticProps } from 'next';
-import Head from 'next/head';
 import Link from 'next/link';
 import { KeyboardEvent as ReactKeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useReaderClock } from '@/lib/time/readerClock';
@@ -324,7 +324,7 @@ export default function SkinsGallery({ skins, now, availabilityWindows, dynamicA
 
   return (
     <>
-      <Head><title>Skins Gallery — Arkpedia</title></Head>
+      <PageMeta title="Skins Gallery" description="Every Arknights outfit with its art, series, price and when it is on sale on Global." path="/skins" />
 
       <PageHeader stickyActions eyebrow="Rhodes Island // Wardrobe" title="Skins" sub={`${skins.length} outfits · Global availability`}
         actions={<div className="skins-controls">

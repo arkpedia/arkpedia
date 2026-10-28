@@ -1,4 +1,5 @@
 import NumberInput from '@/components/ui/NumberInput';
+import PageMeta from '@/components/layout/PageMeta';
 import { withContentPage } from '@/lib/content/server';
 import GameLinks, { GamesEyebrow } from '@/components/minigames/GameLinks';
 import PageHeader from '@/components/ui/PageHeader';
@@ -7,7 +8,6 @@ import SearchInput from '@/components/ui/SearchInput';
 import Rarity, { rarityLevel } from '@/components/ui/Rarity';
 import { useHeightFloor } from '@/components/ui/useHeightFloor';
 import { GetStaticProps } from 'next';
-import Head from 'next/head';
 import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -276,10 +276,7 @@ export default function GuesserPage({ operators, skins }: Props) {
 
   return (
     <>
-      <Head>
-        <title>Operator Guesser — Arkpedia</title>
-        <meta name="description" content="Identify Arknights operators from their skills, stories and profiles. Choose your hints or try a themed challenge." />
-      </Head>
+      <PageMeta title="Operator Guesser" description="Identify Arknights operators from their skills, stories and profiles. Choose your hints or try a themed challenge." path="/games/operator-guesser" />
       <PageHeader eyebrow={<GamesEyebrow />} title="Operator Guesser" sub="Name the operator from their skills, stories and profile."
         actions={<>
           {(!vasebreakerMode || status === 'notStarted') && <GameLinks />}

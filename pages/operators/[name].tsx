@@ -1,4 +1,5 @@
 import { hasMasteryGuidance, hasMasteryPriority } from '@/lib/operators/skillRecommendation';
+import PageMeta from '@/components/layout/PageMeta';
 import BaseSkillText from '@/components/operators/BaseSkillText';
 import { getModuleStageEffects } from '@/lib/operators/moduleEffects';
 import { useContentUrl } from '@/lib/content/context';
@@ -933,15 +934,19 @@ export default function OperatorDetailPage({ chibis = {}, summons = [], epTrack,
       : operator.howToObtain
       ? Object.entries(operator.howToObtain)
           .filter(([k, v]) => v === 'Yes' || (k === 'Welfare' && typeof v === 'object' && v !== null))
-          .map(([k]) => (k === 'Welfare' && welfareInfo ? `Welfare (${welfareInfo['Unlock Type']} \u2014 ${welfareInfo['Unlock Location']})` : k))
+          .map(([k]) => (k === 'Welfare' && welfareInfo ? `Welfare (${welfareInfo['Unlock Type']} — ${welfareInfo['Unlock Location']})` : k))
           .join(', ') || 'Unknown'
       : 'Unknown';
   // Every promotion's trait where it changes (Pudding jumps to 3 enemies, 4 from Elite 2).
   const traitLines = traitPhases(operator.trait);
 
 
+  /* What a tab, a search result and a share card say about this operator. The picture is the
+     default appearance, not the one the reader has picked: a card is fetched by someone else. */
+  const metaDescription = `${operator.name}, ${operator.rarity ? `a ${operator.rarity}★ ` : 'an '}${[operator.class, operator.branch].filter(Boolean).join(' · ') || 'operator'} in Arknights: skills, talents, modules, base skills, outfits and voice lines.`;
   return (
     <>
+      <PageMeta title={operator.name} description={metaDescription} path={operatorHref(operator.name, null)} image={appearances[0]?.fullPath ?? null} />
       {/* The frame is the viewport under the nav: the header, then the workspace
           (artwork | information) filling what is left, so on a desktop the page itself
           never scrolls and the information panel scrolls inside it. */}

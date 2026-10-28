@@ -1,4 +1,5 @@
 import SegmentedControl from '@/components/ui/SegmentedControl';
+import PageMeta from '@/components/layout/PageMeta';
 import { welfarePriority, welfareRecommendationOrder, WELFARE_GUIDE } from '@/lib/pulls/welfarePriority';
 import { useRegionalTime } from '@/lib/time/useRegionalTime';
 import { currentRegionalFreeRewards, regionalFreeRewards, type RegionalSchedules } from '@/lib/time/regional';
@@ -7,7 +8,6 @@ import { remainingSanity } from '@/lib/pulls/rewardOverview';
 import { remainingBacklog } from '@/lib/pulls/pulls';
 import type { GetStaticProps } from 'next';
 import type { ContentRelease } from '@/lib/content/types';
-import Head from 'next/head';
 import Link from 'next/link';
 import PageHeader from '@/components/ui/PageHeader';
 import DataLink from '@/components/account/DataLink';
@@ -125,7 +125,7 @@ export default function FreeOpPage({ backlogSources, freeRewards: globalFreeRewa
   }, [welfareBasis]);
   return (
     <>
-      <Head><title>Reward Tracker — Arkpedia</title></Head>
+      <PageMeta title="Reward Tracker" description="Every free operator, Originite Prime and reward still waiting for you in Arknights, ticked off as you claim them." path="/free-op" />
       <PageHeader eyebrow="Rhodes Island // Reward Tracker" title="Reward Tracker"
         sub="Track first clears, free rewards and the pulls still waiting for you."
         actions={<><DataLink /><Link prefetch={false} href="/pull-planner" className="ghost btn-sm">Pull Planner</Link><InfoPopover label="About Reward Tracker"><p>Your first-clear and permanent reward completion is shared with the Pull Planner. Mark rewards as claimed below, or use Import / export to fill completion from your account.</p></InfoPopover></>} />

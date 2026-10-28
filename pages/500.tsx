@@ -1,4 +1,4 @@
-import Head from 'next/head';
+import PageMeta from '@/components/layout/PageMeta';
 import Link from 'next/link';
 import PageHeader from '@/components/ui/PageHeader';
 
@@ -10,10 +10,7 @@ import PageHeader from '@/components/ui/PageHeader';
 export default function ServerErrorPage() {
   return (
     <>
-      <Head>
-        <title>Something went wrong — Arkpedia</title>
-        <meta name="robots" content="noindex" />
-      </Head>
+      <PageMeta title="Something went wrong" description="Arkpedia hit an error loading this page." noindex />
       <PageHeader
         eyebrow="Rhodes Island // Error 500"
         title="Something went wrong"

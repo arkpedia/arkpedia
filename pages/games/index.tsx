@@ -1,5 +1,5 @@
-import Head from 'next/head';
 import Link from 'next/link';
+import PageMeta from '@/components/layout/PageMeta';
 import PageHeader from '@/components/ui/PageHeader';
 import { ICONS } from '@/components/layout/Sitenav';
 import { GAMES } from '@/lib/minigames/catalogue';
@@ -7,10 +7,7 @@ import styles from '@/styles/games/games.module.css';
 
 export default function GamesPage() {
   return <>
-    <Head>
-      <title>Games — Arkpedia</title>
-      <meta name="description" content="Play Arkpedia’s guessing games." />
-    </Head>
+    <PageMeta title="Games" description="Play Arkpedia’s guessing games." path="/games" />
     <PageHeader eyebrow="Rhodes Island // Games" title="Games" sub="Choose a game to get started." />
     <main>
       <ul className={styles.games} aria-label="Choose a game">

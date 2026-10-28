@@ -1,5 +1,5 @@
-import Head from 'next/head';
 import Link from 'next/link';
+import PageMeta from '@/components/layout/PageMeta';
 import { useEffect, useState } from 'react';
 import PageHeader from '@/components/ui/PageHeader';
 import { CHANGELOG, type ChangeItem } from '@/lib/changelog/entries';
@@ -35,7 +35,7 @@ export default function ChangelogPage() {
   const days = groupChangelogDays(CHANGELOG, timeZone);
   return (
     <>
-      <Head><title>What&apos;s new — Arkpedia</title></Head>
+      <PageMeta title="What's new" description="What changed on Arkpedia, release by release." path="/changelog" />
       <PageHeader eyebrow="Rhodes Island // What's new" title="What's new"
         sub="What was added, changed and fixed on Arkpedia, newest first." />
       <main>

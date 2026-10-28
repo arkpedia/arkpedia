@@ -1,6 +1,6 @@
 import { withContentPage } from '@/lib/content/server';
+import PageMeta from '@/components/layout/PageMeta';
 import { GetStaticProps } from 'next';
-import Head from 'next/head';
 import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
 import PageHeader from '@/components/ui/PageHeader';
@@ -698,13 +698,7 @@ export default function StrongholdProtocolPage({ data, picker }: Props) {
 
   return (
     <>
-      <Head>
-        <title>Stronghold Protocol -- Arkpedia</title>
-        <meta
-          name="description"
-          content="Stronghold Protocol: alliances and their operators by dispatch tier, plus strategies, decisions, items and enemies."
-        />
-      </Head>
+      <PageMeta title="Stronghold Protocol" description="Stronghold Protocol: alliances and their operators by dispatch tier, plus strategies, decisions, items and enemies." path="/gamemodes/stronghold-protocol" />
 
       {/* The eyebrow's crumb is the way back to Game Modes: it was a separate
           "< Game Modes" link above the eyebrow, saying the same thing twice.

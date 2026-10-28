@@ -1,4 +1,5 @@
 import { loadAllEventYears } from '@/lib/events/loadEventsData';
+import PageMeta from '@/components/layout/PageMeta';
 import { scheduleModeRelease } from '@/lib/schedule/modeReleases';
 import type { ScheduleEvent } from '@/lib/schedule/scheduleTypes';
 import { permanentEventListing, modeDetails, type ModeDetails } from '@/lib/events/modeDetails';
@@ -166,6 +167,7 @@ function RewardStorePanelGrid({ items }: { items: ResolvedRewardItem[] }) {
 }
 
 export default function EventDetailPage({
+  poster,
   name,
   mode = null,
   images,
@@ -308,6 +310,7 @@ export default function EventDetailPage({
 
   return (
     <RewardDetailsProvider tickets={tickets}>
+      <PageMeta title={name} description={`${name}, an Arknights event${dateRange ? ` (${dateRange})` : ''}: its banner, rewards, outfits and news.`} path={`/events/${encodeURIComponent(name)}`} image={images[0] ?? poster ?? bannerImage} />
       <PageHeader
         back={{ href: '/schedule', label: 'Events' }}
         eyebrow={<>Rhodes Island // <Link prefetch={false} href="/schedule">Events</Link></>}

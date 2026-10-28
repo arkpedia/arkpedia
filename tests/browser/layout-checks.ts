@@ -375,6 +375,7 @@ export const BOUNDS_EXCLUDED: Record<string, string> = {
   'optimizer': 'development only (404 in production)',
   'bases/whole-base-optimizer': 'development only (404 in production)',
   '500': 'only rendered when a page throws; the same PageHeader markup as 404',
+  'sitemap.xml': 'an XML document for crawlers, not a page (pages/sitemap.xml.tsx)',
 };
 
 /** Page files -> the address measured for each. The 404 page is measured at an

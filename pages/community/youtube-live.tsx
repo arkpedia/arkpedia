@@ -1,5 +1,5 @@
 import { GetStaticProps } from 'next';
-import Head from 'next/head';
+import PageMeta from '@/components/layout/PageMeta';
 import Link from 'next/link';
 import { enrichWithLiveStatus, YouTubeVideo } from '@/lib/music/youtube';
 import { getLatestVideos } from '@/lib/music/youtubeFeedsServer';
@@ -16,7 +16,7 @@ interface Props {
 export default function YouTubeLivePage({ liveNow, hasYouTubeApiKey }: Props) {
   return (
     <>
-      <Head><title>Live on YouTube — Arkpedia</title></Head>
+      <PageMeta title="Live on YouTube" description="Arknights streams live on YouTube right now." path="/community/youtube-live" />
 
       <PageHeader eyebrow={<CommunityEyebrow />} title="Live on YouTube"
         sub={hasYouTubeApiKey ? `${liveNow.length} channels live right now.` : 'Arknights livestreams from the community.'} />

@@ -1,6 +1,6 @@
 import { withContentPage } from '@/lib/content/server';
+import PageMeta from '@/components/layout/PageMeta';
 import type { GetStaticProps } from 'next';
-import Head from 'next/head';
 import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -62,7 +62,7 @@ export default function RecruitmentGame({ operators, questions }: Props) {
   }
   const shownAnswers = question ? playing ? progress.found : question.answers : [];
   return <>
-    <Head><title>Recruitment Guesser — Arkpedia</title><meta name="description" content="Name every recruitable Arknights operator matching a pair or triplet of tags. Every challenge has at most three answers." /></Head>
+    <PageMeta title="Recruitment Guesser" description="Name every recruitable Arknights operator matching a pair or triplet of tags. Every challenge has at most three answers." path="/games/recruitment-guesser" />
     <PageHeader eyebrow={<GamesEyebrow />} title="Recruitment Guesser" sub="Name every operator a set of recruitment tags can give you." actions={<GameLinks />} />
     <main className={styles.page}>
       {!question ? <p className={styles.muted} role="status">{questions.length ? 'Preparing your first combination…' : 'No recruitment combinations available.'}</p> : <div ref={roundFloor.ref}><section className={`op-section ${styles.round}`} ref={roundRef} tabIndex={-1} aria-label="Recruitment challenge">

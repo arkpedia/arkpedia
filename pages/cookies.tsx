@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import Head from 'next/head';
+import PageMeta from '@/components/layout/PageMeta';
 import Link from 'next/link';
 import PageHeader from '@/components/ui/PageHeader';
 import InformationLayout from '@/components/ui/InformationLayout';
@@ -12,7 +12,7 @@ export default function CookiesPage() {
     try { savePrivacy({ analytics: necessaryOnly ? false : analytics, externalMedia: necessaryOnly ? false : externalMedia }); window.location.reload(); }
     catch { setError('This browser could not save your choice. Optional services remain disabled on a fresh visit unless a valid choice can be read.'); }
   };
-  return <><Head><title>Cookies & privacy choices — Arkpedia</title></Head>
+  return <><PageMeta title="Cookies & privacy choices" description="What Arkpedia keeps in your browser and the choices you have about it." path="/cookies" />
     <PageHeader eyebrow="Rhodes Island // Privacy choices" title="Cookies & privacy choices" sub="Optional services stay off until you choose to enable them." />
     <InformationLayout sections={[{id:'choices',label:'Your choices'}, {id:'storage',label:'Cookies & storage'}]}><section id="choices" className="information-section reading-copy"><h2 className="entity-title">Your choices on this browser</h2>
       <p>Arkpedia uses browser storage for the features you request. Optional analytics and external playback are separate choices. Refusing them does not block the reference pages, planning tools or account access.</p>

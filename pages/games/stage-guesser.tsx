@@ -1,9 +1,9 @@
 import { useContentUrl } from '@/lib/content/context';
+import PageMeta from '@/components/layout/PageMeta';
 import { withContentPage } from '@/lib/content/server';
 import type { GetStaticProps } from 'next';
 import fs from 'fs';
 import path from 'path';
-import Head from 'next/head';
 import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -114,7 +114,7 @@ export default function StageGuesser({ catalogueUrl, groups, counts }: Props) {
   }
 
   return <>
-    <Head><title>Stage Guesser — Arkpedia</title><meta name="description" content="Recognize Arknights stages from their maps. Play iconic classics, all available maps, or your own chapter and event selection, with image and chapter hints." /></Head>
+    <PageMeta title="Stage Guesser" description="Recognize Arknights stages from their maps. Play iconic classics, all available maps, or your own chapter and event selection, with image and chapter hints." path="/games/stage-guesser" />
     <PageHeader eyebrow={<GamesEyebrow />} title="Stage Guesser" sub="You have fought here before. Can you name the stage?" actions={<GameLinks />} />
     <main className={common.page}>
       {!target ? <section className={`op-section ${common.panel} ${common.setup}`} aria-labelledby="stage-setup-title">

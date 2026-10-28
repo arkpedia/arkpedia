@@ -240,7 +240,10 @@ test('the Free rewards tab shows its welfare operators as the overview\'s cards,
   await expect(botani).toBeEnabled();
   // Keep the card's position within its list and its size. Claiming also updates the
   // separate overview above this list, whose reflow is not movement within the card grid.
-  const place = () => card('Botani').evaluate((el) => { const r = el.getBoundingClientRect(); const list = el.closest('ul')!.getBoundingClientRect(); return [r.left - list.left, r.top - list.top, r.width, r.height].map(Math.round); });
+  // The layout box (offset*), not getBoundingClientRect: the card is a picture card that
+  // rises on hover (.lift, styles/core/motion.css), and the pointer rests on it after the
+  // tick, so the runner read the lifted card 2-3px above its place (CI, 2026-10-28).
+  const place = () => card('Botani').evaluate((el) => { const e = el as HTMLElement, list = e.closest('ul') as HTMLElement; return [e.offsetLeft - list.offsetLeft, e.offsetTop - list.offsetTop, e.offsetWidth, e.offsetHeight]; });
   // Measured once the faces have settled: on a slow runner the webfonts swapped in between the
   // two measurements and moved the card 3px with no tick involved (CI, 2026-10-22).
   await page.evaluate(() => document.fonts.ready);
@@ -253,9 +256,12 @@ test('the Free rewards tab shows its welfare operators as the overview\'s cards,
   // The tick draws text the page had not shown, which can fetch another font subset on a slow
   // runner (the 2px the card moved in CI, 2026-10-28): settled again before the second measure.
   await page.evaluate(() => document.fonts.ready);
-  // To the pixel's rounding: a phone's fractional layout can land a box 1px either way.
-  const after = await place();
-  after.forEach((value, i) => expect(Math.abs(value - before[i]), `box ${i}: ${before[i]} -> ${value}`).toBeLessThanOrEqual(1));
+  // Measured until it settles, to the pixel's rounding (a phone's fractional layout can land a
+  // box 1px either way): the NAS runner caught the grid mid-reflow once more after the fonts
+  // had settled (box 1: 0 -> -2, 2026-10-28). A card that stays moved still fails, once the
+  // poll's timeout has passed.
+  await expect.poll(async () => (await place()).map((value, i) => Math.abs(value - before[i]) > 1 ? `box ${i}: ${before[i]} -> ${value}` : '').filter(Boolean).join(', '),
+    { message: 'the card keeps its place and size when ticked' }).toBe('');
   await botani.uncheck();
   await expect(botani).not.toBeChecked();
   await expect(page.locator('.free-op-welfare')).toContainText('Botani');

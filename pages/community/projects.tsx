@@ -1,4 +1,4 @@
-import Head from 'next/head';
+import PageMeta from '@/components/layout/PageMeta';
 import PageHeader from '@/components/ui/PageHeader';
 import PROJECT_ART from '@/config/community-project-art.json';
 import Image, { ApplicationImage, ContentArt } from '@/components/content/ContentImage';
@@ -66,7 +66,7 @@ const projects = [
 
 export default function CommunityProjectsPage({ chibis }: { chibis: { name: string; model: ChibiModel }[] }) {
   return <>
-    <Head><title>Community projects — Arkpedia</title><meta name="description" content="Fan-made Arknights tools, wikis, games, story readers and desktop companions." /></Head>
+    <PageMeta title="Community projects" description="Fan-made Arknights tools, wikis, games, story readers and desktop companions." path="/community/projects" />
     <PageHeader eyebrow="Rhodes Island // Community projects" title="Community projects" sub={<>Tools, wikis, games and more from the Arknights community. <InfoPopover label="About community projects"><p>These independent fan projects are maintained by their own creators. External sites and downloads have their own privacy information, terms and support.</p></InfoPopover></>} />
     <main>
       <div className="community-projects-grid">

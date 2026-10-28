@@ -1,6 +1,6 @@
 import { withContentPage } from '@/lib/content/server';
+import PageMeta from '@/components/layout/PageMeta';
 import { GetStaticProps } from 'next';
-import Head from 'next/head';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import {
@@ -84,13 +84,7 @@ export default function CompanionPage({ data, picker }: Props) {
 
   return (
     <>
-      <Head>
-        <title>Stronghold companion — Arkpedia</title>
-        <meta
-          name="description"
-          content="A one-screen companion for a Stronghold Protocol run: the enemies you drew, the plan for each alliance you are building, and what your board can already do."
-        />
-      </Head>
+      <PageMeta title="Stronghold companion" description="A one-screen companion for a Stronghold Protocol run: the enemies you drew, the plan for each alliance you are building, and what your board can already do." path="/gamemodes/stronghold-protocol/stronghold-companion" />
 
       {/* gm-co-head / gm-co-page: markup classes, not the body.gm-companionpage the
           rest of this page uses. That one is added by an effect, so anything hung on

@@ -1,4 +1,5 @@
 import { usePlannerContent } from '@/lib/content/planner';
+import PageMeta from '@/components/layout/PageMeta';
 import { assetFileName } from '@/lib/assets/assetUrl';
 import { useContentUrl } from '@/lib/content/context';
 import { withContentPage } from '@/lib/content/server';
@@ -11,7 +12,6 @@ import { useSwitchHold } from '@/components/ui/useSwitchHold';
 import { upgradeCostGroups } from '@/lib/planner/upgradeCostGroups';
 import { publicFiles, publicFileExists } from '@/lib/assets/publicAssets';
 import { GetStaticProps } from 'next';
-import Head from 'next/head';
 import Image from '@/components/content/ContentImage';
 import fs from 'fs';
 import path from 'path';
@@ -1076,7 +1076,7 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
   </ActionPopover>;
   return (
     <>
-      <Head><title>Operator Planner — Arkpedia</title></Head>
+      <PageMeta title="Operator Planner" description="Plan Arknights operator promotions, skill masteries and modules, and see every material you still need." path="/planner" />
 
       {/* The site's page header: it was a 40px sentence-case h1 in a row of its own,
           with no eyebrow and no hairline. The mode switch is the site's Tabs. */}

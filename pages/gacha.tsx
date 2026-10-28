@@ -1,11 +1,11 @@
 import type { JSX } from 'react';
+import PageMeta from '@/components/layout/PageMeta';
 import { useRegionalTime } from '@/lib/time/useRegionalTime';
 import { regionalBanners, withLightRegionalTable } from '@/lib/time/regional';
 import { isLineupPending, lineupPendingNote, RETURNING_LIMITED_NOTE } from '@/lib/gacha/bannerLineup';
 import { bannerDisplayName } from '@/lib/gacha/bannerDisplayName';
 import { withContentPage } from '@/lib/content/server';
 import { GetStaticProps } from 'next';
-import Head from 'next/head';
 import { useRouter } from 'next/router';
 import Image from '@/components/content/ContentImage';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -1722,7 +1722,7 @@ export default function GachaSimulator({ pools, banners: globalBanners, kernelLo
 
   return (
     <>
-      <Head><title>Gacha Simulator — Arkpedia</title></Head>
+      <PageMeta title="Gacha Simulator" description="Simulate Arknights headhunting banners with the real rates, pity and rate-ups." path="/gacha" />
 
       <PageHeader eyebrow="Rhodes Island // Headhunting Simulation" title="Gacha Simulator" />
 

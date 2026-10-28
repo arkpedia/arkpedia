@@ -1,11 +1,11 @@
 import { useRegionalTime } from '@/lib/time/useRegionalTime';
+import PageMeta from '@/components/layout/PageMeta';
 import { regionalSkinCollections } from '@/lib/time/regional';
 import { serverCalendarTime } from '@/lib/time/servers.mjs';
 import { withPlannerDynamicArt, loadDynamicArtIndex } from '@/lib/skins/dynamicArtFallback';
 import { skinDynamicArt } from '@/lib/skins/dynamicArt';
 import { useMemo } from 'react';
 import type { GetStaticProps } from 'next';
-import Head from 'next/head';
 import Link from 'next/link';
 import PageHeader from '@/components/ui/PageHeader';
 import SkinPlanner from '@/components/skins/SkinPlanner';
@@ -41,7 +41,7 @@ export default function SkinPlannerPage({ catalogue, collections: globalCollecti
   const [ids, setIds] = useSkinPlan((name) => byName.get(name), ownedKeys);
   return (
     <>
-      <Head><title>Skin Planner — Arkpedia</title></Head>
+      <PageMeta title="Skin Planner" description="Plan the Arknights outfits you want, with their prices, shop windows and the Originite Prime they add up to." path="/skin-planner" />
       <PageHeader eyebrow="Rhodes Island // Skin Planner" title="Skin planner"
         sub={<>The outfits you want, by the event shop that sells them and when. The <Link prefetch={false} href="/pull-planner">Pull Planner</Link> sets your OP against the same plan.</>} />
       <main>

@@ -85,8 +85,9 @@ function scan(file: string, text: string): Scan {
       // A <meta> holds an address only as a preview's image, video or audio.
       const mediaMeta = tag !== 'meta' || /:(?:image|video|audio)(?::url)?$/.test(literal('property')?.text ?? literal('name')?.text ?? '');
       // A <link rel="search"> names the OpenSearch description (public/opensearch.xml), a
-      // document served by the deployment, not art: no release pins it.
-      const artLink = tag !== 'link' || literal('rel')?.text !== 'search';
+      // document served by the deployment, not art: no release pins it. A <link rel="canonical">
+      // names the page's own address (components/layout/PageMeta.tsx), not art either.
+      const artLink = tag !== 'link' || !['search', 'canonical'].includes(literal('rel')?.text ?? '');
       if (DOCUMENT_URL_ATTRIBUTES[tag] && mediaMeta && artLink) {
         for (const attribute of node.attributes.properties) {
           if (!ts.isJsxAttribute(attribute) || !DOCUMENT_URL_ATTRIBUTES[tag].includes(attribute.name.getText(source)) || !attribute.initializer) continue;
@@ -140,6 +141,7 @@ test('the scan recognises every way an image can bypass the content release pin'
     ['helper-built source', component('<source src={url(icon)} />')],
     ['external address', component('<link rel="preconnect" href="https://www.youtube-nocookie.com" />')],
     ['search description', component('<link rel="search" type="application/opensearchdescription+xml" title="Arkpedia" href="/opensearch.xml" />')],
+    ['canonical address', component('<link rel="canonical" href={url} />', "const url = canonicalUrl(path);")],
     ['plain meta', component('<meta name="viewport" content="width=device-width, initial-scale=1" />')],
     ['computed description', component('<meta name="description" content={icon ? `About ${icon}` : "Arkpedia"} />')],
   ]) assert.deepEqual(scan('ok.tsx', text).violations, [], label);

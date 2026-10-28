@@ -1,4 +1,4 @@
-import Head from 'next/head';
+import PageMeta from '@/components/layout/PageMeta';
 import Link from 'next/link';
 import PageHeader from '@/components/ui/PageHeader';
 
@@ -11,10 +11,7 @@ import PageHeader from '@/components/ui/PageHeader';
 export default function NotFoundPage() {
   return (
     <>
-      <Head>
-        <title>Page not found — Arkpedia</title>
-        <meta name="robots" content="noindex" />
-      </Head>
+      <PageMeta title="Page not found" description="The page you asked for is not on Arkpedia." noindex />
       <PageHeader
         eyebrow="Rhodes Island // Error 404"
         title="Page not found"

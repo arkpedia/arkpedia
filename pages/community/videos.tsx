@@ -1,5 +1,5 @@
 import { GetStaticProps } from 'next';
-import Head from 'next/head';
+import PageMeta from '@/components/layout/PageMeta';
 import { useState } from 'react';
 import { enrichWithLiveStatus, YouTubeVideo } from '@/lib/music/youtube';
 import { getLatestVideos } from '@/lib/music/youtubeFeedsServer';
@@ -21,7 +21,7 @@ export default function VideosPage({ videos }: Props) {
   const [shown, setShown] = useState(PAGE);
   return (
     <>
-      <Head><title>Videos — Arkpedia</title></Head>
+      <PageMeta title="Videos" description="The latest Arknights videos from official and community YouTube channels." path="/community/videos" />
 
       <PageHeader eyebrow={<CommunityEyebrow />} title="Videos" sub={`${videos.length} videos from the configured channels.`} />
 

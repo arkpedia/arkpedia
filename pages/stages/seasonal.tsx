@@ -1,4 +1,5 @@
 import { withContentPage } from '@/lib/content/server';
+import PageMeta from '@/components/layout/PageMeta';
 import { GetStaticProps } from 'next';
 import Image from '@/components/content/ContentImage';
 import ContentCardLink, { NoMapNote } from '@/components/ui/ContentCardLink';
@@ -34,6 +35,7 @@ export default function SeasonalPage({ ccb, challenges }: Props) {
   const modes = ['Contingency Contract Battleplan', ...challenges.filter((m) => m.cards.length).map((m) => m.name)];
   return (
     <>
+      <PageMeta title="Seasonal Challenge" description="The Arknights seasonal challenge modes and their current rotations." path="/stages/seasonal" />
       <TerminalNav current="seasonal" />
       <PageHeader
         slim

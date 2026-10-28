@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
+import PageMeta from '@/components/layout/PageMeta';
 import type { GetStaticProps } from 'next';
-import Head from 'next/head';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/router';
 import PageHeader from '@/components/ui/PageHeader';
@@ -87,10 +87,7 @@ export default function AccountPage({ skins, operators }: Props) {
 
   return (
     <>
-      <Head>
-        <title>My Account — Arkpedia</title>
-        <meta name="robots" content="noindex" />
-      </Head>
+      <PageMeta title="My Account" description="Your imported Arknights accounts and your profile, kept in this browser." path="/account" noindex />
 
       <PageHeader eyebrow="Rhodes Island // Account" title={cloudAvailable ? 'My Account' : 'My profile'}
         sub={cloudAvailable ? 'Your Arkpedia profile, cloud saves and imported Arknights accounts.' : 'Your imported Arknights accounts and profile saved in this browser.'}

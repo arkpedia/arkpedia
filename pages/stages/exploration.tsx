@@ -1,4 +1,5 @@
 import { withContentPage } from '@/lib/content/server';
+import PageMeta from '@/components/layout/PageMeta';
 import { GetStaticProps } from 'next';
 import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
@@ -25,6 +26,7 @@ interface Props {
 export default function ExplorationPage({ is, ra }: Props) {
   return (
     <>
+      <PageMeta title="Long-Term Exploration" description="The Arknights long-term exploration modes and their current seasons." path="/stages/exploration" />
       <TerminalNav current="exploration" />
       <PageHeader
         slim

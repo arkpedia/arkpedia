@@ -1,8 +1,9 @@
 import type { GetStaticProps } from 'next';
+import PageMeta from '@/components/layout/PageMeta';
 import CreditDatabase, { type CreditPageProps } from '@/components/operators/CreditDatabase';
 import { withContentPage } from '@/lib/content/server';
 import { creditDatabase, upgradeCreditProps } from '@/lib/operators/creditDatabase';
-export default function Page(props: CreditPageProps) { return <CreditDatabase {...props} kind="artists" />; }
+export default function Page(props: CreditPageProps) { return <><PageMeta title="Artists" description="Arknights illustrators and the operators and outfits each one drew." path="/artists" /><CreditDatabase {...props} kind="artists" /></>; }
 // This builder reads operator files. Until a content release publishes the route,
 // retain the populated build snapshot instead of rebuilding without data/ during ISR.
 // `now`, the CN-only filter's first paint, is the request's clock (contentPageClock).

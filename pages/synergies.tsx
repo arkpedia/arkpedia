@@ -1,6 +1,6 @@
 import { withContentPage } from '@/lib/content/server';
+import PageMeta from '@/components/layout/PageMeta';
 import { GetStaticProps } from 'next';
-import Head from 'next/head';
 import { useMemo, useState } from 'react';
 import PageHeader from '@/components/ui/PageHeader';
 import SearchInput from '@/components/ui/SearchInput';
@@ -80,7 +80,7 @@ export default function SynergiesPage({ groups, emblems }: Props) {
 
   return (
     <>
-      <Head><title>Synergies — Arkpedia</title></Head>
+      <PageMeta title="Synergies" description="Arknights operator synergies: which skills, talents and modules work together, grouped by effect." path="/synergies" />
       <PageHeader stickyActions
         eyebrow="Rhodes Island // Faction and class buffs"
         title="Synergies"

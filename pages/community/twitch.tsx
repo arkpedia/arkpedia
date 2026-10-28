@@ -1,5 +1,5 @@
 import { GetStaticProps } from 'next';
-import Head from 'next/head';
+import PageMeta from '@/components/layout/PageMeta';
 import { useLiveTwitchStreams } from '@/lib/community/useLiveTwitchStreams';
 import { CommunityEyebrow, TwitchCard } from '@/components/community/StreamCards';
 import PageHeader from '@/components/ui/PageHeader';
@@ -10,7 +10,7 @@ export default function TwitchLivePage() {
   const { streams: twitchStreams, available: hasTwitchCreds, loading } = useLiveTwitchStreams();
   return (
     <>
-      <Head><title>Live on Twitch — Arkpedia</title></Head>
+      <PageMeta title="Live on Twitch" description="Arknights streams live on Twitch right now." path="/community/twitch" />
 
       <PageHeader eyebrow={<CommunityEyebrow />} title="Live on Twitch"
         sub={loading ? 'Checking live Arknights streams…' : hasTwitchCreds ? `${twitchStreams.length} streams live right now in the Arknights category.` : 'Arknights streams from the community.'} />

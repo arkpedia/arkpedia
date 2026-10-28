@@ -1,4 +1,5 @@
 import NumberInput from '@/components/ui/NumberInput';
+import PageMeta from '@/components/layout/PageMeta';
 import BaseSkillText from '@/components/operators/BaseSkillText';
 import ImportDialog from '@/components/account/ImportDialog';
 import dynamic from 'next/dynamic';
@@ -74,7 +75,6 @@ import { getAllOperators } from '@/lib/operators/operators';
 import { BaseOperator, BaseSkill } from '@/lib/operators/operatorTypes';
 import { readRoster, ROSTER_EVENT } from '@/lib/planner/roster';
 import { GetStaticProps } from 'next';
-import Head from 'next/head';
 import DataLink from '@/components/account/DataLink';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
@@ -1474,7 +1474,7 @@ export default function BasePage({ operators }: Props) {
 
   return (
     <>
-      <Head><title>Base — Arkpedia</title></Head>
+      <PageMeta title="Base" description="Arknights base planning: facilities, operator base skills, rotations and daily production." path="/base" />
 
       <div>
       <PageHeader

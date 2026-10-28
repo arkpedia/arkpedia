@@ -1,6 +1,6 @@
 import { withContentPage } from '@/lib/content/server';
+import PageMeta from '@/components/layout/PageMeta';
 import { GetStaticProps } from 'next';
-import Head from 'next/head';
 import Link from 'next/link';
 import ModeMark from '@/components/stages/ModeMark';
 import PageHeader from '@/components/ui/PageHeader';
@@ -29,10 +29,7 @@ interface Mode {
 export default function GamemodesPage({ modes }: { modes: Mode[] }) {
   return (
     <>
-      <Head>
-        <title>Game modes -- Arkpedia</title>
-        <meta name="description" content="Arknights game modes, and what each one is made of." />
-      </Head>
+      <PageMeta title="Game modes" description="Arknights game modes, and what each one is made of." path="/gamemodes" />
       <PageHeader
         slim
         eyebrow="Rhodes Island // Mode rulebooks"

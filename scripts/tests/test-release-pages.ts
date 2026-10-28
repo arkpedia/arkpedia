@@ -22,6 +22,7 @@ const OUTSIDE_THE_RELEASE: Record<string, string> = {
   'pages/optimizer.tsx': 'development only (devOnlyStaticProps)',
   'pages/dev/index.tsx': 'development only (devOnlyStaticProps)',
   'pages/dev/ui.tsx': 'development only (devOnlyStaticProps): the UI primitives gallery',
+  'pages/sitemap.xml.tsx': 'the sitemap, written per request from the live release\'s page list (lib/seo/sitemap.ts)',
 };
 
 function pageFiles(dir = 'pages'): string[] {

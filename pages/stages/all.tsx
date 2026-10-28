@@ -1,6 +1,6 @@
 import { withContentPage } from '@/lib/content/server';
+import PageMeta from '@/components/layout/PageMeta';
 import { GetStaticProps } from 'next';
-import Head from 'next/head';
 import StageModeBrowser from '@/components/stages/StageModeBrowser';
 import TerminalNav from '@/components/stages/TerminalNav';
 import PageHeader from '@/components/ui/PageHeader';
@@ -17,7 +17,7 @@ interface Props {
 export default function AllOperationsPage({ cards, counts, now }: Props) {
   return (
     <>
-      <Head><title>All Operations — Arkpedia</title></Head>
+      <PageMeta title="All Operations" description="Every Arknights stage in one list, searchable by code and name." path="/stages/all" />
 
       <TerminalNav current="all" />
       <PageHeader

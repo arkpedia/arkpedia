@@ -1,6 +1,6 @@
 import { GetStaticProps } from 'next';
+import PageMeta from '@/components/layout/PageMeta';
 import { withContentPage } from '@/lib/content/server';
-import Head from 'next/head';
 import Image from '@/components/content/ContentImage';
 import { useDeferredValue, useMemo, useState } from 'react';
 import { getAllOperators } from '@/lib/operators/operators';
@@ -73,7 +73,7 @@ export default function Results({ iconMap }: Props) {
 
   return (
     <>
-      <Head><title>Community Results — Arkpedia</title></Head>
+      <PageMeta title="Community Results" description="How the community rated Arknights operators in the power-scale poll, in a compact and a detailed view." path="/results" />
 
       <PageHeader eyebrow="Rhodes Island // Community Survey" title="Community results" />
 

@@ -1,4 +1,5 @@
 import { withContentPage } from '@/lib/content/server';
+import PageMeta from '@/components/layout/PageMeta';
 import { GetStaticPaths, GetStaticProps } from 'next';
 import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
@@ -76,7 +77,7 @@ interface Props {
   scene: ReturnType<typeof sceneForContent>;
 }
 
-export default function StageContentPage({ label, name, kind, release, groups, poster, ra, scene }: Props) {
+export default function StageContentPage({ id, label, name, kind, release, groups, poster, ra, scene }: Props) {
   const cards = groups.flatMap((g) => g.cards);
   const withArt = cards.filter((c) => c.art).length;
   const onMapCount = cards.filter((c) => c.onMap).length;
@@ -152,7 +153,7 @@ export default function StageContentPage({ label, name, kind, release, groups, p
         {onMapCount === 0 && withArt < cards.length && (
           <span className="stage-count">
             {cards.length - withArt} without an in-game render
-            {poster && ', showing this event\u2019s art instead'}
+            {poster && ', showing this event’s art instead'}
           </span>
         )}
       </div>
@@ -265,6 +266,7 @@ export default function StageContentPage({ label, name, kind, release, groups, p
 
   return (
     <>
+      <PageMeta title={label && label !== name ? `${label} ${name}` : name} description={`${name} in Arknights: its stages, the enemies on each, their drops and maps.`} path={`/stages/content/${encodeURIComponent(id)}`} image={poster} />
       {/* The section bar says where the page sits: its own scene is marked current, so the
           bar reads the same here as it does on the scene, and its link is the way back. */}
       <TerminalNav current={scene.key} />

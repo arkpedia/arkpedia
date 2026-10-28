@@ -1,5 +1,5 @@
-import Head from 'next/head';
 import DataLink from '@/components/account/DataLink';
+import PageMeta from '@/components/layout/PageMeta';
 import Link from 'next/link';
 import { useMemo } from 'react';
 import { withContentPage } from '@/lib/content/server';
@@ -20,7 +20,7 @@ export default function SelectorTickets({ cards, tickets, candidates }: Props) {
   const customized = !preferences.kukkikazeRating || !preferences.communityRating || !preferences.mainSkills || preferences.subSkills || preferences.likesIS || preferences.likesRA || ['arts', 'trueDamage', 'gameDestroyer', 'reveal'].some(key => preferences[key as keyof typeof preferences] !== null);
   const note = `${customized ? 'Scores use your personalization settings.' : account ? 'Scores include your imported roster bonuses.' : 'Base scores only. Import your account to apply roster bonuses.'}${missingRatings ? ' Operators without an available enabled rating show an available subtotal; the breakdown identifies missing data.' : ''}`;
   return <>
-    <Head><title>Selector Tickets — Arkpedia</title></Head>
+    <PageMeta title="Selector Tickets" description="Which operators each Arknights selector ticket can pick, and how to choose." path="/selector-tickets" />
     <PageHeader eyebrow="Rhodes Island // Guides" title="Selector Tickets" sub="Compare the current 6★ selectors for your roster." />
     <main>
       <div className="selector-account">

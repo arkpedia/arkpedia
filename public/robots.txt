@@ -1,11 +1,11 @@
 # The LIVE site's crawl policy. Search engines are welcome -- being findable is
 # the point of a wiki. What is not welcome is the AI-training crawler fleet,
-# which re-reads all ~6,000 pages and 10,000 images on a schedule and was a
-# measurable share of the Vercel bill (19M edge requests in one August).
+# which re-reads every page and image on a schedule and was a measurable
+# share of the hosting bill (19M edge requests in one August).
 #
-# Advisory only: it asks, it cannot enforce. The Vercel firewall's bot rules are
-# the enforcement layer; this file is the polite notice that lets well-behaved
-# bots save everyone the trouble.
+# Advisory only: it asks, it cannot enforce. Cloudflare's bot rules are the
+# enforcement layer; this file is the polite notice that lets well-behaved bots
+# save everyone the trouble.
 #
 # NOTE: deliberately different from arkpedia-dev's robots.txt, which disallows
 # everything because the dev mirror must stay out of search indexes. Do not copy
@@ -35,3 +35,6 @@ User-agent: *
 Disallow: /api/
 Disallow: /dev
 Crawl-delay: 2
+
+# Every page the live release publishes, under its public name (pages/sitemap.xml.tsx).
+Sitemap: https://www.arkpedia.net/sitemap.xml

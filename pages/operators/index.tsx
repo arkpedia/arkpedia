@@ -1,8 +1,8 @@
 import { withContentPage } from '@/lib/content/server';
+import PageMeta from '@/components/layout/PageMeta';
 import { sortClasses } from '@/lib/operators/classOrder';
 import { GetStaticProps } from 'next';
 import path from 'path';
-import Head from 'next/head';
 import Link from 'next/link';
 import Image from '@/components/content/ContentImage';
 import { useRouter } from 'next/router';
@@ -341,7 +341,7 @@ export default function OperatorsIndex({ operators, now }: Props) {
 
   return (
     <>
-      <Head><title>Operator Roster — Arkpedia</title></Head>
+      <PageMeta title="Operator Roster" description="Every Arknights operator with class, rarity, faction and release date, filterable and searchable." path="/operators" />
 
       <PageHeader stickyActions eyebrow="Rhodes Island // Personnel Archive" title="Operator roster"
 

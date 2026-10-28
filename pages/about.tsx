@@ -1,9 +1,9 @@
-import Head from 'next/head';
 import Link from 'next/link';
+import PageMeta from '@/components/layout/PageMeta';
 import PageHeader from '@/components/ui/PageHeader';
 import InformationLayout from '@/components/ui/InformationLayout';
 export default function AboutPage() {
-  return <><Head><title>About Arkpedia — Arkpedia</title></Head>
+  return <><PageMeta title="About Arkpedia" description="What Arkpedia is, who makes it and where its data comes from." path="/about" />
     <PageHeader eyebrow="Rhodes Island // About" title="About Arkpedia" sub="An independent Arknights community reference and planning site." />
     <InformationLayout sections={[{id:'people',label:'People'}, {id:'credits',label:'Project & credits'}, {id:'contact',label:'Contact'}]}><section id="people" className="information-section reading-copy"><h2 className="entity-title">The people behind Arkpedia</h2>
       <p>Arkpedia was founded by Kukkikaze. Its current main developer and maintainer is <span className="information-name">JungerMin</span>.</p>

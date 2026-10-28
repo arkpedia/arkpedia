@@ -1,10 +1,10 @@
 import { withContentPage } from '@/lib/content/server';
+import PageMeta from '@/components/layout/PageMeta';
 import GameLinks, { GamesEyebrow } from '@/components/minigames/GameLinks';
 import PageHeader from '@/components/ui/PageHeader';
 import SearchInput from '@/components/ui/SearchInput';
 import SegmentedControl from '@/components/ui/SegmentedControl';
 import type { GetStaticProps } from 'next';
-import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -107,7 +107,7 @@ export default function SongGuesser({ songs, groups, now }: { songs: SongChoice[
   }
 
   return <>
-    <Head><title>Music Guesser — Arkpedia</title><meta name="description" content="Recognize Arknights music from a short clip. Guess with song titles, artists, characters, events, chapters or stages." /></Head>
+    <PageMeta title="Music Guesser" description="Recognize Arknights music from a short clip. Guess with song titles, artists, characters, events, chapters or stages." path="/games/music-guesser" />
     <PageHeader eyebrow={<GamesEyebrow />} title="Music Guesser" sub="Name the track from a few seconds of it."
       actions={<><GameLinks /><Link className={`ghost btn-sm ${styles.libraryLink}`} href="/music" prefetch={false}>Music library</Link></>} />
     <main className={styles.page} data-setup={!round}>

@@ -1,6 +1,6 @@
 import { withContentPage } from '@/lib/content/server';
+import PageMeta from '@/components/layout/PageMeta';
 import { GetStaticProps } from 'next';
-import Head from 'next/head';
 import Link from 'next/link';
 import Image from '@/components/content/ContentImage';
 import { useMemo, useState } from 'react';
@@ -79,7 +79,7 @@ function OperatorCard({ op, note, index }: { op: RosterOperator; note?: string |
       <p className="hint roster-class-branch">
         <span>
           {op.rarity ? <Rarity n={rarityLevel(op.rarity)} /> : null}
-          {note ? `${op.rarity ? '\u00a0\u2014 ' : ''}${note.replace(/ \u2014 /g, '\u00a0\u2014 ')}` : ''}
+          {note ? `${op.rarity ? '\u00a0— ' : ''}${note.replace(/ — /g, '\u00a0— ')}` : ''}
         </span>
       </p>
     </Link>
@@ -170,7 +170,7 @@ export default function ObtainMethodPage({ operators, limitedBannerInfo, celebra
 
   return (
     <>
-      <Head><title>Obtain Method — Arkpedia</title></Head>
+      <PageMeta title="Obtain Method" description="How each Arknights operator is obtained: headhunting, recruitment, events, the store or welfare." path="/obtain-method" />
 
       {/* Outside <main>, like every page header: nested inside it, the title started
           24px right of the grid it heads. The way back to the roster is the eyebrow's

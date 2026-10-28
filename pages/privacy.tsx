@@ -1,9 +1,9 @@
-import Head from 'next/head';
 import Link from 'next/link';
+import PageMeta from '@/components/layout/PageMeta';
 import PageHeader from '@/components/ui/PageHeader';
 import InformationLayout from '@/components/ui/InformationLayout';
 export default function PrivacyPage() {
-  return <><Head><title>Privacy notice — Arkpedia</title></Head>
+  return <><PageMeta title="Privacy notice" description="How Arkpedia handles your data." path="/privacy" />
     <PageHeader eyebrow="Rhodes Island // Privacy" title="Privacy notice" sub="What Arkpedia stores, why it is used, and the choices you have." />
     <InformationLayout sections={[{id:'contact',label:'Contact'}, {id:'browser',label:'Browser saves'}, {id:'accounts',label:'Accounts & cloud saves'}, {id:'imports',label:'Game imports'}, {id:'media',label:'Analytics & media'}, {id:'providers',label:'Service providers'}, {id:'rights',label:'Your rights'}]}><section id="contact" className="information-section reading-copy"><p className="hint">Updated 26 October 2026</p><h2 className="entity-title">Who to contact</h2>
       <p>Arkpedia’s current maintainer and privacy contact is <span className="information-name">JungerMin</span>: <a href="mailto:jungermin@arkpedia.net">jungermin@arkpedia.net</a>. Kukkikaze is the site’s founder.</p>

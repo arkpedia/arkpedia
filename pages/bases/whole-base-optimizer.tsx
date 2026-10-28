@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import Head from 'next/head';
+import PageMeta from '@/components/layout/PageMeta';
 import Link from 'next/link';
 import PageHeader from '@/components/ui/PageHeader';
 import type { WholeBaseResult } from '@/lib/base/wholeBaseOptimizer';
@@ -108,7 +108,7 @@ export default function WholeBaseOptimizerPage() {
 
   return (
     <>
-      <Head><title>Whole-Base Optimizer — Arkpedia</title></Head>
+      <PageMeta title="Whole-Base Optimizer" description="A development-only whole-base optimizer." noindex />
 
       {/* PageHeader, not a bare <header>: its Back gets the page header's room under it
           (.page-header > .back-btn), and the links and run controls its actions row. */}

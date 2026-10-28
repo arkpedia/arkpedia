@@ -1,5 +1,5 @@
 import { GetStaticProps } from 'next';
-import Head from 'next/head';
+import PageMeta from '@/components/layout/PageMeta';
 import Image, { ContentImg } from '@/components/content/ContentImage';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
@@ -209,7 +209,7 @@ export default function MusicPage({ songLookup }: Props) {
 
   return (
     <>
-      <Head><title>{`${view === 'library' ? 'Library' : view === 'queue' ? 'Queue' : 'Now playing'} · Music — Arkpedia`}</title></Head>
+      <PageMeta title={`${view === 'library' ? 'Library' : view === 'queue' ? 'Queue' : 'Now playing'} · Music`} description="The Arknights music player: Monster Siren Records albums, lyrics, playlists and a queue." path="/music" />
 
       <MusicHeader current={view} favourites={router.query.scope === 'favorites'} open={musicMenuOpen} onOpen={() => setMusicMenuOpen(value => !value)} />
       <main className="music-player-page">

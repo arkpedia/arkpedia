@@ -1,4 +1,5 @@
 import { useContentUrl } from '@/lib/content/context';
+import PageMeta from '@/components/layout/PageMeta';
 import { cssUrl } from '@/lib/content/urls';
 import { useAssetUrl } from '@/lib/assets/assetRetry';
 import { useRef } from 'react';
@@ -39,6 +40,7 @@ export default function ScorePage({ lines }: Props) {
   const stories = lines.filter((l) => !l.mainline);
   return (
     <>
+      <PageMeta title="Score" description="The Arknights score modes and their current seasons." path="/stages/score" />
       <TerminalNav current="score" />
       <PageHeader
         slim

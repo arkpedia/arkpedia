@@ -1,6 +1,6 @@
 import { withContentPage } from '@/lib/content/server';
+import PageMeta from '@/components/layout/PageMeta';
 import { GetStaticProps } from 'next';
-import Head from 'next/head';
 import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
@@ -335,7 +335,7 @@ export default function DiscoverPage({ songs: releaseSongs, characters, origins,
 
   return (
     <>
-      <Head><title>Discover — Arkpedia</title></Head>
+      <PageMeta title="Discover" description="Discover Arknights music: songs, albums and artists from Monster Siren Records." path="/music/discover" />
 
       {/* The music section's one header and nav, in the same place as on /music, so moving
           between Discover and the player's views moves nothing. */}

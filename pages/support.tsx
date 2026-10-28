@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import Head from 'next/head';
+import PageMeta from '@/components/layout/PageMeta';
 import PageHeader from '@/components/ui/PageHeader';
 import patreonSupporters from '@/config/patreon_supporters.json';
 
@@ -22,7 +22,7 @@ export default function SupportPage() {
 
   return (
     <>
-      <Head><title>Support — Arkpedia</title></Head>
+      <PageMeta title="Support" description="Ways to support Arkpedia and reach the people who make it." path="/support" />
 
       <PageHeader eyebrow="Rhodes Island // Support" title="Support" />
 

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import Head from 'next/head';
+import PageMeta from '@/components/layout/PageMeta';
 import PageHeader from '@/components/ui/PageHeader';
 import { devOnlyStaticProps } from '@/lib/dev/devOnly';
 
@@ -189,7 +189,7 @@ export default function OptimizerPage() {
 
   return (
     <>
-      <Head><title>Optimizer — Arkpedia</title></Head>
+      <PageMeta title="Optimizer" description="A development-only base optimizer." noindex />
 
       {/* PageHeader, not a bare <header>: its Back gets the page header's room under it
           (.page-header > .back-btn), and the run controls its actions row. */}
