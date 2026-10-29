@@ -35,9 +35,19 @@ test('deployment requires NAS labels, policy verification and prebuilt upload', 
 test('the deploy-only NAS runner can take deploys but never a Check or content job', () => {
   const { services } = yaml.load(fs.readFileSync('infra/runners/nas/compose.yaml', 'utf8'));
   const labels = name => String(services[name].environment.RUNNER_LABELS).replace(/^\$\{\w+:-(.*)\}$/, '$1').split(',');
-  // Checks and content jobs run on vars.ARKPEDIA_RUNNER (arkpedia-nas); Deploy on arkpedia-nas-build.
-  for (const name of ['runner', 'runner-2']) assert.deepEqual(labels(name), ['arkpedia-nas', 'arkpedia-nas-build'], name);
+  // Checks and content jobs run on vars.ARKPEDIA_RUNNER (arkpedia-nas), one at a time on the one
+  // Check runner; Deploy and the release only on the deploy runner (arkpedia-nas-build), never in
+  // a Check runner (a release there was OOM-killed at its 6 GB on 2026-10-29).
+  assert.deepEqual(Object.keys(services).sort(), ['runner', 'runner-deploy'], 'one Check runner and the deploy runner (truenas-2 retired 2026-10-29)');
+  assert.deepEqual(labels('runner'), ['arkpedia-nas']);
   assert.deepEqual(labels('runner-deploy'), ['arkpedia-nas-build']);
+  // Within the NAS: 31 GB, of which its own apps take 8 to 10 GB at their peak.
+  const gigabytes = value => Number(String(value).replace(/g$/, ''));
+  const memory = name => gigabytes(services[name].mem_limit);
+  assert.equal(memory('runner'), 11);
+  assert.equal(memory('runner-deploy'), 8);
+  assert.ok(memory('runner') + memory('runner-deploy') <= 19, 'the runners together stay within 19 GB');
+  for (const name of ['runner', 'runner-deploy']) assert.equal(services[name].memswap_limit, services[name].mem_limit, `${name}: no swap beyond its memory`);
   assert.equal(services['runner-deploy'].environment.RUNNER_NAME.replace(/^\$\{\w+:-(.*)\}$/, '$1'), 'truenas-deploy');
   for (const file of ['check.yml', 'prepare-content.yml']) {
     assert.doesNotMatch(fs.readFileSync(`.github/workflows/${file}`, 'utf8'), /arkpedia-nas-build/, `${file} must not be able to take the deploy runner`);

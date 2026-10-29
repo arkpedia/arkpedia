@@ -30,16 +30,19 @@ repository variable `ARKPEDIA_RUNNER` names:
 runs-on: ${{ vars.ARKPEDIA_RUNNER || 'ubuntu-latest' }}
 ```
 
-- **Set**: the jobs run on the self-hosted runners that carry that label. Two are
-  registered, to this repository only:
-  - `truenas` and `truenas-2` (labels `arkpedia-nas`, `arkpedia-self`): two containers on a
-    maintainer's NAS, 6 GB and up to 6 of its 8 cores each, so two jobs run at once instead of
-    queueing (since 2026-10-02; one runner had every job wait behind every other). One Check
-    alone takes about 15 minutes; two at once share the cores. Both also carry
-    `arkpedia-nas-build`, so either can take a deploy.
-  - `truenas-deploy` (label `arkpedia-nas-build` only, since 2026-10-13): a third container in
-    the same stack, up to 4 cores and 6 GB, that only Deploy can use. A deploy is a
+- **Set**: the jobs run on the self-hosted runners that carry that label. Registered to this
+  repository only:
+  - `truenas` (label `arkpedia-nas`): a container on a maintainer's NAS, 11 GB and up to 7 of its
+    8 cores, taking Checks and content jobs one at a time. A second Check runner (`truenas-2`, 6 GB
+    each) ran from 2026-10-02 to 2026-10-29: two Checks side by side shared the cores, took 40 to
+    45 minutes each instead of about 15 alone, starved each other's browser suites into
+    timeouts, and both runners peaked at their 6 GB. One runner with the memory of both finishes
+    two Checks in about the time two side by side took.
+  - `truenas-deploy` (label `arkpedia-nas-build` only, since 2026-10-13): a second container in
+    the same stack, up to 4 cores and 8 GB, that only Deploy and the production release use (a
+    release that landed in a 6 GB Check runner was OOM-killed on 2026-10-29). A deploy is a
     `next build` and an upload, about 3 minutes.
+  - The two take 19 GB of the NAS's 31; its own apps take 8 to 10 GB at their peak.
   - `hetzner-vps` (labels `arkpedia-vps`, `arkpedia-self`): a maintainer's VPS, 2 vCPUs,
     about 3 GB. A full Check takes about 19 minutes.
 

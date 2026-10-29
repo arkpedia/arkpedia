@@ -1,14 +1,16 @@
 # Self-hosted runners
 
-How the two self-hosted runners (the NAS takes every job, the VPS stands by) in [docs/development/ci-runner.md](../../docs/development/ci-runner.md)
+How the self-hosted runners (the NAS takes every job, the VPS stands by) in [docs/development/ci-runner.md](../../docs/development/ci-runner.md)
 are built. Both are registered to arkpedia/arkpedia only, run jobs as an unprivileged
 user, and keep jobs off the machine's private networks and own services.
 
-## `nas/`: two containers on a TrueNAS NAS (runners `truenas` and `truenas-2`)
+## `nas/`: two containers on a TrueNAS NAS (runners `truenas` and `truenas-deploy`)
 
-A Dockge stack with two runners from one definition (a YAML anchor), so two jobs run side by
-side: two pull requests' Checks, or a Check and a Deploy. `compose.yaml` is generated, and is
-the file the stack runs:
+A Dockge stack with two runners from one definition (a YAML anchor): `truenas` takes Checks and
+content jobs one at a time, `truenas-deploy` only Deploy and the production release, so a release
+never waits behind a Check. A second Check runner, `truenas-2`, ran from 2026-10-02 to 2026-10-29:
+two Checks side by side starved each other and hit their 6 GB limits. `compose.yaml` is generated,
+and is the file the stack runs:
 
 ```sh
 python3 infra/runners/nas/gen-compose.py   # writes compose.yaml from Dockerfile + arkpedia-runner.sh
@@ -26,13 +28,13 @@ python3 infra/runners/nas/gen-compose.py   # writes compose.yaml from Dockerfile
 - **Compose:**
   - read-only root and tmpfs `/tmp`;
   - public DNS;
-  - 6 GB each and up to 6 CPUs each (a cap, so one Check alone runs at full speed and two
-    share the eight cores), low CPU shares, and three browser workers each (`PW_WORKERS=3`).
-    A full Check fits in 6 GB, measured in this container on 2026-10-02;
+  - the Check runner 11 GB and up to 7 CPUs, the deploy runner 8 GB and up to 4 (caps, with
+    low CPU shares so the NAS's own apps come first): 19 GB of the NAS's 31, whose apps take
+    8 to 10 at their peak. Three browser workers (`PW_WORKERS=3`);
   - each runner's home is a bind-backed volume on its own dataset with a quota
-    (`RUNNER_HOME_DIR`, `RUNNER2_HOME_DIR`).
+    (`RUNNER_HOME_DIR`, `RUNNER3_HOME_DIR`).
 - **First start:** each runner needs a token in the stack's `.env`, `RUNNER_TOKEN` and
-  `RUNNER2_TOKEN` (`gh api -X POST repos/arkpedia/arkpedia/actions/runners/registration-token -q .token`).
+  `RUNNER3_TOKEN` (`gh api -X POST repos/arkpedia/arkpedia/actions/runners/registration-token -q .token`).
   After that they can be blank.
 
 ## `vps/`: systemd service on a Linux VPS (runner `hetzner-vps`)

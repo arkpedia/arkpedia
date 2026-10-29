@@ -10,18 +10,22 @@ dockerfile = (here / 'Dockerfile').read_text().replace('@@ENTRYPOINT@@\n', entry
 assert 'ENTRYPOINT_SCRIPT' not in entry
 inline = ''.join('      ' + line if line.strip() else '\n' for line in dockerfile.replace('$', '$$').splitlines(True))
 
-compose = f"""# arkpedia/arkpedia self-hosted GitHub Actions runners, from one definition: two general ones,
-# so two jobs (two pull requests' Checks, or a Check and a Deploy) run side by side instead of in
-# line, and truenas-deploy, which takes only Deploy (label arkpedia-nas-build alone; Checks and
-# content jobs ask for arkpedia-nas), so a deploy never waits behind two Checks (2026-10-13).
+compose = f"""# arkpedia/arkpedia self-hosted GitHub Actions runners, from one definition: truenas, which takes
+# Checks and content jobs (label arkpedia-nas) one at a time, and truenas-deploy, which takes only
+# Deploy and the production release (label arkpedia-nas-build), so a release never waits behind a
+# Check and never runs in a Check runner (2026-10-13; one Check runner since 2026-10-29).
+# A second Check runner (truenas-2) ran from 2026-10-02 to 2026-10-29: two Checks at once shared
+# the eight cores and 6 GB each, starved each other's browser suites into timeouts, and both it
+# and a release that landed on it hit the 6 GB limit (an OOM kill on 2026-10-29). One runner with
+# the memory of both finishes two Checks in about the time two side by side took.
 # Registered to that one private repository. Jobs run fenced (no LAN, tailnet, link-local or
 # other containers; nothing inbound) as an unprivileged user with no capabilities. No NAS
 # share and no Docker socket is mounted: the only storage is each runner's home volume.
-# RUNNER_TOKEN, RUNNER2_TOKEN and RUNNER3_TOKEN (in .env) are needed only for each runner's first start; they
+# RUNNER_TOKEN and RUNNER3_TOKEN (in .env) are needed only for each runner's first start; they
 # are one-hour registration tokens, useless afterwards, and can be blanked once the runners
 # show as online.
-# Maintenance shells: use `docker exec -u runner arkpedia-runner bash` (or arkpedia-runner-2),
-# never a root shell in /home/runner, which jobs write to (arkpedia-runner-deploy likewise). Each runner-home is its own dataset
+# Maintenance shells: use `docker exec -u runner arkpedia-runner bash` (or arkpedia-runner-deploy),
+# never a root shell in /home/runner, which jobs write to. Each runner-home is its own dataset
 # with a quota.
 name: arkpedia-runner
 x-runner: &runner
@@ -62,16 +66,21 @@ x-runner: &runner
   sysctls:
     net.ipv6.conf.all.disable_ipv6: 1
     net.ipv6.conf.default.disable_ipv6: 1
-  shm_size: 1gb
-  # Two of these share an 8-core, 32 GB NAS with its own apps. `cpus` is a cap, not a
-  # reservation: a Check running alone may use 6 cores, as the one runner did, and two running
-  # at once share the eight (cpu_shares keeps the NAS's apps first). At 4 each, a lone Check
-  # took 20 minutes instead of 15 (2026-10-02). Three browser workers each (PW_WORKERS, read by
-  # playwright.config.ts; the runner hands its environment to the jobs). 6 GB each: a full
-  # Check fits, measured in this container at these limits (the browser tests peaked at 4 GB).
-  mem_limit: 6g
-  memswap_limit: 6g
-  cpus: 6
+  # Headless Chromium keeps its renderer memory in /dev/shm; 1 GB with three browser workers
+  # coincided with Chromium crashing (SIGTRAP/SIGSEGV) in Checks, so 2 GB (2026-10-22). It counts
+  # against mem_limit only as far as it is used.
+  shm_size: 2gb
+  # No core dumps: a crashing browser or node in a job otherwise dumps into the NAS's
+  # .system/cores dataset (1 GiB quota), which filled up and raised an alert (2026-10-22).
+  ulimits:
+    core: 0
+  # The NAS has 8 cores and 31 GB, and its own apps use 8 to 10 GB of that at their peak, so the
+  # runners together get 19 GB: 11 for the Check runner, 8 for the deploy runner. `cpus` is a
+  # cap, not a reservation, and cpu_shares keeps the NAS's apps first. 6 GB was too little by
+  # 2026-10-29 (all three runners peaked at it; a release build was OOM-killed at 6 GB).
+  mem_limit: 11g
+  memswap_limit: 11g
+  cpus: 7
   cpu_shares: 512
   pids_limit: 4096
   logging:
@@ -86,25 +95,18 @@ services:
     environment:
       RUNNER_TOKEN: ${{RUNNER_TOKEN:-}}
       RUNNER_NAME: ${{RUNNER_NAME:-truenas}}
-      RUNNER_LABELS: ${{RUNNER_LABELS:-arkpedia-nas,arkpedia-nas-build}}
+      RUNNER_LABELS: ${{RUNNER_LABELS:-arkpedia-nas}}
       PW_WORKERS: "3"
     volumes:
       - runner-home:/home/runner
-  runner-2:
-    <<: *runner
-    container_name: arkpedia-runner-2
-    environment:
-      RUNNER_TOKEN: ${{RUNNER2_TOKEN:-}}
-      RUNNER_NAME: ${{RUNNER2_NAME:-truenas-2}}
-      RUNNER_LABELS: ${{RUNNER_LABELS:-arkpedia-nas,arkpedia-nas-build}}
-      PW_WORKERS: "3"
-    volumes:
-      - runner-home-2:/home/runner
   runner-deploy:
     <<: *runner
     container_name: arkpedia-runner-deploy
-    # A deploy is one `next build` and an upload (about 3 minutes, peaking well under the 6 GB
-    # a Check needs); 4 cores keep it from crowding two Checks out of the eight.
+    # A deploy or a release is one `next build` (static generation in 4 workers) and an upload,
+    # about 3 minutes; it reached the old 6 GB limit, so 8. 4 cores keep it from crowding a
+    # Check out of the eight.
+    mem_limit: 8g
+    memswap_limit: 8g
     cpus: 4
     environment:
       RUNNER_TOKEN: ${{RUNNER3_TOKEN:-}}
@@ -121,12 +123,6 @@ volumes:
       type: none
       o: bind
       device: ${{RUNNER_HOME_DIR:-/mnt/HDDs/Applications/arkpedia-runner}}
-  runner-home-2:
-    driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: ${{RUNNER2_HOME_DIR:-/mnt/HDDs/Applications/arkpedia-runner-2}}
   runner-home-deploy:
     driver: local
     driver_opts:
