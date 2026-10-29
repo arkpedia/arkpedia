@@ -36,6 +36,8 @@ export interface OptimizerInput {
   lockedDorm?: string[];
   /** Count the drones the Power Plants make, spent at every login where each is worth most (see simulateBase). Default off. */
   drones?: boolean;
+  /** Try formations: a core refilled by Fiammetta in every shift. Default on when Fiammetta is owned. */
+  formations?: boolean;
   /** Try duty rotations (the best crew works several steps in a row). Default on. */
   duty?: boolean;
   /** Also build crews around each synergy anchor and keep the best. Several times slower; finds combos greedy cannot see. */
@@ -68,12 +70,14 @@ export interface ScheduleStep { hour: number; crewIn: { crew: number; rooms: str
  * `duty`: the best crew works `duty` steps in a row and rests one in the dorms while the second crew
  * covers that step. The best crew works duty/(duty+1) of the time, so it needs fast recovery (dorm boosters,
  * Fiammetta) and low drain, which the simulator checks.
+ * `formations`: a core of low-drain workers stays in its rooms in every shift, Fiammetta refilling them in turn; a different
+ * crew fills the other places in each shift, so the best workers work all day and the rest rotate around them.
  * `staggered`: the rooms are in two halves that change crew on alternate staffing changes; a
  * crew works two steps, rests one in the dorms and waits one unassigned, so only half the base
  * rests at a time and the dorms do not cap how many places are staffed.
  */
-export type RotationShape = 'alternate' | 'staggered' | 'duty';
-interface Plan { shape: RotationShape; k: number; crews: [BaseAssignments, BaseAssignments]; group: string[]; fiammetta: boolean; /** duty: steps the first crew works in a row before it rests one */ duty?: number }
+export type RotationShape = 'alternate' | 'staggered' | 'duty' | 'formations';
+interface Plan { shape: RotationShape; k: number; crews: [BaseAssignments, BaseAssignments]; group: string[]; fiammetta: boolean; /** formations: the core workers (in every shift) and one crew per shift, each crew holding the core */ formation?: { core: string[]; crews: BaseAssignments[] }; /** duty: steps the first crew works in a row before it rests one */ duty?: number }
 
 export interface OptimizerResult {
   shape: RotationShape;
@@ -203,9 +207,9 @@ export function optimizeBase(input: OptimizerInput): OptimizerResult {
   ];
 
   /** Greedy: add the (room, operator) with the largest snapshot gain until nothing gains or the team fills the dorms it will rest in. */
-  function buildTeam(used: ReadonlySet<string>, limit: number, anchor?: string): BaseAssignments {
-    const team: BaseAssignments = Object.fromEntries(rooms.map(f => [f.id, Array(f.capacity).fill(null)]));
-    const inTeam = new Set<string>();
+  function buildTeam(used: ReadonlySet<string>, limit: number, anchor?: string, fixed?: BaseAssignments): BaseAssignments {
+    const team: BaseAssignments = Object.fromEntries(rooms.map(f => [f.id, fixed ? [...(fixed[f.id] ?? Array(f.capacity).fill(null))] : Array(f.capacity).fill(null)]));
+    const inTeam = new Set<string>(fixed ? operatorsIn(fixed) : []);
     let current = snapshotValue(team).value;
     if (anchor) {
       // Forced start: the anchor goes where it does the most alone, even if that is little.
@@ -336,6 +340,8 @@ export function optimizeBase(input: OptimizerInput): OptimizerResult {
     const [A, B] = plan.crews;
     const steps: { working: BaseAssignments; resting: string[] }[] = plan.shape === 'alternate'
       ? [{ working: A, resting: operatorsIn(B) }, { working: B, resting: operatorsIn(A) }]
+      : plan.shape === 'formations'
+      ? plan.formation!.crews.map((crew, i, all) => ({ working: crew, resting: operatorsIn(all[(i + all.length - 1) % all.length]).filter(n => !plan.formation!.core.includes(n)).slice(0, Math.max(0, restCapacity - 1)) }))
       : plan.shape === 'duty'
       // B rests in the first step after its cover shift; during the other work steps it waits unassigned.
       ? Array.from({ length: plan.duty! + 1 }, (_, i) => i < plan.duty! ? { working: A, resting: i === 0 ? operatorsIn(B) : [] } : { working: B, resting: operatorsIn(A) })
@@ -354,6 +360,13 @@ export function optimizeBase(input: OptimizerInput): OptimizerResult {
     return steps.map(step => {
       let assignments = withDorms(step.working, step.resting);
       if (plan.fiammetta) assignments = seatFiammetta(assignments);
+      if (plan.shape === 'formations') {
+        // Fiammetta takes the bed that was kept free for her, at the head of that dorm, and refills the core in turn.
+        const head = dorms.find(d => (assignments[d.id] ?? []).includes(null))?.id ?? dorms[0].id;
+        const occupants = (assignments[head] ?? []).filter((x): x is SlotAssignment => !!x);
+        assignments = { ...assignments, [head]: [slotOf('Fiammetta'), ...occupants, ...Array(5).fill(null)].slice(0, (assignments[head] ?? []).length) };
+        return { assignments, factoryProducts, logins: plan.k, refill: plan.formation!.core };
+      }
       return { assignments, factoryProducts, logins: plan.k, ...(plan.fiammetta ? { reseat: ['Fiammetta'] } : {}) };
     });
   }
@@ -362,6 +375,7 @@ export function optimizeBase(input: OptimizerInput): OptimizerResult {
     const [A, B] = plan.crews;
     if (plan.shape === 'alternate') return true;
     if (plan.shape === 'duty') return operatorsIn(A).length <= restCapacity;
+    if (plan.shape === 'formations') return true;
     const g2 = roomIds.filter(id => !plan.group.includes(id));
     return [A, B].every(c => restrict(c, plan.group).length <= restCapacity && restrict(c, g2).length <= restCapacity);
   }
@@ -400,8 +414,10 @@ export function optimizeBase(input: OptimizerInput): OptimizerResult {
   // crews from dorm size up to every place and keep what the simulator prefers.
   const places = rooms.reduce((n, f) => n + f.capacity, 0);
   const sizes = [...new Set([restCapacity, Math.round((restCapacity + places) / 2), places].filter(n => n >= restCapacity))];
+  let bigCrew: BaseAssignments | null = null;
   for (const size of sizes) {
     const teamA = bestTeam(new Set(), Math.min(size, Math.ceil(owned.length / 2)));
+    if (size === Math.max(...sizes)) bigCrew = teamA;
     const teamB = bestTeam(new Set(operatorsIn(teamA)), size);
     for (let k = 1; k * loginInterval <= 24 || k === 1; k++) plans.push({ shape: 'alternate', k, crews: [teamA, teamB], group: [], fiammetta: false });
     // Duty rotations: the best crew works two or three steps running, so it must fit the dorms to rest whole.
@@ -421,6 +437,59 @@ export function optimizeBase(input: OptimizerInput): OptimizerResult {
       if (fits(plan)) plans.push(plan);
     }
   }
+  // Formations: the best workers whose Morale Fiammetta can keep up with work every shift; a crew per shift fills the rest.
+  if (input.formations !== false && roster.Fiammetta && byName.has('Fiammetta') && dorms.length && bigCrew) {
+    const FIAMMETTA_BUDGET = 1.8; // Morale an hour she can hand out: 2, a little under for the swaps she waits to recover
+    const crew0: BaseAssignments = bigCrew;
+    const snap = snapshotValue(crew0);
+    const roomOfName = new Map<string, string>();
+    for (const [room, slots] of Object.entries(crew0)) for (const slot of slots ?? []) if (slot) roomOfName.set(slot.operatorName, room);
+    const drainIn = (result: ReturnType<typeof snapshotValue>['result'], room: string, name: string) =>
+      (result.rooms[room] as { perOperatorMorale?: Record<string, number> } | undefined)?.perOperatorMorale?.[name] ?? 0;
+    // crew0's own occupants score as-is; a greedy snapshot search structurally can't see a low-drain specialist
+    // (Shamare/Bibeak/Tequila's own -0.25/h skills) outvalue a higher-output one UNTIL the window is long, so every
+    // owned candidate for each of crew0's production rooms is tried too, swapped in for its weakest current occupant.
+    type Candidate = { name: string; marginal: number; drain: number };
+    const seen = new Map<string, Candidate>();
+    for (const name of roomOfName.keys()) {
+      if (name === 'Fiammetta') continue;
+      const marginal = snap.value - snapshotValue(without(crew0, name)).value;
+      if (marginal > EPS) seen.set(name, { name, marginal, drain: drainIn(snap.result, roomOfName.get(name)!, name) });
+    }
+    for (const f of rooms.filter(f => roomOfName.has(operatorsIn(crew0).find(n => roomOfName.get(n) === f.id) ?? '') || Object.values(crew0[f.id] ?? []).some(Boolean))) {
+      const occupants = (crew0[f.id] ?? []).flatMap(s => s ? [s.operatorName] : []);
+      if (!occupants.length) continue;
+      for (const candidate of candidatesFor(f.kind, new Set(operatorsIn(crew0).filter(n => n !== occupants[occupants.length - 1])))) {
+        if (seen.has(candidate)) continue;
+        const index = (crew0[f.id] ?? []).length - 1;
+        const trial = { ...crew0, [f.id]: (crew0[f.id] ?? []).map((s, i) => i === index ? slotOf(candidate) : s) };
+        const value = snapshotValue(trial).value;
+        const marginal = value - snapshotValue(without(trial, candidate)).value;
+        if (marginal > EPS) seen.set(candidate, { name: candidate, marginal, drain: drainIn(snapshotValue(trial).result, f.id, candidate) });
+      }
+    }
+    const ranked = [...seen.values()].sort((x, y) => y.marginal / (y.drain + 0.1) - x.marginal / (x.drain + 0.1));
+    const core: string[] = [];
+    let drain = 0;
+    for (const item of ranked) {
+      if (core.length >= 12) break;
+      if (drain + item.drain > FIAMMETTA_BUDGET) continue;
+      core.push(item.name); drain += item.drain;
+    }
+    if (core.length >= 2) {
+      const fixed: BaseAssignments = Object.fromEntries(rooms.map(f => [f.id, (crew0[f.id] ?? []).map(slot => slot && core.includes(slot.operatorName) ? slot : null)]));
+      for (const n of [3, 2]) {
+        const crews: BaseAssignments[] = [];
+        const taken = new Set(core);
+        for (let i = 0; i < n; i++) {
+          const crew = buildTeam(taken, core.length + Math.max(1, restCapacity - 1), undefined, fixed);
+          operatorsIn(crew).forEach(name => taken.add(name));
+          crews.push(crew);
+        }
+        plans.push({ shape: 'formations', k: 1, crews: [crews[0], crews[1]], group: [], fiammetta: false, formation: { core, crews } });
+      }
+    }
+  }
   let best: { plan: Plan; shifts: SimulationShift[]; sim: SimulationResult; value: number } | null = null;
   const consider = (plan: Plan) => {
     const shifts = shiftsOf(plan);
@@ -428,9 +497,8 @@ export function optimizeBase(input: OptimizerInput): OptimizerResult {
     return { plan, shifts, sim, value };
   };
   for (const plan of plans) {
-    const c = consider(plan);
-    // Within 0.1%, fewer staffing changes win: alternating over staggered, longer over shorter.
-    const changes = (p: Plan) => (p.shape === 'staggered' ? 2 : p.shape === 'duty' ? p.duty! + 1 : 1) / p.k;
+    const c = consider(plan);    // Within 0.1%, fewer staffing changes win: alternating over staggered, longer over shorter.
+    const changes = (p: Plan) => (p.shape === 'staggered' ? 2 : p.shape === 'duty' ? p.duty! + 1 : p.shape === 'formations' ? p.formation!.crews.length : 1) / p.k;
     if (!best || c.value > best.value * (1 + 1e-3) + EPS || (c.value >= best.value * (1 - 1e-3) - EPS && changes(plan) < changes(best.plan))) best = c;
   }
   const namesOf = () => best!.plan.crews.map(operatorsIn);
@@ -441,6 +509,7 @@ export function optimizeBase(input: OptimizerInput): OptimizerResult {
   // have room, fill their empty places with unused operators, best
   // snapshot first; keep the fill only if the simulator does not lose.
   function tryFill() {
+    if (best!.plan.shape === 'formations') return;
     const plan: Plan = { ...best!.plan, crews: [{ ...best!.plan.crews[0] }, { ...best!.plan.crews[1] }] };
     const taken = new Set(plan.crews.flatMap(operatorsIn));
     const added: string[] = [];
@@ -468,6 +537,7 @@ export function optimizeBase(input: OptimizerInput): OptimizerResult {
   // Exhaustion repair: an operator who reaches 0 every cycle may cost more than they
   // bring. Try the plan without each exhausted worker; keep what the simulator prefers.
   for (let pass = 0; pass < 3; pass++) {
+    if (best!.plan.shape === 'formations') break;
     const tired = [...new Set(best!.sim.events.filter(e => e.kind === 'exhausted').flatMap(e => e.operators ?? []))];
     if (!tired.length) break;
     let improved = false;
@@ -482,7 +552,7 @@ export function optimizeBase(input: OptimizerInput): OptimizerResult {
 
   // Fiammetta: re-seated at full Morale after the first operator coming off shift, she hands
   // them her 24 Morale. Kept only if the simulation gains.
-  if (roster.Fiammetta && byName.has('Fiammetta') && !best!.plan.crews.some(c => operatorsIn(c).includes('Fiammetta')) && dorms.length) {
+  if (roster.Fiammetta && byName.has('Fiammetta') && best!.plan.shape !== 'formations' && !best!.plan.crews.some(c => operatorsIn(c).includes('Fiammetta')) && dorms.length) {
     const c = consider({ ...best!.plan, fiammetta: true });
     if (c.value > best!.value + EPS) { best = c; notes.push(`Fiammetta sits in ${dorms[0].label} and is taken out and put back at each staffing change, right after the operator coming off shift, to hand them her full Morale.`); }
   }
@@ -547,15 +617,26 @@ export function optimizeBase(input: OptimizerInput): OptimizerResult {
       return scored.slice(0, 1).map(x => x.n);
     });
     const removeVictims = (shifts: SimulationShift[]) => dropFromPlan(shifts, victims);
-    const ranked = [...marginals.entries()].sort((x, y) => y[1] - x[1]).map(([n]) => n).filter(n => n !== 'Fiammetta' && !victims.includes(n)).slice(0, 8);
-    let current = removeVictims(best!.shifts), currentValue = best!.value;
-    const core: string[] = [];
-    for (const name of ranked) {
-      const trial = makeCore(current, name, core);
-      if (!trial) continue;
-      const { sim, value } = simulate(trial);
-      if (value > currentValue + EPS) { core.push(name); current = trial.map(sh => ({ ...sh, refill: [...core] })); currentValue = value; best = { plan: best!.plan, shifts: current, sim, value }; }
+    const ranked = [...marginals.entries()].sort((x, y) => y[1] - x[1]).map(([n]) => n).filter(n => n !== 'Fiammetta' && !victims.includes(n)).slice(0, 10);
+    // Fiammetta's bed and the two workers that make room for her are a fixed cost, so growing the core one worker
+    // at a time never pays for it. Try cores of several sizes, best-ranked first, and keep the best by simulation.
+    const coreOf = (size: number) => {
+      let current = removeVictims(best!.shifts);
+      const core: string[] = [];
+      for (const name of ranked.slice(0, size)) {
+        const trial = makeCore(current, name, core);
+        if (trial) { core.push(name); current = trial; }
+      }
+      return core.length ? { core, shifts: current.map(sh => ({ ...sh, refill: [...core] })) } : null;
+    };
+    let chosen: string[] = [];
+    for (const size of [2, 3, 4, 6, 8, 10]) {
+      const trial = coreOf(size);
+      if (!trial || (chosen.length === trial.core.length)) continue;
+      const { sim, value } = simulate(trial.shifts);
+      if (value > best!.value + EPS) { chosen = trial.core; best = { plan: best!.plan, shifts: trial.shifts, sim, value }; }
     }
+    const core = chosen;
     if (core.length) notes.push(`Fiammetta refills ${core.join(', ')} in turn at the staffing changes: each works every shift and never rests. She sits in ${dorms[0].label} and swaps her full Morale with whichever of them is lowest.`);
   }
 
@@ -582,7 +663,9 @@ export function optimizeBase(input: OptimizerInput): OptimizerResult {
   const plan = best!.plan;
   const step = plan.k * loginInterval;
   const g2 = roomIds.filter(id => !plan.group.includes(id));
-  const schedule: ScheduleStep[] = plan.shape === 'duty'
+  const schedule: ScheduleStep[] = plan.shape === 'formations'
+    ? plan.formation!.crews.map((_, i, all) => ({ hour: i * step, crewIn: [{ crew: i, rooms: roomIds }], resting: [{ crew: (i + all.length - 1) % all.length, rooms: roomIds }] }))
+    : plan.shape === 'duty'
     ? Array.from({ length: plan.duty! + 1 }, (_, i) => i < plan.duty!
       ? { hour: i * step, crewIn: [{ crew: 0, rooms: roomIds }], resting: i === 0 ? [{ crew: 1, rooms: roomIds }] : [] }
       : { hour: i * step, crewIn: [{ crew: 1, rooms: roomIds }], resting: [{ crew: 0, rooms: roomIds }] })
@@ -594,7 +677,7 @@ export function optimizeBase(input: OptimizerInput): OptimizerResult {
       { hour: 2 * step, crewIn: [{ crew: 1, rooms: plan.group }], resting: [{ crew: 0, rooms: plan.group }] },
       { hour: 3 * step, crewIn: [{ crew: 0, rooms: g2 }], resting: [{ crew: 1, rooms: g2 }] },
     ];
-  return { shape: plan.shape, crews: plan.crews, schedule, shifts: best!.shifts, stepHours: step, workHours: plan.shape === 'alternate' ? step : plan.shape === 'duty' ? plan.duty! * step : 2 * step, simulation: best!.sim, score: best!.value, explanations, notes, evaluations };
+  return { shape: plan.shape, crews: plan.crews, schedule, shifts: best!.shifts, stepHours: step, workHours: plan.shape === 'alternate' || plan.shape === 'formations' ? step : plan.shape === 'duty' ? plan.duty! * step : 2 * step, simulation: best!.sim, score: best!.value, explanations, notes, evaluations };
 }
 
 /** Gold cannot be sold indefinitely faster than it is supplied. Scale modeled sales

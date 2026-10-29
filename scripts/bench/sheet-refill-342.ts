@@ -2,7 +2,7 @@
 import { getAllOperators } from '../../lib/operators/operators';
 import { toBaseRosters } from '../../lib/base/baseGroupRosters';
 import { simulateBase, type SimulationBase, type SimulationShift, type SimulationResult } from '../../lib/base/baseSimulation';
-import { DEFAULT_WEIGHTS } from '../../lib/base/baseOptimizer';
+import { DEFAULT_WEIGHTS, sustainableOutput } from '../../lib/base/baseOptimizer';
 import groups from '../../data/base-group-rosters.json';
 import slots from '../../data/base-skill-slots.json';
 import recipes from '../../data/base-workshop-recipes.json';
@@ -34,3 +34,12 @@ report('+ refill Shamare, Tequila, Proviso', simulateBase({ base, shifts: build(
 report('+ refill Shamare, Bibeak, Tequila, Proviso', simulateBase({ base, shifts: build(['Shamare', 'Bibeak', 'Tequila', 'Proviso']), loginInterval }));
 report('+ refill all five TP workers', simulateBase({ base, shifts: build(['Shamare', 'Bibeak', 'Tequila', 'Proviso', 'Mr. Nothing']), loginInterval }));
 report('+ refill all five, drones on', simulateBase({ base, shifts: build(['Shamare', 'Bibeak', 'Tequila', 'Proviso', 'Mr. Nothing']), loginInterval, drones: true }));
+
+// The optimizer's own yardstick: funded gold (no outside gold), drones allocated to cover gold first.
+const funded = (label: string, refill: string[]) => {
+  const s = simulateBase({ base, shifts: build(refill), loginInterval, drones: true, droneFunding: { externalGold: 0 } });
+  const out = sustainableOutput(s.perDay, 0);
+  console.log(`${label.padEnd(44)} funded score ${(out.lmd + out.exp).toFixed(0)}  (LMD ${out.lmd.toFixed(0)} EXP ${s.perDay.exp.toFixed(0)} gold made ${s.perDay.goldMade.toFixed(1)} sold ${s.perDay.goldSold.toFixed(1)})  exhausted: ${[...new Set(s.events.filter(e => e.kind === 'exhausted').map(e => e.operators?.[0]))].join(', ') || 'none'}`);
+};
+funded('FUNDED: sheet rotation, no refill', []);
+funded('FUNDED: sheet rotation + refill all five', ['Shamare', 'Bibeak', 'Tequila', 'Proviso', 'Mr. Nothing']);
