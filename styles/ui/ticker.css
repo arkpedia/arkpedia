@@ -1,10 +1,20 @@
 /* Announcement ticker -- mounted on the home page only (pages/index.tsx).
    Timing (15s initial delay, 2-minute repeat, hide-on-last-word) and
    the pixel start/end positions are computed in AnnouncementTicker.tsx;
-   this file only handles the visual. */
+   this file only handles the visual.
+
+   It floats over the page just under the nav (same z-layer family, one below it so the
+   nav's menus stay on top) instead of taking a row in the flow: showing it used to push
+   the whole page down 32px and hiding it pulled the page back up. It may cover what is
+   beneath it for its few seconds, so it never takes a click. */
 
 .ticker-bar {
-  position: relative;
+  position: fixed;
+  top: var(--nav-h, 60px);
+  left: 0;
+  right: 0;
+  z-index: 49;
+  pointer-events: none;
   overflow: hidden;
   height: 0;
   background: var(--amber);

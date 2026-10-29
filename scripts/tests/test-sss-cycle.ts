@@ -47,4 +47,6 @@ test('the cycle is a checked release table of the home page, and no date is type
   const ticker = fs.readFileSync('components/layout/AnnouncementTicker.tsx', 'utf8');
   assert.match(ticker, /AnnouncementTicker\(\{ sssCycle, maintenance \}: \{ sssCycle: SssCycle; maintenance: RegionalMaintenance \}\)/);
   assert.match(ticker, /getActiveReminders\(now, sssCycleRef\.current, server, scheduleRef\.current\)/);
+  // It floats over the page under the nav: a ticker in the flow shoves the whole page down 32px while it shows.
+  assert.match(fs.readFileSync('styles/ui/ticker.css', 'utf8'), /\.ticker-bar \{[^}]*position: fixed;/);
 });

@@ -40,3 +40,26 @@ test('the resources lock sits after Yellow certs, level with the boxes', async (
   expect(button!.x, 'the lock is right of Yellow certs').toBeGreaterThan(box!.x + box!.width);
   expect(Math.abs((button!.y + button!.height) - (box!.y + box!.height)), 'the lock is level with the boxes').toBeLessThanOrEqual(2);
 });
+
+/*
+ * Pressing the lock swaps "Locked" for "Unlocked". The button used to be as wide as its word,
+ * so the wallet's last column, and with it all four boxes, moved on every press
+ * (components/ui/LockToggle: both words share one cell).
+ */
+test('pressing the resources lock does not move or resize anything in the wallet', async ({ page }, info) => {
+  test.skip(info.project.name !== 'desktop', 'the one-row desktop layout');
+  await page.goto("/pull-planner");
+  const lock = page.locator('[class*="wallet"] .lock-toggle');
+  await expect(lock).toBeVisible();
+  const measure = () => page.locator('[class*="wallet"]').first().evaluate((wallet) => [...wallet.querySelectorAll('.pulls-field-box, .lock-toggle')].map((el) => {
+    const r = el.getBoundingClientRect();
+    return [r.x, r.y, r.width, r.height].map((n) => Math.round(n * 10) / 10);
+  }));
+  const before = await measure();
+  await lock.click();
+  await page.waitForTimeout(150);
+  expect(await measure(), 'every box and the button keep their place and size').toEqual(before);
+  await lock.click();
+  await page.waitForTimeout(150);
+  expect(await measure()).toEqual(before);
+});
