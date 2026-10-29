@@ -109,6 +109,11 @@
 .pulls-report-sum th, .pulls-report-sum td { border-top: 1px solid var(--line); border-bottom: 0; font-weight: 600; }
 .pulls-report-sum td:last-child { font: 600 18px var(--font-display); }
 .pulls-report .pulls-tick { display: inline-flex; margin-left: 10px; }
+/* An event's rewards in two columns, OP then permits, the same width on every row, so each
+   icon sits under the one above it and "OP" never runs into the permit icon (2026-10-29). */
+.pulls-report-amounts { display: inline-grid; grid-template-columns: 6.5em 7.5em; column-gap: 18px; align-items: center; justify-items: start; text-align: left; }
+.pulls-report-amounts .pulls-reward-amount { gap: 8px; font-variant-numeric: tabular-nums; }
+.pulls-report-uncounted { opacity: .5; }
 .pulls-report .pulls-wish-options { display: inline-flex; gap: 6px; }
 .pulls-report .pulls-wish-option { align-items: center; padding: 3px 8px; }
 .pulls-report .pulls-wish-option b { font-size: 12px; white-space: nowrap; }

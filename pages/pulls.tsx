@@ -14,7 +14,7 @@ import { RewardAmount } from "@/components/pulls/RewardAmount";
 import DataLink from '@/components/account/DataLink';
 import ImportDialog from '@/components/account/ImportDialog';
 import { PastRewards } from '@/components/pulls/PastRewards';
-import { certificatePulls, certificateSpending, greenCertificateIncome, selectedIncome, DEFAULT_INCOME_SETTINGS, type IncomeSettings } from '@/lib/pulls/incomeSettings';
+import { certificatePulls, certificateSpending, greenCertificateIncome, selectedIncome, usesOriginite, DEFAULT_INCOME_SETTINGS, type IncomeSettings } from '@/lib/pulls/incomeSettings';
 import { getAllEvents } from '@/lib/schedule/schedule';
 import { getEventCalendar } from '@/lib/home/frontPageContent';
 import { currentPullPlan } from '@/lib/pulls/currentPlan';
@@ -306,6 +306,11 @@ export default function PullsPage({ scheduledEvents: globalEvents, scheduledBann
    * inline sums would have drifted apart the first time anything was added to
    * one of them.
    */
+  /* "Use OP for pulls" (on by default): off, no Originite Prime turns into pulls anywhere here --
+     held, monthly card, events, back catalogue -- and the Skin wishlist's reservation, which only
+     ever came out of OP, then takes nothing. The amounts are still listed, marked as not counted. */
+  const useOP = usesOriginite(incomeSettings);
+  const opForPulls = useCallback((op: number) => (useOP ? op : 0), [useOP]);
   const totalAt = useCallback((when: Date) => {
     const inc = selectedIncome(now ? incomeBetween(now, when, server) : incomeBetween(new Date(0), new Date(0), server), incomeSettings);
     const certs = now ? certificatePulls(now, when, readNumber(yellowCerts), incomeSettings.certificates, certSpending, server) : 0;
@@ -322,7 +327,7 @@ export default function PullsPage({ scheduledEvents: globalEvents, scheduledBann
       orundum: inHand.orundum,
       /* A future event's Originite is NOT in hand -- it does not exist until the
          event runs -- so it arrives here rather than in the holdings above. */
-      originitePrime: Math.max(0, grossOP - reserve),
+      originitePrime: opForPulls(Math.max(0, grossOP - reserve)),
       permits: inHand.permits + haul.permits + certs + green.permits,
     };
     /* Banner-locked, so it belongs to the banner being ASKED about and to no
@@ -335,11 +340,11 @@ export default function PullsPage({ scheduledEvents: globalEvents, scheduledBann
     const recurringHoldings = { orundum: readNumber(orundum), permits: readNumber(permits) + certs + green.permits };
     const recurringOP = readNumber(originite) + (monthlyCard ? mc.originitePrime : 0);
     const recurringIncome = { ...inc, orundum: inc.orundum + green.orundum + (monthlyCard ? mc.orundum : 0) };
-    const recurringOnly = pullsFrom({ ...recurringHoldings, originitePrime: Math.max(0, recurringOP - reserve) }, recurringIncome);
+    const recurringOnly = pullsFrom({ ...recurringHoldings, originitePrime: opForPulls(Math.max(0, recurringOP - reserve)) }, recurringIncome);
     /* The same two sums with nothing held back for the Skin wishlist: the Pull calculation row
        shows what you hold and gain in full, then takes the wishlist off as its own term. */
-    const unreserved = pullsFrom({ ...holdings, originitePrime: grossOP }, withExtras);
-    const recurringUnreserved = pullsFrom({ ...recurringHoldings, originitePrime: recurringOP }, recurringIncome);
+    const unreserved = pullsFrom({ ...holdings, originitePrime: opForPulls(grossOP) }, withExtras);
+    const recurringUnreserved = pullsFrom({ ...recurringHoldings, originitePrime: opForPulls(recurringOP) }, recurringIncome);
     return {
       grossOP,
       recurringOnly: recurringOnly.pulls,
@@ -353,18 +358,18 @@ export default function PullsPage({ scheduledEvents: globalEvents, scheduledBann
       arriving: withExtras.orundum,
     };
   }, [now, rewardEvents, picked, rerunOptions, monthlyCard, inHand.orundum, inHand.originitePrime,
-    inHand.permits, reserve, orundum, originite, permits, goals, incomeSettings, yellowCerts, certSpending, server]);
+    inHand.permits, reserve, orundum, originite, permits, goals, incomeSettings, yellowCerts, certSpending, server, opForPulls]);
 
   const at = useMemo(() => (target ? totalAt(target) : null), [target, totalAt]);
-  const total = at ? at.pulls : pullsFrom({ ...held, originitePrime: Math.max(0, held.originitePrime - reserve) }, incomeBetween(new Date(0), new Date(0), server));
+  const total = at ? at.pulls : pullsFrom({ ...held, originitePrime: opForPulls(Math.max(0, held.originitePrime - reserve)) }, incomeBetween(new Date(0), new Date(0), server));
   const haul = at ? at.haul : bannerHaul([], new Date(0), rerunOptions);
 
-  const today = pullsFrom({ ...held, originitePrime: Math.max(0, held.originitePrime - reserve) }, incomeBetween(new Date(0), new Date(0), server));
+  const today = pullsFrom({ ...held, originitePrime: opForPulls(Math.max(0, held.originitePrime - reserve)) }, incomeBetween(new Date(0), new Date(0), server));
   const greenIncome = greenCertificateIncome(now ?? new Date(0), target ?? now ?? new Date(0), !!incomeSettings.greenCertificates, server);
   /* The Pull calculation row: what you hold, plus income, plus event rewards, all with nothing
      held back, then minus the pulls the Skin wishlist's OP reservation removes -- so the row
      adds up to Before spending, which (like the banner budgets) keeps the reservation. */
-  const availableNow = pullsFrom(held, incomeBetween(new Date(0), new Date(0), server)).pulls;
+  const availableNow = pullsFrom({ ...held, originitePrime: opForPulls(held.originitePrime) }, incomeBetween(new Date(0), new Date(0), server)).pulls;
   const recurringGained = (at?.recurringOnlyUnreserved ?? availableNow) - availableNow;
   const rewardGained = at ? at.unreservedPulls - at.free - at.recurringOnlyUnreserved : 0;
   const skinPlannerHeld = (at ? at.unreservedPulls : availableNow) - total.pulls;
@@ -401,7 +406,7 @@ export default function PullsPage({ scheduledEvents: globalEvents, scheduledBann
   const monthlyBase = selectedIncome(incomeBetween(now ?? monthlyEnd, monthlyEnd, server), incomeSettings);
   const monthlyBonus = monthlyCardIncome(monthlyBase);
   const monthlyGreen = greenCertificateIncome(now ?? monthlyEnd, monthlyEnd, !!incomeSettings.greenCertificates, server);
-  const monthlyIncome = (monthlyBase.orundum + monthlyGreen.orundum + (monthlyCard ? monthlyBonus.orundum + monthlyBonus.originitePrime * ORUNDUM_PER_ORIGINITE : 0)) / ORUNDUM_PER_PULL + monthlyGreen.permits + certificatePulls(now ?? monthlyEnd, monthlyEnd, readNumber(yellowCerts), incomeSettings.certificates, certSpending, server);
+  const monthlyIncome = (monthlyBase.orundum + monthlyGreen.orundum + (monthlyCard ? monthlyBonus.orundum + opForPulls(monthlyBonus.originitePrime) * ORUNDUM_PER_ORIGINITE : 0)) / ORUNDUM_PER_PULL + monthlyGreen.permits + certificatePulls(now ?? monthlyEnd, monthlyEnd, readNumber(yellowCerts), incomeSettings.certificates, certSpending, server);
   return <>
     <PageMeta title="Pull Planner" description="Plan your Arknights pulls: Orundum, Originite Prime and permits over time, against the banners ahead." path="/pulls" />
     {/* The site's page header, outside <main> like every page's: it was a 34px
@@ -433,7 +438,7 @@ export default function PullsPage({ scheduledEvents: globalEvents, scheduledBann
         <div className={workspace.incomeRow}>
             {/* Six settings, each a real checkbox (.check): #64 had made them highlighted
                 .tgl buttons, and the maintainer asked for the checkboxes back. */}
-            <div className="pulls-recurring-grid" role="group" aria-label="Recurring income">{([['daily', 'Daily missions', `${DAILY_ORUNDUM} / day`], ['weekly', 'Weekly missions', `${WEEKLY_ORUNDUM} / week`], ['annihilation', 'Annihilation', `${ANNIHILATION_WEEKLY_ORUNDUM} / week`], ['certificates', 'Yellow cert shop', '258 certs → 38 pulls'], ['greenCertificates', 'Green cert shop', '5 pulls / month']] as const).map(([key, label, rate]) => <label key={key} className="check" title={rate}><input type="checkbox" checked={!!incomeSettings[key]} onChange={event => setIncomeSettings(previous => ({ ...previous, [key]: event.target.checked }))} />{label}</label>)}<label className="check"><input type="checkbox" checked={monthlyCard} onChange={e => setMonthlyCard(e.target.checked)} />Monthly card</label></div>
+            <div className="pulls-recurring-grid" role="group" aria-label="Recurring income">{([['daily', 'Daily missions', `${DAILY_ORUNDUM} / day`], ['weekly', 'Weekly missions', `${WEEKLY_ORUNDUM} / week`], ['annihilation', 'Annihilation', `${ANNIHILATION_WEEKLY_ORUNDUM} / week`], ['certificates', 'Yellow cert shop', '258 certs → 38 pulls'], ['greenCertificates', 'Green cert shop', '5 pulls / month']] as const).map(([key, label, rate]) => <label key={key} className="check" title={rate}><input type="checkbox" checked={!!incomeSettings[key]} onChange={event => setIncomeSettings(previous => ({ ...previous, [key]: event.target.checked }))} />{label}</label>)}<label className="check"><input type="checkbox" checked={monthlyCard} onChange={e => setMonthlyCard(e.target.checked)} />Monthly card</label><label className="check" title="Originite Prime counts towards pulls at 180 Orundum each: what you hold, the monthly card's, events' and the back catalogue's"><input type="checkbox" checked={useOP} onChange={event => setIncomeSettings(previous => ({ ...previous, originite: event.target.checked }))} />Use OP for pulls</label></div>
 <div className={workspace.rate}><strong>{formatOneDecimal(monthlyIncome)}</strong><span>pulls / 30 days</span></div></div>
         <div className={workspace.utilities}>
           <button type="button" id="tab-income" aria-haspopup="dialog" onClick={() => setIncomeOpen(true)}><span>Income</span><span aria-hidden="true">+</span></button>
@@ -462,11 +467,13 @@ export default function PullsPage({ scheduledEvents: globalEvents, scheduledBann
           <div className="pulls-cert-months">{certificateSpending(now, target, readNumber(yellowCerts), certSpending, server).rows.map(row => <label key={row.month}>{row.month}<NumberInput min="0" max="258" step="1" aria-label={`Yellow cert spending ${row.month}`} value={certSpending[row.month] ?? 0} onChange={e => setCertSpending(value => ({ ...value, [row.month]: Math.max(0, Math.min(258, Math.floor(Number(e.target.value) || 0))) }))} /><span>{row.spent} certs → {row.pulls} pulls{row.short ? ` · ${row.short} certs short` : ''}</span></label>)}</div>
         </details>}
 
-        <dl className={skinPlannerHeld > 0 ? workspace.fiveTerms : undefined}>
+        <dl className={workspace.fiveTerms}>
           <div><dt>Available now</dt><dd>{availableNow}</dd></div>
           <div><dt>Income</dt><dd><span aria-hidden="true">+</span>{recurringGained}</dd></div>
           <div><dt>Event rewards</dt><dd><span aria-hidden="true">+</span>{rewardGained}</dd></div>
-          {skinPlannerHeld > 0 && <div><dt>Skin planner</dt><dd><span aria-hidden="true">−</span>{skinPlannerHeld}</dd></div>}
+          {/* Always shown, "− 0" too, so the row reads the same whatever the wishlist holds; with
+              "Use OP for pulls" off it is 0, as the wishlist only ever reserved OP. */}
+          <div><dt>Skin planner</dt><dd><span aria-hidden="true">−</span>{Math.max(0, skinPlannerHeld)}</dd></div>
           <div className={workspace.forecastTotal}><dt>Before spending</dt><dd><span aria-hidden="true">=</span>{forecastSavings}<small> pulls</small></dd></div>
         </dl>
       </section>
@@ -515,7 +522,7 @@ export default function PullsPage({ scheduledEvents: globalEvents, scheduledBann
               <ReportRow what="Daily missions" how={`${income.days} resets × ${DAILY_ORUNDUM} Orundum`} pulls={income.daily / ORUNDUM_PER_PULL} off={!incomeSettings.daily} />
               <ReportRow what="Weekly missions" how={`${income.weeks} resets × ${WEEKLY_ORUNDUM} Orundum`} pulls={income.weekly / ORUNDUM_PER_PULL} off={!incomeSettings.weekly} />
               <ReportRow what="Annihilation" how={`${income.weeks} weeks × ${ANNIHILATION_WEEKLY_ORUNDUM} Orundum`} pulls={income.annihilation / ORUNDUM_PER_PULL} off={!incomeSettings.annihilation} />
-              <ReportRow what="Monthly card" how={`${income.days} sign-ins × ${MONTHLY_CARD_DAILY_ORUNDUM} Orundum · ${card.cards} × ${MONTHLY_CARD_ORIGINITE} OP`} pulls={monthlyCard ? (card.orundum + card.originitePrime * ORUNDUM_PER_ORIGINITE) / ORUNDUM_PER_PULL : 0} off={!monthlyCard} />
+              <ReportRow what="Monthly card" how={`${income.days} sign-ins × ${MONTHLY_CARD_DAILY_ORUNDUM} Orundum · ${card.cards} × ${MONTHLY_CARD_ORIGINITE} OP`} pulls={monthlyCard ? (card.orundum + opForPulls(card.originitePrime) * ORUNDUM_PER_ORIGINITE) / ORUNDUM_PER_PULL : 0} off={!monthlyCard} />
               <ReportRow what="Green cert shop" how={`${greenIncome.months} resets · 600 Orundum + 4 permits each`} pulls={greenIncome.orundum / ORUNDUM_PER_PULL + greenIncome.permits} off={!incomeSettings.greenCertificates} />
               <ReportRow what="Yellow cert shop" how="planned monthly shop purchases" pulls={now && target ? certificatePulls(now, target, readNumber(yellowCerts), incomeSettings.certificates, certSpending, server) : 0} off={!incomeSettings.certificates} />
               <tr className="pulls-report-sum"><th scope="row">Income</th><td>in whole pulls, with what you hold</td><td>{recurringGained}</td></tr>
@@ -539,7 +546,10 @@ export default function PullsPage({ scheduledEvents: globalEvents, scheduledBann
                         })} />
                       Already cleared
                     </label>}</td>
-                    <td><RewardAmount resource="op" amount={cleared ? 0 : b.op} />{eventShopPermits(b) > 0 && <RewardAmount resource="permits" amount={eventShopPermits(b)} />}</td>
+                    <td><span className="pulls-report-amounts">
+                      <span className={useOP ? undefined : 'pulls-report-uncounted'} title={useOP ? undefined : 'Not counted: Use OP for pulls is off'}><RewardAmount resource="op" amount={cleared ? 0 : b.op} /></span>
+                      {eventShopPermits(b) > 0 ? <RewardAmount resource="permits" amount={eventShopPermits(b)} /> : <span aria-hidden="true" />}
+                    </span></td>
                   </tr>
                 );
               })}

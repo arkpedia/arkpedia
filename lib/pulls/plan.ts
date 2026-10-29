@@ -126,7 +126,8 @@ export function parsePullPlan(raw: string): SavedPullPlan {
     const value = data.incomeSettings as Record<string, unknown>;
     if (!value || typeof value !== 'object' || ['daily', 'weekly', 'annihilation', 'certificates'].some(key => typeof value[key] !== 'boolean')) throw new Error('Invalid income settings.');
     if (value.greenCertificates !== undefined && typeof value.greenCertificates !== 'boolean') throw new Error('Invalid green certificate setting.');
-    incomeSettings = { ...(value.greenCertificates === undefined ? {} : { greenCertificates: value.greenCertificates as boolean }), daily: value.daily as boolean, weekly: value.weekly as boolean, annihilation: value.annihilation as boolean, certificates: value.certificates as boolean };
+    if (value.originite !== undefined && typeof value.originite !== 'boolean') throw new Error('Invalid Originite Prime setting.');
+    incomeSettings = { ...(value.greenCertificates === undefined ? {} : { greenCertificates: value.greenCertificates as boolean }), ...(value.originite === undefined ? {} : { originite: value.originite as boolean }), daily: value.daily as boolean, weekly: value.weekly as boolean, annihilation: value.annihilation as boolean, certificates: value.certificates as boolean };
   }
   let certificateSpending: Record<string, number> | undefined;
   if (data.certificateSpending !== undefined) {

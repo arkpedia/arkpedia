@@ -65,7 +65,10 @@ export default function SkinPlanner({ catalogue, collections, today, now, ids, o
   const [order, setOrder] = useState<ShopOrder>('closing');
   const [fashionOnly, setFashionOnly] = useState(false);
   const [plannedOnly, setPlannedOnly] = useState(false);
-  const [ownedFilter, setOwnedFilter] = useState<Owned>('all');
+  /* With an imported account the planner opens on the outfits you do not own yet (the owner,
+     2026-10-29): what you can still buy. The reader's own pick wins from then on. */
+  const [ownedChoice, setOwnedFilter] = useState<Owned | null>(null);
+  const ownedFilter: Owned = ownedChoice ?? (owned ? 'missing' : 'all');
   // Only to know whether there is an import to filter by; what is owned is the `owned` prop.
   const account = useAccount();
   // Shops a few at a time, more as the reader scrolls, as every long list on the site grows.

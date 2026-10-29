@@ -726,3 +726,15 @@ test("a rerun of an event the back catalogue does not list yet is ticked from th
   assert.deepEqual([...rerunsClearedByTicks(events, [], new Set(), null, stageSanity)], [], 'no import, no stages to read');
   assert.deepEqual([...rerunsClearedByTicks(events, [], new Set(), new Set(['act42side_01', 'act42side_02']), undefined)], [], 'a release without stage costs says nothing');
 });
+
+test('a plan keeps "Use OP for pulls", and one saved before the setting counts Originite Prime', async () => {
+  const { usesOriginite } = await import('../../lib/pulls/incomeSettings');
+  assert.equal(usesOriginite({}), true, 'absent means on');
+  assert.equal(usesOriginite({ originite: false }), false);
+  const base = { version: 1, orundum: '', originite: '', permits: '', reservedOP: '', until: '', manualEventDate: '', bannerName: '', monthlyCard: false, includeBacklog: false, annihilationDone: false, doneEvents: [], doneKeys: [], clearedReruns: [], future: {}, goals: [] };
+  const off = parsePullPlan(JSON.stringify({ ...base, incomeSettings: { daily: true, weekly: true, annihilation: true, certificates: false, originite: false } }));
+  assert.equal(off.incomeSettings?.originite, false);
+  const before = parsePullPlan(JSON.stringify({ ...base, incomeSettings: { daily: true, weekly: true, annihilation: true, certificates: false } }));
+  assert.equal(before.incomeSettings?.originite, undefined);
+  assert.throws(() => parsePullPlan(JSON.stringify({ ...base, incomeSettings: { daily: true, weekly: true, annihilation: true, certificates: false, originite: 'no' } })), /Originite Prime setting/);
+});

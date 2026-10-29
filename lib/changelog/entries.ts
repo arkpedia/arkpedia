@@ -34,6 +34,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-10-29T09:00:00Z',
+    added: [
+      { title: 'Use OP for pulls', detail: 'The Pull Planner can leave Originite Prime out of every pull total, for OP you keep for outfits or sanity.', href: '/pulls' },
+    ],
+    changed: [
+      { title: 'Skin Planner opens on outfits you do not own', detail: 'With an imported account it starts on Not owned; the Pull calculation always shows its Skin planner term.', href: '/skin-planner' },
+      { title: 'Event rewards line up', detail: 'The Income pop-up lists each event\'s OP and permits in two aligned columns.', href: '/pulls' },
+    ],
+  },
+  {
     at: '2026-10-28T21:30:00Z',
     changed: [
       { title: 'Summon stats read like the operator\'s', detail: 'An operator page folds its summons under Stats, in the same stat block with the same icons and controls.', href: '/operators' },

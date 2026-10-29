@@ -21,6 +21,10 @@
 .incomeRow :global(.pulls-recurring-grid) { flex: 1; }
 .rate { display: flex; align-items: baseline; gap: 8px; border-left: 1px solid var(--line); padding-left: 24px; white-space: nowrap; }
 .rate strong { font: 600 26px var(--font-display); color: var(--text-bright); font-variant-numeric: tabular-nums; }
+/* The display face has no tabular figures, so "32.1" and "30.3" differ in width, and the checkbox
+   columns beside the figure, which share what it leaves, slid 2 to 4px whenever an income setting
+   changed it (the owner, 2026-10-29). Room for "999.9", right-aligned, keeps them still. */
+.rate strong { display: inline-block; min-width: 2.9em; text-align: right; }
 .rate span { font-size: 12px; color: var(--text-dim); }
 .utilities { display: grid; grid-template-columns: 1fr 1fr 1.4fr; border-top: 1px solid var(--line); }
 /* Three disclosure buttons: secondary buttons with the control border, and the

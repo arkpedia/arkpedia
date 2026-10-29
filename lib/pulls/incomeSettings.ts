@@ -1,7 +1,12 @@
 import { toServerTime, type GameServer } from '@/lib/time/servers.mjs';
 import { CERT_MONTHLY_COST, CERT_MONTHLY_PULLS, type Income } from './pulls';
 
-export interface IncomeSettings { daily: boolean; weekly: boolean; annihilation: boolean; certificates: boolean; greenCertificates?: boolean }
+/** `originite`: whether Originite Prime counts towards pulls (held, monthly card, events, back
+ *  catalogue), at 180 Orundum each. On unless the reader turns it off, as a plan saved before the
+ *  setting existed has it: someone keeping their OP for outfits or sanity sees the pulls without it. */
+export interface IncomeSettings { daily: boolean; weekly: boolean; annihilation: boolean; certificates: boolean; greenCertificates?: boolean; originite?: boolean }
+/** Whether a plan's settings count Originite Prime towards pulls (absent means yes). */
+export const usesOriginite = (settings: Pick<IncomeSettings, 'originite'>) => settings.originite !== false;
 export const DEFAULT_INCOME_SETTINGS: IncomeSettings = { daily: true, weekly: true, annihilation: true, certificates: false, greenCertificates: false };
 export function selectedIncome(income: Income, settings: IncomeSettings): Income {
   const daily = settings.daily ? income.daily : 0;
