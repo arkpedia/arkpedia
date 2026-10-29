@@ -347,3 +347,13 @@ test('a pending Global rerun uses its own CN mission inventory instead of the or
   assert(entry.groups.some((g: {kind: string}) => g.kind === 'missions'));
   assert(entry.groups.every((g: {inherited?: string}) => !g.inherited));
 });
+
+test("a rerun's copy of an event token takes the original's name until Global's table carries the copy", () => {
+  const name = rewardNamer({ items: { items: {
+    act42side_token_pacifier: { name: 'Enlightened Pacifier' },
+    act12side_token_coupon_rep_1: { name: "Mama John's Voucher (rerun)" },
+  } } });
+  assert.equal(name({ id: 'act42side_token_pacifier_rep_1', type: 'ACTIVITY_ITEM', count: 4000 }).name, 'Enlightened Pacifier', "The Masses' Travels Rerun, 2026-10-28");
+  assert.equal(name({ id: 'act12side_token_coupon_rep_1', type: 'ACTIVITY_ITEM', count: 1 }).name, "Mama John's Voucher (rerun)", 'the copy\'s own name wins once the table has it');
+  assert.equal(name({ id: 'act99side_token_unknown_rep_1', type: 'ACTIVITY_ITEM', count: 1 }).name, 'act99side_token_unknown_rep_1', 'an unknown original stays unnamed, and the build still refuses it');
+});

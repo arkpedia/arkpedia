@@ -261,6 +261,16 @@ def build(plan, image_root, skin_root=None, alerts=None, app_root=APP):
     roots = {'image': image_root, **({'skin': skin_root} if skin_root else {})}
     manifests = {k: json.loads((v/'asset-manifest.json').read_text()) for k,v in roots.items()}
     maps = {k: json.loads((v/'asset-source-map.json').read_text()) for k,v in roots.items()}
+    # What the image repository took out on purpose (retired-assets.json at its root: CN art Global
+    # replaces, a stand-in the maintainer did not want). Never built again from the plan's source,
+    # which is where it came from: the repository's own check refuses a retired path that is
+    # published, so rebuilding Orienteering 7's CN art failed the whole stage (2026-10-28). Global's
+    # own board art is what the retirement waits for: built from the board, the path comes back
+    # and its retirement is lifted in the same commit.
+    retired_file = image_root/'retired-assets.json'
+    retired_doc = json.loads(retired_file.read_text()) if retired_file.exists() else None
+    retired = dict(retired_doc['paths']) if retired_doc else {}
+    unretired = []
     sources, boards = {}, {}
     built = []
     variants = None
@@ -287,8 +297,14 @@ def build(plan, image_root, skin_root=None, alerts=None, app_root=APP):
                 sources[target] = {'url': url, 'sha256': sha(data)}
                 boards[target] = {'title': 'In-game notice board', 'url': url, 'sha1': board['sha1']}
                 built.append(target)
-                print(f'Built {target} from the in-game board')
+                if kind == 'image' and target in retired:
+                    retired.pop(target)
+                    unretired.append(target)
+                print(f'Built {target} from the in-game board' + (' (its retirement lifted)' if target in unretired else ''))
                 continue
+        if kind == 'image' and target in retired:
+            print(f'Left out {target}: retired in the image repository ({retired[target].get("reason", "no reason given")}); only Global\'s board art brings it back')
+            continue
         if target in manifests[kind]['files']:
             built.append(target)
             continue
@@ -405,6 +421,9 @@ def build(plan, image_root, skin_root=None, alerts=None, app_root=APP):
             global_art = root/'sources/global-banner-art.json'
             known = json.loads(global_art.read_text()) if global_art.exists() else {}
             known.update(boards);global_art.write_text(json.dumps(dict(sorted(known.items())),ensure_ascii=False,indent=2)+'\n')
+        if kind == 'image' and unretired:
+            retired_doc['paths'] = retired
+            retired_file.write_text(json.dumps(retired_doc,ensure_ascii=False,indent=2)+'\n')
         subprocess.run(['git','add','--sparse','--all'],cwd=root,check=True)
         subprocess.run(['python3','scripts/validate_images.py','--staged'],cwd=root,check=True)
     return built

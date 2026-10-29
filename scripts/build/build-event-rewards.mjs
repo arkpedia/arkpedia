@@ -129,6 +129,12 @@ export function rewardNamer(tables) {
   return reward => {
     const { id, type } = reward;
     let name = items[id]?.name ?? cosmetics.get(id) ?? pieces.get(id);
+    // A rerun's copy of an event token ("act42side_token_pacifier_rep_1") is the same item under a
+    // new id, and the game names it as the original (act12side_token_coupon_rep_1 and
+    // act41side_token_light_rep_1 in Global's table). Global's table gains the copy only with the
+    // rerun's patch, while the rerun's missions are listed weeks before from CN's: until then it
+    // takes the original's name (The Masses' Travels Rerun, 2026-10-28).
+    if (!name && typeof id === 'string' && /_rep_\d+$/.test(id)) name = items[id.replace(/_rep_\d+$/, '')]?.name;
     // A piece of furniture is sometimes typed NONE (Grani's mission reward): named by its id.
     if (type === 'FURN' || (!name && furniture[id])) name = furniture[id]?.name;
     if (type === 'CHAR') name = characters[id]?.name;
