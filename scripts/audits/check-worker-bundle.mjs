@@ -11,7 +11,11 @@ import path from 'node:path';
  */
 // The promoted Preview features use 19.64 MB after removing the accidental full
 // chibi catalogue import. Keep a narrow ceiling around that measured baseline.
-const BUDGET_BYTES = 20_000_000;
+// 21 MB since 2026-10-30: builds bundle the live release's records now (#883), not the
+// app's stale copy, and the planner's three new tables came with #887: 20.47 MB. The
+// records grow with every release, so the lasting fix is fewer tables in the server
+// build (read from the release at runtime), not this number.
+const BUDGET_BYTES = 21_000_000;
 /** Browser-only packages: next.config.js keeps them out of the server build. */
 const BROWSER_ONLY = [/\/node_modules\/libcurl\.js\//];
 
