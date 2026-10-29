@@ -23,7 +23,8 @@
 .rate strong { font: 600 26px var(--font-display); color: var(--text-bright); font-variant-numeric: tabular-nums; }
 /* The display face has no tabular figures, so "32.1" and "30.3" differ in width, and the checkbox
    columns beside the figure, which share what it leaves, slid 2 to 4px whenever an income setting
-   changed it (the owner, 2026-10-29). Room for "999.9", right-aligned, keeps them still. */
+   changed it (the owner, 2026-10-29). Room for "999.9", right-aligned, keeps them still.
+   On a phone the rate has its own line and leads it, so it starts on the edge there (rule 17). */
 .rate strong { display: inline-block; min-width: 2.9em; text-align: right; }
 .rate span { font-size: 12px; color: var(--text-dim); }
 .utilities { display: grid; grid-template-columns: 1fr 1fr 1.4fr; border-top: 1px solid var(--line); }
@@ -109,7 +110,7 @@
 @media(max-width:700px) {
  .page { gap: 14px; }
  .wallet { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px 14px; } .wallet input:not([type=checkbox]) { font-size: 22px; }
- .incomeRow { display: block; } .rate { justify-content: space-between; margin-top: 10px; padding: 8px 0 0; border-left: 0; border-top: 1px solid var(--line); } .rate strong { font-size: 22px; }
+ .incomeRow { display: block; } .rate { justify-content: space-between; margin-top: 10px; padding: 8px 0 0; border-left: 0; border-top: 1px solid var(--line); } .rate strong { font-size: 22px; min-width: 0; text-align: left; }
  .utilities { grid-template-columns: 1fr; gap: 6px; }
  .forecast { display: block; padding-inline: 2px; } .forecastDate { justify-content: space-between; margin-bottom: 12px; } .forecast dl { gap: 6px; } .forecast dt { font-size: 10px; } .forecast dd { font-size: 22px; }
  .columns { display: none; } .planHeading { padding: 12px; } .add { min-width: 105px; }
