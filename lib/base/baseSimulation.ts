@@ -235,16 +235,6 @@ export function simulateBase(input: SimulationInput): SimulationResult {
         log.events.push({ time, kind: 'fiammettaSwap', room: p.room, operators: [p.name, other], detail: `${p.name} swaps her full Morale with ${other} (${morale[other].toFixed(2)}).` });
         [morale[p.name], morale[other]] = [morale[other], morale[p.name]];
       }
-      // Fiammetta already seated at full Morale, and someone is put into her dorm after her: the swap fires
-      // at once, with whoever arrives (the player puts the most tired in first).
-      for (const f of placed.filter(p => kindOf[p.room] === 'dormitory' && hasFiammettaSwap(p.slot))) {
-        if (morale[f.name] !== FULL || roomOf.get(f.name) !== f.room || shift.reseat?.includes(f.name)) continue;
-        const target = placed.filter(q => q.room === f.room && q.name !== f.name && roomOf.get(q.name) !== q.room && morale[q.name] < FULL).sort((x, y) => morale[x.name] - morale[y.name])[0];
-        if (!target) continue;
-        caveats.add('Fiammetta swaps Morale at once with whoever is put into her dorm while she is at full Morale, and with the operator already there when she is put in; the most tired arrival is assumed to go in first.');
-        log.events.push({ time, kind: 'fiammettaSwap', room: f.room, operators: [f.name, target.name], detail: `${f.name} swaps her full Morale with ${target.name} (${morale[target.name].toFixed(2)}), who has just been put into her dorm.` });
-        [morale[f.name], morale[target.name]] = [morale[target.name], morale[f.name]];
-      }
       if (shift.refill?.length) {
         const fiammetta = placed.find(p => kindOf[p.room] === 'dormitory' && hasFiammettaSwap(p.slot));
         const working = new Set(placed.filter(p => kindOf[p.room] !== 'dormitory').map(p => p.name));
@@ -254,6 +244,16 @@ export function simulateBase(input: SimulationInput): SimulationResult {
           log.events.push({ time, kind: 'fiammettaSwap', room: fiammetta.room, operators: [fiammetta.name, needy], detail: `${fiammetta.name} swaps her full Morale with ${needy} (${morale[needy].toFixed(2)}), who goes straight back to work.` });
           [morale[fiammetta.name], morale[needy]] = [morale[needy], morale[fiammetta.name]];
         }
+      }
+      // Fiammetta already seated at full Morale, and someone is put into her dorm after her: the swap fires
+      // at once, with whoever arrives (the player puts the most tired in first).
+      for (const f of placed.filter(p => kindOf[p.room] === 'dormitory' && hasFiammettaSwap(p.slot))) {
+        if (morale[f.name] !== FULL || roomOf.get(f.name) !== f.room || shift.reseat?.includes(f.name)) continue;
+        const target = placed.filter(q => q.room === f.room && q.name !== f.name && roomOf.get(q.name) !== q.room && morale[q.name] < FULL).sort((x, y) => morale[x.name] - morale[y.name])[0];
+        if (!target) continue;
+        caveats.add('Fiammetta swaps Morale at once with whoever is put into her dorm while she is at full Morale, and with the operator already there when she is put in; the most tired arrival is assumed to go in first.');
+        log.events.push({ time, kind: 'fiammettaSwap', room: f.room, operators: [f.name, target.name], detail: `${f.name} swaps her full Morale with ${target.name} (${morale[target.name].toFixed(2)}), who has just been put into her dorm.` });
+        [morale[f.name], morale[target.name]] = [morale[target.name], morale[f.name]];
       }
       // A stint continues only in the same working room; a move, a rest or a spell unassigned starts it over.
       for (const name of Object.keys(worked)) if (!placed.some(p => p.name === name && kindOf[p.room] !== 'dormitory' && roomOf.get(name) === p.room)) worked[name] = 0;
