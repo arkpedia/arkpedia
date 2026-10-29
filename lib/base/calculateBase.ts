@@ -1176,7 +1176,7 @@ export function calculateBase(input: BaseCalculationInput) {
           (officeSpecialMorale[opName] || 0) +
           (receptionRoomSelfMorale[opName] || 0) +
           (ccSelfMorale[opName] || 0);
-        if (f.kind === 'controlCenter' && opName !== 'Ling' && rosters.SUI.has(opName) && activeSkillKeys.has('Ling|Keep the Wine Flowing' satisfies NamedSkillCheck)) selfOnly = Math.max(0, selfOnly);
+        if (f.kind === 'controlCenter' && opName !== 'Ling' && rosters.SUI.has(opName) && activeSkillKeys.has('Ling|Keep the Wine Flowing' satisfies NamedSkillCheck)) selfOnly = Math.min(0, selfOnly); // Ling clears the Sui operators' own Morale LOSS (Chongyue's +0.5); their own savings (Dusk's -0.5) stay. This was max(0, ...), which did the opposite.
         const isWaaiFuImmune = opName === 'Waai Fu';
         const rateBeforeSelf = isWaaiFuImmune
           ? Math.max(0, morale.grey + facilityMoraleYellowShared - morale.allOperatorsYellow)
