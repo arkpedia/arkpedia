@@ -43,3 +43,6 @@ if (process.argv[3] !== 'skipOptimizer') {
   console.log('  periodic', r.simulation.periodic, 'exhausted', r.simulation.events.filter(e => e.kind === 'exhausted').length, 'evaluations', r.evaluations, `(${((Date.now() - t1) / 1000).toFixed(0)} s)`);
   for (const [i, crew] of r.crews.entries()) console.log('  crew', i, JSON.stringify(Object.fromEntries(Object.entries(crew).map(([k, v]) => [k, (v ?? []).flatMap(s => s ? [s.operatorName] : [])]).filter(([, v]) => (v as string[]).length))));
 }
+if (process.argv[3] === 'who') {
+  for (const e of sheet.events.filter(e => e.kind === 'exhausted')) console.log('  exhausted @', e.time.toFixed(1), e.room, (e.operators ?? []).join(','), '|', e.detail.slice(0, 90));
+}

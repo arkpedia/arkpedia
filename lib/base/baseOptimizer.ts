@@ -32,6 +32,8 @@ export interface OptimizerInput {
   /** Rank sustained sales against gold supply, rather than assuming unlimited gold. */
   sustainable?: boolean;
   externalGold?: number;
+  /** Also build crews around each synergy anchor and keep the best. Several times slower; finds combos greedy cannot see. */
+  deep?: boolean;
 }
 
 export interface OperatorReason {
@@ -93,6 +95,14 @@ const FULL_PASS_EVERY = 6;
 /** Unused candidates added to a room's own staff for its exhaustive re-pick. */
 const REFINE_EXTRA = 8;
 
+/**
+ * Operators whose value depends on others being present, so that adding one alone looks weak to a greedy
+ * step: the readers of the shared resource pools (baseResources.ts consumerBonuses) and Shamare, whose
+ * override skill is only worth it with a full room. A deep search forces each one in before greedy starts,
+ * which makes their generators and partners show a gain.
+ */
+export const SYNERGY_ANCHORS = ['Mr. Nothing', 'Shu', 'Wind Chimes', 'Chongyue', "Ch'en the Dawnstreak", 'Ebenholz', 'Wakaba Mutsumi', 'Togawa Sakiko', 'Blitz', 'Iana', 'Wang', 'Taraxacum', 'Shamare'];
+
 /** Every subset of at most `max` items, in a stable order. */
 function subsets<T>(items: T[], max: number): T[][] {
   const out: T[][] = [[]];
@@ -145,10 +155,27 @@ export function optimizeBase(input: OptimizerInput): OptimizerResult {
   ];
 
   /** Greedy: add the (room, operator) with the largest snapshot gain until nothing gains or the team fills the dorms it will rest in. */
-  function buildTeam(used: ReadonlySet<string>, limit: number): BaseAssignments {
+  function buildTeam(used: ReadonlySet<string>, limit: number, anchor?: string): BaseAssignments {
     const team: BaseAssignments = Object.fromEntries(rooms.map(f => [f.id, Array(f.capacity).fill(null)]));
     const inTeam = new Set<string>();
     let current = snapshotValue(team).value;
+    if (anchor) {
+      // Forced start: the anchor goes where it does the most alone, even if that is little.
+      let at: { room: FacilityDef; value: number } | null = null;
+      const seenRooms = new Set<string>();
+      for (const room of rooms) {
+        if (!(pool.get(room.kind) ?? []).includes(anchor)) continue;
+        const key = `${room.kind}|${room.level}|${factoryProducts[room.id] ?? ''}`;
+        if (seenRooms.has(key)) continue;
+        seenRooms.add(key);
+        const value = snapshotValue({ ...team, [room.id]: team[room.id].map((x, i) => i === 0 ? slotOf(anchor) : x) }).value;
+        if (!at || value > at.value) at = { room, value };
+      }
+      if (!at) return team;
+      team[at.room.id] = team[at.room.id].map((x, i) => i === 0 ? slotOf(anchor) : x);
+      inTeam.add(anchor);
+      current = at.value;
+    }
     const estimate = new Map<string, number>();
     for (let step = 0; inTeam.size < limit; step++) {
       // Only identical room states are interchangeable. An empty factory can be
@@ -301,15 +328,28 @@ export function optimizeBase(input: OptimizerInput): OptimizerResult {
   // (logins of 12 h or less): only half the rooms change at a time, so only half the base
   // rests at once and every place can be staffed.
   const plans: Plan[] = [];
+  /** The greedy team, and with `deep` the best of it and one team grown around each synergy anchor. */
+  function bestTeam(used: ReadonlySet<string>, limit: number): BaseAssignments {
+    let best = buildTeam(used, limit);
+    if (!input.deep) return best;
+    let bestValue = snapshotValue(best).value;
+    for (const anchor of SYNERGY_ANCHORS) {
+      if (used.has(anchor) || !owned.includes(anchor) || operatorsIn(best).includes(anchor)) continue;
+      const team = buildTeam(used, limit, anchor);
+      const value = snapshotValue(team).value;
+      if (value > bestValue + EPS) { best = team; bestValue = value; notes.push(`Deep search: a team built around ${anchor} beats the plain greedy team.`); }
+    }
+    return best;
+  }
   // Leave workers for crew B: greedily spending a small roster on A can leave
   // every factory unmanned for the entire return shift.
-  const teamA = buildTeam(new Set(), Math.min(restCapacity, Math.ceil(owned.length / 2)));
-  const teamB = buildTeam(new Set(operatorsIn(teamA)), restCapacity);
+  const teamA = bestTeam(new Set(), Math.min(restCapacity, Math.ceil(owned.length / 2)));
+  const teamB = bestTeam(new Set(operatorsIn(teamA)), restCapacity);
   for (let k = 1; k * loginInterval <= 24 || k === 1; k++) plans.push({ shape: 'alternate', k, crews: [teamA, teamB], group: [], fiammetta: false });
   if (2 * loginInterval <= 24) {
     const places = rooms.reduce((n, f) => n + f.capacity, 0);
-    const crewA = buildTeam(new Set(), Math.min(places, Math.ceil(owned.length / 2)));
-    const crewB = buildTeam(new Set(operatorsIn(crewA)), places);
+    const crewA = bestTeam(new Set(), Math.min(places, Math.ceil(owned.length / 2)));
+    const crewB = bestTeam(new Set(operatorsIn(crewA)), places);
     const group = split([crewA, crewB]);
     for (let k = 1; 2 * k * loginInterval <= 24; k++) {
       const plan: Plan = { shape: 'staggered', k, crews: [crewA, crewB], group, fiammetta: false };
