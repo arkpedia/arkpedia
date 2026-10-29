@@ -263,7 +263,7 @@ async function forceActive(page: Page, selector: string, on: boolean) {
 
 /* The pages the two whole-page motion checks load: one of each kind of motion (the home
    carousel and its cards, the operator list's cards, an operator page's skill tabs and
-   artwork, /gacha's LIVE badge, /schedule's tabs, /community's carousel, /skins' cards, the
+   artwork, /gacha's LIVE badge, /community's carousel, /skins' cards, the
    planner's tabs and dialogs, the Terminal). Motion is one stylesheet inside
    prefers-reduced-motion: no-preference, held there by audit:styles' motionScope, and it
    moves only transform, opacity and shadow, so these pages stand for the rest: the census
@@ -646,7 +646,6 @@ const still = (page: Page, strip: string) => page.locator(strip).first().evaluat
 const STRIPS: { route: string; strip: string }[] = [
   { route: '/events/%5BSide%20Story%5D%20People%2C%20A%20People', strip: '.event-detail-tabs' },
   { route: "/game-modes/stronghold-protocol", strip: '.gm-lookup [role="tablist"]' },
-  { route: '/schedule', strip: '.page-header-actions [role="tablist"]' },
   { route: '/recruitment', strip: 'main [role="tablist"]' },
   { route: '/enemies', strip: '.enemy-tabs' },
 ];

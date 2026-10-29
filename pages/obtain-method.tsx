@@ -7,7 +7,8 @@ import { useMemo, useState } from 'react';
 import { getAllOperators } from '@/lib/operators/operators';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
 import { operatorRelease } from '@/lib/operators/operatorAvailability';
-import { RosterOperator, isWelfareUnit, getWelfareInfo } from '@/lib/operators/operatorTypes';
+import { RosterOperator } from '@/lib/operators/operatorTypes';
+import { LIMITED_SUBTYPES, WELFARE_SUBTYPES, obtainMethodsOf, welfareMatches, welfareSourceOf } from '@/lib/operators/obtainMethods';
 import { getLimitedBannerInfoLookup, getCelebrationBannerDates, LimitedBannerType, LimitedOperatorInfo } from '@/lib/gacha/limitedBannerType';
 import { getAllHeadhuntingBanners } from '@/lib/gacha/headhuntingBannerData';
 import { portraitStatus } from '@/lib/operators/operatorPortrait';
@@ -35,30 +36,6 @@ const MAIN_SECTIONS: { key: MainSection; label: string }[] = [
   { key: 'recruitment', label: 'Pure Recruitment' },
   { key: 'welfare', label: 'Welfare' },
 ];
-
-const LIMITED_SUBTYPES: LimitedBannerType[] = ['Celebration', 'Festival', 'Carnival', 'Crossover'];
-
-// Display label -> the real Unlock Type value(s) it matches in the
-// data. Several of these combine multiple real values under one label
-// (IS/RA/Main Story, April Fools/Anniversary), and two use a different
-// display label than the underlying data value (Credit Shop -> "Credit
-// Store", Purchase Certificates -> "Purchase Vouchers") to match how
-// the data is actually written.
-//
-// NOTE: 'RA Exclusive' is a guess, following the same naming pattern
-// as the confirmed 'IS Exclusive' value -- I've never actually seen an
-// RA-related Unlock Type string in the real data, so if the actual
-// value is spelled differently this needs updating to match.
-const WELFARE_SUBTYPES: { label: string; matches: string[] }[] = [
-  { label: 'Record Restore', matches: ['Record Restore'] },
-  { label: 'IS, RA, Main Story', matches: ['IS Exclusive', 'RA Exclusive', 'Main Story Unlock'] },
-  { label: 'Credit Shop', matches: ['Credit Store'] },
-  { label: 'Purchase Certificates', matches: ['Purchase Vouchers'] },
-  { label: 'Gold/Blue Certs', matches: ['Gold/Blue Certs'] },
-  { label: 'April Fools / Anniversary', matches: ['April Fools', 'Anniversary'] },
-  { label: 'Limited', matches: ['Limited Welfare'] },
-];
-
 
 function OperatorCard({ op, note, index }: { op: RosterOperator; note?: string | null; index: number }) {
   return (
@@ -123,16 +100,12 @@ export default function ObtainMethodPage({ operators, limitedBannerInfo, celebra
     const rarityFirst = [...operators].sort((a, b) => (b.rarity ?? 0) - (a.rarity ?? 0));
 
     for (const op of rarityFirst) {
-      const raw = op.howToObtain;
-      if (!raw || typeof raw !== 'object') continue;
-
-      if (raw['Limited'] === 'Yes') limited.push(op);
-      if (raw['Standard Headhunting'] === 'Yes' && op.rarity === 6) standard.push(op);
-      if (raw['Kernel Headhunting'] === 'Yes' && op.rarity === 6) kernel.push(op);
-      if (raw['Recruitment'] === 'Yes' && raw['Standard Headhunting'] !== 'Yes' && raw['Kernel Headhunting'] !== 'Yes') {
-        pureRecruitment.push(op);
-      }
-      if (isWelfareUnit(raw)) welfare.push(op);
+      const methods = obtainMethodsOf(op.howToObtain, op.rarity);
+      if (methods.includes('limited')) limited.push(op);
+      if (methods.includes('standard')) standard.push(op);
+      if (methods.includes('kernel')) kernel.push(op);
+      if (methods.includes('recruitment-only')) pureRecruitment.push(op);
+      if (methods.includes('welfare')) welfare.push(op);
     }
 
     // Limited: release date, newest first -- reruns make recency the
@@ -160,12 +133,7 @@ export default function ObtainMethodPage({ operators, limitedBannerInfo, celebra
 
   const welfareList = useMemo(() => {
     if (welfareSubType === 'all') return byCategory.welfare;
-    const subtype = WELFARE_SUBTYPES.find((s) => s.label === welfareSubType);
-    if (!subtype) return byCategory.welfare;
-    return byCategory.welfare.filter((op) => {
-      const info = getWelfareInfo(op.howToObtain);
-      return info ? subtype.matches.includes(info['Unlock Type']) : false;
-    });
+    return byCategory.welfare.filter((op) => welfareMatches(welfareSourceOf(op.howToObtain) ?? undefined, welfareSubType));
   }, [byCategory.welfare, welfareSubType]);
 
   return (
@@ -224,18 +192,7 @@ export default function ObtainMethodPage({ operators, limitedBannerInfo, celebra
               />
               <OperatorGrid
                 operators={welfareList}
-                getNote={(op) => {
-                  const info = getWelfareInfo(op.howToObtain);
-                  if (!info) return null;
-                  // Event-driven methods: the event name (location) is the
-                  // useful, specific detail -- the type is already obvious
-                  // from context. Shop/purchase-driven methods: there's no
-                  // meaningful single "event" tied to them, so the type
-                  // itself is the useful detail instead.
-                  const locationOnly = ['Record Restore', 'IS Exclusive', 'RA Exclusive', 'Main Story Unlock', 'Limited Welfare'];
-                  if (locationOnly.includes(info['Unlock Type'])) return info['Unlock Location'];
-                  return info['Unlock Type'];
-                }}
+                getNote={(op) => welfareSourceOf(op.howToObtain)?.note ?? null}
               />
             </>
           )}

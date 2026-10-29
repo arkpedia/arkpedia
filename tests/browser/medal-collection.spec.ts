@@ -56,8 +56,10 @@ for (const theme of ['dark', 'light']) test(`${theme}: sets, completion, full li
   await expect(complete).toContainText('✓ Completed');
   await expect(complete).toContainText('Oct 1, 2026');
   await expect(dialog.getByRole('article').filter({ hasText: wolumonde.name })).toContainText('1 / 11 obtained');
-  await expect(complete.getByRole('img', { name: `${pyrite.name} official background` })).toHaveAttribute('src',
-    pyrite.background.replace('https://raw.githubusercontent.com/arkpedia/', 'https://assets.arkpedia.net/arkpedia/'));
+  // The record names the file; the site serves it from the pinned asset commit or locally, so
+  // only the file's own path is held, whichever way the asset index sends it.
+  const backgroundFile = String(pyrite.background).replace(/^.*?(profile-medals\/)/, '$1').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  await expect(complete.getByRole('img', { name: `${pyrite.name} official background` })).toHaveAttribute('src', new RegExp(`/${backgroundFile}$`));
   const placed = complete.locator('[data-medal-id]').first();
   const position = pyrite.layout.positions.find((p: {id:string}) => p.id === pyrite.medals[0]);
   const native = catalogue.medals.find((m: {id:string}) => m.id === pyrite.medals[0]).size;

@@ -7,28 +7,27 @@
 // /api/stats call, which relied on a live database that no longer
 // needs to stay up for this page.
 //
-// THE NUMBERS LIVE IN data/final-poll-results.json. They were 3,469 lines of
-// object literal in this file, which made a closed poll's results the third-largest
-// source file in the repository and put 126 operators' quartiles through the
-// TypeScript compiler on every build. Data belongs in data/, like every other
-// dataset here; this file is what gives it names and types.
+// THE NUMBERS LIVE IN arkpedia-data, at data/polls/power-scale-v1.0.json (fetched into
+// data/ by scripts/content/pull-data.mjs, like every other record). The exclusions above are
+// in that file's `method` too. They were 3,469 lines of object literal here once; the file's
+// envelope is the one every published poll shares (lib/polls/types.ts).
 //
 // Still imported by the page rather than read in getStaticProps, deliberately: it
-// is ~31 kB either way, and as a module it sits in /results' own chunk, immutable
+// is ~33 kB either way, and as a module it sits in /results' own chunk, immutable
 // and cached, instead of being re-fetched as page data every time the route is
 // entered. Moving it to props would have traded the same bytes for a worse cache.
-import pollData from '@/data/final-poll-results.json';
+import pollData from '@/data/polls/power-scale-v1.0.json';
+import type { PollResultFile } from '@/lib/polls/types';
 import { StatsRow } from '@/lib/results/types';
 
-interface PollResults {
-  submission_count: number;
+export interface PowerScaleResults {
   rows: StatsRow[];
   /** operator name -> rating -> how many people gave it. */
   histograms: Record<string, Record<string, number>>;
 }
 
-const data = pollData as PollResults;
+const poll = pollData as PollResultFile<'operator-rating', PowerScaleResults>;
 
-export const FINAL_SUBMISSION_COUNT = data.submission_count;
-export const FINAL_STATS_ROWS: StatsRow[] = data.rows;
-export const FINAL_HISTOGRAMS: Record<string, Record<string, number>> = data.histograms;
+export const FINAL_SUBMISSION_COUNT = poll.submissions;
+export const FINAL_STATS_ROWS: StatsRow[] = poll.results.rows;
+export const FINAL_HISTOGRAMS: Record<string, Record<string, number>> = poll.results.histograms;

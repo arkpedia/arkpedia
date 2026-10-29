@@ -1,4 +1,5 @@
 import { rewardClaimsFromGame, parseRewardClaims, type RewardClaims } from './rewardClaims';
+import { permanentClaimsFromGame, parsePermanentClaims, type PermanentClaims } from './permanentClaims';
 /**
  * What the reader's Arknights account holds, as the last game import read it: the one
  * record every page that cares about ownership reads (issue #94). The import is the
@@ -64,6 +65,9 @@ export interface AccountRecord {
   /** Three-star clears that actually award the first-clear Originite. Older snapshots omit it. */
   rewardCleared?: string[];
   rewardClaims?: RewardClaims;
+  /** Which Integrated Strategies / Stationary Security Service rewards the save says are claimed
+   *  (lib/account/permanentClaims.ts), for the planner's Farming method. Absent on an older record. */
+  permanentClaims?: PermanentClaims;
   annihilation?: string[];
   outfits?: Record<string, string>;
   wallet?: AccountWallet;
@@ -198,6 +202,7 @@ export function parseAccount(raw: string | null): AccountRecord | null {
     doctor: typeof value.doctor === 'string' ? value.doctor : null,
     ...(base ? { base } : {}),
     ...(parseRewardClaims(value.rewardClaims) ? { rewardClaims: parseRewardClaims(value.rewardClaims) } : {}),
+    ...(parsePermanentClaims(value.permanentClaims) ? { permanentClaims: parsePermanentClaims(value.permanentClaims) } : {}),
     operators: value.operators as string[], skins: value.skins as string[], cleared: value.cleared as string[],
     ...(strings(value.operatorIds, 5000) && (value.operatorIds as string[]).every((id) => CHAR_ID.test(id)) ? { operatorIds: value.operatorIds as string[] } : {}),
     ...(strings(value.rewardCleared, 50000) ? { rewardCleared: value.rewardCleared as string[] } : {}),
@@ -268,6 +273,7 @@ export function accountFromGame(user: Record<string, any>, map: GameAccountMap, 
   return {
     version: 1,
     rewardClaims: rewardClaimsFromGame(user, server === 'en' ? map.beginnerPrograms : undefined),
+    permanentClaims: permanentClaimsFromGame(user),
     server,
     importedAt: now.toISOString(),
     ...(base ? { base } : {}),

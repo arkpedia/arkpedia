@@ -325,6 +325,9 @@ const DATA_ONLY: Record<string, Record<string, string>> = {
   '/operators': {
     '.operators[].portraitPending': 'optional publication status while a new portrait is pending; older releases retain their existing portrait rendering',
     '.operators[].availableUntil': 'the debut\'s end (getScheduledOperatorDebut), new on 2026-09-30; RosterOperator has it optional, and isDebutAvailable counts two weeks from the release without it, as the roster did before',
+    '.operators[].obtain': "how an operator is obtained (obtainMethodsOf), for the Obtain filter, new on 2026-10-29; RosterOperator has it optional, and the filter is drawn only once some operator carries it, so a release from before it shows the roster as it did",
+    '.limitedBannerInfo': "the Limited operators' banner appearances, for the Obtain filter's Limited notes, new with it; optional on Props, read as none until a release carries it",
+    '.celebrationBannerDates': "the Celebration banner dates the same notes estimate a rerun from, new with the filter; optional on Props, read as none until a release carries it",
   },
   '/stages/content/sandbox_1': {
     '.ra.contentId': 'data/ra-nodes.json names its season now; RaNodeData has it optional, and only raMapData reads it, on the server, to pick the file -- RaMap never does',

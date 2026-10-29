@@ -244,7 +244,7 @@ export function spendBattleRecords(
 export function planBuild(
   cost: CostGroup,
   depot: Depot,
-  opts: { crafting?: ReadonlySet<string>; autoCraft: boolean },
+  opts: { crafting?: ReadonlySet<string>; buying?: ReadonlySet<string>; autoCraft: boolean },
   /* The page's resolver over its release's tables (usePlannerContent). Required, for the
      same reason as createCraftTools' arguments: nothing here may fall back on a bundled one. */
   craftTools: Pick<CraftTools, 'resolveNeeds' | 'BATTLE_RECORDS'>,
@@ -261,7 +261,9 @@ export function planBuild(
   }
 
   /* The same resolve the shortfall list reads, on this bill alone. */
-  const res = craftTools.resolveNeeds(materials, depot, opts);
+  /* The real depot alone: what events and shops will give has not arrived, and a build spends
+     what is held. */
+  const res = craftTools.resolveNeeds(materials, depot, { ...opts, incoming: null });
   const short = res.rows.filter((r) => r.short > 0).map((r) => r.name);
   const stock: Depot = { ...res.stock };
 

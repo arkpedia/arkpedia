@@ -57,6 +57,10 @@ jobs:
         run: node scripts/deploy/pilot-release-gate.mjs "$RELEASE_CHECK" "$RELEASE_SOURCE"
       - name: Install pinned dependencies without deployment credentials
         run: npm ci
+      # Game records live in arkpedia-data; this repository keeps code only. The live release's
+      # records, the ones www serves (scripts/content/pull-data.mjs).
+      - name: Pull the live game records
+        run: node scripts/content/pull-data.mjs
       - name: Build production once, without deployment credentials
         run: npm run cf:build
         env:

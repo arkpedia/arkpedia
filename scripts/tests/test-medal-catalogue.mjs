@@ -26,7 +26,8 @@ test('published catalogue has complete set membership and its nightly builder is
   assert.ok(catalogue.medals.length > 1000 && catalogue.sets.length > 50);
   for (const set of catalogue.sets) assert.ok(set.medals.every(id => ids.has(id)), set.name);
   assert.match(fs.readFileSync('.github/workflows/prepare-content.yml', 'utf8'), /stage medal-catalogue -- node scripts\/build\/build-medal-catalogue\.mjs/);
-  assert.match(fs.readFileSync('scripts/content/hydrate-source.mjs', 'utf8'), /public\/medal-catalogue\.json/);
+  // A public record: pulled from arkpedia-data and published by the release (scripts/content/records.mjs).
+  assert.match(fs.readFileSync('scripts/content/records.mjs', 'utf8'), /'public\/medal-catalogue\.json'/);
 });
 
 test('set geometry and art come from the Global client and published asset repository', () => {

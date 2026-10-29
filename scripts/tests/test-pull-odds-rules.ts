@@ -32,8 +32,8 @@ test('every verified pool is filed under its kind, with its announcement and ban
   }
 });
 
-test('the file is a seeded source record, so it reaches arkpedia-data and is edited there', () => {
-  assert.match(fs.readFileSync('scripts/content/hydrate-source.mjs', 'utf8'), /'data\/pull-odds-rules\.json'/);
+test('the file is a record in arkpedia-data, edited there and pulled here', () => {
+  assert.ok(fs.existsSync('data/pull-odds-rules.json'), 'data/pull-odds-rules.json was not pulled (npm run data:pull)');
   assert.match(fs.readFileSync('.github/workflows/prepare-content.yml', 'utf8'), /stage odds-rules -- npx tsx scripts\/content\/check-pull-odds\.ts/);
 });
 

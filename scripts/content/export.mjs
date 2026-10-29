@@ -5,6 +5,7 @@ import { createHash } from 'node:crypto';
 import { execFileSync, spawn } from 'node:child_process';
 import { contentInput, releaseInput, SCHEMA } from './release-input.mjs';
 import { codeFingerprint } from './code-fingerprint.mjs';
+import { recordFiles } from './records.mjs';
 
 const args = process.argv.slice(2);
 // CI validates the checked-in snapshot; publication still records the latest holds by default.
@@ -17,13 +18,14 @@ const release = path.join(destination, 'release');
 const source = path.join(destination, 'source');
 const routes = JSON.parse(fs.readFileSync('scripts/content/pages.json', 'utf8'));
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
-const tracked = execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard', '-z', 'data', 'public'], { encoding: 'utf8' }).split('\0').filter(Boolean);
+// The records on disk (scripts/content/records.mjs): pulled from arkpedia-data, then refreshed.
+const tracked = recordFiles();
 const quarantineFile = 'data/quarantine.json';
 if (privateQuarantine !== null && !tracked.includes(quarantineFile)) tracked.push(quarantineFile);
 // Publish game records only. No application source, environment files, or raw user responses.
 // Lyrics are authored by hand in LRC and are the one non-JSON record published.
 const isLyric = file => /^data\/lyrics\/[^/]+\.lrc$/.test(file);
-const sourceFiles = tracked.filter(file => (fs.existsSync(file) || file === quarantineFile && privateQuarantine !== null) && !file.includes('final-poll-results')
+const sourceFiles = tracked.filter(file => (fs.existsSync(file) || file === quarantineFile && privateQuarantine !== null)
   && file !== 'public/operator-search.json'
   && file !== 'data/selector-catalogue.json' // derived deploy fallback; page export builds from hydrated source records
   && (isLyric(file) || (file.endsWith('.json') && (file.startsWith('data/') || /^public\/[^/]+\.json$/.test(file)))));

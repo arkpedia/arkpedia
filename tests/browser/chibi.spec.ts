@@ -544,6 +544,17 @@ test('a faster base catalogue cannot replace the selected battle idle while batt
 });
 
 test('an outfit without a chibi model keeps the catalogue message and close control', async ({ page }) => {
+  // Every outfit has a model in the pinned data (tests/browser/data-pin.json), so the page is
+  // given one without: its Base entry is taken out of the props it ships.
+  await page.route(url => decodeURIComponent(url.pathname) === '/operators/Amiya (Guard)', async route => {
+    const html = await (await route.fetch()).text();
+    const body = html.replace(/(<script id="__NEXT_DATA__" type="application\/json"[^>]*>)([\s\S]*?)(<\/script>)/, (_, open: string, json: string, close: string) => {
+      const data = JSON.parse(json);
+      delete data.props.pageProps.chibis?.Base;
+      return open + JSON.stringify(data).replace(/</g, '\\u003c') + close;
+    });
+    await route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body });
+  });
   await page.goto('/operators/Amiya%20(Guard)');
   await page.getByRole('group', { name: 'Operator outfits', exact: true }).getByRole('button', { name: 'Base', exact: true }).click();
   await page.getByRole('button', { name: 'Chibi viewer', exact: true }).click();

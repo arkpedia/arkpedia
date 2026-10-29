@@ -193,8 +193,8 @@ test('the adopted pins leave the build clean for the release gate, then and on t
     fs.rmSync(dir, { recursive: true, force: true });
   }
   const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-  assert.match(pkg.scripts.prebuild, /^node scripts\/build\/write-build-info\.mjs && node scripts\/build\/adopt-release-asset-pins\.mjs && /,
-    'the second step of prebuild: after build-info, before anything reads the pins');
+  assert.match(pkg.scripts.prebuild, /^node scripts\/content\/pull-data\.mjs --if-missing && node scripts\/build\/write-build-info\.mjs && node scripts\/build\/adopt-release-asset-pins\.mjs && /,
+    'prebuild pulls the records if they are missing, writes build-info, then adopts the pins before anything reads them');
   assert.doesNotMatch(pkg.scripts.predev, /adopt-release-asset-pins/, 'a dev server keeps the committed pins');
 });
 
@@ -320,10 +320,10 @@ test('a release that went live during the build is a warning, and a 404 for a fi
   }
 });
 
-test('a failed asset-link check points at a redeploy and the bundled-data sync, not at assets:update', () => {
+test('a failed asset-link check points at a redeploy from the live data, not at assets:update', () => {
   assert.doesNotMatch(FIX, /assets:update|update-asset-revisions/);
   assert.match(FIX, /Redeploy/);
-  assert.match(FIX, /node scripts\/content\/sync-bundled-data\.mjs <arkpedia-data checkout> data\/assets/);
+  assert.match(FIX, /npm run data:pull/);
   const source = fs.readFileSync('scripts/deploy/check-asset-redirects.mjs', 'utf8');
   assert.doesNotMatch(source.slice(source.indexOf('export async function main')), /assets:update/);
 });

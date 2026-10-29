@@ -21,94 +21,15 @@ const deprecatedSourceFiles = new Set([
   // The wiki-file sha1s of scripts/sync/sync-banner-art.py, retired: arkpedia-image-assets
   // swaps in the English banner art, and pinned asset URLs version it.
   'data/assets/banner_art_sources.json',
+  // The ledger of the hand-kept list of tables the app held before arkpedia-data did. The app
+  // keeps no records any more (scripts/content/pull-data.mjs), so the list and its ledger went.
+  'data/seeded-source-files.json',
 ]);
 // Whole retired folders, as a path prefix ending in '/'. data/events-data/ is 71 per-event
 // files of wiki.gg icon URLs and map paths under /events-stage-maps/, which nothing serves
 // and nothing reads.
 const deprecatedSourceFolders = ['data/events-data/'];
 const deprecated = relative => deprecatedSourceFiles.has(relative) || deprecatedSourceFolders.some(prefix => relative.startsWith(prefix));
-// Game tables this app introduced before arkpedia-data carried them: the browser code
-// that used to compile them in now reads them from the release (lib/content/tables.mjs).
-// While the data repository has never had one, the app's own copy is kept rather than
-// deleted, so the export can still read it; that export then publishes it into source/
-// like every other record, and from the next run on the data repository's copy wins.
-// Edit them in arkpedia-data once they are there.
-//
-// A seed ends for good once the data repository has carried the file. SEEDED_LEDGER, a
-// record in the data repository itself (published with the rest of source/, so it
-// outlives every runner), lists each of these the data repository has had: hydration
-// adds a file when it finds it there or seeds it. A table the data repository later
-// deletes on purpose is then deleted here as well, never brought back from the app's
-// stale copy, and the log names it. Take an entry out once every release carries it.
-const SEEDED_SOURCE_FILES = new Set([
-  'data/regional-schedules.json',
-  'data/free-rewards.json',
-  // Web campaign discovery (official regional feeds and campaign rules), seeded until
-  // the first release publishes it. Later discoveries arrive without a code deploy.
-  'data/community-web-events.json',
-  'data/base-group-rosters.json',
-  'data/base-skill-slots.json',
-  'data/base-skill-translations.json',
-  'data/base-workshop-recipes.json',
-  'data/farming-tiers.json',
-  // The planner's material catalogue (scripts/build/build-material-catalogue.mjs, regenerated
-  // every run) and the English names of CN-only materials it reads (kept by hand).
-  'data/material-catalogue.json',
-  'data/material-names.json',
-  // The game's character and module ids, for importing an account into the planner
-  // (scripts/build/build-game-account-map.ts, regenerated every run).
-  'data/game-account-map.json',
-  'public/medal-catalogue.json',
-  'data/medal-set-layouts.json',
-  // The medal that marks each event's stages cleared (scripts/build/build-rerun-clear-medals.mjs,
-  // after the medal catalogue every run) and the operator that stands for a clear where an event
-  // has no such medal (kept by hand): the Pull Planner's rerun ticks (lib/pulls/schedule.ts).
-  // Imported by the pull schedule the content run's own tests load, so a release before the
-  // data repository carries them failed every one of those tests (2026-10-28's two runs).
-  'data/rerun-clear-medals.json',
-  'data/rerun-clear-operators.json',
-  // Each profile card theme's colours, from the client's theme bundles, and their md5s, so
-  // only a changed bundle is fetched (scripts/imports/import-namecard-styles.py, every run).
-  'data/namecard-styles.json',
-  // The announcement ticker's SSS cycle (lib/schedule/sssCycle.ts), kept by hand.
-  'data/sss-cycle.json',
-  // How the game's activity types map onto the Terminal: the excluded modes, the seasonal
-  // challenges and the story episodes (lib/stages/gameModes.mjs), kept by hand. Read by
-  // build-mode-exclusions.mjs in the refresh and by the stage pages, so a release without
-  // it would fail at the stage build.
-  'data/game-modes.json',
-  // Which banners' pull odds were verified against their announcement, and what it says
-  // (lib/pulls/bannerOdds.ts), kept by hand: a new banner's rules go in here, in the data
-  // repository, and out with the next release. The odds-rules stage lists a banner still
-  // waiting for them (scripts/content/check-pull-odds.ts).
-  'data/pull-odds-rules.json',
-  // The Arknights Story Map the Story page draws (scripts/imports/import_story_map.py, every
-  // run): the board's layout, and each picture's link, which a person corrects in the data
-  // repository and the importer then keeps.
-  'data/story-map.json',
-  // The complete reader catalogue and its section indices, introduced independently of
-  // the board. Keep the bundled snapshot through the first refresh if the reader is down.
-  'data/story-library.json',
-  'data/story-library-art.json',
-  'data/story-chapters.json',
-  // Which artwork has an animated version, as model.json URLs pinned to arkpedia-l2d-assets'
-  // commit (scripts/sync/sync-dynamic-art.mjs, every run). /skins and every operator page import
-  // it, so a release before the data repository carries it must not lose the app's copy.
-  'data/dynamic-art.json',
-  // Commit-pinned chibi models, refreshed from the SD manifest on every content run.
-  'data/chibi-art.json',
-  // Arknights: Endfield's albums and songs (scripts/sync/sync-endfield-albums.mjs, every run). The
-  // app's copy is the first night's catalogue; the stage then adds what the label publishes.
-  'data/endfield-albums.json',
-  // The official Arknights YouTube channels' uploads and each event's PVs from them
-  // (scripts/sync/sync-official-videos.mjs, every run): the app's copy is the first night's
-  // catalogue, backfilled by hand once. The channel list and the overrides are kept by hand.
-  'data/official-video-channels.json',
-  'data/official-videos.json',
-  'data/event-video-overrides.json',
-  'data/event-videos.json',
-]);
-const SEEDED_LEDGER = 'data/seeded-source-files.json';
 function walk(dir) { return fs.readdirSync(dir, { withFileTypes: true }).flatMap(entry => {
   if (entry.isSymbolicLink()) throw new Error(`Source symlink: ${entry.name}`);
   const file = path.join(dir, entry.name);
@@ -152,54 +73,17 @@ for (const required of ['data/headhunting_banners.json', 'data/skins.json', 'dat
   if (!incoming.has(required)) throw new Error(`Missing required source: ${required}`);
 }
 if (incoming.size < 1000) throw new Error('Incomplete source snapshot');
-// The seeded tables the data repository has had (see SEEDED_SOURCE_FILES). A malformed
-// ledger is a pipeline record gone wrong, so it stops the run like a malformed record.
-const ledger = new Set();
-if (incoming.has(SEEDED_LEDGER)) {
-  const record = JSON.parse(incoming.get(SEEDED_LEDGER));
-  if (record?.version !== 1 || !Array.isArray(record.files) || !record.files.every(file => typeof file === 'string')) throw new Error(`${SEEDED_LEDGER} is not {"version":1,"files":[...]}`);
-  for (const file of record.files) ledger.add(file);
-}
-const seeded = [], retired = [];
-for (const file of SEEDED_SOURCE_FILES) {
-  if (incoming.has(file)) ledger.add(file);
-  else if (ledger.has(file)) retired.push(file);
-  else if (fs.existsSync(file)) { seeded.push(file); ledger.add(file); }
-}
-// Main can still publish a canvas-only chapter table while the complete library
-// is dev-only. Keep sections for library entries through compile-only hydration;
-// a table marked complete owns deletions and is never supplemented.
-const chapterFile = 'data/story-chapters.json', libraryFile = 'data/story-library.json';
-if (incoming.has(chapterFile) && fs.existsSync(chapterFile) && (incoming.has(libraryFile) || seeded.includes(libraryFile))) {
-  const published = JSON.parse(incoming.get(chapterFile));
-  const bundled = JSON.parse(fs.readFileSync(chapterFile, 'utf8'));
-  const library = JSON.parse(incoming.get(libraryFile) ?? fs.readFileSync(libraryFile));
-  if (published.completeLibrary !== true && published.chapters && bundled.chapters && Array.isArray(library.entries)
-    && library.entries.some(entry => entry?.category === 'record' || entry?.category === 'module')) {
-    const ids = new Set(library.entries.map(entry => entry?.id));
-    const missing = Object.entries(bundled.chapters).filter(([id]) => ids.has(id) && !Object.hasOwn(published.chapters, id));
-    if (missing.length) {
-      incoming.set(chapterFile, Buffer.from(`${JSON.stringify({ ...published, chapters: { ...Object.fromEntries(missing), ...published.chapters } })}\n`));
-      console.warn(`Legacy canvas-only chapter table: retained ${missing.length} library groups from the deployment snapshot.`);
-    }
-  }
-}
 // Work only in the disposable CI checkout. Deleted game records must not survive
 // silently in the bundled fallback and reappear in the next generated release.
-for (const file of walk('data').filter(file => (file.endsWith('.json') || file.endsWith('.lrc')) && !file.includes('final-poll-results'))) {
-  if (incoming.has(file) || seeded.includes(file)) continue;
+// The app keeps no records of its own (scripts/content/pull-data.mjs), so everything under
+// data/ that source/ lacks goes, and a fresh checkout with no data/ yet is fine.
+for (const file of (fs.existsSync('data') ? walk('data') : []).filter(file => file.endsWith('.json') || file.endsWith('.lrc'))) {
+  if (incoming.has(file)) continue;
   fs.unlinkSync(file);
 }
 for (const [file, bytes] of incoming) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, bytes);
 }
-// Written only when it says something new, so a day with nothing seeded changes nothing.
-if (ledger.size) {
-  const text = `${JSON.stringify({ version: 1, files: [...ledger].sort() }, null, 2)}\n`;
-  if (incoming.get(SEEDED_LEDGER)?.toString('utf8') !== text) fs.writeFileSync(SEEDED_LEDGER, text);
-}
-if (seeded.length) console.warn(`arkpedia-data does not carry ${seeded.join(', ')} yet; this release publishes the app's copy.`);
-if (retired.length) console.warn(`arkpedia-data has carried ${retired.join(', ')} and no longer does, so the app's copy is not seeded again (${SEEDED_LEDGER}). If the removal is meant, take it out of SEEDED_SOURCE_FILES in scripts/content/hydrate-source.mjs.`);
 if (untimestamped.length) console.warn(`${untimestamped.length} lyric file(s) have no timestamps and will render no lyrics: ${untimestamped.join(', ')}`);
 console.log(`Loaded ${incoming.size} public source records.`);

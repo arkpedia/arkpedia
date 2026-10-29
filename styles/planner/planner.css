@@ -1128,6 +1128,8 @@ button.simple-portrait-art:hover::after, button.simple-portrait-art:focus-visibl
   color: var(--text-dim);
 }
 .need-card-tags em.on { color: var(--teal); }
+/* An estimate (Penguin Statistics), so it reads as a note on the card and not as a count. */
+.need-card-tags em.need-card-sanity { background: transparent; padding-left: 0; padding-right: 0; cursor: help; }
 
 /* --- who you are building: one row per operator ------------------------ */
 .plan-rows { display: flex; flex-direction: column; gap: 4px; }
@@ -1777,3 +1779,42 @@ button.simple-portrait-art:hover::after, button.simple-portrait-art:focus-visibl
 .planner-goal-option { display: flex; gap: 10px; padding: 6px; min-width: 0; }
 .planner-goal-option > span { overflow-wrap: anywhere; }
 .planner-goal-option:hover { background: var(--panel-2); }
+
+/* --- the Farming method pop-up and its note (components/planner/FarmingMethod.tsx) --- */
+.planner-farming-menu { display: grid; gap: 10px; padding: 8px; max-height: min(70dvh, 560px); overflow-y: auto; }
+.planner-farming-head > h3 { margin: 0; }
+.action-popover-trigger.planner-farming-trigger { display: inline-flex; align-items: center; gap: 8px; width: auto; flex-shrink: 0; padding-inline: 12px; white-space: nowrap; }
+.planner-farming-trigger > b { color: var(--teal); font: inherit; }
+.planner-farming-trigger.on { border-color: var(--teal); color: var(--teal); }
+.planner-farming-date { display: grid; gap: 4px; font-size: 12px; color: var(--text-dim); }
+.planner-farming-events { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; max-height: 140px; overflow-y: auto; font-size: 12px; }
+.planner-farming-events li { display: flex; justify-content: space-between; gap: 10px; padding: 3px 0; }
+.planner-farming-events li > span { overflow-wrap: anywhere; }
+.planner-farming-events li > i { font-style: normal; color: var(--text-dim); white-space: nowrap; }
+.planner-farming-options { display: grid; gap: 6px; }
+.planner-farming-summary { margin: 0; }
+.planner-farming-permanent > summary { cursor: pointer; font-size: 12px; color: var(--text-dim); }
+.planner-farming-note { margin: 0 0 10px; }
+/* A sanity figure: the symbol, then the number (components/planner/SanityAmount.tsx). */
+.planner-sanity-amount { display: inline-flex; align-items: center; gap: 3px; white-space: nowrap; }
+.planner-sanity-amount img { flex-shrink: 0; object-fit: contain; }
+/* When the events being counted finish covering an operator's materials (components/planner/PlanRows.tsx). */
+.plan-ready-by { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.04em; color: var(--teal); white-space: nowrap; cursor: help; }
+/* One row per permanent mode in the Farming method pop-up: the toggle, a CN-only tag, what it adds. */
+.planner-farming-mode { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.planner-farming-mode > small { color: var(--text-dim); font-size: 11px; margin-left: auto; }
+.planner-farming-cn { font-style: normal; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.04em; color: var(--amber); cursor: help; }
+
+/* The sanity estimate under the list's foot: the figure, what it is an estimate of, what it leaves out. */
+.planner-sanity-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 24px; margin-top: 12px; padding: 12px 16px; border-radius: var(--radius); background: var(--well); }
+.planner-sanity-figure { display: inline-flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.planner-sanity-lead { font-size: 12px; color: var(--text-dim); }
+.planner-sanity-amount.large { gap: 8px; font-family: var(--font-display); font-size: 26px; font-weight: 700; line-height: 1; color: var(--text); font-variant-numeric: tabular-nums; }
+.planner-sanity-source { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; font-size: 12px; color: var(--text-dim); }
+.planner-sanity-tag { font-style: normal; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; padding: 3px 7px; border-radius: var(--radius); border: 1px solid var(--line); color: var(--text-dim); cursor: help; }
+.planner-sanity-uncounted { flex: 1 1 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; font-size: 11px; color: var(--text-dim); }
+.planner-sanity-uncounted em { font-style: normal; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.04em; padding: 2px 6px; border-radius: var(--radius); background: var(--panel-2); }
+@media (max-width: 720px) {
+  .planner-sanity-strip { gap: 8px 16px; padding: 12px; }
+  .planner-sanity-source { margin-left: 0; }
+}

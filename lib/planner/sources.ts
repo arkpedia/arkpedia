@@ -1,5 +1,6 @@
 import type { FarmingTier } from '@/lib/farming/farmingTypes';
 import type { FormulaLookup } from './craft';
+import { CERTIFICATE_STORE } from './store';
 
 /**
  * Where a material comes from.
@@ -29,24 +30,6 @@ export interface Source {
    into the browser bundle and answer from them. */
 export function createSourceTools(supply: Record<string, string[]>, lookupRecipe: FormulaLookup, farmingTiers: readonly FarmingTier[]) {
 
-
-/**
- * The permanent certificate store, by hand.
- *
- * It has to be by hand. The Chip Catalyst appears nowhere in shop_client_table.json --
- * zero occurrences of its id, its name or its constant -- because the store's stock is
- * server-side and no shipped table carries it. So this is the same kind of curated map
- * as the farming guide next door, and it is kept deliberately small: one entry, for the
- * one material with no other source at all. A Chip Catalyst does not drop and cannot be
- * crafted, and a Dualchip needs one, so without this the planner would send a reader
- * looking for something and give them nowhere to look.
- *
- * `price` is optional and currently unset -- the number is not in any table either, and
- * a made-up one is worse than none. Fill it in and the row states it.
- */
-const CERTIFICATE_STORE: Record<string, { currency: string; price?: number }> = {
-  'Chip Catalyst': { currency: 'Purchase Certificate', price: 90 },
-};
 
 /**
  * The permanent supply stages, derived rather than written down.

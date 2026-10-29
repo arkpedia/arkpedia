@@ -37,7 +37,6 @@ import { publishedArt } from '@/lib/art/publishedArt';
 import { ReleaseDateLookup } from '@/lib/operators/operatorReleaseDates';
 import SkinZoomOverlay from '@/components/skins/SkinZoomOverlay';
 import PageHeader from '@/components/ui/PageHeader';
-import Tabs, { tabPanelProps } from '@/components/ui/Tabs';
 import SegmentedControl from '@/components/ui/SegmentedControl';
 import StickyControls from '@/components/ui/StickyControls';
 import { useSwitchHold } from '@/components/ui/useSwitchHold';
@@ -158,17 +157,6 @@ export default function SchedulePage({ events: globalEvents, operators: exported
   }, [eventRows, pastEvents, regionalRows]);
   const [pastVisible, setPastVisible] = useState(24);
   const viewHold = useSwitchHold('schedule');
-  const showView = (next: ViewKey) => {
-    viewHold.capture();
-    /* shallow: the data for both views is already here, so there is nothing to fetch.
-       replace, not push: flipping a tab five times should not cost five presses of the
-       back button to leave the page. */
-    void router.replace(
-      { pathname: '/schedule', query: next === 'events' ? {} : { view: next } },
-      undefined,
-      { shallow: true, scroll: false },
-    );
-  };
   const [year, setYear] = useState(today.year);
   const [showBirthdays, setShowBirthdays] = useState(false);
   const [showOfficialEvents, setShowOfficialEvents] = useState(true);
@@ -305,24 +293,15 @@ export default function SchedulePage({ events: globalEvents, operators: exported
 
   return (
     <>
-      <PageMeta title="Schedule" description="The Arknights Global schedule: current and upcoming events, headhunting banners, reruns and maintenance." path="/schedule" />
+      <PageMeta title={view === 'calendar' ? 'Schedule calendar' : 'Schedule'} description="The Arknights Global schedule: current and upcoming events, headhunting banners, reruns and maintenance." path="/schedule" />
 
-      {/* The site's page header; the view switch is the site's Tabs in its actions
-          (it was a primary/ghost pair, then a SegmentedControl). Both views sit in the one 1040px frame: the
-          calendar used main-wide (1320px), so the page changed width with the view. */}
+      {/* The view is picked from the header's Schedule menu (Events, Calendar: lib/nav/navLinks.ts),
+          not from tabs here (the owner, 2026-10-29); the title says which one is showing. Both
+          views sit in the one 1040px frame: the calendar used main-wide (1320px), so the page
+          changed width with the view. */}
       <PageHeader
-        eyebrow="Rhodes Island // Operations Calendar"
-        title="Schedule"
-        actions={<Tabs<ViewKey>
-          label="Schedule view"
-          id="schedule-view"
-          value={view}
-          onChange={showView}
-          options={[
-            { value: 'events', label: 'Events' },
-            { value: 'calendar', label: 'Calendar' },
-          ]}
-        />}
+        eyebrow="Rhodes Island // Schedule"
+        title={view === 'calendar' ? 'Calendar' : 'Events'}
       />
 
       <main>
@@ -333,10 +312,10 @@ export default function SchedulePage({ events: globalEvents, operators: exported
             hidden keeps it out of the accessibility tree and out of tab order, which is
             the part that matters, and the layout cost of a hidden subtree is nil. */}
         {/* One container for both views, holding the reader's place through a switch
-            (useSwitchHold): the calendar is shorter than the list, and Events -> Calendar
+            (useSwitchHold): the calendar is shorter than the list, and Upcoming -> Past
             from the tab row clamped the page 51px up at 1440. */}
         <div ref={viewHold.ref} style={viewHold.style}>
-        <div {...tabPanelProps('schedule-view', 'events')} hidden={view !== 'events'}>
+        <div id="schedule-events" hidden={view !== 'events'}>
           <section className="op-section" aria-label="Event listings">
             <StickyControls className="schedule-events-controls">
               <SegmentedControl<'upcoming' | 'past'>
@@ -415,7 +394,7 @@ export default function SchedulePage({ events: globalEvents, operators: exported
           </section>
         </div>
 
-        <div {...tabPanelProps('schedule-view', 'calendar')} hidden={view !== 'calendar'}>
+        <div id="schedule-calendar" hidden={view !== 'calendar'}>
         {/* One header rather than three rows of controls.
             Prev, the month, Next and Today sat in one row, the twelve month buttons in
             another and the two filters in a third, which is three bands of chrome above

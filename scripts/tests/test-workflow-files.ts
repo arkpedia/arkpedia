@@ -42,11 +42,11 @@ test('the workflow directory holds the three private workflows', () => {
  * data/ from the mirrors (assets:update, then stages:refresh) and opened a pull request into
  * the app, so the bundle could diverge from arkpedia-data's canonical records (a hand
  * correction there was overwritten in the app copy), and merging it re-pinned the deploy's
- * assets and deployed production. The bundled data/ follows arkpedia-data instead
- * (scripts/content/sync-bundled-data.mjs).
+ * assets and deployed production. data/ is now pulled from arkpedia-data's live release
+ * (scripts/content/pull-data.mjs) and never committed here.
  */
 test('no workflow but Prepare content release refreshes game data from upstream', () => {
-  assert.ok(!files.includes('refresh-stage-data.yml'), 'refresh-stage-data.yml is retired; sync the bundle with scripts/content/sync-bundled-data.mjs');
+  assert.ok(!files.includes('refresh-stage-data.yml'), 'refresh-stage-data.yml is retired; data/ comes from arkpedia-data (npm run data:pull)');
   const refresh = /\bnpm run (?:stages:refresh|assets:update)\b|scripts\/sync\/refresh-stage-data\.sh|scripts\/sync\/update-asset-revisions\.mjs|scripts\/stage-pipeline\/build\.mjs/;
   for (const name of files.filter(file => file !== 'prepare-content.yml')) {
     for (const [id, job] of Object.entries(load(name).jobs ?? {})) {

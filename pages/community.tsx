@@ -29,7 +29,8 @@ import EventListPanel from '@/components/schedule/EventListPanel';
 import PageHeader from '@/components/ui/PageHeader';
 import { VideoCard, TwitchCard } from '@/components/community/StreamCards';
 
-/** JSON imports type `kind` as a plain string; test-community-web-events.ts holds every seed's kind to the type's values. */
+/** JSON imports type `kind` as a plain string, here and for the published records below;
+    test-community-web-events.ts holds every seed's kind to the type's values. */
 const WEB_EVENTS = SEED_WEB_EVENTS as WorldWebEvent[];
 
 
@@ -137,5 +138,5 @@ async function withLiveFeeds(props: Props): Promise<Props> {
    stayed as the deploy built them until the next release. The builder reads only the
    compiled-in EVENTS, so it can run at runtime, and finalize fetches the feeds either way. */
 export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>('/community', async () => ({
-  props: { directory: { ...(await import('@/data/world-directory.json')).default as WorldDirectory, webEvents: mergeWebEvents(WEB_EVENTS, (await import('@/data/community-web-events.json')).default) }, events: EVENTS, videos: [], twitchStreams: [], hasYouTubeApiKey: false, hasTwitchCreds: false },
+  props: { directory: { ...(await import('@/data/world-directory.json')).default as WorldDirectory, webEvents: mergeWebEvents(WEB_EVENTS, (await import('@/data/community-web-events.json')).default as WorldWebEvent[]) }, events: EVENTS, videos: [], twitchStreams: [], hasYouTubeApiKey: false, hasTwitchCreds: false },
 }), { finalize: withLiveFeeds, revalidate: 1500, bundledWhenUnpublished: true });

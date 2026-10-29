@@ -11,7 +11,7 @@
  * one, if it is another server's, waits under its own (accountStore OTHER_ACCOUNTS_KEY).
  */
 import type { ImportAliases } from '@/lib/planner/foreignImport';
-import { readGameAccount, type GameAccountMap } from '@/lib/planner/gameAccount';
+import { readGameAccount, type GameAccountMap, type TrainingCounted } from '@/lib/planner/gameAccount';
 import { writeDepot } from '@/lib/planner/depot';
 import { writeRoster } from '@/lib/planner/roster';
 import type { ServerId } from '@/lib/account-import/yostar';
@@ -45,6 +45,8 @@ export interface ImportResult {
   materials: number;
   /** Character ids no record answers to yet. */
   unknown: string[];
+  /** The skill in the Training Room, counted as already trained (readGameAccount). */
+  training?: TrainingCounted;
 }
 
 /** `pulls`: what this import read of the pull history, or null when it did not ask (a file).
@@ -65,7 +67,7 @@ export function importGameAccount(user: Record<string, any>, tables: ImportTable
   // The record keeps when its history was last read: this read's result, or for an import that
   // did not ask (a file), what the same player's record said.
   const status = history ? { readAt: history.readAt, error: history.error } : samePlayer(earlier, imported) ? earlier?.pulls : undefined;
-  const { roster, depot, unknown } = readGameAccount(user, tables.map, tables.aliases, tables.depotNames);
+  const { roster, depot, training, unknown } = readGameAccount(user, tables.map, tables.aliases, tables.depotNames);
   const record: AccountRecord = { ...imported, operatorBuilds: roster, ...(status ? { pulls: status } : {}) };
   // The history goes to the archive, as a union, before the record it was read for is written.
   if (history) restorePullArchives([archiveFromAccount(record, history)]);
@@ -78,5 +80,5 @@ export function importGameAccount(user: Record<string, any>, tables: ImportTable
   rememberSiteServer(server);
   writeRoster(roster);
   writeDepot(depot);
-  return { record, operators: Object.keys(roster).length, materials: Object.values(depot).filter((count) => count > 0).length, unknown };
+  return { record, operators: Object.keys(roster).length, materials: Object.values(depot).filter((count) => count > 0).length, ...(training ? { training } : {}), unknown };
 }

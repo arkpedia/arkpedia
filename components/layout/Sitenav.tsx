@@ -94,7 +94,7 @@ export default function SiteNav({ mobileNav }: { mobileNav?: MobileNavOverride }
       key={link.href}
       href={link.href}
       title={iconOnly ? link.label : undefined}
-      className={`${className}${iconOnly ? ' site-nav-link-icon-only' : ''}${isActiveLink(link, router.pathname) ? ' active' : ''}`}
+      className={`${className}${iconOnly ? ' site-nav-link-icon-only' : ''}${isActiveLink(link, router.pathname, router.asPath) ? ' active' : ''}`}
     >
       <span className="site-nav-icon" aria-hidden="true">{ICONS[link.icon]}</span>
       <span className={iconOnly ? 'visually-hidden' : undefined}>{link.label}</span>
@@ -121,7 +121,7 @@ export default function SiteNav({ mobileNav }: { mobileNav?: MobileNavOverride }
               const open = openMenu === group.id;
               const label = group.label;
               /* The menu lights when the page being read is one of its own. */
-              const holdsCurrent = group.items.some((l) => isActiveLink(l, router.pathname));
+              const holdsCurrent = group.items.some((l) => isActiveLink(l, router.pathname, router.asPath));
               return (
                 <div key={group.id} className="site-nav-menu">
                   <button
@@ -132,6 +132,7 @@ export default function SiteNav({ mobileNav }: { mobileNav?: MobileNavOverride }
                     aria-expanded={open}
                     onClick={() => setOpenMenu(open ? null : group.id)}
                   >
+                    {group.icon && <span className="site-nav-icon" aria-hidden="true">{ICONS[group.icon]}</span>}
                     {label}
                     <span className="nav-menu-indicator" aria-hidden="true">
                     {changelogUnseen && group.items.some((l) => l.href === "/whats-new") ? <span className="nav-new-dot" /> : <svg className="site-nav-chev" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" width="11" height="11" aria-hidden="true">

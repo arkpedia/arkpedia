@@ -31,6 +31,12 @@ function importedSummary(result: ImportResult): string {
     n(result.record.cleared.length, 'stage cleared', 'stages cleared')].join(', ') + (result.record.profile ? ' and your profile' : '');
 }
 
+/** The skill the Training Room is raising, counted in the planner as already raised. */
+function trainingSummary(result: ImportResult): string {
+  const t = result.training;
+  return t ? ` ${t.operator}'s skill ${t.skill + 1} is in the Training Room: the planner counts it as Mastery ${t.mastery}.` : '';
+}
+
 /** What came of the pull history: how many this import read, or why none. */
 function pullsSummary(read: PullRead): string {
   if (!read.rows) return ` Your pull history could not be read (${read.error ?? 'no reason given'}); the rest was imported.`;
@@ -156,7 +162,7 @@ export default function DataDialog({ onClose, initialView = 'game' }: { onClose:
         <p className="hint">Your import stays in this browser unless you enable game-data storage in Account settings → Saving.</p>
         {result && (
           <p className="hint import-note" role="status">
-            Imported: {importedSummary(result.imported)}.{pullsSummary(result.pulls)}{unheldSummary(result.imported.unknown)}
+            Imported: {importedSummary(result.imported)}.{trainingSummary(result.imported)}{pullsSummary(result.pulls)}{unheldSummary(result.imported.unknown)}
           </p>
         )}
       </section>

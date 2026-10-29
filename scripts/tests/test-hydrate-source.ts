@@ -6,16 +6,14 @@ import path from 'node:path';
 import { test } from 'node:test';
 
 /*
- * The release run replaces the app checkout's data/ with arkpedia-data's source/ and
- * deletes what source/ lacks, so a deleted record cannot reappear. A table the app has
- * just moved out of its browser code (lib/content/tables.mjs) is not in source/ until
- * the first release publishes it, and deleting it would fail that export. Run in a made-up
- * app and data repository, never the worktree: the script deletes data/ files.
+ * Every run that needs records -- the release job, Check, local dev (scripts/content/pull-data.mjs)
+ * -- replaces the checkout's data/ with arkpedia-data's source/ and deletes what source/ lacks,
+ * so a deleted record cannot reappear. The app keeps no records of its own: a new one goes into
+ * arkpedia-data first. Run in a made-up app and data repository, never the worktree: the script
+ * deletes data/ files.
  */
 const SCRIPT = path.resolve('scripts/content/hydrate-source.mjs');
 const REQUIRED = ['data/headhunting_banners.json', 'data/skins.json', 'data/assets/revisions.json', 'public/stages-index.json'];
-const LEDGER = 'data/seeded-source-files.json';
-const ledger = (...files: string[]) => `${JSON.stringify({ version: 1, files }, null, 2)}\n`;
 
 function hydrate(sourceFiles: Record<string, string>, appFiles: Record<string, string>, { fails = false } = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'arkpedia-hydrate-'));
@@ -30,10 +28,11 @@ function hydrate(sourceFiles: Record<string, string>, appFiles: Record<string, s
     for (const file of REQUIRED) write(path.join(data, 'source'), file, '{}');
     for (const [file, text] of Object.entries(sourceFiles)) write(path.join(data, 'source'), file, text);
     for (const [file, text] of Object.entries(appFiles)) write(app, file, text);
+    fs.mkdirSync(app, { recursive: true });
     const run = spawnSync(process.execPath, [SCRIPT, data], { cwd: app, encoding: 'utf8' });
     if (fails) return { read: () => null, stderr: run.stderr, status: run.status };
     assert.equal(run.status, 0, run.stderr);
-    const kept = new Map([...Object.keys(appFiles), LEDGER].filter(file => fs.existsSync(path.join(app, file)))
+    const kept = new Map([...Object.keys(appFiles), ...Object.keys(sourceFiles)].filter(file => fs.existsSync(path.join(app, file)))
       .map(file => [file, fs.readFileSync(path.join(app, file), 'utf8')]));
     return { read: (file: string) => kept.get(file) ?? null, stderr: run.stderr, status: run.status };
   } finally {
@@ -41,91 +40,23 @@ function hydrate(sourceFiles: Record<string, string>, appFiles: Record<string, s
   }
 }
 
-test('a table the app introduced survives hydration until arkpedia-data carries it, and then the data repository wins', () => {
-  const before = hydrate({}, { 'data/farming-tiers.json': '["app"]', 'data/retired.json': '{}' });
-  assert.equal(before.read('data/farming-tiers.json'), '["app"]');
-  assert.match(before.stderr, /arkpedia-data does not carry data\/farming-tiers\.json yet/);
-  // Every other record the data repository lacks is still deleted.
-  assert.equal(before.read('data/retired.json'), null);
-  const after = hydrate({ 'data/farming-tiers.json': '["data repository"]' }, { 'data/farming-tiers.json': '["app"]' });
-  assert.equal(after.read('data/farming-tiers.json'), '["data repository"]');
-  assert.doesNotMatch(after.stderr, /does not carry/);
+/* The app once kept records arkpedia-data did not have yet, behind a hand-kept list. A release
+   that ran before the list named a new file deleted it and failed every test that read it
+   (2026-10-29). There is no list any more: a record the data repository lacks is gone. */
+test('the data repository is the only source: what it has is written, what it lacks is deleted', () => {
+  const run = hydrate(
+    { 'data/rerun-clear-operators.json': '{"published":true}', 'data/polls/power-scale-v1.0.json': '{"schema":1}' },
+    { 'data/rerun-clear-operators.json': '{"app":true}', 'data/app-only.json': '{}', 'data/lyrics/old_lyrics.lrc': '[00:01]x' },
+  );
+  assert.equal(run.read('data/rerun-clear-operators.json'), '{"published":true}');
+  assert.equal(run.read('data/polls/power-scale-v1.0.json'), '{"schema":1}');
+  assert.equal(run.read('data/app-only.json'), null);
+  assert.equal(run.read('data/lyrics/old_lyrics.lrc'), null);
 });
 
-/* A hand-kept record the refresh itself reads must be seeded, or the first release after
-   it lands deletes the app's copy and fails at the stage that reads it: data/game-modes.json
-   is read by build-mode-exclusions.mjs and by the stage pages. */
-test('the hand-kept game-modes record survives hydration until arkpedia-data carries it', () => {
-  const kept = hydrate({}, { 'data/game-modes.json': '{"version":1}' });
-  assert.equal(kept.read('data/game-modes.json'), '{"version":1}');
-  assert.match(kept.stderr, /does not carry [^\n]*data\/game-modes\.json/);
-});
-
-/* /skins and every operator page import data/dynamic-art.json (scripts/sync/sync-dynamic-art.mjs):
-   the first release after it lands must not delete the app's copy before the data repository
-   has one, nor a run whose stage failed. */
-test('the animated-art pointers survive hydration until arkpedia-data carries them', () => {
-  const kept = hydrate({}, { 'data/dynamic-art.json': '{"schemaVersion":1}' });
-  assert.equal(kept.read('data/dynamic-art.json'), '{"schemaVersion":1}');
-  assert.match(kept.stderr, /does not carry [^\n]*data\/dynamic-art\.json/);
-});
-
-test('the complete story library and sections survive the first hydration, then follow the published source', () => {
-  const app = { 'data/story-library.json': '{"entries":["app"]}', 'data/story-chapters.json': '{"chapters":{"app":[]}}' };
-  const first = hydrate({}, app);
-  for (const [file, text] of Object.entries(app)) assert.equal(first.read(file), text);
-  const published = { 'data/story-library.json': '{"entries":["published"]}', 'data/story-chapters.json': '{"chapters":{"published":[]}}' };
-  const later = hydrate(published, app);
-  for (const [file, text] of Object.entries(published)) assert.equal(later.read(file), text);
-});
-
-test('a canvas-only source retains listed off-canvas chapters, while a complete source can remove them', () => {
-  const library = JSON.stringify({ entries: [{ id: 'main', category: 'main' }, { id: 'record', category: 'record' }] });
-  const app = { 'data/story-library.json': library, 'data/story-chapters.json': JSON.stringify({ chapters: { main: [[0]], record: [[1]], removed: [[2]] } }) };
-  const source = { 'data/story-library.json': library, 'data/story-chapters.json': JSON.stringify({ chapters: { main: [[9]] } }) };
-  const legacy = hydrate(source, app);
-  assert.deepEqual(JSON.parse(legacy.read('data/story-chapters.json')!).chapters, { record: [[1]], main: [[9]] });
-  assert.match(legacy.stderr, /retained 1 library groups/);
-  const complete = hydrate({ ...source, 'data/story-chapters.json': JSON.stringify({ completeLibrary: true, chapters: { main: [[9]] } }) }, app);
-  assert.deepEqual(JSON.parse(complete.read('data/story-chapters.json')!).chapters, { main: [[9]] });
-});
-
-/* SEEDED_SOURCE_FILES had no end: whenever arkpedia-data lacked one of the tables, the app's
-   copy was kept and published again, so a table the data repository deleted on purpose came
-   back from the app's stale copy with the next release. The ledger, carried in the data
-   repository, remembers every seeded table it has had. */
-test('a seeded table the data repository has carried is never brought back once it deletes it', () => {
-  // The first release seeds it and records that; so does a run that finds it there.
-  const seeded = hydrate({}, { 'data/farming-tiers.json': '["app"]' });
-  assert.equal(seeded.read(LEDGER), ledger('data/farming-tiers.json'));
-  const carried = hydrate({ 'data/farming-tiers.json': '["data repository"]' }, { 'data/farming-tiers.json': '["app"]' });
-  assert.equal(carried.read(LEDGER), ledger('data/farming-tiers.json'));
-  // Deleted there on purpose later: gone here too, and said so.
-  const deleted = hydrate({ [LEDGER]: ledger('data/farming-tiers.json') }, { 'data/farming-tiers.json': '["app, stale"]' });
-  assert.equal(deleted.read('data/farming-tiers.json'), null);
-  assert.match(deleted.stderr, /arkpedia-data has carried data\/farming-tiers\.json and no longer does, so the app's copy is not seeded again/);
-  assert.doesNotMatch(deleted.stderr, /does not carry/);
-  // The other tables it has never had are still seeded.
-  const others = hydrate({ [LEDGER]: ledger('data/farming-tiers.json') }, { 'data/farming-tiers.json': '[]', 'data/base-skill-slots.json': '{"app":1}' });
-  assert.equal(others.read('data/base-skill-slots.json'), '{"app":1}');
-  assert.equal(others.read('data/farming-tiers.json'), null);
-  assert.equal(others.read(LEDGER), ledger('data/base-skill-slots.json', 'data/farming-tiers.json'));
-});
-
-test('the seed ledger changes only when a table first reaches the data repository, so a quiet day publishes nothing new', () => {
-  const all = ['data/base-group-rosters.json', 'data/base-skill-slots.json', 'data/farming-tiers.json'];
-  const tables = Object.fromEntries(all.map(file => [file, '{}']));
-  // The data branch that carries the three tables, before any release wrote the ledger.
-  const first = hydrate(tables, tables);
-  assert.equal(first.read(LEDGER), ledger(...all));
-  // Every later day: the ledger comes back byte for byte.
-  const later = hydrate({ ...tables, [LEDGER]: ledger(...all) }, tables);
-  assert.equal(later.read(LEDGER), ledger(...all));
-  assert.doesNotMatch(later.stderr, /does not carry|no longer does/);
-  // A malformed ledger stops the run rather than being guessed at.
-  const malformed = hydrate({ [LEDGER]: '{"files":"data/farming-tiers.json"}' }, { 'data/farming-tiers.json': '[]' }, { fails: true });
-  assert.notEqual(malformed.status, 0);
-  assert.match(malformed.stderr, /seeded-source-files\.json is not \{"version":1,"files":\[\.\.\.\]\}/);
+test('a fresh checkout with no data/ folder yet is filled', () => {
+  const run = hydrate({ 'data/skins-extra.json': '[1]' }, {});
+  assert.equal(run.read('data/skins-extra.json'), '[1]');
 });
 
 /* data/stages.json (a wiki.gg scrape), data/stage_index.json and the data/events-data/

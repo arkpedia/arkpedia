@@ -55,7 +55,9 @@ export const LINKS: NavLink[] = [
   { href: '/selector-tickets', label: 'Selector Tickets', icon: 'selector' },
   { href: "/polls/power-scale", label: 'Power Scale', icon: 'rate' },
   { href: '/games', label: 'Games', icon: 'grid' },
-  { href: '/schedule', label: 'Schedule', icon: 'timeline' },
+  /* The Schedule menu's two entries: one page, two views (pages/schedule.tsx ?view=). */
+  { href: '/schedule', label: 'Events', icon: 'events' },
+  { href: '/schedule?view=calendar', label: 'Calendar', icon: 'timeline' },
   { href: '/music', label: 'Music', icon: 'music' },
   { href: "/whats-new", label: "What's new", icon: 'changelog' },
   { href: '/credits', label: 'Credits', icon: 'credits' },
@@ -79,6 +81,8 @@ export interface NavGroup {
   /** Stable: the menu's key and its data-menu, whatever its label reads. */
   id: string;
   label: string;
+  /** Drawn before the label: Schedule keeps the calendar it had as a loose link. */
+  icon?: string;
   items: NavLink[];
   dividersAfter?: string[];
 }
@@ -97,6 +101,9 @@ export const GROUPS: NavGroup[] = [
   { id: 'guides', label: 'Guides', items: [at('/farming'), at('/base'), at('/recruitment'), at("/gacha-simulator"), at('/selector-tickets'), at("/game-modes")] },
   { id: 'own', label: 'Planner', items: [at("/operator-planner"), at("/pull-planner"), at('/skin-planner'), at("/reward-tracker")] },
   { id: 'community', label: 'Community', items: [at('/community/projects'), at("/world"), at("/polls/power-scale"), at('/music'), at('/games')] },
+  /* The owner asked for the two views as a menu instead of tabs on the page (2026-10-29). */
+  { id: 'schedule', label: 'Schedule', icon: 'timeline', items: [at('/schedule'), at('/schedule?view=calendar')] },
+  /* About stays last (the owner, 2026-10-29). */
   { id: 'about', label: 'About', items: [at('/about'), at("/whats-new"), at('/credits'), at('/support')] },
 ];
 
@@ -104,8 +111,8 @@ export const GROUPS: NavGroup[] = [
    link. Planner joined them when Base, Recruitment and Gacha moved to Guides and left
    it alone in Planning. Schedule joined them when the Events list became a view of the
    Schedule page rather than a page of its own, which left that menu holding one thing
-   too. */
-export const LOOSE: NavLink[] = [at('/schedule')];
+   too, and left it again for a menu of its two views (Events, Calendar) on 2026-10-29. */
+export const LOOSE: NavLink[] = [];
 
 /**
  * Every destination the bar shows, in the order it shows them: each menu's contents in
@@ -147,8 +154,15 @@ if (orphanLinks.length > 0) {
  * everything. Shared with MobileNavDrawer, which had its own copy of this test and
  * disagreed with the desktop nav about which entry was lit.
  */
-export function isActiveLink(link: NavLink, pathname: string): boolean {
+export function isActiveLink(link: NavLink, pathname: string, asPath?: string): boolean {
   if (link.href === "/world") return pathname === "/world";
+  /* The Schedule menu's entries are one route with two views: the view is in the query,
+     so the URL (asPath) decides which is lit. Without it only the route is known, and
+     Events, the page's default view, stands for it. */
+  if (pathname === '/schedule' && link.href.startsWith('/schedule')) {
+    const calendar = /[?&]view=calendar(?:&|#|$)/.test(asPath ?? '');
+    return link.href === '/schedule?view=calendar' ? calendar : !calendar;
+  }
   if (link.href === '/games') return isGamePath(pathname);
   const section = link.href;
   return pathname === section || (section !== '/' && pathname.startsWith(`${section}/`));

@@ -95,7 +95,7 @@ check('ark-nights: an absent compound list is silence',
   parseTransfer(JSON.stringify({ version: '1', stock: { 'G-4-1': 1 } }))?.crafting === null);
 
 /* --- our own format, which must not have regressed under any of that. */
-const bundle = formatBundle({ LMD: 5 }, {}, ['Texas'], { Texas: {} }, new Set(['D32 Steel']));
+const bundle = formatBundle({ LMD: 5 }, {}, ['Texas'], { Texas: {} }, new Set(['D32 Steel']), new Set(['Chip Catalyst']));
 const own = parseTransfer(bundle);
 check('our bundle still reads', own?.shape === 'bundle', String(own?.shape));
 check('our bundle carries crafting', JSON.stringify(own?.crafting) === '["D32 Steel"]', JSON.stringify(own?.crafting));
@@ -103,6 +103,9 @@ const older = JSON.parse(bundle) as Record<string, unknown>;
 delete older.crafting;
 check('a bundle from before the crafting field says nothing rather than nothing-at-all',
   parseTransfer(JSON.stringify(older))?.crafting === null);
+check('our bundle carries the store purchases', JSON.stringify(own?.buying) === '["Chip Catalyst"]', JSON.stringify(own?.buying));
+delete older.buying;
+check('a bundle from before the buying field leaves the reader\'s own purchases alone', parseTransfer(JSON.stringify(older))?.buying === null);
 check('an old bare depot export still reads', parseTransfer('{"Orirock Cube": 4}')?.shape === 'depot');
 check('a bundle version from the future is refused', parseTransfer('{"kind":"arkpedia-planner","version":99}') === null);
 

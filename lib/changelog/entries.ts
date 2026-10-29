@@ -34,6 +34,12 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-10-29T18:00:00Z',
+    changed: [
+      { title: 'Schedule is a menu', detail: 'The Schedule button in the header opens Events and Calendar, in place of the two tabs on the page.', href: '/schedule' },
+    ],
+  },
+  {
     at: '2026-10-29T13:00:00Z',
     added: [
       { title: 'Operator previews from the planner and pulls', detail: 'The Operator Planner\'s artwork and every operator in Pull History open the operator\'s quick preview.', href: '/operator-planner' },

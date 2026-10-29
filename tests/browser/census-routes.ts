@@ -223,7 +223,7 @@ export const CENSUS_STATES: CensusState[] = [
     for (let i = 0; i < 20 && await guide.getByRole('button', { name: /^Next/ }).count(); i += 1) await guide.getByRole('button', { name: /^Next/ }).click();
     await guide.getByRole('button', { name: /^(Continue|Done)/ }).waitFor();
   } },
-  { id: 'schedule calendar', route: '/schedule', act: (page) => tabIn(page, '.page-header-actions', 'Calendar') },
+  { id: 'schedule calendar', route: '/schedule?view=calendar', act: (page) => page.getByRole('heading', { name: 'Calendar', level: 1 }).waitFor() },
   { id: 'schedule past events', route: '/schedule?past=1', act: async (page) => { await page.getByRole('button', { name: 'Past', exact: true, pressed: true }).waitFor(); } },
   { id: 'recruitment with two tags', route: '/recruitment', act: async (page) => { const tags = page.locator('.recruit-tag-picker .filter-chip'); await tags.nth(1).click(); await tags.nth(6).click(); } },
   { id: 'stronghold alliances', route: "/game-modes/stronghold-protocol", act: (page) => tabIn(page, '.gm-lookup', 'Alliances') },

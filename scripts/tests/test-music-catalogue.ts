@@ -155,7 +155,7 @@ test('the bundle guard fails a browser compilation that holds any data/ record i
   const none = () => [];
   // Denied by default: albums, and skins too, which the old named list never mentioned.
   assert.deepEqual(deniedClientModules([`${root}/data/albums.json`, `${root}/data/albums.json?x`, `${root}/data/skins.json`, undefined], root, none), ['data/albums.json', 'data/skins.json']);
-  assert.deepEqual(deniedClientModules([`${root}/lib/music/musicCatalogue.ts`, `${root}/data/assets/revisions.json`, `${root}/data/final-poll-results.json`], root, none), []);
+  assert.deepEqual(deniedClientModules([`${root}/lib/music/musicCatalogue.ts`, `${root}/data/assets/revisions.json`, `${root}/data/polls/power-scale-v1.0.json`], root, none), []);
   // SL-4b's table passes only through its one importer.
   const windows = `${root}/data/skin-availability-windows.json`;
   assert.deepEqual(deniedClientModules([windows], root, () => ['lib/skins/localSkinWindows.ts']), []);

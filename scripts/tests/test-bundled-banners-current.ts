@@ -5,12 +5,11 @@ import banners from '../../data/headhunting_banners.json';
 /*
  * The bundled banner list must still have a running Kernel and Standard pool for a few days.
  *
- * Check's browser specs read the bundled data/ (ARKPEDIA_CONTENT_DISABLED=1) at the real
- * clock, and the daily release never refreshes it. On 2026-10-06 the snapshot's last Global
- * Kernel closed at 11:00Z with nothing after it: /gacha's first banner changed under the
- * layout census, the home page lost a kind of picture card, and every open PR failed with
- * errors that pointed nowhere near the cause. This fails first, three days ahead, and says
- * what to run.
+ * Check's browser specs read data/ (ARKPEDIA_CONTENT_DISABLED=1) at the real clock. Until
+ * 2026-10-29 that was a copy kept in this repository, which no release refreshed: on
+ * 2026-10-06 its last Global Kernel closed at 11:00Z with nothing after it, and every open PR
+ * failed far from the cause. data/ is now the live release's records (scripts/content/
+ * pull-data.mjs), so this fails only if the live data itself runs out, three days ahead.
  */
 
 const MARGIN_DAYS = 3;
@@ -29,7 +28,7 @@ test(`the bundled banner list has a Global Kernel and Standard pool running for 
     assert.ok(last, `data/headhunting_banners.json has no Global ${kind} banner with a window`);
     assert.ok(last.end > due,
       `data/headhunting_banners.json runs out: its last Global ${kind}, ${last.name}, closes ${new Date(last.end).toISOString()}. `
-      + 'Check\'s browser specs read this snapshot at the real clock and start failing once it does. Refresh it: '
-      + 'node scripts/content/sync-bundled-data.mjs <arkpedia-data checkout> --ref origin/main data/headhunting_banners.json');
+      + 'This is the live release\'s list (npm run data:pull), and Check\'s browser specs start failing once it runs out. '
+      + 'Check the banner importers in the content release.');
   }
 });

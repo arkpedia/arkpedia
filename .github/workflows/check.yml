@@ -84,6 +84,10 @@ jobs:
           cache: ${{ runner.environment == 'github-hosted' && 'npm' || '' }}
           package-manager-cache: ${{ runner.environment == 'github-hosted' }}
       - run: npm ci
+      # Game records live in arkpedia-data; this repository keeps code only. The live release's
+      # records, the ones www serves (scripts/content/pull-data.mjs).
+      - name: Pull the live game records
+        run: node scripts/content/pull-data.mjs
       - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
@@ -147,6 +151,10 @@ jobs:
           package-manager-cache: ${{ runner.environment == 'github-hosted' }}
 
       - run: npm ci
+      # Game records live in arkpedia-data; this repository keeps code only. The live release's
+      # records, the ones www serves (scripts/content/pull-data.mjs).
+      - name: Pull the live game records
+        run: node scripts/content/pull-data.mjs
 
       # Before npm test: it runs the Python importers too (test-cn-tables.ts), and they
       # import Pillow and certifi at the top.
@@ -232,6 +240,11 @@ jobs:
         run: npm run lint:scripts
 
       # NEXT_TELEMETRY_DISABLED so a CI run is not also a ping to Vercel.
+      # Everything above read the live records. The build below is the one the browser specs
+      # run against, so it reads the commit tests/browser/data-pin.json pins: the specs check
+      # the site's behaviour, and a nightly release must not turn an unrelated PR red.
+      - name: Pull the pinned game records for the browser specs
+        run: node scripts/content/pull-data.mjs --pinned
       - name: Build
         # prebuild ran above, and postbuild must still enforce BOTH output budgets.
         run: npm run --ignore-scripts build && npm run postbuild

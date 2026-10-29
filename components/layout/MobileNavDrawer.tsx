@@ -279,7 +279,7 @@ export default function MobileNavDrawer({ mobileNav, search }: { mobileNav?: Mob
               until a section is opened. */}
           {GROUPS.map((group) => {
             const isOpen = unfolded === group.id;
-            const holdsCurrent = group.items.some((link) => isActiveLink(link, router.pathname));
+            const holdsCurrent = group.items.some((link) => isActiveLink(link, router.pathname, router.asPath));
             return (
               <div key={group.id} className="mobile-nav-group">
                 <button
@@ -299,13 +299,13 @@ export default function MobileNavDrawer({ mobileNav, search }: { mobileNav?: Mob
                 {/* Folded, not removed: the links stay in the page (hidden), for crawlers and
                     for the nav's release-pinned art, which the content runtime test reads. */}
                 <div id={`mobile-nav-group-${group.id}`} className="mobile-nav-group-links" hidden={!isOpen}>
-                  {group.items.map((link) => <DrawerLink key={link.href} link={link} active={isActiveLink(link, router.pathname)} divider={group.dividersAfter?.includes(link.href)} isNew={link.href === "/whats-new" && changelogUnseen} onPick={() => setOpen(false)} />)}
+                  {group.items.map((link) => <DrawerLink key={link.href} link={link} active={isActiveLink(link, router.pathname, router.asPath)} divider={group.dividersAfter?.includes(link.href)} isNew={link.href === "/whats-new" && changelogUnseen} onPick={() => setOpen(false)} />)}
                 </div>
               </div>
             );
           })}
           <div className="mobile-nav-loose">
-            {LOOSE.map((link) => <DrawerLink key={link.href} link={link} active={isActiveLink(link, router.pathname)} onPick={() => setOpen(false)} />)}
+            {LOOSE.map((link) => <DrawerLink key={link.href} link={link} active={isActiveLink(link, router.pathname, router.asPath)} onPick={() => setOpen(false)} />)}
           </div>
         </div>
       </div>

@@ -21,7 +21,7 @@ const CLIENT_ALLOWED = {
   // The deploy's asset pins: contentUrl's fallback for a page rendered without a release.
   'data/assets/revisions.json': 'asset pins for pages without a content release (lib/content/urls.ts)',
   // A closed survey's aggregate, never refreshed, and /results' whole content.
-  'data/final-poll-results.json': 'the closed survey /results draws (lib/results/finalPollResults.ts)',
+  'data/polls/power-scale-v1.0.json': 'the closed power-scale poll /results draws (lib/results/finalPollResults.ts)',
 };
 
 /**

@@ -95,3 +95,12 @@ __pycache__/
 .open-next/
 .wrangler/
 .dev.vars
+
+# Game records: pulled from arkpedia-data (npm run data:pull, scripts/content/pull-data.mjs),
+# never committed here. scripts/content/records.mjs lists the public ones.
+/data/
+/public/enemies-index.json
+/public/medal-catalogue.json
+/public/operator-deploy.json
+/public/stages-index.json
+/public/operator-search.json

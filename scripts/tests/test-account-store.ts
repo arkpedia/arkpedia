@@ -31,7 +31,8 @@ test('an account gives the operators it owns by name, its outfits by skin id and
     campaignsV2: { instances: { camp_r_01: { maxKills: 400, rewardStatus: [1, 1, 1] }, camp_r_02: { maxKills: 250, rewardStatus: [1, 0, 0] }, camp_r_03: { rewardStatus: [] } } },
   }, MAP, 'en', new Date('2026-10-01T12:00:00Z'));
   assert.deepEqual(record, {
-    version: 1, rewardClaims: { known: [], claimed: [] }, server: 'en', importedAt: '2026-10-01T12:00:00.000Z', doctor: 'Doctor#1234',
+    version: 1, rewardClaims: { known: [], claimed: [] },
+    permanentClaims: { modes: [], claimed: [] }, server: 'en', importedAt: '2026-10-01T12:00:00.000Z', doctor: 'Doctor#1234',
     // Amiya's forms each by their own name; one with no record yet is left out.
     operators: ['Amiya', 'Amiya (Guard)', 'Fiammetta'],
     // ...and the whole roster by the game's ids, a character with no site record too.

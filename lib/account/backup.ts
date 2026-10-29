@@ -22,7 +22,9 @@
  *   - a newer version than this build knows is refused, not guessed at.
  */
 import { ACCOUNT_EVENT, ACCOUNT_STORAGE_KEY, OTHER_ACCOUNTS_KEY, parseAccount, parseOtherAccounts } from './accountStore';
+import { BUYING_EVENT, BUYING_STORAGE_KEY } from '@/lib/planner/buying';
 import { CRAFTING_EVENT, CRAFTING_STORAGE_KEY } from '@/lib/planner/crafting';
+import { FARMING_METHOD_EVENT, FARMING_METHOD_KEY, parseFarmingMethod } from '@/lib/planner/farmingMethod';
 import { DEPOT_EVENT, DEPOT_STORAGE_KEY, DEPOT_TOUCHED_KEY, parseDepotExport } from '@/lib/planner/depot';
 import { PLANNER_STATE_EVENT } from '@/lib/planner/plannerStorage';
 import { ROSTER_EVENT, ROSTER_STORAGE_KEY, parseRosterExport } from '@/lib/planner/roster';
@@ -72,6 +74,9 @@ export const BACKUP_STORES: readonly Store[] = [
   // The Operator Planner reads it with the depot, on the depot's event.
   { key: DEPOT_TOUCHED_KEY, label: 'depot date', valid: (_, value) => typeof value === 'number' && Number.isFinite(value), event: DEPOT_EVENT },
   { key: CRAFTING_STORAGE_KEY, label: 'crafting', valid: (_, value) => isStringList(value), event: CRAFTING_EVENT },
+  // Anything the planner does not understand reads as the feature off (parseFarmingMethod).
+  { key: FARMING_METHOD_KEY, label: 'farming method', valid: (_, value) => isObject(value) && JSON.stringify(parseFarmingMethod(value)) !== undefined, event: FARMING_METHOD_EVENT },
+  { key: BUYING_STORAGE_KEY, label: 'store purchases', valid: (_, value) => isStringList(value), event: BUYING_EVENT },
   // The planner clamps every goal to its operator's rules when it reads them (clampBuilderStates).
   { key: 'plannerState', label: 'planner goals', valid: (_, value) => isObject(value) && isStringList((value as Record<string, unknown>).selectedNames) && isObject((value as Record<string, unknown>).builderStates), event: PLANNER_STATE_EVENT },
   // Read when the Pull Planner opens (and for the ticks and skins it once held, when their own

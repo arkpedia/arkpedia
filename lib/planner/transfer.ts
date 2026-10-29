@@ -48,6 +48,10 @@ export interface PlannerBundle {
    * empty one -- see parseTransfer.
    */
   crafting: string[];
+  /** Which materials you have said you will buy at the certificate store (lib/planner/buying.ts).
+   *  Added the same way as `crafting`: no version bump, and a file without it says nothing about
+   *  it (parseTransfer). */
+  buying: string[];
 }
 
 export interface ParsedTransfer {
@@ -64,6 +68,9 @@ export interface ParsedTransfer {
    * array is a real statement ("I craft nothing") and applies.
    */
   crafting: string[] | null;
+  /** Which materials to mark as bought at the store. null leaves the reader's own alone, like
+   *  `crafting`: a file from before the field, or another planner's, has nothing to say. */
+  buying: string[] | null;
   /** What the file turned out to be, for the line that reports the load. */
   shape: 'bundle' | 'depot' | 'roster' | 'game' | ForeignShape;
   /** Entries a foreign export named that this planner cannot hold. Never fatal:
@@ -82,6 +89,7 @@ export function formatBundle(
   selectedNames: string[],
   builderStates: Record<string, unknown>,
   crafting: ReadonlySet<string>,
+  buying: ReadonlySet<string>,
 ): string {
   const sortKeys = <T,>(obj: Record<string, T>): Record<string, T> => Object.fromEntries(
     Object.keys(obj).sort().map((k) => [k, obj[k]]),
@@ -96,6 +104,7 @@ export function formatBundle(
     operators: sortKeys(roster),
     goals: { selectedNames, builderStates: sortKeys(builderStates) },
     crafting: [...crafting].sort(),
+    buying: [...buying].sort(),
   };
   return JSON.stringify(bundle, null, 2);
 }
@@ -133,6 +142,7 @@ export function parseTransfer(text: string, aliases: ImportAliases): ParsedTrans
       roster: null,
       goals: null,
       crafting: foreign.crafting,
+      buying: null,
       shape: foreign.shape,
       unheld: foreign.unheld,
     };
@@ -160,10 +170,10 @@ export function parseTransfer(text: string, aliases: ImportAliases): ParsedTrans
     const depot = parseDepotExport(text);
     if (depot && Object.keys(depot).length && Object.values(depot).every((n) => typeof n === 'number')) {
       const looksLikeRoster = Object.values(obj).some((v) => v && typeof v === 'object');
-      if (!looksLikeRoster) return { depot, roster: null, goals: null, crafting: null, shape: 'depot', unheld: [] };
+      if (!looksLikeRoster) return { depot, roster: null, goals: null, crafting: null, buying: null, shape: 'depot', unheld: [] };
     }
     const roster = parseRosterExport(text);
-    if (roster && Object.keys(roster).length) return { depot: null, roster, goals: null, crafting: null, shape: 'roster', unheld: [] };
+    if (roster && Object.keys(roster).length) return { depot: null, roster, goals: null, crafting: null, buying: null, shape: 'roster', unheld: [] };
     return null;
   }
 
@@ -197,7 +207,13 @@ export function parseTransfer(text: string, aliases: ImportAliases): ParsedTrans
     crafting = obj.crafting as string[];
   }
 
-  return { depot, roster, goals, crafting, shape: 'bundle', unheld: [] };
+  let buying: string[] | null = null;
+  if (obj.buying !== undefined) {
+    if (!Array.isArray(obj.buying) || !obj.buying.every((n) => typeof n === 'string')) return null;
+    buying = obj.buying as string[];
+  }
+
+  return { depot, roster, goals, crafting, buying, shape: 'bundle', unheld: [] };
 }
 
 /** The name to put on screen for each format. */
@@ -240,5 +256,6 @@ export function describeTransfer(t: ParsedTransfer): string {
     + `${operators} ${operators === 1 ? 'operator' : 'operators'} and `
     + `${planned} ${planned === 1 ? 'plan' : 'plans'}`
     + (t.crafting ? `, with ${t.crafting.length} marked as crafted rather than farmed` : '')
+    + (t.buying?.length ? ` and ${t.buying.length} marked as bought at the store` : '')
     + '.';
 }

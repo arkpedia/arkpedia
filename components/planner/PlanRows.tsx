@@ -1,3 +1,4 @@
+import { FARMING_STRINGS } from '@/lib/planner/farmingStrings';
 import { PlannerStateLabel } from "./PromotionIcon";
 import Image from '@/components/content/ContentImage';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
@@ -35,6 +36,9 @@ export interface PlanRowView {
   covered: number;
   /** How many materials in that bill the plan is short of. */
   blocked: number;
+  /** When the events being counted (the Farming method) will have given the last material this
+   *  operator's bill lacks (YYYY-MM-DD); null when nothing comes from events or something is still short. */
+  readyBy: string | null;
   /**
    * True while this operator's build data is still on the wire.
    *
@@ -125,6 +129,10 @@ function Row({
                   ? `Next: ${view.next}`
                   : 'Everything targeted is done'}
         </span>
+        {/* Only once nothing is short: the date the events finish covering the bill. */}
+        {view.readyBy && view.blocked === 0 && !view.pending && (
+          <span className="plan-ready-by" title={FARMING_STRINGS.operatorReadyTitle(view.readyBy)}>{FARMING_STRINGS.operatorReady(view.readyBy)}</span>
+        )}
       </span>
 
       <span className="plan-row-acts">

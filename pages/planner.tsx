@@ -43,6 +43,8 @@ import { DATA_DIALOG_TABLES } from '@/lib/content/dataDialogTables';
 import { goalsFor, type Goal, type GoalFrom } from '@/lib/planner/goals';
 import { compactCount } from '@/lib/planner/format';
 import { applyGoal, goalBlocker, goalReady, plannerModules, priceGoal, type BuildPlan } from '@/lib/planner/build';
+import { BUYING_EVENT, readBuying, writeBuying } from '@/lib/planner/buying';
+import { FARMING_METHOD_EVENT, NO_FARMING_METHOD, incomingFor, readFarmingMethod, writeFarmingMethod, type FarmingMethod } from '@/lib/planner/farmingMethod';
 import { CRAFTING_EVENT, readCrafting, writeCrafting } from '@/lib/planner/crafting';
 import PageHeader from '@/components/ui/PageHeader';
 import Tabs, { tabPanelProps } from '@/components/ui/Tabs';
@@ -226,7 +228,7 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
   const readerClock = useReaderClock(now, { tickMs: 60_000 });
   /* depotCatalogue: every material the depot can hold, from the release's catalogue
      (data/material-catalogue.json), which only lists materials with a published icon. */
-  const { resolveNeeds, shortShares, planBuild, levels, inGameOrder, depotCatalogue, BATTLE_RECORDS } = usePlannerContent();
+  const { resolveNeeds, shortShares, planBuild, levels, inGameOrder, depotCatalogue, BATTLE_RECORDS, farmingEvents, permanentRewards } = usePlannerContent();
   const contentUrl = useContentUrl();
   const [plannerMode, setPlannerMode] = useState<'simple' | 'experimental'>('simple');
   /* The Anti-Page Jump hold for the mode tabs (useSwitchHold): Simple is shorter than
@@ -342,6 +344,22 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
     });
   };
 
+  /** Which materials the reader will buy at the certificate store instead (lib/planner/buying.ts). */
+  const [buying, setBuying] = useState<ReadonlySet<string>>(new Set<string>());
+  const toggleBuying = (name: string) => {
+    setBuying((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      writeBuying(next);
+      return next;
+    });
+  };
+
+  /** Which events the plan counts on, up to a date (lib/planner/farmingMethod.ts). */
+  const [farmingMethod, setFarmingMethod] = useState<FarmingMethod>(NO_FARMING_METHOD);
+  const changeFarmingMethod = (next: FarmingMethod) => { setFarmingMethod(next); writeFarmingMethod(next); };
+
   const [depot, setDepot] = useState<Depot>({});
   const [depotOpen, setDepotOpen] = useState(false);
   /* Which clear is primed, if any. One at a time: arming the second disarms the
@@ -377,6 +395,28 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
     return () => {
       window.removeEventListener('storage', sync);
       window.removeEventListener(CRAFTING_EVENT, sync);
+    };
+  }, []);
+
+  useEffect(() => {
+    const sync = () => setFarmingMethod(readFarmingMethod());
+    sync();
+    window.addEventListener('storage', sync);
+    window.addEventListener(FARMING_METHOD_EVENT, sync);
+    return () => {
+      window.removeEventListener('storage', sync);
+      window.removeEventListener(FARMING_METHOD_EVENT, sync);
+    };
+  }, []);
+
+  useEffect(() => {
+    const sync = () => setBuying(readBuying());
+    sync();
+    window.addEventListener('storage', sync);
+    window.addEventListener(BUYING_EVENT, sync);
+    return () => {
+      window.removeEventListener('storage', sync);
+      window.removeEventListener(BUYING_EVENT, sync);
     };
   }, []);
 
@@ -721,7 +761,7 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
     const rarity = summary.rarity || 1;
     const now = currentOf(name);
     if (!goalReady(goal, now, rarity)) return;
-    const plan = planBuild(priceGoal(goal, op, rarity, now, levels), depot, { crafting, autoCraft });
+    const plan = planBuild(priceGoal(goal, op, rarity, now, levels), depot, { crafting, buying, autoCraft });
     if (!plan.ok) {
       setBuildNote({ name, text: `${goal.label} is short of ${plan.short.join(', ')} -- nothing changed.` });
       return;
@@ -782,12 +822,12 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
     return goalsOf(rarity, op, now, b).map((goal) => {
       const ready = goalReady(goal, now, rarity);
       const cost = priceGoal(goal, op, rarity, now, levels);
-      const plan: BuildPlan | null = ready ? planBuild(cost, depot, { crafting, autoCraft }) : null;
+      const plan: BuildPlan | null = ready ? planBuild(cost, depot, { crafting, buying, autoCraft }) : null;
       return { goal, ready, blocker: ready ? '' : goalBlocker(goal, now, rarity), cost, plan };
     });
     // currentOf reads roster and builderStates, both listed.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [build, detailCache, roster, builderStates, depot, crafting, autoCraft, levels]);
+  }, [build, detailCache, roster, builderStates, depot, crafting, buying, autoCraft, levels]);
 
   const skillList = activeOp ? getSkillList(activeOp) : [];
 
@@ -894,10 +934,19 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
     return { exp, lmd, materials };
   }, [combinedBill]);
 
+  /* What the events up to the chosen date will give, counted beside the depot and never in it.
+     On the page's reader clock (the server's `now` until mount): the method is off until the stored
+     choice loads after mount, so the server's HTML and the first paint agree. */
+  const claimedPermanent = useMemo(() => new Set(account?.permanentClaims?.claimed ?? []), [account]);
+  const claimedModes = useMemo(() => new Set(account?.permanentClaims?.modes ?? []), [account]);
+  const farming = useMemo(() => incomingFor(farmingMethod, farmingEvents, readerClock, { table: permanentRewards, claimed: claimedPermanent }),
+    [farmingMethod, farmingEvents, readerClock, permanentRewards, claimedPermanent]);
+  const incoming = farming?.incoming ?? null;
+
   /* THE resolve. One, for the whole page. */
   const resolution = useMemo(
-    () => resolveNeeds(split.materials, depot, { crafting, autoCraft }),
-    [split.materials, depot, crafting, autoCraft, resolveNeeds],
+    () => resolveNeeds(split.materials, depot, { crafting, buying, incoming, autoCraft }),
+    [split.materials, depot, crafting, buying, incoming, autoCraft, resolveNeeds],
   );
   /* Crafting costs LMD at the bench, and the plan's own LMD line is where that
      belongs -- it is the same money. */
@@ -908,8 +957,10 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
     Object.values(bills).forEach(bill => addCostGroup(totals, bill));
     return totalsToCostGroup(totals);
   }, [bills]);
-  const fullResolution = useMemo(() => resolveNeeds(fullBill.filter(item => item.name !== 'EXP' && item.name !== 'LMD'), depot, { crafting, autoCraft }), [fullBill, depot, crafting, autoCraft, resolveNeeds]);
+  const fullResolution = useMemo(() => resolveNeeds(fullBill.filter(item => item.name !== 'EXP' && item.name !== 'LMD'), depot, { crafting, buying, incoming, autoCraft }), [fullBill, depot, crafting, buying, incoming, autoCraft, resolveNeeds]);
   const shares = useMemo(() => shortShares(fullResolution), [fullResolution, shortShares]);
+  /* Material -> the day events finish giving it (the Farming method), for the dates beside each operator. */
+  const readyByName = useMemo(() => new Map(fullResolution.rows.flatMap((row) => (row.readyBy ? [[row.name, row.readyBy] as const] : []))), [fullResolution]);
   const simpleShares = useMemo(() => {
     const result = new Map(shares);
     for (const name of ['LMD', 'EXP']) {
@@ -959,7 +1010,7 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
          after an import; it prices nothing, so it says so rather than reading
          as a fully covered plan. */
       if (!b) {
-        return { name, op, goals: 0, next: null, fromLabel, toLabel: null, covered: 0, blocked: 0, pending: false };
+        return { name, op, goals: 0, next: null, fromLabel, toLabel: null, covered: 0, blocked: 0, readyBy: null, pending: false };
       }
       /* Everything below is computed from `detail`, which arrives over the
          network. Without it the goal count silently loses the masteries and
@@ -979,6 +1030,9 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
       let wanted = 0;
       let missing = 0;
       let blocked = 0;
+      /* The last day any material of this bill that events cover will arrive. The page's one resolution
+         serves every plan together, so this is when the bill is covered if the plans are served in step. */
+      let readyBy = '';
       for (const item of bills[name] || []) {
         if (item.name === 'EXP' || item.name === 'LMD') continue;
         const qty = Math.ceil(Number(item.quantity) || 0);
@@ -987,6 +1041,8 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
         wanted += qty;
         missing += qty * ratio;
         if (ratio > 0) blocked += 1;
+        const due = readyByName.get(item.name);
+        if (due && due > readyBy) readyBy = due;
       }
 
       return {
@@ -998,6 +1054,7 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
         toLabel: targetLabel(b),
         covered: wanted > 0 ? Math.max(0, 1 - missing / wanted) : 1,
         blocked,
+        readyBy: readyBy || null,
         pending,
       };
     };
@@ -1008,7 +1065,7 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
        nothing renders. */
     const planned = selectedNames.map((n) => build(n)).filter(Boolean) as PlanRowView[];
     return { planned };
-  }, [selectedNames, roster, builderStates, detailCache, operatorByName, bills, shares]);
+  }, [selectedNames, roster, builderStates, detailCache, operatorByName, bills, shares, readyByName]);
   /* Everyone this page knows about: recorded, planned, or both. It used to be
      the plan panel's two lists added together, and that panel no longer renders
      the operators without goals -- the roster grid does -- so the number comes
@@ -1053,6 +1110,12 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
             depot={depot}
             crafting={crafting}
             onCraftingToggle={toggleCrafting}
+            buying={buying}
+            onBuyingToggle={toggleBuying}
+            farmingMethod={farmingMethod}
+            onFarmingMethod={changeFarmingMethod}
+            farming={farming}
+            claimedModes={claimedModes}
             onDepotChange={setDepotCount}
             showAll={showAllMaterials}
             onShowAll={setShowAllMaterials}
@@ -1781,6 +1844,12 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/pl
     'import-aliases': DATA_DIALOG_TABLES['import-aliases'],
     'item-sort-ids': async () => checkItemSortIds((await import('@/data/item-sort-ids.json')).default, await loadMaterialCatalogue()),
     'farming-tiers': async () => (await import('@/data/farming-tiers.json')).default,
+    // The sanity estimate under each card (scripts/build/build-material-sanity.mjs, Penguin Statistics).
+    'material-sanity': async () => (await import('@/data/material-sanity.json')).default,
+    // What the events up to a date give, for the Farming method (scripts/build/build-farming-events.ts).
+    'farming-events': async () => (await import('@/data/farming-events.json')).default,
+    // The permanent modes' unclaimed rewards, for the Farming method (scripts/build/build-permanent-rewards.mjs).
+    'permanent-rewards': async () => (await import('@/data/permanent-rewards.json')).default,
     // The depot's materials, their order and groups (scripts/build/build-material-catalogue.mjs).
     'material-catalogue': DATA_DIALOG_TABLES['material-catalogue'],
   },

@@ -20,7 +20,7 @@ and local planner data; it does not expose Arkpedia sign-in. The obsolete
 - [Design system](docs/development/design-system.md): the visual language and page patterns every UI change follows.
 - [Runtime content](docs/development/runtime-content.md): how game data reaches the site without a redeploy.
 - [Data pipelines](docs/development/data-pipelines.md) and [automation](docs/development/automation.md): the nightly refresh, asset syncs and CI.
-- [Data catalogue](data/README.md), [tooling guide](scripts/README.md), [documentation index](docs/README.md).
+- [Data catalogue](https://github.com/arkpedia/arkpedia-data/blob/main/docs/catalogue.md), [tooling guide](scripts/README.md), [documentation index](docs/README.md).
 
 ## How a change ships
 
@@ -52,6 +52,8 @@ That repository validates the push and moves its `live` pointer. Deployed pages 
 
 A new operator, event, banner, outfit or stage therefore needs no deployment. A new page, a changed calculation, or a changed content schema does. See [runtime content](docs/development/runtime-content.md).
 
+**This repository keeps code only.** `data/` and the `public/*.json` records are not committed: Check, every build and local dev pull them from the live release (`npm run data:pull`, `scripts/content/pull-data.mjs`). A feature that needs a new or changed record lands it in arkpedia-data first (its `editorial` branch, or a pull request there), and the code that reads it second.
+
 ## Account import
 
 The Account page signs a reader in to their Arknights (Global) account and reads it entirely in their browser. The browser speaks TLS to Yostar's servers itself, through the [arkpedia-relay](https://github.com/arkpedia/arkpedia-relay) WebSocket relay, which only forwards encrypted bytes. Its address is `config/relay.json`.
@@ -71,7 +73,7 @@ npm ci
 npm run dev
 ```
 
-Game images and voices load from the public Arkpedia asset repositories, so no media download is needed. No database is required; the retired survey's published results are static records.
+`npm run dev`, `npm run build` and `npm test` pull the game records from arkpedia-data's live release the first time (about 20 s). `npm run data:pull` refreshes them, and `npm run data:pull -- --ref <branch or commit>` reads other data, such as an `editorial` change before it is published. Game images and voices load from the public Arkpedia asset repositories, so no media download is needed. No database is required; the closed power-scale poll's results are a published record (`data/polls/`).
 
 ## Verify a change
 

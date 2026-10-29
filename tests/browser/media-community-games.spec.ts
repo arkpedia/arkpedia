@@ -129,11 +129,12 @@ test('GE-10/GM-04: the music widget never covers the last row, and stays off /mu
   await page.goto("/world/videos");
   const toggle = page.locator('[data-music-widget] .music-collapse-toggle');
   await expect(toggle).toBeVisible();
-  // To the very end: the list grows as it is read, so the bottom moves until every card is in.
+  // To the very end: the list grows as it is read, so the bottom moves until every card is in
+  // and the list stops listening for its end (how many there are is the data's business).
   await expect.poll(async () => {
     await page.evaluate(() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'instant' }));
-    return page.locator('.video-card').count();
-  }).toBe(34);
+    return page.locator('.load-on-scroll').count();
+  }).toBe(0);
   await page.evaluate(() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'instant' }));
   await page.waitForTimeout(400);
   const lastBottom = await page.locator('main').evaluate(el => el.lastElementChild!.getBoundingClientRect().bottom);
@@ -154,10 +155,15 @@ test('/community/videos grows as it is read, with no "Show more" button and no j
   await expect(page.getByRole('button', { name: /more/i })).toHaveCount(0);
   const first = await cards.nth(20).evaluate(el => el.getBoundingClientRect().top + window.scrollY);
   await cards.last().scrollIntoViewIfNeeded();
-  await expect(cards).toHaveCount(34);
+  // The next batch of up to 24. The count is the live data's (scripts/content/pull-data.mjs),
+  // which grows: it was 34 in all when the app kept its own copy.
+  await expect.poll(() => cards.count()).toBeGreaterThan(24);
+  const shown = await cards.count();
+  expect(shown).toBeLessThanOrEqual(48);
   // The next batch lands below what the reader has: nothing already shown moves.
   expect(await cards.nth(20).evaluate(el => el.getBoundingClientRect().top + window.scrollY)).toBe(first);
-  await expect(page.locator('.load-on-scroll')).toHaveCount(0);
+  // A list that ran out stops listening for the end.
+  if (shown < 48) await expect(page.locator('.load-on-scroll')).toHaveCount(0);
 });
 
 test('a scroll row is a named region that the keyboard scrolls, on the site\'s drawn scrollbar', async ({ page }) => {
@@ -187,8 +193,10 @@ test('a scroll row is a named region that the keyboard scrolls, on the site\'s d
 test('GM-07: nav triggers use the nav links voice', async ({ page }, info) => {
   test.skip(info.project.name !== 'desktop', 'the desktop nav bar');
   await page.goto('/support');
+  // Every bar entry is a menu now (Schedule became one, 2026-10-29): the voice is a menu's own links'.
   const trigger = page.locator('.site-nav-trigger').first();
-  const link = page.locator('.site-nav a').filter({ hasText: 'Schedule' }).first();
+  await trigger.click();
+  const link = page.locator('.site-nav-pop a').first();
   const style = (el: Element) => { const s = getComputedStyle(el); return { tt: s.textTransform, weight: s.fontWeight, family: s.fontFamily }; };
   const t = await trigger.evaluate(style);
   const l = await link.evaluate(style);

@@ -20,8 +20,10 @@ import type { Source } from './sources';
  * every card beside it.
  */
 export interface ShortfallHintTools {
-  /** A recipe the resolver walks (lib/planner/craft.ts). */
-  isCraftable: (name: string) => boolean;
+  /** A recipe the reader can declare a craft for (lib/planner/craft.ts isDeclarable): the walkable
+   *  ones and the Dualchip, which a card offers a Craft box for. Required, and not the narrower
+   *  isCraftable, so a recipe the card offers is never called one "the planner will not follow". */
+  isDeclarable: (name: string) => boolean;
   formulaFor: (name: string) => Pick<Formula, 'count' | 'costs'> | null;
   sourceFor: (name: string) => Pick<Source, 'kind'>;
 }
@@ -53,7 +55,7 @@ export function shortfallHint(
   const total = shortRows.length;
   if (!total) return `Only ${money ?? 'LMD'} left to cover — no material is short.`;
 
-  const craftable = shortRows.filter((r) => tools.isCraftable(r.name));
+  const craftable = shortRows.filter((r) => tools.isDeclarable(r.name));
   /* "Craftable but blocked one level down" is the case the expandable recipe exists for,
      so the panel counts it rather than asserting it: a short material with a walkable
      recipe, at least one of whose ingredients is also short. */

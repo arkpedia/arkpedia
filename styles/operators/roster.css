@@ -61,6 +61,7 @@
 /* The search takes the row's spare width; the faction menu a fixed share of it. */
 .roster-search { flex: 1 1 200px; min-width: 160px; width: auto; }
 .roster-faction { flex: 0 1 220px; min-width: 160px; }
+.roster-obtain { flex: 0 1 200px; min-width: 160px; }
 .roster-controls button { font-size: 12px; }
 /* On a phone the rows that held it at full width are in the Filters sheet
    (components/ui/FilterSheet): the toolbar takes the line itself. */
@@ -101,6 +102,10 @@
   flex-wrap: wrap;
 }
 .roster-release-tag {
+  margin-top: 2px;
+}
+/* Where an operator comes from, under a Limited or Welfare pick of the Obtain filter. */
+.roster-obtain-note {
   margin-top: 2px;
 }
 .roster-release-days {

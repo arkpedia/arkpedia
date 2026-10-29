@@ -41,7 +41,8 @@ test('the cycle is a checked release table of the home page, and no date is type
   assert.deepEqual(pageTables('/'), ['sss-cycle', 'regional-schedules']);
   const code = fs.readFileSync('lib/schedule/opsSchedules.ts', 'utf8');
   assert.doesNotMatch(code, /SSS_FIRST_END|SSS_CYCLE_MS|\b20\d\d, month:/);
-  assert.match(fs.readFileSync('scripts/content/hydrate-source.mjs', 'utf8'), /'data\/sss-cycle\.json'/);
+  // A record in arkpedia-data, edited there and pulled here (scripts/content/pull-data.mjs).
+  assert.ok(fs.existsSync('data/sss-cycle.json'), 'data/sss-cycle.json was not pulled');
   // The home page hands it to the ticker as a required prop; the ticker uses nothing else.
   assert.match(fs.readFileSync('pages/index.tsx', 'utf8'), /<AnnouncementTicker sssCycle=\{sssCycle\} maintenance=\{maintenance\} \/>/);
   const ticker = fs.readFileSync('components/layout/AnnouncementTicker.tsx', 'utf8');

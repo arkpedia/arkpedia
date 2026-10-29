@@ -114,8 +114,8 @@ test('the checked-in catalogue and names are well formed, and the release job bu
   // After the records settle (the English refresh renames costs), before the gate reads it.
   assert.ok(at('stage operator-english') < at('stage material-catalogue --') && at('stage material-catalogue --') < at('stage import-aliases --needs material-catalogue --output data/material-catalogue.json'));
   assert.ok(at('stage import-aliases') < at('stage completeness'));
-  const hydrate = fs.readFileSync('scripts/content/hydrate-source.mjs', 'utf8');
-  for (const file of ['data/material-catalogue.json', 'data/material-names.json']) assert.match(hydrate, new RegExp(`'${file}'`));
+  // Both are records in arkpedia-data, pulled with the rest (scripts/content/pull-data.mjs).
+  for (const file of ['data/material-catalogue.json', 'data/material-names.json']) assert.ok(fs.existsSync(file), `${file} was not pulled`);
 });
 
 test('a page from a release older than materialOrder gets it from the deployment, never crashes', async () => {

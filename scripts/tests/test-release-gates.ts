@@ -145,9 +145,10 @@ test('no source file imports a docs-only file', () => {
 
 test('the build publishes which code it is, before anything else runs, and never as a release record', () => {
   const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-  assert.match(pkg.scripts.prebuild, /^node scripts\/build\/write-build-info\.mjs && /, 'the first step of prebuild, before a builder touches the tree');
-  // export.mjs publishes every untracked, unignored public/*.json as a source record, which
-  // would make every deploy a new release id.
+  assert.match(pkg.scripts.prebuild, /^node scripts\/content\/pull-data\.mjs --if-missing && node scripts\/build\/write-build-info\.mjs && /,
+    'the first build step of prebuild, right after the records are pulled (into ignored files) and before a builder touches the tree');
+  // Never a release record: export.mjs publishes only the records scripts/content/records.mjs
+  // lists, and a committed or unignored build-info.json would make every deploy dirty.
   assert.equal(spawnSync('git', ['check-ignore', '-q', 'public/build-info.json']).status, 0, 'public/build-info.json is gitignored');
   assert.equal(CONTENT_SCHEMA, SCHEMA, 'lib/content/types.ts and scripts/content/release-input.mjs name the same schema');
   const repo = tempRepo();
@@ -163,7 +164,7 @@ test('the build publishes which code it is, before anything else runs, and never
     fs.writeFileSync(path.join(repo.dir, '.gitignore'), 'public/build-info.json\n');
     repo.commit('ignore it');
     const clean = write();
-    assert.deepEqual({ ...clean.info, builtAt: 'x' }, { version: 1, commit: repo.git('rev-parse', 'HEAD'), codeFingerprint: repo.fingerprint(), contentSchema: SCHEMA, contentChannel: 'live', deploymentRole: 'production', dirty: false, builtAt: 'x' });
+    assert.deepEqual({ ...clean.info, builtAt: 'x' }, { version: 1, commit: repo.git('rev-parse', 'HEAD'), codeFingerprint: repo.fingerprint(), contentSchema: SCHEMA, contentChannel: 'live', dataRevision: null, deploymentRole: 'production', dirty: false, builtAt: 'x' });
     assert.notEqual(clean.info.commit, commit);
     // A docs edit leaves the build clean; a code edit makes it a build of no commit.
     repo.write('README.md', 'wip\n');

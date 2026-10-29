@@ -173,7 +173,7 @@ test('release URLs cover artwork sizes and lazy game data without redirecting ap
 
 test('new crafting recipes are isolated to their content release', () => {
   const tools = createCraftTools({ 'New material': { type: 'F_EVOLVE', room: 'WORKSHOP', count: 1, lmd: 0, costs: [{ name: 'Orirock', count: 2 }], byproducts: [], byproductRate: 0, alternatives: [] } }, [], ['EXP', 'New material', 'Orirock']);
-  const result = tools.resolveNeeds([{ name: 'New material', quantity: 1 }], { Orirock: 2 }, { autoCraft: true });
+  const result = tools.resolveNeeds([{ name: 'New material', quantity: 1 }], { Orirock: 2 }, { incoming: null, autoCraft: true });
   assert.equal(result.rows.find(row => row.name === 'New material')?.short, 0);
   assert.ok(tools.formulaFor('New material'));
   assert.equal(createCraftTools({}, [], ['EXP']).formulaFor('New material'), null);

@@ -10,6 +10,10 @@ import { shortfallHint } from '@/lib/planner/shortfallHint';
 import { MaterialIcon } from './MaterialIcon';
 import { useHeightFloor } from '@/components/ui/useHeightFloor';
 import SegmentedControl from '@/components/ui/SegmentedControl';
+import FarmingMethodMenu from './FarmingMethod';
+import SanityAmount from './SanityAmount';
+import type { FarmingIncoming, FarmingMethod } from '@/lib/planner/farmingMethod';
+import { FARMING_STRINGS } from '@/lib/planner/farmingStrings';
 
 /**
  * What to get next.
@@ -110,7 +114,7 @@ function RecipeTree({
   depth?: number;
 }) {
   const [openIngredient, setOpenIngredient] = useState<string | null>(null);
-  const { formulaFor, isCraftable, sourceFor } = usePlannerContent();
+  const { formulaFor, isDeclarable, sourceFor } = usePlannerContent();
   const recipe = formulaFor(name);
   if (!recipe) return null;
 
@@ -134,7 +138,7 @@ function RecipeTree({
      three Caster Chips make a Sniper Chip, because those are class trades and
      not a ladder -- so "craft your Caster Chips" would send a reader round in
      a circle. */
-  const offerable = shortRows.filter((r) => isCraftable(r.name) && !crafting.has(r.name));
+  const offerable = shortRows.filter((r) => isDeclarable(r.name) && !crafting.has(r.name));
 
   return (
     <div className="recipe">
@@ -148,7 +152,7 @@ function RecipeTree({
               Vanguard Chips and three Vanguard Chips become two of something
               else -- a cycle, which is why the resolver will not walk it and
               why this says so instead of offering to. */}
-          {!isCraftable(name)
+          {!isDeclarable(name)
             ? recipe.type === 'F_ASC'
               ? 'A class trade rather than a tier step -- a cycle, so the planner will not follow it for you.'
               : 'A real recipe, but its ingredients lead into the chip trades, so the planner will not follow it for you.'
@@ -160,7 +164,7 @@ function RecipeTree({
 
       <div className="recipe-rows">
         {rows.map((r) => {
-          const craftable = isCraftable(r.name);
+          const craftable = isDeclarable(r.name);
           const open = openIngredient === r.name;
           return (
             <div key={r.name}>
@@ -235,30 +239,44 @@ function RecipeTree({
   );
 }
 
+/** The store price a source carries, if it has one. */
+const storePriceOf = (source: Source) => source.buy;
+
 /** One material: what the plan wants, what is covered, and what to do about it. */
 function NeedCard({
   row,
   depot,
   crafting,
+  buying,
   open,
   onOpen,
   onCraftingToggle,
+  onBuyingToggle,
 }: {
   row: NeedRow;
   depot: Depot;
   crafting: ReadonlySet<string>;
+  buying: ReadonlySet<string>;
   open: boolean;
   onOpen: () => void;
   onCraftingToggle: (name: string) => void;
+  onBuyingToggle: (name: string) => void;
 }) {
-  const { formulaFor, isCraftable, sourceFor } = usePlannerContent();
+  const { formulaFor, isDeclarable, sourceFor, unitSanity } = usePlannerContent();
   const recipe = formulaFor(row.name);
+  const sanityEach = unitSanity(row.name);
   const declared = crafting.has(row.name);
   /* Being crafted, the material is no longer something to get: the count is how many the
      bench will make, and its ingredients are in the list as rows of their own. Its tally is
      what you hold of it, not what the craft will cover. */
   const crafted = declared && row.coverage === 'crafting';
-  const covered = crafted ? row.fromDepot : row.need - row.short;
+  /* Bought, the same way: the certificates it costs are a card of their own, and what it
+     counts here is what you hold. Offered only where the store sells it for a known price. */
+  const bought = row.coverage === 'buying';
+  /* Covered by what events and shops will give: not in the depot yet, and said so. */
+  const incomingCovered = row.coverage === 'incoming';
+  const storePrice = storePriceOf(sourceFor(row.name));
+  const covered = crafted || bought ? row.fromDepot : row.need - row.short;
   const pct = row.need > 0 ? Math.round((covered / row.need) * 100) : 100;
   const source = sourceFor(row.name);
   const head = (
@@ -269,16 +287,17 @@ function NeedCard({
         <i>{SOURCE_LABELS[source.kind].tag}</i>
       </span>
       <span className="need-card-count">
-        <b>{(row.short > 0 ? row.short : crafted ? row.fromCrafting : covered).toLocaleString()}</b>
+        <b>{(row.short > 0 ? row.short : crafted ? row.fromCrafting : bought ? row.fromBuying ?? 0 : incomingCovered ? row.fromIncoming ?? 0 : covered).toLocaleString()}</b>
         {/* The word, not just the colour: a bare number in amber is one
             carrier doing the whole job. */}
-        <i>{row.short > 0 ? 'short' : crafted ? 'to craft' : 'have'}</i>
+        <i>{row.short > 0 ? 'short' : crafted ? 'to craft' : bought ? 'to buy' : incomingCovered ? FARMING_STRINGS.toCollect : 'have'}</i>
       </span>
     </>
   );
   /* What the count is FOR, wherever that is not simply "the upgrades": a material a craft
      draws on says how much goes to which craft, and how much the upgrades ask for besides. */
   const crafts = Object.entries(row.forCrafts ?? {});
+  const buys = Object.entries(row.forBuys ?? {});
 
   return (
     <div className={`need-card${open ? ' open' : ''}${row.short === 0 ? ' met' : ''}`}>
@@ -294,17 +313,32 @@ function NeedCard({
         <span className="need-card-tally">{covered.toLocaleString()}/{row.need.toLocaleString()}</span>
       </div>
 
-      {(crafts.length > 0 || crafted) && (
+      {(crafts.length > 0 || buys.length > 0 || crafted || bought || (row.fromIncoming ?? 0) > 0) && (
         <ul className="need-card-for">
+          {(row.fromIncoming ?? 0) > 0 && (
+            <li className="is-craft">
+              {FARMING_STRINGS.fromEvents((row.fromIncoming ?? 0) - (row.fromUnlimited ?? 0))}
+              {(row.fromUnlimited ?? 0) > 0 && `, ${FARMING_STRINGS.fromUnlimited(row.fromUnlimited ?? 0)}`}
+              {row.readyBy && <> <b>{FARMING_STRINGS.by(row.readyBy)}</b></>}
+            </li>
+          )}
+          {bought && <li className="is-craft">Buying {(row.fromBuying ?? 0).toLocaleString()}: the {storePrice?.currency ?? 'certificate'}s it costs are listed as their own card</li>}
           {crafted && <li className="is-craft">Crafting {row.fromCrafting.toLocaleString()}: its ingredients are listed as their own cards</li>}
-          {crafts.length > 0 && row.direct > 0 && <li><b>{row.direct.toLocaleString()}</b> for upgrades</li>}
+          {(crafts.length > 0 || buys.length > 0) && row.direct > 0 && <li><b>{row.direct.toLocaleString()}</b> for upgrades</li>}
           {crafts.map(([product, count]) => <li key={product} className="is-craft"><b>{count.toLocaleString()}</b> for crafting {product}</li>)}
+          {buys.map(([product, count]) => <li key={product} className="is-craft"><b>{count.toLocaleString()}</b> for buying {product}</li>)}
         </ul>
       )}
 
       <div className="need-card-tags">
         {sourceTags(row.name, row.short, sourceFor).map((t) => <em key={t.text}>{t.text}</em>)}
-        {recipe && isCraftable(row.name) ? (
+        {row.short > 0 && sanityEach && (
+          /* An estimate, and said so in the title as well as the tilde. */
+          <em className="need-card-sanity" title={`About ${sanityEach.sanity.toLocaleString()} sanity each, ${sanityEach.via === 'farm' ? `farmed on ${sanityEach.stage}` : sanityEach.via === 'convert' ? 'converted from another class\'s chips' : 'crafted from cheaper materials'}: an estimate from Penguin Statistics`}>
+            &asymp;<SanityAmount amount={Math.round(sanityEach.sanity * row.short)} />
+          </em>
+        )}
+        {recipe && isDeclarable(row.name) ? (
           /* Whether to craft this one is on or off, so it is a checkbox (ui-primitives
              rule 3): it was a button drawing its own tick box, in a --line border
              beside the stage codes. Named for its material, since every card has one. */
@@ -317,7 +351,20 @@ function NeedCard({
             <input type="checkbox" checked={declared} aria-label={`Craft ${row.name}`} onChange={() => onCraftingToggle(row.name)} />
             Craft
           </label>
-        ) : recipe ? (
+        ) : null}
+        {storePrice?.price !== undefined && (
+          /* The Craft box's twin: a certificate-store purchase, its price in the title. */
+          <label
+            className="check need-card-craft"
+            title={bought
+              ? `Stop buying ${row.name}: it is asked for directly again`
+              : `Buy ${row.name} at the store for ${storePrice.price} ${storePrice.currency}s each: the certificates are added to the list`}
+          >
+            <input type="checkbox" checked={buying.has(row.name)} aria-label={`Buy ${row.name}`} onChange={() => onBuyingToggle(row.name)} />
+            Buy
+          </label>
+        )}
+        {!(recipe && isDeclarable(row.name)) && recipe ? (
           /* A formula exists but the resolver will not walk it, and the two
              reasons are different things: F_ASC is a cycle of class swaps --
              three Supporter Chips for two Vanguard Chips and back again -- which
@@ -382,6 +429,12 @@ export function ShortfallList({
   depot,
   crafting,
   onCraftingToggle,
+  buying,
+  onBuyingToggle,
+  farmingMethod,
+  onFarmingMethod,
+  farming,
+  claimedModes,
   onDepotChange,
   showAll,
   onShowAll,
@@ -394,6 +447,15 @@ export function ShortfallList({
   depot: Depot;
   crafting: ReadonlySet<string>;
   onCraftingToggle: (name: string) => void;
+  /** The materials the reader will buy at the certificate store (lib/planner/buying.ts). */
+  buying: ReadonlySet<string>;
+  onBuyingToggle: (name: string) => void;
+  /** The Farming method and what it counts now (null while it is off). */
+  farmingMethod: FarmingMethod;
+  onFarmingMethod: (next: FarmingMethod) => void;
+  farming: FarmingIncoming | null;
+  /** The permanent modes the imported account has claim records for. */
+  claimedModes: ReadonlySet<string>;
   /** Sets how many of a material the depot holds (the open recipe's steppers). */
   onDepotChange: (name: string, next: number) => void;
   /** Whether the covered materials are shown alongside the short ones. */
@@ -417,12 +479,12 @@ export function ShortfallList({
   /* Missing shows what is short and what the reader set to craft: a crafted material is no
      longer short (its ingredients carry the shortfall), and dropping its card would take its
      Craft box away from the one view the reader ticked it in. */
-  const missingRows = useMemo(() => rows.filter((r) => r.short > 0 || r.coverage === 'crafting'), [rows]);
+  const missingRows = useMemo(() => rows.filter((r) => r.short > 0 || r.coverage === 'crafting' || r.coverage === 'buying' || r.coverage === 'incoming'), [rows]);
   const shown = showAll ? rows : missingRows;
 
   /* EXP is not held, records are: priced at the values in item_table.expItems,
      which is the same table the greedy split spends. */
-  const { BATTLE_RECORDS, expToBattleRecords, stagesToRun, isCraftable, formulaFor, sourceFor } = usePlannerContent();
+  const { BATTLE_RECORDS, expToBattleRecords, stagesToRun, isDeclarable, formulaFor, sourceFor, sanityFor, sanityTable } = usePlannerContent();
   const money = useMemo(() => {
     const heldExp = BATTLE_RECORDS.reduce((n, r) => n + (depot[r.name] || 0) * r.exp, 0);
     return { heldExp, heldLmd: depot.LMD || 0, expShort: Math.max(0, exp - heldExp) };
@@ -431,11 +493,12 @@ export function ShortfallList({
   const lmdShort = Math.max(0, lmd - money.heldLmd);
 
   const run = useMemo(() => stagesToRun(shortRows.map((r) => r.name)), [shortRows, stagesToRun]);
+  const sanity = useMemo(() => sanityFor(shortRows), [shortRows, sanityFor]);
 
   const moneyShort = (money.expShort > 0 ? 1 : 0) + (lmdShort > 0 ? 1 : 0);
   const moneyWords = moneyShort === 2 ? 'LMD and EXP' : money.expShort > 0 ? 'EXP' : lmdShort > 0 ? 'LMD' : null;
   /* The sentence under the cards, derived from them (lib/planner/shortfallHint.ts). */
-  const footHint = shortfallHint(shortRows, depot, moneyWords, { isCraftable, formulaFor, sourceFor });
+  const footHint = shortfallHint(shortRows, depot, moneyWords, { isDeclarable, formulaFor, sourceFor });
 
   return (
     <>
@@ -457,6 +520,7 @@ export function ShortfallList({
           </span>
         </span>
         <span className="plan-panel-acts planner-need-acts">
+          <FarmingMethodMenu method={farmingMethod} onChange={onFarmingMethod} farming={farming} claimedModes={claimedModes} />
           {/* Two views of one answer (2026-10-03): what is still missing, and everything the plan
               asks for. The list counts raw materials only; the Workshop enters it one material
               at a time, through that material's Craft, which adds what it is made of. */}
@@ -473,6 +537,17 @@ export function ShortfallList({
       </div>
 
       <div className="plan-panel-body" ref={floor.ref}>
+        {/* What is being counted that the depot does not hold, so a short list is never mistaken for a full one. */}
+        {farming && farming.until !== null && farming.events.length > 0 && (
+          <p className="hint plan-hint planner-farming-note">
+            {FARMING_STRINGS.counting(farming.events.reduce((n, event) => n + event.materials, 0), farming.events.length, new Date(farming.until - 1).toISOString().slice(0, 10))}
+          </p>
+        )}
+        {farming && farming.permanent.some((mode) => mode.materials > 0) && (
+          <p className="hint plan-hint planner-farming-note">
+            {FARMING_STRINGS.countingPermanent(farming.permanent.filter((mode) => mode.materials > 0).map((mode) => mode.label).join(', '), farming.permanent.reduce((n, mode) => n + mode.materials, 0))}
+          </p>
+        )}
         {!rows.length && !exp && !lmd ? (
           <p className="hint plan-hint">
             {loading
@@ -498,9 +573,11 @@ export function ShortfallList({
                 row={row}
                 depot={depot}
                 crafting={crafting}
+                buying={buying}
                 open={openName === row.name}
                 onOpen={() => setOpenName(openName === row.name ? null : row.name)}
                 onCraftingToggle={onCraftingToggle}
+                onBuyingToggle={onBuyingToggle}
               />
             ))}
           </div>
@@ -556,6 +633,27 @@ export function ShortfallList({
               >
                 {routeOpen ? 'Hide farming route' : 'Farming route'}
               </button>
+            )}
+          </div>
+        )}
+        {/* An estimate of the materials only: LMD and EXP are not counted, and a material with no
+            estimate (a Dualchip, a Chip Catalyst, the store's certificates) is named, so the number is
+            never a quiet undercount. */}
+        {sanity.byMaterial.size > 0 && (shortRows.length > 0 || moneyShort > 0) && (
+          <div className="planner-sanity-strip">
+            <span className="planner-sanity-figure">
+              <SanityAmount amount={sanity.total} size="large" />
+              <span className="planner-sanity-lead">{FARMING_STRINGS.sanityLead}</span>
+            </span>
+            <span className="hint planner-sanity-source">
+              <i className="planner-sanity-tag" title={FARMING_STRINGS.sanityScope}>{FARMING_STRINGS.sanityEstimate}</i>
+              <span>{FARMING_STRINGS.sanityFrom} <a href={sanityTable.source.url} target="_blank" rel="noreferrer">{sanityTable.source.name}</a></span>
+            </span>
+            {sanity.uncounted.length > 0 && (
+              <span className="planner-sanity-uncounted">
+                <span>{FARMING_STRINGS.sanityUncounted}</span>
+                {sanity.uncounted.map((name) => <em key={name}>{name}</em>)}
+              </span>
             )}
           </div>
         )}

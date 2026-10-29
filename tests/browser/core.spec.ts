@@ -168,7 +168,14 @@ test('an outfit voice set switches the lines and the clip folder, keeping the re
   await expect(voice.getByRole('searchbox', { name: 'Search voice lines' })).toBeVisible();
   await expect(voice.locator('ol > li')).toHaveCount(38);
   await page.waitForLoadState('networkidle');
-  await page.evaluate(`(() => { const s = ${voiceScroller}; s.scrollTop = s.scrollHeight; })()`);
+  // The end of the line list, not of the scroller: on a phone the document scrolls, and the
+  // sections after the voice lines (Guides, when the operator has guides) come below it.
+  await page.evaluate(`(() => {
+    const s = ${voiceScroller};
+    const list = document.querySelector('#operator-voiceLines ol').getBoundingClientRect();
+    const top = s === document.scrollingElement ? 0 : s.getBoundingClientRect().top;
+    s.scrollTop += list.bottom - top - s.clientHeight;
+  })()`);
   await page.waitForTimeout(300);
 
   const trigger = voice.getByRole('combobox', { name: 'Voice language' });

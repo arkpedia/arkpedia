@@ -13,6 +13,7 @@ import { declaredStages, STAGE_DEFINITIONS } from '../content/run-stage.mjs';
 // @ts-expect-error Node publication scripts are plain JavaScript.
 import { contentInput } from '../content/release-input.mjs';
 import { commandScripts, refreshScripts, refreshStages } from './fixtures/refresh-stages';
+import { recordFiles } from '../content/records.mjs';
 
 const runner = path.resolve('scripts/content/run-stage.mjs');
 /* A scratch tree with a little of data/ and public/, where every case runs the stage runner
@@ -282,14 +283,11 @@ test('every stage that did not run to the end keeps a dated quarantine entry unt
 
 test('a stage that keeps failing publishes the same source every day, however each day fails; the stage report keeps how', () => {
   withTree(tree => {
-    // What the release would publish of this tree: export.mjs lists data/ and public/ through
-    // git, which leaves out what .gitignore names (the stage report), and hashes the rest into
+    // What the release would publish of this tree: export.mjs lists the records on disk
+    // (scripts/content/records.mjs), which leaves out the stage report, and hashes them into
     // the content id the publish step compares.
-    fs.copyFileSync('.gitignore', path.join(tree.root, '.gitignore'));
-    assert.equal(spawnSync('git', ['init', '-q'], { cwd: tree.root }).status, 0);
     const published = () => {
-      const listed = spawnSync('git', ['ls-files', '--cached', '--others', '--exclude-standard', '-z', 'data', 'public'], { cwd: tree.root, encoding: 'utf8' });
-      const files = listed.stdout.split('\0').filter(Boolean).sort();
+      const files = recordFiles(tree.root);
       return { files, content: contentInput({ sourceHashes: Object.fromEntries(files.map(file =>
         [file, createHash('sha256').update(fs.readFileSync(path.join(tree.root, file))).digest('hex')])), pages: {}, files: {} }) };
     };

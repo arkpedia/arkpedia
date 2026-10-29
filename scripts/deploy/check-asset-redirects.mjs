@@ -15,8 +15,8 @@
  * deployment that still lags into a red Deploy.
  *
  * For the image and the skin repository alike: a file the live release's commit has and the
- * committed pin (git show HEAD:data/assets/revisions.json -- the working tree's copy is the
- * adopted one) lacks or holds other bytes of, in a folder the site redirects
+ * pulled pin (the live release's data/assets/revisions.json as scripts/content/pull-data.mjs
+ * fetched it -- the working tree's copy is the adopted one) lacks or holds other bytes of, in a folder the site redirects
  * (config/asset-folders.json). When the two commits list the same files, any file of the live
  * commit stands in. Each deployment in config/production.json (or ARKPEDIA_DEPLOYMENTS) is
  * asked for it with a HEAD that follows the redirect, and must answer 200; a fresh path cannot
@@ -37,11 +37,11 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { execFileSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { deploymentUrls } from '../content/deploy-gate.mjs';
 import { REVISIONS, contentOrigin, githubCompare, readLiveAssetPins } from '../build/adopt-release-asset-pins.mjs';
 import { contentPointer } from '../content/channel.mjs';
+import { pulledPath } from '../content/pull-data.mjs';
 import { fetchAsset } from '../../lib/assets/githubRetry.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -114,7 +114,7 @@ async function probeTarget({ fetch, compare, repository, live, baked, committed 
 }
 
 export async function checkAssetRedirects({
-  fetch = globalThis.fetch, env = process.env, committed = JSON.parse(execFileSync('git', ['show', `HEAD:${REVISIONS}`], { cwd: root, encoding: 'utf8' })),
+  fetch = globalThis.fetch, env = process.env, committed = JSON.parse(fs.readFileSync(pulledPath(REVISIONS, root), 'utf8')),
   baked = JSON.parse(fs.readFileSync(path.join(root, REVISIONS), 'utf8')), compare = githubCompare({ fetch, token: env.GITHUB_TOKEN || env.GH_TOKEN }),
   deployments = deploymentUrls(env), attempts = 4, retryMs = Number(env.ARKPEDIA_ASSET_CHECK_RETRY_MS ?? 15_000), log = console.log,
 } = {}) {
@@ -164,8 +164,8 @@ export async function main() {
 }
 
 export const FIX = 'Art the release names is missing on pages that link it root-relatively. Redeploy (Deploy, Run workflow): scripts/build/adopt-release-asset-pins.mjs, in prebuild, '
-  + 'builds with the live release\'s newer pins unless it cannot order them, and its warning in the Build step says why. If it still cannot, bring the committed pins up to the '
-  + 'release\'s with `node scripts/content/sync-bundled-data.mjs <arkpedia-data checkout> data/assets` and merge that.';
+  + 'builds with the live release\'s newer pins unless it cannot order them, and its warning in the Build step says why. If it still cannot, deploy again once the live release '
+  + 'names those pins: every build takes data/assets from the live release (`npm run data:pull`, scripts/content/pull-data.mjs).';
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main().then(code => { process.exitCode = code; }, error => { console.error(error); process.exitCode = 2; });

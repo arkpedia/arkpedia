@@ -134,6 +134,47 @@ test('an account becomes the roster and depot the game holds, in place of the pl
   assert.deepEqual(result.unknown, ['char_9999_brandnew']);
   // Every depot material at the game's count, none held being 0; LMD is the account's gold.
   assert.deepEqual(result.depot, { LMD: 1234567, 'Orirock Cube': 50, 'Orirock Cluster': 0, Orirock: 0 });
-  assert.match(describeTransfer({ depot: result.depot, roster: result.roster, goals: null, crafting: null, shape: 'game', unheld: result.unknown }),
+  assert.match(describeTransfer({ depot: result.depot, roster: result.roster, goals: null, crafting: null, buying: null, shape: 'game', unheld: result.unknown }),
     /^Read your game account: 3 operators into your roster and 2 materials you hold into your depot, in place of what they held\. Your goals are as they were\. Skipped 1 entry .*char_9999_brandnew/);
+});
+
+/*
+ * The skill in the Training Room is counted as its next mastery: Surtr-style, M2 in training to M3
+ * is M3 in the roster. The room's trainee is { charInstId, targetSkill, state }, state 1 in
+ * progress, 2 finished and not collected, 3 idle (the Krooster import reads it the same way).
+ */
+test('the skill in the Training Room counts as its next mastery', () => {
+  const fiammetta = { charId: 'char_300_phenxi', evolvePhase: 2, level: 60, mainSkillLvl: 7, skills: [{ specializeLevel: 0 }, { specializeLevel: 2 }] };
+  const account = (trainee: Record<string, number> | null, chars: Record<string, unknown> = { 1: fiammetta }) => ({
+    troop: { chars },
+    building: { rooms: { TRAINING: { slot_13: trainee ? { trainee } : {} } } },
+  });
+  const roster = (user: Record<string, unknown>) => readGameAccount(user, MAP, ALIASES, DEPOT);
+
+  // In progress on the second skill, which she holds at 2: counted as 3.
+  const training = roster(account({ charInstId: 1, targetSkill: 1, state: 1 }));
+  assert.deepEqual(training.roster.Fiammetta.masteries, { 1: 3 });
+  assert.deepEqual(training.training, { operator: 'Fiammetta', skill: 1, mastery: 3 });
+  // Finished and not collected is the same: the game has not applied it yet.
+  assert.deepEqual(roster(account({ charInstId: 1, targetSkill: 1, state: 2 })).roster.Fiammetta.masteries, { 1: 3 });
+  // A first mastery counts as well, beside the one already held.
+  assert.deepEqual(roster(account({ charInstId: 1, targetSkill: 0, state: 1 })).roster.Fiammetta.masteries, { 0: 1, 1: 2 });
+  // Idle, no trainee, a stale target and a skill already at 3 change nothing.
+  for (const trainee of [{ charInstId: 1, targetSkill: 1, state: 3 }, { charInstId: -1, targetSkill: -1, state: 0 }, { charInstId: 1, targetSkill: -1, state: 1 }]) {
+    const none = roster(account(trainee));
+    assert.deepEqual(none.roster.Fiammetta.masteries, { 1: 2 });
+    assert.equal(none.training, undefined);
+  }
+  const done = roster(account({ charInstId: 1, targetSkill: 1, state: 1 }, { 1: { ...fiammetta, skills: [{ specializeLevel: 0 }, { specializeLevel: 3 }] } }));
+  assert.deepEqual(done.roster.Fiammetta.masteries, { 1: 3 });
+  assert.equal(done.training, undefined);
+  // A save with no building at all, or no training room, imports as it did.
+  assert.equal(roster({ troop: { chars: { 1: fiammetta } } }).training, undefined);
+  assert.equal(roster({ troop: { chars: { 1: fiammetta } }, building: { rooms: {} } }).training, undefined);
+  // Amiya trains the skills of the form she is in.
+  const amiya = { charId: 'char_002_amiya', evolvePhase: 2, level: 80, mainSkillLvl: 7, currentTmpl: 'char_1001_amiya2',
+    tmpl: { char_002_amiya: { skills: [{ specializeLevel: 3 }] }, char_1001_amiya2: { skills: [{ specializeLevel: 1 }] } } };
+  const guard = roster(account({ charInstId: 2, targetSkill: 0, state: 1 }, { 2: amiya }));
+  assert.deepEqual(guard.roster['Amiya (Guard)'].masteries, { 0: 2 });
+  assert.deepEqual(guard.roster.Amiya.masteries, { 0: 3 }, 'the other form is as the game holds it');
 });

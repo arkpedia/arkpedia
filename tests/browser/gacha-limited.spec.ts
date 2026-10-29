@@ -32,8 +32,10 @@ test('datamined current pools and Orienteering forecasts keep distinct labels', 
   await expect(page.locator('.gacha-main-col')).toContainText('Datamined Global · 2026/10/23–2026/11/06');
   await expect(page.locator('.gacha-main-col')).toContainText('Ines');
   await expect(page.locator('.gacha-main-col')).toContainText('Zuo Le');
-  await page.goto("/gacha-simulator?banner=" + encodeURIComponent('Orienteering #7'));
+  // A pending Orienteering in the pinned data (tests/browser/data-pin.json): its Global date is
+  // never labelled datamined, and its lineup awaits confirmation.
+  await page.goto("/gacha-simulator?banner=" + encodeURIComponent('Orienteering #8'));
   await expect(page.getByText('Awaiting Global lineup confirmation.', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Pull one operator', exact: true })).toBeDisabled();
-  await expect(page.locator('.gacha-banner-sidebar-item[aria-pressed="true"]')).toContainText('Global date unannounced');
+  await expect(page.locator('.gacha-main-col')).not.toContainText('Datamined');
 });

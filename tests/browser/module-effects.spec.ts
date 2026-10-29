@@ -8,13 +8,13 @@ test('module stages keep the trait and only the latest talent upgrade', async ({
   const detail = section.locator('.op-module-stage-detail');
   await section.getByRole('button', { name: 'Module stage 2', exact: true }).click();
   await expect(detail).toContainText('Elemental Injury dealt to Elite and Leader enemies increases by 18%');
-  await expect(detail).toContainText('Maximum 3 stacks');
+  await expect(detail).toContainText('stacks up to 3 times');
   await section.getByRole('button', { name: 'Module stage 3', exact: true }).click();
   await expect(detail).toContainText('Elemental Injury dealt to Elite and Leader enemies increases by 18%');
-  await expect(detail).toContainText('Maximum 4 stacks');
-  await expect(detail).not.toContainText('Maximum 3 stacks');
+  await expect(detail).toContainText('stacks up to 4 times');
+  await expect(detail).not.toContainText('stacks up to 3 times');
   await section.getByRole('button', { name: 'Module stage 1', exact: true }).click();
-  await expect(detail).not.toContainText('Maximum 4 stacks');
+  await expect(detail).not.toContainText('stacks up to 4 times');
 
   await page.goto('/operators/Angelina#modules');
   await section.getByRole('button', { name: 'ISW-α', exact: true }).click();

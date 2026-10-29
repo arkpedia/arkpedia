@@ -185,8 +185,8 @@ const PLACES: Place[] = [
     gone: async (page) => { await expect(page.locator('.gacha-pull-preview-header')).toHaveCount(0); },
   },
   {
-    id: '/schedule event drawer', route: '/schedule',
-    open: async (page) => { await page.getByRole('tab', { name: 'Calendar', exact: true }).click(); await page.locator('.schedule-bar').first().click(); await expect(page.locator('.schedule-fullscreen-panel.open')).toBeVisible(); },
+    id: '/schedule event drawer', route: '/schedule?view=calendar',
+    open: async (page) => { await page.locator('.schedule-bar').first().click(); await expect(page.locator('.schedule-fullscreen-panel.open')).toBeVisible(); },
     x: (page) => page.locator('.schedule-fullscreen-panel.open').getByRole('button', { name: 'Close', exact: true }),
     gone: async (page) => { await expect(page.locator('.schedule-fullscreen-panel.open')).toHaveCount(0); },
   },

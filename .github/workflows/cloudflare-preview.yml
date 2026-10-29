@@ -33,6 +33,10 @@ jobs:
         with:
           node-version: '24'
       - run: npm ci
+      # Game records live in arkpedia-data; this repository keeps code only. The live release's
+      # records, the ones www serves (scripts/content/pull-data.mjs).
+      - name: Pull the live game records
+        run: node scripts/content/pull-data.mjs
       - name: Check Preview isolation and internal self-calls
         run: node --test scripts/tests/test-native-preview.mjs
       - name: Build Preview without deployment credentials

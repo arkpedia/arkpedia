@@ -5,6 +5,7 @@
  * also knows which operators exist. Materials and crafting are kept to the depot's own
  * vocabulary here too; the rest of what /planner drops, it drops on load.
  */
+import { writeBuying } from './buying';
 import { writeCrafting } from './crafting';
 import { writeDepot, type Depot } from './depot';
 import { unheldSummary } from './foreignImport';
@@ -29,6 +30,11 @@ export function storePlannerTransfer(parsed: ParsedTransfer, depotNames: readonl
     const kept = parsed.crafting.filter((name) => catalogue.has(name) || (skipped.push(name), false));
     parsed = { ...parsed, crafting: kept };
     writeCrafting(new Set(kept));
+  }
+  if (parsed.buying) {
+    const kept = parsed.buying.filter((name) => catalogue.has(name) || (skipped.push(name), false));
+    parsed = { ...parsed, buying: kept };
+    writeBuying(new Set(kept));
   }
   if (parsed.goals) replacePlannerGoals(parsed.goals.selectedNames, parsed.goals.builderStates);
   return describeTransfer(parsed) + unheldSummary(skipped);

@@ -15,6 +15,12 @@ import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
 import { getClassIconPath, getBranchIconPath } from '@/lib/operators/classBranchIcons';
 import { isDebutAvailable, operatorRelease, operatorReleaseLabel } from '@/lib/operators/operatorAvailability';
 import { RosterOperator } from '@/lib/operators/operatorTypes';
+import {
+  LIMITED_SUBTYPES, OBTAIN_METHODS, WELFARE_SUBTYPES, obtainFilter, obtainMethodsOf, welfareMatches, welfareSourceOf,
+} from '@/lib/operators/obtainMethods';
+import { getLimitedBannerInfoLookup, getCelebrationBannerDates, type LimitedOperatorInfo } from '@/lib/gacha/limitedBannerType';
+import { getAllHeadhuntingBanners } from '@/lib/gacha/headhuntingBannerData';
+import { limitedOperatorNote } from '@/lib/gacha/limitedRerunNotes';
 import { matchesSearch, searchRelevance } from '@/lib/search/searchNormalize';
 import { operatorBelongsToFaction, expandFactionAliases } from '@/lib/operators/factionAliases';
 import { publicFiles } from '@/lib/assets/publicAssets';
@@ -33,6 +39,10 @@ import { operatorHref } from '@/lib/operators/operatorHref';
 
 interface Props {
   operators: RosterOperator[];
+  /** The Limited operators' banner appearances and the Celebration dates, for the Obtain
+   *  filter's Limited notes (days until a rerun), worked out at render from the clock. */
+  limitedBannerInfo?: Record<string, LimitedOperatorInfo>;
+  celebrationBannerDates?: string[];
   /** The build's clock, in unix milliseconds, rounded to the minute. */
   now: number;
 }
@@ -40,7 +50,13 @@ interface Props {
 type SortDir = 'asc' | 'desc';
 type SortField = 'rarity' | 'releaseDate';
 
-export default function OperatorsIndex({ operators, now }: Props) {
+const NO_LIMITED: Record<string, LimitedOperatorInfo> = {};
+const NO_DATES: string[] = [];
+
+export default function OperatorsIndex({ operators, limitedBannerInfo = NO_LIMITED, celebrationBannerDates = NO_DATES, now }: Props) {
+  /* A release exported before the Obtain filter carries no `obtain` on any operator: the filter
+     is not drawn until one does (the nightly content run re-exports every page after a deploy). */
+  const hasObtain = useMemo(() => operators.some((op) => op.obtain), [operators]);
   // Every filter and the sort live in the URL query, so a filtered view
   // survives reload and can be shared as a link. The saved-preferences
   // localStorage blob (loaded further down) only fills in keys the URL
@@ -51,6 +67,14 @@ export default function OperatorsIndex({ operators, now }: Props) {
   const [classFilter, setClassFilter] = useQueryState('class', 'all');
   const [branchFilter, setBranchFilter] = useQueryState('branch', 'all');
   const [factionFilter, setFactionFilter] = useQueryState('faction', 'all');
+  // How the operator is obtained (lib/operators/obtainMethods), with the sub-type of the two
+  // methods that have one: Limited's banner type, and Welfare's source. Not in the saved
+  // preferences below: it is a question asked of the list, not a view the reader keeps.
+  const [obtainRaw, setObtainRaw] = useQueryState('obtain', '');
+  const [obtainTypeRaw, setObtainType] = useQueryState('obtain-type', 'all');
+  const obtain = obtainFilter(obtainRaw);
+  const obtainType = obtain === 'limited' && LIMITED_SUBTYPES.some((t) => t === obtainTypeRaw) ? obtainTypeRaw
+    : obtain === 'welfare' && WELFARE_SUBTYPES.some((s) => s.label === obtainTypeRaw) ? obtainTypeRaw : 'all';
   // Owned or not, by the imported account (lib/account/accountStore); ignored without one.
   const [ownedRaw, setOwned] = useQueryState('owned', 'all');
   const owned = ownedFilter(ownedRaw);
@@ -165,11 +189,18 @@ export default function OperatorsIndex({ operators, now }: Props) {
     if (factionFilter !== 'all') {
       list = list.filter((op) => operatorBelongsToFaction(op, factionFilter));
     }
+    if (obtain) {
+      list = list.filter((op) => op.obtain?.methods.includes(obtain));
+      if (obtainType !== 'all') {
+        if (obtain === 'limited') list = list.filter((op) => limitedBannerInfo[op.name]?.type === obtainType);
+        if (obtain === 'welfare') list = list.filter((op) => welfareMatches(op.obtain?.welfare, obtainType));
+      }
+    }
     if (search.trim()) {
       list = list.filter((op) => matchesSearch(op.name, search));
     }
     return list;
-  }, [operators, showUnreleased, rarityFilter, classFilter, branchFilter, factionFilter, search, clock]);
+  }, [operators, showUnreleased, rarityFilter, classFilter, branchFilter, factionFilter, obtain, obtainType, limitedBannerInfo, search, clock]);
   const ownedCounts = useMemo(() => countOwned(matching, (op) => ownedNames.has(op.name)), [matching, ownedNames]);
 
   const filtered = useMemo(() => {
@@ -269,6 +300,8 @@ export default function OperatorsIndex({ operators, now }: Props) {
     setClassFilter('all');
     setBranchFilter('all');
     setFactionFilter('all');
+    setObtainRaw('');
+    setObtainType('all');
   }
 
   // Loads saved filter/sort preferences once the router is ready --
@@ -416,6 +449,17 @@ export default function OperatorsIndex({ operators, now }: Props) {
           <StyledSelect className="roster-faction" label="Filter by faction" value={factionFilter} onChange={setFactionFilter}
             options={[{ value: 'all', label: 'All factions' }, ...factions.map((f) => ({ value: f, label: f }))]} />
 
+          {hasObtain && <StyledSelect className="roster-obtain" label="Filter by how obtained" value={obtain || 'all'}
+            onChange={(value) => { setObtainRaw(value === 'all' ? '' : value); setObtainType('all'); }}
+            options={[{ value: 'all', label: 'Any way obtained' }, ...OBTAIN_METHODS.map((m) => ({ value: m.key, label: m.label }))]} />}
+          {hasObtain && (obtain === 'limited' || obtain === 'welfare') && (
+            <StyledSelect className="roster-obtain" label={obtain === 'limited' ? 'Limited banner type' : 'Welfare source'} value={obtainType}
+              onChange={setObtainType}
+              options={obtain === 'limited'
+                ? [{ value: 'all', label: 'Any banner type' }, ...LIMITED_SUBTYPES.map((t) => ({ value: t, label: t }))]
+                : [{ value: 'all', label: 'Any source' }, ...WELFARE_SUBTYPES.map((s) => ({ value: s.label, label: s.label }))]} />
+          )}
+
           <button
             type="button"
             className="filter-chip"
@@ -511,6 +555,13 @@ export default function OperatorsIndex({ operators, now }: Props) {
                             </b>
                           </p>
                         )}
+                        {(() => {
+                          // Under a Limited or Welfare pick, where the operator comes from and
+                          // when a Limited one may return; no other method has a line.
+                          const note = obtain === 'limited' ? limitedOperatorNote(op, limitedBannerInfo[op.name], celebrationBannerDates, clock)
+                            : obtain === 'welfare' ? op.obtain?.welfare?.note ?? null : null;
+                          return note ? <p className="hint roster-obtain-note">{note.replace(/ \u2014 /g, '\u00a0\u2014 ')}</p> : null;
+                        })()}
                         {comingSoon && (
                           <p className="hint roster-release-tag">
                             <span className="roster-release-days">{operatorReleaseLabel(op, clock)}</span>
@@ -552,6 +603,12 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/op
     umbrellaFactions: op.umbrellaFactions || [],
     connectedFactions: op.connectedFactions || [],
     howToObtain: null,
+    ...(() => {
+      // The Obtain filter's answer, so the record itself need not travel.
+      const methods = obtainMethodsOf(op.howToObtain, op.rarity);
+      const welfare = welfareSourceOf(op.howToObtain);
+      return methods.length ? { obtain: { methods, ...(welfare ? { welfare } : {}) } } : {};
+    })(),
     isFuture: op.isFuture ?? false,
     ...portraitStatus(op),
     ...(op.sourceRegion ? { sourceRegion: op.sourceRegion } : {}),
@@ -594,5 +651,8 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/op
   // `now`, the release-date countdowns' first paint, is the request's clock from
   // contentPageClock (lib/content/pageClock.ts). The component re-picks the reader's
   // real time on mount (see the clock state above) and keeps the badge live.
-  return { props: { operators } };
+  const banners = getAllHeadhuntingBanners();
+  const limitedBannerInfo = getLimitedBannerInfoLookup(banners);
+  const celebrationBannerDates = getCelebrationBannerDates(banners);
+  return { props: { operators, limitedBannerInfo, celebrationBannerDates } };
 });

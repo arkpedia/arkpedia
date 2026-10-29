@@ -97,7 +97,7 @@ test('a tab strip is a real tablist, and the keyboard moves along it', async ({ 
 });
 
 test('the server renders the tablist the browser hydrates', async ({ page }) => {
-  for (const route of ["/game-modes/stronghold-protocol", '/schedule', '/recruitment', "/operator-planner"]) {
+  for (const route of ["/game-modes/stronghold-protocol", '/recruitment', "/operator-planner"]) {
     const html = await (await page.request.get(route)).text();
     expect(html, `${route}: role="tablist" in the server HTML`).toMatch(/role="tablist"/);
     expect(html, `${route}: a selected tab in the server HTML`).toMatch(/role="tab"[^>]*aria-selected="true"|aria-selected="true"[^>]*role="tab"/);
@@ -237,10 +237,6 @@ const PLACES: Place[] = [
   { name: 'Recruitment view', route: '/recruitment' },
   { name: 'Planner mode', route: "/operator-planner" },
   { name: 'View materials for', route: "/operator-planner", open: addOperator },
-  { name: 'Schedule view', route: '/schedule' },
-  // The view read from the address: the server and the browser must agree on it, or the
-  // Calendar tab looks current and does nothing when pressed.
-  { name: 'Schedule view', route: '/schedule?view=calendar' },
   { name: 'Skill', route: "/gacha-simulator", open: openPreview },
   { name: 'Module', route: "/gacha-simulator", open: openPreview },
 ];

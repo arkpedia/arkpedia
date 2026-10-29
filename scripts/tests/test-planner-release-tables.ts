@@ -69,7 +69,7 @@ test('the resolver walks the release\'s catalogue order, so a new material craft
   const order = ['EXP', 'LMD', 'Concentrated Power Unit', 'Electrode Unit', 'Liquified High-Energy Gas', 'Integrated Device'];
   const tools = createCraftTools(formulas, [], order);
   const held = { 'Electrode Unit': 3, 'Liquified High-Energy Gas': 2, 'Integrated Device': 2, LMD: 10_000 };
-  const res = tools.resolveNeeds([{ name: 'Concentrated Power Unit', quantity: 2 }, { name: 'Electrode Unit', quantity: 1 }], held, { autoCraft: true });
+  const res = tools.resolveNeeds([{ name: 'Concentrated Power Unit', quantity: 2 }, { name: 'Electrode Unit', quantity: 1 }], held, { incoming: null, autoCraft: true });
   const row = (name: string) => res.rows.find(r => r.name === name);
   assert.equal(row('Concentrated Power Unit')?.fromCrafting, 2);
   assert.equal(row('Concentrated Power Unit')?.short, 0);
@@ -78,7 +78,7 @@ test('the resolver walks the release\'s catalogue order, so a new material craft
   assert.equal(res.craftingLmd, 600);
   assert.equal(res.stock['Electrode Unit'], undefined, 'three held: one for the bill, two for the crafts');
   // With only two held, the higher tier still wins them and the bill's own row is the one short.
-  const tight = tools.resolveNeeds([{ name: 'Concentrated Power Unit', quantity: 2 }, { name: 'Electrode Unit', quantity: 1 }], { ...held, 'Electrode Unit': 2 }, { autoCraft: true });
+  const tight = tools.resolveNeeds([{ name: 'Concentrated Power Unit', quantity: 2 }, { name: 'Electrode Unit', quantity: 1 }], { ...held, 'Electrode Unit': 2 }, { incoming: null, autoCraft: true });
   assert.equal(tight.rows.find(r => r.name === 'Concentrated Power Unit')?.short, 0);
   assert.equal(tight.rows.find(r => r.name === 'Electrode Unit')?.short, 1);
 });
@@ -92,10 +92,10 @@ test('a declared craft adds what it is made of, and each row says what its count
   const tools = createCraftTools(formulas, [], order);
   const bill = [{ name: 'Concentrated Power Unit', quantity: 2 }, { name: 'Electrode Unit', quantity: 1 }];
   // Raw only: nothing is crafted unasked, and nothing is listed for a craft.
-  const raw = tools.resolveNeeds(bill, {}, { autoCraft: false });
+  const raw = tools.resolveNeeds(bill, {}, { incoming: null, autoCraft: false });
   assert.deepEqual(raw.rows.map(r => [r.name, r.need, r.direct, r.forCrafts]), [['Concentrated Power Unit', 2, 2, undefined], ['Electrode Unit', 1, 1, undefined]]);
   // Craft declared: its ingredients join the list, and Electrode Unit is wanted for both.
-  const res = tools.resolveNeeds(bill, { 'Electrode Unit': 1 }, { autoCraft: false, crafting: new Set(['Concentrated Power Unit']) });
+  const res = tools.resolveNeeds(bill, { 'Electrode Unit': 1 }, { incoming: null, autoCraft: false, crafting: new Set(['Concentrated Power Unit']) });
   const row = (name: string) => res.rows.find(r => r.name === name)!;
   assert.equal(row('Concentrated Power Unit').coverage, 'crafting');
   assert.equal(row('Concentrated Power Unit').fromCrafting, 2);

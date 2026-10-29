@@ -33,6 +33,7 @@ export const CLOCK_FIELDS = new Set([
 export const DERIVED_CLOCK_PATHS = {
   '/schedule': ['eventRows[].isOngoing', 'eventRows[].pullBannerName'],
   '/obtain-method': ['limitedBannerInfo.*.lastBannerDate', 'limitedBannerInfo.*.nextScheduledDate'],
+  '/operators': ['limitedBannerInfo.*.lastBannerDate', 'limitedBannerInfo.*.nextScheduledDate'],
 };
 
 /*

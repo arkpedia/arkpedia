@@ -80,3 +80,29 @@ test('long menus stay reachable in a short window and close before header utilit
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.getByRole('region', { name: 'Settings', exact: true })).toHaveCount(0);
 });
+
+/* Schedule is a menu of its two views (the owner, 2026-10-29), not a link with tabs on the
+   page: the menu names both, lights the one showing, and picking one switches the page. */
+test('Schedule is a menu of Events and Calendar, lit by the view showing', async ({ page }, info) => {
+  test.skip(info.project.name !== 'desktop', 'the phone bar has the drawer instead');
+  await page.goto('/schedule');
+  await expect(page.getByRole('tablist', { name: 'Schedule view' })).toHaveCount(0);
+  const trigger = page.locator('[data-menu="schedule"]');
+  await expect(trigger).toHaveClass(/\bactive\b/);
+  await trigger.click();
+  const menu = page.locator('#site-nav-schedule');
+  await expect(menu.getByRole('link')).toHaveText(['Events', 'Calendar']);
+  await expect(menu.getByRole('link', { name: 'Events' })).toHaveClass(/\bactive\b/);
+  await menu.getByRole('link', { name: 'Calendar' }).click();
+  await expect(page).toHaveURL(/\/schedule\?view=calendar$/);
+  await expect(page.getByRole('heading', { name: 'Calendar', level: 1 })).toBeVisible();
+  await trigger.click();
+  await expect(menu.getByRole('link', { name: 'Calendar' })).toHaveClass(/\bactive\b/);
+  await expect(menu.getByRole('link', { name: 'Events' })).not.toHaveClass(/\bactive\b/);
+  await menu.getByRole('link', { name: 'Events' }).click();
+  await expect(page).toHaveURL(/\/schedule$/);
+  await expect(page.getByRole('heading', { name: 'Events', level: 1 })).toBeVisible();
+  // Elsewhere neither is lit, and the menu is not.
+  await page.goto('/farming');
+  await expect(trigger).not.toHaveClass(/\bactive\b/);
+});

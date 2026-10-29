@@ -1,9 +1,8 @@
 import { expect, test } from '@playwright/test';
 
 for (const theme of ['dark', 'light']) test(`calendar keeps its frame and page scroll across dense and sparse months in ${theme}`, async ({ page }) => {
-  await page.goto('/schedule');
+  await page.goto('/schedule?view=calendar');
   await page.evaluate(theme => { document.documentElement.dataset.theme = theme; }, theme);
-  await page.getByRole('tab', { name: 'Calendar', exact: true }).click();
   const pick = async (label: string, value: string) => {
     await page.getByRole('combobox', { name: label, exact: true }).click();
     await page.getByRole('option', { name: value, exact: true }).click();
@@ -13,7 +12,6 @@ for (const theme of ['dark', 'light']) test(`calendar keeps its frame and page s
   const frame = page.locator('.timeline-month-large');
   const height = await frame.evaluate(el => el.getBoundingClientRect().height);
   expect(await page.locator('.schedule-bar').count()).toBeGreaterThan(5);
-  await expect(page.locator('.schedule-bar').filter({ hasText: 'Integrated Strategies #7' })).toBeVisible();
   await page.evaluate(() => document.fonts.ready);
   // Activate the month step without Playwright scrolling the toolbar into view:
   // the regression is browser scroll clamping when the document shrinks underneath it.
@@ -34,10 +32,13 @@ test('past events are newest first, shareable, and link to their event pages', a
   await page.goto('/schedule');
   await expect(page.getByRole('button', { name: 'Upcoming', exact: true, pressed: true })).toBeVisible();
   await expect(page.locator('.schedule-events-controls .hint')).toHaveText(/\d+ events · soonest first/);
-  await expect(page.getByRole('tab', { name: 'Events', exact: true })).toBeVisible();
-  await page.getByRole('tab', { name: 'Calendar', exact: true }).click();
+  // The view is the address's (the header's Schedule menu links to both): the calendar has
+  // no period switch, and the list keeps its own after a round trip.
+  await page.goto('/schedule?view=calendar');
+  await expect(page.getByRole('heading', { name: 'Calendar', level: 1 })).toBeVisible();
   await expect(page.getByRole('group', { name: 'Event period' })).toHaveCount(0);
-  await page.getByRole('tab', { name: 'Events', exact: true }).click();
+  await page.goto('/schedule');
+  await expect(page.getByRole('heading', { name: 'Events', level: 1 })).toBeVisible();
   const upcomingSwitch = page.getByRole('button', { name: 'Past', exact: true });
   await page.evaluate(() => document.fonts.ready);
   const period = page.getByRole('group', { name: 'Event period' });
@@ -55,7 +56,7 @@ test('past events are newest first, shareable, and link to their event pages', a
     const { x, y, width, height } = button.getBoundingClientRect();
     return { x, y, width, height };
   }))).toEqual(switchPositions);
-  const rows = page.locator('#schedule-view-panel-events .events-row');
+  const rows = page.locator('#schedule-events .events-row');
   await expect(rows.first()).toBeVisible();
   const dates = await rows.locator('time').evaluateAll(nodes => nodes.map(node => Date.parse(node.getAttribute('datetime')!)));
   expect(dates.length).toBeGreaterThan(1);
@@ -82,9 +83,9 @@ test('page Back and browser Back restore a deep archive position and loaded batc
   await expect(page.getByRole('button', { name: 'Past', exact: true, pressed: true })).toBeVisible();
   const grani = page.locator('.events-row-main').filter({ hasText: "Grani and the Knights' Treasure" }).filter({ hasNotText: 'Rerun' }).first();
   for (let batch = 0; batch < 10 && await grani.count() === 0; batch++) {
-    const count = await page.locator('#schedule-view-panel-events .events-row').count();
+    const count = await page.locator('#schedule-events .events-row').count();
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-    await expect.poll(() => page.locator('#schedule-view-panel-events .events-row').count()).toBeGreaterThan(count);
+    await expect.poll(() => page.locator('#schedule-events .events-row').count()).toBeGreaterThan(count);
   }
   await grani.scrollIntoViewIfNeeded();
   const position = await page.evaluate(() => scrollY);

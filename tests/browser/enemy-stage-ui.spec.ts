@@ -1,18 +1,8 @@
 import { expect, test } from './request-diagnostics';
 
-/* These run against the app's BUNDLED data/ (the web server sets
-   ARKPEDIA_CONTENT_DISABLED=1), not the published release. The daily release updates
-   arkpedia-data and never this repository, so content it added -- such as the event the
-   first test searches for -- is not here until the bundle is brought in line:
-     node scripts/content/sync-bundled-data.mjs <arkpedia-data checkout> data/enemies \
-       data/enemy_appearances.json data/enemy-stage-appearances.json public/enemies-index.json \
-       data/stages data/stage-geometry data/stage-conditional public/stages-index.json
-   plus the stage catalogue files the refresh writes beside them (data/stages-content.json,
-   content-windows, stage-devices, story-groups, excluded-contents, item-icons). --check
-   lists what differs without writing. When the new records name art published after the
-   bundled pin, move data/assets/external-asset-index.json, revisions.json and
-   public-asset-index.json with them (the three go together), then
-   `npm run check:published-assets`. */
+/* These run against data/ (the web server sets ARKPEDIA_CONTENT_DISABLED=1), which is the
+   live release's records, pulled by scripts/content/pull-data.mjs. A test about content a
+   release just added passes as soon as that release is live. */
 test('enemy filters stay usable without covering the page title', async ({ page }) => {
   await page.goto('/enemies');
   const stat = page.locator('.enemy-stat').first();

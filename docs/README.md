@@ -11,7 +11,7 @@
 - [Runtime content](development/runtime-content.md): reviewed game updates without a website rebuild.
 - [Data pipelines](development/data-pipelines.md): refresh stages, upstream caches, and base-skill audits.
 - [Data sources](development/data-sources.md): source repositories and provenance.
-- [Data catalogue](../data/README.md): game datasets and generated payloads.
+- [Data catalogue](https://github.com/arkpedia/arkpedia-data/blob/main/docs/catalogue.md): game datasets, kept in arkpedia-data (this repository pulls them with `npm run data:pull`).
 - [Scripts](../scripts/README.md): tooling directory map and commands.
 
 For the current Cloudflare pilot, run Worker-specific setup and staging commands

@@ -70,11 +70,28 @@ interface GameChar {
   equip?: Record<string, GameEquip>;
   /** Amiya's forms: per form, its own skills and modules; promotion and level are shared. */
   tmpl?: Record<string, { skills?: GameSkill[]; equip?: Record<string, GameEquip> }>;
+  /** The form Amiya is in now, the one whose skills the training room trains. */
+  currentTmpl?: string;
+}
+
+/** The room's trainee, as the game sends it: `state` is 0 with no trainee, 1 in progress, 2
+ *  finished but not yet collected, 3 idle (the Krooster import reads it the same way). */
+interface GameTrainee { charInstId?: number; targetSkill?: number; state?: number }
+
+/** The skill the training room is raising, counted in the roster as already raised. */
+export interface TrainingCounted {
+  operator: string;
+  /** 0-based, the planner's skill index. */
+  skill: number;
+  /** The mastery the roster now holds for it: the one in training, 1 to 3. */
+  mastery: 1 | 2 | 3;
 }
 
 export interface GameAccountImport {
   roster: Roster;
   depot: Depot;
+  /** The training room's skill counted as done, or absent when it was not training one. */
+  training?: TrainingCounted;
   /** Character ids the map has no operator for, as the game names them. */
   unknown: string[];
 }
@@ -126,5 +143,41 @@ export function readGameAccount(user: Record<string, any>, map: GameAccountMap, 
     const name = aliases.byItemId[itemId];
     if (name && name in depot) depot[name] = whole(count, 0, MAX_COUNT, 0);
   }
-  return { roster, depot, unknown: [...new Set(unknown)].sort() };
+  const training = countTraining(user, map, roster);
+  return { roster, depot, ...(training ? { training } : {}), unknown: [...new Set(unknown)].sort() };
+}
+
+/**
+ * The skill in the Training Room, counted as its next mastery, in `roster` (changed in place).
+ *
+ * An account says Surtr is at Mastery 2 on her second skill while she is training it to 3, and
+ * the plan that reads the roster would price a mastery she is days from owning. So the mastery
+ * in training is counted as done: the one more than the skill's own level, at most 3. Only a
+ * trainee the room is working on (in progress, or finished and not collected) counts; an idle
+ * room, an empty one and a skill already at 3 change nothing. Amiya trains the skills of the
+ * form she is in. The roster already holds the operator the game lists; one it does not
+ * (unknown to the map) has nothing to raise.
+ */
+function countTraining(user: Record<string, any>, map: GameAccountMap, roster: Roster): TrainingCounted | undefined {
+  const rooms = user.building?.rooms?.TRAINING;
+  if (!rooms || typeof rooms !== 'object') return undefined;
+  for (const room of Object.values(rooms as Record<string, { trainee?: GameTrainee }>)) {
+    const trainee = room?.trainee;
+    if (!trainee || typeof trainee.charInstId !== 'number' || trainee.charInstId < 0) continue;
+    if (typeof trainee.targetSkill !== 'number' || trainee.targetSkill < 0 || trainee.targetSkill > 2) continue;
+    if (trainee.state !== 1 && trainee.state !== 2) continue;
+    const char = user.troop?.chars?.[trainee.charInstId] as GameChar | undefined;
+    if (!char) continue;
+    const id = char.currentTmpl && char.tmpl?.[char.currentTmpl] ? char.currentTmpl : char.charId ?? '';
+    const entry = map.chars[id];
+    const owned = entry && isSafeKey(entry.name) ? roster[entry.name] : undefined;
+    if (!entry || !owned) continue;
+    const form = char.currentTmpl && char.tmpl?.[char.currentTmpl] ? char.tmpl[char.currentTmpl] : char;
+    const skill = trainee.targetSkill;
+    const reached = whole(form.skills?.[skill]?.specializeLevel, 0, 3, 0);
+    if (reached >= 3) continue;
+    owned.masteries = { ...owned.masteries, [skill]: (reached + 1) as 1 | 2 | 3 };
+    return { operator: entry.name, skill, mastery: (reached + 1) as 1 | 2 | 3 };
+  }
+  return undefined;
 }

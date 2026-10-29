@@ -57,7 +57,7 @@ test('a renamed page forwards browser code while keeping its data functions serv
 
 test('the allowed tables exist, and SL-4b\'s is allowed through its one importer only', () => {
   for (const file of [...Object.keys(CLIENT_ALLOWED), ...Object.keys(CLIENT_ALLOWED_EDGES)]) assert.ok(fs.existsSync(file), `${file} is missing`);
-  assert.deepEqual(Object.keys(CLIENT_ALLOWED).sort(), ['data/assets/revisions.json', 'data/final-poll-results.json']);
+  assert.deepEqual(Object.keys(CLIENT_ALLOWED).sort(), ['data/assets/revisions.json', 'data/polls/power-scale-v1.0.json']);
   assert.deepEqual(CLIENT_ALLOWED_EDGES['data/skin-availability-windows.json'], { importers: ['lib/skins/localSkinWindows.ts'], pages: ['/skins'], why: 'SL-4b, pending a maintainer decision' });
 });
 

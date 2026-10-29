@@ -1,5 +1,6 @@
 import type { CostGroup } from '@/lib/operators/operatorTypes';
 import type { Depot } from './depot';
+import { CERTIFICATE_STORE, storeCost } from './store';
 
 /**
  * How much of a plan you can already cover, counting the Workshop.
@@ -23,7 +24,29 @@ export interface Formula {
   alternatives: { lmd: number; costs: { name: string; count: number }[] }[];
 }
 
-export type Coverage = 'have' | 'craftable' | 'crafting' | 'short';
+/** 'crafting': made at a bench the reader declared. 'buying': bought in the certificate
+ *  store, which the reader declared; the certificates it costs are rows of their own. */
+/** 'incoming': covered by what events and shops will give (Incoming), not by the depot. */
+export type Coverage = 'have' | 'craftable' | 'crafting' | 'buying' | 'incoming' | 'short';
+
+/**
+ * Materials the reader does not hold yet but counts on: what the events up to a chosen date give
+ * for free, and what their shops sell (lib/planner/farmingMethod.ts). A virtual stock beside the
+ * depot, never part of it: the resolver reads it only after the depot, a Build resolves against
+ * the real depot alone (planBuild passes null), and `stock` on the result never includes it.
+ */
+export interface Incoming {
+  /** Material -> what arrives and when: a date (YYYY-MM-DD, the day the event that gives it ends) or
+   *  null for what is available now. Taken earliest first, so a shortfall is dated by the last
+   *  tranche it needed. */
+  arrivals: Readonly<Record<string, readonly Tranche[]>>;
+  /** Materials a store sells without a limit, with the date its event ends (null: on sale now): any
+   *  shortfall in them is covered from then. */
+  unlimited: ReadonlyMap<string, string | null>;
+}
+
+/** An amount of one material and the day it will be there. */
+export interface Tranche { date: string | null; count: number }
 
 export interface NeedRow {
   name: string;
@@ -31,8 +54,16 @@ export interface NeedRow {
   need: number;
   /** How many came straight out of the depot. */
   fromDepot: number;
+  /** How many the events and shops will give (Incoming), after the depot. Absent when none. */
+  fromIncoming?: number;
+  /** Of `fromIncoming`, how many rest on a store that sells it without a limit rather than on a stock. */
+  fromUnlimited?: number;
+  /** The day the last of `fromIncoming` should be there (YYYY-MM-DD); absent when all of it is available now. */
+  readyBy?: string;
   /** How many the Workshop could make from what was left after everything above. */
   fromCrafting: number;
+  /** How many the reader chose to buy in the certificate store. Absent when none. */
+  fromBuying?: number;
   /** What you still have to go and get. */
   short: number;
   coverage: Coverage;
@@ -45,6 +76,9 @@ export interface NeedRow {
    *  crafted material's name: `direct` plus these is `need`. Absent when none do. A
    *  material can be both, and the page says which part is which. */
   forCrafts?: Record<string, number>;
+  /** Of `need`, how many go to buying each material in the store, by the bought material's
+   *  name (a certificate row says which purchase it pays for). Absent when none do. */
+  forBuys?: Record<string, number>;
 }
 
 /**
@@ -98,6 +132,23 @@ const FORMULAS = formulas;
  * that guard have to agree; they are stated in both places on purpose.
  */
 const WALKABLE = new Set(['F_EVOLVE', 'F_SKILL']);
+
+/**
+ * Which recipes a reader may DECLARE a craft for: the walkable ones, and the Dualchip.
+ *
+ * A Dualchip is two Chip Packs and a Chip Catalyst at the Factory (type MANUFACTURE, which
+ * also covers the Battle Records and Pure Gold, whose recipes name no ingredients, and the
+ * Originium Shard, so the type alone is not the test). It was left out of the walk because
+ * its ingredients lead down into the chip trades; but a declaration descends exactly one
+ * level, to rows the reader reads and fills (Chip Packs are F_ASC and never entered), so the
+ * cycle is not reachable from here. Automatic crafting keeps WALKABLE: it would have to
+ * decide on the reader's behalf, and it is off on the page anyway.
+ */
+const isDualchip = (recipe: Formula) => recipe.type === 'MANUFACTURE' && recipe.room === 'FACTORY'
+  && recipe.costs.some((cost) => cost.name === 'Chip Catalyst');
+const declarable = (recipe: Formula) => WALKABLE.has(recipe.type) || isDualchip(recipe);
+
+const STORE_CURRENCIES = new Set(Object.values(CERTIFICATE_STORE).map((entry) => entry.currency));
 
 /** Highest tier first, which is the order the catalogue already encodes. */
 const TIER_RANK = new Map(order.map((name, i) => [name, i]));
@@ -214,10 +265,14 @@ function craftInto(name: string, extra: number, stock: Depot, seen: Set<string>,
 function resolveNeeds(
   need: CostGroup,
   depot: Depot,
-  opts: { crafting?: ReadonlySet<string>; autoCraft: boolean },
+  opts: { crafting?: ReadonlySet<string>; buying?: ReadonlySet<string>; incoming: Incoming | null; autoCraft: boolean },
 ): Resolution {
   const stock: Depot = { ...depot };
+  /* Each material's tranches, earliest first, copied: a row spends from them and the next must not. */
+  const arriving = new Map<string, Tranche[]>(Object.entries(opts.incoming?.arrivals ?? {}).map(([name, list]) => [name,
+    list.map((t) => ({ ...t })).sort((a, b) => (a.date ?? '').localeCompare(b.date ?? ''))]));
   const declared = opts.crafting ?? new Set<string>();
+  const buying = opts.buying ?? new Set<string>();
   const { autoCraft } = opts;
 
   /* One map rather than a list, because a declared craft ADDS to it as we go. */
@@ -226,6 +281,7 @@ function resolveNeeds(
   /* What each total is for: the upgrades' own ask, and each declared craft's draw on it. */
   const direct = new Map<string, number>();
   const forCrafts = new Map<string, Record<string, number>>();
+  const forBuys = new Map<string, Record<string, number>>();
   for (const item of need) {
     const qty = Math.ceil(Number(item.quantity) || 0);
     if (qty <= 0) continue;
@@ -235,10 +291,15 @@ function resolveNeeds(
   }
   const purpose = (name: string) => {
     const crafts = forCrafts.get(name);
-    return { direct: direct.get(name) ?? 0, ...(crafts ? { forCrafts: { ...crafts } } : {}) };
+    const buys = forBuys.get(name);
+    return { direct: direct.get(name) ?? 0, ...(crafts ? { forCrafts: { ...crafts } } : {}), ...(buys ? { forBuys: { ...buys } } : {}) };
   };
 
-  const rank = (name: string) => TIER_RANK.get(name) ?? Infinity;
+  /* The store's currency last. A purchase adds certificates to the map while it is walked, and
+     they sit above every material in the catalogue, so left in tier order a row already
+     resolved would be resolved again. Last, every purchase has been added by the time they are
+     read. */
+  const rank = (name: string) => STORE_CURRENCIES.has(name) ? Infinity : TIER_RANK.get(name) ?? Infinity;
   const rows: NeedRow[] = [];
   const done = new Set<string>();
   const ledger: CraftLedger = { lmd: 0, made: {} };
@@ -259,10 +320,33 @@ function resolveNeeds(
     const held = stock[next] || 0;
     const fromDepot = Math.min(held, wanted);
     stock[next] = held - fromDepot;
-    const stillWanted = wanted - fromDepot;
+    let stillWanted = wanted - fromDepot;
+
+    /* What is on its way covers what the depot did not, before any bench is asked: a material
+       an event gives is one not to craft. A store without a limit covers the rest. */
+    let fromIncoming = 0;
+    let fromUnlimited = 0;
+    let readyBy = '';
+    if (stillWanted > 0 && opts.incoming) {
+      for (const tranche of arriving.get(next) ?? []) {
+        if (stillWanted <= 0) break;
+        const take = Math.min(tranche.count, stillWanted);
+        if (take <= 0) continue;
+        tranche.count -= take;
+        fromIncoming += take;
+        stillWanted -= take;
+        if (tranche.date && tranche.date > readyBy) readyBy = tranche.date;
+      }
+      if (stillWanted > 0 && opts.incoming.unlimited.has(next)) {
+        const from = opts.incoming.unlimited.get(next) ?? null;
+        fromUnlimited = stillWanted; fromIncoming += stillWanted; stillWanted = 0;
+        if (from && from > readyBy) readyBy = from;
+      }
+    }
+    const incomingBits = fromIncoming > 0 ? { fromIncoming, ...(fromUnlimited > 0 ? { fromUnlimited } : {}), ...(readyBy ? { readyBy } : {}) } : {};
 
     const recipe = FORMULAS[next];
-    if (stillWanted > 0 && declared.has(next) && recipe && WALKABLE.has(recipe.type)) {
+    if (stillWanted > 0 && declared.has(next) && recipe && declarable(recipe)) {
       /* Declared. The shortfall becomes the recipe's, not this material's. */
       const runs = Math.ceil(stillWanted / recipe.count);
       for (const cost of recipe.costs) {
@@ -279,9 +363,34 @@ function resolveNeeds(
         name: next,
         need: wanted,
         fromDepot,
+        ...incomingBits,
         fromCrafting: stillWanted,
         short: 0,
         coverage: 'crafting',
+        ...(asked.has(next) ? {} : { viaCrafting: true }),
+        ...purpose(next),
+      });
+      continue;
+    }
+
+    const cost = stillWanted > 0 && buying.has(next) ? storeCost(next, stillWanted) : null;
+    if (cost) {
+      /* Declared a purchase. The shortfall becomes the store's price in certificates, a row of
+         its own; the material is covered the way a crafted one is, by what stands behind it. */
+      totals.set(cost.currency, (totals.get(cost.currency) ?? 0) + cost.amount);
+      const uses = forBuys.get(cost.currency) ?? {};
+      uses[next] = (uses[next] ?? 0) + cost.amount;
+      forBuys.set(cost.currency, uses);
+      done.delete(cost.currency);
+      rows.push({
+        name: next,
+        need: wanted,
+        fromDepot,
+        ...incomingBits,
+        fromCrafting: 0,
+        fromBuying: stillWanted,
+        short: 0,
+        coverage: 'buying',
         ...(asked.has(next) ? {} : { viaCrafting: true }),
         ...purpose(next),
       });
@@ -298,12 +407,24 @@ function resolveNeeds(
       name: next,
       need: wanted,
       fromDepot,
+      ...incomingBits,
       fromCrafting,
       short,
-      coverage: short === 0 ? (fromCrafting > 0 ? 'craftable' : 'have') : 'short',
+      coverage: short === 0 ? (fromCrafting > 0 ? 'craftable' : fromIncoming > 0 ? 'incoming' : 'have') : 'short',
       ...(asked.has(next) ? {} : { viaCrafting: true }),
       ...purpose(next),
     });
+  }
+
+  /* The certificates a purchase costs sit beside the purchase, not at the foot of the list
+     where they were resolved: a bought Chip Catalyst and its 360 certificates are one decision. */
+  for (const row of [...rows]) {
+    if (!row.forBuys) continue;
+    const at = Math.min(...Object.keys(row.forBuys).map((bought) => rows.findIndex((r) => r.name === bought)).filter((i) => i >= 0));
+    const from = rows.indexOf(row);
+    if (!Number.isFinite(at) || at < 0 || from === at + 1) continue;
+    rows.splice(from, 1);
+    rows.splice(from < at ? at : at + 1, 0, row);
   }
 
   /* Zeroes out, the same way the depot store keeps itself. */
@@ -316,6 +437,13 @@ function resolveNeeds(
 function isCraftable(name: string): boolean {
   const f = FORMULAS[name];
   return !!f && WALKABLE.has(f.type);
+}
+
+/** Whether a reader may declare a craft for this material (WALKABLE or a Dualchip): what the
+ *  Craft box on a card turns on. isCraftable stays the narrower question the automatic walk asks. */
+function isDeclarable(name: string): boolean {
+  const f = FORMULAS[name];
+  return !!f && declarable(f);
 }
 
 function formulaFor(name: string): Formula | null {
@@ -351,7 +479,14 @@ function shortShares(resolution: Resolution): Map<string, number> {
     if (seen.has(name)) return 0;
 
     let value: number;
-    if (row.coverage !== 'crafting') {
+    if (row.coverage === 'buying') {
+      /* Bought with certificates: it is as short as the certificates behind it are. The
+         currency's own row says how short that is, so a bought catalyst with no certificates
+         to pay for it reads blocked like a crafted one with a missing ingredient. */
+      const cost = storeCost(name, 1);
+      const paid = cost ? share(cost.currency, new Set(seen).add(name)) : 1;
+      value = (row.fromBuying ?? 0) / row.need * paid;
+    } else if (row.coverage !== 'crafting') {
       value = row.short / row.need;
     } else {
       const recipe = FORMULAS[name];
@@ -379,7 +514,7 @@ function shortShares(resolution: Resolution): Map<string, number> {
   for (const row of resolution.rows) out.set(row.name, share(row.name, new Set()));
   return out;
 }
-return { BATTLE_RECORDS, expToBattleRecords, resolveNeeds, isCraftable, formulaFor, shortShares };
+return { BATTLE_RECORDS, expToBattleRecords, resolveNeeds, isCraftable, isDeclarable, formulaFor, shortShares };
 }
 
 export type CraftTools = ReturnType<typeof createCraftTools>;

@@ -22,8 +22,11 @@ test('an older account sees its received beginner reward, then switches programm
     const data = JSON.parse(match[1]); const props = data.props.pageProps;
     const tag = (rows: { id: string }[]) => rows.map(row => /:(?:chainLoginData|checkInData):|^free:openserver_/.test(row.id)
       ? { ...row, beginner: { ...programs[1], current: true } } : row);
-    props.freeRewards = [...tag(props.freeRewards), old];
-    props.backlogSources.freeRewards = tag(props.backlogSources.freeRewards);
+    // The data carries a real older programme too (openseverTaskGroup1); this test brings its
+    // own, so the real one is left out and only the fixture's two programmes are in play.
+    const currentOnly = (rows: { id: string; beginner?: { current: boolean } }[]) => rows.filter(row => !row.beginner || row.beginner.current);
+    props.freeRewards = [...tag(currentOnly(props.freeRewards)), old];
+    props.backlogSources.freeRewards = tag(currentOnly(props.backlogSources.freeRewards));
     props.backlogSources.beginnerRewards = [old];
     await route.fulfill({ response, body: html.replace(match[1], JSON.stringify(data).replace(/</g, '\\u003c')) });
   });

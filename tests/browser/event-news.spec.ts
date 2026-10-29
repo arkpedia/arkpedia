@@ -56,7 +56,8 @@ test('an event whose announcement holds nothing new has no News tab', async ({ p
     const html = await (await route.fetch()).text();
     const body = html.replace(/(<script id="__NEXT_DATA__" type="application\/json"[^>]*>)([\s\S]*?)(<\/script>)/, (_, open: string, json: string, close: string) => {
       const data = JSON.parse(json);
-      data.props.pageProps.extras = { ...(data.props.pageProps.extras ?? { packs: [], furniture: [], notices: [] }), news: [] };
+      // Nothing new is no news and no board: either one opens the tab.
+      data.props.pageProps.extras = { ...(data.props.pageProps.extras ?? { packs: [], furniture: [], notices: [] }), news: [], board: [] };
       return open + JSON.stringify(data).replace(/</g, '\\u003c') + close;
     });
     await route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body });

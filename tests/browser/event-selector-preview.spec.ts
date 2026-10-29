@@ -3,8 +3,8 @@ import { test, expect } from './request-diagnostics';
 test('selector operator preview closes back to the same ticket and pack', async ({ page }) => {
   const route = `/events/${encodeURIComponent('[Celebration] Critical Phase Transition')}#rewards/packs`;
   await page.goto(route);
-  await page.getByRole('button', { name: /^Rhodes Island Headhunting Pack 2026/ }).click();
-  await page.getByRole('button', { name: '2026 Celebration Operator Permit: selectable operators' }).click();
+  await page.getByRole('button', { name: /^Rhodes Island Headhunting Pack(?! -)/ }).click();
+  await page.getByRole('button', { name: 'Top Operator Transfer Permit: selectable operators' }).click();
   const selector = page.locator('dialog.event-details-dialog');
   const operator = page.getByRole('button', { name: 'Mantra: operator preview', exact: true });
   await operator.scrollIntoViewIfNeeded();
@@ -27,8 +27,8 @@ test('selector operator preview closes back to the same ticket and pack', async 
 
 test('the explicit operator-page link releases the selector scroll lock', async ({ page }) => {
   await page.goto(`/events/${encodeURIComponent('[Celebration] Critical Phase Transition')}#rewards/packs`);
-  await page.getByRole('button', { name: /^Rhodes Island Headhunting Pack 2026/ }).click();
-  await page.getByRole('button', { name: '2026 Celebration Operator Permit: selectable operators' }).click();
+  await page.getByRole('button', { name: /^Rhodes Island Headhunting Pack(?! -)/ }).click();
+  await page.getByRole('button', { name: 'Top Operator Transfer Permit: selectable operators' }).click();
   await page.getByRole('button', { name: 'Mantra: operator preview', exact: true }).click();
   await page.getByRole('link', { name: 'View operator page ↗', exact: true }).click();
   await expect(page).toHaveURL(/\/operators\/Mantra$/);

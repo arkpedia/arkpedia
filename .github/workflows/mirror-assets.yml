@@ -27,6 +27,10 @@ jobs:
         with:
           node-version: '24'
       - run: npm ci --ignore-scripts --no-audit --no-fund
+      # Game records live in arkpedia-data; this repository keeps code only. The live release's
+      # records, the ones www serves (scripts/content/pull-data.mjs).
+      - name: Pull the live game records
+        run: node scripts/content/pull-data.mjs
       - name: Resolve immutable live and bundled sources
         run: |
           mkdir -p .cache

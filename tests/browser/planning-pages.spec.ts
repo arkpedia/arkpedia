@@ -597,7 +597,7 @@ const DUALCHIP_ONLY: PlannerStorage = {
 };
 
 test.describe('/planner shortfall (r10)', () => {
-  test('a short Dualchip is made in the Factory, and no idle Farming route is offered', async ({ page }) => {
+  test('a short Dualchip is craftable, and no idle Farming route is offered', async ({ page }) => {
     test.setTimeout(60000);
     /* Nowhere in the planner's panels is a control disabled without a stated reason: one
        that cannot act in the state on screen is not shown (Show all, the farming route), or
@@ -613,8 +613,13 @@ test.describe('/planner shortfall (r10)', () => {
     await expect(panel.locator('.need-card')).toContainText('Guard Dualchip');
     // Soft, so a run on the old page reports every one of these, not the first.
     const foot = panel.locator('.plan-panel-foot');
-    await expect.soft(foot).toContainText('Guard Dualchip is made in the Factory');
+    // 2026-10-29: the Dualchip's card offers a Craft box, so the sentence calls it craftable (blocked
+    // one level down: its Chip Packs and Chip Catalyst are not in the depot) and not a recipe the planner
+    // "will not follow for you".
+    await expect.soft(foot).toContainText('craftable but blocked one level down');
+    await expect.soft(foot).not.toContainText('will not follow');
     await expect.soft(foot).not.toContainText('None of these can be made at the bench');
+    await expect.soft(panel.getByRole('checkbox', { name: 'Craft Guard Dualchip' }), 'the card offers the craft').toBeVisible();
     await expect.soft(foot.getByRole('button'), 'a farming route with nothing to farm is not offered').toHaveCount(0);
     expect.soft(await silentlyDisabled(), 'disabled controls with no reason').toEqual([]);
 

@@ -3,9 +3,12 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { PUBLIC_RECORDS, recordFiles } from '../content/records.mjs';
+import { pinnedDataEntries } from '../content/pull-data.mjs';
+import type { PollIndex } from '../../lib/polls/types';
 
 /*
- * export.mjs publishes every tracked data/**.json into each release's source/, and
+ * export.mjs publishes every data/** record into each release's source/, and
  * hydrate-source.mjs brings each one back into the next run. A record nothing reads is dead
  * weight that looks like data: data/events-data/ (71 files, 5,071 wiki.gg icon URLs, map
  * paths nothing serves) and data/stage_index.json were published daily for months with
@@ -14,8 +17,8 @@ import { execFileSync } from 'node:child_process';
  * sources that are not the wiki.
  */
 
-const tracked = execFileSync('git', ['ls-files', '-z', 'data'], { encoding: 'utf8' }).split('\0')
-  .filter(file => file && fs.existsSync(file));
+// The records on disk, as pulled from arkpedia-data (npm run data:pull; pretest pulls them).
+const tracked = recordFiles().filter(file => file.startsWith('data/'));
 
 /** Code with its comments taken out, so a mention in a comment is not a reader. */
 function code(file: string): string {
@@ -43,7 +46,6 @@ function readers(dir: string): string[] {
  * must have a reader. Add here only a record a person consults, never to quiet the test.
  */
 const READ_BY_PEOPLE: Record<string, string> = {
-  'README.md': 'the catalogue of this folder',
   'persona-collaboration-sources.json': 'where the Persona 3 collaboration records were checked, and when (hand-kept provenance)',
   'skin-catalogue-refresh-sources.json': 'per-outfit gallery and module citations, named in docs/pull-planner.md (hand-kept provenance)',
   'operator-import-report.json': 'the report scripts/imports/import-operator-details.ts writes for a person to review',
@@ -61,7 +63,13 @@ test('every top-level record in data/ is read by code, or is a named record kept
     const name = new RegExp(`(?<![\\w.-])${entry.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\w-])`);
     return !name.test(text);
   });
-  assert.deepEqual(unread, [], 'published in every release, but no code reads it: retire it (hydrate-source.mjs deprecatedSourceFiles) or give it a reader');
+  // A record the live data has and the pinned spec data does not is arriving: the data lands
+  // first and its code follows (README), so it fails nothing until the pin moves past it, and
+  // the pull request that moves the pin gives it a reader. Unreadable pin: every record counts.
+  const pinned = pinnedDataEntries();
+  const arriving = pinned ? unread.filter(entry => !pinned.has(entry)) : [];
+  if (arriving.length) console.log(`Arriving in the live data, not in the pinned spec data, and read by no code yet: ${arriving.join(', ')}`);
+  assert.deepEqual(unread.filter(entry => !arriving.includes(entry)), [], 'published in every release, but no code reads it: retire it (hydrate-source.mjs deprecatedSourceFiles) or give it a reader');
   // An allowlisted record that is gone is a stale entry.
   for (const entry of Object.keys(READ_BY_PEOPLE)) {
     assert.ok(tracked.some(file => file === `data/${entry}` || file.startsWith(`data/${entry}/`)), `data/${entry} is no longer here; take it out of READ_BY_PEOPLE`);
@@ -95,4 +103,41 @@ test('no released record carries a wiki.gg URL outside a citation field', () => 
     if (/wiki\.gg/i.test(text)) walk(JSON.parse(text), `public/${file}`, '', '');
   }
   assert.deepEqual(offenders.slice(0, 20), [], `${offenders.length} wiki.gg URL(s) in data fields, not citations`);
+});
+
+/* The app keeps no records of its own (2026-10-29): data/ and the public records are pulled from
+   arkpedia-data, never committed. A record committed here would be a second copy that falls
+   behind, as the 91 MB bundle did, and that the release job silently replaces. */
+test('no record is committed here, and .gitignore keeps every pulled record out', () => {
+  const committed = execFileSync('git', ['ls-files', '-z', 'data', ...PUBLIC_RECORDS, 'public/operator-search.json'], { encoding: 'utf8' }).split('\0').filter(Boolean);
+  assert.deepEqual(committed, [], 'records belong in arkpedia-data; run git rm --cached on them');
+  const ignore = fs.readFileSync('.gitignore', 'utf8').split('\n').map(line => line.trim());
+  for (const pattern of ['/data/', ...PUBLIC_RECORDS.map(file => `/${file}`), '/public/operator-search.json']) {
+    assert.ok(ignore.includes(pattern), `.gitignore must list ${pattern}`);
+  }
+});
+
+/* Every published poll shares one envelope (lib/polls/types.ts), and the index lists each one. */
+test('the poll index and every poll result file have the published envelope', () => {
+  const index: PollIndex = JSON.parse(fs.readFileSync('data/polls/index.json', 'utf8'));
+  assert.equal(index.schema, 1);
+  assert.ok(Array.isArray(index.polls) && index.polls.length > 0);
+  const day = /^\d{4}-\d{2}-\d{2}$/;
+  for (const poll of index.polls) {
+    assert.match(poll.id, /^[a-z0-9-]+-v\d+\.\d+$/, `${poll.id}: ids are versioned, e.g. power-scale-v1.0`);
+    assert.ok(['open', 'closed'].includes(poll.status), poll.id);
+    assert.match(poll.opened, day, poll.id);
+    if (poll.status === 'open') continue;
+    assert.match(poll.closed ?? '', day, poll.id);
+    assert.equal(poll.results, `data/polls/${poll.id}.json`, poll.id);
+    const file = JSON.parse(fs.readFileSync(poll.results!, 'utf8'));
+    for (const key of ['schema', 'id', 'kind', 'title', 'opened', 'closed', 'submissions', 'generatedAt', 'method', 'results']) {
+      assert.ok(Object.hasOwn(file, key), `${poll.results} has no ${key}`);
+    }
+    assert.equal(file.schema, 1);
+    assert.equal(file.id, poll.id);
+    assert.equal(file.kind, poll.kind);
+    assert.equal(file.submissions, poll.submissions);
+    assert.ok(Array.isArray(file.method.exclusions), `${poll.results}: method.exclusions`);
+  }
 });

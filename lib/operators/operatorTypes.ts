@@ -1,4 +1,5 @@
 import type { OperatorStats, OperatorFile } from './operatorStats';
+import type { ObtainMethod, WelfareSource } from './obtainMethods';
 
 export interface CostItem {
   name: string;
@@ -192,18 +193,9 @@ function asHowToObtainInfo(howToObtain: string | Record<string, unknown> | null 
   return howToObtain as HowToObtainInfo;
 }
 
-/** True if this operator's Welfare entry is the new object shape --
- * the single source of truth for "is this a welfare unit" everywhere
- * that needs to check it, so the typeof-object check doesn't get
- * duplicated (and potentially drift) across every consumer. */
-export function isWelfareUnit(howToObtain: string | Record<string, unknown> | null | undefined): boolean {
-  const info = asHowToObtainInfo(howToObtain);
-  const w = info?.['Welfare'];
-  return typeof w === 'object' && w !== null;
-}
-
-/** The welfare unlock details (type + event), or null if this isn't a
- * welfare unit (or the value is still the old plain "No" string). */
+/** The welfare unlock details (type + event), or null if this isn't a welfare unit (or the value is
+ * still the old plain "No" string): the one place the object-shape check lives, which every
+ * consumer asks (lib/operators/obtainMethods.ts). */
 export function getWelfareInfo(howToObtain: string | Record<string, unknown> | null | undefined): WelfareUnlockInfo | null {
   const info = asHowToObtainInfo(howToObtain);
   const w = info?.['Welfare'];
@@ -289,6 +281,9 @@ export interface RosterOperator {
   umbrellaFactions?: string[];
   connectedFactions?: string[];
   howToObtain: string | HowToObtainInfo | null;
+  /** What the roster's Obtain filter reads (lib/operators/obtainMethods.ts), for the pages that
+   *  null howToObtain to keep their payload small. */
+  obtain?: { methods: ObtainMethod[]; welfare?: WelfareSource };
   isFuture?: boolean;
   /** Confirmed Global release instant, including timezone. */
   releaseAt?: string;

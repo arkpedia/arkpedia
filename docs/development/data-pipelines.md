@@ -4,7 +4,7 @@
 
 `sync-chibi-art.mjs` reads `arkpedia/arkpedia-sd-assets`' main commit, then its manifest at that exact commit. `websiteSkins` maps the existing skin IDs to complete front/back/base models; `build-chibi-index.mjs` emits only SD repository URLs for their skeletons, atlases and every texture page. Base animation models stay separate from battle facings, and shared originals stay explicit aliases.
 
-The `chibi-art` refresh stage runs with each content release. The fingerprint watches the SD repository, and hydration retains the bundled chibi catalogue until the data repository carries it. Missing or incomplete manifests fail the stage and retain the previous catalogue; an update cannot remove an existing skin/facing. There is no browser fallback to an upstream asset repository.
+The `chibi-art` refresh stage runs with each content release. The fingerprint watches the SD repository; the catalogue is a record in arkpedia-data like any other. Missing or incomplete manifests fail the stage and retain the previous catalogue; an update cannot remove an existing skin/facing. There is no browser fallback to an upstream asset repository.
 
 SD's `websiteDefaultSkins` declares the native default ID for template forms that start at `#2`. The index retains that exact skin and adds a same-operator `#1` display lookup for the page's Base label. The source declaration is required; no missing Base model is guessed from an available promotion or other operator. This lets future template forms use their published native defaults without website-specific exceptions.
 
@@ -226,13 +226,14 @@ profile/archive text, then publishes a release to `arkpedia-data`. It is the onl
 workflow that runs `stages:refresh` or `assets:update`
 (`scripts/tests/test-workflow-files.ts` holds that).
 
-The app's own `data/` is never rebuilt from upstream on a schedule. It is the bundled
-fallback (Check, the browser specs, `ARKPEDIA_CONTENT_DISABLED=1`), and it follows the
-canonical records in `arkpedia-data`, not the mirrors:
+The app keeps no records of its own. `data/` and the `public/*.json` records are not
+committed here: Check, the browser specs, every build and local dev fill them from the live
+release in `arkpedia-data` (the commit `live/current.json` names), and a new record goes into
+`arkpedia-data` first:
 
 ```bash
-node scripts/content/sync-bundled-data.mjs <arkpedia-data checkout> data/stages data/stage-geometry public/stages-index.json
-node scripts/content/sync-bundled-data.mjs <arkpedia-data checkout> --check data/stages   # exits 1 on a difference
+npm run data:pull                 # the live release
+npm run data:pull -- --ref main   # data main, or any branch or commit
 ```
 
 A workflow that used to rebuild `data/` from upstream and open a pull request into this
