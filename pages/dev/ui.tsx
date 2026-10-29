@@ -198,7 +198,7 @@ export default function UiPrimitivesPage() {
               { title: 'People', text: 'Named credits with their operators.', href: '/artists', label: 'Browse artists' },
               { title: 'Mechanics', text: 'A name, a brief definition and the operators it affects.', href: '/techniques', label: 'Browse techniques' },
               { title: 'Stories', text: 'Searchable records alongside a reading-order map.', href: '/story?view=list', label: 'Browse stories' },
-            ].map(item => <li key={item.title} className="directory-card"><div>
+            ].map(item => <li key={item.title} className="panel directory-card"><div>
               <h3 className="entity-title entity-title-sm entity-title-name">{item.title}</h3>
               <p>{item.text}</p>
               <a href={item.href}>{item.label}</a>

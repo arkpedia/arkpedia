@@ -188,11 +188,19 @@
 /* The per-operator view is components/ui/Tabs (.tabs / .tab, arkpedia-theme.css): only
    its place is this file's. It wraps rather than scrolling sideways. */
 .simple-operator-tabs { margin-bottom:12px; }
-.simple-dossier { display:grid; grid-template-columns:minmax(200px,30%) minmax(0,1fr); background:var(--panel); border-radius:var(--radius-frame); overflow:hidden; }
+/* One card, the shared .panel (styles/core/arkpedia-theme.css: its ground, edge and depth),
+   the art on the same ground: the art column was a well of page ground (--bg) beside it. */
+.simple-dossier { display:grid; grid-template-columns:minmax(200px,30%) minmax(0,1fr); overflow:hidden; }
 /* Fill the column when costs grow taller; only the art canvas has a fixed height. */
-.simple-portrait { min-width:0; background:var(--bg); }
-/* A dedicated canvas keeps the full art independent of material-list height. */
+.simple-portrait { min-width:0; }
+/* A dedicated canvas keeps the full art independent of material-list height. As a button
+   (it opens the operator preview) it fills the column, and draws the teal edge of a picture
+   on hover and keyboard focus; it does not lift, it is the pane's art (rule 23). */
 .simple-portrait-art { position:relative; height:420px; }
+button.simple-portrait-art { display:block; width:100%; padding:0; border:0; border-radius:var(--radius-frame); cursor:pointer; }
+/* The edge is drawn over the art, so the art keeps its whole frame (planner-portrait.spec). */
+button.simple-portrait-art::after { content:''; position:absolute; inset:0; border:1px solid transparent; border-radius:inherit; pointer-events:none; }
+button.simple-portrait-art:hover::after, button.simple-portrait-art:focus-visible::after { border-color:var(--teal); }
 .simple-portrait-art > img { object-fit:contain; object-position:center; }
 .simple-portrait-caption { padding:12px 20px 18px; }
 /* The operator's name heads the dossier: an .entity-title (shared.css), 22px. */
@@ -224,7 +232,7 @@
 
 /* Section headings in Simple mode are .section-title: the look and the gap below
    (--heading-gap) are shared.css's .op-section h2. */
-.simple-all { padding:24px; border:1px solid var(--line); border-radius:var(--radius-frame); background:var(--panel); }
+.simple-all { padding:24px; } /* .panel (the shared card) */
 .simple-empty { padding:60px 20px; text-align:center; border:1px dashed var(--line); border-radius:var(--radius-frame); }
 .simple-empty p { margin-top:0; color:var(--text-dim); } /* --heading-gap under the heading, not the paragraph's own 1em */
 /* The starting levels' lock (OperatorStateForm `locked`): a fieldset only for the disabled state it
@@ -945,11 +953,6 @@
 /* --- panel shell ------------------------------------------------------- */
 .plan-panel {
   margin-top: 16px;
-  background: var(--panel-grad);
-  border: 1px solid var(--line-soft);
-  border-radius: var(--radius-frame);
-  /* r11 quiet polish: a boxed panel's soft depth (docs/development/ui-primitives.md rule 23). */
-  box-shadow: var(--shadow-panel);
   overflow: hidden;
 }
 /* The first panel starts where Simple's search does, 24px under the header hairline

@@ -484,11 +484,6 @@
   flex-direction: column;
   min-height: 0;
   overflow: hidden;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-control);
-  /* r11 quiet polish: a boxed panel's soft depth (docs/development/ui-primitives.md rule 23). */
-  box-shadow: var(--shadow-panel);
 }
 .stage-rail-head {
   flex: 0 0 auto;

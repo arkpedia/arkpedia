@@ -224,7 +224,7 @@ test.describe('/events/[slug]', () => {
       // The tab row near the top of the screen with the tall Rewards list under it:
       // the reader can see the tab they press, and a shorter tab would leave the page
       // shorter than where they are.
-      for (const shorter of ['Skins', 'Banner']) {
+      for (const shorter of ['Skins', 'Operators']) {
         await tabs.getByRole('tab', { name: 'Rewards' }).click();
         const moved = await anchorMovement(page, tabs, () => tabs.getByRole('tab', { name: shorter }).click(), 70);
         expect(Math.abs(moved), `Rewards -> ${shorter} moves the tab row`).toBeLessThan(4);

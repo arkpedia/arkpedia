@@ -34,7 +34,7 @@ export default function MangaPage({ manga }: Props) {
           <h2 id="manga-list">Official comics <span className="hint">{manga.length}</span></h2>
           <ul className="directory-grid directory-grid-wide manga-grid">
             {manga.map((comic) => (
-              <li key={comic.id} className="directory-card manga-card">
+              <li key={comic.id} className="panel directory-card manga-card">
                 <a className="manga-cover" href={comic.url} target="_blank" rel="noopener noreferrer" aria-label={`${comic.title}: all chapters (opens in a new tab)`}>
                   {comic.image ? <ContentImg src={`/${comic.image}`} alt="" /> : <span className="manga-cover-missing">{comic.title}</span>}
                 </a>

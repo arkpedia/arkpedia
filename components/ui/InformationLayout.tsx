@@ -7,7 +7,7 @@ export default function InformationLayout({ sections, children }: { sections: { 
   const { pathname } = useRouter();
   return <main className="information-layout">
     <aside className="information-sidebar">
-      <nav aria-label="Site information" className="information-pages">
+      <nav aria-label="Site information" className="panel information-pages">
         {[['/about', 'About Arkpedia'], ['/privacy', 'Privacy notice'], ['/cookies', 'Privacy choices']].map(([href, label]) => <Link className="site-nav-popitem" key={href} href={href} aria-current={pathname === href ? 'page' : undefined}>{label}</Link>)}
       </nav>
       <nav aria-label="On this page" className="information-contents"><p className="label-tag">On this page</p>{sections.map(section => <a key={section.id} href={`#${section.id}`}>{section.label}</a>)}</nav>

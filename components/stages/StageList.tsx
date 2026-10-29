@@ -499,7 +499,7 @@ export default function StageList({ typeCounts, now, selectedSlug }: Props) {
 
   return (
     <div className={`stage-list-col${filters.content ? ' scoped' : ''}`} ref={colRef}>
-      <div className="stage-rail">
+      <div className="panel stage-rail">
         <div className="stage-rail-head">
           <SearchInput
             label="Search stages"

@@ -248,7 +248,7 @@ export default function CreditDatabase({ people, uncredited, operators, now, kin
               </div>
               <ul className="directory-grid credit-people">
                 {group.people.map(person => (
-                  <li key={person.name} className="directory-card credit-person">
+                  <li key={person.name} className="panel directory-card credit-person">
                     <div className="credit-person-head">
                       <h3 className="entity-title entity-title-sm entity-title-name">{person.name}</h3>
                       <p className="hint credit-person-meta">

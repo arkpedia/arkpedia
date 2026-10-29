@@ -97,7 +97,7 @@ export function RewardSummaryCard({ eventName, summary }: { eventName: string; s
       {note && <p className="hint" role="status">{note}</p>}
       <div className="reward-summary-table">
         {packed(summary.rows).map((row) => (
-          <div key={row.label} className="reward-summary-row">
+          <div key={row.label} className="panel reward-summary-row">
             <span className="reward-summary-label">{row.label}</span>
             <span className="reward-summary-items">{row.items.map((item) => <Tile key={item.name} item={item} register={register} />)}</span>
           </div>

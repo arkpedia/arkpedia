@@ -61,7 +61,7 @@ function Mode({ title, cards, noun, mark }: { title: string; cards: StageModeCar
   if (!cards.length) return null;
   const [latest, ...rest] = cards;
   return (
-    <section className="terminal-panel op-section">
+    <section className="panel terminal-panel op-section">
       <h2>{title}</h2>
       {mark && <ModeMark name={mark} className="panel-mark" />}
       <ContentCardLink id={latest.id} mapless={latest.mapless} className="explore-hero">

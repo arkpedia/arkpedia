@@ -288,25 +288,37 @@ a.ghost, a.primary, a.danger, a.btn { text-decoration: none; }
    .primary growing next to its .ghost siblings — 48 toggle groups depend on
    it. It still works: this file changes the paint, not the metrics. */
 
-/* --- panel ---------------------------------------------------------------
-   .front-panel, .card, .info-flip-card, .support-option and friends all
-   collapse onto this.
+/* --- panel: the one boxed surface --------------------------------------------------
+   Every boxed panel or static card on the page ground is painted here and nowhere else:
+   the panel ground, a --line edge, the frame radius and the soft depth (rule 23). The
+   owner found two edge strengths (--line and --line-soft) and boxes with no edge at all
+   side by side (2026-10-29). A panel carries .panel in its markup beside its own class
+   (.terminal-panel, .plan-panel, .support-option, .directory-card ...), whose rule sets
+   only its layout. /pulls' panels and the operator page's details (CSS modules) restate
+   the same four values.
    -------------------------------------------------------------------------*/
 .panel,
-.card,
-.front-panel {
+.front-panel,
+a.ghost.panel {
   background: var(--panel-grad);
-  border: 1px solid var(--line-soft);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-frame);
+  box-shadow: var(--shadow-panel);
+}
+/* A link card in the ghost voice on the panel (/world's web events): the panel's edge at
+   rest, the ghost's teal on hover and focus. */
+a.ghost.panel:hover,
+a.ghost.panel:focus-visible { border-color: var(--teal); }
+.front-panel { overflow: hidden; padding: 0; }
+/* The roster's picture card: the same ground, no resting edge (roster.css) and no depth
+   at rest; it is lifted on hover instead (styles/core/motion.css). */
+.card {
+  background: var(--panel-grad);
+  border: 1px solid var(--line);
   border-radius: var(--radius-frame);
   overflow: hidden;
   padding: 0;
 }
-/* r11 quiet polish: a boxed panel on the page ground sits on a soft shadow (option C).
-   Not .card: that is the roster's picture card, which has none at rest and is lifted on
-   hover instead (styles/core/motion.css). The family panels take the same token in
-   their own stylesheets (docs/development/ui-primitives.md, rule 23). */
-.panel,
-.front-panel { box-shadow: var(--shadow-panel); }
 
 /* --- paired label --------------------------------------------------------
    THE signature device. A small ghosted mono tag immediately left of the
@@ -424,6 +436,11 @@ a.ghost, a.primary, a.danger, a.btn { text-decoration: none; }
    × buttons' dense square (r10 x-buttons, above): 24px each way, 28 on a phone (WCAG
    2.5.8), so a thumb a little off the glyph still removes rather than selecting the tab
    beside it; it was a 17x18 glyph with a 25x26 pseudo-element round it. */
+/* The tab ends where its × is drawn, not where the ×'s target does: the 16px glyph's ink is
+   9.6px wide in the middle of the 24px (28px) square, so the square's last 7px (9px) were
+   tab, and the current tab's underline ran on past the × towards the next tab (the owner,
+   2026-10-29). The square keeps its whole target, hanging into the strip's gap. */
+.tab > .tab-remove { margin-inline-end: calc(4.8px - max(24px, calc(var(--control-h) - 12px)) / 2); }
 @media (max-width: 720px) {
   .tab { min-height: 36px; }
 }
@@ -882,12 +899,12 @@ a.ghost, a.primary, a.danger, a.btn { text-decoration: none; }
   width: 100%;
   min-width: 0;
   padding: 14px var(--card-inset) var(--card-inset);
-  border: 1px solid transparent;
-  border-radius: var(--radius-frame);
-  background: var(--panel-grad);
   background-clip: padding-box;
   color: var(--text);
 }
+/* A directory card that opens something (a technique, a synergy, an event mode's picture) is
+   a picture card: no resting edge, the teal one on hover and focus. A static one is a .panel. */
+:is(a, button).directory-card { border: 1px solid transparent; border-radius: var(--radius-frame); background: var(--panel-grad); background-clip: padding-box; }
 :is(a, button).directory-card:hover,
 :is(a, button).directory-card:focus-visible { border-color: var(--teal); }
 

@@ -1,4 +1,3 @@
-import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import Image from '@/components/content/ContentImage';
 import type { OperatorPreviewItem } from '@/components/operators/OperatorPreview';
@@ -7,7 +6,7 @@ import { regionalDate } from '@/lib/time/regional';
 import type { GameServer } from '@/lib/time/servers.mjs';
 
 /* The site's operator quick preview, as recruitment opens it: loaded when first opened. */
-export const FreeOperatorPreview = dynamic(() => import('@/components/operators/OperatorPreview').then(module => module.OperatorPreview), { ssr: false });
+export { LazyOperatorPreview as FreeOperatorPreview } from '@/components/operators/LazyOperatorPreview';
 
 const STARS = ['one', 'two', 'three', 'four', 'five', 'six'];
 /** What the preview needs of a free operator. Its rarity is the release's, or for one built

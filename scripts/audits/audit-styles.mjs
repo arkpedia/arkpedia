@@ -262,6 +262,16 @@ const CHECKBOX_INPUT = /<input\b(?:=>|[^>])*?\btype=(?:"checkbox"|'checkbox'|\{\
 /** A <label> opening tag whose class list names .check: a quoted class list, or a
  *  template literal, that has `check` as a whole class name. */
 const CHECK_LABEL = /^<label\b(?:=>|[^>])*?\bclassName=\{?\s*(['"`])(?:(?!\1)[\s\S])*?(?<![\w-])check(?![\w-])/;
+/* cardShading: a card is flat and matte (docs/development/ui-primitives.md, "Cards are flat and
+   matte"). A rule whose subject is a card-like class (a card, tile, portrait, avatar, thumb,
+   cover or dossier) may not paint a gradient of its own, a bevel or inset shadow, a resting
+   drop shadow or a drop-shadow() filter: its ground is a token (var(--panel-grad), the roster
+   card's), and its one shadow is the hover lift (motion.css). A state (hover, focus, an on
+   state) may take a shadow: the lift, or an inset 1px teal edge that is a border. */
+const CARD_SUBJECT = /(?:^|[-_])(?:card|cards|tile|tiles|portrait|avatar|thumb|cover|dossier)(?:$|[-_])/;
+const CARD_SHADE = (prop, value) => (/^background(?:-image)?$/.test(prop) && /-gradient\(/.test(value) ? 'gradient'
+  : prop === 'box-shadow' && value.trim() !== 'none' && !/^var\(\s*--shadow-panel\s*\)$/.test(value.trim()) ? (/\binset\b/.test(value) ? 'inset shadow' : 'resting shadow')
+    : prop === 'filter' && /drop-shadow\(/.test(value) ? 'drop-shadow' : null);
 const TEAL_PROPS = /^(?:color|background(?:-color|-image)?|border(?:-(?:top|right|bottom|left|block|inline)(?:-(?:start|end))?)?(?:-color)?|outline(?:-color)?|box-shadow|text-decoration(?:-color)?)$/;
 /** A selector that says which state it paints: a pseudo-class, an ARIA state, or a state
  *  class (".current", ".stage-mode-live", ".drag-over"). */
@@ -591,7 +601,7 @@ function collect() {
     collisions: [], fontSizes: [], rawHex: [], rarityLiteral: [], oldTeal: [],
     pills: [], h1Rules: [], fontWeights: [], nativeControls: [], scrollbarThumb: [], primaryToggle: [],
     tealDecoration: [], checkboxPrimitive: [], tglOutsideToolbar: [],
-    headingRules: [],
+    headingRules: [], cardShading: [],
   };
   const tsxFiles = [...walk('pages', ['.tsx']), ...walk('components', ['.tsx'])];
   const hClasses = headingClasses(tsxFiles);
@@ -646,6 +656,14 @@ function collect() {
           for (const lit of d.value.matchAll(COLOUR_LITERAL)) {
             out.rarityLiteral.push(`${path}: ${selector} { ${d.prop}: ${lit[0]} }`);
           }
+        }
+      }
+      for (const part of selector.split(/,(?![^(]*\))/).map((x) => x.trim())) {
+        if (!part || TOKEN_BLOCK.test(part) || !classesOf(subjectOf(part)).some((c) => CARD_SUBJECT.test(c))) continue;
+        const state = STATE_SELECTOR.test(part);
+        for (const d of decls) {
+          const shade = CARD_SHADE(d.prop, d.value);
+          if (shade && !(state && shade !== 'gradient')) out.cardShading.push(`${path}: ${part} { ${d.prop} } ${shade}`);
         }
       }
       if (TEAL_DECORATION_SCOPE.some((scope) => path.startsWith(scope))) {
@@ -776,6 +794,7 @@ const LABELS = {
   tglOutsideToolbar: `a .tgl outside a toolbar (TGL_SCOPE: ${TGL_SCOPE.length ? TGL_SCOPE.join(', ') : 'none'}) -- a setting or an option is a .check checkbox, a pick-one is SegmentedControl, an independent filter is a .filter-chip with aria-pressed`,
   headingRules: 'heading paint (size, colour, tracking, case) on an h2/h3 outside styles/core/shared.css -- a section heading is .op-section h2 or .section-title, a sub-section the global h3, a name .entity-title (22px at most), a micro-label .label-tag (docs/development/ui-primitives.md rule 16)',
   tealDecoration: `teal on a selector that names no state, in ${TEAL_DECORATION_SCOPE.join(', ')} -- teal means "on" or "current"; recolour it (--text-dim, --heading for a heading) or qualify the selector with the state it marks`,
+  cardShading: 'a gradient, bevel or inset shadow, resting drop shadow or drop-shadow() filter on a card-like class -- a card is flat and matte: the card ground var(--panel-grad) (an art ground var(--row-grad)), a transparent or --line-soft edge, and the hover lift as its only shadow (docs/development/ui-primitives.md, "Cards are flat and matte"); a scrim over art is accepted here with its reason',
   ...CHOICE_BADGE_LABELS,
 };
 

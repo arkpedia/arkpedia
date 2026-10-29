@@ -764,7 +764,7 @@ export default function StrongholdProtocolPage({ data, picker }: Props) {
           the Operators tab. The search box lives in the bar above, over everything. */}
 
       {/* --- the roster ------------------------------------------------------- */}
-      <section className="terminal-panel wide gm-anchor" data-tab="Operators" hidden={tab !== 'operators'} {...tabPanelProps('gm-section', 'operators')}>
+      <section className="panel terminal-panel wide gm-anchor" data-tab="Operators" hidden={tab !== 'operators'} {...tabPanelProps('gm-section', 'operators')}>
         <div className="stage-section-head op-section">
           <h2>The roster, by dispatch tier</h2>
           {/* The count, as the Items panel says it. "tier - cost - what it does" was a
@@ -889,7 +889,7 @@ export default function StrongholdProtocolPage({ data, picker }: Props) {
       </section>
 
       {/* --- the alliances ---------------------------------------------------- */}
-      <section className="terminal-panel wide" data-tab="Alliances" hidden={tab !== 'alliances'} {...tabPanelProps('gm-section', 'alliances')}>
+      <section className="panel terminal-panel wide" data-tab="Alliances" hidden={tab !== 'alliances'} {...tabPanelProps('gm-section', 'alliances')}>
         <div className="stage-section-head op-section">
           <h2>What each alliance pays out</h2>
           <span className="terminal-pill">
@@ -937,7 +937,7 @@ export default function StrongholdProtocolPage({ data, picker }: Props) {
       </section>
 
       {/* --- the other five --------------------------------------------------- */}
-      <section className="terminal-panel wide" data-tab="Strategies" hidden={tab !== 'strategies'} {...tabPanelProps('gm-section', 'strategies')}>
+      <section className="panel terminal-panel wide" data-tab="Strategies" hidden={tab !== 'strategies'} {...tabPanelProps('gm-section', 'strategies')}>
         <div className="stage-section-head op-section">
           <h2>Leaders and what they open with</h2>
           <span className="terminal-pill">
@@ -978,7 +978,7 @@ export default function StrongholdProtocolPage({ data, picker }: Props) {
         </div>
       </section>
 
-      <section className="terminal-panel wide" data-tab="Items" hidden={tab !== 'items'} {...tabPanelProps('gm-section', 'items')}>
+      <section className="panel terminal-panel wide" data-tab="Items" hidden={tab !== 'items'} {...tabPanelProps('gm-section', 'items')}>
         <div className="stage-section-head op-section">
           <h2>Equipment and what it costs</h2>
           <span className="terminal-pill">
@@ -1047,7 +1047,7 @@ export default function StrongholdProtocolPage({ data, picker }: Props) {
         </div>
       </section>
 
-      <section className="terminal-panel wide" data-tab="Enemies" hidden={tab !== 'enemies'} {...tabPanelProps('gm-section', 'enemies')}>
+      <section className="panel terminal-panel wide" data-tab="Enemies" hidden={tab !== 'enemies'} {...tabPanelProps('gm-section', 'enemies')}>
         <div className="stage-section-head op-section">
           <h2>The mode&rsquo;s own enemy groups</h2>
           <span className="terminal-pill">
@@ -1080,7 +1080,7 @@ export default function StrongholdProtocolPage({ data, picker }: Props) {
         </div>
       </section>
 
-      <section className="terminal-panel wide" data-tab="Bosses" hidden={tab !== 'enemies'}>
+      <section className="panel terminal-panel wide" data-tab="Bosses" hidden={tab !== 'enemies'}>
         <div className="stage-section-head op-section">
           <h2>What the whole run is building an answer to</h2>
           <span className="terminal-pill">
@@ -1136,7 +1136,7 @@ export default function StrongholdProtocolPage({ data, picker }: Props) {
       ] as const).map((group) => (
         <section
           key={group.title}
-          className="terminal-panel wide"
+          className="panel terminal-panel wide"
           data-tab={group.title}
           hidden={tab !== (group.title === 'Bounty' ? 'bounty' : 'tactical')}
           {...tabPanelProps('gm-section', group.title === 'Bounty' ? 'bounty' : 'tactical')}

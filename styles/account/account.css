@@ -226,11 +226,13 @@
    The totals as four quiet tiles, then each banner and each press as rows on soft rules, the
    operators as the site's tier-bordered icons. */
 .account-pulls-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 0; }
-.account-pulls-stats > div { display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 10px 12px; border: 1px solid var(--line-soft); border-radius: var(--radius); background: var(--panel); }
+.account-pulls-stats > div { display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 10px 12px; }
 .account-pulls-stats dd { margin: 0; font-family: var(--font-display); font-size: 22px; font-weight: 700; line-height: 1.1; white-space: nowrap; }
 .account-pulls-stats small { color: var(--text-dim); font-family: var(--font-mono); font-size: 12px; font-weight: 500; }
 .account-pulls-banners,
 .account-pulls-sessions { display: flex; flex-direction: column; gap: 12px; margin: 0; padding: 0; list-style: none; }
+/* Cards are the shared .panel (styles/core/arkpedia-theme.css): its ground, edge and depth.
+   Only their layout is here. */
 .account-pulls-banner,
 .account-pulls-session { display: flex; flex-direction: column; gap: 12px; padding: 16px; }
 .account-pulls-banner-head,
@@ -243,8 +245,11 @@
 /* "Every pull" with Export CSV beside it: the heading keeps its own top margin, on the row. */
 .account-pulls-list-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; margin: 14px 0 6px; }
 .account-pulls-list-head h3 { margin: 0; }
+/* The art straight inside its rarity edge, on the roster avatar's ground: the .rarity-frame
+   primitive's 3px --panel mat round a second --panel-2 plate drew a frame within a frame. */
+.account-pulls-op.rarity-frame { padding: 0; overflow: hidden; background: var(--row-grad); }
 .account-pulls-op { flex: none; line-height: 0; }
-.account-pulls-op img { display: block; border-radius: var(--radius); background: var(--panel-2); }
+.account-pulls-op img { display: block; }
 @media (max-width: 720px) {
   .account-pulls-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .account-pulls-op img { width: 48px; height: 48px; }

@@ -75,7 +75,7 @@ export default function FriendCollection({ friend, operators, skins, view, onClo
             {owned.map(op => {
               const build = friend.roster[op.name];
               const summary = build ? `E${build.elite} Level ${build.level}, skill rank ${build.skillLevel}` : 'Build level not recorded';
-              return <button key={op.name} type="button" className={`btn-bare ${styles.operator}`} disabled={op.rarity < 1 || op.rarity > 6} aria-haspopup="dialog" aria-label={`${op.name}: ${summary}. Open operator preview`}
+              return <button key={op.name} type="button" className={`btn-bare lift ${styles.operator}`} disabled={op.rarity < 1 || op.rarity > 6} aria-haspopup="dialog" aria-label={`${op.name}: ${summary}. Open operator preview`}
                 onClick={() => setPreview({name:op.name,rarity:op.rarity,icon:op.icon,build,rosterContext:true})}>
                 <span className={styles.buildMarks}>
                   {build ? <><ContentImg src={`/profile-ui/elite_${build.elite}.webp`} alt={`Elite ${build.elite}`} /><span>LV <b>{build.level}</b></span>
@@ -98,7 +98,7 @@ export default function FriendCollection({ friend, operators, skins, view, onClo
             })}
             {!owned.length && <p className="hint">No operators match.</p>}
           </div> : <div className={styles.skinGrid}>
-            {outfits.map(outfit => <button type="button" key={outfit.id} data-skin-id={outfit.id} className={`btn-bare ${styles.skin}`} onClick={event => {
+            {outfits.map(outfit => <button type="button" key={outfit.id} data-skin-id={outfit.id} className={`btn-bare lift ${styles.skin}`} onClick={event => {
               skinTrigger.current = event.currentTarget; skinScroll.current = inline ? window.scrollY : collection.current?.scrollTop ?? 0; setSkin(outfit);
             }} disabled={!outfit.image}>
               <span>{outfit.image ? <ContentImg src={outfit.image} alt="" /> : <small>Artwork unavailable</small>}</span>

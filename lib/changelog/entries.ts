@@ -34,6 +34,21 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-10-29T13:00:00Z',
+    added: [
+      { title: 'Operator previews from the planner and pulls', detail: 'The Operator Planner\'s artwork and every operator in Pull History open the operator\'s quick preview.', href: '/operator-planner' },
+      { title: 'Event pages list every operator', detail: 'An Operators tab shows the banner\'s rate-up and returning operators, the welfare operator and any reward operator.', href: '/schedule' },
+    ],
+    changed: [
+      { title: 'One flat look for cards', detail: 'Profile operator cards, credit portraits and the planner\'s operator card now match the roster\'s flat cards.', href: '/voice-actors' },
+      { title: 'One panel style across the site', detail: 'Panels and static cards now share one background and one border, from the home page to event rewards.', href: '/' },
+      { title: 'Operator previews show full stats', detail: 'The operator preview shows stats like the operator page: base, trust and the attack and deployment values.', href: '/gacha-simulator' },
+    ],
+    fixed: [
+      { title: 'Planner tab underline stays under its tab', detail: 'The current operator tab\'s underline now ends at its × instead of running on towards the next tab.', href: '/operator-planner' },
+    ],
+  },
+  {
     at: '2026-10-29T09:00:00Z',
     added: [
       { title: 'Use OP for pulls', detail: 'The Pull Planner can leave Originite Prime out of every pull total, for OP you keep for outfits or sanity.', href: '/pulls' },

@@ -86,7 +86,7 @@ export default function RegularTasksPage({ rotations: globalRotations, zones, se
       />
 
       <main className="terminal-scene">
-        <section className="terminal-panel op-section">
+        <section className="panel terminal-panel op-section">
           <h2>Annihilation Operation</h2>
           <ModeMark name="annihilation.webp" className="panel-mark" />
           {live && (
@@ -116,7 +116,7 @@ export default function RegularTasksPage({ rotations: globalRotations, zones, se
           <ModeRail cards={zones} />
         </section>
 
-        <section className="terminal-panel op-section">
+        <section className="panel terminal-panel op-section">
           <h2>Stationary Security Service</h2>
           <ModeMark name="stationary-security-service.webp" className="panel-mark" />
           {season && (

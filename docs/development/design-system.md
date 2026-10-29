@@ -191,7 +191,8 @@ choice in one toolbar. On narrow screens this row scrolls within the page. The
 formation action is "View base"; editing an existing formation uses "Apply Layout".
 
 Workspace panels may have passive outlines and depth; a card inside a panel does not need
-another panel frame. Keep toolbars stable when filters, tabs or selections reduce content.
+another panel frame. Cards themselves are flat and matte: one ground, one edge, and the hover
+lift as their only shadow ([UI primitives](ui-primitives.md), "Cards are flat and matte"). Keep toolbars stable when filters, tabs or selections reduce content.
 Use `useSwitchHold` or `useHeightFloor` where appropriate; never move focus just to style a state.
 
 ## Navigation and actions

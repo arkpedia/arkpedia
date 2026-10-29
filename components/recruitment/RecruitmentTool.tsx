@@ -247,7 +247,7 @@ export default function RecruitmentTool({ operators, guaranteedCombos4, guarante
           <div ref={inPip ? undefined : viewHold.ref} style={inPip ? undefined : viewHold.style}>
           {activeSection === 'calculator' ? (
             <div className="recruit-workspace" {...tabPanelProps('recruit-view', 'calculator')}>
-              <section className="recruit-picker op-section" aria-labelledby="recruit-picker-title">
+              <section className="panel recruit-picker op-section" aria-labelledby="recruit-picker-title">
                 <div className="recruit-section-heading">
                   <h2 id="recruit-picker-title">Your tags {isCompact && <span className="recruit-selection-count">{selectedTags.length}/5</span>}</h2>
                   <button type="button" className="ghost btn-sm" disabled={!selectedTags.length} onClick={() => updateView({ selectedTags: [] })}>Clear tags</button>
@@ -302,7 +302,7 @@ export default function RecruitmentTool({ operators, guaranteedCombos4, guarante
               </section>
             </div>
           ) : (
-            <section className="recruit-cheatsheet op-section" {...tabPanelProps('recruit-view', 'cheatsheet')}>
+            <section className="panel recruit-cheatsheet op-section" {...tabPanelProps('recruit-view', 'cheatsheet')}>
               <div className="recruit-section-heading">
                 <h2 id="recruit-sheet-title">Tags worth keeping</h2>
                 <span className="recruit-sheet-legend"><span className="recruit-rarity-5">5★</span><span className="recruit-rarity-4">4★+</span></span>

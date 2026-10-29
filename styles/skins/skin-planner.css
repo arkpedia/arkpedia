@@ -25,7 +25,7 @@
 .skin-plan-card-foot strong { font: 600 11px var(--font-mono); color: var(--text-dim); }
 .skin-plan-card-foot[aria-pressed="true"] strong { color: var(--teal); }
 .skin-plan-owned { opacity: 0.55; }
-.skin-plan-summary { position: sticky; top: calc(var(--nav-h, 60px) + 12px); display: grid; gap: 12px; padding: 14px 16px; border: 1px solid var(--line-soft); border-radius: var(--radius-frame); background: var(--panel); }
+.skin-plan-summary { position: sticky; top: calc(var(--nav-h, 60px) + 12px); display: grid; gap: 12px; padding: 14px 16px; }
 .skin-plan-summary .section-title { margin: 0; }
 .skin-plan-totals { display: grid; gap: 6px; }
 .skin-plan-totals > div { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; color: var(--text-dim); }

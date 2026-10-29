@@ -6,7 +6,8 @@ import { permanentEventListing, modeDetails, type ModeDetails } from '@/lib/even
 import { useRegionalTime } from '@/lib/time/useRegionalTime';
 import { regionalArt, regionalRange, regionalScheduleSlice, type RegionalSchedules } from '@/lib/time/regional';
 import { withContentPage } from '@/lib/content/server';
-import { useEffect, useRef, useState } from 'react';
+import { readPublishedContentPageProps } from '@/lib/content/release';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { GetStaticPaths, GetStaticProps } from 'next';
 import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
@@ -37,6 +38,10 @@ import PageHeader from '@/components/ui/PageHeader';
 import Tabs, { tabPanelProps } from '@/components/ui/Tabs';
 import { useSwitchHold } from '@/components/ui/useSwitchHold';
 import Rarity from '@/components/ui/Rarity';
+import InfoPopover from '@/components/ui/InfoPopover';
+import { LazyOperatorPreview } from '@/components/operators/LazyOperatorPreview';
+import type { OperatorPreviewItem } from '@/components/operators/OperatorPreview';
+import { allFreeRewards, eventRewardOperators, eventWelfareOperators, withWelfareEventLinks, type EventWelfareOperator, type FreeReward } from '@/lib/pulls/freeRewards';
 import { computeRewardTotals, type ResolvedRewardItem, type ResolvedRewardStore, type RewardTotal } from '@/lib/events/rewardTotals';
 import { eventExtras, furniturePieceSource, NO_EXTRAS, tableRewardStores, type EventExtras, type EventRewardsFile } from '@/lib/events/tableRewards';
 import { ALL_TAB, eventLink, EXTRA_TABS, readEventLink, rewardTabsFor, shownRewardTab } from '@/lib/events/rewardTabs';
@@ -76,6 +81,12 @@ interface Props {
    *  the lineup's place. `true` from a release compiled before it carried the note's text. */
   lineupPending: string | boolean | null;
   featuredOperators: FeaturedOperatorRate[];
+  /** The welfare operators this event gives (the Reward Tracker's rows, lib/pulls/freeRewards.ts
+   *  eventWelfareOperators). Absent from a release compiled before them. */
+  welfareOperators?: EventWelfareOperator[];
+  /** Operators the event's own rewards give besides those (a sign-in day, a store, missions):
+   *  each with the reward list it is in. Absent from a release compiled before them. */
+  rewardOperators?: EventWelfareOperator[];
   skins: Skin[];
   rewardStores: ResolvedRewardStore[];
   /** Packs, furniture sets and announced gifts. Absent from a release compiled before them. */
@@ -101,7 +112,7 @@ type SectionKey = 'overview' | 'banner' | 'rewards' | 'skins' | 'news' | 'pvs';
    its announced gifts and furniture. */
 const SECTIONS: { key: SectionKey; label: string }[] = [
   { key: 'overview', label: 'Overview' },
-  { key: 'banner', label: 'Banner' },
+  { key: 'banner', label: 'Operators' },
   { key: 'rewards', label: 'Rewards' },
   { key: 'skins', label: 'Skins' },
   /* The rest of the event's official announcement: a Sanity limit raised, a recruitment pool, a
@@ -122,9 +133,26 @@ function setLink(hash: string) {
 const POSTER_ASPECT = '1024 / 328';
 const CG_ASPECT = '16 / 9';
 
-function iconPathFor(name: string, rarity: 6 | 5 | 4): string {
-  const folder = rarity === 6 ? 'six-star-icons' : rarity === 5 ? 'five-star-icons' : 'four-star-icons';
-  return `/${folder}/${name} - Base.webp`;
+const STAR_FOLDERS = ['one', 'two', 'three', 'four', 'five', 'six'];
+function iconPathFor(name: string, rarity: number): string {
+  return `/${STAR_FOLDERS[Math.min(6, Math.max(1, rarity)) - 1]}-star-icons/${name} - Base.webp`;
+}
+
+/** A tile's line, wrapping only between words: a stage code ("17-13") never splits at its hyphen. */
+function Words({ text }: { text: string }) {
+  return <>{text.split(' ').map((word, i) => <span key={i}>{i > 0 && ' '}<span className="event-detail-word">{word}</span></span>)}</>;
+}
+
+/** An operator on the Operators tab: its icon, name and rarity, a button that opens the site's
+ *  operator quick preview (the gacha simulator's pop-up). `children`: the lines under the name. */
+function OperatorTile({ name, rarity, size = 52, onPreview, children }: { name: string; rarity: number; size?: number; onPreview: (item: OperatorPreviewItem) => void; children?: ReactNode }) {
+  const icon = iconPathFor(name, rarity);
+  return <button type="button" className="btn-bare event-detail-featured-op" aria-haspopup="dialog" aria-label={`${name}: operator preview`}
+    onClick={() => onPreview({ name, icon, rarity })}>
+    <Image src={icon} alt="" width={size} height={size} className={`tier-${rarity}`} />
+    <span>{name}</span>
+    {children}
+  </button>;
 }
 
 /** All as a row of totals: what a release compiled before the reward card (summary) shows. */
@@ -147,7 +175,7 @@ function RewardStorePanelGrid({ items }: { items: ResolvedRewardItem[] }) {
   return (
     <div className="sidescroll event-rewards-grid">
       {items.map((item, i) => (
-        <RewardClick key={`${item.name}-${i}`} name={item.name} className="event-reward-panel">
+        <RewardClick key={`${item.name}-${i}`} name={item.name} className="panel event-reward-panel">
           <div className="event-reward-icon-wrap">
             {item.iconPath && (
               <Image src={item.iconPath} alt={item.name} width={40} height={40} style={{ objectFit: 'contain' }} />
@@ -178,6 +206,8 @@ export default function EventDetailPage({
   bannerImage,
   lineupPending,
   featuredOperators,
+  welfareOperators = [],
+  rewardOperators = [],
   skins,
   rewardStores,
   materialOrder,
@@ -205,7 +235,7 @@ export default function EventDetailPage({
   const news = extras.news ?? [];
   const board = extras.board ?? [];
   const sections = SECTIONS.filter((section) => (
-    section.key === 'overview' ? !!mode : section.key === 'banner' ? !!bannerName : section.key === 'rewards' ? rewardStores.length > 0 || hasExtras : section.key === 'news' ? news.length + board.length > 0 : section.key === 'pvs' ? videos.length > 0 : skins.length > 0
+    section.key === 'overview' ? !!mode : section.key === 'banner' ? !!bannerName || welfareOperators.length + rewardOperators.length > 0 : section.key === 'rewards' ? rewardStores.length > 0 || hasExtras : section.key === 'news' ? news.length + board.length > 0 : section.key === 'pvs' ? videos.length > 0 : skins.length > 0
   ));
   const [chosenSection, setActiveSection] = useState<SectionKey | null>(sections[0]?.key ?? null);
   /* The section on screen: the one chosen if this event has it, else the event's
@@ -282,6 +312,13 @@ export default function EventDetailPage({
   // (home page), pages/skins.tsx, pages/schedule.tsx, and
   // pages/operators/[name].tsx, all reusing the same SkinZoomOverlay.
   const [activeSkin, setActiveSkin] = useState<Skin | null>(null);
+  const [preview, setPreview] = useState<OperatorPreviewItem | null>(null);
+  const closePreview = useCallback(() => setPreview(null), []);
+  /* The banner card's title: its name, its leading tag ("[Celebration]") apart on the right. */
+  const bannerTag = bannerName ? /^\[([^\]]+)\]\s*/.exec(bannerName) : null;
+  const bannerTitle = { title: bannerName ? bannerName.slice(bannerTag?.[0].length ?? 0) : '', tag: bannerTag?.[1] ?? null };
+  /* A line each under the banner: the welfare operators, then the free ones its rewards give. */
+  const extraOperators = [...welfareOperators.map(op => ({ ...op, kind: 'welfare' as const })), ...rewardOperators.map(op => ({ ...op, kind: 'free' as const }))];
   const [zooming, setZooming] = useState(false);
   useEffect(() => {
     if (!activeSkin) setZooming(false);
@@ -359,29 +396,55 @@ export default function EventDetailPage({
           )}
           {sections.length === 0 && <p className="hint">No banner, reward store or skins are linked to this event yet.</p>}
 
-          {activeSection === 'banner' && bannerName && (
-            <section className="op-section" {...tabPanelProps('event-section', 'banner')}>
-              {/* The frame stays when the art is not published yet, empty at the
-                  same size, rather than the section closing up around it. */}
-              <div className="event-detail-banner-art-wrap">
-                {shownBannerImage && <Image src={shownBannerImage} alt={bannerName} fill sizes="600px" style={{ objectFit: 'contain' }} />}
+          {activeSection === 'banner' && (bannerName || extraOperators.length > 0) && (
+            <section className="op-section event-detail-operators" {...tabPanelProps('event-section', 'banner')}>
+              {/* One card: the banner's name and tag, its art beside its rate-up and returning
+                  limited lineups, then a line per operator the event gives (welfare, free). Every
+                  operator opens the operator preview. */}
+              <div className="panel event-banner-card">
+                {bannerName && <>
+                  <div className="event-banner-head">
+                    <h3 className="entity-title entity-title-name">{bannerTitle.title}</h3>
+                    {bannerTitle.tag && <span className="event-banner-tag">[{bannerTitle.tag}]</span>}
+                  </div>
+                  <div className="event-banner-body">
+                    {/* The frame stays when the art is not published yet, empty at the
+                        same size, rather than the card closing up around it. */}
+                    <div className="event-detail-banner-art-wrap">
+                      {shownBannerImage && <Image src={shownBannerImage} alt={bannerName} fill sizes="(max-width: 960px) 100vw, 640px" style={{ objectFit: 'contain' }} />}
+                    </div>
+                    <div className="event-banner-lineups">
+                      {pendingNote ? <p className="hint">{pendingNote}</p>
+                        : Object.entries(splitEventBannerRates(featuredOperators)).map(([group, operators]) => operators.length > 0 && <div key={group} className="event-detail-lineup">
+                          <h4>{group === 'returning' ? <>Returning limited <InfoPopover label="About returning limited operators"><p>{RETURNING_LIMITED_NOTE}</p></InfoPopover></> : 'Rate-up operators'}</h4>
+                          <div className="event-detail-featured-ops">
+                            {operators.map(op => <OperatorTile key={`${op.rarity}-${op.name}`} name={op.name} rarity={op.rarity} size={88} onPreview={setPreview}>
+                              <span className="event-detail-featured-meta">
+                                <Rarity n={op.rarity} />
+                                {op.percent !== null && <><span aria-hidden="true">·</span><span className="event-detail-featured-pct">{+op.percent.toFixed(1)}%</span></>}
+                              </span>
+                            </OperatorTile>)}
+                          </div>
+                        </div>)}
+                    </div>
+                  </div>
+                </>}
+                {extraOperators.length > 0 && <ul className="event-banner-extras" aria-label="Operators the event gives">
+                  {extraOperators.map(op => <li key={`${op.kind}-${op.name}`}>
+                    <span className="event-banner-extra-label">{op.kind === 'welfare' ? 'Welfare operator' : 'Free operator'}</span>
+                    <button type="button" className="btn-bare event-banner-extra" aria-haspopup="dialog" aria-label={`${op.name}: operator preview`}
+                      onClick={() => setPreview({ name: op.name, icon: iconPathFor(op.name, op.rarity), rarity: op.rarity })}>
+                      <Image src={iconPathFor(op.name, op.rarity)} alt="" width={56} height={56} className={`tier-${op.rarity}`} />
+                      <span className="event-banner-extra-name">{op.name}</span>
+                      <span className="event-banner-sep" aria-hidden="true" />
+                      {op.rarity >= 1 && op.rarity <= 6 ? <Rarity n={op.rarity as 1 | 2 | 3 | 4 | 5 | 6} /> : <span />}
+                      <span className="event-banner-sep" aria-hidden="true" />
+                      <span className="event-banner-extra-how"><Words text={op.task ?? op.source} /></span>
+                    </button>
+                  </li>)}
+                </ul>}
               </div>
-              <p className="hint">{bannerName}</p>
-              {pendingNote && <p className="hint">{pendingNote}</p>}
-              {!pendingNote && Object.entries(splitEventBannerRates(featuredOperators)).map(([group, operators]) => operators.length > 0 && <div key={group}>
-                <h3>{group === 'featured' ? 'Featured operators' : 'Returning limited operators'}</h3>
-                {group === 'returning' && <p className="hint">{RETURNING_LIMITED_NOTE}</p>}
-                <div className="event-detail-featured-ops">
-                  {operators.map(op => <div key={`${op.rarity}-${op.name}`} className="event-detail-featured-op">
-                    <Image src={iconPathFor(op.name, op.rarity)} alt={op.name} width={52} height={52} className={`tier-${op.rarity}`} />
-                    <span>{op.name}</span>
-                    <span className="event-detail-featured-meta">
-                      <Rarity n={op.rarity} />
-                      {op.percent !== null && <span className="event-detail-featured-pct">{op.percent.toFixed(1)}%</span>}
-                    </span>
-                  </div>)}
-                </div>
-              </div>)}
+              {preview && <LazyOperatorPreview key={preview.name} item={preview} onClose={closePreview} nativeModal />}
             </section>
           )}
 
@@ -546,6 +609,21 @@ export const getStaticPaths: GetStaticPaths = async () => {
   };
 };
 
+/** A page from a release compiled before the Operators tab has no welfare or reward operators:
+ *  the welfare ones are the Reward Tracker's published rows linked to this page (the same rows
+ *  the page's own compile reads), the reward ones its own reward lists'. A release compiled by
+ *  this code carries both, and they are kept. */
+async function withEventOperators(props: Props): Promise<Props> {
+  let welfareOperators = props.welfareOperators;
+  if (!welfareOperators) {
+    const tracker = await readPublishedContentPageProps<{ freeRewards?: FreeReward[] }>('/free-op').catch(() => null);
+    // Rows from before welfare rows carried their page are linked by their event's title, as the
+    // Reward Tracker links them (withWelfareEventLinks), against this page's event.
+    welfareOperators = eventWelfareOperators(withWelfareEventLinks(tracker?.freeRewards ?? [], [{ name: props.name }]), `/events/${encodeURIComponent(props.name)}`);
+  }
+  return { ...props, welfareOperators, rewardOperators: props.rewardOperators ?? eventRewardOperators(props.rewardStores, welfareOperators) };
+}
+
 function withNewsArt(props: Props): Props {
   if (!props.extras) return props;
   // A release from before the servers were told apart: its items are Global's, each with its art.
@@ -569,6 +647,8 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
 
   const banner = getBannerForEvent(event.name, event.isPredicted ? null : event.dateRange, getAllHeadhuntingBanners());
   const featuredOperators = banner ? getFeaturedOperatorRates(banner) : [];
+  const free = (await import('@/data/free-rewards.json')).default as unknown as { rewards: FreeReward[]; beginnerRewards?: FreeReward[] };
+  const welfareOperators = eventWelfareOperators(withWelfareEventLinks(allFreeRewards(free), listings), `/events/${encodeURIComponent(event.name)}`);
 
   const allSkins = getAllSkins();
   const skins = eventSkins(event.name, allSkins, listings.map((e) => e.name), { confirmed, rotations });
@@ -656,6 +736,8 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
   };
   rewardStores.push(...tableRewardStores(tableRewards, tableIcon));
 
+  const rewardOperators = eventRewardOperators(rewardStores, welfareOperators);
+
   const catalogue = await loadMaterialCatalogue();
   const materialOrder = materialOrderFor(catalogue, rewardStores.flatMap((store) => store.items.map((item) => item.name)));
   const builtExtras = eventExtras(tableRewards, (itemName) => rewardIconPath({ name: itemName, type: 'material', id: null }, () => null, publicFileExists), (packName) => publishedArt((packArt as Record<string, string>)[packName]), publicFileExists);
@@ -679,6 +761,8 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
       bannerImage: banner?.banner_image || null,
       lineupPending: banner && isLineupPending(banner) ? lineupPendingNote(banner) : null,
       featuredOperators,
+      welfareOperators,
+      rewardOperators,
       skins,
       rewardStores,
       extras,
@@ -710,6 +794,6 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
   // Each page keeps only its own event's and banner's regional windows (regionalScheduleSlice).
   finalize: async (props) => {
     const ordered = await withMaterialOrder(props, (page) => page.rewardStores.flatMap((store) => store.items.map((item) => item.name)));
-    return withRegionalSlice(withNewsArt({ ...ordered, mode: modeDetails(props.name) ?? props.mode ?? null }));
+    return withRegionalSlice(withNewsArt(await withEventOperators({ ...ordered, mode: modeDetails(props.name) ?? props.mode ?? null })));
   },
 });

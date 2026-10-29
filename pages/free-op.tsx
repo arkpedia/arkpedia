@@ -155,7 +155,7 @@ export default function FreeOpPage({ backlogSources, freeRewards: globalFreeRewa
         sub="Track first clears, free rewards and the pulls still waiting for you."
         actions={<><DataLink /><Link prefetch={false} href="/pull-planner" className="ghost btn-sm">Pull Planner</Link><InfoPopover label="About Reward Tracker"><p>Your first-clear and permanent reward completion is shared with the Pull Planner. Mark rewards as claimed below, or use Import / export to fill completion from your account.</p></InfoPopover></>} />
       <main className="free-op-page">
-        <section className="op-section free-op-overview" aria-labelledby="free-op-left">
+        <section className="op-section panel free-op-overview" aria-labelledby="free-op-left">
           <div className="free-op-heading">
             <h2 id="free-op-left">Still to claim</h2>
             <label className="check"><input type="checkbox" checked={presentation} onChange={event => { setPresentation(event.target.checked); setDemoKeys(new Set()); setDemoEvents(new Set()); setDemoAnnihilation(false); }} />Fully uncompleted view</label>

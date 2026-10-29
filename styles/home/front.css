@@ -32,9 +32,6 @@ body.front-page-no-scroll {
   grid-column: 1 / -1;
   margin: 0;
   padding: 8px 14px;
-  background: var(--panel);
-  border: 1px solid var(--line-soft);
-  border-radius: 8px;
 }
 .maintenance-notice p {
   display: flex;
@@ -105,15 +102,10 @@ html[data-site-server="kr"] .maintenance-notice:not([data-server="kr"]) {
   overflow-y: auto;
 }
 
-/* The home panels' own surface and padding, on a page class: restating the theme's
-   .front-panel put two stylesheets on one class. */
+/* The home panels' padding, on a page class. Their surface, edge and depth are .front-panel's,
+   the one panel (styles/core/arkpedia-theme.css): they restated a --line-soft edge and a flat
+   --panel ground here (the ground against the gradient --panel-grad was then) until 2026-10-29. */
 .front-home-panel {
-  /* Flat, not the primitive's --panel-grad: the skin cards paint --panel as their own
-     ground, and on the gradient each drew a visible box (r11 quiet polish tried it). The
-     soft depth is .front-panel's (arkpedia-theme.css). */
-  background: var(--panel);
-  border: 1px solid var(--line-soft);
-  border-radius: var(--radius-frame);
   padding: 10px 12px;
   flex-shrink: 0;
 }

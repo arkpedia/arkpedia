@@ -16,7 +16,7 @@ export default function MaintenanceNotice({ maintenance, now }: { maintenance: R
         const current = currentMaintenance(maintenance[server] ?? [], now);
         if (!current.length) return null;
         return (
-          <aside key={server} className="maintenance-notice" data-server={server} aria-label="Server maintenance">
+          <aside key={server} className="panel maintenance-notice" data-server={server} aria-label="Server maintenance">
             {current.map(window => (
               <p key={window.startAt}>
                 <span className="maintenance-notice-dot" aria-hidden="true" />

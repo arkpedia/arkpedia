@@ -70,7 +70,7 @@ export default function CommunityProjectsPage({ chibis }: { chibis: { name: stri
     <PageHeader eyebrow="Rhodes Island // Community projects" title="Community projects" sub={<>Tools, wikis, games and more from the Arknights community. <InfoPopover label="About community projects"><p>These independent fan projects are maintained by their own creators. External sites and downloads have their own privacy information, terms and support.</p></InfoPopover></>} />
     <main>
       <div className="community-projects-grid">
-        {projects.map(project => <article className="community-project" key={project.id} aria-labelledby={`project-${project.id}`}>
+        {projects.map(project => <article className="panel community-project" key={project.id} aria-labelledby={`project-${project.id}`}>
           {(project.id === 'chibis' || project.mark || project.art || project.logo) && <a href={project.href} target="_blank" rel="noopener noreferrer" className={`community-project-art community-project-art-${project.id}`} aria-label={project.action}>
             {project.logo ? <ApplicationImage className="community-project-logo" asset={{ repository: 'arkpedia-image-assets', revision: PROJECT_ART.revision, path: project.logo }} width={640} height={400} alt="" sizes="(max-width: 720px) 100vw, (max-width: 1100px) 50vw, 33vw" /> : project.mark ? <span className="community-project-game" aria-hidden="true"><ContentArt src={project.mark} className="community-project-game-mark" /><span>Stronghold<br />Protocol</span></span> : project.art ? <Image src={project.art} alt="" width={640} height={400} sizes="(max-width: 720px) 100vw, (max-width: 1100px) 50vw, 33vw" />
               : <DesktopChibisArt models={chibis} />}

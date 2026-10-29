@@ -234,7 +234,21 @@ export function sectionCensus(options: { stacks: boolean }): SectionCensus {
     let first: Element | null = null;
     const walk = (el: Element) => {
       for (const k of Array.from(el.children)) {
-        if (!inFlow(k) || !visible(k)) continue;
+        if (!visible(k)) continue;
+        // A picture laid over its box (next/image's fill, the operator artwork) is content
+        // at its own top, though it is out of flow: its frame paints nothing of its own (a
+        // painted ground used to make the operator artwork's pane count, 2026-10-29).
+        if (!inFlow(k)) {
+          if (cs(k).position !== 'absolute') continue;
+          // Only its pictures: a control or a label laid over the art is not the page's
+          // first content (the operator page's Chibi switch sits over its artwork).
+          for (const pic of [k, ...Array.from(k.querySelectorAll('img, video, canvas'))]) {
+            if (!/^(IMG|VIDEO|CANVAS)$/i.test(pic.tagName) || !visible(pic)) continue;
+            const r = pic.getBoundingClientRect();
+            if (r.height >= 40 && r.top < top) { top = r.top; first = pic; }
+          }
+          continue;
+        }
         const box = boxed(k) || topRule(k) || REPLACED.test(k.tagName) || k.matches(CONTROL);
         const t = box ? k.getBoundingClientRect().top : ownText(k) ? contentTop(k) : Infinity;
         if (t < top) { top = t; first = k; }

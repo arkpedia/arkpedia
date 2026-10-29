@@ -1751,7 +1751,7 @@ export default function GachaSimulator({ pools, banners: globalBanners, kernelLo
         />
 
         <div className="gacha-layout">
-          <div className="gacha-banner-sidebar" ref={bannerWindow.scrollerRef} role="region" aria-label="Banners" tabIndex={0}>
+          <div className="panel gacha-banner-sidebar" ref={bannerWindow.scrollerRef} role="region" aria-label="Banners" tabIndex={0}>
             {categoryBanners.length === 0 ? (
               <p className="hint">No banners in this category yet.</p>
             ) : (
@@ -2043,7 +2043,7 @@ export default function GachaSimulator({ pools, banners: globalBanners, kernelLo
                   ) : null
                 ) : (
                   <section className="op-section">
-                    <div className="gacha-pity-row">
+                    <div className="panel gacha-pity-row">
                       <div className="gacha-pity-stat">
                         <span className="gacha-pity-label">Total pulls</span>
                         <span className="gacha-pity-value">{state.pullCount}</span>

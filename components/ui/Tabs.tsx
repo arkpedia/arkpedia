@@ -43,19 +43,23 @@ interface TabsProps<V extends string | number> {
 
 /** Where the strip's sliding underline goes: under the current tab, in the strip's own
  *  coordinates, or null when no enabled tab is current (or the strip is not rendered).
- *  Read from the boxes the browser draws, so a label's fractional width is kept (the
- *  static ::after it replaces is exactly the tab's width), and with the tab's own press
- *  scale taken back out: a click selects on mouseup, while the tab is still easing back
- *  from `:active`'s scale(.97) (styles/core/motion.css), and that is paint, not layout. */
+ *  The size is the tab's LAYOUT box (its used width and height, fractional, so the bar is
+ *  exactly the static ::after it replaces), never its drawn box: a click selects on
+ *  mouseup, while the tab is still easing back from `:active`'s scale(.97)
+ *  (styles/core/motion.css), and dividing the drawn box by the scale read back trusted
+ *  two readings to agree mid-transition (the owner saw the bar run past the planner's
+ *  Thorns tab into the next one, 2026-10-29). Only the centre comes from the drawn box,
+ *  and a scale about the centre does not move it. */
 function underlineOf(strip: HTMLElement): { x: number; y: number; w: number } | null {
   const tab = strip.querySelector<HTMLElement>(':scope > [role="tab"][aria-selected="true"]');
   if (!tab || !tab.offsetParent) return null;
   const s = strip.getBoundingClientRect();
   const t = tab.getBoundingClientRect();
-  const k = parseFloat(getComputedStyle(tab).scale) || 1;
-  const w = t.width / k;
+  const box = getComputedStyle(tab);
+  const w = parseFloat(box.width) || tab.offsetWidth;
+  const h = parseFloat(box.height) || tab.offsetHeight;
   const left = (t.left + t.right) / 2 - w / 2;
-  const bottom = (t.top + t.bottom) / 2 + t.height / k / 2;
+  const bottom = (t.top + t.bottom) / 2 + h / 2;
   return { x: left - s.left - strip.clientLeft, y: bottom - s.top - strip.clientTop - 2, w };
 }
 
@@ -174,11 +178,17 @@ export default function Tabs<V extends string | number>({
       if (first) strip.setAttribute('data-slide', '');
     };
     place(false);
-    if (typeof ResizeObserver === 'undefined') return;
-    const observer = new ResizeObserver(() => place(true));
-    observer.observe(strip);
-    for (const tab of Array.from(strip.children)) if (tab !== indicator) observer.observe(tab);
-    return () => observer.disconnect();
+    /* Checked again where a slide ends and once the webfonts are in, and put right at once
+       if anything moved under it meanwhile: the bar is never left anywhere but under the
+       current tab, whatever the cause. */
+    const settle = (event: TransitionEvent) => { if (event.target === indicator) place(true); };
+    indicator.addEventListener('transitionend', settle);
+    let live = true;
+    document.fonts?.ready.then(() => { if (live) place(true); });
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(() => place(true));
+    observer?.observe(strip);
+    for (const tab of Array.from(strip.children)) if (tab !== indicator) observer?.observe(tab);
+    return () => { live = false; observer?.disconnect(); indicator.removeEventListener('transitionend', settle); };
   }, [value, optionKeys]);
 
   return (

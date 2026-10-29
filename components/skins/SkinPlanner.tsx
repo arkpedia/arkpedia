@@ -196,7 +196,7 @@ export default function SkinPlanner({ catalogue, collections, today, now, ids, o
         )}
       </div>
 
-      <aside className="skin-plan-summary" aria-label="Your skin plan">
+      <aside className="panel skin-plan-summary" aria-label="Your skin plan">
         <h3 className="section-title">Your plan <span className="hint">{plannedSkins.length}</span></h3>
         <div className="skin-plan-totals" role="status" aria-live="polite">
           <div><span>To buy</span><strong>{cost} OP</strong></div>

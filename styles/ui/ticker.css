@@ -17,13 +17,23 @@
   pointer-events: none;
   overflow: hidden;
   height: 0;
-  background: var(--amber);
-  opacity: 0;
-  transition: height 0.25s ease, opacity 0.25s ease;
+  /* How far each end of the amber band fades out: the band sweeps in from the right and
+     away to the left (styles/core/motion.css) with a soft edge, not a hard line. */
+  --ticker-feather: min(24vw, 200px);
 }
 .ticker-bar.visible {
   height: 32px;
-  opacity: 1;
+}
+/* The amber band: wider than the bar by its two feathered ends, which sit just off screen
+   while it covers the bar, so at rest the bar is solid amber edge to edge. */
+.ticker-bar::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(-1 * var(--ticker-feather));
+  right: calc(-1 * var(--ticker-feather));
+  background: linear-gradient(to right, transparent, var(--amber) var(--ticker-feather), var(--amber) calc(100% - var(--ticker-feather)), transparent);
 }
 
 .ticker-track {
@@ -36,7 +46,8 @@
   white-space: nowrap;
   /* Single pass, not looping -- the next appearance is a fresh mount
      2 minutes later, driven by the JS cycle, not a CSS loop. */
-  animation: ticker-scroll var(--ticker-duration, 16s) linear forwards;
+  /* Held off screen (both) until the band has swept in (--ticker-delay). */
+  animation: ticker-scroll var(--ticker-duration, 16s) linear var(--ticker-delay, 0s) both;
   will-change: transform;
 }
 

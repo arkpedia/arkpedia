@@ -34,7 +34,7 @@ export default function SupportPage() {
           </p>
 
           <div className="support-options-row">
-            <div className="support-option">
+            <div className="panel support-option">
               <h3>For Free!</h3>
               <p className="support-copy">Be more active in the communities I have.</p>
               <div className="support-social-row">
@@ -63,7 +63,7 @@ export default function SupportPage() {
               </div>
             </div>
 
-            <div className="support-option">
+            <div className="panel support-option">
               <h3>As Free Labour <span aria-hidden="true">😈</span></h3>
               <p className="support-copy">
                 Send your feedback and bugs to this Google Form, or join the team of unpaid people to make this
@@ -89,7 +89,7 @@ export default function SupportPage() {
               </div>
             </div>
 
-            <div className="support-option">
+            <div className="panel support-option">
               <h3>Or Support the Page Expenses <span aria-hidden="true">🥲</span></h3>
               <p className="support-copy">Benefits are given for paid supporters in the near future!</p>
               <div className="support-social-row">
@@ -107,7 +107,7 @@ export default function SupportPage() {
 
         <section className="op-section">
           <h2>Thank You to My Supporters</h2>
-          <div className="supporters-tiers">
+          <div className="panel supporters-tiers">
             {patreonSupporters['supporter-tier'].map(tier => (
               <div key={tier.id} className="supporter-tier">
                 <h3>{tier.name}</h3>

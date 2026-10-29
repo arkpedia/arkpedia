@@ -108,7 +108,7 @@ export default function CompanionPage({ data, picker }: Props) {
       </header>
 
       <main className="terminal-scene gm-co-page">
-        <section className="terminal-panel wide" data-tab="Companion">
+        <section className="panel terminal-panel wide" data-tab="Companion">
           {/* role=status: the note appears after render, once localStorage has been
               asked, so without a live region a screen reader never hears the one
               thing this surface has to say. */}

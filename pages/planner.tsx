@@ -1110,7 +1110,7 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
         ) : (<>
         {/* First, because it is the thing the reader came to state. Everything
             below is worked out FROM it. */}
-        <section className="plan-panel">
+        <section className="panel plan-panel">
           <PlanRows
             clearControl={clearControl('goals')}
             planned={planRows.planned}
@@ -1135,7 +1135,7 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
             argument that what is MISSING is the first question -- and the
             reader's own order is the other way round: you say who you are
             building, and then what that leaves you short of. Moved on request. */}
-        <section className="plan-panel">
+        <section className="panel plan-panel">
           {materialsPanel}
         </section>
 
@@ -1143,7 +1143,7 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
             it still shows the slice of the depot this plan actually touches --
             twelve tiles rather than ninety-three, which is the part worth
             reading at a glance. */}
-        <section className="plan-panel" ref={depotPanelRef}>
+        <section className="panel plan-panel" ref={depotPanelRef}>
           <div className="plan-panel-head">
             <span className="plan-panel-lead">
               <span className="label-pair">

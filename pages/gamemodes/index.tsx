@@ -37,7 +37,7 @@ export default function GamemodesPage({ modes }: { modes: Mode[] }) {
         sub="The modes that run beside the mainline, each with its own rules to learn."
       />
       <main className="terminal-scene">
-        <section className="terminal-panel wide" data-tab="Modes">
+        <section className="panel terminal-panel wide" data-tab="Modes">
           <ul className="terminal-list">
             {modes.map((m) => {
               const inside = (

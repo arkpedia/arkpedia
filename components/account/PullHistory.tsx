@@ -1,5 +1,4 @@
-import { useEffect, useId, useMemo, useState, type ReactNode } from 'react';
-import Link from 'next/link';
+import { useCallback, useEffect, useId, useMemo, useState, type ReactNode } from 'react';
 import Image from '@/components/content/ContentImage';
 import LoadOnScroll from '@/components/ui/LoadOnScroll';
 import LocalTime from '@/components/ui/LocalTime';
@@ -9,11 +8,12 @@ import { pullHistoryCsv, pullHistoryCsvFilename, pullLabels } from '@/lib/accoun
 import { downloadBlob } from '@/lib/ui/downloadBlob';
 import type { GameAccountMap } from '@/lib/planner/gameAccount';
 import { getOperatorIconPath, OPERATOR_PORTRAIT_PLACEHOLDER } from '@/lib/operators/operatorIcon';
-import { operatorHref } from '@/lib/operators/operatorHref';
 import { accountArchiveKey, archiveKey, archiveStatus } from '@/lib/account/pullArchive';
 import { migrateLegacyPullRows, usePullArchives } from '@/lib/account/pullArchiveStore';
 import { useCloudSync } from '@/lib/cloud-account/SyncProvider';
 import InfoPopover from '@/components/ui/InfoPopover';
+import { LazyOperatorPreview } from '@/components/operators/LazyOperatorPreview';
+import type { OperatorPreviewItem } from '@/components/operators/OperatorPreview';
 import StyledSelect from '@/components/ui/StyledSelect';
 import styles from './CloudAccountPanel.module.css';
 
@@ -75,6 +75,8 @@ export default function PullHistory({ account, map }: { account: AccountRecord |
  *  any account is. */
 function PullHistoryDetails({ imported, history, read, map }: { imported: boolean; history: History | null; read: PullReadStatus | null; map: GameAccountMap }) {
   const [open, setOpen] = useState(false);
+  const [preview, setPreview] = useState<OperatorPreviewItem | null>(null);
+  const closePreview = useCallback(() => setPreview(null), []);
   const listId = useId();
   const view = useMemo(() => {
     if (!history?.rows.length) return null;
@@ -92,12 +94,18 @@ function PullHistoryDetails({ imported, history, read, map }: { imported: boolea
   /* The whole history, one row per pull, as a spreadsheet's columns. The day in its name is read
      here, in the click, never during a render. */
   const exportCsv = () => downloadBlob(new Blob([pullHistoryCsv(history, map)], { type: 'text/csv;charset=utf-8' }), pullHistoryCsvFilename());
+  /* A known operator's icon opens its quick preview, the gacha simulator's pop-up (which links
+     on to the operator's page); one the id map does not know stays a picture. */
   const icon = (row: PullRecord, key: string | number, size: number) => {
     const op = operator(row);
-    const picture = <Image src={op.known ? getOperatorIconPath(op) : OPERATOR_PORTRAIT_PLACEHOLDER} alt={op.name} title={op.name} width={size} height={size} />;
-    return op.known
-      ? <Link key={key} prefetch={false} href={operatorHref(op.name, null)} className="account-pulls-op rarity-frame" data-rarity={op.rarity}>{picture}</Link>
-      : <span key={key} className="account-pulls-op rarity-frame" data-rarity={op.rarity}>{picture}</span>;
+    if (!op.known) return <span key={key} className="account-pulls-op rarity-frame" data-rarity={op.rarity}>
+      <Image src={OPERATOR_PORTRAIT_PLACEHOLDER} alt={op.name} title={op.name} width={size} height={size} />
+    </span>;
+    const src = getOperatorIconPath(op);
+    return <button key={key} type="button" className="btn-bare account-pulls-op rarity-frame lift" data-rarity={op.rarity} title={op.name}
+      aria-haspopup="dialog" aria-label={`${op.name}: operator preview`} onClick={() => setPreview({ name: op.name, icon: src, rarity: op.rarity })}>
+      <Image src={src} alt="" width={size} height={size} />
+    </button>;
   };
   const { counts } = view;
   const oldest = history.rows[history.rows.length - 1].at;
@@ -106,10 +114,10 @@ function PullHistoryDetails({ imported, history, read, map }: { imported: boolea
     <>
       {note}
       <dl className="account-pulls-stats">
-        <div><dt className="label-tag">Pulls</dt><dd>{counts.total.toLocaleString('en-US')}</dd></div>
-        <div><dt className="label-tag">6★</dt><dd className="rarity-6">{counts.six} <small>{percent(counts.six, counts.total)}</small></dd></div>
-        <div><dt className="label-tag">5★</dt><dd className="rarity-5">{counts.five} <small>{percent(counts.five, counts.total)}</small></dd></div>
-        <div><dt className="label-tag">Since</dt><dd>{day(oldest)}</dd></div>
+        <div className="panel"><dt className="label-tag">Pulls</dt><dd>{counts.total.toLocaleString('en-US')}</dd></div>
+        <div className="panel"><dt className="label-tag">6★</dt><dd className="rarity-6">{counts.six} <small>{percent(counts.six, counts.total)}</small></dd></div>
+        <div className="panel"><dt className="label-tag">5★</dt><dd className="rarity-5">{counts.five} <small>{percent(counts.five, counts.total)}</small></dd></div>
+        <div className="panel"><dt className="label-tag">Since</dt><dd>{day(oldest)}</dd></div>
       </dl>
 
       <h3>By banner</h3>
@@ -145,6 +153,7 @@ function PullHistoryDetails({ imported, history, read, map }: { imported: boolea
       <p className="hint">
         Pulls sharing a timestamp are grouped as one batch. Their original order within that batch may be unavailable.
       </p>
+      {preview && <LazyOperatorPreview key={preview.name} item={preview} onClose={closePreview} nativeModal />}
     </>
   );
 }

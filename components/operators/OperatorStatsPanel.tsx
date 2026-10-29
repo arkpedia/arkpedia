@@ -130,32 +130,43 @@ export default function OperatorStatsPanel({ stats, modules = [], hidden }: { st
       </div>
       <span id={helpId} className="visually-hidden">Trust bonuses reach their maximum at 100%.</span>
 
-      <dl className={styles.primaryStats}>
-        {primary.map(({ key, label }) => {
-          const added = key === 'res' ? 0 : bonus[key];
-          const hasTrust = key !== 'res' && stats.trust[key] !== 0;
-          const moduleAdded = moduleBonuses[key] ?? 0;
-          return (
-            <div key={key} className={styles.stat}>
-              <dt><OperatorGameIcon label={label} src={`/stat-icons/${STAT_ICONS[key]}.webp`} size={24} /></dt>
-              <dd>
-                <span className={styles.total}>{format(moduleAdjusted[key] + added)}</span>
-                <span className={styles.breakdown}>
-                  <span>{format(base[key])} base</span>
-                  {hasTrust && <span className={styles.trustBonus}>+ {format(added)} trust</span>}
-                  {moduleAdded !== 0 && <span className={styles.moduleBonus}>{moduleAdded > 0 ? '+' : '−'} {format(Math.abs(moduleAdded))} module</span>}
-                </span>
-              </dd>
-            </div>
-          );
-        })}
-      </dl>
-      <dl className={styles.secondaryStats}>
-        {secondary.map(({ key, label, unit }) => (
-          <div key={key}><dt><OperatorGameIcon label={label} src={`/stat-icons/${STAT_ICONS[key]}.webp`} size={24} /></dt><dd>{format(moduleAdjusted[key])}{unit && <span> {unit}</span>}</dd></div>
-        ))}
-      </dl>
+      <StatReadout
+        primary={primary.map(({ key, label }) => ({ key, label, total: moduleAdjusted[key] + (key === 'res' ? 0 : bonus[key]), base: base[key],
+          trust: key !== 'res' && stats.trust[key] !== 0 ? bonus[key] : 0, module: moduleBonuses[key] ?? 0 }))}
+        secondary={secondary.map(({ key, label, unit }) => ({ key, label, value: moduleAdjusted[key], unit }))}
+      />
       <p className={styles.help}>{activeModuleStage ? `Base, trust, and ${moduleLabel(activeModule!, moduleIndex!)} level ${moduleStageIndex + 1}.` : 'Base + trust.'}</p>
     </section>
   );
+}
+
+/** The stat block itself: HP, ATK, DEF and RES large with what makes each up (base, trust, a
+ *  module), then DP, block, interval and redeploy in a row. The operator page's build controls
+ *  feed it, and the operator quick preview (OperatorPreview) shows the same block. */
+export function StatReadout({ primary: rows, secondary: cells }: {
+  primary: { key: 'hp' | 'atk' | 'def' | 'res'; label: string; total: number; base: number; trust: number; module?: number }[];
+  secondary: { key: StatKey; label: string; value: number; unit?: string }[];
+}) {
+  return <>
+    <dl className={styles.primaryStats}>
+      {rows.map(({ key, label, total, base, trust, module = 0 }) => (
+        <div key={key} className={styles.stat}>
+          <dt><OperatorGameIcon label={label} src={`/stat-icons/${STAT_ICONS[key]}.webp`} size={24} /></dt>
+          <dd>
+            <span className={styles.total}>{format(total)}</span>
+            <span className={styles.breakdown}>
+              <span>{format(base)} base</span>
+              {trust !== 0 && <span className={styles.trustBonus}>+ {format(trust)} trust</span>}
+              {module !== 0 && <span className={styles.moduleBonus}>{module > 0 ? '+' : '−'} {format(Math.abs(module))} module</span>}
+            </span>
+          </dd>
+        </div>
+      ))}
+    </dl>
+    <dl className={styles.secondaryStats}>
+      {cells.map(({ key, label, value, unit }) => (
+        <div key={key}><dt><OperatorGameIcon label={label} src={`/stat-icons/${STAT_ICONS[key]}.webp`} size={24} /></dt><dd>{format(value)}{unit && <span> {unit}</span>}</dd></div>
+      ))}
+    </dl>
+  </>;
 }

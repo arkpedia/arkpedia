@@ -12,6 +12,7 @@ import XButton from '@/components/ui/XButton';
 import { operatorHref } from '@/lib/operators/operatorHref';
 import SkillRank from './SkillRank';
 import PreviewArtwork from './PreviewArtwork';
+import { StatReadout } from './OperatorStatsPanel';
 
 export type OperatorPreviewItem = Pick<PulledItem, 'name' | 'icon'> & { rarity: number; build?: Owned; rosterContext?: boolean };
 
@@ -104,20 +105,18 @@ export function OperatorPreview({ item, onClose, nativeModal = false }: { item: 
             {loadError && <p className="gacha-preview-loading" role="status">Details are unavailable right now. The operator page is still linked beside the artwork.</p>}
             {details?.stats && <section className="gacha-preview-section">
               <h3>Stats <span>E{details.stats.elite} Lv {details.stats.level} · max trust{item.build ? ' estimate' : ''}</span></h3>
-              <div className="gacha-preview-stats">
-                {([
-                  ['HP', details.stats.values.hp, details.stats.trust.hp],
-                  ['ATK', details.stats.values.atk, details.stats.trust.atk],
-                  ['DEF', details.stats.values.def, details.stats.trust.def],
-                  ['RES', `${details.stats.values.res}%`, null],
-                  ['DP', details.stats.values.dp, null],
-                  ['Block', details.stats.values.block, null],
-                  ['Interval', `${details.stats.values.interval}s`, null],
-                  ['Redeploy', `${details.stats.values.redeploy}s`, null],
-                ] as const).map(([label, value, trust]) => (
-                  <div key={label} className="gacha-preview-stat"><span>{label}</span><strong>{value}{trust ? <small> +{trust}</small> : null}</strong></div>
-                ))}
-              </div>
+              <StatReadout
+                primary={([['hp', 'HP'], ['atk', 'ATK'], ['def', 'DEF'], ['res', 'RES']] as const).map(([key, label]) => {
+                  const trust = key === 'res' ? 0 : details.stats!.trust[key];
+                  return { key, label, base: details.stats!.values[key], trust, total: details.stats!.values[key] + trust };
+                })}
+                secondary={[
+                  { key: 'dp', label: 'DP cost', value: details.stats.values.dp },
+                  { key: 'block', label: 'Block count', value: details.stats.values.block },
+                  { key: 'interval', label: 'Attack interval', value: details.stats.values.interval, unit: 's' },
+                  { key: 'redeploy', label: 'Redeploy time', value: details.stats.values.redeploy, unit: 's' },
+                ]}
+              />
             </section>}
             {/* A trait that changes is one entry per promotion, its stage where a talent's is.
                 `?.` on the list: a response cached from before it existed has none. */}

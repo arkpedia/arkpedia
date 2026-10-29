@@ -1,6 +1,6 @@
 import { addCostGroup, totalsToCostGroup } from "@/lib/planner/plannerLogic";
 import { PromotionIcon } from "./PromotionIcon";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import Image from "@/components/content/ContentImage";
 import type {
   PlannerOperator,
@@ -20,6 +20,8 @@ import Tabs, { tabId, tabPanelProps } from "@/components/ui/Tabs";
 import { useSwitchHold } from "@/components/ui/useSwitchHold";
 import SearchInput from "@/components/ui/SearchInput";
 import Rarity, { rarityLevel } from "@/components/ui/Rarity";
+import { LazyOperatorPreview } from "@/components/operators/LazyOperatorPreview";
+import type { OperatorPreviewItem } from "@/components/operators/OperatorPreview";
 
 function Materials({ cost, missingShares }: { cost: CostGroup; missingShares?: Map<string, number> }) {
   /* The release's catalogue order, which the page's props carry (usePlannerContent). */
@@ -160,6 +162,16 @@ export function SimplePlanner({
   );
   const name = selected && selectedNames.includes(selected) ? selected : null;
   const summary = operators.find((o) => o.name === name);
+  const [preview, setPreview] = useState<OperatorPreviewItem | null>(null);
+  const closePreview = useCallback(() => setPreview(null), []);
+  const art = name && summary ? (
+    <Image
+      src={summary.art || getOperatorIconPath(summary)}
+      alt={name}
+      fill
+      sizes="(max-width: 640px) 150px, 300px"
+    />
+  ) : null;
   const op = name ? details[name] : null;
   const state = name ? states[name] : null;
   const pending = selectedNames.filter((n) => !bills[n]);
@@ -229,16 +241,24 @@ export function SimplePlanner({
           />
           <div ref={viewHold.ref} style={viewHold.style}>
           {name && summary && state ? (
-            <article className="simple-dossier" {...tabPanelProps("planner-operator", name)}>
+            <article className="simple-dossier panel" {...tabPanelProps("planner-operator", name)}>
               <div className="simple-portrait">
-                <div className="simple-portrait-art">
-                  <Image
-                    src={summary.art || getOperatorIconPath(summary)}
-                    alt={name}
-                    fill
-                    sizes="(max-width: 640px) 150px, 300px"
-                  />
-                </div>
+                {/* The artwork opens the operator's quick preview, the gacha simulator's
+                    pop-up (LazyOperatorPreview); the button is the art's own frame, so the
+                    picture still fills it. */}
+                {summary.rarity ? (
+                  <button
+                    type="button"
+                    className="btn-bare simple-portrait-art"
+                    aria-haspopup="dialog"
+                    aria-label={`${name}: operator preview`}
+                    onClick={() => setPreview({ name, icon: getOperatorIconPath(summary), rarity: rarityLevel(summary.rarity!) })}
+                  >
+                    {art}
+                  </button>
+                ) : (
+                  <div className="simple-portrait-art">{art}</div>
+                )}
                 <div className="simple-portrait-caption">
                   <span>
                     {summary.rarity ? <Rarity n={rarityLevel(summary.rarity)} /> : null} {summary.className}
@@ -325,7 +345,7 @@ export function SimplePlanner({
               </div>
             </article>
           ) : (
-            <section className="simple-all" {...tabPanelProps("planner-operator", ALL_MATERIALS)}>
+            <section className="simple-all panel" {...tabPanelProps("planner-operator", ALL_MATERIALS)}>
               <div className="simple-all-heading"><h2 className="section-title">All materials</h2>{materialsControls}</div>
               {pending.length ? (
                 <p role="status">
@@ -354,6 +374,7 @@ export function SimplePlanner({
           <p>Search an operator to set their current level and goal.</p>
         </div>
       )}
+      {preview && <LazyOperatorPreview key={preview.name} item={preview} onClose={closePreview} nativeModal />}
     </div>
   );
 }

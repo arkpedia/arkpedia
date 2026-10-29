@@ -127,14 +127,16 @@ test('a banner whose lineup is pending says so instead of listing no one', () =>
     featuredOperators: [{ name: 'Someone', rarity: 6, percent: 50 }], ...over,
   }));
   const held = page({});
-  assert.ok(held.includes(PENDING_NOTE) && !held.includes('class="event-detail-featured-op"'), 'pending note, not a lineup');
+  // An operator tile is a button that opens the preview: class="btn-bare event-detail-featured-op".
+  const tile = /class="[^"]*\bevent-detail-featured-op\b/;
+  assert.ok(held.includes(PENDING_NOTE) && !tile.test(held), 'pending note, not a lineup');
   // The banner's frame stays at its size with no art in it.
   assert.match(held, /<div class="event-detail-banner-art-wrap"><\/div>/);
   const known = page({ lineupPending: null });
-  assert.ok(!known.includes(PENDING_NOTE) && known.includes('class="event-detail-featured-op"'));
+  assert.ok(!known.includes(PENDING_NOTE) && tile.test(known));
   // A release compiled before the note's text carries `true`: the note, not an empty hint.
   const older = page({ lineupPending: true });
   assert.ok(older.includes(`<p class="hint">${PENDING_NOTE}</p>`) && !older.includes('<p class="hint"></p>'), older);
-  assert.ok(!older.includes('class="event-detail-featured-op"'));
-  assert.ok(page({ lineupPending: false }).includes('class="event-detail-featured-op"'));
+  assert.ok(!tile.test(older));
+  assert.ok(tile.test(page({ lineupPending: false })));
 });

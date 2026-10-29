@@ -49,7 +49,7 @@ export function EventFurniture({ sets }: { sets: EventExtras['furniture'] }) {
   return (
     <div className="event-extras">
       {sets.map((set) => (
-        <article key={set.title} className="event-furniture-set">
+        <article key={set.title} className="panel event-furniture-set">
           <h3>{set.title}</h3>
           <div className="event-furniture-overview">
             {set.imagePath && <Image className="event-furniture-art" src={set.imagePath} alt={`${set.title} in-game shop artwork`} width={226} height={169} />}
@@ -73,7 +73,7 @@ export function EventNotices({ notices }: { notices: EventExtras['notices'] }) {
   return (
     <div className="event-extras">
       {notices.map((notice) => (
-        <article key={notice.title + notice.source} className="event-notice">
+        <article key={notice.title + notice.source} className="panel event-notice">
           <h3>{notice.title}</h3>
           {notice.lines.map((line, i) => <p key={i}>{line}</p>)}
           <p className="hint"><a href={notice.source} target="_blank" rel="noopener noreferrer">Official announcement</a></p>
@@ -133,7 +133,7 @@ const SERVER_LABEL = { jp: 'JP', kr: 'KR' } as const;
 function RegionalBoardItem({ item, server }: { item: EventExtras['board'][number]; server: 'jp' | 'kr' }) {
   const label = `Official ${SERVER_LABEL[server]} notice`;
   return (
-    <article className="event-notice event-news-board-item">
+    <article className="panel event-notice event-news-board-item">
       {item.image && <ContentImg className="event-news-board-art" src={item.image} alt={item.name ?? label} />}
       <h3>{item.name ?? label}</h3>
       <p className="hint">
@@ -184,7 +184,7 @@ export function EventNews({ news, board }: { news: EventExtras['news']; board: E
             <p className="hint event-news-from">On the in-game notice board.</p>
             <div className="event-news-board">
               {globalBoard.map((item) => (
-                <article key={item.title + item.image} className="event-notice event-news-board-item">
+                <article key={item.title + item.image} className="panel event-notice event-news-board-item">
                   {item.image && <ContentImg className="event-news-board-art" src={item.image} alt={item.title} />}
                   <h3>{item.title}</h3>
                   <p className="hint">
@@ -204,7 +204,7 @@ export function EventNews({ news, board }: { news: EventExtras['news']; board: E
             </p>
             {first.postArt && <ContentImg className="event-news-art" src={first.postArt} alt="" />}
             {news.filter((section) => section.source === source).map((section) => (
-              <article key={section.title} className="event-notice event-news-section">
+              <article key={section.title} className="panel event-notice event-news-section">
                 {(section.art ?? []).filter((picture) => picture.at < 0).map((picture) => <ContentImg key={picture.url} className="event-news-art" src={picture.url} alt="" />)}
                 <h3>{section.title}</h3>
                 <NewsBody section={section} />
@@ -226,7 +226,7 @@ export function EventLoginDays({ details }: { details: LoginDetails }) {
   return <>
     {details.description && <p className="hint">{details.description}</p>}
     <div className="event-login-days">
-      {details.days.map((items, index) => <div key={index} className="event-login-day">
+      {details.days.map((items, index) => <div key={index} className="panel event-login-day">
         <h4>Day {index + 1}</h4>
         <div className="event-reward-totals">{items.map(item => <RewardTile key={item.name} {...item} />)}</div>
       </div>)}

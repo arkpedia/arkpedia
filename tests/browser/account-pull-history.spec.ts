@@ -74,7 +74,8 @@ test('Every pull mounts on request, grows on scroll, and keeps summaries and ful
   }
   await expect(sessions.first().locator('.account-pulls-op')).toHaveCount(10);
   await expect(sessions.first()).toContainText('×10');
-  await expect(sessions.first().getByRole('link').first()).toHaveAttribute('href', '/operators/Amiya');
+  // Each icon opens the operator preview (its own test, below), which links on to the operator page.
+  await expect(sessions.first().getByRole('button', { name: 'Amiya: operator preview', exact: true }).first()).toHaveAttribute('aria-haspopup', 'dialog');
   for (const image of await sessions.first().locator('img').all()) await expect(image).toHaveAttribute('loading', 'lazy');
 
   await sessions.last().scrollIntoViewIfNeeded();
@@ -113,4 +114,29 @@ test('switching imported servers closes individual history and shows only the se
   await page.reload();
   await expect(toggle).toHaveAttribute('aria-expanded', 'false');
   await expect(page.locator('.account-pulls-session')).toHaveCount(0);
+});
+
+/* The owner, 2026-10-29: every operator icon in Pull History opens the operator's quick
+   preview (the gacha simulator's pop-up, which links on to the operator page), by mouse or
+   keyboard, and focus comes back to the icon. */
+test('an operator icon in Pull History opens the operator preview', async ({ page }) => {
+  await seed(page);
+  const icons = page.locator('.account-pulls-banners').getByRole('button', { name: 'Amiya: operator preview', exact: true });
+  await expect(icons.first()).toHaveAttribute('aria-haspopup', 'dialog');
+  await expect(icons.first()).toHaveAttribute('data-rarity', '5');
+  await icons.first().click();
+  const dialog = page.getByRole('dialog', { name: 'Amiya', exact: true });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole('link', { name: /View operator page/ })).toHaveAttribute('href', /\/operators\/Amiya/);
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+  await expect(icons.first()).toBeFocused();
+  // The same icons in Every pull.
+  await page.getByRole('button', { name: 'Every pull', exact: true }).click();
+  const row = page.locator('.account-pulls-session').first().getByRole('button', { name: 'Amiya: operator preview', exact: true }).first();
+  await row.focus();
+  await page.keyboard.press('Enter');
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole('button', { name: 'Close operator preview', exact: true }).click();
+  await expect(row).toBeFocused();
 });

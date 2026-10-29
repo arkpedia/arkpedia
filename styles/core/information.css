@@ -1,7 +1,7 @@
 /* Calm reading surfaces, shared by About and privacy pages. */
 .information-layout { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 64px; align-items: start; }
 .information-sidebar { position: sticky; top: 88px; display: grid; gap: 28px; }
-.information-pages { display: grid; padding: 6px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-frame); }
+.information-pages { display: grid; padding: 6px; }
 .information-pages a[aria-current="page"] { color: var(--teal); background: var(--teal-dim); }
 .information-contents { display: grid; gap: 12px; }
 .information-contents p { margin: 0 0 4px; }

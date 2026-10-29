@@ -48,6 +48,16 @@
   "checkboxPrimitive": [],
   "tglOutsideToolbar": [],
   "headingRules": [],
+  "cardShading": [
+    "styles/account/account.css: .account-card-assistant-scrim { background } gradient",
+    "styles/account/account.css: .account-card-support-elite { filter } drop-shadow",
+    "styles/account/account.css: .account-card-support-level { background } gradient",
+    "styles/account/account.css: .account-card::before { background } gradient",
+    "styles/gacha/gacha-tutorial.css: .gacha-tutorial-pull-card.highlight { background } gradient",
+    "styles/gacha/gacha.css: .gacha-pull-tile.pull-six { box-shadow } resting shadow",
+    "styles/stages/stages.css: .stage-card-art-none { background } gradient",
+    "styles/stages/stages.css: .stage-card-art::after { background } gradient"
+  ],
   "stretchedChoices": [],
   "deadPrimitives": [],
   "liveBadge": [],

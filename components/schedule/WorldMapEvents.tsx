@@ -254,7 +254,7 @@ export default function WorldMapEvents({ events, now: renderedAt }: { events: Co
       >
         {isFullscreen ? <XGlyph /> : '⛶'}
       </button>
-      <svg ref={svgRef} viewBox={`0 0 ${MAP_WIDTH} ${MAP_HEIGHT}`} className="world-map-svg">
+      <svg ref={svgRef} viewBox={`0 0 ${MAP_WIDTH} ${MAP_HEIGHT}`} className="panel world-map-svg">
         <rect x={0} y={0} width={MAP_WIDTH} height={MAP_HEIGHT} className="world-map-bg" />
         <path d={landPath} className="world-map-land" />
         <line x1={0} y1={MAP_HEIGHT / 2} x2={MAP_WIDTH} y2={MAP_HEIGHT / 2} className="world-map-equator" />

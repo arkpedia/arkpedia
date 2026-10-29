@@ -160,3 +160,42 @@ export function importClaimedBeginner(rewards: readonly FreeReward[], claims: { 
   const claimed = new Set(claims?.claimed);
   return new Map(rewards.filter(reward => reward.group === 'Beginner rewards' && claimed.has(reward.id)).map(reward => [reward.id, 'game' as const]));
 }
+
+/** A welfare operator as its event's page lists it: one per operator, with how it is earned. */
+export interface EventWelfareOperator { name: string; rarity: number; task: string | null; source: string }
+/** The welfare operators the event at `href` (its page, `/events/<name>`) gives: the Reward
+ *  Tracker's own rows (withWelfareEventLinks links each to its event), so the two always agree. */
+export function eventWelfareOperators(rewards: readonly FreeReward[], href: string): EventWelfareOperator[] {
+  const out = new Map<string, EventWelfareOperator>();
+  for (const reward of rewards) {
+    if (reward.group !== 'Welfare operators' || reward.href !== href) continue;
+    const { task, source } = welfareCardFacts(reward, 0);
+    for (const item of reward.rewards) {
+      if (!isOperatorReward(item) || out.has(item.name)) continue;
+      out.set(item.name, { name: item.name, rarity: item.rarity ?? 0, task: task ?? null, source });
+    }
+  }
+  return [...out.values()];
+}
+
+const STAR_FOLDERS = ['one', 'two', 'three', 'four', 'five', 'six'];
+const STAR_ICON = /^\/(one|two|three|four|five|six)-star-icons\/(.+) - Base\.webp$/;
+/** The operators an event's reward lists give that are not its welfare ones (GALLUS² on Critical
+ *  Phase Transition's sign-in), once each with the list it is in: the list's label ("Login
+ *  event", "Missions", "Events Store"), not its in-game title. An operator is an item whose icon
+ *  is an operator's (getOperatorIconPath): its folder is the rarity and its file the operator's
+ *  name, so this needs no roster and runs on a page read from a published release, whose paths
+ *  are URL-encoded ("GALLUS%C2%B2%20-%20Base.webp"). */
+export function eventRewardOperators(stores: readonly { type: string; name: string; items: readonly { iconPath: string | null }[] }[], welfare: readonly EventWelfareOperator[]): EventWelfareOperator[] {
+  const out: EventWelfareOperator[] = [];
+  for (const store of stores) for (const item of store.items) {
+    let path = item.iconPath ?? '';
+    try { path = decodeURIComponent(path); } catch { /* a stray % in a raw path: read it as it is */ }
+    const match = STAR_ICON.exec(path);
+    if (!match) continue;
+    const name = match[2];
+    if (welfare.some((op) => op.name === name) || out.some((op) => op.name === name)) continue;
+    out.push({ name, rarity: STAR_FOLDERS.indexOf(match[1]) + 1, task: null, source: store.type || store.name });
+  }
+  return out;
+}

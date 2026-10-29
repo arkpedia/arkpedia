@@ -302,6 +302,19 @@
   @keyframes blink {
     50% { opacity: 0.2; }
   }
+
+  /* --- the announcement ticker's band sweeps (styles/ui/ticker.css) --------------------
+     In from the right, and away to the left once the text has run through, on its
+     feathered ends (AnnouncementTicker.tsx times both: TICKER_ENTER_MS, TICKER_EXIT_MS).
+     Without motion the band is simply there while the ticker shows. */
+  .ticker-bar.visible::before {
+    animation: ticker-band-in 0.7s var(--ease) both;
+  }
+  .ticker-bar.visible.leaving::before {
+    animation: ticker-band-out 0.7s ease-in forwards;
+  }
+  @keyframes ticker-band-in { from { transform: translateX(100%); } }
+  @keyframes ticker-band-out { to { transform: translateX(-100%); } }
 }
 
 @media (prefers-reduced-motion: no-preference) {

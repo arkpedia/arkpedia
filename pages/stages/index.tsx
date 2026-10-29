@@ -79,7 +79,7 @@ export default function TerminalPage({ candidates: globalCandidates, latestIs, l
 
       <main className="terminal-scene">
         <div className="terminal-home">
-          <section className="terminal-panel wide op-section">
+          <section className="panel terminal-panel wide op-section">
             <h2>{leadTab}</h2>
             {lead ? <Lead card={lead} clock={clock} live={isLive(lead)} /> : (
               <p className="hint terminal-empty">No event in the dataset carries a run window.</p>
@@ -87,7 +87,7 @@ export default function TerminalPage({ candidates: globalCandidates, latestIs, l
           </section>
 
           {rest.length > 0 && (
-            <section className="terminal-panel op-section">
+            <section className="panel terminal-panel op-section">
               <h2>Attention</h2>
               <ul className="terminal-list">
                 {rest.map((card) => (
@@ -117,7 +117,7 @@ export default function TerminalPage({ candidates: globalCandidates, latestIs, l
             </section>
           )}
 
-          <section className="terminal-panel op-section">
+          <section className="panel terminal-panel op-section">
             <h2>Long-Term Exploration</h2>
             {latestIs && <ModePanel card={latestIs} kind="Integrated Strategies" count={isThemes} noun="theme" />}
             {latestRa && <ModePanel card={latestRa} kind="Reclamation Algorithm" count={raSeasons} noun="season" />}

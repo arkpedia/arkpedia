@@ -142,17 +142,16 @@ button.events-row-main.btn-bare { border: 0; background: transparent; padding: 0
 .event-detail-banner-art-wrap {
   position: relative;
   width: 100%;
-  max-width: 640px;
-  aspect-ratio: 1024 / 328;
+  /* The headhunting art's own shape (1024x559); an older 1560x500 one sits in it letterboxed. */
+  aspect-ratio: 1024 / 559;
   border-radius: var(--radius);
   overflow: hidden;
   background: var(--panel-2);
-  margin-bottom: 10px;
 }
 .event-detail-featured-ops {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 12px 16px;
 }
 .event-detail-featured-op {
   display: flex;
@@ -167,8 +166,69 @@ button.events-row-main.btn-bare { border: 0; background: transparent; padding: 0
   border-radius: var(--radius);
   background: var(--panel-2);
 }
-.event-detail-featured-meta { display: flex; flex-direction: column; align-items: center; gap: 1px; }
-.event-detail-featured-pct { font-family: var(--font-mono); font-size: 11px; color: var(--text-faint); }
+.event-detail-featured-meta { display: flex; align-items: baseline; justify-content: center; gap: 5px; color: var(--text-faint); }
+.event-detail-featured-pct { font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); }
+/* Each operator opens its preview: its name turns teal on hover and keyboard focus. */
+button.event-detail-featured-op:hover > span:first-of-type,
+button.event-detail-featured-op:focus-visible > span:first-of-type,
+button.event-banner-extra:hover > .event-banner-extra-name,
+button.event-banner-extra:focus-visible > .event-banner-extra-name { color: var(--teal); }
+.event-detail-word { white-space: nowrap; }
+
+/* The Operators tab: one .panel per banner (the owner's mockup, 2026-10-29). Its name with its
+   tag apart on the right over a rule; its art beside its rate-up and returning limited lineups
+   (stacked on a narrow screen); then a line per operator the event gives. */
+.event-banner-card { padding: 20px 24px; }
+.event-banner-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 16px; margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
+.event-banner-head > h3 { margin: 0; }
+.event-banner-tag { color: var(--text-dim); font: 13px var(--font-mono); }
+.event-banner-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px 32px; align-items: start; }
+@media (min-width: 960px) {
+  .event-banner-body { grid-template-columns: minmax(0, 1.25fr) minmax(300px, 1fr); }
+}
+.event-banner-lineups { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.event-banner-lineups > .event-detail-lineup + .event-detail-lineup { padding-top: 16px; border-top: 1px solid var(--line); }
+.event-detail-lineup { min-width: 0; }
+/* A lineup's title in the display voice, a step under the card's; the returning lineup's note
+   is behind its (i). */
+.event-detail-lineup > h4 { display: flex; align-items: center; gap: 6px; height: 24px; margin: 0 0 12px; color: var(--text); font: 700 15px var(--font-display); letter-spacing: 0.06em; text-transform: uppercase; }
+.event-banner-card .event-detail-featured-ops { gap: 14px 20px; }
+.event-banner-card .event-detail-featured-op { width: 100px; font-size: 13px; }
+.event-banner-card .event-detail-featured-op img { width: 88px; height: 88px; }
+.event-banner-card .event-detail-featured-pct { font-size: 12px; }
+/* A line per welfare or free operator, as a table: its kind, then a button with its icon, name,
+   rarity and how it is earned, divided by hairlines. Every line shares the list's columns
+   (subgrid), so the names, rarities and dividers line up whatever a name's length. Under the
+   banner a rule sets the lines off. */
+.event-banner-extras {
+  display: grid;
+  grid-template-columns: max-content 56px max-content 1px max-content 1px minmax(0, 1fr);
+  column-gap: 16px;
+  row-gap: 12px;
+  margin: 20px 0 0;
+  padding: 16px 0 0;
+  border-top: 1px solid var(--line);
+  list-style: none;
+}
+.event-banner-extras:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+.event-banner-extras > li { display: grid; grid-column: 1 / -1; grid-template-columns: subgrid; align-items: center; }
+.event-banner-extra-label { padding-right: 16px; color: var(--text); font: 700 15px var(--font-display); letter-spacing: 0.06em; text-transform: uppercase; }
+.event-banner-extra { display: grid; grid-column: 2 / -1; grid-template-columns: subgrid; align-items: center; min-width: 0; text-align: left; }
+.event-banner-extra img { border-radius: var(--radius); background: var(--panel-2); }
+.event-banner-extra-name { font-size: 15px; }
+.event-banner-sep { width: 1px; height: 24px; background: var(--line); }
+.event-banner-extra-how { min-width: 0; color: var(--text-dim); font: 13px var(--font-mono); }
+@media (max-width: 640px) {
+  .event-banner-card { padding: 14px; }
+  /* The kind over its line; the line keeps the shared columns. */
+  .event-banner-extras { grid-template-columns: 56px max-content 1px max-content 1px minmax(0, 1fr); column-gap: 12px; }
+  .event-banner-extra-label { grid-column: 1 / -1; padding-right: 0; }
+  .event-banner-extra { grid-column: 1 / -1; }
+  /* Three operators to a line: a lineup is three. */
+  .event-banner-card .event-detail-featured-ops { gap: 12px; }
+  .event-banner-card .event-detail-featured-op { width: calc((100% - 24px) / 3); font-size: 12px; }
+  .event-banner-card .event-detail-featured-op img { width: 72px; height: 72px; }
+}
 
 .event-detail-skins {
   display: flex;
@@ -289,9 +349,6 @@ button.events-row-main.btn-bare { border: 0; background: transparent; padding: 0
   align-items: center;
   gap: 3px;
   padding: 8px 4px;
-  border: 1px solid var(--line-soft);
-  border-radius: var(--radius);
-  background: var(--panel-2);
   text-align: center;
   min-width: 0;
 }
@@ -328,9 +385,6 @@ button.events-row-main.btn-bare { border: 0; background: transparent; padding: 0
   gap: 10px;
   width: 210px;
   flex-shrink: 0;
-  background: var(--panel-2);
-  border: 1px solid var(--line-soft);
-  border-radius: var(--radius);
   padding: 8px 10px;
 }
 /* The quantity over the corner of the icon it counts. Neither of these two had a
@@ -395,10 +449,8 @@ button.events-row-main.btn-bare { border: 0; background: transparent; padding: 0
 /* Packs, furniture sets and announced gifts (components/events/EventExtras.tsx). */
 .event-extras { display: flex; flex-direction: column; gap: 14px; }
 .event-extras-group { display: flex; flex-direction: column; gap: 12px; }
+/* Each a .panel (the one panel: ground, edge and depth); only the padding is here. */
 .event-pack, .event-furniture-set, .event-notice {
-  border: 1px solid var(--line-soft);
-  border-radius: var(--radius);
-  background: var(--panel-2);
   padding: 12px;
 }
 .event-pack h3, .event-furniture-set h3, .event-notice h3 { margin: 0 0 8px; }
@@ -431,9 +483,7 @@ button.events-row-main.btn-bare { border: 0; background: transparent; padding: 0
   max-width: 100%;
   min-width: 0;
   padding: 8px 10px;
-  border: 1px solid var(--line-soft);
-  border-radius: var(--radius);
-  background: var(--panel-2);
+  /* A .panel: the one panel's ground, edge and depth (it had its own --line-soft edge). */
 }
 .reward-summary-label { font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* Compact: an icon and its count, the name on hover and for screen readers (2026-10-04). An item
@@ -474,7 +524,7 @@ button.events-row-main.btn-bare { border: 0; background: transparent; padding: 0
 
 /* Compact purchase cards; contents and selector rosters stay inside a modal. */
 .event-pack-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr)); gap: 10px; }
-.event-pack-card { display: flex; align-items: center; justify-content: flex-start; gap: 12px; text-align: left; padding: 12px; border: 1px solid var(--line-soft); border-radius: var(--radius); background: var(--panel-2); color: var(--text); font: inherit; cursor: pointer; min-width: 0; }
+.event-pack-card { display: flex; align-items: center; justify-content: flex-start; gap: 12px; text-align: left; padding: 12px; color: var(--text); font: inherit; cursor: pointer; min-width: 0; }
 .event-pack-card-image { width: 88px; height: 88px; flex: 0 0 88px; object-fit: contain; border-radius: var(--radius); }
 .event-pack-card-copy { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .event-pack-detail-image { display: block; width: 200px; height: 150px; object-fit: contain; margin: 0 auto 12px; border-radius: var(--radius); }
@@ -503,7 +553,7 @@ button.events-row-main.btn-bare { border: 0; background: transparent; padding: 0
 @media (max-width: 480px) { .event-details-dialog { padding: 14px; } .event-details-head { top: -14px; } .event-selector-operators { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; } }
 
 .event-login-days { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 10px; }
-.event-login-day { padding: 12px; border: 1px solid var(--line-soft); border-radius: var(--radius); background: var(--panel-2); }
+.event-login-day { padding: 12px; }
 .event-login-day h4 { margin: 0 0 8px; color: var(--heading); }
 
 /* Selector recommendations are opt-in; event pack dialogs retain their own presentation. */

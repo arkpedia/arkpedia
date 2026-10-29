@@ -41,3 +41,30 @@ for (const theme of ['dark', 'light']) {
     await page.screenshot({ path: `.cache/planner-portrait-${info.project.name}-${theme}.png` });
   });
 }
+
+/* The owner, 2026-10-29: the planner's artwork opens the operator's quick preview, the gacha
+   simulator's pop-up, and a keyboard reaches it and gets its focus back. */
+test("the planner's artwork opens the operator preview, and focus comes back to it", async ({ page }) => {
+  await page.addInitScript(() => {
+    const state = { elite: 2, level: 90, skillLevel: 7, masteryTargets: { 0: 3 }, moduleStageTargets: {},
+      startingElite: 0, startingLevel: 1, startingSkillLevel: 1, startingMasteryLevels: {}, startingModuleStages: {} };
+    localStorage.setItem('plannerState', JSON.stringify({ selectedNames: ['Thorns'], builderStates: { Thorns: state } }));
+  });
+  await page.goto("/operator-planner");
+  await page.getByRole('tab', { name: 'Thorns', exact: true }).click();
+  const art = page.getByRole('button', { name: 'Thorns: operator preview', exact: true });
+  await expect(art).toHaveAttribute('aria-haspopup', 'dialog');
+  await expect(art.locator('img')).toBeVisible();
+  await art.click();
+  const dialog = page.getByRole('dialog', { name: 'Thorns', exact: true });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole('link', { name: /View operator page/ })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+  await expect(art).toBeFocused();
+  // From the keyboard too.
+  await page.keyboard.press('Enter');
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole('button', { name: 'Close operator preview', exact: true }).click();
+  await expect(art).toBeFocused();
+});

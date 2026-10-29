@@ -108,6 +108,20 @@ function surfaces(theme: Map<string, string>): [string, Rgba][] {
   return out;
 }
 
+/* The site is flat and matte (docs/development/ui-primitives.md, "Cards are flat and matte"):
+   the surface tokens every panel, card and row paints are one colour each, and the Stronghold
+   kit's bevel pair is one colour twice. They were top-to-bottom gradients, lit from above,
+   until the owner read every card as a raised slab (2026-10-29). */
+for (const [name, theme] of Object.entries({ dark: dark.tokens, light: new Map([...dark.tokens, ...lightOnly.tokens]) })) {
+  test(`${name}: the surface tokens are one colour, not a gradient`, () => {
+    for (const token of ['--panel-grad', '--row-grad', '--row-grad-hi', '--teal-fill', '--teal-fill-hi']) {
+      const value = theme.get(token) ?? '';
+      assert.ok(!/gradient\(/.test(value) && stops(value).length === 1, `${token} is ${value}: one colour`);
+    }
+    assert.equal(theme.get('--bevel-bottom')?.toLowerCase(), theme.get('--bevel-top')?.toLowerCase(), '--bevel-bottom is --bevel-top: no bevel');
+  });
+}
+
 test('no token is declared twice within one theme block', () => {
   assert.deepEqual(dark.duplicates, [], 'dark :root');
   assert.deepEqual(lightOnly.duplicates, [], 'light :root[data-theme="light"]');

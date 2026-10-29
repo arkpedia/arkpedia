@@ -16,7 +16,8 @@
 }
 .community-map-main { flex: 1; min-width: 0; }
 .community-event-list { display: flex; flex-direction: column; gap: 6px; }
-/* Each event opens its organiser's page: a link card with the control boundary. */
+/* Each event opens its organiser's page: a link card on the one panel (.panel, its ground,
+   edge and depth), teal on hover. */
 .community-event-item {
   display: grid;
   grid-template-columns: 8px minmax(0, 1fr);
@@ -24,9 +25,6 @@
   row-gap: 2px;
   flex-shrink: 0;
   padding: 10px 12px;
-  border: 1px solid transparent;
-  border-radius: var(--radius);
-  background: var(--row-grad);
   color: var(--text);
   text-decoration: none;
 }
@@ -117,7 +115,7 @@
 .world-gallery img { max-width: 100%; height: auto; object-fit: contain; }
 
 .community-projects-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; align-items: stretch; }
-.community-project { display: flex; flex-direction: column; min-width: 0; padding: var(--card-inset); background: var(--panel); border-radius: var(--radius-frame); overflow: hidden; }
+.community-project { display: flex; flex-direction: column; min-width: 0; padding: var(--card-inset); overflow: hidden; } /* a .panel: its ground, edge and depth are the one panel's */
 .community-project-art { display: block; aspect-ratio: 16 / 10; overflow: hidden; border: 1px solid transparent; background-clip: padding-box; border-radius: var(--radius-frame); }
 .community-project-art:hover, .community-project-art:focus-visible { border-color: var(--teal); }
 .community-project-art > img { display: block; width: 100%; height: 100%; object-fit: cover; }

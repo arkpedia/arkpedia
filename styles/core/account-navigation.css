@@ -24,7 +24,12 @@
 .account-shortcuts, .account-profile-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
 .account-profile-summary { margin-bottom: var(--heading-gap); }
 .avatar-picker { display: grid; gap: 14px; }
-.avatar-picker > h3, .avatar-picker > p { margin: 0; }
+/* Sticky at the top of the dialog's scrolling body while the icons scroll under it: pulled up
+   over the body's 18px padding (.account-dialog-body) so it sits flush under the dialog's
+   header, on the dialog's own ground, with a rule under it once icons pass beneath. */
+.avatar-picker-head { position: sticky; top: -18px; z-index: 2; display: grid; gap: 14px; margin: -18px -18px 0; padding: 18px 18px 14px; background: var(--panel); border-bottom: 1px solid var(--line); }
+.avatar-picker-head > .account-profile-summary { margin-bottom: 0; }
+.avatar-picker > h3, .avatar-picker > p, .avatar-picker-head > p { margin: 0; }
 .avatar-picker-controls { display: grid; grid-template-columns: 180px minmax(0, 1fr) max-content; align-items: center; gap: 12px; }
 .avatar-picker-controls input { width: 100%; min-width: 0; box-sizing: border-box; }
 .avatar-picker-facility { display: grid; gap: var(--heading-gap); }

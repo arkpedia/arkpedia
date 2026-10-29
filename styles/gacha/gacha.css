@@ -34,11 +34,6 @@
   gap: 10px 16px;
   margin-bottom: 12px;
   padding: 10px 14px;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-frame);
-  /* r11 quiet polish: a boxed panel's soft depth (docs/development/ui-primitives.md rule 23). */
-  box-shadow: var(--shadow-panel);
 }
 .gacha-pity-stat {
   display: flex;
@@ -289,11 +284,7 @@
 .gacha-preview-section h3 { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; margin: 0 0 10px; }
 .gacha-preview-section h3 span { color: var(--text-dim); font: 11px var(--font-mono); text-transform: none; }
 .gacha-preview-section p { margin: 7px 0 0; white-space: pre-line; line-height: 1.5; }
-.gacha-preview-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; }
-.gacha-preview-stat { display: flex; flex-direction: column; gap: 2px; padding: 7px; border: 1px solid var(--line-soft); border-radius: var(--radius); }
-.gacha-preview-stat span, .gacha-preview-meta { color: var(--text-dim); font: 11px var(--font-mono); }
-.gacha-preview-stat strong { font: 700 15px var(--font-mono); }
-.gacha-preview-stat small { color: var(--text-dim); font-size: 11px; }
+.gacha-preview-meta { color: var(--text-dim); font: 11px var(--font-mono); }
 .gacha-preview-entry + .gacha-preview-entry { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
 .gacha-preview-entry-title { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 10px; }
 .gacha-preview-entry-title span { color: var(--text-dim); font: 11px var(--font-mono); }
@@ -363,7 +354,6 @@
   .gacha-preview-portrait { display: block; }
   .gacha-preview-data { overflow: visible; padding-right: 0; scrollbar-gutter: auto; }
   .gacha-pull-preview-art { height: min(34vh, 300px); }
-  .gacha-preview-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 420px) { .gacha-details-rates { grid-template-columns: repeat(2, minmax(0, 1fr)); } .gacha-details-featured-list { grid-template-columns: repeat(2, minmax(0, 1fr)); } .gacha-details-featured { flex-direction: column; align-items: start; } }
 
@@ -390,13 +380,8 @@
   flex: 0 0 260px;
   height: min(64vh, 650px);
   overflow-y: auto;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-frame);
   padding: 10px;
   scrollbar-width: thin;
-  /* r11 quiet polish: a boxed panel's soft depth (docs/development/ui-primitives.md rule 23). */
-  box-shadow: var(--shadow-panel);
 }
 .gacha-banner-sidebar:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
 .gacha-banner-sidebar-spacer { pointer-events: none; }

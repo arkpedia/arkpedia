@@ -42,7 +42,7 @@ export default function AccountActions({ children }: { children: ReactNode }) {
     }).catch(error => { if (!controller.signal.aborted) setError(error.message); });
     return () => controller.abort();
   }, [action, localTables, loaded, router.basePath, attempt]);
-  const avatar = <><div className="account-profile-summary"><ProfileAvatar /><h3>Profile picture</h3></div><AvatarPicker /></>;
+  const avatar = <AvatarPicker head={<div className="account-profile-summary"><ProfileAvatar /><h3>Profile picture</h3></div>} />;
   return <Context.Provider value={{ open: value => {
     const active = document.activeElement as HTMLElement | null;
     const menu = active?.closest('.action-popover');

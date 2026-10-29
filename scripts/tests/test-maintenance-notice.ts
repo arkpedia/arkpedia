@@ -33,8 +33,8 @@ test('a maintenance window reads in its own server\'s time while it is to come o
 test('the home notice renders every server\'s from the props and the clock, each marked for CSS, and nothing once over', () => {
   const jp = { startAt: '2026-10-21T07:00:00.000Z', endAt: '2026-10-21T08:00:00.000Z', url };
   const html = renderToStaticMarkup(createElement(MaintenanceNotice, { maintenance: { ...none, en: [window], jp: [jp] }, now: Date.parse('2026-10-20T00:00:00Z') }));
-  assert.match(html, /class="maintenance-notice" data-server="en"/);
-  assert.match(html, /class="maintenance-notice" data-server="jp"/);
+  assert.match(html, /class="panel maintenance-notice" data-server="en"/);
+  assert.match(html, /class="panel maintenance-notice" data-server="jp"/);
   assert.doesNotMatch(html, /data-server="kr"/, 'a server with none has no notice');
   assert.match(html, /Global server maintenance Oct 21, 08:00–09:00 \(UTC−7\)/);
   assert.match(html, /Japan server maintenance Oct 21, 16:00–17:00 \(UTC\+9\)/);

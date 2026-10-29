@@ -77,9 +77,9 @@
   /* Text and glyphs ON a teal fill. 9.6:1 against the fill's darker stop, where
      the old #06211C under the old brighter teal was needlessly severe. */
   --teal-ink: #0a2621;
-  --teal-fill: linear-gradient(180deg, #69e0cd, #4bc8b4);
+  --teal-fill: #69e0cd;
   /* Hover goes UP the scale here, because the ink on it is dark. */
-  --teal-fill-hi: linear-gradient(180deg, #7ee9d8, #5fd9c6);
+  --teal-fill-hi: #7ee9d8;
 
   --amber: #e0aa4e;
   --danger: #d4685c;
@@ -160,14 +160,16 @@
   --scrim-teal-dim: rgba(95, 217, 198, 0.14);
   --scrim-control-border: rgba(255, 255, 255, 0.25);
 
-  /* A panel's surface as a gradient. Use var(--panel-grad) on panels and cards;
-     the flat --panel stays available for children that sit on top of one. */
-  --panel-grad: linear-gradient(180deg, #18212a, #141c23);
-  --row-grad: linear-gradient(180deg, #1b242d, #171f27);
+  /* A panel's, a card's and a row's surface. ONE colour each: the site is flat and matte
+     (docs/development/ui-primitives.md, "Cards are flat and matte"). They were two-stop
+     top-to-bottom gradients, lit from above, and the owner read every card as a raised
+     slab (2026-10-29); each kept its top stop. The names stay, so no rule changed. */
+  --panel-grad: #18212a;
+  --row-grad: #1b242d;
   /* A row that is the SELECTED one. Lifted off --row-grad rather than coloured,
      which is the rule: teal means on, and a surface that changes colour to say
      the same thing is a second vocabulary for one idea. */
-  --row-grad-hi: linear-gradient(180deg, #232d37, #1d2630);
+  --row-grad-hi: #232d37;
 
   /* Radii come from the 2-4px family and nowhere else. --radius is the default
      for every control and surface, --radius-frame (3px) is an outermost frame or a
@@ -239,9 +241,10 @@
      effect -- no shadow, no highlight band, no inner glow. Not a gloss (which adds a
      hard band across the upper half), not neumorphism (paired shadows on a matching
      ground), not elevation (a cast shadow). Colours rather than a whole gradient so
-     the light theme can restate the pair without restating the geometry. */
+     the light theme can restate the pair without restating the geometry. Flat since
+     2026-10-29 (the site is matte, --panel-grad above): both stops are the top one. */
   --bevel-top: #1B242D;
-  --bevel-bottom: #171F27;
+  --bevel-bottom: #1B242D;
 
   /* --- r11 quiet polish: motion and depth ------------------------------------------
      Option C, "Quiet polish" (maintainer, 2026-09-26). The motion itself is all in
@@ -305,12 +308,12 @@
      is the one active style for chips, segments, tabs and picked cards, so it has
      to pass on the surfaces they sit on. The top fill stop likewise went from
      #0b8b77 (4.22:1 under white ink) to #0a7f6c (4.92). */
-  --teal-fill: linear-gradient(180deg, #0a7f6c, #097565);
+  --teal-fill: #0a7f6c;
   /* And DOWN the scale here, because the ink on it is white. Lightening a
      light-theme fill on hover is what took the old #0B8B77 to 4.22:1 under
      white; going darker instead lands at 5.7:1 on the top stop and 7.4:1 on
      the bottom. */
-  --teal-fill-hi: linear-gradient(180deg, #097565, #076253);
+  --teal-fill-hi: #097565;
 
   --amber: #8F5808;
   --danger: #C33D30;
@@ -346,18 +349,18 @@
      few points of difference near white is a smaller proportion of the eye's range
      than the same step near black. */
   --bevel-top: #FBFCFE;
-  --bevel-bottom: #EDF1F5;
+  --bevel-bottom: #FBFCFE;
 
   /* Brighter means DARKER here, for the same reason: emphasis is distance from
      the ground, and this ground is white. */
   --text-bright: #141C22;
 
-  --panel-grad: linear-gradient(180deg, #FFFFFF, #F7F9FA);
-  --row-grad: linear-gradient(180deg, #EDF1F3, #E7ECEF);
+  --panel-grad: #FFFFFF;
+  --row-grad: #EDF1F3;
   /* Lifted means lighter here, the same direction the light theme lifts a panel
      off its ground. The dark theme's value is a dark surface, and under this
      theme's dark --text it would have been text the colour of its own tile. */
-  --row-grad-hi: linear-gradient(180deg, #FFFFFF, #F7F9FA);
+  --row-grad-hi: #FFFFFF;
 
   /* r11 quiet polish: the same two shadows on a white ground, lighter (a dark shadow
      that reads as depth on the dark ground reads as dirt on this one). */
@@ -1206,10 +1209,6 @@ a.primary:where(:has(~ :is(button, a).ghost)),
 .supporters-tiers {
   display: grid;
   margin-top: 14px;
-  border-radius: var(--radius-frame, 3px);
-  border: 1px solid var(--line-soft);
-  background: var(--panel-grad, var(--panel-2));
-  box-shadow: var(--shadow-panel);
 }
 .supporter-tier {
   display: grid;
@@ -1247,11 +1246,6 @@ a.primary:where(:has(~ :is(button, a).ghost)),
   flex: 1 1 0;
   min-width: 0;
   padding: 16px 14px;
-  border-radius: var(--radius-frame, 3px);
-  border: 1px solid var(--line-soft);
-  background: var(--panel-grad, var(--panel-2));
-  /* r11 quiet polish: a boxed panel's soft depth (docs/development/ui-primitives.md rule 23). */
-  box-shadow: var(--shadow-panel);
 }
 .support-option h3 {
   display: flex;

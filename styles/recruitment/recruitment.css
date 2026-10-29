@@ -30,7 +30,7 @@
 .recruit-pool-count { font-size: 12px; color: var(--text-dim); }
 .recruit-workspace { display: grid; grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.15fr); gap: 28px; align-items: start; }
 .recruit-picker.op-section, .recruit-results.op-section, .recruit-cheatsheet.op-section { margin-bottom: 0; }
-.recruit-picker { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-frame); padding: 20px; box-shadow: var(--shadow-panel); /* r11 quiet polish: rule 23 */ }
+.recruit-picker { padding: 20px; /* r11 quiet polish: rule 23 */ }
 .recruit-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: var(--heading-gap); }
 .recruit-section-heading h2 { margin: 0; }
 .recruit-selection-count { margin-left: 6px; font: 500 12px var(--font-mono); color: var(--text-dim); }
@@ -93,7 +93,7 @@
 .recruit-combo-op[data-rarity]:hover { border-color: var(--teal); }
 .recruit-combo-op img { width: 28px; height: 28px; border-radius: var(--radius); }
 .recruit-combo-op-rarity { font-size: 10px; white-space: nowrap; }
-.recruit-cheatsheet { padding: 20px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-frame); box-shadow: var(--shadow-panel); /* r11 quiet polish: rule 23 */ }
+.recruit-cheatsheet { padding: 20px; /* r11 quiet polish: rule 23 */ }
 .recruit-sheet-legend { display: flex; gap: 12px; font: 500 12px var(--font-mono); }
 .recruit-sheet-legend > span { border-bottom: 2px solid var(--recruit-rarity); padding-bottom: 3px; color: var(--recruit-rarity); }
 .recruit-search { max-width: 440px; margin-top: 16px; }

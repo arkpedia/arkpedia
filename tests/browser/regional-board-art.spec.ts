@@ -75,7 +75,7 @@ test("in JP mode an event's News, key art and banner art are JP's own", async ({
   // The event's key art: JP's board picture, in the poster's box.
   await expect(page.locator('.event-detail-image-wrap img')).toHaveAttribute('src', JP_EVENT_ART);
   // The banner's.
-  await tab(page, 'Banner').click();
+  await tab(page, 'Operators').click();
   await expect(page.locator('.event-detail-banner-art-wrap img')).toHaveAttribute('src', JP_BANNER_ART);
   // News: JP's board, in English, and not Global's.
   await tab(page, 'News').click();
@@ -98,7 +98,7 @@ test("in JP mode an event's News, key art and banner art are JP's own", async ({
   await expect(page.locator('.event-news-server[data-server="en"]')).toBeVisible();
   await expect(jp).toBeHidden();
   await expect(page.locator('.event-news-server[data-server="en"]').getByRole('heading', { name: 'Sealed With Time', exact: true })).toBeVisible();
-  await tab(page, 'Banner').click();
+  await tab(page, 'Operators').click();
   await expect(page.locator('.event-detail-banner-art-wrap img')).not.toHaveAttribute('src', JP_BANNER_ART);
 });
 
@@ -124,7 +124,7 @@ test("in KR mode an event's key art is KR's official site headline, and its bann
   await expect(page.locator('html')).toHaveAttribute('data-site-server', 'kr');
   await expect(page.locator('.event-detail-image-wrap img')).toHaveAttribute('src', KR_EVENT_ART);
   await expect(page.locator('.event-detail-image-wrap img')).toBeVisible();
-  await tab(page, 'Banner').click();
+  await tab(page, 'Operators').click();
   await expect(page.locator('.event-detail-banner-art-wrap img')).toHaveAttribute('src', KR_BANNER_ART);
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
   await page.screenshot({ path: info.outputPath('cpt-kr-art.png'), fullPage: false });
@@ -141,7 +141,7 @@ test('with JP/KR material off, JP mode keeps Global\'s key art, banner art and n
   await page.goto(`/events/${encodeURIComponent(CPT)}`);
   await expect(page.locator('html')).toHaveAttribute('data-site-server', 'jp');
   await expect(page.locator('.event-detail-image-wrap img')).not.toHaveAttribute('src', JP_EVENT_ART);
-  await tab(page, 'Banner').click();
+  await tab(page, 'Operators').click();
   await expect(page.locator('.event-detail-banner-art-wrap img')).not.toHaveAttribute('src', JP_BANNER_ART);
   await tab(page, 'News').click();
   await expect(page.locator('.event-news-server[data-server="jp"]')).toHaveCount(0);

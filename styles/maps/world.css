@@ -24,10 +24,7 @@
 .world-map-svg {
   width: 100%;
   height: auto;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-frame);
-}
+} /* a .panel: the one panel's ground, edge and depth */
 /* A .btn-icon (square at the control height), pinned to the map's corner; in
    fullscreen it is the × that closes the view, and takes .btn-x instead. */
 .world-map-fullscreen-btn {

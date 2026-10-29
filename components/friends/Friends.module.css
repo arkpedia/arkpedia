@@ -15,12 +15,15 @@
 .filters > :first-child { flex: 1; min-width: 130px; }
 .collection { max-height: calc(100dvh - 205px); overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--text-dim) transparent; padding: 8px 20px 20px; }
 .operatorGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(126px, 1fr)); gap: 18px 14px; }
-.operator { display: flex; flex-direction: column; align-items: stretch; text-align: center; color: var(--text); padding: 0; border-radius: 4px; background: var(--well); }
-.operator:hover, .operator:focus-visible { outline: 1px solid var(--teal); outline-offset: 3px; }
+/* The roster's picture card (.card.roster-card): the card ground, no resting frame, the teal
+   edge on hover and keyboard focus, lifted by the global .lift (styles/core/motion.css). It was
+   a --well box with an outline ring of its own. */
+.operator { display: flex; flex-direction: column; align-items: stretch; text-align: center; color: var(--text); padding: 0; border: 1px solid transparent; border-radius: var(--radius-frame); background: var(--panel-grad); background-clip: padding-box; overflow: hidden; }
+.operator:hover, .operator:focus-visible { border-color: var(--teal); }
 .buildMarks { display: flex; align-items: center; justify-content: space-between; height: 30px; padding: 3px 6px; font-size: 11px; font-family: var(--font-mono); background: rgba(0, 0, 0, 0.72); color: var(--scrim-ink); }
 .buildMarks img { width: 23px; height: 23px; object-fit: contain; }
 .buildMarks b { font-size: 13px; }
-.portrait { display: block; aspect-ratio: 1; border-bottom: 3px solid var(--text-dim); background: var(--panel); overflow: hidden; }
+.portrait { display: block; aspect-ratio: 1; border-bottom: 3px solid var(--text-dim); background: var(--row-grad); overflow: hidden; }
 .portrait img { width: 100%; height: 100%; object-fit: cover; }
 .portrait[data-rarity='6'] { border-color: var(--rarity-6); }
 .portrait[data-rarity='5'] { border-color: var(--rarity-5); }
@@ -37,7 +40,8 @@
 .modules small { font-size: 10px; }
 .modules b { margin-left: 2px; color: var(--teal); }
 .skinGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 16px; }
-.skin { display: flex; flex-direction: column; gap: 4px; color: var(--text); text-align: center; padding: 8px; background: var(--well); border: 1px solid var(--control-border); border-radius: 4px; }
+.skin { display: flex; flex-direction: column; gap: 4px; color: var(--text); text-align: center; padding: 8px; background: var(--panel-grad); background-clip: padding-box; border: 1px solid transparent; border-radius: var(--radius-frame); }
+.skin:hover, .skin:focus-visible { border-color: var(--teal); }
 .skin > span:first-child { height: 230px; display: grid; place-items: center; }
 .skin img { width: 100%; height: 100%; object-fit: contain; }
 .skin b { font-size: 13px; }

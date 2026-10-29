@@ -15,6 +15,10 @@ const REPEAT_INTERVAL_MS = 120000; // comes back every 2 minutes
 const SEPARATOR = '\u00A0\u00A0\u00A0//\u00A0\u00A0\u00A0'; // "   //   " with non-breaking spaces
 const PIXELS_PER_SECOND = 90; // scroll speed, tuned for the mono ticker font at 12px
 const MIN_DURATION_S = 4;
+/* The amber band sweeps in from the right before the text starts, and away to the left
+   once the last word has gone (styles/core/motion.css, both 0.7s). */
+const TICKER_ENTER_MS = 700;
+const TICKER_EXIT_MS = 700;
 
 /** `sssCycle` is the release's SSS cycle (data/sss-cycle.json), which the home page's props
  *  carry (lib/content/tables.mjs). Required: it used to be a date typed into opsSchedules.ts.
@@ -31,6 +35,7 @@ export default function AnnouncementTicker({ sssCycle, maintenance }: { sssCycle
   const maintenanceRef = useRef(maintenance);
   maintenanceRef.current = maintenance;
   const [visible, setVisible] = useState(false);
+  const [leaving, setLeaving] = useState(false);
   const [text, setText] = useState('');
   const [duration, setDuration] = useState(MIN_DURATION_S);
   // Pixel start/end positions for the marquee -- start is the
@@ -62,6 +67,7 @@ export default function AnnouncementTicker({ sssCycle, maintenance }: { sssCycle
         return;
       }
       setText(reminders.map((r) => r.text).join(SEPARATOR));
+      setLeaving(false);
       setVisible(true);
     }
 
@@ -93,8 +99,12 @@ export default function AnnouncementTicker({ sssCycle, maintenance }: { sssCycle
     const computedDuration = Math.max(MIN_DURATION_S, travelDistance / PIXELS_PER_SECOND);
     setDuration(computedDuration);
 
+    // The band sweeps in, the text runs through, then the band sweeps out and the bar goes.
     if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current);
-    hideTimeoutRef.current = setTimeout(() => setVisible(false), computedDuration * 1000);
+    hideTimeoutRef.current = setTimeout(() => {
+      setLeaving(true);
+      hideTimeoutRef.current = setTimeout(() => { setVisible(false); setLeaving(false); }, TICKER_EXIT_MS);
+    }, TICKER_ENTER_MS + computedDuration * 1000);
 
     return () => {
       if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current);
@@ -102,7 +112,7 @@ export default function AnnouncementTicker({ sssCycle, maintenance }: { sssCycle
   }, [visible, text]);
 
   return (
-    <div className={`ticker-bar${visible ? ' visible' : ''}`} aria-live="polite">
+    <div className={`ticker-bar${visible ? ' visible' : ''}${leaving ? ' leaving' : ''}`} aria-live="polite">
       {visible && (
         <div
           className="ticker-track"
@@ -111,6 +121,7 @@ export default function AnnouncementTicker({ sssCycle, maintenance }: { sssCycle
             ['--ticker-duration' as string]: `${duration}s`,
             ['--ticker-start' as string]: `${startPx}px`,
             ['--ticker-end' as string]: `${endPx}px`,
+            ['--ticker-delay' as string]: `${TICKER_ENTER_MS / 1000}s`,
           }}
         >
           <span className="ticker-text">{text}</span>

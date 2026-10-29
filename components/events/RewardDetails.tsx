@@ -141,5 +141,5 @@ export function RewardClick({ name, className, children }: { name: string; class
 
 export function PackButton({ pack, source, children }: { pack: Pack; source: string; children: ReactNode }) {
   const details = useContext(Details);
-  return <button type="button" className="btn-bare event-pack-card" aria-haspopup="dialog" onClick={(e: MouseEvent<HTMLButtonElement>) => details?.open({ name: pack.name, pack, source }, e.currentTarget)}>{children}</button>;
+  return <button type="button" className="btn-bare panel event-pack-card" aria-haspopup="dialog" onClick={(e: MouseEvent<HTMLButtonElement>) => details?.open({ name: pack.name, pack, source }, e.currentTarget)}>{children}</button>;
 }

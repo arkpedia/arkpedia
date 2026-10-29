@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { bannerWithDetails, fontsSettled } from './census-routes';
+import { bannerWithDetails, fontsSettled, seedPlanner } from './census-routes';
 import { tabAlign } from './tab-align';
 
 /*
@@ -103,6 +103,50 @@ test('the server renders the tablist the browser hydrates', async ({ page }) => 
     expect(html, `${route}: a selected tab in the server HTML`).toMatch(/role="tab"[^>]*aria-selected="true"|aria-selected="true"[^>]*role="tab"/);
     expect(html).toMatch(/aria-controls="[^"]+-panel-[^"]*"/);
   }
+});
+
+/* The owner, 2026-10-29: the planner's current operator tab drew its underline past
+   itself, towards the next tab. The underline is the tab's width, measured from its layout
+   box (Tabs.tsx underlineOf), and the tab ends at its ×'s ink, not at the end of the ×'s
+   24px target, which hangs into the strip's gap (arkpedia-theme.css .tab > .tab-remove).
+   Checked once the bar has stopped, after clicks, a removal and the fonts, on both widths
+   (at 390 the strip wraps). */
+test("the planner's operator-tab underline is exactly the current tab, and ends at its ×", async ({ page }) => {
+  const goal = { elite: 2, level: 60, skillLevel: 7, masteryTargets: { 0: 3 }, moduleStageTargets: {}, startingElite: 2, startingLevel: 60, startingSkillLevel: 7, startingMasteryLevels: {}, startingModuleStages: {} };
+  await page.goto('/operator-planner');
+  await seedPlanner(page, { plannerState: { selectedNames: ['Surtr', 'Thorns', "Ho'olheyak", 'Executor'], builderStates: { Surtr: goal, Thorns: goal, "Ho'olheyak": goal, Executor: goal } } });
+  await fontsSettled(page);
+  const list = page.getByRole('tablist', { name: 'View materials for' });
+  const underline = async (step: string) => {
+    // The bar at rest: its slide (motion.css) has finished, and a relayout (a resize, a tab
+    // gone) has been put right -- the ResizeObserver's re-placing lands a frame later.
+    const measure = () => list.evaluate((el) => {
+      const r = (n: Element) => n.getBoundingClientRect();
+      const tab = el.querySelector(':scope > [role="tab"][aria-selected="true"]')!;
+      const bar = r(el.querySelector(':scope > .tabs-indicator')!), box = r(tab);
+      const glyph = tab.querySelector('.tab-remove svg');
+      // The × is drawn from 3.2 to 12.8 of its 16-unit box (XButton.tsx XGlyph, round caps).
+      const ink = glyph ? r(glyph).left + r(glyph).width * 12.8 / 16 : null;
+      const moving = el.querySelector(':scope > .tabs-indicator')!.getAnimations().length;
+      return { moving, name: tab.textContent, left: bar.left - box.left, right: bar.right - box.right, bottom: bar.bottom - box.bottom, past: ink === null ? null : bar.right - ink };
+    });
+    await expect.poll(async () => { const m = await measure(); return m.moving === 0 && Math.max(Math.abs(m.left), Math.abs(m.right), Math.abs(m.bottom)) < 1; }, { message: `${step}: the underline settles under the current tab` }).toBe(true);
+    const at = await measure();
+    expect(Math.abs(at.left), `${step}: the underline starts at ${at.name}'s left edge`).toBeLessThan(1);
+    expect(Math.abs(at.right), `${step}: the underline ends at ${at.name}'s right edge`).toBeLessThan(1);
+    expect(Math.abs(at.bottom), `${step}: the underline sits on ${at.name}'s foot`).toBeLessThan(1);
+    if (at.past !== null) expect(at.past, `${step}: the underline ends at ${at.name}'s ×, not past it`).toBeLessThan(1);
+  };
+  await underline('loaded');
+  for (const name of ['Thorns', "Ho'olheyak", 'All', 'Executor', 'Thorns']) {
+    await list.getByRole('tab', { name, exact: true }).click();
+    await underline(`${name} clicked`);
+  }
+  await list.getByRole('tab', { name: 'Surtr', exact: true }).locator('.tab-remove').click();
+  await expect(list.getByRole('tab')).toHaveCount(4);
+  await underline('Surtr removed beside the current tab');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await underline('at 390');
 });
 
 test('the planner\'s operator tabs are removed with Delete or their ×', async ({ page }) => {

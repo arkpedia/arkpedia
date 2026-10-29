@@ -71,7 +71,9 @@
 }
 .credit-op:hover,
 .credit-op:focus-visible { border-color: var(--teal); color: var(--teal); }
-.credit-op-art { display: block; width: 48px; height: 48px; box-sizing: border-box; overflow: hidden; }
+/* The portrait is the roster card's (.roster-card > .avatar, roster.css): the art on its own
+   flat ground with the rarity edge under it, not a cut-out standing on the edge. */
+.credit-op-art { display: block; width: 48px; height: 48px; box-sizing: border-box; overflow: hidden; border-radius: var(--radius); background: var(--row-grad); }
 .credit-op-art img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .credit-op-text { display: grid; gap: 6px; min-width: 0; }
 .credit-op-name { font-size: 13px; font-weight: 600; line-height: 1.25; overflow-wrap: anywhere; }
