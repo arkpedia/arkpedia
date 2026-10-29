@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { browserPlan, dependencyIndex } from './browser-plan.mjs';
-import { releaseBrowserPlan } from './release-browser-plan.mjs';
+import { dataReaders, releaseBrowserPlan, specRoutes } from './release-browser-plan.mjs';
 import { coveragePlan, executionEvidence } from './browser-coverage.mjs';
 import { relevantFiles } from './browser-relevant.mjs';
 import { fullBaselineAncestor } from './browser-baseline.mjs';
@@ -37,9 +37,22 @@ export function currentPolicy() {
   return policyFingerprint(Object.fromEntries(POLICY_FILES.map(path => [path, git('rev-parse', `HEAD:${path}`)])));
 }
 
-export function lanePlan({ metadata, baseline, changes, specs, relevant, dependencies, inventory, forceFull = false, releaseProfile = false }) {
+/**
+ * Which Checks may run less than the full browser suite: a same-repository PR, and a push to
+ * main that no PR Check vouched for (main moved under the PR between its Check and its merge,
+ * so the merged tree is new). Both are measured from the newest full-browser ancestor; main's
+ * first parent is the main it was merged onto, as a PR merge result's is. A manual run, a
+ * fork's PR and any other push keep the full suite.
+ */
+export function laneScope({ event, ref, headRepository, repository }) {
+  if (!repository) return null;
+  if (event === 'pull_request') return headRepository === repository ? 'pull_request' : null;
+  return event === 'push' && ref === 'refs/heads/main' ? 'main' : null;
+}
+
+export function lanePlan({ metadata, baseline, changes, specs, relevant, dependencies, routes, readers, inventory, forceFull = false, releaseProfile = false }) {
   let plan = browserPlan({ changes, specs, relevant, dependencies, baselineVerified: !!baseline, forceFull });
-  if (releaseProfile && !forceFull) plan = releaseBrowserPlan(plan, { changes, specs, baselineVerified: !!baseline });
+  if (releaseProfile && !forceFull) plan = releaseBrowserPlan(plan, { changes, specs, baselineVerified: !!baseline, dependencies, routes, relevant, readers });
   const coverage = coveragePlan(plan, inventory);
   return { schema: 1, policy: BROWSER_POLICY, ...metadata, baseline, comparisonBase: baseline?.commit ?? null,
     analysisReason: coverage.reason, coverage };
@@ -64,10 +77,12 @@ function plan() {
     runId: Number(process.env.GITHUB_RUN_ID), policySha256: currentPolicy() };
   if (!repository || !baseRef || !Number.isSafeInteger(metadata.runId) || metadata.runId < 1) throw new Error('Missing trusted workflow identity');
   let baseline = null, changes = [], forceFull = true, fallbackReason;
-  if (event === 'pull_request' && process.env.BROWSER_HEAD_REPOSITORY === repository) {
+  const scope = laneScope({ event, ref: process.env.GITHUB_REF, headRepository: process.env.BROWSER_HEAD_REPOSITORY, repository });
+  const mainPush = scope === 'main', scoped = scope !== null;
+  if (scoped) {
     try {
       const base = git('cat-file', '-p', 'HEAD').match(/^parent ([a-f0-9]{40})$/m)?.[1];
-      if (!base) throw new Error('Missing PR merge parent');
+      if (!base) throw new Error(mainPush ? 'Missing main parent' : 'Missing PR merge parent');
       git('fetch', '--no-tags', '--quiet', '--depth=50', 'origin', base);
       const ancestors = git('log', '--first-parent', '--max-count=25', '--format=%H %T', base)
         .split('\n').map(line => { const [commit, tree] = line.split(' '); return { commit, tree }; });
@@ -84,13 +99,15 @@ function plan() {
       if (dirty.length) console.error('Verified canonical Next live-build type references; no other generated input changed.');
       forceFull = false;
     } catch (error) { fallbackReason = error.message; }
-  } else fallbackReason = 'Manual, main/push, fork or unknown context requires full coverage';
+  } else fallbackReason = 'Manual, branch push, fork or unknown context requires full coverage';
   const inventory = JSON.parse(execFileSync(process.execPath, ['node_modules/playwright/cli.js', 'test', '--list', '--reporter=json'],
     { encoding: 'utf8', maxBuffer: 16_000_000 }));
   const files = new Set(git('ls-files').split('\n').filter(Boolean));
-  const result = lanePlan({ metadata, baseline, changes, specs: [...files].filter(path => /^tests\/browser\/.*\.spec\.ts$/.test(path)),
-    relevant: relevantFiles(files, read), dependencies: dependencyIndex(files, read), inventory, forceFull,
-    releaseProfile: event === 'pull_request' && process.env.BROWSER_HEAD_REPOSITORY === repository });
+  const specs = [...files].filter(path => /^tests\/browser\/.*\.spec\.ts$/.test(path));
+  const result = lanePlan({ metadata, baseline, changes, specs,
+    relevant: relevantFiles(files, read), dependencies: dependencyIndex(files, read), routes: specRoutes(specs, read),
+    readers: file => dataReaders(file, files, read), inventory, forceFull,
+    releaseProfile: scoped });
   if (fallbackReason) result.analysisReason = fallbackReason;
   fs.mkdirSync('.cache', { recursive: true });
   fs.writeFileSync(PLAN, JSON.stringify(result, null, 2));

@@ -21,7 +21,14 @@ CI can stop until the allowance resets; free does not mean unlimited private run
 - Private daily content preparation: one job that pushes a validated release straight to the public data repository's `main` (no pull request); no website build.
 - Browser audit (the exhaustive browser suite on main): nightly at 03:17 UTC and on demand, on the
   self-hosted runner like the content jobs. It ran on hosted runners for every push to main until
-  2026-10-28, about 85 minutes a run, more than the allowance could carry.
+  2026-10-28, about 85 minutes a run, more than the allowance could carry. It is the full-coverage
+  backstop for the browser specs a PR's or main push's targeted lane leaves out
+  ([ci-impact-planning.md](ci-impact-planning.md)); with five workers on the NAS (#877) it takes
+  about 14 minutes.
+- Check time on the NAS (2026-10-29): about 9 minutes of tests, content checks, types, lint and
+  both builds, plus the browser suite: about 14 minutes when a change needs all of it, 1 to 3 when
+  the targeted lane applies. A merged PR whose exact tree its PR Check passed releases without
+  checking again; one merged after main moved runs Check again with the same targeted lane.
 - Public assets: standard Ubuntu runners only. Image/skin/voice syncs have explicit
   timeouts, avoid artifact uploads, and run several hours after Global reset.
 - Weekly grouped Dependabot PRs limit update churn. Updates still need review;

@@ -273,10 +273,12 @@ jobs:
         # --with-deps installs system libraries with sudo; a self-hosted runner has them already.
         run: npx playwright install ${{ runner.environment == 'github-hosted' && '--with-deps' || '' }} chromium
 
-      # PRs compare with a trusted full-browser ancestor, then run core and affected
-      # release journeys. Shared chrome uses representative populated features;
-      # exhaustive visual contracts run in the independent Browser audit workflow.
-      # Unknown/toolchain inputs and manual/push/fork checks retain full coverage.
+      # PRs, and pushes to main no PR Check vouched for, compare with a trusted full-browser
+      # ancestor, then run core and affected release journeys: named feature families, and
+      # the specs of the pages that import a changed file (scripts/ci/release-browser-plan.mjs).
+      # Shared chrome uses representative populated features; exhaustive visual contracts run
+      # in the independent Browser audit workflow, nightly. Unknown/toolchain inputs, a missing
+      # baseline, and manual, branch-push and fork checks retain full coverage.
       - name: Which browser regressions this change needs
         id: browser
         env:

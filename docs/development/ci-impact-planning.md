@@ -9,7 +9,9 @@ browser contracts proportionally. Assertions, tolerances and zero retries are un
 | Narrow Story, Schedule, Music or Accounts runtime change | Core navigation/Back, affected families and existing census routes/states/themes/projects |
 | Tooling outside the proved browser/build dependency closure | None, with explicit omissions and a full baseline |
 | Shared shell/storage/events/global CSS, dependencies, CI policy or unknown impact | Full |
-| Normal manual check, push without reusable proof, fork or missing baseline | Full |
+| Runtime file outside the named families, placed by the pages that import it | Core plus every functional spec that visits one of those pages (12 pages or the app shell: shared chrome) |
+| Push to main without an exact-tree PR proof (main moved under the PR) | The same PR release selection, against the full-browser ancestor of main |
+| Normal manual check, branch push, fork or missing baseline | Full |
 
 Marking a draft ready starts the readiness profile. A quick job passing does not
 supply a full-browser baseline or approve deployment. The first validation of this
@@ -62,8 +64,20 @@ functional specs in the affected family, and uses populated representative journ
 for shared UI. Changed functional specs remain selected. Exhaustive visual specs
 are reported by the separate Browser audit workflow after main integration or a
 manual dispatch. They remain in the inventory as explicit omissions, not passes.
-Unknown runtime paths, build/toolchain/policy changes, deleted/shared fixtures and
-missing baseline proof retain the conservative plan. This release selector is part
+A runtime file outside those families is placed by the pages that import it, through
+the same reverse-consumer index `browser-plan.mjs` builds: each page's route (its first
+path segment) selects every functional spec that spells that route out, in its own
+source or in a tests/browser helper function it imports, or is named for it
+(`skin-planner-*.spec.ts`). A file the app shell (`_app`, `_document`, `_error`) or
+more than 12 pages import is shared chrome and takes the shared set; a file in the
+named shared folders also adds the specs of the few pages that import it. A top-level
+`data/*.json` file is placed the same way only when every runtime file that names it
+in a string also imports it; a reader that builds the path at run time
+(`lib/content/dataTable.ts`) has no edge to follow, so that file keeps the original
+plan. Files outside what the build and the specs read (unit tests, importers) do not
+widen the plan, as in `browser-plan.mjs`. Unknown runtime paths (no importing page),
+deleted files, build/toolchain/policy changes, `config/`, `public/`, shared fixtures
+and missing baseline proof retain the conservative plan. This release selector is part
 of the policy fingerprint; older evidence cannot vouch for a changed selector.
 
 The release profile works with the existing production browser inventory. Preview-only
@@ -104,3 +118,15 @@ proof. Linux deployment-trace and full readiness gates remain unchanged.
 During migration each branch keeps its content/account contract. Reconcile the CI
 policy onto dev/Cloudflare before expecting scoped behavior there. Permanent branch
 retirement follows the system-simplification gates.
+
+## Main pushes
+
+A push to main that a PR Check's exact-tree proof vouches for runs nothing again (`seen`).
+One that it cannot vouch for is usually a PR merged after another PR landed: the merged
+tree is new, so Check runs every non-browser gate on it, and the browser lane is planned
+as for a PR, from main's newest full-browser ancestor (`laneScope` in `browser-lane.mjs`).
+Until 2026-10-29 every such push ran the full suite, about 38 minutes, even when the PR
+itself needed no browser test at all. Full coverage on main still comes from full-lane
+Checks (toolchain, policy and shared-fixture changes), from any push whose ancestor
+window (25 first-parent commits; a PR's proof artifact lasts 7 days) holds no full run, and from the
+nightly Browser audit, which runs the whole suite on main.

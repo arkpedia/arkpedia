@@ -145,7 +145,11 @@ retain their lifecycle scripts and Next validation, including manual deployments
 
 The bundled-data build and the live-content build prove different contracts; keep
 both. The browser suite still runs desktop and mobile unless the existing
-input-graph/green-base guard proves the change irrelevant. A normal manual Check always
+input-graph/green-base guard proves the change irrelevant or the PR release selection
+narrows it to the affected journeys ([ci-impact-planning.md](ci-impact-planning.md)).
+A push to main that no PR proof vouches for (another PR merged in between) plans its
+browser lane the same way, from main's full-browser ancestor, rather than running the
+whole suite again. A normal manual Check always
 runs it; an automatic integration may instead reuse a completed exact-tree PR Check.
 Content preparation's data tests and publication checks are also separate
 from code checks: new source records can fail even when the app code is unchanged.

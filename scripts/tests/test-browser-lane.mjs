@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { lanePlan, completeLane, canonicalNextTypeRewrite, unexpectedBrowserInputs } from '../ci/browser-lane.mjs';
+import { lanePlan, laneScope, completeLane, canonicalNextTypeRewrite, unexpectedBrowserInputs } from '../ci/browser-lane.mjs';
 import { coveragePlan } from '../ci/browser-coverage.mjs';
 
 const metadata = { commit: 'a'.repeat(40), tree: 'b'.repeat(40), repository: 'arkpedia/arkpedia', baseRef: 'main',
@@ -96,4 +96,14 @@ test('completion rejects a tampered plan inventory even when selected cases pass
   assert.throws(() => completeLane(tampered, selectedReport(plan)), /digest/);
   const full = { ...plan, coverage: coveragePlan({ lane: 'full', selected: [], omitted: [], domains: [], reason: 'full' }, inventory()) };
   assert.equal(completeLane(full, inventory(true)).coverage.omitted.length, 0);
+});
+
+test('a same-repository PR and an unvouched push to main are scoped; manual runs, forks and other pushes run everything', () => {
+  const repository = 'arkpedia/arkpedia';
+  assert.equal(laneScope({ event: 'pull_request', headRepository: repository, repository }), 'pull_request');
+  assert.equal(laneScope({ event: 'push', ref: 'refs/heads/main', repository }), 'main');
+  assert.equal(laneScope({ event: 'pull_request', headRepository: 'someone/arkpedia', repository }), null);
+  assert.equal(laneScope({ event: 'push', ref: 'refs/heads/ci/faster-check', repository }), null);
+  assert.equal(laneScope({ event: 'workflow_dispatch', ref: 'refs/heads/main', repository }), null);
+  assert.equal(laneScope({ event: 'push', ref: 'refs/heads/main', repository: '' }), null);
 });
