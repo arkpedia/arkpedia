@@ -68,7 +68,7 @@ export const FORMATIONS: SheetFormation[] = [
   },
 ];
 
-export const everyoneMaxed = (operators: { name: string; rarity?: number }[]): Record<string, { eliteLevel: 'Base' | 'Elite 1' | 'Elite 2'; level: number }> =>
+export const everyoneMaxed = (operators: { name: string; rarity?: number | null }[]): Record<string, { eliteLevel: 'Base' | 'Elite 1' | 'Elite 2'; level: number }> =>
   Object.fromEntries(operators.map(o => [o.name, (o.rarity ?? 0) >= 3 ? { eliteLevel: 'Elite 2' as const, level: 90 } : { eliteLevel: 'Base' as const, level: 30 }]));
 
 export function assignmentsOf(teams: Record<string, string[]>, roster: Record<string, { eliteLevel: SlotAssignment['eliteLevel']; level: number }>): BaseAssignments {

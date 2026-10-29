@@ -325,7 +325,7 @@ export function optimizeBase(input: OptimizerInput): OptimizerResult {
   /** Whether everyone who must rest at a step has a dorm place. */
   function fits(plan: Plan): boolean {
     const [A, B] = plan.crews;
-    if (plan.shape === 'alternate') return operatorsIn(A).length <= restCapacity && operatorsIn(B).length <= restCapacity;
+    if (plan.shape === 'alternate') return true;
     const g2 = roomIds.filter(id => !plan.group.includes(id));
     return [A, B].every(c => restrict(c, plan.group).length <= restCapacity && restrict(c, g2).length <= restCapacity);
   }
@@ -359,11 +359,17 @@ export function optimizeBase(input: OptimizerInput): OptimizerResult {
   }
   // Leave workers for crew B: greedily spending a small roster on A can leave
   // every factory unmanned for the entire return shift.
-  const teamA = bestTeam(new Set(), Math.min(restCapacity, Math.ceil(owned.length / 2)));
-  const teamB = bestTeam(new Set(operatorsIn(teamA)), restCapacity);
-  for (let k = 1; k * loginInterval <= 24 || k === 1; k++) plans.push({ shape: 'alternate', k, crews: [teamA, teamB], group: [], fiammetta: false });
+  // No fixed cap on a crew. The dorms hold `restCapacity` workers; whoever they cannot take waits unassigned,
+  // and the simulator rejects a plan whose workers run out of Morale because they never got to rest. So try
+  // crews from dorm size up to every place and keep what the simulator prefers.
+  const places = rooms.reduce((n, f) => n + f.capacity, 0);
+  const sizes = [...new Set([restCapacity, Math.round((restCapacity + places) / 2), places].filter(n => n >= restCapacity))];
+  for (const size of sizes) {
+    const teamA = bestTeam(new Set(), Math.min(size, Math.ceil(owned.length / 2)));
+    const teamB = bestTeam(new Set(operatorsIn(teamA)), size);
+    for (let k = 1; k * loginInterval <= 24 || k === 1; k++) plans.push({ shape: 'alternate', k, crews: [teamA, teamB], group: [], fiammetta: false });
+  }
   if (2 * loginInterval <= 24) {
-    const places = rooms.reduce((n, f) => n + f.capacity, 0);
     const crewA = bestTeam(new Set(), Math.min(places, Math.ceil(owned.length / 2)));
     const crewB = bestTeam(new Set(operatorsIn(crewA)), places);
     const group = split([crewA, crewB]);
@@ -436,13 +442,6 @@ export function optimizeBase(input: OptimizerInput): OptimizerResult {
   if (roster.Fiammetta && byName.has('Fiammetta') && !best!.plan.crews.some(c => operatorsIn(c).includes('Fiammetta')) && dorms.length) {
     const c = consider({ ...best!.plan, fiammetta: true });
     if (c.value > best!.value + EPS) { best = c; notes.push(`Fiammetta sits in ${dorms[0].label} and is taken out and put back at each staffing change, right after the operator coming off shift, to hand them her full Morale.`); }
-  }
-
-  // Say why support places stay empty when the dorms are the limit.
-  const crewA = best!.plan.crews[0];
-  const emptySupport = rooms.filter(f => SUPPORT_KINDS.includes(f.kind) && (crewA[f.id] ?? []).some(s => s === null));
-  if (emptySupport.length && best!.plan.shape === 'alternate' && operatorsIn(crewA).length >= restCapacity) {
-    notes.push(`The dorms rest ${restCapacity} operators at a time, and with logins every ${loginInterval}h a whole team rests at once, so each team has at most ${restCapacity} workers. Production uses them first; ${[...new Set(emptySupport.map(f => f.label))].join(', ')} places stay empty rather than leave a worker without rest.`);
   }
 
   // Why each operator: the snapshot loss without them, and their active skills there.
