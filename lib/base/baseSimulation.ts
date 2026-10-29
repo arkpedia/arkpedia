@@ -25,6 +25,8 @@ import type { BaseAssignments, FactoryProducts, SlotAssignment } from './baseTyp
 export const MORALE_THRESHOLDS = [0, 12, 18, 20, 24] as const;
 const FULL = 24;
 const EPS = 1e-9;
+/** Operators whose skill climbs with continuous time worked (the handlers that read rampStartHours). */
+const RAMP_OPERATORS = new Set(['Fang', 'Kroos', 'Scene', 'Ceobe', 'Aroma', 'Mechanist', 'Spuria', 'Ines']);
 
 export interface SimulationShift {
   /** The complete staffing placed at this shift's first login. */
@@ -140,7 +142,7 @@ export function simulateBase(input: SimulationInput): SimulationResult {
   const maxCycles = input.fixedCycles ?? Math.max(2, Math.ceil((input.maxDays ?? 30) * 24 / cycleHours));
   const warnings = new Set<string>();
   const caveats = new Set<string>([
-    'Skills that ramp up with time worked (for example "+1% per hour") and Totter\'s Morale-difference skills use the calculator\'s average over one login interval, starting fresh, not the hours or Morale since that operator was placed.',
+    'Skills that ramp up with time worked (for example "+1% per hour") are averaged over each login window starting from the hours that operator has already worked in the same room without a break, so staying in longer is rewarded. Totter\'s Morale-difference skills still use the calculator\'s average over one login interval, starting fresh.',
     'Workshop crafts, training, clues, recruitment and drones are not part of the simulated output.',
   ]);
   const operatorByName = new Map(base.operators.map(o => [o.name, o]));
@@ -158,17 +160,20 @@ export function simulateBase(input: SimulationInput): SimulationResult {
 
   let evaluations = 0;
   const cache = new Map<string, Rates>();
+  // Hours each operator has worked without a break in their current room; persists across cycles like Morale.
+  const worked: Record<string, number> = {};
   function ratesFor(shiftIndex: number, morale: Record<string, number>): Rates {
     const shift = shifts[shiftIndex];
     const placed = placements(shift.assignments);
-    const key = `${shiftIndex}|${placed.map(p => moraleBin(morale[p.name])).join(',')}`;
+    const rampStart = Object.fromEntries(placed.filter(p => RAMP_OPERATORS.has(p.name) && kindOf[p.room] !== 'dormitory').map(p => [p.name, Math.round((worked[p.name] ?? 0) * 2) / 2]));
+    const key = `${shiftIndex}|${placed.map(p => moraleBin(morale[p.name])).join(',')}|${Object.entries(rampStart).map(([n, h]) => `${n}:${h}`).join(',')}`;
     const hit = cache.get(key);
     if (hit) return hit;
     // Dorm effects read each slot's own Morale; working rooms read importedMorale.
     const assignments: BaseAssignments = Object.fromEntries(Object.entries(shift.assignments).map(([room, slots]) =>
       [room, (slots ?? []).map(s => s ? { ...s, morale: morale[s.operatorName] } : null)]));
     const importedMorale = Object.fromEntries(placed.map(p => [p.name, morale[p.name]]));
-    const result = calculateBase({ ...base, ...shift.settings, assignments, factoryProducts: shift.factoryProducts, importedMorale, loginInterval, swapPolicy: 'onLogin' });
+    const result = calculateBase({ ...base, ...shift.settings, assignments, factoryProducts: shift.factoryProducts, importedMorale, rampStartHours: rampStart, loginInterval, swapPolicy: 'onLogin' });
     evaluations++;
     const rates: Rates = { morale: {}, roomPerHour: {}, fullTime: {}, workers: {} };
     for (const p of placed) {
@@ -230,6 +235,16 @@ export function simulateBase(input: SimulationInput): SimulationResult {
         log.events.push({ time, kind: 'fiammettaSwap', room: p.room, operators: [p.name, other], detail: `${p.name} swaps her full Morale with ${other} (${morale[other].toFixed(2)}).` });
         [morale[p.name], morale[other]] = [morale[other], morale[p.name]];
       }
+      // Fiammetta already seated at full Morale, and someone is put into her dorm after her: the swap fires
+      // at once, with whoever arrives (the player puts the most tired in first).
+      for (const f of placed.filter(p => kindOf[p.room] === 'dormitory' && hasFiammettaSwap(p.slot))) {
+        if (morale[f.name] !== FULL || roomOf.get(f.name) !== f.room || shift.reseat?.includes(f.name)) continue;
+        const target = placed.filter(q => q.room === f.room && q.name !== f.name && roomOf.get(q.name) !== q.room && morale[q.name] < FULL).sort((x, y) => morale[x.name] - morale[y.name])[0];
+        if (!target) continue;
+        caveats.add('Fiammetta swaps Morale at once with whoever is put into her dorm while she is at full Morale, and with the operator already there when she is put in; the most tired arrival is assumed to go in first.');
+        log.events.push({ time, kind: 'fiammettaSwap', room: f.room, operators: [f.name, target.name], detail: `${f.name} swaps her full Morale with ${target.name} (${morale[target.name].toFixed(2)}), who has just been put into her dorm.` });
+        [morale[f.name], morale[target.name]] = [morale[target.name], morale[f.name]];
+      }
       if (shift.refill?.length) {
         const fiammetta = placed.find(p => kindOf[p.room] === 'dormitory' && hasFiammettaSwap(p.slot));
         const working = new Set(placed.filter(p => kindOf[p.room] !== 'dormitory').map(p => p.name));
@@ -240,6 +255,8 @@ export function simulateBase(input: SimulationInput): SimulationResult {
           [morale[fiammetta.name], morale[needy]] = [morale[needy], morale[fiammetta.name]];
         }
       }
+      // A stint continues only in the same working room; a move, a rest or a spell unassigned starts it over.
+      for (const name of Object.keys(worked)) if (!placed.some(p => p.name === name && kindOf[p.room] !== 'dormitory' && roomOf.get(name) === p.room)) worked[name] = 0;
       roomOf = nextRoomOf;
       for (let login = 0; login < windows[shiftIndex].length; login++) {
         const windowHours = windows[shiftIndex][login];
@@ -293,6 +310,8 @@ export function simulateBase(input: SimulationInput): SimulationResult {
           record(time + windowHours - Math.max(0, left));
         }
         time += windowHours;
+        // Everyone still on their feet has now worked this window as well.
+        for (const p of placed) if (kindOf[p.room] !== 'dormitory' && kindOf[p.room] !== 'workshop' && morale[p.name] > EPS) worked[p.name] = (worked[p.name] ?? 0) + windowHours;
       }
     });
     return { log, rooms: roomOf };

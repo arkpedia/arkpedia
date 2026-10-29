@@ -38,6 +38,7 @@ export interface PowerPlantSkillContext {
   // (until the first operator anywhere in this Power Plant dies from
   // Morale loss, capped at 24h), same ramping convention used for every
   // other ramping skill this whole codebase models.
+  rampStartHours?: number;
   rampWindowHours: number;
 }
 
@@ -121,7 +122,7 @@ export const POWER_PLANT_SPECIAL_SKILLS: Record<string, Handler> = {
   }),
 
   'Spuria|Technology Exchange β': (ctx) => ({
-    droneRate: averageRampValue(0.15, 0.01, 0.2, ctx.rampWindowHours),
+    droneRate: averageRampValue(0.15, 0.01, 0.2, ctx.rampWindowHours, ctx.rampStartHours),
   }),
 
   'Spuria|Take-Away Fruit Tarts': () => ({ selfMorale: -0.3 }),

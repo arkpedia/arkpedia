@@ -73,6 +73,26 @@ test('a level 5 dorm at 5000 ambience recovers 4 Morale/h: from 0 to full in 6 h
   assert.equal(r.moraleTrace.Adnachiel.at(-1)!.morale, 24);
 });
 
+test('a ramp skill keeps climbing while the operator stays in the same room, and starts over after a rest', () => {
+  // Aroma "Routine Cleaning" ramps +2% an hour to 20%. 12 h in one stint vs two 6 h stints separated by rest.
+  const crew = ['Aroma', 'Adnachiel', 'Melantha'].map(n => plain(n, n === 'Aroma' ? 'Elite 2' : 'Base'));
+  const stay = simulateBase({ base, loginInterval: 6, fixedCycles: 1, shifts: [shift({ [factory]: crew }, { logins: 2 })] });
+  const rest = simulateBase({ base, loginInterval: 6, fixedCycles: 1, shifts: [shift({ [factory]: crew }), shift({ dormitory1: crew })] });
+  // Same 6 h windows, but the stay's second one starts 6 h up the ramp: more than twice the output of the one-window-in-two case.
+  assert(stay.rooms[factory].output.exp > 2 * rest.rooms[factory].output.exp * 1.001, `${stay.rooms[factory].output.exp} vs 2 x ${rest.rooms[factory].output.exp}`);
+  assert(stay.caveats.some(c => c.includes('already worked in the same room')));
+});
+
+test('Fiammetta already seated at full Morale swaps at once with whoever is put into her dorm afterwards', () => {
+  // Shift 1 seats her alone; shift 2 puts the tired Adnachiel into her dorm.
+  const alone = shift({ dormitory1: [plain('Fiammetta')], [factory]: crewA.map(n => plain(n)) });
+  const later = shift({ dormitory1: [plain('Fiammetta'), plain('Adnachiel')], [factory]: ['Melantha', 'Catapult', 'Orchid'].map(n => plain(n)) });
+  const r = simulateBase({ base, loginInterval: 12, fixedCycles: 1, initialMorale: { Adnachiel: 0, Fiammetta: 24 }, shifts: [alone, later] });
+  const swap = r.events.find(e => e.kind === 'fiammettaSwap');
+  assert.deepEqual(swap?.operators, ['Fiammetta', 'Adnachiel']);
+  assert(r.caveats.some(c => c.includes('at once with whoever is put into her dorm')));
+});
+
 test('a worker refilled in place gets Fiammetta\'s full Morale at the login, keeps working, and the lowest of the list is chosen', () => {
   const rested = { dormitory1: [plain('Fiammetta')] };
   const working = { [factory]: crewA.map(n => plain(n)) };

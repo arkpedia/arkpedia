@@ -77,11 +77,15 @@ export interface BaseCalculationInput {
   workshopSettings?: WorkshopSettings;
   workshopRecipes: WorkshopRecipe[];
   importedMorale?: Record<string, number>;
+  /** Hours each operator has already worked without a break when this calculation's window starts (ramp skills). Default 0. */
+  rampStartHours?: Record<string, number>;
+  /** The window ramp skills average over, instead of the one derived from the login interval and Morale. */
+  rampWindowOverride?: number;
 }
 
 /** The complete cross-room calculator used by /base and scenario regressions. */
 export function calculateBase(input: BaseCalculationInput) {
-  const { operators, rosters, skillSlots, facilities: FACILITIES, assignments, factoryProducts, workshopRecipes, importedMorale,
+  const { operators, rosters, skillSlots, facilities: FACILITIES, assignments, factoryProducts, workshopRecipes, importedMorale, rampStartHours, rampWindowOverride,
     dormitoryAmbience = {}, loginInterval = 24, swapPolicy = 'onMoraleZero', clueExchangeActive = false, moraleAbove12 = true,
     trainingTarget = { class: 'Guard', branch: '', mastery: 1, timeReductionActive: false, instantTrainingReady: false },
     workshopSettings = { recipeId: '1', qualifyingDormOperators: 0, causality: 0, karma: 0, thornsFailures: 0 },
@@ -96,6 +100,7 @@ export function calculateBase(input: BaseCalculationInput) {
   };
   const totalDormitoryLevels = FACILITIES.filter(f => f.kind === 'dormitory').reduce((s,f) => s + f.level, 0);
   function rampWindow(hoursUntilMoraleGone: number): number {
+    if (rampWindowOverride !== undefined) return rampWindowOverride;
     return Math.min(24, swapPolicy === 'onLogin' ? Math.min(loginInterval, hoursUntilMoraleGone) : hoursUntilMoraleGone);
   }
   function cleanSkillName(name: string | null): string | null {
@@ -211,6 +216,7 @@ export function calculateBase(input: BaseCalculationInput) {
         // Same hardcoded max-level assumption Senshi's Diner had above.
         totalDormitoryLevels,
         rampWindowHours,
+        rampStartHours: rampStartHours?.[slot.operatorName] ?? 0,
       });
       if (result.droneRate) total += result.droneRate;
       lines.push({
@@ -452,6 +458,7 @@ export function calculateBase(input: BaseCalculationInput) {
           const result = handler({
             ...baseCtx,
             rampWindowHours,
+            rampStartHours: rampStartHours?.[opName] ?? 0,
             selfMoraleRate: ownRate(opName),
             eliteLevel: slot.eliteLevel,
             manualValue: slot.manualValue,
@@ -929,6 +936,7 @@ export function calculateBase(input: BaseCalculationInput) {
           dormitoryHasOperator,
           monsterMealTotal: totalMonsterMeal,
           rampWindowHours,
+          rampStartHours: rampStartHours?.[inesEntry.slot.operatorName] ?? 0,
           resourceBonuses,
           clueExchangeActive,
           violetOrchidInControlCenter: ccOperatorNames.includes('Violet Mizutsune Orchid'),
