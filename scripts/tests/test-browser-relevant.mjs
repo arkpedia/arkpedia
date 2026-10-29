@@ -108,7 +108,7 @@ test('Check plans scoped execution, defaults to full, and validates actual repor
   assert.equal(selected.env.PLAYWRIGHT_JSON_OUTPUT_FILE, '.cache/browser-results.json');
   for (const step of [browser, selected]) {
     assert.equal(step.env.TMPDIR, '${{ runner.temp }}');
-    assert.equal(step.env.PW_WORKERS, '2');
+    assert.equal(step.env.PW_WORKERS, "${{ runner.environment == 'github-hosted' && '2' || '5' }}");
   }
   assert.ok(index('Validate browser execution evidence') > index('Selected browser regressions'));
   assert.equal(job.permissions.actions, 'read');

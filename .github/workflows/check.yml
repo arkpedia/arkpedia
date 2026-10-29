@@ -297,11 +297,15 @@ jobs:
         if: steps.browser.outputs.lane != 'none'
         env:
           TMPDIR: ${{ runner.temp }}
-          PW_WORKERS: '2'
+          PW_WORKERS: ${{ runner.environment == 'github-hosted' && '2' || '5' }}
         run: |
           node -e 'const os=require("node:os");console.log({temporaryDirectory:os.tmpdir(),memoryLimitBytes:process.constrainedMemory(),availableMemoryBytes:process.availableMemory(),workers:process.env.PW_WORKERS})'
           df -h "$TMPDIR" /tmp /dev/shm
 
+      # Five browsers on the NAS Check runner (7 CPUs, 11 GB, one Check at a time since
+      # 2026-10-29): the whole suite took 1,671s on two workers and 824s on five there, peaking
+      # at 4.4 GB for the container with about six CPUs busy, so a sixth would only contend.
+      # GitHub's hosted runners (Dependabot) have 4 vCPUs and keep two.
       # Keep this name exclusive to actual full execution: baseline verification checks it.
       - name: Desktop and mobile browser regressions
         id: full_browser
@@ -312,7 +316,7 @@ jobs:
           # The NAS /tmp is a 2 GB tmpfs; Chromium's profiles and IPC fallback
           # must use the disk-backed job directory instead of filling it.
           TMPDIR: ${{ runner.temp }}
-          PW_WORKERS: '2'
+          PW_WORKERS: ${{ runner.environment == 'github-hosted' && '2' || '5' }}
 
       - name: Selected browser regressions
         id: selected_browser
@@ -321,7 +325,7 @@ jobs:
         env:
           PLAYWRIGHT_JSON_OUTPUT_FILE: .cache/browser-results.json
           TMPDIR: ${{ runner.temp }}
-          PW_WORKERS: '2'
+          PW_WORKERS: ${{ runner.environment == 'github-hosted' && '2' || '5' }}
 
       - name: Validate browser execution evidence
         id: validate_browser

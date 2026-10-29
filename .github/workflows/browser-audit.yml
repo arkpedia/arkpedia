@@ -22,7 +22,8 @@ concurrency:
 jobs:
   audit:
     runs-on: ${{ vars.ARKPEDIA_RUNNER || 'ubuntu-latest' }}
-    # The full suite takes 35 to 45 minutes alone on the NAS and over an hour on a hosted runner.
+    # The full suite takes about 14 minutes on the NAS with five workers (28 with two) and over
+    # an hour on a hosted runner.
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v7
@@ -53,7 +54,8 @@ jobs:
           PLAYWRIGHT_JSON_OUTPUT_FILE: .cache/browser-audit-results.json
           # The NAS /tmp is a 2 GB tmpfs; Chromium's profiles must use the job directory (as Check).
           TMPDIR: ${{ runner.temp }}
-          PW_WORKERS: '2'
+          # Five on the NAS Check runner, as in Check (check.yml); two on a hosted runner.
+          PW_WORKERS: ${{ runner.environment == 'github-hosted' && '2' || '5' }}
       - name: Preserve audit report
         if: always()
         uses: actions/upload-artifact@v7

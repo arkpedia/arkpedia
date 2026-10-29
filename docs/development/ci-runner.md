@@ -106,7 +106,11 @@ Workflows must not assume a fresh machine: write temporary files under
 `$RUNNER_TEMP` (cleared after every job), never `/tmp`.
 
 Check's full and selected browser steps set `TMPDIR` to `${{ runner.temp }}` and
-`PW_WORKERS=2`, overriding the runner container's older three-worker default.
+`PW_WORKERS=5` on the NAS (2 on a GitHub-hosted runner), overriding the runner
+container's older three-worker default. On the 7-CPU, 11 GB Check runner the full
+suite took 1,671 s with two workers and 824 s with five (2026-10-29, the whole Check
+36.5 → 22.3 minutes), with the container peaking at 4.4 GB and about six CPUs busy.
+The nightly Browser audit uses the same count.
 Chromium's profiles and its `--disable-dev-shm-usage` IPC fallback otherwise use
 the NAS's 2 GB RAM-backed `/tmp`, sharing the container's 6 GB memory allowance.
 Keep that browser scratch space on the job's disk-backed directory. The full
