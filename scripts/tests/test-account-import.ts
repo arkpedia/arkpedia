@@ -66,6 +66,9 @@ test('the import makes the five requests in order, each through the transport it
   const order = Object.keys(ANSWERS);
   order.unshift(...order.splice(3, 1));
   assert.deepEqual(calls.map((call) => [call.via, call.url]), order.map((url) => [url.includes('static.example') ? 'direct' : 'relay', url]));
+  // And it is asked of the server every time: a browser's cached copy outlived a game patch by
+  // a day, and the game refuses a login with an old clientVersion.
+  assert.equal(calls.find((call) => call.url.includes('static.example'))!.request.cache, 'no-cache');
   const body = (url: string) => JSON.parse(calls.find((call) => call.url === url)!.request.body!);
   const headers = (url: string) => calls.find((call) => call.url === url)!.request.headers;
   assert.deepEqual(body('https://en-sdk-api.yostarplat.com/yostar/get-auth'), { Account: 'doctor@example.com', Code: '123456' });

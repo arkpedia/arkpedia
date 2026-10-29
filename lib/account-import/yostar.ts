@@ -30,6 +30,8 @@ export interface TransportRequest {
   body?: string;
   /** A code request must not follow a redirect and then mistake its connect failure for no delivery. */
   redirect?: 'manual';
+  /** The page's own fetch only (the relay keeps no cache): 'no-cache' asks the server every time. */
+  cache?: 'no-cache';
 }
 export interface TransportResponse {
   status: number;
@@ -301,7 +303,12 @@ export async function readAccount({ transport, direct, deviceId, network, onStep
   onStep('game-login');
   let version: Record<string, any>;
   try {
-    version = object((await direct(network.hv.replace('{0}', 'Android'), { method: 'GET', headers: {} })).json);
+    /* Asked of the server every time. The file sends no cache headers, only Last-Modified, so a
+       browser may reuse its copy for a tenth of the file's age: a reader who imported the week
+       before a patch kept sending the old clientVersion for about a day after it, and the game
+       refused every login (result 4) until the copy expired (Brave on Android, 2026-10-29).
+       With its ETag an unchanged file costs a 304. */
+    version = object((await direct(network.hv.replace('{0}', 'Android'), { method: 'GET', headers: {}, cache: 'no-cache' })).json);
   } catch (error) {
     throw new ImportError('game-login', `the game's version could not be read: ${error instanceof Error ? error.message : String(error)}`);
   }
