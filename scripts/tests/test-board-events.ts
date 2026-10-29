@@ -104,11 +104,11 @@ test("a banner's key art comes from Global's board where its picture is missing,
   const banners = [banner('Orienteering 7', 'SPECIAL_EN_42_0_3'), banner('Sealed With Time', 'LIMITED_EN_42_0_1'), banner('Rate Up', 'DOUBLE_EN_42_0_2')];
   const published = new Set(['headhunting-banner-images/Sealed With Time.webp']);
   assert.deepEqual(boardBannerMedia(banners, board, published),
-    [{ path: 'headhunting-banner-images/Orienteering 7.webp', boardImage: { url: image().url, sha1: SHA } }]);
+    [{ path: 'headhunting-banner-images/Orienteering 7.webp', boardImage: { url: image().url, sha1: SHA, bytes: 1 } }]);
   // Two records holding one pool decide nothing; a picture at another address is the record's own.
   assert.deepEqual(boardBannerMedia([...banners, banner('Twin', 'SPECIAL_EN_42_0_3')], board, published), []);
   assert.deepEqual(boardBannerMedia([banner('Orienteering 7', 'SPECIAL_EN_42_0_3', 'https://example.org/x.webp')], board, published), []);
   // The plan carries it although the board planned nothing else, and keeps the wiki's EN upload behind it.
   const merged = mergeMedia([{ path: 'headhunting-banner-images/Orienteering 7.webp', wikiFiles: ['EN Orienteering 7 banner.png'] }, ...boardBannerMedia(banners, board, published)]);
-  assert.deepEqual(merged, [{ path: 'headhunting-banner-images/Orienteering 7.webp', wikiFiles: ['EN Orienteering 7 banner.png'], boardImage: { url: image().url, sha1: SHA } }]);
+  assert.deepEqual(merged, [{ path: 'headhunting-banner-images/Orienteering 7.webp', wikiFiles: ['EN Orienteering 7 banner.png'], boardImage: { url: image().url, sha1: SHA, bytes: 1 } }]);
 });

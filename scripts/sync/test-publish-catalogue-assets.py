@@ -217,6 +217,28 @@ class CatalogueImports(unittest.TestCase):
         self.assertFalse(any('Tuesday' in reason for reason in reasons.values()))
         self.assertEqual({e['sourceRef'] for e in entries}, {gone, 'https://images.example/a.jpg'})
 
+    def test_board_art_a_cdn_repackaged_is_taken_by_its_recorded_size_and_shape(self):
+        """Orienteering #7, 2026-10-29: one of Yostar's CDNs serves the board picture with metadata
+        added, so its sha1 is never the poller's. Within a tenth of the recorded size, at the board's
+        address and shape, it is taken; another picture of another size still is not."""
+        original, repackaged = png('#c03060', (1650, 900)), png('#c03060', (1650, 900)) + b'\0' * 64
+        other = png('#000000', (1650, 900))
+        board = 'https://ark-us-static-online.yo-star.com/announce/images/20261009/12f5c0f19e0eb49b1e2b30301d736a5d.jpg'
+        sha1 = hashlib.sha1(original).hexdigest()
+        answers = {'repackaged': repackaged, 'other': other}
+        for case, expect in (('repackaged', True), ('other', False)):
+            calls = []
+            def fetch(url, case=case):
+                calls.append(url)
+                return answers[case]
+            with patch.object(publish, 'fetch', fetch), patch.object(publish, 'BOARD_REFETCH_SECONDS', 0), patch.object(sys, 'stderr', io.StringIO()):
+                data, why = publish.board_image({'url': board, 'sha1': sha1, 'bytes': len(original) if case == 'repackaged' else len(original) * 3})
+            self.assertEqual(len(calls), 4, case)
+            self.assertEqual(data == repackaged, expect, f'{case}: {why}')
+        # No recorded size: refused, as before.
+        with patch.object(publish, 'fetch', lambda url: repackaged), patch.object(publish, 'BOARD_REFETCH_SECONDS', 0), patch.object(sys, 'stderr', io.StringIO()):
+            self.assertIsNone(publish.board_image({'url': board, 'sha1': sha1})[0])
+
     def test_board_key_art_replaces_the_cn_poster_once_only_from_a_board_host_and_only_the_picture_the_board_showed(self):
         board_art, cn_art = png('#c03060', (1650, 900)), png('#3060c0', (1560, 500))
         board = 'https://ark-us-static-online.yo-star.com/announce/images/20261008/cb6e6d64e69924ac96b5aaff7ff66f4d.jpg'
@@ -251,7 +273,7 @@ class CatalogueImports(unittest.TestCase):
             run = lambda: publish.main([str(Path(temporary)/'plan.json'), str(image_root)])
             try:
                 os.chdir(app)
-                with patch.object(publish, 'fetch', fetch), patch.dict(os.environ, {'ARKPEDIA_NOW': '2026-10-19T20:00:00Z'}), patch.object(sys, 'stderr', io.StringIO()):
+                with patch.object(publish, 'fetch', fetch), patch.object(publish, 'BOARD_REFETCH_SECONDS', 0), patch.dict(os.environ, {'ARKPEDIA_NOW': '2026-10-19T20:00:00Z'}), patch.object(sys, 'stderr', io.StringIO()):
                     run()
                     first = list(fetched)
                     fetched.clear()
@@ -271,7 +293,8 @@ class CatalogueImports(unittest.TestCase):
         self.assertEqual(global_art, {'event-poster/CN 5101-1.webp': {'title': 'In-game notice board', 'url': board, 'sha1': sha1}})
         self.assertEqual(kept, cn_art)
         self.assertNotIn('https://images.example/announce/images/a.jpg', first)
-        self.assertEqual(fetched, [changed], 'the board art is fetched once; only the file still waiting for it is asked again')
+        # The file still waiting for it is asked again, four times (a CDN may answer another copy).
+        self.assertEqual(fetched, [changed] * 4, 'the board art is fetched once; only the file still waiting for it is asked again')
         self.assertEqual([e['key'] for e in entries], ['art:event-poster/Elsewhere.webp'])
 
     def test_a_mirror_file_that_fails_or_does_not_decode_is_left_out_and_reported_while_the_rest_is_built(self):

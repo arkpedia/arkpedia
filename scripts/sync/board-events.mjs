@@ -113,7 +113,7 @@ export function boardBannerMedia(banners, board, published) {
     if (records.length !== 1) continue;
     const art = records[0].banner_image;
     if (!String(art ?? '').startsWith('/headhunting-banner-images/') || published.has(art.slice(1))) continue;
-    media.push({ path: art.slice(1), boardImage: { url: item.image.url, sha1: item.image.sha1 } });
+    media.push({ path: art.slice(1), boardImage: { url: item.image.url, sha1: item.image.sha1, ...(Number.isInteger(item.image.bytes) ? { bytes: item.image.bytes } : {}) } });
   }
   return media;
 }

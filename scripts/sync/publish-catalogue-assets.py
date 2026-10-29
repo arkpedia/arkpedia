@@ -47,7 +47,7 @@ again after this stage when anything else of its kind was published, staging and
 anew. A second entry here named the same file twice in the day's issue (A1 of the 2026-09
 rehearsal: art:stages-images/pa-4.webp beside stage-render:pa-4).
 """
-import argparse, hashlib, importlib.util, io, json, re, subprocess, sys, urllib.parse
+import argparse, hashlib, importlib.util, io, json, re, subprocess, sys, time, urllib.parse
 from pathlib import Path
 from PIL import Image
 
@@ -67,6 +67,7 @@ BOARD_IMAGE_HOSTS = ('ark-us-static-online.yo-star.com', 'ark-jp-static-online.y
 # Global's event key art on its board is the 1650x900 announcement image: byte for byte the file
 # the wiki uploads later as "EN <event> banner.png", a day or so before it.
 BOARD_ASPECT = (1.6, 2.1)
+BOARD_REFETCH_SECONDS = 10
 
 
 def official_image(urls):
@@ -111,13 +112,29 @@ def board_image(board):
     parsed = urllib.parse.urlparse(url)
     if parsed.scheme != 'https' or parsed.hostname not in BOARD_IMAGE_HOSTS or not parsed.path.startswith('/announce/images/'):
         return None, f'{url} is not an in-game board image ({", ".join(BOARD_IMAGE_HOSTS)}) and is never fetched'
-    try:
-        data = fetch(url)
-    except Exception as exc:
-        print(f'Downloading the board image {url} failed: {exc}', file=sys.stderr)
-        return None, f'downloading the board image {url} failed'
-    if hashlib.sha1(data).hexdigest() != expected:
-        return None, f'the board image {url} is no longer the picture the board showed'
+    # Yostar serves this host through two CDNs, and one of them hands out the same picture
+    # repackaged (Exif/XMP added, the same pixels, other bytes): a download there never matches
+    # the poller's sha1, and Orienteering #7's art was refused twice on 2026-10-29 for that alone.
+    # Asked again a few times first, since which CDN answers changes from one request to the next.
+    data = None
+    for attempt in range(4):
+        try:
+            data = fetch(url)
+        except Exception as exc:
+            print(f'Downloading the board image {url} failed: {exc}', file=sys.stderr)
+            return None, f'downloading the board image {url} failed'
+        if hashlib.sha1(data).hexdigest() == expected:
+            break
+        if attempt < 3:
+            time.sleep(BOARD_REFETCH_SECONDS)
+    else:
+        # Still another file: taken only where the poller recorded the picture's size and this one
+        # is within a tenth of it (a repackaged copy differs by its metadata), at the board's own
+        # address, and of the board's shape below. Without the size, as before, it is refused.
+        recorded = board.get('bytes')
+        if not (isinstance(recorded, int) and recorded > 0 and abs(len(data) - recorded) <= recorded / 10):
+            return None, f'the board image {url} is no longer the picture the board showed'
+        print(f'The board image {url} came repackaged ({len(data)} bytes, {recorded} recorded); taken for its address and shape', file=sys.stderr)
     try:
         with Image.open(io.BytesIO(data)) as image:
             image.load()
