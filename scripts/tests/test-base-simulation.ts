@@ -73,6 +73,25 @@ test('a level 5 dorm at 5000 ambience recovers 4 Morale/h: from 0 to full in 6 h
   assert.equal(r.moraleTrace.Adnachiel.at(-1)!.morale, 24);
 });
 
+test('a worker refilled in place gets Fiammetta\'s full Morale at the login, keeps working, and the lowest of the list is chosen', () => {
+  const rested = { dormitory1: [plain('Fiammetta')] };
+  const working = { [factory]: crewA.map(n => plain(n)) };
+  const initialMorale = { Adnachiel: 6, Melantha: 12, Catapult: 24, Fiammetta: 24 };
+  const r = simulateBase({ base, loginInterval: 12, fixedCycles: 1, initialMorale, shifts: [shift({ ...rested, ...working }, { refill: ['Melantha', 'Adnachiel', 'Catapult', 'Orchid'] })] });
+  const swaps = r.events.filter(e => e.kind === 'fiammettaSwap');
+  assert.equal(swaps.length, 1, 'one Fiammetta makes one swap per staffing change');
+  assert.deepEqual(swaps[0].operators, ['Fiammetta', 'Adnachiel'], 'the lowest-Morale worker on the list is refilled; one who is not working is ignored');
+  assert.equal(r.moraleTrace.Adnachiel[0].morale, 24);
+  assert.equal(r.moraleTrace.Fiammetta[0].morale, 6);
+  assert(r.events.every(e => e.kind !== 'exhausted' || e.operators?.[0] !== 'Adnachiel'), 'the refilled worker does not stop working');
+  assert(r.caveats.some(c => c.includes('refilled in place')));
+  // Not at full Morale herself, or not in a dorm: nothing happens.
+  const tired = simulateBase({ base, loginInterval: 12, fixedCycles: 1, initialMorale: { ...initialMorale, Fiammetta: 10 }, shifts: [shift({ ...rested, ...working }, { refill: ['Adnachiel'] })] });
+  assert.equal(tired.events.filter(e => e.kind === 'fiammettaSwap').length, 0);
+  const noDorm = simulateBase({ base, loginInterval: 12, fixedCycles: 1, initialMorale, shifts: [shift(working, { refill: ['Adnachiel'] })] });
+  assert.equal(noDorm.events.filter(e => e.kind === 'fiammettaSwap').length, 0);
+});
+
 test('Fiammetta placed at full Morale after an exhausted operator swaps Morale with them, then recovers exactly 2/h', () => {
   const dorm = { dormitory1: [plain('Adnachiel'), plain('Fiammetta')] };
   const r = simulateBase({ base, loginInterval: 12, fixedCycles: 1, initialMorale: { Adnachiel: 0, Fiammetta: 24 }, shifts: [shift(dorm)] });

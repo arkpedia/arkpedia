@@ -34,6 +34,8 @@ export interface OptimizerInput {
   externalGold?: number;
   /** Also build crews around each synergy anchor and keep the best. Several times slower; finds combos greedy cannot see. */
   deep?: boolean;
+  /** Let Fiammetta keep the best workers on every shift by refilling them in turn. Off by default: about 12 s more per search, and it needs a dorm bed that a full alternating plan does not have. */
+  refill?: boolean;
 }
 
 export interface OperatorReason {
@@ -442,6 +444,78 @@ export function optimizeBase(input: OptimizerInput): OptimizerResult {
   if (roster.Fiammetta && byName.has('Fiammetta') && !best!.plan.crews.some(c => operatorsIn(c).includes('Fiammetta')) && dorms.length) {
     const c = consider({ ...best!.plan, fiammetta: true });
     if (c.value > best!.value + EPS) { best = c; notes.push(`Fiammetta sits in ${dorms[0].label} and is taken out and put back at each staffing change, right after the operator coming off shift, to hand them her full Morale.`); }
+  }
+
+  // Core workers refilled by Fiammetta. She recovers 2 Morale an hour in a dorm and, at full Morale, swaps
+  // it with the operator seated before her, so one Fiammetta hands out about 48 Morale a day. A low-drain
+  // worker who works every shift and is topped up in turn never rests: the sheets' Shamare + Proviso play.
+  // Greedy: for each of the best workers in turn, put them in their room in every shift (the weakest member
+  // there steps aside), seat Fiammetta, and keep the change only if the simulator scores higher.
+  if (input.refill && roster.Fiammetta && byName.has('Fiammetta') && dorms.length && !best!.shifts.some(sh => operatorsIn(sh.assignments).includes('Fiammetta'))) {
+    const dormIds = dorms.map(d => d.id);
+    const marginals = new Map<string, number>();
+    for (const crew of best!.plan.crews) {
+      const whole = snapshotValue(crew).value;
+      for (const name of operatorsIn(crew)) marginals.set(name, Math.max(marginals.get(name) ?? -Infinity, whole - snapshotValue(without(crew, name)).value));
+    }
+    const homeOf = (shifts: SimulationShift[], name: string) => roomIds.find(id => shifts.some(sh => sh.assignments[id]?.some(s => s?.operatorName === name))) ?? null;
+    const makeCore = (shifts: SimulationShift[], name: string, core: string[]): SimulationShift[] | null => {
+      const home = homeOf(shifts, name);
+      if (!home) return null;
+      // Pass 1: the worker works their room in every shift; the weakest member there steps aside to a free bed,
+      // or leaves the plan if there is none (an unrested worker would only exhaust).
+      const dropped = new Set<string>();
+      const placed = shifts.map(sh => {
+        const a: BaseAssignments = Object.fromEntries(Object.entries(sh.assignments).map(([room, v]) => [room, (v ?? []).map(x => x?.operatorName === 'Fiammetta' ? null : x)]));
+        if (!a[home].some(s => s?.operatorName === name)) {
+          for (const room of Object.keys(a)) a[room] = a[room].map(s => s?.operatorName === name ? null : s);
+          let index = a[home].indexOf(null);
+          if (index < 0) {
+            const weakest = a[home].map((s, i) => ({ i, name: s!.operatorName })).filter(x => !core.includes(x.name)).sort((x, y) => (marginals.get(x.name) ?? 0) - (marginals.get(y.name) ?? 0))[0];
+            if (!weakest) return null;
+            index = weakest.i;
+            const bed = dormIds.map(d => ({ d, i: a[d].indexOf(null) })).find(x => x.i >= 0);
+            if (bed) a[bed.d][bed.i] = slotOf(weakest.name); else dropped.add(weakest.name);
+          }
+          a[home][index] = slotOf(name);
+        }
+        return { ...sh, assignments: a };
+      });
+      if (placed.some(sh => sh === null)) return null;
+      // Pass 2: whoever had to leave leaves every shift. Pass 3: Fiammetta takes a free bed at the head of its
+      // dorm (nobody sits before her, so she does not swap on arrival); a shift with none drops the trial.
+      const made = (placed as SimulationShift[]).map(sh => {
+        const a: BaseAssignments = Object.fromEntries(Object.entries(sh.assignments).map(([room, v]) => [room, (v ?? []).map(x => x && dropped.has(x.operatorName) ? null : x)]));
+        const dorm = dormIds.find(d => a[d].includes(null));
+        if (!dorm) return null;
+        const occupants = a[dorm].filter(Boolean) as SlotAssignment[];
+        a[dorm] = [slotOf('Fiammetta'), ...occupants, ...Array(Math.max(0, a[dorm].length - occupants.length - 1)).fill(null)];
+        return { ...sh, assignments: a, refill: [...core, name] };
+      });
+      return made.some(m => m === null) ? null : (made as SimulationShift[]);
+    };
+    // A bed for Fiammetta: the weakest worker of each crew leaves the plan, which frees one bed in every shift.
+    const productionKinds = new Set(['factory', 'tradingPost']);
+    const dropFromPlan = (shifts: SimulationShift[], names: string[]) => shifts.map(sh => ({ ...sh, assignments: Object.fromEntries(Object.entries(sh.assignments).map(([room, v]) => [room, (v ?? []).map(x => x && names.includes(x.operatorName) ? null : x)])) }));
+    // The weakest worker of each crew leaves, which frees a bed in every shift. The snapshot cannot see Morale
+    // effects, so among each crew's six weakest production workers the simulator picks the one that costs least.
+    const victims = best!.plan.crews.flatMap(crew => {
+      const weakest = operatorsIn(Object.fromEntries(Object.entries(crew).filter(([id]) => productionKinds.has(rooms.find(f => f.id === id)?.kind ?? '')))).filter(n => n !== 'Fiammetta')
+        .sort((x, y) => (marginals.get(x) ?? 0) - (marginals.get(y) ?? 0)).slice(0, 6);
+      const scored = weakest.map(n => ({ n, value: simulate(dropFromPlan(best!.shifts, [n])).value })).sort((x, y) => y.value - x.value);
+      return scored.slice(0, 1).map(x => x.n);
+    });
+    const removeVictims = (shifts: SimulationShift[]) => dropFromPlan(shifts, victims);
+    const ranked = [...marginals.entries()].sort((x, y) => y[1] - x[1]).map(([n]) => n).filter(n => n !== 'Fiammetta' && !victims.includes(n)).slice(0, 8);
+    let current = removeVictims(best!.shifts), currentValue = best!.value;
+    const core: string[] = [];
+    for (const name of ranked) {
+      const trial = makeCore(current, name, core);
+      if (!trial) continue;
+      const { sim, value } = simulate(trial);
+      if (value > currentValue + EPS) { core.push(name); current = trial.map(sh => ({ ...sh, refill: [...core] })); currentValue = value; best = { plan: best!.plan, shifts: current, sim, value }; }
+    }
+    if (core.length) notes.push(`Fiammetta refills ${core.join(', ')} in turn at the staffing changes: each works every shift and never rests. She sits in ${dorms[0].label} and swaps her full Morale with whichever of them is lowest.`);
   }
 
   // Why each operator: the snapshot loss without them, and their active skills there.

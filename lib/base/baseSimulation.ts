@@ -38,6 +38,9 @@ export interface SimulationShift {
   /** Operators the player takes out and puts back at this login although the staffing
    * keeps them in the same room. Only matters for on-assignment effects (Fiammetta). */
   reseat?: string[];
+  /** Workers who stay at their post but are taken to the dorm slot before Fiammetta and put back at this
+   * login. If Fiammetta is in a dorm at full Morale she swaps with the neediest of them (lowest Morale). */
+  refill?: string[];
 }
 
 export type SimulationBase = Omit<BaseCalculationInput, 'assignments' | 'factoryProducts' | 'importedMorale' | 'loginInterval' | 'swapPolicy'>;
@@ -226,6 +229,16 @@ export function simulateBase(input: SimulationInput): SimulationResult {
         const other = previous.operatorName;
         log.events.push({ time, kind: 'fiammettaSwap', room: p.room, operators: [p.name, other], detail: `${p.name} swaps her full Morale with ${other} (${morale[other].toFixed(2)}).` });
         [morale[p.name], morale[other]] = [morale[other], morale[p.name]];
+      }
+      if (shift.refill?.length) {
+        const fiammetta = placed.find(p => kindOf[p.room] === 'dormitory' && hasFiammettaSwap(p.slot));
+        const working = new Set(placed.filter(p => kindOf[p.room] !== 'dormitory').map(p => p.name));
+        const needy = shift.refill.filter(n => working.has(n) && morale[n] !== undefined && morale[n] < FULL).sort((x, y) => morale[x] - morale[y])[0];
+        if (fiammetta && needy && morale[fiammetta.name] === FULL) {
+          caveats.add('A worker refilled in place is modeled as taken to the dorm slot before Fiammetta and put straight back at the login, so the swap costs no working time. The game text swaps with "the previous Operator assigned to that Dormitory"; that the swap fires on placement is an assumption.');
+          log.events.push({ time, kind: 'fiammettaSwap', room: fiammetta.room, operators: [fiammetta.name, needy], detail: `${fiammetta.name} swaps her full Morale with ${needy} (${morale[needy].toFixed(2)}), who goes straight back to work.` });
+          [morale[fiammetta.name], morale[needy]] = [morale[needy], morale[fiammetta.name]];
+        }
       }
       roomOf = nextRoomOf;
       for (let login = 0; login < windows[shiftIndex].length; login++) {
