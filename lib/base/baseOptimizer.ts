@@ -1,6 +1,6 @@
 import { calculateBase } from './calculateBase';
 import { activeBaseSkills, cleanSkillName } from './activeBaseSkills';
-import { simulateBase, type DailyOutput, type SimulationBase, type SimulationResult, type SimulationShift } from './baseSimulation';
+import { simulateBase, dronesPerHour, droneTargets, allocateDrones, type DailyOutput, type SimulationBase, type SimulationResult, type SimulationShift } from './baseSimulation';
 import type { BaseAssignments, FacilityDef, FacilityKind, FactoryProducts, SlotAssignment } from './baseTypes';
 
 /**
@@ -34,6 +34,8 @@ export interface OptimizerInput {
   externalGold?: number;
   /** Operators kept in the dorms in every shift, one dorm after another (recovery boosters). They never work and take a bed each. */
   lockedDorm?: string[];
+  /** Count the drones the Power Plants make, spent at every login where each is worth most (see simulateBase). Default off. */
+  drones?: boolean;
   /** Try duty rotations (the best crew works several steps in a row). Default on. */
   duty?: boolean;
   /** Also build crews around each synergy anchor and keep the best. Several times slower; finds combos greedy cannot see. */
@@ -136,6 +138,8 @@ export function optimizeBase(input: OptimizerInput): OptimizerResult {
   const owned = Object.keys(roster).filter(name => byName.has(name) && !locked.includes(name)).sort();
   const slotOf = (name: string): SlotAssignment => ({ operatorName: name, eliteLevel: roster[name].eliteLevel, level: roster[name].level });
 
+  const sustainableDrones = !!input.sustainable;
+  const kindOfRoom: Record<string, string> = Object.fromEntries(base.facilities.map(f => [f.id, f.kind]));
   const rooms = base.facilities.filter(f => f.capacity > 0 && WORK_KINDS.includes(f.kind));
   const dorms = base.facilities.filter(f => f.kind === 'dormitory' && f.capacity > 0);
   const restCapacity = dorms.reduce((n, f) => n + f.capacity, 0) - locked.length;
@@ -162,7 +166,23 @@ export function optimizeBase(input: OptimizerInput): OptimizerResult {
     evaluations++;
     const r = calculateBase({ ...base, assignments: withResidents(assignments), factoryProducts, loginInterval, swapPolicy: 'onLogin' });
     // Green: what one login interval collects, so storage limits count.
-    return { result: r, value: weighted(weights, { lmd: r.dailyGoldWorthGreen, exp: r.dailyExpGreen, goldMade: r.dailyGoldMadeGreen }) };
+    let value = weighted(weights, { lmd: r.dailyGoldWorthGreen, exp: r.dailyExpGreen, goldMade: r.dailyGoldMadeGreen });
+    if (input.drones) {
+      // The drones the staffed Power Plants make, spent each login where one is worth most (same rules as the simulator).
+      const calc = r as unknown as Parameters<typeof dronesPerHour>[0];
+      const staffed = (room: string) => (assignments[room] ?? []).some(Boolean);
+      const perLogin = dronesPerHour(calc, base.facilities.filter(f => f.kind === 'powerPlant' && staffed(f.id)).map(f => f.id)) * loginInterval;
+      const staffedRooms = base.facilities.filter(f => staffed(f.id)).map(f => f.id);
+      const out = Object.values(r.roomDailyOutput) as { goldMade: number; goldSold: number }[];
+      // Per login window: gold made less gold sold, plus outside gold.
+      const surplus = sustainableDrones ? (out.reduce((n, o) => n + o.goldMade - o.goldSold, 0) + (input.externalGold ?? 0)) * loginInterval / 24 : null;
+      let perLoginValue = 0;
+      for (const { target, use } of allocateDrones(droneTargets(calc, staffedRooms, kindOfRoom, factoryProducts), perLogin, weights, surplus)) {
+        perLoginValue += use * ((target.goldSold * 500 + target.extraLmd) * weights.lmd + target.exp * weights.exp + target.goldMade * weights.goldMade);
+      }
+      value += perLoginValue * (24 / loginInterval);
+    }
+    return { result: r, value };
   }
 
   // Who could do anything in each kind of room, at the progress the import reports.
@@ -303,7 +323,7 @@ export function optimizeBase(input: OptimizerInput): OptimizerResult {
     : weighted(weights, { lmd: sim.perDay.lmd, exp: sim.perDay.exp, goldMade: sim.perDay.goldMade }))
     - (sim.periodic ? 0 : 1e9) - (input.allowExhaustion ? 0 : 1e6 * sim.events.filter(e => e.kind === 'exhausted').length);
   function simulate(shifts: SimulationShift[]) {
-    const sim = simulateBase({ base, shifts, loginInterval });
+    const sim = simulateBase({ base, shifts, loginInterval, drones: input.drones, droneWeights: { lmd: weights.lmd, exp: weights.exp, goldMade: weights.goldMade }, ...(input.sustainable ? { droneFunding: { externalGold: input.externalGold ?? 0 } } : {}) });
     evaluations += sim.evaluations;
     return { sim, value: score(sim) };
   }

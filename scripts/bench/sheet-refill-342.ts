@@ -33,3 +33,4 @@ report('sheet rotation, no refill', simulateBase({ base, shifts: build([]), logi
 report('+ refill Shamare, Tequila, Proviso', simulateBase({ base, shifts: build(['Shamare', 'Tequila', 'Proviso']), loginInterval }));
 report('+ refill Shamare, Bibeak, Tequila, Proviso', simulateBase({ base, shifts: build(['Shamare', 'Bibeak', 'Tequila', 'Proviso']), loginInterval }));
 report('+ refill all five TP workers', simulateBase({ base, shifts: build(['Shamare', 'Bibeak', 'Tequila', 'Proviso', 'Mr. Nothing']), loginInterval }));
+report('+ refill all five, drones on', simulateBase({ base, shifts: build(['Shamare', 'Bibeak', 'Tequila', 'Proviso', 'Mr. Nothing']), loginInterval, drones: true }));

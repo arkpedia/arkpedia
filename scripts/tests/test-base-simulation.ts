@@ -5,7 +5,7 @@ import { defaultProductionSpots, getFacilities } from '../../lib/base/baseConfig
 import { toBaseRosters } from '../../lib/base/baseGroupRosters';
 import { calculateBase } from '../../lib/base/calculateBase';
 import { calcDormitoryRecovery } from '../../lib/base/baseProductivity';
-import { simulateBase, MORALE_THRESHOLDS, type SimulationBase, type SimulationShift } from '../../lib/base/baseSimulation';
+import { simulateBase, allocateDrones, MORALE_THRESHOLDS, type SimulationBase, type SimulationShift } from '../../lib/base/baseSimulation';
 import type { BaseAssignments, SlotAssignment } from '../../lib/base/baseTypes';
 import groups from '../../data/base-group-rosters.json';
 import slots from '../../data/base-skill-slots.json';
@@ -81,6 +81,38 @@ test('a ramp skill keeps climbing while the operator stays in the same room, and
   // Same 6 h windows, but the stay's second one starts 6 h up the ramp: more than twice the output of the one-window-in-two case.
   assert(stay.rooms[factory].output.exp > 2 * rest.rooms[factory].output.exp * 1.001, `${stay.rooms[factory].output.exp} vs 2 x ${rest.rooms[factory].output.exp}`);
   assert(stay.caveats.some(c => c.includes('already worked in the same room')));
+});
+
+test('drones: 10 an hour plus 5% per Power Plant worker, each worth 3 minutes of a Factory\'s base production, skills not applied', () => {
+  const plant = facilities.find(f => f.kind === 'powerPlant')!.id;
+  const work = { [factory]: crewA.map(n => plain(n)), [plant]: crewB.map(n => plain(n)) };
+  // Four-hour logins over one 24 h shift: six windows. Three plain workers add 3 x 5%, so 11.5 drones an hour.
+  const off = simulateBase({ base, loginInterval: 4, fixedCycles: 1, shifts: [shift(work, { logins: 6 })] });
+  const on = simulateBase({ base, loginInterval: 4, fixedCycles: 1, shifts: [shift(work, { logins: 6 })], drones: true });
+  const drones = on.events.filter(e => e.kind === 'drones');
+  assert.equal(drones.length, 6);
+  // A Battle Record is 1000 EXP in 3 h of base production, so one drone is 1000 / 60 = 16.67 EXP whatever the Factory's own skills.
+  const expected = 11.5 * 24 * (1000 / 60);
+  assert(Math.abs(on.perDay.exp - off.perDay.exp - expected) < expected * 0.01, `${on.perDay.exp - off.perDay.exp} vs ${expected}`);
+  assert(on.caveats.some(c => c.includes('Drones are spent at every login')));
+  assert.equal(off.events.filter(e => e.kind === 'drones').length, 0, 'off by default');
+});
+
+test('drone allocation: funded, a gold deficit is covered first and Trading Posts take drones only as far as gold can be sold', () => {
+  const tp = { room: 'tp', exp: 0, goldMade: 0, goldSold: 0.0775, extraLmd: 0, cap: 80 };
+  const gold = { room: 'gold', exp: 0, goldMade: 1 / 24, goldSold: 0, extraLmd: 0, cap: 24 };
+  const exp = { room: 'exp', exp: 1000 / 60, goldMade: 0, goldSold: 0, extraLmd: 0, cap: 60 };
+  const w = { lmd: 1, exp: 1, goldMade: 500 };
+  const used = (spent: ReturnType<typeof allocateDrones>, room: string) => spent.filter(x => x.target.room === room).reduce((n, x) => n + x.use, 0);
+  // Raw: the Trading Post is worth most (0.0775 x 500 = 38.75 LMD a drone), then Precious Metals (20.8), then EXP (16.7).
+  const raw = allocateDrones([tp, gold, exp], 100, w, null);
+  assert.equal(used(raw, 'tp'), 80); assert.equal(used(raw, 'gold'), 20); assert.equal(used(raw, 'exp'), 0);
+  // Funded with 10 gold short: the Factory makes gold first (capped at 24 drones), the Trading Post cannot sell what is not there, EXP takes the rest.
+  const funded = allocateDrones([tp, gold, exp], 100, w, -10);
+  assert.equal(used(funded, 'gold'), 24); assert.equal(used(funded, 'tp'), 0); assert.equal(used(funded, 'exp'), 60);
+  // Funded with 5 gold to spare: the Trading Post takes drones until that gold is sold (5 / 0.0775 = 64.5).
+  const spare = allocateDrones([tp, gold, exp], 100, w, 5);
+  assert(Math.abs(used(spare, 'tp') - 5 / 0.0775) < 1e-6, String(used(spare, 'tp')));
 });
 
 test('Fiammetta already seated at full Morale swaps at once with whoever is put into her dorm afterwards', () => {

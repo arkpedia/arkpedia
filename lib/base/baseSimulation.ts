@@ -59,6 +59,14 @@ export interface SimulationInput {
   maxDays?: number;
   /** Run exactly this many cycles and report the last, for inspecting the first days. */
   fixedCycles?: number;
+  /** Spend the drones the Power Plants make at every login, on the staffed Trading Post or Factory where a drone is worth most.
+   * One drone removes 3 minutes of a room's BASE production time (PRTS); base skills do not apply to it. Default off. */
+  drones?: boolean;
+  /** What one unit of each output is worth when choosing where drones go. Default: 1 LMD, 1 EXP, 500 per Precious Metal made. */
+  droneWeights?: { lmd: number; exp: number; goldMade: number };
+  /** Fund the gold: drones first make up a gold deficit, and Trading Posts take them only as far as gold can be sold.
+   * `externalGold` is outside gold per day. Without this, drones go where raw weighted output is highest. */
+  droneFunding?: { externalGold: number };
 }
 
 export interface DailyOutput { exp: number; goldMade: number; goldSold: number; lmd: number; goldFreeLmd?: number }
@@ -66,7 +74,7 @@ export interface DailyOutput { exp: number; goldMade: number; goldSold: number; 
 export interface SimulationEvent {
   /** Hours since the start of the reported cycle. */
   time: number;
-  kind: 'login' | 'exhausted' | 'storageFull' | 'fiammettaSwap' | 'fiammettaSkipped';
+  kind: 'login' | 'exhausted' | 'storageFull' | 'fiammettaSwap' | 'fiammettaSkipped' | 'drones';
   room?: string;
   operators?: string[];
   detail: string;
@@ -107,6 +115,67 @@ interface Rates {
   fullTime: Record<string, number | null>;
   /** Operators placed outside dorms and the workshop, by room. */
   workers: Record<string, string[]>;
+  /** Drones made per hour, and where one can be spent (only with SimulationInput.drones). */
+  dronesPerHour?: number;
+  droneTargets?: DroneTarget[];
+}
+/** Hours of base production one drone removes, and the most drones one login can usefully put into one room
+ * (one Pure Gold, one Battle Record or one order in progress). */
+const DRONE_HOURS = 3 / 60;
+const DRONE_ROOM_CAP = { factoryGold: 24, factoryExp: 60, tradingPost: 80 };
+
+export interface DroneTarget { room: string; exp: number; goldMade: number; goldSold: number; extraLmd: number; cap: number }
+type DroneCalc = { rooms: Record<string, { droneRate?: number | null; facilityBreakdown?: { effectiveProductivity?: number } | null } | undefined>; roomDailyOutput: Record<string, RoomDailyOutput> };
+
+/** Drones made per hour: 10, times 1 plus the drone rates of the staffed Power Plants. */
+export function dronesPerHour(result: DroneCalc, staffedPowerPlants: string[]): number {
+  return 10 * (1 + [...new Set(staffedPowerPlants)].reduce((n, room) => n + (result.rooms[room]?.droneRate ?? 0), 0));
+}
+
+/** Where a drone can go and what one gives: 3 minutes of the room's BASE throughput (its rate with the skills taken out). */
+export function droneTargets(result: DroneCalc, workedRooms: string[], kindOf: Record<string, string>, factoryProducts: Readonly<Record<string, string | null | undefined>>): DroneTarget[] {
+  return workedRooms.flatMap(room => {
+    const out = result.roomDailyOutput[room];
+    const eff = result.rooms[room]?.facilityBreakdown?.effectiveProductivity;
+    if (!out || !eff || (kindOf[room] !== 'factory' && kindOf[room] !== 'tradingPost')) return [];
+    const base = (perDay: number) => DRONE_HOURS * (perDay / 24) / eff;
+    const cap = kindOf[room] === 'tradingPost' ? DRONE_ROOM_CAP.tradingPost : factoryProducts[room] === 'Precious Metals' ? DRONE_ROOM_CAP.factoryGold : DRONE_ROOM_CAP.factoryExp;
+    return [{ room, exp: base(out.exp), goldMade: base(out.goldMade), goldSold: base(out.goldSold), extraLmd: base(out.extraLmd), cap }];
+  });
+}
+
+/** What a drone is worth in the caller's weighted units. */
+export const droneWorth = (t: { exp: number; goldMade: number; goldSold: number; extraLmd: number }, w: { lmd: number; exp: number; goldMade: number }) =>
+  (t.goldSold * 500 + t.extraLmd) * w.lmd + t.exp * w.exp + t.goldMade * w.goldMade;
+
+/**
+ * Spend `drones` across the targets. With `goldSurplus` null every drone goes where it is worth most in raw weighted
+ * output. With a number (gold made plus outside gold, less gold the Trading Posts will sell, over the window) the gold
+ * is funded: a deficit is covered first by Factories making Precious Metals, and Trading Posts take drones only as far
+ * as the surplus can be sold.
+ */
+export function allocateDrones(targets: DroneTarget[], drones: number, w: { lmd: number; exp: number; goldMade: number }, goldSurplus: number | null): { target: DroneTarget; use: number }[] {
+  const spent: { target: DroneTarget; use: number }[] = [];
+  let left = drones, surplus = goldSurplus;
+  const put = (target: DroneTarget, use: number) => { if (use > 1e-9) { spent.push({ target, use }); left -= use; surplus = surplus === null ? null : surplus + use * (target.goldMade - target.goldSold); } };
+  if (surplus === null) {
+    for (const t of [...targets].sort((x, y) => droneWorth(y, w) - droneWorth(x, w))) if (droneWorth(t, w) > 0) put(t, Math.min(left, t.cap));
+    return spent;
+  }
+  if (surplus < 0) for (const t of targets.filter(x => x.goldMade > 0).sort((x, y) => y.goldMade - x.goldMade)) {
+    if (surplus >= 0) break;
+    put(t, Math.min(left, t.cap, -surplus / t.goldMade));
+  }
+  // What a drone adds now: Trading Posts only while gold is there to sell, Factories their EXP.
+  const fundedWorth = (t: DroneTarget) => (t.goldSold > 0 || t.extraLmd > 0 ? (surplus! > 0 ? (t.goldSold * 500 + t.extraLmd) * w.lmd : 0) : t.exp * w.exp);
+  for (const t of [...targets].sort((x, y) => fundedWorth(y) - fundedWorth(x))) {
+    if (left <= 0) break;
+    if (fundedWorth(t) <= 0) continue;
+    const room = spent.filter(x => x.target.room === t.room).reduce((n, x) => n + x.use, 0);
+    const sellable = t.goldSold > 0 ? Math.max(0, surplus!) / t.goldSold : Infinity;
+    put(t, Math.min(left, t.cap - room, sellable));
+  }
+  return spent;
 }
 
 const zeroOutput = (): DailyOutput => ({ exp: 0, goldMade: 0, goldSold: 0, lmd: 0, goldFreeLmd: 0 });
@@ -143,7 +212,7 @@ export function simulateBase(input: SimulationInput): SimulationResult {
   const warnings = new Set<string>();
   const caveats = new Set<string>([
     'Skills that ramp up with time worked (for example "+1% per hour") are averaged over each login window starting from the hours that operator has already worked in the same room without a break, so staying in longer is rewarded. Totter\'s Morale-difference skills still use the calculator\'s average over one login interval, starting fresh.',
-    'Workshop crafts, training, clues, recruitment and drones are not part of the simulated output.',
+    'Workshop crafts, training, clues and recruitment are not part of the simulated output; drones are only counted when asked for.',
   ]);
   const operatorByName = new Map(base.operators.map(o => [o.name, o]));
   const formerNames = new Map(base.operators.map(o => [o.name, o.aliases ?? []]));
@@ -195,6 +264,10 @@ export function simulateBase(input: SimulationInput): SimulationResult {
       rates.roomPerHour[room] = { exp: out.exp / 24, goldMade: out.goldMade / 24, goldSold: out.goldSold / 24, extraLmd: out.extraLmd / 24, pepeLmd: out.pepeLmd / 24 };
       const full = result.rooms[room]?.fullTime;
       rates.fullTime[room] = full !== null && full !== undefined && Number.isFinite(full) && full > 0 ? full : null;
+    }
+    if (input.drones) {
+      rates.dronesPerHour = dronesPerHour(result, placed.filter(p => kindOf[p.room] === 'powerPlant').map(p => p.room));
+      rates.droneTargets = droneTargets(result, Object.keys(rates.workers), kindOf, shift.factoryProducts);
     }
     cache.set(key, rates);
     return rates;
@@ -269,8 +342,10 @@ export function simulateBase(input: SimulationInput): SimulationResult {
         // resting loses nothing, and starting a window at 0 in a working room does.
         const exhaustedSeen = new Set<string>();
         let left = windowHours;
+        let lastRates: Rates | null = null;
         while (left > EPS) {
           const rates = ratesFor(shiftIndex, morale);
+          lastRates = rates;
           const segmentStart = time + windowHours - left;
           for (const [room, names] of Object.entries(rates.workers)) for (const n of names) {
             if (morale[n] === 0 && !exhaustedSeen.has(n)) {
@@ -308,6 +383,23 @@ export function simulateBase(input: SimulationInput): SimulationResult {
           for (const [name, r] of Object.entries(rates.morale)) morale[name] = snap(morale[name] + r * dt);
           left -= dt;
           record(time + windowHours - Math.max(0, left));
+        }
+        if (input.drones && lastRates?.droneTargets && lastRates.dronesPerHour) {
+          // The drones made this window go in at the next login, on the rooms that are producing.
+          const w = input.droneWeights ?? { lmd: 1, exp: 1, goldMade: 500 };
+          const made = lastRates.dronesPerHour * windowHours;
+          const perHour = Object.values(lastRates.roomPerHour);
+          // Gold made less gold the Trading Posts sell over this window, plus outside gold (per day / 24 per hour).
+          const surplus = input.droneFunding ? (perHour.reduce((n, o) => n + o.goldMade - o.goldSold, 0) + input.droneFunding.externalGold / 24) * windowHours : null;
+          let spent = 0;
+          for (const { target, use } of allocateDrones(lastRates.droneTargets, made, w, surplus)) {
+            const out = (log.output[target.room] ??= { exp: 0, goldMade: 0, goldSold: 0, extraLmd: 0, pepeLmd: 0 });
+            out.exp += target.exp * use; out.goldMade += target.goldMade * use; out.goldSold += target.goldSold * use; out.extraLmd += target.extraLmd * use;
+            spent += use;
+          }
+          const drones = made - spent;
+          log.events.push({ time: time + windowHours, kind: 'drones', detail: `${made.toFixed(0)} drones made; ${(made - drones).toFixed(0)} spent.` });
+          caveats.add('Drones are spent at every login on the staffed Trading Post or Factory where each is worth most, 3 minutes of base production apiece (base skills do not apply), up to one item or order in progress per room. Trading Post drones use the room\'s average order rate; storage limits and the drone stock cap (235) are not applied.');
         }
         time += windowHours;
         // Everyone still on their feet has now worked this window as well.
