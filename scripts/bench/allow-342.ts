@@ -10,9 +10,11 @@ const operators = getAllOperators().filter(op => !/^Amiya \(/.test(op.name));
 const roster = everyoneMaxed(operators);
 const base: SimulationBase = { operators, rosters: toBaseRosters(groups), skillSlots: slots, workshopRecipes: recipes, facilities: SHEET_FACILITIES };
 const interesting = ['Shamare', 'Bibeak', 'Tequila', 'Mr. Nothing', 'Proviso', 'Chongyue', 'Dusk', 'Ling', 'Mulberry', 'Fiammetta', 'Wind Chimes', 'Shu'];
-for (const li of [8, 12]) for (const allowExhaustion of [false, true]) {
-  const r = optimizeBase({ base, roster, loginInterval: li, factoryProducts: FORMATIONS[0].products, allowExhaustion });
+const li = Number(process.argv[2] ?? 12);
+for (const deep of (process.argv[3] === "deep" ? [true] : [false, true])) {
+  const t0 = Date.now();
+  const r = optimizeBase({ base, roster, loginInterval: li, factoryProducts: FORMATIONS[0].products, sustainable: true, externalGold: 0, deep });
   const where = (n: string) => r.shifts.flatMap((s, i) => Object.entries(s.assignments).flatMap(([room, v]) => (v ?? []).some(x => x?.operatorName === n) ? [`s${i}:${room}`] : []));
-  console.log(`login ${li}h allowExhaustion=${allowExhaustion}: ${r.shape} score ${r.score.toFixed(0)} LMD ${r.simulation.perDay.lmd.toFixed(0)} EXP ${r.simulation.perDay.exp.toFixed(0)} exhausted ${r.simulation.events.filter(e => e.kind === 'exhausted').length}`);
+  console.log(`login ${li}h deep=${deep}: ${r.shape} score ${r.score.toFixed(0)} LMD ${r.simulation.perDay.lmd.toFixed(0)} EXP ${r.simulation.perDay.exp.toFixed(0)} exhausted ${r.simulation.events.filter(e => e.kind === 'exhausted').length} (${((Date.now() - t0) / 1000).toFixed(0)} s)`);
   console.log('   ', interesting.map(n => `${n}=${where(n).join('|') || '-'}`).join('  '));
 }

@@ -130,9 +130,25 @@ export function optimizeBase(input: OptimizerInput): OptimizerResult {
   const dorms = base.facilities.filter(f => f.kind === 'dormitory' && f.capacity > 0);
   const restCapacity = dorms.reduce((n, f) => n + f.capacity, 0);
 
+  // The other crew rests in the dorms while this one works, and dorm head counts feed skills (Mr. Nothing's
+  // Worldly Plight, Rosmontis and Ebenholz's Perception, Idol's Aura). Staff the dorms with owned operators who
+  // have no work skill anywhere, so a team scored alone is scored with the residents it will really have.
+  let residents: string[] | null = null;
+  function withResidents(assignments: BaseAssignments): BaseAssignments {
+    if (!dorms.length) return assignments;
+    residents ??= owned.filter(name => ![...pool.values()].some(names => names.includes(name))).slice(0, restCapacity);
+    const placedNow = new Set(operatorsIn(assignments));
+    const queue = residents.filter(name => !placedNow.has(name));
+    const result: BaseAssignments = { ...assignments };
+    for (const d of dorms) {
+      if ((result[d.id] ?? []).some(Boolean)) continue;
+      result[d.id] = Array.from({ length: d.capacity }, () => queue.length ? slotOf(queue.shift()!) : null);
+    }
+    return result;
+  }
   function snapshotValue(assignments: BaseAssignments) {
     evaluations++;
-    const r = calculateBase({ ...base, assignments, factoryProducts, loginInterval, swapPolicy: 'onLogin' });
+    const r = calculateBase({ ...base, assignments: withResidents(assignments), factoryProducts, loginInterval, swapPolicy: 'onLogin' });
     // Green: what one login interval collects, so storage limits count.
     return { result: r, value: weighted(weights, { lmd: r.dailyGoldWorthGreen, exp: r.dailyExpGreen, goldMade: r.dailyGoldMadeGreen }) };
   }
