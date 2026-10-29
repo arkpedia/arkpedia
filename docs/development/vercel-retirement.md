@@ -20,7 +20,7 @@ channel and schema to match its generator. The sole live reader is
 ## Cloudflare recovery
 
 Record the actual application/edge deployment and previous version IDs before
-recovery. Disable `ARKPEDIA_PILOT_RELEASES_ENABLED`, stop competing releases, and
+recovery. Disable `ARKPEDIA_PRODUCTION_RELEASES_ENABLED`, stop competing releases, and
 use the exact clean checkout of the failed checked release:
 
 ```sh

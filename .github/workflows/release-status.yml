@@ -3,7 +3,7 @@ name: Release status
 on:
   workflow_dispatch:
   workflow_run:
-    workflows: [Release Cloudflare pilot]
+    workflows: [Release production]
     types: [completed]
 
 permissions:

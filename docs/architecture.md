@@ -304,7 +304,7 @@ rollback rehearsal and public-domain cutover remain open; see the dated progress
 | --- | --- |
 | App routes and feature ownership | [Repository map](repository-map.md), `pages/`, `lib/` |
 | Edge routing and bypass rules | [Edge Worker README](https://github.com/arkpedia/arkpedia/blob/8520b03abe6175e7069c7c06b881faa492cc22b2/workers/edge/README.md), adjacent `wrangler.jsonc` and `edge.mjs` |
-| Site Worker, R2 and queue | [Pilot release and recovery](development/cloudflare-pilot-release.md), main root `wrangler.jsonc`, `open-next.config.ts`, `lib/cloudflare/regionalPageCache.ts` |
+| Site Worker, R2 and queue | [Production release and recovery](development/production-release.md), main root `wrangler.jsonc`, `open-next.config.ts`, `lib/cloudflare/regionalPageCache.ts` |
 | Data release and recovery | [Runtime content](development/runtime-content.md), [pipelines](development/data-pipelines.md), `lib/content/server.ts`, `config/content-channels.json` |
 | Asset URLs and pins | `config/asset-delivery.json`, `data/assets/revisions.json`, [data sources](development/data-sources.md), asset repository manifests |
 | Account transport | `lib/account-import/relay.ts`, branch-specific `config/relay.json`, [relay repository](https://github.com/arkpedia/arkpedia-relay) |

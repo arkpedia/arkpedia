@@ -1,4 +1,4 @@
-name: Release Cloudflare pilot
+name: Release production
 
 on:
   workflow_run:
@@ -12,10 +12,14 @@ on:
         required: true
         type: string
 
-# Disabled until the candidate is accepted, the existing native production build
-# integration is disabled, and the Worker-scoped credential is explicitly approved.
+# Publishes www.arkpedia.net after a green main Check. It began, before Vercel was retired, as the
+# release of the Cloudflare "pilot"; the Worker has served production since, and the workflow
+# was renamed to say so on 2026-10-29 (it was cloudflare-pilot-release.yml, "Release Cloudflare
+# pilot"). Internal names the stored content depends on keep the old word: the R2 keys under
+# pilot-v1/, the /__content/pilot/ path, and the scripts/deploy/pilot-*.mjs modules.
+# Off unless ARKPEDIA_PRODUCTION_RELEASES_ENABLED is 'true' (the owner's switch).
 concurrency:
-  group: arkpedia-pilot-production
+  group: arkpedia-production-release
   cancel-in-progress: false
   queue: max
 
@@ -26,7 +30,7 @@ permissions:
 jobs:
   release:
     if: >-
-      vars.ARKPEDIA_PILOT_RELEASES_ENABLED == 'true' && github.ref == 'refs/heads/main' &&
+      vars.ARKPEDIA_PRODUCTION_RELEASES_ENABLED == 'true' && github.ref == 'refs/heads/main' &&
       (github.event_name == 'workflow_dispatch' ||
       (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' &&
       github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.head_repository.full_name == github.repository))
@@ -35,7 +39,7 @@ jobs:
     env:
       NEXT_TELEMETRY_DISABLED: '1'
       WRANGLER_SEND_METRICS: 'false'
-      ARKPEDIA_PILOT_RELEASES_ENABLED: ${{ vars.ARKPEDIA_PILOT_RELEASES_ENABLED }}
+      ARKPEDIA_PRODUCTION_RELEASES_ENABLED: ${{ vars.ARKPEDIA_PRODUCTION_RELEASES_ENABLED }}
       RELEASE_SOURCE: ${{ github.event.workflow_run.head_sha || github.sha }}
       RELEASE_CHECK: ${{ github.event.workflow_run.id || inputs.check_run }}
     steps:
@@ -53,23 +57,25 @@ jobs:
         run: node scripts/deploy/pilot-release-gate.mjs "$RELEASE_CHECK" "$RELEASE_SOURCE"
       - name: Install pinned dependencies without deployment credentials
         run: npm ci
-      - name: Build once for the existing pilot without deployment credentials
+      - name: Build production once, without deployment credentials
         run: npm run cf:build
         env:
           # Match Check's bounded heap for the full UI's TypeScript validation.
           NODE_OPTIONS: --max-old-space-size=4096
       - name: Require the adopted public assets in R2
         run: node scripts/deploy/check-public-assets-ready.mjs
-      - name: Revalidate and publish only the existing pilot
+      - name: Revalidate and publish production
         id: release
         env:
           GH_TOKEN: ${{ github.token }}
-          CLOUDFLARE_API_TOKEN: ${{ secrets.ARKPEDIA_PILOT_API_TOKEN }}
+          # The Worker-scoped deploy token. Store it as ARKPEDIA_PRODUCTION_API_TOKEN to retire the old
+          # secret name; until then the old one is read.
+          CLOUDFLARE_API_TOKEN: ${{ secrets.ARKPEDIA_PRODUCTION_API_TOKEN || secrets.ARKPEDIA_PILOT_API_TOKEN }}
         run: node scripts/deploy/pilot-release.mjs "$RELEASE_CHECK" "$RELEASE_SOURCE"
       - uses: actions/upload-artifact@v7
         if: always() && steps.release.outcome != 'skipped'
         with:
-          name: pilot-release-${{ github.run_id }}
+          name: production-release-${{ github.run_id }}
           path: .cache/pilot-release-receipt.json
           include-hidden-files: true
           if-no-files-found: ignore

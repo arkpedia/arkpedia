@@ -50,7 +50,7 @@ Cloudflare release owner registers the pilot in that gate; it must
 not receive newer data while serving older code merely because both use schema2.
 The checked-main owner is active after PR775's first controlled release and account
 continuity acceptance. Native pilot builds are disabled; its scoped token targets
-only the existing Worker. Follow [pilot release and recovery](cloudflare-pilot-release.md).
+only the existing Worker. Follow [production release and recovery](production-release.md).
 Old-client navigation currently upgrades/reloads the document; seamless continuity
 and public cutover remain separate gates.
 The isolated feature preview controller is already active and is a separate path.

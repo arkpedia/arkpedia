@@ -1,4 +1,12 @@
-# Checked-main releases to the Cloudflare application
+# Checked-main releases to production
+
+Renamed 2026-10-29: the workflow is `production-release.yml` ("Release production"; it was
+`cloudflare-pilot-release.yml`, "Release Cloudflare pilot"), its switch is the repository variable
+`ARKPEDIA_PRODUCTION_RELEASES_ENABLED` (was `ARKPEDIA_PILOT_RELEASES_ENABLED`), and its deploy token
+is read from `ARKPEDIA_PRODUCTION_API_TOKEN`, falling back to the old `ARKPEDIA_PILOT_API_TOKEN`
+until the owner stores it under the new name. The Worker has served www.arkpedia.net since Vercel
+was retired; "pilot" was its name while it was a candidate. Names stored content depends on keep
+the old word (R2 keys under `pilot-v1/`, the `/__content/pilot/` path, `scripts/deploy/pilot-*.mjs`).
 
 Current retirement decision: [Vercel retirement and Cloudflare recovery](vercel-retirement.md)
 supersedes the historical Vercel-retention instructions below.
@@ -23,8 +31,8 @@ See [the cutover record](cloudflare-cutover.md).
 
 ## Release owner and authorization
 
-`cloudflare-pilot-release.yml` runs after a successful main push Check, or an
-explicit retry naming that Check. `ARKPEDIA_PILOT_RELEASES_ENABLED` must be exactly
+`production-release.yml` runs after a successful main push Check, or an
+explicit retry naming that Check. `ARKPEDIA_PRODUCTION_RELEASES_ENABLED` must be exactly
 `true`; it is not enabled by this change. No provider credential is configured by
 this change. The existing native Cloudflare Git build must be disabled before
 enabling this workflow. Keep one production build/deploy owner for this Worker.
@@ -89,7 +97,7 @@ require `private`. Unbound staging tests do not prove real OAuth/D1 acceptance.
    secret. Verify the old native production build owner is disabled; record that
    provider observation, let any in-flight native builds finish, then recheck the
    actual version. Leave relay and staging settings unchanged.
-4. Enable `ARKPEDIA_PILOT_RELEASES_ENABLED` and merge the reviewed workflow. Its
+4. Enable `ARKPEDIA_PRODUCTION_RELEASES_ENABLED` and merge the reviewed workflow. Its
    successful current-main push Check starts the controlled pilot release. If the
    automatic handoff does not start, inspect it before explicitly retrying on main
    with that Check ID. This is not public-domain cutover. Retain the receipt and
@@ -133,7 +141,7 @@ No destructive check belongs on a real durable user account.
 For an explicit retry:
 
 ```sh
-gh workflow run cloudflare-pilot-release.yml --ref main -f check_run=CHECK_RUN_ID
+gh workflow run production-release.yml --ref main -f check_run=CHECK_RUN_ID
 ```
 
 It still requires the exact current main source and a complete successful push Check; an old green run is not approval
@@ -155,7 +163,7 @@ owner prevents routine competing releases, while actual owner checks guard known
 manual changes. Avoid manual deployments during a release.
 
 If manual signed-in acceptance fails after HTTP health passed, freeze main, disable
-`ARKPEDIA_PILOT_RELEASES_ENABLED`, and let in-flight release/native builds stop or
+`ARKPEDIA_PRODUCTION_RELEASES_ENABLED`, and let in-flight release/native builds stop or
 finish before reconciliation. Record the actual current version and its release
 receipt. From that exact clean checked-release checkout, an explicitly authorized
 operator with the existing Cloudflare CLI login can run:

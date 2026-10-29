@@ -37,7 +37,7 @@ the local address, usually http://localhost:8787). Check a few routes: `/`, `/op
 ## A real Worker on your Cloudflare account
 
 The existing `arkpedia` Worker is published by the enabled checked-main workflow.
-Use [its release/recovery procedure](cloudflare-pilot-release.md); do not introduce
+Use [its release/recovery procedure](production-release.md); do not introduce
 a second native or manual deployment owner for the same Worker. Public-domain
 routing is a separate reviewed operation, not a local `cf:deploy` command.
 
@@ -118,8 +118,8 @@ less per cold start.
 ## Branches (while the Cloudflare path is set up)
 
 - `main` owns both www's Vercel release and the checked-main Cloudflare pilot.
-  `cloudflare-pilot-release.yml` is enabled; the old native production build owner
-  was disabled. Do not enable a second owner. See [pilot releases](cloudflare-pilot-release.md).
+  `production-release.yml` is enabled; the old native production build owner
+  was disabled. Do not enable a second owner. See [production releases](production-release.md).
 - `dev` and the historical Cloudflare work are preserved for individual feature
   reconciliation, not bulk promotion or DNS cutover. New work uses short-lived
   feature branches from main.

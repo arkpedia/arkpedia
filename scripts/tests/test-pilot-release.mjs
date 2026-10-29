@@ -95,18 +95,18 @@ test('a mismatched, dirty or wrong-channel build fails before authorization or p
 });
 
 test('workflow is opt-in, serializes one pilot owner and triggers only from main Check or explicit main retry', () => {
-  const workflow = yaml.load(readFileSync('.github/workflows/cloudflare-pilot-release.yml', 'utf8'));
-  assert.deepEqual(workflow.concurrency, { group: 'arkpedia-pilot-production', 'cancel-in-progress': false, queue: 'max' });
+  const workflow = yaml.load(readFileSync('.github/workflows/production-release.yml', 'utf8'));
+  assert.deepEqual(workflow.concurrency, { group: 'arkpedia-production-release', 'cancel-in-progress': false, queue: 'max' });
   assert.deepEqual(workflow.permissions, { contents: 'read', actions: 'read' });
   assert.deepEqual(workflow.on.workflow_run, { workflows: ['Check'], types: ['completed'], branches: ['main'] });
   assert.equal(workflow.on.push, undefined);
-  assert.match(workflow.jobs.release.if, /ARKPEDIA_PILOT_RELEASES_ENABLED == 'true'/);
+  assert.match(workflow.jobs.release.if, /ARKPEDIA_PRODUCTION_RELEASES_ENABLED == 'true'/);
   assert.match(workflow.jobs.release.if, /head_repository.full_name == github.repository/);
   assert.match(workflow.jobs.release.if, /workflow_run.event == 'push'/);
   assert.match(workflow.jobs.release.if, /github.ref == 'refs\/heads\/main'/);
 });
 test('workflow gives the provider token only to the validated release step, never installation or build', () => {
-  const job = yaml.load(readFileSync('.github/workflows/cloudflare-pilot-release.yml', 'utf8')).jobs.release;
+  const job = yaml.load(readFileSync('.github/workflows/production-release.yml', 'utf8')).jobs.release;
   assert.equal(job.env.CLOUDFLARE_API_TOKEN, undefined);
   const steps = job.steps.filter(s => s.env?.CLOUDFLARE_API_TOKEN);
   assert.equal(steps.length, 1);
@@ -119,12 +119,12 @@ test('workflow gives the provider token only to the validated release step, neve
 });
 
 test('actual workflow expression refuses disabled, foreign, failed and non-main events', () => {
-  const expression = yaml.load(readFileSync('.github/workflows/cloudflare-pilot-release.yml', 'utf8')).jobs.release.if;
+  const expression = yaml.load(readFileSync('.github/workflows/production-release.yml', 'utf8')).jobs.release.if;
   const allowed = (patch = {}, runPatch = {}, enabled = 'true') => {
     const github = { event_name: 'workflow_run', ref: 'refs/heads/main', repository: 'arkpedia/arkpedia', ...patch,
       event: { workflow_run: { conclusion: 'success', event: 'push', head_branch: 'main',
         head_repository: { full_name: 'arkpedia/arkpedia' }, ...runPatch } } };
-    return new Function('github', 'vars', `return (${expression})`)(github, { ARKPEDIA_PILOT_RELEASES_ENABLED: enabled });
+    return new Function('github', 'vars', `return (${expression})`)(github, { ARKPEDIA_PRODUCTION_RELEASES_ENABLED: enabled });
   };
   assert.equal(allowed(), true);
   assert.equal(allowed({ event_name: 'workflow_dispatch' }), true);
@@ -137,7 +137,7 @@ test('actual workflow expression refuses disabled, foreign, failed and non-main 
   assert.equal(allowed({}, { head_repository: { full_name: 'fork/arkpedia' } }), false);
 });
 test('content completion has API-only permission and no provider credential, install or rebuild', () => {
-  const job = yaml.load(readFileSync('.github/workflows/cloudflare-pilot-release.yml', 'utf8')).jobs['resume-content'];
+  const job = yaml.load(readFileSync('.github/workflows/production-release.yml', 'utf8')).jobs['resume-content'];
   assert.equal(job.needs, 'release');
   assert.equal(job.if, 'success()');
   assert.deepEqual(job.permissions, { contents: 'read', actions: 'write', issues: 'read' });

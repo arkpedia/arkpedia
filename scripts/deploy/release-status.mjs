@@ -97,7 +97,7 @@ export async function inspectTarget(target, { read = httpRead, github = githubRe
         github(`repos/arkpedia/arkpedia/commits/${sha}/check-runs?per_page=100`),
       ]);
       // Evidence belongs to the served SHA, never whichever run happened most recently.
-      for (const name of ['Check', 'Release Cloudflare pilot']) {
+      for (const name of ['Check', 'Release production']) {
         const latest = actions.workflow_runs.filter(item => item.name === name).sort((a, b) => b.id - a.id)[0];
         if (latest) result.ci.push({ name, state: latest.conclusion || latest.status, url: latest.html_url });
       }

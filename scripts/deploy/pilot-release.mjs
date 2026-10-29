@@ -54,7 +54,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   try {
     requireValue(process.argv.length === 4, 'expected Check run and full source SHA');
     requireValue(process.env.GITHUB_ACTIONS === 'true' && process.env.GITHUB_REPOSITORY === 'arkpedia/arkpedia'
-      && process.env.GITHUB_REF === 'refs/heads/main' && process.env.ARKPEDIA_PILOT_RELEASES_ENABLED === 'true',
+      && process.env.GITHUB_REF === 'refs/heads/main' && process.env.ARKPEDIA_PRODUCTION_RELEASES_ENABLED === 'true',
     'only the explicitly enabled main Actions release owner may deploy');
     const [runId, source] = process.argv.slice(2);
     requireValue(/^[1-9][0-9]*$/.test(runId) && Number.isSafeInteger(Number(runId)), 'invalid Check run');

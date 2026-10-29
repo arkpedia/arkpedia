@@ -117,7 +117,7 @@ still runs on Vercel.
 - The pilot's approved Twitch/YouTube secret update kept the exact checked script
   etag but replaced its ownership annotation. The release validator now recognizes
   only that recorded immutable version/hash and requires the media bindings on new
-  releases. See [pilot releases](cloudflare-pilot-release.md).
+  releases. See [production releases](production-release.md).
 - Native Preview stays separate and noindex at
   `https://arkpedia-gins.preview.mocchibird.com`. Its redesign is not promoted to www.
 
