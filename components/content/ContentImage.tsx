@@ -66,9 +66,24 @@ export type ContentImgProps = Omit<ImgHTMLAttributes<HTMLImageElement>, 'loading
 export const ContentImg = forwardRef<HTMLImageElement, ContentImgProps>(function ContentImg({ src, alt, priority = false, ...props }, ref) {
   const url = useContentUrl();
   const loading = priority ? { loading: 'eager' as const, ...HIGH_PRIORITY } : { loading: 'lazy' as const, decoding: 'async' as const };
+  const resolved = typeof src === 'string' ? url(src) : src;
   // eslint-disable-next-line @next/next/no-img-element
-  return <img {...props} {...loading} alt={alt ?? ''} src={typeof src === 'string' ? url(src) : src} ref={ref} />;
+  return <img referrerPolicy={elsewhere(resolved) ? 'no-referrer' : undefined} {...props} {...loading} alt={alt ?? ''} src={resolved} ref={ref} />;
 });
+
+/** A picture another site serves (not an arkpedia.net host) is asked for without saying which
+ *  page wants it. X's image host answers a request that names another site with an HTML page
+ *  (HTTP 351), which the browser blocks, so the official guides hot-linked from it on event pages
+ *  (Relaunch Anchor's, 2026-10-29) showed nothing; sent without a referrer it gives the picture. */
+function elsewhere(src: unknown): boolean {
+  if (typeof src !== 'string' || !/^https?:\/\//i.test(src)) return false;
+  try {
+    const host = new URL(src).hostname;
+    return host !== 'arkpedia.net' && !host.endsWith('.arkpedia.net');
+  } catch {
+    return false;
+  }
+}
 
 /** CSS artwork needs the same release pin as ordinary images, and, having no error event,
  *  its own look at a false 404 once it is shown (useAssetUrl, lib/assets/assetRetry.ts). */

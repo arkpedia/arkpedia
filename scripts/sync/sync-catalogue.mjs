@@ -14,7 +14,7 @@ import { beginStage } from '../lib/quarantine.mjs';
 import { cnAnnouncements } from '../build/cn-news.mjs';
 import { readCnNews } from './sync-cn-news.mjs';
 import { readOfficialBulletins } from './sync-official-bulletins.mjs';
-import { applyBoardEvents } from './board-events.mjs';
+import { applyBoardEvents, boardBannerMedia } from './board-events.mjs';
 import { cnTables, pinnedCommit } from '../content/pin-upstream.mjs';
 const read = p => JSON.parse(fs.readFileSync(p,'utf8'));
 const write = (p,data) => { if (fs.existsSync(p) && JSON.stringify(read(p)) === JSON.stringify(data)) return; fs.mkdirSync(path.dirname(p),{recursive:true}); fs.writeFileSync(p,JSON.stringify(data,null,2)+'\n'); };
@@ -144,8 +144,11 @@ export async function syncCatalogue(root, options={}) {
   const announced=cnAnnouncements(readCnNews(root));
   const calendars=reconcileCalendars({events,banners,operators:initial.operators,cn,en,eventRows:sources.eventRows,bannerRows:sources.bannerRows,announced,now:now.getTime()});
   // Global's in-game notice board: the day an event was announced, and its key art ahead of the wiki's.
-  const board=applyBoardEvents(calendars.events,readOfficialBulletins(root).regions.en);
-  calendars.media=mergeMedia([...calendars.media,...board.media]);
+  const enBoard=readOfficialBulletins(root).regions.en;
+  const board=applyBoardEvents(calendars.events,enBoard);
+  // And a banner's key art where its picture is missing (an Orienteering's retired CN art).
+  const publishedArt=new Set(read(path.join(root,'data/assets/external-asset-index.json')).files);
+  calendars.media=mergeMedia([...calendars.media,...board.media,...boardBannerMedia(calendars.banners,enBoard,publishedArt)]);
   if (board.announced.length) console.log(`Announced on Global's in-game board: ${board.announced.join(', ')}`);
   const updated=reconcileOperators({operators:initial.operators,cn,en,releases:operatorReleaseDates(initial.operators,calendars.banners,cn,en)});
   // Populate CN release dates for newly imported records too; reconciliation only revisits Global releases.

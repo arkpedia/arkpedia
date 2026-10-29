@@ -94,3 +94,26 @@ export function applyBoardEvents(events, board) {
   }
   return { media, announced };
 }
+
+/**
+ * Banner key art from Global's board. A banner item (kind 'banner') names the pool it opens
+ * (poolId), which is a record's globalPoolId, and shows the banner's key art: the picture the
+ * wiki later uploads as "EN <banner> banner.png". Planned ({ path, boardImage }) only for a record
+ * whose picture is missing. An Orienteering's or a Joint Operation's CN art is retired in the image
+ * repository until Global carries it, and nothing brought Global's back: Orienteering #7 ran on
+ * Global from 2026-10-28 with no picture while the board showed its art. The publisher builds the
+ * file from the board and lifts its retirement (publish-catalogue-assets.py). A picture already
+ * published is left alone; a pool two records claim, or none, plans nothing.
+ */
+export function boardBannerMedia(banners, board, published) {
+  const media = [];
+  for (const item of board?.bulletins ?? []) {
+    if (item.kind !== 'banner' || !item.poolId || !item.image?.url || !/^[a-f0-9]{40}$/.test(item.image.sha1 ?? '')) continue;
+    const records = banners.filter(banner => banner.globalPoolId === item.poolId);
+    if (records.length !== 1) continue;
+    const art = records[0].banner_image;
+    if (!String(art ?? '').startsWith('/headhunting-banner-images/') || published.has(art.slice(1))) continue;
+    media.push({ path: art.slice(1), boardImage: { url: item.image.url, sha1: item.image.sha1 } });
+  }
+  return media;
+}

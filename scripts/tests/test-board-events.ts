@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 // @ts-expect-error Node publication scripts are plain JavaScript.
-import { announcedNote, applyBoardEvents, boardEvents } from '../sync/board-events.mjs';
+import { announcedNote, applyBoardEvents, boardBannerMedia, boardEvents } from '../sync/board-events.mjs';
 // @ts-expect-error Node publication scripts are plain JavaScript.
 import { assetPlan } from '../sync/sync-catalogue.mjs';
 // @ts-expect-error Node publication scripts are plain JavaScript.
@@ -89,4 +89,26 @@ test('an event with no poster is given one by its name; the asset plan keeps boa
   const published = new Set(['event-poster/Yet Another Wave.webp', 'event-poster/Other.webp']);
   const plan = assetPlan([], [], { characters: {}, skins: { charSkins: {} }, items: { items: {} } }, {}, published, [...merged, { path: 'event-poster/Other.webp', wikiFiles: ['x'] }]);
   assert.deepEqual(plan.map((entry: any) => entry.path), ['event-poster/Yet Another Wave.webp']);
+});
+
+/* Orienteering #7 ran on Global from 2026-10-28 with no picture: its CN art is retired until Global
+   carries it, and Global's board showed its key art under the pool the record holds. */
+test("a banner's key art comes from Global's board where its picture is missing, by the pool it opens", () => {
+  const banner = (name: string, globalPoolId: string | null, art = `/headhunting-banner-images/${name}.webp`) => ({ name, globalPoolId, banner_image: art });
+  const board = { bulletins: [
+    item({ id: '1', kind: 'banner', title: 'Displayed Operators Rate Up !!!', poolId: 'SPECIAL_EN_42_0_3', image: image() }),
+    item({ id: '2', kind: 'banner', title: 'Sealed With Time', poolId: 'LIMITED_EN_42_0_1', image: image(OTHER) }),
+    item({ id: '3', kind: 'banner', title: 'No picture', poolId: 'DOUBLE_EN_42_0_2' }),
+    item({ id: '4', kind: 'event', title: 'Not a banner', poolId: 'SPECIAL_EN_42_0_3', image: image(OTHER) }),
+  ] };
+  const banners = [banner('Orienteering 7', 'SPECIAL_EN_42_0_3'), banner('Sealed With Time', 'LIMITED_EN_42_0_1'), banner('Rate Up', 'DOUBLE_EN_42_0_2')];
+  const published = new Set(['headhunting-banner-images/Sealed With Time.webp']);
+  assert.deepEqual(boardBannerMedia(banners, board, published),
+    [{ path: 'headhunting-banner-images/Orienteering 7.webp', boardImage: { url: image().url, sha1: SHA } }]);
+  // Two records holding one pool decide nothing; a picture at another address is the record's own.
+  assert.deepEqual(boardBannerMedia([...banners, banner('Twin', 'SPECIAL_EN_42_0_3')], board, published), []);
+  assert.deepEqual(boardBannerMedia([banner('Orienteering 7', 'SPECIAL_EN_42_0_3', 'https://example.org/x.webp')], board, published), []);
+  // The plan carries it although the board planned nothing else, and keeps the wiki's EN upload behind it.
+  const merged = mergeMedia([{ path: 'headhunting-banner-images/Orienteering 7.webp', wikiFiles: ['EN Orienteering 7 banner.png'] }, ...boardBannerMedia(banners, board, published)]);
+  assert.deepEqual(merged, [{ path: 'headhunting-banner-images/Orienteering 7.webp', wikiFiles: ['EN Orienteering 7 banner.png'], boardImage: { url: image().url, sha1: SHA } }]);
 });
