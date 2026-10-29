@@ -13,6 +13,8 @@ export interface AccountOptimizerInput {
   objective: 'balanced' | 'lmd' | 'exp';
   externalGold: number;
   compareLayouts: boolean;
+  /** Count the Power Plants' drones, spent where each is worth most under the funded scoring. Default true. */
+  drones?: boolean;
 }
 export interface LayoutRecommendation extends LayoutOption {
   products: FactoryProducts;
@@ -79,7 +81,7 @@ export function optimizeAccountBase(input: AccountOptimizerInput, progress?: (do
     const plan = optimizeBase({
       base: { ...input.base, facilities: getFacilities(layout.spots, layout.levels), dormitoryAmbience: layout.id === 'mine' ? input.snapshot?.dormitoryAmbience : undefined },
       roster: input.roster, loginInterval: input.loginInterval, factoryProducts: products,
-      weights, sustainable: true, externalGold: input.externalGold,
+      weights, sustainable: true, externalGold: input.externalGold, drones: input.drones !== false,
     });
     if (!plan.simulation.periodic || plan.simulation.events.some(e => e.kind === 'exhausted')) { rejected++; return; }
     const output = sustainableOutput(plan.simulation.perDay, input.externalGold);

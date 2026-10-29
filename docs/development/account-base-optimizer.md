@@ -30,9 +30,20 @@ gold-factory teams; final rotation selection uses funded income.
 
 Login presets are evenly spaced (24, 12, 8 or 6 hours). First-login hour shifts the
 displayed timetable. Standard layouts assume their listed upgrades and full dorm
-ambience; the imported layout uses its recorded ambience. Drone spending, workshop
-crafts and training are excluded. Ramp skills use the existing averaged calculator.
-Gold funding is a long-run estimate, not an inventory/order-event simulation.
+ambience; the imported layout uses its recorded ambience. Workshop crafts and training
+are excluded. Ramp skills climb from the hours an operator has already worked without
+a break in the same room, not a fresh-start average. Gold funding is a long-run
+estimate, not an inventory/order-event simulation.
+
+Power Plant drones are counted by default (`drones`, on unless explicitly disabled):
+10 an hour times (1 + the staffed Plants' drone-rate bonuses), spent at each login
+where one is worth most -- 3 minutes of a Trading Post's or Factory's own BASE
+production (its rate with every skill taken out; base skills do not apply to a drone,
+matching how the game treats them). Under funded scoring a gold deficit is covered by
+Precious-Metal Factories first, and Trading Posts take drones only as far as the gold
+on hand can actually be sold; at most one item or order in progress per room per
+login. The drone stock cap (235) and storage limits on what a drone's output fills are
+not modeled.
 
 Saving appends the recommended shift setups and replaces the active timetable; the
 button's neighboring text states this. Existing saved setups and the imported account
