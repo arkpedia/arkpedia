@@ -11,7 +11,7 @@ Amiya forms are one physical worker.
 ## Search and scoring
 
 `accountOptimizer.ts` compares the imported layout and power-valid 243, 252 max-left,
-252 max-right, 153 and 342 layouts. It excludes presets requiring a downgrade of
+252 max-right layouts. Only 243 and 252 are searched, to keep the search small; an imported 153 or 342 is searched alone on request but is not compared. It excludes presets requiring a downgrade of
 Reception, Office or Training. Identical layouts are searched once. Every distinct
 gold/EXP split by factory level is considered, including all-gold and all-EXP.
 

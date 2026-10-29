@@ -42,6 +42,20 @@ test('layout comparisons preserve irreversible room upgrades and remain within t
   assert.equal(productOptions(mixed).length, 12);
 });
 
+test('only 243 and 252 layouts are searched when comparing; the imported layout stays when asked for alone', () => {
+  const shape = (spots: Record<string, string>) => ['tradingPost', 'factory', 'powerPlant'].map(k => Object.values(spots).filter(v => v === k).length).join('');
+  for (const compare of [true, false]) {
+    for (const layout of optimizerLayouts(undefined, compare)) assert(['243', '252'].includes(shape(layout.spots)), `${layout.id} is ${shape(layout.spots)}`);
+  }
+  assert(!optimizerLayouts(undefined, true).some(l => ['1-5-3', '3-4-2'].includes(l.id)), '153 and 342 are no longer offered');
+  // A 342 import compares only against the standard 243 and 252 layouts, but is searched alone on request.
+  const threePosts = { ...account.base!, productionSpots: { ...account.base!.productionSpots, prod8: 'tradingPost' as const } };
+  if (shape(threePosts.productionSpots) !== '243' && shape(threePosts.productionSpots) !== '252') {
+    assert(!optimizerLayouts(threePosts, true).some(l => l.id === 'mine'));
+    assert(optimizerLayouts(threePosts, false).some(l => l.id === 'mine'));
+  }
+});
+
 test('selected-account progress takes precedence and class forms are one worker', () => {
   const selected = { operators: ['Amiya', 'Amiya (Guard)', 'Spot', 'FEater'], base: { ...account.base!, operatorProgress: { Spot: { eliteLevel: 'Base', level: 1 } } }, operatorBuilds: undefined };
   const result = ownedBaseRoster(selected, known);
@@ -80,7 +94,8 @@ test('the standard-layout search returns the best funded score first and reports
   let completed = 0;
   const result = optimizeAccountBase({ base, roster, snapshot: account.base, loginInterval: 12, objective: 'balanced', externalGold: 9.14, compareLayouts: true }, done => { completed = done; });
   assert.equal(completed, result.searched);
-  assert(result.recommendations.length >= 3);
+  // The fixture is itself a 243 (the same as the standard 243), so with only 243 and 252 searched there are two.
+  assert(result.recommendations.length >= 2);
   for (let i = 1; i < result.recommendations.length; i++) assert(result.recommendations[i - 1].score >= result.recommendations[i].score);
   for (const recommendation of result.recommendations) assert.equal(recommendation.score, recommendation.output.lmd + recommendation.output.exp);
 });

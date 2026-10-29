@@ -22,20 +22,23 @@ export interface LayoutRecommendation extends LayoutOption {
 }
 export interface AccountOptimizerResult { recommendations: LayoutRecommendation[]; searched: number; rejected: number }
 
+/** Production layouts the optimizer will search: 243 (2 Trading Posts, 4 Factories, 3 Power Plants) and 252
+ * (2, 5, 2). Others (153, 342, ...) are left out to keep the search small. */
+const productionCounts = (spots: ProductionSpots) => {
+  const count = (kind: string) => Object.values(spots).filter(k => k === kind).length;
+  return `${count('tradingPost')}${count('factory')}${count('powerPlant')}`;
+};
+export const SEARCHED_LAYOUT_SHAPES = ['243', '252'];
+
 /** Respect already-upgraded right-side rooms, which cannot be downgraded in game. */
 export function optimizerLayouts(snapshot?: AccountRecord['base'], compare = true): LayoutOption[] {
-  const layouts: LayoutOption[] = snapshot ? [{ id: 'mine', label: 'Your layout', spots: snapshot.productionSpots, levels: snapshot.facilityLevels }] : [];
+  const layouts: LayoutOption[] = [];
+  // The imported layout is searched when the reader asks for it alone, or when it is itself a 243 or 252.
+  if (snapshot && (!compare || SEARCHED_LAYOUT_SHAPES.includes(productionCounts(snapshot.productionSpots)))) layouts.push({ id: 'mine', label: 'Your layout', spots: snapshot.productionSpots, levels: snapshot.facilityLevels });
   if (compare || !snapshot) for (const id of BASE_PRESET_IDS) {
     const levels = presetLevels(id);
     if (snapshot && ['office', 'receptionRoom', 'trainingRoom'].some(room => (snapshot.facilityLevels[room] ?? 0) > (levels[room] ?? 0))) continue;
     layouts.push({ id, label: BASE_PRESETS[id].label, spots: presetSpots(id), levels });
-  }
-  if (compare || !snapshot) {
-    // 1-5-3 trades one post for EXP production; 3-4-2 is the reference
-    // spreadsheet's three-post layout, with the max-right power budget.
-    const onePost = { ...presetSpots('2-4-3'), prod4: 'factory' as const };
-    layouts.push({ id: '1-5-3', label: '1-5-3', spots: onePost, levels: presetLevels('2-4-3') });
-    layouts.push({ id: '3-4-2', label: '3-4-2', spots: { ...presetSpots('2-5-2-right'), prod8: 'tradingPost' }, levels: presetLevels('2-5-2-right') });
   }
   const seen = new Set<string>();
   return layouts.filter(l => {
