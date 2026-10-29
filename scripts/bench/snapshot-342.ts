@@ -18,8 +18,17 @@ const operators = getAllOperators().filter(op => !/^Amiya \(/.test(op.name));
 const roster = everyoneMaxed(operators);
 const base = { operators, rosters: toBaseRosters(groups), skillSlots: slots, workshopRecipes: recipes, facilities: SHEET_FACILITIES };
 const w = DEFAULT_WEIGHTS;
+// Both sides are scored with the same kind of dorm residents: low-rarity operators not working in the crew.
+const lowRarity = operators.filter(o => (o.rarity ?? 0) <= 2).map(o => o.name);
+const withDorms = (a: BaseAssignments): BaseAssignments => {
+  const placed = new Set(Object.values(a).flatMap(s => (s ?? []).flatMap(x => (x ? [x.operatorName] : []))));
+  const free = lowRarity.filter(n => !placed.has(n));
+  const out: BaseAssignments = { ...a };
+  for (const d of SHEET_FACILITIES.filter(f => f.kind === 'dormitory')) out[d.id] = free.splice(0, d.capacity).map(n => ({ operatorName: n, eliteLevel: roster[n].eliteLevel, level: roster[n].level }));
+  return out;
+};
 const value = (assignments: BaseAssignments, products = FORMATIONS[0].products) => {
-  const r = calculateBase({ ...base, assignments, factoryProducts: products, loginInterval, swapPolicy: 'onLogin' });
+  const r = calculateBase({ ...base, assignments: withDorms(assignments), factoryProducts: products, loginInterval, swapPolicy: 'onLogin' });
   return { total: r.dailyGoldWorthGreen * w.lmd + r.dailyExpGreen * w.exp + r.dailyGoldMadeGreen * w.goldMade, lmd: r.dailyGoldWorthGreen, exp: r.dailyExpGreen, made: r.dailyGoldMadeGreen };
 };
 const fmt = (l: string, v: ReturnType<typeof value>) => console.log(`${l.padEnd(26)} total ${v.total.toFixed(0).padStart(7)}  LMD ${v.lmd.toFixed(0).padStart(6)} EXP ${v.exp.toFixed(0).padStart(6)} made ${v.made.toFixed(1)}`);
