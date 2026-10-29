@@ -60,6 +60,13 @@ const SEEDED_SOURCE_FILES = new Set([
   'data/game-account-map.json',
   'public/medal-catalogue.json',
   'data/medal-set-layouts.json',
+  // The medal that marks each event's stages cleared (scripts/build/build-rerun-clear-medals.mjs,
+  // after the medal catalogue every run) and the operator that stands for a clear where an event
+  // has no such medal (kept by hand): the Pull Planner's rerun ticks (lib/pulls/schedule.ts).
+  // Imported by the pull schedule the content run's own tests load, so a release before the
+  // data repository carries them failed every one of those tests (2026-10-28's two runs).
+  'data/rerun-clear-medals.json',
+  'data/rerun-clear-operators.json',
   // Each profile card theme's colours, from the client's theme bundles, and their md5s, so
   // only a changed bundle is fetched (scripts/imports/import-namecard-styles.py, every run).
   'data/namecard-styles.json',

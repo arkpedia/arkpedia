@@ -278,6 +278,8 @@ jobs:
           # and any operator whose avatar the client ships while the site has no icon for them yet.
           stage client-art -- python3 scripts/imports/shadow-client-art.py
           stage medal-catalogue -- node scripts/build/build-medal-catalogue.mjs
+          # Each event's all-stages medal out of that catalogue, for the Pull Planner's rerun ticks.
+          stage rerun-clear-medals --needs medal-catalogue -- node scripts/build/build-rerun-clear-medals.mjs
           stage reward-names -- node scripts/sync/sync-reward-names.mjs
           # The voice lines take newly released operators' English text from the supplement:
           # without it they keep yesterday's lines rather than fall back to Chinese. The skin
