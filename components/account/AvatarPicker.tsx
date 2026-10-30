@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import ProfileIcon from './ProfileIcon';
 import StyledSelect from '@/components/ui/StyledSelect';
 import LoadOnScroll from '@/components/ui/LoadOnScroll';
-import { avatarCatalogue, saveProfileAvatar, useProfileAvatar } from '@/lib/account/profileAvatar';
+import { AVATAR_CATALOGUE, avatarCatalogue, saveProfileAvatar, useProfileAvatar } from '@/lib/account/profileAvatar';
+import { useContentUrl } from '@/lib/content/context';
 
 const group = (id: string) => /^(one|two|three|four|five|six)-star-icons\//.test(id) ? 'Operators'
   : id.startsWith('enemies-icons/') ? 'Enemies' : /^(faction-icons|alliance-icons|nation-marks)\//.test(id) ? 'Factions'
@@ -14,7 +15,8 @@ export default function AvatarPicker({ head }: { head?: ReactNode }) {
   const [icons, setIcons] = useState<string[]>([]), [search, setSearch] = useState(''), [category, setCategory] = useState('Operators');
   const [limit, setLimit] = useState(60), [message, setMessage] = useState('');
   const [facilities, setFacilities] = useState<Record<string, string>>({});
-  useEffect(() => { let live = true; void Promise.all([avatarCatalogue(), import('@/lib/account/profile-avatar-base-facilities.json')]).then(([list, rooms]) => { if (live) { setIcons(list); setFacilities(rooms.default); } }).catch(() => { if (live) setMessage('Icons could not load. Close and reopen your profile to retry.'); }); return () => { live = false; }; }, []);
+  const catalogueUrl = useContentUrl()(AVATAR_CATALOGUE);
+  useEffect(() => { let live = true; void avatarCatalogue(catalogueUrl).then(catalogue => { if (live) { setIcons(catalogue.icons); setFacilities(catalogue.facilities); } }).catch(() => { if (live) setMessage('Icons could not load. Close and reopen your profile to retry.'); }); return () => { live = false; }; }, [catalogueUrl]);
   const matches = useMemo(() => {
     const result = icons.filter(id => (category === 'All icons' || group(id) === category) && id.toLowerCase().includes(search.toLowerCase()));
     return category === 'Base Skill' ? result.sort((a, b) => facilityOrder.indexOf(facilities[a] ?? 'Other base skills') - facilityOrder.indexOf(facilities[b] ?? 'Other base skills') || a.localeCompare(b, 'en')) : result;
@@ -23,7 +25,7 @@ export default function AvatarPicker({ head }: { head?: ReactNode }) {
   const sections = category === 'Base Skill' ? facilityOrder.map(label => ({ label, icons: visible.filter(id => facilities[id] === label) })).filter(section => section.icons.length)
     : [{ label: '', icons: visible }];
   const choose = async (id: string | null) => {
-    try { await saveProfileAvatar(id); setMessage('Profile picture saved in this browser.'); }
+    try { await saveProfileAvatar(id, catalogueUrl); setMessage('Profile picture saved in this browser.'); }
     catch { setMessage('Could not save the picture. Check that browser storage is allowed.'); }
   };
   return <section className="avatar-picker" aria-label="Profile picture">

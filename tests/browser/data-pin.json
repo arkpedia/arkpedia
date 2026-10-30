@@ -1,4 +1,4 @@
 {
   "about": "The arkpedia-data commit the browser specs run against (npm run data:pull -- --pinned). Unit tests, the typecheck and every deployed build read the live release instead. Move it on purpose, in a pull request that updates whichever specs the newer records change; a nightly release can then never turn an unrelated pull request's Check red.",
-  "revision": "8e0ed81b4e4b3c9b305f97206f441a2dc77233b6"
+  "revision": "b6ddc46e9ba00142fafaa4499040521c24bb2e66"
 }

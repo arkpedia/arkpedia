@@ -68,8 +68,7 @@
     "lint:scripts": "eslint scripts",
     "cf:preview:check": "node scripts/deploy/native-preview.mjs check",
     "cf:preview:build": "node scripts/deploy/native-preview.mjs build",
-    "cf:preview:deploy": "node scripts/deploy/native-preview.mjs publish",
-    "avatars:refresh": "node scripts/build/build-profile-avatar-catalogue.mjs"
+    "cf:preview:deploy": "node scripts/deploy/native-preview.mjs publish"
   },
   "dependencies": {
     "@fontsource/inter": "5.3.0",

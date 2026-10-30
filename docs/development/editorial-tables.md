@@ -21,7 +21,7 @@ YouTube creator channels are a curated directory, distinct from `guide-creators.
 
 The project directory's wiki link is held in its `wiki` field; its host supplies the displayed platform. Application-owned asset pins and the two showcase chibi models remain in `config/community-project-art.json`. Changelog entries and technique matchers remain application code by design.
 
-The importer also owns `data/profile-avatars.json`. The existing picker remains in place until this source is published; its reader switch follows separately. The app copies it to the generated `public/profile-avatars.json` for its local fallback and includes that file in each release manifest. A source record alone is insufficient: the browser URL must be exported too.
+The importer also owns `data/profile-avatars.json`. The picker fetches the catalogue from the page’s immutable content release and caches it by URL. The app copies it to the generated `public/profile-avatars.json` for its local fallback and includes that file in each release manifest. A source record alone is insufficient: the browser URL must be exported too.
 
 ## Adding a table
 

@@ -326,9 +326,9 @@ loads the deployment’s account props on demand, keeping the release and tables
 History remains available without an imported game snapshot. Saved status replaces
 the large Sync now action; optional checking lives under Cloud saving details.
 
-Profile icons come from the generated catalogue (`npm run avatars:refresh`). It
-contains published icon paths, loads only when needed and renders at most 60 initial
-choices. Every stored ID is checked against the exact catalogue before rendering.
+Profile icons come from the catalogue arkpedia-data's import builds nightly
+(`public/profile-avatars.json`, fetched from the live release). It contains published
+icon paths, loads only when needed and renders at most 60 initial choices. Every stored ID is checked against the exact catalogue before rendering.
 The picture preference is **browser-only**, separate from imported game identity,
 provider identity and username. It is deliberately outside backup/cloud replacement
 payloads until a versioned sync contract supports old clients safely. Do not add it

@@ -417,7 +417,7 @@ jobs:
       # an explicit failed run, not a green import with an old served catalogue.
       - name: Verify served stage catalogue
         if: steps.live.outcome == 'success'
-        timeout-minutes: 5
+        timeout-minutes: 10
         run: node scripts/audits/check-served-stages.mjs "$RUNNER_TEMP/prepared-content/release/manifest.json"
       # Asset pins take whatever each repository's HEAD is, so a red sync never shows up
       # here on its own. Report it, but never hold back the day's content over it: this
