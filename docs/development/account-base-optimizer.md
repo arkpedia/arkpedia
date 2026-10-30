@@ -23,8 +23,8 @@ minutes on the page, default 2):
    passes. Product splits closest to one gold factory per Trading Post go first; this
    stage stops after about a third of the time, every layout having had one split.
 2. **Anneal.** The best one or two layouts are improved by simulated annealing
-   (`annealBase.ts`) over a plan genome (`planGenome.ts`): two crews, 2 or 3 staffing
-   changes, the change each room's main crew rests on and which crew is its main one,
+   (`annealBase.ts`) over a plan genome (`planGenome.ts`): two crews, 2
+   to 4 staffing changes, the changes on which the second crew staffs each room,
    Fiammetta's refill core, parked Morale (Dusk below 12), factory products and two
    dorm rules. Moves: a room's whole team from its best teams (`teamBlocks.ts`, which
    keeps synergies such as Shamare/Bibeak/Tequila or a Sui Control Center together),
@@ -98,8 +98,9 @@ repeated input creates no second Worker, and a stalled Worker is terminated at t
 
 The search still has limits: cross-room effects are evaluated for actual placements,
 and team blocks keep one room's synergies whole, but a synergy that spans several rooms
-is only found when the annealer reaches it. A genome expresses two crews over 2 or 3
-staffing changes; the staggered and three-step duty shapes stay seed-only.
+is only found when the annealer reaches it. A genome expresses two crews over 2 to 4
+staffing changes (alternation, duty, thirds and the staggered shape); longer rotations
+stay seed-only.
 
 ### Empty-room correction
 
