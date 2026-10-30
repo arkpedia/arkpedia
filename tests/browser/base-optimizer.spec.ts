@@ -190,6 +190,31 @@ test('real worker recommends owned teams, invalidates stale input and saves with
   await expect(page.getByRole('region', { name: 'Base presets', exact: true })).toBeVisible();
 });
 
+test('with Fiammetta owned, a formations search runs beside the main one and its better plan is shown', async ({ page }) => {
+  test.setTimeout(240000);
+  page.setDefaultTimeout(10000);
+  const record = { ...account, operators: [...account.operators, 'Fiammetta'] };
+  await page.addInitScript(r => {
+    localStorage.setItem('arkpediaAccount', JSON.stringify(r));
+    localStorage.setItem('arkpedia:privacy:v1', JSON.stringify({ version: 1, analytics: false, externalMedia: false, savedAt: Date.now() }));
+  }, record);
+  await page.goto('/base');
+  const cores = await page.evaluate(() => navigator.hardwareConcurrency ?? 1);
+  await page.getByRole('button', { name: 'Optimize base', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Base optimizer', exact: true });
+  await dialog.getByRole('checkbox', { name: 'Compare standard layouts' }).uncheck();
+  await dialog.getByRole('combobox', { name: 'Optimizer search time', exact: true }).click();
+  await page.getByRole('option', { name: '1 min', exact: true }).click();
+  const workers: string[] = [];
+  page.on('worker', worker => workers.push(worker.url()));
+  await dialog.getByRole('button', { name: 'Recommend layout' }).click();
+  await expect(dialog.getByRole('heading', { name: 'Your layout', exact: true })).toBeVisible({ timeout: 150000 });
+  // Two Workers where the device has cores to spare (the formations search is left out below four).
+  expect(workers).toHaveLength(cores >= 4 ? 2 : 1);
+  await expect(dialog.getByRole('alert')).toHaveCount(0);
+  await expect(dialog.getByRole('status').filter({ hasText: 'No repeating rotation' })).toHaveCount(0);
+});
+
 test('layout alternatives stay compact and update the portrait board', async ({ page }) => {
   const small = { ...account, operators: ['FEater', 'Gravel', 'Spot', 'Proviso', 'Texas', 'Myrtle', 'Lancet-2', 'Perfumer'] };
   await page.addInitScript(record => localStorage.setItem('arkpediaAccount', JSON.stringify(record)), small);
