@@ -535,8 +535,18 @@ export function optimizeBase(input: OptimizerInput): OptimizerResult {
     // 5th login) while a 3-member one already fails if two members drain fast enough to both hit 0 between visits.
     // Try every size the ranking offers, build real crews for each, and let the simulator (not a drain-sum guess)
     // decide which, if any, beats the best plan found so far.
-    for (let size = 2; size <= ranked.length; size++) {
-      const core = ranked.slice(0, size).map(r => r.name);
+    // Prefixes of the ranking (top-1, top-2, top-3, ...) plus every pair and triple among the top 6 candidates
+    // -- the ranking is a per-candidate heuristic (marginal value per unit drain), so it is not guaranteed that
+    // the single best PAIR is the top two individually-ranked names; a combination outside the prefix can score
+    // higher together than the prefix of the same size does, and this is cheap to check directly (bounded: at
+    // most C(6,2)+C(6,3) = 15+20 = 35 extra candidates, on top of the up-to-12 prefixes already tried).
+    const candidateCores: string[][] = [];
+    for (let size = 2; size <= ranked.length; size++) candidateCores.push(ranked.slice(0, size).map(r => r.name));
+    const topSix = ranked.slice(0, 6).map(r => r.name);
+    for (const combo of [...combinations(topSix, 2), ...combinations(topSix, 3)]) {
+      if (!candidateCores.some(c => c.length === combo.length && c.every(n => combo.includes(n)))) candidateCores.push(combo);
+    }
+    for (const core of candidateCores) {
       const fixed: BaseAssignments = Object.fromEntries(rooms.map(f => [f.id, (crew0[f.id] ?? []).map(slot => slot && core.includes(slot.operatorName) ? slot : null)]));
       for (const n of [2, 3]) {
         // With this rotation (every non-working crew rests at once), n-1 crews are off duty simultaneously and
