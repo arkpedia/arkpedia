@@ -559,15 +559,14 @@ export function optimizeBase(input: OptimizerInput): OptimizerResult {
         const taken = new Set(core);
         for (let i = 0; i < n; i++) {
           let crew = buildTeam(taken, perCrewLimit, undefined, fixed);
-          // Only when every off-duty crew's share of the dorms is generous (n=2: one crew off duty at a time,
-          // the full restCapacity-1 beds to itself) is there room to also guarantee full Control Center and
-          // Office staffing -- the cross-facility relief they provide was, without this, read from whatever
-          // crew0 (a DIFFERENT crew, used only for ranking) happened to have, not what these real crews
-          // actually get, which can understate the core's true (lower) drain enough to make it fail.
-          if (n === 2) {
-            const filled = fillSupportRooms(crew, new Set(taken));
-            if (operatorsIn(filled).length <= perCrewLimit) crew = filled;
-          }
+          // Try to also guarantee full Control Center and Office staffing -- the cross-facility relief they
+          // provide was, without this, read from whatever crew0 (a DIFFERENT crew, used only for ranking) happened
+          // to have, not what these real crews actually get, which can understate the core's true (lower) drain
+          // enough to make it fail. The size guard (not just n===2) is what makes this safe at any n: a tighter
+          // per-crew budget (more off-duty crews sharing the same dorms) simply means the fill is kept only when
+          // it still fits that share, so it can never reintroduce the dorm-capacity-sharing issue fixed earlier.
+          const filled = fillSupportRooms(crew, new Set(taken));
+          if (operatorsIn(filled).length <= perCrewLimit) crew = filled;
           operatorsIn(crew).forEach(name => taken.add(name));
           crews.push(crew);
         }
