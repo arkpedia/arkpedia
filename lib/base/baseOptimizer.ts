@@ -539,10 +539,16 @@ export function optimizeBase(input: OptimizerInput): OptimizerResult {
       const core = ranked.slice(0, size).map(r => r.name);
       const fixed: BaseAssignments = Object.fromEntries(rooms.map(f => [f.id, (crew0[f.id] ?? []).map(slot => slot && core.includes(slot.operatorName) ? slot : null)]));
       for (const n of [2, 3]) {
+        // With this rotation (every non-working crew rests at once), n-1 crews are off duty simultaneously and
+        // share the SAME restCapacity-1 beds (one kept for Fiammetta) -- each crew's own non-core size must be
+        // capped by its SHARE of that total, not by the full amount, or n-1 crews' combined population can
+        // exceed actual dorm capacity even though each one alone would fit (the bug this replaces: at n=3 two
+        // off-duty crews could each be sized up to the FULL bed count, summing to roughly double it).
+        const perCrewLimit = core.length + Math.max(1, Math.floor((restCapacity - 1) / (n - 1)));
         const crews: BaseAssignments[] = [];
         const taken = new Set(core);
         for (let i = 0; i < n; i++) {
-          const crew = buildTeam(taken, core.length + Math.max(1, restCapacity - 1), undefined, fixed);
+          const crew = buildTeam(taken, perCrewLimit, undefined, fixed);
           operatorsIn(crew).forEach(name => taken.add(name));
           crews.push(crew);
         }
