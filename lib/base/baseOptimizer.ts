@@ -548,7 +548,16 @@ export function optimizeBase(input: OptimizerInput): OptimizerResult {
         const crews: BaseAssignments[] = [];
         const taken = new Set(core);
         for (let i = 0; i < n; i++) {
-          const crew = buildTeam(taken, perCrewLimit, undefined, fixed);
+          let crew = buildTeam(taken, perCrewLimit, undefined, fixed);
+          // Only when every off-duty crew's share of the dorms is generous (n=2: one crew off duty at a time,
+          // the full restCapacity-1 beds to itself) is there room to also guarantee full Control Center and
+          // Office staffing -- the cross-facility relief they provide was, without this, read from whatever
+          // crew0 (a DIFFERENT crew, used only for ranking) happened to have, not what these real crews
+          // actually get, which can understate the core's true (lower) drain enough to make it fail.
+          if (n === 2) {
+            const filled = fillSupportRooms(crew, new Set(taken));
+            if (operatorsIn(filled).length <= perCrewLimit) crew = filled;
+          }
           operatorsIn(crew).forEach(name => taken.add(name));
           crews.push(crew);
         }
