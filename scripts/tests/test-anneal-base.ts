@@ -5,6 +5,7 @@ import { toBaseRosters } from '../../lib/base/baseGroupRosters';
 import { optimizeBase, type OwnedOperator } from '../../lib/base/baseOptimizer';
 import { decode, evaluate, genomeFromResult, toOptimizerResult, type GenomeContext } from '../../lib/base/planGenome';
 import { anneal, placesNobodyTwice } from '../../lib/base/annealBase';
+import { coreSeed } from '../../lib/base/coreSeed';
 import { getFacilities, presetLevels, presetSpots } from '../../lib/base/baseConfig';
 import type { FactoryProducts } from '../../lib/base/baseTypes';
 import groups from '../../data/base-group-rosters.json';
@@ -76,4 +77,35 @@ test('a staggered plan, whose schedule names only the rooms that change crew, re
   const g = genomeFromResult(fake, ctx)!;
   assert.deepEqual(g.assign[rooms[0]], [0, 1, 1, 0]);
   assert.equal(g.crews[1][rooms[0]][0]?.operatorName, b);
+});
+
+// A built roster with Fiammetta and the Shamare trio, small enough for CI: today's optimizer staffs a Trading Post
+// with Fiammetta as a plain worker and keeps no refill core.
+const builtNames = ['Fiammetta', 'Shamare', 'Bibeak', 'Tequila', 'Proviso', 'Mr. Nothing', 'Vigil', 'Exusiai', 'Lemuen', 'Vermeil', 'Scene', 'Pallas', 'Weedy', 'Purestream', 'Bubble', 'Vulcan', 'Greyy the Lightningbearer', 'Lancet-2', 'Swire', 'Ling', 'Dusk', 'Mulberry', 'Iris', 'Czerny'];
+const built: Record<string, OwnedOperator> = Object.fromEntries(builtNames.map(n => [n, { eliteLevel: 'Elite 2', level: 90 }]));
+const builtCtx: GenomeContext = { base, roster: built, loginInterval: 8, drones: true };
+const builtToday = optimizeBase({ base, roster: built, loginInterval: 8, factoryProducts: products, drones: true });
+const builtSeed = genomeFromResult(builtToday, builtCtx)!;
+
+test('Fiammetta working without a refill core rests like any worker when a plan is read back', () => {
+  // Found 2026-10-30: she was left out of the dorms (as if refilling), ran out of Morale and the seed scored -890k.
+  const works = builtToday.shifts.some(sh => Object.entries(sh.assignments).some(([id, s]) => !id.startsWith('dormitory') && (s ?? []).some(x => x?.operatorName === 'Fiammetta')));
+  assert.ok(works && !builtSeed.core.length, 'the fixture should have Fiammetta working with no core');
+  const e = evaluate(builtSeed, builtCtx);
+  assert.ok(!e.sim.events.some(x => x.kind === 'exhausted'));
+  assert.ok(e.value >= builtToday.score - 1e-6, `${e.value} < ${builtToday.score}`);
+});
+
+test('the core seed makes a whole room team the refill core, over three crews, with nobody run out or placed twice', () => {
+  const r = coreSeed(builtSeed, builtCtx);
+  assert.ok(r);
+  assert.ok(r.genome.refillLowest);
+  assert.equal(r.genome.crews.length, 3);
+  assert.ok(placesNobodyTwice(r.genome, builtCtx));
+  assert.ok(!r.evaluation.sim.events.some(x => x.kind === 'exhausted') && r.evaluation.sim.periodic);
+  // Every core member holds the same room in every crew.
+  for (const name of r.genome.core) {
+    const rooms = r.genome.crews.map(c => Object.entries(c).find(([, s]) => (s ?? []).some(x => x?.operatorName === name))?.[0]);
+    assert.ok(rooms[0] && rooms.every(x => x === rooms[0]), `${name}: ${rooms.join(', ')}`);
+  }
 });

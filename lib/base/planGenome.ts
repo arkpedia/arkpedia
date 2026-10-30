@@ -78,7 +78,9 @@ export function decode(g: Genome, ctx: GenomeContext): SimulationShift[] {
   const roomIds = rooms.map(f => f.id);
   const parked = new Set(Object.keys(g.parked));
   const working = Array.from({ length: g.steps }, (_, s) => Object.fromEntries(roomIds.map(id => [id, g.crews[crewAt(g, id, s)][id] ?? Array(rooms.find(f => f.id === id)!.capacity).fill(null)])) as BaseAssignments);
-  const everyone = [...new Set(g.crews.flatMap(operatorsIn))].filter(n => n !== 'Fiammetta' && !locked.includes(n));
+  // Fiammetta refills only with a core and while she works nowhere; otherwise she is a worker like any other and
+  // rests like one (a plan of today's optimizer may staff a Trading Post with her).
+  const everyone = [...new Set(g.crews.flatMap(operatorsIn))].filter(n => !locked.includes(n));
   const fiammetta = g.core.length > 0 && 'Fiammetta' in ctx.roster && !everyone.includes('Fiammetta') && dorms.length > 0;
   const idle = g.fillBeds
     ? Object.keys(ctx.roster).filter(n => fixed(ctx).byName.has(n) && !everyone.includes(n) && !parked.has(n) && !locked.includes(n) && n !== 'Fiammetta').sort((x, y) => Number(dormSkill(y)) - Number(dormSkill(x)) || x.localeCompare(y))

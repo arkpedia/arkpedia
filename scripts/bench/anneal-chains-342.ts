@@ -2,7 +2,8 @@
  * in the same wall time close the gap to the sheet's own rotation (simulated here, drones on)?
  * Usage: npx tsx scripts/bench/anneal-chains-342.ts seed <file>           -- compute today's plan as a genome, save it
  *        npx tsx scripts/bench/anneal-chains-342.ts sheet <file>          -- the sheet's three formations as a genome
- *        npx tsx scripts/bench/anneal-chains-342.ts chain <file> <seed> <s> -- anneal from it, print the result and
+ *        npx tsx scripts/bench/anneal-chains-342.ts core <seed> <file>    -- coreSeed of a saved seed genome
+ *        [BOTH=1] npx tsx scripts/bench/anneal-chains-342.ts chain <file> <seed> <s> -- anneal from it, print the result and
  *                                                                           save the best genome to <file>.<seed>.json */
 import fs from 'node:fs';
 import { getAllOperators } from '../../lib/operators/operators';
@@ -11,6 +12,7 @@ import { optimizeBase, WORK_KINDS, type OwnedOperator } from '../../lib/base/bas
 import { evaluate, genomeFromResult, type Genome, type GenomeContext } from '../../lib/base/planGenome';
 import { simulateBase } from '../../lib/base/baseSimulation';
 import { anneal, placesNobodyTwice } from '../../lib/base/annealBase';
+import { annealFromBothStarts, coreSeed } from '../../lib/base/coreSeed';
 import groups from '../../data/base-group-rosters.json';
 import slots from '../../data/base-skill-slots.json';
 import recipes from '../../data/base-workshop-recipes.json';
@@ -32,10 +34,17 @@ const target = Math.max(...(['rotation', 'lowest'] as const).map(refillPolicy =>
 }));
 
 if (mode === 'seed') {
-  const today = optimizeBase({ base, roster, loginInterval: 8, factoryProducts: FORMATIONS[0].products, drones: true, formations: true });
+  // PLAIN=1: today's plan without the slow formations shapes (about 14 s instead of about 3 min here).
+  const t = Date.now();
+  const today = optimizeBase({ base, roster, loginInterval: 8, factoryProducts: FORMATIONS[0].products, drones: true, formations: process.env.PLAIN !== '1' });
   const g = genomeFromResult(today, ctx)!;
   fs.writeFileSync(file, JSON.stringify(g));
-  console.log(`seed ${today.shape} ${today.score.toFixed(0)} saved`);
+  console.log(`seed ${today.shape} ${today.score.toFixed(0)} saved (${((Date.now() - t) / 1000).toFixed(0)} s)`);
+} else if (mode === 'core') {
+  const r = coreSeed(JSON.parse(fs.readFileSync(file, 'utf8')) as Genome, ctx);
+  if (!r) throw new Error('no core seed');
+  fs.writeFileSync(seedArg, JSON.stringify(r.genome));
+  console.log(`core seed ${r.evaluation.value.toFixed(0)}, crews ${r.genome.crews.length}, core [${r.genome.core.join(', ')}]`);
 } else if (mode === 'sheet') {
   // The sheet's three formations as three crews, each room following them in order. The refill core is who works
   // the same room in all three; the rest rule and bed filling are the genome's own (the sheet lists only who matters).
@@ -47,7 +56,8 @@ if (mode === 'seed') {
   console.log(`sheet genome ${e.value.toFixed(0)} (${(100 * e.value / target).toFixed(1)}% of the sheet's rotation, ${target.toFixed(0)}), exhausted ${e.sim.events.filter(x => x.kind === 'exhausted').length}`);
 } else {
   const g = JSON.parse(fs.readFileSync(file, 'utf8')) as Genome;
-  const r = anneal(g, ctx, { timeMs: Number(secondsArg) * 1000, seed: Number(seedArg) });
+  // BOTH=1: the account page's search, from the plan and from its core seed in turn.
+  const r = (process.env.BOTH === '1' ? annealFromBothStarts : anneal)(g, ctx, { timeMs: Number(secondsArg) * 1000, seed: Number(seedArg) });
   console.log(`chain ${seedArg}: ${r.evaluation.value.toFixed(0)} (${(100 * r.evaluation.value / target).toFixed(1)}% of ${target.toFixed(0)}), ${r.rounds} rounds, crews ${r.genome.crews.length}, steps ${r.genome.steps}, core [${r.genome.core.join(', ')}], exhausted ${r.evaluation.sim.events.filter(e => e.kind === 'exhausted').length}, no-dup ${placesNobodyTwice(r.genome, ctx)}`);
   fs.writeFileSync(`${file}.${seedArg}.json`, JSON.stringify(r.genome));
 }
