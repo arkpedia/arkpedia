@@ -83,13 +83,28 @@ export interface BaseCalculationInput {
   rampWindowOverride?: number;
 }
 
+/** Each built room's slots cut to its capacity; rooms with no places (unbuilt, elevators) and unknown keys are kept. */
+export function withinCapacity(assignments: BaseAssignments, facilities: BaseCalculationInput['facilities']): BaseAssignments {
+  let out: BaseAssignments | null = null;
+  for (const f of facilities) {
+    const slots = assignments[f.id];
+    if (!slots || f.capacity <= 0 || slots.length <= f.capacity) continue;
+    out ??= { ...assignments };
+    out[f.id] = slots.slice(0, f.capacity);
+  }
+  return out ?? assignments;
+}
+
 /** The complete cross-room calculator used by /base and scenario regressions. */
 export function calculateBase(input: BaseCalculationInput) {
-  const { operators, rosters, skillSlots, facilities: FACILITIES, assignments, factoryProducts, workshopRecipes, importedMorale, rampStartHours, rampWindowOverride,
+  const { operators, rosters, skillSlots, facilities: FACILITIES, factoryProducts, workshopRecipes, importedMorale, rampStartHours, rampWindowOverride,
     dormitoryAmbience = {}, loginInterval = 24, swapPolicy = 'onMoraleZero', clueExchangeActive = false, moraleAbove12 = true,
     trainingTarget = { class: 'Guard', branch: '', mastery: 1, timeReductionActive: false, instantTrainingReady: false },
     workshopSettings = { recipeId: '1', qualifyingDormOperators: 0, causality: 0, karma: 0, thornsFailures: 0 },
   } = input;
+  // A room never counts more operators than it has places: a saved plan keeps its slots after the room is
+  // downgraded, and a hand-written plan can list two operators for a one-place Power Plant.
+  const assignments = withinCapacity(input.assignments, FACILITIES);
   const baseSource = importedMorale ? 'account' : 'planner';
   const resolvedTrainingTarget = resolveTrainingTarget(trainingTarget, operators);
   const { ELITE_OPERATOR, ABYSSAL_HUNTERS, OPERATION_PLATFORM, BLACKSTEEL_WORLDWIDE, TEAM_RAINBOW, DURIN, PINUS_SYLVESTRIS, WANDERING_MEDIC, SUI, KNIGHTS, LATERANO, RHINE_LAB } = rosters;

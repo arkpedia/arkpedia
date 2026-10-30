@@ -73,3 +73,14 @@ test('complete base awake imported morale reproduces the manual plan; exhausted 
   near(tired.rooms.prod7.droneRate!, 0);
   near(tired.rooms.office.office!.speed, 0);
 });
+
+test('complete base counts no more operators than a room has places', () => {
+  const input = scenario('FAC:3');
+  const plant = input.facilities.find(f => f.kind === 'powerPlant' && f.capacity === 1)!;
+  input.assignments = { [plant.id]: [{ operatorName: 'Greyy', eliteLevel: 'Base' }] };
+  const alone = calculateBase(input);
+  // A second name in a one-place Power Plant (a downgraded room, a hand-written plan) adds nothing.
+  const over = calculateBase({ ...input, assignments: { [plant.id]: [{ operatorName: 'Greyy', eliteLevel: 'Base' }, { operatorName: 'Lancet-2', eliteLevel: 'Base' }] } });
+  assert(alone.rooms[plant.id].droneRate! > 0);
+  near(over.rooms[plant.id].droneRate!, alone.rooms[plant.id].droneRate!);
+});
