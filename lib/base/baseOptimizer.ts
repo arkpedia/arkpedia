@@ -784,7 +784,7 @@ export function optimizeBase(input: OptimizerInput): OptimizerResult {
       if (value > best!.value + EPS) { chosen = trial.core; best = { plan: best!.plan, shifts: trial.shifts, sim, value }; }
     }
     const core = chosen;
-    if (core.length) notes.push(`Fiammetta refills ${core.join(', ')} in turn at the staffing changes: each works every shift and never rests. She sits in ${dorms[0].label} and swaps her full Morale with whichever of them is lowest.`);
+    if (core.length) notes.push(`Fiammetta refills ${core.join(', ')} in turn at the staffing changes: each works every shift and never rests. She sits in ${dorms[0].label} and, whenever she is full at a staffing change, swaps her Morale with the next of them in that order.`);
   }
 
   // With a full Sui Control Center (Ling, Chongyue, Saileach...) Dusk loses no Morale there: her own -0.5 and the

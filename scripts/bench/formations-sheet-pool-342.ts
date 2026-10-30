@@ -28,7 +28,9 @@ const exhausted = (s: SimulationResult) => [...new Set(s.events.filter(e => e.ki
 // The target is the sheet's own rotation, simulated here with the SAME settings as each optimizer run (never a
 // constant: one written down before drones existed was compared against drones-on results for a while).
 for (const drones of [false, true]) {
-  const sheet = simulateBase({ base, shifts: sheetShifts(SHEET_REFILL, allMaxed), loginInterval, drones });
+  // The sheet's refill is a player's call, so its best policy is the target: 'lowest' keeps Bibeak working.
+  const sheet = (['rotation', 'lowest'] as const).map(refillPolicy => simulateBase({ base, shifts: sheetShifts(SHEET_REFILL, allMaxed), loginInterval, drones, refillPolicy }))
+    .sort((x, y) => weighted(y) - weighted(x))[0];
   console.log(`\n== drones ${drones ? 'on' : 'off'}`);
   console.log(`sheet rotation + refill: weighted ${weighted(sheet).toFixed(0)}  LMD ${sheet.perDay.lmd.toFixed(0)}  periodic ${sheet.periodic} x${sheet.periodCycles}  exhausted: ${exhausted(sheet)}`);
   for (const [label, extra] of [['plain', { formations: false }], ['formations', { formations: true }], ['formations, exhaustion allowed (as the sheet)', { formations: true, allowExhaustion: true }]] as const) {

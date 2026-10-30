@@ -161,6 +161,16 @@ test('several workers on one refill list are visited in a fixed rotation, not "w
   assert.equal(swapAtCycle(5), 'Melantha', 'turn 5: the rotation wraps back to the first name');
 });
 
+test('refillPolicy "lowest" gives Fiammetta\'s Morale to the lowest working member, not the next in the list', () => {
+  const rested = { dormitory1: [plain('Fiammetta')] };
+  const working = { [factory]: crewA.map(n => plain(n)) };
+  const initialMorale = { Adnachiel: 6, Melantha: 20, Catapult: 24, Fiammetta: 24 };
+  const first = (refillPolicy?: 'rotation' | 'lowest') => simulateBase({ base, loginInterval: 12, fixedCycles: 1, initialMorale, refillPolicy, shifts: [shift({ ...rested, ...working }, { refill: ['Melantha', 'Adnachiel', 'Catapult'] })] })
+    .events.find(e => e.kind === 'fiammettaSwap')?.operators?.[1];
+  assert.equal(first(), 'Melantha', 'rotation: first on the list');
+  assert.equal(first('lowest'), 'Adnachiel', 'lowest: Adnachiel at 6 Morale');
+});
+
 test('a refill rotation that lines up with the cycle only every few cycles still counts as repeating, over all of them', () => {
   // Three names, two visits a cycle: Fiammetta's turn comes back to the first name every 3 cycles, so Morale one
   // cycle apart never matches and a one-cycle check would reject a steady plan (found 2026-10-30).

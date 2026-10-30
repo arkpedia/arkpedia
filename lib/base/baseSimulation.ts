@@ -59,6 +59,10 @@ export interface SimulationInput {
   maxDays?: number;
   /** Run exactly this many cycles and report the last, for inspecting the first days. */
   fixedCycles?: number;
+  /** How Fiammetta picks from a refill list when she is full: 'rotation' (default) visits it in a fixed order,
+   * wasted turns included; 'lowest' gives her Morale to whichever working member reads lowest, as a player
+   * watching the numbers would. */
+  refillPolicy?: 'rotation' | 'lowest';
   /** Spend the drones the Power Plants make at every login, on the staffed Trading Post or Factory where a drone is worth most.
    * One drone removes 3 minutes of a room's BASE production time (PRTS); base skills do not apply to it. Default off. */
   drones?: boolean;
@@ -319,16 +323,24 @@ export function simulateBase(input: SimulationInput): SimulationResult {
       if (shift.refill?.length) {
         const fiammetta = placed.find(p => kindOf[p.room] === 'dormitory' && hasFiammettaSwap(p.slot));
         const working = new Set(placed.filter(p => kindOf[p.room] !== 'dormitory').map(p => p.name));
-        const key = shift.refill.join('|');
-        const turn = refillTurn.get(key) ?? 0;
-        // A fixed rotation through the list: each opportunity is this member's turn, in order, regardless of
-        // who currently reads lowest. The turn always advances, even when this member turns out not to need
-        // it (already full) -- that is a real wasted visit, exactly as it would be for a player on a schedule.
-        refillTurn.set(key, (turn + 1) % shift.refill.length);
-        const scheduled = shift.refill[turn % shift.refill.length];
-        const needy = working.has(scheduled) && morale[scheduled] !== undefined && morale[scheduled] < FULL ? scheduled : undefined;
+        const tired = (name: string) => working.has(name) && morale[name] !== undefined && morale[name] < FULL;
+        let needy: string | undefined;
+        if (input.refillPolicy === 'lowest') {
+          needy = shift.refill.filter(tired).sort((x, y) => morale[x] - morale[y])[0];
+        } else {
+          const key = shift.refill.join('|');
+          const turn = refillTurn.get(key) ?? 0;
+          // A fixed rotation through the list: each opportunity is this member's turn, in order, regardless of
+          // who currently reads lowest. The turn always advances, even when this member turns out not to need
+          // it (already full) -- that is a real wasted visit, exactly as it would be for a player on a schedule.
+          refillTurn.set(key, (turn + 1) % shift.refill.length);
+          const scheduled = shift.refill[turn % shift.refill.length];
+          needy = tired(scheduled) ? scheduled : undefined;
+        }
         if (fiammetta && needy && morale[fiammetta.name] === FULL) {
-          caveats.add('A worker refilled in place is modeled as taken to the dorm slot before Fiammetta and put straight back at the login, so the swap costs no working time. The game text swaps with "the previous Operator assigned to that Dormitory"; that the swap fires on placement is an assumption. Several workers on the same refill list are visited in a fixed rotation (not "whichever is lowest"), so each gets a bounded worst-case wait.');
+          caveats.add('A worker refilled in place is modeled as taken to the dorm slot before Fiammetta and put straight back at the login, so the swap costs no working time. The game text swaps with "the previous Operator assigned to that Dormitory"; that the swap fires on placement is an assumption. ' + (input.refillPolicy === 'lowest'
+            ? 'Of several workers on the same refill list, the one reading lowest gets her Morale.'
+            : 'Several workers on the same refill list are visited in a fixed rotation (not "whichever is lowest"), so each gets a bounded worst-case wait.'));
           log.events.push({ time, kind: 'fiammettaSwap', room: fiammetta.room, operators: [fiammetta.name, needy], detail: `${fiammetta.name} swaps her full Morale with ${needy} (${morale[needy].toFixed(2)}), who goes straight back to work.` });
           [morale[fiammetta.name], morale[needy]] = [morale[needy], morale[fiammetta.name]];
         }
@@ -424,37 +436,36 @@ export function simulateBase(input: SimulationInput): SimulationResult {
     return { log, rooms: roomOf };
   }
 
-  // Fiammetta visits a refill list in a fixed rotation that carries over from cycle to cycle, so with L names
-  // and k visits a cycle the whole state repeats every L / gcd(L, k) cycles, not every cycle: three core workers
-  // over two staffing changes line up again only after three cycles. Comparing Morale one cycle apart would call
-  // that steady plan unsettled forever (and the optimizer would reject it), so compare that many cycles apart and
-  // average the output over all of them.
-  const gcd = (a: number, b: number): number => b ? gcd(b, a % b) : a;
-  const visits = new Map<string, { length: number; perCycle: number }>();
-  for (const s of shifts) if (s.refill?.length) {
-    const v = visits.get(s.refill.join('|')) ?? { length: s.refill.length, perCycle: 0 };
-    v.perCycle++;
-    visits.set(s.refill.join('|'), v);
-  }
-  const period = [...visits.values()].reduce((p, v) => { const n = v.length / gcd(v.length, v.perCycle); return p / gcd(p, n) * n; }, 1);
+  // The state may repeat only every few cycles: Fiammetta visits a refill list in a fixed rotation that carries
+  // over from cycle to cycle (three core workers over two staffing changes line up again every three cycles), and
+  // refilling whoever is lowest can settle into turns that alternate across cycles. Comparing Morale one cycle
+  // apart would call such a steady plan unsettled forever (and the optimizer would reject it), so look for the
+  // shortest repeat of up to MAX_PERIOD cycles -- Morale and the rotation's position both -- and average the
+  // output over every cycle in it.
+  const MAX_PERIOD = 12;
   const turns = () => JSON.stringify([...refillTurn.entries()].sort());
-
   let rooms = new Map<string, string>();
   const starts: { morale: Record<string, number>; turns: string }[] = [];
-  const window: CycleLog[] = [];
-  let cycle = 0, periodic = false;
+  const recent: CycleLog[] = [];
+  let cycle = 0, periodic = false, period = 1;
   for (; cycle < maxCycles; cycle++) {
     starts.push({ morale: { ...morale }, turns: turns() });
+    if (starts.length > MAX_PERIOD) starts.shift();
     const ran = runCycle(rooms);
     rooms = ran.rooms;
-    window.push(ran.log);
-    if (window.length > period) window.shift();
-    const ref = starts.length >= period ? starts[starts.length - period] : null;
-    periodic = !!ref && ref.turns === turns() && Object.keys(morale).every(n => Math.abs(morale[n] - ref.morale[n]) < 1e-7);
+    recent.push(ran.log);
+    if (recent.length > MAX_PERIOD) recent.shift();
+    const now = turns();
+    periodic = false;
+    for (let p = 1; p <= starts.length; p++) {
+      const ref = starts[starts.length - p];
+      if (ref.turns === now && Object.keys(morale).every(n => Math.abs(morale[n] - ref.morale[n]) < 1e-7)) { periodic = true; period = p; break; }
+    }
     // A repeat also needs the same staffing to carry into the next cycle, which holds
     // once one cycle has run (the last shift precedes the first from then on).
     if (periodic && cycle >= period && !input.fixedCycles) break;
   }
+  const window = recent.slice(periodic ? -period : -1);
   if (cycle === maxCycles) cycle--;
   if (!periodic && !input.fixedCycles) warnings.add(`Morale did not settle into a repeating cycle within ${input.maxDays ?? 30} days; the last cycle is shown.`);
   const final = window[window.length - 1];
