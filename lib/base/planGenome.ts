@@ -49,6 +49,10 @@ export interface GenomeContext {
 
 export interface Evaluation { shifts: SimulationShift[]; sim: SimulationResult; value: number }
 
+/** One room-rate cache per context (one base), shared by every evaluation a search makes in it. */
+const rateCaches = new WeakMap<GenomeContext, Map<string, unknown>>();
+const rateCacheFor = (ctx: GenomeContext) => { let c = rateCaches.get(ctx); if (!c) { c = new Map(); rateCaches.set(ctx, c); } return c; };
+
 const operatorsIn = (a: BaseAssignments) => Object.values(a).flatMap(slots => (slots ?? []).flatMap(s => s ? [s.operatorName] : []));
 
 /** The context's fixed pieces, computed once per context and reused by every decode. */
@@ -107,7 +111,7 @@ export function evaluate(g: Genome, ctx: GenomeContext): Evaluation {
   const shifts = decode(g, ctx);
   const weights = ctx.weights ?? DEFAULT_WEIGHTS;
   const sim = simulateBase({
-    base: ctx.base, shifts, loginInterval: ctx.loginInterval, initialMorale: g.parked, drones: ctx.drones, refillPolicy: g.refillLowest ? 'lowest' : 'rotation',
+    base: ctx.base, shifts, loginInterval: ctx.loginInterval, initialMorale: g.parked, drones: ctx.drones, refillPolicy: g.refillLowest ? 'lowest' : 'rotation', rateCache: rateCacheFor(ctx),
     droneWeights: { lmd: weights.lmd, exp: weights.exp, goldMade: weights.goldMade },
     ...(ctx.sustainable ? { droneFunding: { externalGold: ctx.externalGold ?? 0 } } : {}),
   });

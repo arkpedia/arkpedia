@@ -63,6 +63,10 @@ export interface SimulationInput {
    * wasted turns included; 'lowest' gives her Morale to whichever working member reads lowest, as a player
    * watching the numbers would. */
   refillPolicy?: 'rotation' | 'lowest';
+  /** Room rates to share across simulations of the same base: a search that scores many plans differing in a room
+   * or two reuses every other shift's rates. Keyed by each shift's whole staffing, so a plan never reads another's;
+   * only for simulations of one base. Cleared when it grows past RATE_CACHE_LIMIT entries. */
+  rateCache?: Map<string, unknown>;
   /** Spend the drones the Power Plants make at every login, on the staffed Trading Post or Factory where a drone is worth most.
    * One drone removes 3 minutes of a room's BASE production time (PRTS); base skills do not apply to it. Default off. */
   drones?: boolean;
@@ -189,6 +193,9 @@ const zeroOutput = (): DailyOutput => ({ exp: 0, goldMade: 0, goldSold: 0, lmd: 
 const lmdOf = (o: RoomDailyOutput) => o.goldSold * 500 + o.extraLmd + o.pepeLmd;
 
 /** Which side of every threshold a Morale value is on; equal rates share a key. */
+/** Shared rate caches are cleared past this many entries, which keeps a long search's memory bounded. */
+const RATE_CACHE_LIMIT = 40000;
+
 function moraleBin(m: number): number {
   let bin = 0;
   for (const t of MORALE_THRESHOLDS) bin = bin * 3 + (m < t ? 0 : m === t ? 1 : 2);
@@ -235,7 +242,12 @@ export function simulateBase(input: SimulationInput): SimulationResult {
   });
 
   let evaluations = 0;
-  const cache = new Map<string, Rates>();
+  const shared = input.rateCache as Map<string, Rates> | undefined;
+  const cache = shared ?? new Map<string, Rates>();
+  // Within one run a shift's index names it; across runs only its whole content does.
+  const shiftKey = shared
+    ? shifts.map(s => JSON.stringify([Object.keys(s.assignments).sort().map(room => [room, (s.assignments[room] ?? []).map(x => x ? `${x.operatorName}/${x.eliteLevel}/${x.level ?? ''}/${x.manualValue ?? ''}` : '')]), s.factoryProducts, s.settings ?? null, loginInterval, !!input.drones]))
+    : shifts.map((_, i) => String(i));
   // Hours each operator has worked without a break in their current room; persists across cycles like Morale.
   const worked: Record<string, number> = {};
   // Fixed round-robin turn for each distinct refill list, so every member gets a bounded worst-case wait --
@@ -247,7 +259,7 @@ export function simulateBase(input: SimulationInput): SimulationResult {
     const shift = shifts[shiftIndex];
     const placed = placements(shift.assignments);
     const rampStart = Object.fromEntries(placed.filter(p => RAMP_OPERATORS.has(p.name) && kindOf[p.room] !== 'dormitory').map(p => [p.name, Math.round((worked[p.name] ?? 0) * 2) / 2]));
-    const key = `${shiftIndex}|${placed.map(p => moraleBin(morale[p.name])).join(',')}|${Object.entries(rampStart).map(([n, h]) => `${n}:${h}`).join(',')}`;
+    const key = `${shiftKey[shiftIndex]}|${placed.map(p => moraleBin(morale[p.name])).join(',')}|${Object.entries(rampStart).map(([n, h]) => `${n}:${h}`).join(',')}`;
     const hit = cache.get(key);
     if (hit) return hit;
     // Dorm effects read each slot's own Morale; working rooms read importedMorale.
@@ -281,6 +293,7 @@ export function simulateBase(input: SimulationInput): SimulationResult {
       rates.dronesPerHour = dronesPerHour(result, placed.filter(p => kindOf[p.room] === 'powerPlant').map(p => p.room));
       rates.droneTargets = droneTargets(result, Object.keys(rates.workers), kindOf, shift.factoryProducts);
     }
+    if (shared && cache.size >= RATE_CACHE_LIMIT) cache.clear();
     cache.set(key, rates);
     return rates;
   }
