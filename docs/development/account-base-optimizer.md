@@ -48,22 +48,27 @@ recovery, exhaustion, storage, collections and drones over a repeating cycle (wh
 repeat only every few cycles when a refill rotation lines up slowly). Non-repeating and
 exhausted rotations are excluded. This is a best-found result, not a global optimality
 claim. `scripts/bench/anneal-tiers.ts` compares the stages on rosters from 15 operators
-at E0 to a maxed account. Against the reference sheet's rotations, on their own
-operators at 8 h logins, drones on (`scripts/bench/formations-sheet-pool-342.ts`,
-`scripts/bench/sheet-252-vs-optimizer.ts`):
+at E0 to a maxed account. `scripts/bench/account-budget.ts` runs the page's whole search
+against the reference sheets' rotations on their own operators (8 h logins, drones on),
+scored the page's way: funded LMD (gold counts only as far as it is sold) plus EXP.
 
-| Sheet variant (layout) | Sheet's rotation | Optimizer |
+| Sheet variant (layout) | Sheet's rotation, funded | Page search, 1 min |
 |---|---|---|
-| 3-4-2 (its own 342 layout) | 162,860 | from the plan without formations, 1 min: 92.6 to 95.8%; formations plan (45 s) and its core seed (`coreSeed.ts`), then 1 min: 100.0 to 100.5% |
-| 2-5-2 (2-5-2 max right) | 151,793 | from the plan without formations (the page's start), 1 min: 98.9% |
+| 2-5-2 (2-5-2 max right) | 89,401 (runs operators out 110 times) | 95,143 (106%), nobody runs out |
+| 3-4-2 (its own layout, imported) | 86,497; its plan without exhaustion 87,069 | 84,264 to 84,718 (97%); 84,755 at 2 min |
 
-Both sheet rotations run some operators to 0 Morale in the simulator (Wild Mane on the
-3-4-2 one, six on the 2-5-2 one); the optimizer's plans run nobody out. The 3-4-2 sheet's
-plan fits the search's plan model: written as one (`anneal-chains-342.ts sheet`), with the
-model's own rest rule, it scores 163,082 with nobody run out, and a 5-minute search started
-from it reaches 164,905. The search does not reach that plan from its own start: its
-refill core of the Shamare trio plus Proviso only holds once the whole core and
-lowest-first refills are in place together, and every partial step runs someone out.
+The 3-4-2 sheet makes the same gold as the page's plan (127 a day) from one level 3 and
+two level 2 factories with strong two-operator gold teams, which leaves a level 3 factory
+for EXP (19,367 a day against the page's 16,204). That takes several factory teams changing
+at once, which the search does not find in its time.
+
+Scored instead with every gold bar worth 500 LMD (`sheet-252-vs-optimizer.ts`,
+`anneal-chains-342.ts`), the search from the formations plan passes both sheets (2-5-2
+100.6%, 3-4-2 99.6 to 100.9%), but those plans make gold the Trading Posts cannot sell:
+on the page's scoring they fall to about 79,000 to 81,000 on the 3-4-2.
+
+Both sheet rotations run some operators to 0 Morale in the simulator; the optimizer's
+plans run nobody out.
 
 For comparison, LMD is limited by the ratio of daily gold supply to daily sales demand.
 Gold supply includes an explicit optional outside-gold allowance, default zero. The
