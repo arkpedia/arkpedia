@@ -17,7 +17,7 @@ export interface Genome {
   steps: number;
   /** Logins per staffing change. */
   k: number;
-  /** Two or three crews. An operator sits in one room only, though the same room may hold them in several crews. */
+  /** Two or three staffing templates. Placements may share an operator only when they never work together. */
   crews: BaseAssignments[];
   /** For each room, the crew (an index into `crews`) that staffs it at each change, `steps` long. */
   assign: Record<string, number[]>;
@@ -71,6 +71,53 @@ const fixed = (ctx: GenomeContext) => { let l = layouts.get(ctx); if (!l) { l = 
 
 /** Which crew (0 or 1) staffs `room` on change `step`. */
 export const crewAt = (g: Genome, room: string, step: number) => g.assign[room]?.[step] ?? 0;
+
+/** Place one worker, removing only assignments that overlap its actual working changes.
+ * A room may share that worker with another room on a different change. */
+export function placeGenomeOperator(g: Genome, c: number, room: string, index: number, slot: SlotAssignment | null, capacity: number, reuseAcrossRooms = true): void {
+  if (slot) {
+    const active = Array.from({ length: g.steps }, (_, step) => step).filter(step => crewAt(g, room, step) === c);
+    for (const [otherCrew, crew] of g.crews.entries()) for (const [id, slots] of Object.entries(crew)) {
+      const keptCore = g.core.includes(slot.operatorName) && id === room && otherCrew !== c;
+      const conflict = reuseAcrossRooms
+        ? (otherCrew === c && id === room) || active.some(step => crewAt(g, id, step) === otherCrew)
+        : !keptCore;
+      if (conflict) crew[id] = (slots ?? []).map(old => old?.operatorName === slot.operatorName ? null : old);
+    }
+  }
+  const slots = [...(g.crews[c][room] ?? [])];
+  while (slots.length < capacity) slots.push(null);
+  slots[index] = slot;
+  g.crews[c][room] = slots;
+}
+
+/** Split some uses of one template into an identical third template. The decoded plan stays unchanged. */
+export function splitCrew(g: Genome, changes: { room: string; step: number }[]): Genome | null {
+  if (g.crews.length !== 2) return null;
+  const source = new Map<string, number>();
+  for (const { room, step } of changes) {
+    if (!g.assign[room] || step < 0 || step >= g.steps) return null;
+    const crew = crewAt(g, room, step);
+    if (source.has(room) && source.get(room) !== crew) return null;
+    source.set(room, crew);
+  }
+  const next = structuredClone(g);
+  next.crews.push(Object.fromEntries(Object.keys(g.assign).map(room => [room, structuredClone(g.crews[source.get(room) ?? 0][room] ?? [])])));
+  for (const { room, step } of changes) next.assign[room][step] = 2;
+  return next;
+}
+
+/** A retiming can make previously separate placements overlap. Check before an expensive score. */
+export function hasWorkingCollision(g: Genome, rooms: string[] = Object.keys(g.assign)): boolean {
+  for (let step = 0; step < g.steps; step++) {
+    const on = new Set<string>();
+    for (const id of rooms) for (const slot of g.crews[crewAt(g, id, step)][id] ?? []) if (slot) {
+      if (on.has(slot.operatorName)) return true;
+      on.add(slot.operatorName);
+    }
+  }
+  return false;
+}
 
 /** The genome as the simulator's shift list. */
 export function decode(g: Genome, ctx: GenomeContext): SimulationShift[] {
@@ -136,7 +183,9 @@ export function genomeFromResult(result: OptimizerResult, ctx: GenomeContext): G
   if (steps < 2 || steps > 4) return null;
   const { rooms } = fixed(ctx);
   const roomIds = rooms.map(f => f.id);
-  const crews: BaseAssignments[] = [{}, {}];
+  const crewIds = result.schedule.flatMap(step => step.crewIn.map(entry => entry.crew));
+  if (crewIds.some(index => !Number.isInteger(index) || index < 0 || index > 2)) return null;
+  const crews: BaseAssignments[] = Array.from({ length: Math.max(2, ...crewIds.map(index => index + 1)) }, () => ({}));
   const assign: Record<string, number[]> = {};
   for (const id of roomIds) {
     // The schedule says which crew comes into the room at each change; the shifts say who that crew is. A
@@ -146,12 +195,13 @@ export function genomeFromResult(result: OptimizerResult, ctx: GenomeContext): G
     const byStep: number[] = Array(steps).fill(named.find(c => c !== undefined) ?? 0);
     for (let pass = 0; pass < 2; pass++) for (let s = 0; s < steps; s++) byStep[s] = named[s] ?? byStep[(s + steps - 1) % steps];
     for (let s = 0; s < steps; s++) crews[byStep[s]][id] ??= result.shifts[s].assignments[id] ?? Array(rooms.find(f => f.id === id)!.capacity).fill(null);
-    for (const c of [0, 1] as const) crews[c][id] ??= crews[1 - c][id];
+    const fallback = crews.find(crew => crew[id])?.[id] ?? Array(rooms.find(f => f.id === id)!.capacity).fill(null);
+    for (const crew of crews) crew[id] ??= fallback;
     assign[id] = byStep;
   }
   const g: Genome = {
     steps, k: Math.max(1, Math.round(result.stepHours / ctx.loginInterval)), crews, assign,
-    core: result.shifts[0].refill ?? [], parked: result.initialMorale ?? {}, products: result.shifts[0].factoryProducts, fillBeds: true, restAll: true,
+    core: result.shifts[0].refill ?? [], refillLowest: result.refillPolicy === 'lowest', parked: result.initialMorale ?? {}, products: result.shifts[0].factoryProducts, fillBeds: true, restAll: true,
   };
   // Which rest rule the plan used is not recorded; keep whichever scores higher.
   const other = { ...g, restAll: false };

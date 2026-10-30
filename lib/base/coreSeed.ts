@@ -1,6 +1,6 @@
 import { WORK_KINDS } from './baseOptimizer';
 import { anneal, type AnnealOptions, type AnnealResult } from './annealBase';
-import { evaluate, type Evaluation, type Genome, type GenomeContext } from './planGenome';
+import { evaluate, splitCrew, type Evaluation, type Genome, type GenomeContext } from './planGenome';
 import type { BaseAssignments, SlotAssignment } from './baseTypes';
 
 const namesIn = (slots: (SlotAssignment | null)[] | undefined) => (slots ?? []).flatMap(s => s ? [s.operatorName] : []);
@@ -28,7 +28,7 @@ export function coreSeed(g: Genome, ctx: GenomeContext): { genome: Genome; evalu
     if (tried.has(key)) return;
     tried.add(key);
     const names = members.map(m => m.name);
-    const n = structuredClone(g);
+    let n = structuredClone(g);
     // Each member takes their room in every crew (an empty place first, else one not in the new core) and leaves any
     // other place; Fiammetta leaves work to refill.
     for (const crew of n.crews) {
@@ -47,14 +47,13 @@ export function coreSeed(g: Genome, ctx: GenomeContext): { genome: Genome; evalu
     // Earlier core members stay core only while they still work every change.
     const placedEverywhere = (name: string) => n.crews.every(crew => Object.values(crew as BaseAssignments).some(slots => namesIn(slots ?? undefined).includes(name)));
     n.core = [...g.core.filter(x => !names.includes(x) && placedEverywhere(x)), ...names];
-    // A third crew, a copy of the second, takes one change of every room that one crew staffs twice.
+    // A third template takes a repeated change without replacing it with another crew’s workers.
     if (n.crews.length === 2) {
-      n.crews.push(structuredClone(n.crews[1]));
-      for (const id of Object.keys(n.assign)) {
-        const a = n.assign[id];
-        const twice = a.findIndex((c, i) => a.indexOf(c) !== i);
-        if (twice >= 0) a[twice] = 2;
-      }
+      const changes = Object.entries(n.assign).flatMap(([room, a]) => {
+        const step = a.findIndex((crew, index) => a.indexOf(crew) !== index);
+        return step < 0 ? [] : [{ room, step }];
+      });
+      n = splitCrew(n, changes)!;
     }
     n.refillLowest = true;
     const evaluation = evaluate(n, ctx);

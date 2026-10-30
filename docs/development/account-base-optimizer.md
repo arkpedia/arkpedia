@@ -1,5 +1,8 @@
 # Account Base optimizer (Preview)
 
+Release boundary: Preview only. Keep this feature out of production and do not
+merge its feature pull request to main without a new explicit user instruction.
+
 Open **Base → Optimize base**. The optimizer runs in a browser Worker; imported
 rosters stay in the browser. It can be opened before choosing a manual layout.
 
@@ -52,23 +55,35 @@ at E0 to a maxed account. `scripts/bench/account-budget.ts` runs the page's whol
 against the reference sheets' rotations on their own operators (8 h logins, drones on),
 scored the page's way: funded LMD (gold counts only as far as it is sold) plus EXP.
 
-| Sheet variant (layout) | Sheet's rotation, funded | Page search, 1 min |
-|---|---|---|
-| 2-5-2 (2-5-2 max right) | 89,401 (runs operators out 110 times) | 95,143 (106%), nobody runs out |
-| 3-4-2 (its own layout, imported) | 86,497; its plan without exhaustion 87,069 | 84,264 to 84,718 (97%); 84,755 at 2 min |
+The 2026-10-30 continuation compared the account search against the preceding
+implementation using the same live game-data revision
+`b6ddc46e9ba00142fafaa4499040521c24bb2e66` (Node 26, 60-second budget).
+These are individual runs; time-budgeted searches can finish at different rounds.
 
-The 3-4-2 sheet makes the same gold as the page's plan (127 a day) from one level 3 and
-two level 2 factories with strong two-operator gold teams, which leaves a level 3 factory
-for EXP (19,367 a day against the page's 16,204). That takes several factory teams changing
-at once, which the search does not find in its time.
+| Roster | Previous funded LMD+EXP/day | Current | Search / first plan |
+|---|---:|---:|---:|
+| 15 operators, E0 | 49,481 | 49,534 | 4.5 s / 0.1 s |
+| 40 operators, E1 | 57,352 | 60,000 | 60.0 s / 0.4 s |
+| 424 operators, few E2 | 86,602 | 88,144 | 60.0 s / 3.2 s |
+| 424 operators, maxed | 99,445 | 100,254 | 61.3 s / 4.5 s |
 
-Scored instead with every gold bar worth 500 LMD (`sheet-252-vs-optimizer.ts`,
-`anneal-chains-342.ts`), the search from the formations plan passes both sheets (2-5-2
-100.6%, 3-4-2 99.6 to 100.9%), but those plans make gold the Trading Posts cannot sell:
-on the page's scoring they fall to about 79,000 to 81,000 on the 3-4-2.
+| Sheet variant (layout) | Reference funded LMD+EXP/day | Current search, 60 seconds |
+|---|---:|---:|
+| 2-5-2 max-right | 89,401; 110 exhaustion events | 95,304 (106.6%) |
+| 3-4-2, imported layout | 87,069; feasible four-worker refill core | 84,522 (97.1%) |
 
-Both sheet rotations run some operators to 0 Morale in the simulator; the optimizer's
-plans run nobody out.
+All six optimizer results repeat without exhaustion or duplicate placements.
+The 342 target remains unmet: its strong gold pairs leave a level 3 factory for
+EXP, and reaching that arrangement requires several factory/support changes
+together. Do not substitute weighted gold scores or a saved intermediate warm start
+for this end-to-end account-search comparison. The 252 comparison fixes max-right;
+choosing a max-left layout against that sheet would not be like-for-like.
+
+`account-acceptance.ts` checks ownership, capacity, repeating cycles, exhaustion,
+duplicate placements, funded scoring and wall time. `BASELINE_JSON` enforces
+nonregression against a saved run on the same data; `REQUIRE_REFERENCE_MATCH=1`
+fails while a selected reference is ahead. It never feeds the reference placements
+to the optimizer.
 
 For comparison, LMD is limited by the ratio of daily gold supply to daily sales demand.
 Gold supply includes an explicit optional outside-gold allowance, default zero. The

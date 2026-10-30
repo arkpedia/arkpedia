@@ -18,7 +18,9 @@ export interface AccountOptimizerInput {
   compareLayouts: boolean;
   /** Count the Power Plants' drones, spent where each is worth most under the funded scoring. Default true. */
   drones?: boolean;
-  /** Search time in seconds, 5 to 600. Default 120. */
+  /** Reserve these owned operators in dorms throughout the search. */
+  lockedDorm?: string[];
+  /** Search time in seconds, 5 to 600. Default 60. */
   searchSeconds?: number;
   /** The formations search, run beside the main one (the page starts it in a second worker): one first plan per
    * layout, then the leading layout's plan built with formations, then all the time left annealing that. */
@@ -114,16 +116,22 @@ export function optimizeAccountBase(input: AccountOptimizerInput, progress?: (do
   };
 
   // Formations (Fiammetta's refill core with crews taking turns, as hand-made sheets run) take 20-40 s on a large
-  // roster and help some rosters, not others (they let a minute of search match the reference sheets, and only cost
-  // time on a maxed one), so they run as a second search beside the main one rather than inside it.
+  // roster and help some rosters, not others, so they run as a second search beside the main one rather than
+  // inside it. The main worker keeps its own full search budget.
   const withFormations = !!input.formations && 'Fiammetta' in input.roster;
   const seedShare = withFormations ? 0 : 0.35;
 
   // Seed. Splits close to one gold factory per Trading Post first: gold is what the posts sell.
   const queue = layouts.map(layout => {
-    const posts = getFacilities(layout.spots, layout.levels).filter(f => f.kind === 'tradingPost' && f.capacity).length;
+    const facilities = getFacilities(layout.spots, layout.levels);
+    const posts = facilities.filter(f => f.kind === 'tradingPost' && f.capacity).length;
     const gold = (p: FactoryProducts) => Object.values(p).filter(v => v === 'Precious Metals').length;
-    return { layout, splits: productOptions(layout).sort((x, y) => Math.abs(gold(x) - posts) - Math.abs(gold(y) - posts) || gold(x) - gold(y)) };
+    // Strong gold pairs can use a smaller room; an EXP trio needs the larger
+    // capacity. The main search tries several seeds; the formations worker keeps
+    // the original single-seed order because its construction already dominates
+    // the budget. Every split remains available to annealing in either worker.
+    const goldCapacity = (p: FactoryProducts) => facilities.filter(f => f.kind === 'factory' && p[f.id] === 'Precious Metals').reduce((sum, f) => sum + f.capacity, 0);
+    return { layout, splits: productOptions(layout).sort((x, y) => Math.abs(gold(x) - posts) - Math.abs(gold(y) - posts) || gold(x) - gold(y) || (withFormations ? 0 : goldCapacity(x) - goldCapacity(y))) };
   });
   for (let round = 0; queue.some(q => q.splits.length > round); round++) {
     for (const { layout, splits } of queue) {
@@ -131,7 +139,7 @@ export function optimizeAccountBase(input: AccountOptimizerInput, progress?: (do
       tick(`${layout.label}: first plans`);
       const products = splits[round];
       searched++;
-      const plan = optimizeBase({ base: baseFor(layout), roster: input.roster, loginInterval: input.loginInterval, factoryProducts: products, weights, sustainable: true, externalGold: input.externalGold, drones });
+      const plan = optimizeBase({ base: baseFor(layout), roster: input.roster, loginInterval: input.loginInterval, factoryProducts: products, weights, sustainable: true, externalGold: input.externalGold, drones, lockedDorm: input.lockedDorm });
       if (!plan.simulation.periodic || plan.simulation.events.some(e => e.kind === 'exhausted')) { rejected++; continue; }
       const output = sustainableOutput(plan.simulation.perDay, input.externalGold);
       if (offer({ ...layout, products, weights, plan, output, score: output.lmd * weights.lmd + output.exp * weights.exp })) tick(`${layout.label}: first plans`, snapshotResult());
@@ -143,7 +151,7 @@ export function optimizeAccountBase(input: AccountOptimizerInput, progress?: (do
     tick(`${leader.label}: formations`);
     searched++;
     const layout = layouts.find(l => l.id === leader.id)!;
-    const plan = optimizeBase({ base: baseFor(layout), roster: input.roster, loginInterval: input.loginInterval, factoryProducts: leader.products, weights, sustainable: true, externalGold: input.externalGold, drones, formations: true });
+    const plan = optimizeBase({ base: baseFor(layout), roster: input.roster, loginInterval: input.loginInterval, factoryProducts: leader.products, weights, sustainable: true, externalGold: input.externalGold, drones, lockedDorm: input.lockedDorm, formations: true });
     if (plan.simulation.periodic && !plan.simulation.events.some(e => e.kind === 'exhausted')) {
       const output = sustainableOutput(plan.simulation.perDay, input.externalGold);
       if (offer({ ...layout, products: leader.products, weights, plan, output, score: output.lmd * weights.lmd + output.exp * weights.exp })) tick(`${layout.label}: formations`, snapshotResult());
@@ -157,7 +165,7 @@ export function optimizeAccountBase(input: AccountOptimizerInput, progress?: (do
     const left = budget - elapsed();
     if (left < 2000) return;
     const timeMs = order.length > 1 && i === 0 ? left * 0.7 : left;
-    const ctx: GenomeContext = { base: baseFor(seed), roster: input.roster, loginInterval: input.loginInterval, weights, sustainable: true, externalGold: input.externalGold, drones };
+    const ctx: GenomeContext = { base: baseFor(seed), roster: input.roster, loginInterval: input.loginInterval, weights, sustainable: true, externalGold: input.externalGold, drones, lockedDorm: input.lockedDorm };
     const genome = genomeFromResult(seed.plan, ctx);
     if (!genome) return;
     const improve = (g: Genome, e: Evaluation) => {

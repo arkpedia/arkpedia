@@ -162,3 +162,22 @@ test('the formations search, run beside the main one, merges into each layout\'s
   assert.equal(merged.searched, main.searched + formations.searched);
   assert.equal(mergeAccountResults(null, undefined), null);
 });
+
+
+test('dorm recovery residents stay reserved through account seeds and annealing', () => {
+  const roster = { ...fixtureRoster, Perfumer: { eliteLevel: 'Elite 1' as const, level: 60 } };
+  const result = optimizeAccountBase({ base, roster, snapshot: account.base, loginInterval: 12,
+    objective: 'balanced', externalGold: 0, compareLayouts: false, searchSeconds: 5, lockedDorm: ['Perfumer'] });
+  assert.ok(result.recommendations.length);
+  for (const recommendation of result.recommendations) {
+    const kinds = new Map(getFacilities(recommendation.spots, recommendation.levels).map(f => [f.id, f.kind]));
+    for (const shift of recommendation.plan.shifts) {
+      const placements = Object.entries(shift.assignments).flatMap(([room, slots]) =>
+        (slots ?? []).flatMap(s => s?.operatorName === 'Perfumer' ? [room] : []));
+      assert.equal(placements.length, 1);
+      assert.equal(kinds.get(placements[0]), 'dormitory');
+    }
+    assert.ok(recommendation.plan.simulation.periodic);
+    assert.ok(!recommendation.plan.simulation.events.some(e => e.kind === 'exhausted'));
+  }
+});

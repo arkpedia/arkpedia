@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { getAllOperators } from '../../lib/operators/operators';
 import { toBaseRosters } from '../../lib/base/baseGroupRosters';
 import { optimizeBase, type OwnedOperator } from '../../lib/base/baseOptimizer';
-import { decode, evaluate, genomeFromResult, toOptimizerResult, type GenomeContext } from '../../lib/base/planGenome';
+import { decode, evaluate, genomeFromResult, hasWorkingCollision, placeGenomeOperator, splitCrew, toOptimizerResult, type Genome, type GenomeContext } from '../../lib/base/planGenome';
 import { anneal, placesNobodyTwice } from '../../lib/base/annealBase';
 import { coreSeed } from '../../lib/base/coreSeed';
 import { getFacilities, presetLevels, presetSpots } from '../../lib/base/baseConfig';
@@ -108,4 +108,66 @@ test('the core seed makes a whole room team the refill core, over three crews, w
     const rooms = r.genome.crews.map(c => Object.entries(c).find(([, s]) => (s ?? []).some(x => x?.operatorName === name))?.[0]);
     assert.ok(rooms[0] && rooms.every(x => x === rooms[0]), `${name}: ${rooms.join(', ')}`);
   }
+});
+
+
+test('three-crew results read back with their complete patterns and lowest-morale refill policy', () => {
+  const shaped = coreSeed(builtSeed, builtCtx)!;
+  assert.ok(shaped);
+  const rendered = toOptimizerResult(shaped.genome, shaped.evaluation, builtCtx);
+  const read = genomeFromResult(rendered, builtCtx)!;
+  assert.equal(read.crews.length, 3);
+  assert.deepEqual(read.assign, shaped.genome.assign);
+  assert.equal(read.refillLowest, true);
+  assert.ok(placesNobodyTwice(read, builtCtx));
+  const evaluation = evaluate(read, builtCtx);
+  assert.ok(evaluation.value >= shaped.evaluation.value - 1e-6);
+  for (let step = 0; step < read.steps; step++) for (const room of facilities.filter(f => f.kind !== 'dormitory')) {
+    assert.deepEqual(evaluation.shifts[step].assignments[room.id], shaped.evaluation.shifts[step].assignments[room.id]);
+  }
+});
+
+
+test('a worker may change factories between shifts, while simultaneous placements are removed', () => {
+  const [a, b] = facilities.filter(f => f.kind === 'factory');
+  const name = Object.keys(roster)[0];
+  const slot = { operatorName: name, ...roster[name] };
+  const g: Genome = { ...structuredClone(seed), steps: 2, crews: [{}, { [b.id]: [slot] }], assign: { [a.id]: [0, 1], [b.id]: [0, 1] }, core: [] };
+  placeGenomeOperator(g, 0, a.id, 0, slot, a.capacity);
+  assert.equal(g.crews[1][b.id]?.[0]?.operatorName, name, 'the worker returns to another room on the other shift');
+  assert.equal(hasWorkingCollision(g), false);
+  assert.ok(placesNobodyTwice(g, ctx));
+  g.assign[b.id] = [1, 0];
+  assert.equal(hasWorkingCollision(g), true, 'retiming must not silently double-book the shared worker');
+  placeGenomeOperator(g, 0, a.id, 0, slot, a.capacity);
+  assert.equal(g.crews[1][b.id]?.[0], null, 'an overlapping placement leaves that other room');
+  assert.equal(hasWorkingCollision(g), false);
+  assert.ok(placesNobodyTwice(g, ctx));
+});
+
+
+test('splitting a crew starts the third template without changing placements, rest or refill output', () => {
+  const [first, second] = facilities.filter(f => f.kind === 'factory').map(f => f.id);
+  const split = splitCrew(seed, [{ room: first, step: 0 }, { room: second, step: 1 }])!;
+  assert.deepEqual(split.crews[2][first], seed.crews[seed.assign[first][0]][first]);
+  assert.deepEqual(split.crews[2][second], seed.crews[seed.assign[second][1]][second]);
+  assert.equal(split.crews.length, 3);
+  assert.deepEqual(decode(split, ctx), decode(seed, ctx));
+  assert.equal(evaluate(split, ctx).value, evaluate(seed, ctx).value);
+  assert.equal(splitCrew(split, []), null);
+});
+
+
+test('an atomic team replacement keeps an existing refill core in its other crews', () => {
+  const room = facilities.find(f => f.kind === 'tradingPost')!;
+  const [name, replacement] = Object.keys(roster);
+  const slot = (operatorName: string) => ({ operatorName, ...roster[operatorName] });
+  const g: Genome = { ...structuredClone(seed), steps: 2, crews: [{ [room.id]: [slot(name)] }, { [room.id]: [slot(name)] }],
+    assign: { [room.id]: [0, 1] }, core: [name] };
+  placeGenomeOperator(g, 1, room.id, 0, null, room.capacity, false);
+  placeGenomeOperator(g, 1, room.id, 0, slot(name), room.capacity, false);
+  placeGenomeOperator(g, 1, room.id, 1, slot(replacement), room.capacity, false);
+  assert.equal(g.crews[0][room.id]?.[0]?.operatorName, name);
+  assert.deepEqual(g.core, [name]);
+  assert.ok(placesNobodyTwice(g, ctx));
 });

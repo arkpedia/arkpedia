@@ -1,5 +1,5 @@
 import { WORK_KINDS } from './baseOptimizer';
-import { crewAt, decode, evaluate, snapshotValue, type Evaluation, type Genome, type GenomeContext } from './planGenome';
+import { crewAt, decode, evaluate, hasWorkingCollision, placeGenomeOperator, snapshotValue, splitCrew, type Evaluation, type Genome, type GenomeContext } from './planGenome';
 import { teamBlocks, type TeamBlock } from './teamBlocks';
 import type { BaseAssignments, SlotAssignment } from './baseTypes';
 
@@ -65,22 +65,8 @@ export function anneal(seedGenome: Genome, ctx: GenomeContext, opts: AnnealOptio
     return total;
   };
 
-  /** Put `name` into crew c, room `room`, slot i; it leaves every other place first (a core member stops being one). */
-  const place = (g: Genome, c: number, room: string, i: number, name: string | null) => {
-    if (name) {
-      for (const crew of g.crews) for (const [id, slots] of Object.entries(crew)) crew[id] = (slots ?? []).map(s => s?.operatorName === name ? null : s);
-      g.core = g.core.filter(n => n !== name);
-    }
-    const old = g.crews[c][room]?.[i]?.operatorName;
-    if (old && g.core.includes(old)) {
-      // Taking a core member's slot in one crew ends their core role; they keep the other crew's place.
-      g.core = g.core.filter(n => n !== old);
-    }
-    const slots = [...(g.crews[c][room] ?? Array(capacity(room)).fill(null))];
-    while (slots.length < capacity(room)) slots.push(null);
-    slots[i] = name ? slotOf(name) : null;
-    g.crews[c][room] = slots;
-  };
+  const place = (g: Genome, c: number, room: string, i: number, name: string | null, reuseAcrossRooms = false) =>
+    placeGenomeOperator(g, c, room, i, name ? slotOf(name) : null, capacity(room), reuseAcrossRooms);
   const unused = (g: Genome) => {
     const inPlan = new Set([...g.crews.flatMap(namesIn), ...(g.core.length ? ['Fiammetta'] : [])]);
     return owned.filter(n => !inPlan.has(n));
@@ -98,18 +84,47 @@ export function anneal(seedGenome: Genome, ctx: GenomeContext, opts: AnnealOptio
     return b;
   };
 
-  const moves: { weight: number; make: () => Move }[] = [
-    // A room's whole team in one crew, from that room's best teams.
-    { weight: 4, make: () => ({ kind: 'team', timing: false, apply: g => {
+  // A block can take workers from several rooms. Give its displaced workers and a
+  // bounded set of spare candidates a chance to cover those holes in the same move.
+  const repair = (before: Genome, g: Genome, target: string, targetCrew: number, displaced: string[]) => {
+    for (const [c, crew] of g.crews.entries()) for (const id of roomIds) {
+      if (id === target && c === targetCrew) continue;
+      const slots = crew[id] ?? [];
+      for (let i = 0; i < slots.length; i++) {
+        if (slots[i] || !before.crews[c][id]?.[i]) continue;
+        const available = unused(g), allowed = new Set(available);
+        const candidates = [...new Set([...displaced, ...available.slice(0, 4)])].filter(n => allowed.has(n));
+        if (!candidates.length) continue;
+        const baseline = snapshotValue(crew, g, ctx);
+        let bestValue = baseline, bestName: string | null = null;
+        for (const name of candidates) {
+          crew[id]![i] = slotOf(name);
+          const value = snapshotValue(crew, g, ctx);
+          if (value >= bestValue && (value > bestValue || !bestName)) { bestValue = value; bestName = name; }
+        }
+        crew[id]![i] = null;
+        if (bestName) place(g, c, id, i, bestName);
+      }
+    }
+  };
+
+  const replaceTeam = (reuseAcrossRooms: boolean): Move => ({ kind: reuseAcrossRooms ? 'shared team' : 'team', timing: false, apply: g => {
       const room = pick(roomIds); const c = Math.floor(random() * g.crews.length);
       const options = (blocks(g, c)[room] ?? []).filter(b => b.names.join() !== namesIn({ x: g.crews[c][room] ?? [] }).join());
       if (!options.length) return null;
       const b = pick(options.slice(0, Math.max(2, Math.ceil(options.length * (0.3 + random() * 0.7)))));
       const n = clone(g);
       for (let i = 0; i < capacity(room); i++) place(n, c, room, i, null);
-      b.names.forEach((name, i) => place(n, c, room, i, name));
+      b.names.forEach((name, i) => place(n, c, room, i, name, reuseAcrossRooms));
+      repair(g, n, room, c, namesIn({ x: g.crews[c][room] ?? [] }));
       return n;
-    } }) },
+  } });
+
+  const moves: { weight: number; make: () => Move }[] = [
+    // Most changes keep a worker in one room; a smaller neighborhood also tries
+    // legal cross-room sharing, which often needs an accompanying rest pattern.
+    { weight: 4, make: () => replaceTeam(false) },
+    { weight: 1, make: () => replaceTeam(true) },
     // Two places trade operators, or a place takes someone unused.
     { weight: 4, make: () => ({ kind: 'swap', timing: false, apply: g => {
       const n = clone(g);
@@ -136,13 +151,13 @@ export function anneal(seedGenome: Genome, ctx: GenomeContext, opts: AnnealOptio
       else { const s = Math.floor(random() * n.steps); const others = n.crews.map((_, c) => c).filter(c => c !== a[s]); n.assign[room] = a.map((c, t) => t === s ? pick(others) : c); }
       return n;
     } }) },
-    // A third crew (a copy of the second, given one change in a few rooms, for the other moves to shape), or
+    // A third crew starts with each room’s original workers at the selected change, or
     // back to two (its changes go to the second crew).
     { weight: 1, make: () => ({ kind: 'crews', timing: true, apply: g => {
       const n = clone(g);
       if (n.crews.length === 2) {
-        n.crews.push(structuredClone(n.crews[1]));
-        for (const room of roomIds) if (random() < 0.4) { const s = Math.floor(random() * n.steps); n.assign[room][s] = 2; }
+        const changes = roomIds.flatMap(room => random() < 0.4 ? [{ room, step: Math.floor(random() * n.steps) }] : []);
+        return splitCrew(n, changes);
       } else {
         n.crews.pop();
         for (const room of roomIds) n.assign[room] = n.assign[room].map(c => c === 2 ? 1 : c);
@@ -234,7 +249,7 @@ export function anneal(seedGenome: Genome, ctx: GenomeContext, opts: AnnealOptio
   let best = current;
   const improvements: string[] = [];
   const t0 = Math.max(1, Math.abs(current.e.value) * 0.004), t1 = Math.max(0.1, Math.abs(current.e.value) * 0.00005);
-  const proposals = opts.proposals ?? 12, simulated = opts.simulated ?? 2, patience = opts.patience ?? 400;
+  const proposals = opts.proposals ?? 12, simulated = opts.simulated ?? 2, patience = opts.patience ?? (owned.length <= 20 ? 120 : 400);
   let round = 0, sinceBest = 0;
   while (Date.now() - start < opts.timeMs && sinceBest < patience && round < (opts.maxRounds ?? Infinity) && !opts.shouldStop?.()) {
     round++; sinceBest++;
@@ -246,7 +261,11 @@ export function anneal(seedGenome: Genome, ctx: GenomeContext, opts: AnnealOptio
     for (let i = 0; i < proposals; i++) {
       const m = propose();
       const g = m.apply(current.genome);
-      if (!g) continue;
+      if (!g || hasWorkingCollision(g, roomIds)) continue;
+      // A staffing change is atomic: retain an unchanged refill worker, and remove
+      // only targets who no longer work through the whole cycle.
+      if (!m.timing) g.core = current.genome.core.filter(name => Array.from({ length: g.steps }, (_, step) =>
+        roomIds.some(id => (g.crews[crewAt(g, id, step)][id] ?? []).some(slot => slot?.operatorName === name))).every(Boolean));
       if (m.timing) timing.push({ g, kind: m.kind }); else staffing.push({ g, kind: m.kind, p: 0 });
     }
     for (const s of staffing) s.p = proxy(s.g);
