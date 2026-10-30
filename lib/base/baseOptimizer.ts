@@ -98,6 +98,8 @@ export interface OptimizerResult {
   score: number;
   explanations: RoomExplanation[];
   notes: string[];
+  /** Morale to set once before the plan starts, for operators whose skill reads it and who never rest (Dusk below 12). */
+  initialMorale?: Record<string, number>;
   /** calculateBase calls, snapshot and simulated together. */
   evaluations: number;
 }
@@ -335,13 +337,15 @@ export function optimizeBase(input: OptimizerInput): OptimizerResult {
   }
 
   // A rotation that never repeats cannot be compared; one that exhausts a worker is
-  // only acceptable when the reader allows it.
+  // only acceptable when the reader allows it. One that places an operator twice in a shift is not a plan at
+  // all (the simulator only warns, and would score both copies), so it loses to everything.
   const score = (sim: SimulationResult) => (input.sustainable
     ? sustainableOutput(sim.perDay, input.externalGold).lmd * weights.lmd + sim.perDay.exp * weights.exp
     : weighted(weights, { lmd: sim.perDay.lmd, exp: sim.perDay.exp, goldMade: sim.perDay.goldMade }))
-    - (sim.periodic ? 0 : 1e9) - (input.allowExhaustion ? 0 : 1e6 * sim.events.filter(e => e.kind === 'exhausted').length);
-  function simulate(shifts: SimulationShift[]) {
-    const sim = simulateBase({ base, shifts, loginInterval, drones: input.drones, droneWeights: { lmd: weights.lmd, exp: weights.exp, goldMade: weights.goldMade }, ...(input.sustainable ? { droneFunding: { externalGold: input.externalGold ?? 0 } } : {}) });
+    - (sim.periodic ? 0 : 1e9) - (input.allowExhaustion ? 0 : 1e6 * sim.events.filter(e => e.kind === 'exhausted').length)
+    - (sim.warnings.some(w => / twice\.$/.test(w)) ? 1e12 : 0);
+  function simulate(shifts: SimulationShift[], initialMorale?: Record<string, number>) {
+    const sim = simulateBase({ base, shifts, loginInterval, initialMorale, drones: input.drones, droneWeights: { lmd: weights.lmd, exp: weights.exp, goldMade: weights.goldMade }, ...(input.sustainable ? { droneFunding: { externalGold: input.externalGold ?? 0 } } : {}) });
     evaluations += sim.evaluations;
     return { sim, value: score(sim) };
   }
@@ -562,7 +566,8 @@ export function optimizeBase(input: OptimizerInput): OptimizerResult {
         // off-duty crews could each be sized up to the FULL bed count, summing to roughly double it).
         const perCrewLimit = core.length + Math.max(1, Math.floor((restCapacity - 1) / (n - 1)));
         const crews: BaseAssignments[] = [];
-        const taken = new Set(core);
+        // Fiammetta is seated in a dorm by the formations shift builder; a crew must not also use her as a worker.
+        const taken = new Set([...core, 'Fiammetta']);
         for (let i = 0; i < n; i++) {
           let crew = buildTeam(taken, perCrewLimit, undefined, fixed);
           // Try to also guarantee full Control Center and Office staffing -- the cross-facility relief they
@@ -580,7 +585,7 @@ export function optimizeBase(input: OptimizerInput): OptimizerResult {
       }
     }
   }
-  let best: { plan: Plan; shifts: SimulationShift[]; sim: SimulationResult; value: number } | null = null;
+  let best: { plan: Plan; shifts: SimulationShift[]; sim: SimulationResult; value: number; initialMorale?: Record<string, number> } | null = null;
   const consider = (plan: Plan) => {
     const shifts = shiftsOf(plan);
     const { sim, value } = simulate(shifts);
@@ -782,6 +787,52 @@ export function optimizeBase(input: OptimizerInput): OptimizerResult {
     if (core.length) notes.push(`Fiammetta refills ${core.join(', ')} in turn at the staffing changes: each works every shift and never rests. She sits in ${dorms[0].label} and swaps her full Morale with whichever of them is lowest.`);
   }
 
+  // With a full Sui Control Center (Ling, Chongyue, Saileach...) Dusk loses no Morale there: her own -0.5 and the
+  // room's relief cancel its cost. A player who drains her below 12 once keeps her there: "Unstirred by Gain"
+  // then adds Worldly Plight +15, alongside Ling's +15 above 12. The simulator starts everyone at full Morale, so
+  // it cannot find this alone. Try her at 11 Morale; in each shift she is not in the Control Center, either she
+  // takes a place there (trading with one occupant, who takes her bed) or she waits unassigned rather than
+  // resting, so she stays below 12 -- the sheets' play. Kept only if the simulator scores higher.
+  const controlCenter = rooms.find(f => f.kind === 'controlCenter');
+  if (controlCenter && roster.Dusk && best!.shifts.some(sh => (sh.assignments[controlCenter.id] ?? []).some(s => s?.operatorName === 'Dusk'))) {
+    const parked = { Dusk: 11 };
+    const inCc = (sh: SimulationShift) => (sh.assignments[controlCenter.id] ?? []).some(s => s?.operatorName === 'Dusk');
+    let shifts = best!.shifts;
+    for (let i = 0; i < shifts.length; i++) {
+      if (inCc(shifts[i])) continue;
+      const sh = shifts[i];
+      const cc = sh.assignments[controlCenter.id] ?? [];
+      const bed = Object.entries(sh.assignments).find(([, v]) => (v ?? []).some(s => s?.operatorName === 'Dusk'));
+      const free = cc.indexOf(null);
+      const options = (free >= 0 ? [free] : cc.map((_, j) => j)).map(index => {
+        const a: BaseAssignments = { ...sh.assignments };
+        if (bed) a[bed[0]] = (a[bed[0]] ?? []).map(x => x?.operatorName === 'Dusk' ? cc[index] : x);
+        a[controlCenter.id] = cc.map((x, j) => j === index ? slotOf('Dusk') : x);
+        return shifts.map((other, j) => j === i ? { ...sh, assignments: a } : other);
+      });
+      if (!bed) options.push(shifts);
+      else if (dorms.some(d => d.id === bed[0])) {
+        const waiting: BaseAssignments = { ...sh.assignments, [bed[0]]: (sh.assignments[bed[0]] ?? []).map(x => x?.operatorName === 'Dusk' ? null : x) };
+        options.push(shifts.map((other, j) => j === i ? { ...sh, assignments: waiting } : other));
+      }
+      let pick: { shifts: SimulationShift[]; value: number } | null = null;
+      for (const trial of options) {
+        const value = simulate(trial, parked).value;
+        if (!pick || value > pick.value) pick = { shifts: trial, value };
+      }
+      if (!pick) { shifts = []; break; }
+      shifts = pick.shifts;
+    }
+    if (shifts.length) {
+      const { sim, value } = simulate(shifts, parked);
+      if (value > best!.value + EPS) {
+        best = { ...best!, shifts, sim, value, initialMorale: parked };
+        const waits = shifts.some(sh => !inCc(sh));
+        notes.push(`Drain Dusk below 12 Morale once (any working room will do) and keep her there: below 12 "Unstirred by Gain" adds Worldly Plight +15${roster.Ling ? ' on top of Ling\'s +15 above 12' : ''}. She loses no Morale in this ${controlCenter.label}${waits ? ', and when off shift she waits unassigned rather than resting, so she stays below 12' : ''}.`);
+      }
+    }
+  }
+
   // Office and Reception Room's entire modeled effect is HR Contacting Speed, Clue Speed and the placed
   // operator's own Morale cost (see officeSpecialSkills.ts / receptionRoomSpecialSkills.ts) -- none of
   // which become LMD, EXP or gold in perDay, the only things this search's score can see. So no owned
@@ -833,7 +884,7 @@ export function optimizeBase(input: OptimizerInput): OptimizerResult {
       { hour: 2 * step, crewIn: [{ crew: 1, rooms: plan.group }], resting: [{ crew: 0, rooms: plan.group }] },
       { hour: 3 * step, crewIn: [{ crew: 0, rooms: g2 }], resting: [{ crew: 1, rooms: g2 }] },
     ];
-  return { shape: plan.shape, crews: plan.crews, schedule, shifts: best!.shifts, stepHours: step, workHours: plan.shape === 'alternate' || plan.shape === 'formations' ? step : plan.shape === 'duty' ? plan.duty! * step : 2 * step, simulation: best!.sim, score: best!.value, explanations, notes, evaluations };
+  return { shape: plan.shape, crews: plan.crews, schedule, shifts: best!.shifts, stepHours: step, workHours: plan.shape === 'alternate' || plan.shape === 'formations' ? step : plan.shape === 'duty' ? plan.duty! * step : 2 * step, simulation: best!.sim, score: best!.value, explanations, notes, evaluations, ...(best!.initialMorale ? { initialMorale: best!.initialMorale } : {}) };
 }
 
 /** Gold cannot be sold indefinitely faster than it is supplied. Scale modeled sales

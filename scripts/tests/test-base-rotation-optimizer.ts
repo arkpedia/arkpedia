@@ -12,6 +12,7 @@ import groups from '../../data/base-group-rosters.json';
 import slots from '../../data/base-skill-slots.json';
 import recipes from '../../data/base-workshop-recipes.json';
 import account from '../../tests/fixtures/base-account.json';
+import { FORMATIONS, SHEET_FACILITIES, everyoneMaxed } from '../bench/sheet-342';
 
 const operators = getAllOperators().filter(op => !/^Amiya \(/.test(op.name));
 const shared = { operators, rosters: toBaseRosters(groups), skillSlots: slots, workshopRecipes: recipes };
@@ -111,6 +112,37 @@ test('every working operator is explained, and the explanation is the snapshot o
   const op = explained[0].operators[0];
   const without = Object.fromEntries(Object.entries(crew).map(([room, s]) => [room, s.map(x => x?.operatorName === op.name ? null : x)]));
   near(op.marginal, value(crew) - value(without), 1e-6);
+});
+
+test('a formations plan never places an operator twice in a shift, Fiammetta included', { skip: !fullRosterEnabled }, () => {
+  // Fiammetta has a Trading Post skill, so a crew builder that does not set her aside staffs a Trading Post with
+  // her while the formations step also seats her in a dorm: two Fiammettas, both refilling (found 2026-10-30 on
+  // the reference sheet's own operator pool, the smallest roster where formations wins; about 2.5 min).
+  const names = new Set([...FORMATIONS.flatMap(f => Object.values(f.teams).flat()), 'Fiammetta']);
+  const maxed = everyoneMaxed(operators);
+  const roster: Record<string, OwnedOperator> = Object.fromEntries([...names].map(n => [n, maxed[n]]));
+  const result = optimizeBase({ base: { ...shared, facilities: SHEET_FACILITIES }, roster, loginInterval: 8, factoryProducts: FORMATIONS[0].products, formations: true, drones: true });
+  assert.equal(result.shape, 'formations');
+  for (const [i, shift] of result.shifts.entries()) {
+    const names = placed(shift.assignments as Record<string, ({ operatorName: string } | null)[]>);
+    assert.equal(new Set(names).size, names.length, `shift ${i} places someone twice: ${names.filter((n, j) => names.indexOf(n) !== j).join(', ')}`);
+  }
+  assert.deepEqual(result.simulation.warnings.filter(w => / twice\.$/.test(w)), []);
+});
+
+test('in a full Sui Control Center Dusk loses no Morale, so parked below 12 she adds Worldly Plight +15 beside Ling', () => {
+  // What the optimizer's Dusk pass relies on: she can stay below 12 indefinitely, and her +15 and Ling's
+  // +15 (above 12) then hold at once, read from each one's own Morale.
+  const tp = full243.find(f => f.kind === 'tradingPost')!.id;
+  const cc = ['Dusk', 'Ling', 'Chongyue', 'Saileach', 'Swire'];
+  const assignments = { controlCenter: cc.map(n => ({ operatorName: n, eliteLevel: 'Elite 2' as const, level: 90 })), [tp]: [{ operatorName: 'Mr. Nothing', eliteLevel: 'Elite 2' as const, level: 90 }] };
+  const plight = (dusk: number) => {
+    const r = calculateBase({ ...shared, facilities: full243, assignments, factoryProducts: products243, importedMorale: { ...Object.fromEntries(cc.map(n => [n, 20])), Dusk: dusk, 'Mr. Nothing': 20 } });
+    return { plight: r.resourcePools.worldlyPlight, dusk: (r.rooms.controlCenter as { perOperatorMorale?: Record<string, number> }).perOperatorMorale?.Dusk };
+  };
+  const parked = plight(11), full = plight(20);
+  near(parked.dusk ?? NaN, 0);
+  near(parked.plight - full.plight, 15);
 });
 
 test('longer logins never beat shorter ones on the same roster', { skip: !fullRosterEnabled }, () => {
