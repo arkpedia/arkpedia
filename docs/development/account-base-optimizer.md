@@ -15,11 +15,31 @@ Amiya forms are one physical worker.
 Reception, Office or Training. Identical layouts are searched once. Every distinct
 gold/EXP split by factory level is considered, including all-gold and all-EXP.
 
-Each candidate uses the existing greedy room refinement and alternating/staggered
-crew search from `baseOptimizer.ts`. The chronological `baseSimulation.ts` scores
-morale thresholds, dorm recovery, exhaustion, storage and collections over a repeating
-cycle. Non-repeating and exhausted rotations are excluded from recommendations.
-This is a heuristic best-found result, not a global optimality claim.
+The search has two stages within the reader's search time (`searchSeconds`, 1/2/5/10
+minutes on the page, default 2):
+
+1. **Seed.** `baseOptimizer.ts` builds a plan per layout: greedy crews, a menu of
+   rotation shapes (alternate, duty, staggered, formations, thirds) and its repair
+   passes. Product splits closest to one gold factory per Trading Post go first; this
+   stage stops after about a third of the time, every layout having had one split.
+2. **Anneal.** The best one or two layouts are improved by simulated annealing
+   (`annealBase.ts`) over a plan genome (`planGenome.ts`): two crews, 2 or 3 staffing
+   changes, the change each room's main crew rests on and which crew is its main one,
+   Fiammetta's refill core, parked Morale (Dusk below 12), factory products and two
+   dorm rules. Moves: a room's whole team from its best teams (`teamBlocks.ts`, which
+   keeps synergies such as Shamare/Bibeak/Tequila or a Sui Control Center together),
+   swaps, retiming, core changes and the settings. Staffing moves are screened with the
+   snapshot calculator and only the best are simulated; a worse plan is kept with
+   probability exp(delta / T) as T cools, and the best plan seen is always kept, so the
+   result never scores below its seed.
+
+The chronological `baseSimulation.ts` scores every plan: morale thresholds, dorm
+recovery, exhaustion, storage, collections and drones over a repeating cycle (which may
+repeat only every few cycles when a refill rotation lines up slowly). Non-repeating and
+exhausted rotations are excluded. This is a best-found result, not a global optimality
+claim. `scripts/bench/anneal-tiers.ts` compares the stages on rosters from 15 operators
+at E0 to a maxed account; the reference sheet's own pool reached 96.2% of the sheet's
+rotation (163,860) after a two-minute anneal.
 
 For comparison, LMD is limited by the ratio of daily gold supply to daily sales demand.
 Gold supply includes an explicit optional outside-gold allowance, default zero. The
@@ -47,9 +67,10 @@ not modeled.
 
 Saving appends the recommended shift setups and replaces the active timetable; the
 button's neighboring text states this. Existing saved setups and the imported account
-are preserved. The manual timetable continues using snapshot rates and does not model
-gold funding or one-off Fiammetta reseating; the optimizer's totals and notes remain
-the authority for its recommendation. Nothing is sent to the game.
+are preserved. The saved rotation carries what the optimizer simulated -- each shift's
+Fiammetta refill and reseat lists, the drone weights and parked Morale -- so the Base
+page's rotation estimate recalculates to the optimizer's yields (a unit test checks
+this). Nothing is sent to the game.
 
 ## Presentation and resource limits
 
@@ -61,10 +82,13 @@ Trading Posts, green Power Plants, and the existing support-room palette). Build
 numbers count each built facility type in floor order, independently of physical slot IDs.
 
 Searches run only in a browser Web Worker, on an explicit click. There is one active
-search per mounted optimizer, cancelled on input changes or close and forcibly stopped
-after ten minutes. Two completed results are retained in browser page memory, keyed by
-all computation inputs, so repeat clicks or reopening the modal do not repeat the same
-work. No account optimization is submitted to GitHub Actions or a server API.
+search per mounted optimizer, cancelled on input changes or close. The Worker posts the
+best result so far whenever it improves; the progress line shows it, and **Stop** keeps
+it. A Worker that never answers is stopped at the search time plus three minutes. Two
+completed results are retained in browser page memory, keyed by all computation inputs
+(including the search time, which is remembered for the page visit), so repeat clicks
+or reopening the modal do not repeat the same work. No account optimization is
+submitted to GitHub Actions or a server API.
 
 Routine CI uses small real-operator fixtures. Full-catalogue rotation benchmarks are
 lazy and skipped whenever `CI` is set, including if the opt-in flag is accidentally
@@ -72,10 +96,10 @@ inherited. Run `npm run test:base-full-roster` locally for those benchmark check
 Browser regressions verify that recommendation makes no optimizer API/Actions request,
 repeated input creates no second Worker, and a stalled Worker is terminated at the limit.
 
-The search still has the limitations described above: cross-room effects are evaluated
-for actual placements, but greedy construction does not guarantee discovery of an entire
-multi-room synergy group. Dorm support search is limited. Presentation changes do not
-expand mechanic coverage or establish a global optimum.
+The search still has limits: cross-room effects are evaluated for actual placements,
+and team blocks keep one room's synergies whole, but a synergy that spans several rooms
+is only found when the annealer reaches it. A genome expresses two crews over 2 or 3
+staffing changes; the staggered and three-step duty shapes stay seed-only.
 
 ### Empty-room correction
 
@@ -123,11 +147,16 @@ promotion to main or www.
 
 ## Focused verification
 
-`node --import tsx --test scripts/tests/test-account-base-optimizer.ts scripts/tests/test-base-simulation.ts scripts/tests/test-base-rotation-optimizer.ts`
+`node --import tsx --test scripts/tests/test-account-base-optimizer.ts scripts/tests/test-base-simulation.ts scripts/tests/test-base-rotation-optimizer.ts scripts/tests/test-anneal-base.ts`
+
+`npx tsx scripts/bench/anneal-tiers.ts sheet,mid,small,tiny 120` (seed vs anneal per roster tier)
 
 `node node_modules/@playwright/test/cli.js test --config playwright.optimizer.config.ts`
 
-The latter uses localhost:3391 unless `BASE_OPTIMIZER_URL` is set. It covers real
+The latter uses localhost:3391 unless `BASE_OPTIMIZER_URL` is set. Run the browser
+specs against a staging production build (`ARKPEDIA_DEPLOYMENT_ROLE=staging npm run
+build`, then `next start`): the optimizer is Preview-only, and `next dev` reloads pages
+served as 127.0.0.1, which closes the dialog mid-test. It covers real
 Worker completion, selected-account ownership, saved presets, account preservation,
 input invalidation, cancellation and keyboard dismissal at desktop/mobile sizes,
 with dark/light screenshots. Browser fixtures are synthetic.

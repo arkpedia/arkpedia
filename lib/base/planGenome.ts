@@ -6,21 +6,20 @@ import type { BaseAssignments, FactoryProducts, SlotAssignment } from './baseTyp
 
 /**
  * A whole base plan as a few independent choices, so a search can change one at a time and the simulator
- * can score the result. Two crews staff the work rooms; over `steps` staffing changes each room's main crew
- * works every change but the one it rests on, while the other crew covers it. Two steps is the familiar
- * alternation, three with every room resting together is a duty rotation, and three with rests spread out is
- * the thirds shape. Core workers sit in the same room in both crews, so they work every change, refilled by
- * Fiammetta. Parked operators start at a set Morale and wait rather than rest when off shift (Dusk below 12).
+ * can score the result. Two crews staff the work rooms; over `steps` staffing changes (2 to 4) each room is
+ * staffed by the second crew on the changes listed in `cover` and by the first on the rest. That expresses the
+ * alternation (2 steps), duty and thirds (3: a room's main crew rests one change in three, all together or
+ * spread out) and the staggered shape (4: two halves of the base change crew in turn). Core workers sit in the
+ * same room in both crews, so they work every change, refilled by Fiammetta. Parked operators start at a set
+ * Morale and wait rather than rest when off shift (Dusk below 12).
  */
 export interface Genome {
-  steps: 2 | 3;
+  steps: number;
   /** Logins per staffing change. */
   k: number;
   crews: [BaseAssignments, BaseAssignments];
-  /** The change (0..steps-1) on which each room's main crew rests. */
-  rest: Record<string, number>;
-  /** Rooms whose main crew is the second one. */
-  mainB: string[];
+  /** The changes (0..steps-1) on which the second crew staffs each room; the first crew has the others. */
+  cover: Record<string, number[]>;
   /** Fiammetta's refill list: workers placed in the same room in both crews. */
   core: string[];
   parked: Record<string, number>;
@@ -64,7 +63,7 @@ const layouts = new WeakMap<GenomeContext, ReturnType<typeof layout>>();
 const fixed = (ctx: GenomeContext) => { let l = layouts.get(ctx); if (!l) { l = layout(ctx); layouts.set(ctx, l); } return l; };
 
 /** Which crew (0 or 1) staffs `room` on change `step`. */
-export const crewAt = (g: Genome, room: string, step: number) => (g.rest[room] === step) !== g.mainB.includes(room) ? 1 : 0;
+export const crewAt = (g: Genome, room: string, step: number) => g.cover[room]?.includes(step) ? 1 : 0;
 
 /** The genome as the simulator's shift list. */
 export function decode(g: Genome, ctx: GenomeContext): SimulationShift[] {
@@ -121,30 +120,28 @@ export function scoreOf(sim: SimulationResult, ctx: GenomeContext): number {
     - (sim.warnings.some(x => / twice\.$/.test(x)) ? 1e12 : 0);
 }
 
-/** Today's optimizer result as a genome, read from what was actually simulated. Null for shapes a genome cannot
- * express (staggered, a three-step duty). */
+/** Today's optimizer result as a genome, read from what was actually simulated. Null for a plan of more than four
+ * staffing changes (a four-step duty and the staggered shape fit; a longer duty does not). */
 export function genomeFromResult(result: OptimizerResult, ctx: GenomeContext): Genome | null {
   const steps = result.shifts.length;
-  if (steps !== 2 && steps !== 3) return null;
+  if (steps < 2 || steps > 4) return null;
   const { rooms } = fixed(ctx);
   const roomIds = rooms.map(f => f.id);
   const crews: [BaseAssignments, BaseAssignments] = [{}, {}];
-  const rest: Record<string, number> = {};
-  const mainB: string[] = [];
+  const cover: Record<string, number[]> = {};
   for (const id of roomIds) {
-    // The schedule says which crew is in the room at each change; the shifts say who that crew is.
-    const byStep = result.schedule.map(st => st.crewIn.find(c => c.rooms.includes(id))?.crew ?? 0);
-    if (byStep.length !== steps) return null;
+    // The schedule says which crew comes into the room at each change; the shifts say who that crew is. A
+    // staggered schedule lists only the rooms that change, so an unlisted room keeps the crew it had.
+    const named = result.schedule.map(st => st.crewIn.find(c => c.rooms.includes(id))?.crew);
+    if (named.length !== steps) return null;
+    const byStep: number[] = Array(steps).fill(named.find(c => c !== undefined) ?? 0);
+    for (let pass = 0; pass < 2; pass++) for (let s = 0; s < steps; s++) byStep[s] = named[s] ?? byStep[(s + steps - 1) % steps];
     for (let s = 0; s < steps; s++) crews[byStep[s]][id] ??= result.shifts[s].assignments[id] ?? Array(rooms.find(f => f.id === id)!.capacity).fill(null);
     for (const c of [0, 1] as const) crews[c][id] ??= crews[1 - c][id];
-    const bSteps = byStep.flatMap((c, s) => c === 1 ? [s] : []);
-    const aSteps = byStep.flatMap((c, s) => c === 0 ? [s] : []);
-    if (bSteps.length === 1) rest[id] = bSteps[0];
-    else if (aSteps.length === 1) { rest[id] = aSteps[0]; mainB.push(id); }
-    else return null;
+    cover[id] = byStep.flatMap((c, s) => c === 1 ? [s] : []);
   }
   const g: Genome = {
-    steps: steps as 2 | 3, k: Math.max(1, Math.round(result.stepHours / ctx.loginInterval)), crews, rest, mainB,
+    steps, k: Math.max(1, Math.round(result.stepHours / ctx.loginInterval)), crews, cover,
     core: result.shifts[0].refill ?? [], parked: result.initialMorale ?? {}, products: result.shifts[0].factoryProducts, fillBeds: true, restAll: true,
   };
   // Which rest rule the plan used is not recorded; keep whichever scores higher.
@@ -188,10 +185,12 @@ export function toOptimizerResult(g: Genome, e: Evaluation, ctx: GenomeContext, 
       });
     }
   });
-  const spread = new Set(Object.values(g.rest)).size > 1;
-  const shape = g.steps === 3 ? (spread ? 'thirds' : 'duty') : g.core.length ? 'formations' : 'alternate';
+  const patterns = new Set(Object.values(g.cover).map(c => c.join()));
+  const shape = g.steps === 4 ? 'staggered' : g.steps === 3 ? (patterns.size > 1 ? 'thirds' : 'duty') : g.core.length ? 'formations' : 'alternate';
+  // Longest run of changes the first crew works in a row, somewhere in the base.
+  const run = Math.max(1, ...Object.values(g.cover).map(c => { let best = 0, cur = 0; for (let i = 0; i < 2 * g.steps; i++) { if (c.includes(i % g.steps)) cur = 0; else best = Math.max(best, ++cur); } return Math.min(best, g.steps); }));
   return {
-    shape, crews: g.crews, schedule, shifts: e.shifts, stepHours: step, workHours: (g.steps - 1) * step,
+    shape, crews: g.crews, schedule, shifts: e.shifts, stepHours: step, workHours: run * step,
     simulation: e.sim, score: e.value, explanations, notes, evaluations: e.sim.evaluations,
     ...(Object.keys(g.parked).length ? { initialMorale: g.parked } : {}),
   };
@@ -201,10 +200,10 @@ export function toOptimizerResult(g: Genome, e: Evaluation, ctx: GenomeContext, 
 export function genomeNotes(g: Genome, e: Evaluation, ctx: GenomeContext): string[] {
   const { rooms, dorms } = fixed(ctx);
   const notes: string[] = [];
-  const spread = new Set(Object.values(g.rest)).size > 1;
-  if (g.steps === 3) notes.push(spread
-    ? 'Each room\'s main crew works two staffing changes out of three and rests the third while the other crew covers that one; rooms rest on different changes (the schedule shows which).'
-    : 'The main crew works two staffing changes running and rests the third while the second crew covers it.');
+  const patterns = new Set(Object.values(g.cover).map(c => c.join()));
+  if (g.steps > 2) notes.push(patterns.size > 1
+    ? `${g.steps} staffing changes a cycle, and rooms change crew on different ones (the schedule shows which), so only part of the base rests at a time.`
+    : `${g.steps} staffing changes a cycle: the first crew works ${g.steps - (Object.values(g.cover)[0]?.length ?? 1)} of them running and the second covers the rest.`);
   if (g.core.length) notes.push(`Fiammetta refills ${g.core.join(', ')} in turn at the staffing changes: each works every shift and never rests. She sits at the head of ${dorms[0]?.label ?? 'the first dorm'} and, whenever she is full at a staffing change, swaps her Morale with the next of them in that order.`);
   if (g.parked.Dusk !== undefined) notes.push(`Drain Dusk below 12 Morale once (any working room will do) and keep her there: below 12 "Unstirred by Gain" adds Worldly Plight +15${'Ling' in ctx.roster ? ' on top of Ling\'s +15 above 12' : ''}. In the Control Center with this crew she loses no Morale, and when off shift she waits unassigned rather than resting, so she stays below 12.`);
   if (!g.restAll) notes.push('Only whoever has just come off shift rests in the dorms; the others wait unassigned, which leaves beds for operators whose dorm skills count.');

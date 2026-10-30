@@ -6,7 +6,7 @@ import type { BaseAssignments, SlotAssignment } from './baseTypes';
 /**
  * Simulated annealing over a plan genome (lib/base/planGenome.ts). Each round proposes several moves; moves that
  * change who works where are screened with the snapshot calculator and only the best few are simulated, while
- * moves that only change timing (rest change, core, parked Morale, rest rule) go straight to the simulator,
+ * moves that only change timing (crew patterns, core, parked Morale, rest rule) go straight to the simulator,
  * since only Morale over time can tell them apart. A worse plan is kept with probability exp(delta / T), T cooling
  * over the time budget, so the search can leave a local optimum; the best plan seen is always kept.
  */
@@ -32,9 +32,9 @@ function rng(seed: number) {
   return () => { a = (a + 0x6d2b79f5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 }
 
-const clone = (g: Genome): Genome => ({ ...g, crews: [structuredClone(g.crews[0]), structuredClone(g.crews[1])], rest: { ...g.rest }, mainB: [...g.mainB], core: [...g.core], parked: { ...g.parked }, products: { ...g.products } });
+const clone = (g: Genome): Genome => ({ ...g, crews: [structuredClone(g.crews[0]), structuredClone(g.crews[1])], cover: Object.fromEntries(Object.entries(g.cover).map(([r, c]) => [r, [...c]])), core: [...g.core], parked: { ...g.parked }, products: { ...g.products } });
 const namesIn = (a: BaseAssignments) => Object.values(a).flatMap(s => (s ?? []).flatMap(x => x ? [x.operatorName] : []));
-const key = (g: Genome) => JSON.stringify([g.steps, g.k, g.rest, [...g.mainB].sort(), g.core, g.parked, g.products, g.fillBeds, g.restAll, g.crews.map(c => Object.entries(c).sort(([a], [b]) => a < b ? -1 : 1).map(([r, s]) => [r, (s ?? []).map(x => x?.operatorName ?? '')]))]);
+const key = (g: Genome) => JSON.stringify([g.steps, g.k, Object.entries(g.cover).sort(([a], [b]) => a < b ? -1 : 1), g.core, g.parked, g.products, g.fillBeds, g.restAll, g.crews.map(c => Object.entries(c).sort(([a], [b]) => a < b ? -1 : 1).map(([r, s]) => [r, (s ?? []).map(x => x?.operatorName ?? '')]))]);
 
 type Move = { kind: string; timing: boolean; apply: (g: Genome) => Genome | null };
 
@@ -123,11 +123,12 @@ export function anneal(seedGenome: Genome, ctx: GenomeContext, opts: AnnealOptio
       if (here) place(n, c2, room2, j, here);
       return n;
     } }) },
-    // When a room's main crew rests, and which crew is its main one.
+    // When each crew staffs a room: shift its pattern by a change, or swap one change between the crews.
     { weight: 3, make: () => ({ kind: 'retime', timing: true, apply: g => {
       const n = clone(g); const room = pick(roomIds);
-      if (random() < 0.6) n.rest[room] = Math.floor(random() * n.steps);
-      else n.mainB = n.mainB.includes(room) ? n.mainB.filter(r => r !== room) : [...n.mainB, room];
+      const c = n.cover[room] ?? [];
+      if (random() < 0.6) n.cover[room] = c.map(s => (s + 1) % n.steps).sort((a, b) => a - b);
+      else { const s = Math.floor(random() * n.steps); n.cover[room] = (c.includes(s) ? c.filter(x => x !== s) : [...c, s]).sort((a, b) => a - b); }
       return n;
     } }) },
     // A worker joins or leaves Fiammetta's refill core (same room in both crews).
@@ -156,14 +157,19 @@ export function anneal(seedGenome: Genome, ctx: GenomeContext, opts: AnnealOptio
       for (const cc of [0, 1] as const) for (const [id, s] of Object.entries(n.crews[cc])) n.crews[cc][id] = (s ?? []).map(x => x?.operatorName === 'Fiammetta' ? null : x);
       return n;
     } }) },
-    // Parked Morale (Dusk below 12), the rest rule, empty-bed filling, two or three changes, a factory's product.
+    // Parked Morale (Dusk below 12), the rest rule, empty-bed filling, two to four changes, a factory's product.
     { weight: 2, make: () => ({ kind: 'setting', timing: true, apply: g => {
       const n = clone(g);
       const which = Math.floor(random() * 5);
       if (which === 0) { if (!('Dusk' in ctx.roster)) return null; if (n.parked.Dusk !== undefined) delete n.parked.Dusk; else n.parked.Dusk = 11; }
       else if (which === 1) n.restAll = !n.restAll;
       else if (which === 2) n.fillBeds = !n.fillBeds;
-      else if (which === 3) { n.steps = n.steps === 2 ? 3 : 2; for (const id of roomIds) n.rest[id] = (n.rest[id] ?? 0) % n.steps; }
+      else if (which === 3) {
+        // Two, three or four changes; each room's pattern is carried over by position.
+        const next = pick([2, 3, 4].filter(x => x !== n.steps));
+        for (const id of roomIds) n.cover[id] = [...new Set((n.cover[id] ?? []).filter(s => s < next).concat(next > n.steps && (n.cover[id] ?? []).includes(n.steps - 1) ? [next - 1] : []))].sort((a, b) => a - b);
+        n.steps = next;
+      }
       else {
         const factories = Object.keys(n.products); if (!factories.length) return null;
         const f = pick(factories);

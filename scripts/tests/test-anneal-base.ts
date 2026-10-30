@@ -52,3 +52,28 @@ test('the same seed and round count give the same plan', () => {
   assert.equal(a.evaluation.value, b.evaluation.value);
   assert.deepEqual(a.genome, b.genome);
 });
+
+test('a staggered plan, whose schedule names only the rooms that change crew, reads back with each room\'s full pattern', () => {
+  // Rooms in the second half keep the second crew for two changes running; the schedule names them only when
+  // they change, and a room left unnamed keeps its crew (found 2026-10-30: it was read as the first crew).
+  const rooms = facilities.filter(f => f.kind === 'factory').slice(0, 2).map(f => f.id);
+  const [a, b] = Object.keys(roster);
+  const slot = (n: string) => ({ operatorName: n, eliteLevel: roster[n].eliteLevel, level: roster[n].level });
+  const crewA = { [rooms[0]]: [slot(a), null, null], [rooms[1]]: [null, null, null] };
+  const crewB = { [rooms[0]]: [slot(b), null, null], [rooms[1]]: [null, null, null] };
+  const staff = (crew: 0 | 1) => crew ? crewB[rooms[0]] : crewA[rooms[0]];
+  const pattern = [0, 1, 1, 0] as const; // the second crew covers changes 2 and 3
+  const fake = {
+    ...today, shape: 'staggered' as const, crews: [crewA, crewB], stepHours: 12, initialMorale: undefined,
+    shifts: pattern.map(c => ({ ...today.shifts[0], refill: undefined, assignments: { ...today.shifts[0].assignments, [rooms[0]]: staff(c), [rooms[1]]: [null, null, null] } })),
+    schedule: [
+      { hour: 0, crewIn: [{ crew: 0, rooms: [rooms[0]] }], resting: [] },
+      { hour: 12, crewIn: [{ crew: 1, rooms: [rooms[0]] }], resting: [] },
+      { hour: 24, crewIn: [], resting: [] },
+      { hour: 36, crewIn: [{ crew: 0, rooms: [rooms[0]] }], resting: [] },
+    ],
+  };
+  const g = genomeFromResult(fake, ctx)!;
+  assert.deepEqual(g.cover[rooms[0]], [1, 2]);
+  assert.equal(g.crews[1][rooms[0]][0]?.operatorName, b);
+});
