@@ -75,3 +75,22 @@ for (const kind of ['office', 'receptionRoom'] as const) {
     console.log(`  ${name.padEnd(12)} placed in: ${placedIn.join(', ') || '(not placed anywhere)'}`);
   }
 }
+
+// Also check Control Center specifically, since it's the room with the widest base-wide impact.
+{
+  const label = facilities.find(f => f.kind === 'controlCenter')?.label ?? 'controlCenter';
+  const skilled = Object.keys(roster).filter(name => {
+    const op = operators.find(o => o.name === name);
+    return op && activeBaseSkills(op, label, roster[name].eliteLevel, slots, roster[name].level).length > 0;
+  });
+  console.log(`controlCenter: ${skilled.length} owned operator(s) with an active skill there: ${skilled.join(', ') || '(none)'}`);
+  if (!staffedKind.has('controlCenter')) {
+    for (const name of skilled) {
+      const placedIn: string[] = [];
+      best.plan.shifts.forEach((shift, i) => {
+        for (const [room, v] of Object.entries(shift.assignments)) if ((v ?? []).some(s => s?.operatorName === name)) placedIn.push(`shift${i}:${room}`);
+      });
+      console.log(`  ${name.padEnd(12)} placed in: ${placedIn.join(', ') || '(not placed anywhere)'}`);
+    }
+  }
+}
