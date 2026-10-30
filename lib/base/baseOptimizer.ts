@@ -358,10 +358,16 @@ export function optimizeBase(input: OptimizerInput): OptimizerResult {
       // Every crew but the one working this step is off duty at once (not just the immediately previous one),
       // and all of them need an actual rest assignment -- otherwise a crew more than one step back is left in
       // limbo (neither working nor resting), which starves its non-core members of recovery across the cycle.
-      ? plan.formation!.crews.map((crew, i, all) => ({
-          working: crew,
-          resting: [...new Set(all.filter((_, j) => j !== i).flatMap(operatorsIn))].filter(n => !plan.formation!.core.includes(n)).slice(0, Math.max(0, restCapacity - 1)),
-        }))
+      ? plan.formation!.crews.map((crew, i, all) => {
+          const pool = [...new Set(all.filter((_, j) => j !== i).flatMap(operatorsIn))].filter(n => !plan.formation!.core.includes(n));
+          const cap = Math.max(0, restCapacity - 1);
+          // When more off-duty names need a bed than the dorms hold, a fixed priority order (the Set's own)
+          // would strand whoever sorts last EVERY shift, cycle after cycle, with no rest at all -- unlike
+          // Fiammetta's refill turn, which is explicitly fair. Rotate the priority window by one shift each
+          // step so every name reaches the front within pool.length shifts, the same bounded-wait guarantee.
+          const resting = pool.length <= cap ? pool : [...pool.slice(i % pool.length), ...pool.slice(0, i % pool.length)].slice(0, cap);
+          return { working: crew, resting };
+        })
       : plan.shape === 'duty'
       // B rests in the first step after its cover shift; during the other work steps it waits unassigned.
       ? Array.from({ length: plan.duty! + 1 }, (_, i) => i < plan.duty! ? { working: A, resting: i === 0 ? operatorsIn(B) : [] } : { working: B, resting: operatorsIn(A) })
@@ -774,6 +780,20 @@ export function optimizeBase(input: OptimizerInput): OptimizerResult {
     }
     const core = chosen;
     if (core.length) notes.push(`Fiammetta refills ${core.join(', ')} in turn at the staffing changes: each works every shift and never rests. She sits in ${dorms[0].label} and swaps her full Morale with whichever of them is lowest.`);
+  }
+
+  // Office and Reception Room's entire modeled effect is HR Contacting Speed, Clue Speed and the placed
+  // operator's own Morale cost (see officeSpecialSkills.ts / receptionRoomSpecialSkills.ts) -- none of
+  // which become LMD, EXP or gold in perDay, the only things this search's score can see. So no owned
+  // operator, however skilled, ever shows a scored gain from working there (the same structural blind
+  // spot documented for Training Room). An empty one is a property of what this plan optimizes for,
+  // true on every roster, not a gap specific to this account -- worth saying so the reader does not
+  // read "empty Office" as "my roster is missing something".
+  for (const kind of ['office', 'receptionRoom'] as const) {
+    const room = rooms.find(f => f.kind === kind);
+    if (room && room.capacity > 0 && !best!.shifts.some(s => (s.assignments[room.id] ?? []).some(Boolean))) {
+      notes.push(`${room.label} stays empty: its Speed bonus is not part of this plan's scored output (LMD, EXP, gold), so no owned operator shows a gain there -- true for every roster, not only this one.`);
+    }
   }
 
   // Why each operator: the snapshot loss without them, and their active skills there.
