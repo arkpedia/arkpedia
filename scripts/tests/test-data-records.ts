@@ -51,11 +51,17 @@ const READ_BY_PEOPLE: Record<string, string> = {
   'operator-import-report.json': 'the report scripts/imports/import-operator-details.ts writes for a person to review',
 };
 
+/* Records another project reads, not the site: arkpedia-data publishes them for it. They may land
+   in the data before or after a change here, so an absent one is not a stale entry. */
+const READ_ELSEWHERE: Record<string, string> = {
+  'simulator': "the stage simulator's raw enemy tables and their receipt, which arkpedia-stage-simulator reads from arkpedia-data",
+};
+
 test('every top-level record in data/ is read by code, or is a named record kept for people', () => {
   const text = ['lib', 'pages', 'components', 'scripts', 'config'].flatMap(readers).map(code).join('\n');
   const entries = [...new Set(tracked.map(file => file.split('/')[1]))].sort();
   const unread = entries.filter(entry => {
-    if (entry in READ_BY_PEOPLE) return false;
+    if (entry in READ_BY_PEOPLE || entry in READ_ELSEWHERE) return false;
     const folder = tracked.some(file => file.startsWith(`data/${entry}/`));
     if (folder) return !(text.includes(`data/${entry}`) || text.includes(`'${entry}'`) || text.includes(`"${entry}"`));
     // The whole file name, not the tail of another: 'stages.json' is not read by a mention
