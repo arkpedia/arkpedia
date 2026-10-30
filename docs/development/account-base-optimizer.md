@@ -33,6 +33,16 @@ minutes on the page, default 1):
    probability exp(delta / T) as T cools, and the best plan seen is always kept, so the
    result never scores below its seed.
 
+Beside this search the page runs a second one in another Worker, when Fiammetta is owned
+and the device has four or more cores: `optimizeAccountBase({ formations: true })` builds one
+first plan per layout, then the leading layout's plan again with formations (Fiammetta's
+refill core with crews taking turns, as the reference sheets run; 20 to 40 s on a large
+roster), and anneals it for the rest of the time. Formations help some rosters and only cost
+time on others, so they never take the main search's time; the page keeps each layout's
+better plan (`accountResults.ts`) and gives the formations search up to 10 s past the
+chosen time. `scripts/bench/account-budget.ts` runs the page's whole search
+(`FORMATIONS=0|1`).
+
 The chronological `baseSimulation.ts` scores every plan: morale thresholds, dorm
 recovery, exhaustion, storage, collections and drones over a repeating cycle (which may
 repeat only every few cycles when a refill rotation lines up slowly). Non-repeating and
