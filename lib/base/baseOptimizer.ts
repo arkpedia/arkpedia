@@ -36,7 +36,10 @@ export interface OptimizerInput {
   lockedDorm?: string[];
   /** Count the drones the Power Plants make, spent at every login where each is worth most (see simulateBase). Default off. */
   drones?: boolean;
-  /** Try formations: a core refilled by Fiammetta in every shift. Default on when Fiammetta is owned. */
+  /** Try formations: a core refilled by Fiammetta in every shift. Off by default (opt-in): a 3+ member core
+   * can leave the OFF-duty crews' own support staff without a fair rest rotation when their combined
+   * population exceeds total dorm capacity, which the scorer correctly rejects via its exhaustion penalty,
+   * but at real extra search cost per attempt. See docs/development/account-base-optimizer.md. */
   formations?: boolean;
   /** Try duty rotations (the best crew works several steps in a row). Default on. */
   duty?: boolean;
@@ -117,6 +120,17 @@ const REFINE_EXTRA = 8;
  * which makes their generators and partners show a gain.
  */
 export const SYNERGY_ANCHORS = ['Mr. Nothing', 'Shu', 'Wind Chimes', 'Chongyue', "Ch'en the Dawnstreak", 'Ebenholz', 'Wakaba Mutsumi', 'Togawa Sakiko', 'Blitz', 'Iana', 'Wang', 'Taraxacum', 'Shamare'];
+
+/** Every k-subset of `arr`, in a stable order. */
+function combinations<T>(arr: T[], k: number): T[][] {
+  const out: T[][] = [];
+  const pick = (start: number, chosen: T[]) => {
+    if (chosen.length === k) { out.push([...chosen]); return; }
+    for (let i = start; i < arr.length; i++) { chosen.push(arr[i]); pick(i + 1, chosen); chosen.pop(); }
+  };
+  pick(0, []);
+  return out;
+}
 
 /** Every subset of at most `max` items, in a stable order. */
 function subsets<T>(items: T[], max: number): T[][] {
@@ -341,7 +355,13 @@ export function optimizeBase(input: OptimizerInput): OptimizerResult {
     const steps: { working: BaseAssignments; resting: string[] }[] = plan.shape === 'alternate'
       ? [{ working: A, resting: operatorsIn(B) }, { working: B, resting: operatorsIn(A) }]
       : plan.shape === 'formations'
-      ? plan.formation!.crews.map((crew, i, all) => ({ working: crew, resting: operatorsIn(all[(i + all.length - 1) % all.length]).filter(n => !plan.formation!.core.includes(n)).slice(0, Math.max(0, restCapacity - 1)) }))
+      // Every crew but the one working this step is off duty at once (not just the immediately previous one),
+      // and all of them need an actual rest assignment -- otherwise a crew more than one step back is left in
+      // limbo (neither working nor resting), which starves its non-core members of recovery across the cycle.
+      ? plan.formation!.crews.map((crew, i, all) => ({
+          working: crew,
+          resting: [...new Set(all.filter((_, j) => j !== i).flatMap(operatorsIn))].filter(n => !plan.formation!.core.includes(n)).slice(0, Math.max(0, restCapacity - 1)),
+        }))
       : plan.shape === 'duty'
       // B rests in the first step after its cover shift; during the other work steps it waits unassigned.
       ? Array.from({ length: plan.duty! + 1 }, (_, i) => i < plan.duty! ? { working: A, resting: i === 0 ? operatorsIn(B) : [] } : { working: B, resting: operatorsIn(A) })
@@ -437,10 +457,32 @@ export function optimizeBase(input: OptimizerInput): OptimizerResult {
       if (fits(plan)) plans.push(plan);
     }
   }
+  /** Fill one crew's empty support-room slots (CC, Office, Reception, Power Plant) with whichever candidate
+   * gains the most immediate snapshot value, same greedy rule as tryFill below but for a single crew used
+   * before a plan exists -- crew0's own greedy build can leave Control Center or Office short of capacity
+   * (its step-by-step construction can settle for "good enough" elsewhere before trying every support slot),
+   * which understates every other room's cross-facility Morale relief and so overstates everyone's real drain. */
+  function fillSupportRooms(crew: BaseAssignments, taken: ReadonlySet<string>): BaseAssignments {
+    const result: BaseAssignments = { ...crew };
+    const used = new Set(taken);
+    for (const kind of SUPPORT_KINDS) for (const room of rooms.filter(f => f.kind === kind)) {
+      for (let index = (result[room.id] ?? []).indexOf(null); index >= 0; index = (result[room.id] ?? []).indexOf(null)) {
+        const base = snapshotValue(result).value;
+        let pick: { name: string; gain: number } | null = null;
+        for (const name of candidatesFor(kind, used)) {
+          const gain = snapshotValue({ ...result, [room.id]: (result[room.id] ?? []).map((s, i) => i === index ? slotOf(name) : s) }).value - base;
+          if (!pick || gain > pick.gain + EPS) pick = { name, gain };
+        }
+        if (!pick || pick.gain < -EPS) break;
+        result[room.id] = (result[room.id] ?? []).map((s, i) => i === index ? slotOf(pick!.name) : s);
+        used.add(pick.name);
+      }
+    }
+    return result;
+  }
   // Formations: the best workers whose Morale Fiammetta can keep up with work every shift; a crew per shift fills the rest.
-  if (input.formations !== false && roster.Fiammetta && byName.has('Fiammetta') && dorms.length && bigCrew) {
-    const FIAMMETTA_BUDGET = 1.8; // Morale an hour she can hand out: 2, a little under for the swaps she waits to recover
-    const crew0: BaseAssignments = bigCrew;
+  if (input.formations && roster.Fiammetta && byName.has('Fiammetta') && dorms.length && bigCrew) {
+    const crew0: BaseAssignments = fillSupportRooms(bigCrew, new Set(operatorsIn(bigCrew)));
     const snap = snapshotValue(crew0);
     const roomOfName = new Map<string, string>();
     for (const [room, slots] of Object.entries(crew0)) for (const slot of slots ?? []) if (slot) roomOfName.set(slot.operatorName, room);
@@ -467,18 +509,36 @@ export function optimizeBase(input: OptimizerInput): OptimizerResult {
         const marginal = value - snapshotValue(without(trial, candidate)).value;
         if (marginal > EPS) seen.set(candidate, { name: candidate, marginal, drain: drainIn(snapshotValue(trial).result, f.id, candidate) });
       }
+      // A room's real skill-driven drain can depend on WHO ELSE is placed with a candidate (an override skill like
+      // Shamare's can raise everyone else's value while her own drain reads differently next to different roommates),
+      // so evaluating one swap at a time against crew0's existing occupants can badly misjudge a specialist who only
+      // shines, and only drains little, alongside specific partners. Also try the room filled by every combination of
+      // this room's own top few individually-ranked candidates (bounded: C(8, capacity), cheap), scored together, and
+      // let that joint placement's real per-operator drains (not the one-at-a-time guess) win if a candidate appears
+      // in both readings -- a candidate whose true value only appears jointly is otherwise invisible to this search.
+      const shortlist = candidatesFor(f.kind, new Set(operatorsIn(crew0).filter(n => !occupants.includes(n)))).slice(0, 8);
+      const capacity = occupants.length;
+      for (const combo of combinations(shortlist, capacity)) {
+        const trial = { ...crew0, [f.id]: combo.map(slotOf) };
+        const value = snapshotValue(trial).value;
+        for (const name of combo) {
+          const marginal = value - snapshotValue(without(trial, name)).value;
+          const drain = drainIn(snapshotValue(trial).result, f.id, name);
+          const existing = seen.get(name);
+          if (marginal > EPS && (!existing || marginal / (drain + 0.1) > existing.marginal / (existing.drain + 0.1))) seen.set(name, { name, marginal, drain });
+        }
+      }
     }
-    const ranked = [...seen.values()].sort((x, y) => y.marginal / (y.drain + 0.1) - x.marginal / (x.drain + 0.1));
-    const core: string[] = [];
-    let drain = 0;
-    for (const item of ranked) {
-      if (core.length >= 12) break;
-      if (drain + item.drain > FIAMMETTA_BUDGET) continue;
-      core.push(item.name); drain += item.drain;
-    }
-    if (core.length >= 2) {
+    const ranked = [...seen.values()].sort((x, y) => y.marginal / (y.drain + 0.1) - x.marginal / (x.drain + 0.1)).slice(0, 12);
+    // The right core size isn't knowable analytically from drain alone -- Fiammetta visits core members in a
+    // round-robin determined by who is lowest, so a 5-member core can be perfectly fine (each gets refilled every
+    // 5th login) while a 3-member one already fails if two members drain fast enough to both hit 0 between visits.
+    // Try every size the ranking offers, build real crews for each, and let the simulator (not a drain-sum guess)
+    // decide which, if any, beats the best plan found so far.
+    for (let size = 2; size <= ranked.length; size++) {
+      const core = ranked.slice(0, size).map(r => r.name);
       const fixed: BaseAssignments = Object.fromEntries(rooms.map(f => [f.id, (crew0[f.id] ?? []).map(slot => slot && core.includes(slot.operatorName) ? slot : null)]));
-      for (const n of [3, 2]) {
+      for (const n of [2, 3]) {
         const crews: BaseAssignments[] = [];
         const taken = new Set(core);
         for (let i = 0; i < n; i++) {
@@ -497,7 +557,7 @@ export function optimizeBase(input: OptimizerInput): OptimizerResult {
     return { plan, shifts, sim, value };
   };
   for (const plan of plans) {
-    const c = consider(plan);    // Within 0.1%, fewer staffing changes win: alternating over staggered, longer over shorter.
+    const c = consider(plan);
     const changes = (p: Plan) => (p.shape === 'staggered' ? 2 : p.shape === 'duty' ? p.duty! + 1 : p.shape === 'formations' ? p.formation!.crews.length : 1) / p.k;
     if (!best || c.value > best.value * (1 + 1e-3) + EPS || (c.value >= best.value * (1 - 1e-3) - EPS && changes(plan) < changes(best.plan))) best = c;
   }

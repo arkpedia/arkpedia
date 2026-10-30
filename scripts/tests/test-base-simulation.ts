@@ -125,23 +125,40 @@ test('Fiammetta already seated at full Morale swaps at once with whoever is put 
   assert(r.caveats.some(c => c.includes('at once with whoever is put into her dorm')));
 });
 
-test('a worker refilled in place gets Fiammetta\'s full Morale at the login, keeps working, and the lowest of the list is chosen', () => {
+test('a worker refilled in place gets Fiammetta\'s full Morale at the login and keeps working', () => {
   const rested = { dormitory1: [plain('Fiammetta')] };
   const working = { [factory]: crewA.map(n => plain(n)) };
   const initialMorale = { Adnachiel: 6, Melantha: 12, Catapult: 24, Fiammetta: 24 };
   const r = simulateBase({ base, loginInterval: 12, fixedCycles: 1, initialMorale, shifts: [shift({ ...rested, ...working }, { refill: ['Melantha', 'Adnachiel', 'Catapult', 'Orchid'] })] });
   const swaps = r.events.filter(e => e.kind === 'fiammettaSwap');
   assert.equal(swaps.length, 1, 'one Fiammetta makes one swap per staffing change');
-  assert.deepEqual(swaps[0].operators, ['Fiammetta', 'Adnachiel'], 'the lowest-Morale worker on the list is refilled; one who is not working is ignored');
-  assert.equal(r.moraleTrace.Adnachiel[0].morale, 24);
-  assert.equal(r.moraleTrace.Fiammetta[0].morale, 6);
-  assert(r.events.every(e => e.kind !== 'exhausted' || e.operators?.[0] !== 'Adnachiel'), 'the refilled worker does not stop working');
+  assert.deepEqual(swaps[0].operators, ['Fiammetta', 'Melantha'], 'the first opportunity is the first name on the list, its own turn in the rotation');
+  assert.equal(r.moraleTrace.Melantha[0].morale, 24);
+  assert.equal(r.moraleTrace.Fiammetta[0].morale, 12);
+  assert(r.events.every(e => e.kind !== 'exhausted' || e.operators?.[0] !== 'Melantha'), 'the refilled worker does not stop working');
   assert(r.caveats.some(c => c.includes('refilled in place')));
   // Not at full Morale herself, or not in a dorm: nothing happens.
   const tired = simulateBase({ base, loginInterval: 12, fixedCycles: 1, initialMorale: { ...initialMorale, Fiammetta: 10 }, shifts: [shift({ ...rested, ...working }, { refill: ['Adnachiel'] })] });
   assert.equal(tired.events.filter(e => e.kind === 'fiammettaSwap').length, 0);
   const noDorm = simulateBase({ base, loginInterval: 12, fixedCycles: 1, initialMorale, shifts: [shift(working, { refill: ['Adnachiel'] })] });
   assert.equal(noDorm.events.filter(e => e.kind === 'fiammettaSwap').length, 0);
+});
+
+test('several workers on one refill list are visited in a fixed rotation, not "whichever is lowest"', () => {
+  // So that a slower-draining member cannot starve while attention keeps cycling to whoever reads lowest right
+  // now: every member gets a turn in a fixed order, and a wasted turn (already full, or not working) still
+  // advances the rotation rather than being retried on someone else.
+  const rested = { dormitory1: [plain('Fiammetta')] };
+  const working = { [factory]: crewA.map(n => plain(n)) };
+  const initialMorale = { Adnachiel: 6, Melantha: 20, Catapult: 24, Fiammetta: 24 };
+  const list = ['Melantha', 'Adnachiel', 'Catapult', 'Orchid']; // Orchid never works here, so her turn is always wasted.
+  const swapAtCycle = (cycles: number) => simulateBase({ base, loginInterval: 12, fixedCycles: cycles, initialMorale, shifts: [shift({ ...rested, ...working }, { refill: list })] })
+    .events.find(e => e.kind === 'fiammettaSwap')?.operators?.[1];
+  assert.equal(swapAtCycle(1), 'Melantha', 'turn 1: Melantha, first on the list');
+  assert.equal(swapAtCycle(2), 'Adnachiel', 'turn 2: Adnachiel, regardless of Melantha now reading higher than him a moment ago');
+  assert.equal(swapAtCycle(3), 'Catapult', 'turn 3: Catapult\'s turn; by now (24h worked) she genuinely needs it too, not because she read lowest');
+  assert.equal(swapAtCycle(4), undefined, 'turn 4: Orchid\'s turn, but she never works here, so the visit is wasted');
+  assert.equal(swapAtCycle(5), 'Melantha', 'turn 5: the rotation wraps back to the first name');
 });
 
 test('Fiammetta placed at full Morale after an exhausted operator swaps Morale with them, then recovers exactly 2/h', () => {

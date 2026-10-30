@@ -231,6 +231,11 @@ export function simulateBase(input: SimulationInput): SimulationResult {
   const cache = new Map<string, Rates>();
   // Hours each operator has worked without a break in their current room; persists across cycles like Morale.
   const worked: Record<string, number> = {};
+  // Fixed round-robin turn for each distinct refill list, so every member gets a bounded worst-case wait --
+  // a reactive "always refill whoever is lowest" can let a slower-draining member starve while attention
+  // keeps cycling to whichever of the others currently reads lowest, even though a fixed rotation would
+  // have kept everyone afloat with the same total number of refills.
+  const refillTurn = new Map<string, number>();
   function ratesFor(shiftIndex: number, morale: Record<string, number>): Rates {
     const shift = shifts[shiftIndex];
     const placed = placements(shift.assignments);
@@ -311,9 +316,16 @@ export function simulateBase(input: SimulationInput): SimulationResult {
       if (shift.refill?.length) {
         const fiammetta = placed.find(p => kindOf[p.room] === 'dormitory' && hasFiammettaSwap(p.slot));
         const working = new Set(placed.filter(p => kindOf[p.room] !== 'dormitory').map(p => p.name));
-        const needy = shift.refill.filter(n => working.has(n) && morale[n] !== undefined && morale[n] < FULL).sort((x, y) => morale[x] - morale[y])[0];
+        const key = shift.refill.join('|');
+        const turn = refillTurn.get(key) ?? 0;
+        // A fixed rotation through the list: each opportunity is this member's turn, in order, regardless of
+        // who currently reads lowest. The turn always advances, even when this member turns out not to need
+        // it (already full) -- that is a real wasted visit, exactly as it would be for a player on a schedule.
+        refillTurn.set(key, (turn + 1) % shift.refill.length);
+        const scheduled = shift.refill[turn % shift.refill.length];
+        const needy = working.has(scheduled) && morale[scheduled] !== undefined && morale[scheduled] < FULL ? scheduled : undefined;
         if (fiammetta && needy && morale[fiammetta.name] === FULL) {
-          caveats.add('A worker refilled in place is modeled as taken to the dorm slot before Fiammetta and put straight back at the login, so the swap costs no working time. The game text swaps with "the previous Operator assigned to that Dormitory"; that the swap fires on placement is an assumption.');
+          caveats.add('A worker refilled in place is modeled as taken to the dorm slot before Fiammetta and put straight back at the login, so the swap costs no working time. The game text swaps with "the previous Operator assigned to that Dormitory"; that the swap fires on placement is an assumption. Several workers on the same refill list are visited in a fixed rotation (not "whichever is lowest"), so each gets a bounded worst-case wait.');
           log.events.push({ time, kind: 'fiammettaSwap', room: fiammetta.room, operators: [fiammetta.name, needy], detail: `${fiammetta.name} swaps her full Morale with ${needy} (${morale[needy].toFixed(2)}), who goes straight back to work.` });
           [morale[fiammetta.name], morale[needy]] = [morale[needy], morale[fiammetta.name]];
         }
