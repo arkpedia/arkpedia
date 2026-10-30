@@ -38,8 +38,17 @@ recovery, exhaustion, storage, collections and drones over a repeating cycle (wh
 repeat only every few cycles when a refill rotation lines up slowly). Non-repeating and
 exhausted rotations are excluded. This is a best-found result, not a global optimality
 claim. `scripts/bench/anneal-tiers.ts` compares the stages on rosters from 15 operators
-at E0 to a maxed account; the reference sheet's own pool reached 96.2% of the sheet's
-rotation (163,860) after a two-minute anneal.
+at E0 to a maxed account. Against the reference sheet's rotations, on their own
+operators at 8 h logins, drones on (`scripts/bench/formations-sheet-pool-342.ts`,
+`scripts/bench/sheet-252-vs-optimizer.ts`):
+
+| Sheet variant (layout) | Sheet's rotation | Optimizer |
+|---|---|---|
+| 3-4-2 (its own 342 layout) | 163,860 | 157,577 after 2 min, 158,924 after 10 (97.0%) |
+| 2-5-2 (2-5-2 max right) | 151,793 | 151,581 after 2 min (99.9%) |
+
+Both sheet rotations run some operators to 0 Morale in the simulator (Bibeak and Wild
+Mane; six on the 2-5-2 one); the optimizer's plans run nobody out.
 
 For comparison, LMD is limited by the ratio of daily gold supply to daily sales demand.
 Gold supply includes an explicit optional outside-gold allowance, default zero. The
