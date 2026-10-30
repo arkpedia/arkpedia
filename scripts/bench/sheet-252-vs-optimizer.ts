@@ -1,6 +1,6 @@
 /** The reference sheet's 2-5-2 variant (scripts/bench/sheet-252.ts) against the optimizer on the same 2-5-2 max
  * right layout, the same factory products and the sheet's own operators, at 8 h logins.
- * Usage: npx tsx scripts/bench/sheet-252-vs-optimizer.ts [annealSeconds=120] [drones=on] */
+ * Usage: [PLAIN=1] npx tsx scripts/bench/sheet-252-vs-optimizer.ts [annealSeconds=120] [drones=on] */
 import { getAllOperators } from '../../lib/operators/operators';
 import { toBaseRosters } from '../../lib/base/baseGroupRosters';
 import { DEFAULT_WEIGHTS, optimizeBase, type OwnedOperator } from '../../lib/base/baseOptimizer';
@@ -38,7 +38,8 @@ const target = weighted(best!);
 
 const input = { base, roster, loginInterval, factoryProducts: SHEET252_PRODUCTS, drones };
 let t = Date.now();
-const seed = optimizeBase({ ...input, formations: true });
+// PLAIN=1: the account page's start, without the slow formations shapes.
+const seed = optimizeBase({ ...input, formations: process.env.PLAIN !== '1' });
 line(`optimizer seed (${seed.shape}, ${((Date.now() - t) / 1000).toFixed(0)} s)`, seed.simulation);
 const ctx: GenomeContext = { base, roster, loginInterval, drones };
 const g = genomeFromResult(seed, ctx);

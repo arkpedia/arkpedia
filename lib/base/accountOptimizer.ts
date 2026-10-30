@@ -74,7 +74,7 @@ export function productOptions(layout: LayoutOption): FactoryProducts[] {
 }
 
 /**
- * The account's best base within `searchSeconds` (default 120; the page offers up to 10 minutes).
+ * The account's best base within `searchSeconds` (default 60; the page offers up to 10 minutes).
  *
  * Seed: today's optimizer (lib/base/baseOptimizer.ts) on each layout, product splits in order of how likely
  * they are to win (about as many gold factories as Trading Posts first), until about a third of the time is
@@ -89,7 +89,7 @@ export function optimizeAccountBase(input: AccountOptimizerInput, progress?: (do
   const layouts = optimizerLayouts(input.snapshot, input.compareLayouts);
   if (!layouts.length) throw new Error('The imported layout has an invalid power budget. Compare standard layouts or update your import.');
   const started = Date.now();
-  const budget = Math.max(5, Math.min(600, input.searchSeconds ?? 120)) * 1000;
+  const budget = Math.max(5, Math.min(600, input.searchSeconds ?? 60)) * 1000;
   const elapsed = () => Date.now() - started;
   const tick = (label: string, best?: AccountOptimizerResult) => progress?.(Math.min(100, Math.round(100 * elapsed() / budget)), 100, label, best);
   const recommendations: LayoutRecommendation[] = [];

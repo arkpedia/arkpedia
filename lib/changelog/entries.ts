@@ -36,9 +36,10 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     at: '2026-10-30T10:00:00Z',
     changed: [
-      { title: 'A deeper base optimizer', detail: 'The base optimizer keeps improving its plan for the time you choose, 1 to 10 minutes; Stop keeps the best so far.', href: '/base' },
+      { title: 'A deeper, faster base optimizer', detail: 'The base optimizer keeps improving its plan for the time you choose, 1 minute by default; Stop keeps the best so far.', href: '/base' },
     ],
     fixed: [
+      { title: 'Rooms count only their places', detail: 'A room with more operators saved than it has places, such as after a downgrade, no longer counts the extra ones.', href: '/base' },
       { title: 'Saved optimizer rotations keep their numbers', detail: 'A rotation saved from the optimizer now shows the same daily yields on the Base page, drones and Fiammetta\'s refills included.', href: '/base' },
     ],
   },

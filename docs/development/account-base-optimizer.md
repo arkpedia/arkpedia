@@ -16,7 +16,7 @@ Reception, Office or Training. Identical layouts are searched once. Every distin
 gold/EXP split by factory level is considered, including all-gold and all-EXP.
 
 The search has two stages within the reader's search time (`searchSeconds`, 1/2/5/10
-minutes on the page, default 2):
+minutes on the page, default 1):
 
 1. **Seed.** `baseOptimizer.ts` builds a plan per layout: greedy crews, a menu of
    rotation shapes (alternate, duty, staggered, formations, thirds) and its repair
@@ -44,8 +44,8 @@ operators at 8 h logins, drones on (`scripts/bench/formations-sheet-pool-342.ts`
 
 | Sheet variant (layout) | Sheet's rotation | Optimizer |
 |---|---|---|
-| 3-4-2 (its own 342 layout) | 162,860 | 157,577 after 2 min; 159,827 to 162,043 after 10 (98.1 to 99.5%) |
-| 2-5-2 (2-5-2 max right) | 151,793 | 151,581 after 2 min (99.9%), 152,055 after 10 (100.2%) |
+| 3-4-2 (its own 342 layout) | 162,860 | from the plan without formations, 1 min: 92.6 to 95.8%; formations plan (45 s) and its core seed (`coreSeed.ts`), then 1 min: 100.0 to 100.5% |
+| 2-5-2 (2-5-2 max right) | 151,793 | from the plan without formations (the page's start), 1 min: 98.9% |
 
 Both sheet rotations run some operators to 0 Morale in the simulator (Wild Mane on the
 3-4-2 one, six on the 2-5-2 one); the optimizer's plans run nobody out. The 3-4-2 sheet's
