@@ -122,7 +122,9 @@ test('a formations plan never places an operator twice in a shift, Fiammetta inc
   const maxed = everyoneMaxed(operators);
   const roster: Record<string, OwnedOperator> = Object.fromEntries([...names].map(n => [n, maxed[n]]));
   const result = optimizeBase({ base: { ...shared, facilities: SHEET_FACILITIES }, roster, loginInterval: 8, factoryProducts: FORMATIONS[0].products, formations: true, drones: true });
-  assert.equal(result.shape, 'formations');
+  assert.ok(['formations', 'thirds'].includes(result.shape), result.shape);
+  // The thirds retiming (2026-10-30) lifted this pool from 149,027 to about 153,300 weighted; guard the gain.
+  assert.ok(result.score > 150_000, `score ${result.score.toFixed(0)}`);
   for (const [i, shift] of result.shifts.entries()) {
     const names = placed(shift.assignments as Record<string, ({ operatorName: string } | null)[]>);
     assert.equal(new Set(names).size, names.length, `shift ${i} places someone twice: ${names.filter((n, j) => names.indexOf(n) !== j).join(', ')}`);

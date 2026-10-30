@@ -78,9 +78,12 @@ export interface ScheduleStep { hour: number; crewIn: { crew: number; rooms: str
  * `staggered`: the rooms are in two halves that change crew on alternate staffing changes; a
  * crew works two steps, rests one in the dorms and waits one unassigned, so only half the base
  * rests at a time and the dorms do not cap how many places are staffed.
+ * `thirds`: three staffing changes; each room's main crew works two of them and rests the third while the
+ * other crew covers it, and rooms rest on different changes (the reference sheet's gold crews work two of its
+ * three formations this way).
  */
-export type RotationShape = 'alternate' | 'staggered' | 'duty' | 'formations';
-interface Plan { shape: RotationShape; k: number; crews: [BaseAssignments, BaseAssignments]; group: string[]; fiammetta: boolean; /** formations: the core workers (in every shift) and one crew per shift, each crew holding the core */ formation?: { core: string[]; crews: BaseAssignments[] }; /** duty: steps the first crew works in a row before it rests one */ duty?: number }
+export type RotationShape = 'alternate' | 'staggered' | 'duty' | 'formations' | 'thirds';
+interface Plan { shape: RotationShape; k: number; crews: [BaseAssignments, BaseAssignments]; group: string[]; fiammetta: boolean; /** formations: the core workers (in every shift) and one crew per shift, each crew holding the core */ formation?: { core: string[]; crews: BaseAssignments[] }; /** duty: steps the first crew works in a row before it rests one */ duty?: number; /** thirds: the staffing change (0-2) each room's main crew rests, and the rooms whose main crew is the second */ thirds?: { rest: Record<string, number>; mainB: string[] } }
 
 export interface OptimizerResult {
   shape: RotationShape;
@@ -845,8 +848,57 @@ export function optimizeBase(input: OptimizerInput): OptimizerResult {
     if (found && found.value > best!.value + EPS) {
       const { sim, value } = simulate(found.shifts, parked);
       best = { ...best!, shifts: found.shifts, sim, value, initialMorale: parked };
-      notes.push(`Drain Dusk below 12 Morale once (any working room will do) and keep her there: below 12 "Unstirred by Gain" adds Worldly Plight +15${roster.Ling ? ' on top of Ling\'s +15 above 12' : ''}. She works the ${controlCenter.label} in staffing change ${found.target + 1}, where she loses no Morale, and waits unassigned rather than resting in the others, so she stays below 12.`
+      notes.push(`Drain Dusk below 12 Morale once (any working room will do) and keep her there: below 12 "Unstirred by Gain" adds Worldly Plight +15${roster.Ling ? ' on top of Ling\'s +15 above 12' : ''}. In the ${controlCenter.label} with this crew she loses no Morale, and when off shift she waits unassigned rather than resting, so she stays below 12.`
         + (found.added.length ? ` That ${controlCenter.label} also takes ${found.added.join(', ')}, who rest in the other shifts${found.dropped.length ? ` in the beds of ${found.dropped.join(', ')}, who ${found.dropped.length > 1 ? 'leave' : 'leaves'} the plan` : ''}.` : ''));
+    }
+  }
+
+  // Thirds: a two-crew plan retimed over three staffing changes. Each room's main crew works two of them and
+  // rests the third while the other crew covers it, rooms resting on different changes. Which change each room
+  // rests on, and which crew is its main one, is searched room by room with the simulator. The reference sheet's
+  // gold crews work two of its three formations like this; a two-shift plan gives them one shift in two. Part of
+  // the opt-in formations search (each pass is about 50 simulations). Kept only if the simulator scores higher.
+  if (input.formations && best!.shifts.length === 2 && dorms.length) {
+    const crews = [0, 1].map(i => Object.fromEntries(roomIds.map(id => [id, best!.shifts[i].assignments[id] ?? Array(rooms.find(f => f.id === id)!.capacity).fill(null)]))) as [BaseAssignments, BaseAssignments];
+    const everyone = [...new Set(crews.flatMap(operatorsIn))].filter(n => n !== 'Fiammetta');
+    const waiting = new Set(Object.keys(best!.initialMorale ?? {}));
+    const seatFiammetta = best!.shifts.some(sh => dorms.some(d => (sh.assignments[d.id] ?? []).some(s => s?.operatorName === 'Fiammetta')));
+    const refill = best!.shifts[0].refill;
+    const build = (rest: Record<string, number>, mainB: ReadonlySet<string>): SimulationShift[] => {
+      const working = [0, 1, 2].map(s => Object.fromEntries(roomIds.map(id => [id, crews[(rest[id] === s) !== mainB.has(id) ? 1 : 0][id]])) as BaseAssignments);
+      return working.map((w, s) => {
+        const on = new Set(operatorsIn(w));
+        const justWorked = new Set(operatorsIn(working[(s + 2) % 3]));
+        // Who just came off shift rests first; an operator parked at a set Morale (Dusk) waits rather than rest.
+        const resting = everyone.filter(n => !on.has(n) && !waiting.has(n)).sort((x, y) => Number(justWorked.has(y)) - Number(justWorked.has(x)));
+        let assignments = withDorms(w, resting.slice(0, Math.max(0, restCapacity - (seatFiammetta ? 1 : 0))));
+        if (seatFiammetta) {
+          const head = dorms.find(d => (assignments[d.id] ?? []).includes(null))?.id ?? dorms[0].id;
+          const occupants = (assignments[head] ?? []).filter((x): x is SlotAssignment => !!x);
+          assignments = { ...assignments, [head]: [slotOf('Fiammetta'), ...occupants, ...Array(5).fill(null)].slice(0, (assignments[head] ?? []).length) };
+        }
+        return { assignments, factoryProducts, logins: 1, ...(refill?.length ? { refill } : {}) };
+      });
+    };
+    let rest: Record<string, number> = Object.fromEntries(roomIds.map((id, i) => [id, i % 3]));
+    let mainB = new Set<string>();
+    let value = simulate(build(rest, mainB), best!.initialMorale).value;
+    for (let pass = 0; pass < 3; pass++) {
+      let moved = false;
+      for (const id of roomIds) for (const s of [0, 1, 2]) for (const b of [false, true]) {
+        if (rest[id] === s && mainB.has(id) === b) continue;
+        const r2 = { ...rest, [id]: s };
+        const m2 = new Set(mainB); if (b) m2.add(id); else m2.delete(id);
+        const v = simulate(build(r2, m2), best!.initialMorale).value;
+        if (v > value + EPS) { value = v; rest = r2; mainB = m2; moved = true; }
+      }
+      if (!moved) break;
+    }
+    if (value > best!.value + EPS) {
+      const shifts = build(rest, mainB);
+      const { sim } = simulate(shifts, best!.initialMorale);
+      best = { ...best!, plan: { ...best!.plan, shape: 'thirds', k: 1, crews, thirds: { rest, mainB: [...mainB] } }, shifts, sim, value };
+      notes.push('Each room\'s main crew works two staffing changes out of three and rests the third while the other crew covers that one; rooms rest on different changes (the schedule shows which), so the best workers work twice as often as they rest.');
     }
   }
 
@@ -919,7 +971,13 @@ export function optimizeBase(input: OptimizerInput): OptimizerResult {
   const plan = best!.plan;
   const step = plan.k * loginInterval;
   const g2 = roomIds.filter(id => !plan.group.includes(id));
-  const schedule: ScheduleStep[] = plan.shape === 'formations'
+  const schedule: ScheduleStep[] = plan.shape === 'thirds'
+    ? [0, 1, 2].map(s => {
+      const second = roomIds.filter(id => (plan.thirds!.rest[id] === s) !== plan.thirds!.mainB.includes(id));
+      const first = roomIds.filter(id => !second.includes(id));
+      return { hour: s * step, crewIn: [{ crew: 0, rooms: first }, { crew: 1, rooms: second }].filter(x => x.rooms.length), resting: [{ crew: 0, rooms: second }, { crew: 1, rooms: first }].filter(x => x.rooms.length) };
+    })
+    : plan.shape === 'formations'
     ? plan.formation!.crews.map((_, i, all) => ({ hour: i * step, crewIn: [{ crew: i, rooms: roomIds }], resting: [{ crew: (i + all.length - 1) % all.length, rooms: roomIds }] }))
     : plan.shape === 'duty'
     ? Array.from({ length: plan.duty! + 1 }, (_, i) => i < plan.duty!
