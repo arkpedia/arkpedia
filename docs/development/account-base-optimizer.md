@@ -44,11 +44,16 @@ operators at 8 h logins, drones on (`scripts/bench/formations-sheet-pool-342.ts`
 
 | Sheet variant (layout) | Sheet's rotation | Optimizer |
 |---|---|---|
-| 3-4-2 (its own 342 layout) | 163,860 | 157,577 after 2 min, 161,224 after 10 (98.4%) |
+| 3-4-2 (its own 342 layout) | 162,860 | 157,577 after 2 min; 159,827 to 162,043 after 10 (98.1 to 99.5%) |
 | 2-5-2 (2-5-2 max right) | 151,793 | 151,581 after 2 min (99.9%), 152,055 after 10 (100.2%) |
 
-Both sheet rotations run some operators to 0 Morale in the simulator (Bibeak and Wild
-Mane; six on the 2-5-2 one); the optimizer's plans run nobody out.
+Both sheet rotations run some operators to 0 Morale in the simulator (Wild Mane on the
+3-4-2 one, six on the 2-5-2 one); the optimizer's plans run nobody out. The 3-4-2 sheet's
+plan fits the search's plan model: written as one (`anneal-chains-342.ts sheet`), with the
+model's own rest rule, it scores 163,082 with nobody run out, and a 5-minute search started
+from it reaches 164,905. The search does not reach that plan from its own start: its
+refill core of the Shamare trio plus Proviso only holds once the whole core and
+lowest-first refills are in place together, and every partial step runs someone out.
 
 For comparison, LMD is limited by the ratio of daily gold supply to daily sales demand.
 Gold supply includes an explicit optional outside-gold allowance, default zero. The

@@ -84,8 +84,10 @@ test('a ramp skill keeps climbing while the operator stays in the same room, and
 });
 
 test('drones: 10 an hour plus 5% per Power Plant worker, each worth 3 minutes of a Factory\'s base production, skills not applied', () => {
-  const plant = facilities.find(f => f.kind === 'powerPlant')!.id;
-  const work = { [factory]: crewA.map(n => plain(n)), [plant]: crewB.map(n => plain(n)) };
+  // One plain worker in each of the three one-place Power Plants.
+  const plants = facilities.filter(f => f.kind === 'powerPlant').map(f => f.id);
+  assert.equal(plants.length, 3);
+  const work = { [factory]: crewA.map(n => plain(n)), ...Object.fromEntries(plants.map((id, i) => [id, [plain(crewB[i])]])) };
   // Four-hour logins over one 24 h shift: six windows. Three plain workers add 3 x 5%, so 11.5 drones an hour.
   const off = simulateBase({ base, loginInterval: 4, fixedCycles: 1, shifts: [shift(work, { logins: 6 })] });
   const on = simulateBase({ base, loginInterval: 4, fixedCycles: 1, shifts: [shift(work, { logins: 6 })], drones: true });

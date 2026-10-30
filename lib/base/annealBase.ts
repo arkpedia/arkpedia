@@ -37,6 +37,7 @@ const namesIn = (a: BaseAssignments) => Object.values(a).flatMap(s => (s ?? []).
 const key = (g: Genome) => JSON.stringify([g.steps, g.k, !!g.refillLowest, Object.entries(g.assign).sort(([a], [b]) => a < b ? -1 : 1), g.core, g.parked, g.products, g.fillBeds, g.restAll, g.crews.map(c => Object.entries(c).sort(([a], [b]) => a < b ? -1 : 1).map(([r, s]) => [r, (s ?? []).map(x => x?.operatorName ?? '')]))]);
 
 type Move = { kind: string; timing: boolean; apply: (g: Genome) => Genome | null };
+const BLOCK_REFRESH = 40;
 
 export function anneal(seedGenome: Genome, ctx: GenomeContext, opts: AnnealOptions): AnnealResult {
   const random = rng(opts.seed ?? 1);
@@ -85,11 +86,15 @@ export function anneal(seedGenome: Genome, ctx: GenomeContext, opts: AnnealOptio
     return owned.filter(n => !inPlan.has(n));
   };
 
+  // A team's worth depends on the rest of the base it works beside (a Control Center for the crew it supports, a
+  // factory beside the Trading Posts of its crew), so each crew draws from blocks built in its own context, and the
+  // blocks are rebuilt every BLOCK_REFRESH rounds as the crews change (about a second each on a maxed roster).
   let blocksFor = new Map<string, Record<string, TeamBlock[]>>();
-  const blocks = (g: Genome) => {
-    const k = JSON.stringify(g.products);
+  let epoch = 0;
+  const blocks = (g: Genome, c: number) => {
+    const k = `${JSON.stringify(g.products)}|${c}`;
     let b = blocksFor.get(k);
-    if (!b) { b = teamBlocks(ctx, g.crews[0], g.products); blocksFor.set(k, b); }
+    if (!b) { b = teamBlocks(ctx, g.crews[c], g.products, { top: 16 }); blocksFor.set(k, b); }
     return b;
   };
 
@@ -97,7 +102,7 @@ export function anneal(seedGenome: Genome, ctx: GenomeContext, opts: AnnealOptio
     // A room's whole team in one crew, from that room's best teams.
     { weight: 4, make: () => ({ kind: 'team', timing: false, apply: g => {
       const room = pick(roomIds); const c = Math.floor(random() * g.crews.length);
-      const options = (blocks(g)[room] ?? []).filter(b => b.names.join() !== namesIn({ x: g.crews[c][room] ?? [] }).join());
+      const options = (blocks(g, c)[room] ?? []).filter(b => b.names.join() !== namesIn({ x: g.crews[c][room] ?? [] }).join());
       if (!options.length) return null;
       const b = pick(options.slice(0, Math.max(2, Math.ceil(options.length * (0.3 + random() * 0.7)))));
       const n = clone(g);
@@ -174,6 +179,28 @@ export function anneal(seedGenome: Genome, ctx: GenomeContext, opts: AnnealOptio
       for (const crew of n.crews) for (const [id, s] of Object.entries(crew)) crew[id] = (s ?? []).map(x => x?.operatorName === 'Fiammetta' ? null : x);
       return n;
     } }) },
+    // A room's whole team becomes the core at once, some of the old core kept (in their rooms), the rest back to one
+    // crew's place. A bigger core only holds when all of it, and refilling the lowest first, arrive together: one
+    // member at a time, each step runs someone out of Morale (the Shamare trio with Proviso, as hand-made sheets run).
+    { weight: 1, make: () => ({ kind: 'core team', timing: true, apply: g => {
+      if (!('Fiammetta' in ctx.roster)) return null;
+      const n = clone(g);
+      const c = Math.floor(random() * n.crews.length), room = pick(roomIds);
+      const team = namesIn({ x: n.crews[c][room] ?? [] }).filter(x => x !== 'Fiammetta');
+      if (!team.length || team.every(x => n.core.includes(x))) return null;
+      const kept = n.core.filter(x => !team.includes(x) && random() < 0.5);
+      const leaving = n.core.filter(x => !team.includes(x) && !kept.includes(x));
+      n.crews.forEach((crew, cc) => { if (cc !== c) for (const [id, s] of Object.entries(crew)) crew[id] = (s ?? []).map(x => x && leaving.includes(x.operatorName) ? null : x); });
+      // The team takes the same room in every crew; whoever had those places there goes unused.
+      for (const crew of n.crews) {
+        for (const [id, s] of Object.entries(crew)) if (id !== room) crew[id] = (s ?? []).map(x => x && team.includes(x.operatorName) ? null : x);
+        crew[room] = structuredClone(n.crews[c][room]);
+      }
+      for (const crew of n.crews) for (const [id, s] of Object.entries(crew)) crew[id] = (s ?? []).map(x => x?.operatorName === 'Fiammetta' ? null : x);
+      n.core = [...kept, ...team];
+      n.refillLowest = random() < 0.7;
+      return n;
+    } }) },
     // Parked Morale (Dusk below 12), the rest rule, empty-bed filling, two to four changes, a factory's product.
     { weight: 2, make: () => ({ kind: 'setting', timing: true, apply: g => {
       const n = clone(g);
@@ -207,6 +234,7 @@ export function anneal(seedGenome: Genome, ctx: GenomeContext, opts: AnnealOptio
   let round = 0, sinceBest = 0;
   while (Date.now() - start < opts.timeMs && sinceBest < patience && round < (opts.maxRounds ?? Infinity) && !opts.shouldStop?.()) {
     round++; sinceBest++;
+    if (Math.floor(round / BLOCK_REFRESH) !== epoch) { epoch = Math.floor(round / BLOCK_REFRESH); blocksFor = new Map(); }
     const progress = Math.min(1, (Date.now() - start) / opts.timeMs);
     const temperature = t0 * Math.pow(t1 / t0, progress);
     const staffing: { g: Genome; kind: string; p: number }[] = [];

@@ -50,8 +50,11 @@ export function teamBlocks(ctx: GenomeContext, crew: BaseAssignments, products: 
     const size = Math.min(f.capacity, list.length);
     while (list.length > size && combinations(list, size).length > maxCombos) list = list.slice(0, -1);
     const scored = (size ? combinations(list, size) : []).map(names => ({ room: f.id, names, value: value(placing(f.id, names, f.capacity)) }));
-    // Smaller teams too, for rooms where a full one is not the best (a strong pair over a weak trio).
-    for (let n = 1; n < size; n++) for (const names of combinations(list.slice(0, Math.min(list.length, 8)), n)) scored.push({ room: f.id, names, value: value(placing(f.id, names, f.capacity)) });
+    // Smaller teams too, for rooms where a full one is not the best (a strong pair over a weak trio): over the whole
+    // shortlist in rooms of up to three places (a pair is often two names that are weak alone, Bubble and Vulcan),
+    // over its best eight in larger rooms.
+    const smallFrom = size <= 3 ? list : list.slice(0, 8);
+    for (let n = 1; n < size; n++) for (const names of combinations(smallFrom, n)) scored.push({ room: f.id, names, value: value(placing(f.id, names, f.capacity)) });
     blocks[f.id] = scored.sort((x, y) => y.value - x.value).slice(0, top);
   }
   return blocks;
