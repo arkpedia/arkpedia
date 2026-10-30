@@ -63,6 +63,10 @@ jobs:
         with:
           node-version: '24'
       - run: npm ci --ignore-scripts --no-audit --no-fund
+      # The deploy checks the reader against the live release's image pin
+      # (data/assets/revisions.json), which arkpedia-data keeps, not this repository.
+      - name: Pull the live game records
+        run: node scripts/content/pull-data.mjs
       - name: Deploy only the public-assets reader
         run: node scripts/deploy/public-assets-worker.mjs
         env:
