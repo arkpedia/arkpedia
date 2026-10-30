@@ -612,9 +612,61 @@ export function optimizeBase(input: OptimizerInput): OptimizerResult {
         taken.add(pick.name); added.push(pick.name);
       }
     }
-    if (!added.length) return;
-    const c = consider(plan);
-    if (c.value >= best!.value - EPS) { best = c; notes.push(`Support rooms take ${added.join(', ')}: places the dorms still had room to rest, at no cost to output.`); }
+    if (added.length) {
+      const c = consider(plan);
+      if (c.value >= best!.value - EPS) { best = c; notes.push(`Support rooms take ${added.join(', ')}: places the dorms still had room to rest, at no cost to output.`); }
+    }
+    // The pass above can only use an operator with nothing else to do: `candidatesFor` excludes anyone already
+    // placed, so a support room a skilled operator could staff stays empty whenever every such operator already
+    // has a production role (common on a small roster) -- not because the trade-off was judged and declined,
+    // but because it was never tried. For any support room still empty in a crew, try DISPLACING a candidate
+    // already working elsewhere in THAT crew, backfilling their old room, and keep the move only if the real
+    // simulator prefers the result. Processed one room at a time, mutating `plan.crews` in place after each
+    // accepted move (not a separate, unsynced copy), so a later room's search sees where the last move actually
+    // left people -- and an explicit uniqueness check guards every accepted trial, so a bug here can produce an
+    // untried trade at worst, never a shipped double-booking.
+    for (const kind of SUPPORT_KINDS) for (const room of rooms.filter(f => f.kind === kind)) {
+      for (const crewIndex of [0, 1] as const) {
+        const crew = plan.crews[crewIndex];
+        const index = (crew[room.id] ?? []).indexOf(null);
+        if (index < 0) continue; // full already, or no capacity
+        const inThisCrew = new Set(operatorsIn(crew));
+        // The replacement must be someone not placed ANYWHERE yet -- excluding only this crew's own members
+        // would let it pick an OTHER crew's operator (who rests, not works, during this crew's shifts), placing
+        // them here while they are ALSO the other crew's own occupant of that same slot: the exact double-booking
+        // an earlier version of this pass shipped, caught by the "no duplicate placements" test.
+        const placedAnywhere = new Set([...operatorsIn(plan.crews[0]), ...operatorsIn(plan.crews[1])]);
+        const candidates = (pool.get(kind) ?? []).filter(name => inThisCrew.has(name));
+        let bestTrial: { trial: BaseAssignments; mover: string; from: string } | null = null;
+        let bestTrialValue = snapshotValue(crew).value;
+        for (const mover of candidates) {
+          const from = rooms.find(f => (crew[f.id] ?? []).some(s => s?.operatorName === mover))?.id;
+          if (!from || from === room.id) continue;
+          const replacement = candidatesFor(kindOfRoom[from] as FacilityKind, placedAnywhere)[0];
+          const trial: BaseAssignments = {
+            ...crew,
+            [from]: (crew[from] ?? []).map(s => (s?.operatorName === mover ? (replacement ? slotOf(replacement) : null) : s)),
+            [room.id]: (crew[room.id] ?? []).map((s, i) => (i === index ? slotOf(mover) : s)),
+          };
+          // Safety: never accept a duplicate placement, checked against BOTH crews (not just the one being
+          // modified) -- the actual bug this guards against was a cross-crew duplicate, not a within-crew one.
+          const otherCrewNames = operatorsIn(plan.crews[1 - crewIndex]);
+          const names = [...operatorsIn(trial), ...otherCrewNames];
+          if (names.length !== new Set(names).size) continue;
+          const value = snapshotValue(trial).value;
+          if (value > bestTrialValue) { bestTrialValue = value; bestTrial = { trial, mover, from }; }
+        }
+        if (!bestTrial) continue;
+        const tradedPlan: Plan = { ...plan, crews: [crewIndex === 0 ? bestTrial.trial : plan.crews[0], crewIndex === 1 ? bestTrial.trial : plan.crews[1]] };
+        if (!fits(tradedPlan)) continue;
+        const c = consider(tradedPlan);
+        if (c.value > best!.value + EPS) {
+          best = c;
+          plan.crews[crewIndex] = bestTrial.trial; // keep this pass's own view in sync for the next room/kind
+          notes.push(`${bestTrial.mover} moves from ${bestTrial.from} to ${room.label}: worth more there than in production.`);
+        }
+      }
+    }
   }
   tryFill();
 
