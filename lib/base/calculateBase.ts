@@ -1,5 +1,6 @@
 import { BaseSkillSlots } from '@/lib/base/baseSkillSlots';
 import { BaseOperator, BaseSkill } from '@/lib/operators/operatorTypes';
+import { typedEffects } from '@/lib/base/skillEffects';
 import { BaseAssignments, FactoryProducts, DormitoryAmbience, SlotAssignment } from '@/lib/base/baseTypes';
 import {
   calcProductivity,
@@ -186,8 +187,9 @@ export function calculateBase(input: BaseCalculationInput) {
     f: (typeof FACILITIES)[number],
     filled: SlotAssignment[]
   ): { rate: number; lines: FacilityBreakdownLine[] } {
-    const genericDescriptions: (string | null)[] = [];
-    const genericLines: { operatorName: string; skillName: string | null; description: string | null }[] = [];
+    // A skill's drone recharge: its typed effect where its family has one (lib/base/skillEffects.ts), else its text.
+    const droneRateOf = (sk: BaseSkill) => { const typed = typedEffects(sk); return typed ? typed.reduce((n, e) => n + (e.kind === 'droneRecharge' ? e.value : 0), 0) : calcDroneRate([sk.description]); };
+    const genericLines: { operatorName: string; skillName: string | null; raw: number }[] = [];
     const specialEntries: { slot: SlotAssignment; skillName: string | null; handler: (typeof POWER_PLANT_SPECIAL_SKILLS)[string] }[] = [];
     for (const slot of filled) {
       for (const sk of skillsFor(slot, f.label)) {
@@ -195,14 +197,13 @@ export function calculateBase(input: BaseCalculationInput) {
         if (key in POWER_PLANT_SPECIAL_SKILLS) {
           specialEntries.push({ slot, skillName: sk.name, handler: POWER_PLANT_SPECIAL_SKILLS[key] });
         } else {
-          genericDescriptions.push(sk.description);
-          genericLines.push({ operatorName: slot.operatorName, skillName: sk.name, description: sk.description });
+          genericLines.push({ operatorName: slot.operatorName, skillName: sk.name, raw: droneRateOf(sk) });
         }
       }
     }
     const linesFor = (): FacilityBreakdownLine[] =>
       genericLines.map((g) => {
-        const raw = calcDroneRate([g.description]);
+        const raw = g.raw;
         return {
           operatorName: g.operatorName,
           skillName: g.skillName,
@@ -211,7 +212,8 @@ export function calculateBase(input: BaseCalculationInput) {
           reason: raw === 0 ? 'No numeric drone recovery effect.' : 'Counted normally.',
         };
       });
-    if (specialEntries.length === 0) return { rate: 0.05 * workingCount(filled) + calcDroneRate(genericDescriptions), lines: linesFor() };
+    const genericRate = genericLines.reduce((n, g) => n + g.raw, 0);
+    if (specialEntries.length === 0) return { rate: 0.05 * workingCount(filled) + genericRate, lines: linesFor() };
 
     const kaltsitInControlCenter = ccOperatorNames.includes("Kal'tsit");
     const lateranoInAnyOtherPowerPlant = [...powerPlantsWithLaterano].some((id) => id !== f.id);
@@ -228,7 +230,7 @@ export function calculateBase(input: BaseCalculationInput) {
     const worstRate = filled.length > 0 ? Math.max(...filled.map((s) => ownRate(s.operatorName))) : 0;
     const rampWindowHours = rampWindow(worstRate > 0 ? 24 / worstRate : Infinity);
 
-    let total = 0.05 * workingCount(filled) + calcDroneRate(genericDescriptions);
+    let total = 0.05 * workingCount(filled) + genericRate;
     const lines = linesFor();
     for (const { slot, skillName, handler } of specialEntries) {
       const result = handler({

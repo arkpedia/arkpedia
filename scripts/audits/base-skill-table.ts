@@ -1,7 +1,8 @@
 /**
  * Every released operator's base skills as one table, the starting point for parameterized skills: room,
  * unlock, the game's buff id and its family, the numbers in the text, how the calculator computes the skill
- * today (a hand-written handler, a check by name, text rules, or not modelled), and for the common families
+ * today (a hand-written handler, a check by name, a typed effect (lib/base/skillEffects.ts), text rules, or not
+ * modelled), and for the common families
  * the typed effect the family stands for. Nothing reads this table yet; it is for review.
  * Usage: npx tsx scripts/audits/base-skill-table.ts <out.json>
  */
@@ -16,6 +17,7 @@ import { DORMITORY_SPECIAL_SKILLS } from '../../lib/base/dormitorySpecialSkills'
 import { CONTROL_CENTER_SPECIAL_SKILLS } from '../../lib/base/controlCenterSpecialSkills';
 import { OFFICE_SPECIAL_SKILLS } from '../../lib/base/officeSpecialSkills';
 import { RECEPTION_ROOM_SPECIAL_SKILLS } from '../../lib/base/receptionRoomSpecialSkills';
+import { buffFamily, typedEffects } from '../../lib/base/skillEffects';
 
 const out = process.argv[2];
 if (!out) throw new Error('Usage: npx tsx scripts/audits/base-skill-table.ts <out.json>');
@@ -74,7 +76,6 @@ const FAMILIES: Record<string, string> = {
   workshop_formula_device: 'byproductChance (devices)',
 };
 
-const family = (buffId: string) => buffId.replace(/\[\d+\]$/, '');
 // Signed numbers and percentages in the text, in order ("+45%", "-0.25", "+1"); bare level or count numbers
 // without a sign are left out.
 const numbers = (text: string) => [...text.matchAll(/([+-]\d+(?:\.\d+)?)(%?)/g)].map(m => `${m[1]}${m[2]}`);
@@ -86,8 +87,9 @@ const rows = getAllOperators().filter(o => !o.isFuture && !/^Amiya \(/.test(o.na
   const handler = HANDLERS[room];
   const computedBy = handler && key in handler ? 'handler'
     : (NAMED_SKILL_CHECKS as readonly string[]).includes(key) ? 'named check'
+    : typedEffects(skill) ? 'typed effect'
     : RULES[room] ?? (handler ? 'text rules' : 'not modelled');
-  const fam = skill.buffId ? family(skill.buffId) : '';
+  const fam = buffFamily(skill.buffId);
   return {
     operator: op.name, rarity: op.rarity ?? null, skill: cleanSkillName(skill.name), room,
     unlock: typeof skill.phase === 'number' ? `${ELITE[skill.phase] ?? `E${skill.phase}`}${skill.level && skill.level > 1 ? ` Lv${skill.level}` : ''}` : skill.eliteLevel ?? '',
@@ -97,4 +99,4 @@ const rows = getAllOperators().filter(o => !o.isFuture && !/^Amiya \(/.test(o.na
 }));
 fs.writeFileSync(out, JSON.stringify(rows));
 const count = (f: (r: typeof rows[number]) => boolean) => rows.filter(f).length;
-console.log(`${rows.length} skills, ${new Set(rows.map(r => r.family)).size} families; typed by family ${count(r => !!r.effect)}; handler ${count(r => r.computedBy === 'handler')}, named check ${count(r => r.computedBy === 'named check')}, text rules ${count(r => r.computedBy === 'text rules')}, training/workshop rules ${count(r => r.computedBy.endsWith(' rules') && r.computedBy !== 'text rules')}, not modelled ${count(r => r.computedBy === 'not modelled')}`);
+console.log(`${rows.length} skills, ${new Set(rows.map(r => r.family)).size} families; typed by family ${count(r => !!r.effect)}; read as typed effects ${count(r => r.computedBy === 'typed effect')}; handler ${count(r => r.computedBy === 'handler')}, named check ${count(r => r.computedBy === 'named check')}, text rules ${count(r => r.computedBy === 'text rules')}, training/workshop rules ${count(r => r.computedBy.endsWith(' rules') && r.computedBy !== 'text rules')}, not modelled ${count(r => r.computedBy === 'not modelled')}`);
