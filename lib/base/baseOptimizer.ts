@@ -187,7 +187,20 @@ export function optimizeBase(input: OptimizerInput): OptimizerResult {
     }
     return result;
   }
-  function snapshotValue(assignments: BaseAssignments) {
+  // A run asks for the same staffing many times (team building tries each candidate against crews it has seen);
+  // within one run only the staffing changes what a snapshot is worth.
+  // Only the value is kept (a full result is large); the few callers that read the result get it worked out again.
+  const snapshots = new Map<string, number>();
+  function snapshotValue(assignments: BaseAssignments): { value: number; readonly result: ReturnType<typeof snapshotValueOf>['result'] } {
+    const key = Object.keys(assignments).sort().map(room => `${room}:${(assignments[room] ?? []).map(s => s ? `${s.operatorName}/${s.eliteLevel}/${s.level ?? ''}/${s.manualValue ?? ''}` : '').join(',')}`).join(';');
+    const known = snapshots.get(key);
+    if (known !== undefined) return { value: known, get result() { return snapshotValueOf(assignments).result; } };
+    const fresh = snapshotValueOf(assignments);
+    if (snapshots.size >= 200_000) snapshots.clear();
+    snapshots.set(key, fresh.value);
+    return fresh;
+  }
+  function snapshotValueOf(assignments: BaseAssignments) {
     evaluations++;
     const r = calculateBase({ ...base, assignments: withResidents(assignments), factoryProducts, loginInterval, swapPolicy: 'onLogin' });
     // Green: what one login interval collects, so storage limits count.

@@ -37,7 +37,18 @@ export function specialSkillKeysOfBuff(buffId: string): readonly string[] {
 /** The handler key of an operator's base skill: a known key of its name or a former one
  *  (`formerNames`, the record's aliases) and the skill's name; else the key of the skill's buff id
  *  under one of those names; else its own names, which no handler has. */
+// The key depends only on the operator, their former names and the skill; the calculator asks for it on every call
+// for every placed operator, and active skills are shared objects (activeBaseSkills), so it is kept per skill object.
+const remembered = new WeakMap<object, Map<string, string>>();
 export function specialSkillKey(operatorName: string, skill: { name?: string | null; buffId?: string | null }, formerNames: readonly string[] = []): string {
+  let byOperator = remembered.get(skill);
+  if (!byOperator) { byOperator = new Map(); remembered.set(skill, byOperator); }
+  const asked = formerNames.length ? `${operatorName}|${formerNames.join('|')}` : operatorName;
+  let key = byOperator.get(asked);
+  if (key === undefined) { key = keyOf(operatorName, skill, formerNames); byOperator.set(asked, key); }
+  return key;
+}
+function keyOf(operatorName: string, skill: { name?: string | null; buffId?: string | null }, formerNames: readonly string[]): string {
   const skillName = cleanSkillName(skill.name);
   const named = `${operatorName}|${skillName}`;
   if (named in SPECIAL_SKILL_BUFFS) return named;
