@@ -218,7 +218,11 @@ export function anneal(seedGenome: Genome, ctx: GenomeContext, opts: AnnealOptio
       else {
         const factories = Object.keys(n.products); if (!factories.length) return null;
         const f = pick(factories);
-        n.products[f] = n.products[f] === 'Precious Metals' ? 'Battle Records' : 'Precious Metals';
+        const other = factories.filter(x => n.products[x] !== n.products[f]);
+        // Half the time two factories trade products (EXP to the level 3 one, gold to the level 2), which one flip
+        // at a time reaches only through a worse split.
+        if (other.length && random() < 0.5) { const g = pick(other); [n.products[f], n.products[g]] = [n.products[g], n.products[f]]; }
+        else n.products[f] = n.products[f] === 'Precious Metals' ? 'Battle Records' : 'Precious Metals';
       }
       return n;
     } }) },
