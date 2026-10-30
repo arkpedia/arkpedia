@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { YOUTUBE_CHANNELS } from '../../lib/music/youtubeConfig';
+import { channels as YOUTUBE_CHANNELS } from '../../data/youtube-creators.json';
 
 /*
  * The site search (components/layout/SiteSearch.tsx, pages/search.tsx): the nav's button

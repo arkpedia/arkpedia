@@ -61,6 +61,7 @@ fs.rmSync('public/planner-data', { recursive: true, force: true });
 // The public JSON these write is published with the pages, so they run under the same clock
 // guard as the page builders (export-build.mjs, KNOWN_BUILD_CLOCK_READS in export-clock.mjs).
 for (const script of [
+  ['scripts/build/serve-profile-avatars.mjs'],
   ['scripts/build/build-enemy-details.mjs'],
   ['scripts/build/build-stage-details.ts', '--force'],
   ['scripts/build/build-stage-guesser.ts'],
@@ -90,7 +91,7 @@ for (const name of fs.readdirSync(release).filter(name => name.startsWith('entri
 function walk(dir) { return fs.readdirSync(dir, { withFileTypes: true }).flatMap(entry => entry.isDirectory() ? walk(path.join(dir, entry.name)) : [path.join(dir, entry.name)]); }
 const files = {};
 const publicFiles = walk('public').filter(file => /^public\/(?:stage-detail|enemy-detail|planner-data|stage-guesser|lyrics)\/.+\.json$/.test(file)
-  || /^public\/(?:stages-index|enemies-index|operator-deploy|operator-search|music-catalogue|medal-catalogue|site-search)\.json$/.test(file));
+  || /^public\/(?:stages-index|enemies-index|operator-deploy|operator-search|music-catalogue|medal-catalogue|profile-avatars|site-search)\.json$/.test(file));
 for (const file of publicFiles.sort()) {
   const bytes = fs.readFileSync(file);
   JSON.parse(bytes);

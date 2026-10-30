@@ -7,7 +7,7 @@ import {
   siteSearchIcon, siteSearchJump, siteSearchLabel, siteSearchOffSite, type SiteSearchEntry,
 } from '../../lib/search/siteSearch';
 import { buildSiteSearchEntries, buildSiteSearchFeedEntries, type SiteSearchFeeds, type SiteSearchSources } from '../../lib/search/siteSearchIndex';
-import { YOUTUBE_CHANNELS } from '../../lib/music/youtubeConfig';
+import { channels as YOUTUBE_CHANNELS } from '../../data/youtube-creators.json';
 
 const release = { release: 'a'.repeat(64), baseUrl: 'https://example.test/rev/release', assets: {} };
 
@@ -124,7 +124,7 @@ test('the index lists every curated YouTube channel, and no video', () => {
   assert.ok(creators.every((r) => r.href.startsWith('https://www.youtube.com/channel/UC') && siteSearchOffSite(r)));
   assert.ok(!rows.some((r) => r.kind === 'video' || r.kind === 'stream' || r.kind === 'streamer'),
     'a feed baked into the release would change it every export and outlive a stream');
-  assert.match(fs.readFileSync('scripts/build/build-site-search.ts', 'utf8'), /creators: YOUTUBE_CHANNELS/);
+  assert.match(fs.readFileSync('scripts/build/build-site-search.ts', 'utf8'), /creators: creators.channels/);
 });
 
 const FEEDS: SiteSearchFeeds = {

@@ -28,7 +28,7 @@ import { getEventRewards, wikiStoreBlocks, type EventRewardBlock, type EventStor
 import { rewardIconPath } from '@/lib/events/rewardIcons';
 import { publicFileExists } from '@/lib/assets/publicAssets';
 import { publishedArt } from '@/lib/art/publishedArt';
-import packArt from '@/config/event-pack-art.json';
+import packArt from '@/data/event-pack-art.json';
 import { findSkinIconPath } from '@/lib/skins/skinIconLookup';
 import { materialOrderFor } from '@/lib/farming/materialSortOrder';
 import { loadMaterialCatalogue } from '@/lib/farming/materialCatalogueServer';

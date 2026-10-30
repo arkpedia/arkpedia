@@ -232,7 +232,7 @@ export default function WorldMapEvents({ events, now: renderedAt }: { events: Co
       <div className="waiting-box">
         <h2>No events scheduled</h2>
         <p className="hint">
-          Add events in <code>lib/eventsConfig.ts</code> to have them show up here.
+          Add events to <code>data/community-offline-events.json</code> in arkpedia-data to have them show up here.
         </p>
       </div>
     );

@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { useReleaseTable } from '@/lib/content/context';
+import type { YouTubeChannelConfig } from '@/lib/music/youtubeConfig';
 import PageMeta from '@/components/layout/PageMeta';
 import { REGIONAL_MATERIAL } from '@/lib/i18n/regionalMaterial';
 import LoadOnScroll from '@/components/ui/LoadOnScroll';
@@ -10,7 +12,6 @@ import { useSwitchHold } from '@/components/ui/useSwitchHold';
 import StyledSelect from '@/components/ui/StyledSelect';
 import { ContentImg } from '@/components/content/ContentImage';
 import { currentWebEvents, mergeWebEvents, webEventServer, WORLD_CATEGORIES, type WorldCategory, type WorldDirectory, type WorldWebEvent } from '@/lib/community/worldDirectory';
-import SEED_WEB_EVENTS from '@/config/community-web-events.json';
 import { SERVER_IDS } from '@/lib/account-import/yostar';
 import { useReaderClock } from '@/lib/time/readerClock';
 import { GetStaticProps } from 'next';
@@ -18,7 +19,7 @@ import { withContentPage } from '@/lib/content/server';
 import Link from 'next/link';
 import { enrichWithLiveStatus, YouTubeVideo } from '@/lib/music/youtube';
 import { getLatestVideos } from '@/lib/music/youtubeFeedsServer';
-import { YOUTUBE_CHANNELS, VIDEOS_PER_CHANNEL } from '@/lib/music/youtubeConfig';
+import { youtubeChannels, VIDEOS_PER_CHANNEL } from '@/lib/music/youtubeConfig';
 import { filterArknightsVideos } from '@/lib/music/contentFilter';
 import { getLiveTwitchStreams, TwitchStream } from '@/lib/community/twitch';
 import { TWITCH_CATEGORY, TWITCH_STREAM_LIMIT } from '@/lib/community/twitchConfig';
@@ -29,9 +30,9 @@ import EventListPanel from '@/components/schedule/EventListPanel';
 import PageHeader from '@/components/ui/PageHeader';
 import { VideoCard, TwitchCard } from '@/components/community/StreamCards';
 
-/** JSON imports type `kind` as a plain string, here and for the published records below;
-    test-community-web-events.ts holds every seed's kind to the type's values. */
-const WEB_EVENTS = SEED_WEB_EVENTS as WorldWebEvent[];
+/** The campaigns record, read on the server only. JSON types `kind` as a plain string;
+    test-community-web-events.ts holds every record's kind to the type's values. */
+const publishedWebEvents = async () => (await import('@/data/community-web-events.json')).default as WorldWebEvent[];
 
 
 interface Props {
@@ -54,6 +55,7 @@ export default function CommunityHub({
   hasYouTubeApiKey,
   hasTwitchCreds,
 }: Props) {
+  const { channels: YOUTUBE_CHANNELS } = useReleaseTable<{ channels: YouTubeChannelConfig[] }>('youtube-creators');
   const [categoryQuery, setCategory] = useQueryState('section', 'offline');
   const category: WorldCategory = WORLD_CATEGORIES.find(option => option.value === categoryQuery)?.value ?? 'offline';
   const [query, setQuery] = useQueryState('q');
@@ -99,11 +101,11 @@ export default function CommunityHub({
    feeds are live, not game data, so they are fetched on every revalidation (finalize) and
    never exported into the release; the builder holds only what the release should carry. */
 async function withLiveFeeds(props: Props): Promise<Props> {
-  // New campaigns travel in the content release without a code deploy. The reviewed
-  // seeds keep the initial campaigns visible while an older directory is still live.
+  // New campaigns travel in the content release without a code deploy. This deployment's
+  // record keeps the campaigns it knows visible while an older directory is still live.
   const existing = props.directory ?? (await import('@/data/world-directory.json')).default as WorldDirectory;
-  const directory = { ...existing, webEvents: mergeWebEvents(WEB_EVENTS, existing.webEvents) };
-  const rawVideos = await getLatestVideos(YOUTUBE_CHANNELS, VIDEOS_PER_CHANNEL);
+  const directory = { ...existing, webEvents: mergeWebEvents(await publishedWebEvents(), existing.webEvents) };
+  const rawVideos = await getLatestVideos(await youtubeChannels(), VIDEOS_PER_CHANNEL);
   const youtubeApiKey = process.env.YOUTUBE_API_KEY;
   const enriched = await enrichWithLiveStatus(rawVideos, youtubeApiKey);
 
@@ -138,5 +140,5 @@ async function withLiveFeeds(props: Props): Promise<Props> {
    stayed as the deploy built them until the next release. The builder reads only the
    compiled-in EVENTS, so it can run at runtime, and finalize fetches the feeds either way. */
 export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>('/community', async () => ({
-  props: { directory: { ...(await import('@/data/world-directory.json')).default as WorldDirectory, webEvents: mergeWebEvents(WEB_EVENTS, (await import('@/data/community-web-events.json')).default as WorldWebEvent[]) }, events: EVENTS, videos: [], twitchStreams: [], hasYouTubeApiKey: false, hasTwitchCreds: false },
-}), { finalize: withLiveFeeds, revalidate: 1500, bundledWhenUnpublished: true });
+  props: { directory: { ...(await import('@/data/world-directory.json')).default as WorldDirectory, webEvents: await publishedWebEvents() }, events: EVENTS, videos: [], twitchStreams: [], hasYouTubeApiKey: false, hasTwitchCreds: false },
+}), { finalize: withLiveFeeds, revalidate: 1500, bundledWhenUnpublished: true, tables: { 'youtube-creators': async () => (await import('@/data/youtube-creators.json')).default } });

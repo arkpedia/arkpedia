@@ -1,40 +1,12 @@
-export interface YouTubeChannelConfig {
-  id: string;
-  label: string;
+import { readPublishedContentPageProps } from '@/lib/content/release';
+export interface YouTubeChannelConfig { id: string; label: string }
+
+/** Curated creators, from the page's verified live release; local records during export/build. */
+export async function youtubeChannels(): Promise<YouTubeChannelConfig[]> {
+  const published = await readPublishedContentPageProps<{ __contentTables?: { 'youtube-creators'?: { channels: YouTubeChannelConfig[] } } }>('/community');
+  return published?.__contentTables?.['youtube-creators']?.channels
+    ?? (await import('@/data/youtube-creators.json')).default.channels;
 }
 
-// ---------------------------------------------------------------------
-// Fill in real channel IDs here. A channel ID looks like "UCxxxxxxxxxxxxxxxxxxxxxxxx"
-// (starts with "UC", 24 characters) -- NOT the @handle shown in the URL bar.
-//
-// How to find a channel's ID:
-//   1. Go to the channel's page
-//   2. View page source (Ctrl+U) and search for "channelId" -- or --
-//   3. Use a lookup tool like https://commentpicker.com/youtube-channel-id.php
-// ---------------------------------------------------------------------
-export const YOUTUBE_CHANNELS: YouTubeChannelConfig[] = [
-  { id: 'UCWwuijyo4x78iXup5hOvkbw', label: 'KyoStinV' },
-  { id: 'UCYKqSTaebCjNrQSPZ3_uHcw', label: 'kukkikaze' },
-  { id: 'UCdZ_vbPUXSCg1p2nHeFad3Q', label: 'Eckogen' },
-  { id: 'UCoplJSyTWXGKgMIu0KvwhkQ', label: 'SUPAH' },
-  { id: 'UC6VDxLKUqRLcqBErqLtvIZg', label: 'tamastraycat' },
-  { id: 'UCaum0e1MVZF69boluxgA0Bg', label: 'Ushio Ebi Ch.' },
-  { id: 'UCPVrjrtyssy19hwxsItXRCw', label: 'Storn' },
-  { id: 'UCPXi85bZ1ZX9qriP2gjhzPA', label: 'spoce' },
-  { id: 'UCjmigXcFhjldwmVBpdLoARg', label: 'FrostByte262' },
-  { id: 'UCR0J2NYGuC8epsa1O4DMmXQ', label: 'Arknights Official - Yostar' },
-  { id: 'UCPZMRi_hWWgoGMQMGUxUnlQ', label: 'pard' },
-  { id: 'UCyjcSidl3YQTHFbS63rSrYQ', label: 'Blemichi' },
-  { id: 'UCg91ZWPS5uotnNqTrsUDjhQ', label: 'mochi' },
-  { id: 'UC4kAu36j1X8qGXys4ZEc77Q', label: 'DragonGJY' },
-  { id: 'UCWvzpSDlw4xdBzr25Tikh3A', label: 'RiverV Workshop' },
-  { id: 'UC_4aPzlZ5rh8CtIQP3me8NA', label: 'Lens' },
-  { id: 'UC-dFqg_nDGqahNdA9VfBpiw', label: 'Tsalthsu' },
-  { id: 'UCXdbEt4ozNLapUeuewmvDMA', label: 'oyuki_ch' },
-  { id: 'UC4-X3gUVippTBVpRu1F1k_Q', label: 'harlequin wheels' },
-  { id: 'UCIR8NOYQdM5Cn_j23W_6Jzw', label: 'MineMoon' },
-];
-
-// How many of each channel's most recent uploads to fetch before merging
-// and sorting everyone together by date.
+/** Recent uploads per channel, before merging and sorting by date. */
 export const VIDEOS_PER_CHANNEL = 6;

@@ -102,9 +102,9 @@ review, and source outages retain verified records.
 
 Verified records and official CDN artwork URLs go to
 `data/community-web-events.json`; the normal content release updates Community →
-World without a code deployment. `config/community-web-events.json`, kept here, supplies
-manually verified fallback cards until a release carries them. Closed events
-remain in the data but disappear from the current-events view automatically.
+World without a code deployment. That record is the only source: a manually verified
+card is an editorial edit to it, and the sync keeps what a previous run verified.
+Closed events remain in the data but disappear from the current-events view automatically.
 
 Discovery covers recent official website/cafe announcements linking campaign microsites.
 Social-only announcements and other URL/rule formats may still need a manual entry or a

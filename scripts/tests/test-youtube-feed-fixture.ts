@@ -5,7 +5,8 @@ import { test } from 'node:test';
 // @ts-expect-error js-yaml ships no types; only load() is used.
 import yaml from 'js-yaml';
 import { getLatestVideos } from '../../lib/music/youtubeFeedsServer';
-import { YOUTUBE_CHANNELS, VIDEOS_PER_CHANNEL } from '../../lib/music/youtubeConfig';
+import { VIDEOS_PER_CHANNEL } from '../../lib/music/youtubeConfig';
+import { channels as YOUTUBE_CHANNELS } from '../../data/youtube-creators.json';
 import { filterArknightsVideos } from '../../lib/music/contentFilter';
 
 /*

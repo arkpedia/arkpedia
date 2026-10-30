@@ -1,12 +1,16 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { recommendation, combinedRecommendation, ratingPoints, pointLabel, rankByRecommendation, DEFAULT_SELECTOR_PREFERENCES, selectorCoverage, isSuperMeta, type SelectorCandidate } from '../../lib/selectors/scoring';
+import { recommendation as scoreRecommendation, combinedRecommendation, ratingPoints, pointLabel, rankByRecommendation, DEFAULT_SELECTOR_PREFERENCES, selectorCoverage as coverage, isSuperMeta as superMeta, type SelectorCandidate } from '../../lib/selectors/scoring';
 import { buildSelectorCatalogue, damageTypes, hasTalentReveal } from '../../lib/selectors/catalogue';
 import snapshot from '../../data/selector-catalogue.json';
 import { getAllOperators } from '../../lib/operators/operators';
 import fs from 'node:fs';
-import ratings from '../../config/selector-ratings.json';
+import ratings from '../../data/selector-ratings.json';
 import { importAuthorRatings } from '../../lib/selectors/ratings';
+import { operators as superMetaOperators } from '../../data/selector-super-meta.json';
+const recommendation = (candidate: SelectorCandidate, roster: SelectorCandidate[], owned: readonly string[] | null, preferences = DEFAULT_SELECTOR_PREFERENCES) => scoreRecommendation(candidate, roster, owned, preferences, superMetaOperators);
+const selectorCoverage = (roster: SelectorCandidate[], owned: readonly string[] | null) => coverage(roster, owned, superMetaOperators);
+const isSuperMeta = (candidate: SelectorCandidate) => superMeta(candidate, superMetaOperators);
 const candidate: SelectorCandidate = { name: 'Test', id: 'char_test', caster: false, supporter: false, talentReveal: false, arts: false, trueDamage: false, kukkikaze: 6.6, community: 6.5, mainSkills: 1, subSkills: 1, isModule: false, raModule: false };
 test('ticket order follows displayed totals, including negative, quarter and personalized points', () => {
   const operators = ['Negative', 'Zero', 'Quarter', 'Zulu', 'Alpha', 'Missing'].map(name => ({ name }));

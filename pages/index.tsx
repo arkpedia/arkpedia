@@ -39,7 +39,7 @@ import { Skin } from '@/lib/skins/skinTypes';
 import { FarmingMaterial } from '@/lib/farming/farmingTypes';
 import { enrichWithLiveStatus, YouTubeVideo } from '@/lib/music/youtube';
 import { getLatestVideos } from '@/lib/music/youtubeFeedsServer';
-import { YOUTUBE_CHANNELS, VIDEOS_PER_CHANNEL } from '@/lib/music/youtubeConfig';
+import { youtubeChannels, VIDEOS_PER_CHANNEL } from '@/lib/music/youtubeConfig';
 import { filterBannedByTitle } from '@/lib/music/contentFilter';
 import type { TwitchStream } from '@/lib/community/twitch';
 import { EVENTS } from '@/lib/schedule/eventsConfig';
@@ -165,7 +165,7 @@ async function finalizeHome(props: Props): Promise<Props> {
   });
   const serialize = (event: GameEvent) => ({ ...event, start: event.start.toISOString(), end: event.end.toISOString() });
   const upcoming = getNextUpcomingEvent(now, events);
-  const rawVideos = await getLatestVideos(YOUTUBE_CHANNELS, VIDEOS_PER_CHANNEL);
+  const rawVideos = await getLatestVideos(await youtubeChannels(), VIDEOS_PER_CHANNEL);
   const enrichedVideos = await enrichWithLiveStatus(rawVideos, process.env.YOUTUBE_API_KEY);
   const videos = filterBannedByTitle(enrichedVideos.filter(video => !video.isLivestream));
   const communityEvent = [...EVENTS].filter(event => {

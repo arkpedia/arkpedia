@@ -7,19 +7,18 @@ import { announcedRewards } from '@/lib/events/announcements';
 import { publicFileExists } from '@/lib/assets/publicAssets';
 import { rewardIconPath } from '@/lib/events/rewardIcons';
 import { FINAL_STATS_ROWS } from '@/lib/results/finalPollResults';
-import ratingsData from '@/config/selector-ratings.json';
-import packArt from '@/config/event-pack-art.json';
+import ratingsData from '@/data/selector-ratings.json';
+import packArt from '@/data/event-pack-art.json';
+import selectorTickets from '@/data/selector-tickets.json';
 import type { TicketDetails } from '@/lib/events/announcements';
 import type { ResolvedTicket } from '@/components/events/RewardDetails';
 import type { SelectorCandidate } from './scoring';
 
-const EVENT = '[Celebration] Critical Phase Transition';
-const CURRENT = [
-  { name: 'Top Operator Transfer Permit - Starter', label: 'Beginner 6★ selector', pack: 'Beginner rewards · Day 5' },
-  { name: 'Special Event Transfer Permit', label: 'Gifted 6★ selector', pack: null },
-  { name: '2026 Celebration Operator Permit', label: 'Purchasable 6★ selector', pack: 'Rhodes Island Headhunting Pack' },
-  { name: 'Top Operator Transfer Permit - Kernel', label: 'Purchasable Kernel 6★ selector', pack: 'Rhodes Island Headhunting Pack - Kernel' },
-];
+/** The event and its tickets are arkpedia-data's record: every event brings a new set,
+ *  and they change without a deploy. */
+interface SelectorTicket { name: string; label: string; pack: string | null }
+const EVENT = selectorTickets.event;
+const CURRENT = selectorTickets.tickets as SelectorTicket[];
 /** Scan direct damage descriptions, not mentions of damage taken or allies' buffs.
  * Includes attacks by summons (e.g. Mon3tr), conversion skills and retaliatory damage. */
 export function damageTypes(op: Operator) {

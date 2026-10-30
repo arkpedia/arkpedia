@@ -156,9 +156,9 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ga
   /* Throws if the playbook names an operator, item, strategy or alliance the season
      does not have. Here rather than at runtime because the failure is silent
      otherwise: the name would match nothing and the advice would quietly omit it. */
-  assertPlaybook(data);
+  assertPlaybook(data, (await import('@/data/stronghold-playbook.json')).default.plans as import('@/lib/gamemodes/strongholdPlaybook').AlliancePlan[]);
   /* And the opening guide, which is the largest hand-written thing here and every
      line of it a name. */
-  assertOpening(data);
+  assertOpening(data, (await import('@/data/stronghold-opening.json')).default.bands as import('@/lib/gamemodes/strongholdOpening').OpeningBand[]);
   return { props: { data, picker: buildableAlliances(alliancesForPicker(data)) } };
-});
+}, { tables: { 'stronghold-opening': async () => (await import('@/data/stronghold-opening.json')).default } });

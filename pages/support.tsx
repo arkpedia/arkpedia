@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import PageMeta from '@/components/layout/PageMeta';
 import PageHeader from '@/components/ui/PageHeader';
-import patreonSupporters from '@/config/patreon_supporters.json';
+import { withContentPage } from '@/lib/content/server';
+import { useReleaseTable } from '@/lib/content/context';
 
 export default function SupportPage() {
+  const patreonSupporters = useReleaseTable<{ 'supporter-tier': { id: string | number; name: string; supporters: string[] }[] }>('patreon-supporters');
   const [showJoinModal, setShowJoinModal] = useState(false);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const joinButtonRef = useRef<HTMLButtonElement>(null);
@@ -147,3 +149,8 @@ export default function SupportPage() {
     </>
   );
 }
+
+export const getStaticProps = withContentPage('/support', async () => ({ props: {} }), {
+  bundledWhenUnpublished: true,
+  tables: { 'patreon-supporters': async () => (await import('@/data/patreon-supporters.json')).default },
+});

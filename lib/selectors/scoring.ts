@@ -1,4 +1,4 @@
-import superMetaOperators from '../../config/selector-super-meta.json';
+export type SuperMetaOperator = { id: string; name: string };
 
 /** Recommendation inputs are release data; ownership comes only from the imported account. */
 export interface SelectorCandidate {
@@ -37,18 +37,17 @@ export interface SelectorPreferences {
   reveal: boolean | null;
 }
 export const DEFAULT_SELECTOR_PREFERENCES: SelectorPreferences = { kukkikazeRating: true, communityRating: true, mainSkills: true, subSkills: false, likesIS: false, likesRA: false, arts: null, trueDamage: null, gameDestroyer: null, reveal: null };
-const superMetaIds = new Set(superMetaOperators.map(op => op.id));
-export function isSuperMeta(candidate: SelectorCandidate) {
-  return superMetaIds.has(candidate.id) || (candidate.kukkikaze !== null && candidate.kukkikaze >= 7 && candidate.kukkikaze <= 7.2);
+export function isSuperMeta(candidate: SelectorCandidate, superMetaOperators: readonly SuperMetaOperator[]) {
+  return superMetaOperators.some(op => op.id === candidate.id) || (candidate.kukkikaze !== null && candidate.kukkikaze >= 7 && candidate.kukkikaze <= 7.2);
 }
 /** Null keeps a coverage answer linked to the imported account instead of freezing it. */
-export function selectorCoverage(roster: SelectorCandidate[], ownedNames: readonly string[] | null) {
+export function selectorCoverage(roster: SelectorCandidate[], ownedNames: readonly string[] | null, superMetaOperators: readonly SuperMetaOperator[]) {
   const names = new Set(ownedNames ?? []);
   const owned = roster.filter(op => names.has(op.name));
   return {
     arts: ownedNames !== null && owned.filter(op => op.caster || op.supporter).length <= 3,
     trueDamage: ownedNames !== null && !owned.some(op => op.trueDamage),
-    gameDestroyer: ownedNames === null || owned.some(isSuperMeta)
+    gameDestroyer: ownedNames === null || owned.some(op => isSuperMeta(op, superMetaOperators))
       ? false : owned.some(op => ratingPoints(op.kukkikaze) === null) ? null : true,
     reveal: ownedNames === null || !owned.some(op => op.talentReveal),
   };
@@ -59,10 +58,10 @@ export function ratingPoints(value: number | null): number | null {
   const tenth = Math.round(value * 10);
   return Math.min(2, (tenth - 63) * .25);
 }
-export function recommendation(candidate: SelectorCandidate, roster: SelectorCandidate[], ownedNames: readonly string[] | null, preferences: SelectorPreferences = DEFAULT_SELECTOR_PREFERENCES): Recommendation {
+export function recommendation(candidate: SelectorCandidate, roster: SelectorCandidate[], ownedNames: readonly string[] | null, preferences: SelectorPreferences, superMetaOperators: readonly SuperMetaOperator[]): Recommendation {
   const own = new Set(ownedNames ?? []);
-  const gameDestroyer = isSuperMeta(candidate);
-  const automatic = selectorCoverage(roster, ownedNames);
+  const gameDestroyer = isSuperMeta(candidate, superMetaOperators);
+  const automatic = selectorCoverage(roster, ownedNames, superMetaOperators);
   const coverage = { arts: preferences.arts ?? automatic.arts, trueDamage: preferences.trueDamage ?? automatic.trueDamage,
     gameDestroyer: preferences.gameDestroyer ?? automatic.gameDestroyer, reveal: preferences.reveal ?? automatic.reveal };
   const lines: Recommendation['lines'] = [];

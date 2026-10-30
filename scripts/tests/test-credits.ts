@@ -40,6 +40,13 @@ function referenced(): Map<string, string> {
       }
     }
   };
+  // Community projects still credit their upstream after the directory moved to a release record.
+  const directory = 'data/community-projects.json';
+  if (fs.existsSync(directory)) {
+    for (const pattern of PATTERNS) for (const match of fs.readFileSync(directory, 'utf8').matchAll(pattern)) {
+      found.set(`${match[1]}/${match[2].replace(/\.git$/, '')}`, directory);
+    }
+  }
   for (const root of ROOTS) if (fs.existsSync(root)) walk(root);
   return found;
 }

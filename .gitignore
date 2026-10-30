@@ -102,6 +102,7 @@ __pycache__/
 /public/enemies-index.json
 /public/medal-catalogue.json
 /public/operator-deploy.json
+/public/profile-avatars.json
 /public/stages-index.json
 /public/operator-search.json
 # Tables the Worker reads from its static files (scripts/build/ship-tables.mjs).

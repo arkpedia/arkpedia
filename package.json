@@ -15,7 +15,6 @@
     "typecheck": "tsc --noEmit",
     "test:operators": "tsx --test scripts/tests/test-operator-details.ts",
     "test:skin-artwork": "tsx --test scripts/tests/test-skin-artwork.ts",
-    "avatars:refresh": "node scripts/build/build-profile-avatar-catalogue.mjs",
     "voices:refresh": "node scripts/build/build-operator-voices.mjs",
     "official-videos:refresh": "tsx scripts/sync/sync-official-videos.mjs",
     "test:operator-voices": "tsx --test scripts/tests/test-operator-voices.ts",
@@ -65,11 +64,12 @@
     "test:py": "node scripts/tests/run-python-tests.mjs",
     "audit:unused": "knip",
     "check:local": "npm run typecheck && npm test && npm run test:py && npm run lint -- --max-warnings 15 && npm run lint:scripts && npm run check:styles && npm run audit:styles && npm run audit:unused",
-    "generate:public": "node scripts/build/ship-tables.mjs && node scripts/build/build-enemy-details.mjs && npx tsx scripts/build/build-stage-details.ts && npx tsx scripts/build/build-stage-guesser.ts && npx tsx scripts/build/build-operator-search.ts && npx tsx scripts/build/build-music-catalogue.ts && npx tsx scripts/build/build-site-search.ts && npx tsx scripts/build/build-selector-catalogue.ts",
+    "generate:public": "node scripts/build/ship-tables.mjs && node scripts/build/serve-profile-avatars.mjs && node scripts/build/build-enemy-details.mjs && npx tsx scripts/build/build-stage-details.ts && npx tsx scripts/build/build-stage-guesser.ts && npx tsx scripts/build/build-operator-search.ts && npx tsx scripts/build/build-music-catalogue.ts && npx tsx scripts/build/build-site-search.ts && npx tsx scripts/build/build-selector-catalogue.ts",
     "lint:scripts": "eslint scripts",
     "cf:preview:check": "node scripts/deploy/native-preview.mjs check",
     "cf:preview:build": "node scripts/deploy/native-preview.mjs build",
-    "cf:preview:deploy": "node scripts/deploy/native-preview.mjs publish"
+    "cf:preview:deploy": "node scripts/deploy/native-preview.mjs publish",
+    "avatars:refresh": "node scripts/build/build-profile-avatar-catalogue.mjs"
   },
   "dependencies": {
     "@fontsource/inter": "5.3.0",

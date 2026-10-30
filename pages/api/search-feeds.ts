@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { enrichWithLiveStatus } from '@/lib/music/youtube';
 import { getLatestVideos } from '@/lib/music/youtubeFeedsServer';
-import { YOUTUBE_CHANNELS, VIDEOS_PER_CHANNEL } from '@/lib/music/youtubeConfig';
+import { youtubeChannels, VIDEOS_PER_CHANNEL } from '@/lib/music/youtubeConfig';
 import { filterArknightsVideos } from '@/lib/music/contentFilter';
 import { getLiveTwitchStreams } from '@/lib/community/twitch';
 import { TWITCH_CATEGORY, TWITCH_STREAM_LIMIT } from '@/lib/community/twitchConfig';
@@ -29,7 +29,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ error: 'Method not allowed' });
   }
   const [videos, streams] = await Promise.all([
-    getLatestVideos(YOUTUBE_CHANNELS, VIDEOS_PER_CHANNEL)
+    getLatestVideos(await youtubeChannels(), VIDEOS_PER_CHANNEL)
       .then((raw) => enrichWithLiveStatus(raw, process.env.YOUTUBE_API_KEY))
       .then((enriched) => filterArknightsVideos(enriched.filter((v) => !v.isLivestream))),
     getLiveTwitchStreams(TWITCH_CATEGORY, TWITCH_STREAM_LIMIT, process.env.TWITCH_CLIENT_ID, process.env.TWITCH_CLIENT_SECRET),

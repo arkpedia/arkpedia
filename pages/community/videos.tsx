@@ -3,7 +3,7 @@ import PageMeta from '@/components/layout/PageMeta';
 import { useState } from 'react';
 import { enrichWithLiveStatus, YouTubeVideo } from '@/lib/music/youtube';
 import { getLatestVideos } from '@/lib/music/youtubeFeedsServer';
-import { YOUTUBE_CHANNELS, VIDEOS_PER_CHANNEL } from '@/lib/music/youtubeConfig';
+import { youtubeChannels, VIDEOS_PER_CHANNEL } from '@/lib/music/youtubeConfig';
 import { filterArknightsVideos } from '@/lib/music/contentFilter';
 import { CommunityEyebrow, VideoCard } from '@/components/community/StreamCards';
 import LoadOnScroll from '@/components/ui/LoadOnScroll';
@@ -46,7 +46,7 @@ export default function VideosPage({ videos }: Props) {
 }
 
 export const getStaticProps: GetStaticProps<Props> = async () => {
-  const rawVideos = await getLatestVideos(YOUTUBE_CHANNELS, VIDEOS_PER_CHANNEL);
+  const rawVideos = await getLatestVideos(await youtubeChannels(), VIDEOS_PER_CHANNEL);
   const youtubeApiKey = process.env.YOUTUBE_API_KEY;
   const enriched = await enrichWithLiveStatus(rawVideos, youtubeApiKey);
   const videos = filterArknightsVideos(enriched.filter((v) => !v.isLivestream));

@@ -380,6 +380,13 @@ async function withStubbedFeeds<T>(run: () => Promise<T>): Promise<{ result: T; 
  * running cannot pass.
  */
 const REGENERATED: Record<string, (props: Record<string, unknown>, clock: { from: number; to: number }) => void> = {
+  '/community/projects': props => {
+    assert.equal((props.chibis as unknown[]).length, 2);
+    assert.equal(((props.__contentTables as Record<string, { projects: unknown[] }>)['community-projects'].projects).length, 10);
+  },
+  '/support': props => {
+    assert.ok(((props.__contentTables as Record<string, { 'supporter-tier': unknown[] }>)['patreon-supporters']['supporter-tier']).length > 0);
+  },
   '/selector-tickets': props => {
     assert.equal((props.cards as unknown[]).length, 5);
     assert.deepEqual(Object.values(props.tickets as Record<string, { operators: unknown[] }>).map(ticket => ticket.operators.length), [6, 8, 35, 48, 9]);
@@ -414,7 +421,7 @@ const REGENERATED: Record<string, (props: Record<string, unknown>, clock: { from
   },
   '/community': (props, { from, to }) => {
     const campaigns = (props.directory as { webEvents: { url: string; name: string; expiresAt: string }[] }).webEvents;
-    assert.ok((require('../../config/community-web-events.json') as { url: string }[]).every(seed => campaigns.some(event => event.url === seed.url)), 'seeded campaigns survive an older published Community directory');
+    assert.ok((require('../../data/community-web-events.json') as { url: string }[]).every(known => campaigns.some(event => event.url === known.url)), 'this deployment\'s campaigns survive an older published Community directory');
     assert.ok(campaigns.every(event => event.name && Number.isFinite(Date.parse(event.expiresAt))), 'discovered campaign records keep verified deadlines');
     const videos = props.videos as { videoId: string }[];
     assert.ok(videos.length > 0 && videos.every((video) => video.videoId.startsWith('stub-')), 'the videos are the feeds finalize fetched');

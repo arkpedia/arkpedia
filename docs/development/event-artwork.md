@@ -15,7 +15,7 @@ staged-art publisher publishes them to `content-art/` and reruns the importer.
 `lib/events/furnitureArt.mjs` selects the published regional image, including for
 inherited reruns and content released before explicit theme IDs were added.
 
-Pack artwork still uses `config/event-pack-art.json`; new packs require a sourced entry
+Pack artwork uses the `data/event-pack-art.json` record; new packs require a sourced entry
 until their artwork discovery is automated. Official livestream crops should retain
 their source and region. Selector operator clicks should keep the event context open.
 
