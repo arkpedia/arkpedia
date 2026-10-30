@@ -1,10 +1,11 @@
 import bannersData from '@/data/headhunting_banners.json';
 import { loadAllEventYears } from '@/lib/events/loadEventsData';
+import { parseGameRangeDays } from '@/lib/schedule/gameWindow';
 import type { Operator } from './operatorTypes';
 
 interface TimedEvent {
   name: string;
-  global?: { startAt?: string | null; endAt?: string | null } | null;
+  global?: { startAt?: string | null; endAt?: string | null; dateRange?: string; note?: string } | null;
 }
 
 interface ReleaseBanner {
@@ -74,4 +75,32 @@ export function getScheduledOperatorDebut(
   return candidates
     .filter(({ startAt }) => Math.abs(Date.parse(startAt) - recorded) <= MAX_SOURCE_DRIFT)
     .sort((a, b) => Date.parse(a.startAt) - Date.parse(b.startAt))[0] ?? null;
+}
+
+
+/** Calendar forecasts supersede stale scraper dates without becoming confirmed releases. */
+export function resolveOperatorDebut<T extends Pick<Operator, 'name' | 'characterInfo' | 'howToObtain'> & { releaseAt?: string; releaseEstimate?: string; obtain?: { welfare?: { note: string } } }>(op: T, schedule = { banners: bannersData as ReleaseBanner[], events: loadAllEventYears() as TimedEvent[] }) {
+  if (op.releaseEstimate || op.releaseAt) return op;
+  const debut = getScheduledOperatorDebut(op);
+  if (debut) return { ...op, releaseAt: debut.startAt,
+    ...(debut.availableUntil ? { availableUntil: debut.availableUntil } : {}),
+    characterInfo: { ...op.characterInfo, 'Release Date': debut.startAt.slice(0, 10).replace(/-/g, '/') } };
+  const linked = schedule.banners.filter(banner =>
+    [...(banner.six_stars ?? []), ...(banner.five_stars ?? []), ...(banner.four_stars ?? [])].includes(op.name))
+    .flatMap(banner => banner.linked_event ? [normalize(banner.linked_event)] : []);
+  const welfare = typeof op.howToObtain === 'object' && op.howToObtain ? op.howToObtain.Welfare : null;
+  if (typeof welfare === 'object' && welfare?.['Unlock Location']) linked.push(normalize(welfare['Unlock Location']));
+  if (op.obtain?.welfare?.note) linked.push(normalize(op.obtain.welfare.note));
+  const recorded = recordedReleaseDay(op);
+  if (recorded !== null) for (const event of schedule.events) {
+    if (!linked.includes(normalize(event.name)) || !/estimat/i.test(event.global?.note ?? '') || exact(event.global?.startAt)) continue;
+    const days = parseGameRangeDays(event.global?.dateRange ?? null);
+    if (!days) continue;
+    const { year, month, day } = days.start;
+    if (Math.abs(Date.UTC(year, month - 1, day) - recorded) > 45 * 86_400_000) continue;
+    const releaseEstimate = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    return { ...op, releaseEstimate, isFuture: true,
+      characterInfo: { ...op.characterInfo, 'Release Date': '' } };
+  }
+  return op;
 }

@@ -300,6 +300,23 @@ function resolveNeeds(
      resolved would be resolved again. Last, every purchase has been added by the time they are
      read. */
   const rank = (name: string) => STORE_CURRENCIES.has(name) ? Infinity : TIER_RANK.get(name) ?? Infinity;
+  // Resolve every producer before its shared ingredients. Catalogue order alone
+  // can put a Catalyst between two Dualchips, charging stock twice and leaving
+  // both an old and a new ingredient row in the result.
+  const descendants = new Map<string, Set<string>>();
+  const ingredients = (name: string, visiting = new Set<string>()): Set<string> => {
+    if (descendants.has(name)) return descendants.get(name)!;
+    if (visiting.has(name)) throw new Error(`Cyclic crafting requirement: ${name}`);
+    const recipe = FORMULAS[name];
+    const costs = recipe && declared.has(name) && declarable(recipe)
+      ? recipe.costs.filter(cost => cost.name !== 'LMD').map(cost => cost.name) : [];
+    if (buying.has(name) && CERTIFICATE_STORE[name]) costs.push(CERTIFICATE_STORE[name].currency);
+    const next = new Set(visiting).add(name);
+    const result = new Set(costs);
+    for (const cost of costs) for (const nested of ingredients(cost, next)) result.add(nested);
+    descendants.set(name, result);
+    return result;
+  };
   const rows: NeedRow[] = [];
   const done = new Set<string>();
   const ledger: CraftLedger = { lmd: 0, made: {} };
@@ -310,6 +327,7 @@ function resolveNeeds(
     let next: string | null = null;
     for (const name of totals.keys()) {
       if (done.has(name)) continue;
+      if ([...totals.keys()].some(parent => !done.has(parent) && parent !== name && ingredients(parent).has(name))) continue;
       if (next === null || rank(name) < rank(next)) next = name;
     }
     if (next === null) break;

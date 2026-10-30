@@ -61,7 +61,7 @@
 /* The search takes the row's spare width; the faction menu a fixed share of it. */
 .roster-search { flex: 1 1 200px; min-width: 160px; width: auto; }
 .roster-faction { flex: 0 1 220px; min-width: 160px; }
-.roster-obtain { flex: 0 1 200px; min-width: 160px; }
+.roster-obtain, .roster-branch { flex: 0 1 200px; min-width: 160px; }
 .roster-controls button { font-size: 12px; }
 /* On a phone the rows that held it at full width are in the Filters sheet
    (components/ui/FilterSheet): the toolbar takes the line itself. */
@@ -84,10 +84,7 @@
    The glyphs are OperatorGameIcon masks in the chip's ink (teal when pressed), sized by
    the component: white art as an <img> was white on white in the light theme. */
 .roster-icon-chip { width: 36px; padding: 0; }
-.roster-branch-row {
-  width: 100%;
-  padding-top: 4px;
-}
+
 
 /* Faction, Show CN and the owned filter, then the order and Reset at the far end. */
 .roster-filter-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; width: 100%; padding-top: 4px; }

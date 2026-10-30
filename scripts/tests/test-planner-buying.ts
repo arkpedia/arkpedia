@@ -91,3 +91,39 @@ test('the certificates sit right after the purchase they pay for', () => {
   assert.equal(names[names.indexOf('Chip Catalyst') + 1], 'Purchase Certificate');
   assert.equal(new Set(names).size, names.length, 'no row twice');
 });
+
+
+test('several Dualchip crafts share one catalyst row and spend its stock and certificates once', () => {
+  for (const names of [['Guard Dualchip', 'Sniper Dualchip'], ['Sniper Dualchip', 'Guard Dualchip']]) {
+    const need = names.map(name => ({ name, quantity: 4 }));
+    for (const purchase of [false, true]) {
+      const result = tools.resolveNeeds(need, { 'Chip Catalyst': 3 }, {
+        crafting: new Set(names), buying: new Set(purchase ? ['Chip Catalyst'] : []), incoming: null, autoCraft: false,
+      });
+      assert.equal(result.rows.filter(r => r.name === 'Chip Catalyst').length, 1);
+      const catalyst = row(result.rows, 'Chip Catalyst');
+      assert.equal(catalyst.need, 8);
+      assert.equal(catalyst.fromDepot, 3);
+      assert.deepEqual(catalyst.forCrafts, { [names[0]]: 4, [names[1]]: 4 });
+      assert.equal(catalyst.short, purchase ? 0 : 5);
+      if (purchase) {
+        assert.equal(result.rows.filter(r => r.name === 'Purchase Certificate').length, 1);
+        assert.equal(row(result.rows, 'Purchase Certificate').need, 450);
+      }
+    }
+  }
+});
+
+
+test('direct catalyst needs join crafted needs without changing unrelated currency ordering', () => {
+  const result = tools.resolveNeeds([{ name: 'LMD', quantity: 100 }, { name: 'Chip Catalyst', quantity: 2 },
+    { name: 'Guard Dualchip', quantity: 4 }, { name: 'Sniper Dualchip', quantity: 4 }], { 'Chip Catalyst': 3 },
+    { crafting: new Set(['Guard Dualchip', 'Sniper Dualchip']), incoming: null, autoCraft: false });
+  assert.equal(result.rows[0].name, 'LMD');
+  const catalysts = result.rows.filter(r => r.name === 'Chip Catalyst');
+  assert.equal(catalysts.length, 1);
+  assert.equal(catalysts[0].direct, 2);
+  assert.equal(catalysts[0].need, 10);
+  assert.equal(catalysts[0].fromDepot, 3);
+  assert.equal(catalysts[0].short, 7);
+});
