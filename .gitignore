@@ -104,3 +104,5 @@ __pycache__/
 /public/operator-deploy.json
 /public/stages-index.json
 /public/operator-search.json
+# Tables the Worker reads from its static files (scripts/build/ship-tables.mjs).
+/public/_tables/

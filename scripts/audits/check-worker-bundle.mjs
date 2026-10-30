@@ -9,13 +9,11 @@ import path from 'node:path';
  * the API routes' build held for dev-only fallbacks, and 2 MB was the browser-only account-import
  * transport. Without those, the voice lines and /operators/[name]'s tables it is 17.4 MB.
  */
-// The promoted Preview features use 19.64 MB after removing the accidental full
-// chibi catalogue import. Keep a narrow ceiling around that measured baseline.
-// 21 MB since 2026-10-30: builds bundle the live release's records now (#883), not the
-// app's stale copy, and the planner's three new tables came with #887: 20.47 MB. The
-// records grow with every release, so the lasting fix is fewer tables in the server
-// build (read from the release at runtime), not this number.
-const BUDGET_BYTES = 21_000_000;
+// 17.03 MB on 2026-10-30, once regional-schedules.json (3.45 MB) moved to the Worker's static
+// files (lib/content/shippedTable.ts). Builds bundle the live release's records (#883), which grow
+// with every release: a table that pushes past this moves to the static files the same way rather
+// than the ceiling rising. Kept narrow around the measurement.
+const BUDGET_BYTES = 18_000_000;
 /** Browser-only packages: next.config.js keeps them out of the server build. */
 const BROWSER_ONLY = [/\/node_modules\/libcurl\.js\//];
 

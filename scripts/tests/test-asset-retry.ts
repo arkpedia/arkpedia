@@ -374,6 +374,7 @@ const NOT_PUBLISHED_FILES: Record<string, string> = {
   'pages/api/music-art/[id].ts: url': "Monster Siren's song API",
   'pages/api/music-cover/[id].ts: url': "Monster Siren's song API",
   'pages/api/music-cover/[id].ts: art.cover': "Monster Siren's cover CDN",
+  'lib/content/shippedTable.ts: request: Request': "the Worker's ASSETS binding's type: its own static files, read in the same isolate",
 };
 /** Pictures and sounds made outside the page: how many each file makes, and why they need no retry. */
 const DETACHED_MEDIA: Record<string, { count: number; why: string }> = {
