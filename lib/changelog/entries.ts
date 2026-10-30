@@ -34,6 +34,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-10-30T10:00:00Z',
+    changed: [
+      { title: 'A deeper base optimizer', detail: 'The base optimizer keeps improving its plan for the time you choose, 1 to 10 minutes; Stop keeps the best so far.', href: '/base' },
+    ],
+    fixed: [
+      { title: 'Saved optimizer rotations keep their numbers', detail: 'A rotation saved from the optimizer now shows the same daily yields on the Base page, drones and Fiammetta\'s refills included.', href: '/base' },
+    ],
+  },
+  {
     at: '2026-10-29T18:00:00Z',
     changed: [
       { title: 'Schedule is a menu', detail: 'The Schedule button in the header opens Events and Calendar, in place of the two tabs on the page.', href: '/schedule' },
