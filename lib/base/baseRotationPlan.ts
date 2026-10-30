@@ -5,7 +5,7 @@ export const BASE_ROTATION_PLAN_KEY = 'baseRotationPlan_v1';
 export interface BaseShift { id: string; presetId: string; hours: number; refill?: string[]; reseat?: string[] }
 /** `drones` (the weights drones are spent by; present means counted) and `parked` (Morale set once and held, such
  * as Dusk below 12) come from an optimizer recommendation, so the saved rotation scores what the optimizer did. */
-export interface BaseRotationPlan { version: 1; startHour: number; shifts: BaseShift[]; externalGold?: number; drones?: { lmd: number; exp: number; goldMade: number }; parked?: Record<string, number> }
+export interface BaseRotationPlan { version: 1; startHour: number; shifts: BaseShift[]; externalGold?: number; drones?: { lmd: number; exp: number; goldMade: number }; parked?: Record<string, number>; refillPolicy?: 'lowest' }
 const names = (v: unknown) => Array.isArray(v) && v.length <= 40 && v.every(n => typeof n === 'string' && n.length > 0 && n.length <= 80) ? v as string[] : undefined;
 const weight = (v: unknown) => typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 10000;
 export function readRotationPlan(value: unknown): BaseRotationPlan {
@@ -14,7 +14,7 @@ export function readRotationPlan(value: unknown): BaseRotationPlan {
   const drones = raw?.drones && weight(raw.drones.lmd) && weight(raw.drones.exp) && weight(raw.drones.goldMade) ? { lmd: raw.drones.lmd, exp: raw.drones.exp, goldMade: raw.drones.goldMade } : undefined;
   const parked = raw?.parked && typeof raw.parked === 'object' ? Object.fromEntries(Object.entries(raw.parked).filter(([n, m]) => n.length <= 80 && typeof m === 'number' && Number.isFinite(m) && m >= 0 && m <= 24).slice(0, 10)) : {};
   return { version: 1, ...(typeof raw?.externalGold === 'number' && Number.isFinite(raw.externalGold) ? { externalGold: Math.min(1000, Math.max(0, raw.externalGold)) } : {}),
-    ...(drones ? { drones } : {}), ...(Object.keys(parked).length ? { parked } : {}), startHour: raw?.version === 1 && Number.isInteger(raw.startHour) && raw.startHour! >= 0 && raw.startHour! < 24 ? raw.startHour! : 8,
+    ...(drones ? { drones } : {}), ...(Object.keys(parked).length ? { parked } : {}), ...(raw?.refillPolicy === 'lowest' ? { refillPolicy: 'lowest' as const } : {}), startHour: raw?.version === 1 && Number.isInteger(raw.startHour) && raw.startHour! >= 0 && raw.startHour! < 24 ? raw.startHour! : 8,
     shifts: raw?.version === 1 && Array.isArray(raw.shifts) ? raw.shifts.slice(0, 24).flatMap(s => s && typeof s.id === 'string' && s.id.length > 0 && s.id.length <= 100 && !ids.has(s.id) && typeof s.presetId === 'string' && s.presetId.length <= 100 && typeof s.hours === 'number' && Number.isFinite(s.hours) && s.hours >= 0.25 && s.hours <= 48 ? (ids.add(s.id), [{ id: s.id, presetId: s.presetId, hours: s.hours, ...(names(s.refill) ? { refill: names(s.refill) } : {}), ...(names(s.reseat) ? { reseat: names(s.reseat) } : {}) }]) : []) : [] };
 }
 export interface RotationStage {

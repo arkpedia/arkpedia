@@ -27,6 +27,8 @@ export interface Genome {
   products: FactoryProducts;
   /** Seat owned operators the plan does not use in empty beds (dorm head counts feed several skills). */
   fillBeds: boolean;
+  /** Fiammetta gives her Morale to the lowest core member rather than the next in a fixed order. */
+  refillLowest?: boolean;
   /** Every off-duty worker rests; otherwise only whoever just came off shift does, the rest wait unassigned and
    * their beds go to idle operators (Iris and Czerny's dorm skills feed Rosmontis, for one). */
   restAll: boolean;
@@ -105,7 +107,7 @@ export function evaluate(g: Genome, ctx: GenomeContext): Evaluation {
   const shifts = decode(g, ctx);
   const weights = ctx.weights ?? DEFAULT_WEIGHTS;
   const sim = simulateBase({
-    base: ctx.base, shifts, loginInterval: ctx.loginInterval, initialMorale: g.parked, drones: ctx.drones,
+    base: ctx.base, shifts, loginInterval: ctx.loginInterval, initialMorale: g.parked, drones: ctx.drones, refillPolicy: g.refillLowest ? 'lowest' : 'rotation',
     droneWeights: { lmd: weights.lmd, exp: weights.exp, goldMade: weights.goldMade },
     ...(ctx.sustainable ? { droneFunding: { externalGold: ctx.externalGold ?? 0 } } : {}),
   });
@@ -196,6 +198,7 @@ export function toOptimizerResult(g: Genome, e: Evaluation, ctx: GenomeContext, 
     shape, crews: g.crews, schedule, shifts: e.shifts, stepHours: step, workHours: run * step,
     simulation: e.sim, score: e.value, explanations, notes, evaluations: e.sim.evaluations,
     ...(Object.keys(g.parked).length ? { initialMorale: g.parked } : {}),
+    ...(g.refillLowest && g.core.length ? { refillPolicy: 'lowest' as const } : {}),
   };
 }
 
@@ -208,7 +211,7 @@ export function genomeNotes(g: Genome, e: Evaluation, ctx: GenomeContext): strin
   else if (g.steps > 2) notes.push(patterns.size > 1
     ? `${g.steps} staffing changes a cycle, and rooms change crew on different ones (the schedule shows which), so only part of the base rests at a time.`
     : `${g.steps} staffing changes a cycle: the first crew works ${(Object.values(g.assign)[0] ?? []).filter(c => c === 0).length} of them and the second covers the rest.`);
-  if (g.core.length) notes.push(`Fiammetta refills ${g.core.join(', ')} in turn at the staffing changes: each works every shift and never rests. She sits at the head of ${dorms[0]?.label ?? 'the first dorm'} and, whenever she is full at a staffing change, swaps her Morale with the next of them in that order.`);
+  if (g.core.length) notes.push(`Fiammetta refills ${g.core.join(', ')}${g.refillLowest ? '' : ' in turn'} at the staffing changes: each works every shift and never rests. She sits at the head of ${dorms[0]?.label ?? 'the first dorm'} and, whenever she is full at a staffing change, ${g.refillLowest ? 'gives her Morale to whichever of them is lowest' : 'swaps her Morale with the next of them in that order'}.`);
   if (g.parked.Dusk !== undefined) notes.push(`Drain Dusk below 12 Morale once (any working room will do) and keep her there: below 12 "Unstirred by Gain" adds Worldly Plight +15${'Ling' in ctx.roster ? ' on top of Ling\'s +15 above 12' : ''}. In the Control Center with this crew she loses no Morale, and when off shift she waits unassigned rather than resting, so she stays below 12.`);
   if (!g.restAll) notes.push('Only whoever has just come off shift rests in the dorms; the others wait unassigned, which leaves beds for operators whose dorm skills count.');
   const crewNames = new Set(g.crews.flatMap(operatorsIn));

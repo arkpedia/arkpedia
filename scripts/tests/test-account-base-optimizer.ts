@@ -135,7 +135,7 @@ test('a recommendation saved as a rotation recalculates to the yields the optimi
     trainingTarget: { class: 'Guard', branch: '', mastery: 1, timeReductionActive: false, instantTrainingReady: false },
     workshopSettings: { recipeId: '1', causality: 0, karma: 0, thornsFailures: 0, qualifyingDormOperators: 0 },
   }));
-  const plan = { version: 1 as const, startHour: 8, externalGold: 0, drones: r.weights, ...(r.plan.initialMorale ? { parked: r.plan.initialMorale } : {}),
+  const plan = { version: 1 as const, startHour: 8, externalGold: 0, drones: r.weights, ...(r.plan.initialMorale ? { parked: r.plan.initialMorale } : {}), ...(r.plan.refillPolicy ? { refillPolicy: r.plan.refillPolicy } : {}),
     shifts: presets.map((p, i) => ({ id: `s${i}`, presetId: p.id, hours: r.plan.stepHours, ...(r.plan.shifts[i].refill ? { refill: r.plan.shifts[i].refill } : {}), ...(r.plan.shifts[i].reseat ? { reseat: r.plan.shifts[i].reseat } : {}) })) };
   const rotation = calculateRotation(base, plan, presets as never, 12);
   assert.ok(rotation.totals);

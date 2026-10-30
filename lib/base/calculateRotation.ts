@@ -26,7 +26,7 @@ export function calculateRotation(input: Pick<BaseCalculationInput, 'operators' 
   const first = saved[0]!;
   const facilities = getFacilities(first.productionSpots, first.facilityLevels);
   const simulation = simulateBase({
-    base: { ...input, facilities }, loginInterval, initialMorale: { ...initialMorale, ...plan.parked },
+    base: { ...input, facilities }, loginInterval, initialMorale: { ...initialMorale, ...plan.parked }, refillPolicy: plan.refillPolicy,
     // A rotation saved from the optimizer counts drones (and their gold funding) exactly as the optimizer did.
     ...(plan.drones ? { drones: true, droneWeights: plan.drones, droneFunding: { externalGold: plan.externalGold ?? 0 } } : {}),
     shifts: saved.map((p, i) => ({ assignments: p!.assignments, factoryProducts: p!.factoryProducts, hours: plan.shifts[i].hours,

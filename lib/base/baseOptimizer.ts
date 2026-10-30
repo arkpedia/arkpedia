@@ -103,6 +103,8 @@ export interface OptimizerResult {
   notes: string[];
   /** Morale to set once before the plan starts, for operators whose skill reads it and who never rest (Dusk below 12). */
   initialMorale?: Record<string, number>;
+  /** How Fiammetta picks from her refill list, when not the fixed order (see simulateBase). */
+  refillPolicy?: 'lowest';
   /** calculateBase calls, snapshot and simulated together. */
   evaluations: number;
 }

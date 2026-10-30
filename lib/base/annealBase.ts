@@ -34,7 +34,7 @@ function rng(seed: number) {
 
 const clone = (g: Genome): Genome => ({ ...g, crews: g.crews.map(c => structuredClone(c)), assign: Object.fromEntries(Object.entries(g.assign).map(([r, a]) => [r, [...a]])), core: [...g.core], parked: { ...g.parked }, products: { ...g.products } });
 const namesIn = (a: BaseAssignments) => Object.values(a).flatMap(s => (s ?? []).flatMap(x => x ? [x.operatorName] : []));
-const key = (g: Genome) => JSON.stringify([g.steps, g.k, Object.entries(g.assign).sort(([a], [b]) => a < b ? -1 : 1), g.core, g.parked, g.products, g.fillBeds, g.restAll, g.crews.map(c => Object.entries(c).sort(([a], [b]) => a < b ? -1 : 1).map(([r, s]) => [r, (s ?? []).map(x => x?.operatorName ?? '')]))]);
+const key = (g: Genome) => JSON.stringify([g.steps, g.k, !!g.refillLowest, Object.entries(g.assign).sort(([a], [b]) => a < b ? -1 : 1), g.core, g.parked, g.products, g.fillBeds, g.restAll, g.crews.map(c => Object.entries(c).sort(([a], [b]) => a < b ? -1 : 1).map(([r, s]) => [r, (s ?? []).map(x => x?.operatorName ?? '')]))]);
 
 type Move = { kind: string; timing: boolean; apply: (g: Genome) => Genome | null };
 
@@ -177,10 +177,11 @@ export function anneal(seedGenome: Genome, ctx: GenomeContext, opts: AnnealOptio
     // Parked Morale (Dusk below 12), the rest rule, empty-bed filling, two to four changes, a factory's product.
     { weight: 2, make: () => ({ kind: 'setting', timing: true, apply: g => {
       const n = clone(g);
-      const which = Math.floor(random() * 5);
+      const which = Math.floor(random() * 6);
       if (which === 0) { if (!('Dusk' in ctx.roster)) return null; if (n.parked.Dusk !== undefined) delete n.parked.Dusk; else n.parked.Dusk = 11; }
       else if (which === 1) n.restAll = !n.restAll;
       else if (which === 2) n.fillBeds = !n.fillBeds;
+      else if (which === 5) { if (!n.core.length) return null; n.refillLowest = !n.refillLowest; }
       else if (which === 3) {
         // Two, three or four changes; each room's pattern is carried over by position.
         const next = pick([2, 3, 4].filter(x => x !== n.steps));

@@ -711,7 +711,7 @@ export default function BasePage({ operators }: Props) {
     }));
     const nextPresets = [...savedPresets, ...presets];
     // Fiammetta's refills, drones and parked Morale too, so the saved rotation scores what the optimizer showed.
-    const nextPlan: BaseRotationPlan = { version: 1, startHour, externalGold, drones: recommendation.weights, ...(recommendation.plan.initialMorale ? { parked: recommendation.plan.initialMorale } : {}),
+    const nextPlan: BaseRotationPlan = { version: 1, startHour, externalGold, drones: recommendation.weights, ...(recommendation.plan.initialMorale ? { parked: recommendation.plan.initialMorale } : {}), ...(recommendation.plan.refillPolicy ? { refillPolicy: recommendation.plan.refillPolicy } : {}),
       shifts: presets.map((p, i) => ({ id: crypto.randomUUID(), presetId: p.id, hours: recommendation.plan.stepHours, ...(recommendation.plan.shifts[i].refill ? { refill: recommendation.plan.shifts[i].refill } : {}), ...(recommendation.plan.shifts[i].reseat ? { reseat: recommendation.plan.shifts[i].reseat } : {}) })) };
     let previousPresets: string | null, previousPlan: string | null;
     try {
