@@ -102,19 +102,28 @@ jobs:
         with:
           path: .cache/refresh-fingerprint
           key: refresh-fingerprint-${{ github.run_id }}
+      # Data split phase 2: with the repository variable ARKPEDIA_IMPORTS_IN_DATA set to '1', the
+      # nightly import runs in arkpedia-data (its importer/, import.yml) and this scheduled run
+      # compiles that repository's imports branch, merged with main, running here only the steps
+      # the importer does not (scripts/content/run-stage.mjs importedStages). Unset, nothing
+      # changes. The branch's head is part of the reuse key: new imports are always compiled.
+      - name: Read the imported records
+        id: imports
+        if: github.event_name == 'schedule' && vars.ARKPEDIA_IMPORTS_IN_DATA == '1'
+        run: echo "head=$(git ls-remote https://github.com/arkpedia/arkpedia-data.git refs/heads/imports | cut -f1)" | tee -a "$GITHUB_OUTPUT"
       - name: Reuse a successfully prepared input set
         id: prepared
         if: github.event_name == 'schedule'
         uses: actions/cache@v6
         with:
           path: .cache/prepared-inputs
-          key: prepared-content-v1-${{ steps.upstream.outputs.fingerprint }}
+          key: prepared-content-v1-${{ steps.upstream.outputs.fingerprint }}${{ steps.imports.outputs.head && format('-imports-{0}', steps.imports.outputs.head) || '' }}
       - name: Load public source records
         id: source
         if: github.event_name != 'schedule' || steps.prepared.outputs.cache-hit != 'true'
         env:
-          DATA_REF: ${{ inputs.data_ref || 'main' }}
-          MERGE_MAIN: ${{ inputs.merge_main && 'true' || '' }}
+          DATA_REF: ${{ inputs.data_ref || (github.event_name == 'schedule' && vars.ARKPEDIA_IMPORTS_IN_DATA == '1' && 'imports') || 'main' }}
+          MERGE_MAIN: ${{ (inputs.merge_main || (github.event_name == 'schedule' && vars.ARKPEDIA_IMPORTS_IN_DATA == '1')) && 'true' || '' }}
         run: |
           set -euo pipefail
           [[ "$DATA_REF" =~ ^[A-Za-z0-9][A-Za-z0-9_./-]*$ ]]
@@ -192,6 +201,10 @@ jobs:
           CATALOGUE_SKIN_DEPLOY_KEY: ${{ github.ref_name == 'main' && secrets.CATALOGUE_SKIN_DEPLOY_KEY || '' }}
           # refresh-stage-data.sh adds its stages to this run instead of starting its own.
           ARKPEDIA_STAGE_RUN: '1'
+          # Compiling arkpedia-data's imports branch: the steps its importer ran are not run again
+          # (scripts/content/run-stage.mjs importedStages). Set for the scheduled run under
+          # ARKPEDIA_IMPORTS_IN_DATA, and for a run dispatched with data_ref imports.
+          ARKPEDIA_IMPORTED_FROM: ${{ (inputs.data_ref == 'imports' || (github.event_name == 'schedule' && vars.ARKPEDIA_IMPORTS_IN_DATA == '1')) && format('{0}/arkpedia-data/importer', runner.temp) || '' }}
           ARKPEDIA_ALLOW_SHRINK: ${{ inputs.allow_shrink }}
         run: |
           set -euo pipefail

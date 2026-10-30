@@ -501,6 +501,27 @@ export function declaredStages(root) {
 }
 
 /*
+ * The steps arkpedia-data's importer runs (its importer/, data split phase 2). When this run
+ * compiles that repository's imports branch, ARKPEDIA_IMPORTED_FROM names its importer/ checkout,
+ * and a step listed there is not run again here: its records came with the branch, and the
+ * holds of any that failed came in its quarantine file (recordStageHolds keeps a declared step's
+ * hold that this run did not touch). The upstream checkouts and the completeness gate always run
+ * here too: the steps that stay read the checkouts, and completeness judges what is published.
+ * Read from the importer's own step lists, so the two repositories never keep a list each.
+ */
+export const KEPT_HERE = new Set(['pin-upstream', 'upstream-cn', 'upstream-en', 'completeness']);
+export function importedStages(dir = process.env.ARKPEDIA_IMPORTED_FROM) {
+  if (!dir) return null;
+  const names = new Set();
+  for (const file of ['scripts/content/run-imports.sh', 'scripts/sync/refresh-stage-data.sh']) {
+    const at = path.join(dir, file);
+    if (!fs.existsSync(at)) throw new Error(`ARKPEDIA_IMPORTED_FROM is ${dir}, which has no ${file}`);
+    for (const [, name] of fs.readFileSync(at, 'utf8').matchAll(/^\s*stage ([a-z0-9][a-z0-9-]*)\s/gm)) if (!KEPT_HERE.has(name)) names.add(name);
+  }
+  return names;
+}
+
+/*
  * One quarantine entry (stage 'refresh', key stage:<name>, kept-previous) for every stage of
  * this run that did not run to the end, so its firstSeen carries over from run to run and
  * the daily issue can say how long it has been failing. A stage that ran to the end drops
@@ -551,7 +572,14 @@ async function main(argv) {
     }
     return exitCode;
   }
-  if (command === 'run') return (await runStage(root, parseRunArgs(args))).exitCode;
+  if (command === 'run') {
+    const options = parseRunArgs(args);
+    if (importedStages()?.has(options.name)) {
+      console.log(`${options.name}: run by arkpedia-data's importer; its records come with the imports branch, so it is not run here.`);
+      return 0;
+    }
+    return (await runStage(root, options)).exitCode;
+  }
   throw new Error('usage: run-stage.mjs begin | run <name> [options] -- <command> | end [--strict]');
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
