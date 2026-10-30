@@ -1,189 +1,73 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildFreeRewards } from '../build/build-free-rewards.mjs';
 import { rewardClaimsFromGame } from '../../lib/account/rewardClaims';
 import { accountFromGame } from '../../lib/account/accountStore';
 import { allFreeRewards, freeOperatorsToClaim, freeRewardsForAccount, obtainableWelfare, rosterClaimedWelfare, rosterOperatorIds, welfareCardFacts, type FreeReward } from '../../lib/pulls/freeRewards';
 
 /*
- * Excerpts of the Global EN tables as the content run reads them (ArknightsAssets/ArknightsGamedata,
- * 2026-10-21): the ids, windows and shapes are the client's own, trimmed to the rows that matter.
- * The account is a synthetic syncData user in the Torappu shapes (PlayerMission, PlayerCheckIn,
- * PlayerActivity, PlayerOpenServer, PlayerRetro at torappu-excel bc6e6155), carrying one claim of
- * every kind the tracker imports.
+ * The free-reward catalogue as a release carries it, written out of the Global EN tables of
+ * 2026-10-21. arkpedia-data's importer builds it and holds every row to those tables (its
+ * scripts/tests/test-reward-welfare-imports.ts); what a reader's save and roster then tick on
+ * the rows is here. The account is a synthetic syncData user in the Torappu shapes
+ * (PlayerMission, PlayerCheckIn, PlayerActivity, PlayerOpenServer, PlayerRetro at torappu-excel
+ * bc6e6155), carrying one claim of every kind the tracker imports.
  */
-const item = (id: string, count: number, type = 'MATERIAL') => ({ id, count, type });
-const mission = (id: string, type: string, missionGroup: string, description: string, rewards: unknown[]) => ({ id, type, missionGroup, description, rewards });
-const signIn = (order: number, itemList: unknown[]) => ({ order, itemList, isDynItem: false });
-const celebrationDays = [[item('LIMITED_TKT_GACHA_10_7301', 1, 'LIMITED_TKT_GACHA_10'), item('ap_supply_lt_120', 1, 'AP_SUPPLY')], [item('char_4227_gallus', 1, 'CHAR'), item('7001', 5, 'TKT_RECRUIT')]];
-
-function tables(overrides: { missions?: Record<string, unknown> } = {}) {
-  return {
-    handbook: { handbookStageData: {} },
-    characters: { char_4226_veen: { name: 'Viy', rarity: 'TIER_6' }, char_4223_botany: { name: 'Botani', rarity: 'TIER_5' }, char_4227_gallus: { name: 'GALLUS²', rarity: 'TIER_1' },
-      char_333_sidero: { name: 'Sideroca', rarity: 'TIER_5' }, char_345_folnic: { name: 'Folinic', rarity: 'TIER_5' }, char_131_flameb: { name: 'Flamebringer', rarity: 'TIER_5' } },
-    items: { items: { '4001': { name: 'LMD' }, '4003': { name: 'Orundum' }, '7001': { name: 'Recruitment Permit' } } },
-    missions: { missions: overrides.missions ?? {
-      main_1: mission('main_1', 'MAIN', 'main_1', 'Clear 0-1', [item('4001', 1000, 'GOLD')]),
-      guide_1: mission('guide_1', 'GUIDE', 'guide_g_1', 'Pinboard 1', [item('4003', 100, 'DIAMOND_SHD')]),
-      act4mainssPermanent_4: mission('act4mainssPermanent_4', 'RETRO', 'permanent_main_3_One_Day_More', 'Clear 17-12', [item('31103', 3)]),
-      act4mainssPermanent_5: mission('act4mainssPermanent_5', 'RETRO', 'permanent_main_3_One_Day_More', 'Clear 17-13', [item('char_4226_veen', 1, 'CHAR')]),
-    }, missionGroups: { guide_g_1: { id: 'guide_g_1', type: 'GUIDE', title: 'Phase 1', rewards: [item('7003', 1, 'TKT_GACHA')] } } },
-    openServer: {
-      schedule: [{ id: 'openseverTaskGroup1', startTs: 1533898800, endTs: 1733227199 }, { id: 'openseverTaskGroup2', startTs: 1733227200, endTs: 1881658799 }],
-      dataMap: {
-        openseverTaskGroup1: { openServerMissionData: [{ id: 'openserver_1', description: 'Clear Main Storyline0-1', rewards: [item('4003', 600)] }],
-          checkInData: [{ order: 1, item: item('4001', 20000) }], chainLoginData: [{ order: 7, item: item('char_173_slchan', 1, 'CHAR') }] },
-        openseverTaskGroup2: { openServerMissionData: [{ id: 'openserver_1_1', description: 'Clear Main Storyline0-1', rewards: [item('4003', 600)] }],
-          checkInData: [{ order: 1, item: item('4001', 20000) }, { order: 2, item: item('4003', 200) }], chainLoginData: [{ order: 1, item: item('4001', 5000) }] },
-      },
-      constant: { firstDiamondShardMailCount: 3800 },
-      longTermCheckInData: { groupList: [{ groupId: 'signin_1', days: 180, level: 80, rewardList: [item('4003', 600)] }] },
-    },
-    checkin: { groups: { signin82: { groupId: 'signin82', title: 'October', signStartTime: 1790852400, signEndTime: 1793530799, items: [item('4001', 2000), item('2001', 10), item('7001', 1)] } } },
-    activity: {
-      basicInfo: {
-        act4mainss: { id: 'act4mainss', name: 'Critical Phase Transition', startTime: 1791979200, endTime: 1793185199, rewardEndTime: 1793789999 },
-        act51side: { id: 'act51side', name: 'People, A People', startTime: 1789570800, endTime: 1790765999, rewardEndTime: 1791370799 },
-        act59sign: { id: 'act59sign', name: 'Celebration Login Event', startTime: 1791979200, endTime: 1793185199, rewardEndTime: 1793185199 },
-        act4d0: { id: 'act4d0', name: 'Code of Brawl', startTime: 1600000000, endTime: 1601000000, rewardEndTime: 1601500000 },
-      },
-      activity: {
-        CHECKIN_ONLY: { act59sign: { checkInList: { 0: signIn(1, celebrationDays[0]), 1: signIn(2, celebrationDays[1]) } } },
-        TYPE_ACT4D0: { act4d0: { mileStoneItemList: [{ item: item('char_131_flameb', 1, 'CHAR') }] } },
-      },
-      missionData: [
-        mission('act4mainssActivity_1', 'ACTIVITY', 'act4mainss', 'Clear 17-2', [item('act4mainss_token', 40, 'ACTIVITY_ITEM')]),
-        mission('51sideActivity_4', 'ACTIVITY', 'act51side', 'Clear PA-4', [item('char_4223_botany', 1, 'CHAR')]),
-      ],
-      activityTemplateMissionStyles: {
-        act4mainss: { bigRewardType: 'ILLUST_CHAR_REWARD', bigRewardParamList: ['char_4226_veen', 'Clear 17-13 to obtain this Operator'] },
-        permanent_main_3_One_Day_More: { bigRewardType: 'ILLUST_CHAR_REWARD', bigRewardParamList: ['char_4226_veen', 'Clear 17-13 to obtain this Operator'] },
-        act51side: { bigRewardType: 'ILLUST_CHAR_REWARD', bigRewardParamList: ['char_4223_botany', 'Clear PA-4 to obtain this Operator'] },
-      },
-    },
-    retro: {
-      retroActList: {
-        permanent_main_3_One_Day_More: { retroId: 'permanent_main_3_One_Day_More', linkedActId: ['act4mainss'], customActId: 'act4mainss', startTime: 1793185200, trailStartTime: -1, name: 'Critical Phase Transition' },
-        permanent_sub_1_Darknights_Memoir: { retroId: 'permanent_sub_1_Darknights_Memoir', linkedActId: [], customActId: null, startTime: 1660000000, trailStartTime: 1669395600, name: 'Darknights Memoir' },
-        permanent_sidestory_4_Twilight_Of_Wolumonde: { retroId: 'permanent_sidestory_4_Twilight_Of_Wolumonde', linkedActId: [], customActId: null, startTime: 1625137200, trailStartTime: 1675443600, name: 'Twilight of Wolumonde' },
-      },
-      // The client reuses Darknights Memoir's trail reward id for Twilight of Wolumonde's.
-      retroTrailList: {
-        permanent_sub_1_Darknights_Memoir: { trailStartTime: 1669395600, trailRewardList: [{ trailRewardId: 'trailReward_sub_1_1', starCount: 12, rewardItem: item('char_333_sidero', 1, 'CHAR') }, { trailRewardId: 'trailReward_sub_1_2', starCount: 20, rewardItem: item('4003', 100) }] },
-        permanent_sidestory_4_Twilight_Of_Wolumonde: { trailStartTime: 1675443600, trailRewardList: [{ trailRewardId: 'trailReward_sub_1_1', starCount: 12, rewardItem: item('char_345_folnic', 1, 'CHAR') }] },
-      },
-    },
-    shops: { shopGPDataDict: { GP_freeL_5: { displayName: 'Free pack' } } },
-    eventRewards: { events: { '[Celebration] Critical Phase Transition': { activity: 'act4mainss', groups: [
-      { kind: 'login', title: '2026 CELEBRATION SIGN-IN EVENT OPEN', region: 'Global', start: '2026-10-14T15:00:00.000Z', end: '2026-10-28T10:59:00.000Z', days: 2,
-        items: [], daily: [[{ name: 'Emergency Sanity Concentrate', count: 1 }, { name: 'A Sealed Vow Headhunting Permit', count: 1 }], [{ name: 'Recruitment Permit', count: 5 }, { name: 'GALLUS²', count: 1 }]] },
-      { kind: 'missions', title: 'Event missions', source: 'activity_table missionData act4mainss', items: [{ name: "'Factory scrip'", count: 400, kind: 'event-item', id: 'act4mainss_token' }] },
-    ] }, '[Side Story] People, A People': { activity: 'act51side', groups: [] } } },
-  };
-}
+const beginnerPrograms = [{ id: 'openseverTaskGroup1', startTs: 1533898800, endTs: 1733227199 }, { id: 'openseverTaskGroup2', startTs: 1733227200, endTs: 1881658799 }];
+const catalogue = {
+  rewards: [
+    { id: 'free:main_1', group: 'Main and side missions', name: 'Clear 0-1', rewards: [{ id: '4001', name: 'LMD', count: 1000 }], forecast: true },
+    { id: 'free:guide_1', group: 'Pinboard missions', name: 'Pinboard 1', rewards: [{ id: '4003', name: 'Orundum', count: 100, orundum: 100 }], forecast: true },
+    { id: 'free:guide_g_1', group: 'Pinboard missions', name: 'Phase 1', rewards: [{ id: '7003', name: 'Reward item', count: 1, permits: 1 }], forecast: true },
+    { id: 'free:openserver_1_1', group: 'Beginner rewards', name: 'Clear Main Storyline0-1', rewards: [{ id: '4003', name: 'Orundum', count: 600, orundum: 600 }], beginner: { id: 'openseverTaskGroup2', startTs: 1733227200, endTs: 1881658799, current: true }, forecast: true },
+    { id: 'free:openseverTaskGroup2:checkInData:1', group: 'Beginner rewards', name: 'Cumulative sign-in · Day 1', rewards: [{ id: '4001', name: 'LMD', count: 20000 }], beginner: { id: 'openseverTaskGroup2', startTs: 1733227200, endTs: 1881658799, current: true }, forecast: true },
+    { id: 'free:openseverTaskGroup2:checkInData:2', group: 'Beginner rewards', name: 'Cumulative sign-in · Day 2', rewards: [{ id: '4003', name: 'Orundum', count: 200, orundum: 200 }], beginner: { id: 'openseverTaskGroup2', startTs: 1733227200, endTs: 1881658799, current: true }, forecast: true },
+    { id: 'free:openseverTaskGroup2:chainLoginData:1', group: 'Beginner rewards', name: 'Consecutive sign-in · Day 1', rewards: [{ id: '4001', name: 'LMD', count: 5000 }], beginner: { id: 'openseverTaskGroup2', startTs: 1733227200, endTs: 1881658799, current: true }, forecast: true },
+    { id: 'free:welcome-mail', group: 'Beginner rewards', name: 'Welcome mail', rewards: [{ id: '4003', name: 'Orundum', count: 3800, orundum: 3800 }], forecast: true },
+    { id: 'free:signin_1', group: 'Sign-in milestones', name: '180 sign-in days · Doctor Lv.80', rewards: [{ id: '4003', name: 'Orundum', count: 600, orundum: 600 }], forecast: false },
+    { id: 'free:signin82:1', group: 'Monthly sign-in', name: 'October · Day 1', rewards: [{ id: '4001', name: 'LMD', count: 2000 }], startAt: 1790852400000, endAt: 1793530800000, forecast: false },
+    { id: 'free:signin82:2', group: 'Monthly sign-in', name: 'October · Day 2', rewards: [{ id: '2001', name: 'Reward item', count: 10 }], startAt: 1790852400000, endAt: 1793530800000, forecast: false },
+    { id: 'free:signin82:3', group: 'Monthly sign-in', name: 'October · Day 3', rewards: [{ id: '7001', name: 'Recruitment Permit', count: 1 }], startAt: 1790852400000, endAt: 1793530800000, forecast: false },
+    { id: 'free:act59sign:1', group: 'Event sign-in and gifts', name: 'Celebration Login Event · Day 1', rewards: [{ id: 'LIMITED_TKT_GACHA_10_7301', name: 'Reward item', count: 1, restricted: true }, { id: 'ap_supply_lt_120', name: 'Reward item', count: 1 }], startAt: 1791979200000, endAt: 1793185200000, forecast: false },
+    { id: 'free:act59sign:2', group: 'Event sign-in and gifts', name: 'Celebration Login Event · Day 2', rewards: [{ id: 'char_4227_gallus', rarity: 1, name: 'GALLUS²', count: 1 }, { id: '7001', name: 'Recruitment Permit', count: 5 }], startAt: 1791979200000, endAt: 1793185200000, forecast: false },
+    { id: 'free:51sideActivity_4', group: 'Welfare operators', name: 'Botani · Event missions: Clear PA-4', rewards: [{ id: 'char_4223_botany', rarity: 5, name: 'Botani', count: 1 }], startAt: 1789570800000, endAt: 1790766000000, event: 'People, A People', href: '/events/%5BSide%20Story%5D%20People%2C%20A%20People', source: 'event', forecast: false },
+    { id: 'free:act4mainssPermanent_5', group: 'Welfare operators', name: 'Viy · Event missions (permanent): Clear 17-13', rewards: [{ id: 'char_4226_veen', rarity: 6, name: 'Viy', count: 1 }], startAt: 1791979200000, event: 'Critical Phase Transition', href: '/events/%5BCelebration%5D%20Critical%20Phase%20Transition', source: 'retro', eventEndAt: 1793185200000, forecast: false },
+    { id: 'free:trail:permanent_sub_1_Darknights_Memoir:trailReward_sub_1_1', group: 'Welfare operators', name: 'Sideroca · Record Restoration: 12 stars', rewards: [{ id: 'char_333_sidero', rarity: 5, name: 'Sideroca', count: 1 }], startAt: 1669395600000, event: 'Darknights Memoir', source: 'trail', forecast: false },
+    { id: 'free:trail:permanent_sidestory_4_Twilight_Of_Wolumonde:trailReward_sub_1_1', group: 'Welfare operators', name: 'Folinic · Record Restoration: 12 stars', rewards: [{ id: 'char_345_folnic', rarity: 5, name: 'Folinic', count: 1 }], startAt: 1675443600000, event: 'Twilight of Wolumonde', source: 'trail', forecast: false },
+    { id: 'free:welfare:act4d0:char_131_flameb', group: 'Welfare operators', name: 'Flamebringer · Event rewards', rewards: [{ id: 'char_131_flameb', rarity: 5, name: 'Flamebringer', count: 1 }], startAt: 1600000000000, endAt: 1601000001000, event: 'Code of Brawl', source: 'extra', forecast: false },
+    { id: 'free:GP_freeL_5', group: 'Free level-up packs', name: 'Free pack', rewards: [{ id: 'GP_freeL_5', name: 'Free pack', count: 1 }], forecast: false },
+  ],
+  beginnerRewards: [
+    { id: 'free:openserver_1', group: 'Beginner rewards', name: 'Clear Main Storyline0-1', rewards: [{ id: '4003', name: 'Orundum', count: 600, orundum: 600 }], beginner: { id: 'openseverTaskGroup1', startTs: 1533898800, endTs: 1733227199, current: false }, forecast: true },
+    { id: 'free:openseverTaskGroup1:checkInData:1', group: 'Beginner rewards', name: 'Cumulative sign-in · Day 1', rewards: [{ id: '4001', name: 'LMD', count: 20000 }], beginner: { id: 'openseverTaskGroup1', startTs: 1533898800, endTs: 1733227199, current: false }, forecast: true },
+    { id: 'free:openseverTaskGroup1:chainLoginData:7', group: 'Beginner rewards', name: 'Consecutive sign-in · Day 7', rewards: [{ id: 'char_173_slchan', name: 'Reward item', count: 1 }], beginner: { id: 'openseverTaskGroup1', startTs: 1533898800, endTs: 1733227199, current: false }, forecast: true },
+  ],
+} as unknown as { rewards: FreeReward[]; beginnerRewards: FreeReward[] };
 
 const at = (iso: string) => Date.parse(iso);
 
-test('welfare operators come from the tables that give them: event missions, permanent missions, Record Restoration', () => {
-  const built = buildFreeRewards(tables());
-  const welfare = Object.fromEntries(built.rewards.filter(row => row.group === 'Welfare operators').map(row => [row.id, row]));
-  // Viy: no event mission gives her; the permanent mission act4mainssPermanent_5 does, from the event's start, with no end.
-  const viy = welfare['free:act4mainssPermanent_5'];
-  assert.equal(viy?.name, 'Viy · Event missions (permanent): Clear 17-13');
-  assert.equal(viy.event, 'Critical Phase Transition');
-  assert.equal(viy.startAt, 1791979200 * 1000);
-  assert.equal(viy.endAt, undefined);
-  // ...and says so: a permanent mission, whose event closes on 2026-10-28 (basicInfo endTime).
-  assert.deepEqual([viy.source, viy.eventEndAt], ['retro', (1793185199 + 1) * 1000]);
-  assert.equal(viy.href, `/events/${encodeURIComponent('[Celebration] Critical Phase Transition')}`);
-  assert.deepEqual(viy.rewards.map(reward => [reward.id, reward.rarity]), [['char_4226_veen', 6]]);
-  // A side story's operator: its missions, while its stages are open.
-  const botani = welfare['free:51sideActivity_4'];
-  assert.equal(botani?.name, 'Botani · Event missions: Clear PA-4');
-  assert.deepEqual([botani.startAt, botani.endAt, botani.source], [1789570800 * 1000, (1790765999 + 1) * 1000, 'event']);
-  // Record Restoration, keyed by story as well as reward: the two share trailReward_sub_1_1.
-  assert.equal(welfare['free:trail:permanent_sub_1_Darknights_Memoir:trailReward_sub_1_1']?.name, 'Sideroca · Record Restoration: 12 stars');
-  assert.equal(welfare['free:trail:permanent_sub_1_Darknights_Memoir:trailReward_sub_1_1'].source, 'trail');
-  assert.equal(welfare['free:trail:permanent_sidestory_4_Twilight_Of_Wolumonde:trailReward_sub_1_1']?.name, 'Folinic · Record Restoration: 12 stars');
-  assert.ok(!Object.keys(welfare).some(id => id.includes('trailReward_sub_1_2')), 'only the operator of a trail is a welfare row');
-  // An event's own data (milestones): manual, while its stages were open.
-  assert.equal(welfare['free:welfare:act4d0:char_131_flameb']?.name, 'Flamebringer · Event rewards');
-  assert.equal(welfare['free:welfare:act4d0:char_131_flameb'].source, 'extra');
-  // A sign-in's operator stays a day of its sign-in, not a second welfare row.
-  assert.ok(!Object.values(welfare).some(row => row.rewards.some(reward => reward.id === 'char_4227_gallus')));
-  // Obtainable on 2026-10-21: Viy (a permanent main-story mission), and the Archives' operators. Not
-  // GALLUS² (a sign-in's day), not Botani (her event closed on 2026-09-30, no Archive yet).
-  const open = freeOperatorsToClaim(built.rewards, new Set(), at('2026-10-21T06:00:00Z')).map(({ operator }) => operator.name);
+test('the welfare operators a release lists are the ones still obtainable, soonest to close first', () => {
+  // Obtainable on 2026-10-21: Viy (a permanent main-story mission), and the Archives' operators.
+  // Not GALLUS² (a sign-in's day), not Botani (her event closed on 2026-09-30, no Archive yet).
+  const open = freeOperatorsToClaim(catalogue.rewards, new Set(), at('2026-10-21T06:00:00Z')).map(({ operator }) => operator.name);
   assert.deepEqual(open, ['Viy', 'Folinic', 'Sideroca']);
-  assert.deepEqual(freeOperatorsToClaim(built.rewards, new Set(['free:act4mainssPermanent_5']), at('2026-10-21T06:00:00Z')).map(({ operator }) => operator.name), ['Folinic', 'Sideroca']);
+  assert.deepEqual(freeOperatorsToClaim(catalogue.rewards, new Set(['free:act4mainssPermanent_5']), at('2026-10-21T06:00:00Z')).map(({ operator }) => operator.name), ['Folinic', 'Sideroca']);
   // Once Critical Phase Transition closes, Viy's permanent mission is still claimable in the
   // game (main-story event missions stay), so she stays listed.
-  assert.deepEqual(freeOperatorsToClaim(built.rewards, new Set(), at('2026-10-28T12:00:00Z')).map(({ operator }) => operator.name), ['Viy', 'Folinic', 'Sideroca']);
+  assert.deepEqual(freeOperatorsToClaim(catalogue.rewards, new Set(), at('2026-10-28T12:00:00Z')).map(({ operator }) => operator.name), ['Viy', 'Folinic', 'Sideroca']);
 });
 
-/* A story restored without a trail (retro_table haveTrail false), as Global has since Ending a
-   Grand Overture: the restored story reopens its event's missions, so the event's operator is
-   obtainable for good from the restore date (I Portatori dei Velluti, restored 2026-05-21). */
-function restoredTables(restore: { haveTrail?: boolean; startTime: number }) {
-  const base = tables();
-  return {
-    ...base,
-    characters: { ...base.characters, char_1502_crosly: { name: 'Crownslayer', rarity: 'TIER_6' } },
-    activity: {
-      ...base.activity,
-      basicInfo: { ...base.activity.basicInfo,
-        act38side: { id: 'act38side', name: 'I Portatori dei Velluti', startTime: 1746000000, endTime: 1747306799, rewardEndTime: 1747900000 },
-        act38sre: { id: 'act38sre', name: 'I Portatori dei Velluti - Rerun', startTime: 1777800000, endTime: 1779015599, rewardEndTime: 1779600000 } },
-      missionData: [...base.activity.missionData,
-        mission('38sideActivity_5', 'ACTIVITY', 'act38side', 'Clear PV-5', [item('char_1502_crosly', 1, 'CHAR')]),
-        mission('38sreActivity_5', 'ACTIVITY', 'act38sre', 'Clear PV-5', [item('char_1502_crosly', 1, 'CHAR')])],
-    },
-    retro: { ...base.retro, retroActList: { ...base.retro.retroActList,
-      permanent_sidestory_28_i_portatori_dei_velluti: { retroId: 'permanent_sidestory_28_i_portatori_dei_velluti', type: 'SIDESTORY', linkedActId: ['act38side', 'act38sre'],
-        trailStartTime: -1, name: 'I Portatori dei Velluti', customActId: null, ...restore } } },
-  };
-}
-
-test('a story restored without a trail lists its event\'s operator for good, from the restore date', () => {
-  const built = buildFreeRewards(restoredTables({ haveTrail: false, startTime: 1779361200 }));
-  const rows = built.rewards.filter(row => row.group === 'Welfare operators' && row.rewards.some(reward => reward.id === 'char_1502_crosly'));
-  const restored = rows.filter(row => row.id.startsWith('free:restore:'));
-  // One row for the story, from the event's own mission, not one per linked event.
-  assert.deepEqual(restored.map(row => row.id), ['free:restore:permanent_sidestory_28_i_portatori_dei_velluti:38sideActivity_5']);
-  assert.deepEqual([restored[0].name, restored[0].source, restored[0].startAt, restored[0].endAt, restored[0].event],
-    ['Crownslayer · Record Restoration: Clear PV-5', 'trail', 1779361200 * 1000, undefined, 'I Portatori dei Velluti']);
-  // The two event runs keep their own rows, closed.
-  assert.deepEqual(rows.filter(row => row.source === 'event').map(row => row.id).sort(), ['free:38sideActivity_5', 'free:38sreActivity_5']);
-  const names = (iso: string) => freeOperatorsToClaim(built.rewards, new Set(), at(iso)).map(({ operator }) => operator.name);
-  assert.ok(!names('2026-05-20T00:00:00Z').includes('Crownslayer'), 'not before the restore');
-  assert.ok(names('2026-10-28T12:00:00Z').includes('Crownslayer'), 'obtainable after it, with no end');
-  assert.equal(welfareCardFacts(restored[0], at('2026-10-28T12:00:00Z')).source, 'Record Restoration · I Portatori dei Velluti');
+test("a story restored without a trail lists its event's operator for good, from the restore date", () => {
+  // The row the import writes for a story restored with no trail (I Portatori dei Velluti,
+  // restored 2026-05-21): no end, so it is obtainable from that day on.
+  const restored = { id: 'free:restore:permanent_sidestory_28_i_portatori_dei_velluti:38sideActivity_5', group: 'Welfare operators',
+    name: 'Crownslayer · Record Restoration: Clear PV-5', rewards: [{ id: 'char_1502_crosly', rarity: 6, name: 'Crownslayer', count: 1 }],
+    startAt: 1779361200000, event: 'I Portatori dei Velluti', source: 'trail', forecast: false } as unknown as FreeReward;
+  const names = (iso: string) => freeOperatorsToClaim([restored], new Set(), at(iso)).map(({ operator }) => operator.name);
+  assert.deepEqual(names('2026-05-20T00:00:00Z'), [], 'not before the restore');
+  assert.deepEqual(names('2026-10-28T12:00:00Z'), ['Crownslayer'], 'obtainable after it, with no end');
+  assert.equal(welfareCardFacts(restored, at('2026-10-28T12:00:00Z')).source, 'Record Restoration · I Portatori dei Velluti');
   // An imported roster that holds her ticks the row, as it does every welfare row.
-  assert.ok(rosterClaimedWelfare(built.rewards, new Set(['char_1502_crosly'])).has(restored[0].id));
-});
-
-test('a restored story whose operator no rule reads stops the build', () => {
-  // A trail still to come (Path of Life's opens 2026-12-11) waits for the table to list it.
-  assert.doesNotThrow(() => buildFreeRewards(restoredTables({ haveTrail: true, startTime: 1779361200 })));
-  // Restored without a trail but with no restore date: no row could be made, so the run fails.
-  assert.throws(() => buildFreeRewards(restoredTables({ haveTrail: false, startTime: -1 })),
-    /Record Restoration without a welfare row: permanent_sidestory_28_i_portatori_dei_velluti restores act38side, act38sre/);
-});
-
-test('an operator the event mission page features without a row stops the build', () => {
-  const { act4mainssPermanent_5: _viy, ...missions } = tables().missions.missions as Record<string, unknown>;
-  assert.throws(() => buildFreeRewards(tables({ missions })), /Welfare operator without a row: char_4226_veen featured by act4mainss/);
-});
-
-test('an official post of the client sign-in under its own title is that sign-in, not a second one', () => {
-  const built = buildFreeRewards(tables());
-  const signIns = built.rewards.filter(row => row.group === 'Event sign-in and gifts');
-  assert.deepEqual(signIns.map(row => row.id), ['free:act59sign:1', 'free:act59sign:2']);
-  // Another post (other counts) still has its rows.
-  const other = tables();
-  other.eventRewards.events['[Celebration] Critical Phase Transition'].groups[0].daily![1] = [{ name: 'Orundum', count: 600 }];
-  assert.equal(buildFreeRewards(other).rewards.filter(row => row.id.startsWith('free:announcement:')).length, 2);
+  assert.ok(rosterClaimedWelfare([restored], new Set(['char_1502_crosly'])).has(restored.id));
 });
 
 // A Global account registered 2025-03-01, mid-way through its claims.
@@ -208,11 +92,10 @@ const user = {
 };
 
 test('an import ticks every row the account has claimed, welfare operators included, and nothing it has not', () => {
-  const built = buildFreeRewards(tables());
-  const map = { version: 1 as const, chars: {}, beginnerPrograms: tables().openServer.schedule };
+  const map = { version: 1 as const, chars: {}, beginnerPrograms };
   const account = accountFromGame(user, map, 'en');
-  const shown = freeRewardsForAccount(allFreeRewards(built), account);
-  const ids = new Set(allFreeRewards(built).map(row => row.id));
+  const shown = freeRewardsForAccount(allFreeRewards(catalogue), account);
+  const ids = new Set(allFreeRewards(catalogue).map(row => row.id));
   const claimed = new Set(account.rewardClaims!.claimed);
   // Every claim is a row the catalogue has, but the missions that give no free reward row
   // (an event token, a permanent mission's materials)...
@@ -234,16 +117,15 @@ test('an import ticks every row the account has claimed, welfare operators inclu
 });
 
 test('the beginner programme follows registration, the same for the import and the list, at the 2024-12-03 changeover', () => {
-  const built = buildFreeRewards(tables());
-  const map = { version: 1 as const, chars: {}, beginnerPrograms: tables().openServer.schedule };
+  const map = { version: 1 as const, chars: {}, beginnerPrograms };
   for (const [registerTs, programme] of [[1733227199, 'openseverTaskGroup1'], [1733227200, 'openseverTaskGroup2'], [1580712160, 'openseverTaskGroup1'], [1740787200, 'openseverTaskGroup2']] as const) {
     const account = accountFromGame({ ...user, status: { ...user.status, registerTs } }, map, 'en');
-    const shown = freeRewardsForAccount(allFreeRewards(built), account).filter(row => row.beginner);
+    const shown = freeRewardsForAccount(allFreeRewards(catalogue), account).filter(row => row.beginner);
     assert.deepEqual([...new Set(shown.map(row => row.beginner!.id))], [programme], `registered ${registerTs}`);
     assert(rewardClaimsFromGame({ ...user, status: { registerTs } }, map.beginnerPrograms).known.includes(`free:${programme}:checkInData:1`));
   }
   // Without a registration date (an old backup) or off Global, the current programme.
-  assert.deepEqual([...new Set(freeRewardsForAccount(allFreeRewards(built), null).filter(row => row.beginner).map(row => row.beginner!.id))], ['openseverTaskGroup2']);
+  assert.deepEqual([...new Set(freeRewardsForAccount(allFreeRewards(catalogue), null).filter(row => row.beginner).map(row => row.beginner!.id))], ['openseverTaskGroup2']);
 });
 
 /* The overview's rule, on one row of each source as the live catalogue has them (2026-10-21). */
@@ -276,11 +158,11 @@ test('the welfare list keeps only what is still obtainable: Record Restoration, 
 });
 
 test('an imported roster ticks every welfare row of an operator it holds, and nothing else', () => {
-  const map = { version: 1 as const, chars: {}, beginnerPrograms: tables().openServer.schedule };
+  const map = { version: 1 as const, chars: {}, beginnerPrograms };
   // Folinic in the roster (her Record Restoration has no claim record), and GALLUS² too.
   const account = accountFromGame({ ...user, troop: { chars: { 1: { charId: 'char_345_folnic', skin: 'char_345_folnic#1' }, 2: { charId: 'char_4227_gallus', skin: 'char_4227_gallus#1' } } } }, map, 'en');
   assert.deepEqual(account.operatorIds, ['char_345_folnic', 'char_4227_gallus']);
-  const built = allFreeRewards(buildFreeRewards(tables()));
+  const built = allFreeRewards(catalogue);
   const owned = rosterClaimedWelfare(built, rosterOperatorIds(account));
   assert.deepEqual([...owned], ['free:trail:permanent_sidestory_4_Twilight_Of_Wolumonde:trailReward_sub_1_1']);
   // A sign-in day giving an owned operator keeps its own claim record (activity history), not the roster's.

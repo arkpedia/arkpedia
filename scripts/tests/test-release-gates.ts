@@ -450,15 +450,17 @@ test('the release waits for every sync until the timeout, then goes ahead and sa
   assert.equal(polls['never/sync.yml'], 31, 'once a minute, from the start to the 30th minute');
 });
 
-test('only a scheduled release waits, before the upstream probe, and the report reads the same syncs', () => {
+test('only a scheduled release waits, for the day\'s import, before it reads the imports branch; the report reads the syncs', () => {
+  // The import waits for the asset syncs before it pins them (arkpedia-data
+  // importer/scripts/tests/test-import-order.ts); the release waits for the import.
   const workflow = fs.readFileSync('.github/workflows/prepare-content.yml', 'utf8');
   const names = [...workflow.matchAll(/^ {6}- name: (.*)$/gm)].map(match => match[1]);
-  const wait = names.indexOf("Wait for the asset syncs' runs of the day");
-  assert.ok(wait > names.indexOf('Hold the release while production runs other code') && wait < names.indexOf('Check upstream revisions'), 'after the gate (a held run does not wait), before the probe');
-  const block = workflow.slice(workflow.indexOf("- name: Wait for the asset syncs' runs of the day"), workflow.indexOf('- name: Load the last known upstream revisions'));
+  const wait = names.indexOf("Wait for the day's import");
+  assert.ok(wait > names.indexOf('Hold the release while production runs other code') && wait < names.indexOf('Read the imported records'), 'after the gate (a held run does not wait), before the imports branch is read');
+  const block = workflow.slice(workflow.indexOf("- name: Wait for the day's import"), workflow.indexOf('- name: Load the last known upstream revisions'));
   assert.match(block, /if: github\.event_name == 'schedule'\n/);
   assert.match(block, /continue-on-error: true\n/);
-  assert.match(block, /timeout-minutes: 35\n[\s\S]*run: node scripts\/content\/asset-syncs\.mjs wait --timeout-minutes 30\n/);
+  assert.match(block, /timeout-minutes: 35\n[\s\S]*run: node scripts\/content\/asset-syncs\.mjs wait --timeout-minutes 30 --sync arkpedia-data\/import\.yml\n/);
   // The job has room for the wait on top of a compile (about 8 minutes) and the live check.
   const [runner, hosted] = workflow.match(/timeout-minutes: \$\{\{ vars\.ARKPEDIA_RUNNER && (\d+) \|\| (\d+) \}\}/)!.slice(1).map(Number);
   assert.ok(runner >= 75 && hosted >= 60, `${runner}/${hosted}`);

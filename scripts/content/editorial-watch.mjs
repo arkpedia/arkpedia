@@ -54,6 +54,22 @@ function reportUnpublished(comparison, dryRun) {
   if (plan.open) console.log(`Unpublished editorial edits: ${openAlert({ repo, alert: UNPUBLISHED_ALERT, title: UNPUBLISHED_TITLE, body: plan.body, rewrite: true })}.`);
   else closeAlert({ repo, alert: UNPUBLISHED_ALERT, title: UNPUBLISHED_TITLE, comment: 'Every editorial commit is in data main.' });
 }
+/*
+ * arkpedia-data's import (its import.yml) leaves its records on the `imports` branch, which the
+ * nightly compile reads at 19:57. An import started after a game patch (its client-version
+ * dispatcher) says so in its commit, "Import game records (<day>, patch)", and is compiled as
+ * soon as this watcher sees it, so the patch's tables do not wait for the night. A compile
+ * publishes the branch's head into data main, which then reads as identical or behind.
+ */
+export const PATCH_IMPORT = /^Import game records \([^)]*, patch\)$/;
+export function importsPlan(comparison, busy = false) {
+  if (!comparison || ['identical', 'behind'].includes(comparison.status)) return { request: false, reason: 'Every import is in data main.' };
+  const commits = comparison.commits ?? [];
+  const subject = String(commits.at(-1)?.commit?.message ?? '').split('\n')[0];
+  if (!PATCH_IMPORT.test(subject)) return { request: false, reason: 'The imports branch waits for the nightly compile.' };
+  if (busy) return { request: false, reason: 'A patch import is waiting, but a main preparation is already queued or running.' };
+  return { request: true, reason: 'A patch import is not in data main yet.' };
+}
 export function devPlan(comparison, busy = false) {
   if (busy) return { request: false, reason: 'A preparation is already queued or running.' };
   if (comparison && ['identical', 'ahead'].includes(comparison.status)) return { request: false, reason: 'Dev already includes shared data main.' };
@@ -65,8 +81,8 @@ export const isBusy = (runs, afterRun = '') => runs.some(run => run.status !== '
 const busy = branch => isBusy(api(`repos/${APP}/actions/workflows/prepare-content.yml/runs?branch=${branch}&per_page=30`).workflow_runs, process.env.ARKPEDIA_AFTER_RUN);
 const ref = branch => api(`repos/${DATA}/commits/${encodeURIComponent(branch)}`).sha;
 const compare = (base, head) => api(`repos/${DATA}/compare/${base}...${head}`);
-function dispatch(branch, revision, dryRun, mergeMain = false) {
-  const inputs = [`data_ref=${revision}`, 'refresh_upstream=false', ...(mergeMain ? ['merge_main=true'] : [])];
+function dispatch(branch, revision, dryRun, mergeMain = false, refresh = false) {
+  const inputs = [`data_ref=${revision}`, `refresh_upstream=${refresh}`, ...(mergeMain ? ['merge_main=true'] : [])];
   console.log(`${dryRun ? 'Would start' : 'Starting'} ${branch} preparation from data ${revision}, ${inputs.slice(1).join(', ')}.`);
   if (!dryRun) execFileSync('gh', ['workflow', 'run', 'prepare-content.yml', '--repo', APP, '--ref', branch, ...inputs.flatMap(input => ['-f', input])], { stdio: 'inherit' });
 }
@@ -84,7 +100,14 @@ export function watch({ mode = 'poll', editorialBranch = process.env.ARKPEDIA_ED
     reportUnpublished(comparison, dryRun);
     const plan = editorialPlan(comparison, mainBusy);
     console.log(plan.reason);
-    if (plan.request) dispatch('main', head, dryRun, true);
+    if (plan.request) { dispatch('main', head, dryRun, true); return; }
+    // The branch by name, not its head: the compile fetches it and runs the stages that stay here.
+    let imports = null;
+    try { imports = compare(main, 'imports'); }
+    catch (error) { if (!String(error.stderr ?? error.message).includes('HTTP 404')) throw error; }
+    const patch = importsPlan(imports, mainBusy);
+    console.log(patch.reason);
+    if (patch.request) dispatch('main', 'imports', dryRun, true, true);
     return;
   }
   if (mainBusy) { console.log('Waiting for main preparation before refreshing dev.'); return; }

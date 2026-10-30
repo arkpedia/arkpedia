@@ -55,6 +55,13 @@ const READ_BY_PEOPLE: Record<string, string> = {
    in the data before or after a change here, so an absent one is not a stale entry. */
 const READ_ELSEWHERE: Record<string, string> = {
   'simulator': "the stage simulator's raw enemy tables and their receipt, which arkpedia-stage-simulator reads from arkpedia-data",
+  // Read by arkpedia-data's import (its importer/), the next night's run, and by no site code.
+  'client-art-shadow.json': "shadow-client-art.py's comparison of the client's sprites with the published icons, which it reads back",
+  'official-tables-shadow.json': "shadow-official-tables.py's comparison of the official servers' tables with the mirrors', which it reads back",
+  'excluded-contents.json': 'the modes the stage build leaves out (build-mode-exclusions.mjs), for the stage index, renders and coverage',
+  'namecard-styles.json': "the profile card themes' colours, which build-game-account-map.ts carries to the account map",
+  'stage-conditional': "the stage build's conditional-level records (stage-pipeline/build.mjs)",
+  'stage-coverage.json': "check-stage-coverage.mjs's record of which stages the site lists, the import's stage-coverage invariant",
 };
 
 test('every top-level record in data/ is read by code, or is a named record kept for people', () => {

@@ -84,9 +84,9 @@ test('raw file URLs and the upstream checkouts read the same pin', () => {
     const unset = spawnSync('bash', ['-c', '. scripts/lib/upstream.sh && upstream_pin "$1"', '_', `https://github.com/${repository}.git`], { encoding: 'utf8', env: clean as NodeJS.ProcessEnv });
     assert.equal(unset.stdout, '');
   }
-  // The daily run downloads the supplement at the pin too, not at the moving branch.
+  // Nothing the daily run fetches itself names a moving branch. (The import downloads the
+  // charword supplement at the pin: arkpedia-data importer/scripts/tests/test-upstream-readers.ts.)
   const workflow = fs.readFileSync('.github/workflows/prepare-content.yml', 'utf8');
-  assert.match(workflow, /stage charwords --output "\$supplemental_charwords" -- curl [^\n]*\\\n\s*"\$\(node scripts\/content\/pin-upstream\.mjs raw-url PuppiizSunniiz\/ArknightsGameData_YoStar en_US\/gamedata\/excel\/charword_table\.json\)"/);
   assert.doesNotMatch(workflow, /raw\.githubusercontent\.com\/[^/\s]+\/[^/\s]+\/(main|master)\//);
 });
 
@@ -145,8 +145,9 @@ test('every reader of the daily refresh fetches each mirror at its pinned commit
     fs.mkdirSync(path.join(root, 'cwd/data'), { recursive: true });
     const pins = Object.fromEntries(MIRRORS.map((mirror: any, i: number) => [pinVariable(mirror.key ?? mirror.repository), commit(String(i + 1))]));
     const clean = Object.fromEntries(Object.entries(process.env).filter(([name]) => !name.startsWith('ARKPEDIA_'))) as NodeJS.ProcessEnv;
-    for (const script of ['sync/sync-module-stats.mjs', 'sync/sync-event-windows.mjs', 'sync/sync-content-inventory.mjs', 'sync/sync-recruitment.mjs',
-      'sync/sync-recurring-banners.mjs', 'build/build-operator-voices.mjs', 'sync/sync-operator-english.mjs']) {
+    // The readers this repository keeps (the completeness gate reaches the catalogue's); the
+    // import's are held to the same in arkpedia-data (importer/scripts/tests/test-upstream-readers.ts).
+    for (const script of ['sync/sync-module-stats.mjs', 'sync/sync-content-inventory.mjs', 'build/build-operator-voices.mjs', 'sync/sync-operator-english.mjs']) {
       fs.rmSync(log, { force: true });
       spawnSync(process.execPath, ['--import', preload, path.resolve('scripts', script)], { cwd: path.join(root, 'cwd'), encoding: 'utf8',
         env: { ...clean, ...pins, FETCH_LOG: log, ARKPEDIA_EN: path.join(root, 'none'), ARKPEDIA_CN: path.join(root, 'none') } });

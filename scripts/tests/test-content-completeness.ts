@@ -10,8 +10,6 @@ import { emptyCatalogue, fixtureMaterials } from './fixtures/catalogue';
 import assert from 'node:assert/strict';
 // @ts-expect-error Node publication scripts are plain JavaScript.
 import { checkCompleteness, COLLECTIONS, countDrops, hasRecordedRelease, missingEnemyIcons, parseAllowShrink, recordedRelease, reviewCompleteness, writeQuarantine } from '../content/check-completeness.mjs';
-// @ts-expect-error Node import scripts are plain JavaScript.
-import { buildEventFarming } from '../sync/sync-event-farming.mjs';
 import { activeEventFarming, getEventFarmingMaterials } from '../../lib/farming/eventFarming';
 import { operatorRelease } from '../../lib/operators/operatorAvailability';
 
@@ -418,16 +416,6 @@ test('home farming is limited to battle windows, independently of shop closing t
   assert.equal(activeEventFarming([sample], Date.parse(endAt!) - 1).length, 1);
   assert.equal(activeEventFarming([sample], Date.parse(endAt!)).length, 0);
 });
-test('farming importer ignores shop currency, first clears, CN guesses and non-repeatable stages', () => {
-  const stage = { stageType: 'ACTIVITY', difficulty: 'NORMAL', canBattleReplay: true, code: 'TEST-8',
-    stageDropInfo: { displayRewards: [{ type: 'MATERIAL', id: 'material', dropType: 'NORMAL' },
-      { type: 'MATERIAL', id: 'first', dropType: 'COMPLETE' }, { type: 'ACTIVITY_ITEM', id: 'currency', dropType: 'NORMAL' }] } };
-  const items = { items: Object.fromEntries(['material', 'first', 'currency'].map(id => [id, { name: id, rarity: 'TIER_3', classifyType: 'MATERIAL' }])) };
-  const tables = { stages: { valid: stage, unknown: stage, firstOnly: { ...stage, canBattleReplay: false } },
-    stageValidInfo: { valid: { startTs: 100, endTs: 200 }, firstOnly: { startTs: 100, endTs: 200 } } };
-  assert.deepEqual(buildEventFarming(tables, items), [{ stageId: 'valid', stage: 'TEST-8', itemId: 'material', material: 'material', startAt: '1970-01-01T00:01:40.000Z', endAt: '1970-01-01T00:03:21.000Z' }]);
-});
-
 test('a new runtime CN record can use published portrait art without a website rebuild',()=>{
   assert.equal(getOperatorIconPath({name:'Future imported operator',rarity:6}),'/six-star-icons/Future%20imported%20operator%20-%20Base.webp');
   // The server marks a record whose portrait the release's asset index lacks; the browser

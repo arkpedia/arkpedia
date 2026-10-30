@@ -501,13 +501,13 @@ export function declaredStages(root) {
 }
 
 /*
- * The steps arkpedia-data's importer runs (its importer/, data split phase 2). When this run
- * compiles that repository's imports branch, ARKPEDIA_IMPORTED_FROM names its importer/ checkout,
- * and a step listed there is not run again here: its records came with the branch, and the
- * holds of any that failed came in its quarantine file (recordStageHolds keeps a declared step's
- * hold that this run did not touch). The upstream checkouts and the completeness gate always run
- * here too: the steps that stay read the checkouts, and completeness judges what is published.
- * Read from the importer's own step lists, so the two repositories never keep a list each.
+ * The steps arkpedia-data's importer runs (its importer/, docs/importer.md). The content run
+ * compiles that repository's imports branch, and ARKPEDIA_IMPORTED_FROM names its importer/
+ * checkout. A step listed there is not run again here: its records came with the branch, and the
+ * holds of any that failed came in its quarantine file, which recordStageHolds keeps as declared.
+ * The upstream checkouts and the completeness gate run in both: the steps that stay read the
+ * checkouts, and completeness judges what is published. Read from the importer's own step lists,
+ * so the two repositories never keep a list each.
  */
 export const KEPT_HERE = new Set(['pin-upstream', 'upstream-cn', 'upstream-en', 'completeness']);
 export function importedStages(dir = process.env.ARKPEDIA_IMPORTED_FROM) {
@@ -537,7 +537,12 @@ export function importedStages(dir = process.env.ARKPEDIA_IMPORTED_FROM) {
 export function recordStageHolds(root, stages, now = defaultNow()) {
   if (!fs.existsSync(path.join(root, QUARANTINE_FILE)) && stages.every(entry => entry.status === 'ok')) return [];
   const holds = beginStage(root, HOLDER, now);
-  const ran = new Set(stages.map(entry => `stage:${entry.stage}`)), declared = declaredStages(root);
+  const ran = new Set(stages.map(entry => `stage:${entry.stage}`));
+  // The importer's steps are declared too: their holds arrive with the imports branch. A list that
+  // cannot be read takes nothing for gone.
+  let declared = declaredStages(root);
+  try { for (const name of importedStages() ?? []) declared?.add(name); }
+  catch (error) { console.warn(`${error.message}: every hold is kept.`); declared = null; }
   for (const entry of readQuarantine(root).entries) {
     if (entry.stage !== HOLDER || ran.has(entry.key)) continue;
     if (declared && !declared.has(entry.key.replace(/^stage:/, ''))) continue;

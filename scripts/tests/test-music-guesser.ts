@@ -17,8 +17,6 @@ import { confirmedRelease, eventKey, getMusicSelectionCatalogue } from '../../li
 import { connectionGroupId, DEFAULT_MUSIC_SETTINGS, isGlobalGroup, readMusicSettings, selectMusic } from '../../lib/music-guesser/selection';
 import { parseLrc } from '../../lib/music/albumsDataServer';
 import { readdirSync, readFileSync } from 'node:fs';
-// @ts-expect-error Node sync scripts are plain JavaScript.
-import { exclusionsOutsideLibrary } from '../sync/sync-albums.mjs';
 // @ts-expect-error Node publication scripts are plain JavaScript.
 import { readQuarantine } from '../lib/quarantine.mjs';
 
@@ -188,8 +186,13 @@ test('every event and vignette album track has a reviewed disposition', () => {
   // An exclusion is how a new track on an Event or Vignette OST album gets past the albums
   // stage, so on a day that stage cannot reach Monster Siren it can name a song the library
   // does not have yet; the stage's quarantine entry for that song says it is waiting. This
-  // suite runs in the release job, which must not fail over an outage.
-  assert.deepEqual(exclusionsOutsideLibrary({ excluded: excluded.keys(), albums, quarantine: readQuarantine(process.cwd()) }), [],
+  // suite runs in the release job, which must not fail over an outage. (The stage itself is
+  // arkpedia-data's importer, which refuses to write any other exclusion.)
+  const library = new Set(albums.flatMap((album) => (album.songs ?? []).map((song) => String(song.songId))));
+  const waiting = new Set((readQuarantine(process.cwd()).entries as { stage: string; action: string; key: string }[])
+    .filter((entry) => entry.stage === 'albums' && entry.action === 'omitted-new' && entry.key.startsWith('song:'))
+    .map((entry) => entry.key.slice('song:'.length)));
+  assert.deepEqual([...excluded.keys()].map(String).filter((id) => !library.has(id) && !waiting.has(id)).sort(), [],
     'every exclusion names a song in the music library, or one the albums stage lists as waiting to come in');
   for (const [id, reason] of excluded) {
     assert.ok(reason.trim().length > 20);

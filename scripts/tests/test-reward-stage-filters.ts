@@ -7,7 +7,6 @@ import { backlogFromAccount, fillFromDeployment, remainingBacklog, unclaimedBack
 import { parseRewardFilters } from '../../lib/pulls/rewardTrackerFilters';
 import { excludedParadox, paradoxExclusionKnown } from '../../lib/pulls/paradoxExclusion';
 import { freeOperatorsToClaim, type FreeReward } from '../../lib/pulls/freeRewards';
-import { buildFreeRewards } from '../build/build-free-rewards.mjs';
 
 /* The site's own stage records, as build-pull-sources.ts reads them: Originite Prime stages only. */
 const STAGES = path.join(process.cwd(), 'data', 'stages');
@@ -132,33 +131,16 @@ test('Paradox Simulations are left out all, by ownership, or below Elite 2, judg
   assert.equal(paradoxExclusionKnown('all', undefined), true);
 });
 
-test('welfare operators come from an event\'s missions, Global only, open while its stages are', () => {
-  const start = Date.parse('2026-09-16T08:00:00Z') / 1000; const end = Date.parse('2026-09-30T03:59:59Z') / 1000;
-  // The Global tables: act51side's missions give Botani. A CN-only event's operator is in no Global
-  // table, so an event-rewards entry naming one adds nothing.
-  const result = buildFreeRewards({
-    handbook: { handbookStageData: {} }, missions: { missions: {}, missionGroups: {} }, checkin: { groups: {} },
-    openServer: { schedule: [{ id: 'starter', startTs: 0 }], dataMap: {}, constant: { firstDiamondShardMailCount: 1 } },
-    items: { items: {} }, shops: { shopGPDataDict: {} },
-    characters: { char_4223_botany: { name: 'Botani', rarity: 'TIER_5' }, char_4215_buddy: { name: 'Buddy', rarity: 3 } },
-    activity: { activity: {}, basicInfo: { act51side: { name: 'People, A People', startTime: start, endTime: end, rewardEndTime: end + 7 * 86400 } },
-      missionData: [{ id: '51sideActivity_4', type: 'ACTIVITY', missionGroup: 'act51side', description: 'Clear PA-4', rewards: [{ type: 'CHAR', id: 'char_4223_botany', count: 1 }] },
-        { id: '51sideActivity_5', type: 'ACTIVITY', missionGroup: 'act51side', description: 'Clear PA-5', rewards: [{ type: 'GOLD', id: '4001', count: 1000 }] }] },
-    eventRewards: { events: {
-      '[Side Story] People, A People': { activity: 'act51side', groups: [{ kind: 'missions', title: 'Event missions', items: [
-        { name: 'Botani', count: 1, kind: 'operator', id: 'char_4223_botany' }, { name: 'LMD', count: 1000, kind: 'currency', id: '4001' }] }] },
-      '[Crossover] CN only': { activity: 'act50side', region: 'CN', groups: [{ kind: 'missions', items: [{ name: 'Buddy', count: 1, kind: 'operator', id: 'char_4215_buddy' }] }] },
-    } },
-  });
-  const welfare = result.rewards.filter((reward) => reward.group === 'Welfare operators');
-  assert.deepEqual(welfare, [{ id: 'free:51sideActivity_4', group: 'Welfare operators', name: 'Botani · Event missions: Clear PA-4',
-    rewards: [{ id: 'char_4223_botany', rarity: 5, name: 'Botani', count: 1 }], startAt: start * 1000, endAt: (end + 1) * 1000,
-    event: 'People, A People', href: '/events/%5BSide%20Story%5D%20People%2C%20A%20People', source: 'event', forecast: false }]);
-
-  const rows = welfare as FreeReward[];
-  assert.deepEqual(freeOperatorsToClaim(rows, new Set(), start * 1000).map(({ operator }) => operator.name), ['Botani']);
-  assert.deepEqual(freeOperatorsToClaim(rows, new Set([rows[0].id]), start * 1000), [], 'claimed');
-  assert.deepEqual(freeOperatorsToClaim(rows, new Set(), (end + 1) * 1000), [], 'closed with the event stages');
+test('a welfare operator is listed while its event\'s stages are open, and not once claimed', () => {
+  // The row as arkpedia-data's importer builds it from act51side's missions (its
+  // scripts/tests/test-reward-welfare-imports.ts); here it only has to be listed and ticked.
+  const start = Date.parse('2026-09-16T08:00:00Z'); const end = Date.parse('2026-09-30T04:00:00Z');
+  const rows: FreeReward[] = [{ id: 'free:51sideActivity_4', group: 'Welfare operators', name: 'Botani · Event missions: Clear PA-4',
+    rewards: [{ id: 'char_4223_botany', rarity: 5, name: 'Botani', count: 1 }], startAt: start, endAt: end,
+    event: 'People, A People', href: '/events/%5BSide%20Story%5D%20People%2C%20A%20People', source: 'event', forecast: false }];
+  assert.deepEqual(freeOperatorsToClaim(rows, new Set(), start).map(({ operator }) => operator.name), ['Botani']);
+  assert.deepEqual(freeOperatorsToClaim(rows, new Set([rows[0].id]), start), [], 'claimed');
+  assert.deepEqual(freeOperatorsToClaim(rows, new Set(), end), [], 'closed with the event stages');
 });
 
 test('a welfare operator row gets the operator\'s icon, as the page shows it', async () => {

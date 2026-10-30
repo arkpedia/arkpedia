@@ -43,10 +43,10 @@ Branch protection is not available on this plan, so the rule is a convention: me
 
 ## Game data and media: no redeploy
 
-The site's game records are not part of the deployment. The nightly **Prepare content release** workflow (`.github/workflows/prepare-content.yml`) does the following:
-- refreshes the records from the game's tables and the public mirrors;
-- compiles every content page against them;
-- pushes the result to [arkpedia-data](https://github.com/arkpedia/arkpedia-data).
+The site's game records are not part of the deployment. [arkpedia-data](https://github.com/arkpedia/arkpedia-data) refreshes them from the game's tables and the public mirrors in its own nightly **Import game records** workflow (its `importer/`, `docs/importer.md`) and leaves them on its `imports` branch. The nightly **Prepare content release** workflow here (`.github/workflows/prepare-content.yml`) then does the following:
+- runs the few refresh steps that stay in this repository (the EN tables, the story chapters and covers, the pull sources and first clears);
+- compiles every content page against the imported records;
+- pushes the result to arkpedia-data.
 
 That repository validates the push and moves its `live` pointer. Deployed pages pick up the new release on their next revalidation. Images and voices are served straight from the public asset repositories, pinned to the commits each release names (`data/assets/revisions.json`).
 

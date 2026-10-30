@@ -420,33 +420,22 @@ test('every script a refresh stage names exists, directly or through an npm scri
   assert.ok(!stages.some(stage => stage.name === 'banner-art' || stage.command.includes('sync-banner-art')), 'banner-art is retired');
 });
 
-test('a stage that builds records from the pinned asset revisions runs after the last stage that moves them', () => {
-  // Three stages move data/assets/revisions.json, each through npm run assets:update, which
-  // pins every asset repository at its head: asset-revisions, catalogue-assets after its push,
-  // and staged-art after its push, late in the run. A stage that reads art at the pinned commit
-  // and writes records from it (it says so with --revisions data/assets/revisions.json) must
-  // come after the last of them. Before it, the release would pin a newer commit than the one
-  // the stage read: the palettes stage ran after media-pins, the last mover before staged-art
-  // existed, so skin art pushed between it and staged-art went out with no palette and was
-  // held for a day. media-pins needs no such place: staged-art re-pins the records itself.
+test('no stage here builds records from the pinned asset revisions: the import does, after the last stage that moves them', () => {
+  // story-art (the story covers' publisher) re-pins every asset repository (npm run
+  // assets:update) once it has published a cover. A stage reading art at the pinned commit after
+  // it would read a commit the import's palettes never saw; the import keeps those readers after
+  // its own movers (arkpedia-data importer/scripts/tests/test-import-stages.ts).
   const stages = refreshStages();
-  const order = stages.map(stage => stage.name);
   const movers = stages.filter(stage => commandScripts(stage.command).includes('scripts/sync/update-asset-revisions.mjs')).map(stage => stage.name);
-  const readers = stages.filter(stage => /--revisions data\/assets\/revisions\.json\b/.test(stage.command)).map(stage => stage.name);
-  // Not vacuous: the walk finds the movers through the publisher's shell script, and the reader.
-  assert.deepEqual([...movers].sort(), ['asset-revisions', 'catalogue-assets', 'staged-art']);
-  assert.ok(readers.includes('palettes'), 'the palettes stage reads the skin art at the pinned commit');
-  const last = Math.max(...movers.map(name => order.lastIndexOf(name)));
-  for (const reader of readers) {
-    assert.ok(order.indexOf(reader) > last, `${reader} reads the art at the pinned asset commit, but ${order[last]} moves the pins after it`);
-  }
+  assert.deepEqual(movers, ['story-art'], 'the walk finds the mover through the publisher\'s shell script');
+  assert.deepEqual(stages.filter(stage => /--revisions data\/assets\/revisions\.json\b/.test(stage.command)).map(stage => stage.name), []);
 });
 
 test('every script a refresh stage runs reads the game-data mirrors at the run\'s pinned commit', () => {
   const scripts = refreshScripts();
   // What the walk has to find: stage scripts, npm and shell indirection, local imports.
-  for (const file of ['scripts/sync/sync-catalogue.mjs', 'scripts/sync/sync-content-inventory.mjs', 'scripts/build/build-pull-sources.ts',
-    'scripts/build/build-operator-voices.mjs', 'scripts/sync/publish-catalogue-assets.py', 'scripts/imports/import-reward-icons.py', 'scripts/imports/quarantine.py']) {
+  for (const file of ['scripts/build/build-pull-sources.ts', 'scripts/imports/import-story-covers.mjs', 'scripts/content/check-completeness.mjs',
+    'scripts/sync/publish-catalogue-assets.py']) {
     assert.ok(scripts.includes(file), `${file} is part of the refresh`);
   }
   const host = /raw\.githubusercontent\.com|api\.github\.com\/repos/;
@@ -501,7 +490,7 @@ test('no refresh script reads a CN table from one mirror or at its pin, only fro
     ...refreshScripts().filter(file => !CN_TABLE_SETTLERS.includes(file)).map(file => [file, fs.readFileSync(file, 'utf8')]),
     ...refreshStages().map(stage => [`stage ${stage.name}`, stage.command]),
   ];
-  assert.ok(texts.some(([file]) => file === 'scripts/imports/import-reward-icons.py') && texts.some(([file]) => file === 'stage charwords'));
+  assert.ok(texts.some(([file]) => file === 'scripts/build/build-pull-sources.ts') && texts.some(([file]) => file === 'stage upstream-en'));
   const problems = texts.flatMap(([file, text]) => cnTablesNotSettled(text).map(problem => `${file} ${problem}; ${CN_TABLE_ADVICE}`));
   assert.deepEqual(problems, []);
 });
@@ -548,38 +537,22 @@ test('the daily refresh runs every command as a uniquely named stage that needs 
   // before the catalogue or anything else reads one (scripts/content/cn-tables.mjs).
   assert.deepEqual(stages.slice(0, 2).map(stage => [stage.name, stage.command]), [
     ['pin-upstream', 'node scripts/content/pin-upstream.mjs'], ['upstream-cn', 'node scripts/content/cn-tables.mjs']]);
-  // Invariants include game tables, exact stage coverage after navigation filtering,
-  // and the completeness gate. Every importer, wiki reader and downloader failing
-  // costs its stage -- the CN art too, which only one mirror carries.
-  assert.deepEqual(stages.filter(stage => stage.invariant).map(stage => stage.name), ['upstream-cn', 'upstream-en', 'stage-coverage', 'completeness']);
-  assert.deepEqual(stages.find(stage => stage.name === 'stage-coverage')!.needs, ['stage-index']);
-  const art = stages.find(stage => stage.name === 'upstream-cn-art')!;
-  assert.deepEqual([art.invariant, art.command], [false, 'node scripts/content/cn-tables.mjs art']);
-  assert.ok(stages.find(stage => stage.name === 'item-icons')!.needs.includes('upstream-cn-art'), 'item-icons keeps its records on a day without the art');
-  // Not cc-stages: skipped, it would take the whole stage build back with it (--output), and
-  // it needs the art only for renders the image repository does not publish yet.
-  assert.ok(!stages.find(stage => stage.name === 'cc-stages')!.needs.includes('upstream-cn-art'));
+  // Invariants: the game tables and the completeness gate. The steps that stay here (the pull
+  // sources, the story pages, the checks) cost only their own stage; arkpedia-data's import runs
+  // the rest (importer/scripts/tests/test-import-stages.ts holds it to the same rules).
+  assert.deepEqual(stages.filter(stage => stage.invariant).map(stage => stage.name), ['upstream-cn', 'upstream-en', 'completeness']);
+  assert.deepEqual(stages.map(stage => stage.name), ['pin-upstream', 'upstream-cn', 'upstream-en', 'story-chapters', 'story-covers', 'story-art', 'pulls', 'odds-rules', 'payload-budgets', 'completeness']);
   // Run on its own, the stage-data refresh settles the CN tables itself, right after its pin.
   assert.match(fs.readFileSync('scripts/sync/refresh-stage-data.sh', 'utf8'),
     /stage pin-upstream -- node scripts\/content\/pin-upstream\.mjs\n(?:\s*#[^\n]*\n)*\s*stage upstream-cn --invariant --timeout-minutes \d+ -- node scripts\/content\/cn-tables\.mjs\nfi\n/);
   assert.equal(stages.at(-1)!.name, 'completeness');
-  for (const script of ['sync-catalogue.mjs', 'import_ra_maps.py', 'import-nation-marks.py', 'sync-recurring-banners.mjs', 'sync-kernel-pool.mjs', 'import-reward-icons.py', 'import-item-icons.mjs', 'charword_table.json']) {
-    assert.ok(stages.some(stage => stage.command.includes(script) && !stage.invariant), `${script} runs in a stage that is not an invariant`);
-  }
-  // The three steps that finish the stage build's own files in place say so, so that one
-  // failing takes the build back with it instead of publishing its raw output (the index
-  // with every variant and every excluded mode, CC# labels, RA stages without their maps).
-  const of = (name: string) => stages.find(stage => stage.name === name)!;
-  for (const [name, output] of [['stage-index', 'public/stages-index.json'], ['cc-stages', 'data/stages-content.json'], ['ra-maps', 'data/stages']]) {
-    assert.ok(of(name).needs.includes('stage-dataset') && of(name).outputs.includes(output), `${name} --needs stage-dataset --output ${output}`);
-  }
   // The completeness gate's holds are true whether or not an invariant stops the release.
-  assert.deepEqual(of('completeness').keep, ['data/quarantine.json']);
+  assert.deepEqual(stages.find(stage => stage.name === 'completeness')!.keep, ['data/quarantine.json']);
   // No command of the refresh runs outside a stage.
   // The refresh step alone: up to the next step of the job, whatever it is (the palette rebuild
   // of a run without the refresh sits between it and the compile).
   const step = fs.readFileSync('.github/workflows/prepare-content.yml', 'utf8').split('- name: Refresh supported upstream records')[1].split('\n      - ')[0];
   const run = step.slice(step.indexOf('run: |') + 'run: |'.length).replace(/\\\n\s*/g, ' ').split('\n').map(line => line.trim()).filter(line => line && !line.startsWith('#'));
-  const plumbing = /^(set -euo pipefail|stage\(\) \{.*\}|node scripts\/content\/run-stage\.mjs begin|trap .*|supplemental_charwords=.*|supplement=.*|if \[ ! -s "\$supplement" \].*|bash scripts\/sync\/refresh-stage-data\.sh)$/;
+  const plumbing = /^(set -euo pipefail|stage\(\) \{.*\}|node scripts\/content\/run-stage\.mjs begin|trap .*|bash scripts\/sync\/refresh-stage-data\.sh)$/;
   for (const line of run) assert.ok(line.startsWith('stage ') || plumbing.test(line), `outside a stage: ${line}`);
 });

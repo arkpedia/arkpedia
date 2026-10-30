@@ -91,7 +91,7 @@ and the same code that push to main.
 
 - Timeouts are longer (Check 60, Deploy 45, content release 105, stage refresh
   30 minutes) for the smaller machines. Up to 30 of the content release's minutes can
-  go to waiting for the public asset syncs, which run on GitHub's runners, so a Check
+  go to waiting for arkpedia-data's nightly import, which runs on GitHub's runners, so a Check
   queued behind it on the same runner can wait that long too.
 - Playwright installs Chromium without `--with-deps`: the system libraries are
   installed on the machines once, and the runner user has no sudo. The NAS image pins

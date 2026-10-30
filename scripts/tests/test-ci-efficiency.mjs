@@ -13,12 +13,8 @@ const steps = workflow('check').jobs.check.steps;
 test('Python discovery includes every current suite and nested new suites, without helpers', t => {
   const files = pythonTests('scripts').map(file => file.replaceAll('\\', '/'));
   for (const file of [
-    'scripts/imports/test-degrading-importers.py',
-    'scripts/imports/test-namecard-styles.py',
-    'scripts/imports/test-story-map.py',
     'scripts/palettes/test-color-palettes.py',
     'scripts/sync/test-publish-catalogue-assets.py',
-    'scripts/tests/test-medal-layouts.py',
   ]) assert.ok(files.includes(file), file);
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'python-inventory-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));

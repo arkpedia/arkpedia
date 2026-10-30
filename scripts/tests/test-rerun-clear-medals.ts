@@ -1,20 +1,16 @@
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
 import { test } from 'node:test';
-// @ts-expect-error the build script is plain JavaScript without a declaration file
-import { buildRerunClearMedals, ALL_STAGES_THREE_STARS } from '../build/build-rerun-clear-medals.mjs';
 import medals from '../../data/rerun-clear-medals.json';
 import { fillRerunActivities, rerunClearMedal } from '../../lib/pulls/schedule';
 import { rerunsClearedByTicks } from '../../lib/pulls/pulls';
 import type { PullEventReward } from '../../lib/pulls/pulls';
 
-test('data/rerun-clear-medals.json is the published medal catalogue\'s all-stages medals (npm run build:rerun-clear-medals)', () => {
-  const catalogue = JSON.parse(fs.readFileSync('public/medal-catalogue.json', 'utf8'));
-  assert.deepEqual(medals, buildRerunClearMedals(catalogue));
-  assert.ok(Object.keys(medals).length >= 39, 'every recent event set has one');
+/* data/rerun-clear-medals.json is pulled from arkpedia-data, whose importer builds it from the
+   medal catalogue and holds it to that (its scripts/tests/test-rerun-clear-medals.ts). */
+
+test('the pulled record carries a medal for every recent event set', () => {
+  assert.ok(Object.keys(medals).length >= 39);
   assert.equal(medals['42side'], 'medal_activity_42side_04', "The Masses' Travels: 'Lateran Newborn'");
-  assert.ok(ALL_STAGES_THREE_STARS.test('Complete all stages in [A Glance at the Shrine] with 3-star ratings (excluding tutorials)'));
-  assert.ok(!ALL_STAGES_THREE_STARS.test('Complete all stages in [Rest in Peace] on Challenge Mode'));
 });
 
 test('a rerun names its event\'s medal by the game\'s ids, and an account that holds it is cleared', () => {

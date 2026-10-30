@@ -1,46 +1,44 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildFreeRewards } from '../build/build-free-rewards.mjs';
 import { accountFromGame } from '../../lib/account/accountStore';
-import { allFreeRewards, freeRewardsForAccount, importClaimedBeginner, type FreeReward } from '../../lib/pulls/freeRewards';
+import { freeRewardsForAccount, importClaimedBeginner, type FreeReward } from '../../lib/pulls/freeRewards';
 
 /*
- * The Reward Tracker's Beginner rewards, ticked from an import. The tables are an excerpt of the
- * Global open_server_table (ArknightsAssets/ArknightsGamedata, 2026-10-21): both programmes'
- * ids, windows and mission groups as the client has them, a few of their sign-in days. The saves
- * are synthetic syncData users in the Torappu shapes (MissionPlayerData, PlayerOpenServer at
- * torappu-excel bc6e6155), not captures of a real account.
+ * The Reward Tracker's Beginner rewards, ticked from an import. The catalogue is the one
+ * arkpedia-data's importer builds out of the Global open_server_table (its
+ * scripts/tests/test-reward-beginner-imports.ts holds it to those tables), inlined as a release
+ * carries it: both programmes' rows, the older one's last. The saves are synthetic syncData
+ * users in the Torappu shapes (MissionPlayerData, PlayerOpenServer at torappu-excel bc6e6155),
+ * not captures of a real account.
  */
-const item = (id: string, count: number, type = 'MATERIAL') => ({ id, count, type });
-const openServer = {
-  schedule: [{ id: 'openseverTaskGroup1', startTs: 1533898800, endTs: 1733227199 }, { id: 'openseverTaskGroup2', startTs: 1733227200, endTs: 1881658799 }],
-  dataMap: {
-    openseverTaskGroup1: {
-      openServerMissionGroup: { id: 'openseverTaskGroup1', type: 'OPENSERVER', missionIds: ['openserver_1', 'openserver_2', 'openserver_3', 'openserver_4'] },
-      openServerMissionData: ['Clear Main Storyline0-1', 'Own at least 1 Lv.2 Control Center', 'Clear Main Storyline1-12', 'Player reaches Lv.8']
-        .map((description, index) => ({ id: `openserver_${index + 1}`, description, rewards: [item('4003', 600, 'DIAMOND_SHD')] })),
-      checkInData: [{ order: 1, item: item('4001', 5000, 'GOLD') }, { order: 14, item: item('4001', 50000, 'GOLD') }],
-      chainLoginData: [{ order: 1, item: item('4003', 600, 'DIAMOND_SHD') }, { order: 7, item: item('char_173_slchan', 1, 'CHAR') }],
-    },
-    openseverTaskGroup2: {
-      openServerMissionGroup: { id: 'openseverTaskGroup2', type: 'OPENSERVER', missionIds: ['openserver_1_1', 'openserver_2_1', 'openserver_3_1', 'openserver_4_1'] },
-      openServerMissionData: ['Clear Main Storyline0-1', 'Player reaches Lv.8', 'Clear Main Storyline1-12', 'Own a Lv.2 Control Center']
-        .map((description, index) => ({ id: `openserver_${index + 1}_1`, description, rewards: [item('4003', 600, 'DIAMOND_SHD')] })),
-      checkInData: [{ order: 1, item: item('4001', 20000, 'GOLD') }, { order: 2, item: item('2003', 20, 'CARD_EXP') }],
-      chainLoginData: [{ order: 7, item: item('voucher_item_4pick1_5301', 1, 'VOUCHER_PICK') }],
-    },
-  },
-  constant: { firstDiamondShardMailCount: 3800 },
+const catalogue = [
+  { id: 'free:openserver_1_1', group: 'Beginner rewards', name: 'Clear Main Storyline0-1', rewards: [{ id: '4003', name: 'Orundum', count: 600, orundum: 600 }], beginner: { id: 'openseverTaskGroup2', startTs: 1733227200, endTs: 1881658799, current: true }, forecast: true },
+  { id: 'free:openserver_2_1', group: 'Beginner rewards', name: 'Player reaches Lv.8', rewards: [{ id: '4003', name: 'Orundum', count: 600, orundum: 600 }], beginner: { id: 'openseverTaskGroup2', startTs: 1733227200, endTs: 1881658799, current: true }, forecast: true },
+  { id: 'free:openserver_3_1', group: 'Beginner rewards', name: 'Clear Main Storyline1-12', rewards: [{ id: '4003', name: 'Orundum', count: 600, orundum: 600 }], beginner: { id: 'openseverTaskGroup2', startTs: 1733227200, endTs: 1881658799, current: true }, forecast: true },
+  { id: 'free:openserver_4_1', group: 'Beginner rewards', name: 'Own a Lv.2 Control Center', rewards: [{ id: '4003', name: 'Orundum', count: 600, orundum: 600 }], beginner: { id: 'openseverTaskGroup2', startTs: 1733227200, endTs: 1881658799, current: true }, forecast: true },
+  { id: 'free:openseverTaskGroup2:checkInData:1', group: 'Beginner rewards', name: 'Cumulative sign-in · Day 1', rewards: [{ id: '4001', name: 'LMD', count: 20000 }], beginner: { id: 'openseverTaskGroup2', startTs: 1733227200, endTs: 1881658799, current: true }, forecast: true },
+  { id: 'free:openseverTaskGroup2:checkInData:2', group: 'Beginner rewards', name: 'Cumulative sign-in · Day 2', rewards: [{ id: '2003', name: 'Reward item', count: 20 }], beginner: { id: 'openseverTaskGroup2', startTs: 1733227200, endTs: 1881658799, current: true }, forecast: true },
+  { id: 'free:openseverTaskGroup2:chainLoginData:7', group: 'Beginner rewards', name: 'Consecutive sign-in · Day 7', rewards: [{ id: 'voucher_item_4pick1_5301', name: 'Reward item', count: 1 }], beginner: { id: 'openseverTaskGroup2', startTs: 1733227200, endTs: 1881658799, current: true }, forecast: true },
+  { id: 'free:welcome-mail', group: 'Beginner rewards', name: 'Welcome mail', rewards: [{ id: '4003', name: 'Orundum', count: 3800, orundum: 3800 }], forecast: true },
+  { id: 'free:openserver_1', group: 'Beginner rewards', name: 'Clear Main Storyline0-1', rewards: [{ id: '4003', name: 'Orundum', count: 600, orundum: 600 }], beginner: { id: 'openseverTaskGroup1', startTs: 1533898800, endTs: 1733227199, current: false }, forecast: true },
+  { id: 'free:openserver_2', group: 'Beginner rewards', name: 'Own at least 1 Lv.2 Control Center', rewards: [{ id: '4003', name: 'Orundum', count: 600, orundum: 600 }], beginner: { id: 'openseverTaskGroup1', startTs: 1533898800, endTs: 1733227199, current: false }, forecast: true },
+  { id: 'free:openserver_3', group: 'Beginner rewards', name: 'Clear Main Storyline1-12', rewards: [{ id: '4003', name: 'Orundum', count: 600, orundum: 600 }], beginner: { id: 'openseverTaskGroup1', startTs: 1533898800, endTs: 1733227199, current: false }, forecast: true },
+  { id: 'free:openserver_4', group: 'Beginner rewards', name: 'Player reaches Lv.8', rewards: [{ id: '4003', name: 'Orundum', count: 600, orundum: 600 }], beginner: { id: 'openseverTaskGroup1', startTs: 1533898800, endTs: 1733227199, current: false }, forecast: true },
+  { id: 'free:openseverTaskGroup1:checkInData:1', group: 'Beginner rewards', name: 'Cumulative sign-in · Day 1', rewards: [{ id: '4001', name: 'LMD', count: 5000 }], beginner: { id: 'openseverTaskGroup1', startTs: 1533898800, endTs: 1733227199, current: false }, forecast: true },
+  { id: 'free:openseverTaskGroup1:checkInData:14', group: 'Beginner rewards', name: 'Cumulative sign-in · Day 14', rewards: [{ id: '4001', name: 'LMD', count: 50000 }], beginner: { id: 'openseverTaskGroup1', startTs: 1533898800, endTs: 1733227199, current: false }, forecast: true },
+  { id: 'free:openseverTaskGroup1:chainLoginData:1', group: 'Beginner rewards', name: 'Consecutive sign-in · Day 1', rewards: [{ id: '4003', name: 'Orundum', count: 600, orundum: 600 }], beginner: { id: 'openseverTaskGroup1', startTs: 1533898800, endTs: 1733227199, current: false }, forecast: true },
+  { id: 'free:openseverTaskGroup1:chainLoginData:7', group: 'Beginner rewards', name: 'Consecutive sign-in · Day 7', rewards: [{ id: 'char_173_slchan', rarity: 5, name: 'Cliffheart', count: 1 }], beginner: { id: 'openseverTaskGroup1', startTs: 1533898800, endTs: 1733227199, current: false }, forecast: true },
+] as unknown as FreeReward[];
+
+/* The map as the content run builds it (arkpedia-data's importer, scripts/build/build-game-account-map.ts),
+   and as a release built before it kept the programmes' missions. */
+const schedule = [{ id: 'openseverTaskGroup1', startTs: 1533898800, endTs: 1733227199 }, { id: 'openseverTaskGroup2', startTs: 1733227200, endTs: 1881658799 }];
+const missionIds: Record<string, string[]> = {
+  openseverTaskGroup1: ['openserver_1', 'openserver_2', 'openserver_3', 'openserver_4'],
+  openseverTaskGroup2: ['openserver_1_1', 'openserver_2_1', 'openserver_3_1', 'openserver_4_1'],
 };
-const catalogue = allFreeRewards(buildFreeRewards({
-  handbook: { handbookStageData: {} }, missions: { missions: {}, missionGroups: {} }, checkin: { groups: {} }, openServer,
-  items: { items: { '4001': { name: 'LMD' }, '4003': { name: 'Orundum' } } }, shops: { shopGPDataDict: {} },
-  characters: { char_173_slchan: { name: 'Cliffheart', rarity: 'TIER_5' } }, activity: { activity: {}, basicInfo: {}, missionData: [] },
-} as never));
-/* The map as the content run builds it (scripts/build/build-game-account-map.ts), and as a
-   release built before it kept the programmes' missions. */
-const map = { version: 1 as const, chars: {}, beginnerPrograms: openServer.schedule.map(row => ({ ...row, missionIds: openServer.dataMap[row.id as keyof typeof openServer.dataMap].openServerMissionGroup.missionIds })) };
-const olderMap = { version: 1 as const, chars: {}, beginnerPrograms: openServer.schedule };
+const map = { version: 1 as const, chars: {}, beginnerPrograms: schedule.map(row => ({ ...row, missionIds: missionIds[row.id] })) };
+const olderMap = { version: 1 as const, chars: {}, beginnerPrograms: schedule };
 
 function settled(user: Record<string, unknown>, accountMap: typeof map | typeof olderMap = map) {
   const account = accountFromGame(user, accountMap, 'en');

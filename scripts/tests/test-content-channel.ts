@@ -109,9 +109,10 @@ test('only the editorial notifier can start workflows; the scraper keeps least p
   assert.equal(start['runs-on'], "${{ vars.ARKPEDIA_LIGHT_RUNNER || vars.ARKPEDIA_RUNNER || 'ubuntu-latest' }}");
   assert.equal(start.steps[0]['continue-on-error'], true, 'a failed dispatch never fails the release');
   const refresh = workflow.jobs.prepare.steps.find(step => step.name === 'Refresh supported upstream records')!;
-  for (const key of ['CATALOGUE_IMAGE_DEPLOY_KEY', 'CATALOGUE_SKIN_DEPLOY_KEY']) {
-    assert.equal(refresh.env?.[key], `\${{ github.ref_name == 'main' && secrets.${key} || '' }}`, key);
-  }
+  // Only the image repository's key, for the story covers: arkpedia-data's import publishes all
+  // other art, and the skin repository's key is its alone.
+  assert.equal(refresh.env?.CATALOGUE_IMAGE_DEPLOY_KEY, "${{ github.ref_name == 'main' && secrets.CATALOGUE_IMAGE_DEPLOY_KEY || '' }}");
+  assert.equal(refresh.env?.CATALOGUE_SKIN_DEPLOY_KEY, undefined);
   // The publisher stops on the dev channel before it asks for a key, so an empty one is never read there.
   const publisher = fs.readFileSync('scripts/sync/publish-catalogue-assets.sh', 'utf8');
   assert.ok(publisher.indexOf('"$ARKPEDIA_RELEASE_BRANCH" != main') < publisher.indexOf('CATALOGUE_IMAGE_DEPLOY_KEY:?'));

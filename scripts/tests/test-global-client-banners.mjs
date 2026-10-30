@@ -124,13 +124,6 @@ test('a later wiki/CN enrichment cannot restore CN candidates over the shipped E
   assert.deepEqual(banners, expected);
 });
 
-test('the automatic release reads announcements before reconciling banners and applying windows', () => {
-  const script = fs.readFileSync(new URL('../sync/refresh-stage-data.sh', import.meta.url), 'utf8');
-  const news = script.indexOf('stage official-news --'), banners = script.indexOf('stage recurring-banners --'), windows = script.indexOf('stage event-windows --');
-  assert.ok(news >= 0 && news < banners && banners < windows);
-  assert.equal(script.match(/stage official-news --/g).length, 1);
-});
-
 test('a datamined Global pool replaces a withdrawn forecast', () => {
   const banners = structuredClone([predecessor, { ...forecast, global_date: null, globalForecastWithdrawn: true }]);
   run(banners, table, { operators });

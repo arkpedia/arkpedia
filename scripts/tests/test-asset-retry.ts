@@ -481,10 +481,6 @@ const RAW_READERS: Record<string, Allowed[]> = {
   'scripts/deploy/check-asset-redirects.mjs': [
     { call: /^fetch\(url, \{ method: 'HEAD', redirect: 'manual'/, why: "the site's own address, whose redirect is read by hand before its target is asked through fetchAsset" },
   ],
-  'scripts/sync/sync-chibi-art.mjs': [
-    { call: /^fetcher\(`https:\/\/api\.github\.com\/repos\/\$\{REPOSITORY\}\/commits\/main`/, why: "the API's commit lookup, not a published file" },
-  ],
-  'scripts/sync/sync-dynamic-art.mjs': [],
   'scripts/sync/update-asset-revisions.mjs': [],
 };
 const RAW_LITERAL = /raw\.githubusercontent\.com\/(?:arkpedia\/|\$\{REPOSITORY\})/;

@@ -127,35 +127,3 @@ test('what is on sale now: live shop and reward windows, never a draw or an esti
   assert.match(home, /skinWindows: getSkinWindows\(getAllSkins\(\), getAllEvents\(\)/);
 });
 
-test('Global\'s official post lists its Outfit Store sales, read as windows by outfit', async () => {
-  // @ts-expect-error Node publication scripts are plain JavaScript.
-  const { englishNoticeSkinWindows } = await import('../sync/sync-regional-schedules.mjs');
-  // News post 4814 (Critical Phase Transition, 2026-10-14), shortened to two outfits a section.
-  const post = { title: 'MAIN THEME EPISODE 17: CRITICAL PHASE TRANSITION', url: 'https://www.arknights.global/news/4814', lines: [
-    '10 ITERATION PROVIDENT SERIES & BLOODLINE OF COMBAT COLLECTION NEW ARRIVALS AT THE OUTFIT STORE',
-    'DURATION: October 14, 2026, 08:00 - November 11, 2026, 03:59 (UTC-7)',
-    'DETAILS: The following new Outfits will be available at the Outfit Store, including:',
-    'Iteration Provident Series - The Spirit Farer for Nowell',
-    'Iteration Provident Series - Stranded in Utopia for Haruka',
-    '11 RE-EDITION OUTFITS AT THE OUTFIT STORE',
-    'DURATION: October 14, 2026, 08:00 - November 11, 2026, 03:59 (UTC-7)',
-    'DETAILS: The following Re-edition Outfits will be available at the Outfit Store, including:',
-    'Test Collection - Glory of the Devout for Archetto',
-    'Test Collection - Unknown Outfit for Nobody',
-    '12 LIMITED-TIME PACKS AVAILABLE',
-    'Iteration Provident Series - Red Countess for Skadi the Corrupting Heart',
-  ] };
-  const store = 'Outfit Store ( 18 Originite Prime )';
-  const skins = [
-    { model: 'Nowell', name: 'The Spirit-Farer', series: 'Iteration Provident', howToObtain: store },
-    { model: 'Haruka', name: 'Stranded In Utopia', series: 'Iteration Provident', howToObtain: store },
-    { model: 'Archetto', name: 'Glory to the Devout', series: 'Test Collection', howToObtain: store },
-    { model: 'Archetto', name: 'Publicity Strategy', series: 'Shining Steps', howToObtain: store },
-    { model: 'Skadi the Corrupting Heart', name: 'Red Countess', series: 'Iteration Provident', howToObtain: store },
-  ];
-  const windows = englishNoticeSkinWindows([post], skins);
-  assert.deepEqual(windows.map((w: SkinWindow) => [w.label, w.newRelease, w.startAt, w.endAt, w.skinIds]), [
-    ['New outfits', true, '2026-10-14T15:00:00.000Z', '2026-11-11T11:00:00.000Z', ['Haruka / Stranded In Utopia', 'Nowell / The Spirit-Farer']],
-    ['Returning outfits', false, '2026-10-14T15:00:00.000Z', '2026-11-11T11:00:00.000Z', ['Archetto / Glory to the Devout']],
-  ], 'a reworded name matches by operator and series; an unknown outfit and a later section\'s line are left out');
-});
