@@ -1,0 +1,198 @@
+import { calculateBase } from './calculateBase';
+import { activeBaseSkills, cleanSkillName } from './activeBaseSkills';
+import { simulateBase, type SimulationBase, type SimulationResult, type SimulationShift } from './baseSimulation';
+import { DEFAULT_WEIGHTS, WORK_KINDS, sustainableOutput, type OptimizerResult, type OptimizerWeights, type OwnedOperator, type RoomExplanation, type ScheduleStep } from './baseOptimizer';
+import type { BaseAssignments, FactoryProducts, SlotAssignment } from './baseTypes';
+
+/**
+ * A whole base plan as a few independent choices, so a search can change one at a time and the simulator
+ * can score the result. Two crews staff the work rooms; over `steps` staffing changes each room's main crew
+ * works every change but the one it rests on, while the other crew covers it. Two steps is the familiar
+ * alternation, three with every room resting together is a duty rotation, and three with rests spread out is
+ * the thirds shape. Core workers sit in the same room in both crews, so they work every change, refilled by
+ * Fiammetta. Parked operators start at a set Morale and wait rather than rest when off shift (Dusk below 12).
+ */
+export interface Genome {
+  steps: 2 | 3;
+  /** Logins per staffing change. */
+  k: number;
+  crews: [BaseAssignments, BaseAssignments];
+  /** The change (0..steps-1) on which each room's main crew rests. */
+  rest: Record<string, number>;
+  /** Rooms whose main crew is the second one. */
+  mainB: string[];
+  /** Fiammetta's refill list: workers placed in the same room in both crews. */
+  core: string[];
+  parked: Record<string, number>;
+  products: FactoryProducts;
+  /** Seat owned operators the plan does not use in empty beds (dorm head counts feed several skills). */
+  fillBeds: boolean;
+  /** Every off-duty worker rests; otherwise only whoever just came off shift does, the rest wait unassigned and
+   * their beds go to idle operators (Iris and Czerny's dorm skills feed Rosmontis, for one). */
+  restAll: boolean;
+}
+
+export interface GenomeContext {
+  base: SimulationBase;
+  roster: Record<string, OwnedOperator>;
+  loginInterval: number;
+  weights?: OptimizerWeights;
+  sustainable?: boolean;
+  externalGold?: number;
+  drones?: boolean;
+  allowExhaustion?: boolean;
+  /** Operators kept in the dorms in every shift; they take a bed each and never work. */
+  lockedDorm?: string[];
+}
+
+export interface Evaluation { shifts: SimulationShift[]; sim: SimulationResult; value: number }
+
+const operatorsIn = (a: BaseAssignments) => Object.values(a).flatMap(slots => (slots ?? []).flatMap(s => s ? [s.operatorName] : []));
+
+/** The context's fixed pieces, computed once per context and reused by every decode. */
+function layout(ctx: GenomeContext) {
+  const { base, roster } = ctx;
+  const byName = new Map(base.operators.map(o => [o.name, o]));
+  const rooms = base.facilities.filter(f => f.capacity > 0 && WORK_KINDS.includes(f.kind));
+  const dorms = base.facilities.filter(f => f.kind === 'dormitory' && f.capacity > 0);
+  const locked = (ctx.lockedDorm ?? []).filter(name => byName.has(name) && name in roster);
+  const slotOf = (name: string): SlotAssignment => ({ operatorName: name, eliteLevel: roster[name].eliteLevel, level: roster[name].level });
+  const dormSkill = (name: string) => !!byName.get(name) && activeBaseSkills(byName.get(name)!, 'Dormitory', roster[name].eliteLevel, base.skillSlots, roster[name].level).length > 0;
+  return { byName, rooms, dorms, locked, slotOf, dormSkill };
+}
+const layouts = new WeakMap<GenomeContext, ReturnType<typeof layout>>();
+const fixed = (ctx: GenomeContext) => { let l = layouts.get(ctx); if (!l) { l = layout(ctx); layouts.set(ctx, l); } return l; };
+
+/** Which crew (0 or 1) staffs `room` on change `step`. */
+export const crewAt = (g: Genome, room: string, step: number) => (g.rest[room] === step) !== g.mainB.includes(room) ? 1 : 0;
+
+/** The genome as the simulator's shift list. */
+export function decode(g: Genome, ctx: GenomeContext): SimulationShift[] {
+  const { rooms, dorms, locked, slotOf, dormSkill } = fixed(ctx);
+  const roomIds = rooms.map(f => f.id);
+  const parked = new Set(Object.keys(g.parked));
+  const working = Array.from({ length: g.steps }, (_, s) => Object.fromEntries(roomIds.map(id => [id, g.crews[crewAt(g, id, s)][id] ?? Array(rooms.find(f => f.id === id)!.capacity).fill(null)])) as BaseAssignments);
+  const everyone = [...new Set(g.crews.flatMap(operatorsIn))].filter(n => n !== 'Fiammetta' && !locked.includes(n));
+  const fiammetta = g.core.length > 0 && 'Fiammetta' in ctx.roster && !everyone.includes('Fiammetta') && dorms.length > 0;
+  const idle = g.fillBeds
+    ? Object.keys(ctx.roster).filter(n => fixed(ctx).byName.has(n) && !everyone.includes(n) && !parked.has(n) && !locked.includes(n) && n !== 'Fiammetta').sort((x, y) => Number(dormSkill(y)) - Number(dormSkill(x)) || x.localeCompare(y))
+    : [];
+  return working.map((w, s) => {
+    const on = new Set(operatorsIn(w));
+    const justWorked = new Set(operatorsIn(working[(s + g.steps - 1) % g.steps]));
+    // Whoever just came off shift rests first; a parked operator waits rather than rest.
+    const resting = everyone.filter(n => !on.has(n) && !parked.has(n) && (g.restAll || justWorked.has(n))).sort((x, y) => Number(justWorked.has(y)) - Number(justWorked.has(x)));
+    const a: BaseAssignments = { ...w };
+    const beds = dorms.map(d => ({ d, slots: Array<SlotAssignment | null>(d.capacity).fill(null) }));
+    // Fiammetta keeps the head of the first dorm, so nobody arrives before her; locked residents keep the last beds.
+    if (fiammetta) beds[0].slots[0] = slotOf('Fiammetta');
+    locked.forEach((name, i) => { const b = beds[i % beds.length]; const at = b.slots.lastIndexOf(null); if (at >= 0) b.slots[at] = slotOf(name); });
+    const queue = [...resting];
+    for (const b of beds) for (let i = 0; i < b.slots.length && queue.length; i++) if (!b.slots[i]) b.slots[i] = slotOf(queue.shift()!);
+    // Idle operators take the beds still empty, never in Fiammetta's dorm (she would swap her Morale with them).
+    let next = 0;
+    for (const b of beds) {
+      if (fiammetta && b === beds[0]) continue;
+      for (let i = 0; i < b.slots.length && next < idle.length; i++) if (!b.slots[i]) b.slots[i] = slotOf(idle[next++]);
+    }
+    for (const b of beds) a[b.d.id] = b.slots;
+    return { assignments: a, factoryProducts: g.products, logins: g.k, ...(fiammetta && g.core.length ? { refill: g.core } : {}) };
+  });
+}
+
+/** The account's score for a genome: same objective and penalties as optimizeBase. */
+export function evaluate(g: Genome, ctx: GenomeContext): Evaluation {
+  const shifts = decode(g, ctx);
+  const weights = ctx.weights ?? DEFAULT_WEIGHTS;
+  const sim = simulateBase({
+    base: ctx.base, shifts, loginInterval: ctx.loginInterval, initialMorale: g.parked, drones: ctx.drones,
+    droneWeights: { lmd: weights.lmd, exp: weights.exp, goldMade: weights.goldMade },
+    ...(ctx.sustainable ? { droneFunding: { externalGold: ctx.externalGold ?? 0 } } : {}),
+  });
+  return { shifts, sim, value: scoreOf(sim, ctx) };
+}
+
+export function scoreOf(sim: SimulationResult, ctx: GenomeContext): number {
+  const w = ctx.weights ?? DEFAULT_WEIGHTS;
+  const base = ctx.sustainable
+    ? sustainableOutput(sim.perDay, ctx.externalGold).lmd * w.lmd + sim.perDay.exp * w.exp
+    : sim.perDay.lmd * w.lmd + sim.perDay.exp * w.exp + sim.perDay.goldMade * w.goldMade;
+  return base - (sim.periodic ? 0 : 1e9) - (ctx.allowExhaustion ? 0 : 1e6 * sim.events.filter(e => e.kind === 'exhausted').length)
+    - (sim.warnings.some(x => / twice\.$/.test(x)) ? 1e12 : 0);
+}
+
+/** Today's optimizer result as a genome, read from what was actually simulated. Null for shapes a genome cannot
+ * express (staggered, a three-step duty). */
+export function genomeFromResult(result: OptimizerResult, ctx: GenomeContext): Genome | null {
+  const steps = result.shifts.length;
+  if (steps !== 2 && steps !== 3) return null;
+  const { rooms } = fixed(ctx);
+  const roomIds = rooms.map(f => f.id);
+  const crews: [BaseAssignments, BaseAssignments] = [{}, {}];
+  const rest: Record<string, number> = {};
+  const mainB: string[] = [];
+  for (const id of roomIds) {
+    // The schedule says which crew is in the room at each change; the shifts say who that crew is.
+    const byStep = result.schedule.map(st => st.crewIn.find(c => c.rooms.includes(id))?.crew ?? 0);
+    if (byStep.length !== steps) return null;
+    for (let s = 0; s < steps; s++) crews[byStep[s]][id] ??= result.shifts[s].assignments[id] ?? Array(rooms.find(f => f.id === id)!.capacity).fill(null);
+    for (const c of [0, 1] as const) crews[c][id] ??= crews[1 - c][id];
+    const bSteps = byStep.flatMap((c, s) => c === 1 ? [s] : []);
+    const aSteps = byStep.flatMap((c, s) => c === 0 ? [s] : []);
+    if (bSteps.length === 1) rest[id] = bSteps[0];
+    else if (aSteps.length === 1) { rest[id] = aSteps[0]; mainB.push(id); }
+    else return null;
+  }
+  const g: Genome = {
+    steps: steps as 2 | 3, k: Math.max(1, Math.round(result.stepHours / ctx.loginInterval)), crews, rest, mainB,
+    core: result.shifts[0].refill ?? [], parked: result.initialMorale ?? {}, products: result.shifts[0].factoryProducts, fillBeds: true, restAll: true,
+  };
+  // Which rest rule the plan used is not recorded; keep whichever scores higher.
+  const other = { ...g, restAll: false };
+  return evaluate(other, ctx).value > evaluate(g, ctx).value ? other : g;
+}
+
+/** The snapshot value of one crew's staffing (green: what one login collects), for explanations and screening. */
+export function snapshotValue(assignments: BaseAssignments, g: Genome, ctx: GenomeContext): number {
+  const w = ctx.weights ?? DEFAULT_WEIGHTS;
+  const r = calculateBase({ ...ctx.base, assignments, factoryProducts: g.products, loginInterval: ctx.loginInterval, swapPolicy: 'onLogin' });
+  return r.dailyGoldWorthGreen * w.lmd + r.dailyExpGreen * w.exp + r.dailyGoldMadeGreen * w.goldMade;
+}
+
+/** The genome and its evaluation in the shape the account page renders. */
+export function toOptimizerResult(g: Genome, e: Evaluation, ctx: GenomeContext, notes: string[] = []): OptimizerResult {
+  const { rooms, byName } = fixed(ctx);
+  const roomIds = rooms.map(f => f.id);
+  const step = g.k * ctx.loginInterval;
+  const schedule: ScheduleStep[] = Array.from({ length: g.steps }, (_, s) => {
+    const second = roomIds.filter(id => crewAt(g, id, s) === 1);
+    const first = roomIds.filter(id => !second.includes(id));
+    return { hour: s * step, crewIn: [{ crew: 0, rooms: first }, { crew: 1, rooms: second }].filter(x => x.rooms.length), resting: [{ crew: 0, rooms: second }, { crew: 1, rooms: first }].filter(x => x.rooms.length) };
+  });
+  const explanations: RoomExplanation[] = [];
+  g.crews.forEach((crew, index) => {
+    const whole = snapshotValue(crew, g, ctx);
+    const r = calculateBase({ ...ctx.base, assignments: crew, factoryProducts: g.products, loginInterval: ctx.loginInterval, swapPolicy: 'onLogin' });
+    for (const f of rooms) {
+      const names = (crew[f.id] ?? []).flatMap(s => s ? [s.operatorName] : []);
+      if (!names.length) continue;
+      const out = r.roomDailyOutput[f.id];
+      explanations.push({
+        crew: index, room: f.id, kind: f.kind,
+        perDay: out ? { exp: out.exp, goldMade: out.goldMade, goldSold: out.goldSold, lmd: out.goldSold * 500 + out.extraLmd + out.pepeLmd } : { exp: 0, goldMade: 0, goldSold: 0, lmd: 0 },
+        operators: names.map(name => ({
+          name,
+          marginal: whole - snapshotValue(Object.fromEntries(Object.entries(crew).map(([room, slots]) => [room, (slots ?? []).map(s => s?.operatorName === name ? null : s)])), g, ctx),
+          skills: activeBaseSkills(byName.get(name)!, f.label, ctx.roster[name].eliteLevel, ctx.base.skillSlots, ctx.roster[name].level).map(s => ({ name: cleanSkillName(s.name), description: s.description ?? '' })),
+        })),
+      });
+    }
+  });
+  const spread = new Set(Object.values(g.rest)).size > 1;
+  const shape = g.steps === 3 ? (spread ? 'thirds' : 'duty') : g.core.length ? 'formations' : 'alternate';
+  return {
+    shape, crews: g.crews, schedule, shifts: e.shifts, stepHours: step, workHours: (g.steps - 1) * step,
+    simulation: e.sim, score: e.value, explanations, notes, evaluations: e.sim.evaluations,
+    ...(Object.keys(g.parked).length ? { initialMorale: g.parked } : {}),
+  };
+}

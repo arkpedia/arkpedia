@@ -108,7 +108,7 @@ export interface OptimizerResult {
 }
 
 /** Rooms whose staff work (drain Morale) and can change output, directly or across rooms. */
-const WORK_KINDS: FacilityKind[] = ['controlCenter', 'tradingPost', 'factory', 'powerPlant', 'receptionRoom', 'office'];
+export const WORK_KINDS: FacilityKind[] = ['controlCenter', 'tradingPost', 'factory', 'powerPlant', 'receptionRoom', 'office'];
 /** Rooms whose value the snapshot under-reads: drones, Morale relief, clues and recruits. */
 const SUPPORT_KINDS: FacilityKind[] = ['controlCenter', 'powerPlant', 'office', 'receptionRoom'];
 const EPS = 1e-6;
