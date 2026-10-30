@@ -1,6 +1,8 @@
 import type { AccountRecord } from '../account/accountStore';
 import { BASE_PRESET_IDS, BASE_PRESETS, getFacilities, layoutProblems, presetLevels, presetSpots } from './baseConfig';
 import { optimizeBase, sustainableOutput, type OptimizerResult, type OwnedOperator } from './baseOptimizer';
+import { evaluate, genomeFromResult, genomeNotes, toOptimizerResult, type Evaluation, type Genome, type GenomeContext } from './planGenome';
+import { anneal } from './annealBase';
 import type { SimulationBase, DailyOutput } from './baseSimulation';
 import type { ProductionSpots, FacilityLevels, FactoryProducts } from './baseTypes';
 
@@ -15,9 +17,13 @@ export interface AccountOptimizerInput {
   compareLayouts: boolean;
   /** Count the Power Plants' drones, spent where each is worth most under the funded scoring. Default true. */
   drones?: boolean;
+  /** Search time in seconds, 5 to 600. Default 120. */
+  searchSeconds?: number;
 }
 export interface LayoutRecommendation extends LayoutOption {
   products: FactoryProducts;
+  /** The objective's weights, which drones were spent by: a saved rotation scores with the same ones. */
+  weights: { lmd: number; exp: number; goldMade: number };
   plan: OptimizerResult;
   output: DailyOutput;
   score: number;
@@ -67,31 +73,83 @@ export function productOptions(layout: LayoutOption): FactoryProducts[] {
   return result;
 }
 
-export function optimizeAccountBase(input: AccountOptimizerInput, progress?: (done: number, total: number, label: string) => void): AccountOptimizerResult {
+/**
+ * The account's best base within `searchSeconds` (default 120; the page offers up to 10 minutes).
+ *
+ * Seed: today's optimizer (lib/base/baseOptimizer.ts) on each layout, product splits in order of how likely
+ * they are to win (about as many gold factories as Trading Posts first), until about a third of the time is
+ * spent -- every layout gets at least one. Anneal: the best one or two layouts are improved by simulated
+ * annealing over the plan genome (lib/base/annealBase.ts), which also tries other factory products. The
+ * annealed plan never scores below its seed. `progress` receives the best result so far whenever it improves,
+ * so a stopped search still has one to show.
+ */
+export function optimizeAccountBase(input: AccountOptimizerInput, progress?: (done: number, total: number, label: string, best?: AccountOptimizerResult) => void): AccountOptimizerResult {
   if (!Object.keys(input.roster).length) throw new Error('No known owned operators were found in this import.');
   if (!Number.isFinite(input.externalGold) || input.externalGold < 0 || input.externalGold > 1000) throw new Error('External gold must be between 0 and 1000 per day.');
   const layouts = optimizerLayouts(input.snapshot, input.compareLayouts);
   if (!layouts.length) throw new Error('The imported layout has an invalid power budget. Compare standard layouts or update your import.');
-  const candidates = layouts.flatMap(layout => productOptions(layout).map(products => ({ layout, products })));
+  const started = Date.now();
+  const budget = Math.max(5, Math.min(600, input.searchSeconds ?? 120)) * 1000;
+  const elapsed = () => Date.now() - started;
+  const tick = (label: string, best?: AccountOptimizerResult) => progress?.(Math.min(100, Math.round(100 * elapsed() / budget)), 100, label, best);
   const recommendations: LayoutRecommendation[] = [];
-  let rejected = 0;
+  let rejected = 0, searched = 0;
   const weights = { lmd: input.objective === 'exp' ? 0 : 1, exp: input.objective === 'lmd' ? 0 : 1, goldMade: 500 };
-  candidates.forEach(({ layout, products }, index) => {
-    progress?.(index, candidates.length, layout.label);
-    const plan = optimizeBase({
-      base: { ...input.base, facilities: getFacilities(layout.spots, layout.levels), dormitoryAmbience: layout.id === 'mine' ? input.snapshot?.dormitoryAmbience : undefined },
-      roster: input.roster, loginInterval: input.loginInterval, factoryProducts: products,
-      weights, sustainable: true, externalGold: input.externalGold, drones: input.drones !== false,
-    });
-    if (!plan.simulation.periodic || plan.simulation.events.some(e => e.kind === 'exhausted')) { rejected++; return; }
-    const output = sustainableOutput(plan.simulation.perDay, input.externalGold);
-    const score = output.lmd * weights.lmd + output.exp * weights.exp;
-    const recommendation = { ...layout, products, plan, output, score };
-    const previous = recommendations.findIndex(r => r.id === layout.id);
+  const drones = input.drones !== false;
+  const baseFor = (layout: LayoutOption) => ({ ...input.base, facilities: getFacilities(layout.spots, layout.levels), dormitoryAmbience: layout.id === 'mine' ? input.snapshot?.dormitoryAmbience : undefined });
+  const sorted = () => recommendations.sort((a, b) => b.score - a.score || (a.id === 'mine' ? -1 : b.id === 'mine' ? 1 : a.label.localeCompare(b.label)));
+  const snapshotResult = (): AccountOptimizerResult => ({ recommendations: sorted().map(r => ({ ...r })), searched, rejected });
+  const offer = (recommendation: LayoutRecommendation) => {
+    const previous = recommendations.findIndex(r => r.id === recommendation.id);
     if (previous < 0) recommendations.push(recommendation);
-    else if (score > recommendations[previous].score) recommendations[previous] = recommendation;
+    else if (recommendation.score > recommendations[previous].score) recommendations[previous] = recommendation;
+    else return false;
+    return true;
+  };
+
+  // Seed. Splits close to one gold factory per Trading Post first: gold is what the posts sell.
+  const queue = layouts.map(layout => {
+    const posts = getFacilities(layout.spots, layout.levels).filter(f => f.kind === 'tradingPost' && f.capacity).length;
+    const gold = (p: FactoryProducts) => Object.values(p).filter(v => v === 'Precious Metals').length;
+    return { layout, splits: productOptions(layout).sort((x, y) => Math.abs(gold(x) - posts) - Math.abs(gold(y) - posts) || gold(x) - gold(y)) };
   });
-  progress?.(candidates.length, candidates.length, 'Done');
-  recommendations.sort((a, b) => b.score - a.score || (a.id === 'mine' ? -1 : b.id === 'mine' ? 1 : a.label.localeCompare(b.label)));
-  return { recommendations, searched: candidates.length, rejected };
+  for (let round = 0; queue.some(q => q.splits.length > round); round++) {
+    for (const { layout, splits } of queue) {
+      if (round >= splits.length || (round > 0 && elapsed() > budget * 0.35)) continue;
+      tick(`${layout.label}: first plans`);
+      const products = splits[round];
+      searched++;
+      const plan = optimizeBase({ base: baseFor(layout), roster: input.roster, loginInterval: input.loginInterval, factoryProducts: products, weights, sustainable: true, externalGold: input.externalGold, drones });
+      if (!plan.simulation.periodic || plan.simulation.events.some(e => e.kind === 'exhausted')) { rejected++; continue; }
+      const output = sustainableOutput(plan.simulation.perDay, input.externalGold);
+      if (offer({ ...layout, products, weights, plan, output, score: output.lmd * weights.lmd + output.exp * weights.exp })) tick(`${layout.label}: first plans`, snapshotResult());
+    }
+    if (elapsed() > budget * 0.35) break;
+  }
+
+  // Anneal the best layouts in the time left: most of it to the best, the rest to the runner-up.
+  const order = sorted().slice(0, 2);
+  order.forEach((seed, i) => {
+    const left = budget - elapsed();
+    if (left < 2000) return;
+    const timeMs = order.length > 1 && i === 0 ? left * 0.7 : left;
+    const ctx: GenomeContext = { base: baseFor(seed), roster: input.roster, loginInterval: input.loginInterval, weights, sustainable: true, externalGold: input.externalGold, drones };
+    const genome = genomeFromResult(seed.plan, ctx);
+    if (!genome) return;
+    const improve = (g: Genome, e: Evaluation) => {
+      if (!e.sim.periodic || e.sim.events.some(x => x.kind === 'exhausted')) return;
+      const plan = toOptimizerResult(g, e, ctx, genomeNotes(g, e, ctx));
+      const output = sustainableOutput(e.sim.perDay, input.externalGold);
+      if (offer({ ...seed, products: g.products, plan, output, score: output.lmd * weights.lmd + output.exp * weights.exp })) tick(`${seed.label}: improving`, snapshotResult());
+    };
+    const r = anneal(genome, ctx, {
+      timeMs, seed: 1 + i,
+      onProgress: ({ genome: g }) => { tick(`${seed.label}: improving`); improve(g, evaluate(g, ctx)); },
+    });
+    improve(r.genome, r.evaluation);
+    searched += r.simulations;
+  });
+  // The search may stop before its time is up (nothing left to improve); it is still done.
+  progress?.(100, 100, 'Done');
+  return snapshotResult();
 }

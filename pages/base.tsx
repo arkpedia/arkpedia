@@ -710,7 +710,9 @@ export default function BasePage({ operators }: Props) {
       loginInterval, swapPolicy: 'onLogin', rotationRates: undefined,
     }));
     const nextPresets = [...savedPresets, ...presets];
-    const nextPlan: BaseRotationPlan = { version: 1, startHour, externalGold, shifts: presets.map(p => ({ id: crypto.randomUUID(), presetId: p.id, hours: recommendation.plan.stepHours })) };
+    // Fiammetta's refills, drones and parked Morale too, so the saved rotation scores what the optimizer showed.
+    const nextPlan: BaseRotationPlan = { version: 1, startHour, externalGold, drones: recommendation.weights, ...(recommendation.plan.initialMorale ? { parked: recommendation.plan.initialMorale } : {}),
+      shifts: presets.map((p, i) => ({ id: crypto.randomUUID(), presetId: p.id, hours: recommendation.plan.stepHours, ...(recommendation.plan.shifts[i].refill ? { refill: recommendation.plan.shifts[i].refill } : {}), ...(recommendation.plan.shifts[i].reseat ? { reseat: recommendation.plan.shifts[i].reseat } : {}) })) };
     let previousPresets: string | null, previousPlan: string | null;
     try {
       previousPresets = window.localStorage.getItem(SAVED_BASE_PRESETS_KEY);
@@ -2147,7 +2149,7 @@ export default function BasePage({ operators }: Props) {
                   </>
                 );
               })()}
-<div><span className="base-summary-label">Estimate details</span><InfoPopover label="Production estimate limits"><p>Rotation uses the optimizer’s repeating simulation, including morale thresholds, storage and gold-funded LMD. Ramping skills are approximate. Excludes drones, crafting and training.</p></InfoPopover></div>
+<div><span className="base-summary-label">Estimate details</span><InfoPopover label="Production estimate limits"><p>Rotation uses the optimizer’s repeating simulation, including morale thresholds, storage and gold-funded LMD. Ramping skills are approximate. Drones count when the rotation came from the optimizer; crafting and training are excluded.</p></InfoPopover></div>
             </div>
             </div>
 

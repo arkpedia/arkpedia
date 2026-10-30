@@ -55,7 +55,8 @@ test('help stays compact, styled and keyboard accessible in both themes', async 
 });
 
 test('real worker recommends owned teams, invalidates stale input and saves without editing the imported account', async ({ page }) => {
-  test.setTimeout(180000);
+  // Two real searches at the shortest search time (1 minute each, plus their first plans).
+  test.setTimeout(360000);
   page.setDefaultTimeout(10000);
   await page.addInitScript(record => {
     localStorage.setItem('arkpediaAccount', JSON.stringify(record));
@@ -67,6 +68,8 @@ test('real worker recommends owned teams, invalidates stale input and saves with
   const dialog = page.getByRole('dialog', { name: 'Base optimizer', exact: true });
   await dialog.getByRole('checkbox', { name: 'Compare standard layouts' }).uncheck();
   await dialog.getByRole('button', { name: '2 times a day, every 12 hours' }).click();
+  await dialog.getByRole('combobox', { name: 'Optimizer search time', exact: true }).click();
+  await page.getByRole('option', { name: '1 min', exact: true }).click();
   const workers: string[] = [], remoteSearches: string[] = [];
   page.on('worker', worker => workers.push(worker.url()));
   page.on('request', request => {
@@ -131,13 +134,15 @@ test('real worker recommends owned teams, invalidates stale input and saves with
   await expect(dialog.getByRole('heading', { name: 'Your layout', exact: true })).not.toBeVisible();
   await expect(dialog.getByText('Settings or account changed. Run the optimizer again.')).toBeVisible();
   await dialog.getByRole('button', { name: 'Recommend layout' }).click();
-  await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+  // Stop keeps the best plan found so far, if the search has one yet.
+  await dialog.getByRole('button', { name: 'Stop', exact: true }).click();
   await expect(dialog.getByRole('button', { name: 'Recommend layout' })).toBeEnabled();
   await page.route(workers[0], route => route.fulfill({ contentType: 'application/javascript', body: 'self.onmessage = () => {};' }));
   await page.clock.install();
   await dialog.getByRole('button', { name: 'Recommend layout' }).click();
-  await page.clock.fastForward(10 * 60 * 1000 + 1);
-  await expect(dialog.getByRole('alert')).toContainText('10-minute limit');
+  // A stuck worker is given up on at the search time plus three minutes (here 1 + 3).
+  await page.clock.fastForward(4 * 60 * 1000 + 1);
+  await expect(dialog.getByRole('alert')).toContainText('ran past its time');
   await expect(dialog.getByRole('button', { name: 'Recommend layout' })).toBeEnabled();
   await dialog.getByRole('button', { name: '2 times a day, every 12 hours' }).click();
   await dialog.getByRole('button', { name: 'Recommend layout' }).click();
@@ -195,8 +200,9 @@ test('layout alternatives stay compact and update the portrait board', async ({ 
   await expect(dialog.getByRole('combobox', { name: 'Recommended layout' })).toBeVisible({ timeout: 20000 });
   await expect(dialog.getByRole('table', { name: 'Recommended layouts' })).not.toBeVisible();
   await dialog.getByRole('combobox', { name: 'Recommended layout' }).click();
-  await dialog.getByRole('option', { name: /^1-5-3/ }).click();
-  await expect(dialog.getByRole('heading', { name: '1-5-3', exact: true })).toBeVisible();
+  // Only 243 and 252 layouts are searched (accountOptimizer SEARCHED_LAYOUT_SHAPES); 2-5-2 has five factories.
+  await dialog.getByRole('option', { name: /^2-5-2 max right/ }).click();
+  await expect(dialog.getByRole('heading', { name: '2-5-2 max right', exact: true })).toBeVisible();
   await expect(dialog.locator('[aria-label="Production teams"]').getByRole('region', { name: /Factory/ })).toHaveCount(5);
   await dialog.getByText('Compare layouts', { exact: true }).click();
   await expect(dialog.getByRole('table', { name: 'Recommended layouts' })).toBeVisible();

@@ -3,7 +3,7 @@
 import { getAllOperators } from '../../lib/operators/operators';
 import { toBaseRosters } from '../../lib/base/baseGroupRosters';
 import { simulateBase, type SimulationBase, type SimulationShift } from '../../lib/base/baseSimulation';
-import { optimizeBase, sustainableOutput, DEFAULT_WEIGHTS } from '../../lib/base/baseOptimizer';
+import { optimizeBase, sustainableOutput } from '../../lib/base/baseOptimizer';
 import type { BaseAssignments } from '../../lib/base/baseTypes';
 import groups from '../../data/base-group-rosters.json';
 import slots from '../../data/base-skill-slots.json';
@@ -14,7 +14,6 @@ const loginInterval = Number(process.argv[2] ?? 8);
 const operators = getAllOperators().filter(op => !/^Amiya \(/.test(op.name));
 const roster = everyoneMaxed(operators);
 const base: SimulationBase = { operators, rosters: toBaseRosters(groups), skillSlots: slots, workshopRecipes: recipes, facilities: SHEET_FACILITIES };
-const w = DEFAULT_WEIGHTS;
 
 const t0 = Date.now();
 const plan = optimizeBase({ base, roster, loginInterval, factoryProducts: FORMATIONS[0].products, sustainable: true, externalGold: 0, drones: true, formations: true });

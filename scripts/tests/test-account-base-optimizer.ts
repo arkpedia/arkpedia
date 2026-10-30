@@ -91,9 +91,10 @@ test('gold and EXP factories are distinct candidate rooms even at the same level
 
 test('the standard-layout search returns the best funded score first and reports actual progress', () => {
   const roster = fixtureRoster;
-  let completed = 0;
-  const result = optimizeAccountBase({ base, roster, snapshot: account.base, loginInterval: 12, objective: 'balanced', externalGold: 9.14, compareLayouts: true }, done => { completed = done; });
-  assert.equal(completed, result.searched);
+  let completed = 0, of = 0;
+  const result = optimizeAccountBase({ base, roster, snapshot: account.base, loginInterval: 12, objective: 'balanced', externalGold: 9.14, compareLayouts: true, searchSeconds: 6 }, (done, total) => { completed = done; of = total; });
+  // Progress is the share of the search time used, and reaches the end when the search does.
+  assert.equal(completed, of);
   // The fixture is itself a 243 (the same as the standard 243), so with only 243 and 252 searched there are two.
   assert(result.recommendations.length >= 2);
   for (let i = 1; i < result.recommendations.length; i++) assert(result.recommendations[i - 1].score >= result.recommendations[i].score);
@@ -104,9 +105,9 @@ test('an imported account gets funded, repeatable, owned-only recommendations at
   const roster = fixtureRoster;
   for (const loginInterval of [24, 12, 8, 6]) {
     const progress: number[] = [];
-    const result = optimizeAccountBase({ base, roster, snapshot: account.base, loginInterval, objective: 'balanced', externalGold: 0, compareLayouts: false }, done => progress.push(done));
+    const result = optimizeAccountBase({ base, roster, snapshot: account.base, loginInterval, objective: 'balanced', externalGold: 0, compareLayouts: false, searchSeconds: 6 }, (done, total) => progress.push(done / total));
     assert(result.recommendations.length > 0);
-    assert.equal(progress.at(-1), result.searched);
+    assert.equal(progress.at(-1), 1);
     const recommendation = result.recommendations[0];
     assert(recommendation.plan.simulation.periodic);
     assert(!recommendation.plan.simulation.events.some(e => e.kind === 'exhausted'));
@@ -119,4 +120,25 @@ test('an imported account gets funded, repeatable, owned-only recommendations at
       for (const room of facilities) assert((shift.assignments[room.id]?.filter(Boolean).length ?? 0) <= room.capacity);
     }
   }
+});
+
+test('a recommendation saved as a rotation recalculates to the yields the optimizer showed', async () => {
+  // pages/base.tsx saveOptimizerRotation, reduced: one preset per shift, and the plan carries Fiammetta's
+  // refills, drone weights and parked Morale. Without them the page re-scored a different plan (2026-10-30).
+  const { calculateRotation } = await import('../../lib/base/calculateRotation');
+  const result = optimizeAccountBase({ base, roster: fixtureRoster, snapshot: account.base, loginInterval: 12, objective: 'balanced', externalGold: 0, compareLayouts: false, searchSeconds: 6 });
+  const r = result.recommendations[0];
+  const presets = r.plan.shifts.map((shift, i) => ({
+    id: `p${i}`, name: `p${i}`, savedAt: '', version: 1 as const, productionSpots: r.spots, facilityLevels: r.levels,
+    assignments: shift.assignments, factoryProducts: shift.factoryProducts, dormitoryAmbience: account.base?.dormitoryAmbience ?? {},
+    clueExchangeActive: false, moraleAbove12: true, swapPolicy: 'onLogin' as const, loginInterval: 12,
+    trainingTarget: { class: 'Guard', branch: '', mastery: 1, timeReductionActive: false, instantTrainingReady: false },
+    workshopSettings: { recipeId: '1', causality: 0, karma: 0, thornsFailures: 0, qualifyingDormOperators: 0 },
+  }));
+  const plan = { version: 1 as const, startHour: 8, externalGold: 0, drones: r.weights, ...(r.plan.initialMorale ? { parked: r.plan.initialMorale } : {}),
+    shifts: presets.map((p, i) => ({ id: `s${i}`, presetId: p.id, hours: r.plan.stepHours, ...(r.plan.shifts[i].refill ? { refill: r.plan.shifts[i].refill } : {}), ...(r.plan.shifts[i].reseat ? { reseat: r.plan.shifts[i].reseat } : {}) })) };
+  const rotation = calculateRotation(base, plan, presets as never, 12);
+  assert.ok(rotation.totals);
+  assert.ok(Math.abs(rotation.totals!.dailyExpGreen - r.output.exp) < 1, `EXP ${rotation.totals!.dailyExpGreen} vs ${r.output.exp}`);
+  assert.ok(Math.abs(rotation.totals!.dailyGoldWorthGreen - r.output.lmd) < 1, `LMD ${rotation.totals!.dailyGoldWorthGreen} vs ${r.output.lmd}`);
 });

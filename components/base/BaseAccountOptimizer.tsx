@@ -18,6 +18,8 @@ import styles from './BaseAccountOptimizer.module.css';
 const whole = (value: number) => Math.round(value).toLocaleString();
 // Two results per browser page session; reopening the modal need not repeat a search.
 const cachedResults = new Map<string, AccountOptimizerResult>();
+// The reader's search time, kept for the page session like the results (it is part of their cache key).
+let lastSearchMinutes = 2;
 export default function BaseAccountOptimizer({ account, base, loginInterval, onInterval, onApply }: {
   account: AccountRecord | null; base: Omit<SimulationBase, 'facilities'>;
   loginInterval: number; onInterval: (hours: number) => void;
@@ -26,6 +28,7 @@ export default function BaseAccountOptimizer({ account, base, loginInterval, onI
   const [objective, setObjective] = useState<AccountOptimizerInput['objective']>('balanced');
   const [externalGold, setExternalGold] = useState(0);
   const [compareLayouts, setCompareLayouts] = useState(true);
+  const [searchMinutes, setSearchMinutes] = useState(lastSearchMinutes);
   const [startHour, setStartHour] = useState(8);
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState({ done: 0, total: 0, label: '' });
@@ -35,11 +38,13 @@ export default function BaseAccountOptimizer({ account, base, loginInterval, onI
   const [selectedShift, setSelectedShift] = useState(0);
   const [saved, setSaved] = useState(false);
   const worker = useRef<Worker | null>(null);
+  // The best result so far, kept while the search runs so stopping it still leaves a plan.
+  const partial = useRef<AccountOptimizerResult | null>(null);
   const deadline = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cache = useRef(cachedResults);
   const byName = useMemo(() => new Map(base.operators.map(op => [op.name, op])), [base.operators]);
   const owned = useMemo(() => account ? ownedBaseRoster(account, new Set(base.operators.map(o => o.name))) : { roster: {}, assumed: [] }, [account, base.operators]);
-  const input: AccountOptimizerInput = { base, roster: owned.roster, snapshot: account?.base, loginInterval, objective, externalGold, compareLayouts };
+  const input: AccountOptimizerInput = { base, roster: owned.roster, snapshot: account?.base, loginInterval, objective, externalGold, compareLayouts, searchSeconds: searchMinutes * 60 };
   // Includes the selected account and release data, so switching account or inputs
   // cannot apply a result produced from an earlier import or content release.
   const key = JSON.stringify(input, (_name, value) => value instanceof Set ? [...value].sort() : value);
@@ -61,32 +66,45 @@ export default function BaseAccountOptimizer({ account, base, loginInterval, onI
     return [f.id, `${f.label}${['tradingPost', 'factory', 'powerPlant', 'dormitory'].includes(f.kind) ? ` ${buildingCounts[f.kind]}` : ''}`];
   }));
 
+  function show(value: AccountOptimizerResult, final: boolean) {
+    if (final) {
+      if (cache.current.size >= 2) cache.current.delete(cache.current.keys().next().value!);
+      cache.current.set(key, value);
+    }
+    setResult({ key, value }); setSelected(value.recommendations[0]?.id ?? ''); setSelectedShift(0);
+  }
+  /** Stop the search; keep its best plan so far, if it found one. */
+  function stop(message?: string) {
+    worker.current?.terminate(); worker.current = null;
+    if (deadline.current) clearTimeout(deadline.current);
+    setRunning(false);
+    if (partial.current) show(partial.current, false);
+    else if (message) setError(message);
+  }
+
   function run() {
     if (!account || worker.current) return;
     const cached = cache.current.get(key);
     if (cached) { setResult({ key, value: cached }); setSelected(cached.recommendations[0]?.id ?? ''); setSelectedShift(0); setSaved(false); setError(''); return; }
-    setRunning(true); setError(''); setSaved(false); setProgress({ done: 0, total: 0, label: '' });
+    setRunning(true); setError(''); setSaved(false); setProgress({ done: 0, total: 0, label: '' }); partial.current = null;
     try {
       const w = new Worker(new URL('../../lib/base/accountOptimizer.worker.ts', import.meta.url));
       worker.current = w;
+      // The search keeps to its chosen time; this only catches a first stage that overruns on a very large roster.
       deadline.current = setTimeout(() => {
         if (worker.current !== w) return;
-        w.terminate(); worker.current = null; setRunning(false);
-        setError('The search reached its 10-minute limit. Turn off Compare standard layouts to search only your base, then try again.');
-      }, 10 * 60 * 1000);
-      w.onmessage = (event: MessageEvent<{ progress?: typeof progress; result?: AccountOptimizerResult; error?: string }>) => {
+        stop('The search ran past its time without a first plan. Turn off Compare standard layouts to search only your base, then try again.');
+      }, (searchMinutes + 3) * 60 * 1000);
+      w.onmessage = (event: MessageEvent<{ progress?: typeof progress; partial?: AccountOptimizerResult; result?: AccountOptimizerResult; error?: string }>) => {
         if (worker.current !== w) return;
+        if (event.data.partial) partial.current = event.data.partial;
         if (event.data.progress) { setProgress(event.data.progress); return; }
         if (deadline.current) clearTimeout(deadline.current);
         setRunning(false); w.terminate(); worker.current = null;
-        if (event.data.result) {
-          if (cache.current.size >= 2) cache.current.delete(cache.current.keys().next().value!);
-          cache.current.set(key, event.data.result);
-          setResult({ key, value: event.data.result }); setSelected(event.data.result.recommendations[0]?.id ?? ''); setSelectedShift(0);
-        }
+        if (event.data.result) show(event.data.result, true);
         else setError(event.data.error ?? 'Could not optimize this account.');
       };
-      w.onerror = () => { if (worker.current !== w) return; if (deadline.current) clearTimeout(deadline.current); setRunning(false); setError('The optimizer stopped. Try again.'); w.terminate(); worker.current = null; };
+      w.onerror = () => { if (worker.current !== w) return; stop('The optimizer stopped. Try again.'); };
       w.postMessage(input);
     } catch { worker.current?.terminate(); worker.current = null; if (deadline.current) clearTimeout(deadline.current); setRunning(false); setError('Could not start the optimizer. Reload and try again.'); }
   }
@@ -114,24 +132,25 @@ export default function BaseAccountOptimizer({ account, base, loginInterval, onI
     <div className={styles.controls}>
       <div><span className="label-tag">Logins per day</span><SegmentedControl label="Optimizer logins per day" value={loginInterval} onChange={onInterval} options={[24, 12, 8, 6].map(h => ({ value: h, label: `${24 / h}×`, ariaLabel: `${24 / h} times a day, every ${h} hours` }))} /></div>
       <label>Priority<StyledSelect label="Optimizer priority" value={objective} onChange={v => setObjective(v as typeof objective)} options={[{ value: 'balanced', label: 'LMD + EXP' }, { value: 'lmd', label: 'LMD' }, { value: 'exp', label: 'EXP' }]} /></label>
+      <label>Search time<StyledSelect label="Optimizer search time" value={String(searchMinutes)} onChange={v => { lastSearchMinutes = Number(v); setSearchMinutes(lastSearchMinutes); }} options={[{ value: '1', label: '1 min' }, { value: '2', label: '2 min' }, { value: '5', label: '5 min' }, { value: '10', label: '10 min' }]} /></label>
       <label>First login<StyledSelect label="First login hour" value={String(startHour)} onChange={v => { setStartHour(Number(v)); setSaved(false); }} options={Array.from({ length: 24 }, (_, h) => ({ value: String(h), label: `${String(h).padStart(2, '0')}:00` }))} /></label>
     </div>
     <div className={styles.actions}>
       <label className="check"><input type="checkbox" checked={compareLayouts} onChange={e => setCompareLayouts(e.target.checked)} disabled={!account?.base} />Compare standard layouts</label>
       <button type="button" className="primary btn-sm" disabled={!account || running || !Object.keys(owned.roster).length} onClick={run}>{running ? 'Optimizing…' : 'Recommend layout'}</button>
-      {running && <button type="button" className="ghost" onClick={() => { worker.current?.terminate(); worker.current = null; if (deadline.current) clearTimeout(deadline.current); setRunning(false); }}>Cancel</button>}
+      {running && <button type="button" className="ghost" title="Stop the search; the best plan found so far is kept" onClick={() => stop()}>Stop</button>}
     </div>
     <div className={styles.actions}>
       <label className={styles.gold}>Outside gold / day<NumberInput className="number-input" aria-label="External gold per day" min={0} max={1000} step="0.1" value={externalGold} onChange={e => setExternalGold(Number(e.target.value))} /></label>
       <InfoPopover label="Yield assumptions">
         <p>Logins are {loginInterval}h apart; collect at each login. LMD is capped by gold supply.</p>
         <p>LMD + EXP maximizes their sum, not equal output. Standard layouts assume their listed upgrades and furnished dorms.</p>
-        <p>Estimated repeating rotation; some skills are approximate. Excludes drones, crafting and training.</p>
+        <p>Estimated repeating rotation; some skills are approximate. Includes drones; excludes crafting and training.</p>
         <p><a href="https://docs.google.com/spreadsheets/d/1at6UTVRJXpiDlo7JucaQZdVQCSOZhAgN5jo4ZDFEWhk/edit?gid=2051144322#gid=2051144322" target="_blank" rel="noreferrer">Production reference ↗</a></p>
       </InfoPopover>
     </div>
     {owned.assumed.length > 0 && <p className="hint">Missing imported progress for {owned.assumed.length} operators: using E0 level 1.</p>}
-    {running && <div role="status" aria-live="polite"><progress max={progress.total || 1} value={progress.done} /> {progress.total ? `${progress.done} / ${progress.total} · ${progress.label}` : 'Preparing search…'}<span className={styles.localNote}>Runs on your device. Large rosters can take several minutes.</span></div>}
+    {running && <div role="status" aria-live="polite"><progress max={progress.total || 1} value={progress.done} /> {progress.total ? `${progress.done}% · ${progress.label}` : 'Preparing search…'}{partial.current?.recommendations[0] && <> · best so far {whole(partial.current.recommendations[0].score)} / day</>}<span className={styles.localNote}>Runs on your device for up to {searchMinutes} min; it stops early when nothing improves.</span></div>}
     {error && <p role="alert">{error}</p>}
     {result && !current && !running && <p role="status">Settings or account changed. Run the optimizer again.</p>}
     {current && !running && <>
@@ -154,7 +173,7 @@ export default function BaseAccountOptimizer({ account, base, loginInterval, onI
         <div className={styles.roomGrid} aria-label="Production teams">{facilities.filter(f => ['tradingPost', 'factory', 'powerPlant'].includes(f.kind) && f.capacity).map(roomTile)}</div>
         <details open><summary>Support and resting teams</summary><div className={styles.roomGrid} aria-label="Support and resting teams">{facilities.filter(f => !['tradingPost', 'factory', 'powerPlant'].includes(f.kind) && recommendation.plan.shifts[selectedShift].assignments[f.id]?.some(Boolean)).map(roomTile)}</div></details>
         <div className={styles.actions}><span>Gold balance and saving</span><InfoPopover label="Gold balance and saving"><p>Gold demand: {recommendation.plan.simulation.perDay.goldSold.toFixed(1)} / day. {recommendation.output.lmd + 0.1 < recommendation.plan.simulation.perDay.lmd ? 'Add outside gold to fund full trading output.' : 'Supply covers sales.'}</p><p>Saving replaces your active timetable and keeps saved setups. The calculator keeps this gold limit. Only dorm workers recover.</p></InfoPopover></div>
-        <details><summary>Search details and limits</summary><p>{current.searched} combinations searched; {current.rejected} rotations excluded for exhaustion or failing to repeat.</p><ul>{[...new Set([...recommendation.plan.notes, ...recommendation.plan.simulation.warnings, ...recommendation.plan.simulation.caveats])].map(note => <li key={note}>{note}</li>)}</ul></details>
+        <details><summary>Search details and limits</summary><p>{current.searched} plans scored; {current.rejected} rotations excluded for exhaustion or failing to repeat.</p><ul>{[...new Set([...recommendation.plan.notes, ...recommendation.plan.simulation.warnings, ...recommendation.plan.simulation.caveats])].map(note => <li key={note}>{note}</li>)}</ul></details>
       </>}
     </>}
   </div>;

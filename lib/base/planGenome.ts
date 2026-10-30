@@ -196,3 +196,24 @@ export function toOptimizerResult(g: Genome, e: Evaluation, ctx: GenomeContext, 
     ...(Object.keys(g.parked).length ? { initialMorale: g.parked } : {}),
   };
 }
+
+/** What a reader needs to know to run the plan: the parts a schedule alone does not say. */
+export function genomeNotes(g: Genome, e: Evaluation, ctx: GenomeContext): string[] {
+  const { rooms, dorms } = fixed(ctx);
+  const notes: string[] = [];
+  const spread = new Set(Object.values(g.rest)).size > 1;
+  if (g.steps === 3) notes.push(spread
+    ? 'Each room\'s main crew works two staffing changes out of three and rests the third while the other crew covers that one; rooms rest on different changes (the schedule shows which).'
+    : 'The main crew works two staffing changes running and rests the third while the second crew covers it.');
+  if (g.core.length) notes.push(`Fiammetta refills ${g.core.join(', ')} in turn at the staffing changes: each works every shift and never rests. She sits at the head of ${dorms[0]?.label ?? 'the first dorm'} and, whenever she is full at a staffing change, swaps her Morale with the next of them in that order.`);
+  if (g.parked.Dusk !== undefined) notes.push(`Drain Dusk below 12 Morale once (any working room will do) and keep her there: below 12 "Unstirred by Gain" adds Worldly Plight +15${'Ling' in ctx.roster ? ' on top of Ling\'s +15 above 12' : ''}. In the Control Center with this crew she loses no Morale, and when off shift she waits unassigned rather than resting, so she stays below 12.`);
+  if (!g.restAll) notes.push('Only whoever has just come off shift rests in the dorms; the others wait unassigned, which leaves beds for operators whose dorm skills count.');
+  const crewNames = new Set(g.crews.flatMap(operatorsIn));
+  const sitters = [...new Set(e.shifts.flatMap(sh => dorms.flatMap(d => (sh.assignments[d.id] ?? []).flatMap(s => s && !crewNames.has(s.operatorName) && s.operatorName !== 'Fiammetta' && !(ctx.lockedDorm ?? []).includes(s.operatorName) ? [s.operatorName] : []))))];
+  if (sitters.length) notes.push(`${sitters.length} operators the plan does not otherwise use (${sitters.join(', ')}) sit in the dorms' empty beds: dorm head counts raise skills such as Mr. Nothing's Worldly Plight.`);
+  for (const kind of ['office', 'receptionRoom'] as const) {
+    const room = rooms.find(f => f.kind === kind);
+    if (room && !e.shifts.some(s => (s.assignments[room.id] ?? []).some(Boolean))) notes.push(`${room.label} stays empty: its Speed bonus is not part of this plan's scored output (LMD, EXP, gold), so no owned operator shows a gain there -- true for every roster, not only this one.`);
+  }
+  return notes;
+}
