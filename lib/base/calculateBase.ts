@@ -83,6 +83,19 @@ export interface BaseCalculationInput {
   rampWindowOverride?: number;
 }
 
+/** Operators by name, built once per operator list (a search calls the calculator thousands of times on one list). */
+const operatorIndexes = new WeakMap<readonly BaseOperator[], Map<string, BaseOperator>>();
+function operatorNamed(operators: readonly BaseOperator[], name: string): BaseOperator | undefined {
+  let index = operatorIndexes.get(operators);
+  if (!index) {
+    index = new Map();
+    // The first record with a name wins, as Array.find did.
+    for (const o of operators) if (!index.has(o.name)) index.set(o.name, o);
+    operatorIndexes.set(operators, index);
+  }
+  return index.get(name);
+}
+
 /** Each built room's slots cut to its capacity; rooms with no places (unbuilt, elevators) and unknown keys are kept. */
 export function withinCapacity(assignments: BaseAssignments, facilities: BaseCalculationInput['facilities']): BaseAssignments {
   let out: BaseAssignments | null = null;
@@ -125,7 +138,7 @@ export function calculateBase(input: BaseCalculationInput) {
     // Exhausted operators retain their physical assignment, but their working
     // skills stop. Dormitory recovery skills remain active at zero Morale.
     if (slot && facilityLabel !== 'Dormitory' && importedMorale?.[slot.operatorName] === 0) return [];
-    const op = slot && operators.find(o => o.name === slot.operatorName);
+    const op = slot && operatorNamed(operators, slot.operatorName);
     return op && slot ? activeBaseSkills(op, facilityLabel, slot.eliteLevel, skillSlots, slot.level) : [];
   }
   // A skill's handler key, and whether a slot has a skill by key: never `${operatorName}|${name}`
