@@ -81,6 +81,9 @@ export interface BaseCalculationInput {
   rampStartHours?: Record<string, number>;
   /** The window ramp skills average over, instead of the one derived from the login interval and Morale. */
   rampWindowOverride?: number;
+  /** Per Dormitory, the order its single-target recovery skills pick in, least Morale first, instead of by the Morale
+   * given now: the simulator picks at each login and keeps the pick until the next. */
+  dormitoryPickOrder?: Record<string, string[]>;
 }
 
 /** Operators by name, built once per operator list (a search calls the calculator thousands of times on one list). */
@@ -110,7 +113,7 @@ export function withinCapacity(assignments: BaseAssignments, facilities: BaseCal
 
 /** The complete cross-room calculator used by /base and scenario regressions. */
 export function calculateBase(input: BaseCalculationInput) {
-  const { operators, rosters, skillSlots, facilities: FACILITIES, factoryProducts, workshopRecipes, importedMorale, rampStartHours, rampWindowOverride,
+  const { operators, rosters, skillSlots, facilities: FACILITIES, factoryProducts, workshopRecipes, importedMorale, rampStartHours, rampWindowOverride, dormitoryPickOrder,
     dormitoryAmbience = {}, loginInterval = 24, swapPolicy = 'onMoraleZero', clueExchangeActive = false, moraleAbove12 = true,
     trainingTarget = { class: 'Guard', branch: '', mastery: 1, timeReductionActive: false, instantTrainingReady: false },
     workshopSettings = { recipeId: '1', qualifyingDormOperators: 0, causality: 0, karma: 0, thornsFailures: 0 },
@@ -118,6 +121,14 @@ export function calculateBase(input: BaseCalculationInput) {
   // A room never counts more operators than it has places: a saved plan keeps its slots after the room is
   // downgraded, and a hand-written plan can list two operators for a one-place Power Plant.
   const assignments = withinCapacity(input.assignments, FACILITIES);
+  // The Morale levels this result reads, by operator: the rates below stay the same for any Morale on the same side
+  // of each (see MoraleLevels). The simulator recalculates only when someone crosses one of their own.
+  const moraleLevels: Record<string, number[]> = {};
+  // Dorms with a single-target recovery skill, by id: it goes to the roommate with the least Morale, so their order
+  // matters as well as levels. The simulator fixes that order at each login (dormitoryPickOrder).
+  const moraleOrder: Record<string, string[]> = {};
+  const readsMorale = (name: string, ...levels: number[]) => { const l = (moraleLevels[name] ??= []); for (const v of levels) if (!l.includes(v)) l.push(v); };
+  for (const f of FACILITIES) if (f.kind !== 'dormitory') for (const s of assignments[f.id] ?? []) if (s) readsMorale(s.operatorName, 0); // exhausted at 0
   const baseSource = importedMorale ? 'account' : 'planner';
   const resolvedTrainingTarget = resolveTrainingTarget(trainingTarget, operators);
   const { ELITE_OPERATOR, ABYSSAL_HUNTERS, OPERATION_PLATFORM, BLACKSTEEL_WORLDWIDE, TEAM_RAINBOW, DURIN, PINUS_SYLVESTRIS, WANDERING_MEDIC, SUI, KNIGHTS, LATERANO, RHINE_LAB } = rosters;
@@ -1431,6 +1442,7 @@ export function calculateBase(input: BaseCalculationInput) {
       earlyDormitoryOperatorCount += slots.length;
       abyssalHuntersRestingInDormitories += abyssalHere;
       abyssalHuntersRestingAtFullMorale += slots.filter(s => rosters.ABYSSAL_HUNTERS.has(s.operatorName) && (s.morale ?? 0) >= 24).length;
+      for (const s of slots) if (rosters.ABYSSAL_HUNTERS.has(s.operatorName)) readsMorale(s.operatorName, 24);
       // Senshi's Diner: "provide 1 Monster Meal for every level of the
       // current Dormitory" -- Dormitories are confirmed Level 5, so
       // each Senshi placement generates 5.
@@ -1557,6 +1569,7 @@ export function calculateBase(input: BaseCalculationInput) {
   // user: the real trigger depends on how the whole day actually plays
   // out, which this steady-state simulator can't track, so it's a
   // direct on/off choice instead. Defaults to "above 12".
+  for (const name of ['Ling', 'Dusk']) if (allPlacedNames.includes(name)) readsMorale(name, 12);
   const lingFractionAbove12 = (baseSource === 'account' && importedMorale?.Ling !== undefined ? importedMorale!.Ling > 12 : moraleAbove12) ? 1 : 0;
   const duskFractionAbove12 = (baseSource === 'account' && importedMorale?.Dusk !== undefined ? importedMorale!.Dusk > 12 : moraleAbove12) ? 1 : 0;
 
@@ -1841,6 +1854,10 @@ export function calculateBase(input: BaseCalculationInput) {
     const slots = (assignments[f.id] || []).filter((s): s is SlotAssignment => s !== null);
     const roomNames = slots.map((s2) => s2.operatorName);
     const moraleByOperator = Object.fromEntries(slots.map(s => [s.operatorName, s.morale ?? 0]));
+    const pickOrder = dormitoryPickOrder?.[f.id];
+    // Handlers that look at a roommate's Morale (Bobbing, Coldshot: who is below 24) are noticed as they read it.
+    let handlerReadMorale = false;
+    const watchedMorale = new Proxy(moraleByOperator, { get: (target, key) => { handlerReadMorale = true; return Reflect.get(target, key); } });
     // This specific Dormitory's own base recovery rate -- depends on ITS
     // level and ITS ambience (player-set, or defaulted to fully-furnished
     // for that level if never touched), not a single base-wide constant.
@@ -1866,7 +1883,7 @@ export function calculateBase(input: BaseCalculationInput) {
       const preferredTarget = DORMITORY_PREFERRED_TARGET[s.operatorName];
       const targetIfSelected =
         (preferredTarget && roomNames.includes(preferredTarget) && moraleByOperator[preferredTarget] < 24 ? preferredTarget : null) ??
-        roomNames.filter(n => n !== s.operatorName && moraleByOperator[n] < 24).sort((a, b) => moraleByOperator[a] - moraleByOperator[b])[0] ??
+        roomNames.filter(n => n !== s.operatorName && moraleByOperator[n] < 24).sort((a, b) => pickOrder ? pickOrder.indexOf(a) - pickOrder.indexOf(b) : moraleByOperator[a] - moraleByOperator[b])[0] ??
         null;
       for (const sk of skillsFor(s, 'Dormitory')) {
         const handler = DORMITORY_SPECIAL_SKILLS[keyOf(s.operatorName, sk)];
@@ -1880,7 +1897,7 @@ export function calculateBase(input: BaseCalculationInput) {
           rosters,
           manualValue: s.manualValue,
           sameRoomOperatorNames: roomNames,
-          moraleByOperator,
+          moraleByOperator: watchedMorale,
           filledCountThisRoom: slots.length,
           // The player sets each Dormitory's own level now, so read this
           // room's rather than assuming every Dormitory is maxed.
@@ -1903,6 +1920,16 @@ export function calculateBase(input: BaseCalculationInput) {
       return { name: s.operatorName, selfBonus, allOperatorsBonus, allOthersBonus, singleTargetBonus, targetIfSelected, exclusiveRecovery, conditionalGroupBonus, distributedBonus };
     });
 
+    // Which Morale this room's recovery reads, for every occupant. A single-target skill picks the roommate with the
+    // least Morale below 24: the room's order matters (moraleOrder) as well as 24. Judged by the skill, not by
+    // whether anyone is below 24 right now, so it holds for every Morale.
+    const singleTarget = perSlotResults.some(p => p.singleTargetBonus > 0 || p.distributedBonus);
+    if (singleTarget) moraleOrder[f.id] = roomNames;
+    for (const name of roomNames) {
+      if (singleTarget) readsMorale(name, 24);
+      for (const p of perSlotResults) if (p.conditionalGroupBonus) readsMorale(name, p.conditionalGroupBonus.below);
+      if (handlerReadMorale || perSlotResults.some(p => p.distributedBonus)) readsMorale(name, 24);
+    }
     dormitoryRecoveryByFacility[f.id] = dormitoryRecoveryRates(perSlotResults, thisRoomBaseRecovery, rosters, moraleByOperator, slots.some(s => hasSkill(s, 'Dormitory', 'Morgan|No.1 Practice Partner')), ccDormitoryAllOperatorsRelief, ccDormitoryEliteOperatorsRelief);
   }
 
@@ -2057,5 +2084,5 @@ export function calculateBase(input: BaseCalculationInput) {
   const dailyGoldWorthRed = dailyGoldSoldRed * 500 + dailyExtraLmdFromOrdersRed + dailyLmdFromPepeRed;
 
 
-  return { rooms, roomDailyOutput, productivityFor, operatorByName, totalMonsterMeal, resourcePools, ccEffects, ccMoraleRelief, totalFelvine, dormitoryOperatorNames, dormitoryRecoveryByFacility, dailyExpGreen, dailyExpRed, dailyGoldMadeGreen, dailyGoldMadeRed, dailyGoldSoldGreen, dailyGoldFromProvisoGreen, dailyGoldFromProvisoRed, dailyGoldSoldRed, dailyExtraLmdFromOrdersGreen, dailyExtraLmdFromOrdersRed, dailyGoldWorthGreen, dailyGoldWorthRed };
+  return { moraleLevels, moraleOrder, rooms, roomDailyOutput, productivityFor, operatorByName, totalMonsterMeal, resourcePools, ccEffects, ccMoraleRelief, totalFelvine, dormitoryOperatorNames, dormitoryRecoveryByFacility, dailyExpGreen, dailyExpRed, dailyGoldMadeGreen, dailyGoldMadeRed, dailyGoldSoldGreen, dailyGoldFromProvisoGreen, dailyGoldFromProvisoRed, dailyGoldSoldRed, dailyExtraLmdFromOrdersGreen, dailyExtraLmdFromOrdersRed, dailyGoldWorthGreen, dailyGoldWorthRed };
 }

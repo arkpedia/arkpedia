@@ -251,3 +251,105 @@ test('a worker who reaches 0 exactly at a login and then rests lost no work, so 
   assert.equal(r.events.filter(e => e.kind === 'exhausted').length, 0);
   near(r.moraleAtLogins[1].Adnachiel, 0);
 });
+
+test('stepping only on the Morale levels each operator\'s rates read gives the same results as stepping on every level', () => {
+  // Each special plan seats operators whose rates read Morale, beside workers who come to them tired (4 h logins,
+  // so a rest is too short to fill up): Vendela (below 18), Perfumer the Distilled (below 20), Bobbing and Coldshot
+  // (who is below 24), a single-target dorm skill (the lowest roommate), Gladiia's Abyssal Hunters at 24, and Ling
+  // and Dusk at 12 feeding Mr. Nothing and Proviso's Worldly Plight. Random plans over the catalogue follow.
+  let state = 12345;
+  const random = () => { state = (state * 1103515245 + 12345) % 2147483648; return state / 2147483648; };
+  const shuffle = <T,>(xs: T[]) => { const a = [...xs]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  const pool = operators.filter(o => (o.rarity ?? 0) >= 3 && !o.isFuture).map(o => o.name);
+  const e2 = (operatorName: string): SlotAssignment => ({ operatorName, eliteLevel: 'Elite 2', level: 90 });
+  const rooms = facilities.filter(f => f.capacity > 0);
+  const tps = rooms.filter(f => f.kind === 'tradingPost').map(f => f.id);
+  const dorm = rooms.find(f => f.kind === 'dormitory')!.id;
+  const products = Object.fromEntries(facilities.filter(f => f.kind === 'factory').map((f, i) => [f.id, i % 2 ? 'Precious Metals' : 'Battle Records'])) as SimulationShift['factoryProducts'];
+  const fill = (fixed: Record<string, string[]>) => {
+    const used = new Set(Object.values(fixed).flat());
+    const rest = shuffle(pool.filter(n => !used.has(n)));
+    const assignments: BaseAssignments = {};
+    for (const f of rooms) assignments[f.id] = [...(fixed[f.id] ?? []), ...rest.splice(0, Math.max(0, f.capacity - (fixed[f.id]?.length ?? 0)))].slice(0, f.capacity).map(e2);
+    return assignments;
+  };
+  // Two crews swap every 4 h: whoever works one change rests in the dorms the next.
+  const swap = (a: BaseAssignments): BaseAssignments => {
+    const work = rooms.filter(f => f.kind !== 'dormitory').map(f => f.id), dorms = rooms.filter(f => f.kind === 'dormitory').map(f => f.id);
+    const workers = work.flatMap(id => a[id] ?? []), resting = dorms.flatMap(id => a[id] ?? []);
+    const b: BaseAssignments = {};
+    for (const id of work) b[id] = resting.splice(0, rooms.find(f => f.id === id)!.capacity);
+    for (const id of dorms) b[id] = workers.splice(0, rooms.find(f => f.id === id)!.capacity);
+    return b;
+  };
+  const special: Record<string, string[]>[] = [
+    { controlCenter: ['Ling', 'Dusk'], [tps[0]]: ['Mr. Nothing', 'Proviso'] },
+    { [dorm]: ['Vendela'] }, { [dorm]: ['Perfumer the Distilled'] }, { [dorm]: ['Bobbing'] }, { [dorm]: ['Coldshot'] },
+    { [dorm]: ['Exusiai the New Covenant'] }, { controlCenter: ['Gladiia'], [dorm]: ['Skadi', 'Specter the Unchained'] },
+  ];
+  const plans = [...special, ...Array.from({ length: 6 }, () => ({}))];
+  for (const [i, fixed] of plans.entries()) {
+    const first = fill(fixed);
+    // One crew works 4 h, the other 16 h (and so arrives in the dorms tired), both ways round; and bare dorms, where
+    // a rest is too slow to fill up (at 24 every path ends the same, which would hide a missed level).
+    for (const [logins, ambience] of [[[1, 4], 5000], [[4, 1], 5000], [[1, 4], 0], [[4, 1], 0]] as const) {
+    const shifts: SimulationShift[] = [first, swap(first)].map((assignments, k) => ({ assignments, factoryProducts: products, logins: logins[k] }));
+    const dorms = { ...base, dormitoryAmbience: Object.fromEntries(rooms.filter(f => f.kind === 'dormitory').map(f => [f.id, ambience])) };
+    const run = (allMoraleLevels: boolean) => simulateBase({ base: dorms, shifts, loginInterval: 4, drones: true, allMoraleLevels });
+    const all = run(true), read = run(false);
+    for (const k of ['lmd', 'exp', 'goldMade', 'goldSold'] as const) near(read.perDay[k], all.perDay[k], 1e-6 * Math.max(1, Math.abs(all.perDay[k])));
+    assert.equal(read.periodic, all.periodic, `plan ${i}`);
+    assert.equal(read.moraleAtLogins.length, all.moraleAtLogins.length, `plan ${i}`);
+    all.moraleAtLogins.forEach((m, j) => { for (const [name, v] of Object.entries(m)) near(read.moraleAtLogins[j][name], v, 1e-6); });
+    assert.ok(read.evaluations <= all.evaluations);
+    }
+  }
+});
+
+test('calculateBase reads current Morale only at the levels it reports for each operator', () => {
+  // Every operator's Morale moved to other values on the same side of each level reported for them (and, in a
+  // single-target dorm, keeping their place in its order) leaves every rate unchanged. A level read but not
+  // reported shows as a change.
+  let state = 777;
+  const random = () => { state = (state * 1103515245 + 12345) % 2147483648; return state / 2147483648; };
+  const shuffle = <T,>(xs: T[]) => { const a = [...xs]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  const pool = operators.filter(o => (o.rarity ?? 0) >= 3 && !o.isFuture).map(o => o.name);
+  const rooms = facilities.filter(f => f.capacity > 0);
+  const dorms = rooms.filter(f => f.kind === 'dormitory').map(f => f.id);
+  const tps = rooms.filter(f => f.kind === 'tradingPost').map(f => f.id);
+  const products = Object.fromEntries(facilities.filter(f => f.kind === 'factory').map((f, i) => [f.id, i % 2 ? 'Precious Metals' : 'Battle Records'])) as SimulationShift['factoryProducts'];
+  const special: Record<string, string[]>[] = [
+    { controlCenter: ['Ling', 'Dusk', 'Chongyue'], [tps[0]]: ['Mr. Nothing', 'Proviso'] },
+    { [dorms[0]]: ['Vendela'] }, { [dorms[0]]: ['Perfumer the Distilled'] }, { [dorms[0]]: ['Bobbing'] }, { [dorms[0]]: ['Coldshot'] },
+    { [dorms[0]]: ['Exusiai the New Covenant'] }, { controlCenter: ['Gladiia'], [dorms[0]]: ['Skadi', 'Specter the Unchained'] },
+    {}, {}, {},
+  ];
+  const samples = [0, 0.5, 6, 11.9, 12, 12.1, 15, 17.9, 18, 18.1, 19.9, 20, 20.1, 22, 23.9, 24];
+  const side = (m: number, levels: number[]) => levels.map(t => (m < t ? 0 : m === t ? 1 : 2)).join('');
+  for (const fixed of special) {
+    const used = new Set(Object.values(fixed).flat());
+    const rest = shuffle(pool.filter(n => !used.has(n)));
+    const assignments: BaseAssignments = {};
+    for (const f of rooms) assignments[f.id] = [...(fixed[f.id] ?? []), ...rest.splice(0, Math.max(0, f.capacity - (fixed[f.id]?.length ?? 0)))].slice(0, f.capacity)
+      .map(operatorName => ({ operatorName, eliteLevel: 'Elite 2', level: 90 }));
+    const names = Object.values(assignments).flatMap(s => (s ?? []).flatMap(x => x ? [x.operatorName] : []));
+    const morale = Object.fromEntries(names.map(n => [n, samples[Math.floor(random() * samples.length)]]));
+    const calc = (m: Record<string, number>) => {
+      const withMorale = Object.fromEntries(Object.entries(assignments).map(([room, s]) => [room, (s ?? []).map(x => x ? { ...x, morale: m[x.operatorName] } : null)]));
+      const r = calculateBase({ ...base, assignments: withMorale, factoryProducts: products, importedMorale: m, loginInterval: 8, swapPolicy: 'onLogin' });
+      const rates = JSON.stringify([r.roomDailyOutput, Object.fromEntries(Object.entries(r.rooms).map(([id, x]) => [id, [x?.perOperatorMorale ?? null, x?.combinedMoraleRate ?? null]])), r.dormitoryRecoveryByFacility]);
+      return { r, rates };
+    };
+    const at = calc(morale);
+    const orderOf = (m: Record<string, number>, dorm: string) => [...at.r.moraleOrder[dorm]].sort((a, b) => m[a] - m[b]).join('>');
+    for (const name of names) {
+      const levels = at.r.moraleLevels[name] ?? [];
+      for (const v of samples) {
+        if (v === morale[name] || side(v, levels) !== side(morale[name], levels)) continue;
+        const moved = { ...morale, [name]: v };
+        if (Object.keys(at.r.moraleOrder).some(d => orderOf(moved, d) !== orderOf(morale, d))) continue;
+        assert.equal(calc(moved).rates, at.rates, `${name}: Morale ${morale[name]} -> ${v} changed a rate, but only [${levels.join(', ')}] are reported (${JSON.stringify(fixed)})`);
+      }
+    }
+  }
+});

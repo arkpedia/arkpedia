@@ -19,6 +19,12 @@ import type { BaseAssignments, FactoryProducts, SlotAssignment } from './baseTyp
  * per-4-points difference is averaged over the login window from full, like ramp skills;
  * workshop dorm counts (4/12/20 or less) change crafts, which are not simulated; the
  * 16-Morale clue guarantees are reception events. See docs/development/base-optimizer.md.
+ *
+ * Most operators' rates read none of those levels but 0, so the calculator reports which ones it read per operator
+ * (moraleLevels) and a shift's states are told apart by those alone: the simulator still steps at every level (the
+ * trace keeps its corners) but recalculates only when a level that matters is crossed. A single-target dorm skill
+ * goes to the roommate with the least Morale; it picks at each login and keeps the pick until the next, so the
+ * result does not depend on when anything else in the base happens to change.
  */
 
 /** Every Morale value at which calculateBase's rates can change. */
@@ -67,6 +73,9 @@ export interface SimulationInput {
    * or two reuses every other shift's rates. Keyed by each shift's whole staffing, so a plan never reads another's;
    * only for simulations of one base. Cleared when it grows past RATE_CACHE_LIMIT entries. */
   rateCache?: Map<string, unknown>;
+  /** Recalculate whenever anyone crosses any Morale level, not only the levels their rates read: the old, slower way,
+   * kept for the check that both give the same results (test-base-simulation). */
+  allMoraleLevels?: boolean;
   /** Spend the drones the Power Plants make at every login, on the staffed Trading Post or Factory where a drone is worth most.
    * One drone removes 3 minutes of a room's BASE production time (PRTS); base skills do not apply to it. Default off. */
   drones?: boolean;
@@ -122,6 +131,10 @@ export interface SimulationResult {
 interface Rates {
   /** Morale per hour, positive recovers. */
   morale: Record<string, number>;
+  /** The Morale levels these rates read, by operator (calculateBase's moraleLevels). */
+  levels: Record<string, number[]>;
+  /** Dorms whose single-target skills pick by Morale order (calculateBase's moraleOrder). */
+  order: Record<string, string[]>;
   roomPerHour: Record<string, RoomDailyOutput>;
   fullTime: Record<string, number | null>;
   /** Operators placed outside dorms and the workshop, by room. */
@@ -196,11 +209,16 @@ const lmdOf = (o: RoomDailyOutput) => o.goldSold * 500 + o.extraLmd + o.pepeLmd;
 /** Shared rate caches are cleared past this many entries, which keeps a long search's memory bounded. */
 const RATE_CACHE_LIMIT = 40000;
 
-function moraleBin(m: number): number {
+function moraleBin(m: number, levels: readonly number[] = MORALE_THRESHOLDS): number {
   let bin = 0;
-  for (const t of MORALE_THRESHOLDS) bin = bin * 3 + (m < t ? 0 : m === t ? 1 : 2);
+  for (const t of levels) bin = bin * 3 + (m < t ? 0 : m === t ? 1 : 2);
   return bin;
 }
+/** What each shift's rates read of Morale (calculateBase's moraleLevels and moraleOrder), kept beside each cache. */
+interface MoraleReads { levels: Record<string, number[]>; order: Record<string, string[]> }
+const levelStores = new WeakMap<Map<string, unknown>, Map<string, MoraleReads>>();
+/** A dorm's names from least Morale to most; ties keep room order, as the calculator's own pick does. */
+const byMorale = (names: string[], morale: Record<string, number>) => [...names].sort((a, b) => morale[a] - morale[b]);
 
 function snap(m: number): number {
   for (const t of MORALE_THRESHOLDS) if (Math.abs(m - t) < EPS) return t;
@@ -227,6 +245,7 @@ export function simulateBase(input: SimulationInput): SimulationResult {
   const caveats = new Set<string>([
     'Skills that ramp up with time worked (for example "+1% per hour") are averaged over each login window starting from the hours that operator has already worked in the same room without a break, so staying in longer is rewarded. Totter\'s Morale-difference skills still use the calculator\'s average over one login interval, starting fresh.',
     'Workshop crafts, training, clues and recruitment are not part of the simulated output; drones are only counted when asked for.',
+    'A single-target Dormitory skill gives its recovery to the roommate with the least Morale at each login, until the next login.',
   ]);
   const operatorByName = new Map(base.operators.map(o => [o.name, o]));
   const formerNames = new Map(base.operators.map(o => [o.name, o.aliases ?? []]));
@@ -244,6 +263,8 @@ export function simulateBase(input: SimulationInput): SimulationResult {
   let evaluations = 0;
   const shared = input.rateCache as Map<string, Rates> | undefined;
   const cache = shared ?? new Map<string, Rates>();
+  let levelsOf = levelStores.get(cache);
+  if (!levelsOf) { levelsOf = new Map(); levelStores.set(cache, levelsOf); }
   // Within one run a shift's index names it; across runs only its whole content does.
   const shiftKey = shared
     ? shifts.map(s => JSON.stringify([Object.keys(s.assignments).sort().map(room => [room, (s.assignments[room] ?? []).map(x => x ? `${x.operatorName}/${x.eliteLevel}/${x.level ?? ''}/${x.manualValue ?? ''}` : '')]), s.factoryProducts, s.settings ?? null, loginInterval, !!input.drones]))
@@ -255,20 +276,30 @@ export function simulateBase(input: SimulationInput): SimulationResult {
   // keeps cycling to whichever of the others currently reads lowest, even though a fixed rotation would
   // have kept everyone afloat with the same total number of refills.
   const refillTurn = new Map<string, number>();
+  // Morale at the latest login: single-target dorm skills pick from it (see ratesFor).
+  let atLogin: Record<string, number> = {};
   function ratesFor(shiftIndex: number, morale: Record<string, number>): Rates {
     const shift = shifts[shiftIndex];
     const placed = placements(shift.assignments);
     const rampStart = Object.fromEntries(placed.filter(p => RAMP_OPERATORS.has(p.name) && kindOf[p.room] !== 'dormitory').map(p => [p.name, Math.round((worked[p.name] ?? 0) * 2) / 2]));
-    const key = `${shiftKey[shiftIndex]}|${placed.map(p => moraleBin(morale[p.name])).join(',')}|${Object.entries(rampStart).map(([n, h]) => `${n}:${h}`).join(',')}`;
+    // Once a shift's first rates are known, only the Morale levels they read (and the order within a single-target
+    // dorm) tell its states apart; allMoraleLevels keeps every level, as before.
+    const known = levelsOf!.get(shiftKey[shiftIndex]);
+    const bins = placed.map(p => known && !input.allMoraleLevels ? moraleBin(morale[p.name], known.levels[p.name] ?? []) : moraleBin(morale[p.name]));
+    // Single-target dorm skills pick at each login, from the Morale then, and keep it to the next login.
+    const pickOrder = known ? Object.fromEntries(Object.entries(known.order).map(([dorm, names]) => [dorm, byMorale(names, atLogin)])) : undefined;
+    const order = pickOrder ? Object.values(pickOrder).map(x => x.join('>')).join(';') : '';
+    const key = `${shiftKey[shiftIndex]}|${known ? (input.allMoraleLevels ? 'all' : 'read') : 'first'}|${bins.join(',')}|${order}|${Object.entries(rampStart).map(([n, h]) => `${n}:${h}`).join(',')}`;
     const hit = cache.get(key);
-    if (hit) return hit;
+    if (hit) { if (!known) levelsOf!.set(shiftKey[shiftIndex], { levels: hit.levels, order: hit.order }); return hit; }
     // Dorm effects read each slot's own Morale; working rooms read importedMorale.
     const assignments: BaseAssignments = Object.fromEntries(Object.entries(shift.assignments).map(([room, slots]) =>
       [room, (slots ?? []).map(s => s ? { ...s, morale: morale[s.operatorName] } : null)]));
     const importedMorale = Object.fromEntries(placed.map(p => [p.name, morale[p.name]]));
-    const result = calculateBase({ ...base, ...shift.settings, assignments, factoryProducts: shift.factoryProducts, importedMorale, rampStartHours: rampStart, loginInterval, swapPolicy: 'onLogin' });
+    const result = calculateBase({ ...base, ...shift.settings, assignments, factoryProducts: shift.factoryProducts, importedMorale, rampStartHours: rampStart, loginInterval, swapPolicy: 'onLogin', dormitoryPickOrder: pickOrder });
     evaluations++;
-    const rates: Rates = { morale: {}, roomPerHour: {}, fullTime: {}, workers: {} };
+    const rates: Rates = { morale: {}, roomPerHour: {}, fullTime: {}, workers: {}, levels: result.moraleLevels, order: result.moraleOrder };
+    if (!known) levelsOf!.set(shiftKey[shiftIndex], { levels: result.moraleLevels, order: result.moraleOrder });
     for (const p of placed) {
       const kind = kindOf[p.room];
       if (kind === 'dormitory') {
@@ -375,6 +406,7 @@ export function simulateBase(input: SimulationInput): SimulationResult {
         const windowHours = windows[shiftIndex][login];
         // Every login collects, so storage starts empty.
         log.atLogins.push({ ...morale });
+        atLogin = { ...morale };
         log.events.push({ time, kind: 'login', detail: login === 0 ? `Shift ${shiftIndex + 1} goes in.` : 'Collect.' });
         record(time);
         const fill: Record<string, number> = {};
@@ -394,6 +426,8 @@ export function simulateBase(input: SimulationInput): SimulationResult {
             }
           }
           let dt = left;
+          // Step at every level, so the Morale trace has its corners; crossing one these rates do not read finds the
+          // same cache key and costs no calculation.
           for (const [name, r] of Object.entries(rates.morale)) {
             const m = morale[name];
             if (r < 0) { const below = [...MORALE_THRESHOLDS].reverse().find(t => t < m); if (below !== undefined) dt = Math.min(dt, (m - below) / -r); }
