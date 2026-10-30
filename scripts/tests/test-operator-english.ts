@@ -470,7 +470,7 @@ test('base skills carry their building_data slot, phase and level, and keep a ha
     { buffData: [{ buffId: 'a', cond: { phase: 'PHASE_0', level: 1 } }, { buffId: 'b', cond: { phase: 'PHASE_0', level: 30 } }] },
     { buffData: [{ buffId: 'c', cond: { phase: 'PHASE_2', level: 1 } }] },
   ] } }, buffs: {
-    a: { buffName: 'Laziness', roomType: 'DORMITORY', description: 'x' },
+    a: { buffName: 'Laziness', roomType: 'DORMITORY', description: 'grants<$cc.bd_b1><@cc.rem>Worldly Plight</></><@cc.vup>+1</>' },
     b: { buffName: 'Sleepiness', roomType: 'DORMITORY', description: 'y' },
     c: { buffName: 'Pharmacology·α', roomType: 'WORKSHOP', description: 'z' },
   } };
@@ -487,6 +487,8 @@ test('base skills carry their building_data slot, phase and level, and keep a ha
     ['SleepinessReplacesLaziness', 'Level 30', 0, 0, 30, null],
     ['Pharmacology α', 'Elite 2', 1, 2, 1, '/custom.webp'],
   ]);
+  // The repair reaches the record itself, not only normaliseBaseSkillText.
+  assert.equal(next.baseSkills[0].description, 'grants Worldly Plight +1');
 });
 
 test('a module only CN has is built from the CN tables, and turns English the night Global has it', () => {

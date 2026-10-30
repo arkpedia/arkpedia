@@ -34,6 +34,12 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-10-30T08:00:00Z',
+    fixed: [
+      { title: 'Base skills read properly again', detail: 'Twelve base skills ran their words together, as in "grantsWorldly Plight+1"; the missing spaces are back.', href: '/operators' },
+    ],
+  },
+  {
     at: '2026-10-29T18:00:00Z',
     changed: [
       { title: 'Schedule is a menu', detail: 'The Schedule button in the header opens Events and Calendar, in place of the two tabs on the page.', href: '/schedule' },
