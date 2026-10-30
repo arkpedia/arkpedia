@@ -23,8 +23,8 @@ minutes on the page, default 2):
    passes. Product splits closest to one gold factory per Trading Post go first; this
    stage stops after about a third of the time, every layout having had one split.
 2. **Anneal.** The best one or two layouts are improved by simulated annealing
-   (`annealBase.ts`) over a plan genome (`planGenome.ts`): two crews, 2
-   to 4 staffing changes, the changes on which the second crew staffs each room,
+   (`annealBase.ts`) over a plan genome (`planGenome.ts`): two or three crews,
+   2 to 4 staffing changes, which crew staffs each room at each change,
    Fiammetta's refill core, parked Morale (Dusk below 12), factory products and two
    dorm rules. Moves: a room's whole team from its best teams (`teamBlocks.ts`, which
    keeps synergies such as Shamare/Bibeak/Tequila or a Sui Control Center together),
@@ -44,7 +44,7 @@ operators at 8 h logins, drones on (`scripts/bench/formations-sheet-pool-342.ts`
 
 | Sheet variant (layout) | Sheet's rotation | Optimizer |
 |---|---|---|
-| 3-4-2 (its own 342 layout) | 163,860 | 157,577 after 2 min, 158,924 after 10 (97.0%) |
+| 3-4-2 (its own 342 layout) | 163,860 | 157,577 after 2 min, 161,224 after 10 (98.4%) |
 | 2-5-2 (2-5-2 max right) | 151,793 | 151,581 after 2 min (99.9%), 152,055 after 10 (100.2%) |
 
 Both sheet rotations run some operators to 0 Morale in the simulator (Bibeak and Wild
@@ -107,9 +107,9 @@ repeated input creates no second Worker, and a stalled Worker is terminated at t
 
 The search still has limits: cross-room effects are evaluated for actual placements,
 and team blocks keep one room's synergies whole, but a synergy that spans several rooms
-is only found when the annealer reaches it. A genome expresses two crews over 2 to 4
-staffing changes (alternation, duty, thirds and the staggered shape); longer rotations
-stay seed-only.
+is only found when the annealer reaches it. A genome expresses two or three crews over 2
+to 4 staffing changes (alternation, duty, thirds, the staggered shape and three distinct
+formations); longer rotations stay seed-only.
 
 ### Empty-room correction
 

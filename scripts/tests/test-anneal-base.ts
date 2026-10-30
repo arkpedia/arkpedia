@@ -74,6 +74,6 @@ test('a staggered plan, whose schedule names only the rooms that change crew, re
     ],
   };
   const g = genomeFromResult(fake, ctx)!;
-  assert.deepEqual(g.cover[rooms[0]], [1, 2]);
+  assert.deepEqual(g.assign[rooms[0]], [0, 1, 1, 0]);
   assert.equal(g.crews[1][rooms[0]][0]?.operatorName, b);
 });

@@ -32,9 +32,9 @@ function rng(seed: number) {
   return () => { a = (a + 0x6d2b79f5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 }
 
-const clone = (g: Genome): Genome => ({ ...g, crews: [structuredClone(g.crews[0]), structuredClone(g.crews[1])], cover: Object.fromEntries(Object.entries(g.cover).map(([r, c]) => [r, [...c]])), core: [...g.core], parked: { ...g.parked }, products: { ...g.products } });
+const clone = (g: Genome): Genome => ({ ...g, crews: g.crews.map(c => structuredClone(c)), assign: Object.fromEntries(Object.entries(g.assign).map(([r, a]) => [r, [...a]])), core: [...g.core], parked: { ...g.parked }, products: { ...g.products } });
 const namesIn = (a: BaseAssignments) => Object.values(a).flatMap(s => (s ?? []).flatMap(x => x ? [x.operatorName] : []));
-const key = (g: Genome) => JSON.stringify([g.steps, g.k, Object.entries(g.cover).sort(([a], [b]) => a < b ? -1 : 1), g.core, g.parked, g.products, g.fillBeds, g.restAll, g.crews.map(c => Object.entries(c).sort(([a], [b]) => a < b ? -1 : 1).map(([r, s]) => [r, (s ?? []).map(x => x?.operatorName ?? '')]))]);
+const key = (g: Genome) => JSON.stringify([g.steps, g.k, Object.entries(g.assign).sort(([a], [b]) => a < b ? -1 : 1), g.core, g.parked, g.products, g.fillBeds, g.restAll, g.crews.map(c => Object.entries(c).sort(([a], [b]) => a < b ? -1 : 1).map(([r, s]) => [r, (s ?? []).map(x => x?.operatorName ?? '')]))]);
 
 type Move = { kind: string; timing: boolean; apply: (g: Genome) => Genome | null };
 
@@ -65,9 +65,9 @@ export function anneal(seedGenome: Genome, ctx: GenomeContext, opts: AnnealOptio
   };
 
   /** Put `name` into crew c, room `room`, slot i; it leaves every other place first (a core member stops being one). */
-  const place = (g: Genome, c: 0 | 1, room: string, i: number, name: string | null) => {
+  const place = (g: Genome, c: number, room: string, i: number, name: string | null) => {
     if (name) {
-      for (const cc of [0, 1] as const) for (const [id, slots] of Object.entries(g.crews[cc])) g.crews[cc][id] = (slots ?? []).map(s => s?.operatorName === name ? null : s);
+      for (const crew of g.crews) for (const [id, slots] of Object.entries(crew)) crew[id] = (slots ?? []).map(s => s?.operatorName === name ? null : s);
       g.core = g.core.filter(n => n !== name);
     }
     const old = g.crews[c][room]?.[i]?.operatorName;
@@ -81,7 +81,7 @@ export function anneal(seedGenome: Genome, ctx: GenomeContext, opts: AnnealOptio
     g.crews[c][room] = slots;
   };
   const unused = (g: Genome) => {
-    const inPlan = new Set([...namesIn(g.crews[0]), ...namesIn(g.crews[1]), ...(g.core.length ? ['Fiammetta'] : [])]);
+    const inPlan = new Set([...g.crews.flatMap(namesIn), ...(g.core.length ? ['Fiammetta'] : [])]);
     return owned.filter(n => !inPlan.has(n));
   };
 
@@ -96,7 +96,7 @@ export function anneal(seedGenome: Genome, ctx: GenomeContext, opts: AnnealOptio
   const moves: { weight: number; make: () => Move }[] = [
     // A room's whole team in one crew, from that room's best teams.
     { weight: 4, make: () => ({ kind: 'team', timing: false, apply: g => {
-      const room = pick(roomIds); const c = pick([0, 1] as const);
+      const room = pick(roomIds); const c = Math.floor(random() * g.crews.length);
       const options = (blocks(g)[room] ?? []).filter(b => b.names.join() !== namesIn({ x: g.crews[c][room] ?? [] }).join());
       if (!options.length) return null;
       const b = pick(options.slice(0, Math.max(2, Math.ceil(options.length * (0.3 + random() * 0.7)))));
@@ -108,14 +108,14 @@ export function anneal(seedGenome: Genome, ctx: GenomeContext, opts: AnnealOptio
     // Two places trade operators, or a place takes someone unused.
     { weight: 4, make: () => ({ kind: 'swap', timing: false, apply: g => {
       const n = clone(g);
-      const c = pick([0, 1] as const), room = pick(roomIds), i = Math.floor(random() * capacity(room));
+      const c = Math.floor(random() * n.crews.length), room = pick(roomIds), i = Math.floor(random() * capacity(room));
       const here = n.crews[c][room]?.[i]?.operatorName ?? null;
       if (random() < 0.5) {
         const pool = unused(n); if (!pool.length) return null;
         place(n, c, room, i, pick(pool));
         return n;
       }
-      const c2 = pick([0, 1] as const), room2 = pick(roomIds), j = Math.floor(random() * capacity(room2));
+      const c2 = Math.floor(random() * n.crews.length), room2 = pick(roomIds), j = Math.floor(random() * capacity(room2));
       const there = n.crews[c2][room2]?.[j]?.operatorName ?? null;
       if (here === there) return null;
       place(n, c, room, i, null); place(n, c2, room2, j, null);
@@ -123,12 +123,25 @@ export function anneal(seedGenome: Genome, ctx: GenomeContext, opts: AnnealOptio
       if (here) place(n, c2, room2, j, here);
       return n;
     } }) },
-    // When each crew staffs a room: shift its pattern by a change, or swap one change between the crews.
+    // When each crew staffs a room: shift its order by a change, or give one change to another crew.
     { weight: 3, make: () => ({ kind: 'retime', timing: true, apply: g => {
       const n = clone(g); const room = pick(roomIds);
-      const c = n.cover[room] ?? [];
-      if (random() < 0.6) n.cover[room] = c.map(s => (s + 1) % n.steps).sort((a, b) => a - b);
-      else { const s = Math.floor(random() * n.steps); n.cover[room] = (c.includes(s) ? c.filter(x => x !== s) : [...c, s]).sort((a, b) => a - b); }
+      const a = n.assign[room] ?? Array(n.steps).fill(0);
+      if (random() < 0.5) n.assign[room] = a.map((_, s) => a[(s + n.steps - 1) % n.steps]);
+      else { const s = Math.floor(random() * n.steps); const others = n.crews.map((_, c) => c).filter(c => c !== a[s]); n.assign[room] = a.map((c, t) => t === s ? pick(others) : c); }
+      return n;
+    } }) },
+    // A third crew (a copy of the second, given one change in a few rooms, for the other moves to shape), or
+    // back to two (its changes go to the second crew).
+    { weight: 1, make: () => ({ kind: 'crews', timing: true, apply: g => {
+      const n = clone(g);
+      if (n.crews.length === 2) {
+        n.crews.push(structuredClone(n.crews[1]));
+        for (const room of roomIds) if (random() < 0.4) { const s = Math.floor(random() * n.steps); n.assign[room][s] = 2; }
+      } else {
+        n.crews.pop();
+        for (const room of roomIds) n.assign[room] = n.assign[room].map(c => c === 2 ? 1 : c);
+      }
       return n;
     } }) },
     // A worker joins or leaves Fiammetta's refill core (same room in both crews).
@@ -138,23 +151,27 @@ export function anneal(seedGenome: Genome, ctx: GenomeContext, opts: AnnealOptio
       if (n.core.length && random() < 0.4) {
         const name = pick(n.core);
         n.core = n.core.filter(x => x !== name);
-        const c = pick([0, 1] as const);
-        for (const [id, slots] of Object.entries(n.crews[c])) n.crews[c][id] = (slots ?? []).map(s => s?.operatorName === name ? null : s);
+        // They stay in one crew's place and leave the others'.
+        const keep = Math.floor(random() * n.crews.length);
+        n.crews.forEach((crew, c) => { if (c !== keep) for (const [id, slots] of Object.entries(crew)) crew[id] = (slots ?? []).map(s => s?.operatorName === name ? null : s); });
         return n;
       }
-      const c = pick([0, 1] as const);
+      const c = Math.floor(random() * n.crews.length);
       const workers = roomIds.flatMap(id => (n.crews[c][id] ?? []).flatMap(s => s && !n.core.includes(s.operatorName) && s.operatorName !== 'Fiammetta' ? [{ id, name: s.operatorName }] : []));
       if (!workers.length) return null;
       const w = pick(workers);
-      const other = (1 - c) as 0 | 1;
-      const slots = [...(n.crews[other][w.id] ?? Array(capacity(w.id)).fill(null))];
-      const at = slots.indexOf(null) >= 0 ? slots.indexOf(null) : Math.floor(random() * slots.length);
-      const kept = n.crews[c][w.id];
-      place(n, other, w.id, at, w.name);
-      n.crews[c][w.id] = kept;
+      // In the same room in every crew, so they work every change.
+      const kept = n.crews.map(crew => crew[w.id]);
+      n.crews.forEach((crew, cc) => {
+        if (cc === c || (crew[w.id] ?? []).some(s => s?.operatorName === w.name)) return;
+        const slots = [...(kept[cc] ?? Array(capacity(w.id)).fill(null))];
+        const free = slots.findIndex(x => !x);
+        slots[free >= 0 ? free : Math.floor(random() * slots.length)] = slotOf(w.name);
+        crew[w.id] = slots;
+      });
       n.core = [...n.core, w.name];
       // Fiammetta now sits in a dorm, so she cannot also work.
-      for (const cc of [0, 1] as const) for (const [id, s] of Object.entries(n.crews[cc])) n.crews[cc][id] = (s ?? []).map(x => x?.operatorName === 'Fiammetta' ? null : x);
+      for (const crew of n.crews) for (const [id, s] of Object.entries(crew)) crew[id] = (s ?? []).map(x => x?.operatorName === 'Fiammetta' ? null : x);
       return n;
     } }) },
     // Parked Morale (Dusk below 12), the rest rule, empty-bed filling, two to four changes, a factory's product.
@@ -167,7 +184,7 @@ export function anneal(seedGenome: Genome, ctx: GenomeContext, opts: AnnealOptio
       else if (which === 3) {
         // Two, three or four changes; each room's pattern is carried over by position.
         const next = pick([2, 3, 4].filter(x => x !== n.steps));
-        for (const id of roomIds) n.cover[id] = [...new Set((n.cover[id] ?? []).filter(s => s < next).concat(next > n.steps && (n.cover[id] ?? []).includes(n.steps - 1) ? [next - 1] : []))].sort((a, b) => a - b);
+        for (const id of roomIds) { const a = n.assign[id] ?? Array(n.steps).fill(0); n.assign[id] = Array.from({ length: next }, (_, s) => a[s] ?? a[a.length - 1]); }
         n.steps = next;
       }
       else {
