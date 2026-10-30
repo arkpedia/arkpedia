@@ -1,3 +1,4 @@
+import { byScore } from './accountResults';
 import type { AccountRecord } from '../account/accountStore';
 import { BASE_PRESET_IDS, BASE_PRESETS, getFacilities, layoutProblems, presetLevels, presetSpots } from './baseConfig';
 import { optimizeBase, sustainableOutput, type OptimizerResult, type OwnedOperator } from './baseOptimizer';
@@ -19,6 +20,9 @@ export interface AccountOptimizerInput {
   drones?: boolean;
   /** Search time in seconds, 5 to 600. Default 120. */
   searchSeconds?: number;
+  /** The formations search, run beside the main one (the page starts it in a second worker): one first plan per
+   * layout, then the leading layout's plan built with formations, then all the time left annealing that. */
+  formations?: boolean;
 }
 export interface LayoutRecommendation extends LayoutOption {
   products: FactoryProducts;
@@ -78,8 +82,10 @@ export function productOptions(layout: LayoutOption): FactoryProducts[] {
  *
  * Seed: today's optimizer (lib/base/baseOptimizer.ts) on each layout, product splits in order of how likely
  * they are to win (about as many gold factories as Trading Posts first), until about a third of the time is
- * spent -- every layout gets at least one. Anneal: the best one or two layouts are improved by simulated
- * annealing over the plan genome (lib/base/annealBase.ts), which also tries other factory products. The
+ * spent -- every layout gets at least one. With `formations` (a second search the page runs beside this one),
+ * only the first split per layout, then the leader is built again with formations. Anneal: the best one or two layouts
+ * are improved by simulated annealing over the plan genome (lib/base/annealBase.ts), which also tries other
+ * factory products. The
  * annealed plan never scores below its seed. `progress` receives the best result so far whenever it improves,
  * so a stopped search still has one to show.
  */
@@ -97,7 +103,7 @@ export function optimizeAccountBase(input: AccountOptimizerInput, progress?: (do
   const weights = { lmd: input.objective === 'exp' ? 0 : 1, exp: input.objective === 'lmd' ? 0 : 1, goldMade: 500 };
   const drones = input.drones !== false;
   const baseFor = (layout: LayoutOption) => ({ ...input.base, facilities: getFacilities(layout.spots, layout.levels), dormitoryAmbience: layout.id === 'mine' ? input.snapshot?.dormitoryAmbience : undefined });
-  const sorted = () => recommendations.sort((a, b) => b.score - a.score || (a.id === 'mine' ? -1 : b.id === 'mine' ? 1 : a.label.localeCompare(b.label)));
+  const sorted = () => recommendations.sort(byScore);
   const snapshotResult = (): AccountOptimizerResult => ({ recommendations: sorted().map(r => ({ ...r })), searched, rejected });
   const offer = (recommendation: LayoutRecommendation) => {
     const previous = recommendations.findIndex(r => r.id === recommendation.id);
@@ -107,6 +113,12 @@ export function optimizeAccountBase(input: AccountOptimizerInput, progress?: (do
     return true;
   };
 
+  // Formations (Fiammetta's refill core with crews taking turns, as hand-made sheets run) take 20-40 s on a large
+  // roster and help some rosters, not others (they let a minute of search match the reference sheets, and only cost
+  // time on a maxed one), so they run as a second search beside the main one rather than inside it.
+  const withFormations = !!input.formations && 'Fiammetta' in input.roster;
+  const seedShare = withFormations ? 0 : 0.35;
+
   // Seed. Splits close to one gold factory per Trading Post first: gold is what the posts sell.
   const queue = layouts.map(layout => {
     const posts = getFacilities(layout.spots, layout.levels).filter(f => f.kind === 'tradingPost' && f.capacity).length;
@@ -115,7 +127,7 @@ export function optimizeAccountBase(input: AccountOptimizerInput, progress?: (do
   });
   for (let round = 0; queue.some(q => q.splits.length > round); round++) {
     for (const { layout, splits } of queue) {
-      if (round >= splits.length || (round > 0 && elapsed() > budget * 0.35)) continue;
+      if (round >= splits.length || (round > 0 && elapsed() > budget * seedShare)) continue;
       tick(`${layout.label}: first plans`);
       const products = splits[round];
       searched++;
@@ -124,11 +136,23 @@ export function optimizeAccountBase(input: AccountOptimizerInput, progress?: (do
       const output = sustainableOutput(plan.simulation.perDay, input.externalGold);
       if (offer({ ...layout, products, weights, plan, output, score: output.lmd * weights.lmd + output.exp * weights.exp })) tick(`${layout.label}: first plans`, snapshotResult());
     }
-    if (elapsed() > budget * 0.35) break;
+    if (elapsed() > budget * seedShare) break;
+  }
+  const leader = sorted()[0];
+  if (withFormations && leader) {
+    tick(`${leader.label}: formations`);
+    searched++;
+    const layout = layouts.find(l => l.id === leader.id)!;
+    const plan = optimizeBase({ base: baseFor(layout), roster: input.roster, loginInterval: input.loginInterval, factoryProducts: leader.products, weights, sustainable: true, externalGold: input.externalGold, drones, formations: true });
+    if (plan.simulation.periodic && !plan.simulation.events.some(e => e.kind === 'exhausted')) {
+      const output = sustainableOutput(plan.simulation.perDay, input.externalGold);
+      if (offer({ ...layout, products: leader.products, weights, plan, output, score: output.lmd * weights.lmd + output.exp * weights.exp })) tick(`${layout.label}: formations`, snapshotResult());
+    } else rejected++;
   }
 
-  // Anneal the best layouts in the time left: most of it to the best, the rest to the runner-up.
-  const order = sorted().slice(0, 2);
+  // Anneal the best layouts in the time left: most of it to the best, the rest to the runner-up (all of it to the
+  // leader in the formations search, whose runner-up the main search covers).
+  const order = sorted().slice(0, withFormations ? 1 : 2);
   order.forEach((seed, i) => {
     const left = budget - elapsed();
     if (left < 2000) return;

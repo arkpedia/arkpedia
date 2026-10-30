@@ -10,6 +10,7 @@ import type { FacilityDef } from '@/lib/base/baseTypes';
 import type { AccountRecord } from '@/lib/account/accountStore';
 import { ownedBaseRoster } from '@/lib/base/optimizerRoster';
 import type { AccountOptimizerInput, AccountOptimizerResult, LayoutRecommendation } from '@/lib/base/accountOptimizer';
+import { mergeAccountResults } from '@/lib/base/accountResults';
 import type { SimulationBase } from '@/lib/base/baseSimulation';
 import { getFacilities } from '@/lib/base/baseConfig';
 import { rotationClock } from '@/lib/base/baseRotationPlan';
@@ -37,9 +38,11 @@ export default function BaseAccountOptimizer({ account, base, loginInterval, onI
   const [selected, setSelected] = useState('');
   const [selectedShift, setSelectedShift] = useState(0);
   const [saved, setSaved] = useState(false);
-  const worker = useRef<Worker | null>(null);
-  // The best result so far, kept while the search runs so stopping it still leaves a plan.
+  // The main search, and beside it (on a device with cores to spare) the formations search; see accountOptimizer.
+  const workers = useRef<Worker[]>([]);
+  // The best result so far of both, kept while they run so stopping still leaves a plan.
   const partial = useRef<AccountOptimizerResult | null>(null);
+  const endWorkers = () => { for (const w of workers.current) w.terminate(); workers.current = []; };
   const deadline = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cache = useRef(cachedResults);
   const byName = useMemo(() => new Map(base.operators.map(op => [op.name, op])), [base.operators]);
@@ -49,10 +52,10 @@ export default function BaseAccountOptimizer({ account, base, loginInterval, onI
   // cannot apply a result produced from an earlier import or content release.
   const key = JSON.stringify(input, (_name, value) => value instanceof Set ? [...value].sort() : value);
   useEffect(() => {
-    worker.current?.terminate(); worker.current = null;
+    endWorkers();
     if (deadline.current) clearTimeout(deadline.current);
     setRunning(false); setSaved(false); setError('');
-    return () => { worker.current?.terminate(); worker.current = null; if (deadline.current) clearTimeout(deadline.current); };
+    return () => { endWorkers(); if (deadline.current) clearTimeout(deadline.current); };
   }, [key]);
   const current = result?.key === key ? result.value : null;
   const recommendation = current?.recommendations.find(r => r.id === selected) ?? current?.recommendations[0];
@@ -75,7 +78,7 @@ export default function BaseAccountOptimizer({ account, base, loginInterval, onI
   }
   /** Stop the search; keep its best plan so far, if it found one. */
   function stop(message?: string) {
-    worker.current?.terminate(); worker.current = null;
+    endWorkers();
     if (deadline.current) clearTimeout(deadline.current);
     setRunning(false);
     if (partial.current) show(partial.current, false);
@@ -83,30 +86,52 @@ export default function BaseAccountOptimizer({ account, base, loginInterval, onI
   }
 
   function run() {
-    if (!account || worker.current) return;
+    if (!account || workers.current.length) return;
     const cached = cache.current.get(key);
     if (cached) { setResult({ key, value: cached }); setSelected(cached.recommendations[0]?.id ?? ''); setSelectedShift(0); setSaved(false); setError(''); return; }
     setRunning(true); setError(''); setSaved(false); setProgress({ done: 0, total: 0, label: '' }); partial.current = null;
+    // The formations search needs Fiammetta and a core of its own, so it is left out on small devices.
+    const jobs: AccountOptimizerInput[] = [input, ...('Fiammetta' in input.roster && (navigator.hardwareConcurrency ?? 1) >= 4 ? [{ ...input, formations: true }] : [])];
+    const partials: (AccountOptimizerResult | null)[] = jobs.map(() => null);
+    const finals: (AccountOptimizerResult | null)[] = jobs.map(() => null);
+    let left = jobs.length, firstError = '';
+    const startedAt = Date.now();
     try {
-      const w = new Worker(new URL('../../lib/base/accountOptimizer.worker.ts', import.meta.url));
-      worker.current = w;
+      const started = jobs.map(() => new Worker(new URL('../../lib/base/accountOptimizer.worker.ts', import.meta.url)));
+      workers.current = started;
       // The search keeps to its chosen time; this only catches a first stage that overruns on a very large roster.
       deadline.current = setTimeout(() => {
-        if (worker.current !== w) return;
+        if (workers.current !== started) return;
         stop('The search ran past its time without a first plan. Turn off Compare standard layouts to search only your base, then try again.');
       }, (searchMinutes + 3) * 60 * 1000);
-      w.onmessage = (event: MessageEvent<{ progress?: typeof progress; partial?: AccountOptimizerResult; result?: AccountOptimizerResult; error?: string }>) => {
-        if (worker.current !== w) return;
-        if (event.data.partial) partial.current = event.data.partial;
-        if (event.data.progress) { setProgress(event.data.progress); return; }
+      const finish = (i: number) => {
+        started[i].terminate();
+        if (--left > 0) {
+          // The main search is done: the formations one (a plan that cannot be cut short) gets up to 10 s past the
+          // chosen time, then its best so far counts.
+          if (i === 0) setTimeout(() => { if (workers.current === started && finals[1] === null && left > 0) { finals[1] = partials[1]; finish(1); } }, Math.max(0, startedAt + searchMinutes * 60_000 + 10_000 - Date.now()));
+          return;
+        }
         if (deadline.current) clearTimeout(deadline.current);
-        setRunning(false); w.terminate(); worker.current = null;
-        if (event.data.result) show(event.data.result, true);
-        else setError(event.data.error ?? 'Could not optimize this account.');
+        setRunning(false); workers.current = [];
+        const merged = mergeAccountResults(...finals);
+        if (merged) show(merged, true);
+        else setError(firstError || 'Could not optimize this account.');
       };
-      w.onerror = () => { if (worker.current !== w) return; stop('The optimizer stopped. Try again.'); };
-      w.postMessage(input);
-    } catch { worker.current?.terminate(); worker.current = null; if (deadline.current) clearTimeout(deadline.current); setRunning(false); setError('Could not start the optimizer. Reload and try again.'); }
+      started.forEach((w, i) => {
+        w.onmessage = (event: MessageEvent<{ progress?: typeof progress; partial?: AccountOptimizerResult; result?: AccountOptimizerResult; error?: string }>) => {
+          if (workers.current !== started) return;
+          if (event.data.partial) { partials[i] = event.data.partial; partial.current = mergeAccountResults(...partials); }
+          if (event.data.progress) { if (i === 0) setProgress(event.data.progress); return; }
+          if (event.data.result) finals[i] = event.data.result;
+          else if (i === 0) firstError = event.data.error ?? '';
+          finish(i);
+        };
+        // A failed formations search leaves the main one to finish; a failed main search stops both.
+        w.onerror = () => { if (workers.current !== started) return; if (i === 0) stop('The optimizer stopped. Try again.'); else finish(i); };
+        w.postMessage(jobs[i]);
+      });
+    } catch { endWorkers(); if (deadline.current) clearTimeout(deadline.current); setRunning(false); setError('Could not start the optimizer. Reload and try again.'); }
   }
 
   function roomTile(room: FacilityDef) {

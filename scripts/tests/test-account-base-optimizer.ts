@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { getAllOperators } from '../../lib/operators/operators';
 import { toBaseRosters } from '../../lib/base/baseGroupRosters';
 import { optimizeAccountBase, optimizerLayouts, productOptions } from '../../lib/base/accountOptimizer';
+import { mergeAccountResults } from '../../lib/base/accountResults';
 import { sustainableOutput, optimizeBase } from '../../lib/base/baseOptimizer';
 import { ownedBaseRoster } from '../../lib/base/optimizerRoster';
 import { getFacilities, layoutProblems } from '../../lib/base/baseConfig';
@@ -141,4 +142,23 @@ test('a recommendation saved as a rotation recalculates to the yields the optimi
   assert.ok(rotation.totals);
   assert.ok(Math.abs(rotation.totals!.dailyExpGreen - r.output.exp) < 1, `EXP ${rotation.totals!.dailyExpGreen} vs ${r.output.exp}`);
   assert.ok(Math.abs(rotation.totals!.dailyGoldWorthGreen - r.output.lmd) < 1, `LMD ${rotation.totals!.dailyGoldWorthGreen} vs ${r.output.lmd}`);
+});
+
+test('the formations search, run beside the main one, merges into each layout\'s better plan', () => {
+  // Fiammetta added so formations are tried; one first plan per layout, then all the time on the leader.
+  const roster = ownedBaseRoster({ ...account, operators: ['FEater', 'Gravel', 'Spot', 'Proviso', 'Texas', 'Myrtle', 'Lancet-2', 'Perfumer', 'Fiammetta', 'Shamare'] }, known).roster;
+  const input = { base, roster, snapshot: account.base, loginInterval: 12, objective: 'balanced' as const, externalGold: 0, compareLayouts: true, searchSeconds: 6 };
+  const main = optimizeAccountBase(input);
+  const formations = optimizeAccountBase({ ...input, formations: true });
+  assert(formations.recommendations.length >= 1);
+  for (const r of formations.recommendations) {
+    assert(r.plan.simulation.periodic && !r.plan.simulation.events.some(e => e.kind === 'exhausted'));
+    for (const sh of r.plan.shifts) { const names = Object.values(sh.assignments).flatMap(s => (s ?? []).flatMap(x => x ? [x.operatorName] : [])); assert.equal(new Set(names).size, names.length); }
+  }
+  const merged = mergeAccountResults(main, null, formations)!;
+  assert.deepEqual(merged.recommendations.map(r => r.id).sort(), [...new Set([...main.recommendations, ...formations.recommendations].map(r => r.id))].sort());
+  for (const r of merged.recommendations) assert.equal(r.score, Math.max(...[...main.recommendations, ...formations.recommendations].filter(x => x.id === r.id).map(x => x.score)));
+  for (let i = 1; i < merged.recommendations.length; i++) assert(merged.recommendations[i - 1].score >= merged.recommendations[i].score);
+  assert.equal(merged.searched, main.searched + formations.searched);
+  assert.equal(mergeAccountResults(null, undefined), null);
 });

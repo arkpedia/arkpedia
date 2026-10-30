@@ -1,12 +1,13 @@
 /** The reference sheet's 2-5-2 variant (scripts/bench/sheet-252.ts) against the optimizer on the same 2-5-2 max
  * right layout, the same factory products and the sheet's own operators, at 8 h logins.
- * Usage: [PLAIN=1] npx tsx scripts/bench/sheet-252-vs-optimizer.ts [annealSeconds=120] [drones=on] */
+ * Usage: [PLAIN=1] [CORE=1] npx tsx scripts/bench/sheet-252-vs-optimizer.ts [annealSeconds=120] [drones=on] */
 import { getAllOperators } from '../../lib/operators/operators';
 import { toBaseRosters } from '../../lib/base/baseGroupRosters';
 import { DEFAULT_WEIGHTS, optimizeBase, type OwnedOperator } from '../../lib/base/baseOptimizer';
 import { simulateBase, type SimulationBase, type SimulationResult } from '../../lib/base/baseSimulation';
 import { genomeFromResult, type GenomeContext } from '../../lib/base/planGenome';
 import { anneal, placesNobodyTwice } from '../../lib/base/annealBase';
+import { coreSeed } from '../../lib/base/coreSeed';
 import groups from '../../data/base-group-rosters.json';
 import slots from '../../data/base-skill-slots.json';
 import recipes from '../../data/base-workshop-recipes.json';
@@ -42,7 +43,11 @@ let t = Date.now();
 const seed = optimizeBase({ ...input, formations: process.env.PLAIN !== '1' });
 line(`optimizer seed (${seed.shape}, ${((Date.now() - t) / 1000).toFixed(0)} s)`, seed.simulation);
 const ctx: GenomeContext = { base, roster, loginInterval, drones };
-const g = genomeFromResult(seed, ctx);
+// CORE=1: start from the plan's core seed (lib/base/coreSeed.ts) when it has one.
+const read = genomeFromResult(seed, ctx);
+const shaped = read && process.env.CORE === '1' ? coreSeed(read, ctx) : null;
+if (shaped) line(`core seed [${shaped.genome.core.join(', ')}]`, shaped.evaluation.sim);
+const g = shaped?.genome ?? read;
 if (g) {
   t = Date.now();
   const r = anneal(g, ctx, { timeMs: annealSeconds * 1000, seed: 1 });
