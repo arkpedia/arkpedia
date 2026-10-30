@@ -33,4 +33,17 @@ if (withFormations.shape === 'formations') {
   const core = (withFormations.shifts[0] as { refill?: string[] }).refill ?? [];
   console.log('core found:', core.join(', '));
 }
+
+// The sheet keeps Senshi, Iris and Czerny as locked dorm boosters in dorm1 (support()'s dormitory1
+// column in sheet-342.ts) in every formation but the search has no mechanism to discover and seat a
+// recovery booster on its own -- only `lockedDorm` does. Check whether that recovery rate, not the
+// crew/core structure, is what the search has been missing all along.
+const t2 = Date.now();
+const withBoosters = optimizeBase({ base, roster: restricted, loginInterval, factoryProducts: FORMATIONS[0].products, drones: true, formations: true, lockedDorm: ['Senshi', 'Iris', 'Czerny'] });
+console.log(`with formations + locked boosters: ${withBoosters.shape} weighted ${withBoosters.score.toFixed(0)}  LMD ${withBoosters.simulation.perDay.lmd.toFixed(0)} EXP ${withBoosters.simulation.perDay.exp.toFixed(0)}  (${((Date.now() - t2) / 1000).toFixed(0)} s)`);
+if (withBoosters.shape === 'formations') {
+  const core = (withBoosters.shifts[0] as { refill?: string[] }).refill ?? [];
+  console.log('core found (with boosters):', core.join(', '));
+}
+
 console.log(`target (sheet rotation + refill, hand-built): weighted 151,804`);
