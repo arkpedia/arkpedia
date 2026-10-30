@@ -256,6 +256,9 @@ jobs:
         if: github.event_name != 'schedule' || steps.prepared.outputs.cache-hit != 'true'
         env:
           ARKPEDIA_CONTENT_DISABLED: '1'
+          # Hydration reads this checkout, rather than pull-data.mjs's default cache.
+          # The unused-record check needs its Git tree to recognize data-first arrivals.
+          ARKPEDIA_DATA_CACHE: ${{ format('{0}/arkpedia-data', runner.temp) }}
           NODE_ENV: production
           ARKPEDIA_ALLOW_SHRINK: ${{ inputs.allow_shrink }}
           # check:published-assets:release lists every outfit voice folder with the contents API.
