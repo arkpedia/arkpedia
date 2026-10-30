@@ -71,6 +71,18 @@ export const FORMATIONS: SheetFormation[] = [
 export const everyoneMaxed = (operators: { name: string; rarity?: number | null }[]): Record<string, { eliteLevel: 'Base' | 'Elite 1' | 'Elite 2'; level: number }> =>
   Object.fromEntries(operators.map(o => [o.name, (o.rarity ?? 0) >= 3 ? { eliteLevel: 'Elite 2' as const, level: 90 } : { eliteLevel: 'Base' as const, level: 30 }]));
 
+/** The sheet lists only the operators that matter in each room; every other bed is free for anyone, and an
+ * occupied bed still counts for dorm head-count skills (Mr. Nothing's Worldly Plight, +1 per occupant). Fill
+ * each empty bed with someone from the other formations who is off shift in this one. Dorms hold 5 at every level. */
+export function withFreeBeds(index: number): Record<string, string[]> {
+  const teams = FORMATIONS[index].teams;
+  const busy = new Set(Object.values(teams).flat());
+  const spare = [...new Set(FORMATIONS.flatMap(f => Object.values(f.teams).flat()))].filter(n => !busy.has(n));
+  const out: Record<string, string[]> = { ...teams };
+  for (const d of SHEET_FACILITIES.filter(f => f.kind === 'dormitory')) out[d.id] = [...(out[d.id] ?? []), ...spare.splice(0, d.capacity - (out[d.id]?.length ?? 0))];
+  return out;
+}
+
 export function assignmentsOf(teams: Record<string, string[]>, roster: Record<string, { eliteLevel: SlotAssignment['eliteLevel']; level: number }>): BaseAssignments {
   return Object.fromEntries(Object.entries(teams).map(([room, names]) => [room, names.map(n => ({ operatorName: n, eliteLevel: roster[n].eliteLevel, level: roster[n].level }))]));
 }

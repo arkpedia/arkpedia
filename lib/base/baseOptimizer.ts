@@ -788,47 +788,96 @@ export function optimizeBase(input: OptimizerInput): OptimizerResult {
   }
 
   // With a full Sui Control Center (Ling, Chongyue, Saileach...) Dusk loses no Morale there: her own -0.5 and the
-  // room's relief cancel its cost. A player who drains her below 12 once keeps her there: "Unstirred by Gain"
-  // then adds Worldly Plight +15, alongside Ling's +15 above 12. The simulator starts everyone at full Morale, so
-  // it cannot find this alone. Try her at 11 Morale; in each shift she is not in the Control Center, either she
-  // takes a place there (trading with one occupant, who takes her bed) or she waits unassigned rather than
-  // resting, so she stays below 12 -- the sheets' play. Kept only if the simulator scores higher.
+  // room's relief cancel its cost (0.15-0.4/h with fewer). A player who drains her below 12 once keeps her there:
+  // "Unstirred by Gain" then adds Worldly Plight +15, alongside Ling's +15 above 12. The simulator starts everyone
+  // at full Morale, so it cannot find this alone. For each shift: Dusk works its Control Center at 11 Morale and
+  // waits unassigned in the others rather than resting (so she stays below 12, the sheets' play); the rest of that
+  // Control Center is then filled with unused candidates, each resting in a free bed in the other shifts or in the
+  // bed of a weak production worker who leaves the plan. Every step is kept only if the simulator scores higher.
   const controlCenter = rooms.find(f => f.kind === 'controlCenter');
-  if (controlCenter && roster.Dusk && best!.shifts.some(sh => (sh.assignments[controlCenter.id] ?? []).some(s => s?.operatorName === 'Dusk'))) {
+  if (controlCenter && roster.Dusk && byName.has('Dusk') && best!.shifts.some(sh => operatorsIn(sh.assignments).includes('Dusk'))) {
     const parked = { Dusk: 11 };
-    const inCc = (sh: SimulationShift) => (sh.assignments[controlCenter.id] ?? []).some(s => s?.operatorName === 'Dusk');
-    let shifts = best!.shifts;
-    for (let i = 0; i < shifts.length; i++) {
-      if (inCc(shifts[i])) continue;
-      const sh = shifts[i];
-      const cc = sh.assignments[controlCenter.id] ?? [];
-      const bed = Object.entries(sh.assignments).find(([, v]) => (v ?? []).some(s => s?.operatorName === 'Dusk'));
-      const free = cc.indexOf(null);
-      const options = (free >= 0 ? [free] : cc.map((_, j) => j)).map(index => {
-        const a: BaseAssignments = { ...sh.assignments };
-        if (bed) a[bed[0]] = (a[bed[0]] ?? []).map(x => x?.operatorName === 'Dusk' ? cc[index] : x);
-        a[controlCenter.id] = cc.map((x, j) => j === index ? slotOf('Dusk') : x);
-        return shifts.map((other, j) => j === i ? { ...sh, assignments: a } : other);
-      });
-      if (!bed) options.push(shifts);
-      else if (dorms.some(d => d.id === bed[0])) {
-        const waiting: BaseAssignments = { ...sh.assignments, [bed[0]]: (sh.assignments[bed[0]] ?? []).map(x => x?.operatorName === 'Dusk' ? null : x) };
-        options.push(shifts.map((other, j) => j === i ? { ...sh, assignments: waiting } : other));
+    const cc = controlCenter.id;
+    const productionKinds = new Set<FacilityKind>(['factory', 'tradingPost', 'powerPlant']);
+    const strip = (a: BaseAssignments, names: string[]): BaseAssignments =>
+      Object.fromEntries(Object.entries(a).map(([room, v]) => [room, (v ?? []).map(x => x && names.includes(x.operatorName) ? null : x)]));
+    const freeBed = (a: BaseAssignments) => {
+      for (const d of dorms) { const i = (a[d.id] ?? []).indexOf(null); if (i >= 0) return { room: d.id, i }; }
+      return null;
+    };
+    let found: { shifts: SimulationShift[]; value: number; added: string[]; dropped: string[]; target: number } | null = null;
+    for (let target = 0; target < best!.shifts.length; target++) {
+      let shifts = best!.shifts.map(sh => ({ ...sh, assignments: strip(sh.assignments, ['Dusk']) }));
+      const at = (shifts[target].assignments[cc] ?? []).indexOf(null);
+      if (at < 0) continue;
+      shifts[target] = { ...shifts[target], assignments: { ...shifts[target].assignments, [cc]: shifts[target].assignments[cc].map((x, j) => j === at ? slotOf('Dusk') : x) } };
+      let value = simulate(shifts, parked).value;
+      const added: string[] = [], dropped: string[] = [];
+      // Every place is filled in turn even when one more alone gains nothing: Dusk's cost only reaches 0 with the
+      // room full, so the step that pays may be the last one. The best stage reached is what counts.
+      let stage = { shifts, value, added: [] as string[], dropped: [] as string[] };
+      for (let free = shifts[target].assignments[cc].indexOf(null); free >= 0; free = shifts[target].assignments[cc].indexOf(null)) {
+        const working = Object.fromEntries(rooms.map(f => [f.id, shifts[target].assignments[f.id] ?? []])) as BaseAssignments;
+        const whole = snapshotValue(working).value;
+        const keep = new Set(['Fiammetta', 'Dusk', ...(shifts[target].refill ?? [])]);
+        const weakest = rooms.filter(f => productionKinds.has(f.kind)).flatMap(f => (working[f.id] ?? []).flatMap(s => s && !keep.has(s.operatorName) ? [s.operatorName] : []))
+          .map(n => ({ n, loss: whole - snapshotValue(without(working, n)).value })).sort((x, y) => x.loss - y.loss).slice(0, 4).map(x => x.n);
+        const candidates = candidatesFor('controlCenter', new Set([...shifts.flatMap(sh => operatorsIn(sh.assignments)), 'Fiammetta'])).slice(0, 4);
+        let pick: { shifts: SimulationShift[]; value: number; name: string; drop: string | null } | null = null;
+        for (const name of candidates) for (const drop of [null, ...weakest]) {
+          const trial = shifts.map((sh, j) => {
+            const a = drop ? strip(sh.assignments, [drop]) : { ...sh.assignments };
+            if (j === target) return { ...sh, assignments: { ...a, [cc]: a[cc].map((x, k) => k === free ? slotOf(name) : x) } };
+            const bed = freeBed(a);
+            return bed ? { ...sh, assignments: { ...a, [bed.room]: a[bed.room].map((x, k) => k === bed.i ? slotOf(name) : x) } } : null;
+          });
+          if (trial.some(t => t === null)) continue;
+          const v = simulate(trial as SimulationShift[], parked).value;
+          if (!pick || v > pick.value) pick = { shifts: trial as SimulationShift[], value: v, name, drop };
+        }
+        if (!pick) break;
+        shifts = pick.shifts; value = pick.value; added.push(pick.name);
+        if (pick.drop) dropped.push(pick.drop);
+        if (value > stage.value + EPS) stage = { shifts, value, added: [...added], dropped: [...dropped] };
       }
-      let pick: { shifts: SimulationShift[]; value: number } | null = null;
-      for (const trial of options) {
-        const value = simulate(trial, parked).value;
-        if (!pick || value > pick.value) pick = { shifts: trial, value };
-      }
-      if (!pick) { shifts = []; break; }
-      shifts = pick.shifts;
+      if (!found || stage.value > found.value) found = { ...stage, target };
     }
-    if (shifts.length) {
-      const { sim, value } = simulate(shifts, parked);
+    if (found && found.value > best!.value + EPS) {
+      const { sim, value } = simulate(found.shifts, parked);
+      best = { ...best!, shifts: found.shifts, sim, value, initialMorale: parked };
+      notes.push(`Drain Dusk below 12 Morale once (any working room will do) and keep her there: below 12 "Unstirred by Gain" adds Worldly Plight +15${roster.Ling ? ' on top of Ling\'s +15 above 12' : ''}. She works the ${controlCenter.label} in staffing change ${found.target + 1}, where she loses no Morale, and waits unassigned rather than resting in the others, so she stays below 12.`
+        + (found.added.length ? ` That ${controlCenter.label} also takes ${found.added.join(', ')}, who rest in the other shifts${found.dropped.length ? ` in the beds of ${found.dropped.join(', ')}, who ${found.dropped.length > 1 ? 'leave' : 'leaves'} the plan` : ''}.` : ''));
+    }
+  }
+
+  // Dorm head counts feed skills (Mr. Nothing's Worldly Plight, Idol's Aura, Rosmontis and Ebenholz's Perception),
+  // but the plan's dorms hold only the crew coming off shift, so on a big roster beds stay empty. Seat owned
+  // operators the plan never uses in every empty bed, the same bed in every shift, those with a Dormitory skill
+  // first. Never in a dorm holding Fiammetta: she would swap her full Morale with an arrival who does not need it.
+  // Kept only if the simulator scores higher.
+  {
+    const placed = new Set(best!.shifts.flatMap(sh => operatorsIn(sh.assignments)));
+    const dormSkill = (name: string) => activeBaseSkills(byName.get(name)!, 'Dormitory', roster[name].eliteLevel, base.skillSlots, roster[name].level).length > 0;
+    const idle = owned.filter(name => !placed.has(name) && name !== 'Fiammetta').sort((x, y) => Number(dormSkill(y)) - Number(dormSkill(x)));
+    const fiammettaDorm = (id: string) => best!.shifts.some(sh => (sh.assignments[id] ?? []).some(s => s?.operatorName === 'Fiammetta'));
+    const beds = dorms.filter(d => !fiammettaDorm(d.id)).flatMap(d => Array.from({ length: d.capacity }, (_, i) => ({ room: d.id, i })))
+      .filter(({ room, i }) => best!.shifts.some(sh => !(sh.assignments[room] ?? [])[i]));
+    if (idle.length && beds.length) {
+      // A bed empty in one shift may hold a resting worker in another; an idle operator takes it only where it is free.
+      const filled = best!.shifts.map(sh => {
+        const a: BaseAssignments = { ...sh.assignments };
+        beds.forEach(({ room, i }, k) => {
+          if (k >= idle.length) return;
+          const slots = [...(a[room] ?? Array(dorms.find(d => d.id === room)!.capacity).fill(null))];
+          if (!slots[i]) { slots[i] = slotOf(idle[k]); a[room] = slots; }
+        });
+        return { ...sh, assignments: a };
+      });
+      const { sim, value } = simulate(filled, best!.initialMorale);
       if (value > best!.value + EPS) {
-        best = { ...best!, shifts, sim, value, initialMorale: parked };
-        const waits = shifts.some(sh => !inCc(sh));
-        notes.push(`Drain Dusk below 12 Morale once (any working room will do) and keep her there: below 12 "Unstirred by Gain" adds Worldly Plight +15${roster.Ling ? ' on top of Ling\'s +15 above 12' : ''}. She loses no Morale in this ${controlCenter.label}${waits ? ', and when off shift she waits unassigned rather than resting, so she stays below 12' : ''}.`);
+        const used = idle.slice(0, beds.length);
+        best = { ...best!, shifts: filled, sim, value };
+        notes.push(`${used.length} operators the plan does not otherwise use (${used.join(', ')}) sit in the dorms' empty beds: dorm head counts raise skills such as Mr. Nothing's Worldly Plight.`);
       }
     }
   }

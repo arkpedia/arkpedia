@@ -24,11 +24,14 @@ console.log('office level', SHEET_FACILITIES.find(f => f.kind === 'office')?.lev
 console.log('Sui working outside dorms:', [...working].filter(n => sui.has(n)).join(', '));
 
 const assignments = assignmentsOf(teams, roster);
-for (const [label, morale] of [['Dusk 10, Ling 20', { Dusk: 10, Ling: 20 }], ['both 20', { Dusk: 20, Ling: 20 }], ['both 10', { Dusk: 10, Ling: 10 }]] as const) {
+const f1Ids = { tpA: 'prod4', flex2: 'prod9' };
+for (const [label, morale] of [['Dusk 10, Ling 20 (Dusk parked)', { Dusk: 10, Ling: 20 }], ['Dusk 20, Ling 20', { Dusk: 20, Ling: 20 }], ['Dusk 10, Ling 10', { Dusk: 10, Ling: 10 }], ['Dusk 20, Ling 10', { Dusk: 20, Ling: 10 }]] as const) {
   const importedMorale = Object.fromEntries(Object.values(teams).flat().map(n => [n, 20]));
   Object.assign(importedMorale, morale);
-  const r = calculateBase({ operators, rosters, skillSlots: slots, workshopRecipes: recipes, facilities: SHEET_FACILITIES, assignments, factoryProducts: f1.products, importedMorale });
-  console.log(`${label}: Worldly Plight ${r.resourcePools.worldlyPlight}`);
+  const r = calculateBase({ operators, rosters, skillSlots: slots, workshopRecipes: recipes, facilities: SHEET_FACILITIES, assignments, factoryProducts: f1.products, importedMorale, loginInterval: 8, swapPolicy: 'onLogin' });
+  const tp = r.roomDailyOutput[f1Ids.tpA], fac = r.roomDailyOutput[f1Ids.flex2];
+  const weighted = r.dailyGoldWorthGreen + r.dailyExpGreen + 500 * r.dailyGoldMadeGreen;
+  console.log(`${label}: Worldly Plight ${r.resourcePools.worldlyPlight}, Perception ${r.resourcePools.perceptionInformation}, Chain of Thought ${r.resourcePools.chainOfThought} | Mr. Nothing's TP LMD/day ${(tp.goldSold * 500 + tp.extraLmd).toFixed(0)}, Rosmontis's factory gold/day ${fac.goldMade.toFixed(1)} | whole base weighted/day ${weighted.toFixed(0)}`);
 }
 const r = calculateBase({ operators, rosters, skillSlots: slots, workshopRecipes: recipes, facilities: SHEET_FACILITIES, assignments, factoryProducts: f1.products, importedMorale: Object.fromEntries(Object.values(teams).flat().map(n => [n, 20])) });
 const cc = r.rooms.controlCenter as { perOperatorMorale?: Record<string, number>; combinedMoraleRate?: number };
