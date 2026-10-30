@@ -45,7 +45,7 @@ operators at 8 h logins, drones on (`scripts/bench/formations-sheet-pool-342.ts`
 | Sheet variant (layout) | Sheet's rotation | Optimizer |
 |---|---|---|
 | 3-4-2 (its own 342 layout) | 163,860 | 157,577 after 2 min, 158,924 after 10 (97.0%) |
-| 2-5-2 (2-5-2 max right) | 151,793 | 151,581 after 2 min (99.9%) |
+| 2-5-2 (2-5-2 max right) | 151,793 | 151,581 after 2 min (99.9%), 152,055 after 10 (100.2%) |
 
 Both sheet rotations run some operators to 0 Morale in the simulator (Bibeak and Wild
 Mane; six on the 2-5-2 one); the optimizer's plans run nobody out.
