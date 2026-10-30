@@ -90,9 +90,12 @@ export interface RoomSummary {
 }
 
 export interface SimulationResult {
-  /** The cycle reported below repeats exactly (Morale at its start equals Morale at its end). */
+  /** The state repeats exactly every `periodCycles` cycles (Morale and Fiammetta's refill turn). */
   periodic: boolean;
   cycleHours: number;
+  /** Cycles in one repeat: 1, unless a refill rotation lines up with the cycle only every few cycles.
+   * perDay and rooms average over all of them; the trace and moraleAtLogins show the last one. */
+  periodCycles: number;
   /** Cycles simulated before the reported one, the warm-up the first logins needed. */
   warmupCycles: number;
   perDay: DailyOutput;
@@ -421,35 +424,62 @@ export function simulateBase(input: SimulationInput): SimulationResult {
     return { log, rooms: roomOf };
   }
 
+  // Fiammetta visits a refill list in a fixed rotation that carries over from cycle to cycle, so with L names
+  // and k visits a cycle the whole state repeats every L / gcd(L, k) cycles, not every cycle: three core workers
+  // over two staffing changes line up again only after three cycles. Comparing Morale one cycle apart would call
+  // that steady plan unsettled forever (and the optimizer would reject it), so compare that many cycles apart and
+  // average the output over all of them.
+  const gcd = (a: number, b: number): number => b ? gcd(b, a % b) : a;
+  const visits = new Map<string, { length: number; perCycle: number }>();
+  for (const s of shifts) if (s.refill?.length) {
+    const v = visits.get(s.refill.join('|')) ?? { length: s.refill.length, perCycle: 0 };
+    v.perCycle++;
+    visits.set(s.refill.join('|'), v);
+  }
+  const period = [...visits.values()].reduce((p, v) => { const n = v.length / gcd(v.length, v.perCycle); return p / gcd(p, n) * n; }, 1);
+  const turns = () => JSON.stringify([...refillTurn.entries()].sort());
+
   let rooms = new Map<string, string>();
-  let start = { ...morale };
-  let cycle = 0, periodic = false, log: CycleLog | null = null;
+  const starts: { morale: Record<string, number>; turns: string }[] = [];
+  const window: CycleLog[] = [];
+  let cycle = 0, periodic = false;
   for (; cycle < maxCycles; cycle++) {
+    starts.push({ morale: { ...morale }, turns: turns() });
     const ran = runCycle(rooms);
-    log = ran.log; rooms = ran.rooms;
-    const names = Object.keys(morale);
-    periodic = names.every(n => Math.abs(morale[n] - start[n]) < 1e-7);
+    rooms = ran.rooms;
+    window.push(ran.log);
+    if (window.length > period) window.shift();
+    const ref = starts.length >= period ? starts[starts.length - period] : null;
+    periodic = !!ref && ref.turns === turns() && Object.keys(morale).every(n => Math.abs(morale[n] - ref.morale[n]) < 1e-7);
     // A repeat also needs the same staffing to carry into the next cycle, which holds
     // once one cycle has run (the last shift precedes the first from then on).
-    if (periodic && cycle > 0 && !input.fixedCycles) break;
-    start = { ...morale };
+    if (periodic && cycle >= period && !input.fixedCycles) break;
   }
   if (cycle === maxCycles) cycle--;
   if (!periodic && !input.fixedCycles) warnings.add(`Morale did not settle into a repeating cycle within ${input.maxDays ?? 30} days; the last cycle is shown.`);
-  const final = log!;
-  const perDayFactor = 24 / cycleHours;
+  const final = window[window.length - 1];
+  const perDayFactor = 24 / (cycleHours * window.length);
   const roomSummaries: Record<string, RoomSummary> = {};
   const perDay = zeroOutput();
-  for (const room of new Set([...Object.keys(final.output), ...Object.keys(final.exhausted)])) {
-    const o = final.output[room] ?? { exp: 0, goldMade: 0, goldSold: 0, extraLmd: 0, pepeLmd: 0 };
+  for (const room of new Set(window.flatMap(l => [...Object.keys(l.output), ...Object.keys(l.exhausted)]))) {
+    const o = { exp: 0, goldMade: 0, goldSold: 0, extraLmd: 0, pepeLmd: 0 };
+    let idleFull = 0, exhausted = 0;
+    for (const l of window) {
+      const x = l.output[room];
+      if (x) { o.exp += x.exp; o.goldMade += x.goldMade; o.goldSold += x.goldSold; o.extraLmd += x.extraLmd; o.pepeLmd += x.pepeLmd; }
+      idleFull += l.idleFull[room] ?? 0;
+      exhausted += l.exhausted[room] ?? 0;
+    }
     const output = { exp: o.exp * perDayFactor, goldMade: o.goldMade * perDayFactor, goldSold: o.goldSold * perDayFactor, lmd: lmdOf(o) * perDayFactor, goldFreeLmd: o.pepeLmd * perDayFactor };
-    roomSummaries[room] = { output, idleFullHours: (final.idleFull[room] ?? 0) * perDayFactor, exhaustedHours: (final.exhausted[room] ?? 0) * perDayFactor };
+    roomSummaries[room] = { output, idleFullHours: idleFull * perDayFactor, exhaustedHours: exhausted * perDayFactor };
     perDay.exp += output.exp; perDay.goldMade += output.goldMade; perDay.goldSold += output.goldSold; perDay.lmd += output.lmd;
     perDay.goldFreeLmd! += output.goldFreeLmd;
   }
+  // The trace and log stay one cycle long (what the page draws); exhaustion in any cycle of the repeat still counts.
+  const earlierExhaustion = window.slice(0, -1).flatMap(l => l.events.filter(e => e.kind === 'exhausted'));
   return {
-    periodic, cycleHours, warmupCycles: cycle, perDay, rooms: roomSummaries,
-    moraleTrace: final.trace, moraleAtLogins: final.atLogins, events: final.events,
+    periodic, cycleHours, periodCycles: window.length, warmupCycles: cycle, perDay, rooms: roomSummaries,
+    moraleTrace: final.trace, moraleAtLogins: final.atLogins, events: [...earlierExhaustion, ...final.events],
     warnings: [...warnings], caveats: [...caveats], evaluations,
   };
 }

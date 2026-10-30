@@ -26,7 +26,7 @@ function build(refill: string[]): SimulationShift[] {
 }
 const report = (label: string, s: SimulationResult) => {
   const who = [...new Set(s.events.filter(e => e.kind === 'exhausted').map(e => e.operators?.[0]))];
-  console.log(`${label.padEnd(44)} LMD ${s.perDay.lmd.toFixed(0).padStart(6)}  EXP ${s.perDay.exp.toFixed(0).padStart(6)}  gold ${s.perDay.goldMade.toFixed(1)}  weighted ${weighted(s).toFixed(0)}  swaps ${s.events.filter(e => e.kind === 'fiammettaSwap').length}  exhausted: ${who.join(', ') || 'none'}`);
+  console.log(`${label.padEnd(44)} periodic ${s.periodic} x${s.periodCycles} LMD ${s.perDay.lmd.toFixed(0).padStart(6)}  EXP ${s.perDay.exp.toFixed(0).padStart(6)}  gold ${s.perDay.goldMade.toFixed(1)}  weighted ${weighted(s).toFixed(0)}  swaps ${s.events.filter(e => e.kind === 'fiammettaSwap').length}  exhausted: ${who.join(', ') || 'none'}`);
 };
 console.log(`login ${loginInterval}h, one login per formation`);
 report('sheet rotation, no refill', simulateBase({ base, shifts: build([]), loginInterval }));

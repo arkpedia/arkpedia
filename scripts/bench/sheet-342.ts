@@ -83,6 +83,13 @@ export function withFreeBeds(index: number): Record<string, string[]> {
   return out;
 }
 
+/** The sheet's own rotation: its three formations in turn, every free bed filled, Fiammetta refilling `refill`. */
+export function sheetShifts(refill: string[], roster: Record<string, { eliteLevel: SlotAssignment['eliteLevel']; level: number }>) {
+  return FORMATIONS.map((f, i) => ({ assignments: assignmentsOf(withFreeBeds(i), roster), factoryProducts: f.products, logins: 1, ...(refill.length ? { refill } : {}) }));
+}
+/** Kukki's note: Fiammetta refills the Trading Post core in turn. */
+export const SHEET_REFILL = ['Shamare', 'Bibeak', 'Tequila', 'Proviso', 'Mr. Nothing'];
+
 export function assignmentsOf(teams: Record<string, string[]>, roster: Record<string, { eliteLevel: SlotAssignment['eliteLevel']; level: number }>): BaseAssignments {
   return Object.fromEntries(Object.entries(teams).map(([room, names]) => [room, names.map(n => ({ operatorName: n, eliteLevel: roster[n].eliteLevel, level: roster[n].level }))]));
 }

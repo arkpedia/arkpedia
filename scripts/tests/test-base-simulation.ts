@@ -161,6 +161,19 @@ test('several workers on one refill list are visited in a fixed rotation, not "w
   assert.equal(swapAtCycle(5), 'Melantha', 'turn 5: the rotation wraps back to the first name');
 });
 
+test('a refill rotation that lines up with the cycle only every few cycles still counts as repeating, over all of them', () => {
+  // Three names, two visits a cycle: Fiammetta's turn comes back to the first name every 3 cycles, so Morale one
+  // cycle apart never matches and a one-cycle check would reject a steady plan (found 2026-10-30).
+  const rested = { dormitory1: [plain('Fiammetta')] };
+  const working = { [factory]: crewA.map(n => plain(n)) };
+  const two = (refill: string[]) => simulateBase({ base, loginInterval: 12, shifts: [shift({ ...rested, ...working }, { refill }), shift({ ...rested, ...working }, { refill })] });
+  const three = two(crewA);
+  assert.equal(three.periodic, true);
+  assert.equal(three.periodCycles, 3);
+  // Two names over two visits line up every cycle, as before.
+  assert.equal(two(crewA.slice(0, 2)).periodCycles, 1);
+});
+
 test('Fiammetta placed at full Morale after an exhausted operator swaps Morale with them, then recovers exactly 2/h', () => {
   const dorm = { dormitory1: [plain('Adnachiel'), plain('Fiammetta')] };
   const r = simulateBase({ base, loginInterval: 12, fixedCycles: 1, initialMorale: { Adnachiel: 0, Fiammetta: 24 }, shifts: [shift(dorm)] });

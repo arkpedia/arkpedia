@@ -3,12 +3,12 @@
  * noise at full-catalogue scale)? Usage: npx tsx scripts/bench/formations-sheet-pool-342.ts [loginInterval=8] */
 import { getAllOperators } from '../../lib/operators/operators';
 import { toBaseRosters } from '../../lib/base/baseGroupRosters';
-import { optimizeBase, sustainableOutput, DEFAULT_WEIGHTS, type OwnedOperator } from '../../lib/base/baseOptimizer';
-import type { SimulationBase } from '../../lib/base/baseSimulation';
+import { optimizeBase, DEFAULT_WEIGHTS, type OwnedOperator } from '../../lib/base/baseOptimizer';
+import { simulateBase, type SimulationBase, type SimulationResult } from '../../lib/base/baseSimulation';
 import groups from '../../data/base-group-rosters.json';
 import slots from '../../data/base-skill-slots.json';
 import recipes from '../../data/base-workshop-recipes.json';
-import { FORMATIONS, SHEET_FACILITIES, everyoneMaxed } from './sheet-342';
+import { FORMATIONS, SHEET_FACILITIES, SHEET_REFILL, everyoneMaxed, sheetShifts } from './sheet-342';
 
 const loginInterval = Number(process.argv[2] ?? 8);
 const operators = getAllOperators().filter(op => !/^Amiya \(/.test(op.name));
@@ -22,28 +22,19 @@ console.log(`restricted roster: ${Object.keys(restricted).length} of ${sheetName
 const missing = [...sheetNames].filter(n => !allMaxed[n]);
 if (missing.length) console.log('NOT RECOGNIZED (dropped):', missing.join(', '));
 
-const t0 = Date.now();
-const plain = optimizeBase({ base, roster: restricted, loginInterval, factoryProducts: FORMATIONS[0].products, drones: true, formations: false });
-console.log(`plain (formations off): ${plain.shape} weighted ${plain.score.toFixed(0)}  LMD ${plain.simulation.perDay.lmd.toFixed(0)} EXP ${plain.simulation.perDay.exp.toFixed(0)}  (${((Date.now() - t0) / 1000).toFixed(0)} s)`);
-
-const t1 = Date.now();
-const withFormations = optimizeBase({ base, roster: restricted, loginInterval, factoryProducts: FORMATIONS[0].products, drones: true, formations: true });
-console.log(`with formations: ${withFormations.shape} weighted ${withFormations.score.toFixed(0)}  LMD ${withFormations.simulation.perDay.lmd.toFixed(0)} EXP ${withFormations.simulation.perDay.exp.toFixed(0)}  (${((Date.now() - t1) / 1000).toFixed(0)} s)`);
-if (withFormations.shape === 'formations') {
-  const core = (withFormations.shifts[0] as { refill?: string[] }).refill ?? [];
-  console.log('core found:', core.join(', '));
+const w = DEFAULT_WEIGHTS;
+const weighted = (s: SimulationResult) => s.perDay.lmd * w.lmd + s.perDay.exp * w.exp + s.perDay.goldMade * w.goldMade;
+const exhausted = (s: SimulationResult) => [...new Set(s.events.filter(e => e.kind === 'exhausted').map(e => e.operators?.[0]))].join(', ') || 'none';
+// The target is the sheet's own rotation, simulated here with the SAME settings as each optimizer run (never a
+// constant: one written down before drones existed was compared against drones-on results for a while).
+for (const drones of [false, true]) {
+  const sheet = simulateBase({ base, shifts: sheetShifts(SHEET_REFILL, allMaxed), loginInterval, drones });
+  console.log(`\n== drones ${drones ? 'on' : 'off'}`);
+  console.log(`sheet rotation + refill: weighted ${weighted(sheet).toFixed(0)}  LMD ${sheet.perDay.lmd.toFixed(0)}  periodic ${sheet.periodic} x${sheet.periodCycles}  exhausted: ${exhausted(sheet)}`);
+  for (const [label, extra] of [['plain', { formations: false }], ['formations', { formations: true }], ['formations, exhaustion allowed (as the sheet)', { formations: true, allowExhaustion: true }]] as const) {
+    const t = Date.now();
+    const r = optimizeBase({ base, roster: restricted, loginInterval, factoryProducts: FORMATIONS[0].products, drones, ...extra });
+    const core = (r.shifts[0] as { refill?: string[] }).refill ?? [];
+    console.log(`optimizer ${label}: ${r.shape} weighted ${weighted(r.simulation).toFixed(0)} (${(100 * weighted(r.simulation) / weighted(sheet)).toFixed(1)}% of the sheet)  exhausted: ${exhausted(r.simulation)}${core.length ? `  core ${core.join(', ')}` : ''}  (${((Date.now() - t) / 1000).toFixed(0)} s)`);
+  }
 }
-
-// The sheet keeps Senshi, Iris and Czerny as locked dorm boosters in dorm1 (support()'s dormitory1
-// column in sheet-342.ts) in every formation but the search has no mechanism to discover and seat a
-// recovery booster on its own -- only `lockedDorm` does. Check whether that recovery rate, not the
-// crew/core structure, is what the search has been missing all along.
-const t2 = Date.now();
-const withBoosters = optimizeBase({ base, roster: restricted, loginInterval, factoryProducts: FORMATIONS[0].products, drones: true, formations: true, lockedDorm: ['Senshi', 'Iris', 'Czerny'] });
-console.log(`with formations + locked boosters: ${withBoosters.shape} weighted ${withBoosters.score.toFixed(0)}  LMD ${withBoosters.simulation.perDay.lmd.toFixed(0)} EXP ${withBoosters.simulation.perDay.exp.toFixed(0)}  (${((Date.now() - t2) / 1000).toFixed(0)} s)`);
-if (withBoosters.shape === 'formations') {
-  const core = (withBoosters.shifts[0] as { refill?: string[] }).refill ?? [];
-  console.log('core found (with boosters):', core.join(', '));
-}
-
-console.log(`target (sheet rotation + refill, hand-built): weighted 151,804`);
