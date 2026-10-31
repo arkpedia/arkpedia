@@ -13,10 +13,19 @@ Amiya forms are one physical worker.
 
 ## Search and scoring
 
-`accountOptimizer.ts` compares the imported layout and power-valid 243, 252 max-left,
-252 max-right layouts. Only 243 and 252 are searched, to keep the search small; an imported 153 or 342 is searched alone on request but is not compared. It excludes presets requiring a downgrade of
+`accountOptimizer.ts` recommends power-valid 252 max-left and 252 max-right layouts,
+including an imported 252. The maintainer prefers 252 over 243 for production; automatic
+search spends its budget on 252 variants. Turn off **Recommend 2-5-2** to optimize any
+valid imported layout on its own, including 243, 153 or 342. It excludes presets requiring a downgrade of
 Reception, Office or Training. Identical layouts are searched once. Every distinct
 gold/EXP split by factory level is considered, including all-gold and all-EXP.
+
+A same-machine 30-second comparison on 2026-10-31 kept 252 as the winner in all
+four roster tiers before and after narrowing recommendations. Funded LMD+EXP/day
+was 49,067 → 49,067 (tiny), 58,700 → 58,727 (small), 85,787 → 85,736 (mid), and
+100,809 → 100,809 (maxed). These single time-budgeted runs are effectively flat,
+not evidence of a general yield increase. All results were repeating, owned-only,
+within room capacities and without exhaustion or duplicate placements.
 
 The search has two stages within the reader's search time (`searchSeconds`, 1/2/5/10
 minutes on the page, default 1):

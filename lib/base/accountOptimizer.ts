@@ -36,20 +36,21 @@ export interface LayoutRecommendation extends LayoutOption {
 }
 export interface AccountOptimizerResult { recommendations: LayoutRecommendation[]; searched: number; rejected: number }
 
-/** Production layouts the optimizer will search: 243 (2 Trading Posts, 4 Factories, 3 Power Plants) and 252
- * (2, 5, 2). Others (153, 342, ...) are left out to keep the search small. */
+/** Automatic recommendations focus on 252: two Trading Posts, five Factories and two Power Plants.
+ * Any valid imported layout can still be optimized on its own. */
 const productionCounts = (spots: ProductionSpots) => {
   const count = (kind: string) => Object.values(spots).filter(k => k === kind).length;
   return `${count('tradingPost')}${count('factory')}${count('powerPlant')}`;
 };
-export const SEARCHED_LAYOUT_SHAPES = ['243', '252'];
+export const SEARCHED_LAYOUT_SHAPES = ['252'];
 
 /** Respect already-upgraded right-side rooms, which cannot be downgraded in game. */
 export function optimizerLayouts(snapshot?: AccountRecord['base'], compare = true): LayoutOption[] {
   const layouts: LayoutOption[] = [];
-  // The imported layout is searched when the reader asks for it alone, or when it is itself a 243 or 252.
+  // The imported layout is searched when the reader asks for it alone, or when it is itself a 252.
   if (snapshot && (!compare || SEARCHED_LAYOUT_SHAPES.includes(productionCounts(snapshot.productionSpots)))) layouts.push({ id: 'mine', label: 'Your layout', spots: snapshot.productionSpots, levels: snapshot.facilityLevels });
   if (compare || !snapshot) for (const id of BASE_PRESET_IDS) {
+    if (!SEARCHED_LAYOUT_SHAPES.includes(productionCounts(presetSpots(id)))) continue;
     const levels = presetLevels(id);
     if (snapshot && ['office', 'receptionRoom', 'trainingRoom'].some(room => (snapshot.facilityLevels[room] ?? 0) > (levels[room] ?? 0))) continue;
     layouts.push({ id, label: BASE_PRESETS[id].label, spots: presetSpots(id), levels });
@@ -95,7 +96,7 @@ export function optimizeAccountBase(input: AccountOptimizerInput, progress?: (do
   if (!Object.keys(input.roster).length) throw new Error('No known owned operators were found in this import.');
   if (!Number.isFinite(input.externalGold) || input.externalGold < 0 || input.externalGold > 1000) throw new Error('External gold must be between 0 and 1000 per day.');
   const layouts = optimizerLayouts(input.snapshot, input.compareLayouts);
-  if (!layouts.length) throw new Error('The imported layout has an invalid power budget. Compare standard layouts or update your import.');
+  if (!layouts.length) throw new Error('The imported layout has an invalid power budget. Turn on Recommend 2-5-2 or update your import.');
   const started = Date.now();
   const budget = Math.max(5, Math.min(600, input.searchSeconds ?? 60)) * 1000;
   const elapsed = () => Date.now() - started;

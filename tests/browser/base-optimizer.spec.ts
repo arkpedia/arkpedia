@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import account from '../fixtures/base-account.json';
+import { presetLevels, presetSpots } from '../../lib/base/baseConfig';
 
 // The optimizer is a Preview feature: a production build (Check's) draws no Optimize base button.
 test.beforeEach(async ({ request }) => {
@@ -66,7 +67,7 @@ test('real worker recommends owned teams, invalidates stale input and saves with
   const importedBefore = await page.evaluate(() => localStorage.getItem('arkpediaAccount'));
   await page.getByRole('button', { name: 'Optimize base', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Base optimizer', exact: true });
-  await dialog.getByRole('checkbox', { name: 'Compare standard layouts' }).uncheck();
+  await dialog.getByRole('checkbox', { name: 'Recommend 2-5-2' }).uncheck();
   await dialog.getByRole('button', { name: '2 times a day, every 12 hours' }).click();
   await dialog.getByRole('combobox', { name: 'Optimizer search time', exact: true }).click();
   await page.getByRole('option', { name: '1 min', exact: true }).click();
@@ -92,7 +93,7 @@ test('real worker recommends owned teams, invalidates stale input and saves with
   expect(workers).toHaveLength(1); // identical input reuses its result, no second worker
   await dialog.getByRole('button', { name: 'Close', exact: true }).click();
   await page.getByRole('button', { name: 'Optimize base', exact: true }).click();
-  await dialog.getByRole('checkbox', { name: 'Compare standard layouts' }).uncheck();
+  await dialog.getByRole('checkbox', { name: 'Recommend 2-5-2' }).uncheck();
   await dialog.getByRole('button', { name: 'Recommend layout' }).click();
   await expect(dialog.getByRole('heading', { name: 'Your layout', exact: true })).toBeVisible();
   expect(workers).toHaveLength(1); // reopening the dialog retains the bounded page cache
@@ -202,7 +203,7 @@ test('with Fiammetta owned, a formations search runs beside the main one and its
   const cores = await page.evaluate(() => navigator.hardwareConcurrency ?? 1);
   await page.getByRole('button', { name: 'Optimize base', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Base optimizer', exact: true });
-  await dialog.getByRole('checkbox', { name: 'Compare standard layouts' }).uncheck();
+  await dialog.getByRole('checkbox', { name: 'Recommend 2-5-2' }).uncheck();
   await dialog.getByRole('combobox', { name: 'Optimizer search time', exact: true }).click();
   await page.getByRole('option', { name: '1 min', exact: true }).click();
   const workers: string[] = [];
@@ -215,8 +216,22 @@ test('with Fiammetta owned, a formations search runs beside the main one and its
   await expect(dialog.getByRole('status').filter({ hasText: 'No repeating rotation' })).toHaveCount(0);
 });
 
-test('layout alternatives stay compact and update the portrait board', async ({ page }) => {
+test('a 243 import defaults to its compatible 252 without a redundant layout picker', async ({ page }) => {
   const small = { ...account, operators: ['FEater', 'Gravel', 'Spot', 'Proviso', 'Texas', 'Myrtle', 'Lancet-2', 'Perfumer'] };
+  await page.addInitScript(record => localStorage.setItem('arkpediaAccount', JSON.stringify(record)), small);
+  await page.goto('/base');
+  await page.getByRole('button', { name: 'Optimize base', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Base optimizer', exact: true });
+  await expect(dialog.getByRole('checkbox', { name: 'Recommend 2-5-2' })).toBeChecked();
+  await dialog.getByRole('button', { name: 'Recommend layout' }).click();
+  await expect(dialog.getByRole('heading', { name: '2-5-2 max right', exact: true })).toBeVisible({ timeout: 20000 });
+  await expect(dialog.locator('[aria-label="Production teams"]').getByRole('region', { name: /Factory/ })).toHaveCount(5);
+  await expect(dialog.getByRole('combobox', { name: 'Recommended layout' })).toHaveCount(0);
+  await expect(dialog.getByText('Compare layouts', { exact: true })).toHaveCount(0);
+});
+
+test('layout alternatives stay compact and update the portrait board', async ({ page }) => {
+  const small = { ...account, base: { ...account.base, productionSpots: presetSpots('2-5-2-left'), facilityLevels: presetLevels('2-5-2-left') }, operators: ['FEater', 'Gravel', 'Spot', 'Proviso', 'Texas', 'Myrtle', 'Lancet-2', 'Perfumer'] };
   await page.addInitScript(record => localStorage.setItem('arkpediaAccount', JSON.stringify(record)), small);
   await page.goto('/base');
   await page.getByRole('button', { name: 'Optimize base', exact: true }).click();
@@ -225,7 +240,8 @@ test('layout alternatives stay compact and update the portrait board', async ({ 
   await expect(dialog.getByRole('combobox', { name: 'Recommended layout' })).toBeVisible({ timeout: 20000 });
   await expect(dialog.getByRole('table', { name: 'Recommended layouts' })).not.toBeVisible();
   await dialog.getByRole('combobox', { name: 'Recommended layout' }).click();
-  // Only 243 and 252 layouts are searched (accountOptimizer SEARCHED_LAYOUT_SHAPES); 2-5-2 has five factories.
+  // Both legal 252 variants remain available for this minimally upgraded import.
+  await expect(dialog.getByRole('option', { name: /2-4-3/ })).toHaveCount(0);
   await dialog.getByRole('option', { name: /^2-5-2 max right/ }).click();
   await expect(dialog.getByRole('heading', { name: '2-5-2 max right', exact: true })).toBeVisible();
   await expect(dialog.locator('[aria-label="Production teams"]').getByRole('region', { name: /Factory/ })).toHaveCount(5);

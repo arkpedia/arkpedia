@@ -42,8 +42,9 @@ const rosters: Record<string, Record<string, OwnedOperator>> = {
 const base = { operators, rosters: toBaseRosters(groups), skillSlots: slots, workshopRecipes: recipes };
 const dataRevision: string = JSON.parse(fs.readFileSync('.cache/data-source.json', 'utf8')).revision;
 const report = {
-  source: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(), dataRevision, seconds,
-  implementationSha256: createHash('sha256').update(fs.readFileSync('lib/base/annealBase.ts')).update(fs.readFileSync('lib/base/planGenome.ts')).digest('hex'),
+  source: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
+  dirty: !!execFileSync('git', ['status', '--porcelain'], { encoding: 'utf8' }).trim(), dataRevision, seconds,
+  implementationSha256: createHash('sha256').update(fs.readFileSync('lib/base/annealBase.ts')).update(fs.readFileSync('lib/base/planGenome.ts')).update(fs.readFileSync('lib/base/accountOptimizer.ts')).digest('hex'),
   rows: [] as { tier: string; operators: number; mode: string; layout: string; score: number; seconds: number; firstPlanSeconds: number; evaluations: number; target?: number; referenceExhaustions?: number }[],
 };
 for (const tier of requested) {

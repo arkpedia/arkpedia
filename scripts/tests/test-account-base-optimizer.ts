@@ -6,7 +6,7 @@ import { optimizeAccountBase, optimizerLayouts, productOptions } from '../../lib
 import { mergeAccountResults } from '../../lib/base/accountResults';
 import { sustainableOutput, optimizeBase } from '../../lib/base/baseOptimizer';
 import { ownedBaseRoster } from '../../lib/base/optimizerRoster';
-import { getFacilities, layoutProblems } from '../../lib/base/baseConfig';
+import { getFacilities, layoutProblems, presetLevels, presetSpots } from '../../lib/base/baseConfig';
 import type { AccountRecord } from '../../lib/account/accountStore';
 import accountData from '../../tests/fixtures/base-account.json';
 import groups from '../../data/base-group-rosters.json';
@@ -33,7 +33,7 @@ test('funded LMD uses gold once, and outside gold covers deficits without invent
 
 test('layout comparisons preserve irreversible room upgrades and remain within the power budget', () => {
   const layouts = optimizerLayouts(account.base);
-  assert(layouts.some(l => l.id === 'mine'));
+  assert(!layouts.some(l => l.id === 'mine'), '243 import is not an automatic recommendation');
   assert(layouts.some(l => l.id === '2-5-2-right'));
   assert(!layouts.some(l => l.id === '2-5-2-left'));
   for (const layout of layouts) assert.deepEqual(layoutProblems(layout.spots, layout.levels), []);
@@ -43,18 +43,23 @@ test('layout comparisons preserve irreversible room upgrades and remain within t
   assert.equal(productOptions(mixed).length, 12);
 });
 
-test('only 243 and 252 layouts are searched when comparing; the imported layout stays when asked for alone', () => {
+test('automatic recommendations search only 252; any valid imported layout can be searched alone', () => {
   const shape = (spots: Record<string, string>) => ['tradingPost', 'factory', 'powerPlant'].map(k => Object.values(spots).filter(v => v === k).length).join('');
   for (const compare of [true, false]) {
-    for (const layout of optimizerLayouts(undefined, compare)) assert(['243', '252'].includes(shape(layout.spots)), `${layout.id} is ${shape(layout.spots)}`);
+    for (const layout of optimizerLayouts(undefined, compare)) assert.equal(shape(layout.spots), '252', layout.id);
   }
-  assert(!optimizerLayouts(undefined, true).some(l => ['1-5-3', '3-4-2'].includes(l.id)), '153 and 342 are no longer offered');
-  // A 342 import compares only against the standard 243 and 252 layouts, but is searched alone on request.
-  const threePosts = { ...account.base!, productionSpots: { ...account.base!.productionSpots, prod8: 'tradingPost' as const } };
-  if (shape(threePosts.productionSpots) !== '243' && shape(threePosts.productionSpots) !== '252') {
-    assert(!optimizerLayouts(threePosts, true).some(l => l.id === 'mine'));
-    assert(optimizerLayouts(threePosts, false).some(l => l.id === 'mine'));
+  for (const id of ['2-4-3', '2-5-2-left', '2-5-2-right'] as const) {
+    const snapshot = { ...account.base!, productionSpots: presetSpots(id), facilityLevels: presetLevels(id) };
+    const compared = optimizerLayouts(snapshot, true);
+    assert(compared.length > 0);
+    for (const layout of compared) assert.equal(shape(layout.spots), '252', layout.id);
+    assert.equal(compared.some(l => l.id === 'mine'), id !== '2-4-3');
+    assert.deepEqual(optimizerLayouts(snapshot, false).map(l => l.id), ['mine']);
   }
+  const threePosts = { ...account.base!, productionSpots: { ...presetSpots('2-5-2-right'), prod8: 'tradingPost' as const }, facilityLevels: presetLevels('2-5-2-right') };
+  assert.equal(shape(threePosts.productionSpots), '342');
+  assert(!optimizerLayouts(threePosts, true).some(l => l.id === 'mine'));
+  assert.deepEqual(optimizerLayouts(threePosts, false).map(l => l.id), ['mine']);
 });
 
 test('selected-account progress takes precedence and class forms are one worker', () => {
@@ -93,11 +98,12 @@ test('gold and EXP factories are distinct candidate rooms even at the same level
 test('the standard-layout search returns the best funded score first and reports actual progress', () => {
   const roster = fixtureRoster;
   let completed = 0, of = 0;
-  const result = optimizeAccountBase({ base, roster, snapshot: account.base, loginInterval: 12, objective: 'balanced', externalGold: 9.14, compareLayouts: true, searchSeconds: 6 }, (done, total) => { completed = done; of = total; });
+  const snapshot = { ...account.base!, productionSpots: presetSpots('2-5-2-left'), facilityLevels: presetLevels('2-5-2-left') };
+  const result = optimizeAccountBase({ base, roster, snapshot, loginInterval: 12, objective: 'balanced', externalGold: 9.14, compareLayouts: true, searchSeconds: 6 }, (done, total) => { completed = done; of = total; });
   // Progress is the share of the search time used, and reaches the end when the search does.
   assert.equal(completed, of);
-  // The fixture is itself a 243 (the same as the standard 243), so with only 243 and 252 searched there are two.
-  assert(result.recommendations.length >= 2);
+  // An imported max-left 252 and max-right alternative remain distinct candidates.
+  assert.deepEqual(new Set(result.recommendations.map(r => r.id)), new Set(['mine', '2-5-2-right']));
   for (let i = 1; i < result.recommendations.length; i++) assert(result.recommendations[i - 1].score >= result.recommendations[i].score);
   for (const recommendation of result.recommendations) assert.equal(recommendation.score, recommendation.output.lmd + recommendation.output.exp);
 });

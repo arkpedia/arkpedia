@@ -102,7 +102,7 @@ export default function BaseAccountOptimizer({ account, base, loginInterval, onI
       // The search keeps to its chosen time; this only catches a first stage that overruns on a very large roster.
       deadline.current = setTimeout(() => {
         if (workers.current !== started) return;
-        stop('The search ran past its time without a first plan. Turn off Compare standard layouts to search only your base, then try again.');
+        stop('The search ran past its time without a first plan. Turn off Recommend 2-5-2 to search only your base, then try again.');
       }, (searchMinutes + 3) * 60 * 1000);
       const finish = (i: number) => {
         started[i].terminate();
@@ -161,7 +161,7 @@ export default function BaseAccountOptimizer({ account, base, loginInterval, onI
       <label>First login<StyledSelect label="First login hour" value={String(startHour)} onChange={v => { setStartHour(Number(v)); setSaved(false); }} options={Array.from({ length: 24 }, (_, h) => ({ value: String(h), label: `${String(h).padStart(2, '0')}:00` }))} /></label>
     </div>
     <div className={styles.actions}>
-      <label className="check"><input type="checkbox" checked={compareLayouts} onChange={e => setCompareLayouts(e.target.checked)} disabled={!account?.base} />Compare standard layouts</label>
+      <label className="check"><input type="checkbox" checked={compareLayouts} onChange={e => setCompareLayouts(e.target.checked)} disabled={!account?.base} />Recommend 2-5-2</label>
       <button type="button" className="primary btn-sm" disabled={!account || running || !Object.keys(owned.roster).length} onClick={run}>{running ? 'Optimizing…' : 'Recommend layout'}</button>
       {running && <button type="button" className="ghost" title="Stop the search; the best plan found so far is kept" onClick={() => stop()}>Stop</button>}
     </div>
@@ -169,7 +169,7 @@ export default function BaseAccountOptimizer({ account, base, loginInterval, onI
       <label className={styles.gold}>Outside gold / day<NumberInput className="number-input" aria-label="External gold per day" min={0} max={1000} step="0.1" value={externalGold} onChange={e => setExternalGold(Number(e.target.value))} /></label>
       <InfoPopover label="Yield assumptions">
         <p>Logins are {loginInterval}h apart; collect at each login. LMD is capped by gold supply.</p>
-        <p>LMD + EXP maximizes their sum, not equal output. Standard layouts assume their listed upgrades and furnished dorms.</p>
+        <p>LMD + EXP maximizes their sum, not equal output. 2-5-2 recommendations respect permanent room upgrades and assume furnished dorms.</p>
         <p>Estimated repeating rotation; some skills are approximate. Includes drones; excludes crafting and training.</p>
         <p><a href="https://docs.google.com/spreadsheets/d/1at6UTVRJXpiDlo7JucaQZdVQCSOZhAgN5jo4ZDFEWhk/edit?gid=2051144322#gid=2051144322" target="_blank" rel="noreferrer">Production reference ↗</a></p>
       </InfoPopover>
