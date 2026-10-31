@@ -230,6 +230,58 @@ test('a 243 import defaults to its compatible 252 without a redundant layout pic
   await expect(dialog.getByText('Compare layouts', { exact: true })).toHaveCount(0);
 });
 
+test('a rearranged 252 is searched once and saved in the imported building positions', async ({ page }) => {
+  test.setTimeout(120000);
+  const spots = presetSpots('2-5-2-right'), levels = presetLevels('2-5-2-right');
+  const ids = Object.keys(spots), order = [1, 6, 2, 0, 3, 7, 4, 8, 5];
+  const productionSpots = Object.fromEntries(ids.map((id, i) => [id, spots[ids[order[i]]]]));
+  const facilityLevels = { ...levels, ...Object.fromEntries(ids.map((id, i) => [id, levels[ids[order[i]]]])) };
+  const record = { ...account, base: { ...account.base, productionSpots, facilityLevels }, operators: ['FEater', 'Gravel', 'Spot', 'Proviso', 'Texas', 'Myrtle', 'Lancet-2', 'Perfumer'] };
+  await page.addInitScript(record => localStorage.setItem('arkpediaAccount', JSON.stringify(record)), record);
+  await page.goto('/base');
+  const importedBefore = await page.evaluate(() => localStorage.getItem('arkpediaAccount'));
+  await page.getByRole('button', { name: 'Optimize base', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Base optimizer', exact: true });
+  await dialog.getByRole('button', { name: '2 times a day, every 12 hours' }).click();
+  await dialog.getByRole('button', { name: 'Recommend layout' }).click();
+  await expect(dialog.getByRole('heading', { name: 'Your layout', exact: true })).toBeVisible({ timeout: 20000 });
+  // Wait for the complete search: stopping at the first partial result could hide the duplicate.
+  await expect(dialog.getByRole('button', { name: 'Recommend layout', exact: true })).toBeEnabled({ timeout: 90000 });
+  await expect(dialog.getByRole('combobox', { name: 'Recommended layout' })).toHaveCount(0);
+  await expect(dialog.getByText('Compare layouts', { exact: true })).toHaveCount(0);
+  const production = dialog.locator('[aria-label="Production teams"]');
+  expect(await production.getByRole('region').evaluateAll(rooms => rooms.map(room => room.getAttribute('aria-label')))).toEqual([
+    'Factory 1, level 3', 'Factory 2, level 2', 'Power Plant 1, level 3',
+    'Trading Post 1, level 3', 'Trading Post 2, level 2', 'Factory 3, level 2',
+    'Factory 4, level 3', 'Factory 5, level 2', 'Power Plant 2, level 3',
+  ]);
+  for (const portrait of await production.locator('img').all()) {
+    await portrait.scrollIntoViewIfNeeded();
+    await expect.poll(() => portrait.evaluate(img => (img as HTMLImageElement).complete && (img as HTMLImageElement).naturalWidth > 0)).toBe(true);
+  }
+  for (const theme of ['dark', 'light']) {
+    await page.evaluate(theme => document.documentElement.setAttribute('data-theme', theme), theme);
+    await dialog.evaluate(el => { for (const node of [el, ...el.querySelectorAll<HTMLElement>('*')]) if (node.scrollHeight > node.clientHeight) node.scrollTop = 0; });
+    expect(await dialog.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+    await page.screenshot({ path: test.info().outputPath(`rearranged-252-${test.info().project.name}-${theme}.png`) });
+  }
+  const expectedYields = await dialog.getByRole('definition').allTextContents();
+  await dialog.getByRole('button', { name: 'Use as rotation', exact: true }).click();
+  await expect(dialog).not.toBeVisible();
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('baseSavedPresets_v1') ?? '[]'));
+  expect(saved.length).toBeGreaterThan(0);
+  for (const preset of saved) {
+    expect(preset.productionSpots).toEqual(productionSpots);
+    expect(preset.facilityLevels).toEqual(facilityLevels);
+  }
+  await page.reload();
+  const summary = page.getByRole('region', { name: 'Base production summary', exact: true });
+  await expect(summary.getByRole('radio', { name: 'Rotation', exact: true })).toBeChecked();
+  await expect(summary.locator('.base-summary-row').filter({ hasText: 'Average EXP' })).toContainText(expectedYields[1]);
+  await expect(summary.locator('.base-summary-row').filter({ hasText: 'LMD made' })).toContainText(expectedYields[0]);
+  expect(await page.evaluate(() => localStorage.getItem('arkpediaAccount'))).toBe(importedBefore);
+});
+
 test('layout alternatives stay compact and update the portrait board', async ({ page }) => {
   const small = { ...account, base: { ...account.base, productionSpots: presetSpots('2-5-2-left'), facilityLevels: presetLevels('2-5-2-left') }, operators: ['FEater', 'Gravel', 'Spot', 'Proviso', 'Texas', 'Myrtle', 'Lancet-2', 'Perfumer'] };
   await page.addInitScript(record => localStorage.setItem('arkpediaAccount', JSON.stringify(record)), small);

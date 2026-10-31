@@ -17,7 +17,11 @@ Amiya forms are one physical worker.
 including an imported 252. The maintainer prefers 252 over 243 for production; automatic
 search spends its budget on 252 variants. Turn off **Recommend 2-5-2** to optimize any
 valid imported layout on its own, including 243, 153 or 342. It excludes presets requiring a downgrade of
-Reception, Office or Training. Identical layouts are searched once. Every distinct
+Reception, Office or Training. Equivalent production rooms are compared by kind and level, regardless of position.
+Support-room levels and effective dorm recovery must also match. The imported layout
+wins an equivalent comparison, preserving its room IDs, arrangement and recorded ambience.
+It is searched once; a reordered preset does not consume a second search budget.
+Separate time-bounded heuristic searches can still produce different staffing plans. Every distinct
 gold/EXP split by factory level is considered, including all-gold and all-EXP.
 
 A same-machine 30-second comparison on 2026-10-31 kept 252 as the winner in all

@@ -62,6 +62,37 @@ test('automatic recommendations search only 252; any valid imported layout can b
   assert.deepEqual(optimizerLayouts(threePosts, false).map(l => l.id), ['mine']);
 });
 
+test('rearranging equivalent production rooms keeps only the imported layout and its room IDs', () => {
+  const original = presetSpots('2-5-2-right'), levels = presetLevels('2-5-2-right');
+  const ids = Object.keys(original);
+  // First order reproduces the reader's screenshot; also cover reversal and rotations.
+  const orders = [[1, 6, 2, 0, 3, 7, 4, 8, 5], ids.map((_, i) => 8 - i), ...ids.map((_, offset) => ids.map((_, i) => (i + offset) % 9))];
+  for (const order of orders) {
+    const productionSpots = Object.fromEntries(ids.map((id, i) => [id, original[ids[order[i]]]]));
+    const facilityLevels = { ...levels, ...Object.fromEntries(ids.map((id, i) => [id, levels[ids[order[i]]]])) };
+    const snapshot = { ...account.base!, productionSpots, facilityLevels };
+    const result = optimizerLayouts(snapshot);
+    assert.deepEqual(result.map(l => l.id), ['mine']);
+    assert.deepEqual(result[0].spots, productionSpots);
+    assert.deepEqual(result[0].levels, facilityLevels);
+    assert.deepEqual(result, optimizerLayouts(snapshot, false), 'comparison uses the same single search input');
+    assert.deepEqual(layoutProblems(result[0].spots, result[0].levels), []);
+  }
+});
+
+test('layout equivalence preserves room-level pairs, support upgrades and actual dorm recovery', () => {
+  const snapshot = { ...account.base!, productionSpots: presetSpots('2-5-2-right'), facilityLevels: presetLevels('2-5-2-right') };
+  const alternatives = (base: typeof snapshot) => optimizerLayouts(base).map(l => l.id);
+  assert.deepEqual(alternatives(snapshot), ['mine'], 'imported ambience above the level cap equals a furnished preset');
+  assert.deepEqual(alternatives({ ...snapshot, dormitoryAmbience: {} }), ['mine'], 'missing ambience uses the same furnished default');
+  assert.deepEqual(alternatives({ ...snapshot, dormitoryAmbience: { ...snapshot.dormitoryAmbience, dormitory1: 0 } }), ['mine', '2-5-2-right']);
+  for (const room of ['office', 'receptionRoom', 'trainingRoom', 'dormitory1']) {
+    assert.deepEqual(alternatives({ ...snapshot, facilityLevels: { ...snapshot.facilityLevels, [room]: snapshot.facilityLevels[room] - 1 } }), ['mine', '2-5-2-right'], room);
+  }
+  // Same global list of levels, but a Lv3 post becomes Lv2 while a Lv2 factory becomes Lv3.
+  assert.deepEqual(alternatives({ ...snapshot, facilityLevels: { ...snapshot.facilityLevels, prod1: 2, prod7: 3 } }), ['mine', '2-5-2-right']);
+});
+
 test('selected-account progress takes precedence and class forms are one worker', () => {
   const selected = { operators: ['Amiya', 'Amiya (Guard)', 'Spot', 'FEater'], base: { ...account.base!, operatorProgress: { Spot: { eliteLevel: 'Base', level: 1 } } }, operatorBuilds: undefined };
   const result = ownedBaseRoster(selected, known);

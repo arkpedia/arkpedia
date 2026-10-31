@@ -1,9 +1,10 @@
 import { byScore } from './accountResults';
 import type { AccountRecord } from '../account/accountStore';
-import { BASE_PRESET_IDS, BASE_PRESETS, getFacilities, layoutProblems, presetLevels, presetSpots } from './baseConfig';
+import { BASE_PRESET_IDS, BASE_PRESETS, PRODUCTION_SPOT_IDS, getFacilities, layoutProblems, presetLevels, presetSpots } from './baseConfig';
 import { optimizeBase, sustainableOutput, type OptimizerResult, type OwnedOperator } from './baseOptimizer';
 import { evaluate, genomeFromResult, genomeNotes, toOptimizerResult, type Evaluation, type Genome, type GenomeContext } from './planGenome';
 import { anneal } from './annealBase';
+import { calcDormitoryRecovery, defaultDormitoryAmbience } from './baseProductivity';
 import type { SimulationBase, DailyOutput } from './baseSimulation';
 import type { ProductionSpots, FacilityLevels, FactoryProducts } from './baseTypes';
 
@@ -58,7 +59,17 @@ export function optimizerLayouts(snapshot?: AccountRecord['base'], compare = tru
   const seen = new Set<string>();
   return layouts.filter(l => {
     if (layoutProblems(l.spots, l.levels).length) return false;
-    const key = JSON.stringify(getFacilities(l.spots, l.levels).map(f => [f.id, f.kind, f.level]));
+    const facilities = getFacilities(l.spots, l.levels);
+    // Production positions are presentation, not different buildings. Keep the
+    // imported layout (added first), so teams and saved rotations use its room IDs.
+    const production = facilities.filter(f => PRODUCTION_SPOT_IDS.includes(f.id))
+      .map(f => `${f.kind}:${f.level}`).sort();
+    const support = facilities.filter(f => !PRODUCTION_SPOT_IDS.includes(f.id)).map(f => [
+      f.id, f.kind, f.level,
+      f.kind === 'dormitory' ? calcDormitoryRecovery(f.level,
+        (l.id === 'mine' ? snapshot?.dormitoryAmbience?.[f.id] : undefined) ?? defaultDormitoryAmbience(f.level)) : null,
+    ]);
+    const key = JSON.stringify([production, support]);
     if (seen.has(key)) return false;
     seen.add(key); return true;
   });
