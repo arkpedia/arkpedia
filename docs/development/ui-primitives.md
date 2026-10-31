@@ -672,3 +672,12 @@ Use `RecordPopover` for a small name-and-art preview that stays beside its trigg
 It reuses `useAnchoredPopover` and `XButton`, places focus in the popup, and restores
 focus on dismissal. The `.record-popover*` surface, heading and uncropped art rules
 live in `styles/core/arkpedia-theme.css`; feature CSS owns only the trigger layout.
+
+### Checkbox dropdown filters
+
+`StyledSelect` also accepts `multiple`, an array `value` and an array `onChange`.
+This mode opens a labelled non-modal dialog of native `.check` checkboxes, keeps
+selections open for further choices, and restores the trigger on Escape. Single
+selection retains its combobox/listbox behavior. Use `placeholder` for the unrestricted
+state; do not add a mutually exclusive “All” item to a multi-select list. Operator
+filters match any selected value within a category and intersect categories.

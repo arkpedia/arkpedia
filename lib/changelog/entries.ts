@@ -34,6 +34,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-10-30T20:35:00Z',
+    changed: [{ title: 'Combine operator filters', detail: 'Select several rarities, classes, subclasses and dropdown options without clearing your other choices.', href: '/operators' }],
+    fixed: [
+      { title: 'One total for shared Chip Catalysts', detail: 'Crafting several Dualchip types updates the same ingredient row.', href: '/operator-planner' },
+      { title: 'Operator dates follow the calendar', detail: 'Upcoming operators use the event forecast, with estimates kept separate from confirmed availability.', href: '/operators' },
+    ],
+  },
+  {
     at: '2026-10-30T10:00:00Z',
     changed: [
       { title: 'A deeper, faster base optimizer', detail: 'The base optimizer keeps improving its plan for the time you choose, 1 minute by default; Stop keeps the best so far.', href: '/base' },

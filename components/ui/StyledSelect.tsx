@@ -19,14 +19,12 @@ export interface OptionState {
   active: boolean;
 }
 
-interface Props<T extends SelectOption> {
+interface CommonProps<T extends SelectOption> {
   id?: string;
   /** Accessible name of the control and its list. Required: a select with no name is
    *  announced as "combobox, collapsed" and nothing else. */
   label: string;
-  value: string;
   options: readonly T[];
-  onChange: (value: string) => void;
   /** A row's content: portraits, a badge, a count, a code column. The row keeps its
    *  40px floor, hover, selection and check mark; this only fills it. Optional on
    *  purpose -- it is presentation, and a text row is the right default. */
@@ -47,6 +45,11 @@ interface Props<T extends SelectOption> {
   style?: CSSProperties;
 }
 
+type Props<T extends SelectOption> = CommonProps<T> & (
+  | { multiple?: false; value: string; onChange: (value: string) => void }
+  | { multiple: true; value: readonly string[]; onChange: (value: string[]) => void }
+);
+
 /** How many rows PageUp and PageDown move. */
 const PAGE = 10;
 
@@ -66,10 +69,11 @@ const PAGE = 10;
  * move ten; Enter, Space or Alt+ArrowUp choose; Escape and Tab close; typing finds a
  * row by its label. Disabled rows are skipped.
  */
-export default function StyledSelect<T extends SelectOption>({
-  id, label, value, options, onChange, renderOption, renderValue, placeholder,
-  size = 'default', align = 'start', menuMinWidth = 240, disabled = false, className, style,
-}: Props<T>) {
+export default function StyledSelect<T extends SelectOption>(props: Props<T>) {
+  const { id, label, options, renderOption, renderValue, placeholder,
+    size = 'default', align = 'start', menuMinWidth = 240, disabled = false, className, style } = props;
+  const multiple = props.multiple === true;
+  const value = props.multiple ? props.value[0] ?? '' : props.value;
   const generatedId = useId();
   const triggerId = id ?? generatedId;
   const listId = `${triggerId}-list`;
@@ -111,9 +115,13 @@ export default function StyledSelect<T extends SelectOption>({
   function choose(index: number) {
     const option = options[index];
     if (!option || option.disabled) return;
+    if (props.multiple) {
+      props.onChange(props.value.includes(option.value) ? props.value.filter(v => v !== option.value) : [...props.value, option.value]);
+      return;
+    }
     setOpen(false);
     triggerRef.current?.focus({ preventScroll: true });
-    if (option.value !== value) onChange(option.value);
+    if (option.value !== value) props.onChange(option.value);
   }
 
   /** Where the fixed menu goes, from where the trigger is now. */
@@ -166,7 +174,7 @@ export default function StyledSelect<T extends SelectOption>({
   }, [open]);
 
   useClientLayoutEffect(() => {
-    if (!open) return;
+    if (!open || multiple) return;
     const list = listRef.current;
     const row = document.getElementById(`${listId}-${active}`);
     if (!list || !row) return;
@@ -176,7 +184,7 @@ export default function StyledSelect<T extends SelectOption>({
     else if (top + row.offsetHeight > list.scrollTop + list.clientHeight) {
       list.scrollTop = top + row.offsetHeight - list.clientHeight;
     }
-  }, [active, listId, open, position]);
+  }, [active, listId, open, position, multiple]);
 
   function onKeyDown(event: React.KeyboardEvent<HTMLButtonElement>) {
     const { key } = event;
@@ -226,8 +234,18 @@ export default function StyledSelect<T extends SelectOption>({
     }
   }
 
+  const positioned = !!position;
+  useClientLayoutEffect(() => {
+    if (open && multiple && positioned) listRef.current?.querySelector<HTMLInputElement>('input')?.focus({ preventScroll: true });
+  }, [open, multiple, positioned]);
+
   const row = (option: T, index: number) => {
-    const isSelected = option.value === value;
+    const isSelected = props.multiple ? props.value.includes(option.value) : option.value === value;
+    const content = renderOption ? renderOption(option, { selected: isSelected, active: index === active }) : option.label;
+    if (multiple) return <label key={option.value} id={`${listId}-${index}`} className={`check ${styles.option}`}>
+      <input type="checkbox" checked={isSelected} disabled={option.disabled} onChange={() => choose(index)} />
+      <span className={styles.optionBody}>{content}</span>
+    </label>;
     return (
       <div key={option.value} id={`${listId}-${index}`} role="option" aria-selected={isSelected}
         aria-disabled={option.disabled || undefined}
@@ -235,23 +253,32 @@ export default function StyledSelect<T extends SelectOption>({
         onPointerMove={() => { if (!option.disabled) setActive(index); }}
         onPointerDown={event => event.preventDefault()}
         onClick={() => choose(index)}>
-        <span className={styles.optionBody}>{renderOption ? renderOption(option, { selected: isSelected, active: index === active }) : option.label}</span>
+        <span className={styles.optionBody}>{content}</span>
         <svg className={styles.check} aria-hidden="true" viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="m3 8 3 3 7-7" /></svg>
       </div>
     );
   };
+  const selectionLabel = props.multiple ? options.filter(option => props.value.includes(option.value)).map(option => option.label).join(', ') : '';
 
   return <div className={`${styles.root} ${size === 'title' ? styles.title : ''} ${className ?? ''}`} style={style}>
-    <button id={triggerId} ref={triggerRef} type="button" role="combobox"
-      className={`btn-bare ${styles.trigger}`} aria-label={label} aria-haspopup="listbox"
+    <button id={triggerId} ref={triggerRef} type="button" role={multiple ? undefined : "combobox"}
+      className={`btn-bare ${styles.trigger}`} aria-label={label} aria-haspopup={multiple ? "dialog" : "listbox"}
       aria-expanded={open} aria-controls={open ? listId : undefined}
-      aria-activedescendant={open ? `${listId}-${active}` : undefined}
+      aria-activedescendant={open && !multiple ? `${listId}-${active}` : undefined}
       disabled={inert} data-placeholder={!selected || undefined}
       onClick={() => open ? setOpen(false) : show()} onKeyDown={onKeyDown}>
-      <span className={styles.value}>{selected ? (renderValue ? renderValue(selected) : selected.label) : (placeholder ?? '')}</span>
+      <span className={styles.value}>{multiple ? selectionLabel || placeholder || label : selected ? (renderValue ? renderValue(selected) : selected.label) : (placeholder ?? '')}</span>
       <svg aria-hidden="true" viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="m4 6 4 4 4-4" /></svg>
     </button>
-    {open && createPortal(<div id={listId} ref={listRef} role="listbox" aria-label={label}
+    {open && createPortal(<div id={listId} ref={listRef} role={multiple ? "dialog" : "listbox"} aria-label={label}
+      onKeyDown={multiple ? event => {
+        if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); setOpen(false); triggerRef.current?.focus(); }
+        if (event.key === 'Tab') {
+          const inputs = [...(listRef.current?.querySelectorAll<HTMLInputElement>('input:not(:disabled)') ?? [])];
+          if (event.target === inputs[event.shiftKey ? 0 : inputs.length - 1]) { event.preventDefault(); setOpen(false); triggerRef.current?.focus(); }
+        }
+      } : undefined}
+      onBlur={multiple ? event => { if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget as Node) && event.relatedTarget !== triggerRef.current) setOpen(false); } : undefined}
       className={styles.menu} style={position ?? { visibility: 'hidden' }}>
       {runs.map((run, r) => run.group
         ? <div key={`${run.group}-${r}`} role="group" aria-labelledby={`${listId}-g${r}`} className={styles.groupRun}>

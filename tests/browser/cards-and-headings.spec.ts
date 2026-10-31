@@ -40,7 +40,7 @@ import { themeOf } from './layout-checks';
  *  class glyph in the page header. */
 const GLYPH_PLACES: { name: string; route: string; glyph: string; act?: (page: Page) => Promise<void> }[] = [
   { name: '/operators (the class chips and every card\'s class line)', route: '/operators', glyph: '.roster-icon-chip [role="img"], .roster-class-branch [role="img"]' },
-  { name: '/operators with Defender picked (the branch chips)', route: '/operators', glyph: '[role="group"][aria-label="Branch"] [role="img"]', act: async (page) => { await page.getByRole('button', { name: 'Defender', exact: true }).first().click(); await expect(page.getByRole('group', { name: 'Branch' })).toBeVisible(); } },
+  { name: '/operators with Defender picked (the subclass dropdown)', route: '/operators', glyph: '[role="dialog"][aria-label="Filter by subclass"] [role="img"]', act: async (page) => { await page.getByRole('button', { name: 'Defender', exact: true }).first().click(); await page.getByRole('button', { name: 'Filter by subclass', exact: true }).click(); await expect(page.getByRole('dialog', { name: 'Filter by subclass', exact: true })).toBeVisible(); } },
   { name: 'an operator with class forms', route: '/operators/Amiya', glyph: '.op-form-switch [role="img"]' },
   { name: 'an operator with branch and faction synergies', route: '/operators/SilverAsh', glyph: '.op-synergy-value [role="img"]' },
   // The technique is on Entelechia's S2 (the skill tabs show one skill at a time).

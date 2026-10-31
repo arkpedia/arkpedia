@@ -104,7 +104,7 @@ test('the pull planner panels are on one line', async ({ page }) => {
  * it as a min-height with small vertical padding, so each measures exactly the token,
  * and a flip moves them all -- a primitive with a literal height, or padding that
  * outgrows a smaller token, is left behind and fails here. Measured on /operators (its
- * real search field and StyledSelect trigger) with the other primitives added beside
+ * real search field and StyledSelect checkbox trigger) with the other primitives added beside
  * them; min-height decides, not the font, so this is the same on CI's Linux fonts.
  */
 test('every row primitive is one control height, and follows the token', async ({ page }) => {
@@ -138,7 +138,7 @@ test('every row primitive is one control height, and follows the token', async (
     const out: Record<string, { h: number; w: number } | null> = {};
     for (const el of Array.from(bench.children)) out[el.outerHTML.slice(0, 48)] = box(el);
     out['search field'] = box(document.querySelector('#page-content .search-input'));
-    out['StyledSelect trigger'] = box(document.querySelector('#page-content [role="combobox"]'));
+    out['StyledSelect checkbox trigger'] = box(document.querySelector('#page-content button[aria-haspopup="dialog"][aria-label="Filter by subclass"]'));
     return out;
   });
   for (const [base, expected] of [[null, width > 720 ? 36 : 40], [32, width > 720 ? 32 : 36]] as const) {

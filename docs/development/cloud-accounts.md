@@ -1,5 +1,7 @@
 # Arkpedia accounts
 
+Current deployment boundary and recommendation: [2026-10-30 cost/security review](account-cost-security-review.md). Accounts are Preview-only on the native Cloudflare staging deployment, with isolated account storage. The pilot and staging-disabled configuration descriptions below are historical migration notes; they are not instructions to re-enable the retired pilot or bind Preview to production data. The current `accountsEnv()` implementation and `AGENTS.md` own the deployment gate.
+
 The accepted account implementation uses Better Auth 1.7.12, Google/Discord and a
 native Cloudflare D1 binding. It is being integrated selectively into main from
 Cloudflare source `de829d1e`; this document does not claim a completed main release.
