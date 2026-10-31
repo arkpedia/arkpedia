@@ -34,6 +34,10 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-10-31T19:00:00Z',
+    fixed: [{ title: 'Recover interrupted page loads', detail: 'Retry missing styles and recover failed startup files instead of leaving an unstyled page.' }],
+  },
+  {
     at: '2026-10-30T20:35:00Z',
     changed: [{ title: 'Combine operator filters', detail: 'Select several rarities, classes, subclasses and dropdown options without clearing your other choices.', href: '/operators' }],
     fixed: [

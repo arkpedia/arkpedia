@@ -133,7 +133,7 @@ test('the queue keeps to the songs the catalogue still offers, and its shuffled 
  * reloaded the page after a backup restore
  * (components/account/DataDialog.tsx); the stores now tell their readers (lib/account/backup.ts).
  */
-test('only data reset and privacy-service withdrawal may deliberately reload the site', () => {
+test('only explicit resets, privacy withdrawal and guarded startup recovery may reload the site', () => {
   const found: string[] = [];
   for (const dir of ['pages', 'components', 'lib']) {
     for (const rel of fs.readdirSync(dir, { recursive: true }) as string[]) {
@@ -147,12 +147,16 @@ test('only data reset and privacy-service withdrawal may deliberately reload the
   }
   // Revoking a previously loaded third-party service must unload its scripts and
   // connections. These explicit privacy actions intentionally create a new document;
-  // navigation, imports and every other action still keep playback mounted.
+  // Startup recovery is the sole automatic exception: failed same-origin startup
+  // assets, before reader interaction, with a session reload limit. Its browser
+  // suite verifies edits, healthy CSS and dynamic/third-party failures never reload.
+  // Navigation and imports still keep playback mounted.
   assert.deepEqual(found.sort(), [
     'lib/account/resetData.ts: location.reload(',
+    'lib/assets/pageAssetRecovery.ts: location.replace(',
     'lib/privacy/preferences.ts: location.reload(',
     'pages/cookies.tsx: location.reload(',
-  ], 'only data reset and explicit privacy changes may reload; ordinary navigation and imports must keep the document');
+  ], 'only explicit resets/privacy changes and guarded startup recovery may reload; navigation and imports must keep the document');
 });
 
 test('"Next in queue" survives a reload, and a record from before it existed loads with none', () => {
