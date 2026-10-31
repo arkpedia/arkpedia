@@ -1,4 +1,5 @@
 import { betterAuth } from 'better-auth';
+import { APIError, createAuthMiddleware, getAuthoritativeSessionFromCtx } from 'better-auth/api';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import type { D1Database } from '@cloudflare/workers-types';
 
@@ -29,6 +30,14 @@ export function accountsEnv(): AccountsEnv | null {
 export function accountAuth(env: AccountsEnv) {
   return betterAuth({
     appName: 'Arkpedia',
+    hooks: { before: createAuthMiddleware(async ctx => {
+      if (!['/link-social', '/revoke-other-sessions'].includes(ctx.path)) return;
+      const session = await getAuthoritativeSessionFromCtx(ctx);
+      if (!session) throw new APIError('UNAUTHORIZED', { code: 'UNAUTHORIZED', message: 'Sign in first.' });
+      if (Date.now() - new Date(session.session.createdAt).getTime() >= 5 * 60_000) {
+        throw new APIError('FORBIDDEN', { code: 'SESSION_NOT_FRESH', message: 'Confirm with an existing login before changing account access.' });
+      }
+    }) },
     baseURL: env.ARKPEDIA_AUTH_URL,
     secret: env.BETTER_AUTH_SECRET,
     database: env.ARKPEDIA_ACCOUNTS_DB,

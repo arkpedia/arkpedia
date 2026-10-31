@@ -1,4 +1,5 @@
 import test from 'node:test';
+import { protectPreviewRequest } from '../deploy/preview-security.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
@@ -7,6 +8,11 @@ test('native Preview binds its own account database, cache and queue without pro
   assert.equal(config.name, 'arkpedia');
   assert.equal(config.previews.vars.ARKPEDIA_DEPLOYMENT_ROLE, 'staging');
   assert.equal(config.previews.vars.ARKPEDIA_AUTH_URL, 'https://preview.arkpedia.net');
+  assert.equal(config.ratelimits, undefined);
+  assert.deepEqual(config.previews.ratelimits, [
+    { name: 'ACCOUNT_TRAFFIC_LIMIT', namespace_id: '2026110101', simple: { limit: 6000, period: 60 } },
+    { name: 'ACCOUNT_IP_LIMIT', namespace_id: '2026110102', simple: { limit: 300, period: 60 } },
+  ]);
   assert.deepEqual(config.previews.d1_databases, [{binding:'ARKPEDIA_ACCOUNTS_DB',database_name:'arkpedia-preview-accounts',database_id:'7d9cdfb2-2203-4708-bad5-f357d2c105b2',migrations_dir:'migrations/accounts'}]);
   assert.deepEqual(config.previews.r2_buckets, [{ binding: 'NEXT_INC_CACHE_R2_BUCKET', bucket_name: 'arkpedia-preview-cache' }]);
   assert.deepEqual(config.previews.durable_objects.bindings, [{ name: 'NEXT_CACHE_DO_QUEUE', class_name: 'DOQueueHandler' }]);
@@ -21,8 +27,9 @@ test('requests, explicit revalidation and queued revalidation self-call the same
   const self = { fetch() {} };
   const ctx = { exports: { PreviewSelf: self } };
   const env = { NEXT_INC_CACHE_R2_BUCKET: {}, WORKER_SELF_REFERENCE: { fetch() { throw Error('production called'); } } };
-  const prelude = `const calls=globalThis.__previewCalls;const app={fetch(...args){calls.push(args);return new Response('ok')}};class WorkerEntrypoint{constructor(ctx,env){this.ctx=ctx;this.env=env}}class OpenNextQueue{constructor(ctx,env){this.ctx=ctx;this.env=env}};`;
+  const prelude = `const protectPreviewRequest=globalThis.__previewProtect;const calls=globalThis.__previewCalls;const app={fetch(...args){calls.push(args);return new Response('ok')}};class WorkerEntrypoint{constructor(ctx,env){this.ctx=ctx;this.env=env}}class OpenNextQueue{constructor(ctx,env){this.ctx=ctx;this.env=env}};`;
   globalThis.__previewCalls = calls;
+  globalThis.__previewProtect = protectPreviewRequest;
   try {
     const module = await import('data:text/javascript;base64,' + Buffer.from(prelude + source).toString('base64'));
     await module.default.fetch(new Request('https://preview.example/'), env, ctx);
@@ -35,11 +42,35 @@ test('requests, explicit revalidation and queued revalidation self-call the same
     const queue = new module.DOQueueHandler(ctx, env);
     assert.equal(queue.env.WORKER_SELF_REFERENCE, self);
     assert.notEqual(env.WORKER_SELF_REFERENCE, self, 'original environment is not mutated');
-  } finally { delete globalThis.__previewCalls; }
+  } finally { delete globalThis.__previewCalls; delete globalThis.__previewProtect; }
 });
 test('publication only uses the native Preview command with fixed targets', () => {
   const workflow = readFileSync('.github/workflows/cloudflare-preview.yml', 'utf8');
   assert.match(workflow, /wrangler\.js preview --config wrangler\.preview\.jsonc --worker-name arkpedia --name arkpedia/);
   assert.doesNotMatch(workflow, /wrangler\.js deploy|wrangler deploy/);
   assert.equal(config.main, 'scripts/deploy/preview-worker.mjs');
+  assert.match(workflow, /time-travel info 7d9cdfb2-2203-4708-bad5-f357d2c105b2/);
+  assert.match(workflow, /migrations apply 7d9cdfb2-2203-4708-bad5-f357d2c105b2/);
+  assert.ok(workflow.indexOf('time-travel info') < workflow.indexOf('migrations apply'));
+  assert.ok(workflow.indexOf('migrations apply') < workflow.indexOf('wrangler.js preview'));
+});
+
+test('Preview limits account ingress before application work and fails closed without its bindings', async () => {
+  let applicationCalls = 0;
+  const run = () => { applicationCalls++; return new Response('ok'); };
+  const request = new Request('https://preview.arkpedia.net/api/cloud-account', { headers: { 'cf-connecting-ip': '192.0.2.1' } });
+  const env = { ACCOUNT_TRAFFIC_LIMIT: { limit: async () => ({success:true}) }, ACCOUNT_IP_LIMIT: { limit: async () => ({success:false}) } };
+  const denied = await protectPreviewRequest(request,env,run);
+  assert.equal(denied.status,429); assert.equal(denied.headers.get('retry-after'),'60'); assert.equal(applicationCalls,0);
+  assert.equal((await protectPreviewRequest(request,{},run)).status,503);
+  const publicPage = await protectPreviewRequest(new Request('https://preview.arkpedia.net/music'),{},run);
+  assert.equal(publicPage.status,200); assert.equal(applicationCalls,1);
+  assert.match(publicPage.headers.get('content-security-policy'),/object-src 'none'/);
+  assert.match(publicPage.headers.get('content-security-policy-report-only'),/script-src/);
+  assert.equal(publicPage.headers.get('strict-transport-security'),'max-age=604800');
+  // A forwarded Worker IP is shared, but can never skip the aggregate cap.
+  const forwarded = new Request(request,{headers:{'cf-connecting-ip':'2a06:98c0:3600::103'}});
+  env.ACCOUNT_TRAFFIC_LIMIT.limit=async()=>({success:false});
+  assert.equal((await protectPreviewRequest(forwarded,env,run)).status,429);
+  assert.equal(applicationCalls,1);
 });

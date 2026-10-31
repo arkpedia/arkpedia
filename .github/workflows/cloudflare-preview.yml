@@ -51,7 +51,7 @@ jobs:
         run: |
           node scripts/deploy/check-public-assets-ready.mjs
           node -e 'const b=require("./public/build-info.json");if(b.commit!==process.env.SOURCE||b.dirty||b.deploymentRole!=="staging")throw Error("Unexpected Preview build")'
-          tar --exclude=.open-next/cache -czf "$RUNNER_TEMP/arkpedia-preview.tgz" .open-next wrangler.preview.jsonc scripts/deploy/preview-worker.mjs public/build-info.json
+          tar --exclude=.open-next/cache -czf "$RUNNER_TEMP/arkpedia-preview.tgz" .open-next wrangler.preview.jsonc scripts/deploy/preview-worker.mjs scripts/deploy/preview-security.mjs public/build-info.json
           cd "$RUNNER_TEMP"
           sha256sum arkpedia-preview.tgz > arkpedia-preview.sha256
         env:
@@ -90,6 +90,16 @@ jobs:
           node -e 'const b=require("./public/build-info.json");if(b.commit!==process.env.SOURCE||b.dirty||b.deploymentRole!=="staging")throw Error("Unexpected Preview build")'
         env:
           SOURCE: ${{ inputs.source }}
+      - name: Verify recovery and apply isolated Preview account migrations
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.ARKPEDIA_PRODUCTION_API_TOKEN || secrets.ARKPEDIA_PILOT_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: 1ff51c10571eaa9934bc451e1bfdb361
+          WRANGLER_SEND_METRICS: 'false'
+        run: |
+          node scripts/deploy/native-preview.mjs check
+          node node_modules/wrangler/bin/wrangler.js d1 time-travel info 7d9cdfb2-2203-4708-bad5-f357d2c105b2 --config wrangler.preview.jsonc --json > "$RUNNER_TEMP/preview-account-recovery.json"
+          node -e 'const b=JSON.parse(require("node:fs").readFileSync(process.env.RUNNER_TEMP+"/preview-account-recovery.json","utf8"));if(!b.bookmark)throw Error("Missing Preview recovery bookmark");console.log("Preview recovery bookmark verified")'
+          node node_modules/wrangler/bin/wrangler.js d1 migrations apply 7d9cdfb2-2203-4708-bad5-f357d2c105b2 --config wrangler.preview.jsonc --remote
       - name: Publish the native Preview only
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.ARKPEDIA_PRODUCTION_API_TOKEN || secrets.ARKPEDIA_PILOT_API_TOKEN }}

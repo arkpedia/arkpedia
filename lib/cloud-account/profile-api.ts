@@ -1,3 +1,4 @@
+import { allowAccountRequest, accountLimited } from './limits';
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { fromNodeHeaders } from 'better-auth/node';
 import { accountAuth, accountsEnv, type AccountsEnv } from './server';
@@ -20,6 +21,8 @@ export function createAccountProfileHandler(resolveEnv: () => AccountsEnv | null
       const session = await auth.api.getSession({ headers });
       if (!session) return res.status(401).json({ error: 'Sign in to choose your username.' });
       const db = env.ARKPEDIA_ACCOUNTS_DB, owner = session.user.id;
+    const limit = await allowAccountRequest(db, owner, req.method === 'DELETE' ? 'remove' : 'profile');
+    if (!limit.allowed) return accountLimited(res, limit.retryAfter);
       if (req.method === 'GET') {
         let normalized;
         try { normalized = normalizeUsername(req.query.username); }

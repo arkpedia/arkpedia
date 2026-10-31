@@ -1,3 +1,4 @@
+import { allowAccountRequest, accountLimited, archiveQuotaError } from './limits';
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { fromNodeHeaders } from 'better-auth/node';
 import { accountAuth, accountsEnv, type AccountsEnv } from './server';
@@ -19,6 +20,8 @@ return async function handler(req: NextApiRequest, res: NextApiResponse) {
     const providers = [env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET ? 'google' : null, env.DISCORD_CLIENT_ID && env.DISCORD_CLIENT_SECRET ? 'discord' : null].filter(Boolean);
     if (!session) return res.status(401).json({ error: 'Sign in to Arkpedia to continue.', providers });
     const db = env.ARKPEDIA_ACCOUNTS_DB, userId = session.user.id;
+    const limit = await allowAccountRequest(db, userId, req.method === 'GET' ? 'read' : req.method === 'DELETE' ? 'remove' : 'write');
+    if (!limit.allowed) return accountLimited(res, limit.retryAfter);
     await db.prepare('INSERT INTO cloud_save (userId, updatedAt) VALUES (?, ?) ON CONFLICT(userId) DO NOTHING').bind(userId, new Date().toISOString()).run();
     let row = await db.prepare('SELECT revision, archiveRevision, gameSync, historySync, personalSync, paused, payload, updatedAt FROM cloud_save WHERE userId = ?').bind(userId).first<CloudSave>();
     if (!row) throw new Error('Missing save');
@@ -94,6 +97,8 @@ return async function handler(req: NextApiRequest, res: NextApiResponse) {
     const results = await db.batch(statements);
     if (results[0].meta.changes !== 1) return res.status(409).json({ error: 'Your cloud save changed on another device. Retry with its latest revision.' });
     return res.json({ ...await saved(row.revision + 1, archiveRevision, data, personalSync, historySync, gameSync, paused), updatedAt });
-  } catch { return res.status(503).json({ error: 'Your cloud save is temporarily unavailable. Your browser data has not been changed.' }); }
+  } catch (error) {
+    if (archiveQuotaError(error)) return res.status(413).json({ error: 'Your cloud pull archive has reached its storage limit. Export a backup before clearing cloud history; existing saves and browser data are unchanged.' });
+    return res.status(503).json({ error: 'Your cloud save is temporarily unavailable. Your browser data has not been changed.' }); }
 };
 }

@@ -1,9 +1,12 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { allowAccountRequest, ACCOUNT_LIMITS } from '../../lib/cloud-account/limits';
 // Runtime is Node 24; the application's older @types/node does not declare this module.
 // @ts-expect-error node:sqlite is available in the supported CI runtime.
-import { DatabaseSync } from 'node:sqlite';
+import { DatabaseSync, backup } from 'node:sqlite';
 import type { D1Database } from '@cloudflare/workers-types';
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { makeSignature } from 'better-auth/crypto';
@@ -116,10 +119,10 @@ test('restore propagates deletions, preserves local-only game data and never rep
   assert.equal(local.getItem('arkpediaAccount'), JSON.stringify(account));
 });
 
-function database() {
-  const sqlite = new DatabaseSync(':memory:');
+function database(filename = ':memory:') {
+  const sqlite = new DatabaseSync(filename);
   sqlite.exec('PRAGMA foreign_keys = ON');
-  for (const migration of fs.readdirSync('migrations/accounts').filter(name => name.endsWith('.sql')).sort()) sqlite.exec(fs.readFileSync(`migrations/accounts/${migration}`, 'utf8'));
+  if (filename === ':memory:') for (const migration of fs.readdirSync('migrations/accounts').filter(name => name.endsWith('.sql')).sort()) sqlite.exec(fs.readFileSync(`migrations/accounts/${migration}`, 'utf8'));
   const prepare = (sql: string, values: unknown[] = []) => ({
     bind: (...bound: unknown[]) => prepare(sql, bound),
     all: async () => {
@@ -432,5 +435,131 @@ test('OAuth requires state and keeps password signup disabled', async () => {
   const signup = await auth.handler(new Request('https://accounts.example.invalid/api/auth/sign-up/email', { method: 'POST',
     headers: { 'Content-Type': 'application/json', Origin: 'https://accounts.example.invalid' }, body: JSON.stringify({ name: 'X', email: 'x@example.invalid', password: 'example-secret' }) }));
   assert.ok(signup.status >= 400);
+  sqlite.close();
+});
+
+test('account limits are atomic across clients, isolate users, recover next minute and leave deletion available', async () => {
+  const { sqlite, db } = database();
+  sqlite.exec(`INSERT INTO "user" (id,name,email,createdAt,updatedAt) VALUES ('a','A','a@test.invalid','2026-01-01','2026-01-01'),('b','B','b@test.invalid','2026-01-01','2026-01-01')`);
+  const now = 1793491200000;
+  const attempts = await Promise.all(Array.from({ length: ACCOUNT_LIMITS.write + 5 }, () => allowAccountRequest(db, 'a', 'write', now)));
+  assert.equal(attempts.filter(x => x.allowed).length, ACCOUNT_LIMITS.write);
+  assert.equal((await allowAccountRequest(db, 'a', 'write', now + 1000)).allowed, false);
+  assert.equal((await allowAccountRequest(db, 'a', 'remove', now)).allowed, true);
+  assert.equal((await allowAccountRequest(db, 'b', 'write', now)).allowed, true);
+  assert.equal((await allowAccountRequest(db, 'a', 'write', now + 60_000)).allowed, true);
+  sqlite.prepare('DELETE FROM "user" WHERE id = ?').run('a');
+  assert.equal(sqlite.prepare('SELECT count(*) AS n FROM account_request_limit WHERE userId = ?').get('a')?.n, 0);
+  sqlite.close();
+});
+
+test('API throttling returns Retry-After before reading saves', async () => {
+  const { sqlite, db } = database(), env = envFor(db), auth = accountAuth(env), ctx = await auth.$context;
+  const user = await ctx.internalAdapter.createUser({ name: 'Test', email: 'limited@example.invalid', emailVerified: true }, { method: 'oauth' });
+  const session = await ctx.internalAdapter.createSession(user.id, false);
+  const cookie = `${ctx.authCookies.sessionToken.name}=${session.token}.${await makeSignature(session.token, ctx.secret)}`;
+  const handler = createCloudAccountHandler(() => env);
+  sqlite.prepare('INSERT INTO account_request_limit VALUES (?, ?, ?, ?)').run(user.id, 'read', Math.floor(Date.now()/60000), ACCOUNT_LIMITS.read);
+  let status = 200; const headers: Record<string, string> = {};
+  const res = { setHeader: (k: string,v: string) => { headers[k] = v; }, status: (code: number) => { status=code;return res; }, json: () => {} };
+  await handler({ method: 'GET', headers: { cookie } } as NextApiRequest, res as unknown as NextApiResponse);
+  assert.equal(status, 429); assert.ok(Number(headers['Retry-After']) > 0); assert.equal(headers['Cache-Control'], 'private, no-store');
+  assert.equal(sqlite.prepare('SELECT count(*) AS n FROM cloud_save').get()?.n, 0);
+  sqlite.close();
+});
+
+test('linking and revoking other devices require fresh authentication; revocation keeps this session and other accounts', async () => {
+  const { sqlite, db } = database(), env = envFor(db), auth = accountAuth(env), ctx = await auth.$context;
+  const user = await ctx.internalAdapter.createUser({ name: 'Test', email: 'sessions@example.invalid', emailVerified: true }, { method: 'oauth' });
+  const otherUser = await ctx.internalAdapter.createUser({ name: 'Other', email: 'other-session@example.invalid', emailVerified: true }, { method: 'oauth' });
+  const current = await ctx.internalAdapter.createSession(user.id, false), other = await ctx.internalAdapter.createSession(user.id, false);
+  const foreign = await ctx.internalAdapter.createSession(otherUser.id, false);
+  const cookie = `${ctx.authCookies.sessionToken.name}=${current.token}.${await makeSignature(current.token, ctx.secret)}`;
+  const post = (endpoint: string, body = {}) => auth.handler(new Request(env.ARKPEDIA_AUTH_URL + '/api/auth/' + endpoint, {
+    method: 'POST', headers: { cookie, origin: env.ARKPEDIA_AUTH_URL, 'content-type': 'application/json' }, body: JSON.stringify(body),
+  }));
+  sqlite.prepare('UPDATE session SET createdAt = ? WHERE id = ?').run(new Date(Date.now()-600000).toISOString(),current.id);
+  for (const endpoint of ['link-social','revoke-other-sessions']) {
+    const response = await post(endpoint,{ provider:'discord',callbackURL:'/account?settings=logins' });
+    assert.equal(response.status,403); assert.equal((await response.json()).code,'SESSION_NOT_FRESH');
+  }
+  assert.equal(sqlite.prepare('SELECT count(*) AS n FROM verification').get()?.n,0,'stale link creates no OAuth state');
+  sqlite.prepare('UPDATE session SET createdAt = ? WHERE id = ?').run(new Date().toISOString(),current.id);
+  assert.equal((await post('link-social',{ provider:'discord',callbackURL:'/account?settings=logins' })).status,200);
+  assert.equal((await post('revoke-other-sessions')).status,200);
+  assert.equal(sqlite.prepare('SELECT id FROM session WHERE id = ?').get(other.id),undefined);
+  for(const session of [current,foreign]) assert.ok(sqlite.prepare('SELECT id FROM session WHERE id = ?').get(session.id));
+  const oldCookie = `${ctx.authCookies.sessionToken.name}=${other.token}.${await makeSignature(other.token,ctx.secret)}`;
+  assert.equal(await auth.api.getSession({headers:new Headers({cookie:oldCookie})}),null);
+  sqlite.close();
+});
+
+test('archive quotas reject accumulated growth atomically, preserve old rows and reclaim space on consent withdrawal', async () => {
+  const { sqlite, db } = database();
+  sqlite.exec(`INSERT INTO "user" (id,name,email,createdAt,updatedAt) VALUES ('a','A','a@test.invalid','2026-01-01','2026-01-01');
+    INSERT INTO cloud_save(userId,updatedAt) VALUES ('a','2026-01-01');
+    INSERT INTO pull_archive_account VALUES ('a','en','1','Doctor',NULL,'2026-01-01');
+    INSERT INTO pull_archive_row VALUES ('a','en','1',1,'pool','char',100000,5,NULL,NULL);`);
+  await assert.rejects(db.batch([
+    db.prepare('UPDATE cloud_save SET revision = revision + 1 WHERE userId = ?').bind('a'),
+    db.prepare("INSERT INTO pull_archive_row VALUES ('a','en','1',2,'pool','char',1,5,NULL,NULL)"),
+  ]), /ARKPEDIA_ARCHIVE_QUOTA/);
+  assert.equal(sqlite.prepare('SELECT revision FROM cloud_save').get()?.revision,0);
+  assert.equal(sqlite.prepare('SELECT sum(count) AS n FROM pull_archive_row').get()?.n,100000);
+  assert.throws(()=>sqlite.exec("UPDATE pull_archive_row SET count = 100001"),/ARKPEDIA_ARCHIVE_QUOTA/);
+  sqlite.exec('UPDATE pull_archive_row SET count = 1');
+  assert.throws(()=>sqlite.prepare('UPDATE pull_archive_row SET poolName = ?').run('x'.repeat(16777216)),/ARKPEDIA_ARCHIVE_QUOTA/);
+  // Replaying known data does not consume quota twice.
+  sqlite.exec("INSERT INTO pull_archive_row VALUES ('a','en','1',1,'pool','char',1,5,NULL,NULL) ON CONFLICT DO UPDATE SET count=max(count,excluded.count)");
+  assert.equal(sqlite.prepare('SELECT pulls FROM pull_archive_usage').get()?.pulls,1);
+  for(let i=2;i<=64;i++)sqlite.prepare("INSERT INTO pull_archive_account VALUES ('a','en',?,'Doctor',NULL,'2026-01-01')").run(String(i));
+  assert.throws(()=>sqlite.exec("INSERT INTO pull_archive_account VALUES ('a','en','65','Doctor',NULL,'2026-01-01')"),/ARKPEDIA_ARCHIVE_QUOTA/);
+  sqlite.exec('DELETE FROM pull_archive_account');
+  const usage = sqlite.prepare('SELECT accounts,pulls,bytes FROM pull_archive_usage').get();
+  assert.deepEqual({...usage},{accounts:0,pulls:0,bytes:0});
+  sqlite.close();
+});
+
+test('database backup restores identities, active sessions, saved data and archive accounting', async () => {
+  const { sqlite, db } = database(), env = envFor(db), auth = accountAuth(env), ctx = await auth.$context;
+  const user = await ctx.internalAdapter.createUser({name:'Backup',email:'backup@example.invalid',emailVerified:true},{method:'oauth'});
+  const session = await ctx.internalAdapter.createSession(user.id,false);
+  sqlite.prepare('INSERT INTO cloud_save(userId,payload,updatedAt) VALUES (?,?,?)').run(user.id,'{"theme":"light"}',new Date().toISOString());
+  sqlite.prepare('INSERT INTO account(id,accountId,providerId,userId,createdAt,updatedAt) VALUES (?,?,?,?,?,?)').run('link','provider-id','google',user.id,'2026-01-01','2026-01-01');
+  sqlite.prepare("INSERT INTO pull_archive_account VALUES (?,'en','1','Doctor',NULL,'2026-01-01')").run(user.id);
+  sqlite.prepare("INSERT INTO pull_archive_row VALUES (?,'en','1',1,'pool','char',3,5,NULL,NULL)").run(user.id);
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(),'arkpedia-account-backup-'));
+  try {
+    const filename = path.join(dir,'accounts.sqlite'); await backup(sqlite,filename);
+    const restored = database(filename);
+    try {
+      assert.equal(restored.sqlite.prepare('PRAGMA integrity_check').get()?.integrity_check,'ok');
+      const restoredAuth=accountAuth(envFor(restored.db));
+      const cookie=`${ctx.authCookies.sessionToken.name}=${session.token}.${await makeSignature(session.token,ctx.secret)}`;
+      assert.equal((await restoredAuth.api.getSession({headers:new Headers({cookie})}))?.user.id,user.id);
+      assert.equal(restored.sqlite.prepare('SELECT payload FROM cloud_save WHERE userId = ?').get(user.id)?.payload,'{"theme":"light"}');
+      assert.equal(restored.sqlite.prepare('SELECT userId FROM account WHERE id = ?').get('link')?.userId,user.id);
+      assert.equal(restored.sqlite.prepare('SELECT pulls FROM pull_archive_usage WHERE userId = ?').get(user.id)?.pulls,3);
+      assert.equal((await allowAccountRequest(restored.db,user.id,'write')).allowed,true);
+    } finally {restored.sqlite.close();}
+  } finally {sqlite.close();fs.rmSync(dir,{recursive:true,force:true});}
+});
+
+test('hardening migration preserves pre-existing archives above quota and allows removal', () => {
+  const sqlite = new DatabaseSync(':memory:'); sqlite.exec('PRAGMA foreign_keys = ON');
+  for(const name of ['0001_accounts.sql','0002_account_profiles.sql','0003_pull_archives.sql']) sqlite.exec(fs.readFileSync(`migrations/accounts/${name}`,'utf8'));
+  sqlite.exec(`INSERT INTO "user" (id,name,email,createdAt,updatedAt) VALUES ('a','A','a@test.invalid','2026-01-01','2026-01-01');
+    INSERT INTO cloud_save(userId,revision,payload,updatedAt) VALUES ('a',42,'{"theme":"dark"}','2026-01-01');
+    INSERT INTO account(id,accountId,providerId,userId,createdAt,updatedAt) VALUES ('link','provider-id','google','a','2026-01-01','2026-01-01');
+    INSERT INTO pull_archive_account VALUES ('a','en','1','Doctor',NULL,'2026-01-01');
+    INSERT INTO pull_archive_row VALUES ('a','en','1',1,'pool','char',100001,5,NULL,NULL);`);
+  const tables=['user','cloud_save','account','pull_archive_account','pull_archive_row'];
+  const before=tables.map(table=>sqlite.prepare(`SELECT * FROM "${table}"`).all());
+  sqlite.exec(fs.readFileSync('migrations/accounts/0004_account_protection.sql','utf8'));
+  assert.deepEqual(tables.map(table=>sqlite.prepare(`SELECT * FROM "${table}"`).all()),before);
+  assert.equal(sqlite.prepare('SELECT pulls FROM pull_archive_usage').get()?.pulls,100001);
+  assert.throws(()=>sqlite.exec('UPDATE pull_archive_row SET count=count+1'),/ARKPEDIA_ARCHIVE_QUOTA/);
+  sqlite.exec('DELETE FROM pull_archive_account');
+  assert.equal(sqlite.prepare('SELECT pulls FROM pull_archive_usage').get()?.pulls,0);
   sqlite.close();
 });

@@ -26,10 +26,16 @@ function readMarker(): SyncMarker | null {
 function mark(remote: Remote, data: CloudData) {
   localStorage.setItem(MARKER, JSON.stringify({ userId: remote.user.id, revision: remote.revision, fingerprint: fingerprint(data) }));
 }
+let retryAt = 0;
 async function request(method = 'GET', body?: unknown, known?: Remote | null) {
+  if (Date.now() < retryAt) throw new Error('Cloud saving is waiting before retrying. Your browser data is unchanged.');
   const archiveHeaders: Record<string, string> = known?.archiveRevision === undefined ? {} : { 'X-Arkpedia-Archive-Owner': known.user.id, 'X-Arkpedia-Archive-Revision': String(known.archiveRevision) };
   const response = await fetch('/api/cloud-account', { method, credentials: 'same-origin', cache: 'no-store',
     headers: { ...archiveHeaders, ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
+  if (response.status === 429 || response.status >= 500) {
+    const delay = Number(response.headers.get('retry-after') || 60);
+    retryAt = Date.now() + Math.min(300, Math.max(1, Number.isFinite(delay) ? delay : 60)) * 1000;
+  } else retryAt = 0;
   const data = await response.json();
   if (data.archivesUnchanged) {
     if (!known || data.user?.id !== known.user.id || data.archiveRevision !== known.archiveRevision) throw new Error('Archive identity changed. Refresh your account.');

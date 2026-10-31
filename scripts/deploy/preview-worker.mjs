@@ -1,6 +1,7 @@
 // Keep OpenNext self-calls within the current native Preview. A service binding
 // would send revalidation to the live Worker instead.
 import { WorkerEntrypoint } from 'cloudflare:workers';
+import { protectPreviewRequest } from './preview-security.mjs';
 import app, { DOQueueHandler as OpenNextQueue } from '../../.open-next/worker.js';
 
 function isolatedEnv(env, ctx) {
@@ -21,6 +22,6 @@ export class DOQueueHandler extends OpenNextQueue {
 
 export default {
   fetch(request, env, ctx) {
-    return app.fetch(request, isolatedEnv(env, ctx), ctx);
+    return protectPreviewRequest(request, env, () => app.fetch(request, isolatedEnv(env, ctx), ctx));
   },
 };

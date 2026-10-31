@@ -396,3 +396,60 @@ test('signed-out account offers only configured providers', async ({ page }) => 
   await expect(page.getByRole('button', { name: 'Continue with Discord' })).toBeVisible();
   await expect(page.getByRole('checkbox')).toHaveCount(0);
 });
+
+for (const theme of ['dark', 'light']) {
+  test(`linking another provider asks for recent confirmation (${theme})`, async ({ page }, info) => {
+    await mockAccount(page); await seed(page,theme);
+    await page.route('**/api/auth/link-social',route=>route.fulfill({status:403,json:{code:'SESSION_NOT_FRESH',message:'Confirm your login'}}));
+    await page.goto('/account?settings=logins');
+    const settings=page.getByRole('dialog',{name:'Account settings'});
+    await settings.getByRole('button',{name:'Link Discord',exact:true}).click();
+    await expect(settings.getByRole('button',{name:'Confirm with Google'})).toBeVisible();
+    await expect(settings.getByRole('button',{name:'Confirm with Discord'})).toHaveCount(0);
+    await expect(settings.getByRole('alert')).toContainText('Confirm with an existing login');
+    await expect(settings.getByRole('button',{name:'Unlink Google'})).toBeDisabled();
+    await capture(page,`link-confirm-${theme}`,info);
+  });
+  test(`signing out other devices preserves this browser and requires confirmation (${theme})`, async ({ page }, info) => {
+    await mockAccount(page); await seed(page,theme);
+    let recent=false,revoked=0;
+    await page.route('**/api/auth/revoke-other-sessions',async route=>{
+      if(!recent)return route.fulfill({status:403,json:{code:'SESSION_NOT_FRESH',message:'Confirm your login'}});
+      revoked++; await route.fulfill({json:{status:true}});
+    });
+    await page.route('**/api/auth/sign-in/social',async route=>{
+      expect(route.request().postDataJSON()).toMatchObject({provider:'google',callbackURL:'/account?settings=logins'});
+      recent=true; await route.fulfill({json:{url:new URL('/account?settings=logins',route.request().url()).href,redirect:true}});
+    });
+    await page.goto('/account?settings=logins');
+    let settings=page.getByRole('dialog',{name:'Account settings'});
+    await settings.getByRole('button',{name:'Sign out other devices',exact:true}).focus();
+    await page.keyboard.press('Enter');
+    await expect(settings.getByRole('button',{name:'Confirm with Google'})).toBeVisible();
+    await Promise.all([page.waitForNavigation({waitUntil:'domcontentloaded'}),settings.getByRole('button',{name:'Confirm with Google'}).click()]);
+    settings=page.getByRole('dialog',{name:'Account settings'});
+    await settings.getByRole('button',{name:'Sign out other devices',exact:true}).click();
+    await expect(settings.getByRole('status')).toHaveText('Other devices signed out.');
+    expect(revoked).toBe(1);
+    expect(await page.evaluate(()=>localStorage.getItem('arkpediaYostarLogin'))).toContain('PRIVATE-YOSTAR-TOKEN');
+    await expect(settings.getByRole('button',{name:'Unlink Google'})).toBeDisabled();
+    await capture(page,`other-devices-${theme}`,info);
+  });
+}
+
+test('cloud throttling backs off without retrying writes or clearing local data',async({page})=>{
+  await mockAccount(page);await seed(page,'dark');
+  let reads=0;
+  await page.route('**/api/cloud-account',route=>{
+    reads++;return route.fulfill({status:429,headers:{'retry-after':'60'},json:{error:'Please wait before syncing.'}});
+  });
+  await page.clock.install();
+  await page.goto('/account');
+  await expect(page.getByRole('button',{name:'Retry sync',exact:true})).toBeVisible();
+  expect(reads).toBe(1);
+  await page.clock.fastForward(30000);
+  expect(reads).toBe(1);
+  await page.clock.fastForward(31000);
+  await expect.poll(()=>reads).toBe(2);
+  expect(await page.evaluate(()=>localStorage.getItem('arkpediaYostarLogin'))).toContain('PRIVATE-YOSTAR-TOKEN');
+});

@@ -90,3 +90,65 @@ Real OAuth/login/link/restore/delete acceptance on the exact candidate hostname,
 old/new clients and rollback safety remain required before production promotion.
 See [the promotion review](account-main-promotion-review.md) and
 [the migration plan](system-simplification-plan.md) for the remaining gates.
+
+## Preview hardening — 2026-11-01
+
+`server.ts` requires a session created within five minutes for `/link-social` and
+`/revoke-other-sessions`, checked against server-side session storage. The existing
+fresh-session requirements for unlinking/deletion remain. Account settings offers
+**Sign out other devices** and directs stale sessions to an already linked provider.
+A provider return does not automatically perform the requested sensitive action.
+
+Native Preview ingress rejects excessive account traffic before calling the app:
+6,000 requests/minute per Cloudflare location overall and 300/minute per individual
+Cloudflare-supplied IP. Cross-zone Worker requests share a Cloudflare IP and use only
+the aggregate cap. These Cloudflare limits are approximate and are not a global
+spending cap. Never trust a client-supplied forwarded IP to bypass the aggregate cap.
+Only Preview binds the dedicated `2026110101` and `2026110102` rate namespaces.
+
+Authenticated custom APIs additionally use atomic D1 limits across all locations
+and devices: 120 cloud reads, 60 cloud writes, 30 profile operations and 10 removals
+per account per minute. Removal has its own allowance. Counters are bounded to four
+rows per account and cascade on account deletion. Responses include `Retry-After`;
+cloud sync waits before retrying throttled/unavailable requests. Existing 15-second
+successful polling is unchanged; revision-only polling remains a cost improvement.
+
+Migration `0004_account_protection.sql` adds the counters and archive usage tracking.
+Archive growth is bounded to 64 game-account namespaces, 100,000 draws and 16 MiB of
+accounted row content (including a fixed per-row allowance), whichever is reached
+first. This is a payload quota, not total D1 disk usage including indexes. The
+900 KB snapshot/upload limits remain. Triggers maintain usage transactionally;
+quota failure rolls back the full save batch, including its revision. Re-importing
+known rows does not consume duplicate quota. Consent withdrawal/deletion reclaims
+space. Existing over-quota records survive migration unchanged; new growth is
+refused and the reader can export before deleting cloud data. No old migration is
+rerun and no existing identity, provider link or secret is replaced.
+
+Preview responses enforce a seven-day HSTS policy without `includeSubDomains` or
+preload, plus CSP restrictions on objects, framing, base URLs and form targets.
+Script restrictions are **report-only**, observed during browser QA; they are not
+an enforced XSS barrier yet. No CSP reports or reader URLs are sent to a third party.
+Do not enforce the script policy until inline bootstrap scripts and external players
+have been checked across the static/ISR site. The wrapper preserves `no-referrer`
+on auth endpoints, including after Next's shared headers.
+
+### Recovery and acceptance
+
+The Preview publication workflow verifies a D1 Time Travel bookmark before applying
+pending migrations to the fixed isolated Preview database, then publishes the same
+checked source. The bookmark stays in the runner's temporary recovery file; do not
+log account data or credentials. If recovery verification fails, migration and
+publication stop. Inspect the provider's current Time Travel retention before an
+incident; do not assume backups last forever.
+
+A code rollback may leave the additive schema in place. Do not restore the active
+database merely to roll back code: doing so can discard later saves. An intentional
+incident restore needs a chosen recovery point and preservation of subsequent data.
+Keep the auth encryption secret available; replacing it can invalidate sessions or
+make stored provider tokens unreadable. Do not copy Preview data into production.
+
+The SQLite/D1-adapter tests exercise limits, quota rollback, preservation of old data,
+session expiry/revocation and restoration of a synthetic database backup with its
+identities, provider links, session and saves. They do not prove a hosted restore
+or a real provider login. Complete Google/Discord round trips, link/unlink and
+cross-device restore/deletion on disposable accounts remain manual acceptance.

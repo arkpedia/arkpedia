@@ -47,6 +47,7 @@ export default function CloudAccountPanel({ onOpenData, hideSettingsButton = fal
   async function login(provider: 'google' | 'discord', mode: 'sign-in' | 'link' | 'delete' | 'confirm' = 'sign-in') {
     const body = { provider, callbackURL: mode === 'delete' ? '/account?confirm=delete' : mode === 'link' || mode === 'confirm' ? '/account?settings=logins' : '/account', errorCallbackURL: '/account?signin=failed' };
     const result = mode === 'link' ? await accountClient.linkSocial(body) : await accountClient.signIn.social(body);
+    if (result.error?.code === 'SESSION_NOT_FRESH') { setReauth(true); throw new Error('Confirm with an existing login, then try again.'); }
     if (result.error) throw new Error('Sign-in could not finish. Use your existing login first, then link another provider in Account settings.');
   }
   async function signOut() {
@@ -169,7 +170,15 @@ export default function CloudAccountPanel({ onOpenData, hideSettingsButton = fal
             {reauth && <div className={styles.actions}>{(['google', 'discord'] as const).filter(p => remote.linkedProviders?.includes(p)).map(provider =>
               <button type="button" className="ghost btn-sm" key={provider} disabled={working} onClick={() => void act(() => login(provider, 'confirm'))}><ProviderIcon provider={provider} />Confirm with {label(provider)}</button>)}</div>}
             <p className="hint">Keep at least one login connected. Signing out keeps this browser’s data.</p>
-            <div className={styles.actions}><button type="button" className="ghost btn-sm" disabled={working} onClick={() => void act(signOut)}>Sign out</button></div>
+            <div className={styles.actions}><button type="button" className="ghost btn-sm" disabled={working} onClick={() => void act(signOut)}>Sign out</button>
+              <button type="button" className="ghost btn-sm" disabled={working} onClick={() => void act(async () => {
+                const result = await accountClient.revokeOtherSessions();
+                if (result.error) {
+                  if (result.error.code === 'SESSION_NOT_FRESH') setReauth(true);
+                  throw new Error(result.error.code === 'SESSION_NOT_FRESH' ? 'Confirm with an existing login, then try again.' : 'Other devices could not be signed out. Try again.');
+                }
+                setReauth(false); setMessage('Other devices signed out.');
+              })}>Sign out other devices</button></div>
           </div>}
           {settings === 'data' && <div className={styles.form}>
             <div><h3>Cloud saves</h3><p>Clear your saved data and pause cloud saving. Keep your username and linked logins.</p><button type="button" className="danger" disabled={working} onClick={() => setConfirm('cloud')}>Delete cloud saves</button></div>
@@ -178,7 +187,7 @@ export default function CloudAccountPanel({ onOpenData, hideSettingsButton = fal
           </div>}
         </div>}
       </>}
-      {message && <p role={message === 'Profile saved.' ? 'status' : 'alert'} className="notice">{message}</p>}
+      {message && <p role={['Profile saved.', 'Other devices signed out.'].includes(message) ? 'status' : 'alert'} className="notice">{message}</p>}
     </ImportDialog>}
   </Container>;
 }

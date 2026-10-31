@@ -14,8 +14,10 @@ full source SHA. This does not change production traffic.
 with `wrangler deploy`. It binds `arkpedia-preview-cache`, an automatically
 isolated Durable Object namespace, and the separately approved
 `arkpedia-preview-accounts` database (`7d9cdfb2-2203-4708-bad5-f357d2c105b2`).
+Dedicated Preview rate-limit bindings protect account ingress before database work.
 There is no production database or service binding. The database is configured
-only under `previews.d1_databases`; its three account migrations have been applied.
+only under `previews.d1_databases`. The publication workflow verifies a recovery
+bookmark before applying pending additive account migrations to this exact database.
 The wrapper in `scripts/deploy/preview-worker.mjs` injects `ctx.exports.PreviewSelf`
 for both normal requests and queued revalidation. A normal service binding would
 call the live deployment from a native Preview.
