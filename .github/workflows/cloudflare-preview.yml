@@ -44,6 +44,8 @@ jobs:
           ARKPEDIA_WORKER: '1'
           ARKPEDIA_CONTENT_CHANNEL: live
           ARKPEDIA_DEPLOYMENT_ROLE: staging
+          # Match production: Node 24's default heap is too small for this typecheck.
+          NODE_OPTIONS: --max-old-space-size=4096
         run: node node_modules/@opennextjs/cloudflare/dist/cli/index.js build --config wrangler.preview.jsonc --openNextConfigPath open-next.preview.config.ts
       - name: Package immutable Preview
         run: |
