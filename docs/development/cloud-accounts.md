@@ -134,10 +134,10 @@ on auth endpoints, including after Next's shared headers.
 
 ### Recovery and acceptance
 
-The Preview publication workflow verifies a D1 Time Travel bookmark before applying
+The Preview publication workflow verifies a D1 Time Travel bookmark through its dedicated API endpoint before applying
 pending migrations to the fixed isolated Preview database, then publishes the same
 checked source. The bookmark stays in the runner's temporary recovery file; do not
-log account data or credentials. If recovery verification fails, migration and
+log account data or credentials. A temporary migration-only configuration exposes exactly the verified Preview binding to Wrangler, whose migration command does not read nested `previews` bindings. If recovery verification fails, migration and
 publication stop. Inspect the provider's current Time Travel retention before an
 incident; do not assume backups last forever.
 

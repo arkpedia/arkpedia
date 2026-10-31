@@ -1,4 +1,5 @@
 import test from 'node:test';
+import { verifyPreviewRecovery } from '../deploy/preview-account-recovery.mjs';
 import { protectPreviewRequest } from '../deploy/preview-security.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -49,9 +50,9 @@ test('publication only uses the native Preview command with fixed targets', () =
   assert.match(workflow, /wrangler\.js preview --config wrangler\.preview\.jsonc --worker-name arkpedia --name arkpedia/);
   assert.doesNotMatch(workflow, /wrangler\.js deploy|wrangler deploy/);
   assert.equal(config.main, 'scripts/deploy/preview-worker.mjs');
-  assert.match(workflow, /time-travel info 7d9cdfb2-2203-4708-bad5-f357d2c105b2/);
+  assert.match(workflow, /node scripts\/deploy\/preview-account-recovery\.mjs/);
   assert.match(workflow, /migrations apply 7d9cdfb2-2203-4708-bad5-f357d2c105b2/);
-  assert.ok(workflow.indexOf('time-travel info') < workflow.indexOf('migrations apply'));
+  assert.ok(workflow.indexOf('node scripts/deploy/preview-account-recovery.mjs') < workflow.indexOf('migrations apply'));
   assert.ok(workflow.indexOf('migrations apply') < workflow.indexOf('wrangler.js preview'));
 });
 
@@ -73,4 +74,23 @@ test('Preview limits account ingress before application work and fails closed wi
   env.ACCOUNT_TRAFFIC_LIMIT.limit=async()=>({success:false});
   assert.equal((await protectPreviewRequest(forwarded,env,run)).status,429);
   assert.equal(applicationCalls,1);
+});
+
+
+test('Preview recovery requires an actual bookmark and rejects other database targets before authorization', async () => {
+  let calls = 0;
+  const args = { config, accountId: '1ff51c10571eaa9934bc451e1bfdb361', token: 'test-only', fetcher: async (url, options) => {
+    calls++;
+    assert.equal(url, 'https://api.cloudflare.com/client/v4/accounts/1ff51c10571eaa9934bc451e1bfdb361/d1/database/7d9cdfb2-2203-4708-bad5-f357d2c105b2/time_travel/bookmark');
+    assert.equal(options.redirect, 'error');
+    return Response.json({ success: true, result: { bookmark: 'test-recovery-point' } });
+  } };
+  assert.equal((await verifyPreviewRecovery(args)).bookmark, 'test-recovery-point');
+  const wrong = structuredClone(config);
+  wrong.previews.d1_databases[0].database_id = 'another-database';
+  await assert.rejects(verifyPreviewRecovery({ ...args, config: wrong }));
+  await assert.rejects(verifyPreviewRecovery({ ...args, accountId: 'another-account' }));
+  assert.equal(calls, 1);
+  await assert.rejects(verifyPreviewRecovery({ ...args, fetcher: async () => Response.json({ success: true, result: {} }) }), /Missing Preview recovery/);
+  await assert.rejects(verifyPreviewRecovery({ ...args, fetcher: async () => new Response('private diagnostic', { status: 403 }) }), /HTTP 403/);
 });
