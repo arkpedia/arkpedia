@@ -51,7 +51,7 @@ test('publication only uses the native Preview command with fixed targets', () =
   assert.doesNotMatch(workflow, /wrangler\.js deploy|wrangler deploy/);
   assert.equal(config.main, 'scripts/deploy/preview-worker.mjs');
   assert.match(workflow, /node scripts\/deploy\/preview-account-recovery\.mjs/);
-  assert.match(workflow, /migrations apply 7d9cdfb2-2203-4708-bad5-f357d2c105b2/);
+  assert.match(workflow, /migrations apply arkpedia-preview-accounts/);
   assert.ok(workflow.indexOf('node scripts/deploy/preview-account-recovery.mjs') < workflow.indexOf('migrations apply'));
   assert.ok(workflow.indexOf('migrations apply') < workflow.indexOf('wrangler.js preview'));
 });

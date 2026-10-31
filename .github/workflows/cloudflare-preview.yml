@@ -98,7 +98,7 @@ jobs:
         run: |
           node scripts/deploy/native-preview.mjs check
           node scripts/deploy/preview-account-recovery.mjs
-          node node_modules/wrangler/bin/wrangler.js d1 migrations apply 7d9cdfb2-2203-4708-bad5-f357d2c105b2 --config "$RUNNER_TEMP/preview-accounts.json" --remote
+          node node_modules/wrangler/bin/wrangler.js d1 migrations apply arkpedia-preview-accounts --config "$RUNNER_TEMP/preview-accounts.json" --remote
       - name: Publish the native Preview only
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.ARKPEDIA_PRODUCTION_API_TOKEN || secrets.ARKPEDIA_PILOT_API_TOKEN }}
