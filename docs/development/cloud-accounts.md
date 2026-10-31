@@ -2,20 +2,18 @@
 
 Current deployment boundary and recommendation: [2026-10-30 cost/security review](account-cost-security-review.md). Accounts are Preview-only on the native Cloudflare staging deployment, with isolated account storage. The pilot and staging-disabled configuration descriptions below are historical migration notes; they are not instructions to re-enable the retired pilot or bind Preview to production data. The current `accountsEnv()` implementation and `AGENTS.md` own the deployment gate.
 
-The accepted account implementation uses Better Auth 1.7.12, Google/Discord and a
-native Cloudflare D1 binding. It is being integrated selectively into main from
-Cloudflare source `de829d1e`; this document does not claim a completed main release.
-Vercel and isolated staging have no account binding: APIs return private/no-store
-503 and browser-only imports, plans, backups and music remain available.
+The account implementation uses Better Auth 1.7.12, Google/Discord and a
+native Cloudflare D1 binding. Preview binds only `arkpedia-preview-accounts`
+(`7d9cdfb2-2203-4708-bad5-f357d2c105b2`) under `previews.d1_databases` in
+`wrangler.preview.jsonc`, with `https://preview.arkpedia.net` as the auth origin.
+Its existing account tables and provider secret names were verified on 2026-10-31;
+restoring the missing binding requires no new database, migration or secret rotation.
+Production rejects account APIs even when bindings and credentials are present.
+Browser-only imports, plans, backups and music remain available everywhere.
 
-The existing pilot is on `arkpedia-cf.mocchibird.com`. Its D1 migrations 001–003
-have already been applied. Do not reset that database or rerun its ALTER statements.
+The retired pilot used `arkpedia-cf.mocchibird.com`. Preserve its retained database,
+identities and secrets; never attach that database to Preview or copy its users.
 R2 page/audio caches never store account records or credentials.
-
-For PR #770, accounts stay on that pilot. Main integration does not enable accounts
-on `www.arkpedia.net` or move pilot users. No new D1 database, OAuth application,
-callback registration, secret or DNS change is required for this integration.
-Production hostname and database migration remain separate decisions.
 
 ## Saving and privacy
 
@@ -55,10 +53,10 @@ or committed files. `.dev.vars.example` lists local names without real credentia
 Register each exact `/api/auth/callback/google` and `/api/auth/callback/discord`
 URL with its provider. A different hostname's cookies do not transfer sessions.
 
-The main production Worker config and production D1 choice are separate reviewed
-hosting work. Do not add accounts to `wrangler.preview.jsonc`: it deliberately
-isolates writable resources and disables login. An authenticated alternate host
-needs its own reviewed role and noindex policy.
+Production accounts remain disabled. `wrangler.preview.jsonc` allows only the
+fixed isolated Preview database; the isolation checks reject any other database
+and any service binding. Keep the staging role and noindex policy. Publish only
+with the native Preview workflow, never `wrangler deploy` with this config.
 
 For a reviewed account-enabled configuration with an empty D1 array, the helper
 prepares only its non-secret binding and origin:

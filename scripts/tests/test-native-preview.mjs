@@ -3,14 +3,16 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const config = JSON.parse(readFileSync('wrangler.preview.jsonc', 'utf8').replace(/^\/\/.*$/gm, ''));
-test('native Preview binds isolated cache and queue, without production services or accounts', () => {
+test('native Preview binds its own account database, cache and queue without production services', () => {
   assert.equal(config.name, 'arkpedia');
   assert.equal(config.previews.vars.ARKPEDIA_DEPLOYMENT_ROLE, 'staging');
+  assert.equal(config.previews.vars.ARKPEDIA_AUTH_URL, 'https://preview.arkpedia.net');
+  assert.deepEqual(config.previews.d1_databases, [{binding:'ARKPEDIA_ACCOUNTS_DB',database_name:'arkpedia-preview-accounts',database_id:'7d9cdfb2-2203-4708-bad5-f357d2c105b2',migrations_dir:'migrations/accounts'}]);
   assert.deepEqual(config.previews.r2_buckets, [{ binding: 'NEXT_INC_CACHE_R2_BUCKET', bucket_name: 'arkpedia-preview-cache' }]);
   assert.deepEqual(config.previews.durable_objects.bindings, [{ name: 'NEXT_CACHE_DO_QUEUE', class_name: 'DOQueueHandler' }]);
   for (const key of ['services', 'd1_databases', 'routes', 'queues', 'env']) {
     assert.equal(config[key], undefined);
-    assert.equal(config.previews[key], undefined);
+    if (key !== 'd1_databases') assert.equal(config.previews[key], undefined);
   }
 });
 test('requests, explicit revalidation and queued revalidation self-call the same Preview', async () => {

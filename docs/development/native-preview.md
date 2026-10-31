@@ -12,7 +12,7 @@ full source SHA. This does not change production traffic.
 
 `wrangler.preview.jsonc` is exclusively for `wrangler preview`; never deploy it
 with `wrangler deploy`. It binds `arkpedia-preview-cache`, an automatically
-isolated Durable Object namespace, and the separately approved empty
+isolated Durable Object namespace, and the separately approved
 `arkpedia-preview-accounts` database (`7d9cdfb2-2203-4708-bad5-f357d2c105b2`).
 There is no production database or service binding. The database is configured
 only under `previews.d1_databases`; its three account migrations have been applied.
@@ -27,12 +27,13 @@ Account credentials are configured separately for Preview.
 
 Google/Discord accounts, profiles and cloud saves are Preview-only features.
 The isolated database, new session secret and Google/Discord client IDs are
-configured on Preview. Both providers retain only their respective
+configured on Preview. The required provider callbacks are
 `https://preview.arkpedia.net/api/auth/callback/google` and
-`https://preview.arkpedia.net/api/auth/callback/discord` callbacks. Login remains
-unavailable until the owner enters `GOOGLE_CLIENT_SECRET` and
-`DISCORD_CLIENT_SECRET` directly into native Preview secrets. Do not paste these
-values into issues or copy live account data. Do not proxy Preview account APIs
+`https://preview.arkpedia.net/api/auth/callback/discord` callbacks. On 2026-10-31, read-only inspection confirmed both provider secrets
+are present and the isolated account tables already exist. The Preview configuration
+restores the missing D1 binding and auth origin alongside the base optimizer.
+Secret presence does not establish completed provider sign-in acceptance. Do not
+paste secret values into issues or copy live account data. Do not proxy Preview account APIs
 into the live Worker/database. The edge forwards account cookies only to the
 fixed isolated native Preview upstream and marks responses private/no-store.
 
