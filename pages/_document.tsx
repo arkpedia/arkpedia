@@ -2,6 +2,7 @@ import { Html, Head, Main, NextScript } from 'next/document';
 import { COMPANION_PAGE } from '@/lib/gamemodes/companionRoute';
 import { THEME_COLOR } from '@/lib/nav/themeColor';
 import { assetRetryScript } from '@/lib/assets/assetRetry';
+import { pageAssetRecoveryScript } from '@/lib/assets/pageAssetRecovery';
 import { ACCOUNT_STORAGE_KEY } from '@/lib/account/accountStore';
 import { SITE_SERVER_KEY } from '@/lib/time/siteServer';
 
@@ -9,6 +10,7 @@ export default function Document() {
   return (
     <Html lang="en">
       <Head>
+        <script dangerouslySetInnerHTML={{ __html: pageAssetRecoveryScript() }} />
         {/* The webfonts are not linked here: pages/_app.tsx imports them, self-hosted. */}
         {/* Matches --bg, the page's own ground: browser chrome (mobile URL bar, PWA
             title bar) continues the page instead of drawing a band of a colour no
