@@ -1,7 +1,5 @@
 import { useRegionalTime } from '@/lib/time/useRegionalTime';
 import { SITE_DESCRIPTION } from '@/lib/seo/site';
-import PageAudio from '@/components/music/PageAudio';
-import { HOME_MUSIC_CID } from '@/lib/music/pageMusic';
 import PageMeta from '@/components/layout/PageMeta';
 import { regionalBanners, regionalGameEvents, regionalScheduleSlice, regionalSkinWindows, stripRegionalTimingSources } from '@/lib/time/regional';
 import { useReaderClock } from '@/lib/time/readerClock';
@@ -138,7 +136,6 @@ export default function HomePage({
         <h1 className="visually-hidden">Arkpedia — Arknights community hub</h1>
         <MaintenanceNotice maintenance={maintenance} now={now} />
         <div className="front-page-left">
-          <PageAudio musicId={HOME_MUSIC_CID} pageKey="home" />
           <EventsPanel ongoing={deserializedEvents} upcoming={deserializedUpcoming} farmableMaterials={farmableMaterials} now={now} />
           <SkinsCarousel skins={ongoingSkins} />
           {/* A "Packs -- Coming soon" panel stood here. Placeholders stay hidden until
