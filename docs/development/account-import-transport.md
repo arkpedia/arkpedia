@@ -140,6 +140,16 @@ cooldown. Any uncertain/authentication response invalidates the session; there i
 no automatic retry or relogin. These limits are precautionary, not a confirmed
 Yostar-approved quota; they cannot coordinate unrelated users/devices.
 
+A bounded replay document with an unsupported journal, squad/action list or
+mismatched stage ID is skipped during a bulk run, so later stages can still save.
+The result counts skipped records and lists their stage IDs and bounded validation
+reasons. It never calls the entire archive up to date when records were skipped.
+No rejected payload or new fingerprint is checkpointed/uploaded; an existing copy
+is preserved, and a later explicit sync retries the stage. A single-stage refresh
+stops with the requested stage and precise reason. ZIP/decompression/size errors,
+private fields, transport/authentication/rate failures, storage errors and cloud
+conflicts still stop the run. A skip consumes one of the 200 paced batch slots.
+
 IndexedDB checkpoints successful replays by server, game UID and stage. Fingerprints
 use hasBattleReplay/start/completion/practice counters and state. A login-only
 sample left the metadata unchanged; changing one known stage changed only that
@@ -178,9 +188,10 @@ These are JSON replay records, not executable files. Browser **Forget everything
 clears this IndexedDB store as well as the existing browser stores. Standard browser
 backup files do not include it; **Export auto-deploys** downloads it separately.
 
-Tests use synthetic responses and isolated databases. A physical account's replay
-payload and special-stage endpoint coverage still require separate acceptance;
-metadata-only capture does not establish those paths.
+Tests use synthetic responses and isolated databases. The maintainer's exported
+0-1 replay passed document/hash validation and the single-stage UI reported a
+successful refresh with cloud saving enabled. Bulk format and special-stage
+coverage remain unverified; metadata-only capture does not establish those paths.
 
 
 ### Preview relay hostname

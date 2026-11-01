@@ -633,6 +633,28 @@ async function stubAutoDeploys(page: Page, firstReplay = zip64Fixture.encoded) {
 }
 const replayRequests=(page:Page)=>page.evaluate(()=>((window as unknown as {__replayTest:{requests:{stage:string;seq:string;at:number}[]}}).__replayTest.requests));
 
+test('auto-deploy bulk skips a mismatched stage, saves later stages and explains the skipped replay',async({page},info)=>{
+  const {zipSync,strToU8}=await import('fflate');
+  const wrong=JSON.stringify({journal:{metadata:{stageId:'main_00-03'},squad:[],logs:[]}});
+  await stubAutoDeploys(page,Buffer.from(zipSync({default_entry:strToU8(wrong)})).toString('base64'));
+  const dialog=await openImport(page);await signIn(page);
+  const panel=dialog.getByRole('region',{name:'Auto-deploy sync'});
+  await panel.getByRole('button',{name:'Sync auto-deploys',exact:true}).click();
+  await expect(panel.getByRole('status')).toContainText('1 skipped. Other auto-deploys are up to date.',{timeout:20000});
+  await expect(panel.getByText('2 available · 1 saved in this browser')).toBeVisible();
+  expect((await replayRequests(page)).map(r=>r.stage)).toEqual(['main_00-01','main_00-02']);
+  const summary=panel.getByText('Skipped stages (1)',{exact:true});
+  await summary.focus();await page.keyboard.press('Enter');
+  await expect(panel.getByText('Replay belongs to main_00-03, not the requested stage.',{exact:false})).toBeVisible();
+  await summary.scrollIntoViewIfNeeded();await page.screenshot({path:info.outputPath('auto-deploy-skipped.png')});
+  await summary.press('Enter');await expect(panel.getByText('These replays were not saved.',{exact:false})).not.toBeVisible();
+  await panel.getByText('Refresh one stage',{exact:true}).click();
+  await panel.getByLabel('Auto-deploy stage ID').fill('main_00-01');
+  await panel.getByRole('button',{name:'Refresh auto-deploy',exact:true}).click();
+  await expect(panel.getByRole('status')).toContainText('main_00-01: Replay belongs to main_00-03',{timeout:15000});
+  await expect(panel.getByText('2 available · 1 saved in this browser')).toBeVisible();
+});
+
 for (const failure of ['missing', 'oversized'] as const) {
   test(`auto-deploy ${failure} archive stops the queue with a precise error and keeps the login`, async ({page}, info) => {
     const {zipSync, strToU8} = await import('fflate');

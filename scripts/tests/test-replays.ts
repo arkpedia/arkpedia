@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { Zip, ZipDeflate, zipSync,strToU8 } from 'fflate';
 import { createReplaySession, ReplayRequestError } from '../../lib/account-import/yostar';
-import { decodeReplay,stageMarkers,namespaceFor,needsReplay,replayHash,validateReplay,type ReplayRecord } from '../../lib/replays/model';
+import { decodeReplay,stageMarkers,namespaceFor,needsReplay,replayHash,validateReplay,ReplayValidationError,type ReplayRecord } from '../../lib/replays/model';
 import { syncReplays,type QueueOptions } from '../../lib/replays/queue';
 import zip64Fixture from '../../tests/fixtures/replay-zip64.json';
 const stage='main_00-01';
@@ -20,6 +20,19 @@ test('archive validation accepts only the requested replay and rejects credentia
   assert.throws(()=>decodeReplay(encoded(),'main_00-02'));
   assert.throws(()=>validateReplay(JSON.stringify({...JSON.parse(payload),token:'not-allowed'}),stage));
   assert.throws(()=>decodeReplay(encoded(JSON.stringify({...JSON.parse(payload),padding:'x'.repeat(600_000)})),stage));
+});
+test('replay validation distinguishes stage identity from missing document sections without echoing raw data',()=>{
+  for(const [value,message] of [
+    ['private malformed payload',/not valid JSON/],
+    [{},/readable journal/],
+    [{journal:{}},/stage metadata/],
+    [{journal:{metadata:{stageId:'private@example.invalid'}}},/valid stage ID/],
+    [{journal:{metadata:{stageId:'main_00-02'},squad:[],logs:[]}},/belongs to main_00-02/],
+    [{journal:{metadata:{stageId:stage},squad:null,logs:[]}},/squad list/],
+    [{journal:{metadata:{stageId:stage},squad:[],logs:null}},/action list/],
+  ] as const){
+    assert.throws(()=>validateReplay(typeof value==='string'?value:JSON.stringify(value),stage),e=>e instanceof ReplayValidationError&&message.test(e.message)&&!e.message.includes('private'));
+  }
 });
 test('ZIP64 per-entry sizes work without a ZIP64 archive end record', () => {
   assert.equal(decodeReplay(zip64Fixture.encoded, stage), validateReplay(payload, stage));
@@ -71,6 +84,33 @@ test('successful durable checkpoints skip unchanged stages and fetch only a chan
   const s=setup();await syncReplays(s.options);await syncReplays(s.options);assert.equal(s.fetched(),1);assert.deepEqual(s.waits,[3000]);
   s.options.markers=markers(2);await syncReplays(s.options);assert.equal(s.fetched(),2);
   s.options.markers=markers(2,0);await syncReplays(s.options);assert.equal(s.records.size,0);
+});
+test('bulk skips unsupported stage documents without overwriting copies and saves later stages to browser and cloud',async()=>{
+  const s=setup();await syncReplays(s.options);
+  const original=s.records.get(stage)!;
+  const second='main_00-02',requests:string[]=[],uploads:string[]=[];
+  s.options.markers=[...markers(2),{...markers()[0],stageId:second}];
+  s.options.session.readReplay=async id=>{requests.push(id);return encoded(payload.replaceAll(stage,second));};
+  s.options.cloud={manifest:async()=>[original],read:async()=>{throw Error('unexpected read');},save:async r=>{uploads.push(r.stageId);},mark:async()=>{throw Error('must not acknowledge rejected replay');},remove:async()=>{throw Error('must not delete');}};
+  const result=await syncReplays(s.options);
+  assert.deepEqual(requests,[stage,second]);assert.deepEqual(uploads,[second]);
+  assert.equal(s.records.get(stage),original);assert.ok(s.records.has(second));
+  assert.equal(result.checked,2);assert.equal(result.fetched,1);assert.equal(result.remaining,0);
+  assert.deepEqual(result.skipped,[{stageId:stage,reason:'Replay belongs to main_00-02, not the requested stage.'}]);
+  assert.match(result.message,/1 skipped/);assert.doesNotMatch(result.message,/^Auto-deploys are up to date/);
+  // Rejected stages retain their old marker, so a later explicit sync retries them.
+  s.options.cloud=undefined;await syncReplays(s.options);assert.deepEqual(requests,[stage,second,stage]);
+});
+test('single-stage invalid documents identify the stage and transport/privacy failures still stop bulk sync',async()=>{
+  const s=setup();s.options.forceStage=stage;s.options.session.readReplay=async()=>encoded(payload.replaceAll(stage,'main_00-02'));
+  await assert.rejects(syncReplays(s.options),e=>e instanceof ReplayValidationError&&e.message.startsWith(`${stage}:`));
+  assert.equal(s.records.size,0);
+  for(const failure of ['transport','privacy'] as const){
+    const t=setup();let calls=0;
+    t.options.markers.push({...markers()[0],stageId:'main_00-02'});
+    t.options.session.readReplay=async()=>{calls++;if(failure==='transport')throw new ReplayRequestError('Connection stopped');return encoded(JSON.stringify({...JSON.parse(payload),token:'private-value'}));};
+    await assert.rejects(syncReplays(t.options));assert.equal(calls,1);assert.equal(t.records.size,0);
+  }
 });
 test('pause after a response cannot checkpoint or upload; failed storage is retryable',async()=>{
   const s=setup(),abort=new AbortController();s.options.signal=abort.signal;

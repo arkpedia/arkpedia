@@ -8,6 +8,8 @@ export const STAGE_ID = /^[a-zA-Z0-9_-]{1,100}$/;
 export interface StageMarker { stageId: string; fingerprint: string; hasReplay: boolean }
 export interface ReplayRecord { namespace: string; stageId: string; fingerprint: string; hash: string; payload: string; savedAt: number }
 export type ReplayManifest = Pick<ReplayRecord, 'stageId' | 'fingerprint' | 'hash'>;
+/** A bounded replay document was read, but cannot safely be stored for this stage. */
+export class ReplayValidationError extends Error {}
 export function namespaceFor(server: ServerId, uid: string): string {
   if (!isServerId(server) || !/^\d{1,24}$/.test(uid)) throw new Error('Game account identity is missing.');
   return `${server}:${uid}`;
@@ -35,9 +37,15 @@ function clean(value: unknown, depth = 0): unknown {
 }
 export function validateReplay(payload: string, stageId: string): string {
   if (!STAGE_ID.test(stageId) || new TextEncoder().encode(payload).length > MAX_REPLAY_BYTES) throw new Error('Auto-deploy is too large or has an invalid stage.');
-  const value: unknown = JSON.parse(payload);
-  if (!object(value) || !object(value.journal) || !object(value.journal.metadata) || value.journal.metadata.stageId !== stageId
-    || !Array.isArray(value.journal.squad) || !Array.isArray(value.journal.logs)) throw new Error('Auto-deploy does not match the requested stage.');
+  let value: unknown;
+  try { value = JSON.parse(payload); } catch { throw new ReplayValidationError('Replay document is not valid JSON.'); }
+  if (!object(value) || !object(value.journal)) throw new ReplayValidationError('Replay has no readable journal.');
+  if (!object(value.journal.metadata)) throw new ReplayValidationError('Replay has no stage metadata.');
+  const actual = value.journal.metadata.stageId;
+  if (typeof actual !== 'string' || !STAGE_ID.test(actual)) throw new ReplayValidationError('Replay has no valid stage ID.');
+  if (actual !== stageId) throw new ReplayValidationError(`Replay belongs to ${actual}, not the requested stage.`);
+  if (!Array.isArray(value.journal.squad)) throw new ReplayValidationError('Replay has no readable squad list.');
+  if (!Array.isArray(value.journal.logs)) throw new ReplayValidationError('Replay has no readable action list.');
   // Only the replay document, never its enclosing authenticated response.
   const result = JSON.stringify(clean(value));
   if (new TextEncoder().encode(result).length > MAX_REPLAY_BYTES) throw new Error('Auto-deploy is too large.');

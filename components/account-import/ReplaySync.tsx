@@ -4,7 +4,7 @@ import { useCloudSync } from '@/lib/cloud-account/SyncProvider';
 import type { ReplaySession, ServerId } from '@/lib/account-import/yostar';
 import { namespaceFor, type StageMarker } from '@/lib/replays/model';
 import { readReplays, saveReplay, removeReplay } from '@/lib/replays/store';
-import { BATCH_LIMIT, cooldownKey, REPLAY_LOCK, replayRetrySeconds, syncReplays } from '@/lib/replays/queue';
+import { BATCH_LIMIT, cooldownKey, REPLAY_LOCK, replayRetrySeconds, syncReplays, type ReplayIssue } from '@/lib/replays/queue';
 import { replayCloud } from '@/lib/replays/cloud';
 import { downloadBlob } from '@/lib/ui/downloadBlob';
 import { isResettingBrowserData } from '@/lib/account/resetData';
@@ -13,11 +13,12 @@ export interface ReplayImport { session:ReplaySession; markers:StageMarker[]; se
 export default function ReplaySync({ imported, busy, onBusy }: {imported:ReplayImport|null;busy:boolean;onBusy:(value:boolean)=>void}) {
   const sync=useCloudSync(),latest=useRef(sync);latest.current=sync;
   const [cloud,setCloud]=useState(false),[running,setRunning]=useState(false),[message,setMessage]=useState(''),[count,setCount]=useState(0),[refreshStage,setRefreshStage]=useState('');
+  const [issues,setIssues]=useState<ReplayIssue[]>([]);
   const active=useRef<AbortController|null>(null),mounted=useRef(true);
   const namespace=imported?namespaceFor(imported.server,imported.session.uid):null;
   const eligible=sync.status==='ready'&&sync.remote?.syncReviewed&&sync.remote.gameSync&&!sync.remote.paused;
   useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;active.current?.abort();};},[]);
-  useEffect(()=>{active.current?.abort();setMessage('');setRefreshStage('');if(namespace)void readReplays(namespace).then(rows=>{if(mounted.current)setCount(rows.length);},()=>setMessage('This browser could not open auto-deploy storage.'));},[namespace,imported]);
+  useEffect(()=>{active.current?.abort();setMessage('');setIssues([]);setRefreshStage('');if(namespace)void readReplays(namespace).then(rows=>{if(mounted.current)setCount(rows.length);},()=>setMessage('This browser could not open auto-deploy storage.'));},[namespace,imported]);
   useEffect(()=>{if(!eligible){setCloud(false);active.current?.abort();}},[eligible,sync.remote?.user.id]);
   useEffect(()=>{const pause=()=>active.current?.abort();const changed=(event:StorageEvent)=>{if(event.key==='arkpedia:replays-stop'||event.key===null)pause();};window.addEventListener('storage',changed);window.addEventListener('arkpedia:replays-stop',pause);window.addEventListener('pagehide',pause);window.addEventListener('arkpedia:reset-data',pause);return()=>{window.removeEventListener('storage',changed);window.removeEventListener('arkpedia:replays-stop',pause);window.removeEventListener('pagehide',pause);window.removeEventListener('arkpedia:reset-data',pause);};},[]);
   async function run(){
@@ -29,14 +30,14 @@ export default function ReplaySync({ imported, busy, onBusy }: {imported:ReplayI
     const owner=cloud&&eligible?sync.remote!.user.id:null;
     const selected=refreshStage.trim();
     if(selected&&!imported.markers.some(m=>m.stageId===selected&&m.hasReplay)){setMessage('Choose a stage ID with a saved auto-deploy, for example main_00-01.');return;}
-    setRunning(true);onBusy(true);setMessage('Preparing auto-deploys…');
+    setRunning(true);onBusy(true);setIssues([]);setMessage('Preparing auto-deploys…');
     try{
       await navigator.locks.request(REPLAY_LOCK,{ifAvailable:true},async lock=>{
         if(!lock)throw new Error('Another tab is importing game data. Wait for it to finish.');
         await syncReplays({namespace,markers:imported.markers,session:imported.session,signal:controller.signal,
           store:{read:readReplays,save:saveReplay,remove:removeReplay},...(owner?{cloud:replayCloud(owner,namespace)}:{}),forceStage:selected||undefined,
           check:()=>{if(isResettingBrowserData())throw new DOMException('Paused','AbortError');if(owner&&(latest.current.status!=='ready'||latest.current.remote?.user.id!==owner||!latest.current.remote.gameSync||latest.current.remote.paused))throw new Error('Account saving changed. Auto-deploy sync paused.');},
-          progress:p=>{if(mounted.current)setMessage(p.message);},
+          progress:p=>{if(mounted.current){setMessage(p.message);setIssues(p.skipped);}},
         });
       });
     }catch(error){
@@ -63,5 +64,9 @@ export default function ReplaySync({ imported, busy, onBusy }: {imported:ReplayI
     </div>
     <details><summary>Refresh one stage</summary><label>Stage ID<input type="text" aria-label="Auto-deploy stage ID" value={refreshStage} onChange={e=>setRefreshStage(e.target.value)} placeholder="main_00-01" disabled={running||busy}/></label><p className="hint">Leave empty to check all stages.</p></details>
     {message&&<p className="hint" role="status">{message}</p>}
+    {issues.length>0&&<details><summary>Skipped stages ({issues.length})</summary>
+      <p className="hint">These replays were not saved. Existing copies are unchanged. Sync retries them; use Refresh one stage to check one.</p>
+      <ul>{issues.map(issue=><li key={issue.stageId}><strong>{issue.stageId}</strong>: {issue.reason}</li>)}</ul>
+    </details>}
   </section>;
 }

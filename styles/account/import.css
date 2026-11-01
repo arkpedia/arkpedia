@@ -69,4 +69,6 @@
 /* Optional auto-deploy controls reuse the dialog's controls and paint. */
 .replay-sync { display: grid; gap: 8px; margin-block: 12px; }
 .replay-sync p { margin: 0; }
+.replay-sync li { overflow-wrap: anywhere; }
+.replay-sync details > .hint { margin-top: 6px; }
 .replay-sync details > label { display: grid; gap: 6px; }
