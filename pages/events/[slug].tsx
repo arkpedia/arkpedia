@@ -789,6 +789,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
     },
   };
 }, {
+  tables: { 'page-music': async () => (await import('@/lib/music/pageMusicServer')).pageMusicTable() },
   // A release exported before reward totals carried their order: this deployment's catalogue fills it in.
   // One exported before the News tab's official art has none: no board items, no pictures.
   // Each page keeps only its own event's and banner's regional windows (regionalScheduleSlice).
