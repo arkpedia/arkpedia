@@ -21,24 +21,50 @@ export default function AccountActions({ children }: { children: ReactNode }) {
   const [error, setError] = useState('');
   const [attempt, setAttempt] = useState(0);
   const opener = useRef<HTMLElement | null>(null);
-  const [settingsWasRemote, setSettingsWasRemote] = useState(false);
-  const [settingsTab, setSettingsTab] = useState<'profile' | 'saving'>('profile');
+  const [settingsTab, setSettingsTab] = useState<'profile' | 'saving' | 'logins' | 'data'>('profile');
+  const [onboarding, setOnboarding] = useState(false);
   const setupOwner = useRef<string | null>(null);
   const tables = useContext(ContentTablesContext), release = useContext(ContentContext);
   const sync = useCloudSync(), router = useRouter();
+  const onboardingKey = 'arkpedia:account-onboarding';
+  const requested = router.query.confirm === 'delete' ? 'data' :
+    ['profile', 'saving', 'logins'].includes(String(router.query.settings)) ? String(router.query.settings) :
+    router.query.account === 'welcome' || router.query.signin === 'failed' ? 'profile' : '';
+  useEffect(() => {
+    if (!router.isReady || !requested) return;
+    setSettingsTab(requested as typeof settingsTab); setAction('settings');
+  }, [router.isReady, router.pathname, requested]);
   useEffect(() => {
     const remote = sync.remote;
     if (!remote) { setupOwner.current = null; return; }
-    if (!remote.profile) { setupOwner.current = remote.user.id; return; }
-    if (setupOwner.current !== remote.user.id) { setupOwner.current = null; return; }
-    // Finish any save conflict first. Only a completed setup opens this prompt;
-    // returning sign-ins, provider linking and routine syncs keep their own flow.
+    if (!remote.profile) {
+      if (setupOwner.current === remote.user.id) return;
+      setupOwner.current = remote.user.id;
+      try { sessionStorage.setItem(onboardingKey, remote.user.id); } catch { /* The current visit can still finish setup. */ }
+      setOnboarding(false); setSettingsTab('profile'); setAction('settings'); return;
+    }
+    let pending = setupOwner.current;
+    try { pending = sessionStorage.getItem(onboardingKey); } catch { /* Use this visit's marker. */ }
+    if (pending !== remote.user.id) return;
+    // Keep the save choice in the same popup before advancing to saving preferences.
     if (sync.status !== 'ready' && sync.status !== 'paused') return;
-    setupOwner.current = null;
-    setSettingsTab('saving'); setSettingsWasRemote(true); setAction('settings');
+    setOnboarding(true); setSettingsTab('saving'); setAction('settings');
   }, [sync.remote, sync.status]);
-  const close = () => { setAction(null); requestAnimationFrame(() => { if (opener.current?.isConnected) opener.current.focus({ preventScroll: true }); }); };
-  useEffect(() => { const dismiss = () => setAction(null); router.events.on('routeChangeStart', dismiss); return () => router.events.off('routeChangeStart', dismiss); }, [router.events]);
+  const close = () => {
+    if (onboarding && sync.remote?.profile) {
+      try { sessionStorage.removeItem(onboardingKey); } catch { /* No persistent marker to clear. */ }
+      setupOwner.current = null;
+    }
+    setAction(null); setOnboarding(false);
+    const query = { ...router.query };
+    for (const key of ['account', 'settings', 'confirm', 'signin']) delete query[key];
+    if (requested) void router.replace({ pathname: router.pathname, query, hash: router.asPath.split('#')[1] ?? '' }, undefined, { shallow: true, scroll: false });
+    requestAnimationFrame(() => { if (opener.current?.isConnected) opener.current.focus({ preventScroll: true }); });
+  };
+  useEffect(() => {
+    const dismiss = (_url: string, { shallow }: { shallow: boolean }) => { if (!shallow) setAction(null); };
+    router.events.on('routeChangeStart', dismiss); return () => router.events.off('routeChangeStart', dismiss);
+  }, [router.events]);
   const localTables = ['game-account-map', 'import-aliases', 'material-catalogue'].every(name => tables[name] != null);
   useEffect(() => {
     if (action !== 'import' || localTables || loaded) return;
@@ -60,9 +86,11 @@ export default function AccountActions({ children }: { children: ReactNode }) {
     const active = document.activeElement as HTMLElement | null;
     const menu = active?.closest('.action-popover');
     opener.current = menu ? [...document.querySelectorAll<HTMLElement>('[aria-controls]')].find(element => element.getAttribute('aria-controls') === menu.id) ?? active : active;
-    setError(''); setSettingsTab('profile'); setSettingsWasRemote(!!sync.remote); setAction(value); } }}>
+    setError(''); setSettingsTab(onboarding ? 'saving' : 'profile'); setAction(value); } }}>
     {children}
     {action === 'import' && (localTables || loaded ? <ContentContext.Provider value={localTables ? release : loaded!.release}><ContentTablesContext.Provider value={localTables ? tables : loaded!.tables}><DataDialog onClose={close} /></ContentTablesContext.Provider></ContentContext.Provider> : <ImportDialog title="Import / export" onClose={close}><p role={error ? 'alert' : 'status'}>{error || 'Loading import tools…'}</p>{error && <button type="button" onClick={() => setAttempt(value => value + 1)}>Retry</button>}</ImportDialog>)}
-    {action === 'settings' && (sync.remote ? <CloudAccountPanel key={settingsTab} settingsOnly initialSettings={settingsTab} pictureContent={avatar} onSettingsClose={close} onOpenData={() => setAction('import')} /> : settingsWasRemote ? null : <ImportDialog title="Account settings" onClose={close}>{avatar}<CloudAccountPanel /></ImportDialog>)}
+    {action === 'settings' && (sync.status === 'unavailable'
+      ? <ImportDialog title="Account settings" onClose={close}>{avatar}</ImportDialog>
+      : <CloudAccountPanel key={`${settingsTab}:${onboarding}`} settingsOnly initialSettings={settingsTab} onboarding={onboarding} pictureContent={avatar} onSettingsClose={close} onOpenData={() => { close(); setAction('import'); }} />)}
   </Context.Provider>;
 }

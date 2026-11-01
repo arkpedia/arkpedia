@@ -5,8 +5,8 @@ import { SERVER_IDS, SERVERS, type ServerId } from '@/lib/account-import/yostar'
 import StyledSelect from '@/components/ui/StyledSelect';
 import styles from './CloudAccountPanel.module.css';
 
-export default function AccountProfileForm({ owner, profile, onSaved, onCancel, gameSync = false, paused = false, id = 'setup' }: {
-  owner: string; profile: AccountProfile | null; onSaved: () => Promise<void>; onCancel?: () => void; gameSync?: boolean; paused?: boolean; id?: string;
+export default function AccountProfileForm({ owner, profile, onSaved, onCancel, gameSync = false, paused = false, id = 'setup', onboarding = false }: {
+  owner: string; profile: AccountProfile | null; onSaved: () => Promise<void>; onCancel?: () => void; gameSync?: boolean; paused?: boolean; id?: string; onboarding?: boolean;
 }) {
   const imported = useAccount();
   const [username, setUsername] = useState(profile?.username ?? '');
@@ -48,7 +48,7 @@ export default function AccountProfileForm({ owner, profile, onSaved, onCancel, 
     finally { setSaving(false); }
   }
   return <form className={styles.form} onSubmit={event => void submit(event)}>
-    {!profile && <><h3>Choose your Arkpedia username</h3><p>Your Google or Discord name won’t be used. Your existing logins and saves stay with this account.</p></>}
+    {!profile && <><h3>Choose your Arkpedia username</h3><p>{onboarding ? "Your Google or Discord name stays private. You can add a profile picture and friend tag later." : "Your Google or Discord name won’t be used. Your existing logins and saves stay with this account."}</p></>}
     <label htmlFor={`${id}-username`}>Arkpedia username</label>
     <input type="text" id={`${id}-username`} autoComplete="username" value={username} maxLength={80} required disabled={saving}
       placeholder="Doctor#1234 or a name of your choice" aria-describedby={`${id}-username-hint ${id}-availability`}
@@ -59,7 +59,7 @@ export default function AccountProfileForm({ owner, profile, onSaved, onCancel, 
       <span>Use your imported Doctor name?</span>
       <button type="button" className="ghost btn-sm" disabled={saving} onClick={() => setUsername(imported.doctor!)}>Use {imported.doctor}</button>
     </div>}
-    <details open={!!profile?.friendTag}>
+    {!onboarding && <details open={!!profile?.friendTag}>
       <summary>Arknights friend tag (optional)</summary>
       <div className={styles.form}>
         <p className="hint">Keep your in-game name and server separately for friend sharing. This is private and does not verify game-account ownership.</p>
@@ -70,13 +70,14 @@ export default function AccountProfileForm({ owner, profile, onSaved, onCancel, 
         {imported?.doctor && <button type="button" className="ghost btn-sm" disabled={saving}
           onClick={() => { setFriendTag(imported.doctor!); setServer(imported.server); }}>Use imported friend tag</button>}
       </div>
-    </details>
-    {!profile && <p className="hint">{paused ? 'Cloud saving is paused. Choosing a username will not resume it.' : gameSync
+    </details>}
+    {!profile && !onboarding && <p className="hint">{paused ? 'Cloud saving is paused. Choosing a username will not resume it.' : gameSync
       ? 'Your existing saving choices are kept. Control personal data, pull history and imported game snapshots separately in Account settings → Saving.'
       : 'Personal settings and plans save by default. Pull history and imported game snapshots each need a separate opt-in under Account settings → Saving.'}</p>}
+    {!profile && onboarding && <p className="hint">{paused ? 'Cloud saving stays paused.' : 'Personal settings and plans save by default. You’ll review saving choices next.'}</p>}
     {error && <p role="alert" className="notice notice-danger">{error}</p>}
     <div className={styles.actions}><button type="submit" className="primary btn-sm" disabled={saving || availability !== 'available'}>
-      {saving ? 'Saving…' : profile ? 'Save profile' : 'Finish setup'}</button>
-      {onCancel && <button type="button" className="ghost btn-sm" disabled={saving} onClick={onCancel}>Sign out</button>}</div>
+      {saving ? 'Saving…' : profile ? 'Save profile' : onboarding ? 'Continue' : 'Finish setup'}</button>
+      {onCancel && <button type="button" className="ghost btn-sm" disabled={saving} onClick={onCancel}>{onboarding ? 'Not now' : 'Sign out'}</button>}</div>
   </form>;
 }

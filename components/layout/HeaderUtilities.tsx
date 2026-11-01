@@ -33,7 +33,7 @@ export default function HeaderUtilities({ search, mobile = false, onOpen }: { se
     <div className="header-utility-actions">
     <ActionPopover navigation label={label} onOpen={onOpen} trigger={<ProfileAvatar size={36} fallbackSize={20} />} className="profile-avatar-trigger">
       <p className="label-tag">{sync.remote?.profile?.username ?? label}</p>
-      {sync.status === 'signed-out' && <Link prefetch={false} className="site-nav-popitem" href="/account">{icon('profile')}Log in</Link>}
+      {sync.status === 'signed-out' && <button type="button" className="btn-bare site-nav-popitem" onClick={() => actions.open('settings')}>{icon('profile')}Log in</button>}
       {accountLink('profile', 'Profile', 'profile')}
       {accountLink('pulls', 'Pull history', 'history')}
       {accountLink('operators', 'Operators', 'roster')}

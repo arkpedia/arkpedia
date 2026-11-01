@@ -30,6 +30,16 @@ Never include account data in public content releases, static payloads or analyt
 New users explicitly choose a unique username. Google/Discord names and pictures
 are not their public profile. An imported Doctor name is only an explicit suggestion;
 optional friend tag/server data is private and does not prove game-account ownership.
+AccountActions owns the single login/setup/settings popup. Sign-in returns to the
+originating same-site route, preserving its filters and anchor. A new user chooses
+a username, resolves any save conflict, then reviews independent saving choices
+and selects Done. Friend tags and pictures are optional later settings. Existing
+accounts skip creation. A per-user, tab-local session marker resumes an unfinished
+saving step after reload; Done or closing that step clears it. This marker is not
+cloud data and does not grant authentication or enable saving. Existing consent,
+paused saves and deletion protections are unchanged. The setup screen discloses
+personal saving's existing default before continuing.
+
 Provider linking requires an existing account and cannot remove the last login.
 Deletion requires typed confirmation and a fresh provider session.
 
