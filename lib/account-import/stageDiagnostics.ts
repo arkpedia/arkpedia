@@ -32,7 +32,7 @@ export function stageMetadata(user: unknown, server: ServerId): Sample {
 }
 
 export function stageDiagnosticsAvailable(host: string, search: string): boolean {
-  return (host === 'preview.arkpedia.net' || (process.env.NODE_ENV !== 'production' && ['localhost', '127.0.0.1'].includes(host)))
+  return (host === 'preview.arkpedia.net' || ['localhost', '127.0.0.1'].includes(host))
     && new URLSearchParams(search).get('stageDiagnostics') === '1';
 }
 
