@@ -153,6 +153,8 @@ relay's. A plain Worker can't be the relay: its `connect()` sockets may not open
 Cloudflare addresses, and the game's Global and JP servers are behind Cloudflare.
 
 `config/relay.json` points every deployment at the existing Cloudflare relay.
+Its `previewUrl` selects the `preview-relay.arkpedia.net` custom hostname for Preview
+builds only; production retains `url`. Both addresses reach `arkpedia-relay`.
 Its `cloudflare.siteOrigins` allowlist in arkpedia-relay must include each exact
 production and Preview origin. The client has no VPS fallback or query override.
 The old VPS is not part of the import path; retiring that server is a separate operation.

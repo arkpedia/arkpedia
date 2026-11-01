@@ -341,18 +341,58 @@ test('browser clearing has a separate scoped confirmation and cancelling keeps d
   expect(await page.evaluate(() => localStorage.getItem('arkpediaYostarLogin'))).toBe(before);
 });
 
-test('an expired saved sign-in returns to code login without sending a code', async ({ page }) => {
-  await stubServers(page, null);
-  await seedSavedLogin(page);
+test('a rejected saved sign-in is retained while explicitly starting a code replacement', async ({ page }) => {
+  await stubServers(page, null); await seedSavedLogin(page);
+  const before = await page.evaluate(() => localStorage.getItem('arkpediaYostarLogin'));
   const dialog = await openImport(page);
   await dialog.getByRole('button', { name: 'Import', exact: true }).click();
-  await expect(dialog.getByRole('alert')).toContainText('Your saved sign-in no longer works');
-  await expect(dialog.getByPlaceholder('Yostar email')).toHaveValue(EMAIL);
-  await expect(dialog.getByPlaceholder('Yostar email')).toBeFocused();
-  expect(await page.evaluate(() => localStorage.getItem('arkpediaYostarLogin'))).toBeNull();
+  await expect(dialog.getByRole('alert')).toContainText('Your saved sign-in has been kept');
+  await expect(dialog.locator('.import-saved')).toBeVisible();
+  expect(await page.evaluate(() => localStorage.getItem('arkpediaYostarLogin'))).toBe(before);
   const asked = await page.evaluate(() => (window as unknown as { __asked: string[] }).__asked);
   expect(asked.some(url => url.includes('sdk-api'))).toBe(false);
+  await dialog.getByRole('button', { name: 'Request code', exact: true }).click();
+  await expect(dialog.getByPlaceholder('Code from the email')).toBeVisible();
+  await expect(dialog.getByLabel('Save this sign-in on this browser')).toBeChecked();
+  expect(await page.evaluate(() => localStorage.getItem('arkpediaYostarLogin'))).toBe(before);
 });
+
+for (const endpoint of ['getToken', 'login', 'version']) {
+  test(`temporary ${endpoint} failure preserves saved sign-in across retry and reload`, async ({ page }, info) => {
+    await stubServers(page, 120);
+    await page.addInitScript(endpoint => {
+      const original = window.__arkpediaImportTransport!;
+      let fail = true;
+      window.__arkpediaImportTransport = async (url, request) => {
+        if (fail && (endpoint==='getToken'?url.endsWith('/user/v1/getToken'):endpoint==='login'&&url.endsWith('/account/login'))) {
+          fail=false;throw new Error('Request failed with error code 7: Could not connect to server');
+        }
+        return original(url, request);
+      };
+    }, endpoint);
+    let failVersion = true;
+    if (endpoint==='version') await page.route(VERSION, route => {
+      if(failVersion){failVersion=false;return route.abort('failed');}
+      return route.fulfill({status:200,contentType:'application/json',headers:{'Access-Control-Allow-Origin':'*'},body:JSON.stringify({resVersion:'00-00-00',clientVersion:'0.0.0'})});
+    });
+    await seedSavedLogin(page); const before=await page.evaluate(()=>localStorage.getItem('arkpediaYostarLogin'));
+    let dialog=await openImport(page);
+    await dialog.getByRole('button',{name:'Import',exact:true}).click();
+    await expect(dialog.getByRole('alert')).toContainText('Your saved sign-in has been kept');
+    await expect(dialog.locator('.import-saved')).toBeVisible();
+    expect(await page.evaluate(()=>localStorage.getItem('arkpediaYostarLogin'))).toBe(before);
+    await page.screenshot({path:info.outputPath(`saved-login-${endpoint}-failure.png`)});
+    await dialog.getByRole('button',{name:'Import',exact:true}).click();
+    await expect(dialog.locator('.import-note[role="status"]')).toContainText('Imported:');
+    expect(await page.evaluate(()=>localStorage.getItem('arkpediaYostarLogin'))).toBe(before);
+    const asked=await page.evaluate(()=>(window as unknown as {__asked:string[]}).__asked);
+    expect(asked.some(url=>url.includes('sdk-api'))).toBe(false);
+    await page.reload();await page.locator('.page-header').getByRole('button',{name:'Import / export',exact:true}).click();
+    dialog=page.getByRole('dialog',{name:'Import / export',exact:true});
+    await expect(dialog.locator('.import-saved')).toBeVisible();
+    expect(await page.evaluate(()=>localStorage.getItem('arkpediaYostarLogin'))).toBe(before);
+  });
+}
 
 for (const server of ['jp', 'kr'] as const) {
   test(`a saved ${server} sign-in restores its region and cannot import into Global`, async ({ page }) => {

@@ -168,3 +168,26 @@ backup files do not include it; **Export auto-deploys** downloads it separately.
 Tests use synthetic responses and isolated databases. A physical account's replay
 payload and special-stage endpoint coverage still require separate acceptance;
 metadata-only capture does not establish those paths.
+
+
+### Preview relay hostname
+
+Preview builds select `config/relay.json`'s `previewUrl`,
+`wss://preview-relay.arkpedia.net/wisp/`. Production continues using `url`.
+The custom hostname is attached to the existing `arkpedia-relay` Cloudflare Worker
+(Workers custom domain ID `487858e34998f381648fd960daaea7246a749e98`), with the same
+origin, destination, port and rate restrictions. It does not add a relay or move TLS
+termination out of the browser. Preserve that mapping when deploying the relay.
+The hostname avoids the observed intermittent DNS/IPv6-only connection failure to
+the `workers.dev` endpoint. Do not substitute the old `relay.arkpedia.net`: its
+upstream returned Cloudflare 526 during diagnosis.
+
+### Saved sign-in retention
+
+A failed import never deletes a saved Yostar login. Token-exchange, game-login,
+version-file and network errors do not prove the saved credential expired. The
+saved actions remain available with the actual error. Request code is explicit;
+a successful request opens the code form while keeping the old saved login and
+its existing save preference until a replacement import succeeds. Forget remains
+an explicit removal action. Tests cover connection errors at both authentication
+steps, version-file failures, retry/reload persistence and provider rejection.

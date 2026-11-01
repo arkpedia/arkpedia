@@ -130,6 +130,10 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
       if (savedForServer) deviceId.current = savedForServer.deviceId;
       await sendCode(flow(), address, () => setRetryingCode(true));
       setCodeSent(true);
+      if (savedForServer) {
+        // Replace the saved login only after a successful, explicitly requested sign-in.
+        setEmail(address); setCode(''); setSaveSignIn(true); setSaved(null);
+      }
     } catch (error) {
       setFailed({ step: error instanceof ImportError ? error.step : 'send-code', message: describe(error) });
     } finally {
@@ -218,18 +222,9 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
       await read(savedForServer, savedForServer.deviceId, savedForServer.email, savedForServer.server);
     } catch (error) {
       const at = error instanceof ImportError ? error.step : 'account';
-      // The game refused it: expired or revoked, so it is forgotten rather than tried again.
-      if (at === 'game-token' || at === 'game-login') {
-        forgetLogin();
-        setSaved(null);
-        setEmail(savedForServer.email);
-        setCode('');
-        setCodeSent(false);
-        setStep(null);
-        setFailed({ step: null, message: 'Your saved sign-in no longer works. Sign in with a code again.' });
-      } else {
-        setFailed({ step: at, message: describe(error) });
-      }
+      // A failed request does not establish that the saved credential expired.
+      // Keep it through network, version, provider and account-read failures.
+      setFailed({ step: at, message: `${describe(error)} Your saved sign-in has been kept. Try Import again, or request a new code to replace it.` });
     } finally {
       setBusy(false);
     }

@@ -208,8 +208,9 @@ terminate the inner game-server TLS or read the email, login code, game tokens o
 account response. The doorman Worker terminates the outer WSS connection.
 Origins, destinations, ports and connection limits constrain relay access.
 
-The relay is `arkpedia-relay.cloudflare-1ff.workers.dev/wisp/` (`config/relay.json`),
-the only one: the VPS relay at `relay.arkpedia.net` was retired on 2026-10-28. A
+The relay is `arkpedia-relay.cloudflare-1ff.workers.dev/wisp/` (`config/relay.json`).
+Preview uses `preview-relay.arkpedia.net/wisp/`, a custom hostname on that same Worker.
+The VPS relay at `relay.arkpedia.net` was retired on 2026-10-28. A
 container is needed for the game hosts that the plain Worker's TCP API cannot reach.
 
 Storage belongs to the browser origin: www, dev and Cloudflare do not automatically

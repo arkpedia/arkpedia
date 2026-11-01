@@ -9,7 +9,7 @@ test('a blocked real relay socket produces a login-free copyable report', async 
     u8: 'https://as.arknights.global', gs: 'https://gs.arknights.global:8443', hv: 'https://hv.example.invalid/{0}/version',
   } } } }) }) }));
   let sockets = 0;
-  await page.routeWebSocket(relay.url, socket => {
+  await page.routeWebSocket(url => [relay.url, relay.previewUrl].includes(url.href), socket => {
     sockets++;
     socket.close({ code: 1008, reason: 'Private fixture relay blocked' });
   });
@@ -46,7 +46,7 @@ test('a real Wisp upstream refusal is distinguished from browser-to-relay loss',
   await readOnly(page);
   await page.route('**/api/account-import/network?server=*', route => route.fulfill({ status: 503, body: '{}' }));
   // A protocol fixture terminates every tunnel before any TLS or login data can pass.
-  await page.routeWebSocket(relay.url, socket => {
+  await page.routeWebSocket(url => [relay.url, relay.previewUrl].includes(url.href), socket => {
     socket.send(Buffer.from([3, 0, 0, 0, 0, 8, 0, 0, 0]));
     socket.onMessage(data => {
       const packet = Buffer.from(data as Buffer);

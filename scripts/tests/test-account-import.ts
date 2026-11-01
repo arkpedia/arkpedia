@@ -236,10 +236,11 @@ test('a remembered sign-in is read back only when whole, and its email is shown 
 });
 
 test('the relay address is config/relay.json\'s, a wss:// Wisp endpoint', async () => {
-  const { RELAY_URL } = await import('../../lib/account-import/relay');
-  const config = (await import('../../config/relay.json')).default as { url: string };
-  assert.equal(RELAY_URL, config.url);
-  assert.equal(RELAY_URL, 'wss://arkpedia-relay.cloudflare-1ff.workers.dev/wisp/');
+  const { RELAY_URL, relayUrlForDeployment } = await import('../../lib/account-import/relay');
+  const config = (await import('../../config/relay.json')).default;
+  assert.equal(RELAY_URL, process.env.ARKPEDIA_CLOUD_ACCOUNTS === '1' ? config.previewUrl : config.url);
+  assert.equal(relayUrlForDeployment(false), 'wss://arkpedia-relay.cloudflare-1ff.workers.dev/wisp/');
+  assert.equal(relayUrlForDeployment(true), 'wss://preview-relay.arkpedia.net/wisp/');
   // libcurl.js needs the trailing slash, and only an encrypted WebSocket is acceptable.
   assert.match(RELAY_URL, /^wss:\/\/[a-z0-9.-]+\/wisp\/$/);
 });
