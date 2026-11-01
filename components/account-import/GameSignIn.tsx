@@ -4,7 +4,8 @@ import { isResettingBrowserData } from '@/lib/account/resetData';
 import type { PullRead } from '@/lib/account/pulls';
 import { directTransport, networkTransport, relayTransport } from '@/lib/account-import/relay';
 import { forgetLogin, maskEmail, readSavedLogin, saveLogin, SAVED_LOGIN_KEY, type SavedLogin } from '@/lib/account-import/savedLogin';
-import ReplaySync, { type ReplayImport } from './ReplaySync';
+import ReplaySync from './ReplaySync';
+import { useReplayDownloads } from '@/lib/replays/DownloadProvider';
 import { stageMarkers } from '@/lib/replays/model';
 import { REPLAY_LOCK } from '@/lib/replays/queue';
 import ConnectionDiagnostics from './ConnectionDiagnostics';
@@ -56,9 +57,8 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
   const [retryingCode, setRetryingCode] = useState(false);
   const { secondsLeft, begin: beginCodeRequest, finish: finishCodeRequest } = useCodeCooldown(server);
   const [importBusy, setBusy] = useState(false);
-  const [replayBusy, setReplayBusy] = useState(false);
-  const [replayImport, setReplayImport] = useState<ReplayImport|null>(null);
-  const busy = importBusy || replayBusy;
+  const downloads = useReplayDownloads();
+  const busy = importBusy || downloads.running;
   const validEmail = /^\S+@\S+\.\S+$/.test(email.trim());
   const [step, setStep] = useState<ImportStep | null>(null);
   const [failed, setFailed] = useState<{ step: ImportStep | null; message: string } | null>(null);
@@ -151,7 +151,11 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
   /** Steps 3 to 6 with a Yostar login on `from`, then the account and the pulls to the caller. */
   async function read(yostar: YostarAccount, device: string, signedInAs: string, from: ServerId) {
     const perform = async () => {
-      setReplayImport(null);
+      downloads.install(null);
+      // Other tabs must retire a paused continuation when this game session changes.
+      if (process.env.ARKPEDIA_CLOUD_ACCOUNTS === '1') {
+        try { window.localStorage.setItem('arkpedia:replays-stop', String(Date.now())); } catch { /* Storage restrictions must not break a normal game import. */ }
+      }
       let replaySession: ReplaySession | undefined;
       // The report's beginner summary is this import's, never an earlier one's.
       connectionDiagnostics.setBeginner(null);
@@ -168,7 +172,7 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
       setPullsFailed(pulls.error);
       if (isResettingBrowserData()) return;
       onAccount(user, pulls, from);
-      if (replaySession) setReplayImport({session:replaySession,markers:stageMarkers(user),server:from});
+      if (replaySession) downloads.install({session:replaySession,markers:stageMarkers(user),server:from});
       setDone(true);
       setStep(null);
     };
@@ -245,6 +249,7 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
     // Explicit removal reports failure; automatic expired-login cleanup is best effort.
     try { window.localStorage.removeItem(SAVED_LOGIN_KEY); }
     catch { setFailed({ step: null, message: 'This browser could not forget the saved Yostar login. Check its site-data settings and try again.' }); return; }
+    downloads.install(null);
     setSaved(null); setEmail(''); setCode(''); setCodeSent(false); setDone(false); setStep(null); setFailed(null);
   }}>Forget Yostar login</button>;
   return (
@@ -334,7 +339,7 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
         </ol>
       )}
       {failed && <p className="import-error" role="alert">{failed.message}</p>}
-      {process.env.ARKPEDIA_CLOUD_ACCOUNTS === '1' && <ReplaySync imported={replayImport} busy={busy} onBusy={setReplayBusy} />}
+      {process.env.ARKPEDIA_CLOUD_ACCOUNTS === '1' && <ReplaySync busy={importBusy} />}
       <ConnectionDiagnostics />
       <StageDiagnostics server={server} busy={busy} />
       {failed?.step === 'network' && <button type="button" className="ghost btn-sm" disabled={busy || connection === 'opening'} onClick={() => { connect().catch(error => setFailed({ step: 'network', message: describe(error) })); }}>Retry connection</button>}

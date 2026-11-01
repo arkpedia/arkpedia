@@ -617,6 +617,7 @@ test('stage metadata capture is explicit and survives closing the import dialog'
 async function stubAutoDeploys(page: Page, firstReplay = zip64Fixture.encoded) {
   const { zipSync,strToU8 }=await import('fflate');
   await stubServers(page,120);
+  await page.route('**/api/account-import/replay-permit', route=>route.fulfill({json:{granted:true}}));
   const replays=Object.fromEntries(['main_00-01','main_00-02'].map(stageId=>[stageId,Buffer.from(zipSync({default_entry:strToU8(JSON.stringify({timestamp:1,journal:{metadata:{stageId},squad:[],logs:[]}}))})).toString('base64')]));
   replays['main_00-01'] = firstReplay;
   await page.addInitScript(replays=>{
@@ -722,7 +723,7 @@ test('auto-deploy pause prevents requests and throttling stops the queue without
   await page.evaluate(()=>{(window as unknown as {__replayTest:{throttle:boolean}}).__replayTest.throttle=true;});
   await panel.getByRole('button',{name:'Sync auto-deploys',exact:true}).click();await expect(panel.getByRole('status')).toContainText('Yostar asked us to wait.',{timeout:15000});
   expect(await replayRequests(page)).toHaveLength(1);
-  await panel.getByRole('button',{name:'Sync auto-deploys',exact:true}).click();await expect(panel.getByRole('status')).toContainText('Please wait');expect(await replayRequests(page)).toHaveLength(1);
+  await expect(panel.getByRole('button',{name:'Sync auto-deploys',exact:true})).toBeDisabled();expect(await replayRequests(page)).toHaveLength(1);
 });
 
 test('auto-deploy cloud saving is opt-in and restores cached stages without game requests',async({page})=>{
@@ -745,4 +746,46 @@ test('auto-deploy cloud saving is opt-in and restores cached stages without game
   await expect(panel.getByRole('status')).toHaveText('Auto-deploys are up to date.',{timeout:20000});
   expect((await replayRequests(page)).map(r=>r.stage)).toEqual(['main_00-02']);expect(uploads).toHaveLength(1);expect(uploads.join('')).not.toMatch(/yostar-token|code-token|session|secret|email/i);
   await expect(panel.getByText('2 available · 2 saved in this browser')).toBeVisible();
+});
+
+
+test('auto-deploy background download survives closing the dialog and client navigation, with pause and resume',async({page},info)=>{
+  await stubAutoDeploys(page);const dialog=await openImport(page);await signIn(page);
+  await dialog.getByRole('button',{name:'Sync auto-deploys',exact:true}).click();
+  await dialog.getByRole('button',{name:'Close',exact:true}).click();
+  const bar=page.getByRole('region',{name:'Auto-deploy downloads',exact:true});
+  await bar.getByRole('button',{name:'Pause',exact:true}).click();
+  await expect(bar.getByRole('status')).toContainText('Paused.');
+  const before=(await replayRequests(page)).length;
+  await page.waitForTimeout(4500);expect(await replayRequests(page)).toHaveLength(before);
+  await bar.scrollIntoViewIfNeeded();await page.screenshot({path:info.outputPath('auto-deploy-background-paused.png')});
+  await bar.getByRole('button',{name:'Resume',exact:true}).click();
+  await page.locator('a[href="/"]:visible').first().click();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(bar).toBeVisible();
+  await expect(bar.getByRole('status')).toHaveText('Auto-deploys are up to date.',{timeout:25000});
+  expect(await replayRequests(page)).toHaveLength(2);
+  await bar.scrollIntoViewIfNeeded();await page.screenshot({path:info.outputPath('auto-deploy-background-complete.png')});
+  await bar.getByRole('button',{name:'Details',exact:true}).click();
+  await expect(page.getByRole('dialog',{name:'Import / export'})).toContainText('2 saved in this browser');
+  await page.reload();await expect(bar).toHaveCount(0);
+  await page.waitForTimeout(3500);expect(await replayRequests(page)).toHaveLength(0);
+});
+
+test('auto-deploy shared pacing waits without contacting Yostar, is cancellable, and fails closed',async({page})=>{
+  await stubAutoDeploys(page);let grants=0,unavailable=false;
+  await page.route('**/api/account-import/replay-permit',route=>{
+    grants++;expect(Object.keys(route.request().postDataJSON())).toEqual(['client']);
+    expect(route.request().postDataJSON().client).toMatch(/^[0-9a-f-]{36}$/);
+    return route.fulfill({status:unavailable?503:200,json:unavailable?{error:'unavailable'}:{granted:false}});
+  });
+  const dialog=await openImport(page);await signIn(page);
+  const panel=dialog.getByRole('region',{name:'Auto-deploy sync'});
+  await panel.getByRole('button',{name:'Sync auto-deploys',exact:true}).click();
+  await expect.poll(()=>grants,{timeout:15000}).toBeGreaterThan(0);
+  await panel.getByRole('button',{name:'Pause',exact:true}).click();
+  await expect(panel.getByRole('status')).toContainText('Paused.');
+  const paused=grants;await page.waitForTimeout(4500);expect(grants).toBe(paused);expect(await replayRequests(page)).toHaveLength(0);
+  unavailable=true;await panel.getByRole('button',{name:'Sync auto-deploys',exact:true}).click();
+  await expect(panel.getByRole('status')).toContainText('temporarily unavailable',{timeout:15000});expect(await replayRequests(page)).toHaveLength(0);
 });

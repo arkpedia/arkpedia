@@ -3,7 +3,6 @@ import { decodeReplay, needsReplay, replayHash, validateReplay, ReplayValidation
 import { ReplayCloudError, type replayCloud } from './cloud';
 
 export const REPLAY_LOCK = 'arkpedia-game-import-and-replays';
-export const BATCH_LIMIT = 200;
 export interface ReplayStore { read:(namespace:string)=>Promise<ReplayRecord[]>;save:(record:ReplayRecord)=>Promise<void>;remove:(namespace:string,stageId:string)=>Promise<void> }
 export interface ReplayIssue { stageId:string; reason:string }
 export interface SyncProgress { checked:number; fetched:number; restored:number; remaining:number; skipped:ReplayIssue[]; message:string }
@@ -11,6 +10,7 @@ export interface QueueOptions {
   namespace:string; markers:StageMarker[]; session:ReplaySession; store:ReplayStore;
   cloud?:ReturnType<typeof replayCloud>; signal:AbortSignal; forceStage?:string;
   progress:(value:SyncProgress)=>void; check:()=>void;
+  permit?:()=>Promise<void>;
   wait?:(ms:number)=>Promise<void>; random?:()=>number; limit?:number;
 }
 export function cooldownKey(namespace:string){return `arkpedia:replay-cooldown:${namespace}`;}
@@ -34,7 +34,7 @@ export async function syncReplays(options:QueueOptions):Promise<SyncProgress>{
   const candidates=markers.filter(m=>forceStage?m.stageId===forceStage:m.hasReplay?needsReplay(m,local.get(m.stageId)) || !!cloud && (remote.get(m.stageId)?.fingerprint!==m.fingerprint || conflicts(m.stageId)):local.has(m.stageId)||remote.has(m.stageId));
   const state:SyncProgress={checked:0,fetched:0,restored:0,remaining:candidates.length,skipped:[],message:'Preparing auto-deploys…'};
   progress({...state});
-  for(const marker of candidates.slice(0,options.limit??BATCH_LIMIT)){
+  for(const marker of candidates.slice(0,options.limit??candidates.length)){
     ensure();await (options.wait??(ms=>waitForReplay(ms,signal)))(3000+Math.floor((options.random??Math.random)()*1500));ensure();
     const previous=local.get(marker.stageId),saved=remote.get(marker.stageId);
     if(!marker.hasReplay){
@@ -50,7 +50,8 @@ export async function syncReplays(options:QueueOptions):Promise<SyncProgress>{
           if(hash!==saved.hash || restored.hash!==saved.hash || restored.fingerprint!==marker.fingerprint)throw new Error('Cloud auto-deploy changed. Resume to compare again.');
           record={...restored,payload,namespace,stageId:marker.stageId};state.restored++;
         }else{
-          ensure();const encoded=await session.readReplay(marker.stageId);ensure();
+          ensure();await options.permit?.();ensure();
+          const encoded=await session.readReplay(marker.stageId);ensure();
           let payload:string;
           try { payload=decodeReplay(encoded,marker.stageId); }
           catch(error){

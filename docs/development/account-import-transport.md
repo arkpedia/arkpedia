@@ -129,16 +129,38 @@ uses a caller-supplied battle type; it does not define a literal `battle` route.
 Normal stages use the [quest route](https://github.com/loongling/LocalArknights/blob/main/src/main/java/com/hypergryph/arknights/game/quest.java).
 Failures distinguish HTTP status, bounded numeric game-result codes and missing replay
 payloads without exposing provider messages or raw authenticated responses.
-It cannot issue arbitrary game commands. Closing/unmounting the dialog discards
-this session capability; no new session secret is saved or uploaded.
+It cannot issue arbitrary game commands. A tab-level provider owns this capability
+so closing the dialog or navigating within Arkpedia leaves an explicitly started
+download running. No new session secret is saved or uploaded. Reloading, closing
+the tab, account changes or browser-data resets discard the capability; import
+again to resume from durable checkpoints. A compact status bar exposes Pause,
+Resume and Details outside the dialog.
 
 Queue operations hold a shared browser Web Lock with game imports, wait 3–4.5
-seconds between items, and stop after 200 items. Pause, closing, reset and account
-changes stop further work. A response already in flight may finish, but an aborted
+seconds between items, and continue through all pending stages after an explicit
+start. Pause, page exit, reset and account changes stop further work. A response already in flight may finish, but an aborted
 queue does not save/upload it. HTTP 429 honors Retry-After with at least a minute's
 cooldown. Any uncertain/authentication response invalidates the session; there is
 no automatic retry or relogin. These limits are precautionary, not a confirmed
-Yostar-approved quota; they cannot coordinate unrelated users/devices.
+Yostar-approved quota.
+
+Before each actual game replay fetch, the downloader asks the Preview-only
+`/api/account-import/replay-permit` endpoint for admission. Migration 0007 adds
+atomic D1 coordination: at most one grant every 500 ms across cooperating Preview
+clients, and one every 3 seconds per anonymous browser identifier. An unsuccessful
+per-browser attempt does not consume a global slot. No game UID, stage, login
+secret or replay content enters this endpoint; browser identifiers expire from
+D1 after an hour idle, with indexed bounded cleanup. Preview ingress guards and
+exact-origin/body checks apply; the endpoint is unavailable in production.
+
+Denied admission uses jittered exponential waiting up to 32 seconds and is
+cancellable; HTTP 429 respects Retry-After. Network/server failures pause instead
+of bypassing coordination. Responses taking a second or longer are treated as
+stale and reacquired to avoid waking tabs spending old grants. This is application
+admission control, not an official Yostar quota, strict FIFO fairness or an
+inspection/enforcement mechanism inside the encrypted relay. Separate devices
+have distinct browser limits but share the aggregate budget. Normal imports and
+login requests do not use this admission service or change their relay route.
 
 A bounded replay document with an unsupported journal, squad/action list or
 mismatched stage ID is skipped during a bulk run, so later stages can still save.
@@ -148,7 +170,7 @@ No rejected payload or new fingerprint is checkpointed/uploaded; an existing cop
 is preserved, and a later explicit sync retries the stage. A single-stage refresh
 stops with the requested stage and precise reason. ZIP/decompression/size errors,
 private fields, transport/authentication/rate failures, storage errors and cloud
-conflicts still stop the run. A skip consumes one of the 200 paced batch slots.
+conflicts still stop the run. Each skipped stage still consumes a paced request.
 
 IndexedDB checkpoints successful replays by server, game UID and stage. Fingerprints
 use hasBattleReplay/start/completion/practice counters and state. A login-only

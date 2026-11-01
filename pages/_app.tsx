@@ -100,6 +100,8 @@ import ExternalMediaPrompt from '@/components/privacy/ExternalMediaPrompt';
 import StatisticsPrompt from '@/components/privacy/StatisticsPrompt';
 import SiteAnalytics from '@/components/layout/SiteAnalytics';
 import { CloudSyncProvider } from '@/lib/cloud-account/SyncProvider';
+import { ReplayDownloadProvider } from '@/lib/replays/DownloadProvider';
+import ReplayDownloadBar from '@/components/account-import/ReplayDownloadBar';
 
 export default function App({ Component, pageProps }: AppProps) {
   useEffect(() => watchPrivacyWithdrawal(), []);
@@ -134,6 +136,7 @@ export default function App({ Component, pageProps }: AppProps) {
     <ContentContext.Provider value={pageProps.__contentRelease ?? null}>
     <ContentTablesContext.Provider value={pageProps.__contentTables ?? {}}>
     <CloudSyncProvider onRestore={() => setCloudRestoreVersion(version => version + 1)}>
+    <ReplayDownloadProvider>
     <MusicPlayerProvider>
     <RoamingChibiProvider>
     <AccountActions>
@@ -193,6 +196,7 @@ export default function App({ Component, pageProps }: AppProps) {
           first paint; a body class set from an effect would have flashed the wrong one.
           Pages that set nothing get undefined and the bar they always had. */}
       {!hideSiteChrome && <SiteNav mobileNav={(Component as PageWithMobileNav).mobileNav} />}
+      {!hideSiteChrome && <ReplayDownloadBar />}
       <div id="page-content" tabIndex={-1} style={{ outline: 'none' }}>
         <Component key={cloudRestoreVersion} {...pageProps} />
       </div>
@@ -204,6 +208,7 @@ export default function App({ Component, pageProps }: AppProps) {
     </AccountActions>
     </RoamingChibiProvider>
     </MusicPlayerProvider>
+    </ReplayDownloadProvider>
     </CloudSyncProvider>
     </ContentTablesContext.Provider>
     </ContentContext.Provider>

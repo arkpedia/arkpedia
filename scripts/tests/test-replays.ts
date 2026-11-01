@@ -157,3 +157,19 @@ test('replay failures distinguish HTTP, game result and missing payload without 
     await assert.rejects(session.readReplay(stage));assert.equal(attempts,1);
   }
 });
+
+
+test('explicit sync continues beyond 200 stages, acquires admission only for fetches, and pauses before an unpermitted request',async()=>{
+  const s=setup();let permits=0,requests=0;
+  s.options.markers=Array.from({length:205},(_,i)=>({...markers()[0],stageId:`main_01-${i}`}));
+  s.options.permit=async()=>{permits++;};
+  s.options.session.readReplay=async id=>{requests++;return encoded(payload.replaceAll(stage,id));};
+  const result=await syncReplays(s.options);
+  assert.equal(result.remaining,0);assert.equal(s.records.size,205);assert.equal(permits,205);assert.equal(requests,205);
+  await syncReplays(s.options);assert.equal(permits,205,'unchanged stages need neither admission nor game requests');
+  s.options.forceStage=s.options.markers[0].stageId;
+  s.options.permit=async()=>{throw Error('admission unavailable');};
+  await assert.rejects(syncReplays(s.options),/admission unavailable/);assert.equal(requests,205);
+  const abort=new AbortController();s.options.signal=abort.signal;s.options.permit=async()=>{abort.abort();};
+  await assert.rejects(syncReplays(s.options),{name:'AbortError'});assert.equal(requests,205);
+});

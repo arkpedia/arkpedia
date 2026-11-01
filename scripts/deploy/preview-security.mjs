@@ -8,7 +8,7 @@ export async function protectPreviewRequest(request, env, run) {
   let path = new URL(request.url).pathname;
   try { path = decodeURIComponent(path); } catch { /* The router rejects malformed paths. */ }
   let response;
-  if (/^\/api\/(auth|cloud-account|account-profile)(\/|$)/.test(path)) {
+  if (/^\/api\/(auth|cloud-account|account-profile)(\/|$)/.test(path) || path === '/api/account-import/replay-permit') {
     try {
       if (!env.ACCOUNT_TRAFFIC_LIMIT || !env.ACCOUNT_IP_LIMIT) throw Error('Missing account limiter');
       // A total cap also bounds unauthenticated traffic forwarded through another Worker.

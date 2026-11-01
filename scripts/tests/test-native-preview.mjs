@@ -69,6 +69,7 @@ test('Preview limits account ingress before application work and fails closed wi
   const denied = await protectPreviewRequest(request,env,run);
   assert.equal(denied.status,429); assert.equal(denied.headers.get('retry-after'),'60'); assert.equal(applicationCalls,0);
   assert.equal((await protectPreviewRequest(request,{},run)).status,503);
+  assert.equal((await protectPreviewRequest(new Request('https://preview.arkpedia.net/api/account-import/replay-permit'),{},run)).status,503);
   const publicPage = await protectPreviewRequest(new Request('https://preview.arkpedia.net/music'),{},run);
   assert.equal(publicPage.status,200); assert.equal(applicationCalls,1);
   assert.match(publicPage.headers.get('content-security-policy'),/object-src 'none'/);

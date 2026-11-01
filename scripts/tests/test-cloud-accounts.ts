@@ -3,6 +3,8 @@ import { test } from 'node:test';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { acquireReplayPermit } from '../../lib/replays/pacing-server';
+import { createPermitHandler } from '../../pages/api/account-import/replay-permit';
 import { allowAccountRequest, ACCOUNT_LIMITS } from '../../lib/cloud-account/limits';
 // Runtime is Node 24; the application's older @types/node does not declare this module.
 // @ts-expect-error node:sqlite is available in the supported CI runtime.
@@ -672,5 +674,38 @@ test('auto-deploy API isolates owners, enforces consent and CAS, avoids stale fi
   assert.equal(sqlite.prepare('SELECT count(*) AS n FROM auto_deploy').get()?.n,0);
   assert.equal(sqlite.prepare('SELECT bytes FROM auto_deploy_usage WHERE userId=?').get(user.id)?.bytes,0);
   assert.equal((await call('PUT',{...row,expectedHash:null})).status,403);
+  sqlite.close();
+});
+
+
+test('shared replay admission is atomic across browsers and enforces the browser minimum without burning denied slots', async()=>{
+  const {sqlite,db}=database();const a=crypto.randomUUID(),b=crypto.randomUUID(),now=10000000;
+  const simultaneous=await Promise.all(Array.from({length:30},()=>acquireReplayPermit(db,crypto.randomUUID(),now)));
+  assert.equal(simultaneous.filter(Boolean).length,1);
+  assert.equal(await acquireReplayPermit(db,a,now+500),true);
+  assert.equal(await acquireReplayPermit(db,a,now+1000),false);
+  assert.equal(await acquireReplayPermit(db,b,now+1000),true,'a denied browser must not consume a global grant');
+  assert.equal(await acquireReplayPermit(db,a,now+3499),false);
+  assert.equal(await acquireReplayPermit(db,a,now+3500),true);
+  assert.equal(await acquireReplayPermit(db,b,now+3999),false);
+  assert.equal(await acquireReplayPermit(db,b,now+4000),true);
+  await acquireReplayPermit(db,crypto.randomUUID(),now+3610000);
+  assert.equal(sqlite.prepare('SELECT count(*) AS n FROM replay_pacing').get()?.n,2,'expired browser identifiers are removed, global survives');
+  sqlite.close();
+});
+test('replay admission API accepts only anonymous same-origin requests and stops when coordination is unavailable',async()=>{
+  const {sqlite,db}=database();const env=envFor(db),handler=createPermitHandler(()=>env);
+  const call=async(method='POST',body:unknown={client:crypto.randomUUID()},origin=env.ARKPEDIA_AUTH_URL,run=handler)=>{
+    let status=200,result:Record<string,unknown>={};const headers:Record<string,string>={};
+    await run({method,body,headers:{origin,'content-type':'application/json'}} as NextApiRequest,{setHeader:(k:string,v:string)=>{headers[k]=v;},status:(n:number)=>{status=n;return {json:(v:Record<string,unknown>)=>{result=v;}};}} as unknown as NextApiResponse);
+    assert.equal(headers['Cache-Control'],'private, no-store');return {status,result};
+  };
+  assert.equal((await call('GET')).status,405);
+  assert.equal((await call('POST',{client:crypto.randomUUID()},'https://elsewhere.invalid')).status,403);
+  for(const body of [null,[],{client:'global'},{client:crypto.randomUUID(),stageId:'main_00-01'},{client:crypto.randomUUID(),token:'private'}])assert.equal((await call('POST',body)).status,400);
+  assert.deepEqual((await call()).result,{granted:true});
+  assert.deepEqual((await call()).result,{granted:false});
+  assert.equal((await call('POST',undefined,undefined,createPermitHandler(()=>null))).status,503);
+  sqlite.exec('DROP TABLE replay_pacing');assert.equal((await call()).status,503);
   sqlite.close();
 });
