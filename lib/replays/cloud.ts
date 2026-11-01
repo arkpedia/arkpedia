@@ -3,8 +3,9 @@ export class ReplayCloudError extends Error { constructor(message:string,readonl
 export function replayCloud(owner:string,namespace:string) {
   async function request(method:string,stageId?:string,body?:unknown){
     const query=new URLSearchParams({owner,namespace,...(stageId?{stageId}:{})});
-    const r=await fetch(`/api/cloud-account/auto-deploys${method==='GET'?`?${query}`:''}`,{method,credentials:'same-origin',cache:'no-store',
-      headers:method==='GET'?{}:{'Content-Type':'application/json'},...(method==='GET'?{}:{body:JSON.stringify({owner,namespace,...body as object})})});
+    const init:RequestInit={method,credentials:'same-origin',cache:'no-store',
+      headers:method==='GET'?{}:{'Content-Type':'application/json'},...(method==='GET'?{}:{body:JSON.stringify({owner,namespace,...body as object})})};
+    const r=await (method==='GET'?fetch(`/api/cloud-account/auto-deploys?${query}`,init):fetch('/api/cloud-account/auto-deploys',init));
     const data=await r.json();
     if(!r.ok)throw new ReplayCloudError(typeof data.error==='string'?data.error:'Cloud saving stopped.',Math.max(60,Number(r.headers.get('retry-after'))||60));
     return data;
