@@ -4,6 +4,7 @@ import { readOnly } from './census-routes';
 import { BACKUP_STORES } from '../../lib/account/backup';
 import { STORY_PROGRESS_KEY } from '../../lib/story/storyProgress';
 import { markDocument, sameDocument, startMusic, stubYouTube } from './youtube-stub';
+import zip64Fixture from '../fixtures/replay-zip64.json';
 
 /* The previous email-code flow, with the Yostar email notice kept. All server answers are
  * fixtures: these checks never send a code or sign in to a real account. */
@@ -506,15 +507,19 @@ for (const server of ['en', 'jp', 'kr'] as const) {
     const dialog = await openImport(page);
     const before = await page.evaluate(() => localStorage.getItem('arkpediaYostarLogin'));
     await dialog.getByRole('button', { name: 'Request code', exact: true }).click();
-    await expect(dialog.locator('.import-sent')).toContainText('emailed a code to your saved address');
-    await expect(dialog.getByRole('button', { name: 'Import', exact: true })).toBeFocused();
-    await expect(dialog.locator('.import-forms, .import-steps')).toHaveCount(0);
+    await expect(dialog.locator('.import-sent')).toContainText('emailed a code to that address');
+    await expect(dialog.getByPlaceholder('Yostar email')).toBeFocused();
+    await expect(dialog.getByPlaceholder('Code from the email')).toBeVisible();
+    await expect(dialog.getByLabel('Save this sign-in on this browser')).toBeChecked();
+    await expect(dialog.locator('.import-steps')).toHaveCount(0);
     if (server === 'en' && process.env.ARKPEDIA_QA_CAPTURE) await page.screenshot({ path: `${process.env.ARKPEDIA_QA_CAPTURE}/requested-code-${testInfo.project.name}.png` });
     const requests = await page.evaluate(() => (window as unknown as { __requests: { url: string; body: string; headers: Record<string, string> }[] }).__requests);
-    expect(requests).toHaveLength(1);
-    expect(requests[0].url).toBe(`${SERVERS[server].yostar}/yostar/send-code`);
-    expect(JSON.parse(requests[0].body).Account).toBe(EMAIL);
-    expect(JSON.parse(requests[0].headers.Authorization).Head).toMatchObject({ PID: SERVERS[server].pid, DeviceID: 'fixture-device' });
+    const codeRequests = requests.filter(request => request.url.endsWith('/yostar/send-code'));
+    expect(codeRequests).toHaveLength(1);
+    expect(requests.every(request => request.url.endsWith('/yostar/send-code') || request.url.endsWith('/network_config'))).toBe(true);
+    expect(codeRequests[0].url).toBe(`${SERVERS[server].yostar}/yostar/send-code`);
+    expect(JSON.parse(codeRequests[0].body).Account).toBe(EMAIL);
+    expect(JSON.parse(codeRequests[0].headers.Authorization).Head).toMatchObject({ PID: SERVERS[server].pid, DeviceID: 'fixture-device' });
     expect(await page.evaluate(() => localStorage.getItem('arkpediaYostarLogin'))).toBe(before);
     expect(await page.evaluate(() => localStorage.getItem('arkpediaAccount'))).toBeNull();
   });
@@ -609,10 +614,11 @@ test('stage metadata capture is explicit and survives closing the import dialog'
   await expect(dialog.getByText('Capture is off.', { exact: true })).toBeVisible();
 });
 
-async function stubAutoDeploys(page: Page) {
+async function stubAutoDeploys(page: Page, firstReplay = zip64Fixture.encoded) {
   const { zipSync,strToU8 }=await import('fflate');
   await stubServers(page,120);
   const replays=Object.fromEntries(['main_00-01','main_00-02'].map(stageId=>[stageId,Buffer.from(zipSync({default_entry:strToU8(JSON.stringify({timestamp:1,journal:{metadata:{stageId},squad:[],logs:[]}}))})).toString('base64')]));
+  replays['main_00-01'] = firstReplay;
   await page.addInitScript(replays=>{
     const original=window.__arkpediaImportTransport!;
     const state={counter:1,requests:[] as {stage:string;seq:string;at:number}[],throttle:false};
@@ -626,6 +632,31 @@ async function stubAutoDeploys(page: Page) {
   },replays);
 }
 const replayRequests=(page:Page)=>page.evaluate(()=>((window as unknown as {__replayTest:{requests:{stage:string;seq:string;at:number}[]}}).__replayTest.requests));
+
+for (const failure of ['missing', 'oversized'] as const) {
+  test(`auto-deploy ${failure} archive stops the queue with a precise error and keeps the login`, async ({page}, info) => {
+    const {zipSync, strToU8} = await import('fflate');
+    const archive = failure === 'missing'
+      ? zipSync({'private-name@example.invalid': strToU8('{}')})
+      : zipSync({default_entry: strToU8('x'.repeat(600_000))});
+    await stubAutoDeploys(page, Buffer.from(archive).toString('base64'));
+    const dialog = await openImport(page);
+    await dialog.getByLabel('Save this sign-in on this browser').check();
+    await signIn(page);
+    await expect(dialog.locator('.import-note[role="status"]')).toContainText('Imported:');
+    const saved = await page.evaluate(() => localStorage.getItem('arkpediaYostarLogin'));
+    expect(saved).not.toBeNull();
+    const panel = dialog.getByRole('region', {name: 'Auto-deploy sync'});
+    await panel.getByRole('button', {name: 'Sync auto-deploys', exact: true}).click();
+    await expect(panel.getByRole('status')).toContainText(failure === 'missing' ? 'contains no replay file' : 'exceeds the 512 KB', {timeout: 15000});
+    await expect(panel).not.toContainText('private-name');
+    expect(await replayRequests(page)).toHaveLength(1);
+    await expect(panel.getByText('2 available · 0 saved in this browser')).toBeVisible();
+    expect(await page.evaluate(() => localStorage.getItem('arkpediaYostarLogin'))).toBe(saved);
+    await panel.scrollIntoViewIfNeeded();
+    await page.screenshot({path: info.outputPath(`auto-deploy-${failure}.png`)});
+  });
+}
 
 test('auto-deploy sync is explicit, resumable, incremental and exportable',async({page},info)=>{
   await stubAutoDeploys(page);const dialog=await openImport(page);

@@ -1,4 +1,4 @@
-import { unzipSync, strFromU8 } from 'fflate';
+import { Unzip, UnzipInflate, unzipSync, strFromU8 } from 'fflate';
 import { isServerId, type ServerId } from '@/lib/account-import/yostar';
 
 export const MAX_REPLAY_BYTES = 512_000;
@@ -46,9 +46,48 @@ export function validateReplay(payload: string, stageId: string): string {
 export function decodeReplay(encoded: string, stageId: string): string {
   if (encoded.length > MAX_REPLAY_BYTES * 2 || !/^[A-Za-z0-9+/]*={0,2}$/.test(encoded)) throw new Error('Invalid auto-deploy archive.');
   const bytes = Uint8Array.from(atob(encoded), c => c.charCodeAt(0));
-  const files = unzipSync(bytes, { filter: entry => entry.name === 'default_entry' && entry.originalSize <= MAX_REPLAY_BYTES });
-  if (!files.default_entry || files.default_entry.length > MAX_REPLAY_BYTES) throw new Error('Auto-deploy archive is missing or too large.');
-  return validateReplay(strFromU8(files.default_entry),stageId);
+  // Inspect the directory without allocating from its claimed sizes. ZIP64 entries
+  // can use 0xffffffff here even when the archive has an ordinary end record.
+  let entries = 0, matches = 0;
+  try {
+    unzipSync(bytes, { filter: entry => { entries++; if (entry.name === 'default_entry') matches++; return false; } });
+  } catch { throw new Error('Auto-deploy archive is not a readable ZIP file.'); }
+  if (!matches) throw new Error(`Auto-deploy archive contains no replay file (${entries} ${entries === 1 ? 'entry' : 'entries'}).`);
+  if (matches !== 1) throw new Error('Auto-deploy archive contains duplicate replay files.');
+
+  const chunks: Uint8Array[] = [];
+  let size = 0, started = false, complete = false, failure = '';
+  const archive = new Unzip(file => {
+    if (file.name !== 'default_entry') return;
+    if (started) { failure = 'Auto-deploy archive contains duplicate replay files.'; return; }
+    started = true;
+    file.ondata = (error, chunk, final) => {
+      if (failure) return;
+      if (error) { failure = 'Auto-deploy archive could not be decompressed.'; return; }
+      size += chunk.length;
+      if (size > MAX_REPLAY_BYTES) {
+        failure = 'Auto-deploy exceeds the 512 KB per-replay limit after decompression.';
+        file.terminate();
+        return;
+      }
+      chunks.push(chunk); complete = final;
+    };
+    file.start();
+  });
+  archive.register(UnzipInflate);
+  // Small compressed chunks bound transient output even when a hostile header
+  // understates the size. Stop as soon as actual decompressed bytes hit the cap.
+  try {
+    for (let offset = 0; offset < bytes.length && !failure; offset += 128) {
+      archive.push(bytes.subarray(offset, offset + 128), offset + 128 >= bytes.length);
+    }
+  } catch { failure ||= 'Auto-deploy archive could not be decompressed.'; }
+  if (failure) throw new Error(failure);
+  if (!complete) throw new Error('Auto-deploy archive ended before the replay was complete.');
+  const payload = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) { payload.set(chunk, offset); offset += chunk.length; }
+  return validateReplay(strFromU8(payload),stageId);
 }
 export async function replayHash(payload: string): Promise<string> {
   return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(payload))), b=>b.toString(16).padStart(2,'0')).join('');

@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { zipSync,strToU8 } from 'fflate';
+import { Zip, ZipDeflate, zipSync,strToU8 } from 'fflate';
 import { createReplaySession, ReplayRequestError } from '../../lib/account-import/yostar';
 import { decodeReplay,stageMarkers,namespaceFor,needsReplay,replayHash,validateReplay,type ReplayRecord } from '../../lib/replays/model';
 import { syncReplays,type QueueOptions } from '../../lib/replays/queue';
+import zip64Fixture from '../../tests/fixtures/replay-zip64.json';
 const stage='main_00-01';
 const payload=JSON.stringify({timestamp:1,journal:{metadata:{stageId:stage},squad:[],logs:[]}});
 const encoded=(p=payload)=>Buffer.from(zipSync({default_entry:strToU8(p)})).toString('base64');
@@ -19,6 +20,36 @@ test('archive validation accepts only the requested replay and rejects credentia
   assert.throws(()=>decodeReplay(encoded(),'main_00-02'));
   assert.throws(()=>validateReplay(JSON.stringify({...JSON.parse(payload),token:'not-allowed'}),stage));
   assert.throws(()=>decodeReplay(encoded(JSON.stringify({...JSON.parse(payload),padding:'x'.repeat(600_000)})),stage));
+});
+test('ZIP64 per-entry sizes work without a ZIP64 archive end record', () => {
+  assert.equal(decodeReplay(zip64Fixture.encoded, stage), validateReplay(payload, stage));
+});
+test('streaming ZIP descriptors and stored entries decode, but duplicate replay files are rejected', () => {
+  const streaming = (count: number) => {
+    const chunks: Uint8Array[] = [];
+    const zip = new Zip((error, data) => { if (error) throw error; chunks.push(data); });
+    for (let i = 0; i < count; i++) {
+      const file = new ZipDeflate('default_entry'); zip.add(file); file.push(strToU8(payload), true);
+    }
+    zip.end(); return Buffer.concat(chunks).toString('base64');
+  };
+  assert.equal(decodeReplay(streaming(1), stage), validateReplay(payload, stage));
+  const stored = Buffer.from(zipSync({default_entry: strToU8(payload)}, {level: 0})).toString('base64');
+  assert.equal(decodeReplay(stored, stage), validateReplay(payload, stage));
+  assert.throws(() => decodeReplay(streaming(2), stage), /duplicate replay files/);
+});
+test('archive errors distinguish a missing file from actual oversized output without exposing file names', () => {
+  const missing = Buffer.from(zipSync({'private-name@example.invalid': strToU8(payload)})).toString('base64');
+  assert.throws(() => decodeReplay(missing, stage), /contains no replay file \(1 entry\)/);
+  assert.throws(() => decodeReplay(encoded('x'.repeat(600_000)), stage), /exceeds the 512 KB/);
+  assert.throws(() => decodeReplay(Buffer.from('invalid archive').toString('base64'), stage), /not a readable ZIP/);
+});
+test('actual decompressed bytes enforce the limit even when ZIP headers claim a tiny file', () => {
+  const archive = Buffer.from(zipSync({default_entry: strToU8('x'.repeat(2_000_000))}));
+  const central = archive.indexOf(Buffer.from([0x50, 0x4b, 0x01, 0x02]));
+  archive.writeUInt32LE(10, 22); // local original size
+  archive.writeUInt32LE(10, central + 24); // directory original size
+  assert.throws(() => decodeReplay(archive.toString('base64'), stage), /exceeds the 512 KB/);
 });
 test('replay sessions strictly sequence requests and invalidate uncertain sessions without retry or leaking errors',async()=>{
   const calls:string[]=[];

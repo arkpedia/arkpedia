@@ -161,6 +161,12 @@ triggers; withdrawing gameSync or deleting the user removes their cloud replays.
 Each browser archive and each cloud account are bounded to 32 MiB / 3,000 records,
 with a 512 KB decoded per-replay cap. Zip decoding accepts only bounded
 `default_entry` content, validates the requested stage and rejects credential keys.
+The reader accepts ZIP64 per-entry headers even when the archive uses an ordinary
+end record. It streams small compressed chunks and counts actual output bytes;
+the directory's size placeholder is never used to allocate or reject a replay.
+Missing files, unreadable ZIPs and genuinely oversized output have separate errors.
+The ZIP64 fixture was generated independently with Python's `zipfile` and contains
+only synthetic data. Real-account format confirmation is still required.
 These are JSON replay records, not executable files. Browser **Forget everything**
 clears this IndexedDB store as well as the existing browser stores. Standard browser
 backup files do not include it; **Export auto-deploys** downloads it separately.
