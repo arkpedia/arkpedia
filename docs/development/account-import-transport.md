@@ -123,8 +123,12 @@ investigate, not proof of a reliable replay revision contract.
 Import / export offers an explicit **Sync auto-deploys** action after a successful
 Yostar import. It never runs from Google/Discord sign-in or ordinary page visits.
 The in-memory game session continues at sequence 3 after syncData. The only exposed
-continuation reads `battle/getBattleReplay` (`campaign/getBattleReplay` for `camp_`
-stages), as documented in the upstream [ArkPRTS client](https://github.com/ashleney/ArkPRTS/blob/master/arkprts/client.py).
+continuation reads `quest/getBattleReplay` (`campaign/getBattleReplay` for `camp_`
+stages). The [ArkPRTS client](https://github.com/ashleney/ArkPRTS/blob/master/arkprts/client.py)
+uses a caller-supplied battle type; it does not define a literal `battle` route.
+Normal stages use the [quest route](https://github.com/loongling/LocalArknights/blob/main/src/main/java/com/hypergryph/arknights/game/quest.java).
+Failures distinguish HTTP status, bounded numeric game-result codes and missing replay
+payloads without exposing provider messages or raw authenticated responses.
 It cannot issue arbitrary game commands. Closing/unmounting the dialog discards
 this session capability; no new session secret is saved or uploaded.
 

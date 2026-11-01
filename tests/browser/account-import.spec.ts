@@ -579,7 +579,8 @@ async function stubAutoDeploys(page: Page) {
     Object.assign(window,{__replayTest:state});
     window.__arkpediaImportTransport=async(url,request)=>{
       if(url.endsWith('/account/syncData'))return {status:200,json:{result:0,user:{status:{level:120,nickName:'Doctor',nickNumber:'0001'},troop:{chars:{}},dungeon:{stages:Object.fromEntries(Object.keys(replays).map((id,i)=>[id,{stageId:id,hasBattleReplay:1,startTimes:i?1:state.counter,completeTimes:i?1:state.counter,practiceTimes:0,state:3}]))}}}};
-      if(url.endsWith('/getBattleReplay')){const stage=JSON.parse(request.body!).stageId;state.requests.push({stage,seq:request.headers.seqnum,at:Date.now()});return state.throttle?{status:429,json:{},headers:[['Retry-After','120']]}:{status:200,json:{battleReplay:replays[stage]}};}
+      if(url.endsWith('/getBattleReplay')&&!url.endsWith('/quest/getBattleReplay'))return {status:404,json:{}};
+      if(url.endsWith('/quest/getBattleReplay')){const stage=JSON.parse(request.body!).stageId;state.requests.push({stage,seq:request.headers.seqnum,at:Date.now()});return state.throttle?{status:429,json:{},headers:[['Retry-After','120']]}:{status:200,json:{battleReplay:replays[stage]}};}
       return original(url,request);
     };
   },replays);

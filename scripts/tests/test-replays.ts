@@ -22,7 +22,7 @@ test('archive validation accepts only the requested replay and rejects credentia
 });
 test('replay sessions strictly sequence requests and invalidate uncertain sessions without retry or leaking errors',async()=>{
   const calls:string[]=[];
-  const session=createReplaySession(async(url,request)=>{calls.push(request.headers.seqnum);assert.equal(url,'https://game.invalid/battle/getBattleReplay');return {status:200,json:{battleReplay:encoded()}};},'https://game.invalid','1','private-secret');
+  const session=createReplaySession(async(url,request)=>{calls.push(request.headers.seqnum);assert.equal(url,'https://game.invalid/quest/getBattleReplay');return {status:200,json:{battleReplay:encoded()}};},'https://game.invalid','1','private-secret');
   await session.readReplay(stage);await session.readReplay(stage);assert.deepEqual(calls,['3','4']);
   let attempts=0;
   const bad=createReplaySession(async()=>{attempts++;throw Error('private-secret');},'https://game.invalid','1','private-secret');
@@ -71,4 +71,18 @@ test('equal stage markers with conflicting local/cloud contents are resolved fro
   await syncReplays(s.options);
   assert.equal(s.fetched(),3);assert.equal(uploads,2);assert.equal(remote.hash,current.hash);
   await syncReplays(s.options);assert.equal(s.fetched(),3);
+});
+
+test('replay failures distinguish HTTP, game result and missing payload without exposing response data',async()=>{
+  for(const [response,expected] of [
+    [{status:404,json:{message:'private-secret'}},/HTTP 404/],
+    [{status:200,json:{result:2,message:'private-secret'}},/result 2/],
+    [{status:200,json:{result:'private-secret'}},/game refused/],
+    [{status:200,json:{result:0,secret:'private-secret'}},/contained no auto-deploy/],
+  ] as const){
+    let attempts=0;
+    const session=createReplaySession(async()=>{attempts++;return response;},'https://game.invalid','1','private-secret');
+    await assert.rejects(session.readReplay(stage),e=>e instanceof ReplayRequestError&&expected.test(e.message)&&!e.message.includes('private-secret'));
+    await assert.rejects(session.readReplay(stage));assert.equal(attempts,1);
+  }
 });

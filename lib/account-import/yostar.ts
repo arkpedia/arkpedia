@@ -305,7 +305,7 @@ export function createReplaySession(transport: Transport, gs: string, uid: strin
     if (busy) throw new ReplayRequestError('Another replay request is running.');
     busy = true;
     try {
-      const response = await transport(`${gs}/${stageId.startsWith('camp_') ? 'campaign' : 'battle'}/getBattleReplay`, {
+      const response = await transport(`${gs}/${stageId.startsWith('camp_') ? 'campaign' : 'quest'}/getBattleReplay`, {
         method: 'POST', headers: { ...CLIENT_HEADERS, secret, uid, seqnum: String(++sequence) }, body: JSON.stringify({ stageId }),
       });
       if (response.status === 429) {
@@ -314,8 +314,17 @@ export function createReplaySession(transport: Transport, gs: string, uid: strin
         throw new ReplayRequestError('Yostar asked us to wait. Import again after the cooldown to resume.', Number.isFinite(seconds) ? Math.max(60, seconds) : 60);
       }
       const data = object(response.json);
-      if (response.status !== 200 || (data.result !== undefined && data.result !== 0) || typeof data.battleReplay !== 'string') {
-        throw new ReplayRequestError('The game did not return this auto-deploy. Import again before resuming.');
+      if (response.status !== 200) {
+        const status = Number.isInteger(response.status) && response.status >= 100 && response.status <= 599 ? ` (HTTP ${response.status})` : '';
+        throw new ReplayRequestError(`The auto-deploy request failed${status}. Import again before resuming.`);
+      }
+      if (data.result !== undefined && data.result !== 0) {
+        // Expose only a bounded numeric code, never provider messages or response bodies.
+        const result = Number.isSafeInteger(data.result) && Math.abs(data.result) <= 999999 ? ` (result ${data.result})` : '';
+        throw new ReplayRequestError(`The game refused the auto-deploy request${result}. Import again before resuming.`);
+      }
+      if (typeof data.battleReplay !== 'string') {
+        throw new ReplayRequestError('The game response contained no auto-deploy. Import again before resuming.');
       }
       return data.battleReplay;
     } catch (error) {
