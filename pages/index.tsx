@@ -1,5 +1,7 @@
 import { useRegionalTime } from '@/lib/time/useRegionalTime';
 import { SITE_DESCRIPTION } from '@/lib/seo/site';
+import PageAudio from '@/components/music/PageAudio';
+import { HOME_MUSIC_CID } from '@/lib/music/pageMusic';
 import PageMeta from '@/components/layout/PageMeta';
 import { regionalBanners, regionalGameEvents, regionalScheduleSlice, regionalSkinWindows, stripRegionalTimingSources } from '@/lib/time/regional';
 import { useReaderClock } from '@/lib/time/readerClock';
@@ -126,6 +128,7 @@ export default function HomePage({
 
   return (
     <>
+      <PageAudio cid={HOME_MUSIC_CID} pageKey="home" />
       <PageMeta fullTitle="Arkpedia — Arknights operators, planners and schedule" title="Arkpedia" description={SITE_DESCRIPTION} path="/" />
       {/* Home-page-only, not global -- see AnnouncementTicker.tsx. */}
       <AnnouncementTicker sssCycle={sssCycle} maintenance={maintenance} />

@@ -21,17 +21,26 @@ export interface SiteSettings {
    *  only the clause that holds the technique (false, the default). One setting for every
    *  record, remembered. */
   techniqueDetail: boolean;
+  backgroundMusic: boolean;
+  greeting: 'off' | 'random' | 'owned' | 'chosen';
+  greetingOperator: string;
 }
 
 export type SettingKey = keyof SiteSettings;
 
 export const SETTINGS_DEFAULTS: Readonly<SiteSettings> = Object.freeze({
   techniqueDetail: false,
+  backgroundMusic: false,
+  greeting: 'off',
+  greetingOperator: '',
 });
 
 /** Checks each stored value is the right type before a page sees it. */
 const VALID: { [K in SettingKey]: (value: unknown) => value is SiteSettings[K] } = {
   techniqueDetail: (value): value is boolean => typeof value === 'boolean',
+  backgroundMusic: (value): value is boolean => typeof value === 'boolean',
+  greeting: (value): value is SiteSettings['greeting'] => ['off', 'random', 'owned', 'chosen'].includes(value as string),
+  greetingOperator: (value): value is string => typeof value === 'string' && value.length <= 120 && !/[\x00-\x1f/\\]/.test(value),
 };
 
 export const SETTINGS_KEY = 'arkpedia:settings';
@@ -142,3 +151,5 @@ export const setSetting = <K extends SettingKey>(key: K, value: SiteSettings[K])
 export const exportSettings = (): StoredSettings => store.exportAll();
 /** Takes an exported object back: its valid settings win over what this browser has. */
 export const importSettings = (blob: unknown): void => store.importAll(blob);
+
+export const subscribeSettings = store.subscribe;

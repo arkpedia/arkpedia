@@ -1,4 +1,7 @@
 import { loadAllEventYears } from '@/lib/events/loadEventsData';
+import PageAudio from '@/components/music/PageAudio';
+import { useReleaseTable } from '@/lib/content/context';
+import { eventMusicCid, type PageMusicTable } from '@/lib/music/pageMusic';
 import PageMeta from '@/components/layout/PageMeta';
 import { scheduleModeRelease } from '@/lib/schedule/modeReleases';
 import type { ScheduleEvent } from '@/lib/schedule/scheduleTypes';
@@ -217,6 +220,7 @@ export default function EventDetailPage({
   rewardNote = null,
   videos = [],
 }: Props) {
+  const pageMusic = useReleaseTable<PageMusicTable>('page-music');
   const { server, schedule } = useRegionalTime();
   const regionalWindow = schedule?.events?.[name];
   /* The server's own window where it has one, else Global's date or prediction marked
@@ -347,6 +351,7 @@ export default function EventDetailPage({
 
   return (
     <RewardDetailsProvider tickets={tickets}>
+      <PageAudio cid={eventMusicCid(name, pageMusic)} pageKey={`event:${name}`} />
       <PageMeta title={name} description={`${name}, an Arknights event${dateRange ? ` (${dateRange})` : ''}: its banner, rewards, outfits and news.`} path={`/events/${encodeURIComponent(name)}`} image={images[0] ?? poster ?? bannerImage} />
       <PageHeader
         back={{ href: '/schedule', label: 'Events' }}
@@ -789,6 +794,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
     },
   };
 }, {
+  tables: { 'page-music': async () => (await import('@/lib/music/pageMusicServer')).pageMusicTable() },
   // A release exported before reward totals carried their order: this deployment's catalogue fills it in.
   // One exported before the News tab's official art has none: no board items, no pictures.
   // Each page keeps only its own event's and banner's regional windows (regionalScheduleSlice).

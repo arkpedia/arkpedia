@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useId, Fragment, type ReactNode } from 'react';
+import AudioSettings from '@/components/music/AudioSettings';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { accountReturnPath } from '@/lib/cloud-account/navigation';
@@ -12,7 +13,7 @@ import ProviderIcon from './ProviderIcon';
 import Tabs, { tabPanelProps } from '@/components/ui/Tabs';
 import styles from './CloudAccountPanel.module.css';
 
-type Setting = 'profile' | 'picture' | 'saving' | 'logins' | 'data';
+type Setting = 'audio' | 'profile' | 'picture' | 'saving' | 'logins' | 'data';
 type Confirmation = 'cloud' | 'account' | 'revoke' | 'history' | 'personal' | null;
 type Category = 'gameSync' | 'historySync' | 'personalSync';
 const label = (provider: string) => provider === 'google' ? 'Google' : 'Discord';
@@ -156,12 +157,13 @@ export default function CloudAccountPanel({ onOpenData, hideSettingsButton = fal
       </div> : <>
         {onboarding ? <p className="label-tag">Step 2 of 2 · Saving</p> : <Tabs label="Account settings" id="account-settings" value={settings} onChange={setSettings} options={[
           { value: 'profile', label: 'Profile' }, ...(pictureContent ? [{ value: 'picture' as const, label: 'Profile picture' }] : []),
-          { value: 'saving', label: 'Saving' }, { value: 'logins', label: 'Logins' }, { value: 'data', label: 'Delete data' },
+          { value: 'audio', label: 'Audio' }, { value: 'saving', label: 'Saving' }, { value: 'logins', label: 'Logins' }, { value: 'data', label: 'Delete data' },
         ]} />}
         {!onboarding && <div {...tabPanelProps('account-settings', 'profile')} hidden={settings !== 'profile'} className={styles.settings}>
           <AccountProfileForm id="edit" owner={remote.user.id} profile={remote.profile} onSaved={async () => { await sync.refresh(); setMessage('Profile saved.'); }} />
         </div>}
         {settings !== 'profile' && <div {...(onboarding ? {} : tabPanelProps('account-settings', settings))} className={styles.settings}>
+          {settings === 'audio' && <AudioSettings />}
           {settings === 'picture' && pictureContent}
           {settings === 'saving' && <div className={styles.form}>
             {!onboarding && <h3>What saves to your account</h3>}<p>{onboarding ? 'Choose what Arkpedia can save to its servers. You can leave everything off.' : 'Choose what to keep across devices. You can change this anytime.'}</p>

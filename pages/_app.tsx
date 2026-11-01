@@ -82,6 +82,7 @@ import '@/styles/account/account.css';
 import '@/styles/core/motion.css';
 import SiteNav from '@/components/layout/Sitenav';
 import AccountActions from '@/components/account/AccountActions';
+import AudioSettingsDialog from '@/components/music/AudioSettingsDialog';
 import MusicPlayer from '@/components/music/MusicPlayer';
 import RoamingChibiProvider from '@/components/operators/RoamingChibiProvider';
 import { MusicPlayerProvider } from '@/lib/music/musicPlayerContext';
@@ -196,6 +197,7 @@ export default function App({ Component, pageProps }: AppProps) {
         <Component key={cloudRestoreVersion} {...pageProps} />
       </div>
       {!hideSiteChrome && <MusicPlayer />}
+      {!hideSiteChrome && <AudioSettingsDialog />}
       <ExternalMediaPrompt />
       <StatisticsPrompt />
       {process.env.ARKPEDIA_WEB_ANALYTICS === '1' && <SiteAnalytics />}
