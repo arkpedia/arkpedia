@@ -70,6 +70,8 @@ test('locked residents and existing production assignments stay in their origina
 
 test('an explicit training target gets a trainer while the trainee stays reserved', () => {
   const ctx = context();
+  // Isolate training eligibility from the separate, deliberately limited dorm-budget case.
+  ctx.base.facilities = facilities.filter(f => ['dormitory', 'trainingRoom'].includes(f.kind));
   ctx.base.trainingTarget = { operatorName: 'Worker 00', class: 'Guard', branch: '', mastery: 1, timeReductionActive: false, instantTrainingReady: false };
   const plan = completeStaffing(emptyPlan(ctx), ctx);
   for (const shift of plan.shifts) {
