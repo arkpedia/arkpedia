@@ -154,7 +154,7 @@ export default function DataDialog({ onClose, initialView = 'game' }: { onClose:
       <div className="data-dialog-body">
       <section {...tabPanelProps('data-management', 'game')} hidden={view !== 'game'} className="data-dialog-part">
         <p className="import-copy">
-          Your browser signs in directly to Yostar over an encrypted connection. Arkpedia never receives your Yostar email, codes or tokens.
+          Your browser signs in directly to Yostar over an encrypted connection. Arkpedia <strong>NEVER</strong> receives your Yostar email, codes or tokens.
         </p>
         <p className="hint import-note">
           Importing replaces your operators, depot and account, and kicks you out of the game if you are logged in.
