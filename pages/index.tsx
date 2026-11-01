@@ -128,7 +128,6 @@ export default function HomePage({
 
   return (
     <>
-      <PageAudio musicId={HOME_MUSIC_CID} pageKey="home" />
       <PageMeta fullTitle="Arkpedia — Arknights operators, planners and schedule" title="Arkpedia" description={SITE_DESCRIPTION} path="/" />
       {/* Home-page-only, not global -- see AnnouncementTicker.tsx. */}
       <AnnouncementTicker sssCycle={sssCycle} maintenance={maintenance} />
@@ -139,6 +138,7 @@ export default function HomePage({
         <h1 className="visually-hidden">Arkpedia — Arknights community hub</h1>
         <MaintenanceNotice maintenance={maintenance} now={now} />
         <div className="front-page-left">
+          <PageAudio musicId={HOME_MUSIC_CID} pageKey="home" />
           <EventsPanel ongoing={deserializedEvents} upcoming={deserializedUpcoming} farmableMaterials={farmableMaterials} now={now} />
           <SkinsCarousel skins={ongoingSkins} />
           {/* A "Packs -- Coming soon" panel stood here. Placeholders stay hidden until

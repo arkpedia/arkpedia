@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore, ReactNode } from 'react';
-import { AUDIO_MANUAL_KEY, markVisit, visitFlag } from './pageMusic';
+import { MAIN_AUDIO_START } from './pageMusic';
 import { readPrivacy, requestExternalMedia } from '@/lib/privacy/preferences';
 import { useRouter } from 'next/router';
 import { useContentUrl } from '@/lib/content/context';
@@ -138,9 +138,6 @@ function computeAutoplayTracks({ catalog, filter, queue, autoplayOrder, autoplay
  * The song's clock is not here: it moves every 500 ms, and lives in useMusicPlayback.
  */
 interface MusicPlayerContextValue {
-  pageMusic: string | null;
-  startPageMusic: (musicId: string, key: string) => void;
-  stopPageMusic: (key: string) => void;
   ready: boolean;
   starting: boolean;
   /** Sound is coming out. A Monster Siren song is playing only once its clock moves. */
@@ -256,13 +253,7 @@ export function useMusicPlayback(): PlaybackPosition & Omit<MusicPlaybackContext
 export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   // The player's engine (lib/music/playbackEngine.ts): YouTube's iframe for a song on YouTube,
   // Monster Siren's audio for one that is not, behind one surface. Set once YouTube is ready.
-  const pageOwner = useRef<{ key: string; id: string; volume: number } | null>(null);
-  const pageRequest = useRef<string | null>(null);
-  const pageVolume = useRef<number | null>(null);
-  const pageStopped = useRef(false);
-  const pageGeneration = useRef(0);
   const manualAudio = useRef(false);
-  const [pageMusic, setPageMusic] = useState<string | null>(null);
   const playerRef = useRef<TrackEngine | null>(null);
   const audioRef = useRef<MsrAudioEngine | null>(null);
   const playerCreatedRef = useRef(false);
@@ -395,11 +386,11 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
    *  (lib/music/audioElement.ts primeMusicAudio), and the engine takes it over. */
   const primeAudio = (id?: string | null, seconds = 0) => {
     if (!readPrivacy().externalMedia) return;
+    window.dispatchEvent(new Event(MAIN_AUDIO_START));
     clearPlaybackNotice();
     const source = id ? routeTrack(id) : null;
     if (source?.kind !== 'msr') return;
     if (playerReadyRef.current && playerRef.current && musicAudioElement().getAttribute('src')) return;
-    if (pageVolume.current !== null) musicAudioElement().volume = Math.min(pageVolume.current, 15) / 100;
     primeMusicAudio(source.cid, seconds);
   };
   // The queue as Clear queue found it, for Undo.
@@ -488,8 +479,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
       const storage = window.localStorage;
       const nextVolume = Number(storage.getItem('musicVolume') ?? 50);
       if (Number.isFinite(nextVolume) && nextVolume >= 0 && nextVolume <= 100) {
-        if (pageOwner.current) { pageOwner.current.volume = nextVolume; pageVolume.current = nextVolume; }
-        const effective = pageOwner.current ? Math.min(nextVolume, 15) : nextVolume;
+        const effective = nextVolume;
         volumeRef.current = effective; setVolume(effective); playerRef.current?.setVolume(effective);
       }
       dataSaverRef.current = storage.getItem(MUSIC_DATA_SAVER_KEY) === 'true';
@@ -644,9 +634,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
    *  never stored: the track id, which favourites, playlists and the queue keep, stays the same. */
   function routeTrack(id: string): TrackSource {
     const source = trackSource(id) ?? { kind: 'youtube' as const, videoId: id };
-    // Page themes prefer their existing YouTube upload for quick starts. Manual
-    // music retains Monster Siren delivery for background/mobile listening.
-    if (source.kind === 'msr' || dataSaverRef.current || pageOwner.current) return source;
+    if (source.kind === 'msr' || dataSaverRef.current) return source;
     const cid = cidOf(id);
     return cid ? { kind: 'msr', cid } : source;
   }
@@ -805,7 +793,6 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   // Decided again at each change below, and at each tick of the clock while a song plays
   // (the poll effect below), as the song's own buffering comes along.
   function selectPreload() {
-    if (pageOwner.current) { musicAudioPreloader.select(null, false); return; }
     const saver = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData;
     const step = nextQueueStep();
     const next = repeatModeRef.current === 'one' ? undefined : step ? queueRef.current[step.index]
@@ -898,10 +885,6 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
       audioRef.current = audio;
 
       const onPlayerError = () => {
-        if (pageStopped.current) return;
-        if (pageOwner.current) {
-          pausePlayback(); announce(STUCK_NOTICE, false, true); return;
-        }
         // Unplayable video (deleted, region-blocked, embedding
         // disabled, age-restricted, etc.), or Monster Siren audio that
         // would not load -- skip it instead of leaving playback dead
@@ -923,10 +906,8 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
       // player hanging on the song before. Monster Siren's audio meets this on iOS, where only
       // a press starts sound.
       const onAutoplayRefused = (engine: TrackEngine) => {
-        if (pageStopped.current) return;
         setEngineKind(engine.active());
         setBuffering(false);
-        if (pageOwner.current) announce('Tap Play to start background music.', false, true);
         if (resumeWatchRef.current) { refuseResume(); return; }
         setIsPlaying(false);
         setStarting(false);
@@ -963,11 +944,11 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
 
       const onPlayerState = (data: number, engine: TrackEngine) => {
         const state = PLAYER_STATE;
-        if (pageStopped.current) { if (data === state.PLAYING) engine.pauseVideo(); return; }
-        // A late event from an abandoned page must never revive its audio.
-        if (!pageOwner.current && !manualAudio.current && !videoIdRef.current && data === state.PLAYING) {
+        // Ignore unsolicited playback before a main-player request.
+        if (!manualAudio.current && !videoIdRef.current && data === state.PLAYING) {
           engine.pauseVideo(); return;
         }
+        if (data === state.PLAYING) window.dispatchEvent(new Event(MAIN_AUDIO_START));
         playerStateRef.current = data;
         setEngineKind(engine.active());
         // Monster Siren's audio reports BUFFERING from the press until its clock moves, and
@@ -1011,7 +992,6 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
           setIsPlaying(false);
         } else if (data === state.ENDED) {
           setIsPlaying(false);
-          if (pageOwner.current) { engine.loadVideoById(pageOwner.current.id); return; }
           if (repeatModeRef.current === 'one') {
             const id = engine.getVideoData()?.video_id || videoIdRef.current;
             if (id) engine.loadVideoById(id);
@@ -1045,17 +1025,8 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
             } catch {
               /* ignore */
             }
-            if (pageVolume.current !== null) savedVolume = Math.min(pageVolume.current, 15);
             engine.setVolume(savedVolume);
             setVolume(savedVolume);
-
-            if (pageOwner.current) {
-              engine.loadVideoById(pageOwner.current.id);
-              setReady(true); setStarting(false);
-              resumeWatchRef.current = { videoId: pageOwner.current.id, seconds: 0, phase: 'play', since: Date.now() };
-              watchResume();
-              return;
-            }
 
             // A specific track was requested (via playTrackByVideoId)
             // before the player finished initializing -- load THAT
@@ -1156,7 +1127,6 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   // A resumed song that does not start: the browser refused it (YouTube does not always
   // say so) or it never came. It waits, cued at its moment, for the reader's Play.
   function refuseResume() {
-    if (pageOwner.current) announce('Tap Play to start background music.', false, true);
     setStarting(false); setBuffering(false);
     const watch = resumeWatchRef.current;
     const player = playerRef.current;
@@ -1243,7 +1213,6 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   const saveResume = useCallback((left: boolean) => {
     // Once the document is going, nothing writes over the record it left: the browser fires
     // visibilitychange after pagehide as it unloads, and YouTube may still report a pause.
-    if (pageOwner.current) return;
     if (leftRef.current && !left) return;
     if (left) leftRef.current = true;
     const storage = sessionStore();
@@ -1867,10 +1836,10 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     actions: {
       // From the lock screen, a press too: a song still loading is asked to play again in it.
       play: () => {
-        claimManualAudio(true);
+        claimManualAudio();
         if (bufferingRef.current) { primeAudio(videoIdRef.current); playerRef.current?.playVideo(); } else if (!isPlayingRef.current) togglePlay();
       },
-      pause: () => { claimManualAudio(true); pausePlayback(); },
+      pause: () => { claimManualAudio(); pausePlayback(); },
       next: () => { claimManualAudio(); void nextTrack(); },
       previous: () => { claimManualAudio(); prevTrack(); },
       seek: (seconds) => { setCurrentTime(seconds); handleSeekCommit(seconds); },
@@ -1879,62 +1848,8 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     element: msrSession ? audioRef.current?.element ?? null : null,
   });
 
-  function claimManualAudio(keepQuiet = false) {
-    pageStopped.current = false;
+  function claimManualAudio() {
     manualAudio.current = true;
-    markVisit(AUDIO_MANUAL_KEY);
-    window.dispatchEvent(new Event('arkpedia:manual-audio'));
-    pageGeneration.current++;
-    pageRequest.current = null;
-    const owner = pageOwner.current;
-    if (!keepQuiet && pageVolume.current !== null) {
-      volumeRef.current = pageVolume.current; setVolume(pageVolume.current);
-      playerRef.current?.setVolume(pageVolume.current); pageVolume.current = null;
-    }
-    if (!owner) return;
-    pageOwner.current = null; setPageMusic(null);
-    // Taking over a blocked theme must still load that theme on the first Play.
-    if (!playerReadyRef.current) pendingVideoIdRef.current = owner.id;
-  }
-  function stopPageMusic(key: string) {
-    if (pageRequest.current !== key && pageOwner.current?.key !== key) return;
-    pageGeneration.current++; pageRequest.current = null;
-    const owner = pageOwner.current;
-    if (!owner || owner.key !== key) return;
-    pageStopped.current = true;
-    pausePlayback(); endResumeWatch(); isPlayingRef.current = false;
-    pageOwner.current = null; pageVolume.current = null; setPageMusic(null);
-    videoIdRef.current = ''; setVideoId(''); setTitle('');
-    setCurrentTime(0); setDuration(0); cuedAtRef.current = null;
-    volumeRef.current = owner.volume; setVolume(owner.volume); playerRef.current?.setVolume(owner.volume);
-    dismissNotice();
-  }
-  function startPageMusic(musicId: string, key: string) {
-    const canStart = () => !manualAudio.current && !visitFlag(AUDIO_MANUAL_KEY)
-      && !resumeRef.current && !videoIdRef.current && !pendingPlayRef.current && !isPlayingRef.current;
-    if (!canStart()) return;
-    const generation = ++pageGeneration.current;
-    pageRequest.current = key;
-    void buildQueueFromCatalog().then(() => {
-      if (generation !== pageGeneration.current || !canStart()) return;
-      const track = catalogRef.current?.find(song => (song.cid === musicId || song.id === musicId) && allowed(song));
-      if (!track) return; // No reviewed recording available in this release.
-      let savedVolume = volumeRef.current;
-      try { const v = Number(localStorage.getItem('musicVolume') ?? 50); if (Number.isFinite(v)) savedVolume = Math.max(0, Math.min(100, v)); } catch { /* use memory */ }
-      pageStopped.current = false;
-      pageVolume.current = savedVolume;
-      pageOwner.current = { key, id: track.id, volume: savedVolume };
-      setPageMusic(key); videoIdRef.current = track.id; setVideoId(track.id); setTitle(track.title);
-      const quiet = Math.min(savedVolume, 15);
-      volumeRef.current = quiet; setVolume(quiet); playerRef.current?.setVolume(quiet);
-      if (!readPrivacy().externalMedia) {
-        announce('Tap Play to allow external media and start music.', false, true); return;
-      }
-      if (playerReadyRef.current && playerRef.current) {
-        playerRef.current.loadVideoById(track.id);
-        resumeWatchRef.current = { videoId: track.id, seconds: 0, phase: 'play', since: Date.now() }; watchResume();
-      } else { setStarting(true); setInitialized(true); }
-    }).catch(() => { /* A missing catalogue leaves the page quiet. A later visit can retry. */ });
   }
 
   // The actions keep their identity across renders (lib/ui/useLatestActions.ts), so the value
@@ -1943,9 +1858,9 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     setAutoplay, dismissNotice, setIncludeEndfield, setDataSaver, initializePlayer,
     toggleShuffle, cycleRepeat, toggleFavorite, toggleNoAutoplay: toggleSongNoAutoplay,
     reorderQueue, reorderShuffleOrder, moveQueueItemToTop, removeFromQueue, queueSong, clearQueue,
-    undoClearQueue, setExcludeCopyrighted, startPageMusic, stopPageMusic,
-    togglePlay: () => { claimManualAudio(true); togglePlay(); },
-    pausePlayback: () => { claimManualAudio(true); pausePlayback(); },
+    undoClearQueue, setExcludeCopyrighted,
+    togglePlay: () => { claimManualAudio(); togglePlay(); },
+    pausePlayback: () => { claimManualAudio(); pausePlayback(); },
     nextTrack: () => { claimManualAudio(); return nextTrack(); },
     prevTrack: () => { claimManualAudio(); prevTrack(); },
     playTrackByVideoId: (id: string) => { claimManualAudio(); playTrackByVideoId(id); },
@@ -1959,12 +1874,12 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     ready, starting, isPlaying, buffering, title, videoId, volume, shuffle, repeatMode, favorites,
     queue, queueIndex, shuffleOrder, shufflePosition, queueLoading, playingPlaylistId, queued, queueSource, libraryTracks, currentTrack,
     nowPlayingCover, nowPlayingArtist, autoplay, autoplayVideoId, autoplayTracks, notice, excludeCopyrighted, includeEndfield, dataSaver,
-    engineKind, noAutoplay, canUndoClear, pageMusic, containerRef, ...actions,
+    engineKind, noAutoplay, canUndoClear, containerRef, ...actions,
   }), [
     ready, starting, isPlaying, buffering, title, videoId, volume, shuffle, repeatMode, favorites,
     queue, queueIndex, shuffleOrder, shufflePosition, queueLoading, playingPlaylistId, queued, queueSource, libraryTracks, currentTrack,
     nowPlayingCover, nowPlayingArtist, autoplay, autoplayVideoId, autoplayTracks, notice, excludeCopyrighted, includeEndfield, dataSaver,
-    engineKind, noAutoplay, canUndoClear, pageMusic, actions,
+    engineKind, noAutoplay, canUndoClear, actions,
   ]);
   const playbackActions = useLatestActions({ handleSeekChange, handleSeekCommit, setSeeking });
   const playback = useMemo<MusicPlaybackContextValue>(() => ({ position, ...playbackActions }), [position, playbackActions]);

@@ -351,12 +351,12 @@ export default function EventDetailPage({
 
   return (
     <RewardDetailsProvider tickets={tickets}>
-      <PageAudio musicId={eventMusicId(name, pageMusic)} pageKey={`event:${name}`} />
       <PageMeta title={name} description={`${name}, an Arknights event${dateRange ? ` (${dateRange})` : ''}: its banner, rewards, outfits and news.`} path={`/events/${encodeURIComponent(name)}`} image={images[0] ?? poster ?? bannerImage} />
       <PageHeader
         back={{ href: '/schedule', label: 'Events' }}
         eyebrow={<>Rhodes Island // <Link prefetch={false} href="/schedule">Events</Link></>}
         title={name}
+        actions={<PageAudio musicId={eventMusicId(name, pageMusic)} pageKey={`event:${name}`} />}
         sub={`${isPredicted ? (mode ? 'Predicted launch: ' : 'Predicted release: ') : (mode ? 'Launch: ' : 'Release: ')}${dateRange}${mode ? ' · Permanent mode' : ''}`}
       />
 

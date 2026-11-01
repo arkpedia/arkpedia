@@ -33,7 +33,7 @@ request media permission again after a refusal. Nothing plays before media conse
 Operator greetings and their API were removed; legacy greeting values are discarded
 by settings parsing, export and cloud-data validation.
 
-Background playback belongs to the page that requested it. The mini player uses
+Background playback belongs to the page that requested it. A separate page-owned engine uses
 reviewed lobby associations projected into the event page's `page-music` release
 table. Calendar tags and reruns resolve to the original event. Unknown events stay
 silent. The homepage uses the default Vision theme, m_sys_void / 生命流 (MSR 232202),
@@ -42,8 +42,10 @@ identified by the [interface BGM reference](https://arknights.wiki.gg/wiki/Sound
 Page music loops by itself at no more than 15% of the player volume scale, without
 changing the stored volume, queue, shuffle or repeat settings. Leaving, disabling
 background music, or cancelling a pending page request stops it. Explicit player
-controls take ownership; a manual pause suppresses further page autoplay until the
-tab closes. A page-owned track is not written as a resume request for another page.
+playback silences the page theme immediately. A paused main player allows the page
+theme to play, preserving its song, queue and position. A small page Play/Mute control
+only changes the current page; the next page can play its own theme. Page playback
+never expands the mini player or writes a main-player resume request.
 A browser refusal offers Play; it never opens the external-media prompt by itself.
 Phones that ignore element volume still use their hardware volume.
 

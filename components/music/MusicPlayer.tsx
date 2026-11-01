@@ -19,7 +19,6 @@ function formatTrackLabel(title: string, artist?: string | null): string {
 
 export default function MusicPlayer() {
   const {
-    pageMusic,
     ready,
     starting,
     buffering,
@@ -48,7 +47,6 @@ export default function MusicPlayer() {
   } = useMusicPlayer();
 
   const [collapsed, setCollapsed] = useState(true);
-  useEffect(() => { if (pageMusic) setCollapsed(false); }, [pageMusic]);
   const shellRef = useRef<HTMLDivElement>(null);
 
   // The queue's own catalog title/altTitle (not YouTube's raw video
