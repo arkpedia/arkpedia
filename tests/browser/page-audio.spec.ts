@@ -97,7 +97,7 @@ test('Background music setting stops immediately and persists across pages and r
   await menu.getByRole('checkbox',{name:'Background music',exact:true}).check(); await playing(page);
   await expect(shell(page).getByRole('button',{name:'Expand player'})).toBeVisible();
 });
-test('browser-blocked page music offers Play only inside Settings', async ({page}) => {
+test('browser-blocked page music offers Play inside Settings', async ({page}) => {
   await stubYouTube(page,'refuse'); await enable(page); await page.goto(event);
   await expect(page.locator('[data-page-audio]')).toHaveAttribute('data-page-audio','blocked');
   const menu=await settings(page); await menu.getByRole('button',{name:'Play background music',exact:true}).click(); await playing(page);
@@ -191,4 +191,50 @@ test('Yet Another Wave resolves its published Mirari recording', async ({page}) 
   await expect(page.locator('[data-page-audio]')).toHaveAttribute('data-page-audio','playing');
   expect(siren.files.some(url=>url.includes('306864'))).toBe(true);
   await expect(page.getByRole('button',{name:'Mute page music',exact:true})).toHaveCount(0);
+});
+
+for (const theme of ['dark', 'light']) test(`background now-playing stays separate from the personal player (${theme})`, async ({page}, info) => {
+  await stubYouTube(page); await enable(page);
+  await page.addInitScript(theme=>localStorage.setItem('theme',theme),theme);
+  await page.goto(event); await playing(page);
+  const opener=shell(page).getByRole('button',{name:'Expand player'});
+  const box=(await opener.boundingBox())!; const point={x:box.x+box.width/2,y:box.y+box.height/2};
+  await opener.click();
+  const row=shell(page).getByRole('group',{name:'Background music'});
+  await expect(row).toContainText('Background music · Playing');
+  const themeTitle=await row.locator('.music-widget-title').innerText(); expect(themeTitle.length).toBeGreaterThan(0);
+  await expect(shell(page).locator('.music-widget-song')).toContainText('No song selected');
+  // Let opening the personal player's engine settle: inspection must not steal audio.
+  await expect.poll(async()=>(await youtube(page))?.players).toBe(1);
+  await page.waitForTimeout(250);
+  await playing(page); await expect(row).toContainText('Background music · Playing');
+  if(process.env.ARKPEDIA_QA_CAPTURE) await page.screenshot({animations:'disabled',path:`${process.env.ARKPEDIA_QA_CAPTURE}/${info.project.name}-${theme}-background-playing.png`});
+  await page.mouse.click(point.x,point.y); await expect(opener).toBeVisible();
+  await navigate(page,'/music?view=library');
+  await page.locator('.music-library-row .music-song-row-main').first().click();
+  await expect.poll(async()=>(await youtube(page))?.state).toBe(1);
+  const personal=(await youtube(page))!.videoId;
+  await navigate(page,event); await expand(page);
+  await expect(row).toContainText('Background music · Paused');
+  await expect(row).toContainText(themeTitle);
+  expect((await youtube(page))?.videoId).toBe(personal);
+  if(process.env.ARKPEDIA_QA_CAPTURE) await page.screenshot({animations:'disabled',path:`${process.env.ARKPEDIA_QA_CAPTURE}/${info.project.name}-${theme}-background-paused.png`});
+  await shell(page).locator('.music-play-btn').click(); await expect(row).toContainText('Background music · Playing');
+  expect((await youtube(page))?.videoId).toBe(personal);
+  const menu=await settings(page); await menu.getByRole('checkbox',{name:'Background music',exact:true}).uncheck();
+  await page.getByRole('button',{name:'Settings',exact:true}).click(); await expand(page);
+  await expect(row).toHaveCount(0);
+  await settings(page); await menu.getByRole('checkbox',{name:'Background music',exact:true}).check();
+  await page.getByRole('button',{name:'Settings',exact:true}).click(); await expand(page);
+  await expect(row).toContainText('Background music · Playing');
+  await navigate(page,'/schedule'); await expect(row).toHaveCount(0);
+});
+
+test('blocked background music can be started from its mini-player row',async({page})=>{
+  await stubYouTube(page,'refuse-silently'); await enable(page); await page.goto(event);
+  await expect(page.locator('[data-page-audio]')).toHaveAttribute('data-page-audio','blocked',{timeout:15000}); await expand(page);
+  const row=shell(page).getByRole('group',{name:'Background music'});
+  await expect(row).toContainText('Ready to play',{timeout:15000});
+  await row.getByRole('button',{name:'Play background music',exact:true}).click();
+  await expect(row).toContainText('Background music · Playing');
 });

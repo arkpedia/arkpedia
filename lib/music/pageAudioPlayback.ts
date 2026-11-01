@@ -1,8 +1,14 @@
 import { useSyncExternalStore } from 'react';
 
-// Only the active page owns this transient retry action. The on/off preference
-// stays in siteSettings; closing Settings must not affect playback.
-type PagePlayback = { owner: object; needsPlay: boolean; play: () => void } | null;
+// The active page owns this transient display/retry state. It never enters the
+// personal queue. The on/off preference stays in siteSettings.
+type PagePlayback = {
+  owner: object;
+  title: string;
+  status: 'loading' | 'playing' | 'paused' | 'blocked' | 'error';
+  needsPlay: boolean;
+  play: () => void;
+} | null;
 let current: PagePlayback = null;
 const listeners = new Set<() => void>();
 const subscribe = (listener: () => void) => { listeners.add(listener); return () => { listeners.delete(listener); }; };

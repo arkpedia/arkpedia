@@ -7,6 +7,7 @@ import { loadMusicCatalogue, MUSIC_CATALOGUE_PATH, type MusicCatalogueSong } fro
 import { createMsrAudioEngine, PLAYER_STATE, type PlaybackEngine } from '@/lib/music/playbackEngine';
 import { songAllowed } from '@/lib/music/songFilter';
 import { MAIN_AUDIO_START } from '@/lib/music/pageMusic';
+import { songTitle } from '@/lib/music/musicPolish';
 import { publishPagePlayback, clearPagePlayback } from '@/lib/music/pageAudioPlayback';
 
 type Status = 'loading' | 'playing' | 'paused' | 'blocked' | 'error';
@@ -105,6 +106,7 @@ function PageAudioSession({ musicId }: { musicId: string | null }) {
   useEffect(() => {
     const identity = owner.current;
     if (enabled && consent && song) publishPagePlayback({ owner: identity,
+      title: songTitle(song.title, song.altTitle), status: mainBusy ? 'paused' : status,
       needsPlay: !mainBusy && (status === 'blocked' || status === 'error'),
       play: () => attempt.current(),
     });

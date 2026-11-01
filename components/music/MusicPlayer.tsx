@@ -9,6 +9,7 @@ import { MSR_LABEL } from '@/lib/music/songArt';
 import TransportIcon from './TransportIcons';
 import AlbumCover from './AlbumCover';
 import SeekBar from './SeekBar';
+import BackgroundMusicNowPlaying from './BackgroundMusicNowPlaying';
 import { XGlyph } from '@/components/ui/XButton';
 
 
@@ -176,12 +177,13 @@ export default function MusicPlayer() {
             </span>
             <span className="music-widget-text">
               <span className={`music-widget-title music-crossfade-text${fading ? ' fading' : ''}`}>
-                {!videoId ? 'Nothing playing yet' : ready ? crossfadeName : 'Loading…'}
+                {!videoId ? 'No song selected' : ready ? crossfadeName : 'Loading…'}
               </span>
               <span className="music-widget-artist">{videoId ? artist ?? MSR_LABEL : 'Pick a song in Library or Discover'}</span>
             </span>
           </Link>
 
+          <BackgroundMusicNowPlaying />
           <SeekBar className="music-seek-row" />
 
           {/* A song that would not start says so here too, until the next Play. */}

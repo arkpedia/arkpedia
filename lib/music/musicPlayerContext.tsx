@@ -1180,7 +1180,9 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   const initializePlayer = useCallback((prompt = true) => {
     if (!prompt && !readPrivacy().externalMedia) return;
     requestExternalMedia(() => {
-      primeAudio(pendingVideoIdRef.current ?? videoIdRef.current);
+      // Opening the player or adding to its queue is not a request for sound.
+      // Only a pending play may interrupt the page's background theme.
+      if (pendingPlayRef.current || pendingVideoIdRef.current) primeAudio(pendingVideoIdRef.current ?? videoIdRef.current);
       setInitialized(true);
     }, () => { pendingPlayRef.current = false; setStarting(false); setBuffering(false); });
   // The permission callback uses current playback refs.

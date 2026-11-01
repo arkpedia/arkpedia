@@ -133,6 +133,8 @@
 .music-widget-cover-art.music-album-cover-placeholder { display: flex; align-items: center; justify-content: center; color: var(--text-faint); font-size: 15px; }
 .music-widget-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .music-widget-artist { overflow: hidden; color: var(--text-dim); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.music-widget-background { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; padding-block: 8px; border-block: 1px solid var(--line-soft); }
+.music-widget-background > button { flex-shrink: 0; }
 
 /* Cross-fade between a song's title and its translated alt title, 5 seconds each
    (lib/music/useCrossFadeTitle.ts). */
