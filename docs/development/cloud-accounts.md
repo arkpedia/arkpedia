@@ -32,13 +32,21 @@ are not their public profile. An imported Doctor name is only an explicit sugges
 optional friend tag/server data is private and does not prove game-account ownership.
 AccountActions owns the single login/setup/settings popup. Sign-in returns to the
 originating same-site route, preserving its filters and anchor. A new user chooses
-a username, resolves any save conflict, then reviews independent saving choices
-and selects Done. Friend tags and pictures are optional later settings. Existing
-accounts skip creation. A per-user, tab-local session marker resumes an unfinished
-saving step after reload; Done or closing that step clears it. This marker is not
-cloud data and does not grant authentication or enable saving. Existing consent,
-paused saves and deletion protections are unchanged. The setup screen discloses
-personal saving's existing default before continuing.
+a username, then must confirm the three independent saving choices before any
+snapshot or pull-archive upload. All categories start unchecked; saving nothing
+is a valid choice. `cloud_save.syncReviewed` persists completion on the server,
+so a fresh tab, reload or another device cannot bypass the required popup. Escape,
+backdrop clicks and route changes cannot dismiss this step. Failed confirmation
+keeps the choices visible and uploads blocked; the explicit Save choices action
+commits all categories atomically with the current owner/revision. The API rejects
+premature uploads, including requests from older tabs. Consent withdrawal and
+account/data deletion remain available. A paused save stays paused.
+
+Migration 0005 preserves existing profiles' choices and data, while unfinished
+and newly created accounts require review. Optional friend tags and pictures stay
+in later settings. After consent, normal account-switch and save-conflict rules
+apply before selected browser data is uploaded. Google/Discord login never starts
+a Yostar import or fetches game replays.
 
 Provider linking requires an existing account and cannot remove the last login.
 Deletion requires typed confirmation and a fresh provider session.

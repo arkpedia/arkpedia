@@ -22,11 +22,10 @@ export default function AccountActions({ children }: { children: ReactNode }) {
   const [attempt, setAttempt] = useState(0);
   const opener = useRef<HTMLElement | null>(null);
   const [settingsTab, setSettingsTab] = useState<'profile' | 'saving' | 'logins' | 'data'>('profile');
-  const [onboarding, setOnboarding] = useState(false);
   const setupOwner = useRef<string | null>(null);
   const tables = useContext(ContentTablesContext), release = useContext(ContentContext);
   const sync = useCloudSync(), router = useRouter();
-  const onboardingKey = 'arkpedia:account-onboarding';
+  const onboarding = !!sync.remote?.profile && !sync.remote.syncReviewed;
   const requested = router.query.confirm === 'delete' ? 'data' :
     ['profile', 'saving', 'logins'].includes(String(router.query.settings)) ? String(router.query.settings) :
     router.query.account === 'welcome' || router.query.signin === 'failed' ? 'profile' : '';
@@ -40,22 +39,11 @@ export default function AccountActions({ children }: { children: ReactNode }) {
     if (!remote.profile) {
       if (setupOwner.current === remote.user.id) return;
       setupOwner.current = remote.user.id;
-      try { sessionStorage.setItem(onboardingKey, remote.user.id); } catch { /* The current visit can still finish setup. */ }
-      setOnboarding(false); setSettingsTab('profile'); setAction('settings'); return;
+      setSettingsTab('profile'); setAction('settings');
     }
-    let pending = setupOwner.current;
-    try { pending = sessionStorage.getItem(onboardingKey); } catch { /* Use this visit's marker. */ }
-    if (pending !== remote.user.id) return;
-    // Keep the save choice in the same popup before advancing to saving preferences.
-    if (sync.status !== 'ready' && sync.status !== 'paused') return;
-    setOnboarding(true); setSettingsTab('saving'); setAction('settings');
-  }, [sync.remote, sync.status]);
+  }, [sync.remote]);
   const close = () => {
-    if (onboarding && sync.remote?.profile) {
-      try { sessionStorage.removeItem(onboardingKey); } catch { /* No persistent marker to clear. */ }
-      setupOwner.current = null;
-    }
-    setAction(null); setOnboarding(false);
+    setAction(null);
     const query = { ...router.query };
     for (const key of ['account', 'settings', 'confirm', 'signin']) delete query[key];
     if (requested) void router.replace({ pathname: router.pathname, query, hash: router.asPath.split('#')[1] ?? '' }, undefined, { shallow: true, scroll: false });
@@ -88,9 +76,9 @@ export default function AccountActions({ children }: { children: ReactNode }) {
     opener.current = menu ? [...document.querySelectorAll<HTMLElement>('[aria-controls]')].find(element => element.getAttribute('aria-controls') === menu.id) ?? active : active;
     setError(''); setSettingsTab(onboarding ? 'saving' : 'profile'); setAction(value); } }}>
     {children}
-    {action === 'import' && (localTables || loaded ? <ContentContext.Provider value={localTables ? release : loaded!.release}><ContentTablesContext.Provider value={localTables ? tables : loaded!.tables}><DataDialog onClose={close} /></ContentTablesContext.Provider></ContentContext.Provider> : <ImportDialog title="Import / export" onClose={close}><p role={error ? 'alert' : 'status'}>{error || 'Loading import tools…'}</p>{error && <button type="button" onClick={() => setAttempt(value => value + 1)}>Retry</button>}</ImportDialog>)}
-    {action === 'settings' && (sync.status === 'unavailable'
+    {!onboarding && action === 'import' && (localTables || loaded ? <ContentContext.Provider value={localTables ? release : loaded!.release}><ContentTablesContext.Provider value={localTables ? tables : loaded!.tables}><DataDialog onClose={close} /></ContentTablesContext.Provider></ContentContext.Provider> : <ImportDialog title="Import / export" onClose={close}><p role={error ? 'alert' : 'status'}>{error || 'Loading import tools…'}</p>{error && <button type="button" onClick={() => setAttempt(value => value + 1)}>Retry</button>}</ImportDialog>)}
+    {(onboarding || action === 'settings') && (sync.status === 'unavailable'
       ? <ImportDialog title="Account settings" onClose={close}>{avatar}</ImportDialog>
-      : <CloudAccountPanel key={`${settingsTab}:${onboarding}`} settingsOnly initialSettings={settingsTab} onboarding={onboarding} pictureContent={avatar} onSettingsClose={close} onOpenData={() => { close(); setAction('import'); }} />)}
+      : <CloudAccountPanel key={`${settingsTab}:${onboarding}`} settingsOnly initialSettings={onboarding ? 'saving' : settingsTab} onboarding={onboarding} pictureContent={avatar} onSettingsClose={close} onOpenData={() => { close(); setAction('import'); }} />)}
   </Context.Provider>;
 }

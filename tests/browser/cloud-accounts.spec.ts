@@ -17,7 +17,7 @@ async function mockAccount(page: Page, firstTime = false, data: Record<string, u
   const state = {
     remote: { user: { id: 'test-user', name: 'PRIVATE REAL GOOGLE NAME' }, profile: firstTime ? null : { ...profile },
       linkedProviders: ['google'], linkedAccounts: [{ id: 'google-id', providerId: 'google' }],
-      revision: 0, archiveRevision: 0, gameSync: false, personalSync: true, historySync: false, archives: [] as PullArchive[], paused: false, data, providers: ['google', 'discord'] },
+      syncReviewed: !firstTime, revision: 0, archiveRevision: 0, gameSync: false, personalSync: !firstTime, historySync: false, archives: [] as PullArchive[], paused: false, data, providers: ['google', 'discord'] },
     signedIn: true, uploads: [] as string[], archiveWrites: [] as string[], cachedArchiveReads: 0, profileWrites: [] as Record<string, unknown>[], deletes: 0,
   };
   await page.route('**/api/cloud-account', async route => {
@@ -32,9 +32,11 @@ async function mockAccount(page: Page, firstTime = false, data: Record<string, u
     }
     const input = request.postDataJSON();
     if (input.owner !== remote.user.id || input.revision !== remote.revision) return route.fulfill({ status: 409, json: { error: 'Cloud save changed.' } });
+    if (!remote.syncReviewed && input.syncReviewed !== true && request.method() !== 'DELETE') return route.fulfill({ status: 428, json: { error: 'Choose what to sync first.' } });
     if (request.method() === 'PUT') { state.uploads.push(request.postData()!); remote.data = input.data; remote.paused = false; }
     if (request.method() === 'POST') { state.archiveWrites.push(request.postData()!); remote.archives = mergePullArchives(remote.archives, input.archives).map(archive => ({ ...archive, savedAt: '2026-10-24T12:01:00Z' })); remote.archiveRevision++; }
     if (request.method() === 'PATCH') {
+      if (input.syncReviewed === true) remote.syncReviewed = true;
       if (input.historySync !== undefined && input.historySync !== remote.historySync) remote.archiveRevision++;
       for (const key of ['gameSync', 'historySync', 'personalSync'] as const) if (input[key] !== undefined) remote[key] = input[key];
       if (!remote.gameSync) delete remote.data.arkpediaAccount;
@@ -56,14 +58,14 @@ async function mockAccount(page: Page, firstTime = false, data: Record<string, u
   await page.route('**/api/auth/sign-out', async route => { state.signedIn = false; await route.fulfill({ json: { success: true } }); });
   return state;
 }
-async function seed(page: Page, theme: string) {
-  await page.addInitScript(theme => {
+async function seed(page: Page, theme: string, favorite = 'msr:local') {
+  await page.addInitScript(({ theme, favorite }) => {
     if (localStorage.getItem('cloud-test-seeded')) return;
     localStorage.setItem('cloud-test-seeded', '1'); localStorage.setItem('theme', theme);
-    localStorage.setItem('musicFavorites', '["msr:local"]');
+    localStorage.setItem('musicFavorites', JSON.stringify([favorite]));
     localStorage.setItem('arkpediaYostarLogin', '{"email":"private@example.invalid","token":"PRIVATE-YOSTAR-TOKEN"}');
     localStorage.setItem('arkpediaAccount', JSON.stringify({ version: 1, server: 'en', importedAt: '2026-10-24T12:00:00Z', doctor: 'Doctor#1234', operators: ['Amiya'], skins: [], cleared: [] }));
-  }, theme);
+  }, { theme, favorite });
 }
 async function capture(page: Page, name: string, info: TestInfo) {
   await page.evaluate(() => document.fonts.ready);
@@ -183,17 +185,24 @@ for (const theme of ['dark', 'light']) {
     await page.getByRole('button', { name: 'Continue', exact: true }).click();
     const saving = page.getByRole('dialog', { name: 'Choose what to save' });
     await expect(saving).toBeVisible();
-    await expect(saving.getByRole('button', { name: 'Done', exact: true })).toBeVisible();
-    await expect(saving.getByLabel('Save personal settings and plans', { exact: true })).toBeChecked();
+    await expect(saving.getByRole('button', { name: 'Save choices', exact: true })).toBeVisible();
+    await expect(saving.getByLabel('Save personal settings and plans', { exact: true })).not.toBeChecked();
     await expect(saving.getByLabel('Save pull history archive', { exact: true })).not.toBeChecked();
     await expect(saving.getByLabel('Save imported game data to my Arkpedia account', { exact: true })).not.toBeChecked();
     await expect(saving.getByRole('tab')).toHaveCount(0);
     await capture(page, `setup-saving-${theme}`, info);
     await page.keyboard.press('Escape');
+    await expect(saving).toBeVisible();
+    await expect(saving.getByRole('button', { name: 'Close', exact: true })).toHaveCount(0);
+    await page.mouse.click(2, 2); await expect(saving).toBeVisible();
+    expect(state.uploads).toHaveLength(0); expect(state.archiveWrites).toHaveLength(0);
+    await saving.getByLabel('Save personal settings and plans', { exact: true }).check();
+    expect(state.uploads).toHaveLength(0);
+    await saving.getByRole('button', { name: 'Save choices', exact: true }).click();
     await expect(saving).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Cloud saving details' })).toBeVisible();
     expect(state.profileWrites[0]).toMatchObject({ owner: 'test-user', username: 'Doctor#1234', friendTag: '', friendServer: null });
-    expect(state.uploads[0]).toContain('msr:local');
+    await expect.poll(() => state.uploads[0]).toContain('msr:local');
     for (const value of ['arkpediaAccount', 'PRIVATE-YOSTAR-TOKEN', 'private@example.invalid']) expect(state.uploads[0]).not.toContain(value);
     await expect(page.getByRole('button', { name: 'Use this browser’s data' })).toHaveCount(0);
     await page.reload();
@@ -319,7 +328,7 @@ test('choosing cloud after switching Arkpedia accounts keeps foreign browser his
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('arkpediaPullArchives')!)[0].history.rows.length)).toBe(1);
 });
 
-test('setup opens saving only after a successful profile and resolved save choice', async ({ page }) => {
+test('setup requires saving choices after profile creation and before resolving conflicting data', async ({ page }) => {
   const state = await mockAccount(page, true, { musicFavorites: ['msr:cloud'] });
   state.remote.revision = 7; state.remote.historySync = true;
   await seed(page, 'dark');
@@ -334,13 +343,18 @@ test('setup opens saving only after a successful profile and resolved save choic
   await expect(page.getByRole('dialog', { name: 'Account settings' })).toHaveCount(0);
   rejectProfile = false;
   await page.getByRole('button', { name: 'Continue', exact: true }).click();
-  await expect(page.getByRole('dialog', { name: 'Choose a save' })).toBeVisible();
-  await expect(page.getByRole('dialog', { name: 'Account settings' })).toHaveCount(0);
-  await page.getByRole('dialog', { name: 'Choose a save' }).getByRole('button', { name: 'Use cloud data' }).click();
   const saving = page.getByRole('dialog', { name: 'Choose what to save' });
-  await expect(saving.getByRole('button', { name: 'Done', exact: true })).toBeVisible();
-  await expect(saving.getByLabel('Save pull history archive', { exact: true })).toBeChecked();
-  await saving.getByRole('button', { name: 'Close', exact: true }).click();
+  await expect(saving).toBeVisible();
+  expect(state.uploads).toHaveLength(0); expect(state.archiveWrites).toHaveLength(0);
+  await saving.getByLabel('Save personal settings and plans', { exact: true }).check();
+  await saving.getByLabel('Save pull history archive', { exact: true }).check();
+  await saving.getByRole('button', { name: 'Save choices', exact: true }).click();
+  const conflict = page.getByRole('dialog', { name: 'Choose a save' });
+  await expect(conflict).toBeVisible();
+  expect(state.remote.syncReviewed).toBe(true);
+  await conflict.getByRole('button', { name: 'Use cloud data' }).click();
+  await expect(page.getByRole('dialog', { name: 'Account settings' })).toBeVisible();
+  await page.keyboard.press('Escape');
   await page.getByRole('button', { name: 'Cloud saving details' }).click();
   await page.getByRole('button', { name: 'Check for updates' }).click();
   await expect(page.getByRole('dialog', { name: 'Account settings' })).toHaveCount(0);
@@ -524,12 +538,14 @@ for (const provider of ['google', 'discord'] as const) {
     await setup.getByRole('button', { name: 'Continue', exact: true }).click();
     const saving = page.getByRole('dialog', { name: 'Choose what to save' });
     await expect(saving).toBeVisible(); await expect(page.getByRole('dialog')).toHaveCount(1);
+    await page.evaluate(() => sessionStorage.clear());
     await page.reload();
     await expect(saving).toBeVisible();
+    expect(state.uploads).toHaveLength(0); expect(state.archiveWrites).toHaveLength(0);
     await saving.getByRole('button', { name: 'How cloud saving works', exact: true }).click();
     await expect(saving.getByText('Selected data saves while Arkpedia is open.', { exact: false })).toBeVisible();
     await page.keyboard.press('Escape'); await expect(saving).toBeVisible();
-    await saving.getByRole('button', { name: 'Done', exact: true }).click();
+    await saving.getByRole('button', { name: 'Save choices', exact: true }).click();
     await expect(page.getByRole('dialog')).toHaveCount(0);
     await expect(page).toHaveURL(/\/music\?view=library#collection$/);
     await page.reload(); await expect(page.getByRole('button', { name: 'My account', exact: true }).first()).toBeVisible();
@@ -569,7 +585,38 @@ test('unfinished profile stays in the popup and can resume without restarting pa
   await setup.getByRole('button', { name: 'Continue', exact: true }).click();
   const saving = page.getByRole('dialog', { name: 'Choose what to save' });
   await expect(saving.getByText('Cloud saving is paused.', { exact: false })).toBeVisible();
-  await saving.getByRole('button', { name: 'Done', exact: true }).click();
+  await saving.getByRole('button', { name: 'Save choices', exact: true }).click();
   expect(state.remote.paused).toBe(true); expect(state.uploads).toHaveLength(0);
   expect(await page.evaluate(() => localStorage.getItem('arkpediaYostarLogin'))).toContain('PRIVATE-YOSTAR-TOKEN');
+});
+
+test('pending sync choices survive a fresh visit and failed confirmation, with an explicit sync-nothing option', async ({ page }) => {
+  const state = await mockAccount(page); state.remote.syncReviewed = false; state.remote.personalSync = false;
+  await seed(page, 'dark', 'msr:123456');
+  let fail = true;
+  await page.route('**/api/cloud-account', async route => {
+    if (route.request().method() === 'PATCH' && fail) {
+      fail = false; return route.fulfill({ status: 400, json: { error: 'Could not save these choices. Try again.' } });
+    }
+    await route.fallback();
+  });
+  await page.goto('/music');
+  const saving = page.getByRole('dialog', { name: 'Choose what to save' });
+  await expect(saving).toBeVisible();
+  await expect(saving.getByRole('checkbox')).toHaveCount(3);
+  await saving.getByLabel('Save personal settings and plans', { exact: true }).check();
+  expect(state.uploads).toHaveLength(0); expect(state.archiveWrites).toHaveLength(0);
+  await saving.getByRole('button', { name: 'Save choices', exact: true }).click();
+  await expect(saving.getByRole('alert')).toContainText('Could not save');
+  expect(state.remote.syncReviewed).toBe(false); expect(state.uploads).toHaveLength(0);
+  await expect(saving.getByLabel('Save personal settings and plans', { exact: true })).toBeChecked();
+  await saving.getByLabel('Save personal settings and plans', { exact: true }).uncheck();
+  await page.keyboard.press('Escape'); await expect(saving).toBeVisible();
+  await saving.getByRole('button', { name: 'Save choices', exact: true }).click();
+  await expect(saving).toHaveCount(0);
+  expect(state.remote.syncReviewed).toBe(true); expect(state.remote.personalSync).toBe(false);
+  expect(state.uploads).toHaveLength(0); expect(state.archiveWrites).toHaveLength(0);
+  expect(await page.evaluate(() => localStorage.getItem('musicFavorites'))).toContain('msr:123456');
+  await page.reload(); await expect(page.getByRole('button', { name: 'My account', exact: true }).first()).toBeVisible();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
 });

@@ -39,6 +39,7 @@ export default function CloudAccountPanel({ onOpenData, hideSettingsButton = fal
   const sync = useCloudSync(), router = useRouter();
   const headingId = useId();
   const [working, setWorking] = useState(false), [message, setMessage] = useState('');
+  const [choices, setChoices] = useState({ personalSync: false, historySync: false, gameSync: false });
   const [pendingConsent, setPendingConsent] = useState<Category | null>(null);
   const [reauth, setReauth] = useState(false);
   const [settings, setSettings] = useState<Setting | null>(initialSettings ?? null), [confirm, setConfirm] = useState<Confirmation>(null);
@@ -48,10 +49,10 @@ export default function CloudAccountPanel({ onOpenData, hideSettingsButton = fal
   useEffect(() => { if (confirm) { setTyped(''); cancel.current?.focus(); } }, [confirm]);
   const userId = remote?.user.id;
   useEffect(() => {
-    if (!settingsOnly) return;
+    if (!settingsOnly || onboarding) return;
     if (router.query.confirm === 'delete' && userId) { setSettings('data'); setConfirm('account'); }
     else if (userId && ['profile', 'saving', 'logins'].includes(String(router.query.settings))) setSettings(router.query.settings as Setting);
-  }, [router.query.confirm, router.query.settings, userId, settingsOnly]); // A provider return never submits deletion.
+  }, [router.query.confirm, router.query.settings, userId, settingsOnly, onboarding]); // A provider return never submits deletion.
   async function act(action: () => Promise<unknown>) {
     if (working) return;
     setWorking(true); setMessage('');
@@ -75,7 +76,7 @@ export default function CloudAccountPanel({ onOpenData, hideSettingsButton = fal
   function closeSettings() { if (!working) { setSettings(null); setConfirm(null); setMessage(''); onSettingsClose?.(); } }
   if (sync.status === 'unavailable') return null;
   const confirmationTitle = confirm === 'cloud' ? 'Delete cloud saves?' : confirm === 'revoke' ? 'Stop saving imported game data?' : confirm === 'history' ? 'Delete cloud pull archive?' : confirm === 'personal' ? 'Stop saving personal data?' : 'Delete Arkpedia account?';
-  const welcome = settingsOnly && (!remote?.profile || sync.status === 'choice' || sync.status === 'error');
+  const welcome = !onboarding && settingsOnly && (!remote?.profile || sync.status === 'choice' || sync.status === 'error');
   const Container = settingsOnly ? Fragment : 'section';
   return <Container {...(settingsOnly ? {} : { className: 'op-section', 'aria-labelledby': headingId, 'aria-busy': working })}>
     {!settingsOnly && <>
@@ -88,7 +89,7 @@ export default function CloudAccountPanel({ onOpenData, hideSettingsButton = fal
     {!remote && sync.status === 'signed-out' && <div className={styles.welcome}><p>Keep your settings and plans across devices.</p><div className={styles.actions}><button type="button" onClick={onOpenSettings}>Log in</button></div></div>}
     {remote && !remote.profile && <div className={styles.welcome}><p>Finish setting up your Arkpedia account.</p><div className={styles.actions}><button type="button" onClick={onOpenSettings}>Continue account setup</button></div></div>}
     {remote?.profile && <>
-      <div className={styles.identity}><strong>{remote.profile.username}</strong><span className="hint" role="status">{sync.status === 'ready' ? 'Auto-save on' : sync.status === 'paused' ? 'Cloud saving paused' : sync.status === 'choice' ? 'Choose a save to continue' : 'Sync needs attention'}</span>
+      <div className={styles.identity}><strong>{remote.profile.username}</strong><span className="hint" role="status">{sync.status === 'ready' ? (remote.personalSync || remote.historySync || remote.gameSync ? 'Auto-save on' : 'Cloud saving off') : sync.status === 'paused' ? 'Cloud saving paused' : sync.status === 'choice' ? 'Choose a save to continue' : 'Sync needs attention'}</span>
       {sync.status === 'ready' && <InfoPopover label="Cloud saving details"><p>Selected data saves automatically while Arkpedia is open.</p><p>Imported game data: {remote.gameSync ? 'saved to your account' : 'browser only'}.</p><button type="button" className="ghost btn-sm" disabled={working} title={SYNC_NOW_HINT} onClick={() => void act(sync.refresh)}>Check for updates</button></InfoPopover>}
       </div>
       {sync.status === 'paused' && <div className={styles.form}>
@@ -123,7 +124,7 @@ export default function CloudAccountPanel({ onOpenData, hideSettingsButton = fal
         {!remote && <button type="button" className="ghost btn-sm" onClick={closeSettings}>Keep browsing</button>}
       </div>
     </ImportDialog>}
-    {settings && remote && !welcome && <ImportDialog title={confirm ? confirmationTitle : onboarding ? 'Choose what to save' : 'Account settings'} onClose={closeSettings}>
+    {settings && remote && !welcome && <ImportDialog title={confirm ? confirmationTitle : onboarding ? 'Choose what to save' : 'Account settings'} onClose={closeSettings} dismissible={!onboarding}>
       {confirm ? <div className={styles.form}>
         <p>{confirm === 'cloud' ? 'Remove your saved music, plans, preferences, pull archive and imported game data from the cloud. Your username, linked logins and browser data stay. Cloud saving pauses on every device until you resume it.'
           : confirm === 'revoke' ? 'Delete the imported game snapshot from your cloud save. Your pull archive and personal-data choices stay unchanged, and your browser import stays here.'
@@ -163,22 +164,23 @@ export default function CloudAccountPanel({ onOpenData, hideSettingsButton = fal
         {settings !== 'profile' && <div {...(onboarding ? {} : tabPanelProps('account-settings', settings))} className={styles.settings}>
           {settings === 'picture' && pictureContent}
           {settings === 'saving' && <div className={styles.form}>
-            {!onboarding && <h3>What saves to your account</h3>}<p>Choose what to keep across devices. You can change this anytime.</p>
+            {!onboarding && <h3>What saves to your account</h3>}<p>{onboarding ? 'Choose what Arkpedia can save to its servers. You can leave everything off.' : 'Choose what to keep across devices. You can change this anytime.'}</p>
             {([
               { key: 'personalSync', label: 'Save personal settings and plans', description: 'Music favourites and playlists, plans, story progress and preferences.', enabled: remote.personalSync ?? true, confirmation: 'personal' },
               { key: 'historySync', label: 'Save pull history archive', description: 'Pulls, banner and operator names, game UID and server. Older archived pulls survive later imports and save choices.', enabled: remote.historySync ?? false, confirmation: 'history' },
               { key: 'gameSync', label: 'Save imported game data to my Arkpedia account', description: 'Imported profile, operators and builds, skins, inventory, stage progress and base snapshot. Pull history is controlled separately.', enabled: remote.gameSync, confirmation: 'revoke' },
             ] as const).map(option => <div key={option.key}>
-              <label className="check"><input type="checkbox" checked={pendingConsent === option.key || option.enabled} disabled={working || (!option.enabled && sync.status !== 'ready' && sync.status !== 'paused')} onChange={event => {
+              <label className="check"><input type="checkbox" checked={onboarding ? choices[option.key] : pendingConsent === option.key || option.enabled} disabled={working || (!onboarding && !option.enabled && sync.status !== 'ready' && sync.status !== 'paused')} onChange={event => {
+                if (onboarding) { setChoices(previous => ({ ...previous, [option.key]: event.target.checked })); return; }
                 if (!event.target.checked) setConfirm(option.confirmation);
                 else { setPendingConsent(option.key); void act(async () => { try { await sync.consent(true, option.key); } finally { setPendingConsent(null); } }); }
               }} />{option.label}</label><p className="hint">{option.description}</p>
             </div>)}
-            {sync.status === 'paused' && <p className="hint">Cloud saving is paused. These choices will apply when you resume it.</p>}
-            {sync.status !== 'ready' && sync.status !== 'paused' && <p className="hint">Finish setup or resolve your save choice before enabling more saving. You can always stop saving a category.</p>}
+            {remote.paused && <p className="hint">Cloud saving is paused. These choices will apply when you resume it.</p>}
+            {!onboarding && sync.status !== 'ready' && sync.status !== 'paused' && <p className="hint">Finish setup or resolve your save choice before enabling more saving. You can always stop saving a category.</p>}
             <p className="hint">Your game-login emails, codes and tokens stay in this browser.</p>
             <InfoPopover label="How cloud saving works"><p>Selected data saves while Arkpedia is open. Importing new game data is still done in your browser.</p><p>Stopping a category deletes its active cloud data after confirmation. Remembering a Yostar login is a separate browser-only choice under Import / export.</p></InfoPopover>
-            {onboarding && <div className={styles.actions}><button type="button" className="primary btn-sm" disabled={working} onClick={closeSettings}>Done</button></div>}
+            {onboarding && <div className={styles.actions}><button type="button" className="primary btn-sm" disabled={working} onClick={() => void act(async () => { if (await sync.reviewChoices(choices)) onSettingsClose?.(); })}>{working ? 'Saving…' : 'Save choices'}</button></div>}
           </div>}
           {settings === 'logins' && <div className={styles.form}>
             <h3>Linked logins</h3><p>Use either linked provider to reach this account and its saves.</p>

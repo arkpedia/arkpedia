@@ -231,6 +231,7 @@ test('authenticated API enforces isolation, origin, consent, revisions and casca
   assert.ok(!JSON.stringify(initial.result).includes('arkpedia@example.invalid'));
   assert.equal((await call('PUT', { revision: 0, data: {} })).status, 428);
   sqlite.prepare('INSERT INTO arkpedia_profile (userId, username, usernameKey, updatedAt) VALUES (?, ?, ?, ?)').run(user.id, 'Test#1234', 'test#1234', new Date().toISOString());
+  sqlite.prepare('UPDATE cloud_save SET syncReviewed = 1, personalSync = 1 WHERE userId = ?').run(user.id);
   assert.equal((await call('PUT', { owner: 'previous-user', revision: 0, data: { musicFavorites: ['private'] } })).status, 409);
   assert.equal((await call('PUT', { revision: 0, data: { arkpediaAccount: account } })).status, 400);
   assert.equal((await call('PUT', { revision: 0, userId: 'someone-else', data: { musicFavorites: ['msr:1'] } })).status, 200);
@@ -268,6 +269,7 @@ test('pull archive API preserves both devices through races, snapshot replacemen
     return { status, result };
   }
   await call('GET');
+  sqlite.prepare('UPDATE cloud_save SET syncReviewed = 1, personalSync = 1 WHERE userId = ?').run(user.id);
   assert.equal((await call('POST', { revision: 0, archives: [archive()] })).status, 403);
   assert.equal((await call('PATCH', { revision: 0, historySync: true })).status, 200);
   const older = archive(); older.history.rows.push({ ...older.history.rows[0] });
@@ -561,5 +563,55 @@ test('hardening migration preserves pre-existing archives above quota and allows
   assert.throws(()=>sqlite.exec('UPDATE pull_archive_row SET count=count+1'),/ARKPEDIA_ARCHIVE_QUOTA/);
   sqlite.exec('DELETE FROM pull_archive_account');
   assert.equal(sqlite.prepare('SELECT pulls FROM pull_archive_usage').get()?.pulls,0);
+  sqlite.close();
+});
+
+test('new accounts must confirm all saving categories before any data upload, including stale clients', async () => {
+  const { sqlite, db } = database(), env = envFor(db), context = await accountAuth(env).$context;
+  const user = await context.internalAdapter.createUser({ name: 'Test', email: 'consent@example.invalid', emailVerified: true }, { method: 'oauth' });
+  const session = await context.internalAdapter.createSession(user.id, false);
+  const cookie = `${context.authCookies.sessionToken.name}=${session.token}.${await makeSignature(session.token, context.secret)}`;
+  const handler = createCloudAccountHandler(() => env);
+  async function call(method: string, body: Record<string, unknown> = {}) {
+    let status = 200, result: any;
+    const res = { setHeader: () => {}, status: (code: number) => { status = code; return res; }, json: (value: unknown) => { result = value; }, end: () => {} };
+    await handler({ method, headers: { cookie, origin: env.ARKPEDIA_AUTH_URL, 'content-type': 'application/json' }, body: { owner: user.id, ...body } } as NextApiRequest, res as unknown as NextApiResponse);
+    return { status, result };
+  }
+  const initial = (await call('GET')).result;
+  assert.equal(initial.syncReviewed, false); assert.equal(initial.personalSync, false);
+  const choices = { syncReviewed: true, savingVersion: 2, personalSync: false, historySync: false, gameSync: false };
+  assert.equal((await call('PATCH', { revision: 0, ...choices })).status, 428, 'profile still required');
+  sqlite.prepare('INSERT INTO arkpedia_profile (userId, username, usernameKey, updatedAt) VALUES (?, ?, ?, ?)').run(user.id, 'Consent', 'consent', '2026-11-01');
+  for (const [method, body] of [['PUT', { data: { musicFavorites: ['private'] } }], ['POST', { archives: [archive()] }], ['PATCH', { personalSync: true }]] as const) {
+    assert.equal((await call(method, { revision: 0, ...body })).status, 428);
+  }
+  assert.equal((await call('PATCH', { revision: 0, syncReviewed: true, personalSync: true })).status, 400);
+  assert.equal((await call('PATCH', { revision: 0, ...choices, data: { theme: 'dark' } })).status, 400);
+  assert.equal((await call('PATCH', { revision: 0, ...choices, archives: [archive()] })).status, 400);
+  assert.equal((await call('GET')).result.syncReviewed, false);
+  assert.deepEqual((await call('GET')).result.data, {});
+  const approved = await call('PATCH', { revision: 0, ...choices });
+  assert.equal(approved.status, 200); assert.equal(approved.result.syncReviewed, true);
+  assert.deepEqual(approved.result.data, {}); assert.deepEqual(approved.result.archives, []);
+  assert.equal((await call('GET')).result.syncReviewed, true, 'persisted independently of browser state');
+  assert.equal((await call('PATCH', { revision: 0, ...choices, personalSync: true })).status, 409, 'another tab cannot overwrite the confirmed choices');
+  assert.equal((await call('PUT', { revision: 1, data: { musicFavorites: ['private'] } })).status, 400, 'all-off remains enforced after setup');
+  assert.equal((await call('PATCH', { revision: 1, personalSync: true, savingVersion: 2 })).status, 200);
+  assert.equal((await call('PUT', { revision: 2, data: { musicFavorites: ['selected'] } })).status, 200);
+  assert.deepEqual((await call('GET')).result.data, { musicFavorites: ['selected'] });
+  sqlite.close();
+});
+
+test('sync-review migration preserves established accounts and leaves unfinished accounts pending', () => {
+  const sqlite = new DatabaseSync(':memory:'); sqlite.exec('PRAGMA foreign_keys = ON');
+  for (const name of fs.readdirSync('migrations/accounts').filter(name => name.endsWith('.sql') && name < '0005').sort()) sqlite.exec(fs.readFileSync(`migrations/accounts/${name}`, 'utf8'));
+  sqlite.exec(`INSERT INTO "user" (id,name,email,createdAt,updatedAt) VALUES ('old','Old','old@example.invalid','2026-01-01','2026-01-01'),('pending','Pending','pending@example.invalid','2026-01-01','2026-01-01');
+    INSERT INTO arkpedia_profile(userId,username,usernameKey,updatedAt) VALUES ('old','Old','old','2026-01-01');
+    INSERT INTO cloud_save(userId,revision,payload,personalSync,gameSync,historySync,paused,updatedAt) VALUES ('old',42,'{"theme":"dark"}',1,0,1,1,'2026-01-01'),('pending',0,'{}',1,0,0,0,'2026-01-01');`);
+  const before = sqlite.prepare("SELECT * FROM cloud_save WHERE userId = 'old'").get();
+  sqlite.exec(fs.readFileSync('migrations/accounts/0005_sync_choices.sql', 'utf8'));
+  assert.deepEqual({ ...sqlite.prepare("SELECT * FROM cloud_save WHERE userId = 'old'").get() }, { ...before, syncReviewed: 1 });
+  assert.equal(sqlite.prepare("SELECT syncReviewed FROM cloud_save WHERE userId = 'pending'").get()?.syncReviewed, 0);
   sqlite.close();
 });
