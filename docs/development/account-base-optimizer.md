@@ -218,3 +218,21 @@ served as 127.0.0.1, which closes the dialog mid-test. It covers real
 Worker completion, selected-account ownership, saved presets, account preservation,
 input invalidation, cancellation and keyboard dismissal at desktop/mobile sizes,
 with dark/light screenshots. Browser fixtures are synthetic.
+
+## Completing the base
+
+Published account recommendations pass through `completeStaffing.ts`. The production
+search can otherwise omit Reception/Office (their own outputs are not LMD or EXP),
+Workshop (crafting is instantaneous), and low-value Control Center/Power Plant slots.
+The completion pass fills open slots with remaining owned operators, keeps existing
+working placements and locked/dorm-skill residents, and finds recovery placements.
+A supplemental operator may cover multiple changes only when the complete simulated
+cycle remains periodic and free of exhaustion. This includes all cross-room effects;
+returned yields and saved rotations use the completed assignments. Intermediate
+results are completed too, cached per plan, with the highest completed score retained.
+
+Workshop assignments are standby suggestions for the current recipe, not simulated
+crafting; craft costs and post-craft recovery still require player action. Training
+is staffed only when the user has selected an operator target. Limited rosters or
+recovery capacity can still leave gaps, named by room and shift in the search notes.
+Existing saved setups are unchanged: rerun the optimizer and use the new rotation.

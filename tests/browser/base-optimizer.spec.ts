@@ -300,3 +300,56 @@ test('layout alternatives stay compact and update the portrait board', async ({ 
   await dialog.getByText('Compare layouts', { exact: true }).click();
   await expect(dialog.getByRole('table', { name: 'Recommended layouts' })).toBeVisible();
 });
+
+test('support staffing survives every optimized shift, save, selection and reload', async ({ page }, info) => {
+  test.setTimeout(180000);
+  const { getAllOperators } = await import('../../lib/operators/operators');
+  const operators = getAllOperators().filter(op => !/^Amiya \(/.test(op.name));
+  const record = { ...account, operators: operators.map(o => o.name), base: {
+    ...account.base, productionSpots: presetSpots('2-5-2-right'), facilityLevels: presetLevels('2-5-2-right'),
+    assignments: {}, dormitoryAmbience: {},
+    operatorProgress: Object.fromEntries(operators.map(o => [o.name, { eliteLevel: (o.rarity ?? 0) >= 3 ? 'Elite 2' : 'Base', level: (o.rarity ?? 0) >= 3 ? 60 : 30 }])),
+  } };
+  await page.addInitScript(record => localStorage.setItem('arkpediaAccount', JSON.stringify(record)), record);
+  await page.goto('/base');
+  await page.getByRole('button', { name: 'Optimize base', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Base optimizer', exact: true });
+  await dialog.getByRole('checkbox', { name: 'Recommend 2-5-2' }).uncheck();
+  await dialog.getByRole('button', { name: '2 times a day, every 12 hours' }).click();
+  await dialog.getByRole('button', { name: 'Recommend layout' }).click();
+  await expect(dialog.getByRole('definition').first()).toBeVisible({ timeout: 120000 });
+  if (await dialog.getByRole('button', { name: 'Stop', exact: true }).isVisible()) await dialog.getByRole('button', { name: 'Stop', exact: true }).click();
+  const shifts = await dialog.getByRole('button', { name: /^Shift \d+$/ }).count();
+  expect(shifts).toBeGreaterThanOrEqual(2);
+  for (let i = 1; i <= shifts; i++) {
+    await dialog.getByRole('button', { name: `Shift ${i}`, exact: true }).click();
+    for (const [name, count] of [['Reception Room', 2], ['Office', 1], ['Workshop', 1], ['Control Center', 5], ['Power Plant 1', 1], ['Power Plant 2', 1]] as const) {
+      await expect(dialog.getByRole('region', { name: new RegExp(`^${name}, level`) }).locator('li')).toHaveCount(count);
+    }
+    await expect(dialog.getByText('Crafting standby', { exact: true })).toBeVisible();
+  }
+  await dialog.getByRole('button', { name: 'Use as rotation', exact: true }).click();
+  await expect(dialog).toBeHidden();
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('baseSavedPresets_v1') ?? '[]'));
+  expect(saved).toHaveLength(shifts);
+  for (const preset of saved) {
+    expect(preset.assignments.receptionRoom.filter(Boolean)).toHaveLength(2);
+    expect(preset.assignments.office.filter(Boolean)).toHaveLength(1);
+    expect(preset.assignments.workshop.filter(Boolean)).toHaveLength(1);
+    const names = Object.values(preset.assignments).flatMap(slots => (slots as {operatorName: string}[]).filter(Boolean).map(s => s.operatorName));
+    expect(new Set(names).size).toBe(names.length);
+    await page.getByRole('combobox', { name: 'Saved preset', exact: true }).click();
+    await page.getByRole('option', { name: preset.name, exact: true }).click();
+    for (const [name, count] of [['Reception Room', 2], ['Office', 1], ['Workshop', 1]] as const) {
+      await expect(page.getByRole('button', { name: new RegExp(`^${name}, level \\d, ${count} of ${count} operators$`) })).toBeAttached();
+    }
+  }
+  await page.reload();
+  for (const theme of ['dark', 'light']) {
+    await page.evaluate(theme => document.documentElement.setAttribute('data-theme', theme), theme);
+    await expect(page.getByRole('button', { name: /^Reception Room, level \d, 2 of 2 operators$/ })).toBeAttached();
+    await page.getByRole('button', { name: 'Fit base', exact: true }).click();
+    await page.getByRole('region', { name: 'Base floor plan', exact: true }).scrollIntoViewIfNeeded();
+    await page.screenshot({ path: info.outputPath(`staffed-base-${info.project.name}-${theme}.png`) });
+  }
+});

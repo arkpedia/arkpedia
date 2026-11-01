@@ -1257,7 +1257,7 @@ export default function BasePage({ operators }: Props) {
     return { id: f.id, metric: workers.length || f.kind === 'dormitory' ? metric : f.level ? 'Empty room' : '', detail: f.level ? detail : '', workers, deadline };
   });
 
-  const optimizerDialog = optimizerAvailable && showOptimizer && <ImportDialog title="Base optimizer" className="base-rotation-dialog" onClose={() => setShowOptimizer(false)}><BaseAccountOptimizer account={account} base={{ operators, rosters, skillSlots, workshopRecipes, clueExchangeActive, moraleAbove12 }} loginInterval={loginInterval} onInterval={setLoginInterval} onApply={saveOptimizerRotation} /></ImportDialog>;
+  const optimizerDialog = optimizerAvailable && showOptimizer && <ImportDialog title="Base optimizer" className="base-rotation-dialog" onClose={() => setShowOptimizer(false)}><BaseAccountOptimizer account={account} base={{ operators, rosters, skillSlots, workshopRecipes, workshopSettings, clueExchangeActive, moraleAbove12, ...(resolvedTrainingTarget.operatorName ? { trainingTarget: resolvedTrainingTarget } : {}) }} loginInterval={loginInterval} onInterval={setLoginInterval} onApply={saveOptimizerRotation} /></ImportDialog>;
   const rotationDialog = showRotationPlan && <ImportDialog title="Rotation" className="base-rotation-dialog" onClose={() => setShowRotationPlan(false)}><BaseRotationPanel plan={rotationPlan} onChange={updateRotationPlan} presets={savedPresets} onLoad={viewRotationShift} initialMorale={account?.base?.morale ?? {}} owned={ownedOperators ?? undefined} imported={!!account?.base} stages={rotationCalculation?.stages} /></ImportDialog>;
   if (!setupComplete) {
     return (

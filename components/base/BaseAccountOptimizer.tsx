@@ -139,7 +139,7 @@ export default function BaseAccountOptimizer({ account, base, loginInterval, onI
     const product = recommendation!.products[room.id];
     return <section key={room.id} className={`base-room-surface base-overview-${room.kind} ${styles.room}${staff.length > 3 ? ` ${styles.wideRoom}` : ''}`} aria-label={`${names[room.id]}, level ${room.level}`}>
       <div className={styles.roomHeading}><strong className="base-room-surface-label">{names[room.id]}</strong><span>Lv{room.level}</span></div>
-      <span className={styles.roomProduct}>{product === 'Precious Metals' ? 'Gold' : product === 'Battle Records' ? 'EXP' : room.kind === 'tradingPost' ? 'LMD' : room.kind === 'dormitory' ? 'Resting' : room.kind === 'powerPlant' ? 'Power' : 'Support'}</span>
+      <span className={styles.roomProduct}>{product === 'Precious Metals' ? 'Gold' : product === 'Battle Records' ? 'EXP' : room.kind === 'tradingPost' ? 'LMD' : room.kind === 'dormitory' ? 'Resting' : room.kind === 'powerPlant' ? 'Power' : room.kind === 'workshop' ? 'Crafting standby' : 'Support'}</span>
       {staff.length ? <ul className={styles.portraits} style={{ gridTemplateColumns: `repeat(${staff.length}, minmax(0, 1fr))` }}>{staff.map(slot => {
         const op = byName.get(slot.operatorName);
         const progress = `${slot.eliteLevel === 'Elite 2' ? 'E2' : slot.eliteLevel === 'Elite 1' ? 'E1' : 'E0'} Lv${slot.level}`;

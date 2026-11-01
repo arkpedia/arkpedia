@@ -1,3 +1,4 @@
+import { completeStaffing } from './completeStaffing';
 import { byScore } from './accountResults';
 import type { AccountRecord } from '../account/accountStore';
 import { BASE_PRESET_IDS, BASE_PRESETS, PRODUCTION_SPOT_IDS, getFacilities, layoutProblems, presetLevels, presetSpots } from './baseConfig';
@@ -104,7 +105,8 @@ export function productOptions(layout: LayoutOption): FactoryProducts[] {
  * so a stopped search still has one to show.
  */
 export function optimizeAccountBase(input: AccountOptimizerInput, progress?: (done: number, total: number, label: string, best?: AccountOptimizerResult) => void): AccountOptimizerResult {
-  if (!Object.keys(input.roster).length) throw new Error('No known owned operators were found in this import.');
+  const roster = Object.fromEntries(Object.entries(input.roster).filter(([name]) => name !== input.base.trainingTarget?.operatorName));
+  if (!Object.keys(roster).length) throw new Error('No known owned operators were found in this import.');
   if (!Number.isFinite(input.externalGold) || input.externalGold < 0 || input.externalGold > 1000) throw new Error('External gold must be between 0 and 1000 per day.');
   const layouts = optimizerLayouts(input.snapshot, input.compareLayouts);
   if (!layouts.length) throw new Error('The imported layout has an invalid power budget. Turn on Recommend 2-5-2 or update your import.');
@@ -118,7 +120,21 @@ export function optimizeAccountBase(input: AccountOptimizerInput, progress?: (do
   const drones = input.drones !== false;
   const baseFor = (layout: LayoutOption) => ({ ...input.base, facilities: getFacilities(layout.spots, layout.levels), dormitoryAmbience: layout.id === 'mine' ? input.snapshot?.dormitoryAmbience : undefined });
   const sorted = () => recommendations.sort(byScore);
-  const snapshotResult = (): AccountOptimizerResult => ({ recommendations: sorted().map(r => ({ ...r })), searched, rejected });
+  const completed = new WeakMap<OptimizerResult, LayoutRecommendation>();
+  const completedBest = new Map<string, LayoutRecommendation>();
+  const snapshotResult = (): AccountOptimizerResult => ({ recommendations: sorted().map(r => {
+    let result = completed.get(r.plan);
+    if (!result) {
+      const ctx: GenomeContext = { base: baseFor(r), roster, loginInterval: input.loginInterval, weights, sustainable: true, externalGold: input.externalGold, drones, lockedDorm: input.lockedDorm };
+      const plan = completeStaffing(r.plan, ctx);
+      const output = sustainableOutput(plan.simulation.perDay, input.externalGold);
+      result = { ...r, plan, output, score: output.lmd * weights.lmd + output.exp * weights.exp };
+      completed.set(r.plan, result);
+    }
+    const previous = completedBest.get(r.id);
+    if (!previous || result.score > previous.score) completedBest.set(r.id, result);
+    return completedBest.get(r.id)!;
+  }).sort(byScore), searched, rejected });
   const offer = (recommendation: LayoutRecommendation) => {
     const previous = recommendations.findIndex(r => r.id === recommendation.id);
     if (previous < 0) recommendations.push(recommendation);
@@ -130,7 +146,7 @@ export function optimizeAccountBase(input: AccountOptimizerInput, progress?: (do
   // Formations (Fiammetta's refill core with crews taking turns, as hand-made sheets run) take 20-40 s on a large
   // roster and help some rosters, not others, so they run as a second search beside the main one rather than
   // inside it. The main worker keeps its own full search budget.
-  const withFormations = !!input.formations && 'Fiammetta' in input.roster;
+  const withFormations = !!input.formations && 'Fiammetta' in roster;
   const seedShare = withFormations ? 0 : 0.35;
 
   // Seed. Splits close to one gold factory per Trading Post first: gold is what the posts sell.
@@ -151,7 +167,7 @@ export function optimizeAccountBase(input: AccountOptimizerInput, progress?: (do
       tick(`${layout.label}: first plans`);
       const products = splits[round];
       searched++;
-      const plan = optimizeBase({ base: baseFor(layout), roster: input.roster, loginInterval: input.loginInterval, factoryProducts: products, weights, sustainable: true, externalGold: input.externalGold, drones, lockedDorm: input.lockedDorm });
+      const plan = optimizeBase({ base: baseFor(layout), roster, loginInterval: input.loginInterval, factoryProducts: products, weights, sustainable: true, externalGold: input.externalGold, drones, lockedDorm: input.lockedDorm });
       if (!plan.simulation.periodic || plan.simulation.events.some(e => e.kind === 'exhausted')) { rejected++; continue; }
       const output = sustainableOutput(plan.simulation.perDay, input.externalGold);
       if (offer({ ...layout, products, weights, plan, output, score: output.lmd * weights.lmd + output.exp * weights.exp })) tick(`${layout.label}: first plans`, snapshotResult());
@@ -163,7 +179,7 @@ export function optimizeAccountBase(input: AccountOptimizerInput, progress?: (do
     tick(`${leader.label}: formations`);
     searched++;
     const layout = layouts.find(l => l.id === leader.id)!;
-    const plan = optimizeBase({ base: baseFor(layout), roster: input.roster, loginInterval: input.loginInterval, factoryProducts: leader.products, weights, sustainable: true, externalGold: input.externalGold, drones, lockedDorm: input.lockedDorm, formations: true });
+    const plan = optimizeBase({ base: baseFor(layout), roster, loginInterval: input.loginInterval, factoryProducts: leader.products, weights, sustainable: true, externalGold: input.externalGold, drones, lockedDorm: input.lockedDorm, formations: true });
     if (plan.simulation.periodic && !plan.simulation.events.some(e => e.kind === 'exhausted')) {
       const output = sustainableOutput(plan.simulation.perDay, input.externalGold);
       if (offer({ ...layout, products: leader.products, weights, plan, output, score: output.lmd * weights.lmd + output.exp * weights.exp })) tick(`${layout.label}: formations`, snapshotResult());
@@ -177,7 +193,7 @@ export function optimizeAccountBase(input: AccountOptimizerInput, progress?: (do
     const left = budget - elapsed();
     if (left < 2000) return;
     const timeMs = order.length > 1 && i === 0 ? left * 0.7 : left;
-    const ctx: GenomeContext = { base: baseFor(seed), roster: input.roster, loginInterval: input.loginInterval, weights, sustainable: true, externalGold: input.externalGold, drones, lockedDorm: input.lockedDorm };
+    const ctx: GenomeContext = { base: baseFor(seed), roster, loginInterval: input.loginInterval, weights, sustainable: true, externalGold: input.externalGold, drones, lockedDorm: input.lockedDorm };
     const genome = genomeFromResult(seed.plan, ctx);
     if (!genome) return;
     const improve = (g: Genome, e: Evaluation) => {
