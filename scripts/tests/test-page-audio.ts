@@ -13,6 +13,8 @@ test('only reviewed lobby recordings match calendar tags, punctuation and reruns
   assert.equal(eventMusicId('[Rerun] Near Light Rerun', table), '125091');
   assert.equal(eventMusicId('[Intermezzo] Babel', table), '779480');
   assert.equal(eventMusicId('An event with no reviewed lobby recording', table), null);
+  assert.equal(eventMusicId('[side story] Yet Another Wave', table), '306864');
+  assert.equal(eventMusicId('[Side Story] 昨日海', table), '306864');
   assert.equal(eventMusicId('Near Light battle', table), null);
   assert.equal(eventMusicId('Contingency Contract Obliteration', table), '697687');
   assert.equal(eventMusicId('[Story Collection] Bolívar Diagnosed', table), '125021');

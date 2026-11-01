@@ -7,18 +7,20 @@ import { loadMusicCatalogue, MUSIC_CATALOGUE_PATH, type MusicCatalogueSong } fro
 import { createMsrAudioEngine, PLAYER_STATE, type PlaybackEngine } from '@/lib/music/playbackEngine';
 import { songAllowed } from '@/lib/music/songFilter';
 import { MAIN_AUDIO_START } from '@/lib/music/pageMusic';
+import { publishPagePlayback, clearPagePlayback } from '@/lib/music/pageAudioPlayback';
 
 type Status = 'loading' | 'playing' | 'paused' | 'blocked' | 'error';
 /** A separate page-owned engine: never borrows the main player's queue, song or clock. */
 export default function PageAudio({ musicId, pageKey }: { musicId: string | null; pageKey: string }) {
-  // A new page gets a fresh mute choice, including event-to-event navigation.
+  // Each page owns its engine; the enabled setting persists across navigation.
   return <PageAudioSession key={`${pageKey}:${musicId}`} musicId={musicId} />;
 }
 function PageAudioSession({ musicId }: { musicId: string | null }) {
   const enabled = useSiteSetting('backgroundMusic'), consent = usePrivacyChoice('externalMedia');
   const { isPlaying, starting, buffering, volume, excludeCopyrighted, includeEndfield } = useMusicPlayer();
   const mainBusy = isPlaying || starting || buffering;
-  const busy = useRef(mainBusy), muted = useRef(false), engine = useRef<PlaybackEngine | null>(null);
+  const owner = useRef({});
+  const busy = useRef(mainBusy), engine = useRef<PlaybackEngine | null>(null);
   const host = useRef<HTMLDivElement>(null), attempt = useRef<() => void>(() => {});
   const [song, setSong] = useState<MusicCatalogueSong | null>(null), [status, setStatus] = useState<Status>('loading');
   const statusRef = useRef<Status>('loading'), volumeRef = useRef(volume);
@@ -30,7 +32,7 @@ function PageAudioSession({ musicId }: { musicId: string | null }) {
     let disposed = false, release = () => {}, timer: ReturnType<typeof setTimeout> | undefined;
     const abort = new AbortController(), container = host.current;
     const state = (value: Status) => { if (!disposed) { statusRef.current = value; setStatus(value); } };
-    const permitted = () => !disposed && !busy.current && !muted.current;
+    const permitted = () => !disposed && !busy.current;
     const clearWatch = () => { clearTimeout(timer); };
     const watch = () => {
       clearWatch();
@@ -97,18 +99,17 @@ function PageAudioSession({ musicId }: { musicId: string | null }) {
   useEffect(() => {
     busy.current = mainBusy;
     if (mainBusy) engine.current?.pauseVideo();
-    else if (!muted.current) attempt.current();
+    else attempt.current();
   }, [mainBusy]);
   useEffect(() => { engine.current?.setVolume(Math.min(volume, 15)); }, [volume]);
+  useEffect(() => {
+    const identity = owner.current;
+    if (enabled && consent && song) publishPagePlayback({ owner: identity,
+      needsPlay: !mainBusy && (status === 'blocked' || status === 'error'),
+      play: () => attempt.current(),
+    });
+    return () => clearPagePlayback(identity);
+  }, [enabled, consent, song, status, mainBusy]);
   if (!enabled || !consent || !musicId) return null;
-  const playing = status === 'playing';
-  return <div className="page-audio-controls">
-    <div className="music-hidden-frame" ref={host} aria-hidden="true" />
-    {song && !mainBusy && <button type="button" className="ghost btn-sm" title={song.altTitle || song.title}
-      aria-label={playing || status === 'loading' ? 'Mute page music' : 'Play page music'} onClick={() => {
-        if (playing || status === 'loading') { muted.current = true; engine.current?.pauseVideo(); setStatus('paused'); statusRef.current = 'paused'; }
-        else { muted.current = false; attempt.current(); }
-      }}>{playing ? 'Mute page music' : status === 'loading' ? 'Starting page music…' : 'Play page music'}</button>}
-    {song && !mainBusy && status === 'error' && <span role="status">Couldn’t play this theme. Try Play again.</span>}
-  </div>;
+  return <div className="music-hidden-frame" data-page-audio={status} ref={host} aria-hidden="true" />;
 }

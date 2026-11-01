@@ -20,9 +20,15 @@ async function ambient(page: Page) {
   });
 }
 async function playing(page: Page) {
-  await expect(page.getByRole('button', { name: 'Mute page music', exact: true })).toBeVisible();
+  await expect(page.locator('[data-page-audio]')).toHaveAttribute('data-page-audio','playing');
+  await expect(page.getByRole('button', { name: 'Mute page music', exact: true })).toHaveCount(0);
   await expect.poll(async () => (await ambient(page))?.state).toBe(1);
   return (await ambient(page))!;
+}
+async function settings(page: Page) {
+  const trigger=page.getByRole('button',{name:'Settings',exact:true});
+  if(await trigger.getAttribute('aria-expanded') !== 'true') await trigger.click();
+  return page.getByRole('region',{name:'Settings',exact:true});
 }
 async function expand(page: Page) {
   const button = shell(page).getByRole('button', { name: 'Expand player' });
@@ -43,7 +49,7 @@ for (const theme of ['dark', 'light']) {
     await expect(page.getByText('Page music stops when you leave', {exact:false})).toBeVisible();
     await expect(prompt).toBeVisible();
     expect(await page.locator('.action-popover').evaluate(element => { const r = element.getBoundingClientRect(); return element.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)); })).toBe(true);
-    if (process.env.ARKPEDIA_QA_CAPTURE) await page.screenshot({path:`${process.env.ARKPEDIA_QA_CAPTURE}/${info.project.name}-${theme}-media-help.png`});
+    if (process.env.ARKPEDIA_QA_CAPTURE) await page.screenshot({animations:'disabled',path:`${process.env.ARKPEDIA_QA_CAPTURE}/${info.project.name}-${theme}-media-help.png`});
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.keyboard.press('Escape'); await expect(help).toBeFocused();
     await prompt.getByLabel('Allow autoplaying music').check();
@@ -54,7 +60,10 @@ for (const theme of ['dark', 'light']) {
     await expect(page.getByRole('region', {name:'Usage statistics choice'})).toBeVisible();
     expect(await page.evaluate(() => JSON.parse(localStorage.getItem('arkpedia:privacy:v1')!))).toMatchObject({analytics:false,analyticsChosen:false,externalMedia:true,externalMediaChosen:true});
     await page.reload(); await expect(prompt).toBeHidden(); await playing(page);
-    if (process.env.ARKPEDIA_QA_CAPTURE) await page.screenshot({path:`${process.env.ARKPEDIA_QA_CAPTURE}/${info.project.name}-${theme}-independent-page-music.png`});
+    const menu=await settings(page); await expect(menu.getByRole('checkbox',{name:'Background music',exact:true})).toBeChecked();
+    if (process.env.ARKPEDIA_QA_CAPTURE) await page.screenshot({animations:'disabled',path:`${process.env.ARKPEDIA_QA_CAPTURE}/${info.project.name}-${theme}-music-setting.png`});
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.keyboard.press('Escape'); await expect(page.getByRole('button',{name:'Settings',exact:true})).toBeFocused();
   });
 }
 test('allowing media without autoplay leaves music stopped and denial persists', async ({page}) => {
@@ -77,18 +86,22 @@ test('page music loops quietly without touching the player and stops on departur
   await expect(shell(page).getByRole('button',{name:'Expand player'})).toBeVisible();
   await navigate(page,'/'); expect((await playing(page)).videoId).not.toBe(first.videoId);
 });
-test('page mute lasts for that page; a different event can play without claiming the player', async ({page}) => {
-  await stubYouTube(page); await enable(page); await page.goto(event); await playing(page);
-  await page.getByRole('button',{name:'Mute page music',exact:true}).click();
-  await expect.poll(async()=>(await ambient(page))?.state).toBe(2);
-  await expect(page.getByRole('button',{name:'Play page music',exact:true})).toBeVisible();
-  await navigate(page,'/events/'+encodeURIComponent('[Intermezzo] Babel')); await playing(page);
+test('Background music setting stops immediately and persists across pages and reloads', async ({page}) => {
+  await stubYouTube(page); await page.goto(event);
+  let menu=await settings(page); const setting=menu.getByRole('checkbox',{name:'Background music',exact:true});
+  await expect(setting).not.toBeChecked(); await setting.check(); await playing(page);
+  await setting.uncheck(); await expect.poll(async()=>(await ambient(page))?.destroyed).toBe(true);
+  await page.keyboard.press('Escape'); await navigate(page,'/events/'+encodeURIComponent('[Intermezzo] Babel'));
+  await expect(page.locator('[data-page-audio]')).toHaveCount(0); await page.reload();
+  menu=await settings(page); await expect(menu.getByRole('checkbox',{name:'Background music',exact:true})).not.toBeChecked();
+  await menu.getByRole('checkbox',{name:'Background music',exact:true}).check(); await playing(page);
   await expect(shell(page).getByRole('button',{name:'Expand player'})).toBeVisible();
 });
-test('browser-blocked page music has its own Play control', async ({page}) => {
+test('browser-blocked page music offers Play only inside Settings', async ({page}) => {
   await stubYouTube(page,'refuse'); await enable(page); await page.goto(event);
-  await expect(page.getByRole('button',{name:'Play page music',exact:true})).toBeVisible();
-  await page.getByRole('button',{name:'Play page music',exact:true}).click(); await playing(page);
+  await expect(page.locator('[data-page-audio]')).toHaveAttribute('data-page-audio','blocked');
+  const menu=await settings(page); await menu.getByRole('button',{name:'Play background music',exact:true}).click(); await playing(page);
+  await expect(menu.getByRole('button',{name:'Play background music',exact:true})).toHaveCount(0);
   await expect(shell(page).getByRole('button',{name:'Expand player'})).toBeVisible();
 });
 test('page themes prefer YouTube even when manual music prefers Monster Siren', async ({page}) => {
@@ -149,21 +162,33 @@ test('upcoming Global and crossover events play released themes with no player t
 
 test('silent autoplay refusal eventually offers Play without loading the main player', async ({page}) => {
   await stubYouTube(page,'refuse-silently'); await enable(page); await page.goto(event);
-  await expect(page.getByRole('button',{name:'Play page music',exact:true})).toBeVisible({timeout:15000});
-  await page.getByRole('button',{name:'Play page music',exact:true}).click(); await playing(page);
+  await expect(page.locator('[data-page-audio]')).toHaveAttribute('data-page-audio','blocked',{timeout:15000});
+  const menu=await settings(page); await menu.getByRole('button',{name:'Play background music',exact:true}).click(); await playing(page);
   expect((await youtube(page))?.players).toBe(0);
 });
 test('MSR-only page music uses a separate element and stops on departure', async ({page}) => {
   await stubYouTube(page); await enable(page); const siren=await stubMonsterSiren(page);
   await page.route('**/music-catalogue.json',route=>route.fulfill({json:{songs:[{cid:'232236',title:'Touch of the Law'}]}}));
   await page.goto(event);
-  const play=page.getByRole('button',{name:'Play page music',exact:true});
-  // Real Chromium may require a gesture even though the generated WAV is silent.
-  await expect(page.getByRole('button',{name:'Mute page music',exact:true}).or(play)).toBeVisible();
-  if(await play.isVisible()) await play.click();
+  await expect(page.locator('[data-page-audio]')).toHaveAttribute('data-page-audio',/playing|blocked/);
+  if(await page.locator('[data-page-audio]').getAttribute('data-page-audio')==='blocked') {
+    const menu=await settings(page); await menu.getByRole('button',{name:'Play background music',exact:true}).click();
+  }
   await expect.poll(()=>siren.files.length).toBeGreaterThan(0);
-  await expect(page.getByRole('button',{name:'Mute page music',exact:true})).toHaveText('Mute page music');
+  await expect(page.locator('[data-page-audio]')).toHaveAttribute('data-page-audio','playing');
   expect(await ambient(page)).toBeNull();
-  await navigate(page,'/schedule'); await expect(page.locator('.page-audio-controls')).toHaveCount(0);
+  await navigate(page,'/schedule'); await expect(page.locator('[data-page-audio]')).toHaveCount(0);
   expect(await page.evaluate(()=>localStorage.getItem('musicVolume'))).toBe('42');
+});
+
+test('Yet Another Wave resolves its published Mirari recording', async ({page}) => {
+  await stubYouTube(page); await enable(page); const siren=await stubMonsterSiren(page);
+  await page.goto('/events/'+encodeURIComponent('[side story] Yet Another Wave'));
+  await expect(page.locator('[data-page-audio]')).toHaveAttribute('data-page-audio',/playing|blocked/);
+  if(await page.locator('[data-page-audio]').getAttribute('data-page-audio')==='blocked') {
+    const menu=await settings(page); await menu.getByRole('button',{name:'Play background music',exact:true}).click();
+  }
+  await expect(page.locator('[data-page-audio]')).toHaveAttribute('data-page-audio','playing');
+  expect(siren.files.some(url=>url.includes('306864'))).toBe(true);
+  await expect(page.getByRole('button',{name:'Mute page music',exact:true})).toHaveCount(0);
 });

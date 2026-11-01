@@ -125,6 +125,11 @@ export default function MusicPlayer() {
        there, and its ♪ button no longer floats over the page's own transport. It is
        hidden outright on the music guesser, which pauses playback anyway. */
     <div className={`music-player${collapsed ? ' collapsed' : ''}${onFullPlayerPage ? ' music-player-offstage' : ''}`} ref={shellRef}
+      onKeyDown={event => {
+        if (event.key !== 'Escape' || collapsed) return;
+        event.stopPropagation(); setCollapsed(true);
+        shellRef.current?.querySelector<HTMLButtonElement>('.music-collapse-toggle')?.focus();
+      }}
       data-music-widget={onFullPlayerPage || router.pathname === GAME_PATHS.music ? undefined : ''}
       style={router.pathname === GAME_PATHS.music ? { display: 'none' } : undefined}>
       {/* Audio only -- the actual iframe is sized to 1x1 and pushed
@@ -158,16 +163,12 @@ export default function MusicPlayer() {
       </button>}
 
       {!collapsed && !onFullPlayerPage && (
-        /* The corner player, open (the maintainer, 2026-10-14: "the small player in the corner
-           when on another page needs also some rework"): the /music bar's look in a card. The
-           album art and the song, title over artist on one line each, open Now playing; one row
-           of icon buttons -- Favourite, Previous, Play, Next, Queue -- each named and with its
-           tooltip on hover and focus, and on a desktop the volume beside Queue ("we still need
-           the volume controls in this smaller player", 2026-10-14; a phone has its own buttons,
-           and an iPhone ignores a page's volume); the seek bar and its times between the two, as
-           on the /music bar. Fixed in the corner, so opening it moves nothing on the page. Add to
-           playlist and Stream-safe are the /music bar's. */
+        /* Queue sits beside the track; Close stays over the collapsed tab's target.
+           Opening the fixed card leaves the page and current playback in place. */
         <div className="music-body">
+          <Link prefetch={false} href="/music?view=queue" className="ghost filter-chip music-list-btn music-widget-queue" aria-label="Queue" data-tip="Queue">
+            <TransportIcon name="queue" />
+          </Link>
           <Link prefetch={false} href="/music?view=player" className="music-widget-song" title={displayTitle}
             aria-label={videoId ? `${displayTitle}. Open Now playing` : 'Open Now playing'}>
             <span className="music-widget-cover" aria-hidden="true">
@@ -209,9 +210,6 @@ export default function MusicPlayer() {
             </div>
             <input type="range" min={0} max={100} step={1} value={volume} onChange={(event) => setVolumeLevel(Number(event.target.value))}
               className="music-volume music-widget-volume" aria-label="Volume" aria-valuetext={`${volume}%`} />
-            <Link prefetch={false} href="/music?view=queue" className="ghost filter-chip music-list-btn" aria-label="Queue" data-tip="Queue">
-              <TransportIcon name="queue" />
-            </Link>
           </div>
         </div>
       )}

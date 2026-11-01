@@ -43,9 +43,9 @@ Page music loops by itself at no more than 15% of the player volume scale, witho
 changing the stored volume, queue, shuffle or repeat settings. Leaving, disabling
 background music, or cancelling a pending page request stops it. Explicit player
 playback silences the page theme immediately. A paused main player allows the page
-theme to play, preserving its song, queue and position. A small page Play/Mute control
-only changes the current page; the next page can play its own theme. Page playback
-never expands the mini player or writes a main-player resume request.
+theme to play, preserving its song, queue and position. Settings → Background music
+controls the persistent on/off preference. No control is rendered on the page itself.
+Blocked playback offers Play background music inside Settings. Page playback never expands the mini player or writes a main-player resume request.
 A browser refusal offers Play; it never opens the external-media prompt by itself.
 Phones that ignore element volume still use their hardware volume.
 
