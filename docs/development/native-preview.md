@@ -45,6 +45,31 @@ separate job using the fixed native Preview command. Only focused isolation
 checks are part of this demo publication; this is not a full release acceptance.
 The standard production checks remain separate.
 
+### Preview database publication credential
+
+The recovery/migration step requires the separate GitHub Actions secret
+`ARKPEDIA_PREVIEW_D1_API_TOKEN`. It never falls back to the production/pilot
+Worker token, and the database token is not passed to installation, building or
+Worker publication. The Worker token keeps its existing permissions.
+
+The database token needs D1 access for recovery bookmarks and schema migrations
+(D1 Write for migrations) in account `1ff51c10571eaa9934bc451e1bfdb361`.
+Cloudflare lists D1 permissions under account scope; do not describe a token as
+database-restricted unless the provider actually enforces that restriction.
+Review the exact available resource scope and obtain explicit approval before
+creating persistent access. Prefer a dedicated token with a bounded expiry and
+no Worker, DNS, R2 or token-management permissions. Never put a developer's
+Wrangler OAuth session into GitHub secrets.
+
+The migration configuration still validates the exact isolated Preview database
+before sending any authorized request. These code checks do not narrow a token's
+provider-side permissions. Missing authorization or HTTP 401/403 stops publication;
+do not bypass the recovery check. After configuring the secret, rerun the workflow
+for checked immutable Preview source and verify both recovery and publication.
+
+References: [Cloudflare API permissions](https://developers.cloudflare.com/fundamentals/api/reference/permissions/),
+[D1 recovery bookmark](https://developers.cloudflare.com/api/resources/d1/subresources/database/subresources/time_travel/methods/get_bookmark/).
+
 The public URL is `https://preview.arkpedia.net`; its fixed upstream is
 `https://arkpedia-gins-arkpedia.cloudflare-1ff.workers.dev`. The technical
 `staging` build role is retained only for noindex/analytics compatibility.

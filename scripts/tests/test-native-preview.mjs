@@ -54,6 +54,11 @@ test('publication only uses the native Preview command with fixed targets', () =
   assert.match(workflow, /migrations apply arkpedia-preview-accounts/);
   assert.ok(workflow.indexOf('node scripts/deploy/preview-account-recovery.mjs') < workflow.indexOf('migrations apply'));
   assert.ok(workflow.indexOf('migrations apply') < workflow.indexOf('wrangler.js preview'));
+  const [beforeDatabase, databaseAndPublish] = workflow.split('- name: Verify recovery and apply isolated Preview account migrations');
+  const [databaseStep, publishStep] = databaseAndPublish.split('- name: Publish the native Preview only');
+  assert.match(databaseStep, /CLOUDFLARE_API_TOKEN: \$\{\{ secrets\.ARKPEDIA_PREVIEW_D1_API_TOKEN \}\}/);
+  assert.doesNotMatch(databaseStep, /ARKPEDIA_PRODUCTION_API_TOKEN|ARKPEDIA_PILOT_API_TOKEN|\|\|/);
+  assert.doesNotMatch(beforeDatabase + publishStep, /ARKPEDIA_PREVIEW_D1_API_TOKEN/);
 });
 
 test('Preview limits account ingress before application work and fails closed without its bindings', async () => {
@@ -90,7 +95,22 @@ test('Preview recovery requires an actual bookmark and rejects other database ta
   wrong.previews.d1_databases[0].database_id = 'another-database';
   await assert.rejects(verifyPreviewRecovery({ ...args, config: wrong }));
   await assert.rejects(verifyPreviewRecovery({ ...args, accountId: 'another-account' }));
+  await assert.rejects(verifyPreviewRecovery({ ...args, token: '' }), /Missing ARKPEDIA_PREVIEW_D1_API_TOKEN/);
+  await assert.rejects(verifyPreviewRecovery({ ...args, token: '  ' }), /Missing ARKPEDIA_PREVIEW_D1_API_TOKEN/);
   assert.equal(calls, 1);
   await assert.rejects(verifyPreviewRecovery({ ...args, fetcher: async () => Response.json({ success: true, result: {} }) }), /Missing Preview recovery/);
   await assert.rejects(verifyPreviewRecovery({ ...args, fetcher: async () => new Response('private diagnostic', { status: 403 }) }), /HTTP 403/);
+});
+
+test('Preview recovery authorization errors are actionable without leaking provider contents or credentials', async () => {
+  for (const status of [401, 403, 500]) {
+    await assert.rejects(verifyPreviewRecovery({ config, accountId: '1ff51c10571eaa9934bc451e1bfdb361', token: 'private-token',
+      fetcher: async () => new Response('private-provider-body', { status }),
+    }), error => {
+      assert.match(error.message, new RegExp(`HTTP ${status}`));
+      assert.doesNotMatch(error.message, /private-token|private-provider-body/);
+      if (status !== 500) assert.match(error.message, /ARKPEDIA_PREVIEW_D1_API_TOKEN.*D1 permissions/);
+      return true;
+    });
+  }
 });

@@ -11,12 +11,18 @@ export async function verifyPreviewRecovery({ config, accountId, token, fetcher 
   assert.equal(config.previews?.vars?.ARKPEDIA_DEPLOYMENT_ROLE, 'staging');
   assert.equal(config.d1_databases, undefined, 'Preview must not bind production D1');
   assert.deepEqual(config.previews.d1_databases, [{ binding: 'ARKPEDIA_ACCOUNTS_DB', database_name: 'arkpedia-preview-accounts', database_id: DATABASE, migrations_dir: 'migrations/accounts' }]);
-  assert.ok(token, 'Missing Cloudflare authorization');
+  assert.ok(token?.trim(), 'Missing ARKPEDIA_PREVIEW_D1_API_TOKEN: configure the dedicated Preview database credential; do not reuse the Worker publication token');
   // Use the recovery endpoint directly; Wrangler first requests unrelated database metadata.
   const response = await fetcher(`https://api.cloudflare.com/client/v4/accounts/${ACCOUNT}/d1/database/${DATABASE}/time_travel/bookmark`, {
     headers: { Authorization: `Bearer ${token}` }, redirect: 'error', signal: AbortSignal.timeout(30000),
   });
-  if (!response.ok) throw Error(`Preview recovery check failed (HTTP ${response.status})`);
+  if (!response.ok) {
+    const authorizationHint = [401, 403].includes(response.status)
+      ? ': check ARKPEDIA_PREVIEW_D1_API_TOKEN validity, expiry and D1 permissions for the configured account; Worker-only tokens cannot perform this check'
+      : '';
+    // Never include provider response bodies or authorization values in CI diagnostics.
+    throw Error(`Preview recovery check failed (HTTP ${response.status})${authorizationHint}`);
+  }
   const body = await response.json();
   if (!body.success || typeof body.result?.bookmark !== 'string' || !body.result.bookmark.trim()) throw Error('Missing Preview recovery bookmark');
   return { bookmark: body.result.bookmark, databaseId: DATABASE, checkedAt: new Date().toISOString() };
