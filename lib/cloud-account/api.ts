@@ -34,10 +34,10 @@ return async function handler(req: NextApiRequest, res: NextApiResponse) {
         const mutationId = crypto.randomUUID(), updatedAt = new Date().toISOString();
         const projected = validateCloudData(snapshot, true, !!row.personalSync);
         const results = await db.batch([
-          db.prepare('UPDATE cloud_save SET payload = ?, mutationId = ?, revision = revision + 1, archiveRevision = archiveRevision + 1, updatedAt = ? WHERE userId = ? AND revision = ?').bind(JSON.stringify(projected), mutationId, updatedAt, userId, row.revision),
+          db.prepare('UPDATE cloud_save SET payload = ?, mutationId = ?, revision = revision + 1, archiveRevision = archiveRevision + 1, updatedAt = ? WHERE userId = ? AND revision = ? RETURNING userId').bind(JSON.stringify(projected), mutationId, updatedAt, userId, row.revision),
           ...archiveStatements(db, userId, mutationId, legacy),
         ]);
-        if (results[0].meta.changes !== 1) return res.status(409).json({ error: 'Another device updated your archive. Retry sync; existing pulls are safe.' });
+        if (results[0].results.length !== 1) return res.status(409).json({ error: 'Another device updated your archive. Retry sync; existing pulls are safe.' });
         row = { ...row, payload: JSON.stringify(projected), revision: row.revision + 1, archiveRevision: row.archiveRevision + 1, updatedAt };
       }
     }
@@ -97,10 +97,12 @@ return async function handler(req: NextApiRequest, res: NextApiResponse) {
       } catch (error) { return res.status(400).json({ error: (error as Error).message }); }
     }
     const archiveRevision = row.archiveRevision + (archiveInput !== undefined || historySync !== !!row.historySync || req.method === 'DELETE' ? 1 : 0);
-    statements.unshift(db.prepare('UPDATE cloud_save SET payload = ?, personalSync = ?, historySync = ?, gameSync = ?, paused = ?, syncReviewed = ?, mutationId = ?, revision = revision + 1, archiveRevision = ?, updatedAt = ? WHERE userId = ? AND revision = ?')
+    statements.unshift(db.prepare('UPDATE cloud_save SET payload = ?, personalSync = ?, historySync = ?, gameSync = ?, paused = ?, syncReviewed = ?, mutationId = ?, revision = revision + 1, archiveRevision = ?, updatedAt = ? WHERE userId = ? AND revision = ? RETURNING userId')
       .bind(JSON.stringify(data), personalSync ? 1 : 0, historySync ? 1 : 0, gameSync ? 1 : 0, paused ? 1 : 0, reviewing ? 1 : row.syncReviewed, mutationId, archiveRevision, updatedAt, userId, row.revision));
     const results = await db.batch(statements);
-    if (results[0].meta.changes !== 1) return res.status(409).json({ error: 'Your cloud save changed on another device. Retry with its latest revision.' });
+    // Consent withdrawal can cascade into replay deletions and quota updates.
+    // Only the directly updated cloud_save row determines whether this CAS won.
+    if (results[0].results.length !== 1) return res.status(409).json({ error: 'Your cloud save changed on another device. Retry with its latest revision.' });
     if (reviewing) row.syncReviewed = 1;
     return res.json({ ...await saved(row.revision + 1, archiveRevision, data, personalSync, historySync, gameSync, paused), updatedAt });
   } catch (error) {

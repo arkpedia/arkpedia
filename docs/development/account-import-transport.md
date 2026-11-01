@@ -158,6 +158,13 @@ checks are enforced server-side. Existing account and Preview ingress guards cov
 the nested API path. Migration 0006 adds only isolated archive/usage tables and
 triggers; withdrawing gameSync or deleting the user removes their cloud replays.
 
+Cloud mutations acknowledge their guarded write with SQL `RETURNING`, not an exact
+`meta.changes === 1` check. D1 counts the quota triggers' writes too: a successful
+replay save can report two changes, and consent withdrawal can report more. The
+account test adapter uses per-statement `total_changes()` deltas to match this
+behavior. Snapshot writes use returned rows for the same reason. Optimistic hashes,
+revisions, consent predicates and transaction rollback remain the write guards.
+
 Each browser archive and each cloud account are bounded to 32 MiB / 3,000 records,
 with a 512 KB decoded per-replay cap. Zip decoding accepts only bounded
 `default_entry` content, validates the requested stage and rejects credential keys.

@@ -124,16 +124,23 @@ function database(filename = ':memory:') {
   const sqlite = new DatabaseSync(filename);
   sqlite.exec('PRAGMA foreign_keys = ON');
   if (filename === ':memory:') for (const migration of fs.readdirSync('migrations/accounts').filter(name => name.endsWith('.sql')).sort()) sqlite.exec(fs.readFileSync(`migrations/accounts/${migration}`, 'utf8'));
+  const totalChanges = () => Number(sqlite.prepare('SELECT total_changes() AS n').get()?.n);
   const prepare = (sql: string, values: unknown[] = []) => ({
     bind: (...bound: unknown[]) => prepare(sql, bound),
     all: async () => {
+      const before = totalChanges();
       const statement = sqlite.prepare(sql);
       const rows = statement.columns().length ? statement.all(...values as never[]) : (statement.run(...values as never[]), []);
-      const stats = sqlite.prepare('SELECT changes() AS changes, last_insert_rowid() AS last_row_id').get();
+      // D1 counts trigger/cascade writes as well as the directly affected row.
+      const stats = { ...sqlite.prepare('SELECT last_insert_rowid() AS last_row_id').get(), changes: totalChanges() - before };
       return { results: rows, meta: stats, success: true };
     },
     first: async () => sqlite.prepare(sql).get(...values as never[]) ?? null,
-    run: async () => ({ meta: sqlite.prepare(sql).run(...values as never[]) }),
+    run: async () => {
+      const before = totalChanges();
+      const stats = sqlite.prepare(sql).run(...values as never[]);
+      return { meta: { ...stats, changes: totalChanges() - before } };
+    },
   });
   let queue = Promise.resolve<unknown>(null);
   const db = { prepare, exec: async (sql: string) => sqlite.exec(sql), batch: (statements: ReturnType<typeof prepare>[]) => {
@@ -638,10 +645,18 @@ test('auto-deploy API isolates owners, enforces consent and CAS, avoids stale fi
   assert.equal((await call('PUT',{...row,owner:'other'})).status,409);
   const saved=await call('PUT',row);assert.equal(saved.status,200);
   const hash=saved.result.hash;
+  assert.equal((await call('GET',{stageId:row.stageId})).result.record.hash,hash,'a successful response corresponds to the stored replay');
   assert.equal((await call('PUT',row)).status,409,'null expected hash cannot overwrite a row');
   assert.equal((await call('PATCH',{stageId:row.stageId,hash,fingerprint:'[1,1,1,0,3]'})).status,409,'older counters cannot overwrite a newer fingerprint');
   assert.equal((await call('PATCH',{stageId:row.stageId,hash,fingerprint:'[1,3,3,0,3]'})).status,200);
   assert.equal((await call('PUT',{...row,expectedHash:hash})).status,409,'stale full record is rejected');
+  const updated=await call('PUT',{...row,expectedHash:hash,fingerprint:'[1,3,3,0,3]',payload:JSON.stringify({...JSON.parse(payload),timestamp:2})});
+  assert.equal(updated.status,200,'a matching update succeeds even when quota triggers also write');
+  assert.notEqual(updated.result.hash,hash);
+  assert.equal((await call('DELETE',{stageId:row.stageId,hash,fingerprint:'[0,4,4,0,3]'})).status,409,'a stale hash cannot remove a newer replay');
+  assert.equal((await call('DELETE',{stageId:row.stageId,hash:updated.result.hash,fingerprint:'[0,4,4,0,3]'})).status,200,'deletion reports success despite quota maintenance');
+  assert.equal(sqlite.prepare('SELECT records FROM auto_deploy_usage WHERE userId=?').get(user.id)?.records,0);
+  assert.equal((await call('PUT',row)).status,200);
   assert.equal((await call('GET')).result.records.length,1);
   assert.equal((await call('GET',{namespace:'jp:1'})).result.records.length,0);
   assert.equal((await call('PUT',{...row,namespace:'en:2',payload:JSON.stringify({...JSON.parse(payload),secret:'private'})})).status,400);
@@ -650,7 +665,10 @@ test('auto-deploy API isolates owners, enforces consent and CAS, avoids stale fi
   assert.equal((await call('PUT',{...row,namespace:'en:2'})).status,413);
   assert.equal(sqlite.prepare('SELECT count(*) AS n FROM auto_deploy').get()?.n,1,'quota rollback retains prior replay');
   sqlite.prepare('UPDATE auto_deploy_usage SET bytes=? WHERE userId=?').run(before,user.id);
-  sqlite.prepare('UPDATE cloud_save SET gameSync=0 WHERE userId=?').run(user.id);
+  let withdrawalStatus=200;
+  const withdrawalResponse={setHeader:()=>{},status:(code:number)=>{withdrawalStatus=code;return withdrawalResponse;},json:()=>{},end:()=>{}};
+  await createCloudAccountHandler(()=>env)({method:'PATCH',headers:{cookie,origin:env.ARKPEDIA_AUTH_URL,'content-type':'application/json'},body:{owner:user.id,revision:0,savingVersion:2,gameSync:false}} as NextApiRequest,withdrawalResponse as unknown as NextApiResponse);
+  assert.equal(withdrawalStatus,200,'consent withdrawal succeeds when it also deletes replays and updates quota totals');
   assert.equal(sqlite.prepare('SELECT count(*) AS n FROM auto_deploy').get()?.n,0);
   assert.equal(sqlite.prepare('SELECT bytes FROM auto_deploy_usage WHERE userId=?').get(user.id)?.bytes,0);
   assert.equal((await call('PUT',{...row,expectedHash:null})).status,403);
