@@ -5,6 +5,8 @@ import type { PullRead } from '@/lib/account/pulls';
 import { directTransport, networkTransport, relayTransport } from '@/lib/account-import/relay';
 import { forgetLogin, maskEmail, readSavedLogin, saveLogin, SAVED_LOGIN_KEY, type SavedLogin } from '@/lib/account-import/savedLogin';
 import ConnectionDiagnostics from './ConnectionDiagnostics';
+import StageDiagnostics from './StageDiagnostics';
+import { stageDiagnostics } from '@/lib/account-import/stageDiagnostics';
 import { connectionDiagnostics } from '@/lib/account-import/connectionDiagnostics';
 import { beginnerDiagnostics } from '@/lib/account-import/beginnerDiagnostics';
 import { useCodeCooldown } from '@/lib/account-import/codeCooldown';
@@ -141,6 +143,7 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
     // The report's beginner summary is this import's, never an earlier one's.
     connectionDiagnostics.setBeginner(null);
     const user = await readAccount({ transport: relayTransport, direct: directTransport, deviceId: device, network: await connect(from), onStep: setStep }, yostar);
+    stageDiagnostics.capture(user, from);
     connectionDiagnostics.setBeginner(beginnerDiagnostics(user));
     setStep('pulls');
     let pulls: PullRead;
@@ -323,6 +326,7 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
       )}
       {failed && <p className="import-error" role="alert">{failed.message}</p>}
       <ConnectionDiagnostics />
+      <StageDiagnostics server={server} busy={busy} />
       {failed?.step === 'network' && <button type="button" className="ghost btn-sm" disabled={busy || connection === 'opening'} onClick={() => { connect().catch(error => setFailed({ step: 'network', message: describe(error) })); }}>Retry connection</button>}
       {done && pullsFailed && <p className="hint import-note">The pull history could not be read ({pullsFailed}). Everything else was imported.</p>}
     </>

@@ -100,3 +100,20 @@ connection failures. No diagnostic probe resends authentication or sends a real 
 
 Protocol reasons: https://github.com/MercuryWorkshop/wisp-protocol/blob/main/protocol.md
 Dependency integration: https://github.com/ading2210/libcurl.js (pinned 0.7.4).
+
+
+## Preview stage metadata comparison
+
+Open `https://preview.arkpedia.net/account?stageDiagnostics=1`, then Import / export.
+Stage metadata test is hidden without this explicit URL option and on production hosts.
+Capture next import arms one import for the selected region. It observes the existing
+`readAccount` result; it never requests replays or additional game data. Reports keep
+stage IDs, field names/types and numeric/boolean candidate markers only. Arbitrary
+strings, nested values, credentials and raw accounts are excluded. Unknown string
+markers are reported by type only, so this experiment cannot yet compare their values.
+
+Up to three captures survive closing/reopening the dialog in the same tab. They are
+never stored in browser storage or synced to an Arkpedia account, and disappear on
+reload or Clear captures. Compare a baseline, an unchanged import, and one after the
+reader replaces one known auto-deploy in game. Field differences are evidence to
+investigate, not proof of a reliable replay revision contract.

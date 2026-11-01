@@ -43,7 +43,7 @@ async function stubServers(page: Page, level: number | null, isNew = 0, networkF
       [`${region.yostar}/user/login`]: { json: { Code: 200, Data: { IsNew: isNew, UserInfo: { ID: 4242, Token: 'yostar-token' } } } },
       'https://u8.example.invalid/user/v1/getToken': { json: level === null ? { result: 2 } : { result: 0, token: 'u8-token', uid: '1' } },
       'https://gs.example.invalid/account/login': { json: { result: 0, secret: 'session', uid: '1' } },
-      'https://gs.example.invalid/account/syncData': { json: { result: 0, user: { status: { level, nickName: level === 1 ? '' : 'Doctor', nickNumber: '0001' }, troop: { chars: {} } } } },
+      'https://gs.example.invalid/account/syncData': { json: { result: 0, user: { status: { level, nickName: level === 1 ? '' : 'Doctor', nickNumber: '0001' }, troop: { chars: {} }, dungeon: { stages: { main_01_07: { state: 3, completeTimes: 12, replayVersion: 2, replayId: 'private-replay-id', token: 'private-stage-token' } } } } } },
       [`${region.accountCenter}/api/user/login`]: { json: { code: 0 }, headers: [['Set-Cookie', 'YSSID=session-id; Path=/'], ['Set-Cookie', 'YSSID.sig=session-sig; Path=/']] },
       [`${region.accountCenter}/api/game/gachas?key=ark&index=1&size=50`]: { json: { code: 0, data: { rows: [] } } },
     };
@@ -537,4 +537,34 @@ test('a send-code refusal keeps existing-code import available without an automa
   const asked = await page.evaluate(() => (window as unknown as { __asked: string[] }).__asked);
   expect(asked.filter(url => url.endsWith('/yostar/send-code'))).toHaveLength(1);
   expect(asked.filter(url => url.endsWith('/yostar/get-auth'))).toHaveLength(1);
+});
+
+
+test('stage metadata capture is explicit and survives closing the import dialog', async ({ page }, testInfo) => {
+  await stubServers(page, 120);
+  await openImport(page);
+  await expect(page.getByText('Stage metadata test', { exact: true })).toHaveCount(0);
+  await page.goto('/account?stageDiagnostics=1');
+  await page.locator('.page-header').getByRole('button', { name: 'Import / export', exact: true }).click();
+  const dialog = page.locator('dialog.data-dialog');
+  await expect(dialog.getByText('Capture is off.', { exact: true })).toBeVisible();
+  await dialog.getByRole('button', { name: 'Capture next import', exact: true }).click();
+  await expect(dialog.getByText('Ready for one import. Do not refresh this tab.', { exact: true })).toBeVisible();
+  await signIn(page);
+  if (!await dialog.isVisible()) await page.locator('.page-header').getByRole('button', { name: 'Import / export', exact: true }).click();
+  await expect(dialog.getByText('1 of 3 captures saved in this tab.', { exact: true })).toBeVisible();
+  await dialog.getByRole('button', { name: 'Close', exact: true }).click();
+  await page.locator('.page-header').getByRole('button', { name: 'Import / export', exact: true }).click();
+  const report = dialog.getByLabel('Stage metadata report');
+  const text = await report.inputValue();
+  expect(JSON.parse(text).samples[0].stages.main_01_07.values).toEqual({ state: 3, completeTimes: 12, replayVersion: 2 });
+  expect(text).not.toMatch(/private-|code-token|yostar-token|session|nickName/);
+  const requests = await page.evaluate(() => (window as unknown as { __asked: string[] }).__asked);
+  expect(requests.filter(url => url.endsWith('/account/syncData'))).toHaveLength(1);
+  expect(requests.some(url => /replay/i.test(url))).toBe(false);
+  await report.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: testInfo.outputPath('stage-diagnostics.png') });
+  await dialog.getByRole('button', { name: 'Clear captures', exact: true }).click();
+  await expect(report).toHaveCount(0);
+  await expect(dialog.getByText('Capture is off.', { exact: true })).toBeVisible();
 });
