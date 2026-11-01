@@ -170,7 +170,7 @@ export default function CloudAccountPanel({ onOpenData, hideSettingsButton = fal
             {([
               { key: 'personalSync', label: 'Save personal settings and plans', description: 'Music favourites and playlists, plans, story progress and preferences.', enabled: remote.personalSync ?? true, confirmation: 'personal' },
               { key: 'historySync', label: 'Save pull history archive', description: 'Pulls, banner and operator names, game UID and server. Older archived pulls survive later imports and save choices.', enabled: remote.historySync ?? false, confirmation: 'history' },
-              { key: 'gameSync', label: 'Save imported game data to my Arkpedia account', description: 'Imported profile, operators and builds, skins, inventory, stage progress and base snapshot. Pull history is controlled separately.', enabled: remote.gameSync, confirmation: 'revoke' },
+              { key: 'gameSync', label: 'Save imported game data to my Arkpedia account', description: 'Imported profile, operators and builds, skins, inventory, stage progress, optional auto-deploys and base snapshot. Pull history is controlled separately.', enabled: remote.gameSync, confirmation: 'revoke' },
             ] as const).map(option => <div key={option.key}>
               <label className="check"><input type="checkbox" checked={onboarding ? choices[option.key] : pendingConsent === option.key || option.enabled} disabled={working || (!onboarding && !option.enabled && sync.status !== 'ready' && sync.status !== 'paused')} onChange={event => {
                 if (onboarding) { setChoices(previous => ({ ...previous, [option.key]: event.target.checked })); return; }

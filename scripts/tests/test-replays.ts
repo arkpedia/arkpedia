@@ -1,0 +1,74 @@
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
+import { zipSync,strToU8 } from 'fflate';
+import { createReplaySession, ReplayRequestError } from '../../lib/account-import/yostar';
+import { decodeReplay,stageMarkers,namespaceFor,needsReplay,replayHash,validateReplay,type ReplayRecord } from '../../lib/replays/model';
+import { syncReplays,type QueueOptions } from '../../lib/replays/queue';
+const stage='main_00-01';
+const payload=JSON.stringify({timestamp:1,journal:{metadata:{stageId:stage},squad:[],logs:[]}});
+const encoded=(p=payload)=>Buffer.from(zipSync({default_entry:strToU8(p)})).toString('base64');
+const markers=(n=1,has=1)=>stageMarkers({dungeon:{stages:{[stage]:{hasBattleReplay:has,startTimes:n,completeTimes:n,practiceTimes:0,state:3}}}});
+
+test('stage invalidation ignores sign-in, isolates regions/accounts and notices replay removal',()=>{
+  assert.equal(namespaceFor('en','1'),'en:1');assert.notEqual(namespaceFor('jp','1'),namespaceFor('en','1'));assert.throws(()=>namespaceFor('en','email@example.invalid'));
+  const m=markers()[0],cached={stageId:stage,fingerprint:m.fingerprint,hash:'x'};
+  assert.equal(needsReplay(m,cached),false);assert.equal(needsReplay(markers(2)[0],cached),true);assert.equal(needsReplay(markers(2,0)[0],cached),false);
+});
+test('archive validation accepts only the requested replay and rejects credentials, oversized and wrong-stage records',()=>{
+  assert.equal(JSON.parse(decodeReplay(encoded(),stage)).journal.metadata.stageId,stage);
+  assert.throws(()=>decodeReplay(encoded(),'main_00-02'));
+  assert.throws(()=>validateReplay(JSON.stringify({...JSON.parse(payload),token:'not-allowed'}),stage));
+  assert.throws(()=>decodeReplay(encoded(JSON.stringify({...JSON.parse(payload),padding:'x'.repeat(600_000)})),stage));
+});
+test('replay sessions strictly sequence requests and invalidate uncertain sessions without retry or leaking errors',async()=>{
+  const calls:string[]=[];
+  const session=createReplaySession(async(url,request)=>{calls.push(request.headers.seqnum);assert.equal(url,'https://game.invalid/battle/getBattleReplay');return {status:200,json:{battleReplay:encoded()}};},'https://game.invalid','1','private-secret');
+  await session.readReplay(stage);await session.readReplay(stage);assert.deepEqual(calls,['3','4']);
+  let attempts=0;
+  const bad=createReplaySession(async()=>{attempts++;throw Error('private-secret');},'https://game.invalid','1','private-secret');
+  await assert.rejects(bad.readReplay(stage),e=>e instanceof ReplayRequestError&&!e.message.includes('private-secret'));
+  await assert.rejects(bad.readReplay(stage));assert.equal(attempts,1);
+  const throttled=createReplaySession(async()=>({status:429,json:null,headers:[['Retry-After','600']]}),'https://game.invalid','1','s');
+  await assert.rejects(throttled.readReplay(stage),e=>e instanceof ReplayRequestError&&e.retryAfter===600);
+});
+function setup(){
+  const records=new Map<string,ReplayRecord>();let fetched=0;const waits:number[]=[];
+  const options:QueueOptions={namespace:'en:1',markers:markers(),session:{uid:'1',readReplay:async()=>{fetched++;return encoded();}},store:{read:async()=>[...records.values()],save:async r=>{records.set(r.stageId,r);},remove:async(_ns,id)=>{records.delete(id);}},signal:new AbortController().signal,progress:()=>{},check:()=>{},wait:async ms=>{waits.push(ms);},random:()=>0};
+  return {options,records,waits,fetched:()=>fetched};
+}
+test('successful durable checkpoints skip unchanged stages and fetch only a changed stage',async()=>{
+  const s=setup();await syncReplays(s.options);await syncReplays(s.options);assert.equal(s.fetched(),1);assert.deepEqual(s.waits,[3000]);
+  s.options.markers=markers(2);await syncReplays(s.options);assert.equal(s.fetched(),2);
+  s.options.markers=markers(2,0);await syncReplays(s.options);assert.equal(s.records.size,0);
+});
+test('pause after a response cannot checkpoint or upload; failed storage is retryable',async()=>{
+  const s=setup(),abort=new AbortController();s.options.signal=abort.signal;
+  s.options.session.readReplay=async()=>{abort.abort();return encoded();};
+  await assert.rejects(syncReplays(s.options),{name:'AbortError'});assert.equal(s.records.size,0);
+  const t=setup();t.options.store.save=async()=>{throw Error('quota');};await assert.rejects(syncReplays(t.options),/quota/);assert.equal(t.records.size,0);
+});
+test('cloud restoration avoids Yostar and unchanged replay contents upload only the fingerprint',async()=>{
+  const s=setup(),canonical=validateReplay(payload,stage),hash=await replayHash(canonical);let saves=0,marks=0,reads=0;
+  const r:ReplayRecord={namespace:'en:1',stageId:stage,fingerprint:markers()[0].fingerprint,hash,payload:canonical,savedAt:1};
+  s.options.cloud={manifest:async()=>[r],read:async()=>{reads++;return r;},save:async()=>{saves++;},mark:async()=>{marks++;},remove:async()=>{}};
+  await syncReplays(s.options);assert.equal(reads,1);assert.equal(s.fetched(),0);
+  s.options.markers=markers(2);await syncReplays(s.options);assert.equal(s.fetched(),1);assert.equal(saves,0);assert.equal(marks,1);
+});
+test('queue respects batch limits and identity changes before further network requests',async()=>{
+  const s=setup();s.options.limit=0;assert.equal((await syncReplays(s.options)).remaining,1);assert.equal(s.fetched(),0);
+  s.options.limit=200;s.options.check=()=>{throw Error('account switched');};await assert.rejects(syncReplays(s.options),/account switched/);assert.equal(s.fetched(),0);
+});
+
+test('equal stage markers with conflicting local/cloud contents are resolved from the game',async()=>{
+  const s=setup();await syncReplays(s.options);
+  const current=s.records.get(stage)!;
+  const stalePayload=validateReplay(payload.replace('"timestamp":1','"timestamp":0'),stage);
+  let remote={...current,payload:stalePayload,hash:await replayHash(stalePayload)};
+  let uploads=0;
+  s.options.cloud={manifest:async()=>[remote],read:async()=>{throw Error('conflicts must not restore a guessed winner');},save:async(record,expectedHash)=>{assert.equal(expectedHash,remote.hash);uploads++;if(uploads===1)throw Error('upload interrupted');remote=record;},mark:async()=>{throw Error('contents changed');},remove:async()=>{}};
+  await assert.rejects(syncReplays(s.options),/upload interrupted/);
+  assert.equal(s.fetched(),2);
+  await syncReplays(s.options);
+  assert.equal(s.fetched(),3);assert.equal(uploads,2);assert.equal(remote.hash,current.hash);
+  await syncReplays(s.options);assert.equal(s.fetched(),3);
+});

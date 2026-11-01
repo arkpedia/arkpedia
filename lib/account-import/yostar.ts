@@ -287,10 +287,47 @@ export interface AccountOptions {
   network: Network;
   /** Told as each step starts, for a progress list. */
   onStep?: (step: ImportStep) => void;
+  /** Optional in-memory continuation. Never serialize or upload this capability. */
+  onReplaySession?: (session: ReplaySession) => void;
+}
+
+export interface ReplaySession { uid: string; readReplay: (stageId: string) => Promise<string> }
+export class ReplayRequestError extends Error {
+  constructor(message: string, readonly retryAfter = 60, readonly reconnect = true) { super(message); }
+}
+
+/** Reads only saved replays; there is deliberately no generic authenticated request API. */
+export function createReplaySession(transport: Transport, gs: string, uid: string, secret: string): ReplaySession {
+  let sequence = 2, busy = false, valid = true;
+  return { uid, async readReplay(stageId) {
+    if (!/^[a-zA-Z0-9_-]{1,100}$/.test(stageId)) throw new Error('Invalid stage.');
+    if (!valid) throw new ReplayRequestError('Import your game account again to reconnect.');
+    if (busy) throw new ReplayRequestError('Another replay request is running.');
+    busy = true;
+    try {
+      const response = await transport(`${gs}/${stageId.startsWith('camp_') ? 'campaign' : 'battle'}/getBattleReplay`, {
+        method: 'POST', headers: { ...CLIENT_HEADERS, secret, uid, seqnum: String(++sequence) }, body: JSON.stringify({ stageId }),
+      });
+      if (response.status === 429) {
+        const header = response.headers?.find(([name]) => name.toLowerCase() === 'retry-after')?.[1];
+        const seconds = header && /^\d+$/.test(header) ? Number(header) : header ? Math.ceil((Date.parse(header) - Date.now()) / 1000) : 60;
+        throw new ReplayRequestError('Yostar asked us to wait. Import again after the cooldown to resume.', Number.isFinite(seconds) ? Math.max(60, seconds) : 60);
+      }
+      const data = object(response.json);
+      if (response.status !== 200 || (data.result !== undefined && data.result !== 0) || typeof data.battleReplay !== 'string') {
+        throw new ReplayRequestError('The game did not return this auto-deploy. Import again before resuming.');
+      }
+      return data.battleReplay;
+    } catch (error) {
+      // An uncertain response may have consumed the sequence number. Never relogin/retry automatically.
+      valid = false;
+      throw error instanceof ReplayRequestError ? error : new ReplayRequestError('The replay connection stopped. Import again to resume; saved auto-deploys are safe.');
+    } finally { busy = false; }
+  } };
 }
 
 /** Steps 3 to 5: the account's game data, as syncData sends it (its `user`). */
-export async function readAccount({ transport, direct, deviceId, network, onStep = () => {} }: AccountOptions, account: YostarAccount): Promise<Record<string, any>> {
+export async function readAccount({ transport, direct, deviceId, network, onStep = () => {}, onReplaySession }: AccountOptions, account: YostarAccount): Promise<Record<string, any>> {
   onStep('game-token');
   const fields: Record<string, string | number> = {
     appId: '1', platform: 1, channelId: YOSTAR_CHANNEL, subChannel: YOSTAR_CHANNEL, worldId: YOSTAR_CHANNEL,
@@ -321,6 +358,7 @@ export async function readAccount({ transport, direct, deviceId, network, onStep
   onStep('account');
   const data = await post(transport, 'account', `${network.gs}/account/syncData`, { ...CLIENT_HEADERS, secret: login.secret, seqnum: '2', uid: String(login.uid) }, { platform: 1 });
   if (data.result !== 0 || !data.user) throw new ImportError('account', `the game server sent no account (result ${data.result ?? 'none'})`);
+  if (onReplaySession && login.uid != null) onReplaySession(createReplaySession(transport, network.gs, String(login.uid), login.secret));
   return object(data.user);
 }
 

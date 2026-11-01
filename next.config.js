@@ -75,6 +75,7 @@ const nextConfig = {
   outputFileTracingIncludes: {
     '/api/auth/*': ['node_modules/@better-auth/core/dist/instrumentation/*.mjs'],
     '/api/cloud-account': ['node_modules/@better-auth/core/dist/instrumentation/*.mjs'],
+    '/api/cloud-account/auto-deploys': ['node_modules/@better-auth/core/dist/instrumentation/*.mjs'],
     '/api/account-profile': ['node_modules/@better-auth/core/dist/instrumentation/*.mjs'],
   },
   outputFileTracingExcludes: {

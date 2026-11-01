@@ -170,3 +170,14 @@ session expiry/revocation and restoration of a synthetic database backup with it
 identities, provider links, session and saves. They do not prove a hosted restore
 or a real provider login. Complete Google/Discord round trips, link/unlink and
 cross-device restore/deletion on disposable accounts remain manual acceptance.
+
+### Optional auto-deploy archive
+
+Preview's explicit auto-deploy sync uses the nested `/api/cloud-account/auto-deploys`
+API. Its separate opt-in is available only with reviewed imported-game-data consent;
+normal account sign-in never starts game traffic. Migration `0006_auto_deploys.sql`
+adds bounded, per-user replay rows and quota accounting. Consent withdrawal and
+account deletion reclaim these rows. Server-side compare-and-swap and monotonic
+stage-counter checks reject stale writes; credential fields are rejected before
+storage. See [the transport contract](account-import-transport.md#optional-auto-deploy-sync-preview)
+for queue pacing, retention, limitations and separate export behavior.

@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { ImportError, readAccount, readNetwork, readPulls, sendCode, SERVERS, signIn, type ImportStep, type Network, type ServerId, type YostarAccount } from '@/lib/account-import/yostar';
+import { ImportError, readAccount, readNetwork, readPulls, sendCode, SERVERS, signIn, type ImportStep, type Network, type ServerId, type YostarAccount, type ReplaySession } from '@/lib/account-import/yostar';
 import { isResettingBrowserData } from '@/lib/account/resetData';
 import type { PullRead } from '@/lib/account/pulls';
 import { directTransport, networkTransport, relayTransport } from '@/lib/account-import/relay';
 import { forgetLogin, maskEmail, readSavedLogin, saveLogin, SAVED_LOGIN_KEY, type SavedLogin } from '@/lib/account-import/savedLogin';
+import ReplaySync, { type ReplayImport } from './ReplaySync';
+import { stageMarkers } from '@/lib/replays/model';
+import { REPLAY_LOCK } from '@/lib/replays/queue';
 import ConnectionDiagnostics from './ConnectionDiagnostics';
 import StageDiagnostics from './StageDiagnostics';
 import { stageDiagnostics } from '@/lib/account-import/stageDiagnostics';
@@ -52,7 +55,10 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
   const [codeSent, setCodeSent] = useState(false);
   const [retryingCode, setRetryingCode] = useState(false);
   const { secondsLeft, begin: beginCodeRequest, finish: finishCodeRequest } = useCodeCooldown(server);
-  const [busy, setBusy] = useState(false);
+  const [importBusy, setBusy] = useState(false);
+  const [replayBusy, setReplayBusy] = useState(false);
+  const [replayImport, setReplayImport] = useState<ReplayImport|null>(null);
+  const busy = importBusy || replayBusy;
   const validEmail = /^\S+@\S+\.\S+$/.test(email.trim());
   const [step, setStep] = useState<ImportStep | null>(null);
   const [failed, setFailed] = useState<{ step: ImportStep | null; message: string } | null>(null);
@@ -140,23 +146,31 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
 
   /** Steps 3 to 6 with a Yostar login on `from`, then the account and the pulls to the caller. */
   async function read(yostar: YostarAccount, device: string, signedInAs: string, from: ServerId) {
-    // The report's beginner summary is this import's, never an earlier one's.
-    connectionDiagnostics.setBeginner(null);
-    const user = await readAccount({ transport: relayTransport, direct: directTransport, deviceId: device, network: await connect(from), onStep: setStep }, yostar);
-    stageDiagnostics.capture(user, from);
-    connectionDiagnostics.setBeginner(beginnerDiagnostics(user));
-    setStep('pulls');
-    let pulls: PullRead;
-    try {
-      pulls = { rows: await readPulls(relayTransport, from, signedInAs, yostar), error: null };
-    } catch (error) {
-      pulls = { rows: null, error: describe(error) };
-    }
-    setPullsFailed(pulls.error);
-    if (isResettingBrowserData()) return;
-    onAccount(user, pulls, from);
-    setDone(true);
-    setStep(null);
+    const perform = async () => {
+      setReplayImport(null);
+      let replaySession: ReplaySession | undefined;
+      // The report's beginner summary is this import's, never an earlier one's.
+      connectionDiagnostics.setBeginner(null);
+      const user = await readAccount({ transport: relayTransport, direct: directTransport, deviceId: device, network: await connect(from), onStep: setStep, ...(process.env.ARKPEDIA_CLOUD_ACCOUNTS === '1' ? { onReplaySession: (session: ReplaySession) => { replaySession = session; } } : {}) }, yostar);
+      stageDiagnostics.capture(user, from);
+      connectionDiagnostics.setBeginner(beginnerDiagnostics(user));
+      setStep('pulls');
+      let pulls: PullRead;
+      try {
+        pulls = { rows: await readPulls(relayTransport, from, signedInAs, yostar), error: null };
+      } catch (error) {
+        pulls = { rows: null, error: describe(error) };
+      }
+      setPullsFailed(pulls.error);
+      if (isResettingBrowserData()) return;
+      onAccount(user, pulls, from);
+      if (replaySession) setReplayImport({session:replaySession,markers:stageMarkers(user),server:from});
+      setDone(true);
+      setStep(null);
+    };
+    if (process.env.ARKPEDIA_CLOUD_ACCOUNTS === '1' && navigator.locks) {
+      await navigator.locks.request(REPLAY_LOCK,{ifAvailable:true},async lock=>{if(!lock)throw new Error('Another tab is importing game data. Wait for it to finish.');await perform();});
+    } else await perform();
   }
 
   async function onImport(event: FormEvent) {
@@ -325,6 +339,7 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
         </ol>
       )}
       {failed && <p className="import-error" role="alert">{failed.message}</p>}
+      {process.env.ARKPEDIA_CLOUD_ACCOUNTS === '1' && <ReplaySync imported={replayImport} busy={busy} onBusy={setReplayBusy} />}
       <ConnectionDiagnostics />
       <StageDiagnostics server={server} busy={busy} />
       {failed?.step === 'network' && <button type="button" className="ghost btn-sm" disabled={busy || connection === 'opening'} onClick={() => { connect().catch(error => setFailed({ step: 'network', message: describe(error) })); }}>Retry connection</button>}

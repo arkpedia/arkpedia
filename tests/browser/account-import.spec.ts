@@ -568,3 +568,87 @@ test('stage metadata capture is explicit and survives closing the import dialog'
   await expect(report).toHaveCount(0);
   await expect(dialog.getByText('Capture is off.', { exact: true })).toBeVisible();
 });
+
+async function stubAutoDeploys(page: Page) {
+  const { zipSync,strToU8 }=await import('fflate');
+  await stubServers(page,120);
+  const replays=Object.fromEntries(['main_00-01','main_00-02'].map(stageId=>[stageId,Buffer.from(zipSync({default_entry:strToU8(JSON.stringify({timestamp:1,journal:{metadata:{stageId},squad:[],logs:[]}}))})).toString('base64')]));
+  await page.addInitScript(replays=>{
+    const original=window.__arkpediaImportTransport!;
+    const state={counter:1,requests:[] as {stage:string;seq:string;at:number}[],throttle:false};
+    Object.assign(window,{__replayTest:state});
+    window.__arkpediaImportTransport=async(url,request)=>{
+      if(url.endsWith('/account/syncData'))return {status:200,json:{result:0,user:{status:{level:120,nickName:'Doctor',nickNumber:'0001'},troop:{chars:{}},dungeon:{stages:Object.fromEntries(Object.keys(replays).map((id,i)=>[id,{stageId:id,hasBattleReplay:1,startTimes:i?1:state.counter,completeTimes:i?1:state.counter,practiceTimes:0,state:3}]))}}}};
+      if(url.endsWith('/getBattleReplay')){const stage=JSON.parse(request.body!).stageId;state.requests.push({stage,seq:request.headers.seqnum,at:Date.now()});return state.throttle?{status:429,json:{},headers:[['Retry-After','120']]}:{status:200,json:{battleReplay:replays[stage]}};}
+      return original(url,request);
+    };
+  },replays);
+}
+const replayRequests=(page:Page)=>page.evaluate(()=>((window as unknown as {__replayTest:{requests:{stage:string;seq:string;at:number}[]}}).__replayTest.requests));
+
+test('auto-deploy sync is explicit, resumable, incremental and exportable',async({page},info)=>{
+  await stubAutoDeploys(page);const dialog=await openImport(page);
+  const panel=dialog.getByRole('region',{name:'Auto-deploy sync'});
+  await expect(panel.getByRole('button',{name:'Sync auto-deploys',exact:true})).toBeDisabled();
+  await dialog.getByLabel('Save this sign-in on this browser').check();await signIn(page);
+  await expect(panel.getByText('2 available · 0 saved in this browser')).toBeVisible();
+  expect(await replayRequests(page)).toHaveLength(0);
+  await panel.getByRole('button',{name:'Sync auto-deploys',exact:true}).click();
+  await expect(panel.getByRole('status')).toHaveText('Auto-deploys are up to date.',{timeout:20000});
+  const requests=await replayRequests(page);expect(requests.map(r=>r.seq)).toEqual(['3','4']);expect(requests[1].at-requests[0].at).toBeGreaterThanOrEqual(2900);
+  await panel.getByRole('button',{name:'Sync auto-deploys',exact:true}).click();
+  await expect(panel.getByRole('status')).toHaveText('Auto-deploys are up to date.');expect(await replayRequests(page)).toHaveLength(2);
+  await panel.getByRole('button',{name:'How auto-deploy sync works'}).click();
+  await expect(page.getByText(/Stage counters are change hints/)).toBeVisible();
+  await page.screenshot({path:info.outputPath('auto-deploy-help.png')});await page.keyboard.press('Escape');
+  await page.evaluate(()=>{(window as unknown as {__replayTest:{counter:number}}).__replayTest.counter=2;});
+  await dialog.locator('.import-saved').first().getByRole('button',{name:'Import',exact:true}).click();
+  await expect(panel.getByRole('button',{name:'Sync auto-deploys',exact:true})).toBeEnabled();
+  await panel.getByRole('button',{name:'Sync auto-deploys',exact:true}).click();
+  await expect(panel.getByRole('status')).toHaveText('Auto-deploys are up to date.',{timeout:15000});
+  expect((await replayRequests(page)).map(r=>r.stage)).toEqual(['main_00-01','main_00-02','main_00-01']);
+  await panel.getByText('Refresh one stage',{exact:true}).click();await panel.getByLabel('Auto-deploy stage ID').fill('main_00-02');
+  await panel.getByRole('button',{name:'Refresh auto-deploy',exact:true}).click();await expect(panel.getByRole('status')).toHaveText('main_00-02 refreshed.',{timeout:15000});
+  expect((await replayRequests(page)).at(-1)?.stage).toBe('main_00-02');await page.screenshot({path:info.outputPath('auto-deploy-refresh.png')});
+  await panel.getByLabel('Auto-deploy stage ID').fill('');await panel.getByText('Refresh one stage',{exact:true}).click();
+  const download=page.waitForEvent('download');await panel.getByRole('button',{name:'Export auto-deploys'}).click();expect((await download).suggestedFilename()).toBe('arkpedia-auto-deploys.json');
+  await panel.scrollIntoViewIfNeeded();await page.screenshot({path:info.outputPath('auto-deploy-complete.png')});
+  await page.reload();await page.locator('.page-header').getByRole('button',{name:'Import / export',exact:true}).click();
+  await expect(panel.getByRole('button',{name:'Sync auto-deploys',exact:true})).toBeDisabled();
+  await dialog.locator('.import-saved').first().getByRole('button',{name:'Import',exact:true}).click();
+  await expect(panel.getByText('2 available · 2 saved in this browser')).toBeVisible();
+});
+
+test('auto-deploy pause prevents requests and throttling stops the queue without retry',async({page})=>{
+  await stubAutoDeploys(page);const dialog=await openImport(page);await signIn(page);
+  const panel=dialog.getByRole('region',{name:'Auto-deploy sync'});
+  await expect(panel.getByRole('button',{name:'Sync auto-deploys',exact:true})).toBeEnabled();
+  await panel.getByRole('button',{name:'Sync auto-deploys',exact:true}).click();await panel.getByRole('button',{name:'Pause',exact:true}).click();
+  await expect(panel.getByRole('status')).toHaveText('Paused. Completed auto-deploys are saved.');expect(await replayRequests(page)).toHaveLength(0);
+  await page.evaluate(()=>{(window as unknown as {__replayTest:{throttle:boolean}}).__replayTest.throttle=true;});
+  await panel.getByRole('button',{name:'Sync auto-deploys',exact:true}).click();await expect(panel.getByRole('status')).toContainText('Yostar asked us to wait.',{timeout:15000});
+  expect(await replayRequests(page)).toHaveLength(1);
+  await panel.getByRole('button',{name:'Sync auto-deploys',exact:true}).click();await expect(panel.getByRole('status')).toContainText('Please wait');expect(await replayRequests(page)).toHaveLength(1);
+});
+
+test('auto-deploy cloud saving is opt-in and restores cached stages without game requests',async({page})=>{
+  await stubAutoDeploys(page);
+  const remote={user:{id:'replay-owner',name:'Doctor'},profile:{username:'Doctor#1234',friendTag:null,friendServer:null},linkedProviders:['google'],linkedAccounts:[],syncReviewed:true,revision:0,archiveRevision:0,gameSync:true,personalSync:false,historySync:false,archives:[],paused:false,data:{},providers:['google']};
+  await page.route('**/api/cloud-account',async route=>{if(route.request().method()!=='GET'){remote.revision++;const body=route.request().postDataJSON();if(body.data)remote.data=body.data;}return route.fulfill({json:remote});});
+  const {validateReplay,replayHash}=await import('../../lib/replays/model');
+  const payload=validateReplay(JSON.stringify({timestamp:1,journal:{metadata:{stageId:'main_00-01'},squad:[],logs:[]}}),'main_00-01');
+  const records=new Map([['main_00-01',{stageId:'main_00-01',fingerprint:'[1,1,1,0,3]',payload,hash:await replayHash(payload)}]]);
+  const uploads:string[]=[];
+  await page.route('**/api/cloud-account/auto-deploys**',async route=>{
+    const req=route.request(),url=new URL(req.url());
+    if(req.method()==='GET'){const stage=url.searchParams.get('stageId');return route.fulfill({json:stage?{record:records.get(stage)}:{records:[...records.values()].map(({payload:_,...record})=>record)}});}
+    const body=req.postDataJSON();uploads.push(req.postData()!);expect(body.owner).toBe('replay-owner');expect(body.namespace).toBe('en:1');
+    const hash=await replayHash(body.payload);records.set(body.stageId,{stageId:body.stageId,fingerprint:body.fingerprint,hash,payload:body.payload});return route.fulfill({json:{hash}});
+  });
+  const dialog=await openImport(page);await signIn(page);const panel=dialog.getByRole('region',{name:'Auto-deploy sync'});
+  const choice=panel.getByLabel('Also save auto-deploys to my Arkpedia account');await expect(choice).toBeEnabled();await expect(choice).not.toBeChecked();
+  expect(uploads).toHaveLength(0);await choice.check();await panel.getByRole('button',{name:'Sync auto-deploys',exact:true}).click();
+  await expect(panel.getByRole('status')).toHaveText('Auto-deploys are up to date.',{timeout:20000});
+  expect((await replayRequests(page)).map(r=>r.stage)).toEqual(['main_00-02']);expect(uploads).toHaveLength(1);expect(uploads.join('')).not.toMatch(/yostar-token|code-token|session|secret|email/i);
+  await expect(panel.getByText('2 available · 2 saved in this browser')).toBeVisible();
+});

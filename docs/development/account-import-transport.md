@@ -117,3 +117,50 @@ never stored in browser storage or synced to an Arkpedia account, and disappear 
 reload or Clear captures. Compare a baseline, an unchanged import, and one after the
 reader replaces one known auto-deploy in game. Field differences are evidence to
 investigate, not proof of a reliable replay revision contract.
+
+## Optional auto-deploy sync (Preview)
+
+Import / export offers an explicit **Sync auto-deploys** action after a successful
+Yostar import. It never runs from Google/Discord sign-in or ordinary page visits.
+The in-memory game session continues at sequence 3 after syncData. The only exposed
+continuation reads `battle/getBattleReplay` (`campaign/getBattleReplay` for `camp_`
+stages), as documented in the upstream [ArkPRTS client](https://github.com/ashleney/ArkPRTS/blob/master/arkprts/client.py).
+It cannot issue arbitrary game commands. Closing/unmounting the dialog discards
+this session capability; no new session secret is saved or uploaded.
+
+Queue operations hold a shared browser Web Lock with game imports, wait 3–4.5
+seconds between items, and stop after 200 items. Pause, closing, reset and account
+changes stop further work. A response already in flight may finish, but an aborted
+queue does not save/upload it. HTTP 429 honors Retry-After with at least a minute's
+cooldown. Any uncertain/authentication response invalidates the session; there is
+no automatic retry or relogin. These limits are precautionary, not a confirmed
+Yostar-approved quota; they cannot coordinate unrelated users/devices.
+
+IndexedDB checkpoints successful replays by server, game UID and stage. Fingerprints
+use hasBattleReplay/start/completion/practice counters and state. A login-only
+sample left the metadata unchanged; changing one known stage changed only that
+stage's start/completion counters. These are conservative hints, not an authoritative
+replay revision contract. Manual per-stage refresh is available. Counter changes
+may fetch an unchanged replay; canonical content hashes then avoid uploading it
+again (only its marker changes). Failed saves retain the old checkpoint.
+
+The separate cloud checkbox defaults off and also requires reviewed imported-game
+saving consent. The owner-checked `/api/cloud-account/auto-deploys` API stores records
+outside the normal snapshot; it never calls Yostar. Matching cloud fingerprints
+restore local copies before any game fetch. Conflicts stop for a fresh comparison;
+older counters cannot overwrite newer cloud markers. Origin, account rate limits,
+request size, per-user archive quotas, exact stage identity and credential-field
+checks are enforced server-side. Existing account and Preview ingress guards cover
+the nested API path. Migration 0006 adds only isolated archive/usage tables and
+triggers; withdrawing gameSync or deleting the user removes their cloud replays.
+
+Each browser archive and each cloud account are bounded to 32 MiB / 3,000 records,
+with a 512 KB decoded per-replay cap. Zip decoding accepts only bounded
+`default_entry` content, validates the requested stage and rejects credential keys.
+These are JSON replay records, not executable files. Browser **Forget everything**
+clears this IndexedDB store as well as the existing browser stores. Standard browser
+backup files do not include it; **Export auto-deploys** downloads it separately.
+
+Tests use synthetic responses and isolated databases. A physical account's replay
+payload and special-stage endpoint coverage still require separate acceptance;
+metadata-only capture does not establish those paths.

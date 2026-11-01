@@ -1,3 +1,4 @@
+import { clearReplays } from '@/lib/replays/store';
 import { useState } from 'react';
 import GameSignIn from '@/components/account-import/GameSignIn';
 import SegmentedControl from '@/components/ui/SegmentedControl';
@@ -81,6 +82,10 @@ export default function DataDialog({ onClose, initialView = 'game' }: { onClose:
         const result = await accountClient.signOut();
         if (result.error) throw new Error('Sign-out could not finish, so browser data was not cleared. Try again.');
       }
+      // Stop in-flight replay work before deleting its independent IndexedDB archive.
+      window.localStorage.setItem('arkpedia:replays-stop', String(Date.now()));
+      window.dispatchEvent(new Event('arkpedia:replays-stop'));
+      await clearReplays();
       resetBrowserData();
     } catch (error) {
       await sync.resume();

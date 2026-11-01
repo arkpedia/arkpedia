@@ -13,6 +13,7 @@ import { makeSignature } from 'better-auth/crypto';
 import { getAuthTables } from 'better-auth/db';
 import { collectCloudData, fingerprint, personalData, restoreCloudData, validateCloudData } from '../../lib/cloud-account/data';
 import { accountAuth, accountsEnv, type AccountsEnv } from '../../lib/cloud-account/server';
+import { createReplayHandler } from '../../lib/cloud-account/replays-api';
 import { createCloudAccountHandler } from '../../lib/cloud-account/api';
 import { createAccountProfileHandler } from '../../lib/cloud-account/profile-api';
 import { normalizeUsername, validateProfile } from '../../lib/cloud-account/profile';
@@ -613,5 +614,45 @@ test('sync-review migration preserves established accounts and leaves unfinished
   sqlite.exec(fs.readFileSync('migrations/accounts/0005_sync_choices.sql', 'utf8'));
   assert.deepEqual({ ...sqlite.prepare("SELECT * FROM cloud_save WHERE userId = 'old'").get() }, { ...before, syncReviewed: 1 });
   assert.equal(sqlite.prepare("SELECT syncReviewed FROM cloud_save WHERE userId = 'pending'").get()?.syncReviewed, 0);
+  sqlite.close();
+});
+
+
+test('auto-deploy API isolates owners, enforces consent and CAS, avoids stale fingerprints and reclaims withdrawn saves', async () => {
+  const {sqlite,db}=database(),env=envFor(db),auth=accountAuth(env),ctx=await auth.$context;
+  const user=await ctx.internalAdapter.createUser({name:'Test',email:'replay@example.invalid',emailVerified:true},{method:'oauth'});
+  const session=await ctx.internalAdapter.createSession(user.id,false);
+  const cookie=`${ctx.authCookies.sessionToken.name}=${session.token}.${await makeSignature(session.token,ctx.secret)}`;
+  const handler=createReplayHandler(()=>env);
+  async function call(method:string,body:Record<string,unknown>={},extra:Record<string,string>={}) {
+    let status=200,result:Record<string,any>={};
+    const res={setHeader:()=>{},status:(code:number)=>{status=code;return res;},json:(value:Record<string,any>)=>{result=value;},end:()=>{}};
+    await handler({method,headers:{cookie,origin:env.ARKPEDIA_AUTH_URL,'content-type':'application/json',...extra},query:{owner:user.id,namespace:'en:1',...body},body:{owner:user.id,namespace:'en:1',...body}} as unknown as NextApiRequest,res as unknown as NextApiResponse);return {status,result};
+  }
+  const payload=JSON.stringify({journal:{metadata:{stageId:'main_00-01'},squad:[],logs:[]}});
+  const row={stageId:'main_00-01',fingerprint:'[1,2,2,0,3]',payload,expectedHash:null};
+  assert.equal((await call('GET',{}, {cookie:''})).status,401);
+  assert.equal((await call('PUT',row,{origin:'https://evil.invalid'})).status,403);
+  assert.equal((await call('GET')).status,403);
+  sqlite.prepare('INSERT INTO cloud_save(userId,syncReviewed,gameSync,updatedAt) VALUES(?,1,1,?)').run(user.id,'2026-11-01');
+  assert.equal((await call('PUT',{...row,owner:'other'})).status,409);
+  const saved=await call('PUT',row);assert.equal(saved.status,200);
+  const hash=saved.result.hash;
+  assert.equal((await call('PUT',row)).status,409,'null expected hash cannot overwrite a row');
+  assert.equal((await call('PATCH',{stageId:row.stageId,hash,fingerprint:'[1,1,1,0,3]'})).status,409,'older counters cannot overwrite a newer fingerprint');
+  assert.equal((await call('PATCH',{stageId:row.stageId,hash,fingerprint:'[1,3,3,0,3]'})).status,200);
+  assert.equal((await call('PUT',{...row,expectedHash:hash})).status,409,'stale full record is rejected');
+  assert.equal((await call('GET')).result.records.length,1);
+  assert.equal((await call('GET',{namespace:'jp:1'})).result.records.length,0);
+  assert.equal((await call('PUT',{...row,namespace:'en:2',payload:JSON.stringify({...JSON.parse(payload),secret:'private'})})).status,400);
+  const before=sqlite.prepare('SELECT bytes FROM auto_deploy_usage WHERE userId=?').get(user.id)?.bytes;
+  sqlite.prepare('UPDATE auto_deploy_usage SET bytes=33554432 WHERE userId=?').run(user.id);
+  assert.equal((await call('PUT',{...row,namespace:'en:2'})).status,413);
+  assert.equal(sqlite.prepare('SELECT count(*) AS n FROM auto_deploy').get()?.n,1,'quota rollback retains prior replay');
+  sqlite.prepare('UPDATE auto_deploy_usage SET bytes=? WHERE userId=?').run(before,user.id);
+  sqlite.prepare('UPDATE cloud_save SET gameSync=0 WHERE userId=?').run(user.id);
+  assert.equal(sqlite.prepare('SELECT count(*) AS n FROM auto_deploy').get()?.n,0);
+  assert.equal(sqlite.prepare('SELECT bytes FROM auto_deploy_usage WHERE userId=?').get(user.id)?.bytes,0);
+  assert.equal((await call('PUT',{...row,expectedHash:null})).status,403);
   sqlite.close();
 });
