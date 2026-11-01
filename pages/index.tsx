@@ -128,7 +128,7 @@ export default function HomePage({
 
   return (
     <>
-      <PageAudio cid={HOME_MUSIC_CID} pageKey="home" />
+      <PageAudio musicId={HOME_MUSIC_CID} pageKey="home" />
       <PageMeta fullTitle="Arkpedia — Arknights operators, planners and schedule" title="Arkpedia" description={SITE_DESCRIPTION} path="/" />
       {/* Home-page-only, not global -- see AnnouncementTicker.tsx. */}
       <AnnouncementTicker sssCycle={sssCycle} maintenance={maintenance} />

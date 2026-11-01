@@ -20,10 +20,18 @@ setting merely because main does not yet expose its control.
 
 ## Preview audio preferences
 
-Preview adds `backgroundMusic` (false), `greeting` (`off`, `random`, `owned`, or
-`chosen`) and `greetingOperator` (an operator name). `useSiteSetting` subscribes to
-this store, including same-tab changes and cloud restores. These preferences use
-personal-save consent; they do not change analytics or external-media consent.
+Preview adds `backgroundMusic` (false). `useSiteSetting` subscribes to this store,
+including same-tab changes and cloud restores. This preference uses personal-save
+consent; it does not enable analytics or external media.
+
+The first-visit external-media card offers an unchecked autoplay checkbox and
+shared help popover. Analytics follows after that choice. `externalMediaChosen`
+distinguishes an explicit refusal from old privacy records that only chose
+analytics; an existing media opt-in remains valid. Choices remain available on
+`/cookies` and autoplay is also in Account settings → Audio. Manual playback can
+request media permission again after a refusal. Nothing plays before media consent.
+Operator greetings and their API were removed; legacy greeting values are discarded
+by settings parsing, export and cloud-data validation.
 
 Background playback belongs to the page that requested it. The mini player uses
 reviewed lobby associations projected into the event page's `page-music` release
@@ -39,12 +47,12 @@ tab closes. A page-owned track is not written as a resume request for another pa
 A browser refusal offers Play; it never opens the external-media prompt by itself.
 Phones that ignore element volume still use their hardware volume.
 
-A greeting is a current recorded `Title` line from the operator's published voice
-page, resolved to that release's pinned asset. Japanese is preferred, then English,
-Chinese and Korean. Random-owned reads only the imported account's operators, not
-planner goals. No game-server request or credential is involved. One greeting is
-offered per tab visit; navigating away, disabling it, or choosing music cancels it.
-Blocked playback has an explicit Play button. Missing recordings remain silent.
+Page themes prefer existing YouTube uploads; MSR-only tracks keep their audio
+source. Ordinary manual music retains its existing delivery preference. No video
+or audio is copied or self-hosted. Event associations include reviewed CC lobbies
+and are independent of Global release dates. The two Monster Hunter events use reviewed YouTube-only recordings supplied by
+`crossoverPageMusic.ts`, merged without duplicate IDs into older catalogues. Their
+copyright flag keeps stream-safe mode effective. Other missing recordings remain silent.
 
 Verification: `test-page-audio.ts`, `test-site-settings.ts`, `page-audio.spec.ts`,
 plus the existing music resume, data-saver and playback-truth browser checks.

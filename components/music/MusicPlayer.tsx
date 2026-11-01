@@ -1,6 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import { useWelcomeGreeting } from '@/lib/music/useWelcomeGreeting';
-import { openAudioSettings } from './AudioSettingsDialog';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { GAME_PATHS } from '@/lib/minigames/catalogue';
@@ -49,10 +47,8 @@ export default function MusicPlayer() {
     containerRef,
   } = useMusicPlayer();
 
-  const greeting = useWelcomeGreeting();
   const [collapsed, setCollapsed] = useState(true);
   useEffect(() => { if (pageMusic) setCollapsed(false); }, [pageMusic]);
-  useEffect(() => { if (greeting.pending || greeting.playing) setCollapsed(false); }, [greeting.pending, greeting.playing]);
   const shellRef = useRef<HTMLDivElement>(null);
 
   // The queue's own catalog title/altTitle (not YouTube's raw video
@@ -174,9 +170,6 @@ export default function MusicPlayer() {
            on the /music bar. Fixed in the corner, so opening it moves nothing on the page. Add to
            playlist and Stream-safe are the /music bar's. */
         <div className="music-body">
-          {greeting.pending && <button type="button" className="ghost btn-sm" onClick={greeting.play}>Play {greeting.pending}</button>}
-          {greeting.playing && <button type="button" className="ghost btn-sm" onClick={greeting.stop}>Stop greeting</button>}
-          <button type="button" className="ghost btn-sm" onClick={openAudioSettings}>Audio settings</button>
           <Link prefetch={false} href="/music?view=player" className="music-widget-song" title={displayTitle}
             aria-label={videoId ? `${displayTitle}. Open Now playing` : 'Open Now playing'}>
             <span className="music-widget-cover" aria-hidden="true">

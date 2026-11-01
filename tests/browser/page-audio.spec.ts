@@ -1,6 +1,8 @@
 import { expect, test, type Page } from '@playwright/test';
 import { stubYouTube, youtube } from './youtube-stub';
-import { stubMonsterSiren } from './monster-siren-stub';
+
+
+test.use({ storageState: { cookies: [], origins: [] } });
 
 const shell = (page: Page) => page.locator('.music-player');
 const event = '/events/' + encodeURIComponent('[Side Story – Celebration] Near Light');
@@ -20,27 +22,43 @@ async function playing(page: Page) {
   return (await youtube(page))!;
 }
 
-test('off by default; audio settings are separate, accessible and persistent', async ({ page }, info) => {
-  await stubYouTube(page);
-  await page.goto(event);
-  expect(await youtube(page)).toBeNull();
-  await shell(page).getByRole('button', { name: 'Expand player' }).click();
-  await shell(page).getByRole('button', { name: 'Audio settings', exact: true }).click();
-  const dialog = page.getByRole('dialog', { name: 'Audio settings', exact: true });
-  await expect(dialog.getByLabel('Enable background music')).not.toBeChecked();
-  for (const theme of ['dark', 'light']) {
-    await page.evaluate(theme => { document.documentElement.dataset.theme = theme; document.documentElement.setAttribute('data-theme', theme); }, theme);
-    await dialog.getByRole('combobox', { name: 'Greeting', exact: true }).click();
-    await page.getByRole('option', { name: 'Random owned operator', exact: true }).click();
-    await expect(dialog.getByText('Import your game roster', { exact: false })).toBeVisible();
-    const path = process.env.ARKPEDIA_QA_CAPTURE;
-    if (path) await page.screenshot({ path: `${path}/${info.project.name}-${theme}-audio-settings.png` });
-  }
-  await dialog.getByLabel('Enable background music').check();
-  await page.keyboard.press('Escape');
-  await expect(dialog).toBeHidden();
-  await playing(page);
-  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('arkpedia:privacy:v1')!).analytics)).toBe(false);
+for (const theme of ['dark', 'light']) {
+  test(`first visit offers media and optional autoplay with accessible help (${theme})`, async ({ page }, info) => {
+    await stubYouTube(page, 'allow', { mediaConsent: false });
+    await page.addInitScript(theme => localStorage.setItem('theme', theme), theme);
+    await page.goto(event);
+    const prompt = page.getByRole('region', { name: 'External media choice' });
+    await expect(prompt).toBeVisible();
+    await expect(prompt.getByLabel('Allow autoplaying music')).not.toBeChecked();
+    await expect(page.getByRole('region', { name: 'Usage statistics choice' })).toBeHidden();
+    expect(await youtube(page)).toBeNull();
+    const help = prompt.getByRole('button', { name: 'How automatic music works' });
+    await help.focus(); await page.keyboard.press('Enter');
+    await expect(page.getByText('Page-started music stops when you leave.', { exact: false })).toBeVisible();
+    await expect(prompt).toBeVisible();
+    expect(await page.locator('.action-popover').evaluate(element => { const r = element.getBoundingClientRect(); return element.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)); })).toBe(true);
+    if (process.env.ARKPEDIA_QA_CAPTURE) await page.screenshot({ path: `${process.env.ARKPEDIA_QA_CAPTURE}/${info.project.name}-${theme}-media-help.png` });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.keyboard.press('Escape'); await expect(help).toBeFocused();
+    await prompt.getByLabel('Allow autoplaying music').check();
+    await prompt.getByRole('button', { name: 'Allow external media', exact: true }).click();
+    await expect(prompt).toBeHidden(); await playing(page);
+    await expect(shell(page).getByRole('button', { name: 'Audio settings', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('region', { name: 'Usage statistics choice' })).toBeVisible();
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem('arkpedia:privacy:v1')!))).toMatchObject({ analytics: false, analyticsChosen: false, externalMedia: true, externalMediaChosen: true });
+    await page.reload(); await expect(prompt).toBeHidden(); await playing(page);
+  });
+}
+
+test('allowing media without autoplay leaves music stopped and denial persists', async ({ page }) => {
+  await stubYouTube(page, 'allow', { mediaConsent: false }); await page.goto(event);
+  const prompt = page.getByRole('region', { name: 'External media choice' });
+  await prompt.getByRole('button', { name: 'No thanks', exact: true }).click();
+  await page.reload(); await expect(prompt).toBeHidden(); expect(await youtube(page)).toBeNull();
+  await page.goto('/cookies');
+  await page.getByLabel('Allow external media', { exact: true }).check();
+  await page.getByRole('button', { name: 'Save privacy choices' }).click();
+  await page.goto(event); await expect(prompt).toBeHidden(); expect(await youtube(page)).toBeNull();
 });
 
 test('quiet lobby loops alone, leaves the queue and volume intact, stops on departure', async ({ page }) => {
@@ -85,48 +103,22 @@ test('blocked music offers Play; tapping it makes the theme manual across naviga
   expect((await youtube(page))?.state).toBe(1);
 });
 
-test('no external-media consent leaves music waiting without opening a permission popup', async ({ page }) => {
-  await stubYouTube(page, 'allow', { mediaConsent: false }); await enable(page); await page.goto(event);
-  await expect(shell(page).getByText('Tap Play to allow external media and start music.')).toBeVisible();
-  expect(await youtube(page)).toBeNull();
-  await expect(page.getByRole('dialog', { name: /external media/i })).toBeHidden();
-  await navigate(page, '/schedule');
-  await expect(shell(page).getByText('Tap Play to allow external media and start music.')).toBeHidden();
-  expect(await youtube(page)).toBeNull();
+test('page themes prefer YouTube even when manual music prefers Monster Siren', async ({ page }) => {
+  await stubYouTube(page, 'allow', { dataSaver: false });
+  const requests: string[] = [];
+  page.on('request', request => { if (request.url().includes('/api/music-stream')) requests.push(request.url()); });
+  await enable(page); await page.goto(event); await playing(page);
+  expect(requests).toEqual([]);
 });
 
-test('default Monster Siren audio is quiet and stops with the page', async ({ page }) => {
-  await stubYouTube(page, 'allow', { dataSaver: false }); const audio = await stubMonsterSiren(page);
-  await enable(page); await page.goto('/schedule'); await page.locator('h1').click(); await navigate(page, event);
-  await expect.poll(() => audio.resolves.length).toBeGreaterThan(0);
-  await expect.poll(() => page.locator('audio[data-music-audio]').evaluate((el: HTMLAudioElement) => el.volume)).toBe(0.15);
-  await navigate(page, '/schedule');
-  await expect.poll(() => page.locator('audio[data-music-audio]').evaluate((el: HTMLAudioElement) => el.paused)).toBe(true);
-});
-
-test('chosen greeting waits for Play without consent and is offered once per visit', async ({ page }) => {
-  await stubYouTube(page, 'allow', { mediaConsent: false });
-  await enable(page, { greeting: 'chosen', greetingOperator: 'Amiya' });
-  let calls = 0;
-  await page.route('**/api/greeting?**', route => { calls++; return route.fulfill({ json: { name: 'Amiya', language: 'Japanese', url: 'https://assets.arkpedia.net/test-greeting.wav' } }); });
-  await page.goto('/');
-  await expect(shell(page).getByRole('button', { name: 'Play Amiya greeting' })).toBeVisible();
-  expect(calls).toBe(1);
-  await navigate(page, '/schedule');
-  await expect(shell(page).getByRole('button', { name: 'Play Amiya greeting' })).toBeHidden();
-  await navigate(page, '/');
-  await expect(shell(page).getByRole('button', { name: 'Play Amiya greeting' })).toBeHidden();
-  expect(calls).toBe(1);
-});
-
-test('random owned greeting does not use a planner-only roster', async ({ page }) => {
-  await stubYouTube(page); await enable(page, { greeting: 'owned' });
-  let calls = 0;
-  await page.route('**/api/greeting?**', route => { calls++; return route.fulfill({ json: null }); });
+test('legacy greeting preferences never request or offer operator voices', async ({ page }) => {
+  await stubYouTube(page); await enable(page, { greeting: 'chosen', greetingOperator: 'Amiya' });
+  const requests: string[] = [];
+  page.on('request', request => { if (request.url().includes('/api/greeting')) requests.push(request.url()); });
   await page.goto('/');
   await shell(page).getByRole('button', { name: 'Expand player' }).click();
-  await expect(shell(page).getByRole('button', { name: /greeting/i })).toHaveCount(0);
-  expect(calls).toBe(0);
+  await expect(shell(page).getByRole('button', { name: /greeting|Audio settings/i })).toHaveCount(0);
+  expect(requests).toEqual([]);
 });
 
 test('leaving while the catalogue loads cancels the pending automatic start', async ({ page }) => {
@@ -155,56 +147,6 @@ test('switching events starts the new lobby, with no extra autoplay after an err
   expect((await youtube(page))!.calls.filter(([name]) => name === 'loadVideoById').length).toBe(loads);
 });
 
-test('an imported owned greeting uses that roster, and turning it off cancels a pending greeting', async ({ page }) => {
-  await stubYouTube(page, 'allow', { mediaConsent: false }); await enable(page, { greeting: 'owned' });
-  await page.addInitScript(() => localStorage.setItem('arkpediaAccount', JSON.stringify({ version: 1, server: 'en', importedAt: '2026-11-01T00:00:00Z', doctor: null, operators: ['Amiya'], skins: [], cleared: [] })));
-  const operators: string[] = [];
-  await page.route('**/api/greeting?**', route => { const name = new URL(route.request().url()).searchParams.get('operator')!; operators.push(name); return route.fulfill({ json: { name, language: 'Japanese', url: 'https://assets.arkpedia.net/test-greeting.wav' } }); });
-  await page.goto('/');
-  await expect(shell(page).getByRole('button', { name: 'Play Amiya greeting' })).toBeVisible();
-  expect(operators).toEqual(['Amiya']);
-  await shell(page).getByRole('button', { name: 'Audio settings', exact: true }).click();
-  const dialog = page.getByRole('dialog', { name: 'Audio settings', exact: true });
-  await dialog.getByRole('combobox', { name: 'Greeting', exact: true }).click();
-  await page.getByRole('option', { name: 'Off', exact: true }).click();
-  await page.keyboard.press('Escape');
-  await shell(page).getByRole('button', { name: 'Expand player' }).click();
-  await expect(shell(page).getByRole('button', { name: 'Play Amiya greeting' })).toBeHidden();
-});
-
-test('chosen operator picker works inside the audio dialog', async ({ page }, info) => {
-  await stubYouTube(page); await page.goto('/schedule');
-  await shell(page).getByRole('button', { name: 'Expand player' }).click();
-  await shell(page).getByRole('button', { name: 'Audio settings', exact: true }).click();
-  const dialog = page.getByRole('dialog', { name: 'Audio settings', exact: true });
-  await dialog.getByRole('combobox', { name: 'Greeting', exact: true }).click();
-  await page.getByRole('option', { name: 'Chosen operator', exact: true }).click();
-  await dialog.getByRole('combobox', { name: 'Greeting operator', exact: true }).click();
-  await page.getByRole('option', { name: 'Amiya', exact: true }).click();
-  await expect(dialog.getByRole('combobox', { name: 'Greeting operator', exact: true })).toHaveText('Amiya');
-  const path = process.env.ARKPEDIA_QA_CAPTURE;
-  if (path) await page.screenshot({ path: `${path}/${info.project.name}-chosen-operator.png` });
-  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('arkpedia:settings')!).values.greetingOperator)).toBe('Amiya');
-});
-
-test('a greeting can play after a browser block and stops when music is chosen', async ({ page }) => {
-  await stubYouTube(page); await stubMonsterSiren(page);
-  await enable(page, { greeting: 'chosen', greetingOperator: 'Amiya' });
-  await page.addInitScript(() => {
-    const Original = window.Audio;
-    window.Audio = new Proxy(Original, { construct(target, args) { const element = Reflect.construct(target, args) as HTMLAudioElement; (window as unknown as { greetingAudio: HTMLAudioElement }).greetingAudio = element; return element; } });
-  });
-  await page.route('**/api/greeting?**', route => route.fulfill({ json: { name: 'Amiya', language: 'Japanese', url: '/__siren/greeting.wav' } }));
-  await page.goto('/');
-  const blocked = shell(page).getByRole('button', { name: 'Play Amiya greeting' });
-  await expect(blocked).toBeVisible();
-  await blocked.click();
-  await expect(shell(page).getByRole('button', { name: 'Stop greeting' })).toBeVisible();
-  expect(await page.evaluate(() => (window as unknown as { greetingAudio: HTMLAudioElement }).greetingAudio.volume)).toBe(0.3);
-  await shell(page).getByRole('button', { name: 'Play', exact: true }).click();
-  await expect.poll(() => page.evaluate(() => (window as unknown as { greetingAudio: HTMLAudioElement }).greetingAudio.paused)).toBe(true);
-});
-
 test('manually selected music keeps its song and volume on event pages', async ({ page }) => {
   await stubYouTube(page); await enable(page);
   await page.goto('/music?view=library');
@@ -216,4 +158,22 @@ test('manually selected music keeps its song and volume on event pages', async (
   expect((await youtube(page))?.state).toBe(1);
   expect(await page.evaluate(() => (window as unknown as { __yt: { volume: number } }).__yt.volume)).toBe(42);
   expect(await page.evaluate(() => sessionStorage.getItem('arkpedia:audio-manual-visit'))).toBe('1');
+});
+
+test('upcoming Global event plays its already-released CN lobby', async ({ page }) => {
+  await stubYouTube(page); await enable(page);
+  await page.goto('/events/' + encodeURIComponent('[Story Collection] Bolívar Diagnosed'));
+  await playing(page);
+  await navigate(page, '/events/' + encodeURIComponent('Contingency Contract Obliteration'));
+  await playing(page);
+});
+
+test('both Monster Hunter lobbies use their correct YouTube recording before Global release', async ({ page }) => {
+  await stubYouTube(page, 'allow', { dataSaver: false }); await enable(page);
+  await page.goto('/events/' + encodeURIComponent('[Side Story – Crossover] Thunder in the Azure Dream'));
+  expect((await playing(page)).videoId).toBe('ADn4S1ajMAI');
+  await expect(shell(page).getByText('Proof of a Hero — Rise Version', {exact:true})).toBeVisible();
+  await navigate(page, '/events/' + encodeURIComponent('[Rerun] A Flurry to the Flame Rerun'));
+  await expect.poll(async () => (await youtube(page))?.videoId).toBe('p1fEV6QbCww');
+  await playing(page);
 });

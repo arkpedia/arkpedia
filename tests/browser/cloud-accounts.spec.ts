@@ -627,8 +627,8 @@ for (const theme of ['dark', 'light']) {
     await page.goto('/account?settings=profile');
     const settings = page.getByRole('dialog', { name: 'Account settings', exact: true });
     await settings.getByRole('tab', { name: 'Audio', exact: true }).click();
-    await expect(settings.getByLabel('Enable background music')).not.toBeChecked();
-    await settings.getByLabel('Enable background music').check();
+    await expect(settings.getByLabel('Allow autoplaying music')).not.toBeChecked();
+    await settings.getByLabel('Allow autoplaying music').check();
     await expect.poll(() => state.remote.data['arkpedia:settings'], { timeout: 25000 }).toEqual({ version: 1, values: { backgroundMusic: true } });
     await capture(page, `account-audio-${theme}`, info);
     await settings.getByRole('tab', { name: 'Saving', exact: true }).click();

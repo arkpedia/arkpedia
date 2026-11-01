@@ -6,11 +6,13 @@ import { createRequire } from 'node:module';
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { contentUrl } from '../../lib/content/urls';
 import { MUSIC_CATALOGUE_PATH, loadMusicCatalogue, projectMusicCatalogue } from '../../lib/music/musicCatalogue';
+import { CROSSOVER_PAGE_MUSIC } from '../../lib/music/crossoverPageMusic';
 import type { MonsterSirenSong } from '../../lib/music/albumsData';
 import musicGuesserAudio from '../../pages/api/music-guesser/[id]';
 
 const require = createRequire(import.meta.url);
 const { ClientDataGuard, deniedClientModules } = require('../build/client-bundle-guard.cjs');
+const crossoverSongs = CROSSOVER_PAGE_MUSIC.map(entry => entry.song);
 const release = { release: 'a'.repeat(64), baseUrl: 'https://example.test/rev/release', assets: {} };
 
 function song(videoId: string, extra: Partial<MonsterSirenSong> = {}): MonsterSirenSong {
@@ -53,12 +55,12 @@ test('the player reads the release catalogue, and the deployment copy only when 
     requests.push(input);
     return input === MUSIC_CATALOGUE_PATH ? answer(200, deploySongs) : releaseAnswer;
   };
-  assert.deepEqual(await loadMusicCatalogue(url, undefined, serve(answer(200, releaseSongs))), [{ videoId: 'releaseOnly', title: 'In the release', id: 'releaseOnly' }]);
+  assert.deepEqual(await loadMusicCatalogue(url, undefined, serve(answer(200, releaseSongs))), [{ videoId: 'releaseOnly', title: 'In the release', id: 'releaseOnly' }, ...crossoverSongs]);
   assert.deepEqual(requests, [url]);
   // A release published before the catalogue existed, or a broken one: the deploy's copy.
   for (const broken of [answer(404, null), answer(200, { songs: [] }), answer(200, { list: [] })]) {
     requests.length = 0;
-    assert.deepEqual(await loadMusicCatalogue(url, undefined, serve(broken)), deploySongs.songs.map(row => ({ ...row, id: row.videoId })));
+    assert.deepEqual(await loadMusicCatalogue(url, undefined, serve(broken)), [...deploySongs.songs.map(row => ({ ...row, id: row.videoId })), ...crossoverSongs]);
     assert.deepEqual(requests, [url, MUSIC_CATALOGUE_PATH]);
   }
   await assert.rejects(() => loadMusicCatalogue(MUSIC_CATALOGUE_PATH, undefined, async () => answer(500, null)), /returned 500/);
@@ -74,7 +76,7 @@ test('the player gets one row per video: a song the release lists twice is queue
     { videoId: 'twice', title: '切尔诺伯格', artist: 'Yuki Hayashi' },
   ] }) };
   const songs = await loadMusicCatalogue('https://example.test/catalogue.json', undefined, async () => answer);
-  assert.deepEqual(songs.map(song => song.videoId), ['twice', 'once']);
+  assert.deepEqual(songs.map(song => song.videoId), ['twice', 'once', ...crossoverSongs.map(song => song.videoId)]);
   assert.equal(songs[0].artist, 'BaoUner', 'the first listing wins');
 });
 
@@ -87,7 +89,7 @@ test('a song on YouTube with a Monster Siren id is still named by its video id, 
     { cid: '697616', title: 'Only on Monster Siren' },
   ] }) };
   const songs = await loadMusicCatalogue('https://example.test/catalogue.json', undefined, async () => answer);
-  assert.deepEqual(songs.map(song => [song.id, song.cid]), [['onYouTube01', '697615'], ['onYouTube02', undefined], ['msr:697616', '697616']]);
+  assert.deepEqual(songs.map(song => [song.id, song.cid]), [['onYouTube01', '697615'], ['onYouTube02', undefined], ['msr:697616', '697616'], ...crossoverSongs.map(song => [song.id, song.cid])]);
   // A bad cid is dropped from the row, not kept for the player to route by.
   assert.equal('cid' in songs[1], false);
 });
@@ -101,7 +103,7 @@ test('a song with no YouTube upload is a catalogue row of its own, named msr:<ci
     { title: 'Nothing to play' }, { videoId: '', cid: '1', title: 'Blank video' }, { cid: '../x', title: 'Not an id' },
   ] }) };
   const songs = await loadMusicCatalogue('https://example.test/catalogue.json', undefined, async () => answer);
-  assert.deepEqual(songs.map(song => [song.id, song.title]), [['onYouTube01', 'On YouTube'], ['msr:697616', 'Only on Monster Siren']]);
+  assert.deepEqual(songs.map(song => [song.id, song.title]), [['onYouTube01', 'On YouTube'], ['msr:697616', 'Only on Monster Siren'], ...crossoverSongs.map(song => [song.id, song.title])]);
 });
 
 test('every catalogue the release validator requires is published by the export and read from the release', () => {

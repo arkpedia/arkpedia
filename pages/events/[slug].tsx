@@ -1,7 +1,7 @@
 import { loadAllEventYears } from '@/lib/events/loadEventsData';
 import PageAudio from '@/components/music/PageAudio';
 import { useReleaseTable } from '@/lib/content/context';
-import { eventMusicCid, type PageMusicTable } from '@/lib/music/pageMusic';
+import { eventMusicId, type PageMusicTable } from '@/lib/music/pageMusic';
 import PageMeta from '@/components/layout/PageMeta';
 import { scheduleModeRelease } from '@/lib/schedule/modeReleases';
 import type { ScheduleEvent } from '@/lib/schedule/scheduleTypes';
@@ -351,7 +351,7 @@ export default function EventDetailPage({
 
   return (
     <RewardDetailsProvider tickets={tickets}>
-      <PageAudio cid={eventMusicCid(name, pageMusic)} pageKey={`event:${name}`} />
+      <PageAudio musicId={eventMusicId(name, pageMusic)} pageKey={`event:${name}`} />
       <PageMeta title={name} description={`${name}, an Arknights event${dateRange ? ` (${dateRange})` : ''}: its banner, rewards, outfits and news.`} path={`/events/${encodeURIComponent(name)}`} image={images[0] ?? poster ?? bannerImage} />
       <PageHeader
         back={{ href: '/schedule', label: 'Events' }}

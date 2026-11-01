@@ -1,14 +1,15 @@
+import { usePrivacyChoice } from '@/lib/privacy/preferences';
 import { useEffect } from 'react';
 import { useMusicPlayer } from '@/lib/music/musicPlayerContext';
 import { useSiteSetting } from '@/lib/settings/useSiteSetting';
 /** Lifetime belongs to the page, including same-template event-to-event navigation. */
-export default function PageAudio({ cid, pageKey }: { cid: string | null; pageKey: string }) {
-  const enabled = useSiteSetting('backgroundMusic');
+export default function PageAudio({ musicId, pageKey }: { musicId: string | null; pageKey: string }) {
+  const enabled = useSiteSetting('backgroundMusic'), consent = usePrivacyChoice('externalMedia');
   const { startPageMusic, stopPageMusic } = useMusicPlayer();
   useEffect(() => {
-    if (!enabled || !cid) return;
-    startPageMusic(cid, pageKey);
+    if (!enabled || !consent || !musicId) return;
+    startPageMusic(musicId, pageKey);
     return () => stopPageMusic(pageKey);
-  }, [enabled, cid, pageKey, startPageMusic, stopPageMusic]);
+  }, [enabled, consent, musicId, pageKey, startPageMusic, stopPageMusic]);
   return null;
 }

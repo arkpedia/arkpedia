@@ -23,8 +23,19 @@ export function readAnalyticsDecision(): boolean {
 export function useAnalyticsDecision(): boolean {
   return useSyncExternalStore(subscribe, readAnalyticsDecision, () => true);
 }
-export function savePrivacy(choices: PrivacyChoices, analyticsChosen = true): void {
-  localStorage.setItem(PRIVACY_KEY, JSON.stringify({ version: 1, ...choices, analyticsChosen, savedAt: Date.now() }));
+let mediaDismissed = false;
+export function readMediaDecision(): boolean {
+  if (mediaDismissed) return true;
+  try {
+    const value = JSON.parse(localStorage.getItem(PRIVACY_KEY) ?? 'null');
+    return value?.version === 1 && Number.isFinite(value.savedAt) && value.savedAt <= Date.now() && Date.now() - value.savedAt < VALID_FOR
+      && (value.externalMediaChosen === true || value.externalMedia === true);
+  } catch { return false; }
+}
+export function useMediaDecision(): boolean { return useSyncExternalStore(subscribe, readMediaDecision, () => true); }
+export function dismissMediaPrompt(): void { mediaDismissed = true; window.dispatchEvent(new Event(EVENT)); }
+export function savePrivacy(choices: PrivacyChoices, analyticsChosen = true, externalMediaChosen = choices.externalMedia || readMediaDecision()): void {
+  localStorage.setItem(PRIVACY_KEY, JSON.stringify({ version: 1, ...choices, analyticsChosen, externalMediaChosen, savedAt: Date.now() }));
   window.dispatchEvent(new Event(EVENT));
 }
 function subscribe(notify: () => void) {

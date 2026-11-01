@@ -1,4 +1,3 @@
-import { openAudioSettings } from './AudioSettingsDialog';
 import Link from 'next/link';
 import { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -63,7 +62,6 @@ export default function PlayerMoreMenu({ onFullPlayer, view }: { onFullPlayer?: 
           <Link href={view === 'queue' ? MUSIC_VIEW_HREF.player : MUSIC_VIEW_HREF.queue} shallow={onFullPlayer} scroll={false} prefetch={false} className="ghost music-player-more-link" onClick={() => close()}>
             <TransportIcon name={view === 'queue' ? 'note' : 'queue'} />{view === 'queue' ? 'Now playing' : 'Open queue'}
           </Link>
-          <button type="button" className="ghost music-song-action" onClick={() => { dismiss(); openAudioSettings(); }}>Audio settings</button>
           <div className="music-settings">
             <DataSaverSetting />
             <MusicSetting label="Stream-safe" topic="stream-safe" checked={excludeCopyrighted} onChange={setExcludeCopyrighted} about="Excludes songs marked as copyrighted in the catalogue. Unmarked songs are not a guarantee of permission to use them in a stream." />

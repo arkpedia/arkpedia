@@ -139,7 +139,7 @@ function computeAutoplayTracks({ catalog, filter, queue, autoplayOrder, autoplay
  */
 interface MusicPlayerContextValue {
   pageMusic: string | null;
-  startPageMusic: (cid: string, key: string) => void;
+  startPageMusic: (musicId: string, key: string) => void;
   stopPageMusic: (key: string) => void;
   ready: boolean;
   starting: boolean;
@@ -644,7 +644,9 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
    *  never stored: the track id, which favourites, playlists and the queue keep, stays the same. */
   function routeTrack(id: string): TrackSource {
     const source = trackSource(id) ?? { kind: 'youtube' as const, videoId: id };
-    if (source.kind === 'msr' || dataSaverRef.current) return source;
+    // Page themes prefer their existing YouTube upload for quick starts. Manual
+    // music retains Monster Siren delivery for background/mobile listening.
+    if (source.kind === 'msr' || dataSaverRef.current || pageOwner.current) return source;
     const cid = cidOf(id);
     return cid ? { kind: 'msr', cid } : source;
   }
@@ -1907,7 +1909,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     volumeRef.current = owner.volume; setVolume(owner.volume); playerRef.current?.setVolume(owner.volume);
     dismissNotice();
   }
-  function startPageMusic(cid: string, key: string) {
+  function startPageMusic(musicId: string, key: string) {
     const canStart = () => !manualAudio.current && !visitFlag(AUDIO_MANUAL_KEY)
       && !resumeRef.current && !videoIdRef.current && !pendingPlayRef.current && !isPlayingRef.current;
     if (!canStart()) return;
@@ -1915,7 +1917,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     pageRequest.current = key;
     void buildQueueFromCatalog().then(() => {
       if (generation !== pageGeneration.current || !canStart()) return;
-      const track = catalogRef.current?.find(song => song.cid === cid && allowed(song));
+      const track = catalogRef.current?.find(song => (song.cid === musicId || song.id === musicId) && allowed(song));
       if (!track) return; // No reviewed recording available in this release.
       let savedVolume = volumeRef.current;
       try { const v = Number(localStorage.getItem('musicVolume') ?? 50); if (Number.isFinite(v)) savedVolume = Math.max(0, Math.min(100, v)); } catch { /* use memory */ }
