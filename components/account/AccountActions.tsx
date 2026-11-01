@@ -22,8 +22,21 @@ export default function AccountActions({ children }: { children: ReactNode }) {
   const [attempt, setAttempt] = useState(0);
   const opener = useRef<HTMLElement | null>(null);
   const [settingsWasRemote, setSettingsWasRemote] = useState(false);
+  const [settingsTab, setSettingsTab] = useState<'profile' | 'saving'>('profile');
+  const setupOwner = useRef<string | null>(null);
   const tables = useContext(ContentTablesContext), release = useContext(ContentContext);
   const sync = useCloudSync(), router = useRouter();
+  useEffect(() => {
+    const remote = sync.remote;
+    if (!remote) { setupOwner.current = null; return; }
+    if (!remote.profile) { setupOwner.current = remote.user.id; return; }
+    if (setupOwner.current !== remote.user.id) { setupOwner.current = null; return; }
+    // Finish any save conflict first. Only a completed setup opens this prompt;
+    // returning sign-ins, provider linking and routine syncs keep their own flow.
+    if (sync.status !== 'ready' && sync.status !== 'paused') return;
+    setupOwner.current = null;
+    setSettingsTab('saving'); setSettingsWasRemote(true); setAction('settings');
+  }, [sync.remote, sync.status]);
   const close = () => { setAction(null); requestAnimationFrame(() => { if (opener.current?.isConnected) opener.current.focus({ preventScroll: true }); }); };
   useEffect(() => { const dismiss = () => setAction(null); router.events.on('routeChangeStart', dismiss); return () => router.events.off('routeChangeStart', dismiss); }, [router.events]);
   const localTables = ['game-account-map', 'import-aliases', 'material-catalogue'].every(name => tables[name] != null);
@@ -47,9 +60,9 @@ export default function AccountActions({ children }: { children: ReactNode }) {
     const active = document.activeElement as HTMLElement | null;
     const menu = active?.closest('.action-popover');
     opener.current = menu ? [...document.querySelectorAll<HTMLElement>('[aria-controls]')].find(element => element.getAttribute('aria-controls') === menu.id) ?? active : active;
-    setError(''); setSettingsWasRemote(!!sync.remote); setAction(value); } }}>
+    setError(''); setSettingsTab('profile'); setSettingsWasRemote(!!sync.remote); setAction(value); } }}>
     {children}
     {action === 'import' && (localTables || loaded ? <ContentContext.Provider value={localTables ? release : loaded!.release}><ContentTablesContext.Provider value={localTables ? tables : loaded!.tables}><DataDialog onClose={close} /></ContentTablesContext.Provider></ContentContext.Provider> : <ImportDialog title="Import / export" onClose={close}><p role={error ? 'alert' : 'status'}>{error || 'Loading import tools…'}</p>{error && <button type="button" onClick={() => setAttempt(value => value + 1)}>Retry</button>}</ImportDialog>)}
-    {action === 'settings' && (sync.remote ? <CloudAccountPanel settingsOnly initialSettings="profile" pictureContent={avatar} onSettingsClose={close} onOpenData={() => setAction('import')} /> : settingsWasRemote ? null : <ImportDialog title="Account settings" onClose={close}>{avatar}<CloudAccountPanel /></ImportDialog>)}
+    {action === 'settings' && (sync.remote ? <CloudAccountPanel key={settingsTab} settingsOnly initialSettings={settingsTab} pictureContent={avatar} onSettingsClose={close} onOpenData={() => setAction('import')} /> : settingsWasRemote ? null : <ImportDialog title="Account settings" onClose={close}>{avatar}<CloudAccountPanel /></ImportDialog>)}
   </Context.Provider>;
 }

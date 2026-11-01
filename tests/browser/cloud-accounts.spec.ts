@@ -181,6 +181,16 @@ for (const theme of ['dark', 'light']) {
     await expect(page.getByText('Username available', { exact: true })).toBeVisible();
     await capture(page, `setup-${theme}`, info);
     await page.getByRole('button', { name: 'Finish setup' }).click();
+    const saving = page.getByRole('dialog', { name: 'Account settings' });
+    await expect(saving).toBeVisible();
+    await expect(saving.getByRole('tab', { name: 'Saving', exact: true })).toHaveAttribute('aria-selected', 'true');
+    await expect(saving.getByLabel('Save personal settings and plans', { exact: true })).toBeChecked();
+    await expect(saving.getByLabel('Save pull history archive', { exact: true })).not.toBeChecked();
+    await expect(saving.getByLabel('Save imported game data to my Arkpedia account', { exact: true })).not.toBeChecked();
+    await expect(saving.getByRole('tab', { name: 'Profile picture', exact: true })).toBeVisible();
+    await capture(page, `setup-saving-${theme}`, info);
+    await page.keyboard.press('Escape');
+    await expect(saving).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Cloud saving details' })).toBeVisible();
     expect(state.profileWrites[0]).toMatchObject({ owner: 'test-user', username: 'Doctor#1234', friendTag: '', friendServer: null });
     expect(state.uploads[0]).toContain('msr:local');
@@ -188,6 +198,7 @@ for (const theme of ['dark', 'light']) {
     await expect(page.getByRole('button', { name: 'Use this browser’s data' })).toHaveCount(0);
     await page.reload();
     await expect(page.getByRole('button', { name: 'Cloud saving details' })).toBeVisible();
+    await expect(page.getByRole('dialog', { name: 'Account settings' })).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'Choose your Arkpedia username' })).toHaveCount(0);
     await page.getByRole('button', { name: 'Account settings' }).click();
     const settings = page.getByRole('dialog', { name: 'Account settings' });
@@ -306,6 +317,33 @@ test('choosing cloud after switching Arkpedia accounts keeps foreign browser his
   await expect(page.getByRole('button', { name: 'Cloud saving details' })).toBeVisible();
   expect(state.archiveWrites).toHaveLength(0); expect(state.remote.archives).toHaveLength(0);
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('arkpediaPullArchives')!)[0].history.rows.length)).toBe(1);
+});
+
+test('setup opens saving only after a successful profile and resolved save choice', async ({ page }) => {
+  const state = await mockAccount(page, true, { musicFavorites: ['msr:cloud'] });
+  state.remote.revision = 7; state.remote.historySync = true;
+  await seed(page, 'dark');
+  let rejectProfile = true;
+  await page.route('**/api/account-profile', route => rejectProfile && route.request().method() === 'PUT'
+    ? route.fulfill({ status: 503, json: { error: 'Profile could not be saved. Try again.' } }) : route.fallback());
+  await page.goto('/account');
+  await page.getByLabel('Arkpedia username', { exact: true }).fill('Doctor#1234');
+  await expect(page.getByText('Username available', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Finish setup' }).click();
+  await expect(page.getByText('Profile could not be saved. Try again.', { exact: true })).toBeVisible();
+  await expect(page.getByRole('dialog', { name: 'Account settings' })).toHaveCount(0);
+  rejectProfile = false;
+  await page.getByRole('button', { name: 'Finish setup' }).click();
+  await expect(page.getByRole('button', { name: 'Use cloud data' })).toBeVisible();
+  await expect(page.getByRole('dialog', { name: 'Account settings' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Use cloud data' }).click();
+  const saving = page.getByRole('dialog', { name: 'Account settings' });
+  await expect(saving.getByRole('tab', { name: 'Saving', exact: true })).toHaveAttribute('aria-selected', 'true');
+  await expect(saving.getByLabel('Save pull history archive', { exact: true })).toBeChecked();
+  await saving.getByRole('button', { name: 'Close', exact: true }).click();
+  await page.getByRole('button', { name: 'Cloud saving details' }).click();
+  await page.getByRole('button', { name: 'Check for updates' }).click();
+  await expect(page.getByRole('dialog', { name: 'Account settings' })).toHaveCount(0);
 });
 
 test('a new device restores existing saves without a redundant copy choice', async ({ page }) => {
