@@ -1,3 +1,4 @@
+import { assetAudioUrl, fetchAsset, retryAssetAudioOnNextPress } from '@/lib/assets/assetRetry';
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
 import { useAccount } from '@/lib/account/accountStore';
@@ -12,6 +13,7 @@ export function useWelcomeGreeting() {
   const mode = useSiteSetting('greeting'), chosen = useSiteSetting('greetingOperator');
   const account = useAccount(), url = useContentUrl(), router = useRouter();
   const player = useMusicPlayer(), latestPlayer = useRef(player); latestPlayer.current = player;
+  const source = useRef('');
   const audio = useRef<HTMLAudioElement | null>(null), attempted = useRef(false);
   const [pending, setPending] = useState(''), [playing, setPlaying] = useState(false);
   const route = router.asPath.split(/[?#]/)[0];
@@ -23,6 +25,8 @@ export function useWelcomeGreeting() {
     if (!element) return;
     requestExternalMedia(() => {
       if (audio.current !== element) return;
+      const address = assetAudioUrl(source.current);
+      if (element.src !== address) element.src = address;
       void element.play().then(() => { if (audio.current === element) { setPending(''); setPlaying(true); } else element.pause(); }).catch(() => { setPlaying(false); });
     });
   };
@@ -35,7 +39,7 @@ export function useWelcomeGreeting() {
     void (async () => {
       let names: string[] = mode === 'chosen' ? (chosen ? [chosen] : []) : mode === 'owned' ? JSON.parse(owned) : [];
       if (mode === 'random') {
-        const response = await fetch(url('/operator-search.json'), { signal: controller.signal });
+        const response = await fetchAsset(url('/operator-search.json'), { signal: controller.signal });
         if (!response.ok) return;
         names = (await response.json()).operators.map((op: { name: string }) => op.name);
       }
@@ -48,9 +52,14 @@ export function useWelcomeGreeting() {
       if (!recording?.url || controller.signal.aborted || visitFlag(AUDIO_MANUAL_KEY) || (!current.pageMusic && (current.isPlaying || current.starting || current.videoId))) return;
       attempted.current = true; markVisit(GREETING_VISIT_KEY);
       element = new Audio(); element.preload = 'none'; element.volume = 0.3;
-      element.src = recording.url; audio.current = element;
+      source.current = recording.url;
+      element.src = assetAudioUrl(recording.url); audio.current = element;
       element.onended = () => { setPlaying(false); setPending(''); };
-      element.onerror = () => { setPlaying(false); setPending(''); };
+      element.onerror = () => {
+        if (controller.signal.aborted || !element) return;
+        setPlaying(false);
+        setPending(retryAssetAudioOnNextPress(recording.url, element.currentSrc || element.src) ? `${recording.name} greeting — tap Play to retry` : '');
+      };
       setPending(`${recording.name} greeting`);
       if (readPrivacy().externalMedia) {
         try { await element.play(); if (!controller.signal.aborted) { setPending(''); setPlaying(true); } else element.pause(); }

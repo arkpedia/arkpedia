@@ -1,3 +1,4 @@
+import { fetchAsset } from '@/lib/assets/assetRetry';
 import { useEffect, useState } from 'react';
 import { useContentUrl } from '@/lib/content/context';
 import { useAccount } from '@/lib/account/accountStore';
@@ -13,7 +14,7 @@ export default function AudioSettings() {
   useEffect(() => {
     if (greeting !== 'chosen') return;
     const controller = new AbortController();
-    void fetch(url('/operator-search.json'), { signal: controller.signal }).then(response => {
+    void fetchAsset(url('/operator-search.json'), { signal: controller.signal }).then(response => {
       if (!response.ok) throw new Error('Catalogue unavailable');
       return response.json();
     }).then(data => setOperators(data.operators.map((op: { name: string }) => op.name)))
