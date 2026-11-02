@@ -34,6 +34,10 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-01T23:35:00Z',
+    fixed: [{ title: 'Calendar years stay visible', detail: 'Browsing beyond the scheduled years keeps the selected year visible and the calendar controls in place.', href: '/schedule' }],
+  },
+  {
     at: '2026-10-31T19:00:00Z',
     fixed: [{ title: 'Recover interrupted page loads', detail: 'Retry missing styles and recover failed startup files instead of leaving an unstyled page.' }],
   },

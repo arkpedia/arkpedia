@@ -200,6 +200,8 @@ test("the Terminal bar's menu button is one control height, and follows the toke
  * was (0.5px). Box edges only, the same on any font.
  */
 test("the calendar's head holds still through a year of months", async ({ page }) => {
+  // Cross into a year beyond both the event snapshot and the next-year option.
+  await page.clock.setFixedTime(new Date('2026-11-01T12:00:00Z'));
   const width = await censusWidth(page);
   const widths = width === 1440 ? [1440] : [360, 390, 460];
   await readOnly(page);
@@ -215,6 +217,7 @@ test("the calendar's head holds still through a year of months", async ({ page }
     for (let step = 0; step < 13; step += 1) {
       await page.getByRole('button', { name: 'Next month' }).click();
       const month = await page.locator('.cal-head-title').getByRole('combobox', { name: 'Month' }).innerText();
+      await expect(page.getByRole('combobox', { name: 'Year', exact: true })).toContainText(step < 12 ? '2027' : '2028');
       const now = await boxes();
       const moved = now.filter((box, i) => {
         const [a, b] = [box, first[i]].map((entry) => entry.split(' ').pop()!.split('+').map(Number));

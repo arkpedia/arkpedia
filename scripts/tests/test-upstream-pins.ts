@@ -7,9 +7,23 @@ import path from 'node:path';
 // @ts-expect-error Node publication scripts are plain JavaScript.
 import { MIRRORS, pinEnvironment, pinUpstream, pinVariable, pinnedCommit, pinnedRef, rawUrl } from '../content/pin-upstream.mjs';
 // @ts-expect-error Node publication scripts are plain JavaScript.
-import { rememberRevisions, upstreamRevisions } from '../content/refresh-fingerprint.mjs';
+import { rememberRevisions, upstreamRevisions, watchedRepositories } from '../content/refresh-fingerprint.mjs';
 
 const commit = (c: string) => c.repeat(40);
+test('the scheduled probe covers assets before source hydration, extending rather than duplicating pins', t => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'arkpedia-fingerprint-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const clean = watchedRepositories(root);
+  const released = Object.keys(JSON.parse(fs.readFileSync('data/assets/revisions.json', 'utf8')));
+  for (const name of released) assert.ok(clean.includes(`arkpedia/${name}`), `clean checkout still watches ${name}`);
+  assert.equal(clean.length, new Set(clean).size);
+  fs.mkdirSync(path.join(root, 'data/assets'), { recursive: true });
+  const file = path.join(root, 'data/assets/revisions.json');
+  fs.writeFileSync(file, JSON.stringify({ 'arkpedia-image-assets': commit('1'), 'new-asset-family': commit('2') }));
+  assert.deepEqual(watchedRepositories(root), [...clean, 'arkpedia/new-asset-family']);
+  fs.writeFileSync(file, '{broken');
+  assert.throws(() => watchedRepositories(root), SyntaxError);
+});
 const heads: Record<string, string> = {
   'Kengxxiao/ArknightsGameData': commit('1'), 'ArknightsAssets/ArknightsGamedata': commit('2'),
   'yuanyan3060/ArknightsGameResource': commit('3'), 'PuppiizSunniiz/ArknightsGameData_YoStar': commit('4'),

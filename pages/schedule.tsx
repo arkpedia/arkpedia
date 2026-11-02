@@ -192,8 +192,10 @@ export default function SchedulePage({ events: globalEvents, operators: exported
     const ys = new Set(events.map((e) => e.year));
     ys.add(today.year);
     ys.add(today.year + 1);
+    // Month arrows can move beyond the years with known events.
+    ys.add(year);
     return Array.from(ys).sort((a, b) => a - b);
-  }, [events, today]);
+  }, [events, today, year]);
   const steadyYear = useMemo(() => steadyValue(years.map(String)), [years]);
 
   const monthGrid = useMemo(() => generateMonths(new Date(year, month, 1), 1)[0], [year, month]);
