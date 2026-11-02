@@ -880,6 +880,7 @@ a.ghost.panel:focus-visible { border-color: var(--teal); }
 .account-dialog[open] { display: flex; flex-direction: column; }
 .account-dialog header { flex: none; align-self: stretch; box-sizing: border-box; width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 18px; border-bottom: 1px solid var(--line); }
 .account-dialog header h2 { margin: 0; }
+.account-dialog-header-actions { display: flex; align-items: center; gap: 8px; flex: none; }
 .account-dialog-body { flex: 1 1 auto; min-height: 0; padding: 18px; overflow-y: auto; overscroll-behavior: contain; }
 
 /* Reference directories: one surface and responsive rhythm for credits, techniques

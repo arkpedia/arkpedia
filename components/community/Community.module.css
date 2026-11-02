@@ -1,5 +1,6 @@
 .stats { display: grid; gap: 12px; }
 .stats h2, .stats p { margin: 0; }
+.compact { font-size: 13px; gap: 10px; }
 .metrics { display: grid; grid-template-columns: repeat(auto-fit,minmax(130px,1fr)); gap: 12px 20px; margin: 0; }
 .metrics dt { color: var(--text-dim); }
 .metrics dd { margin: 4px 0 0; font-weight: 600; }

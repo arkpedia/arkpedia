@@ -473,7 +473,7 @@ const LAYER_FILES = ['lib/skins/dynamicLayers.ts', LAYER_RENDERER, PARTICLE_DATA
 test('no page loads the Spine runtime or the animated artwork with itself: only when the reader asks', () => {
   // Not vacuous: both pages that offer animated art do reach both, lazily.
   for (const page of ['pages/skins.tsx', 'pages/operators/[name].tsx']) {
-    assert.deepEqual(pathToTarget(page, [ARTWORK]), [page, 'components/skins/SkinZoomOverlay.tsx', ARTWORK]);
+    assert.deepEqual(pathToTarget(page, [ARTWORK]), [page, ...(page === 'pages/skins.tsx' ? ['components/skins/SkinDetailDialog.tsx'] : []), 'components/skins/SkinZoomOverlay.tsx', ARTWORK]);
     assert.equal(pathToTarget(page, [RUNTIME])?.at(-1), RUNTIME);
   }
   const eager = pages().flatMap((page) => {

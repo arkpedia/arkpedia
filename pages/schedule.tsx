@@ -35,7 +35,7 @@ import { getDisplayFeaturedSixStars } from '@/lib/gacha/realGachaBanners';
 import { isLineupPending, lineupPendingNote } from '@/lib/gacha/bannerLineup';
 import { publishedArt } from '@/lib/art/publishedArt';
 import { ReleaseDateLookup } from '@/lib/operators/operatorReleaseDates';
-import SkinZoomOverlay from '@/components/skins/SkinZoomOverlay';
+import SkinDetailDialog from '@/components/skins/SkinDetailDialog';
 import PageHeader from '@/components/ui/PageHeader';
 import SegmentedControl from '@/components/ui/SegmentedControl';
 import StickyControls from '@/components/ui/StickyControls';
@@ -168,11 +168,6 @@ export default function SchedulePage({ events: globalEvents, operators: exported
   // controls the animation; this just avoids blank content while it plays.
   const [displayEvent, setDisplayEvent] = useState<ScheduleEvent | null>(null);
   const [activeSkin, setActiveSkin] = useState<Skin | null>(null);
-  const [zooming, setZooming] = useState(false);
-
-  useEffect(() => {
-    if (!activeSkin) setZooming(false);
-  }, [activeSkin]);
   const [showAllSkins, setShowAllSkins] = useState(false);
   const [showAllVisibleCount, setShowAllVisibleCount] = useState(20);
 
@@ -807,50 +802,9 @@ export default function SchedulePage({ events: globalEvents, operators: exported
         </div>
       )}
 
-      {activeSkin && (
-        <div className="modal-overlay" onClick={() => setActiveSkin(null)}>
-          <div className="modal-box skin-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="skin-modal-image-wrap-full">
-              {activeSkin.image && (
-                <Image
-                  src={activeSkin.image}
-                  alt={activeSkin.name}
-                  width={1600}
-                  height={900}
-                  className="skin-modal-image-clickable"
-                  style={{ maxWidth: '100%', maxHeight: '60vh', width: 'auto', height: 'auto', objectFit: 'contain' }}
-                  onClick={() => setZooming(true)}
-                />
-              )}
-            </div>
-            <div className="skin-modal-info">
-              <div className="eyebrow">
-                {activeSkin.series}
-                {activeSkin.code ? ` · ${activeSkin.code}` : ''}
-              </div>
-              <h2>{activeSkin.name}</h2>
-              {activeSkin.model && <p className="hint">Model: {activeSkin.model}</p>}
-              {activeSkin.illustrator && <p className="hint">Illustrator: {activeSkin.illustrator}</p>}
-              {activeSkin.description && <p style={{ marginTop: 10 }}>{activeSkin.description}</p>}
-              {(() => {
-                const prices = parsePrices(activeSkin.howToObtain);
-                return prices.length > 0 ? <p className="hint">Price: {formatPrices(prices)}</p> : null;
-              })()}
-              {activeSkin.howToObtain && <p className="hint">How to obtain: {activeSkin.howToObtain}</p>}
-            </div>
-            <div className="modal-actions">
-              <button type="button" className="primary" onClick={() => setActiveSkin(null)}>
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {activeSkin && <SkinDetailDialog skin={activeSkin} onClose={() => setActiveSkin(null)}
+        footer={<Link prefetch={false} href={`/skins?skin=${encodeURIComponent(activeSkin.name)}`}>View in outfit gallery</Link>} />}
 
-      {/* Animated art is offered on /skins and the operator pages, which carry its pointers. */}
-      {zooming && activeSkin?.image && (
-        <SkinZoomOverlay image={activeSkin.image} name={activeSkin.name} dynamic={null} onClose={() => setZooming(false)} />
-      )}
     </>
   );
 }
