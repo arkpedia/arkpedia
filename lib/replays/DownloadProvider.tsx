@@ -90,8 +90,8 @@ function EnabledDownloads({children}:{children:ReactNode}){
       await navigator.locks.request(REPLAY_LOCK,{ifAvailable:true},async lock=>{
         if(!lock)throw new Error('Another tab is importing game data. Wait for it to finish.');
         const result=await syncReplays({namespace,markers:imported.markers,session:imported.session,signal:job.controller.signal,
-          permit:()=>requestReplayPermit(job.controller.signal,()=>{if(generation.current===version)update({message:'Waiting for a shared download slot… You can keep browsing.'});}),
-          store:{read:readReplays,save:saveReplay,remove:removeReplay},...(owner?{cloud:replayCloud(owner,namespace)}:{}),forceStage:selected||undefined,
+          permit:()=>requestReplayPermit(job.controller.signal,position=>{if(generation.current===version)update({message:position?`Waiting for a shared download slot (${position} in queue)… You can keep browsing.`:'Waiting for a shared download slot… You can keep browsing.'});}),
+          store:{read:readReplays,save:saveReplay,remove:removeReplay},...(owner?{cloud:replayCloud(owner,namespace,job.controller.signal)}:{}),forceStage:selected||undefined,
           check:()=>{
             if(generation.current!==version||isResettingBrowserData())throw new DOMException('Paused','AbortError');
             if((latest.current.remote?.user.id??null)!==account)throw new Error('Your Arkpedia account changed. Downloads paused.');

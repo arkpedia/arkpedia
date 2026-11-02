@@ -118,7 +118,7 @@ reload or Clear captures. Compare a baseline, an unchanged import, and one after
 reader replaces one known auto-deploy in game. Field differences are evidence to
 investigate, not proof of a reliable replay revision contract.
 
-## Optional auto-deploy sync (Preview)
+## Optional auto-deploy sync
 
 Import / export offers an explicit **Sync auto-deploys** action after a successful
 Yostar import. It never runs from Google/Discord sign-in or ordinary page visits.
@@ -136,31 +136,54 @@ the tab, account changes or browser-data resets discard the capability; import
 again to resume from durable checkpoints. A compact status bar exposes Pause,
 Resume and Details outside the dialog.
 
-Queue operations hold a shared browser Web Lock with game imports, wait 3–4.5
-seconds between items, and continue through all pending stages after an explicit
-start. Pause, page exit, reset and account changes stop further work. A response already in flight may finish, but an aborted
+Queue operations hold a shared browser Web Lock with game imports and continue
+through pending stages after an explicit start. Actual game downloads also retain
+a local 3–4.5-second delay as a second guard; cloud-only work skips it. Pause, page exit, reset and account
+changes stop further work. A response already in flight may finish, but an aborted
 queue does not save/upload it. HTTP 429 honors Retry-After with at least a minute's
-cooldown. Any uncertain/authentication response invalidates the session; there is
-no automatic retry or relogin. These limits are precautionary, not a confirmed
-Yostar-approved quota.
+cooldown. Any uncertain/authentication response invalidates the game session; there
+is no automatic game-request retry or relogin.
 
-Before each actual game replay fetch, the downloader asks the Preview-only
-`/api/account-import/replay-permit` endpoint for admission. Migration 0007 adds
-atomic D1 coordination: at most one grant every 500 ms across cooperating Preview
-clients, and one every 3 seconds per anonymous browser identifier. An unsuccessful
-per-browser attempt does not consume a global slot. No game UID, stage, login
-secret or replay content enters this endpoint; browser identifiers expire from
-D1 after an hour idle, with indexed bounded cleanup. Preview ingress guards and
-exact-origin/body checks apply; the endpoint is unavailable in production.
+Before each actual game replay fetch, the downloader asks the same-origin
+`/api/account-import/replay-permit` endpoint for admission. Production and Preview
+use their own isolated database and aggregate budget. Migration 0007 provides the
+atomic counter: at most one grant every 500 ms and one every 3 seconds per anonymous
+browser identifier. Migration 0012 adds a bounded FIFO waiting queue. Repeated polls
+renew the same place; eligible older waiters win before newcomers. A browser still
+on its own cooldown does not block eligible browsers. Pause sends best-effort
+cancellation without resetting the consumed-grant counter; abandoned places expire
+after 10 seconds and are removed by the next admission. The queue is capped at
+1,000 waiters and returns a 60-second retry when full. Old clients retain the same
+shared counter, although their longer polling can let their waiting place expire.
 
-Denied admission uses jittered exponential waiting up to 32 seconds and is
-cancellable; HTTP 429 respects Retry-After. Network/server failures pause instead
-of bypassing coordination. Responses taking a second or longer are treated as
-stale and reacquired to avoid waking tabs spending old grants. This is application
-admission control, not an official Yostar quota, strict FIFO fairness or an
-inspection/enforcement mechanism inside the encrypted relay. Separate devices
-have distinct browser limits but share the aggregate budget. Normal imports and
-login requests do not use this admission service or change their relay route.
+The response gives a position and a short retry delay (500–2,000 ms, with up to
+100 ms client jitter), replacing exponential waits of up to 32 seconds. Network or
+server failures pause instead of bypassing coordination. Responses taking a second
+or longer are treated as stale and reacquired. No game UID, stage, login secret or
+replay content enters admission; browser rate counters are removed after an hour
+idle by bounded cleanup. Exact-origin/body checks and account ingress guards apply.
+These are precautionary application limits, not a confirmed Yostar quota or an
+inspection/enforcement mechanism inside the encrypted relay. Separate devices have
+distinct browser limits. Ordinary login and import traffic do not use this queue.
+
+Cloud-only restoration, uploads and removals skip Yostar admission and its delay.
+Cloud requests use separate cancellation-aware pacing below account API quotas:
+700 ms between reads, 1,250 ms between writes, and 6,500 ms between removals. The
+server quota remains authoritative across other tabs/devices. Game downloads stay
+sequential and never upload game credentials. Existing consent, ownership,
+compare-and-swap and durable local-checkpoint safeguards remain in effect.
+
+This first scheduling change uses the existing atomic D1 coordinator; it does not
+add a second traffic budget or deploy extra relay Workers. A separate coordinator
+Worker can later move this workload off the account database if measured admission
+latency or database contention warrants it. That migration must hand over the one
+aggregate counter, preserve environment isolation and keep game credentials in the
+browser. Splitting Workers alone must not multiply upstream throughput.
+
+Apply migration 0012 to the target environment before deploying this scheduler.
+It adds only the anonymous waiting table; it preserves the existing rate counter
+and all account/replay data. Rolling code back leaves the unused table in place.
+Do not reset the shared counter during migration or rollback.
 
 A bounded replay document with an unsupported journal, squad/action list or
 mismatched stage ID is skipped during a bulk run, so later stages can still save.

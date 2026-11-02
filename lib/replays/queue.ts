@@ -35,7 +35,7 @@ export async function syncReplays(options:QueueOptions):Promise<SyncProgress>{
   const state:SyncProgress={checked:0,fetched:0,restored:0,remaining:candidates.length,skipped:[],message:'Preparing auto-deploys…'};
   progress({...state});
   for(const marker of candidates.slice(0,options.limit??candidates.length)){
-    ensure();await (options.wait??(ms=>waitForReplay(ms,signal)))(3000+Math.floor((options.random??Math.random)()*1500));ensure();
+    ensure();
     const previous=local.get(marker.stageId),saved=remote.get(marker.stageId);
     if(!marker.hasReplay){
       if(saved&&cloud){ensure();await cloud.remove(marker.stageId,saved.hash,marker.fingerprint);}
@@ -50,7 +50,10 @@ export async function syncReplays(options:QueueOptions):Promise<SyncProgress>{
           if(hash!==saved.hash || restored.hash!==saved.hash || restored.fingerprint!==marker.fingerprint)throw new Error('Cloud auto-deploy changed. Resume to compare again.');
           record={...restored,payload,namespace,stageId:marker.stageId};state.restored++;
         }else{
-          ensure();await options.permit?.();ensure();
+          // Pace only traffic to the game. Local checkpoints and Arkpedia cloud
+          // restores/uploads do not consume a Yostar slot or its waiting time.
+          ensure();await (options.wait??(ms=>waitForReplay(ms,signal)))(3000+Math.floor((options.random??Math.random)()*1500));ensure();
+          await options.permit?.();ensure();
           const encoded=await session.readReplay(marker.stageId);ensure();
           let payload:string;
           try { payload=decodeReplay(encoded,marker.stageId); }

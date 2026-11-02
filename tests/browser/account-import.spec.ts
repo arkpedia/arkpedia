@@ -783,17 +783,20 @@ test('auto-deploy background download survives closing the dialog and client nav
   await page.waitForTimeout(3500);expect(await replayRequests(page)).toHaveLength(0);
 });
 
-test('auto-deploy shared pacing waits without contacting Yostar, is cancellable, and fails closed',async({page})=>{
+test('auto-deploy shared pacing waits without contacting Yostar, is cancellable, and fails closed',async({page},info)=>{
   await stubAutoDeploys(page);let grants=0,unavailable=false;
   await page.route('**/api/account-import/replay-permit',route=>{
+    if(route.request().method()==='DELETE')return route.fulfill({json:{cancelled:true}});
     grants++;expect(Object.keys(route.request().postDataJSON())).toEqual(['client']);
     expect(route.request().postDataJSON().client).toMatch(/^[0-9a-f-]{36}$/);
-    return route.fulfill({status:unavailable?503:200,json:unavailable?{error:'unavailable'}:{granted:false}});
+    return route.fulfill({status:unavailable?503:200,json:unavailable?{error:'unavailable'}:{granted:false,retryAfterMs:500,position:3}});
   });
   const dialog=await openImport(page);await signIn(page);
   const panel=dialog.getByRole('region',{name:'Auto-deploy sync'});
   await panel.getByRole('button',{name:'Sync auto-deploys',exact:true}).click();
   await expect.poll(()=>grants,{timeout:15000}).toBeGreaterThan(0);
+  await expect(panel.getByRole('status')).toContainText('3 in queue');
+  await panel.scrollIntoViewIfNeeded();await page.screenshot({path:info.outputPath('auto-deploy-queued.png')});
   await panel.getByRole('button',{name:'Pause',exact:true}).click();
   await expect(panel.getByRole('status')).toContainText('Paused.');
   const paused=grants;await page.waitForTimeout(4500);expect(grants).toBe(paused);expect(await replayRequests(page)).toHaveLength(0);

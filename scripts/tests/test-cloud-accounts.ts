@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { acquireReplayPermit } from '../../lib/replays/pacing-server';
+import { acquireReplayPermit, cancelReplayPermit, REPLAY_QUEUE_LEASE } from '../../lib/replays/pacing-server';
 import { createPermitHandler } from '../../pages/api/account-import/replay-permit';
 import { allowAccountRequest, ACCOUNT_LIMITS } from '../../lib/cloud-account/limits';
 // Runtime is Node 24; the application's older @types/node does not declare this module.
@@ -686,19 +686,59 @@ test('auto-deploy API isolates owners, enforces consent and CAS, avoids stale fi
 });
 
 
-test('shared replay admission is atomic across browsers and enforces the browser minimum without burning denied slots', async()=>{
-  const {sqlite,db}=database();const a=crypto.randomUUID(),b=crypto.randomUUID(),now=10000000;
-  const simultaneous=await Promise.all(Array.from({length:30},()=>acquireReplayPermit(db,crypto.randomUUID(),now)));
-  assert.equal(simultaneous.filter(Boolean).length,1);
-  assert.equal(await acquireReplayPermit(db,a,now+500),true);
-  assert.equal(await acquireReplayPermit(db,a,now+1000),false);
-  assert.equal(await acquireReplayPermit(db,b,now+1000),true,'a denied browser must not consume a global grant');
-  assert.equal(await acquireReplayPermit(db,a,now+3499),false);
-  assert.equal(await acquireReplayPermit(db,a,now+3500),true);
-  assert.equal(await acquireReplayPermit(db,b,now+3999),false);
-  assert.equal(await acquireReplayPermit(db,b,now+4000),true);
-  await acquireReplayPermit(db,crypto.randomUUID(),now+3610000);
-  assert.equal(sqlite.prepare('SELECT count(*) AS n FROM replay_pacing').get()?.n,2,'expired browser identifiers are removed, global survives');
+test('shared replay queue is FIFO, deduplicates polls and gives a returning browser the last position', async()=>{
+  const {sqlite,db}=database(),now=10000000;
+  const clients=Array.from({length:30},()=>crypto.randomUUID());
+  const first=await Promise.all(clients.map(client=>acquireReplayPermit(db,client,now)));
+  assert.equal(first.filter(r=>r.granted).length,1);
+  assert.equal(sqlite.prepare('SELECT count(*) AS n FROM replay_wait_queue').get()?.n,29);
+  // A fast newcomer or repeated polls cannot overtake an already waiting client.
+  const newcomer=crypto.randomUUID();
+  assert.equal((await acquireReplayPermit(db,newcomer,now+500)).granted,false);
+  for(let i=1;i<clients.length;i++){
+    const at=now+i*500;
+    assert.equal((await acquireReplayPermit(db,newcomer,at)).granted,false);
+    assert.equal((await acquireReplayPermit(db,clients[i],at)).granted,true);
+    // Renew the simulated waiting browsers, as the real client does every <=2.1s.
+    for(const pending of clients.slice(i+1))await acquireReplayPermit(db,pending,at);
+  }
+  assert.equal((await acquireReplayPermit(db,newcomer,now+15000)).granted,true);
+  assert.equal((await acquireReplayPermit(db,newcomer,now+15500)).granted,false);
+  const other=crypto.randomUUID();
+  assert.equal((await acquireReplayPermit(db,other,now+15500)).granted,true,'a browser on cooldown does not hold up others');
+  assert.equal((await acquireReplayPermit(db,newcomer,now+18000)).granted,true);
+  sqlite.close();
+});
+test('abandoned waits expire, cancellation keeps cooldowns and older clients share the same global allowance',async()=>{
+  const {sqlite,db}=database(),now=10000000,a=crypto.randomUUID(),b=crypto.randomUUID();
+  assert.equal((await acquireReplayPermit(db,a,now)).granted,true);
+  await acquireReplayPermit(db,a,now+1);
+  await cancelReplayPermit(db,a);
+  assert.equal((await acquireReplayPermit(db,a,now+500)).granted,false,'cancel cannot reset cooldown');
+  assert.equal((await acquireReplayPermit(db,b,now+500)).granted,true);
+  await acquireReplayPermit(db,a,now+501);
+  await cancelReplayPermit(db,a);
+  assert.equal(sqlite.prepare('SELECT count(*) AS n FROM replay_wait_queue').get()?.n,0);
+  const abandoned=crypto.randomUUID(),next=crypto.randomUUID();
+  await acquireReplayPermit(db,abandoned,now+501);
+  assert.equal((await acquireReplayPermit(db,next,now+1000)).granted,false);
+  assert.equal((await acquireReplayPermit(db,next,now+501+REPLAY_QUEUE_LEASE)).granted,true);
+  await acquireReplayPermit(db,crypto.randomUUID(),now+3620000);
+  assert.equal(sqlite.prepare('SELECT count(*) AS n FROM replay_pacing').get()?.n,2);
+  sqlite.close();
+});
+test('replay queue is bounded, permits existing waiters to renew and reclaims expired capacity',async()=>{
+  const {sqlite,db}=database(),now=10000000;
+  const clients=Array.from({length:1000},()=>crypto.randomUUID());
+  const insert=sqlite.prepare('INSERT INTO replay_wait_queue(client,readyAt,expiresAt) VALUES (?,?,?)');
+  for(const client of clients)insert.run(client,now,now+REPLAY_QUEUE_LEASE);
+  const overflow=await acquireReplayPermit(db,crypto.randomUUID(),now);
+  assert.equal(overflow.full,true);assert.equal(overflow.granted,false);
+  const renewed=await acquireReplayPermit(db,clients[999],now+1);
+  assert.equal(renewed.full,undefined);assert.equal(renewed.position,1000);
+  assert.equal(sqlite.prepare('SELECT count(*) AS n FROM replay_wait_queue').get()?.n,1000);
+  assert.equal((await acquireReplayPermit(db,clients[0],now+500)).granted,true);
+  assert.equal((await acquireReplayPermit(db,crypto.randomUUID(),now+REPLAY_QUEUE_LEASE+1)).granted,true);
   sqlite.close();
 });
 test('replay admission API accepts only anonymous same-origin requests and stops when coordination is unavailable',async()=>{
@@ -711,8 +751,9 @@ test('replay admission API accepts only anonymous same-origin requests and stops
   assert.equal((await call('GET')).status,405);
   assert.equal((await call('POST',{client:crypto.randomUUID()},'https://elsewhere.invalid')).status,403);
   for(const body of [null,[],{client:'global'},{client:crypto.randomUUID(),stageId:'main_00-01'},{client:crypto.randomUUID(),token:'private'}])assert.equal((await call('POST',body)).status,400);
-  assert.deepEqual((await call()).result,{granted:true});
-  assert.deepEqual((await call()).result,{granted:false});
+  assert.equal((await call()).result.granted,true);
+  assert.equal((await call()).result.granted,false);
+  assert.deepEqual((await call('DELETE')).result,{cancelled:true});
   assert.equal((await call('POST',undefined,undefined,createPermitHandler(()=>null))).status,503);
   sqlite.exec('DROP TABLE replay_pacing');assert.equal((await call()).status,503);
   sqlite.close();

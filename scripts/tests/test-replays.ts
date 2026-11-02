@@ -123,6 +123,7 @@ test('cloud restoration avoids Yostar and unchanged replay contents upload only 
   const r:ReplayRecord={namespace:'en:1',stageId:stage,fingerprint:markers()[0].fingerprint,hash,payload:canonical,savedAt:1};
   s.options.cloud={manifest:async()=>[r],read:async()=>{reads++;return r;},save:async()=>{saves++;},mark:async()=>{marks++;},remove:async()=>{}};
   await syncReplays(s.options);assert.equal(reads,1);assert.equal(s.fetched(),0);
+  assert.deepEqual(s.waits,[],'cloud restoration must not wait for a game-download slot');
   s.options.markers=markers(2);await syncReplays(s.options);assert.equal(s.fetched(),1);assert.equal(saves,0);assert.equal(marks,1);
 });
 test('queue respects batch limits and identity changes before further network requests',async()=>{
