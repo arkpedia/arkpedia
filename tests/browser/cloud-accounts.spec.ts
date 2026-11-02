@@ -628,9 +628,14 @@ for (const theme of ['dark', 'light']) {
     await page.goto('/account?settings=profile');
     const settings = page.getByRole('dialog', { name: 'Account settings', exact: true });
     await settings.getByRole('tab', { name: 'Audio', exact: true }).click();
-    await expect(settings.getByLabel('Allow autoplaying music')).not.toBeChecked();
-    await settings.getByLabel('Allow autoplaying music').check();
-    await expect.poll(() => state.remote.data['arkpedia:settings'], { timeout: 25000 }).toEqual({ version: 1, values: { backgroundMusic: true } });
+    await expect(settings.getByLabel('Background Music', {exact:true})).not.toBeChecked();
+    await settings.getByLabel('Background Music', {exact:true}).check();
+    await expect.poll(() => state.remote.data['arkpedia:settings'], { timeout: 25000 }).toEqual({ version: 2, values: { backgroundMusic: true } });
+    await expect(settings.getByLabel('Event Music', {exact:true})).not.toBeChecked();
+    await settings.getByLabel('Event Music', {exact:true}).check();
+    await expect.poll(() => state.remote.data['arkpedia:settings'], { timeout: 25000 }).toEqual({ version: 2, values: { backgroundMusic: true, eventMusic: true } });
+    await settings.getByLabel('Background Music', {exact:true}).uncheck();
+    await expect.poll(() => state.remote.data['arkpedia:settings'], { timeout: 25000 }).toEqual({ version: 2, values: { backgroundMusic: false, eventMusic: true } });
     await capture(page, `account-audio-${theme}`, info);
     await settings.getByRole('tab', { name: 'Saving', exact: true }).click();
     await expect(settings.getByText('What saves to your account')).toBeVisible();
@@ -700,7 +705,8 @@ for (const theme of ['dark', 'light']) {
     await page.goto('/account?settings=profile');
     const settings = page.getByRole('dialog', { name: 'Account settings', exact: true });
     await settings.getByRole('tab', { name: 'Audio', exact: true }).click();
-    await expect(settings.getByLabel('Allow autoplaying music')).toBeDisabled();
+    await expect(settings.getByLabel('Background Music', {exact:true})).toBeDisabled();
+    await expect(settings.getByLabel('Event Music', {exact:true})).toBeDisabled();
     await expect(settings.getByRole('status')).toContainText('External media permission required');
     await capture(page, `audio-permission-${theme}`, info);
     await settings.getByRole('link', { name: 'Manage media permission', exact: true }).click();
@@ -710,7 +716,8 @@ for (const theme of ['dark', 'light']) {
     await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('arkpedia:privacy:v1')!).externalMedia)).toBe(true);
     await page.goto('/account?settings=profile');
     await settings.getByRole('tab', { name: 'Audio', exact: true }).click();
-    await expect(settings.getByLabel('Allow autoplaying music')).toBeEnabled();
+    await expect(settings.getByLabel('Background Music', {exact:true})).toBeEnabled();
+    await expect(settings.getByLabel('Event Music', {exact:true})).toBeEnabled();
     await expect(settings.getByRole('status')).toContainText('External media is allowed');
     expect(await page.evaluate(() => JSON.parse(localStorage.getItem('arkpedia:privacy:v1')!).analytics)).toBe(false);
   });

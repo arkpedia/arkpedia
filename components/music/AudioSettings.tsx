@@ -7,5 +7,10 @@ import AutoplayMusicChoice from './AutoplayMusicChoice';
 export default function AudioSettings(){
   const media=usePrivacyChoice('externalMedia');
   const background=useSiteSetting('backgroundMusic');
-  return <div className="reading-copy"><AutoplayMusicChoice checked={background} onChange={value=>setSetting('backgroundMusic',value)} disabled={!media} /><p role="status">{media ? 'External media is allowed. ' : 'External media permission required for autoplay. '}<Link href="/cookies">Manage media permission</Link>.</p><MenuMusicSettings /></div>;
+  const events=useSiteSetting('eventMusic');
+  return <div className="reading-copy">
+    <AutoplayMusicChoice kind="background" checked={background} onChange={value=>setSetting('backgroundMusic',value)} disabled={!media} />
+    <AutoplayMusicChoice kind="event" checked={events} onChange={value=>setSetting('eventMusic',value)} disabled={!media} />
+    <p role="status">{media ? 'External media is allowed. ' : 'External media permission required for autoplay. '}<Link href="/cookies">Manage media permission</Link>.</p><MenuMusicSettings />
+  </div>;
 }

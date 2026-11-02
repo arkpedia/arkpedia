@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { eventMusicId, HOME_MUSIC_CID } from '../../lib/music/pageMusic';
 import { pageMusicTable } from '../../lib/music/pageMusicServer';
-import { parseSettings, SETTINGS_DEFAULTS, SETTINGS_KEY } from '../../lib/settings/siteSettings';
+import { parseSettings, SETTINGS_DEFAULTS, SETTINGS_KEY, SETTINGS_VERSION } from '../../lib/settings/siteSettings';
 import { validateCloudData } from '../../lib/cloud-account/data';
 import { getAllPlayerSongs } from '../../lib/music/albumsData';
 import { projectMusicCatalogue } from '../../lib/music/musicCatalogue';
@@ -27,12 +27,13 @@ test('only reviewed lobby recordings match calendar tags, punctuation and reruns
 
 test('audio settings default off, reject malformed values and follow personal-sync consent', () => {
   assert.equal(SETTINGS_DEFAULTS.backgroundMusic, false);
-  const values = { backgroundMusic: true };
+  assert.equal(SETTINGS_DEFAULTS.eventMusic, false);
+  const values = { backgroundMusic: true, eventMusic: false };
   assert.deepEqual(parseSettings({ values: { greeting: 'owned', greetingOperator: 'Amiya' } }).values, {});
-  const data = { [SETTINGS_KEY]: { version: 1, values } };
+  const data = { [SETTINGS_KEY]: { version: SETTINGS_VERSION, values } };
   assert.deepEqual(validateCloudData(data, false, true)[SETTINGS_KEY], data[SETTINGS_KEY]);
   assert.throws(() => validateCloudData(data, true, false), /permission/);
-  assert.deepEqual(parseSettings({ values: { backgroundMusic: 'yes', greeting: 'always', greetingOperator: '../secret' } }).values, {});
+  assert.deepEqual(parseSettings({ values: { backgroundMusic: 'yes', eventMusic: 'yes', greeting: 'always', greetingOperator: '../secret' } }).values, {});
 });
 
 test('crossover recordings have no invented MSR IDs, respect stream-safe and do not duplicate newer releases', async () => {

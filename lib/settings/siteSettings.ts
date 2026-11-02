@@ -21,7 +21,10 @@ export interface SiteSettings {
    *  only the clause that holds the technique (false, the default). One setting for every
    *  record, remembered. */
   techniqueDetail: boolean;
+  /** The chosen browsing theme, outside event pages and Music Guesser. */
   backgroundMusic: boolean;
+  /** Event lobby themes, independently of the browsing theme. */
+  eventMusic: boolean;
   menuMusicSource: 'default' | 'account' | 'custom';
   menuMusicTrack: string;
 }
@@ -31,6 +34,7 @@ export type SettingKey = keyof SiteSettings;
 export const SETTINGS_DEFAULTS: Readonly<SiteSettings> = Object.freeze({
   techniqueDetail: false,
   backgroundMusic: false,
+  eventMusic: false,
   menuMusicSource: 'default',
   menuMusicTrack: '',
 });
@@ -39,13 +43,14 @@ export const SETTINGS_DEFAULTS: Readonly<SiteSettings> = Object.freeze({
 const VALID: { [K in SettingKey]: (value: unknown) => value is SiteSettings[K] } = {
   techniqueDetail: (value): value is boolean => typeof value === 'boolean',
   backgroundMusic: (value): value is boolean => typeof value === 'boolean',
+  eventMusic: (value): value is boolean => typeof value === 'boolean',
   menuMusicSource: (value): value is SiteSettings['menuMusicSource'] => ['default', 'account', 'custom'].includes(value as string),
   menuMusicTrack: (value): value is string => typeof value === 'string' && (value === '' || /^(?:[\w-]{11}|msr:\d{1,12})$/.test(value)),
 };
 
 export const SETTINGS_KEY = 'arkpedia:settings';
 /** Bumped when a setting changes meaning; `migrate` then brings an older blob forward. */
-export const SETTINGS_VERSION = 1;
+export const SETTINGS_VERSION = 2;
 
 /** What is stored, and what exportSettings hands an account: only the settings the reader
  *  chose, so a default changed later still reaches everyone who never touched it. */
@@ -54,8 +59,11 @@ export interface StoredSettings {
   values: Partial<SiteSettings>;
 }
 
-/** Older blobs forward. Nothing to do at version 1. */
+/** The original background toggle controlled both browsing and event themes. */
 function migrate(stored: StoredSettings): StoredSettings {
+  if (stored.version < 2 && typeof stored.values.backgroundMusic === 'boolean' && stored.values.eventMusic === undefined) {
+    return { version: 2, values: { ...stored.values, eventMusic: stored.values.backgroundMusic } };
+  }
   return stored;
 }
 
@@ -68,7 +76,7 @@ export function parseSettings(raw: unknown): StoredSettings {
   const empty: StoredSettings = { version: SETTINGS_VERSION, values: {} };
   if (!data || typeof data !== 'object') return empty;
   const blob = migrate({
-    version: Number((data as { version?: unknown }).version) || SETTINGS_VERSION,
+    version: Number((data as { version?: unknown }).version) || 1,
     values: ((data as { values?: unknown }).values && typeof (data as { values?: unknown }).values === 'object' ? (data as { values: Record<string, unknown> }).values : {}) as Partial<SiteSettings>,
   });
   const values: Partial<SiteSettings> = {};

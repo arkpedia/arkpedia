@@ -8,7 +8,7 @@ import { setSetting } from '@/lib/settings/siteSettings';
 import { MEDIA_REQUEST, readPrivacy, readAnalyticsDecision, savePrivacy, useMediaDecision, dismissMediaPrompt, type MediaRequest } from '@/lib/privacy/preferences';
 export default function ExternalMediaPrompt() {
   const {pathname}=useRouter(),decided=useMediaDecision();
-  const [request,setRequest]=useState<MediaRequest|null>(null),[autoplay,setAutoplay]=useState(false),[error,setError]=useState('');
+  const [request,setRequest]=useState<MediaRequest|null>(null),[background,setBackground]=useState(false),[events,setEvents]=useState(false),[error,setError]=useState('');
   useEffect(()=>{
     const open=(event:Event)=>{setError('');setRequest((event as CustomEvent<MediaRequest>).detail);};
     window.addEventListener(MEDIA_REQUEST,open);return()=>window.removeEventListener(MEDIA_REQUEST,open);
@@ -17,7 +17,8 @@ export default function ExternalMediaPrompt() {
   const choose=(allow:boolean)=>{
     try {
       savePrivacy({...readPrivacy(),externalMedia:allow},readAnalyticsDecision(),true);
-      setSetting('backgroundMusic',allow&&autoplay);
+      setSetting('backgroundMusic',allow&&background);
+      setSetting('eventMusic',allow&&events);
     }catch{
       if(allow){setError('This browser could not save your choice. External media remains off.');return;}
       dismissMediaPrompt();
@@ -26,7 +27,8 @@ export default function ExternalMediaPrompt() {
   };
   const content=<>
     <p>Allow YouTube and Monster Siren music and videos? These providers receive connection information, including your IP address, and may use their own cookies or storage.</p>
-    <AutoplayMusicChoice checked={autoplay} onChange={setAutoplay} />
+    <AutoplayMusicChoice kind="background" checked={background} onChange={setBackground} />
+    <AutoplayMusicChoice kind="event" checked={events} onChange={setEvents} />
     <div className="statistics-prompt-actions"><button type="button" className="ghost btn-sm" onClick={()=>choose(true)}>{request ? 'Allow external media' : 'Allow music playback'}</button><button type="button" className="ghost btn-sm" onClick={()=>choose(false)}>No thanks</button></div>
     <Link href="/cookies" onClick={()=>{request?.cancel?.();setRequest(null);}}>Privacy choices</Link>
     {error&&<p role="alert">{error}</p>}

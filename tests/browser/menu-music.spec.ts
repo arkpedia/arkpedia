@@ -6,11 +6,11 @@ test.use({ storageState: { cookies: [], origins: [] } });
 const current = (page: Page) => page.evaluate(() => (window as unknown as { __pageYt?: { videoId: string } }).__pageYt?.videoId);
 async function openMenu(page: Page) {
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
-  await page.getByRole('button', { name: 'Menu theme', exact: true }).click();
-  return page.getByRole('dialog', { name: 'Menu theme', exact: true });
+  await page.getByRole('button', { name: 'Choose Background Music', exact: true }).click();
+  return page.getByRole('dialog', { name: 'Choose Background Music', exact: true });
 }
 async function chooseSource(page: Page, label: string) {
-  await page.getByRole('combobox', { name: 'Menu theme source' }).click();
+  await page.getByRole('combobox', { name: 'Background music source' }).click();
   await page.getByRole('option', { name: label, exact: true }).click();
 }
 for (const theme of ['dark', 'light']) {
@@ -25,7 +25,7 @@ for (const theme of ['dark', 'light']) {
     const before = await page.evaluate(() => localStorage.getItem('arkpediaMusicQueue'));
     const dialog = await openMenu(page);
     await chooseSource(page, 'Custom song');
-    await dialog.getByRole('combobox', { name: 'Choose menu song' }).fill('endfield');
+    await dialog.getByRole('combobox', { name: 'Choose background song' }).fill('endfield');
     const option = page.getByRole('option').filter({ hasText: 'Endfield' }).nth(5);
     await expect(option).toBeVisible();
     if (process.env.ARKPEDIA_QA_CAPTURE) await page.screenshot({path:`${process.env.ARKPEDIA_QA_CAPTURE}/${info.project.name}-${theme}-menu-picker.png`,animations:'disabled'});

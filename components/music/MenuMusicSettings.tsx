@@ -31,20 +31,20 @@ export default function MenuMusicSettings() {
   const accountSong = songs.find(song => song.cid === accountId);
   const title = (song: MusicCatalogueSong) => songTitle(song.title, song.altTitle);
   return <div className={styles.settings}>
-    <StyledSelect label="Menu theme source" value={source} onChange={value => setSetting('menuMusicSource', value as SiteSettings['menuMusicSource'])}
+    <StyledSelect label="Background music source" value={source} onChange={value => setSetting('menuMusicSource', value as SiteSettings['menuMusicSource'])}
       options={[{ value: 'default', label: 'Default theme' }, { value: 'account', label: 'Imported account theme' }, { value: 'custom', label: 'Custom song' }]} />
     {source === 'account' && <p role="status">{accountSong ? title(accountSong) : !account?.homeBackground
       ? 'Import your game account to read its home theme. Using the default for now.'
       : 'This account theme has no available recording yet. Using the default for now.'}</p>}
     {source === 'custom' && <>
-      <SearchInput className={styles.picker} label="Choose menu song" value={query} onChange={setQuery} placeholder="Search songs, albums, artists or Endfield…"
-        suggestions={matches} getKey={song => song.id} suggestLabel="Matching menu songs" emptyText={error ? 'Could not load songs.' : songs.length ? 'No matching songs.' : 'Loading songs…'}
+      <SearchInput className={styles.picker} label="Choose background song" value={query} onChange={setQuery} placeholder="Search songs, albums, artists or Endfield…"
+        suggestions={matches} getKey={song => song.id} suggestLabel="Matching background songs" emptyText={error ? 'Could not load songs.' : songs.length ? 'No matching songs.' : 'Loading songs…'}
         renderSuggestion={song => <span>{title(song)}{song.game === 'endfield' ? ' · Endfield' : ''}{song.artist ? ` · ${song.artist}` : ''}</span>}
         onPick={song => { setSetting('menuMusicTrack', song.id); setQuery(''); }} />
       <p role="status">{selected ? `Selected: ${title(selected)}` : custom ? 'Selected song is unavailable in this catalogue.' : 'Choose a song. Using the default until then.'}</p>
       {selected?.copyright && excludeCopyrighted && <p>Stream-safe mode prevents this song from playing.</p>}
     </>}
     {error && <button type="button" className="ghost btn-sm" onClick={() => setAttempt(value => value + 1)}>Retry loading songs</button>}
-    <p className="hint">Event pages use their own music. Your music player always takes priority. A chosen Endfield song can play here even when Endfield is hidden from the player.</p>
+    <p className="hint">Background Music plays outside event pages. Event Music is a separate setting. Your music player always takes priority. A chosen Endfield song can play here even when Endfield is hidden from the player.</p>
   </div>;
 }

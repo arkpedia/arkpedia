@@ -20,18 +20,26 @@ setting merely because main does not yet expose its control.
 
 ## Preview audio preferences
 
-Preview adds `backgroundMusic` (false). `useSiteSetting` subscribes to this store,
-including same-tab changes and cloud restores. This preference uses personal-save
+Preview adds independent `backgroundMusic` and `eventMusic` booleans (both false).
+Version 2 migrates an explicitly chosen version-1 `backgroundMusic` value to both
+options, preserving the old combined behavior. Subsequent changes stay independent.
+`useSiteSetting` subscribes to this store, including same-tab changes and cloud restores. These preferences use personal-save
 consent; it does not enable analytics or external media.
 
-The first-visit external-media card offers an unchecked autoplay checkbox and
-shared help popover. Analytics follows after that choice. `externalMediaChosen`
+The first-visit music-playback card offers unchecked Background Music and Event Music
+checkboxes, each with shared help. Analytics follows after that choice. `externalMediaChosen`
 distinguishes an explicit refusal from old privacy records that only chose
 analytics; an existing media opt-in remains valid. Choices remain available on
 `/cookies` and autoplay is also in Account settings → Audio. Manual playback can
 request media permission again after a refusal. Nothing plays before media consent.
 Operator greetings and their API were removed; legacy greeting values are discarded
 by settings parsing, export and cloud-data validation.
+
+Background Music plays the chosen browsing theme outside event pages and Music Guesser.
+Event Music independently enables event lobby themes, including when Background Music
+is off. Event pages stay silent when Event Music is off; they do not inherit the browsing
+theme. Both switches are available directly in header Settings, Account settings → Audio,
+and privacy choices. Media consent and personal-player priority apply to both.
 
 Background playback belongs to the page that requested it. A separate page-owned engine uses
 reviewed lobby associations projected into the event page's `page-music` release
@@ -41,10 +49,9 @@ identified by the [interface BGM reference](https://arknights.wiki.gg/wiki/Sound
 
 Page music loops by itself at no more than 15% of the player volume scale, without
 changing the stored volume, queue, shuffle or repeat settings. Leaving, disabling
-background music, or cancelling a pending page request stops it. Explicit player
+the corresponding music option, or cancelling a pending page request stops it. Explicit player
 playback silences the page theme immediately. A paused main player allows the page
-theme to play, preserving its song, queue and position. Settings → Background music
-controls the persistent on/off preference. No control is rendered on the page itself.
+theme to play, preserving its song, queue and position. No control is rendered on the page itself.
 Blocked playback offers Play background music inside Settings. Page playback never expands the mini player or writes a main-player resume request.
 A browser refusal offers Play; it never opens the external-media prompt by itself.
 Phones that ignore element volume still use their hardware volume.
@@ -60,9 +67,9 @@ Verification: `test-page-audio.ts`, `test-site-settings.ts`, `page-audio.spec.ts
 plus the existing music resume, data-saver and playback-truth browser checks.
 
 
-## Menu background music
+## Choosing background music
 
-`menuMusicSource` is `default`, `account` or `custom`; `menuMusicTrack` is a catalogue track ID (YouTube ID or `msr:<cid>`). Both use the validated personal-settings store and its existing opt-in cloud path. Background music and external-media consent are still required. A deliberate custom Endfield choice applies only to the background engine, independently of the main player's Endfield filter; stream-safe exclusions still apply. Event details retain their own themes and personal playback takes priority.
+Settings → Choose Background Music opens the browsing-theme picker. `menuMusicSource` is `default`, `account` or `custom`; `menuMusicTrack` is a catalogue track ID (YouTube ID or `msr:<cid>`). Both use the validated personal-settings store and its existing opt-in cloud path. Background Music and external-media consent are still required. A deliberate custom Endfield choice applies only to the background engine, independently of the main player's Endfield filter; stream-safe exclusions still apply. Event details use their own independent Event Music preference and personal playback takes priority.
 
 The import retains only `background.selected` as `AccountRecord.homeBackground`, validated as a bounded game identifier. Older imports and unavailable recordings fall back to the default with visible feedback. It never requests a game login or refresh by itself. This field follows the existing imported-data consent category.
 

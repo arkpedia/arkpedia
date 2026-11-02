@@ -5,14 +5,17 @@ import { usePrivacyChoice } from '@/lib/privacy/preferences';
 import { usePagePlayback } from '@/lib/music/pageAudioPlayback';
 
 export default function BackgroundMusicSetting() {
-  const enabled = useSiteSetting('backgroundMusic'), consent = usePrivacyChoice('externalMedia');
+  const enabled = useSiteSetting('backgroundMusic'), events = useSiteSetting('eventMusic'), consent = usePrivacyChoice('externalMedia');
   const playback = usePagePlayback();
   const actions = useAccountActions();
   return <>
-    <label className="check site-nav-popitem" title={consent ? 'A quiet menu theme while browsing, with lobby music on event pages; your music player takes priority.' : 'Allow external media in Privacy choices first.'}>
-      <input type="checkbox" checked={enabled} disabled={!consent} onChange={event => setSetting('backgroundMusic', event.target.checked)} />Background music
+    <label className="check site-nav-popitem" title={consent ? 'Your chosen theme while browsing, except on event pages and in Music Guesser. Your music player takes priority.' : 'Allow external media in Privacy choices first.'}>
+      <input type="checkbox" checked={enabled} disabled={!consent} onChange={event => setSetting('backgroundMusic', event.target.checked)} />Background Music
     </label>
-    <button type="button" className="btn-bare site-nav-popitem" onClick={() => actions.open('menu-music')}>Menu theme</button>
-    {enabled && consent && playback?.needsPlay && <button type="button" className="btn-bare site-nav-popitem" onClick={playback.play}>Play background music</button>}
+    <label className="check site-nav-popitem" title={consent ? 'An event’s lobby music while visiting its page. Your music player takes priority.' : 'Allow external media in Privacy choices first.'}>
+      <input type="checkbox" checked={events} disabled={!consent} onChange={event => setSetting('eventMusic', event.target.checked)} />Event Music
+    </label>
+    <button type="button" className="btn-bare site-nav-popitem" onClick={() => actions.open('menu-music')}>Choose Background Music</button>
+    {consent && playback?.needsPlay && <button type="button" className="btn-bare site-nav-popitem" onClick={playback.play}>Play background music</button>}
   </>;
 }
