@@ -750,7 +750,17 @@ test('auto-deploy cloud saving is opt-in and restores cached stages without game
 
 
 test('auto-deploy background download survives closing the dialog and client navigation, with pause and resume',async({page},info)=>{
-  await stubAutoDeploys(page);const dialog=await openImport(page);await signIn(page);
+  await stubAutoDeploys(page);const dialog=await openImport(page);
+  await expect(dialog.getByLabel('Save this sign-in on this browser')).not.toBeChecked();
+  await signIn(page);
+  await expect(dialog.locator('.import-note[role="status"]')).toContainText('Imported:');
+  expect(await page.evaluate(()=>localStorage.getItem('arkpediaYostarLogin'))).toBeNull();
+  const explanation=dialog.getByText('Once started, downloads continue',{exact:false});
+  await expect(explanation).toBeVisible();
+  await expect(explanation).toContainText('Saving your game login is not required.');
+  await dialog.getByRole('button',{name:'How auto-deploy sync works',exact:true}).click();
+  await expect(dialog.getByText('The current game session stays in memory',{exact:false})).toBeVisible();
+  await page.keyboard.press('Escape');
   await dialog.getByRole('button',{name:'Sync auto-deploys',exact:true}).click();
   await dialog.getByRole('button',{name:'Close',exact:true}).click();
   const bar=page.getByRole('region',{name:'Auto-deploy downloads',exact:true});
@@ -765,6 +775,7 @@ test('auto-deploy background download survives closing the dialog and client nav
   await expect(bar).toBeVisible();
   await expect(bar.getByRole('status')).toHaveText('Auto-deploys are up to date.',{timeout:25000});
   expect(await replayRequests(page)).toHaveLength(2);
+  expect(await page.evaluate(()=>localStorage.getItem('arkpediaYostarLogin'))).toBeNull();
   await bar.scrollIntoViewIfNeeded();await page.screenshot({path:info.outputPath('auto-deploy-background-complete.png')});
   await bar.getByRole('button',{name:'Details',exact:true}).click();
   await expect(page.getByRole('dialog',{name:'Import / export'})).toContainText('2 saved in this browser');

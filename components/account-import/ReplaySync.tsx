@@ -11,7 +11,7 @@ export default function ReplaySync({busy}:{busy:boolean}) {
   async function exportSaved(){if(!info)return;try{const records=await readReplays(info.namespace);downloadBlob(new Blob([JSON.stringify({version:1,records})],{type:'application/json'}),'arkpedia-auto-deploys.json');}catch{setExportError('Could not export saved auto-deploys.');}}
   return <section className="replay-sync" aria-label="Auto-deploy sync">
     <div className="data-dialog-acts"><strong>Auto-deploys</strong><InfoPopover label="How auto-deploy sync works">
-      <p>Downloads are paced across Preview, with at least three seconds between game requests from this browser. A started download continues until finished, paused or interrupted. You can close this dialog and browse Arkpedia while downloading. Use Pause to stop. Reloading or closing this tab requires a new import to resume; completed downloads stay saved.</p>
+      <p>Downloads are paced across Preview, with at least three seconds between game requests from this browser. Use Pause to stop. The current game session stays in memory even when you do not save your login. After reloading or reopening Arkpedia, import again to resume; without a remembered login, request a new email code. Completed downloads stay saved.</p>
       <p>Stage counters are change hints. Only missing or changed stages are checked, but ordinary play may trigger a recheck.</p>
       <p>Disabling imported-data saving deletes cloud auto-deploys. Export separately; standard browser backups exclude them.</p>
       <p>Limits: 32 MiB / 3,000 auto-deploys per archive, 512 KB per replay.</p>
@@ -23,6 +23,7 @@ export default function ReplaySync({busy}:{busy:boolean}) {
       <button type="button" className="primary btn-sm" disabled={(!ready&&!running)||busy||phase==='pausing'} onClick={()=>{setExportError('');if(running)pause();else void run();}}>{phase==='pausing'?'Pausing…':running?'Pause':refreshStage.trim()?'Refresh auto-deploy':'Sync auto-deploys'}</button>
       <button type="button" className="ghost btn-sm" disabled={!count||running||busy} onClick={()=>void exportSaved()}>Export auto-deploys</button>
     </div>
+    <p className="hint">Once started, downloads continue with this popup closed while you browse Arkpedia in this tab. Reloading, closing this tab or leaving Arkpedia stops them. Saving your game login is not required.</p>
     <details><summary>Refresh one stage</summary><label>Stage ID<input type="text" aria-label="Auto-deploy stage ID" value={refreshStage} onChange={e=>setRefreshStage(e.target.value)} placeholder="main_00-01" disabled={running||busy}/></label><p className="hint">Leave empty to check all stages.</p></details>
     {(exportError||message)&&<p className="hint" role="status">{exportError||message}</p>}
     {issues.length>0&&<details><summary>Skipped stages ({issues.length})</summary>
