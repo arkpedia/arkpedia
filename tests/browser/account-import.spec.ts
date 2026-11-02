@@ -614,11 +614,11 @@ test('stage metadata capture is explicit and survives closing the import dialog'
   await expect(dialog.getByText('Capture is off.', { exact: true })).toBeVisible();
 });
 
-async function stubAutoDeploys(page: Page, firstReplay = zip64Fixture.encoded) {
+async function stubAutoDeploys(page: Page, firstReplay = zip64Fixture.encoded, stages = ['main_00-01','main_00-02']) {
   const { zipSync,strToU8 }=await import('fflate');
   await stubServers(page,120);
   await page.route('**/api/account-import/replay-permit', route=>route.fulfill({json:{granted:true}}));
-  const replays=Object.fromEntries(['main_00-01','main_00-02'].map(stageId=>[stageId,Buffer.from(zipSync({default_entry:strToU8(JSON.stringify({timestamp:1,journal:{metadata:{stageId},squad:[],logs:[]}}))})).toString('base64')]));
+  const replays=Object.fromEntries(stages.map(stageId=>[stageId,Buffer.from(zipSync({default_entry:strToU8(JSON.stringify({timestamp:1,journal:{metadata:{stageId},squad:[],logs:[]}}))})).toString('base64')]));
   replays['main_00-01'] = firstReplay;
   await page.addInitScript(replays=>{
     const original=window.__arkpediaImportTransport!;
@@ -633,6 +633,44 @@ async function stubAutoDeploys(page: Page, firstReplay = zip64Fixture.encoded) {
   },replays);
 }
 const replayRequests=(page:Page)=>page.evaluate(()=>((window as unknown as {__replayTest:{requests:{stage:string;seq:string;at:number}[]}}).__replayTest.requests));
+
+test('auto-deploy sync all downloads Annihilation and then ordinary stages through the replay route',async({page})=>{
+  await stubAutoDeploys(page,undefined,['camp_01','main_00-01']);
+  const dialog=await openImport(page);await signIn(page);
+  const panel=dialog.getByRole('region',{name:'Auto-deploy sync'});
+  await panel.getByRole('button',{name:'Sync auto-deploys',exact:true}).click();
+  await expect(panel.getByRole('status')).toHaveText('Auto-deploys are up to date.',{timeout:20000});
+  await expect(panel.getByText('2 available · 2 saved in this browser')).toBeVisible();
+  expect((await replayRequests(page)).map(r=>r.stage)).toEqual(['camp_01','main_00-01']);
+  await panel.getByRole('button',{name:'Sync auto-deploys',exact:true}).click();
+  await expect(panel.getByRole('status')).toHaveText('Auto-deploys are up to date.');
+  expect(await replayRequests(page)).toHaveLength(2);
+});
+
+test('auto-deploy HTTP failure names the stage, keeps saved replays and stops without retry',async({page},info)=>{
+  await stubAutoDeploys(page);
+  await page.addInitScript(()=>{
+    const original=window.__arkpediaImportTransport!;
+    window.__arkpediaImportTransport=async(url,request)=>{
+      const response=await original(url,request);
+      return url.endsWith('/quest/getBattleReplay')&&JSON.parse(request.body!).stageId==='main_00-02'
+        ?{status:404,json:{message:'private-provider-message'}}:response;
+    };
+  });
+  const dialog=await openImport(page);
+  await dialog.getByLabel('Save this sign-in on this browser').check();
+  await signIn(page);
+  const panel=dialog.getByRole('region',{name:'Auto-deploy sync'});
+  await panel.getByRole('button',{name:'Sync auto-deploys',exact:true}).click();
+  await expect(panel.getByRole('status')).toContainText('main_00-02 failed (HTTP 404)',{timeout:20000});
+  await expect(panel.getByText('2 available · 1 saved in this browser')).toBeVisible();
+  await expect(panel.getByRole('button',{name:'Sync auto-deploys',exact:true})).toBeDisabled();
+  await expect(dialog.locator('.import-saved').first()).toBeVisible();
+  await expect(dialog).not.toContainText('private-provider-message');
+  expect(await replayRequests(page)).toHaveLength(2);
+  await panel.getByRole('status').scrollIntoViewIfNeeded();
+  await page.screenshot({path:info.outputPath('replay-stage-http-error.png')});
+});
 
 test('auto-deploy bulk skips a mismatched stage, saves later stages and explains the skipped replay',async({page},info)=>{
   const {zipSync,strToU8}=await import('fflate');

@@ -34,6 +34,10 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-02T22:45:00Z',
+    fixed: [{ title: 'Annihilation auto-deploy downloads', detail: 'Sync all uses the correct replay address for Annihilation stages, and failed requests now name the stage.', href: '/account' }],
+  },
+  {
     at: '2026-11-02T21:15:00Z',
     changed: [{ title: 'Community stats for smaller groups', detail: 'Once a server has 10 contributors, all known upgrade and outfit percentages appear, including zeroes.', href: '/operators' }],
   },

@@ -307,7 +307,9 @@ export function createReplaySession(transport: Transport, gs: string, uid: strin
     if (busy) throw new ReplayRequestError('Another replay request is running.');
     busy = true;
     try {
-      const response = await transport(`${gs}/${stageId.startsWith('camp_') ? 'campaign' : 'quest'}/getBattleReplay`, {
+      // Replay retrieval uses quest even for camp_ (Annihilation) stages.
+      // The Global game server has no campaign/getBattleReplay route (HTTP 404).
+      const response = await transport(`${gs}/quest/getBattleReplay`, {
         method: 'POST', headers: { ...CLIENT_HEADERS, secret, uid, seqnum: String(++sequence) }, body: JSON.stringify({ stageId }),
       });
       if (response.status === 429) {
@@ -318,7 +320,7 @@ export function createReplaySession(transport: Transport, gs: string, uid: strin
       const data = object(response.json);
       if (response.status !== 200) {
         const status = Number.isInteger(response.status) && response.status >= 100 && response.status <= 599 ? ` (HTTP ${response.status})` : '';
-        throw new ReplayRequestError(`The auto-deploy request failed${status}. Import again before resuming.`);
+        throw new ReplayRequestError(`The auto-deploy request for ${stageId} failed${status}. Import again before resuming.`);
       }
       if (data.result !== undefined && data.result !== 0) {
         // Expose only a bounded numeric code, never provider messages or response bodies.
