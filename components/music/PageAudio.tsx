@@ -12,11 +12,11 @@ import { publishPagePlayback, clearPagePlayback } from '@/lib/music/pageAudioPla
 
 type Status = 'loading' | 'playing' | 'paused' | 'blocked' | 'error';
 /** A separate page-owned engine: never borrows the main player's queue, song or clock. */
-export default function PageAudio({ musicId, pageKey }: { musicId: string | null; pageKey: string }) {
+export default function PageAudio({ musicId, pageKey, allowEndfield = false }: { musicId: string | null; pageKey: string; allowEndfield?: boolean }) {
   // Each page owns its engine; the enabled setting persists across navigation.
-  return <PageAudioSession key={`${pageKey}:${musicId}`} musicId={musicId} />;
+  return <PageAudioSession key={`${pageKey}:${musicId}`} musicId={musicId} allowEndfield={allowEndfield} />;
 }
-function PageAudioSession({ musicId }: { musicId: string | null }) {
+function PageAudioSession({ musicId, allowEndfield }: { musicId: string | null; allowEndfield: boolean }) {
   const enabled = useSiteSetting('backgroundMusic'), consent = usePrivacyChoice('externalMedia');
   const { isPlaying, starting, buffering, volume, excludeCopyrighted, includeEndfield } = useMusicPlayer();
   const mainBusy = isPlaying || starting || buffering;
@@ -48,7 +48,7 @@ function PageAudioSession({ musicId }: { musicId: string | null }) {
     const onPageHide = () => { engine.current?.pauseVideo(); };
     window.addEventListener('pagehide', onPageHide);
     void loadMusicCatalogue(catalogueUrl, abort.signal).then(async songs => {
-      const track = songs.find(item => (item.id === musicId || item.cid === musicId) && songAllowed({ excludeCopyrighted, includeEndfield }, item));
+      const track = songs.find(item => (item.id === musicId || item.cid === musicId) && songAllowed({ excludeCopyrighted, includeEndfield: includeEndfield || allowEndfield }, item));
       if (disposed || !track) return;
       setSong(track);
       const onState = (value: number) => {
@@ -96,7 +96,7 @@ function PageAudioSession({ musicId }: { musicId: string | null }) {
       window.removeEventListener(MAIN_AUDIO_START, suspend); window.removeEventListener('pagehide', onPageHide);
       container?.replaceChildren();
     };
-  }, [enabled, consent, musicId, catalogueUrl, excludeCopyrighted, includeEndfield]);
+  }, [enabled, consent, musicId, catalogueUrl, excludeCopyrighted, includeEndfield, allowEndfield]);
   useEffect(() => {
     busy.current = mainBusy;
     if (mainBusy) engine.current?.pauseVideo();

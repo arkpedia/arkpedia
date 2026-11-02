@@ -58,3 +58,12 @@ copyright flag keeps stream-safe mode effective. Other missing recordings remain
 
 Verification: `test-page-audio.ts`, `test-site-settings.ts`, `page-audio.spec.ts`,
 plus the existing music resume, data-saver and playback-truth browser checks.
+
+
+## Menu background music
+
+`menuMusicSource` is `default`, `account` or `custom`; `menuMusicTrack` is a catalogue track ID (YouTube ID or `msr:<cid>`). Both use the validated personal-settings store and its existing opt-in cloud path. Background music and external-media consent are still required. A deliberate custom Endfield choice applies only to the background engine, independently of the main player's Endfield filter; stream-safe exclusions still apply. Event details retain their own themes and personal playback takes priority.
+
+The import retains only `background.selected` as `AccountRecord.homeBackground`, validated as a bounded game identifier. Older imports and unavailable recordings fall back to the default with visible feedback. It never requests a game login or refresh by itself. This field follows the existing imported-data consent category.
+
+`lib/music/menuThemeRecordings.json` is a reviewed snapshot joined from the game's `display_meta_table.json` (`homeBackgroundData.homeBgDataList[].multiFormList[].bgMusicId`) and `audio_data.json` (musics → bankAlias → bgmBanks) to exact PRTS music filenames and published MSR links, reviewed 2026-11-02. Sources: https://github.com/Kengxxiao/ArknightsGameData/tree/master/zh_CN/gamedata/excel and https://prts.wiki/w/音乐鉴赏/游戏内音乐一览. The account shape is also represented in https://github.com/pfyy/OpenBachelorS/blob/master/data/tmpl.json. Unknown IDs are not guessed. Explicit alternate background form IDs map independently; a base ID uses its first form, without trying to reproduce the game's time-of-day switching. Future background IDs require a reviewed mapping.

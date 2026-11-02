@@ -1,0 +1,9 @@
+.settings { display: grid; gap: var(--heading-gap); min-width: 0; }
+.settings p { margin: 0; }
+
+/* Keep search results inside the scrolling dialog, including on phones. */
+.settings .picker [role="listbox"] { position: relative; top: auto; max-height: min(320px, 35dvh); margin-top: 4px; }
+
+.settings .picker { display: block; }
+.settings .picker :global(.search-input-icon),
+.settings .picker :global(.search-input-clear) { top: calc(var(--control-h) / 2); transform: translateY(-50%); }

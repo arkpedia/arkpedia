@@ -22,6 +22,8 @@ export interface SiteSettings {
    *  record, remembered. */
   techniqueDetail: boolean;
   backgroundMusic: boolean;
+  menuMusicSource: 'default' | 'account' | 'custom';
+  menuMusicTrack: string;
 }
 
 export type SettingKey = keyof SiteSettings;
@@ -29,12 +31,16 @@ export type SettingKey = keyof SiteSettings;
 export const SETTINGS_DEFAULTS: Readonly<SiteSettings> = Object.freeze({
   techniqueDetail: false,
   backgroundMusic: false,
+  menuMusicSource: 'default',
+  menuMusicTrack: '',
 });
 
 /** Checks each stored value is the right type before a page sees it. */
 const VALID: { [K in SettingKey]: (value: unknown) => value is SiteSettings[K] } = {
   techniqueDetail: (value): value is boolean => typeof value === 'boolean',
   backgroundMusic: (value): value is boolean => typeof value === 'boolean',
+  menuMusicSource: (value): value is SiteSettings['menuMusicSource'] => ['default', 'account', 'custom'].includes(value as string),
+  menuMusicTrack: (value): value is string => typeof value === 'string' && (value === '' || /^(?:[\w-]{11}|msr:\d{1,12})$/.test(value)),
 };
 
 export const SETTINGS_KEY = 'arkpedia:settings';

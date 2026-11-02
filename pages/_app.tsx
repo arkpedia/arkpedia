@@ -83,8 +83,7 @@ import '@/styles/core/motion.css';
 import SiteNav from '@/components/layout/Sitenav';
 import AccountActions from '@/components/account/AccountActions';
 import MusicPlayer from '@/components/music/MusicPlayer';
-import PageAudio from '@/components/music/PageAudio';
-import { HOME_MUSIC_CID } from '@/lib/music/pageMusic';
+import MenuAudio from '@/components/music/MenuAudio';
 import { GAME_PATHS } from '@/lib/minigames/catalogue';
 import RoamingChibiProvider from '@/components/operators/RoamingChibiProvider';
 import { MusicPlayerProvider } from '@/lib/music/musicPlayerContext';
@@ -202,7 +201,7 @@ export default function App({ Component, pageProps }: AppProps) {
       {/* Keep the menu engine mounted between ordinary pages. Event details own
           their theme; Music Guesser needs silence for its own audio clips. */}
       {!hideSiteChrome && !router.pathname.startsWith('/events/') && router.pathname !== GAME_PATHS.music &&
-        <PageAudio musicId={HOME_MUSIC_CID} pageKey="site-menu" />}
+        <MenuAudio />}
       <div id="page-content" tabIndex={-1} style={{ outline: 'none' }}>
         <Component key={cloudRestoreVersion} {...pageProps} />
       </div>

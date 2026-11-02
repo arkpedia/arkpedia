@@ -6,12 +6,12 @@ import { useMusicPlayer } from '@/lib/music/musicPlayerContext';
  * it over their results, so a search for one of those songs (or for "endfield") never reads as
  * finding nothing.
  */
-export default function HiddenEndfieldHint({ count }: { count: number }) {
+export default function HiddenEndfieldHint({ count, kind = 'song' }: { count: number; kind?: 'song' | 'album' | 'artist' }) {
   const { setIncludeEndfield } = useMusicPlayer();
   if (count <= 0) return null;
   return (
     <p className="hint music-hidden-endfield-hint" role="status">
-      {count} Arknights: Endfield song{count === 1 ? '' : 's'} {count === 1 ? 'matches' : 'match'}, hidden while Endfield music is off.{' '}
+      {count} Arknights: Endfield {kind}{count === 1 ? '' : 's'} {count === 1 ? 'matches' : 'match'}, hidden while Endfield music is off.{' '}
       <button type="button" className="ghost btn-sm" onClick={() => setIncludeEndfield(true)}>Include Endfield music</button>
     </p>
   );

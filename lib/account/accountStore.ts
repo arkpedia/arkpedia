@@ -74,6 +74,8 @@ export interface AccountRecord {
   profile?: AccountProfile;
   pulls?: PullReadStatus;
   base?: AccountBaseSnapshot;
+  /** Selected in-game home background, from background.selected; absent on older imports. */
+  homeBackground?: string;
   /** Per-server build snapshot, kept with the account rather than another server's planner. */
   operatorBuilds?: Roster;
 }
@@ -201,6 +203,7 @@ export function parseAccount(raw: string | null): AccountRecord | null {
     version: 1, server: value.server, importedAt: value.importedAt,
     doctor: typeof value.doctor === 'string' ? value.doctor : null,
     ...(base ? { base } : {}),
+    ...(gameId(value.homeBackground) ? { homeBackground: gameId(value.homeBackground)! } : {}),
     ...(parseRewardClaims(value.rewardClaims) ? { rewardClaims: parseRewardClaims(value.rewardClaims) } : {}),
     ...(parsePermanentClaims(value.permanentClaims) ? { permanentClaims: parsePermanentClaims(value.permanentClaims) } : {}),
     operators: value.operators as string[], skins: value.skins as string[], cleared: value.cleared as string[],
@@ -277,6 +280,7 @@ export function accountFromGame(user: Record<string, any>, map: GameAccountMap, 
     server,
     importedAt: now.toISOString(),
     ...(base ? { base } : {}),
+    ...(gameId(user.background?.selected) ? { homeBackground: gameId(user.background.selected)! } : {}),
     doctor: status.nickName ? `${status.nickName}#${status.nickNumber ?? ''}` : null,
     operators: [...operators].sort(),
     operatorIds: [...operatorIds].sort(),

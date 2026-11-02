@@ -1,3 +1,4 @@
+import { gameSearchNames } from './songFilter';
 /**
  * One search for every music list (Library, Queue, Autoplay, Discover): a song matches when every
  * word of the query is found in its title, album, artist or extra fields (characters, story), in
@@ -114,4 +115,10 @@ export function createSongIndex<T>(songs: readonly T[], fields: (song: T) => Sea
       return song => hits.has(song);
     },
   };
+}
+
+/** Album/artist filters retain game aliases, including mixed queries such as “Endfield OST”. */
+export function musicFacetMatches(query: string, names: readonly string[], games: readonly (string | undefined)[]): boolean {
+  const fields = [...names, ...games.flatMap(gameSearchNames)].map(normalizeSearch);
+  return normalizeSearch(query).split(' ').filter(Boolean).every(word => fields.some(value => value.includes(word)));
 }
