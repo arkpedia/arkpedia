@@ -728,7 +728,7 @@ export default function OperatorDetailPage({ chibis = {}, summons = [], epTrack,
   }
 
   const sectionGroups = [
-    { label: 'Overview and abilities', keys: ['overview', 'skills', 'stats', 'talents'] },
+    { label: 'Overview and abilities', keys: ['overview', 'skills', 'stats', 'talents', 'community'] },
     { label: 'Upgrades', keys: ['mastery', 'modules', 'promotion', 'potential'] },
     { label: 'More operator information', keys: ['baseSkills', 'synergy', 'characterInfo', 'files', 'voiceLines', 'guides'] },
   ] as const;
