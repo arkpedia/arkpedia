@@ -1,0 +1,102 @@
+{
+  "bg_rhodes_day": {
+    "cid": "232202",
+    "file": "sys_void"
+  },
+  "bg_yan_1": {
+    "cid": "125094",
+    "file": "sys_bitw"
+  },
+  "bg_iberia_1": {
+    "cid": "306822",
+    "file": "sys_act18d3d0"
+  },
+  "bg_anniversary_1": {
+    "cid": "697667",
+    "file": "dia_nightoflongmen"
+  },
+  "bg_rogue_1": {
+    "cid": "048730",
+    "file": "avg_rglk1secretevent"
+  },
+  "bg_rogue_2": {
+    "cid": "306827",
+    "file": "sys_rglk2DLC"
+  },
+  "bg_laterano_1": {
+    "cid": "048718",
+    "file": "sys_act16side"
+  },
+  "bg_rhine_1": {
+    "cid": "779410",
+    "file": "sys_act19side"
+  },
+  "bg_kalts_1": {
+    "cid": "779403",
+    "file": "sys_act18d0d0"
+  },
+  "bg_rogue_3": {
+    "cid": "880329",
+    "file": "bat_rglk3DLC"
+  },
+  "bg_rainbowsix_1": {
+    "cid": "953970",
+    "file": "act32side_sys"
+  },
+  "bg_rhodes_flower_1": {
+    "cid": "697618",
+    "file": "sys_act16mini"
+  },
+  "bg_dungeon_1": {
+    "cid": "514520",
+    "file": "sys_act36side"
+  },
+  "bg_sui_1": {
+    "cid": "514533",
+    "file": "act31side_sys"
+  },
+  "bg_rogue_4": {
+    "cid": "461131",
+    "file": "sys_act17mini"
+  },
+  "bg_volcano_1": {
+    "cid": "306816",
+    "file": "sys_act27side_night"
+  },
+  "bg_volcano_1_form_2": {
+    "cid": "048708",
+    "file": "sys_act27side_day"
+  },
+  "bg_recalrune_1": {
+    "cid": "461195",
+    "file": "sys_recalrune_reward1"
+  },
+  "bg_lonetrail_1": {
+    "cid": "125074",
+    "file": "sys_act25side"
+  },
+  "bg_lonetrail_1_form_2": {
+    "cid": "125074",
+    "file": "sys_act25side"
+  },
+  "bg_rogue_5": {
+    "cid": "953949",
+    "file": "sys_rouge5_svtheme1"
+  },
+  "bg_elitelounge_1": {
+    "cid": "880320",
+    "file": "sys_elitelounge_1"
+  },
+  "bg_sandboxv3_1": {
+    "cid": "514503",
+    "file": "sys_sandbox_2_main2"
+  },
+  "bg_recalrune_2": {
+    "cid": "880358",
+    "file": "sys_recalrune_reward2"
+  },
+  "bg_redvelvet_1": {
+    "cid": "779423",
+    "file": "sys_rglk1phantomcastle"
+  }
+}

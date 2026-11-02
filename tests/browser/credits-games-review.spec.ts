@@ -3,7 +3,7 @@ import { setTheme } from './overlay-checks';
 
 test.setTimeout(120000);
 test.beforeEach(async ({ page }) => {
-  await page.addInitScript(() => localStorage.setItem('arkpedia:privacy:v1', JSON.stringify({ version: 1, analytics: false, externalMedia: false, savedAt: Date.now() })));
+  await page.addInitScript(() => localStorage.setItem('arkpedia:privacy:v1', JSON.stringify({ version: 1, analytics: false, externalMedia: false, externalMediaChosen: true, savedAt: Date.now() })));
 });
 
 async function bounds(page: Page) {

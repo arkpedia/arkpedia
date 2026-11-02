@@ -14,16 +14,20 @@ export function readPilotConfig(file = 'wrangler.jsonc') {
   const parsed = ts.parseConfigFileTextToJson(file, readFileSync(file, 'utf8'));
   if (parsed.error) throw new Error('Invalid pilot JSONC');
   const config = parsed.config;
-  const fields = new Set(['$schema', 'name', 'account_id', 'preview_urls', 'main', 'compatibility_date', 'compatibility_flags', 'assets', 'observability', 'd1_databases', 'vars', 'r2_buckets', 'services', 'durable_objects', 'migrations']);
+  const fields = new Set(['$schema', 'name', 'account_id', 'preview_urls', 'main', 'compatibility_date', 'compatibility_flags', 'assets', 'observability', 'd1_databases', 'vars', 'r2_buckets', 'services', 'durable_objects', 'migrations', 'ratelimits']);
   if (Object.keys(config).some(key => !fields.has(key))) throw new Error('Unexpected pilot configuration field; routes and environment overrides require separate review');
-  if (config.name !== 'arkpedia' || config.account_id !== ACCOUNT || config.preview_urls !== true || config.main !== '.open-next/worker.js') throw new Error('Not the existing migration pilot');
+  if (config.name !== 'arkpedia' || config.account_id !== ACCOUNT || config.preview_urls !== true || config.main !== 'scripts/deploy/production-worker.mjs') throw new Error('Not the existing migration pilot');
   if (!exact(config.assets, { directory: '.open-next/assets', binding: 'ASSETS' })) throw new Error('Pilot static assets differ');
-  if (!exact(config.d1_databases, [{ binding: 'ARKPEDIA_ACCOUNTS_DB', database_name: 'arkpedia-accounts-dev', database_id: 'f7daff77-8e8f-4ec2-998b-97fb6e4b948f', migrations_dir: 'migrations/accounts' }])) throw new Error('Pilot account binding must be preserved');
+  if (!exact(config.d1_databases, [{ binding: 'ARKPEDIA_ACCOUNTS_DB', database_name: 'arkpedia-prod-accounts', database_id: 'f7daff77-8e8f-4ec2-998b-97fb6e4b948f', migrations_dir: 'migrations/accounts' }])) throw new Error('Pilot account binding must be preserved');
+  if (!exact(config.ratelimits, [
+    { name: 'ACCOUNT_TRAFFIC_LIMIT', namespace_id: '2026110201', simple: { limit: 6000, period: 60 } },
+    { name: 'ACCOUNT_IP_LIMIT', namespace_id: '2026110202', simple: { limit: 300, period: 60 } },
+  ])) throw new Error('Production account request limits changed');
   if (!exact(config.r2_buckets, [{ binding: 'NEXT_INC_CACHE_R2_BUCKET', bucket_name: 'arkpedia-opennext-cache' }])) throw new Error('Pilot must retain its existing ISR cache');
   if (!exact(config.services, [{ binding: 'WORKER_SELF_REFERENCE', service: 'arkpedia' }])) throw new Error('Pilot self-reference must target itself');
   if (!exact(config.durable_objects, { bindings: [{ name: 'NEXT_CACHE_DO_QUEUE', class_name: 'DOQueueHandler' }] })
     || !exact(config.migrations, [{ tag: 'v1', new_sqlite_classes: ['DOQueueHandler'] }])) throw new Error('Pilot queue and migration history must be preserved');
-  if (!exact(config.vars, { ARKPEDIA_AUTH_URL: AUTH_ORIGIN, ARKPEDIA_CONTENT_CHANNEL: 'live', ARKPEDIA_DEPLOYMENT_ROLE: 'production' })) throw new Error('Pilot must use its existing account origin with main-compatible live data');
+  if (!exact(config.vars, { ARKPEDIA_AUTH_URL: AUTH_ORIGIN, ARKPEDIA_CONTENT_CHANNEL: 'live', ARKPEDIA_DEPLOYMENT_ROLE: 'production', ARKPEDIA_ACCOUNTS_ENABLED: '1' })) throw new Error('Pilot must use its existing account origin with main-compatible live data');
   if (config.compatibility_date !== '2026-10-19' || !exact(config.compatibility_flags, ['nodejs_compat', 'global_fetch_strictly_public'])) throw new Error('Pilot runtime compatibility changed');
   return config;
 }

@@ -29,6 +29,10 @@ function publicProfile(profile: AccountProfile | undefined): AccountProfile | un
       level: integer(unit.level, 90, 1), elite: integer(unit.elite, 2), potential: integer(unit.potential, 6, 1),
       skill: integer(unit.skill, 3) || null, allMastered: unit.allMastered === true,
       module: id(unit.module), skillId: id(unit.skillId), skin: id(unit.skin),
+      ...(unit.skillLevel==null?{}:{skillLevel:integer(unit.skillLevel,7)||null}),
+      ...(Array.isArray(unit.skillMasteries)?{skillMasteries:unit.skillMasteries.slice(0,3).map(m=>m==null?null:integer(m,3))}:{}),
+      ...(unit.skillMastery==null?{}:{skillMastery:integer(unit.skillMastery,3)}),
+      ...(unit.moduleLevel!=null&&unit.moduleLevel>=1&&unit.moduleLevel<=3?{moduleLevel:integer(unit.moduleLevel,3)}:{}),
     })),
     medals: (profile.medals ?? []).filter(medal => id(medal.id)).slice(0, 64).map(medal => ({
       id: medal.id, x: typeof medal.x === 'number' && Number.isFinite(medal.x) && Math.abs(medal.x) <= 1000 ? medal.x : null,

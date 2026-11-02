@@ -3,21 +3,25 @@
   "name": "arkpedia",
   "account_id": "1ff51c10571eaa9934bc451e1bfdb361",
   "preview_urls": true,
-  "main": ".open-next/worker.js",
+  "main": "scripts/deploy/production-worker.mjs",
   "compatibility_date": "2026-10-19",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
   "assets": { "directory": ".open-next/assets", "binding": "ASSETS" },
   "observability": { "enabled": true },
-  // Pilot account data, isolated from any future production database.
+  // Production storage remains isolated from native Preview.
   "d1_databases": [
     {
       "binding": "ARKPEDIA_ACCOUNTS_DB",
-      "database_name": "arkpedia-accounts-dev",
+      "database_name": "arkpedia-prod-accounts",
       "database_id": "f7daff77-8e8f-4ec2-998b-97fb6e4b948f",
       "migrations_dir": "migrations/accounts"
     }
   ],
-  "vars": { "ARKPEDIA_AUTH_URL": "https://www.arkpedia.net", "ARKPEDIA_CONTENT_CHANNEL": "live", "ARKPEDIA_DEPLOYMENT_ROLE": "production" },
+  "vars": { "ARKPEDIA_AUTH_URL": "https://www.arkpedia.net", "ARKPEDIA_CONTENT_CHANNEL": "live", "ARKPEDIA_DEPLOYMENT_ROLE": "production", "ARKPEDIA_ACCOUNTS_ENABLED": "1" },
+  "ratelimits": [
+    { "name": "ACCOUNT_TRAFFIC_LIMIT", "namespace_id": "2026110201", "simple": { "limit": 6000, "period": 60 } },
+    { "name": "ACCOUNT_IP_LIMIT", "namespace_id": "2026110202", "simple": { "limit": 300, "period": 60 } }
+  ],
   // The page cache (open-next.config.ts). The bucket must exist before a deploy:
   // `npx wrangler r2 bucket create arkpedia-opennext-cache`, or R2 > Create bucket in the dashboard.
   // It also keeps each Monster Siren song's signed audio address, under music-audio/

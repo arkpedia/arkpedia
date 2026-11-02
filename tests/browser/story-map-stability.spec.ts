@@ -2,11 +2,11 @@ import fs from 'node:fs/promises';
 import { expect, test } from '@playwright/test';
 
 test.beforeEach(async ({ page }) => {
-  await page.addInitScript(() => localStorage.setItem('arkpedia:privacy:v1', JSON.stringify({ version: 1, analytics: false, externalMedia: false, savedAt: Date.now() })));
+  await page.addInitScript(() => localStorage.setItem('arkpedia:privacy:v1', JSON.stringify({ version: 1, analytics: false, externalMedia: false, externalMediaChosen: true, savedAt: Date.now() })));
 });
 
 test('story map fit stays stable without scrollbar and resize feedback', async ({ page }, info) => {
-  await page.addInitScript(() => localStorage.setItem('arkpedia:privacy:v1', JSON.stringify({ version: 1, analytics: false, externalMedia: false, savedAt: Date.now() })));
+  await page.addInitScript(() => localStorage.setItem('arkpedia:privacy:v1', JSON.stringify({ version: 1, analytics: false, externalMedia: false, externalMediaChosen: true, savedAt: Date.now() })));
   await page.goto('/story');
   await expect(page.locator('.story-map-board')).toBeVisible();
   const widths = info.project.name === 'mobile' ? [320, 412] : [1440, 1920, 1024];
@@ -67,7 +67,7 @@ for (const theme of ['dark', 'light']) test(`map zoom, drag, chapter and fullscr
 });
 
 test('zoomed map never becomes smaller than Fit after the viewport grows', async ({ page }) => {
-  await page.addInitScript(() => localStorage.setItem('arkpedia:privacy:v1', JSON.stringify({ version: 1, analytics: false, externalMedia: false, savedAt: Date.now() })));
+  await page.addInitScript(() => localStorage.setItem('arkpedia:privacy:v1', JSON.stringify({ version: 1, analytics: false, externalMedia: false, externalMediaChosen: true, savedAt: Date.now() })));
   await page.setViewportSize({ width: 320, height: 900 });
   await page.goto('/story');
   const view = page.locator('.story-map-viewport');

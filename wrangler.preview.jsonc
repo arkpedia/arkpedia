@@ -24,9 +24,20 @@
   ],
   "previews": {
     "vars": {
+      "ARKPEDIA_AUTH_URL": "https://preview.arkpedia.net",
       "ARKPEDIA_CONTENT_CHANNEL": "live",
       "ARKPEDIA_DEPLOYMENT_ROLE": "staging"
     },
+    "d1_databases": [{
+      "binding": "ARKPEDIA_ACCOUNTS_DB",
+      "database_name": "arkpedia-preview-accounts",
+      "database_id": "7d9cdfb2-2203-4708-bad5-f357d2c105b2",
+      "migrations_dir": "migrations/accounts"
+    }],
+    "ratelimits": [
+      { "name": "ACCOUNT_TRAFFIC_LIMIT", "namespace_id": "2026110101", "simple": { "limit": 6000, "period": 60 } },
+      { "name": "ACCOUNT_IP_LIMIT", "namespace_id": "2026110102", "simple": { "limit": 300, "period": 60 } }
+    ],
     "r2_buckets": [
       {
         "binding": "NEXT_INC_CACHE_R2_BUCKET",

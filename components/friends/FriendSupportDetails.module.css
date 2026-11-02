@@ -1,0 +1,21 @@
+.dialog { --dialog-w: 1160px; }
+.units { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+.unit { min-width: 0; }
+.unit h3 { margin: 0 0 12px; }
+.unit p { margin: 8px 0 0; }
+.build { display: grid; grid-template-columns: minmax(72px, 1fr) minmax(0, 1.5fr); align-items: start; gap: 10px; }
+.portrait { width: 100%; min-width: 0; color: var(--scrim-ink); }
+.skills { display: grid; gap: 8px; }
+.skill { display: flex; gap: 8px; padding: 8px; align-items: center; text-align: left; min-width: 0; white-space: normal; letter-spacing: normal; text-transform: none; }
+.skillIcon { width: 36px; height: 36px; object-fit: contain; flex: none; }
+.rank { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; }
+.rank img { width: 24px; height: 24px; object-fit: contain; }
+.skillText { display: grid; gap: 3px; min-width: 0; overflow-wrap: anywhere; }
+@media (max-width: 900px) {
+  .units { grid-template-columns: 1fr; }
+  .build { grid-template-columns: 112px minmax(0, 1fr); }
+}
+@media (max-width: 380px) {
+  .build { grid-template-columns: 80px minmax(0, 1fr); gap: 8px; }
+  .skillIcon { width: 28px; height: 28px; }
+}

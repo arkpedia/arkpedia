@@ -1,10 +1,17 @@
+import InfoPopover from '@/components/ui/InfoPopover';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { ImportError, readAccount, readNetwork, readPulls, sendCode, SERVERS, signIn, type ImportStep, type Network, type ServerId, type YostarAccount } from '@/lib/account-import/yostar';
+import { ImportError, readAccount, readNetwork, readPulls, sendCode, SERVERS, signIn, type ImportStep, type Network, type ServerId, type YostarAccount, type ReplaySession } from '@/lib/account-import/yostar';
 import { isResettingBrowserData } from '@/lib/account/resetData';
 import type { PullRead } from '@/lib/account/pulls';
 import { directTransport, networkTransport, relayTransport } from '@/lib/account-import/relay';
 import { forgetLogin, maskEmail, readSavedLogin, saveLogin, SAVED_LOGIN_KEY, type SavedLogin } from '@/lib/account-import/savedLogin';
+import ReplaySync from './ReplaySync';
+import { useReplayDownloads } from '@/lib/replays/DownloadProvider';
+import { stageMarkers } from '@/lib/replays/model';
+import { REPLAY_LOCK } from '@/lib/replays/queue';
 import ConnectionDiagnostics from './ConnectionDiagnostics';
+import StageDiagnostics from './StageDiagnostics';
+import { stageDiagnostics } from '@/lib/account-import/stageDiagnostics';
 import { connectionDiagnostics } from '@/lib/account-import/connectionDiagnostics';
 import { beginnerDiagnostics } from '@/lib/account-import/beginnerDiagnostics';
 import { useCodeCooldown } from '@/lib/account-import/codeCooldown';
@@ -50,7 +57,9 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
   const [codeSent, setCodeSent] = useState(false);
   const [retryingCode, setRetryingCode] = useState(false);
   const { secondsLeft, begin: beginCodeRequest, finish: finishCodeRequest } = useCodeCooldown(server);
-  const [busy, setBusy] = useState(false);
+  const [importBusy, setBusy] = useState(false);
+  const downloads = useReplayDownloads();
+  const busy = importBusy || downloads.running;
   const validEmail = /^\S+@\S+\.\S+$/.test(email.trim());
   const [step, setStep] = useState<ImportStep | null>(null);
   const [failed, setFailed] = useState<{ step: ImportStep | null; message: string } | null>(null);
@@ -122,6 +131,10 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
       if (savedForServer) deviceId.current = savedForServer.deviceId;
       await sendCode(flow(), address, () => setRetryingCode(true));
       setCodeSent(true);
+      if (savedForServer) {
+        // Replace the saved login only after a successful, explicitly requested sign-in.
+        setEmail(address); setCode(''); setSaveSignIn(true); setSaved(null);
+      }
     } catch (error) {
       setFailed({ step: error instanceof ImportError ? error.step : 'send-code', message: describe(error) });
     } finally {
@@ -138,22 +151,35 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
 
   /** Steps 3 to 6 with a Yostar login on `from`, then the account and the pulls to the caller. */
   async function read(yostar: YostarAccount, device: string, signedInAs: string, from: ServerId) {
-    // The report's beginner summary is this import's, never an earlier one's.
-    connectionDiagnostics.setBeginner(null);
-    const user = await readAccount({ transport: relayTransport, direct: directTransport, deviceId: device, network: await connect(from), onStep: setStep }, yostar);
-    connectionDiagnostics.setBeginner(beginnerDiagnostics(user));
-    setStep('pulls');
-    let pulls: PullRead;
-    try {
-      pulls = { rows: await readPulls(relayTransport, from, signedInAs, yostar), error: null };
-    } catch (error) {
-      pulls = { rows: null, error: describe(error) };
-    }
-    setPullsFailed(pulls.error);
-    if (isResettingBrowserData()) return;
-    onAccount(user, pulls, from);
-    setDone(true);
-    setStep(null);
+    const perform = async () => {
+      downloads.install(null);
+      // Other tabs must retire a paused continuation when this game session changes.
+      if (process.env.ARKPEDIA_CLOUD_ACCOUNTS === '1') {
+        try { window.localStorage.setItem('arkpedia:replays-stop', String(Date.now())); } catch { /* Storage restrictions must not break a normal game import. */ }
+      }
+      let replaySession: ReplaySession | undefined;
+      // The report's beginner summary is this import's, never an earlier one's.
+      connectionDiagnostics.setBeginner(null);
+      const user = await readAccount({ transport: relayTransport, direct: directTransport, deviceId: device, network: await connect(from), onStep: setStep, readFriendSlots: true, ...(process.env.ARKPEDIA_CLOUD_ACCOUNTS === '1' ? { onReplaySession: (session: ReplaySession) => { replaySession = session; } } : {}) }, yostar);
+      stageDiagnostics.capture(user, from);
+      connectionDiagnostics.setBeginner(beginnerDiagnostics(user));
+      setStep('pulls');
+      let pulls: PullRead;
+      try {
+        pulls = { rows: await readPulls(relayTransport, from, signedInAs, yostar), error: null };
+      } catch (error) {
+        pulls = { rows: null, error: describe(error) };
+      }
+      setPullsFailed(pulls.error);
+      if (isResettingBrowserData()) return;
+      onAccount(user, pulls, from);
+      if (replaySession) downloads.install({session:replaySession,markers:stageMarkers(user),server:from});
+      setDone(true);
+      setStep(null);
+    };
+    if (process.env.ARKPEDIA_CLOUD_ACCOUNTS === '1' && navigator.locks) {
+      await navigator.locks.request(REPLAY_LOCK,{ifAvailable:true},async lock=>{if(!lock)throw new Error('Another tab is importing game data. Wait for it to finish.');await perform();});
+    } else await perform();
   }
 
   async function onImport(event: FormEvent) {
@@ -201,18 +227,9 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
       await read(savedForServer, savedForServer.deviceId, savedForServer.email, savedForServer.server);
     } catch (error) {
       const at = error instanceof ImportError ? error.step : 'account';
-      // The game refused it: expired or revoked, so it is forgotten rather than tried again.
-      if (at === 'game-token' || at === 'game-login') {
-        forgetLogin();
-        setSaved(null);
-        setEmail(savedForServer.email);
-        setCode('');
-        setCodeSent(false);
-        setStep(null);
-        setFailed({ step: null, message: 'Your saved sign-in no longer works. Sign in with a code again.' });
-      } else {
-        setFailed({ step: at, message: describe(error) });
-      }
+      // A failed request does not establish that the saved credential expired.
+      // Keep it through network, version, provider and account-read failures.
+      setFailed({ step: at, message: `${describe(error)} Your saved sign-in has been kept. Try Import again, or request a new code to replace it.` });
     } finally {
       setBusy(false);
     }
@@ -233,6 +250,7 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
     // Explicit removal reports failure; automatic expired-login cleanup is best effort.
     try { window.localStorage.removeItem(SAVED_LOGIN_KEY); }
     catch { setFailed({ step: null, message: 'This browser could not forget the saved Yostar login. Check its site-data settings and try again.' }); return; }
+    downloads.install(null);
     setSaved(null); setEmail(''); setCode(''); setCodeSent(false); setDone(false); setStep(null); setFailed(null);
   }}>Forget Yostar login</button>;
   return (
@@ -297,10 +315,10 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
               />
               <button type="submit" className="primary btn-sm" disabled={busy || !validEmail || !code.trim()}>Import</button>
             </form>
-            <label className="check import-remember" title="Keeps the sign-in in this browser only, so the next import needs no emailed code. Leave it off on a shared browser.">
+            <div className="account-shortcuts"><label className="check import-remember">
               <input type="checkbox" checked={saveSignIn} onChange={(event) => setSaveSignIn(event.target.checked)} disabled={busy} />
               Save this sign-in on this browser
-            </label>
+            </label><InfoPopover label="About remembering your game sign-in"><p>Keeps your game-login email, tokens and device information in this browser so later imports need no emailed code. They never sync to your Arkpedia account or backups.</p><p>Leave this off on a shared device. Remove a saved sign-in with Forget Yostar login.</p></InfoPopover></div>
           </div>
         </>
       )}
@@ -322,7 +340,9 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
         </ol>
       )}
       {failed && <p className="import-error" role="alert">{failed.message}</p>}
+      {process.env.ARKPEDIA_CLOUD_ACCOUNTS === '1' && <ReplaySync busy={importBusy} />}
       <ConnectionDiagnostics />
+      <StageDiagnostics server={server} busy={busy} />
       {failed?.step === 'network' && <button type="button" className="ghost btn-sm" disabled={busy || connection === 'opening'} onClick={() => { connect().catch(error => setFailed({ step: 'network', message: describe(error) })); }}>Retry connection</button>}
       {done && pullsFailed && <p className="hint import-note">The pull history could not be read ({pullsFailed}). Everything else was imported.</p>}
     </>

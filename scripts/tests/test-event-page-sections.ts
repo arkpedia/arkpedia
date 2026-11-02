@@ -1,4 +1,4 @@
-import { regionalFixture } from './regional-fixture';
+import { eventPageFixture } from './event-page-fixture';
 import { REGIONAL_MATERIAL } from '../../lib/i18n/regionalMaterial';
 import './css-modules';
 import { test } from 'node:test';
@@ -23,7 +23,7 @@ import EventDetailPage from '../../pages/events/[slug]';
 // tsx compiles the page's JSX to React.createElement (tsconfig keeps JSX for Next).
 (globalThis as { React?: typeof React }).React = React;
 const render = (element: ReactElement) => renderToStaticMarkup(
-  createElement(ImageConfigContext.Provider, { value: { ...imageConfigDefault, unoptimized: true } }, regionalFixture(element)));
+  createElement(ImageConfigContext.Provider, { value: { ...imageConfigDefault, unoptimized: true } }, eventPageFixture(element)));
 
 type PageProps = Parameters<typeof EventDetailPage>[0];
 const page = (over: Partial<PageProps>) => render(createElement(EventDetailPage, {

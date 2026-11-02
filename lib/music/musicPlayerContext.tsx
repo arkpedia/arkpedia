@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore, ReactNode } from 'react';
+import { MAIN_AUDIO_START } from './pageMusic';
 import { readPrivacy, requestExternalMedia } from '@/lib/privacy/preferences';
 import { useRouter } from 'next/router';
 import { useContentUrl } from '@/lib/content/context';
@@ -252,6 +253,7 @@ export function useMusicPlayback(): PlaybackPosition & Omit<MusicPlaybackContext
 export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   // The player's engine (lib/music/playbackEngine.ts): YouTube's iframe for a song on YouTube,
   // Monster Siren's audio for one that is not, behind one surface. Set once YouTube is ready.
+  const manualAudio = useRef(false);
   const playerRef = useRef<TrackEngine | null>(null);
   const audioRef = useRef<MsrAudioEngine | null>(null);
   const playerCreatedRef = useRef(false);
@@ -384,6 +386,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
    *  (lib/music/audioElement.ts primeMusicAudio), and the engine takes it over. */
   const primeAudio = (id?: string | null, seconds = 0) => {
     if (!readPrivacy().externalMedia) return;
+    window.dispatchEvent(new Event(MAIN_AUDIO_START));
     clearPlaybackNotice();
     const source = id ? routeTrack(id) : null;
     if (source?.kind !== 'msr') return;
@@ -476,7 +479,8 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
       const storage = window.localStorage;
       const nextVolume = Number(storage.getItem('musicVolume') ?? 50);
       if (Number.isFinite(nextVolume) && nextVolume >= 0 && nextVolume <= 100) {
-        volumeRef.current = nextVolume; setVolume(nextVolume); playerRef.current?.setVolume(nextVolume);
+        const effective = nextVolume;
+        volumeRef.current = effective; setVolume(effective); playerRef.current?.setVolume(effective);
       }
       dataSaverRef.current = storage.getItem(MUSIC_DATA_SAVER_KEY) === 'true';
       setDataSaverState(dataSaverRef.current);
@@ -940,6 +944,11 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
 
       const onPlayerState = (data: number, engine: TrackEngine) => {
         const state = PLAYER_STATE;
+        // Ignore unsolicited playback before a main-player request.
+        if (!manualAudio.current && !videoIdRef.current && data === state.PLAYING) {
+          engine.pauseVideo(); return;
+        }
+        if (data === state.PLAYING) window.dispatchEvent(new Event(MAIN_AUDIO_START));
         playerStateRef.current = data;
         setEngineKind(engine.active());
         // Monster Siren's audio reports BUFFERING from the press until its clock moves, and
@@ -1118,6 +1127,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   // A resumed song that does not start: the browser refused it (YouTube does not always
   // say so) or it never came. It waits, cued at its moment, for the reader's Play.
   function refuseResume() {
+    setStarting(false); setBuffering(false);
     const watch = resumeWatchRef.current;
     const player = playerRef.current;
     endResumeWatch();
@@ -1170,7 +1180,9 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   const initializePlayer = useCallback((prompt = true) => {
     if (!prompt && !readPrivacy().externalMedia) return;
     requestExternalMedia(() => {
-      primeAudio(pendingVideoIdRef.current ?? videoIdRef.current);
+      // Opening the player or adding to its queue is not a request for sound.
+      // Only a pending play may interrupt the page's background theme.
+      if (pendingPlayRef.current || pendingVideoIdRef.current) primeAudio(pendingVideoIdRef.current ?? videoIdRef.current);
       setInitialized(true);
     }, () => { pendingPlayRef.current = false; setStarting(false); setBuffering(false); });
   // The permission callback uses current playback refs.
@@ -1317,6 +1329,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     const savedRecord = takeMusicResume(sessionStore(), Date.now(), { discarded: (document as Document & { wasDiscarded?: boolean }).wasDiscarded === true });
     const record = savedRecord;
     if (!record) return;
+    manualAudio.current = true;
     // The music guesser pauses the player as it opens (its effect runs before this one): a
     // song resumed there would play over its clips.
     const play = record.playing && router.pathname !== GAME_PATHS.music;
@@ -1825,24 +1838,39 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     actions: {
       // From the lock screen, a press too: a song still loading is asked to play again in it.
       play: () => {
+        claimManualAudio();
         if (bufferingRef.current) { primeAudio(videoIdRef.current); playerRef.current?.playVideo(); } else if (!isPlayingRef.current) togglePlay();
       },
-      pause: pausePlayback,
-      next: () => void nextTrack(),
-      previous: prevTrack,
+      pause: () => { claimManualAudio(); pausePlayback(); },
+      next: () => { claimManualAudio(); void nextTrack(); },
+      previous: () => { claimManualAudio(); prevTrack(); },
       seek: (seconds) => { setCurrentTime(seconds); handleSeekCommit(seconds); },
     },
     position: () => ({ seconds: playerRef.current?.getCurrentTime() ?? position.get().currentTime, duration: playerRef.current?.getDuration() ?? position.get().duration }),
     element: msrSession ? audioRef.current?.element ?? null : null,
   });
 
+  function claimManualAudio() {
+    manualAudio.current = true;
+  }
+
   // The actions keep their identity across renders (lib/ui/useLatestActions.ts), so the value
   // below changes only with the state it carries.
   const actions = useLatestActions({
-    setAutoplay, dismissNotice, setIncludeEndfield, setDataSaver, initializePlayer, togglePlay, pausePlayback, nextTrack, prevTrack,
-    toggleShuffle, cycleRepeat, toggleFavorite, toggleNoAutoplay: toggleSongNoAutoplay, setVolumeLevel, playQueueIndex, playTrackByVideoId,
-    playFirst, playPlaylist, reorderQueue, reorderShuffleOrder, moveQueueItemToTop, removeFromQueue, playNow, queueSong, clearQueue,
+    setAutoplay, dismissNotice, setIncludeEndfield, setDataSaver, initializePlayer,
+    toggleShuffle, cycleRepeat, toggleFavorite, toggleNoAutoplay: toggleSongNoAutoplay,
+    reorderQueue, reorderShuffleOrder, moveQueueItemToTop, removeFromQueue, queueSong, clearQueue,
     undoClearQueue, setExcludeCopyrighted,
+    togglePlay: () => { claimManualAudio(); togglePlay(); },
+    pausePlayback: () => { claimManualAudio(); pausePlayback(); },
+    nextTrack: () => { claimManualAudio(); return nextTrack(); },
+    prevTrack: () => { claimManualAudio(); prevTrack(); },
+    playTrackByVideoId: (id: string) => { claimManualAudio(); playTrackByVideoId(id); },
+    playFirst: (id: string) => { claimManualAudio(); playFirst(id); },
+    playNow: (id: string) => { claimManualAudio(); playNow(id); },
+    playQueueIndex: (index: number) => { claimManualAudio(); playQueueIndex(index); },
+    playPlaylist: (ids: string[] | null, id?: string) => { claimManualAudio(); return playPlaylist(ids, id); },
+    setVolumeLevel: (v: number) => { claimManualAudio(); setVolumeLevel(v); },
   });
   const value = useMemo<MusicPlayerContextValue>(() => ({
     ready, starting, isPlaying, buffering, title, videoId, volume, shuffle, repeatMode, favorites,

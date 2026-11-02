@@ -34,6 +34,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-02T15:20:00Z',
+    added: [
+      { title: 'Arkpedia accounts enter Beta', detail: 'Sign in with Google or Discord and choose which settings, plans and imported game data to save across devices.', href: '/account' },
+      { title: 'Find community support units', detail: 'Opt in to share your equipped supports and friend tag, or search by operator, level and mastery.', href: '/community/support-units' },
+      { title: 'Community operator and skin statistics', detail: 'Contribute optionally to ownership, upgrades, masteries and outfit statistics.', href: '/operators' },
+      { title: 'Background and event music', detail: 'Enable either separately and choose a background song, including your imported menu theme or Endfield music.', href: '/music' },
+      { title: 'Save your auto-deploys', detail: 'Download and optionally save replays to your account while browsing, with pause and resume controls.', href: '/account' },
+    ],
+  },
+  {
     at: '2026-11-02T12:00:00Z',
     fixed: [{ title: 'Walking chibis keep their size', detail: 'Detached skin decorations no longer make roaming characters unusually small.', href: '/operators' }],
   },

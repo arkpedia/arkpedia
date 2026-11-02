@@ -68,6 +68,8 @@ async function openHome(page: Page, make: (real: Banner[]) => Banner[], clock = 
     await route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body });
   });
   await page.clock.setFixedTime(new Date(clock));
+  // Keep this returning reader's choice valid at the fixture's future clock.
+  await page.addInitScript(() => localStorage.setItem('arkpedia:privacy:v1', JSON.stringify({ version: 1, analytics: false, externalMedia: false, externalMediaChosen: true, savedAt: Date.now() })));
   await page.goto('/');
   return given;
 }

@@ -380,6 +380,13 @@ async function withStubbedFeeds<T>(run: () => Promise<T>): Promise<{ result: T; 
  * running cannot pass.
  */
 const REGENERATED: Record<string, (props: Record<string, unknown>, clock: { from: number; to: number }) => void> = {
+  '/community/support-units': props => {
+    const operators = props.operators as {name:string;rarity:number;skills:number}[];
+    assert.ok(operators.length > 350, 'support search has a real operator catalogue');
+    assert.equal(operators.find(op => op.name === 'Lancet-2')?.rarity, 1);
+    const tables = props.__contentTables as Record<string, {chars?:Record<string,unknown>}>;
+    assert.ok(Object.keys(tables['game-account-map'].chars ?? {}).length > 400, 'finalize supplies the support portrait map');
+  },
   '/community/projects': props => {
     assert.equal((props.chibis as unknown[]).length, 2);
     assert.equal(((props.__contentTables as Record<string, { projects: unknown[] }>)['community-projects'].projects).length, 10);

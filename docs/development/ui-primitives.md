@@ -657,6 +657,9 @@ secondary help. Their contents keep native link/button Tab behavior. Escape clos
 the disclosure and restores trigger focus; when used inside a native dialog, help
 stays in that dialog's top layer and closes before the dialog itself. Do not hide
 validation, save conflicts, consent descriptions or destructive consequences in help.
+Use `ActionPopover`'s `textTrigger` for a labelled action such as Report availability;
+icon triggers keep their square control size. Its surface can inherit
+`--action-popover-ground` from an artwork container so text stays readable in both themes.
 
 Use `ApplicationImage` / `ApplicationArt` for code-owned profile icons and other
 application artwork that must keep its immutable deploy pin while content releases
@@ -681,3 +684,5 @@ selections open for further choices, and restores the trigger on Escape. Single
 selection retains its combobox/listbox behavior. Use `placeholder` for the unrestricted
 state; do not add a mutually exclusive “All” item to a multi-select list. Operator
 filters match any selected value within a category and intersect categories.
+
+`BetaLabel` reuses the site brand’s small, italic, sentence-case Beta label for account setup. Keep it beside a title; do not turn it into a badge or button. `ImportDialog.titleSuffix` adds a visual title annotation without changing the dialog’s accessible name.

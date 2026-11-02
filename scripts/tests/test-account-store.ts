@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { supportPreviewBuild } from '../../lib/account/supportBuild';
+import type { SupportUnit } from '../../lib/account/accountStore';
 import { test } from 'node:test';
 import { accountFromGame, ownedFilter, parseAccount } from '../../lib/account/accountStore';
 import { portraitPath, profileArtPath, assistantArtPath, assistantCatalogue, assistantIconPath, avatarSources, cardOutfits } from '../../lib/account/portraits';
@@ -52,9 +54,9 @@ test('an account gives the operators it owns by name, its outfits by skin id and
       hired: 4,
       // The support units by the troop's own records; a slot with no operator behind it is left out.
       // Whether every skill is at M3 (the game's badge): Fiammetta's second is at M2, so not.
-      supports: [{ name: 'Fiammetta', rarity: 6, level: 60, elite: 2, potential: 6, skill: 3, allMastered: false, module: 'uniequip_002_phenxi', skillId: 'skchr_phenxi_3', skin: 'char_300_phenxi@summer#1' },
+      supports: [{ name: 'Fiammetta', rarity: 6, level: 60, elite: 2, potential: 6, skill: 3, allMastered: false, module: 'uniequip_002_phenxi', skillId: 'skchr_phenxi_3', skin: 'char_300_phenxi@summer#1', skillMastery:3, skillLevel:null, skillMasteries:[0,2,3], moduleLevel:null },
         // Amiya lends the form she is in, in that form's outfit.
-        { name: 'Amiya (Guard)', rarity: null, level: 1, elite: 0, potential: 1, skill: null, allMastered: false, module: null, skillId: null, skin: 'char_1001_amiya2#2' }],
+        { name: 'Amiya (Guard)', rarity: null, level: 1, elite: 0, potential: 1, skill: null, allMastered: false, module: null, skillId: null, skin: 'char_1001_amiya2#2', skillMastery:null, skillLevel:null, skillMasteries:[], moduleLevel:null }],
       medals: [{ id: 'medal_a', x: 6, y: 12 }, { id: 'medal_b', x: 9, y: 9 }] },
   });
   assert.deepEqual(parseAccount(JSON.stringify(record)), record);
@@ -109,6 +111,14 @@ test('a support unit wears the M3 badge only when every one of its skills is at 
   const unit = parseAccount(JSON.stringify(old))!.profile!.supports![0] as unknown as Record<string, unknown>;
   assert.equal(unit.mastery, undefined);
   assert.equal(unit.allMastered, undefined);
+});
+test('equipped support mastery and module stage stay separate from training and friend capacity stays unknown without a count',()=>{
+  const map={version:1 as const,chars:{char_300_phenxi:{name:'Fiammetta',rarity:6,modules:{uniequip_002_phenxi:0}}}};
+  const user={status:{friendNumLimit:50},social:{arkpediaFriendCount:47,assistCharList:[{charInstId:1,skillIndex:0}]},troop:{chars:{1:{charId:'char_300_phenxi',evolvePhase:2,level:60,skills:[{specializeLevel:2}],currentEquip:'uniequip_002_phenxi',equip:{uniequip_002_phenxi:{level:3,locked:0}}}}}};
+  const record=accountFromGame(user,map,'en');
+  assert.deepEqual(record.profile!.friendSlots,{used:47,limit:50});assert.equal(record.profile!.supports![0].skillMastery,2);assert.equal(record.profile!.supports![0].moduleLevel,3);
+  assert.deepEqual(parseAccount(JSON.stringify(record))!.profile!.friendSlots,{used:47,limit:50});
+  assert.equal(accountFromGame({...user,social:{assistCharList:user.social.assistCharList}},map,'en').profile!.friendSlots,undefined);
 });
 
 test('a support unit shown full length draws its module\'s mark and its skill\'s icon, as the image repository names them', async () => {
@@ -247,4 +257,13 @@ test('the account page and the icon audit read the outfits through one mapping: 
   // back to the Base icon for every outfit, and the audit check files that do not exist.
   assert.notEqual(assistantIconPath('char_1019_siege2@epoque#50', chars, outfitArt), VINA_OUTFIT);
   assert.equal(assistantIconPath('char_421_crow@quoted#2', chars, outfitArt), null);
+});
+
+
+test('support previews use actual skill ranks and equipped module, leaving incomplete imports as reference details',()=>{
+  const unit:SupportUnit={name:'Fiammetta',rarity:6,elite:2,level:60,potential:4,skill:3,skillMastery:2,skillLevel:7,skillMasteries:[0,3,2],module:'uniequip_002_phenxi',moduleLevel:3};
+  const map={...MAP,chars:{...MAP.chars,char_300_phenxi:{...MAP.chars.char_300_phenxi,modules:{uniequip_002_phenxi:0}}}};
+  assert.deepEqual(supportPreviewBuild(unit,3,map),{elite:2,level:60,potential:4,skillLevel:7,masteries:{0:0,1:3,2:2},modules:{0:2}});
+  for(const incomplete of [{skillLevel:null},{skillMasteries:[]},{skillMasteries:[null,3,2]},{moduleLevel:null},{module:'unknown_module'}])assert.equal(supportPreviewBuild({...unit,...incomplete},3,map),undefined);
+  assert.deepEqual(supportPreviewBuild({...unit,module:null,moduleLevel:null},3,map)?.modules,{});
 });

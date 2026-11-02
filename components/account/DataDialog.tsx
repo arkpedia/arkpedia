@@ -1,3 +1,4 @@
+import { clearReplays } from '@/lib/replays/store';
 import { useState } from 'react';
 import GameSignIn from '@/components/account-import/GameSignIn';
 import SegmentedControl from '@/components/ui/SegmentedControl';
@@ -81,6 +82,10 @@ export default function DataDialog({ onClose, initialView = 'game' }: { onClose:
         const result = await accountClient.signOut();
         if (result.error) throw new Error('Sign-out could not finish, so browser data was not cleared. Try again.');
       }
+      // Stop in-flight replay work before deleting its independent IndexedDB archive.
+      window.localStorage.setItem('arkpedia:replays-stop', String(Date.now()));
+      window.dispatchEvent(new Event('arkpedia:replays-stop'));
+      await clearReplays();
       resetBrowserData();
     } catch (error) {
       await sync.resume();
@@ -149,7 +154,7 @@ export default function DataDialog({ onClose, initialView = 'game' }: { onClose:
       <div className="data-dialog-body">
       <section {...tabPanelProps('data-management', 'game')} hidden={view !== 'game'} className="data-dialog-part">
         <p className="import-copy">
-          Your browser signs in directly to Yostar over an encrypted connection. Arkpedia never receives your Yostar email, codes or tokens.
+          Your browser signs in directly to Yostar over an encrypted connection. Arkpedia <strong>NEVER</strong> receives your Yostar email, codes or tokens.
         </p>
         <p className="hint import-note">
           Importing replaces your operators, depot and account, and kicks you out of the game if you are logged in.

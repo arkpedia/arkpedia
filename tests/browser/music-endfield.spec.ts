@@ -1,6 +1,7 @@
 import { chooseMusicView, openMusicMenu, openPlayerActions } from './music-navigation-helpers';
 import { expect, test, type Page } from '@playwright/test';
 import { stubYouTube } from './youtube-stub';
+import { CROSSOVER_PAGE_MUSIC } from '../../lib/music/crossoverPageMusic';
 
 /*
  * Arknights: Endfield's songs (data/endfield-albums.json) are in the player's catalogue, each row
@@ -12,7 +13,10 @@ import { stubYouTube } from './youtube-stub';
 
 interface Row { videoId?: string; cid?: string; title: string; altTitle?: string; album?: string; game?: string }
 async function catalogue(page: Page): Promise<Row[]> {
-  return (await (await page.request.get('/music-catalogue.json')).json()).songs;
+  const songs: Row[] = (await (await page.request.get('/music-catalogue.json')).json()).songs;
+  // The app supplements older published catalogues with reviewed crossover recordings.
+  const ids = new Set(songs.map(idOf));
+  return [...songs, ...CROSSOVER_PAGE_MUSIC.filter(entry => !ids.has(entry.song.id)).map(entry => entry.song)];
 }
 const idOf = (row: Row) => row.videoId || `msr:${row.cid}`;
 const setting = (page: Page) => page.locator(test.info().project.name === 'mobile' ? '.music-phone-settings input[type=checkbox]' : '.page-header input[type=checkbox]');
@@ -162,6 +166,7 @@ const popUp = (page: Page) => page.getByRole('dialog', { name: 'Endfield music o
 
 test('on a touch screen, turning Endfield music on says so in a pop-up, until Don\'t show again', async ({ page }, info) => {
   test.skip(info.project.name !== 'mobile', 'only a touch screen shows it');
+  await stubYouTube(page); // Isolate the Endfield notice from first-visit media consent.
   await page.goto('/music/discover');
   expect(await page.evaluate(() => window.matchMedia('(pointer: coarse)').matches), 'the mobile project is a touch screen').toBe(true);
   await changeSetting(page, true);

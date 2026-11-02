@@ -1,0 +1,9 @@
+.stats { display: grid; gap: 12px; }
+.stats h2, .stats p { margin: 0; }
+.metrics { display: grid; grid-template-columns: repeat(auto-fit,minmax(130px,1fr)); gap: 12px 20px; margin: 0; }
+.metrics dt { color: var(--text-dim); }
+.metrics dd { margin: 4px 0 0; font-weight: 600; }
+.filters { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.results { display: grid; gap: 16px; }
+.range { display: flex; align-items: center; gap: 8px; }
+.range input { width: 76px; }

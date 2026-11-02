@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { createHash, createHmac } from 'node:crypto';
 import { test } from 'node:test';
-import { ImportError, isServerId, md5, pullRow, readAccount, readNetwork, readPulls, sendCode, SERVER_IDS, SERVERS, sessionCookie, signIn, u8Sign, yostarHeaders, type Transport, type TransportRequest, type TransportResponse } from '../../lib/account-import/yostar';
+import { ImportError, isServerId, md5, pullRow, readAccount, readNetwork, readPulls, sendCode, SERVER_IDS, SERVERS, sessionCookie, signIn, u8Sign, yostarHeaders, type ReplaySession, type Transport, type TransportRequest, type TransportResponse } from '../../lib/account-import/yostar';
 
 test('md5 matches Node for empty, block-boundary, long and non-ASCII input', () => {
   for (const text of ['', 'abc', 'x'.repeat(55), 'x'.repeat(56), 'x'.repeat(64), 'y'.repeat(1000), 'doctor@exämple.com 日本']) {
@@ -86,6 +86,42 @@ test('the import makes the five requests in order, each through the transport it
   assert.deepEqual([headers('https://gs.example:8443/account/login').seqnum, headers('https://gs.example:8443/account/login').secret], ['1', '']);
   const sync = headers('https://gs.example:8443/account/syncData');
   assert.deepEqual([sync.secret, sync.uid, sync.seqnum], ['session-secret', '99', '2']);
+});
+
+test('optional friend-slot check retains only a count and a failure never breaks the import', async () => {
+  for(const result of [['PRIVATE-FRIEND-ID-1','PRIVATE-FRIEND-ID-2'],null]){
+    const {calls,relay,direct}=server({...structuredClone(ANSWERS),'https://gs.example:8443/social/getSortListInfo':{result}});
+    const user=await readAccount({transport:relay,direct,deviceId:'device',network:await readNetwork(relay,'en'),readFriendSlots:true},{uid:'1',token:'test',authToken:'test'});
+    assert.equal(user.status.nickName,'Doctor');
+    assert.equal(user.social?.arkpediaFriendCount,result?.length);
+    assert.ok(!JSON.stringify(user).includes('PRIVATE-FRIEND-ID'));
+    const social=calls.find(call=>call.url.endsWith('/social/getSortListInfo'))!;
+    assert.equal(social.request.headers.seqnum,'3');
+    assert.deepEqual(JSON.parse(social.request.body!),{type:1,sortKeyList:['level','infoShare'],param:{}});
+  }
+  const {relay,direct}=server(ANSWERS);
+  const user=await readAccount({transport:relay,direct,deviceId:'device',network:await readNetwork(relay,'en'),readFriendSlots:true},{uid:'1',token:'test',authToken:'test'});
+  assert.equal(user.status.nickName,'Doctor');assert.equal(user.social?.arkpediaFriendCount,undefined);
+});
+
+test('replay continuation starts after the optional social request even if its response is lost', async () => {
+  for (const mode of ['disabled', 'success', 'refused', 'lost'] as const) {
+    const { calls, relay, direct } = server({ ...structuredClone(ANSWERS),
+      ...(mode === 'lost' ? {} : { 'https://gs.example:8443/social/getSortListInfo': { result: mode === 'refused' ? 1 : [] } }),
+      'https://gs.example:8443/quest/getBattleReplay': { result: 0, battleReplay: 'fixture' },
+    });
+    let continuation: ReplaySession | undefined;
+    const user = await readAccount({ transport: relay, direct, deviceId: 'device', network: await readNetwork(relay, 'en'),
+      readFriendSlots: mode !== 'disabled', onReplaySession: value => { continuation = value; },
+    }, { uid: '1', token: 'test', authToken: 'test' });
+    assert.equal(user.status.nickName, 'Doctor');
+    assert.ok(continuation);
+    assert.equal(await continuation.readReplay('main_00-01'), 'fixture');
+    assert.equal(await continuation.readReplay('main_00-02'), 'fixture');
+    assert.deepEqual(calls.filter(call => call.url.endsWith('/getBattleReplay')).map(call => call.request.headers.seqnum),
+      mode === 'disabled' ? ['3', '4'] : ['4', '5'], mode);
+    assert.equal(calls.filter(call => call.url.endsWith('/social/getSortListInfo')).length, mode === 'disabled' ? 0 : 1);
+  }
 });
 
 test('a refusal names the step that failed and what the server said', async () => {
@@ -236,10 +272,11 @@ test('a remembered sign-in is read back only when whole, and its email is shown 
 });
 
 test('the relay address is config/relay.json\'s, a wss:// Wisp endpoint', async () => {
-  const { RELAY_URL } = await import('../../lib/account-import/relay');
-  const config = (await import('../../config/relay.json')).default as { url: string };
-  assert.equal(RELAY_URL, config.url);
-  assert.equal(RELAY_URL, 'wss://arkpedia-relay.cloudflare-1ff.workers.dev/wisp/');
+  const { RELAY_URL, relayUrlForDeployment } = await import('../../lib/account-import/relay');
+  const config = (await import('../../config/relay.json')).default;
+  assert.equal(RELAY_URL, process.env.ARKPEDIA_PREVIEW === '1' ? config.previewUrl : config.url);
+  assert.equal(relayUrlForDeployment(false), 'wss://arkpedia-relay.cloudflare-1ff.workers.dev/wisp/');
+  assert.equal(relayUrlForDeployment(true), 'wss://preview-relay.arkpedia.net/wisp/');
   // libcurl.js needs the trailing slash, and only an encrypted WebSocket is acceptable.
   assert.match(RELAY_URL, /^wss:\/\/[a-z0-9.-]+\/wisp\/$/);
 });

@@ -33,6 +33,8 @@ export const CC_MUSIC: { name: string; series: 'cc' | 'ccb'; number: number; lob
   { name: 'Underdawn', series: 'ccb', number: 2, lobby: '048798', battles: [{ id: '232253', variant: '1' }, { id: '880325', variant: '2' }] },
   { name: 'Extinguished Sins', series: 'ccb', number: 3, lobby: '232249', battles: [{ id: '697607' }] },
   { name: 'Arclight', series: 'ccb', number: 4, lobby: '514513', battles: [{ id: '880305' }] },
+  // https://arknights.wiki.gg/wiki/Battleplan_Obliteration (vocal lobby recording).
+  { name: 'Obliteration', series: 'ccb', number: 5, lobby: '697687', battles: [] },
 ];
 
 export function getReviewedAssociations() {

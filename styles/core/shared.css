@@ -539,6 +539,7 @@ header,
 }
 .page-header.page-header-with-sticky-actions { display: flow-root; padding-bottom: 0; border-bottom: 0; }
 div.page-header-sticky-actions { box-sizing: border-box; max-width: var(--frame-max); margin: 0 auto; padding: 14px var(--page-gutter) 20px; }
+.page-header-actions:empty { display: none; }
 .page-header-sticky-actions > .page-header-actions { margin-top: 0; }
 @media (max-width: 640px) {
 }
@@ -1593,3 +1594,15 @@ a.primary:where(:has(~ :is(button, a).ghost)),
 .page-header-compact > .eyebrow { grid-column: 1 / -1; }
 .page-header-compact > .page-header-actions { margin-top: 0; }
 .page-header-compact > h1 { margin-bottom: 0; }
+
+/* The site-brand beta treatment also labels features in their first public release. */
+.beta-label {
+  font-family: var(--font-body);
+  font-style: italic;
+  font-weight: 400;
+  font-size: 10px;
+  color: var(--text-faint);
+  text-transform: none;
+  letter-spacing: normal;
+  white-space: nowrap;
+}

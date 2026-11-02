@@ -23,6 +23,7 @@ export const LINKS: NavLink[] = [
   { href: '/synergies', label: 'Synergies', icon: 'synergies' },
   { href: '/obtain-method', label: 'Obtain method', icon: 'obtain' },
   { href: '/community/projects', label: 'Community projects', icon: 'projects' },
+  { href: '/community/support-units', label: 'Find support units', icon: 'roster' },
   { href: '/operators', label: 'Operators', icon: 'roster' },
   { href: '/artists', label: 'Artists', icon: 'palette' },
   { href: '/voice-actors', label: 'Voice Actors', icon: 'microphone' },
@@ -100,7 +101,7 @@ export const GROUPS: NavGroup[] = [
   ] },
   { id: 'guides', label: 'Guides', items: [at('/farming'), at('/base'), at('/recruitment'), at("/gacha-simulator"), at('/selector-tickets'), at("/game-modes")] },
   { id: 'own', label: 'Planner', items: [at("/operator-planner"), at("/pull-planner"), at('/skin-planner'), at("/reward-tracker")] },
-  { id: 'community', label: 'Community', items: [at('/community/projects'), at("/world"), at("/polls/power-scale"), at('/music'), at('/games')] },
+  { id: 'community', label: 'Community', items: [at('/community/support-units'),at('/community/projects'), at("/world"), at("/polls/power-scale"), at('/music'), at('/games')] },
   /* The owner asked for the two views as a menu instead of tabs on the page (2026-10-29). */
   { id: 'schedule', label: 'Schedule', icon: 'timeline', items: [at('/schedule'), at('/schedule?view=calendar')] },
   /* About stays last (the owner, 2026-10-29). */

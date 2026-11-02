@@ -76,9 +76,6 @@
   color: var(--text);
 }
 .site-brand-beta {
-  font-style: italic;
-  font-size: 10px;
-  color: var(--text-faint);
   margin-left: 2px;
   align-self: flex-end;
 }

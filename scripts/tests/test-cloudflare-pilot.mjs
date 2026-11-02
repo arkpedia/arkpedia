@@ -26,6 +26,9 @@ for (const [name, change] of Object.entries({
   'different Worker': config => { config.name = 'arkpedia-staging'; },
   'different account': config => { config.account_id = 'another-account'; },
   'different database': config => { config.d1_databases[0].database_id = 'another-database'; },
+  'missing request limits': config => { delete config.ratelimits; },
+  'Preview request limit namespace': config => { config.ratelimits[0].namespace_id = '2026110101'; },
+  'disabled production accounts': config => { delete config.vars.ARKPEDIA_ACCOUNTS_ENABLED; },
   'different cache': config => { config.r2_buckets[0].bucket_name = 'arkpedia-staging-cache'; },
   'wrong self reference': config => { config.services[0].service = 'arkpedia-staging'; },
   'changed queue migration': config => { config.migrations[0].tag = 'v2'; },
@@ -70,4 +73,21 @@ test('legacy aliases lead directly to current public pages without chains', () =
     const candidates = [`pages${destination}.tsx`, `pages${destination}/index.tsx`];
     assert.ok(candidates.some(file => { try { readFileSync(file); return true; } catch { return false; } }), `missing canonical page ${destination}`);
   }
+});
+
+test('production enables accounts independently from the Preview-only optimizer', async () => {
+  const { execFileSync } = await import('node:child_process');
+  for (const [role, worker, accounts, optimizer] of [
+    ['production', '1', '1', ''], ['staging', '1', '1', '1'], ['production', '', '1', ''],
+  ]) {
+    const result = JSON.parse(execFileSync(process.execPath, ['-e', 'console.log(JSON.stringify(require("./next.config.js")().env))'], {
+      encoding: 'utf8', env: { ...process.env, ARKPEDIA_DEPLOYMENT_ROLE: role, ARKPEDIA_WORKER: worker },
+    }));
+    assert.equal(result.ARKPEDIA_CLOUD_ACCOUNTS, accounts);
+    assert.equal(result.ARKPEDIA_BASE_OPTIMIZER, optimizer);
+    assert.equal(result.ARKPEDIA_PREVIEW, role === 'staging' ? '1' : '');
+  }
+  const wrapper = readFileSync('scripts/deploy/production-worker.mjs', 'utf8');
+  assert.match(wrapper, /protectPreviewRequest\(request, env/);
+  assert.match(wrapper, /export \{ DOQueueHandler \}/);
 });

@@ -207,7 +207,8 @@ export default function MobileNavDrawer({ mobileNav, search }: { mobileNav?: Mob
         className={`mobile-nav-bar${mobileNav ? ' mobile-nav-bar-override' : ''}`}
         onClick={(e) => {
           const target = e.target as HTMLElement;
-          if (target.closest(BAR_TAP_EXCLUDED_SELECTOR)) return;
+          // React portals bubble through this bar even though their controls are outside it.
+          if (!e.currentTarget.contains(target) || target.closest(BAR_TAP_EXCLUDED_SELECTOR)) return;
           setOpen(true);
         }}
       >

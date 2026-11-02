@@ -40,3 +40,6 @@ body:has(dialog[open], .action-popover, .record-popover) .statistics-prompt { di
   .information-contents { display: flex; flex-wrap: wrap; gap: 8px 20px; padding: 0; }
   .information-contents p { flex-basis: 100%; }
 }
+/* A prompt's own help must remain anchored while open; other overlays still hide it. */
+body:has(.action-popover):not(:has(dialog[open], .record-popover)) .media-choice-prompt:has(.info-popover-trigger[aria-expanded="true"]) { display: block; z-index: 99; }
+.media-autoplay-choice { margin-block: 14px; }

@@ -100,3 +100,140 @@ connection failures. No diagnostic probe resends authentication or sends a real 
 
 Protocol reasons: https://github.com/MercuryWorkshop/wisp-protocol/blob/main/protocol.md
 Dependency integration: https://github.com/ading2210/libcurl.js (pinned 0.7.4).
+
+
+## Preview stage metadata comparison
+
+Open `https://preview.arkpedia.net/account?stageDiagnostics=1`, then Import / export.
+Stage metadata test is hidden without this explicit URL option and on production hosts.
+Capture next import arms one import for the selected region. It observes the existing
+`readAccount` result; it never requests replays or additional game data. Reports keep
+stage IDs, field names/types and numeric/boolean candidate markers only. Arbitrary
+strings, nested values, credentials and raw accounts are excluded. Unknown string
+markers are reported by type only, so this experiment cannot yet compare their values.
+
+Up to three captures survive closing/reopening the dialog in the same tab. They are
+never stored in browser storage or synced to an Arkpedia account, and disappear on
+reload or Clear captures. Compare a baseline, an unchanged import, and one after the
+reader replaces one known auto-deploy in game. Field differences are evidence to
+investigate, not proof of a reliable replay revision contract.
+
+## Optional auto-deploy sync (Preview)
+
+Import / export offers an explicit **Sync auto-deploys** action after a successful
+Yostar import. It never runs from Google/Discord sign-in or ordinary page visits.
+The in-memory game session continues at sequence 3 after syncData. The only exposed
+continuation reads `quest/getBattleReplay` (`campaign/getBattleReplay` for `camp_`
+stages). The [ArkPRTS client](https://github.com/ashleney/ArkPRTS/blob/master/arkprts/client.py)
+uses a caller-supplied battle type; it does not define a literal `battle` route.
+Normal stages use the [quest route](https://github.com/loongling/LocalArknights/blob/main/src/main/java/com/hypergryph/arknights/game/quest.java).
+Failures distinguish HTTP status, bounded numeric game-result codes and missing replay
+payloads without exposing provider messages or raw authenticated responses.
+It cannot issue arbitrary game commands. A tab-level provider owns this capability
+so closing the dialog or navigating within Arkpedia leaves an explicitly started
+download running. No new session secret is saved or uploaded. Reloading, closing
+the tab, account changes or browser-data resets discard the capability; import
+again to resume from durable checkpoints. A compact status bar exposes Pause,
+Resume and Details outside the dialog.
+
+Queue operations hold a shared browser Web Lock with game imports, wait 3–4.5
+seconds between items, and continue through all pending stages after an explicit
+start. Pause, page exit, reset and account changes stop further work. A response already in flight may finish, but an aborted
+queue does not save/upload it. HTTP 429 honors Retry-After with at least a minute's
+cooldown. Any uncertain/authentication response invalidates the session; there is
+no automatic retry or relogin. These limits are precautionary, not a confirmed
+Yostar-approved quota.
+
+Before each actual game replay fetch, the downloader asks the Preview-only
+`/api/account-import/replay-permit` endpoint for admission. Migration 0007 adds
+atomic D1 coordination: at most one grant every 500 ms across cooperating Preview
+clients, and one every 3 seconds per anonymous browser identifier. An unsuccessful
+per-browser attempt does not consume a global slot. No game UID, stage, login
+secret or replay content enters this endpoint; browser identifiers expire from
+D1 after an hour idle, with indexed bounded cleanup. Preview ingress guards and
+exact-origin/body checks apply; the endpoint is unavailable in production.
+
+Denied admission uses jittered exponential waiting up to 32 seconds and is
+cancellable; HTTP 429 respects Retry-After. Network/server failures pause instead
+of bypassing coordination. Responses taking a second or longer are treated as
+stale and reacquired to avoid waking tabs spending old grants. This is application
+admission control, not an official Yostar quota, strict FIFO fairness or an
+inspection/enforcement mechanism inside the encrypted relay. Separate devices
+have distinct browser limits but share the aggregate budget. Normal imports and
+login requests do not use this admission service or change their relay route.
+
+A bounded replay document with an unsupported journal, squad/action list or
+mismatched stage ID is skipped during a bulk run, so later stages can still save.
+The result counts skipped records and lists their stage IDs and bounded validation
+reasons. It never calls the entire archive up to date when records were skipped.
+No rejected payload or new fingerprint is checkpointed/uploaded; an existing copy
+is preserved, and a later explicit sync retries the stage. A single-stage refresh
+stops with the requested stage and precise reason. ZIP/decompression/size errors,
+private fields, transport/authentication/rate failures, storage errors and cloud
+conflicts still stop the run. Each skipped stage still consumes a paced request.
+
+IndexedDB checkpoints successful replays by server, game UID and stage. Fingerprints
+use hasBattleReplay/start/completion/practice counters and state. A login-only
+sample left the metadata unchanged; changing one known stage changed only that
+stage's start/completion counters. These are conservative hints, not an authoritative
+replay revision contract. Manual per-stage refresh is available. Counter changes
+may fetch an unchanged replay; canonical content hashes then avoid uploading it
+again (only its marker changes). Failed saves retain the old checkpoint.
+
+The separate cloud checkbox defaults off and also requires reviewed imported-game
+saving consent. The owner-checked `/api/cloud-account/auto-deploys` API stores records
+outside the normal snapshot; it never calls Yostar. Matching cloud fingerprints
+restore local copies before any game fetch. Conflicts stop for a fresh comparison;
+older counters cannot overwrite newer cloud markers. Origin, account rate limits,
+request size, per-user archive quotas, exact stage identity and credential-field
+checks are enforced server-side. Existing account and Preview ingress guards cover
+the nested API path. Migration 0006 adds only isolated archive/usage tables and
+triggers; withdrawing gameSync or deleting the user removes their cloud replays.
+
+Cloud mutations acknowledge their guarded write with SQL `RETURNING`, not an exact
+`meta.changes === 1` check. D1 counts the quota triggers' writes too: a successful
+replay save can report two changes, and consent withdrawal can report more. The
+account test adapter uses per-statement `total_changes()` deltas to match this
+behavior. Snapshot writes use returned rows for the same reason. Optimistic hashes,
+revisions, consent predicates and transaction rollback remain the write guards.
+
+Each browser archive and each cloud account are bounded to 32 MiB / 3,000 records,
+with a 512 KB decoded per-replay cap. Zip decoding accepts only bounded
+`default_entry` content, validates the requested stage and rejects credential keys.
+The reader accepts ZIP64 per-entry headers even when the archive uses an ordinary
+end record. It streams small compressed chunks and counts actual output bytes;
+the directory's size placeholder is never used to allocate or reject a replay.
+Missing files, unreadable ZIPs and genuinely oversized output have separate errors.
+The ZIP64 fixture was generated independently with Python's `zipfile` and contains
+only synthetic data. Real-account format confirmation is still required.
+These are JSON replay records, not executable files. Browser **Forget everything**
+clears this IndexedDB store as well as the existing browser stores. Standard browser
+backup files do not include it; **Export auto-deploys** downloads it separately.
+
+Tests use synthetic responses and isolated databases. The maintainer's exported
+0-1 replay passed document/hash validation and the single-stage UI reported a
+successful refresh with cloud saving enabled. Bulk format and special-stage
+coverage remain unverified; metadata-only capture does not establish those paths.
+
+
+### Preview relay hostname
+
+Preview builds select `config/relay.json`'s `previewUrl`,
+`wss://preview-relay.arkpedia.net/wisp/`. Production continues using `url`.
+The custom hostname is attached to the existing `arkpedia-relay` Cloudflare Worker
+(Workers custom domain ID `487858e34998f381648fd960daaea7246a749e98`), with the same
+origin, destination, port and rate restrictions. It does not add a relay or move TLS
+termination out of the browser. Preserve that mapping when deploying the relay.
+The hostname avoids the observed intermittent DNS/IPv6-only connection failure to
+the `workers.dev` endpoint. Do not substitute the old `relay.arkpedia.net`: its
+upstream returned Cloudflare 526 during diagnosis.
+
+### Saved sign-in retention
+
+A failed import never deletes a saved Yostar login. Token-exchange, game-login,
+version-file and network errors do not prove the saved credential expired. The
+saved actions remain available with the actual error. Request code is explicit;
+a successful request opens the code form while keeping the old saved login and
+its existing save preference until a replacement import succeeds. Forget remains
+an explicit removal action. Tests cover connection errors at both authentication
+steps, version-file failures, retry/reload persistence and provider rejection.

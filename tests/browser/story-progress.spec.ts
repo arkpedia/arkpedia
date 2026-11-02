@@ -5,7 +5,7 @@ import { STORY_PROGRESS_KEY } from '../../lib/story/storyProgress';
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
-    localStorage.setItem('arkpedia:privacy:v1', JSON.stringify({ version: 1, analytics: false, externalMedia: false, savedAt: Date.now() }));
+    localStorage.setItem('arkpedia:privacy:v1', JSON.stringify({ version: 1, analytics: false, externalMedia: false, externalMediaChosen: true, savedAt: Date.now() }));
     Object.defineProperty(window, 'showSaveFilePicker', { value: undefined, configurable: true });
     Object.defineProperty(window, 'showOpenFilePicker', { value: undefined, configurable: true });
   });

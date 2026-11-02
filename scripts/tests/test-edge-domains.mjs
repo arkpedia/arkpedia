@@ -2,13 +2,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { domainResponse } from '../../workers/edge/domains.mjs';
 
-test('live domains cannot expose Preview sign-in or cloud-account endpoints', async () => {
-  for (const host of ['www.arkpedia.net', 'arkpedia.net', 'arkpedia-cf.mocchibird.com']) {
-    for (const path of ['/api/auth/sign-in/social', '/api/auth/callback/google', '/api/cloud-account', '/api/account-profile', '/api/%61uth/get-session']) {
-      const response = await domainResponse(new Request(`https://${host}${path}`), () => assert.fail('account request escaped'));
-      assert.equal(response.status, 503);
-      assert.equal(response.headers.get('cache-control'), 'private, no-store');
-    }
+test('canonical account routes reach the production service; apex preserves the canonical redirect', async () => {
+  for (const path of ['/api/auth/sign-in/social', '/api/auth/callback/google', '/api/cloud-account', '/api/account-profile', '/api/%61uth/get-session']) {
+    assert.equal(await domainResponse(new Request(`https://www.arkpedia.net${path}`), () => assert.fail('production reached Preview')), null);
+    const response = await domainResponse(new Request(`https://arkpedia.net${path}`));
+    assert.equal(response.status, 308);
+    assert.equal(response.headers.get('location'), `https://www.arkpedia.net${path}`);
   }
 });
 
@@ -67,4 +66,25 @@ test('Preview keeps request bodies and rewrites only same-upstream redirects', a
     return new Response(null, { status: 307, headers: { location: 'https://arkpedia-gins-arkpedia.cloudflare-1ff.workers.dev/music?q=test' } });
   });
   assert.equal(response.headers.get('location'), 'https://preview.arkpedia.net/music?q=test');
+});
+
+
+test('Preview community writes and private choices retain the login only for their exact routes',async()=>{
+  for(const path of ['/api/community/sharing','/api/community/availability','/api/community/%73haring','/api/community/sharing/']){
+    const response=await domainResponse(new Request(`https://preview.arkpedia.net${path}`,{headers:{cookie:'arkpedia.session_token=test'}}),async request=>{
+      assert.equal(new URL(request.url).origin,'https://arkpedia-gins-arkpedia.cloudflare-1ff.workers.dev');
+      assert.equal(request.headers.get('cookie'),'arkpedia.session_token=test');
+      return new Response('{}',{headers:{'set-cookie':'arkpedia.session_token=renewed; Secure; HttpOnly'}});
+    });
+    assert.equal(response.headers.get('cache-control'),'private, no-store');
+    assert.ok(response.headers.has('set-cookie'));
+    assert.equal(await domainResponse(new Request(`https://www.arkpedia.net${path}`)),null,'production routing is unchanged');
+  }
+  for(const path of ['/api/community/supports','/api/community/stats','/api/community/sharing-extra','/api/community/sharing/nested']){
+    const response=await domainResponse(new Request(`https://preview.arkpedia.net${path}`,{headers:{cookie:'private',authorization:'Bearer private'}}),async request=>{
+      assert.equal(request.headers.has('cookie'),false);assert.equal(request.headers.has('authorization'),false);
+      return new Response('{}',{headers:{'set-cookie':'unexpected=value'}});
+    });
+    assert.equal(response.headers.has('set-cookie'),false);
+  }
 });

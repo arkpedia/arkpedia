@@ -5,7 +5,7 @@ for (const theme of ['dark', 'light']) {
   test(`base fits both dimensions and shares normal header spacing (${theme})`, async ({ page }, info) => {
     await page.addInitScript(theme => {
       localStorage.setItem('theme', theme);
-      localStorage.setItem('arkpedia:privacy:v1', JSON.stringify({ version: 1, analytics: false, externalMedia: false, savedAt: Date.now() }));
+      localStorage.setItem('arkpedia:privacy:v1', JSON.stringify({ version: 1, analytics: false, externalMedia: false, externalMediaChosen: true, savedAt: Date.now() }));
     }, theme);
     await page.goto('/recruitment');
     await expect.poll(() => page.locator('.page-header').evaluate(el => getComputedStyle(el).paddingTop)).toBe('28px');

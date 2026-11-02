@@ -46,8 +46,8 @@ const nextConfig = {
   // ARKPEDIA_CONTENT_CHANNEL: the content pointer this build reads (lib/content/server.ts): the
   // channel of the project Deploy builds for (scripts/content/content-channel.cjs). Inlined
   // because the prebuilt functions carry no Vercel project env.
-  // The base optimizer stays a Preview feature too (owner, 2026-10-28): www builds leave it out.
-  env: { ARKPEDIA_CLOUD_ACCOUNTS: stagingBuild ? '1' : '', ARKPEDIA_BASE_OPTIMIZER: stagingBuild ? '1' : '', ARKPEDIA_WEB_ANALYTICS: !stagingBuild && productionAnalytics && contentPointer() === 'live' ? '1' : '', ARKPEDIA_CONTENT_CHANNEL: contentPointer(), ARKPEDIA_WORKER: workerBuild ? '1' : '' },
+  // The base optimizer stays a Preview feature (owner, 2026-10-28): www builds leave it out.
+  env: { ARKPEDIA_CLOUD_ACCOUNTS: '1', ARKPEDIA_PREVIEW: stagingBuild ? '1' : '', ARKPEDIA_BASE_OPTIMIZER: stagingBuild ? '1' : '', ARKPEDIA_WEB_ANALYTICS: !stagingBuild && productionAnalytics && contentPointer() === 'live' ? '1' : '', ARKPEDIA_CONTENT_CHANNEL: contentPointer(), ARKPEDIA_WORKER: workerBuild ? '1' : '' },
   // The browser bundle may not carry a game record the content release publishes (such as
   // data/albums.json): the build fails, naming the import chain. See the guard's header.
   webpack(config, { isServer, webpack }) {
@@ -75,6 +75,7 @@ const nextConfig = {
   outputFileTracingIncludes: {
     '/api/auth/*': ['node_modules/@better-auth/core/dist/instrumentation/*.mjs'],
     '/api/cloud-account': ['node_modules/@better-auth/core/dist/instrumentation/*.mjs'],
+    '/api/cloud-account/auto-deploys': ['node_modules/@better-auth/core/dist/instrumentation/*.mjs'],
     '/api/account-profile': ['node_modules/@better-auth/core/dist/instrumentation/*.mjs'],
   },
   outputFileTracingExcludes: {

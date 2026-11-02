@@ -15,7 +15,11 @@ import relayConfig from '@/config/relay.json';
 import { connectionDiagnostics, type WispDiagnosticsAPI } from './connectionDiagnostics';
 
 /** Where the relay is: config/relay.json (the relay itself is arkpedia/arkpedia-relay). */
-export const RELAY_URL = relayConfig.url;
+export function relayUrlForDeployment(preview: boolean): string {
+  return preview ? relayConfig.previewUrl : relayConfig.url;
+}
+// This build-time flag is set only for the isolated Preview deployment.
+export const RELAY_URL = relayUrlForDeployment(process.env.ARKPEDIA_PREVIEW === '1');
 
 interface CurlSession {
   set_connections(total: number, cached: number, perHost: number): void;

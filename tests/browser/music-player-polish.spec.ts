@@ -262,14 +262,16 @@ test('the corner player at 390px: one row of named controls, nothing wraps or ov
     await page.waitForTimeout(300);
     return before === last && before === await height();
   }, { message: 'the page settles' }).toBe(true);
-  await page.getByRole('button', { name: 'Expand player' }).click();
+  const opener = page.getByRole('button', { name: 'Expand player' });
+  const openSpot = (await opener.boundingBox())!;
+  await opener.click();
   const widget = page.locator('[data-music-widget]');
   const close = widget.getByRole('button', { name: 'Collapse player', exact: true });
   await expect(close).toBeVisible();
 
   const controls = widget.locator('.music-controls');
   const names = await controls.locator('button, a').evaluateAll(els => els.map(el => el.getAttribute('aria-label')));
-  expect(names).toEqual(['Favourite', 'Previous track', expect.stringMatching(/^(Play|Pause|Starting…)$/), 'Next track', 'Queue']);
+  expect(names).toEqual(['Favourite', 'Previous track', expect.stringMatching(/^(Play|Pause|Starting…)$/), 'Next track']);
   const boxes = await controls.locator('button, a').evaluateAll(els => els.map(el => el.getBoundingClientRect().toJSON() as DOMRect));
   const centre = boxes[0].y + boxes[0].height / 2;
   for (const [i, box] of boxes.entries()) {
@@ -281,12 +283,17 @@ test('the corner player at 390px: one row of named controls, nothing wraps or ov
   expect(shell.x).toBeGreaterThanOrEqual(0);
   expect(shell.x + shell.width).toBeLessThanOrEqual(390);
   for (const box of boxes) expect(box.x + box.width, 'inside the card').toBeLessThanOrEqual(shell.x + shell.width);
-  // The × is the card's top-right corner, above the song.
+  // Queue moved beside the song; the × closes from the same spot used to open.
   const x = (await close.boundingBox())!;
   const song = (await widget.locator('.music-widget-song').boundingBox())!;
+  const queue = (await widget.getByRole('link', { name: 'Queue', exact: true }).boundingBox())!;
   expect(x.x + x.width).toBeLessThanOrEqual(shell.x + shell.width);
-  expect(x.x).toBeGreaterThanOrEqual(song.x + song.width);
-  expect(x.y).toBeLessThan(song.y + song.height / 2);
+  expect(queue.x).toBeGreaterThanOrEqual(song.x + song.width);
+  expect(queue.y).toBeLessThan(song.y + song.height);
+  expect(openSpot.x + openSpot.width / 2).toBeGreaterThanOrEqual(x.x);
+  expect(openSpot.x + openSpot.width / 2).toBeLessThanOrEqual(x.x + x.width);
+  expect(openSpot.y + openSpot.height / 2).toBeGreaterThanOrEqual(x.y);
+  expect(openSpot.y + openSpot.height / 2).toBeLessThanOrEqual(x.y + x.height);
   // No horizontal overflow anywhere: the card, its rows, the page.
   const overflow = await widget.evaluate(el => [el, ...el.querySelectorAll('.music-body, .music-widget-song, .music-seek-row, .music-controls')]
     .filter(node => node.scrollWidth > node.clientWidth + 1).map(node => node.className));

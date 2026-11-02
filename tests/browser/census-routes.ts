@@ -142,7 +142,9 @@ export const PLANNER_PLAN: PlannerStorage = {
  *  rows say "counting..." and the panels "Working out..." or "Loading...". */
 export async function seedPlanner(page: Page, storage: PlannerStorage) {
   await page.evaluate((s) => {
+    const privacy = localStorage.getItem('arkpedia:privacy:v1');
     localStorage.clear();
+    if (privacy) localStorage.setItem('arkpedia:privacy:v1', privacy);
     for (const [key, value] of Object.entries(s)) localStorage.setItem(key, typeof value === 'string' ? value : JSON.stringify(value));
     // "edited 18 days ago", whatever day the test runs (lib/planner/depot.ts DEPOT_TOUCHED_KEY).
     if (s.plannerDepot) localStorage.setItem('plannerDepotTouched', String(Date.now() - 18 * 86400000));

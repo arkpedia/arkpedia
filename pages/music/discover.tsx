@@ -21,7 +21,7 @@ import MusicPlaylists from '@/components/music/MusicPlaylists';
 import MusicTransportBar from '@/components/music/MusicTransportBar';
 import SongRow from '@/components/music/SongRow';
 import SongActionsMenu from '@/components/music/SongActionsMenu';
-import { createSongIndex, normalizeSearch } from '@/lib/music/songSearch';
+import { createSongIndex, musicFacetMatches } from '@/lib/music/songSearch';
 import { msrTrackId } from '@/lib/music/trackId';
 import { artistKey, creditedArtists, creditsArtist } from '@/lib/music/artistCredits';
 import { characterInitials } from '@/lib/music/characterPortraits.mjs';
@@ -282,9 +282,9 @@ export default function DiscoverPage({ songs: releaseSongs, characters, origins,
   const artistsExpanded = browseCollection === 'artists';
   const visibleArtists = useMemo(() => {
     if (!artistsExpanded) return artists.slice(0, ROW_PREVIEW_COUNT);
-    const wanted = artistKey(artistFilter.trim());
-    return wanted ? artists.filter((a) => artistKey(a.name).includes(wanted)) : artists;
-  }, [artists, artistsExpanded, artistFilter]);
+    return artistFilter.trim() ? artists.filter(a => musicFacetMatches(artistFilter, [a.name],
+      songs.filter(song => creditsArtist(song.artist, a.name)).map(song => song.game))) : artists;
+  }, [artists, artistsExpanded, artistFilter, songs]);
 
   /* Browse by album (2026-10-14), as Monster Siren's own site lists them: every album's cover
      and name. The row starts where Recently added stops, so the two rows above each other
@@ -305,14 +305,19 @@ export default function DiscoverPage({ songs: releaseSongs, characters, origins,
       const past = albums.filter((a) => !recentAlbumIds.has(a.albumId));
       return (past.length ? past : albums).slice(0, ROW_PREVIEW_COUNT);
     }
-    const wanted = normalizeSearch(albumFilter);
+    const wanted = albumFilter.trim();
     const matching = wanted
-      ? albums.filter((a) => [a.albumAltName, a.albumName, albumOriginals.get(a.albumId) ?? ''].some((name) => normalizeSearch(name).includes(wanted)))
+      ? albums.filter(a => musicFacetMatches(wanted, [a.albumAltName, a.albumName, albumOriginals.get(a.albumId) ?? ''], [a.game]))
       : albums;
     return albumOrder === 'name'
       ? [...matching].sort((a, b) => a.albumAltName.localeCompare(b.albumAltName, 'en', { numeric: true, sensitivity: 'base' }))
       : matching;
   }, [albums, albumsExpanded, albumFilter, albumOrder, recentAlbumIds, albumOriginals]);
+  const hiddenAlbumMatches = !includeEndfield && albumFilter.trim() ? releaseAlbums.filter(a => a.game === 'endfield' &&
+    musicFacetMatches(albumFilter, [a.albumAltName, a.albumName], [a.game])).length : 0;
+  const hiddenArtistMatches = !includeEndfield && artistFilter.trim() ? releaseArtists.filter(a =>
+    releaseSongs.some(song => song.game === 'endfield' && creditsArtist(song.artist, a.name)) &&
+    musicFacetMatches(artistFilter, [a.name], ['endfield']) && !visibleArtists.some(shown => artistKey(shown.name) === artistKey(a.name))).length : 0;
   const openAlbum = (albumId: string) => {
     const next: typeof router.query = { ...router.query, facet: `album:${albumId}` };
     delete next.q;
@@ -516,10 +521,11 @@ export default function DiscoverPage({ songs: releaseSongs, characters, origins,
                     </div>
                   </div>
                 )}
+                {albumsExpanded && <HiddenEndfieldHint count={hiddenAlbumMatches} kind="album" />}
                 <Collection id="discover-albums" label="Albums" expanded={albumsExpanded} grid albums>
                   {visibleAlbums.map((a) => <AlbumTile key={a.albumId} album={a} withCount={albumsExpanded} onOpen={() => openAlbum(a.albumId)} />)}
                 </Collection>
-                {albumsExpanded && visibleAlbums.length === 0 && <p className="hint">No album matches “{albumFilter.trim()}”.</p>}
+                {albumsExpanded && visibleAlbums.length === 0 && hiddenAlbumMatches === 0 && <p className="hint">No album matches “{albumFilter.trim()}”.</p>}
               </section>
             )}
 
@@ -578,6 +584,7 @@ export default function DiscoverPage({ songs: releaseSongs, characters, origins,
                     value={artistFilter} onChange={setArtistFilter} />
                 </div>
               )}
+              {artistsExpanded && <HiddenEndfieldHint count={hiddenArtistMatches} kind="artist" />}
               <Collection id="discover-artists" label="Artists" expanded={artistsExpanded} grid>
                 {visibleArtists.map((a) => (
                   <button key={a.name} type="button" className="btn-bare music-discover-artist-card" onClick={() => setFacets({ ...EMPTY_FACETS, artist: a.name })}>
@@ -586,7 +593,7 @@ export default function DiscoverPage({ songs: releaseSongs, characters, origins,
                   </button>
                 ))}
               </Collection>
-              {artistsExpanded && visibleArtists.length === 0 && <p className="hint">No artist matches “{artistFilter.trim()}”.</p>}
+              {artistsExpanded && visibleArtists.length === 0 && hiddenArtistMatches === 0 && <p className="hint">No artist matches “{artistFilter.trim()}”.</p>}
             </section>
           </>
         )}

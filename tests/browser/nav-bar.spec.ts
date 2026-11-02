@@ -70,7 +70,7 @@ test('long menus stay reachable in a short window and close before header utilit
   await expect(page.locator('.site-nav-menu .site-nav-pop')).toHaveCount(0);
   await expect(page.getByRole('region', { name: 'Settings', exact: true })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Settings', exact: true }).getByRole('button', { name: 'Import / export', exact: true })).toBeFocused();
-  await page.getByRole('button', { name: 'Switch to light mode' }).focus();
+  await page.getByRole('button', { name: 'Choose Background Music', exact: true }).focus();
   await page.keyboard.press('Tab');
   await expect(page.locator('.site-nav .site-nav-clock button')).toBeFocused();
   await page.keyboard.press('Tab');

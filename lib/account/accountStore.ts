@@ -74,6 +74,8 @@ export interface AccountRecord {
   profile?: AccountProfile;
   pulls?: PullReadStatus;
   base?: AccountBaseSnapshot;
+  /** Selected in-game home background, from background.selected; absent on older imports. */
+  homeBackground?: string;
   /** Per-server build snapshot, kept with the account rather than another server's planner. */
   operatorBuilds?: Roster;
 }
@@ -92,6 +94,8 @@ export interface AccountWallet {
 }
 
 export interface AccountProfile {
+  /** Count-only friend availability from the most recent manual game import. */
+  friendSlots?: { used: number; limit: number };
   level: number | null;
   /** status.registerTs, ISO. */
   registeredAt: string | null;
@@ -137,6 +141,12 @@ export interface SupportUnit {
   potential: number;
   /** 1-based, the skill it lends with. */
   skill: number | null;
+  /** Mastery of the selected support skill, not the all-skills badge. */
+  skillMastery?: number | null;
+  /** Actual imported ranks, excluding unfinished training. Older snapshots omit these. */
+  skillLevel?: number | null;
+  skillMasteries?: (number | null)[];
+  moduleLevel?: number | null;
   /** Every one of its skills at Mastery 3: the game's badge on a support unit is for that,
    *  not for the skill it lends. Absent on a record from before it. */
   allMastered?: boolean;
@@ -201,6 +211,7 @@ export function parseAccount(raw: string | null): AccountRecord | null {
     version: 1, server: value.server, importedAt: value.importedAt,
     doctor: typeof value.doctor === 'string' ? value.doctor : null,
     ...(base ? { base } : {}),
+    ...(gameId(value.homeBackground) ? { homeBackground: gameId(value.homeBackground)! } : {}),
     ...(parseRewardClaims(value.rewardClaims) ? { rewardClaims: parseRewardClaims(value.rewardClaims) } : {}),
     ...(parsePermanentClaims(value.permanentClaims) ? { permanentClaims: parsePermanentClaims(value.permanentClaims) } : {}),
     operators: value.operators as string[], skins: value.skins as string[], cleared: value.cleared as string[],
@@ -218,13 +229,18 @@ export function parseAccount(raw: string | null): AccountRecord | null {
       level: typeof profile.level === 'number' && Number.isFinite(profile.level) ? profile.level : null,
       registeredAt: text(profile.registeredAt), secretary: text(profile.secretary), bio: text(profile.bio),
       uid: text(profile.uid), avatar: text(profile.avatar), nameCard: text(profile.nameCard),
+      ...(profile.friendSlots && typeof profile.friendSlots==='object' && Number.isInteger((profile.friendSlots as {used:number}).used) && Number.isInteger((profile.friendSlots as {limit:number}).limit) && (profile.friendSlots as {used:number}).used>=0 && (profile.friendSlots as {limit:number}).limit>=0 && (profile.friendSlots as {limit:number}).limit<=1000 && (profile.friendSlots as {used:number;limit:number}).used<=(profile.friendSlots as {used:number;limit:number}).limit ? {friendSlots:profile.friendSlots as {used:number;limit:number}} : {}),
       ...(profile.avatarType !== undefined ? { avatarType: avatarType(profile.avatarType) } : {}),
       ...(typeof profile.hired === 'number' ? { hired: profile.hired } : {}),
       supports: Array.isArray(profile.supports) ? (profile.supports as SupportUnit[]).filter((unit) => unit && typeof unit.name === 'string').slice(0, 3)
         // A record from the first build of the badge kept the lent skill's mastery instead
       // (mastery): dropped, so no badge shows until the next import says.
       .map(({ mastery: _, ...unit }: SupportUnit & { mastery?: unknown }) => ({ ...unit, skin: skinId(unit.skin), ...(unit.allMastered === undefined ? {} : { allMastered: unit.allMastered === true }),
-        ...(unit.module === undefined ? {} : { module: gameId(unit.module) }), ...(unit.skillId === undefined ? {} : { skillId: gameId(unit.skillId) }) })) : [],
+        ...(unit.module === undefined ? {} : { module: gameId(unit.module) }), ...(unit.skillId === undefined ? {} : { skillId: gameId(unit.skillId) }),
+        skillMastery:typeof unit.skillMastery==='number'&&Number.isInteger(unit.skillMastery)&&unit.skillMastery>=0&&unit.skillMastery<=3?unit.skillMastery:null,
+        ...(unit.skillLevel===undefined?{}:{skillLevel:Number.isInteger(unit.skillLevel)&&unit.skillLevel!>=1&&unit.skillLevel!<=7?unit.skillLevel:null}),
+        ...(unit.skillMasteries===undefined?{}:{skillMasteries:Array.isArray(unit.skillMasteries)?unit.skillMasteries.slice(0,3).map(m=>Number.isInteger(m)&&m!>=0&&m!<=3?m:null):[]}),
+        moduleLevel:typeof unit.moduleLevel==='number'&&Number.isInteger(unit.moduleLevel)&&unit.moduleLevel>=1&&unit.moduleLevel<=3?unit.moduleLevel:null })) : [],
       ...(typeof profile.nameCardVariant === 'number' && Number.isInteger(profile.nameCardVariant) && profile.nameCardVariant >= 0 && profile.nameCardVariant < 20 ? { nameCardVariant: profile.nameCardVariant } : {}),
       ...(profile.secretarySkin !== undefined ? { secretarySkin: skinId(profile.secretarySkin) } : {}),
       ...(strings(profile.panels, 10) ? { panels: (profile.panels as string[]).filter((panel) => PANELS.has(panel)) } : {}),
@@ -277,6 +293,7 @@ export function accountFromGame(user: Record<string, any>, map: GameAccountMap, 
     server,
     importedAt: now.toISOString(),
     ...(base ? { base } : {}),
+    ...(gameId(user.background?.selected) ? { homeBackground: gameId(user.background.selected)! } : {}),
     doctor: status.nickName ? `${status.nickName}#${status.nickNumber ?? ''}` : null,
     operators: [...operators].sort(),
     operatorIds: [...operatorIds].sort(),
@@ -295,6 +312,8 @@ export function accountFromGame(user: Record<string, any>, map: GameAccountMap, 
       secretary: map.chars[status.secretary]?.name ?? null,
       bio: typeof status.resume === 'string' && status.resume.trim() ? status.resume.trim().slice(0, 500) : null,
       uid: status.uid != null ? String(status.uid) : null,
+      ...(Number.isInteger(user.social?.arkpediaFriendCount) && Number.isInteger(status.friendNumLimit) && user.social.arkpediaFriendCount>=0 && user.social.arkpediaFriendCount<=status.friendNumLimit && status.friendNumLimit<=1000
+        ? {friendSlots:{used:user.social.arkpediaFriendCount,limit:status.friendNumLimit}} : {}),
       // The id alone does not say what it names: for the "Assistant Operator" avatar the game
       // sends the assistant's skin id, which no profile-avatars file is named by.
       avatar: skinId(status.avatar?.id),
@@ -328,10 +347,16 @@ function supportUnits(user: Record<string, any>, map: GameAccountMap): SupportUn
     const allMastered = !!skills?.length && skills.every((skill) => Number(skill?.specializeLevel) === 3);
     const lent = typeof slot!.skillIndex === 'number' && slot!.skillIndex >= 0 ? (skills?.[slot!.skillIndex] as { skillId?: unknown } | undefined)?.skillId : null;
     const equip = char.currentTmpl ? char.tmpl?.[char.currentTmpl]?.currentEquip : char.currentEquip;
+    const selectedSkill=typeof slot!.skillIndex==='number'?skills?.[slot!.skillIndex]:null;
+    const selectedEquipment=(char.currentTmpl ? char.tmpl?.[char.currentTmpl]?.equip : char.equip)?.[equip];
     return [{
       name: entry.name, rarity: entry.rarity ?? null,
       level: Number(char.level) || 1, elite: Number(char.evolvePhase) || 0, potential: (Number(char.potentialRank) || 0) + 1,
       skill: typeof slot!.skillIndex === 'number' && slot!.skillIndex >= 0 ? slot!.skillIndex + 1 : null,
+      skillMastery:typeof selectedSkill?.specializeLevel==='number'&&Number.isInteger(selectedSkill.specializeLevel)&&selectedSkill.specializeLevel>=0&&selectedSkill.specializeLevel<=3?selectedSkill.specializeLevel:null,
+      skillLevel:Number.isInteger(char.mainSkillLvl)&&char.mainSkillLvl>=1&&char.mainSkillLvl<=7?char.mainSkillLvl:null,
+      skillMasteries:(skills??[]).slice(0,3).map(s=>typeof s.specializeLevel==='number'&&Number.isInteger(s.specializeLevel)&&s.specializeLevel>=0&&s.specializeLevel<=3?s.specializeLevel:null),
+      moduleLevel:gameId(equip)&&Object.hasOwn(entry.modules,equip)&&!selectedEquipment?.locked&&Number.isInteger(selectedEquipment?.level)&&selectedEquipment.level>=1&&selectedEquipment.level<=3?selectedEquipment.level:null,
       allMastered,
       module: gameId(equip),
       skillId: gameId(lent),

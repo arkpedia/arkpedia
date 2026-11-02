@@ -2,10 +2,12 @@ import { chooseMusicView, musicViewLink, openMusicMenu, clickMusicControl } from
 import fs from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 import { stubYouTube, youtube } from './youtube-stub';
+import { CROSSOVER_PAGE_MUSIC } from '../../lib/music/crossoverPageMusic';
 
 const all = JSON.parse(fs.readFileSync('public/music-catalogue.json', 'utf8')).songs as { videoId: string; title: string; altTitle?: string; artist?: string; copyright?: boolean }[];
 const letter = all.find(song => /酸橙色信笺|Letter in Orange/.test(song.title + song.altTitle))!;
 const songs = [letter, ...all.filter(song => song.videoId !== letter.videoId && !song.copyright).slice(0, 3)];
+const catalogueIds = [...new Set([...songs.map(song => song.videoId), ...CROSSOVER_PAGE_MUSIC.map(({ song }) => song.id)])];
 const bar = (page: Page) => page.getByRole('region', { name: 'Player', exact: true });
 const nav = (page: Page) => page.getByRole('navigation', { name: 'Music', exact: true });
 const libraryRow = (page: Page, i: number) => page.locator(`.music-library-row[data-song-id="${songs[i].videoId}"]`);
@@ -39,7 +41,7 @@ test('1: queue count excludes played history during autoplay and shuffle', async
   const automatic = page.getByRole('region', { name: 'Autoplay from library', exact: true });
   await expect(automatic.getByRole('checkbox')).toBeChecked();
   await automatic.getByRole('button', { name: 'Autoplay from library', exact: true }).click();
-  await expect(automatic.locator('.music-autoplay-row .music-song-row-main')).toHaveCount(4);
+  await expect(automatic.locator('.music-autoplay-row .music-song-row-main')).toHaveCount(catalogueIds.length);
   await automatic.getByRole('checkbox').uncheck();
   await page.reload();
   await expect(automatic.getByRole('checkbox'), 'turned off, it stays off').not.toBeChecked();
@@ -74,12 +76,16 @@ test('1: queue count excludes played history during autoplay and shuffle', async
   await clickMusicControl(page, 'Next track');
   await expect.poll(async () => (await youtube(page))?.videoId).toBe(letter.videoId);
   await clickMusicControl(page, 'Next track');
-  await expect.poll(async () => (await youtube(page))?.videoId).toBe(songs[3].videoId);
+  // The automatic pool also contains the supplemental lobby recordings. Shuffle
+  // may choose any remaining automatic track, but must not replay the manual queue.
+  const automaticIds = catalogueIds.filter(id => !songs.slice(0, 3).some(song => song.videoId === id));
+  await expect.poll(async () => automaticIds.includes((await youtube(page))?.videoId ?? '')).toBe(true);
+  const repeatedId = (await youtube(page))!.videoId;
   await clickMusicControl(page, 'Repeat: off');
   const loads = (await youtube(page))!.calls.filter(([name]) => name === 'loadVideoById').length;
   await page.evaluate(() => (window as unknown as { __yt: { finish: () => void } }).__yt.finish());
   await expect.poll(async () => (await youtube(page))!.calls.filter(([name]) => name === 'loadVideoById').length).toBe(loads + 1);
-  expect((await youtube(page))!.videoId).toBe(songs[3].videoId);
+  expect((await youtube(page))!.videoId).toBe(repeatedId);
 });
 
 test('2: playback is independently centered, with Shuffle beside Repeat on the right', async ({ page }) => {
@@ -255,18 +261,18 @@ test('a song kept out of autoplay leaves the autoplay list, is never picked, and
   await expect(automatic.getByRole('checkbox'), 'autoplay is on by default').toBeChecked();
   await automatic.getByRole('button', { name: 'Autoplay from library', exact: true }).click();
   const rows = automatic.locator('.music-autoplay-row');
-  await expect(rows).toHaveCount(4);
+  await expect(rows).toHaveCount(catalogueIds.length);
   const out = await rows.first().getAttribute('data-song-id');
   if (mobile) {
     await rows.first().getByRole('button', { name: /^More actions/ }).click();
     await page.getByRole('dialog', { name: 'Song actions', exact: true }).getByRole('button', { name: "Don't autoplay", exact: true }).click();
   } else await rows.first().getByRole('button', { name: /^Don't autoplay:/ }).click();
-  await expect(rows).toHaveCount(3);
+  await expect(rows).toHaveCount(catalogueIds.length - 1);
   await expect(automatic.locator(`.music-autoplay-row[data-song-id="${out}"]`)).toHaveCount(0);
   await expect(automatic.getByText('1 song is kept out of autoplay.')).toBeVisible();
   await page.reload();
   await automatic.getByRole('button', { name: 'Autoplay from library', exact: true }).click();
-  await expect(rows, 'kept out across a reload').toHaveCount(3);
+  await expect(rows, 'kept out across a reload').toHaveCount(catalogueIds.length - 1);
   // Still the reader's to play: the library row shows it kept out, and plays it when chosen.
   await chooseMusicView(page, 'Library');
   const libraryOut = page.locator(`.music-library-row[data-song-id="${out}"]`);

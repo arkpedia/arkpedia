@@ -25,6 +25,7 @@ import { useSkinPlan } from '@/lib/skins/skinPlan';
 import StyledSelect from '@/components/ui/StyledSelect';
 import FilterSheet, { type ActiveFilter } from '@/components/ui/FilterSheet';
 import { useSwitchHold } from '@/components/ui/useSwitchHold';
+import CommunityStats from '@/components/community/CommunityStats';
 import SkinZoomOverlay from '@/components/skins/SkinZoomOverlay';
 import { skinDynamicArt } from '@/lib/skins/dynamicArt';
 import { withSkinDynamicArt, loadDynamicArtIndex } from '@/lib/skins/dynamicArtFallback';
@@ -444,6 +445,7 @@ export default function SkinsGallery({ skins, now, availabilityWindows, dynamicA
                 </>;
               })()}
             </div>
+            {active.skinId&&<CommunityStats skin={active.skinId} />}
             <div className="modal-actions">
               <button type="button" className="primary" onClick={closeSkin}>
                 Close

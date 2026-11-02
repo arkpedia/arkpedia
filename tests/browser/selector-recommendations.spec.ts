@@ -5,7 +5,7 @@ import type { AccountRecord } from '../../lib/account/accountStore';
 // These cases exercise selector dialogs; the independent privacy prompt must not cover their controls.
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
-    localStorage.setItem('arkpedia:privacy:v1', JSON.stringify({ version: 1, savedAt: Date.now(), analytics: false, externalMedia: false, analyticsChosen: true }));
+    localStorage.setItem('arkpedia:privacy:v1', JSON.stringify({ version: 1, savedAt: Date.now(), analytics: false, externalMedia: false, externalMediaChosen: true, analyticsChosen: true }));
   });
 });
 

@@ -10,6 +10,7 @@ import assetCdn from '../../config/asset-delivery.json' with { type: 'json' };
 // site builds URLs from, so a delivery-network change cannot turn this check red while the site is right.
 const pinnedRevision = (revision) => assetCdn.template.split('{repository}')[1].split('{path}')[0].replace('{revision}', revision);
 import { chromium, devices } from '@playwright/test';
+import { CROSSOVER_PAGE_MUSIC } from '../../lib/music/crossoverPageMusic.ts';
 const root = path.resolve(process.argv[2] || '.cache/content-export/release');
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 const initial = JSON.parse(fs.readFileSync(path.join(root, 'manifest.json')));
@@ -189,9 +190,11 @@ try {
     // track -- a YouTube video, or a Monster Siren song (cid) with no upload -- since the catalogue
     // may list an upload twice; release B adds one new video. Endfield's songs are left out, as the
     // Library leaves them out until the reader turns Endfield music on (lib/music/songFilter.ts).
-    const songs = new Set(JSON.parse(fs.readFileSync(path.join(root, 'public/music-catalogue.json'))).songs
-      .filter(song => song.game !== 'endfield')
-      .map(song => song.videoId || `msr:${song.cid}`)).size;
+    const songs = new Set([
+      ...JSON.parse(fs.readFileSync(path.join(root, 'public/music-catalogue.json'))).songs
+        .filter(song => song.game !== 'endfield').map(song => song.videoId || `msr:${song.cid}`),
+      ...CROSSOVER_PAGE_MUSIC.map(entry => entry.song.id),
+    ]).size;
     const catalogueRequests = [];
     const noteCatalogue = request => { if (request.url().includes('/public/music-catalogue.json')) catalogueRequests.push(request.url()); };
     page.on('request', noteCatalogue);
@@ -206,8 +209,8 @@ try {
       const data = await response.json();
       return data.pageProps?.__contentRelease?.release === states.b.manifest.release;
     }, `${name} music page from release B`, 75_000);
+    await page.goto('http://localhost:3193/music?view=library');
     await waitFor(async () => {
-      await page.goto('http://localhost:3193/music?view=library');
       assert.ok((await page.locator('#music-library-heading').innerText({ timeout: 10_000 })).includes(`${songs + 1} songs`),
         `Expected ${songs + 1} songs, got ${await page.locator('#music-library-heading').innerText()}`);
       return true;

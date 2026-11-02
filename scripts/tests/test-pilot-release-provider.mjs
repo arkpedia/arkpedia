@@ -23,6 +23,14 @@ function version(id = PILOT.legacyVersion) {
       ]),
     ] } };
 }
+function enableAccounts(v) {
+  v.resources.bindings.push(
+    { name: 'ARKPEDIA_ACCOUNTS_ENABLED', type: 'plain_text', text: '1' },
+    { name: 'ACCOUNT_TRAFFIC_LIMIT', type: 'ratelimit', namespace_id: '2026110201', simple: { limit: 6000, period: 60 } },
+    { name: 'ACCOUNT_IP_LIMIT', type: 'ratelimit', namespace_id: '2026110202', simple: { limit: 300, period: 60 } },
+  );
+  return v;
+}
 function identity(id = PILOT.legacyVersion) {
   return { version: 1, commit: id === PILOT.legacyVersion ? PILOT.legacySource : owner.source,
     codeFingerprint: id === PILOT.legacyVersion ? PILOT.legacyFingerprint : owner.fingerprint,
@@ -98,9 +106,10 @@ test('identity reader refuses dirty, invalid-role, redirect and oversized respon
   await assert.rejects(() => readPilotIdentity(async () => new Response(' '.repeat(70_000))), /oversized pilot identity/);
 });
 
-function harness({ token = true, badRoute = null, lostDeployResponse = false, sessionCache = 'private, no-store', savedDataCache = 'private, no-store', allowLocalRecovery = false, initialVersion = PILOT.legacyVersion } = {}) {
+function harness({ token = true, badRoute = null, lostDeployResponse = false, sessionCache = 'private, no-store', savedDataCache = 'private, no-store', allowLocalRecovery = false, initialVersion = PILOT.legacyVersion, accounts = false, providers = ['google', 'discord'] } = {}) {
   let current = initialVersion;
   const versions = new Map([[PILOT.legacyVersion, version()], [nextVersion, version(nextVersion)]]);
+  if (accounts) enableAccounts(versions.get(nextVersion));
   const commands = [];
   const run = (_executable, args, options) => {
     assert.equal(args[args.indexOf('--name') + 1], 'arkpedia');
@@ -126,6 +135,12 @@ function harness({ token = true, badRoute = null, lostDeployResponse = false, se
     const path = new URL(url).pathname;
     if (path === '/build-info.json') return new Response(JSON.stringify(identity(current)));
     if (path === badRoute) return new Response('unavailable', { status: 503 });
+    if (accounts && current === nextVersion && path.startsWith('/api/')) {
+      const session = path === '/api/auth/get-session';
+      const publicCommunity = ['/api/community/supports', '/api/community/stats'].includes(path);
+      return Response.json(session ? null : { error: 'Sign in', providers }, { status: session || publicCommunity ? 200 : 401,
+        headers: { 'cache-control': session ? sessionCache : savedDataCache } });
+    }
     if (path.startsWith('/api/')) return Response.json({ error: 'Arkpedia accounts are available on Preview only.' }, { status: 503,
       headers: { 'cache-control': path === '/api/auth/get-session' ? sessionCache : savedDataCache } });
     return new Response('page');
@@ -193,4 +208,26 @@ test('lost upload response can recover only the exact canonical owner; unchanged
   const idle = harness();
   assert.deepEqual(await idle.provider.recover(owner), { action: 'unchanged' });
   assert.ok(!idle.commands.includes('rollback'));
+});
+
+test('enabled production accounts require their exact limits and reject partial enablement', () => {
+  const v = enableAccounts(version(nextVersion));
+  assert.equal(assertPilotBindings(v), v);
+  for (const mutate of [
+    x => { binding(x, 'ACCOUNT_IP_LIMIT').namespace_id = '2026110102'; },
+    x => { binding(x, 'ACCOUNT_TRAFFIC_LIMIT').simple.limit = 999999; },
+    x => { binding(x, 'ARKPEDIA_ACCOUNTS_ENABLED').text = '0'; },
+    x => { x.resources.bindings = x.resources.bindings.filter(b => b.name !== 'ACCOUNT_IP_LIMIT'); },
+  ]) { const bad = structuredClone(v); mutate(bad); assert.throws(() => assertPilotBindings(bad)); }
+});
+test('account release verifies anonymous auth, private saves, public community and rollback to disabled accounts', async () => {
+  const h = harness({ accounts: true });
+  await h.provider.health(h.provider.observe());
+  const published = h.provider.deploy(owner);
+  await h.provider.health(published);
+  assert.equal((await h.provider.recover(owner)).action, 'rolled-back');
+  for (const options of [{ providers: ['google'] }, { badRoute: '/api/community/supports' }, { savedDataCache: 'public, max-age=60' }]) {
+    const bad = harness({ accounts: true, initialVersion: nextVersion, ...options });
+    await assert.rejects(() => bad.provider.health(bad.provider.observe()));
+  }
 });

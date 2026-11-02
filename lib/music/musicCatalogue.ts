@@ -1,3 +1,4 @@
+import { withCrossoverPageMusic } from './crossoverPageMusic';
 // The music player's queue catalogue: one small row per playable song. It is a game record
 // like any other, so it is published with the content release (release/public/
 // music-catalogue.json, written at export by scripts/build/build-music-catalogue.ts) and
@@ -129,9 +130,9 @@ export async function loadMusicCatalogue(
   fetcher: FetchCatalogue = fetch,
 ): Promise<MusicCatalogueSong[]> {
   try {
-    return await fetchMusicCatalogue(releaseUrl, signal, fetcher);
+    return withCrossoverPageMusic(await fetchMusicCatalogue(releaseUrl, signal, fetcher));
   } catch (error) {
     if (signal?.aborted || releaseUrl === MUSIC_CATALOGUE_PATH) throw error;
-    return fetchMusicCatalogue(MUSIC_CATALOGUE_PATH, signal, fetcher);
+    return withCrossoverPageMusic(await fetchMusicCatalogue(MUSIC_CATALOGUE_PATH, signal, fetcher));
   }
 }

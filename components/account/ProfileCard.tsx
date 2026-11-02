@@ -58,14 +58,14 @@ const unit = (count: number) => `calc(var(--medal-unit) * ${count})`;
 /** A support unit as the game's card shows it: its portrait in the outfit it wears, or its
  *  roster icon on a record from before outfits were kept, or until a new outfit's portrait
  *  is published. */
-export function SupportTile({ unit, full, map }: { unit: SupportUnit; full: boolean; map: GameAccountMap }) {
+export function SupportTile({ unit, full, map, showSelectedMastery = false }: { unit: SupportUnit; full: boolean; map: GameAccountMap; showSelectedMastery?:boolean }) {
   const [portrait, setPortrait] = useState(true);
   const [skillArt, setSkillArt] = useState(true);
   const src = unit.skin && portrait ? portraitPath(unit.skin) : unit.rarity != null ? getOperatorIconPath({ name: unit.name, rarity: unit.rarity }) : null;
   const moduleMark = unit.module ? moduleMarkPath(unit.module, map.moduleTypes) : null;
   const skill = unit.skillId && skillArt ? skillIconPath(unit.skillId, map.skillIcons) : null;
   return (
-    <div className={`account-card-support${full ? ' is-full' : ''}`} title={`${unit.name}: ${ELITE[unit.elite] ?? ''} Lv ${unit.level}, potential ${unit.potential}${unit.skill ? `, skill ${unit.skill}` : ''}${unit.allMastered ? ', every skill at M3' : ''}`}>
+    <div className={`account-card-support${full ? ' is-full' : ''}`} title={`${unit.name}: ${ELITE[unit.elite] ?? ''} Lv ${unit.level}${unit.potential?`, potential ${unit.potential}`:''}${unit.skill ? `, skill ${unit.skill}` : ''}${showSelectedMastery&&unit.skillMastery!=null?`, M${unit.skillMastery}`:unit.allMastered ? ', every skill at M3' : ''}`}>
       {src && <ContentImg key={src} className={unit.skin && portrait ? 'account-card-support-icon account-card-support-portrait' : 'account-card-support-icon'} src={src} alt={unit.name} onError={unit.skin && portrait ? () => setPortrait(false) : undefined} />}
       <span className="account-card-support-level"><small>LV</small>{unit.level}</span>
       <span className="account-card-support-marks">
@@ -73,11 +73,11 @@ export function SupportTile({ unit, full, map }: { unit: SupportUnit; full: bool
             the lent skill at the foot. */}
         {unit.potential >= 1 && unit.potential <= 6 && <ContentImg className="account-card-support-potential" src={UI(`potential_${unit.potential - 1}_small`)} alt={`Potential ${unit.potential}`} />}
         {ELITE[unit.elite] && <ContentImg className="account-card-support-elite" src={UI(`elite_${unit.elite}`)} alt={ELITE[unit.elite]} />}
-        {unit.allMastered && <ContentImg className="account-card-support-mastery" src={UI('spec_max_icon')} alt="Every skill at Mastery 3" />}
+        {showSelectedMastery?!!unit.skillMastery&&<ContentImg className="account-card-support-mastery" src={`/essential-icons/M${unit.skillMastery}.webp`} alt={`Selected skill Mastery ${unit.skillMastery}`} />:unit.allMastered && <ContentImg className="account-card-support-mastery" src={UI('spec_max_icon')} alt="Every skill at Mastery 3" />}
       </span>
-      {(unit.module !== undefined || unit.skillId) && (
+      {(moduleMark || skill) && (
         <span className="account-card-support-kit">
-          <span className="account-card-support-module">{moduleMark && <ContentImg src={moduleMark} alt="Module" />}</span>
+          {moduleMark && <span className="account-card-support-module"><ContentImg src={moduleMark} alt="Module" /></span>}
           {skill && <ContentImg className="account-card-support-skill" src={skill} alt={`Skill ${unit.skill ?? ''}`} onError={() => setSkillArt(false)} />}
         </span>
       )}

@@ -30,3 +30,26 @@ test('the corner player keeps every control inside its card', async ({ page }) =
     await expect(volume).toBeHidden();
   }
 });
+
+for (const theme of ['dark', 'light']) {
+  test(`the same corner opens and closes the player (${theme})`, async ({page}, info) => {
+    await stubYouTube(page);
+    await page.addInitScript(theme => localStorage.setItem('theme', theme), theme);
+    await page.goto('/pull-planner');
+    const shell = page.locator('.music-player');
+    const opener = shell.getByRole('button', {name:'Expand player'});
+    const box = (await opener.boundingBox())!; const point = {x:box.x+box.width/2,y:box.y+box.height/2};
+    await page.mouse.click(point.x, point.y);
+    await expect(shell.getByRole('link', {name:'Queue',exact:true})).toBeVisible();
+    const closer = shell.getByRole('button', {name:'Collapse player'});
+    const closeBox = (await closer.boundingBox())!;
+    expect(point.x).toBeGreaterThan(closeBox.x); expect(point.x).toBeLessThan(closeBox.x+closeBox.width);
+    expect(point.y).toBeGreaterThan(closeBox.y); expect(point.y).toBeLessThan(closeBox.y+closeBox.height);
+    if(process.env.ARKPEDIA_QA_CAPTURE) await page.screenshot({animations:'disabled',path:`${process.env.ARKPEDIA_QA_CAPTURE}/${info.project.name}-${theme}-corner-player.png`});
+    await page.mouse.click(point.x, point.y); await expect(opener).toBeVisible();
+    await opener.focus(); await page.keyboard.press('Enter'); await expect(closer).toBeFocused();
+    await page.keyboard.press('Escape'); await expect(opener).toBeFocused();
+    await opener.click(); await shell.getByRole('link',{name:'Queue',exact:true}).click();
+    await expect(page).toHaveURL(/\/music\?view=queue/);
+  });
+}

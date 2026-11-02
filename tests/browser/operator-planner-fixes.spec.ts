@@ -9,7 +9,7 @@ async function controls(page: Page, mobile: boolean) {
 }
 for (const theme of ['dark', 'light']) {
   test.beforeEach(async ({ page }) => {
-    await page.addInitScript(() => localStorage.setItem('arkpedia:privacy:v1', JSON.stringify({ version: 1, analytics: false, externalMedia: false, savedAt: Date.now() })));
+    await page.addInitScript(() => localStorage.setItem('arkpedia:privacy:v1', JSON.stringify({ version: 1, analytics: false, externalMedia: false, externalMediaChosen: true, savedAt: Date.now() })));
   });
   test(`operator filters retain multiple choices, checkbox selections and bookmarks (${theme})`, async ({ page }, info) => {
     test.setTimeout(120000);

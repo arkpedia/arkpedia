@@ -6,11 +6,6 @@ export async function domainResponse(request, requestPreview = fetch) {
   const url = new URL(request.url);
   let path = url.pathname;
   try { path = decodeURIComponent(path); } catch { /* The application rejects malformed URL escapes. */ }
-  if (url.hostname !== 'preview.arkpedia.net' && /^\/api\/(?:auth|cloud-account|account-profile)(?:\/|$)/.test(path)) {
-    return Response.json({ error: 'Arkpedia accounts are available on Preview only.' }, {
-      status: 503, headers: { 'cache-control': 'private, no-store', vary: 'Cookie' },
-    });
-  }
   if (url.hostname === 'arkpedia.net') {
     url.protocol = 'https:';
     url.hostname = 'www.arkpedia.net';
@@ -22,7 +17,8 @@ export async function domainResponse(request, requestPreview = fetch) {
   upstream.pathname = url.pathname;
   upstream.search = url.search;
   const headers = new Headers(request.headers);
-  const previewAccount = /^\/api\/(?:auth|cloud-account|account-profile)(?:\/|$)/.test(path);
+  const previewAccount = /^\/api\/(?:auth|cloud-account|account-profile)(?:\/|$)/.test(path)
+    || /^\/api\/community\/(?:sharing|availability)\/?$/.test(path);
   // Only the isolated native Preview handles its accounts. Ordinary demo requests
   // still discard credentials; no account request reaches the live service binding.
   if (!previewAccount) {

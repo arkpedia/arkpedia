@@ -27,16 +27,14 @@ The maintainer authorized retiring Vercel hosting and its rollback role on 2026-
 Use Cloudflare version recovery, preserving stored data; see docs/development/vercel-retirement.md.
 Historical migration instructions requiring Vercel retention are superseded by that decision.
 
-Google/Discord sign-in, Arkpedia profiles and cloud saves are Preview-only.
-Keep them disabled on live, including direct production Worker URLs. Preview must
-use isolated account storage; never route it through the live account backend.
-The retired `arkpedia-cf.mocchibird.com` hostname is not a release or reader target;
-use canonical www. Preserve the application Worker and retained account data.
-
-Current hosting: Cloudflare serves www; Vercel remains available for rollback.
-Google/Discord accounts, profiles and cloud saves are Preview-only. Only the new
-isolated `arkpedia-preview-accounts` database may be bound to the native Preview;
-never share the live account backend or its data. Preserve live data and secrets.
+Google/Discord accounts, profiles and cloud saves are approved for production
+promotion as of 2026-11-02. Canonical production uses only `arkpedia-prod-accounts`;
+native Preview uses only `arkpedia-preview-accounts`. Keep both identities, data,
+credentials and sessions isolated. The base optimizer remains Preview-only.
+Preserve retained account data and secrets; code rollback must not restore an old
+database over newer writes. Use the checked-main release owner and verify the
+actual deployed journey. Vercel hosting and rollback were retired on 2026-10-27.
+The retired `arkpedia-cf.mocchibird.com` hostname is not a release or reader target.
 
 <!-- BEGIN:nextjs-agent-rules -->
 

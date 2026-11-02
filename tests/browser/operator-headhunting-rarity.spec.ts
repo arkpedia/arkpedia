@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 for (const theme of ['dark', 'light']) test(`headhunting pools work below six stars and retain combined filters (${theme})`, async ({ page }, info) => {
-  await page.addInitScript(theme => { localStorage.clear(); localStorage.setItem('theme', theme); localStorage.setItem('arkpedia:privacy:v1', JSON.stringify({version:1,analytics:false,externalMedia:false,savedAt:Date.now()})); }, theme);
+  await page.addInitScript(theme => { localStorage.clear(); localStorage.setItem('theme', theme); localStorage.setItem('arkpedia:privacy:v1', JSON.stringify({version:1,analytics:false,externalMedia:false,externalMediaChosen:true,savedAt:Date.now()})); }, theme);
   for (const [rarity, method, name] of [['5','kernel','Lappland'], ['5','standard','Bassline'], ['4','standard','Myrtle'], ['3','kernel','Kroos']]) {
     await page.goto(`/operators?rarity=${rarity}&obtain=${method}&q=${name}`);
     await expect(page.locator('.roster-card').filter({hasText:name})).toBeVisible();

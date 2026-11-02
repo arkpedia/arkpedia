@@ -3,12 +3,12 @@ import PageMeta from '@/components/layout/PageMeta';
 import type { GetStaticProps } from 'next';
 import DataLink from '@/components/account/DataLink';
 import PageHeader from '@/components/ui/PageHeader';
-import ProfileCard, { SupportTile } from '@/components/account/ProfileCard';
+import ProfileCard from '@/components/account/ProfileCard';
 import ImportDialog from '@/components/account/ImportDialog';
 import InfoPopover from '@/components/ui/InfoPopover';
-import { ContentImg } from '@/components/content/ContentImage';
 import { ICONS } from '@/components/layout/NavIcons';
 import FriendCollection from '@/components/friends/FriendCollection';
+import FriendCard, { FriendSupports } from '@/components/friends/FriendCard';
 import { withContentPage } from '@/lib/content/server';
 import { useReleaseTable } from '@/lib/content/context';
 import { DATA_DIALOG_TABLES, fillAccountMap } from '@/lib/content/dataDialogTables';
@@ -112,18 +112,13 @@ export default function FriendsPage({ operators, skins }: Props) {
           const card = entry.account.profile?.nameCard ?? 'nc_rhodes_default';
           const variants = map.nameCardVariants?.[card];
           const strip = `${card}-strip${variants ? `-${Math.min(entry.account.profile?.nameCardVariant ?? 0, variants - 1)}` : ''}`;
-          return <article className={`panel profile-strip ${styles.friendRow}`} key={friendKey(entry)}>
-            <ContentImg className="profile-strip-background" src={profileArtPath('profile-namecards', strip)} alt="" aria-hidden="true" />
-            <button type="button" className={`btn-bare ${styles.friendSummary}`} aria-label={`View ${name} profile`} aria-haspopup="dialog" onClick={event => show('profile', event.currentTarget)}>
-              <ContentImg className={styles.friendAvatar} src={avatarSources(entry.account.profile ?? {}, map.chars, outfitNames)[0] ?? '/essential-icons/Arkpedia.webp'} alt="" />
-              <span className={styles.friendIdentity}><strong>{name}</strong><span className="hint">{SERVERS[entry.account.server].label}{entry.account.profile?.level != null ? ` · Level ${entry.account.profile.level}` : ''}</span><span className="hint">{entry.account.operators.length} operators · {entry.account.skins.length} skins</span></span>
-              <span className={styles.friendSupports}>{entry.account.profile?.supports?.map((unit, index) => <SupportTile key={index} unit={unit} full={false} map={map} />)}</span>
-            </button>
-            <div className={styles.actions}>
+          return <FriendCard key={friendKey(entry)} name={name} background={profileArtPath('profile-namecards', strip)} avatar={avatarSources(entry.account.profile ?? {}, map.chars, outfitNames)[0]}
+            onProfile={trigger=>show('profile',trigger)} metadata={<><span className="hint">{SERVERS[entry.account.server].label}{entry.account.profile?.level != null ? ` · Level ${entry.account.profile.level}` : ''}</span><span className="hint">{entry.account.operators.length} operators · {entry.account.skins.length} skins</span></>}
+            supports={<FriendSupports units={entry.account.profile?.supports??[]} map={map} />}
+            actions={<>
               <button type="button" className="ghost btn-sm" aria-label={`Show ${name}'s operators`} aria-haspopup="dialog" onClick={event => show('operators', event.currentTarget)}><span className="site-nav-icon" aria-hidden="true">{ICONS.roster}</span>Operators</button>
               <button type="button" className="ghost btn-sm" aria-label={`Show ${name}'s skins`} aria-haspopup="dialog" onClick={event => show('skins', event.currentTarget)}><span className="site-nav-icon" aria-hidden="true">{ICONS.skins}</span>Skins</button>
-            </div>
-          </article>;
+            </>} />;
         })}
       </section> : <section className={styles.empty}><h2>No friend imported yet</h2><p className="hint">Ask a friend to export their account here, then open their JSON file.</p></section>}
     </main>

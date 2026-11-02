@@ -2,14 +2,14 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import XButton from '@/components/ui/XButton';
-import { readPrivacy, savePrivacy, useAnalyticsDecision } from '@/lib/privacy/preferences';
+import { readPrivacy, savePrivacy, useAnalyticsDecision, useMediaDecision } from '@/lib/privacy/preferences';
 
 export default function StatisticsPrompt() {
   const { pathname } = useRouter();
-  const decided = useAnalyticsDecision();
+  const decided = useAnalyticsDecision(), mediaDecided = useMediaDecision();
   const [dismissed, setDismissed] = useState(false);
   const [error, setError] = useState('');
-  if (pathname === '/cookies' || decided || dismissed) return null;
+  if (pathname === '/cookies' || !mediaDecided || decided || dismissed) return null;
   const choose = (analytics: boolean) => {
     try { savePrivacy({ ...readPrivacy(), analytics }); }
     catch {
