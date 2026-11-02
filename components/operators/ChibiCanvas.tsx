@@ -1,3 +1,4 @@
+import { chibiBodyBounds } from '@/lib/operators/chibiFrame';
 import { useEffect, useRef, useState } from 'react';
 import { premultipliedTexture } from '@/lib/spine/premultipliedTexture';
 import { acquireChibiGL } from '@/lib/spine/sharedChibiGL';
@@ -60,6 +61,13 @@ export default function ChibiCanvas({ model, label, animation, onAnimationChange
       const drawOrder = skeleton.drawOrder;
       skeleton.drawOrder = drawOrder.filter(slot => slot.color.a >= .01);
       const origin = new spine.Vector2(), size = new spine.Vector2(); skeleton.getBounds(origin, size, []);
+      const parts = skeleton.drawOrder.map(slot => {
+        skeleton.drawOrder = [slot];
+        const point = new spine.Vector2(), extent = new spine.Vector2(); skeleton.getBounds(point, extent, []);
+        return { left: point.x, bottom: point.y, right: point.x + extent.x, top: point.y + extent.y };
+      });
+      const body = chibiBodyBounds(parts);
+      if (body) { origin.set(body.left, body.bottom); size.set(body.right - body.left, body.top - body.bottom); }
       skeleton.drawOrder = drawOrder;
       if (!Number.isFinite(size.x) || !Number.isFinite(size.y)) { origin.set(-100, 0); size.set(200, 300); }
       // Measure every frame of a clip before playback. Transparent effect attachments

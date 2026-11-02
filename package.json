@@ -13,6 +13,8 @@
     "deploy:vercel": "bash scripts/deploy/vercel-production.sh",
     "release:status": "node scripts/deploy/release-status.mjs",
     "typecheck": "tsc --noEmit",
+    "test:chibi-frame": "tsx --test scripts/tests/test-chibi-frame.ts",
+    "audit:chibi-scale": "tsx scripts/audit-chibi-scale.ts",
     "test:operators": "tsx --test scripts/tests/test-operator-details.ts",
     "test:skin-artwork": "tsx --test scripts/tests/test-skin-artwork.ts",
     "voices:refresh": "node scripts/build/build-operator-voices.mjs",

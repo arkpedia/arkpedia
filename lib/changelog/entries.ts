@@ -34,6 +34,10 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-02T12:00:00Z',
+    fixed: [{ title: 'Walking chibis keep their size', detail: 'Detached skin decorations no longer make roaming characters unusually small.', href: '/operators' }],
+  },
+  {
     at: '2026-11-02T00:58:00Z',
     fixed: [{ title: 'Headhunting filters include every rarity', detail: 'Standard and Kernel headhunting now work with lower-rarity operator filters.', href: '/operators' }],
   },
