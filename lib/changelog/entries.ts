@@ -34,6 +34,10 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-02T21:15:00Z',
+    changed: [{ title: 'Community stats for smaller groups', detail: 'Once a server has 10 contributors, all known upgrade and outfit percentages appear, including zeroes.', href: '/operators' }],
+  },
+  {
     at: '2026-11-02T20:20:00Z',
     fixed: [{ title: 'Auto-deploy download banner', detail: 'Download progress now stays centred within the page width on phones and desktops.', href: '/account' }],
   },

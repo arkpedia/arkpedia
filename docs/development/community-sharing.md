@@ -14,8 +14,10 @@ any of these. New imports refresh an existing opt-in; changing game identity req
 Revision and mutation checks prevent older tabs from replacing consent. Withdrawal works without
 a local game import and leaves a minimal tombstone so an in-flight publication cannot restore it.
 
-Statistics project only ownership, builds and outfit state. They count imports up to 30 days old,
-with a minimum denominator of 10. Canonical roster masteries include the next mastery in training,
+Statistics project only ownership, builds and outfit state. They use each opted-in game account’s latest import, regardless of age. Statistics appear
+once a server has 10 contributors; owner, E2, module-eligible and equipped-outfit groups
+have no additional minimum. Zero counts in nonempty groups display as 0%; empty or
+unknown groups remain unavailable rather than representing 0/0 as a percentage. Canonical roster masteries include the next mastery in training,
 as requested; the support finder instead uses the actual selected support skill's completed mastery.
 The server stores a keyed fingerprint of server/UID to deduplicate game accounts, not the raw UID.
 

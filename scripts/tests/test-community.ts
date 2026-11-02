@@ -65,12 +65,12 @@ test('masteries use E2 owners and modules use their level-eligible cohort, exclu
     await h.call('sharing','relative0','DELETE',{});
     const smaller=(await h.call('stats',null,'GET',undefined,{server:'en',operator:'Thorns'})).result;
     assert.equal(smaller.masteryOwners,20);
-    assert.equal(smaller.moduleGroups.some((g:any)=>g.level===60),false);
+    assert.equal(smaller.moduleGroups.find((g:any)=>g.level===60).owners,9);
     assert.equal(smaller.moduleGroups.find((g:any)=>g.level===50).owners,19);
   }finally{h.sqlite.close();}
 });
 
-test('public statistics use only opted-in contributors and suppress small or unknown build samples',async()=>{
+test('public statistics use only opted-in contributors and wait for ten on the server',async()=>{
   const h=harness();
   try{
     h.user('private');assert.equal((await h.publish('private','100',{stats:false,shareTag:true,openRequests:true})).status,200);
@@ -116,7 +116,7 @@ test('statistics retain older latest imports, replace rather than duplicate them
   }finally{h.sqlite.close();}
 });
 
-test('a large ownership sample cannot expose small mastery or module cohorts',async()=>{
+test('small mastery and module groups remain available above the server threshold',async()=>{
   const h=harness();
   try{
     for(let i=0;i<10;i++){
@@ -126,7 +126,33 @@ test('a large ownership sample cannot expose small mastery or module cohorts',as
     }
     const op=(await h.call('stats',null,'GET',undefined,{server:'en',operator:'Thorns'})).result;
     assert.equal(op.owned,10);assert.equal(op.e2,9);
-    assert.equal(op.masteryOwners,undefined);assert.equal(op.skills,undefined);assert.deepEqual(op.moduleGroups,[]);
+    assert.equal(op.masteryOwners,9);assert.deepEqual(op.skills,[0,0,9]);assert.equal(op.moduleGroups.find((g:any)=>g.level===60).owners,9);
+  }finally{h.sqlite.close();}
+});
+test('ten contributors unlock small owner groups, zero upgrades, and empty or unknown groups',async()=>{
+  const h=harness();
+  try{
+    for(let i=0;i<10;i++){
+      const owner='threshold'+i;h.user(owner);const s=snapshot(String(1800+i));
+      s.operators=i<6?[{operator:'Thorns',elite:i===5?null:2,level:i===4?null:60,
+        m0:i===5?null:0,m1:i===5?null:0,m2:i===5?null:i<2?3:0,modules:i===5?null:i<2?{0:1}:{}}]:[];
+      s.skins=i<6?[{skin:'char_293_thorns@test#1',equipped:false}]:[];s.equipmentKnown=i!==5;
+      assert.equal((await h.publish(owner,String(1800+i),statsOnly,s)).status,200);
+      if(i===8)assert.deepEqual((await h.call('stats',null,'GET',undefined,{server:'en',operator:'Thorns'})).result,{contributors:9,owned:null});
+    }
+    const op=(await h.call('stats',null,'GET',undefined,{server:'en',operator:'Thorns'})).result;
+    assert.equal(op.contributors,10);assert.equal(op.owned,6);assert.equal(op.builds,5);
+    assert.equal(op.e1,0);assert.equal(op.e2,5);assert.equal(op.masteryOwners,5);assert.deepEqual(op.skills,[0,0,2]);
+    const modules=op.moduleGroups.find((g:any)=>g.level===60);assert.equal(modules.owners,4);assert.deepEqual(modules.modules[0],[2,0,0]);
+    const skin=(await h.call('stats',null,'GET',undefined,{server:'en',skin:'char_293_thorns@test#1'})).result;
+    assert.equal(skin.owned,6);assert.equal(skin.equipmentOwners,5);assert.equal(skin.equipped,0);
+    const empty=(await h.call('stats',null,'GET',undefined,{server:'en',operator:'Nobody owns this'})).result;
+    assert.equal(empty.owned,0);assert.equal(empty.builds,0);assert.equal(empty.masteryOwners,0);assert.deepEqual(empty.skills,[0,0,0]);
+    assert.ok(empty.moduleGroups.every((g:any)=>g.owners===0&&g.modules.flat().every((n:number)=>n===0)));
+    const noSkin=(await h.call('stats',null,'GET',undefined,{server:'en',skin:'missing'})).result;
+    assert.equal(noSkin.equipmentOwners,0);assert.equal(noSkin.equipped,0);
+    await h.call('sharing','threshold0','DELETE',{});
+    assert.deepEqual((await h.call('stats',null,'GET',undefined,{server:'en',operator:'Thorns'})).result,{contributors:9,owned:null});
   }finally{h.sqlite.close();}
 });
 test('support finder excludes unconsented, full, unknown and expired listings and can find weaker exact masteries',async()=>{

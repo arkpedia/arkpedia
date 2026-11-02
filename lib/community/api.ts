@@ -123,7 +123,7 @@ async function stats(req:NextApiRequest,res:NextApiResponse,db:D1Database){
   if(contributors<COMMUNITY_MIN_SAMPLE)return res.json({contributors,owned:null});
   if(typeof skin==='string'){
     const row=await db.prepare(`SELECT count(*) AS owned,COALESCE(sum(a.equipmentKnown),0) AS equipmentOwners,COALESCE(sum(CASE WHEN a.equipmentKnown=1 THEN s.equipped ELSE 0 END),0) AS equipped FROM community_skin s JOIN community_account a ON a.userId=s.userId WHERE s.skin=? AND a.stats=1 AND a.server=?`).bind(skin,server).first<{owned:number;equipmentOwners:number;equipped:number}>();
-    return res.json({contributors,owned:row?.owned??0,...((row?.equipmentOwners??0)>=COMMUNITY_MIN_SAMPLE?{equipmentOwners:row!.equipmentOwners,equipped:row!.equipped}:{})});
+    return res.json({contributors,owned:row?.owned??0,equipmentOwners:row?.equipmentOwners??0,equipped:row?.equipped??0});
   }
   // Fixed promotion/level cohorts: no arbitrary public filters over private builds.
   const levels=[40,50,60];
@@ -135,9 +135,9 @@ async function stats(req:NextApiRequest,res:NextApiResponse,db:D1Database){
   const row=await db.prepare(`SELECT count(*) AS owned,count(o.elite) AS builds,COALESCE(sum(o.elite=1),0) AS e1,COALESCE(sum(o.elite=2),0) AS e2,COALESCE(sum(o.elite=2 AND o.m0=3),0) AS s0,COALESCE(sum(o.elite=2 AND o.m1=3),0) AS s1,COALESCE(sum(o.elite=2 AND o.m2=3),0) AS s2,${moduleColumns}
     FROM community_operator o JOIN community_account a ON a.userId=o.userId WHERE o.operator=? AND a.stats=1 AND a.server=?`).bind(operator,server).first<Record<string,number>>();
   return res.json({contributors,owned:row?.owned??0,
-    ...((row?.builds??0)>=COMMUNITY_MIN_SAMPLE?{builds:row!.builds,e1:row!.e1,e2:row!.e2}:{}),
-    ...((row?.e2??0)>=COMMUNITY_MIN_SAMPLE?{masteryOwners:row!.e2,skills:[row!.s0,row!.s1,row!.s2]}:{}),
-    moduleGroups:levels.filter(level=>(row?.[`eligible${level}`]??0)>=COMMUNITY_MIN_SAMPLE).map(level=>({level,owners:row![`eligible${level}`],modules:Array.from({length:8},(_,i)=>[1,2,3].map(stage=>row![`mod${level}_${i}_${stage}`]))})),
+    builds:row?.builds??0,e1:row?.e1??0,e2:row?.e2??0,
+    masteryOwners:row?.e2??0,skills:[row?.s0??0,row?.s1??0,row?.s2??0],
+    moduleGroups:levels.map(level=>({level,owners:row?.[`eligible${level}`]??0,modules:Array.from({length:8},(_,i)=>[1,2,3].map(stage=>row?.[`mod${level}_${i}_${stage}`]??0))})),
   });
 }
 async function supports(req:NextApiRequest,res:NextApiResponse,db:D1Database,now:number){

@@ -31,7 +31,7 @@ export default function CommunityStats({operator,skin,skills=0,modules=[],rarity
           </>}
           {skin&&<li>Equipped: among outfit owners with known equipped-outfit data.</li>}
         </ul>
-        <p>Each group needs {COMMUNITY_MIN_SAMPLE} accounts. Unknown builds or levels are excluded. This voluntary sample does not represent all players. Individual rosters and friend tags stay private.</p>
+        <p>Stats appear once this server has {COMMUNITY_MIN_SAMPLE} contributors; smaller owner groups are included. 0% means nobody in the eligible group has that upgrade. A dash means no eligible owners with known data. Small samples are for curiosity, not a picture of all players. Individual rosters and friend tags stay private.</p>
       </InfoPopover>
       <StyledSelect label="Community stats server" value={server} onChange={v=>setServer(v as ServerId)} options={Object.entries(SERVERS).map(([value,s])=>({value,label:s.label}))} />
     </div>
@@ -44,10 +44,7 @@ export default function CommunityStats({operator,skin,skills=0,modules=[],rarity
           {modules.flatMap(module=>[1,2,3].map(stage=>metric(`${module.label} Level ${stage}`,moduleGroup?.modules[module.index]?.[stage-1],moduleGroup?.owners)))}</>}
         {skin&&metric('Equipped',data.equipped,data.equipmentOwners)}
       </dl>}
-      {data.owned!==null&&operator&&!data.builds&&<p>Upgrade percentages need 10 owners with known builds.</p>}
-      {data.owned!==null&&operator&&data.builds&&!data.masteryOwners&&<p>Mastery percentages need 10 E2 owners.</p>}
-      {data.owned!==null&&operator&&modules.length>0&&unlock&&!moduleGroup&&<p>Module percentages need 10 E2 Lv{unlock.level}+ owners with known levels.</p>}
-      {data.owned!==null&&skin&&!data.equipmentOwners&&<p>Equipped percentage needs 10 outfit owners with known equipment.</p>}
+      {data.owned!==null&&((operator&&(!data.builds||skills>0&&!data.masteryOwners||modules.length>0&&!moduleGroup?.owners))||(skin&&!data.equipmentOwners))&&<p>— means no eligible owners with known data yet.</p>}
     </>}
     <p><Link className="reading-copy" href="/account?settings=community">Choose whether to contribute</Link></p>
   </div>;
