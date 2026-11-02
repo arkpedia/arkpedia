@@ -34,6 +34,10 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-02T20:20:00Z',
+    fixed: [{ title: 'Auto-deploy download banner', detail: 'Download progress now stays centred within the page width on phones and desktops.', href: '/account' }],
+  },
+  {
     at: '2026-11-02T15:20:00Z',
     added: [
       { title: 'Arkpedia accounts enter Beta', detail: 'Sign in with Google or Discord and choose which settings, plans and imported game data to save across devices.', href: '/account' },

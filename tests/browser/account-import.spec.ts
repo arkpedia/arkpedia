@@ -766,6 +766,13 @@ test('auto-deploy background download survives closing the dialog and client nav
   const bar=page.getByRole('region',{name:'Auto-deploy downloads',exact:true});
   await bar.getByRole('button',{name:'Pause',exact:true}).click();
   await expect(bar.getByRole('status')).toContainText('Paused.');
+  const bounds=await bar.evaluate(element=>{
+    const main=document.querySelector('main')!,page=main.getBoundingClientRect(),style=getComputedStyle(main),banner=element.getBoundingClientRect();
+    return {left:banner.left,right:banner.right,pageLeft:page.left+parseFloat(style.paddingLeft),pageRight:page.right-parseFloat(style.paddingRight),overflow:element.scrollWidth-element.clientWidth};
+  });
+  expect(bounds.left).toBeCloseTo(bounds.pageLeft,0);
+  expect(bounds.right).toBeCloseTo(bounds.pageRight,0);
+  expect(bounds.overflow).toBeLessThanOrEqual(1);
   const before=(await replayRequests(page)).length;
   await page.waitForTimeout(4500);expect(await replayRequests(page)).toHaveLength(before);
   await bar.scrollIntoViewIfNeeded();await page.screenshot({path:info.outputPath('auto-deploy-background-paused.png')});

@@ -73,7 +73,6 @@
 .replay-sync li { overflow-wrap: anywhere; }
 .replay-sync details > p { margin-top: 6px; }
 .replay-sync details > label { display: grid; gap: 6px; }
-.replay-download-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; max-width: var(--frame-max); margin: 12px var(--page-gutter); padding: 10px 12px; }
+.replay-download-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; width: calc(100% - 2 * var(--page-gutter)); max-width: calc(var(--frame-max) - 2 * var(--page-gutter)); margin: 12px auto; padding: 10px 12px; }
 .replay-download-status { flex: 1 1 240px; min-width: 0; }
 .replay-download-status p { margin: 4px 0 0; overflow-wrap: anywhere; }
-@media (min-width: 1500px) { .replay-download-bar { margin-inline: auto; } }
