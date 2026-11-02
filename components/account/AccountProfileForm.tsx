@@ -5,8 +5,8 @@ import { SERVER_IDS, SERVERS, type ServerId } from '@/lib/account-import/yostar'
 import StyledSelect from '@/components/ui/StyledSelect';
 import styles from './CloudAccountPanel.module.css';
 
-export default function AccountProfileForm({ owner, profile, onSaved, onCancel, gameSync = false, paused = false, id = 'setup', onboarding = false }: {
-  owner: string; profile: AccountProfile | null; onSaved: () => Promise<void>; onCancel?: () => void; gameSync?: boolean; paused?: boolean; id?: string; onboarding?: boolean;
+export default function AccountProfileForm({ owner, profile, onSaved, onCancel, gameSync = false, paused = false, id = 'setup', onboarding = false, onSwitchAccount, busy = false }: {
+  owner: string; profile: AccountProfile | null; onSaved: () => Promise<void>; onCancel?: () => void; gameSync?: boolean; paused?: boolean; id?: string; onboarding?: boolean; onSwitchAccount?: () => void; busy?: boolean;
 }) {
   const imported = useAccount();
   const [username, setUsername] = useState(profile?.username ?? '');
@@ -36,7 +36,7 @@ export default function AccountProfileForm({ owner, profile, onSaved, onCancel, 
   }, [username]);
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (saving || availability !== 'available') return;
+    if (saving || busy || availability !== 'available') return;
     setSaving(true); setError('');
     try {
       const response = await fetch('/api/account-profile', { method: 'PUT', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
@@ -50,24 +50,24 @@ export default function AccountProfileForm({ owner, profile, onSaved, onCancel, 
   return <form className={styles.form} onSubmit={event => void submit(event)}>
     {!profile && <><h3>Choose your Arkpedia username</h3><p>{onboarding ? "Your Google or Discord name stays private. You can add a profile picture and friend tag later." : "Your Google or Discord name won’t be used. Your existing logins and saves stay with this account."}</p></>}
     <label htmlFor={`${id}-username`}>Arkpedia username</label>
-    <input type="text" id={`${id}-username`} autoComplete="username" value={username} maxLength={80} required disabled={saving}
+    <input type="text" id={`${id}-username`} autoComplete="username" value={username} maxLength={80} required disabled={saving || busy}
       placeholder="Doctor#1234 or a name of your choice" aria-describedby={`${id}-username-hint ${id}-availability`}
       aria-invalid={availability === 'taken' || availability === 'invalid'} onChange={event => { setUsername(event.target.value); setError(''); }} />
     <p id={`${id}-username-hint`} className="hint">Unique on Arkpedia, ignoring letter case. 3–40 characters; non-Latin names are welcome.</p>
     <p id={`${id}-availability`} className="hint" role="status">{availability === 'checking' ? 'Checking availability…' : hint}</p>
     {imported?.doctor && <div className={styles.suggestion}>
       <span>Use your imported Doctor name?</span>
-      <button type="button" className="ghost btn-sm" disabled={saving} onClick={() => setUsername(imported.doctor!)}>Use {imported.doctor}</button>
+      <button type="button" className="ghost btn-sm" disabled={saving || busy} onClick={() => setUsername(imported.doctor!)}>Use {imported.doctor}</button>
     </div>}
     {!onboarding && <details open={!!profile?.friendTag}>
       <summary>Arknights friend tag (optional)</summary>
       <div className={styles.form}>
         <p className="hint">Keep your in-game name and server separately for friend sharing. This is private and does not verify game-account ownership.</p>
         <label htmlFor={`${id}-friend-tag`}>Arknights name and #number</label>
-        <input type="text" id={`${id}-friend-tag`} value={friendTag} placeholder="Doctor#1234" maxLength={80} disabled={saving} onChange={event => setFriendTag(event.target.value)} />
-        <StyledSelect label="Friend tag server" value={server} onChange={value => setServer(value as ServerId)} disabled={saving}
+        <input type="text" id={`${id}-friend-tag`} value={friendTag} placeholder="Doctor#1234" maxLength={80} disabled={saving || busy} onChange={event => setFriendTag(event.target.value)} />
+        <StyledSelect label="Friend tag server" value={server} onChange={value => setServer(value as ServerId)} disabled={saving || busy}
           options={SERVER_IDS.map(value => ({ value, label: SERVERS[value].label }))} />
-        {imported?.doctor && <button type="button" className="ghost btn-sm" disabled={saving}
+        {imported?.doctor && <button type="button" className="ghost btn-sm" disabled={saving || busy}
           onClick={() => { setFriendTag(imported.doctor!); setServer(imported.server); }}>Use imported friend tag</button>}
       </div>
     </details>}
@@ -76,8 +76,9 @@ export default function AccountProfileForm({ owner, profile, onSaved, onCancel, 
       : 'Personal settings and plans save by default. Pull history and imported game snapshots each need a separate opt-in under Account settings → Saving.'}</p>}
     {!profile && onboarding && <p className="hint">{paused ? 'Cloud saving stays paused.' : 'Nothing syncs until you confirm your saving choices next.'}</p>}
     {error && <p role="alert" className="notice notice-danger">{error}</p>}
-    <div className={styles.actions}><button type="submit" className="primary btn-sm" disabled={saving || availability !== 'available'}>
+    <div className={styles.actions}><button type="submit" className="primary btn-sm" disabled={saving || busy || availability !== 'available'}>
       {saving ? 'Saving…' : profile ? 'Save profile' : onboarding ? 'Continue' : 'Finish setup'}</button>
-      {onCancel && <button type="button" className="ghost btn-sm" disabled={saving} onClick={onCancel}>{onboarding ? 'Not now' : 'Sign out'}</button>}</div>
+      {onSwitchAccount && <button type="button" className="ghost btn-sm" disabled={saving || busy} onClick={onSwitchAccount}>{busy ? 'Signing out…' : 'Use another account'}</button>}
+      {onCancel && <button type="button" className="ghost btn-sm" disabled={saving || busy} onClick={onCancel}>{onboarding ? 'Not now' : 'Sign out'}</button>}</div>
   </form>;
 }

@@ -1,3 +1,4 @@
+import InfoPopover from '@/components/ui/InfoPopover';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { ImportError, readAccount, readNetwork, readPulls, sendCode, SERVERS, signIn, type ImportStep, type Network, type ServerId, type YostarAccount, type ReplaySession } from '@/lib/account-import/yostar';
 import { isResettingBrowserData } from '@/lib/account/resetData';
@@ -314,10 +315,10 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
               />
               <button type="submit" className="primary btn-sm" disabled={busy || !validEmail || !code.trim()}>Import</button>
             </form>
-            <label className="check import-remember" title="Keeps the sign-in in this browser only, so the next import needs no emailed code. Leave it off on a shared browser.">
+            <div className="account-shortcuts"><label className="check import-remember">
               <input type="checkbox" checked={saveSignIn} onChange={(event) => setSaveSignIn(event.target.checked)} disabled={busy} />
               Save this sign-in on this browser
-            </label>
+            </label><InfoPopover label="About remembering your game sign-in"><p>Keeps your game-login email, tokens and device information in this browser so later imports need no emailed code. They never sync to your Arkpedia account or backups.</p><p>Leave this off on a shared device. Remove a saved sign-in with Forget Yostar login.</p></InfoPopover></div>
           </div>
         </>
       )}

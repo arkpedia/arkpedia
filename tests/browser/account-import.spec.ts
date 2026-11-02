@@ -789,3 +789,16 @@ test('auto-deploy shared pacing waits without contacting Yostar, is cancellable,
   unavailable=true;await panel.getByRole('button',{name:'Sync auto-deploys',exact:true}).click();
   await expect(panel.getByRole('status')).toContainText('temporarily unavailable',{timeout:15000});expect(await replayRequests(page)).toHaveLength(0);
 });
+
+test('remembering the game login has touch-accessible help and never enables itself', async ({ page }) => {
+  await stubServers(page, 120);
+  const dialog = await openImport(page);
+  const remembered = dialog.getByLabel('Save this sign-in on this browser', { exact: true });
+  await expect(remembered).not.toBeChecked();
+  const help = dialog.getByRole('button', { name: 'About remembering your game sign-in', exact: true });
+  await help.click();
+  await expect(dialog.getByText('Leave this off on a shared device.', { exact: false })).toBeVisible();
+  await expect(remembered).not.toBeChecked();
+  await page.keyboard.press('Escape'); await expect(help).toBeFocused();
+  await expect(dialog).toBeVisible();
+});

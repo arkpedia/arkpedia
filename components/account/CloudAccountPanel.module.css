@@ -31,3 +31,6 @@
 }
 
 .archiveSummary > p { margin: 0; }
+
+.choiceHeading { display: flex; align-items: center; gap: 8px; }
+.choiceHeading > label { min-width: 0; }

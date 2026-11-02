@@ -67,12 +67,13 @@ export default function CloudAccountPanel({ onOpenData, hideSettingsButton = fal
     if (result.error?.code === 'SESSION_NOT_FRESH') { setReauth(true); throw new Error('Confirm with an existing login, then try again.'); }
     if (result.error) throw new Error('Sign-in could not finish. Use your existing login first, then link another provider in Account settings.');
   }
-  async function signOut() {
+  async function signOut(keepLoginOpen = false) {
     sync.pause();
     let result;
     try { result = await accountClient.signOut(); } finally { await sync.resume(); }
     if (result.error) throw new Error('Sign-out could not finish. Please try again.');
-    setSettings(null); onSettingsClose?.();
+    if (keepLoginOpen) setSettings('profile');
+    else { setSettings(null); onSettingsClose?.(); }
   }
   function closeSettings() { if (!working) { setSettings(null); setConfirm(null); setMessage(''); onSettingsClose?.(); } }
   if (sync.status === 'unavailable') return null;
@@ -114,7 +115,7 @@ export default function CloudAccountPanel({ onOpenData, hideSettingsButton = fal
       <p className="hint">One login for your settings and plans. No game-account login needed. <Link href="/privacy">Privacy notice</Link>.</p>
     </div>}
     {remote && !remote.profile && <>
-      <AccountProfileForm owner={remote.user.id} profile={null} gameSync={remote.gameSync} paused={remote.paused} onSaved={sync.refresh} onboarding onCancel={closeSettings} />
+      <AccountProfileForm owner={remote.user.id} profile={null} gameSync={remote.gameSync} paused={remote.paused} onSaved={sync.refresh} onboarding onCancel={closeSettings} busy={working} onSwitchAccount={() => void act(() => signOut(true))} />
     </>}
       {sync.status === 'paused' && <div className={styles.form}>
         <p>{sync.message}</p><div className={styles.actions}><button type="button" className="primary btn-sm" disabled={working} onClick={() => void act(() => sync.choose('browser'))}>Resume cloud saving</button></div>
@@ -168,15 +169,15 @@ export default function CloudAccountPanel({ onOpenData, hideSettingsButton = fal
           {settings === 'saving' && <div className={styles.form}>
             {!onboarding && <h3>What saves to your account</h3>}<p>{onboarding ? 'Choose what Arkpedia can save to its servers. You can leave everything off.' : 'Choose what to keep across devices. You can change this anytime.'}</p>
             {([
-              { key: 'personalSync', label: 'Save personal settings and plans', description: 'Music favourites and playlists, plans, story progress and preferences.', enabled: remote.personalSync ?? true, confirmation: 'personal' },
-              { key: 'historySync', label: 'Save pull history archive', description: 'Pulls, banner and operator names, game UID and server. Older archived pulls survive later imports and save choices.', enabled: remote.historySync ?? false, confirmation: 'history' },
-              { key: 'gameSync', label: 'Save imported game data to my Arkpedia account', description: 'Imported profile, operators and builds, skins, inventory, stage progress, optional auto-deploys and base snapshot. Pull history is controlled separately.', enabled: remote.gameSync, confirmation: 'revoke' },
+              { key: 'personalSync', label: 'Save settings and plans', description: 'Music, plans and preferences across devices.', details: 'Includes music favourites and playlists, plans, story progress and preferences. Saving happens automatically while Arkpedia is open. Turning this off deletes that cloud copy after confirmation; your browser copy stays.', enabled: remote.personalSync ?? true, confirmation: 'personal' },
+              { key: 'historySync', label: 'Save pull history', description: 'Keep older pulls when you import again.', details: 'Stores pulls, banner and operator names, game UID and server, separately from your other game data. Older archived pulls survive later imports. Turning this off deletes the cloud archive after confirmation; your browser history stays.', enabled: remote.historySync ?? false, confirmation: 'history' },
+              { key: 'gameSync', label: 'Save imported game data', description: 'Keep your imported roster, inventory and progress across devices.', details: 'Includes your imported profile, operators and builds, skins, inventory, stage progress and base snapshot. Auto-deploys have a separate saving toggle under Import / export; pull history uses the choice above. Turning this off deletes the cloud game snapshot and cloud auto-deploys after confirmation; browser imports stay.', enabled: remote.gameSync, confirmation: 'revoke' },
             ] as const).map(option => <div key={option.key}>
-              <label className="check"><input type="checkbox" checked={onboarding ? choices[option.key] : pendingConsent === option.key || option.enabled} disabled={working || (!onboarding && !option.enabled && sync.status !== 'ready' && sync.status !== 'paused')} onChange={event => {
+              <div className={styles.choiceHeading}><label className="check"><input type="checkbox" checked={onboarding ? choices[option.key] : pendingConsent === option.key || option.enabled} disabled={working || (!onboarding && !option.enabled && sync.status !== 'ready' && sync.status !== 'paused')} onChange={event => {
                 if (onboarding) { setChoices(previous => ({ ...previous, [option.key]: event.target.checked })); return; }
                 if (!event.target.checked) setConfirm(option.confirmation);
                 else { setPendingConsent(option.key); void act(async () => { try { await sync.consent(true, option.key); } finally { setPendingConsent(null); } }); }
-              }} />{option.label}</label><p className="hint">{option.description}</p>
+              }} />{option.label}</label><InfoPopover label={`About ${option.label.replace('Save ', 'saving ')}`}><p>{option.details}</p></InfoPopover></div><p className="hint">{option.description}</p>
             </div>)}
             {remote.paused && <p className="hint">Cloud saving is paused. These choices will apply when you resume it.</p>}
             {!onboarding && sync.status !== 'ready' && sync.status !== 'paused' && <p className="hint">Finish setup or resolve your save choice before enabling more saving. You can always stop saving a category.</p>}
@@ -199,7 +200,7 @@ export default function CloudAccountPanel({ onOpenData, hideSettingsButton = fal
             {reauth && <div className={styles.actions}>{(['google', 'discord'] as const).filter(p => remote.linkedProviders?.includes(p)).map(provider =>
               <button type="button" className="ghost btn-sm" key={provider} disabled={working} onClick={() => void act(() => login(provider, 'confirm'))}><ProviderIcon provider={provider} />Confirm with {label(provider)}</button>)}</div>}
             <p className="hint">Keep at least one login connected. Signing out keeps this browser’s data.</p>
-            <div className={styles.actions}><button type="button" className="ghost btn-sm" disabled={working} onClick={() => void act(signOut)}>Sign out</button>
+            <div className={styles.actions}><button type="button" className="ghost btn-sm" disabled={working} onClick={() => void act(() => signOut())}>Sign out</button>
               <button type="button" className="ghost btn-sm" disabled={working} onClick={() => void act(async () => {
                 const result = await accountClient.revokeOtherSessions();
                 if (result.error) {
