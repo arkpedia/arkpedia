@@ -39,8 +39,9 @@ for (const theme of ['dark', 'light']) {
     await stubYouTube(page, 'allow', { mediaConsent: false });
     await page.addInitScript(theme => localStorage.setItem('theme', theme), theme);
     await page.goto(event);
-    const prompt = page.getByRole('region', { name: 'External media choice' });
+    const prompt = page.getByRole('region', { name: 'Music playback choice' });
     await expect(prompt).toBeVisible();
+    await expect(prompt.getByRole('heading', { name: 'Allow music playback?', exact: true })).toBeVisible();
     await expect(prompt.getByLabel('Allow autoplaying music')).not.toBeChecked();
     await expect(page.getByRole('region', { name: 'Usage statistics choice' })).toBeHidden();
     expect(await youtube(page)).toBeNull(); expect(await ambient(page)).toBeNull();
@@ -53,7 +54,7 @@ for (const theme of ['dark', 'light']) {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.keyboard.press('Escape'); await expect(help).toBeFocused();
     await prompt.getByLabel('Allow autoplaying music').check();
-    await prompt.getByRole('button', {name:'Allow external media',exact:true}).click();
+    await prompt.getByRole('button', {name:'Allow music playback',exact:true}).click();
     await expect(prompt).toBeHidden(); expect((await playing(page)).videoId).toBe('FnDnOnBqKg0');
     await expect(shell(page).getByRole('button', {name:'Expand player'})).toBeVisible();
     await expect(shell(page).getByRole('button', {name:'Audio settings',exact:true})).toHaveCount(0);
@@ -68,7 +69,7 @@ for (const theme of ['dark', 'light']) {
 }
 test('allowing media without autoplay leaves music stopped and denial persists', async ({page}) => {
   await stubYouTube(page,'allow',{mediaConsent:false}); await page.goto(event);
-  const prompt=page.getByRole('region',{name:'External media choice'});
+  const prompt=page.getByRole('region',{name:'Music playback choice'});
   await prompt.getByRole('button',{name:'No thanks',exact:true}).click();
   await page.reload(); await expect(prompt).toBeHidden(); expect(await ambient(page)).toBeNull();
   await page.goto('/cookies'); await page.getByLabel('Allow external media',{exact:true}).check();

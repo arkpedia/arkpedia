@@ -8,7 +8,7 @@ for (const theme of ['dark', 'light']) {
     await readOnly(page);
     await page.addInitScript(theme => localStorage.setItem('theme', theme), theme);
     await page.goto('/about');
-    await page.getByRole('region', {name:'External media choice'}).getByRole('button', {name:'No thanks', exact:true}).click();
+    await page.getByRole('region', {name:'Music playback choice'}).getByRole('button', {name:'No thanks', exact:true}).click();
     const prompt = page.getByRole('region', {name:'Usage statistics choice', exact:true});
     await expect(prompt).toBeVisible();
     const allow = prompt.getByRole('button', {name:'Allow statistics', exact:true});
@@ -23,7 +23,7 @@ for (const theme of ['dark', 'light']) {
     expect(await page.evaluate(() => JSON.parse(localStorage.getItem('arkpedia:privacy:v1')!))).toMatchObject({analytics:false,externalMedia:false});
     await page.evaluate(() => localStorage.removeItem('arkpedia:privacy:v1'));
     await page.reload();
-    await page.getByRole('region', {name:'External media choice'}).getByRole('button', {name:'No thanks', exact:true}).click();
+    await page.getByRole('region', {name:'Music playback choice'}).getByRole('button', {name:'No thanks', exact:true}).click();
     await expect(prompt).toBeVisible();
     await allow.click(); await expect(prompt).not.toBeVisible();
     expect(await page.evaluate(() => JSON.parse(localStorage.getItem('arkpedia:privacy:v1')!))).toMatchObject({analytics:true,externalMedia:false});

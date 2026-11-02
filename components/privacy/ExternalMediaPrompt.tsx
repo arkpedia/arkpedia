@@ -27,13 +27,13 @@ export default function ExternalMediaPrompt() {
   const content=<>
     <p>Allow YouTube and Monster Siren music and videos? These providers receive connection information, including your IP address, and may use their own cookies or storage.</p>
     <AutoplayMusicChoice checked={autoplay} onChange={setAutoplay} />
-    <div className="statistics-prompt-actions"><button type="button" className="ghost btn-sm" onClick={()=>choose(true)}>Allow external media</button><button type="button" className="ghost btn-sm" onClick={()=>choose(false)}>No thanks</button></div>
+    <div className="statistics-prompt-actions"><button type="button" className="ghost btn-sm" onClick={()=>choose(true)}>{request ? 'Allow external media' : 'Allow music playback'}</button><button type="button" className="ghost btn-sm" onClick={()=>choose(false)}>No thanks</button></div>
     <Link href="/cookies" onClick={()=>{request?.cancel?.();setRequest(null);}}>Privacy choices</Link>
     {error&&<p role="alert">{error}</p>}
   </>;
   if(request)return <ImportDialog title="Allow external media?" onClose={()=>choose(false)}><div className="reading-copy">{content}</div></ImportDialog>;
-  return <section className="statistics-prompt media-choice-prompt panel reading-copy" role="region" aria-label="External media choice">
-    <div className="statistics-prompt-heading"><h2 className="entity-title entity-title-sm">Allow external media?</h2><XButton label="No thanks, close media prompt" onClick={()=>choose(false)} /></div>
+  return <section className="statistics-prompt media-choice-prompt panel reading-copy" role="region" aria-label="Music playback choice">
+    <div className="statistics-prompt-heading"><h2 className="entity-title entity-title-sm">Allow music playback?</h2><XButton label="No thanks, close media prompt" onClick={()=>choose(false)} /></div>
     {content}
   </section>;
 }
