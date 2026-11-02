@@ -606,7 +606,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/op
     howToObtain: null,
     ...(() => {
       // The Obtain filter's answer, so the record itself need not travel.
-      const methods = obtainMethodsOf(op.howToObtain, op.rarity);
+      const methods = obtainMethodsOf(op.howToObtain);
       const welfare = welfareSourceOf(op.howToObtain);
       return methods.length ? { obtain: { methods, ...(welfare ? { welfare } : {}) } } : {};
     })(),

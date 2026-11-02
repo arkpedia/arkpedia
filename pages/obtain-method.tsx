@@ -100,7 +100,7 @@ export default function ObtainMethodPage({ operators, limitedBannerInfo, celebra
     const rarityFirst = [...operators].sort((a, b) => (b.rarity ?? 0) - (a.rarity ?? 0));
 
     for (const op of rarityFirst) {
-      const methods = obtainMethodsOf(op.howToObtain, op.rarity);
+      const methods = obtainMethodsOf(op.howToObtain);
       if (methods.includes('limited')) limited.push(op);
       if (methods.includes('standard')) standard.push(op);
       if (methods.includes('kernel')) kernel.push(op);
@@ -113,9 +113,7 @@ export default function ObtainMethodPage({ operators, limitedBannerInfo, celebra
     // 6-star anyway).
     limited.sort((a, b) => releaseDateValue(b) - releaseDateValue(a));
 
-    // Standard/Kernel: rarity first (moot right now since both are
-    // already filtered to 6-star only above, but keeps this correct if
-    // that filter ever changes), release date as the tiebreak.
+    // Standard/Kernel: rarity first, release date as the tiebreak.
     const rarityThenDate = (a: RosterOperator, b: RosterOperator) => {
       const r = (b.rarity ?? 0) - (a.rarity ?? 0);
       return r !== 0 ? r : releaseDateValue(b) - releaseDateValue(a);

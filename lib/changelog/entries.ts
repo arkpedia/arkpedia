@@ -34,6 +34,10 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-02T00:58:00Z',
+    fixed: [{ title: 'Headhunting filters include every rarity', detail: 'Standard and Kernel headhunting now work with lower-rarity operator filters.', href: '/operators' }],
+  },
+  {
     at: '2026-11-01T23:35:00Z',
     fixed: [{ title: 'Calendar years stay visible', detail: 'Browsing beyond the scheduled years keeps the selected year visible and the calendar controls in place.', href: '/schedule' }],
   },
