@@ -165,15 +165,15 @@ export default function Tabs<V extends string | number>({
     const place = (instant: boolean) => {
       const at = underlineOf(strip);
       if (!at) { strip.removeAttribute('data-slide'); return; }
-      // Browser zoom can round the nominal 1px bar to a different layout width.
-      // Scaling by the tab width alone amplifies that rounding across the whole
-      // underline. Normalize by the actual untransformed width instead.
-      const unit = parseFloat(getComputedStyle(indicator).width);
-      if (!(unit > 0)) return;
-      const next = `translate(${at.x}px, ${at.y}px) scaleX(${at.w / unit})`;
+      // Give the bar its real layout width. Stretching a 1px element magnifies
+      // browser-zoom rounding and can disagree with the compositor's painted edge.
+      // Only its position slides; sizing never affects surrounding layout.
+      const next = `translate(${at.x}px, ${at.y}px)`;
+      const width = `${at.w}px`;
       const first = !strip.hasAttribute('data-slide');
-      if (indicator.dataset.at === next && !first) return;
+      if (indicator.dataset.at === next && indicator.style.width === width && !first) return;
       if (instant || first) indicator.style.transition = 'none';
+      indicator.style.width = width;
       indicator.style.transform = next;
       indicator.dataset.at = next;
       if (instant || first) {
