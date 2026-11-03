@@ -272,6 +272,8 @@ const DATA_ONLY: Record<string, Record<string, string>> = {
     // neither field (name, art, price and window only).
     '.ongoingSkins[].searchAliases': "an outfit's other search names (Skin, optional), on some outfits only; SkinsCarousel does not read it",
     '.ongoingSkins[].fashionReviewDate': "an outfit's Fashion Review date (Skin, optional), on some outfits only; SkinsCarousel does not read it",
+    '.ongoingSkins[].dynamic': 'finalize always supplies a model pointer or null; an older sale selection may contain only still outfits, and shapeOf skips nulls (explicitly checked below)',
+    '.ongoingSkins[].alternate': 'the same nullable pointer for alternate artwork; not every sale selection includes a second version',
     '.upcomingEvent.startAt': "the same exact opening, on the next event to open",
     '.upcomingEvent.endAt': "the same exact close, on the next event to open",
     '.upcomingEvent.timingSource': "the same window source, on the next event to open",
@@ -505,6 +507,10 @@ test('the fixtures are the live release\'s own pages, and name content routes', 
 for (const route of Object.keys(PREVIOUS.pages)) {
   test(`${route} renders the previous release's props, and they carry every field this code's do`, async () => {
     const { page, params, props } = await fromPreviousRelease(route);
+    if (route === '/') for (const skin of props.ongoingSkins as { dynamic?: string | null; alternate?: string | null }[]) {
+      assert.ok(skin.dynamic === null || typeof skin.dynamic === 'string', 'older homepage outfits receive explicit animation metadata');
+      assert.ok(skin.alternate === null || typeof skin.alternate === 'string', 'older homepage outfits receive explicit alternate metadata');
+    }
     const html = renderPage(page.default, props);
     assert.ok(html.length > 1000, `${route}: the page rendered`);
 

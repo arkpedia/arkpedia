@@ -37,6 +37,7 @@ import { materialOrderFor } from '@/lib/farming/materialSortOrder';
 import { loadMaterialCatalogue } from '@/lib/farming/materialCatalogueServer';
 import { withMaterialOrder } from '@/lib/content/materialOrderFallback';
 import SkinDetailDialog from '@/components/skins/SkinDetailDialog';
+import { withSkinArtwork } from '@/lib/skins/dynamicArtFallback';
 import PageHeader from '@/components/ui/PageHeader';
 import Tabs, { tabPanelProps } from '@/components/ui/Tabs';
 import { useSwitchHold } from '@/components/ui/useSwitchHold';
@@ -702,7 +703,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
       featuredOperators,
       welfareOperators,
       rewardOperators,
-      skins,
+      skins: await withSkinArtwork(skins),
       rewardStores,
       extras,
       loginDetails: Object.fromEntries(tableRewards.filter(g => g.kind === 'login' && (g.daily?.length || g.description)).map(g => [g.title, { description: g.description ?? null, days: (g.daily ?? []).map(day => day.map(item => ({ name: item.name, count: item.count, iconPath: tableIcon(item) }))) }])),
@@ -734,6 +735,6 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
   // Each page keeps only its own event's and banner's regional windows (regionalScheduleSlice).
   finalize: async (props) => {
     const ordered = await withMaterialOrder(props, (page) => page.rewardStores.flatMap((store) => store.items.map((item) => item.name)));
-    return withRegionalSlice(withNewsArt(await withEventOperators({ ...ordered, mode: modeDetails(props.name) ?? props.mode ?? null })));
+    return withRegionalSlice(withNewsArt(await withEventOperators({ ...ordered, skins: await withSkinArtwork(ordered.skins), mode: modeDetails(props.name) ?? props.mode ?? null })));
   },
 });

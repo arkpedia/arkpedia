@@ -90,3 +90,54 @@ for (const surface of ['home', 'event', 'schedule']) {
     await expect(card).toBeFocused();
   });
 }
+
+for (const theme of ['dark', 'light']) {
+  for (const surface of ['home', 'event', 'schedule', 'gallery']) {
+    test(`animated outfits use the same viewer from ${surface} (${theme})`, async ({ page }, info) => {
+      await readOnly(page);
+      await page.addInitScript(theme => localStorage.setItem('theme', theme), theme);
+      const modelRequests: string[] = [];
+      // Keep the model pending: this regression checks discovery and lazy loading,
+      // without depending on WebGL or downloading a large animation in every case.
+      await page.route(/arkpedia-l2d-assets.*\/model\.json/, route => { modelRequests.push(route.request().url()); });
+      if (surface === 'home') await page.goto('/');
+      if (surface === 'gallery') await page.goto('/skins?skin=Supernova');
+      if (surface === 'event') {
+        await page.goto(`/events/${encodeURIComponent("[Side Story – Celebration] The Masses' Travels")}`);
+        await page.getByRole('tab', { name: 'Skins', exact: true }).click();
+      }
+      if (surface === 'schedule') {
+        await page.goto('/schedule?view=calendar');
+        await page.getByRole('combobox', { name: 'Year', exact: true }).click();
+        await page.getByRole('option', { name: '2025', exact: true }).click();
+        await page.getByRole('combobox', { name: 'Month', exact: true }).click();
+        await page.getByRole('option', { name: 'October', exact: true }).click();
+        await page.locator('.schedule-bar').filter({ hasText: "The Masses' Travels" }).first().click();
+      }
+      const card = surface === 'home' ? page.locator('.front-skin-item').filter({ hasText: 'Supernova' })
+        : surface === 'event' ? page.locator('.event-detail-skin-item').filter({ hasText: 'Supernova' })
+        : page.locator('.schedule-panel-skin').filter({ has: page.getByRole('img', { name: 'Supernova', exact: true }) });
+      if (surface !== 'gallery') await card.click();
+      const dialog = page.getByRole('dialog', { name: 'Supernova', exact: true });
+      const artwork = dialog.getByRole('button', { name: 'View full artwork of Supernova', exact: true });
+      await artwork.click();
+      const zoom = page.getByRole('dialog', { name: 'Supernova artwork', exact: true });
+      const animated = zoom.getByRole('button', { name: 'Animated', exact: true });
+      await expect(animated).toBeVisible();
+      expect(modelRequests).toEqual([]);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+      if (process.env.ARKPEDIA_QA_CAPTURE) await page.screenshot({ path: `${process.env.ARKPEDIA_QA_CAPTURE}/animation-${surface}-${info.project.name}-${theme}.png` });
+      await animated.click();
+      await expect(animated).toHaveAttribute('aria-pressed', 'true');
+      await expect.poll(() => modelRequests.length).toBe(1);
+      expect(decodeURIComponent(modelRequests[0])).toContain('char_1035_wisdel');
+      await zoom.getByRole('button', { name: 'Still', exact: true }).click();
+      await page.keyboard.press('Escape');
+      await expect(zoom).toHaveCount(0);
+      await expect(artwork).toBeFocused();
+      await page.keyboard.press('Escape');
+      await expect(dialog).toHaveCount(0);
+      if (surface !== 'gallery') await expect(card).toBeFocused();
+    });
+  }
+}

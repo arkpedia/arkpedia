@@ -604,3 +604,19 @@ test('account and friend payloads receive the same outfit and alternate artwork 
   const explicit = { skins: [{ id, dynamic: null, alternate: null }] };
   assert.equal(await withFriendDynamicArt(explicit), explicit);
 });
+
+test('shared outfit records carry every published animation and preserve their release pointers', async () => {
+  const { withSkinArtwork, loadDynamicArtIndex } = await import('../../lib/skins/dynamicArtFallback');
+  const index = await loadDynamicArtIndex();
+  const ids = Object.keys(index.models).filter(id => !id.endsWith('^sp_dyn'));
+  const oldRecords = [...ids.map(skinId => ({ skinId })), { skinId: 'unknown-outfit' }, {}];
+  const enriched = await withSkinArtwork(oldRecords);
+  for (let i = 0; i < ids.length; i++) {
+    assert.equal(enriched[i].dynamic, index.models[ids[i]]);
+    assert.equal(enriched[i].alternate, index.models[`${ids[i]}^sp_dyn`] ?? null);
+  }
+  assert.deepEqual(enriched.slice(-2), [{ skinId: 'unknown-outfit', dynamic: null, alternate: null }, { dynamic: null, alternate: null }]);
+  assert.equal('dynamic' in oldRecords[0], false, 'does not mutate cached release data');
+  const published = [{ skinId: ids[0], dynamic: 'release-pinned-model.json', alternate: null }, { skinId: ids[1], dynamic: null, alternate: null }];
+  assert.equal(await withSkinArtwork(published), published, 'current release pointers and explicit absence stay authoritative');
+});

@@ -36,6 +36,7 @@ import { isLineupPending, lineupPendingNote } from '@/lib/gacha/bannerLineup';
 import { publishedArt } from '@/lib/art/publishedArt';
 import { ReleaseDateLookup } from '@/lib/operators/operatorReleaseDates';
 import SkinDetailDialog from '@/components/skins/SkinDetailDialog';
+import { withSkinArtwork } from '@/lib/skins/dynamicArtFallback';
 import PageHeader from '@/components/ui/PageHeader';
 import SegmentedControl from '@/components/ui/SegmentedControl';
 import StickyControls from '@/components/ui/StickyControls';
@@ -255,7 +256,7 @@ export default function SchedulePage({ events: globalEvents, operators: exported
   const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!selectedEvent) return;
+    if (!selectedEvent || activeSkin) return;
     function handleClickOutside(e: MouseEvent) {
       const target = e.target as HTMLElement;
       if (target.closest('.schedule-bar')) return; // clicking another event is a switch, not a close -- let openEvent's own state update handle it
@@ -265,7 +266,7 @@ export default function SchedulePage({ events: globalEvents, operators: exported
     }
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [selectedEvent]);
+  }, [selectedEvent, activeSkin]);
 
   function goPrevMonth() {
     if (month === 0) {
@@ -882,10 +883,10 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/sc
   eventRows.sort((a, b) => a.start - b.start);
   return {
     // The panel's poster, like every other: null until the image repository has it.
-    props: { events, operators: trimmedOperators, skins: getAllSkins(), releaseLookup, eventRows, pullBanners },
+    props: { events, operators: trimmedOperators, skins: await withSkinArtwork(getAllSkins()), releaseLookup, eventRows, pullBanners },
   };
 }, {
-  finalize: async (props) => withLightRegionalTable(pruneScheduleProps(fillMissingModeLaunches(props))),
+  finalize: async (props) => withLightRegionalTable(pruneScheduleProps(fillMissingModeLaunches({ ...props, skins: await withSkinArtwork(props.skins) }))),
 
   tables: {
     event_colors: async () => (await import('@/data/event_colors.json')).default,
