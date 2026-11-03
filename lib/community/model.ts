@@ -11,7 +11,7 @@ export const COMMUNITY_OFF: CommunityChoices = { stats: false, shareTag: false, 
 export interface CommunityState extends CommunityChoices {
   revision: number; server?: ServerId; importedAt?: string; friendTag?: string | null; listed?: boolean; reportedFull?: boolean;
 }
-export interface SharedOperator { operator: string; elite: number | null; level?: number | null; m0: number | null; m1: number | null; m2: number | null; modules: Record<string, number> | null }
+export interface SharedOperator { skillLevel?: number | null; operator: string; elite: number | null; level?: number | null; m0: number | null; m1: number | null; m2: number | null; modules: Record<string, number> | null }
 export interface SharedSupport { skillLevel?:number|null; skillMasteries?:(number|null)[]; operator: string; elite: number; level: number; skill: number | null; mastery: number | null; module: string | null; moduleLevel: number | null; potential?:number|null; skin?:string|null; skillId?:string|null; allMastered?:boolean|null }
 /** Only the imported card appearance, never biography, wallet, UID or collections. */
 export interface SharedAppearance {
@@ -27,7 +27,7 @@ export interface CommunitySnapshot {
 export interface SupportPlayer { appearance?: SharedAppearance | null; id: string; friendTag: string; server: ServerId; slots: number; importedAt: string; fullReports: number; openReports: number; supports: SharedSupport[] }
 export interface CommunityStats {
   contributors: number; owned: number | null; builds?: number; e1?: number; e2?: number;
-  masteryOwners?: number; skills?: number[]; moduleGroups?: { level: number; owners: number; modules: number[][] }[]; equipmentOwners?: number; equipped?: number;
+  masteryOwners?: number; skills?: number[]; skillRanks?: number[][]; skillUnknown?: number[]; moduleOwners?: number; modules?: number[][]; moduleGroups?: { level: number; owners: number; modules: number[][] }[]; equipmentOwners?: number; equipped?: number;
 }
 const id = (v: unknown) => typeof v === 'string' && /^[\w@#+-]{1,100}$/.test(v);
 const name = (v: unknown): v is string => typeof v === 'string' && v.length > 0 && v.length <= 200 && !/[\x00-\x1f]/.test(v) && !['__proto__','constructor','prototype'].includes(v);
@@ -54,7 +54,7 @@ export function communitySnapshot(account: AccountRecord, choices: CommunityChoi
       const build=builds?.[operator];
       // The canonical imported roster already includes the level currently in training.
       const mastery=(index:number)=>build?build.masteries[index]??0:null;
-      return {operator,elite:build?.elite??null,level:build?.level??null,m0:mastery(0),m1:mastery(1),m2:mastery(2),
+      return {operator,skillLevel:build?.skillLevel??null,elite:build?.elite??null,level:build?.level??null,m0:mastery(0),m1:mastery(1),m2:mastery(2),
         modules:build ? Object.fromEntries(Object.entries(build.modules??{}).map(([index,stage])=>[index,stage+1])) : null};
     }) : [],
     skins:choices.stats ? [...new Set(account.skins)].map(skin=>({skin,equipped:Object.values(account.outfits??{}).includes(skin)})) : [],
@@ -82,6 +82,8 @@ export function parseCommunitySnapshot(raw: unknown, choices: CommunityChoices, 
     appearance={avatar:a.avatar,avatarType:a.avatarType,secretary:a.secretary,secretarySkin:a.secretarySkin,nameCard:a.nameCard,nameCardVariant:a.nameCardVariant,level:a.level,operators:a.operators,skins:a.skins};
   }
   const operators=v.operators.map(op=>{
+    if(!nullable(op.skillLevel??null,1,7))throw Error('Invalid skill rank.');
+    if(op.skillLevel!=null&&op.skillLevel<7&&[op.m0,op.m1,op.m2].some(m=>(m??0)>0))throw Error('Masteries require skill rank 7.');
     if(!name(op?.operator) || !nullable(op.level??null,1,90) || !nullable(op.elite,0,2) || [op.m0,op.m1,op.m2].some(m=>!nullable(m,0,3))) throw Error('Invalid operator build.');
     if(op.elite===null ? [op.m0,op.m1,op.m2,op.modules].some(v=>v!==null) : [op.m0,op.m1,op.m2].some(v=>v===null)) throw Error('Incomplete operator build.');
     if(op.elite!==null && (!op.modules || typeof op.modules!=='object' || Array.isArray(op.modules))) throw Error('Invalid module stages.');
@@ -90,7 +92,7 @@ export function parseCommunitySnapshot(raw: unknown, choices: CommunityChoices, 
       return [index,stage];
     }));
     if(op.elite!==null && op.elite<2 && ([op.m0,op.m1,op.m2].some(m=>(m??0)>0) || Object.keys(modules??{}).length)) throw Error('Masteries and modules require E2.');
-    return {operator:op.operator,elite:op.elite,level:op.elite===null?null:op.level??null,m0:op.m0,m1:op.m1,m2:op.m2,modules};
+    return {operator:op.operator,skillLevel:op.elite===null?null:op.skillLevel??null,elite:op.elite,level:op.elite===null?null:op.level??null,m0:op.m0,m1:op.m1,m2:op.m2,modules};
   });
   const skins=v.skins.map(s=>{
     if(!id(s?.skin) || typeof s.equipped!=='boolean') throw Error('Invalid outfit.');

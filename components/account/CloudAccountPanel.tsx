@@ -130,7 +130,7 @@ export default function CloudAccountPanel({ onOpenData, hideSettingsButton = fal
     </ImportDialog>}
     {settings && remote && !welcome && <ImportDialog titleSuffix={!confirm && <BetaLabel />} title={confirm ? confirmationTitle : onboarding ? 'Choose what to save' : 'Account settings'} onClose={closeSettings} dismissible={!onboarding}>
       {confirm ? <div className={styles.form}>
-        <p>{confirm === 'cloud' ? 'Remove your saved music, plans, preferences, pull archive and imported game data from the cloud. Your username, linked logins and browser data stay. Cloud saving pauses on every device until you resume it.'
+        <p>{confirm === 'cloud' ? 'Remove your saved music, plans, preferences, pull archive and imported game data from the cloud. Your username, profile picture, linked logins and browser data stay. Cloud saving pauses on every device until you resume it.'
           : confirm === 'revoke' ? 'Delete the imported game snapshot from your cloud save. Your pull archive and personal-data choices stay unchanged, and your browser import stays here.'
           : confirm === 'history' ? 'Delete all archived pulls from your Arkpedia cloud account and stop saving history. Your browser history stays here. Personal settings and imported game snapshots are separate choices.'
           : confirm === 'personal' ? 'Remove music, plans, story progress and preferences from your cloud save and stop saving them. Browser data, pull archives and imported game-data choices stay unchanged.'
@@ -185,11 +185,11 @@ export default function CloudAccountPanel({ onOpenData, hideSettingsButton = fal
             {remote.paused && <p className="hint">Cloud saving is paused. These choices will apply when you resume it.</p>}
             {!onboarding && sync.status !== 'ready' && sync.status !== 'paused' && <p className="hint">Finish setup or resolve your save choice before enabling more saving. You can always stop saving a category.</p>}
             <p className="hint">Your game-login emails, codes and tokens stay in this browser.</p>
-            <InfoPopover label="How cloud saving works"><p>Selected data saves while Arkpedia is open. Importing new game data is still done in your browser.</p><p>Stopping a category deletes its active cloud data after confirmation. Remembering a Yostar login is a separate browser-only choice under Import / export.</p></InfoPopover>
+            <InfoPopover label="How cloud saving works"><p>Your username and profile picture are part of your Arkpedia account and stay saved separately from these choices.</p><p>Selected data saves while Arkpedia is open. Importing new game data is still done in your browser.</p><p>Stopping a category deletes its active cloud data after confirmation. Remembering a Yostar login is a separate browser-only choice under Import / export.</p></InfoPopover>
             {onboarding && <div className={styles.actions}><button type="button" className="primary btn-sm" disabled={working} onClick={() => void act(async () => { if (await sync.reviewChoices(choices)) onSettingsClose?.(); })}>{working ? 'Saving…' : 'Save choices'}</button></div>}
           </div>}
           {settings === 'logins' && <div className={styles.form}>
-            <h3>Linked logins</h3><p>Use either linked provider to reach this account and its saves.</p>
+            <h3>Linked logins</h3><p>Sign in with any connected login to use the same Arkpedia account.</p>
             {(['google', 'discord'] as const).filter(p => sync.providers.includes(p)).map(provider => <div className={styles.provider} key={provider}>
               <span className={styles.providerIdentity}><ProviderIcon provider={provider} /><span><strong>{label(provider)}</strong><span className="hint">{remote.linkedProviders?.includes(provider) ? 'Connected' : 'Not linked'}</span></span></span>
               {remote.linkedProviders?.includes(provider) ? <button type="button" className="ghost btn-sm" disabled={working || remote.linkedProviders.length < 2} onClick={() => void act(async () => {
@@ -214,7 +214,7 @@ export default function CloudAccountPanel({ onOpenData, hideSettingsButton = fal
               })}>Sign out other devices</button></div>
           </div>}
           {settings === 'data' && <div className={styles.form}>
-            <div><h3>Cloud saves</h3><p>Clear your saved data and pause cloud saving. Keep your username and linked logins.</p><button type="button" className="danger" disabled={working} onClick={() => setConfirm('cloud')}>Delete cloud saves</button></div>
+            <div><h3>Cloud saves</h3><p>Clear your saved data and pause cloud saving. Keep your username, profile picture and linked logins.</p><button type="button" className="danger" disabled={working} onClick={() => setConfirm('cloud')}>Delete cloud saves</button></div>
             <div><h3>Arkpedia account</h3><p>Delete your profile, linked logins and all cloud saves. This does not affect your game account.</p><button type="button" className="danger" disabled={working} onClick={() => setConfirm('account')}>Delete Arkpedia account</button></div>
             {onOpenData && <div><h3>This browser</h3><p>Import, export or clear data stored on this device.</p><button type="button" className="ghost btn-sm" onClick={() => { closeSettings(); onOpenData(); }}>Browser data & backups</button></div>}
           </div>}

@@ -1,0 +1,92 @@
+import { expect, test } from '@playwright/test';
+import { readOnly } from './census-routes';
+
+for (const theme of ['dark', 'light']) {
+  test(`outfit details keep artwork, actions and information usable (${theme})`, async ({ page }, info) => {
+    await readOnly(page);
+    await page.addInitScript(theme => localStorage.setItem('theme', theme), theme);
+    await page.route('**/api/community/stats?**', route => route.fulfill({ json: { contributors: 20, owned: 10, equipmentOwners: 10, equipped: 3 } }));
+    await page.goto('/skins?skin=The%20Spirit-Farer');
+    const dialog = page.getByRole('dialog', { name: 'The Spirit-Farer', exact: true });
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByText('30.0%', { exact: true })).toBeVisible();
+    const artwork = dialog.getByRole('button', { name: 'View full artwork of The Spirit-Farer', exact: true });
+    await expect.poll(() => artwork.locator('img').evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth > 0)).toBe(true);
+    await expect(artwork.locator('img')).toHaveCSS('object-fit', 'contain');
+    const wish = dialog.getByRole('button', { name: 'Wishlist', exact: true });
+    await wish.click();
+    await expect(dialog.getByRole('button', { name: 'Wishlisted', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await page.reload();
+    await expect(dialog.getByRole('button', { name: 'Wishlisted', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(dialog.getByText('30.0%', { exact: true })).toBeVisible();
+    await expect.poll(() => dialog.locator('img').evaluateAll(images => images.every(image => (image as HTMLImageElement).complete && (image as HTMLImageElement).naturalWidth > 0))).toBe(true);
+    await dialog.locator('img').evaluateAll(images => Promise.all(images.map(image => (image as HTMLImageElement).decode())));
+    await page.evaluate(() => document.fonts.ready);
+    expect(await dialog.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+    if (process.env.ARKPEDIA_QA_CAPTURE) await page.screenshot({ path: `${process.env.ARKPEDIA_QA_CAPTURE}/skin-detail-${info.project.name}-${theme}.png` });
+    await artwork.click();
+    const zoom = page.getByRole('dialog', { name: 'The Spirit-Farer artwork', exact: true });
+    await expect(zoom).toBeVisible();
+    const bounds = await zoom.boundingBox();
+    expect(bounds!.width).toBe(await page.evaluate(() => document.documentElement.getBoundingClientRect().width));
+    await page.keyboard.press('Escape');
+    await expect(zoom).toHaveCount(0);
+    await expect(dialog).toBeVisible();
+    await expect(artwork).toBeFocused();
+    await dialog.getByText('Release details', { exact: true }).click();
+    await expect(dialog.getByText(/Original release:/)).toBeVisible();
+    await expect(dialog.getByRole('button', { name: 'Close', exact: true })).toBeInViewport();
+    const availability = dialog.getByRole('button', { name: 'Availability details', exact: true });
+    if (await availability.count()) {
+      await availability.click();
+      await expect(page.getByRole('region', { name: 'Availability details', exact: true })).toBeVisible();
+      await page.keyboard.press('Escape');
+      await expect(dialog).toBeVisible();
+    }
+    const viewport = page.viewportSize()!;
+    await page.setViewportSize({ width: 320, height: 568 });
+    expect(await dialog.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+    await dialog.getByText('Choose whether to contribute').scrollIntoViewIfNeeded();
+    await expect(dialog.getByRole('button', { name: 'Close', exact: true })).toBeInViewport();
+    await page.setViewportSize(viewport);
+    await dialog.getByRole('button', { name: 'Close', exact: true }).click();
+    await expect(dialog).toHaveCount(0);
+    const card = page.getByRole('button', { name: /The Spirit-Farer/ }).first();
+    await card.click();
+    await expect(dialog).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(dialog).toHaveCount(0);
+    await expect(card).toBeFocused();
+  });
+}
+
+for (const surface of ['home', 'event', 'schedule']) {
+  test(`the ${surface} opens the shared outfit dialog and returns focus`, async ({ page }) => {
+    await readOnly(page);
+    await page.route('**/api/community/stats?**', route => route.fulfill({ json: { contributors: 2, owned: null } }));
+    if (surface === 'home') await page.goto('/');
+    if (surface === 'event') {
+      await page.goto('/events/%5BCelebration%5D%20Critical%20Phase%20Transition');
+      await page.getByRole('tab', { name: 'Skins', exact: true }).click();
+    }
+    if (surface === 'schedule') {
+      await page.goto('/schedule?view=calendar');
+      await page.getByRole('combobox', { name: 'Year', exact: true }).click();
+      await page.getByRole('option', { name: '2026', exact: true }).click();
+      await page.getByRole('combobox', { name: 'Month', exact: true }).click();
+      await page.getByRole('option', { name: 'October', exact: true }).click();
+      await page.locator('.schedule-bar').filter({ hasText: 'Critical Phase Transition' }).first().click();
+    }
+    const card = page.locator(surface === 'home' ? '.front-skin-item' : surface === 'event' ? '.event-detail-skin-item' : '.schedule-panel-skin').first();
+    await card.click();
+    const dialog = page.locator('dialog.skin-modal');
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole('button', { name: /^View full artwork/ })).toBeVisible();
+    await expect(dialog.getByRole('link', { name: 'View in outfit gallery', exact: true })).toBeVisible();
+    await expect(dialog.getByText('Waiting for at least 10 contributors on this server.')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(dialog).toHaveCount(0);
+    await expect(card).toBeFocused();
+  });
+}

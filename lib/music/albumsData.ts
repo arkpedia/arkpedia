@@ -10,6 +10,7 @@ import albumsData from '@/data/albums.json';
 // Siren's: every album there says game "endfield". Guarded like albums.json (next.config.js).
 import endfieldAlbumsData from '@/data/endfield-albums.json';
 import { msrTrackId } from './trackId';
+import { hasMusicClaimRisk } from './claimRisk';
 import type { MusicGame } from './songFilter';
 
 export interface RawCredit {
@@ -225,7 +226,7 @@ function flattenSongs(albums: readonly RawAlbum[], include: (song: RawSong) => b
         albumName: album.albumAltName || album.albumName,
         albumOriginalName: album.albumName,
         coverPath,
-        copyright: song.copyright === 'yes',
+        copyright: hasMusicClaimRisk({ copyright: song.copyright === 'yes', credits: song.credits }),
         length: song.length || '',
         lyricFilename,
         hasLyrics: Boolean(lyricFilename),

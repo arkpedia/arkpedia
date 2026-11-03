@@ -9,6 +9,7 @@ import InfoPopover from '@/components/ui/InfoPopover';
 import { ICONS } from '@/components/layout/NavIcons';
 import FriendCollection from '@/components/friends/FriendCollection';
 import FriendCard, { FriendSupports } from '@/components/friends/FriendCard';
+import { withFriendDynamicArt } from '@/lib/skins/dynamicArtFallback';
 import { withContentPage } from '@/lib/content/server';
 import { useReleaseTable } from '@/lib/content/context';
 import { DATA_DIALOG_TABLES, fillAccountMap } from '@/lib/content/dataDialogTables';
@@ -139,8 +140,8 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>('/fr
     import('@/lib/skins/skins'), import('@/lib/operators/operators'), import('@/lib/account/friendCatalogue'),
   ]);
   const map = await DATA_DIALOG_TABLES['game-account-map']();
-  return { props: {
+  return { props: await withFriendDynamicArt({
     operators: friendOperators(map, getAllOperators()),
     skins: getAllSkins().flatMap(skin => skin.skinId ? [{id:skin.skinId,name:skin.name,model:skin.model,series:skin.series,image:skin.image}] : []),
-  } };
-}, { bundledWhenUnpublished: true, tables: { 'game-account-map': DATA_DIALOG_TABLES['game-account-map'] }, finalize: fillAccountMap });
+  }) };
+}, { bundledWhenUnpublished: true, tables: { 'game-account-map': DATA_DIALOG_TABLES['game-account-map'] }, finalize: async props => withFriendDynamicArt(await fillAccountMap(props)) });

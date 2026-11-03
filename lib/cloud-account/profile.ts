@@ -1,6 +1,6 @@
 import { isServerId, type ServerId } from '@/lib/account-import/yostar';
 
-export interface AccountProfile { username: string; friendTag: string | null; friendServer: ServerId | null }
+export interface AccountProfile { username: string; friendTag: string | null; friendServer: ServerId | null; avatarId?: string | null }
 const RESERVED = new Set(['admin', 'administrator', 'moderator', 'support', 'arkpedia', 'system']);
 
 export function normalizeUsername(value: unknown): { username: string; key: string } {

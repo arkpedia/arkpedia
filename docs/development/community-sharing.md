@@ -15,8 +15,17 @@ Revision and mutation checks prevent older tabs from replacing consent. Withdraw
 a local game import and leaves a minimal tombstone so an in-flight publication cannot restore it.
 
 Statistics project only ownership, builds and outfit state. They use each opted-in game account’s latest import, regardless of age. Statistics appear
-once a server has 10 contributors; owner, E2, module-eligible and equipped-outfit groups
-have no additional minimum. Zero counts in nonempty groups display as 0%; empty or
+once a server has 10 contributors; owner, E2 and equipped-outfit groups
+have no additional minimum. Module percentages use all E2 owners, including low or unknown character levels.
+The API and operator panel use exact, mutually exclusive levels. Stacked bars and legends show the same
+non-overlapping distributions without a counting-mode toggle. Each section has one icon legend and its denominator;
+hover, keyboard focus or tapping a bar opens exact percentages and counts, including zero levels.
+The duplicate contributor/owner summary is omitted. Full bar tracks retain a visible fill and outline in both themes. Rank 7, M1, M2 and M3 are separate skill segments, including training in progress.
+Migration 0013 adds nullable ordinary skill rank to opted-in community snapshots. New imports or re-saving
+Community choices supply it; existing contributions remain valid. Any existing mastery proves shared
+rank 7, but an unmastered operator with no saved rank stays unknown rather than being counted at rank 7.
+Promotion symbols and the operator's own skill icons with M1/M2/M3 symbols
+retain accessible text labels and descriptive tooltips. Zero counts in nonempty groups display as 0%; empty or
 unknown groups remain unavailable rather than representing 0/0 as a percentage. Canonical roster masteries include the next mastery in training,
 as requested; the support finder instead uses the actual selected support skill's completed mastery.
 The server stores a keyed fingerprint of server/UID to deduplicate game accounts, not the raw UID.

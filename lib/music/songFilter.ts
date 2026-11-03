@@ -10,6 +10,8 @@
  *   music alone before Endfield's was added, and stays that for everyone who has not chosen.
  */
 
+import { hasMusicClaimRisk, type ClaimRiskSong } from './claimRisk';
+
 /** The game a song is from. A catalogue row with no game is Arknights, as every song was before
  *  Endfield's were added, so a release published before the field reads the same. */
 export type MusicGame = 'arknights' | 'endfield';
@@ -36,13 +38,12 @@ export interface SongFilter {
 export const DEFAULT_SONG_FILTER: SongFilter = { excludeCopyrighted: false, includeEndfield: false };
 
 /** What the rule reads of a song: a catalogue row, a Discover song or album. */
-export interface FilterableSong {
-  copyright?: boolean;
+export interface FilterableSong extends ClaimRiskSong {
   game?: MusicGame | string;
 }
 
 export function songAllowed(filter: SongFilter, song: FilterableSong): boolean {
-  if (filter.excludeCopyrighted && song.copyright) return false;
+  if (filter.excludeCopyrighted && hasMusicClaimRisk(song)) return false;
   if (!filter.includeEndfield && song.game === 'endfield') return false;
   return true;
 }

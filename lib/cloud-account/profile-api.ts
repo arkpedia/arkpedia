@@ -2,7 +2,10 @@ import { allowAccountRequest, accountLimited } from './limits';
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { fromNodeHeaders } from 'better-auth/node';
 import { accountAuth, accountsEnv, type AccountsEnv } from './server';
-import { normalizeUsername, validateProfile } from './profile';
+import { normalizeUsername, validateProfile, type AccountProfile } from './profile';
+import catalogue from '@/data/profile-avatars.json';
+
+const avatarIds = new Set<string>(catalogue.icons);
 
 export function createAccountProfileHandler(resolveEnv: () => AccountsEnv | null = accountsEnv) {
   return async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -10,8 +13,8 @@ export function createAccountProfileHandler(resolveEnv: () => AccountsEnv | null
     res.setHeader('Vary', 'Cookie');
     const env = resolveEnv();
     if (!env) return res.status(503).json({ error: 'Accounts are unavailable on this deployment.' });
-    if (!['GET', 'PUT', 'DELETE'].includes(req.method ?? '')) {
-      res.setHeader('Allow', 'GET, PUT, DELETE'); return res.status(405).end();
+    if (!['GET', 'PUT', 'PATCH', 'DELETE'].includes(req.method ?? '')) {
+      res.setHeader('Allow', 'GET, PUT, PATCH, DELETE'); return res.status(405).end();
     }
     if (req.method !== 'GET' && (req.headers.origin !== env.ARKPEDIA_AUTH_URL || !req.headers['content-type']?.startsWith('application/json'))) {
       return res.status(403).json({ error: 'This request must come from Arkpedia.' });
@@ -31,6 +34,16 @@ export function createAccountProfileHandler(resolveEnv: () => AccountsEnv | null
         return res.json({ available: !taken || taken.userId === owner, username: normalized.username });
       }
       if (req.body?.owner !== owner) return res.status(409).json({ error: 'Your signed-in account changed. Reopen account settings.' });
+      if (req.method === 'PATCH') {
+        const avatarId = req.body.avatarId;
+        if (avatarId !== null && (typeof avatarId !== 'string' || !avatarIds.has(avatarId))) {
+          return res.status(400).json({ error: 'Choose a profile picture from the catalogue.' });
+        }
+        const profile = await db.prepare('UPDATE arkpedia_profile SET avatarId = ?, updatedAt = ? WHERE userId = ? RETURNING username, friendTag, friendServer, avatarId')
+          .bind(avatarId, new Date().toISOString(), owner).first<AccountProfile>();
+        if (!profile) return res.status(409).json({ error: 'Choose your Arkpedia username before saving a picture.' });
+        return res.json({ profile });
+      }
       if (req.method === 'DELETE') {
         const current = await db.prepare('SELECT username FROM arkpedia_profile WHERE userId = ?').bind(owner).first<{ username: string }>();
         if (req.body.confirmation !== (current?.username ?? 'DELETE')) return res.status(400).json({ error: 'Type the confirmation exactly before deleting your account.' });

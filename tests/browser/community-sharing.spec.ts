@@ -27,18 +27,19 @@ async function fixture(page:Page,theme:string){
   await page.route('**/api/community/availability',async route=>{state.reports.push(route.request().postDataJSON());await route.fulfill({json:{fullReports:1,openReports:0,hidden:false}});});
   await page.route('**/api/community/stats?**',async route=>{
     const q=new URL(route.request().url());
-    await route.fulfill({json:q.searchParams.get('server')==='jp'?{contributors:3,owned:null}:q.searchParams.has('skin')?{contributors:20,owned:10,equipmentOwners:10,equipped:3}:{contributors:50,owned:25,builds:25,e1:5,e2:20,masteryOwners:20,skills:[0,0,16],moduleGroups:[{level:60,owners:10,modules:[[10,7,5],[2,1,1]]}]}});
+    await route.fulfill({json:q.searchParams.get('server')==='jp'?{contributors:3,owned:null}:q.searchParams.has('skin')?{contributors:20,owned:10,equipmentOwners:10,equipped:3}:{contributors:50,owned:25,builds:25,e1:5,e2:20,masteryOwners:20,skills:[0,0,16],skillRanks:[[10,5,3,0],[12,4,2,0],[1,1,1,16]],skillUnknown:[1,1,1],moduleOwners:20,modules:[[3,2,5],[1,0,1]]}});
   });
   return state;
 }
 async function capture(page:Page,name:string,info:TestInfo){
   await page.evaluate(()=>document.fonts.ready);
-  if(process.env.ARKPEDIA_QA_CAPTURE)await page.screenshot({path:`${process.env.ARKPEDIA_QA_CAPTURE}/${name}-${info.project.name}.png`,fullPage:false});
+  if(process.env.ARKPEDIA_QA_CAPTURE)await page.screenshot({path:`${process.env.ARKPEDIA_QA_CAPTURE}/${name}-${info.project.name}.png`,fullPage:false,animations:'disabled'});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
 }
 async function help(page:Page,label:string,info:TestInfo,name:string){
   const trigger=page.getByRole('button',{name:label,exact:true});await trigger.focus();await trigger.press('Enter');
   const region=page.getByRole('region',{name:label,exact:true});await expect(region).toBeVisible();
+  if(label==='How community percentages are calculated' && await region.getByText(/Modules: among all E2 owners/).count())await expect(region).toContainText('Each module counts only at its current level');
   const box=await region.boundingBox();const viewport=page.viewportSize()!;expect(box!.x).toBeGreaterThanOrEqual(0);expect(box!.x+box!.width).toBeLessThanOrEqual(viewport.width+1);
   await capture(page,name,info);await page.keyboard.press('Escape');await expect(region).toHaveCount(0);await expect(trigger).toBeFocused();
 }
@@ -77,12 +78,15 @@ for(const theme of ['dark','light']){
       expect(await card.evaluate(el=>el.scrollWidth<=el.clientWidth+1)).toBe(true);
       await capture(page,`supports-narrow-${theme}`,info);await page.setViewportSize(viewport);
     }
+    state.requests.length=0;
     await page.reload();
     const support=page.getByRole('button',{name:'View Helpful#1234 support units',exact:true});await support.focus();await support.press('Enter');
     const builds=page.getByRole('dialog',{name:'Helpful#1234 · Support units',exact:true});await expect(builds).toBeVisible();
     const thorns=builds.getByRole('region',{name:'Thorns support build',exact:true});
     const skillButtons=thorns.getByRole('button',{name:/^Thorns Skill/});await expect(skillButtons).toHaveCount(3);
-    await expect(skillButtons.nth(0)).toHaveText(/Skill 1 · Lv 7/);await expect(skillButtons.nth(2)).toHaveAttribute('aria-current','true');
+    expect(state.requests.length).toBeGreaterThan(0);
+    expect(state.requests.every(q=>q.searchParams.get('mastery')==='0')).toBe(true);
+    await expect(skillButtons.nth(0)).toHaveAccessibleName('Thorns Skill 1: Lv 7. Open details');await expect(skillButtons.nth(2)).toHaveAttribute('aria-current','true');
     const positions=await skillButtons.evaluateAll(elements=>elements.map(e=>e.getBoundingClientRect().top));expect(positions[0]).toBeLessThan(positions[1]);expect(positions[1]).toBeLessThan(positions[2]);
     await expect(thorns.getByText('Loading…',{exact:true})).toHaveCount(0);
     await expect(builds.getByText('Loading…',{exact:true})).toHaveCount(0);
@@ -111,24 +115,57 @@ for(const theme of ['dark','light']){
   test(`small community groups show real zeroes and distinguish empty denominators (${theme})`,async({page},info)=>{
     await fixture(page,theme);let empty=false;
     await page.route('**/api/community/stats?**',route=>route.fulfill({json:empty
-      ?{contributors:11,owned:0,builds:0,e1:0,e2:0,masteryOwners:0,skills:[0,0,0],moduleGroups:[{level:60,owners:0,modules:Array.from({length:8},()=>[0,0,0])}]}
-      :{contributors:11,owned:6,builds:6,e1:1,e2:5,masteryOwners:5,skills:[0,0,4],moduleGroups:[{level:60,owners:3,modules:[[3,0,0],...Array.from({length:7},()=>[0,0,0])]}]}}));
+      ?{contributors:11,owned:0,builds:0,e1:0,e2:0,masteryOwners:0,skills:[0,0,0],moduleOwners:0,modules:Array.from({length:8},()=>[0,0,0])}
+      :{contributors:11,owned:6,builds:6,e1:1,e2:5,masteryOwners:5,skills:[0,0,4],skillRanks:[[1,1,2,0],[2,2,0,0],[0,0,0,4]],skillUnknown:[1,1,1],moduleOwners:5,modules:[[1,1,1],...Array.from({length:7},()=>[0,0,0])]}}));
     await page.goto('/operators/Thorns#community');const stats=page.locator('#operator-community');await stats.scrollIntoViewIfNeeded();
-    const metric=(label:string)=>stats.locator('dl > div').filter({has:page.getByText(label,{exact:true})}).locator('dd');
-    await expect(metric('Owned')).toHaveText('54.5%');await expect(metric('E1')).toHaveText('16.7%');await expect(metric('E2')).toHaveText('83.3%');
-    await expect(metric('Skill 1 M3')).toHaveText('0.0%');await expect(metric('Skill 3 M3')).toHaveText('80.0%');
-    await expect(metric('LOR-X Level 1')).toHaveText('100.0%');await expect(metric('LOR-X Level 3')).toHaveText('0.0%');
-    await expect(stats.getByText(/percentages need 10/)).toHaveCount(0);await expect(stats.locator('dd').filter({hasText:'—'})).toHaveCount(0);
+    const owned=stats.locator('[data-community-metric="Owned"] strong');
+    await expect(owned).toHaveText('54.5%');
+    const checkDetails=async(name:string,values:Record<string,string>)=>{
+      const trigger=stats.getByRole('button',{name:`${name} percentages`,exact:true});
+      await trigger.click();
+      const details=page.getByRole('region',{name:`${name} percentages`,exact:true});await expect(details).toBeVisible();
+      for(const [label,value] of Object.entries(values))await expect(details.locator(`[data-community-metric="${label}"] dd`)).toContainText(value);
+      const box=await details.boundingBox();expect(box!.x).toBeGreaterThanOrEqual(0);expect(box!.x+box!.width).toBeLessThanOrEqual(page.viewportSize()!.width+1);
+      await capture(page,`details-${name}-${theme}`,info);
+      await page.keyboard.press('Escape');await expect(details).toHaveCount(0);await expect(trigger).toBeFocused();
+    };
+    await expect(stats.getByRole('button',{name:'Cumulative percentages',exact:true})).toHaveCount(0);
+    await expect(stats.getByText('11 contributors · 6 owners',{exact:true})).toHaveCount(0);
+    await expect(stats.locator('img[src*="skill-icons"]')).toHaveCount(3);
+    for(const rank of ['M1','M2','M3'])await expect(stats.locator(`img[alt="${rank}"]`)).toHaveCount(1);
+    await expect(stats.locator('[role="img"][aria-label="Elite 1"]')).toHaveCount(1);
+    await checkDetails('Promotion',{'E1':'16.7%','E2':'83.3%'});
+    await checkDetails('Skill 1',{'Skill 1 Rank 7':'20.0%','Skill 1 M1':'20.0%','Skill 1 M2':'40.0%','Skill 1 M3':'0.0%'});
+    await checkDetails('Skill 3',{'Skill 3 M3':'80.0%'});
+    await checkDetails('LOR-X',{'LOR-X Level 1':'20.0%','LOR-X Level 2':'20.0%','LOR-X Level 3':'20.0%'});
+    if(info.project.name==='desktop'){
+      const bar=stats.getByRole('button',{name:'Skill 2 percentages',exact:true});
+      await bar.hover();await expect(page.getByRole('region',{name:'Skill 2 percentages',exact:true})).toBeVisible();
+      await page.mouse.move(0,0);await expect(page.getByRole('region',{name:'Skill 2 percentages',exact:true})).toHaveCount(0);
+      await bar.focus();await expect(page.getByRole('region',{name:'Skill 2 percentages',exact:true})).toBeVisible();await page.keyboard.press('Escape');
+    }
+    await expect(stats.getByText(/an unknown skill rank/)).toHaveCount(0);
+    for(const name of ['Promotion distribution','Skill rank distribution','Module distribution']){
+      const section=stats.getByRole('region',{name,exact:true});
+      const legend=await section.locator('[class*="barLegend"]').boundingBox();
+      const bar=await section.getByRole('button').first().boundingBox();
+      expect(Math.abs(legend!.x-bar!.x)).toBeLessThan(2);
+    }
+    const ownedBar=stats.getByRole('img',{name:'Owned: 6 of 11',exact:true});
+    await expect(ownedBar).toHaveCSS('outline-style','solid');await expect(ownedBar).toHaveCSS('outline-width','1px');
+    if(info.project.name==='mobile'){await page.setViewportSize({width:320,height:800});await stats.scrollIntoViewIfNeeded();await capture(page,`narrow-community-${theme}`,info);await checkDetails('Skill 1',{'Skill 1 M1':'20.0%'});}
     await capture(page,`small-community-${theme}`,info);await help(page,'How community percentages are calculated',info,`small-community-help-${theme}`);
-    empty=true;await choose(page,'Community stats server','Korea');await expect(metric('Owned')).toHaveText('0.0%');
-    await expect(metric('Skill 3 M3')).toHaveText('—');await expect(metric('LOR-X Level 1')).toHaveText('—');
+    empty=true;await choose(page,'Community stats server','Korea');await expect(owned).toHaveText('0.0%');
+    await checkDetails('Skill 3',{'Skill 3 M3':'—'});await checkDetails('LOR-X',{'LOR-X Level 1':'—'});
     await expect(stats.getByText('— means no eligible owners with known data yet.',{exact:true})).toBeVisible();
   });
   test(`operator stats explain in-progress M3 and skin details show equipped percentages (${theme})`,async({page},info)=>{
-    await fixture(page,theme);await page.goto('/operators/Thorns#community');const stats=page.locator('#operator-community');await stats.scrollIntoViewIfNeeded();await expect(stats.locator('dl > div').filter({has:page.getByText('Owned',{exact:true})}).getByText('50.0%',{exact:true})).toBeVisible();
+    await fixture(page,theme);await page.goto('/operators/Thorns#community');const stats=page.locator('#operator-community');await stats.scrollIntoViewIfNeeded();await expect(stats.locator('[data-community-metric]').filter({has:page.getByText('Owned',{exact:true})}).getByText('50.0%',{exact:true})).toBeVisible();
     expect(await page.locator('[data-operator-section]').evaluateAll(elements=>{const names=elements.map(e=>e.getAttribute('data-operator-section'));return names.indexOf('community')>names.indexOf('talents')&&(names.indexOf('mastery')<0||names.indexOf('community')<names.indexOf('mastery'));})).toBe(true);
-    await expect(stats.locator('dl > div').filter({has:page.getByText('Skill 3 M3',{exact:true})}).getByText('80.0%',{exact:true})).toBeVisible();
-    await expect(stats.locator('dl > div').filter({has:page.getByText('LOR-X Level 1',{exact:true})}).getByText('100.0%',{exact:true})).toBeVisible();
+    await stats.getByRole('button',{name:'Skill 3 percentages',exact:true}).click();
+    await expect(page.getByRole('region',{name:'Skill 3 percentages',exact:true}).locator('[data-community-metric="Skill 3 M3"] dd')).toContainText('80.0%');await page.keyboard.press('Escape');
+    await stats.getByRole('button',{name:'LOR-X percentages',exact:true}).click();
+    await expect(page.getByRole('region',{name:'LOR-X percentages',exact:true}).locator('[data-community-metric="LOR-X Level 1"] dd')).toContainText('15.0%');await page.keyboard.press('Escape');
     await help(page,'How community percentages are calculated',info,`operator-stats-help-${theme}`);await capture(page,`operator-stats-${theme}`,info);
     await choose(page,'Community stats server','Japan');await expect(stats.getByText('Waiting for at least 10 contributors on this server.',{exact:true})).toBeVisible();
     await page.goto('/skins');const skin=await page.evaluate(()=>{const skins=(window as any).__NEXT_DATA__.props.pageProps.skins;return skins.find((s:any)=>s.skinId)?.name as string;});await page.goto(`/skins?skin=${encodeURIComponent(skin)}`);

@@ -37,7 +37,7 @@ test('community projection excludes private fields, counts in-progress M3 and ke
   const account:AccountRecord={version:1,server:'en',importedAt:new Date(clock).toISOString(),doctor:'Doctor#1234',operators:['Thorns'],skins:['skin@x#1'],cleared:['PRIVATE_STAGE'],wallet:{orundum:999,originitePrime:100,permits:2,yellowCerts:3,monthlyCardUntil:null},
     operatorBuilds:{Thorns:{elite:2,level:60,skillLevel:7,masteries:{2:3},modules:{0:2}}},outfits:{Thorns:'skin@x#1'},profile:{level:120,bio:'PRIVATE BIO',registeredAt:null,secretary:null,uid:'123',friendSlots:{used:47,limit:50},supports:[{name:'Thorns',rarity:6,elite:2,level:60,potential:6,skill:3,skillMastery:2,module:'uniequip_002_thorns',moduleLevel:3}]}};
   const projected=communitySnapshot(account,all);
-  assert.equal(projected.operators[0].m2,3);assert.equal(projected.supports[0].mastery,2);assert.equal(projected.operators[0].modules?.[0],3);assert.equal(projected.slots,3);
+  assert.equal(projected.operators[0].skillLevel,7);assert.equal(projected.operators[0].m2,3);assert.equal(projected.supports[0].mastery,2);assert.equal(projected.operators[0].modules?.[0],3);assert.equal(projected.slots,3);
   assert.ok(!JSON.stringify(projected).includes('PRIVATE'));assert.ok(!JSON.stringify(projected).includes('orundum'));
   const privateStats=communitySnapshot(account,statsOnly);assert.equal(privateStats.doctor,null);assert.deepEqual(privateStats.supports,[]);
   const supports=communitySnapshot(account,{...all,stats:false});assert.deepEqual(supports.operators,[]);assert.deepEqual(supports.skins,[]);
@@ -47,26 +47,30 @@ test('community projection excludes private fields, counts in-progress M3 and ke
   assert.throws(()=>parseCommunitySnapshot({...projected,supports:[{...projected.supports[0],skill:null}]},all,clock));
   assert.equal(privateStats.slots,null);
 });
-test('masteries use E2 owners and modules use their level-eligible cohort, excluding unknown levels',async()=>{
+test('masteries and exact module levels use all E2 owners including low and unknown character levels',async()=>{
   const h=harness();
   try{
     for(let i=0;i<26;i++){
       h.user('relative'+i);
       const s=snapshot(String(700+i));
-      s.operators[0]={operator:'Thorns',elite:i<21?2:1,level:i<10?60:i<20?59:i===20?null:80,
-        m0:0,m1:0,m2:i<8?3:0,modules:i<10?{0:i<5?1:3}:{}};
+      s.operators[0]={operator:'Thorns',elite:i<21?2:1,level:i<10?60:i<19?1:i===19?59:i===20?null:80,
+        m0:0,m1:0,m2:i<8?3:0,modules:i<10?{0:i<5?1:3}:i===19?{0:2}:{}};
       assert.equal((await h.publish('relative'+i,String(700+i),statsOnly,s)).status,200);
     }
     const op=(await h.call('stats',null,'GET',undefined,{server:'en',operator:'Thorns'})).result;
     assert.equal(op.builds,26);assert.equal(op.masteryOwners,21);assert.deepEqual(op.skills,[0,0,8]);
-    assert.deepEqual(op.moduleGroups.map((g:any)=>[g.level,g.owners]),[[40,20],[50,20],[60,10]]);
+    assert.deepEqual(op.moduleGroups.map((g:any)=>[g.level,g.owners]),[[40,11],[50,11],[60,10]]);
     assert.deepEqual(op.moduleGroups.find((g:any)=>g.level===60).modules[0],[10,5,5]);
-    // E2 59 is outside the six-star module denominator; E1 80 and unknown levels never qualify.
+    assert.equal(op.moduleOwners,21);assert.deepEqual(op.modules[0],[5,1,5]);
+    assert.equal(op.modules[0].reduce((sum:number,n:number)=>sum+n,0),11);
+    // E2 Lv1, Lv59 and unknown levels qualify; E1 Lv80 does not.
+    // Each module belongs to exactly one level; higher levels do not inflate lower ones.
     await h.call('sharing','relative0','DELETE',{});
     const smaller=(await h.call('stats',null,'GET',undefined,{server:'en',operator:'Thorns'})).result;
     assert.equal(smaller.masteryOwners,20);
     assert.equal(smaller.moduleGroups.find((g:any)=>g.level===60).owners,9);
-    assert.equal(smaller.moduleGroups.find((g:any)=>g.level===50).owners,19);
+    assert.equal(smaller.moduleGroups.find((g:any)=>g.level===50).owners,10);
+    assert.equal(smaller.moduleOwners,20);assert.deepEqual(smaller.modules[0],[4,1,5]);
   }finally{h.sqlite.close();}
 });
 
@@ -107,6 +111,7 @@ test('statistics retain older latest imports, replace rather than duplicate them
     const current=await operator();
     assert.equal(current.contributors,10);assert.equal(current.owned,10);assert.equal(current.skills[2],9);
     assert.deepEqual(current.moduleGroups.find((g:any)=>g.level===60).modules[0],[10,10,9]);
+    assert.deepEqual(current.modules[0],[0,1,9]);
     assert.equal((await outfit()).equipped,9);
     assert.equal((await h.call('supports',null,'GET',undefined,{server:'en'})).result.listings.length,1);
     assert.equal((await h.call('sharing','historic0','PUT',{revision:2,action:'refresh',choices:all,snapshot:{...snapshot('900'),importedAt:oldDate}})).status,409);
@@ -143,11 +148,12 @@ test('ten contributors unlock small owner groups, zero upgrades, and empty or un
     const op=(await h.call('stats',null,'GET',undefined,{server:'en',operator:'Thorns'})).result;
     assert.equal(op.contributors,10);assert.equal(op.owned,6);assert.equal(op.builds,5);
     assert.equal(op.e1,0);assert.equal(op.e2,5);assert.equal(op.masteryOwners,5);assert.deepEqual(op.skills,[0,0,2]);
-    const modules=op.moduleGroups.find((g:any)=>g.level===60);assert.equal(modules.owners,4);assert.deepEqual(modules.modules[0],[2,0,0]);
+    assert.equal(op.moduleOwners,5);assert.deepEqual(op.modules[0],[2,0,0]);
     const skin=(await h.call('stats',null,'GET',undefined,{server:'en',skin:'char_293_thorns@test#1'})).result;
     assert.equal(skin.owned,6);assert.equal(skin.equipmentOwners,5);assert.equal(skin.equipped,0);
     const empty=(await h.call('stats',null,'GET',undefined,{server:'en',operator:'Nobody owns this'})).result;
     assert.equal(empty.owned,0);assert.equal(empty.builds,0);assert.equal(empty.masteryOwners,0);assert.deepEqual(empty.skills,[0,0,0]);
+    assert.equal(empty.moduleOwners,0);assert.ok(empty.modules.flat().every((n:number)=>n===0));
     assert.ok(empty.moduleGroups.every((g:any)=>g.owners===0&&g.modules.flat().every((n:number)=>n===0)));
     const noSkin=(await h.call('stats',null,'GET',undefined,{server:'en',skin:'missing'})).result;
     assert.equal(noSkin.equipmentOwners,0);assert.equal(noSkin.equipped,0);
@@ -293,5 +299,29 @@ test('support skill ranks survive database storage and legacy entries remain unk
     assert.ok(supports.some((s:any)=>s.skillLevel===null&&JSON.stringify(s.skillMasteries)==='[]'));
     assert.equal((await h.call('sharing','ranks','DELETE',{})).status,200);
     assert.equal(h.sqlite.prepare('SELECT count(*) AS n FROM community_support WHERE userId=?').get('ranks')?.n,0);
+  }finally{h.sqlite.close();}
+});
+
+test('skill distributions retain rank 7 and all masteries without inventing historical rank data',async()=>{
+  const h=harness();
+  try{
+    const builds=[
+      {skillLevel:7,m0:0,m1:1,m2:2},
+      {skillLevel:6,m0:0,m1:0,m2:0},
+      {m0:0,m1:0,m2:0}, // old: genuinely unknown
+      {m0:0,m1:0,m2:3}, // old: mastery proves shared rank 7
+    ];
+    for(let i=0;i<10;i++){
+      h.user('ranks'+i);
+      const operators=i<4?[{operator:'Thorns',elite:2,level:1,modules:{},...builds[i]}]:[];
+      assert.equal((await h.publish('ranks'+i,String(900+i),statsOnly,{operators})).status,200);
+    }
+    const result=(await h.call('stats',null,'GET',undefined,{server:'en',operator:'Thorns'})).result;
+    assert.equal(result.masteryOwners,4);
+    assert.deepEqual(result.skillRanks,[[2,0,0,0],[1,1,0,0],[0,0,1,1]]);
+    assert.deepEqual(result.skillUnknown,[1,1,1]);
+    assert.deepEqual(result.skills,[0,0,1]);
+    const invalid={...snapshot(),operators:[{...snapshot().operators[0],skillLevel:6}]};
+    assert.throws(()=>parseCommunitySnapshot(invalid,statsOnly,clock),/Masteries require/);
   }finally{h.sqlite.close();}
 });

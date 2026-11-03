@@ -1,3 +1,4 @@
+import styles from './FarmingMethod.module.css';
 import ActionPopover from '@/components/ui/ActionPopover';
 import SegmentedControl from '@/components/ui/SegmentedControl';
 import StyledSelect from '@/components/ui/StyledSelect';
@@ -27,8 +28,8 @@ export default function FarmingMethodMenu({ method, onChange, farming, claimedMo
   const modes = permanentRewards.modes;
   const readModes = modes.filter((mode) => claimedModes.has(mode.id)).map((mode) => mode.label);
   const togglePermanent = (id: string, on: boolean) => onChange({ ...method, permanent: on ? [...new Set([...method.permanent, id])] : method.permanent.filter((m) => m !== id) });
-  const on = method.until.mode !== 'off';
-  const active = on || method.permanent.length > 0;
+  const on = method.until.mode === 'banner' || method.until.mode === 'date';
+  const active = method.until.mode !== 'off';
   const banners = farmingEvents.banners;
   const mode = method.until.mode;
   const counted = farming?.events.length ?? 0;
@@ -45,15 +46,17 @@ export default function FarmingMethodMenu({ method, onChange, farming, claimedMo
         <div className="planner-farming-head"><h3>{text.heading}</h3></div>
         <p className="hint plan-hint">{text.lead}</p>
 
-        <SegmentedControl<'off' | 'banner' | 'date'>
+        <SegmentedControl<'off' | 'permanent' | 'banner' | 'date'>
+          className={styles.modes}
           label={text.untilLabel}
           value={mode}
           onChange={(next) => {
-            if (next === 'off') onChange({ ...method, until: { mode: 'off' } });
+            if (next === 'off') onChange({ ...method, until: { mode: 'off' }, permanent: [] });
+            else if (next === 'permanent') onChange({ ...method, until: { mode: 'permanent' } });
             else if (next === 'banner') onChange({ ...method, until: banners[0] ? { mode: 'banner', banner: banners[0].name } : { mode: 'off' } });
             else onChange({ ...method, until: { mode: 'date', date: today() } });
           }}
-          options={[{ value: 'off', label: text.off }, { value: 'banner', label: text.byBanner, disabled: banners.length === 0 }, { value: 'date', label: text.byDate }]}
+          options={[{ value: 'off', label: text.off }, { value: 'permanent', label: text.permanentOnly }, { value: 'banner', label: text.byBanner, disabled: banners.length === 0 }, { value: 'date', label: text.byDate }]}
         />
 
         {method.until.mode === 'banner' && (
@@ -83,15 +86,15 @@ export default function FarmingMethodMenu({ method, onChange, farming, claimedMo
           </ul>
         )}
 
-        <div className="planner-farming-options" role="group" aria-label={text.shopsLabel}>
+        {on && <div className="planner-farming-options" role="group" aria-label={text.shopsLabel}>
           <label className="check"><input type="checkbox" checked={method.shop} disabled={!on}
             onChange={(event) => onChange({ ...method, shop: event.target.checked })} />{text.shop}</label>
           <label className="check"><input type="checkbox" checked={method.unlimitedShop} disabled={!on}
             onChange={(event) => onChange({ ...method, unlimitedShop: event.target.checked })} />{text.unlimitedShop}</label>
-        </div>
-        <p className="hint plan-hint">{text.assumes}</p>
+        </div>}
+        {active && <p className="hint plan-hint">{text.assumes}</p>}
 
-        <details className="planner-farming-permanent">
+        {active && <details className="planner-farming-permanent" open={mode === 'permanent' ? true : undefined}>
           <summary>{text.permanent}</summary>
           <p className="hint plan-hint">{text.permanentLead}</p>
           <div className="planner-farming-options" role="group" aria-label={text.permanent}>
@@ -100,7 +103,7 @@ export default function FarmingMethodMenu({ method, onChange, farming, claimedMo
               const counted = farming?.permanent.find((m) => m.id === mode.id);
               return (
                 <label key={mode.id} className="check planner-farming-mode">
-                  <input type="checkbox" checked={on} onChange={(event) => togglePermanent(mode.id, event.target.checked)} />
+                  <input type="checkbox" checked={on} disabled={!active} onChange={(event) => togglePermanent(mode.id, event.target.checked)} />
                   <span>{mode.label}</span>
                   {(!mode.global || mode.rewards.some((reward) => reward.cn)) && (
                     <i className="planner-farming-cn" title={text.cnOnlyTitle}>{mode.global ? text.cnPart(mode.rewards.filter((reward) => reward.cn).length) : text.cnOnly}</i>
@@ -112,7 +115,7 @@ export default function FarmingMethodMenu({ method, onChange, farming, claimedMo
           </div>
           <p className="hint plan-hint">{readModes.length ? text.claimsRead(readModes.join(', ')) : text.claimsNone}</p>
           <p className="hint plan-hint">{text.claimsUnchecked}</p>
-        </details>
+        </details>}
       </div>
     </ActionPopover>
   );

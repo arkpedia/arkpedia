@@ -473,7 +473,7 @@ const LAYER_FILES = ['lib/skins/dynamicLayers.ts', LAYER_RENDERER, PARTICLE_DATA
 test('no page loads the Spine runtime or the animated artwork with itself: only when the reader asks', () => {
   // Not vacuous: both pages that offer animated art do reach both, lazily.
   for (const page of ['pages/skins.tsx', 'pages/operators/[name].tsx']) {
-    assert.deepEqual(pathToTarget(page, [ARTWORK]), [page, 'components/skins/SkinZoomOverlay.tsx', ARTWORK]);
+    assert.deepEqual(pathToTarget(page, [ARTWORK]), [page, ...(page === 'pages/skins.tsx' ? ['components/skins/SkinDetailDialog.tsx'] : []), 'components/skins/SkinZoomOverlay.tsx', ARTWORK]);
     assert.equal(pathToTarget(page, [RUNTIME])?.at(-1), RUNTIME);
   }
   const eager = pages().flatMap((page) => {
@@ -587,4 +587,20 @@ test('older planner payloads receive artwork pointers and explicit nulls remain 
   assert.equal(explicit.skinCatalogue[0].alternate, null);
   assert.ok((explicit.skinCatalogue[0] as {illustrator?:string}).illustrator);
   assert.ok((explicit.skinCatalogue[0] as {description?:string}).description);
+});
+
+
+test('account and friend payloads receive the same outfit and alternate artwork pointers', async () => {
+  const { withFriendDynamicArt, loadDynamicArtIndex } = await import('../../lib/skins/dynamicArtFallback');
+  const id = 'char_1041_angel2@iteration#6';
+  const index = await loadDynamicArtIndex();
+  const props = { skins: [{ id }, { id: 'unknown-outfit' }] };
+  const enriched = await withFriendDynamicArt(props);
+  assert.deepEqual(enriched.skins, [
+    { id, dynamic: index.models[id], alternate: index.models[`${id}^sp_dyn`] },
+    { id: 'unknown-outfit', dynamic: null, alternate: null },
+  ]);
+  assert.deepEqual(props.skins, [{ id }, { id: 'unknown-outfit' }]);
+  const explicit = { skins: [{ id, dynamic: null, alternate: null }] };
+  assert.equal(await withFriendDynamicArt(explicit), explicit);
 });

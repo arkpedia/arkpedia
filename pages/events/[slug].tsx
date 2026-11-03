@@ -36,7 +36,7 @@ import { findSkinIconPath } from '@/lib/skins/skinIconLookup';
 import { materialOrderFor } from '@/lib/farming/materialSortOrder';
 import { loadMaterialCatalogue } from '@/lib/farming/materialCatalogueServer';
 import { withMaterialOrder } from '@/lib/content/materialOrderFallback';
-import SkinZoomOverlay from '@/components/skins/SkinZoomOverlay';
+import SkinDetailDialog from '@/components/skins/SkinDetailDialog';
 import PageHeader from '@/components/ui/PageHeader';
 import Tabs, { tabPanelProps } from '@/components/ui/Tabs';
 import { useSwitchHold } from '@/components/ui/useSwitchHold';
@@ -312,9 +312,6 @@ export default function EventDetailPage({
   // two stores, the banner's gift and its free rolls): never one grid that repeats an item.
   const activeStores = rewardStores.filter((s) => s.type === activeRewardTab);
 
-  // Skin detail modal + zoom -- same pattern as SkinsCarousel.tsx
-  // (home page), pages/skins.tsx, pages/schedule.tsx, and
-  // pages/operators/[name].tsx, all reusing the same SkinZoomOverlay.
   const [activeSkin, setActiveSkin] = useState<Skin | null>(null);
   const [preview, setPreview] = useState<OperatorPreviewItem | null>(null);
   const closePreview = useCallback(() => setPreview(null), []);
@@ -323,10 +320,7 @@ export default function EventDetailPage({
   const bannerTitle = { title: bannerName ? bannerName.slice(bannerTag?.[0].length ?? 0) : '', tag: bannerTag?.[1] ?? null };
   /* A line each under the banner: the welfare operators, then the free ones its rewards give. */
   const extraOperators = [...welfareOperators.map(op => ({ ...op, kind: 'welfare' as const })), ...rewardOperators.map(op => ({ ...op, kind: 'free' as const }))];
-  const [zooming, setZooming] = useState(false);
-  useEffect(() => {
-    if (!activeSkin) setZooming(false);
-  }, [activeSkin]);
+
 
   useEffect(() => {
     if (paused || shownImages.length <= 1) return;
@@ -535,69 +529,9 @@ export default function EventDetailPage({
         </div>
       </main>
 
-      {activeSkin && (() => {
-        const activePrices = parsePrices(activeSkin.howToObtain);
-        return (
-          <div className="modal-overlay" onClick={() => setActiveSkin(null)}>
-            <div className="modal-box skin-modal" onClick={(e) => e.stopPropagation()}>
-              <button type="button" className="back-btn" onClick={() => setActiveSkin(null)}>
-                ‹ Back
-              </button>
-              <div className="skin-modal-image-wrap-full">
-                {activeSkin.image && (
-                  <button
-                    type="button"
-                    onClick={() => setZooming(true)}
-                    style={{ background: 'none', border: 'none', padding: 0, cursor: 'zoom-in', display: 'block', width: '100%' }}
-                    aria-label={`Zoom in on ${activeSkin.name}`}
-                  >
-                    <Image
-                      src={activeSkin.image}
-                      alt={activeSkin.name}
-                      width={1600}
-                      height={900}
-                      style={{ maxWidth: '100%', maxHeight: '60vh', width: 'auto', height: 'auto', objectFit: 'contain' }}
-                    />
-                  </button>
-                )}
-              </div>
-              <div className="skin-modal-info">
-                <div className="eyebrow">
-                  {activeSkin.series}
-                  {activeSkin.code ? ` · ${activeSkin.code}` : ''}
-                </div>
-                <h2>{activeSkin.model ? `${activeSkin.model} - ${activeSkin.name}` : activeSkin.name}</h2>
-                {activeSkin.illustrator && <p className="hint">Illustrator: {activeSkin.illustrator}</p>}
-                {activeSkin.description && <p style={{ marginTop: 10 }}>{activeSkin.description}</p>}
-                {activeSkin.release && (
-                  <p className="hint" style={{ marginTop: 10 }}>
-                    Release: {activeSkin.release}
-                  </p>
-                )}
-                {activePrices.length > 0 && (
-                  <p className="hint">
-                    Price: <PriceDisplay prices={activePrices} />
-                  </p>
-                )}
-                {activeSkin.howToObtain && <p className="hint">How to obtain: {activeSkin.howToObtain}</p>}
-              </div>
-              <div className="modal-actions">
-                <Link prefetch={false} href="/skins" className="ghost">
-                  View all skins
-                </Link>
-                <button type="button" className="primary" onClick={() => setActiveSkin(null)}>
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
+      {activeSkin && <SkinDetailDialog key={activeSkin.name} skin={activeSkin} onClose={() => setActiveSkin(null)}
+        footer={<Link prefetch={false} href={`/skins?skin=${encodeURIComponent(activeSkin.name)}`}>View in outfit gallery</Link>} />}
 
-      {/* Animated art is offered on /skins and the operator pages, which carry its pointers. */}
-      {zooming && activeSkin?.image && (
-        <SkinZoomOverlay image={activeSkin.image} name={activeSkin.name} dynamic={null} onClose={() => setZooming(false)} />
-      )}
     </RewardDetailsProvider>
   );
 }
