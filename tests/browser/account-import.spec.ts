@@ -185,8 +185,8 @@ test('an import settings failure can be retried without sending or spending a co
 });
 
 /** /account's Import / export, open on the sign-in. */
-async function openImport(page: Page) {
-  await page.goto('/account');
+async function openImport(page: Page, diagnostics = false) {
+  await page.goto(diagnostics ? '/account?importDiagnostics=1' : '/account');
   await page.locator('.page-header').getByRole('button', { name: 'Import / export', exact: true }).click();
   const dialog = page.locator('dialog.data-dialog');
   await dialog.locator('.import-forms, .import-saved').first().waitFor();
@@ -208,10 +208,11 @@ test('the import says, above the email field, which email to use and what any ot
   const dialog = await openImport(page);
   const notice = dialog.locator('.import-yostar');
   await expect(notice).toBeVisible();
-  await expect(notice).toContainText('Use the email that is already the Yostar login of your Arknights account.');
-  await expect(notice).toContainText('makes Yostar create a separate, empty account for it');
-  await expect(notice).toContainText('Undoing that takes several steps in the game.');
-  await expect(notice).toContainText('check in the game which login you use first (Settings → Account)');
+  await expect(notice).toContainText('Use your Arknights account’s Yostar email.');
+  await expect(notice).toContainText('A different email creates an empty account.');
+  await notice.getByRole('button', { name: 'Which email should I use?', exact: true }).click();
+  await expect(page.getByRole('region', { name: 'Which email should I use?', exact: true })).toContainText('Settings → Account');
+  await page.keyboard.press('Escape');
   // Read before the field: above it, with nothing typed yet.
   const [noticeBox, fieldBox] = await Promise.all([notice.boundingBox(), dialog.getByPlaceholder('Yostar email').boundingBox()]);
   expect(noticeBox && fieldBox && noticeBox.y + noticeBox.height <= fieldBox.y).toBe(true);
@@ -676,7 +677,7 @@ test('auto-deploy bulk skips a mismatched stage, saves later stages and explains
   const {zipSync,strToU8}=await import('fflate');
   const wrong=JSON.stringify({journal:{metadata:{stageId:'main_00-03'},squad:[],logs:[]}});
   await stubAutoDeploys(page,Buffer.from(zipSync({default_entry:strToU8(wrong)})).toString('base64'));
-  const dialog=await openImport(page);await signIn(page);
+  const dialog=await openImport(page, true);await signIn(page);
   const panel=dialog.getByRole('region',{name:'Auto-deploy sync'});
   await panel.getByRole('button',{name:'Sync auto-deploys',exact:true}).click();
   await expect(panel.getByRole('status')).toContainText('1 skipped. Other auto-deploys are up to date.',{timeout:20000});
@@ -720,9 +721,9 @@ for (const failure of ['missing', 'oversized'] as const) {
 }
 
 test('auto-deploy sync is explicit, resumable, incremental and exportable',async({page},info)=>{
-  await stubAutoDeploys(page);const dialog=await openImport(page);
+  await stubAutoDeploys(page);const dialog=await openImport(page, true);
   const panel=dialog.getByRole('region',{name:'Auto-deploy sync'});
-  await expect(panel.getByRole('button',{name:'Sync auto-deploys',exact:true})).toBeDisabled();
+  await expect(panel.getByRole('button',{name:'Sync auto-deploys',exact:true})).toHaveCount(0);
   await dialog.getByLabel('Save this sign-in on this browser').check();await signIn(page);
   await expect(panel.getByText('2 available · 0 saved in this browser')).toBeVisible();
   expect(await replayRequests(page)).toHaveLength(0);
@@ -747,7 +748,7 @@ test('auto-deploy sync is explicit, resumable, incremental and exportable',async
   const download=page.waitForEvent('download');await panel.getByRole('button',{name:'Export auto-deploys'}).click();expect((await download).suggestedFilename()).toBe('arkpedia-auto-deploys.json');
   await panel.scrollIntoViewIfNeeded();await page.screenshot({path:info.outputPath('auto-deploy-complete.png')});
   await page.reload();await page.locator('.page-header').getByRole('button',{name:'Import / export',exact:true}).click();
-  await expect(panel.getByRole('button',{name:'Sync auto-deploys',exact:true})).toBeDisabled();
+  await expect(panel.getByRole('button',{name:'Sync auto-deploys',exact:true})).toHaveCount(0);
   await dialog.locator('.import-saved').first().getByRole('button',{name:'Import',exact:true}).click();
   await expect(panel.getByText('2 available · 2 saved in this browser')).toBeVisible();
 });
@@ -779,7 +780,7 @@ test('auto-deploy cloud saving is opt-in and restores cached stages without game
     const hash=await replayHash(body.payload);records.set(body.stageId,{stageId:body.stageId,fingerprint:body.fingerprint,hash,payload:body.payload});return route.fulfill({json:{hash}});
   });
   const dialog=await openImport(page);await signIn(page);const panel=dialog.getByRole('region',{name:'Auto-deploy sync'});
-  const choice=panel.getByLabel('Also save auto-deploys to my Arkpedia account');await expect(choice).toBeEnabled();await expect(choice).not.toBeChecked();
+  const choice=panel.getByLabel('Include auto-deploys and save to my account');await expect(choice).toBeEnabled();await expect(choice).not.toBeChecked();
   expect(uploads).toHaveLength(0);await choice.check();await panel.getByRole('button',{name:'Sync auto-deploys',exact:true}).click();
   await expect(panel.getByRole('status')).toHaveText('Auto-deploys are up to date.',{timeout:20000});
   expect((await replayRequests(page)).map(r=>r.stage)).toEqual(['main_00-02']);expect(uploads).toHaveLength(1);expect(uploads.join('')).not.toMatch(/yostar-token|code-token|session|secret|email/i);
@@ -793,9 +794,8 @@ test('auto-deploy background download survives closing the dialog and client nav
   await signIn(page);
   await expect(dialog.locator('.import-note[role="status"]')).toContainText('Imported:');
   expect(await page.evaluate(()=>localStorage.getItem('arkpediaYostarLogin'))).toBeNull();
-  const explanation=dialog.getByText('Once started, downloads continue',{exact:false});
+  const explanation=dialog.getByText('Downloads continue with this popup closed',{exact:false});
   await expect(explanation).toBeVisible();
-  await expect(explanation).toContainText('Saving your game login is not required.');
   await dialog.getByRole('button',{name:'How auto-deploy sync works',exact:true}).click();
   await expect(dialog.getByText('The current game session stays in memory',{exact:false})).toBeVisible();
   await page.keyboard.press('Escape');
@@ -860,4 +860,117 @@ test('remembering the game login has touch-accessible help and never enables its
   await expect(remembered).not.toBeChecked();
   await page.keyboard.press('Escape'); await expect(help).toBeFocused();
   await expect(dialog).toBeVisible();
+});
+
+async function stubReplayAccount(page: Page) {
+  const remote = { user: { id: 'replay-owner', name: 'Doctor' }, profile: { username: 'Doctor#1234', friendTag: null, friendServer: null }, linkedProviders: ['google'], linkedAccounts: [], syncReviewed: true, revision: 0, archiveRevision: 0, gameSync: true, personalSync: false, historySync: false, archives: [], paused: false, data: {}, providers: ['google'] };
+  const uploads: string[] = [];
+  await page.route('**/api/cloud-account', async route => {
+    if (route.request().method() !== 'GET') {
+      remote.revision++;
+      const body = route.request().postDataJSON();
+      if (body.data) remote.data = body.data;
+    }
+    await route.fulfill({ json: remote });
+  });
+  const { replayHash } = await import('../../lib/replays/model');
+  await page.route('**/api/cloud-account/auto-deploys**', async route => {
+    if (route.request().method() === 'GET') return route.fulfill({ json: { records: [] } });
+    const body = route.request().postDataJSON();
+    uploads.push(body.stageId);
+    expect(body.owner).toBe('replay-owner');
+    expect(body.namespace).toBe('en:1');
+    await route.fulfill({ json: { hash: await replayHash(body.payload) } });
+  });
+  return uploads;
+}
+
+for (const saved of [false, true]) test(`checked auto-deploy choice starts after ${saved ? 'saved-login' : 'email-code'} import and survives another import`, async ({ page }, info) => {
+  await stubAutoDeploys(page);
+  const uploads = await stubReplayAccount(page);
+  if (saved) await seedSavedLogin(page);
+  const dialog = await openImport(page);
+  const panel = dialog.getByRole('region', { name: 'Auto-deploy sync' });
+  const choice = panel.getByLabel('Include auto-deploys and save to my account');
+  await expect(choice).toBeEnabled();
+  await expect(choice).not.toBeChecked();
+  await expect(panel.getByRole('button', { name: 'Sync auto-deploys', exact: true })).toHaveCount(0);
+  await expect(dialog.getByText('Refresh one stage', { exact: true })).toHaveCount(0);
+  await expect(dialog.getByText('Connection diagnostics', { exact: true })).toHaveCount(0);
+  await choice.check();
+  await expect(choice).toBeChecked();
+  await page.evaluate(() => document.fonts.ready);
+  if (process.env.ARKPEDIA_QA_CAPTURE) await page.screenshot({ animations: 'disabled', path: `${process.env.ARKPEDIA_QA_CAPTURE}/import-auto-${saved ? 'saved' : 'code'}-${info.project.name}.png` });
+  if (saved) await dialog.getByRole('button', { name: 'Import', exact: true }).click();
+  else await signIn(page);
+  await dialog.getByRole('button', { name: 'Close', exact: true }).click();
+  await expect(page.getByRole('region', { name: 'Auto-deploy downloads', exact: true }).getByRole('status')).toHaveText('Auto-deploys are up to date.', { timeout: 25000 });
+  await page.locator('.page-header').getByRole('button', { name: 'Import / export', exact: true }).click();
+  await expect(panel.getByRole('status')).toHaveText('Auto-deploys are up to date.', { timeout: 25000 });
+  await expect(choice).toBeChecked();
+  expect((await replayRequests(page)).map(r => r.stage)).toEqual(['main_00-01', 'main_00-02']);
+  expect(uploads).toEqual(['main_00-01', 'main_00-02']);
+  if (!saved) expect(await page.evaluate(() => localStorage.getItem('arkpediaYostarLogin'))).toBeNull();
+  expect(await dialog.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+  // A second successful import preserves the opt-in but skips unchanged replays.
+  if (!saved) { await dialog.getByPlaceholder('Yostar email').fill(EMAIL); await dialog.getByPlaceholder('Code from the email').fill('654321'); }
+  await dialog.getByRole('button', { name: 'Import', exact: true }).click();
+  await expect(panel.getByRole('status')).toHaveText('Auto-deploys are up to date.', { timeout: 25000 });
+  await expect(choice).toBeChecked();
+  expect(await replayRequests(page)).toHaveLength(2);
+  await expect(dialog.locator('.import-steps')).not.toBeVisible();
+  await dialog.getByText('Import steps', { exact: true }).click();
+  await expect(dialog.locator('.import-steps')).toBeVisible();
+  await dialog.getByText('Import steps', { exact: true }).click();
+  // Opting out suppresses automatic work even when a stage changed.
+  await choice.uncheck();
+  await page.evaluate(() => { (window as any).__replayTest.counter++; });
+  if (!saved) await dialog.getByPlaceholder('Code from the email').fill('111111');
+  await dialog.getByRole('button', { name: 'Import', exact: true }).click();
+  await expect(dialog.locator('.import-note[role="status"]')).toContainText('Imported:');
+  await expect(panel.getByRole('button', { name: 'Sync auto-deploys', exact: true })).toBeEnabled();
+  expect(await replayRequests(page)).toHaveLength(2);
+  await panel.getByRole('button', { name: 'Sync auto-deploys', exact: true }).click();
+  await expect(panel.getByRole('status')).toHaveText('Auto-deploys are up to date.', { timeout: 25000 });
+  expect(await replayRequests(page)).toHaveLength(3);
+});
+
+test('a failed import does not start checked auto-deploy downloads or show debugging tools', async ({ page }) => {
+  await stubAutoDeploys(page);
+  const uploads = await stubReplayAccount(page);
+  await seedSavedLogin(page);
+  await page.addInitScript(() => {
+    const original = window.__arkpediaImportTransport!;
+    window.__arkpediaImportTransport = async (url, request) => url.endsWith('/user/v1/getToken') ? { status: 503, json: {} } : original(url, request);
+  });
+  const dialog = await openImport(page);
+  const choice = dialog.getByLabel('Include auto-deploys and save to my account');
+  await choice.check();
+  await dialog.getByRole('button', { name: 'Import', exact: true }).click();
+  await expect(dialog.getByRole('alert')).toBeVisible();
+  await expect(choice).toBeChecked();
+  expect(await replayRequests(page)).toHaveLength(0);
+  expect(uploads).toHaveLength(0);
+  await expect(dialog.getByText('Connection diagnostics', { exact: true })).toHaveCount(0);
+  await expect(dialog.getByText('Refresh one stage', { exact: true })).toHaveCount(0);
+});
+
+test('reopening an automatic download shows queue progress without restarting import steps', async ({ page }) => {
+  await stubAutoDeploys(page);
+  await stubReplayAccount(page);
+  await seedSavedLogin(page);
+  await page.route('**/api/account-import/replay-permit', route => route.fulfill({ json: route.request().method() === 'DELETE' ? { cancelled: true } : { granted: false, retryAfterMs: 500, position: 2 } }));
+  const dialog = await openImport(page);
+  await dialog.getByLabel('Include auto-deploys and save to my account').check();
+  await dialog.getByRole('button', { name: 'Import', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Close', exact: true }).click();
+  const bar = page.getByRole('region', { name: 'Auto-deploy downloads', exact: true });
+  await expect(bar.getByRole('status')).toContainText('2 in queue', { timeout: 15000 });
+  await bar.getByRole('button', { name: 'Details', exact: true }).click();
+  await expect(dialog).toBeVisible();
+  await expect(dialog.locator('.import-steps')).toHaveCount(0);
+  await expect(dialog.getByRole('region', { name: 'Auto-deploy sync' }).getByRole('status')).toContainText('2 in queue');
+  await dialog.getByRole('button', { name: 'Pause', exact: true }).click();
+  await expect(bar.getByRole('status')).toContainText('Paused.');
+  expect(await replayRequests(page)).toHaveLength(0);
 });
