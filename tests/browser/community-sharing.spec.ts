@@ -122,8 +122,9 @@ for(const theme of ['dark','light']){
     await expect(owned).toHaveText('54.5%');
     const checkDetails=async(name:string,values:Record<string,string>)=>{
       const trigger=stats.getByRole('button',{name:`${name} percentages`,exact:true});
-      await trigger.click();
+      if(info.project.name==='mobile')await trigger.tap();else await trigger.click();
       const details=page.getByRole('region',{name:`${name} percentages`,exact:true});await expect(details).toBeVisible();
+      await expect(details.locator('[data-community-metric$="Rank 7"]')).toHaveCount(0);
       for(const [label,value] of Object.entries(values))await expect(details.locator(`[data-community-metric="${label}"] dd`)).toContainText(value);
       const box=await details.boundingBox();expect(box!.x).toBeGreaterThanOrEqual(0);expect(box!.x+box!.width).toBeLessThanOrEqual(page.viewportSize()!.width+1);
       await capture(page,`details-${name}-${theme}`,info);
@@ -134,18 +135,36 @@ for(const theme of ['dark','light']){
     await expect(stats.locator('img[src*="skill-icons"]')).toHaveCount(3);
     for(const rank of ['M1','M2','M3'])await expect(stats.locator(`img[alt="${rank}"]`)).toHaveCount(1);
     await expect(stats.locator('[role="img"][aria-label="Elite 1"]')).toHaveCount(1);
+    const promotion=stats.getByRole('region',{name:'Promotion distribution',exact:true});
+    await expect(promotion.locator('[class*="barValue"] strong')).toHaveText('83.3%');
+    await expect(promotion.locator('[class*="barValue"]')).toContainText('E2');
+    const mastery=stats.getByRole('region',{name:'Skill mastery distribution',exact:true});
+    await expect(mastery.getByRole('heading',{name:'Skill mastery',exact:true})).toBeVisible();
+    await expect(mastery.getByText('Lv7',{exact:true})).toHaveCount(0);
+    await expect(mastery.locator('[class*="barValue"] strong')).toHaveText(['60.0%','40.0%','80.0%']);
+    await expect(mastery.getByText('M1+',{exact:true})).toHaveCount(3);
     await checkDetails('Promotion',{'E1':'16.7%','E2':'83.3%'});
-    await checkDetails('Skill 1',{'Skill 1 Rank 7':'20.0%','Skill 1 M1':'20.0%','Skill 1 M2':'40.0%','Skill 1 M3':'0.0%'});
+    await checkDetails('Skill 1',{'Skill 1 M1':'20.0%','Skill 1 M2':'40.0%','Skill 1 M3':'0.0%'});
     await checkDetails('Skill 3',{'Skill 3 M3':'80.0%'});
     await checkDetails('LOR-X',{'LOR-X Level 1':'20.0%','LOR-X Level 2':'20.0%','LOR-X Level 3':'20.0%'});
     if(info.project.name==='desktop'){
       const bar=stats.getByRole('button',{name:'Skill 2 percentages',exact:true});
-      await bar.hover();await expect(page.getByRole('region',{name:'Skill 2 percentages',exact:true})).toBeVisible();
+      await bar.locator('span').first().hover();await expect(page.getByRole('region',{name:'Skill 2 percentages',exact:true})).toBeVisible();
       await page.mouse.move(0,0);await expect(page.getByRole('region',{name:'Skill 2 percentages',exact:true})).toHaveCount(0);
       await bar.focus();await expect(page.getByRole('region',{name:'Skill 2 percentages',exact:true})).toBeVisible();await page.keyboard.press('Escape');
+      const moduleBar=stats.getByRole('button',{name:'LOR-X percentages',exact:true});
+      const moduleLine=moduleBar.locator('span').first();
+      await moduleLine.hover();
+      const popup=page.getByRole('region',{name:'LOR-X percentages',exact:true});await expect(popup).toBeVisible();
+      const popupBox=await popup.boundingBox();
+      // Moving onto the popup must dismiss it so lower modules remain reachable.
+      await page.mouse.move(popupBox!.x+5,popupBox!.y+5);await expect(popup).toHaveCount(0);
+      await moduleBar.hover({position:{x:5,y:1}});await expect(popup).toHaveCount(0);
+      await moduleLine.click();await expect(popup).toBeVisible();
+      await moduleBar.hover({position:{x:5,y:1}});await expect(popup).toHaveCount(0);
     }
     await expect(stats.getByText(/an unknown skill rank/)).toHaveCount(0);
-    for(const name of ['Promotion distribution','Skill rank distribution','Module distribution']){
+    for(const name of ['Promotion distribution','Skill mastery distribution','Module distribution']){
       const section=stats.getByRole('region',{name,exact:true});
       const legend=await section.locator('[class*="barLegend"]').boundingBox();
       const bar=await section.getByRole('button').first().boundingBox();

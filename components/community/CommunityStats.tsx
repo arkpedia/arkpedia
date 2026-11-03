@@ -25,9 +25,9 @@ export default function CommunityStats({operator,skin,skills=0,skillNames=[],mod
           <li>Owned: among all contributors on this server.</li>
           {operator&&<>
             <li>E0 / E1 / E2: among owners with known promotions. Each owner counts only at their current promotion.</li>
-            <li>Skill ranks: among E2 owners, including mastery training in progress. Rank 7 is shown separately from M1, M2 and M3. Missing historical ranks remain unknown; mastery proves rank 7.</li>
+            <li>Skill mastery: among E2 owners, including mastery training in progress. Each skill counts only at its current M1, M2 or M3 level; the total means M1 or higher.</li>
             <li>Modules: among all E2 owners, regardless of character level. Each module counts only at its current level.</li>
-            <li>Bar segments always show exact, non-overlapping levels. Unfilled space means below rank 7, no module, or unknown data.</li>
+            <li>Bar segments always show exact, non-overlapping levels. Unfilled space means no mastery, no module, or unknown data.</li>
           </>}
           {skin&&<li>Equipped: among outfit owners with known equipped-outfit data.</li>}
         </ul>
