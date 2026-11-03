@@ -59,8 +59,9 @@ better plan (`accountResults.ts`) and gives the formations search up to 10 s pas
 chosen time. `scripts/bench/account-budget.ts` runs the page's whole search
 (`FORMATIONS=0|1`).
 
-The page runs one search per spare core, at most four (`MAX_STARTS` in
-`BaseAccountOptimizer.tsx`): each start (`start` in `AccountOptimizerInput`) seeds the
+The page runs one search per spare core on a desktop-class device, at most four, and one
+on a phone or tablet (`searchStarts` in `lib/base/searchStarts.ts`, which the browser spec
+reads too): each start (`start` in `AccountOptimizerInput`) seeds the
 same way and anneals from its own random seed (a start from a worse product split was
 tried and lost its minute to it), the formations
 search takes one of those workers where it runs, and `accountResults.ts` keeps each

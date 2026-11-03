@@ -187,6 +187,19 @@ test('a recommendation saved as a rotation recalculates to the yields the optimi
   assert.ok(Math.abs(rotation.totals!.dailyGoldWorthGreen - r.output.lmd) < 1, `LMD ${rotation.totals!.dailyGoldWorthGreen} vs ${r.output.lmd}`);
 });
 
+test('the page runs one search per spare core on a desktop, one on a phone, with the formations search beside them from four cores', async () => {
+  const { searchStarts, MAX_STARTS } = await import('../../lib/base/searchStarts');
+  assert.deepEqual(searchStarts(2, false, false), { main: 1, formations: false });
+  assert.deepEqual(searchStarts(4, false, false), { main: 3, formations: false });
+  assert.deepEqual(searchStarts(4, false, true), { main: 2, formations: true });
+  assert.deepEqual(searchStarts(12, false, true), { main: MAX_STARTS - 1, formations: true });
+  assert.deepEqual(searchStarts(12, false, false), { main: MAX_STARTS, formations: false });
+  // A phone: one plain search however many cores, the formations search only with four or more.
+  assert.deepEqual(searchStarts(8, true, false), { main: 1, formations: false });
+  assert.deepEqual(searchStarts(8, true, true), { main: 1, formations: true });
+  assert.deepEqual(searchStarts(2, true, true), { main: 1, formations: false });
+});
+
 test('starts run side by side anneal from their own seeds and merge into each layout\'s best plan', () => {
   // The page runs one search per spare core; each start must be a complete, valid search on its own.
   const input = { base, roster: fixtureRoster, snapshot: account.base, loginInterval: 12, objective: 'balanced' as const, externalGold: 0, compareLayouts: false, searchSeconds: 6 };

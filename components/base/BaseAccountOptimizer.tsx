@@ -8,6 +8,7 @@ import Image from '@/components/content/ContentImage';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
 import type { FacilityDef } from '@/lib/base/baseTypes';
 import { MAX_ROTATION_SETUPS, setupGroups, setupLabel } from '@/lib/base/rotationSetups';
+import { searchStarts } from '@/lib/base/searchStarts';
 import type { AccountRecord } from '@/lib/account/accountStore';
 import { ownedBaseRoster } from '@/lib/base/optimizerRoster';
 import type { AccountOptimizerInput, AccountOptimizerResult, LayoutRecommendation } from '@/lib/base/accountOptimizer';
@@ -20,9 +21,6 @@ import styles from './BaseAccountOptimizer.module.css';
 const whole = (value: number) => Math.round(value).toLocaleString();
 // Two results per browser page session; reopening the modal need not repeat a search.
 const cachedResults = new Map<string, AccountOptimizerResult>();
-/** Searches run side by side, one per spare core at most: more explore more plans in the same minute, and the
- * page keeps a core for itself. */
-const MAX_STARTS = 4;
 // The reader's search time, kept for the page session like the results (it is part of their cache key).
 let lastSearchMinutes = 1;
 export default function BaseAccountOptimizer({ account, base, loginInterval, onInterval, onApply }: {
@@ -97,13 +95,11 @@ export default function BaseAccountOptimizer({ account, base, loginInterval, onI
     const cached = cache.current.get(key);
     if (cached) { setResult({ key, value: cached }); setSelected(cached.recommendations[0]?.id ?? ''); setSelectedShift(0); setSaved(false); setError(''); return; }
     setRunning(true); setError(''); setSaved(false); setProgress({ done: 0, total: 0, label: '' }); partial.current = null;
-    // One search per spare core, each annealing from its own random seed, so a minute on a multi-core device
-    // walks several paths from the same first plans and the best of all of them is shown. The
-    // formations search needs Fiammetta and a core of its own, so it is left out on small devices.
-    const cores = navigator.hardwareConcurrency ?? 1;
-    const starts = Math.max(1, Math.min(MAX_STARTS, cores - 1));
-    const formations = 'Fiammetta' in input.roster && cores >= 4;
-    const jobs: AccountOptimizerInput[] = [...Array.from({ length: formations ? Math.max(1, starts - 1) : starts }, (_, start) => ({ ...input, start })), ...(formations ? [{ ...input, formations: true }] : [])];
+    // One search per spare core on a desktop-class device, each annealing from its own random seed, so a minute
+    // walks several paths from the same first plans and the best of all of them is shown (lib/base/searchStarts.ts
+    // decides how many, and whether the formations search runs beside them).
+    const { main, formations } = searchStarts(navigator.hardwareConcurrency ?? 1, window.matchMedia('(pointer: coarse)').matches, 'Fiammetta' in input.roster);
+    const jobs: AccountOptimizerInput[] = [...Array.from({ length: main }, (_, start) => ({ ...input, start })), ...(formations ? [{ ...input, formations: true }] : [])];
     const formationsIndex = formations ? jobs.length - 1 : -1;
     const done = jobs.map(() => false);
     const partials: (AccountOptimizerResult | null)[] = jobs.map(() => null);

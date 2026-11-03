@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import account from '../fixtures/base-account.json';
 import { presetLevels, presetSpots } from '../../lib/base/baseConfig';
+import { searchStarts } from '../../lib/base/searchStarts';
 
 // The optimizer is a Preview feature: a production build (Check's) draws no Optimize base button.
 test.beforeEach(async ({ request }) => {
@@ -71,8 +72,8 @@ test('real worker recommends owned teams, invalidates stale input and saves with
   await dialog.getByRole('button', { name: '2 times a day, every 12 hours' }).click();
   await dialog.getByRole('combobox', { name: 'Optimizer search time', exact: true }).click();
   await page.getByRole('option', { name: '1 min', exact: true }).click();
-  // One Worker per spare core, at most four (no Fiammetta here, so no formations search).
-  const starts = Math.max(1, Math.min(4, await page.evaluate(() => navigator.hardwareConcurrency ?? 1) - 1));
+  // One Worker per search the page decides to run for this device (no Fiammetta here, so no formations search).
+  const starts = searchStarts(...await page.evaluate(() => [navigator.hardwareConcurrency ?? 1, matchMedia('(pointer: coarse)').matches] as const), false).main;
   const workers: string[] = [], remoteSearches: string[] = [];
   page.on('worker', worker => workers.push(worker.url()));
   page.on('request', request => {
@@ -202,7 +203,7 @@ test('with Fiammetta owned, a formations search runs beside the main one and its
     localStorage.setItem('arkpedia:privacy:v1', JSON.stringify({ version: 1, analytics: false, externalMedia: false, savedAt: Date.now() }));
   }, record);
   await page.goto('/base');
-  const cores = await page.evaluate(() => navigator.hardwareConcurrency ?? 1);
+  const expected = searchStarts(...await page.evaluate(() => [navigator.hardwareConcurrency ?? 1, matchMedia('(pointer: coarse)').matches] as const), true);
   await page.getByRole('button', { name: 'Optimize base', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Base optimizer', exact: true });
   await dialog.getByRole('checkbox', { name: 'Recommend 2-5-2' }).uncheck();
@@ -212,9 +213,9 @@ test('with Fiammetta owned, a formations search runs beside the main one and its
   page.on('worker', worker => workers.push(worker.url()));
   await dialog.getByRole('button', { name: 'Recommend layout' }).click();
   await expect(dialog.getByRole('heading', { name: 'Your layout', exact: true })).toBeVisible({ timeout: 150000 });
-  // One Worker per spare core, at most four: several starts, the formations search taking one of them where the
-  // device has four cores or more (it is left out below four).
-  expect(workers).toHaveLength(Math.max(1, Math.min(4, cores - 1)));
+  // One Worker per search the page decides to run for this device: the plain starts and, where the device has
+  // four cores or more, the formations search beside them.
+  expect(workers).toHaveLength(expected.main + (expected.formations ? 1 : 0));
   await expect(dialog.getByRole('alert')).toHaveCount(0);
   await expect(dialog.getByRole('status').filter({ hasText: 'No repeating rotation' })).toHaveCount(0);
 });
