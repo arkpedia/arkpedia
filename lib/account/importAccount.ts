@@ -20,6 +20,7 @@ import { mergePulls, type PullHistory, type PullRead } from './pulls';
 import { accountArchiveKey, archiveFromAccount, archiveKey, unionPullHistory } from './pullArchive';
 import { collectPullArchives, migrateLegacyPullRows, restorePullArchives } from './pullArchiveStore';
 import { rememberSiteServer } from '@/lib/time/siteServer';
+import { accountFromKrooster, type KroosterProfile } from '@/lib/account-import/krooster';
 
 /**
  * Whether an import is the stored account's player: the same server, and the same game uid when
@@ -51,6 +52,20 @@ export interface ImportResult {
 
 /** `pulls`: what this import read of the pull history, or null when it did not ask (a file).
  *  `server`: the one it was read from. */
+/** A Krooster profile as the shown account and planner roster (Preview testing accounts): the same stores as a
+ *  game import, without pulls, depot, clears or a base layout. */
+export function importKroosterAccount(profile: KroosterProfile, map: GameAccountMap, now = new Date()): { record: AccountRecord; operators: number; unknown: string[] } {
+  const { record, roster, unknown } = accountFromKrooster(profile, map, now);
+  const shown = storedAccount(), others = { ...storedOtherAccounts() };
+  delete others[record.server];
+  if (shown && shown.server !== record.server) others[shown.server] = shown;
+  writeOtherAccounts(others);
+  writeAccount(record);
+  rememberSiteServer(record.server);
+  writeRoster(roster);
+  return { record, operators: Object.keys(roster).length, unknown };
+}
+
 export function importGameAccount(user: Record<string, any>, tables: ImportTables, pulls: PullRead | null, server: ServerId, now = new Date()): ImportResult {
   // Rows an older build left on the records join the archive first, so this read joins them.
   migrateLegacyPullRows();

@@ -169,6 +169,18 @@ is only found when the annealer reaches it. A genome expresses two or three crew
 to 4 staffing changes (alternation, duty, thirds, a four-step duty and three distinct
 formations), within the preset bound below.
 
+### Testing accounts from Krooster
+
+Testers keep their collections on krooster.com. On Preview, Import / export on the Account
+page has "From a Krooster profile": the site's own route
+(`pages/api/account-import/krooster.ts`, `ARKPEDIA_KROOSTER_IMPORT` from next.config.js, so
+production has no such route) fetches the public lookup page, whose embedded page data
+carries the roster, and passes on only the roster and a few profile fields
+(`lib/account-import/krooster.ts`). `accountFromKrooster` makes the account record and the
+planner roster by the game-account map, with module stages and masteries; the record has
+no base layout, clears or depot, so the optimizer recommends a layout (Recommend 2-5-2).
+`scripts/tests/test-krooster-import.ts` holds the parser and the mapping.
+
 ### Where a minute goes
 
 Profiled on the maxed roster on 2026-11-03 (`node --cpu-prof` over 15 s of annealing): with

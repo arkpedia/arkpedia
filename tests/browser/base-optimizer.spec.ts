@@ -361,3 +361,38 @@ test('support staffing survives every optimized shift, save, selection and reloa
     await page.screenshot({ path: info.outputPath(`staffed-base-${info.project.name}-${theme}.png`) });
   }
 });
+
+test('a Krooster profile imports as a testing account for the optimizer, through the site\'s own route', async ({ page }) => {
+  // Preview only (the beforeEach above skips production builds). The route is stubbed: no request leaves for krooster.com.
+  const profile = { username: 'tester', displayName: 'Tester', server: 'EN', level: 120, assistant: 'char_289_gyuki', roster: {
+    char_002_amiya: { elite: 2, level: 40, potential: 6, skillLevel: 7, masteries: [0, 0, 0], modules: { uniequip_002_amiya: 0 } },
+    char_1001_amiya2: { elite: 2, level: 40, potential: 6, skillLevel: 7, masteries: [0, 2] },
+    char_289_gyuki: { elite: 2, level: 90, potential: 1, skillLevel: 7, masteries: [0, 3], modules: { uniequip_002_gyuki: 3 } },
+    char_502_nblade: { elite: 0, level: 30, potential: 6, skillLevel: 1, masteries: [] },
+  } };
+  let asked = '';
+  await page.route('**/api/account-import/krooster?user=*', route => { asked = new URL(route.request().url()).searchParams.get('user') ?? ''; return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(profile) }); });
+  await page.goto('/account');
+  await page.locator('.page-header').getByRole('button', { name: 'Import / export', exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByRole('textbox', { name: 'Krooster username' }).fill('tester');
+  await dialog.getByRole('button', { name: 'Import from Krooster', exact: true }).click();
+  await expect(dialog.getByRole('status')).toContainText('Imported 4 operators from Tester\'s Krooster profile');
+  expect(asked).toBe('tester');
+  const stored = await page.evaluate(() => ({ account: JSON.parse(localStorage.getItem('arkpediaAccount') ?? 'null'), roster: JSON.parse(localStorage.getItem('plannerRoster') ?? '{}') }));
+  // By the site's game-account map: char_289_gyuki is Matoimaru and char_502_nblade is Yato.
+  expect(stored.account.operators).toEqual(['Amiya', 'Amiya (Guard)', 'Matoimaru', 'Yato']);
+  expect(stored.account.base).toBeUndefined();
+  expect(stored.account.doctor).toBe('Tester (Krooster)');
+  expect(stored.roster.Matoimaru).toMatchObject({ elite: 2, level: 90, skillLevel: 7, masteries: { 1: 3 }, modules: { 0: 2 } });
+  // The optimizer takes the testing account: it has no layout of its own, so Recommend 2-5-2 searches the presets.
+  await page.keyboard.press('Escape');
+  await page.goto('/base');
+  await page.getByRole('button', { name: 'Optimize base', exact: true }).click();
+  const optimizer = page.getByRole('dialog', { name: 'Base optimizer', exact: true });
+  await expect(optimizer.getByRole('checkbox', { name: 'Recommend 2-5-2' })).toBeChecked();
+  await optimizer.getByRole('button', { name: 'Recommend layout' }).click();
+  await expect(optimizer.getByRole('definition').first()).toBeVisible({ timeout: 60000 });
+  if (await optimizer.getByRole('button', { name: 'Stop', exact: true }).isVisible()) await optimizer.getByRole('button', { name: 'Stop', exact: true }).click();
+  await expect(optimizer.getByRole('alert')).toHaveCount(0);
+});
