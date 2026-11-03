@@ -177,8 +177,9 @@ less than once, so the simulator is a third of the time and the team-block rebui
 40 rounds were about 60%, each scoring some five thousand placements with the full
 calculator. Three changes, all keeping `simulateBase` identical:
 
-- `snapshotMemo.ts` remembers the calculator's scored totals by staffing content, so the
-  annealer's proxy and the block builder never score the same placement twice.
+- `snapshotMemo.ts` remembers the calculator's scored totals by staffing content, so a
+  placement is scored once per crew it appears in (about one call in sixteen is answered
+  from the memo on the maxed roster; it helps most where the proxy sums unchanged steps).
 - The annealer scores lean (`evaluate(g, ctx, true)`): no Morale trace or per-login Morale,
   which the search never reads; the plan a reader sees is evaluated in full.
 - Block refreshes re-rank the blocks found, over the previous build's own ranking with a
