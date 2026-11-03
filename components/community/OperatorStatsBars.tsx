@@ -44,7 +44,7 @@ function Distribution({label,name,segments,total,summary,summaryLabel}:{label:Re
     </div>,document.body)}
   </div>;
 }
-export default function OperatorStatsBars({data,operator,skillNames,skills,modules}:{data:CommunityStats;operator:string;skillNames:(string|null|undefined)[];skills:number;modules:{index:number;label:string}[]}){
+export default function OperatorStatsBars({data,operator,skillNames,skills,maxElite,modules}:{data:CommunityStats;operator:string;skillNames:(string|null|undefined)[];skills:number;maxElite:number;modules:{index:number;label:string}[]}){
   const promotion=[Math.max(0,(data.builds??0)-(data.e1??0)-(data.e2??0)),data.e1,data.e2];
   return <div className={styles.charts}>
     <div className={styles.distribution} data-community-metric="Owned">
@@ -55,10 +55,10 @@ export default function OperatorStatsBars({data,operator,skillNames,skills,modul
     </div>
     <section className={styles.chartSection} aria-label="Promotion distribution">
       <div className={styles.chartHeading}><h3 className="entity-title entity-title-sm">Promotion</h3><span>Of {data.builds??0} owners with known builds</span></div>
-      <Distribution label="Highest reached" name="Promotion" segments={promotion.map((count,i)=>({label:`E${i}`,count,icon:<OperatorGameIcon label={`Elite ${i}`} size={24}/>}))} total={data.builds} summary={data.e2??0} summaryLabel="E2"/>
-      <Legend items={[0,1,2].map(i=>({label:`Elite ${i}`,icon:<OperatorGameIcon label={`Elite ${i}`} size={24}/>}))}/>
+      <Distribution label="Highest reached" name="Promotion" segments={promotion.slice(0,maxElite+1).map((count,i)=>({label:`E${i}`,count,icon:<OperatorGameIcon label={`Elite ${i}`} size={24}/>}))} total={data.builds} summary={promotion[maxElite]??0} summaryLabel={`E${maxElite}`}/>
+      <Legend items={Array.from({length:maxElite+1},(_,i)=>i).map(i=>({label:`Elite ${i}`,icon:<OperatorGameIcon label={`Elite ${i}`} size={24}/>}))}/>
     </section>
-    {skills>0&&<section className={styles.chartSection} aria-label="Skill mastery distribution">
+    {maxElite>=2&&skills>0&&<section className={styles.chartSection} aria-label="Skill mastery distribution">
       <div className={styles.chartHeading}><h3 className="entity-title entity-title-sm">Skill mastery</h3><span>Of {data.masteryOwners??0} E2 owners</span></div>
       {Array.from({length:Math.min(skills,3)},(_,i)=>{
         const path=getSkillIconPath(operator,skillNames[i]);

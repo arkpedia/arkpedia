@@ -9,7 +9,7 @@ import { useCommunitySharing } from '@/lib/community/SharingProvider';
 import { useCloudSync } from '@/lib/cloud-account/SyncProvider';
 import styles from './Community.module.css';
 
-export default function CommunityStats({operator,skin,skills=0,skillNames=[],modules=[],compact=false}:{operator?:string;skin?:string;skills?:number;skillNames?:(string|null|undefined)[];rarity?:number;modules?:{index:number;label:string}[];compact?:boolean}){
+export default function CommunityStats({operator,skin,skills=0,skillNames=[],maxElite=2,modules=[],compact=false}:{operator?:string;skin?:string;skills?:number;skillNames?:(string|null|undefined)[];rarity?:number;maxElite?:number;modules?:{index:number;label:string}[];compact?:boolean}){
   const sharing=useCommunitySharing(),sync=useCloudSync();
   const contributing=!!sync.remote&&!!sharing.state?.stats;
   const [server,setServer]=useState<ServerId|'all'>('all'),[data,setData]=useState<Stats|null>(null),[error,setError]=useState(''),[retry,setRetry]=useState(0);
@@ -28,8 +28,8 @@ export default function CommunityStats({operator,skin,skills=0,skillNames=[],mod
         <ul>
           <li>Owned: among contributors in the selected region; All combines Global, JP and KR.</li>
           {operator&&<>
-            <li>E0 / E1 / E2: among owners with known promotions. Each owner counts only at their current promotion.</li>
-            <li>Skill mastery: among E2 owners, including mastery training in progress. Each skill counts only at its current M1, M2 or M3 level; the headline percentage shows M3.</li>
+            <li>Available promotion levels: among owners with known promotions. Each owner counts only at their current promotion; the headline shows the highest promotion this operator can reach.</li>
+            {maxElite>=2&&<li>Skill mastery: among E2 owners, including mastery training in progress. Each skill counts only at its current M1, M2 or M3 level; the headline percentage shows M3.</li>}
             <li>Modules: among all E2 owners, regardless of character level. Each module counts only at its current level; the headline percentage shows level 3.</li>
             <li>Bar segments always show exact, non-overlapping levels. The grey remainder shows No masteries or No module. Missing rank detail in older imports remains unknown.</li>
           </>}
@@ -44,11 +44,11 @@ export default function CommunityStats({operator,skin,skills=0,skillNames=[],mod
     </div>
     {error?<p role="status">{error} <button type="button" className="ghost btn-sm" onClick={()=>setRetry(v=>v+1)}>Retry</button></p>:!data?<p role="status">Loading community stats…</p>:<>
       {skin&&<p>{data.contributors} contributors{data.owned!==null?` · ${data.owned} owners`:''}</p>}
-      {data.owned===null?<p>Waiting for at least {COMMUNITY_MIN_SAMPLE} contributors {server==='all'?'across all regions':'in this region'}.</p>:operator?<OperatorStatsBars data={data} operator={operator} skillNames={skillNames} skills={skills} modules={modules}/>:<dl className={styles.metrics}>
+      {data.owned===null?<p>Waiting for at least {COMMUNITY_MIN_SAMPLE} contributors {server==='all'?'across all regions':'in this region'}.</p>:operator?<OperatorStatsBars data={data} operator={operator} skillNames={skillNames} skills={skills} maxElite={maxElite} modules={modules}/>:<dl className={styles.metrics}>
         {metric('Owned',data.owned,data.contributors)}
         {skin&&metric('Equipped',data.equipped,data.equipmentOwners)}
       </dl>}
-      {data.owned!==null&&((operator&&(!data.builds||skills>0&&!data.masteryOwners||modules.length>0&&!data.moduleOwners))||(skin&&!data.equipmentOwners))&&<p>— means no eligible owners with known data yet.</p>}
+      {data.owned!==null&&((operator&&(!data.builds||maxElite>=2&&skills>0&&!data.masteryOwners||modules.length>0&&!data.moduleOwners))||(skin&&!data.equipmentOwners))&&<p>— means no eligible owners with known data yet.</p>}
     </>}
     <div className="account-shortcuts">{contributing?<><span>You’re currently contributing!</span><Link className="ghost btn-sm" href="/account?settings=community">Turn off sharing?</Link></>:<Link className="ghost btn-sm" href="/account?settings=community">Do you want to contribute?</Link>}</div>
   </div>;

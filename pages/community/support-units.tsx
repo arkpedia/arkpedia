@@ -5,6 +5,7 @@ import type { GetStaticProps } from 'next';
 import PageMeta from '@/components/layout/PageMeta';
 import PageHeader from '@/components/ui/PageHeader';
 import SearchInput from '@/components/ui/SearchInput';
+import XButton from '@/components/ui/XButton';
 import StyledSelect from '@/components/ui/StyledSelect';
 import InfoPopover from '@/components/ui/InfoPopover';
 import LoadOnScroll from '@/components/ui/LoadOnScroll';
@@ -44,7 +45,7 @@ export default function SupportUnits({operators}:Props){
   const hold=useSwitchHold('community-supports');
   const catalogue=useMemo(()=>new Map(operators.map(op=>[op.name.toLocaleLowerCase(),op])),[operators]);
   const selected=catalogue.get(query.trim().toLocaleLowerCase());
-  const choices=useMemo(()=>operators.filter(op=>op.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())).slice(0,20),[operators,query]);
+  const choices=useMemo(()=>operators.filter(op=>op.name.toLocaleLowerCase().includes(tag.trim().toLocaleLowerCase())).slice(0,20),[operators,tag]);
   const filters=new URLSearchParams({server,tag:tag.trim(),operator:selected?.name??'',elite,skill,mastery,minLevel,maxLevel}).toString();
   useEffect(()=>{setCursor(0);},[filters]);
   useEffect(()=>{
@@ -57,14 +58,14 @@ export default function SupportUnits({operators}:Props){
     return()=>{clearTimeout(timer);controller.abort();};
   },[filtersReady,filters,cursor,retry,query,selected,minLevel,maxLevel]);
   const reset=()=>{hold.capture();setQuery('');setTag('');setServer('en');setElite('');setSkill('');setMastery('');setMinLevel('1');setMaxLevel('90');};
-  const active=[...Object.entries({server:server!=='en'?SERVERS[server as keyof typeof SERVERS]?.label:'',elite:elite!==''?`E${elite}`:'',skill:skill?`Skill ${skill}`:'',mastery:mastery!==''?`M${mastery}`:'',levels:minLevel!=='1'||maxLevel!=='90'?`Level ${minLevel}–${maxLevel}`:''})].filter(([,v])=>v).map(([key,label])=>({key,label,remove:()=>{hold.capture();if(key==='server')setServer('en');if(key==='elite')setElite('');if(key==='skill')setSkill('');if(key==='mastery')setMastery('');if(key==='levels'){setMinLevel('1');setMaxLevel('90');}}}));
+  const active=[...Object.entries({server:server!=='en'?SERVERS[server as keyof typeof SERVERS]?.label:'',elite:elite!==''?`E${elite}`:'',skill:skill?`Skill ${skill}`:'',mastery:mastery!==''?`M${mastery}`:'',levels:minLevel!=='1'||maxLevel!=='90'?`Level ${minLevel}–${maxLevel}`:''})].filter(([,v])=>v).map(([key,label])=>({key,label,remove:()=>{hold.capture();if(key==='operator')setQuery('');if(key==='server')setServer('en');if(key==='elite')setElite('');if(key==='skill')setSkill('');if(key==='mastery')setMastery('');if(key==='levels'){setMinLevel('1');setMaxLevel('90');}}}));
   return <>
     <PageMeta title="Find support units" description="Find opted-in players with equipped support units and open friend slots." path="/community/support-units" noindex />
     <PageHeader eyebrow="Rhodes Island // Community" title="Find support units" sub="Equipped supports from players accepting friend requests."
       stickyActions actions={<div className={`${styles.filters} ${styles.supportToolbar}`}>
-        <div className={styles.supportSearches}><SearchInput label="Support operator" value={query} onChange={value=>{hold.capture();setQuery(value);}} placeholder="Choose an operator…" suggestions={choices} getKey={op=>op.name} renderSuggestion={op=><span>{op.name}</span>} onPick={op=>{hold.capture();setQuery(op.name);}} suggestLabel="Matching support operators" emptyText="No matching operators." />
-        <SearchInput label="In-game tag" value={tag} onChange={value=>{hold.capture();setTag(value);}} placeholder="Search an in-game tag…" />
+        <div className={styles.supportSearches}><SearchInput label="Operator or in-game tag" value={tag} onChange={value=>{hold.capture();setTag(value);}} placeholder="Search an operator or in-game tag…" suggestions={choices} getKey={op=>op.name} renderSuggestion={op=><span>{op.name}</span>} onPick={op=>{hold.capture();setQuery(op.name);setTag('');}} suggestLabel="Matching support operators" />
         </div>
+        {selected&&<span className="filter-tag">{selected.name}<XButton dense label={`Remove operator: ${selected.name}`} onClick={()=>{hold.capture();setQuery('');}} /></span>}
         <FilterSheet controlsClassName={styles.filters} hold={hold} active={active} onReset={reset} controls={<div className={styles.filters}>
           <StyledSelect label="Support server" value={server} onChange={value=>{hold.capture();setServer(value);}} options={Object.entries(SERVERS).map(([value,s])=>({value,label:s.label}))} />
           <StyledSelect label="Promotion" value={elite} onChange={value=>{hold.capture();setElite(value);}} options={[{value:'',label:'Any promotion'},...[0,1,2].map(v=>({value:String(v),label:`E${v}`}))]} />
@@ -76,7 +77,7 @@ export default function SupportUnits({operators}:Props){
       </div>} />
     <main>
       <div className="account-shortcuts reading-copy"><span>Imports from the last 7 days · open slots</span>
-        <InfoPopover label="About finding supports"><p>These are the three operators currently equipped as support, not a player’s full roster. Mastery filters match the selected support skill exactly, so No mastery and M1 can find less-developed builds. Unknown mastery does not match those filters.</p><p>Slots and builds are self-reported import snapshots and can change in-game. A listing does not prove ownership or reserve a friend slot. Use the friend tag in Arknights on the matching server; Arkpedia does not send requests for you.</p><p>After checking in-game, signed-in members can report Friend list full or Has room. One report per member counts across all of that player’s supports. Reports count for 24 hours; at least three full reports, outnumbering Has room reports, temporarily hide a listing. A new import clears old reports. Reports are observations, not verified availability.</p><p>Choose Saving &amp; sharing in Account settings to share or withdraw your own listing. Private cloud saves do not opt you in.</p></InfoPopover>
+        <InfoPopover label="About finding supports"><p>Search a friend tag directly, or select an operator from the suggestions. After selecting an operator, you can type a friend tag to narrow those results. These are the three operators currently equipped as support, not a player’s full roster. Mastery filters match the selected support skill exactly, so No mastery and M1 can find less-developed builds. Unknown mastery does not match those filters.</p><p>Slots and builds are self-reported import snapshots and can change in-game. A listing does not prove ownership or reserve a friend slot. Use the friend tag in Arknights on the matching server; Arkpedia does not send requests for you.</p><p>After checking in-game, signed-in members can report Friend list full or Has room. One report per member counts across all of that player’s supports. Reports count for 24 hours; at least three full reports, outnumbering Has room reports, temporarily hide a listing. A new import clears old reports. Reports are observations, not verified availability.</p><p>Choose Saving &amp; sharing in Account settings to share or withdraw your own listing. Private cloud saves do not opt you in.</p></InfoPopover>
         <Link href="/account?settings=community">Share my supports</Link>
       </div>
       <p role="status">{busy?'Checking support units…':`${rows.length} player${rows.length===1?'':'s'}${next!==null?' · more available':''}`}</p>

@@ -79,7 +79,7 @@ for(const theme of ['dark','light']){
     await expect(page.getByRole('article').locator('img.profile-strip-background')).toHaveAttribute('src',/nc_as2024_throne-strip-0/);
     await expect(page.getByText('417 operators · 380 skins',{exact:true})).toBeVisible();
     await help(page,'About finding supports',info,`support-help-${theme}`);
-    const search=page.getByRole('combobox',{name:'Support operator',exact:true});await search.fill('Thorn');await page.getByRole('option',{name:'Thorns',exact:true}).click();
+    const search=page.getByRole('combobox',{name:'Operator or in-game tag',exact:true});await search.fill('Thorn');await page.getByRole('option',{name:'Thorns',exact:true}).click();
     const phone=info.project.name==='mobile';if(phone)await page.getByRole('button',{name:'Filters',exact:true}).click();
     await choose(page,'Promotion','E2');await page.getByRole('spinbutton',{name:'Maximum level',exact:true}).fill('30');await choose(page,'Selected skill mastery','No mastery');await choose(page,'Selected support skill','Skill 3');
     if(phone)await page.getByRole('button',{name:'Done',exact:true}).click();
@@ -89,7 +89,7 @@ for(const theme of ['dark','light']){
       const params=state.requests.at(-1)?.searchParams;
       return Object.fromEntries(['operator','maxLevel','elite','mastery','skill'].map(key=>[key,params?.get(key)]));
     }).toEqual({operator:'Thorns',maxLevel:'30',elite:'2',mastery:'0',skill:'3'});
-    await page.getByRole('searchbox',{name:'In-game tag',exact:true}).fill('Helpful#1234');
+    await page.getByRole('combobox',{name:'Operator or in-game tag',exact:true}).fill('Helpful#1234');
     await expect.poll(()=>state.requests.at(-1)?.searchParams.get('tag')).toBe('Helpful#1234');
     await expect.poll(()=>new URL(page.url()).searchParams.get('tag')).toBe('Helpful#1234');
     await capture(page,`supports-filtered-${theme}`,info);
@@ -133,6 +133,29 @@ for(const theme of ['dark','light']){
     if(phone)await page.getByRole('button',{name:/^Filters/}).click();await choose(page,'Support server','Japan');if(phone)await page.getByRole('button',{name:'Done',exact:true}).click();
     await expect(page.getByRole('heading',{name:'No matching support units',exact:true})).toBeVisible();
   });
+  test(`combined support search keeps cards compact for one to three results (${theme})`,async({page},info)=>{
+    const state=await fixture(page,theme);
+    await page.route('**/api/community/supports?**',async route=>{
+      const q=new URL(route.request().url());state.requests.push(q);
+      const count=Number(q.searchParams.get('tag'))||8;
+      await route.fulfill({json:{listings:Array.from({length:count},(_,i)=>({id:`player-${i}`,friendTag:`Helpful#${i}`,appearance:{avatar:'avatar_def_01',avatarType:'ICON',nameCard:'nc_as2024_throne',nameCardVariant:0,level:120,operators:417,skins:380},server:'en',slots:3,importedAt,fullReports:0,openReports:0,supports:[]})),next:null}});
+    });
+    await page.goto('/community/support-units');
+    const cards=page.getByRole('article'),search=page.getByRole('combobox',{name:'Operator or in-game tag',exact:true});
+    await expect(cards).toHaveCount(8);
+    const height=(await cards.first().boundingBox())!.height;
+    // A filter's scroll-position hold reserves the old list's space.
+    await cards.first().evaluate(el=>{const parent=el.parentElement!;parent.style.minHeight=`${parent.getBoundingClientRect().height}px`;});
+    for(const count of [3,2,1]){
+      await search.fill(String(count));await expect(cards).toHaveCount(count);
+      for(const card of await cards.all())expect(Math.abs((await card.boundingBox())!.height-height)).toBeLessThan(2);
+      await capture(page,`compact-supports-${count}-${theme}`,info);
+    }
+    await search.fill('Thorn');await page.getByRole('option',{name:'Thorns',exact:true}).click();
+    await expect(search).toHaveValue('');
+    await expect.poll(()=>state.requests.at(-1)?.searchParams.get('operator')).toBe('Thorns');
+    await expect(page.getByRole('button',{name:'Remove operator: Thorns',exact:true})).toBeVisible();
+  });
   test(`contribution footer follows signed-in sharing choices (${theme})`,async({page},info)=>{
     const state=await fixture(page,theme);await page.goto('/operators/Thorns#community');
     const stats=page.locator('#operator-community');
@@ -147,6 +170,20 @@ for(const theme of ['dark','light']){
     await page.goto('/operators/Thorns#community');await page.reload();
     await expect(stats.getByRole('link',{name:'Do you want to contribute?',exact:true})).toBeVisible();
     await stats.scrollIntoViewIfNeeded();await capture(page,`contribution-footer-${theme}`,info);
+  });
+  test(`promotion legends respect operator upgrade limits (${theme})`,async({page},info)=>{
+    await fixture(page,theme);
+    for(const [name,maxElite] of [['Kroos',1],['Durin',0],['Friston-3',0],['Thorns',2]] as const){
+      await page.route('**/api/community/stats?**',route=>route.fulfill({json:{contributors:50,owned:25,builds:25,e1:maxElite===1?20:0,e2:maxElite===2?20:0,masteryOwners:maxElite===2?20:0,skills:[0,0,0],skillRanks:[[20,0,0,0],[20,0,0,0],[20,0,0,0]],moduleOwners:20,modules:[[0,0,0]]}}));
+      await page.goto(`/operators/${name}#community`);
+      const stats=page.locator('#operator-community');
+      const promotion=stats.getByRole('region',{name:'Promotion distribution',exact:true});
+      await expect(promotion.getByText(`E${maxElite}`,{exact:true})).toBeVisible();
+      await expect(promotion.getByText(maxElite===0?'100.0%':'80.0%',{exact:true})).toBeVisible();
+      for(let elite=0;elite<=2;elite++)await expect(promotion.locator(`[title="Elite ${elite}"]`)).toHaveCount(elite<=maxElite?2:0);
+      await expect(stats.getByRole('region',{name:'Skill mastery distribution',exact:true})).toHaveCount(maxElite===2?1:0);
+      await stats.scrollIntoViewIfNeeded();await capture(page,`upgrade-limits-${name}-${theme}`,info);
+    }
   });
   test(`small community groups show real zeroes and distinguish empty denominators (${theme})`,async({page},info)=>{
     await fixture(page,theme);let empty=false;

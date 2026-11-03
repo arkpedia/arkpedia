@@ -7,7 +7,7 @@
 .metrics dt { display: flex; align-items: center; min-height: 32px; color: var(--text-dim); }
 .metrics dd { margin: 4px 0 0; font-weight: 600; }
 .filters { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
-.results { display: grid; gap: 16px; }
+.results { display: grid; align-content: start; align-items: start; grid-auto-rows: max-content; gap: 16px; }
 .range { display: flex; align-items: center; gap: 8px; }
 .range input { width: 76px; }
 .charts { display: grid; gap: 16px; }
@@ -46,5 +46,5 @@
 .sharing p, .sharing h3 { margin: 0; }
 
 .supportToolbar { width: 100%; min-width: 0; }
-.supportSearches { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; width: 100%; min-width: 0; }
+.supportSearches { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; width: 100%; min-width: 0; }
 @media (max-width: 640px) { .supportSearches { grid-template-columns: 1fr; } }
