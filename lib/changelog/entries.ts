@@ -44,6 +44,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       { title: 'Import and keep downloading', detail: 'Opted-in auto-deploy downloads start after importing and continue while you browse in the same tab.', href: '/account' },
       { title: 'Your profile picture follows your account', detail: 'Profile pictures save separately from replaceable cloud saves, with clearer profile settings.', href: '/account' },
       { title: 'The same artwork viewer everywhere', detail: 'Account and friend skins use the full artwork viewer, with centred controls on phones.', href: '/account' },
+      { title: 'Support filters survive reload', detail: 'Reloading a filtered support search no longer briefly offers unfiltered builds.', href: '/community/support-units' },
       { title: 'Planner rewards switch off completely', detail: 'Off excludes expected rewards, including unclaimed permanent-content rewards.', href: '/planner' },
     ],
   },

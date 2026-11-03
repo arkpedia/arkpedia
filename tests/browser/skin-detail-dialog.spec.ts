@@ -29,7 +29,7 @@ for (const theme of ['dark', 'light']) {
     const zoom = page.getByRole('dialog', { name: 'The Spirit-Farer artwork', exact: true });
     await expect(zoom).toBeVisible();
     const bounds = await zoom.boundingBox();
-    expect(bounds!.width).toBeGreaterThan(page.viewportSize()!.width - 2);
+    expect(bounds!.width).toBe(await page.evaluate(() => document.documentElement.clientWidth));
     await page.keyboard.press('Escape');
     await expect(zoom).toHaveCount(0);
     await expect(dialog).toBeVisible();

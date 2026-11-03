@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/router';
 import type { GetStaticProps } from 'next';
 import PageMeta from '@/components/layout/PageMeta';
 import PageHeader from '@/components/ui/PageHeader';
@@ -28,6 +29,11 @@ interface Props {operators:FriendOperator[]}
 export default function SupportUnits({operators}:Props){
   const [query,setQuery]=useQueryState('operator'),[server,setServer]=useQueryState('server','en'),[elite,setElite]=useQueryState('elite'),[skill,setSkill]=useQueryState('skill'),[mastery,setMastery]=useQueryState('mastery');
   const [minLevel,setMinLevel]=useQueryState('minLevel','1'),[maxLevel,setMaxLevel]=useQueryState('maxLevel','90');
+  const router=useRouter();
+  const [filtersReady,setFiltersReady]=useState(false);
+  // Query hooks apply URL filters in an effect. Fetch only after that render, so
+  // a fast default response cannot expose an unfiltered support before hydration.
+  useEffect(()=>{if(router.isReady)setFiltersReady(true);},[router.isReady]);
   const [rows,setRows]=useState<SupportPlayer[]>([]),[next,setNext]=useState<number|null>(null),[cursor,setCursor]=useState(0),[busy,setBusy]=useState(false),[error,setError]=useState(''),[retry,setRetry]=useState(0),[copied,setCopied]=useState('');
   const [preview,setPreview]=useState<SupportPlayer|null>(null);
   const closePreview=useCallback(()=>setPreview(null),[]);
@@ -41,13 +47,14 @@ export default function SupportUnits({operators}:Props){
   const filters=new URLSearchParams({server,operator:selected?.name??'',elite,skill,mastery,minLevel,maxLevel}).toString();
   useEffect(()=>{setCursor(0);},[filters]);
   useEffect(()=>{
+    if(!filtersReady)return;
     const controller=new AbortController();
     if(query.trim()&&!selected){setBusy(false);setRows([]);setError('Choose an operator from the suggestions.');setNext(null);return;}
     if(!minLevel||!maxLevel||!Number.isInteger(Number(minLevel))||!Number.isInteger(Number(maxLevel))||Number(minLevel)<1||Number(maxLevel)>90||Number(minLevel)>Number(maxLevel)){setBusy(false);setRows([]);setNext(null);setError('Choose a level range from 1 to 90, with minimum no higher than maximum.');return;}
     setBusy(true);setError('');
     void fetch(`/api/community/supports?${filters}&cursor=${cursor}`,{signal:controller.signal,cache:'no-store'}).then(async response=>{const body=await response.json();if(!response.ok)throw Error(body.error);if(controller.signal.aborted)return;setRows(previous=>cursor?[...previous,...body.listings]:body.listings);setNext(body.next);}).catch(e=>{if(!controller.signal.aborted){setRows([]);setNext(null);setError(e.message??'Support listings could not load.');}}).finally(()=>{if(!controller.signal.aborted)setBusy(false);});
     return()=>controller.abort();
-  },[filters,cursor,retry,query,selected,minLevel,maxLevel]);
+  },[filtersReady,filters,cursor,retry,query,selected,minLevel,maxLevel]);
   const reset=()=>{hold.capture();setQuery('');setServer('en');setElite('');setSkill('');setMastery('');setMinLevel('1');setMaxLevel('90');};
   const active=[...Object.entries({server:server!=='en'?SERVERS[server as keyof typeof SERVERS]?.label:'',elite:elite!==''?`E${elite}`:'',skill:skill?`Skill ${skill}`:'',mastery:mastery!==''?`M${mastery}`:'',levels:minLevel!=='1'||maxLevel!=='90'?`Level ${minLevel}–${maxLevel}`:''})].filter(([,v])=>v).map(([key,label])=>({key,label,remove:()=>{hold.capture();if(key==='server')setServer('en');if(key==='elite')setElite('');if(key==='skill')setSkill('');if(key==='mastery')setMastery('');if(key==='levels'){setMinLevel('1');setMaxLevel('90');}}}));
   return <>

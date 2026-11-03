@@ -78,12 +78,15 @@ for(const theme of ['dark','light']){
       expect(await card.evaluate(el=>el.scrollWidth<=el.clientWidth+1)).toBe(true);
       await capture(page,`supports-narrow-${theme}`,info);await page.setViewportSize(viewport);
     }
+    state.requests.length=0;
     await page.reload();
     const support=page.getByRole('button',{name:'View Helpful#1234 support units',exact:true});await support.focus();await support.press('Enter');
     const builds=page.getByRole('dialog',{name:'Helpful#1234 · Support units',exact:true});await expect(builds).toBeVisible();
     const thorns=builds.getByRole('region',{name:'Thorns support build',exact:true});
     const skillButtons=thorns.getByRole('button',{name:/^Thorns Skill/});await expect(skillButtons).toHaveCount(3);
-    await expect(skillButtons.nth(0)).toHaveText(/Skill 1 · Lv 7/);await expect(skillButtons.nth(2)).toHaveAttribute('aria-current','true');
+    expect(state.requests.length).toBeGreaterThan(0);
+    expect(state.requests.every(q=>q.searchParams.get('mastery')==='0')).toBe(true);
+    await expect(skillButtons.nth(0)).toHaveAccessibleName('Thorns Skill 1: Lv 7. Open details');await expect(skillButtons.nth(2)).toHaveAttribute('aria-current','true');
     const positions=await skillButtons.evaluateAll(elements=>elements.map(e=>e.getBoundingClientRect().top));expect(positions[0]).toBeLessThan(positions[1]);expect(positions[1]).toBeLessThan(positions[2]);
     await expect(thorns.getByText('Loading…',{exact:true})).toHaveCount(0);
     await expect(builds.getByText('Loading…',{exact:true})).toHaveCount(0);

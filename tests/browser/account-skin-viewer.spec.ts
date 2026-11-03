@@ -17,8 +17,12 @@ for (const theme of ['dark', 'light']) for (const source of ['account', 'friends
       localStorage.setItem('theme', theme);
     }, { account, theme });
     const modelRequests: string[] = [];
-    await page.route('**/models/**/model.json', route => {
+    let finishModel!: () => void;
+    const modelResponse = new Promise<void>(resolve => { finishModel = resolve; });
+    await page.route('**/models/**/model.json', async route => {
       modelRequests.push(route.request().url());
+      // Keep the loading controls visible until their layout has been measured.
+      await modelResponse;
       return route.fulfill({ status: 404, body: '' });
     });
     await page.goto(`/${source}`);
@@ -45,15 +49,16 @@ for (const theme of ['dark', 'light']) for (const source of ['account', 'friends
     expect(modelRequests).toEqual([]);
     const controls = viewer.getByRole('group', { name: 'Artwork', exact: true });
     const stillPosition = await controls.boundingBox();
+    const contentWidth = await page.evaluate(() => document.documentElement.clientWidth);
     if (info.project.name.startsWith('mobile')) {
-      expect(Math.abs(stillPosition!.x + stillPosition!.width / 2 - page.viewportSize()!.width / 2)).toBeLessThan(1);
+      expect(Math.abs(stillPosition!.x + stillPosition!.width / 2 - contentWidth / 2)).toBeLessThan(1);
       const actions = await viewer.locator('.skin-zoom-actions').boundingBox();
-      expect(Math.abs(actions!.x + actions!.width / 2 - page.viewportSize()!.width / 2)).toBeLessThan(1);
+      expect(Math.abs(actions!.x + actions!.width / 2 - contentWidth / 2)).toBeLessThan(1);
       expect(actions!.y).toBeGreaterThan(stillPosition!.y);
     }
     const box = await viewer.boundingBox();
     expect(box?.x).toBe(0); expect(box?.y).toBe(0);
-    expect(box?.width).toBe(page.viewportSize()!.width);
+    expect(box?.width).toBe(contentWidth);
     expect(box?.height).toBe(page.viewportSize()!.height);
     await page.keyboard.press('Tab');
     await expect(viewer.getByRole('button', { name: 'Still', exact: true })).toBeFocused();
@@ -68,10 +73,12 @@ for (const theme of ['dark', 'light']) for (const source of ['account', 'friends
     expect(animatedPosition!.y).toBe(stillPosition!.y);
     const versions = await viewer.getByRole('group', { name: 'Illustration version', exact: true }).boundingBox();
     expect(versions!.y + versions!.height).toBeLessThanOrEqual(animatedPosition!.y);
-    expect(Math.abs(versions!.x + versions!.width / 2 - page.viewportSize()!.width / 2)).toBeLessThan(1);
+    expect(Math.abs(versions!.x + versions!.width / 2 - contentWidth / 2)).toBeLessThan(1);
     await expect.poll(() => modelRequests.length).toBeGreaterThan(0);
     expect(modelRequests[0]).toContain('/char_1001_amiya2_sale_16/');
-    await viewer.getByRole('button', { name: 'Still', exact: true }).click();
+    finishModel();
+    await expect(viewer.getByText('The animated art could not be loaded.', { exact: true })).toBeVisible();
+    await expect(viewer.getByRole('button', { name: 'Still', exact: true })).toHaveAttribute('aria-pressed', 'true');
     await page.keyboard.press('Escape');
     await expect(viewer).toHaveCount(0);
     await expect(collection).toBeVisible();
