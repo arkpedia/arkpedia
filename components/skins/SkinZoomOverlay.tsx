@@ -247,17 +247,19 @@ export default function SkinZoomOverlay({ image, name, dynamic: original, altern
       )}
 
       {details && <details className="skin-zoom-details"><summary>Outfit details</summary>{details}</details>}
-      <div className="skin-zoom-controls">
-        {alternate && <div className="skin-zoom-versions" aria-hidden={view !== 'animated'} style={{ visibility: view === 'animated' ? 'visible' : 'hidden' }}><SegmentedControl label="Illustration version" value={variant}
+      {alternate && <div className="skin-zoom-versions" aria-hidden={view !== 'animated'} style={{ visibility: view === 'animated' ? 'visible' : 'hidden' }}><SegmentedControl label="Illustration version" value={variant}
           options={[{ value: 'original', label: 'Version 1', disabled: view !== 'animated' }, { value: 'alternate', label: 'Version 2', disabled: view !== 'animated' }]}
           onChange={next => { setVariant(next); setStatus(null); setPlaying(null); setRequest(null); }} /></div>}
+      <div className="skin-zoom-controls">
         {model !== null && <SegmentedControl label="Artwork" options={VIEW_OPTIONS} value={view} onChange={pickView} />}
-        <button type="button" className="ghost" onClick={reset} disabled={scale === MIN_SCALE}>
-          Reset
-        </button>
-        <button ref={closeRef} type="button" className="primary" onClick={onClose}>
-          Close
-        </button>
+        <div className="skin-zoom-actions">
+          <button type="button" className="ghost" onClick={reset} disabled={scale === MIN_SCALE}>
+            Reset
+          </button>
+          <button ref={closeRef} type="button" className="primary" onClick={onClose}>
+            Close
+          </button>
+        </div>
       </div>
     </div>
   );

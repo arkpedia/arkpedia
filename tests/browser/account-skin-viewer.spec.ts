@@ -43,6 +43,14 @@ for (const theme of ['dark', 'light']) for (const source of ['account', 'friends
     await expect(viewer.getByRole('button', { name: 'Still', exact: true })).toHaveAttribute('aria-pressed', 'true');
     await expect(viewer.getByRole('button', { name: 'Close', exact: true })).toBeFocused();
     expect(modelRequests).toEqual([]);
+    const controls = viewer.getByRole('group', { name: 'Artwork', exact: true });
+    const stillPosition = await controls.boundingBox();
+    if (info.project.name.startsWith('mobile')) {
+      expect(Math.abs(stillPosition!.x + stillPosition!.width / 2 - page.viewportSize()!.width / 2)).toBeLessThan(1);
+      const actions = await viewer.locator('.skin-zoom-actions').boundingBox();
+      expect(Math.abs(actions!.x + actions!.width / 2 - page.viewportSize()!.width / 2)).toBeLessThan(1);
+      expect(actions!.y).toBeGreaterThan(stillPosition!.y);
+    }
     const box = await viewer.boundingBox();
     expect(box?.x).toBe(0); expect(box?.y).toBe(0);
     expect(box?.width).toBe(page.viewportSize()!.width);
@@ -53,6 +61,14 @@ for (const theme of ['dark', 'light']) for (const source of ['account', 'friends
     await expect(viewer.getByRole('button', { name: 'Close', exact: true })).toBeFocused();
     if (process.env.ARKPEDIA_QA_CAPTURE) await page.screenshot({ path: `${process.env.ARKPEDIA_QA_CAPTURE}/${source}-skin-${theme}-${info.project.name}.png` });
     await viewer.getByRole('button', { name: 'Animated', exact: true }).click();
+    // Showing the illustration versions must not move the main controls sideways or upwards.
+    await expect(viewer.getByRole('group', { name: 'Illustration version', exact: true })).toBeVisible();
+    const animatedPosition = await controls.boundingBox();
+    expect(animatedPosition!.x).toBe(stillPosition!.x);
+    expect(animatedPosition!.y).toBe(stillPosition!.y);
+    const versions = await viewer.getByRole('group', { name: 'Illustration version', exact: true }).boundingBox();
+    expect(versions!.y + versions!.height).toBeLessThanOrEqual(animatedPosition!.y);
+    expect(Math.abs(versions!.x + versions!.width / 2 - page.viewportSize()!.width / 2)).toBeLessThan(1);
     await expect.poll(() => modelRequests.length).toBeGreaterThan(0);
     expect(modelRequests[0]).toContain('/char_1001_amiya2_sale_16/');
     await viewer.getByRole('button', { name: 'Still', exact: true }).click();
