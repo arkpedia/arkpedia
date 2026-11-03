@@ -29,7 +29,8 @@ export function setupGroups(shifts: readonly SimulationShift[]): number[][] {
 }
 
 export const distinctSetups = (shifts: readonly SimulationShift[]): number => setupGroups(shifts).length;
-/** Whether a rotation needs more presets than the game stores. */
-export const exceedsSetups = (shifts: readonly SimulationShift[]): boolean => distinctSetups(shifts) > MAX_ROTATION_SETUPS;
+/** Whether a rotation needs more presets than the game stores. A plan of no more shifts than that never does,
+ * so the common case costs nothing (the annealer screens every proposal with it). */
+export const exceedsSetups = (shifts: readonly SimulationShift[]): boolean => shifts.length > MAX_ROTATION_SETUPS && distinctSetups(shifts) > MAX_ROTATION_SETUPS;
 /** The letter a setup goes by on the page: A, B, C. */
 export const setupLabel = (index: number): string => String.fromCharCode(65 + index);

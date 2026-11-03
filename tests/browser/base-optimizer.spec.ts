@@ -321,6 +321,10 @@ test('support staffing survives every optimized shift, save, selection and reloa
   if (await dialog.getByRole('button', { name: 'Stop', exact: true }).isVisible()) await dialog.getByRole('button', { name: 'Stop', exact: true }).click();
   const shifts = await dialog.getByRole('button', { name: /^Shift \d+$/ }).count();
   expect(shifts).toBeGreaterThanOrEqual(2);
+  // Shifts that place everyone the same way share one saved setup, as they share one preset in the game.
+  const setups = Number((await dialog.getByText(/^\d+ saved setups? for \d+ shifts/).textContent())?.match(/^(\d+) saved/)?.[1]);
+  expect(setups).toBeGreaterThanOrEqual(1);
+  expect(setups).toBeLessThanOrEqual(Math.min(shifts, 3));
   for (let i = 1; i <= shifts; i++) {
     await dialog.getByRole('button', { name: `Shift ${i}`, exact: true }).click();
     for (const [name, count] of [['Reception Room', 2], ['Office', 1], ['Workshop', 1], ['Control Center', 5], ['Power Plant 1', 1], ['Power Plant 2', 1]] as const) {
@@ -331,7 +335,7 @@ test('support staffing survives every optimized shift, save, selection and reloa
   await dialog.getByRole('button', { name: 'Use as rotation', exact: true }).click();
   await expect(dialog).toBeHidden();
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('baseSavedPresets_v1') ?? '[]'));
-  expect(saved).toHaveLength(shifts);
+  expect(saved).toHaveLength(setups);
   for (const preset of saved) {
     expect(preset.assignments.receptionRoom.filter(Boolean)).toHaveLength(2);
     expect(preset.assignments.office.filter(Boolean)).toHaveLength(1);

@@ -169,9 +169,12 @@ shape (four setups) and any seed plan over the bound, both simulators score such
 as unusable, the annealer screens its moves before simulating them, `genomeFromResult`
 refuses such plans, and `optimizeAccountBase` rejects any over it before it is shown
 (counted among the excluded rotations). A four-step duty (A, A, A, B) needs two presets
-and stays allowed. `completeStaffing` fills a setup group as one and rests the worker in
-another group, so groups stay identical. Saving creates one setup per group, and the
-rotation's shifts share it. Raising the constant is the one change needed should the game
+when every off-duty worker rests, three when only the crew just off shift does (the seed
+duty shape), and stays allowed either way. `completeStaffing` fills a setup group as one
+and rests the worker in another group, so groups stay identical; where the beds of the
+other groups run out it fills shift by shift, which may use a slot the search did not,
+never more than the bound. Saving creates one setup per group, and the rotation's shifts
+share it. Raising the constant is the one change needed should the game
 add a slot.
 
 ### Empty-room correction
