@@ -7,7 +7,7 @@ import XButton from '@/components/ui/XButton';
  * backdrop close it, and focus goes back to the button that opened it. The Pull Planner's
  * Past events open in the same frame (`className` widens it).
  */
-export default function ImportDialog({ title, children, onClose, className, dismissible = true, titleSuffix }: { title: string; titleSuffix?: ReactNode; children: ReactNode; onClose: () => void; className?: string; dismissible?: boolean }) {
+export default function ImportDialog({ title, children, onClose, className, dismissible = true, titleSuffix, actions }: { title: string; titleSuffix?: ReactNode; actions?: ReactNode; children: ReactNode; onClose: () => void; className?: string; dismissible?: boolean }) {
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
   useEffect(() => {
@@ -23,7 +23,7 @@ export default function ImportDialog({ title, children, onClose, className, dism
       const box = event.currentTarget.getBoundingClientRect();
       if (event.clientX < box.left || event.clientX > box.right || event.clientY < box.top || event.clientY > box.bottom) onClose();
     }}>
-      <header><h2 className="entity-title"><span id={titleId}>{title}</span>{titleSuffix && <> {titleSuffix}</>}</h2>{dismissible && <XButton label="Close" onClick={onClose} />}</header>
+      <header><h2 className="entity-title"><span id={titleId}>{title}</span>{titleSuffix && <> {titleSuffix}</>}</h2>{actions ? <div className="account-dialog-header-actions">{actions}{dismissible && <XButton label="Close" onClick={onClose} />}</div> : dismissible && <XButton label="Close" onClick={onClose} />}</header>
       <div className="account-dialog-body">{children}</div>
     </dialog>
   );

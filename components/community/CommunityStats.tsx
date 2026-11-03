@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { moduleUnlock } from '@/lib/planner/plannerLogic';
 import styles from './Community.module.css';
 
-export default function CommunityStats({operator,skin,skills=0,modules=[],rarity=0}:{operator?:string;skin?:string;skills?:number;rarity?:number;modules?:{index:number;label:string}[]}){
+export default function CommunityStats({operator,skin,skills=0,modules=[],rarity=0,compact=false}:{operator?:string;skin?:string;skills?:number;rarity?:number;modules?:{index:number;label:string}[];compact?:boolean}){
   const [server,setServer]=useState<ServerId>('en'),[data,setData]=useState<Stats|null>(null),[error,setError]=useState(''),[retry,setRetry]=useState(0);
   useEffect(()=>{
     const controller=new AbortController();setData(null);setError('');
@@ -18,8 +18,8 @@ export default function CommunityStats({operator,skin,skills=0,modules=[],rarity
   const unlock=moduleUnlock(rarity),moduleGroup=data?.moduleGroups?.find(group=>group.level===unlock?.level);
   const percent=(count:number|undefined,total:number|undefined)=>count===undefined||!total?'—':`${(100*count/total).toFixed(1)}%`;
   const metric=(label:string,count:number|undefined,total:number|undefined)=><div key={label}><dt>{label}</dt><dd>{percent(count,total)}</dd></div>;
-  return <div className={`${styles.stats} reading-copy`}>
-    <div className="account-shortcuts"><h2>Community stats</h2>
+  return <div className={`${styles.stats} ${compact?styles.compact:''} reading-copy`}>
+    <div className="account-shortcuts"><h2 className={compact?'entity-title entity-title-sm':undefined}>Community stats</h2>
       <InfoPopover label="How community percentages are calculated">
         <p>Each opted-in game account contributes its latest import, regardless of age.</p>
         <ul>
