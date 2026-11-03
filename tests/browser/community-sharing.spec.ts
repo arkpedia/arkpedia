@@ -27,7 +27,7 @@ async function fixture(page:Page,theme:string){
   await page.route('**/api/community/availability',async route=>{state.reports.push(route.request().postDataJSON());await route.fulfill({json:{fullReports:1,openReports:0,hidden:false}});});
   await page.route('**/api/community/stats?**',async route=>{
     const q=new URL(route.request().url());
-    await route.fulfill({json:q.searchParams.get('server')==='jp'?{contributors:3,owned:null}:q.searchParams.has('skin')?{contributors:20,owned:10,equipmentOwners:10,equipped:3}:{contributors:50,owned:25,builds:25,e1:5,e2:20,masteryOwners:20,skills:[0,0,16],moduleOwners:20,modules:[[3,2,5],[1,0,1]]}});
+    await route.fulfill({json:q.searchParams.get('server')==='jp'?{contributors:3,owned:null}:q.searchParams.has('skin')?{contributors:20,owned:10,equipmentOwners:10,equipped:3}:{contributors:50,owned:25,builds:25,e1:5,e2:20,masteryOwners:20,skills:[0,0,16],skillRanks:[[10,5,3,0],[12,4,2,0],[1,1,1,16]],skillUnknown:[1,1,1],moduleOwners:20,modules:[[3,2,5],[1,0,1]]}});
   });
   return state;
 }
@@ -113,9 +113,9 @@ for(const theme of ['dark','light']){
     await fixture(page,theme);let empty=false;
     await page.route('**/api/community/stats?**',route=>route.fulfill({json:empty
       ?{contributors:11,owned:0,builds:0,e1:0,e2:0,masteryOwners:0,skills:[0,0,0],moduleOwners:0,modules:Array.from({length:8},()=>[0,0,0])}
-      :{contributors:11,owned:6,builds:6,e1:1,e2:5,masteryOwners:5,skills:[0,0,4],moduleOwners:5,modules:[[1,1,1],...Array.from({length:7},()=>[0,0,0])]}}));
+      :{contributors:11,owned:6,builds:6,e1:1,e2:5,masteryOwners:5,skills:[0,0,4],skillRanks:[[1,1,2,0],[2,2,0,0],[0,0,0,4]],skillUnknown:[1,1,1],moduleOwners:5,modules:[[1,1,1],...Array.from({length:7},()=>[0,0,0])]}}));
     await page.goto('/operators/Thorns#community');const stats=page.locator('#operator-community');await stats.scrollIntoViewIfNeeded();
-    const metric=(label:string)=>stats.locator('dl > div').filter({has:page.getByText(label,{exact:true})}).locator('dd');
+    const metric=(label:string)=>stats.locator('[data-community-metric]').filter({has:page.getByText(label,{exact:true})}).locator('dd,strong');
     await expect(metric('Owned')).toHaveText('54.5%');await expect(metric('E1')).toHaveText('16.7%');await expect(metric('E2')).toHaveText('83.3%');
     await expect(metric('Skill 1 M3')).toHaveText('0.0%');await expect(metric('Skill 3 M3')).toHaveText('80.0%');
     await expect(metric('LOR-X Level 1')).toHaveText('20.0%');await expect(metric('LOR-X Level 2')).toHaveText('20.0%');await expect(metric('LOR-X Level 3')).toHaveText('20.0%');
@@ -123,11 +123,13 @@ for(const theme of ['dark','light']){
     const mode=stats.getByRole('button',{name:'Cumulative percentages',exact:true});
     await expect(mode).toHaveAttribute('aria-pressed','false');
     await expect(mode).toHaveText('Exclusive ⇄');
-    await expect(stats.locator('dt img[src*="skill-icons"]')).toHaveCount(3);
-    await expect(stats.locator('dt img[alt="M3"]')).toHaveCount(3);
+    await expect(stats.locator('img[src*="skill-icons"]')).toHaveCount(3);
+    for(const rank of ['M1','M2','M3'])await expect(stats.locator(`dt img[alt="${rank}"]`)).toHaveCount(3);
+    await expect(metric('Skill 1 Rank 7')).toHaveText('20.0%');await expect(metric('Skill 1 M1')).toHaveText('20.0%');await expect(metric('Skill 1 M2')).toHaveText('40.0%');
     await expect(stats.locator('dt [role="img"][aria-label="Elite 1"]')).toHaveCount(1);
     await mode.focus();await page.keyboard.press('Enter');
     await expect(mode).toHaveAttribute('aria-pressed','true');
+    await expect(metric('Skill 1 Rank 7')).toHaveText('80.0%');await expect(metric('Skill 1 M1')).toHaveText('60.0%');
     await expect(metric('E1')).toHaveText('100.0%');await expect(metric('E2')).toHaveText('83.3%');
     await expect(metric('LOR-X Level 1')).toHaveText('60.0%');await expect(metric('LOR-X Level 2')).toHaveText('40.0%');await expect(metric('LOR-X Level 3')).toHaveText('20.0%');
     await expect(metric('Skill 3 M3')).toHaveText('80.0%');await expect(metric('Owned')).toHaveText('54.5%');
@@ -140,10 +142,10 @@ for(const theme of ['dark','light']){
     await expect(stats.getByText('— means no eligible owners with known data yet.',{exact:true})).toBeVisible();
   });
   test(`operator stats explain in-progress M3 and skin details show equipped percentages (${theme})`,async({page},info)=>{
-    await fixture(page,theme);await page.goto('/operators/Thorns#community');const stats=page.locator('#operator-community');await stats.scrollIntoViewIfNeeded();await expect(stats.locator('dl > div').filter({has:page.getByText('Owned',{exact:true})}).getByText('50.0%',{exact:true})).toBeVisible();
+    await fixture(page,theme);await page.goto('/operators/Thorns#community');const stats=page.locator('#operator-community');await stats.scrollIntoViewIfNeeded();await expect(stats.locator('[data-community-metric]').filter({has:page.getByText('Owned',{exact:true})}).getByText('50.0%',{exact:true})).toBeVisible();
     expect(await page.locator('[data-operator-section]').evaluateAll(elements=>{const names=elements.map(e=>e.getAttribute('data-operator-section'));return names.indexOf('community')>names.indexOf('talents')&&(names.indexOf('mastery')<0||names.indexOf('community')<names.indexOf('mastery'));})).toBe(true);
-    await expect(stats.locator('dl > div').filter({has:page.getByText('Skill 3 M3',{exact:true})}).getByText('80.0%',{exact:true})).toBeVisible();
-    await expect(stats.locator('dl > div').filter({has:page.getByText('LOR-X Level 1',{exact:true})}).getByText('15.0%',{exact:true})).toBeVisible();
+    await expect(stats.locator('[data-community-metric]').filter({has:page.getByText('Skill 3 M3',{exact:true})}).getByText('80.0%',{exact:true})).toBeVisible();
+    await expect(stats.locator('[data-community-metric]').filter({has:page.getByText('LOR-X Level 1',{exact:true})}).getByText('15.0%',{exact:true})).toBeVisible();
     await help(page,'How community percentages are calculated',info,`operator-stats-help-${theme}`);await capture(page,`operator-stats-${theme}`,info);
     await choose(page,'Community stats server','Japan');await expect(stats.getByText('Waiting for at least 10 contributors on this server.',{exact:true})).toBeVisible();
     await page.goto('/skins');const skin=await page.evaluate(()=>{const skins=(window as any).__NEXT_DATA__.props.pageProps.skins;return skins.find((s:any)=>s.skinId)?.name as string;});await page.goto(`/skins?skin=${encodeURIComponent(skin)}`);
