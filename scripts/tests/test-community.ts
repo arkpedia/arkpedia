@@ -18,8 +18,11 @@ function snapshot(uid='100'):CommunitySnapshot{return {server:'en',uid,doctor:'D
 function harness(){
   const sqlite=new DatabaseSync(':memory:');sqlite.exec('PRAGMA foreign_keys=ON');
   for(const file of fs.readdirSync('migrations/accounts').filter(f=>f.endsWith('.sql')).sort())sqlite.exec(fs.readFileSync(`migrations/accounts/${file}`,'utf8'));
-  const prepare=(sql:string,args:unknown[]=[])=>({bind:(...values:unknown[])=>prepare(sql,values),first:async()=>sqlite.prepare(sql).get(...args as never[])??null,
-    all:async()=>{const statement=sqlite.prepare(sql);return {success:true,results:statement.columns().length?statement.all(...args as never[]):(statement.run(...args as never[]),[])};},run:async()=>({meta:sqlite.prepare(sql).run(...args as never[])})});
+  // Ordinary SQLite permits 2,000 result columns; production D1 permits 100.
+  // Enforce the production limit in every populated aggregate regression.
+  const statementFor=(sql:string)=>{const statement=sqlite.prepare(sql);assert.ok(statement.columns().length<=100,'D1 SELECT results must not exceed 100 columns');return statement;};
+  const prepare=(sql:string,args:unknown[]=[])=>({bind:(...values:unknown[])=>prepare(sql,values),first:async()=>statementFor(sql).get(...args as never[])??null,
+    all:async()=>{const statement=statementFor(sql);return {success:true,results:statement.columns().length?statement.all(...args as never[]):(statement.run(...args as never[]),[])};},run:async()=>({meta:sqlite.prepare(sql).run(...args as never[])})});
   let queue=Promise.resolve<unknown>(null);
   const db={prepare,batch:(statements:ReturnType<typeof prepare>[])=>{const next=queue.then(async()=>{sqlite.exec('BEGIN');try{const result=[];for(const statement of statements)result.push(await statement.all());sqlite.exec('COMMIT');return result;}catch(e){sqlite.exec('ROLLBACK');throw e;}});queue=next.catch(()=>null);return next;}} as unknown as D1Database;
   const limiter={limit:async()=>({success:true})};

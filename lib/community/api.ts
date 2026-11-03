@@ -128,12 +128,12 @@ async function stats(req:NextApiRequest,res:NextApiResponse,db:D1Database){
   // All E2 owners qualify, including low or unknown character levels.
   // Retain the previous cumulative cohorts for already-open clients during deployments.
   const levels=[0,40,50,60];
-  const moduleColumns=levels.flatMap(level=>{
+  const moduleColumns=levels.map(level=>{
     const comparison=level===0?'=':'>=';
     const eligible=level===0?'o.elite=2':`o.elite=2 AND o.level>=${level}`;
     return [`COALESCE(sum(CASE WHEN ${eligible} THEN 1 ELSE 0 END),0) AS eligible${level}`,
-      ...Array.from({length:8},(_,i)=>[1,2,3].map(stage=>`COALESCE(sum(CASE WHEN ${eligible} AND json_extract(o.modules,'$."${i}"')${comparison}${stage} THEN 1 ELSE 0 END),0) AS mod${level}_${i}_${stage}`).join(','))];
-  }).join(',');
+      ...Array.from({length:8},(_,i)=>[1,2,3].map(stage=>`COALESCE(sum(CASE WHEN ${eligible} AND json_extract(o.modules,'$."${i}"')${comparison}${stage} THEN 1 ELSE 0 END),0) AS mod${level}_${i}_${stage}`).join(','))].join(',');
+  });
   // Any mastery proves shared skill rank 7 in older snapshots; otherwise a
   // missing ordinary rank remains unknown rather than becoming rank 7 or zero.
   const rank="COALESCE(o.skillLevel,CASE WHEN o.m0>0 OR o.m1>0 OR o.m2>0 THEN 7 END)";
@@ -141,8 +141,19 @@ async function stats(req:NextApiRequest,res:NextApiResponse,db:D1Database){
     ...[0,1,2,3].map(stage=>`COALESCE(sum(o.elite=2 AND o.m${i}=${stage}${stage===0?` AND ${rank}=7`:''}),0) AS rank${i}_${stage}`),
     `COALESCE(sum(o.elite=2 AND ${rank} IS NULL),0) AS unknown${i}`,
   ].join(',')).join(',');
-  const row=await db.prepare(`SELECT count(*) AS owned,count(o.elite) AS builds,COALESCE(sum(o.elite=1),0) AS e1,COALESCE(sum(o.elite=2),0) AS e2,COALESCE(sum(o.elite=2 AND o.m0=3),0) AS s0,COALESCE(sum(o.elite=2 AND o.m1=3),0) AS s1,COALESCE(sum(o.elite=2 AND o.m2=3),0) AS s2,${moduleColumns},${skillColumns}
-    FROM community_operator o JOIN community_account a ON a.userId=o.userId WHERE o.operator=? AND a.stats=1 AND a.server=?`).bind(operator,server).first<Record<string,number>>();
+  const columns=[
+    'count(*) AS owned','count(o.elite) AS builds','COALESCE(sum(o.elite=1),0) AS e1','COALESCE(sum(o.elite=2),0) AS e2',
+    ...[0,1,2].map(i=>`COALESCE(sum(o.elite=2 AND o.m${i}=3),0) AS s${i}`),
+  ];
+  // D1 limits SELECT results to 100 columns. Split current (47) and legacy (75)
+  // aggregates in one transactional batch so both client versions see the same data.
+  const select=(fields:string[])=>db.prepare(`SELECT ${fields.join(',')}
+    FROM community_operator o JOIN community_account a ON a.userId=o.userId WHERE o.operator=? AND a.stats=1 AND a.server=?`).bind(operator,server);
+  const results=await db.batch<Record<string,number>>([
+    select(columns.concat(skillColumns,moduleColumns[0])),
+    select(moduleColumns.slice(1)),
+  ]);
+  const row=Object.assign({},...results.map(result=>result.results[0])) as Record<string,number>;
   return res.json({contributors,owned:row?.owned??0,
     builds:row?.builds??0,e1:row?.e1??0,e2:row?.e2??0,
     skillRanks:Array.from({length:3},(_,i)=>[0,1,2,3].map(stage=>row?.[`rank${i}_${stage}`]??0)),
