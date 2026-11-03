@@ -34,9 +34,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-03T12:53:00Z',
+    changed: [{ title: 'Clearer mastery and promotion stats', detail: 'Skill bars show M1–M3 among E2 owners, and the promotion headline shows the E2 percentage.', href: '/operators' }],
+    fixed: [{ title: 'Statistics popups stay out of the way', detail: 'Mouse details close as soon as you leave the bar, keeping lower modules accessible; touch and keyboard still work.', href: '/operators' }],
+  },
+  {
     at: '2026-11-03T10:15:00Z',
     changed: [
-      { title: 'Community stats at a glance', detail: 'Compact bars show promotion, M1–M3 mastery and exact module levels, with percentages on hover or tap.', href: '/operators' },
+      { title: 'Community stats at a glance', detail: 'Compact bars show promotion, skill ranks and exact module levels, with percentages on hover or tap.', href: '/operators' },
       { title: 'Refreshed outfit details', detail: 'Larger uncropped artwork, compact details and easier controls on phones.', href: '/skins' },
       { title: 'Streamer Mode music filters', detail: 'More known claim-risk artists and duplicate recordings are excluded when Streamer Mode is on.', href: '/music' },
     ],
