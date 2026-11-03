@@ -82,7 +82,9 @@ Browser account responses are fixtures; no test sends a real email or signs in t
 The browser observes libcurl.js 0.7.4's exported Wisp lifecycle methods, without reading
 message packets or changing encryption, routing, retries or relay logging. A bounded report
 of the last 12 relay attempts stays only in page memory; the reader can copy it from the
-Connection diagnostics disclosure after a transport failure. It is never uploaded or saved.
+Connection diagnostics disclosure after a transport failure. These testing controls require
+`?importDiagnostics=1` on `preview.arkpedia.net` or localhost; production never shows them.
+The report is never uploaded or saved.
 
 The allow-listed report schema contains destination categories, rounded elapsed duration,
 HTTP status, numeric curl/Wisp reason codes, a relay-handshake flag and a failure leg. No
@@ -120,11 +122,15 @@ investigate, not proof of a reliable replay revision contract.
 
 ## Optional auto-deploy sync
 
-Import / export offers an explicit **Sync auto-deploys** action after a successful
-Yostar import. It never runs from Google/Discord sign-in or ordinary page visits.
+Import / export offers an opt-in **Include auto-deploys and save to my account** choice.
+When checked, a successful Yostar import automatically starts downloads after releasing
+the shared import lock. The choice survives subsequent imports within the tab; account
+changes or revoked saving consent clear it. Saving the Yostar login is not required.
+An unchecked import starts no replay requests; **Sync auto-deploys** remains available
+after import for manual local downloads. Google/Discord sign-in and ordinary page visits
+never start downloads.
 The in-memory game session continues at sequence 3 after syncData. The only exposed
-continuation reads `quest/getBattleReplay` (`campaign/getBattleReplay` for `camp_`
-stages). The [ArkPRTS client](https://github.com/ashleney/ArkPRTS/blob/master/arkprts/client.py)
+continuation reads `quest/getBattleReplay`, including `camp_` Annihilation stages. The [ArkPRTS client](https://github.com/ashleney/ArkPRTS/blob/master/arkprts/client.py)
 uses a caller-supplied battle type; it does not define a literal `battle` route.
 Normal stages use the [quest route](https://github.com/loongling/LocalArknights/blob/main/src/main/java/com/hypergryph/arknights/game/quest.java).
 Failures distinguish HTTP status, bounded numeric game-result codes and missing replay
@@ -199,7 +205,8 @@ IndexedDB checkpoints successful replays by server, game UID and stage. Fingerpr
 use hasBattleReplay/start/completion/practice counters and state. A login-only
 sample left the metadata unchanged; changing one known stage changed only that
 stage's start/completion counters. These are conservative hints, not an authoritative
-replay revision contract. Manual per-stage refresh is available. Counter changes
+replay revision contract. Manual per-stage refresh is a Preview/local testing tool,
+available only with `?importDiagnostics=1`. Counter changes
 may fetch an unchanged replay; canonical content hashes then avoid uploading it
 again (only its marker changes). Failed saves retain the old checkpoint.
 

@@ -19,7 +19,7 @@ const INITIAL:State={info:null,ready:false,phase:'idle',visible:false,cloud:fals
 interface Downloads extends State {
   running:boolean; eligible:boolean; install:(value:ReplayImport|null)=>void;
   setCloud:(value:boolean)=>void; setSelected:(value:string)=>void;
-  run:()=>Promise<void>; pause:()=>void; dismiss:()=>void;
+  run:(options?:{afterImport?:boolean})=>Promise<void>; pause:()=>void; dismiss:()=>void;
 }
 const Context=createContext<Downloads>({...INITIAL,running:false,eligible:false,install:()=>{},setCloud:()=>{},setSelected:()=>{},run:async()=>{},pause:()=>{},dismiss:()=>{}});
 export const useReplayDownloads=()=>useContext(Context);
@@ -48,7 +48,8 @@ function EnabledDownloads({children}:{children:ReactNode}){
     active.current?.controller.abort('A new game import replaced this session.');
     const version=++generation.current;source.current=value;
     const info=value?{namespace:namespaceFor(value.server,value.session.uid),server:value.server,available:value.markers.filter(m=>m.hasReplay).length}:null;
-    update({...INITIAL,info,ready:!!value});
+    // Importing replaces the session, not the reader's explicit saving choice.
+    update({...INITIAL,cloud:current.current.cloud,info,ready:!!value});
     if(info)void recount(info.namespace,version).catch(()=>{if(generation.current===version)update({message:'This browser could not open auto-deploy storage.'});});
   },[recount,update]);
   const pause=useCallback(()=>{
@@ -73,7 +74,10 @@ function EnabledDownloads({children}:{children:ReactNode}){
     }
   },[eligible,sync.remote?.user.id,retire,update]);
 
-  const run=useCallback(async()=>{
+  const run=useCallback(async(options?:{afterImport?:boolean})=>{
+    // Automatic work requires the checked choice and current cloud consent. Manual
+    // downloads remain available locally without an Arkpedia account.
+    if(options?.afterImport&&(!current.current.cloud||latest.current.status!=='ready'||!latest.current.remote?.syncReviewed||!latest.current.remote.gameSync||latest.current.remote.paused))return;
     const imported=source.current,info=current.current.info;
     if(!imported||!info||active.current||isResettingBrowserData())return;
     const version=generation.current,selected=current.current.selected.trim(),namespace=info.namespace;
