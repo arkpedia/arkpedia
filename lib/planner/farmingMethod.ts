@@ -36,9 +36,10 @@ export interface FarmingEventsTable {
   events: FarmingEvent[];
 }
 
-/** Where the count stops: nowhere (the feature is off), a banner's last day, or a chosen day. */
+/** Count nothing, only undated permanent rewards, or events through a banner/date. */
 export type FarmingUntil =
   | { mode: 'off' }
+  | { mode: 'permanent' }
   | { mode: 'banner'; banner: string }
   | { mode: 'date'; date: string };
 
@@ -70,9 +71,11 @@ export function parseFarmingMethod(value: unknown): FarmingMethod {
   const until = v.until && typeof v.until === 'object' ? v.until as Record<string, unknown> : {};
   const parsed: FarmingUntil = until.mode === 'date' && validDay(until.date) ? { mode: 'date', date: until.date }
     : until.mode === 'banner' && typeof until.banner === 'string' && until.banner.length > 0 && until.banner.length <= 200 ? { mode: 'banner', banner: until.banner }
-      : { mode: 'off' };
+      : until.mode === 'permanent' ? { mode: 'permanent' } : { mode: 'off' };
   const permanent = Array.isArray(v.permanent) ? [...new Set(v.permanent.filter((id): id is string => typeof id === 'string' && /^[a-z]{2,4}(-\d{1,2})?$/.test(id)))].slice(0, 40) : [];
-  return { until: parsed, permanent, shop: v.shop === true, unlimitedShop: v.unlimitedShop === true };
+  // Older saves used 'off' to mean no dated events, even with permanent rewards on.
+  // Keep those choices, but give the active mode an honest label. New Off clears them.
+  return { until: parsed.mode === 'off' && permanent.length ? { mode: 'permanent' } : parsed, permanent, shop: v.shop === true, unlimitedShop: v.unlimitedShop === true };
 }
 
 export function readFarmingMethod(): FarmingMethod {
@@ -127,6 +130,7 @@ export interface PermanentSource { table: PermanentRewardsTable; claimed: Readon
  * the feature is off or its end cannot be told.
  */
 export function incomingFor(method: FarmingMethod, table: FarmingEventsTable, now: number, permanent: PermanentSource): FarmingIncoming | null {
+  if (method.until.mode === 'off') return null;
   const until = farmingUntil(method, table);
   if (until === null && !method.permanent.length) return null;
   const arrivals: Record<string, Tranche[]> = {};
