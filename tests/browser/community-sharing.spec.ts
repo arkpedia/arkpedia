@@ -33,13 +33,13 @@ async function fixture(page:Page,theme:string){
 }
 async function capture(page:Page,name:string,info:TestInfo){
   await page.evaluate(()=>document.fonts.ready);
-  if(process.env.ARKPEDIA_QA_CAPTURE)await page.screenshot({path:`${process.env.ARKPEDIA_QA_CAPTURE}/${name}-${info.project.name}.png`,fullPage:false});
+  if(process.env.ARKPEDIA_QA_CAPTURE)await page.screenshot({path:`${process.env.ARKPEDIA_QA_CAPTURE}/${name}-${info.project.name}.png`,fullPage:false,animations:'disabled'});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
 }
 async function help(page:Page,label:string,info:TestInfo,name:string){
   const trigger=page.getByRole('button',{name:label,exact:true});await trigger.focus();await trigger.press('Enter');
   const region=page.getByRole('region',{name:label,exact:true});await expect(region).toBeVisible();
-  if(label==='How community percentages are calculated' && await region.getByText(/Modules: among all E2 owners/).count())await expect(region).toContainText('Each module counts only at its current level');
+  if(label==='How community percentages are calculated' && await region.getByText(/Modules: among all E2 owners/).count())await expect(region).toContainText('each module counts only at its current level');
   const box=await region.boundingBox();const viewport=page.viewportSize()!;expect(box!.x).toBeGreaterThanOrEqual(0);expect(box!.x+box!.width).toBeLessThanOrEqual(viewport.width+1);
   await capture(page,name,info);await page.keyboard.press('Escape');await expect(region).toHaveCount(0);await expect(trigger).toBeFocused();
 }
@@ -120,6 +120,19 @@ for(const theme of ['dark','light']){
     await expect(metric('Skill 1 M3')).toHaveText('0.0%');await expect(metric('Skill 3 M3')).toHaveText('80.0%');
     await expect(metric('LOR-X Level 1')).toHaveText('20.0%');await expect(metric('LOR-X Level 2')).toHaveText('20.0%');await expect(metric('LOR-X Level 3')).toHaveText('20.0%');
     await expect(stats.getByText(/percentages need 10/)).toHaveCount(0);await expect(stats.locator('dd').filter({hasText:'—'})).toHaveCount(0);
+    const mode=stats.getByRole('group',{name:'Percentage calculation'});
+    await expect(mode.getByRole('button',{name:'Exclusive',exact:true})).toHaveAttribute('aria-pressed','true');
+    await expect(stats.locator('dt img[src*="skill-icons"]')).toHaveCount(3);
+    await expect(stats.locator('dt img[alt="M3"]')).toHaveCount(3);
+    await expect(stats.locator('dt [role="img"][aria-label="Elite 1"]')).toHaveCount(1);
+    await mode.getByRole('button',{name:'Cumulative',exact:true}).focus();await page.keyboard.press('Enter');
+    await expect(mode.getByRole('button',{name:'Cumulative',exact:true})).toHaveAttribute('aria-pressed','true');
+    await expect(metric('E1')).toHaveText('100.0%');await expect(metric('E2')).toHaveText('83.3%');
+    await expect(metric('LOR-X Level 1')).toHaveText('60.0%');await expect(metric('LOR-X Level 2')).toHaveText('40.0%');await expect(metric('LOR-X Level 3')).toHaveText('20.0%');
+    await expect(metric('Skill 3 M3')).toHaveText('80.0%');await expect(metric('Owned')).toHaveText('54.5%');
+    await capture(page,`cumulative-community-${theme}`,info);
+    await mode.getByRole('button',{name:'Exclusive',exact:true}).click();await expect(metric('LOR-X Level 1')).toHaveText('20.0%');
+    if(info.project.name==='mobile'){await page.setViewportSize({width:320,height:800});await stats.scrollIntoViewIfNeeded();await capture(page,`narrow-community-${theme}`,info);}
     await capture(page,`small-community-${theme}`,info);await help(page,'How community percentages are calculated',info,`small-community-help-${theme}`);
     empty=true;await choose(page,'Community stats server','Korea');await expect(metric('Owned')).toHaveText('0.0%');
     await expect(metric('Skill 3 M3')).toHaveText('—');await expect(metric('LOR-X Level 1')).toHaveText('—');

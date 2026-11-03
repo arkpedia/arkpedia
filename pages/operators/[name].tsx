@@ -1279,7 +1279,7 @@ export default function OperatorDetailPage({ chibis = {}, summons = [], epTrack,
             )}
 
             <section id="operator-community" data-operator-section="community" tabIndex={-1} className={`op-section ${pageStyles.section}`}>
-              <CommunityStats operator={operator.name} rarity={operator.rarity??0} skills={skillList.length} modules={modules.map((m,index)=>({index,label:m.badgeText||m.name?.split(':')[0]||`Module ${index+1}`}))} />
+              <CommunityStats operator={operator.name} rarity={operator.rarity??0} skills={skillList.length} skillNames={skillList.map(skill=>skill.name)} modules={modules.map((m,index)=>({index,label:m.badgeText||m.name?.split(':')[0]||`Module ${index+1}`}))} />
             </section>
 
             {priorityGuideGroups.length > 0 && (
