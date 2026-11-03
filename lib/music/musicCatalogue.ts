@@ -1,4 +1,5 @@
 import { withCrossoverPageMusic } from './crossoverPageMusic';
+import { hasMusicClaimRisk } from './claimRisk';
 // The music player's queue catalogue: one small row per playable song. It is a game record
 // like any other, so it is published with the content release (release/public/
 // music-catalogue.json, written at export by scripts/build/build-music-catalogue.ts) and
@@ -74,7 +75,7 @@ export function projectMusicCatalogue(songs: readonly MonsterSirenSong[]): Music
       ...(song.albumName ? { album: song.albumName } : {}),
       ...(song.albumOriginalName && song.albumOriginalName !== song.albumName ? { albumOriginal: song.albumOriginalName } : {}),
       ...(song.coverPath ? { cover: song.coverPath } : {}),
-      ...(song.copyright ? { copyright: true as const } : {}),
+      ...(hasMusicClaimRisk(song) ? { copyright: true as const } : {}),
       ...(song.game === 'endfield' ? { game: 'endfield' as const } : {}),
     })),
   };
@@ -111,10 +112,16 @@ async function fetchMusicCatalogue(url: string, signal: AbortSignal | undefined,
   // where the queue and the Library both load it, so releases already published are covered.
   // Read by track id, so a Monster Siren row (no videoId) is a song of its own too.
   const seen = new Set<string>();
+  const validSongs = data.songs.filter(isSong);
+  // Duplicate album listings may credit the same recording differently. Keep the
+  // first display row, but retain an exclusion attached to any of its listings.
+  const excludedIds = new Set(validSongs.filter(hasMusicClaimRisk).map(song => rowId(song)!));
   // A cid that is not a Monster Siren id is dropped, not the row: the song still plays from YouTube.
-  return data.songs.filter(isSong).map((song) => {
+  return validSongs.map((song) => {
     const { cid, ...row } = song;
-    return { ...row, ...(validCid(cid) ? { cid } : {}), id: rowId(song)! };
+    // Existing content releases may predate an artist exclusion. Apply it at read
+    // time too, before queue entries copy the compact copyright flag.
+    return { ...row, ...(excludedIds.has(rowId(song)!) ? { copyright: true as const } : {}), ...(validCid(cid) ? { cid } : {}), id: rowId(song)! };
   }).filter((song) => !seen.has(song.id) && Boolean(seen.add(song.id)));
 }
 
