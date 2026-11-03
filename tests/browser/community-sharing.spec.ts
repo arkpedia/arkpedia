@@ -141,6 +141,13 @@ for(const theme of ['dark','light']){
       await page.mouse.move(0,0);await expect(page.getByRole('region',{name:'Skill 2 percentages',exact:true})).toHaveCount(0);
       await bar.focus();await expect(page.getByRole('region',{name:'Skill 2 percentages',exact:true})).toBeVisible();await page.keyboard.press('Escape');
     }
+    await expect(stats.getByText(/an unknown skill rank/)).toHaveCount(0);
+    for(const name of ['Promotion distribution','Skill rank distribution','Module distribution']){
+      const section=stats.getByRole('region',{name,exact:true});
+      const legend=await section.locator('[class*="barLegend"]').boundingBox();
+      const bar=await section.getByRole('button').first().boundingBox();
+      expect(Math.abs(legend!.x-bar!.x)).toBeLessThan(2);
+    }
     const ownedBar=stats.getByRole('img',{name:'Owned: 6 of 11',exact:true});
     await expect(ownedBar).toHaveCSS('outline-style','solid');await expect(ownedBar).toHaveCSS('outline-width','1px');
     if(info.project.name==='mobile'){await page.setViewportSize({width:320,height:800});await stats.scrollIntoViewIfNeeded();await capture(page,`narrow-community-${theme}`,info);await checkDetails('Skill 1',{'Skill 1 M1':'20.0%'});}

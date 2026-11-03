@@ -64,12 +64,9 @@ export default function OperatorStatsBars({data,operator,skillNames,skills,modul
         const path=getSkillIconPath(operator,skillNames[i]);
         const ranks=data.skillRanks?.[i];
         const counts=ranks??[undefined,undefined,undefined,data.skills?.[i]];
-        return <div key={i}>
-          <Distribution name={`Skill ${i+1}`} label={<><span title={skillNames[i]??`Skill ${i+1}`}>{path&&<Image src={path} alt={skillNames[i]??`Skill ${i+1}`} width={36} height={36}/>}</span><span>Skill {i+1}</span></>} segments={counts.map((count,rank)=>({label:`Skill ${i+1} ${rank?`M${rank}`:'Rank 7'}`,count,icon:rank?<OperatorGameIcon label={`M${rank}`} color size={24}/>:<span>Lv7</span>}))} total={data.masteryOwners} summary={ranks?.reduce((a,b)=>a+b,0)??data.skills?.[i]} summaryLabel={ranks?'rank 7+':'M3'}/>
-        </div>;
+        return <Distribution key={i} name={`Skill ${i+1}`} label={<><span title={skillNames[i]??`Skill ${i+1}`}>{path&&<Image src={path} alt={skillNames[i]??`Skill ${i+1}`} width={36} height={36}/>}</span><span>Skill {i+1}</span></>} segments={counts.map((count,rank)=>({label:`Skill ${i+1} ${rank?`M${rank}`:'Rank 7'}`,count,icon:rank?<OperatorGameIcon label={`M${rank}`} color size={24}/>:<span>Lv7</span>}))} total={data.masteryOwners} summary={ranks?.reduce((a,b)=>a+b,0)??data.skills?.[i]} summaryLabel={ranks?'rank 7+':'M3'}/>;
       })}
       <Legend items={[0,1,2,3].map(rank=>({label:rank?`M${rank}`:'Rank 7',icon:rank?<OperatorGameIcon label={`M${rank}`} color size={24}/>:<span>Lv7</span>}))}/>
-      {(!data.skillRanks||!!data.skillUnknown?.[0])&&<p className={styles.chartNote}>{data.skillRanks?`${data.skillUnknown?.[0]} E2 ${data.skillUnknown?.[0]===1?'owner has':'owners have'} an unknown skill rank.`:'Earlier skill ranks are unavailable for this snapshot.'}</p>}
     </section>}
     {modules.length>0&&<section className={styles.chartSection} aria-label="Module distribution">
       <div className={styles.chartHeading}><h3 className="entity-title entity-title-sm">Modules</h3><span>Of {data.moduleOwners??0} E2 owners</span></div>
