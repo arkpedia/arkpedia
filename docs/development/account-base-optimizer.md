@@ -173,9 +173,10 @@ refuses such plans, and `optimizeAccountBase` rejects any over it before it is s
 (counted among the excluded rotations). A four-step duty (A, A, A, B) needs two presets
 when every off-duty worker rests, three when only the crew just off shift does (the seed
 duty shape), and stays allowed either way. `completeStaffing` fills a setup group as one
-and rests the worker in another group, so groups stay identical; where the beds of the
-other groups run out it fills shift by shift, which may use a slot the search did not,
-never more than the bound. Saving creates one setup per group, and the rotation's shifts
+and rests the worker in another group, so groups stay identical; where no other group
+has the beds, or a worker would exhaust resting one shift in three, it splits the group
+into its alternate shifts, which rest their support workers in each other. That may use a
+slot the search did not, never more than the bound. Saving creates one setup per group, and the rotation's shifts
 share it. Raising the constant is the one change needed should the game
 add a slot.
 
