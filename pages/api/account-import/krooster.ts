@@ -13,11 +13,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 12_000);
   try {
-    const page = await fetch(`${KROOSTER_LOOKUP}${encodeURIComponent(user)}`, { signal: controller.signal, headers: { 'User-Agent': 'Arkpedia Preview (https://preview.arkpedia.net)', Accept: 'text/html' } });
+    const url = `${KROOSTER_LOOKUP}${encodeURIComponent(user)}`;
+    const page = await fetch(url, { signal: controller.signal, headers: { 'User-Agent': 'Arkpedia Preview (https://preview.arkpedia.net)', Accept: 'text/html' } });
     if (page.status === 404) return res.status(404).json({ error: 'Krooster has no profile by that name.' });
     if (!page.ok) return res.status(502).json({ error: `Krooster answered ${page.status}.` });
     const profile = parseKroosterPage(await page.text());
     if (!profile) return res.status(404).json({ error: 'Krooster has no public profile by that name.' });
+    // Several testers trying one profile need not fetch it from Krooster each time.
+    res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=60');
     return res.status(200).json(profile);
   } catch {
     return res.status(503).json({ error: 'Krooster could not be reached.' });

@@ -168,7 +168,7 @@ export default function DataDialog({ onClose, initialView = 'game' }: { onClose:
         <p className="hint">Your import stays in this browser unless you enable game-data storage in Account settings → Saving.</p>
         {process.env.ARKPEDIA_KROOSTER_IMPORT === '1' && <>
           <h3>From a Krooster profile</h3>
-          <p className="hint">Preview only, for testers: a public Krooster profile becomes the account, with its operators, promotions, levels, skills, masteries and modules. It has no base layout, clears or depot; the base optimizer recommends a layout.</p>
+          <p className="hint">Preview only, for testers: a public Krooster profile becomes the account, with its operators, promotions, levels, skills, masteries and modules. It replaces the account shown here and the planner roster, like a game import, and has no base layout, clears or depot; the base optimizer recommends a layout.</p>
           <KroosterImport map={map} onNote={setNote} />
         </>}
         {result && (
