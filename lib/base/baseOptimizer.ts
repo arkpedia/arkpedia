@@ -398,6 +398,18 @@ export function optimizeBase(input: OptimizerInput): OptimizerResult {
       : plan.shape === 'duty'
       // B rests in the first step after its cover shift; during the other work steps it waits unassigned.
       ? Array.from({ length: plan.duty! + 1 }, (_, i) => i < plan.duty! ? { working: A, resting: i === 0 ? operatorsIn(B) : [] } : { working: B, resting: operatorsIn(A) })
+      : plan.shape === 'thirds'
+      ? (() => {
+        const main = new Set(plan.thirds!.mainB);
+        const working = [0, 1, 2].map(s => crewFor(plan.crews, id => (plan.thirds!.rest[id] === s) !== main.has(id) ? 1 : 0));
+        const everyone = [...new Set(plan.crews.flatMap(operatorsIn))];
+        return working.map((w, s) => {
+          const on = new Set(operatorsIn(w));
+          const justWorked = new Set(operatorsIn(working[(s + 2) % 3]));
+          // Everyone off duty rests, whoever just came off shift first; beyond the beds they wait unassigned.
+          return { working: w, resting: everyone.filter(n => !on.has(n)).sort((x, y) => Number(justWorked.has(y)) - Number(justWorked.has(x))).slice(0, restCapacity) };
+        });
+      })()
       : (() => {
         const g1 = new Set(plan.group);
         const g2 = roomIds.filter(id => !g1.has(id));
@@ -429,6 +441,11 @@ export function optimizeBase(input: OptimizerInput): OptimizerResult {
     if (plan.shape === 'alternate') return true;
     if (plan.shape === 'duty') return operatorsIn(A).length <= restCapacity;
     if (plan.shape === 'formations') return true;
+    if (plan.shape === 'thirds') {
+      const main = new Set(plan.thirds!.mainB);
+      const working = [0, 1, 2].map(s => new Set(operatorsIn(crewFor(plan.crews, id => (plan.thirds!.rest[id] === s) !== main.has(id) ? 1 : 0))));
+      return [0, 1, 2].every(s => [...working[(s + 2) % 3]].filter(n => !working[s].has(n)).length <= restCapacity);
+    }
     const g2 = roomIds.filter(id => !plan.group.includes(id));
     return [A, B].every(c => restrict(c, plan.group).length <= restCapacity && restrict(c, g2).length <= restCapacity);
   }
@@ -441,6 +458,17 @@ export function optimizeBase(input: OptimizerInput): OptimizerResult {
       if (n1 <= n2) { g1.push(id); n1 += head(id); } else n2 += head(id);
     }
     return g1;
+  }
+  /** The rooms in three groups with as even a head count as greedy can make: the change each rests on. */
+  function splitThree(crews: readonly BaseAssignments[]): Record<string, number> {
+    const head = (id: string) => Math.max(...crews.map(c => (c[id] ?? []).filter(Boolean).length));
+    const load = [0, 0, 0];
+    const rest: Record<string, number> = {};
+    for (const id of [...roomIds].sort((x, y) => head(y) - head(x) || (x < y ? -1 : 1))) {
+      const g = load.indexOf(Math.min(...load));
+      rest[id] = g; load[g] += head(id);
+    }
+    return rest;
   }
 
   // Candidate plans. Alternating teams: each team must fit the dorms whole. Staggered crews
@@ -482,15 +510,23 @@ export function optimizeBase(input: OptimizerInput): OptimizerResult {
       }
     }
   }
-  // Staggered: four distinct setups, more than the game holds unless the bound allows it.
-  if (MAX_ROTATION_SETUPS >= 4 && 2 * loginInterval <= 24) {
+  // Crews of which only part rests at a time (logins of 12 h or less): a crew works two steps running, so every
+  // place can be staffed and the dorms hold only whoever just came off shift.
+  if (2 * loginInterval <= 24) {
     const crewA = bestTeam(new Set(), Math.min(places, Math.ceil(owned.length / 2)));
     const crewB = bestTeam(new Set(operatorsIn(crewA)), places);
-    const group = split([crewA, crewB]);
-    for (let k = 1; 2 * k * loginInterval <= 24; k++) {
-      const plan: Plan = { shape: 'staggered', k, crews: [crewA, crewB], group, fiammetta: false };
-      if (fits(plan)) plans.push(plan);
+    // Staggered: four distinct setups, more than the game holds unless the bound allows it.
+    if (MAX_ROTATION_SETUPS >= 4) {
+      const group = split([crewA, crewB]);
+      for (let k = 1; 2 * k * loginInterval <= 24; k++) {
+        const plan: Plan = { shape: 'staggered', k, crews: [crewA, crewB], group, fiammetta: false };
+        if (fits(plan)) plans.push(plan);
+      }
     }
+    // Thirds: each room's main crew rests a different one of three staffing changes, so a third of the base
+    // rests at a time. Three setups, so it fits the game's presets where the staggered shape does not.
+    const plan: Plan = { shape: 'thirds', k: 1, crews: [crewA, crewB], group: [], fiammetta: false, thirds: { rest: splitThree([crewA, crewB]), mainB: [] } };
+    if (fits(plan)) plans.push(plan);
   }
   /** Fill one crew's empty support-room slots (CC, Office, Reception, Power Plant) with whichever candidate
    * gains the most immediate snapshot value, same greedy rule as tryFill below but for a single crew used
@@ -621,10 +657,11 @@ export function optimizeBase(input: OptimizerInput): OptimizerResult {
     // Not worth a simulation: more distinct setups than the game stores (the alternation always fits).
     if (exceedsSetups(shiftsOf(plan))) continue;
     const c = consider(plan);
-    const changes = (p: Plan) => (p.shape === 'staggered' ? 2 : p.shape === 'duty' ? p.duty! + 1 : p.shape === 'formations' ? p.formation!.crews.length : 1) / p.k;
+    const changes = (p: Plan) => (p.shape === 'staggered' ? 2 : p.shape === 'thirds' ? 3 : p.shape === 'duty' ? p.duty! + 1 : p.shape === 'formations' ? p.formation!.crews.length : 1) / p.k;
     if (!best || c.value > best.value * (1 + 1e-3) + EPS || (c.value >= best.value * (1 - 1e-3) - EPS && changes(plan) < changes(best.plan))) best = c;
   }
   const namesOf = () => best!.plan.crews.map(operatorsIn);
+  if (best!.plan.shape === 'thirds') notes.push('Each room\'s main crew works two staffing changes out of three and rests the third while the other crew covers it; rooms rest on different changes (the schedule shows which), so only a third of the base rests at a time.');
   if (best!.plan.shape === 'alternate' && namesOf()[1].length < namesOf()[0].length) notes.push(`The roster fills ${namesOf()[1].length} of ${namesOf()[0].length} places in the second team; its empty places stay empty while the first team rests.`);
 
   // Support rooms: greedy sees no output from a Power Plant (drones are not scored) and

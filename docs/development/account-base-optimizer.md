@@ -165,7 +165,9 @@ The game stores three base presets, so a rotation that needs more distinct setup
 be set up in the base. `MAX_ROTATION_SETUPS` in `rotationSetups.ts` is that bound, and
 `setupKey` says when two shifts are one preset (the same placements, products and
 settings; refills and reseats are login actions). The seed search skips the staggered
-shape (four setups) and any seed plan over the bound, both simulators score such a plan
+shape (four setups) and any seed plan over the bound; in its place the thirds shape is a
+seed of its own (each room's main crew rests a different one of three changes, so a third
+of the base rests at a time and every place can be staffed within three setups), both simulators score such a plan
 as unusable, the annealer screens its moves before simulating them, `genomeFromResult`
 refuses such plans, and `optimizeAccountBase` rejects any over it before it is shown
 (counted among the excluded rotations). A four-step duty (A, A, A, B) needs two presets
