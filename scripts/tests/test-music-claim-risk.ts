@@ -58,3 +58,17 @@ test('old releases and deployment fallbacks gain the artist flag before entering
     assert.deepEqual(queue.queue.map(song => song.id), ['allowed0001']);
   }
 });
+
+test('existing excluded performers and reported Adele recordings inherit exclusions', async () => {
+  for (const name of ['DJ Okawari','Ai Ninomiya','Kaori Sawada','Low Roar','Stephanie','AIYUE','Rina','Mili','ZOEE']) {
+    assert.equal(hasMusicClaimRisk({artist:name}),true,name);
+    assert.equal(hasMusicClaimRisk({credits:[{names:[name]}]}),true,name);
+    assert.equal(songAllowed({...safe,excludeCopyrighted:false},{artist:name}),true);
+  }
+  for(const name of ['Kirara Magic','Obadiah Brown-Beach','Elvin Shen','Sarah Kang','Adam Gubman','Rina Other'])assert.equal(hasMusicClaimRisk({artist:name}),false,name);
+  const misty=getAllSongsFull().filter(song=>['048708','306816','880333'].includes(song.songId));
+  assert.equal(misty.length,3);assert.ok(misty.every(song=>song.copyright));
+  const old=await loadMusicCatalogue('/old.json',undefined,async()=>({ok:true,status:200,json:async()=>({songs:misty.map(song=>({videoId:song.videoId,cid:song.songId,title:song.title,artist:song.artist}))})}));
+  const reported=old.filter(song=>['048708','306816','880333'].includes(song.cid??''));
+  assert.equal(reported.length,3);assert.ok(reported.every(song=>song.copyright));
+});

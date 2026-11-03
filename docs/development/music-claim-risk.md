@@ -39,3 +39,27 @@ performed. Do not treat that as proof that no community list exists.
 
 The previously considered rule excluding every non-MSR credited artist is deliberately
 not implemented: it also removes ordinary soundtrack collaborators and composers.
+
+## Existing exclusions and So Long, Adele — expanded 2026-11-03
+
+At the maintainer's request, artist rules now also cover the lead artists/performers
+of the catalogue's existing `copyright: yes` recordings:
+
+- DJ Okawari, Ai Ninomiya: Speed of Light and instrumental.
+- DJ Okawari, Kaori Sawada: Everything's Alright and instrumental.
+- DJ Okawari, Stephanie: Your Star and instrumental.
+- Low Roar: Feels.
+- AIYUE, Rina: Heavenly Me and instrumental.
+- Mili: Tie Hua Fei and HUA YU.
+
+ZOEE is added from the maintainer's report about So Long, Adele's Misty Memory lobby
+music. All three Misty Memory versions (day/night/acoustic) are excluded as a
+precaution; explicit MSR and YouTube IDs cover already-published compact catalogues
+that omit the performer credit. This is not evidence of a claim on every version.
+The other composers/arrangers/engineers on those recordings are not blanket-blocked.
+The artist association does not identify the claimant or establish that every
+recording by that performer triggers Content ID.
+
+Credits checked against the local catalogue, [Misty Memory's credits](https://arknights.wiki.gg/wiki/Misty_Memory),
+and [Heavenly Me's distributor credits](https://linkco.re/bC86aE72?lang=en).
+Magic Theorem (Adam Gubman / Sarah Kang) remains available.
