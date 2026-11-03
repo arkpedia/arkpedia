@@ -77,7 +77,8 @@ export interface ScheduleStep { hour: number; crewIn: { crew: number; rooms: str
  * crew fills the other places in each shift, so the best workers work all day and the rest rotate around them.
  * `staggered`: the rooms are in two halves that change crew on alternate staffing changes; a
  * crew works two steps, rests one in the dorms and waits one unassigned, so only half the base
- * rests at a time and the dorms do not cap how many places are staffed.
+ * rests at a time and the dorms do not cap how many places are staffed. Four staffing changes, so it is
+ * only tried when MAX_ROTATION_SETUPS allows four.
  * `thirds`: three staffing changes; each room's main crew works two of them and rests the third while the
  * other crew covers it, and rooms rest on different changes (the reference sheet's gold crews work two of its
  * three formations this way).
@@ -108,6 +109,11 @@ export interface OptimizerResult {
   /** calculateBase calls, snapshot and simulated together. */
   evaluations: number;
 }
+
+/** The most staffing templates a rotation may use: the game stores three base presets, so a plan with more
+ * shifts than that cannot be set up as one-tap presets in the base. Every shape, the genome, the annealing moves
+ * and the account search read this one bound. */
+export const MAX_ROTATION_SETUPS = 3;
 
 /** Rooms whose staff work (drain Morale) and can change output, directly or across rooms. */
 export const WORK_KINDS: FacilityKind[] = ['controlCenter', 'tradingPost', 'factory', 'powerPlant', 'receptionRoom', 'office'];
@@ -469,14 +475,16 @@ export function optimizeBase(input: OptimizerInput): OptimizerResult {
     const teamB = bestTeam(new Set(operatorsIn(teamA)), size);
     for (let k = 1; k * loginInterval <= 24 || k === 1; k++) plans.push({ shape: 'alternate', k, crews: [teamA, teamB], group: [], fiammetta: false });
     // Duty rotations: the best crew works two or three steps running, so it must fit the dorms to rest whole.
+    // A duty of d is d + 1 staffing changes, each its own setup in the game.
     if (size === restCapacity && input.duty !== false) {
-      for (const duty of [2, 3]) {
+      for (const duty of [2, 3].filter(d => d + 1 <= MAX_ROTATION_SETUPS)) {
         const plan: Plan = { shape: 'duty', k: 1, crews: [teamA, teamB], group: [], fiammetta: false, duty };
         if (fits(plan)) plans.push(plan);
       }
     }
   }
-  if (2 * loginInterval <= 24) {
+  // Staggered: four staffing changes, more setups than the game holds unless the bound allows it.
+  if (MAX_ROTATION_SETUPS >= 4 && 2 * loginInterval <= 24) {
     const crewA = bestTeam(new Set(), Math.min(places, Math.ceil(owned.length / 2)));
     const crewB = bestTeam(new Set(operatorsIn(crewA)), places);
     const group = split([crewA, crewB]);
@@ -576,7 +584,8 @@ export function optimizeBase(input: OptimizerInput): OptimizerResult {
     }
     for (const core of candidateCores) {
       const fixed: BaseAssignments = Object.fromEntries(rooms.map(f => [f.id, (crew0[f.id] ?? []).map(slot => slot && core.includes(slot.operatorName) ? slot : null)]));
-      for (const n of [2, 3]) {
+      // One shift per crew, so no more crews than the game has preset slots.
+      for (const n of [2, 3].filter(x => x <= MAX_ROTATION_SETUPS)) {
         // With this rotation (every non-working crew rests at once), n-1 crews are off duty simultaneously and
         // share the SAME restCapacity-1 beds (one kept for Fiammetta) -- each crew's own non-core size must be
         // capped by its SHARE of that total, not by the full amount, or n-1 crews' combined population can

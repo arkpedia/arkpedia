@@ -35,12 +35,12 @@ The search has two stages within the reader's search time (`searchSeconds`, 1/2/
 minutes on the page, default 1):
 
 1. **Seed.** `baseOptimizer.ts` builds a plan per layout: greedy crews, a menu of
-   rotation shapes (alternate, duty, staggered, formations, thirds) and its repair
-   passes. Product splits closest to one gold factory per Trading Post go first; this
+   rotation shapes (alternate, duty, formations, thirds; the four-change staggered
+   shape only if `MAX_ROTATION_SETUPS` ever allows four) and its repair passes. Product splits closest to one gold factory per Trading Post go first; this
    stage stops after about a third of the time, every layout having had one split.
 2. **Anneal.** The best one or two layouts are improved by simulated annealing
    (`annealBase.ts`) over a plan genome (`planGenome.ts`): two or three crews,
-   2 to 4 staffing changes, which crew staffs each room at each change,
+   2 or 3 staffing changes, which crew staffs each room at each change,
    Fiammetta's refill core, parked Morale (Dusk below 12), factory products and two
    dorm rules. Moves: a room's whole team from its best teams (`teamBlocks.ts`, which
    keeps synergies such as Shamare/Bibeak/Tequila or a Sui Control Center together),
@@ -156,8 +156,16 @@ repeated input creates no second Worker, and a stalled Worker is terminated at t
 The search still has limits: cross-room effects are evaluated for actual placements,
 and team blocks keep one room's synergies whole, but a synergy that spans several rooms
 is only found when the annealer reaches it. A genome expresses two or three crews over 2
-to 4 staffing changes (alternation, duty, thirds, the staggered shape and three distinct
-formations); longer rotations stay seed-only.
+or 3 staffing changes (alternation, a two-step duty, thirds and three distinct formations).
+
+### Preset slots
+
+The game stores three base presets, so a rotation of more than three shifts cannot be
+set up in the base. `MAX_ROTATION_SETUPS` in `baseOptimizer.ts` is that bound: the seed
+shapes skip a three-step duty and the staggered shape, the genome refuses longer plans,
+the annealer's step-count move stays within it, and `optimizeAccountBase` rejects any plan
+over it before it is shown (counted among the excluded rotations). Raising the constant is
+the one change needed should the game add a slot.
 
 ### Empty-room correction
 

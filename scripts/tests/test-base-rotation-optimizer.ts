@@ -5,7 +5,7 @@ import { defaultProductionSpots, getFacilities, presetLevels, presetSpots } from
 import { toBaseRosters } from '../../lib/base/baseGroupRosters';
 import { activeBaseSkills } from '../../lib/base/activeBaseSkills';
 import { calculateBase } from '../../lib/base/calculateBase';
-import { optimizeBase, DEFAULT_WEIGHTS, type OwnedOperator, type OptimizerResult } from '../../lib/base/baseOptimizer';
+import { optimizeBase, DEFAULT_WEIGHTS, MAX_ROTATION_SETUPS, type OwnedOperator, type OptimizerResult } from '../../lib/base/baseOptimizer';
 import type { SimulationBase } from '../../lib/base/baseSimulation';
 import type { FactoryProducts, FacilityLevels } from '../../lib/base/baseTypes';
 import groups from '../../data/base-group-rosters.json';
@@ -59,6 +59,7 @@ test('the optimizer only places owned operators, and only with the skills their 
   // FEater's Elite 2 skill replaces her base one; at Elite 0 she must be scored with the base one.
   const roster: Record<string, OwnedOperator> = { FEater: { eliteLevel: 'Base', level: 1 }, Adnachiel: { eliteLevel: 'Base', level: 1 }, Melantha: { eliteLevel: 'Elite 1', level: 1 } };
   const result = optimizeBase({ base: { ...shared, facilities: full243 }, roster, loginInterval: 12, factoryProducts: products243 });
+  assert(result.shifts.length <= MAX_ROTATION_SETUPS, `${result.shifts.length} shifts: more setups than the game stores`);
   for (const shift of result.shifts) for (const name of placed(shift.assignments)) assert(name in roster, `${name} is not owned`);
   for (const room of result.explanations) for (const op of room.operators) {
     const expected = activeBaseSkills(operators.find(o => o.name === op.name)!, full243.find(f => f.id === room.room)!.label, roster[op.name].eliteLevel, slots, roster[op.name].level).map(s => s.name);
@@ -88,15 +89,14 @@ for (const interval of [12, 24]) {
   });
 }
 
-test('with 12 h logins, staggered crews staff more places than two whole teams that must fit the dorms', { skip: !fullRosterEnabled }, () => {
-  const result = fullRun(12);
-  assert.equal(result.shape, 'staggered');
-  assert(placed(result.crews[0]).length > 20, `${placed(result.crews[0]).length} places`);
-  assert.equal(result.schedule.length, 4);
-  // Each half of the rooms changes crew every other step, so a crew works two steps.
-  assert.equal(result.workHours, 2 * result.stepHours);
-  // At 24 h logins the staggered shape would work a crew 48 h, so the teams alternate.
-  assert.equal(fullRun(24).shape, 'alternate');
+test('with 12 h logins a whole account still gets no more shifts than the game has preset slots', { skip: !fullRosterEnabled }, () => {
+  // The four-change staggered shape used to win here; it needs four presets, one more than the game stores.
+  for (const interval of [12, 24]) {
+    const result = fullRun(interval);
+    assert.notEqual(result.shape, 'staggered');
+    assert(result.schedule.length <= MAX_ROTATION_SETUPS, `${result.schedule.length} staffing changes`);
+    assert.equal(result.shifts.length, result.schedule.length);
+  }
 });
 
 test('every working operator is explained, and the explanation is the snapshot output lost without them', () => {

@@ -1,4 +1,4 @@
-import { WORK_KINDS } from './baseOptimizer';
+import { MAX_ROTATION_SETUPS, WORK_KINDS } from './baseOptimizer';
 import { crewAt, decode, evaluate, hasWorkingCollision, placeGenomeOperator, snapshotValue, splitCrew, type Evaluation, type Genome, type GenomeContext } from './planGenome';
 import { teamBlocks, type TeamBlock } from './teamBlocks';
 import type { BaseAssignments, SlotAssignment } from './baseTypes';
@@ -216,7 +216,7 @@ export function anneal(seedGenome: Genome, ctx: GenomeContext, opts: AnnealOptio
       n.refillLowest = random() < 0.7;
       return n;
     } }) },
-    // Parked Morale (Dusk below 12), the rest rule, empty-bed filling, two to four changes, a factory's product.
+    // Parked Morale (Dusk below 12), the rest rule, empty-bed filling, two to MAX_ROTATION_SETUPS changes, a factory's product.
     { weight: 2, make: () => ({ kind: 'setting', timing: true, apply: g => {
       const n = clone(g);
       const which = Math.floor(random() * 6);
@@ -225,8 +225,8 @@ export function anneal(seedGenome: Genome, ctx: GenomeContext, opts: AnnealOptio
       else if (which === 2) n.fillBeds = !n.fillBeds;
       else if (which === 5) { if (!n.core.length) return null; n.refillLowest = !n.refillLowest; }
       else if (which === 3) {
-        // Two, three or four changes; each room's pattern is carried over by position.
-        const next = pick([2, 3, 4].filter(x => x !== n.steps));
+        // Two up to MAX_ROTATION_SETUPS changes (the game's preset slots); each room's pattern is carried over by position.
+        const next = pick(Array.from({ length: MAX_ROTATION_SETUPS - 1 }, (_, i) => i + 2).filter(x => x !== n.steps));
         for (const id of roomIds) { const a = n.assign[id] ?? Array(n.steps).fill(0); n.assign[id] = Array.from({ length: next }, (_, s) => a[s] ?? a[a.length - 1]); }
         n.steps = next;
       }

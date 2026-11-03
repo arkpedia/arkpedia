@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { getAllOperators } from '../../lib/operators/operators';
 import { toBaseRosters } from '../../lib/base/baseGroupRosters';
-import { optimizeBase, type OwnedOperator } from '../../lib/base/baseOptimizer';
+import { MAX_ROTATION_SETUPS, optimizeBase, type OwnedOperator } from '../../lib/base/baseOptimizer';
 import { decode, evaluate, genomeFromResult, hasWorkingCollision, placeGenomeOperator, splitCrew, toOptimizerResult, type Genome, type GenomeContext } from '../../lib/base/planGenome';
 import { anneal, placesNobodyTwice } from '../../lib/base/annealBase';
 import { coreSeed } from '../../lib/base/coreSeed';
@@ -41,6 +41,8 @@ test('the annealer never returns worse than its seed, places nobody twice, and r
   }
   assert.equal(r.evaluation.sim.periodic, true);
   assert.equal(r.evaluation.sim.events.filter(e => e.kind === 'exhausted').length, 0);
+  // Never more setups than the game stores as presets, whatever the step-count move proposed.
+  assert.ok(r.genome.steps <= MAX_ROTATION_SETUPS, `${r.genome.steps} staffing changes`);
   // It renders like any other plan: one schedule step per staffing change, every working operator explained.
   const result = toOptimizerResult(r.genome, r.evaluation, ctx);
   assert.equal(result.schedule.length, r.genome.steps);
@@ -54,29 +56,36 @@ test('the same seed and round count give the same plan', () => {
   assert.deepEqual(a.genome, b.genome);
 });
 
-test('a staggered plan, whose schedule names only the rooms that change crew, reads back with each room\'s full pattern', () => {
-  // Rooms in the second half keep the second crew for two changes running; the schedule names them only when
-  // they change, and a room left unnamed keeps its crew (found 2026-10-30: it was read as the first crew).
+test('a plan whose schedule names only the rooms that change crew reads back with each room\'s full pattern', () => {
+  // A room keeps the second crew for two changes running; the schedule names it only when it changes, and a
+  // room left unnamed keeps its crew (found 2026-10-30: it was read as the first crew).
   const rooms = facilities.filter(f => f.kind === 'factory').slice(0, 2).map(f => f.id);
   const [a, b] = Object.keys(roster);
   const slot = (n: string) => ({ operatorName: n, eliteLevel: roster[n].eliteLevel, level: roster[n].level });
   const crewA = { [rooms[0]]: [slot(a), null, null], [rooms[1]]: [null, null, null] };
   const crewB = { [rooms[0]]: [slot(b), null, null], [rooms[1]]: [null, null, null] };
   const staff = (crew: 0 | 1) => crew ? crewB[rooms[0]] : crewA[rooms[0]];
-  const pattern = [0, 1, 1, 0] as const; // the second crew covers changes 2 and 3
+  const pattern = [0, 1, 1] as const; // the second crew covers changes 2 and 3
   const fake = {
-    ...today, shape: 'staggered' as const, crews: [crewA, crewB], stepHours: 12, initialMorale: undefined,
+    ...today, shape: 'thirds' as const, crews: [crewA, crewB], stepHours: 12, initialMorale: undefined,
     shifts: pattern.map(c => ({ ...today.shifts[0], refill: undefined, assignments: { ...today.shifts[0].assignments, [rooms[0]]: staff(c), [rooms[1]]: [null, null, null] } })),
     schedule: [
       { hour: 0, crewIn: [{ crew: 0, rooms: [rooms[0]] }], resting: [] },
       { hour: 12, crewIn: [{ crew: 1, rooms: [rooms[0]] }], resting: [] },
       { hour: 24, crewIn: [], resting: [] },
-      { hour: 36, crewIn: [{ crew: 0, rooms: [rooms[0]] }], resting: [] },
     ],
   };
   const g = genomeFromResult(fake, ctx)!;
-  assert.deepEqual(g.assign[rooms[0]], [0, 1, 1, 0]);
+  assert.deepEqual(g.assign[rooms[0]], [0, 1, 1]);
   assert.equal(g.crews[1][rooms[0]][0]?.operatorName, b);
+});
+
+test('a plan of more staffing changes than the game has preset slots is not a genome', () => {
+  // The game stores three base presets; a four-shift plan (the old staggered shape) cannot be set up as presets,
+  // so the annealer never starts from one (the user saw four-shift recommendations, 2026-11-03).
+  assert.equal(MAX_ROTATION_SETUPS, 3);
+  const four = { ...today, shifts: Array.from({ length: 4 }, () => today.shifts[0]), schedule: Array.from({ length: 4 }, (_, i) => ({ hour: i * 12, crewIn: [{ crew: i % 2, rooms: Object.keys(today.shifts[0].assignments) }], resting: [] })) };
+  assert.equal(genomeFromResult(four, ctx), null);
 });
 
 // A built roster with Fiammetta and the Shamare trio, small enough for CI: today's optimizer staffs a Trading Post

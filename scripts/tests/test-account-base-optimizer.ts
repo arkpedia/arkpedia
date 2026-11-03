@@ -4,7 +4,7 @@ import { getAllOperators } from '../../lib/operators/operators';
 import { toBaseRosters } from '../../lib/base/baseGroupRosters';
 import { optimizeAccountBase, optimizerLayouts, productOptions } from '../../lib/base/accountOptimizer';
 import { mergeAccountResults } from '../../lib/base/accountResults';
-import { sustainableOutput, optimizeBase } from '../../lib/base/baseOptimizer';
+import { MAX_ROTATION_SETUPS, sustainableOutput, optimizeBase } from '../../lib/base/baseOptimizer';
 import { ownedBaseRoster } from '../../lib/base/optimizerRoster';
 import { getFacilities, layoutProblems, presetLevels, presetSpots } from '../../lib/base/baseConfig';
 import type { AccountRecord } from '../../lib/account/accountStore';
@@ -147,6 +147,8 @@ test('an imported account gets funded, repeatable, owned-only recommendations at
     assert(result.recommendations.length > 0);
     assert.equal(progress.at(-1), 1);
     const recommendation = result.recommendations[0];
+    // Every recommendation can be set up as the game's presets: never more shifts than it has slots.
+    for (const r of result.recommendations) assert(r.plan.shifts.length <= MAX_ROTATION_SETUPS, `${r.label}: ${r.plan.shifts.length} shifts`);
     assert(recommendation.plan.simulation.periodic);
     assert(!recommendation.plan.simulation.events.some(e => e.kind === 'exhausted'));
     assert(recommendation.output.goldSold <= recommendation.output.goldMade + 1e-6);
@@ -175,6 +177,7 @@ test('a recommendation saved as a rotation recalculates to the yields the optimi
   }));
   const plan = { version: 1 as const, startHour: 8, externalGold: 0, drones: r.weights, ...(r.plan.initialMorale ? { parked: r.plan.initialMorale } : {}), ...(r.plan.refillPolicy ? { refillPolicy: r.plan.refillPolicy } : {}),
     shifts: presets.map((p, i) => ({ id: `s${i}`, presetId: p.id, hours: r.plan.stepHours, ...(r.plan.shifts[i].refill ? { refill: r.plan.shifts[i].refill } : {}), ...(r.plan.shifts[i].reseat ? { reseat: r.plan.shifts[i].reseat } : {}) })) };
+  assert.ok(presets.length <= MAX_ROTATION_SETUPS, `${presets.length} saved setups`);
   const rotation = calculateRotation(base, plan, presets as never, 12);
   assert.ok(rotation.totals);
   assert.ok(Math.abs(rotation.totals!.dailyExpGreen - r.output.exp) < 1, `EXP ${rotation.totals!.dailyExpGreen} vs ${r.output.exp}`);

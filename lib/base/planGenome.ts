@@ -1,16 +1,16 @@
 import { calculateBase } from './calculateBase';
 import { activeBaseSkills, cleanSkillName } from './activeBaseSkills';
 import { simulateBase, type SimulationBase, type SimulationResult, type SimulationShift } from './baseSimulation';
-import { DEFAULT_WEIGHTS, WORK_KINDS, sustainableOutput, type OptimizerResult, type OptimizerWeights, type OwnedOperator, type RoomExplanation, type ScheduleStep } from './baseOptimizer';
+import { DEFAULT_WEIGHTS, MAX_ROTATION_SETUPS, WORK_KINDS, sustainableOutput, type OptimizerResult, type OptimizerWeights, type OwnedOperator, type RoomExplanation, type ScheduleStep } from './baseOptimizer';
 import type { BaseAssignments, FactoryProducts, SlotAssignment } from './baseTypes';
 
 /**
  * A whole base plan as a few independent choices, so a search can change one at a time and the simulator
- * can score the result. Two or three crews staff the work rooms; over `steps` staffing changes (2 to 4)
- * `assign` says which crew staffs each room at each change. That expresses the alternation (2 steps), duty and
- * thirds (3: a room's main crew rests one change in three, all together or spread out), the staggered shape (4:
- * two halves of the base change crew in turn) and three distinct formations (three crews, as the reference
- * sheet runs). Core workers sit in the same room in every crew, so they work every change, refilled by
+ * can score the result. Two or three crews staff the work rooms; over `steps` staffing changes (2 up to
+ * MAX_ROTATION_SETUPS, the game's three preset slots) `assign` says which crew staffs each room at each change.
+ * That expresses the alternation (2 steps), duty and thirds (3: a room's main crew rests one change in three, all
+ * together or spread out) and three distinct formations (three crews, as the reference sheet runs); the staggered
+ * shape (4: two halves of the base change crew in turn) only when the bound allows four. Core workers sit in the same room in every crew, so they work every change, refilled by
  * Fiammetta. Parked operators start at a set Morale and wait rather than rest when off shift (Dusk below 12).
  */
 export interface Genome {
@@ -176,11 +176,11 @@ export function scoreOf(sim: SimulationResult, ctx: GenomeContext): number {
     - (sim.warnings.some(x => / twice\.$/.test(x)) ? 1e12 : 0);
 }
 
-/** Today's optimizer result as a genome, read from what was actually simulated. Null for a plan of more than four
- * staffing changes (a four-step duty and the staggered shape fit; a longer duty does not). */
+/** Today's optimizer result as a genome, read from what was actually simulated. Null for a plan of more
+ * staffing changes than the game has preset slots (MAX_ROTATION_SETUPS), or fewer than two. */
 export function genomeFromResult(result: OptimizerResult, ctx: GenomeContext): Genome | null {
   const steps = result.shifts.length;
-  if (steps < 2 || steps > 4) return null;
+  if (steps < 2 || steps > MAX_ROTATION_SETUPS) return null;
   const { rooms } = fixed(ctx);
   const roomIds = rooms.map(f => f.id);
   const crewIds = result.schedule.flatMap(step => step.crewIn.map(entry => entry.crew));
