@@ -84,7 +84,7 @@ for (const surface of ['home', 'event', 'schedule']) {
     await expect(dialog).toBeVisible();
     await expect(dialog.getByRole('button', { name: /^View full artwork/ })).toBeVisible();
     await expect(dialog.getByRole('link', { name: 'View in outfit gallery', exact: true })).toBeVisible();
-    await expect(dialog.getByText('Waiting for at least 10 contributors on this server.')).toBeVisible();
+    await expect(dialog.getByText('Waiting for at least 10 contributors across all regions.')).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(dialog).toHaveCount(0);
     await expect(card).toBeFocused();

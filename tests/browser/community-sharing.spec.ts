@@ -174,7 +174,7 @@ for(const theme of ['dark','light']){
     await expect(ownedBar).toHaveCSS('outline-style','solid');await expect(ownedBar).toHaveCSS('outline-width','1px');
     if(info.project.name==='mobile'){await page.setViewportSize({width:320,height:800});await stats.scrollIntoViewIfNeeded();await capture(page,`narrow-community-${theme}`,info);await checkDetails('Skill 1',{'Skill 1 M1':'20.0%'});}
     await capture(page,`small-community-${theme}`,info);await help(page,'How community percentages are calculated',info,`small-community-help-${theme}`);
-    empty=true;await choose(page,'Community stats server','Korea');await expect(owned).toHaveText('0.0%');
+    empty=true;await choose(page,'Community stats server','KR');await expect(owned).toHaveText('0.0%');
     await checkDetails('Skill 3',{'Skill 3 M3':'—'});await checkDetails('LOR-X',{'LOR-X Level 1':'—'});
     await expect(stats.getByText('— means no eligible owners with known data yet.',{exact:true})).toBeVisible();
   });
