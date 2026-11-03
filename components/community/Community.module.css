@@ -2,7 +2,8 @@
 .compact { font-size: 13px; gap: 10px; }
 .stats h2, .stats p { margin: 0; }
 .statsHeader { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
-.calculation { margin-left: auto; }
+.statsControls { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.calculation { min-width: 126px; }
 .iconLabel { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; }
 .metrics { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px 16px; margin: 0; }
 .metrics dt { display: flex; align-items: center; min-height: 32px; color: var(--text-dim); }

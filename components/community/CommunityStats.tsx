@@ -2,7 +2,6 @@ import { useEffect, useState, type ReactNode } from 'react';
 import OperatorGameIcon from '@/components/operators/OperatorGameIcon';
 import Image from '@/components/content/ContentImage';
 import { getSkillIconPath } from '@/lib/operators/operatorIconPaths';
-import SegmentedControl from '@/components/ui/SegmentedControl';
 import { COMMUNITY_MIN_SAMPLE, type CommunityStats as Stats } from '@/lib/community/model';
 import { SERVERS, type ServerId } from '@/lib/account-import/yostar';
 import StyledSelect from '@/components/ui/StyledSelect';
@@ -37,9 +36,11 @@ export default function CommunityStats({operator,skin,skills=0,skillNames=[],mod
         </ul>
         <p>Stats appear once this server has {COMMUNITY_MIN_SAMPLE} contributors; smaller owner groups are included. 0% means nobody in the eligible group has that upgrade. A dash means no eligible owners with known data. Small samples are for curiosity, not a picture of all players. Individual rosters and friend tags stay private.</p>
       </InfoPopover>
-      <StyledSelect label="Community stats server" value={server} onChange={v=>setServer(v as ServerId)} options={Object.entries(SERVERS).map(([value,s])=>({value,label:s.label}))} />
     </div>
-      {operator&&<SegmentedControl className={styles.calculation} label="Percentage calculation" value={mode} onChange={setMode} options={[{value:'exclusive',label:'Exclusive',title:'Count only the exact promotion or module level'},{value:'cumulative',label:'Cumulative',title:'Include higher promotions and module levels'}]} />}
+    <div className={styles.statsControls}>
+      <StyledSelect label="Community stats server" value={server} onChange={v=>setServer(v as ServerId)} options={Object.entries(SERVERS).map(([value,s])=>({value,label:s.label}))} />
+      {operator&&<button type="button" className={`filter-chip ${styles.calculation}`} aria-label="Cumulative percentages" aria-pressed={mode==='cumulative'} title={mode==='exclusive'?'Exclusive: exact levels. Switch to cumulative to include higher levels.':'Cumulative: includes higher levels. Switch to exclusive for exact levels.'} onClick={()=>setMode(current=>current==='exclusive'?'cumulative':'exclusive')}>{mode==='exclusive'?'Exclusive':'Cumulative'}<span aria-hidden="true"> ⇄</span></button>}
+    </div>
     </div>
     {error?<p role="status">{error} <button type="button" className="ghost btn-sm" onClick={()=>setRetry(v=>v+1)}>Retry</button></p>:!data?<p role="status">Loading community stats…</p>:<>
       <p>{data.contributors} contributors{data.owned!==null?` · ${data.owned} owners`:''}</p>
