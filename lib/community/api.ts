@@ -126,12 +126,13 @@ async function stats(req:NextApiRequest,res:NextApiResponse,db:D1Database){
     return res.json({contributors,owned:row?.owned??0,equipmentOwners:row?.equipmentOwners??0,equipped:row?.equipped??0});
   }
   // All E2 owners qualify, including low or unknown character levels.
-  // Retain the previous cohorts for already-open clients during deployments.
+  // Retain the previous cumulative cohorts for already-open clients during deployments.
   const levels=[0,40,50,60];
   const moduleColumns=levels.flatMap(level=>{
+    const comparison=level===0?'=':'>=';
     const eligible=level===0?'o.elite=2':`o.elite=2 AND o.level>=${level}`;
     return [`COALESCE(sum(CASE WHEN ${eligible} THEN 1 ELSE 0 END),0) AS eligible${level}`,
-      ...Array.from({length:8},(_,i)=>[1,2,3].map(stage=>`COALESCE(sum(CASE WHEN ${eligible} AND json_extract(o.modules,'$."${i}"')>=${stage} THEN 1 ELSE 0 END),0) AS mod${level}_${i}_${stage}`).join(','))];
+      ...Array.from({length:8},(_,i)=>[1,2,3].map(stage=>`COALESCE(sum(CASE WHEN ${eligible} AND json_extract(o.modules,'$."${i}"')${comparison}${stage} THEN 1 ELSE 0 END),0) AS mod${level}_${i}_${stage}`).join(','))];
   }).join(',');
   const row=await db.prepare(`SELECT count(*) AS owned,count(o.elite) AS builds,COALESCE(sum(o.elite=1),0) AS e1,COALESCE(sum(o.elite=2),0) AS e2,COALESCE(sum(o.elite=2 AND o.m0=3),0) AS s0,COALESCE(sum(o.elite=2 AND o.m1=3),0) AS s1,COALESCE(sum(o.elite=2 AND o.m2=3),0) AS s2,${moduleColumns}
     FROM community_operator o JOIN community_account a ON a.userId=o.userId WHERE o.operator=? AND a.stats=1 AND a.server=?`).bind(operator,server).first<Record<string,number>>();

@@ -17,7 +17,7 @@ a local game import and leaves a minimal tombstone so an in-flight publication c
 Statistics project only ownership, builds and outfit state. They use each opted-in game account’s latest import, regardless of age. Statistics appear
 once a server has 10 contributors; owner, E2 and equipped-outfit groups
 have no additional minimum. Module percentages use all E2 owners, including low or unknown character levels.
-Module counts are cumulative: Level 1+ includes Levels 2 and 3, and Level 2+ includes Level 3. Zero counts in nonempty groups display as 0%; empty or
+Module levels are exact, mutually exclusive counts: a Level 3 module counts only toward Level 3. Zero counts in nonempty groups display as 0%; empty or
 unknown groups remain unavailable rather than representing 0/0 as a percentage. Canonical roster masteries include the next mastery in training,
 as requested; the support finder instead uses the actual selected support skill's completed mastery.
 The server stores a keyed fingerprint of server/UID to deduplicate game accounts, not the raw UID.

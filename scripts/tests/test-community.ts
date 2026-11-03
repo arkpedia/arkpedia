@@ -47,7 +47,7 @@ test('community projection excludes private fields, counts in-progress M3 and ke
   assert.throws(()=>parseCommunitySnapshot({...projected,supports:[{...projected.supports[0],skill:null}]},all,clock));
   assert.equal(privateStats.slots,null);
 });
-test('masteries and cumulative modules use all E2 owners including low and unknown character levels',async()=>{
+test('masteries and exact module levels use all E2 owners including low and unknown character levels',async()=>{
   const h=harness();
   try{
     for(let i=0;i<26;i++){
@@ -61,15 +61,16 @@ test('masteries and cumulative modules use all E2 owners including low and unkno
     assert.equal(op.builds,26);assert.equal(op.masteryOwners,21);assert.deepEqual(op.skills,[0,0,8]);
     assert.deepEqual(op.moduleGroups.map((g:any)=>[g.level,g.owners]),[[40,11],[50,11],[60,10]]);
     assert.deepEqual(op.moduleGroups.find((g:any)=>g.level===60).modules[0],[10,5,5]);
-    assert.equal(op.moduleOwners,21);assert.deepEqual(op.modules[0],[11,6,5]);
+    assert.equal(op.moduleOwners,21);assert.deepEqual(op.modules[0],[5,1,5]);
+    assert.equal(op.modules[0].reduce((sum:number,n:number)=>sum+n,0),11);
     // E2 Lv1, Lv59 and unknown levels qualify; E1 Lv80 does not.
-    // Lv2 counts toward Lv1, and Lv3 counts toward both Lv1 and Lv2.
+    // Each module belongs to exactly one level; higher levels do not inflate lower ones.
     await h.call('sharing','relative0','DELETE',{});
     const smaller=(await h.call('stats',null,'GET',undefined,{server:'en',operator:'Thorns'})).result;
     assert.equal(smaller.masteryOwners,20);
     assert.equal(smaller.moduleGroups.find((g:any)=>g.level===60).owners,9);
     assert.equal(smaller.moduleGroups.find((g:any)=>g.level===50).owners,10);
-    assert.equal(smaller.moduleOwners,20);assert.deepEqual(smaller.modules[0],[10,6,5]);
+    assert.equal(smaller.moduleOwners,20);assert.deepEqual(smaller.modules[0],[4,1,5]);
   }finally{h.sqlite.close();}
 });
 
@@ -110,6 +111,7 @@ test('statistics retain older latest imports, replace rather than duplicate them
     const current=await operator();
     assert.equal(current.contributors,10);assert.equal(current.owned,10);assert.equal(current.skills[2],9);
     assert.deepEqual(current.moduleGroups.find((g:any)=>g.level===60).modules[0],[10,10,9]);
+    assert.deepEqual(current.modules[0],[0,1,9]);
     assert.equal((await outfit()).equipped,9);
     assert.equal((await h.call('supports',null,'GET',undefined,{server:'en'})).result.listings.length,1);
     assert.equal((await h.call('sharing','historic0','PUT',{revision:2,action:'refresh',choices:all,snapshot:{...snapshot('900'),importedAt:oldDate}})).status,409);

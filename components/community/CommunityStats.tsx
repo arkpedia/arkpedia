@@ -25,7 +25,7 @@ export default function CommunityStats({operator,skin,skills=0,modules=[]}:{oper
           {operator&&<>
             <li>E1 / E2: among owners with known promotions.</li>
             <li>M3: among E2 owners, including M3 training in progress.</li>
-            <li>Modules: among all E2 owners, regardless of character level. Level 1+ includes Levels 2 and 3; Level 2+ includes Level 3.</li>
+            <li>Modules: among all E2 owners, regardless of character level. Each module counts only at its current level: Level 3 does not also count as Level 1 or 2.</li>
           </>}
           {skin&&<li>Equipped: among outfit owners with known equipped-outfit data.</li>}
         </ul>
@@ -39,7 +39,7 @@ export default function CommunityStats({operator,skin,skills=0,modules=[]}:{oper
         {metric('Owned',data.owned,data.contributors)}
         {operator&&<>{metric('E1',data.e1,data.builds)}{metric('E2',data.e2,data.builds)}
           {Array.from({length:Math.min(skills,3)},(_,i)=>metric(`Skill ${i+1} M3`,data.skills?.[i],data.masteryOwners))}
-          {modules.flatMap(module=>[1,2,3].map(stage=>metric(`${module.label} Level ${stage}${stage<3?'+':''}`,data.modules?.[module.index]?.[stage-1],data.moduleOwners)))}</>}
+          {modules.flatMap(module=>[1,2,3].map(stage=>metric(`${module.label} Level ${stage}`,data.modules?.[module.index]?.[stage-1],data.moduleOwners)))}</>}
         {skin&&metric('Equipped',data.equipped,data.equipmentOwners)}
       </dl>}
       {data.owned!==null&&((operator&&(!data.builds||skills>0&&!data.masteryOwners||modules.length>0&&!data.moduleOwners))||(skin&&!data.equipmentOwners))&&<p>— means no eligible owners with known data yet.</p>}
