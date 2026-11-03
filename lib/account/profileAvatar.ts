@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { fetchAsset } from '@/lib/assets/assetRetry';
+import { useCloudSync } from '@/lib/cloud-account/SyncProvider';
 import { useContentUrl } from '@/lib/content/context';
 
-// Intentionally browser-only. Adding this to CLOUD_KEYS would change the sync
-// contract for held clients. Do not add it to BACKUP_STORES implicitly either.
+// Guest choice only. Signed-in pictures belong to the account profile, outside
+// replaceable cloud saves so older clients cannot erase them.
 export const PROFILE_AVATAR_KEY = 'arkpedia:profile-avatar-v1';
 const EVENT = 'arkpedia:profile-avatar';
 /** The icons a reader may choose, and each base-skill icon's facility: data/profile-avatars.json, served as public/profile-avatars.json,
@@ -40,23 +41,27 @@ export async function saveProfileAvatar(id: string | null, catalogueUrl: string)
   window.dispatchEvent(new Event(EVENT));
 }
 export function useProfileAvatar(): string | null {
-  const [avatar, setAvatar] = useState<string | null>(null);
+  const sync = useCloudSync();
+  const owner = sync.remote?.user.id;
+  const accountAvatar = sync.remote?.profile?.avatarId ?? null;
+  const identity = owner ? `account:${owner}:${accountAvatar ?? ''}` : sync.status === 'loading' ? 'loading' : 'guest';
+  const [avatar, setAvatar] = useState<{ identity: string; id: string | null } | null>(null);
   const catalogueUrl = useContentUrl()(AVATAR_CATALOGUE);
   useEffect(() => {
     let generation = 0;
     const read = async () => {
       const version = ++generation;
       let id: string | null = null;
-      try { id = localStorage.getItem(PROFILE_AVATAR_KEY); } catch { /* Storage can be disabled. */ }
+      try { id = owner ? accountAvatar : sync.status === 'loading' ? null : localStorage.getItem(PROFILE_AVATAR_KEY); } catch { /* Storage can be disabled. */ }
       // Never turn a storage value into a URL before exact catalogue validation.
       let allowed = false;
       try { allowed = !!id && id.length < 512 && (await avatarCatalogue(catalogueUrl)).icons.includes(id); } catch { /* Render the safe default if the catalogue is unavailable. */ }
-      if (version === generation) setAvatar(allowed ? id : null);
+      if (version === generation) setAvatar({ identity, id: allowed ? id : null });
     };
     void read();
     window.addEventListener(EVENT, read);
     window.addEventListener('storage', read);
     return () => { generation++; window.removeEventListener(EVENT, read); window.removeEventListener('storage', read); };
-  }, [catalogueUrl]);
-  return avatar;
+  }, [catalogueUrl, owner, accountAvatar, sync.status, identity]);
+  return avatar?.identity === identity ? avatar.id : null;
 }

@@ -2,17 +2,21 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { useAccount } from '@/lib/account/accountStore';
 import { normalizeUsername, type AccountProfile } from '@/lib/cloud-account/profile';
 import { SERVERS } from '@/lib/account-import/yostar';
+import InfoPopover from '@/components/ui/InfoPopover';
 import styles from './CloudAccountPanel.module.css';
 
 export default function AccountProfileForm({ owner, profile, onSaved, onCancel, gameSync = false, paused = false, id = 'setup', onboarding = false, onSwitchAccount, busy = false }: {
   owner: string; profile: AccountProfile | null; onSaved: () => Promise<void>; onCancel?: () => void; gameSync?: boolean; paused?: boolean; id?: string; onboarding?: boolean; onSwitchAccount?: () => void; busy?: boolean;
 }) {
   const imported = useAccount();
+  const friendTag = imported?.doctor ?? profile?.friendTag ?? '';
+  const friendServer = imported?.doctor ? imported.server : profile?.friendServer ?? null;
   const [username, setUsername] = useState(profile?.username ?? '');
   const [availability, setAvailability] = useState<'idle' | 'checking' | 'available' | 'taken' | 'invalid'>('idle');
   const [hint, setHint] = useState(''), [error, setError] = useState(''), [saving, setSaving] = useState(false);
   useEffect(() => {
     setHint('');
+    if (profile && username === profile.username) { setAvailability('available'); return; }
     if (!username) { setAvailability('idle'); return; }
     try { normalizeUsername(username); }
     catch (error) { setAvailability('invalid'); setHint((error as Error).message); return; }
@@ -30,14 +34,14 @@ export default function AccountProfileForm({ owner, profile, onSaved, onCancel, 
       }
     }, 350);
     return () => { clearTimeout(timer); controller.abort(); };
-  }, [username]);
+  }, [username, profile]);
   async function submit(event: FormEvent) {
     event.preventDefault();
     if (saving || busy || availability !== 'available') return;
     setSaving(true); setError('');
     try {
       const response = await fetch('/api/account-profile', { method: 'PUT', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ owner, username, friendTag:imported?.doctor??'', friendServer:imported?.doctor?imported.server:null }) });
+        body: JSON.stringify({ owner, username, friendTag, friendServer }) });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error);
       await onSaved();
@@ -45,19 +49,22 @@ export default function AccountProfileForm({ owner, profile, onSaved, onCancel, 
     finally { setSaving(false); }
   }
   return <form className={styles.form} onSubmit={event => void submit(event)}>
-    {!profile && <><h3>Choose your Arkpedia username</h3><p>{onboarding ? "Your Google or Discord name stays private. You can choose a profile picture later. Your friend tag comes from your game import." : "Your Google or Discord name won’t be used. Your existing logins and saves stay with this account."}</p></>}
-    <label htmlFor={`${id}-username`}>Arkpedia username</label>
+    {!profile && <><h3>Choose your Arkpedia username</h3><p>{onboarding ? "Choose how you appear on Arkpedia. Your Google or Discord name stays private." : "Your Google or Discord name won’t be used. Your existing logins and saves stay with this account."}</p></>}
+    {profile && <p>Your name on Arkpedia. This does not change your in-game name.</p>}
+    <div className={styles.choiceHeading}><label htmlFor={`${id}-username`}>Arkpedia username</label>
+      <InfoPopover label="Username rules"><p>Use 3–40 characters: letters, numbers, spaces, dots, underscores or hyphens. A #number can go at the end.</p><p>Names must be unique, regardless of capitalisation. You can use letters from any language.</p></InfoPopover>
+    </div>
     <input type="text" id={`${id}-username`} autoComplete="username" value={username} maxLength={80} required disabled={saving || busy}
-      placeholder="Doctor#1234 or a name of your choice" aria-describedby={`${id}-username-hint ${id}-availability`}
+      placeholder="Choose a username" aria-describedby={`${id}-availability`}
       aria-invalid={availability === 'taken' || availability === 'invalid'} onChange={event => { setUsername(event.target.value); setError(''); }} />
-    <p id={`${id}-username-hint`} className="hint">Unique on Arkpedia, ignoring letter case. 3–40 characters; non-Latin names are welcome.</p>
-    <p id={`${id}-availability`} className="hint" role="status">{availability === 'checking' ? 'Checking availability…' : hint}</p>
-    {imported?.doctor && <div className={styles.suggestion}>
-      <span>Use your imported Doctor name?</span>
-      <button type="button" className="ghost btn-sm" disabled={saving || busy} onClick={() => setUsername(imported.doctor!)}>Use {imported.doctor}</button>
+    <p id={`${id}-availability`} className={`hint ${styles.availability}`} role="status">{availability === 'checking' ? 'Checking availability…' : hint}</p>
+    {imported?.doctor && username !== imported.doctor && <div className={styles.suggestion}>
+      <button type="button" className="ghost btn-sm" disabled={saving || busy} onClick={() => setUsername(imported.doctor!)}>Use game name: {imported.doctor}</button>
     </div>}
-    {!onboarding && <><p>Imported friend tag: <strong>{imported?.doctor??'No game account imported'}</strong>{imported?` · ${SERVERS[imported.server].label}`:''}</p>
-    <p className="hint">Uses your game import. Sharing it publicly is a separate choice under Account settings → Community.</p></>}
+    {!onboarding && <div className={styles.welcome}>
+      <div className={styles.choiceHeading}><span>Arknights friend tag</span><InfoPopover label="About your friend tag"><p>Read from your latest game import. To update it, import again after changing your name in Arknights.</p><p>Your tag is only listed in the support finder if you enable sharing under Community.</p></InfoPopover></div>
+      <p>{friendTag && friendServer ? <><strong>{friendTag}</strong> · {SERVERS[friendServer].label}</> : 'Import your game account to add your friend tag.'}</p>
+    </div>}
     {!profile && !onboarding && <p className="hint">{paused ? 'Cloud saving is paused. Choosing a username will not resume it.' : gameSync
       ? 'Your existing saving choices are kept. Control personal data, pull history and imported game snapshots separately in Account settings → Saving.'
       : 'Personal settings and plans save by default. Pull history and imported game snapshots each need a separate opt-in under Account settings → Saving.'}</p>}

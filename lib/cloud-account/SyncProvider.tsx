@@ -15,6 +15,7 @@ const MARKER = 'arkpedia:cloud-sync-v1';
 type Status = 'loading' | 'unavailable' | 'signed-out' | 'setup' | 'consent' | 'choice' | 'ready' | 'paused' | 'error';
 interface SyncState { status: Status; remote: Remote | null; providers: string[]; message: string }
 interface SyncContext extends SyncState {
+  saveAvatar: (avatarId: string | null) => Promise<void>;
   refresh: () => Promise<void>; choose: (source: 'browser' | 'cloud') => Promise<void>;
   reviewChoices: (choices: { personalSync: boolean; historySync: boolean; gameSync: boolean }) => Promise<boolean>;
   consent: (enabled: boolean, category?: 'gameSync' | 'historySync' | 'personalSync') => Promise<void>; erase: () => Promise<void>;
@@ -47,6 +48,7 @@ async function request(method = 'GET', body?: unknown, known?: Remote | null) {
 
 const DISABLED: SyncContext = {
   status: 'unavailable', remote: null, providers: [], message: '',
+  saveAvatar: async () => { throw new Error('Sign in to save a profile picture.'); },
   refresh: async () => {}, choose: async () => {}, reviewChoices: async () => true, consent: async () => {},
   erase: async () => {}, pause: () => {}, resume: async () => {},
 };
@@ -208,10 +210,21 @@ function EnabledCloudSyncProvider({ children, onRestore }: { children: ReactNode
     finally { busy.current = false; }
     if (method === 'PATCH') await refresh();
   }
+  async function saveAvatar(avatarId: string | null) {
+    const owner = stateRef.current.remote?.user.id;
+    if (!owner || !stateRef.current.remote?.profile) throw new Error('Finish account setup before choosing a picture.');
+    const response = await fetch('/api/account-profile', { method: 'PATCH', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ owner, avatarId }) });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error ?? 'Your picture could not be saved. Try again.');
+    const current = stateRef.current;
+    if (current.remote?.user.id !== owner) throw new Error('Your signed-in account changed. Reopen account settings.');
+    show({ ...current.remote, profile: result.profile }, current.status, current.message);
+  }
   // Retain the previous owner so another account cannot silently inherit these saves.
   function pause() { paused.current = true; }
   async function resume() { paused.current = false; await refresh(); }
-  return <Context.Provider value={{ ...state, refresh, choose, reviewChoices, consent: (enabled, category) => mutate('PATCH', enabled, category), erase: () => mutate('DELETE'), pause, resume }}>{children}</Context.Provider>;
+  return <Context.Provider value={{ ...state, saveAvatar, refresh, choose, reviewChoices, consent: (enabled, category) => mutate('PATCH', enabled, category), erase: () => mutate('DELETE'), pause, resume }}>{children}</Context.Provider>;
 }
 
 export function useCloudSync() {

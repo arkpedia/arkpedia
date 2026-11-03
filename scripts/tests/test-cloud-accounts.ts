@@ -249,6 +249,7 @@ test('authenticated API enforces isolation, origin, consent, revisions and casca
   assert.ok(!JSON.stringify(initial.result).includes('arkpedia@example.invalid'));
   assert.equal((await call('PUT', { revision: 0, data: {} })).status, 428);
   sqlite.prepare('INSERT INTO arkpedia_profile (userId, username, usernameKey, updatedAt) VALUES (?, ?, ?, ?)').run(user.id, 'Test#1234', 'test#1234', new Date().toISOString());
+  sqlite.prepare('UPDATE arkpedia_profile SET avatarId = ? WHERE userId = ?').run('six-star-icons/Suzuran - Base.webp', user.id);
   sqlite.prepare('UPDATE cloud_save SET syncReviewed = 1, personalSync = 1 WHERE userId = ?').run(user.id);
   assert.equal((await call('PUT', { owner: 'previous-user', revision: 0, data: { musicFavorites: ['private'] } })).status, 409);
   assert.equal((await call('PUT', { revision: 0, data: { arkpediaAccount: account } })).status, 400);
@@ -263,6 +264,7 @@ test('authenticated API enforces isolation, origin, consent, revisions and casca
   assert.equal(sqlite.prepare('SELECT count(*) AS n FROM cloud_save WHERE userId = ?').get(user.id)?.n, 1);
   assert.equal(sqlite.prepare('SELECT count(*) AS n FROM cloud_save WHERE userId = ?').get('someone-else')?.n, 0);
   assert.equal((await call('DELETE', { revision: 4 })).status, 200);
+  assert.equal(((await call('GET')).result.profile as { avatarId: string }).avatarId, 'six-star-icons/Suzuran - Base.webp', 'profile pictures survive snapshot replacement and cloud-save deletion');
   assert.equal((await call('GET')).result.paused, true);
   assert.equal((await call('PUT', { revision: 4, data: { musicFavorites: ['old'] } })).status, 409);
   assert.equal((await call('PUT', { revision: 5, data: { musicFavorites: ['resumed'] } })).status, 200);
@@ -391,6 +393,23 @@ test('profile claims are authenticated, unique under races, owner-bound and pres
     assert.equal(sqlite.prepare('SELECT payload FROM cloud_save WHERE userId = ?').get(user.id)?.payload, '{"musicFavorites":["kept"]}');
     assert.equal(sqlite.prepare('SELECT revision FROM cloud_save WHERE userId = ?').get(user.id)?.revision, 4);
   }
+  const avatarId = 'six-star-icons/Suzuran - Base.webp';
+  assert.equal((await call(winner.user.id, '', 'PATCH', { avatarId })).status, 401);
+  assert.equal((await call(winner.user.id, winner.cookie, 'PATCH', { avatarId }, 'https://evil.invalid')).status, 403);
+  assert.equal((await call(loser.user.id, winner.cookie, 'PATCH', { avatarId })).status, 409);
+  assert.equal((await call(loser.user.id, loser.cookie, 'PATCH', { avatarId })).status, 409, 'a username is required');
+  for (const avatarId of ['https://evil.invalid/avatar.png', 'six-star-icons/../../secret.png', 'six-star-icons/not-in-catalogue.webp', 5, undefined]) {
+    assert.equal((await call(winner.user.id, winner.cookie, 'PATCH', { avatarId })).status, 400);
+  }
+  const changed = await call(winner.user.id, winner.cookie, 'PATCH', { avatarId });
+  assert.equal(changed.status, 200);
+  assert.equal((changed.result.profile as { avatarId: string }).avatarId, avatarId);
+  assert.equal(sqlite.prepare('SELECT avatarId FROM arkpedia_profile WHERE userId = ?').get(winner.user.id)?.avatarId, avatarId);
+  assert.equal((await call(winner.user.id, winner.cookie, 'PUT', { username: winner.username })).status, 200);
+  assert.equal(sqlite.prepare('SELECT avatarId FROM arkpedia_profile WHERE userId = ?').get(winner.user.id)?.avatarId, avatarId, 'older username writes preserve the picture');
+  assert.equal(sqlite.prepare('SELECT payload FROM cloud_save WHERE userId = ?').get(winner.user.id)?.payload, '{"musicFavorites":["kept"]}');
+  assert.equal((await call(winner.user.id, winner.cookie, 'PATCH', { avatarId: null })).status, 200);
+  assert.equal(sqlite.prepare('SELECT avatarId FROM arkpedia_profile WHERE userId = ?').get(winner.user.id)?.avatarId, null, 'default is saved, not a missing update');
   assert.equal((await call(loser.user.id, winner.cookie, 'DELETE', { confirmation })).status, 409);
   assert.equal((await call(winner.user.id, winner.cookie, 'DELETE', { confirmation: 'wrong' })).status, 400);
   sqlite.prepare('UPDATE session SET createdAt = ? WHERE id = ?').run(new Date(Date.now() - 600_000).toISOString(), winner.session.id);
