@@ -39,6 +39,11 @@ const key = (g: Genome) => JSON.stringify([g.steps, g.k, !!g.refillLowest, Objec
 
 type Move = { kind: string; timing: boolean; apply: (g: Genome) => Genome | null };
 const BLOCK_REFRESH = 40;
+/** Every this many refreshes a crew's blocks are enumerated in full; the refreshes between re-rank the blocks
+ * found, with the combinations over a shorter shortlist, in the crew as it now stands (about a fifth of the
+ * cost: a full build on a maxed roster scores some five thousand placements, most of them teams a refresh
+ * would rank the same). */
+const FULL_BUILD_EVERY = 3;
 
 export function anneal(seedGenome: Genome, ctx: GenomeContext, opts: AnnealOptions): AnnealResult {
   const random = rng(opts.seed ?? 1);
@@ -56,7 +61,8 @@ export function anneal(seedGenome: Genome, ctx: GenomeContext, opts: AnnealOptio
   const score = (g: Genome): Evaluation => {
     const k = key(g);
     let e = cache.get(k);
-    if (!e) { e = evaluate(g, ctx); cache.set(k, e); simulations++; }
+    // Lean: the search reads the score, events and warnings, never the Morale trace.
+    if (!e) { e = evaluate(g, ctx, true); cache.set(k, e); simulations++; }
     return e;
   };
   // The snapshot proxy: every change's working staff, scored at full Morale, summed.
@@ -75,14 +81,22 @@ export function anneal(seedGenome: Genome, ctx: GenomeContext, opts: AnnealOptio
 
   // A team's worth depends on the rest of the base it works beside (a Control Center for the crew it supports, a
   // factory beside the Trading Posts of its crew), so each crew draws from blocks built in its own context, and the
-  // blocks are rebuilt every BLOCK_REFRESH rounds as the crews change (about a second each on a maxed roster).
-  let blocksFor = new Map<string, Record<string, TeamBlock[]>>();
+  // blocks are rebuilt every BLOCK_REFRESH rounds as the crews change (about a second each on a maxed roster) --
+  // only where the crew did change: a crew the search left alone keeps its blocks, which would come out the same.
+  const blocksFor = new Map<string, { crew: string; epoch: number; blocks: Record<string, TeamBlock[]> }>();
   let epoch = 0;
+  const crewKey = (crew: BaseAssignments) => roomIds.map(id => (crew[id] ?? []).map(s => s?.operatorName ?? '').join(',')).join(';');
   const blocks = (g: Genome, c: number) => {
     const k = `${JSON.stringify(g.products)}|${c}`;
+    const crew = crewKey(g.crews[c]);
     let b = blocksFor.get(k);
-    if (!b) { b = teamBlocks(ctx, g.crews[c], g.products, { top: 16 }); blocksFor.set(k, b); }
-    return b;
+    if (!b || (b.epoch !== epoch && b.crew !== crew)) {
+      const full = !b || epoch % FULL_BUILD_EVERY === 0;
+      b = { crew, epoch, blocks: full ? teamBlocks(ctx, g.crews[c], g.products, { top: 16 }) : teamBlocks(ctx, g.crews[c], g.products, { top: 16, shortlist: 8, maxCombos: 400, known: b!.blocks }) };
+      blocksFor.set(k, b);
+    }
+    b.epoch = epoch;
+    return b.blocks;
   };
 
   // A block can take workers from several rooms. Give its displaced workers and a
@@ -255,7 +269,7 @@ export function anneal(seedGenome: Genome, ctx: GenomeContext, opts: AnnealOptio
   let round = 0, sinceBest = 0;
   while (Date.now() - start < opts.timeMs && sinceBest < patience && round < (opts.maxRounds ?? Infinity) && !opts.shouldStop?.()) {
     round++; sinceBest++;
-    if (Math.floor(round / BLOCK_REFRESH) !== epoch) { epoch = Math.floor(round / BLOCK_REFRESH); blocksFor = new Map(); }
+    epoch = Math.floor(round / BLOCK_REFRESH);
     const progress = Math.min(1, (Date.now() - start) / opts.timeMs);
     const temperature = t0 * Math.pow(t1 / t0, progress);
     const staffing: { g: Genome; kind: string; p: number }[] = [];
@@ -288,7 +302,7 @@ export function anneal(seedGenome: Genome, ctx: GenomeContext, opts: AnnealOptio
     // Stuck in a worse region for a while: go back to the best plan.
     if (sinceBest > 0 && sinceBest % 60 === 0) current = best;
   }
-  blocksFor = new Map();
+  blocksFor.clear();
   return { genome: best.genome, evaluation: best.e, rounds: round, simulations, improvements };
 }
 

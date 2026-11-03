@@ -73,6 +73,9 @@ export interface SimulationInput {
    * or two reuses every other shift's rates. Keyed by each shift's whole staffing, so a plan never reads another's;
    * only for simulations of one base. Cleared when it grows past RATE_CACHE_LIMIT entries. */
   rateCache?: Map<string, unknown>;
+  /** Skip the Morale trace and per-login Morale: a search scores many plans and reads neither (the score, events
+   * and warnings are the same). */
+  lean?: boolean;
   /** Recalculate whenever anyone crosses any Morale level, not only the levels their rates read: the old, slower way,
    * kept for the check that both give the same results (test-base-simulation). */
   allMoraleLevels?: boolean;
@@ -344,7 +347,7 @@ export function simulateBase(input: SimulationInput): SimulationResult {
   }
   function runCycle(previousRooms: Map<string, string>): { log: CycleLog; rooms: Map<string, string> } {
     const log: CycleLog = { output: {}, idleFull: {}, exhausted: {}, trace: {}, atLogins: [], events: [] };
-    const record = (time: number) => { for (const [name, m] of Object.entries(morale)) (log.trace[name] ??= []).push({ time, morale: m }); };
+    const record = input.lean ? () => {} : (time: number) => { for (const [name, m] of Object.entries(morale)) (log.trace[name] ??= []).push({ time, morale: m }); };
     let time = 0, roomOf = previousRooms;
     shifts.forEach((shift, shiftIndex) => {
       // Staffing change at this shift's first login.
@@ -405,7 +408,7 @@ export function simulateBase(input: SimulationInput): SimulationResult {
       for (let login = 0; login < windows[shiftIndex].length; login++) {
         const windowHours = windows[shiftIndex][login];
         // Every login collects, so storage starts empty.
-        log.atLogins.push({ ...morale });
+        if (!input.lean) log.atLogins.push({ ...morale });
         atLogin = { ...morale };
         log.events.push({ time, kind: 'login', detail: login === 0 ? `Shift ${shiftIndex + 1} goes in.` : 'Collect.' });
         record(time);

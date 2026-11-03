@@ -87,6 +87,14 @@ export interface BaseCalculationInput {
   dormitoryPickOrder?: Record<string, string[]>;
 }
 
+/** Former names by operator, built once per operator list, like the index below. */
+const formerNameMaps = new WeakMap<readonly BaseOperator[], Map<string, string[]>>();
+function formerNamesOf(operators: readonly BaseOperator[]): Map<string, string[]> {
+  let map = formerNameMaps.get(operators);
+  if (!map) { map = new Map(operators.map((o) => [o.name, o.aliases ?? []])); formerNameMaps.set(operators, map); }
+  return map;
+}
+
 /** Operators by name, built once per operator list (a search calls the calculator thousands of times on one list). */
 const operatorIndexes = new WeakMap<readonly BaseOperator[], Map<string, BaseOperator>>();
 function operatorNamed(operators: readonly BaseOperator[], name: string): BaseOperator | undefined {
@@ -155,7 +163,7 @@ export function calculateBase(input: BaseCalculationInput) {
   }
   // A skill's handler key, and whether a slot has a skill by key: never `${operatorName}|${name}`
   // by hand, which a skill or operator Global renamed no longer matches (lib/base/specialSkillKeys.ts).
-  const formerNames = new Map(operators.map((o) => [o.name, o.aliases ?? []]));
+  const formerNames = formerNamesOf(operators);
   const keyOf = (operatorName: string, sk: BaseSkill) => specialSkillKey(operatorName, sk, formerNames.get(operatorName));
   const hasSkill = (slot: SlotAssignment | null | undefined, facilityLabel: string, key: NamedSkillCheck) =>
     !!slot && hasNamedSkill(slot.operatorName, skillsFor(slot, facilityLabel), key, formerNames.get(slot.operatorName));

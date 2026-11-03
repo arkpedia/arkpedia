@@ -217,7 +217,8 @@ export function optimizeAccountBase(input: AccountOptimizerInput, progress?: (do
       timeMs, seed: 1 + i + 97 * start,
       onProgress: ({ genome: g }) => { tick(`${seed.label}: improving`); improve(g, evaluate(g, ctx)); },
     });
-    improve(r.genome, r.evaluation);
+    // The annealer scored lean (no Morale trace); the plan a reader sees is evaluated in full.
+    improve(r.genome, evaluate(r.genome, ctx));
     searched += r.simulations;
   });
   // The search may stop before its time is up (nothing left to improve); it is still done.

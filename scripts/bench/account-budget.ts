@@ -14,6 +14,8 @@ import recipes from '../../data/base-workshop-recipes.json';
 import { FORMATIONS as SHEET342_FORMATIONS, SHEET_LEVELS, SHEET_SPOTS, everyoneMaxed } from './sheet-342';
 import { SHEET252_NAMES } from './sheet-252';
 import { presetLevels, presetSpots } from '../../lib/base/baseConfig';
+import { snapshotMemoStats } from '../../lib/base/snapshotMemo';
+import { teamBlocksStats } from '../../lib/base/teamBlocks';
 
 const which = process.argv[2] ?? 'sheet252';
 const seconds = Number(process.argv[3] ?? 60);
@@ -31,3 +33,5 @@ const t = Date.now();
 const r = optimizeAccountBase({ base: { operators, rosters: toBaseRosters(groups), skillSlots: slots, workshopRecipes: recipes }, roster, snapshot, loginInterval: 8, objective: 'balanced', externalGold: 0, compareLayouts: which === 'maxed', searchSeconds: seconds, ...(process.env.FORMATIONS ? { formations: process.env.FORMATIONS === '1' } : {}), ...(process.env.START ? { start: Number(process.env.START) } : {}) });
 const best = r.recommendations[0];
 console.log(`${which} ${seconds} s${process.env.FORMATIONS ? ` formations=${process.env.FORMATIONS}` : ''}${process.env.START ? ` start=${process.env.START}` : ''}: ${best.label} ${best.score.toFixed(0)} (${best.plan.shape}, ${best.plan.shifts.length} shifts, core [${(best.plan.shifts[0].refill ?? []).join(', ')}]) in ${((Date.now() - t) / 1000).toFixed(0)} s, ${r.searched} plans; products ${Object.values(best.products).map(p => p === "Precious Metals" ? "gold" : "EXP").join("/")}; weighted diagnostic ${(best.plan.simulation.perDay.lmd + best.plan.simulation.perDay.exp + 500 * best.plan.simulation.perDay.goldMade).toFixed(0)}`);
+const memo = snapshotMemoStats(), blocks = teamBlocksStats();
+console.log(`snapshot memo ${memo.hits} hits / ${memo.misses} misses; team blocks ${blocks.builds} builds, ${blocks.scored} placements, ${(blocks.buildMs / 1000).toFixed(1)} s`);

@@ -169,6 +169,27 @@ is only found when the annealer reaches it. A genome expresses two or three crew
 to 4 staffing changes (alternation, duty, thirds, a four-step duty and three distinct
 formations), within the preset bound below.
 
+### Where a minute goes
+
+Profiled on the maxed roster on 2026-11-03 (`node --cpu-prof` over 15 s of annealing): with
+the shared room-rate cache a simulation costs about 4 ms and calls the snapshot calculator
+less than once, so the simulator is a third of the time and the team-block rebuilds every
+40 rounds were about 60%, each scoring some five thousand placements with the full
+calculator. Three changes, all keeping `simulateBase` identical:
+
+- `snapshotMemo.ts` remembers the calculator's scored totals by staffing content, so the
+  annealer's proxy and the block builder never score the same placement twice.
+- The annealer scores lean (`evaluate(g, ctx, true)`): no Morale trace or per-login Morale,
+  which the search never reads; the plan a reader sees is evaluated in full.
+- Block refreshes re-rank the blocks found, over the previous build's own ranking with a
+  shorter shortlist, and enumerate in full only every third refresh (`FULL_BUILD_EVERY`).
+
+120 annealing rounds on the maxed roster went from 18.7 s to 11.2 s (three runs each,
+same seed, 54,725 to 28,714 placements scored); at 30 s the page's search scored 390 to
+438 plans instead of 143 to 173 and finished at or above the earlier score (100,305 to
+100,505 against 100,081; the 2-5-2 sheet roster within its run-to-run band).
+`account-budget.ts` prints the memo and block counts.
+
 ### Preset slots
 
 The game stores three base presets, so a rotation that needs more distinct setups cannot

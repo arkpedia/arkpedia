@@ -1,5 +1,6 @@
 import { calculateBase } from './calculateBase';
 import { exceedsSetups } from './rotationSetups';
+import { snapshotTotals } from './snapshotMemo';
 import { activeBaseSkills, cleanSkillName } from './activeBaseSkills';
 import { simulateBase, type SimulationBase, type SimulationResult, type SimulationShift } from './baseSimulation';
 import { DEFAULT_WEIGHTS, WORK_KINDS, sustainableOutput, type OptimizerResult, type OptimizerWeights, type OwnedOperator, type RoomExplanation, type ScheduleStep } from './baseOptimizer';
@@ -160,12 +161,14 @@ export function decode(g: Genome, ctx: GenomeContext): SimulationShift[] {
   });
 }
 
-/** The account's score for a genome: same objective and penalties as optimizeBase. */
-export function evaluate(g: Genome, ctx: GenomeContext): Evaluation {
+/** The account's score for a genome: same objective and penalties as optimizeBase. `lean` skips the Morale trace
+ * and per-login Morale the search never reads (the score, events and warnings are the same); the plan shown to a
+ * reader is evaluated in full. */
+export function evaluate(g: Genome, ctx: GenomeContext, lean = false): Evaluation {
   const shifts = decode(g, ctx);
   const weights = ctx.weights ?? DEFAULT_WEIGHTS;
   const sim = simulateBase({
-    base: ctx.base, shifts, loginInterval: ctx.loginInterval, initialMorale: g.parked, drones: ctx.drones, refillPolicy: g.refillLowest ? 'lowest' : 'rotation', rateCache: rateCacheFor(ctx),
+    base: ctx.base, shifts, loginInterval: ctx.loginInterval, initialMorale: g.parked, drones: ctx.drones, refillPolicy: g.refillLowest ? 'lowest' : 'rotation', rateCache: rateCacheFor(ctx), lean,
     droneWeights: { lmd: weights.lmd, exp: weights.exp, goldMade: weights.goldMade },
     ...(ctx.sustainable ? { droneFunding: { externalGold: ctx.externalGold ?? 0 } } : {}),
   });
@@ -214,11 +217,12 @@ export function genomeFromResult(result: OptimizerResult, ctx: GenomeContext): G
   return evaluate(other, ctx).value > evaluate(g, ctx).value ? other : g;
 }
 
-/** The snapshot value of one crew's staffing (green: what one login collects), for explanations and screening. */
+/** The snapshot value of one crew's staffing (green: what one login collects), for explanations and screening.
+ * Remembered by content (snapshotMemo.ts): the proxy sums every staffing change of a proposal, most unchanged. */
 export function snapshotValue(assignments: BaseAssignments, g: Genome, ctx: GenomeContext): number {
   const w = ctx.weights ?? DEFAULT_WEIGHTS;
-  const r = calculateBase({ ...ctx.base, assignments, factoryProducts: g.products, loginInterval: ctx.loginInterval, swapPolicy: 'onLogin' });
-  return r.dailyGoldWorthGreen * w.lmd + r.dailyExpGreen * w.exp + r.dailyGoldMadeGreen * w.goldMade;
+  const r = snapshotTotals(ctx.base, assignments, g.products, ctx.loginInterval);
+  return r.lmd * w.lmd + r.exp * w.exp + r.goldMade * w.goldMade;
 }
 
 /** The genome and its evaluation in the shape the account page renders. */
