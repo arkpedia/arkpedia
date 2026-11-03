@@ -143,8 +143,8 @@ test(`own Nian preview follows the account build in ${theme} theme`, async ({pag
     await preview.getByRole('tab',{name:new RegExp(`^S${skill}`)}).click();
     await expect(preview.getByRole('tabpanel',{name:new RegExp(`^S${skill}`)}).getByRole('img',{name:'Mastery 3',exact:true})).toBeVisible();
   }
-  for (const module of ['PRO-X','PRO-Y']) {
-    await preview.getByRole('tab',{name:new RegExp(module)}).click();
+  for (const moduleName of ['PRO-X','PRO-Y']) {
+    await preview.getByRole('tab',{name:new RegExp(moduleName)}).click();
     await expect(preview.getByRole('group',{name:'Module stage',exact:true}).getByRole('button',{pressed:true})).toHaveText('Stage 3');
   }
   expect(await preview.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);

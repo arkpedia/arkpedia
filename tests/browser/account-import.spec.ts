@@ -51,6 +51,7 @@ async function stubServers(page: Page, level: number | null, isNew = 0, networkF
     const asked: string[] = [];
     const requests: { url: string; body?: string; headers: Record<string, string> }[] = [];
     Object.assign(window, { __asked: asked, __requests: requests });
+    // eslint-disable-next-line no-restricted-syntax -- Test-only transport fixture; no real credentials or game requests.
     window.__arkpediaImportTransport = async (url, request) => {
       asked.push(url);
       requests.push({ url, body: request.body, headers: request.headers });
@@ -365,6 +366,7 @@ for (const endpoint of ['getToken', 'login', 'version']) {
     await page.addInitScript(endpoint => {
       const original = window.__arkpediaImportTransport!;
       let fail = true;
+      // eslint-disable-next-line no-restricted-syntax -- Test-only transport fixture; no real credentials or game requests.
       window.__arkpediaImportTransport = async (url, request) => {
         if (fail && (endpoint==='getToken'?url.endsWith('/user/v1/getToken'):endpoint==='login'&&url.endsWith('/account/login'))) {
           fail=false;throw new Error('Request failed with error code 7: Could not connect to server');
@@ -625,6 +627,7 @@ async function stubAutoDeploys(page: Page, firstReplay = zip64Fixture.encoded, s
     const original=window.__arkpediaImportTransport!;
     const state={counter:1,requests:[] as {stage:string;seq:string;at:number}[],throttle:false};
     Object.assign(window,{__replayTest:state});
+    // eslint-disable-next-line no-restricted-syntax -- Test-only transport fixture; no real credentials or game requests.
     window.__arkpediaImportTransport=async(url,request)=>{
       if(url.endsWith('/account/syncData'))return {status:200,json:{result:0,user:{status:{level:120,nickName:'Doctor',nickNumber:'0001'},troop:{chars:{}},dungeon:{stages:Object.fromEntries(Object.keys(replays).map((id,i)=>[id,{stageId:id,hasBattleReplay:1,startTimes:i?1:state.counter,completeTimes:i?1:state.counter,practiceTimes:0,state:3}]))}}}};
       if(url.endsWith('/getBattleReplay')&&!url.endsWith('/quest/getBattleReplay'))return {status:404,json:{}};
@@ -652,6 +655,7 @@ test('auto-deploy HTTP failure names the stage, keeps saved replays and stops wi
   await stubAutoDeploys(page);
   await page.addInitScript(()=>{
     const original=window.__arkpediaImportTransport!;
+    // eslint-disable-next-line no-restricted-syntax -- Test-only transport fixture; no real credentials or game requests.
     window.__arkpediaImportTransport=async(url,request)=>{
       const response=await original(url,request);
       return url.endsWith('/quest/getBattleReplay')&&JSON.parse(request.body!).stageId==='main_00-02'
@@ -941,6 +945,7 @@ test('a failed import does not start checked auto-deploy downloads or show debug
   await seedSavedLogin(page);
   await page.addInitScript(() => {
     const original = window.__arkpediaImportTransport!;
+    // eslint-disable-next-line no-restricted-syntax -- Test-only transport fixture; no real credentials or game requests.
     window.__arkpediaImportTransport = async (url, request) => url.endsWith('/user/v1/getToken') ? { status: 503, json: {} } : original(url, request);
   });
   const dialog = await openImport(page);
