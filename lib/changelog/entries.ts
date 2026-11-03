@@ -34,6 +34,12 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-03T12:00:00Z',
+    fixed: [
+      { title: 'Optimizer rotations fit the game\'s presets', detail: 'The base optimizer now recommends at most three shifts, the number of presets the game can store.', href: '/base' },
+    ],
+  },
+  {
     at: '2026-10-31T19:00:00Z',
     fixed: [{ title: 'Recover interrupted page loads', detail: 'Retry missing styles and recover failed startup files instead of leaving an unstyled page.' }],
   },
