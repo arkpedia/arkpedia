@@ -4,6 +4,7 @@ import BaseSkillText from '@/components/operators/BaseSkillText';
 import ImportDialog from '@/components/account/ImportDialog';
 import dynamic from 'next/dynamic';
 import type { LayoutRecommendation } from '@/lib/base/accountOptimizer';
+import { setupGroups, setupLabel } from '@/lib/base/rotationSetups';
 import BaseOverview, { type BaseRoomSummary } from '@/components/base/BaseOverview';
 import BaseRotationPanel from '@/components/base/BaseRotationPanel';
 import BasePresetToolbar from '@/components/base/BasePresetToolbar';
@@ -702,17 +703,23 @@ export default function BasePage({ operators }: Props) {
   }
   function saveOptimizerRotation(recommendation: LayoutRecommendation, startHour: number, externalGold: number): boolean {
     const template = captureSetup('', '');
-    const presets: SavedBasePreset[] = recommendation.plan.shifts.map((shift, index) => ({
-      ...template, id: crypto.randomUUID(), name: `${recommendation.label} · optimized shift ${index + 1}`,
-      productionSpots: recommendation.spots, facilityLevels: recommendation.levels,
-      assignments: shift.assignments, factoryProducts: shift.factoryProducts,
-      dormitoryAmbience: recommendation.id === 'mine' ? account?.base?.dormitoryAmbience ?? {} : {},
-      loginInterval, swapPolicy: 'onLogin', rotationRates: undefined,
-    }));
+    // Shifts that place everyone the same way share one saved setup, as they share one preset in the game.
+    const groups = setupGroups(recommendation.plan.shifts);
+    const presets: SavedBasePreset[] = groups.map((group, index) => {
+      const shift = recommendation.plan.shifts[group[0]];
+      return {
+        ...template, id: crypto.randomUUID(), name: `${recommendation.label} · optimized setup ${setupLabel(index)}`,
+        productionSpots: recommendation.spots, facilityLevels: recommendation.levels,
+        assignments: shift.assignments, factoryProducts: shift.factoryProducts,
+        dormitoryAmbience: recommendation.id === 'mine' ? account?.base?.dormitoryAmbience ?? {} : {},
+        loginInterval, swapPolicy: 'onLogin', rotationRates: undefined,
+      };
+    });
     const nextPresets = [...savedPresets, ...presets];
+    const presetOf = (index: number) => presets[groups.findIndex(group => group.includes(index))];
     // Fiammetta's refills, drones and parked Morale too, so the saved rotation scores what the optimizer showed.
     const nextPlan: BaseRotationPlan = { version: 1, startHour, externalGold, drones: recommendation.weights, ...(recommendation.plan.initialMorale ? { parked: recommendation.plan.initialMorale } : {}), ...(recommendation.plan.refillPolicy ? { refillPolicy: recommendation.plan.refillPolicy } : {}),
-      shifts: presets.map((p, i) => ({ id: crypto.randomUUID(), presetId: p.id, hours: recommendation.plan.stepHours, ...(recommendation.plan.shifts[i].refill ? { refill: recommendation.plan.shifts[i].refill } : {}), ...(recommendation.plan.shifts[i].reseat ? { reseat: recommendation.plan.shifts[i].reseat } : {}) })) };
+      shifts: recommendation.plan.shifts.map((shift, i) => ({ id: crypto.randomUUID(), presetId: presetOf(i).id, hours: recommendation.plan.stepHours, ...(shift.refill ? { refill: shift.refill } : {}), ...(shift.reseat ? { reseat: shift.reseat } : {}) })) };
     let previousPresets: string | null, previousPlan: string | null;
     try {
       previousPresets = window.localStorage.getItem(SAVED_BASE_PRESETS_KEY);

@@ -40,7 +40,7 @@ minutes on the page, default 1):
    stage stops after about a third of the time, every layout having had one split.
 2. **Anneal.** The best one or two layouts are improved by simulated annealing
    (`annealBase.ts`) over a plan genome (`planGenome.ts`): two or three crews,
-   2 or 3 staffing changes, which crew staffs each room at each change,
+   2 to 4 staffing changes, which crew staffs each room at each change,
    Fiammetta's refill core, parked Morale (Dusk below 12), factory products and two
    dorm rules. Moves: a room's whole team from its best teams (`teamBlocks.ts`, which
    keeps synergies such as Shamare/Bibeak/Tequila or a Sui Control Center together),
@@ -156,16 +156,23 @@ repeated input creates no second Worker, and a stalled Worker is terminated at t
 The search still has limits: cross-room effects are evaluated for actual placements,
 and team blocks keep one room's synergies whole, but a synergy that spans several rooms
 is only found when the annealer reaches it. A genome expresses two or three crews over 2
-or 3 staffing changes (alternation, a two-step duty, thirds and three distinct formations).
+to 4 staffing changes (alternation, duty, thirds, a four-step duty and three distinct
+formations), within the preset bound below.
 
 ### Preset slots
 
-The game stores three base presets, so a rotation of more than three shifts cannot be
-set up in the base. `MAX_ROTATION_SETUPS` in `baseOptimizer.ts` is that bound: the seed
-shapes skip a three-step duty and the staggered shape, the genome refuses longer plans,
-the annealer's step-count move stays within it, and `optimizeAccountBase` rejects any plan
-over it before it is shown (counted among the excluded rotations). Raising the constant is
-the one change needed should the game add a slot.
+The game stores three base presets, so a rotation that needs more distinct setups cannot
+be set up in the base. `MAX_ROTATION_SETUPS` in `rotationSetups.ts` is that bound, and
+`setupKey` says when two shifts are one preset (the same placements, products and
+settings; refills and reseats are login actions). The seed search skips the staggered
+shape (four setups) and any seed plan over the bound, both simulators score such a plan
+as unusable, the annealer screens its moves before simulating them, `genomeFromResult`
+refuses such plans, and `optimizeAccountBase` rejects any over it before it is shown
+(counted among the excluded rotations). A four-step duty (A, A, A, B) needs two presets
+and stays allowed. `completeStaffing` fills a setup group as one and rests the worker in
+another group, so groups stay identical. Saving creates one setup per group, and the
+rotation's shifts share it. Raising the constant is the one change needed should the game
+add a slot.
 
 ### Empty-room correction
 

@@ -3,6 +3,7 @@ import { calculateBase } from './calculateBase';
 import { simulateBase, type SimulationShift } from './baseSimulation';
 import { WORK_KINDS, type OptimizerResult } from './baseOptimizer';
 import { scoreOf, type GenomeContext } from './planGenome';
+import { MAX_ROTATION_SETUPS, distinctSetups, setupGroups } from './rotationSetups';
 import type { FacilityDef, SlotAssignment } from './baseTypes';
 
 const clone = (shifts: SimulationShift[]) => shifts.map(s => ({ ...s, assignments: Object.fromEntries(Object.entries(s.assignments).map(([id, slots]) => [id, [...slots]])) }));
@@ -74,29 +75,42 @@ export function completeStaffing(plan: OptimizerResult, ctx: GenomeContext): Opt
     }
     return false;
   }
-  for (const room of rooms) for (let step = 0; step < shifts.length; step++) for (let index = 0; index < room.capacity; index++) {
-    if (shifts[step].assignments[room.id]?.[index]) continue;
-    // A bounded shortlist keeps an intermediate result responsive. Lower-ranked ordinary
-    // staff are useful fallbacks when a specialist's Morale cost is unsustainable.
-    const choices = candidates(room, step).slice(0, 12);
-    let filled = false;
-    for (const name of choices) {
-      // Workshop spends Morale per craft; no craft is invented by a rotation.
-      const rests = room.kind === 'workshop' ? [-1] : Array.from({ length: shifts.length - 1 }, (_, offset) => (step + 1 + offset) % shifts.length);
-      for (const rest of rests) {
-        const trial = clone(shifts);
-        for (const shift of room.kind === 'workshop' ? trial : [trial[step]]) {
-          const a = shift.assignments;
-          for (const d of dorms) a[d.id] = (a[d.id] ?? Array(d.capacity).fill(null)).map(s => s?.operatorName === name ? null : s);
-          const slots = a[room.id] ?? Array(room.capacity).fill(null);
-          a[room.id] = Array.from({ length: room.capacity }, (_, i) => i === index && !slots[i] ? slot(name) : slots[i] ?? null);
-        }
-        if (rest >= 0 && !putToRest(trial, rest, name)) continue;
-        const result = simulate(trial); evaluations += result.evaluations;
-        if (!result.periodic || result.events.some(e => e.kind === 'exhausted') || result.warnings.some(w => / twice\.$/.test(w))) continue;
-        shifts = trial; simulation = result; assigned.add(name); filled = true; break;
-      }
-      if (filled) break;
+  // Shifts with the same setup are one saved preset in the game. A fill goes into every shift of its group and
+  // the worker rests in every shift of another group, so the groups stay identical and the rotation needs no
+  // more presets than it did; failing that, shift by shift, as long as the rotation still fits the presets.
+  const groups = setupGroups(plan.shifts);
+  const cycleAfter = (from: number, steps: number[]) => [...steps].sort((x, y) => (x - from - 1 + shifts.length) % shifts.length - (y - from - 1 + shifts.length) % shifts.length);
+  /** One worker into `into` (the shifts of one setup) at a room's place, resting in every step of `rest`. */
+  function tryFill(room: FacilityDef, index: number, into: number[], rest: number[] | null, name: string): boolean {
+    const trial = clone(shifts);
+    // Workshop spends Morale per craft; no craft is invented by a rotation.
+    for (const shift of room.kind === 'workshop' ? trial : into.map(i => trial[i])) {
+      const a = shift.assignments;
+      for (const d of dorms) a[d.id] = (a[d.id] ?? Array(d.capacity).fill(null)).map(s => s?.operatorName === name ? null : s);
+      const slots = a[room.id] ?? Array(room.capacity).fill(null);
+      a[room.id] = Array.from({ length: room.capacity }, (_, i) => i === index && !slots[i] ? slot(name) : slots[i] ?? null);
+    }
+    if (rest && !rest.every(i => putToRest(trial, i, name))) return false;
+    if (distinctSetups(trial) > MAX_ROTATION_SETUPS) return false;
+    const result = simulate(trial); evaluations += result.evaluations;
+    if (!result.periodic || result.events.some(e => e.kind === 'exhausted') || result.warnings.some(w => / twice\.$/.test(w))) return false;
+    shifts = trial; simulation = result; assigned.add(name);
+    return true;
+  }
+  for (const room of rooms) for (const group of groups) for (let index = 0; index < room.capacity; index++) {
+    if (!shifts[group[0]].assignments[room.id]?.[index]) {
+      // A bounded shortlist keeps an intermediate result responsive. Lower-ranked ordinary
+      // staff are useful fallbacks when a specialist's Morale cost is unsustainable. Rest groups come in the
+      // order they follow this group in the cycle.
+      const after = (g: number[]) => (g[0] - group[group.length - 1] - 1 + shifts.length) % shifts.length;
+      const rests: (number[] | null)[] = room.kind === 'workshop' ? [null] : groups.filter(g => g !== group).sort((x, y) => after(x) - after(y));
+      candidates(room, group[0]).slice(0, 12).some(name => rests.some(rest => tryFill(room, index, group, rest, name)));
+    }
+    // Shift by shift otherwise (a seed whose shifts are all alike has no other group to rest in).
+    for (const step of group) {
+      if (shifts[step].assignments[room.id]?.[index]) continue;
+      const rests: (number[] | null)[] = room.kind === 'workshop' ? [null] : cycleAfter(step, shifts.map((_, i) => i).filter(i => i !== step)).map(i => [i]);
+      candidates(room, step).slice(0, 12).some(name => rests.some(rest => tryFill(room, index, [step], rest, name)));
     }
   }
   // Present the actual completed staffing as one template per change. Never leave old

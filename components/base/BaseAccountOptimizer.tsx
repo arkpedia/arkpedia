@@ -7,6 +7,7 @@ import InfoPopover from '@/components/ui/InfoPopover';
 import Image from '@/components/content/ContentImage';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
 import type { FacilityDef } from '@/lib/base/baseTypes';
+import { MAX_ROTATION_SETUPS, setupGroups, setupLabel } from '@/lib/base/rotationSetups';
 import type { AccountRecord } from '@/lib/account/accountStore';
 import { ownedBaseRoster } from '@/lib/base/optimizerRoster';
 import type { AccountOptimizerInput, AccountOptimizerResult, LayoutRecommendation } from '@/lib/base/accountOptimizer';
@@ -61,6 +62,9 @@ export default function BaseAccountOptimizer({ account, base, loginInterval, onI
   const recommendation = current?.recommendations.find(r => r.id === selected) ?? current?.recommendations[0];
   const facilities = recommendation ? getFacilities(recommendation.spots, recommendation.levels) : [];
   const shiftStaff = recommendation?.plan.shifts[selectedShift].assignments ?? {};
+  // Shifts with the same setup are one preset in the game and one saved setup here.
+  const setups = setupGroups(recommendation?.plan.shifts ?? []);
+  const setupOf = (index: number) => setupLabel(setups.findIndex(group => group.includes(index)));
   const resting = facilities.filter(f => f.kind === 'dormitory').reduce((n, f) => n + (shiftStaff[f.id]?.filter(Boolean).length ?? 0), 0);
   const placed = new Set(Object.values(shiftStaff).flatMap(slots => slots.flatMap(slot => slot ? [slot.operatorName] : []))).size;
   const buildingCounts: Record<string, number> = {};
@@ -194,7 +198,8 @@ export default function BaseAccountOptimizer({ account, base, loginInterval, onI
         {current.recommendations.length > 1 && <details><summary>Compare layouts</summary><div className={styles.tableScroll}><table className={styles.table} aria-label="Recommended layouts"><thead><tr><th>Layout</th><th>LMD / day</th><th>EXP / day</th></tr></thead><tbody>
           {current.recommendations.map((r, i) => <tr key={r.id}><th><button type="button" className="filter-chip" aria-pressed={recommendation.id === r.id} onClick={() => { setSelected(r.id); setSelectedShift(0); setSaved(false); }}>{r.label}</button>{i === 0 && <span className={styles.best}>Recommended</span>}</th><td>{whole(r.output.lmd)}</td><td>{whole(r.output.exp)}</td></tr>)}
         </tbody></table></div></details>}
-        <div className={styles.shiftToolbar}><SegmentedControl label="Optimizer shift" value={selectedShift} onChange={setSelectedShift} options={recommendation.plan.shifts.map((_, index) => ({ value: index, label: `Shift ${index + 1}`, title: rotationClock(startHour, index * recommendation.plan.stepHours) }))} /><h3>{rotationClock(startHour, selectedShift * recommendation.plan.stepHours)} → {rotationClock(startHour, (selectedShift + 1) * recommendation.plan.stepHours)}</h3></div>
+        <div className={styles.shiftToolbar}><SegmentedControl label="Optimizer shift" value={selectedShift} onChange={setSelectedShift} options={recommendation.plan.shifts.map((_, index) => ({ value: index, label: `Shift ${index + 1}`, title: rotationClock(startHour, index * recommendation.plan.stepHours) }))} /><h3>{rotationClock(startHour, selectedShift * recommendation.plan.stepHours)} → {rotationClock(startHour, (selectedShift + 1) * recommendation.plan.stepHours)} · Setup {setupOf(selectedShift)}</h3></div>
+        <p className="hint">{setups.length} saved setup{setups.length === 1 ? '' : 's'} for {recommendation.plan.shifts.length} shifts{setups.length < recommendation.plan.shifts.length ? ' (shifts with the same staffing share one)' : ''}; the game stores up to {MAX_ROTATION_SETUPS}.</p>
         <div className={styles.roomGrid} aria-label="Production teams">{facilities.filter(f => ['tradingPost', 'factory', 'powerPlant'].includes(f.kind) && f.capacity).map(roomTile)}</div>
         <details open><summary>Support and resting teams</summary><div className={styles.roomGrid} aria-label="Support and resting teams">{facilities.filter(f => !['tradingPost', 'factory', 'powerPlant'].includes(f.kind) && recommendation.plan.shifts[selectedShift].assignments[f.id]?.some(Boolean)).map(roomTile)}</div></details>
         <div className={styles.actions}><span>Gold balance and saving</span><InfoPopover label="Gold balance and saving"><p>Gold demand: {recommendation.plan.simulation.perDay.goldSold.toFixed(1)} / day. {recommendation.output.lmd + 0.1 < recommendation.plan.simulation.perDay.lmd ? 'Add outside gold to fund full trading output.' : 'Supply covers sales.'}</p><p>Saving replaces your active timetable and keeps saved setups. The calculator keeps this gold limit. Only dorm workers recover.</p></InfoPopover></div>

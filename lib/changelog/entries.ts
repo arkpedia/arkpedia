@@ -36,7 +36,7 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     at: '2026-11-03T12:00:00Z',
     fixed: [
-      { title: 'Optimizer rotations fit the game\'s presets', detail: 'The base optimizer now recommends at most three shifts, the number of presets the game can store.', href: '/base' },
+      { title: 'Optimizer rotations fit the game\'s presets', detail: 'The base optimizer now recommends rotations that fit the three presets the game stores, and saving one creates a setup per preset.', href: '/base' },
     ],
   },
   {

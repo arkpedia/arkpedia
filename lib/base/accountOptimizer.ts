@@ -2,7 +2,8 @@ import { completeStaffing } from './completeStaffing';
 import { byScore } from './accountResults';
 import type { AccountRecord } from '../account/accountStore';
 import { BASE_PRESET_IDS, BASE_PRESETS, PRODUCTION_SPOT_IDS, getFacilities, layoutProblems, presetLevels, presetSpots } from './baseConfig';
-import { MAX_ROTATION_SETUPS, optimizeBase, sustainableOutput, type OptimizerResult, type OwnedOperator } from './baseOptimizer';
+import { optimizeBase, sustainableOutput, type OptimizerResult, type OwnedOperator } from './baseOptimizer';
+import { exceedsSetups } from './rotationSetups';
 import { evaluate, genomeFromResult, genomeNotes, toOptimizerResult, type Evaluation, type Genome, type GenomeContext } from './planGenome';
 import { anneal } from './annealBase';
 import { calcDormitoryRecovery, defaultDormitoryAmbience } from './baseProductivity';
@@ -136,9 +137,9 @@ export function optimizeAccountBase(input: AccountOptimizerInput, progress?: (do
     return completedBest.get(r.id)!;
   }).sort(byScore), searched, rejected });
   const offer = (recommendation: LayoutRecommendation) => {
-    // The one gate every plan passes: whatever shape produced it, a rotation of more shifts than the game has
-    // preset slots cannot be set up in the base, so it is never shown.
-    if (recommendation.plan.shifts.length > MAX_ROTATION_SETUPS) { rejected++; return false; }
+    // The one gate every plan passes: whatever shape produced it, a rotation that needs more distinct setups
+    // than the game stores as presets cannot be set up in the base, so it is never shown.
+    if (exceedsSetups(recommendation.plan.shifts)) { rejected++; return false; }
     const previous = recommendations.findIndex(r => r.id === recommendation.id);
     if (previous < 0) recommendations.push(recommendation);
     else if (recommendation.score > recommendations[previous].score) recommendations[previous] = recommendation;

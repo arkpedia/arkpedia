@@ -5,6 +5,7 @@ import { toBaseRosters } from '../../lib/base/baseGroupRosters';
 import { optimizeAccountBase, optimizerLayouts, productOptions } from '../../lib/base/accountOptimizer';
 import { mergeAccountResults } from '../../lib/base/accountResults';
 import { MAX_ROTATION_SETUPS, sustainableOutput, optimizeBase } from '../../lib/base/baseOptimizer';
+import { distinctSetups, setupGroups } from '../../lib/base/rotationSetups';
 import { ownedBaseRoster } from '../../lib/base/optimizerRoster';
 import { getFacilities, layoutProblems, presetLevels, presetSpots } from '../../lib/base/baseConfig';
 import type { AccountRecord } from '../../lib/account/accountStore';
@@ -147,8 +148,8 @@ test('an imported account gets funded, repeatable, owned-only recommendations at
     assert(result.recommendations.length > 0);
     assert.equal(progress.at(-1), 1);
     const recommendation = result.recommendations[0];
-    // Every recommendation can be set up as the game's presets: never more shifts than it has slots.
-    for (const r of result.recommendations) assert(r.plan.shifts.length <= MAX_ROTATION_SETUPS, `${r.label}: ${r.plan.shifts.length} shifts`);
+    // Every recommendation can be set up as the game's presets: never more distinct setups than it has slots.
+    for (const r of result.recommendations) assert(distinctSetups(r.plan.shifts) <= MAX_ROTATION_SETUPS, `${r.label}: ${distinctSetups(r.plan.shifts)} setups`);
     assert(recommendation.plan.simulation.periodic);
     assert(!recommendation.plan.simulation.events.some(e => e.kind === 'exhausted'));
     assert(recommendation.output.goldSold <= recommendation.output.goldMade + 1e-6);
@@ -163,21 +164,23 @@ test('an imported account gets funded, repeatable, owned-only recommendations at
 });
 
 test('a recommendation saved as a rotation recalculates to the yields the optimizer showed', async () => {
-  // pages/base.tsx saveOptimizerRotation, reduced: one preset per shift, and the plan carries Fiammetta's
-  // refills, drone weights and parked Morale. Without them the page re-scored a different plan (2026-10-30).
+  // pages/base.tsx saveOptimizerRotation, reduced: one preset per distinct setup (shifts that place everyone the
+  // same way share it), and the plan carries Fiammetta's refills, drone weights and parked Morale. Without them the page re-scored a different plan (2026-10-30).
   const { calculateRotation } = await import('../../lib/base/calculateRotation');
   const result = optimizeAccountBase({ base, roster: fixtureRoster, snapshot: account.base, loginInterval: 12, objective: 'balanced', externalGold: 0, compareLayouts: false, searchSeconds: 6 });
   const r = result.recommendations[0];
-  const presets = r.plan.shifts.map((shift, i) => ({
+  const groups = setupGroups(r.plan.shifts);
+  const presets = groups.map((group, i) => ({
     id: `p${i}`, name: `p${i}`, savedAt: '', version: 1 as const, productionSpots: r.spots, facilityLevels: r.levels,
-    assignments: shift.assignments, factoryProducts: shift.factoryProducts, dormitoryAmbience: account.base?.dormitoryAmbience ?? {},
+    assignments: r.plan.shifts[group[0]].assignments, factoryProducts: r.plan.shifts[group[0]].factoryProducts, dormitoryAmbience: account.base?.dormitoryAmbience ?? {},
     clueExchangeActive: false, moraleAbove12: true, swapPolicy: 'onLogin' as const, loginInterval: 12,
     trainingTarget: { class: 'Guard', branch: '', mastery: 1, timeReductionActive: false, instantTrainingReady: false },
     workshopSettings: { recipeId: '1', causality: 0, karma: 0, thornsFailures: 0, qualifyingDormOperators: 0 },
   }));
   const plan = { version: 1 as const, startHour: 8, externalGold: 0, drones: r.weights, ...(r.plan.initialMorale ? { parked: r.plan.initialMorale } : {}), ...(r.plan.refillPolicy ? { refillPolicy: r.plan.refillPolicy } : {}),
-    shifts: presets.map((p, i) => ({ id: `s${i}`, presetId: p.id, hours: r.plan.stepHours, ...(r.plan.shifts[i].refill ? { refill: r.plan.shifts[i].refill } : {}), ...(r.plan.shifts[i].reseat ? { reseat: r.plan.shifts[i].reseat } : {}) })) };
+    shifts: r.plan.shifts.map((shift, i) => ({ id: `s${i}`, presetId: presets[groups.findIndex(g => g.includes(i))].id, hours: r.plan.stepHours, ...(shift.refill ? { refill: shift.refill } : {}), ...(shift.reseat ? { reseat: shift.reseat } : {}) })) };
   assert.ok(presets.length <= MAX_ROTATION_SETUPS, `${presets.length} saved setups`);
+  assert.equal(presets.length, distinctSetups(r.plan.shifts));
   const rotation = calculateRotation(base, plan, presets as never, 12);
   assert.ok(rotation.totals);
   assert.ok(Math.abs(rotation.totals!.dailyExpGreen - r.output.exp) < 1, `EXP ${rotation.totals!.dailyExpGreen} vs ${r.output.exp}`);

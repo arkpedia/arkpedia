@@ -1,4 +1,5 @@
 import { calculateBase } from './calculateBase';
+import { MAX_ROTATION_SETUPS, exceedsSetups } from './rotationSetups';
 import { activeBaseSkills, cleanSkillName } from './activeBaseSkills';
 import { simulateBase, dronesPerHour, droneTargets, allocateDrones, type DailyOutput, type SimulationBase, type SimulationResult, type SimulationShift } from './baseSimulation';
 import type { BaseAssignments, FacilityDef, FacilityKind, FactoryProducts, SlotAssignment } from './baseTypes';
@@ -77,7 +78,7 @@ export interface ScheduleStep { hour: number; crewIn: { crew: number; rooms: str
  * crew fills the other places in each shift, so the best workers work all day and the rest rotate around them.
  * `staggered`: the rooms are in two halves that change crew on alternate staffing changes; a
  * crew works two steps, rests one in the dorms and waits one unassigned, so only half the base
- * rests at a time and the dorms do not cap how many places are staffed. Four staffing changes, so it is
+ * rests at a time and the dorms do not cap how many places are staffed. Four distinct setups, so it is
  * only tried when MAX_ROTATION_SETUPS allows four.
  * `thirds`: three staffing changes; each room's main crew works two of them and rests the third while the
  * other crew covers it, and rooms rest on different changes (the reference sheet's gold crews work two of its
@@ -110,10 +111,7 @@ export interface OptimizerResult {
   evaluations: number;
 }
 
-/** The most staffing templates a rotation may use: the game stores three base presets, so a plan with more
- * shifts than that cannot be set up as one-tap presets in the base. Every shape, the genome, the annealing moves
- * and the account search read this one bound. */
-export const MAX_ROTATION_SETUPS = 3;
+export { MAX_ROTATION_SETUPS } from './rotationSetups';
 
 /** Rooms whose staff work (drain Morale) and can change output, directly or across rooms. */
 export const WORK_KINDS: FacilityKind[] = ['controlCenter', 'tradingPost', 'factory', 'powerPlant', 'receptionRoom', 'office'];
@@ -371,7 +369,8 @@ export function optimizeBase(input: OptimizerInput): OptimizerResult {
   function simulate(shifts: SimulationShift[], initialMorale?: Record<string, number>) {
     const sim = simulateBase({ base, shifts, loginInterval, initialMorale, drones: input.drones, droneWeights: { lmd: weights.lmd, exp: weights.exp, goldMade: weights.goldMade }, ...(input.sustainable ? { droneFunding: { externalGold: input.externalGold ?? 0 } } : {}) });
     evaluations += sim.evaluations;
-    return { sim, value: score(sim) };
+    // A rotation that needs more presets than the game stores cannot be set up, so it loses to any that can.
+    return { sim, value: score(sim) - (exceedsSetups(shifts) ? 1e9 : 0) };
   }
 
   const roomIds = rooms.map(f => f.id);
@@ -475,15 +474,15 @@ export function optimizeBase(input: OptimizerInput): OptimizerResult {
     const teamB = bestTeam(new Set(operatorsIn(teamA)), size);
     for (let k = 1; k * loginInterval <= 24 || k === 1; k++) plans.push({ shape: 'alternate', k, crews: [teamA, teamB], group: [], fiammetta: false });
     // Duty rotations: the best crew works two or three steps running, so it must fit the dorms to rest whole.
-    // A duty of d is d + 1 staffing changes, each its own setup in the game.
+    // A duty of d is d + 1 staffing changes but only three setups (the lead crew's repeat shifts are one preset).
     if (size === restCapacity && input.duty !== false) {
-      for (const duty of [2, 3].filter(d => d + 1 <= MAX_ROTATION_SETUPS)) {
+      for (const duty of [2, 3]) {
         const plan: Plan = { shape: 'duty', k: 1, crews: [teamA, teamB], group: [], fiammetta: false, duty };
         if (fits(plan)) plans.push(plan);
       }
     }
   }
-  // Staggered: four staffing changes, more setups than the game holds unless the bound allows it.
+  // Staggered: four distinct setups, more than the game holds unless the bound allows it.
   if (MAX_ROTATION_SETUPS >= 4 && 2 * loginInterval <= 24) {
     const crewA = bestTeam(new Set(), Math.min(places, Math.ceil(owned.length / 2)));
     const crewB = bestTeam(new Set(operatorsIn(crewA)), places);
@@ -619,6 +618,8 @@ export function optimizeBase(input: OptimizerInput): OptimizerResult {
     return { plan, shifts, sim, value };
   };
   for (const plan of plans) {
+    // Not worth a simulation: more distinct setups than the game stores (the alternation always fits).
+    if (exceedsSetups(shiftsOf(plan))) continue;
     const c = consider(plan);
     const changes = (p: Plan) => (p.shape === 'staggered' ? 2 : p.shape === 'duty' ? p.duty! + 1 : p.shape === 'formations' ? p.formation!.crews.length : 1) / p.k;
     if (!best || c.value > best.value * (1 + 1e-3) + EPS || (c.value >= best.value * (1 - 1e-3) - EPS && changes(plan) < changes(best.plan))) best = c;

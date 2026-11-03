@@ -13,6 +13,7 @@ import slots from '../../data/base-skill-slots.json';
 import recipes from '../../data/base-workshop-recipes.json';
 import account from '../../tests/fixtures/base-account.json';
 import { FORMATIONS, SHEET_FACILITIES, everyoneMaxed } from '../bench/sheet-342';
+import { distinctSetups } from '../../lib/base/rotationSetups';
 
 const operators = getAllOperators().filter(op => !/^Amiya \(/.test(op.name));
 const shared = { operators, rosters: toBaseRosters(groups), skillSlots: slots, workshopRecipes: recipes };
@@ -59,7 +60,7 @@ test('the optimizer only places owned operators, and only with the skills their 
   // FEater's Elite 2 skill replaces her base one; at Elite 0 she must be scored with the base one.
   const roster: Record<string, OwnedOperator> = { FEater: { eliteLevel: 'Base', level: 1 }, Adnachiel: { eliteLevel: 'Base', level: 1 }, Melantha: { eliteLevel: 'Elite 1', level: 1 } };
   const result = optimizeBase({ base: { ...shared, facilities: full243 }, roster, loginInterval: 12, factoryProducts: products243 });
-  assert(result.shifts.length <= MAX_ROTATION_SETUPS, `${result.shifts.length} shifts: more setups than the game stores`);
+  assert(distinctSetups(result.shifts) <= MAX_ROTATION_SETUPS, `${distinctSetups(result.shifts)} setups: more than the game stores`);
   for (const shift of result.shifts) for (const name of placed(shift.assignments)) assert(name in roster, `${name} is not owned`);
   for (const room of result.explanations) for (const op of room.operators) {
     const expected = activeBaseSkills(operators.find(o => o.name === op.name)!, full243.find(f => f.id === room.room)!.label, roster[op.name].eliteLevel, slots, roster[op.name].level).map(s => s.name);
@@ -89,12 +90,12 @@ for (const interval of [12, 24]) {
   });
 }
 
-test('with 12 h logins a whole account still gets no more shifts than the game has preset slots', { skip: !fullRosterEnabled }, () => {
+test('with 12 h logins a whole account still gets no more distinct setups than the game has preset slots', { skip: !fullRosterEnabled }, () => {
   // The four-change staggered shape used to win here; it needs four presets, one more than the game stores.
   for (const interval of [12, 24]) {
     const result = fullRun(interval);
     assert.notEqual(result.shape, 'staggered');
-    assert(result.schedule.length <= MAX_ROTATION_SETUPS, `${result.schedule.length} staffing changes`);
+    assert(distinctSetups(result.shifts) <= MAX_ROTATION_SETUPS, `${distinctSetups(result.shifts)} setups`);
     assert.equal(result.shifts.length, result.schedule.length);
   }
 });

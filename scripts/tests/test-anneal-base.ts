@@ -6,6 +6,7 @@ import { MAX_ROTATION_SETUPS, optimizeBase, type OwnedOperator } from '../../lib
 import { decode, evaluate, genomeFromResult, hasWorkingCollision, placeGenomeOperator, splitCrew, toOptimizerResult, type Genome, type GenomeContext } from '../../lib/base/planGenome';
 import { anneal, placesNobodyTwice } from '../../lib/base/annealBase';
 import { coreSeed } from '../../lib/base/coreSeed';
+import { distinctSetups } from '../../lib/base/rotationSetups';
 import { getFacilities, presetLevels, presetSpots } from '../../lib/base/baseConfig';
 import type { FactoryProducts } from '../../lib/base/baseTypes';
 import groups from '../../data/base-group-rosters.json';
@@ -41,8 +42,8 @@ test('the annealer never returns worse than its seed, places nobody twice, and r
   }
   assert.equal(r.evaluation.sim.periodic, true);
   assert.equal(r.evaluation.sim.events.filter(e => e.kind === 'exhausted').length, 0);
-  // Never more setups than the game stores as presets, whatever the step-count move proposed.
-  assert.ok(r.genome.steps <= MAX_ROTATION_SETUPS, `${r.genome.steps} staffing changes`);
+  // Never more distinct setups than the game stores as presets, whatever the step-count move proposed.
+  assert.ok(distinctSetups(decode(r.genome, ctx)) <= MAX_ROTATION_SETUPS, `${distinctSetups(decode(r.genome, ctx))} setups`);
   // It renders like any other plan: one schedule step per staffing change, every working operator explained.
   const result = toOptimizerResult(r.genome, r.evaluation, ctx);
   assert.equal(result.schedule.length, r.genome.steps);
@@ -80,12 +81,24 @@ test('a plan whose schedule names only the rooms that change crew reads back wit
   assert.equal(g.crews[1][rooms[0]][0]?.operatorName, b);
 });
 
-test('a plan of more staffing changes than the game has preset slots is not a genome', () => {
-  // The game stores three base presets; a four-shift plan (the old staggered shape) cannot be set up as presets,
-  // so the annealer never starts from one (the user saw four-shift recommendations, 2026-11-03).
+test('a plan that needs more presets than the game stores is not a genome; repeated setups share one', () => {
+  // The game stores three base presets. Four distinct shifts (the old staggered shape) cannot be set up as
+  // presets, so the annealer never starts from them (the user saw four-shift recommendations, 2026-11-03). A
+  // four-step duty of A, A, A, B needs two presets, so it is still a genome.
   assert.equal(MAX_ROTATION_SETUPS, 3);
-  const four = { ...today, shifts: Array.from({ length: 4 }, () => today.shifts[0]), schedule: Array.from({ length: 4 }, (_, i) => ({ hour: i * 12, crewIn: [{ crew: i % 2, rooms: Object.keys(today.shifts[0].assignments) }], resting: [] })) };
+  const rooms = Object.keys(today.shifts[0].assignments);
+  const staffed = rooms.filter(id => (today.shifts[0].assignments[id] ?? []).some(Boolean));
+  assert.ok(staffed.length >= 4, 'the fixture plan staffs at least four rooms');
+  const without = (room: string) => ({ ...today.shifts[0], assignments: { ...today.shifts[0].assignments, [room]: today.shifts[0].assignments[room].map(() => null) } });
+  const schedule = (crews: number[]) => crews.map((crew, i) => ({ hour: i * 12, crewIn: [{ crew, rooms }], resting: [] }));
+  const four = { ...today, shifts: staffed.slice(0, 4).map(without), schedule: schedule([0, 1, 0, 1]) };
+  assert.equal(distinctSetups(four.shifts), 4);
   assert.equal(genomeFromResult(four, ctx), null);
+  const duty = { ...today, shifts: [today.shifts[0], today.shifts[0], today.shifts[0], today.shifts[1]], schedule: schedule([0, 0, 0, 1]) };
+  assert.ok(distinctSetups(duty.shifts) <= 2);
+  const g = genomeFromResult(duty, ctx);
+  assert.ok(g && g.steps === 4, 'a four-step duty reads back');
+  assert.ok(distinctSetups(decode(g!, ctx)) <= MAX_ROTATION_SETUPS);
 });
 
 // A built roster with Fiammetta and the Shamare trio, small enough for CI: today's optimizer staffs a Trading Post

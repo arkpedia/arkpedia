@@ -6,6 +6,7 @@ import { toBaseRosters } from '../../lib/base/baseGroupRosters';
 import { completeStaffing } from '../../lib/base/completeStaffing';
 import { simulateBase, type SimulationShift } from '../../lib/base/baseSimulation';
 import { scoreOf, type GenomeContext } from '../../lib/base/planGenome';
+import { MAX_ROTATION_SETUPS, distinctSetups, setupKey } from '../../lib/base/rotationSetups';
 import type { OptimizerResult, OwnedOperator } from '../../lib/base/baseOptimizer';
 import groups from '../../data/base-group-rosters.json';
 import recipes from '../../data/base-workshop-recipes.json';
@@ -65,6 +66,32 @@ test('locked residents and existing production assignments stay in their origina
   assert.deepEqual(plan.shifts[0].assignments.prod1[0], worker);
   assert.deepEqual(plan.shifts[1].assignments.dormitory1[1], worker);
   for (const shift of plan.shifts) assert.deepEqual(shift.assignments.dormitory1[0], seed.shifts[0].assignments.dormitory1[0]);
+  assert(!plan.simulation.events.some(e => e.kind === 'exhausted'));
+});
+
+test('shifts with the same setup stay one setup after completion, so the rotation needs no more presets', () => {
+  // A duty rotation A, A, B: the game needs two presets for it. Fills go into both A shifts alike and the
+  // added workers rest in B, so the two A shifts remain one setup (found 2026-11-03: filling shift by shift
+  // could turn a two-preset rotation into three or more).
+  const ctx = context();
+  // Support rooms and one factory: their workers all fit the rest beds of the B shift. With more open rooms
+  // than beds the fill falls back to shift by shift, still within the game's presets (asserted below).
+  ctx.base.facilities = facilities.filter(f => ['dormitory', 'controlCenter', 'office', 'receptionRoom', 'powerPlant'].includes(f.kind) || f.id === 'prod1');
+  const seed = emptyPlan(ctx, 3);
+  const worker = { operatorName: 'Worker 01', ...roster['Worker 01'] };
+  seed.shifts[0].assignments.prod1[0] = worker;
+  seed.shifts[1].assignments.prod1[0] = worker;
+  seed.shifts[2].assignments.dormitory1[0] = worker;
+  seed.simulation = simulateBase({ base: ctx.base, shifts: seed.shifts, loginInterval: 12 });
+  assert.equal(distinctSetups(seed.shifts), 2);
+  const plan = completeStaffing(seed, ctx);
+  assert.equal(setupKey(plan.shifts[0]), setupKey(plan.shifts[1]), 'the two A shifts are still one setup');
+  assert.equal(distinctSetups(plan.shifts), 2);
+  const wide = completeStaffing(emptyPlan(context(), 4), context());
+  assert.ok(distinctSetups(wide.shifts) <= MAX_ROTATION_SETUPS, `${distinctSetups(wide.shifts)} setups on a full base`);
+  for (const shift of plan.shifts) assert.equal(shift.assignments.controlCenter.filter(Boolean).length, facilities.find(f => f.id === 'controlCenter')!.capacity, 'Control Center is full in every shift');
+  for (const names of occupied(plan)) assert.equal(new Set(names).size, names.length);
+  assert(plan.simulation.periodic);
   assert(!plan.simulation.events.some(e => e.kind === 'exhausted'));
 });
 
