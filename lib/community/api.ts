@@ -118,11 +118,14 @@ export function createCommunityHandler(kind:'sharing'|'stats'|'supports'|'availa
 }
 async function stats(req:NextApiRequest,res:NextApiResponse,db:D1Database){
   const server=req.query.server??'en',operator=req.query.operator,skin=req.query.skin;
-  if(!isServerId(server)||(typeof operator!=='string'&&typeof skin!=='string')||(typeof operator==='string'&&typeof skin==='string')||String(operator??skin).length>200)return res.status(400).json({error:'Choose a server and operator or outfit.'});
-  const contributors=(await db.prepare('SELECT count(*) AS n FROM community_account WHERE stats=1 AND server=?').bind(server).first<{n:number}>())?.n??0;
+  if((server!=='all'&&!isServerId(server))||(typeof operator!=='string'&&typeof skin!=='string')||(typeof operator==='string'&&typeof skin==='string')||String(operator??skin).length>200)return res.status(400).json({error:'Choose a server and operator or outfit.'});
+  const serverArgs=server==='all'?[]:[server];
+  const accountRegion=server==='all'?'':' AND server=?';
+  const joinedRegion=server==='all'?'':' AND a.server=?';
+  const contributors=(await db.prepare(`SELECT count(*) AS n FROM community_account WHERE stats=1${accountRegion}`).bind(...serverArgs).first<{n:number}>())?.n??0;
   if(contributors<COMMUNITY_MIN_SAMPLE)return res.json({contributors,owned:null});
   if(typeof skin==='string'){
-    const row=await db.prepare(`SELECT count(*) AS owned,COALESCE(sum(a.equipmentKnown),0) AS equipmentOwners,COALESCE(sum(CASE WHEN a.equipmentKnown=1 THEN s.equipped ELSE 0 END),0) AS equipped FROM community_skin s JOIN community_account a ON a.userId=s.userId WHERE s.skin=? AND a.stats=1 AND a.server=?`).bind(skin,server).first<{owned:number;equipmentOwners:number;equipped:number}>();
+    const row=await db.prepare(`SELECT count(*) AS owned,COALESCE(sum(a.equipmentKnown),0) AS equipmentOwners,COALESCE(sum(CASE WHEN a.equipmentKnown=1 THEN s.equipped ELSE 0 END),0) AS equipped FROM community_skin s JOIN community_account a ON a.userId=s.userId WHERE s.skin=? AND a.stats=1${joinedRegion}`).bind(skin,...serverArgs).first<{owned:number;equipmentOwners:number;equipped:number}>();
     return res.json({contributors,owned:row?.owned??0,equipmentOwners:row?.equipmentOwners??0,equipped:row?.equipped??0});
   }
   // All E2 owners qualify, including low or unknown character levels.
@@ -148,7 +151,7 @@ async function stats(req:NextApiRequest,res:NextApiResponse,db:D1Database){
   // D1 limits SELECT results to 100 columns. Split current (47) and legacy (75)
   // aggregates in one transactional batch so both client versions see the same data.
   const select=(fields:string[])=>db.prepare(`SELECT ${fields.join(',')}
-    FROM community_operator o JOIN community_account a ON a.userId=o.userId WHERE o.operator=? AND a.stats=1 AND a.server=?`).bind(operator,server);
+    FROM community_operator o JOIN community_account a ON a.userId=o.userId WHERE o.operator=? AND a.stats=1${joinedRegion}`).bind(operator,...serverArgs);
   const results=await db.batch<Record<string,number>>([
     select(columns.concat(skillColumns,moduleColumns[0])),
     select(moduleColumns.slice(1)),

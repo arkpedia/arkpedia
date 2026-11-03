@@ -97,6 +97,37 @@ test('public statistics use only opted-in contributors and wait for ten on the s
   }finally{h.sqlite.close();}
 });
 
+test('All pools regional counts for operators and skins with one combined contributor threshold',async()=>{
+  const h=harness();
+  try{
+    for(let i=0;i<14;i++){
+      const server=i<7?'en':i<12?'jp':'kr';
+      h.user('region'+i);
+      const owns=i<4||server==='jp',elite=i<2?1:2;
+      assert.equal((await h.publish('region'+i,String(400+i),statsOnly,{server,
+        operators:owns?[{operator:'Thorns',elite,level:60,m0:0,m1:0,m2:server==='jp'?3:0,modules:elite===2?{0:server==='jp'?3:1}:{}}]:[],
+        skins:owns?[{skin:'char_293_thorns@test#1',equipped:server==='jp'}]:[],
+      })).status,200);
+      if(i===8)assert.deepEqual((await h.call('stats',null,'GET',undefined,{server:'all',operator:'Thorns'})).result,{contributors:9,owned:null});
+    }
+    h.user('excluded');await h.publish('excluded','999',{...all,stats:false},{server:'jp'});
+    for(const server of ['en','jp','kr'])assert.equal((await h.call('stats',null,'GET',undefined,{server,operator:'Thorns'})).result.owned,null);
+    const op=(await h.call('stats',null,'GET',undefined,{server:'all',operator:'Thorns'})).result;
+    assert.equal(op.contributors,14);assert.equal(op.owned,9);assert.equal(op.builds,9);
+    assert.equal(op.e1,2);assert.equal(op.e2,7);assert.equal(op.masteryOwners,7);
+    assert.deepEqual(op.skills,[0,0,5]);assert.deepEqual(op.skillRanks[2],[0,0,0,5]);
+    assert.equal(op.moduleOwners,7);assert.deepEqual(op.modules[0],[2,0,5]);
+    const skin=(await h.call('stats',null,'GET',undefined,{server:'all',skin:'char_293_thorns@test#1'})).result;
+    assert.deepEqual(skin,{contributors:14,owned:9,equipmentOwners:9,equipped:5});
+    // Existing regional/default API queries retain their own cohorts.
+    assert.equal((await h.call('stats',null,'GET',undefined,{operator:'Thorns'})).result.contributors,7);
+    assert.equal((await h.call('stats',null,'GET',undefined,{server:'jp',operator:'Thorns'})).result.contributors,5);
+    assert.equal((await h.call('stats',null,'GET',undefined,{server:'kr',operator:'Thorns'})).result.contributors,2);
+    assert.equal((await h.call('stats',null,'GET',undefined,{server:'invalid',operator:'Thorns'})).status,400);
+    assert.equal((await h.call('supports',null,'GET',undefined,{server:'all'})).status,400);
+  }finally{h.sqlite.close();}
+});
+
 test('statistics retain older latest imports, replace rather than duplicate them, and keep supports fresh',async()=>{
   const h=harness(),oldDate=new Date(clock-365*86400_000).toISOString();
   try{

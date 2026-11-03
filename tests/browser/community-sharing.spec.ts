@@ -12,7 +12,7 @@ async function fixture(page:Page,theme:string){
   const remote={user:{id:'test-user',name:'Private provider name'},profile:{username:'Community tester',friendTag:null,friendServer:null},linkedProviders:['google'],linkedAccounts:[{id:'g',providerId:'google'}],revision:0,syncReviewed:true,gameSync:false,personalSync:false,historySync:false,paused:false,data:{},providers:['google','discord']};
   await page.route('**/api/cloud-account',route=>route.fulfill({json:remote}));
   await page.route('**/api/account-profile**',route=>route.fulfill({json:{available:true}}));
-  const state={choices:{stats:false,shareTag:false,openRequests:false,revision:0,listed:false,importedAt},writes:[] as any[],requests:[] as URL[],reports:[] as any[]};
+  const state={choices:{stats:false,shareTag:false,openRequests:false,revision:0,listed:false,importedAt},writes:[] as any[],requests:[] as URL[],reports:[] as any[],statsRequests:[] as URL[]};
   await page.route('**/api/community/sharing',async route=>{
     if(route.request().method()==='GET')return route.fulfill({json:state.choices});
     const body=route.request().postDataJSON();state.writes.push(body);
@@ -26,7 +26,7 @@ async function fixture(page:Page,theme:string){
   });
   await page.route('**/api/community/availability',async route=>{state.reports.push(route.request().postDataJSON());await route.fulfill({json:{fullReports:1,openReports:0,hidden:false}});});
   await page.route('**/api/community/stats?**',async route=>{
-    const q=new URL(route.request().url());
+    const q=new URL(route.request().url());state.statsRequests.push(q);
     await route.fulfill({json:q.searchParams.get('server')==='jp'?{contributors:3,owned:null}:q.searchParams.has('skin')?{contributors:20,owned:10,equipmentOwners:10,equipped:3}:{contributors:50,owned:25,builds:25,e1:5,e2:20,masteryOwners:20,skills:[0,0,16],skillRanks:[[10,5,3,0],[12,4,2,0],[1,1,1,16]],skillUnknown:[1,1,1],moduleOwners:20,modules:[[3,2,5],[1,0,1]]}});
   });
   return state;
@@ -179,16 +179,26 @@ for(const theme of ['dark','light']){
     await expect(stats.getByText('— means no eligible owners with known data yet.',{exact:true})).toBeVisible();
   });
   test(`operator stats explain in-progress M3 and skin details show equipped percentages (${theme})`,async({page},info)=>{
-    await fixture(page,theme);await page.goto('/operators/Thorns#community');const stats=page.locator('#operator-community');await stats.scrollIntoViewIfNeeded();await expect(stats.locator('[data-community-metric]').filter({has:page.getByText('Owned',{exact:true})}).getByText('50.0%',{exact:true})).toBeVisible();
+    const state=await fixture(page,theme);await page.goto('/operators/Thorns#community');const stats=page.locator('#operator-community');await stats.scrollIntoViewIfNeeded();await expect(stats.locator('[data-community-metric]').filter({has:page.getByText('Owned',{exact:true})}).getByText('50.0%',{exact:true})).toBeVisible();
+    await expect(stats.getByRole('combobox',{name:'Community stats server'})).toContainText('All');
+    expect(state.statsRequests.at(-1)?.searchParams.get('server')).toBe('all');
+    await stats.getByRole('combobox',{name:'Community stats server'}).click();
+    await expect(page.getByRole('option')).toHaveText(['All','Global','JP','KR']);
+    await page.keyboard.press('Escape');
+    for(const [label,value] of [['Global','en'],['KR','kr'],['All','all']]){
+      await choose(page,'Community stats server',label);
+      await expect.poll(()=>state.statsRequests.at(-1)?.searchParams.get('server')).toBe(value);
+      await expect(stats.getByRole('combobox',{name:'Community stats server'})).toContainText(label);
+    }
     expect(await page.locator('[data-operator-section]').evaluateAll(elements=>{const names=elements.map(e=>e.getAttribute('data-operator-section'));return names.indexOf('community')>names.indexOf('talents')&&(names.indexOf('mastery')<0||names.indexOf('community')<names.indexOf('mastery'));})).toBe(true);
     await stats.getByRole('button',{name:'Skill 3 percentages',exact:true}).click();
     await expect(page.getByRole('region',{name:'Skill 3 percentages',exact:true}).locator('[data-community-metric="Skill 3 M3"] dd')).toContainText('80.0%');await page.keyboard.press('Escape');
     await stats.getByRole('button',{name:'LOR-X percentages',exact:true}).click();
     await expect(page.getByRole('region',{name:'LOR-X percentages',exact:true}).locator('[data-community-metric="LOR-X Level 1"] dd')).toContainText('15.0%');await page.keyboard.press('Escape');
     await help(page,'How community percentages are calculated',info,`operator-stats-help-${theme}`);await capture(page,`operator-stats-${theme}`,info);
-    await choose(page,'Community stats server','Japan');await expect(stats.getByText('Waiting for at least 10 contributors on this server.',{exact:true})).toBeVisible();
+    await choose(page,'Community stats server','JP');await expect(stats.getByText('Waiting for at least 10 contributors in this region.',{exact:true})).toBeVisible();
     await page.goto('/skins');const skin=await page.evaluate(()=>{const skins=(window as any).__NEXT_DATA__.props.pageProps.skins;return skins.find((s:any)=>s.skinId)?.name as string;});await page.goto(`/skins?skin=${encodeURIComponent(skin)}`);
-    const skinStats=page.getByRole('dialog').filter({has:page.getByRole('heading',{name:'Community stats',exact:true})});await expect(skinStats.getByText('30.0%',{exact:true})).toBeVisible();
+    const skinStats=page.getByRole('dialog').filter({has:page.getByRole('heading',{name:'Community stats',exact:true})});await expect(skinStats.getByRole('combobox',{name:'Community stats server'})).toContainText('All');await expect(skinStats.getByText('30.0%',{exact:true})).toBeVisible();
     await help(page,'How community percentages are calculated',info,`skin-stats-help-${theme}`);await capture(page,`skin-stats-${theme}`,info);
   });
 }
