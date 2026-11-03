@@ -34,7 +34,7 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    at: '2026-11-03T11:00:00Z',
+    at: '2026-11-03T10:15:00Z',
     changed: [
       { title: 'Community stats at a glance', detail: 'Compact bars show promotion, skill ranks and exact module levels, with percentages on hover or tap.', href: '/operators' },
       { title: 'Refreshed outfit details', detail: 'Larger uncropped artwork, compact details and easier controls on phones.', href: '/skins' },

@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import Link from 'next/link';
+import { operatorHref } from '@/lib/operators/operatorHref';
 import ImportDialog from '@/components/account/ImportDialog';
 import InfoPopover from '@/components/ui/InfoPopover';
 import PriceDisplay from '@/components/ui/PriceDisplay';
@@ -44,7 +45,7 @@ export default function SkinDetailDialog({ skin, onClose, availability, wishlist
       </figure>
       <div className="skin-detail-info reading-copy">
         <div className="skin-detail-identity">
-          {skin.model && <Link prefetch={false} href={`/operators/${encodeURIComponent(skin.model)}`}>{skin.model}</Link>}
+          {skin.model && <Link prefetch={false} href={operatorHref(skin.model)}>{skin.model}</Link>}
           {skin.series && <span>{skin.series}</span>}
         </div>
         <section className="skin-detail-acquisition" aria-label="Outfit availability">
