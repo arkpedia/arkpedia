@@ -2,7 +2,8 @@
  * given search time. Both sheets use their own operators and exact imported layout (252 max right / 342);
  * maxed compares the standard layouts. The score is funded LMD + EXP. The weighted diagnostic also values
  * unsold gold and must not be used to claim that the funded optimizer matches a sheet.
- * Usage: [FORMATIONS=0|1] npx tsx scripts/bench/account-budget.ts [roster=sheet252|sheet342|maxed] [seconds=60] */
+ * Usage: [FORMATIONS=0|1] [START=n] npx tsx scripts/bench/account-budget.ts [roster=sheet252|sheet342|maxed] [seconds=60]
+ * START=n is one of the page's side-by-side starts; run several processes at once and keep the best to measure them. */
 import { getAllOperators } from '../../lib/operators/operators';
 import { toBaseRosters } from '../../lib/base/baseGroupRosters';
 import { optimizeAccountBase } from '../../lib/base/accountOptimizer';
@@ -27,6 +28,6 @@ const snapshot = (which === 'sheet342'
   : which === 'sheet252' ? { productionSpots: presetSpots('2-5-2-right'), facilityLevels: presetLevels('2-5-2-right') }
   : undefined) as AccountRecord['base'];
 const t = Date.now();
-const r = optimizeAccountBase({ base: { operators, rosters: toBaseRosters(groups), skillSlots: slots, workshopRecipes: recipes }, roster, snapshot, loginInterval: 8, objective: 'balanced', externalGold: 0, compareLayouts: which === 'maxed', searchSeconds: seconds, ...(process.env.FORMATIONS ? { formations: process.env.FORMATIONS === '1' } : {}) });
+const r = optimizeAccountBase({ base: { operators, rosters: toBaseRosters(groups), skillSlots: slots, workshopRecipes: recipes }, roster, snapshot, loginInterval: 8, objective: 'balanced', externalGold: 0, compareLayouts: which === 'maxed', searchSeconds: seconds, ...(process.env.FORMATIONS ? { formations: process.env.FORMATIONS === '1' } : {}), ...(process.env.START ? { start: Number(process.env.START) } : {}) });
 const best = r.recommendations[0];
-console.log(`${which} ${seconds} s${process.env.FORMATIONS ? ` formations=${process.env.FORMATIONS}` : ''}: ${best.label} ${best.score.toFixed(0)} (${best.plan.shape}, ${best.plan.shifts.length} shifts, core [${(best.plan.shifts[0].refill ?? []).join(', ')}]) in ${((Date.now() - t) / 1000).toFixed(0)} s, ${r.searched} plans; products ${Object.values(best.products).map(p => p === "Precious Metals" ? "gold" : "EXP").join("/")}; weighted diagnostic ${(best.plan.simulation.perDay.lmd + best.plan.simulation.perDay.exp + 500 * best.plan.simulation.perDay.goldMade).toFixed(0)}`);
+console.log(`${which} ${seconds} s${process.env.FORMATIONS ? ` formations=${process.env.FORMATIONS}` : ''}${process.env.START ? ` start=${process.env.START}` : ''}: ${best.label} ${best.score.toFixed(0)} (${best.plan.shape}, ${best.plan.shifts.length} shifts, core [${(best.plan.shifts[0].refill ?? []).join(', ')}]) in ${((Date.now() - t) / 1000).toFixed(0)} s, ${r.searched} plans; products ${Object.values(best.products).map(p => p === "Precious Metals" ? "gold" : "EXP").join("/")}; weighted diagnostic ${(best.plan.simulation.perDay.lmd + best.plan.simulation.perDay.exp + 500 * best.plan.simulation.perDay.goldMade).toFixed(0)}`);

@@ -59,6 +59,15 @@ better plan (`accountResults.ts`) and gives the formations search up to 10 s pas
 chosen time. `scripts/bench/account-budget.ts` runs the page's whole search
 (`FORMATIONS=0|1`).
 
+The page runs one search per spare core, at most four (`MAX_STARTS` in
+`BaseAccountOptimizer.tsx`): each start (`start` in `AccountOptimizerInput`) seeds the
+same way and anneals from its own random seed (a start from a worse product split was
+tried and lost its minute to it), the formations
+search takes one of those workers where it runs, and `accountResults.ts` keeps each
+layout's best plan across all of them. Stopping keeps the best of every worker so far.
+`account-budget.ts` takes `START=n` for one start; several processes side by side, keeping
+the best, measure what the extra cores buy.
+
 The chronological `baseSimulation.ts` scores every plan: morale thresholds, dorm
 recovery, exhaustion, storage, collections and drones over a repeating cycle (which may
 repeat only every few cycles when a refill rotation lines up slowly). Non-repeating and

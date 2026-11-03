@@ -187,6 +187,19 @@ test('a recommendation saved as a rotation recalculates to the yields the optimi
   assert.ok(Math.abs(rotation.totals!.dailyGoldWorthGreen - r.output.lmd) < 1, `LMD ${rotation.totals!.dailyGoldWorthGreen} vs ${r.output.lmd}`);
 });
 
+test('starts run side by side anneal from their own seeds and merge into each layout\'s best plan', () => {
+  // The page runs one search per spare core; each start must be a complete, valid search on its own.
+  const input = { base, roster: fixtureRoster, snapshot: account.base, loginInterval: 12, objective: 'balanced' as const, externalGold: 0, compareLayouts: false, searchSeconds: 6 };
+  const starts = [0, 1, 2].map(start => optimizeAccountBase({ ...input, start }));
+  for (const r of starts) {
+    assert(r.recommendations.length > 0);
+    for (const rec of r.recommendations) { assert(rec.plan.simulation.periodic); assert(distinctSetups(rec.plan.shifts) <= MAX_ROTATION_SETUPS); }
+  }
+  const merged = mergeAccountResults(...starts)!;
+  for (const r of merged.recommendations) assert.equal(r.score, Math.max(...starts.flatMap(s => s.recommendations.filter(x => x.id === r.id).map(x => x.score))));
+  assert.equal(merged.searched, starts.reduce((n, s) => n + s.searched, 0));
+});
+
 test('the formations search, run beside the main one, merges into each layout\'s better plan', () => {
   // Fiammetta added so formations are tried; one first plan per layout, then all the time on the leader.
   const roster = ownedBaseRoster({ ...account, operators: ['FEater', 'Gravel', 'Spot', 'Proviso', 'Texas', 'Myrtle', 'Lancet-2', 'Perfumer', 'Fiammetta', 'Shamare'] }, known).roster;

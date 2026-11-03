@@ -71,6 +71,8 @@ test('real worker recommends owned teams, invalidates stale input and saves with
   await dialog.getByRole('button', { name: '2 times a day, every 12 hours' }).click();
   await dialog.getByRole('combobox', { name: 'Optimizer search time', exact: true }).click();
   await page.getByRole('option', { name: '1 min', exact: true }).click();
+  // One Worker per spare core, at most four (no Fiammetta here, so no formations search).
+  const starts = Math.max(1, Math.min(4, await page.evaluate(() => navigator.hardwareConcurrency ?? 1) - 1));
   const workers: string[] = [], remoteSearches: string[] = [];
   page.on('worker', worker => workers.push(worker.url()));
   page.on('request', request => {
@@ -86,17 +88,17 @@ test('real worker recommends owned teams, invalidates stale input and saves with
     for (const factory of await factories.all()) await expect(factory.locator('img').first()).toBeAttached();
   }
   await dialog.getByRole('button', { name: 'Shift 1', exact: true }).click();
-  expect(workers).toHaveLength(1);
+  expect(workers).toHaveLength(starts);
   expect(remoteSearches).toEqual([]);
   await dialog.getByRole('button', { name: 'Recommend layout' }).click();
   await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
-  expect(workers).toHaveLength(1); // identical input reuses its result, no second worker
+  expect(workers).toHaveLength(starts); // identical input reuses its result, no new workers
   await dialog.getByRole('button', { name: 'Close', exact: true }).click();
   await page.getByRole('button', { name: 'Optimize base', exact: true }).click();
   await dialog.getByRole('checkbox', { name: 'Recommend 2-5-2' }).uncheck();
   await dialog.getByRole('button', { name: 'Recommend layout' }).click();
   await expect(dialog.getByRole('heading', { name: 'Your layout', exact: true })).toBeVisible();
-  expect(workers).toHaveLength(1); // reopening the dialog retains the bounded page cache
+  expect(workers).toHaveLength(starts); // reopening the dialog retains the bounded page cache
   await dialog.getByRole('button', { name: 'Shift 2', exact: true }).click();
   await expect(dialog.getByRole('heading', { name: /20:00 →/ })).toBeVisible();
   await dialog.getByRole('button', { name: 'Shift 1', exact: true }).click();
@@ -210,8 +212,9 @@ test('with Fiammetta owned, a formations search runs beside the main one and its
   page.on('worker', worker => workers.push(worker.url()));
   await dialog.getByRole('button', { name: 'Recommend layout' }).click();
   await expect(dialog.getByRole('heading', { name: 'Your layout', exact: true })).toBeVisible({ timeout: 150000 });
-  // Two Workers where the device has cores to spare (the formations search is left out below four).
-  expect(workers).toHaveLength(cores >= 4 ? 2 : 1);
+  // One Worker per spare core, at most four: several starts, the formations search taking one of them where the
+  // device has four cores or more (it is left out below four).
+  expect(workers).toHaveLength(Math.max(1, Math.min(4, cores - 1)));
   await expect(dialog.getByRole('alert')).toHaveCount(0);
   await expect(dialog.getByRole('status').filter({ hasText: 'No repeating rotation' })).toHaveCount(0);
 });

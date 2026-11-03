@@ -20,6 +20,9 @@ import styles from './BaseAccountOptimizer.module.css';
 const whole = (value: number) => Math.round(value).toLocaleString();
 // Two results per browser page session; reopening the modal need not repeat a search.
 const cachedResults = new Map<string, AccountOptimizerResult>();
+/** Searches run side by side, one per spare core at most: more explore more plans in the same minute, and the
+ * page keeps a core for itself. */
+const MAX_STARTS = 4;
 // The reader's search time, kept for the page session like the results (it is part of their cache key).
 let lastSearchMinutes = 1;
 export default function BaseAccountOptimizer({ account, base, loginInterval, onInterval, onApply }: {
@@ -94,8 +97,15 @@ export default function BaseAccountOptimizer({ account, base, loginInterval, onI
     const cached = cache.current.get(key);
     if (cached) { setResult({ key, value: cached }); setSelected(cached.recommendations[0]?.id ?? ''); setSelectedShift(0); setSaved(false); setError(''); return; }
     setRunning(true); setError(''); setSaved(false); setProgress({ done: 0, total: 0, label: '' }); partial.current = null;
-    // The formations search needs Fiammetta and a core of its own, so it is left out on small devices.
-    const jobs: AccountOptimizerInput[] = [input, ...('Fiammetta' in input.roster && (navigator.hardwareConcurrency ?? 1) >= 4 ? [{ ...input, formations: true }] : [])];
+    // One search per spare core, each annealing from its own random seed, so a minute on a multi-core device
+    // walks several paths from the same first plans and the best of all of them is shown. The
+    // formations search needs Fiammetta and a core of its own, so it is left out on small devices.
+    const cores = navigator.hardwareConcurrency ?? 1;
+    const starts = Math.max(1, Math.min(MAX_STARTS, cores - 1));
+    const formations = 'Fiammetta' in input.roster && cores >= 4;
+    const jobs: AccountOptimizerInput[] = [...Array.from({ length: formations ? Math.max(1, starts - 1) : starts }, (_, start) => ({ ...input, start })), ...(formations ? [{ ...input, formations: true }] : [])];
+    const formationsIndex = formations ? jobs.length - 1 : -1;
+    const done = jobs.map(() => false);
     const partials: (AccountOptimizerResult | null)[] = jobs.map(() => null);
     const finals: (AccountOptimizerResult | null)[] = jobs.map(() => null);
     let left = jobs.length, firstError = '';
@@ -109,11 +119,13 @@ export default function BaseAccountOptimizer({ account, base, loginInterval, onI
         stop('The search ran past its time without a first plan. Turn off Recommend 2-5-2 to search only your base, then try again.');
       }, (searchMinutes + 3) * 60 * 1000);
       const finish = (i: number) => {
+        if (done[i]) return;
+        done[i] = true;
         started[i].terminate();
         if (--left > 0) {
-          // The main search is done: the formations one (a plan that cannot be cut short) gets up to 10 s past the
-          // chosen time, then its best so far counts.
-          if (i === 0) setTimeout(() => { if (workers.current === started && finals[1] === null && left > 0) { finals[1] = partials[1]; finish(1); } }, Math.max(0, startedAt + searchMinutes * 60_000 + 10_000 - Date.now()));
+          // The main searches are done: the formations one (a plan that cannot be cut short) gets up to 10 s past
+          // the chosen time, then its best so far counts.
+          if (left === 1 && formationsIndex >= 0 && !done[formationsIndex]) setTimeout(() => { if (workers.current === started && !done[formationsIndex]) { finals[formationsIndex] = partials[formationsIndex]; finish(formationsIndex); } }, Math.max(0, startedAt + searchMinutes * 60_000 + 10_000 - Date.now()));
           return;
         }
         if (deadline.current) clearTimeout(deadline.current);
@@ -128,11 +140,11 @@ export default function BaseAccountOptimizer({ account, base, loginInterval, onI
           if (event.data.partial) { partials[i] = event.data.partial; partial.current = mergeAccountResults(...partials); }
           if (event.data.progress) { if (i === 0) setProgress(event.data.progress); return; }
           if (event.data.result) finals[i] = event.data.result;
-          else if (i === 0) firstError = event.data.error ?? '';
+          else if (i !== formationsIndex) firstError ||= event.data.error ?? '';
           finish(i);
         };
-        // A failed formations search leaves the main one to finish; a failed main search stops both.
-        w.onerror = () => { if (workers.current !== started) return; if (i === 0) stop('The optimizer stopped. Try again.'); else finish(i); };
+        // A failed search leaves the others to finish; with none left the page reports the failure.
+        w.onerror = () => { if (workers.current !== started) return; if (i !== formationsIndex) firstError ||= 'The optimizer stopped. Try again.'; finish(i); };
         w.postMessage(jobs[i]);
       });
     } catch { endWorkers(); if (deadline.current) clearTimeout(deadline.current); setRunning(false); setError('Could not start the optimizer. Reload and try again.'); }

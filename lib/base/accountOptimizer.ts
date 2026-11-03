@@ -28,6 +28,11 @@ export interface AccountOptimizerInput {
   /** The formations search, run beside the main one (the page starts it in a second worker): one first plan per
    * layout, then the leading layout's plan built with formations, then all the time left annealing that. */
   formations?: boolean;
+  /** Which of several searches run side by side this is (0, the default, is the first). Every start seeds the
+   * same way (the product-split order is the search's best guess, and a start from a worse split loses its
+   * minute to it) and anneals from its own random seed, so parallel searches walk different paths from the same
+   * plans; the page merges their results per layout (accountResults.ts). */
+  start?: number;
 }
 export interface LayoutRecommendation extends LayoutOption {
   products: FactoryProducts;
@@ -151,6 +156,7 @@ export function optimizeAccountBase(input: AccountOptimizerInput, progress?: (do
   // roster and help some rosters, not others, so they run as a second search beside the main one rather than
   // inside it. The main worker keeps its own full search budget.
   const withFormations = !!input.formations && 'Fiammetta' in roster;
+  const start = Math.max(0, Math.floor(input.start ?? 0));
   const seedShare = withFormations ? 0 : 0.35;
 
   // Seed. Splits close to one gold factory per Trading Post first: gold is what the posts sell.
@@ -207,7 +213,8 @@ export function optimizeAccountBase(input: AccountOptimizerInput, progress?: (do
       if (offer({ ...seed, products: g.products, plan, output, score: output.lmd * weights.lmd + output.exp * weights.exp })) tick(`${seed.label}: improving`, snapshotResult());
     };
     const r = anneal(genome, ctx, {
-      timeMs, seed: 1 + i,
+      // Each start its own seed: the same seed plan, a different walk from it.
+      timeMs, seed: 1 + i + 97 * start,
       onProgress: ({ genome: g }) => { tick(`${seed.label}: improving`); improve(g, evaluate(g, ctx)); },
     });
     improve(r.genome, r.evaluation);
