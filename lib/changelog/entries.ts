@@ -34,6 +34,10 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-03T15:10:00Z',
+    added: [{ title: 'Community stats across regions', detail: 'Choose All to combine Global, JP and KR statistics, or select a region for its own results.', href: '/operators' }],
+  },
+  {
     at: '2026-11-03T14:00:00Z',
     fixed: [{ title: 'Tab underlines at every zoom', detail: 'Skill and other tab underlines stay aligned when you change your browser zoom.' }, { title: 'Animated outfits from every entry point', detail: 'Animated artwork is available from homepage, event and calendar outfit popups, just like the skin gallery.', href: '/skins' }],
   },
