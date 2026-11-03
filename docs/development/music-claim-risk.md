@@ -63,3 +63,20 @@ recording by that performer triggers Content ID.
 Credits checked against the local catalogue, [Misty Memory's credits](https://arknights.wiki.gg/wiki/Misty_Memory),
 and [Heavenly Me's distributor credits](https://linkco.re/bC86aE72?lang=en).
 Magic Theorem (Adam Gubman / Sarah Kang) remains available.
+
+## Additional maintainer-selected artists — 2026-11-03
+
+ReoNa, STARSET, Steve Aoki, Yellow Claw, RUNN, and MONKEY MAJIK are also excluded.
+Mili and ZOEE were already covered. These are artist-wide precautions requested by
+the maintainer; they do not assert a verified claim on every recording.
+[End Like This's distributor listing](https://music.apple.com/us/album/end-like-this-arknights-soundtrack-feat-runn-single/1711710278)
+credits Steve Aoki, Yellow Claw, and RUNN and identifies Ultra Records, LLC.
+The label is supporting release metadata, not an artist match or a blanket label rule.
+
+The existing compact catalogue also omits performer credits for Miss You (ZOEE)
+and Fleeting Wish (Kaori Sawada). Their recording IDs retain those exclusions when
+reading older releases, just as the Misty Memory IDs do.
+
+Duplicate album rows sharing a playback ID keep an exclusion from any listing.
+This covers the current Chernobog YouTube ID shared by BaoUner and Yuki Hayashi
+listings without suppressing every other BaoUner recording.

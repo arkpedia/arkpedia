@@ -13,11 +13,18 @@ const FLAGGED_ARTISTS = [
   ['AIYUE'], ['Rina'], ['Mili'],
   // Maintainer-reported So Long, Adele lobby claims (Misty Memory).
   ['ZOEE'],
+  // Additional maintainer-selected artist exclusions, including Ultra's
+  // End Like This collaborators. Apply to future credited recordings too.
+  ['ReoNa'], ['STARSET'], ['Steve Aoki'], ['Yellow Claw'], ['RUNN'], ['MONKEY MAJIK'],
 ] as const;
 
 // Older compact catalogues omit performer credits. Keep the reported recording
 // family excluded there too, without flagging every song by its other composers.
-const FLAGGED_CIDS = new Set(['048708', '306816', '880333']);
+const FLAGGED_CIDS = new Set([
+  '048708', '306816', '880333', // Misty Memory (ZOEE)
+  '514540', '779499', // Miss You / instrumental (ZOEE)
+  '514546', '048703', // Fleeting Wish recordings (Kaori Sawada)
+]);
 const FLAGGED_VIDEOS = new Set(['585ac0amIH4', 'd5q1_S6lI-0', 'plsjnAiPzl8']);
 
 function normalizeName(name: string): string {

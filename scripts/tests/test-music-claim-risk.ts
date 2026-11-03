@@ -72,3 +72,38 @@ test('existing excluded performers and reported Adele recordings inherit exclusi
   const reported=old.filter(song=>['048708','306816','880333'].includes(song.cid??''));
   assert.equal(reported.length,3);assert.ok(reported.every(song=>song.copyright));
 });
+
+
+test('requested crossover artists are excluded in mixed credits and published catalogues', async () => {
+  const artists=['ReoNa','STARSET','Steve Aoki','Yellow Claw','RUNN','MONKEY MAJIK','Mili','ZOEE'];
+  for(const artist of artists){
+    assert.equal(hasMusicClaimRisk({artist:artist.toLowerCase()}),true,artist);
+    assert.equal(hasMusicClaimRisk({credits:[{names:[artist]}]}),true,artist);
+    assert.equal(songAllowed({...safe,excludeCopyrighted:false},{artist}),true,artist);
+  }
+  assert.equal(hasMusicClaimRisk({artist:'Steve Aoki / Yellow Claw / RUNN'}),true);
+  assert.equal(hasMusicClaimRisk({artist:'Yellow Claw feat. RUNN'}),true);
+  assert.equal(hasMusicClaimRisk({artist:'Running Wild'}),false);
+  const loaded=await loadMusicCatalogue('/old.json',undefined,async()=>({ok:true,status:200,json:async()=>({songs:artists.map((artist,i)=>({cid:String(910000+i),title:artist,artist}))})}));
+  assert.ok(loaded.filter(song=>artists.includes(song.title)).every(song=>!songAllowed(safe,song)));
+});
+
+
+test('older compact catalogues exclude recordings with omitted performer credits', async () => {
+  const cids=['514540','779499','514546','048703'];
+  const source=[...getAllSongsFull(),...getMonsterSirenOnlySongs()].filter(song=>cids.includes(song.songId));
+  assert.equal(source.length,4);assert.ok(source.every(song=>song.copyright));
+  const rows=await loadMusicCatalogue('/old.json',undefined,async()=>({ok:true,status:200,json:async()=>({songs:source.map(song=>({cid:song.songId,videoId:song.videoId||undefined,title:song.title}))})}));
+  assert.ok(rows.filter(song=>cids.includes(song.cid??'')).every(song=>!songAllowed(safe,song)));
+});
+
+
+test('duplicate recordings retain an exclusion from either album credit', async () => {
+  for(const reverse of [false,true]){
+    const songs=[{videoId:'samevideo01',title:'First album',artist:'BaoUner'},{videoId:'samevideo01',title:'Second album',artist:'Yuki Hayashi'}];
+    if(reverse)songs.reverse();
+    const rows=await loadMusicCatalogue('/old.json',undefined,async()=>({ok:true,status:200,json:async()=>({songs})}));
+    const matches=rows.filter(song=>song.id==='samevideo01');
+    assert.equal(matches.length,1);assert.equal(matches[0].title,songs[0].title);assert.equal(matches[0].copyright,true);
+  }
+});

@@ -112,12 +112,16 @@ async function fetchMusicCatalogue(url: string, signal: AbortSignal | undefined,
   // where the queue and the Library both load it, so releases already published are covered.
   // Read by track id, so a Monster Siren row (no videoId) is a song of its own too.
   const seen = new Set<string>();
+  const validSongs = data.songs.filter(isSong);
+  // Duplicate album listings may credit the same recording differently. Keep the
+  // first display row, but retain an exclusion attached to any of its listings.
+  const excludedIds = new Set(validSongs.filter(hasMusicClaimRisk).map(song => rowId(song)!));
   // A cid that is not a Monster Siren id is dropped, not the row: the song still plays from YouTube.
-  return data.songs.filter(isSong).map((song) => {
+  return validSongs.map((song) => {
     const { cid, ...row } = song;
     // Existing content releases may predate an artist exclusion. Apply it at read
     // time too, before queue entries copy the compact copyright flag.
-    return { ...row, ...(hasMusicClaimRisk(song) ? { copyright: true as const } : {}), ...(validCid(cid) ? { cid } : {}), id: rowId(song)! };
+    return { ...row, ...(excludedIds.has(rowId(song)!) ? { copyright: true as const } : {}), ...(validCid(cid) ? { cid } : {}), id: rowId(song)! };
   }).filter((song) => !seen.has(song.id) && Boolean(seen.add(song.id)));
 }
 
