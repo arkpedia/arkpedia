@@ -41,7 +41,7 @@ return async function handler(req: NextApiRequest, res: NextApiResponse) {
         row = { ...row, payload: JSON.stringify(projected), revision: row.revision + 1, archiveRevision: row.archiveRevision + 1, updatedAt };
       }
     }
-    const profile = await db.prepare('SELECT username, friendTag, friendServer FROM arkpedia_profile WHERE userId = ?').bind(userId).first<AccountProfile>();
+    const profile = await db.prepare('SELECT username, friendTag, friendServer, avatarId FROM arkpedia_profile WHERE userId = ?').bind(userId).first<AccountProfile>();
     const saved = async (revision: number, archiveRevision: number, data: CloudData, personalSync: boolean, historySync: boolean, gameSync: boolean, paused: boolean, unchanged = false) =>
       ({ syncReviewed: !!row.syncReviewed, revision, archiveRevision, data, personalSync, historySync, gameSync, paused, ...(unchanged ? { archivesUnchanged: true } : { archives: historySync ? await readArchives(db, userId) : [] }) });
     if (req.method === 'GET') {

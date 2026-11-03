@@ -329,10 +329,11 @@ the large Sync now action; optional checking lives under Cloud saving details.
 Profile icons come from the catalogue arkpedia-data's import builds nightly
 (`public/profile-avatars.json`, fetched from the live release). It contains published
 icon paths, loads only when needed and renders at most 60 initial choices. Every stored ID is checked against the exact catalogue before rendering.
-The picture preference is **browser-only**, separate from imported game identity,
-provider identity and username. It is deliberately outside backup/cloud replacement
-payloads until a versioned sync contract supports old clients safely. Do not add it
-to BACKUP_STORES/CLOUD_KEYS as an incidental UI change. No uploads or arbitrary URLs.
+Signed-in pictures save directly to the Arkpedia profile and follow that account
+across devices. Guest choices stay browser-only and are not automatically adopted
+by an account. Both are separate from imported game and provider identity. Keep
+pictures outside BACKUP_STORES/CLOUD_KEYS so older clients replacing cloud saves
+cannot erase them. No uploads or arbitrary URLs.
 
 Pull-history banner summaries and batches use bordered panels, with full rarity
 frames around portraits. Keep storage help inline beside its status label. Header
