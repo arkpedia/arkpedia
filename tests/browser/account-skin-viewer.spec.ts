@@ -49,7 +49,8 @@ for (const theme of ['dark', 'light']) for (const source of ['account', 'friends
     expect(modelRequests).toEqual([]);
     const controls = viewer.getByRole('group', { name: 'Artwork', exact: true });
     const stillPosition = await controls.boundingBox();
-    const contentWidth = await page.evaluate(() => document.documentElement.clientWidth);
+    // A stable root scrollbar gutter narrows the containing block even when clientWidth does not.
+    const contentWidth = await page.evaluate(() => document.documentElement.getBoundingClientRect().width);
     if (info.project.name.startsWith('mobile')) {
       expect(Math.abs(stillPosition!.x + stillPosition!.width / 2 - contentWidth / 2)).toBeLessThan(1);
       const actions = await viewer.locator('.skin-zoom-actions').boundingBox();
