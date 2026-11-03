@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react';
 import OperatorStatsBars from './OperatorStatsBars';
 import { COMMUNITY_MIN_SAMPLE, type CommunityStats as Stats } from '@/lib/community/model';
-import { SERVERS, type ServerId } from '@/lib/account-import/yostar';
+import { type ServerId } from '@/lib/account-import/yostar';
 import StyledSelect from '@/components/ui/StyledSelect';
 import InfoPopover from '@/components/ui/InfoPopover';
 import Link from 'next/link';
 import styles from './Community.module.css';
 
 export default function CommunityStats({operator,skin,skills=0,skillNames=[],modules=[],compact=false}:{operator?:string;skin?:string;skills?:number;skillNames?:(string|null|undefined)[];rarity?:number;modules?:{index:number;label:string}[];compact?:boolean}){
-  const [server,setServer]=useState<ServerId>('en'),[data,setData]=useState<Stats|null>(null),[error,setError]=useState(''),[retry,setRetry]=useState(0);
+  const [server,setServer]=useState<ServerId|'all'>('all'),[data,setData]=useState<Stats|null>(null),[error,setError]=useState(''),[retry,setRetry]=useState(0);
   useEffect(()=>{
     const controller=new AbortController();setData(null);setError('');
     const query=new URLSearchParams({server,...(operator?{operator}:{skin:skin??''})});
@@ -22,7 +22,7 @@ export default function CommunityStats({operator,skin,skills=0,skillNames=[],mod
       <InfoPopover label="How community percentages are calculated">
         <p>Each opted-in game account contributes its latest import, regardless of age.</p>
         <ul>
-          <li>Owned: among all contributors on this server.</li>
+          <li>Owned: among contributors in the selected region; All combines Global, JP and KR.</li>
           {operator&&<>
             <li>E0 / E1 / E2: among owners with known promotions. Each owner counts only at their current promotion.</li>
             <li>Skill mastery: among E2 owners, including mastery training in progress. Each skill counts only at its current M1, M2 or M3 level; the total means M1 or higher.</li>
@@ -31,16 +31,16 @@ export default function CommunityStats({operator,skin,skills=0,skillNames=[],mod
           </>}
           {skin&&<li>Equipped: among outfit owners with known equipped-outfit data.</li>}
         </ul>
-        <p>Stats appear once this server has {COMMUNITY_MIN_SAMPLE} contributors; smaller owner groups are included. 0% means nobody in the eligible group has that upgrade. A dash means no eligible owners with known data. Small samples are for curiosity, not a picture of all players. Individual rosters and friend tags stay private.</p>
+        <p>Stats appear once the selected region or combined All group has {COMMUNITY_MIN_SAMPLE} contributors; smaller owner groups are included. 0% means nobody in the eligible group has that upgrade. A dash means no eligible owners with known data. Small samples are for curiosity, not a picture of all players. Individual rosters and friend tags stay private.</p>
       </InfoPopover>
     </div>
     <div className={styles.statsControls}>
-      <StyledSelect label="Community stats server" value={server} onChange={v=>setServer(v as ServerId)} options={Object.entries(SERVERS).map(([value,s])=>({value,label:s.label}))} />
+      <StyledSelect label="Community stats server" value={server} onChange={v=>setServer(v as ServerId|'all')} options={[{value:'all',label:'All'},{value:'en',label:'Global'},{value:'jp',label:'JP'},{value:'kr',label:'KR'}]} />
     </div>
     </div>
     {error?<p role="status">{error} <button type="button" className="ghost btn-sm" onClick={()=>setRetry(v=>v+1)}>Retry</button></p>:!data?<p role="status">Loading community stats…</p>:<>
       {skin&&<p>{data.contributors} contributors{data.owned!==null?` · ${data.owned} owners`:''}</p>}
-      {data.owned===null?<p>Waiting for at least {COMMUNITY_MIN_SAMPLE} contributors on this server.</p>:operator?<OperatorStatsBars data={data} operator={operator} skillNames={skillNames} skills={skills} modules={modules}/>:<dl className={styles.metrics}>
+      {data.owned===null?<p>Waiting for at least {COMMUNITY_MIN_SAMPLE} contributors {server==='all'?'across all regions':'in this region'}.</p>:operator?<OperatorStatsBars data={data} operator={operator} skillNames={skillNames} skills={skills} modules={modules}/>:<dl className={styles.metrics}>
         {metric('Owned',data.owned,data.contributors)}
         {skin&&metric('Equipped',data.equipped,data.equipmentOwners)}
       </dl>}
