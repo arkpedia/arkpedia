@@ -27,7 +27,7 @@ export interface CommunitySnapshot {
 export interface SupportPlayer { appearance?: SharedAppearance | null; id: string; friendTag: string; server: ServerId; slots: number; importedAt: string; fullReports: number; openReports: number; supports: SharedSupport[] }
 export interface CommunityStats {
   contributors: number; owned: number | null; builds?: number; e1?: number; e2?: number;
-  masteryOwners?: number; skills?: number[]; moduleGroups?: { level: number; owners: number; modules: number[][] }[]; equipmentOwners?: number; equipped?: number;
+  masteryOwners?: number; skills?: number[]; moduleOwners?: number; modules?: number[][]; moduleGroups?: { level: number; owners: number; modules: number[][] }[]; equipmentOwners?: number; equipped?: number;
 }
 const id = (v: unknown) => typeof v === 'string' && /^[\w@#+-]{1,100}$/.test(v);
 const name = (v: unknown): v is string => typeof v === 'string' && v.length > 0 && v.length <= 200 && !/[\x00-\x1f]/.test(v) && !['__proto__','constructor','prototype'].includes(v);

@@ -27,7 +27,7 @@ async function fixture(page:Page,theme:string){
   await page.route('**/api/community/availability',async route=>{state.reports.push(route.request().postDataJSON());await route.fulfill({json:{fullReports:1,openReports:0,hidden:false}});});
   await page.route('**/api/community/stats?**',async route=>{
     const q=new URL(route.request().url());
-    await route.fulfill({json:q.searchParams.get('server')==='jp'?{contributors:3,owned:null}:q.searchParams.has('skin')?{contributors:20,owned:10,equipmentOwners:10,equipped:3}:{contributors:50,owned:25,builds:25,e1:5,e2:20,masteryOwners:20,skills:[0,0,16],moduleGroups:[{level:60,owners:10,modules:[[10,7,5],[2,1,1]]}]}});
+    await route.fulfill({json:q.searchParams.get('server')==='jp'?{contributors:3,owned:null}:q.searchParams.has('skin')?{contributors:20,owned:10,equipmentOwners:10,equipped:3}:{contributors:50,owned:25,builds:25,e1:5,e2:20,masteryOwners:20,skills:[0,0,16],moduleOwners:20,modules:[[10,7,5],[2,1,1]]}});
   });
   return state;
 }
@@ -111,24 +111,24 @@ for(const theme of ['dark','light']){
   test(`small community groups show real zeroes and distinguish empty denominators (${theme})`,async({page},info)=>{
     await fixture(page,theme);let empty=false;
     await page.route('**/api/community/stats?**',route=>route.fulfill({json:empty
-      ?{contributors:11,owned:0,builds:0,e1:0,e2:0,masteryOwners:0,skills:[0,0,0],moduleGroups:[{level:60,owners:0,modules:Array.from({length:8},()=>[0,0,0])}]}
-      :{contributors:11,owned:6,builds:6,e1:1,e2:5,masteryOwners:5,skills:[0,0,4],moduleGroups:[{level:60,owners:3,modules:[[3,0,0],...Array.from({length:7},()=>[0,0,0])]}]}}));
+      ?{contributors:11,owned:0,builds:0,e1:0,e2:0,masteryOwners:0,skills:[0,0,0],moduleOwners:0,modules:Array.from({length:8},()=>[0,0,0])}
+      :{contributors:11,owned:6,builds:6,e1:1,e2:5,masteryOwners:5,skills:[0,0,4],moduleOwners:5,modules:[[3,2,1],...Array.from({length:7},()=>[0,0,0])]}}));
     await page.goto('/operators/Thorns#community');const stats=page.locator('#operator-community');await stats.scrollIntoViewIfNeeded();
     const metric=(label:string)=>stats.locator('dl > div').filter({has:page.getByText(label,{exact:true})}).locator('dd');
     await expect(metric('Owned')).toHaveText('54.5%');await expect(metric('E1')).toHaveText('16.7%');await expect(metric('E2')).toHaveText('83.3%');
     await expect(metric('Skill 1 M3')).toHaveText('0.0%');await expect(metric('Skill 3 M3')).toHaveText('80.0%');
-    await expect(metric('LOR-X Level 1')).toHaveText('100.0%');await expect(metric('LOR-X Level 3')).toHaveText('0.0%');
+    await expect(metric('LOR-X Level 1+')).toHaveText('60.0%');await expect(metric('LOR-X Level 2+')).toHaveText('40.0%');await expect(metric('LOR-X Level 3')).toHaveText('20.0%');
     await expect(stats.getByText(/percentages need 10/)).toHaveCount(0);await expect(stats.locator('dd').filter({hasText:'—'})).toHaveCount(0);
     await capture(page,`small-community-${theme}`,info);await help(page,'How community percentages are calculated',info,`small-community-help-${theme}`);
     empty=true;await choose(page,'Community stats server','Korea');await expect(metric('Owned')).toHaveText('0.0%');
-    await expect(metric('Skill 3 M3')).toHaveText('—');await expect(metric('LOR-X Level 1')).toHaveText('—');
+    await expect(metric('Skill 3 M3')).toHaveText('—');await expect(metric('LOR-X Level 1+')).toHaveText('—');
     await expect(stats.getByText('— means no eligible owners with known data yet.',{exact:true})).toBeVisible();
   });
   test(`operator stats explain in-progress M3 and skin details show equipped percentages (${theme})`,async({page},info)=>{
     await fixture(page,theme);await page.goto('/operators/Thorns#community');const stats=page.locator('#operator-community');await stats.scrollIntoViewIfNeeded();await expect(stats.locator('dl > div').filter({has:page.getByText('Owned',{exact:true})}).getByText('50.0%',{exact:true})).toBeVisible();
     expect(await page.locator('[data-operator-section]').evaluateAll(elements=>{const names=elements.map(e=>e.getAttribute('data-operator-section'));return names.indexOf('community')>names.indexOf('talents')&&(names.indexOf('mastery')<0||names.indexOf('community')<names.indexOf('mastery'));})).toBe(true);
     await expect(stats.locator('dl > div').filter({has:page.getByText('Skill 3 M3',{exact:true})}).getByText('80.0%',{exact:true})).toBeVisible();
-    await expect(stats.locator('dl > div').filter({has:page.getByText('LOR-X Level 1',{exact:true})}).getByText('100.0%',{exact:true})).toBeVisible();
+    await expect(stats.locator('dl > div').filter({has:page.getByText('LOR-X Level 1+',{exact:true})}).getByText('50.0%',{exact:true})).toBeVisible();
     await help(page,'How community percentages are calculated',info,`operator-stats-help-${theme}`);await capture(page,`operator-stats-${theme}`,info);
     await choose(page,'Community stats server','Japan');await expect(stats.getByText('Waiting for at least 10 contributors on this server.',{exact:true})).toBeVisible();
     await page.goto('/skins');const skin=await page.evaluate(()=>{const skins=(window as any).__NEXT_DATA__.props.pageProps.skins;return skins.find((s:any)=>s.skinId)?.name as string;});await page.goto(`/skins?skin=${encodeURIComponent(skin)}`);
