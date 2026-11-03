@@ -8,7 +8,6 @@ import Link from 'next/link';
 import styles from './Community.module.css';
 
 export default function CommunityStats({operator,skin,skills=0,skillNames=[],modules=[]}:{operator?:string;skin?:string;skills?:number;skillNames?:(string|null|undefined)[];rarity?:number;modules?:{index:number;label:string}[]}){
-  const [mode,setMode]=useState<'exclusive'|'cumulative'>('exclusive');
   const [server,setServer]=useState<ServerId>('en'),[data,setData]=useState<Stats|null>(null),[error,setError]=useState(''),[retry,setRetry]=useState(0);
   useEffect(()=>{
     const controller=new AbortController();setData(null);setError('');
@@ -25,10 +24,10 @@ export default function CommunityStats({operator,skin,skills=0,skillNames=[],mod
         <ul>
           <li>Owned: among all contributors on this server.</li>
           {operator&&<>
-            <li>E0 / E1 / E2: among owners with known promotions. Exclusive shows the exact promotion; cumulative E1 also includes E2.</li>
+            <li>E0 / E1 / E2: among owners with known promotions. Each owner counts only at their current promotion.</li>
             <li>Skill ranks: among E2 owners, including mastery training in progress. Rank 7 is shown separately from M1, M2 and M3. Missing historical ranks remain unknown; mastery proves rank 7.</li>
-            <li>Modules: among all E2 owners, regardless of character level. Exclusive: each module counts only at its current level. Cumulative: Level 3 also counts as Level 1 and 2; Level 2 also counts as Level 1.</li>
-            <li>Bar segments always show exact, non-overlapping levels. The toggle changes the legend percentages to include higher levels. Owned, M3 and the totals at the right stay the same. Unfilled space means below rank 7, no module, or unknown data.</li>
+            <li>Modules: among all E2 owners, regardless of character level. Each module counts only at its current level.</li>
+            <li>Bar segments always show exact, non-overlapping levels. Unfilled space means below rank 7, no module, or unknown data.</li>
           </>}
           {skin&&<li>Equipped: among outfit owners with known equipped-outfit data.</li>}
         </ul>
@@ -37,12 +36,11 @@ export default function CommunityStats({operator,skin,skills=0,skillNames=[],mod
     </div>
     <div className={styles.statsControls}>
       <StyledSelect label="Community stats server" value={server} onChange={v=>setServer(v as ServerId)} options={Object.entries(SERVERS).map(([value,s])=>({value,label:s.label}))} />
-      {operator&&<button type="button" className={`filter-chip ${styles.calculation}`} aria-label="Cumulative percentages" aria-pressed={mode==='cumulative'} title={mode==='exclusive'?'Exclusive: exact levels. Switch to cumulative to include higher levels.':'Cumulative: includes higher levels. Switch to exclusive for exact levels.'} onClick={()=>setMode(current=>current==='exclusive'?'cumulative':'exclusive')}>{mode==='exclusive'?'Exclusive':'Cumulative'}<span aria-hidden="true"> ⇄</span></button>}
     </div>
     </div>
     {error?<p role="status">{error} <button type="button" className="ghost btn-sm" onClick={()=>setRetry(v=>v+1)}>Retry</button></p>:!data?<p role="status">Loading community stats…</p>:<>
-      <p>{data.contributors} contributors{data.owned!==null?` · ${data.owned} owners`:''}</p>
-      {data.owned===null?<p>Waiting for at least {COMMUNITY_MIN_SAMPLE} contributors on this server.</p>:operator?<OperatorStatsBars data={data} operator={operator} skillNames={skillNames} skills={skills} modules={modules} mode={mode}/>:<dl className={styles.metrics}>
+      {skin&&<p>{data.contributors} contributors{data.owned!==null?` · ${data.owned} owners`:''}</p>}
+      {data.owned===null?<p>Waiting for at least {COMMUNITY_MIN_SAMPLE} contributors on this server.</p>:operator?<OperatorStatsBars data={data} operator={operator} skillNames={skillNames} skills={skills} modules={modules}/>:<dl className={styles.metrics}>
         {metric('Owned',data.owned,data.contributors)}
         {skin&&metric('Equipped',data.equipped,data.equipmentOwners)}
       </dl>}
