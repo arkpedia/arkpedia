@@ -120,19 +120,20 @@ for(const theme of ['dark','light']){
     await expect(metric('Skill 1 M3')).toHaveText('0.0%');await expect(metric('Skill 3 M3')).toHaveText('80.0%');
     await expect(metric('LOR-X Level 1')).toHaveText('20.0%');await expect(metric('LOR-X Level 2')).toHaveText('20.0%');await expect(metric('LOR-X Level 3')).toHaveText('20.0%');
     await expect(stats.getByText(/percentages need 10/)).toHaveCount(0);await expect(stats.locator('dd').filter({hasText:'—'})).toHaveCount(0);
-    const mode=stats.getByRole('group',{name:'Percentage calculation'});
-    await expect(mode.getByRole('button',{name:'Exclusive',exact:true})).toHaveAttribute('aria-pressed','true');
+    const mode=stats.getByRole('button',{name:'Cumulative percentages',exact:true});
+    await expect(mode).toHaveAttribute('aria-pressed','false');
+    await expect(mode).toHaveText('Exclusive ⇄');
     await expect(stats.locator('dt img[src*="skill-icons"]')).toHaveCount(3);
     await expect(stats.locator('dt img[alt="M3"]')).toHaveCount(3);
     await expect(stats.locator('dt [role="img"][aria-label="Elite 1"]')).toHaveCount(1);
-    await mode.getByRole('button',{name:'Cumulative',exact:true}).focus();await page.keyboard.press('Enter');
-    await expect(mode.getByRole('button',{name:'Cumulative',exact:true})).toHaveAttribute('aria-pressed','true');
+    await mode.focus();await page.keyboard.press('Enter');
+    await expect(mode).toHaveAttribute('aria-pressed','true');
     await expect(metric('E1')).toHaveText('100.0%');await expect(metric('E2')).toHaveText('83.3%');
     await expect(metric('LOR-X Level 1')).toHaveText('60.0%');await expect(metric('LOR-X Level 2')).toHaveText('40.0%');await expect(metric('LOR-X Level 3')).toHaveText('20.0%');
     await expect(metric('Skill 3 M3')).toHaveText('80.0%');await expect(metric('Owned')).toHaveText('54.5%');
     await capture(page,`cumulative-community-${theme}`,info);
-    await mode.getByRole('button',{name:'Exclusive',exact:true}).click();await expect(metric('LOR-X Level 1')).toHaveText('20.0%');
-    if(info.project.name==='mobile'){await page.setViewportSize({width:320,height:800});await stats.scrollIntoViewIfNeeded();await capture(page,`narrow-community-${theme}`,info);}
+    await mode.click();await expect(metric('LOR-X Level 1')).toHaveText('20.0%');
+    if(info.project.name==='mobile'){await page.setViewportSize({width:320,height:800});await stats.scrollIntoViewIfNeeded();const serverBox=await stats.getByRole('combobox',{name:'Community stats server'}).boundingBox();const modeBox=await mode.boundingBox();expect(Math.abs(serverBox!.y+serverBox!.height/2-modeBox!.y-modeBox!.height/2)).toBeLessThan(2);await capture(page,`narrow-community-${theme}`,info);}
     await capture(page,`small-community-${theme}`,info);await help(page,'How community percentages are calculated',info,`small-community-help-${theme}`);
     empty=true;await choose(page,'Community stats server','Korea');await expect(metric('Owned')).toHaveText('0.0%');
     await expect(metric('Skill 3 M3')).toHaveText('—');await expect(metric('LOR-X Level 1')).toHaveText('—');
