@@ -7,12 +7,14 @@ import { getSkillIconPath } from '@/lib/operators/operatorIconPaths';
 import type { CommunityStats } from '@/lib/community/model';
 import styles from './Community.module.css';
 
-type Segment = { label:string; icon?:ReactNode; count:number|undefined };
+type Segment = { label:string; icon?:ReactNode; count:number|undefined; color?:string };
 const colors=['var(--text-faint)','color-mix(in srgb, var(--teal) 45%, var(--panel))','color-mix(in srgb, var(--teal) 72%, var(--panel))','var(--teal)'];
+const emptyColor='color-mix(in srgb, var(--text-faint) 40%, var(--panel))';
+const remainder=(total:number|undefined,counts:(number|undefined)[])=>total===undefined||counts.some(count=>count===undefined)?undefined:Math.max(0,total-counts.reduce<number>((sum,count)=>sum+(count??0),0));
 const percent=(count:number|undefined,total:number|undefined)=>count===undefined||!total?'—':`${(100*count/total).toFixed(1)}%`;
-function Legend({items}:{items:{label:string;icon:ReactNode}[]}){
+function Legend({items}:{items:{label:string;icon:ReactNode;color?:string}[]}){
   return <div className={styles.barLegend}>{items.map((item,i)=><span key={item.label} title={item.label}>
-    <span className={styles.swatch} style={{background:colors[4-items.length+i]}} aria-hidden="true"/>
+    <span className={styles.swatch} style={{background:item.color??colors[4-items.length+i]}} aria-hidden="true"/>
     <span className="visually-hidden">{item.label}</span><span aria-hidden="true">{item.icon}</span>
   </span>)}</div>;
 }
@@ -29,14 +31,14 @@ function Distribution({label,name,segments,total,summary,summaryLabel}:{label:Re
       onClick={event=>{if(event.detail>0&&pointerType.current==='mouse')return;if(pinned.current){pinned.current=false;close();}else{pinned.current=true;setOpen(true);}}}>
       <span className={styles.bar} onPointerEnter={event=>{if(event.pointerType==='mouse'){pinned.current=false;setOpen(true);}}}
         onPointerLeave={event=>{setActive(null);if(event.pointerType==='mouse'){pinned.current=false;close();}}}>
-        {segments.map((segment,i)=>(segment.count??0)>0&&<span key={segment.label} onPointerEnter={()=>setActive(i)} style={{width:`${total?segment.count!/total*100:0}%`,background:colors[4-segments.length+i]}}/>)}
+        {segments.map((segment,i)=>(segment.count??0)>0&&<span key={segment.label} onPointerEnter={()=>setActive(i)} style={{width:`${total?segment.count!/total*100:0}%`,background:segment.color??colors[4-segments.length+i]}}/>)}
       </span>
     </button>
     <div className={styles.barValue}><strong>{percent(summary,total)}</strong><span>{summaryLabel}</span></div>
     {open&&createPortal(<div id={id} ref={menuRef} className="action-popover" role="region" aria-label={`${name} percentages`} style={{...menuStyle,position:'fixed'}}>
       <strong>{name}</strong>
       <dl className={styles.barDetails}>{segments.map((segment,i)=><div key={segment.label} data-community-metric={segment.label} className={active===i?styles.activeSegment:undefined}>
-        <dt title={segment.label}><span className={styles.swatch} style={{background:colors[4-segments.length+i]}} aria-hidden="true"/><span aria-hidden="true">{segment.icon}</span><span className="visually-hidden">{segment.label}</span></dt>
+        <dt title={segment.label}><span className={styles.swatch} style={{background:segment.color??colors[4-segments.length+i]}} aria-hidden="true"/><span aria-hidden="true">{segment.icon}</span><span className="visually-hidden">{segment.label}</span></dt>
         <dd>{percent(segment.count,total)} <span>({segment.count??'unknown'} of {total??0})</span></dd>
       </div>)}</dl>
     </div>,document.body)}
@@ -62,17 +64,17 @@ export default function OperatorStatsBars({data,operator,skillNames,skills,modul
         const path=getSkillIconPath(operator,skillNames[i]);
         const ranks=data.skillRanks?.[i];
         const counts=ranks?.slice(1,4)??[undefined,undefined,data.skills?.[i]];
-        return <Distribution key={i} name={`Skill ${i+1}`} label={<><span title={skillNames[i]??`Skill ${i+1}`}>{path&&<Image src={path} alt={skillNames[i]??`Skill ${i+1}`} width={36} height={36}/>}</span><span>Skill {i+1}</span></>} segments={counts.map((count,rank)=>({label:`Skill ${i+1} M${rank+1}`,count,icon:<OperatorGameIcon label={`M${rank+1}`} color size={24}/>}))} total={data.masteryOwners} summary={ranks?counts.reduce<number>((sum,count)=>sum+(count??0),0):data.skills?.[i]} summaryLabel={ranks?'M1+':'M3'}/>;
+        return <Distribution key={i} name={`Skill ${i+1}`} label={<><span title={skillNames[i]??`Skill ${i+1}`}>{path&&<Image src={path} alt={skillNames[i]??`Skill ${i+1}`} width={36} height={36}/>}</span><span>Skill {i+1}</span></>} segments={[...counts.map((count,rank)=>({label:`Skill ${i+1} M${rank+1}`,count,color:colors[rank+1],icon:<OperatorGameIcon label={`M${rank+1}`} color size={24}/> })),{label:`Skill ${i+1} No masteries`,count:remainder(data.masteryOwners,counts),color:emptyColor,icon:<span>No masteries</span>}]} total={data.masteryOwners} summary={counts[2]} summaryLabel="M3"/>;
       })}
-      <Legend items={[1,2,3].map(rank=>({label:`M${rank}`,icon:<OperatorGameIcon label={`M${rank}`} color size={24}/>}))}/>
+      <Legend items={[...[1,2,3].map(rank=>({label:`M${rank}`,color:colors[rank],icon:<OperatorGameIcon label={`M${rank}`} color size={24}/> })),{label:'No masteries',color:emptyColor,icon:<span>No masteries</span>}]}/>
     </section>}
     {modules.length>0&&<section className={styles.chartSection} aria-label="Module distribution">
       <div className={styles.chartHeading}><h3 className="entity-title entity-title-sm">Modules</h3><span>Of {data.moduleOwners??0} E2 owners</span></div>
       {modules.map(module=>{
         const levels=data.modules?.[module.index];
-        return <Distribution key={module.index} name={module.label} label={module.label} segments={[1,2,3].map((stage,i)=>({label:`${module.label} Level ${stage}`,count:levels?.[i],icon:<span>Lv{stage}</span>}))} total={data.moduleOwners} summary={levels?.reduce((a,b)=>a+b,0)} summaryLabel="has module"/>;
+        return <Distribution key={module.index} name={module.label} label={module.label} segments={[...[1,2,3].map((stage,i)=>({label:`${module.label} Level ${stage}`,count:levels?.[i],color:colors[stage],icon:<span>Lv{stage}</span>})),{label:`${module.label} No module`,count:remainder(data.moduleOwners,levels??[undefined]),color:emptyColor,icon:<span>No module</span>}]} total={data.moduleOwners} summary={levels?.[2]} summaryLabel="Lv3"/>;
       })}
-      <Legend items={[1,2,3].map(stage=>({label:`Level ${stage}`,icon:<span>Lv{stage}</span>}))}/>
+      <Legend items={[...[1,2,3].map(stage=>({label:`Level ${stage}`,color:colors[stage],icon:<span>Lv{stage}</span>})),{label:'No module',color:emptyColor,icon:<span>No module</span>}]}/>
     </section>}
   </div>;
 }

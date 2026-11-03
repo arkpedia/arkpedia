@@ -66,8 +66,8 @@ export default function AccountProfileForm({ owner, profile, onSaved, onCancel, 
       <p>{friendTag && friendServer ? <><strong>{friendTag}</strong> · {SERVERS[friendServer].label}</> : 'Import your game account to add your friend tag.'}</p>
     </div>}
     {!profile && !onboarding && <p className="hint">{paused ? 'Cloud saving is paused. Choosing a username will not resume it.' : gameSync
-      ? 'Your existing saving choices are kept. Control personal data, pull history and imported game snapshots separately in Account settings → Saving.'
-      : 'Personal settings and plans save by default. Pull history and imported game snapshots each need a separate opt-in under Account settings → Saving.'}</p>}
+      ? 'Your existing saving choices are kept. Control personal data, pull history and imported game snapshots separately in Account settings → Saving & sharing.'
+      : 'Personal settings and plans save by default. Pull history and imported game snapshots each need a separate opt-in under Account settings → Saving & sharing.'}</p>}
     {!profile && onboarding && <p className="hint">{paused ? 'Cloud saving stays paused.' : 'Nothing syncs until you confirm your saving choices next.'}</p>}
     {error && <p role="alert" className="notice notice-danger">{error}</p>}
     <div className={styles.actions}><button type="submit" className="primary btn-sm" disabled={saving || busy || availability !== 'available'}>

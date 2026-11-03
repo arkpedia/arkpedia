@@ -158,7 +158,7 @@ export default function DataDialog({ onClose, initialView = 'game' }: { onClose:
           <span>Your Yostar sign-in stays in this browser.</span>
           <InfoPopover label="About game imports">
             <p>Your browser signs in directly to Yostar over an encrypted connection. Arkpedia never receives your Yostar email, codes or tokens.</p>
-            <p>Importing replaces your imported operators, inventory and profile. Your import stays in this browser unless you enable game-data saving in Account settings → Saving.</p>
+            <p>Importing replaces your imported operators, inventory and profile. Your import stays in this browser unless you enable game-data saving in Account settings → Saving & sharing.</p>
           </InfoPopover>
         </div>
         <p className="import-copy">Importing updates your account data and signs you out of the game.</p>

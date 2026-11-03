@@ -41,3 +41,10 @@
   .bar, .barTrigger { grid-row: 2; grid-column: 1 / -1; }
   .barLegend, .barCaption { grid-column: 1 / -1; }
 }
+
+.sharing { display: grid; gap: 12px; margin-top: 12px; }
+.sharing p, .sharing h3 { margin: 0; }
+
+.supportToolbar { width: 100%; min-width: 0; }
+.supportSearches { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; width: 100%; min-width: 0; }
+@media (max-width: 640px) { .supportSearches { grid-template-columns: 1fr; } }

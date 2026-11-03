@@ -16,6 +16,7 @@ import Tabs, { tabPanelProps } from '@/components/ui/Tabs';
 import styles from './CloudAccountPanel.module.css';
 
 type Setting = 'community' | 'audio' | 'profile' | 'picture' | 'saving' | 'logins' | 'data';
+const settingsTab = (value: Setting) => value === 'community' ? 'saving' : value;
 type Confirmation = 'cloud' | 'account' | 'revoke' | 'history' | 'personal' | null;
 type Category = 'gameSync' | 'historySync' | 'personalSync';
 const label = (provider: string) => provider === 'google' ? 'Google' : 'Discord';
@@ -45,7 +46,7 @@ export default function CloudAccountPanel({ onOpenData, hideSettingsButton = fal
   const [choices, setChoices] = useState({ personalSync: false, historySync: false, gameSync: false });
   const [pendingConsent, setPendingConsent] = useState<Category | null>(null);
   const [reauth, setReauth] = useState(false);
-  const [settings, setSettings] = useState<Setting | null>(initialSettings ?? null), [confirm, setConfirm] = useState<Confirmation>(null);
+  const [settings, setSettings] = useState<Exclude<Setting, 'community'> | null>(initialSettings ? settingsTab(initialSettings) : null), [confirm, setConfirm] = useState<Confirmation>(null);
   const [typed, setTyped] = useState('');
   const cancel = useRef<HTMLButtonElement>(null);
   const remote = sync.remote;
@@ -54,7 +55,7 @@ export default function CloudAccountPanel({ onOpenData, hideSettingsButton = fal
   useEffect(() => {
     if (!settingsOnly || onboarding) return;
     if (router.query.confirm === 'delete' && userId) { setSettings('data'); setConfirm('account'); }
-    else if (userId && ['profile', 'community', 'saving', 'logins'].includes(String(router.query.settings))) setSettings(router.query.settings as Setting);
+    else if (userId && ['profile', 'community', 'saving', 'logins'].includes(String(router.query.settings))) setSettings(settingsTab(router.query.settings as Setting));
   }, [router.query.confirm, router.query.settings, userId, settingsOnly, onboarding]); // A provider return never submits deletion.
   async function act(action: () => Promise<unknown>) {
     if (working) return;
@@ -160,7 +161,7 @@ export default function CloudAccountPanel({ onOpenData, hideSettingsButton = fal
       </div> : <>
         {onboarding ? <p className="label-tag">Step 2 of 2 · Saving</p> : <Tabs label="Account settings" id="account-settings" value={settings} onChange={setSettings} options={[
           { value: 'profile', label: 'Profile' }, ...(pictureContent ? [{ value: 'picture' as const, label: 'Profile picture' }] : []),
-          { value: 'audio', label: 'Audio' }, { value: 'community', label: 'Community' }, { value: 'saving', label: 'Saving' }, { value: 'logins', label: 'Logins' }, { value: 'data', label: 'Delete data' },
+          { value: 'audio', label: 'Audio' }, { value: 'saving', label: 'Saving & sharing' }, { value: 'logins', label: 'Logins' }, { value: 'data', label: 'Delete data' },
         ]} />}
         {!onboarding && <div {...tabPanelProps('account-settings', 'profile')} hidden={settings !== 'profile'} className={styles.settings}>
           <AccountProfileForm id="edit" owner={remote.user.id} profile={remote.profile} onSaved={async () => { await sync.refresh(); setMessage('Profile saved.'); }} />
@@ -168,9 +169,8 @@ export default function CloudAccountPanel({ onOpenData, hideSettingsButton = fal
         {settings !== 'profile' && <div {...(onboarding ? {} : tabPanelProps('account-settings', settings))} className={styles.settings}>
           {settings === 'audio' && <AudioSettings />}
           {settings === 'picture' && pictureContent}
-          {settings === 'community' && <CommunitySettings />}
           {settings === 'saving' && <div className={styles.form}>
-            {!onboarding && <h3>What saves to your account</h3>}<p>{onboarding ? 'Choose what Arkpedia can save to its servers. You can leave everything off.' : 'Choose what to keep across devices. You can change this anytime.'}</p>
+            <div className={styles.choiceHeading}>{!onboarding && <h3>Private cloud saving</h3>}<InfoPopover label="How cloud saving works"><p>Choose what to keep across devices. You can change this anytime. Selected data saves while Arkpedia is open. Importing new game data still happens in your browser.</p><p>Your username and profile picture stay saved separately from these choices.</p><p>Your game-login emails, codes and tokens stay in this browser. Remembering a Yostar login is a separate choice under Import / export.</p><p>Stopping a category deletes its active cloud data after confirmation. Your browser copy stays.</p></InfoPopover></div>{onboarding && <p>Choose what Arkpedia can save to its servers. You can leave everything off.</p>}
             {([
               { key: 'personalSync', label: 'Save settings and plans', description: 'Music, plans and preferences across devices.', details: 'Includes music favourites and playlists, plans, story progress and preferences. Saving happens automatically while Arkpedia is open. Turning this off deletes that cloud copy after confirmation; your browser copy stays.', enabled: remote.personalSync ?? true, confirmation: 'personal' },
               { key: 'historySync', label: 'Save pull history', description: 'Keep older pulls when you import again.', details: 'Stores pulls, banner and operator names, game UID and server, separately from your other game data. Older archived pulls survive later imports. Turning this off deletes the cloud archive after confirmation; your browser history stays.', enabled: remote.historySync ?? false, confirmation: 'history' },
@@ -180,12 +180,11 @@ export default function CloudAccountPanel({ onOpenData, hideSettingsButton = fal
                 if (onboarding) { setChoices(previous => ({ ...previous, [option.key]: event.target.checked })); return; }
                 if (!event.target.checked) setConfirm(option.confirmation);
                 else { setPendingConsent(option.key); void act(async () => { try { await sync.consent(true, option.key); } finally { setPendingConsent(null); } }); }
-              }} />{option.label}</label><InfoPopover label={`About ${option.label.replace('Save ', 'saving ')}`}><p>{option.details}</p></InfoPopover></div><p className="hint">{option.description}</p>
+              }} />{option.label}</label><InfoPopover label={`About ${option.label.replace('Save ', 'saving ')}`}><p>{option.description}</p><p>{option.details}</p></InfoPopover></div>
             </div>)}
-            {remote.paused && <p className="hint">Cloud saving is paused. These choices will apply when you resume it.</p>}
-            {!onboarding && sync.status !== 'ready' && sync.status !== 'paused' && <p className="hint">Finish setup or resolve your save choice before enabling more saving. You can always stop saving a category.</p>}
-            <p className="hint">Your game-login emails, codes and tokens stay in this browser.</p>
-            <InfoPopover label="How cloud saving works"><p>Your username and profile picture are part of your Arkpedia account and stay saved separately from these choices.</p><p>Selected data saves while Arkpedia is open. Importing new game data is still done in your browser.</p><p>Stopping a category deletes its active cloud data after confirmation. Remembering a Yostar login is a separate browser-only choice under Import / export.</p></InfoPopover>
+            {remote.paused && <p role="status">Cloud saving is paused. These choices will apply when you resume it.</p>}
+            {!onboarding && sync.status !== 'ready' && sync.status !== 'paused' && <p role="status">Finish setup or resolve your save choice before enabling more saving. You can always stop saving a category.</p>}
+            {!onboarding && <CommunitySettings />}
             {onboarding && <div className={styles.actions}><button type="button" className="primary btn-sm" disabled={working} onClick={() => void act(async () => { if (await sync.reviewChoices(choices)) onSettingsClose?.(); })}>{working ? 'Saving…' : 'Save choices'}</button></div>}
           </div>}
           {settings === 'logins' && <div className={styles.form}>

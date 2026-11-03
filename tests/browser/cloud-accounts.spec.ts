@@ -98,7 +98,7 @@ for (const theme of ['dark', 'light']) {
     await page.getByRole('tab', { name: 'Profile', exact: true }).click();
     await page.getByRole('button', { name: 'Account settings' }).click();
     const settings = page.getByRole('dialog', { name: 'Account settings' });
-    await settings.getByRole('tab', { name: 'Saving', exact: true }).click();
+    await settings.getByRole('tab', { name: 'Saving & sharing', exact: true }).click();
     await expect(settings.getByRole('checkbox', { name: 'Save settings and plans' })).toBeChecked();
     await expect(settings.getByRole('checkbox', { name: 'Save imported game data' })).not.toBeChecked();
     const historyToggle = settings.getByRole('checkbox', { name: 'Save pull history' });
@@ -334,7 +334,7 @@ for (const theme of ['dark', 'light']) {
     await settings.getByRole('tab', { name: 'Logins', exact: true }).click();
     await expect(settings.getByRole('button', { name: 'Link Discord' })).toBeVisible();
     await expect(settings.getByRole('button', { name: 'Unlink Google' })).toBeDisabled();
-    await settings.getByRole('tab', { name: 'Saving', exact: true }).click();
+    await settings.getByRole('tab', { name: 'Saving & sharing', exact: true }).click();
     const consent = settings.getByRole('checkbox', { name: 'Save imported game data' });
     await consent.check();
     await expect.poll(() => state.uploads.at(-1)).toContain('arkpediaAccount');
@@ -703,8 +703,8 @@ for (const theme of ['dark', 'light']) {
     await settings.getByLabel('Background Music', {exact:true}).uncheck();
     await expect.poll(() => state.remote.data['arkpedia:settings'], { timeout: 25000 }).toEqual({ version: 2, values: { backgroundMusic: false, eventMusic: true } });
     await capture(page, `account-audio-${theme}`, info);
-    await settings.getByRole('tab', { name: 'Saving', exact: true }).click();
-    await expect(settings.getByText('What saves to your account')).toBeVisible();
+    await settings.getByRole('tab', { name: 'Saving & sharing', exact: true }).click();
+    await expect(settings.getByText('Private cloud saving')).toBeVisible();
   });
 }
 

@@ -167,14 +167,15 @@ async function stats(req:NextApiRequest,res:NextApiResponse,db:D1Database){
   });
 }
 async function supports(req:NextApiRequest,res:NextApiResponse,db:D1Database,now:number){
-  const server=req.query.server??'en',operator=req.query.operator??'',q=req.query;
+  const server=req.query.server??'en',operator=req.query.operator??'',tag=req.query.tag??'',q=req.query;
   const number=(key:string,low:number,high:number,fallback:number)=>q[key]===undefined||q[key]===''?fallback:typeof q[key]==='string'&&/^\d+$/.test(q[key] as string)&&Number(q[key])>=low&&Number(q[key])<=high?Number(q[key]):NaN;
   const min=number('minLevel',1,90,1),max=number('maxLevel',1,90,90),elite=number('elite',0,2,-1),mastery=number('mastery',0,3,-1),skill=number('skill',1,3,-1),cursor=number('cursor',0,100000,0);
-  if(!isServerId(server)||typeof operator!=='string'||operator.length>200||[min,max,elite,mastery,skill,cursor].some(Number.isNaN)||min>max)return res.status(400).json({error:'Check the support filters.'});
+  if(!isServerId(server)||typeof operator!=='string'||operator.length>200||typeof tag!=='string'||tag.length>200||[min,max,elite,mastery,skill,cursor].some(Number.isNaN)||min>max)return res.status(400).json({error:'Check the support filters.'});
   const conditions=['a.server=?','a.shareTag=1','a.openRequests=1','a.friendTag IS NOT NULL','a.slots>0','a.importedAt>=?','s.level>=?','s.level<=?'];
   conditions.push(`(COALESCE(r.fullReports,0)<${FULL_REPORT_THRESHOLD} OR COALESCE(r.openReports,0)>=COALESCE(r.fullReports,0))`);
   const args:(string|number)[]=[server,new Date(now-SUPPORT_MAX_AGE).toISOString(),min,max];
   if(operator){conditions.push('s.operator=?');args.push(operator);}
+  if(tag.trim()){conditions.push('instr(lower(a.friendTag),lower(?))>0');args.push(tag.trim());}
   for(const [column,value] of [['elite',elite],['mastery',mastery],['skill',skill]] as const)if(value>=0){conditions.push(`s.${column}=?`);args.push(value);}
   // Return only the expressly public fields, never user IDs, game UIDs or full rosters.
   // Match any equipped support, then return all three on the same player's card.

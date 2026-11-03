@@ -214,6 +214,27 @@ test('support finder excludes unconsented, full, unknown and expired listings an
     assert.equal(h.sqlite.prepare('SELECT count(*) AS n FROM community_support WHERE userId=?').get('duplicate')?.n,0);
   }finally{h.sqlite.close();}
 });
+test('friend tag searches compose with support filters and never expose private or unavailable players',async()=>{
+  const h=harness();try{
+    for(const [i,owner] of ['public','private','closed','full','stale','japan'].entries()){
+      h.user(owner);
+      assert.equal((await h.publish(owner,String(900+i),owner==='private'?statsOnly:owner==='closed'?{...all,openRequests:false}:all,{
+        doctor:owner==='private'?null:'Helpful#1234',server:owner==='japan'?'jp':'en',slots:owner==='full'?0:3,
+        importedAt:new Date(clock-(owner==='stale'?8:0)*86400_000).toISOString(),
+      })).status,200);
+    }
+    for(const tag of ['help','HELPFUL#1234','  #1234  ']){
+      const response=await h.call('supports',null,'GET',undefined,{tag,operator:'Thorns',mastery:'2'});
+      assert.equal(response.status,200);assert.equal(response.result.listings.length,1);
+      assert.equal(response.result.listings[0].friendTag,'Helpful#1234');
+    }
+    for(const tag of ['missing','%','_'])assert.equal((await h.call('supports',null,'GET',undefined,{tag})).result.listings.length,0);
+    assert.equal((await h.call('supports',null,'GET',undefined,{tag:'Helpful',operator:'Amiya'})).result.listings.length,0);
+    assert.equal((await h.call('supports',null,'GET',undefined,{tag:'Helpful',server:'jp'})).result.listings.length,1);
+    assert.equal((await h.call('supports',null,'GET',undefined,{tag:'x'.repeat(201)})).status,400);
+    assert.equal((await h.call('supports',null,'GET',undefined,{tag:['a','b']} as unknown as Record<string,string>)).status,400);
+  }finally{h.sqlite.close();}
+});
 test('consent revisions isolate concurrent updates and stale refreshes cannot resurrect withdrawn sharing',async()=>{
   const h=harness();try{
     h.user('owner');assert.equal((await h.publish('owner','100')).status,200);

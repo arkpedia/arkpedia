@@ -5,9 +5,13 @@ import { type ServerId } from '@/lib/account-import/yostar';
 import StyledSelect from '@/components/ui/StyledSelect';
 import InfoPopover from '@/components/ui/InfoPopover';
 import Link from 'next/link';
+import { useCommunitySharing } from '@/lib/community/SharingProvider';
+import { useCloudSync } from '@/lib/cloud-account/SyncProvider';
 import styles from './Community.module.css';
 
 export default function CommunityStats({operator,skin,skills=0,skillNames=[],modules=[],compact=false}:{operator?:string;skin?:string;skills?:number;skillNames?:(string|null|undefined)[];rarity?:number;modules?:{index:number;label:string}[];compact?:boolean}){
+  const sharing=useCommunitySharing(),sync=useCloudSync();
+  const contributing=!!sync.remote&&!!sharing.state?.stats;
   const [server,setServer]=useState<ServerId|'all'>('all'),[data,setData]=useState<Stats|null>(null),[error,setError]=useState(''),[retry,setRetry]=useState(0);
   useEffect(()=>{
     const controller=new AbortController();setData(null);setError('');
@@ -25,9 +29,9 @@ export default function CommunityStats({operator,skin,skills=0,skillNames=[],mod
           <li>Owned: among contributors in the selected region; All combines Global, JP and KR.</li>
           {operator&&<>
             <li>E0 / E1 / E2: among owners with known promotions. Each owner counts only at their current promotion.</li>
-            <li>Skill mastery: among E2 owners, including mastery training in progress. Each skill counts only at its current M1, M2 or M3 level; the total means M1 or higher.</li>
-            <li>Modules: among all E2 owners, regardless of character level. Each module counts only at its current level.</li>
-            <li>Bar segments always show exact, non-overlapping levels. Unfilled space means no mastery, no module, or unknown data.</li>
+            <li>Skill mastery: among E2 owners, including mastery training in progress. Each skill counts only at its current M1, M2 or M3 level; the headline percentage shows M3.</li>
+            <li>Modules: among all E2 owners, regardless of character level. Each module counts only at its current level; the headline percentage shows level 3.</li>
+            <li>Bar segments always show exact, non-overlapping levels. The grey remainder shows No masteries or No module. Missing rank detail in older imports remains unknown.</li>
           </>}
           {skin&&<li>Equipped: among outfit owners with known equipped-outfit data.</li>}
         </ul>
@@ -46,6 +50,6 @@ export default function CommunityStats({operator,skin,skills=0,skillNames=[],mod
       </dl>}
       {data.owned!==null&&((operator&&(!data.builds||skills>0&&!data.masteryOwners||modules.length>0&&!data.moduleOwners))||(skin&&!data.equipmentOwners))&&<p>— means no eligible owners with known data yet.</p>}
     </>}
-    <p><Link className="reading-copy" href="/account?settings=community">Choose whether to contribute</Link></p>
+    <div className="account-shortcuts">{contributing?<><span>You’re currently contributing!</span><Link className="ghost btn-sm" href="/account?settings=community">Turn off sharing?</Link></>:<Link className="ghost btn-sm" href="/account?settings=community">Do you want to contribute?</Link>}</div>
   </div>;
 }

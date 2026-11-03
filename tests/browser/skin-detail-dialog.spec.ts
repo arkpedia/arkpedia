@@ -47,7 +47,7 @@ for (const theme of ['dark', 'light']) {
     const viewport = page.viewportSize()!;
     await page.setViewportSize({ width: 320, height: 568 });
     expect(await dialog.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
-    await dialog.getByText('Choose whether to contribute').scrollIntoViewIfNeeded();
+    await dialog.getByText('Do you want to contribute?').scrollIntoViewIfNeeded();
     await expect(dialog.getByRole('button', { name: 'Close', exact: true })).toBeInViewport();
     await page.setViewportSize(viewport);
     await dialog.getByRole('button', { name: 'Close', exact: true }).click();

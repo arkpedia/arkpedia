@@ -34,6 +34,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-03T17:15:00Z',
+    added: [{ title: 'Find supports by in-game tag', detail: 'Search shared friend tags alongside operator and build filters.', href: '/community/support-units' }],
+    changed: [
+      { title: 'Saving and sharing in one place', detail: 'Manage private saves and community choices in one tab, with explanations beside each option.', href: '/account' },
+      { title: 'Clearer community build statistics', detail: 'Headlines show M3 and level 3 modules; legends now include no masteries and no module.', href: '/operators' },
+    ],
+  },
+  {
     at: '2026-11-03T15:10:00Z',
     added: [{ title: 'Community stats across regions', detail: 'Choose All to combine Global, JP and KR statistics, or select a region for its own results.', href: '/operators' }],
   },

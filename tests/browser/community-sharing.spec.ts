@@ -22,7 +22,7 @@ async function fixture(page:Page,theme:string){
   await page.route('**/api/community/supports?**',async route=>{
     const q=new URL(route.request().url());state.requests.push(q);
     const weak=q.searchParams.get('mastery')==='0';
-    await route.fulfill({json:{listings:q.searchParams.get('server')==='jp'?[]:[{id:'c79bfde1-830c-41f4-bc12-5d8747bb70be',friendTag:'Helpful#1234',appearance:{avatar:'avatar_def_01',avatarType:'ICON',secretary:null,secretarySkin:null,nameCard:'nc_as2024_throne',nameCardVariant:0,level:120,operators:417,skins:380},server:'en',slots:3,importedAt,fullReports:0,openReports:0,supports:[{operator:'Thorns',skin:'char_293_thorns#2',elite:2,level:weak?20:60,skill:3,mastery:weak?0:2,skillLevel:7,skillMasteries:weak?[0,0,0]:[1,3,2],module:null,moduleLevel:null},{operator:'Amiya',skin:'char_002_amiya#2',skillLevel:7,skillMasteries:[0,1,3],elite:2,level:80,skill:3,mastery:3,module:null,moduleLevel:null},{operator:'SilverAsh',skin:'char_172_svrash#2',skillLevel:7,skillMasteries:[3,0,3],elite:2,level:90,skill:3,mastery:3,module:null,moduleLevel:null}]}],next:null}});
+    await route.fulfill({json:{listings:q.searchParams.get('server')==='jp'||!'helpful#1234'.includes((q.searchParams.get('tag')??'').toLowerCase())?[]:[{id:'c79bfde1-830c-41f4-bc12-5d8747bb70be',friendTag:'Helpful#1234',appearance:{avatar:'avatar_def_01',avatarType:'ICON',secretary:null,secretarySkin:null,nameCard:'nc_as2024_throne',nameCardVariant:0,level:120,operators:417,skins:380},server:'en',slots:3,importedAt,fullReports:0,openReports:0,supports:[{operator:'Thorns',skin:'char_293_thorns#2',elite:2,level:weak?20:60,skill:3,mastery:weak?0:2,skillLevel:7,skillMasteries:weak?[0,0,0]:[1,3,2],module:null,moduleLevel:null},{operator:'Amiya',skin:'char_002_amiya#2',skillLevel:7,skillMasteries:[0,1,3],elite:2,level:80,skill:3,mastery:3,module:null,moduleLevel:null},{operator:'SilverAsh',skin:'char_172_svrash#2',skillLevel:7,skillMasteries:[3,0,3],elite:2,level:90,skill:3,mastery:3,module:null,moduleLevel:null}]}],next:null}});
   });
   await page.route('**/api/community/availability',async route=>{state.reports.push(route.request().postDataJSON());await route.fulfill({json:{fullReports:1,openReports:0,hidden:false}});});
   await page.route('**/api/community/stats?**',async route=>{
@@ -47,17 +47,32 @@ async function choose(page:Page,label:string,option:string){await page.getByRole
 for(const theme of ['dark','light']){
   test(`community choices are explicit and independent of private saves (${theme})`,async({page},info)=>{
     const state=await fixture(page,theme);await page.goto('/account?settings=community');
-    const dialog=page.getByRole('dialog',{name:'Account settings',exact:true});await expect(dialog.getByRole('tab',{name:'Community',exact:true})).toHaveAttribute('aria-selected','true');
-    const stats=dialog.getByRole('checkbox',{name:'Contribute to community stats',exact:true}),tag=dialog.getByRole('checkbox',{name:'Share my imported friend tag',exact:true}),requests=dialog.getByRole('checkbox',{name:'Open friend requests to provide support',exact:true});
-    await expect(stats).not.toBeChecked();await expect(tag).not.toBeChecked();await expect(requests).toBeDisabled();expect(state.writes).toHaveLength(0);
-    for(const label of ['About community stats','About sharing your friend tag','About support listings'])await help(page,label,info,`community-${theme}-${label.replaceAll(' ','-')}`);
+    const dialog=page.getByRole('dialog',{name:'Account settings',exact:true});await expect(dialog.getByRole('tab',{name:'Saving & sharing',exact:true})).toHaveAttribute('aria-selected','true');
+    const stats=dialog.getByRole('checkbox',{name:'Contribute to community stats',exact:true}),supports=dialog.getByRole('checkbox',{name:'Share my friend tag and support units',exact:true});
+    await expect(stats).not.toBeChecked();await expect(supports).not.toBeChecked();await expect(supports).toBeEnabled();expect(state.writes).toHaveLength(0);
+    await expect(dialog.getByRole('checkbox',{name:'Save settings and plans',exact:true})).toBeVisible();
+    await expect(dialog.getByRole('tab',{name:'Community',exact:true})).toHaveCount(0);
+    for(const label of ['How cloud saving works','How community sharing works','About community stats','About support listings'])await help(page,label,info,`community-${theme}-${label.replaceAll(' ','-')}`);
     await stats.check();await dialog.getByRole('button',{name:'Save community choices',exact:true}).click();await expect.poll(()=>state.writes.length).toBe(1);
     expect(state.writes[0].snapshot.operators[0].m2).toBe(3);expect(state.writes[0].snapshot.doctor).toBeNull();expect(state.writes[0].snapshot.supports).toEqual([]);expect(JSON.stringify(state.writes[0])).not.toMatch(/PRIVATE BIO|orundum/);
-    await tag.check();await requests.check();await dialog.getByRole('button',{name:'Save community choices',exact:true}).click();await expect.poll(()=>state.writes.length).toBe(2);
+    await supports.check();await dialog.getByRole('button',{name:'Save community choices',exact:true}).click();await expect.poll(()=>state.writes.length).toBe(2);
     expect(state.writes[1].snapshot.supports[0].mastery).toBe(2);await expect(dialog.getByText('Your equipped supports are listed.',{exact:true})).toBeVisible();
     await capture(page,`community-settings-${theme}`,info);
-    await dialog.getByRole('button',{name:'Stop all sharing',exact:true}).click();await expect(stats).not.toBeChecked();await expect(tag).not.toBeChecked();
+    await dialog.getByRole('button',{name:'Stop all sharing',exact:true}).click();await expect(stats).not.toBeChecked();await expect(supports).not.toBeChecked();
     expect(state.writes.at(-1).snapshot).toBeUndefined();
+  });
+  test(`partial legacy support consent stays unlisted until explicitly enabled (${theme})`,async({page})=>{
+    const state=await fixture(page,theme);state.choices.shareTag=true;
+    await page.goto('/account?settings=community');
+    const dialog=page.getByRole('dialog',{name:'Account settings',exact:true});
+    const supports=dialog.getByRole('checkbox',{name:'Share my friend tag and support units',exact:true});
+    await expect(supports).not.toBeChecked();expect(state.writes).toHaveLength(0);
+    await supports.check();await dialog.getByRole('button',{name:'Save community choices',exact:true}).click();
+    await expect.poll(()=>state.writes.length).toBe(1);
+    expect(state.writes[0].choices).toEqual({stats:false,shareTag:true,openRequests:true});
+    await supports.uncheck();await dialog.getByRole('button',{name:'Save community choices',exact:true}).click();
+    await expect.poll(()=>state.writes.length).toBe(2);
+    expect(state.writes[1].choices).toEqual({stats:false,shareTag:false,openRequests:false});
   });
   test(`support finder combines exact build filters and reports availability (${theme})`,async({page},info)=>{
     const state=await fixture(page,theme);await page.goto('/community/support-units');await expect(page.getByText('Helpful#1234',{exact:true})).toBeVisible();
@@ -70,7 +85,13 @@ for(const theme of ['dark','light']){
     if(phone)await page.getByRole('button',{name:'Done',exact:true}).click();
     await expect(page.getByRole('button',{name:'View Helpful#1234 support units',exact:true})).toBeVisible();
     await expect.poll(()=>new URL(page.url()).searchParams.get('mastery')).toBe('0');
-    expect(state.requests.at(-1)!.searchParams.get('operator')).toBe('Thorns');expect(state.requests.at(-1)!.searchParams.get('maxLevel')).toBe('30');expect(state.requests.at(-1)!.searchParams.get('elite')).toBe('2');
+    await expect.poll(()=>{
+      const params=state.requests.at(-1)?.searchParams;
+      return Object.fromEntries(['operator','maxLevel','elite','mastery','skill'].map(key=>[key,params?.get(key)]));
+    }).toEqual({operator:'Thorns',maxLevel:'30',elite:'2',mastery:'0',skill:'3'});
+    await page.getByRole('searchbox',{name:'In-game tag',exact:true}).fill('Helpful#1234');
+    await expect.poll(()=>state.requests.at(-1)?.searchParams.get('tag')).toBe('Helpful#1234');
+    await expect.poll(()=>new URL(page.url()).searchParams.get('tag')).toBe('Helpful#1234');
     await capture(page,`supports-filtered-${theme}`,info);
     if(phone){
       const viewport=page.viewportSize()!;await page.setViewportSize({width:320,height:800});
@@ -85,7 +106,7 @@ for(const theme of ['dark','light']){
     const thorns=builds.getByRole('region',{name:'Thorns support build',exact:true});
     const skillButtons=thorns.getByRole('button',{name:/^Thorns Skill/});await expect(skillButtons).toHaveCount(3);
     expect(state.requests.length).toBeGreaterThan(0);
-    expect(state.requests.every(q=>q.searchParams.get('mastery')==='0')).toBe(true);
+    expect(state.requests.every(q=>q.searchParams.get('mastery')==='0'&&q.searchParams.get('tag')==='Helpful#1234')).toBe(true);
     await expect(skillButtons.nth(0)).toHaveAccessibleName('Thorns Skill 1: Lv 7. Open details');await expect(skillButtons.nth(2)).toHaveAttribute('aria-current','true');
     const positions=await skillButtons.evaluateAll(elements=>elements.map(e=>e.getBoundingClientRect().top));expect(positions[0]).toBeLessThan(positions[1]);expect(positions[1]).toBeLessThan(positions[2]);
     await expect(thorns.getByText('Loading…',{exact:true})).toHaveCount(0);
@@ -111,6 +132,21 @@ for(const theme of ['dark','light']){
     await capture(page,`supports-report-${theme}`,info);await page.keyboard.press('Escape');await expect(report).toBeFocused();
     if(phone)await page.getByRole('button',{name:/^Filters/}).click();await choose(page,'Support server','Japan');if(phone)await page.getByRole('button',{name:'Done',exact:true}).click();
     await expect(page.getByRole('heading',{name:'No matching support units',exact:true})).toBeVisible();
+  });
+  test(`contribution footer follows signed-in sharing choices (${theme})`,async({page},info)=>{
+    const state=await fixture(page,theme);await page.goto('/operators/Thorns#community');
+    const stats=page.locator('#operator-community');
+    await expect(stats.getByRole('link',{name:'Do you want to contribute?',exact:true})).toBeVisible();
+    state.choices.stats=true;await page.reload();
+    await expect(stats.getByText('You’re currently contributing!',{exact:true})).toBeVisible();
+    await expect(stats.getByRole('link',{name:'Do you want to contribute?',exact:true})).toHaveCount(0);
+    await stats.getByRole('link',{name:'Turn off sharing?',exact:true}).click();
+    await expect(page.getByRole('tab',{name:'Saving & sharing',exact:true})).toHaveAttribute('aria-selected','true');
+    expect(state.writes).toHaveLength(0);
+    await page.route('**/api/cloud-account',route=>route.fulfill({status:401,json:{error:'Sign in'}}));
+    await page.goto('/operators/Thorns#community');await page.reload();
+    await expect(stats.getByRole('link',{name:'Do you want to contribute?',exact:true})).toBeVisible();
+    await stats.scrollIntoViewIfNeeded();await capture(page,`contribution-footer-${theme}`,info);
   });
   test(`small community groups show real zeroes and distinguish empty denominators (${theme})`,async({page},info)=>{
     await fixture(page,theme);let empty=false;
@@ -141,12 +177,14 @@ for(const theme of ['dark','light']){
     const mastery=stats.getByRole('region',{name:'Skill mastery distribution',exact:true});
     await expect(mastery.getByRole('heading',{name:'Skill mastery',exact:true})).toBeVisible();
     await expect(mastery.getByText('Lv7',{exact:true})).toHaveCount(0);
-    await expect(mastery.locator('[class*="barValue"] strong')).toHaveText(['60.0%','40.0%','80.0%']);
-    await expect(mastery.getByText('M1+',{exact:true})).toHaveCount(3);
+    await expect(mastery.locator('[class*="barValue"] strong')).toHaveText(['0.0%','0.0%','80.0%']);
+    await expect(mastery.locator('[class*="barValue"]')).toHaveText(['0.0%M3','0.0%M3','80.0%M3']);
+    await expect(mastery.locator('[class*="barLegend"] > span[title="No masteries"]')).toHaveCount(1);
+    await expect(stats.locator('[class*="barLegend"] > span[title="No module"]')).toHaveCount(1);
     await checkDetails('Promotion',{'E1':'16.7%','E2':'83.3%'});
-    await checkDetails('Skill 1',{'Skill 1 M1':'20.0%','Skill 1 M2':'40.0%','Skill 1 M3':'0.0%'});
+    await checkDetails('Skill 1',{'Skill 1 M1':'20.0%','Skill 1 M2':'40.0%','Skill 1 M3':'0.0%','Skill 1 No masteries':'40.0%'});
     await checkDetails('Skill 3',{'Skill 3 M3':'80.0%'});
-    await checkDetails('LOR-X',{'LOR-X Level 1':'20.0%','LOR-X Level 2':'20.0%','LOR-X Level 3':'20.0%'});
+    await checkDetails('LOR-X',{'LOR-X Level 1':'20.0%','LOR-X Level 2':'20.0%','LOR-X Level 3':'20.0%','LOR-X No module':'40.0%'});
     if(info.project.name==='desktop'){
       const bar=stats.getByRole('button',{name:'Skill 2 percentages',exact:true});
       await bar.locator('span').first().hover();await expect(page.getByRole('region',{name:'Skill 2 percentages',exact:true})).toBeVisible();
@@ -195,7 +233,8 @@ for(const theme of ['dark','light']){
     await expect(page.getByRole('region',{name:'Skill 3 percentages',exact:true}).locator('[data-community-metric="Skill 3 M3"] dd')).toContainText('80.0%');await page.keyboard.press('Escape');
     await stats.getByRole('button',{name:'LOR-X percentages',exact:true}).click();
     await expect(page.getByRole('region',{name:'LOR-X percentages',exact:true}).locator('[data-community-metric="LOR-X Level 1"] dd')).toContainText('15.0%');await page.keyboard.press('Escape');
-    await help(page,'How community percentages are calculated',info,`operator-stats-help-${theme}`);await capture(page,`operator-stats-${theme}`,info);
+    await help(page,'How community percentages are calculated',info,`operator-stats-help-${theme}`);await page.mouse.move(0,0);await stats.getByRole('heading',{name:'Community stats',exact:true}).click();await page.keyboard.press('Escape');await capture(page,`operator-stats-${theme}`,info);
+    if(process.env.ARKPEDIA_QA_CAPTURE)await stats.screenshot({path:`${process.env.ARKPEDIA_QA_CAPTURE}/stats-panel-${theme}-${info.project.name}.png`,animations:'disabled'});
     await choose(page,'Community stats server','JP');await expect(stats.getByText('Waiting for at least 10 contributors in this region.',{exact:true})).toBeVisible();
     await page.goto('/skins');const skin=await page.evaluate(()=>{const skins=(window as any).__NEXT_DATA__.props.pageProps.skins;return skins.find((s:any)=>s.skinId)?.name as string;});await page.goto(`/skins?skin=${encodeURIComponent(skin)}`);
     const skinStats=page.getByRole('dialog').filter({has:page.getByRole('heading',{name:'Community stats',exact:true})});await expect(skinStats.getByRole('combobox',{name:'Community stats server'})).toContainText('All');await expect(skinStats.getByText('30.0%',{exact:true})).toBeVisible();
