@@ -46,3 +46,13 @@ export async function withPullPlannerDynamicArt<P extends { skinCatalogue: { ski
   const enriched = await withPlannerDynamicArt({ catalogue: props.skinCatalogue });
   return { ...props, skinCatalogue: enriched.catalogue };
 }
+
+/** Account and friend galleries also serve older release payloads without animated-art pointers. */
+export async function withFriendDynamicArt<P extends { skins: { id: string; dynamic?: string | null; alternate?: string | null }[] }>(props: P): Promise<P> {
+  if (props.skins.every(skin => skin.dynamic !== undefined && skin.alternate !== undefined)) return props;
+  const pointers = skinDynamicArt(await loadDynamicArtIndex(), props.skins.map(skin => ({ skinId: skin.id })));
+  return { ...props, skins: props.skins.map(skin => ({ ...skin,
+    dynamic: skin.dynamic === undefined ? pointers[skin.id] ?? null : skin.dynamic,
+    alternate: skin.alternate === undefined ? pointers[`${skin.id}^sp_dyn`] ?? null : skin.alternate,
+  })) };
+}

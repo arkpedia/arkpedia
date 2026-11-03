@@ -15,6 +15,7 @@ const FriendCollection = dynamic(() => import('@/components/friends/FriendCollec
 import { makeFriendFile, shareableRoster } from '@/lib/account/friendFile';
 import { readRoster } from '@/lib/planner/roster';
 import { friendOperators, type FriendOperator, type FriendSkin } from '@/lib/account/friendCatalogue';
+import { withFriendDynamicArt } from '@/lib/skins/dynamicArtFallback';
 import { withContentPage } from '@/lib/content/server';
 import { useReleaseTable } from '@/lib/content/context';
 import { DATA_DIALOG_TABLES, fillAccountMap } from '@/lib/content/dataDialogTables';
@@ -140,14 +141,14 @@ export default function AccountPage({ skins, operators }: Props) {
 export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>('/account', async () => {
   const [{ getAllSkins }, { getAllOperators }] = await Promise.all([import('@/lib/skins/skins'), import('@/lib/operators/operators')]);
   const map = await DATA_DIALOG_TABLES['game-account-map']();
-  return { props: {
+  return { props: await withFriendDynamicArt({
     // As /skins counts them: an outfit only CN has is not Global's yet.
     // Each outfit by its game id, with its art: the card shows the assistant in theirs.
     operators: friendOperators(map, getAllOperators()),
     skins: getAllSkins().flatMap(skin => skin.skinId ? [{ id: skin.skinId, name: skin.name, model: skin.model, series: skin.series, image: skin.image }] : []),
-  } };
+  }) };
 }, {
   bundledWhenUnpublished: true,
   tables: DATA_DIALOG_TABLES,
-  finalize: fillAccountMap,
+  finalize: async props => withFriendDynamicArt(await fillAccountMap(props)),
 });

@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ContentImg } from '@/components/content/ContentImage';
 import { OperatorPreview, type OperatorPreviewItem } from '@/components/operators/OperatorPreview';
+import SkinZoomOverlay from '@/components/skins/SkinZoomOverlay';
 import SearchInput from '@/components/ui/SearchInput';
 import StyledSelect from '@/components/ui/StyledSelect';
 import XButton from '@/components/ui/XButton';
@@ -19,19 +20,13 @@ export default function FriendCollection({ friend, operators, skins, view, onClo
   const [preview, setPreview] = useState<OperatorPreviewItem | null>(null);
   const closePreview = useCallback(() => setPreview(null), []);
   const [skin, setSkin] = useState<FriendSkin | null>(null);
-  const collection = useRef<HTMLDivElement>(null);
-  const skinTrigger = useRef<HTMLButtonElement | null>(null);
-  const skinScroll = useRef(0);
-  const skinBack = useRef<HTMLButtonElement>(null);
-  useLayoutEffect(() => {
-    if (skin) skinBack.current?.focus();
-    else if (skinTrigger.current) {
-      if (inline) window.scrollTo({ top: skinScroll.current });
-      else if (collection.current) collection.current.scrollTop = skinScroll.current;
-      // The gallery was remounted: resolve the same skin by its stable game id.
-      collection.current?.querySelector<HTMLButtonElement>(`[data-skin-id="${skinTrigger.current.dataset.skinId}"]`)?.focus({preventScroll:true});
-    }
-  }, [skin, inline]);
+  const closeSkin = useCallback(() => setSkin(null), []);
+  useEffect(() => {
+    if (!inline || !skin) return;
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = overflow; };
+  }, [inline, skin]);
   const known = useMemo(() => new Map(operators.map(op => [op.name, op])), [operators]);
   const owned = useMemo(() => [...new Set(friend.account.operators)].map(name => known.get(name) ?? {
     name, rarity: 0, icon: '/essential-icons/Arkpedia.webp', className: null, skills: 0, modules: [],
@@ -58,11 +53,6 @@ export default function FriendCollection({ friend, operators, skins, view, onClo
   const heading = `${friend.account.doctor ?? 'Friend'} · ${view === 'operators' ? 'Operators' : 'Skins'}`;
   const content = <>
       {!inline && <div className={styles.dialogHead}><h2 className="entity-title">{heading}</h2><XButton onClick={onClose} label={`Close ${own ? 'your' : "friend's"} ${view}`} /></div>}
-      {skin ? <div className={styles.skinDetail}>
-        <button ref={skinBack} type="button" className="btn" onClick={() => setSkin(null)}>← Skins</button>
-        <h3>{skin.model} · {skin.name}</h3>
-        {skin.image && <ContentImg src={skin.image} alt={`${skin.model} — ${skin.name}`} />}
-      </div> : <>
         <div className={styles.filters}>
           <SearchInput label={`Search ${own ? 'your' : 'friend'} ${view}`} placeholder={view === 'operators' ? 'Search operators…' : 'Search skins…'} value={query} onChange={setQuery} />
           {view === 'operators' && <>
@@ -70,7 +60,7 @@ export default function FriendCollection({ friend, operators, skins, view, onClo
             <StyledSelect label="Sort operators" value={sort} onChange={setSort} options={[{value:'built',label:'Built level'},{value:'rarity',label:'Rarity'},{value:'name',label:'Name'}]} />
           </>}
         </div>
-        <div ref={collection} className={styles.collection} tabIndex={0} aria-label={`${own ? 'Your' : 'Friend'} ${view === 'operators' ? 'operator' : 'skin'} collection`}>
+        <div className={styles.collection} tabIndex={0} aria-label={`${own ? 'Your' : 'Friend'} ${view === 'operators' ? 'operator' : 'skin'} collection`}>
           {view === 'operators' ? <div className={styles.operatorGrid}>
             {owned.map(op => {
               const build = friend.roster[op.name];
@@ -98,16 +88,16 @@ export default function FriendCollection({ friend, operators, skins, view, onClo
             })}
             {!owned.length && <p className="hint">No operators match.</p>}
           </div> : <div className={styles.skinGrid}>
-            {outfits.map(outfit => <button type="button" key={outfit.id} data-skin-id={outfit.id} className={`btn-bare lift ${styles.skin}`} onClick={event => {
-              skinTrigger.current = event.currentTarget; skinScroll.current = inline ? window.scrollY : collection.current?.scrollTop ?? 0; setSkin(outfit);
-            }} disabled={!outfit.image}>
+            {outfits.map(outfit => <button type="button" key={outfit.id} data-skin-id={outfit.id} className={`btn-bare lift ${styles.skin}`} aria-haspopup="dialog" onClick={() => setSkin(outfit)} disabled={!outfit.image}>
               <span>{outfit.image ? <ContentImg src={outfit.image} alt="" /> : <small>Artwork unavailable</small>}</span>
               <b>{outfit.model ?? 'Unknown operator'}</b><span>{outfit.name}</span>
             </button>)}
             {!outfits.length && <p className="hint">No skins match.</p>}
           </div>}
         </div>
-      </>}
+      {/* Keep the gallery mounted, and keep the overlay inside a friend's native dialog top layer. */}
+      {skin?.image && <SkinZoomOverlay image={skin.image} name={`${skin.model ?? 'Unknown operator'} — ${skin.name}`}
+        voiceOperator={skin.model ?? undefined} dynamic={skin.dynamic ?? null} alternate={skin.alternate ?? null} onClose={closeSkin} />}
   </>;
   return <>
     {inline ? <div className={styles.inline}>{content}</div> : <dialog ref={modal} className={styles.dialog} aria-label={heading} onCancel={event => {
