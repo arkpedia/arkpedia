@@ -33,7 +33,7 @@ async function fixture(page:Page,theme:string){
 }
 async function capture(page:Page,name:string,info:TestInfo){
   await page.evaluate(()=>document.fonts.ready);
-  if(process.env.ARKPEDIA_QA_CAPTURE)await page.screenshot({path:`${process.env.ARKPEDIA_QA_CAPTURE}/${name}-${info.project.name}.png`,fullPage:false});
+  if(process.env.ARKPEDIA_QA_CAPTURE)await page.screenshot({path:`${process.env.ARKPEDIA_QA_CAPTURE}/${name}-${info.project.name}.png`,fullPage:false,animations:'disabled'});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
 }
 async function help(page:Page,label:string,info:TestInfo,name:string){
@@ -126,6 +126,7 @@ for(const theme of ['dark','light']){
     await expect(stats.locator('dt img[alt="M3"]')).toHaveCount(3);
     await expect(stats.locator('dt [role="img"][aria-label="Elite 1"]')).toHaveCount(1);
     await mode.getByRole('button',{name:'Cumulative',exact:true}).focus();await page.keyboard.press('Enter');
+    await expect(mode.getByRole('button',{name:'Cumulative',exact:true})).toHaveAttribute('aria-pressed','true');
     await expect(metric('E1')).toHaveText('100.0%');await expect(metric('E2')).toHaveText('83.3%');
     await expect(metric('LOR-X Level 1')).toHaveText('60.0%');await expect(metric('LOR-X Level 2')).toHaveText('40.0%');await expect(metric('LOR-X Level 3')).toHaveText('20.0%');
     await expect(metric('Skill 3 M3')).toHaveText('80.0%');await expect(metric('Owned')).toHaveText('54.5%');
