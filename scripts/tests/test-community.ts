@@ -37,7 +37,7 @@ test('community projection excludes private fields, counts in-progress M3 and ke
   const account:AccountRecord={version:1,server:'en',importedAt:new Date(clock).toISOString(),doctor:'Doctor#1234',operators:['Thorns'],skins:['skin@x#1'],cleared:['PRIVATE_STAGE'],wallet:{orundum:999,originitePrime:100,permits:2,yellowCerts:3,monthlyCardUntil:null},
     operatorBuilds:{Thorns:{elite:2,level:60,skillLevel:7,masteries:{2:3},modules:{0:2}}},outfits:{Thorns:'skin@x#1'},profile:{level:120,bio:'PRIVATE BIO',registeredAt:null,secretary:null,uid:'123',friendSlots:{used:47,limit:50},supports:[{name:'Thorns',rarity:6,elite:2,level:60,potential:6,skill:3,skillMastery:2,module:'uniequip_002_thorns',moduleLevel:3}]}};
   const projected=communitySnapshot(account,all);
-  assert.equal(projected.operators[0].m2,3);assert.equal(projected.supports[0].mastery,2);assert.equal(projected.operators[0].modules?.[0],3);assert.equal(projected.slots,3);
+  assert.equal(projected.operators[0].skillLevel,7);assert.equal(projected.operators[0].m2,3);assert.equal(projected.supports[0].mastery,2);assert.equal(projected.operators[0].modules?.[0],3);assert.equal(projected.slots,3);
   assert.ok(!JSON.stringify(projected).includes('PRIVATE'));assert.ok(!JSON.stringify(projected).includes('orundum'));
   const privateStats=communitySnapshot(account,statsOnly);assert.equal(privateStats.doctor,null);assert.deepEqual(privateStats.supports,[]);
   const supports=communitySnapshot(account,{...all,stats:false});assert.deepEqual(supports.operators,[]);assert.deepEqual(supports.skins,[]);
@@ -299,5 +299,29 @@ test('support skill ranks survive database storage and legacy entries remain unk
     assert.ok(supports.some((s:any)=>s.skillLevel===null&&JSON.stringify(s.skillMasteries)==='[]'));
     assert.equal((await h.call('sharing','ranks','DELETE',{})).status,200);
     assert.equal(h.sqlite.prepare('SELECT count(*) AS n FROM community_support WHERE userId=?').get('ranks')?.n,0);
+  }finally{h.sqlite.close();}
+});
+
+test('skill distributions retain rank 7 and all masteries without inventing historical rank data',async()=>{
+  const h=harness();
+  try{
+    const builds=[
+      {skillLevel:7,m0:0,m1:1,m2:2},
+      {skillLevel:6,m0:0,m1:0,m2:0},
+      {m0:0,m1:0,m2:0}, // old: genuinely unknown
+      {m0:0,m1:0,m2:3}, // old: mastery proves shared rank 7
+    ];
+    for(let i=0;i<10;i++){
+      h.user('ranks'+i);
+      const operators=i<4?[{operator:'Thorns',elite:2,level:1,modules:{},...builds[i]}]:[];
+      assert.equal((await h.publish('ranks'+i,String(900+i),statsOnly,{operators})).status,200);
+    }
+    const result=(await h.call('stats',null,'GET',undefined,{server:'en',operator:'Thorns'})).result;
+    assert.equal(result.masteryOwners,4);
+    assert.deepEqual(result.skillRanks,[[2,0,0,0],[1,1,0,0],[0,0,1,1]]);
+    assert.deepEqual(result.skillUnknown,[1,1,1]);
+    assert.deepEqual(result.skills,[0,0,1]);
+    const invalid={...snapshot(),operators:[{...snapshot().operators[0],skillLevel:6}]};
+    assert.throws(()=>parseCommunitySnapshot(invalid,statsOnly,clock),/Masteries require/);
   }finally{h.sqlite.close();}
 });
