@@ -34,6 +34,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-03T11:00:00Z',
+    changed: [
+      { title: 'Community stats at a glance', detail: 'Compact bars show promotion, skill ranks and exact module levels, with percentages on hover or tap.', href: '/operators' },
+      { title: 'Refreshed outfit details', detail: 'Larger uncropped artwork, compact details and easier controls on phones.', href: '/skins' },
+      { title: 'Streamer Mode music filters', detail: 'More known claim-risk artists and duplicate recordings are excluded when Streamer Mode is on.', href: '/music' },
+    ],
+    fixed: [
+      { title: 'Import and keep downloading', detail: 'Opted-in auto-deploy downloads start after importing and continue while you browse in the same tab.', href: '/account' },
+      { title: 'Your profile picture follows your account', detail: 'Profile pictures save separately from replaceable cloud saves, with clearer profile settings.', href: '/account' },
+      { title: 'The same artwork viewer everywhere', detail: 'Account and friend skins use the full artwork viewer, with centred controls on phones.', href: '/account' },
+      { title: 'Planner rewards switch off completely', detail: 'Off excludes expected rewards, including unclaimed permanent-content rewards.', href: '/planner' },
+    ],
+  },
+  {
     at: '2026-11-02T22:45:00Z',
     fixed: [{ title: 'Annihilation auto-deploy downloads', detail: 'Sync all uses the correct replay address for Annihilation stages, and failed requests now name the stage.', href: '/account' }],
   },
