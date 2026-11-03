@@ -588,3 +588,19 @@ test('older planner payloads receive artwork pointers and explicit nulls remain 
   assert.ok((explicit.skinCatalogue[0] as {illustrator?:string}).illustrator);
   assert.ok((explicit.skinCatalogue[0] as {description?:string}).description);
 });
+
+
+test('account and friend payloads receive the same outfit and alternate artwork pointers', async () => {
+  const { withFriendDynamicArt, loadDynamicArtIndex } = await import('../../lib/skins/dynamicArtFallback');
+  const id = 'char_1041_angel2@iteration#6';
+  const index = await loadDynamicArtIndex();
+  const props = { skins: [{ id }, { id: 'unknown-outfit' }] };
+  const enriched = await withFriendDynamicArt(props);
+  assert.deepEqual(enriched.skins, [
+    { id, dynamic: index.models[id], alternate: index.models[`${id}^sp_dyn`] },
+    { id: 'unknown-outfit', dynamic: null, alternate: null },
+  ]);
+  assert.deepEqual(props.skins, [{ id }, { id: 'unknown-outfit' }]);
+  const explicit = { skins: [{ id, dynamic: null, alternate: null }] };
+  assert.equal(await withFriendDynamicArt(explicit), explicit);
+});

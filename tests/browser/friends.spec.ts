@@ -116,7 +116,7 @@ test('own profile opens shared operator and outfit dialogs with own server build
   const outfit = skins.getByRole('button', {name:'Angelina Summer Flower FA017', exact:true});
   await outfit.click();
   await expect(skins.getByRole('img', {name:'Angelina — Summer Flower FA017', exact:true})).toBeVisible();
-  await skins.getByRole('button', {name:'← Skins', exact:true}).click();
+  await skins.getByRole('dialog', {name:'Angelina — Summer Flower FA017 artwork', exact:true}).getByRole('button', {name:'Close', exact:true}).click();
   await expect(outfit).toBeFocused();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.getByRole('tab', {name:'Profile', exact:true}).click();
