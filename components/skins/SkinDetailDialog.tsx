@@ -26,7 +26,7 @@ const exactDate = (value: string) => new Date(value).toLocaleString('en-GB', { d
 
 /** One outfit record across the gallery, homepage and schedule. Artwork stays uncropped;
  * the native dialog keeps actions available while its single body scrolls. */
-export default function SkinDetailDialog({ skin, onClose, availability, wishlist, dynamic = null, alternate = null, footer }: Props) {
+export default function SkinDetailDialog({ skin, onClose, availability, wishlist, dynamic = skin.dynamic ?? null, alternate = skin.alternate ?? null, footer }: Props) {
   const [zooming, setZooming] = useState(false);
   const prices = parsePrices(skin.howToObtain);
   const release = availability?.live ? skin.release?.replace(/\[CN\]\s*/g, '') : skin.release;

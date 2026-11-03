@@ -15,6 +15,17 @@ export async function loadDynamicArtIndex(): Promise<DynamicArtIndex> {
   return assertDynamicArtIndex((await import('@/data/dynamic-art.json')).default);
 }
 
+/** Keep animation metadata with each outfit wherever its shared dialog is opened.
+ * New exports pin it to their release; older releases receive only missing fields. */
+export async function withSkinArtwork<S extends Pick<Skin, 'skinId' | 'dynamic' | 'alternate'>>(skins: S[]): Promise<(S & Pick<Skin, 'dynamic' | 'alternate'>)[]> {
+  if (skins.every(skin => skin.dynamic !== undefined && skin.alternate !== undefined)) return skins;
+  const pointers = skinDynamicArt(await loadDynamicArtIndex(), skins);
+  return skins.map(skin => ({ ...skin,
+    dynamic: skin.dynamic === undefined ? (skin.skinId ? pointers[skin.skinId] ?? null : null) : skin.dynamic,
+    alternate: skin.alternate === undefined ? (skin.skinId ? pointers[`${skin.skinId}^sp_dyn`] ?? null : null) : skin.alternate,
+  }));
+}
+
 /** /skins: every listed outfit's pointer, by skin id. */
 export async function withSkinDynamicArt<P extends { skins: Pick<Skin, 'skinId'>[]; dynamicArt?: Record<string, string> }>(props: P): Promise<P> {
   if (props.dynamicArt && typeof props.dynamicArt === 'object') return props;

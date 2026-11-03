@@ -2,6 +2,9 @@ export interface Skin {
   name: string;
   /** Immutable identity in the regional game tables, independent of translations. */
   skinId?: string;
+  /** Release-pinned animation pointers, attached by the server for shared outfit viewers. */
+  dynamic?: string | null;
+  alternate?: string | null;
   sourceRegion?: string;
   cnReleaseAt?: number | null;
   globalReleaseAt?: number | null;

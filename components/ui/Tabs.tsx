@@ -165,7 +165,12 @@ export default function Tabs<V extends string | number>({
     const place = (instant: boolean) => {
       const at = underlineOf(strip);
       if (!at) { strip.removeAttribute('data-slide'); return; }
-      const next = `translate(${at.x}px, ${at.y}px) scaleX(${at.w})`;
+      // Browser zoom can round the nominal 1px bar to a different layout width.
+      // Scaling by the tab width alone amplifies that rounding across the whole
+      // underline. Normalize by the actual untransformed width instead.
+      const unit = parseFloat(getComputedStyle(indicator).width);
+      if (!(unit > 0)) return;
+      const next = `translate(${at.x}px, ${at.y}px) scaleX(${at.w / unit})`;
       const first = !strip.hasAttribute('data-slide');
       if (indicator.dataset.at === next && !first) return;
       if (instant || first) indicator.style.transition = 'none';
@@ -186,9 +191,11 @@ export default function Tabs<V extends string | number>({
     let live = true;
     document.fonts?.ready.then(() => { if (live) place(true); });
     const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(() => place(true));
+    const resized = () => place(true);
+    window.addEventListener('resize', resized);
     observer?.observe(strip);
     for (const tab of Array.from(strip.children)) if (tab !== indicator) observer?.observe(tab);
-    return () => { live = false; observer?.disconnect(); indicator.removeEventListener('transitionend', settle); };
+    return () => { live = false; observer?.disconnect(); window.removeEventListener('resize', resized); indicator.removeEventListener('transitionend', settle); };
   }, [value, optionKeys]);
 
   return (

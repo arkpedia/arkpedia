@@ -36,6 +36,7 @@ import {
   getOngoingSkins,
 } from '@/lib/home/frontPageContent';
 import { Skin } from '@/lib/skins/skinTypes';
+import { withSkinArtwork } from '@/lib/skins/dynamicArtFallback';
 import { FarmingMaterial } from '@/lib/farming/farmingTypes';
 import { enrichWithLiveStatus, YouTubeVideo } from '@/lib/music/youtube';
 import { getLatestVideos } from '@/lib/music/youtubeFeedsServer';
@@ -196,9 +197,9 @@ async function finalizeHome(props: Props): Promise<Props> {
     farmableMaterials: rest.farmableMaterials.map(material => ({ ...material, stages: material.stages.filter(stage => !stage.endAt || Date.parse(stage.endAt) > props.now) })).filter(material => material.stages.length),
     // What is on sale now, as /skins' Available now tab has it. A release from before the
     // windows were stored falls back to the old match against running events.
-    ongoingSkins: __calendar?.skinWindows
+    ongoingSkins: await withSkinArtwork(__calendar?.skinWindows
       ? availableSkins(__calendar.skins, regionalSkinWindows(withLocalConfirmedSkinWindows(__calendar.skinWindows), regional?.servers?.en, 'en'), now)
-      : getOngoingSkins(now, __calendar?.skins, events),
+      : getOngoingSkins(now, __calendar?.skins, events)),
     featuredVideo: videos[0] || null, featuredStream: null, earliestCommunityEvent: communityEvent,
     // A release from before the regions, which held Global's list alone, counts as Global's.
     maintenance: currentRegionalMaintenance(Array.isArray(props.maintenance) ? { en: props.maintenance } : props.maintenance ?? {}, props.now),
@@ -211,7 +212,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>('/',
   maintenance: readMaintenanceWindows(),
   // Stored in the data release, consumed on the server, and never sent to the browser.
   __calendar: {
-    events: loadGameEvents().map(event => ({ ...event, start: event.start.toISOString(), end: event.end.toISOString() })), banners: getBannersSortedByDate(), skins: getAllSkins(),
+    events: loadGameEvents().map(event => ({ ...event, start: event.start.toISOString(), end: event.end.toISOString() })), banners: getBannersSortedByDate(), skins: await withSkinArtwork(getAllSkins()),
     skinWindows: getSkinWindows(getAllSkins(), getAllEvents(), {
       confirmed: (await import('@/data/skin-availability-windows.json')).default,
       rotations: (await import('@/data/skin-shop-rotations.json')).default,
