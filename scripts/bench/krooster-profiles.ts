@@ -96,6 +96,7 @@ best.plan.shifts.forEach((shift, i) => {
     }
   }
 });
+for (const [id, r] of Object.entries(best.plan.simulation.rooms)) if (r.idleFullHours > 0.5) findings.push(`cap hit: ${facilities.find(f => f.id === id)?.label ?? id} sits full ${r.idleFullHours.toFixed(1)} h a day before a login`);
 if (!best.plan.simulation.periodic) findings.push('the rotation does not repeat (not periodic)');
 for (const e of best.plan.simulation.events) if (e.kind === 'exhausted') findings.push(`exhausted: ${e.detail}`);
 for (const w of best.plan.simulation.warnings) findings.push(`warning: ${w}`);

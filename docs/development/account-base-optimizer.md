@@ -351,15 +351,17 @@ HR over Haruka at E2, and a fourth Factory worker adding nothing):
   no gold fills) is left out, and the note names them. Power Plant workers are not
   judged this way: drone charge has uses the score does not count.
 
-Per-slot staggering (operators within one room changing at different hours) does not
-fit the plan genome: `assign[room][step]` names one crew per room per step, and a crew
-is a whole staffing of every room, so a room's seats change together. Staggering would
-make the genome `assign[room][seat][step]` with crews holding seats rather than rooms,
-the decode, the collision check, the team-block moves (which place whole teams) and
-the readback from a saved rotation all following, and the preset count (`rotationSetups.ts`)
-would count seat-level changes. That is a change of the genome's shape, not a move, and
-would not keep the search inside its minute on a maxed roster without a redesign of
-the block moves; it is left as this note.
+Per-slot staggering (the base expert's second rotation: one or two seats of a room change
+hands while the rest of the crew works on, a weaker filler covering, and the best workers
+returning as soon as they have rested) is a seat-level override in the genome: `seatCrews`
+names, per room and seat, the crew that holds the seat at each change where it differs from
+the room's crew (`crewAtSeat`, `staffAt` in `planGenome.ts`). The decode, the collision check
+and the annealer's proxy read seats through it; a `stagger` move (weight 2 for 12-hour and
+8-hour logins, off for 24-hour logins, where whole crews swap) sets or clears one seat at one
+change; the published result carries `seatCrews` and `genomeFromResult` rebuilds the crews
+seat by seat from the saved shifts, so a staggered plan reads back exactly. The preset bound
+(`rotationSetups.ts`) counts the decoded shifts as before. The notes name each staggered seat
+and who holds it at each change.
 
 Workshop assignments are standby suggestions for the current recipe, not simulated
 crafting; craft costs and post-craft recovery still require player action. Training

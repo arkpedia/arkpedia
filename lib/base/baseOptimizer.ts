@@ -4,7 +4,7 @@ import { MAX_ROTATION_SETUPS, exceedsSetups } from './rotationSetups';
 import { activeBaseSkills, cleanSkillName } from './activeBaseSkills';
 import { operatorDependency } from './dependencyClass';
 import { simulateBase, dronesPerHour, droneTargets, allocateDrones, type DailyOutput, type SimulationBase, type SimulationResult, type SimulationShift } from './baseSimulation';
-import type { BaseAssignments, FacilityDef, FacilityKind, FactoryProducts, SlotAssignment } from './baseTypes';
+import type { BaseAssignments, FacilityDef, FacilityKind, FactoryProducts, SeatCrews, SlotAssignment } from './baseTypes';
 
 /**
  * Proposes base staffing and a rotation for an imported roster.
@@ -109,6 +109,8 @@ export interface OptimizerResult {
   initialMorale?: Record<string, number>;
   /** How Fiammetta picks from her refill list, when not the fixed order (see simulateBase). */
   refillPolicy?: 'lowest';
+  /** Seats that change crew on their own (planGenome.ts `seatCrews`); the schedule names crews per room. */
+  seatCrews?: SeatCrews;
   /** calculateBase calls, snapshot and simulated together. */
   evaluations: number;
 }

@@ -201,6 +201,10 @@ export function completeStaffing(plan: OptimizerResult, ctx: GenomeContext, opti
   });
   const notes = plan.notes.filter(n => !n.includes('stays empty: its Speed bonus'));
   if (assigned.size) notes.push('Open work slots are filled from the remaining roster, with recovery checked across the full rotation. Displayed production includes these staff.');
+  // A room whose storage fills before the next login wastes production (docs/development/base-design-notes.md):
+  // name it, so the reader can swap a capacity-raising skill in or log in sooner.
+  const capped = Object.entries(simulation.rooms).filter(([, r]) => r.idleFullHours > 0.5).map(([id, r]) => `${base.facilities.find(f => f.id === id)?.label ?? id} ${r.idleFullHours.toFixed(1)} h a day`);
+  if (capped.length) notes.push(`Storage full before a login: ${capped.join('; ')}. Capacity-raising skills (Vulcan, Bena, Scavenger, Myrtle's order limit) stop the waste; so do more logins.`);
   if (builtSwaps.length) notes.push(`Built operators first: ${builtSwaps.join('; ')} (an Elite 0 worker gives way to an idle built one when the funded output keeps within ${BUILT_FIRST_MARGIN * 100}%).`);
   if (pruned.length) notes.push(`Left out as adding nothing to the funded output (gold no post sells, orders no gold fills): ${pruned.join('; ')}.`);
   if (rooms.some(r => r.kind === 'workshop')) notes.push('Workshop staff are a crafting standby; choose the crafter for your recipe. Crafting and its Morale costs are not scheduled; swap crafters and rest them after crafting.');

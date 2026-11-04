@@ -79,3 +79,8 @@ export interface SlotAssignment {
 // Maps each facility's id to the operator+skill currently assigned to
 // its slots (null = empty slot). Persisted to localStorage.
 export type BaseAssignments = Record<string, (SlotAssignment | null)[]>;
+
+/** Per room, per seat, the crew (index into a plan's crews) that holds the seat at each staffing change, where it
+ *  differs from the room's crew: the stagger of docs/development/base-design-notes.md, one or two seats of a room
+ *  changing hands while the rest of the crew works on. */
+export type SeatCrews = Record<string, (number[] | undefined)[]>;

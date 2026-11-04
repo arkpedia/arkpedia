@@ -1,6 +1,6 @@
 import { WORK_KINDS } from './baseOptimizer';
 import { activeBaseSkills } from './activeBaseSkills';
-import { MAX_GENOME_STEPS, crewAt, decode, evaluate, hasWorkingCollision, placeGenomeOperator, snapshotValue, splitCrew, type Evaluation, type Genome, type GenomeContext } from './planGenome';
+import { MAX_GENOME_STEPS, crewAt, decode, evaluate, hasWorkingCollision, placeGenomeOperator, snapshotValue, splitCrew, staffAt, type Evaluation, type Genome, type GenomeContext } from './planGenome';
 import { exceedsSetups } from './rotationSetups';
 import { teamBlocks, type TeamBlock } from './teamBlocks';
 import type { BaseAssignments, SlotAssignment } from './baseTypes';
@@ -35,9 +35,9 @@ function rng(seed: number) {
   return () => { a = (a + 0x6d2b79f5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 }
 
-const clone = (g: Genome): Genome => ({ ...g, crews: g.crews.map(c => structuredClone(c)), assign: Object.fromEntries(Object.entries(g.assign).map(([r, a]) => [r, [...a]])), core: [...g.core], parked: { ...g.parked }, products: { ...g.products } });
+const clone = (g: Genome): Genome => ({ ...g, crews: g.crews.map(c => structuredClone(c)), assign: Object.fromEntries(Object.entries(g.assign).map(([r, a]) => [r, [...a]])), core: [...g.core], parked: { ...g.parked }, products: { ...g.products }, ...(g.seatCrews ? { seatCrews: structuredClone(g.seatCrews) } : {}) });
 const namesIn = (a: BaseAssignments) => Object.values(a).flatMap(s => (s ?? []).flatMap(x => x ? [x.operatorName] : []));
-const key = (g: Genome) => JSON.stringify([g.steps, g.k, !!g.refillLowest, Object.entries(g.assign).sort(([a], [b]) => a < b ? -1 : 1), g.core, g.parked, g.products, g.fillBeds, g.restAll, g.crews.map(c => Object.entries(c).sort(([a], [b]) => a < b ? -1 : 1).map(([r, s]) => [r, (s ?? []).map(x => x?.operatorName ?? '')]))]);
+const key = (g: Genome) => JSON.stringify([g.steps, g.k, !!g.refillLowest, Object.entries(g.assign).sort(([a], [b]) => a < b ? -1 : 1), g.core, g.parked, g.products, g.fillBeds, g.restAll, g.crews.map(c => Object.entries(c).sort(([a], [b]) => a < b ? -1 : 1).map(([r, s]) => [r, (s ?? []).map(x => x?.operatorName ?? '')])), g.seatCrews ? Object.entries(g.seatCrews).sort(([a], [b]) => a < b ? -1 : 1).map(([r, seats]) => [r, seats.map(p => p ?? null)]) : null]);
 
 type Move = { kind: string; timing: boolean; apply: (g: Genome) => Genome | null };
 const BLOCK_REFRESH = 40;
@@ -70,7 +70,7 @@ export function anneal(seedGenome: Genome, ctx: GenomeContext, opts: AnnealOptio
   // The snapshot proxy: every change's working staff, scored at full Morale, summed.
   const proxy = (g: Genome) => {
     let total = 0;
-    for (let s = 0; s < g.steps; s++) total += snapshotValue(Object.fromEntries(roomIds.map(id => [id, g.crews[crewAt(g, id, s)][id] ?? []])), g, ctx);
+    for (let s = 0; s < g.steps; s++) total += snapshotValue(Object.fromEntries(roomIds.map(id => [id, g.seatCrews?.[id] ? staffAt(g, id, s, capacity(id)) : g.crews[crewAt(g, id, s)][id] ?? []])), g, ctx);
     return total;
   };
 
@@ -184,6 +184,7 @@ export function anneal(seedGenome: Genome, ctx: GenomeContext, opts: AnnealOptio
       } else {
         n.crews.pop();
         for (const room of roomIds) n.assign[room] = n.assign[room].map(c => c === 2 ? 1 : c);
+        for (const seats of Object.values(n.seatCrews ?? {})) seats.forEach((p, i) => { if (p) seats[i] = p.map(c => c === 2 ? 1 : c); });
       }
       return n;
     } }) },
@@ -239,6 +240,24 @@ export function anneal(seedGenome: Genome, ctx: GenomeContext, opts: AnnealOptio
       n.refillLowest = random() < 0.7;
       return n;
     } }) },
+    // Stagger (docs/development/base-design-notes.md): one seat of a room takes another crew's worker at one change
+    // while the rest of the crew works on, so the best workers come back as soon as they have rested and a weaker
+    // filler covers the gap. For 12-hour and 8-hour logins; a 24-hour login swaps whole crews.
+    { weight: ctx.loginInterval <= 12 ? 2 : 0, make: () => ({ kind: 'stagger', timing: true, apply: g => {
+      const n = clone(g);
+      const room = pick(roomIds.filter(id => capacity(id) >= 2)); if (!room) return null;
+      n.seatCrews ??= {};
+      n.seatCrews[room] ??= Array(capacity(room)).fill(undefined);
+      const seat = Math.floor(random() * capacity(room));
+      if (n.seatCrews[room][seat] && random() < 0.3) { n.seatCrews[room][seat] = undefined; return n; }
+      const s = Math.floor(random() * n.steps);
+      const pattern = n.seatCrews[room][seat] ?? Array.from({ length: n.steps }, (_, t) => crewAt(n, room, t));
+      const others = n.crews.map((_, c) => c).filter(c => c !== pattern[s] && n.crews[c][room]?.[seat]);
+      if (!others.length) return null;
+      pattern[s] = pick(others);
+      n.seatCrews[room][seat] = pattern.every((c, t) => c === crewAt(n, room, t)) ? undefined : pattern;
+      return n;
+    } }) },
     // Parked Morale (Dusk below 12), the rest rule, empty-bed filling, two to MAX_GENOME_STEPS changes, a factory's product.
     { weight: 2, make: () => ({ kind: 'setting', timing: true, apply: g => {
       const n = clone(g);
@@ -252,6 +271,7 @@ export function anneal(seedGenome: Genome, ctx: GenomeContext, opts: AnnealOptio
         // presets than the game stores is screened out before it is simulated.
         const next = pick(Array.from({ length: MAX_GENOME_STEPS - 1 }, (_, i) => i + 2).filter(x => x !== n.steps));
         for (const id of roomIds) { const a = n.assign[id] ?? Array(n.steps).fill(0); n.assign[id] = Array.from({ length: next }, (_, s) => a[s] ?? a[a.length - 1]); }
+        for (const seats of Object.values(n.seatCrews ?? {})) seats.forEach((p, i) => { if (p) seats[i] = Array.from({ length: next }, (_, s) => p[s] ?? p[p.length - 1]); });
         n.steps = next;
       }
       else {

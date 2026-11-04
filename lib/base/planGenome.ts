@@ -5,7 +5,7 @@ import { snapshotTotals } from './snapshotMemo';
 import { activeBaseSkills, cleanSkillName } from './activeBaseSkills';
 import { simulateBase, type SimulationBase, type SimulationResult, type SimulationShift } from './baseSimulation';
 import { DEFAULT_WEIGHTS, WORK_KINDS, sustainableOutput, type OptimizerResult, type OptimizerWeights, type OwnedOperator, type RoomExplanation, type ScheduleStep } from './baseOptimizer';
-import type { BaseAssignments, FactoryProducts, SlotAssignment } from './baseTypes';
+import type { BaseAssignments, FactoryProducts, SeatCrews, SlotAssignment } from './baseTypes';
 
 /**
  * A whole base plan as a few independent choices, so a search can change one at a time and the simulator
@@ -28,6 +28,10 @@ export interface Genome {
   crews: BaseAssignments[];
   /** For each room, the crew (an index into `crews`) that staffs it at each change, `steps` long. */
   assign: Record<string, number[]>;
+  /** Stagger: a seat that takes another crew's worker at some changes while the room's crew works on (the base
+   *  expert's second rotation, for 12-hour and 8-hour logins): per room, per seat, the crew at each change where
+   *  it differs from `assign`. Absent or undefined seats follow the room. */
+  seatCrews?: SeatCrews;
   /** Fiammetta's refill list: workers placed in the same room in both crews. */
   core: string[];
   parked: Record<string, number>;
@@ -78,16 +82,21 @@ const fixed = (ctx: GenomeContext) => { let l = layouts.get(ctx); if (!l) { l = 
 
 /** Which crew (0 or 1) staffs `room` on change `step`. */
 export const crewAt = (g: Genome, room: string, step: number) => g.assign[room]?.[step] ?? 0;
+/** Which crew holds `seat` of `room` on change `step`: the seat's own crew where it staggers, else the room's. */
+export const crewAtSeat = (g: Genome, room: string, seat: number, step: number) => g.seatCrews?.[room]?.[seat]?.[step] ?? crewAt(g, room, step);
+/** The room's working staff on change `step`, seat by seat. */
+export const staffAt = (g: Genome, room: string, step: number, capacity: number): (SlotAssignment | null)[] =>
+  Array.from({ length: capacity }, (_, i) => g.crews[crewAtSeat(g, room, i, step)]?.[room]?.[i] ?? null);
 
 /** Place one worker, removing only assignments that overlap its actual working changes.
  * A room may share that worker with another room on a different change. */
 export function placeGenomeOperator(g: Genome, c: number, room: string, index: number, slot: SlotAssignment | null, capacity: number, reuseAcrossRooms = true): void {
   if (slot) {
-    const active = Array.from({ length: g.steps }, (_, step) => step).filter(step => crewAt(g, room, step) === c);
+    const active = Array.from({ length: g.steps }, (_, step) => step).filter(step => crewAtSeat(g, room, index, step) === c);
     for (const [otherCrew, crew] of g.crews.entries()) for (const [id, slots] of Object.entries(crew)) {
       const keptCore = g.core.includes(slot.operatorName) && id === room && otherCrew !== c;
       const conflict = reuseAcrossRooms
-        ? (otherCrew === c && id === room) || active.some(step => crewAt(g, id, step) === otherCrew)
+        ? (otherCrew === c && id === room) || active.some(step => (slots ?? []).some((_, j) => crewAtSeat(g, id, j, step) === otherCrew))
         : !keptCore;
       if (conflict) crew[id] = (slots ?? []).map(old => old?.operatorName === slot.operatorName ? null : old);
     }
@@ -118,9 +127,11 @@ export function splitCrew(g: Genome, changes: { room: string; step: number }[]):
 export function hasWorkingCollision(g: Genome, rooms: string[] = Object.keys(g.assign)): boolean {
   for (let step = 0; step < g.steps; step++) {
     const on = new Set<string>();
-    for (const id of rooms) for (const slot of g.crews[crewAt(g, id, step)][id] ?? []) if (slot) {
-      if (on.has(slot.operatorName)) return true;
-      on.add(slot.operatorName);
+    for (const id of rooms) for (const [i, slot] of (g.crews[crewAt(g, id, step)][id] ?? []).entries()) {
+      const seat = g.seatCrews?.[id]?.[i]?.[step] !== undefined ? g.crews[crewAtSeat(g, id, i, step)]?.[id]?.[i] : slot;
+      if (!seat) continue;
+      if (on.has(seat.operatorName)) return true;
+      on.add(seat.operatorName);
     }
   }
   return false;
@@ -129,9 +140,8 @@ export function hasWorkingCollision(g: Genome, rooms: string[] = Object.keys(g.a
 /** The genome as the simulator's shift list. */
 export function decode(g: Genome, ctx: GenomeContext): SimulationShift[] {
   const { rooms, dorms, locked, slotOf, dormSkill } = fixed(ctx);
-  const roomIds = rooms.map(f => f.id);
   const parked = new Set(Object.keys(g.parked));
-  const working = Array.from({ length: g.steps }, (_, s) => Object.fromEntries(roomIds.map(id => [id, g.crews[crewAt(g, id, s)][id] ?? Array(rooms.find(f => f.id === id)!.capacity).fill(null)])) as BaseAssignments);
+  const working = Array.from({ length: g.steps }, (_, s) => Object.fromEntries(rooms.map(f => [f.id, g.seatCrews?.[f.id] ? staffAt(g, f.id, s, f.capacity) : g.crews[crewAt(g, f.id, s)][f.id] ?? Array(f.capacity).fill(null)])) as BaseAssignments);
   // Fiammetta refills only with a core and while she works nowhere; otherwise she is a worker like any other and
   // rests like one (a plan of today's optimizer may staff a Trading Post with her).
   const everyone = [...new Set(g.crews.flatMap(operatorsIn))].filter(n => !locked.includes(n));
@@ -212,7 +222,14 @@ export function genomeFromResult(result: OptimizerResult, ctx: GenomeContext): G
   const g: Genome = {
     steps, k: Math.max(1, Math.round(result.stepHours / ctx.loginInterval)), crews, assign,
     core: result.shifts[0].refill ?? [], refillLowest: result.refillPolicy === 'lowest', parked: result.initialMorale ?? {}, products: result.shifts[0].factoryProducts, fillBeds: true, restAll: true,
+    ...(result.seatCrews ? { seatCrews: structuredClone(result.seatCrews) } : {}),
   };
+  // A staggered room reads back seat by seat: the shifts say who holds each seat at each change, and the crews
+  // are rebuilt from the changes the seat's crew holds it, so the decoded plan is the saved one.
+  if (result.seatCrews) for (const [id, seats] of Object.entries(result.seatCrews)) seats.forEach((pattern, i) => {
+    if (!pattern) return;
+    for (let s = 0; s < steps; s++) { const c = pattern[s] ?? crewAt(g, id, s); const slots = [...(crews[c][id] ?? [])]; slots[i] = result.shifts[s].assignments[id]?.[i] ?? null; crews[c][id] = slots; }
+  });
   // Which rest rule the plan used is not recorded; keep whichever scores higher.
   const other = { ...g, restAll: false };
   return evaluate(other, ctx).value > evaluate(g, ctx).value ? other : g;
@@ -266,7 +283,13 @@ export function toOptimizerResult(g: Genome, e: Evaluation, ctx: GenomeContext, 
     simulation: e.sim, score: e.value, explanations, notes, evaluations: e.sim.evaluations,
     ...(Object.keys(g.parked).length ? { initialMorale: g.parked } : {}),
     ...(g.refillLowest && g.core.length ? { refillPolicy: 'lowest' as const } : {}),
+    ...(staggeredRooms(g).length ? { seatCrews: structuredClone(g.seatCrews) } : {}),
   };
+}
+
+/** The rooms where some seat changes crew on its own. */
+export function staggeredRooms(g: Genome): string[] {
+  return Object.entries(g.seatCrews ?? {}).filter(([id, seats]) => seats.some((pattern, i) => pattern && pattern.some((c, s) => c !== undefined && c !== crewAt(g, id, s) && g.crews[c]?.[id]?.[i])) ).map(([id]) => id);
 }
 
 /** What a reader needs to know to run the plan: the parts a schedule alone does not say. */
@@ -278,6 +301,11 @@ export function genomeNotes(g: Genome, e: Evaluation, ctx: GenomeContext): strin
   else if (g.steps > 2) notes.push(patterns.size > 1
     ? `${g.steps} staffing changes a cycle, and rooms change crew on different ones (the schedule shows which), so only part of the base rests at a time.`
     : `${g.steps} staffing changes a cycle: the first crew works ${(Object.values(g.assign)[0] ?? []).filter(c => c === 0).length} of them and the second covers the rest.`);
+  for (const id of staggeredRooms(g)) {
+    const room = rooms.find(f => f.id === id);
+    const seats = (g.seatCrews![id] ?? []).flatMap((pattern, i) => pattern && pattern.some((c, s) => c !== undefined && c !== crewAt(g, id, s)) ? [`seat ${i + 1} (${pattern.map((c, s) => (g.crews[c ?? crewAt(g, id, s)]?.[id]?.[i]?.operatorName ?? 'empty')).join(' → ')})`] : []);
+    notes.push(`${room?.label ?? id} staggers: ${seats.join('; ')} change hands on their own while the rest of the crew works on, so the best workers return as soon as they have rested.`);
+  }
   if (g.core.length) notes.push(`Fiammetta refills ${g.core.join(', ')}${g.refillLowest ? '' : ' in turn'} at the staffing changes: each works every shift and never rests. She sits at the head of ${dorms[0]?.label ?? 'the first dorm'} and, whenever she is full at a staffing change, ${g.refillLowest ? 'gives her Morale to whichever of them is lowest' : 'swaps her Morale with the next of them in that order'}.`);
   if (g.parked.Dusk !== undefined) notes.push(`Drain Dusk below 12 Morale once (any working room will do) and keep her there: below 12 "Unstirred by Gain" adds Worldly Plight +15${'Ling' in ctx.roster ? ' on top of Ling\'s +15 above 12' : ''}. In the Control Center with this crew she loses no Morale, and when off shift she waits unassigned rather than resting, so she stays below 12.`);
   if (!g.restAll) notes.push('Only whoever has just come off shift rests in the dorms; the others wait unassigned, which leaves beds for operators whose dorm skills count.');

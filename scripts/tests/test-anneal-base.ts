@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { getAllOperators } from '../../lib/operators/operators';
 import { toBaseRosters } from '../../lib/base/baseGroupRosters';
 import { MAX_ROTATION_SETUPS, optimizeBase, type OwnedOperator } from '../../lib/base/baseOptimizer';
-import { decode, evaluate, genomeFromResult, hasWorkingCollision, placeGenomeOperator, splitCrew, toOptimizerResult, type Genome, type GenomeContext } from '../../lib/base/planGenome';
+import { decode, evaluate, genomeFromResult, genomeNotes, hasWorkingCollision, placeGenomeOperator, splitCrew, toOptimizerResult, type Genome, type GenomeContext } from '../../lib/base/planGenome';
 import { anneal, placesNobodyTwice } from '../../lib/base/annealBase';
 import { coreSeed } from '../../lib/base/coreSeed';
 import { distinctSetups } from '../../lib/base/rotationSetups';
@@ -192,4 +192,31 @@ test('an atomic team replacement keeps an existing refill core in its other crew
   assert.equal(g.crews[0][room.id]?.[0]?.operatorName, name);
   assert.deepEqual(g.core, [name]);
   assert.ok(placesNobodyTwice(g, ctx));
+});
+
+test('a staggered seat decodes seat by seat, collides like any placement, and reads back from a saved plan exactly', () => {
+  // The first factory's third seat takes the second crew's worker at change 2 while seats 1 and 2 work on.
+  const factory = facilities.filter(f => f.kind === 'factory' && f.capacity >= 3)[0].id;
+  const [a, b, c, d] = Object.keys(roster);
+  const g: Genome = { ...seed, crews: seed.crews.map(crew => structuredClone(crew)), assign: Object.fromEntries(Object.entries(seed.assign).map(([r, p]) => [r, [...p]])), steps: 3 };
+  for (const room of Object.keys(g.assign)) g.assign[room] = [0, 0, 1];
+  const slot = (n: string) => ({ operatorName: n, eliteLevel: roster[n].eliteLevel, level: roster[n].level });
+  g.crews = [{ ...g.crews[0], [factory]: [slot(a), slot(b), slot(c)] }, { ...g.crews[1], [factory]: [null, null, slot(d)] }];
+  for (const crew of g.crews) for (const room of Object.keys(crew)) if (room !== factory) crew[room] = (crew[room] ?? []).map(x => x && [a, b, c, d].includes(x.operatorName) ? null : x);
+  g.seatCrews = { [factory]: [undefined, undefined, [0, 1, 1]] };
+  const shifts = decode(g, ctx);
+  assert.deepEqual(shifts.map(sh => (sh.assignments[factory] ?? []).map(x => x?.operatorName ?? null)), [[a, b, c], [a, b, d], [null, null, d]]);
+  assert.ok(placesNobodyTwice(g, ctx));
+  // The seat's worker in the other crew's room elsewhere collides.
+  const bad: Genome = structuredClone(g);
+  const other = Object.keys(g.assign).find(r => r !== factory)!;
+  bad.crews[0][other] = [slot(d), ...(bad.crews[0][other] ?? []).slice(1)];
+  assert.ok(hasWorkingCollision(bad));
+  // Through the result and back: the same shifts.
+  const e = evaluate(g, ctx);
+  const result = toOptimizerResult(g, e, ctx);
+  assert.deepEqual(result.seatCrews, g.seatCrews);
+  const back = genomeFromResult(result, ctx)!;
+  assert.deepEqual(decode(back, ctx).map(sh => (sh.assignments[factory] ?? []).map(x => x?.operatorName ?? null)), [[a, b, c], [a, b, d], [null, null, d]]);
+  assert.ok(toOptimizerResult(back, evaluate(back, ctx), ctx, genomeNotes(back, evaluate(back, ctx), ctx)).notes.some(n => n.includes('staggers')));
 });
