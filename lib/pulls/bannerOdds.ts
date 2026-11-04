@@ -14,8 +14,8 @@ import { pullArtworkUrl } from './artwork';
  * announcement says: data/pull-odds-rules.json, a game record like the banner list, so a
  * new banner's rules go out with the next content release and need no redeploy. A limited,
  * crossover or Orienteering pool the file does not name gets no odds, and the release's
- * odds-rules stage lists it in the daily 'Content quarantined' issue until someone reads
- * its announcement and adds it (scripts/content/check-pull-odds.ts). Kernel and Standard
+ * odds-rules stage lists it in the daily 'Content quarantined' issue when confirmed
+ * rules cannot be imported automatically (scripts/content/check-pull-odds.ts). Kernel and Standard
  * banners have no model here at all, verified or not.
  *
  *   limited:      a pool's 300-pull gift and its returning roster at each exchange cost.
@@ -151,7 +151,7 @@ export function unverifiedBanners(schedule: readonly UpcomingBanner[], odds: Rea
     if (!kind || odds[banner.name]) return [];
     const verified = ODDS_RULES[kind][banner.poolId!];
     if (!verified) {
-      return [{ banner, kind, reason: `${banner.name}: the pull planner shows this ${kind} banner without odds until someone reads its announcement and adds its rules under "${kind}" in data/pull-odds-rules.json (arkpedia-data, source/data/pull-odds-rules.json); the next content release gives it odds` }];
+      return [{ banner, kind, reason: `${banner.name}: the pull planner shows this ${kind} banner without odds until confirmed supported rules are imported under "${kind}" in data/pull-odds-rules.json (arkpedia-data, source/data/pull-odds-rules.json); incomplete or changed mechanics need review` }];
     }
     const resolved = kind === 'limited' ? resolveLimitedRules(verified as OddsRules['limited'][string], nameOf) : null;
     if (resolved && 'missing' in resolved) {

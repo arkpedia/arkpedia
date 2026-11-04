@@ -61,7 +61,7 @@ test('a scheduled banner without verified rules is named with why, and a verifie
   try {
     const found = unverifiedBanners([persona, ...(kernel ? [kernel] : []), unread, broken], odds);
     assert.deepEqual(found.map(({ banner, kind }) => [banner.name, kind]), [['An Unread Crossover', 'crossover'], ['A Limited With A Typo', 'limited']]);
-    assert.match(found[0].reason, /without odds until someone reads its announcement and adds its rules under "crossover" in data\/pull-odds-rules\.json/);
+    assert.match(found[0].reason, /without odds until confirmed supported rules are imported under "crossover" in data\/pull-odds-rules\.json/);
     assert.match(found[1].reason, /name char_9999_nobody, which no operator record has/);
   } finally {
     delete LIMITED_RULES.LIMITED_99_0_1;

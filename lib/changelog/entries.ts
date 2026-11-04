@@ -34,6 +34,10 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-04T14:10:00Z',
+    fixed: [{ title: 'Talulah’s pull chances', detail: 'Plan Talulah goals with confirmed CN rates, exchange costs, and her 300-pull gift.', href: '/pull-planner' }],
+  },
+  {
     at: '2026-11-04T08:07:00Z',
     fixed: [{ title: 'New banners reach the Pull Planner', detail: 'CN banners such as Talulah’s now use the same estimated Global dates as the gacha simulator.', href: '/pull-planner' }],
   },
