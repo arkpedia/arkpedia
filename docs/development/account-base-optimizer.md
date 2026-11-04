@@ -189,6 +189,21 @@ the shift clocks read the rotation's start time, which the Base page's rotation 
 ("Starts at") sets and a saved recommendation keeps.
 `scripts/tests/test-krooster-import.ts` holds the parser, the mapping and the link parsing.
 
+### Before and after the table
+
+`scripts/bench/compare-optimizer.ts <pre-table checkout>` runs the same accounts (the fixture,
+both reference sheets' maxed roster, every profile under `tests/fixtures/krooster/`) in a
+checkout of the pre-table tip (e692e12dc) and in this one and diffs the recommendations, each
+account twice: with the operators of `scripts/tests/base-skill-deviations.ts` left out, where the
+two must agree exactly, and with the whole roster. Both sides anneal for a fixed round budget
+(`annealRounds`, cooling over the rounds) and settle every compared number to 1e-9
+(`lib/base/settle.ts`): two sums of the same skill numbers can sit a last bit apart, and a
+greedy fill or an anneal that breaks a tie by that bit walks another path from then on. The
+pre-table checkout gets both through `scripts/bench/pre-table-determinism.patch`. A difference
+confined to the Reception Room, Office, Control Center and the Dormitories with every production
+crew the same is the completion pass (its support candidates rank by their own drain since
+4990c4e50), which the search's score never sees, and the report says so.
+
 ### Where a minute goes
 
 Profiled on the maxed roster on 2026-11-03 (`node --cpu-prof` over 15 s of annealing): with
