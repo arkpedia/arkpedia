@@ -1,4 +1,4 @@
-name: Deploy isolated unified data reader
+name: Verify isolated unified data reader
 on:
   workflow_dispatch:
 permissions:
@@ -7,7 +7,7 @@ concurrency:
   group: unified-data-reader
   cancel-in-progress: false
 jobs:
-  deploy:
+  verify:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -18,14 +18,10 @@ jobs:
         with:
           node-version: '24'
       - run: npm ci --ignore-scripts --no-audit --no-fund
-      - name: Deploy only the new-bucket data reader and verify GitHub parity
-        run: node scripts/deploy/data-assets-worker.mjs
-        env:
-          CLOUDFLARE_ACCOUNT_ID: '1ff51c10571eaa9934bc451e1bfdb361'
-          # The legacy asset token is scoped to arkpedia-assets. Reuse the
-          # existing production deploy credential for the isolated new service.
-          CLOUDFLARE_API_TOKEN: ${{ secrets.ARKPEDIA_PRODUCTION_API_TOKEN || secrets.ARKPEDIA_PILOT_API_TOKEN }}
-          WRANGLER_SEND_METRICS: 'false'
+      # Existing deploy tokens are service-scoped. Deployment uses the approved
+      # local Cloudflare login; CI needs only public HTTP inputs to verify it.
+      - name: Verify isolated new-bucket data reader against immutable GitHub release
+        run: node scripts/deploy/data-assets-worker.mjs --verify-only
       - uses: actions/upload-artifact@v7
         with:
           name: unified-data-reader-${{ github.run_id }}

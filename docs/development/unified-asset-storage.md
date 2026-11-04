@@ -49,10 +49,13 @@ path-addressed snapshots.
 3. Merge checked application and data publisher changes. Deploy the isolated
    new-bucket reader after bootstrapping its first version from checked main with
    `wrangler deploy --config workers/assets/wrangler.data.jsonc` (this config has
-   no production routes). Subsequent deployments use `Deploy isolated unified data
-   reader` and the version APIs. This uses the existing production deployment
-   credential; the legacy asset credential only grants access to `arkpedia-assets`.
-   It does not require a new credential or broader token permissions.
+   no production routes). Subsequent version uploads/deployments use the approved
+   local Cloudflare login and `scripts/deploy/data-assets-worker.mjs`.
+   Existing GitHub deploy tokens are scoped to other Worker services; keep those
+   permission boundaries. `Verify isolated unified data reader` uses
+   `--verify-only` and public HTTP inputs without a deployment credential.
+   It verifies the immutable live GitHub manifest and readiness; inspect the
+   actual deployed version and R2 binding separately with the approved login.
    Cloudflare requires an initial `deploy` before
    `versions upload` can be used for a new Worker. Verify historical/current JSON bytes and readiness, MIME, CORS, cache,
    conditional reads, missing files and rejection of media/internal CAS requests.
