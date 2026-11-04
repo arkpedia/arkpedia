@@ -231,8 +231,7 @@ function roomOnlyScope(facility: 'Factory' | 'Trading Post', candidates: Candida
       case 'base.goldFactories': case 'base.goldLines': return 2;
       case 'base.dormOperators': return dormOperators;
       case 'base.roster': return rest === 'BLACKSTEEL_WORLDWIDE' ? overrides?.blacksteelWorldwideCountInBase ?? 2 : rest === 'RHINE_LAB' ? overrides?.rhineLabCountInBase ?? 5 : placed.filter((n) => roster(rest).has(n)).length;
-      case 'base.facilitiesWithRoster': return overrides?.facilitiesWithEliteOperator ?? 5;
-      case 'base.workFacilitiesWithRoster': return overrides?.facilitiesWithSuiOperator ?? 3;
+      case 'base.facilitiesWithRoster': case 'base.workFacilitiesWithRoster': return rest === 'SUI' ? overrides?.facilitiesWithSuiOperator ?? 3 : overrides?.facilitiesWithEliteOperator ?? 5;
       case 'level.room': return facility === 'Trading Post' ? overrides?.tradingPostLevel ?? 3 : 3;
       case 'level.receptionRoom': return overrides?.receptionRoomLevel ?? 3;
       case 'level.trainingRoom': return 3;

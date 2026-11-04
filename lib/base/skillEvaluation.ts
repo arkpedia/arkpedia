@@ -21,6 +21,9 @@ export interface SkillScope {
   holds(condition: SkillCondition): boolean;
   /** Whether a skill (by buff id) is active in the operator's room. */
   active(buffId: string): boolean;
+  /** Training Room and Workshop: whether an effect's `targets` (trainee classes, recipe kinds) include the room's
+   *  trainee or recipe. Absent in other rooms, where targets are informational. */
+  targetMatches?(targets: readonly string[]): boolean;
   /** Spell out the counted and conditional parts (`formula`); off for a search, which never shows them. */
   explain?: boolean;
 }
@@ -41,6 +44,11 @@ export interface SkillContribution {
   powerPlantCount: number;
   /** Base-wide resource generation by pool, and the conversions this skill performs (value 1). */
   resources: Record<string, number>;
+  /** Training Room: speed for the trainee, the trainer's extra Morale per hour, a factor on the time (1 is none). */
+  trainingSpeed: number; trainingMorale: number; trainingTimeFactor: number;
+  /** Workshop, per craft: byproduct chance over the base; Morale added to the recipe's cost, a cost replacing it
+   *  (null is none), a factor on it (1 is none); and whether the LMD cost is waived. */
+  byproductChance: number; recipeMorale: number; recipeMoraleFixed: number | null; recipeMoraleFactor: number; recipeLmdFree: boolean;
   overridesOthers: boolean; exemptFromOverride: boolean;
   custom?: { handler: string; params: Record<string, number> };
   /** The counted and conditional parts, spelled out for the breakdown panel. */
@@ -57,12 +65,14 @@ export function emptyContribution(entry: BaseSkillEffectEntry): SkillContributio
     cc: { morale: 0, factory: 0, orderEfficiency: 0, clue: 0, training: 0, dormRecovery: 0, dormEliteRecovery: 0, otherRoomsRecovery: 0, hrSpeed: 0, preciousMetal: 0, receptionClue: 0 },
     perTradingPostOrderEfficiency: 0, perTradingPostOrderLimit: 0, perFactoryProductivity: 0,
     tradingPostOfOperator: [], factoryOfOperator: [], powerPlantCount: 0, resources: {},
+    trainingSpeed: 0, trainingMorale: 0, trainingTimeFactor: 1,
+    byproductChance: 0, recipeMorale: 0, recipeMoraleFixed: null, recipeMoraleFactor: 1, recipeLmdFree: false,
     overridesOthers: !!entry.interaction?.overridesOthers, exemptFromOverride: !!entry.interaction?.exemptFromOverride,
     ...(entry.custom ? { custom: { handler: entry.custom.handler, params: entry.custom.params ?? {} } } : {}),
   };
 }
 
-const describeCount = (source: SkillCountSource) => source.replace(/^(room|base|cc|tp|factory|reception|level|office|resource|otherPowerPlants|powerPlants|tradingPosts|factories)\./, '').replace(/:/, ' ');
+const describeCount = (source: SkillCountSource) => source.replace(/^(room|base|cc|tp|factory|reception|level|office|resource|otherPowerPlants|powerPlants|tradingPosts|factories|dorm)\./, '').replace(/:/, ' ');
 const pct = (n: number) => `${(n * 100).toFixed(n * 100 % 1 ? 2 : 0)}%`;
 const RATE_KINDS = new Set<SkillEffect['kind']>(['productivity', 'orderEfficiency', 'droneRate', 'clueSpeed', 'hrSpeed', 'ccFactoryProductivity', 'ccOrderEfficiency', 'ccClueSpeed', 'perTradingPostOrderEfficiency', 'perFactoryProductivity', 'ccHrSpeed', 'ccReceptionClueSpeed']);
 
@@ -72,7 +82,8 @@ export function evaluateSkill(entry: BaseSkillEffectEntry, scope: SkillScope): S
   const formulas: string[] = [];
   for (const effect of entry.effects) {
     if (effect.product && scope.product !== effect.product) continue;
-    if (effect.when && !holdsFor(effect.when, scope, out)) continue;
+    if (effect.targets?.length && scope.targetMatches && !scope.targetMatches(effect.targets)) continue;
+    if (effect.when && !holdsFor(effect.when, scope)) continue;
     if (effect.suppressedBy && scope.active(effect.suppressedBy.buffId) && (!effect.suppressedBy.when || scope.holds(effect.suppressedBy.when))) continue;
     const count = effect.per ? scope.count(effect.per.count) : 0;
     const value = countedValue(effect, count);
@@ -88,9 +99,10 @@ export function evaluateSkill(entry: BaseSkillEffectEntry, scope: SkillScope): S
   return out;
 }
 
-function holdsFor(condition: SkillCondition, scope: SkillScope, out: SkillContribution): boolean {
+function holdsFor(condition: SkillCondition, scope: SkillScope): boolean {
   // A group recovery's recipient condition is carried to the room, which knows each recipient's Morale.
   if (condition.type === 'recipientMoraleBelow') return true;
+  if (condition.type === 'all') return condition.of.every((c) => holdsFor(c, scope));
   return scope.holds(condition);
 }
 
@@ -140,8 +152,16 @@ function add(out: SkillContribution, effect: SkillEffect, value: number, scope: 
     case 'resource':
       if (effect.name) out.resources[effect.name] = (out.resources[effect.name] ?? 0) + (RESOURCE_CONVERSIONS.has(effect.name) ? 1 : value);
       break;
-    // Training Room and Workshop numbers are read by their own rule modules.
-    case 'trainingSpeed': case 'trainingMorale': case 'byproductChance': case 'recipeMorale': case 'recycleEfficiency': break;
+    case 'trainingSpeed': out.trainingSpeed += value; break;
+    case 'trainingMorale': out.trainingMorale += value; break;
+    case 'trainingTimeFactor': out.trainingTimeFactor = Math.min(out.trainingTimeFactor, value); break;
+    case 'byproductChance': out.byproductChance += value; break;
+    case 'recipeMorale': out.recipeMorale += value; break;
+    case 'recipeMoraleFixed': out.recipeMoraleFixed = value; break;
+    case 'recipeMoraleFactor': out.recipeMoraleFactor *= value; break;
+    case 'recipeLmdFree': out.recipeLmdFree = true; break;
+    // Recycling Station (CN only): no room reads it yet.
+    case 'recycleEfficiency': break;
   }
 }
 
@@ -170,6 +190,11 @@ export function describeCondition(condition: SkillCondition): string {
     case 'product': return `making ${condition.product}`;
     case 'masteryLevel': return `training to Specialization ${condition.value}`;
     case 'traineeBranch': return `trainee branch ${condition.name}`;
+    case 'instantTrainingReady': return 'Martial Arts at its cap';
+    case 'recipeFamily': return `a ${condition.name} recipe`;
+    case 'recipeCostIs': return `a recipe costing ${condition.value} Morale`;
+    case 'recipeCostAtLeast': return `a recipe costing ${condition.value} Morale or more`;
+    case 'all': return condition.of.map(describeCondition).join(' and ');
   }
 }
 const rosterLabel = (roster: string) => roster.toLowerCase().replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());

@@ -28,10 +28,10 @@ import { evaluateSkill, type SkillContribution, type SkillScope } from '@/lib/ba
 import { CUSTOM_HANDLERS, CUSTOM_STAGE, type CustomContext, type CustomResult } from '@/lib/base/customSkillHandlers';
 import { categoriesFor } from '@/lib/base/factorySkillCategories';
 import { jayeContribution } from '@/lib/base/jaye';
-import { workshopResult, type WorkshopRecipe, type WorkshopSettings } from '@/lib/base/workshopSkills';
+import { workshopMorale, workshopOutcome, RECIPE_KIND_CODES, type WorkshopRecipe, type WorkshopSettings } from '@/lib/base/workshop';
 import { dormitoryRecoveryRates, type DormRecoveryProvider } from '@/lib/base/dormitoryRecovery';
 import { crossFacilityMoraleRelief } from '@/lib/base/crossFacilityMorale';
-import { trainingResult, resolveTrainingTarget, type TrainingTarget } from '@/lib/base/trainingRoomSkills';
+import { trainingOutcome, resolveTrainingTarget, TRAINING_CLASS_CODES, type TrainingTarget } from '@/lib/base/trainingRoom';
 import type { BaseRosters, BaseRosterName } from './baseGroupRosters';
 import type { FacilityDef } from './baseTypes';
 
@@ -236,7 +236,11 @@ export function calculateBase(input: BaseCalculationInput) {
   const fractionAbove12 = (name: string) => (baseSource === 'account' && importedMorale?.[name] !== undefined ? importedMorale![name] > 12 : moraleAbove12) ? 1 : 0;
 
   // ---------------------------------------------------------------- the scope a skill is evaluated in
-  interface ScopeOptions { operatorName: string; room: FacilityDef; roomNames: readonly string[]; working: number; product: FactoryProduct | null; target?: string | null; moraleByOperator?: Readonly<Record<string, number>> }
+  /** `trainee` and `recipe` set the Training Room's and Workshop's targets and conditions. */
+  interface ScopeOptions { operatorName: string; room: FacilityDef; roomNames: readonly string[]; working: number; product: FactoryProduct | null; target?: string | null; moraleByOperator?: Readonly<Record<string, number>>; trainee?: TrainingTarget; recipe?: WorkshopRecipe }
+  // Workshop: the Dormitory residents' Morale levels, or the reader's own count when they override the head count.
+  const dormMoraleLevels = FACILITIES.filter(room => room.kind === 'dormitory' && room.level > 0).flatMap(room => (assignments[room.id] || []).flatMap(slot => slot ? [slot.morale ?? 0] : []));
+  const dormResidentsWhere = (test: (morale: number) => boolean) => workshopSettings.overrideDormCount ? Math.max(0, Math.min(dormitoryOperatorNames.size, workshopSettings.qualifyingDormOperators)) : dormMoraleLevels.filter(test).length;
   // Base-wide figures some counts read; set as the passes below find them.
   const pools: ResourcePools & { engineeringRobots: number } = { passion: 0, worldlyPlight: 0, soundlessResonance: 0, perceptionInformation: 0, intelligenceReserve: 0, memoryFragments: 0, witchcraftCrystal: 0, chainOfThought: 0, measure: 0, dreamland: 0, engineeringRobots: 0 };
   let felvine = 0, monsterMeal = 0, ursusBeverage = 0;
@@ -292,6 +296,8 @@ export function calculateBase(input: BaseCalculationInput) {
         case 'level.trainingRoom': return trainingRoomLevel;
         case 'office.extraSlots': return nonDefaultRecruitSlots(officeLevel);
         case 'resource': return rest === 'felvine' ? felvine : rest === 'monsterMeal' ? monsterMeal : rest === 'ursusBeverage' ? ursusBeverage : (pools as unknown as Record<string, number>)[rest] ?? 0;
+        case 'dorm.moraleAtMost': return dormResidentsWhere((m) => m <= Number(rest));
+        case 'dorm.moraleBelow': return dormResidentsWhere((m) => m < Number(rest));
         default: return 0;
       }
     };
@@ -318,10 +324,17 @@ export function calculateBase(input: BaseCalculationInput) {
         case 'targetInRoster': return !!o.target && rosterOf(c.roster).has(o.target);
         case 'recipientMoraleBelow': return true;
         case 'product': return o.product === c.product;
-        case 'masteryLevel': case 'traineeBranch': return false;
+        case 'masteryLevel': return o.trainee?.mastery === c.value;
+        case 'traineeBranch': return !!o.trainee && o.trainee.branch.toLowerCase() === c.name.toLowerCase();
+        case 'instantTrainingReady': return !!o.trainee?.instantTrainingReady;
+        case 'recipeFamily': return !!o.recipe && o.recipe.name.toLowerCase().includes(c.name);
+        case 'recipeCostIs': return o.recipe?.morale === c.value;
+        case 'recipeCostAtLeast': return !!o.recipe && o.recipe.morale >= c.value;
+        case 'all': return c.of.every(holds);
       }
     };
-    return { operatorName: self, roomNames: o.roomNames, product: o.product, target: o.target, count, holds, active: (buffId) => activeBuffs.get(buffId)?.has(o.room.id) ?? false, explain };
+    const targetCode = o.trainee ? TRAINING_CLASS_CODES[o.trainee.class] : o.recipe ? RECIPE_KIND_CODES[o.recipe.category] : undefined;
+    return { operatorName: self, roomNames: o.roomNames, product: o.product, target: o.target, count, holds, active: (buffId) => activeBuffs.get(buffId)?.has(o.room.id) ?? false, explain, ...(targetCode !== undefined ? { targetMatches: (targets: readonly string[]) => targets.includes(targetCode) } : {}) };
   }
   const roomScope = (f: FacilityDef, filled: SlotAssignment[], operatorName: string, extra: Partial<ScopeOptions> = {}) =>
     scopeFor({ operatorName, room: f, roomNames: filled.map((s) => s.operatorName), working: workingCount(filled), product: f.kind === 'factory' ? factoryProducts[f.id] || null : null, ...extra });
@@ -369,7 +382,7 @@ export function calculateBase(input: BaseCalculationInput) {
   pools.engineeringRobots = generated.engineeringRobots ?? 0;
   const resourcePools = computeResourcePools(generated, conversions);
   Object.assign(pools, resourcePools);
-  const totalMonsterMeal = monsterMeal, totalFelvine = felvine, totalUrsusBeverage = ursusBeverage;
+  const totalMonsterMeal = monsterMeal, totalFelvine = felvine;
 
   // ---------------------------------------------------------------- Office, for Saileach's threshold
   // The Office's own HR speed before the Control Center's share: its skills alone, without the room's 5%.
@@ -768,7 +781,21 @@ export function calculateBase(input: BaseCalculationInput) {
     let trainingSpeed: number | null = null;
     let trainingHours: number | null = null;
     const recipe = workshopRecipes.find(r => r.id === workshopSettings.recipeId && r.level <= f.level) ?? workshopRecipes.find(r => r.level <= f.level)!;
-    const workshop = f.kind === 'workshop' && filled[0] && recipe ? workshopResult(filled[0].operatorName, skillsFor(filled[0], f.label), { ...workshopSettings, dormMorale: workshopSettings.overrideDormCount ? undefined : FACILITIES.filter(room => room.kind === 'dormitory' && room.level > 0).flatMap(room => (assignments[room.id] || []).flatMap(slot => slot ? [slot.morale ?? 0] : [])), recipe, dormitoryOperatorCount: dormitoryOperatorNames.size, stainlessInDorm: dormitoryHasOperator('Stainless'), intelligenceReserve: resourcePools.intelligenceReserve, ursusBeverages: totalUrsusBeverage }) : null;
+    let workshop: ReturnType<typeof workshopOutcome> | null = null;
+    if (f.kind === 'workshop' && filled[0] && recipe) {
+      // The crafter's skills against the recipe: its kind (the effects' targets), name and base Morale cost.
+      const crafter = filled[0];
+      const scoped = skills.filter((x) => x.slot === crafter && x.entry).map((x) => ({ x, scope: roomScope(f, filled, crafter.operatorName, { recipe }) }));
+      const contributions = scoped.map(({ x, scope }) => evaluateSkill(x.entry!, scope));
+      const moraleCost = workshopMorale(contributions, recipe);
+      const customs = contributions.filter((c) => c.custom).map((c) => runCustom(c, { ...customContextBase(crafter.operatorName, roomNames), workshop: { recipeMorale: recipe.morale, moraleCost, causality: workshopSettings.causality, karma: workshopSettings.karma, thornsFailures: workshopSettings.thornsFailures } }));
+      // For the reader, from the skills that apply to this recipe's kind: their notes (what a T3 byproduct becomes) and
+      // the Dormitory head counts the counted skills read.
+      const applies = (targets: readonly string[], scope: SkillScope) => !targets.length || scope.targetMatches!(targets);
+      const entryNotes = scoped.flatMap(({ x, scope }) => x.entry!.note && applies(x.entry!.targets, scope) ? [x.entry!.note] : []);
+      const dormCounts = scoped.flatMap(({ x, scope }) => x.entry!.effects.filter((e) => e.per?.count.startsWith('dorm.morale') && applies(e.targets ?? [], scope)).map((e) => scope.count(e.per!.count)));
+      workshop = workshopOutcome(contributions, recipe, customs, entryNotes, dormCounts);
+    }
     if (f.kind === 'office') {
       let hr = 0;
       for (const { c } of evaluated) if (c) hr += c.hrSpeed;
@@ -778,16 +805,17 @@ export function calculateBase(input: BaseCalculationInput) {
     }
 
     if (f.kind === 'trainingRoom' && filled[0]) {
+      // The trainer's skills against the trainee: class (the effects' targets), branch and the mastery being trained.
       const trainer = filled[0];
-      const result = trainingResult(trainer.operatorName, skillsFor(trainer, f.label), {
-        target: { ...resolvedTrainingTarget, mastery: Math.min(trainingTarget.mastery, f.level) }, allPlacedNames, rosters, worldlyPlight: resourcePools.worldlyPlight,
-      }, trainingSpeedBonusFromCC);
+      const target = { ...resolvedTrainingTarget, mastery: Math.min(trainingTarget.mastery, f.level) };
+      const contributions = skills.filter((x) => x.slot === trainer && x.entry).map((x) => ({ x, c: evaluateIn(f, filled, x, { trainee: target })! }));
+      const result = trainingOutcome(contributions.map(({ c }) => c), target, trainingSpeedBonusFromCC);
       trainingSpeed = result.speed;
       trainingHours = result.hours;
-      facilityBreakdown = { filledCount: 1, greyProductivity: 1.05, greyFormula: '100% baseline + 5% from the trainer', overrideActive: false, lines: result.contributions.map(value => ({ operatorName: trainer.operatorName, skillName: value.skill.name, rawValue: value.speed, included: value.speed !== 0, reason: value.speed ? 'Applies to the selected trainee, mastery and placed group members.' : 'No speed bonus for this target; the skill may change time or Morale instead.', note: value.note })), finalYellow: result.speed - 1.05, effectiveProductivity: result.speed };
+      facilityBreakdown = { filledCount: 1, greyProductivity: 1.05, greyFormula: '100% baseline + 5% from the trainer', overrideActive: false, lines: contributions.map(({ x, c }) => ({ operatorName: trainer.operatorName, skillName: x.skill.name, rawValue: c.trainingSpeed, included: c.trainingSpeed !== 0, reason: c.trainingSpeed ? 'Applies to the selected trainee, mastery and placed group members.' : 'No speed bonus for this target; the skill may change time or Morale instead.', note: c.entry.note, formula: c.formula })), finalYellow: result.speed - 1.05, effectiveProductivity: result.speed };
       if (trainingSpeedBonusFromCC) facilityBreakdown.lines.push({ operatorName: '(Control Center)', skillName: null, rawValue: trainingSpeedBonusFromCC, included: true, reason: 'Strongest Control Center training bonus.' });
       perOperatorSpecialMorale[trainer.operatorName] = result.morale;
-      for (const value of result.contributions) if (value.note) specialNotes.push({ operator: trainer.operatorName, note: value.note });
+      for (const { c } of contributions) if (c.entry.note) specialNotes.push({ operator: trainer.operatorName, note: c.entry.note });
     }
 
     // Training Room and Workshop skills own their Morale; the table's Morale numbers for those rooms are not rates the room reads.

@@ -41,6 +41,9 @@ const TAILORING_LOWER: SkillOverride = { effects: [e('selfMorale', -0.25)], inte
 const TAILORING_HIGHER: SkillOverride = { effects: [e('selfMorale', -0.25)], interaction: { goldOrderTier: 'higher' } };
 const faction = (count: SkillCountSource, amount: number) => counted('ccMorale', 0, count, amount);
 const PROFESSIONAL_ETHICS = (value: number): SkillOverride => ({ effects: [when('clueSpeed', value, alone), when('selfMorale', 1, alone)] });
+const ALL_CLASSES = ['PIONEER', 'WARRIOR', 'TANK', 'SNIPER', 'CASTER', 'MEDIC', 'SUPPORT', 'SPECIAL'];
+const ANY_RECIPE = ['F_BUILDING', 'F_EVOLVE', 'F_SKILL', 'F_ASC'];
+const MENTAL_TRAINING: SkillOverride = { effects: [], nonNumeric: true, note: 'The next mastery must start after this trainer has trained the same trainee for 5 consecutive hours. Leaving before it starts clears the prepared reduction.' };
 
 /** Keys whose text the generic rules already read exactly as the handler computed them. */
 export const GENERIC_IS_RIGHT: readonly string[] = [
@@ -126,7 +129,9 @@ export const OVERRIDES: Record<string, SkillOverride> = {
   'Snowsant|Heavenly Reward β': { custom: { handler: 'snowsant', params: { perStep: 0.05, step: 0.05, cap: 0.35 } }, effects: [] },
   "Degenbrecher|Champion's Bearing": { custom: { handler: 'perOthersOrderLimit', params: { perStep: 0.25, step: 5, cap: 1, beforeLimitChanges: 1 } }, effects: [] },
   'Swire the Elegant Wit|Investment Solicitations': { custom: { handler: 'perOthersOrderLimit', params: { perStep: 0.04, step: 1 } }, effects: [] },
-  "Taraxacum|'The Best of Students!'": { effects: [counted('orderEfficiency', 0, 'base.workFacilitiesWithRoster:SUI', 0.04, { maxCount: 5 })] },
+  // "Every facility in the Base with a Sui Operator assigned (excluding Assistants and Activity Rooms)": Dormitories are
+  // facilities, as Elite Squad and 'Terra's Ark' count them with the same words.
+  "Taraxacum|'The Best of Students!'": { effects: [counted('orderEfficiency', 0, 'base.facilitiesWithRoster:SUI', 0.04, { maxCount: 5 })] },
   'Underflow|Envoy To Land α': { effects: [e('orderEfficiency', 0.25), when('orderEfficiency', 0.05, baseHas('Ulpianus'))] },
   'Underflow|Envoy To Land β': { effects: [e('orderEfficiency', 0.3), when('orderEfficiency', 0.1, baseHas('Ulpianus'))] },
   'Mantra|Elite Squad': { effects: [counted('orderEfficiency', 0.25, 'base.facilitiesWithRoster:ELITE_OPERATOR', 0.02, { maxCount: 10 })] },
@@ -138,6 +143,23 @@ export const OVERRIDES: Record<string, SkillOverride> = {
   'Tequila|Investment α': { effects: [e('selfMorale', -0.25)], interaction: { trade: { lmdBonusAbove3: 250 } } },
   'Tequila|Investment β': { effects: [e('selfMorale', -0.25)], interaction: { trade: { lmdBonusAbove3: 500 } } },
   'Pepe|Insightful': { effects: [], interaction: { trade: { order: 'pepe' } } },
+
+  // Training Room.
+  'Yu|Sharing the Joy': { effects: [counted('trainingSpeed', 0, 'resource:worldlyPlight', 0.01, { targets: ALL_CLASSES }), e('trainingMorale', 1, { targets: ALL_CLASSES })] },
+  'Zuo Le|Think Before Acting': { effects: [when('trainingTimeFactor', 0, { type: 'all', of: [{ type: 'masteryLevel', value: 1 }, { type: 'instantTrainingReady' }] }, { targets: ['WARRIOR'] })], note: 'Consumes accumulated Martial Arts to finish a Guard M1 immediately when the counter is ready.' },
+  'train_spd_reduceTime[000]': MENTAL_TRAINING, 'train_spd_reduceTime[001]': MENTAL_TRAINING,
+  'Talulah|火旁新事': { effects: [when('trainingSpeed', 0.45, { type: 'traineeBranch', name: 'Primal Guard' }, { targets: ['WARRIOR'] }), when('trainingSpeed', 0.45, { type: 'traineeBranch', name: 'Primal Caster' }, { targets: ['CASTER'] })] },
+
+  // Workshop.
+  'Stainless|Heart to Heart': { effects: [counted('recipeMorale', 0, 'dorm.moraleBelow:12', -1, { step: 10, targets: ['F_EVOLVE'], when: { type: 'recipeCostIs', value: 4 } })] },
+  'Catherine|Model Efficient Worker β': { effects: [e('byproductChance', 0.5, { targets: ANY_RECIPE }), when('byproductChance', 0.1, { type: 'inDormitory', name: 'Stainless' }, { targets: ANY_RECIPE })] },
+  'Frost|Mechanical Engineering': { effects: [e('byproductChance', 0.5, { targets: ANY_RECIPE }), counted('byproductChance', 0, 'resource:intelligenceReserve', 0.05, { targets: ANY_RECIPE }), when('byproductChance', 0.15, atLeast('resource:ursusBeverage', 4), { targets: ANY_RECIPE })] },
+  'Luo Xiaohei|Catform': { effects: [when('recipeMoraleFactor', 0.25, { type: 'recipeCostAtLeast', value: 4 }, { targets: ANY_RECIPE })] },
+  'Nine-Colored Deer|Causality': { custom: { handler: 'causality', params: { threshold: 40, maxCost: 4 } }, effects: [] },
+  'Nine-Colored Deer|Karma': { custom: { handler: 'karma', params: { threshold: 80, cost: 8 } }, effects: [] },
+  'Thorns|"Explosion Arts"': { custom: { handler: 'explosionArts', params: { perFailures: 2 } }, effects: [] },
+  'Blemishine|Careful Planning': { effects: [e('recipeLmdFree', 1, { targets: ['F_EVOLVE'] })] },
+  'Homebound|Light at the Fingertips': { effects: [when('byproductChance', 0.9, { type: 'recipeFamily', name: 'chiral refractor' }, { targets: ['F_EVOLVE'] }), when('byproductChance', 0.9, { type: 'recipeFamily', name: 'rephasic enantiomer' }, { targets: ['F_EVOLVE'] })] },
   'Closure|Special Order': { effects: [e('orderEfficiency', 0.1)], interaction: { trade: { order: 'closure' } } },
 
   // ---------------------------------------------------------------- Factory

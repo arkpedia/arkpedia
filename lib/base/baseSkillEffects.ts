@@ -57,9 +57,12 @@ export type SkillEffectKind =
   | 'powerPlantCount'
   // Base-wide resource generation (`name` is the pool): Felvine, Passion, Monster Meal, Worldly Plight...
   | 'resource'
-  // Training Room and Workshop numbers: the dedicated rule modules compute these rooms; the table carries
-  // them so every skill is in one place.
-  | 'trainingSpeed' | 'trainingMorale' | 'byproductChance' | 'recipeMorale'
+  // Training Room: speed for the trainee (`targets` are the classes it applies to), the trainer's extra Morale
+  // per hour, and a factor on the training time (Zuo Le's instant Guard M1).
+  | 'trainingSpeed' | 'trainingMorale' | 'trainingTimeFactor'
+  // Workshop, per craft of the recipe (`targets` are the recipe kinds): byproduct chance over the base, Morale
+  // added to the recipe's cost, a cost that replaces it, a factor on it, and a free LMD cost.
+  | 'byproductChance' | 'recipeMorale' | 'recipeMoraleFixed' | 'recipeMoraleFactor' | 'recipeLmdFree'
   // Recycling Station (CN only so far).
   | 'recycleEfficiency';
 
@@ -78,7 +81,9 @@ export type SkillCountSource =
   | `otherPowerPlants.roster:${string}` | `powerPlants.rosterOthers:${string}` | `tradingPosts.roster:${string}` | `reception.roster:${string}`
   | `tp.roster:${string}` | `tp.faction:${string}` | `factory.roster:${string}`
   | 'level.room' | 'level.receptionRoom' | 'level.trainingRoom' | 'office.extraSlots'
-  | `resource:${string}`;
+  | `resource:${string}`
+  // Workshop: Dormitory residents at or below, or below, a Morale level.
+  | `dorm.moraleAtMost:${number}` | `dorm.moraleBelow:${number}`;
 
 export type SkillCondition =
   | { type: 'roomHas'; name: string }                       // the named operator shares the room
@@ -101,9 +106,16 @@ export type SkillCondition =
   | { type: 'targetInRoster'; roster: string }
   | { type: 'recipientMoraleBelow'; value: number }          // a group recovery's recipient
   | { type: 'product'; product: FactoryProductName }
-  // Training Room (the training module reads these): the mastery level being trained, the trainee's branch.
+  // Training Room: the mastery level being trained, the trainee's branch, Zuo Le's Martial Arts counter full.
   | { type: 'masteryLevel'; value: number }
-  | { type: 'traineeBranch'; name: string };
+  | { type: 'traineeBranch'; name: string }
+  | { type: 'instantTrainingReady' }
+  // Workshop: the recipe's name holds the word (Oriron, Polyester, Crystal), its base Morale cost.
+  | { type: 'recipeFamily'; name: string }
+  | { type: 'recipeCostIs'; value: number }
+  | { type: 'recipeCostAtLeast'; value: number }
+  // Every condition listed holds.
+  | { type: 'all'; of: SkillCondition[] };
 
 export interface SkillEffect {
   kind: SkillEffectKind;

@@ -22,7 +22,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { OVERRIDES, GENERIC_IS_RIGHT, type SkillOverride, type OverrideEffect } from './base-skill-overrides';
 import { cleanSkillName } from '../../lib/base/activeBaseSkills';
-import type { BaseSkillEffectEntry, BaseSkillEffectsTable, SkillEffect, SkillRoomType, SkillShape } from '../../lib/base/baseSkillEffects';
+import type { BaseSkillEffectEntry, BaseSkillEffectsTable, SkillCondition, SkillEffect, SkillRoomType, SkillShape } from '../../lib/base/baseSkillEffects';
 
 const ROOT = path.resolve(import.meta.dirname, '../..');
 const OUT = path.join(ROOT, 'lib/base/base-skill-effects.json');
@@ -77,10 +77,23 @@ const CC_FACTORY = /factor(?:y|ies)[^%]{0,40}?productivity[^%]{0,40}?(-?\d+(?:\.
 const CC_CLUE = /clue collection speed[^%]{0,40}?(-?\d+(?:\.\d+)?)%/i;
 const CC_MORALE = /increase[s]? morale[^%\d]{0,60}?([+-]?\d+(?:\.\d+)?)\s*(?:per hour|\/\s*hr)/i;
 const BYPRODUCT = /byproduct[^%]{0,60}?(\d+(?:\.\d+)?)%/i;
-const RECIPE_MORALE = /(-\d+) Morale cost|Morale cost[^\d-]{0,20}?(-\d+)|by ([+-]\d+)|only consume (\d+) Morale/i;
+const RECIPE_MORALE = /(-\d+) Morale cost|Morale cost[^\d-]{0,20}?(-\d+)|by ([+-]\d+)/i;
+const RECIPE_FIXED = /only consume (\d+) Morale/i;
+const RECIPE_FAMILY = /process\s+([\w -]+?)(?:-type| Block material| Cluster materials)/i;
+const RECIPE_BASE_COST = /base Morale cost of (\d+)/i;
+const RECIPE_COST = /(?:cost|costs)\s+(?:of\s+)?(\d+)\s*(?:Morale)?\s*(or (?:more|higher))?/i;
+const RECIPE_PER_DORM = /for every 1 Operator with (\d+) or less Morale assigned to the Dorms/i;
+const TRAINING_ROSTER = /for each ([A-Za-z ]+?) Operator in the Base/i;
+const TRAINING_CAP = /caps at (\d+) Operators/i;
+/** The group rosters (lib/base/baseGroupRosters.ts) the training skills count by their text's name. */
+const TRAINING_ROSTERS: Record<string, string> = { Knight: 'KNIGHTS', Defending: 'R6_DEFENDING', Attacking: 'R6_ATTACKING', Sami: 'SAMI', Siracusa: 'SIRACUSA', 'Abyssal Hunter': 'ABYSSAL_HUNTERS' };
+const CN_CLASSES: [RegExp, string][] = [[/先锋/, 'PIONEER'], [/近卫/, 'WARRIOR'], [/重装/, 'TANK'], [/狙击/, 'SNIPER'], [/术师/, 'CASTER'], [/医疗/, 'MEDIC'], [/辅助/, 'SUPPORT'], [/特种/, 'SPECIAL']];
+const ALL_CLASSES = ['PIONEER', 'WARRIOR', 'TANK', 'SNIPER', 'CASTER', 'MEDIC', 'SUPPORT', 'SPECIAL'];
+const CN_RECIPE_KINDS: [RegExp, string][] = [[/基建材料/, 'F_BUILDING'], [/精英材料/, 'F_EVOLVE'], [/技巧概要/, 'F_SKILL'], [/芯片/, 'F_ASC']];
+const ALL_RECIPE_KINDS = ['F_BUILDING', 'F_EVOLVE', 'F_SKILL', 'F_ASC'];
 const RECYCLE = /material conversion efficiency[^%]{0,20}?([+-]?\d+(?:\.\d+)?)%/i;
 const TAILORING_MORALE = /morale consumed per hour[^\d+-]{0,30}?([+-]?\d+(?:\.\d+)?)/i;
-const MASTERY = /(?:if|when) training (?:the|a) skill to Specialization Level (\d)/i;
+const MASTERY = /Specialization Level (\d)/i;
 
 function morale(text: string): SkillEffect[] {
   if (ALL_OPERATORS_MORALE.test(text)) { const v = num(text.match(ALL_OPERATORS_MORALE_VALUE)); return v === null ? [] : [{ kind: 'roomMorale', value: v }]; }
@@ -112,17 +125,24 @@ function chineseRule(text: string): SkillEffect[] {
   const out: SkillEffect[] = [];
   for (const [re, kind] of CN_KINDS) {
     const m = text.match(new RegExp(`${re.source}[^+\\-\\d]{0,8}([+-]?\\d+(?:\\.\\d+)?)(%?)`)) ?? text.match(new RegExp(`([+-]\\d+(?:\\.\\d+)?)(%?)${re.source}`));
-    if (m) out.push({ kind, value: m[2] ? Number(m[1]) / 100 : Number(m[1]) });
+    if (!m) continue;
+    const effect: SkillEffect = { kind, value: m[2] ? Number(m[1]) / 100 : Number(m[1]) };
+    // Training speed names its classes (近卫与术师干员) or every operator's (干员的).
+    if (kind === 'trainingSpeed') { const classes = CN_CLASSES.filter(([re]) => re.test(text)).map(([, code]) => code); effect.targets = classes.length ? classes : ALL_CLASSES; }
+    // A byproduct chance names its recipe kind (精英材料) or any (任意材料).
+    if (kind === 'byproductChance') { const kinds = CN_RECIPE_KINDS.filter(([re]) => re.test(text)).map(([, code]) => code); effect.targets = kinds.length ? kinds : ALL_RECIPE_KINDS; }
+    out.push(effect);
   }
   // Dormitory recovery per hour: for everyone in the room, or the operator's own.
   const rec = text.match(/心情每小时恢复([+-]\d+(?:\.\d+)?)/);
   if (rec) out.push({ kind: /所有干员/.test(text) ? 'recoveryAll' : 'recoverySelf', value: Number(rec[1]) });
   return out;
 }
-function rules(buff: Buff, text: string): { effects: SkillEffect[]; interaction?: BaseSkillEffectEntry['interaction'] } {
+function rules(buff: Buff, text: string): { effects: SkillEffect[]; interaction?: BaseSkillEffectEntry['interaction']; note?: string } {
   if (chinese(text)) return { effects: chineseRule(text) };
   const out: SkillEffect[] = [];
   let interaction: BaseSkillEffectEntry['interaction'];
+  let note: string | undefined;
   const push = (kind: SkillEffect['kind'], value: number | null, more: Partial<SkillEffect> = {}) => { if (value !== null) out.push({ kind, value, ...more }); };
   switch (buff.roomType) {
     case 'MANUFACTURE': push('productivity', pct(text.match(PRODUCTIVITY)), { product: product(text) }); push('capacity', num(text.match(CAPACITY))); out.push(...morale(text)); break;
@@ -135,31 +155,67 @@ function rules(buff: Buff, text: string): { effects: SkillEffect[]; interaction?
     case 'CONTROL': push('ccOrderEfficiency', pct(text.match(CC_ORDER_EFFICIENCY))); push('ccFactoryProductivity', pct(text.match(CC_FACTORY))); push('ccClueSpeed', pct(text.match(CC_CLUE))); push('ccMorale', num(text.match(CC_MORALE))); out.push(...morale(text)); break;
     case 'DORMITORY': out.push(...dormitory(text)); break;
     case 'TRAINING': {
-      // "training speed +30%" first; "further increases this speed by +45% if training ... Level 1" as a threshold on the mastery level.
+      const targets = targetsOf(buff);
+      // "training speed +30%" first; "further increases this speed by +45% if training ... Level 1" as a threshold on the
+      // mastery level or the trainee's branch; "+10% for each Defending Operator in the Base (caps at 4)" counted by roster.
       const speeds = [...text.matchAll(/(?:speed|increased)[^%\d+-]{0,50}?([+-]?\d+(?:\.\d+)?)%/gi)].map((m) => Number(m[1]) / 100);
       const mastery = text.match(MASTERY), branch = text.match(/Job Branch is ([A-Za-z ]+?),/i) ?? text.match(/branch[^A-Za-z]{0,10}([A-Za-z ]+?)[,.]/i);
-      const conditional = speeds.length > 1 || /^[^%]*if training/i.test(text);
-      speeds.forEach((value, i) => {
-        const gated = conditional && (i > 0 || speeds.length === 1);
-        push('trainingSpeed', value, { targets: targetsOf(buff), ...(gated && mastery ? { when: { type: 'masteryLevel', value: Number(mastery[1]) } } : gated && branch ? { when: { type: 'traineeBranch', name: branch[1].trim() } } : {}) });
-      });
-      push('trainingMorale', num(text.match(/Morale consumed per hour[^\d+-]{0,30}?([+-]\d+)/i)));
+      const roster = text.match(TRAINING_ROSTER), cap = text.match(TRAINING_CAP);
+      if (roster) {
+        const name = TRAINING_ROSTERS[roster[1]];
+        if (name && speeds.length === 1) out.push({ kind: 'trainingSpeed', value: 0, targets, per: { count: `base.roster:${name}`, amount: speeds[0], ...(cap ? { maxCount: Number(cap[1]) } : {}) } });
+      } else {
+        const conditional = speeds.length > 1 || /^[^%]*if training/i.test(text);
+        speeds.forEach((value, i) => {
+          const gated = conditional && (i > 0 || speeds.length === 1);
+          push('trainingSpeed', value, { targets, ...(gated && mastery ? { when: { type: 'masteryLevel', value: Number(mastery[1]) } } : gated && branch ? { when: { type: 'traineeBranch', name: branch[1].trim() } } : {}) });
+        });
+      }
+      // The trainer's own Morale: for the named classes, and only at the named mastery when the skill is that alone.
+      push('trainingMorale', num(text.match(/Morale consumed per hour[^\d+-]{0,30}?([+-]\d+)/i)), { targets, ...(!speeds.length && mastery ? { when: { type: 'masteryLevel', value: Number(mastery[1]) } } : {}) });
       break;
     }
-    case 'WORKSHOP': push('byproductChance', pct(text.match(BYPRODUCT)), { targets: targetsOf(buff) }); { const m = text.match(RECIPE_MORALE); if (m) out.push({ kind: 'recipeMorale', value: Number(m[1] ?? m[2] ?? m[3] ?? m[4]) }); } break;
+    case 'WORKSHOP': {
+      // The recipe kinds are the game's targets; a word in the recipe's name ("Oriron-type", "Polyester Pack") and its
+      // base Morale cost gate the whole skill, a cost condition the Morale change alone.
+      const targets = targetsOf(buff);
+      const fam = text.match(RECIPE_FAMILY);
+      const familyName = fam ? (fam[1].toLowerCase() === 'ester' ? 'polyester' : fam[1].toLowerCase()) : null;
+      const baseCost = text.match(RECIPE_BASE_COST);
+      const gates: SkillCondition[] = [...(familyName ? [{ type: 'recipeFamily', name: familyName } as const] : []), ...(baseCost ? [{ type: 'recipeCostIs', value: Number(baseCost[1]) } as const] : [])];
+      const gated = (more: SkillCondition[] = []): Partial<SkillEffect> => { const all = [...gates, ...more]; return all.length === 0 ? {} : all.length === 1 ? { when: all[0] } : { when: { type: 'all', of: all } }; };
+      const perDorm = text.match(RECIPE_PER_DORM);
+      const chance = pct(text.match(BYPRODUCT));
+      if (chance !== null && perDorm) out.push({ kind: 'byproductChance', value: 0, targets, per: { count: `dorm.moraleAtMost:${Number(perDorm[1])}`, amount: chance }, ...gated() });
+      else push('byproductChance', chance, { targets, ...gated() });
+      const fixed = text.match(RECIPE_FIXED);
+      if (fixed) out.push({ kind: 'recipeMoraleFixed', value: Number(fixed[1]), targets, ...gated() });
+      const m = text.match(RECIPE_MORALE);
+      if (m) {
+        const cost = text.match(RECIPE_COST);
+        out.push({ kind: 'recipeMorale', value: Number(m[1] ?? m[2] ?? m[3]), targets, ...gated(cost ? [cost[2] ? { type: 'recipeCostAtLeast', value: Number(cost[1]) } : { type: 'recipeCostIs', value: Number(cost[1]) }] : []) });
+      }
+      const t3 = text.match(/any byproducts of T3 quality.+/i);
+      if (t3) note = t3[0];
+      break;
+    }
     case 'RECYCLE': push('recycleEfficiency', pct(text.match(RECYCLE))); break;
   }
-  return { effects: out.map((x) => (x.product === undefined ? (({ product: _p, ...rest }) => rest)(x) : x)), ...(interaction ? { interaction } : {}) };
+  return { effects: out.map((x) => (x.product === undefined ? (({ product: _p, ...rest }) => rest)(x) : x)), ...(interaction ? { interaction } : {}), ...(note ? { note } : {}) };
 }
 const targetsOf = (buff: Buff) => (Array.isArray(buff.targets) ? buff.targets : Object.keys(buff.targets ?? {})) as string[];
 
 /** Text the rules cannot read: a count, a condition or a relation to another skill. An entry with such text needs an override. */
 const NEEDS_OVERRIDE = /for (?:every|each)|if (?!in Clue)|together with|same (?:factory|trading post|dormitory|reception)|other operators|another operator|additional|up to a maximum|becomes 0|per hour, up to|further|only this|no other|whose morale/i;
 const NEEDS_OVERRIDE_DORMITORY = /for (?:every|each)|if |together with|below \d|level|recruit|power plant|soundless|distributed|cannot gain/i;
+/** Training Room: the rules read mastery, branch and roster counts; a counter or a resource needs an override. */
+const NEEDS_OVERRIDE_TRAINING = /Martial Arts|Worldly Plight|for every|next training time|if the trainee's Job Branch is [A-Za-z ]+ or/i;
+/** Workshop: the rules read kinds, families, costs and a per-resident count; the rest needs an override. */
+const NEEDS_OVERRIDE_WORKSHOP = /for every 10|if Stainless|Intelligence Reserve|divided by|Causality|Karma|restored|LMD cost| or [A-Z][a-z]+ [A-Z]/;
 /** Families whose effect the game states in words only (which clue is likelier, a one-off swap): nothing to compute. */
-const NON_NUMERIC_FAMILIES = new Set(['meet_flag', 'meet_team', 'meet_team&char', 'meet_spd_Owned', 'meet_spd_notOwned', 'meet_spd_notOwned&exchange', 'control_clue_faction', 'control_facCostReset', 'dorm_exchangeAp', 'trade_ord_law', 'manu_cost_all', 'manu_skill_change', 'train_spd_reduceTime', 'train_spd_bd&reduceTime', 'workshop_formula_drop', 'workshop_formula_free', 'workshop_formula_recovery', 'workshop_formula_bonus1', 'workshop_formula_bonus2', 'workshop_formula_lolxh', 'meet_spd&condChar_mustget', 'trade_ord_pepe', 'control_mp_cost_reset']);
+const NON_NUMERIC_FAMILIES = new Set(['meet_flag', 'meet_team', 'meet_team&char', 'meet_spd_Owned', 'meet_spd_notOwned', 'meet_spd_notOwned&exchange', 'control_clue_faction', 'control_facCostReset', 'dorm_exchangeAp', 'trade_ord_law', 'manu_cost_all', 'manu_skill_change', 'train_spd_reduceTime', 'workshop_formula_drop', 'meet_spd&condChar_mustget', 'trade_ord_pepe', 'control_mp_cost_reset']);
 
-const POOL_KINDS = new Set<SkillEffect['kind']>(['selfMorale', 'roomMorale', 'targetMorale', 'recoverySelf', 'recoveryAll', 'recoveryOthers', 'recoverySingle', 'recoveryExclusive', 'recoveryDistributed', 'orderLimit', 'droneRate', 'resource', 'ccMorale', 'ccDormRecovery', 'ccDormEliteRecovery', 'ccOtherRoomsRecovery', 'powerPlantCount', 'capacity', 'trainingMorale', 'recipeMorale']);
+const POOL_KINDS = new Set<SkillEffect['kind']>(['recipeMoraleFixed', 'recipeMoraleFactor', 'recipeLmdFree', 'selfMorale', 'roomMorale', 'targetMorale', 'recoverySelf', 'recoveryAll', 'recoveryOthers', 'recoverySingle', 'recoveryExclusive', 'recoveryDistributed', 'orderLimit', 'droneRate', 'resource', 'ccMorale', 'ccDormRecovery', 'ccDormEliteRecovery', 'ccOtherRoomsRecovery', 'powerPlantCount', 'capacity', 'trainingMorale', 'recipeMorale']);
 function shapeOf(effects: SkillEffect[], custom: SkillOverride['custom']): SkillShape {
   if (custom) return 'custom';
   if (effects.some((x) => x.per)) return 'counted';
@@ -218,13 +274,13 @@ async function main() {
       custom = o.custom; interaction = o.interaction; note = o.note; nonNumeric = !!o.nonNumeric;
     } else {
       const read = rules(buff, text);
-      effects = read.effects; interaction = read.interaction;
+      effects = read.effects; interaction = read.interaction; note = read.note;
       nonNumeric = effects.length === 0 && (NON_NUMERIC_FAMILIES.has(fam) || !/[+-]?\d+(?:\.\d+)?%|[+-]\d/.test(text));
       const inRecords = recordText.has(id);
-      if (!nonNumeric && !chinese(text)) {
+      if ((!nonNumeric || buff.roomType === 'TRAINING' || buff.roomType === 'WORKSHOP') && !chinese(text)) {
         if (!effects.length && /[+-]?\d+(?:\.\d+)?%|[+-]\d/.test(text)) errors.push(`${id} (${fam}${inRecords ? ', in records' : ''}): the text has a number the rules did not read: ${text}`);
-        const wording = buff.roomType === 'DORMITORY' ? NEEDS_OVERRIDE_DORMITORY : NEEDS_OVERRIDE;
-        if (inRecords && !genericRight.has(id) && wording.test(text) && buff.roomType !== 'TRAINING' && buff.roomType !== 'WORKSHOP') errors.push(`${id} (${fam}, ${[...recordKeys.get(id) ?? []].join(' / ')}): words the rules cannot read, needs an override: ${text}`);
+        const wording = buff.roomType === 'DORMITORY' ? NEEDS_OVERRIDE_DORMITORY : buff.roomType === 'TRAINING' ? NEEDS_OVERRIDE_TRAINING : buff.roomType === 'WORKSHOP' ? NEEDS_OVERRIDE_WORKSHOP : NEEDS_OVERRIDE;
+        if (inRecords && !genericRight.has(id) && wording.test(text)) errors.push(`${id} (${fam}, ${[...recordKeys.get(id) ?? []].join(' / ')}): words the rules cannot read, needs an override: ${text}`);
       }
     }
     const steps = [...(unlocks.get(id)?.values() ?? [])].sort((a, b) => a.phase - b.phase || a.level - b.level);

@@ -14,4 +14,16 @@ export const KNOWN_DEVIATIONS: Record<string, string> = {
   'Waai Fu': "Cooperative Will counts every full 5% the others provide: the handler's floor(0.3 / 0.05) gave 5 steps, a floating-point artefact, where the text gives 6.",
   Snowsant: 'Heavenly Reward α/β count every full 5% the others provide, with the same floating-point artefact gone.',
   'Zima the Raging Tide': "'Got It, Boss!' counts Ursus Student Self-Governing Group operators in the Reception Room and costs +0.5 Morale; Friends Forever's +10% needs one in the same Factory.",
+  Taraxacum: "'The Best of Students!' counts every facility with a Sui operator, Dormitories included: the game words it as Elite Squad and 'Terra's Ark' are, which the handlers counted that way; the Taraxacum handler left Dormitories out.",
+  // The record text of these six carries a no-break space in "Specialization Level", which the training module's mastery
+  // pattern (a plain space) never matched, so their conditional bonus applied at every mastery.
+  Heavyrain: "Field Experience's +45% applies only when training to Specialization 2.",
+  Aurora: "Night Sky's +45% applies only when training to Specialization 1.",
+  Mint: "Widely-Read's +45% applies only when training to Specialization 2.",
+  Tomimi: "Tomimi's conditional training bonus applies only at its stated Specialization.",
+  'Skadi the Corrupting Heart': "Mutation's +65% and its +1 Morale apply only when training to Specialization 3.",
+  Necrass: "Why Cry For Freedom?'s +1 Morale applies only when training a Caster to Specialization 3.",
+  Talulah: "Her CN-only training skills apply to Guards and Casters, and the +45% to the Primal Guard and Primal Caster branches; the text module read the Chinese as unconditional.",
+  Caleido: 'Her CN-only Workshop skills raise the byproduct chance of Elite materials by 75% / 80%; the text module read nothing from the Chinese.',
+  Homebound: "Light at the Fingertips applies to Chiral Refractor and Rephasic Enantiomer recipes alone; the text module applied it to every recipe.",
 };

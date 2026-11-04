@@ -7,8 +7,10 @@ import { createHash } from 'node:crypto';
 import type { BaseSkill } from '../../lib/operators/operatorTypes';
 import { getAllOperators } from '../../lib/operators/operators';
 import { activeBaseSkills } from '../../lib/base/activeBaseSkills';
-import { trainingResult, resolveTrainingTarget, canTrainMastery } from '../../lib/base/trainingRoomSkills';
-import { workshopResult } from '../../lib/base/workshopSkills';
+import { resolveTrainingTarget, canTrainMastery, type TrainingTarget } from '../../lib/base/trainingRoom';
+import { calculateBase } from '../../lib/base/calculateBase';
+import { presetLevels, presetSpots } from '../../lib/base/baseConfig';
+import slots from '../../data/base-skill-slots.json';
 import { crossFacilityMoraleRelief } from '../../lib/base/crossFacilityMorale';
 import { jayeContribution } from '../../lib/base/jaye';
 import { toBaseRosters, checkBaseRosters } from '../../lib/base/baseGroupRosters';
@@ -34,7 +36,20 @@ const fixtureOperator = (expected: { name: string; internalName: string }) => {
 const rosters = toBaseRosters(checkBaseRosters(rosterData));
 const emptyCustomContext = (operatorName: string): CustomContext => ({ operatorName, roomNames: [operatorName], rampWindowHours: 24, rampStartHours: 0, selfMoraleRate: 1, othersProductivitySum: 0, capacityByOperator: {}, groupHuntingInControlCenter: false, othersOrderEfficiencySum: 0, othersOrderLimitRawSum: 0, abyssalHunters: { working: 0, resting: 0, restingAtFullMorale: 0, perFactory: [], totalInFactories: 0 }, fractionAbove12: 1, ccFamilyCount: () => 0 });
 const near = (actual: number | undefined, expected: number) => assert(Math.abs((actual ?? NaN) - expected) < 1e-8, `${actual} != ${expected}`);
-const training = (name: string, className = 'Guard', mastery = 1, placed = [name], branch = '') => trainingResult(name, activeBaseSkills(ops.get(name)!, 'Training Room', 'Elite 2'), { target: { class: className, branch, mastery, timeReductionActive: false, instantTrainingReady: false }, allPlacedNames: placed, rosters, worldlyPlight: 0 }, 0);
+// The Training Room and Workshop through the calculator, as the page runs them: the trainer or crafter in the room,
+// anyone else named in a Dormitory (with a Morale level where a Workshop skill counts by it).
+const roomFacilities = getFacilities(presetSpots('2-5-2-right'), presetLevels('2-5-2-right'));
+const dormIds = roomFacilities.filter(f => f.kind === 'dormitory').map(f => f.id);
+const maxedSlot = (name: string, morale?: number) => ({ operatorName: name, eliteLevel: 'Elite 2' as const, level: 90, ...(morale !== undefined ? { morale } : {}) });
+const inDorms = (names: string[], morale: (i: number) => number | undefined = () => undefined) => Object.fromEntries(dormIds.map((id, d) => [id, names.slice(d * 5, d * 5 + 5).map((n, i) => maxedSlot(n, morale(d * 5 + i)))]));
+const calcRoom = (assignments: Record<string, ReturnType<typeof maxedSlot>[]>, more: { trainingTarget?: TrainingTarget; workshopSettings?: { recipeId: string; overrideDormCount?: boolean; qualifyingDormOperators: number; causality: number; karma: number; thornsFailures: number } }) =>
+  calculateBase({ operators: [...ops.values()], rosters, skillSlots: slots, workshopRecipes: recipes, facilities: roomFacilities, assignments, factoryProducts: {}, loginInterval: 8, ...more });
+const training = (name: string, className = 'Guard', mastery = 1, placed = [name], branch = '') => {
+  const others = [...new Set(placed)].filter(n => n !== name && ops.has(n));
+  const room = calcRoom({ trainingRoom: [maxedSlot(name)], ...inDorms(others) }, { trainingTarget: { class: className, branch, mastery, timeReductionActive: false, instantTrainingReady: false } }).rooms.trainingRoom;
+  return { speed: room.trainingSpeed!, hours: room.trainingHours!, morale: room.perOperatorMorale![name] - room.combinedMoraleRate };
+};
+const FILLERS = [...ops.keys()].filter(n => !/^Amiya \(/.test(n)).sort().slice(0, 40);
 
 test('all 429 game operators and 921 source steps match IDs, unlocks, facilities and Global descriptions', () => {
   assert.equal(fixture.operators.length, 429);
@@ -83,8 +98,7 @@ test('named trainee traits override stale preset metadata, while manual and lega
   const roster = [...ops.values()];
   const medic = resolveTrainingTarget(saved, roster);
   assert.equal(medic.class, 'Medic');
-  const result = trainingResult('Warfarin', activeBaseSkills(ops.get('Warfarin')!, 'Training Room', 'Elite 2'), { target: medic, allPlacedNames: ['Warfarin'], rosters, worldlyPlight: 0 }, 0);
-  near(result.speed, 1.55);
+  near(training('Warfarin', medic.class, medic.mastery, ['Warfarin'], medic.branch).speed, 1.55);
   assert.equal(resolveTrainingTarget({ ...saved, operatorName: 'Qiubai' }, roster).branch, 'Lord');
   assert.deepEqual(resolveTrainingTarget({ ...saved, operatorName: '' }, roster), { ...saved, operatorName: '' });
   assert.deepEqual(resolveTrainingTarget(saved, [{ name: 'Warfarin' }]), saved);
@@ -109,7 +123,7 @@ test('actual TP/RR levels and exact Taraxacum quoted name', () => {
   for (let level = 1; level <= 3; level++) near(evalSkill('Rose Salt', 'Time Is Money', { levels: { room: level } }).orderLimit, level);
   near(evalSkill('Vigil', 'New City Trade', { levels: { receptionRoom: 1 } }).orderEfficiency, 0.3);
   near(evalSkill('Vigil', 'New City Trade', { levels: { receptionRoom: 3 } }).orderEfficiency, 0.4);
-  near(evalSkill('Taraxacum', "'The Best of Students!'", { counts: { 'base.workFacilitiesWithRoster:SUI': 3 } }).orderEfficiency, 0.12);
+  near(evalSkill('Taraxacum', "'The Best of Students!'", { counts: { 'base.facilitiesWithRoster:SUI': 3 } }).orderEfficiency, 0.12);
 });
 test('recruitment slots scale with Office level', () => {
   for (let level = 1; level <= 3; level++) {
@@ -167,9 +181,12 @@ test('Jaye E0 depends on collection interval and TP level; E1 skills cancel queu
   near(jayeContribution(10, 0, 0.35, true, 1.02, 24, 3).snowsant, 0);
   near(jayeContribution(10, 0.3, 0.35, true, 1.03, 1, 3).snowsant, 0.3);
 });
-const craft = (name: string, recipeName: string, extra = {}) => {
+const craft = (name: string, recipeName: string, extra: { qualifyingDormOperators?: number; dormMorale?: number[]; causality?: number; karma?: number; thornsFailures?: number; residents?: string[] } = {}) => {
   const recipe = recipes.find(r => r.name === recipeName)!; assert(recipe, recipeName);
-  return workshopResult(name, activeBaseSkills(ops.get(name)!, 'Workshop', 'Elite 2'), { recipe, qualifyingDormOperators: 0, dormitoryOperatorCount: 20, stainlessInDorm: false, intelligenceReserve: 0, ursusBeverages: 0, causality: 0, karma: 0, thornsFailures: 0, ...extra });
+  // The reader's own count stands in for 20 residents; a Morale list seats that many residents at those levels.
+  const residents = (extra.residents ?? FILLERS).filter(n => n !== name).slice(0, extra.qualifyingDormOperators !== undefined ? 20 : extra.dormMorale?.length ?? 0);
+  const r = calcRoom({ workshop: [maxedSlot(name)], ...inDorms(residents, i => extra.dormMorale?.[i] ?? 0) }, { workshopSettings: { recipeId: recipe.id, overrideDormCount: extra.qualifyingDormOperators !== undefined, qualifyingDormOperators: extra.qualifyingDormOperators ?? 0, causality: extra.causality ?? 0, karma: extra.karma ?? 0, thornsFailures: extra.thornsFailures ?? 0 } });
+  return r.rooms.workshop.workshop!;
 };
 test('workshop recipe category/family, costs, dorm thresholds and guarantee counters', () => {
   near(craft('Mudrock', 'Orirock Concentration').chance, 0.19); near(craft('Mudrock', 'Orirock Concentration').morale, 2);
@@ -184,10 +201,14 @@ test('workshop recipe category/family, costs, dorm thresholds and guarantee coun
   near(craft('Vetochki', 'Oriron Block').morale, 4);
   near(craft('Nine-Colored Deer', 'Orirock Concentration', { causality: 40 }).chance, 1);
   near(craft('Blemishine', 'Orirock Concentration').lmd, 0);
-  for (const op of ops.values()) for (const recipe of recipes) {
-    const result = workshopResult(op.name, activeBaseSkills(op, 'Workshop', 'Elite 2'), { recipe, qualifyingDormOperators: 20, dormitoryOperatorCount: 20, stainlessInDorm: true, intelligenceReserve: 5, ursusBeverages: 4, causality: 0, karma: 0, thornsFailures: 0 });
-    assert(Number.isFinite(result.morale) && result.morale >= 0, `${op.name}: ${recipe.name}`);
-    assert(result.chance >= 0 && result.chance <= 1);
+  const crew = ['Stainless', 'Ash', 'Blitz', 'Frost', 'Tachanka', ...FILLERS];
+  for (const op of ops.values()) {
+    if (!activeBaseSkills(op, 'Workshop', 'Elite 2').length) continue;
+    for (const recipe of recipes) {
+      const result = craft(op.name, recipe.name, { qualifyingDormOperators: 20, residents: crew });
+      assert(Number.isFinite(result.morale) && result.morale >= 0, `${op.name}: ${recipe.name}`);
+      assert(result.chance >= 0 && result.chance <= 1);
+    }
   }
 });
 test('saved presets survive changed capacity and reject malformed/duplicate workers', () => {

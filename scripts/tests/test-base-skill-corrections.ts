@@ -78,3 +78,39 @@ test('Waai Fu and Snowsant count every full 5% the others provide', () => {
   const post = calc({ prod1: [maxed('Snowsant'), maxed('Haze')] }).rooms.prod1;
   near(post.facilityBreakdown!.lines.find(l => l.skillName === 'Heavenly Reward β')!.rawValue, 0.3, 'Heavenly Reward β beside a +30% Order Distribution β');
 });
+
+test("Taraxacum counts Dormitories among the facilities with a Sui operator", () => {
+  // Ling and Chongyue in two Dormitories, Nian in a Factory: three facilities, 12%.
+  const room = calc({ prod1: [maxed('Taraxacum')], dormitory1: [maxed('Ling')], dormitory2: [maxed('Chongyue')], prod2: [maxed('Nian')] }, { prod2: 'Battle Records' }).rooms.prod1;
+  near(room.facilityBreakdown!.lines.find(l => l.skillName?.includes('Best of Students'))!.rawValue, 0.12, "'The Best of Students!' over three facilities");
+});
+
+const trainee = (className: string, mastery: number, branch = '') => ({ class: className, branch, mastery, timeReductionActive: false, instantTrainingReady: false });
+const trainingSpeed = (trainer: string, target: ReturnType<typeof trainee>) => calculateBase({ ...base, assignments: { trainingRoom: [maxed(trainer)] }, factoryProducts: {}, loginInterval: 8, trainingTarget: target }).rooms.trainingRoom;
+test('the conditional training bonuses apply only at their stated Specialization, branch and class', () => {
+  near(trainingSpeed('Heavyrain', trainee('Defender', 1)).trainingSpeed, 1.35, 'Heavyrain at M1');
+  near(trainingSpeed('Heavyrain', trainee('Defender', 2)).trainingSpeed, 1.8, 'Heavyrain at M2');
+  near(trainingSpeed('Aurora', trainee('Defender', 1)).trainingSpeed, 1.8, 'Aurora at M1');
+  near(trainingSpeed('Aurora', trainee('Defender', 3)).trainingSpeed, 1.35, 'Aurora at M3');
+  near(trainingSpeed('Mint', trainee('Caster', 2)).trainingSpeed, 1.8, 'Mint at M2');
+  near(trainingSpeed('Mint', trainee('Caster', 3)).trainingSpeed, 1.35, 'Mint at M3');
+  const skadi2 = trainingSpeed('Skadi the Corrupting Heart', trainee('Supporter', 2)), skadi3 = trainingSpeed('Skadi the Corrupting Heart', trainee('Supporter', 3));
+  near(skadi2.trainingSpeed, 1.35, 'Skadi at M2'); near(skadi3.trainingSpeed, 2, 'Skadi at M3');
+  near(skadi2.perOperatorMorale!['Skadi the Corrupting Heart'] - skadi2.combinedMoraleRate, 0, 'Mutation at M2'); near(skadi3.perOperatorMorale!['Skadi the Corrupting Heart'] - skadi3.combinedMoraleRate, 1, 'Mutation at M3');
+  const necrass = trainingSpeed('Necrass', trainee('Caster', 2));
+  near(necrass.perOperatorMorale!.Necrass - necrass.combinedMoraleRate, 0, 'Why Cry For Freedom? at M2');
+  near(trainingSpeed('Talulah', trainee('Guard', 1, 'Lord')).trainingSpeed, 1.35, 'Talulah with a Lord');
+  near(trainingSpeed('Talulah', trainee('Guard', 1, 'Primal Guard')).trainingSpeed, 1.8, 'Talulah with a Primal Guard');
+  near(trainingSpeed('Talulah', trainee('Sniper', 1, 'Marksman')).trainingSpeed, 1.05, 'Talulah with a Sniper');
+});
+
+const crafting = (crafter: string, recipeName: string) => {
+  const recipe = recipes.find(r => r.name === recipeName)!;
+  return calculateBase({ ...base, assignments: { workshop: [maxed(crafter)] }, factoryProducts: {}, loginInterval: 8, workshopSettings: { recipeId: recipe.id, qualifyingDormOperators: 0, causality: 0, karma: 0, thornsFailures: 0 } }).rooms.workshop.workshop!;
+};
+test("Caleido's and Homebound's Workshop skills apply to their recipes alone", () => {
+  near(crafting('Caleido', 'Orirock Concentration').boost, 0.8, 'Caleido on an Elite material');
+  near(crafting('Caleido', 'Light Building Material').boost, 0, 'Caleido on a Building material');
+  near(crafting('Homebound', 'Orirock Concentration').boost, 0, 'Homebound on Orirock');
+  near(crafting('Homebound', 'Chiral Refractor').boost, 0.9, 'Homebound on a Chiral Refractor');
+});

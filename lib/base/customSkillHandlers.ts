@@ -7,7 +7,7 @@
  */
 import { averageRampValue, shareAfterHours } from './rampValue';
 
-export type CustomStage = 'base' | 'moraleWindow' | 'factoryAggregate' | 'tradingAggregate' | 'tradingOrders';
+export type CustomStage = 'base' | 'moraleWindow' | 'factoryAggregate' | 'tradingAggregate' | 'tradingOrders' | 'workshop';
 
 export interface CustomContext {
   operatorName: string;
@@ -30,6 +30,8 @@ export interface CustomContext {
   abyssalHunters: { working: number; resting: number; restingAtFullMorale: number; perFactory: { factoryId: string; count: number }[]; totalInFactories: number };
   fractionAbove12: number;
   ccFamilyCount: (family: string) => number;
+  /** Workshop: the recipe's base Morale cost, the craft's cost after the skills, and the reader's counters. */
+  workshop?: { recipeMorale: number; moraleCost: number; causality: number; karma: number; thornsFailures: number };
 }
 
 export interface CustomResult {
@@ -43,6 +45,8 @@ export interface CustomResult {
   perFactoryProductivity?: { factoryId: string; amount: number }[];
   /** Młynar: recovery for workers in Power Plants, Office and Reception Room, and in every other building. */
   otherRoomsRecovery?: { ownRooms: number; everyRoom: number };
+  /** Workshop: the craft's byproduct is certain (Nine-Colored Deer's counters). */
+  guaranteedByproduct?: boolean;
   note?: string;
   formula?: string;
 }
@@ -104,6 +108,20 @@ export const CUSTOM_HANDLERS: Record<string, Handler> = {
     ...(p.above12PerceptionInformation ? { perceptionInformation: p.above12PerceptionInformation * ctx.fractionAbove12 } : {}),
     ...(p.below12PerceptionInformation ? { perceptionInformation: p.below12PerceptionInformation * (1 - ctx.fractionAbove12) } : {}),
   } }),
+  // Nine-Colored Deer: failed crafts of a recipe costing at most `maxCost` (Causality) or exactly `cost` (Karma) add
+  // their cost to a counter; the craft that carries it to `threshold` is a certain byproduct.
+  causality: (p, ctx) => ctx.workshop ? {
+    guaranteedByproduct: ctx.workshop.recipeMorale <= p.maxCost && ctx.workshop.causality + ctx.workshop.recipeMorale >= p.threshold,
+    note: `Causality: failed crafts costing at most ${p.maxCost} Morale add their cost; a craft crossing ${p.threshold} guarantees a byproduct and spends ${p.threshold} points (ordinary byproducts keep the counter).`,
+  } : {},
+  karma: (p, ctx) => ctx.workshop ? {
+    guaranteedByproduct: ctx.workshop.recipeMorale === p.cost && ctx.workshop.karma + ctx.workshop.recipeMorale >= p.threshold,
+    note: `Karma: failed crafts costing ${p.cost} Morale accumulate their cost; a craft crossing ${p.threshold} guarantees a byproduct and spends ${p.threshold} points.`,
+  } : {},
+  // Thorns: every two crafts without a byproduct refund one craft's Morale after processing.
+  explosionArts: (p, ctx) => ctx.workshop ? { note: ctx.workshop.thornsFailures >= p.perFailures
+    ? `After processing, restore ${ctx.workshop.moraleCost} Morale per pair of failed crafts (${Math.floor(ctx.workshop.thornsFailures / p.perFailures)} pairs entered).`
+    : 'Every two failed crafts restore one craft’s Morale after processing; enter the failure count.' } : {},
 };
 
 export const CUSTOM_STAGE: Record<string, CustomStage> = {
@@ -111,4 +129,5 @@ export const CUSTOM_STAGE: Record<string, CustomStage> = {
   bubble: 'factoryAggregate', vermeil: 'factoryAggregate', waaiFu: 'factoryAggregate',
   snowsant: 'tradingAggregate', perOthersOrderLimit: 'tradingAggregate', jayeStreetEconomics: 'tradingOrders', jayeBasicNeeds: 'tradingOrders',
   tideObservation: 'base', abyssalGroupHunting: 'base', mlynar: 'base', moraleGated: 'base',
+  causality: 'workshop', karma: 'workshop', explosionArts: 'workshop',
 };

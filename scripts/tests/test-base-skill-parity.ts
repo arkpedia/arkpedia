@@ -17,6 +17,9 @@ import slots from '../../data/base-skill-slots.json';
 import recipes from '../../data/base-workshop-recipes.json';
 import fixture from '../../tests/fixtures/base-account.json';
 import { KNOWN_DEVIATIONS } from './base-skill-deviations';
+import { TRAINING_CLASSES } from '../../lib/base/trainingRoom';
+
+const BRANCHES = ['Lord', 'Marksman', 'Fighter', 'Arts Protector', 'Primal Guard', 'Primal Caster', 'Wandering Medic', 'Chain Medic', 'Besieger', 'Supportive Ranger', 'Medic'];
 
 /*
  * The skill table (lib/base/base-skill-effects.json) replaced the hand-written handlers and the description text
@@ -31,8 +34,9 @@ import { KNOWN_DEVIATIONS } from './base-skill-deviations';
  *   UPDATE_GOLDEN=1 npx tsx --test scripts/tests/test-base-skill-parity.ts
  *
  * The fixture and the sheets are stored in full, so a difference names its room and field; the random placements
- * are stored as a hash each. There is no saved Krooster lookup page in the repository, so the Krooster-shaped
- * roster is stood in for by the maxed catalogue roster the benches use.
+ * are stored as a hash each; every placement carries a trainee and a Workshop recipe, so those rooms are in it.
+ * The Training Room and Workshop joined the table later (their old modules compared equal over 60,640 trainer
+ * and crafter cases, the differences being the listed deviations) and are locked the same way.
  */
 const GOLDEN = path.join(process.cwd(), 'tests/fixtures/base-calculator-golden.json');
 const UPDATE = process.env.UPDATE_GOLDEN === '1';
@@ -118,7 +122,10 @@ test('seeded random placements of the maxed roster compute as the golden snapsho
       assignments[f.id] = row;
     }
     const factoryProducts = Object.fromEntries(facilities.filter(f => f.kind === 'factory').map(f => [f.id, rand() < 0.5 ? 'Precious Metals' : 'Battle Records'])) as FactoryProducts;
-    sameAsGolden(`placement ${n}`, { ...base, facilities, assignments, factoryProducts, loginInterval: pick([6, 8, 12, 24]), clueExchangeActive: rand() < 0.5, moraleAbove12: rand() < 0.5 }, out, false);
+    // A trainee and a recipe with every placement, so the Training Room's and Workshop's numbers are in the lock too.
+    const trainingTarget = { class: pick([...TRAINING_CLASSES]), branch: pick(BRANCHES), mastery: pick([1, 2, 3]), timeReductionActive: rand() < 0.2, instantTrainingReady: rand() < 0.2 };
+    const workshopSettings = { recipeId: pick(recipes).id, overrideDormCount: rand() < 0.3, qualifyingDormOperators: Math.floor(rand() * 20), causality: Math.floor(rand() * 41), karma: Math.floor(rand() * 81), thornsFailures: Math.floor(rand() * 6) };
+    sameAsGolden(`placement ${n}`, { ...base, facilities, assignments, factoryProducts, loginInterval: pick([6, 8, 12, 24]), clueExchangeActive: rand() < 0.5, moraleAbove12: rand() < 0.5, trainingTarget, workshopSettings }, out, false);
     if (out.length > 40) break;
   }
   assert.deepEqual(out, []);

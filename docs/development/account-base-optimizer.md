@@ -401,7 +401,21 @@ in `scripts/tests/base-skill-deviations.ts` and each held to its corrected numbe
 snapshot of the new numbers (`tests/fixtures/base-calculator-golden.json`): a regression lock,
 not the proof.
 
-Training Room and Workshop skills have entries (`trainingSpeed`, `byproductChance`, `recipeMorale`
-and their mastery, branch and recipe-kind conditions) so every skill is in one place, but their
-rooms are still computed by `lib/base/trainingRoomSkills.ts` and `lib/base/workshopSkills.ts`,
-which read the skill names; folding those two modules into the evaluator is a separate change.
+Training Room and Workshop skills are read from the table like every other room's. A training
+effect names the trainee classes it applies to (`targets`, the game's class codes) and may hold
+only at a mastery level or for a branch (`masteryLevel`, `traineeBranch`); counted ones read
+`base.roster:X` (Knights, Sami, the R6 groups, Abyssal Hunters) or `resource:worldlyPlight`;
+Zuo Le's instant Guard M1 is a `trainingTimeFactor` of 0 under `all` of mastery 1 and
+`instantTrainingReady`. `lib/base/trainingRoom.ts` sums the evaluated skills into the room's
+speed, Morale and hours. A Workshop effect names its recipe kinds (`targets`) and may be gated
+on a word in the recipe's name (`recipeFamily`: Oriron, Polyester, Crystal) or on its base Morale
+cost (`recipeCostIs`, `recipeCostAtLeast`); the kinds are `byproductChance`, `recipeMorale`
+(added), `recipeMoraleFixed` (Mudrock, Lessing), `recipeMoraleFactor` (Luo Xiaohei's quarter)
+and `recipeLmdFree` (Blemishine); the per-resident skills count `dorm.moraleAtMost:N` or
+`dorm.moraleBelow:N`. Nine-Colored Deer's counters and Thorns's refund are the custom handlers
+`causality`, `karma` and `explosionArts`, run at the `workshop` stage with the reader's settings.
+`lib/base/workshop.ts` turns the evaluated skills into the craft's chance and costs. The two
+rooms joined the table after the others: their old modules were held equal over 60,640 trainer
+and crafter cases, the differences being deviations listed with the rest (six trainers whose
+record text carries a no-break space the old mastery pattern never matched, Talulah's and
+Caleido's CN-only skills, Homebound's recipe gate).
