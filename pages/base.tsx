@@ -974,6 +974,7 @@ export default function BasePage({ operators }: Props) {
   }
 
   const currentCalculation = calculateBase({
+    explain: true, // the "?" panels spell out each skill's derivation
     operators, rosters, skillSlots, facilities: FACILITIES, assignments, factoryProducts,
     dormitoryAmbience, loginInterval, swapPolicy, clueExchangeActive, moraleAbove12,
     trainingTarget, workshopSettings, workshopRecipes,

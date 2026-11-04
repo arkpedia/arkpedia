@@ -234,7 +234,7 @@ async function main() {
       shape: shapeOf(effects, custom), effects,
       ...(custom ? { custom } : {}), ...(interaction ? { interaction } : {}),
       unlock: steps[0] ?? null, ...(steps.length > 1 ? { unlocks: steps } : {}),
-      source: fromEn ? 'en' : 'cn', description: text,
+      source: fromEn ? 'en' : 'cn',
       ...(nonNumeric ? { nonNumeric: true } : {}), ...(note ? { note } : {}),
     };
   }
@@ -249,7 +249,9 @@ async function main() {
   if (errors.length) { console.error(`base-skill-effects: ${errors.length} problem(s)\n  ${errors.join('\n  ')}`); process.exit(1); }
 
   const table: BaseSkillEffectsTable = { generatedFrom: { en: path.relative(ROOT, en.file), cn: path.relative(ROOT, cn.file), records: records.length }, entries };
-  fs.writeFileSync(OUT, JSON.stringify(table, null, 1) + '\n');
+  // Minified: the calculator imports it, so the /base page and the optimizer Worker ship it. The description text is
+  // not in it; the operator records carry that, and the review table (scripts/audits/base-skill-table.ts) joins them.
+  fs.writeFileSync(OUT, JSON.stringify(table) + '\n');
   const count = (f: (x: BaseSkillEffectEntry) => boolean) => Object.values(entries).filter(f).length;
   const shapes = ['flat', 'counted', 'threshold', 'pool', 'custom'] as const;
   console.log(`${Object.keys(entries).length} buff ids (${count((x) => x.source === 'en')} EN, ${count((x) => x.source === 'cn')} CN only), ${new Set(Object.values(entries).map((x) => x.family)).size} families; ${shapes.map((s) => `${s} ${count((x) => x.shape === s)}`).join(', ')}; non-numeric ${count((x) => !!x.nonNumeric)}`);

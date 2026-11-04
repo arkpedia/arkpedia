@@ -21,6 +21,8 @@ export interface SkillScope {
   holds(condition: SkillCondition): boolean;
   /** Whether a skill (by buff id) is active in the operator's room. */
   active(buffId: string): boolean;
+  /** Spell out the counted and conditional parts (`formula`); off for a search, which never shows them. */
+  explain?: boolean;
 }
 
 export interface SkillContribution {
@@ -74,7 +76,7 @@ export function evaluateSkill(entry: BaseSkillEffectEntry, scope: SkillScope): S
     if (effect.suppressedBy && scope.active(effect.suppressedBy.buffId) && (!effect.suppressedBy.when || scope.holds(effect.suppressedBy.when))) continue;
     const count = effect.per ? scope.count(effect.per.count) : 0;
     const value = countedValue(effect, count);
-    if (effect.per || effect.when) {
+    if (scope.explain && (effect.per || effect.when)) {
       const shown = RATE_KINDS.has(effect.kind) ? pct : (n: number) => `${n}`;
       formulas.push(effect.per
         ? `${shown(effect.value)} + ${shown(effect.per.amount)} × ${describeCount(effect.per.count)}(${count}${effect.per.step && effect.per.step > 1 ? ` ÷ ${effect.per.step}` : ''}${effect.per.maxCount !== undefined ? `, at most ${effect.per.maxCount}` : ''})${effect.cap !== undefined ? `, at most ${shown(effect.cap)}` : ''} = ${shown(value)}`

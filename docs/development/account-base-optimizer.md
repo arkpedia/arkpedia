@@ -341,8 +341,9 @@ the table statically), so a regeneration shows as a diff to review.
 Each entry carries `roomType`, `buffCategory`, `targets` (the game's F_EXP / F_GOLD / F_DIAMOND
 product targets, training classes, Workshop recipe kinds), `efficiency` (the game's headline
 percent, null where it gives none), `unlock` (the earliest promotion phase and level any operator
-unlocks it at, `unlocks` listing every distinct one when they differ), the stripped `description`,
-and its `shape` with `effects`:
+unlocks it at, `unlocks` listing every distinct one when they differ), and its `shape` with
+`effects`. The description text is not in it (the operator records carry that; the table ships to
+the browser with the calculator, 17 KB gzipped):
 
 - `flat`: fixed numbers (`+30%` productivity, `+2` order limit).
 - `counted`: a base plus an amount per counted thing (`per.count`): a group roster in the base or

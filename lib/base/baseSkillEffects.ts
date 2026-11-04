@@ -172,9 +172,9 @@ export interface BaseSkillEffectEntry {
   /** The earliest promotion phase and level any operator unlocks it at; `unlocks` lists every distinct one when they differ. */
   unlock: { phase: number; level: number } | null;
   unlocks?: { phase: number; level: number }[];
-  /** 'en' from the Global tables; 'cn' when only the CN tables describe it (the English text is then the app's record). */
+  /** 'en' from the Global tables; 'cn' when only the CN tables describe it (the English text is then the app's record).
+   *  The description text itself stays in the operator records: the table ships to the browser. */
   source: 'en' | 'cn';
-  description: string;
   /** True for skills whose effect the game states without a number (clue likelihoods): nothing to compute. */
   nonNumeric?: boolean;
   /** For the reader: what the numbers leave out. */
@@ -197,7 +197,7 @@ export function skillEffectEntry(skill: Pick<BaseSkill, 'buffId' | 'tableEntry'>
 /** A table entry for a synthetic skill: the effects stated, the rest filled in. */
 export function syntheticSkillEntry(roomType: SkillRoomType, effects: SkillEffect[], interaction?: SkillInteraction): BaseSkillEffectEntry {
   const shape: SkillShape = effects.some((e) => e.per) ? 'counted' : effects.some((e) => e.when) ? 'threshold' : 'flat';
-  return { buffId: 'synthetic', family: 'synthetic', roomType, buffCategory: 'OUTPUT', targets: [], efficiency: null, shape, effects, ...(interaction ? { interaction } : {}), unlock: null, source: 'en', description: '' };
+  return { buffId: 'synthetic', family: 'synthetic', roomType, buffCategory: 'OUTPUT', targets: [], efficiency: null, shape, effects, ...(interaction ? { interaction } : {}), unlock: null, source: 'en' };
 }
 
 /** The counted part of an effect, given the count: `value + amount * floor(min(count, maxCount) / step)`, capped. */

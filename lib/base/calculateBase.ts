@@ -66,6 +66,9 @@ export interface BaseCalculationInput {
   /** Per Dormitory, the order its single-target recovery skills pick in, least Morale first, instead of by the Morale
    * given now: the simulator picks at each login and keeps the pick until the next. */
   dormitoryPickOrder?: Record<string, string[]>;
+  /** Spell out each counted and conditional skill's derivation for the breakdown panel (`formula` on its line). The
+   * page asks for it; a search, which calls the calculator thousands of times, does not. */
+  explain?: boolean;
 }
 
 /** Operators by name, built once per operator list (a search calls the calculator thousands of times on one list). */
@@ -120,7 +123,7 @@ const NO_ROOM: FacilityDef = { id: '', kind: 'elevator', label: '', capacity: 0,
 
 /** The complete cross-room calculator used by /base and scenario regressions. */
 export function calculateBase(input: BaseCalculationInput) {
-  const { operators, rosters, skillSlots, facilities: FACILITIES, factoryProducts, workshopRecipes, importedMorale, rampStartHours, rampWindowOverride, dormitoryPickOrder,
+  const { operators, rosters, skillSlots, facilities: FACILITIES, factoryProducts, workshopRecipes, importedMorale, rampStartHours, rampWindowOverride, dormitoryPickOrder, explain = false,
     dormitoryAmbience = {}, loginInterval = 24, swapPolicy = 'onMoraleZero', clueExchangeActive = false, moraleAbove12 = true,
     trainingTarget = { class: 'Guard', branch: '', mastery: 1, timeReductionActive: false, instantTrainingReady: false },
     workshopSettings = { recipeId: '1', qualifyingDormOperators: 0, causality: 0, karma: 0, thornsFailures: 0 },
@@ -161,7 +164,8 @@ export function calculateBase(input: BaseCalculationInput) {
     const op = slot && operatorNamed(operators, slot.operatorName);
     return op && slot ? activeBaseSkills(op, facilityLabel, slot.eliteLevel, skillSlots, slot.level) : [];
   }
-  const filledOf = (f: FacilityDef) => (assignments[f.id] || []).filter((s): s is SlotAssignment => s !== null);
+  const filledCache = new Map<string, SlotAssignment[]>();
+  const filledOf = (f: FacilityDef) => { let v = filledCache.get(f.id); if (!v) { v = (assignments[f.id] || []).filter((s): s is SlotAssignment => s !== null); filledCache.set(f.id, v); } return v; };
   const workingCount = (staff: SlotAssignment[]) => staff.filter(s => importedMorale?.[s.operatorName] !== 0).length;
   const operatorByName = new Map(operators.map((o) => [o.name, o]));
 
@@ -211,7 +215,17 @@ export function calculateBase(input: BaseCalculationInput) {
       abyssalHunters.totalInFactories += here;
     }
   }
-  const facilitiesWithRoster = (roster: ReadonlySet<string>, workOnly: boolean) => FACILITIES.filter((f) => (!workOnly || f.kind !== 'dormitory') && (filledOf(f).some((s) => roster.has(s.operatorName)) || (f.kind === 'trainingRoom' && f.level > 0 && !!trainee && roster.has(trainee)))).length;
+  const facilitiesWithRosterCache = new Map<string, number>();
+  const facilitiesWithRoster = (key: string, workOnly: boolean) => {
+    const cacheKey = `${key}|${workOnly}`;
+    let n = facilitiesWithRosterCache.get(cacheKey);
+    if (n === undefined) {
+      const roster = rosterOf(key);
+      n = FACILITIES.filter((f) => (!workOnly || f.kind !== 'dormitory') && (filledOf(f).some((s) => roster.has(s.operatorName)) || (f.kind === 'trainingRoom' && f.level > 0 && !!trainee && roster.has(trainee)))).length;
+      facilitiesWithRosterCache.set(cacheKey, n);
+    }
+    return n;
+  };
   const builtFactoryProducts = FACILITIES.filter(f => f.kind === 'factory' && f.level > 0).map(f => factoryProducts[f.id] ?? null);
   const distinctFactoryProductCount = new Set(builtFactoryProducts.filter(Boolean)).size;
   const baseGoldLineCount = pureGoldProductionLineCount(builtFactoryProducts);
@@ -261,8 +275,8 @@ export function calculateBase(input: BaseCalculationInput) {
         case 'base.roster': return allPlacedNames.filter((n) => rosterOf(rest).has(n)).length;
         case 'base.rosterOthers': return allPlacedNames.filter((n) => n !== self && rosterOf(rest).has(n)).length;
         case 'base.faction': return allPlacedNames.filter((n) => factionOf(n) === rest).length;
-        case 'base.facilitiesWithRoster': return facilitiesWithRoster(rosterOf(rest), false);
-        case 'base.workFacilitiesWithRoster': return facilitiesWithRoster(rosterOf(rest), true);
+        case 'base.facilitiesWithRoster': return facilitiesWithRoster(rest, false);
+        case 'base.workFacilitiesWithRoster': return facilitiesWithRoster(rest, true);
         case 'base.workersOfRoster': return rest === 'SUI' ? suiWorkersOutsideDorms : allPlacedNames.filter((n) => rosterOf(rest).has(n) && roomOf.get(n)?.kind !== 'dormitory').length;
         case 'cc.roster': return ccOperatorNames.filter((n) => rosterOf(rest).has(n)).length;
         case 'cc.rosterOthers': return ccOperatorNames.filter((n) => n !== self && rosterOf(rest).has(n)).length;
@@ -307,7 +321,7 @@ export function calculateBase(input: BaseCalculationInput) {
         case 'masteryLevel': case 'traineeBranch': return false;
       }
     };
-    return { operatorName: self, roomNames: o.roomNames, product: o.product, target: o.target, count, holds, active: (buffId) => activeBuffs.get(buffId)?.has(o.room.id) ?? false };
+    return { operatorName: self, roomNames: o.roomNames, product: o.product, target: o.target, count, holds, active: (buffId) => activeBuffs.get(buffId)?.has(o.room.id) ?? false, explain };
   }
   const roomScope = (f: FacilityDef, filled: SlotAssignment[], operatorName: string, extra: Partial<ScopeOptions> = {}) =>
     scopeFor({ operatorName, room: f, roomNames: filled.map((s) => s.operatorName), working: workingCount(filled), product: f.kind === 'factory' ? factoryProducts[f.id] || null : null, ...extra });
@@ -332,6 +346,7 @@ export function calculateBase(input: BaseCalculationInput) {
   for (const f of FACILITIES) {
     const filled = filledOf(f);
     for (const x of roomSkills.get(f.id) ?? []) {
+      if (!x.entry || !(x.entry.effects.some((e) => e.kind === 'resource' || e.kind === 'powerPlantCount') || (x.entry.custom && CUSTOM_STAGE[x.entry.custom.handler] === 'base'))) continue;
       const c = evaluateIn(f, filled, x);
       if (!c) continue;
       powerPlantBonus += c.powerPlantCount;
