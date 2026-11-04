@@ -114,3 +114,10 @@ test("Caleido's and Homebound's Workshop skills apply to their recipes alone", (
   near(crafting('Homebound', 'Orirock Concentration').boost, 0, 'Homebound on Orirock');
   near(crafting('Homebound', 'Chiral Refractor').boost, 0.9, 'Homebound on a Chiral Refractor');
 });
+
+test("Bubble's Bigger is Better! pays 1% a point up to a 16-point capacity increase", () => {
+  // Vulcan's Craftsmanship Spirit α adds exactly +16: 16 points at 1% each, not 3% (which the old handler paid from 16).
+  const room = calc({ prod2: [maxed('Bubble'), { operatorName: 'Vulcan', eliteLevel: 'Base', level: 30 }] }, { prod2: 'Battle Records' }).rooms.prod2;
+  const bubble = room.facilityBreakdown!.lines.find(l => l.skillName === 'Bigger is Better!')!;
+  near(bubble.rawValue, 0.01 * 16 + 0.01 * 10, 'Vulcan +16 at 1% and Hoarder +10 at 1%');
+});

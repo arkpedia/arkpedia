@@ -144,6 +144,14 @@ export const OVERRIDES: Record<string, SkillOverride> = {
   'Tequila|Investment β': { effects: [e('selfMorale', -0.25)], interaction: { trade: { lmdBonusAbove3: 500 } } },
   'Pepe|Insightful': { effects: [], interaction: { trade: { order: 'pepe' } } },
 
+  // CN-only skills whose text states a count or a condition the Chinese rule does not read.
+  'Тоска|“无用的人脉”': { effects: [counted('orderEfficiency', 0, 'room.others', 0.15)] },
+  'Тоска|“真有用？”': { effects: [counted('orderEfficiency', 0, 'room.others', 0.2)] },
+  'Тоска|微小的帮助': { effects: [counted('recoveryAll', 0.1, 'room.belowFullMorale', 0.01)] },
+  'de Toledo|忠实拥趸': { effects: [counted('recoveryAll', 0.1, 'office.extraSlots', 0.05)] },
+  'Clementia|合作原则': { effects: [when('clueSpeed', 0.15, atLeast('room.others', 1)), when('selfMorale', 1, atLeast('room.others', 1))] },
+  'Ольга|群策群力': { effects: [e('clueSpeed', 0.1), when('clueSpeed', 0.2, roomHasRoster('URSUS_STUDENT_SELF_GOVERNING_GROUP'))] },
+
   // Training Room.
   'Yu|Sharing the Joy': { effects: [counted('trainingSpeed', 0, 'resource:worldlyPlight', 0.01, { targets: ALL_CLASSES }), e('trainingMorale', 1, { targets: ALL_CLASSES })] },
   'Zuo Le|Think Before Acting': { effects: [when('trainingTimeFactor', 0, { type: 'all', of: [{ type: 'masteryLevel', value: 1 }, { type: 'instantTrainingReady' }] }, { targets: ['WARRIOR'] })], note: 'Consumes accumulated Martial Arts to finish a Guard M1 immediately when the counter is ready.' },
@@ -200,7 +208,7 @@ export const OVERRIDES: Record<string, SkillOverride> = {
   'Eunectes|Automation β': { effects: [counted('productivity', 0, 'base.powerPlants', 0.1)], interaction: { overridesOthers: true } },
   'Weedy|Automation β': { effects: [counted('productivity', 0, 'base.powerPlants', 0.1)], interaction: { overridesOthers: true } },
   'Weedy|Bionic Seadragon': { effects: [counted('productivity', 0, 'base.powerPlants', 0.15)], interaction: { overridesOthers: true } },
-  'Bubble|Bigger is Better!': { custom: { handler: 'bubble', params: { perPointUpTo15: 0.01, perPointAbove: 0.03 } }, effects: [], note: 'Takes priority over Vermeil\'s Recycling in the same Factory.' },
+  'Bubble|Bigger is Better!': { custom: { handler: 'bubble', params: { upTo: 16, perPointUpTo: 0.01, perPointAbove: 0.03 } }, effects: [], note: 'Takes priority over Vermeil\'s Recycling in the same Factory.' },
   'Vermeil|Recycling': { custom: { handler: 'vermeil', params: { perPoint: 0.02 } }, effects: [], note: 'Contributes nothing while Bubble is in the same Factory.' },
   'Waai Fu|Cooperative Will': { custom: { handler: 'waaiFu', params: { perStep: 0.05, step: 0.05, cap: 0.4 } }, effects: [], note: 'Overridden by Gladiia\'s Group Hunting in the Control Center.' },
   'Waai Fu|Team Spirit': { effects: [], nonNumeric: true, interaction: { immuneToRoomMorale: true } },

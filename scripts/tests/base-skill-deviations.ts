@@ -26,4 +26,5 @@ export const KNOWN_DEVIATIONS: Record<string, string> = {
   Talulah: "Her CN-only training skills apply to Guards and Casters, and the +45% to the Primal Guard and Primal Caster branches; the text module read the Chinese as unconditional.",
   Caleido: 'Her CN-only Workshop skills raise the byproduct chance of Elite materials by 75% / 80%; the text module read nothing from the Chinese.',
   Homebound: "Light at the Fingertips applies to Chiral Refractor and Rephasic Enantiomer recipes alone; the text module applied it to every recipe.",
+  Bubble: "Bigger is Better! pays 1% a point for a capacity increase of 16 or less and 3% a point beyond (the text's \"16 or less\"); the handler switched to 3% from 16 (found by the table audit of 2026-11-05).",
 };

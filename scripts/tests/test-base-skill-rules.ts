@@ -56,3 +56,12 @@ test("an operator's dependency for a room is the rank of the highest class among
   assert.equal(operatorDependency(ops.get('Zima the Raging Tide')!, 'Factory', 'Elite 2', slots, 90), 1, 'Zima: a roommate from the Ursus students');
   assert.equal(operatorDependency(ops.get('Mantra')!, 'Trading Post', 'Elite 2', slots, 90), 3, 'Mantra: facilities with Elite operators');
 });
+
+test('the CN-only skills the audit found read in part now carry their counts and conditions', () => {
+  const entries = (table as { entries: Record<string, { effects: unknown[] }> }).entries;
+  assert.deepEqual(entries['trade_ord_spd&share[100]'].effects, [{ kind: 'orderEfficiency', value: 0, per: { count: 'room.others', amount: 0.15 } }], 'Тоска: +15% per other working operator');
+  assert.deepEqual(entries['dorm_rec_all&unfull[100]'].effects, [{ kind: 'recoveryAll', value: 0.1, per: { count: 'room.belowFullMorale', amount: 0.01 } }], 'Тоска: +0.01 per roommate below full Morale');
+  assert.deepEqual(entries['dorm_hireToRecAll[002]'].effects, [{ kind: 'recoveryAll', value: 0.1, per: { count: 'office.extraSlots', amount: 0.05 } }], 'de Toledo: +0.05 per extra recruit slot');
+  assert.deepEqual(entries['meet_spd&cost_char[000]'].effects, [{ kind: 'clueSpeed', value: 0.15, when: { type: 'countAtLeast', count: 'room.others', value: 1 } }, { kind: 'selfMorale', value: 1, when: { type: 'countAtLeast', count: 'room.others', value: 1 } }], 'Clementia: only with others in the room');
+  assert.deepEqual(entries['meet_spd&sami[210]'].effects, [{ kind: 'clueSpeed', value: 0.1 }, { kind: 'clueSpeed', value: 0.2, when: { type: 'roomHasRoster', roster: 'URSUS_STUDENT_SELF_GOVERNING_GROUP' } }], 'Ольга: +20% with another Ursus student');
+});

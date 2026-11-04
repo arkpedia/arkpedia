@@ -83,8 +83,9 @@ export const CUSTOM_HANDLERS: Record<string, Handler> = {
     // Capacity is averaged the same fractional way, since the bonus is on while his Morale difference is past the threshold.
     return { productivity, capacity: p.capacity * (productivity / p.productivity) };
   },
-  // Bubble: productivity per point of every operator's capacity increase, 1% up to 15 and 3% beyond.
-  bubble: (p, ctx) => ({ productivity: Object.values(ctx.capacityByOperator).reduce((sum, cap) => sum + (cap <= 15 ? p.perPointUpTo15 * cap : p.perPointAbove * cap), 0) }),
+  // Bubble: productivity per point of every operator's capacity increase, 1% a point up to 16 points and 3% a point beyond
+  // ("16 or less" in the text; the old handler stopped at 15).
+  bubble: (p, ctx) => ({ productivity: Object.values(ctx.capacityByOperator).reduce((sum, cap) => sum + (cap <= p.upTo ? p.perPointUpTo * cap : p.perPointAbove * cap), 0) }),
   // Vermeil: per point of the Factory's whole capacity increase; nothing while Bubble shares the room.
   vermeil: (p, ctx) => ({ productivity: ctx.roomNames.includes('Bubble') ? 0 : p.perPoint * Object.values(ctx.capacityByOperator).reduce((s, c) => s + c, 0) }),
   waaiFu: (p, ctx) => ctx.groupHuntingInControlCenter
