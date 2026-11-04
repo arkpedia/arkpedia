@@ -54,6 +54,8 @@ const productionCounts = (spots: ProductionSpots) => {
   return `${count('tradingPost')}${count('factory')}${count('powerPlant')}`;
 };
 export const SEARCHED_LAYOUT_SHAPES = ['252'];
+/** The weight of the output an objective puts second: a tie-break between plans equal on the first. */
+export const SECONDARY_WEIGHT = 0.01;
 
 /** Respect already-upgraded right-side rooms, which cannot be downgraded in game. */
 export function optimizerLayouts(snapshot?: AccountRecord['base'], compare = true): LayoutOption[] {
@@ -125,7 +127,10 @@ export function optimizeAccountBase(input: AccountOptimizerInput, progress?: (do
   const tick = (label: string, best?: AccountOptimizerResult) => progress?.(Math.min(100, Math.round(100 * elapsed() / budget)), 100, label, best);
   const recommendations: LayoutRecommendation[] = [];
   let rejected = 0, searched = 0;
-  const weights = { lmd: input.objective === 'exp' ? 0 : 1, exp: input.objective === 'lmd' ? 0 : 1, goldMade: 500 };
+  // Balanced: LMD and EXP at par. LMD: Trading Posts and gold Factories first, EXP Factories as high as still
+  // possible, so EXP keeps a small weight that only decides between plans of equal LMD; EXP the other way round
+  // (docs/development/base-design-notes.md).
+  const weights = { lmd: input.objective === 'exp' ? SECONDARY_WEIGHT : 1, exp: input.objective === 'lmd' ? SECONDARY_WEIGHT : 1, goldMade: 500 };
   const drones = input.drones !== false;
   const baseFor = (layout: LayoutOption) => ({ ...input.base, facilities: getFacilities(layout.spots, layout.levels), dormitoryAmbience: layout.id === 'mine' ? input.snapshot?.dormitoryAmbience : undefined });
   const sorted = () => recommendations.sort(byScore);

@@ -178,12 +178,12 @@ export default function BaseAccountOptimizer({ account, base, loginInterval, sta
     </section>}
     <div className={styles.controls}>
       <div><span className="label-tag">Logins per day</span><SegmentedControl label="Optimizer logins per day" value={loginInterval} onChange={onInterval} options={[24, 12, 8, 6].map(h => ({ value: h, label: `${24 / h}×`, ariaLabel: `${24 / h} times a day, every ${h} hours` }))} /></div>
-      <div><span className="label-tag">Priority</span><StyledSelect label="Optimizer priority" value={objective} onChange={v => setObjective(v as typeof objective)} options={[{ value: 'balanced', label: 'LMD + EXP' }, { value: 'lmd', label: 'LMD' }, { value: 'exp', label: 'EXP' }]} /></div>
+      <div><span className="label-tag">Priority</span><StyledSelect label="Optimizer priority" value={objective} onChange={v => setObjective(v as typeof objective)} options={[{ value: 'balanced', label: 'Balanced' }, { value: 'lmd', label: 'LMD first' }, { value: 'exp', label: 'EXP first' }]} /></div>
       <div><span className="label-tag">Search time</span><StyledSelect label="Optimizer search time" value={String(searchMinutes)} onChange={v => { lastSearchMinutes = Number(v); setSearchMinutes(lastSearchMinutes); }} options={[{ value: '1', label: '1 min' }, { value: '2', label: '2 min' }, { value: '5', label: '5 min' }, { value: '10', label: '10 min' }]} /></div>
       <div><span className="label-tag">Outside gold / day</span><div className={styles.gold}><NumberInput className="number-input" aria-label="External gold per day" min={0} max={1000} step="0.1" value={externalGold} onChange={e => setExternalGold(Number(e.target.value))} />
         <InfoPopover label="Yield assumptions">
           <p>Logins are {loginInterval}h apart; collect at each login. LMD is capped by gold supply.</p>
-          <p>LMD + EXP maximizes their sum, not equal output. 2-5-2 recommendations respect permanent room upgrades and assume furnished dorms.</p>
+          <p>Balanced maximizes LMD + EXP, not equal output; LMD first and EXP first put the other second, as a tie-break. 2-5-2 recommendations respect permanent room upgrades and assume furnished dorms.</p>
           <p>Estimated repeating rotation; some skills are approximate. Includes drones; excludes crafting and training.</p>
           <p>Shift times follow the rotation&apos;s start time on the Base page.</p>
           <p><a href="https://docs.google.com/spreadsheets/d/1at6UTVRJXpiDlo7JucaQZdVQCSOZhAgN5jo4ZDFEWhk/edit?gid=2051144322#gid=2051144322" target="_blank" rel="noreferrer">Production reference ↗</a></p>

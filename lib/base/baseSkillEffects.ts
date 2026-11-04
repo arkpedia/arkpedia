@@ -187,6 +187,9 @@ export interface BaseSkillEffectEntry {
   /** 'en' from the Global tables; 'cn' when only the CN tables describe it (the English text is then the app's record).
    *  The description text itself stays in the operator records: the table ships to the browser. */
   source: 'en' | 'cn';
+  /** What the numbers need before they hold: nothing, roommates, the room's level, other facilities, the Control
+   *  Center (lib/base/dependencyClass.ts); the search breaks ties by it. */
+  dependency?: 'alone' | 'sameRoom' | 'facilityLevel' | 'otherFacility' | 'controlCenter';
   /** True for skills whose effect the game states without a number (clue likelihoods): nothing to compute. */
   nonNumeric?: boolean;
   /** For the reader: what the numbers leave out. */

@@ -2,6 +2,7 @@ import { calculateBase } from './calculateBase';
 import { settle } from './settle';
 import { MAX_ROTATION_SETUPS, exceedsSetups } from './rotationSetups';
 import { activeBaseSkills, cleanSkillName } from './activeBaseSkills';
+import { operatorDependency } from './dependencyClass';
 import { simulateBase, dronesPerHour, droneTargets, allocateDrones, type DailyOutput, type SimulationBase, type SimulationResult, type SimulationShift } from './baseSimulation';
 import type { BaseAssignments, FacilityDef, FacilityKind, FactoryProducts, SlotAssignment } from './baseTypes';
 
@@ -234,7 +235,10 @@ export function optimizeBase(input: OptimizerInput): OptimizerResult {
   for (const kind of WORK_KINDS) {
     const label = rooms.find(f => f.kind === kind)?.label;
     if (!label) continue;
-    pool.set(kind, owned.filter(name => activeBaseSkills(byName.get(name)!, label, roster[name].eliteLevel, base.skillSlots, roster[name].level).length > 0));
+    // Skilled candidates in the order the greedy fill tries them on equal gains: the operator whose skills need the
+    // least from others first (docs/development/base-design-notes.md), then by name.
+    const dependency = (name: string) => operatorDependency(byName.get(name)!, label, roster[name].eliteLevel, base.skillSlots, roster[name].level);
+    pool.set(kind, owned.filter(name => activeBaseSkills(byName.get(name)!, label, roster[name].eliteLevel, base.skillSlots, roster[name].level).length > 0).sort((a, b) => dependency(a) - dependency(b) || a.localeCompare(b)));
   }
   // Every owned operator can do ordinary work, even without a room skill.
   // Keep the fallback shortlist small; prefer workers with fewer competing jobs.

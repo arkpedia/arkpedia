@@ -1,4 +1,5 @@
 import { activeBaseSkills } from './activeBaseSkills';
+import { operatorDependency } from './dependencyClass';
 import { snapshotTotals } from './snapshotMemo';
 import { DEFAULT_WEIGHTS, WORK_KINDS } from './baseOptimizer';
 import type { GenomeContext } from './planGenome';
@@ -56,11 +57,14 @@ export function teamBlocks(ctx: GenomeContext, crew: BaseAssignments, products: 
   const shortlists: Record<string, string[]> = {};
   const knownShortlists = opts.known ? shortlistsOf.get(opts.known) : undefined;
   for (const f of ctx.base.facilities.filter(x => x.capacity > 0 && WORK_KINDS.includes(x.kind))) {
+    const dependency = (n: string) => operatorDependency(byName.get(n)!, f.label, ctx.roster[n].eliteLevel, ctx.base.skillSlots, ctx.roster[n].level);
+    const teamDependency = (names: string[]) => names.reduce((sum, n) => sum + dependency(n), 0);
     const ranked = () => {
       const skilled = owned.filter(n => activeBaseSkills(byName.get(n)!, f.label, ctx.roster[n].eliteLevel, ctx.base.skillSlots, ctx.roster[n].level).length > 0);
       const plain = f.kind === 'tradingPost' || f.kind === 'factory' ? owned.filter(n => !skilled.includes(n)).slice(0, 3) : [];
       const empty = value(placing(f.id, [], f.capacity));
-      return [...skilled, ...plain].map(n => ({ n, gain: value(placing(f.id, [n], f.capacity)) - empty })).sort((x, y) => y.gain - x.gain).map(x => x.n);
+      // Equal gains: the operator whose skills need the least from others first (docs/development/base-design-notes.md).
+      return [...skilled, ...plain].map(n => ({ n, gain: value(placing(f.id, [n], f.capacity)) - empty })).sort((x, y) => y.gain - x.gain || dependency(x.n) - dependency(y.n) || x.n.localeCompare(y.n)).map(x => x.n);
     };
     // A refresh starts from the ranking its full build made (ranking every candidate alone costs as much as the
     // combinations); a full build ranks afresh.
@@ -83,7 +87,7 @@ export function teamBlocks(ctx: GenomeContext, crew: BaseAssignments, products: 
       seen.add(b.names.join('|'));
       scored.push({ room: f.id, names: b.names, value: value(placing(f.id, b.names, f.capacity)) });
     }
-    blocks[f.id] = scored.sort((x, y) => y.value - x.value).slice(0, top);
+    blocks[f.id] = scored.sort((x, y) => y.value - x.value || teamDependency(x.names) - teamDependency(y.names) || x.names.length - y.names.length || x.names.join().localeCompare(y.names.join())).slice(0, top);
   }
   buildMs += Date.now() - started;
   shortlistsOf.set(blocks, shortlists);

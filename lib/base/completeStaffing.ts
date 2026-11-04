@@ -1,4 +1,5 @@
 import { activeBaseSkills } from './activeBaseSkills';
+import { operatorDependency } from './dependencyClass';
 import { calculateBase } from './calculateBase';
 import { simulateBase, type SimulationShift } from './baseSimulation';
 import { WORK_KINDS, type OptimizerResult } from './baseOptimizer';
@@ -87,7 +88,9 @@ export function completeStaffing(plan: OptimizerResult, ctx: GenomeContext, opti
       // Equal benefit and drain: the operator the reader has built, so an E0 level 1 copy of a skill never
       // displaces a promoted one (Brigid at E0 over Haruka at E2 in HR was the reader's own complaint).
       const built = (name: string) => ['Base', 'Elite 1', 'Elite 2'].indexOf(roster[name].eliteLevel) * 100 + roster[name].level;
-      ranked.set(key, ratings.sort((a, b) => b.benefit - a.benefit || a.drain - b.drain || built(b.name) - built(a.name) || a.name.localeCompare(b.name)).map(r => r.name));
+      // Then the operator whose skills need the least from others (docs/development/base-design-notes.md).
+      const dependency = (name: string) => operatorDependency(byName.get(name)!, room.label, roster[name].eliteLevel, base.skillSlots, roster[name].level);
+      ranked.set(key, ratings.sort((a, b) => b.benefit - a.benefit || a.drain - b.drain || dependency(a.name) - dependency(b.name) || built(b.name) - built(a.name) || a.name.localeCompare(b.name)).map(r => r.name));
     }
     return ranked.get(key)!.filter(n => room.kind === 'workshop' ? !assigned.has(n) : !Object.entries(shifts[step].assignments).some(([id, slots]) => kind.get(id) !== 'dormitory' && slots.some(s => s?.operatorName === n)));
   }

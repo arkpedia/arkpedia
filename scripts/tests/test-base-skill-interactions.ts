@@ -28,12 +28,12 @@ test("Marcille's Unexpectedly Delicious counts Senshi's Monster Meal, one per Do
   near(r.totalMonsterMeal, dormLevel, 'Monster Meal from Senshi');
   near(line(r, 'prod2', 'Familiar Dispatch β').rawValue, 0.3, 'Familiar Dispatch β');
   near(line(r, 'prod2', 'Unexpectedly Delicious').rawValue, 0.01 * dormLevel, 'Unexpectedly Delicious, +1% per Monster Meal');
-  near(r.rooms.prod2.productivity.yellow, 0.3 + 0.01 * dormLevel, 'Marcille in a Factory');
+  near(r.rooms.prod2.productivity!.yellow, 0.3 + 0.01 * dormLevel, 'Marcille in a Factory');
   // The same meal feeds Chilchuck's Familiar Flavors (+1% order efficiency each) and Laios's Gourmand (+2% clue speed each).
   near(line(r, 'prod1', 'Familiar Flavors').rawValue, 0.01 * dormLevel, 'Familiar Flavors');
   near(r.rooms.receptionRoom.clueSpeed!, 0.1 + 0.02 * dormLevel + 0.1, "Laios's Curiosity (+10%) and Gourmand (+2% per meal) over the room's 10% base");
   const without = calc({ prod2: [maxed('Marcille')] }, { prod2: 'Battle Records' });
-  near(without.rooms.prod2.productivity.yellow, 0.3, 'nothing from the meal without Senshi in a Dormitory');
+  near(without.rooms.prod2.productivity!.yellow, 0.3, 'nothing from the meal without Senshi in a Dormitory');
 });
 
 test("Closure's Special Order: +10% order acquisition, fixed 2-gold 1200-LMD orders every 144 minutes, never Defaulted", () => {
