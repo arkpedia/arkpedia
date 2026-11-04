@@ -66,8 +66,8 @@ import {
 import { calculateBase } from '@/lib/base/calculateBase';
 import { calculateRotation } from '@/lib/base/calculateRotation';
 import { initializeOptimizerData } from '@/lib/base/optimizerLogic';
-import { canTrainMastery, resolveTrainingTarget, TRAINING_CLASSES, type TrainingTarget } from '@/lib/base/trainingRoomSkills';
-import { type WorkshopRecipe, type WorkshopSettings } from '@/lib/base/workshopSkills';
+import { canTrainMastery, resolveTrainingTarget, TRAINING_CLASSES, type TrainingTarget } from '@/lib/base/trainingRoom';
+import { type WorkshopRecipe, type WorkshopSettings } from '@/lib/base/workshop';
 import { useReleaseTable } from '@/lib/content/context';
 import { withContentPage } from '@/lib/content/server';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
