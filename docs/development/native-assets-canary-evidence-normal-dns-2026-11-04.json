@@ -1,0 +1,242 @@
+{
+  "origin": "https://assets-native.arkpedia.net",
+  "observedAt": "2026-11-04T14:52:14.432Z",
+  "scope": "sample-only; no revision readiness advertised",
+  "samples": [
+    {
+      "path": "/arkpedia/arkpedia-image-assets/8388a11a06076a42f3e73feb439a37465e328fa4/six-star-icons/Kal'tsit%20-%20Base.webp",
+      "bytes": 12162,
+      "sha": "cd62f3d37032f3315eb6d88af8db91e2042ba2fa",
+      "cache": "HIT",
+      "head": 200,
+      "conditional": 304,
+      "range": 206
+    },
+    {
+      "path": "/arkpedia/arkpedia-image-assets/8388a11a06076a42f3e73feb439a37465e328fa4/six-star-icons/Surtr%20-%20Base.webp",
+      "bytes": 10604,
+      "sha": "28d842320c8cb680da93015928852be19e47d597",
+      "cache": "HIT",
+      "head": 200,
+      "conditional": 304,
+      "range": 206
+    },
+    {
+      "path": "/arkpedia/arkpedia-skin-assets/a3be6fb9c2c1254eae9f1952ff606fa9bcb24584/six-star-skins/Aak%20-%20Base.webp",
+      "bytes": 93838,
+      "sha": "71997451a954011cedf9afe8469c5c34c1dfac9a",
+      "cache": "HIT",
+      "head": 200,
+      "conditional": 304,
+      "range": 206
+    },
+    {
+      "path": "/arkpedia/arkpedia-voice-english/72ea44d190920189e3e20f4a821a2ac4d02627e0/current/char_350_surtr/cn_001.mp3",
+      "bytes": 34290,
+      "sha": "6473320ed3ebddcd63dce30848788860f09ff7e8",
+      "cache": "HIT",
+      "head": 200,
+      "conditional": 304,
+      "range": 206
+    },
+    {
+      "path": "/arkpedia/arkpedia-voice-english/72ea44d190920189e3e20f4a821a2ac4d02627e0/current/char_350_surtr/cn_042.mp3",
+      "bytes": 11511,
+      "sha": "aeaf8db1ce16c0e9d06ee11c32de46d9c035eaf6",
+      "cache": "HIT",
+      "head": 200,
+      "conditional": 304,
+      "range": 206
+    },
+    {
+      "path": "/arkpedia/arkpedia-voice-japanese/ead2680d907b55749022ab055c31d8cc5d5b2c87/current/char_350_surtr/cn_001.mp3",
+      "bytes": 50591,
+      "sha": "63b7929d9e51b70ae001e9a465e157a8fd37665a",
+      "cache": "HIT",
+      "head": 200,
+      "conditional": 304,
+      "range": 206
+    },
+    {
+      "path": "/arkpedia/arkpedia-voice-japanese/ead2680d907b55749022ab055c31d8cc5d5b2c87/current/char_350_surtr/cn_042.mp3",
+      "bytes": 18199,
+      "sha": "9ea7c4fe9a1c2059ff51f9e40873dfb07caba514",
+      "cache": "HIT",
+      "head": 200,
+      "conditional": 304,
+      "range": 206
+    },
+    {
+      "path": "/arkpedia/arkpedia-sd-assets/6f3cfd431aeb1475e7654cb9c019e176b238c01a/models/operator/char_285_medic2/default/front/d0b5af0b004b044d322397ce5ae79632b6d9fcdd/char_285_medic2.atlas",
+      "bytes": 2994,
+      "sha": "9a557ea754dde0aa75bdecde06ca02a1ed57208d",
+      "cache": "HIT",
+      "head": 200,
+      "conditional": 304,
+      "range": 206
+    },
+    {
+      "path": "/arkpedia/arkpedia-sd-assets/6f3cfd431aeb1475e7654cb9c019e176b238c01a/models/operator/char_285_medic2/default/front/d0b5af0b004b044d322397ce5ae79632b6d9fcdd/char_285_medic2.png",
+      "bytes": 139543,
+      "sha": "ad40143a3512b9fbb40e9b17cbd53c53202c17b8",
+      "cache": "HIT",
+      "head": 200,
+      "conditional": 304,
+      "range": 206
+    },
+    {
+      "path": "/arkpedia/arkpedia-sd-assets/6f3cfd431aeb1475e7654cb9c019e176b238c01a/models/operator/char_285_medic2/default/front/d0b5af0b004b044d322397ce5ae79632b6d9fcdd/char_285_medic2.skel",
+      "bytes": 39098,
+      "sha": "4b9de3b6da8850feeec7ad70c93cc2412ed331c6",
+      "cache": "HIT",
+      "head": 200,
+      "conditional": 304,
+      "range": 206
+    },
+    {
+      "path": "/arkpedia/arkpedia-l2d-assets/7721354d79f1821a7b17546e91dc9a505a2dcda0/models/char_1012_skadi2_2/0049b8e70964/layer0.webp",
+      "bytes": 8812,
+      "sha": "b4892a168d8223fc54ad54ea948b5fa536b8abed",
+      "cache": "HIT",
+      "head": 200,
+      "conditional": 304,
+      "range": 206
+    },
+    {
+      "path": "/arkpedia/arkpedia-l2d-assets/7721354d79f1821a7b17546e91dc9a505a2dcda0/models/char_1012_skadi2_2/0049b8e70964/layer1.webp",
+      "bytes": 9288,
+      "sha": "48b74c95988e3116afe436b8e688c44c6d2f4e34",
+      "cache": "HIT",
+      "head": 200,
+      "conditional": 304,
+      "range": 206
+    },
+    {
+      "path": "/arkpedia/arkpedia-l2d-assets/7721354d79f1821a7b17546e91dc9a505a2dcda0/models/char_1012_skadi2_2/0049b8e70964/layer2.webp",
+      "bytes": 23878,
+      "sha": "df2a64f3380a4fc998bf8b0bee6f6379c45e5a1d",
+      "cache": "HIT",
+      "head": 200,
+      "conditional": 304,
+      "range": 206
+    },
+    {
+      "path": "/arkpedia/arkpedia-l2d-assets/7721354d79f1821a7b17546e91dc9a505a2dcda0/models/char_1012_skadi2_2/0049b8e70964/layer3.webp",
+      "bytes": 44212,
+      "sha": "40e0ae36d61a9f2dd7d358394fdc515dd55030b5",
+      "cache": "HIT",
+      "head": 200,
+      "conditional": 304,
+      "range": 206
+    },
+    {
+      "path": "/arkpedia/arkpedia-l2d-assets/7721354d79f1821a7b17546e91dc9a505a2dcda0/models/char_1012_skadi2_2/0049b8e70964/layer4.webp",
+      "bytes": 3000,
+      "sha": "0a8c3780028f8f0992d053fba7112b67dcec74f3",
+      "cache": "HIT",
+      "head": 200,
+      "conditional": 304,
+      "range": 206
+    },
+    {
+      "path": "/arkpedia/arkpedia-l2d-assets/7721354d79f1821a7b17546e91dc9a505a2dcda0/models/char_1012_skadi2_2/0049b8e70964/layer5.webp",
+      "bytes": 6032,
+      "sha": "42da0add98888f0464a37adb16d11f195044fd45",
+      "cache": "HIT",
+      "head": 200,
+      "conditional": 304,
+      "range": 206
+    },
+    {
+      "path": "/arkpedia/arkpedia-l2d-assets/7721354d79f1821a7b17546e91dc9a505a2dcda0/models/char_1012_skadi2_2/0049b8e70964/layer6.webp",
+      "bytes": 1260,
+      "sha": "d826d2bfe2bdfbe4dcfdcce923699ffaac23b2b3",
+      "cache": "HIT",
+      "head": 200,
+      "conditional": 304,
+      "range": 206
+    },
+    {
+      "path": "/arkpedia/arkpedia-l2d-assets/7721354d79f1821a7b17546e91dc9a505a2dcda0/models/char_1012_skadi2_2/0049b8e70964/layer7.webp",
+      "bytes": 2394,
+      "sha": "f4911c5c451cbb337ac0aba28fd82735f03c90a7",
+      "cache": "HIT",
+      "head": 200,
+      "conditional": 304,
+      "range": 206
+    },
+    {
+      "path": "/arkpedia/arkpedia-l2d-assets/7721354d79f1821a7b17546e91dc9a505a2dcda0/models/char_1012_skadi2_2/0049b8e70964/layer8.webp",
+      "bytes": 28910,
+      "sha": "f8d8cbefa5ba1b3bf87f41dcd0584886f9cad24f",
+      "cache": "HIT",
+      "head": 200,
+      "conditional": 304,
+      "range": 206
+    },
+    {
+      "path": "/arkpedia/arkpedia-l2d-assets/7721354d79f1821a7b17546e91dc9a505a2dcda0/models/char_1012_skadi2_2/0049b8e70964/layer9.webp",
+      "bytes": 3332,
+      "sha": "7f4c5f093db431fa5f33815411a2e7dda50dd472",
+      "cache": "HIT",
+      "head": 200,
+      "conditional": 304,
+      "range": 206
+    },
+    {
+      "path": "/arkpedia/arkpedia-l2d-assets/7721354d79f1821a7b17546e91dc9a505a2dcda0/models/char_1012_skadi2_2/0049b8e70964/layerParticles.json",
+      "bytes": 32839,
+      "sha": "3f47468cc78365a864634d81ee19b45f545c25cb",
+      "cache": "HIT",
+      "head": 200,
+      "conditional": 304,
+      "range": 206
+    },
+    {
+      "path": "/arkpedia/arkpedia-l2d-assets/7721354d79f1821a7b17546e91dc9a505a2dcda0/models/char_1012_skadi2_2/0049b8e70964/layers.json",
+      "bytes": 6644,
+      "sha": "215b07999807d7850d327f35adc03f597f476e0d",
+      "cache": "HIT",
+      "head": 200,
+      "conditional": 304,
+      "range": 206
+    },
+    {
+      "path": "/arkpedia/arkpedia-l2d-assets/7721354d79f1821a7b17546e91dc9a505a2dcda0/models/char_1012_skadi2_2/0049b8e70964/model.json",
+      "bytes": 1568,
+      "sha": "366d5deaf32e7c04c7b55f5b86b29e39e4014c7d",
+      "cache": "HIT",
+      "head": 200,
+      "conditional": 304,
+      "range": 206
+    },
+    {
+      "path": "/arkpedia/arkpedia-l2d-assets/7721354d79f1821a7b17546e91dc9a505a2dcda0/models/char_1012_skadi2_2/0049b8e70964/page0.webp",
+      "bytes": 3379778,
+      "sha": "d91e0b95074563999338d1c09fb0dbdd2c737eb2",
+      "cache": "HIT",
+      "head": 200,
+      "conditional": 304,
+      "range": 206
+    },
+    {
+      "path": "/arkpedia/arkpedia-l2d-assets/7721354d79f1821a7b17546e91dc9a505a2dcda0/models/char_1012_skadi2_2/0049b8e70964/skeleton.atlas",
+      "bytes": 23204,
+      "sha": "e1b124693204de9f40879a4e6494241e6b3f4d32",
+      "cache": "HIT",
+      "head": 200,
+      "conditional": 304,
+      "range": 206
+    },
+    {
+      "path": "/arkpedia/arkpedia-l2d-assets/7721354d79f1821a7b17546e91dc9a505a2dcda0/models/char_1012_skadi2_2/0049b8e70964/skeleton.skel",
+      "bytes": 701713,
+      "sha": "c4ff66aa29aa929ebb949b21cca3cbc9120ef257",
+      "cache": "HIT",
+      "head": 200,
+      "conditional": 304,
+      "range": 206
+    }
+  ],
+  "readyRevisions": 0
+}

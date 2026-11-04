@@ -22,6 +22,11 @@ jobs:
     timeout-minutes: 90
     environment: public-assets
     steps:
+      - name: Require native publication when native delivery is active
+        if: vars.ARKPEDIA_ASSETS_DELIVERY == 'native' && vars.ARKPEDIA_NATIVE_ASSETS_MIRROR != 'true'
+        run: |
+          echo 'Native delivery requires the native mirror to remain enabled.'
+          exit 1
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
@@ -46,13 +51,33 @@ jobs:
           ARKPEDIA_R2_ACCOUNT_ID: '1ff51c10571eaa9934bc451e1bfdb361'
           ARKPEDIA_R2_ACCESS_KEY_ID: ${{ secrets.ARKPEDIA_R2_ACCESS_KEY_ID }}
           ARKPEDIA_R2_SECRET_ACCESS_KEY: ${{ secrets.ARKPEDIA_R2_SECRET_ACCESS_KEY }}
+      # Disabled until storage inventory, canary and explicit infrastructure activation.
+      # Retain the source mirror for rollback. Only the native public view is additive.
+      - name: Update the native public view within its reviewed storage budget
+        if: vars.ARKPEDIA_NATIVE_ASSETS_MIRROR == 'true'
+        run: node scripts/content/native-assets.mjs --apply --max-new-bytes="$NATIVE_NEW_BYTES" --max-total-bytes="$NATIVE_TOTAL_BYTES" --report=.cache/native-assets-receipts.json
+        env:
+          ARKPEDIA_R2_ACCOUNT_ID: '1ff51c10571eaa9934bc451e1bfdb361'
+          ARKPEDIA_R2_ACCESS_KEY_ID: ${{ secrets.ARKPEDIA_R2_ACCESS_KEY_ID }}
+          ARKPEDIA_R2_SECRET_ACCESS_KEY: ${{ secrets.ARKPEDIA_R2_SECRET_ACCESS_KEY }}
+          ARKPEDIA_NATIVE_R2_ACCESS_KEY_ID: ${{ secrets.ARKPEDIA_NATIVE_R2_ACCESS_KEY_ID }}
+          ARKPEDIA_NATIVE_R2_SECRET_ACCESS_KEY: ${{ secrets.ARKPEDIA_NATIVE_R2_SECRET_ACCESS_KEY }}
+          NATIVE_NEW_BYTES: ${{ vars.ARKPEDIA_NATIVE_ASSETS_MAX_NEW_BYTES }}
+          NATIVE_TOTAL_BYTES: ${{ vars.ARKPEDIA_NATIVE_ASSETS_MAX_TOTAL_BYTES }}
       - uses: actions/upload-artifact@v7
         with:
           name: public-assets-mirror-${{ github.run_id }}
           path: .cache/r2-mirror-receipts.json
           if-no-files-found: error
+      - uses: actions/upload-artifact@v7
+        if: vars.ARKPEDIA_NATIVE_ASSETS_MIRROR == 'true'
+        with:
+          name: native-assets-mirror-${{ github.run_id }}
+          path: .cache/native-assets-receipts.json
+          include-hidden-files: true
+          if-no-files-found: error
   deploy:
-    if: github.ref == 'refs/heads/main' && inputs.image_revision == ''
+    if: github.ref == 'refs/heads/main' && inputs.image_revision == '' && vars.ARKPEDIA_ASSETS_DELIVERY != 'native'
     needs: mirror
     runs-on: ubuntu-latest
     timeout-minutes: 10

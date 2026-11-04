@@ -1,0 +1,56 @@
+name: Inventory or backfill native R2 assets
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: 'Write verified native copies (false = source-only read-only forecast)'
+        type: boolean
+        default: false
+      max_new_bytes:
+        description: 'Maximum additional bytes for this backfill (required for apply)'
+        type: string
+        default: ''
+      max_total_bytes:
+        description: 'Maximum total native bucket bytes (required for apply)'
+        type: string
+        default: ''
+permissions:
+  contents: read
+concurrency:
+  # Use the existing publisher's lock for a consistent immutable source inventory.
+  group: public-assets-mirror
+  cancel-in-progress: false
+jobs:
+  plan:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    environment: public-assets
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      # Explicit additive backfill only; no domain, Worker or application deployment.
+      - name: Inventory or publish every retained media revision
+        run: |
+          if [ "$APPLY" = true ]; then
+            node scripts/content/native-assets.mjs --apply --concurrency=16 --max-new-bytes="$MAX_NEW_BYTES" --max-total-bytes="$MAX_TOTAL_BYTES" --report=native-assets-plan.json
+          else
+            node scripts/content/native-assets.mjs --empty-destination --report=native-assets-plan.json
+          fi
+        env:
+          APPLY: ${{ inputs.apply }}
+          MAX_NEW_BYTES: ${{ inputs.max_new_bytes }}
+          MAX_TOTAL_BYTES: ${{ inputs.max_total_bytes }}
+          ARKPEDIA_NATIVE_R2_ACCESS_KEY_ID: ${{ secrets.ARKPEDIA_NATIVE_R2_ACCESS_KEY_ID }}
+          ARKPEDIA_NATIVE_R2_SECRET_ACCESS_KEY: ${{ secrets.ARKPEDIA_NATIVE_R2_SECRET_ACCESS_KEY }}
+          ARKPEDIA_R2_ACCOUNT_ID: '1ff51c10571eaa9934bc451e1bfdb361'
+          ARKPEDIA_R2_ACCESS_KEY_ID: ${{ secrets.ARKPEDIA_R2_ACCESS_KEY_ID }}
+          ARKPEDIA_R2_SECRET_ACCESS_KEY: ${{ secrets.ARKPEDIA_R2_SECRET_ACCESS_KEY }}
+      - uses: actions/upload-artifact@v7
+        with:
+          name: native-assets-plan-${{ github.run_id }}
+          path: native-assets-plan.json
+          if-no-files-found: error
