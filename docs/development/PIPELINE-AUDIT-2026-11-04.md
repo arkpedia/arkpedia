@@ -1,5 +1,10 @@
 # Native public-asset delivery audit, 2026-11-04
 
+Follow-up scope: the user approved full backfill/cutover and requested moving the
+deduplicated JSON reader and publishers into the new bucket too. The selected
+steady state is [unified storage](unified-asset-storage.md); the original two-bucket
+findings below retain their observation boundaries.
+
 The existing media URLs cannot be served by a native R2 domain without changing
 storage layout. This change prepares a path-addressed public media view and both
 publisher hooks. An approved isolated 26-file canary is active; production savings

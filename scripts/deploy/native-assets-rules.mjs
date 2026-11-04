@@ -20,8 +20,10 @@ export function nativeAssetRules(hostname) {
     hostname,
     bucket: 'arkpedia-public-assets-direct',
     legacy_routes: [
-      { pattern: `${hostname}/arkpedia/arkpedia-data/*`, script: 'arkpedia-assets' },
-      { pattern: `${hostname}/__ready/arkpedia-data/*`, script: 'arkpedia-assets' },
+      { pattern: `${hostname}/arkpedia/arkpedia-data/*`, script: 'arkpedia-data-assets' },
+      { pattern: `${hostname}/__ready/arkpedia-data/*`, script: 'arkpedia-data-assets' },
+      // Do not expose internal CAS keys through the native custom domain.
+      { pattern: `${hostname}/github-v1/*`, script: 'arkpedia-data-assets' },
     ],
     cors: { CORSRules: [{ AllowedOrigins: ['*'], AllowedMethods: ['GET', 'HEAD'],
       AllowedHeaders: ['Range', 'If-None-Match', 'If-Range'], ExposeHeaders: ['Content-Length', 'Content-Range', 'ETag', 'X-Arkpedia-Assets'], MaxAgeSeconds: 86400 }] },

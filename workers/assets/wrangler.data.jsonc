@@ -1,0 +1,12 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "arkpedia-data-assets",
+  "account_id": "1ff51c10571eaa9934bc451e1bfdb361",
+  "main": "data-worker.mjs",
+  "compatibility_date": "2026-10-19",
+  "workers_dev": true,
+  "preview_urls": false,
+  "routes": [],
+  "r2_buckets": [{ "binding": "PUBLIC_ASSETS", "bucket_name": "arkpedia-public-assets-direct" }],
+  "observability": { "enabled": true }
+}

@@ -1,10 +1,16 @@
 # Native R2 delivery for public assets
 
+The approved steady state is now [unified storage](unified-asset-storage.md): JSON
+deduplication and future publishing also move into the new bucket, allowing the old
+one to retire after verification. The initial split-bucket activation instructions
+below are historical preparation; use the unified runbook for production cutover.
+
 Status, 2026-11-04: **isolated sample canary active; production unchanged**. The user
 approved inventory and an isolated canary. `assets-native.arkpedia.net` serves 26
 verified files (4.7 MB) from the new R2 bucket; no revision readiness is advertised.
-Production still uses `arkpedia-assets`. No production routing, subscription,
-application deployment or continuous native publisher has been changed. Full backfill
+Production still uses `arkpedia-assets`. No production asset routing, subscription or continuous native publisher has been
+changed. The checked infrastructure PRs were subsequently merged and the application
+release passed; the asset hostname still uses the existing Worker. Full backfill
 and production cutover are now authorized, conditional on passing checks.
 
 The [normal-DNS HTTP check](native-assets-canary-evidence-normal-dns-2026-11-04.json)
@@ -105,8 +111,8 @@ coordination lease in the native bucket; its size is included in the inventory.
 Uploads verify the original Git blob,
 Content-MD5 and the returned ETag. Conditional PUTs never overwrite a path. Lost or
 racing writes must match bytes, HTTP metadata and SHA-256. Reads are bounded and
-normal media concurrency is four. The explicitly dispatched backfill uses sixteen
-upload workers (CLI bounds 1–32), a six-hour deadline, immutable resume and progress
+normal media concurrency is four. The explicitly dispatched backfill uses up to 64
+upload workers with a 256 MB body-buffer ceiling (CLI bounds 1–64), a six-hour deadline, immutable resume and progress
 counters. Apply requires explicit per-run and total byte limits; it never changes
 routing. If it times out, redispatch with the same budgets after the lease expires. A failed revision receives no new native receipt.
 Retry resumes immutable files already uploaded. Completed receipts attest the HTTP

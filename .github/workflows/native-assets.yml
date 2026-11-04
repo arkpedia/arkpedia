@@ -2,6 +2,11 @@ name: Inventory or backfill native R2 assets
 on:
   workflow_dispatch:
     inputs:
+      operation:
+        description: 'Media history backfill, deduplicated JSON migration, or future direct Git publication'
+        type: choice
+        options: [media, data, unified]
+        default: media
       apply:
         description: 'Write verified native copies (false = source-only read-only forecast)'
         type: boolean
@@ -32,15 +37,31 @@ jobs:
         with:
           node-version: '24'
       - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Resolve current public sources for direct Git publication
+        if: inputs.operation == 'unified'
+        run: |
+          node scripts/content/pull-data.mjs
+          node scripts/content/asset-mirror-plan.mjs > unified-pins.json
       # Explicit additive backfill only; no domain, Worker or application deployment.
       - name: Inventory or publish every retained media revision
         run: |
+          case "$OPERATION" in
+            media) script=scripts/content/native-assets.mjs ;;
+            data) script=scripts/content/migrate-dedup-data.mjs ;;
+            unified) script=scripts/content/unified-assets.mjs ;;
+            *) echo 'Unknown publication operation'; exit 1 ;;
+          esac
+          args=(--report=native-assets-plan.json)
+          if [ "$OPERATION" = unified ]; then args+=(--pins=unified-pins.json --cache="$RUNNER_TEMP/unified-git"); fi
           if [ "$APPLY" = true ]; then
-            node scripts/content/native-assets.mjs --apply --concurrency=16 --max-new-bytes="$MAX_NEW_BYTES" --max-total-bytes="$MAX_TOTAL_BYTES" --report=native-assets-plan.json
-          else
-            node scripts/content/native-assets.mjs --empty-destination --report=native-assets-plan.json
+            args+=(--apply --max-new-bytes="$MAX_NEW_BYTES" --max-total-bytes="$MAX_TOTAL_BYTES")
+            if [ "$OPERATION" = media ]; then args+=(--concurrency=64); fi
+          elif [ "$OPERATION" = media ]; then
+            args+=(--empty-destination)
           fi
+          node "$script" "${args[@]}"
         env:
+          OPERATION: ${{ inputs.operation }}
           APPLY: ${{ inputs.apply }}
           MAX_NEW_BYTES: ${{ inputs.max_new_bytes }}
           MAX_TOTAL_BYTES: ${{ inputs.max_total_bytes }}
