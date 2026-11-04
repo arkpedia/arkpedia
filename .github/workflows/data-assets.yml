@@ -22,7 +22,9 @@ jobs:
         run: node scripts/deploy/data-assets-worker.mjs
         env:
           CLOUDFLARE_ACCOUNT_ID: '1ff51c10571eaa9934bc451e1bfdb361'
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_ASSETS_DEPLOY_TOKEN }}
+          # The legacy asset token is scoped to arkpedia-assets. Reuse the
+          # existing production deploy credential for the isolated new service.
+          CLOUDFLARE_API_TOKEN: ${{ secrets.ARKPEDIA_PRODUCTION_API_TOKEN || secrets.ARKPEDIA_PILOT_API_TOKEN }}
           WRANGLER_SEND_METRICS: 'false'
       - uses: actions/upload-artifact@v7
         with:

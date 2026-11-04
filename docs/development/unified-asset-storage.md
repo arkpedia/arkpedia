@@ -50,7 +50,10 @@ path-addressed snapshots.
    new-bucket reader after bootstrapping its first version from checked main with
    `wrangler deploy --config workers/assets/wrangler.data.jsonc` (this config has
    no production routes). Subsequent deployments use `Deploy isolated unified data
-   reader` and the version APIs. Cloudflare requires an initial `deploy` before
+   reader` and the version APIs. This uses the existing production deployment
+   credential; the legacy asset credential only grants access to `arkpedia-assets`.
+   It does not require a new credential or broader token permissions.
+   Cloudflare requires an initial `deploy` before
    `versions upload` can be used for a new Worker. Verify historical/current JSON bytes and readiness, MIME, CORS, cache,
    conditional reads, missing files and rejection of media/internal CAS requests.
    Inspect the provider binding as well as marker headers.
