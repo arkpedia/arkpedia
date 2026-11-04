@@ -3,11 +3,12 @@ import { activeBaseSkills } from './activeBaseSkills';
 import { specialSkillKey, type NamedSkillCheck } from './specialSkillKeys';
 import { BaseOperator, BaseSkill } from '../operators/operatorTypes';
 import { TRADING_POST_SPECIAL_SKILLS, TradingPostContext } from './tradingPostSpecialSkills';
+import { productivityOf, orderEfficiencyOf, orderLimitOf, type SkillSource } from './skillReading';
 import { FACTORY_SPECIAL_SKILLS, FactorySkillContext } from './factorySpecialSkills';
 import {
   goldOrderTier,
   tradingPostExpectedMinutes,
-  calcProductivity,
+  calcGreyProductivity,
   calcOrderLimit,
   calcDailyProduction,
   calcTradingPostGoldAndLmdPerHour,
@@ -96,8 +97,10 @@ export interface Candidate {
 const keyOf = (operatorName: string, sk: Candidate['skills'][number]) => sk.key ?? `${operatorName}|${sk.skillName}`;
 
 function skillTextForOne(operatorName: string, skillName: string, eliteLevel?: string): string | null {
-  const skill = findSkill(operatorName, (s, cleanName) => cleanName === skillName && (!eliteLevel || s.eliteLevel === eliteLevel));
-  return skill?.description ?? null;
+  return skillForOne(operatorName, skillName, eliteLevel)?.description ?? null;
+}
+function skillForOne(operatorName: string, skillName: string, eliteLevel?: string): BaseSkill | null {
+  return findSkill(operatorName, (s, cleanName) => cleanName === skillName && (!eliteLevel || s.eliteLevel === eliteLevel));
 }
 
 const ELITE_PRIORITY: Record<string, number> = { 'Elite 2': 2, 'Elite 1': 1, Base: 0, 'Level 30': 0 };
@@ -265,6 +268,8 @@ export interface DynamicContextOverrides {
   receptionRoomLevel?: number;
   totalDormitoryLevels?: number;
   tradingPostLevel?: number; // this specific Trading Post's own level (1-3) -- feeds calcOrderLimit's level-dependent base value. Defaults to 3 (max) when unspecified, same "assume fully built" convention this whole module already uses for everything else.
+  /** Where a plain skill's numbers come from (lib/base/skillReading.ts): the table (default) or the description text. */
+  skillSource?: SkillSource;
 }
 
 function baseTpContext(overrides?: DynamicContextOverrides): Omit<TradingPostContext, 'sameRoomOperatorNames' | 'filledCountThisRoom' | 'othersOrderEfficiencySum' | 'othersOrderLimitRawSum' | 'genericOrderLimitAdjustment'> {
@@ -306,7 +311,8 @@ export function evalTradingPost(comboIds: string[], overrides?: DynamicContextOv
   if (new Set(realNames).size !== realNames.length) return null;
 
   const sameRoomOperatorNames = realNames;
-  const genericDescriptions: (string | null)[] = [];
+  const source: SkillSource = overrides?.skillSource ?? 'table';
+  const genericSkills: BaseSkill[] = [];
   const specialEntries: { operatorName: string; skillName: string; key: string }[] = [];
   for (const c of candidates) {
     for (const sk of c.skills) {
@@ -314,7 +320,8 @@ export function evalTradingPost(comboIds: string[], overrides?: DynamicContextOv
       if (key in TRADING_POST_SPECIAL_SKILLS) {
         specialEntries.push({ operatorName: c.operatorName, skillName: sk.skillName, key });
       } else {
-        genericDescriptions.push(skillTextForOne(c.operatorName, sk.skillName, sk.eliteLevel));
+        const skill = skillForOne(c.operatorName, sk.skillName, sk.eliteLevel);
+        if (skill) genericSkills.push(skill);
       }
     }
   }
@@ -334,8 +341,8 @@ export function evalTradingPost(comboIds: string[], overrides?: DynamicContextOv
   const gnosisEff = gnosisPresent ? -0.15 * karlanHere : 0;
   const gnosisLimit = gnosisPresent ? 6 * karlanHere : 0;
 
-  const prelimProd = calcProductivity('tradingPost', genericDescriptions, candidates.length, null);
-  const prelimOrderLimit = calcOrderLimit(genericDescriptions, overrides?.tradingPostLevel ?? 3);
+  const prelimProd = { grey: calcGreyProductivity(candidates.length), yellow: genericSkills.reduce((n, sk) => n + orderEfficiencyOf(sk, source), 0) };
+  const prelimOrderLimit = { base: calcOrderLimit([], overrides?.tradingPostLevel ?? 3).base, adjustment: genericSkills.reduce((n, sk) => n + orderLimitOf(sk, source), 0) };
   let othersEff = prelimProd.yellow + gnosisEff;
   let othersLimitRaw = prelimOrderLimit.adjustment + gnosisLimit;
 
@@ -474,7 +481,8 @@ export function evalFactory(comboIds: string[], product: 'Battle Records' | 'Pre
 
   const sameFactoryOperatorNames = realNames;
   const sameFactorySkillNames = candidates.flatMap((c) => c.skills.map((s) => s.skillName));
-  const genericDescriptions: (string | null)[] = [];
+  const source: SkillSource = overrides?.skillSource ?? 'table';
+  const genericSkills: BaseSkill[] = [];
   const specialEntries: { key: string }[] = [];
   for (const c of candidates) {
     for (const sk of c.skills) {
@@ -482,12 +490,13 @@ export function evalFactory(comboIds: string[], product: 'Battle Records' | 'Pre
       if (key in FACTORY_SPECIAL_SKILLS) {
         specialEntries.push({ key });
       } else {
-        genericDescriptions.push(skillTextForOne(c.operatorName, sk.skillName, sk.eliteLevel));
+        const skill = skillForOne(c.operatorName, sk.skillName, sk.eliteLevel);
+        if (skill) genericSkills.push(skill);
       }
     }
   }
 
-  const genericProd = calcProductivity('factory', genericDescriptions, candidates.length, product);
+  const genericProd = { grey: calcGreyProductivity(candidates.length), yellow: genericSkills.reduce((n, sk) => n + productivityOf(sk, product, source), 0) };
   let normalSum = genericProd.yellow;
   let exemptSum = 0;
   let overrideSum = 0;

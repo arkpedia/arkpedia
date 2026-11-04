@@ -1,24 +1,18 @@
 import { BaseSkillSlots } from '@/lib/base/baseSkillSlots';
 import { BaseOperator, BaseSkill } from '@/lib/operators/operatorTypes';
 import { typedEffects } from '@/lib/base/skillEffects';
+import { productivityOf, orderEfficiencyOf, capacityOf, orderLimitOf, clueSpeedOf, hrSpeedOf, droneRateOf as droneRateRead, moraleOf, controlCenterOf, dormitoryRecoveryOf, type SkillSource } from '@/lib/base/skillReading';
 import { BaseAssignments, FactoryProducts, DormitoryAmbience, SlotAssignment } from '@/lib/base/baseTypes';
 import {
-  calcProductivity,
   calcCapacity,
-  calcCapacityPerOperator,
   calcOrderLimit,
   calcMorale,
-  calcClueSpeed,
   calcReceptionRoomBaseSpeed,
   receptionRoomBaseContribution,
-  calcDroneRate,
   calcFullTime,
   calcDeadTime,
   calcDailyProduction,
-  calcControlCenterEffects,
-  clueCollectionBonusFrom,
   calcControlCenterMoraleRelief,
-  calcOffice,
   calcTradingPostFullTime,
   calcTradingPostGoldPerHourStandardized,
   goldOrderTier,
@@ -26,11 +20,10 @@ import {
   calcTradingPostGoldAndLmdPerHour,
   ControlCenterEffects,
   calcGreyProductivity,
-  factoryYellowContribution,
-  tradingPostYellowContribution,
   calcDormitoryRecovery,
   defaultDormitoryAmbience,
 } from '@/lib/base/baseProductivity';
+import type { MoraleResult } from '@/lib/base/baseTypes';
 import { FACTORY_SPECIAL_SKILLS, FactorySkillContext } from '@/lib/base/factorySpecialSkills';
 import { DORMITORY_SPECIAL_SKILLS, DORMITORY_PREFERRED_TARGET } from '@/lib/base/dormitorySpecialSkills';
 import { RECEPTION_ROOM_SPECIAL_SKILLS } from '@/lib/base/receptionRoomSpecialSkills';
@@ -85,6 +78,9 @@ export interface BaseCalculationInput {
   /** Per Dormitory, the order its single-target recovery skills pick in, least Morale first, instead of by the Morale
    * given now: the simulator picks at each login and keeps the pick until the next. */
   dormitoryPickOrder?: Record<string, string[]>;
+  /** Where a plain skill's numbers come from: the skill table (default) or its description text, the path the
+   * table replaced; test-base-skill-parity.ts runs both. */
+  skillSource?: SkillSource;
 }
 
 /** Former names by operator, built once per operator list, like the index below. */
@@ -154,6 +150,18 @@ export function calculateBase(input: BaseCalculationInput) {
   function cleanSkillName(name: string | null): string | null {
     return name?.split('Replaces')[0].trim() ?? null;
   }
+  const source: SkillSource = input.skillSource ?? 'table';
+  type RoomSkill = { operatorName: string; skill: BaseSkill };
+  /** The room's Morale rates from its plain skills: the grey headcount rate, each operator's own change and the room-wide one. */
+  function moraleFor(count: number, entries: readonly RoomSkill[]): MoraleResult {
+    const result = calcMorale(count, []);
+    for (const { operatorName, skill } of entries) {
+      const m = moraleOf(skill, source);
+      if (m.self) result.selfYellow[operatorName] = (result.selfYellow[operatorName] || 0) + m.self;
+      result.allOperatorsYellow += m.all;
+    }
+    return result;
+  }
   function skillsFor(slot: SlotAssignment | null, facilityLabel: string): BaseSkill[] {
     // Exhausted operators retain their physical assignment, but their working
     // skills stop. Dormitory recovery skills remain active at zero Morale.
@@ -196,7 +204,7 @@ export function calculateBase(input: BaseCalculationInput) {
     filled: SlotAssignment[]
   ): { rate: number; lines: FacilityBreakdownLine[] } {
     // A skill's drone recharge: its typed effect where its family has one (lib/base/skillEffects.ts), else its text.
-    const droneRateOf = (sk: BaseSkill) => { const typed = typedEffects(sk); return typed ? typed.reduce((n, e) => n + (e.kind === 'droneRecharge' ? e.value : 0), 0) : calcDroneRate([sk.description]); };
+    const droneRateOf = (sk: BaseSkill) => { const typed = typedEffects(sk); return typed ? typed.reduce((n, e) => n + (e.kind === 'droneRecharge' ? e.value : 0), 0) : droneRateRead(sk, source); };
     const genericLines: { operatorName: string; skillName: string | null; raw: number }[] = [];
     const specialEntries: { slot: SlotAssignment; skillName: string | null; handler: (typeof POWER_PLANT_SPECIAL_SKILLS)[string] }[] = [];
     for (const slot of filled) {
@@ -229,9 +237,9 @@ export function calculateBase(input: BaseCalculationInput) {
     // Spuria's ramp -- same "real time until the first operator anywhere
     // in this Power Plant dies from Morale loss" window used everywhere
     // else this codebase models a ramping skill.
-    const powerPlantMorale = calcMorale(
+    const powerPlantMorale = moraleFor(
       filled.length,
-      filled.flatMap((s) => skillsFor(s, f.label).map((sk) => ({ operatorName: s.operatorName, description: sk.description })))
+      filled.flatMap((s) => skillsFor(s, f.label).map((sk) => ({ operatorName: s.operatorName, skill: sk })))
     );
     const ppRelief = ccBaseMoraleRelief + crossFacilityMoraleRelief('powerPlant', bannerOfBabelBonus, chongyueSolitaryLightBonus, mlynarActive, ccActiveSkillNames);
     const ownRate = (opName: string) => Math.max(0, powerPlantMorale.grey + powerPlantMorale.allOperatorsYellow - ppRelief + (powerPlantMorale.selfYellow[opName] || 0));
@@ -290,7 +298,7 @@ export function calculateBase(input: BaseCalculationInput) {
     const slots = assignments[f.id] || [];
     const filled = slots.filter((s): s is SlotAssignment => s !== null);
 
-    let descriptions: (string | null)[];
+    let genericSkills: BaseSkill[];
     let specialProductivitySum = 0;
     let specialCapacitySum = 0;
     let specialOrderLimitSum = 0;
@@ -300,14 +308,14 @@ export function calculateBase(input: BaseCalculationInput) {
     let exemptProductivitySum = 0;
     const specialNotes: { operator: string; note: string }[] = [];
     let facilityBreakdown: FacilityBreakdown | null = null;
-    let genericSkillsForMorale: { operatorName: string; description: string | null }[] = [];
-    let genericSkillsForCapacity: { operatorName: string; description: string | null }[] = [];
+    let genericSkillsForMorale: RoomSkill[] = [];
+    let genericSkillsForCapacity: RoomSkill[] = [];
 
     if (f.kind === 'factory') {
       const sameFactoryOperatorNames = filled.map((s) => s.operatorName);
       const sameFactorySkillNames = filled.flatMap((s) => skillsFor(s, f.label).map((sk) => sk.name || ''));
 
-      const genericDescriptions: (string | null)[] = [];
+      const genericFactorySkills: BaseSkill[] = [];
       const specialEntries: { slot: SlotAssignment; skillName: string; key: string; handler: (typeof FACTORY_SPECIAL_SKILLS)[string] }[] = [];
 
       for (const slot of filled) {
@@ -317,13 +325,13 @@ export function calculateBase(input: BaseCalculationInput) {
             const handler = FACTORY_SPECIAL_SKILLS[key];
             specialEntries.push({ slot, skillName: sk.name || '', key, handler });
           } else {
-            genericDescriptions.push(sk.description);
-            genericSkillsForMorale.push({ operatorName: slot.operatorName, description: sk.description });
-            genericSkillsForCapacity.push({ operatorName: slot.operatorName, description: sk.description });
+            genericFactorySkills.push(sk);
+            genericSkillsForMorale.push({ operatorName: slot.operatorName, skill: sk });
+            genericSkillsForCapacity.push({ operatorName: slot.operatorName, skill: sk });
           }
         }
       }
-      descriptions = genericDescriptions;
+      genericSkills = genericFactorySkills;
 
       const baseCtx: Omit<FactorySkillContext, 'manualValue' | 'othersProductivitySum' | 'otherOperatorsCapacity' | 'totalFactoryCapacityIncrease' | 'eliteLevel'> = {
         rosters,
@@ -415,7 +423,8 @@ export function calculateBase(input: BaseCalculationInput) {
       if (bubbleEntry || vermeilEntry) {
         // Shared per-operator capacity data (generic regex-parsed +
         // any special-cased skill), needed by both Bubble and Vermeil.
-        const genericCapacityByOp = calcCapacityPerOperator(genericSkillsForCapacity);
+        const genericCapacityByOp: Record<string, number> = {};
+        for (const { operatorName, skill } of genericSkillsForCapacity) { const c = capacityOf(skill, source); if (c) genericCapacityByOp[operatorName] = (genericCapacityByOp[operatorName] || 0) + c; }
         const capacityByOp = (opName: string) => (genericCapacityByOp[opName] || 0) + (pendingSpecialCapacity[opName] || 0);
 
         if (bubbleEntry) {
@@ -467,8 +476,7 @@ export function calculateBase(input: BaseCalculationInput) {
         // using only the skill-based yellow portion, not the grey
         // baseline rate (which isn't "provided" by any operator's skill
         // in the sense Waai Fu's own skill text means).
-        const genericOthers = calcProductivity('factory', genericDescriptions, filled.length, factoryProducts[f.id] || null);
-        othersSum += genericOthers.yellow;
+        othersSum += genericFactorySkills.reduce((n, sk) => n + productivityOf(sk, factoryProducts[f.id] || null, source), 0);
         const result = waaiFuEntry.handler({
           ...baseCtx,
           eliteLevel: waaiFuEntry.slot.eliteLevel,
@@ -484,7 +492,7 @@ export function calculateBase(input: BaseCalculationInput) {
         // what's known so far (generic descriptions + every
         // non-morale-dependent special skill's self-only Morale
         // contribution).
-        const factoryMorale = calcMorale(filled.length, genericSkillsForMorale);
+        const factoryMorale = moraleFor(filled.length, genericSkillsForMorale);
         const ownRate = (opName: string) =>
           Math.max(
             0,
@@ -544,7 +552,7 @@ export function calculateBase(input: BaseCalculationInput) {
       const breakdownLines: FacilityBreakdownLine[] = [];
 
       for (const g of genericSkillsForMorale) {
-        const raw = factoryYellowContribution(g.description, product);
+        const raw = productivityOf(g.skill, product, source);
         const included = raw !== 0 && !overrideActive;
         breakdownLines.push({
           operatorName: g.operatorName,
@@ -586,7 +594,7 @@ export function calculateBase(input: BaseCalculationInput) {
         });
       }
 
-      const finalYellow = exemptProductivitySum + (overrideActive ? overrideProductivitySum : specialProductivitySum + genericDescriptions.reduce((sum, d) => sum + factoryYellowContribution(d, product), 0));
+      const finalYellow = exemptProductivitySum + (overrideActive ? overrideProductivitySum : specialProductivitySum + genericFactorySkills.reduce((sum, sk) => sum + productivityOf(sk, product, source), 0));
       facilityBreakdown = {
         filledCount: filled.length,
         greyProductivity,
@@ -598,7 +606,7 @@ export function calculateBase(input: BaseCalculationInput) {
       };
     } else if (f.kind === 'tradingPost') {
       const sameRoomOperatorNames = filled.map((s) => s.operatorName);
-      const genericDescriptions: (string | null)[] = [];
+      const genericTradingSkills: BaseSkill[] = [];
       const specialEntries: { slot: SlotAssignment; skillName: string; key: string; handler: (typeof TRADING_POST_SPECIAL_SKILLS)[string] }[] = [];
 
       for (const slot of filled) {
@@ -608,12 +616,12 @@ export function calculateBase(input: BaseCalculationInput) {
             const handler = TRADING_POST_SPECIAL_SKILLS[key];
             specialEntries.push({ slot, skillName: sk.name || '', key, handler });
           } else {
-            genericDescriptions.push(sk.description);
-            genericSkillsForMorale.push({ operatorName: slot.operatorName, description: sk.description });
+            genericTradingSkills.push(sk);
+            genericSkillsForMorale.push({ operatorName: slot.operatorName, skill: sk });
           }
         }
       }
-      descriptions = genericDescriptions;
+      genericSkills = genericTradingSkills;
 
       const baseTPCtx: Omit<TradingPostContext, 'manualValue' | 'othersOrderEfficiencySum' | 'othersOrderLimitSum'> = {
         rosters,
@@ -657,8 +665,8 @@ export function calculateBase(input: BaseCalculationInput) {
       const capacityScalingBeforeJaye = deferredTP.filter(e => e.slot.operatorName === 'Degenbrecher');
       const remainingDeferred = deferredTP.filter((e) => e.skillName !== 'Basic Needs' && e.slot.operatorName !== 'Degenbrecher');
 
-      const prelimProd = calcProductivity('tradingPost', genericDescriptions, workingCount(filled), null);
-      const prelimOrderLimit = calcOrderLimit(genericDescriptions, f.level);
+      const prelimProd = { grey: calcGreyProductivity(workingCount(filled)), yellow: genericTradingSkills.reduce((n, sk) => n + orderEfficiencyOf(sk, source), 0) };
+      const prelimOrderLimit = { base: calcOrderLimit([], f.level).base, adjustment: genericTradingSkills.reduce((n, sk) => n + orderLimitOf(sk, source), 0) };
       let othersEff = prelimProd.yellow + (perTradingPostBonus.get(f.id) || 0);
       // Raw (including negatives) order limit total -- used by
       // Degenbrecher's "Champion's Bearing", Swire the Elegant Wit's
@@ -737,7 +745,7 @@ export function calculateBase(input: BaseCalculationInput) {
       if (filled.some(s => s.operatorName === 'Closure') && filled.some(s => hasSkill(s, f.label, 'Pepe|Insightful'))) tpBreakdownLines.push({ operatorName: '(Special orders)', skillName: null, rawValue: 0, included: false, reason: 'Conflicting special order types.', note: 'Pepe’s fixed order is used; the priority against Closure’s Special Orders has not been verified.' });
 
       for (const g of genericSkillsForMorale) {
-        const raw = tradingPostYellowContribution(g.description);
+        const raw = orderEfficiencyOf(g.skill, source);
         const included = raw !== 0 && !overrideActive;
         tpBreakdownLines.push({
           operatorName: g.operatorName,
@@ -789,23 +797,23 @@ export function calculateBase(input: BaseCalculationInput) {
         effectiveProductivity: Math.max(0, tpGreyProductivity + tpFinalYellow),
       };
     } else {
-      descriptions = filled.flatMap((s) => skillsFor(s, f.label).map((sk) => sk.description));
+      genericSkills = filled.flatMap((s) => skillsFor(s, f.label));
       genericSkillsForMorale = filled.flatMap((s) =>
-        skillsFor(s, f.label).map((sk) => ({ operatorName: s.operatorName, description: sk.description }))
+        skillsFor(s, f.label).map((sk) => ({ operatorName: s.operatorName, skill: sk }))
       );
     }
 
     // Specialized room handlers own their self-morale, avoiding duplicate or unconditional parsing.
     if (f.kind === 'trainingRoom' || f.kind === 'workshop') genericSkillsForMorale = [];
-    if (f.kind === 'controlCenter') genericSkillsForMorale = genericSkillsForMorale.filter(value => !skillsFor(filled.find(s => s.operatorName === value.operatorName)!, f.label).some(sk => keyOf(value.operatorName, sk) in CONTROL_CENTER_SPECIAL_SKILLS && sk.description === value.description));
+    if (f.kind === 'controlCenter') genericSkillsForMorale = genericSkillsForMorale.filter(value => !skillsFor(filled.find(s => s.operatorName === value.operatorName)!, f.label).some(sk => keyOf(value.operatorName, sk) in CONTROL_CENTER_SPECIAL_SKILLS && sk === value.skill));
     if (f.kind === 'office' || f.kind === 'receptionRoom') genericSkillsForMorale = genericSkillsForMorale.filter(value => {
       const map = f.kind === 'office' ? OFFICE_SPECIAL_SKILLS : RECEPTION_ROOM_SPECIAL_SKILLS;
-      return !skillsFor(filled.find(s => s.operatorName === value.operatorName)!, f.label).some(sk => keyOf(value.operatorName, sk) in map && sk.description === value.description);
+      return !skillsFor(filled.find(s => s.operatorName === value.operatorName)!, f.label).some(sk => keyOf(value.operatorName, sk) in map && sk === value.skill);
     });
     ccMoraleRelief = ccBaseMoraleRelief + crossFacilityMoraleRelief(f.kind, bannerOfBabelBonus, chongyueSolitaryLightBonus, mlynarActive, ccActiveSkillNames);
-    const morale = calcMorale(filled.length, genericSkillsForMorale);
+    const morale = moraleFor(filled.length, genericSkillsForMorale);
     const productivity = PRODUCTIVITY_KINDS.has(f.kind)
-      ? calcProductivity(f.kind as 'factory' | 'tradingPost', descriptions, workingCount(filled), factoryProducts[f.id] || null)
+      ? { grey: calcGreyProductivity(workingCount(filled)), yellow: genericSkills.reduce((n, sk) => n + (f.kind === 'factory' ? productivityOf(sk, factoryProducts[f.id] || null, source) : orderEfficiencyOf(sk, source)), 0) }
       : null;
     // Layer Control Center's highest-only global bonus on top of this
     // facility's own local skill contributions.
@@ -899,9 +907,9 @@ export function calculateBase(input: BaseCalculationInput) {
       }
     }
 
-    const capacity = f.kind === 'factory' ? calcCapacity(descriptions, f.level) : null;
+    const capacity = f.kind === 'factory' ? { base: calcCapacity([], f.level).base, adjustment: genericSkills.reduce((n, sk) => n + capacityOf(sk, source), 0) } : null;
     if (capacity) capacity.adjustment += specialCapacitySum;
-    const orderLimit = f.kind === 'tradingPost' ? calcOrderLimit(descriptions, f.level) : null;
+    const orderLimit = f.kind === 'tradingPost' ? { base: calcOrderLimit([], f.level).base, adjustment: genericSkills.reduce((n, sk) => n + orderLimitOf(sk, source), 0) } : null;
     if (orderLimit) orderLimit.adjustment += specialOrderLimitSum + (perTradingPostOrderLimitBonus.get(f.id) || 0);
     let clueSpeed: number | null = null;
     let clueSpeedBase: number | null = null;
@@ -909,7 +917,6 @@ export function calculateBase(input: BaseCalculationInput) {
     const receptionRoomSelfMorale: Record<string, number> = {};
     if (f.kind === 'receptionRoom') {
       const sameRoomOperatorNames = filled.map((s) => s.operatorName);
-      const genericDescriptions: (string | null)[] = [];
       // The breakdown's generic lines are built from this, NOT from
       // genericSkillsForMorale: that array is assigned every skill in the room
       // for the morale calculation and then had the generic ones pushed onto it
@@ -917,7 +924,7 @@ export function calculateBase(input: BaseCalculationInput) {
       // special-cased and deliberately excluded from genericDescriptions --
       // appeared as a phantom flat +2%. The displayed lines have to come from
       // the same list the total sums, or the panel contradicts its own Final.
-      const genericClueLines: { operatorName: string; description: string | null }[] = [];
+      const genericClueLines: RoomSkill[] = [];
       let specialClueSum = 0;
       const pendingReceptionEntries: { slot: SlotAssignment; sk: BaseSkill; handler: (typeof RECEPTION_ROOM_SPECIAL_SKILLS)[string] }[] = [];
       let inesEntry: { slot: SlotAssignment; handler: (typeof RECEPTION_ROOM_SPECIAL_SKILLS)[string] } | null = null;
@@ -933,8 +940,7 @@ export function calculateBase(input: BaseCalculationInput) {
               pendingReceptionEntries.push({ slot, sk, handler });
             }
           } else {
-            genericDescriptions.push(sk.description);
-            genericClueLines.push({ operatorName: slot.operatorName, description: sk.description });
+            genericClueLines.push({ operatorName: slot.operatorName, skill: sk });
           }
         }
       }
@@ -965,7 +971,7 @@ export function calculateBase(input: BaseCalculationInput) {
         // Factory ramping operators -- the first operator ANYWHERE in
         // this Reception Room to run out of Morale ends the whole
         // room's operational window, not just Ines's own survival time.
-        const receptionMorale = calcMorale(filled.length, genericSkillsForMorale);
+        const receptionMorale = moraleFor(filled.length, genericSkillsForMorale);
         const ownRate = (opName: string) =>
           Math.max(
             0,
@@ -994,7 +1000,7 @@ export function calculateBase(input: BaseCalculationInput) {
         if (result.clueSpeed) specialClueSum += result.clueSpeed;
         if (result.note) inesNote = result.note;
       }
-      clueSpeed = calcClueSpeed(genericDescriptions) + specialClueSum + ccEffects.clueCollectionBonus + officeReceptionRoomBonus + receptionRoomClueSpeedFromCC;
+      clueSpeed = genericClueLines.reduce((n, g) => n + clueSpeedOf(g.skill, source), 0) + specialClueSum + ccEffects.clueCollectionBonus + officeReceptionRoomBonus + receptionRoomClueSpeedFromCC;
       clueSpeedBase = calcReceptionRoomBaseSpeed(
         filled.map((s) => ({
           rarity: operatorByName.get(s.operatorName)?.rarity ?? null,
@@ -1045,7 +1051,7 @@ export function calculateBase(input: BaseCalculationInput) {
         });
       }
       for (const g of genericClueLines) {
-        const raw = calcClueSpeed([g.description]);
+        const raw = clueSpeedOf(g.skill, source);
         receptionBreakdownLines.push({
           operatorName: g.operatorName,
           skillName: null,
@@ -1135,7 +1141,7 @@ export function calculateBase(input: BaseCalculationInput) {
     const workshop = f.kind === 'workshop' && filled[0] && recipe ? workshopResult(filled[0].operatorName, skillsFor(filled[0], f.label), { ...workshopSettings, dormMorale: workshopSettings.overrideDormCount ? undefined : FACILITIES.filter(room => room.kind === 'dormitory' && room.level > 0).flatMap(room => (assignments[room.id] || []).flatMap(slot => slot ? [slot.morale ?? 0] : [])), recipe, dormitoryOperatorCount: dormitoryOperatorNames.size, stainlessInDorm: dormitoryHasOperator('Stainless'), intelligenceReserve: resourcePools.intelligenceReserve, ursusBeverages: totalUrsusBeverage }) : null;
     const officeSpecialMorale: Record<string, number> = {};
     if (f.kind === 'office') {
-      const genericOfficeDescriptions: (string | null)[] = [];
+      let genericHrSpeed = 0;
       let specialHrSum = 0;
       for (const slot of filled) {
         for (const sk of skillsFor(slot, f.label)) {
@@ -1157,12 +1163,11 @@ export function calculateBase(input: BaseCalculationInput) {
               officeSpecialMorale[slot.operatorName] = (officeSpecialMorale[slot.operatorName] || 0) + result.selfMorale;
             }
           } else {
-            genericOfficeDescriptions.push(sk.description);
+            genericHrSpeed += hrSpeedOf(sk, source);
           }
         }
       }
-      const generic = calcOffice(genericOfficeDescriptions);
-      const ownSpeed = 0.05 * workingCount(filled) + generic.speed + specialHrSum;
+      const ownSpeed = 0.05 * workingCount(filled) + genericHrSpeed + specialHrSum;
       const combinedSpeed = ownSpeed + officeHrSpeedBonusFromCC;
       office = { speed: combinedSpeed, ownSpeed, ccBonus: officeHrSpeedBonusFromCC, refreshHours: 12 / (1 + combinedSpeed) };
     }
@@ -1620,7 +1625,7 @@ export function calculateBase(input: BaseCalculationInput) {
   const officeSlotsForPrelim = (assignments['office'] || []).filter((s): s is SlotAssignment => s !== null);
   let prelimOfficeSpecialHr = 0;
   let officeReceptionRoomBonus = 0;
-  const prelimOfficeGeneric: (string | null)[] = [];
+  let prelimOfficeGeneric = 0;
   for (const slot of officeSlotsForPrelim) {
     for (const sk of skillsFor(slot, 'Office')) {
       const handler = OFFICE_SPECIAL_SKILLS[keyOf(slot.operatorName, sk)];
@@ -1638,20 +1643,24 @@ export function calculateBase(input: BaseCalculationInput) {
         if (result.hrSpeed) prelimOfficeSpecialHr += result.hrSpeed;
         if (result.receptionRoomClueSpeed) officeReceptionRoomBonus += result.receptionRoomClueSpeed;
       } else {
-        prelimOfficeGeneric.push(sk.description);
+        prelimOfficeGeneric += hrSpeedOf(sk, source);
       }
     }
   }
-  const officeHrSpeedPercent = (calcOffice(prelimOfficeGeneric).speed + prelimOfficeSpecialHr) * 100;
+  const officeHrSpeedPercent = (prelimOfficeGeneric + prelimOfficeSpecialHr) * 100;
 
   // Control Center's cross-facility effects, computed once here since
   // every other facility's calculation needs it.
-  const ccDescriptions = ccSlots.flatMap((s) =>
-    skillsFor(s, 'Control Center')
-      .filter((sk) => !(keyOf(s.operatorName, sk) in CONTROL_CENTER_SPECIAL_SKILLS))
-      .map((sk) => sk.description)
-  );
-  let ccEffects: ControlCenterEffects = calcControlCenterEffects(ccDescriptions);
+  const ccGenericSkills = ccSlots.flatMap((s) => skillsFor(s, 'Control Center').filter((sk) => !(keyOf(s.operatorName, sk) in CONTROL_CENTER_SPECIAL_SKILLS)));
+  // The three pools keep the strongest candidate; own-room Morale stacks.
+  let ccEffects: ControlCenterEffects = { tradingPostBonus: 0, factoryBonus: 0, clueCollectionBonus: 0, ccMoraleBonus: 0 };
+  for (const sk of ccGenericSkills) {
+    const read = controlCenterOf(sk, source);
+    if (Math.abs(read.orderEfficiency) > Math.abs(ccEffects.tradingPostBonus)) ccEffects.tradingPostBonus = read.orderEfficiency;
+    if (Math.abs(read.factory) > Math.abs(ccEffects.factoryBonus)) ccEffects.factoryBonus = read.factory;
+    if (Math.abs(read.clue) > Math.abs(ccEffects.clueCollectionBonus)) ccEffects.clueCollectionBonus = read.clue;
+    ccEffects.ccMoraleBonus += read.ccMorale;
+  }
   // Who actually won the highest-only Clue Collection pool. calcControlCenterEffects
   // returns the value but not the source, and the Reception Room's breakdown was
   // labelling it "(Control Center) (generic)" -- true, but useless when Civilight
@@ -1662,7 +1671,7 @@ export function calculateBase(input: BaseCalculationInput) {
   for (const slot of ccSlots) {
     for (const sk of skillsFor(slot, 'Control Center')) {
       if (keyOf(slot.operatorName, sk) in CONTROL_CENTER_SPECIAL_SKILLS) continue;
-      if (Math.abs(clueCollectionBonusFrom(sk.description)) === Math.abs(ccEffects.clueCollectionBonus)
+      if (Math.abs(controlCenterOf(sk, source).clue) === Math.abs(ccEffects.clueCollectionBonus)
           && ccEffects.clueCollectionBonus !== 0 && !clueCollectionSource) {
         clueCollectionSource = { operatorName: slot.operatorName, skillName: sk.name };
       }
@@ -1898,9 +1907,8 @@ export function calculateBase(input: BaseCalculationInput) {
       for (const sk of skillsFor(s, 'Dormitory')) {
         const handler = DORMITORY_SPECIAL_SKILLS[keyOf(s.operatorName, sk)];
         if (!handler) {
-          const text = sk.description ?? '';
-          const value = Number(text.match(/(?:restores?|recover(?:s|y))[^+]*[+]?(\d+(?:\.\d+)?)/i)?.[1] ?? 0);
-          if (/all (?:other )?operators/i.test(text)) allOperatorsBonus += value; else selfBonus += value;
+          const read = dormitoryRecoveryOf(sk, source);
+          allOperatorsBonus += read.all; selfBonus += read.self;
           continue;
         }
         const result = handler({
