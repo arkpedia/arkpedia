@@ -2,12 +2,11 @@
  * The hand-written part of the base skill table (lib/base/baseSkillEffects.ts): what the game text
  * states in words the rules in build-base-skill-effects.ts cannot read -- a count, a condition, an
  * interaction with another skill -- written as data, keyed by the handler key the calculator used to
- * find the skill ("Operator|Skill", resolved to buff ids through lib/base/special-skill-buffs.json)
- * or by a buff id outright where one key covered two steps.
+ * find the skill ("Operator|Skill", resolved to buff ids through the operator records, under the
+ * operator's name or a former one) or by a buff id outright where one key covered two steps.
  *
- * Every key the calculator ever had a handler or a named check for must appear here or in
- * GENERIC_IS_RIGHT (the text rules already read it correctly); the build refuses otherwise, so a
- * handler's knowledge cannot be lost in the move.
+ * GENERIC_IS_RIGHT lists the keys the calculator once had a handler for whose text the rules read
+ * correctly on their own; the build only checks that each still names a record skill.
  */
 import type { SkillCondition, SkillCountSource, SkillEffect, SkillEffectKind, SkillInteraction } from '../../lib/base/baseSkillEffects';
 
@@ -41,7 +40,7 @@ const ramp = (base: number, perHour: number, cap: number) => ({ handler: 'ramp',
 const TAILORING_LOWER: SkillOverride = { effects: [e('selfMorale', -0.25)], interaction: { goldOrderTier: 'lower' } };
 const TAILORING_HIGHER: SkillOverride = { effects: [e('selfMorale', -0.25)], interaction: { goldOrderTier: 'higher' } };
 const faction = (count: SkillCountSource, amount: number) => counted('ccMorale', 0, count, amount);
-const PROFESSIONAL_ETHICS = (value: number): SkillOverride => ({ effects: [when('clueSpeed', value, alone)] });
+const PROFESSIONAL_ETHICS = (value: number): SkillOverride => ({ effects: [when('clueSpeed', value, alone), when('selfMorale', 1, alone)] });
 
 /** Keys whose text the generic rules already read exactly as the handler computed them. */
 export const GENERIC_IS_RIGHT: readonly string[] = [
@@ -60,7 +59,7 @@ export const GENERIC_IS_RIGHT: readonly string[] = [
   // Control Center: likelihood only, or a plain "+0.05 to all in the Control Center".
   'Heidi|"One Thousand Letters"', 'Leizi|Discernment', 'Raidian|Drip-Fed Care',
   // Dormitory: the plain self / all-operators / single-target recovery the rules read.
-  'Crackborne|Rare Respite', 'Thumpy|Rabbit Holes Everywhere', 'Koromaru|Fluffy Comfort', 'Kroos|Solitude', 'Estelle|Solitude', 'Frostleaf|Solitude',
+  'Crackborne|A Rare Rest', 'Thumpy|Rabbit Holes Everywhere', 'Koromaru|Fluffy Comfort', 'Kroos|Solitude', 'Estelle|Solitude', 'Frostleaf|Solitude',
   'Andreana|Solitude', 'Andreana|Hard to Avoid', 'GreyThroat|Solitude', 'Harmonie|Solitude', 'Lunacub|Lazy Cub', 'Reed|Solitude', 'Specter|Solitude',
   'Specter|Craze', 'Skadi|Solitude', 'Skadi|Elegy', 'Ethan|Concealed Gourmet', 'Hellagur|Release', 'Myrtle|Leader', 'Podenco|Nourish the Soul',
   'Amiya|Violin Solo', 'April|Inspiration', 'Bobbing|Listener', 'Cairn|Bedtime Stories', 'Doc|Altruism', 'Grain Buds|Rural Flute', 'Nightingale|Inspiration',
@@ -70,7 +69,7 @@ export const GENERIC_IS_RIGHT: readonly string[] = [
   'Myrrh|Thoughtfulness', 'Podenco|Thoughtfulness', 'Podenco|Convalescence', 'Gracebearer|Canticle of Grace', 'Grain Buds|Thoughtfulness',
   'Honeyberry|Psychological Counseling', 'Saileach|Victorian Literature', 'Shining|Thoughtfulness', 'Shining|Mercy', 'Exusiai the New Covenant|Natural Optimist',
   'Beagle|Liveliness', 'Cardigan|Liveliness', 'Jackie|Liveliness', 'Popukar|Harmony', 'Aciddrop|Give me five', 'Gummy|Cooking', 'Savage|Cooking',
-  'Mousse|Baking', "Cliffheart|Explorer's Passion", 'Insider|Donut Party', 'Nearl|Followers', 'Pramanix|Karlan Saint',
+  'Mousse|Baking', "Cliffheart|Explorer's Passion", 'Insider|Donut Party', 'Nearl|Followers', 'Pramanix|Karlan Saintess',
   'Durin|Laziness', 'Durin|Sleepiness', 'Ambriel|Laziness', 'Bagpipe|Madrigal', 'Fartooth|"Homecoming"', 'Hellagur|Break Loose', 'Hellagur|Absolution', 'Muelsyse|Natural Beauty',
   // Trading Post / Factory: flat numbers the rules read.
   'Degenbrecher|Intimidate', 'Degenbrecher|Imposing Presence',
@@ -125,9 +124,9 @@ export const OVERRIDES: Record<string, SkillOverride> = {
   'Shamare|Whispers': { effects: [counted('orderEfficiency', 0, 'room.others', 0.45), e('selfMorale', 0.25)], interaction: { overridesOthers: true } },
   'Snowsant|Heavenly Reward α': { custom: { handler: 'snowsant', params: { perStep: 0.05, step: 0.05, cap: 0.25 } }, effects: [] },
   'Snowsant|Heavenly Reward β': { custom: { handler: 'snowsant', params: { perStep: 0.05, step: 0.05, cap: 0.35 } }, effects: [] },
-  "Degenbrecher|Champion's Bearing": { custom: { handler: 'perOthersOrderLimit', params: { perStep: 0.25, step: 5, cap: 1 } }, effects: [] },
+  "Degenbrecher|Champion's Bearing": { custom: { handler: 'perOthersOrderLimit', params: { perStep: 0.25, step: 5, cap: 1, beforeLimitChanges: 1 } }, effects: [] },
   'Swire the Elegant Wit|Investment Solicitations': { custom: { handler: 'perOthersOrderLimit', params: { perStep: 0.04, step: 1 } }, effects: [] },
-  "Taraxacum|'The Best of Students!'": { effects: [counted('orderEfficiency', 0, 'base.facilitiesWithRoster:SUI', 0.04, { maxCount: 5 })] },
+  "Taraxacum|'The Best of Students!'": { effects: [counted('orderEfficiency', 0, 'base.workFacilitiesWithRoster:SUI', 0.04, { maxCount: 5 })] },
   'Underflow|Envoy To Land α': { effects: [e('orderEfficiency', 0.25), when('orderEfficiency', 0.05, baseHas('Ulpianus'))] },
   'Underflow|Envoy To Land β': { effects: [e('orderEfficiency', 0.3), when('orderEfficiency', 0.1, baseHas('Ulpianus'))] },
   'Mantra|Elite Squad': { effects: [counted('orderEfficiency', 0.25, 'base.facilitiesWithRoster:ELITE_OPERATOR', 0.02, { maxCount: 10 })] },
@@ -139,7 +138,7 @@ export const OVERRIDES: Record<string, SkillOverride> = {
   'Tequila|Investment α': { effects: [e('selfMorale', -0.25)], interaction: { trade: { lmdBonusAbove3: 250 } } },
   'Tequila|Investment β': { effects: [e('selfMorale', -0.25)], interaction: { trade: { lmdBonusAbove3: 500 } } },
   'Pepe|Insightful': { effects: [], interaction: { trade: { order: 'pepe' } } },
-  'Closure|Special Orders': { effects: [e('orderEfficiency', 0.1)], interaction: { trade: { order: 'closure' } } },
+  'Closure|Special Order': { effects: [e('orderEfficiency', 0.1)], interaction: { trade: { order: 'closure' } } },
 
   // ---------------------------------------------------------------- Factory
   'Makoto Yuki|The Meaning of Bonds': { effects: [counted('productivity', 0.2, 'base.roster:SEES', 0.05, { maxCount: 4 })] },
@@ -200,14 +199,14 @@ export const OVERRIDES: Record<string, SkillOverride> = {
   'Totter|Blizzard Outside': { custom: { handler: 'totterBlizzardOutside', params: { threshold: 12, productivity: 0.1, capacity: 6 } }, effects: [] },
 
   // ---------------------------------------------------------------- Power Plant
-  'Gallus²|Poultry Motivation': { effects: [when('droneRate', 0.05, atLeast('otherPowerPlants.roster:OPERATION_PLATFORM', 1))] },
+  'GALLUS²|Clucktivation Mechanism': { effects: [when('droneRate', 0.05, atLeast('powerPlants.rosterOthers:OPERATION_PLATFORM', 1))] },
   'Aegis|Mechanical Engineering': { effects: [e('droneRate', 0.15), when('droneRate', 0.05, { type: 'inFactory', name: 'Makoto Yuki' })] },
-  'CONFESS-47|Now Under Maintenance': { effects: [when('droneRate', 0.05, atLeast('otherPowerPlants.roster:LATERANO', 1))] },
+  'CONFESS-47|Now Under Maintenance': { effects: [when('droneRate', 0.05, atLeast('powerPlants.rosterOthers:LATERANO', 1))] },
   'Friston-3|"Pleasant Conversation"': { effects: [when('droneRate', 0.05, ccHas("Kal'tsit"))] },
   'Justice Knight|"Beep beep, activate!"': { effects: [e('factoryOfOperator', 0.05, { name: 'Wild Mane' })] },
   'PhonoR-0|Incantation Resonance': { effects: [when('droneRate', 0.05, { type: 'trainerIs', name: 'Logos' })] },
   'THRM-EX|Enthusiasm': { effects: [e('selfMorale', -0.52)] },
-  'Greyy the Lightningbearer|Line Patrol Frame': { effects: [counted('droneRate', 0, 'base.maxDroneCapacity', 0.01, { step: 10, cap: 0.25 })] },
+  'Greyy the Lightningbearer|Line Patrol Frame': { effects: [counted('droneRate', 0, 'base.maxDroneCapacity', 0.001, { cap: 0.25 })], note: '235 drones of capacity are 23.5%, not 23%: the game does not round the count down to tens.' },
   'Greyy the Lightningbearer|Dawnlight': { effects: [when('powerPlantCount', 1, { type: 'countAtMost', count: 'otherPowerPlants.roster:OPERATION_PLATFORM', value: 0 })] },
   'Muelsyse|Ecological Section Director': { effects: [counted('droneRate', 0.1, 'base.rosterOthers:RHINE_LAB', 0.03, { maxCount: 5 })] },
   'Philae|River Resonance': { effects: [counted('droneRate', 0, 'base.dormLevels', 0.005)] },
@@ -228,7 +227,7 @@ export const OVERRIDES: Record<string, SkillOverride> = {
   'Surfer|Networking Expert': { effects: [e('clueSpeed', 0.1), when('clueSpeed', 0.15, roomHasRoster('BLACKSTEEL_WORLDWIDE')), when('selfMorale', 0.5, roomHasRoster('BLACKSTEEL_WORLDWIDE'))] },
   'Surfer|Information Gathering': { effects: [e('clueSpeed', 0.1), when('clueSpeed', 0.2, roomHasRoster('BLACKSTEEL_WORLDWIDE'))] },
   'Valarqvin|Foresight': { effects: [e('clueSpeed', 0.1), when('clueSpeed', 0.15, roomHas('Typhon')), when('selfMorale', 0.5, roomHas('Typhon'))] },
-  'Valarqvin|Pilgrimage to the Future': { effects: [e('clueSpeed', 0.1), when('clueSpeed', 0.15, roomHas('Typhon')), when('selfMorale', 0.5, roomHas('Typhon'))], note: 'Also shifts which clues turn up.' },
+  'Valarqvin|Pilgrimage to the Future': { effects: [e('clueSpeed', 0.1), when('clueSpeed', 0.15, roomHas('Typhon')), when('selfMorale', 0.5, roomHas('Typhon'))], note: 'Also shifts which clues are likely to turn up, which is not a speed number -- only the search-speed half is modeled.' },
   'Typhon|Icefield Navigation': { effects: [e('clueSpeed', 0.1), when('clueSpeed', 0.05, roomHasRoster('SAMI')), when('selfMorale', 0.5, roomHasRoster('SAMI'))] },
   "Vulpisfoglia|Assassin's Holiday": { effects: [when('clueSpeed', 0.3, roomHas('Suzuran'))] },
   'Sankta Miksaparato|Eternal Youth': { effects: [when('clueSpeed', 0.1, { type: 'inDormitory', name: 'Fiammetta' })] },
@@ -241,7 +240,7 @@ export const OVERRIDES: Record<string, SkillOverride> = {
   'Ripresa|Professional Manager β': { effects: [when('clueSpeed', 0.35, alone), when('selfMorale', 1, alone)] },
 
   // ---------------------------------------------------------------- Office
-  "Kal'tsit - Esperanta|The Ark of Terra": { effects: [counted('hrSpeed', 0.3, 'base.facilitiesWithRoster:ELITE_OPERATOR', 0.04, { maxCount: 5 })] },
+  "Kal'tsit Esperanta|'Terra's Ark'": { effects: [counted('hrSpeed', 0.3, 'base.facilitiesWithRoster:ELITE_OPERATOR', 0.04, { maxCount: 5 })] },
   'Blitz|Linguistics': { effects: [counted('hrSpeed', 0.2, 'resource:intelligenceReserve', 0.05), counted('hrSpeed', 0, 'resource:ursusBeverage', 0.05)] },
   'Tin Man|Maylander Detective α': { effects: [counted('hrSpeed', 0.05, 'base.dormLevels', 0.01)] },
   'Tin Man|Maylander Detective β': { effects: [counted('hrSpeed', 0.05, 'base.dormLevels', 0.02)] },

@@ -1,8 +1,8 @@
-import { categoriesFor } from './factorySkillCategories';
-import { FactoryProduct } from './baseTypes';
-import type { BaseRosters } from './baseGroupRosters';
+import { categoriesFor } from '../factorySkillCategories';
+import { FactoryProduct } from '../baseTypes';
+import type { BaseRosters } from '../baseGroupRosters';
 import { ResourcePools } from './baseResources';
-import { averageRampValue, shareAfterHours } from './rampValue';
+import { averageRampValue, shareAfterHours } from '../rampValue';
 
 export interface FactorySkillContext {
   totalDormitoryLevels: number;

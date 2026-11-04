@@ -1,6 +1,6 @@
-import type { BaseRosters } from './baseGroupRosters';
+import type { BaseRosters } from '../baseGroupRosters';
 import { nonDefaultRecruitSlots } from './baseResources';
-import { averageRampValue } from './rampValue';
+import { averageRampValue } from '../rampValue';
 
 export interface ReceptionRoomContext {
   /** The group rosters (lib/base/baseGroupRosters.ts), from the page's props. */

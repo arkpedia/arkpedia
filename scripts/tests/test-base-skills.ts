@@ -1,7 +1,6 @@
 import { dormitoryRecoveryRates, type DormRecoveryProvider } from '../../lib/base/dormitoryRecovery';
 import { capacityForLevel, canSetSpotKind } from '../../lib/base/baseConfig';
-import { CONTROL_CENTER_SPECIAL_SKILLS as cc } from '../../lib/base/controlCenterSpecialSkills';
-import { calcDormitoryRecovery, calcTradingPostGoldAndLmdPerHour, calcTradingPostFullTime, tradingPostExpectedMinutes, goldOrderTier } from '../../lib/base/baseProductivity';
+import { calcDormitoryRecovery, calcTradingPostGoldAndLmdPerHour, calcTradingPostFullTime, tradingPostExpectedMinutes } from '../../lib/base/baseProductivity';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
@@ -13,11 +12,9 @@ import { workshopResult } from '../../lib/base/workshopSkills';
 import { crossFacilityMoraleRelief } from '../../lib/base/crossFacilityMorale';
 import { jayeContribution } from '../../lib/base/jaye';
 import { toBaseRosters, checkBaseRosters } from '../../lib/base/baseGroupRosters';
-import { TRADING_POST_SPECIAL_SKILLS as tp, type TradingPostContext } from '../../lib/base/tradingPostSpecialSkills';
-import { FACTORY_SPECIAL_SKILLS as factory, type FactorySkillContext } from '../../lib/base/factorySpecialSkills';
-import { OFFICE_SPECIAL_SKILLS as office, type OfficeContext } from '../../lib/base/officeSpecialSkills';
-import { DORMITORY_SPECIAL_SKILLS as dorm } from '../../lib/base/dormitorySpecialSkills';
-import { computeResourcePools, type BaseResourceState } from '../../lib/base/baseResources';
+import { computeResourcePools } from '../../lib/base/baseResources';
+import { CUSTOM_HANDLERS, type CustomContext } from '../../lib/base/customSkillHandlers';
+import { evalSkill } from './skill-eval-helper';
 import { readSavedBasePresets } from '../../lib/base/baseSavedPresets';
 import { defaultProductionSpots, getFacilities } from '../../lib/base/baseConfig';
 import fixture from './fixtures/base-skill-source.json';
@@ -35,6 +32,7 @@ const fixtureOperator = (expected: { name: string; internalName: string }) => {
   return op;
 };
 const rosters = toBaseRosters(checkBaseRosters(rosterData));
+const emptyCustomContext = (operatorName: string): CustomContext => ({ operatorName, roomNames: [operatorName], rampWindowHours: 24, rampStartHours: 0, selfMoraleRate: 1, othersProductivitySum: 0, capacityByOperator: {}, groupHuntingInControlCenter: false, othersOrderEfficiencySum: 0, othersOrderLimitRawSum: 0, abyssalHunters: { working: 0, resting: 0, restingAtFullMorale: 0, perFactory: [], totalInFactories: 0 }, fractionAbove12: 1, ccFamilyCount: () => 0 });
 const near = (actual: number | undefined, expected: number) => assert(Math.abs((actual ?? NaN) - expected) < 1e-8, `${actual} != ${expected}`);
 const training = (name: string, className = 'Guard', mastery = 1, placed = [name], branch = '') => trainingResult(name, activeBaseSkills(ops.get(name)!, 'Training Room', 'Elite 2'), { target: { class: className, branch, mastery, timeReductionActive: false, instantTrainingReady: false }, allPlacedNames: placed, rosters, worldlyPlight: 0 }, 0);
 
@@ -108,56 +106,58 @@ test('only operators who can train mastery can occupy the named trainee slot', (
   assert(!canTrainMastery({}));
 });
 test('actual TP/RR levels and exact Taraxacum quoted name', () => {
-  const ctx = { rosters, tradingPostLevel: 1, receptionRoomLevel: 1, totalDormitoryLevels: 4, allPlacedNames: [], sameRoomOperatorNames: [], facilitiesWithSuiOperator: 3 } as unknown as TradingPostContext;
-  for (let level = 1; level <= 3; level++) near(tp['Rose Salt|Time Is Money']({ ...ctx, tradingPostLevel: level }).orderLimit, level);
-  const vigil = Object.keys(tp).find(key => key.startsWith('Vigil|') && tp[key](ctx).orderEfficiency === 0.3)!;
-  assert(vigil); near(tp[vigil]({ ...ctx, receptionRoomLevel: 3 }).orderEfficiency, 0.4);
-  near(tp["Taraxacum|'The Best of Students!'"](ctx).orderEfficiency, 0.12);
+  for (let level = 1; level <= 3; level++) near(evalSkill('Rose Salt', 'Time Is Money', { levels: { room: level } }).orderLimit, level);
+  near(evalSkill('Vigil', 'New City Trade', { levels: { receptionRoom: 1 } }).orderEfficiency, 0.3);
+  near(evalSkill('Vigil', 'New City Trade', { levels: { receptionRoom: 3 } }).orderEfficiency, 0.4);
+  near(evalSkill('Taraxacum', "'The Best of Students!'", { counts: { 'base.workFacilitiesWithRoster:SUI': 3 } }).orderEfficiency, 0.12);
 });
 test('recruitment slots scale with Office level', () => {
-  const ctx = { officeLevel: 1, totalDormitoryLevels: 4, resourceBonuses: {} } as OfficeContext;
   for (let level = 1; level <= 3; level++) {
-    near(office['Lin|Meritocracy']({ ...ctx, officeLevel: level }).hrSpeed, 0.1 * (level - 1));
-    const state = { officeLevel: level, czernyDormitoryLevel: 2, irisDormitoryLevel: 3, dormitoryOperatorCount: 0, virtuosaRoomOperatorCount: 0, totalDormitoryLevels: 0, moraleAbove12: true } as unknown as BaseResourceState;
-    const pools = computeResourcePools(state, new Set(['Whisperain|Itinerant', 'Mulberry|Rescue Team - Post-Catastrophe Census', 'Czerny|Adagio', 'Iris|Bedtime Story']));
+    near(evalSkill('Lin', 'Meritocracy', { levels: { office: level } }).hrSpeed, 0.1 * (level - 1));
+    // What the generators make at this Office level, Czerny in a level 2 Dormitory and Iris in a level 3 one, pooled.
+    const generated: Record<string, number> = {};
+    for (const [op, skill, facts] of [['Whisperain', 'Itinerant', { levels: { office: level } }], ['Mulberry', 'Rescue Team - Post-Catastrophe Census', { levels: { office: level } }], ['Czerny', 'Adagio', { levels: { room: 2 } }], ['Iris', 'Bedtime Story', { levels: { room: 3 } }]] as const) {
+      for (const [name, amount] of Object.entries(evalSkill(op, skill, facts).resources)) generated[name] = (generated[name] ?? 0) + amount;
+    }
+    const pools = computeResourcePools(generated, new Set());
     near(pools.measure, 2); near(pools.dreamland, 3); near(pools.memoryFragments, 10 * (level - 1)); near(pools.worldlyPlight, 10 * (level - 1));
   }
 });
 test('spreadsheet regressions use actual room levels and distinguish base-wide from same-room effects', () => {
-  const fc = { selectedProduct: 'Precious Metals', totalDormitoryLevels: 5, totalFacilityLevels: 44 } as FactorySkillContext;
-  near(factory['Narantuya|Union of Desert Bandits'](fc).productivity, 0.05);
-  near(factory['Narantuya|Union of Desert Bandits']({ ...fc, selectedProduct: 'Battle Records' }).productivity, 0);
-  near(factory['Minimalist|Machine Assistance α'](fc).productivity, 0.1);
-  near(factory['Minimalist|Machine Assistance β'](fc).productivity, 0.25);
-  near(factory['Minimalist|Machine Assistance β']({ ...fc, totalFacilityLevels: 80 }).productivity, 0.4);
-  const oc = { officeLevel: 1, totalDormitoryLevels: 4 } as OfficeContext;
-  near(office['Tin Man|Maylander Detective β'](oc).hrSpeed, 0.13);
-  for (let level = 1; level <= 3; level++) for (const key of ['Mr. Nothing|Nosy', "Tsukinogi|Empath's Insight", 'Ukusik|Law of the Streets']) {
-    near(office[key]({ ...oc, officeLevel: level }).receptionRoomClueSpeed, 0.05 * (level - 1));
+  near(evalSkill('Narantuya', 'Union of Desert Bandits', { product: 'Precious Metals', counts: { 'base.dormLevels': 5 } }).productivity, 0.05);
+  near(evalSkill('Narantuya', 'Union of Desert Bandits', { product: 'Battle Records', counts: { 'base.dormLevels': 5 } }).productivity, 0);
+  // Graphic Design supplies one Engineering Robot per facility level, capped at 64; Machine Assistance converts complete groups of 16 or 8.
+  const robots = (levels: number) => evalSkill('Minimalist', 'Graphic Design', { counts: { 'base.facilityLevels': levels } }).resources.engineeringRobots;
+  near(evalSkill('Minimalist', 'Machine Assistance α', { resources: { engineeringRobots: robots(44) } }).productivity, 0.1);
+  near(evalSkill('Minimalist', 'Machine Assistance β', { resources: { engineeringRobots: robots(44) } }).productivity, 0.25);
+  near(evalSkill('Minimalist', 'Machine Assistance β', { resources: { engineeringRobots: robots(80) } }).productivity, 0.4);
+  near(evalSkill('Tin Man', 'Maylander Detective β', { counts: { 'base.dormLevels': 4 } }).hrSpeed, 0.13);
+  for (let level = 1; level <= 3; level++) for (const [op, skill] of [['Mr. Nothing', 'Nosy'], ['Tsukinogi', "Empath's Insight"], ['Ukusik', 'Law of the Streets']] as const) {
+    near(evalSkill(op, skill, { levels: { office: level } }).cc.receptionClue, 0.05 * (level - 1));
   }
-  const tc = { receptionRoomLevel: 0, allPlacedNames: [], sameRoomOperatorNames: ['Bellone'] } as unknown as TradingPostContext;
   for (let level = 0; level <= 3; level++) {
-    near(tp['Vigil|New City Trade']({ ...tc, receptionRoomLevel: level }).orderEfficiency, 0.25 + 0.05 * level);
-    near(tp['Mitm|Gifted Adviser']({ ...tc, receptionRoomLevel: level }).orderEfficiency, 0.15 + 0.05 * level);
+    near(evalSkill('Vigil', 'New City Trade', { levels: { receptionRoom: level } }).orderEfficiency, 0.25 + 0.05 * level);
+    near(evalSkill('Mitm', 'Gifted Adviser', { levels: { receptionRoom: level } }).orderEfficiency, 0.15 + 0.05 * level);
   }
-  near(tp['Bellone|Famiglia Business β'](tc).orderEfficiency, 0.3);
+  near(evalSkill('Bellone', 'Famiglia Business β', { roomNames: ['Bellone'] }).orderEfficiency, 0.3);
   // Game text says Vigil anywhere in the base; the spreadsheet's separate-room 30% omits this.
-  const separate = { ...tc, allPlacedNames: ['Bellone', 'Vigil'] };
-  near(tp['Bellone|Famiglia Business β'](separate).orderEfficiency, 0.4);
-  assert.equal(tp['Bellone|Outstanding Debt'](separate).orderLimit, undefined);
-  const together = { ...separate, sameRoomOperatorNames: ['Bellone', 'Vigil'] };
-  near(tp['Bellone|Outstanding Debt'](together).orderLimit, 2);
-  near(tp['Bellone|Outstanding Debt'](together).selfMorale, -0.1);
+  near(evalSkill('Bellone', 'Famiglia Business β', { roomNames: ['Bellone'], placedNames: ['Bellone', 'Vigil'] }).orderEfficiency, 0.4);
+  assert.equal(evalSkill('Bellone', 'Outstanding Debt', { roomNames: ['Bellone'], placedNames: ['Bellone', 'Vigil'] }).orderLimit, 0);
+  const together = evalSkill('Bellone', 'Outstanding Debt', { roomNames: ['Bellone', 'Vigil'], placedNames: ['Bellone', 'Vigil'] });
+  near(together.orderLimit, 2);
+  near(together.selfMorale, -0.1);
 });
 test('cross-facility morale keeps strongest matching scope, never stacks banners', () => {
-  near(crossFacilityMoraleRelief('factory', 0.2, 0.15, true, ['Capable Assistance', 'Chief Engineer']), 0.2);
-  near(crossFacilityMoraleRelief('office', 0.1, 0.15, true, ['Capable Assistance', 'Chief Engineer']), 0.2);
-  for (const kind of ['trainingRoom', 'workshop', 'dormitory', 'controlCenter'] as const) near(crossFacilityMoraleRelief(kind, 0.2, 0.2, true, ['Chief Engineer']), 0);
+  // Młynar with two qualifying Control Center skills: +0.1 in his own rooms and +0.05 per skill everywhere.
+  const mlynar = { ownRooms: 0.1, everyRoom: 0.1 };
+  near(crossFacilityMoraleRelief('factory', 0.2, 0.15, mlynar), 0.2);
+  near(crossFacilityMoraleRelief('office', 0.1, 0.15, mlynar), 0.2);
+  for (const kind of ['trainingRoom', 'workshop', 'dormitory', 'controlCenter'] as const) near(crossFacilityMoraleRelief(kind, 0.2, 0.2, { ownRooms: 0.1, everyRoom: 0.05 }), 0);
 });
 test('Fiammetta exclusive recovery and Recon target membership', () => {
-  near(dorm['Fiammetta|Self-Discipline']({} as never).exclusiveRecovery, 2);
-  near(dorm['Rhodes Island Recon|Hunting Helper']({ rosters, targetIfSelected: 'Terra Research Commission' } as never).singleTargetBonus, 1);
-  near(dorm['Rhodes Island Recon|Hunting Helper']({ rosters, targetIfSelected: 'Amiya' } as never).singleTargetBonus, 0.55);
+  near(evalSkill('Fiammetta', 'Self-Discipline').recovery.exclusive, 2);
+  near(evalSkill('Rhodes Island Recon', 'Hunting Helper', { rosters, target: 'Terra Research Commission' }).recovery.single, 1);
+  near(evalSkill('Rhodes Island Recon', 'Hunting Helper', { rosters, target: 'Amiya' }).recovery.single, 0.55);
 });
 test('Jaye E0 depends on collection interval and TP level; E1 skills cancel queue dependence and Snowsant feedback', () => {
   const short = jayeContribution(10, 0, 0, false, 1.01, 1, 3), long = jayeContribution(10, 0, 0, false, 1.01, 24, 3);
@@ -218,31 +218,31 @@ test('TP level changes order distribution, Proviso output and fill time', () => 
   const at2 = calcTradingPostGoldAndLmdPerHour(1, 2, 500, 'base', 2);
   near(at2.goldPerHour, 4.4 / 2.84); near(at2.extraLmdPerHour, 0);
   near(calcTradingPostFullTime(8, 1, 2)!, 8 * 2.84);
-  assert.equal(goldOrderTier([{ operatorName: 'Jacinta', skillName: "An Heiress's Eye" }]), 'lower');
+  assert.equal(evalSkill('Jacinta', "An Heiress's Eye").entry.interaction?.goldOrderTier, 'lower');
   const a = jayeContribution(1, 0, 0, false, 1.01, 24, 1);
   // A full queue's idle hours must not reduce his productive-hour bonus twice.
   near(a.jaye, 0.04);
 });
 test('dorm conditional recovery respects full recipients, thresholds and Coldshot herself', () => {
-  const ctx = { sameRoomOperatorNames: ['Coldshot', 'Amiya', 'Vendela'], moraleByOperator: { Coldshot: 0, Amiya: 24, Vendela: 18 } } as never;
-  const result = dorm['Coldshot|Wet Your Whistles'](ctx).distributedBonus!;
-  assert.deepEqual(result.recipients, ['Coldshot', 'Vendela']); near(result.amount, 0.4);
-  assert.deepEqual(dorm['Perfumer the Distilled|Pure Breath'](ctx).conditionalGroupBonus, { below: 20, amount: 0.1 });
-  assert.deepEqual(dorm['Vendela|Aroma Convalescence β'](ctx).conditionalGroupBonus, { below: 18, amount: 0.1 });
-  near(dorm['Bobbing|Conversationalist'](ctx).allOperatorsBonus, 0.22);
-  near(cc['Gladiia|Tide Observation']({ abyssalHuntersInNonDormFacilities: 1, abyssalHuntersRestingInDormitories: 3, abyssalHuntersRestingAtFullMorale: 2 } as never).selfMorale, -2);
+  // Coldshot shares 0.8 among the roommates below full Morale, herself included; the room splits it (calculateBase).
+  near(evalSkill('Coldshot', 'Wet Your Whistles', { roomNames: ['Coldshot', 'Amiya', 'Vendela'] }).recovery.distributed, 0.8);
+  assert.deepEqual(evalSkill('Perfumer the Distilled', 'Pure Breath').recovery.conditionalGroup, { below: 20, amount: 0.1 });
+  assert.deepEqual(evalSkill('Vendela', 'Aroma Convalescence β').recovery.conditionalGroup, { below: 18, amount: 0.1 });
+  near(evalSkill('Bobbing', 'Conversationalist', { counts: { 'room.belowFullMorale': 2 } }).recovery.all, 0.22);
+  const tide = evalSkill('Gladiia', 'Tide Observation').custom!;
+  near(CUSTOM_HANDLERS[tide.handler](tide.params, { ...emptyCustomContext('Gladiia'), abyssalHunters: { working: 1, resting: 3, restingAtFullMorale: 2, perFactory: [], totalInFactories: 0 } }).selfMorale, -2);
 });
-
 test('dorm recovery groups compete per recipient; Senshi/Morgan and Fiammetta use their actual recipients', () => {
   const p = (name: string, extra: Partial<DormRecoveryProvider> = {}): DormRecoveryProvider => ({ name, selfBonus: 0, allOperatorsBonus: 0, allOthersBonus: 0, singleTargetBonus: 0, targetIfSelected: null, ...extra });
-  const rates = dormitoryRecoveryRates([p('Bagpipe', { selfBonus: 0.55, allOthersBonus: 0.1 }), p('Durin', { selfBonus: -0.1, allOperatorsBonus: 0.25 }), p('Muelsyse', { selfBonus: 0.55, allOthersBonus: 0.1 }), p('Fiammetta', { exclusiveRecovery: 2 })], 4, rosters, {}, false);
+  const rates = dormitoryRecoveryRates([p('Bagpipe', { selfBonus: 0.55, allOthersBonus: 0.1 }), p('Durin', { selfBonus: -0.1, allOperatorsBonus: 0.25 }), p('Muelsyse', { selfBonus: 0.55, allOthersBonus: 0.1 }), p('Fiammetta', { exclusiveRecovery: 2 })], 4, rosters, {});
   near(rates[0].bonus, 0.8); near(rates[1].bonus, 0.15); near(rates[2].bonus, 0.8); near(rates[3].base + rates[3].bonus, 2);
-  const party = dormitoryRecoveryRates([p('Senshi', { allOperatorsBonus: 0.15 }), p('Laios'), p('Amiya')], 4, rosters, {}, false);
+  const senshi = evalSkill('Senshi', 'Veteran Cook');
+  const party = dormitoryRecoveryRates([p('Senshi', { allOperatorsBonus: senshi.recovery.all, recipientBonus: senshi.entry.interaction?.recipientBonus }), p('Laios'), p('Amiya')], 4, rosters, {});
   near(party[0].bonus, 0.3); near(party[1].bonus, 0.3); near(party[2].bonus, 0.15);
-  const glasgow = dormitoryRecoveryRates([p('Siege', { allOperatorsBonus: 0.2 }), p('Morgan'), p('Amiya')], 4, rosters, {}, true);
+  const morgan = evalSkill('Morgan', 'No.1 Practice Partner').entry.interaction!.providerBonus!;
+  const glasgow = dormitoryRecoveryRates([p('Siege', { allOperatorsBonus: 0.2 }), p('Morgan'), p('Amiya')], 4, rosters, {}, [morgan]);
   near(glasgow[0].bonus, 0.5); near(glasgow[1].bonus, 0.5); near(glasgow[2].bonus, 0.2);
 });
-
 test('crafting reads each actual dorm threshold and Deer guarantees on the craft that crosses the counter', () => {
   const values = [4, 12, 19, 20, 21];
   near(craft('Arene', 'Orirock Concentration', { dormMorale: values }).boost, 0.2);

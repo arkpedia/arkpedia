@@ -1,4 +1,4 @@
-import type { BaseRosters } from './baseGroupRosters';
+import type { BaseRosters } from '../baseGroupRosters';
 
 export interface TradingPostContext {
   tradingPostLevel: number;

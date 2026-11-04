@@ -1,4 +1,4 @@
-import { cleanSkillName } from './activeBaseSkills';
+import { cleanSkillName } from '../activeBaseSkills';
 import BUFFS from './special-skill-buffs.json';
 
 /**

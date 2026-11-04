@@ -5,9 +5,9 @@
  * holds every room's numbers equal. Every reader here is for the plain part of a skill; a skill with a handler
  * never reaches them.
  */
-import type { BaseSkill } from '@/lib/operators/operatorTypes';
-import type { FactoryProduct } from './baseTypes';
-import { skillEffectEntry, type BaseSkillEffectEntry, type SkillEffect } from './baseSkillEffects';
+import type { BaseSkill } from '../../operators/operatorTypes';
+import type { FactoryProduct } from '../baseTypes';
+import { skillEffectEntry, type BaseSkillEffectEntry, type SkillEffect } from '../baseSkillEffects';
 import {
   factoryYellowContribution, tradingPostYellowContribution, calcCapacity, calcOrderLimit, calcClueSpeed, calcOffice, calcDroneRate,
   calcMorale, calcControlCenterEffects, clueCollectionBonusFrom,

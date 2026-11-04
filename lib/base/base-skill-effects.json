@@ -2324,8 +2324,13 @@
    "buffCategory": "RECOVERY",
    "targets": [],
    "efficiency": null,
-   "shape": "flat",
-   "effects": [],
+   "shape": "pool",
+   "effects": [
+    {
+     "kind": "recoveryAll",
+     "value": 0.1
+    }
+   ],
    "unlock": {
     "phase": 2,
     "level": 1
@@ -2900,8 +2905,13 @@
    "buffCategory": "RECOVERY",
    "targets": [],
    "efficiency": null,
-   "shape": "flat",
-   "effects": [],
+   "shape": "pool",
+   "effects": [
+    {
+     "kind": "recoveryAll",
+     "value": 0.1
+    }
+   ],
    "unlock": {
     "phase": 0,
     "level": 1
@@ -8848,7 +8858,7 @@
    },
    "source": "en",
    "description": "When this Operator is assigned to the Reception Room, increases Clue search speed by 10%, and when assigned together with Typhon, increases Clue search speed by an additional 15% while self Morale loss per hour +0.5, and increases the likelihood of obtaining clues that are not on the Clue Board",
-   "note": "Also shifts which clues turn up."
+   "note": "Also shifts which clues are likely to turn up, which is not a speed number -- only the search-speed half is modeled."
   },
   "meet_spd&bd[100]": {
    "buffId": "meet_spd&bd[100]",
@@ -9097,6 +9107,13 @@
      "when": {
       "type": "alone"
      }
+    },
+    {
+     "kind": "selfMorale",
+     "value": 1,
+     "when": {
+      "type": "alone"
+     }
     }
    ],
    "unlock": {
@@ -9149,6 +9166,13 @@
     {
      "kind": "clueSpeed",
      "value": 0.35,
+     "when": {
+      "type": "alone"
+     }
+    },
+    {
+     "kind": "selfMorale",
+     "value": 1,
      "when": {
       "type": "alone"
      }
@@ -10493,8 +10517,7 @@
      "value": 0,
      "per": {
       "count": "base.maxDroneCapacity",
-      "amount": 0.01,
-      "step": 10
+      "amount": 0.001
      },
      "cap": 0.25
     }
@@ -10504,7 +10527,8 @@
     "level": 1
    },
    "source": "en",
-   "description": "When this Operator is assigned to a Power Plant, +1% Drone recovery rate for every 10 max Drone capacity (Max +25%)"
+   "description": "When this Operator is assigned to a Power Plant, +1% Drone recovery rate for every 10 max Drone capacity (Max +25%)",
+   "note": "235 drones of capacity are 23.5%, not 23%: the game does not round the count down to tens."
   },
   "power_rec_rhine[000]": {
    "buffId": "power_rec_rhine[000]",
@@ -11338,7 +11362,7 @@
      "value": 0.05,
      "when": {
       "type": "countAtLeast",
-      "count": "otherPowerPlants.roster:LATERANO",
+      "count": "powerPlants.rosterOthers:LATERANO",
       "value": 1
      }
     }
@@ -11364,7 +11388,7 @@
      "value": 0.05,
      "when": {
       "type": "countAtLeast",
-      "count": "otherPowerPlants.roster:OPERATION_PLATFORM",
+      "count": "powerPlants.rosterOthers:OPERATION_PLATFORM",
       "value": 1
      }
     }
@@ -13059,7 +13083,12 @@
    "targets": [],
    "efficiency": null,
    "shape": "flat",
-   "effects": [],
+   "effects": [
+    {
+     "kind": "orderEfficiency",
+     "value": 0.15
+    }
+   ],
    "unlock": {
     "phase": 0,
     "level": 1
@@ -13075,7 +13104,12 @@
    "targets": [],
    "efficiency": null,
    "shape": "flat",
-   "effects": [],
+   "effects": [
+    {
+     "kind": "orderEfficiency",
+     "value": 0.2
+    }
+   ],
    "unlock": {
     "phase": 2,
     "level": 1
@@ -13143,7 +13177,7 @@
      "kind": "orderEfficiency",
      "value": 0,
      "per": {
-      "count": "base.facilitiesWithRoster:SUI",
+      "count": "base.workFacilitiesWithRoster:SUI",
       "amount": 0.04,
       "maxCount": 5
      }
@@ -13748,7 +13782,8 @@
     "params": {
      "perStep": 0.25,
      "step": 5,
-     "cap": 1
+     "cap": 1,
+     "beforeLimitChanges": 1
     }
    },
    "unlock": {

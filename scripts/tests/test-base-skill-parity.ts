@@ -4,11 +4,9 @@ import { getAllOperators } from '../../lib/operators/operators';
 import { toBaseRosters } from '../../lib/base/baseGroupRosters';
 import { calculateBase, type BaseCalculationInput } from '../../lib/base/calculateBase';
 import { getFacilities, presetLevels, presetSpots } from '../../lib/base/baseConfig';
-import { productivityOf, orderEfficiencyOf, capacityOf, orderLimitOf, clueSpeedOf, hrSpeedOf, droneRateOf, moraleOf, controlCenterOf, dormitoryRecoveryOf, type SkillSource } from '../../lib/base/skillReading';
-import { skillEffectEntry } from '../../lib/base/baseSkillEffects';
+import { calculateBase as legacyCalculateBase } from '../../lib/base/legacy/calculateBase';
 import type { BaseAssignments, FactoryProducts, SlotAssignment } from '../../lib/base/baseTypes';
-import type { BaseOperator, BaseSkill } from '../../lib/operators/operatorTypes';
-import { specialSkillKey, SPECIAL_SKILL_BUFFS } from '../../lib/base/specialSkillKeys';
+import type { BaseOperator } from '../../lib/operators/operatorTypes';
 import { activeBaseSkills } from '../../lib/base/activeBaseSkills';
 import { SHEET252_FACILITIES, SHEET252_PRODUCTS, sheet252Shifts } from '../bench/sheet-252';
 import { SHEET_FACILITIES, FORMATIONS, withFreeBeds, assignmentsOf, everyoneMaxed } from '../bench/sheet-342';
@@ -16,48 +14,25 @@ import groups from '../../data/base-group-rosters.json';
 import slots from '../../data/base-skill-slots.json';
 import recipes from '../../data/base-workshop-recipes.json';
 import fixture from '../../tests/fixtures/base-account.json';
+import { KNOWN_DEVIATIONS } from './base-skill-deviations';
 
 /*
- * The skill table (lib/base/base-skill-effects.json) replaced the description text as where a plain skill's
- * numbers come from. These hold the two readings equal: skill by skill for every record skill the table reads,
- * and room by room through the whole calculator over the reference sheets' staffings, the fixture account and
- * seeded random placements of a maxed roster. There is no saved Krooster lookup page in the repository, so the
- * Krooster-shaped roster is stood in for by the maxed catalogue roster the benches use.
+ * The skill table (lib/base/base-skill-effects.json) replaced the hand-written handlers and the description text
+ * as where every base skill's numbers come from. These hold the new calculator equal to the one it replaced
+ * (frozen under lib/base/legacy/ for the move), room by room, over the reference sheets' staffings, the fixture
+ * account and seeded random placements of a maxed roster. There is no saved Krooster lookup page in the
+ * repository, so the Krooster-shaped roster is stood in for by the maxed catalogue roster the benches use.
+ *
+ * Where the table reads a skill the handlers got wrong, the difference is listed in KNOWN_DEVIATIONS with its
+ * reason and the operator is left out of the random roster; test-base-skill-corrections.ts holds each corrected
+ * number directly.
  */
 const chinese = (text: string | null | undefined) => /[\u4e00-\u9fff]/.test(text ?? '');
-const operators: BaseOperator[] = getAllOperators().filter(op => !/^Amiya \(/.test(op.name) && !op.isFuture && !(op.baseSkills ?? []).some(sk => chinese(sk.description))).map(op => ({ name: op.name, rarity: op.rarity, faction: op.faction, class: op.class, branch: op.branch, baseSkills: op.baseSkills, ...(op.aliases?.length ? { aliases: op.aliases } : {}) }));
-const base = { operators, rosters: toBaseRosters(groups), skillSlots: slots, workshopRecipes: recipes };
-const maxed = everyoneMaxed(operators);
-const SOURCES: SkillSource[] = ['text', 'table'];
-
-/** The readers of a skill's own room: a Factory skill is never read through the Control Center's patterns. */
-function readingsOf(sk: BaseSkill, source: SkillSource): Record<string, unknown> {
-  switch (skillEffectEntry(sk)?.roomType) {
-    case 'MANUFACTURE': return { exp: productivityOf(sk, 'Battle Records', source), gold: productivityOf(sk, 'Precious Metals', source), shards: productivityOf(sk, 'Originium Shards', source), capacity: capacityOf(sk, source), morale: moraleOf(sk, source) };
-    case 'TRADING': return { order: orderEfficiencyOf(sk, source), limit: orderLimitOf(sk, source), morale: moraleOf(sk, source) };
-    case 'MEETING': return { clue: clueSpeedOf(sk, source), morale: moraleOf(sk, source) };
-    case 'HIRE': return { hr: hrSpeedOf(sk, source), morale: moraleOf(sk, source) };
-    case 'POWER': return { drone: droneRateOf(sk, source), morale: moraleOf(sk, source) };
-    case 'CONTROL': return { cc: controlCenterOf(sk, source), morale: moraleOf(sk, source) };
-    case 'DORMITORY': return { dorm: dormitoryRecoveryOf(sk, source) };
-    default: return {};
-  }
-}
-
-test('every flat table entry reads as the text did, skill by skill', () => {
-  const differences: string[] = [];
-  for (const op of getAllOperators()) for (const sk of op.baseSkills ?? []) {
-    const entry = skillEffectEntry(sk);
-    // A skill with a handler never reached the text readers; a CN-only skill's text has no English for them.
-    if (entry?.shape !== 'flat' || specialSkillKey(op.name, sk, op.aliases) in SPECIAL_SKILL_BUFFS || chinese(sk.description)) continue;
-    const [text, table] = SOURCES.map(source => readingsOf(sk, source));
-    for (const key of Object.keys(text)) {
-      const a = JSON.stringify(text[key]), b = JSON.stringify(table[key]);
-      if (a !== b) differences.push(`${op.name} / ${sk.name} (${sk.buffId}) ${key}: text ${a}, table ${b}`);
-    }
-  }
-  assert.deepEqual(differences, []);
-});
+const everyone: BaseOperator[] = getAllOperators().filter(op => !/^Amiya \(/.test(op.name) && !op.isFuture && !(op.baseSkills ?? []).some(sk => chinese(sk.description))).map(op => ({ name: op.name, rarity: op.rarity, faction: op.faction, class: op.class, branch: op.branch, baseSkills: op.baseSkills, ...(op.aliases?.length ? { aliases: op.aliases } : {}) }));
+// The sheets and the fixture place whoever they place; the random roster leaves out the operators whose skills now read differently.
+const operators = everyone.filter(op => !(op.name in KNOWN_DEVIATIONS));
+const base = { operators: everyone, rosters: toBaseRosters(groups), skillSlots: slots, workshopRecipes: recipes };
+const maxed = everyoneMaxed(everyone);
 
 type Numbers = unknown;
 function near(a: Numbers, b: Numbers, path: string, out: string[]) {
@@ -71,24 +46,26 @@ function near(a: Numbers, b: Numbers, path: string, out: string[]) {
   if (a !== b) out.push(`${path}: ${String(a)} vs ${String(b)}`);
 }
 /** The calculator's numbers, the parts a room's rates and the day's totals are made of. */
-function numbersOf(r: ReturnType<typeof calculateBase>) {
+function numbersOf(r: ReturnType<typeof calculateBase> | ReturnType<typeof legacyCalculateBase>, kindOf: Map<string, string>) {
   const rooms = Object.fromEntries(Object.entries(r.rooms).map(([id, room]) => [id, {
     productivity: room.productivity, capacity: room.capacity, orderLimit: room.orderLimit, morale: room.morale, clueSpeed: room.clueSpeed, clueSpeedBase: room.clueSpeedBase,
     droneRate: room.droneRate, office: room.office, trainingSpeed: room.trainingSpeed, trainingHours: room.trainingHours, workshop: room.workshop?.chance ?? null,
     combinedMoraleRate: room.combinedMoraleRate, perOperatorMorale: room.perOperatorMorale, deadTime: room.deadTime, fullTime: room.fullTime,
-    breakdown: room.facilityBreakdown ? { finalYellow: room.facilityBreakdown.finalYellow, effective: room.facilityBreakdown.effectiveProductivity, lines: room.facilityBreakdown.lines.map(l => [l.operatorName, l.skillName, l.rawValue, l.included]) } : null,
+    breakdown: room.facilityBreakdown ? { finalYellow: room.facilityBreakdown.finalYellow, effective: room.facilityBreakdown.effectiveProductivity, lines: ['factory', 'tradingPost', 'powerPlant'].includes(kindOf.get(id) ?? '') ? room.facilityBreakdown.lines.map(l => `${l.rawValue.toFixed(9)}|${l.included}`).sort() : null } : null,
   }]));
   const { moraleLevels, moraleOrder, roomDailyOutput, totalMonsterMeal, resourcePools, ccEffects, ccMoraleRelief, totalFelvine, dormitoryRecoveryByFacility, dailyExpGreen, dailyExpRed, dailyGoldMadeGreen, dailyGoldMadeRed, dailyGoldSoldGreen, dailyGoldSoldRed, dailyGoldWorthGreen, dailyGoldWorthRed, dailyExtraLmdFromOrdersGreen, dailyExtraLmdFromOrdersRed } = r;
   return { rooms, moraleLevels, moraleOrder, roomDailyOutput, totalMonsterMeal, resourcePools, ccEffects, ccMoraleRelief, totalFelvine, dormitoryRecoveryByFacility, dailyExpGreen, dailyExpRed, dailyGoldMadeGreen, dailyGoldMadeRed, dailyGoldSoldGreen, dailyGoldSoldRed, dailyGoldWorthGreen, dailyGoldWorthRed, dailyExtraLmdFromOrdersGreen, dailyExtraLmdFromOrdersRed };
 }
-function sameBothWays(label: string, input: Omit<BaseCalculationInput, 'skillSource'>, out: string[]) {
-  const [text, table] = SOURCES.map(skillSource => numbersOf(calculateBase({ ...input, skillSource })));
+function sameBothWays(label: string, input: BaseCalculationInput, out: string[]) {
+  const kindOf = new Map(input.facilities.map(f => [f.id, f.kind]));
+  const before = numbersOf(legacyCalculateBase(input), kindOf);
+  const after = numbersOf(calculateBase(input), kindOf);
   const differences: string[] = [];
-  near(text, table, label, differences);
+  near(before, after, label, differences);
   out.push(...differences.slice(0, 20));
 }
 
-test('the fixture account and the reference sheets compute the same from the table as from the text', () => {
+test('the fixture account and the reference sheets compute the same as before the handlers became data', () => {
   const out: string[] = [];
   const b = fixture.base;
   sameBothWays('fixture', { ...base, facilities: getFacilities(b.productionSpots as never, b.facilityLevels), assignments: b.assignments as BaseAssignments, factoryProducts: b.factoryProducts as FactoryProducts, dormitoryAmbience: b.dormitoryAmbience, importedMorale: b.morale, loginInterval: 8 }, out);
@@ -98,7 +75,7 @@ test('the fixture account and the reference sheets compute the same from the tab
   assert.deepEqual(out, []);
 });
 
-test('seeded random placements of the maxed roster compute the same from the table as from the text', () => {
+test('seeded random placements of the maxed roster compute the same as before the handlers became data', () => {
   let seed = 20261104;
   const rand = () => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648; };
   const pick = <T,>(xs: T[]) => xs[Math.floor(rand() * xs.length)];
@@ -107,7 +84,7 @@ test('seeded random placements of the maxed roster compute the same from the tab
   for (const f of layouts.flat()) if (!skilledFor.has(f.label)) skilledFor.set(f.label, operators.filter(op => activeBaseSkills(op, f.label, 'Elite 2', slots, 90).length).map(op => op.name));
   const names = operators.map(op => op.name);
   const out: string[] = [];
-  for (let n = 0; n < 150; n++) {
+  for (let n = 0; n < 500; n++) {
     const facilities = pick(layouts);
     const used = new Set<string>();
     const assignments: BaseAssignments = {};

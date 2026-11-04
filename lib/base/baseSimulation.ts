@@ -1,6 +1,5 @@
 import { calculateBase, type BaseCalculationInput, type RoomDailyOutput } from './calculateBase';
 import { activeBaseSkills } from './activeBaseSkills';
-import { hasNamedSkill } from './specialSkillKeys';
 import type { BaseAssignments, FactoryProducts, SlotAssignment } from './baseTypes';
 
 /**
@@ -251,7 +250,6 @@ export function simulateBase(input: SimulationInput): SimulationResult {
     'A single-target Dormitory skill gives its recovery to the roommate with the least Morale at each login, until the next login.',
   ]);
   const operatorByName = new Map(base.operators.map(o => [o.name, o]));
-  const formerNames = new Map(base.operators.map(o => [o.name, o.aliases ?? []]));
 
   shifts.forEach((shift, i) => {
     const seen = new Set<string>();
@@ -332,9 +330,10 @@ export function simulateBase(input: SimulationInput): SimulationResult {
     return rates;
   }
 
+  // Communal Suffering (dorm_exchangeAp[000]): swaps Morale with the previous occupant at full Morale.
   const hasFiammettaSwap = (slot: SlotAssignment) => {
     const op = operatorByName.get(slot.operatorName);
-    return !!op && hasNamedSkill(slot.operatorName, activeBaseSkills(op, 'Dormitory', slot.eliteLevel, base.skillSlots, slot.level), 'Fiammetta|Communal Suffering', formerNames.get(slot.operatorName));
+    return !!op && activeBaseSkills(op, 'Dormitory', slot.eliteLevel, base.skillSlots, slot.level).some((sk) => sk.buffId === 'dorm_exchangeAp[000]');
   };
 
   // Morale persists across cycles; storage is emptied at every login.

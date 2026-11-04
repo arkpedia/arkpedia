@@ -12,11 +12,11 @@
  * supplies the English of a CN-only skill.
  *
  * The numbers come two ways. Rules, per room, read the plain skills exactly as the calculator's text parsers
- * did ("productivity +25%", "order limit +2", "Morale consumed per hour -0.25"). Overrides
+ * once did ("productivity +25%", "order limit +2", "Morale consumed per hour -0.25"). Overrides
  * (base-skill-overrides.ts) carry what words state: counts, conditions, interactions, and the handlers that
  * stay custom. The guard refuses the table when a buff id is unclassified, a rule found no number in a text
- * that has one, an override names a key no record has, two overrides disagree on a shared buff id, or a
- * handler key is neither overridden nor declared generic.
+ * that has one, a text uses words the rules cannot read without an override, an override names a key no
+ * record has, or two overrides disagree on a shared buff id.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -107,12 +107,16 @@ function dormitory(text: string): SkillEffect[] {
 }
 const CN_KINDS: [RegExp, SkillEffect['kind']][] = [[/生产力/, 'productivity'], [/订单获取效率/, 'orderEfficiency'], [/订单上限/, 'orderLimit'], [/心情每小时消耗/, 'selfMorale'], [/线索搜集速度/, 'clueSpeed'], [/联络速度/, 'hrSpeed'], [/无人机充能速度/, 'droneRate'], [/材料转化效率/, 'recycleEfficiency'], [/专精技能训练速度/, 'trainingSpeed'], [/副产品/, 'byproductChance']];
 function chineseRule(text: string): SkillEffect[] {
-  // Only the first plain number of each kind: a CN-only skill has no record yet, so nothing computes it.
+  // The first plain number of each kind, before or after its words: a CN-only skill is a future operator's, read
+  // here so the table is whole, and replaced by the English rules once Global ships the text.
   const out: SkillEffect[] = [];
   for (const [re, kind] of CN_KINDS) {
-    const m = text.match(new RegExp(`${re.source}[^+\\-\\d]{0,8}([+-]?\\d+(?:\\.\\d+)?)(%?)`));
+    const m = text.match(new RegExp(`${re.source}[^+\\-\\d]{0,8}([+-]?\\d+(?:\\.\\d+)?)(%?)`)) ?? text.match(new RegExp(`([+-]\\d+(?:\\.\\d+)?)(%?)${re.source}`));
     if (m) out.push({ kind, value: m[2] ? Number(m[1]) / 100 : Number(m[1]) });
   }
+  // Dormitory recovery per hour: for everyone in the room, or the operator's own.
+  const rec = text.match(/心情每小时恢复([+-]\d+(?:\.\d+)?)/);
+  if (rec) out.push({ kind: /所有干员/.test(text) ? 'recoveryAll' : 'recoverySelf', value: Number(rec[1]) });
   return out;
 }
 function rules(buff: Buff, text: string): { effects: SkillEffect[]; interaction?: BaseSkillEffectEntry['interaction'] } {
@@ -168,7 +172,6 @@ async function main() {
   const en = await source('en'), cn = await source('cn');
   const records = fs.readdirSync(path.join(ROOT, 'data')).filter((d) => /^operators-\d+star$/.test(d)).flatMap((d) =>
     fs.readdirSync(path.join(ROOT, 'data', d)).filter((f) => f.endsWith('.json')).map((f) => JSON.parse(fs.readFileSync(path.join(ROOT, 'data', d, f), 'utf8')) as OperatorRecord));
-  const keyBuffs = JSON.parse(fs.readFileSync(path.join(ROOT, 'lib/base/special-skill-buffs.json'), 'utf8')) as Record<string, string[]>;
   const recordText = new Map<string, string>();
   const recordKeys = new Map<string, Set<string>>();
   for (const op of records) for (const sk of op.baseSkills ?? []) {
@@ -178,18 +181,15 @@ async function main() {
   }
 
   const errors: string[] = [];
-  // Overrides by buff id: a handler key through special-skill-buffs.json (or the records), a buff id as itself.
+  // Overrides by buff id: an "Operator|Skill" key through the records (under the operator's name or a former one), a buff id as itself.
   const overrideBy = new Map<string, { key: string; override: SkillOverride }[]>();
-  const overrideKeys = new Set<string>();
-  const buffIdsOfKey = (key: string): string[] => keyBuffs[key] ?? [...new Set([...recordKeys].filter(([, keys]) => keys.has(key)).map(([id]) => id))];
+  const buffIdsOfKey = (key: string): string[] => [...new Set([...recordKeys].filter(([, keys]) => keys.has(key)).map(([id]) => id))];
   for (const [key, override] of Object.entries(OVERRIDES)) {
-    overrideKeys.add(key);
     const ids = /\[\d+\]$/.test(key) ? [key] : buffIdsOfKey(key);
     if (!ids.length) { errors.push(`override "${key}" names no record skill and no buff id`); continue; }
     for (const id of ids) (overrideBy.get(id) ?? overrideBy.set(id, []).get(id)!).push({ key, override });
   }
-  for (const key of GENERIC_IS_RIGHT) { overrideKeys.add(key); if (!buffIdsOfKey(key).length) errors.push(`GENERIC_IS_RIGHT "${key}" names no record skill`); }
-  for (const key of Object.keys(keyBuffs)) if (!overrideKeys.has(key) && !keyBuffs[key].every((id) => overrideBy.has(id))) errors.push(`handler key "${key}" is neither overridden nor declared generic`);
+  for (const key of GENERIC_IS_RIGHT) if (!buffIdsOfKey(key).length) errors.push(`GENERIC_IS_RIGHT "${key}" names no record skill`);
   const genericRight = new Set(GENERIC_IS_RIGHT.flatMap((key) => buffIdsOfKey(key)));
   const resolveKey = (key: string, from: string) => { const ids = buffIdsOfKey(key); if (ids.length !== 1) errors.push(`${from}: suppressedBy "${key}" resolves to ${ids.length} buff ids`); return ids[0] ?? key; };
 

@@ -1,5 +1,5 @@
 import { ResourcePools } from './baseResources';
-import type { BaseRosters } from './baseGroupRosters';
+import type { BaseRosters } from '../baseGroupRosters';
 
 export interface ControlCenterContext {
   /** The group rosters (lib/base/baseGroupRosters.ts), from the page's props. */

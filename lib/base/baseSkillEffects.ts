@@ -73,9 +73,9 @@ export type SkillCountSource =
   | 'room.operators' | 'room.others' | 'room.belowFullMorale' | `room.roster:${string}` | `room.rosterOthers:${string}` | `room.faction:${string}` | `room.skillCategory:${string}`
   | 'base.tradingPosts' | 'base.factories' | 'base.powerPlants' | 'base.dormitories' | 'base.dormLevels' | 'base.facilityLevels' | 'base.robotsInPowerPlants'
   | 'base.distinctFactoryProducts' | 'base.goldFactories' | 'base.goldLines' | 'base.maxDroneCapacity' | 'base.dormOperators'
-  | `base.roster:${string}` | `base.rosterOthers:${string}` | `base.faction:${string}` | `base.facilitiesWithRoster:${string}` | `base.workersOfRoster:${string}`
+  | `base.roster:${string}` | `base.rosterOthers:${string}` | `base.faction:${string}` | `base.facilitiesWithRoster:${string}` | `base.workFacilitiesWithRoster:${string}` | `base.workersOfRoster:${string}`
   | `cc.roster:${string}` | `cc.rosterOthers:${string}` | `cc.faction:${string}`
-  | `otherPowerPlants.roster:${string}` | `tradingPosts.roster:${string}` | `factories.roster:${string}` | `reception.roster:${string}`
+  | `otherPowerPlants.roster:${string}` | `powerPlants.rosterOthers:${string}` | `tradingPosts.roster:${string}` | `reception.roster:${string}`
   | `tp.roster:${string}` | `tp.faction:${string}` | `factory.roster:${string}`
   | 'level.room' | 'level.receptionRoom' | 'level.trainingRoom' | 'office.extraSlots'
   | `resource:${string}`;
@@ -188,16 +188,17 @@ export interface BaseSkillEffectsTable {
 
 const TABLE = table as unknown as BaseSkillEffectsTable;
 
-/** Every entry, by buff id. */
-export const BASE_SKILL_EFFECTS: Readonly<Record<string, BaseSkillEffectEntry>> = TABLE.entries;
-
-/** A skill's table entry, by its buff id; undefined for a skill without one (a record the refresh has not rebuilt). */
-export function skillEffectEntry(skill: Pick<BaseSkill, 'buffId'>): BaseSkillEffectEntry | undefined {
-  return skill.buffId ? TABLE.entries[skill.buffId] : undefined;
+/** A skill's table entry, by its buff id, or the entry a synthetic skill carries itself; undefined for a skill
+ *  without either (a record the refresh has not rebuilt). */
+export function skillEffectEntry(skill: Pick<BaseSkill, 'buffId' | 'tableEntry'>): BaseSkillEffectEntry | undefined {
+  return skill.tableEntry ?? (skill.buffId ? TABLE.entries[skill.buffId] : undefined);
 }
 
-/** A buff id's family: "power_rec_spd[010]" → "power_rec_spd". */
-export const buffFamily = (buffId: string | null | undefined) => (buffId ?? '').replace(/\[\d+\]$/, '');
+/** A table entry for a synthetic skill: the effects stated, the rest filled in. */
+export function syntheticSkillEntry(roomType: SkillRoomType, effects: SkillEffect[], interaction?: SkillInteraction): BaseSkillEffectEntry {
+  const shape: SkillShape = effects.some((e) => e.per) ? 'counted' : effects.some((e) => e.when) ? 'threshold' : 'flat';
+  return { buffId: 'synthetic', family: 'synthetic', roomType, buffCategory: 'OUTPUT', targets: [], efficiency: null, shape, effects, ...(interaction ? { interaction } : {}), unlock: null, source: 'en', description: '' };
+}
 
 /** The counted part of an effect, given the count: `value + amount * floor(min(count, maxCount) / step)`, capped. */
 export function countedValue(effect: SkillEffect, count: number): number {

@@ -1,5 +1,5 @@
 import { nonDefaultRecruitSlots } from './baseResources';
-import type { BaseRosters } from './baseGroupRosters';
+import type { BaseRosters } from '../baseGroupRosters';
 
 export interface DormitorySkillContext {
   /** The group rosters (lib/base/baseGroupRosters.ts), from the page's props. */

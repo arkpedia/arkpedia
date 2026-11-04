@@ -1,4 +1,4 @@
-import type { BaseSkill } from '@/lib/operators/operatorTypes';
+import type { BaseSkill } from '../../operators/operatorTypes';
 
 /**
  * Parameterized base skills: what a skill does as typed effects, from the game's buff family (its buff id

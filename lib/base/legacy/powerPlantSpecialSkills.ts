@@ -1,4 +1,4 @@
-import { averageRampValue } from './rampValue';
+import { averageRampValue } from '../rampValue';
 export interface PowerPlantSkillContext {
   makotoInFactory: boolean;
   otherRobotInPowerPlant: boolean;

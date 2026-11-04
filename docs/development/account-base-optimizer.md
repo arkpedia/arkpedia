@@ -368,9 +368,39 @@ names the buff id that silences it. `nonNumeric` marks the skills the game state
 
 The script's guard refuses the table when a buff id is unclassified, a rule found no number in a
 text that has one, a record skill is in neither game table, a text uses words the rules cannot
-read (a count, a condition) without an override, an override names a key no record has, two
-overrides disagree on a buff id several operators share, or a handler key the calculator once had
-(`lib/base/special-skill-buffs.json`) is neither overridden nor declared generic. The rules are
-the calculator's own text patterns, copied into `scripts/build/build-base-skill-effects.ts`; the
-overrides are `scripts/build/base-skill-overrides.ts`, keyed by the former handler key
-("Operator|Skill") or by a buff id outright.
+read (a count, a condition) without an override, an override names a key no record has, or two
+overrides disagree on a buff id several operators share. The rules are the text patterns the
+calculator once ran at runtime, now in `scripts/build/build-base-skill-effects.ts`; the overrides
+are `scripts/build/base-skill-overrides.ts`, keyed by the former handler key ("Operator|Skill",
+found in the operator records under the operator's name or a former one) or by a buff id outright.
+
+### How the calculator reads it
+
+`lib/base/skillEvaluation.ts` turns an entry into a contribution against a `SkillScope`: the
+room's operators, the base's counts (`count`) and conditions (`holds`) as closures the calculator
+supplies (`scopeFor` in `calculateBase.ts`; `roomOnlyScope` in `optimizerLogic.ts` for the
+standalone room search, with the assumed base it always used). The data shapes resolve there; a
+`custom` entry comes back with its handler name and parameters, and the room runs it at its
+stage (`lib/base/customSkillHandlers.ts`): `base` for Gladiia, Młynar and the Morale-gated
+generators before any room; `factoryAggregate` for Bubble, Vermeil and Waai Fu once the room's
+other productivity is known; `tradingAggregate` and `tradingOrders` for Snowsant, Degenbrecher,
+Swire and Jaye; `moraleWindow` for the ramps and Totter once the room's Morale window is known.
+Control Center effects aimed at one room (`perTradingPostOrderEfficiency`, `perFactoryProductivity`)
+are evaluated once per target room with that room as the scope. Resource pools come from the
+table's `resource` effects (`lib/base/baseResources.ts` sums the generation and runs the
+conversions in their stages). A test or bench that needs a made-up rate gives a skill its own
+entry (`tableEntry`, `syntheticSkillEntry`) rather than description text.
+
+`scripts/tests/test-base-skill-parity.ts` held the table-driven calculator equal to the one it
+replaced (frozen under `lib/base/legacy/` for the move) room by room over the fixture account,
+the 2-5-2 and 3-4-2 reference sheets and 500 seeded random placements of a maxed roster; the
+differences are the skills the handlers or the text patterns got wrong, listed with their reasons
+in `scripts/tests/base-skill-deviations.ts` and each held to its corrected number in
+`test-base-skill-corrections.ts`. With the legacy copy gone the parity test holds a golden
+snapshot of the new numbers (`tests/fixtures/base-calculator-golden.json`): a regression lock,
+not the proof.
+
+Training Room and Workshop skills have entries (`trainingSpeed`, `byproductChance`, `recipeMorale`
+and their mastery, branch and recipe-kind conditions) so every skill is in one place, but their
+rooms are still computed by `lib/base/trainingRoomSkills.ts` and `lib/base/workshopSkills.ts`,
+which read the skill names; folding those two modules into the evaluator is a separate change.

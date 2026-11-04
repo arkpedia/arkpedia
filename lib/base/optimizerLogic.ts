@@ -1,23 +1,22 @@
 import { jayeContribution } from './jaye';
 import { activeBaseSkills } from './activeBaseSkills';
-import { specialSkillKey, type NamedSkillCheck } from './specialSkillKeys';
 import { BaseOperator, BaseSkill } from '../operators/operatorTypes';
-import { TRADING_POST_SPECIAL_SKILLS, TradingPostContext } from './tradingPostSpecialSkills';
-import { productivityOf, orderEfficiencyOf, orderLimitOf, type SkillSource } from './skillReading';
-import { FACTORY_SPECIAL_SKILLS, FactorySkillContext } from './factorySpecialSkills';
 import {
-  goldOrderTier,
   tradingPostExpectedMinutes,
   calcGreyProductivity,
-  calcOrderLimit,
+  tradingPostBaseOrderLimit,
   calcDailyProduction,
   calcTradingPostGoldAndLmdPerHour,
   calcTradingPostGoldPerHourStandardized,
-  tradingPostYellowContribution,
-  factoryYellowContribution,
+  type GoldOrderTier,
 } from './baseProductivity';
-import { toBaseRosters, type BaseRosters } from './baseGroupRosters';
-import { ResourcePools } from './baseResources';
+import { toBaseRosters, type BaseRosters, type BaseRosterName } from './baseGroupRosters';
+import { nonDefaultRecruitSlots } from './baseResources';
+import { skillEffectEntry, type SkillCondition, type SkillCountSource } from './baseSkillEffects';
+import { evaluateSkill, type SkillContribution, type SkillScope } from './skillEvaluation';
+import { CUSTOM_HANDLERS, CUSTOM_STAGE, type CustomContext } from './customSkillHandlers';
+import { categoriesFor } from './factorySkillCategories';
+import type { FactoryProduct } from './baseTypes';
 
 /** Every cross-room conditional (Gnosis in CC, Mulberry in Office, Kirin R
  * Yato/Rathalos S Noir Corne in CC, Senshi in Dormitory, SilverAsh the
@@ -74,33 +73,11 @@ function cleanSkillName(rawName: string | null): string | null {
   if (!rawName) return rawName;
   return rawName.split('Replaces')[0];
 }
-function findSkill(operatorName: string, matcher: (s: BaseSkill, cleanName: string | null) => boolean): BaseSkill | null {
-  const op = allOperators.find((o) => o.name === operatorName);
-  if (!op || !op.baseSkills) return null;
-  return op.baseSkills.find((s) => matcher(s, cleanSkillName(s.name))) ?? null;
-}
-
-/** Candidate identifiers map to a REAL operator name + a matcher that
- * finds their real BaseSkill entry (by exact skill name, or by elite
- * level when the display name alone is ambiguous across tiers). The
- * resulting description text is fed through the SAME generic parsers
- * (calcProductivity/calcOrderLimit) or SAME special-case handler
- * dictionaries the live site uses -- nothing here re-derives a formula
- * by hand. */
+/** Candidate identifiers map to a REAL operator name + the real BaseSkill entries they bring to the room, every one
+ * applied together, exactly as the whole-base calculator reads them from the skill table. */
 export interface Candidate {
   operatorName: string;
-  skills: { skillName: string; eliteLevel?: string; key?: string }[]; // ALL skills this operator has for this facility, applied simultaneously
-}
-
-/** A candidate skill's handler key: the one specialSkillKey gave it from the record (a skill or
- *  operator Global renamed keeps its handler), else made from its names, for a hand-built one. */
-const keyOf = (operatorName: string, sk: Candidate['skills'][number]) => sk.key ?? `${operatorName}|${sk.skillName}`;
-
-function skillTextForOne(operatorName: string, skillName: string, eliteLevel?: string): string | null {
-  return skillForOne(operatorName, skillName, eliteLevel)?.description ?? null;
-}
-function skillForOne(operatorName: string, skillName: string, eliteLevel?: string): BaseSkill | null {
-  return findSkill(operatorName, (s, cleanName) => cleanName === skillName && (!eliteLevel || s.eliteLevel === eliteLevel));
+  skills: { skillName: string; eliteLevel?: string; skill: BaseSkill }[]; // ALL skills this operator has for this facility, applied simultaneously
 }
 
 const ELITE_PRIORITY: Record<string, number> = { 'Elite 2': 2, 'Elite 1': 1, Base: 0, 'Level 30': 0 };
@@ -115,9 +92,7 @@ const ELITE_PRIORITY: Record<string, number> = { 'Elite 2': 2, 'Elite 1': 1, Bas
  *
  * The slot is the game's where the record carries it (building_data's buffChar entry, written
  * every night by sync-operator-english.mjs); else the scraped "Replaces" suffix, which names the
- * slot's first skill; else the skill's own name. The /base rotation experiment kept its own copy
- * of this without the record's slot, and counted 7 operators' two tiers of one skill (Bellone,
- * Ju and Titi, Ripresa, Akafuyu, Ukusik, Akkord, ...) as two skills at Elite 2: one function now. */
+ * slot's first skill; else the skill's own name. */
 export function bestSkillPerSlot(skills: BaseSkill[]): BaseSkill[] {
   const groups = new Map<string, BaseSkill[]>();
   for (const s of skills) {
@@ -137,106 +112,54 @@ function allSkillsForOperator(operatorName: string, facility: 'Factory' | 'Tradi
   return activeBaseSkills(op, facility, 'Elite 2');
 }
 
-/** Auto-generates ONE candidate PER OPERATOR (not per skill) for every
- * operator with at least one skill at the given facility, pulling
- * directly from the real operator dataset -- this is what guarantees
- * every released operator is actually searchable, instead of depending
- * on a hand-maintained list that can silently miss operators (as
- * happened with Crownslayer) or point at a dead skill name (as happened
- * with Tragodia). An operator with multiple concurrent skills (e.g.
- * Degenbrecher's two Trading Post skills) still occupies exactly ONE
- * search slot, but contributes every one of those skills at once when
- * evaluated -- matching how placing a real operator actually works. */
-const PRODUCTIVITY_CLAIM_PATTERN = /productivity/i;
-const ORDER_CLAIM_PATTERN = /order acquisition|order limit/i;
-
-const BATTLE_RECORDS_MENTION = /battle record/i;
-const PRECIOUS_METALS_MENTION = /precious metal/i;
-const UNRECOGNIZED_PRODUCT_CONDITIONAL = /\bformula\b/i; // e.g. "Originium formula related productivity" -- a real, different product type this optimizer doesn't model yet, not a bug to work around
-
-function isSkillUnderstood(key: string, facility: 'Factory' | 'Trading Post', description: string | null): boolean {
-  if (facility === 'Trading Post' && key in TRADING_POST_SPECIAL_SKILLS) return true;
-  if (facility === 'Factory' && key in FACTORY_SPECIAL_SKILLS) return true;
-  if (!description) return false; // no description text at all to verify anything against
-  if (facility === 'Trading Post') {
-    // A skill that never claims an order-acquisition or order-limit effect
-    // (e.g. pure recruit-slot or morale text) legitimately contributes
-    // zero to this metric -- that's a real zero, not an unverified one.
-    if (!ORDER_CLAIM_PATTERN.test(description)) return true;
-    return tradingPostYellowContribution(description) !== 0 || calcOrderLimit([description], 3).adjustment !== 0;
-  } else {
-    if (!PRODUCTIVITY_CLAIM_PATTERN.test(description)) return true;
-    // A product-conditional productivity claim tied to neither Battle
-    // Records nor Precious Metals (e.g. "Originium formula") is explicitly
-    // excluded -- it's a real, different mechanic scoped out on purpose,
-    // not something to silently fall through as unconditional.
-    if (UNRECOGNIZED_PRODUCT_CONDITIONAL.test(description) && !BATTLE_RECORDS_MENTION.test(description) && !PRECIOUS_METALS_MENTION.test(description)) return false;
-    return factoryYellowContribution(description, 'Battle Records') !== 0 || factoryYellowContribution(description, 'Precious Metals') !== 0;
-  }
+/** A skill the table describes with numbers the room can use. A Factory skill whose only productivity is for
+ *  Originium Shards is left out: a real, different product this optimizer does not model. */
+function isSkillUnderstood(skill: BaseSkill, facility: 'Factory' | 'Trading Post'): boolean {
+  const entry = skillEffectEntry(skill);
+  if (!entry) return false;
+  if (entry.custom || entry.nonNumeric || entry.interaction) return true;
+  if (facility === 'Factory' && entry.effects.length && entry.effects.every((e) => e.kind === 'productivity' && e.product === 'Originium Shards')) return false;
+  return true;
 }
 
-/** Excludes a candidate ENTIRELY if any one of their skills for this
- * facility isn't understood -- no fallback, no silent zero. Since an
- * operator's skills all apply together, a single unmodeled skill means
- * the operator's TRUE combined effect can't be verified, so the whole
- * candidate is dropped rather than included with a partially-wrong
- * (understated) contribution. */
+/** Excludes a candidate ENTIRELY if any one of their skills for this facility isn't understood -- no fallback, no
+ * silent zero: an operator's skills all apply together, so a single unmodeled skill means the operator's TRUE
+ * combined effect can't be verified. */
 function filterToUnderstoodCandidates(candidates: Record<string, Candidate>, facility: 'Factory' | 'Trading Post'): Record<string, Candidate> {
   const result: Record<string, Candidate> = {};
   for (const [id, c] of Object.entries(candidates)) {
-    const allUnderstood = c.skills.every((sk) => isSkillUnderstood(keyOf(c.operatorName, sk), facility, skillTextForOne(c.operatorName, sk.skillName, sk.eliteLevel)));
-    if (allUnderstood) result[id] = c;
+    if (c.skills.every((sk) => isSkillUnderstood(sk.skill, facility))) result[id] = c;
   }
   return result;
 }
 
-/** Same grouping logic as allSkillsForOperator above, but restricted to
- * ONLY Base-tier (Elite 0) skills -- for the rotation experiment, which
- * assumes every operator is owned but nobody has been promoted, rather
- * than this module's normal "assume Elite 2 everywhere" convention. A
- * skill with no eliteLevel tag at all is treated as Base tier too,
- * since that's how an operator's only/default skill is represented. */
+/** Same grouping logic as allSkillsForOperator above, but restricted to ONLY Base-tier (Elite 0) skills -- for the
+ * rotation experiment, which assumes every operator is owned but nobody has been promoted. A skill with no
+ * eliteLevel tag at all is treated as Base tier too. */
 function eliteZeroSkillsForOperator(operatorName: string, facility: 'Factory' | 'Trading Post'): BaseSkill[] {
   const op = allOperators.find((o) => o.name === operatorName);
   if (!op || !op.baseSkills) return [];
   return op.baseSkills.filter((s) => s.facility === facility && s.name && (!s.eliteLevel || s.eliteLevel === 'Base' || s.eliteLevel === 'Level 30'));
 }
 
-function autoGenerateCandidates(facility: 'Factory' | 'Trading Post'): Record<string, Candidate> {
+/** ONE candidate PER OPERATOR for every operator with at least one skill at the given facility, from the real
+ * operator dataset, so every released operator is searchable. An operator with several concurrent skills occupies
+ * one search slot and contributes every one of those skills at once, as placing a real operator does. */
+function candidatesFrom(facility: 'Factory' | 'Trading Post', skillsOf: (name: string) => BaseSkill[]): Record<string, Candidate> {
   const result: Record<string, Candidate> = {};
   for (const op of allOperators) {
-    const skills = allSkillsForOperator(op.name, facility);
+    const skills = skillsOf(op.name);
     if (skills.length === 0) continue;
-    result[op.name] = {
-      operatorName: op.name,
-      skills: skills.map((s) => ({ skillName: cleanSkillName(s.name) ?? s.name ?? '', eliteLevel: s.eliteLevel ?? undefined, key: specialSkillKey(op.name, s, op.aliases) })),
-    };
+    result[op.name] = { operatorName: op.name, skills: skills.map((s) => ({ skillName: cleanSkillName(s.name) ?? s.name ?? '', eliteLevel: s.eliteLevel ?? undefined, skill: s })) };
   }
   return filterToUnderstoodCandidates(result, facility);
 }
-
-function autoGenerateEliteZeroCandidates(facility: 'Factory' | 'Trading Post'): Record<string, Candidate> {
-  const result: Record<string, Candidate> = {};
-  for (const op of allOperators) {
-    const skills = eliteZeroSkillsForOperator(op.name, facility);
-    if (skills.length === 0) continue;
-    result[op.name] = {
-      operatorName: op.name,
-      skills: skills.map((s) => ({ skillName: cleanSkillName(s.name) ?? s.name ?? '', eliteLevel: s.eliteLevel ?? undefined, key: specialSkillKey(op.name, s, op.aliases) })),
-    };
-  }
-  return filterToUnderstoodCandidates(result, facility);
-}
+const autoGenerateCandidates = (facility: 'Factory' | 'Trading Post') => candidatesFrom(facility, (name) => allSkillsForOperator(name, facility));
+const autoGenerateEliteZeroCandidates = (facility: 'Factory' | 'Trading Post') => candidatesFrom(facility, (name) => eliteZeroSkillsForOperator(name, facility));
 
 // ==================== TRADING POST candidates ====================
 export let TP_CANDIDATES: Record<string, Candidate> = {};
 export let TP_CANDIDATES_ELITE_ZERO: Record<string, Candidate> = {};
-
-// Real "operatorName|skillName" keys, not candidate ID strings -- robust
-// to however a candidate happens to be identified.
-const TP_SELF_REFERENTIAL = new Set(['Jaye|Basic Needs', 'Jaye|Street Economics', 'Snowsant|Heavenly Reward α', 'Snowsant|Heavenly Reward β', "Degenbrecher|Champion's Bearing", 'Swire the Elegant Wit|Investment Solicitations']);
-const PROVISO_GOLD_BONUS: Record<string, number> = { 'Damages for Breach α': 1, 'Damages for Breach β': 2 };
-const TEQUILA_LMD_BONUS: Record<string, number> = { 'Investment α': 250, 'Investment β': 500 }; // Bena and Shamare only ever have the LOWER-tier version -- Shamare's is a permanent, separate skill (not replaced at Elite 2, her E2 slot is "Whispers" instead), so she carries this alongside her override for as long as she's placed
 
 export interface TpResult {
   combo: string[];
@@ -267,42 +190,86 @@ export interface DynamicContextOverrides {
   loginInterval?: number;
   receptionRoomLevel?: number;
   totalDormitoryLevels?: number;
-  tradingPostLevel?: number; // this specific Trading Post's own level (1-3) -- feeds calcOrderLimit's level-dependent base value. Defaults to 3 (max) when unspecified, same "assume fully built" convention this whole module already uses for everything else.
-  /** Where a plain skill's numbers come from (lib/base/skillReading.ts): the table (default) or the description text. */
-  skillSource?: SkillSource;
+  tradingPostLevel?: number; // this specific Trading Post's own level (1-3) -- feeds the level-dependent base order limit. Defaults to 3 (max) when unspecified, same "assume fully built" convention this whole module already uses for everything else.
 }
 
-function baseTpContext(overrides?: DynamicContextOverrides): Omit<TradingPostContext, 'sameRoomOperatorNames' | 'filledCountThisRoom' | 'othersOrderEfficiencySum' | 'othersOrderLimitRawSum' | 'genericOrderLimitAdjustment'> {
+const GUMMY_IN_TRADING_POST = true;
+
+/** The scope a room-only search evaluates a skill in: the room's own operators and skills for real, and the
+ *  assumed base around it -- every cross-room conditional true, the standard counts filled in, as before. */
+function roomOnlyScope(facility: 'Factory' | 'Trading Post', candidates: Candidate[], operatorName: string, product: FactoryProduct | null, overrides?: DynamicContextOverrides): SkillScope {
+  const roomNames = candidates.map((c) => c.operatorName);
   const worldlyPlight = overrides?.worldlyPlight ?? WORLDLY_PLIGHT;
-  const dormitoryOperatorCount = overrides?.dormitoryOperatorCount ?? DORMITORY_OPERATOR_COUNT;
-  const monsterMealTotal = overrides?.monsterMealTotal ?? MONSTER_MEAL;
-  // Terra Research Commission's Trading Post skill scales with Felvine, same
-  // as its Factory skill -- the Factory path already used this constant.
-  const felvineTotal = overrides?.felvineTotal ?? FELVINE;
-  return {
-    rosters,
-    tradingPostLevel: overrides?.tradingPostLevel ?? 3,
-    receptionRoomLevel: overrides?.receptionRoomLevel ?? 3,
-    totalDormitoryLevels: overrides?.totalDormitoryLevels ?? 20,
-    dormitoryOperatorCount,
-    felvineTotal,
-    distinctFactoryProductCount: 2,
-    operatorFaction: () => null, // left as-is: I can't confirm this interface takes a parameter without visibility into factorySpecialSkills.ts/tradingPostSpecialSkills.ts, so I'm not guessing at a signature change here
-    ulpianusInBase: overrides?.ulpianusInBase ?? true,
-    facilitiesWithSuiOperator: overrides?.facilitiesWithSuiOperator ?? 3,
-    facilitiesWithEliteOperator: overrides?.facilitiesWithEliteOperator ?? 5,
-    resourceBonuses: {
-      'Wind Chimes|Hell and High Water|morale_loss_reduction_base': Math.floor(worldlyPlight / 10) * 0.01,
-      'Wind Chimes|Distant Letter|morale_loss_reduction_e2': Math.floor(worldlyPlight / 10) * 0.02,
-      'Mr. Nothing|"Obvious Deception"|order_efficiency_pct': worldlyPlight * 1,
-      'Ebenholz|Lingering Melody|order_efficiency_pct_base': Math.floor(dormitoryOperatorCount / 4) * 1,
-      'Ebenholz|Harmony Astray|order_efficiency_pct_e2': Math.floor(dormitoryOperatorCount / 2) * 1,
-    },
-    monsterMealTotal,
-    effectiveGoldLineCount: 2,
-    allPlacedNames: overrides?.allPlacedNames ?? ['Ines', 'Ulpianus'],
+  const dormOperators = overrides?.dormitoryOperatorCount ?? DORMITORY_OPERATOR_COUNT;
+  const placed = overrides?.allPlacedNames ?? (facility === 'Trading Post' ? ['Ines', 'Ulpianus'] : []);
+  const roster = (key: string) => rosters[key as BaseRosterName] ?? new Set<string>();
+  const resources: Record<string, number> = {
+    worldlyPlight, felvine: overrides?.felvineTotal ?? FELVINE, monsterMeal: overrides?.monsterMealTotal ?? MONSTER_MEAL, ursusBeverage: overrides?.ursusSpecialtyBeverageTotal ?? 1,
+    soundlessResonance: dormOperators, chainOfThought: dormOperators, witchcraftCrystal: Math.floor(worldlyPlight / 5), engineeringRobots: 64, passion: 0, intelligenceReserve: 0,
   };
+  const count = (source: SkillCountSource): number => {
+    const at = source.indexOf(':');
+    const head = at < 0 ? source : source.slice(0, at), rest = at < 0 ? '' : source.slice(at + 1);
+    switch (head) {
+      case 'room.operators': return roomNames.length;
+      case 'room.others': return Math.max(0, roomNames.length - 1);
+      case 'room.roster': return roomNames.filter((n) => roster(rest).has(n)).length;
+      case 'room.rosterOthers': return roomNames.filter((n) => n !== operatorName && roster(rest).has(n)).length;
+      case 'room.skillCategory': {
+        const skills = candidates.flatMap((c) => c.skills);
+        const reclassify = skills.some((s) => skillEffectEntry(s.skill)?.interaction?.reclassifiesSkills);
+        return skills.filter((s) => categoriesFor(s.skillName, reclassify).includes(rest)).length;
+      }
+      case 'base.tradingPosts': return 2;
+      case 'base.factories': return 4;
+      case 'base.powerPlants': return 3;
+      case 'base.dormitories': return 4;
+      case 'base.dormLevels': return overrides?.totalDormitoryLevels ?? 20;
+      case 'base.facilityLevels': return 64;
+      case 'base.robotsInPowerPlants': return overrides?.robotPowerPlantCount ?? 2;
+      case 'base.distinctFactoryProducts': return 2;
+      case 'base.goldFactories': case 'base.goldLines': return 2;
+      case 'base.dormOperators': return dormOperators;
+      case 'base.roster': return rest === 'BLACKSTEEL_WORLDWIDE' ? overrides?.blacksteelWorldwideCountInBase ?? 2 : rest === 'RHINE_LAB' ? overrides?.rhineLabCountInBase ?? 5 : placed.filter((n) => roster(rest).has(n)).length;
+      case 'base.facilitiesWithRoster': return overrides?.facilitiesWithEliteOperator ?? 5;
+      case 'base.workFacilitiesWithRoster': return overrides?.facilitiesWithSuiOperator ?? 3;
+      case 'level.room': return facility === 'Trading Post' ? overrides?.tradingPostLevel ?? 3 : 3;
+      case 'level.receptionRoom': return overrides?.receptionRoomLevel ?? 3;
+      case 'level.trainingRoom': return 3;
+      case 'office.extraSlots': return nonDefaultRecruitSlots(3);
+      case 'resource': return resources[rest] ?? 0;
+      default: return 0;
+    }
+  };
+  const holds = (c: SkillCondition): boolean => {
+    switch (c.type) {
+      case 'roomHas': return roomNames.includes(c.name);
+      case 'roomHasRoster': return roomNames.some((n) => n !== operatorName && roster(c.roster).has(n));
+      case 'alone': return roomNames.length === 1;
+      case 'baseHas': return c.name === 'Ulpianus' ? overrides?.ulpianusInBase ?? true : placed.includes(c.name);
+      case 'inTradingPost': return c.name === 'Gummy' ? overrides?.gummyInTradingPost ?? GUMMY_IN_TRADING_POST : false;
+      case 'countAtLeast': return count(c.count) >= c.value;
+      case 'countAtMost': return count(c.count) <= c.value;
+      case 'product': return product === c.product;
+      default: return false;
+    }
+  };
+  return { operatorName, roomNames, product, count, holds, active: (buffId) => candidates.some((c) => c.skills.some((s) => s.skill.buffId === buffId)) };
 }
+const roomOnlyCustomContext = (operatorName: string, roomNames: readonly string[], overrides?: DynamicContextOverrides): CustomContext => ({
+  operatorName, roomNames,
+  rampWindowHours: 24, rampStartHours: 0, // optimistic: ramping skills reach their capped value
+  selfMoraleRate: 0.01, // near-zero decay rate -> Totter's own morale-difference stays near 0 -> his BASE value, the optimistic case
+  othersProductivitySum: 0, capacityByOperator: {}, groupHuntingInControlCenter: overrides?.gladiiaGroupHuntingActiveInCC ?? false,
+  othersOrderEfficiencySum: 0, othersOrderLimitRawSum: 0,
+  abyssalHunters: { working: 0, resting: 0, restingAtFullMorale: 0, perFactory: [], totalInFactories: 0 }, fractionAbove12: 1, ccFamilyCount: () => 0,
+});
+const goldOrderTierOf = (candidates: Candidate[]): GoldOrderTier => {
+  const tiers = candidates.flatMap((c) => c.skills.map((s) => ({ name: c.operatorName, tier: skillEffectEntry(s.skill)?.interaction?.goldOrderTier })));
+  if (tiers.some((t) => t.tier === 'higher')) return 'higher';
+  const lower = new Set(tiers.filter((t) => t.tier === 'lower').map((t) => t.name)).size;
+  return lower >= 2 ? 'doubleLower' : lower === 1 ? 'lower' : 'base';
+};
 
 export function evalTradingPost(comboIds: string[], overrides?: DynamicContextOverrides, candidatePool: Record<string, Candidate> = TP_CANDIDATES): TpResult | null {
   const candidates = comboIds.map((id) => candidatePool[id]).filter((c): c is Candidate => !!c);
@@ -310,123 +277,71 @@ export function evalTradingPost(comboIds: string[], overrides?: DynamicContextOv
   const realNames = candidates.map((c) => c.operatorName);
   if (new Set(realNames).size !== realNames.length) return null;
 
-  const sameRoomOperatorNames = realNames;
-  const source: SkillSource = overrides?.skillSource ?? 'table';
-  const genericSkills: BaseSkill[] = [];
-  const specialEntries: { operatorName: string; skillName: string; key: string }[] = [];
-  for (const c of candidates) {
-    for (const sk of c.skills) {
-      const key = keyOf(c.operatorName, sk);
-      if (key in TRADING_POST_SPECIAL_SKILLS) {
-        specialEntries.push({ operatorName: c.operatorName, skillName: sk.skillName, key });
-      } else {
-        const skill = skillForOne(c.operatorName, sk.skillName, sk.eliteLevel);
-        if (skill) genericSkills.push(skill);
-      }
-    }
-  }
-  const pending = specialEntries.filter((e) => !TP_SELF_REFERENTIAL.has(e.key));
-  const deferred = specialEntries.filter((e) => TP_SELF_REFERENTIAL.has(e.key));
-  // Among the deferred group, only Jaye's "Basic Needs" ALSO produces an
-  // orderLimit output of its own (her CAP reduction) -- Swire's
-  // "Investment Solicitations" and Degenbrecher's "Champion's Bearing"
-  // both read othersOrderLimitRawSum, so they need to see Jaye's real
-  // reduction already netted in, not a pre-Jaye snapshot. Mirrors the
-  // same fix applied in base.tsx's own Trading Post evaluation.
-  const orderLimitAffectingDeferred = deferred.filter((e) => e.skillName === 'Basic Needs');
-  const remainingDeferred = deferred.filter((e) => e.skillName !== 'Basic Needs');
-
+  const level = overrides?.tradingPostLevel ?? 3;
+  const evaluated = candidates.flatMap((c) => c.skills.map((s) => { const entry = skillEffectEntry(s.skill); return entry ? { name: c.operatorName, c: evaluateSkill(entry, roomOnlyScope('Trading Post', candidates, c.operatorName, null, overrides)) } : null; })).filter((x): x is { name: string; c: SkillContribution } => !!x);
   const karlanHere = realNames.filter((n) => rosters.KARLAN_TRADE.has(n)).length;
   const gnosisPresent = overrides?.gnosisInControlCenter ?? true; // defaults true for backward compatibility with callers (wholeBaseOptimizer.ts) that genuinely do place Gnosis unconditionally
   const gnosisEff = gnosisPresent ? -0.15 * karlanHere : 0;
   const gnosisLimit = gnosisPresent ? 6 * karlanHere : 0;
-
-  const prelimProd = { grey: calcGreyProductivity(candidates.length), yellow: genericSkills.reduce((n, sk) => n + orderEfficiencyOf(sk, source), 0) };
-  const prelimOrderLimit = { base: calcOrderLimit([], overrides?.tradingPostLevel ?? 3).base, adjustment: genericSkills.reduce((n, sk) => n + orderLimitOf(sk, source), 0) };
-  let othersEff = prelimProd.yellow + gnosisEff;
-  let othersLimitRaw = prelimOrderLimit.adjustment + gnosisLimit;
-
-  const base = baseTpContext(overrides);
-  const results: ReturnType<(typeof TRADING_POST_SPECIAL_SKILLS)[string]>[] = [];
-  for (const { key } of pending) {
-    const result = TRADING_POST_SPECIAL_SKILLS[key]({ ...base, sameRoomOperatorNames, filledCountThisRoom: candidates.length });
-    results.push(result);
-    if (result.orderEfficiency) othersEff += result.orderEfficiency;
-    if (result.orderLimit) othersLimitRaw += result.orderLimit;
+  const grey = calcGreyProductivity(candidates.length);
+  const results: { orderEfficiency: number; orderLimit: number; overrides: boolean }[] = [];
+  let othersEff = gnosisEff;
+  let othersLimitRaw = gnosisLimit;
+  for (const { c } of evaluated) {
+    if (c.custom) continue;
+    results.push({ orderEfficiency: c.orderEfficiency, orderLimit: c.orderLimit, overrides: c.overridesOthers });
+    othersEff += c.orderEfficiency; othersLimitRaw += c.orderLimit;
   }
-  const jayeEntry = specialEntries.find(e => e.operatorName === 'Jaye');
-  const snowEntry = specialEntries.find(e => e.operatorName === 'Snowsant');
-  if (jayeEntry) {
-    const modeled = jayeContribution(prelimOrderLimit.base + othersLimitRaw, othersEff, snowEntry ? (snowEntry.skillName.endsWith('β') ? 0.35 : 0.25) : 0, orderLimitAffectingDeferred.length > 0, prelimProd.grey + (overrides?.controlCenterTradingPostBonus ?? 0), overrides?.loginInterval ?? 24, overrides?.tradingPostLevel ?? 3, tradingPostExpectedMinutes(goldOrderTier(specialEntries), overrides?.tradingPostLevel ?? 3));
-    results.push({ orderEfficiency: modeled.jaye, orderLimit: modeled.limitReduction });
-    if (snowEntry) results.push({ orderEfficiency: modeled.snowsant });
+  const customs = evaluated.filter(({ c }) => c.custom);
+  for (const { name, c } of customs) {
+    if (c.custom!.handler !== 'perOthersOrderLimit' || !c.custom!.params.beforeLimitChanges) continue;
+    const r = CUSTOM_HANDLERS[c.custom!.handler](c.custom!.params, { ...roomOnlyCustomContext(name, realNames, overrides), othersOrderLimitRawSum: othersLimitRaw });
+    results.push({ orderEfficiency: r.orderEfficiency ?? 0, orderLimit: 0, overrides: false }); othersEff += r.orderEfficiency ?? 0;
+  }
+  const jaye = customs.filter(({ c }) => c.custom!.handler.startsWith('jaye'));
+  const snowsant = customs.find(({ c }) => c.custom!.handler === 'snowsant');
+  const goldTier = goldOrderTierOf(candidates);
+  if (jaye.length) {
+    const promoted = jaye.some(({ c }) => c.custom!.handler === 'jayeBasicNeeds');
+    const modeled = jayeContribution(tradingPostBaseOrderLimit(level) + othersLimitRaw, othersEff, snowsant ? snowsant.c.custom!.params.cap : 0, promoted, grey + (overrides?.controlCenterTradingPostBonus ?? 0), overrides?.loginInterval ?? 24, level, tradingPostExpectedMinutes(goldTier, level));
+    results.push({ orderEfficiency: modeled.jaye, orderLimit: modeled.limitReduction, overrides: false });
+    if (snowsant) results.push({ orderEfficiency: modeled.snowsant, orderLimit: 0, overrides: false });
     othersLimitRaw += modeled.limitReduction;
   }
-
-  for (const { key, operatorName } of remainingDeferred) {
-    if (operatorName === 'Jaye' || (operatorName === 'Snowsant' && jayeEntry)) continue;
-    const result = TRADING_POST_SPECIAL_SKILLS[key]({
-      ...base,
-      sameRoomOperatorNames,
-      filledCountThisRoom: candidates.length,
-      othersOrderEfficiencySum: othersEff,
-      othersOrderLimitRawSum: othersLimitRaw,
-      genericOrderLimitAdjustment: prelimOrderLimit.base,
-    });
-    results.push(result);
+  for (const { name, c } of customs) {
+    if (c.custom!.handler.startsWith('jaye') || (c.custom!.handler === 'snowsant' && jaye.length) || (c.custom!.handler === 'perOthersOrderLimit' && c.custom!.params.beforeLimitChanges)) continue;
+    const r = CUSTOM_HANDLERS[c.custom!.handler](c.custom!.params, { ...roomOnlyCustomContext(name, realNames, overrides), othersOrderEfficiencySum: othersEff, othersOrderLimitRawSum: othersLimitRaw });
+    results.push({ orderEfficiency: r.orderEfficiency ?? 0, orderLimit: 0, overrides: false });
   }
 
+  const specialProductivitySum = results.reduce((s, r) => s + r.orderEfficiency, 0);
+  const specialOrderLimitSum = results.reduce((s, r) => s + r.orderLimit, 0);
+  const overrideActive = results.some((r) => r.overrides);
+  const overrideSum = results.filter((r) => r.overrides).reduce((s, r) => s + r.orderEfficiency, 0);
 
-
-  const specialProductivitySum = results.reduce((s, r) => s + (r.orderEfficiency ?? 0), 0);
-  const specialOrderLimitSum = results.reduce((s, r) => s + (r.orderLimit ?? 0), 0);
-  const overrideActive = results.some((r) => r.overridesOthersEfficiency);
-  const overrideSum = results.filter((r) => r.overridesOthersEfficiency).reduce((s, r) => s + (r.orderEfficiency ?? 0), 0);
-
-  // Matches base.tsx exactly: if an override skill (e.g. Shamare's Whispers)
-  // is active, the room's final yellow productivity is JUST the overriding
-  // operator's own contribution (plus Gnosis's and Control Center's
-  // cross-facility effects) -- every other operator's own orderEfficiency
-  // is discarded entirely. Otherwise it's the normal generic + special sum.
+  // Matches the whole-base calculator: with an override skill (Shamare's Whispers) active, the room's final yellow is
+  // JUST the overriding operator's own contribution plus Gnosis's and the Control Center's cross-facility effects.
   const controlCenterBonus = overrides?.controlCenterTradingPostBonus ?? 0;
-  const finalYellow = overrideActive ? overrideSum + gnosisEff + controlCenterBonus : prelimProd.yellow + specialProductivitySum + gnosisEff + controlCenterBonus;
-  const effectiveProductivity = Math.max(0, prelimProd.grey + finalYellow);
-  const effectiveLimit = Math.max(1, prelimOrderLimit.base + prelimOrderLimit.adjustment + specialOrderLimitSum + gnosisLimit);
+  const finalYellow = overrideActive ? overrideSum + gnosisEff + controlCenterBonus : specialProductivitySum + gnosisEff + controlCenterBonus;
+  const effectiveProductivity = Math.max(0, grey + finalYellow);
+  const effectiveLimit = Math.max(1, tradingPostBaseOrderLimit(level) + specialOrderLimitSum + gnosisLimit);
 
-  // Non-standard gold mechanics, matching base.tsx's if/else-if precedence.
-  // Detected off each candidate's REAL matched skill, not a hand-typed ID.
-  const provisoCandidate = candidates.find((c) => c.operatorName === 'Proviso');
-  const provisoSkill = provisoCandidate?.skills.find((s) => s.skillName in PROVISO_GOLD_BONUS);
-  const tequilaCandidate = candidates.find((c) => c.operatorName === 'Tequila');
-  const tequilaSkill = tequilaCandidate?.skills.find((s) => s.skillName in TEQUILA_LMD_BONUS);
-  const goldTier = goldOrderTier(candidates.flatMap(c => c.skills.map(sk => ({ operatorName: c.operatorName, skillName: sk.skillName }))));
-  const isPepe = candidates.some((c) => c.skills.some((s) => keyOf(c.operatorName, s) === ('Pepe|Insightful' satisfies NamedSkillCheck)));
-  const isUOfficial = candidates.some((c) => c.operatorName === 'U-Official');
-
+  // Non-standard gold mechanics, from the skills' trade rules, in the whole-base calculator's precedence.
+  const rules = candidates.flatMap((c) => c.skills.map((s) => skillEffectEntry(s.skill)?.interaction?.trade)).filter((t): t is NonNullable<typeof t> => !!t);
   let dailyGold: number;
   let dailyLmd: number;
-  if (isPepe) {
+  if (rules.some((t) => t.order === 'pepe')) {
     return { combo: comboIds, effectiveProductivity: null, effectiveLimit: null, dailyGold: 0, dailyLmd: (24 * 60 / 270) * 1000 };
-  } else if (candidates.some(c => c.skills.some(sk => keyOf(c.operatorName, sk) === ('Closure|Special Orders' satisfies NamedSkillCheck)))) {
+  } else if (rules.some((t) => t.order === 'closure')) {
     const dailyOrders = effectiveProductivity * 24 / 2.4;
     dailyGold = dailyOrders * 2;
     dailyLmd = dailyOrders * 1200;
-  } else if (isUOfficial) {
-    dailyGold = calcTradingPostGoldPerHourStandardized(effectiveProductivity, 2, overrides?.tradingPostLevel ?? 3) * 24;
+  } else if (rules.some((t) => t.fixedGold)) {
+    dailyGold = calcTradingPostGoldPerHourStandardized(effectiveProductivity, rules.find((t) => t.fixedGold)!.fixedGold!, level) * 24;
     dailyLmd = dailyGold * 500;
   } else {
-    // Always the same combined call -- Tailoring's distribution tier,
-    // Proviso's gold bonus, and Tequila's LMD bonus all apply together
-    // regardless of which subset is actually present (0/0/'base' for
-    // any that aren't), instead of a branching chain that could
-    // silently drop one dimension when another is active.
-    const { goldPerHour, extraLmdPerHour } = calcTradingPostGoldAndLmdPerHour(
-      effectiveProductivity,
-      provisoSkill ? PROVISO_GOLD_BONUS[provisoSkill.skillName] : 0,
-      tequilaSkill ? TEQUILA_LMD_BONUS[tequilaSkill.skillName] : 0,
-      goldTier,
-      overrides?.tradingPostLevel ?? 3
-    );
+    // Tailoring's distribution tier, Proviso's gold bonus and Tequila's LMD bonus all apply together.
+    const { goldPerHour, extraLmdPerHour } = calcTradingPostGoldAndLmdPerHour(effectiveProductivity, Math.max(0, ...rules.map((t) => t.defaultedGoldBonus ?? 0)), Math.max(0, ...rules.map((t) => t.lmdBonusAbove3 ?? 0)), goldTier, level);
     dailyGold = goldPerHour * 24;
     dailyLmd = dailyGold * 500 + extraLmdPerHour * 24;
   }
@@ -438,33 +353,13 @@ export function evalTradingPost(comboIds: string[], overrides?: DynamicContextOv
 export let FACTORY_CANDIDATES: Record<string, Candidate> = {};
 export let FACTORY_CANDIDATES_ELITE_ZERO: Record<string, Candidate> = {};
 
-/** Rebuilds all four candidate pools from the current allOperators.
- * Function declaration (hoisted), so it's safely callable from
- * initializeOptimizerData above even though it's defined below both
- * sets of pools it rebuilds -- by the time it's actually CALLED (from
- * base.tsx, after import), every export it assigns to already exists. */
+/** Rebuilds all four candidate pools from the current allOperators. Function declaration (hoisted), so it's safely
+ * callable from initializeOptimizerData above even though it's defined below both sets of pools it rebuilds. */
 function invalidateCandidateCaches() {
   TP_CANDIDATES = autoGenerateCandidates('Trading Post');
   TP_CANDIDATES_ELITE_ZERO = autoGenerateEliteZeroCandidates('Trading Post');
   FACTORY_CANDIDATES = autoGenerateCandidates('Factory');
   FACTORY_CANDIDATES_ELITE_ZERO = autoGenerateEliteZeroCandidates('Factory');
-}
-
-const GUMMY_IN_TRADING_POST = true;
-
-function emptyResourcePools(): ResourcePools {
-  return {
-    passion: 0,
-    worldlyPlight: WORLDLY_PLIGHT,
-    soundlessResonance: DORMITORY_OPERATOR_COUNT,
-    perceptionInformation: 0,
-    intelligenceReserve: 0,
-    memoryFragments: 0,
-    witchcraftCrystal: Math.floor(WORLDLY_PLIGHT / 5),
-    chainOfThought: DORMITORY_OPERATOR_COUNT,
-    measure: 0,
-    dreamland: 0,
-  };
 }
 
 export interface FactoryResult {
@@ -479,89 +374,40 @@ export function evalFactory(comboIds: string[], product: 'Battle Records' | 'Pre
   const realNames = candidates.map((c) => c.operatorName);
   if (new Set(realNames).size !== realNames.length) return null;
 
-  const sameFactoryOperatorNames = realNames;
-  const sameFactorySkillNames = candidates.flatMap((c) => c.skills.map((s) => s.skillName));
-  const source: SkillSource = overrides?.skillSource ?? 'table';
-  const genericSkills: BaseSkill[] = [];
-  const specialEntries: { key: string }[] = [];
-  for (const c of candidates) {
-    for (const sk of c.skills) {
-      const key = keyOf(c.operatorName, sk);
-      if (key in FACTORY_SPECIAL_SKILLS) {
-        specialEntries.push({ key });
-      } else {
-        const skill = skillForOne(c.operatorName, sk.skillName, sk.eliteLevel);
-        if (skill) genericSkills.push(skill);
-      }
-    }
-  }
-
-  const genericProd = { grey: calcGreyProductivity(candidates.length), yellow: genericSkills.reduce((n, sk) => n + productivityOf(sk, product, source), 0) };
-  let normalSum = genericProd.yellow;
+  const evaluated = candidates.flatMap((c) => c.skills.map((s) => { const entry = skillEffectEntry(s.skill); return entry ? { name: c.operatorName, c: evaluateSkill(entry, roomOnlyScope('Factory', candidates, c.operatorName, product, overrides)) } : null; })).filter((x): x is { name: string; c: SkillContribution } => !!x);
+  const grey = calcGreyProductivity(candidates.length);
+  let normalSum = 0;
   let exemptSum = 0;
   let overrideSum = 0;
-  const hasOverride = specialEntries.some((e) => {
-    const r = FACTORY_SPECIAL_SKILLS[e.key]({ ...emptyFactoryContext(sameFactoryOperatorNames, sameFactorySkillNames, product, overrides), eliteLevel: null });
-    return r.overridesOthersProductivity;
-  });
-
-  for (const { key } of specialEntries) {
-    const ctx = emptyFactoryContext(sameFactoryOperatorNames, sameFactorySkillNames, product, overrides);
-    const result = FACTORY_SPECIAL_SKILLS[key]({ ...ctx, eliteLevel: null });
-    if (result.overridesOthersProductivity) {
-      overrideSum += result.productivity ?? 0;
-    } else if (result.exemptFromOverride) {
-      exemptSum += result.productivity ?? 0;
-    } else {
-      normalSum += result.productivity ?? 0;
-    }
+  let hasOverride = false;
+  let othersSum = 0;
+  const capacityByOp: Record<string, number> = {};
+  const take = (c: SkillContribution, productivity: number) => {
+    if (c.overridesOthers) { hasOverride = true; overrideSum += productivity; }
+    else if (c.exemptFromOverride) exemptSum += productivity;
+    else normalSum += productivity;
+  };
+  for (const { name, c } of evaluated) {
+    if (c.custom) continue;
+    take(c, c.productivity);
+    if (c.productivity && !c.exemptFromOverride) othersSum += c.productivity;
+    if (c.capacity) capacityByOp[name] = (capacityByOp[name] || 0) + c.capacity;
+  }
+  for (const handler of ['bubble', 'vermeil', 'waaiFu']) for (const { name, c } of evaluated) {
+    if (c.custom?.handler !== handler) continue;
+    const r = CUSTOM_HANDLERS[handler](c.custom.params, { ...roomOnlyCustomContext(name, realNames, overrides), capacityByOperator: capacityByOp, othersProductivitySum: othersSum });
+    take(c, r.productivity ?? 0);
+    if (handler !== 'waaiFu' && r.productivity) othersSum += r.productivity;
+  }
+  for (const { name, c } of evaluated) {
+    if (!c.custom || CUSTOM_STAGE[c.custom.handler] !== 'moraleWindow') continue;
+    take(c, CUSTOM_HANDLERS[c.custom.handler](c.custom.params, roomOnlyCustomContext(name, realNames, overrides)).productivity ?? 0);
   }
 
   const controlCenterBonus = overrides?.controlCenterFactoryBonus ?? 0;
   const total = exemptSum + (hasOverride ? overrideSum : normalSum) + controlCenterBonus;
-  const effectiveProductivity = Math.max(0, genericProd.grey + total);
+  const effectiveProductivity = Math.max(0, grey + total);
   return { combo: comboIds, effectiveProductivity, dailyOutput: calcDailyProduction(effectiveProductivity, product) };
-}
-
-function emptyFactoryContext(sameFactoryOperatorNames: string[], sameFactorySkillNames: string[], product: 'Battle Records' | 'Precious Metals', overrides?: DynamicContextOverrides): Omit<FactorySkillContext, 'eliteLevel'> {
-  const worldlyPlight = overrides?.worldlyPlight ?? WORLDLY_PLIGHT;
-  const felvineTotal = overrides?.felvineTotal ?? FELVINE;
-  const monsterMealTotal = overrides?.monsterMealTotal ?? MONSTER_MEAL;
-  const gummyInTradingPost = overrides?.gummyInTradingPost ?? GUMMY_IN_TRADING_POST;
-  return {
-    rosters,
-    selectedProduct: product,
-    totalDormitoryLevels: 20,
-    totalFacilityLevels: 64,
-    trainingRoomLevel: 3,
-    allPlacedNames: overrides?.allPlacedNames ?? [],
-    sameFactoryOperatorNames,
-    sameFactorySkillNames,
-    filledCountThisFactory: sameFactoryOperatorNames.length,
-    tradingPostOperatorCount: 3,
-    tradingPostCount: 2,
-    powerPlantOperatorCount: 3,
-    powerPlantCount: 3,
-    robotPowerPlantCount: overrides?.robotPowerPlantCount ?? 2,
-    operatorFaction: () => null,
-    factionCountInBase: () => 3,
-    dormitoryCount: 4,
-    otherOperatorsCapacity: {},
-    totalFactoryCapacityIncrease: 0,
-    gladiiaGroupHuntingActiveInCC: overrides?.gladiiaGroupHuntingActiveInCC ?? false,
-    felvineTotal,
-    monsterMealTotal,
-    ursusSpecialtyBeverageTotal: overrides?.ursusSpecialtyBeverageTotal ?? 1,
-    blacksteelWorldwideCountInBase: overrides?.blacksteelWorldwideCountInBase ?? 2,
-    rhineLabCountInBase: overrides?.rhineLabCountInBase ?? 5, // optimistic: assumes a full Rhine Lab squad (Nasti's own 5-cap), same simplification convention as the other assumed values in this standalone context
-    resourcePools: emptyResourcePools(),
-    resourceBonuses: {
-      'Shu|Where Stalks Grow Deep, Autumn Reaps|productivity_pct': Math.floor(worldlyPlight / 3) * 1,
-    },
-    operatorInAnyTradingPost: (name: string) => (name === 'Gummy' && gummyInTradingPost ? { facilityId: 'tp1' } : null),
-    rampWindowHours: 24, // optimistic: assumes ramping skills reach their capped value, same simplification flagged in the earlier standalone version
-    selfMoraleRate: 0.01, // near-zero decay rate -> Totter's own morale-difference stays near 0 -> his BASE value, the optimistic case
-  };
 }
 
 // ==================== Tier grouping (unchanged from before -- detects
