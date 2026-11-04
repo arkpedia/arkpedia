@@ -1,4 +1,5 @@
 import { WORK_KINDS } from './baseOptimizer';
+import { activeBaseSkills } from './activeBaseSkills';
 import { MAX_GENOME_STEPS, crewAt, decode, evaluate, hasWorkingCollision, placeGenomeOperator, snapshotValue, splitCrew, type Evaluation, type Genome, type GenomeContext } from './planGenome';
 import { exceedsSetups } from './rotationSetups';
 import { teamBlocks, type TeamBlock } from './teamBlocks';
@@ -78,6 +79,12 @@ export function anneal(seedGenome: Genome, ctx: GenomeContext, opts: AnnealOptio
     const inPlan = new Set([...g.crews.flatMap(namesIn), ...(g.core.length ? ['Fiammetta'] : [])]);
     return owned.filter(n => !inPlan.has(n));
   };
+  // The Reception Room and Office take only an operator with a skill for the room. Their own speed is not scored,
+  // so a search free to drop anyone there kept whatever its last random move left (Penance searching for clues,
+  // Bison in HR); the skills that do score (Mulberry in HR lifting a Trading Post) are still found this way.
+  const operatorsByName = new Map(ctx.base.operators.map(o => [o.name, o]));
+  const skilledFor = new Map(rooms.filter(f => f.kind === 'receptionRoom' || f.kind === 'office').map(f => [f.id, new Set(owned.filter(n => activeBaseSkills(operatorsByName.get(n)!, f.label, ctx.roster[n].eliteLevel, ctx.base.skillSlots, ctx.roster[n].level).length > 0))]));
+  const fits = (name: string, room: string) => !skilledFor.has(room) || skilledFor.get(room)!.has(name);
 
   // A team's worth depends on the rest of the base it works beside (a Control Center for the crew it supports, a
   // factory beside the Trading Posts of its crew), so each crew draws from blocks built in its own context, and the
@@ -108,7 +115,7 @@ export function anneal(seedGenome: Genome, ctx: GenomeContext, opts: AnnealOptio
       for (let i = 0; i < slots.length; i++) {
         if (slots[i] || !before.crews[c][id]?.[i]) continue;
         const available = unused(g), allowed = new Set(available);
-        const candidates = [...new Set([...displaced, ...available.slice(0, 4)])].filter(n => allowed.has(n));
+        const candidates = [...new Set([...displaced, ...available.slice(0, 4)])].filter(n => allowed.has(n) && fits(n, id));
         if (!candidates.length) continue;
         const baseline = snapshotValue(crew, g, ctx);
         let bestValue = baseline, bestName: string | null = null;
@@ -146,13 +153,13 @@ export function anneal(seedGenome: Genome, ctx: GenomeContext, opts: AnnealOptio
       const c = Math.floor(random() * n.crews.length), room = pick(roomIds), i = Math.floor(random() * capacity(room));
       const here = n.crews[c][room]?.[i]?.operatorName ?? null;
       if (random() < 0.5) {
-        const pool = unused(n); if (!pool.length) return null;
+        const pool = unused(n).filter(name => fits(name, room)); if (!pool.length) return null;
         place(n, c, room, i, pick(pool));
         return n;
       }
       const c2 = Math.floor(random() * n.crews.length), room2 = pick(roomIds), j = Math.floor(random() * capacity(room2));
       const there = n.crews[c2][room2]?.[j]?.operatorName ?? null;
-      if (here === there) return null;
+      if (here === there || (there && !fits(there, room)) || (here && !fits(here, room2))) return null;
       place(n, c, room, i, null); place(n, c2, room2, j, null);
       if (there) place(n, c, room, i, there);
       if (here) place(n, c2, room2, j, here);

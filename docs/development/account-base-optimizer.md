@@ -294,11 +294,19 @@ with dark/light screenshots. Browser fixtures are synthetic.
 
 ## Completing the base
 
-Published account recommendations pass through `completeStaffing.ts`. The production
-search can otherwise omit Reception/Office (their own outputs are not LMD or EXP),
-Workshop (crafting is instantaneous), and low-value Control Center/Power Plant slots.
-The completion pass fills open slots with remaining owned operators, keeps existing
-working placements and locked/dorm-skill residents, and finds recovery placements.
+Published account recommendations pass through `completeStaffing.ts`. The search
+staffs every work room, the Reception Room and Office included, since some of their
+skills raise scored output across rooms (Mulberry in HR lifts a Trading Post), but it
+may put only an operator with a skill for the room into those two: their own speed is
+not LMD, EXP or gold, so a search free to drop anyone there kept whatever its last
+random move left (testers saw Penance and Mudrock searching for clues and Bison in HR).
+It leaves the Workshop alone (crafting is instantaneous) and may leave low-value
+Control Center and Power Plant slots open. The completion pass fills open slots with
+remaining owned operators, skilled first by the room's own rate, then by Morale drain,
+then the operator the reader has built (an E0 copy of a skill never displaces a promoted
+one), keeps existing working placements and locked/dorm-skill residents, and finds
+recovery placements. A support room it cannot staff safely stays empty, and its note
+names the idle skilled operators the reader can run there by hand.
 A supplemental operator may cover multiple changes only when the complete simulated
 cycle remains periodic and free of exhaustion. This includes all cross-room effects;
 returned yields and saved rotations use the completed assignments. Intermediate

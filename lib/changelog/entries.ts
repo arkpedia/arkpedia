@@ -34,6 +34,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-04T17:00:00Z',
+    fixed: [
+      { title: 'The base optimizer staffs the Reception Room and HR Office properly', detail: 'They get operators with a skill for the room, preferring the ones you have promoted, or stay empty with the names to put there by hand. Before, the search left whoever it last tried in them.', href: '/base' },
+      { title: 'The base optimizer says when it cannot compare your layout', detail: 'A testing account with no base layout gets a note in place of a 2-5-2 checkbox that could not be turned off.', href: '/base' },
+    ],
+  },
+  {
     at: '2026-11-03T12:00:00Z',
     changed: [
       { title: 'The base optimizer uses your spare cores', detail: 'On a device with several cores the optimizer runs searches side by side for the same minute and shows the best plan found.', href: '/base' },

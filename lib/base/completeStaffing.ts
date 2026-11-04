@@ -58,7 +58,10 @@ export function completeStaffing(plan: OptimizerResult, ctx: GenomeContext): Opt
         const benefit = room.kind === 'receptionRoom' ? (r.clueSpeed ?? 0) : room.kind === 'office' ? (r.office?.speed ?? 0) : room.kind === 'powerPlant' ? (r.droneRate ?? 0) : room.kind === 'workshop' ? (r.workshop?.chance ?? 0) : room.kind === 'trainingRoom' ? (r.trainingSpeed ?? 0) : (r.productivity?.yellow ?? 0);
         return { name, benefit, drain: r.combinedMoraleRate };
       });
-      ranked.set(key, ratings.sort((a, b) => b.benefit - a.benefit || a.drain - b.drain || a.name.localeCompare(b.name)).map(r => r.name));
+      // Equal benefit and drain: the operator the reader has built, so an E0 level 1 copy of a skill never
+      // displaces a promoted one (Brigid at E0 over Haruka at E2 in HR was the reader's own complaint).
+      const built = (name: string) => ['Base', 'Elite 1', 'Elite 2'].indexOf(roster[name].eliteLevel) * 100 + roster[name].level;
+      ranked.set(key, ratings.sort((a, b) => b.benefit - a.benefit || a.drain - b.drain || built(b.name) - built(a.name) || a.name.localeCompare(b.name)).map(r => r.name));
     }
     return ranked.get(key)!.filter(n => room.kind === 'workshop' ? !assigned.has(n) : !Object.entries(shifts[step].assignments).some(([id, slots]) => kind.get(id) !== 'dormitory' && slots.some(s => s?.operatorName === n)));
   }
@@ -127,7 +130,11 @@ export function completeStaffing(plan: OptimizerResult, ctx: GenomeContext): Opt
   if (!base.trainingTarget && base.facilities.some(f => f.kind === 'trainingRoom' && f.capacity)) notes.push('Training Room needs a training target; no mastery task is assumed.');
   for (const room of rooms) {
     const missing = shifts.flatMap((s, i) => (s.assignments[room.id] ?? []).filter(Boolean).length < room.capacity ? [i + 1] : []);
-    if (missing.length) notes.push(`${room.label}: not fully staffed in shift${missing.length > 1 ? 's' : ''} ${missing.join(', ')}. No safe assignment was found from the remaining roster and recovery beds.`);
+    if (!missing.length) continue;
+    // A support room the production crews' beds left unstaffed: the reader can still run it by hand, so name
+    // the skilled operators the plan leaves idle (the fill's own order), rather than only reporting the gap.
+    const byHand = ['receptionRoom', 'office'].includes(room.kind) ? candidates(room, missing[0] - 1).filter(name => skills(name, room.label).length && !shifts.some(s => Object.values(s.assignments).some(slots => slots.some(x => x?.operatorName === name)))).slice(0, 3) : [];
+    notes.push(`${room.label}: not fully staffed in shift${missing.length > 1 ? 's' : ''} ${missing.join(', ')}. No safe assignment was found from the remaining roster and recovery beds.${byHand.length ? ` To staff it by hand, with their own rests: ${byHand.join(', ')}.` : ''}`);
   }
   return { ...plan, shifts, simulation, crews, schedule, score: scoreOf(simulation, ctx), explanations: [], notes, evaluations: plan.evaluations + evaluations };
 }

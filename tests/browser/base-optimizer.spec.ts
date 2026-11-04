@@ -379,6 +379,9 @@ test('a pasted Krooster profile link imports a testing account inside the Base o
   await optimizer.getByRole('textbox', { name: 'Krooster profile link' }).fill('https://www.krooster.com/network/lookup/tester/');
   await optimizer.getByRole('button', { name: 'Import from Krooster', exact: true }).click();
   await expect(optimizer.getByRole('status').first()).toContainText('Imported 4 operators from Tester\'s Krooster profile');
+  // No base layout came with the profile, so the 2-5-2 layouts are compared and there is no checkbox to untick.
+  await expect(optimizer.getByText('No base layout in this import: the 2-5-2 layouts are recommended.')).toBeVisible();
+  await expect(optimizer.getByRole('checkbox', { name: 'Recommend 2-5-2' })).toHaveCount(0);
   expect(asked).toBe('tester');
   const stored = await page.evaluate(() => ({ account: JSON.parse(localStorage.getItem('arkpediaAccount') ?? 'null'), roster: JSON.parse(localStorage.getItem('plannerRoster') ?? '{}') }));
   // By the site's game-account map: char_289_gyuki is Matoimaru and char_502_nblade is Yato.

@@ -192,7 +192,9 @@ export default function BaseAccountOptimizer({ account, base, loginInterval, sta
     <div className={styles.actions}>
       <button type="button" className="primary btn-sm" disabled={!account || running || !Object.keys(owned.roster).length} onClick={run}>{running ? 'Optimizing…' : 'Recommend layout'}</button>
       {running && <button type="button" className="ghost btn-sm" title="Stop the search; the best plan found so far is kept" onClick={() => stop()}>Stop</button>}
-      <label className="check"><input type="checkbox" checked={compareLayouts} onChange={e => setCompareLayouts(e.target.checked)} disabled={!account?.base} />Recommend 2-5-2</label>
+      {account?.base
+        ? <label className="check"><input type="checkbox" checked={compareLayouts} onChange={e => setCompareLayouts(e.target.checked)} />Recommend 2-5-2</label>
+        : <span className="hint">{account ? 'No base layout in this import: the 2-5-2 layouts are recommended.' : 'Recommends the 2-5-2 layouts, or your own once imported.'}</span>}
     </div>
     {owned.assumed.length > 0 && <p className="hint">Missing imported progress for {owned.assumed.length} operators: using E0 level 1.</p>}
     {running && <div role="status" aria-live="polite"><progress max={progress.total || 1} value={progress.done} /> {progress.total ? `${progress.done}% · ${progress.label}` : 'Preparing search…'}{partial.current?.recommendations[0] && <> · best so far {whole(partial.current.recommendations[0].score)} / day</>}<span className={styles.localNote}>Runs on your device for up to {searchMinutes} min; it stops early when nothing improves.</span></div>}
