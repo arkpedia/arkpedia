@@ -5,6 +5,7 @@ import StyledSelect from '@/components/ui/StyledSelect';
 import NumberInput from '@/components/ui/NumberInput';
 import InfoPopover from '@/components/ui/InfoPopover';
 import Image from '@/components/content/ContentImage';
+import KroosterImport from '@/components/account-import/KroosterImport';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
 import type { FacilityDef } from '@/lib/base/baseTypes';
 import { MAX_ROTATION_SETUPS, setupGroups, setupLabel } from '@/lib/base/rotationSetups';
@@ -31,6 +32,7 @@ export default function BaseAccountOptimizer({ account, base, loginInterval, onI
   const [objective, setObjective] = useState<AccountOptimizerInput['objective']>('balanced');
   const [externalGold, setExternalGold] = useState(0);
   const [compareLayouts, setCompareLayouts] = useState(true);
+  const [kroosterNote, setKroosterNote] = useState('');
   const [searchMinutes, setSearchMinutes] = useState(lastSearchMinutes);
   const [startHour, setStartHour] = useState(8);
   const [running, setRunning] = useState(false);
@@ -166,6 +168,12 @@ export default function BaseAccountOptimizer({ account, base, loginInterval, onI
   return <div className={styles.workspace}>
     <p className="hint">Beta · Calculations and simulations run on your PC. Processing time varies with your hardware.</p>
     {!account && <p className="sub"><Link href="/account">Import your account</Link> to recommend teams from your owned operators and their unlocked skills.</p>}
+    {process.env.ARKPEDIA_KROOSTER_IMPORT === '1' && <div className={styles.actions}>
+      {/* Preview only (next.config.js): testers try the optimizer on a Krooster collection without a game import. */}
+      <span className="label-tag">Testing account from Krooster</span>
+      <KroosterImport idPrefix="optimizer-krooster" onNote={setKroosterNote} />
+      {kroosterNote && <p className="hint" role="status">{kroosterNote}</p>}
+    </div>}
     <div className={styles.controls}>
       <div><span className="label-tag">Logins per day</span><SegmentedControl label="Optimizer logins per day" value={loginInterval} onChange={onInterval} options={[24, 12, 8, 6].map(h => ({ value: h, label: `${24 / h}×`, ariaLabel: `${24 / h} times a day, every ${h} hours` }))} /></div>
       <label>Priority<StyledSelect label="Optimizer priority" value={objective} onChange={v => setObjective(v as typeof objective)} options={[{ value: 'balanced', label: 'LMD + EXP' }, { value: 'lmd', label: 'LMD' }, { value: 'exp', label: 'EXP' }]} /></label>

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { KROOSTER_USER, accountFromKrooster, parseKroosterPage, profileFromData } from '../../lib/account-import/krooster';
+import { KROOSTER_USER, accountFromKrooster, kroosterUser, parseKroosterPage, profileFromData } from '../../lib/account-import/krooster';
 import type { GameAccountMap } from '../../lib/planner/gameAccount';
 
 // A Krooster lookup page carries its profile in the page's embedded data (Pages Router __NEXT_DATA__).
@@ -67,4 +67,10 @@ test('the profile becomes an account record and planner roster by the map, unkno
 test('usernames are the characters a Krooster handle may hold', () => {
   for (const ok of ['tester', 'a.b-c_d', 'Mocchi123']) assert.ok(KROOSTER_USER.test(ok), ok);
   for (const bad of ['', 'with space', 'a/b', 'x'.repeat(33), '../etc']) assert.ok(!KROOSTER_USER.test(bad), bad);
+});
+
+test('a pasted profile link or a bare username gives the username; anything else gives null', () => {
+  for (const link of ['https://www.krooster.com/network/lookup/mocchibird', 'http://krooster.com/network/lookup/mocchibird/', 'www.krooster.com/network/lookup/mocchibird?tab=roster', ' KROOSTER.com/network/lookup/mocchibird#top ', 'mocchibird']) assert.equal(kroosterUser(link), 'mocchibird', link);
+  assert.equal(kroosterUser('https://www.krooster.com/network/lookup/a%2Eb'), 'a.b');
+  for (const bad of ['', 'https://www.krooster.com/network/', 'https://example.com/network/lookup/mocchibird', 'https://www.krooster.com/network/lookup/a%2Fb', 'https://www.krooster.com/network/lookup/with space', 'krooster.com/network/lookup/']) assert.equal(kroosterUser(bad), null, bad);
 });

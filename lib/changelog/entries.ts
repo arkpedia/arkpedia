@@ -38,7 +38,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     changed: [
       { title: 'The base optimizer uses your spare cores', detail: 'On a device with several cores the optimizer runs searches side by side for the same minute and shows the best plan found.', href: '/base' },
       { title: 'The base optimizer tries more plans a minute', detail: 'It no longer rescores staffing it has already scored, so a minute reaches two to three times as many plans on a large roster.', href: '/base' },
-      { title: 'Testers can import a Krooster profile', detail: 'On Preview, Import / export takes a public Krooster username and makes it the account, for trying the base optimizer.', href: '/account' },
+      { title: 'Testers can import a Krooster profile', detail: 'On Preview, paste a public Krooster profile link into the Base optimizer or Import / export and it becomes the account.', href: '/base' },
     ],
     fixed: [
       { title: 'Optimizer rotations fit the game\'s presets', detail: 'The base optimizer now recommends rotations that fit the three presets the game stores, and saving one creates a setup per preset.', href: '/base' },

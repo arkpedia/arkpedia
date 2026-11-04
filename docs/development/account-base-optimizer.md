@@ -171,15 +171,19 @@ formations), within the preset bound below.
 
 ### Testing accounts from Krooster
 
-Testers keep their collections on krooster.com. On Preview, Import / export on the Account
-page has "From a Krooster profile": the site's own route
+Testers keep their collections on krooster.com. On Preview, the Base optimizer dialog has
+"Testing account from Krooster" and Import / export on the Account page "From a Krooster
+profile": the tester pastes the profile link (`kroosterUser` takes the link or the bare
+username), and the site's own route
 (`pages/api/account-import/krooster.ts`, `ARKPEDIA_KROOSTER_IMPORT` from next.config.js, so
 production has no such route) fetches the public lookup page, whose embedded page data
 carries the roster, and passes on only the roster and a few profile fields
 (`lib/account-import/krooster.ts`). `accountFromKrooster` makes the account record and the
 planner roster by the game-account map, with module stages and masteries; the record has
 no base layout, clears or depot, so the optimizer recommends a layout (Recommend 2-5-2).
-`scripts/tests/test-krooster-import.ts` holds the parser and the mapping.
+The Base page carries no game-account map, so the control there loads the Account page's
+props on demand, as the header's Import / export does (`components/account/AccountActions.tsx`).
+`scripts/tests/test-krooster-import.ts` holds the parser, the mapping and the link parsing.
 
 ### Where a minute goes
 

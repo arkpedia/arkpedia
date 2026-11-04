@@ -15,6 +15,19 @@ import { isSafeKey } from '@/lib/planner/untrusted';
 export const KROOSTER_USER = /^[A-Za-z0-9_.-]{1,32}$/;
 export const KROOSTER_LOOKUP = 'https://www.krooster.com/network/lookup/';
 
+/** The username in what a tester pastes: a profile link (with or without the scheme, a trailing slash, a
+ *  query or a hash) or the bare username; null when it is neither. */
+export function kroosterUser(input: string): string | null {
+  const text = input.trim();
+  if (KROOSTER_USER.test(text)) return text;
+  const match = /^(?:https?:\/\/)?(?:www\.)?krooster\.com\/network\/lookup\/([^/?#]+)\/?(?:[?#].*)?$/i.exec(text);
+  if (!match) return null;
+  try {
+    const user = decodeURIComponent(match[1]);
+    return KROOSTER_USER.test(user) ? user : null;
+  } catch { return null; }
+}
+
 export interface KroosterOperator {
   elite: number; level: number; potential?: number; skillLevel?: number;
   /** Mastery per skill, 0 to 3. */

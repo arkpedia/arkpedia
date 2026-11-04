@@ -362,7 +362,7 @@ test('support staffing survives every optimized shift, save, selection and reloa
   }
 });
 
-test('a Krooster profile imports as a testing account for the optimizer, through the site\'s own route', async ({ page }) => {
+test('a pasted Krooster profile link imports a testing account inside the Base optimizer, through the site\'s own route', async ({ page }) => {
   // Preview only (the beforeEach above skips production builds). The route is stubbed: no request leaves for krooster.com.
   const profile = { username: 'tester', displayName: 'Tester', server: 'EN', level: 120, assistant: 'char_289_gyuki', roster: {
     char_002_amiya: { elite: 2, level: 40, potential: 6, skillLevel: 7, masteries: [0, 0, 0], modules: { uniequip_002_amiya: 0 } },
@@ -372,12 +372,13 @@ test('a Krooster profile imports as a testing account for the optimizer, through
   } };
   let asked = '';
   await page.route('**/api/account-import/krooster?user=*', route => { asked = new URL(route.request().url()).searchParams.get('user') ?? ''; return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(profile) }); });
-  await page.goto('/account');
-  await page.locator('.page-header').getByRole('button', { name: 'Import / export', exact: true }).click();
-  const dialog = page.getByRole('dialog');
-  await dialog.getByRole('textbox', { name: 'Krooster username' }).fill('tester');
-  await dialog.getByRole('button', { name: 'Import from Krooster', exact: true }).click();
-  await expect(dialog.getByRole('status')).toContainText('Imported 4 operators from Tester\'s Krooster profile');
+  await page.goto('/base');
+  await page.getByRole('button', { name: 'Optimize base', exact: true }).click();
+  const optimizer = page.getByRole('dialog', { name: 'Base optimizer', exact: true });
+  // The Base page carries no game-account map; the control loads the Account page's own.
+  await optimizer.getByRole('textbox', { name: 'Krooster profile link' }).fill('https://www.krooster.com/network/lookup/tester/');
+  await optimizer.getByRole('button', { name: 'Import from Krooster', exact: true }).click();
+  await expect(optimizer.getByRole('status').first()).toContainText('Imported 4 operators from Tester\'s Krooster profile');
   expect(asked).toBe('tester');
   const stored = await page.evaluate(() => ({ account: JSON.parse(localStorage.getItem('arkpediaAccount') ?? 'null'), roster: JSON.parse(localStorage.getItem('plannerRoster') ?? '{}') }));
   // By the site's game-account map: char_289_gyuki is Matoimaru and char_502_nblade is Yato.
@@ -385,14 +386,15 @@ test('a Krooster profile imports as a testing account for the optimizer, through
   expect(stored.account.base).toBeUndefined();
   expect(stored.account.doctor).toBe('Tester (Krooster)');
   expect(stored.roster.Matoimaru).toMatchObject({ elite: 2, level: 90, skillLevel: 7, masteries: { 1: 3 }, modules: { 0: 2 } });
-  // The optimizer takes the testing account: it has no layout of its own, so Recommend 2-5-2 searches the presets.
-  await page.keyboard.press('Escape');
-  await page.goto('/base');
-  await page.getByRole('button', { name: 'Optimize base', exact: true }).click();
-  const optimizer = page.getByRole('dialog', { name: 'Base optimizer', exact: true });
+  // The optimizer takes the testing account at once: it has no layout of its own, so Recommend 2-5-2 searches the presets.
   await expect(optimizer.getByRole('checkbox', { name: 'Recommend 2-5-2' })).toBeChecked();
   await optimizer.getByRole('button', { name: 'Recommend layout' }).click();
   await expect(optimizer.getByRole('definition').first()).toBeVisible({ timeout: 60000 });
   if (await optimizer.getByRole('button', { name: 'Stop', exact: true }).isVisible()) await optimizer.getByRole('button', { name: 'Stop', exact: true }).click();
   await expect(optimizer.getByRole('alert')).toHaveCount(0);
+  // The Account page's Import / export keeps the same control, with the page's own map.
+  await page.keyboard.press('Escape');
+  await page.goto('/account');
+  await page.locator('.page-header').getByRole('button', { name: 'Import / export', exact: true }).click();
+  await expect(page.getByRole('dialog').getByRole('textbox', { name: 'Krooster profile link' })).toBeVisible();
 });
