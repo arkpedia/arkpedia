@@ -4,6 +4,7 @@
  *
  *   npx tsx scripts/bench/compare-optimizer.ts <pre-table checkout> [--rounds 300] [--out .cache/optimizer-compare]
  *                                              [--accounts fixture,sheet252,tests/fixtures/krooster/aiki.json,...]
+ *                                              [--report-only]
  *
  * The pre-table checkout is a worktree at e692e12dc with node_modules, data/ and .cache/ linked from this one
  * (`git worktree add --detach <dir> e692e12dc`). Its optimizer has no deterministic round budget, so the two
@@ -14,6 +15,12 @@
  * purpose) left out, where the two checkouts must agree exactly -- any difference there is a bug; and with the
  * whole roster, where the differences are reported with the deviating operators each plan placed, since one
  * changed number sends the anneal down another path. Runs are sequential: one search at a time on the machine.
+ * `--report-only` rebuilds the report from the JSON files of an earlier batch without running anything.
+ *
+ * The branch also changed how a published plan is completed (completeStaffing.ts: support candidates ranked by
+ * their own Morale drain rather than the room's shared rate, commit 4990c4e50), which the search's own score
+ * never sees. A difference confined to the Reception Room, Office, Control Center and the Dormitories, with every
+ * Factory, Trading Post and Power Plant crew identical, is that completion, not the table, and is reported so.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -26,14 +33,17 @@ const pre = args.find((a, i) => !a.startsWith('--') && !(i > 0 && args[i - 1].st
 if (!pre) throw new Error('usage: compare-optimizer.ts <pre-table checkout> [--rounds N] [--out dir] [--accounts a,b]');
 const rounds = Number(flag('--rounds') ?? 300);
 const outDir = flag('--out') ?? '.cache/optimizer-compare';
+const reportOnly = args.includes('--report-only');
 const here = process.cwd();
 const accounts = (flag('--accounts') ?? ['fixture', 'sheet252', 'sheet342', ...fs.readdirSync('tests/fixtures/krooster').filter(f => f.endsWith('.json')).map(f => `tests/fixtures/krooster/${f}`)].join(',')).split(',');
 fs.mkdirSync(outDir, { recursive: true });
 
 // The pre-table checkout: the patch (once) and the runner.
 const patch = path.join(here, 'scripts/bench/pre-table-determinism.patch');
-if (!fs.readFileSync(path.join(pre, 'lib/base/accountOptimizer.ts'), 'utf8').includes('annealRounds')) execFileSync('git', ['apply', patch], { cwd: pre, stdio: 'inherit' });
-fs.copyFileSync(path.join(here, 'scripts/bench/optimizer-run.ts'), path.join(pre, 'scripts/bench/optimizer-run.ts'));
+if (!reportOnly) {
+  if (!fs.readFileSync(path.join(pre, 'lib/base/accountOptimizer.ts'), 'utf8').includes('annealRounds')) execFileSync('git', ['apply', patch], { cwd: pre, stdio: 'inherit' });
+  fs.copyFileSync(path.join(here, 'scripts/bench/optimizer-run.ts'), path.join(pre, 'scripts/bench/optimizer-run.ts'));
+}
 
 interface Shift { refill: string[]; rooms: Record<string, (string | null)[]> }
 interface Seed { layout: string; products: Record<string, string>; score: number; shifts: Shift[]; periodic: boolean; exhausted: boolean }
@@ -43,9 +53,12 @@ interface Run { account: string; rosterSize: number; seeds: Seed[]; recommendati
 const run = (cwd: string, account: string, without: string[], out: string, seeds: 'no' | 'only'): Run => {
   const file = path.join(here, outDir, out);
   const accountPath = account.includes('/') ? path.join(here, account) : account;
-  execFileSync('npx', ['tsx', 'scripts/bench/optimizer-run.ts', accountPath, String(rounds), file, '--without', without.join(','), '--interval', '12', '--seeds', seeds], { cwd, stdio: 'inherit' });
+  if (!(reportOnly && fs.existsSync(file))) execFileSync('npx', ['tsx', 'scripts/bench/optimizer-run.ts', accountPath, String(rounds), file, '--without', without.join(','), '--interval', '12', '--seeds', seeds], { cwd, stdio: 'inherit' });
   return JSON.parse(fs.readFileSync(file, 'utf8'));
 };
+const PRODUCTION = /^prod\d+$/;
+/** Whether every production crew (the rooms the search scores) is the same, so a difference is the completion's. */
+const sameProduction = (a: Shift[], b: Shift[]) => a.length === b.length && a.every((s, i) => Object.keys(s.rooms).filter(id => PRODUCTION.test(id)).every(id => (s.rooms[id] ?? []).join() === (b[i].rooms[id] ?? []).join()) && s.refill.join() === b[i].refill.join());
 const key = (s: Seed) => `${s.layout} ${Object.entries(s.products).sort().map(([id, p]) => `${id}=${p === 'Precious Metals' ? 'gold' : 'exp'}`).join(' ')}`;
 const sameShifts = (a: Shift[], b: Shift[]) => JSON.stringify(a) === JSON.stringify(b);
 /** The rooms whose crews differ, shift by shift. */
@@ -101,15 +114,16 @@ for (const account of accounts) {
       const t = recsB.get(r.id);
       if (!t) { report.push(`- ${r.label}: missing after`); continue; }
       const same = Math.abs(r.score - t.score) <= 1e-6 && sameShifts(r.shifts, t.shifts);
-      report.push(`- ${r.label}: funded score ${r.score.toFixed(0)} vs ${t.score.toFixed(0)}${same ? ', identical staffing' : `, products ${JSON.stringify(r.products) === JSON.stringify(t.products) ? 'same' : 'differ'}, ${roomDiffs(r.shifts, t.shifts).length} room-shifts differ; deviators placed before: ${placedDeviators(r).join(', ') || 'none'}; after: ${placedDeviators(t).join(', ') || 'none'}`}`);
+      const completionOnly = !same && sameProduction(r.shifts, t.shifts);
+      report.push(`- ${r.label}: funded score ${r.score.toFixed(0)} vs ${t.score.toFixed(0)}${same ? ', identical staffing' : `, products ${JSON.stringify(r.products) === JSON.stringify(t.products) ? 'same' : 'differ'}, ${roomDiffs(r.shifts, t.shifts).length} room-shifts differ${completionOnly ? ' (every Factory, Trading Post and Power Plant crew identical: the completion pass, not the search)' : ''}; deviators placed before: ${placedDeviators(r).join(', ') || 'none'}; after: ${placedDeviators(t).join(', ') || 'none'}`}`);
       if (!same) for (const line of roomDiffs(r.shifts, t.shifts).slice(0, 12)) report.push(`    ${line}`);
-      if (!same && mode === 'clean') { bugs++; report.push(`    **differs with the deviating operators left out: a bug, not a listed correction**`); }
+      if (!same && !completionOnly && mode === 'clean') { bugs++; report.push(`    **differs in a production crew with the deviating operators left out: a bug, not a listed correction**`); }
     }
     if (seedDiffs && mode === 'clean') { bugs++; report.push(`**seed plans differ with the deviating operators left out: a bug, not a listed correction**`); }
     report.push('');
     fs.writeFileSync(path.join(outDir, 'report.md'), report.join('\n') + '\n');
   }
 }
-report.push(bugs ? `${bugs} unexplained difference(s): see above.` : 'Every difference is in a whole-roster run; the runs without the deviating operators are identical.');
+report.push(bugs ? `${bugs} unexplained difference(s): see above.` : 'No production crew differs with the deviating operators left out; the remaining differences are the completion pass (support rooms and Dormitories) or whole-roster runs.');
 fs.writeFileSync(path.join(outDir, 'report.md'), report.join('\n') + '\n');
 console.log(`\n${report[report.length - 1]}\nreport: ${path.join(outDir, 'report.md')}`);

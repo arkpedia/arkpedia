@@ -238,7 +238,9 @@ export function optimizeBase(input: OptimizerInput): OptimizerResult {
   // Every owned operator can do ordinary work, even without a room skill.
   // Keep the fallback shortlist small; prefer workers with fewer competing jobs.
   const versatility = new Map(owned.map(name => [name, [...pool.values()].filter(names => names.includes(name)).length]));
-  const ordinary = new Map(WORK_KINDS.map(kind => [kind, owned.filter(name => !(pool.get(kind) ?? []).includes(name)).sort((a, b) => versatility.get(a)! - versatility.get(b)! || a.localeCompare(b))]));
+  // The Reception Room and Office take only an operator with a skill for the room (annealBase.ts and
+  // completeStaffing.ts keep the same rule): an unskilled body there is never a plan.
+  const ordinary = new Map(WORK_KINDS.map(kind => [kind, kind === 'receptionRoom' || kind === 'office' ? [] : owned.filter(name => !(pool.get(kind) ?? []).includes(name)).sort((a, b) => versatility.get(a)! - versatility.get(b)! || a.localeCompare(b))]));
   const candidatesFor = (kind: FacilityKind, unavailable: ReadonlySet<string>) => [
     ...(pool.get(kind) ?? []).filter(name => !unavailable.has(name)),
     ...(ordinary.get(kind) ?? []).filter(name => !unavailable.has(name)).slice(0, 3),

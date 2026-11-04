@@ -312,6 +312,37 @@ cycle remains periodic and free of exhaustion. This includes all cross-room effe
 returned yields and saved rotations use the completed assignments. Intermediate
 results are completed too, cached per plan, with the highest completed score retained.
 
+Three refinements run around the fill (2026-11-04, after testers saw Brigid at E0 in
+HR over Haruka at E2, and a fourth Factory worker adding nothing):
+
+- **Skill rooms chosen by their own speed.** The Reception Room and Office seats the
+  search filled with whichever skilled operator its last move left (their speed is not
+  in the score, so every skilled choice ties) are given back to the fill, which ranks by
+  the room's speed, then Morale drain, then the reader's build. Only occupants who work
+  nowhere else are given back, so a cross-room choice the search made for its score
+  (Mulberry in HR for a Trading Post) stands. An operator without a skill for either
+  room is never seated there, by the search (`annealBase.ts`) or the fill; a roster with
+  nobody skilled leaves the room empty and the note says so.
+- **Built operators first.** An Elite 0 worker in a Factory, Trading Post or Power
+  Plant gives their whole schedule to an idle built (Elite 1 or 2) operator with a skill
+  for the room when the simulated funded score falls by no more than
+  `BUILT_FIRST_MARGIN` (0.5% of itself): the output lost is a hair beside raising an
+  operator the reader has not built. The note names each swap.
+- **Workers who add nothing.** A Factory or Trading Post worker whose removal from the
+  room, in every shift, leaves the funded score where it is (gold no post sells, orders
+  no gold fills) is left out, and the note names them. Power Plant workers are not
+  judged this way: drone charge has uses the score does not count.
+
+Per-slot staggering (operators within one room changing at different hours) does not
+fit the plan genome: `assign[room][step]` names one crew per room per step, and a crew
+is a whole staffing of every room, so a room's seats change together. Staggering would
+make the genome `assign[room][seat][step]` with crews holding seats rather than rooms,
+the decode, the collision check, the team-block moves (which place whole teams) and
+the readback from a saved rotation all following, and the preset count (`rotationSetups.ts`)
+would count seat-level changes. That is a change of the genome's shape, not a move, and
+would not keep the search inside its minute on a maxed roster without a redesign of
+the block moves; it is left as this note.
+
 Workshop assignments are standby suggestions for the current recipe, not simulated
 crafting; craft costs and post-craft recovery still require player action. Training
 is staffed only when the user has selected an operator target. Limited rosters or
