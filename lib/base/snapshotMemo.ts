@@ -1,4 +1,5 @@
 import { calculateBase } from './calculateBase';
+import { settle } from './settle';
 import type { SimulationBase } from './baseSimulation';
 import type { BaseAssignments, FactoryProducts } from './baseTypes';
 
@@ -31,7 +32,7 @@ export function snapshotTotals(base: Omit<SimulationBase, 'facilities'> & Pick<S
   if (known) { hits++; return known; }
   misses++;
   const r = calculateBase({ ...base, assignments, factoryProducts: products, loginInterval, swapPolicy: 'onLogin' });
-  const totals = { lmd: r.dailyGoldWorthGreen, exp: r.dailyExpGreen, goldMade: r.dailyGoldMadeGreen };
+  const totals = { lmd: settle(r.dailyGoldWorthGreen), exp: settle(r.dailyExpGreen), goldMade: settle(r.dailyGoldMadeGreen) };
   if (memo.size >= MEMO_LIMIT) memo.clear();
   memo.set(key, totals);
   return totals;

@@ -1,5 +1,6 @@
 import { calculateBase, type BaseCalculationInput, type RoomDailyOutput } from './calculateBase';
 import { activeBaseSkills } from './activeBaseSkills';
+import { settle } from './settle';
 import type { BaseAssignments, FactoryProducts, SlotAssignment } from './baseTypes';
 
 /**
@@ -305,21 +306,21 @@ export function simulateBase(input: SimulationInput): SimulationResult {
       const kind = kindOf[p.room];
       if (kind === 'dormitory') {
         const r = result.dormitoryRecoveryByFacility[p.room]?.find(x => x.name === p.name);
-        rates.morale[p.name] = r ? r.base + r.bonus : 0;
+        rates.morale[p.name] = r ? settle(r.base + r.bonus) : 0;
       } else if (kind === 'workshop' || !kind) {
         // Workshop Morale is spent per craft, which this simulation does not schedule.
         rates.morale[p.name] = 0;
       } else {
         const room = result.rooms[p.room];
         const drain = room?.perOperatorMorale?.[p.name] ?? room?.combinedMoraleRate ?? 0;
-        rates.morale[p.name] = morale[p.name] <= 0 ? 0 : -drain;
+        rates.morale[p.name] = morale[p.name] <= 0 ? 0 : -settle(drain);
         (rates.workers[p.room] ??= []).push(p.name);
       }
     }
     for (const [room, out] of Object.entries(result.roomDailyOutput)) {
-      rates.roomPerHour[room] = { exp: out.exp / 24, goldMade: out.goldMade / 24, goldSold: out.goldSold / 24, extraLmd: out.extraLmd / 24, pepeLmd: out.pepeLmd / 24 };
+      rates.roomPerHour[room] = { exp: settle(out.exp / 24), goldMade: settle(out.goldMade / 24), goldSold: settle(out.goldSold / 24), extraLmd: settle(out.extraLmd / 24), pepeLmd: settle(out.pepeLmd / 24) };
       const full = result.rooms[room]?.fullTime;
-      rates.fullTime[room] = full !== null && full !== undefined && Number.isFinite(full) && full > 0 ? full : null;
+      rates.fullTime[room] = full !== null && full !== undefined && Number.isFinite(full) && full > 0 ? settle(full) : null;
     }
     if (input.drones) {
       rates.dronesPerHour = dronesPerHour(result, placed.filter(p => kindOf[p.room] === 'powerPlant').map(p => p.room));

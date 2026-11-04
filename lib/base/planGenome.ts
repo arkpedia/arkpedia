@@ -1,3 +1,4 @@
+import { settle } from './settle';
 import { calculateBase } from './calculateBase';
 import { exceedsSetups } from './rotationSetups';
 import { snapshotTotals } from './snapshotMemo';
@@ -178,9 +179,9 @@ export function evaluate(g: Genome, ctx: GenomeContext, lean = false): Evaluatio
 
 export function scoreOf(sim: SimulationResult, ctx: GenomeContext): number {
   const w = ctx.weights ?? DEFAULT_WEIGHTS;
-  const base = ctx.sustainable
+  const base = settle(ctx.sustainable
     ? sustainableOutput(sim.perDay, ctx.externalGold).lmd * w.lmd + sim.perDay.exp * w.exp
-    : sim.perDay.lmd * w.lmd + sim.perDay.exp * w.exp + sim.perDay.goldMade * w.goldMade;
+    : sim.perDay.lmd * w.lmd + sim.perDay.exp * w.exp + sim.perDay.goldMade * w.goldMade);
   return base - (sim.periodic ? 0 : 1e9) - (ctx.allowExhaustion ? 0 : 1e6 * sim.events.filter(e => e.kind === 'exhausted').length)
     - (sim.warnings.some(x => / twice\.$/.test(x)) ? 1e12 : 0);
 }

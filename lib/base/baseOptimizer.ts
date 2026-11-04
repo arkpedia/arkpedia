@@ -1,4 +1,5 @@
 import { calculateBase } from './calculateBase';
+import { settle } from './settle';
 import { MAX_ROTATION_SETUPS, exceedsSetups } from './rotationSetups';
 import { activeBaseSkills, cleanSkillName } from './activeBaseSkills';
 import { simulateBase, dronesPerHour, droneTargets, allocateDrones, type DailyOutput, type SimulationBase, type SimulationResult, type SimulationShift } from './baseSimulation';
@@ -224,7 +225,7 @@ export function optimizeBase(input: OptimizerInput): OptimizerResult {
       }
       value += perLoginValue * (24 / loginInterval);
     }
-    return { result: r, value };
+    return { result: r, value: settle(value) };
   }
 
   // Who could do anything in each kind of room, at the progress the import reports.
@@ -1065,5 +1066,5 @@ export function sustainableOutput(output: DailyOutput, externalGold = 0): DailyO
   const supplied = Math.max(0, output.goldMade + Math.max(0, externalGold));
   const funded = output.goldSold > 0 ? Math.min(1, supplied / output.goldSold) : 1;
   const goldFree = output.goldFreeLmd ?? 0;
-  return { ...output, lmd: goldFree + (output.lmd - goldFree) * funded, goldSold: output.goldSold * funded };
+  return { ...output, lmd: settle(goldFree + (output.lmd - goldFree) * funded), goldSold: settle(output.goldSold * funded), exp: settle(output.exp) };
 }

@@ -77,3 +77,26 @@ console.log(`\nIdle built operators with production skills (${idleBuilt.length})
 const e0Workers = new Set<string>();
 best.plan.shifts.forEach(shift => { for (const [id, slots] of Object.entries(shift.assignments)) if (facilities.find(f => f.id === id)?.kind !== 'dormitory') for (const s of slots) if (s && owned.roster[s.operatorName]?.eliteLevel === 'Base' && owned.roster[s.operatorName]?.level === 1) e0Workers.add(s.operatorName); });
 console.log(`E0 level 1 operators at work: ${e0Workers.size} (${[...e0Workers].join(', ')})`);
+
+// A base expert's checks, so a run can be read at a glance: nobody unskilled in the skill rooms, no seat left
+// open, no Elite 0 worker where an idle built operator has a skill for the room, a rotation the crew sustains.
+const findings: string[] = [];
+const eliteOf = (name: string) => owned.roster[name]?.eliteLevel;
+const idleNames = new Set(Object.keys(owned.roster).filter(name => byName.has(name) && placeOf(name) === 'idle'));
+best.plan.shifts.forEach((shift, i) => {
+  for (const f of facilities) {
+    if (!f.capacity || f.kind === 'dormitory') continue;
+    const staff = (shift.assignments[f.id] ?? []).filter(Boolean) as { operatorName: string }[];
+    if (['receptionRoom', 'office', 'controlCenter'].includes(f.kind)) for (const s of staff) if (!activeBaseSkills(byName.get(s.operatorName)!, f.label, eliteOf(s.operatorName), base.skillSlots, owned.roster[s.operatorName].level).length) findings.push(`shift ${i + 1} ${f.label}: ${s.operatorName} has no skill for the room`);
+    if (staff.length < f.capacity && f.kind !== 'trainingRoom') findings.push(`shift ${i + 1} ${f.label}: ${f.capacity - staff.length} seat(s) open`);
+    if (['factory', 'tradingPost', 'powerPlant'].includes(f.kind)) for (const s of staff) {
+      if (eliteOf(s.operatorName) !== 'Base') continue;
+      const built = [...idleNames].filter(n => eliteOf(n) !== 'Base' && activeBaseSkills(byName.get(n)!, f.label, eliteOf(n), base.skillSlots, owned.roster[n].level).length);
+      if (built.length) findings.push(`shift ${i + 1} ${f.label}: ${s.operatorName} at Elite 0 works while built operators with a skill here sit idle (${built.slice(0, 4).join(', ')}${built.length > 4 ? ', ...' : ''})`);
+    }
+  }
+});
+if (!best.plan.simulation.periodic) findings.push('the rotation does not repeat (not periodic)');
+for (const e of best.plan.simulation.events) if (e.kind === 'exhausted') findings.push(`exhausted: ${e.detail}`);
+for (const w of best.plan.simulation.warnings) findings.push(`warning: ${w}`);
+console.log(`\nReview (${findings.length} finding${findings.length === 1 ? '' : 's'}):${findings.length ? '\n  ' + findings.join('\n  ') : ' none'}`);

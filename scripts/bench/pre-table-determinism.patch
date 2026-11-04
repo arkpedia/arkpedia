@@ -44,3 +44,119 @@ index e0ff5d299..99e95fbe9 100644
      const temperature = t0 * Math.pow(t1 / t0, progress);
      const staffing: { g: Genome; kind: string; p: number }[] = [];
      const timing: { g: Genome; kind: string }[] = [];
+diff --git a/lib/base/baseOptimizer.ts b/lib/base/baseOptimizer.ts
+index 7680b0a6d..2b53cee10 100644
+--- a/lib/base/baseOptimizer.ts
++++ b/lib/base/baseOptimizer.ts
+@@ -1,4 +1,5 @@
+ import { calculateBase } from './calculateBase';
++import { settle } from './settle';
+ import { MAX_ROTATION_SETUPS, exceedsSetups } from './rotationSetups';
+ import { activeBaseSkills, cleanSkillName } from './activeBaseSkills';
+ import { simulateBase, dronesPerHour, droneTargets, allocateDrones, type DailyOutput, type SimulationBase, type SimulationResult, type SimulationShift } from './baseSimulation';
+@@ -224,7 +225,7 @@ export function optimizeBase(input: OptimizerInput): OptimizerResult {
+       }
+       value += perLoginValue * (24 / loginInterval);
+     }
+-    return { result: r, value };
++    return { result: r, value: settle(value) };
+   }
+ 
+   // Who could do anything in each kind of room, at the progress the import reports.
+@@ -1063,5 +1064,5 @@ export function sustainableOutput(output: DailyOutput, externalGold = 0): DailyO
+   const supplied = Math.max(0, output.goldMade + Math.max(0, externalGold));
+   const funded = output.goldSold > 0 ? Math.min(1, supplied / output.goldSold) : 1;
+   const goldFree = output.goldFreeLmd ?? 0;
+-  return { ...output, lmd: goldFree + (output.lmd - goldFree) * funded, goldSold: output.goldSold * funded };
++  return { ...output, lmd: settle(goldFree + (output.lmd - goldFree) * funded), goldSold: settle(output.goldSold * funded), exp: settle(output.exp) };
+ }
+diff --git a/lib/base/baseSimulation.ts b/lib/base/baseSimulation.ts
+index 7773789f8..47ffb78b8 100644
+--- a/lib/base/baseSimulation.ts
++++ b/lib/base/baseSimulation.ts
+@@ -1,5 +1,6 @@
+ import { calculateBase, type BaseCalculationInput, type RoomDailyOutput } from './calculateBase';
+ import { activeBaseSkills } from './activeBaseSkills';
++import { settle } from './settle';
+ import { hasNamedSkill } from './specialSkillKeys';
+ import type { BaseAssignments, FactoryProducts, SlotAssignment } from './baseTypes';
+ 
+@@ -307,21 +308,21 @@ export function simulateBase(input: SimulationInput): SimulationResult {
+       const kind = kindOf[p.room];
+       if (kind === 'dormitory') {
+         const r = result.dormitoryRecoveryByFacility[p.room]?.find(x => x.name === p.name);
+-        rates.morale[p.name] = r ? r.base + r.bonus : 0;
++        rates.morale[p.name] = r ? settle(r.base + r.bonus) : 0;
+       } else if (kind === 'workshop' || !kind) {
+         // Workshop Morale is spent per craft, which this simulation does not schedule.
+         rates.morale[p.name] = 0;
+       } else {
+         const room = result.rooms[p.room];
+         const drain = room?.perOperatorMorale?.[p.name] ?? room?.combinedMoraleRate ?? 0;
+-        rates.morale[p.name] = morale[p.name] <= 0 ? 0 : -drain;
++        rates.morale[p.name] = morale[p.name] <= 0 ? 0 : -settle(drain);
+         (rates.workers[p.room] ??= []).push(p.name);
+       }
+     }
+     for (const [room, out] of Object.entries(result.roomDailyOutput)) {
+-      rates.roomPerHour[room] = { exp: out.exp / 24, goldMade: out.goldMade / 24, goldSold: out.goldSold / 24, extraLmd: out.extraLmd / 24, pepeLmd: out.pepeLmd / 24 };
++      rates.roomPerHour[room] = { exp: settle(out.exp / 24), goldMade: settle(out.goldMade / 24), goldSold: settle(out.goldSold / 24), extraLmd: settle(out.extraLmd / 24), pepeLmd: settle(out.pepeLmd / 24) };
+       const full = result.rooms[room]?.fullTime;
+-      rates.fullTime[room] = full !== null && full !== undefined && Number.isFinite(full) && full > 0 ? full : null;
++      rates.fullTime[room] = full !== null && full !== undefined && Number.isFinite(full) && full > 0 ? settle(full) : null;
+     }
+     if (input.drones) {
+       rates.dronesPerHour = dronesPerHour(result, placed.filter(p => kindOf[p.room] === 'powerPlant').map(p => p.room));
+diff --git a/lib/base/planGenome.ts b/lib/base/planGenome.ts
+index 78ef2eb99..21bcf7760 100644
+--- a/lib/base/planGenome.ts
++++ b/lib/base/planGenome.ts
+@@ -1,3 +1,4 @@
++import { settle } from './settle';
+ import { calculateBase } from './calculateBase';
+ import { exceedsSetups } from './rotationSetups';
+ import { snapshotTotals } from './snapshotMemo';
+@@ -178,9 +179,9 @@ export function evaluate(g: Genome, ctx: GenomeContext, lean = false): Evaluatio
+ 
+ export function scoreOf(sim: SimulationResult, ctx: GenomeContext): number {
+   const w = ctx.weights ?? DEFAULT_WEIGHTS;
+-  const base = ctx.sustainable
++  const base = settle(ctx.sustainable
+     ? sustainableOutput(sim.perDay, ctx.externalGold).lmd * w.lmd + sim.perDay.exp * w.exp
+-    : sim.perDay.lmd * w.lmd + sim.perDay.exp * w.exp + sim.perDay.goldMade * w.goldMade;
++    : sim.perDay.lmd * w.lmd + sim.perDay.exp * w.exp + sim.perDay.goldMade * w.goldMade);
+   return base - (sim.periodic ? 0 : 1e9) - (ctx.allowExhaustion ? 0 : 1e6 * sim.events.filter(e => e.kind === 'exhausted').length)
+     - (sim.warnings.some(x => / twice\.$/.test(x)) ? 1e12 : 0);
+ }
+diff --git a/lib/base/settle.ts b/lib/base/settle.ts
+new file mode 100644
+index 000000000..a452f449f
+--- /dev/null
++++ b/lib/base/settle.ts
+@@ -0,0 +1,7 @@
++/**
++ * The search compares scores and rates that two sums of the same numbers can put a last bit apart (0.35 + 0.3
++ * + 0.25 is not 0.25 + 0.3 + 0.35 in floating point), and a greedy fill or an anneal that breaks a tie by that
++ * bit walks a different path from then on. Every number a search compares is settled to a fixed decimal first,
++ * so the path depends on the staffing alone.
++ */
++export const settle = (n: number): number => Number.isFinite(n) ? Math.round(n * 1e9) / 1e9 : n;
+diff --git a/lib/base/snapshotMemo.ts b/lib/base/snapshotMemo.ts
+index 1092ac41b..b205e442e 100644
+--- a/lib/base/snapshotMemo.ts
++++ b/lib/base/snapshotMemo.ts
+@@ -1,4 +1,5 @@
+ import { calculateBase } from './calculateBase';
++import { settle } from './settle';
+ import type { SimulationBase } from './baseSimulation';
+ import type { BaseAssignments, FactoryProducts } from './baseTypes';
+ 
+@@ -31,7 +32,7 @@ export function snapshotTotals(base: Omit<SimulationBase, 'facilities'> & Pick<S
+   if (known) { hits++; return known; }
+   misses++;
+   const r = calculateBase({ ...base, assignments, factoryProducts: products, loginInterval, swapPolicy: 'onLogin' });
+-  const totals = { lmd: r.dailyGoldWorthGreen, exp: r.dailyExpGreen, goldMade: r.dailyGoldMadeGreen };
++  const totals = { lmd: settle(r.dailyGoldWorthGreen), exp: settle(r.dailyExpGreen), goldMade: settle(r.dailyGoldMadeGreen) };
+   if (memo.size >= MEMO_LIMIT) memo.clear();
+   memo.set(key, totals);
+   return totals;
