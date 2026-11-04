@@ -183,6 +183,10 @@ planner roster by the game-account map, with module stages and masteries; the re
 no base layout, clears or depot, so the optimizer recommends a layout (Recommend 2-5-2).
 The Base page carries no game-account map, so the control there loads the Account page's
 props on demand, as the header's Import / export does (`components/account/AccountActions.tsx`).
+
+The dialog has no start-time control: the search knows only the hours between logins, and
+the shift clocks read the rotation's start time, which the Base page's rotation panel
+("Starts at") sets and a saved recommendation keeps.
 `scripts/tests/test-krooster-import.ts` holds the parser, the mapping and the link parsing.
 
 ### Where a minute goes

@@ -43,6 +43,10 @@
 .data-dialog-part h3 { margin: 0; }
 .data-dialog-part > p { margin: 0; }
 .data-dialog-acts { display: flex; flex-wrap: wrap; gap: 8px; }
+/* components/account-import/KroosterImport (Preview only): the link field takes the row, its button beside it. */
+.krooster-import { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.krooster-import input { flex: 1 1 260px; min-width: 0; height: var(--control-h); padding-block: 0; box-sizing: border-box; font-family: var(--font-mono); font-size: 12px; }
+.krooster-import button { flex: none; }
 .data-dialog-paste > summary { cursor: pointer; color: var(--text-dim); font: 11px var(--font-mono); }
 .data-dialog-paste > summary:hover { color: var(--teal); }
 .data-dialog-paste textarea { width: 100%; margin: 10px 0; box-sizing: border-box; }

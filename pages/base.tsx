@@ -701,7 +701,9 @@ export default function BasePage({ operators }: Props) {
       window.localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({ clueExchangeActive: p.clueExchangeActive, moraleAbove12: p.moraleAbove12, swapPolicy: p.swapPolicy }));
     } catch { setPresetStatus('Setup loaded for this session; browser storage is unavailable.'); }
   }
-  function saveOptimizerRotation(recommendation: LayoutRecommendation, startHour: number, externalGold: number): boolean {
+  function saveOptimizerRotation(recommendation: LayoutRecommendation, externalGold: number): boolean {
+    // The rotation keeps its start time; the rotation panel is where it is set.
+    const startHour = rotationPlan.startHour;
     const template = captureSetup('', '');
     // Shifts that place everyone the same way share one saved setup, as they share one preset in the game.
     const groups = setupGroups(recommendation.plan.shifts);
@@ -1264,7 +1266,7 @@ export default function BasePage({ operators }: Props) {
     return { id: f.id, metric: workers.length || f.kind === 'dormitory' ? metric : f.level ? 'Empty room' : '', detail: f.level ? detail : '', workers, deadline };
   });
 
-  const optimizerDialog = optimizerAvailable && showOptimizer && <ImportDialog title="Base optimizer" className="base-rotation-dialog" onClose={() => setShowOptimizer(false)}><BaseAccountOptimizer account={account} base={{ operators, rosters, skillSlots, workshopRecipes, workshopSettings, clueExchangeActive, moraleAbove12, ...(resolvedTrainingTarget.operatorName ? { trainingTarget: resolvedTrainingTarget } : {}) }} loginInterval={loginInterval} onInterval={setLoginInterval} onApply={saveOptimizerRotation} /></ImportDialog>;
+  const optimizerDialog = optimizerAvailable && showOptimizer && <ImportDialog title="Base optimizer" className="base-rotation-dialog" onClose={() => setShowOptimizer(false)}><BaseAccountOptimizer account={account} base={{ operators, rosters, skillSlots, workshopRecipes, workshopSettings, clueExchangeActive, moraleAbove12, ...(resolvedTrainingTarget.operatorName ? { trainingTarget: resolvedTrainingTarget } : {}) }} loginInterval={loginInterval} startHour={rotationPlan.startHour} onInterval={setLoginInterval} onApply={saveOptimizerRotation} /></ImportDialog>;
   const rotationDialog = showRotationPlan && <ImportDialog title="Rotation" className="base-rotation-dialog" onClose={() => setShowRotationPlan(false)}><BaseRotationPanel plan={rotationPlan} onChange={updateRotationPlan} presets={savedPresets} onLoad={viewRotationShift} initialMorale={account?.base?.morale ?? {}} owned={ownedOperators ?? undefined} imported={!!account?.base} stages={rotationCalculation?.stages} /></ImportDialog>;
   if (!setupComplete) {
     return (

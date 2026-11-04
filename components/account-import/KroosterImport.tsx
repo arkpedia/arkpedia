@@ -44,9 +44,9 @@ export default function KroosterImport({ map, onNote, idPrefix = 'krooster' }: {
       setBusy(false);
     }
   }
-  return <form className="data-dialog-acts" onSubmit={submit}>
-    <label htmlFor={`${idPrefix}-link`}>Krooster profile link</label>
-    <input id={`${idPrefix}-link`} type="text" value={link} autoComplete="off" spellCheck={false} maxLength={200} onChange={event => setLink(event.target.value)} placeholder="https://www.krooster.com/network/lookup/…" />
+  return <form className="krooster-import" onSubmit={submit}>
+    <label className="visually-hidden" htmlFor={`${idPrefix}-link`}>Krooster profile link</label>
+    <input id={`${idPrefix}-link`} type="text" value={link} autoComplete="off" spellCheck={false} maxLength={200} onChange={event => setLink(event.target.value)} placeholder="https://www.krooster.com/network/lookup/username" />
     <button type="submit" className="ghost btn-sm" disabled={busy || !link.trim()}>{busy ? 'Importing…' : 'Import from Krooster'}</button>
   </form>;
 }

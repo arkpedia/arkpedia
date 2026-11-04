@@ -24,17 +24,19 @@ const whole = (value: number) => Math.round(value).toLocaleString();
 const cachedResults = new Map<string, AccountOptimizerResult>();
 // The reader's search time, kept for the page session like the results (it is part of their cache key).
 let lastSearchMinutes = 1;
-export default function BaseAccountOptimizer({ account, base, loginInterval, onInterval, onApply }: {
+export default function BaseAccountOptimizer({ account, base, loginInterval, startHour, onInterval, onApply }: {
   account: AccountRecord | null; base: Omit<SimulationBase, 'facilities'>;
   loginInterval: number; onInterval: (hours: number) => void;
-  onApply: (recommendation: LayoutRecommendation, startHour: number, externalGold: number) => boolean;
+  /** The Base page's rotation start (its rotation panel sets it): only the clock labels of the shifts
+   *  read it; the search itself knows only the hours between logins. */
+  startHour: number;
+  onApply: (recommendation: LayoutRecommendation, externalGold: number) => boolean;
 }) {
   const [objective, setObjective] = useState<AccountOptimizerInput['objective']>('balanced');
   const [externalGold, setExternalGold] = useState(0);
   const [compareLayouts, setCompareLayouts] = useState(true);
   const [kroosterNote, setKroosterNote] = useState('');
   const [searchMinutes, setSearchMinutes] = useState(lastSearchMinutes);
-  const [startHour, setStartHour] = useState(8);
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState({ done: 0, total: 0, label: '' });
   const [error, setError] = useState('');
@@ -168,31 +170,29 @@ export default function BaseAccountOptimizer({ account, base, loginInterval, onI
   return <div className={styles.workspace}>
     <p className="hint">Beta · Calculations and simulations run on your PC. Processing time varies with your hardware.</p>
     {!account && <p className="sub"><Link href="/account">Import your account</Link> to recommend teams from your owned operators and their unlocked skills.</p>}
-    {process.env.ARKPEDIA_KROOSTER_IMPORT === '1' && <div className={styles.actions}>
+    {process.env.ARKPEDIA_KROOSTER_IMPORT === '1' && <section className={styles.tester} aria-label="Testing account from Krooster">
       {/* Preview only (next.config.js): testers try the optimizer on a Krooster collection without a game import. */}
-      <span className="label-tag">Testing account from Krooster</span>
+      <div className={styles.testerHead}><span className="label-tag">Testing account · Preview only</span><p className="hint">Paste a public Krooster profile link. Its collection replaces the account shown here, with no base layout, clears or depot.</p></div>
       <KroosterImport idPrefix="optimizer-krooster" onNote={setKroosterNote} />
       {kroosterNote && <p className="hint" role="status">{kroosterNote}</p>}
-    </div>}
+    </section>}
     <div className={styles.controls}>
       <div><span className="label-tag">Logins per day</span><SegmentedControl label="Optimizer logins per day" value={loginInterval} onChange={onInterval} options={[24, 12, 8, 6].map(h => ({ value: h, label: `${24 / h}×`, ariaLabel: `${24 / h} times a day, every ${h} hours` }))} /></div>
-      <label>Priority<StyledSelect label="Optimizer priority" value={objective} onChange={v => setObjective(v as typeof objective)} options={[{ value: 'balanced', label: 'LMD + EXP' }, { value: 'lmd', label: 'LMD' }, { value: 'exp', label: 'EXP' }]} /></label>
-      <label>Search time<StyledSelect label="Optimizer search time" value={String(searchMinutes)} onChange={v => { lastSearchMinutes = Number(v); setSearchMinutes(lastSearchMinutes); }} options={[{ value: '1', label: '1 min' }, { value: '2', label: '2 min' }, { value: '5', label: '5 min' }, { value: '10', label: '10 min' }]} /></label>
-      <label>First login<StyledSelect label="First login hour" value={String(startHour)} onChange={v => { setStartHour(Number(v)); setSaved(false); }} options={Array.from({ length: 24 }, (_, h) => ({ value: String(h), label: `${String(h).padStart(2, '0')}:00` }))} /></label>
+      <div><span className="label-tag">Priority</span><StyledSelect label="Optimizer priority" value={objective} onChange={v => setObjective(v as typeof objective)} options={[{ value: 'balanced', label: 'LMD + EXP' }, { value: 'lmd', label: 'LMD' }, { value: 'exp', label: 'EXP' }]} /></div>
+      <div><span className="label-tag">Search time</span><StyledSelect label="Optimizer search time" value={String(searchMinutes)} onChange={v => { lastSearchMinutes = Number(v); setSearchMinutes(lastSearchMinutes); }} options={[{ value: '1', label: '1 min' }, { value: '2', label: '2 min' }, { value: '5', label: '5 min' }, { value: '10', label: '10 min' }]} /></div>
+      <div><span className="label-tag">Outside gold / day</span><div className={styles.gold}><NumberInput className="number-input" aria-label="External gold per day" min={0} max={1000} step="0.1" value={externalGold} onChange={e => setExternalGold(Number(e.target.value))} />
+        <InfoPopover label="Yield assumptions">
+          <p>Logins are {loginInterval}h apart; collect at each login. LMD is capped by gold supply.</p>
+          <p>LMD + EXP maximizes their sum, not equal output. 2-5-2 recommendations respect permanent room upgrades and assume furnished dorms.</p>
+          <p>Estimated repeating rotation; some skills are approximate. Includes drones; excludes crafting and training.</p>
+          <p>Shift times follow the rotation&apos;s start time on the Base page.</p>
+          <p><a href="https://docs.google.com/spreadsheets/d/1at6UTVRJXpiDlo7JucaQZdVQCSOZhAgN5jo4ZDFEWhk/edit?gid=2051144322#gid=2051144322" target="_blank" rel="noreferrer">Production reference ↗</a></p>
+        </InfoPopover></div></div>
     </div>
     <div className={styles.actions}>
-      <label className="check"><input type="checkbox" checked={compareLayouts} onChange={e => setCompareLayouts(e.target.checked)} disabled={!account?.base} />Recommend 2-5-2</label>
       <button type="button" className="primary btn-sm" disabled={!account || running || !Object.keys(owned.roster).length} onClick={run}>{running ? 'Optimizing…' : 'Recommend layout'}</button>
-      {running && <button type="button" className="ghost" title="Stop the search; the best plan found so far is kept" onClick={() => stop()}>Stop</button>}
-    </div>
-    <div className={styles.actions}>
-      <label className={styles.gold}>Outside gold / day<NumberInput className="number-input" aria-label="External gold per day" min={0} max={1000} step="0.1" value={externalGold} onChange={e => setExternalGold(Number(e.target.value))} /></label>
-      <InfoPopover label="Yield assumptions">
-        <p>Logins are {loginInterval}h apart; collect at each login. LMD is capped by gold supply.</p>
-        <p>LMD + EXP maximizes their sum, not equal output. 2-5-2 recommendations respect permanent room upgrades and assume furnished dorms.</p>
-        <p>Estimated repeating rotation; some skills are approximate. Includes drones; excludes crafting and training.</p>
-        <p><a href="https://docs.google.com/spreadsheets/d/1at6UTVRJXpiDlo7JucaQZdVQCSOZhAgN5jo4ZDFEWhk/edit?gid=2051144322#gid=2051144322" target="_blank" rel="noreferrer">Production reference ↗</a></p>
-      </InfoPopover>
+      {running && <button type="button" className="ghost btn-sm" title="Stop the search; the best plan found so far is kept" onClick={() => stop()}>Stop</button>}
+      <label className="check"><input type="checkbox" checked={compareLayouts} onChange={e => setCompareLayouts(e.target.checked)} disabled={!account?.base} />Recommend 2-5-2</label>
     </div>
     {owned.assumed.length > 0 && <p className="hint">Missing imported progress for {owned.assumed.length} operators: using E0 level 1.</p>}
     {running && <div role="status" aria-live="polite"><progress max={progress.total || 1} value={progress.done} /> {progress.total ? `${progress.done}% · ${progress.label}` : 'Preparing search…'}{partial.current?.recommendations[0] && <> · best so far {whole(partial.current.recommendations[0].score)} / day</>}<span className={styles.localNote}>Runs on your device for up to {searchMinutes} min; it stops early when nothing improves.</span></div>}
@@ -203,7 +203,7 @@ export default function BaseAccountOptimizer({ account, base, loginInterval, onI
         <div className={styles.resultHeader}>
           <div><span className="label-tag">Best found for your roster</span><h3>{recommendation.label}</h3></div>
           {current.recommendations.length > 1 && <StyledSelect label="Recommended layout" value={recommendation.id} onChange={id => { setSelected(id); setSelectedShift(0); setSaved(false); }} options={current.recommendations.map((r, i) => ({ value: r.id, label: `${r.label}${i === 0 ? ' · Recommended' : ''}` }))} />}
-          <button type="button" className="primary btn-sm" disabled={saved} onClick={() => { setError(''); if (onApply(recommendation, startHour, externalGold)) setSaved(true); else setError('Could not save the rotation. Browser storage is unavailable or full.'); }}>{saved ? 'Rotation active' : 'Use as rotation'}</button>
+          <button type="button" className="primary btn-sm" disabled={saved} onClick={() => { setError(''); if (onApply(recommendation, externalGold)) setSaved(true); else setError('Could not save the rotation. Browser storage is unavailable or full.'); }}>{saved ? 'Rotation active' : 'Use as rotation'}</button>
         </div>
         <dl className={styles.yields} aria-label="Recommended daily yields">
           <div><dt>LMD / day</dt><dd>{whole(recommendation.output.lmd)}</dd></div>

@@ -1,10 +1,14 @@
 .workspace { display: grid; gap: 12px; }
 .workspace p { margin: 0; }
 .controls, .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
-.controls { align-items: end; }
-.controls label, .controls > div { display: grid; gap: 6px; }
-.gold { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
-.gold input { width: 100px; }
+.controls { align-items: end; gap: 12px 20px; }
+.controls > div { display: grid; gap: 6px; }
+.gold { display: flex; align-items: center; gap: 8px; }
+.gold input { width: 96px; }
+/* Preview only: the tester's Krooster link, set off like the Account page's sign-in note (.import-yostar). */
+.tester { display: grid; gap: 8px; padding: 10px 12px; border-left: 2px solid var(--teal); background: var(--panel-dim); }
+.testerHead { display: grid; gap: 4px; }
+.testerHead p { max-width: 70ch; }
 .tableScroll { overflow-x: auto; }
 .table { width: 100%; border-collapse: collapse; text-align: left; }
 .table th, .table td { padding: 8px 12px 8px 0; border-bottom: 1px solid var(--line-soft); }
