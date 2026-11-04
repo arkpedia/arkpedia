@@ -56,7 +56,9 @@ export function completeStaffing(plan: OptimizerResult, ctx: GenomeContext): Opt
         assignments[room.id] = [slot(name), ...Array(room.capacity - 1).fill(null)];
         const r = calculateBase({ ...base, assignments, factoryProducts: plan.shifts[0].factoryProducts, loginInterval: ctx.loginInterval, swapPolicy: 'onLogin' }).rooms[room.id];
         const benefit = room.kind === 'receptionRoom' ? (r.clueSpeed ?? 0) : room.kind === 'office' ? (r.office?.speed ?? 0) : room.kind === 'powerPlant' ? (r.droneRate ?? 0) : room.kind === 'workshop' ? (r.workshop?.chance ?? 0) : room.kind === 'trainingRoom' ? (r.trainingSpeed ?? 0) : (r.productivity?.yellow ?? 0);
-        return { name, benefit, drain: r.combinedMoraleRate };
+        // The candidate's own drain, skills included: the room-wide rate is the headcount baseline alone, which read
+        // 1.00 Morale/h for every Office candidate, Brigid's +1 and Penance's +0.5 unseen.
+        return { name, benefit, drain: r.perOperatorMorale?.[name] ?? r.combinedMoraleRate };
       });
       // Equal benefit and drain: the operator the reader has built, so an E0 level 1 copy of a skill never
       // displaces a promoted one (Brigid at E0 over Haruka at E2 in HR was the reader's own complaint).
