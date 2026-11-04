@@ -40,10 +40,10 @@ interface Seed { layout: string; products: Record<string, string>; score: number
 interface Rec { id: string; label: string; score: number; lmd: number; exp: number; goldMade: number; products: Record<string, string>; shifts: Shift[] }
 interface Run { account: string; rosterSize: number; seeds: Seed[]; recommendations: Rec[]; seedSeconds: number; searchSeconds: number; searched: number }
 
-const run = (cwd: string, account: string, without: string[], out: string): Run => {
+const run = (cwd: string, account: string, without: string[], out: string, seeds: 'no' | 'only'): Run => {
   const file = path.join(here, outDir, out);
   const accountPath = account.includes('/') ? path.join(here, account) : account;
-  execFileSync('npx', ['tsx', 'scripts/bench/optimizer-run.ts', accountPath, String(rounds), file, '--without', without.join(','), '--interval', '12'], { cwd, stdio: 'inherit' });
+  execFileSync('npx', ['tsx', 'scripts/bench/optimizer-run.ts', accountPath, String(rounds), file, '--without', without.join(','), '--interval', '12', '--seeds', seeds], { cwd, stdio: 'inherit' });
   return JSON.parse(fs.readFileSync(file, 'utf8'));
 };
 const key = (s: Seed) => `${s.layout} ${Object.entries(s.products).sort().map(([id, p]) => `${id}=${p === 'Precious Metals' ? 'gold' : 'exp'}`).join(' ')}`;
@@ -71,11 +71,17 @@ for (const account of accounts) {
   for (const mode of ['clean', 'full'] as const) {
     const without = mode === 'clean' ? deviators : [];
     console.log(`\n=== ${name} (${mode})`);
-    const a = run(pre, account, without, `${name}-${mode}-pre.json`);
-    const b = run(here, account, without, `${name}-${mode}-post.json`);
+    const a = run(pre, account, without, `${name}-${mode}-pre.json`, 'no');
+    const b = run(here, account, without, `${name}-${mode}-post.json`, 'no');
     report.push(`## ${name} (${mode === 'clean' ? 'deviating operators left out' : 'whole roster'}), ${b.rosterSize} operators`, '');
-    report.push(`Seeds ${a.seeds.length} / ${b.seeds.length} in ${a.seedSeconds.toFixed(0)} s / ${b.seedSeconds.toFixed(0)} s; search ${a.searchSeconds.toFixed(0)} s / ${b.searchSeconds.toFixed(0)} s (${a.searched} / ${b.searched} plans).`, '');
-    // Seeds, by layout and split.
+    report.push(`Search ${a.searchSeconds.toFixed(0)} s / ${b.searchSeconds.toFixed(0)} s (${a.searched} / ${b.searched} plans).`, '');
+    // The seed plans, by layout and split, only once the recommendations differ: they place the difference before or
+    // inside the anneal, and cost about as much as the search.
+    const recsDiffer = a.recommendations.length !== b.recommendations.length || a.recommendations.some(r => { const t = b.recommendations.find(x => x.id === r.id); return !t || Math.abs(r.score - t.score) > 1e-6 || !sameShifts(r.shifts, t.shifts); });
+    if (recsDiffer) {
+      a.seeds = run(pre, account, without, `${name}-${mode}-pre-seeds.json`, 'only').seeds;
+      b.seeds = run(here, account, without, `${name}-${mode}-post-seeds.json`, 'only').seeds;
+    }
     const seedsB = new Map(b.seeds.map(s => [key(s), s]));
     let seedDiffs = 0;
     for (const s of a.seeds) {
@@ -88,7 +94,7 @@ for (const account of accounts) {
         for (const line of roomDiffs(s.shifts, t.shifts).slice(0, 6)) report.push(`    ${line}`);
       }
     }
-    report.push(`Seed plans: ${a.seeds.length - seedDiffs} of ${a.seeds.length} identical.`, '');
+    report.push(recsDiffer ? `Seed plans: ${a.seeds.length - seedDiffs} of ${a.seeds.length} identical.` : 'Recommendations identical; seed plans not compared separately.', '');
     // Recommendations, by layout.
     const recsB = new Map(b.recommendations.map(r => [r.id, r]));
     for (const r of a.recommendations) {

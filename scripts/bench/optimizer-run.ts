@@ -3,13 +3,14 @@
  * run in another checkout. Run from the checkout's root (the imports resolve against it): a copy of this file is
  * placed in the pre-table checkout by the comparison.
  *
- *   npx tsx scripts/bench/optimizer-run.ts <account> <rounds> <out.json> [--without Name,Name] [--interval 12]
+ *   npx tsx scripts/bench/optimizer-run.ts <account> <rounds> <out.json> [--without Name,Name] [--interval 12] [--seeds yes|no|only]
  *
  * `account` is `fixture` (tests/fixtures/base-account.json), `sheet252` or `sheet342` (the maxed catalogue roster the
  * reference sheets staff), or a saved Krooster profile (tests/fixtures/krooster/<user>.json, or a lookup page).
  * `rounds` is the anneal's round budget per layout (`annealRounds`): the cooling runs over rounds, so the walk is a
- * function of the seed alone. The seed plans (every layout and product split, as the search's first phase builds
- * them) are recorded too, so a difference can be placed before or inside the anneal.
+ * function of the seed alone. With `--seeds yes` or `only` the seed plans (every layout and product split, as the
+ * search's first phase builds them) are recorded too, so a difference can be placed before or inside the anneal;
+ * the comparison asks for them only once a run differs, since they cost about as much as the search.
  */
 import fs from 'node:fs';
 import { getAllOperators } from '../../lib/operators/operators';
@@ -32,7 +33,7 @@ const args = process.argv.slice(2);
 const flag = (name: string) => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : undefined; };
 const [account, roundsArg, out] = args.filter((a, i) => !a.startsWith('--') && !(i > 0 && args[i - 1].startsWith('--')));
 if (!account || !roundsArg || !out) throw new Error('usage: optimizer-run.ts <account> <rounds> <out.json> [--without a,b] [--interval 12]');
-const rounds = Number(roundsArg), loginInterval = Number(flag('--interval') ?? 12);
+const rounds = Number(roundsArg), loginInterval = Number(flag('--interval') ?? 12), seedsMode = flag('--seeds') ?? 'yes';
 const without = new Set((flag('--without') ?? '').split(',').filter(Boolean));
 
 const operators: BaseOperator[] = getAllOperators().filter(op => !/^Amiya \(/.test(op.name) && !op.isFuture).map(op => ({ name: op.name, rarity: op.rarity, faction: op.faction, class: op.class, branch: op.branch, baseSkills: op.baseSkills, ...(op.aliases?.length ? { aliases: op.aliases } : {}) }));
@@ -54,7 +55,7 @@ const staffing = (plan: OptimizerResult) => plan.shifts.map(s => ({
 }));
 const started = Date.now();
 // The seed phase, split by split, as the search's first phase builds them (every split, no time cut).
-const seeds = optimizerLayouts(undefined, true).flatMap(layout => productOptions(layout).map(products => {
+const seeds = seedsMode === 'no' ? [] : optimizerLayouts(undefined, true).flatMap(layout => productOptions(layout).map(products => {
   const t = Date.now();
   const plan = optimizeBase({ base: { ...base, facilities: getFacilities(layout.spots, layout.levels) }, roster, loginInterval, factoryProducts: products, weights: { lmd: 1, exp: 1, goldMade: 500 }, sustainable: true, externalGold: 0, drones: true });
   const output = sustainableOutput(plan.simulation.perDay, 0);
@@ -62,7 +63,7 @@ const seeds = optimizerLayouts(undefined, true).flatMap(layout => productOptions
 }));
 const seedSeconds = (Date.now() - started) / 1000;
 const t = Date.now();
-const r = optimizeAccountBase({ base, roster, snapshot: undefined, loginInterval, objective: 'balanced', externalGold: 0, compareLayouts: true, searchSeconds: 600, annealRounds: rounds });
+const r = seedsMode === 'only' ? { recommendations: [], searched: 0, rejected: 0 } : optimizeAccountBase({ base, roster, snapshot: undefined, loginInterval, objective: 'balanced', externalGold: 0, compareLayouts: true, searchSeconds: 600, annealRounds: rounds });
 const result = {
   account, rounds, loginInterval, without: [...without].sort(), rosterSize: Object.keys(roster).length,
   seeds, seedSeconds,
