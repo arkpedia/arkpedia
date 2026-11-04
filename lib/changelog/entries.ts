@@ -33,6 +33,10 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    at: '2026-11-04T08:07:00Z',
+    fixed: [{ title: 'New banners reach the Pull Planner', detail: 'CN banners such as Talulah’s now use the same estimated Global dates as the gacha simulator.', href: '/pull-planner' }],
+  },
   {at:'2026-11-03T19:05:00Z',changed:[{title:'One search for operators and friend tags',detail:'Choose an operator or search a shared in-game tag from the same field.',href:'/community/support-units'}],fixed:[{title:'Support cards stay compact after filtering',detail:'Small result lists keep the same card size as the full list.',href:'/community/support-units'}]},
   {at: '2026-11-03T19:00:00Z', fixed: [{title: 'Community stats match available promotions', detail: 'Lower-rarity operators show their highest available promotion and hide unavailable masteries.', href: '/operators'}]},
   {

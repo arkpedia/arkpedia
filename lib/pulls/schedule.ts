@@ -4,14 +4,14 @@ import clearMedals from '@/data/rerun-clear-medals.json';
 import clearOperators from '@/data/rerun-clear-operators.json';
 import { getAllEvents } from '@/lib/schedule/schedule';
 import { rerunBacklogEvent, type BacklogSources, type PullEventReward } from './pulls';
-import { estimateBannerFromCn, waitsForGlobal, globalBannerPreview } from '@/lib/gacha/bannerSchedule';
-import { getEventCalendar, PREDICTED_GAP_DAYS } from '@/lib/home/frontPageContent';
+import { waitsForGlobal, globalBannerPreview } from '@/lib/gacha/bannerSchedule';
+import { getEventCalendar } from '@/lib/home/frontPageContent';
 import { getAllHeadhuntingBanners } from '@/lib/gacha/headhuntingBannerData';
 import type { UpcomingBanner } from './pulls';
 import { ALL_BANNERS } from './sources';
 import { pullArtworkUrl } from './artwork';
 import { validPlanDate } from './plan';
-import { resolvePullBannerWindows } from './bannerWindows';
+import { resolveGachaSimulatorBanners } from '@/lib/gacha/gachaBannerWindows';
 
 export const pullBannerKey = (name: string) => name.normalize('NFKC').toLowerCase().replace(/\s+/g, ' ').trim();
 
@@ -53,10 +53,10 @@ export function resolvePullSchedule(rewards: readonly UpcomingBanner[], current:
     }];
   });
 }
-export function getPullSchedule(): UpcomingBanner[] {
+export function getPullSchedule(banners = getAllHeadhuntingBanners()): UpcomingBanner[] {
   const estimated = new Set(getEventCalendar().filter(event => event.isPredicted).map(event => pullBannerKey(event.name)));
-  const current = resolvePullBannerWindows(getAllHeadhuntingBanners())
-    .map(banner => waitsForGlobal(banner) ? estimateBannerFromCn(banner, PREDICTED_GAP_DAYS) : banner);
+  // Use the simulator's event forecasts and CN fallback for every new banner.
+  const current = resolveGachaSimulatorBanners(banners);
   return resolvePullSchedule(ALL_BANNERS, current).map(banner => ({
     ...banner, image: pullArtworkUrl(banner.image), datesEstimated: banner.datesEstimated || (!!banner.event && estimated.has(pullBannerKey(banner.event))),
   }));
