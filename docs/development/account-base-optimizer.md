@@ -317,3 +317,60 @@ crafting; craft costs and post-craft recovery still require player action. Train
 is staffed only when the user has selected an operator target. Limited rosters or
 recovery capacity can still leave gaps, named by room and shift in the search notes.
 Existing saved setups are unchanged: rerun the optimizer and use the new rotation.
+
+## The base skill table
+
+Every operator base skill the game describes is one entry in `lib/base/base-skill-effects.json`,
+keyed by the game's buff id (`building_data.json` → `buffs`), with the types and the loader in
+`lib/base/baseSkillEffects.ts`. The calculator and the optimizer read numbers from this table;
+nothing reads a skill's description text for a number. Regenerate it after a game data refresh
+that adds a buff id, or after changing a rule or an override:
+
+```bash
+npm run base:skill-effects
+```
+
+`npm run base:skill-effects -- --fetch` first fetches `building_data.json` from the EN mirror
+(ArknightsAssets/ArknightsGamedata) and the CN mirror (Kengxxiao/ArknightsGameData) into
+`.cache/gamedata/`; without it the script reads `ARKPEDIA_GAMEDATA` or the stage pipeline's cache
+(`.cache/upstream/en-gamedata`), and `ARKPEDIA_CN` or `.cache/upstream/cn-tables`. EN comes first;
+a buff id only CN describes takes its structure from CN and its English from the operator record
+in `data/`. The table is committed (`data/` is pulled and git-ignored, and the calculator imports
+the table statically), so a regeneration shows as a diff to review.
+
+Each entry carries `roomType`, `buffCategory`, `targets` (the game's F_EXP / F_GOLD / F_DIAMOND
+product targets, training classes, Workshop recipe kinds), `efficiency` (the game's headline
+percent, null where it gives none), `unlock` (the earliest promotion phase and level any operator
+unlocks it at, `unlocks` listing every distinct one when they differ), the stripped `description`,
+and its `shape` with `effects`:
+
+- `flat`: fixed numbers (`+30%` productivity, `+2` order limit).
+- `counted`: a base plus an amount per counted thing (`per.count`): a group roster in the base or
+  the room, a facility count, Dormitory levels, Office recruit slots, a resource pool; with an
+  optional `step`, `maxCount` and `cap`. `countedValue` in `baseSkillEffects.ts` is the arithmetic.
+- `threshold`: numbers that apply only while a condition (`when`) holds: a named operator in the
+  same room or the Control Center, alone in the Reception Room, Clue Exchange active, a count
+  reaching a value, a product being made.
+- `pool`: every effect is on a shared quantity rather than a rate: Morale drain or recovery, order
+  limit, capacity, drone charge, a base-wide resource (Felvine, Passion, Worldly Plight).
+- `custom`: a named handler in the calculator (`custom.handler`) with its numbers in
+  `custom.params`: `ramp` (a value climbing by the hour, averaged over the window), `afterHours`,
+  the Totter pair, Bubble, Vermeil, Waai Fu, Snowsant, `perOthersOrderLimit` (Degenbrecher, Swire),
+  Jaye's pair, Gladiia's Tide Observation and Group Hunting, Młynar, and `moraleGated` (Dusk, Ling).
+
+`interaction` holds what a skill does to other skills: `overridesOthers` and `exemptFromOverride`
+(the Automation and Snegurochka family against Purestream's kind), `goldOrderTier` and `trade`
+(the Trading Post's order distribution, Proviso, Tequila, Pepe, Closure, U-Official),
+`immuneToRoomMorale`, `reclassifiesSkills` (Highmore), `cancelsSuiSelfDrain` (Ling), the
+Dormitory's `preferredTarget`, `recipientBonus` and `providerBonus`. An effect's `suppressedBy`
+names the buff id that silences it. `nonNumeric` marks the skills the game states in words only
+(which clue is likelier, a one-off Morale swap).
+
+The script's guard refuses the table when a buff id is unclassified, a rule found no number in a
+text that has one, a record skill is in neither game table, a text uses words the rules cannot
+read (a count, a condition) without an override, an override names a key no record has, two
+overrides disagree on a buff id several operators share, or a handler key the calculator once had
+(`lib/base/special-skill-buffs.json`) is neither overridden nor declared generic. The rules are
+the calculator's own text patterns, copied into `scripts/build/build-base-skill-effects.ts`; the
+overrides are `scripts/build/base-skill-overrides.ts`, keyed by the former handler key
+("Operator|Skill") or by a buff id outright.
