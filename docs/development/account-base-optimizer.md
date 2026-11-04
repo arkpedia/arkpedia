@@ -1,5 +1,8 @@
 # Account Base optimizer (Preview)
 
+The site's base expert's notes on how a base is run and how operators are chosen are the
+spec for the rotation and tie-break work: [base-design-notes.md](base-design-notes.md).
+
 Release boundary: Preview only. Keep this feature out of production and do not
 merge its feature pull request to main without a new explicit user instruction.
 
