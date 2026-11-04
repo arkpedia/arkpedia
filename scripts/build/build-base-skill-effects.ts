@@ -30,7 +30,8 @@ const EN_URL = 'https://raw.githubusercontent.com/ArknightsAssets/ArknightsGamed
 const CN_URL = 'https://raw.githubusercontent.com/Kengxxiao/ArknightsGameData/master/zh_CN/gamedata/excel/building_data.json';
 
 interface Buff { buffId: string; roomType: SkillRoomType; buffCategory: BaseSkillEffectEntry['buffCategory']; description: string; efficiency: number | null; targets: Record<string, unknown> | string[] | null }
-interface BuildingData { buffs: Record<string, Buff>; chars: Record<string, { buffChar: { buffData: { buffId: string; cond: { phase: string | number; level: number } }[] }[] }> }
+interface BuffStep { buffId: string; cond: { phase: string | number; level: number } }
+interface BuildingData { buffs: Record<string, Buff>; chars: Record<string, { buffChar: { buffData: BuffStep[] | Record<string, BuffStep> }[] }> }
 interface OperatorRecord { name: string; aliases?: string[]; baseSkills?: { name: string | null; buffId?: string; description: string | null }[] | null }
 
 const args = process.argv.slice(2);
@@ -75,7 +76,6 @@ const CC_ORDER_EFFICIENCY = /order efficiency[^%]{0,40}?(-?\d+(?:\.\d+)?)%/i;
 const CC_FACTORY = /factor(?:y|ies)[^%]{0,40}?productivity[^%]{0,40}?(-?\d+(?:\.\d+)?)%/i;
 const CC_CLUE = /clue collection speed[^%]{0,40}?(-?\d+(?:\.\d+)?)%/i;
 const CC_MORALE = /increase[s]? morale[^%\d]{0,60}?([+-]?\d+(?:\.\d+)?)\s*(?:per hour|\/\s*hr)/i;
-const TRAINING_SPEED = /training speed[^%]{0,20}?([+-]?\d+(?:\.\d+)?)%/i;
 const BYPRODUCT = /byproduct[^%]{0,60}?(\d+(?:\.\d+)?)%/i;
 const RECIPE_MORALE = /(-\d+) Morale cost|Morale cost[^\d-]{0,20}?(-\d+)|by ([+-]\d+)|only consume (\d+) Morale/i;
 const RECYCLE = /material conversion efficiency[^%]{0,20}?([+-]?\d+(?:\.\d+)?)%/i;
