@@ -1,7 +1,8 @@
-/** Run the account optimizer on a saved Krooster profile page (the raw lookup HTML) the way the Base page does,
- * and print the staffing room by room with each worker's build and the base skills they bring to that room,
- * so a pick can be judged against the base's rules.
- * Usage: npx tsx scripts/bench/krooster-profiles.ts <profile.html> [seconds=60] [loginInterval=12] */
+/** Run the account optimizer on a saved Krooster profile (the lookup page's HTML, or its profile data as saved
+ * under tests/fixtures/krooster/<user>.json) the way the Base page does, and print the staffing room by room
+ * with each worker's build and the base skills they bring to that room, so a pick can be judged against the
+ * base's rules.
+ * Usage: npx tsx scripts/bench/krooster-profiles.ts <profile.html|profile.json> [seconds=60] [loginInterval=12] */
 import fs from 'node:fs';
 import { getAllOperators } from '../../lib/operators/operators';
 import { toBaseRosters } from '../../lib/base/baseGroupRosters';
@@ -9,7 +10,7 @@ import { optimizeAccountBase } from '../../lib/base/accountOptimizer';
 import { ownedBaseRoster } from '../../lib/base/optimizerRoster';
 import { activeBaseSkills } from '../../lib/base/activeBaseSkills';
 import { getFacilities } from '../../lib/base/baseConfig';
-import { parseKroosterPage, accountFromKrooster } from '../../lib/account-import/krooster';
+import { parseKroosterPage, profileFromData, accountFromKrooster } from '../../lib/account-import/krooster';
 import type { BaseOperator } from '../../lib/operators/operatorTypes';
 import groups from '../../data/base-group-rosters.json';
 import slots from '../../data/base-skill-slots.json';
@@ -18,7 +19,7 @@ import map from '../../data/game-account-map.json';
 
 const [file, secondsArg, intervalArg] = process.argv.slice(2);
 const seconds = Number(secondsArg ?? 60), loginInterval = Number(intervalArg ?? 12);
-const profile = parseKroosterPage(fs.readFileSync(file, 'utf8'));
+const profile = file.endsWith('.json') ? profileFromData(JSON.parse(fs.readFileSync(file, 'utf8'))) : parseKroosterPage(fs.readFileSync(file, 'utf8'));
 if (!profile) throw new Error('not a public profile page');
 const { record } = accountFromKrooster(profile, map as any);
 const operators: BaseOperator[] = getAllOperators().filter(op => !/^Amiya \(/.test(op.name)).map(op => ({ name: op.name, rarity: op.rarity, faction: op.faction, class: op.class, branch: op.branch, baseSkills: op.baseSkills, ...(op.aliases?.length ? { aliases: op.aliases } : {}) }));

@@ -20,7 +20,8 @@ export interface AnnealOptions {
   simulated?: number;
   /** Stop early after this many rounds without a new best. */
   patience?: number;
-  /** Stop after this many rounds whatever the time (tests use it so the same seed gives the same plan). */
+  /** Stop after this many rounds whatever the time, cooling over the rounds rather than the clock, so the same seed
+   *  gives the same plan on any machine (tests and the pre/post optimizer comparison use it). */
   maxRounds?: number;
   onProgress?: (best: { genome: Genome; value: number }, round: number) => void;
   /** Called between rounds; returning true stops the search with the best so far. */
@@ -277,7 +278,7 @@ export function anneal(seedGenome: Genome, ctx: GenomeContext, opts: AnnealOptio
   while (Date.now() - start < opts.timeMs && sinceBest < patience && round < (opts.maxRounds ?? Infinity) && !opts.shouldStop?.()) {
     round++; sinceBest++;
     epoch = Math.floor(round / BLOCK_REFRESH);
-    const progress = Math.min(1, (Date.now() - start) / opts.timeMs);
+    const progress = Math.min(1, opts.maxRounds ? round / opts.maxRounds : (Date.now() - start) / opts.timeMs);
     const temperature = t0 * Math.pow(t1 / t0, progress);
     const staffing: { g: Genome; kind: string; p: number }[] = [];
     const timing: { g: Genome; kind: string }[] = [];

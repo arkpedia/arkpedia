@@ -25,6 +25,9 @@ export interface AccountOptimizerInput {
   lockedDorm?: string[];
   /** Search time in seconds, 5 to 600. Default 60. */
   searchSeconds?: number;
+  /** Benches: anneal for this many rounds per layout instead of the time left, cooling over the rounds, so a run
+   *  repeats exactly (scripts/bench/compare-optimizer.ts). The seed phase still keeps to `searchSeconds`. */
+  annealRounds?: number;
   /** The formations search, run beside the main one (the page starts it in a second worker): one first plan per
    * layout, then the leading layout's plan built with formations, then all the time left annealing that. */
   formations?: boolean;
@@ -214,7 +217,7 @@ export function optimizeAccountBase(input: AccountOptimizerInput, progress?: (do
     };
     const r = anneal(genome, ctx, {
       // Each start its own seed: the same seed plan, a different walk from it.
-      timeMs, seed: 1 + i + 97 * start,
+      timeMs, seed: 1 + i + 97 * start, ...(input.annealRounds ? { maxRounds: input.annealRounds } : {}),
       onProgress: ({ genome: g }) => { tick(`${seed.label}: improving`); improve(g, evaluate(g, ctx)); },
     });
     // The annealer scored lean (no Morale trace); the plan a reader sees is evaluated in full.

@@ -1,0 +1,46 @@
+diff --git a/lib/base/accountOptimizer.ts b/lib/base/accountOptimizer.ts
+index 319cb6794..7af2b276a 100644
+--- a/lib/base/accountOptimizer.ts
++++ b/lib/base/accountOptimizer.ts
+@@ -25,6 +25,9 @@ export interface AccountOptimizerInput {
+   lockedDorm?: string[];
+   /** Search time in seconds, 5 to 600. Default 60. */
+   searchSeconds?: number;
++  /** Benches: anneal for this many rounds per layout instead of the time left, cooling over the rounds, so a run
++   *  repeats exactly (scripts/bench/compare-optimizer.ts). The seed phase still keeps to `searchSeconds`. */
++  annealRounds?: number;
+   /** The formations search, run beside the main one (the page starts it in a second worker): one first plan per
+    * layout, then the leading layout's plan built with formations, then all the time left annealing that. */
+   formations?: boolean;
+@@ -214,7 +217,7 @@ export function optimizeAccountBase(input: AccountOptimizerInput, progress?: (do
+     };
+     const r = anneal(genome, ctx, {
+       // Each start its own seed: the same seed plan, a different walk from it.
+-      timeMs, seed: 1 + i + 97 * start,
++      timeMs, seed: 1 + i + 97 * start, ...(input.annealRounds ? { maxRounds: input.annealRounds } : {}),
+       onProgress: ({ genome: g }) => { tick(`${seed.label}: improving`); improve(g, evaluate(g, ctx)); },
+     });
+     // The annealer scored lean (no Morale trace); the plan a reader sees is evaluated in full.
+diff --git a/lib/base/annealBase.ts b/lib/base/annealBase.ts
+index e0ff5d299..99e95fbe9 100644
+--- a/lib/base/annealBase.ts
++++ b/lib/base/annealBase.ts
+@@ -20,7 +20,8 @@ export interface AnnealOptions {
+   simulated?: number;
+   /** Stop early after this many rounds without a new best. */
+   patience?: number;
+-  /** Stop after this many rounds whatever the time (tests use it so the same seed gives the same plan). */
++  /** Stop after this many rounds whatever the time, cooling over the rounds rather than the clock, so the same seed
++   *  gives the same plan on any machine (tests and the pre/post optimizer comparison use it). */
+   maxRounds?: number;
+   onProgress?: (best: { genome: Genome; value: number }, round: number) => void;
+   /** Called between rounds; returning true stops the search with the best so far. */
+@@ -277,7 +278,7 @@ export function anneal(seedGenome: Genome, ctx: GenomeContext, opts: AnnealOptio
+   while (Date.now() - start < opts.timeMs && sinceBest < patience && round < (opts.maxRounds ?? Infinity) && !opts.shouldStop?.()) {
+     round++; sinceBest++;
+     epoch = Math.floor(round / BLOCK_REFRESH);
+-    const progress = Math.min(1, (Date.now() - start) / opts.timeMs);
++    const progress = Math.min(1, opts.maxRounds ? round / opts.maxRounds : (Date.now() - start) / opts.timeMs);
+     const temperature = t0 * Math.pow(t1 / t0, progress);
+     const staffing: { g: Genome; kind: string; p: number }[] = [];
+     const timing: { g: Genome; kind: string }[] = [];
