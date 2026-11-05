@@ -88,8 +88,10 @@ presentation order. These are account ratings, not verified unique humans. Reads
 refresh every 30 seconds while visible and on return/focus. Refreshes preserve pending
 and failed edits. A session change remounts its private state.
 
-The overview features curated catalogue artwork, direct rating/ranking actions and a
-compact previous-results card. Artwork does not imply winners. Shared panel, heading,
+The overview shows current skin-rating leaders and recorded Power Scale leaders in
+second/first/third order, with first in the centre. Empty live results show an empty
+state rather than substituting featured outfits. Live leaders refresh with the public
+rating data. Both cards retain direct rating/ranking actions. Shared panel, heading,
 control, artwork and podium primitives provide both themes and reduced-motion support.
 
 ## Publication and verification
@@ -115,3 +117,9 @@ The production Worker reads public operator, stage, poll and account catalogues 
 its ASSETS binding through `readShippedTable`. Build generation precedes static-table
 shipping. Production compiles out the Preview snapshot; its size is not loaded by
 every cold isolate. The Worker size budget remains unchanged.
+
+Rating-popup artwork opens the shared full-screen still/animated viewer. Closing it
+returns to the same skin and score, with focus restored to the artwork trigger. Back
+controls return to the skin list, ranking list or poll overview as appropriate.
+Unselected stage filters are omitted from statistics URLs; the empty `stage=` form
+failed on the deployed browser path even though the canonical request succeeded.

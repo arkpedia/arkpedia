@@ -49,11 +49,14 @@ const byId=new Map(skins.map(skin=>[skin.id,skin]));
 const featured=['char_1028_texas2@epoque#36','char_350_surtr@ambienceSynesthesia#6','char_103_angel@sale#8'];
 const showcase=featured.flatMap(id=>{const skin=byId.get(id);return skin?.image?[{image:skin.image,name:skin.name,operator:skin.operator}]:[];});
 const rarity=new Map(operators.map(op=>[op.name,op.rarity]));
-const previousArt=[...FINAL_STATS_ROWS].sort((a,b)=>b.mean-a.mean).slice(0,3).flatMap(row=>{
+const powerLeaders=[...FINAL_STATS_ROWS].sort((a,b)=>b.mean-a.mean).slice(0,3);
+const previousLeaders=powerLeaders.map(row=>{
   const image=skinImagePath(row.operator_name,'Elite 2',rarity.get(row.operator_name)??null)??skinImagePath(row.operator_name,'Base',rarity.get(row.operator_name)??null);
-  return image?[image]:[];
+  const rank=powerLeaders.findIndex(other=>other.mean===row.mean)+1;
+  return {id:row.operator_name,name:row.operator_name,image,rank,mean:row.mean};
 });
-fs.writeFileSync(path.join(process.cwd(),'data/community-poll-catalogue.json'),JSON.stringify({skins,showcase,previousArt})+'\n');
+const previousArt=previousLeaders.flatMap(row=>row.image?[row.image]:[]);
+fs.writeFileSync(path.join(process.cwd(),'data/community-poll-catalogue.json'),JSON.stringify({skins,showcase,previousArt,previousLeaders})+'\n');
 
 // Account tabs need the same complete collection catalogue when an older release
 // lacks /account. Keep runtime fallback independent of raw operator/voice files.

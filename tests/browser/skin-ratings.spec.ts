@@ -81,3 +81,23 @@ for(const theme of ['dark','light'])test(`public tier list, detailed statistics 
   await page.getByRole('button',{name:'Podium',exact:true}).click();await expect(page.getByRole('table',{name:'Matching rankings',exact:true}).locator('tbody tr')).toHaveCount(1);await expect(page.getByRole('list',{name:'Top three results',exact:true})).toHaveCount(0);
   const help=page.getByRole('button',{name:'How poll results work',exact:true});await help.click();await expect(page.getByRole('region',{name:'How poll results work',exact:true})).toContainText('linear interpolation');await page.keyboard.press('Escape');expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);expect(state.writes).toHaveLength(0);
 });
+
+for(const theme of ['dark','light'])test(`rating artwork opens the shared animated viewer and returns without losing the score (${theme})`,async({page},info)=>{
+  const state=await setup(page,theme);await page.goto('/polls/favourite-skins');
+  const skin=await page.evaluate(()=>((window as any).__NEXT_DATA__.props.pageProps.skins as {id:string;name:string;dynamic?:string|null}[]).find(skin=>skin.dynamic)!);
+  expect(skin?.dynamic).toBeTruthy();await page.goto(`/polls/favourite-skins?skin=${encodeURIComponent(skin.id)}`);
+  const rating=page.getByRole('dialog',{name:skin.name,exact:true});await rating.getByRole('button',{name:'8 out of 10',exact:true}).click();await expect(rating.getByText('Saved to your account.',{exact:true})).toBeVisible();
+  const art=rating.getByRole('button',{name:`View full artwork of ${skin.name}`,exact:true});await art.focus();await art.press('Enter');
+  let viewer=page.getByRole('dialog',{name:`${skin.name} artwork`,exact:true});await expect(viewer).toBeVisible();await expect(viewer.getByRole('button',{name:'Animated',exact:true})).toBeVisible();
+  let release!:()=>void;const held=new Promise<void>(resolve=>{release=resolve;});await page.route('**/model.json*',async route=>{await held;await route.abort().catch(()=>{});});
+  try{
+    const requested=page.waitForRequest(request=>request.url().includes('/model.json'));
+    await viewer.getByRole('button',{name:'Animated',exact:true}).click();await requested;
+    await expect(viewer.getByRole('button',{name:'Animated',exact:true})).toHaveAttribute('aria-pressed','true');
+    await viewer.getByRole('button',{name:'Back to rating',exact:true}).click();
+  }finally{release();}
+  await expect(viewer).toHaveCount(0);await expect(rating).toBeVisible();await expect(art).toBeFocused();await expect(rating.getByRole('button',{name:'8 out of 10',exact:true})).toHaveAttribute('aria-pressed','true');expect(state.writes).toHaveLength(1);
+  await art.click();viewer=page.getByRole('dialog',{name:`${skin.name} artwork`,exact:true});await expect(viewer).toBeVisible();await page.keyboard.press('Escape');await expect(viewer).toHaveCount(0);await expect(rating).toBeVisible();
+  if(process.env.ARKPEDIA_QA_CAPTURE)await page.screenshot({path:`${process.env.ARKPEDIA_QA_CAPTURE}/rating-art-return-${theme}-${info.project.name}.png`,animations:'disabled'});
+  await rating.getByRole('button',{name:'Back to skins',exact:true}).click();await expect(rating).toHaveCount(0);await expect.poll(()=>new URL(page.url()).searchParams.get('skin')).toBeNull();
+});

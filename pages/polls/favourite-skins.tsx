@@ -1,4 +1,4 @@
-import {useMemo,useRef,useState} from 'react';
+import {useEffect,useMemo,useRef,useState} from 'react';
 import type {GetStaticProps} from 'next';
 import Link from 'next/link';
 import PageMeta from '@/components/layout/PageMeta';
@@ -12,6 +12,7 @@ import ImportDialog from '@/components/account/ImportDialog';
 import {useSwitchHold} from '@/components/ui/useSwitchHold';
 import SkinRatingResults from '@/components/community/SkinRatingResults';
 import ResponsiveSkinArtwork from '@/components/skins/ResponsiveSkinArtwork';
+import SkinZoomOverlay from '@/components/skins/SkinZoomOverlay';
 import {useCloudSync} from '@/lib/cloud-account/SyncProvider';
 import {useQueryRecord} from '@/lib/hooks/useQueryState';
 import {withContentPage} from '@/lib/content/server';
@@ -28,22 +29,24 @@ export default function FavouriteSkins(props:Props){
 }
 function SkinRatings({skins,owner,accountLoading}:Props&{owner:string|null;accountLoading:boolean}){
   const toolbar=useRef<HTMLDivElement>(null);
-  const [filters,set]=useQueryRecord(defaults),[shown,setShown]=useState(30);
+  const [filters,set]=useQueryRecord(defaults),[shown,setShown]=useState(30),[zooming,setZooming]=useState(false);
   const {result,error,saved,draft,failures,pending,load,save,reloadSaved,ready}=useSkinRatings(owner),hold=useSwitchHold('skin-ratings');
   const catalogue=useMemo(()=>new Map(skins.map(skin=>[skin.id,skin])),[skins]);
   const selected=catalogue.get(filters.skin),results=filters.view==='results';
+  useEffect(()=>setZooming(false),[selected?.id]);
   const filtered=skins.filter(skin=>[skin.operator,skin.name,...skin.aliases].some(value=>matchesSearch(value,filters.q))&&(!owner||filters.rated==='all'||(filters.rated==='rated'?saved.get(skin.id)?.rating!=null:saved.get(skin.id)?.rating==null)));
   const rated=[...saved.values()].filter(row=>row.rating!==null).length;
   const change=(next:Partial<typeof defaults>)=>{hold.capture();setShown(30);set(next);};
   const vote=(skin:string,rating:number|null)=>{hold.capture();void save(skin,rating);};
   const displayRating=(id:string)=>Object.hasOwn(draft,id)?draft[id]:saved.get(id)?.rating??null;
+  const closeSkin=()=>{setZooming(false);set({skin:''});if(!filtered.some(skin=>skin.id===selected?.id))requestAnimationFrame(()=>toolbar.current?.querySelector('input')?.focus({preventScroll:true}));};
   const navigate=(step:number)=>{
     const index=filtered.findIndex(skin=>skin.id===selected?.id),next=index<0?0:index+step;
     if(next>=0&&next<filtered.length)set({skin:filtered[next].id});
   };
   return <>
     <PageMeta title="Arkpedia Drip Awards — test poll" description="Rate Arknights skins from 1 to 10, save your progress and explore the community ranking." path="/polls/favourite-skins"/>
-    <PageHeader slim eyebrow="Rhodes Island // Community Polls" title="Arkpedia Drip Awards" sub="A very serious poll, for serious poll testing"/>
+    <PageHeader slim back={{href:'/polls',label:'Community polls'}} eyebrow="Rhodes Island // Community Polls" title="Arkpedia Drip Awards" sub="A very serious poll, for serious poll testing"/>
     <main>
       <Tabs label="Poll sections" id="skin-poll" value={results?'results':'vote'} onChange={view=>change({view,skin:''})} options={[{value:'vote',label:'Rate skins'},{value:'results',label:'Live ranking'}]}/>
       <div ref={hold.ref} style={hold.style}>
@@ -66,8 +69,8 @@ function SkinRatings({skins,owner,accountLoading}:Props&{owner:string|null;accou
           {results&&<SkinRatingResults skins={skins} result={result} error={error} onRetry={()=>void load().catch(()=>{})} filters={filters} onChange={patch=>{hold.capture();set(patch);}}/>}
         </section>
       </div>
-      {selected&&<ImportDialog title={selected.name} className={styles.ratingDialog} onClose={()=>{set({skin:''});if(!filtered.some(skin=>skin.id===selected.id))requestAnimationFrame(()=>toolbar.current?.querySelector('input')?.focus({preventScroll:true}));}}>
-        <div className={styles.ratingLayout}><div className={styles.selectedArt}>{selected.image&&<ResponsiveSkinArtwork src={selected.image} alt={selected.name} width={400} height={400} sizes="(max-width: 720px) 80vw, 440px"/>}{!selected.image&&<span className={`art-placeholder ${styles.missing}`}>Artwork unavailable</span>}</div>
+      {selected&&<ImportDialog title={selected.name} className={styles.ratingDialog} dismissible={!zooming} onClose={closeSkin} actions={!zooming&&<button className="ghost btn-sm" onClick={closeSkin}>Back to skins</button>}>
+        <div className={styles.ratingLayout} inert={zooming}><div className={styles.selectedArt}>{selected.image&&<button type="button" className="btn-bare skin-detail-art-button" aria-label={`View full artwork of ${selected.name}`} onClick={()=>setZooming(true)}><ResponsiveSkinArtwork src={selected.image} alt={selected.name} width={400} height={400} sizes="(max-width: 720px) 80vw, 440px"/><span className="skin-detail-expand" aria-hidden="true">View full artwork ↗</span></button>}{!selected.image&&<span className={`art-placeholder ${styles.missing}`}>Artwork unavailable</span>}</div>
           <div className={styles.ratingEditor}><p className="entity-title entity-title-sm entity-title-name">{selected.operator}</p><div className={styles.ratingHeading}><p className={styles.ratingPrompt}>Your rating <strong>{displayRating(selected.id)===null?'—':`${displayRating(selected.id)}/10`}</strong></p>{owner&&<button className="ghost btn-sm" aria-label="Clear my rating" disabled={!ready||displayRating(selected.id)===null||pending.has(selected.id)||!!failures[selected.id]?.current} onClick={()=>vote(selected.id,null)}>Clear</button>}</div>
             {owner?<><SegmentedControl label="Rate this skin from 1 to 10" className={styles.ratingChoices} value={displayRating(selected.id)??0} onChange={rating=>vote(selected.id,rating)} options={options.map(option=>({...option,disabled:!ready||pending.has(selected.id)}))}/>
               <p className={`hint ${styles.ratingStatus}`} role="status">{pending.has(selected.id)?'Saving your rating…':!ready?'Loading saved rating…':failures[selected.id]?'Not saved':saved.has(selected.id)?saved.get(selected.id)!.rating===null?'Rating cleared.':'Saved to your account.':'Choose a rating.'}</p>
@@ -76,6 +79,7 @@ function SkinRatings({skins,owner,accountLoading}:Props&{owner:string|null;accou
             <div className={styles.navigation}><button className="ghost btn-sm" disabled={filtered.findIndex(skin=>skin.id===selected.id)<=0} onClick={()=>navigate(-1)}>Previous skin</button><button className="ghost btn-sm" disabled={!filtered.length||filtered.findIndex(skin=>skin.id===selected.id)===filtered.length-1} onClick={()=>navigate(1)}>Next skin</button></div>
           </div>
         </div>
+        {zooming&&selected.image&&<SkinZoomOverlay image={selected.image} name={selected.name} voiceOperator={selected.operator} dynamic={selected.dynamic??null} alternate={selected.alternate??null} closeLabel="Back to rating" onClose={()=>setZooming(false)}/>}
       </ImportDialog>}
     </main>
   </>;
@@ -83,5 +87,6 @@ function SkinRatings({skins,owner,accountLoading}:Props&{owner:string|null;accou
 export const getStaticProps:GetStaticProps<Props>=withContentPage<Props>('/polls/favourite-skins',async()=>{
   const {communityPoll}=await import('@/lib/community/catalogues');
   const catalogue=await communityPoll();
-  return {props:{skins:catalogue.skins}};
-},{bundledWhenUnpublished:true});
+  const {withFriendDynamicArt}=await import('@/lib/skins/dynamicArtFallback');
+  return {props:await withFriendDynamicArt({skins:catalogue.skins})};
+},{bundledWhenUnpublished:true,finalize:async props=>{const {withFriendDynamicArt}=await import('@/lib/skins/dynamicArtFallback');return withFriendDynamicArt(props);}});

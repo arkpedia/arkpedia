@@ -100,7 +100,7 @@ function StatisticsLeaderboard({metric,rows,query,onQuery,onClose,controls,sampl
   const matching=rows.filter(row=>matchesSearch(`${row.entity.name} ${row.suffix}`,query)),podium=!query.trim(),listed=podium?matching.slice(3):matching;
   // Each row's bar compares its current count or percentage with the longest in the list.
   const longest=Math.max(0,...matching.map(row=>row.value));
-  return <ImportDialog title={metric.label} className={styles.rankingDialog} onClose={onClose}>
+  return <ImportDialog title={metric.label} className={styles.rankingDialog} onClose={onClose} actions={<button className="ghost btn-sm" onClick={onClose}>Back to rankings</button>}>
     <p className={styles.description}>{metric.description}</p>
     <div className={styles.dialogControls}><SearchInput label={`Search ${entityLabel}`} placeholder={`Search ${entityLabel}…`} value={query} onChange={onQuery}/>{controls}</div>
     <div className={styles.rankingSummary}>{sample}<span className="hint">{matching.length.toLocaleString('en-US')} {['activations','m3'].includes(metric.value)?'skills':entityLabel}</span></div>

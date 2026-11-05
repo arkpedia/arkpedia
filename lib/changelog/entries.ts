@@ -34,6 +34,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-05T15:13:28Z',
+    added: [{title:'Full-screen art while rating skins',detail:'Open an outfit’s artwork and animations, then return to the same rating.',href:'/polls/favourite-skins'}],
+    changed: [
+      {title:'Poll previews show the actual leaders',detail:'Both poll cards place first in the middle, with second on the left and third on the right.',href:'/polls'},
+      {title:'Clearer ways back from community results',detail:'Back buttons return from artwork, rating dialogs, detailed results and poll pages.',href:'/polls'},
+    ],
+  },
+  {
     at: '2026-11-05T12:30:00Z',
     added: [
       { title: 'Explore community rankings', detail: 'Compare operator upgrades and uploaded auto-deploy usage, with filters and absolute or relative rankings.', href: '/community/statistics' },

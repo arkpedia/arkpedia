@@ -21,6 +21,7 @@ interface Props {
   alternate?: string | null;
   details?: ReactNode;
   voiceOperator?: string;
+  closeLabel?: string;
   onClose: () => void;
 }
 
@@ -43,7 +44,7 @@ function writeSound(on: boolean) {
   try { window.localStorage.setItem(SOUND_KEY, on ? 'on' : 'off'); } catch { /* not remembered */ }
 }
 
-export default function SkinZoomOverlay({ image, name, dynamic: original, alternate = null, details, voiceOperator, onClose }: Props) {
+export default function SkinZoomOverlay({ image, name, dynamic: original, alternate = null, details, voiceOperator, closeLabel = 'Close', onClose }: Props) {
   const [variant, setVariant] = useState('original');
   const model = variant === 'alternate' && alternate ? alternate : original;
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -257,7 +258,7 @@ export default function SkinZoomOverlay({ image, name, dynamic: original, altern
             Reset
           </button>
           <button ref={closeRef} type="button" className="primary" onClick={onClose}>
-            Close
+            {closeLabel}
           </button>
         </div>
       </div>
