@@ -10,6 +10,7 @@ import { optimizeAccountBase } from '../../lib/base/accountOptimizer';
 import { ownedBaseRoster } from '../../lib/base/optimizerRoster';
 import { activeBaseSkills } from '../../lib/base/activeBaseSkills';
 import { getFacilities } from '../../lib/base/baseConfig';
+import { calculateBase } from '../../lib/base/calculateBase';
 import { parseKroosterPage, profileFromData, accountFromKrooster } from '../../lib/account-import/krooster';
 import type { BaseOperator } from '../../lib/operators/operatorTypes';
 import groups from '../../data/base-group-rosters.json';
@@ -32,6 +33,16 @@ const r = optimizeAccountBase({ base, roster: owned.roster, snapshot: undefined,
 const best = r.recommendations[0];
 console.log(`${best.label}: LMD ${best.output.lmd.toFixed(0)} EXP ${best.output.exp.toFixed(0)} gold ${best.output.goldMade.toFixed(1)} /day, ${best.plan.shifts.length} shifts of ${best.plan.stepHours}h, ${r.searched} plans in ${((Date.now() - t) / 1000).toFixed(0)} s; others: ${r.recommendations.slice(1).map(x => `${x.label} ${x.score.toFixed(0)}`).join(', ')}`);
 const facilities = getFacilities(best.spots, best.levels);
+/** What one operator alone brings to a room in shift 1's base (the fill's own measure, completeStaffing.ts): clue
+ *  speed, HR speed, drone rate, or the room's productivity for the product it makes. */
+const benefitOf = (f: (typeof facilities)[number], name: string): number => {
+  const shift = best.plan.shifts[0];
+  const assignments = Object.fromEntries(Object.entries(shift.assignments).map(([id, slotsOf]) => [id, slotsOf.map(x => x?.operatorName === name ? null : x)]));
+  assignments[f.id] = [{ operatorName: name, ...owned.roster[name] }, ...Array(f.capacity - 1).fill(null)];
+  const room = calculateBase({ ...base, facilities, assignments, factoryProducts: shift.factoryProducts, loginInterval, swapPolicy: 'onLogin' }).rooms[f.id];
+  return f.kind === 'receptionRoom' ? room.clueSpeed ?? 0 : f.kind === 'office' ? room.office?.speed ?? 0 : f.kind === 'powerPlant' ? room.droneRate ?? 0 : room.productivity?.yellow ?? 0;
+};
+const pct = (x: number) => `${(x * 100).toFixed(0)}%`;
 const label = (name: string, room: string) => {
   const op = byName.get(name), o = owned.roster[name];
   if (!op || !o) return `${name} [NOT IN ROSTER]`;
@@ -61,7 +72,9 @@ for (const room of ['Office', 'Reception Room', 'Control Center']) {
   const rows = Object.entries(owned.roster).flatMap(([name, o]) => {
     const op = byName.get(name); if (!op) return [];
     const skills = activeBaseSkills(op, room, o.eliteLevel, base.skillSlots, o.level);
-    return skills.length ? [`${name} ${o.eliteLevel === 'Elite 2' ? 'E2' : o.eliteLevel === 'Elite 1' ? 'E1' : 'E0'}L${o.level} {${skills.map(s => s.name).join('; ')}} -> ${placeOf(name)}`] : [];
+    const f = facilities.find(x => x.label === room && x.capacity);
+    const value = f && room !== 'Control Center' ? ` ${pct(benefitOf(f, name))}` : '';
+    return skills.length ? [`${name} ${o.eliteLevel === 'Elite 2' ? 'E2' : o.eliteLevel === 'Elite 1' ? 'E1' : 'E0'}L${o.level}${value} {${skills.map(s => s.name).join('; ')}} -> ${placeOf(name)}`] : [];
   });
   console.log(`\n${room} candidates (${rows.length}):\n  ${rows.join('\n  ')}`);
 }
@@ -81,6 +94,7 @@ console.log(`E0 level 1 operators at work: ${e0Workers.size} (${[...e0Workers].j
 // A base expert's checks, so a run can be read at a glance: nobody unskilled in the skill rooms, no seat left
 // open, no Elite 0 worker where an idle built operator has a skill for the room, a rotation the crew sustains.
 const findings: string[] = [];
+const prunedFrom = new Set(best.plan.notes.filter(n => n.startsWith('Left out as adding nothing')).flatMap(n => [...n.matchAll(/ from ([^;.]+)/g)].map(m => m[1])));
 const eliteOf = (name: string) => owned.roster[name]?.eliteLevel;
 const idleNames = new Set(Object.keys(owned.roster).filter(name => byName.has(name) && placeOf(name) === 'idle'));
 best.plan.shifts.forEach((shift, i) => {
@@ -88,11 +102,14 @@ best.plan.shifts.forEach((shift, i) => {
     if (!f.capacity || f.kind === 'dormitory') continue;
     const staff = (shift.assignments[f.id] ?? []).filter(Boolean) as { operatorName: string }[];
     if (['receptionRoom', 'office', 'controlCenter'].includes(f.kind)) for (const s of staff) if (!activeBaseSkills(byName.get(s.operatorName)!, f.label, eliteOf(s.operatorName), base.skillSlots, owned.roster[s.operatorName].level).length) findings.push(`shift ${i + 1} ${f.label}: ${s.operatorName} has no skill for the room`);
-    if (staff.length < f.capacity && f.kind !== 'trainingRoom') findings.push(`shift ${i + 1} ${f.label}: ${f.capacity - staff.length} seat(s) open`);
+    if (staff.length < f.capacity && f.kind !== 'trainingRoom') findings.push(`shift ${i + 1} ${f.label}: ${f.capacity - staff.length} seat(s) open${prunedFrom.has(f.label) ? ' (a worker here was left out as adding nothing to the funded output)' : ''}`);
+    // An Elite 0 worker where an idle built operator would bring at least as much to this room and product: the
+    // fill's own benefit measure, so a capacity skill or another product's productivity is no alternative.
     if (['factory', 'tradingPost', 'powerPlant'].includes(f.kind)) for (const s of staff) {
       if (eliteOf(s.operatorName) !== 'Base') continue;
-      const built = [...idleNames].filter(n => eliteOf(n) !== 'Base' && activeBaseSkills(byName.get(n)!, f.label, eliteOf(n), base.skillSlots, owned.roster[n].level).length);
-      if (built.length) findings.push(`shift ${i + 1} ${f.label}: ${s.operatorName} at Elite 0 works while built operators with a skill here sit idle (${built.slice(0, 4).join(', ')}${built.length > 4 ? ', ...' : ''})`);
+      const own = benefitOf(f, s.operatorName);
+      const built = [...idleNames].filter(n => eliteOf(n) !== 'Base' && activeBaseSkills(byName.get(n)!, f.label, eliteOf(n), base.skillSlots, owned.roster[n].level).length).map(n => ({ n, b: benefitOf(f, n) })).filter(x => x.b >= own - 1e-9).sort((x, y) => y.b - x.b);
+      if (built.length) findings.push(`shift ${i + 1} ${f.label}: ${s.operatorName} at Elite 0 (${pct(own)}) works while built operators worth as much here sit idle (${built.slice(0, 4).map(x => `${x.n} ${pct(x.b)}`).join(', ')}${built.length > 4 ? ', ...' : ''})`);
     }
   }
 });

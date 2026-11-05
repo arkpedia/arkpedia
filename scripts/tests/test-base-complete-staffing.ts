@@ -176,3 +176,21 @@ test('a Trading Post worker whose orders the gold made never fills is left out',
   assert.ok(plan.score >= seed.score - 1e-6);
   assert.equal(plan.shifts[0].assignments[post.id].filter(Boolean).length, 1, 'one seller stays');
 });
+
+test('a pruned worker gives up their beds, and the freed beds staff a support room', () => {
+  // Three beds, all taken by Gravel, Proviso and Vigil at rest; Orchid (Psychology) is idle with nowhere to recover, so
+  // the Office stays empty until Vigil is left out of the post and his bed goes to her.
+  const ctx = realContext({ Gravel: e2(), Proviso: e2(), Vigil: e2(), Orchid: e2() }, ['dormitory', 'tradingPost', 'factory', 'office']);
+  const [firstDorm] = ctx.base.facilities.filter(f => f.kind === 'dormitory');
+  ctx.base = { ...ctx.base, facilities: ctx.base.facilities.map(f => f.kind !== 'dormitory' ? f : f.id === firstDorm.id ? { ...f, capacity: 3 } : { ...f, capacity: 0, level: 0 }) };
+  const seed = emptyPlan(ctx);
+  const factory = facilities.find(f => f.kind === 'factory')!, post = facilities.find(f => f.kind === 'tradingPost')!, office = facilities.find(f => f.kind === 'office')!;
+  for (const shift of seed.shifts) shift.factoryProducts = { ...shift.factoryProducts, [factory.id]: 'Precious Metals' };
+  workThenRest(seed, { Gravel: [factory.id, 0], Proviso: [post.id, 0], Vigil: [post.id, 1] }, ctx.roster);
+  seed.simulation = simulateBase({ base: ctx.base, shifts: seed.shifts, loginInterval: 12 });
+  const plan = completeStaffing(seed, ctx);
+  assert.ok(plan.notes.some(n => /^Left out as adding nothing[^:]*: Vigil from Trading Post/.test(n)), plan.notes.join(' / '));
+  assert.ok(plan.shifts.every(s => !s.assignments[firstDorm.id].some(x => x?.operatorName === 'Vigil')), 'Vigil keeps no bed');
+  assert.ok(plan.shifts.some(s => s.assignments[office.id].some(x => x?.operatorName === 'Orchid')), `Orchid staffs the Office: ${plan.notes.join(' / ')}`);
+  assert.ok(plan.simulation.periodic && !plan.simulation.events.some(e => e.kind === 'exhausted'));
+});

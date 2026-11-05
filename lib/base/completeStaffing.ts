@@ -14,6 +14,8 @@ const clone = (shifts: SimulationShift[]) => shifts.map(s => ({ ...s, assignment
 export const BUILT_FIRST_MARGIN = 0.005;
 const SUPPORT_SKILL_ROOMS = new Set<string>(['receptionRoom', 'office']);
 const PRODUCTION_ROOMS = new Set<string>(['factory', 'tradingPost', 'powerPlant']);
+/** The rooms a bed freed by the prune is offered to again: never a production seat the prune just judged worthless. */
+const SUPPORT_FILL_KINDS = new Set<string>(['controlCenter', 'powerPlant', 'receptionRoom', 'office']);
 
 /** Complete a production search with real, simulated support shifts. Never displace a
  * production worker, locked resident, dorm specialist or Fiammetta's refill setup.
@@ -161,7 +163,8 @@ export function completeStaffing(plan: OptimizerResult, ctx: GenomeContext, opti
     shifts = trial; simulation = result; assigned.add(name);
     return true;
   }
-  for (const room of rooms) for (const group of groups) for (let index = 0; index < room.capacity; index++) {
+  /** Every open seat of `toFill`, a setup group at a time, then shift by shift. */
+  const fill = (toFill: FacilityDef[]) => { for (const room of toFill) for (const group of groups) for (let index = 0; index < room.capacity; index++) {
     if (!shifts[group[0]].assignments[room.id]?.[index]) {
       // A bounded shortlist keeps an intermediate result responsive. Lower-ranked ordinary
       // staff are useful fallbacks when a specialist's Morale cost is unsustainable. Rest groups come in the
@@ -176,7 +179,8 @@ export function completeStaffing(plan: OptimizerResult, ctx: GenomeContext, opti
       const rests: (number[] | null)[] = room.kind === 'workshop' ? [null] : cycleAfter(step, shifts.map((_, i) => i).filter(i => i !== step)).map(i => [i]);
       candidates(room, step).slice(0, 12).some(name => rests.some(rest => tryFill(room, index, [step], rest, name)));
     }
-  }
+  } };
+  fill(rooms);
   // ---------------------------------------------------------------- refinements, after the fill
   // Prune: a Factory or Trading Post worker whose removal from the room (in every shift) leaves the funded score
   // where it is: what they add is output the base cannot fund (gold no post sells, orders no gold fills). Power
@@ -189,6 +193,15 @@ export function completeStaffing(plan: OptimizerResult, ctx: GenomeContext, opti
       for (const s of trial) s.assignments[room.id] = (s.assignments[room.id] ?? []).map(x => x?.operatorName === name ? null : x);
       if (keepIf(trial, scoreNow() - 1e-6)) pruned.push(`${name} from ${room.label}`);
     }
+  }
+  // A pruned worker no longer needs their beds. Freed beds go back to the fill for the support rooms (the Control
+  // Center, Power Plants, Reception Room and Office are last in no bed's line otherwise); a pruned operator whose
+  // Dormitory skill still serves their roommates keeps the bed, as does anyone the rotation protects.
+  const prunedNames = pruned.map(p => p.split(' from ')[0]).filter(name => !untouchable.has(name) && !skills(name, 'Dormitory').length && !shifts.some(s => Object.entries(s.assignments).some(([id, slots]) => kind.get(id) !== 'dormitory' && slots.some(x => x?.operatorName === name))));
+  if (prunedNames.length) {
+    const trial = clone(shifts);
+    for (const s of trial) for (const d of dorms) s.assignments[d.id] = (s.assignments[d.id] ?? []).map(x => x && prunedNames.includes(x.operatorName) ? null : x);
+    if (keepIf(trial, scoreNow() - 1e-6)) fill(rooms.filter(r => SUPPORT_FILL_KINDS.has(r.kind)));
   }
 
   // Present the actual completed staffing as one template per change. Never leave old

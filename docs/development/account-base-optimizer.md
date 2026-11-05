@@ -349,7 +349,12 @@ HR over Haruka at E2, and a fourth Factory worker adding nothing):
 - **Workers who add nothing.** A Factory or Trading Post worker whose removal from the
   room, in every shift, leaves the funded score where it is (gold no post sells, orders
   no gold fills) is left out, and the note names them. Power Plant workers are not
-  judged this way: drone charge has uses the score does not count.
+  judged this way: drone charge has uses the score does not count. A worker left out
+  gives up their beds too (unless a Dormitory skill of theirs still serves the room, or
+  the rotation protects them), and the freed beds go once more to the fill for the
+  Control Center, Power Plants, Reception Room and Office, which are last in line for a
+  bed otherwise: on the 21 saved Krooster profiles the Office stood empty in most shifts
+  while a left-out seller kept a bed in every one (found 2026-11-05).
 
 Per-slot staggering (the base expert's second rotation: one or two seats of a room change
 hands while the rest of the crew works on, a weaker filler covering, and the best workers
