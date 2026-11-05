@@ -5,6 +5,7 @@ import { accountAuth, accountsEnv, type AccountsEnv } from '@/lib/cloud-account/
 import { isServerId } from '@/lib/account-import/yostar';
 import { communityRankings } from './rankings';
 import { cachedCommunityRankings } from './rankingsCache';
+import {reportRankingFailure,type RankingBucket} from './sharedRankingsCache';
 import { deploymentPreviewStatistics } from './preview-statistics';
 import { skinRatings } from '@/lib/polls/skin-ratings-api';
 import { skinPoll,skinPollIds } from '@/lib/polls/skin-poll-api';
@@ -12,7 +13,7 @@ import { STAGE_ID } from '@/lib/replays/model';
 import { COMMUNITY_OFF, COMMUNITY_MIN_SAMPLE, SUPPORT_MAX_AGE, AVAILABILITY_MAX_AGE, FULL_REPORT_THRESHOLD, parseCommunityChoices, parseCommunitySnapshot, type CommunityState } from './model';
 
 type Limiter = { limit: (options:{key:string})=>Promise<{success:boolean}> };
-type Env = AccountsEnv & { ACCOUNT_TRAFFIC_LIMIT?: Limiter; ACCOUNT_IP_LIMIT?: Limiter };
+type Env = AccountsEnv & { ACCOUNT_TRAFFIC_LIMIT?: Limiter; ACCOUNT_IP_LIMIT?: Limiter; NEXT_INC_CACHE_R2_BUCKET?:RankingBucket };
 interface Row { userId:string; gameKey:string|null; listingId:string; server:'en'|'jp'|'kr'; importedAt:string; revision:number; stats:number; shareTag:number; openRequests:number; friendTag:string|null; slots:number|null; fullReports?:number; openReports?:number }
 const reportedFull=(row:Row)=> (row.fullReports??0)>=FULL_REPORT_THRESHOLD&&(row.fullReports??0)>(row.openReports??0);
 const active=(row:Row,now:number)=>!!(row.shareTag&&row.openRequests&&row.friendTag&&(row.slots??0)>0&&Date.parse(row.importedAt)>=now-SUPPORT_MAX_AGE);
@@ -63,7 +64,7 @@ export function createCommunityHandler(kind:'sharing'|'stats'|'supports'|'availa
         const server=req.query.server??'all',stage=req.query.stage??'';
         if((server!=='all'&&!isServerId(server))||typeof stage!=='string'||(stage&&!STAGE_ID.test(stage)))return res.status(400).json({error:'Choose a valid region and stage ID.'});
         const snapshot=await deploymentPreviewStatistics(env.ARKPEDIA_DEPLOYMENT_ROLE,server,stage);
-        return res.json(snapshot??await (env.ARKPEDIA_DEPLOYMENT_ROLE==='production'?cachedCommunityRankings:communityRankings)(db,server,stage));
+        return res.json(snapshot??await (env.ARKPEDIA_DEPLOYMENT_ROLE==='production'?cachedCommunityRankings(db,server,stage,env.NEXT_INC_CACHE_R2_BUCKET):communityRankings(db,server,stage)));
       }
       if(kind==='stats')return await stats(req,res,db);
       if(kind==='supports')return await supports(req,res,db,time);
@@ -126,7 +127,7 @@ export function createCommunityHandler(kind:'sharing'|'stats'|'supports'|'availa
     }catch(error){
       // Rankings contain fixed aggregate queries only. Keep the underlying error
       // in server diagnostics so a generic public 503 can be investigated.
-      if(kind==='rankings')console.error('community_rankings_failed',{name:error instanceof Error?error.name:'UnknownError',message:error instanceof Error?error.message:String(error)});
+      if(kind==='rankings')reportRankingFailure(error);
       if(/UNIQUE constraint|community_account.gameKey/i.test(String(error)))return res.status(409).json({error:'This game account already has a community contribution. Each game account can contribute once.'});
       if(error instanceof Error&&/^(Choose|Import|Invalid|Unexpected|Incomplete|Masteries|Duplicate|Community snapshot|Preview statistics snapshot|Sign-in credentials|Saved data)/.test(error.message))return res.status(400).json({error:error.message});
       return res.status(503).json({error:'Community data is temporarily unavailable. Your private saves are unchanged.'});

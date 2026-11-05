@@ -47,7 +47,7 @@ export async function communityRankings(db:D1Database,server:string,stage:string
   const counterArgs=[knownStages,...replayArgs];
   const clearSample=await db.prepare(`${counters} SELECT count(DISTINCT CASE WHEN clears IS NOT NULL THEN namespace END) contributors,count(clears) records FROM counters`).bind(...counterArgs).first<{contributors:number;records:number}>();
   const stageClears=(clearSample?.contributors??0)<COMMUNITY_MIN_SAMPLE?null:(await db.prepare(`${counters} SELECT stageId,sum(clears) clears FROM counters WHERE clears IS NOT NULL GROUP BY stageId`).bind(...counterArgs).all<{stageId:string;clears:number}>()).results;
-  const successful=`${eligible}, successful AS (SELECT r.* FROM runs r JOIN auto_deploy d ON d.userId=r.userId AND d.namespace=r.namespace AND d.stageId=r.stageId
+  const successful=`${eligible}, successful AS (SELECT r.* FROM runs r JOIN auto_deploy d INDEXED BY auto_deploy_community_counters ON d.userId=r.userId AND d.namespace=r.namespace AND d.stageId=r.stageId
     WHERE r.stageId IN (SELECT value FROM json_each(?)) AND CASE WHEN json_valid(d.fingerprint) THEN
     ((typeof(json_extract(d.fingerprint,'$[2]'))='integer' AND json_extract(d.fingerprint,'$[2]')>0) OR (typeof(json_extract(d.fingerprint,'$[4]'))='integer' AND json_extract(d.fingerprint,'$[4]')>=2)) ELSE 0 END)`;
   const stageArgs=[...replayArgs,knownStages];

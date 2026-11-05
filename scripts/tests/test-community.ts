@@ -482,7 +482,11 @@ test('production ranking reads share work and immediately drop withdrawn contrib
     assert.ok(reads.every(read=>read.status===200&&read.result.contributors===10));
     assert.ok(queries<20,'concurrent requests share the expensive ranking queries');
     queries=0;assert.equal((await h.call('rankings',null,'GET',undefined,{server:'all'})).result.contributors,10);
-    assert.equal(queries,1,'a warm read still checks current consent and upload change counters');
+    assert.equal(queries,1,'a warm read still checks current sharing consent');
+    const replay=JSON.stringify({journal:{squad:[],logs:[]}});
+    h.sqlite.prepare('INSERT INTO auto_deploy(userId,namespace,stageId,fingerprint,hash,payload,bytes) VALUES(?,?,?,?,?,?,?)').run('cached0','en:8000','main_00-01','[1,1,1,0,2]','cache-upload',replay,replay.length);
+    queries=0;assert.equal((await h.call('rankings',null,'GET',undefined,{server:'all'})).result.replays,0);
+    assert.equal(queries,1,'upload batches do not continuously invalidate the 30-second aggregate cache');
     await h.call('sharing','cached0','DELETE',{});
     const withdrawn=(await h.call('rankings',null,'GET',undefined,{server:'all'})).result;
     assert.equal(withdrawn.contributors,9);assert.equal(withdrawn.roster,null);

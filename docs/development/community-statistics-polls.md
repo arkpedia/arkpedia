@@ -1,5 +1,7 @@
 # Community statistics and skin ratings
 
+Production rankings share anonymous aggregates through the existing private page-cache R2 bucket. Conditional leases coalesce cold reads across isolates and regions. Aggregate results refresh after 30 seconds; replay upload batches do not invalidate every request. Every read still checks current community account revisions, so sharing withdrawals bypass both fresh and stale cached totals immediately. During temporary D1 overload, only a consent-matched result built within two minutes may be used. Shared keys are bounded to the four region cohorts; single-stage reads stay local. The cache stores no account identities or replay contents. Lease and result writes are conditional on the same object's ETag, with bounded backoff for [R2's per-key write limit](https://developers.cloudflare.com/r2/platform/limits/).
+
 These features are approved for production publication as of 2026-11-05. `/community/statistics`, `/polls` and
 `/polls/favourite-skins` are public. Drip Awards retains its subtitle:
 “A very serious poll, for serious poll testing”. Power Scale remains a closed results
