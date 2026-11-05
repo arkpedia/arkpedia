@@ -1,0 +1,40 @@
+.page { display:grid; gap:28px; }
+.feature { overflow:hidden; }
+.featureBody { display:grid; grid-template-columns:minmax(0,0.9fr) minmax(0,1.1fr); align-items:center; }
+.copy { padding:32px 0 32px 28px; position:relative; z-index:3; }
+.title { margin:12px 0 10px; }
+.subtitle { margin:0; max-width:32ch; font-size:15px; line-height:1.6; color:var(--text-dim); }
+.invitation { margin:22px 0 12px; font-size:15px; }
+.actions { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+.access { margin:14px 0 0; line-height:1.6; }
+/* The outfits are the feature: full-colour illustrations arranged as a fashion spread. */
+.showcase { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:0; height:360px; padding:18px 10px; box-sizing:border-box; overflow:hidden; }
+.showcase figure { min-width:0; height:92%; margin:0; align-self:center; overflow:hidden; clip-path:polygon(10% 0,100% 0,90% 100%,0 100%); }
+.showcase figure:nth-child(2) { height:100%; }
+.showcase img { width:100%; height:100%; object-fit:cover; }
+.showcase figure:nth-child(3) img { object-position:65% center; }
+.ratingFacts { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; margin:0; padding:16px 28px; border-top:1px solid var(--line-soft); text-align:center; }
+.ratingFacts dt { font-size:12px; color:var(--text-dim); }
+.ratingFacts dd { margin:4px 0 0; font-family:var(--font-display); font-size:22px; font-weight:700; line-height:1.2; color:var(--text-bright); }
+.previous { min-width:0; }
+.archive { position:relative; display:flex; align-items:center; min-height:160px; overflow:hidden; text-decoration:none; }
+.archiveCopy { position:relative; z-index:1; max-width:62%; padding:4px 10px; }
+.archiveTitle { margin:6px 0; }
+.archiveCopy p { margin:0; font-size:13px; line-height:1.5; color:var(--text-dim); }
+.archiveAction { display:inline-flex; align-items:center; gap:10px; margin-top:16px; font-size:13px; }
+.archiveArt { position:absolute; inset:-14% 0 -14% auto; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); width:38%; pointer-events:none; }
+.archiveArt img { width:100%; height:100%; object-fit:contain; }
+@media (max-width:720px) {
+  .page { gap:24px; }
+  .featureBody { grid-template-columns:minmax(0,1fr); }
+  .showcase { grid-row:1; height:230px; }
+  .copy { padding:4px 20px 22px; }
+  .title { margin-top:8px; }
+  .subtitle { max-width:none; }
+  .invitation { margin-top:16px; }
+  .ratingFacts { padding:14px 12px; }
+  .archive { min-height:148px; }
+  .archiveCopy { max-width:62%; padding:2px 0; }
+  .archiveArt { display:block; width:42%; right:-4%; }
+  .archiveArt > :not(:first-child) { display:none; }
+}

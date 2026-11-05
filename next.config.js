@@ -111,6 +111,7 @@ const nextConfig = {
         destination: assetUrl('arkpedia-skin-assets', 'variants/:format/:width/:path*'),
         permanent: false,
       },
+      { source: '/friends', destination: '/account?panel=friends', permanent: true },
       { source: '/community/livestreams', destination: '/world/videos', permanent: true },
       // arkpedia.net/?s=<query> is the site search too (pages/search.tsx), for anyone who
       // sets the site up as a search engine by hand. Only on the home page: /stages/browse

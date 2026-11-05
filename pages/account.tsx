@@ -11,6 +11,7 @@ import Tabs, { tabPanelProps } from '@/components/ui/Tabs';
 import { useHeightFloor } from '@/components/ui/useHeightFloor';
 import { useAccountActions } from '@/components/account/AccountActions';
 import { useCloudSync } from '@/lib/cloud-account/SyncProvider';
+const ImportedFriends = dynamic(() => import('@/components/friends/ImportedFriends'), { ssr: false });
 const FriendCollection = dynamic(() => import('@/components/friends/FriendCollection'), { ssr: false });
 import { makeFriendFile, shareableRoster } from '@/lib/account/friendFile';
 import { readRoster } from '@/lib/planner/roster';
@@ -24,6 +25,7 @@ import { showAccount, useAccount, useOtherAccounts } from '@/lib/account/account
 import { assistantCatalogue, type CardOutfit } from '@/lib/account/portraits';
 import { SERVER_IDS, SERVERS } from '@/lib/account-import/yostar';
 import SegmentedControl from '@/components/ui/SegmentedControl';
+import styles from '@/components/account/AccountPage.module.css';
 // The eyebrow names Rhodes Island's AI as the reader's story has it: PRTS, ZOOT after Episode 15.
 
 /*
@@ -74,7 +76,7 @@ export default function AccountPage({ skins, operators }: Props) {
     void router.push({ pathname: '/account', query }, undefined, { shallow: true, scroll: false });
   };
   const closePanel = () => { const query = { ...router.query }; delete query.panel; void router.replace({ pathname: '/account', query }, undefined, { shallow: true, scroll: false }); };
-  const tab = panel === 'pulls' || panel === 'operators' || panel === 'skins' ? panel : 'profile';
+  const tab = panel === 'pulls' || panel === 'operators' || panel === 'skins' || panel === 'friends' ? panel : 'profile';
   const view = panel === 'operators' || panel === 'skins' ? panel : null;
   const collectionOperators = useMemo(() => operators ?? friendOperators(map, []), [operators, map]);
   const collectionSkins = useMemo(() => skins.map(skin => ({ ...skin, model: skin.model ?? null, series: skin.series ?? '' })), [skins]);
@@ -96,10 +98,11 @@ export default function AccountPage({ skins, operators }: Props) {
 
       <main>
         <CloudAccountPanel hideSettingsButton onOpenSettings={() => actions.open('settings')} onOpenData={() => actions.open('import')} />
-        <Tabs id="account-content" label="Account content" value={tab} onChange={openPanel} options={[
-          { value: 'profile', label: 'Profile' }, { value: 'pulls', label: 'Pull history' }, { value: 'operators', label: 'Operators' }, { value: 'skins', label: 'Skins' },
+        <Tabs id="account-content" label="Account content" className={styles.contentTabs} value={tab} onChange={openPanel} options={[
+          { value: 'profile', label: 'Profile' }, { value: 'pulls', label: 'Pull history' }, { value: 'operators', label: 'Operators' }, { value: 'skins', label: 'Skins' }, { value: 'friends', label: 'Friends' },
         ]} />
         <div ref={floor.ref} {...tabPanelProps('account-content', tab)} className="account-tab-content">
+        {tab === 'friends' && <ImportedFriends operators={collectionOperators} skins={collectionSkins} />}
         {tab === 'pulls' && <PullHistory key={account ? `${account.server}:${account.importedAt}` : 'empty'} account={account} map={map} />}
         {view && (account ? <FriendCollection key={view} inline own friend={makeFriendFile(account, shareableRoster(account, Object.values(others), readRoster()))} operators={collectionOperators} skins={collectionSkins} view={view} onClose={closePanel} /> : <p className="hint">Import your Arknights account to see your {view}.</p>)}
         {tab === 'profile' && !settingUp && <>
@@ -135,18 +138,11 @@ export default function AccountPage({ skins, operators }: Props) {
   );
 }
 
-/* bundledWhenUnpublished: the releases before /account have no such page, and on Vercel there
-   is no data/ to build it from. The builder reads only the skins compiled into the bundle and
-   the tables' module imports, so it can run there. */
+/* Older releases may lack /account. Its collection catalogue is compiled into
+   the bundle; regeneration must not scan source files absent from the runtime. */
 export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>('/account', async () => {
-  const [{ getAllSkins }, { getAllOperators }] = await Promise.all([import('@/lib/skins/skins'), import('@/lib/operators/operators')]);
-  const map = await DATA_DIALOG_TABLES['game-account-map']();
-  return { props: await withFriendDynamicArt({
-    // As /skins counts them: an outfit only CN has is not Global's yet.
-    // Each outfit by its game id, with its art: the card shows the assistant in theirs.
-    operators: friendOperators(map, getAllOperators()),
-    skins: getAllSkins().flatMap(skin => skin.skinId ? [{ id: skin.skinId, name: skin.name, model: skin.model, series: skin.series, image: skin.image }] : []),
-  }) };
+  const {default:catalogue}=await import('@/data/account-catalogue.json');
+  return {props:await withFriendDynamicArt(catalogue)};
 }, {
   bundledWhenUnpublished: true,
   tables: DATA_DIALOG_TABLES,

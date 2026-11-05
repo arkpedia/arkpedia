@@ -34,6 +34,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-05T12:30:00Z',
+    added: [
+      { title: 'Explore community rankings', detail: 'Compare operator upgrades and uploaded auto-deploy usage, with filters and absolute or relative rankings.', href: '/community/statistics' },
+      { title: 'Arkpedia Drip Awards', detail: 'Rate outfits from 1–10, return to your saved ratings, and explore public rankings, tier lists and detailed results.', href: '/polls' },
+    ],
+    changed: [
+      { title: 'Community and Extras menus', detail: 'Find polls, statistics and supports together; Music and Games now live in Extras.' },
+      { title: 'Friends have their own profile tab', detail: 'Import manually shared friend files from the Friends tab.', href: '/account' },
+    ],
+  },
+  {
     at: '2026-11-04T14:10:00Z',
     fixed: [{ title: 'Talulah’s pull chances', detail: 'Plan Talulah goals with confirmed CN rates, exchange costs, and her 300-pull gift.', href: '/pull-planner' }],
   },

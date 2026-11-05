@@ -41,6 +41,8 @@ import { join } from 'node:path';
 /** Stretching that is right, with why. Keyed by `file: selector` (the rule's whole
  *  selector as written, whitespace collapsed). */
 export const STRETCH_ALLOWED = new Map([
+  ['components/community/SkinRatings.module.css: .ratingChoices',
+    'The mobile skin-rating keypad is a numeric 1-10 scale in two rows of five equal touch targets. It spans the rating editor rather than leaving the right half unused; view and filter selectors retain content-width chips.'],
   ['styles/stages/stages-terminal.css: .supply-schedule > button',
     'Mon-Sun is a week: seven equal day cells on one line at every width, each stacking the day over the TODAY tick. At content width Wed and Thu would be wider than Mon and the strip would stop reading as a calendar row. The first cell\'s box still starts on the section edge.'],
   ['styles/planner/planner.css: .filter-chip.state-elite-chip',

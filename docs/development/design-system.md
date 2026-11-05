@@ -301,17 +301,19 @@ verification limits. Update these references when a new pattern is accepted.
 ## Navigation and account surfaces
 
 The desktop header and mobile drawer use `lib/nav/navLinks.ts`. Keep Database,
-Guides, Planner, Community and About in the same order on both. Schedule is a direct
-link. Database dividers separate operators/reference, world/story, and creators.
-My account and Friends belong to the profile dropdown. Community projects belongs to Community. About owns site
+Guides, Planner, Community, Extras, Schedule and About in the same order on both.
+Community groups Polls, Community Stats and Find support units before a divider, then
+Community projects and World. Extras holds Music and Games. Schedule holds Events and Calendar. Database dividers separate operators/reference, world/story, and creators.
+My account and Friends shortcuts belong to the profile dropdown; Friends opens the account’s Friends tab. Community projects belongs to Community. About owns site
 news, credits and support. Use current canonical routes; do not copy dev-only URL
 renames without their routing migration.
 
 Header utilities run Search → Settings → server clock → profile. Phones keep 44px
-utility targets; the narrow bar hides its clock and wordmark, with the full clock
+utility targets; desktop navigation hides its clock below 1100px and its wordmark
+below 960px to keep every menu readable. The mobile bar hides its clock and wordmark, with the full clock
 still available in the navigation drawer. Settings owns Import / export and the
 Suzuran appearance toggle. The profile disclosure owns Profile, Pull history,
-Operators, Skins and Friends. Profile opens `/account`. Login appears only when this deployment supports providers.
+Operators, Skins and Friends. Profile opens `/account`; Friends opens `/account?panel=friends` and currently supports manual exported-file imports only. Login appears only when this deployment supports providers.
 
 `ActionPopover` is a non-modal disclosure of native links/buttons, with Tab,
 Escape, outside dismissal and route-change dismissal. It mounts inside a containing

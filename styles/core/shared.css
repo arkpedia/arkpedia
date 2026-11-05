@@ -82,6 +82,10 @@
   --teal-fill-hi: #7ee9d8;
 
   --amber: #e0aa4e;
+  /* Ranking medals, independent of operator rarity. */
+  --podium-gold: var(--amber);
+  --podium-silver: #b9c8d8;
+  --podium-bronze: #d29672;
   --danger: #d4685c;
   --status-positive: #62c48c;
   --danger-dim: rgba(212, 104, 92, 0.14);
@@ -316,6 +320,8 @@
   --teal-fill-hi: #097565;
 
   --amber: #8F5808;
+  --podium-silver: #596a7b;
+  --podium-bronze: #985a38;
   --danger: #C33D30;
   --status-positive: #247744;
   --danger-dim: #FBE2DF;

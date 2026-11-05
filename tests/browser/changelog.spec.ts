@@ -28,7 +28,7 @@ for (const theme of ['dark', 'light']) test(`What’s new groups local dates and
     }
   }
   const today = page.locator('#changes-2026-10-09').locator('..');
-  await expect(today.getByRole('link', { name: 'Import a Friend', exact: true })).toHaveAttribute('href', '/friends');
+  await expect(today.getByRole('link', { name: 'Import a Friend', exact: true })).toHaveAttribute('href', '/account?panel=friends');
   await expect(today).toContainText('Roaming chibis take a break');
   await expect(today).toContainText('Artwork for regional web events');
   await expect(today).toContainText('Fewer pauses in animated art');

@@ -40,7 +40,7 @@ export default function HeaderUtilities({ search, mobile = false, onOpen }: { se
       {accountLink('pulls', 'Pull history', 'history')}
       {accountLink('operators', 'Operators', 'roster')}
       {accountLink('skins', 'Skins', 'skins')}
-      <Link prefetch={false} className={`site-nav-popitem${router.pathname === '/friends' ? ' active' : ''}`} href={PROFILE_LINKS[1].href}>{icon('friends')}Friends</Link>
+      {accountLink('friends', 'Friends', 'friends')}
     </ActionPopover>
     </div>
   </div>;

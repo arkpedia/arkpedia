@@ -382,6 +382,21 @@ async function withStubbedFeeds<T>(run: () => Promise<T>): Promise<{ result: T; 
  * running cannot pass.
  */
 const REGENERATED: Record<string, (props: Record<string, unknown>, clock: { from: number; to: number }) => void> = {
+  '/community/statistics': (props) => {
+    const ops=props.operators as {className:string;charIds:string[]}[];
+    assert.ok(ops.length>400);
+    assert.ok(ops.some(op=>op.className==='Guard'&&op.charIds.includes('char_293_thorns')));
+  },
+  '/polls/favourite-skins': (props) => {
+    const skins=props.skins as {id:string;name:string}[];
+    assert.ok(skins.length>400);
+    assert.ok(skins.some(s=>s.id==='char_002_amiya@winter#1'&&s.name==='Newsgirl'));
+  },
+  '/polls': (props) => {
+    const showcase=props.showcase as {image:string;name:string;operator:string}[];
+    assert.equal(showcase.length,3);assert.ok(showcase.every(skin=>skin.image.startsWith('/')&&skin.name&&skin.operator));
+    assert.equal((props.previousArt as string[]).length,3);
+  },
   '/community/support-units': props => {
     const operators = props.operators as {name:string;rarity:number;skills:number}[];
     assert.ok(operators.length > 350, 'support search has a real operator catalogue');

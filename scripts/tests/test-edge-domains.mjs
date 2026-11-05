@@ -46,10 +46,11 @@ test('a protocol-relative path cannot select a different Preview upstream', asyn
 });
 
 test('Preview account cookies reach only the isolated native Preview and return uncached', async () => {
-  const response = await domainResponse(new Request('https://preview.arkpedia.net/api/auth/get-session', {
+  for(const path of ['/api/auth/get-session','/api/cloud-account/polls/favourite-skins']){
+  const response = await domainResponse(new Request(`https://preview.arkpedia.net${path}`, {
     headers: { cookie: 'arkpedia.session_token=test', origin: 'https://preview.arkpedia.net' },
   }), async request => {
-    assert.equal(request.url, 'https://arkpedia-gins-arkpedia.cloudflare-1ff.workers.dev/api/auth/get-session');
+    assert.equal(request.url, `https://arkpedia-gins-arkpedia.cloudflare-1ff.workers.dev${path}`);
     assert.equal(request.headers.get('cookie'), 'arkpedia.session_token=test');
     assert.equal(request.headers.get('origin'), 'https://preview.arkpedia.net');
     return new Response('null', { headers: { 'set-cookie': 'arkpedia.session_token=new; Secure; HttpOnly; SameSite=Lax' } });
@@ -57,6 +58,7 @@ test('Preview account cookies reach only the isolated native Preview and return 
   assert.match(response.headers.get('set-cookie'), /arkpedia.session_token=new/);
   assert.equal(response.headers.get('cache-control'), 'private, no-store');
   assert.equal(response.headers.get('x-robots-tag'), 'noindex, nofollow');
+  }
 });
 
 test('Preview keeps request bodies and rewrites only same-upstream redirects', async () => {

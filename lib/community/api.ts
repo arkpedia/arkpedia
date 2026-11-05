@@ -3,6 +3,12 @@ import type { D1Database } from '@cloudflare/workers-types';
 import { fromNodeHeaders } from 'better-auth/node';
 import { accountAuth, accountsEnv, type AccountsEnv } from '@/lib/cloud-account/server';
 import { isServerId } from '@/lib/account-import/yostar';
+import { communityRankings } from './rankings';
+import { cachedCommunityRankings } from './rankingsCache';
+import { previewStatistics } from './preview-statistics';
+import { skinRatings } from '@/lib/polls/skin-ratings-api';
+import { skinPoll,skinPollIds } from '@/lib/polls/skin-poll-api';
+import { STAGE_ID } from '@/lib/replays/model';
 import { COMMUNITY_OFF, COMMUNITY_MIN_SAMPLE, SUPPORT_MAX_AGE, AVAILABILITY_MAX_AGE, FULL_REPORT_THRESHOLD, parseCommunityChoices, parseCommunitySnapshot, type CommunityState } from './model';
 
 type Limiter = { limit: (options:{key:string})=>Promise<{success:boolean}> };
@@ -35,14 +41,15 @@ export async function gameFingerprint(secret:string,server:string,uid:string) {
   return Array.from(new Uint8Array(await crypto.subtle.sign('HMAC',key,new TextEncoder().encode(`community-v1:${server}:${uid}`)))).map(v=>v.toString(16).padStart(2,'0')).join('');
 }
 /** Isolated rows, explicit consent, revision checks and fixed public projections. */
-export function createCommunityHandler(kind:'sharing'|'stats'|'supports'|'availability',{
+export function createCommunityHandler(kind:'sharing'|'stats'|'supports'|'availability'|'rankings'|'skin-poll',{
   resolveEnv=accountsEnv, authenticate=async(req:NextApiRequest,env:AccountsEnv)=>(await accountAuth(env).api.getSession({headers:fromNodeHeaders(req.headers)}))?.user.id??null, now=()=>Date.now(),
-}:{resolveEnv?:()=>Env|null;authenticate?:(req:NextApiRequest,env:AccountsEnv)=>Promise<string|null>;now?:()=>number}={}) {
+  pollSkinIds=skinPollIds,
+}:{resolveEnv?:()=>Env|null;authenticate?:(req:NextApiRequest,env:AccountsEnv)=>Promise<string|null>;now?:()=>number;pollSkinIds?:()=>Promise<ReadonlySet<string>>}={}) {
   return async(req:NextApiRequest,res:NextApiResponse)=>{
     res.setHeader('Cache-Control','private, no-store'); res.setHeader('Vary','Cookie'); res.setHeader('X-Robots-Tag','noindex');
     const env=resolveEnv();
     if(!env) return res.status(503).json({error:'Community sharing is not configured on this deployment.'});
-    const methods=kind==='sharing'?['GET','PUT','DELETE']:kind==='availability'?['POST','DELETE']:['GET'];
+    const methods=['sharing','skin-poll'].includes(kind)?['GET','PUT','DELETE']:kind==='availability'?['POST','DELETE']:['GET'];
     if(!methods.includes(req.method??'')){res.setHeader('Allow',methods.join(', '));return res.status(405).end();}
     if(req.method!=='GET'&&(req.headers.origin!==env.ARKPEDIA_AUTH_URL||!req.headers['content-type']?.startsWith('application/json'))) return res.status(403).json({error:'This request must come from Arkpedia.'});
     try{
@@ -52,9 +59,16 @@ export function createCommunityHandler(kind:'sharing'|'stats'|'supports'|'availa
       const individual=typeof ip==='string'&&ip!=='2a06:98c0:3600::103'?await env.ACCOUNT_IP_LIMIT.limit({key:ip}):{success:true};
       if(!total.success||!individual.success){res.setHeader('Retry-After','60');return res.status(429).json({error:'Please wait a minute before checking again.'});}
       const db=env.ARKPEDIA_ACCOUNTS_DB,time=now();
+      if(kind==='rankings'){
+        const server=req.query.server??'all',stage=req.query.stage??'';
+        if((server!=='all'&&!isServerId(server))||typeof stage!=='string'||(stage&&!STAGE_ID.test(stage)))return res.status(400).json({error:'Choose a valid region and stage ID.'});
+        const snapshot=previewStatistics(env.ARKPEDIA_DEPLOYMENT_ROLE,server,stage);
+        return res.json(snapshot??await (env.ARKPEDIA_DEPLOYMENT_ROLE==='production'?cachedCommunityRankings:communityRankings)(db,server,stage));
+      }
       if(kind==='stats')return await stats(req,res,db);
       if(kind==='supports')return await supports(req,res,db,time);
       const owner=await authenticate(req,env);
+      if(kind==='skin-poll')return await (req.query.mode==='ratings'?skinRatings:skinPoll)(req,res,db,owner,pollSkinIds);
       if(!owner)return res.status(401).json({error:kind==='availability'?'Sign in to report availability.':'Sign in to choose community sharing.'});
       if(kind==='availability')return await availability(req,res,db,owner,time);
       const row=await readRow(db,owner,time);
@@ -111,7 +125,7 @@ export function createCommunityHandler(kind:'sharing'|'stats'|'supports'|'availa
       return res.json(ownerState(await readRow(db,owner,time),time));
     }catch(error){
       if(/UNIQUE constraint|community_account.gameKey/i.test(String(error)))return res.status(409).json({error:'This game account already has a community contribution. Each game account can contribute once.'});
-      if(error instanceof Error&&/^(Choose|Import|Invalid|Unexpected|Incomplete|Masteries|Duplicate|Community snapshot|Sign-in credentials|Saved data)/.test(error.message))return res.status(400).json({error:error.message});
+      if(error instanceof Error&&/^(Choose|Import|Invalid|Unexpected|Incomplete|Masteries|Duplicate|Community snapshot|Preview statistics snapshot|Sign-in credentials|Saved data)/.test(error.message))return res.status(400).json({error:error.message});
       return res.status(503).json({error:'Community data is temporarily unavailable. Your private saves are unchanged.'});
     }
   };

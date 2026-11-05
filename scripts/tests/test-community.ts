@@ -8,6 +8,8 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import type { AccountRecord } from '../../lib/account/accountStore';
 import { communitySnapshot, parseCommunitySnapshot, type CommunityChoices, type CommunitySnapshot } from '../../lib/community/model';
 import { createCommunityHandler } from '../../lib/community/api';
+import skinsData from '../../data/skins.json';
+import { previewStatistics } from '../../lib/community/preview-statistics';
 
 const clock=Date.parse('2026-11-02T12:00:00Z');
 const all:CommunityChoices={stats:true,shareTag:true,openRequests:true};
@@ -16,6 +18,7 @@ function snapshot(uid='100'):CommunitySnapshot{return {server:'en',uid,doctor:'D
   operators:[{operator:'Thorns',elite:2,level:60,m0:0,m1:0,m2:3,modules:{0:3}}],skins:[{skin:'char_293_thorns@test#1',equipped:true}],
   supports:[{operator:'Thorns',elite:2,level:60,skill:3,mastery:2,module:'uniequip_002_thorns',moduleLevel:3}]};}
 function harness(){
+  const pollIds=new Set(skinsData.filter(s=>s.skinId&&s.model).map(s=>s.skinId!));
   const sqlite=new DatabaseSync(':memory:');sqlite.exec('PRAGMA foreign_keys=ON');
   for(const file of fs.readdirSync('migrations/accounts').filter(f=>f.endsWith('.sql')).sort())sqlite.exec(fs.readFileSync(`migrations/accounts/${file}`,'utf8'));
   // Ordinary SQLite permits 2,000 result columns; production D1 permits 100.
@@ -28,13 +31,13 @@ function harness(){
   const limiter={limit:async()=>({success:true})};
   const env={ARKPEDIA_ACCOUNTS_DB:db,ARKPEDIA_AUTH_URL:'https://preview.example.invalid',BETTER_AUTH_SECRET:'test-only-secret-long-enough-for-hmac-01234567',GOOGLE_CLIENT_ID:'test',GOOGLE_CLIENT_SECRET:'test',DISCORD_CLIENT_ID:'',DISCORD_CLIENT_SECRET:'',ACCOUNT_TRAFFIC_LIMIT:limiter,ACCOUNT_IP_LIMIT:limiter};
   function user(id:string){sqlite.prepare('INSERT INTO "user"(id,name,email,createdAt,updatedAt)VALUES(?,?,?,?,?)').run(id,'Private Provider Name',id+'@example.invalid','2026-01-01','2026-01-01');sqlite.prepare('INSERT INTO arkpedia_profile(userId,username,usernameKey,updatedAt)VALUES(?,?,?,?)').run(id,id,id,'2026-01-01');}
-  async function call(kind:'sharing'|'stats'|'supports'|'availability',owner:string|null,method='GET',body?:unknown,query:Record<string,string>={},headers:Record<string,string>={}){
+  async function call(kind:'sharing'|'stats'|'supports'|'availability'|'rankings'|'skin-poll',owner:string|null,method='GET',body?:unknown,query:Record<string,string>={},headers:Record<string,string>={}){
     let status=200,result:any;const response={setHeader:()=>{},status:(n:number)=>{status=n;return response;},json:(v:unknown)=>{result=v;return response;},end:()=>{}};
-    await createCommunityHandler(kind,{resolveEnv:()=>env,authenticate:async()=>owner,now:()=>clock})({method,headers:{origin:env.ARKPEDIA_AUTH_URL,'content-type':'application/json',...headers},query,body:body&&typeof body==='object'?{owner,...body}:body} as NextApiRequest,response as unknown as NextApiResponse);
+    await createCommunityHandler(kind,{resolveEnv:()=>env,authenticate:async()=>owner,now:()=>clock,pollSkinIds:async()=>pollIds})({method,headers:{origin:env.ARKPEDIA_AUTH_URL,'content-type':'application/json',...headers},query,body:body&&typeof body==='object'?{owner,...body}:body} as NextApiRequest,response as unknown as NextApiResponse);
     return {status,result};
   }
   const publish=(owner:string,uid:string,choices=all,changes:Partial<CommunitySnapshot>={})=>call('sharing',owner,'PUT',{action:'consent',revision:0,choices,snapshot:{...snapshot(uid),...changes}});
-  return {sqlite,db,env,user,call,publish};
+  return {sqlite,db,env,user,call,publish,pollIds};
 }
 test('community projection excludes private fields, counts in-progress M3 and keeps the support skill at its actual mastery',()=>{
   const account:AccountRecord={version:1,server:'en',importedAt:new Date(clock).toISOString(),doctor:'Doctor#1234',operators:['Thorns'],skins:['skin@x#1'],cleared:['PRIVATE_STAGE'],wallet:{orundum:999,originitePrime:100,permits:2,yellowCerts:3,monthlyCardUntil:null},
@@ -378,5 +381,200 @@ test('skill distributions retain rank 7 and all masteries without inventing hist
     assert.deepEqual(result.skills,[0,0,1]);
     const invalid={...snapshot(),operators:[{...snapshot().operators[0],skillLevel:6}]};
     assert.throws(()=>parseCommunitySnapshot(invalid,statsOnly,clock),/Masteries require/);
+  }finally{h.sqlite.close();}
+});
+
+test('ranked skin poll requires an Arkpedia session and replaces, withdraws and deduplicates ballots',async()=>{
+  const h=harness();
+  const choices=skinsData.filter(s=>s.skinId&&s.model).slice(0,6).map(s=>s.skinId!);
+  try{
+    h.user('voter');h.user('other');
+    assert.equal((await h.call('skin-poll',null,'PUT',{choices:choices.slice(0,5),revision:0})).status,401);
+    assert.equal((await h.call('skin-poll','voter','PUT',{choices:choices.slice(0,4),revision:0})).status,400);
+    assert.equal((await h.call('skin-poll','voter','PUT',{choices:Array(5).fill(choices[0]),revision:0})).status,400);
+    assert.equal((await h.call('skin-poll','voter','PUT',{choices:[...choices.slice(0,4),'not-a-skin'],revision:0})).status,400);
+    assert.equal((await h.call('skin-poll','voter','PUT',{choices:choices.slice(0,5),revision:0},{},{origin:'https://other.invalid'})).status,403);
+    assert.equal((await h.call('skin-poll','voter','PUT',{choices:choices.slice(0,5),revision:0})).status,200);
+    let result=(await h.call('skin-poll',null)).result;
+    assert.equal(result.ballots,1);assert.equal(result.mine,undefined);assert.deepEqual(result.ranking.map((v:any)=>v.points),[5,4,3,2,1]);
+    assert.ok(!JSON.stringify(result).includes('voter'));assert.ok(!JSON.stringify(result).includes('example.invalid'));
+    assert.equal((await h.call('skin-poll','voter','PUT',{choices:choices.slice(1,6),revision:0})).status,409);
+    const replaced=await h.call('skin-poll','voter','PUT',{choices:choices.slice(1,6),revision:1});
+    assert.equal(replaced.status,200);assert.equal(replaced.result.revision,2);
+    result=(await h.call('skin-poll',null)).result;assert.equal(result.ballots,1);assert.equal(result.ranking.some((v:any)=>v.skin===choices[0]),false);
+    assert.equal((await h.call('skin-poll','voter','DELETE',{revision:1})).status,409);
+    assert.equal((await h.call('skin-poll','voter','DELETE',{revision:2})).status,200);
+    assert.equal((await h.call('skin-poll',null)).result.ballots,0);
+    assert.equal((await h.call('skin-poll','voter','PUT',{choices:choices.slice(0,5),revision:0})).status,409);
+    assert.equal((await h.call('skin-poll','voter','GET',undefined,{owner:'other'})).status,409);
+    assert.equal((await h.call('skin-poll','voter','PUT',{owner:'other',choices:choices.slice(0,5),revision:3})).status,409);
+    assert.equal((await h.call('skin-poll','voter','PUT',{choices:choices.slice(0,5),revision:3})).status,200);
+    h.sqlite.prepare('DELETE FROM "user" WHERE id=?').run('voter');
+    assert.equal((await h.call('skin-poll',null)).result.ballots,0);
+  }finally{h.sqlite.close();}
+});
+
+test('community rankings include existing replay consent, current runs, stage cohorts and withdrawal',async()=>{
+  const h=harness();
+  const payload=(skill=2)=>JSON.stringify({journal:{metadata:{stageId:'main_00-01'},squad:[{skinId:'char_293_thorns@summer#1',skillIndex:skill},{skinId:'char_002_amiya#1',skillIndex:0}],logs:[
+    {op:0,signiture:{charId:'char_293_thorns'}},{op:1,signiture:{charId:'char_293_thorns'}},
+    {op:0,signiture:{charId:'char_293_thorns'}},{op:2,signiture:{charId:'char_293_thorns'}},{op:2,signiture:{charId:'char_293_thorns'}},
+    {op:0,signiture:{charId:'token_summon'}},
+  ]}});
+  const add=(owner:string,namespace:string,clears=3)=>h.sqlite.prepare('INSERT INTO auto_deploy(userId,namespace,stageId,fingerprint,hash,payload,bytes) VALUES(?,?,?,?,?,?,?)').run(owner,namespace,'main_00-01',JSON.stringify([1,5,clears,0,2]),'hash',payload(),payload().length);
+  try{
+    h.user('privateReplay');add('privateReplay','en:999');
+    for(let i=0;i<10;i++){
+      h.user('rank'+i);await h.publish('rank'+i,String(i+1000),statsOnly,{operators:[{operator:'Thorns',elite:2,level:90,m0:3,m1:3,m2:3,modules:{}}]});
+      add('rank'+i,`en:${i+1000}`);
+    }
+    const summary=JSON.parse(h.sqlite.prepare('SELECT units FROM auto_deploy_summary LIMIT 1').get().units);
+    assert.equal(summary.length,2);assert.equal(summary.find((v:any)=>v.charId==='char_293_thorns').deployments,2);
+    const result=(await h.call('rankings',null,'GET',undefined,{server:'all'})).result;
+    assert.equal(result.contributors,10);assert.equal(result.replayContributors,10);assert.equal(result.replays,10);
+    assert.equal(result.clearContributors,10);assert.equal(result.clearRecords,10);assert.equal(result.clearedStages,1);
+    assert.equal(result.stageClears.find((v:any)=>v.stageId==='main_00-01').clears,30);
+    assert.deepEqual(result.stageCoverage.map((v:any)=>[v.operator,v.stages]),[['Thorns',1]]);
+    assert.deepEqual(result.roster[0].m3,[10,10,10]);assert.equal(result.roster[0].m9,10);assert.equal(result.roster[0].maxed,10);
+    h.sqlite.prepare('UPDATE community_operator SET m0=0,m1=1 WHERE userId=?').run('rank0');
+    h.sqlite.prepare('UPDATE community_operator SET elite=1,m0=0,m1=0,m2=0 WHERE userId=?').run('rank1');
+    assert.deepEqual((await h.call('rankings',null)).result.roster.find((v:any)=>v.operator==='Thorns').m3,[8,8,9],'M3 counts each skill separately and requires E2');
+    const thorns=result.battles.find((v:any)=>v.charId==='char_293_thorns');
+    assert.equal(thorns.deployed,10);assert.equal(thorns.deployments,20);assert.equal(thorns.activations,20);assert.equal(thorns.skill,2);
+    assert.equal(result.battles.find((v:any)=>v.charId==='char_002_amiya').benched,10);
+    assert.ok(!JSON.stringify(result).includes('rank0'));assert.ok(!JSON.stringify(result).includes('en:1000'));
+    h.user('duplicate');await h.publish('duplicate','5555',statsOnly);add('duplicate','en:1000',9);
+    h.sqlite.prepare('INSERT INTO auto_deploy(userId,namespace,stageId,fingerprint,hash,payload,bytes) VALUES(?,?,?,?,?,?,?)').run('rank0','en:1000','main_00-02','[1,9,7,0,2]','second',payload(),payload().length);
+    h.sqlite.prepare('INSERT INTO auto_deploy(userId,namespace,stageId,fingerprint,hash,payload,bytes) VALUES(?,?,?,?,?,?,?)').run('rank0','en:1000','PRIVATE_UNKNOWN_STAGE','[1,999,999,0,2]','unknown',payload(),payload().length);
+    const stages=(await h.call('rankings',null)).result;
+    assert.equal(stages.stageClears.find((v:any)=>v.stageId==='main_00-01').clears,36,'duplicate counters use the maximum, not the sum');
+    assert.equal(stages.stageClears.find((v:any)=>v.stageId==='main_00-02').clears,7);
+    assert.deepEqual(stages.stageCoverage.map((v:any)=>[v.operator,v.stages]),[['Thorns',2]]);
+    assert.equal(stages.clearedStages,2);assert.ok(!JSON.stringify(stages).includes('PRIVATE_UNKNOWN_STAGE'));
+    h.sqlite.prepare('UPDATE auto_deploy SET fingerprint=? WHERE stageId=?').run('[1,0,0,0,1]','main_00-02');
+    assert.equal((await h.call('rankings',null)).result.stageCoverage[0].stages,1,'unsuccessful records do not count as cleared stages');
+    h.sqlite.prepare('UPDATE auto_deploy SET fingerprint=? WHERE stageId=?').run('[1,0,"unknown",0,"unknown"]','main_00-02');
+    assert.equal((await h.call('rankings',null)).result.stageCoverage[0].stages,1,'unknown counter types are not clear evidence');
+    h.sqlite.prepare('UPDATE auto_deploy SET fingerprint=? WHERE stageId=?').run('invalid','main_00-02');
+    assert.equal((await h.call('rankings',null)).result.stageClears.length,1,'malformed counters are omitted');
+    assert.equal((await h.call('rankings',null,'GET',undefined,{server:'en',stage:'main_00-01'})).result.replays,10);
+    assert.equal((await h.call('rankings',null,'GET',undefined,{server:'jp'})).result.battles,null);
+    assert.equal((await h.call('rankings',null,'GET',undefined,{stage:'main_00-02'})).result.battles,null);
+    h.sqlite.prepare('UPDATE auto_deploy SET payload=? WHERE userId=?').run(payload(1),'rank1');
+    const after=(await h.call('rankings',null)).result;
+    assert.equal(after.battles.find((v:any)=>v.charId==='char_293_thorns'&&v.skill===1).activations,2);
+    await h.call('sharing','rank2','DELETE',{});
+    const removed=(await h.call('rankings',null)).result;
+    assert.equal(removed.replayContributors,9);assert.equal(removed.battles,null);assert.equal(removed.stageClears,null);assert.equal(removed.stageCoverage,null);
+    assert.equal(h.sqlite.prepare('SELECT count(*) n FROM auto_deploy WHERE userId=?').get('rank2').n,1);
+    h.sqlite.prepare('DELETE FROM auto_deploy WHERE userId=?').run('rank3');
+    assert.equal(h.sqlite.prepare('SELECT count(*) n FROM auto_deploy_summary WHERE userId=?').get('rank3').n,0);
+  }finally{h.sqlite.close();}
+});
+
+test('production ranking reads share work and immediately drop withdrawn contributions',async()=>{
+  const h=harness();Object.assign(h.env,{ARKPEDIA_DEPLOYMENT_ROLE:'production'});
+  try{
+    for(let i=0;i<10;i++){h.user('cached'+i);await h.publish('cached'+i,String(8000+i),statsOnly);}
+    const prepare=h.db.prepare.bind(h.db);let queries=0;
+    h.db.prepare=((...args:Parameters<typeof prepare>)=>{queries++;return prepare(...args);}) as typeof h.db.prepare;
+    const reads=await Promise.all(Array.from({length:4},()=>h.call('rankings',null,'GET',undefined,{server:'all'})));
+    assert.ok(reads.every(read=>read.status===200&&read.result.contributors===10));
+    assert.ok(queries<20,'concurrent requests share the expensive ranking queries');
+    queries=0;assert.equal((await h.call('rankings',null,'GET',undefined,{server:'all'})).result.contributors,10);
+    assert.equal(queries,1,'a warm read still checks current consent and upload change counters');
+    await h.call('sharing','cached0','DELETE',{});
+    const withdrawn=(await h.call('rankings',null,'GET',undefined,{server:'all'})).result;
+    assert.equal(withdrawn.contributors,9);assert.equal(withdrawn.roster,null);
+  }finally{h.sqlite.close();}
+});
+
+test('bounded replay backfill resumes without changing archives and skips unknown record shapes',()=>{
+  const sqlite=new DatabaseSync(':memory:');sqlite.exec('PRAGMA foreign_keys=ON');
+  const files=fs.readdirSync('migrations/accounts').filter(f=>f.endsWith('.sql')).sort();
+  try{
+    for(const f of files.filter(f=>f<'0015_'))sqlite.exec(fs.readFileSync(`migrations/accounts/${f}`,'utf8'));
+    sqlite.prepare('INSERT INTO "user"(id,name,email,createdAt,updatedAt) VALUES(?,?,?,?,?)').run('old','Private','private@example.invalid','2026-01-01','2026-01-01');
+    const payload=JSON.stringify({journal:{squad:[null,'unknown',{skinId:'char_293_thorns#1',skillIndex:2}],logs:[null,'future-record',{op:0,signiture:{charId:'char_293_thorns'}},{op:2,signiture:{charId:'char_293_thorns'}}]}});
+    sqlite.prepare('INSERT INTO auto_deploy(userId,namespace,stageId,fingerprint,hash,payload,bytes) VALUES(?,?,?,?,?,?,?)').run('old','en:100','main_00-01','[]','hash',payload,payload.length);
+    sqlite.exec(fs.readFileSync('migrations/accounts/0015_community_rankings_polls.sql','utf8'));
+    for(const f of files.filter(f=>f>'0015_community_rankings_polls.sql'))sqlite.exec(fs.readFileSync(`migrations/accounts/${f}`,'utf8'));
+    assert.equal(sqlite.prepare('SELECT count(*) n FROM auto_deploy_summary').get().n,0);
+    const backfill=fs.readFileSync('scripts/community/backfill-replay-summaries.sql','utf8');
+    assert.match(backfill,/LIMIT 250/);
+    sqlite.exec(backfill);
+    const first=sqlite.prepare('SELECT * FROM auto_deploy_summary').get();
+    sqlite.exec(backfill);
+    assert.deepEqual(sqlite.prepare('SELECT * FROM auto_deploy_summary').get(),first);
+    assert.equal(sqlite.prepare('SELECT payload FROM auto_deploy').get().payload,payload);
+    const rows=JSON.parse(sqlite.prepare('SELECT units FROM auto_deploy_summary').get().units);
+    assert.equal(rows.length,1);assert.equal(rows[0].squad,1);assert.equal(rows[0].activations,1);assert.equal(rows[0].skill,2);
+    assert.equal(sqlite.prepare('SELECT count(*) n FROM community_account').get().n,0);
+    // A later upload is summarized by the live trigger, and the backfill leaves it intact.
+    sqlite.prepare('INSERT INTO auto_deploy(userId,namespace,stageId,fingerprint,hash,payload,bytes) VALUES(?,?,?,?,?,?,?)').run('old','en:100','main_00-02','[]','hash',payload,payload.length);
+    const live=sqlite.prepare('SELECT * FROM auto_deploy_summary WHERE stageId=?').get('main_00-02');
+    sqlite.exec(backfill);
+    assert.deepEqual(sqlite.prepare('SELECT * FROM auto_deploy_summary WHERE stageId=?').get('main_00-02'),live);
+    const malformed=JSON.stringify({journal:{squad:['text'],logs:[2,'text',null]}});
+    sqlite.prepare('UPDATE auto_deploy SET payload=?').run(malformed);
+    assert.deepEqual(JSON.parse(sqlite.prepare('SELECT units FROM auto_deploy_summary').get().units),[]);
+  }finally{sqlite.close();}
+});
+
+test('newly published poll skin IDs are accepted without changing the application catalogue',async()=>{
+  const h=harness();try{
+    h.user('new-skin-voter');const choices=[...h.pollIds].slice(0,4).concat('new-public-outfit@fixture#1');
+    assert.equal((await h.call('skin-poll','new-skin-voter','PUT',{choices,revision:0})).status,400);
+    h.pollIds.add(choices[4]);
+    assert.equal((await h.call('skin-poll','new-skin-voter','PUT',{choices,revision:0})).status,200);
+    assert.equal((await h.call('skin-poll',null)).result.ranking.length,5);
+  }finally{h.sqlite.close();}
+});
+
+test('production aggregate snapshots are Preview-only, thresholded and expose a closed projection',()=>{
+  const snapshot={schema:1,capturedAt:'2026-11-03T23:00:00Z',cohorts:{all:{contributors:20,replayContributors:12,replays:120,
+    roster:[{operator:'Thorns',owned:20,builds:20,e2:10,m9:3,m3:[4,5,6,999],unraised:2,maxed:1,userId:'PRIVATE'}],
+    battles:[{charId:'char_293_thorns',skill:2,squads:20,deployed:18,deployments:18,activations:30,benched:2,namespace:'PRIVATE'}],
+    clearContributors:12,clearRecords:120,clearedStages:3,
+    stageClears:[{stageId:'main_00-01',clears:100,code:'0-1',name:'Collapse',slug:'0-1',image:null,userId:'PRIVATE'}],
+    stageCoverage:[{operator:'Thorns',stages:2,namespace:'PRIVATE'}],userId:'PRIVATE'}}};
+  assert.equal(previewStatistics('production','all','',snapshot),null);
+  assert.equal(previewStatistics(undefined,'all','',snapshot),null);
+  assert.equal(previewStatistics('staging','jp','',snapshot),null);
+  const publicData=previewStatistics('staging','all','',snapshot)!;
+  assert.deepEqual(publicData.roster![0].m3,[4,5,6]);assert.equal(publicData.source,'production-snapshot');assert.equal(publicData.replays,120);
+  assert.ok(!JSON.stringify(publicData).includes('PRIVATE'));
+  assert.throws(()=>previewStatistics('staging','all','main_00-01',snapshot),/covers all stages/);
+  snapshot.cohorts.all.contributors=9;snapshot.cohorts.all.replayContributors=9;snapshot.cohorts.all.clearContributors=9;
+  const small=previewStatistics('staging','all','',snapshot)!;assert.equal(small.roster,null);assert.equal(small.battles,null);assert.equal(small.stageClears,null);assert.equal(small.stageCoverage,null);
+});
+
+test('independent skin ratings persist per skin, resume privately, and retain revisions after clearing',async()=>{
+  const h=harness(),ids=[...h.pollIds].slice(0,3),q={mode:'ratings'};try{
+    h.user('rater');h.user('rater2');h.user('incomplete-rater');h.sqlite.prepare('DELETE FROM arkpedia_profile WHERE userId=?').run('incomplete-rater');
+    assert.equal((await h.call('skin-poll','incomplete-rater','PUT',{skin:ids[0],rating:8,revision:0},q)).status,428);
+    assert.equal((await h.call('skin-poll','rater','DELETE',{skin:'arbitrary-not-a-skin',revision:0},q)).status,400);
+    await h.call('skin-poll','rater','PUT',{choices:[...h.pollIds].slice(0,5),revision:0});
+    assert.equal((await h.call('skin-poll',null,'PUT',{skin:ids[0],rating:8,revision:0},q)).status,401);
+    for(const rating of [0,11,4.5,'7',null])assert.equal((await h.call('skin-poll','rater','PUT',{skin:ids[0],rating,revision:0},q)).status,400);
+    assert.equal((await h.call('skin-poll','rater','PUT',{skin:'unknown',rating:8,revision:0},q)).status,400);
+    assert.equal((await h.call('skin-poll','rater','PUT',{skin:ids[0],rating:8,revision:0},q,{origin:'https://other.invalid'})).status,403);
+    for(const skin of ids)assert.equal((await h.call('skin-poll','rater','PUT',{skin,rating:8,revision:0},q)).status,200);
+    assert.equal((await h.call('skin-poll','rater2','PUT',{skin:ids[0],rating:10,revision:0},q)).status,200);
+    const publicData=(await h.call('skin-poll',null,'GET',undefined,q)).result;assert.equal(publicData.raters,2);assert.equal(publicData.ratings,4);assert.equal(publicData.mine,undefined);
+    assert.equal(publicData.ranking.find((row:any)=>row.skin===ids[0]).total,18);assert.ok(!JSON.stringify(publicData).includes('\"rater\"'));
+    assert.deepEqual(publicData.ranking.find((row:any)=>row.skin===ids[0]).histogram,[0,0,0,0,0,0,0,1,0,1]);
+    assert.equal((await h.call('skin-poll',null)).result.ballots,1,'the earlier ranked ballot remains intact');
+    const mine=(await h.call('skin-poll','rater','GET',undefined,{...q,owner:'rater'})).result;assert.equal(mine.mine.length,3);assert.equal(mine.mine[0].revision,1);
+    assert.equal((await h.call('skin-poll','rater','GET',undefined,{...q,owner:'rater2'})).status,409);
+    const stale=await h.call('skin-poll','rater','PUT',{skin:ids[0],rating:1,revision:0},q);assert.equal(stale.status,409);assert.equal(stale.result.current.rating,8);
+    assert.equal((await h.call('skin-poll','rater','PUT',{skin:ids[0],rating:6,revision:1},q)).result.revision,2);
+    assert.equal((await h.call('skin-poll','rater','DELETE',{skin:ids[0],revision:1},q)).status,409);
+    assert.equal((await h.call('skin-poll','rater','DELETE',{skin:ids[0],revision:2},q)).result.revision,3);
+    assert.deepEqual((await h.call('skin-poll',null,'GET',undefined,q)).result.ranking.find((row:any)=>row.skin===ids[0]).histogram,[0,0,0,0,0,0,0,0,0,1]);
+    assert.equal((await h.call('skin-poll','rater','PUT',{skin:ids[0],rating:9,revision:0},q)).status,409);
+    assert.equal((await h.call('skin-poll','rater','PUT',{skin:ids[0],rating:9,revision:3},q)).status,200);
+    h.sqlite.prepare('DELETE FROM "user" WHERE id=?').run('rater');assert.equal((await h.call('skin-poll',null,'GET',undefined,q)).result.ratings,1);
+    assert.equal((await h.call('skin-poll',null)).result.ballots,0,'the new scale never invents ranked ballots');
   }finally{h.sqlite.close();}
 });

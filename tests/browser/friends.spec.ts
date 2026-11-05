@@ -25,7 +25,7 @@ test('friend import, nested preview, skin collection and reload leave the own ac
   await expect(page.getByText('Shared files contain your profile, operators and skins.', {exact:false})).toBeVisible();
   await page.keyboard.press('Escape');
   await page.getByLabel('Friend account file').setInputFiles(file);
-  await expect(page.getByRole('status')).toContainText('Imported Friend Doctor#2222');
+  await expect(page.getByRole('tabpanel',{name:'Friends',exact:true}).getByRole('status')).toContainText('Imported Friend Doctor#2222');
   await page.getByRole('button',{name:"Show Friend Doctor#2222's operators",exact:true}).click();
   const collection=page.getByRole('dialog',{name:'Friend Doctor#2222 · Operators',exact:true});
   await collection.getByRole('combobox',{name:'Operator rarity',exact:true}).click();
@@ -86,7 +86,7 @@ test('export shares the own profile and build data without resources; damaged im
   expect(shared.roster.Angelina).toEqual(roster.Angelina);
   expect(shared.account.wallet).toBeUndefined();
   await page.getByLabel('Friend account file').setInputFiles(file);
-  await expect(page.getByRole('status')).toContainText('Imported Friend Doctor');
+  await expect(page.getByRole('tabpanel',{name:'Friends',exact:true}).getByRole('status')).toContainText('Imported Friend Doctor');
   await page.getByLabel('Friend account file').setInputFiles({name:'damaged.json',mimeType:'application/json',buffer:Buffer.from('{')});
   await expect(page.getByRole('alert').filter({hasText:'That file is not valid JSON.'})).toBeVisible();
   await expect(page.getByText('Friend Doctor#2222',{exact:true}).last()).toBeVisible();
@@ -179,7 +179,7 @@ test(`friend sharing help uses themed links without an imported account (${theme
   await expect(help).toHaveCSS('border-top-width', '0px');
   await expect(help.locator('svg circle')).toHaveCount(2);
   await help.click();
-  const importTools = page.getByRole('button', {name:'Import / export', exact:true});
+  const importTools = page.getByRole('region',{name:'Friend sharing details',exact:true}).getByRole('button', {name:'Import / export', exact:true});
   await expect(importTools).toBeVisible();
   await expect(importTools).toHaveAttribute('aria-haspopup', 'dialog');
   if (process.env.ARKPEDIA_QA_CAPTURE) await page.screenshot({path:`${process.env.ARKPEDIA_QA_CAPTURE}/friend-help-${theme}-${info.project.name}.png`});

@@ -49,5 +49,8 @@
   "/voice-actors",
   "/search",
   "/community/projects",
-  "/support"
+  "/support",
+  "/community/statistics",
+  "/polls/favourite-skins",
+  "/polls"
 ]
