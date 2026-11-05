@@ -23,14 +23,14 @@ test('independent readers and isolates share one aggregate refresh through a con
   assert.deepEqual(await sharedRankingResult(store,'all','consent-1',load),result());assert.equal(reads,1);
 });
 test('withdrawn consent never uses a warm or stale aggregate, and failed refreshes remain retryable',async()=>{
-  const {store}=bucket();let time=1_000;const options={now:()=>time};
+  const {store}=bucket();let time=1_000;const options={now:()=>time,wait:async(ms:number)=>{time+=ms;}};
   await sharedRankingResult(store,'all','before',async()=>result(),options);
   await assert.rejects(sharedRankingResult(store,'all','withdrawn',async()=>{throw Error('database overloaded');},options),/overloaded/);
   assert.deepEqual(await sharedRankingResult(store,'all','withdrawn',async()=>result(9),options),result(9));
   time+=31_000;assert.deepEqual(await sharedRankingResult(store,'all','withdrawn',async()=>result(8),options),result(8));
 });
 test('overload fallback is recent, consent-matched and bounded rather than extended indefinitely',async()=>{
-  const {store}=bucket();let time=1_000;const options={now:()=>time};
+  const {store}=bucket();let time=1_000;const options={now:()=>time,wait:async(ms:number)=>{time+=ms;}};
   await sharedRankingResult(store,'all','same',async()=>result(),options);time+=31_000;
   const overloaded=async():Promise<CommunityRankings>=>{throw Error('D1 DB is overloaded');};
   const error=console.error;console.error=()=>{};
@@ -47,7 +47,7 @@ test('different filters stay separate and an abandoned lease can be recovered',a
 test('an expired refresh owner cannot overwrite a newer aggregate or release its lease',async()=>{
   const {store}=bucket();let time=1_000,release!:()=>void;const gate=new Promise<void>(resolve=>release=resolve),options={now:()=>time};
   const old=sharedRankingResult(store,'all','same',async()=>{await gate;return result(10);},options);
-  await new Promise(resolve=>setTimeout(resolve,5));time+=16_000;
+  await new Promise(resolve=>setTimeout(resolve,5));time+=31_000;
   assert.deepEqual(await sharedRankingResult(store,'all','same',async()=>result(11),options),result(11));
   release();await old;
   assert.deepEqual(await sharedRankingResult(store,'all','same',async()=>{throw Error('must use newer result');},options),result(11));
@@ -57,4 +57,9 @@ test('R2 write throttling waits and retries the same conditional operation witho
   const limited:RankingBucket={get:store.get,async put(...args){if(++puts===1||puts===3)throw Error('R2 TooManyRequests (10058)');return store.put(...args);}};
   const value=await sharedRankingResult(limited,'all','same',async()=>{reads++;return result();},{now:()=>time,wait:async ms=>{pauses.push(ms);time+=ms;}});
   assert.deepEqual(value,result());assert.equal(reads,1);assert.deepEqual(pauses,[1100,1100]);assert.equal(puts,4);
+});
+test('a cold cohort retries D1 overload once after its resource window, without caching an error',async()=>{
+  const {store}=bucket();let time=1_000,reads=0;const pauses:number[]=[];
+  const value=await sharedRankingResult(store,'en','current',async()=>{if(++reads===1)throw Error('D1_ERROR: D1 DB is overloaded');return result();},{now:()=>time,wait:async ms=>{pauses.push(ms);time+=ms;}});
+  assert.deepEqual(value,result());assert.equal(reads,2);assert.deepEqual(pauses,[10100]);
 });

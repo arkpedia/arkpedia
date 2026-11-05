@@ -34,6 +34,11 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-05T17:40:35Z',
+    added: [{title:'Full-screen artwork from live poll results',detail:'Open full-size art and animations from the podium, tier list or ranking tables, then return to the same results.',href:'/polls/favourite-skins'}],
+    fixed: [{title:'More reliable cold statistics loads',detail:'New regions retry brief database overloads once, while cached totals still respect current sharing consent.',href:'/community/statistics'}],
+  },
+  {
     at: '2026-11-05T15:13:28Z',
     added: [{title:'Full-screen art while rating skins',detail:'Open an outfit’s artwork and animations, then return to the same rating.',href:'/polls/favourite-skins'}],
     changed: [

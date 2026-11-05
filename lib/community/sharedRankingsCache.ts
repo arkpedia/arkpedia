@@ -7,7 +7,7 @@ export interface RankingBucket {
 }
 interface Kept {stamp:string;builtAt:number;expires:number;result:CommunityRankings}
 interface Envelope {kept?:Kept;lease?:{expires:number;nonce:string}}
-const FRESH=30_000,MAX_AGE=120_000,LEASE=15_000;
+const FRESH=30_000,MAX_AGE=120_000,LEASE=30_000;
 export function reportRankingFailure(error:unknown){
   console.error('community_rankings_failed',{name:error instanceof Error?error.name:'UnknownError',message:error instanceof Error?error.message:String(error)});
 }
@@ -19,7 +19,7 @@ export function reportRankingFailure(error:unknown){
 export async function sharedRankingResult(bucket:RankingBucket,key:string,stamp:string,load:()=>Promise<CommunityRankings>,{
   now=Date.now,wait=(ms:number)=>new Promise<void>(resolve=>setTimeout(resolve,ms)),
 }:{now?:()=>number;wait?:(ms:number)=>Promise<void>}={}):Promise<CommunityRankings>{
-  const objectKey=`community-rankings/v1/${key}`,deadline=now()+20_000;
+  const objectKey=`community-rankings/v1/${key}`,deadline=now()+35_000;
   const write=async(value:Envelope,onlyIf:{etagMatches?:string;etagDoesNotMatch?:string})=>{
     for(let attempt=0;;attempt++){
       try{return await bucket.put(objectKey,JSON.stringify(value),{onlyIf});}
@@ -46,7 +46,15 @@ export async function sharedRankingResult(bucket:RankingBucket,key:string,stamp:
     if(!lease){await wait(50);continue;}
     let settled=false;
     try{
-      const result=await load(),builtAt=now();
+      let result:CommunityRankings;
+      try{result=await load();}
+      catch(error){
+        // A new region has no safe prior result. Keep its single lease while
+        // D1's overloaded window clears, then retry once instead of a 503.
+        if(valid||!/D1.*overloaded/i.test(String(error)))throw error;
+        await wait(10_100);result=await load();
+      }
+      const builtAt=now();
       // An expired owner cannot overwrite the result of a newer refresh.
       await write({kept:{stamp,builtAt,expires:builtAt+FRESH,result}},{etagMatches:lease.etag});settled=true;
       return result;

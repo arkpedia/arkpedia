@@ -17,7 +17,7 @@
 .podiumEntry[data-rank="2"] { --podium-height:104px; --podium-medal:var(--podium-silver); }
 .podiumEntry[data-rank="3"] { --podium-height:64px; --podium-medal:var(--podium-bronze); }
 .podiumDisplay { align-self:end; min-width:0; }
-.podiumArt { height:180px; }
+.podiumArt { height:180px; width:100%; }
 .podiumArt img { width:100%; height:100%; object-fit:contain; }
 .podiumName { min-height:64px; display:flex; flex-direction:column; justify-content:center; padding:8px 0; overflow-wrap:anywhere; }
 .podiumName small, .podiumScore small { color:var(--text-dim); }
