@@ -14,6 +14,12 @@ const clone = (shifts: SimulationShift[]) => shifts.map(s => ({ ...s, assignment
  *  more than this share of itself: the output lost is a hair beside raising an operator the reader has not built. */
 export const BUILT_FIRST_MARGIN = 0.005;
 const SUPPORT_SKILL_ROOMS = new Set<string>(['receptionRoom', 'office']);
+/** Rooms nobody is scheduled to work in: the Workshop waits for a craft the rotation does not invent, and the
+ *  Training Room's teaching is outside the score. A seat there is free, so it goes to a count raiser where one is idle. */
+const STANDBY_ROOMS = new Set<string>(['workshop', 'trainingRoom']);
+/** Every room whose occupant is counted across the base without the room's own work being scored: the seat is worth
+ *  taking for what a skill elsewhere counts (countFeeders.ts), so an idle count raiser leads the equally useful. */
+const COUNT_SEAT_ROOMS = new Set<string>([...SUPPORT_SKILL_ROOMS, ...STANDBY_ROOMS]);
 const PRODUCTION_ROOMS = new Set<string>(['factory', 'tradingPost', 'powerPlant']);
 /** The rooms a bed freed by the prune is offered to again: never a production seat the prune just judged worthless. */
 const SUPPORT_FILL_KINDS = new Set<string>(['controlCenter', 'powerPlant', 'receptionRoom', 'office']);
@@ -22,6 +28,10 @@ const SUPPORT_FILL_KINDS = new Set<string>(['controlCenter', 'powerPlant', 'rece
  * production worker, locked resident, dorm specialist or Fiammetta's refill setup.
  * Additional workers rotate only when their recovery supports it; Workshop is a crafting standby only.
  * This is applied to published results, not inside the annealing hot loop.
+ *
+ * A seat counts across the base wherever it is, so where two candidates do the room equal good the idle one a skill
+ * elsewhere counts goes in (`countFeeders.ts`): the Workshop's and Training Room's standby seat, which nothing else
+ * in the score cares about, and a tie in the other rooms.
  *
  * Then three refinements, each kept only where the simulated funded score allows: the Reception Room and
  * Office seats the search filled with whichever skilled operator its last move left are given back to the fill,
@@ -77,7 +87,10 @@ export function completeStaffing(plan: OptimizerResult, ctx: GenomeContext, opti
   const priority = ['controlCenter', 'powerPlant', 'receptionRoom', 'office', 'tradingPost', 'factory', 'workshop', 'trainingRoom'];
   const rooms = base.facilities.filter(f => f.capacity && (WORK_KINDS.includes(f.kind) || f.kind === 'workshop' || (f.kind === 'trainingRoom' && ctx.base.trainingTarget)))
     .sort((a, b) => priority.indexOf(a.kind) - priority.indexOf(b.kind) || a.id.localeCompare(b.id));
-  const ranked = new Map<string, string[]>();
+  const ranked = new Map<string, { name: string; benefit: number }[]>();
+  /** Whether a shift has `name` nowhere at all. A count reads every placed operator, a Dormitory bed included, so a
+   *  seat taken for the count's sake pays only where the plan has the operator neither working nor resting. */
+  const unseated = (name: string) => shifts.some(s => !Object.values(s.assignments).some(slots => slots.some(x => x?.operatorName === name)));
   function candidates(room: FacilityDef, step: number): string[] {
     const key = `${room.kind}:${room.level}:${plan.shifts[0].factoryProducts[room.id] ?? ''}`;
     if (!ranked.has(key)) {
@@ -85,6 +98,8 @@ export function completeStaffing(plan: OptimizerResult, ctx: GenomeContext, opti
       // The Reception Room and Office take only an operator with a skill for the room, or one whose seat raises a
       // base-wide count another's skill reads (countFeeders.ts; seated only where that scores, `fill`); any other
       // body there is never a plan (the search keeps the same rule, annealBase.ts).
+      // The Workshop and Training Room take any body, and nothing they do there is scored, so a count raiser is the
+      // one ordinary candidate worth more than the next (ranked below, once the plan says who is still unseated).
       const ordinary = SUPPORT_SKILL_ROOMS.has(room.kind) ? available.filter(name => feeders.has(name) && !skilled.includes(name)) : available.filter(name => !skilled.includes(name));
       const ratings = [...skilled, ...ordinary].map(name => {
         const assignments = Object.fromEntries(Object.entries(plan.shifts[0].assignments).map(([id, slots]) => [id, slots.map(s => s?.operatorName === name ? null : s)]));
@@ -100,9 +115,17 @@ export function completeStaffing(plan: OptimizerResult, ctx: GenomeContext, opti
       const built = (name: string) => ['Base', 'Elite 1', 'Elite 2'].indexOf(roster[name].eliteLevel) * 100 + roster[name].level;
       // Then the operator whose skills need the least from others (docs/development/base-design-notes.md).
       const dependency = (name: string) => operatorDependency(byName.get(name)!, room.label, roster[name].eliteLevel, base.skillSlots, roster[name].level);
-      ranked.set(key, ratings.sort((a, b) => b.benefit - a.benefit || a.drain - b.drain || dependency(a.name) - dependency(b.name) || built(b.name) - built(a.name) || a.name.localeCompare(b.name)).map(r => r.name));
+      ranked.set(key, ratings.sort((a, b) => b.benefit - a.benefit || a.drain - b.drain || dependency(a.name) - dependency(b.name) || built(b.name) - built(a.name) || a.name.localeCompare(b.name)).map(r => ({ name: r.name, benefit: r.benefit })));
     }
-    return ranked.get(key)!.filter(n => room.kind === 'workshop' ? !assigned.has(n) : !Object.entries(shifts[step].assignments).some(([id, slots]) => kind.get(id) !== 'dormitory' && slots.some(s => s?.operatorName === n)));
+    const open = ranked.get(key)!.filter(r => room.kind === 'workshop' ? !assigned.has(r.name) : !Object.entries(shifts[step].assignments).some(([id, slots]) => kind.get(id) !== 'dormitory' && slots.some(s => s?.operatorName === r.name)));
+    // Two operators the room gains as much from: the one a skill elsewhere counts, while the plan leaves them out of a
+    // shift entirely. Stable and under the room's own benefit, so a crafter still leads the Workshop and drain, the
+    // reader's build and the dependency order still decide the rest.
+    if (COUNT_SEAT_ROOMS.has(room.kind)) {
+      const idle = new Set(open.flatMap(r => feeders.has(r.name) && unseated(r.name) ? [r.name] : []));
+      if (idle.size) open.sort((a, b) => b.benefit - a.benefit || (idle.has(a.name) ? 0 : 1) - (idle.has(b.name) ? 0 : 1));
+    }
+    return open.map(r => r.name);
   }
   function putToRest(trial: SimulationShift[], rest: number, name: string): boolean {
     const a = trial[rest].assignments;
@@ -154,6 +177,7 @@ export function completeStaffing(plan: OptimizerResult, ctx: GenomeContext, opti
   // Shifts with the same setup are one saved preset in the game. A fill goes into every shift of its group and
   // the worker rests in every shift of another group, so the groups stay identical and the rotation needs no
   // more presets than it did; failing that, shift by shift, as long as the rotation still fits the presets.
+  const countSeats: string[] = [];
   const groups = setupGroups(plan.shifts);
   const cycleAfter = (from: number, steps: number[]) => [...steps].sort((x, y) => (x - from - 1 + shifts.length) % shifts.length - (y - from - 1 + shifts.length) % shifts.length);
   /** One worker into `into` (the shifts of one setup) at a room's place, resting in every step of `rest`. */
@@ -170,8 +194,15 @@ export function completeStaffing(plan: OptimizerResult, ctx: GenomeContext, opti
     if (distinctSetups(trial) > MAX_ROTATION_SETUPS) return false;
     const result = simulate(trial); evaluations += result.evaluations;
     if (!result.periodic || result.events.some(e => e.kind === 'exhausted') || result.warnings.some(w => / twice\.$/.test(w))) return false;
-    // A count raiser without a skill for the room is there for the score alone: seated only when it rises.
-    if (SUPPORT_SKILL_ROOMS.has(room.kind) && !skills(name, room.label).length && !(scoreOf(result, ctx) > scoreNow() + 1e-6)) return false;
+    // Someone without a skill for the room is there for the count alone. A Reception Room or Office seat is a real
+    // choice, so it must raise the score; the Workshop and Training Room are staffed as a standby whatever happens,
+    // so there the seat must only not cost anything (a count can be one a skill wants kept low).
+    if (!skills(name, room.label).length) {
+      const score = scoreOf(result, ctx);
+      if (SUPPORT_SKILL_ROOMS.has(room.kind) && !(score > scoreNow() + 1e-6)) return false;
+      if (STANDBY_ROOMS.has(room.kind) && score < scoreNow() - 1e-6) return false;
+      if (COUNT_SEAT_ROOMS.has(room.kind) && feeders.has(name)) countSeats.push(`${name} in ${room.label}`);
+    }
     shifts = trial; simulation = result; assigned.add(name);
     return true;
   }
@@ -240,6 +271,7 @@ export function completeStaffing(plan: OptimizerResult, ctx: GenomeContext, opti
   if (capped.length) notes.push(`Storage full before a login: ${capped.join('; ')}. Capacity-raising skills (Vulcan, Bena, Scavenger, Myrtle's order limit) stop the waste; so do more logins.`);
   if (builtSwaps.length) notes.push(`Built operators first: ${builtSwaps.join('; ')} (an Elite 0 worker gives way to an idle built one when the funded output keeps within ${BUILT_FIRST_MARGIN * 100}%).`);
   if (pruned.length) notes.push(`Left out as adding nothing to the funded output (gold no post sells, orders no gold fills): ${pruned.join('; ')}.`);
+  if (countSeats.length) notes.push(`Seated to be counted in the base, not for the room's own work: ${countSeats.join('; ')}. A skill elsewhere counts how many of their faction or group are in the base, and a Dormitory bed counts the same, so this seat is worth it only while they have no bed.`);
   if (rooms.some(r => r.kind === 'workshop')) notes.push('Workshop staff are a crafting standby; choose the crafter for your recipe. Crafting and its Morale costs are not scheduled; swap crafters and rest them after crafting.');
   if (!base.trainingTarget && base.facilities.some(f => f.kind === 'trainingRoom' && f.capacity)) notes.push('Training Room needs a training target; no mastery task is assumed.');
   for (const room of rooms) {

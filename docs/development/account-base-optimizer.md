@@ -335,6 +335,15 @@ outside the dorms, facilities with a roster member). The completion judges every
 takes them all: it removes a support-room occupant only when the plan scores the same
 without them (Brigid's HR speed is not scored, so she goes; a count raiser stays), and
 seats an idle count raiser only when the score rises.
+
+The Workshop's and Training Room's seats count across the base the same way, and nothing
+they do in the room is scored at all (crafting is not scheduled, training is outside the
+score). They are staffed as a standby whatever the roster, so there the rule is the other
+way round: among candidates the room gains as much from, the count raiser the plan leaves
+out of a shift entirely goes in, and a seat taken for the count alone has only to cost
+nothing (`STANDBY_ROOMS`, `COUNT_SEAT_ROOMS` in `completeStaffing.ts`). A crafter with a
+Workshop skill still leads on the room's own benefit. Whoever is seated for a count alone
+is named in a note, with the reminder that a Dormitory bed counts the same.
 It leaves the Workshop alone (crafting is instantaneous) and may leave low-value
 Control Center and Power Plant slots open. The completion pass fills open slots with
 remaining owned operators, skilled first by the room's own rate, then by Morale drain,

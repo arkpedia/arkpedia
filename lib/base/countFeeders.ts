@@ -19,7 +19,8 @@ const remembered = new WeakMap<Record<string, OwnedOperator>, WeakMap<Simulation
  * Lab operator for Nasti's Costly Construction (per Rhine Lab operator in the base), an Elite Operator for Terra's
  * Ark (per facility with one), a Sui member for a Trading Post's per-Sui-facility orders. The Reception Room and
  * Office take only operators with a skill for the room, and these, since what they add shows in the other rooms'
- * output, not the room's own speed.
+ * output, not the room's own speed; the Workshop's and Training Room's standby seat, which no score reads at all,
+ * goes to one of these ahead of any other idle operator (completeStaffing.ts).
  * Read from the skill table, so a new skill of this kind needs no change here.
  *
  * `workSeat`: only the counts a Dormitory bed does not raise. Nasti's "in the Base" counts a Rhine Lab operator

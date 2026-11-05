@@ -9,6 +9,7 @@ import { simulateBase, type SimulationShift } from '../../lib/base/baseSimulatio
 import { scoreOf, type GenomeContext } from '../../lib/base/planGenome';
 import { MAX_ROTATION_SETUPS, distinctSetups } from '../../lib/base/rotationSetups';
 import type { OptimizerResult, OwnedOperator } from '../../lib/base/baseOptimizer';
+import type { FacilityDef } from '../../lib/base/baseTypes';
 import groups from '../../data/base-group-rosters.json';
 import recipes from '../../data/base-workshop-recipes.json';
 
@@ -263,4 +264,51 @@ test('the fill seats an idle count feeder in an empty Reception Room when it rai
   const plan = completeStaffing(seed, ctx);
   assert.ok(plan.shifts.some(s => s.assignments.receptionRoom.some(x => x?.operatorName === 'Ifrit')), `Reception: ${plan.shifts.map(s => s.assignments.receptionRoom.map(x => x?.operatorName)).join(' / ')}`);
   assert.ok(plan.score > seed.score, `${plan.score} > ${seed.score}`);
+});
+
+/** Two crews alternating over one gold Factory seat and the Trading Post that sells it, so `room`'s standby seat is
+ *  the only one the fill has left and Fang and Ifrit (Rhine Lab) are the only idle operators. Neither has a skill for
+ *  the room (Gravel's Focus α would have won the Workshop on its own merit), and Fang comes first by name. `lead`
+ *  works the Factory in the first shift: Nasti, whose Costly Construction counts Rhine Lab operators in the base, or
+ *  Gravel, whom no count reaches. */
+function standbyBase(room: 'workshop' | 'trainingRoom', lead: 'Nasti' | 'Gravel' = 'Nasti', extra: Record<string, OwnedOperator> = {}) {
+  const ctx = realContext({ [lead]: e2(), Proviso: e2(), Kroos: e2(), Vigil: e2(), Ifrit: e2(), Fang: e2(), ...extra }, ['dormitory', 'tradingPost', 'factory', room]);
+  const [factory] = ctx.base.facilities.filter(f => f.kind === 'factory'), [post] = ctx.base.facilities.filter(f => f.kind === 'tradingPost');
+  const one = (f: FacilityDef) => f.id === factory.id || f.id === post.id ? { ...f, capacity: 1 } : { ...f, capacity: 0, level: 0 };
+  ctx.base = { ...ctx.base, facilities: ctx.base.facilities.map(f => ['factory', 'tradingPost'].includes(f.kind) ? one(f) : f) };
+  const seed = emptyPlan(ctx, 2);
+  const crews: [string, string][] = [[lead, 'Proviso'], ['Kroos', 'Vigil']];
+  crews.forEach(([worker, seller], step) => {
+    const a = seed.shifts[step].assignments;
+    a[factory.id][0] = { operatorName: worker, ...ctx.roster[worker] };
+    a[post.id][0] = { operatorName: seller, ...ctx.roster[seller] };
+    crews[1 - step].forEach((resting, i) => { a.dormitory1[i] = { operatorName: resting, ...ctx.roster[resting] }; });
+  });
+  for (const shift of seed.shifts) shift.factoryProducts = { [factory.id]: 'Precious Metals' };
+  seed.simulation = simulateBase({ base: ctx.base, shifts: seed.shifts, loginInterval: 12 });
+  seed.score = scoreOf(seed.simulation, ctx);
+  return { ctx, seed };
+}
+
+test('the Workshop standby seat goes to the operator Nasti counts, not the first idle body', () => {
+  const { ctx, seed } = standbyBase('workshop');
+  const plan = completeStaffing(seed, ctx);
+  assert.deepEqual(plan.shifts.map(s => s.assignments.workshop[0]?.operatorName), ['Ifrit', 'Ifrit']);
+  assert.ok(plan.score > seed.score, `${plan.score} > ${seed.score}`);
+  assert.ok(plan.notes.some(n => n.startsWith('Seated to be counted in the base, not for the room\'s own work: Ifrit in Workshop.')), plan.notes.join(' / '));
+  // Nothing reads a Rhine Lab count with Gravel in the Factory, and the seat is the plain standby it was: Fang by name.
+  const plain = standbyBase('workshop', 'Gravel');
+  const other = completeStaffing(plain.seed, plain.ctx);
+  assert.equal(other.shifts[0].assignments.workshop[0]?.operatorName, 'Fang');
+  assert.ok(!other.notes.some(n => n.startsWith('Seated to be counted')), other.notes.join(' / '));
+});
+
+test('the Training Room trainer seat goes to the operator Nasti counts', () => {
+  const { ctx, seed } = standbyBase('trainingRoom', 'Nasti', { Ansel: e2() });
+  ctx.base.trainingTarget = { operatorName: 'Ansel', class: 'Medic', branch: '', mastery: 1, timeReductionActive: false, instantTrainingReady: false };
+  const plan = completeStaffing(seed, ctx);
+  // The trainer's seat rotates like any other: Ifrit takes the shift Nasti works, where the count is read, and
+  // Fang the shift Kroos has the Factory, where it is not.
+  assert.deepEqual(plan.shifts.map(s => s.assignments.trainingRoom[0]?.operatorName), ['Ifrit', 'Fang']);
+  assert.ok(plan.notes.some(n => n.includes('Ifrit in Training Room.')), plan.notes.join(' / '));
 });
