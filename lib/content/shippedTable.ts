@@ -12,7 +12,7 @@ import path from 'path';
  * lacks, or a release that cannot be read) still gets the table. regional-schedules.json was
  * 3.45 MB of the 20.48 MB handler.mjs on 2026-10-30, the largest part by far.
  */
-export const SHIPPED_TABLES = ['regional-schedules.json'] as const;
+export const SHIPPED_TABLES = ['regional-schedules.json','community-operator-catalogue.json','community-stage-catalogue.json','community-poll-catalogue.json','account-catalogue.json'] as const;
 export type ShippedTable = typeof SHIPPED_TABLES[number];
 
 interface AssetsBinding { fetch(request: Request): Promise<Response> }

@@ -141,7 +141,8 @@ export default function AccountPage({ skins, operators }: Props) {
 /* Older releases may lack /account. Its collection catalogue is compiled into
    the bundle; regeneration must not scan source files absent from the runtime. */
 export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>('/account', async () => {
-  const {default:catalogue}=await import('@/data/account-catalogue.json');
+  const {accountCatalogue}=await import('@/lib/community/catalogues');
+  const catalogue=await accountCatalogue();
   return {props:await withFriendDynamicArt(catalogue)};
 }, {
   bundledWhenUnpublished: true,

@@ -111,6 +111,7 @@ function StatisticsLeaderboard({metric,rows,query,onQuery,onClose,controls,sampl
   </ImportDialog>;
 }
 export const getStaticProps:GetStaticProps<Props>=withContentPage<Props>('/community/statistics',async()=>{
-  const {default:operators}=await import('@/data/community-operator-catalogue.json');
+  const {communityOperators}=await import('@/lib/community/catalogues');
+  const operators=await communityOperators();
   return {props:{operators}};
 },{bundledWhenUnpublished:true});

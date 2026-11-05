@@ -1,15 +1,14 @@
 import type { NextApiRequest,NextApiResponse } from 'next';
 import type { D1Database } from '@cloudflare/workers-types';
-import skins from '@/data/skins.json';
+import { communityPoll } from '@/lib/community/catalogues';
 import { validBallot,SKIN_POLL_ID } from './skin-poll';
 import { allowAccountRequest,accountLimited } from '@/lib/cloud-account/limits';
 import { loadRelease,readPageProps } from '@/lib/content/release';
 
-const ids=new Set((skins as {skinId?:string;model?:string}[]).filter(s=>s.model&&s.skinId).map(s=>s.skinId!));
 /** Follow the published poll catalogue when content adds outfits without an app deploy. */
 export async function skinPollIds():Promise<ReadonlySet<string>>{
   const release=await loadRelease();
-  if(!release?.manifest.pages['/polls/favourite-skins'])return ids;
+  if(!release?.manifest.pages['/polls/favourite-skins'])return new Set((await communityPoll()).skins.map(skin=>skin.id));
   const props=await readPageProps(release,'/polls/favourite-skins');
   if(!Array.isArray(props?.skins)||!props.skins.length)throw Error('Poll catalogue unavailable');
   return new Set(props.skins.flatMap(s=>s&&typeof s.id==='string'?[s.id]:[]));

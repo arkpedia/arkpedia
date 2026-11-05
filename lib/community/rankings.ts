@@ -1,6 +1,5 @@
 import type { D1Database } from '@cloudflare/workers-types';
-import stages from '@/data/community-stage-catalogue.json';
-import operators from '@/data/community-operator-catalogue.json';
+import { communityOperators, communityStages } from './catalogues';
 import { COMMUNITY_MIN_SAMPLE } from './model';
 
 export interface StageClear {stageId:string;clears:number;slug:string;code:string;name:string;image:string|null}
@@ -11,6 +10,7 @@ export interface CommunityRankings { contributors:number; roster:RosterRanking[]
 
 /** Fixed aggregate projections only. Private replay payloads and identities never leave D1. */
 export async function communityRankings(db:D1Database,server:string,stage:string):Promise<CommunityRankings>{
+  const [stages,operators]=await Promise.all([communityStages(),communityOperators()]);
   const region=server==='all'?'':' AND a.server=?',args=server==='all'?[]:[server];
   const contributors=(await db.prepare(`SELECT count(*) n FROM community_account a WHERE stats=1${region}`).bind(...args).first<{n:number}>())?.n??0;
   // Existing community consent includes archived game accounts. Deduplicate each

@@ -52,6 +52,7 @@ export default function Polls({showcase,previousArt}:Props){
 }
 
 export const getStaticProps:GetStaticProps<Props>=withContentPage<Props>('/polls',async()=>{
-  const {default:catalogue}=await import('@/data/community-poll-catalogue.json');
+  const {communityPoll}=await import('@/lib/community/catalogues');
+  const catalogue=await communityPoll();
   return {props:{showcase:catalogue.showcase,previousArt:catalogue.previousArt}};
 },{bundledWhenUnpublished:true});

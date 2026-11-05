@@ -5,7 +5,7 @@ import { accountAuth, accountsEnv, type AccountsEnv } from '@/lib/cloud-account/
 import { isServerId } from '@/lib/account-import/yostar';
 import { communityRankings } from './rankings';
 import { cachedCommunityRankings } from './rankingsCache';
-import { previewStatistics } from './preview-statistics';
+import { deploymentPreviewStatistics } from './preview-statistics';
 import { skinRatings } from '@/lib/polls/skin-ratings-api';
 import { skinPoll,skinPollIds } from '@/lib/polls/skin-poll-api';
 import { STAGE_ID } from '@/lib/replays/model';
@@ -62,7 +62,7 @@ export function createCommunityHandler(kind:'sharing'|'stats'|'supports'|'availa
       if(kind==='rankings'){
         const server=req.query.server??'all',stage=req.query.stage??'';
         if((server!=='all'&&!isServerId(server))||typeof stage!=='string'||(stage&&!STAGE_ID.test(stage)))return res.status(400).json({error:'Choose a valid region and stage ID.'});
-        const snapshot=previewStatistics(env.ARKPEDIA_DEPLOYMENT_ROLE,server,stage);
+        const snapshot=await deploymentPreviewStatistics(env.ARKPEDIA_DEPLOYMENT_ROLE,server,stage);
         return res.json(snapshot??await (env.ARKPEDIA_DEPLOYMENT_ROLE==='production'?cachedCommunityRankings:communityRankings)(db,server,stage));
       }
       if(kind==='stats')return await stats(req,res,db);

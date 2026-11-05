@@ -110,3 +110,8 @@ forms, six-star ownership, percentage denominators and sort ties. Browser journe
 cover saving more than five outfits, reload/resume, editing, clearing, failed writes,
 conflicts, account switching, public results, artwork, navigation and both themes at
 desktop/mobile sizes. Fixture votes are not real account writes.
+
+The production Worker reads public operator, stage, poll and account catalogues from
+its ASSETS binding through `readShippedTable`. Build generation precedes static-table
+shipping. Production compiles out the Preview snapshot; its size is not loaded by
+every cold isolate. The Worker size budget remains unchanged.

@@ -81,6 +81,7 @@ function SkinRatings({skins,owner,accountLoading}:Props&{owner:string|null;accou
   </>;
 }
 export const getStaticProps:GetStaticProps<Props>=withContentPage<Props>('/polls/favourite-skins',async()=>{
-  const {default:catalogue}=await import('@/data/community-poll-catalogue.json');
+  const {communityPoll}=await import('@/lib/community/catalogues');
+  const catalogue=await communityPoll();
   return {props:{skins:catalogue.skins}};
 },{bundledWhenUnpublished:true});
