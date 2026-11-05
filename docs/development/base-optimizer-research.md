@@ -1,7 +1,7 @@
 # Base optimizer: what the optimization literature offers
 
 Research notes, 2026-11-05. What class of problem the base optimizer solves, what is known about
-problems of that class, and what that suggests building next. The optimizer itself is described in
+problems of that class, what that suggests building next, and what the first bench measured. The optimizer itself is described in
 `account-base-optimizer.md`.
 
 ## What problem this is
@@ -48,11 +48,10 @@ optimum without finding it.
 
 In order of value for cost:
 
-1. **An upper bound, so every plan has an optimality gap.** A linear relaxation of a
-   set-packing model (choose one team block per room and setup, no operator twice, beds per
-   setup) gives a number no plan can beat. "This plan is within 1.5% of the best possible" is
-   something no other tool claims, and it tells us whether more search is worth building at all:
-   the anneal settled at the same score at 60 and 80 rounds, which is either the optimum or a basin.
+1. **A measure of how much the search leaves.** A true upper bound ("no plan can beat this") needs
+   each team's worth to hold in any context, and rooms interact (Control Center bonuses, faction
+   counts), so a model that adds room values up is not one: on the Krooster fixtures it strays from
+   the calculator by up to 6.8%. What can be measured exactly is below (Results).
 2. **An exact solve of one setup.** The same model as an integer program: about 16 blocks a room
    over ~15 rooms is small for a MIP solver. Counted effects (per faction, per facility) are linear
    in the placement variables, and capped or threshold ones become indicator constraints. HiGHS,
@@ -66,19 +65,35 @@ In order of value for cost:
    two or three rooms and re-solve them exactly with the MIP. This "matheuristic" is the usual way
    out of the basins the two-walk sweep showed (each walk settles in a different optimum).
 
-First step: build 1 and 2 as an offline bench over the 21 Krooster fixtures, and compare each
-account's best anneal shift against the exact single-setup optimum and the bound. If the gap is
-under about 1%, the search is good enough and the work belongs in the skill table; if it is several
-percent, 3 and 4 are worth building.
+## Results (2026-11-05)
 
-## Sources
+`scripts/bench/staffingMip.ts` (HiGHS, `highs` devDependency), on the 21 Krooster fixtures' 60-round
+plans (`scripts/bench/staffing-gap.ts`), scored as funded output of one staffing at full Morale
+(EXP plus the LMD of the gold that is sold; drones not counted):
 
-- Breugem, Dollevoet, Huisman, the cyclic crew rostering problem: https://repub.eur.nl/pub/112199
-- Purnomo and Bard, cyclic preference scheduling by branch-and-price: https://zendy.io/title/10.1002/nav.20201
-- Dohn and Mason, branch-and-price for staff rostering: https://orbit.dtu.dk/en/publications/branch-and-price-for-staff-rostering-an-efficient-implementation-/
-- Team formation, integer linear optimization: https://repositorio.ufc.br/handle/riufc/58283?mode=full
-- Synergistic team composition: https://arxiv.org/pdf/1909.11994
-- Periodic maintenance problem: https://lirias.kuleuven.be/bitstream/123456789/118276/1/OR_0362.pdf
-- Shapto/ArknightsBaseOptimizer: https://github.com/Shapto/ArknightsBaseOptimizer
-- Arknights 一图流 schedule generator: https://ark.yituliu.cn/tools/scheduleV3/ and its release note https://www.taptap.cn/moment/837445530131890232
-- MAA base scheduling optimizer: https://maatool.com/
+- **The single-staffing program is exact.** `scripts/bench/staffing-mip-verify.ts` holds it to a
+  brute force on three small bases (14,669 to 50,411 staffings each), including a Control Center
+  whose faction bonuses lift the Factories: all three match. Funding needs two formulations (gold
+  sold within gold made; or each post's sales priced on their own and rationed to the gold made):
+  one LMD-per-gold price for every post missed the brute force by 18%.
+- **One staffing is the wrong comparison.** The program's best staffing beats the plan's best shift
+  by 3.5% on average (0.8% to 9.5%), but no rotation can run every room's best crew at once: the
+  plan's best shift mixes main and relief crews, since rooms change crews at different changes.
+- **Column generation separates rest from slack.** A linear program mixes whole setups, each scored
+  exactly, by time share, within each operator's Morale (work plus the rest it needs at most the
+  whole time, at the best recovery the plan reaches) and the beds; gold made in one setup funds sales
+  in another. Fiammetta's refill targets work without rest (without that, the plan's own rotation did
+  not fit the model and the mix came out 11% below the plan). Run over the plan's own setups only, the
+  mix is 1.76% above the plan on average (0.53% to 5.84%): what the relaxation's freedoms add by
+  themselves. Setups priced in by the duals add **2.57% on average (0.55% to 6.61%)** more: staffing
+  the search could use. Largest: mayank_mj 6.6%, ashie 6.0%, blackgatoacer 4.3%; smallest: flover
+  0.6%, szaal 0.9%, aliafso and DokterOetker 1.1%. Twelve pricing rounds get nearly all of it (60
+  rounds: mayank_mj 6.79%, DokterOetker 1.08%, szaal unchanged).
+- **Limits.** Slack is over exact setup values but heuristic pricing, so it may be understated; and
+  over a relaxation (fractional shares, no three-preset limit, no Morale wasted at 24), so a real
+  rotation may not reach all of it. The plans were made before the Shamare and Greyy fixes of the
+  same day and are scored after them.
+
+So the search is within about 1% of the best mix on a few accounts and 4 to 7% short on others:
+enough to make suggestion 4 (re-solving freed rooms exactly inside the anneal) worth building, and
+the generated setups show which rooms it gets wrong.
