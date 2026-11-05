@@ -10,8 +10,9 @@
  * Never by name likeness. The EN and CN texts are read side by side, joined by character id; where they
  * disagree the CN reading decides and the entry's note records the EN one.
  *
- * Sources: the EN and CN gamedata_const.json (the glossary), the CN character_table.json (id to CN name) and
- * char_meta_table.json (the families), through gameTable's candidates; the records give each id its English.
+ * Sources: the EN and CN gamedata_const.json (the glossary), the EN and CN character_table.json (an id's name as each
+ * text writes it) and the CN char_meta_table.json (the families), through gameTable's candidates; the records give
+ * each id the English the table's conditions carry.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -45,15 +46,16 @@ export async function gameTable<T>(root: string, which: 'en' | 'cn', file: strin
   return { file: found, data: JSON.parse(fs.readFileSync(found, 'utf8')) as T };
 }
 
-/** Whether the four tables the forms need are on disk (tests skip without them). */
+/** Whether the tables the forms and their tests need are on disk (tests skip without them). */
 export function formsTablesPresent(root: string): boolean {
-  return [['en', 'gamedata_const.json'], ['cn', 'gamedata_const.json'], ['cn', 'character_table.json'], ['cn', 'char_meta_table.json']].every(([which, file]) => locate(root, which as 'en' | 'cn', file).found);
+  return [['en', 'building_data.json'], ['cn', 'building_data.json'], ['en', 'gamedata_const.json'], ['cn', 'gamedata_const.json'], ['en', 'character_table.json'], ['cn', 'character_table.json'], ['cn', 'char_meta_table.json']].every(([which, file]) => locate(root, which as 'en' | 'cn', file).found);
 }
 
 export interface OperatorForm { id: string; en: string; cn: string }
 export interface OperatorForms {
-  files: { terms: string; termsCn: string; characters: string; groups: string };
+  files: { terms: string; termsCn: string; characters: string; charactersEn: string; groups: string };
   byId: Map<string, OperatorForm>;
+  /** By the record name, the EN game's name (Sakiko Togawa for the record's Togawa Sakiko) and every alias. */
   byEn: Map<string, OperatorForm>;
   byCn: Map<string, OperatorForm>;
   /** The game's alternate families with more than one form, by every member's id, base form first. */
@@ -75,16 +77,23 @@ function operatorList(description: string, lang: 'en' | 'cn'): string[] | null {
 }
 
 /** The families, names and glossary lists, from the game tables and the records (an id with its English name). */
-export async function loadOperatorForms(root: string, records: { name: string; internalName?: string | null }[], opts: { fetch?: boolean; terms?: string } = {}): Promise<OperatorForms> {
-  const [terms, termsCn, characters, groups] = await Promise.all([
+export async function loadOperatorForms(root: string, records: { name: string; internalName?: string | null; aliases?: string[] | null }[], opts: { fetch?: boolean; terms?: string } = {}): Promise<OperatorForms> {
+  const [terms, termsCn, characters, charactersEn, groups] = await Promise.all([
     gameTable<Terms>(root, 'en', 'gamedata_const.json', { fetch: opts.fetch, given: opts.terms }),
     gameTable<Terms>(root, 'cn', 'gamedata_const.json', { fetch: opts.fetch }),
     gameTable<Characters>(root, 'cn', 'character_table.json', { fetch: opts.fetch }),
+    gameTable<Characters>(root, 'en', 'character_table.json', { fetch: opts.fetch }),
     gameTable<Groups>(root, 'cn', 'char_meta_table.json', { fetch: opts.fetch }),
   ]);
   const byId = new Map<string, OperatorForm>();
-  for (const r of records) if (r.internalName && characters.data[r.internalName] && !/^Amiya \(/.test(r.name)) byId.set(r.internalName, { id: r.internalName, en: r.name, cn: characters.data[r.internalName].name });
-  const byEn = new Map([...byId.values()].map((f) => [f.en, f]));
+  const byEn = new Map<string, OperatorForm>();
+  for (const r of records) {
+    if (!r.internalName || !characters.data[r.internalName] || /^Amiya \(/.test(r.name)) continue;
+    const form = { id: r.internalName, en: r.name, cn: characters.data[r.internalName].name };
+    byId.set(form.id, form);
+    // The EN text writes the EN game's name (Sakiko Togawa for the record's Togawa Sakiko) or a former one.
+    for (const n of [r.name, charactersEn.data[form.id]?.name, ...(r.aliases ?? [])]) if (n) byEn.set(n, form);
+  }
   const byCn = new Map([...byId.values()].map((f) => [f.cn, f]));
   const familyOf = new Map<string, OperatorForm[]>();
   for (const ids of Object.values(groups.data.spCharGroups)) {
@@ -101,29 +110,39 @@ export async function loadOperatorForms(root: string, records: { name: string; i
     if (cn) termLists.set(id, { en: termLists.get(id)?.en ?? [], cn });
   }
   const rel = (f: string) => path.relative(root, f);
-  return { files: { terms: rel(terms.file), termsCn: rel(termsCn.file), characters: rel(characters.file), groups: rel(groups.file) }, byId, byEn, byCn, familyOf, terms: termLists };
+  return { files: { terms: rel(terms.file), termsCn: rel(termsCn.file), characters: rel(characters.file), charactersEn: rel(charactersEn.file), groups: rel(groups.file) }, byId, byEn, byCn, familyOf, terms: termLists };
 }
 
-/** One operator a skill text tags, in the languages that tag it: the string written and the glossary term around it. */
-export interface NamedOperator { form: OperatorForm; en?: { string: string; term: string | null }; cn?: { string: string; term: string | null } }
+/** One operator a skill text tags, in the languages that tag it: the string written and the glossary term around it.
+ *  With both texts given, `onlyIn` says one language tags the operator and the other does not; `conflictsWith` names
+ *  the member of the same family the other language tags instead. */
+export interface NamedOperator { form: OperatorForm; en?: { string: string; term: string | null }; cn?: { string: string; term: string | null }; onlyIn?: 'en' | 'cn'; conflictsWith?: string }
 
-// `<@cc.kw>Name</>`, `<$cc.x>Name</>`, and either inside the other.
-const TAGGED = /(?:<\$(cc\.[\w.]+)>|<@cc\.kw>)(?:<\$(cc\.[\w.]+)>|<@cc\.kw>)?([^<]*)<\/>/g;
+// `<@cc.kw>Name</>`, `<$cc.x>Name</>`, and either inside the other; a trailing "Operator(s)" / 干员 makes it a group.
+const TAGGED = /(?:<\$(cc\.[\w.]+)>|<@cc\.kw>)(?:<\$(cc\.[\w.]+)>|<@cc\.kw>)?([^<]*)<\/>(?:<\/>)?(\s*Operators?\b|干员)?/g;
 
-/** The operators the EN and CN texts of a skill tag, joined by character id; a group term (`cc.g.glasgow`)
- *  around a group name tags no operator. */
+/** The operators the EN and CN texts of a skill tag, joined by character id. A group term (`cc.g.glasgow`) around
+ *  a group name tags no operator, nor does a name before "Operator(s)" (the Durin, who share their name with Durin). */
 export function namedOperators(forms: OperatorForms, enRaw: string | undefined, cnRaw: string | undefined): NamedOperator[] {
   const found = new Map<string, NamedOperator>();
   for (const [lang, raw, byName] of [['en', enRaw, forms.byEn], ['cn', cnRaw, forms.byCn]] as const) {
     if (!raw) continue;
     for (const m of raw.matchAll(TAGGED)) {
-      const form = byName.get(m[3].trim());
+      const form = m[4] ? undefined : byName.get(m[3].trim());
       if (!form) continue;
       const named = found.get(form.id) ?? found.set(form.id, { form }).get(form.id)!;
       named[lang] ??= { string: m[3].trim(), term: m[1] ?? m[2] ?? null };
     }
   }
-  return [...found.values()];
+  const named = [...found.values()];
+  if (enRaw && cnRaw) for (const n of named) {
+    if (n.en && n.cn) continue;
+    n.onlyIn = n.en ? 'en' : 'cn';
+    const family = forms.familyOf.get(n.form.id) ?? [];
+    const other = named.find((o) => o !== n && family.some((f) => f.id === o.form.id) && (n.en ? o.cn : o.en));
+    if (other) n.conflictsWith = other.form.en;
+  }
+  return named;
 }
 
 export interface FormsDecision {
@@ -137,6 +156,8 @@ export interface FormsDecision {
   notCounted: string[];
   /** Where EN and CN read differently (CN decided), or a term lists a name no record has. */
   note?: string;
+  /** EN and CN name different members of one family: CN decides, and the condition needs an override naming CN's. */
+  error?: string;
 }
 
 /** The forms a named operator counts, by the rule above. */
@@ -169,6 +190,8 @@ export function decideForms(forms: OperatorForms, named: NamedOperator): FormsDe
       if (en !== cn) notes.push(`${other.term} lists ${en ?? 'nobody'} in EN and ${cn} in CN; CN decides`);
     }
   }
+  if (named.onlyIn) notes.push(`${named.onlyIn === 'en' ? 'EN' : 'CN'} names "${read.string}" where the ${named.onlyIn === 'en' ? 'CN' : 'EN'} text does not`);
   const family = forms.familyOf.get(named.form.id) ?? [named.form];
-  return { name: named.form.en, term, forms: counted, notCounted: family.map((f) => f.en).filter((n) => !counted.includes(n)), ...(notes.length ? { note: notes.join('; ') } : {}) };
+  const error = named.conflictsWith ? `${named.onlyIn === 'en' ? 'EN' : 'CN'} names ${named.form.en} where ${named.onlyIn === 'en' ? 'CN' : 'EN'} names ${named.conflictsWith}, the same family; CN decides, so the condition needs an override naming ${named.onlyIn === 'en' ? named.conflictsWith : named.form.en}` : undefined;
+  return { name: named.form.en, term, forms: counted, notCounted: family.map((f) => f.en).filter((n) => !counted.includes(n)), ...(notes.length ? { note: notes.join('; ') } : {}), ...(error ? { error } : {}) };
 }

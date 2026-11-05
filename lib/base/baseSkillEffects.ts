@@ -200,7 +200,7 @@ export interface BaseSkillEffectEntry {
 
 export interface BaseSkillEffectsTable {
   /** The game tables the build read (scripts/build/build-base-skill-effects.ts) and how many records gave it text. */
-  generatedFrom: { en: string; cn: string; terms: string; termsCn: string; characters: string; groups: string; records: number };
+  generatedFrom: { en: string; cn: string; terms: string; termsCn: string; characters: string; charactersEn: string; groups: string; records: number };
   entries: Record<string, BaseSkillEffectEntry>;
 }
 

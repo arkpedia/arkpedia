@@ -9,7 +9,7 @@
  * Sources, in order: ARKPEDIA_GAMEDATA (a directory holding the EN tables) and the stage pipeline's EN cache
  * (.cache/upstream/en-gamedata); ARKPEDIA_CN and the CN tables checkout (.cache/upstream/cn-tables); else
  * .cache/gamedata/{en,cn}, which --fetch fills. The tables: building_data.json (EN, CN), gamedata_const.json
- * (EN, CN: the glossary), and the CN character_table.json and char_meta_table.json (an operator's forms,
+ * (EN, CN: the glossary), character_table.json (EN, CN) and the CN char_meta_table.json (an operator's forms,
  * base-skill-forms.ts). The record text in data/ (pulled from arkpedia-data) supplies the English of a CN-only
  * skill and each character id its English name.
  *
@@ -128,6 +128,7 @@ async function main() {
       }
       const elsewhere = JSON.stringify({ effects: effects.map(({ when: _w, suppressedBy: _s, ...rest }) => rest), custom, interaction: interaction && { ...interaction, preferredTarget: undefined, preferredTargetForms: undefined } });
       for (const d of named) if (d.forms.length > 1 && elsewhere.includes(JSON.stringify(d.name))) errors.push(`${id}: ${d.term} wraps ${d.name}, but the entry carries the name where no forms can follow: ${elsewhere}`);
+      for (const d of named) if (d.error) errors.push(`${id}: ${d.error}`);
       const notes = named.filter((d) => d.note).map((d) => `${d.name}: ${d.note}.`);
       if (notes.length) note = [note, ...notes].filter(Boolean).join(' ');
     }

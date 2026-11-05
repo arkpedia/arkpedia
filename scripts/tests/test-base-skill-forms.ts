@@ -80,6 +80,12 @@ test('the game text: Hoederer β tags W plain in EN and CN, so W alone; Wiš\'ad
   assert.deepEqual(namedOperators(forms, ...text('dorm_rec_single_P[001]')).map((n) => decideForms(forms, n)), [{ name: 'Gavial', term: 'cc.gvial', forms: ['Gavial', 'Gavial the Invincible'], notCounted: [] }]);
   assert.deepEqual(forms.familyOf.get(forms.byEn.get('Yato')!.id)?.map((f) => f.en), ['Yato', 'Kirin R Yato'], "Kirin R Yato is Yato's alternate");
   for (const name of ['Kirara', 'Rosmontis', 'Pozëmka', 'Ines', 'Hoederer']) assert.equal(forms.familyOf.has(forms.byEn.get(name)!.id), false, `${name} has no alternate`);
+  // Texts that disagree: the same family named by different members is an error (CN decides, by an override); a
+  // name one language tags and the other does not is noted.
+  const split = namedOperators(forms, 'with <@cc.kw>Texas</>', '当与<@cc.kw>缄默德克萨斯</>在同一个贸易站时').map((n) => decideForms(forms, n));
+  assert.deepEqual(split.map((d) => [d.name, d.error?.replace(/,.*/, '')]), [['Texas', 'EN names Texas where CN names Texas the Omertosa'], ['Texas the Omertosa', 'CN names Texas the Omertosa where EN names Texas']]);
+  assert.deepEqual(namedOperators(forms, 'with <@cc.kw>Texas</>', '无').map((n) => decideForms(forms, n)), [{ name: 'Texas', term: null, forms: ['Texas'], notCounted: ['Texas the Omertosa'], note: 'EN names "Texas" where the CN text does not' }]);
+  assert.deepEqual(namedOperators(forms, 'with <@cc.kw>Texas</>', undefined).map((n) => decideForms(forms, n)), [{ name: 'Texas', term: null, forms: ['Texas'], notCounted: ['Texas the Omertosa'] }], 'no CN text: nothing to disagree with');
 });
 
 test('the table carries every named operator the way the game text reads, EN and CN agreeing', { skip: !present && 'the glossary and character tables are not on disk' }, async () => {
@@ -91,6 +97,7 @@ test('the table carries every named operator the way the game text reads, EN and
     for (const n of namedOperators(forms, en.data.buffs[e.buffId]?.description, cn.data.buffs[e.buffId]?.description)) {
       const d = decideForms(forms, n);
       assert.equal(d.note, undefined, `${e.buffId}: ${d.note}`);
+      assert.equal(d.error, undefined, `${e.buffId}: ${d.error}`);
       for (const c of conditions(e.buffId)) if ('name' in c && c.name === d.name) { assert.deepEqual([...names(c)].sort(), [...d.forms].sort(), `${e.buffId}: ${c.type} ${d.name}`); checked++; }
     }
   }
