@@ -202,3 +202,16 @@ test('a pruned worker gives up their beds, and the freed beds staff a support ro
   assert.ok(plan.shifts.every(s => s.assignments[firstDorm.id].filter(Boolean).length <= 3), 'three beds');
   assert.ok(plan.simulation.periodic && !plan.simulation.events.some(e => e.kind === 'exhausted'));
 });
+
+test('a robot at Elite 0 is its whole build: built-first leaves it in place', () => {
+  // Castle-3 (Automated Processing α, a robot) works a gold Factory Proviso's post sells; Gravel at Elite 2 is idle.
+  const ctx = realContext({ 'Castle-3': e0(30), Gravel: e2(), Proviso: e2() }, ['dormitory', 'tradingPost', 'factory']);
+  const seed = emptyPlan(ctx);
+  const factory = facilities.find(f => f.kind === 'factory')!, post = facilities.find(f => f.kind === 'tradingPost')!;
+  for (const shift of seed.shifts) shift.factoryProducts = { ...shift.factoryProducts, [factory.id]: 'Precious Metals' };
+  workThenRest(seed, { 'Castle-3': [factory.id, 0], Proviso: [post.id, 0] }, ctx.roster);
+  seed.simulation = simulateBase({ base: ctx.base, shifts: seed.shifts, loginInterval: 12 });
+  const plan = completeStaffing(seed, ctx);
+  assert.ok(plan.shifts[0].assignments[factory.id].some(x => x?.operatorName === 'Castle-3'), 'Castle-3 stays');
+  assert.ok(!plan.notes.some(n => n.includes('for Castle-3')), plan.notes.join(' / '));
+});

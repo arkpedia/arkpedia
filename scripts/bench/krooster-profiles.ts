@@ -106,7 +106,7 @@ best.plan.shifts.forEach((shift, i) => {
     // An Elite 0 worker where an idle built operator would bring at least as much to this room and product: the
     // fill's own benefit measure, so a capacity skill or another product's productivity is no alternative.
     if (['factory', 'tradingPost', 'powerPlant'].includes(f.kind)) for (const s of staff) {
-      if (eliteOf(s.operatorName) !== 'Base') continue;
+      if (eliteOf(s.operatorName) !== 'Base' || byName.get(s.operatorName)?.rarity === 1) continue; // a robot's Elite 0 is its whole build
       const own = benefitOf(f, s.operatorName);
       const built = [...idleNames].filter(n => eliteOf(n) !== 'Base' && activeBaseSkills(byName.get(n)!, f.label, eliteOf(n), base.skillSlots, owned.roster[n].level).length).map(n => ({ n, b: benefitOf(f, n) })).filter(x => x.b >= own - 1e-9).sort((x, y) => y.b - x.b);
       if (built.length) findings.push(`shift ${i + 1} ${f.label}: ${s.operatorName} at Elite 0 (${pct(own)}) works while built operators worth as much here sit idle (${built.slice(0, 4).map(x => `${x.n} ${pct(x.b)}`).join(', ')}${built.length > 4 ? ', ...' : ''})`);

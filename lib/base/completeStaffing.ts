@@ -122,17 +122,19 @@ export function completeStaffing(plan: OptimizerResult, ctx: GenomeContext, opti
   };
   const placedNames = () => new Set(shifts.flatMap(s => Object.values(s.assignments).flatMap(slots => slots.flatMap(x => x ? [x.operatorName] : []))));
   const untouchable = new Set([...(ctx.lockedDorm ?? []), ...Object.keys(plan.initialMorale ?? {}), ...plan.shifts.flatMap(s => s.refill ?? []), ...(plan.shifts.some(s => s.refill?.length) ? ['Fiammetta'] : [])]);
-  const built = (name: string) => ['Base', 'Elite 1', 'Elite 2'].indexOf(roster[name].eliteLevel) * 100 + roster[name].level;
   const production = base.facilities.filter(f => f.capacity && PRODUCTION_ROOMS.has(f.kind));
 
   // Built first: an Elite 0 worker in a production room gives their whole schedule (work and rest) to an idle built
   // operator with a skill for the room, when the funded score keeps within the margin.
   const builtSwaps: string[] = [];
   for (const room of production) {
-    const unbuilt = [...new Set(shifts.flatMap(s => (s.assignments[room.id] ?? []).flatMap(x => x && roster[x.operatorName]?.eliteLevel === 'Base' && !untouchable.has(x.operatorName) ? [x.operatorName] : [])))];
+    // A robot (rarity 1) has no promotion: Elite 0 is its whole build, never a worker to replace.
+    const unbuilt = [...new Set(shifts.flatMap(s => (s.assignments[room.id] ?? []).flatMap(x => x && roster[x.operatorName]?.eliteLevel === 'Base' && byName.get(x.operatorName)?.rarity !== 1 && !untouchable.has(x.operatorName) ? [x.operatorName] : [])))];
     for (const name of unbuilt) {
       const placed = placedNames();
-      const idleBuilt = Object.keys(roster).filter(n => byName.has(n) && !placed.has(n) && roster[n].eliteLevel !== 'Base' && !untouchable.has(n) && skills(n, room.label).length).sort((a, b) => built(b) - built(a) || a.localeCompare(b));
+      // Idle built operators in the fill's own order for the room (what each brings to it, then drain, dependency,
+      // build), so the strongest is tried first rather than the most promoted.
+      const idleBuilt = candidates(room, 0).filter(n => !placed.has(n) && roster[n].eliteLevel !== 'Base' && !untouchable.has(n) && skills(n, room.label).length);
       const floor = scoreNow() * (1 - BUILT_FIRST_MARGIN);
       for (const candidate of idleBuilt.slice(0, 6)) {
         const trial = clone(shifts);

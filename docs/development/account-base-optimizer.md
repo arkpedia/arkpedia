@@ -345,7 +345,10 @@ HR over Haruka at E2, and a fourth Factory worker adding nothing):
   Plant gives their whole schedule to an idle built (Elite 1 or 2) operator with a skill
   for the room when the simulated funded score falls by no more than
   `BUILT_FIRST_MARGIN` (0.5% of itself): the output lost is a hair beside raising an
-  operator the reader has not built. The note names each swap.
+  operator the reader has not built. The idle candidates are tried in the fill's own
+  order for the room (what each brings to it, then drain, dependency, build), so the
+  strongest comes first rather than the most promoted; a robot (rarity 1) at Elite 0 is
+  its whole build and is never replaced. The note names each swap.
 - **Workers who add nothing.** A Factory or Trading Post worker whose removal from the
   room, in every shift, leaves the funded score where it is (gold no post sells, orders
   no gold fills) is left out, and the note names them. Power Plant workers are not
