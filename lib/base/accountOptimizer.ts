@@ -23,7 +23,7 @@ export interface AccountOptimizerInput {
   drones?: boolean;
   /** Reserve these owned operators in dorms throughout the search. */
   lockedDorm?: string[];
-  /** Search time in seconds, 5 to 600. Default 60. */
+  /** Search time in seconds, 5 to 600. Default 300. */
   searchSeconds?: number;
   /** Benches: anneal for this many rounds per layout instead of the time left, cooling over the rounds, so a run
    *  repeats exactly (scripts/bench/compare-optimizer.ts). The seed phase still keeps to `searchSeconds`. */
@@ -104,7 +104,7 @@ export function productOptions(layout: LayoutOption): FactoryProducts[] {
 }
 
 /**
- * The account's best base within `searchSeconds` (default 60; the page offers up to 10 minutes).
+ * The account's best base within `searchSeconds` (default 300; the page offers 1, 2, 5 and 10 minutes).
  *
  * Seed: today's optimizer (lib/base/baseOptimizer.ts) on each layout, product splits in order of how likely
  * they are to win (about as many gold factories as Trading Posts first), until about a third of the time is
@@ -122,7 +122,7 @@ export function optimizeAccountBase(input: AccountOptimizerInput, progress?: (do
   const layouts = optimizerLayouts(input.snapshot, input.compareLayouts);
   if (!layouts.length) throw new Error('The imported layout has an invalid power budget. Turn on Recommend 2-5-2 or update your import.');
   const started = Date.now();
-  const budget = Math.max(5, Math.min(600, input.searchSeconds ?? 60)) * 1000;
+  const budget = Math.max(5, Math.min(600, input.searchSeconds ?? 300)) * 1000;
   const elapsed = () => Date.now() - started;
   const tick = (label: string, best?: AccountOptimizerResult) => progress?.(Math.min(100, Math.round(100 * elapsed() / budget)), 100, label, best);
   const recommendations: LayoutRecommendation[] = [];

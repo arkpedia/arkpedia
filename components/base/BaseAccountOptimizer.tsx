@@ -23,7 +23,8 @@ const whole = (value: number) => Math.round(value).toLocaleString();
 // Two results per browser page session; reopening the modal need not repeat a search.
 const cachedResults = new Map<string, AccountOptimizerResult>();
 // The reader's search time, kept for the page session like the results (it is part of their cache key).
-let lastSearchMinutes = 1;
+// Five minutes by default: a large roster needs that long for the anneal to settle (docs/development/account-base-optimizer.md).
+let lastSearchMinutes = 5;
 export default function BaseAccountOptimizer({ account, base, loginInterval, startHour, onInterval, onApply }: {
   account: AccountRecord | null; base: Omit<SimulationBase, 'facilities'>;
   loginInterval: number; onInterval: (hours: number) => void;

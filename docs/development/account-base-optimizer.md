@@ -35,7 +35,10 @@ not evidence of a general yield increase. All results were repeating, owned-only
 within room capacities and without exhaustion or duplicate placements.
 
 The search has two stages within the reader's search time (`searchSeconds`, 1/2/5/10
-minutes on the page, default 1):
+minutes on the page, default 5). A search therefore runs for up to five minutes before
+it reports, which a large roster needs for the anneal to settle; **Stop** ends it at once
+and keeps the best plan found so far, and the progress line carries that plan's score
+throughout:
 
 1. **Seed.** `baseOptimizer.ts` builds a plan per layout: greedy crews, a menu of
    rotation shapes (alternate, duty, formations, thirds; the four-change staggered
