@@ -408,7 +408,15 @@ HR over Haruka at E2, and a fourth Factory worker adding nothing):
   operator the reader has not built. The idle candidates are tried in the fill's own
   order for the room (what each brings to it, then drain, dependency, build), so the
   strongest comes first rather than the most promoted; a robot (rarity 1) at Elite 0 is
-  its whole build and is never replaced. The note names each swap.
+  its whole build and is never replaced. The note names each swap. The operator swapped
+  in takes the beds too, after the fill's list of protected residents was made, so the
+  fill never takes a bed from anyone who works anywhere in the rotation (`putToRest`);
+  it took one before, the swapped-in worker ran out of Morale, and every candidate for
+  the seat was refused (zensher's Reception Room, 2026-11-05).
+- **Seats with no bed.** On 19 of the 21 saved Krooster profiles (57 Reception Room and
+  Office seat-shifts at 60 rounds) every Dormitory bed rests a worker of the plan in every
+  shift, so a support seat would take a bed from production and the fill refuses it. The
+  note then says every bed is in use, beside the skilled operators to staff it by hand.
 - **Workers who add nothing.** A Factory or Trading Post worker whose removal from the
   room, in every shift, leaves the funded score where it is (gold no post sells, orders
   no gold fills) is left out, and the note names them. Power Plant workers are not

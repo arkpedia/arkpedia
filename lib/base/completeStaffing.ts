@@ -131,11 +131,15 @@ export function completeStaffing(plan: OptimizerResult, ctx: GenomeContext, opti
     const a = trial[rest].assignments;
     if (Object.entries(a).some(([id, slots]) => kind.get(id) !== 'dormitory' && slots.some(s => s?.operatorName === name))) return false;
     if (dorms.some(d => a[d.id]?.some(s => s?.operatorName === name))) return true;
+    // A resident who works anywhere in the rotation is resting for that work, whichever step seated them (the
+    // built-first swap hands an idle operator the whole schedule of the worker they replace, beds included, after
+    // `protectedNames` was taken): evicting them runs them out of Morale and the fill is refused.
+    const working = new Set(trial.flatMap(s => Object.entries(s.assignments).flatMap(([id, slots]) => kind.get(id) === 'dormitory' ? [] : slots.flatMap(x => x ? [x.operatorName] : []))));
     for (const replace of [false, true]) for (const d of dorms) {
       // Do not seat someone ahead of, or alongside, Fiammetta's refill target.
       if (a[d.id]?.some(s => s?.operatorName === 'Fiammetta') && trial[rest].refill?.length) continue;
       const slots = a[d.id] ?? Array(d.capacity).fill(null);
-      const at = slots.findIndex(s => !s || (replace && !protectedNames.has(s.operatorName) && !assigned.has(s.operatorName)));
+      const at = slots.findIndex(s => !s || (replace && !protectedNames.has(s.operatorName) && !assigned.has(s.operatorName) && !working.has(s.operatorName)));
       if (at >= 0) { a[d.id] = slots.map((s, i) => i === at ? slot(name) : s); return true; }
     }
     return false;
@@ -277,6 +281,8 @@ export function completeStaffing(plan: OptimizerResult, ctx: GenomeContext, opti
   if (countSeats.length) notes.push(`Seated to be counted in the base, not for the room's own work: ${countSeats.join('; ')}. A skill elsewhere counts how many of their faction or group are in the base, and a Dormitory bed counts the same, so this seat is worth it only while they have no bed.`);
   if (rooms.some(r => r.kind === 'workshop')) notes.push('Workshop staff are a crafting standby; choose the crafter for your recipe. Crafting and its Morale costs are not scheduled; swap crafters and rest them after crafting.');
   if (!base.trainingTarget && base.facilities.some(f => f.kind === 'trainingRoom' && f.capacity)) notes.push('Training Room needs a training target; no mastery task is assumed.');
+  // The usual reason on a full roster (19 of 21 Krooster profiles, 2026-11-05): no bed is free in any shift.
+  const bedsFull = dorms.length > 0 && shifts.every(s => dorms.every(d => (s.assignments[d.id] ?? []).filter(Boolean).length >= d.capacity));
   for (const room of rooms) {
     const missing = shifts.flatMap((s, i) => (s.assignments[room.id] ?? []).filter(Boolean).length < room.capacity ? [i + 1] : []);
     if (!missing.length) continue;
@@ -284,7 +290,7 @@ export function completeStaffing(plan: OptimizerResult, ctx: GenomeContext, opti
     // the skilled operators the plan leaves idle (the fill's own order), rather than only reporting the gap.
     const byHand = SUPPORT_SKILL_ROOMS.has(room.kind) ? candidates(room, missing[0] - 1).filter(name => skills(name, room.label).length && !shifts.some(s => Object.values(s.assignments).some(slots => slots.some(x => x?.operatorName === name)))).slice(0, 3) : [];
     if (SUPPORT_SKILL_ROOMS.has(room.kind) && !Object.keys(roster).some(name => byName.has(name) && skills(name, room.label).length) && shifts.every(s => !s.assignments[room.id]?.some(Boolean))) { notes.push(`${room.label}: left empty, nobody in the roster has a skill for it (an operator without one adds nothing there).`); continue; }
-    notes.push(`${room.label}: not fully staffed in shift${missing.length > 1 ? 's' : ''} ${missing.join(', ')}. No safe assignment was found from the remaining roster and recovery beds.${byHand.length ? ` To staff it by hand, with their own rests: ${byHand.join(', ')}.` : ''}`);
+    notes.push(`${room.label}: not fully staffed in shift${missing.length > 1 ? 's' : ''} ${missing.join(', ')}. No safe assignment was found from the remaining roster and recovery beds.${bedsFull ? ' Every Dormitory bed is in use in every shift, so a worker here would take a bed this plan rests someone in.' : ''}${byHand.length ? ` To staff it by hand, with their own rests: ${byHand.join(', ')}.` : ''}`);
   }
   return { ...plan, shifts, simulation, crews, schedule, score: scoreOf(simulation, ctx), explanations: [], notes, evaluations: plan.evaluations + evaluations };
 }

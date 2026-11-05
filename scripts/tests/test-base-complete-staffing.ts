@@ -150,6 +150,30 @@ function workThenRest(seed: OptimizerResult, places: Record<string, [string, num
   });
 }
 
+test("the fill never takes the bed of the operator the built-first swap put to work", () => {
+  // Two shifts, one Dormitory. Spot (Elite 0) works a gold Factory in the first and rests in the second, and gives
+  // the whole schedule, bed included, to Gravel. The second shift's beds are full: Gravel, Proviso (who works the
+  // post) and three idle operators. Vigil, idle, can staff the Reception Room in the first shift only by resting in
+  // the second. Found 2026-11-05 on 19 of 21 Krooster profiles: the fill took Gravel's bed, the first one not
+  // protected, Gravel ran out of Morale, and every candidate was refused, so the seat stayed empty.
+  const owned = { Spot: e0(), Gravel: e2(), Proviso: e2(), Vigil: e2(), Melantha: e2(), Adnachiel: e2(), Catapult: e2() };
+  const ctx = realContext(owned, ['dormitory', 'tradingPost', 'factory', 'receptionRoom']);
+  ctx.base = { ...ctx.base, facilities: ctx.base.facilities.filter(f => f.kind !== 'dormitory' || f.id === 'dormitory1') };
+  const seed = emptyPlan(ctx, 2);
+  const factory = facilities.find(f => f.kind === 'factory')!, post = facilities.find(f => f.kind === 'tradingPost')!;
+  const at = (name: string) => ({ operatorName: name, ...owned[name as keyof typeof owned] });
+  for (const shift of seed.shifts) shift.factoryProducts = { ...shift.factoryProducts, [factory.id]: 'Precious Metals' };
+  seed.shifts[0].assignments[factory.id][0] = at('Spot');
+  seed.shifts[0].assignments[post.id][0] = at('Proviso');
+  seed.shifts[1].assignments.dormitory1 = ['Spot', 'Proviso', 'Melantha', 'Adnachiel', 'Catapult'].map(at);
+  seed.simulation = simulateBase({ base: ctx.base, shifts: seed.shifts, loginInterval: 12 });
+  const plan = completeStaffing(seed, ctx);
+  assert.ok(plan.notes.some(n => n.includes('Built operators first: Gravel for Spot')), plan.notes.join(' / '));
+  assert.ok(plan.shifts[1].assignments.dormitory1.some(x => x?.operatorName === 'Gravel'), `Gravel keeps the bed: ${plan.shifts[1].assignments.dormitory1.map(x => x?.operatorName).join(', ')}`);
+  assert.ok(plan.shifts[0].assignments.receptionRoom.some(Boolean), `Reception in the first shift: ${plan.notes.join(' / ')}`);
+  assert.equal(plan.simulation.events.filter(e => e.kind === 'exhausted').length, 0);
+});
+
 test('an idle built operator with a Factory skill replaces an Elite 0 worker when the output keeps within the margin', () => {
   // Spot at Elite 0 (Metalwork α) works a gold Factory that Proviso's post sells; Gravel at Elite 2 (Metalwork β) is idle.
   const ctx = realContext({ Spot: e0(), Gravel: e2(), Proviso: e2() }, ['dormitory', 'tradingPost', 'factory']);
