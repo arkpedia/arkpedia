@@ -34,6 +34,10 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-05T20:00:00Z',
+    fixed: [{title: 'Skin dates follow live schedule corrections', detail: 'The gallery and homepage use the published shop windows together, including corrected opening and closing times.', href: '/skins'}],
+  },
+  {
     at: '2026-11-05T19:50:00Z',
     fixed: [{title: 'Rerun outfits appear when their shop opens', detail: 'Outfit shops, banners and rewards now share official notice dates, including notices that omit the year.', href: '/skins'}],
   },

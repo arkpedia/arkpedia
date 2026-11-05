@@ -10,7 +10,6 @@ import { parseGameWindow } from '@/lib/schedule/gameWindow';
 import { loadGameEvents } from '@/lib/home/frontPageContent';
 import { getAllSkins } from '@/lib/skins/skins';
 import { availableSkins, getSkinWindows, type SkinWindow } from '@/lib/skins/skinAvailability';
-import { withLocalConfirmedSkinWindows } from '@/lib/skins/localSkinWindows';
 import { getAllEvents } from '@/lib/schedule/schedule';
 import type { HeadhuntingBanner } from '@/lib/gacha/headhuntingBanners';
 import { getBannersSortedByDate } from '@/lib/gacha/headhuntingBannerData';
@@ -198,7 +197,7 @@ async function finalizeHome(props: Props): Promise<Props> {
     // What is on sale now, as /skins' Available now tab has it. A release from before the
     // windows were stored falls back to the old match against running events.
     ongoingSkins: await withSkinArtwork(__calendar?.skinWindows
-      ? availableSkins(__calendar.skins, regionalSkinWindows(withLocalConfirmedSkinWindows(__calendar.skinWindows), regional?.servers?.en, 'en'), now)
+      ? availableSkins(__calendar.skins, regionalSkinWindows(__calendar.skinWindows, regional?.servers?.en, 'en'), now)
       : getOngoingSkins(now, __calendar?.skins, events)),
     featuredVideo: videos[0] || null, featuredStream: null, earliestCommunityEvent: communityEvent,
     // A release from before the regions, which held Global's list alone, counts as Global's.

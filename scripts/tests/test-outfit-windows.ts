@@ -123,7 +123,7 @@ test('what is on sale now: live shop and reward windows, never a draw or an esti
   // The home page reads the same helper, over the release's windows.
   const home = fs.readFileSync('pages/index.tsx', 'utf8');
   // Global's own official sales join its catalogue windows, as on /skins (regionalSkinWindows).
-  assert.match(home, /availableSkins\(__calendar\.skins, regionalSkinWindows\(withLocalConfirmedSkinWindows\(__calendar\.skinWindows\), regional\?\.servers\?\.en, 'en'\), now\)/);
+  assert.match(home, /availableSkins\(__calendar\.skins, regionalSkinWindows\(__calendar\.skinWindows, regional\?\.servers\?\.en, 'en'\), now\)/);
   assert.match(home, /skinWindows: getSkinWindows\(getAllSkins\(\), getAllEvents\(\)/);
 });
 

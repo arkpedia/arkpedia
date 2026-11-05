@@ -55,10 +55,10 @@ test('a renamed page forwards browser code while keeping its data functions serv
   assert.equal(pathToTarget(route, ['components/pulls/PastRewards.tsx'])?.at(-1), 'components/pulls/PastRewards.tsx');
 });
 
-test('the allowed tables exist, and SL-4b\'s is allowed through its one importer only', () => {
+test('the allowed tables exist and timed windows have no browser-bundle exception', () => {
   for (const file of [...Object.keys(CLIENT_ALLOWED), ...Object.keys(CLIENT_ALLOWED_EDGES)]) assert.ok(fs.existsSync(file), `${file} is missing`);
   assert.deepEqual(Object.keys(CLIENT_ALLOWED).sort(), ['data/assets/revisions.json', 'data/polls/power-scale-v1.0.json']);
-  assert.deepEqual(CLIENT_ALLOWED_EDGES['data/skin-availability-windows.json'], { importers: ['lib/skins/localSkinWindows.ts'], pages: ['/skins'], why: 'SL-4b, pending a maintainer decision' });
+  assert.deepEqual(CLIENT_ALLOWED_EDGES, {});
 });
 
 test('no page compiles a data/ table it is not allowed into its browser bundle', () => {
@@ -82,8 +82,8 @@ test('no page compiles a data/ table it is not allowed into its browser bundle',
     }
   }
   assert.deepEqual(leaks, [], 'Browser code must read these tables from the page props, which carry the content release.');
-  // And the SL-4b edge is what /skins actually has.
-  assert.deepEqual(dataReached('pages/skins.tsx').map(({ file, from }) => `${from} -> ${file}`).filter(edge => !edge.endsWith('revisions.json')), ['lib/skins/localSkinWindows.ts -> data/skin-availability-windows.json']);
+  // Skin availability comes only from the content release.
+  assert.deepEqual(dataReached('pages/skins.tsx').map(({ file, from }) => `${from} -> ${file}`).filter(edge => !edge.endsWith('revisions.json')), []);
 });
 
 /* The post-build half: what `next build` emitted. Made-up tables, compiled the way webpack

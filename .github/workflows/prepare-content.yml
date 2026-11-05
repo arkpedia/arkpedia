@@ -43,10 +43,10 @@ jobs:
     # ARKPEDIA_RUNNER (a repository variable) names the self-hosted runner's label, e.g.
     # arkpedia-vps; unset, jobs run on GitHub's hosted runners. See docs/development/ci-runner.md.
     runs-on: ${{ vars.ARKPEDIA_RUNNER || 'ubuntu-latest' }}
-    # Up to 30 of these minutes may go to waiting for the asset syncs (below), and up to 14 after
+    # Up to 30 of these minutes may go to waiting for the asset syncs (below), and up to 20 for native publication and 14 after
     # a publish to the page refresh's wait for the pointer (its step's own timeout): a job timeout
     # there would report a release that went out as failed, and skip the heartbeat.
-    timeout-minutes: ${{ vars.ARKPEDIA_RUNNER && 105 || 85 }}
+    timeout-minutes: ${{ vars.ARKPEDIA_RUNNER && 120 || 100 }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -366,14 +366,17 @@ jobs:
       # data main either way, and the issue says what is missing. Once live has moved, await-live
       # names the commit it serves as this step's `revision` output, for the page refresh below:
       # the pushed one, or a later data main commit that superseded it.
+      # Native publication has taken 11 minutes; the former five-minute wait skipped page
+      # refreshes even when storage publication succeeded. Keep the wait inside its step budget.
       - name: Confirm the release went live
         id: live
         if: steps.publish.outputs.pushed != ''
         continue-on-error: true
-        timeout-minutes: 8
+        timeout-minutes: 22
         env:
           GH_TOKEN: ${{ github.token }}
           PUSHED: ${{ steps.publish.outputs.pushed }}
+          ARKPEDIA_LIVE_TIMEOUT_SECONDS: '1200'
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           set -euo pipefail

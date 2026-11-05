@@ -11,7 +11,6 @@ import { getAllSkins } from '@/lib/skins/skins';
 import { useSkinGalleryState } from '@/lib/skins/useSkinGalleryState';
 import { Skin } from '@/lib/skins/skinTypes';
 import { acquisitionLabel, compareUpcomingSkins, isUpcomingSkin, compareCurrentSkins, computeSkinCountdowns, getSkinWindows, isAvailableNow, skinKey, type SkinWindow } from '@/lib/skins/skinAvailability';
-import { withLocalConfirmedSkinWindows } from '@/lib/skins/localSkinWindows';
 import { assertSkinMatching } from '@/lib/schedule/scheduleSkinMatch';
 import { seriesKey, skinSeriesOptions } from '@/lib/skins/skinSeriesConfig';
 import { parsePrices, formatPrices } from '@/lib/skins/skinPrice';
@@ -76,10 +75,9 @@ export default function SkinsGallery({ skins, now, availabilityWindows, dynamicA
   const clock = useReaderClock(now, { tickMs: 30_000, onFocus: true });
   // Recompute from acquisition windows even when runtime content contains old
   // build-time availability flags. Initial server/client clocks still agree.
-  // SL-4b: the bundled confirmed windows still merge in here until the maintainer decides.
   // Global's windows first; JP and KR move each onto their own sale of the same outfits (lib/time/regional.ts).
   const windows = useMemo(() => {
-    const global = regionalSkinWindows(withLocalConfirmedSkinWindows(availabilityWindows), globalSchedule, 'en');
+    const global = regionalSkinWindows(availabilityWindows, globalSchedule, 'en');
     return server === 'en' ? global : regionalSkinWindows(global, schedule, server);
   }, [availabilityWindows, globalSchedule, schedule, server]);
   const availability = useMemo(() => computeSkinCountdowns(new Date(clock), windows), [clock, windows]);

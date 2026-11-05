@@ -24,15 +24,8 @@ const CLIENT_ALLOWED = {
   'data/polls/power-scale-v1.0.json': 'the closed power-scale poll /results draws (lib/results/finalPollResults.ts)',
 };
 
-/**
- * Allowed only through the importers named, and only in the pages named (for the chunk scan).
- * SL-4b (REVIEW.md, 2026-09-25): withLocalConfirmedSkinWindows merges the bundled confirmed
- * sale windows into /skins' published ones, pending a maintainer decision to keep it as an
- * emergency override with an expiry or remove it. Nothing else may import that table.
- */
-const CLIENT_ALLOWED_EDGES = {
-  'data/skin-availability-windows.json': { importers: ['lib/skins/localSkinWindows.ts'], pages: ['/skins'], why: 'SL-4b, pending a maintainer decision' },
-};
+/** Reserved for explicitly reviewed, immutable per-route records. Timed windows use release props. */
+const CLIENT_ALLOWED_EDGES = {};
 
 const relative = (root, resource) => path.relative(root, path.resolve(resource.split('?')[0])).split(path.sep).join('/');
 const isData = file => /^data\/.+\.json$/.test(file);

@@ -499,3 +499,13 @@ home carousel and `/skins` both use `computeSkinCountdowns` / `availableSkins`;
 `useReaderClock` decides live/upcoming state at request/view time. Export guards
 reject frozen countdown fields. Preview consumes the same `live` content pointer
 while retaining its isolated application/account environment.
+
+Timed skin windows have no browser-bundled emergency override. The gallery and
+homepage use their published windows and regional table; the current official
+notice replaces conflicting earlier windows for the same outfit and sale. The
+client data guard rejects `skin-availability-windows.json` in browser code.
+
+Native storage publication can take more than five minutes. Prepare content waits
+up to twenty minutes for the approved live pointer before refreshing the clock
+pages; the confirmation step and job budgets include this wait. A completed Git
+push alone must not skip the post-publication refresh.
