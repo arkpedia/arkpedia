@@ -4,6 +4,7 @@ import { getAllOperators } from '../../lib/operators/operators';
 import { getFacilities, presetLevels, presetSpots } from '../../lib/base/baseConfig';
 import { toBaseRosters } from '../../lib/base/baseGroupRosters';
 import { completeStaffing } from '../../lib/base/completeStaffing';
+import { countFeeders } from '../../lib/base/countFeeders';
 import { simulateBase, type SimulationShift } from '../../lib/base/baseSimulation';
 import { scoreOf, type GenomeContext } from '../../lib/base/planGenome';
 import { MAX_ROTATION_SETUPS, distinctSetups } from '../../lib/base/rotationSetups';
@@ -214,4 +215,52 @@ test('a robot at Elite 0 is its whole build: built-first leaves it in place', ()
   const plan = completeStaffing(seed, ctx);
   assert.ok(plan.shifts[0].assignments[factory.id].some(x => x?.operatorName === 'Castle-3'), 'Castle-3 stays');
   assert.ok(!plan.notes.some(n => n.includes('for Castle-3')), plan.notes.join(' / '));
+});
+
+test('an operator whose seat raises a base-wide count another owned skill reads is a count feeder', () => {
+  // Nasti's Costly Construction counts Rhine Lab operators in the base; Muelsyse's Ecological Section Director the
+  // other Rhine Lab operators. Ifrit and Dorothy are Rhine Lab; Gravel is not.
+  const feeders = (owned: Record<string, OwnedOperator>) => [...countFeeders(realContext(owned).base, owned)].sort();
+  assert.deepEqual(feeders({ Nasti: e2(), Ifrit: e2(), Dorothy: e2(), Gravel: e2() }), ['Dorothy', 'Ifrit']);
+  // Costly Construction is Nasti's Elite 2 skill: at Elite 0 nothing reads the count.
+  assert.deepEqual(feeders({ Nasti: e0(), Ifrit: e2(), Dorothy: e2() }), []);
+  assert.deepEqual(feeders({ Nasti: e2(), Muelsyse: e2(), Ifrit: e2() }), ['Ifrit', 'Muelsyse', 'Nasti']);
+  // The search's set: only counts a Dormitory bed does not raise. Kal'tsit Esperanta's HR skill counts facilities
+  // with an Elite Operator (Rosmontis) assigned; Nasti's Rhine Lab count takes a resting Ifrit as well.
+  const owned = { "Kal'tsit Esperanta": e2(), Rosmontis: e2(), Nasti: e2(), Ifrit: e2() };
+  assert.deepEqual(feeders(owned), ['Ifrit', 'Rosmontis']);
+  assert.deepEqual([...countFeeders(realContext(owned).base, owned, { workSeat: true })], ['Rosmontis']);
+});
+
+/** Nasti in a gold Factory two posts sell from, Ifrit (Rhine Lab, a Power Plant skill and no power plant here). */
+function nastiBase(placeIfrit: boolean) {
+  const ctx = realContext({ Nasti: e2(), Proviso: e2(), Vigil: e2(), Ifrit: e2() }, ['dormitory', 'tradingPost', 'factory', 'receptionRoom']);
+  const seed = emptyPlan(ctx);
+  const factory = facilities.find(f => f.kind === 'factory')!, [post1, post2] = facilities.filter(f => f.kind === 'tradingPost');
+  for (const shift of seed.shifts) shift.factoryProducts = { ...shift.factoryProducts, [factory.id]: 'Precious Metals' };
+  workThenRest(seed, { Nasti: [factory.id, 0], Proviso: [post1.id, 0], Vigil: [post2.id, 0], ...(placeIfrit ? { Ifrit: ['receptionRoom', 0] as [string, number] } : {}) }, ctx.roster);
+  seed.simulation = simulateBase({ base: ctx.base, shifts: seed.shifts, loginInterval: 12 });
+  seed.score = scoreOf(seed.simulation, ctx);
+  return { ctx, seed };
+}
+
+test('the completion keeps a Rhine Lab operator the search seated in the Reception Room for Nasti', () => {
+  const { ctx, seed } = nastiBase(true);
+  const plan = completeStaffing(seed, ctx);
+  assert.ok(plan.shifts[0].assignments.receptionRoom.some(x => x?.operatorName === 'Ifrit'), `Reception: ${plan.shifts.map(s => s.assignments.receptionRoom.map(x => x?.operatorName)).join(' / ')}`);
+  assert.ok(plan.score >= seed.score - 1e-6);
+  // Without Nasti nothing reads the count: Ifrit adds nothing in the room and gives the seat up (to Vigil, who has a
+  // Reception Room skill).
+  const without = realContext({ Proviso: e2(), Vigil: e2(), Ifrit: e2() }, ['dormitory', 'tradingPost', 'factory', 'receptionRoom']);
+  const lone = emptyPlan(without);
+  workThenRest(lone, { Ifrit: ['receptionRoom', 0] }, without.roster);
+  lone.simulation = simulateBase({ base: without.base, shifts: lone.shifts, loginInterval: 12 });
+  assert.ok(completeStaffing(lone, without).shifts.every(s => !s.assignments.receptionRoom.some(x => x?.operatorName === 'Ifrit')));
+});
+
+test('the fill seats an idle count feeder in an empty Reception Room when it raises the score', () => {
+  const { ctx, seed } = nastiBase(false);
+  const plan = completeStaffing(seed, ctx);
+  assert.ok(plan.shifts.some(s => s.assignments.receptionRoom.some(x => x?.operatorName === 'Ifrit')), `Reception: ${plan.shifts.map(s => s.assignments.receptionRoom.map(x => x?.operatorName)).join(' / ')}`);
+  assert.ok(plan.score > seed.score, `${plan.score} > ${seed.score}`);
 });

@@ -321,6 +321,20 @@ skills raise scored output across rooms (Mulberry in HR lifts a Trading Post), b
 may put only an operator with a skill for the room into those two: their own speed is
 not LMD, EXP or gold, so a search free to drop anyone there kept whatever its last
 random move left (testers saw Penance and Mudrock searching for clues and Bison in HR).
+The one exception is an operator whose seat raises a base-wide count another owned
+operator's skill reads (`countFeeders.ts`, from the skill table): a Rhine Lab operator
+for Nasti's Costly Construction or Muelsyse's Ecological Section Director, an Elite
+Operator for Kal'tsit Esperanta's or Mantra's per-facility bonus, a Sui member for
+Taraxacum's. The calculator counts every placed operator, so that seat scores in the
+other rooms. Most of these counts (Rhine Lab in the base, a faction in the base) take
+an operator resting in a Dormitory too, so a Reception seat helps only when the
+operator has no bed in the plan. The search scores crews without their dorms, so it
+cannot tell the two apart, and on a large roster the whole set is long (92 of the maxed
+catalogue); it seats only the operators a bed does not count (work facilities, workers
+outside the dorms, facilities with a roster member). The completion judges every seat by the full simulation and
+takes them all: it removes a support-room occupant only when the plan scores the same
+without them (Brigid's HR speed is not scored, so she goes; a count raiser stays), and
+seats an idle count raiser only when the score rises.
 It leaves the Workshop alone (crafting is instantaneous) and may leave low-value
 Control Center and Power Plant slots open. The completion pass fills open slots with
 remaining owned operators, skilled first by the room's own rate, then by Morale drain,

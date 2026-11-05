@@ -1,4 +1,5 @@
 import { activeBaseSkills } from './activeBaseSkills';
+import { countFeeders } from './countFeeders';
 import { operatorDependency } from './dependencyClass';
 import { calculateBase } from './calculateBase';
 import { simulateBase, type SimulationShift } from './baseSimulation';
@@ -36,9 +37,19 @@ export function completeStaffing(plan: OptimizerResult, ctx: GenomeContext, opti
   const kind = new Map(base.facilities.map(f => [f.id, f.kind]));
   const seatsOf = (name: string) => plan.shifts.flatMap(s => Object.entries(s.assignments).filter(([id, slots]) => kind.get(id) !== 'dormitory' && slots.some(x => x?.operatorName === name)).map(([id]) => kind.get(id)!));
   const allWorking = new Set(plan.shifts.flatMap(s => Object.entries(s.assignments).filter(([id]) => kind.get(id) !== 'dormitory').flatMap(([, slots]) => slots.flatMap(s => s ? [s.operatorName] : []))));
-  // The search's Reception Room and Office occupants who work nowhere else: the fill chooses those seats afresh.
+  // The search's Reception Room and Office occupants who work nowhere else: the fill chooses those seats afresh,
+  // unless the occupant's seat scores (Mulberry in HR lifting a Trading Post, a Rhine Lab operator raising Nasti's
+  // count, countFeeders.ts): one by one, an occupant leaves only when the plan scores the same without them.
   const refineSupport = options.refineSupport !== false;
-  const evicted = new Set(refineSupport ? [...allWorking].filter(name => seatsOf(name).every(k => SUPPORT_SKILL_ROOMS.has(k)) && !(plan.shifts.some(s => s.refill?.includes(name)) || name in (plan.initialMorale ?? {}) || (ctx.lockedDorm ?? []).includes(name))) : []);
+  const supportOnly = refineSupport ? [...allWorking].filter(name => seatsOf(name).every(k => SUPPORT_SKILL_ROOMS.has(k)) && !(plan.shifts.some(s => s.refill?.includes(name)) || name in (plan.initialMorale ?? {}) || (ctx.lockedDorm ?? []).includes(name))).sort() : [];
+  const evicted = new Set<string>();
+  let shifts = clone(plan.shifts), simulation = plan.simulation;
+  for (const name of supportOnly) {
+    const trial = clone(shifts);
+    for (const s of trial) for (const [id, slots] of Object.entries(s.assignments)) s.assignments[id] = slots.map(x => x?.operatorName === name ? null : x);
+    const result = simulateBase({ base, shifts: trial, loginInterval: ctx.loginInterval, initialMorale: plan.initialMorale, refillPolicy: plan.refillPolicy, drones: ctx.drones, droneWeights: ctx.weights, ...(ctx.sustainable ? { droneFunding: { externalGold: ctx.externalGold ?? 0 } } : {}) });
+    if (scoreOf(result, ctx) >= scoreOf(simulation, ctx) - 1e-6) { shifts = trial; simulation = result; evicted.add(name); }
+  }
   const workingNames = new Set([...allWorking].filter(name => !evicted.has(name)));
   const protectedNames = new Set([...workingNames, ...(ctx.lockedDorm ?? []), ...Object.keys(plan.initialMorale ?? {}), ...plan.shifts.flatMap(s => s.refill ?? []), ...(base.trainingTarget?.operatorName ? [base.trainingTarget.operatorName] : [])]);
   if (plan.shifts.some(s => s.refill?.length)) {
@@ -55,12 +66,8 @@ export function completeStaffing(plan: OptimizerResult, ctx: GenomeContext, opti
   }
   const available = Object.keys(roster).filter(n => byName.has(n) && !protectedNames.has(n)).sort();
   const assigned = new Set<string>();
-  let shifts = clone(plan.shifts), simulation = plan.simulation;
   let evaluations = 0;
-  if (evicted.size) {
-    for (const s of shifts) for (const [id, slots] of Object.entries(s.assignments)) s.assignments[id] = slots.map(x => x && evicted.has(x.operatorName) ? null : x);
-    simulation = simulateBase({ base, shifts, loginInterval: ctx.loginInterval, initialMorale: plan.initialMorale, refillPolicy: plan.refillPolicy, drones: ctx.drones, droneWeights: ctx.weights, ...(ctx.sustainable ? { droneFunding: { externalGold: ctx.externalGold ?? 0 } } : {}) });
-  }
+  const feeders = countFeeders(base, roster);
   const cache = new Map<string, unknown>();
   const simulate = (trial: SimulationShift[]) => simulateBase({
     base, shifts: trial, loginInterval: ctx.loginInterval, initialMorale: plan.initialMorale,
@@ -75,9 +82,10 @@ export function completeStaffing(plan: OptimizerResult, ctx: GenomeContext, opti
     const key = `${room.kind}:${room.level}:${plan.shifts[0].factoryProducts[room.id] ?? ''}`;
     if (!ranked.has(key)) {
       const skilled = available.filter(name => skills(name, room.label).length);
-      // The Reception Room and Office take only an operator with a skill for the room; an unskilled body there
-      // is never a plan (the search keeps the same rule, annealBase.ts).
-      const ordinary = SUPPORT_SKILL_ROOMS.has(room.kind) ? [] : available.filter(name => !skilled.includes(name));
+      // The Reception Room and Office take only an operator with a skill for the room, or one whose seat raises a
+      // base-wide count another's skill reads (countFeeders.ts; seated only where that scores, `fill`); any other
+      // body there is never a plan (the search keeps the same rule, annealBase.ts).
+      const ordinary = SUPPORT_SKILL_ROOMS.has(room.kind) ? available.filter(name => feeders.has(name) && !skilled.includes(name)) : available.filter(name => !skilled.includes(name));
       const ratings = [...skilled, ...ordinary].map(name => {
         const assignments = Object.fromEntries(Object.entries(plan.shifts[0].assignments).map(([id, slots]) => [id, slots.map(s => s?.operatorName === name ? null : s)]));
         assignments[room.id] = [slot(name), ...Array(room.capacity - 1).fill(null)];
@@ -162,6 +170,8 @@ export function completeStaffing(plan: OptimizerResult, ctx: GenomeContext, opti
     if (distinctSetups(trial) > MAX_ROTATION_SETUPS) return false;
     const result = simulate(trial); evaluations += result.evaluations;
     if (!result.periodic || result.events.some(e => e.kind === 'exhausted') || result.warnings.some(w => / twice\.$/.test(w))) return false;
+    // A count raiser without a skill for the room is there for the score alone: seated only when it rises.
+    if (SUPPORT_SKILL_ROOMS.has(room.kind) && !skills(name, room.label).length && !(scoreOf(result, ctx) > scoreNow() + 1e-6)) return false;
     shifts = trial; simulation = result; assigned.add(name);
     return true;
   }
@@ -238,7 +248,7 @@ export function completeStaffing(plan: OptimizerResult, ctx: GenomeContext, opti
     // A support room the production crews' beds left unstaffed: the reader can still run it by hand, so name
     // the skilled operators the plan leaves idle (the fill's own order), rather than only reporting the gap.
     const byHand = SUPPORT_SKILL_ROOMS.has(room.kind) ? candidates(room, missing[0] - 1).filter(name => skills(name, room.label).length && !shifts.some(s => Object.values(s.assignments).some(slots => slots.some(x => x?.operatorName === name)))).slice(0, 3) : [];
-    if (SUPPORT_SKILL_ROOMS.has(room.kind) && !Object.keys(roster).some(name => byName.has(name) && skills(name, room.label).length)) { notes.push(`${room.label}: left empty, nobody in the roster has a skill for it (an operator without one adds nothing there).`); continue; }
+    if (SUPPORT_SKILL_ROOMS.has(room.kind) && !Object.keys(roster).some(name => byName.has(name) && skills(name, room.label).length) && shifts.every(s => !s.assignments[room.id]?.some(Boolean))) { notes.push(`${room.label}: left empty, nobody in the roster has a skill for it (an operator without one adds nothing there).`); continue; }
     notes.push(`${room.label}: not fully staffed in shift${missing.length > 1 ? 's' : ''} ${missing.join(', ')}. No safe assignment was found from the remaining roster and recovery beds.${byHand.length ? ` To staff it by hand, with their own rests: ${byHand.join(', ')}.` : ''}`);
   }
   return { ...plan, shifts, simulation, crews, schedule, score: scoreOf(simulation, ctx), explanations: [], notes, evaluations: plan.evaluations + evaluations };

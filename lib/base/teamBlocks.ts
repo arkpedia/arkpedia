@@ -1,4 +1,5 @@
 import { activeBaseSkills } from './activeBaseSkills';
+import { countFeeders } from './countFeeders';
 import { operatorDependency } from './dependencyClass';
 import { snapshotTotals } from './snapshotMemo';
 import { DEFAULT_WEIGHTS, WORK_KINDS } from './baseOptimizer';
@@ -40,6 +41,7 @@ export function teamBlocks(ctx: GenomeContext, crew: BaseAssignments, products: 
   const w = ctx.weights ?? DEFAULT_WEIGHTS;
   const byName = new Map(ctx.base.operators.map(o => [o.name, o]));
   const owned = Object.keys(ctx.roster).filter(n => byName.has(n) && n !== 'Fiammetta' && !(ctx.lockedDorm ?? []).includes(n));
+  const feeders = countFeeders(ctx.base, ctx.roster, { workSeat: true });
   // Remembered by content (snapshotMemo.ts): a rebuild after a move in one room scores that room's teams again
   // for nothing otherwise.
   const value = (a: BaseAssignments) => {
@@ -61,7 +63,10 @@ export function teamBlocks(ctx: GenomeContext, crew: BaseAssignments, products: 
     const teamDependency = (names: string[]) => names.reduce((sum, n) => sum + dependency(n), 0);
     const ranked = () => {
       const skilled = owned.filter(n => activeBaseSkills(byName.get(n)!, f.label, ctx.roster[n].eliteLevel, ctx.base.skillSlots, ctx.roster[n].level).length > 0);
-      const plain = f.kind === 'tradingPost' || f.kind === 'factory' ? owned.filter(n => !skilled.includes(n)).slice(0, 3) : [];
+      // The Reception Room and Office: besides their skilled operators, those whose seat raises a base-wide count a
+      // dorm bed does not (countFeeders.ts), ranked by what that seat adds in the other rooms.
+      const plain = f.kind === 'tradingPost' || f.kind === 'factory' ? owned.filter(n => !skilled.includes(n)).slice(0, 3)
+        : f.kind === 'receptionRoom' || f.kind === 'office' ? owned.filter(n => feeders.has(n) && !skilled.includes(n)) : [];
       const empty = value(placing(f.id, [], f.capacity));
       // Equal gains: the operator whose skills need the least from others first (docs/development/base-design-notes.md).
       return [...skilled, ...plain].map(n => ({ n, gain: value(placing(f.id, [n], f.capacity)) - empty })).sort((x, y) => y.gain - x.gain || dependency(x.n) - dependency(y.n) || x.n.localeCompare(y.n)).map(x => x.n);

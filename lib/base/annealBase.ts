@@ -1,5 +1,6 @@
 import { WORK_KINDS } from './baseOptimizer';
 import { activeBaseSkills } from './activeBaseSkills';
+import { countFeeders } from './countFeeders';
 import { MAX_GENOME_STEPS, crewAt, decode, evaluate, hasWorkingCollision, placeGenomeOperator, snapshotValue, splitCrew, staffAt, type Evaluation, type Genome, type GenomeContext } from './planGenome';
 import { exceedsSetups } from './rotationSetups';
 import { teamBlocks, type TeamBlock } from './teamBlocks';
@@ -82,9 +83,13 @@ export function anneal(seedGenome: Genome, ctx: GenomeContext, opts: AnnealOptio
   };
   // The Reception Room and Office take only an operator with a skill for the room. Their own speed is not scored,
   // so a search free to drop anyone there kept whatever its last random move left (Penance searching for clues,
-  // Bison in HR); the skills that do score (Mulberry in HR lifting a Trading Post) are still found this way.
+  // Bison in HR); the skills that do score (Mulberry in HR lifting a Trading Post) are still found this way. An
+  // operator who raises a base-wide count a dorm bed does not (an Elite Operator for Terra's Ark's per-facility
+  // count) may sit there too: their seat scores in the other rooms (countFeeders.ts). Counts a bed raises as well,
+  // such as Nasti's Rhine Lab operators in the base, are the completion's (completeStaffing.ts).
   const operatorsByName = new Map(ctx.base.operators.map(o => [o.name, o]));
-  const skilledFor = new Map(rooms.filter(f => f.kind === 'receptionRoom' || f.kind === 'office').map(f => [f.id, new Set(owned.filter(n => activeBaseSkills(operatorsByName.get(n)!, f.label, ctx.roster[n].eliteLevel, ctx.base.skillSlots, ctx.roster[n].level).length > 0))]));
+  const feeders = countFeeders(ctx.base, ctx.roster, { workSeat: true });
+  const skilledFor = new Map(rooms.filter(f => f.kind === 'receptionRoom' || f.kind === 'office').map(f => [f.id, new Set(owned.filter(n => feeders.has(n) || activeBaseSkills(operatorsByName.get(n)!, f.label, ctx.roster[n].eliteLevel, ctx.base.skillSlots, ctx.roster[n].level).length > 0))]));
   const fits = (name: string, room: string) => !skilledFor.has(room) || skilledFor.get(room)!.has(name);
 
   // A team's worth depends on the rest of the base it works beside (a Control Center for the crew it supports, a
