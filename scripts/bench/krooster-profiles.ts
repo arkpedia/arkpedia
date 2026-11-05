@@ -96,7 +96,9 @@ console.log(`E0 level 1 operators at work: ${e0Workers.size} (${[...e0Workers].j
 const findings: string[] = [];
 const prunedFrom = new Set(best.plan.notes.filter(n => n.startsWith('Left out as adding nothing')).flatMap(n => [...n.matchAll(/ from ([^;.]+)/g)].map(m => m[1])));
 const eliteOf = (name: string) => owned.roster[name]?.eliteLevel;
-const idleNames = new Set(Object.keys(owned.roster).filter(name => byName.has(name) && placeOf(name) === 'idle'));
+const prunedNames = new Set(best.plan.notes.filter(n => n.startsWith('Left out as adding nothing')).flatMap(n => [...n.matchAll(/(?:: |; )([^;:]+?) from /g)].map(m => m[1].trim())));
+// Idle, and not left out by the prune: a seller whose orders no gold fills is no alternative to anyone.
+const idleNames = new Set(Object.keys(owned.roster).filter(name => byName.has(name) && placeOf(name) === 'idle' && !prunedNames.has(name)));
 best.plan.shifts.forEach((shift, i) => {
   for (const f of facilities) {
     if (!f.capacity || f.kind === 'dormitory') continue;
