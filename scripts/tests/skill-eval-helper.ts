@@ -63,12 +63,12 @@ export function scopeFrom(operatorName: string, facts: SkillFacts): SkillScope {
     const given = facts.holds?.(c);
     if (given !== undefined) return given;
     switch (c.type) {
-      case 'roomHas': return roomNames.includes(c.name);
+      case 'roomHas': return [c.name, ...(c.forms ?? [])].some((n) => roomNames.includes(n));
       case 'roomHasRoster': return roomNames.some((n) => n !== operatorName && roster(c.roster).has(n));
       case 'alone': return roomNames.length === 1;
       case 'baseHas': return (facts.placedNames ?? []).includes(c.name);
       case 'ccHas': return (facts.ccNames ?? []).includes(c.name);
-      case 'targetIs': return facts.target === c.name;
+      case 'targetIs': return !!facts.target && [c.name, ...(c.forms ?? [])].includes(facts.target);
       case 'targetInRoster': return !!facts.target && roster(c.roster).has(facts.target);
       case 'product': return (facts.product ?? null) === c.product;
       case 'countAtLeast': return count(c.count) >= c.value;

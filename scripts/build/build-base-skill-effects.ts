@@ -22,7 +22,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { OVERRIDES, GENERIC_IS_RIGHT, type SkillOverride, type OverrideEffect } from './base-skill-overrides';
 import { cleanSkillName } from '../../lib/base/activeBaseSkills';
-import type { BaseSkillEffectEntry, BaseSkillEffectsTable, SkillEffect } from '../../lib/base/baseSkillEffects';
+import type { BaseSkillEffectEntry, BaseSkillEffectsTable, SkillCondition, SkillEffect } from '../../lib/base/baseSkillEffects';
 import { dependencyClassOf } from '../../lib/base/dependencyClass';
 import { type Buff, normalizeDescription, mentionedNames, nameIsKnown, foldName, strip, rules, chinese, family, targetsOf, NEEDS_OVERRIDE, NEEDS_OVERRIDE_DORMITORY, NEEDS_OVERRIDE_TRAINING, NEEDS_OVERRIDE_WORKSHOP, NON_NUMERIC_FAMILIES, shapeOf } from './base-skill-rules';
 
@@ -30,6 +30,7 @@ const ROOT = path.resolve(import.meta.dirname, '../..');
 const OUT = path.join(ROOT, 'lib/base/base-skill-effects.json');
 const EN_URL = 'https://raw.githubusercontent.com/ArknightsAssets/ArknightsGamedata/master/en/gamedata/excel/building_data.json';
 const CN_URL = 'https://raw.githubusercontent.com/Kengxxiao/ArknightsGameData/master/zh_CN/gamedata/excel/building_data.json';
+const TERMS_URL = 'https://raw.githubusercontent.com/ArknightsAssets/ArknightsGamedata/master/en/gamedata/excel/gamedata_const.json';
 
 interface BuffStep { buffId: string; cond: { phase: string | number; level: number } }
 interface BuildingData { buffs: Record<string, Buff>; chars: Record<string, { buffChar: { buffData: BuffStep[] | Record<string, BuffStep> }[] }> }
@@ -56,8 +57,41 @@ async function source(which: 'en' | 'cn'): Promise<{ file: string; data: Buildin
   return { file, data: JSON.parse(fs.readFileSync(file, 'utf8')) as BuildingData };
 }
 
+/** The game's glossary (gamedata_const termDescriptionDict, EN): a `<$cc.x>Name</>` term in a description whose entry reads
+ *  "Includes the following Operators: A, B" means every listed form of the name, as one condition (cc.angel: Exusiai and
+ *  Exusiai the New Covenant; cc.gvial: Gavial and Gavial the Invincible). The group terms (cc.g.*) are the rosters. */
+async function glossary(): Promise<{ file: string; forms: Map<string, string[]> }> {
+  const candidates = [process.env.ARKPEDIA_GAMEDATA && path.join(process.env.ARKPEDIA_GAMEDATA, 'gamedata_const.json'), path.join(ROOT, '.cache/upstream/en-gamedata/en/gamedata/excel/gamedata_const.json')];
+  const fallback = path.join(ROOT, '.cache/gamedata/en/gamedata_const.json');
+  const given = flag('--terms');
+  if (args.includes('--fetch') && !given) {
+    const response = await fetch(TERMS_URL);
+    if (!response.ok) throw new Error(`${TERMS_URL}: ${response.status}`);
+    fs.mkdirSync(path.dirname(fallback), { recursive: true });
+    fs.writeFileSync(fallback, await response.text());
+  }
+  const file = [given, ...candidates, fallback].find((f): f is string => !!f && fs.existsSync(f));
+  if (!file) throw new Error('no EN gamedata_const.json (the glossary terms): pass --terms <file>, or --fetch');
+  const dict = (JSON.parse(fs.readFileSync(file, 'utf8')) as { termDescriptionDict: Record<string, { termName: string; description: string }> }).termDescriptionDict;
+  const forms = new Map<string, string[]>();
+  for (const [id, term] of Object.entries(dict)) {
+    const m = /^Includes the following Operators:\n(.+)$/s.exec(term.description);
+    if (id.startsWith('cc.') && m) forms.set(id, m[1].split(/,\s*/).map((n) => n.trim()).filter(Boolean));
+  }
+  return { file, forms };
+}
+
+/** A condition naming an operator the text wraps in a glossary term (`<$cc.angel>Exusiai</>`) carries the term's other
+ *  forms. The term must wrap that name: a group term (cc.g.glasgow around "Glasgow Gang") lists Siege without meaning him. */
+function withForms(c: SkillCondition, termsInText: { names: string[]; wrapped: string }[]): SkillCondition {
+  if (c.type === 'all') return { ...c, of: c.of.map((x) => withForms(x, termsInText)) };
+  if (c.type !== 'roomHas' && c.type !== 'targetIs') return c;
+  const term = termsInText.find((t) => t.wrapped === c.name && t.names.includes(c.name));
+  return term ? { ...c, forms: term.names.filter((n) => n !== c.name) } : c;
+}
+
 async function main() {
-  const en = await source('en'), cn = await source('cn');
+  const en = await source('en'), cn = await source('cn'), terms = await glossary();
   const records = fs.readdirSync(path.join(ROOT, 'data')).filter((d) => /^operators-\d+star$/.test(d)).flatMap((d) =>
     fs.readdirSync(path.join(ROOT, 'data', d)).filter((f) => f.endsWith('.json')).map((f) => JSON.parse(fs.readFileSync(path.join(ROOT, 'data', d, f), 'utf8')) as OperatorRecord));
   const recordText = new Map<string, string>();
@@ -122,6 +156,8 @@ async function main() {
         if (inRecords && !genericRight.has(id) && wording.test(text)) errors.push(`${id} (${fam}, ${[...recordKeys.get(id) ?? []].join(' / ')}): words the rules cannot read, needs an override: ${text}`);
       }
     }
+    const termsInText = [...raw.matchAll(/<\$(cc\.[\w.]+)>([^<]*)<\/>/g)].flatMap((m) => { const names = terms.forms.get(m[1]); return names ? [{ names, wrapped: m[2].trim() }] : []; });
+    if (termsInText.length) effects = effects.map((x) => ({ ...x, ...(x.when ? { when: withForms(x.when, termsInText) } : {}), ...(x.suppressedBy?.when ? { suppressedBy: { ...x.suppressedBy, when: withForms(x.suppressedBy.when, termsInText) } } : {}) }));
     const steps = [...(unlocks.get(id)?.values() ?? [])].sort((a, b) => a.phase - b.phase || a.level - b.level);
     entries[id] = {
       buffId: id, family: fam, roomType: buff.roomType, buffCategory: buff.buffCategory, targets: targetsOf(buff),
@@ -143,7 +179,7 @@ async function main() {
   }
   if (errors.length) { console.error(`base-skill-effects: ${errors.length} problem(s)\n  ${errors.join('\n  ')}`); process.exit(1); }
 
-  const table: BaseSkillEffectsTable = { generatedFrom: { en: path.relative(ROOT, en.file), cn: path.relative(ROOT, cn.file), records: records.length }, entries };
+  const table: BaseSkillEffectsTable = { generatedFrom: { en: path.relative(ROOT, en.file), cn: path.relative(ROOT, cn.file), terms: path.relative(ROOT, terms.file), records: records.length }, entries };
   // Minified: the calculator imports it, so the /base page and the optimizer Worker ship it. The description text is
   // not in it; the operator records carry that, and the review table (scripts/audits/base-skill-table.ts) joins them.
   fs.writeFileSync(OUT, JSON.stringify(table) + '\n');

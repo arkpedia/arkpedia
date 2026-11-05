@@ -20,7 +20,7 @@ export const KNOWN_DEVIATIONS: Record<string, string> = {
   Heavyrain: "Field Experience's +45% applies only when training to Specialization 2.",
   Aurora: "Night Sky's +45% applies only when training to Specialization 1.",
   Mint: "Widely-Read's +45% applies only when training to Specialization 2.",
-  Tomimi: "Tomimi's conditional training bonus applies only at its stated Specialization.",
+  Tomimi: "Tomimi's conditional training bonus applies only at its stated Specialization; Barbecue Master's +45% pays for Gavial the Invincible as for Gavial (the glossary term cc.gvial), where the handler knew Gavial alone.",
   'Skadi the Corrupting Heart': "Mutation's +65% and its +1 Morale apply only when training to Specialization 3.",
   Necrass: "Why Cry For Freedom?'s +1 Morale applies only when training a Caster to Specialization 3.",
   Talulah: "Her CN-only training skills apply to Guards and Casters, and the +45% to the Primal Guard and Primal Caster branches; the text module read the Chinese as unconditional.",

@@ -303,7 +303,7 @@ export function calculateBase(input: BaseCalculationInput) {
     };
     const holds = (c: SkillCondition): boolean => {
       switch (c.type) {
-        case 'roomHas': return o.roomNames.includes(c.name);
+        case 'roomHas': return [c.name, ...(c.forms ?? [])].some((n) => o.roomNames.includes(n));
         case 'roomHasRoster': return o.roomNames.some((n) => n !== self && rosterOf(c.roster).has(n));
         case 'alone': return o.working === 1;
         case 'baseHas': return allPlacedNames.includes(c.name);
@@ -320,7 +320,7 @@ export function calculateBase(input: BaseCalculationInput) {
         case 'territoryAboveInfluence': return territoryOf(layoutCounts) > influenceOf(layoutCounts);
         case 'countAtLeast': return count(c.count) >= c.value;
         case 'countAtMost': return count(c.count) <= c.value;
-        case 'targetIs': return o.target === c.name;
+        case 'targetIs': return !!o.target && [c.name, ...(c.forms ?? [])].includes(o.target);
         case 'targetInRoster': return !!o.target && rosterOf(c.roster).has(o.target);
         case 'recipientMoraleBelow': return true;
         case 'product': return o.product === c.product;

@@ -121,3 +121,22 @@ test("Bubble's Bigger is Better! pays 1% a point up to a 16-point capacity incre
   const bubble = room.facilityBreakdown!.lines.find(l => l.skillName === 'Bigger is Better!')!;
   near(bubble.rawValue, 0.01 * 16 + 0.01 * 10, 'Vulcan +16 at 1% and Hoarder +10 at 1%');
 });
+
+// The game's glossary: a name the text wraps in a term (cc.angel, cc.gvial) means every form of it, as one condition.
+test("Lemuen's Amicus pays its +25% once for either Exusiai", () => {
+  near(evalSkill('Lemuen', 'Amicus', { roomNames: ['Lemuen', 'Exusiai'] }).orderEfficiency, 0.45, 'with Exusiai');
+  near(evalSkill('Lemuen', 'Amicus', { roomNames: ['Lemuen', 'Exusiai the New Covenant'] }).orderEfficiency, 0.45, 'with Exusiai the New Covenant');
+  near(evalSkill('Lemuen', 'Amicus', { roomNames: ['Lemuen', 'Exusiai', 'Exusiai the New Covenant'] }).orderEfficiency, 0.45, 'with both: once, not +70%');
+  near(evalSkill('Lemuen', 'Amicus', { roomNames: ['Lemuen', 'Texas'] }).orderEfficiency, 0.2, 'without');
+  const both = calc({ prod1: [maxed('Lemuen'), maxed('Exusiai'), maxed('Exusiai the New Covenant')] }).rooms.prod1;
+  near(both.facilityBreakdown!.lines.find(l => l.skillName === 'Amicus')!.rawValue, 0.45, 'Amicus in the Trading Post with both');
+});
+
+test("Tomimi's Barbecue Master pays for Gavial the Invincible as for Gavial", () => {
+  near(evalSkill('Tomimi', 'Barbecue Master', { target: 'Gavial' }).recovery.single, 1, 'Gavial');
+  near(evalSkill('Tomimi', 'Barbecue Master', { target: 'Gavial the Invincible' }).recovery.single, 1, 'Gavial the Invincible');
+  near(evalSkill('Tomimi', 'Barbecue Master', { target: 'Cuora' }).recovery.single, 0.55, 'anyone else');
+  const r = calc({ dormitory1: [maxed('Tomimi'), maxed('Gavial the Invincible')] });
+  const gavial = r.dormitoryRecoveryByFacility.dormitory1.find(x => x.name === 'Gavial the Invincible')!;
+  near(gavial.bonus, 1, 'Gavial the Invincible recovers +1 from Tomimi');
+});

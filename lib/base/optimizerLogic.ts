@@ -242,7 +242,7 @@ function roomOnlyScope(facility: 'Factory' | 'Trading Post', candidates: Candida
   };
   const holds = (c: SkillCondition): boolean => {
     switch (c.type) {
-      case 'roomHas': return roomNames.includes(c.name);
+      case 'roomHas': return [c.name, ...(c.forms ?? [])].some((n) => roomNames.includes(n));
       case 'roomHasRoster': return roomNames.some((n) => n !== operatorName && roster(c.roster).has(n));
       case 'alone': return roomNames.length === 1;
       case 'baseHas': return c.name === 'Ulpianus' ? overrides?.ulpianusInBase ?? true : placed.includes(c.name);

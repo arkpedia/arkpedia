@@ -165,9 +165,12 @@ function add(out: SkillContribution, effect: SkillEffect, value: number, scope: 
   }
 }
 
+/** "Exusiai (or Exusiai the New Covenant)": the game's glossary counts every form of the name. */
+const withForms = (c: { name: string; forms?: string[] }) => (c.forms?.length ? `${c.name} (or ${c.forms.join(', ')})` : c.name);
+
 export function describeCondition(condition: SkillCondition): string {
   switch (condition.type) {
-    case 'roomHas': return `with ${condition.name} in the room`;
+    case 'roomHas': return `with ${withForms(condition)} in the room`;
     case 'roomHasRoster': return `with a ${rosterLabel(condition.roster)} operator in the room`;
     case 'alone': return 'alone in the room';
     case 'baseHas': return `with ${condition.name} in the base`;
@@ -184,7 +187,7 @@ export function describeCondition(condition: SkillCondition): string {
     case 'territoryAboveInfluence': return 'Territory above Influence';
     case 'countAtLeast': return `${describeCount(condition.count)} at least ${condition.value}`;
     case 'countAtMost': return `${describeCount(condition.count)} at most ${condition.value}`;
-    case 'targetIs': return `target is ${condition.name}`;
+    case 'targetIs': return `target is ${withForms(condition)}`;
     case 'targetInRoster': return `target is a ${rosterLabel(condition.roster)} operator`;
     case 'recipientMoraleBelow': return `recipient below ${condition.value} Morale`;
     case 'product': return `making ${condition.product}`;

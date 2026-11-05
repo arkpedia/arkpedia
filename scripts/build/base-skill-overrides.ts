@@ -93,7 +93,8 @@ export const OVERRIDES: Record<string, SkillOverride> = {
   'Lappland|Hidden Purpose β': { effects: [when('selfMorale', -0.1, roomHas('Texas')), when('orderLimit', 4, roomHas('Texas'))] },
   'Texas|Feud': { effects: [when('selfMorale', 0.3, roomHas('Lappland')), when('orderEfficiency', 0.65, roomHas('Lappland'))] },
   'Texas|Tacit Understanding': { effects: [when('selfMorale', -0.3, roomHas('Exusiai'))] },
-  'Lemuen|Amicus': { effects: [e('orderEfficiency', 0.2), when('orderEfficiency', 0.25, roomHas('Exusiai')), when('orderEfficiency', 0.25, roomHas('Exusiai the New Covenant'))] },
+  // "Exusiai" is the glossary term cc.angel (Exusiai, Exusiai the New Covenant): the build adds the other form, one +25% for either.
+  'Lemuen|Amicus': { effects: [e('orderEfficiency', 0.2), when('orderEfficiency', 0.25, roomHas('Exusiai'))] },
   'Exusiai the New Covenant|Same-City Express Order': { effects: [counted('orderEfficiency', 0, 'room.roster:LATERANO', 0.15)] },
   'Morgan|Gang Compass': { effects: [counted('orderEfficiency', 0, 'room.roster:GLASGOW', 0.2), when('orderEfficiency', 0.35, roomHas('Siege'))] },
   'Vina Victoria|Resolution on Foreign Trade β': { effects: [e('orderEfficiency', 0.3), when('orderEfficiency', 0.1, roomHasRoster('GLASGOW'))] },

@@ -65,3 +65,13 @@ test('the CN-only skills the audit found read in part now carry their counts and
   assert.deepEqual(entries['meet_spd&cost_char[000]'].effects, [{ kind: 'clueSpeed', value: 0.15, when: { type: 'countAtLeast', count: 'room.others', value: 1 } }, { kind: 'selfMorale', value: 1, when: { type: 'countAtLeast', count: 'room.others', value: 1 } }], 'Clementia: only with others in the room');
   assert.deepEqual(entries['meet_spd&sami[210]'].effects, [{ kind: 'clueSpeed', value: 0.1 }, { kind: 'clueSpeed', value: 0.2, when: { type: 'roomHasRoster', roster: 'URSUS_STUDENT_SELF_GOVERNING_GROUP' } }], 'Ольга: +20% with another Ursus student');
 });
+
+test("a name the text wraps in a glossary term carries the term's other forms, and only that name", () => {
+  const entries = (table as { entries: Record<string, { effects: { when?: { type: string; name?: string; forms?: string[] } }[] }> }).entries;
+  assert.deepEqual(entries['trade_ord_spd&multiPar[100]'].effects[1].when, { type: 'roomHas', name: 'Exusiai', forms: ['Exusiai the New Covenant'] }, 'Lemuen: cc.angel');
+  assert.deepEqual(entries['dorm_rec_single_P[001]'].effects[1].when, { type: 'targetIs', name: 'Gavial', forms: ['Gavial the Invincible'] }, 'Tomimi: cc.gvial');
+  assert.deepEqual(entries['trade_ord_spd_par[000]'].effects[1].when, { type: 'roomHas', name: 'Siege' }, 'Morgan: the Glasgow Gang term lists Siege without wrapping him');
+  assert.equal(entries['trade_ord_limit&cost_P[010]'].effects[0].when?.forms, undefined, "Texas: Tacit Understanding's text carries no term");
+  const withForms = Object.entries(entries).filter(([, e]) => e.effects.some(x => x.when?.forms)).map(([id]) => id).sort();
+  assert.deepEqual(withForms, ['dorm_rec_single_P[001]', 'trade_ord_spd&multiPar[100]'], 'the two operator terms the building data uses');
+});

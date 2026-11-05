@@ -402,7 +402,13 @@ the browser with the calculator, 17 KB gzipped):
   optional `step`, `maxCount` and `cap`. `countedValue` in `baseSkillEffects.ts` is the arithmetic.
 - `threshold`: numbers that apply only while a condition (`when`) holds: a named operator in the
   same room or the Control Center, alone in the Reception Room, Clue Exchange active, a count
-  reaching a value, a product being made.
+  reaching a value, a product being made. A name the game text wraps in a glossary term
+  (`<$cc.angel>Exusiai</>`: "Includes the following Operators: Exusiai the New Covenant, Exusiai")
+  carries the term's other forms in `forms`, and any one of them satisfies the condition once:
+  Lemuen's Amicus pays its +25% for either Exusiai, not twice for both; Tomimi's Barbecue Master
+  pays for Gavial the Invincible as for Gavial. The build reads the terms from `gamedata_const`
+  (EN) beside the building data, and only a term wrapping the name itself counts: the Glasgow
+  Gang term around "Glasgow Gang" lists Siege without meaning him.
 - `pool`: every effect is on a shared quantity rather than a rate: Morale drain or recovery, order
   limit, capacity, drone charge, a base-wide resource (Felvine, Passion, Worldly Plight).
 - `custom`: a named handler in the calculator (`custom.handler`) with its numbers in

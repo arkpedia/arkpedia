@@ -86,7 +86,7 @@ export type SkillCountSource =
   | `dorm.moraleAtMost:${number}` | `dorm.moraleBelow:${number}`;
 
 export type SkillCondition =
-  | { type: 'roomHas'; name: string }                       // the named operator shares the room
+  | { type: 'roomHas'; name: string; forms?: string[] }     // the named operator shares the room (or one of the forms the game's glossary counts as that name)
   | { type: 'roomHasRoster'; roster: string }                // another operator of the roster shares the room
   | { type: 'alone' }                                        // nobody else works in the room
   | { type: 'baseHas'; name: string }                        // the named operator is placed in any work area
@@ -102,7 +102,7 @@ export type SkillCondition =
   | { type: 'influenceAtLeastTerritory' } | { type: 'territoryAboveInfluence' }
   | { type: 'countAtLeast'; count: SkillCountSource; value: number }
   | { type: 'countAtMost'; count: SkillCountSource; value: number }
-  | { type: 'targetIs'; name: string }                       // a single-target recovery's chosen roommate
+  | { type: 'targetIs'; name: string; forms?: string[] }     // a single-target recovery's chosen roommate (or one of the glossary's forms of that name)
   | { type: 'targetInRoster'; roster: string }
   | { type: 'recipientMoraleBelow'; value: number }          // a group recovery's recipient
   | { type: 'product'; product: FactoryProductName }
@@ -197,7 +197,7 @@ export interface BaseSkillEffectEntry {
 }
 
 export interface BaseSkillEffectsTable {
-  generatedFrom: { en: string; cn: string; records: number };
+  generatedFrom: { en: string; cn: string; terms: string; records: number };
   entries: Record<string, BaseSkillEffectEntry>;
 }
 
