@@ -201,7 +201,10 @@ export function completeStaffing(plan: OptimizerResult, ctx: GenomeContext, opti
       const score = scoreOf(result, ctx);
       if (SUPPORT_SKILL_ROOMS.has(room.kind) && !(score > scoreNow() + 1e-6)) return false;
       if (STANDBY_ROOMS.has(room.kind) && score < scoreNow() - 1e-6) return false;
-      if (COUNT_SEAT_ROOMS.has(room.kind) && feeders.has(name)) countSeats.push(`${name} in ${room.label}`);
+      // Only say a seat is counted where the score says so: a count raiser whose reader the plan never places, or
+      // whose count is already at its cap, is in the standby room as a tie, and the note would be telling the reader
+      // to keep someone there for nothing.
+      if (COUNT_SEAT_ROOMS.has(room.kind) && feeders.has(name) && score > scoreNow() + 1e-6) countSeats.push(`${name} in ${room.label}`);
     }
     shifts = trial; simulation = result; assigned.add(name);
     return true;

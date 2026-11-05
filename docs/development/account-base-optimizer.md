@@ -342,8 +342,10 @@ score). They are staffed as a standby whatever the roster, so there the rule is 
 way round: among candidates the room gains as much from, the count raiser the plan leaves
 out of a shift entirely goes in, and a seat taken for the count alone has only to cost
 nothing (`STANDBY_ROOMS`, `COUNT_SEAT_ROOMS` in `completeStaffing.ts`). A crafter with a
-Workshop skill still leads on the room's own benefit. Whoever is seated for a count alone
-is named in a note, with the reminder that a Dormitory bed counts the same.
+Workshop skill still leads on the room's own benefit. The note names only the seats the
+score actually rose for, with the reminder that a Dormitory bed counts the same: a count
+raiser whose reader the plan never places, or whose count is already at its cap, takes the
+standby seat as a tie and is not announced as counted.
 It leaves the Workshop alone (crafting is instantaneous) and may leave low-value
 Control Center and Power Plant slots open. The completion pass fills open slots with
 remaining owned operators, skilled first by the room's own rate, then by Morale drain,
