@@ -197,11 +197,19 @@ export function completeStaffing(plan: OptimizerResult, ctx: GenomeContext, opti
   // A pruned worker no longer needs their beds. Freed beds go back to the fill for the support rooms (the Control
   // Center, Power Plants, Reception Room and Office are last in no bed's line otherwise); a pruned operator whose
   // Dormitory skill still serves their roommates keeps the bed, as does anyone the rotation protects.
-  const prunedNames = pruned.map(p => p.split(' from ')[0]).filter(name => !untouchable.has(name) && !skills(name, 'Dormitory').length && !shifts.some(s => Object.entries(s.assignments).some(([id, slots]) => kind.get(id) !== 'dormitory' && slots.some(x => x?.operatorName === name))));
+  // (A parked Morale, `initialMorale`, protects a worker from the built-first swap, not a bed nobody works for any more.)
+  const keepsBed = new Set([...(ctx.lockedDorm ?? []), ...plan.shifts.flatMap(s => s.refill ?? []), ...(plan.shifts.some(s => s.refill?.length) ? ['Fiammetta'] : [])]);
+  const prunedNames = pruned.map(p => p.split(' from ')[0]).filter(name => !keepsBed.has(name) && !skills(name, 'Dormitory').length && !shifts.some(s => Object.entries(s.assignments).some(([id, slots]) => kind.get(id) !== 'dormitory' && slots.some(x => x?.operatorName === name))));
   if (prunedNames.length) {
+    const before = { shifts, simulation, assigned: assigned.size };
     const trial = clone(shifts);
     for (const s of trial) for (const d of dorms) s.assignments[d.id] = (s.assignments[d.id] ?? []).map(x => x && prunedNames.includes(x.operatorName) ? null : x);
-    if (keepIf(trial, scoreNow() - 1e-6)) fill(rooms.filter(r => SUPPORT_FILL_KINDS.has(r.kind)));
+    // A bed can count for a skill (a Dormitory headcount), so leaving it costs a hair of output: allowed within the
+    // built-first margin, and only when the fill then seats someone in the freed bed; otherwise the resident stays.
+    if (keepIf(trial, scoreNow() * (1 - BUILT_FIRST_MARGIN))) {
+      fill(rooms.filter(r => SUPPORT_FILL_KINDS.has(r.kind)));
+      if (assigned.size === before.assigned) { shifts = before.shifts; simulation = before.simulation; }
+    }
   }
 
   // Present the actual completed staffing as one template per change. Never leave old

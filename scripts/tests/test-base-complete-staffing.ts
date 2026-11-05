@@ -178,19 +178,27 @@ test('a Trading Post worker whose orders the gold made never fills is left out',
 });
 
 test('a pruned worker gives up their beds, and the freed beds staff a support room', () => {
-  // Three beds, all taken by Gravel, Proviso and Vigil at rest; Orchid (Psychology) is idle with nowhere to recover, so
-  // the Office stays empty until Vigil is left out of the post and his bed goes to her.
-  const ctx = realContext({ Gravel: e2(), Proviso: e2(), Vigil: e2(), Orchid: e2() }, ['dormitory', 'tradingPost', 'factory', 'office']);
+  // Three beds: Kroos, Fang and Beagle sleep in them in shift 1 (locked residents), Gravel, Proviso and Vigil
+  // in shifts 2 and 3. Orchid (Psychology) is idle with nowhere to recover, so the Office stays empty until Vigil is
+  // left out of the post and his beds go to her.
+  const ctx = realContext({ Gravel: e2(), Proviso: e2(), Vigil: e2(), Orchid: e2(), Kroos: e0(), Fang: e0(), Beagle: e0() }, ['dormitory', 'tradingPost', 'factory', 'office']);
   const [firstDorm] = ctx.base.facilities.filter(f => f.kind === 'dormitory');
   ctx.base = { ...ctx.base, facilities: ctx.base.facilities.map(f => f.kind !== 'dormitory' ? f : f.id === firstDorm.id ? { ...f, capacity: 3 } : { ...f, capacity: 0, level: 0 }) };
+  ctx.lockedDorm = ['Kroos', 'Fang', 'Beagle'];
   const seed = emptyPlan(ctx);
   const factory = facilities.find(f => f.kind === 'factory')!, post = facilities.find(f => f.kind === 'tradingPost')!, office = facilities.find(f => f.kind === 'office')!;
   for (const shift of seed.shifts) shift.factoryProducts = { ...shift.factoryProducts, [factory.id]: 'Precious Metals' };
   workThenRest(seed, { Gravel: [factory.id, 0], Proviso: [post.id, 0], Vigil: [post.id, 1] }, ctx.roster);
+  ['Kroos', 'Fang', 'Beagle'].forEach((name, i) => { seed.shifts[0].assignments[firstDorm.id][i] = { operatorName: name, ...ctx.roster[name] }; });
   seed.simulation = simulateBase({ base: ctx.base, shifts: seed.shifts, loginInterval: 12 });
   const plan = completeStaffing(seed, ctx);
-  assert.ok(plan.notes.some(n => /^Left out as adding nothing[^:]*: Vigil from Trading Post/.test(n)), plan.notes.join(' / '));
-  assert.ok(plan.shifts.every(s => !s.assignments[firstDorm.id].some(x => x?.operatorName === 'Vigil')), 'Vigil keeps no bed');
-  assert.ok(plan.shifts.some(s => s.assignments[office.id].some(x => x?.operatorName === 'Orchid')), `Orchid staffs the Office: ${plan.notes.join(' / ')}`);
+  const where = () => plan.shifts.map(s => Object.fromEntries(Object.entries(s.assignments).filter(([, v]) => v.some(Boolean)).map(([id, v]) => [id, v.map(x => x?.operatorName ?? null)])));
+  // One of the two sellers adds nothing (Proviso's post sells every Precious Metal Gravel makes): whichever the prune
+  // names gives up the beds, and Orchid takes them.
+  const left = plan.notes.map(n => /^Left out as adding nothing[^:]*: (Proviso|Vigil) from Trading Post/.exec(n)?.[1]).find(Boolean);
+  assert.ok(left, plan.notes.join(' / '));
+  assert.ok(plan.shifts.every(s => !s.assignments[firstDorm.id].some(x => x?.operatorName === left)), `${left} keeps no bed: ${JSON.stringify(where())}`);
+  assert.ok(plan.shifts.some(s => s.assignments[office.id].some(x => x?.operatorName === 'Orchid')), `Orchid staffs the Office: ${JSON.stringify(where())}`);
+  assert.ok(plan.shifts.every(s => s.assignments[firstDorm.id].filter(Boolean).length <= 3), 'three beds');
   assert.ok(plan.simulation.periodic && !plan.simulation.events.some(e => e.kind === 'exhausted'));
 });

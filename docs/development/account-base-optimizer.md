@@ -353,8 +353,11 @@ HR over Haruka at E2, and a fourth Factory worker adding nothing):
   gives up their beds too (unless a Dormitory skill of theirs still serves the room, or
   the rotation protects them), and the freed beds go once more to the fill for the
   Control Center, Power Plants, Reception Room and Office, which are last in line for a
-  bed otherwise: on the 21 saved Krooster profiles the Office stood empty in most shifts
-  while a left-out seller kept a bed in every one (found 2026-11-05).
+  bed otherwise. A bed can count for a skill (a Dormitory headcount: 27 LMD a day on the
+  saved profiles), so the beds are freed within `BUILT_FIRST_MARGIN` and only kept freed
+  when the fill then seats someone; otherwise the resident stays. On the 21 saved
+  Krooster profiles the Office stood empty in most shifts while a left-out seller kept a
+  bed in every one (found 2026-11-05).
 
 Per-slot staggering (the base expert's second rotation: one or two seats of a room change
 hands while the rest of the crew works on, a weaker filler covering, and the best workers
