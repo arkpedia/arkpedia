@@ -56,7 +56,7 @@ const CLOCK_PAGES = [
    for the .ts and .mjs scripts (125 findings, none new) is its own change, not part of this
    upgrade. */
 const SCRIPTS = ['scripts/**/*.js', 'scripts/**/*.cjs', 'scripts/content/test-runtime.mjs'];
-const TS_SCRIPTS = ['scripts/build/build-base-skill-effects.ts', 'scripts/build/base-skill-overrides.ts', 'scripts/bench/compare-optimizer.ts', 'scripts/bench/optimizer-run.ts'];
+const TS_SCRIPTS = ['scripts/build/build-base-skill-effects.ts', 'scripts/build/base-skill-overrides.ts', 'scripts/build/base-skill-rules.ts', 'scripts/bench/compare-optimizer.ts', 'scripts/bench/optimizer-run.ts'];
 
 export default [
   // The Next preset, scoped away from scripts/ (entries without `files` are global ignores and
