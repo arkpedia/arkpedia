@@ -520,6 +520,35 @@ in `scripts/tests/base-skill-deviations.ts` and each held to its corrected numbe
 snapshot of the new numbers (`tests/fixtures/base-calculator-golden.json`): a regression lock,
 not the proof.
 
+The proof is the game's own numbers. A raw save (the import's "Save raw game data") holds, per
+room, the bonuses the game server computed for the staffing at that moment
+(`building.rooms[kind][slot].buff`): Factory productivity and capacity, Trading Post order
+efficiency and limit, Power Plant drone speed, Reception and Office speed, Dormitory recovery,
+the Control Center's base-wide effects and every operator's own Morale change.
+`scripts/bench/game-buff-check.ts` rebuilds that staffing (`baseSnapshotFromGame`), runs the
+calculator on it with each ramp at the hours the operator has worked, and prints every number
+side by side:
+
+```bash
+npx tsx scripts/bench/game-buff-check.ts <raw-save.json> [more saves] [--all]
+```
+
+How the save states them: productivity and order efficiency include the +1% each operator adds
+(the calculator's baseline); Reception speed is skills plus the Office's and Control Center's
+bonuses, without rarity and promotion; Morale is in hundredths an hour, a positive number a
+saving, each operator's `self` and the room's `all` off the room's 1/h less 0.05 for each operator
+after the first, the Control Center's `global` off every room. A raw save is the reader's own data:
+pass its path, never commit it.
+
+First run (one account, 2026-11-05, 64 numbers): two skills disagreed with the game and were
+fixed in the overrides. Shamare's Whispers raises every operator's Morale use in her Trading
+Post by 0.25 (CN 全体; the server's `all` -25), not hers alone: on the 2-5-2 reference sheet her
+gold post now lasts 26.7 h, not 36.9 h. Greyy the Lightningbearer's Line Patrol Frame counts whole
+tens of drone capacity, 23% at 235, where the reference sheets wrote 23.5% (the server gives her
+plant 0.28: 5% innate and 23%; it stores unrounded sums elsewhere, a Factory at
+1.0799999999999998, so 0.28 is not a rounded 0.285). After the two fixes all 64 agree. The check
+covers only the skills a save's staffing holds; each save with other staffing covers more.
+
 Training Room and Workshop skills are read from the table like every other room's. A training
 effect names the trainee classes it applies to (`targets`, the game's class codes) and may hold
 only at a mastery level or for a branch (`masteryLevel`, `traineeBranch`); counted ones read

@@ -125,7 +125,9 @@ export const OVERRIDES: Record<string, SkillOverride> = {
   'Bellone|Famiglia Business α': { effects: [e('orderEfficiency', 0.25), when('orderEfficiency', 0.05, baseHas('Vigil'))] },
   'Bellone|Famiglia Business β': { effects: [e('orderEfficiency', 0.3), when('orderEfficiency', 0.1, baseHas('Vigil'))] },
   'Bellone|Outstanding Debt': { effects: [when('orderLimit', 2, roomHas('Vigil')), when('selfMorale', -0.1, roomHas('Vigil'))] },
-  'Shamare|Whispers': { effects: [counted('orderEfficiency', 0, 'room.others', 0.45), e('selfMorale', 0.25)], interaction: { overridesOthers: true } },
+  // "全体心情每小时消耗+0.25": every operator in the post, as the game server applies it (a raw save's
+  // TRADING buff.apCost.all -25 beside her; scripts/bench/game-buff-check.ts). The EN "total Morale consumed" reads as hers alone.
+  'Shamare|Whispers': { effects: [counted('orderEfficiency', 0, 'room.others', 0.45), e('roomMorale', 0.25)], interaction: { overridesOthers: true } },
   'Snowsant|Heavenly Reward α': { custom: { handler: 'snowsant', params: { perStep: 0.05, step: 0.05, cap: 0.25 } }, effects: [] },
   'Snowsant|Heavenly Reward β': { custom: { handler: 'snowsant', params: { perStep: 0.05, step: 0.05, cap: 0.35 } }, effects: [] },
   "Degenbrecher|Champion's Bearing": { custom: { handler: 'perOthersOrderLimit', params: { perStep: 0.25, step: 5, cap: 1, beforeLimitChanges: 1 } }, effects: [] },
@@ -237,7 +239,7 @@ export const OVERRIDES: Record<string, SkillOverride> = {
   'Justice Knight|"Beep beep, activate!"': { effects: [e('factoryOfOperator', 0.05, { name: 'Wild Mane' })] },
   'PhonoR-0|Incantation Resonance': { effects: [when('droneRate', 0.05, { type: 'trainerIs', name: 'Logos' })] },
   'THRM-EX|Enthusiasm': { effects: [e('selfMorale', -0.52)] },
-  'Greyy the Lightningbearer|Line Patrol Frame': { effects: [counted('droneRate', 0, 'base.maxDroneCapacity', 0.001, { cap: 0.25 })], note: '235 drones of capacity are 23.5%, not 23%: the game does not round the count down to tens.' },
+  'Greyy the Lightningbearer|Line Patrol Frame': { effects: [counted('droneRate', 0, 'base.maxDroneCapacity', 0.01, { step: 10, cap: 0.25 })], note: '1% per whole 10 of drone capacity: 235 is 23%. The game server gives her plant 0.28 (5% innate, 23% skill) on a base of 235 (a raw save, scripts/bench/game-buff-check.ts).' },
   'Greyy the Lightningbearer|Dawnlight': { effects: [when('powerPlantCount', 1, { type: 'countAtMost', count: 'otherPowerPlants.roster:OPERATION_PLATFORM', value: 0 })] },
   'Muelsyse|Ecological Section Director': { effects: [counted('droneRate', 0.1, 'base.rosterOthers:RHINE_LAB', 0.03, { maxCount: 5 })] },
   'Philae|River Resonance': { effects: [counted('droneRate', 0, 'base.dormLevels', 0.005)] },

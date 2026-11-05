@@ -147,3 +147,21 @@ test("Tomimi's Barbecue Master pays for Gavial the Invincible as for Gavial", ()
   near(both.dormitoryRecoveryByFacility.dormitory1.find(x => x.name === 'Gavial')!.bonus, 1, 'Gavial, who needs more, is the target');
   near(both.dormitoryRecoveryByFacility.dormitory1.find(x => x.name === 'Gavial the Invincible')!.bonus, 0, 'Gavial the Invincible waits');
 });
+
+// Held to the game server's own numbers (a raw save's room buffs, scripts/bench/game-buff-check.ts, 2026-11-05).
+const roomOf = (kind: string) => facilities.find(f => f.kind === kind)!.id;
+
+test("Shamare's Whispers raises every operator's Morale use in the Trading Post, not hers alone", () => {
+  // 全体心情每小时消耗+0.25; the server applies it as the post's shared rate (TRADING buff.apCost.all -25).
+  const post = roomOf('tradingPost');
+  const room = calc({ [post]: [maxed('Shamare'), maxed('Bibeak'), maxed('Tequila')] }).rooms[post];
+  near(room.morale.yellow, 0.25, 'shared rate change');
+  // 0.90 for three in a room, +0.25 Whispers, -0.25 each for Tailoring and Investment: what the save shows less its Control Center.
+  for (const name of ['Shamare', 'Bibeak', 'Tequila']) near(room.perOperatorMorale?.[name], 0.9, name);
+});
+
+test("Greyy the Lightningbearer's Line Patrol Frame counts whole tens of drone capacity", () => {
+  // The server gives her plant 0.28 on a base of 235 drone capacity: 5% innate and 23%, not 23.5%.
+  const plant = roomOf('powerPlant');
+  near(calc({ [plant]: [maxed('Greyy the Lightningbearer')] }).rooms[plant].droneRate, 0.28, 'drone rate');
+});
