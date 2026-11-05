@@ -7,11 +7,11 @@ async function setup(page:Page,theme:string,signedIn=true){
   const user={user:{id:'poll-tester',name:'Private name'},profile:{username:'Poll tester',friendTag:null,friendServer:null},linkedProviders:['google'],linkedAccounts:[{id:'g',providerId:'google'}],revision:0,syncReviewed:true,gameSync:false,personalSync:false,historySync:false,paused:false,data:{},providers:['google','discord']};
   await page.route('**/api/cloud-account',route=>route.fulfill(signedIn?{json:user}:{status:401,json:{providers:['google']}}));
   await page.route('**/api/community/sharing',route=>route.fulfill({json:{stats:false,shareTag:false,openRequests:false,revision:0}}));
-  await page.route('**/api/community/rankings?**',route=>route.fulfill({json:{contributors:20,replayContributors:12,replays:120,clearContributors:12,clearRecords:120,clearedStages:15,
+  await page.route('**/api/community/rankings?**',route=>{const query=new URL(route.request().url()).searchParams;if(query.has('stage')&&!query.get('stage'))return route.fulfill({status:503,json:{error:'An unused stage must be omitted.'}});return route.fulfill({json:{contributors:20,replayContributors:12,replays:120,clearContributors:12,clearRecords:120,clearedStages:15,
     stageClears:[{stageId:'main_01-07',slug:'1-7',code:'1-7',name:'The Tyrant',image:'1-7.webp',clears:100},{stageId:'main_00-01',slug:'0-1',code:'0-1',name:'Collapse',image:'0-1.webp',clears:50}],
     stageCoverage:[{operator:'Thorns',stages:10},{operator:'Amiya',stages:2}],
     roster:[{operator:'Thorns',owned:18,builds:18,e2:17,m9:4,m3:[1,0,11],unraised:0,maxed:8},{operator:'Amiya',owned:20,builds:20,e2:10,m9:2,m3:[0,8,1],unraised:3,maxed:0}],
-    battles:[{charId:'char_293_thorns',skill:2,squads:50,deployed:45,deployments:60,activations:90,benched:5},{charId:'char_002_amiya',skill:0,squads:30,deployed:2,deployments:2,activations:1,benched:28}]}}));
+    battles:[{charId:'char_293_thorns',skill:2,squads:50,deployed:45,deployments:60,activations:90,benched:5},{charId:'char_002_amiya',skill:0,squads:30,deployed:2,deployments:2,activations:1,benched:28}]}});});
 }
 async function capture(page:Page,name:string,info:TestInfo){
   await page.evaluate(()=>document.fonts.ready);

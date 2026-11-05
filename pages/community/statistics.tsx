@@ -37,7 +37,8 @@ export default function CommunityStatistics({operators}:Props){
   const stage=battle?filters.stage:'';
   useEffect(()=>{
     const controller=new AbortController();setData(null);setError('');
-    const timer=setTimeout(()=>{void fetch(`/api/community/rankings?${new URLSearchParams({server:filters.server,stage})}`,{cache:'no-store',signal:controller.signal}).then(async r=>{const v=await r.json();if(!r.ok)throw Error(v.error);if(!controller.signal.aborted)setData(v);}).catch(e=>{if(!controller.signal.aborted)setError(e.message);});},250);
+    const query=new URLSearchParams({server:filters.server});if(stage)query.set('stage',stage);
+    const timer=setTimeout(()=>{void fetch(`/api/community/rankings?${query}`,{cache:'no-store',signal:controller.signal}).then(async r=>{const v=await r.json();if(!r.ok)throw Error(v.error);if(!controller.signal.aborted)setData(v);}).catch(e=>{if(!controller.signal.aborted)setError(e.message);});},250);
     return()=>{clearTimeout(timer);controller.abort();};
   },[filters.server,stage,retry]);
   const rankings=useMemo(()=>statisticsRankings(operators,data,{class:filters.class,rarity:filters.rarity,relative,order:filters.order}),[operators,data,filters.class,filters.rarity,relative,filters.order]);
