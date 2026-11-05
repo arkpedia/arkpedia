@@ -37,12 +37,11 @@ const MAIN_SECTIONS: { key: MainSection; label: string }[] = [
   { key: 'welfare', label: 'Welfare' },
 ];
 
-function OperatorCard({ op, note, index }: { op: RosterOperator; note?: string | null; index: number }) {
+function OperatorCard({ op, note }: { op: RosterOperator; note?: string | null }) {
   return (
     <Link prefetch={false}
       href={operatorHref(op.name, null)}
-      className="card roster-card roster-card-enter"
-      style={{ animationDelay: `${Math.min(index * 25, 600)}ms` }}
+      className="card roster-card rise-in"
     >
       <div className="avatar">
         <Image src={getOperatorIconPath(op)} alt={op.name} fill sizes="160px" />
@@ -71,8 +70,8 @@ function OperatorGrid({ operators, getNote }: { operators: RosterOperator[]; get
 
   return (
     <div className="grid roster-grid">
-      {operators.map((op, i) => (
-        <OperatorCard key={op.name} op={op} note={getNote ? getNote(op) : null} index={i} />
+      {operators.map((op) => (
+        <OperatorCard key={op.name} op={op} note={getNote ? getNote(op) : null} />
       ))}
     </div>
   );

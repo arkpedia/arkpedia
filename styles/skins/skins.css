@@ -130,9 +130,6 @@
 @media (max-width: 480px) {
   .skin-grid { grid-template-columns: repeat(2, 1fr); }
 }
-@media (prefers-reduced-motion: reduce) {
-  .skins-results .skin-card-enter { animation: none; }
-}
 
 /* Reserve a separate row for illustration variants, never a blank slot beside Still/Animated. */
 .skin-zoom-versions { display: flex; justify-content: center; margin-top: 8px; padding: 0 16px; }

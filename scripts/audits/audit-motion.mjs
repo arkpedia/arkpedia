@@ -78,7 +78,6 @@ export const MOTION_LEGACY = new Map([
   ['styles/core/nav.css: @keyframes mobile-nav-overlay-in', { count: 1, reason: DRAWER }],
   ['styles/core/nav.css: .mobile-nav-drawer { transition }', { count: 1, reason: DRAWER }],
   ['styles/core/nav.css: .mobile-nav-drawer.open { transition }', { count: 1, reason: DRAWER }],
-  ['styles/core/shared.css: @keyframes cardRiseIn', { count: 1, reason: ENTRANCE }],
   ['styles/enemies/enemies.css: .enemy-status-trigger > svg { transition }', { count: 1, reason: DISCLOSURE }],
   ['styles/enemies/enemies.css: .enemy-flavour-drop > summary { transition }', { count: 1, reason: DISCLOSURE }],
   ['styles/enemies/enemies.css: .enemy-flavour-drop > summary::before { transition }', { count: 1, reason: DISCLOSURE }],
@@ -140,7 +139,6 @@ export const MOTION_LEGACY = new Map([
   ['styles/operators/operator-detail.css: .op-skill-technique-related-op { transition }', { count: 1, reason: HOVER_FADE }],
   ['styles/operators/operator-detail.css: .op-skill-technique-related-more { transition }', { count: 1, reason: HOVER_FADE }],
   ['styles/operators/operator-detail.css: .op-skill-technique-unit-icon { transition }', { count: 1, reason: HOVER_FADE }],
-  ['styles/operators/roster.css: .roster-card-enter, .skin-card-enter { animation }', { count: 1, reason: ENTRANCE }],
   ['styles/pulls/pulls.css: .pulls-wish-option { transition }', { count: 1, reason: HOVER_FADE }],
   ['styles/pulls/pulls.css: .pulls-operator-choice { transition }', { count: 1, reason: HOVER_FADE }],
   ['styles/recruitment/recruitment.css: .recruit-combo-op { transition }', { count: 1, reason: HOVER_FADE }],
@@ -173,9 +171,6 @@ export const MOTION_LEGACY = new Map([
   ['styles/stages/stages.css: .stage-legend-overlay { transition }', { count: 1, reason: DRAWER }],
   ['styles/ui/ticker.css: .ticker-track { animation }', { count: 1, reason: LOOP }],
   ['styles/ui/ticker.css: @keyframes ticker-scroll', { count: 1, reason: LOOP }],
-  ['pages/obtain-method.tsx: style.animationDelay', { count: 1, reason: ENTRANCE }],
-  ['pages/operators/index.tsx: style.animationDelay', { count: 1, reason: ENTRANCE }],
-  ['pages/skins.tsx: style.animationDelay', { count: 1, reason: ENTRANCE }],
 ]);
 
 /** Every declaration that adds motion, in the order the audit finds them. */

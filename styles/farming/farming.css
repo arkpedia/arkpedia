@@ -130,6 +130,10 @@ h2.farming-accordion-title { margin: 0; }
   text-align: center;
   margin: 0;
   line-height: 1.2;
+  /* Two lines reserved: a name that wraps ("Compound Cutting Fluid") otherwise pushed
+     its stage codes a line below its neighbour's in the same TIER row, so the codes --
+     the row's actual data -- could not be read across. */
+  min-height: 2.4em;
 }
 
 .farming-stage-chips {

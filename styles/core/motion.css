@@ -81,7 +81,7 @@
      (tests/browser/motion.spec.ts finds them on the page, as cards-and-headings.spec.ts
      does, and fails one that does not rise), and the content cards beside them. The
      `translate` property, not `transform`: it composes with a card's own entrance (the
-     roster's cardRiseIn holds `transform` with its fill). The shadow is on hover only,
+     shared rise-in holds `transform` with its fill). The shadow is on hover only,
      never at rest: /operators draws hundreds of these. A card whose own class is a CSS
      module's takes the global hook .lift (the /games cards). */
   :is(
@@ -323,6 +323,28 @@
 
 @media (prefers-reduced-motion: no-preference) {
   .music-view:not(.music-player-pulling) > .music-now-playing { transition: transform 0.25s ease-out; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* --- rise: a batch that arrives after the first paint ------------------------------
+     Lazily appended cards float up as they arrive -- the roster's next batch, the
+     stage grid's next 24 -- so a batch is announced instead of appearing under the
+     reader's scroll position. This is the gesture cardRiseIn had for two lists only,
+     now the one entrance on the site: 12px, 0.45s, 35ms between neighbours and at
+     most eight steps, so a batch settles within 0.7s whatever its size.
+     `transform`, not `translate`: the hover lift owns `translate` and a filled
+     animation on it would hold the card down. */
+  .rise-in { animation: rise-in 0.45s var(--ease) both; }
+  .rise-in:nth-child(8n + 2) { animation-delay: 35ms; }
+  .rise-in:nth-child(8n + 3) { animation-delay: 70ms; }
+  .rise-in:nth-child(8n + 4) { animation-delay: 105ms; }
+  .rise-in:nth-child(8n + 5) { animation-delay: 140ms; }
+  .rise-in:nth-child(8n + 6) { animation-delay: 175ms; }
+  .rise-in:nth-child(8n + 7) { animation-delay: 210ms; }
+  .rise-in:nth-child(8n + 8) { animation-delay: 245ms; }
+  @keyframes rise-in {
+    from { opacity: 0; transform: translateY(12px); }
+  }
 }
 
 /* --- /community/statistics: the scenery moves (components/community/StatisticsScene.tsx) ---

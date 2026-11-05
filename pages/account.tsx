@@ -119,8 +119,15 @@ export default function AccountPage({ skins, operators }: Props) {
             <p className="hint">The Operator Planner keeps the operators and depot of your latest import, the {SERVERS[latest.server].label} account.</p>
           )}
           {account ? <ProfileCard account={account} map={map} outfits={ownedSkins ?? account.skins.length} outfitArt={outfitArt} outfitNames={outfitNames} collectionOwner="self" onOperators={() => openPanel('operators')} onSkins={() => openPanel('skins')} /> : (
+            /* The empty state is the same height as the profile card it replaces
+               (Anti-Page-Jump), but not the same frame: a namecard without art is a
+               grey wash, and the instruction on it read as a failed load. */
             <div className="account-card account-card-empty">
-              <p className="hint">No account imported yet: use Import / export above.</p>
+              <div className="account-empty">
+                <h2 className="entity-title entity-title-sm">No account imported</h2>
+                <p className="hint account-empty-note">Import your Arknights save to see your profile, pull history and owned operators here.</p>
+                <button type="button" className="ghost btn-sm account-empty-action" aria-haspopup="dialog" onClick={() => actions.open('import')}>Import account</button>
+              </div>
             </div>
           )}
           {account && (

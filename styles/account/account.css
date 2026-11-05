@@ -222,7 +222,31 @@
   .account-card-medals { --medal-unit: 6px; }
   .account-card-name b { font-size: 18px; }
 }
-.account-card-empty { display: grid; place-items: center; }
+/* No account: the namecard frame needs a namecard's art. Without one it drew a grey
+   wash across 420px with an 11px instruction on it -- a failed image in both themes,
+   and in the light theme --text-faint sat on its own grey. The empty state keeps the
+   height the profile card will need, but is a plain panel with a title, the next step
+   and the action itself, in theme ink. */
+.account-card.account-card-empty {
+  display: grid;
+  place-items: center;
+  background: var(--panel-grad);
+  border: 1px solid var(--line);
+  color: var(--text);
+}
+.account-card.account-card-empty::before,
+.account-card.account-card-empty::after { content: none; }
+.account-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  max-width: 440px;
+  text-align: center;
+}
+.account-empty h2 { margin: 0; }
+.account-empty-note { margin: 0; }
+.account-empty-action { margin-top: 6px; }
 
 /* --- Pull History (components/account/PullHistory.tsx) ---------------------------------
    The totals as four quiet tiles, then each banner and each press as rows on soft rules, the

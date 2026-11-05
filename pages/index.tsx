@@ -135,14 +135,21 @@ export default function HomePage({
             the panels' h2s with nothing above them. */}
         <h1 className="visually-hidden">Arkpedia — Arknights community hub</h1>
         <MaintenanceNotice maintenance={maintenance} now={now} />
-        <div className="front-page-left">
+        {/* The two hero panels share one row so their bottoms meet. The event art
+            (16/5) and the banner art (16/9) are now close in height, and two
+            independent columns left the banner panel 77px short of the event
+            panel -- a step that read as a mistake. Only this row is shared; the
+            columns below still stack on their own (front.css). */}
+        <div className="front-hero-row">
           <EventsPanel ongoing={deserializedEvents} upcoming={deserializedUpcoming} farmableMaterials={farmableMaterials} now={now} />
+          <GachaBannersPanel banners={deserializedBanners} activeIndex={activeBannerIndex} onSelect={setActiveBannerIndex} now={now} />
+        </div>
+        <div className="front-page-left">
           <SkinsCarousel skins={ongoingSkins} />
           {/* A "Packs -- Coming soon" panel stood here. Placeholders stay hidden until
               they have content (decision of 2026-09-25). */}
         </div>
         <div className="front-page-right">
-          <GachaBannersPanel banners={deserializedBanners} activeIndex={activeBannerIndex} onSelect={setActiveBannerIndex} now={now} />
           <FeaturedOperatorsPanel banner={activeBanner} />
           <CommunityFader video={featuredVideo} event={earliestCommunityEvent} />
         </div>

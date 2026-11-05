@@ -34,6 +34,26 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-05T21:53:00Z',
+    title: 'Clearer browsing across Arkpedia',
+    added: [
+      { title: 'Enemy names in the picker', detail: 'Enemy tiles show names alongside handbook codes, including on phones.', href: '/enemies' },
+      { title: 'Search examples to get started', detail: 'Try an operator, stage, event or music search directly from the empty search page.', href: '/search' },
+      { title: 'More community streams and videos', detail: 'Homepage community cards now include links to the matching World section.', href: '/' },
+    ],
+    changed: [
+      { title: 'Better framing on the homepage', detail: 'Event and banner art fit their slots more closely, with aligned panels on desktop.', href: '/' },
+      { title: 'More compact operator filters', detail: 'Search, rarity and class filters share a row on wide screens.', href: '/operators' },
+      { title: 'Clearer account and information pages', detail: 'An empty profile offers an import action; information-page navigation aligns consistently on phones.', href: '/account' },
+      { title: 'A shared card entrance', detail: 'Operator, outfit and stage catalogues use the same short rise, respecting reduced motion.' },
+    ],
+    fixed: [
+      { title: 'Enemy pages open at the top', detail: 'Opening the handbook on a phone keeps the heading and picker in view.', href: '/enemies' },
+      { title: 'More readable stage labels', detail: 'Stage names and years get more room, and desktop Terminal sections span the bar.', href: '/stages' },
+      { title: 'Wishlist totals and farming rows align', detail: 'Wishlist totals wrap on phones, while farming stage codes line up beneath material names.', href: '/pull-planner' },
+    ],
+  },
+  {
     at: '2026-11-05T20:00:00Z',
     fixed: [{title: 'Skin dates follow live schedule corrections', detail: 'The gallery and homepage use the published shop windows together, including corrected opening and closing times.', href: '/skins'}],
   },

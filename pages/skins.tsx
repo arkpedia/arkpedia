@@ -196,8 +196,7 @@ export default function SkinsGallery({ skins, now, availabilityWindows, dynamicA
         <button
           key={`${keyPrefix}${skin.series}-${skin.name}-${i}`}
           type="button"
-          className="btn-bare skin-card skin-card-enter"
-          style={{ animationDelay: `${Math.min(i * 25, 600)}ms` }}
+          className="btn-bare skin-card rise-in"
           onClick={() => openSkin(skin)}
         >
           <div className="skin-image-wrap">

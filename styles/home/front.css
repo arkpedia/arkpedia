@@ -86,6 +86,20 @@ html[data-site-server="kr"] .maintenance-notice:not([data-server="kr"]) {
   min-height: calc(100vh - var(--nav-h, 150px) - 12px);
   align-items: start;
 }
+/* The two hero panels share one row, so their bottoms meet. With the event art at
+   16/5 and the banner art at 16/9 the panels are close in height (494 and 417 at
+   1440), which turned the 77px difference into a visible step: two independently
+   stacking columns can never line those two edges up. The row spans both columns
+   and stretches its children to the taller one; the columns below it keep
+   stacking on their own, which a single shared grid could not do without tying
+   the Community panel to the Skins panel's height. */
+.front-hero-row {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 1.6fr 1fr;
+  gap: 14px;
+  align-items: stretch;
+}
 .front-page-left, .front-page-right {
   display: flex;
   flex-direction: column;
@@ -132,10 +146,17 @@ html[data-site-server="kr"] .maintenance-notice:not([data-server="kr"]) {
   transition: border-color 0.15s ease;
 }
 .front-events-main:hover { border-color: var(--teal); }
+/* The slot matches the art's own proportion, not a generic banner ratio. Event
+   posters are 1024x328 (3.12:1); in the 16/7 slot they used to arrive through
+   `object-fit: contain`, which painted 748x240 inside a 748x327 box -- 44px of
+   --panel-2 above the poster and 44px below it, on the home page's largest
+   surface, reading as a matte around the art rather than as the art's edge.
+   16/5 (3.2:1) leaves a 9px sliver at each side instead, and the panel keeps one
+   height across slides, which is what the carousel needs. */
 .front-events-poster-wrap {
   position: relative;
   width: 100%;
-  aspect-ratio: 16 / 7;
+  aspect-ratio: 16 / 5;
   border-radius: var(--radius);
   overflow: hidden;
   background: var(--panel-2);
@@ -222,11 +243,15 @@ html[data-site-server="kr"] .maintenance-notice:not([data-server="kr"]) {
 }
 /* Poster is a <Link>, not a <div> -- needs explicit block display
    since anchors are inline by default. */
+/* Same correction as the events slot: a headhunting banner is 1024x559 (1.83:1),
+   and the 16/7 box painted 366x200 of it inside 458x200 -- 46px of --panel-2 on
+   each side of the home page's second-largest image. 16/9 is the banners' own
+   proportion to within 3%, so the art meets the frame instead of floating in it. */
 .front-gacha-poster-wrap {
   display: block;
   position: relative;
   width: 100%;
-  aspect-ratio: 16 / 7;
+  aspect-ratio: 16 / 9;
   border: 1px solid transparent;
   border-radius: var(--radius);
   overflow: hidden;
@@ -352,7 +377,13 @@ html[data-site-server="kr"] .maintenance-notice:not([data-server="kr"]) {
   left: 6px;
 }
 
-/* Featured Operators panel -- single row, all rarities together */
+/* Featured Operators panel -- the selected banner's rate-up operators, at a fixed
+   68px tile, wrapping. The count is the banner's, not a design constant: Standard
+   Pool #178 features five, Orienteering #7 twelve, and an upcoming banner shows
+   whatever was datamined. So the strip must wrap; a single row that shrank every
+   tile to fit turned those twelve into 47px portraits with one-letter names.
+   The last row can therefore be a short one -- that is the cost of a count this
+   variable, not a broken layout. */
 .front-featured-ops-row {
   display: flex;
   flex-wrap: wrap;
@@ -411,6 +442,28 @@ html[data-site-server="kr"] .maintenance-notice:not([data-server="kr"]) {
   transition: border-color 0.15s ease;
 }
 .front-community-item:hover { border-color: var(--teal); }
+/* Under each card: the way from the home page into the World section that
+   collects the rest. The card itself still opens the stream or the video; this
+   is the second, quieter action, right-aligned so it does not read as a caption
+   of the card's title. Teal because the site's text links are teal. */
+.front-community-more-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 4px;
+  padding: 0 8px;
+}
+.front-community-more {
+  /* A standalone link, not prose inside a sentence, so it owes the 24px target
+     floor even at 12px of text. */
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  font-size: 12px;
+  color: var(--teal);
+  text-decoration: none;
+}
+.front-community-more:hover,
+.front-community-more:focus-visible { text-decoration: underline; }
 .front-community-thumb-wrap {
   position: relative;
   width: 100%;
@@ -492,7 +545,8 @@ html[data-site-server="kr"] .maintenance-notice:not([data-server="kr"]) {
      panel is told to stretch. The carousel's own viewport clips at this boundary. */
   .front-home-panel { min-width: 0; }
   .front-page-left,
-  .front-page-right {
+  .front-page-right,
+  .front-hero-row {
     display: contents;
   }
   .maintenance-notice { order: 0; }

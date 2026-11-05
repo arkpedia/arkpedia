@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
 import { TwitchStream } from '@/lib/community/twitch';
@@ -25,6 +25,19 @@ function formatEventWindow(startTime: string, endTime?: string, timeZone?: strin
   const from = fmt(a);
   const to = Number.isNaN(b.getTime()) ? from : fmt(b);
   return from === to ? from : `${from} \u2013 ${to}`;
+}
+
+/** The quieter second path on a slide: the card opens the stream or the video
+ *  itself (what a reader who presses a LIVE thumbnail wants), and this opens the
+ *  World section that collects the rest. It is under the card rather than inside
+ *  it -- one link cannot hold another -- and it follows the slide, so the label
+ *  and destination always name what is on screen. */
+function WorldMore({ href, children }: { href: string; children: ReactNode }) {
+  return (
+    <div className="front-community-more-row">
+      <Link prefetch={false} className="front-community-more" href={href}>{children}</Link>
+    </div>
+  );
 }
 
 interface Props {
@@ -94,26 +107,32 @@ export default function CommunityFader({ video, event }: Props) {
   const current = index % slides.length;
   const slide = (active: Slide) => {
     if (active.kind === 'stream') return (
-      <a className="front-community-item" href={active.data.url} target="_blank" rel="noreferrer">
-        <div className="front-community-thumb-wrap">
-          <Image src={active.data.thumbnailUrl} alt={active.data.title} fill sizes="384px" style={{ objectFit: 'cover' }} />
-          <span className="badge-live front-live-badge">LIVE</span>
-        </div>
-        <p className="front-community-title">{active.data.title}</p>
-        <p className="hint">{active.data.displayName} on Twitch</p>
-      </a>
+      <>
+        <a className="front-community-item" href={active.data.url} target="_blank" rel="noreferrer">
+          <div className="front-community-thumb-wrap">
+            <Image src={active.data.thumbnailUrl} alt={active.data.title} fill sizes="384px" style={{ objectFit: 'cover' }} />
+            <span className="badge-live front-live-badge">LIVE</span>
+          </div>
+          <p className="front-community-title">{active.data.title}</p>
+          <p className="hint">{active.data.displayName} on Twitch</p>
+        </a>
+        <WorldMore href="/world?section=twitch">More Twitch streams</WorldMore>
+      </>
     );
     if (active.kind === 'video') return (
-      <a className="front-community-item" href={active.data.url} target="_blank" rel="noreferrer">
-        <div className="front-community-thumb-wrap">
-          <Image src={active.data.thumbnail} alt={active.data.title} fill sizes="384px" style={{ objectFit: 'cover' }} />
-        </div>
-        <p className="front-community-title">{active.data.title}</p>
-        <p className="hint">{active.data.channelLabel} on YouTube</p>
-      </a>
+      <>
+        <a className="front-community-item" href={active.data.url} target="_blank" rel="noreferrer">
+          <div className="front-community-thumb-wrap">
+            <Image src={active.data.thumbnail} alt={active.data.title} fill sizes="384px" style={{ objectFit: 'cover' }} />
+          </div>
+          <p className="front-community-title">{active.data.title}</p>
+          <p className="hint">{active.data.channelLabel} on YouTube</p>
+        </a>
+        <WorldMore href="/world?section=youtube">More videos</WorldMore>
+      </>
     );
     return (
-      <Link prefetch={false} className="front-community-item" href="/world">
+      <Link prefetch={false} className="front-community-item" href="/world?section=offline">
         <div className="front-community-thumb-wrap front-community-event-thumb">
           <span className="front-community-event-country">{active.data.country}</span>
         </div>
