@@ -893,10 +893,12 @@ export function calculateBase(input: BaseCalculationInput) {
       const own = skills.filter((x) => x.slot.operatorName === s.operatorName);
       // The roommate a single-target skill goes to: a preferred one when present and below full Morale, else the
       // least-Morale one below full (the room's order breaking ties, or the simulator's pick order).
-      const preferredTarget = own.find((x) => x.entry?.interaction?.preferredTarget)?.entry?.interaction?.preferredTarget;
+      const preferring = own.find((x) => x.entry?.interaction?.preferredTarget)?.entry?.interaction;
+      const preferred = preferring?.preferredTarget ? [preferring.preferredTarget, ...(preferring.preferredTargetForms ?? [])] : [];
+      const byNeed = (a: string, b: string) => pickOrder ? pickOrder.indexOf(a) - pickOrder.indexOf(b) : moraleByOperator[a] - moraleByOperator[b];
       const targetIfSelected =
-        (preferredTarget && roomNames.includes(preferredTarget) && moraleByOperator[preferredTarget] < 24 ? preferredTarget : null) ??
-        roomNames.filter(n => n !== s.operatorName && moraleByOperator[n] < 24).sort((a, b) => pickOrder ? pickOrder.indexOf(a) - pickOrder.indexOf(b) : moraleByOperator[a] - moraleByOperator[b])[0] ??
+        preferred.filter(n => roomNames.includes(n) && moraleByOperator[n] < 24).sort(byNeed)[0] ??
+        roomNames.filter(n => n !== s.operatorName && moraleByOperator[n] < 24).sort(byNeed)[0] ??
         null;
       const provider: DormRecoveryProvider = { name: s.operatorName, selfBonus: 0, allOperatorsBonus: 0, allOthersBonus: 0, singleTargetBonus: 0, targetIfSelected };
       for (const x of own) {

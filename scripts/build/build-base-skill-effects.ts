@@ -4,12 +4,14 @@
  * category, targets, headline efficiency, unlock, and its numbers in a shape the calculator evaluates.
  *
  *   npm run base:skill-effects              # from the upstream caches
- *   npm run base:skill-effects -- --fetch   # fetch the two tables from their mirrors into .cache/gamedata first
+ *   npm run base:skill-effects -- --fetch   # fetch the game tables from their mirrors into .cache/gamedata first
  *
- * Sources, in order: ARKPEDIA_GAMEDATA (a directory holding building_data.json) and the stage pipeline's
- * EN cache (.cache/upstream/en-gamedata); ARKPEDIA_CN and the CN tables checkout (.cache/upstream/cn-tables);
- * else .cache/gamedata/{en,cn}, which --fetch fills. The record text in data/ (pulled from arkpedia-data)
- * supplies the English of a CN-only skill.
+ * Sources, in order: ARKPEDIA_GAMEDATA (a directory holding the EN tables) and the stage pipeline's EN cache
+ * (.cache/upstream/en-gamedata); ARKPEDIA_CN and the CN tables checkout (.cache/upstream/cn-tables); else
+ * .cache/gamedata/{en,cn}, which --fetch fills. The tables: building_data.json (EN, CN), gamedata_const.json
+ * (EN, CN: the glossary), and the CN character_table.json and char_meta_table.json (an operator's forms,
+ * base-skill-forms.ts). The record text in data/ (pulled from arkpedia-data) supplies the English of a CN-only
+ * skill and each character id its English name.
  *
  * The numbers come two ways. Rules, per room, read the plain skills exactly as the calculator's text parsers
  * once did ("productivity +25%", "order limit +2", "Morale consumed per hour -0.25"). Overrides
@@ -21,6 +23,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { OVERRIDES, GENERIC_IS_RIGHT, type SkillOverride, type OverrideEffect } from './base-skill-overrides';
+import { gameTable, loadOperatorForms, namedOperators, decideForms } from './base-skill-forms';
 import { cleanSkillName } from '../../lib/base/activeBaseSkills';
 import type { BaseSkillEffectEntry, BaseSkillEffectsTable, SkillCondition, SkillEffect } from '../../lib/base/baseSkillEffects';
 import { dependencyClassOf } from '../../lib/base/dependencyClass';
@@ -28,10 +31,6 @@ import { type Buff, normalizeDescription, mentionedNames, nameIsKnown, foldName,
 
 const ROOT = path.resolve(import.meta.dirname, '../..');
 const OUT = path.join(ROOT, 'lib/base/base-skill-effects.json');
-const EN_URL = 'https://raw.githubusercontent.com/ArknightsAssets/ArknightsGamedata/master/en/gamedata/excel/building_data.json';
-const CN_URL = 'https://raw.githubusercontent.com/Kengxxiao/ArknightsGameData/master/zh_CN/gamedata/excel/building_data.json';
-const TERMS_URL = 'https://raw.githubusercontent.com/ArknightsAssets/ArknightsGamedata/master/en/gamedata/excel/gamedata_const.json';
-
 interface BuffStep { buffId: string; cond: { phase: string | number; level: number } }
 interface BuildingData { buffs: Record<string, Buff>; chars: Record<string, { buffChar: { buffData: BuffStep[] | Record<string, BuffStep> }[] }> }
 interface OperatorRecord { name: string; aliases?: string[]; faction?: string | null; class?: string | null; branch?: string | null; baseSkills?: { name: string | null; buffId?: string; description: string | null }[] | null }
@@ -39,61 +38,13 @@ interface OperatorRecord { name: string; aliases?: string[]; faction?: string | 
 const args = process.argv.slice(2);
 const flag = (name: string) => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : undefined; };
 
-async function source(which: 'en' | 'cn'): Promise<{ file: string; data: BuildingData }> {
-  const candidates = which === 'en'
-    ? [process.env.ARKPEDIA_GAMEDATA && path.join(process.env.ARKPEDIA_GAMEDATA, 'building_data.json'), path.join(ROOT, '.cache/upstream/en-gamedata/en/gamedata/excel/building_data.json')]
-    : [process.env.ARKPEDIA_CN && path.join(process.env.ARKPEDIA_CN, 'gamedata/excel/building_data.json'), path.join(ROOT, '.cache/upstream/cn-tables/zh_CN/gamedata/excel/building_data.json')];
-  const fallback = path.join(ROOT, `.cache/gamedata/${which}/building_data.json`);
-  const given = flag(`--${which}`);
-  if (args.includes('--fetch') && !given) {
-    const url = which === 'en' ? EN_URL : CN_URL;
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`${url}: ${response.status}`);
-    fs.mkdirSync(path.dirname(fallback), { recursive: true });
-    fs.writeFileSync(fallback, await response.text());
-  }
-  const file = [given, ...candidates, fallback].find((f): f is string => !!f && fs.existsSync(f));
-  if (!file) throw new Error(`no ${which} building_data.json: pass --${which} <file>, or --fetch`);
-  return { file, data: JSON.parse(fs.readFileSync(file, 'utf8')) as BuildingData };
-}
-
-/** The game's glossary (gamedata_const termDescriptionDict, EN): a `<$cc.x>Name</>` term in a description whose entry reads
- *  "Includes the following Operators: A, B" means every listed form of the name, as one condition (cc.angel: Exusiai and
- *  Exusiai the New Covenant; cc.gvial: Gavial and Gavial the Invincible). The group terms (cc.g.*) are the rosters. */
-async function glossary(): Promise<{ file: string; forms: Map<string, string[]> }> {
-  const candidates = [process.env.ARKPEDIA_GAMEDATA && path.join(process.env.ARKPEDIA_GAMEDATA, 'gamedata_const.json'), path.join(ROOT, '.cache/upstream/en-gamedata/en/gamedata/excel/gamedata_const.json')];
-  const fallback = path.join(ROOT, '.cache/gamedata/en/gamedata_const.json');
-  const given = flag('--terms');
-  if (args.includes('--fetch') && !given) {
-    const response = await fetch(TERMS_URL);
-    if (!response.ok) throw new Error(`${TERMS_URL}: ${response.status}`);
-    fs.mkdirSync(path.dirname(fallback), { recursive: true });
-    fs.writeFileSync(fallback, await response.text());
-  }
-  const file = [given, ...candidates, fallback].find((f): f is string => !!f && fs.existsSync(f));
-  if (!file) throw new Error('no EN gamedata_const.json (the glossary terms): pass --terms <file>, or --fetch');
-  const dict = (JSON.parse(fs.readFileSync(file, 'utf8')) as { termDescriptionDict: Record<string, { termName: string; description: string }> }).termDescriptionDict;
-  const forms = new Map<string, string[]>();
-  for (const [id, term] of Object.entries(dict)) {
-    const m = /^Includes the following Operators:\n(.+)$/s.exec(term.description);
-    if (id.startsWith('cc.') && m) forms.set(id, m[1].split(/,\s*/).map((n) => n.trim()).filter(Boolean));
-  }
-  return { file, forms };
-}
-
-/** A condition naming an operator the text wraps in a glossary term (`<$cc.angel>Exusiai</>`) carries the term's other
- *  forms. The term must wrap that name: a group term (cc.g.glasgow around "Glasgow Gang") lists Siege without meaning him. */
-function withForms(c: SkillCondition, termsInText: { names: string[]; wrapped: string }[]): SkillCondition {
-  if (c.type === 'all') return { ...c, of: c.of.map((x) => withForms(x, termsInText)) };
-  if (c.type !== 'roomHas' && c.type !== 'targetIs') return c;
-  const term = termsInText.find((t) => t.wrapped === c.name && t.names.includes(c.name));
-  return term ? { ...c, forms: term.names.filter((n) => n !== c.name) } : c;
-}
+const source = (which: 'en' | 'cn') => gameTable<BuildingData>(ROOT, which, 'building_data.json', { fetch: args.includes('--fetch'), given: flag(`--${which}`) });
 
 async function main() {
-  const en = await source('en'), cn = await source('cn'), terms = await glossary();
+  const en = await source('en'), cn = await source('cn');
   const records = fs.readdirSync(path.join(ROOT, 'data')).filter((d) => /^operators-\d+star$/.test(d)).flatMap((d) =>
     fs.readdirSync(path.join(ROOT, 'data', d)).filter((f) => f.endsWith('.json')).map((f) => JSON.parse(fs.readFileSync(path.join(ROOT, 'data', d, f), 'utf8')) as OperatorRecord));
+  const forms = await loadOperatorForms(ROOT, records, { fetch: args.includes('--fetch'), terms: flag('--terms') });
   const recordText = new Map<string, string>();
   const recordKeys = new Map<string, Set<string>>();
   for (const op of records) for (const sk of op.baseSkills ?? []) {
@@ -156,8 +107,30 @@ async function main() {
         if (inRecords && !genericRight.has(id) && wording.test(text)) errors.push(`${id} (${fam}, ${[...recordKeys.get(id) ?? []].join(' / ')}): words the rules cannot read, needs an override: ${text}`);
       }
     }
-    const termsInText = [...raw.matchAll(/<\$(cc\.[\w.]+)>([^<]*)<\/>/g)].flatMap((m) => { const names = terms.forms.get(m[1]); return names ? [{ names, wrapped: m[2].trim() }] : []; });
-    if (termsInText.length) effects = effects.map((x) => ({ ...x, ...(x.when ? { when: withForms(x.when, termsInText) } : {}), ...(x.suppressedBy?.when ? { suppressedBy: { ...x.suppressedBy, when: withForms(x.suppressedBy.when, termsInText) } } : {}) }));
+    // An operator the text names counts the forms its tag gives it (base-skill-forms.ts): a glossary term's
+    // whole list on a roomHas/targetIs condition; anywhere else a term is an error, as nothing there carries forms.
+    const named = namedOperators(forms, en.data.buffs[id]?.description, cn.data.buffs[id]?.description).map((n) => decideForms(forms, n));
+    if (named.length) {
+      const byName = new Map(named.map((d) => [d.name, d]));
+      const apply = (c: SkillCondition, where: string): SkillCondition => {
+        if (c.type === 'all') return { ...c, of: c.of.map((x) => apply(x, where)) };
+        if (!('name' in c)) return c;
+        const d = byName.get(c.name);
+        if (!d || d.forms.length < 2) return c;
+        if (c.type === 'roomHas' || c.type === 'targetIs') return { ...c, forms: d.forms.filter((n) => n !== c.name) };
+        errors.push(`${id}: ${d.term} wraps ${c.name}, but ${where} is a ${c.type} condition, which carries no forms`);
+        return c;
+      };
+      effects = effects.map((x, i) => ({ ...x, ...(x.when ? { when: apply(x.when, `effects[${i}].when`) } : {}), ...(x.suppressedBy?.when ? { suppressedBy: { ...x.suppressedBy, when: apply(x.suppressedBy.when, `effects[${i}].suppressedBy.when`) } } : {}) }));
+      if (interaction?.preferredTarget) {
+        const d = byName.get(interaction.preferredTarget);
+        if (d && d.forms.length > 1) interaction = { ...interaction, preferredTargetForms: d.forms.filter((n) => n !== interaction?.preferredTarget) };
+      }
+      const elsewhere = JSON.stringify({ effects: effects.map(({ when: _w, suppressedBy: _s, ...rest }) => rest), custom, interaction: interaction && { ...interaction, preferredTarget: undefined, preferredTargetForms: undefined } });
+      for (const d of named) if (d.forms.length > 1 && elsewhere.includes(JSON.stringify(d.name))) errors.push(`${id}: ${d.term} wraps ${d.name}, but the entry carries the name where no forms can follow: ${elsewhere}`);
+      const notes = named.filter((d) => d.note).map((d) => `${d.name}: ${d.note}.`);
+      if (notes.length) note = [note, ...notes].filter(Boolean).join(' ');
+    }
     const steps = [...(unlocks.get(id)?.values() ?? [])].sort((a, b) => a.phase - b.phase || a.level - b.level);
     entries[id] = {
       buffId: id, family: fam, roomType: buff.roomType, buffCategory: buff.buffCategory, targets: targetsOf(buff),
@@ -179,7 +152,7 @@ async function main() {
   }
   if (errors.length) { console.error(`base-skill-effects: ${errors.length} problem(s)\n  ${errors.join('\n  ')}`); process.exit(1); }
 
-  const table: BaseSkillEffectsTable = { generatedFrom: { en: path.relative(ROOT, en.file), cn: path.relative(ROOT, cn.file), terms: path.relative(ROOT, terms.file), records: records.length }, entries };
+  const table: BaseSkillEffectsTable = { generatedFrom: { en: path.relative(ROOT, en.file), cn: path.relative(ROOT, cn.file), ...forms.files, records: records.length }, entries };
   // Minified: the calculator imports it, so the /base page and the optimizer Worker ship it. The description text is
   // not in it; the operator records carry that, and the review table (scripts/audits/base-skill-table.ts) joins them.
   fs.writeFileSync(OUT, JSON.stringify(table) + '\n');

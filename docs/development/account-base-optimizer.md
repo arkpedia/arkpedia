@@ -413,13 +413,21 @@ the browser with the calculator, 17 KB gzipped):
   optional `step`, `maxCount` and `cap`. `countedValue` in `baseSkillEffects.ts` is the arithmetic.
 - `threshold`: numbers that apply only while a condition (`when`) holds: a named operator in the
   same room or the Control Center, alone in the Reception Room, Clue Exchange active, a count
-  reaching a value, a product being made. A name the game text wraps in a glossary term
+  reaching a value, a product being made. An operator with an alternate form (W and Wiš'adel,
+  Exusiai and Exusiai the New Covenant: the game's `char_meta_table` families) counts exactly the
+  forms the text tags, never a look-alike name. A name wrapped in a glossary term
   (`<$cc.angel>Exusiai</>`: "Includes the following Operators: Exusiai the New Covenant, Exusiai")
   carries the term's other forms in `forms`, and any one of them satisfies the condition once:
   Lemuen's Amicus pays its +25% for either Exusiai, not twice for both; Tomimi's Barbecue Master
-  pays for Gavial the Invincible as for Gavial. The build reads the terms from `gamedata_const`
-  (EN) beside the building data, and only a term wrapping the name itself counts: the Glasgow
-  Gang term around "Glasgow Gang" lists Siege without meaning him.
+  pays for Gavial the Invincible as for Gavial and prefers either as its target. A plain tag
+  (`<@cc.kw>W</>`) is that single form, by the string written: Hoederer's Starting From Scratch β
+  pays for W, not Wiš'adel; Pramanix the Prerita's Yearning for the Snow Realm needs SilverAsh the
+  Reignfrost, not SilverAsh. `scripts/build/base-skill-forms.ts` reads the EN and CN texts side by
+  side, joined by character id, and CN decides where they differ (the entry's note records the EN
+  reading); a term wrapping a name on a condition that cannot carry forms fails the build. Only a
+  term wrapping the name itself counts: the Glasgow Gang term around "Glasgow Gang" lists Siege
+  without meaning him. The audit's last section (`docs/development/base-skill-table-audit.md`)
+  lists every such skill with the forms it counts.
 - `pool`: every effect is on a shared quantity rather than a rate: Morale drain or recovery, order
   limit, capacity, drone charge, a base-wide resource (Felvine, Passion, Worldly Plight).
 - `custom`: a named handler in the calculator (`custom.handler`) with its numbers in

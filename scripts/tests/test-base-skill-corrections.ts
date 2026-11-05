@@ -139,4 +139,11 @@ test("Tomimi's Barbecue Master pays for Gavial the Invincible as for Gavial", ()
   const r = calc({ dormitory1: [maxed('Tomimi'), maxed('Gavial the Invincible')] });
   const gavial = r.dormitoryRecoveryByFacility.dormitory1.find(x => x.name === 'Gavial the Invincible')!;
   near(gavial.bonus, 1, 'Gavial the Invincible recovers +1 from Tomimi');
+  // The preferred target is either Gavial, ahead of a roommate who needs more; between the two, the one who needs more.
+  const preferred = calc({ dormitory1: [maxed('Tomimi'), { ...maxed('Gavial the Invincible'), morale: 20 }, { ...maxed('Cuora'), morale: 5 }] });
+  near(preferred.dormitoryRecoveryByFacility.dormitory1.find(x => x.name === 'Gavial the Invincible')!.bonus, 1, 'Gavial the Invincible preferred over Cuora');
+  near(preferred.dormitoryRecoveryByFacility.dormitory1.find(x => x.name === 'Cuora')!.bonus, 0, 'Cuora gets nothing from Tomimi');
+  const both = calc({ dormitory1: [maxed('Tomimi'), { ...maxed('Gavial the Invincible'), morale: 20 }, { ...maxed('Gavial'), morale: 5 }] });
+  near(both.dormitoryRecoveryByFacility.dormitory1.find(x => x.name === 'Gavial')!.bonus, 1, 'Gavial, who needs more, is the target');
+  near(both.dormitoryRecoveryByFacility.dormitory1.find(x => x.name === 'Gavial the Invincible')!.bonus, 0, 'Gavial the Invincible waits');
 });

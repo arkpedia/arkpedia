@@ -157,6 +157,8 @@ export interface SkillInteraction {
   trade?: { defaultedGoldBonus?: number; lmdBonusAbove3?: number; fixedGold?: number; order?: 'pepe' | 'closure' };
   /** Single-target recovery prefers this roommate when present (Schwarz → Ceylon, Tomimi → Gavial). */
   preferredTarget?: string;
+  /** The glossary's other forms of that roommate, preferred the same (Tomimi → Gavial the Invincible). */
+  preferredTargetForms?: string[];
   /** Extra group recovery for recipients of a roster (Senshi → Laios's Party). */
   recipientBonus?: { roster: string; amount: number };
   /** While present, another provider's group recovery grows for a roster (Morgan: Siege +0.3 to Glasgow). */
@@ -197,7 +199,8 @@ export interface BaseSkillEffectEntry {
 }
 
 export interface BaseSkillEffectsTable {
-  generatedFrom: { en: string; cn: string; terms: string; records: number };
+  /** The game tables the build read (scripts/build/build-base-skill-effects.ts) and how many records gave it text. */
+  generatedFrom: { en: string; cn: string; terms: string; termsCn: string; characters: string; groups: string; records: number };
   entries: Record<string, BaseSkillEffectEntry>;
 }
 

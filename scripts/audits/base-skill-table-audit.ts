@@ -7,6 +7,8 @@
  *
  * The EN text is building_data's (ARKPEDIA_GAMEDATA, the stage pipeline's cache, or .cache/gamedata/en); a CN-only
  * entry shows the record's English with the CN text under it. Entries no released operator carries are marked.
+ * The last section lists every skill naming an operator who has an alternate form, with the forms it counts
+ * (scripts/build/base-skill-forms.ts), when the glossary and character tables are on disk.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -15,6 +17,7 @@ import { cleanSkillName } from '../../lib/base/activeBaseSkills';
 import { describeCondition } from '../../lib/base/skillEvaluation';
 import type { BaseSkillEffectEntry, BaseSkillEffectsTable, SkillEffect } from '../../lib/base/baseSkillEffects';
 import table from '../../lib/base/base-skill-effects.json';
+import { loadOperatorForms, namedOperators, decideForms, formsTablesPresent, type OperatorForms } from '../build/base-skill-forms';
 
 const ROOT = path.resolve(import.meta.dirname, '../..');
 const out = process.argv[2] ?? 'docs/development/base-skill-table-audit.md';
@@ -68,5 +71,46 @@ for (const [room, list] of [...byRoom.entries()].sort(([a], [b]) => Object.keys(
     lines.push('');
   }
 }
-fs.writeFileSync(path.join(ROOT, out), lines.join('\n') + '\n');
-console.log(`${Object.keys(entries).length} entries, ${unheld} held by no released operator, written to ${out}`);
+
+// Operators with alternate forms: what each skill naming one counts, beside the rule's reading of the text.
+const carriers = (e: BaseSkillEffectEntry, name: string): string[] => {
+  const found: string[] = [];
+  const walk = (c: { type: string; name?: string; forms?: string[]; of?: unknown[] } | undefined) => {
+    if (!c) return;
+    if (c.type === 'all') for (const x of c.of ?? []) walk(x as typeof c);
+    else if (c.name === name) found.push(`${c.type}: ${[name, ...(c.forms ?? [])].join(', ')}`);
+  };
+  for (const x of e.effects) { walk(x.when); walk(x.suppressedBy?.when); if (x.name === name) found.push(`${x.kind} name: ${name}`); }
+  const i = e.interaction;
+  if (i?.preferredTarget === name) found.push(`preferredTarget: ${[name, ...(i.preferredTargetForms ?? [])].join(', ')}`);
+  if (i?.providerBonus?.provider === name) found.push(`providerBonus provider: ${name}`);
+  if (i?.doublesWith === name) found.push(`doublesWith: ${name}`);
+  if (e.custom && JSON.stringify(e.custom.params ?? {}).includes(JSON.stringify(name))) found.push(`custom ${e.custom.handler}: ${name}`);
+  return found;
+};
+async function alternateForms() {
+lines.push('## Operators with alternate forms', '');
+lines.push("An operator with an alternate (W and Wiš'adel, Exusiai and Exusiai the New Covenant: the game's `char_meta_table` families) counts exactly the forms the skill text tags. A glossary term around the name (`<$cc.angel>Exusiai</>`) means every operator the term lists (`gamedata_const`, \"Includes the following Operators\"); a plain tag (`<@cc.kw>W</>`) means that single form, by the string written, so \"W\" is W alone and \"SilverAsh the Reignfrost\" the alternate alone. Never by name likeness. The EN and CN texts are read side by side and CN decides where they differ; the build (`scripts/build/base-skill-forms.ts`) refuses a term on a condition that cannot carry forms. The Siracusa, Glasgow and other group rosters come from the same glossary through `scripts/imports/import-base-rosters.mjs`.", '');
+if (!formsTablesPresent(ROOT)) lines.push('_The glossary and character tables are not on disk (run the build with --fetch), so this section is empty._', '');
+else {
+  const forms: OperatorForms = await loadOperatorForms(ROOT, getAllOperators());
+  lines.push('| Skill | Named (EN / CN) | Glossary term | Forms counted (how the table carries them) | Other forms, not counted |', '|---|---|---|---|---|');
+  let rows = 0, disagree = 0;
+  for (const e of Object.values(entries).sort((a, b) => a.buffId.localeCompare(b.buffId))) {
+    for (const n of namedOperators(forms, en[e.buffId]?.description, cn[e.buffId]?.description).filter(x => forms.familyOf.has(x.form.id))) {
+      const d = decideForms(forms, n);
+      const carried = carriers(e, d.name);
+      const agree = carried.length > 0 && carried.every(c => { const set = c.slice(c.indexOf(': ') + 2).split(', ').sort().join(', '); return c.startsWith('providerBonus') || c.startsWith('doublesWith') || c.includes(' name: ') || c.startsWith('custom') ? d.forms.length === 1 : set === [...d.forms].sort().join(', '); });
+      if (!agree) disagree++;
+      rows++;
+      const held = holders.get(e.buffId) ?? [];
+      lines.push(`| \`${e.buffId}\` ${held.length ? `${held[0].operator} — ${held[0].skill}` : '(no released operator)'} | ${n.en ? `"${n.en.string}"` : '—'} / ${n.cn ? `"${n.cn.string}"` : '—'} | ${d.term ?? 'none'} | ${d.forms.join(', ')} (${carried.length ? carried.join('; ') : 'not carried'})${agree ? '' : ' **differs from the rule**'}${d.note ? ` — ${d.note}` : ''} | ${d.notCounted.length ? d.notCounted.join(', ') : '—'} |`);
+    }
+  }
+  lines.push('', `${rows} skills name an operator who has an alternate form; ${disagree} carry it otherwise than the rule reads.`, '');
+}
+}
+alternateForms().then(() => {
+  fs.writeFileSync(path.join(ROOT, out), lines.join('\n') + '\n');
+  console.log(`${Object.keys(entries).length} entries, ${unheld} held by no released operator, written to ${out}`);
+});
