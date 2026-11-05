@@ -111,7 +111,7 @@ export function productOptions(layout: LayoutOption): FactoryProducts[] {
  * spent -- every layout gets at least one. With `formations` (a second search the page runs beside this one),
  * only the first split per layout, then the leader is built again with formations. Anneal: the best one or two layouts
  * are improved by simulated annealing over the plan genome (lib/base/annealBase.ts), which also tries other
- * factory products. The
+ * factory products, in two walks (with and without count-raiser seats in the Reception Room and Office). The
  * annealed plan never scores below its seed. `progress` receives the best result so far whenever it improves,
  * so a stopped search still has one to show.
  */
@@ -136,7 +136,8 @@ export function optimizeAccountBase(input: AccountOptimizerInput, progress?: (do
   const sorted = () => recommendations.sort(byScore);
   const completed = new WeakMap<OptimizerResult, LayoutRecommendation>();
   const completedBest = new Map<string, LayoutRecommendation>();
-  const snapshotResult = (): AccountOptimizerResult => ({ recommendations: sorted().map(r => {
+  // A plan as the reader gets it, completed (completeStaffing.ts); the best completed plan per layout is kept.
+  const keepCompleted = (r: LayoutRecommendation): LayoutRecommendation => {
     let result = completed.get(r.plan);
     if (!result) {
       const ctx: GenomeContext = { base: baseFor(r), roster, loginInterval: input.loginInterval, weights, sustainable: true, externalGold: input.externalGold, drones, lockedDorm: input.lockedDorm };
@@ -148,7 +149,8 @@ export function optimizeAccountBase(input: AccountOptimizerInput, progress?: (do
     const previous = completedBest.get(r.id);
     if (!previous || result.score > previous.score) completedBest.set(r.id, result);
     return completedBest.get(r.id)!;
-  }).sort(byScore), searched, rejected });
+  };
+  const snapshotResult = (): AccountOptimizerResult => ({ recommendations: sorted().map(keepCompleted).sort(byScore), searched, rejected });
   const offer = (recommendation: LayoutRecommendation) => {
     // The one gate every plan passes: whatever shape produced it, a rotation that needs more distinct setups
     // than the game stores as presets cannot be set up in the base, so it is never shown.
@@ -208,26 +210,43 @@ export function optimizeAccountBase(input: AccountOptimizerInput, progress?: (do
   // leader in the formations search, whose runner-up the main search covers).
   const order = sorted().slice(0, withFormations ? 1 : 2);
   order.forEach((seed, i) => {
-    const left = budget - elapsed();
+    const slotStarted = elapsed();
+    const left = budget - slotStarted;
     if (left < 2000) return;
     const timeMs = order.length > 1 && i === 0 ? left * 0.7 : left;
     const ctx: GenomeContext = { base: baseFor(seed), roster, loginInterval: input.loginInterval, weights, sustainable: true, externalGold: input.externalGold, drones, lockedDorm: input.lockedDorm };
     const genome = genomeFromResult(seed.plan, ctx);
     if (!genome) return;
-    const improve = (g: Genome, e: Evaluation) => {
-      if (!e.sim.periodic || e.sim.events.some(x => x.kind === 'exhausted')) return;
-      const plan = toOptimizerResult(g, e, ctx, genomeNotes(g, e, ctx));
-      const output = sustainableOutput(e.sim.perDay, input.externalGold);
-      if (offer({ ...seed, products: g.products, plan, output, score: output.lmd * weights.lmd + output.exp * weights.exp })) tick(`${seed.label}: improving`, snapshotResult());
-    };
-    const r = anneal(genome, ctx, {
-      // Each start its own seed: the same seed plan, a different walk from it.
-      timeMs, seed: 1 + i + 97 * start, ...(input.annealRounds ? { maxRounds: input.annealRounds } : {}),
-      onProgress: ({ genome: g }) => { tick(`${seed.label}: improving`); improve(g, evaluate(g, ctx)); },
-    });
-    // The annealer scored lean (no Morale trace); the plan a reader sees is evaluated in full.
-    improve(r.genome, evaluate(r.genome, ctx));
-    searched += r.simulations;
+    // Two walks from the same seed plan: one free to seat count raisers in the Reception Room and Office
+    // (countFeeders.ts), one held to the operators skilled there. The wider walk finds the seats that pay and also
+    // spends moves on many that do not, and which walk ends higher differs by roster (21 Krooster profiles at 60
+    // rounds, 2026-11-05: the wider lost on 3, the narrower on 8), so both run and the better completed plan is
+    // kept. With a round budget both take it in full. On the clock the second has only what the first left of the
+    // slot once its patience ran out: halving the slot lost up to 1.4% at 120 s, where rounds still pay.
+    for (const countSeats of [true, false]) {
+      const walkMs = countSeats || input.annealRounds ? timeMs : timeMs - (elapsed() - slotStarted);
+      if (walkMs < 2000) break;
+      let walkBest = -Infinity;
+      const improve = (g: Genome, e: Evaluation) => {
+        if (!e.sim.periodic || e.sim.events.some(x => x.kind === 'exhausted')) return;
+        const plan = toOptimizerResult(g, e, ctx, genomeNotes(g, e, ctx));
+        const output = sustainableOutput(e.sim.perDay, input.externalGold);
+        const recommendation = { ...seed, products: g.products, plan, output, score: output.lmd * weights.lmd + output.exp * weights.exp };
+        if (offer(recommendation)) tick(`${seed.label}: improving`, snapshotResult());
+        // Each of a walk's own improvements is completed, as an offered plan is: one that trails the other walk
+        // before completion can lead it after, and an earlier best can complete higher than a later one.
+        else if (recommendation.score > walkBest && !exceedsSetups(plan.shifts)) keepCompleted(recommendation);
+        walkBest = Math.max(walkBest, recommendation.score);
+      };
+      const r = anneal(genome, ctx, {
+        // Each start its own seed: the same seed plan, a different walk from it.
+        timeMs: walkMs, seed: 1 + i + 97 * start, countSeats, ...(input.annealRounds ? { maxRounds: input.annealRounds } : {}),
+        onProgress: ({ genome: g }) => { tick(`${seed.label}: improving`); improve(g, evaluate(g, ctx)); },
+      });
+      // The annealer scored lean (no Morale trace); the plan a reader sees is evaluated in full.
+      improve(r.genome, evaluate(r.genome, ctx));
+      searched += r.simulations;
+    }
   });
   // The search may stop before its time is up (nothing left to improve); it is still done.
   progress?.(100, 100, 'Done');

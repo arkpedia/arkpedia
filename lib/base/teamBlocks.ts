@@ -33,15 +33,16 @@ export const teamBlocksStats = () => ({ builds, buildMs, scored });
  * the `shortlist` best alone, plus a few plain workers for rooms where anyone adds the base rate. With `known`
  * (a room's blocks from an earlier build) those teams are scored again in the new context beside the new
  * combinations, over the `shortlist` best of that build's own ranking rather than a fresh ranking of every
- * candidate, so a refresh keeps the strong teams a full build found at a fraction of its cost.
+ * candidate, so a refresh keeps the strong teams a full build found at a fraction of its cost. `feeders`: the
+ * operators the Reception Room and Office may take without a skill there (default: countFeeders' work-seat set).
  */
-export function teamBlocks(ctx: GenomeContext, crew: BaseAssignments, products: FactoryProducts, opts: { top?: number; shortlist?: number; maxCombos?: number; known?: Record<string, TeamBlock[]> } = {}): Record<string, TeamBlock[]> {
+export function teamBlocks(ctx: GenomeContext, crew: BaseAssignments, products: FactoryProducts, opts: { top?: number; shortlist?: number; maxCombos?: number; known?: Record<string, TeamBlock[]>; feeders?: ReadonlySet<string> } = {}): Record<string, TeamBlock[]> {
   const started = Date.now(); builds++;
   const top = opts.top ?? 8, shortlist = opts.shortlist ?? 14, maxCombos = opts.maxCombos ?? 2500;
   const w = ctx.weights ?? DEFAULT_WEIGHTS;
   const byName = new Map(ctx.base.operators.map(o => [o.name, o]));
   const owned = Object.keys(ctx.roster).filter(n => byName.has(n) && n !== 'Fiammetta' && !(ctx.lockedDorm ?? []).includes(n));
-  const feeders = countFeeders(ctx.base, ctx.roster, { workSeat: true });
+  const feeders = opts.feeders ?? countFeeders(ctx.base, ctx.roster, { workSeat: true });
   // Remembered by content (snapshotMemo.ts): a rebuild after a move in one room scores that room's teams again
   // for nothing otherwise.
   const value = (a: BaseAssignments) => {

@@ -55,6 +55,21 @@ throughout:
    probability exp(delta / T) as T cools, and the best plan seen is always kept, so the
    result never scores below its seed.
 
+   Each annealed layout gets two walks from the same seed plan (`countSeats` in
+   `AnnealOptions`): one whose Reception Room and Office moves may seat an operator who
+   raises a base-wide count (`countFeeders.ts`), one held to the operators skilled there.
+   The wider walk finds the seats that pay and spends moves on many that do not, and the
+   walk settles in a different optimum either way: on the 21 Krooster profiles at 60 rounds
+   (2026-11-05) the wider walk alone scored below the narrower on 3 accounts (heiijuuno -784,
+   aliafso -596, shadyer -402) and above it on 8 (gita +1,164, blackgatoacer +884), and 80
+   rounds left those gaps where they were. Both walks run and the best completed plan of
+   either is kept; every improvement of a walk is completed, since one behind the other walk
+   before completion can be ahead after it. With that, all 21 scored at least the better of
+   the two walks alone (aliafso +40 above both). With `annealRounds` both walks take the
+   full budget. On the clock the second has only what the first left of the layout's slot
+   once its patience ran out, which at 120 s is nothing: halving the slot instead lost 1.4%
+   on gita (94,067 against 95,425), as rounds still pay at that length.
+
 Beside this search the page runs a second one in another Worker, when Fiammetta is owned
 and the device has four or more cores: `optimizeAccountBase({ formations: true })` builds one
 first plan per layout, then the leading layout's plan again with formations (Fiammetta's

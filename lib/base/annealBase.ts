@@ -24,6 +24,9 @@ export interface AnnealOptions {
   /** Stop after this many rounds whatever the time, cooling over the rounds rather than the clock, so the same seed
    *  gives the same plan on any machine (tests and the pre/post optimizer comparison use it). */
   maxRounds?: number;
+  /** Let the Reception Room and Office take an operator whose seat raises a base-wide count another's skill reads
+   *  (countFeeders.ts), besides those with a skill for the room. Default true. */
+  countSeats?: boolean;
   onProgress?: (best: { genome: Genome; value: number }, round: number) => void;
   /** Called between rounds; returning true stops the search with the best so far. */
   shouldStop?: () => boolean;
@@ -88,7 +91,7 @@ export function anneal(seedGenome: Genome, ctx: GenomeContext, opts: AnnealOptio
   // count) may sit there too: their seat scores in the other rooms (countFeeders.ts). Counts a bed raises as well,
   // such as Nasti's Rhine Lab operators in the base, are the completion's (completeStaffing.ts).
   const operatorsByName = new Map(ctx.base.operators.map(o => [o.name, o]));
-  const feeders = countFeeders(ctx.base, ctx.roster, { workSeat: true });
+  const feeders: ReadonlySet<string> = opts.countSeats === false ? new Set() : countFeeders(ctx.base, ctx.roster, { workSeat: true });
   const skilledFor = new Map(rooms.filter(f => f.kind === 'receptionRoom' || f.kind === 'office').map(f => [f.id, new Set(owned.filter(n => feeders.has(n) || activeBaseSkills(operatorsByName.get(n)!, f.label, ctx.roster[n].eliteLevel, ctx.base.skillSlots, ctx.roster[n].level).length > 0))]));
   const fits = (name: string, room: string) => !skilledFor.has(room) || skilledFor.get(room)!.has(name);
 
@@ -105,7 +108,7 @@ export function anneal(seedGenome: Genome, ctx: GenomeContext, opts: AnnealOptio
     let b = blocksFor.get(k);
     if (!b || (b.epoch !== epoch && b.crew !== crew)) {
       const full = !b || epoch % FULL_BUILD_EVERY === 0;
-      b = { crew, epoch, blocks: full ? teamBlocks(ctx, g.crews[c], g.products, { top: 16 }) : teamBlocks(ctx, g.crews[c], g.products, { top: 16, shortlist: 8, maxCombos: 400, known: b!.blocks }) };
+      b = { crew, epoch, blocks: full ? teamBlocks(ctx, g.crews[c], g.products, { top: 16, feeders }) : teamBlocks(ctx, g.crews[c], g.products, { top: 16, shortlist: 8, maxCombos: 400, known: b!.blocks, feeders }) };
       blocksFor.set(k, b);
     }
     b.epoch = epoch;

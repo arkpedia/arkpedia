@@ -5,6 +5,7 @@ import { getFacilities, presetLevels, presetSpots } from '../../lib/base/baseCon
 import { toBaseRosters } from '../../lib/base/baseGroupRosters';
 import { completeStaffing } from '../../lib/base/completeStaffing';
 import { countFeeders } from '../../lib/base/countFeeders';
+import { teamBlocks } from '../../lib/base/teamBlocks';
 import { simulateBase, type SimulationShift } from '../../lib/base/baseSimulation';
 import { scoreOf, type GenomeContext } from '../../lib/base/planGenome';
 import { MAX_ROTATION_SETUPS, distinctSetups } from '../../lib/base/rotationSetups';
@@ -231,6 +232,20 @@ test('an operator whose seat raises a base-wide count another owned skill reads 
   const owned = { "Kal'tsit Esperanta": e2(), Rosmontis: e2(), Nasti: e2(), Ifrit: e2() };
   assert.deepEqual(feeders(owned), ['Ifrit', 'Rosmontis']);
   assert.deepEqual([...countFeeders(realContext(owned).base, owned, { workSeat: true })], ['Rosmontis']);
+});
+
+test("the search's team blocks seat a count feeder in the Reception Room only in the walk that allows it", () => {
+  // Kal'tsit Esperanta in the Office counts facilities with an Elite Operator; Rosmontis is one, with no Reception
+  // skill. The account optimizer runs a walk with such seats and one without (accountOptimizer.ts), and the second
+  // must stay the skilled-only search it was.
+  const owned = { "Kal'tsit Esperanta": e2(), Rosmontis: e2(), Nasti: e2(), Ifrit: e2() };
+  const ctx = realContext(owned);
+  const crew = Object.fromEntries(ctx.base.facilities.filter(f => f.capacity && f.kind !== 'dormitory').map(f => [f.id, Array(f.capacity).fill(null)]));
+  crew.office = [{ operatorName: "Kal'tsit Esperanta", ...owned["Kal'tsit Esperanta"] }];
+  const products = Object.fromEntries(ctx.base.facilities.filter(f => f.kind === 'factory').map(f => [f.id, 'Precious Metals'])) as Record<string, 'Precious Metals'>;
+  const inReception = (feeders?: ReadonlySet<string>) => (teamBlocks(ctx, crew, products, { top: 16, ...(feeders ? { feeders } : {}) }).receptionRoom ?? []).flatMap(b => b.names);
+  assert.ok(inReception().includes('Rosmontis'), `default blocks: ${inReception().join(', ')}`);
+  assert.deepEqual(inReception(new Set()).filter(n => n === 'Rosmontis'), []);
 });
 
 /** Nasti in a gold Factory two posts sell from, Ifrit (Rhine Lab, a Power Plant skill and no power plant here). */
