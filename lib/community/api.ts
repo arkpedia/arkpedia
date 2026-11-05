@@ -124,6 +124,9 @@ export function createCommunityHandler(kind:'sharing'|'stats'|'supports'|'availa
       if(result[0].results.length!==1)return res.status(409).json({error:'Sharing changed on another device. Review it again.'});
       return res.json(ownerState(await readRow(db,owner,time),time));
     }catch(error){
+      // Rankings contain fixed aggregate queries only. Keep the underlying error
+      // in server diagnostics so a generic public 503 can be investigated.
+      if(kind==='rankings')console.error('community_rankings_failed',{name:error instanceof Error?error.name:'UnknownError',message:error instanceof Error?error.message:String(error)});
       if(/UNIQUE constraint|community_account.gameKey/i.test(String(error)))return res.status(409).json({error:'This game account already has a community contribution. Each game account can contribute once.'});
       if(error instanceof Error&&/^(Choose|Import|Invalid|Unexpected|Incomplete|Masteries|Duplicate|Community snapshot|Preview statistics snapshot|Sign-in credentials|Saved data)/.test(error.message))return res.status(400).json({error:error.message});
       return res.status(503).json({error:'Community data is temporarily unavailable. Your private saves are unchanged.'});
