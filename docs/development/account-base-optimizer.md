@@ -70,6 +70,16 @@ throughout:
    once its patience ran out, which at 120 s is nothing: halving the slot instead lost 1.4%
    on gita (94,067 against 95,425), as rounds still pay at that length.
 
+   At the 5 minutes the page searches for, that remainder is still nothing (measured
+   2026-11-06): the first walk takes the slot whole — 2,015 rounds over 170 s of its 173 s on
+   blackgatoacer — and the second gets 3 s, or never starts. So the narrower walk, which the
+   round bench has winning on 8 of 21 rosters, hardly runs in the product, and the figures
+   above are a 60-round bench's. They do not carry to the clock: the same comparison run at
+   both budgets reorders the rosters almost completely (`base-optimizer-research.md`).
+   Reach for `walks` to measure it, and give a walk that has to run a `share` of its own.
+
+   `walks` also sets each walk's `lns` (the re-solve of `annealBase.ts`, off by default).
+
 Beside this search the page runs a second one in another Worker, when Fiammetta is owned
 and the device has four or more cores: `optimizeAccountBase({ formations: true })` builds one
 first plan per layout, then the leading layout's plan again with formations (Fiammetta's

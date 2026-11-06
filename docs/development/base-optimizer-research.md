@@ -97,3 +97,40 @@ plans (`scripts/bench/staffing-gap.ts`), scored as funded output of one staffing
 So the search is within about 1% of the best mix on a few accounts and 4 to 7% short on others:
 enough to make suggestion 4 (re-solving freed rooms exactly inside the anneal) worth building, and
 the generated setups show which rooms it gets wrong.
+
+## Re-solving freed rooms (2026-11-06)
+
+Suggestion 4, built as `annealBase.ts`'s `resolve`: a move frees two or three of one crew's rooms and
+staffs them again together, ranking every disjoint combination of their team blocks by the sum of each
+team's value in the crew with those rooms empty, then scoring the best four whole. No solver: the
+enumeration is small enough to run in the optimizer Worker. It is behind `lns`, **off by default**.
+
+**What it is worth, at the budget the page actually searches for** (5 minutes, 21 Krooster profiles):
+13 rosters' plans came out identical, 5 rose and 3 fell, mean **+0.30%**. The rises are real:
+kokonattsuu +6.03% and blackgatoacer +1.81% beat the best of three baseline draws (+5.67%, +1.62%),
+so they are not luck. Every fall (mayank_mj −1.68%, entropy −0.27%, shadyer −0.08%) is smaller than
+the −2.29% a bare change of random seed costs on mayank_mj.
+
+**Four findings worth more than the feature:**
+
+- **A round budget does not predict the clock.** At 60 rounds the same move loses on 6 of 21 rosters,
+  one by 5.0%, and the per-roster results are all but uncorrelated with the 5-minute ones: the worst
+  60-round loser (blackgatoacer) is a 5-minute winner, the best 60-round winner (mayank_mj) a loser.
+  A 5-minute walk runs ~2000 rounds, so a 60-round bench measures a different search. Anything tuned
+  on rounds alone, including the two-walk portfolio of 2026-11-05, is unverified in production.
+- **The second walk barely runs in production.** The first walk takes its layout's slot whole (170 s
+  of 173 s, 2015 rounds) and the second gets 3 s or never starts, though the round bench has it
+  winning on 8 of 21 rosters. Worth fixing on its own.
+- **The 5-minute search has a seed noise of about ±1%**, tail −2.3%. No change, including no change
+  at all, clears "every roster stays or rises" against that; a per-roster result inside the band is
+  not evidence either way.
+- **A hedge is not available.** Half the slot to a walk with the move and half to one without lost
+  0.28% and gave up the whole effect (kokonattsuu +6.03% → −0.23%): the gains need the long walk.
+
+**Measured and not shipped:** the same re-solve run over the best plan after the walk, keeping only
+what the full simulation scores higher. Safe by construction, and worth +0.07% (15 of 21 rosters
+unchanged) — not enough for the code, so it was removed.
+
+**Why the slack is still mostly unclaimed.** The column generation says 2.57% on average is there;
+this takes 0.30%. Nothing here addresses the finding above it: a rotation, not a staffing, is what
+the mix exploits, and the move re-staffs rooms within one crew's snapshot.

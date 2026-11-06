@@ -27,6 +27,9 @@ export interface AnnealOptions {
   /** Let the Reception Room and Office take an operator whose seat raises a base-wide count another's skill reads
    *  (countFeeders.ts), besides those with a skill for the room. Default true. */
   countSeats?: boolean;
+  /** Large neighbourhood search (`resolve` below) among the moves. Default off: it is worth up to 6% of output on a
+   *  roster the walk settles early on and costs noise-sized output on others (base-optimizer-research.md). */
+  lns?: 'off' | 'move';
   onProgress?: (best: { genome: Genome; value: number }, round: number) => void;
   /** Called between rounds; returning true stops the search with the best so far. */
   shouldStop?: () => boolean;
@@ -117,9 +120,9 @@ export function anneal(seedGenome: Genome, ctx: GenomeContext, opts: AnnealOptio
 
   // A block can take workers from several rooms. Give its displaced workers and a
   // bounded set of spare candidates a chance to cover those holes in the same move.
-  const repair = (before: Genome, g: Genome, target: string, targetCrew: number, displaced: string[]) => {
+  const repair = (before: Genome, g: Genome, skip: (crew: number, room: string) => boolean, displaced: string[]) => {
     for (const [c, crew] of g.crews.entries()) for (const id of roomIds) {
-      if (id === target && c === targetCrew) continue;
+      if (skip(c, id)) continue;
       const slots = crew[id] ?? [];
       for (let i = 0; i < slots.length; i++) {
         if (slots[i] || !before.crews[c][id]?.[i]) continue;
@@ -147,9 +150,66 @@ export function anneal(seedGenome: Genome, ctx: GenomeContext, opts: AnnealOptio
       const n = clone(g);
       for (let i = 0; i < capacity(room); i++) place(n, c, room, i, null);
       b.names.forEach((name, i) => place(n, c, room, i, name, reuseAcrossRooms));
-      repair(g, n, room, c, namesIn({ x: g.crews[c][room] ?? [] }));
+      repair(g, n, (c2, id) => id === room && c2 === c, namesIn({ x: g.crews[c][room] ?? [] }));
       return n;
   } });
+
+  // Large neighbourhood search: a crew's `freed` rooms emptied and staffed again together, by the best disjoint
+  // combination of their team blocks for the crew's snapshot. One room at a time (the team move) never reaches a pair
+  // of rooms that each hold the other's best worker; the column generation over the Krooster fixtures found such
+  // setups worth 0.5 to 6.6% (docs/development/base-optimizer-research.md). Each team is valued in the crew with the
+  // freed rooms empty, every combination ranked by the sum, and the best few scored whole, since rooms interact.
+  //
+  // It is off by default and what it is worth depends entirely on how long the walk runs. Over the 21 Krooster
+  // profiles at the 5 minutes the page searches for, it left 13 rosters' plans untouched, raised 5 (kokonattsuu by
+  // 6.0%, blackgatoacer by 1.8%) and cost 3 less than a change of random seed costs anyway: +0.30% in the mean. At
+  // 60 rounds it reads the other way round and takes 5% off the roster it helps most on the clock, so a round
+  // budget says nothing about it. Splitting the slot between a walk with it and a walk without loses both.
+  const RESOLVE_SCORED = 4;
+  const resolve = (g: Genome, c: number, freed: string[]): Genome | null => {
+    const crew = g.crews[c];
+    const empty: BaseAssignments = Object.fromEntries(Object.entries(crew).map(([id, s]) => [id, freed.includes(id) ? Array(capacity(id)).fill(null) : [...(s ?? [])]]));
+    const withTeam = (a: BaseAssignments, room: string, names: string[]): BaseAssignments => {
+      const out: BaseAssignments = Object.fromEntries(Object.entries(a).map(([id, s]) => [id, (s ?? []).map(x => x && names.includes(x.operatorName) ? null : x)]));
+      out[room] = [...names.map(slotOf), ...Array(Math.max(0, capacity(room) - names.length)).fill(null)];
+      return out;
+    };
+    const emptyValue = snapshotValue(empty, g, ctx);
+    const current = freed.map(room => namesIn({ x: crew[room] ?? [] }));
+    const options = freed.map((room, i) => {
+      const seen = new Set<string>();
+      return [current[i], ...(blocks(g, c)[room] ?? []).map(b => b.names)].filter(names => {
+        const key = [...names].sort().join('|');
+        if (!names.length || seen.has(key) || !names.every(n => fits(n, room))) return false;
+        seen.add(key); return true;
+      }).map(names => ({ names, gain: snapshotValue(withTeam(empty, room, names), g, ctx) - emptyValue }));
+    });
+    const combos: { teams: string[][]; sum: number }[] = [];
+    const walk = (i: number, used: Set<string>, teams: string[][], sum: number) => {
+      if (i === freed.length) { combos.push({ teams: [...teams], sum }); return; }
+      for (const o of options[i]) {
+        if (o.names.some(n => used.has(n))) continue;
+        o.names.forEach(n => used.add(n)); teams.push(o.names);
+        walk(i + 1, used, teams, sum + o.gain);
+        teams.pop(); o.names.forEach(n => used.delete(n));
+      }
+    };
+    walk(0, new Set(), [], 0);
+    let chosen: string[][] | null = null, chosenValue = -Infinity;
+    for (const combo of combos.sort((a, b) => b.sum - a.sum).slice(0, RESOLVE_SCORED)) {
+      const value = snapshotValue(combo.teams.reduce((a, names, i) => withTeam(a, freed[i], names), empty), g, ctx);
+      if (value > chosenValue + 1e-9) { chosen = combo.teams; chosenValue = value; }
+    }
+    if (!chosen || chosen.every((names, i) => [...names].sort().join() === [...current[i]].sort().join())) return null;
+    const n = clone(g);
+    freed.forEach((room, i) => {
+      for (let k = 0; k < capacity(room); k++) place(n, c, room, k, null);
+      chosen![i].forEach((name, k) => place(n, c, room, k, name));
+    });
+    repair(g, n, (c2, id) => c2 === c && freed.includes(id), current.flat());
+    return n;
+  };
+  const lns = opts.lns ?? 'off';
 
   const moves: { weight: number; make: () => Move }[] = [
     // Most changes keep a worker in one room; a smaller neighborhood also tries
@@ -292,6 +352,14 @@ export function anneal(seedGenome: Genome, ctx: GenomeContext, opts: AnnealOptio
         else n.products[f] = n.products[f] === 'Precious Metals' ? 'Battle Records' : 'Precious Metals';
       }
       return n;
+    } }) },
+    // Two or three of a crew's rooms staffed again together (resolve, above). Last, so that at weight 0 no draw picks it
+    // and the walk is the one it was without.
+    { weight: lns === 'move' ? 2 : 0, make: () => ({ kind: 'rooms', timing: false, apply: g => {
+      const c = Math.floor(random() * g.crews.length), freed: string[] = [];
+      const count = random() < 0.5 ? 2 : 3;
+      while (freed.length < Math.min(count, roomIds.length)) { const id = pick(roomIds); if (!freed.includes(id)) freed.push(id); }
+      return resolve(g, c, freed);
     } }) },
   ];
   const totalWeight = moves.reduce((s, m) => s + m.weight, 0);

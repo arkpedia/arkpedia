@@ -220,3 +220,18 @@ test('a staggered seat decodes seat by seat, collides like any placement, and re
   assert.deepEqual(decode(back, ctx).map(sh => (sh.assignments[factory] ?? []).map(x => x?.operatorName ?? null)), [[a, b, c], [a, b, d], [null, null, d]]);
   assert.ok(toOptimizerResult(back, evaluate(back, ctx), ctx, genomeNotes(back, evaluate(back, ctx), ctx)).notes.some(n => n.includes('staggers')));
 });
+
+test('large neighbourhood search: off is the walk as it was, and the move keeps plans valid', () => {
+  const opts = { timeMs: 60_000, seed: 7, maxRounds: 25 };
+  const plain = anneal(seed, ctx, opts);
+  // Off is the default, and asking for it by name draws the same moves: the walk is the one it was without.
+  assert.deepEqual(anneal(seed, ctx, { ...opts, lns: 'off' }).genome, plain.genome);
+  const moved = anneal(seed, ctx, { ...opts, lns: 'move' });
+  // A re-solve may lead the walk anywhere (it costs output on some rosters), but never past a gate the search keeps.
+  assert.ok(placesNobodyTwice(moved.genome, ctx));
+  assert.equal(moved.evaluation.sim.periodic, true);
+  assert.equal(moved.evaluation.sim.events.filter(e => e.kind === 'exhausted').length, 0);
+  assert.ok(distinctSetups(decode(moved.genome, ctx)) <= MAX_ROTATION_SETUPS);
+  // The same seed, the same plan.
+  assert.deepEqual(anneal(seed, ctx, { ...opts, lns: 'move' }).genome, moved.genome);
+});

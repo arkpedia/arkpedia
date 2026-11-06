@@ -36,6 +36,9 @@ export interface AccountOptimizerInput {
    * minute to it) and anneals from its own random seed, so parallel searches walk different paths from the same
    * plans; the page merges their results per layout (accountResults.ts). */
   start?: number;
+  /** The walks each seed plan is annealed with, in order. `share` is the walk's fraction of the layout's slot; a
+   *  walk without one takes what the walks before it left (nothing, where an earlier walk used its whole share). */
+  walks?: readonly OptimizerWalk[];
 }
 export interface LayoutRecommendation extends LayoutOption {
   products: FactoryProducts;
@@ -46,6 +49,10 @@ export interface LayoutRecommendation extends LayoutOption {
   score: number;
 }
 export interface AccountOptimizerResult { recommendations: LayoutRecommendation[]; searched: number; rejected: number }
+
+export type OptimizerWalk = { countSeats: boolean; lns?: 'off' | 'move'; share?: number };
+/** One walk free to seat count raisers in the Reception Room and Office, one held to the operators skilled there. */
+const DEFAULT_WALKS: readonly OptimizerWalk[] = [{ countSeats: true }, { countSeats: false }];
 
 /** Automatic recommendations focus on 252: two Trading Posts, five Factories and two Power Plants.
  * Any valid imported layout can still be optimized on its own. */
@@ -165,6 +172,7 @@ export function optimizeAccountBase(input: AccountOptimizerInput, progress?: (do
   // Formations (Fiammetta's refill core with crews taking turns, as hand-made sheets run) take 20-40 s on a large
   // roster and help some rosters, not others, so they run as a second search beside the main one rather than
   // inside it. The main worker keeps its own full search budget.
+  const walks = input.walks ?? DEFAULT_WALKS;
   const withFormations = !!input.formations && 'Fiammetta' in roster;
   const start = Math.max(0, Math.floor(input.start ?? 0));
   const seedShare = withFormations ? 0 : 0.35;
@@ -223,8 +231,17 @@ export function optimizeAccountBase(input: AccountOptimizerInput, progress?: (do
     // rounds, 2026-11-05: the wider lost on 3, the narrower on 8), so both run and the better completed plan is
     // kept. With a round budget both take it in full. On the clock the second has only what the first left of the
     // slot once its patience ran out: halving the slot lost up to 1.4% at 120 s, where rounds still pay.
-    for (const countSeats of [true, false]) {
-      const walkMs = countSeats || input.annealRounds ? timeMs : timeMs - (elapsed() - slotStarted);
+    //
+    // That remainder is usually nothing. At the 5 minutes the page searches for, the first walk takes the slot
+    // whole (2015 rounds of 173 s on one 324-operator roster) and the second gets 3 s, or never starts; the
+    // narrower walk the round bench says wins on 8 of 21 rosters barely runs in production. Measured 2026-11-06,
+    // and the gap between the two budgets is the bench's, not the search's: see base-optimizer-research.md.
+    for (const walk of walks) {
+      const { countSeats } = walk;
+      // A walk with a share of its own is held to it, so a later walk still has a slot to run in; one without takes
+      // what the walks before it left. On the clock the first walk alone can use the whole slot (2015 rounds of it
+      // at 300 s), which is why a walk that has to run cannot be left to the remainder.
+      const walkMs = input.annealRounds ? timeMs : walk.share ? timeMs * walk.share : timeMs - (elapsed() - slotStarted);
       if (walkMs < 2000) break;
       let walkBest = -Infinity;
       const improve = (g: Genome, e: Evaluation) => {
@@ -240,7 +257,7 @@ export function optimizeAccountBase(input: AccountOptimizerInput, progress?: (do
       };
       const r = anneal(genome, ctx, {
         // Each start its own seed: the same seed plan, a different walk from it.
-        timeMs: walkMs, seed: 1 + i + 97 * start, countSeats, ...(input.annealRounds ? { maxRounds: input.annealRounds } : {}),
+        timeMs: walkMs, seed: 1 + i + 97 * start, countSeats, ...(walk.lns ? { lns: walk.lns } : {}), ...(input.annealRounds ? { maxRounds: input.annealRounds } : {}),
         onProgress: ({ genome: g }) => { tick(`${seed.label}: improving`); improve(g, evaluate(g, ctx)); },
       });
       // The annealer scored lean (no Morale trace); the plan a reader sees is evaluated in full.
