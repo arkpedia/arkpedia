@@ -64,6 +64,8 @@ export interface AccountRecord {
   cleared: string[];
   /** Three-star clears that actually award the first-clear Originite. Older snapshots omit it. */
   rewardCleared?: string[];
+  /** Dungeon stages present in the import, including uncleared stages. Absent on older snapshots. */
+  recordedStages?: string[];
   rewardClaims?: RewardClaims;
   /** Which Integrated Strategies / Stationary Security Service rewards the save says are claimed
    *  (lib/account/permanentClaims.ts), for the planner's Farming method. Absent on an older record. */
@@ -217,6 +219,7 @@ export function parseAccount(raw: string | null): AccountRecord | null {
     operators: value.operators as string[], skins: value.skins as string[], cleared: value.cleared as string[],
     ...(strings(value.operatorIds, 5000) && (value.operatorIds as string[]).every((id) => CHAR_ID.test(id)) ? { operatorIds: value.operatorIds as string[] } : {}),
     ...(strings(value.rewardCleared, 50000) ? { rewardCleared: value.rewardCleared as string[] } : {}),
+    ...(strings(value.recordedStages, 50000) ? { recordedStages: value.recordedStages as string[] } : {}),
     ...(operatorBuilds ? { operatorBuilds } : {}),
     ...(strings(value.annihilation, 500) ? { annihilation: value.annihilation as string[] } : {}),
     ...(value.outfits && typeof value.outfits === 'object' ? { outfits: Object.fromEntries(Object.entries(value.outfits as Record<string, unknown>)
@@ -283,6 +286,7 @@ export function accountFromGame(user: Record<string, any>, map: GameAccountMap, 
       ? Object.entries(addon.stage) as [string, { state?: number }][] : []);
   const cleared = [...Object.entries(stages), ...handbookStages].filter(([, stage]) => typeof stage?.state === 'number' && stage.state >= 2).map(([id]) => id);
   const rewardCleared = [...Object.entries(stages), ...handbookStages].filter(([, stage]) => stage?.state === 3).map(([id]) => id);
+  const recordedStages = Object.entries(stages).filter(([, stage]) => Number.isInteger(stage?.state) && stage.state! >= 0 && stage.state! <= 3).map(([id]) => id).sort();
   const status = user.status ?? {};
   const medalCollection = medalsFromGame(user.medal?.medals);
   const base = baseSnapshotFromGame(user, map);
@@ -299,6 +303,7 @@ export function accountFromGame(user: Record<string, any>, map: GameAccountMap, 
     operatorIds: [...operatorIds].sort(),
     skins: Object.keys(user.skin?.characterSkins ?? {}).sort(),
     cleared: [...new Set(cleared)].sort(),
+    ...(user.dungeon?.stages && typeof user.dungeon.stages === 'object' && !Array.isArray(user.dungeon.stages) ? { recordedStages } : {}),
     ...((user.dungeon?.stages && typeof user.dungeon.stages === 'object' && !Array.isArray(user.dungeon.stages)) || handbookStages.length
       ? { rewardCleared: [...new Set(rewardCleared)].sort() } : {}),
     annihilation: Object.entries((user.campaignsV2?.instances ?? {}) as Record<string, { rewardStatus?: unknown }>)

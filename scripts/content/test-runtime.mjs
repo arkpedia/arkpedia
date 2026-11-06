@@ -4,6 +4,7 @@ import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { createServer } from 'node:http';
 import { spawn } from 'node:child_process';
+import { tmpdir } from 'node:os';
 import { pageFilePath } from '../../lib/content/pagePaths.mjs';
 import assetCdn from '../../config/asset-delivery.json' with { type: 'json' };
 // How a pinned revision appears inside a delivered address, taken from the same template the
@@ -82,7 +83,7 @@ await new Promise(resolve => source.listen(3204, '127.0.0.1', resolve));
 const buildFile = path.join(process.env.NEXT_DIST_DIR || '.next', 'BUILD_ID');
 const buildId = fs.readFileSync(buildFile, 'utf8');
 const refreshSecret = 'local-runtime-refresh-fixture';
-const log = fs.openSync('/tmp/arkpedia-content-runtime-server.log', 'w');
+const log = fs.openSync(path.join(tmpdir(), 'arkpedia-content-runtime-server.log'), 'w');
 const server = spawn(process.execPath, ['node_modules/next/dist/bin/next', 'start', '-p', '3193'], {
   env: { ...process.env, ARKPEDIA_CONTENT_URL: 'http://127.0.0.1:3204', ARKPEDIA_CONTENT_TEST: '1', ARKPEDIA_CONTENT_DISABLED: '0', ARKPEDIA_RELEASE_REFRESH_SECRET: refreshSecret, ARKPEDIA_YOUTUBE_FEED_FIXTURE: 'tests/fixtures/youtube-feeds.xml' }, stdio: ['ignore', log, log],
 });
@@ -167,10 +168,25 @@ try {
       await page.getByRole('listbox', { name: 'Banner category' }).getByRole('option', { name: /^Standard$/ }).click();
     }
     const sidebarItem = bannerName => page.locator(`.gacha-banner-sidebar-item[title="${bannerName.replace(/\s*\(Global\)\s*$/i, '')}"]`);
+    const revealBanner = async bannerName => {
+      const sidebar = page.getByRole('region', { name: 'Banners', exact: true });
+      // Historical fixtures can fall beyond the sidebar's initially mounted rows.
+      await sidebar.evaluate(el => new Promise(resolve => {
+        el.scrollTop = 0;
+        requestAnimationFrame(() => requestAnimationFrame(resolve));
+      }));
+      await waitFor(async () => {
+        if (await sidebarItem(bannerName).count()) return true;
+        await sidebar.evaluate(el => { el.scrollTop += Math.max(1, el.clientHeight); });
+        return false;
+      }, `${name} sidebar mounts ${bannerName}`, 30_000);
+    };
+    await revealBanner(shownBanner);
     await sidebarItem(shownBanner).click();
     await page.locator('.gacha-roster-section .gacha-featured-chip').first().waitFor({ timeout: 10_000 });
     const before = await page.evaluate(() => { window.scrollTo(0, document.documentElement.scrollHeight); return { height: document.documentElement.scrollHeight, y: Math.round(scrollY) }; });
     // Clicked in place, so reaching the button does not scroll the page first.
+    await revealBanner(pendingBanner);
     await sidebarItem(pendingBanner).evaluate(button => button.click());
     await page.locator('.gacha-roster-section', { hasText: 'Lineup to be confirmed.' }).waitFor({ timeout: 10_000 });
     const after = await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() =>

@@ -34,6 +34,10 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-06T10:54:00Z',
+    fixed: [{ title: 'Reruns use imported stage progress first', detail: 'Available stage records take priority over medals when detecting whether you already cleared a rerun.', href: '/pull-planner' }],
+  },
+  {
     at: '2026-11-05T21:53:00Z',
     title: 'Clearer browsing across Arkpedia',
     added: [

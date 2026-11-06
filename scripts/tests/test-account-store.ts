@@ -42,6 +42,7 @@ test('an account gives the operators it owns by name, its outfits by skin id and
     skins: ['char_002_amiya@winter#1', 'char_300_phenxi@summer#1'],
     cleared: ['main_02', 'main_03'],
     rewardCleared: ['main_03'],
+    recordedStages: ['main_00', 'main_01', 'main_02', 'main_03'],
     annihilation: ['camp_r_01'],
     // The outfit each wears, Amiya's forms each their own; anything not a skin id is left out.
     outfits: { Amiya: 'char_002_amiya#1+', 'Amiya (Guard)': 'char_1001_amiya2#2', Fiammetta: 'char_300_phenxi@summer#1' },

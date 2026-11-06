@@ -98,6 +98,7 @@ test('first-clear rewards require three stars, while ordinary account clears ret
   const account = accountFromGame({ ...fixture, dungeon: { stages: { partial: { state: 2 }, complete: { state: 3 }, mem_trial: { state: 3 }, unopened: { state: 0 } } } }, map, 'en');
   assert.deepEqual(account.cleared, ['complete', 'mem_trial', 'partial']);
   assert.deepEqual(account.rewardCleared, ['complete', 'mem_trial']);
+  assert.deepEqual(account.recordedStages, ['complete', 'mem_trial', 'partial', 'unopened']);
   assert.deepEqual(parseAccount(JSON.stringify(account)), account);
   const sources = { chapters: [{ id: 'chapter', op: 2, stages: ['partial', 'complete'] }], playable: [], resources: [], annihilation: [],
     paradox: [{ id: 'paradox:mem_trial', amount: 200 }], originiteByStageType: {}, annihilationOrundum: 0 } as unknown as BacklogSources;
@@ -105,6 +106,9 @@ test('first-clear rewards require three stars, while ordinary account clears ret
   assert.equal(remaining.sources.chapters[0].op, 1);
   assert(!remaining.doneKeys.has('chapter')); assert(remaining.doneKeys.has('paradox:mem_trial'));
   assert.equal(accountFromGame({}, map, 'en').rewardCleared, undefined);
+  assert.equal(accountFromGame({}, map, 'en').recordedStages, undefined);
+  assert.deepEqual(accountFromGame({ dungeon: { stages: { valid: { state: 0 }, malformed: { state: '3' }, unknown: { state: 9 }, missing: {} } } }, map, 'en').recordedStages, ['valid']);
+  assert.equal(parseAccount(JSON.stringify({ ...account, recordedStages: [1] }))?.recordedStages, undefined);
 });
 
 test('real handbook addon nesting imports Paradox completion into catalogue rewards and preserves manual progress', () => {

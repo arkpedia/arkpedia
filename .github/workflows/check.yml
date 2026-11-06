@@ -304,9 +304,13 @@ jobs:
       # Fail on broken publication before the long browser suite. Its own build directory
       # keeps fixture releases out of the bundled pages the browser suite reads.
       - name: Content updates and rollback without rebuilding
-        run: npm run test:content-runtime
+        run: |
+          df -h "$TMPDIR" /tmp /dev/shm
+          npm run test:content-runtime
         env:
           NEXT_DIST_DIR: .next-live
+          # Chromium's profile and IPC fallback must not use the NAS's 2 GB RAM-backed /tmp.
+          TMPDIR: ${{ runner.temp }}
 
       - name: Browser runner resources
         if: steps.browser.outputs.lane != 'none'

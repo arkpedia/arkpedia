@@ -8,8 +8,9 @@
  *   - whether the account registered before the 2024-12-03 programme changeover.
  * and, under `sources`, counts for every other claim source (missions by type and state, event
  * sign-ins by the game's activity id, the monthly sign-in, Record Restoration).
+ * Paradox diagnostics add state/count flags for six fixed public stage IDs.
  * Never a name, UID, timestamp, history value or any other field of the save; the only ids are
- * the game's own (mission types, activity ids).
+ * the game's own (mission types, activity ids, fixed stage ids).
  */
 export interface BeginnerDiagnostics {
   /** Each openseverTaskGroupN the save sets, and its value; {} when it sets none. */
@@ -38,6 +39,8 @@ interface ClaimSources {
   monthly: { days: number; received: number; longTermRecords: number } | null;
   /** Record Restoration: stories with a trail record, and rewards received across them. */
   retroTrail: { stories: number; received: number };
+  /** Bounded handbook completion evidence; only fixed public stage IDs and numeric flags. */
+  paradox?: { stages: number; states: States; samples: Record<string, { state: number | null; completeTimes: number | null; hasFts: boolean; hasRts: boolean }> };
 }
 interface SignIn { isAvailable: boolean | null; historyLength: number | null }
 
@@ -76,10 +79,26 @@ function claimSources(user: Record<string, unknown>): ClaimSources {
   const checkIn = object(user.checkIn);
   const history = flags(checkIn?.checkInHistory);
   const trail = Object.values(object(object(user.retro)?.trail) ?? {}).slice(0, 200);
+  const addon = object(object(user.troop)?.addon);
+  const paradox: NonNullable<ClaimSources['paradox']> = { stages: 0, states: {}, samples: {} };
+  const sampleIds = new Set(['mem_skgoat_1', 'mem_strong_1', 'mem_crow_1', 'mem_malist_1', 'mem_cgbird_1', 'mem_tomimi_1']);
+  for (const row of Object.values(addon ?? {}).slice(0, 2000)) {
+    for (const [id, value] of Object.entries(object(object(row)?.stage) ?? {}).slice(0, 20)) {
+      const stage = object(value);
+      if (!stage) continue;
+      paradox.stages++;
+      const state = small(stage.state);
+      paradox.states[String(state ?? -1)] = (paradox.states[String(state ?? -1)] ?? 0) + 1;
+      if (sampleIds.has(id)) paradox.samples[id] = { state, completeTimes: small(stage.completeTimes),
+        hasFts: typeof stage.fts === 'number' && Number.isFinite(stage.fts) && stage.fts > 0,
+        hasRts: typeof stage.rts === 'number' && Number.isFinite(stage.rts) && stage.rts > 0 };
+    }
+  }
   return {
     missions, activityTypes, eventSignIns, loginOnly,
     monthly: checkIn ? { days: history?.days ?? 0, received: history?.received ?? 0, longTermRecords: Object.keys(object(checkIn.longTermRecvRecord) ?? {}).length } : null,
     retroTrail: { stories: trail.length, received: trail.reduce<number>((sum, rewards) => sum + Object.values(object(rewards) ?? {}).filter((flag) => flag === 1).length, 0) },
+    ...(addon ? { paradox } : {}),
   };
 }
 
