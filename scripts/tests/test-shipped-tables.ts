@@ -50,11 +50,12 @@ test("the Worker's build leaves the regional table out of the server code", () =
 
 test('production compilation leaves community catalogues and the Preview snapshot out of Worker code',async()=>{
   for(const preview of ['', '1']){
-    const result=await build({entryPoints:['lib/community/catalogues.ts','lib/community/preview-statistics.ts'],
+    const result=await build({entryPoints:['lib/community/catalogues.ts','lib/community/preview-statistics.ts','lib/music/youtubeContextServer.ts'],
       bundle:true,write:false,outdir:'.cache/shipped-table-test',platform:'node',format:'esm',packages:'external',metafile:true,
       define:{'process.env.ARKPEDIA_WORKER':'"1"','process.env.ARKPEDIA_PREVIEW':JSON.stringify(preview)}});
     const inputs=Object.keys(result.metafile!.inputs);
     assert.ok(!inputs.some(file=>/data\/(?:community-.*|account)-catalogue\.json$/.test(file)),'catalogues come from ASSETS');
+    assert.ok(!inputs.some(file=>file.endsWith('lib/music/youtubeContextLocal.ts') || /data\/(?:skins|skin-availability-windows|skin-shop-rotations)\.json$/.test(file)), 'video relevance reads published records; local source fallbacks stay out of the Worker');
     assert.equal(inputs.some(file=>file.endsWith('config/preview-community-statistics.json')),preview==='1','only Preview compiles its snapshot');
   }
 });
