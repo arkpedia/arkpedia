@@ -24,7 +24,7 @@ export async function loadVideoDiscoveryContext(now: number, local = false): Pro
     local ? null : readPublishedContentPageProps<{ __calendar?: { banners: HeadhuntingBanner[] }; } & { [key: string]: unknown }>('/'),
     local ? null : readPublishedContentPageProps<{ operators: RosterOperator[] }>('/operators'),
     local ? null : readPublishedContentPageProps<{ skins: Skin[]; availabilityWindows?: SkinWindow[]; __contentTables?: { 'regional-schedules'?: RegionalSchedules } }>('/skins'),
-    communityStages(),
+    local ? [] : communityStages(),
     local ? null : readPublishedContentPageProps<{ events: EventRecord[] }>('/schedule'),
   ]);
   const homeCalendar = home?.__calendar as { events?: (EventRecord & { start?: string; end?: string; dateRange?: string })[]; banners: HeadhuntingBanner[]; skins?: Skin[]; skinWindows?: SkinWindow[] } | undefined;
@@ -39,7 +39,7 @@ export async function loadVideoDiscoveryContext(now: number, local = false): Pro
   const operators: (RosterOperator | Operator)[] = roster?.operators ?? fallback?.operators ?? [];
   const skins = skinPage?.skins ?? homeCalendar?.skins ?? fallback?.skins ?? [];
   const catalogueWindows = skinPage?.availabilityWindows ?? homeCalendar?.skinWindows ?? fallback?.windows ?? [];
-  const regional = skinPage?.__contentTables?.['regional-schedules'] ?? await regionalTable('/skins');
+  const regional = skinPage?.__contentTables?.['regional-schedules'] ?? fallback?.regional ?? await regionalTable('/skins');
   const windows = regionalSkinWindows(catalogueWindows, regional.servers.en, 'en');
   const activeEvents = events.flatMap(event => {
     const window = parseGameWindow(event.global?.dateRange, event.global ?? {});
@@ -47,7 +47,9 @@ export async function loadVideoDiscoveryContext(now: number, local = false): Pro
     const source = rawEvents.find(raw => eventKey(raw.name) === eventKey(event.name) && raw.activityId);
     const activity = event.activityId ?? source?.activityId;
     const ids = activity ? [activity, activity.replace(/sre$/, 'side')] : [];
-    const prefixes = [...new Set(stages.filter(stage => ids.some(id => stage.id.startsWith(`${id}_`))).map(stage => stage.code.match(/^([A-Z]+)-/)?.[1]).filter((prefix): prefix is string => !!prefix))];
+    const codes = local ? (fallback?.stages ?? []).filter(stage => ids.includes(stage.contentId ?? '')).map(stage => stage.code)
+      : stages.filter(stage => ids.some(id => stage.id.startsWith(`${id}_`))).map(stage => stage.code);
+    const prefixes = [...new Set(codes.map(code => code.match(/^([A-Z]+)-/)?.[1]).filter((prefix): prefix is string => !!prefix))];
     return [{ name: eventName(event.name), aliases: [eventName(event.name)], until: +window.end, stagePrefixes: prefixes }];
   });
   const firstNames = new Map<string, number>();

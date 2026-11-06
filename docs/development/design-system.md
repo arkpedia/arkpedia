@@ -60,6 +60,8 @@ does not establish server region. Both views retain search/category/CN choices i
 Show publication dates when known and Archive otherwise; never invent dates for older
 indexed guides. The daily content preparation refreshes a bounded, cached metadata archive
 from trusted creators and publishes it with World, so reruns can revive older guides.
+Video metadata is the `data/youtube-discovery.json` content record, so archive-only
+changes produce a new release input. Query dates stay in the job cache.
 
 - Browser Back/Forward and a page's Back link return readers to their previous scroll
   position, including content revealed by progressive lists. Ordinary links open the

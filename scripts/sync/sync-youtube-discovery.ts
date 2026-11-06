@@ -5,7 +5,7 @@ import path from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { loadVideoDiscoveryContext } from '../../lib/music/youtubeContextServer';
-import { YOUTUBE_ARCHIVE_FILE } from '../../lib/music/youtubeArchiveServer';
+import { readLocalVideoArchive, YOUTUBE_ARCHIVE_FILE, YOUTUBE_ARCHIVE_RECORD } from '../../lib/music/youtubeArchiveServer';
 import { getAllOperators } from '../../lib/operators/operators';
 import { getWelfareInfo } from '../../lib/operators/operatorTypes';
 import { filterDiscoveryVideos } from '../../lib/music/youtubeDiscovery';
@@ -28,7 +28,7 @@ export function archiveListing(entries: ListingEntry[], channels: Map<string, st
 
 export async function refreshDiscoveryArchive(now: number) {
   const file = path.resolve(YOUTUBE_ARCHIVE_FILE);
-  let previous: { videos: YouTubeVideo[]; queries: Record<string, string> } = { videos: [], queries: {} };
+  let previous: { videos: YouTubeVideo[]; queries: Record<string, string> } = { videos: readLocalVideoArchive(), queries: {} };
   try { previous = { ...previous, ...JSON.parse(fs.readFileSync(file, 'utf8')) }; } catch { /* First preparation. */ }
   const context = await loadVideoDiscoveryContext(now, true);
   const registry = JSON.parse(fs.readFileSync('data/youtube-creators.json', 'utf8')) as { channels: { id: string; label: string }[] };
@@ -44,7 +44,7 @@ export async function refreshDiscoveryArchive(now: number) {
     ...context.skins.slice(0, 3).map(skin => `Arknights "${skin.aliases[0]}" skin`),
   ])].slice(0, 6);
   const today = new Date(now).toISOString().slice(0, 10);
-  const videos = new Map(previous.videos.map(video => [video.videoId, video]));
+  const videos = new Map([...previous.videos, ...readLocalVideoArchive()].map(video => [video.videoId, video]));
   for (const query of queries) {
     if (previous.queries[query] === today) continue;
     try {
@@ -84,6 +84,9 @@ export async function refreshDiscoveryArchive(now: number) {
   const kept = [...videos.values()].sort((a, b) => (Date.parse(b.publishedAt) || 0) - (Date.parse(a.publishedAt) || 0)).slice(0, 2000);
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, JSON.stringify({ videos: kept, queries: previous.queries, checkedAt: new Date(now).toISOString() }) + '\n');
+  // A reader-visible archive belongs in the release input hash. Query bookkeeping
+  // stays in the cache so an unchanged lookup does not churn public releases.
+  fs.writeFileSync(path.resolve(YOUTUBE_ARCHIVE_RECORD), JSON.stringify({ videos: kept }) + '\n');
   console.log(`YouTube archive: ${kept.length} public videos retained`);
 }
 
