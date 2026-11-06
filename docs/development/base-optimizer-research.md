@@ -213,3 +213,29 @@ must show that beats the plan by more than the +0.5% bar before anything is buil
 The 5-minute search has no untried lever left inside it: every reallocation of its clock or its move
 mix measured here lost or tied. The remaining ~0.3% to the 10-minute run and the LP's slack both need
 something outside the Worker.
+
+## The integer-rotation study (2026-11-06)
+
+The offline test the ceiling left open: can the column generation's setups be run as an integer
+rotation — at most three whole presets, whole-login shift lengths — and beat the plan by +0.5%?
+
+`integer-mix.ts` solves the master LP with integer logins (`m_s` in a cycle of L), at most three
+setups, and the same Morale, beds and funding rows. On ashie's 60-round plan:
+
+- without the plan's own setups in the pool it is **infeasible**: the LP's mix uses more than three
+  setups, so no three presets can carry its shares;
+- with them in the pool it is feasible, but every simulated rotation **exhausts** and the MIP value
+  (74,889 to 75,876) is below the plan (80,805).
+
+`rotation-search.ts` drops the LP approximation and enumerates ordered triples of whole setups with
+every whole-login allocation up to 12, builds each rotation with `decode`'s rest rule (the just-off
+crew takes the beds, empty beds take dorm skills) and simulates it:
+
+- on the 60-round plans (smaller crews) it does find rotations — kokonattsuu **+4.95%** from its two
+  shifts plus one generated setup — but the 300 s plan is 89,001 against that rotation's 85,920;
+- on the 300 s plans **no whole-setup rotation is feasible at all**: the just-off crew is larger than
+  the 20 beds. That is why the real plan uses a per-room crew order rather than whole-crew switches.
+
+So the LP's slack is not a preset rotation: it relaxes the per-room schedule that makes a 5-minute
+plan valid. A server-side generator would have to solve that joint schedule, not just the setups;
+this study does not justify building one.
