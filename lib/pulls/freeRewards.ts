@@ -41,12 +41,12 @@ export function allFreeRewards(catalogue: { rewards: FreeReward[]; beginnerRewar
 }
 
 /** Replacement rewards belong to the programme the account registered under. */
-export function freeRewardsForAccount(rewards: FreeReward[], account: { server: string; profile?: { registeredAt: string | null } } | null): FreeReward[] {
+export function freeRewardsForAccount(rewards: FreeReward[], account: { server: string; profile?: { registeredAt: string | null }; rewardClaims?: { known: readonly string[] } } | null): FreeReward[] {
   const registered = account?.server === 'en' && account.profile?.registeredAt ? Date.parse(account.profile.registeredAt) / 1000 : NaN;
   const programme = rewards.flatMap(reward => reward.beginner ? [reward.beginner] : [])
     .filter(programme => programme.startTs <= registered && (programme.endTs === undefined || registered <= programme.endTs))
     .sort((a, b) => b.startTs - a.startTs)[0];
-  return rewards.filter(reward => !reward.beginner || (programme ? reward.beginner.id === programme.id : reward.beginner.current)).map(reward => reward.id === 'free:welcome-mail' && account ? { ...reward, claimUnknown: true } : reward);
+  return rewards.filter(reward => !reward.beginner || (programme ? reward.beginner.id === programme.id : reward.beginner.current)).map(reward => reward.id === 'free:welcome-mail' && account ? { ...reward, claimUnknown: !account.rewardClaims?.known.includes(reward.id) } : reward);
 }
 export function freeRewardAvailable(reward: FreeReward, now: number): boolean {
   return (!reward.startAt || reward.startAt <= now) && (!reward.endAt || now < reward.endAt);
@@ -88,7 +88,7 @@ export function obtainableWelfare(reward: FreeReward, now: number): boolean {
 function isTrail(reward: FreeReward) { return reward.source === 'trail' || (!reward.source && reward.id.startsWith('free:trail:')); }
 
 /** A free reward row's name, as its tick is labelled ("Clear Main Storyline 0-1"). */
-export const freeRewardLabel = (reward: FreeReward) => reward.name.replace(/Storyline(?=\d)/g, 'Storyline ');
+export const freeRewardLabel = (reward: FreeReward) => reward.id === 'free:welcome-mail' ? 'New Doctor Orundum mail' : reward.name.replace(/Storyline(?=\d)/g, 'Storyline ');
 
 export type WelfareStatus = { kind: 'upcoming' | 'until'; at: number } | { kind: 'closed' | 'open' };
 /**

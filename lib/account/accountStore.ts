@@ -280,12 +280,16 @@ export function accountFromGame(user: Record<string, any>, map: GameAccountMap, 
   }
   const stages = (user.dungeon?.stages ?? {}) as Record<string, { state?: number }>;
   // Paradox Simulations are operator handbook stages, outside dungeon.stages.
-  // UNLOCKED/PLAYED/PASS are not the COMPLETE first-reward state.
+  // Real Global imports can retain state 1 after a successful handbook clear.
+  // Their positive completeTimes records completion; attempts/timestamps alone do not.
   const handbookStages = Object.values(user.troop?.addon && typeof user.troop.addon === 'object' && !Array.isArray(user.troop.addon)
     ? user.troop.addon : {}).flatMap((addon: any) => addon?.stage && typeof addon.stage === 'object' && !Array.isArray(addon.stage)
-      ? Object.entries(addon.stage) as [string, { state?: number }][] : []);
-  const cleared = [...Object.entries(stages), ...handbookStages].filter(([, stage]) => typeof stage?.state === 'number' && stage.state >= 2).map(([id]) => id);
-  const rewardCleared = [...Object.entries(stages), ...handbookStages].filter(([, stage]) => stage?.state === 3).map(([id]) => id);
+      ? Object.entries(addon.stage) as [string, { state?: number; completeTimes?: number }][] : []);
+  const handbookComplete = ([id, stage]: typeof handbookStages[number]) => /^mem_[A-Za-z0-9_]+$/.test(id) &&
+    (stage?.state === 3 || stage?.state === 1 && Number.isSafeInteger(stage.completeTimes) && stage.completeTimes! > 0);
+  const completedHandbook = handbookStages.filter(handbookComplete).map(([id]) => id);
+  const cleared = [...Object.entries(stages), ...handbookStages].filter(([, stage]) => typeof stage?.state === 'number' && stage.state >= 2).map(([id]) => id).concat(completedHandbook);
+  const rewardCleared = Object.entries(stages).filter(([, stage]) => stage?.state === 3).map(([id]) => id).concat(completedHandbook);
   const recordedStages = Object.entries(stages).filter(([, stage]) => Number.isInteger(stage?.state) && stage.state! >= 0 && stage.state! <= 3).map(([id]) => id).sort();
   const status = user.status ?? {};
   const medalCollection = medalsFromGame(user.medal?.medals);

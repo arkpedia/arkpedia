@@ -41,6 +41,8 @@ interface ClaimSources {
   retroTrail: { stories: number; received: number };
   /** Bounded handbook completion evidence; only fixed public stage IDs and numeric flags. */
   paradox?: { stages: number; states: States; samples: Record<string, { state: number | null; completeTimes: number | null; hasFts: boolean; hasRts: boolean }> };
+  /** Count-only mailbox result; no subject, contents, recipient or mail identifiers. */
+  mail?: { status: 'read' | 'unavailable'; retained: number; welcome: 'claimed' | 'unclaimed' | 'unknown' };
 }
 interface SignIn { isAvailable: boolean | null; historyLength: number | null }
 
@@ -99,6 +101,12 @@ function claimSources(user: Record<string, unknown>): ClaimSources {
     monthly: checkIn ? { days: history?.days ?? 0, received: history?.received ?? 0, longTermRecords: Object.keys(object(checkIn.longTermRecvRecord) ?? {}).length } : null,
     retroTrail: { stories: trail.length, received: trail.reduce<number>((sum, rewards) => sum + Object.values(object(rewards) ?? {}).filter((flag) => flag === 1).length, 0) },
     ...(addon ? { paradox } : {}),
+    ...(() => {
+      const mail = object(user.arkpediaMailStatus), claims = object(user.arkpediaMailClaims);
+      if (!mail || (mail.status !== 'read' && mail.status !== 'unavailable')) return {};
+      return { mail: { status: mail.status, retained: typeof mail.retained === 'number' && Number.isSafeInteger(mail.retained) && mail.retained >= 0 && mail.retained <= 500 ? mail.retained : 0,
+        welcome: Array.isArray(claims?.known) && claims.known.includes('free:welcome-mail') ? Array.isArray(claims?.claimed) && claims.claimed.includes('free:welcome-mail') ? 'claimed' as const : 'unclaimed' as const : 'unknown' as const } };
+    })(),
   };
 }
 

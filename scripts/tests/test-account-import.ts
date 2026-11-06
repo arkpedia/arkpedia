@@ -124,6 +124,43 @@ test('replay continuation starts after the optional social request even if its r
   }
 });
 
+test('retained welcome mail is read without mutation and replay sequence follows the mailbox requests', async () => {
+  const { calls, relay, direct } = server({ ...structuredClone(ANSWERS),
+    'https://gs.example:8443/social/getSortListInfo': { result: [] },
+    'https://gs.example:8443/mail/getMetaInfoList': { result: [{ mailId: 50001, type: 0, hasItem: 1 }, { mailId: 7, type: 1, hasItem: 1 }] },
+    'https://gs.example:8443/mail/listMailBox': { mailList: [{ subject: 'Orundum resupply for newbie Doctors!', hasItem: 1, state: 1, items: [{ id: '4003', count: 3800 }], uid: 'PRIVATE', content: 'PRIVATE' }] },
+    'https://gs.example:8443/quest/getBattleReplay': { result: 0, battleReplay: 'fixture' },
+  });
+  let continuation: ReplaySession | undefined;
+  const user = await readAccount({ transport: relay, direct, deviceId: 'd', network: await readNetwork(relay, 'en'), readFriendSlots: true, readWelcomeMail: true, onReplaySession: session => { continuation = session; } }, { uid: '1', token: 't', authToken: 'a' });
+  assert.deepEqual(user.arkpediaMailClaims, { known: ['free:welcome-mail'], claimed: ['free:welcome-mail'] });
+  assert(!JSON.stringify(user).includes('PRIVATE'));
+  const mailbox = calls.filter(call => call.url.includes('/mail/'));
+  assert.deepEqual(mailbox.map(call => [call.url.split('/').pop(), call.request.headers.seqnum]), [['getMetaInfoList', '4'], ['listMailBox', '5']]);
+  assert.deepEqual(JSON.parse(mailbox[1].request.body!), { mailIdList: [50001], sysMailIdList: [7] });
+  assert(continuation); await continuation.readReplay('main_00-01');
+  assert.equal(calls.at(-1)!.request.headers.seqnum, '6');
+});
+
+test('empty mail stays unknown; failed or malformed optional mail preserves the account without replaying an uncertain session', async () => {
+  for (const mode of ['empty', 'lost-meta', 'lost-body', 'refused', 'bad-meta', 'lost-social'] as const) {
+    const answers = { ...structuredClone(ANSWERS),
+      ...(mode === 'lost-social' ? {} : { 'https://gs.example:8443/social/getSortListInfo': { result: [] } }),
+      ...(mode === 'lost-meta' ? {} : { 'https://gs.example:8443/mail/getMetaInfoList': { result: mode === 'empty' ? [] : mode === 'bad-meta' ? 1 : [{ mailId: 9, type: 1, hasItem: 1 }] } }),
+      ...(mode === 'lost-body' ? {} : { 'https://gs.example:8443/mail/listMailBox': { result: mode === 'refused' ? 1 : 0, mailList: [] } }),
+    };
+    const { calls, relay, direct } = server(answers);
+    let continuation: ReplaySession | undefined;
+    const user = await readAccount({ transport: relay, direct, deviceId: 'd', network: await readNetwork(relay, 'en'), readFriendSlots: true, readWelcomeMail: true, onReplaySession: session => { continuation = session; } }, { uid: '1', token: 't', authToken: 'a' });
+    assert.equal(user.status.nickName, 'Doctor');
+    assert.equal(!!continuation, mode === 'empty', mode);
+    assert.equal(user.arkpediaMailStatus.status, mode === 'empty' ? 'read' : 'unavailable', mode);
+    assert.equal(calls.filter(call => call.url.endsWith('/getMetaInfoList')).length, mode === 'lost-social' ? 0 : 1);
+    assert.equal(calls.filter(call => call.url.endsWith('/listMailBox')).length, ['lost-body', 'refused'].includes(mode) ? 1 : 0);
+    assert.equal(user.arkpediaMailClaims?.known.length ?? 0, 0);
+  }
+});
+
 test('a refusal names the step that failed and what the server said', async () => {
   const options = (answers: Record<string, unknown>) => ({ transport: server(answers).relay, server: 'en' as const, deviceId: 'd' });
   const refusal = async (promise: Promise<unknown>, step: string, message: RegExp) => {

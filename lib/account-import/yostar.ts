@@ -1,3 +1,5 @@
+import { mailboxIds, welcomeMailClaims } from './welcomeMail';
+
 /**
  * Reading a Global (Yostar) Arknights account, as the game client signs in, from the
  * reader's own browser (issue #94).
@@ -291,6 +293,8 @@ export interface AccountOptions {
   onReplaySession?: (session: ReplaySession) => void;
   /** One count-only social request during a manual import; failure never breaks the import. */
   readFriendSlots?: boolean;
+  /** Read retained Global newbie mail without receiving, deleting or changing it. */
+  readWelcomeMail?: boolean;
 }
 
 export interface ReplaySession { uid: string; readReplay: (stageId: string) => Promise<string> }
@@ -340,7 +344,7 @@ export function createReplaySession(transport: Transport, gs: string, uid: strin
 }
 
 /** Steps 3 to 5: the account's game data, as syncData sends it (its `user`). */
-export async function readAccount({ transport, direct, deviceId, network, onStep = () => {}, onReplaySession, readFriendSlots = false }: AccountOptions, account: YostarAccount): Promise<Record<string, any>> {
+export async function readAccount({ transport, direct, deviceId, network, onStep = () => {}, onReplaySession, readFriendSlots = false, readWelcomeMail = false }: AccountOptions, account: YostarAccount): Promise<Record<string, any>> {
   onStep('game-token');
   const fields: Record<string, string | number> = {
     appId: '1', platform: 1, channelId: YOSTAR_CHANNEL, subChannel: YOSTAR_CHANNEL, worldId: YOSTAR_CHANNEL,
@@ -372,14 +376,39 @@ export async function readAccount({ transport, direct, deviceId, network, onStep
   const data = await post(transport, 'account', `${network.gs}/account/syncData`, { ...CLIENT_HEADERS, secret: login.secret, seqnum: '2', uid: String(login.uid) }, { platform: 1 });
   if (data.result !== 0 || !data.user) throw new ImportError('account', `the game server sent no account (result ${data.result ?? 'none'})`);
   const user=object(data.user);
+  let sequence = 2, replayAvailable = true, socialAvailable = true;
   if(readFriendSlots){
     try {
-      const friends=await post(transport,'account',`${network.gs}/social/getSortListInfo`,{...CLIENT_HEADERS,secret:login.secret,seqnum:'3',uid:String(login.uid)},{type:1,sortKeyList:['level','infoShare'],param:{}});
+      const friends=await post(transport,'account',`${network.gs}/social/getSortListInfo`,{...CLIENT_HEADERS,secret:login.secret,seqnum:String(++sequence),uid:String(login.uid)},{type:1,sortKeyList:['level','infoShare'],param:{}});
       // Never retain friends' IDs, aliases or profiles; only the returned list length.
       if(Array.isArray(friends.result)&&friends.result.length<=1000) user.social={...object(user.social??{}),arkpediaFriendCount:friends.result.length};
-    }catch{ /* Unknown capacity stays unknown. The account import still succeeds. */ }
+    }catch{ socialAvailable = false; /* Unknown capacity stays unknown. The account import still succeeds. */ }
   }
-  if (onReplaySession && login.uid != null) onReplaySession(createReplaySession(transport, network.gs, String(login.uid), login.secret, readFriendSlots ? 3 : 2));
+  if (readWelcomeMail) {
+    try {
+      if (!socialAvailable) throw new Error('Optional account read unavailable');
+      // Read-only mailbox routes. Never call receiveMail/receiveAllMail or any removal route.
+      const read = (path: string, body: Record<string, unknown>) => post(transport, 'account', `${network.gs}/mail/${path}`,
+        { ...CLIENT_HEADERS, secret: login.secret, seqnum: String(++sequence), uid: String(login.uid) }, body);
+      const meta = await read('getMetaInfoList', { from: Math.floor(Date.now() / 1000) });
+      const ids = mailboxIds(meta.result);
+      if (!ids) throw new Error('Unsupported mailbox metadata');
+      const rows: unknown[] = [];
+      for (let offset = 0; offset < Math.max(ids.mailIdList.length, ids.sysMailIdList.length); offset += 50) {
+        const batch = await read('listMailBox', { mailIdList: ids.mailIdList.slice(offset, offset + 50), sysMailIdList: ids.sysMailIdList.slice(offset, offset + 50) });
+        if (batch.result !== undefined && batch.result !== 0 || !Array.isArray(batch.mailList) || batch.mailList.length > 100) throw new Error('Unsupported mailbox response');
+        rows.push(...batch.mailList);
+      }
+      user.arkpediaMailClaims = welcomeMailClaims(rows);
+      user.arkpediaMailStatus = { status: 'read', retained: rows.length };
+    } catch {
+      // Keep the successful account snapshot. An uncertain optional read is never retried,
+      // and its session is not handed to the replay queue with a guessed sequence number.
+      replayAvailable = false;
+      user.arkpediaMailStatus = { status: 'unavailable', retained: 0 };
+    }
+  }
+  if (onReplaySession && replayAvailable && login.uid != null) onReplaySession(createReplaySession(transport, network.gs, String(login.uid), login.secret, sequence));
   return user;
 }
 

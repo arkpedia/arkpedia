@@ -44,6 +44,8 @@ async function stubServers(page: Page, level: number | null, isNew = 0, networkF
       [`${region.yostar}/user/login`]: { json: { Code: 200, Data: { IsNew: isNew, UserInfo: { ID: 4242, Token: 'yostar-token' } } } },
       'https://u8.example.invalid/user/v1/getToken': { json: level === null ? { result: 2 } : { result: 0, token: 'u8-token', uid: '1' } },
       'https://gs.example.invalid/account/login': { json: { result: 0, secret: 'session', uid: '1' } },
+      'https://gs.example.invalid/social/getSortListInfo': { json: { result: [] } },
+      'https://gs.example.invalid/mail/getMetaInfoList': { json: { result: [] } },
       'https://gs.example.invalid/account/syncData': { json: { result: 0, user: { status: { level, nickName: level === 1 ? '' : 'Doctor', nickNumber: '0001' }, troop: { chars: {} }, dungeon: { stages: { main_01_07: { state: 3, completeTimes: 12, replayVersion: 2, replayId: 'private-replay-id', token: 'private-stage-token' } } } } } },
       [`${region.accountCenter}/api/user/login`]: { json: { code: 0 }, headers: [['Set-Cookie', 'YSSID=session-id; Path=/'], ['Set-Cookie', 'YSSID.sig=session-sig; Path=/']] },
       [`${region.accountCenter}/api/game/gachas?key=ark&index=1&size=50`]: { json: { code: 0, data: { rows: [] } } },
@@ -203,6 +205,38 @@ async function signIn(page: Page) {
   await dialog.getByPlaceholder('Code from the email').fill('123456');
   await dialog.getByRole('button', { name: 'Import', exact: true }).click();
 }
+
+test('a fresh game import checks completed handbook simulations and retained New Doctor mail', async ({ page }) => {
+  await stubServers(page, 120);
+  await page.addInitScript(() => {
+    const original = window.__arkpediaImportTransport!;
+    // eslint-disable-next-line no-restricted-syntax -- Synthetic read-only transport; never a real account.
+    window.__arkpediaImportTransport = async (url, request) => {
+      const response = await original(url, request);
+      if (url.endsWith('/mail/getMetaInfoList')) return { status: 200, json: { result: [{ mailId: 4, type: 1, hasItem: 1 }] } };
+      if (url.endsWith('/mail/listMailBox')) return { status: 200, json: { mailList: [{ subject: 'Orundum resupply for newbie Doctors!', hasItem: 1, state: 1, items: [{ id: '4003', count: 3800 }], content: 'PRIVATE-MAIL-BODY' }] } };
+      if (url.endsWith('/account/syncData')) {
+        const data = response.json as { user: { troop: { addon: unknown } } };
+        data.user.troop.addon = Object.fromEntries(['mem_skgoat_1', 'mem_crow_1', 'mem_cgbird_1', 'mem_tomimi_1'].map((id, index) => [`char_fixture_${index}`, { stage: { [id]: { state: 1, completeTimes: 1 } } }]));
+      }
+      return response;
+    };
+  });
+  const dialog = await openImport(page, true);
+  await signIn(page);
+  await expect(dialog.locator('.import-note[role="status"]')).toContainText('Imported:');
+  const record = await page.evaluate(() => JSON.parse(localStorage.getItem('arkpediaAccount')!));
+  expect(record.rewardCleared).toEqual(expect.arrayContaining(['mem_skgoat_1', 'mem_crow_1', 'mem_cgbird_1', 'mem_tomimi_1']));
+  expect(record.rewardClaims.claimed).toContain('free:welcome-mail');
+  expect(JSON.stringify(record)).not.toContain('PRIVATE-MAIL-BODY');
+  const asked = await page.evaluate(() => (window as unknown as { __asked: string[] }).__asked);
+  expect(asked.filter(url => url.includes('/mail/')).map(url => url.split('/').pop())).toEqual(['getMetaInfoList', 'listMailBox']);
+  await page.goto('/reward-tracker');
+  await page.getByRole('tab', { name: 'Free rewards', exact: true }).click();
+  await page.getByRole('button', { name: 'All', exact: true }).click();
+  const mail = page.getByRole('checkbox', { name: 'New Doctor Orundum mail', exact: true });
+  await expect(mail).toBeChecked(); await expect(mail).toBeDisabled();
+});
 
 test('the import says, above the email field, which email to use and what any other does', async ({ page }) => {
   await stubServers(page, 120);
@@ -733,7 +767,7 @@ test('auto-deploy sync is explicit, resumable, incremental and exportable',async
   expect(await replayRequests(page)).toHaveLength(0);
   await panel.getByRole('button',{name:'Sync auto-deploys',exact:true}).click();
   await expect(panel.getByRole('status')).toHaveText('Auto-deploys are up to date.',{timeout:20000});
-  const requests=await replayRequests(page);expect(requests.map(r=>r.seq)).toEqual(['4','5']);expect(requests[1].at-requests[0].at).toBeGreaterThanOrEqual(2900);
+  const requests=await replayRequests(page);expect(requests.map(r=>r.seq)).toEqual(['5','6']);expect(requests[1].at-requests[0].at).toBeGreaterThanOrEqual(2900);
   await panel.getByRole('button',{name:'Sync auto-deploys',exact:true}).click();
   await expect(panel.getByRole('status')).toHaveText('Auto-deploys are up to date.');expect(await replayRequests(page)).toHaveLength(2);
   await panel.getByRole('button',{name:'How auto-deploy sync works'}).click();

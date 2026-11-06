@@ -139,6 +139,25 @@ test('real handbook addon nesting imports Paradox completion into catalogue rewa
   for (const addon of [null, [], 'bad', { bad: { stage: null } }]) assert.equal(accountFromGame({ troop: { addon } }, map, 'en').rewardCleared, undefined);
 });
 
+test('reported Global handbook clears count despite state 1; Jaye and Minimalist remain unfinished', () => {
+  // Reconstructed from the owner's count-only November 6 report, without account data.
+  const ids = ['mem_cgbird_1', 'mem_tomimi_1', 'mem_skgoat_1', 'mem_crow_1'];
+  const addon = Object.fromEntries(ids.map((id, index) => [`char_fixture_${index}`, { stage: { [id]: { state: 1, completeTimes: 1 } } }]));
+  const raw = { dungeon: { stages: { main_attempt: { state: 1, completeTimes: 1 } } }, troop: { addon } };
+  const imported = accountFromGame(raw, map, 'en');
+  assert.deepEqual(imported.rewardCleared, [...ids].sort());
+  assert.deepEqual(imported.cleared, [...ids].sort());
+  const allIds = [...ids, 'mem_strong_1', 'mem_malist_1'];
+  const sources = { chapters: [], playable: [], resources: [], annihilation: [], paradox: allIds.map(id => ({ id: `paradox:${id}`, amount: 200 })),
+    originiteByStageType: {}, annihilationOrundum: 0 } as unknown as BacklogSources;
+  const done = backlogFromAccount(sources, new Set(imported.rewardCleared), null);
+  assert.deepEqual([...done.doneKeys].sort(), ids.map(id => `paradox:${id}`).sort());
+  for (const completeTimes of [0, -1, 1.5, '1', NaN, Infinity]) {
+    const snapshot = accountFromGame({ troop: { addon: { char_test: { stage: { mem_test: { state: 1, completeTimes, fts: 100, rts: 100 } } } } } }, map, 'en');
+    assert.deepEqual(snapshot.rewardCleared, [], String(completeTimes));
+  }
+});
+
 const progress: PastProgress = { doneKeys: ['manual-chapter', 'free:welcome-mail', 'free:event_a:2'], doneEvents: ['manual-event'], annihilationDone: true, ticksFrom: '' };
 const completed = { doneKeys: new Set(['auto-chapter']), doneEvents: new Set(['auto-event']) };
 const account = (user = fixture, at = '2026-10-16T00:00:00Z') => accountFromGame(user, map, 'en', new Date(at));

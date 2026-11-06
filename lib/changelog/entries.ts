@@ -34,6 +34,11 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-06T20:00:00Z',
+    fixed: [{ title: 'Completed Paradox Simulations import correctly', detail: 'Successful handbook clears now count even when the game retains an unlocked stage state.', href: '/reward-tracker' }],
+    changed: [{ title: 'New Doctor mail is easier to identify', detail: 'Imports check the retained 3,800 Orundum supply mail; unavailable claim history stays manual and excluded from totals.', href: '/reward-tracker' }],
+  },
+  {
     at: '2026-11-06T16:40:00Z',
     title: 'Videos for what is happening now',
     added: [
