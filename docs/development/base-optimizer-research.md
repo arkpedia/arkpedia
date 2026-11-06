@@ -159,7 +159,7 @@ in both walks (the section above).
 
 ## What the 5-minute search's ceiling looks like (2026-11-06)
 
-Four attempts to beat the shipped search, each measured at the budget the page uses, and what they
+Six attempts to beat the shipped search, each measured at the budget the page uses, and what they
 say about where the remaining slack is not:
 
 - **The clock is worth about one more start.** Six variance rosters at 600 s beat their own 300 s
@@ -181,6 +181,14 @@ say about where the remaining slack is not:
   4 costs more per move and finds worse plans at 5 minutes: over six rosters the mean was **−0.86%**,
   with blackgatoacer −3.48% and kokonattsuu −4.81%. The extra neighbourhood does not pay for its
   time.
+- **The seed phase is not the lever.** Capping it at 0.2 of the budget instead of 0.35 left
+  blackgatoacer's and shadyer's plans identical (100,083 and 93,887): the queue of product splits
+  finishes before either cap, so the 600 s run's +0.34% is anneal time, not a richer seed.
+- **A joint room-order move loses.** A move that rotates, relabels or swaps the crew orders of 2-3
+  rooms together — the one change that could trade one room's rest against another's — scored
+  **−0.74%** over the six variance rosters (1 up, 4 down), with blackgatoacer −2.47% and
+  kokonattsuu −3.30%. The per-room orders the search already reaches are better than the joint ones
+  this move finds at the same weight.
 
 **A generated setup does not drop into a rotation.** `scripts/bench/integer-rotation.ts` takes a
 finished plan, runs the column generation (`rotationMix`), and replaces each of the plan's three
@@ -201,3 +209,7 @@ a slot in the old one.
 So the one lever these leave — **new setups** — is not reachable by generating setups alone. A
 server-side generator (or a wasm port) would have to solve the rest schedule around them too, and it
 must show that beats the plan by more than the +0.5% bar before anything is built.
+
+The 5-minute search has no untried lever left inside it: every reallocation of its clock or its move
+mix measured here lost or tied. The remaining ~0.3% to the 10-minute run and the LP's slack both need
+something outside the Worker.
