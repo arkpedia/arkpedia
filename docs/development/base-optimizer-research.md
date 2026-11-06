@@ -191,7 +191,12 @@ that crew, so they rest nowhere; filling every bed with off-shift workers instea
 either, because the plan's rotation rests one crew at a time. The LP's slack is a relaxation of the
 **joint staffing-and-rest schedule**, not a list of setups to insert; the browser search already
 solves the rest schedule for its own moves, which is why the 2-3 room re-solve works and a whole-setup
-swap does not.
+swap does not. Going through the genome does not rescue it either: `generated-crew.ts` replaces one
+of the plan's crew templates with a generated setup and keeps the plan's per-room schedule (the
+generated crew is then used at steps the plan built for another crew's rests), or uses the setup in
+a plain 0,1,2 rotation (the plan's own crews exhaust under that schedule too). The per-room schedule,
+not the staffing, is what makes the plan valid; a generated setup has to be given a new rotation, not
+a slot in the old one.
 
 So the one lever these leave — **new setups** — is not reachable by generating setups alone. A
 server-side generator (or a wasm port) would have to solve the rest schedule around them too, and it
