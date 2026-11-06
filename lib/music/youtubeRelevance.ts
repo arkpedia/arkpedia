@@ -11,9 +11,8 @@ export interface VideoDiscoveryContext {
   events: VideoSubject[];
   operators: VideoSubject[];
   skins: VideoSubject[];
-  cnSubjects: { aliases: string[]; globalAt: number | null }[];
 }
-export const EMPTY_VIDEO_CONTEXT: VideoDiscoveryContext = { events: [], operators: [], skins: [], cnSubjects: [] };
+export const EMPTY_VIDEO_CONTEXT: VideoDiscoveryContext = { events: [], operators: [], skins: [] };
 
 export const normalizeVideoText = (text: string) => text.normalize('NFKD').replace(/\p{M}/gu, '')
   .toLowerCase().replace(/[’'`]/g, '').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
@@ -22,14 +21,6 @@ export function mentionsVideoSubject(title: string, aliases: string[]): boolean 
   const normalized = ` ${normalizeVideoText(title)} `;
   return aliases.some(alias => normalizeVideoText(alias).length >= 3
     && normalized.includes(` ${normalizeVideoText(alias)} `));
-}
-
-/** Language is not server region. Only explicit CN labels or known content that
- * has not reached Global is hidden; a Japanese/Korean creator is not excluded. */
-export function isCNVideo(video: YouTubeVideo, context: VideoDiscoveryContext, now: number): boolean {
-  return /\bCN\b|\b(?:china|chinese)\s*(?:server|version)|国服|國服|大陸版|大陆版|중섭|중국\s*서버/i.test(`${video.title} ${video.description ?? ''}`)
-    || context.cnSubjects.some(subject => (subject.globalAt === null || now < subject.globalAt)
-      && mentionsVideoSubject(`${video.title} ${video.description ?? ''}`, subject.aliases));
 }
 
 /** Titles and explicit indexed-guide associations only. In particular, a skin
@@ -56,7 +47,7 @@ export function currentVideoRelevance(video: YouTubeVideo, context: VideoDiscove
   return { score: 0, label: '' };
 }
 
-export function rankDiscoveryVideos(videos: YouTubeVideo[], context: VideoDiscoveryContext, now: number, includeCN = false): YouTubeVideo[] {
+export function rankDiscoveryVideos(videos: YouTubeVideo[], context: VideoDiscoveryContext, now: number): YouTubeVideo[] {
   const unique = new Map<string, YouTubeVideo>();
   for (const video of videos) {
     const latest = unique.get(video.videoId);
@@ -65,7 +56,7 @@ export function rankDiscoveryVideos(videos: YouTubeVideo[], context: VideoDiscov
       ...(latest.topicHint || video.topicHint ? { topicHint: latest.topicHint ?? video.topicHint } : {}),
     } : video);
   }
-  return [...unique.values()].filter(video => includeCN || !isCNVideo(video, context, now))
+  return [...unique.values()]
     .sort((a, b) => currentVideoRelevance(b, context, now).score - currentVideoRelevance(a, context, now).score
       || (Date.parse(b.publishedAt) || 0) - (Date.parse(a.publishedAt) || 0) || a.videoId.localeCompare(b.videoId));
 }

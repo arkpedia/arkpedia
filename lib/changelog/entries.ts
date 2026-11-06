@@ -34,10 +34,10 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    at: '2026-11-06T12:40:00Z',
+    at: '2026-11-06T16:40:00Z',
     title: 'Videos for what is happening now',
     added: [
-      { title: 'Browse videos by category', detail: 'Find guides, operator analyses, outfit showcases and more; identifiable CN content is hidden by default.', href: '/world/videos' },
+      { title: 'Browse videos by category', detail: 'Find guides, operator analyses, outfit showcases and more, including CN videos.', href: '/world/videos' },
       { title: 'Older guides return when relevant', detail: 'Current Global events, obtainable operators and available outfits bring useful older videos to the front.', href: '/world/videos' },
     ],
     changed: [

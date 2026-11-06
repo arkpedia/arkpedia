@@ -1,5 +1,5 @@
 import { readPublishedContentPageProps } from '@/lib/content/release';
-import { isOperatorReleased, operatorRelease } from '@/lib/operators/operatorAvailability';
+import { isOperatorReleased } from '@/lib/operators/operatorAvailability';
 import type { RosterOperator, Operator } from '@/lib/operators/operatorTypes';
 import { getWelfareInfo } from '@/lib/operators/operatorTypes';
 import type { SkinWindow } from '@/lib/skins/skinAvailability';
@@ -69,13 +69,6 @@ export async function loadVideoDiscoveryContext(now: number, local = false): Pro
     const event = welfare && activeEvents.find(event => eventKey(event.name) === eventKey(welfare));
     if (event) currentOperators.set(operator.name, event.until);
   }
-  const releasedEvents = new Set(rawEvents.filter(event => {
-    const window = parseGameWindow(event.global?.dateRange, event.global ?? {});
-    return window && +window.start <= now && !/estimated|predicted/i.test(event.global?.note ?? '');
-  }).map(event => eventKey(event.name)));
-  const releasedSkinIds = new Set(windows.filter(window => !window.estimated && Date.parse(window.startAt) <= now).flatMap(window => window.skinIds));
-  const releasedSkinNames = new Set(skins.filter(skin => (skin.globalReleaseAt && skin.globalReleaseAt * 1000 <= now)
-    || releasedSkinIds.has(`${skin.model} / ${skin.name}`)).map(skin => skin.name));
   return {
     events: activeEvents,
     operators: operators.filter(operator => currentOperators.has(operator.name) && isOperatorReleased(operator, now))
@@ -87,14 +80,5 @@ export async function loadVideoDiscoveryContext(now: number, local = false): Pro
         return skin ? [{ name: `${skin.model} · ${skin.name}`, aliases: [skin.name], until: Date.parse(window.endAt),
           ...(operator && skins.filter(other => other.model === skin.model).length === 1 ? { soleSkinModelAliases: aliases(operator) } : {}) }] : [];
       })),
-    cnSubjects: [
-      ...operators.filter(operator => !isOperatorReleased(operator, now)).map(operator => ({ aliases: aliases(operator), globalAt: operatorRelease(operator)?.estimated ? null : operatorRelease(operator)?.at ?? null })),
-      ...rawEvents.filter(event => !releasedEvents.has(eventKey(event.name)) && (!event.global?.dateRange || /estimated|predicted/i.test(event.global?.note ?? '')
-        || +(parseGameWindow(event.global?.dateRange, event.global ?? {})?.start ?? Infinity) > now))
-        .map(event => ({ aliases: [eventName(event.name)], globalAt: parseGameWindow(event.global?.dateRange, event.global ?? {})?.start.getTime() ?? null })),
-      ...skins.filter(skin => !releasedSkinNames.has(skin.name) && (skin.name.includes(' ') || skin.name.length >= 8)
-        && (skin.globalReleaseAt ? skin.globalReleaseAt * 1000 > now : skin.sourceRegion === 'CN'))
-        .map(skin => ({ aliases: [skin.name], globalAt: skin.globalReleaseAt ? skin.globalReleaseAt * 1000 : null })),
-    ],
   };
 }

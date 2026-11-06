@@ -16,12 +16,10 @@ export default function YouTubeVideoGallery({ videos, query, now, context = EMPT
   const selectId = useId();
   const [topicQuery, setTopic] = useQueryState('videoTopic', 'all');
   const topic = VIDEO_TOPICS.some(item => item.value === topicQuery) ? topicQuery : 'all';
-  const [includeCNQuery, setIncludeCN] = useQueryState('includeCN', '0');
-  const includeCN = includeCNQuery === '1';
-  const [page, setPage] = useState({ topic, query, includeCN, shown: PAGE });
-  const shown = page.topic === topic && page.query === query && page.includeCN === includeCN ? page.shown : PAGE;
+  const [page, setPage] = useState({ topic, query, shown: PAGE });
+  const shown = page.topic === topic && page.query === query ? page.shown : PAGE;
   const needle = query.trim().toLocaleLowerCase();
-  const ranked = useMemo(() => rankDiscoveryVideos(videos, context, now, includeCN), [videos, context, now, includeCN]);
+  const ranked = useMemo(() => rankDiscoveryVideos(videos, context, now), [videos, context, now]);
   const matches = ranked.filter(video => !needle || `${video.title} ${video.channelLabel}`.toLocaleLowerCase().includes(needle));
   const groups = VIDEO_TOPICS.map(item => ({ ...item, videos: matches.filter(video => discoveryVideoTopic(video) === item.value) }));
   const visibleGroups = groups.filter(group => group.videos.length && (topic === 'all' || group.value === topic))
@@ -34,17 +32,15 @@ export default function YouTubeVideoGallery({ videos, query, now, context = EMPT
         { value: 'all', label: `All categories (${matches.length})` },
         ...groups.map(group => ({ value: group.value, label: `${group.label} (${group.videos.length})` })),
       ]} />
-      <button className="filter-chip" type="button" aria-pressed={includeCN} onClick={() => setIncludeCN(includeCN ? '0' : '1')}>Include CN videos</button>
       <InfoPopover label="How videos are grouped">
         <p>Current Global event guides and available operator/outfit showcases come first, including older videos.</p>
-        <p>CN filtering uses titles, short descriptions and release data. Unlabelled CN content may still appear; language alone is never a region filter.</p>
       </InfoPopover>
     </div>
     {!grouped && topic === 'all' ? <>
       <div className="video-grid youtube-topic-grid">
         {matches.slice(0, shown).map(card)}
       </div>
-      <LoadOnScroll shown={Math.min(shown, matches.length)} total={matches.length} onMore={() => setPage({ topic, query, includeCN, shown: shown + PAGE })} />
+      <LoadOnScroll shown={Math.min(shown, matches.length)} total={matches.length} onMore={() => setPage({ topic, query, shown: shown + PAGE })} />
     </> : <div className="youtube-topic-list">
       {visibleGroups.map(group => {
         const limit = topic === 'all' ? PREVIEW : shown;
@@ -56,7 +52,7 @@ export default function YouTubeVideoGallery({ videos, query, now, context = EMPT
           <div className="video-grid youtube-topic-grid">
             {group.videos.slice(0, limit).map(card)}
           </div>
-          {topic !== 'all' && <LoadOnScroll shown={Math.min(shown, group.videos.length)} total={group.videos.length} onMore={() => setPage({ topic, query, includeCN, shown: shown + PAGE })} />}
+          {topic !== 'all' && <LoadOnScroll shown={Math.min(shown, group.videos.length)} total={group.videos.length} onMore={() => setPage({ topic, query, shown: shown + PAGE })} />}
         </section>;
       })}
     </div>}

@@ -54,9 +54,8 @@ back to the three newest available channels. Keep one video per creator in the r
 Keep the last successful public feeds through temporary upstream failures, independently
 of that editorial window. World’s YouTube tab groups uploads by conservative title rules,
 with ambiguous titles in Other. Relevant current content precedes newer unrelated videos;
-the matching Global window’s exclusive close removes its priority. Identifiable CN and
-unreleased content is hidden by default, with an Include CN videos filter. Language alone
-does not establish server region. Both views retain search/category/CN choices in the URL.
+the matching Global window’s exclusive close removes its priority. CN and future-content
+uploads remain included. Both views retain search/category choices in the URL.
 Show publication dates when known and Archive otherwise; never invent dates for older
 indexed guides. The daily content preparation refreshes a bounded, cached metadata archive
 from trusted creators and publishes it with World, so reruns can revive older guides.
