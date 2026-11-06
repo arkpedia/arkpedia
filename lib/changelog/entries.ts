@@ -34,6 +34,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-06T12:40:00Z',
+    title: 'Videos for what is happening now',
+    added: [
+      { title: 'Browse videos by category', detail: 'Find guides, operator analyses, outfit showcases and more; identifiable CN content is hidden by default.', href: '/world/videos' },
+      { title: 'Older guides return when relevant', detail: 'Current Global events, obtainable operators and available outfits bring useful older videos to the front.', href: '/world/videos' },
+    ],
+    changed: [
+      { title: 'One homepage video, different creators', detail: 'The Community carousel keeps one video slot and features a different creator each round.', href: '/' },
+      { title: 'Farming materials have their own card', detail: 'Currently farmable materials stay separate from upcoming events, with larger gacha banner previews nearby.', href: '/' },
+    ],
+    fixed: [{ title: 'Videos survive temporary feed failures', detail: 'The last successful uploads remain available when YouTube feeds cannot be reached.', href: '/world/videos' }],
+  },
+  {
     at: '2026-11-06T10:54:00Z',
     fixed: [{ title: 'Reruns use imported stage progress first', detail: 'Available stage records take priority over medals when detecting whether you already cleared a rerun.', href: '/pull-planner' }],
   },

@@ -1,4 +1,3 @@
-import { activeEventFarming } from '@/lib/farming/eventFarming';
 import { useEffect, useRef, useState } from 'react';
 import { useReaderClock } from '@/lib/time/readerClock';
 import Link from 'next/link';
@@ -6,7 +5,6 @@ import Image from '@/components/content/ContentImage';
 import CountdownTimer from '../ui/CountdownTimer';
 import { eventShopEnd } from '@/lib/schedule/gameWindow';
 import { GameEvent } from '@/lib/home/frontPageContent';
-import { FarmingMaterial } from '@/lib/farming/farmingTypes';
 
 const SLIDE_INTERVAL_MS = 8000;
 const PAUSE_AFTER_CLICK_MS = 30000;
@@ -19,19 +17,17 @@ interface SlideItem {
 interface Props {
   ongoing: GameEvent[];
   upcoming: GameEvent | null;
-  farmableMaterials: FarmingMaterial[];
-  /** The request's clock (epoch ms), from the page's contentPageClock `now`: what the
-   *  server markup and the first client paint pick the boosted materials by. Required,
+  /** The request's clock (epoch ms), from the page's contentPageClock `now`: used by the
+   *  server markup and the first client paint for event status. Required,
    *  because a panel that read the clock itself rendered the reader's answer over the
    *  server's and failed hydration once an event closed in between. */
   now: number;
 }
 
-export default function EventsPanel({ ongoing, upcoming, farmableMaterials, now }: Props) {
+export default function EventsPanel({ ongoing, upcoming, now }: Props) {
   // The request's clock first, so the markup and the first client paint agree; the
   // reader's after mount, re-read every second (it changes once a minute).
   const clock = useReaderClock(now, { tickMs: 1000 });
-  const currentMaterials = activeEventFarming(farmableMaterials, clock);
   const slides: SlideItem[] = [
     ...ongoing.map((event) => ({ event, isUpcoming: clock < event.start.getTime() })),
     ...(upcoming ? [{ event: upcoming, isUpcoming: clock < upcoming.start.getTime() }] : []),
@@ -67,7 +63,6 @@ export default function EventsPanel({ ongoing, upcoming, farmableMaterials, now 
       <section className="front-panel front-home-panel front-events-panel">
         <h2 className="section-title">Events</h2>
         <p className="hint">No events to show right now.</p>
-        {currentMaterials.length > 0 && <FarmableInline materials={currentMaterials} />}
       </section>
     );
   }
@@ -114,40 +109,6 @@ export default function EventsPanel({ ongoing, upcoming, farmableMaterials, now 
           ))}
         </div>
       )}
-
-      <FarmableInline materials={currentMaterials} />
     </section>
-  );
-}
-
-/** More than one active event may offer the same material. */
-function farmLocationLabel(material: FarmingMaterial): string {
-  return [...new Set(material.stages.map(stage => stage.label))].join(' · ');
-}
-
-function FarmableInline({ materials }: { materials: FarmingMaterial[] }) {
-  if (materials.length === 0) {
-    return (
-      <div className="front-events-farmable">
-        <h3>Currently Farmable</h3>
-        <p className="hint">No event-boosted materials right now, play any stage you would like.</p>
-      </div>
-    );
-  }
-  return (
-    <div className="front-events-farmable">
-      <h3>Currently Farmable</h3>
-      <div className="front-materials-grid">
-        {materials.map((m) => (
-          <div className="front-material-item" key={m.name} title={m.name}>
-            {/* Twice the box. These icons are the ringed art, so the material
-                itself occupies only the middle ~two thirds of the frame -- asking
-                for exactly 40px left the object rendered at about 26. */}
-            <Image src={m.icon} alt={m.name} width={80} height={80} quality={85} style={{ width: 40, height: 40 }} />
-            <span>{farmLocationLabel(m)}</span>
-          </div>
-        ))}
-      </div>
-    </div>
   );
 }

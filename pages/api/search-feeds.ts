@@ -2,7 +2,10 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { enrichWithLiveStatus } from '@/lib/music/youtube';
 import { getLatestVideos } from '@/lib/music/youtubeFeedsServer';
 import { youtubeChannels, VIDEOS_PER_CHANNEL } from '@/lib/music/youtubeConfig';
-import { filterArknightsVideos } from '@/lib/music/contentFilter';
+import { filterDiscoveryVideos } from '@/lib/music/youtubeDiscovery';
+import { rankDiscoveryVideos } from '@/lib/music/youtubeRelevance';
+import { loadVideoArchive } from '@/lib/music/youtubeArchiveServer';
+import { loadVideoDiscoveryContext } from '@/lib/music/youtubeContextServer';
 import { getLiveTwitchStreams } from '@/lib/community/twitch';
 import { TWITCH_CATEGORY, TWITCH_STREAM_LIMIT } from '@/lib/community/twitchConfig';
 import { buildSiteSearchFeedEntries } from '@/lib/search/siteSearchIndex';
@@ -31,7 +34,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const [videos, streams] = await Promise.all([
     getLatestVideos(await youtubeChannels(), VIDEOS_PER_CHANNEL)
       .then((raw) => enrichWithLiveStatus(raw, process.env.YOUTUBE_API_KEY))
-      .then((enriched) => filterArknightsVideos(enriched.filter((v) => !v.isLivestream))),
+      .then(async enriched => {
+        const now = Date.now();
+        const [archive, context] = await Promise.all([loadVideoArchive(), loadVideoDiscoveryContext(now)]);
+        return rankDiscoveryVideos(filterDiscoveryVideos([...enriched, ...archive].filter(video => !video.isLivestream)), context, now);
+      }),
     getLiveTwitchStreams(TWITCH_CATEGORY, TWITCH_STREAM_LIMIT, process.env.TWITCH_CLIENT_ID, process.env.TWITCH_CLIENT_SECRET),
   ]);
   const body: SiteSearchIndex = { entries: buildSiteSearchFeedEntries({ videos, streams }) };

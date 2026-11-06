@@ -359,6 +359,8 @@ const FEEDS: { host: string; answer: (url: URL) => unknown }[] = [
 
 async function withStubbedFeeds<T>(run: () => Promise<T>): Promise<{ result: T; unexpected: string[] }> {
   const real = globalThis.fetch;
+  const archiveFile = process.env.ARKPEDIA_YOUTUBE_ARCHIVE_FILE;
+  process.env.ARKPEDIA_YOUTUBE_ARCHIVE_FILE = path.join(ROOT, 'tests/fixtures/youtube-discovery-empty.json');
   const unexpected: string[] = [];
   globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
     const url = new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url);
@@ -372,6 +374,8 @@ async function withStubbedFeeds<T>(run: () => Promise<T>): Promise<{ result: T; 
     return { result: await run(), unexpected };
   } finally {
     globalThis.fetch = real;
+    if (archiveFile === undefined) delete process.env.ARKPEDIA_YOUTUBE_ARCHIVE_FILE;
+    else process.env.ARKPEDIA_YOUTUBE_ARCHIVE_FILE = archiveFile;
   }
 }
 
@@ -521,25 +525,33 @@ test('the fixtures are the live release\'s own pages, and name content routes', 
 
 for (const route of Object.keys(PREVIOUS.pages)) {
   test(`${route} renders the previous release's props, and they carry every field this code's do`, async () => {
-    const { page, params, props } = await fromPreviousRelease(route);
-    if (route === '/') for (const skin of props.ongoingSkins as { dynamic?: string | null; alternate?: string | null }[]) {
-      assert.ok(skin.dynamic === null || typeof skin.dynamic === 'string', 'older homepage outfits receive explicit animation metadata');
-      assert.ok(skin.alternate === null || typeof skin.alternate === 'string', 'older homepage outfits receive explicit alternate metadata');
-    }
-    const html = renderPage(page.default, props);
-    assert.ok(html.length > 1000, `${route}: the page rendered`);
+    const run = async () => {
+      const { page, params, props } = await fromPreviousRelease(route);
+      if (route === '/') for (const skin of props.ongoingSkins as { dynamic?: string | null; alternate?: string | null }[]) {
+        assert.ok(skin.dynamic === null || typeof skin.dynamic === 'string', 'older homepage outfits receive explicit animation metadata');
+        assert.ok(skin.alternate === null || typeof skin.alternate === 'string', 'older homepage outfits receive explicit alternate metadata');
+      }
+      const html = renderPage(page.default, props);
+      assert.ok(html.length > 1000, `${route}: the page rendered`);
 
-    // A stale regeneration on Vercel reads the same page, and may not use this checkout's data.
-    await withRelease(Object.keys(PREVIOUS.pages), async (release) => {
-      const regenerated = await propsOf(page.getStaticProps, params, 'stale');
-      assert.equal((regenerated.__contentRelease as { release?: string } | undefined)?.release, release, `${route}: a regeneration on Vercel reads the release`);
-    }, { VERCEL: '1' });
+      // A stale regeneration on Vercel reads the same page, and may not use this checkout's data.
+      await withRelease(Object.keys(PREVIOUS.pages), async (release) => {
+        const regenerated = await propsOf(page.getStaticProps, params, 'stale');
+        assert.equal((regenerated.__contentRelease as { release?: string } | undefined)?.release, release, `${route}: a regeneration on Vercel reads the release`);
+      }, { VERCEL: '1' });
 
-    const bundled = await withEnv({ ARKPEDIA_CONTENT_DISABLED: '1' }, () => propsOf(page.getStaticProps, params));
-    assert.ok(!bundled.__contentRelease, `${route}: this code's own props, from its own data`);
-    const allowed = DATA_ONLY[route] ?? {};
-    const missing = missingFromRelease(shapeOf(bundled), shapeOf(props)).filter((at) => !(at in allowed));
-    assert.deepEqual(missing, [], `${route}: the previous release's props lack ${missing.join(', ')} -- fill them in the page's withContentPage finalize (or list a field only the data lacks in DATA_ONLY)`);
+      const bundled = await withEnv({ ARKPEDIA_CONTENT_DISABLED: '1' }, () => propsOf(page.getStaticProps, params));
+      assert.ok(!bundled.__contentRelease, `${route}: this code's own props, from its own data`);
+      const allowed = DATA_ONLY[route] ?? {};
+      const missing = missingFromRelease(shapeOf(bundled), shapeOf(props)).filter((at) => !(at in allowed));
+      assert.deepEqual(missing, [], `${route}: the previous release's props lack ${missing.join(', ')} -- fill them in the page's withContentPage finalize (or list a field only the data lacks in DATA_ONLY)`);
+    };
+    // The homepage now keeps successful feeds between renders. Stub its first
+    // request too, so the following regeneration tests cannot inherit live videos.
+    if (route === '/') {
+      const { unexpected } = await withStubbedFeeds(run);
+      assert.deepEqual(unexpected, []);
+    } else await run();
   });
 }
 

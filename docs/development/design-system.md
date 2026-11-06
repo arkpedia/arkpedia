@@ -44,6 +44,23 @@ unconfirmed streams after errors or inactivity. Only live entries in the Arknigh
 category qualify. The live endpoint shares results for 15 seconds within a server
 instance and disables browser/CDN caching, including stale-while-revalidate.
 
+The homepage has one YouTube slide alongside its stream and event slides. Each carousel
+round selects a different creator's video in that slot; hover/focus pauses rotation.
+Stack the alternatives inside the slot to reserve the tallest caption without extra dots.
+The candidate pool prefers active Global event guides, currently obtainable
+operator showcases and currently available outfits, including older uploads. Remaining
+choices use the newest upload per channel within 48 hours; when nothing qualifies, fall
+back to the three newest available channels. Keep one video per creator in the rotation.
+Keep the last successful public feeds through temporary upstream failures, independently
+of that editorial window. World’s YouTube tab groups uploads by conservative title rules,
+with ambiguous titles in Other. Relevant current content precedes newer unrelated videos;
+the matching Global window’s exclusive close removes its priority. Identifiable CN and
+unreleased content is hidden by default, with an Include CN videos filter. Language alone
+does not establish server region. Both views retain search/category/CN choices in the URL.
+Show publication dates when known and Archive otherwise; never invent dates for older
+indexed guides. The daily content preparation refreshes a bounded, cached metadata archive
+from trusted creators and publishes it with World, so reruns can revive older guides.
+
 - Browser Back/Forward and a page's Back link return readers to their previous scroll
   position, including content revealed by progressive lists. Ordinary links open the
   destination normally. Do not reset a returning reader to the top of a catalogue.

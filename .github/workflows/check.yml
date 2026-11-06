@@ -78,6 +78,8 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v7
+      - name: Use disk-backed temporary storage
+        run: echo "TMPDIR=$RUNNER_TEMP" >> "$GITHUB_ENV"
       - uses: actions/setup-node@v7
         with:
           node-version: '22'
@@ -141,6 +143,9 @@ jobs:
       pull-requests: read
     steps:
       - uses: actions/checkout@v7
+      # The NAS /tmp is a 2 GB tmpfs; importer fixtures need the job's disk storage.
+      - name: Use disk-backed temporary storage
+        run: echo "TMPDIR=$RUNNER_TEMP" >> "$GITHUB_ENV"
 
       - uses: actions/setup-node@v7
         with:

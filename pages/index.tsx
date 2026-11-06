@@ -20,6 +20,7 @@ import { useReleaseTable } from '@/lib/content/context';
 import { checkSssCycle, type SssCycle } from '@/lib/schedule/sssCycle';
 import EventsPanel from '@/components/schedule/EventsPanel';
 import GachaBannersPanel from '@/components/home/GachaBannersPanel';
+import FarmableMaterialsPanel from '@/components/home/FarmableMaterialsPanel';
 import FeaturedOperatorsPanel from '@/components/home/FeaturedOperatorsPanel';
 import SkinsCarousel from '@/components/skins/SkinsCarousel';
 import CommunityFader from '@/components/home/CommunityFader';
@@ -40,7 +41,10 @@ import { FarmingMaterial } from '@/lib/farming/farmingTypes';
 import { enrichWithLiveStatus, YouTubeVideo } from '@/lib/music/youtube';
 import { getLatestVideos } from '@/lib/music/youtubeFeedsServer';
 import { youtubeChannels, VIDEOS_PER_CHANNEL } from '@/lib/music/youtubeConfig';
-import { filterBannedByTitle } from '@/lib/music/contentFilter';
+import { featuredChannelVideos } from '@/lib/music/youtubeDiscovery';
+import { loadVideoDiscoveryContext } from '@/lib/music/youtubeContextServer';
+import { loadVideoArchive } from '@/lib/music/youtubeArchiveServer';
+import type { VideoDiscoveryContext } from '@/lib/music/youtubeRelevance';
 import type { TwitchStream } from '@/lib/community/twitch';
 import { EVENTS } from '@/lib/schedule/eventsConfig';
 import { CommunityEvent } from '@/lib/schedule/eventTypes';
@@ -59,6 +63,8 @@ interface Props {
   farmableMaterials: FarmingMaterial[];
   featuredStream: TwitchStream | null;
   featuredVideo: YouTubeVideo | null;
+  featuredVideos?: YouTubeVideo[];
+  videoContext?: VideoDiscoveryContext;
   earliestCommunityEvent: CommunityEvent | null;
   /** Each server's maintenance announced in game and not over (lib/home/maintenance.ts): the
    *  notice above the panels and the ticker. Absent from releases before it, so finalize fills it. */
@@ -82,6 +88,8 @@ export default function HomePage({
   ongoingSkins: globalSkins,
   farmableMaterials: globalMaterials,
   featuredVideo,
+  featuredVideos,
+  videoContext,
   earliestCommunityEvent,
   maintenance,
   now: requestNow,
@@ -135,23 +143,21 @@ export default function HomePage({
             the panels' h2s with nothing above them. */}
         <h1 className="visually-hidden">Arkpedia — Arknights community hub</h1>
         <MaintenanceNotice maintenance={maintenance} now={now} />
-        {/* The two hero panels share one row so their bottoms meet. The event art
-            (16/5) and the banner art (16/9) are now close in height, and two
-            independent columns left the banner panel 77px short of the event
-            panel -- a step that read as a mistake. Only this row is shared; the
-            columns below still stack on their own (front.css). */}
+        {/* The hero panels share one row so their bottoms meet. Below them the
+            columns stack independently; current farming stays outside the carousel. */}
         <div className="front-hero-row">
-          <EventsPanel ongoing={deserializedEvents} upcoming={deserializedUpcoming} farmableMaterials={farmableMaterials} now={now} />
+          <EventsPanel ongoing={deserializedEvents} upcoming={deserializedUpcoming} now={now} />
           <GachaBannersPanel banners={deserializedBanners} activeIndex={activeBannerIndex} onSelect={setActiveBannerIndex} now={now} />
         </div>
         <div className="front-page-left">
+          <FarmableMaterialsPanel materials={farmableMaterials} now={now} />
           <SkinsCarousel skins={ongoingSkins} />
           {/* A "Packs -- Coming soon" panel stood here. Placeholders stay hidden until
               they have content (decision of 2026-09-25). */}
         </div>
         <div className="front-page-right">
           <FeaturedOperatorsPanel banner={activeBanner} />
-          <CommunityFader video={featuredVideo} event={earliestCommunityEvent} />
+          <CommunityFader videos={featuredVideos ?? (featuredVideo ? [featuredVideo] : [])} context={videoContext} now={now} event={earliestCommunityEvent} />
         </div>
       </main>
     </>
@@ -174,7 +180,8 @@ async function finalizeHome(props: Props): Promise<Props> {
   const upcoming = getNextUpcomingEvent(now, events);
   const rawVideos = await getLatestVideos(await youtubeChannels(), VIDEOS_PER_CHANNEL);
   const enrichedVideos = await enrichWithLiveStatus(rawVideos, process.env.YOUTUBE_API_KEY);
-  const videos = filterBannedByTitle(enrichedVideos.filter(video => !video.isLivestream));
+  const [videoContext, archivedVideos] = await Promise.all([loadVideoDiscoveryContext(props.now), loadVideoArchive()]);
+  const videos = featuredChannelVideos([...enrichedVideos, ...archivedVideos], props.now, videoContext);
   const communityEvent = [...EVENTS].filter(event => {
     const end = event.endTime ? new Date(event.endTime) : new Date(new Date(event.startTime).getTime() + 86400000);
     return end.getTime() >= now.getTime();
@@ -206,7 +213,7 @@ async function finalizeHome(props: Props): Promise<Props> {
     ongoingSkins: await withSkinArtwork(__calendar?.skinWindows
       ? availableSkins(__calendar.skins, regionalSkinWindows(__calendar.skinWindows, regional?.servers?.en, 'en'), now)
       : getOngoingSkins(now, __calendar?.skins, events)),
-    featuredVideo: videos[0] || null, featuredStream: null, earliestCommunityEvent: communityEvent,
+    featuredVideo: videos[0] || null, featuredVideos: videos, videoContext, featuredStream: null, earliestCommunityEvent: communityEvent,
     // A release from before the regions, which held Global's list alone, counts as Global's.
     maintenance: currentRegionalMaintenance(Array.isArray(props.maintenance) ? { en: props.maintenance } : props.maintenance ?? {}, props.now),
   };
@@ -214,7 +221,7 @@ async function finalizeHome(props: Props): Promise<Props> {
 
 export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>('/', async () => ({ props: {
   ongoingEvents: [], upcomingEvent: null, ongoingBanners: [], ongoingSkins: [],
-  farmableMaterials: getEventFarmingMaterials((await import('@/data/event-farming.json')).default.drops), featuredStream: null, featuredVideo: null, earliestCommunityEvent: null,
+  farmableMaterials: getEventFarmingMaterials((await import('@/data/event-farming.json')).default.drops), featuredStream: null, featuredVideo: null, featuredVideos: [], earliestCommunityEvent: null,
   maintenance: readMaintenanceWindows(),
   // Stored in the data release, consumed on the server, and never sent to the browser.
   __calendar: {

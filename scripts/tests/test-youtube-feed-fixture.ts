@@ -76,11 +76,10 @@ test('with the fixture named, the videos come from it and nothing is fetched', a
 });
 
 test('without the fixture, every configured channel is fetched live as before', async () => {
-  const { result: videos, urls } = await withEnv(undefined, () => withFetch(
+  const { urls } = await withEnv(undefined, () => withFetch(
     async () => new Response('not found', { status: 404 }),
-    () => getLatestVideos(YOUTUBE_CHANNELS, VIDEOS_PER_CHANNEL),
+    () => assert.rejects(() => getLatestVideos(YOUTUBE_CHANNELS, VIDEOS_PER_CHANNEL), /YouTube feeds unavailable/),
   ));
-  assert.deepEqual(videos, []);
   assert.deepEqual(urls.sort(), YOUTUBE_CHANNELS.map((c) => `https://www.youtube.com/feeds/videos.xml?channel_id=${c.id}`).sort());
 });
 

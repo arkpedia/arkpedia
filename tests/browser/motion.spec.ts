@@ -340,7 +340,7 @@ test('reduced motion: the World video gallery stays drawn and keeps its cards', 
   await readOnly(page);
   await page.goto("/world");
   await page.getByRole('tab', { name: 'YouTube', exact: true }).click();
-  const gallery = page.locator('.world-gallery');
+  const gallery = page.locator('.youtube-topic-list');
   await expect(gallery.locator('a[href]').first()).toBeVisible();
   await page.clock.pauseAt(await page.evaluate(() => Date.now() + 50));
   const look = () => gallery.evaluate(el => ({

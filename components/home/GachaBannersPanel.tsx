@@ -31,7 +31,7 @@ function bannerState(banner: GachaBannerWithWindow, clock: number): BannerState 
 }
 
 /** The site's one live badge (.badge-live) and its amber "Starts in" twin (.badge-upcoming),
- *  both drawn in arkpedia-theme.css; front.css only places them over the art. On a 56px
+ *  both drawn in arkpedia-theme.css; front.css only places them over the art. On a compact
  *  thumbnail the countdown is its largest unit ("in 20d"): the whole of it is the poster's. */
 function StateBadge({ state, compact = false }: { state: BannerState; compact?: boolean }) {
   if (!state) return null;
@@ -95,12 +95,8 @@ export default function GachaBannersPanel({ banners, activeIndex, onSelect, now 
                 aria-label={thumbLabel(bannerDisplayName(b.name), state)}
               >
                 {b.banner_image ? (
-                  /* The source is a 1024x323 banner and the thumb is a square crop OUT
-                     of it: asking the optimizer for 64px wide produced a 64x20 strip
-                     that cover then blew up 3x to fill the box. The request has to be
-                     sized for the crop, not the box -- but only just: 384 was
-                     overshooting the other way, pulling an 828px rendition into a
-                     52px slot on every retina visit. */
+                  /* Request enough source width for the landscape preview's cover
+                     crop; a tiny rendition becomes blurry when scaled to its height. */
                   <Image src={b.banner_image} alt="" width={192} height={61} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 ) : (
                   <span className="art-placeholder" aria-hidden="true">No art</span>

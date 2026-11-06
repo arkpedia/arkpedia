@@ -49,6 +49,8 @@ jobs:
     timeout-minutes: ${{ vars.ARKPEDIA_RUNNER && 120 || 100 }}
     steps:
       - uses: actions/checkout@v7
+      - name: Use disk-backed temporary storage
+        run: echo "TMPDIR=$RUNNER_TEMP" >> "$GITHUB_ENV"
       - uses: actions/setup-node@v7
         with:
           node-version: '22'
@@ -251,6 +253,24 @@ jobs:
       - name: File the official videos into events
         if: github.event_name != 'schedule' || steps.prepared.outputs.cache-hit != 'true'
         run: npx tsx scripts/sync/sync-official-videos.mjs --offline
+
+      - name: Restore the public YouTube discovery archive
+        if: github.event_name != 'schedule' || steps.prepared.outputs.cache-hit != 'true'
+        uses: actions/cache/restore@v6
+        with:
+          path: .cache/youtube-discovery/archive.json
+          key: youtube-discovery-${{ github.run_id }}
+          restore-keys: youtube-discovery-
+      - name: Refresh videos relevant to current Global content
+        if: (github.event_name != 'schedule' || steps.prepared.outputs.cache-hit != 'true') && (github.event_name == 'schedule' || inputs.refresh_upstream)
+        timeout-minutes: 6
+        run: node --import tsx scripts/sync/sync-youtube-discovery.ts
+      - name: Keep the public YouTube discovery archive
+        if: github.event_name != 'schedule' || steps.prepared.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: .cache/youtube-discovery/archive.json
+          key: youtube-discovery-${{ github.run_id }}
 
       - name: Validate and compile data (no website build)
         if: github.event_name != 'schedule' || steps.prepared.outputs.cache-hit != 'true'

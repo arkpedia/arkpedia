@@ -3,6 +3,8 @@
 // anything mounted client-side: lib/music/youtube.ts is the module the browser shares.
 import { readFileSync } from 'fs';
 import { parseChannelFeed, type YouTubeVideo } from './youtube';
+import { createChannelFeedReader } from './youtubeFeedCache';
+import { workerContext } from './audioLinkMemo';
 
 /**
  * The Check's stand-in for the channels' live feeds: a path (relative to the working
@@ -23,11 +25,7 @@ function fixtureFeed(document: string, channelId: string): string {
   return `<feed>${own.map((entry) => `<entry>${entry}</entry>`).join('')}</feed>`;
 }
 
-async function fetchChannelFeed(channelId: string, channelLabel: string): Promise<YouTubeVideo[]> {
-  const res = await fetch(`https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`);
-  if (!res.ok) return [];
-  return parseChannelFeed(await res.text(), channelLabel);
-}
+const fetchChannelFeed = createChannelFeedReader();
 
 export async function getLatestVideos(
   channels: { id: string; label: string }[],
@@ -37,9 +35,10 @@ export async function getLatestVideos(
   // Read outside the per-channel catch below: a fixture that is set and cannot be read is a
   // broken test build, and must not quietly render "No videos found" like a dead feed.
   const fixture = fixturePath ? readFileSync(fixturePath, 'utf8') : null;
+  const bucket = fixture === null ? workerContext()?.bucket ?? null : null;
   const results = await Promise.all(
     channels.map((c) =>
-      (fixture !== null ? Promise.resolve(parseChannelFeed(fixtureFeed(fixture, c.id), c.label)) : fetchChannelFeed(c.id, c.label))
+      (fixture !== null ? Promise.resolve(parseChannelFeed(fixtureFeed(fixture, c.id), c.label)) : fetchChannelFeed(c.id, c.label, bucket))
         .then((videos) => videos.slice(0, perChannelLimit))
         .catch(() => [])
     )
@@ -48,6 +47,9 @@ export async function getLatestVideos(
   if (fixture !== null && merged.length === 0) {
     throw new Error(`${FIXTURE_ENV}=${fixturePath} holds no entry for any channel in lib/music/youtubeConfig.ts`);
   }
+  // ISR keeps the previous valid page on a total outage, rather than publishing
+  // "No videos" over it. Warm/cold Worker instances also have the R2 fallback above.
+  if (fixture === null && channels.length && !merged.length) throw new Error('YouTube feeds unavailable; retaining the previous page');
   merged.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
   return merged;
 }

@@ -87,7 +87,7 @@ test('failure reporting preserves main errors and ignores unsupported channels',
   assert.ok(!reports({ branch: 'dev', failed: false, cancelled: true, channel: 'success' }), 'a superseded dev run is quiet');
   assert.ok(!reports({ branch: 'feat/x', channel: 'failure' }), 'a branch with no channel is quiet');
   // The steps before the channel step are the ones a 'skipped' channel means failed: no others.
-  assert.deepEqual(names.slice(0, names.indexOf('Choose the content channel')), [undefined, undefined], 'only the checkout and setup-node come first');
+  assert.deepEqual(names.slice(0, names.indexOf('Choose the content channel')), [undefined, 'Use disk-backed temporary storage', undefined], 'only checkout, temporary storage and setup-node come first');
 });
 
 /* Least privilege for the release job, which runs the day's scrapers over upstream data: no token

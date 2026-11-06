@@ -36,14 +36,6 @@ export function isBannedContent(text: string | null | undefined): boolean {
   return BANNED_PATTERNS.some((pattern) => pattern.test(text));
 }
 
-/** Filters an array of items down to ones whose title doesn't mention
- * any banned keyword -- does NOT check for "Arknights" being present,
- * only that nothing banned is. Kept for callers (e.g. Twitch streams,
- * if ever needed) that only want the exclusion half. */
-export function filterBannedByTitle<T extends { title: string }>(items: T[]): T[] {
-  return items.filter((item) => !isBannedContent(item.title));
-}
-
 /** The real filter YouTube video listings should use: title must
  * mention "Arknights" AND must not mention any banned other-game
  * keyword. Both conditions together, in one pass. */

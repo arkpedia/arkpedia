@@ -86,13 +86,8 @@ html[data-site-server="kr"] .maintenance-notice:not([data-server="kr"]) {
   min-height: calc(100vh - var(--nav-h, 150px) - 12px);
   align-items: start;
 }
-/* The two hero panels share one row, so their bottoms meet. With the event art at
-   16/5 and the banner art at 16/9 the panels are close in height (494 and 417 at
-   1440), which turned the 77px difference into a visible step: two independently
-   stacking columns can never line those two edges up. The row spans both columns
-   and stretches its children to the taller one; the columns below it keep
-   stacking on their own, which a single shared grid could not do without tying
-   the Community panel to the Skins panel's height. */
+/* The hero panels share a bottom edge; the columns below stack independently.
+   Current farming has its own card so it cannot read as the selected event's drops. */
 .front-hero-row {
   grid-column: 1 / -1;
   display: grid;
@@ -225,16 +220,6 @@ html[data-site-server="kr"] .maintenance-notice:not([data-server="kr"]) {
   .front-events-dot::before { transition: none; }
 }
 
-/* Farmable materials, nested inside the Events panel -- shows where to
-   farm (stage code, or "Event Store"), not the material name */
-.front-events-farmable {
-  margin-top: 14px;
-  padding-top: 12px;
-  border-top: 1px solid var(--line-soft);
-}
-/* The global h3 (15px Rajdhani, dim): the sub-section voice everywhere else. */
-.front-events-farmable h3 { margin: 0 0 8px; }
-
 /* Gacha panel */
 .front-gacha-main {
   display: flex;
@@ -292,8 +277,10 @@ html[data-site-server="kr"] .maintenance-notice:not([data-server="kr"]) {
 }
 .front-gacha-thumb {
   position: relative;
-  width: 56px;
-  height: 56px;
+  /* Four previews fit even in the narrow desktop column; wider art needs less
+     cropping than the old squares without adding another thumbnail row. */
+  width: min(104px, calc((100% - 18px) / 4));
+  height: 64px;
   border-radius: var(--radius-control);
   overflow: hidden;
   border: 1px solid transparent;
@@ -304,8 +291,8 @@ html[data-site-server="kr"] .maintenance-notice:not([data-server="kr"]) {
 }
 .front-gacha-thumb:hover { border-color: var(--teal); }
 .front-gacha-thumb.active { border-color: var(--teal); box-shadow: inset 0 0 0 1px var(--teal); }
-/* The thumbnail's state, placed as the poster's is but in its bottom left corner: the 56px
-   box keeps its size. */
+/* The thumbnail's state, placed as the poster's is but in its bottom left corner:
+   the artwork keeps its size as the state changes. */
 .front-gacha-thumb > :is(.badge-live, .badge-upcoming) {
   position: absolute;
   left: 3px;
@@ -432,6 +419,9 @@ html[data-site-server="kr"] .maintenance-notice:not([data-server="kr"]) {
 /* All slides share one cell; the hidden ones still hold the panel to the tallest's height. */
 .front-community-slide { grid-area: 1 / 1; min-width: 0; visibility: hidden; }
 .front-community-slide[data-current] { visibility: visible; }
+.front-community-video-options { display: grid; }
+.front-community-video-option { grid-area: 1 / 1; min-width: 0; visibility: hidden; }
+.front-community-video-option[data-current] { visibility: inherit; }
 .front-community-item {
   display: block;
   padding: 6px;
@@ -493,6 +483,7 @@ html[data-site-server="kr"] .maintenance-notice:not([data-server="kr"]) {
 }
 .front-community-dots {
   display: flex;
+  flex-wrap: wrap;
   margin-top: 10px;
   justify-content: center;
 }
@@ -551,9 +542,10 @@ html[data-site-server="kr"] .maintenance-notice:not([data-server="kr"]) {
   }
   .maintenance-notice { order: 0; }
   .front-events-panel { order: 1; }
-  .front-gacha-panel { order: 2; }
-  .front-featured-ops-panel { order: 3; }
-  .front-skins-panel { order: 4; }
+  .front-farmable-panel { order: 2; }
+  .front-gacha-panel { order: 3; }
+  .front-featured-ops-panel { order: 4; }
+  .front-skins-panel { order: 5; }
   .front-community-panel { order: 6; }
 }
 

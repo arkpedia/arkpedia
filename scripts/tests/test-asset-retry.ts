@@ -368,6 +368,7 @@ test('the retry script is in <head>, ahead of every image', () => {
  */
 const NOT_PUBLISHED_FILES: Record<string, string> = {
   'lib/music/youtube.ts: url': 'the YouTube Data API',
+  'lib/music/youtubeFeedCache.ts: ...args': 'the injected fetch transport for YouTube channel Atom feeds (youtube.com/feeds/videos.xml)',
   'lib/music-guesser/prepareClip.ts: url': "Monster Siren's own audio CDN (/api/music-guesser)",
   'lib/account-import/relay.ts: url: string': "the account-import transport's type (Yostar's servers)",
   'lib/account-import/relay.ts: url': "Yostar's servers, for the account import",
