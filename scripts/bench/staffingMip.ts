@@ -229,7 +229,7 @@ export async function rotationMix(ctx: GenomeContext, products: FactoryProducts,
   recovery: number; beds: number; price?: boolean; iterations?: number; top?: number; shortlist?: number; maxCombos?: number;
   /** Fiammetta's refill targets: she restores their Morale, so they work without rest or a bed. */
   refilled?: ReadonlySet<string>;
-}): Promise<{ value: number; columns: number; mix: { share: number; value: number }[]; added: number[] }> {
+}): Promise<{ value: number; columns: number; mix: { share: number; value: number; assignments: BaseAssignments }[]; added: number[] }> {
   const refilled = opts.refilled ?? new Set<string>();
   const restOf = (n: string, d: number) => refilled.has(n) ? 0 : d / opts.recovery;
   const rooms = workRooms(ctx);
@@ -292,5 +292,5 @@ export async function rotationMix(ctx: GenomeContext, products: FactoryProducts,
     await master();
     added.push(result.value - before);
   }
-  return { value: result.value, columns: columns.length, mix: columns.map((c, s) => ({ share: result.shares[s], value: funded(c.totals) })).filter(m => m.share > 1e-6), added };
+  return { value: result.value, columns: columns.length, mix: columns.map((c, s) => ({ share: result.shares[s], value: funded(c.totals), assignments: c.assignments })).filter(m => m.share > 1e-6), added };
 }

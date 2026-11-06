@@ -182,7 +182,17 @@ say about where the remaining slack is not:
   with blackgatoacer −3.48% and kokonattsuu −4.81%. The extra neighbourhood does not pay for its
   time.
 
-The one lever these leave is the one the column generation is for: **new setups**, not new rotations
-of the old ones. That needs the LP/MIP the bench runs with HiGHS, which the browser Worker does not
-have; a server-side generator (or a wasm port) is the next real step, and it has to show that an
-integer rotation of its setups beats the plan by more than the +0.5% bar before anything is built.
+**A generated setup does not drop into a rotation.** `scripts/bench/integer-rotation.ts` takes a
+finished plan, runs the column generation (`rotationMix`), and replaces each of the plan's three
+shifts in turn with a generated setup, filling the support seats the way the optimizer fills them.
+Every replacement exhausts the roster: the simulator scores it around −1e7, its exhaustion penalty.
+The plan's dorms hold the crew that has just come off shift, and a generated setup's workers are not
+that crew, so they rest nowhere; filling every bed with off-shift workers instead does not help
+either, because the plan's rotation rests one crew at a time. The LP's slack is a relaxation of the
+**joint staffing-and-rest schedule**, not a list of setups to insert; the browser search already
+solves the rest schedule for its own moves, which is why the 2-3 room re-solve works and a whole-setup
+swap does not.
+
+So the one lever these leave — **new setups** — is not reachable by generating setups alone. A
+server-side generator (or a wasm port) would have to solve the rest schedule around them too, and it
+must show that beats the plan by more than the +0.5% bar before anything is built.
